@@ -1,0 +1,168 @@
+{
+    "cycle_id":"bowe_dick",
+    "display_name":"Bowe & Dick",
+    "cycle_icon":"BigPackages",
+    "cycle_temperature_sensors": {
+        "1":"temp_camara",
+        "2":"temp_ref"
+    },
+    "parameters": {
+        "globals": {
+            "F0": {"value":false, "type": "bool"},
+            "ciclos_multiples": {"value":true, "type":"bool"},
+            "enfriar_chaqueta_secado": {"value":false, "type":"bool"},
+            "presion_chaqueta": {"value":300, "type":"int", "unit":"kPa", "min":0, "max":400},
+            "rango_presion_chaqueta": {"value":10, "type":"int", "unit":"kPa", "min":0, "max":100}
+        },
+        "precalentamiento": {
+            "tiempo_precalentamiento": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },
+            "temperatura_precalentamiento": { "value": 0, "type":"int", "unit": "°C", "min": 0, "max": 200 },
+            "presion_precalentamiento": { "value": 300,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
+            "timeout_precalentamiento": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
+
+        },
+
+        "tiempo_adicional_secado": { "value":0,"unit":"min","min":0,"max":1000},
+        "tiempo_adicional_aire_Off": {
+            "value":0,
+            "unit":"sec",
+            "min":0,
+            "max":1000
+        },
+        "tiempo_adicional_aire_On": {
+            "value":0,
+            "unit":"sec",
+            "min":0,
+            "max":1000
+        },
+        "proteccion_puerta_camara": {
+            "value":false
+        },
+        "comprobar_RTC": {
+            "value":true
+        },
+        "modo_puerta": {
+            "value":1,
+            "min":0,
+            "max":10
+        },
+        "presion_aire_seco_off": {
+            "value":30,
+            "unit":"kPa",
+            "min":0,
+            "max":150
+        },
+        "presion_aire_seco_on": {
+            "value":0,
+            "unit":"kPa",
+            "min":0,
+            "max":150
+        },
+        "pulsos_secado": {
+            "value":10,
+            "min":0,
+            "max":100
+        },
+        "tiempo_secado": {
+            "value":30,
+            "unit":"min",
+            "min":0,
+            "max":100
+        },
+        "temperatura_final": {
+            "value":134,
+            "unit":"°C",
+            "min":0,
+            "max":134
+        },
+        "modo_exaust": {
+            "value":1,
+            "unit":"",
+            "min":1,
+            "max":4
+        },
+        "tasa_escape": { "value": 900, "unit": "kPa/min", "min": 0, "max": 1000 },
+        "error_tiempo_escape": { "value": 15, "unit": "min", "min": 0, "max": 1000 },
+        "modo_F0": { "value": 0, "unit": "", "min": 0, "max": 1 }, 
+        "escape_rapido_off": { "value": 1, "unit": "sec", "min": 0, "max": 3600 },
+        "escape_rapido_on": { "value": 0, "unit": "sec", "min": 0, "max": 1000 },
+        "presion_adicional_calentamiento": { "value": 9, "unit": "kPa", "min": 0, "max": 100 },
+        "factor_calentamiento": { "value": 66, "unit": "", "min": 0, "max": 1000 },
+        "rango_pid_calentamiento": { "value": 2, "unit": "kPa", "min": 0, "max": 1000 },
+        "gap_seguro_presion": { "value": 0, "unit": "kPa", "min": 0, "max": 100 },
+        "tasa_calentamiento": { "value": 10, "unit": "°C/min", "min": 0, "max": 3600 },
+        "intervalo_corte_calentamiento": { "value": 3, "unit": "sec", "min": 0, "max": 1000 },
+        "error_tiempo_calentamiento": { "value": 60, "unit": "min", "min": 0, "max": 1000 },
+        "presion_secado_chaqueta": { "value": 300, "unit": "kPa", "min": 0, "max": 1000 },
+        "gap_presion_modo2": { "value": 30, "unit": "kPa", "min": 0, "max": 1000 },
+        "timeout_presion_normal": { "value": 30, "unit": "min", "min": 0, "max": 1000 },
+        "timeout_temp_normal": { "value": 30, "unit": "min", "min": 0, "max": 3600 },
+        "aire_atmosferico_vacio": { "value": 0, "unit": "", "min": 0, "max": 1 },
+        "abrir_puerta_fin_ciclo": { "value": 0, "unit": "", "min": 0, "max": 1 },
+
+
+
+        "gap_error_presion": { "value": 0.0, "unit": "kPa", "min": 0, "max": 400},
+        "tasa_presion": { "value": 100, "unit": "kPa/min", "min": 0, "max": 1000 },
+        "error_tiempo_presion": { "value": 30, "unit": "min", "min": 0, "max": 3600 },
+        "preestabilizacion_estable_time": { "value":25, "unit":"sec", "min":0, "max":3600},
+
+        "temperatura_purga": { "value": 121, "unit": "°C", "min": 0, "max": 200 },
+        "tiempo_purga": { "value": 0.0, "unit": "min", "min": 0, "max": 1000 },
+        "timeout_purga": { "value":30, "unit":"min", "min":0, "max":3600},
+
+        "conteo_pulso_a": { "value": 4, "unit": "", "min": 0, "max": 100 },
+        "presion_alta_pulso_a": { "value": 90, "unit": "kPa", "min": 0, "max": 1000 },
+        "presion_baja_pulso_a": { "value": 20, "unit": "kPa", "min": 0, "max": 1000 },
+        "tiempo_pulso_a": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+
+        "conteo_pulso_b": { "value": 4, "unit": "", "min": 0, "max": 100 },
+        "presion_alta_pulso_b": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+        "presion_baja_pulso_b": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
+        "tiempo_pulso_b": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+
+        "conteo_pulso_c": { "value": 0, "unit": "", "min": 0, "max": 100 },
+        "presion_alta_pulso_c": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+        "presion_baja_pulso_c": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
+        "tiempo_pulso_c": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+
+        "conteo_pulso_d": { "value": 0, "unit": "", "min": 0, "max": 100 },
+        "presion_alta_pulso_d": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+        "presion_baja_pulso_d": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
+        "tiempo_pulso_d": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+
+        "escape_lento_off": { "value":0, "unit":"sec", "min":0, "max":3600},
+        "escape_lento_on": { "value":1, "unit":"sec", "min":0, "max":3600},
+        "escape_rapido_estable_1_off": { "value":1, "unit":"sec", "min":0, "max": 3600},
+        "escape_rapido_estable_1_on": { "value":1, "unit":"sec", "min":0, "max": 3600},
+        "escape_lento_estable_1_off": { "value":0, "unit":"sec", "min":0, "max": 3600},
+        "escape_lento_estable_1_on": { "value":0, "unit":"sec", "min":0, "max": 3600},
+        "escape_rapido_estable_2_off": { "value":1, "unit":"sec", "min":0, "max": 3600},
+        "escape_rapido_estable_2_on": { "value":1, "unit":"sec", "min":0, "max": 3600},
+        "escape_lento_estable_2_off": { "value":0, "unit":"sec", "min":0, "max": 3600},
+        "escape_lento_estable_2_on": { "value":0, "unit":"sec", "min":0, "max": 3600},
+
+        "rango_enfriamiento_estable": { "value":1.0, "unit":"°C/min", "min":0, "max":1000},
+
+        "presion_add_esterilizacion": { "value":9, "unit":"kPa", "min":0, "max":100},
+        "factor_esterilizacion": { "value":66, "unit":"", "min":0, "max":1000},
+        "escape_rapido_esterilizacion_off": { "value":1, "unit":"sec", "min":0, "max":3600},
+        "escape_rapido_esterilizacion_on": { "value":0, "unit":"sec", "min":0, "max":3600},
+        "rango_presion_esterilizacion": { "value":0, "unit":"kPa", "min":0, "max":1000},
+        "intervalo_corte_esterilizacion": { "value":3, "unit":"sec", "min":0, "max":3600},
+        "escape_lento_esterilizacion_off": { "value":0, "unit":"sec", "min":0, "max":3600},
+        "escape_lento_esterilizacion_on": { "value":1, "unit":"sec", "min":0, "max":3600},
+        "temperatura_esterilizacion": { "value": 134.0, "unit": "°C", "min": 0, "max": 200 },
+        "rango_temperatura_esterilizacion": { "value": 3.0, "unit": "°C", "min": 0, "max": 50 },
+        "tiempo_esterilizacion": { "value": 3.5, "unit": "min", "min": 0, "max": 1000 },
+        "tiempo_permanecer_temp1": { "value":0, "unit":"min", "min":0, "max":3600},
+        "tiempo_permanecer_temp2": { "value":0, "unit":"min", "min":0, "max":3600},
+        "control_temp": { "value":0,"unit":"", "min":0, "max":1},
+        "gap_calentamiento_temp1": { "value": 110, "unit": "°C", "min": 0, "max": 200 },
+        "temp1_estable": { "value": 2, "unit": "°C", "min": 0, "max": 50 },
+        "gap_calentamiento_temp2": { "value": 120, "unit": "°C", "min": 0, "max": 200 },
+        "temp2_estable": { "value": 0.0, "unit": "°C", "min": 0, "max": 200 },
+        "gap_error_temperatura": { "value": 0.0, "unit": "°C", "min": 0, "max": 50 },
+        "temperatura_segura_gap": { "value":0.0, "unit":"°C", "min":0, "max":200}
+    }
+}

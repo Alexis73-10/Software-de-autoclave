@@ -1,0 +1,12 @@
+{
+    "temp_max": {"value": 134, "type": "int", "unit": "°C"},
+    "presion_admosferica": {"value":74.5, "type":"float", "unit":"kPa"},
+    "rango_presion_atm": {"value":20, "type":"float", "unit":"kPa"},
+    "temp_max_apertura": {"value":120, "type": "int", "unit": "°C"},
+    "presion_empaque": {"value": 300, "type": "int", "unit": "kPa"},
+    "vacio_empaque": {"value": 30, "type": "int", "unit": "kPa"},
+    "timeout_puerta": {"value": 10, "type": "int", "unit": "min", "min": 0, "max": 3600},
+    "tipo_puerta": {"value":1, "type":"int", "min":0, "max":10},
+    "temp_segura_drenaje": {"value":40, "type":"int", "unit":"°C"}
+    
+}

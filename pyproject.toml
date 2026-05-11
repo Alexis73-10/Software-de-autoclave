@@ -1,0 +1,30 @@
+[build-system] #Este bloque no es para el programa, es para la construcción del paquete
+requires = ["setuptools>=68"] #Requiere setuptools para construir el paquete con al menos la versión 68
+build-backend = "setuptools.build_meta" #Usa el backend de construcción de setuptools
+
+[project] #Este bloque es para el programa, describe el software
+name = "autoclave" #Nombre del paquete
+version = "0.2.0" #Versión del paquete
+description = "Sistema de control para autoclave" #Descripción corta del paquete (aparece en metadatos)
+readme = "README.md" #Archivo README que contiene la descripción larga del paquete
+requires-python = ">=3.11" #Versión mínima de Python requerida
+authors = [ #Lista de autores del paquete
+  { name = "Especifika S.A.S."},
+  { name = "Cristian Cubides"}
+]
+
+dependencies = [ #Lista de dependencias del paquete
+  "pyserial",
+  "tk",
+  "pillow",
+  "PyYAML",
+  "SQLAlchemy",
+  "pydantic"
+  # aquí van las reales
+]
+
+[project.scripts] #Define los puntos de entrada para los scripts ejecutables
+autoclave = "autoclave.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

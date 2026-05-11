@@ -1,0 +1,116 @@
+identity:
+  model_family: Vapor
+  model_name: SOLIDS
+
+doors:
+  supported: [1, 2]
+
+sensors:
+  temperature:
+    chamber:
+      supported_count: [1]
+    reference: true
+    drain_chamber: true
+    drain_general: true
+
+  pressure:
+    chamber: true
+    jacket: true
+    seal_door_1: true
+    seal_door_2: true
+
+steam_supply:
+  generator_supported: true
+  boiler_supported: true
+
+digital_inputs:
+  aire_comprimido: true
+  presion_agua: true
+  puerta_1_cerrada: true
+  puerta_1_abierta: true
+  puerta_2_cerrada: true
+  puerta_2_abierta: true
+  atrapamiento_puerta_1: true
+  atrapamiento_puerta_2: true
+  agua_bomba: true
+  agua_generador: true
+  paro_emergencia: true
+  agua_camara: true
+  vapor_suministro: true
+
+actuators:
+  vapor_generador: true
+  vapor_caldera: true
+  vapor_chaqueta: true
+  vapor_camara: true
+  descompresion_rapida: true
+  descompresion_lenta: true
+  descompresion_chaqueta: true
+  vacio_camara: true
+  desbloqueo_puerta_1: true
+  desbloqueo_puerta_2: true
+  bloqueo_puerta_1: true
+  bloqueo_puerta_2: true
+  aire_atmosferico_camara: true
+  agua_intercambiador: true
+  agua_bomba: true
+  bomba_vacio: true
+  abrir_puerta_1: true
+  abrir_puerta_2: true
+  cerrar_puerta_1: true
+  cerrar_puerta_2: true
+  buzzer_alarma: true
+
+limits:
+  pressure:
+    max_kpa: 400
+    min_kpa: 1
+  temperature:
+    max_c: 200
+    min_c: 0
+
+io_contract:
+  AI:
+    - temp_camara
+    - temp_referencia
+    - temp_drenaje_camara
+    - temp_drenaje
+    - pres_camara
+    - pres_chaqueta
+    - pres_empaque_1
+    - pres_empaque_2
+  DI:
+    - aire_comprimido
+    - presion_agua
+    - puerta_1_cerrada
+    - puerta_1_abierta
+    - puerta_2_cerrada
+    - puerta_2_abierta
+    - atrapamiento_puerta_1
+    - atrapamiento_puerta_2
+    - agua_bomba
+    - agua_generador
+    - paro_emergencia
+    - agua_camara
+    - vapor_suministro
+  DO:
+    - vapor_generador
+    - vapor_caldera
+    - vapor_chaqueta
+    - vapor_camara
+    - descompresion_rapida
+    - descompresion_lenta
+    - descompresion_chaqueta
+    - vacio_camara
+    - desbloqueo_puerta_1
+    - desbloqueo_puerta_2
+    - bloqueo_puerta_1
+    - bloqueo_puerta_2
+    - aire_atmosferico_camara
+    - agua_intercambiador
+    - agua_bomba
+    - bomba_vacio
+    - abrir_puerta_1
+    - abrir_puerta_2
+    - cerrar_puerta_1
+    - cerrar_puerta_2

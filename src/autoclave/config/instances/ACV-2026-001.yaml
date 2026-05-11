@@ -1,0 +1,59 @@
+instance:
+  serial_number: ACV-2026-001
+  installation_date: 2026-02-07
+
+model:
+  model_family: Vapor
+  model_name: SOLIDS
+
+configuration:
+  doors:
+    count: 2
+  steam_supply:
+    mode: generator
+  cooling:
+    enabled: false
+
+io_enabled:
+  AI:
+    - temp_camara
+    - temp_referencia
+    - temp_drenaje_camara
+    - temp_drenaje
+    - pres_camara
+    - pres_chaqueta
+    - pres_empaque_1
+    - pres_empaque_2
+  DI:
+    - aire_comprimido
+    - presion_agua
+    - puerta_1_cerrada
+    - puerta_1_abierta
+    - puerta_2_cerrada
+    - puerta_2_abierta
+    - atrapamiento_puerta_1
+    - atrapamiento_puerta_2
+    - agua_bomba
+    - agua_generador
+    - paro_emergencia
+    - agua_camara
+    - vapor_suministro
+  DO:
+    - vapor_generador
+    - vapor_chaqueta
+    - vapor_camara
+    - descompresion_rapida
+    - descompresion_chaqueta
+    - vacio_camara
+    - desbloqueo_puerta_1
+    - desbloqueo_puerta_2
+    - bloqueo_puerta_1
+    - bloqueo_puerta_2
+    - aire_atmosferico_camara
+    - agua_intercambiador
+    - agua_bomba
+    - bomba_vacio
+    - abrir_puerta_1
+    - abrir_puerta_2
+    - cerrar_puerta_1
+    - cerrar_puerta_2

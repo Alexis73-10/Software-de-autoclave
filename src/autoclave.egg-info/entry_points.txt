@@ -1,0 +1,2 @@
+[console_scripts]
+autoclave = autoclave.app:main

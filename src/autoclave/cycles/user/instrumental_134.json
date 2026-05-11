@@ -1,0 +1,24 @@
+{
+    "cycle_id":"134_instrumental",
+    "display_name":"instrumental 134",
+    "cycle_icon":"BigPackages",
+    "cycle_temperature_sensors": {
+        "1":"temp_camara",
+        "2":"temp_ref"
+    },
+    "parameters": {
+        "globals": {
+            "F0": {"value":false, "type": "bool"},
+            "ciclos_multiples": {"value":true, "type":"bool"},
+            "enfriar_chaqueta_secado": {"value":false, "type":"bool"},
+            "presion_chaqueta": {"value":300, "type":"int", "unit":"kPa", "min":0, "max":400}
+        },
+        "precalentamiento": {
+            "tiempo_precalentamiento": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },
+            "temperatura_precalentamiento": { "value": 0, "type":"int", "unit": "°C", "min": 0, "max": 200 },
+            "presion_precalentamiento": { "value": 300,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
+            "timeout_precalentamiento": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
+
+        }
+    }
+}

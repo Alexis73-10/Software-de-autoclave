@@ -1,0 +1,172 @@
+name: "Calibracion Sensores PRO"
+sampling_interval_ms: 500
+
+calibration:
+  factory:
+    temperature:
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 105
+        adc_max: 3990
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 95
+        adc_max: 4010
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 102
+        adc_max: 3995
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 1.0
+        offset: 0.0
+
+
+    pressure:
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 2
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 820
+        adc_max: 3580
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 810
+        adc_max: 3590
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 800
+        adc_max: 3600
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 805
+        adc_max: 3595
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 800
+        adc_max: 3600
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 800
+        adc_max: 3600
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 800
+        adc_max: 3600
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+  user:
+    temperature:
+      - gain: 1.0
+        offset: 14
+
+      - gain: 1.0
+        offset: 14.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+
+    pressure:
+      - gain: 1.0
+        offset: -34
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
