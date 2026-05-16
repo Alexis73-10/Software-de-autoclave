@@ -78,7 +78,7 @@ class EstadoAutoclave:
         "Estado":0,
     }
     
-    flags = {
+    _flags_map = {
         "LISTO_PARA_CICLO": 0,
         "START_CICLO": 1,
         "FALLO_GENERAL": 2,
@@ -93,7 +93,7 @@ class EstadoAutoclave:
         self.salidas_do = {k: 0 for k in self.map_do}
         self.estado_puertas = {k: DoorState.DESCONOCIDO for k in self.state_doors}
         self.estado_maquina = {k: GlobalState.PREPARACION for k in self.state_maquina}
-        self.flags = {k: False for k in self.flags}
+        self.flags = {k: False for k in self._flags_map}
         self.Alarmas_activas = []
         
     def update(self, nuevos_datos):
