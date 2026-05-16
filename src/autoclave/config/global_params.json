@@ -9,4 +9,4 @@
     "tipo_puerta": {"value":1, "type":"int", "min":0, "max":10},
     "temp_segura_drenaje": {"value":40, "type":"int", "unit":"°C"}
     
-}
+} 

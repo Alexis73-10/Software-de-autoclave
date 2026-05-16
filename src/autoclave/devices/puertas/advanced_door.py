@@ -161,7 +161,6 @@ import logging
 import time
 
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 #============================
@@ -176,26 +175,32 @@ class AdvancedDoor(Door):
         self.do = do
         self.ai = ai
         self.estado = estado
-        self.timer_start = None
         self.set_do = setdo
+
+        self.timer_start = None
+        self._estabilizacion_start = None
+        self._pulso_bloqueo_enviado = False
+        self._pulso_desbloqueo_enviado = False
     #============================
     #LECTURA DE ENTRADAS
     #============================
     
     def puerta_abierta(self, ):
-        return self.estado.sensores_di.get(self.di["abierta"])
+        val =self.estado.sensores_di.get(self.di["abierta"])
+        return val if val is not None else False
     
     def puerta_cerrada(self, ):
-        return self.estado.sensores_di.get(self.di["cerrada"])
+        val = self.estado.sensores_di.get(self.di["cerrada"])
+        return val if val is not None else False
     
     def atrapamiento(self, ):
-        return self.estado.sensores_di.get(self.di["atrapamiento"])
+        val = self.estado.sensores_di.get(self.di["atrapamiento"])
+        return val if val is not None else False
     
     def presion_empaque(self, ):
-        return self.estado.sensores_pres.get(self.ai["presion_empaque"])
-    
-    
-    
+        val = self.estado.sensores_pres.get(self.ai["presion_empaque"])
+        return val if val is not None else 0.0
+
     #============================
     #ACCIONES (SALIDAS)
     #============================
@@ -270,8 +275,9 @@ class AdvancedDoor(Door):
         #Lógica de transición de estados basada en entradas y eventos
         if self.get_state() is None:
             logger.error("Error: Estado de puerta no definido.")
-            self.set_state(DoorState.DESCONOCIDO)        
-        if self.get_state() == DoorState.DESCONOCIDO:
+            self.set_state(DoorState.DESCONOCIDO)
+            return       
+        elif self.get_state() == DoorState.DESCONOCIDO:
             logger.info("Estado actual: DESCONOCIDO.")
             # Lógica para manejar transiciones desde DESCONOCIDO
             self._from_desconocido()
@@ -313,59 +319,67 @@ class AdvancedDoor(Door):
     def _from_desconocido(self):
         abierta = self.puerta_abierta()
         cerrada = self.puerta_cerrada()
-        logger.info(f"abierta: {abierta}, cerrada: {cerrada}")
+
         if abierta and not cerrada:
             self.set_state(DoorState.ABIERTO)
-            logger.info("Estado inicial detectado: ABIERTO.")
             return
-        
+
         if cerrada and not abierta:
-            time.sleep(0.3)  # pequeña espera para estabilizar lectura
+            # estabilización no bloqueante
+            if self._estabilizacion_start is None:
+                self._estabilizacion_start = time.time()
+                return  # esperar al próximo ciclo
+
+            if time.time() - self._estabilizacion_start < 0.3:
+                return  # aún esperando
+
+            self._estabilizacion_start = None  # reset
             bloqueo = self.presion_empaque()
             if bloqueo >= self.config.get("presion_empaque"):
                 self.set_state(DoorState.CERRADO)
-                logger.info("Estado inicial detectado: CERRADO.")
-            
             else:
-                logger.warning("Estado inicial inconsistente: Puerta cerrada pero presión de empaque baja, iniciando cierre.")
                 self.set_state(DoorState.CERRANDO)
-                
             return
-        
+
         self.set_state(DoorState.ERROR)
-        logger.error(f"Error: Estado inicial de puerta inconsistente .")
-    
+        logger.error(f"Error: Estado inicial de puerta inconsistente.")
+
     
     def _from_abriendo(self):
         if self.timer_start is None:
             self.timer_start = time.time() + self.config.get("timeout_puerta")
-            self.bloquear_off()
+            self._pulso_desbloqueo_enviado = False
+            self.bloquear_off()    # asegurar que bloqueo esté inactivo
             self.cerrar_off()
             self.vacio_on()
-            self.desbloquear_on()
-            
-        logger.info(f"presion empaque: {self.presion_empaque()} kPa.")
+            self.desbloquear_on()  # inicio de pulso
+            logger.info("Iniciando apertura de puerta.")
+            return                 # esperar un ciclo
+
+        # cortar pulso de desbloqueo en el ciclo siguiente a su emisión
+        if not self._pulso_desbloqueo_enviado:
+            self.desbloquear_off()
+            self._pulso_desbloqueo_enviado = True
+
         if self.presion_empaque() <= self.config.get("vacio_empaque"):
             self.abrir_on()
-        
-        if self.puerta_abierta() and not self.puerta_cerrada()  :
+
+        if self.puerta_abierta() and not self.puerta_cerrada():
             self.abrir_off()
             self.vacio_off()
-            self.desbloquear_off()
-            self.timer_start = None     #reset timer
+            self.timer_start = None
+            self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ABIERTO)
             logger.info("Puerta abierta correctamente.")
             return
-        
-        if time.time()  > self.timer_start:
+
+        if time.time() > self.timer_start:
             self.abrir_off()
             self.vacio_off()
-            self.desbloquear_off()
-            self.timer_start = None    #reset timer
+            self.timer_start = None
+            self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ERROR)
             logger.error("Error: Tiempo de apertura agotado.")
-            return
-    
     
     def _from_abierto(self):
         #mantiene salidas apagadas
@@ -394,7 +408,6 @@ class AdvancedDoor(Door):
         #- que la puerta este cerrada
         #- que la puerta no este abierta
         self.cerrar_on()
-        self.bloquear_on()
         if not self.puerta_cerrada():
             self.set_state(DoorState.ERROR)
             logger.error("Error: Inconsistencia detectada, puerta no está cerrada.")
@@ -413,42 +426,56 @@ class AdvancedDoor(Door):
     
     def _from_cerrando(self):
         if self.timer_start is None:
-            self.timer_start = (time.time()+ self.config.get("timeout_puerta"))
+            self.timer_start = time.time() + self.config.get("timeout_puerta")
+            self._pulso_bloqueo_enviado = False  # flag de control del biestable
+            self._pulso_desbloqueo_enviado = False
             self.vacio_on()
             self.desbloquear_on()
             logger.info("Iniciando cierre de puerta.")
-        
-        if self.presion_empaque() <= self.config.get("vacio_empaque") and not self.puerta_cerrada():
-            self.cerrar_on()
-        
+
+        if not self._pulso_desbloqueo_enviado:
+            self.desbloquear_on()  # pulso de desbloqueo al inicio del cierre
+            self._pulso_desbloqueo_enviado = True
+
         if self.atrapamiento() == 1:
             self.cerrar_off()
+            self.timer_start = None
+            self._pulso_bloqueo_enviado = False
+            self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ATRAPADA)
             return
-        
+
+        if self.presion_empaque() <= self.config.get("vacio_empaque") and not self.puerta_cerrada():
+            self.cerrar_on()
+
         if self.puerta_cerrada() and not self.puerta_abierta():
-            #cierra salidas y detiene contadores
+            self.cerrar_off()        # puerta llegó: apagar actuador mecánico
             self.desbloquear_off()
             self.vacio_off()
-            self.bloquear_on()
-            if self.presion_empaque() >= self.config.get("presion_empaque") and not self.puerta_abierta():
-                self.bloquear_off()
-                self.timer_start = None    #reset timer
+
+            if not self._pulso_bloqueo_enviado:
+                self.bloquear_on()               # pulso único al biestable
+                self._pulso_bloqueo_enviado = True
+                return                           # esperar al próximo ciclo
+
+            self.bloquear_off()                  # cortar pulso en el ciclo siguiente
+
+            if self.presion_empaque() >= self.config.get("presion_empaque"):
+                self._pulso_bloqueo_enviado = False  # reset para próximo uso
+                self.timer_start = None
                 self.set_state(DoorState.CERRADO)
                 logger.info("Puerta cerrada correctamente.")
                 return
-            
-        
+
         if time.time() > self.timer_start:
             self.cerrar_off()
             self.vacio_off()
-            self.desbloquear_off()  
+            self.desbloquear_off()
+            self.bloquear_off()
+            self._pulso_bloqueo_enviado = False
+            self.timer_start = None
             self.set_state(DoorState.ERROR)
-            self.timer_start = None    #reset timer
             logger.error("Error: Tiempo de cierre agotado.")
-            return
-        
-
             
 
     def _from_atrapada(self):
@@ -475,7 +502,15 @@ class AdvancedDoor(Door):
             return
         
         if cerrada and not abierta:
-            time.sleep(0.3)  # pequeña espera para estabilizar lectura
+            
+            if self._estabilizacion_start is None:
+                self._estabilizacion_start = time.time()
+                return  # esperar al próximo ciclo
+            
+            if time.time() - self._estabilizacion_start < 0.3:
+                return  # aún esperando
+            
+            self._estabilizacion_start = None  # reset
             bloqueo = self.presion_empaque()
             if bloqueo >= self.config.get("presion_empaque"):
                 self.set_state(DoorState.CERRADO)
