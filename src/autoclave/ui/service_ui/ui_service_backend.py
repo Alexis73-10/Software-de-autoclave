@@ -1,84 +1,148 @@
 # autoclave/services/ui/ui_service_backend.py
 
-from unicodedata import name
+import threading
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class UIServiceBackend:
-    def __init__(self, backend_client):
+    """
+    Servicio de UI que mantiene un cache del estado del backend.
+    Las peticiones HTTP se hacen en un hilo de fondo para no bloquear
+    el hilo principal de Tkinter.
+    """
+
+    def __init__(self, backend_client, interval: float = 0.5):
         self.backend = backend_client
-        self._cache = {}
+        self._lock = threading.Lock()
+        self._cache  = {}
         self._config = {}
-        self._cycle = {}
+        self._cycle  = {}
+        self.connected = False
+
+        # Hilo de actualización en segundo plano
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._loop, daemon=True)
+        self._thread.start()
+
+    # ==============================
+    # HILO DE FONDO
+    # ==============================
+
+    def _loop(self):
+        while not self._stop.is_set():
+            self._fetch()
+            self._stop.wait(self._interval if hasattr(self, "_interval") else 0.5)
+
+    def _fetch(self):
+        try:
+            cache  = self.backend.get_status()
+            config = self.backend.get_config()
+            cycle  = self.backend.get_cycle()
+            with self._lock:
+                self._cache  = cache
+                self._config = config
+                self._cycle  = cycle
+                self.connected = True
+        except Exception as e:
+            with self._lock:
+                self.connected = False
+            logger.warning("⚠️ Backend no disponible: %s", e)
 
     def update(self):
-        self._cache = self.backend.get_status()
+        """Compatibilidad: el hilo de fondo ya actualiza el cache."""
+        pass
 
-        self._config = self.backend.get_config()
-        
-        self._cycle = self.backend.get_cycle()
+    def stop(self):
+        """Detiene el hilo de fondo. Llamar al cerrar la aplicación."""
+        self._stop.set()
+
+    # ==============================
+    # LECTURA THREAD-SAFE DEL CACHE
+    # ==============================
+
+    def _snapshot(self):
+        with self._lock:
+            return self._cache, self._config, self._cycle, self.connected
 
     # ==============================
     # SENSORES
-    # ============================== 
+    # ==============================
 
     def get_sensores_temp(self):
-        temp = self._cache.get("sensors", {}).get("temperature", {})
+        with self._lock:
+            temp = self._cache.get("sensors", {}).get("temperature", {})
         return {
-            "temp_camara": temp.get("camara"),
-            "temp_ref": temp.get("ref"),
-            "temp_chaqueta": temp.get("chaqueta"),
+            "temp_camara":  temp.get("camara"),
+            "temp_ref":     temp.get("ref"),
+            "temp_chaqueta":temp.get("chaqueta"),
         }
 
     def get_sensores_pres(self):
-        pres = self._cache.get("sensors", {}).get("pressure", {})
+        with self._lock:
+            pres = self._cache.get("sensors", {}).get("pressure", {})
         return {
-            "pres_camara": pres.get("camara"),
-            "pres_chaqueta": pres.get("chaqueta"),
+            "pres_camara":  pres.get("camara"),
+            "pres_chaqueta":pres.get("chaqueta"),
         }
 
     def get_sensores_di(self):
-        return self._cache.get("sensors", {}).get("digital_inputs", {})
+        with self._lock:
+            return self._cache.get("sensors", {}).get("digital_inputs", {})
 
     # ==============================
     # ALARMAS
     # ==============================
 
     def get_alarmas(self):
-        return self._cache.get("alarms", [])
+        with self._lock:
+            return list(self._cache.get("alarms", []))
 
     # ==============================
     # ESTADO GLOBAL
     # ==============================
 
     def get_estado_global(self):
-        return self._cache.get("machine_state", "DESCONOCIDO")
+        with self._lock:
+            return self._cache.get("machine_state", "DESCONOCIDO")
 
     # ==============================
     # PUERTAS
     # ==============================
 
     def get_estado_puertas(self):
-        return self._cache.get("doors", {})
+        with self._lock:
+            return dict(self._cache.get("doors", {}))
 
     def get_estado_puerta(self, nombre_puerta):
-        return self._cache.get("doors", {}).get(nombre_puerta)
+        with self._lock:
+            return self._cache.get("doors", {}).get(nombre_puerta)
 
-    def get_estado_flag (self, flag):
-        return self._cache.get("flags", {}).get(flag)
-    
-    #===============================
+    def get_estado_flag(self, flag):
+        with self._lock:
+            return self._cache.get("sensors", {}).get("flags", {}).get(flag)
+
+    # ==============================
     # CONFIGURACION
-    #===============================
+    # ==============================
+
     def get_config(self):
-        return self._config
-    
+        with self._lock:
+            return dict(self._config)
+
     def get_config_param(self, name):
-        return self._config.get(name)
-    #===============================
+        with self._lock:
+            return self._config.get(name)
+
+    # ==============================
     # CICLO ACTUAL
-    #===============================
+    # ==============================
+
     def get_cycle(self):
-        return self._cycle
+        with self._lock:
+            return dict(self._cycle)
 
     def get_cycle_param(self, param):
-        return self._cycle.get(param)
+        with self._lock:
+            return self._cycle.get(param)
