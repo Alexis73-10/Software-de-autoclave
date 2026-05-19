@@ -1,7 +1,7 @@
 # autoclave.core.converters.py
 
 from typing import List, Dict
-from src.autoclave.config.schema import CalibrationConfig
+from autoclave.config.schema import CalibrationConfig
 from collections import deque
 
 class MovingAverage:
@@ -14,18 +14,22 @@ class MovingAverage:
         mov= round((sum(self.buffer) / len(self.buffer)),2)
         return mov
 # ==============================
-# Estado interno (EMA)
+# Estado interno de filtros
 # ==============================
-_ma_temp: List[MovingAverage] = [MovingAverage(10) for _ in range(8)]
-_c_temp: List[MovingAverage] = [MovingAverage(10) for _ in range(8)]
-_ma_pres: List[MovingAverage] = [MovingAverage(10) for _ in range(8)]
-_c_pres: List[MovingAverage] = [MovingAverage(10) for _ in range(8)]
+# Pipeline simplificado: raw → MA(pre-filter) → calibrar → EMA(suavizado)
+# Una sola etapa de MA y una sola EMA eliminan el lag del doble MA anterior.
 
-_prev_temp_values: List[float] = [0.0] * 8
-_prev_pres_values: List[float] = [0.0] * 8
+_ma_temp: List[MovingAverage] = [MovingAverage(5) for _ in range(8)]   # pre-filtro ligero
+_ma_pres: List[MovingAverage] = [MovingAverage(5) for _ in range(8)]   # pre-filtro ligero
 
-TEMP_ALPHA = 0.3
-PRES_ALPHA = 0.3
+_prev_temp_values: List[float] = [None] * 8   # None = sin lectura inicial
+_prev_pres_values: List[float] = [None] * 8
+
+# α = 0.1 → peso nuevo valor: 10 %, constante de tiempo ≈ 9 muestras
+# Para temperatura (cambios lentos) 0.1 es ideal.
+# Para presión (puede cambiar más rápido) usamos 0.15.
+TEMP_ALPHA = 0.1
+PRES_ALPHA = 0.15
 
 
 # ==============================
@@ -101,23 +105,24 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
 
     for i in range(8):
         raw = raw_ai[i] if i < len(raw_ai) else 0
-        average =_ma_temp[i].update(raw)
+
+        # 1. Pre-filtro: MA ligero sobre valores crudos (rechaza picos del ADC)
+        smoothed_raw = _ma_temp[i].update(raw)
+
         factory_calib = factory_list[i] if i < len(factory_list) else None
-        user_calib = user_list[i] if i < len(user_list) else None
+        user_calib    = user_list[i]    if i < len(user_list)    else None
 
-        # 1. Factory
-        value = _factory_calibrate(average, factory_calib, 200.0)
-
-        # 2. User
+        # 2. Calibración → valor en °C
+        value = _factory_calibrate(smoothed_raw, factory_calib, 200.0)
         value = _user_calibrate(value, user_calib)
 
-        # 3. EMA (suavizado final)
-        value = _ema(_prev_temp_values[i], value, TEMP_ALPHA)
-
-        value = _c_temp[i].update(value)
-
+        # 3. EMA: arrancar desde el primer valor real para evitar rampa inicial
+        prev = _prev_temp_values[i]
+        value = value if prev is None else _ema(prev, value, TEMP_ALPHA)
         _prev_temp_values[i] = value
+
         temps.append(round(value, 1))
+
     return temps
 
 
@@ -141,27 +146,25 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig) -> Li
     for i in range(8):
         raw_index = 8 + i
         raw = raw_ai[raw_index] if raw_index < len(raw_ai) else 0
-        average =_ma_pres[i].update(raw)
+
+        # 1. Pre-filtro: MA ligero sobre valores crudos
+        smoothed_raw = _ma_pres[i].update(raw)
+
         factory_calib = factory_list[i] if i < len(factory_list) else None
-        user_calib = user_list[i] if i < len(user_list) else None
+        user_calib    = user_list[i]    if i < len(user_list)    else None
 
-        # 1. Factory
-        value = _factory_calibrate(average, factory_calib, 400.0, is_pressure=True)
-        #print(f"fabrica {value}")
-
-        # 2. User
+        # 2. Calibración → valor en kPa
+        value = _factory_calibrate(smoothed_raw, factory_calib, 400.0, is_pressure=True)
         value = _user_calibrate(value, user_calib)
-        #print(f"usuario {value}")
 
-        # 3. EMA final
-        value = _ema(_prev_pres_values[i], value, PRES_ALPHA)
-
-        value = _c_pres[i].update(value)
-
-        if value <= 0:
-            value = 0
-        
+        # 3. EMA: arrancar desde el primer valor real para evitar rampa inicial
+        prev = _prev_pres_values[i]
+        value = value if prev is None else _ema(prev, value, PRES_ALPHA)
         _prev_pres_values[i] = value
+
+        # 4. Clamp: la presión nunca es negativa
+        value = max(0.0, value)
+
         press.append(round(value, 1))
 
     return press

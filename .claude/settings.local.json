@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(command -v gh)",
+      "Read(//usr/local/bin/**)",
+      "Read(//c/Users/tecni/.local/bin/**)",
+      "Bash(git commit -m ' *)",
+      "Bash(where gh *)",
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)"
+    ]
+  }
+}

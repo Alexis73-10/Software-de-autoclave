@@ -52,7 +52,7 @@ class CycleManager:
 
                         cycle = Cycle(
                             cycle_id=data["cycle_id"],
-                            name=data.get("cycle_name", data["cycle_id"]),
+                            name=data.get("display_name", data.get("cycle_name", data["cycle_id"])),
                             parameters=data.get("parameters", {})
                         )
 

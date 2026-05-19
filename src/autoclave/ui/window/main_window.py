@@ -1,741 +1,437 @@
 # autoclave/ui/main_window.py
 
-#Importar librerias necesarias
-import PIL.Image as image
+import time
 import tkinter as tk
 import customtkinter as ctk
+import PIL.Image as Image
+from PIL import ImageTk
 import logging
-import autoclave.ui.components.components as components
+
 from autoclave.ui.cycle.cycle_window import CycleWindow
 from autoclave.utils.resources import resource_path
 
-
-#configuracion del logger
 logger = logging.getLogger(__name__)
-#variables globales de la interfaz
 
-#----------------------------------------------------------------------
+# ── Paleta ────────────────────────────────────────────────────────────────────
+CLR_BG      = "#b6ccd9"   # fondo azul-grisáceo
+CLR_DARK    = "#2d4757"   # panel oscuro y pills
+CLR_CARD    = "#ffffff"   # tarjeta blanca principal
+CLR_FOOTER  = "#5789a7"   # barra footer
+CLR_W       = "white"
+CLR_B       = "black"
+
+_MAX_COND   = 5           # máximo de condiciones/alarmas visibles en panel izq.
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 class InterfazPrincipal(tk.Tk):
+# ══════════════════════════════════════════════════════════════════════════════
 
-    #inicializacion de la interfaz principal
-    def __init__(self, ui_service, door_commands):
+    def __init__(self, ui_service, door_commands, on_shutdown=None, source_door=1):
         super().__init__()
-        
-        self._cargar_imagenes()  # ← aquí SIEMPRE primero
-
-        # 🔹 Configuración de la ventana
-        self.title("Autoclave de vapor")
-        self.geometry("1280x720")
-        self.configure(bg="#b6ccd9")
-
-        # 👉 usa fullscreen solo en producción
-        self.attributes("-fullscreen", True)
-
-        self.bind("<Configure>", self._resize)
-
-        # 🔹 Layout principal (grid)
-        self.grid_rowconfigure(0, weight=1)  # header
-        self.grid_rowconfigure(1, weight=18)  # contenido
-        self.grid_rowconfigure(2, weight=1)  # footer
-        self.grid_columnconfigure(0, weight=1)
-
-        # 🔹 Secciones principales
-        self.header = ctk.CTkFrame(self, fg_color="#b6ccd9")
-        self.header.grid(row=0, column=0, sticky="nsew")
-
-        self.body = ctk.CTkFrame(self, fg_color="white", corner_radius=30)
-        self.body.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
-
-        self.footer = ctk.CTkFrame(self, fg_color="#b6ccd9")
-        self.footer.grid(row=2, column=0, sticky="nsew")
-
-        # 🔹 Configuración del body
-        self.body.grid_columnconfigure(0, weight=1)  # izquierda
-        self.body.grid_columnconfigure(1, weight=3)  # derecha
-        self.body.grid_rowconfigure(0, weight=1)
-
-        # 🔹 Paneles internos
-        self.panel_estados = ctk.CTkFrame(self.body, fg_color="white")
-        self.panel_estados.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
-
-        self.panel_main = ctk.CTkFrame(self.body, fg_color="white")
-        self.panel_main.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
-
-        # 🔹 Servicios
-        self.ui_service = ui_service
+        self._on_shutdown  = on_shutdown
+        self.ui_service    = ui_service
         self.door_commands = door_commands
+        self._source_door  = source_door                      # 1 o 2
+        self._door_name    = f"Puerta {source_door}"          # "Puerta 1" o "Puerta 2"
 
-        # 🔹 Variables UI
-        self.cycle_name = self.ui_service.get_cycle_param("display_name")
-        self.n_ciclo = tk.IntVar(value=1)
+        # ── ventana ───────────────────────────────────────────────────────────
+        self.title("Autoclave de vapor")
+        self.configure(bg=CLR_BG)
+        self.attributes("-fullscreen", True)
+        self.update_idletasks()                               # forzar render antes de medir pantalla
 
-        # ⚠️ NO llamar backend aquí (evita crasheos al inicio)
-        self.prep_ciclo = "Cargando..."
-        self.alarmas_activas = []
-        self.alarm_labels = []
+        # ── estado interno ────────────────────────────────────────────────────
+        self.cycle_name = self.ui_service.get_cycle_param("name") or "Cargando..."
 
-        # 🔹 Construcción UI
-        components._crear_encabezado(self.header, "T-MAX6")
-        self.crear_layout()
-        self._pie_pagina()
+        # ── construir UI ──────────────────────────────────────────────────────
+        self._build_header()
+        self._build_body()
+        self._build_footer()
 
-        # 🔹 Loop de actualización UI
-        self.after(500, self.update_ui)
-
-        # 🔹 Estado inicial de botones
-        self.after(600, self.actualizar_boton)
-        self.after(600, self.actualizar_puerta_dos)
-        self.after(600, self.actualizar_listo)
+        # ── arrancar loop ─────────────────────────────────────────────────────
+        self.after(300, self._load_action_images)   # cargar imágenes después de fullscreen
+        self.after(500, self._update_ui)
 
         logger.info("✅ Interfaz creada correctamente.")
 
-    # ------------------------------------------------------------------
-    # Creación de la interfaz
-    # ------------------------------------------------------------------
-    
-    def _cargar_imagenes(self):
+    # ══════════════════════════════════════════════════════════════════════════
+    # HEADER
+    # ══════════════════════════════════════════════════════════════════════════
 
-        w,h = self._escalar(0.1,0.08)
+    def _build_header(self):
+        hdr = tk.Frame(self, bg=CLR_DARK, height=58)
+        hdr.pack(fill=tk.X, side=tk.TOP)
+        hdr.pack_propagate(False)
 
-        self.img_start = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/start_cycle.png")),
-            dark_image=image.open(resource_path("autoclave/images/start_cycle.png")),
-            size=(w, h),
-        )
+        tk.Label(hdr, text="ESPECIFIKA S.A.S",
+                 font=("Segoe UI", 14, "italic"),
+                 bg=CLR_DARK, fg=CLR_W).pack(side=tk.LEFT, padx=20)
 
-        self.img_puerta1_abierta = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/open_door_1.png")),
-            dark_image=image.open(resource_path("autoclave/images/open_door_1.png")),
-            size=(w, h),
-        )
+        self._lbl_modelo = tk.Label(hdr, text="AUTOCLAVE",
+                                     font=("Segoe UI", 16, "bold"),
+                                     bg=CLR_DARK, fg=CLR_W)
+        self._lbl_modelo.pack(side=tk.LEFT, expand=True)
 
-        self.img_puerta1_cerrada = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/close_door_1.png")),
-            dark_image=image.open(resource_path("autoclave/images/close_door_1.png")),
-            size=(w, h),
-        )
+        self._lbl_hora = tk.Label(hdr, text="",
+                                   font=("Segoe UI", 14),
+                                   bg=CLR_DARK, fg=CLR_W)
+        self._lbl_hora.pack(side=tk.RIGHT, padx=20)
+        self._tick_hora()
 
-        self.img_puerta2_abierta = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/open_door_2.png")),
-            dark_image=image.open(resource_path("autoclave/images/open_door_2.png")),
-            size=(w, h),
-        )
+    def _tick_hora(self):
+        self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
+        self.after(1000, self._tick_hora)
 
-        self.img_puerta2_cerrada = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/close_door_2.png")),
-            dark_image=image.open(resource_path("autoclave/images/close_door_2.png")),
-            size=(w, h),
-        )
+    # ══════════════════════════════════════════════════════════════════════════
+    # BODY  (fondo azul → tarjeta blanca → panel izq + panel der)
+    # ══════════════════════════════════════════════════════════════════════════
 
-        # 🔹 iconos footer
-        self.img_info = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/info_icon.png")),
-            dark_image=image.open(resource_path("autoclave/images/info_icon.png")),
-            size=(50, 40),
-        )
+    def _build_body(self):
+        self._body_bg = tk.Frame(self, bg=CLR_BG)
+        self._body_bg.pack(fill=tk.BOTH, expand=True)
 
-        self.img_power = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/power_icon.png")),
-            dark_image=image.open(resource_path("autoclave/images/power_icon.png")),
-            size=(50, 40),
-        )
+        # tarjeta blanca con bordes redondeados
+        self._card = ctk.CTkFrame(self._body_bg, corner_radius=28,
+                                   fg_color=CLR_CARD, bg_color=CLR_BG)
+        self._card.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.94)
 
-        self.img_login = ctk.CTkImage(
-            light_image=image.open(resource_path("autoclave/images/login_icon.png")),
-            dark_image=image.open(resource_path("autoclave/images/login_icon.png")),
-            size=(50, 40),
-        )
+        self._build_left_panel()
+        self._build_right_panel()
 
-    def crear_layout(self):
+    # ── Panel izquierdo ───────────────────────────────────────────────────────
 
-        self.panel_main.grid_rowconfigure(0, weight=1)  # título
-        self.panel_main.grid_rowconfigure(1, weight=1)  # línea
-        self.panel_main.grid_rowconfigure(2, weight=6)  # contenido
-        self.panel_main.grid_rowconfigure(3, weight=2)  # botones
+    def _build_left_panel(self):
+        pnl = ctk.CTkFrame(self._card, corner_radius=22,
+                            fg_color=CLR_DARK, bg_color=CLR_CARD)
+        pnl.place(relx=0.02, rely=0.04, relwidth=0.26, relheight=0.92)
 
-        self.panel_main.grid_columnconfigure(0, weight=1)
+        # número de ciclo
+        self._lbl_n_ciclo = ctk.CTkLabel(
+            pnl, text="01",
+            font=("Segoe UI", 90, "bold"),
+            text_color=CLR_W, fg_color="transparent")
+        self._lbl_n_ciclo.place(relx=0.5, rely=0.20, anchor="center")
 
-        fondo = components._crear_fondo_principal(self.panel_main)
+        # estado de máquina
+        self._lbl_estado = ctk.CTkLabel(
+            pnl, text="Cargando...",
+            font=("Segoe UI", 22, "bold"),
+            text_color=CLR_W, fg_color="transparent",
+            wraplength=190)
+        self._lbl_estado.place(relx=0.5, rely=0.43, anchor="center")
 
-        def contenedor_estados(parent):
-            estados = ctk.CTkFrame(
-                parent,
-                corner_radius=40,
-                bg_color="#ffffff",
-                fg_color="#2d4757",
-            )
-            estados.place(
-                relx=0.03,
-                rely=0.06,
-                relwidth=0.9,
-                relheight=0.9,
-            )
-            
-            def numero_ciclo(cont):
-                #este codigo creara un label dentro del contenedor estados, que mostrara el numero de ciclo actual
-                #el label estara en la parte superior del contenedor estados, centrado, separado del borde superior por un espacio correspondiente al 10% de la altura del contenedor estados
-                #este numero tendra un tamaño equivalente al 50% del ancho del contenedor estados
-                #el label tendra un color de fondo #2d4757 y un color de letra blanco, con una fuente Segoe UI de tamaño 24 y negrita
-                ciclo_label = ctk.CTkLabel(
-                    cont,
-                    text=self.n_ciclo.get(),
-                    font=("Segoe UI", 80, "bold"),
-                    bg_color="#2d4757",
-                    fg_color="#2d4757",
-                    text_color="white",
-                )
-                ciclo_label.place(
-                    relx=0.5,
-                    rely=0.05,
-                    anchor="n",
-                )
-            numero_ciclo(estados)
-            
-            def estado_actual(cont):
-                #este codigo creara un label dentro del contenedor estados, que mostrara el estado actual del sistema
-                #almacenado en la variable prep_ciclo de tipo StringVar
-                #el label estara debajo del label del numero de ciclo, alineado a la hisquierda del contenedor estados, separado del borde izquierdo por un espacio correspondiente al 5% del ancho del contenedor estados
-                #y separado del label del numero de ciclo por un espacio correspondiente al 5% de la altura del contenedor estados
-
-                self.estado_label = ctk.CTkLabel(
-                    cont,
-                    text= self.prep_ciclo,
-                    font=("Segoe UI", 20, "bold"),
-                    bg_color="#2d4757",
-                    fg_color="#2d4757",
-                    text_color="white",
-                    
-                )
-                self.estado_label.place(
-                    relx=0.05,
-                    rely=0.3,
-                    anchor="w",
-                )
-                
-
-            estado_actual(estados)
-            
-            self.contenedor = estados
-
-        contenedor_estados(self.panel_estados)
-
-        def titulo_ciclo(parent):
-            #este codigo creara un label dentro del contenedor fondo, que mostrara el titulo "Ciclo de esterilizacion"
-            #este label estara en la parte superior central del contenedor fondo, separado del borde superior por un espacio correspondiente al 9% de la altura del contenedor fondo
-            #tendra un ancho correspondiente al 40% del ancho del contenedor fondo
-            texto= self.cycle_name.upper()
-
-            titulo_label = ctk.CTkLabel(
-                parent,
-                text= texto,
-                font=self._font(60),
-                text_color="Black",
-            )
-            titulo_label.place(
-                relx=0.5,
-                rely=0.05,
-                anchor="n"
-            )
-        titulo_ciclo(fondo)
-    
-        def linea_separadora(fondo):
-            #este codigo creara una linea separadora horizontal dentro del contenedor fondo
-            #esta linea estara en la parte superior del contenedor fondo, separada del borde superior por un espacio correspondiente al 18% de la altura del contenedor fondo
-            #tendra un ancho correspondiente al 92% del ancho del contenedor fondo y una altura de 2 pixeles
-            linea = ctk.CTkFrame(
-                fondo,
-                bg_color="#ffffff",
-                fg_color="black",
-            )
-            linea.place(
-                relx=0.5,
-                rely=0.24,
-                anchor="n",
-                relwidth=0.9,
-                relheight=0.008,
-            )
-        linea_separadora(fondo)
-
-        #este fragmento de codigo creara 3 contenedores dentro del contenedor fondo llamando a la funcion _crear_contenedor_informacion desde el modulo components
-        #estos contenedores estaran dispuests de forma vertical en la parte dereca del contenedor fondo a una distancia del borde hisquierdo correspondoente al 32.4% del ancho del contenedor fondo
-        #el primer contenedor estara separado del borde superior del contenedor fondo por un espacio correspondiente al 26% de la altura del contenedor fondo
-        #una separacion entre cada contenedor correspondiente al 5% de la altura del contenedor fondo
-        def parm_temp(fondo):
-            contenedor1 = components._crear_contenedor_informacion(
-                fondo,
-                relx=0.324,
-                rely=0.26,
-                relwidth=0.294,
-                relheight=0.105,
-            )
-            def info_par_temp(cont):
-                components._info_contenedor(
-                cont,
-                "Temp.Ester",
-                "134",
-                "°C"
-            )
-            info_par_temp(contenedor1)
-        parm_temp(fondo)
-
-        def parm_tiempo(fondo):
-            contenedor2 = components._crear_contenedor_informacion(
-                fondo,
-                relx=0.324,
-                rely=0.26 + 0.105 + 0.05,
-                relwidth=0.294,
-                relheight=0.105,
-        )
-            def info_par_tiempo(cont):
-                components._info_contenedor(
-                cont,
-                "Tiempo.Ester",
-                "5",
-                "min"
-            )
-            info_par_tiempo(contenedor2)
-        parm_tiempo(fondo)
-        
-        def parm_secado(fondo):
-            contenedor3 = components._crear_contenedor_informacion(
-            fondo,
-            relx=0.324,
-            rely=0.26 + 0.105 + 0.05 + 0.105 + 0.05,
-            relwidth=0.294,
-            relheight=0.105,
-        )
-            def info_par_secado(cont):
-                components._info_contenedor(
-                cont,
-                "Tiempo.Secado",
-                "2",
-                "min"
-            ) 
-            info_par_secado(contenedor3)
-        parm_secado(fondo)
-
-        #este fragmento de codigo creara 3 contenedores dentro del contenedor fondo llamando a la funcion _crear_contenedor_informacion desde el modulo components
-        #estos contenedores estaran dispuests de forma vertical en la parte derecha del contenedor fondo a una distancia del borde izquierdo correspondoente al 65.8% del ancho del contenedor fondo
-        #el primer contenedor estara separado del borde superior del contenedor fondo por un espacio correspondiente al 26% de la altura del contenedor fondo
-        #una separacion entre cada contenedor correspondiente al 5% de la altura del contenedor fondo
-        def inf_t_cam(fondo):
-            #actualizaciond el contenedor:
-            #el valor de la temperatura de la camara actualizara por medio del control loop
-            #por lo cual leera un estado actual llamado temp_camara
-            self.contenedor_t_cam = components._crear_contenedor_informacion(
-                fondo,
-                relx=0.658,
-                rely=0.26,
-                relwidth=0.294,
-                relheight=0.105,
-            )
-            label = components._info_sensors(
-                self.contenedor_t_cam,
-                "Temp.Cam",
-                "°C",
-            )
-            #valor label en el centro
-            self.temp_cam = ctk.CTkLabel(
-                self.contenedor_t_cam,
-                text="---",
-                font=("Segoe UI", 20, "bold"),
-                bg_color="#2d4757",
-                fg_color="#2d4757",
-                text_color="white",
-            )
-            self.temp_cam.pack(side=tk.RIGHT, padx=10)
-            
-            
-        inf_t_cam(fondo)
-        
-        def inf_t_ref(fondo):
-            self.contenedor_t_ref = components._crear_contenedor_informacion(
-                fondo,
-                relx=0.658,
-                rely=0.26 + 0.105 + 0.05,
-                relwidth=0.294,
-                relheight=0.105,
-            )
-
-            label = components._info_sensors(
-                self.contenedor_t_ref,
-                "Temp.Ref",
-                "°C",
-            )
-            #valor label en el centro
-            self.temp_ref = ctk.CTkLabel(
-                self.contenedor_t_ref,
-                text="---",
-                font=("Segoe UI", 20, "bold"),
-                bg_color="#2d4757",
-                fg_color="#2d4757",
-                text_color="white",
-            )
-            self.temp_ref.pack(side=tk.RIGHT, padx=10)
-        
-        inf_t_ref(fondo)
-        
-        def inf_pres_cam(fondo):
-            contenedor6 = components._crear_contenedor_informacion(
-                fondo,
-                relx=0.658,
-                rely=0.26 + 0.105 + 0.05 + 0.105 + 0.05,
-                relwidth=0.294,
-                relheight=0.105,
-            )
-            label = components._info_sensors(
-                contenedor6,
-                "Pres.Cam",
-                "kPa",
-            )
-            #valor label
-            self.pres_cam = ctk.CTkLabel(
-                contenedor6,
-                text="---",
-                font=("Segoe UI", 20, "bold"),
-                bg_color="#2d4757",
-                fg_color="#2d4757",
-                text_color="white",
-            )
-            self.pres_cam.pack(side=tk.RIGHT, padx=10)
-
-        inf_pres_cam(fondo)
-#-----------------------------------------------------------------------
-    #botones inferiores para control de la puerta y ciclo
-#-----------------------------------------------------------------------
-        def boton_puerta_1(fondo, door_commands):
-            #creacion del boton para abrir y cerrar la puerta
-            #este boton estara en la parte inferior izquierda del contenedor fondo, separado del borde izquierdo por un espacio correspondiente al 4.5% del ancho del contenedor fondo
-            #y separado del borde inferior por un espacio correspondiente al 5% de la altura del contenedor fondo
-            #tendra una n de puerta hubicada en src/autoclave/images/open_door.png
-                
-            def accion():
-                estado_actual = self.ui_service.get_estado_puerta("Puerta 1")
-                
-                if estado_actual == "ABIERTO":
-                    door_commands.close("Puerta 1")
-                else:
-                    door_commands.open("Puerta 1")
-                    
-            #creacion del boton
-            self.boton_puerta = ctk.CTkButton(
-                fondo,
-                text="",
-                compound="left",
-                fg_color="white",
-                hover_color="lightgray",
-                command=accion
-            )
-            
-            self.boton_puerta.place(
-                relx=0.324,
-                rely=0.73,
-            )
-        boton_puerta_1(fondo, self.door_commands)
-
-        def boton_puerta_2(fondo, door_commands, door_index="Puerta 2"):
-            #esto mostrara el estado de la segunda puerta
-            #este estara en la parte inferior central del contenedor fondo, separado del borde izquierdo por un espacio correspondiente al 47.5% del ancho del contenedor fondo
-            #y separado del borde inferior por un espacio correspondiente al 5% de la altura del contenedor fondo
-            #tendra una imagen de puerta hubicada en src/autoclave/images/
-            
-            def accion_boton_2():
-                estado_actual = self.ui_service.get_estado_puerta(door_index)
-                
-                if estado_actual == "ABIERTO":
-                    door_commands.close(door_index)
-                else:
-                    door_commands.open(door_index)
-                    
-            
-            self.boton_puerta_dos = ctk.CTkButton(
-                fondo,
-                text="",
-                compound="left",
-                fg_color="white",
-                hover_color="lightgray",
-                command=accion_boton_2
-            )
-            self.boton_puerta_dos.place(
-                relx=0.384,
-                rely=0.728,
-            )
-        boton_puerta_2(fondo, self.door_commands, door_index="Puerta 2")
-
-
-        def boton_iniciar_ciclo(fondo):
-            #creacion del boton para iniciar el ciclo
-            #este boton estara en la parte inferior derecha del contenedor fondo, separado del borde derecho por un espacio correspondiente al 4.5% del ancho del contenedor fondo
-            #y separado del borde inferior por un espacio correspondiente al 5% de la altura del contenedor fondo
-            #tendra una imagen de inicio hubicada en src/autoclave/images/start_cycle.png
-
-
-            #el boton al ser presionado llamara a la funcion start_cycle
-            self.boton_iniciar = ctk.CTkButton(
-                fondo,
-                text="",
-                compound="left",
-                #banco
-                fg_color="white",
-                #gris claro
-                hover_color="lightgray",
-                command=self.start_cycle
-            )
-            self.boton_iniciar.place(
-                relx=0.85,
-                rely=0.73,
-            )
-
-        boton_iniciar_ciclo(fondo)
-
-    def _pie_pagina(self):
-
-        # 🔹 configurar el footer (contenedor base)
-        height = int(self.winfo_screenheight() * 0.1)
-        self.footer.configure(
-            fg_color="transparent",
-            height = height,
-        )
-
-        # 🔹 caja interna centrada (80% ancho)
-        self.footer_box = ctk.CTkFrame(
-            self.footer,
-            fg_color="#5789a7",
-            corner_radius=50
-        )
-
-        self.footer_box.place(
-            relx=0.5,
-            rely=0.5,
-            anchor="center",
-            relwidth=0.6,
-            relheight=0.8
-        )
-
-        # 🔹 layout interno
-        self.footer_box.grid_columnconfigure(0, weight=1)
-        self.footer_box.grid_columnconfigure(1, weight=1)
-        self.footer_box.grid_columnconfigure(2, weight=1)
-        self.footer_box.grid_rowconfigure(0, weight=1   )
-
-        # 🔹 BOTÓN INFO (izquierda)
-        self.btn_info = ctk.CTkButton(
-            self.footer_box,
-            text="",
-            image=self.img_info,
-            fg_color="#5789a7",
-            hover_color="#406080",
-            corner_radius=50,
-            width=60,
-            height=60
-        )
-        self.btn_info.grid(row=0, column=0, sticky="w", padx=20)
-
-        # 🔹 BOTÓN APAGAR (centro)
-        self.btn_power = ctk.CTkButton(
-            self.footer_box,
-            text="",
-            image=self.img_power,
-            fg_color="#5789a7",
-            hover_color="#406080",
-            corner_radius=50,
-            command=self.apagar_equipo,
-            width=60,
-            height=60
-        )
-        self.btn_power.grid(row=0, column=1)
-
-        # 🔹 BOTÓN LOGIN (derecha)
-        self.btn_login = ctk.CTkButton(
-            self.footer_box,
-            text="",
-            image=self.img_login,
-            fg_color="#5789a7",
-            hover_color="#406080",
-            corner_radius=50,
-            command=self.login_user,
-            width=80,
-            height=60
-        )
-        self.btn_login.grid(row=0, column=2, sticky="e", padx=20)
-
-    def start_cycle(self):
-        #funcion para iniciar el ciclo de esterilizacion
-        #esta funcion abrira una nueva ventana llamando a la clase CycleWindow del modulo cycle_window
-        logger.info("▶️ Iniciando ciclo de esterilización...")
-        cycle_window = CycleWindow(self)
-        cycle_window.grab_set()
-
-    def apagar_equipo(self):
-        #funcion para apagar el equipo
-        logger.info("⏻ Apagando equipo...")
-        #la pantalla se oscurecera y aparecera un mensaje de apagando equipo, luego de 3 segundos la aplicacion se cerrara
-        self.withdraw()
-        apagando_ventana = tk.Toplevel(self)
-        apagando_ventana.geometry("400x200")
-        apagando_ventana.title("Apagando equipo")
-        apagando_ventana.configure(bg="#37596C")
-        #transparencia
-        apagando_ventana.wm_attributes("-alpha", 0.9)
-        apagando_ventana.attributes("-fullscreen", True)
-        mensaje = ctk.CTkLabel(
-            apagando_ventana,
-            text="Apagando equipo...",
-            font=("Segoe UI", 40, "bold"),
-            bg_color="#37596C",
-            fg_color="#37596C",
-            text_color="white",
-        )
-        mensaje.pack(expand=True)
-        apagando_ventana.after(3000, self.destroy)
-
-    def login_user(self):
-        #funcion para login de usuario
-        pass  # Implementar funcionalidad de login aquí
-
-    def actualizar_sensores(self,):
-        #funcion para actualizar el valor de la temperatura de la camara
-        valor_temp = self.ui_service.get_sensores_temp()
-        valor_pres = self.ui_service.get_sensores_pres()
-
-        self.temp_cam.configure(text=str(valor_temp["temp_camara"]))
-        self.temp_ref.configure(text=str(valor_temp["temp_ref"]))
-        self.pres_cam.configure(text=str(valor_pres["pres_camara"]))
-        
-        #llama a esta funcion cada 500ms para actualizar el valor
-
-    def actualizar_fase_actual(self):
-        estado = self.ui_service.get_estado_global()
-        print("Estado global:", estado)
-        self.estado_label.configure(text=estado)
-
-    def actualizar_boton(self):
-        estado_actual = self.ui_service.get_estado_puerta("Puerta 1")
-        
-        if estado_actual == "CERRADO":
-            img= self.img_puerta1_cerrada
-            
-        else:
-            img= self.img_puerta1_abierta
-
-        self.boton_puerta.configure(image=img)
-        self.boton_puerta.image = img 
-
-    def actualizar_puerta_uno(self):
-        estado_puerta_1 = self.ui_service.get_estado_puerta("Puerta 1")
-        
-        if estado_puerta_1 == "CERRADO":
-            img= self.img_puerta1_cerrada
-        else:
-            img= self.img_puerta1_abierta
-        
-        self.boton_puerta.configure(image=img)
-        self.boton_puerta.image = img  # Mantener una referencia a la imagen
-
-    def actualizar_puerta_dos(self):
-        estado_puerta_2 = self.ui_service.get_estado_puerta("Puerta 2")
-        
-        if estado_puerta_2 == "CERRADO":
-            img= self.img_puerta2_cerrada
-        else:
-            img= self.img_puerta2_abierta
-        
-        self.boton_puerta_dos.configure(image=img)
-        self.boton_puerta_dos.image = img  # Mantener una referencia a la imagen
-
-    def actualizar_listo (self):
-        preparado = self.ui_service.get_estado_flag("LISTO_PARA_CICLO")
-
-        if preparado:
-            self.boton_iniciar.configure(state="normal")
-        else:
-            self.boton_iniciar.configure(state="disabled")
-
-    def actualizar_alarmas(self):
-        # 1. borrar SOLO los labels de alarmas
-        for lbl in self.alarm_labels:
-            lbl.destroy()
-        self.alarm_labels.clear()
-
-        # 2. obtener alarmas nuevas
-        alarmas = self.ui_service.get_alarmas()
-
-        # 3. crear labels nuevos
-        for i, alarma in enumerate(alarmas):
-            alarma_label = ctk.CTkLabel(
-                self.contenedor,
-                text=f"[{alarma['level']}] {alarma['id']}",
+        # alarmas y condiciones dinámicas
+        self._lbl_cond = []
+        for i in range(_MAX_COND):
+            lbl = ctk.CTkLabel(
+                pnl, text="",
                 font=("Segoe UI", 16),
-                bg_color="#2d4757",
-                fg_color="#2d4757",
-                text_color="white",
-            )
-            alarma_label.place(
-                relx=0.05,
-                rely=0.4 + i * 0.05,
-                anchor="w",
-            )
+                text_color=CLR_W, fg_color="transparent")
+            lbl.place(relx=0.5, rely=0.57 + i * 0.082, anchor="center")
+            self._lbl_cond.append(lbl)
 
-            self.alarm_labels.append(alarma_label)
+    # ── Panel derecho ─────────────────────────────────────────────────────────
 
-    def toggle_door(self):
-        door=self.door_commands.doors[0]
-        status=door.state.name
-        
-        if status == "ABIERTO":
-            self.door_commands.request_close(door)
-            
-        else:
-            self.door_commands.request_open(door)
+    def _build_right_panel(self):
+        pnl = ctk.CTkFrame(self._card, corner_radius=0,
+                            fg_color=CLR_CARD, bg_color=CLR_CARD)
+        pnl.place(relx=0.30, rely=0.04, relwidth=0.68, relheight=0.92)
+        self._panel_der = pnl
 
-    def update_ui(self):
-        if not hasattr(self, "_tick"):
-            self._tick = 0
+        # título del ciclo
+        self._lbl_ciclo_nombre = ctk.CTkLabel(
+            pnl, text=self.cycle_name.upper(),
+            font=("Segoe UI", 46, "bold"),
+            text_color=CLR_B, fg_color="transparent")
+        self._lbl_ciclo_nombre.place(relx=0.5, rely=0.09, anchor="center")
 
-        self._tick += 1
+        # línea separadora
+        ctk.CTkFrame(pnl, fg_color="#cccccc", corner_radius=0,
+                     bg_color=CLR_CARD).place(
+            relx=0.01, rely=0.19, relwidth=0.98, relheight=0.004)
 
+        # ── pills parámetros ciclo (columna izquierda) ────────────────────────
+        PX, PW, PH = 0.01, 0.46, 0.135
+        rows = [0.26, 0.43, 0.60]
+
+        self._val_temp_ester   = self._pill(pnl, "Temp. Ester",   "---", "°C",  PX, rows[0], PW, PH)
+        self._val_tiempo_ester = self._pill(pnl, "Tiempo. Ester", "---", "min", PX, rows[1], PW, PH)
+        self._val_tiempo_sec   = self._pill(pnl, "Tiempo. Sec",   "---", "min", PX, rows[2], PW, PH)
+
+        # ── pills sensores (columna derecha) ──────────────────────────────────
+        SX = 0.52
+        self._val_temp_cam = self._pill(pnl, "Temp.",   "---", "°C",  SX, rows[0], PW, PH)
+        self._val_temp_ref = self._pill(pnl, "Temp. 1", "---", "°C",  SX, rows[1], PW, PH)
+        self._val_pres_cam = self._pill(pnl, "Presión", "---", "kPa", SX, rows[2], PW, PH)
+
+        # ── botones de acción (tk.Label para evitar conflictos z-order con CTK) ─
+        self._boton_puerta = tk.Label(pnl, bg=CLR_CARD, cursor="hand2")
+        self._boton_puerta.bind("<Button-1>", lambda e: self._accion_puerta_1())
+        self._boton_puerta.bind("<Enter>", lambda e: self._boton_puerta.configure(bg=CLR_BG))
+        self._boton_puerta.bind("<Leave>", lambda e: self._boton_puerta.configure(bg=CLR_CARD))
+        self._boton_puerta.place(relx=0.05, rely=0.76, relwidth=0.16, relheight=0.21)
+
+        self._boton_iniciar = tk.Label(pnl, bg=CLR_CARD, cursor="")
+        self._boton_iniciar.bind("<Enter>", lambda e: self._boton_iniciar.configure(bg=CLR_BG) if self._inicio_habilitado else None)
+        self._boton_iniciar.bind("<Leave>", lambda e: self._boton_iniciar.configure(bg=CLR_CARD))
+        self._boton_iniciar.place(relx=0.79, rely=0.76, relwidth=0.16, relheight=0.21)
+        self._inicio_habilitado = False
+
+    def _pill(self, parent, label, value, unit, relx, rely, relwidth, relheight):
+        """
+        Pill oscura con:  [ Label ·····  valor  unidad ]
+        Retorna el CTkLabel del valor para actualizarlo.
+        """
+        frame = ctk.CTkFrame(parent, corner_radius=30,
+                            fg_color=CLR_DARK, bg_color=CLR_CARD)
+        frame.place(relx=relx, rely=rely, relwidth=relwidth, relheight=relheight)
+
+        ctk.CTkLabel(frame, text=label,
+                     font=("Segoe UI", 18, "bold"),
+                     text_color=CLR_W, fg_color="transparent",
+                     anchor="w").place(relx=0.05, rely=0.5, anchor="w")
+
+        ctk.CTkLabel(frame, text=unit,
+                     font=("Segoe UI", 15),
+                     text_color=CLR_W, fg_color="transparent",
+                     anchor="e").place(relx=0.97, rely=0.5, anchor="e")
+
+        lbl_val = ctk.CTkLabel(frame, text=value,
+                                font=("Segoe UI", 20, "bold"),
+                                text_color=CLR_W, fg_color="transparent",
+                                anchor="e")
+        lbl_val.place(relx=0.74, rely=0.5, anchor="e")
+
+        return lbl_val
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # FOOTER
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_footer(self):
+        footer = tk.Frame(self, bg=CLR_BG, height=90)
+        footer.pack(fill=tk.X, side=tk.BOTTOM)
+        footer.pack_propagate(False)
+
+        # píldora central
+        pill = ctk.CTkFrame(footer, corner_radius=45,
+                             fg_color=CLR_FOOTER, bg_color=CLR_BG)
+        pill.place(relx=0.5, rely=0.5, anchor="center",
+                   relwidth=0.52, relheight=0.82)
+
+        # cargar iconos footer
+        def _ico(name, size=(46, 40)):
+            img = Image.open(resource_path(f"autoclave/images/{name}"))
+            return ctk.CTkImage(light_image=img, dark_image=img, size=size)
+
+        self._img_info     = _ico("info_icon.png")
+        self._img_settings = _ico("settings_icon.png")
+        self._img_OFF     = _ico("power_icon.png")
+
+        ctk.CTkButton(pill, text="", image=self._img_info,
+                      fg_color="transparent", hover_color="#406080",
+                      width=56).pack(side=tk.LEFT, padx=18)
+
+        ctk.CTkButton(pill, text="", image=self._img_settings,
+                      fg_color="transparent", hover_color="#406080",
+                      width=56).pack(side=tk.LEFT, padx=8)
+
+        ctk.CTkButton(pill, text="", image=self._img_OFF,
+                      fg_color="transparent", hover_color="#406080",
+                      command=self.apagar_equipo,
+                      width=56).pack(side=tk.RIGHT, padx=18)
+
+        # indicador de conexión
+        self._lbl_conexion = tk.Label(footer, text="⚪ Conectando...",
+                                       font=("Segoe UI", 12),
+                                       bg=CLR_BG, fg="white")
+        self._lbl_conexion.place(relx=0.01, rely=0.5, anchor="w")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # IMÁGENES DE BOTONES DE ACCIÓN (cargadas después de render)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _load_action_images(self):
         try:
-            # 🔥 1. UNA sola actualización backend
-            self.ui_service.update()
+            # forzar que la ventana esté completamente renderizada
+            self.update()
 
-            # 🔹 cada 0.5s (rápido)
-            self.actualizar_sensores()
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+            bw = max(80, int(sw * 0.085))
+            bh = max(80, int(sh * 0.15))
 
-            # 🔹 cada 1s (lento)
-            if self._tick % 2 == 0:
-                self.actualizar_fase_actual()
-                self.actualizar_alarmas()
-                self.actualizar_listo()
-                self.actualizar_boton()
-                self.actualizar_puerta_dos()
+            logger.info("Cargando imagenes de botones (%dx%d)...", bw, bh)
+
+            def _ico(name):
+                path = resource_path(f"autoclave/images/{name}")
+                img = Image.open(path)
+                # mantener proporción original: caber dentro de bw×bh sin deformar
+                img.thumbnail((bw, bh), Image.LANCZOS)
+                return ImageTk.PhotoImage(img)
+
+            # usar imágenes de puerta 1 o puerta 2 según SOURCE_DOOR
+            n = self._source_door
+            self._img_puerta_ab = _ico(f"open_door_{n}.png")
+            self._img_puerta_ce = _ico(f"close_door_{n}.png")
+            self._img_start     = _ico("start_cycle.png")
+
+            self._boton_iniciar.configure(image=self._img_start)
+            self._boton_puerta.lift()    # traer al frente sobre CTkFrame internos
+            self._boton_iniciar.lift()
+            self._actualizar_imagen_puerta()
+
+            logger.info("Imagenes de botones cargadas correctamente")
 
         except Exception as e:
-            logger.debug(f"⚠️ Error UI loop: {e}")
+            logger.error("Error cargando imagenes de botones: %s", e, exc_info=True)
 
-        self.after(500, self.update_ui)
+    # ══════════════════════════════════════════════════════════════════════════
+    # ACCIONES
+    # ══════════════════════════════════════════════════════════════════════════
 
-    def _escalar(self, w, h):
-        return int(self.winfo_width() * w), int(self.winfo_height() * h)
-    
-    def _resize(self, event):
-        if event.widget != self:
+    def _accion_puerta_1(self):
+        estado = self.ui_service.get_estado_puerta(self._door_name)
+        if estado == "ABIERTO":
+            self.door_commands.close(self._door_name)
+        else:
+            self.door_commands.open(self._door_name)
+
+    def start_cycle(self):
+        logger.info("▶️ Iniciando ciclo...")
+        w = CycleWindow(self)
+        w.grab_set()
+
+    def apagar_equipo(self):
+        logger.info("⏻ Apagando equipo...")
+        self.withdraw()
+        win = tk.Toplevel(self)
+        win.attributes("-fullscreen", True)
+        win.configure(bg="#37596C")
+        win.wm_attributes("-alpha", 0.92)
+        ctk.CTkLabel(win, text="Apagando equipo...",
+                     font=("Segoe UI", 42, "bold"),
+                     bg_color="#37596C", fg_color="#37596C",
+                     text_color=CLR_W).pack(expand=True)
+
+        def _shutdown():
+            if self._on_shutdown:
+                self._on_shutdown()   # on_close() ya llama app.destroy()
+            else:
+                self.destroy()        # solo si no hay callback externo
+
+        win.after(3000, _shutdown)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # LOOP DE ACTUALIZACIÓN
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _update_ui(self):
+        if not hasattr(self, "_tick"):
+            self._tick = 0
+        self._tick += 1
+
+        self._upd_conexion()
+
+        if self.ui_service.connected:
+            try:
+                # cada 500 ms
+                self._upd_sensores()
+
+                # cada 1 s
+                if self._tick % 2 == 0:
+                    self._upd_ciclo_nombre()
+                    self._upd_params_ciclo()
+                    self._upd_panel_izquierdo()
+                    self._upd_listo()
+                    self._actualizar_imagen_puerta()
+
+            except Exception as e:
+                logger.warning("⚠️ Error UI loop: %s", e)
+
+        self.after(500, self._update_ui)
+
+    # ── helpers de actualización ──────────────────────────────────────────────
+
+    def _upd_conexion(self):
+        if self.ui_service.connected:
+            self._lbl_conexion.configure(text="🟢 Conectado",    fg="#7FFF7F")
+        else:
+            self._lbl_conexion.configure(text="🔴 Sin conexión", fg="#FF7F7F")
+
+    def _upd_ciclo_nombre(self):
+        nombre = self.ui_service.get_cycle_param("name")
+        if nombre and nombre != self.cycle_name:
+            self.cycle_name = nombre
+            self._lbl_ciclo_nombre.configure(text=self.cycle_name.upper())
+
+    def _upd_sensores(self):
+        def _f(v):
+            return f"{v:.1f}" if v is not None else "---"
+
+        t = self.ui_service.get_sensores_temp()
+        p = self.ui_service.get_sensores_pres()
+        self._val_temp_cam.configure(text=_f(t.get("temp_camara")))
+        self._val_temp_ref.configure(text=_f(t.get("temp_ref")))
+        self._val_pres_cam.configure(text=_f(p.get("pres_camara")))
+
+    def _upd_params_ciclo(self):
+        def _f(v):
+            if v == "---":
+                return "---"
+            return str(int(v)) if isinstance(v, float) and v == int(v) else str(v)
+
+        self._val_temp_ester.configure(  text=_f(self._cycle_param("temperatura_esterilizacion")))
+        self._val_tiempo_ester.configure(text=_f(self._cycle_param("tiempo_esterilizacion")))
+        self._val_tiempo_sec.configure(  text=_f(self._cycle_param("tiempo_secado")))
+
+    def _upd_panel_izquierdo(self):
+        # estado de máquina
+        estado = self.ui_service.get_estado_global()
+        self._lbl_estado.configure(text=estado.replace("_", " ").title())
+
+        conds = []
+
+        # puertas: solo cuando NO están cerradas
+        for nombre in ("Puerta 1", "Puerta 2"):
+            ep = self.ui_service.get_estado_puerta(nombre)
+            if ep and ep not in ("CERRADO", "DESCONOCIDO"):
+                conds.append(f"{nombre}: {ep.title()}")
+
+        # alarmas activas del sistema
+        for alarma in self.ui_service.get_alarmas()[:_MAX_COND]:
+            conds.append(f"⚠ {alarma.get('id', '')}")
+
+        # actualizar labels
+        for i, lbl in enumerate(self._lbl_cond):
+            lbl.configure(text=conds[i] if i < len(conds) else "")
+
+    def _upd_listo(self):
+        ok = self.ui_service.get_estado_flag("LISTO_PARA_CICLO")
+        self._boton_iniciar.configure(state="normal" if ok else "disabled")
+
+    def _actualizar_imagen_puerta(self):
+        if not hasattr(self, "_img_puerta_ab"):
             return
+        estado = self.ui_service.get_estado_puerta(self._door_name)
+        img = self._img_puerta_ce if estado == "CERRADO" else self._img_puerta_ab
+        self._boton_puerta.configure(image=img)
+        self._boton_puerta.update_idletasks()
 
-        # evitar recalcular demasiado
-        if hasattr(self, "_last_size"):
-            if self._last_size == (self.winfo_width(), self.winfo_height()):
-                return
+    # ══════════════════════════════════════════════════════════════════════════
+    # HELPERS
+    # ══════════════════════════════════════════════════════════════════════════
 
-        self._last_size = (self.winfo_width(), self.winfo_height())
-
-        self._cargar_imagenes()
-        
-        # refrescar botones
-        self.actualizar_puerta_uno()
-        self.actualizar_puerta_dos()
-        self.boton_iniciar.configure(image=self.img_start)
-
-    def _font(self, size):
-        base = min(self.winfo_width(), self.winfo_height())
-        escala = base / 720
-        return ("Segoe UI", int(size * escala), "bold")
+    def _cycle_param(self, param):
+        """Busca parámetro en estructura plana o anidada del ciclo."""
+        params = self.ui_service.get_cycle().get("parameters", {})
+        entry = params.get(param)
+        if isinstance(entry, dict) and "value" in entry:
+            return entry["value"]
+        for section in params.values():
+            if isinstance(section, dict):
+                entry = section.get(param)
+                if isinstance(entry, dict) and "value" in entry:
+                    return entry["value"]
+        return "---"

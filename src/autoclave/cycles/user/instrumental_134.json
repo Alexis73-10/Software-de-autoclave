@@ -18,7 +18,12 @@
             "temperatura_precalentamiento": { "value": 0, "type":"int", "unit": "°C", "min": 0, "max": 200 },
             "presion_precalentamiento": { "value": 300,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
             "timeout_precalentamiento": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
-
+        },
+        "esterilizacion": {
+            "temperatura_esterilizacion": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
+            "tiempo_esterilizacion":       { "value": 3.5,   "type": "float", "unit": "min", "min": 0, "max": 1000 },
+            "tiempo_secado":               { "value": 2.0,   "type": "float", "unit": "min", "min": 0, "max": 1000 },
+            "tipo_secado":                 { "value": 1,     "type": "int",   "unit": "",    "min": 1, "max": 4 }
         }
     }
 }

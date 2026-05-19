@@ -38,11 +38,19 @@ class ServicioPuertas:
         self.logger = logger
         self._last_states = {name: None for name in self.doors}
 
-        self.pres = self.estado.sensores_pres["pres_camara"]
-        self.temp = self.estado.sensores_temp["temp_camara"]
-        self.temp_max = self.config.get("temp_max_apertura")
+        # parámetros fijos de configuración (no cambian en runtime)
+        self.temp_max  = self.config.get("temp_max_apertura")
         self.press_atm = self.config.get("presion_admosferica")
         self.rango_atm = self.config.get("rango_presion_atm")
+
+    # ── lectura en vivo de sensores ──────────────────────────────────────────
+    @property
+    def pres(self):
+        return self.estado.sensores_pres.get("pres_camara")
+
+    @property
+    def temp(self):
+        return self.estado.sensores_temp.get("temp_camara")
 
 
     # ============================
@@ -123,17 +131,29 @@ class ServicioPuertas:
 
 
     def _can_open_physical(self, door_name):
-        if self.pres > self.press_atm + self.rango_atm:
-            self.logger.warning("No se puede abrir: sobrepresión en cámara")
-            return False
+        pres     = self.pres
+        temp     = self.temp
+        atm      = self.press_atm
+        rango    = self.rango_atm
+        temp_max = self.temp_max
 
-        if self.pres < self.press_atm - self.rango_atm:
-            self.logger.warning("No se puede abrir: cámara en vacío")
-            return False
+        # si los parámetros de config no están disponibles, permitir (modo degradado)
+        if atm is not None and rango is not None and pres is not None:
+            if pres > atm + rango:
+                self.logger.warning("No se puede abrir: sobrepresión en cámara (%.1f kPa)", pres)
+                return False
+            if pres < atm - rango:
+                self.logger.warning("No se puede abrir: cámara en vacío (%.1f kPa)", pres)
+                return False
+        else:
+            self.logger.debug("_can_open_physical: sensores de presión no disponibles, omitiendo verificación")
 
-        if self.temp > self.temp_max:
-            self.logger.warning("No se puede abrir: temperatura alta")
-            return False
+        if temp_max is not None and temp is not None:
+            if temp > temp_max:
+                self.logger.warning("No se puede abrir: temperatura alta (%.1f °C)", temp)
+                return False
+        else:
+            self.logger.debug("_can_open_physical: sensor de temperatura no disponible, omitiendo verificación")
 
         for name in self.doors:
             if name != door_name:
@@ -149,13 +169,18 @@ class ServicioPuertas:
         if state in (DoorState.CERRADO, DoorState.CERRANDO):
             return False
 
-        if self.pres > self.press_atm + self.rango_atm:
-            self.logger.warning("No se puede cerrar: cámara presurizada")
-            return False
+        pres  = self.pres
+        atm   = self.press_atm
+        rango = self.rango_atm
+
+        if atm is not None and rango is not None and pres is not None:
+            if pres > atm + rango:
+                self.logger.warning("No se puede cerrar: cámara presurizada (%.1f kPa)", pres)
+                return False
 
         pres_empaque = self.estado.sensores_pres.get(f"pres_empaque_{door_name}")
-        if pres_empaque is not None:
-            if pres_empaque > self.press_atm + self.rango_atm:
+        if pres_empaque is not None and atm is not None and rango is not None:
+            if pres_empaque > atm + rango:
                 self.logger.warning("No se puede cerrar: empaque presurizado")
                 return False
 

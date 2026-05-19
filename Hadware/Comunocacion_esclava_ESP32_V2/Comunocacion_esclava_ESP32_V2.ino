@@ -110,18 +110,31 @@ void procesarComando(String cmd) {
 }
 
 /* -------------------- ANALÓGICO ESCALONADO -------------------- */
+#define ADC_SAMPLES      8      // muestras promediadas por canal
+#define ADC_SETTLE_US  500      // µs de espera tras cambio de MUX
+#define ADC_MS_PER_CH   20      // ms entre canales (16 ch × 20 ms = 320 ms ciclo)
+
 void leerAnalogico() {
-  if (millis() - tAnalog < 5) return; // 1 canal cada 5 ms
+  if (millis() - tAnalog < ADC_MS_PER_CH) return;
   tAnalog = millis();
 
+  // 1. Cambiar canal del MUX
   uint16_t muxBits = ((analogChannel & 0x0F) << 8);
   pcf_mux.write16(muxBits);
-  analogValues[analogChannel] = analogRead(analogPin);
+
+  // 2. Esperar que el condensador S&H del ADC se estabilice
+  delayMicroseconds(ADC_SETTLE_US);
+
+  // 3. Promediar ADC_SAMPLES lecturas para reducir ruido térmico
+  uint32_t sum = 0;
+  for (int k = 0; k < ADC_SAMPLES; k++) {
+    sum += analogRead(analogPin);
+    delayMicroseconds(50);
+  }
+  analogValues[analogChannel] = (uint16_t)(sum / ADC_SAMPLES);
 
   analogChannel++;
-  if (analogChannel >= numAnalogInputs) {
-    analogChannel = 0;
-  }
+  if (analogChannel >= numAnalogInputs) analogChannel = 0;
 }
 
 /* -------------------- DIGITALES -------------------- */

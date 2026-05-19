@@ -3,7 +3,7 @@
 import uvicorn
 
 def main():
-    print("🔥 BACKEND INICIADO DESDE:", __file__)
+    print("BACKEND INICIADO DESDE:", __file__)
     uvicorn.run(
         "autoclave.backend.server:app",
         host="0.0.0.0",   # CRÍTICO: escucha en red
