@@ -3,6 +3,7 @@
 from typing import List, Dict
 from autoclave.config.schema import CalibrationConfig
 from collections import deque
+import statistics
 
 class MovingAverage:
     def __init__(self, size: int = 5):
@@ -13,14 +14,23 @@ class MovingAverage:
         self.buffer.append(value)
         mov= round((sum(self.buffer) / len(self.buffer)),2)
         return mov
+
+class MedianFilter:
+    def __init__(self, size: int = 5):
+        self.size = size
+        self.buffer = deque(maxlen=size)
+
+    def update(self, value: float) -> float:
+        self.buffer.append(value)
+        return round(statistics.median(self.buffer), 2)
 # ==============================
 # Estado interno de filtros
 # ==============================
 # Pipeline simplificado: raw → MA(pre-filter) → calibrar → EMA(suavizado)
 # Una sola etapa de MA y una sola EMA eliminan el lag del doble MA anterior.
 
-_ma_temp: List[MovingAverage] = [MovingAverage(5) for _ in range(8)]   # pre-filtro ligero
-_ma_pres: List[MovingAverage] = [MovingAverage(5) for _ in range(8)]   # pre-filtro ligero
+_ma_temp: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtro ligero
+_ma_pres: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtro ligero
 
 _prev_temp_values: List[float] = [None] * 8   # None = sin lectura inicial
 _prev_pres_values: List[float] = [None] * 8
@@ -28,8 +38,8 @@ _prev_pres_values: List[float] = [None] * 8
 # α = 0.1 → peso nuevo valor: 10 %, constante de tiempo ≈ 9 muestras
 # Para temperatura (cambios lentos) 0.1 es ideal.
 # Para presión (puede cambiar más rápido) usamos 0.15.
-TEMP_ALPHA = 0.1
-PRES_ALPHA = 0.15
+TEMP_ALPHA = 0.15
+PRES_ALPHA = 0.2
 
 
 # ==============================

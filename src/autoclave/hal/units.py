@@ -62,7 +62,8 @@ class Units:
             self._raw_ai = data.get("ai", self._raw_ai)
             self._raw_di = data.get("di", self._raw_di)
             self._raw_do = data.get("do", self._raw_do)
-            self._connected = data.get("connected", False)
+            # SerialLink no tiene clave "connected" — se deriva de port_open + data_alive
+            self._connected = data.get("port_open", False) and data.get("data_alive", False)
             self._last_update = data.get("last_update", datetime.now())
 
             # 🧮 Aplicar conversión con calibración

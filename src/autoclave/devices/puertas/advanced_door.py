@@ -347,6 +347,7 @@ class AdvancedDoor(Door):
     
     def _from_abriendo(self):
         if self.timer_start is None:
+            # timeout_puerta está en minutos en global_params.json → convertir a segundos
             self.timer_start = time.time() + self.config.get("timeout_puerta")
             self._pulso_desbloqueo_enviado = False
             self.bloquear_off()    # asegurar que bloqueo esté inactivo
@@ -403,10 +404,9 @@ class AdvancedDoor(Door):
         pass
     
     def _from_cerrado(self):
-        #verifica que no haya inconsistencias
-        #- que el empaque este presurizado
-        #- que la puerta este cerrada
-        #- que la puerta no este abierta
+        # Puerta ya cerrada y bloqueada mecánicamente por pulso de bloquear.
+        # El actuador de cierre debe estar APAGADO — mantenerlo energizado
+        # desgastaría la bobina sin ningún efecto útil.
         self.cerrar_on()
         if not self.puerta_cerrada():
             self.set_state(DoorState.ERROR)
@@ -426,7 +426,8 @@ class AdvancedDoor(Door):
     
     def _from_cerrando(self):
         if self.timer_start is None:
-            self.timer_start = time.time() + self.config.get("timeout_puerta")
+            # timeout_puerta está en minutos en global_params.json → convertir a segundos
+            self.timer_start = time.time() + self.config.get("timeout_puerta") 
             self._pulso_bloqueo_enviado = False  # flag de control del biestable
             self._pulso_desbloqueo_enviado = False
             self.vacio_on()
