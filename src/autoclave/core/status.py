@@ -6,7 +6,6 @@
     #se agregaran los estados de las (DI) entradas digitales
 from autoclave.devices.puertas.advanced_door import DoorState
 from autoclave.state_machine.machine.eum_global import GlobalState
-from matplotlib.pyplot import flag
 
 
 class EstadoAutoclave:
@@ -83,6 +82,7 @@ class EstadoAutoclave:
         "START_CICLO": 1,
         "FALLO_GENERAL": 2,
         "PARO_EMERGENCIA": 3,
+        "CICLO_CANCELADO": 4,
     }
 
     def __init__(self):
@@ -95,6 +95,8 @@ class EstadoAutoclave:
         self.estado_maquina = {k: GlobalState.PREPARACION for k in self.state_maquina}
         self.flags = {k: False for k in self._flags_map}
         self.Alarmas_activas = []
+        # Fase actual del ciclo (string legible para la UI)
+        self.fase_ciclo: str = ""
         
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

@@ -1,10 +1,10 @@
 
 
 class Hibernacion:
-    
-    def run():
+
+    def run(self):
         # Lógica específica para el estado de hibernación
-        print("El sistema está en estado de hibernación.")
-        
-hibernacion = Hibernacion()
-hibernacion_run = hibernacion.run
+        pass
+
+_hibernacion_instance = Hibernacion()
+hibernacion_run = _hibernacion_instance.run

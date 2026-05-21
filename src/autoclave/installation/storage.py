@@ -6,7 +6,12 @@ from datetime import datetime
 from .profile import InstallationProfile, Role
 
 
-INSTALLATION_FILE = Path("installation_profile.json")
+# __file__ = .../src/autoclave/installation/storage.py
+# parents[0] = .../src/autoclave/installation/
+# parents[1] = .../src/autoclave/
+# parents[2] = .../src/
+# parents[3] = proyecto raíz (donde vive installation_profile.json)
+INSTALLATION_FILE = Path(__file__).resolve().parents[3] / "installation_profile.json"
 
 
 def exists() -> bool:

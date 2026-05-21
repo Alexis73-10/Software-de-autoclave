@@ -36,7 +36,7 @@ def get_status():
     sensors = {
         "temperature": {
             "camara": estado.sensores_temp.get("temp_camara"),
-            "camara_2": estado.sensores_temp.get("temp_camara_2"),
+            "camara_2": estado.sensores_temp.get("temp_2_camara"),
             "ref": estado.sensores_temp.get("temp_ref"),
             "chaqueta": estado.sensores_temp.get("temp_chaqueta"),
             "drenaje": estado.sensores_temp.get("temp_drenaje"),
@@ -73,6 +73,7 @@ def get_status():
     # ------------------------------
     return {
         "machine_state": machine_state,
+        "fase_ciclo": getattr(estado, "fase_ciclo", ""),
         "doors": doors,
         "sensors": sensors,
         "alarms": alarms,
@@ -95,6 +96,119 @@ def get_selected_cycle():
         "name": cycle.name,
         "parameters": cycle.parameters
     }
+
+@app.get("/cycle/current/readings")
+def get_current_cycle_readings():
+    """
+    Retorna todas las lecturas del ciclo activo (para la gráfica en vivo).
+    Si no hay ciclo activo retorna lista vacía.
+    """
+    logger_svc = context.cycle_logger
+    ciclo_id   = logger_svc.ciclo_id if logger_svc else None
+
+    if ciclo_id is None:
+        return {"ciclo_id": None, "lecturas": []}
+
+    rows = context.db.get_lecturas_ciclo(ciclo_id)
+    return {
+        "ciclo_id": ciclo_id,
+        "lecturas": [
+            {
+                "timestamp_rel": r["timestamp_rel"],
+                "timestamp_abs": r["timestamp_abs"],
+                "fase_codigo":   r["fase_codigo"],
+                "temp_camara":   r["temp_camara"],
+                "pres_camara":   r["pres_camara"],
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.get("/cycle/history")
+def get_cycle_history(limite: int = 50):
+    """Lista de ciclos registrados (más recientes primero)."""
+    rows = context.db.get_ciclos_recientes(limite)
+    return [
+        {
+            "id":            r["id"],
+            "numero_ciclo":  r["numero_ciclo"],
+            "fecha_inicio":  r["fecha_inicio"],
+            "fecha_fin":     r["fecha_fin"],
+            "nombre_ciclo":  r["nombre_ciclo"],
+            "resultado":     r["resultado"],
+        }
+        for r in rows
+    ]
+
+
+@app.get("/cycle/history/{ciclo_id}/readings")
+def get_cycle_readings(ciclo_id: int):
+    """Todas las lecturas de un ciclo histórico."""
+    ciclo = context.db.get_ciclo(ciclo_id)
+    if ciclo is None:
+        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+
+    rows = context.db.get_lecturas_ciclo(ciclo_id)
+    return {
+        "ciclo": dict(ciclo),
+        "lecturas": [dict(r) for r in rows],
+    }
+
+
+@app.get("/cycle/history/{ciclo_id}/ticket")
+def get_cycle_ticket(ciclo_id: int):
+    """Lecturas marcadas para_imprimir (formato ticket)."""
+    ciclo = context.db.get_ciclo(ciclo_id)
+    if ciclo is None:
+        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+
+    rows = context.db.get_lecturas_para_imprimir(ciclo_id)
+    return {
+        "ciclo":    dict(ciclo),
+        "lecturas": [dict(r) for r in rows],
+    }
+
+
+@app.post("/cycle/start")
+def start_cycle():
+    """
+    Solicita el inicio del ciclo de esterilización.
+    Sólo tiene efecto cuando el sistema está en estado PREPARADO y
+    la flag LISTO_PARA_CICLO es True.  La máquina de estados gestiona
+    la transición real.
+    """
+    estado = context.estado
+
+    if not estado.get_flag("LISTO_PARA_CICLO"):
+        raise HTTPException(
+            status_code=409,
+            detail="El sistema no está listo para iniciar un ciclo"
+        )
+
+    estado.set_flag("START_CICLO", True)
+    return {"ok": True, "action": "START_CICLO"}
+
+
+@app.post("/cycle/abort")
+def abort_cycle():
+    """
+    Solicita el aborto del ciclo en curso.
+    Activa la flag CICLO_CANCELADO; el CicloState ejecutará el
+    protocolo de fallo en el siguiente tick del control loop.
+    """
+    estado = context.estado
+
+    from autoclave.state_machine.machine.eum_global import GlobalState
+    if estado.get_machine_state() != GlobalState.CICLO:
+        raise HTTPException(
+            status_code=409,
+            detail="No hay un ciclo en curso"
+        )
+
+    estado.set_flag("CICLO_CANCELADO", True)
+    return {"ok": True, "action": "CICLO_CANCELADO"}
+
 
 @app.post("/doors/{door_name}/open")
 def open_door(door_name: str, body: dict = Body(...)):

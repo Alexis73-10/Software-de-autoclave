@@ -11,9 +11,10 @@ from autoclave.services.domain.loop.control_loop import ControlLoop
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.core.cycle_manager import CycleManager
 from autoclave.core.config_manager import ConfigManager
+from autoclave.services.domain.logging.db_manager import DbManager
+from autoclave.services.domain.logging.cycle_logger import CycleLogger
 
-
-import logging 
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +64,16 @@ class BackendContext:
             config = self.config_manager
         )
 
+        # Data logger (SQLite)
+        self.db          = DbManager()
+        self.cycle_logger = CycleLogger(
+            db            = self.db,
+            estado        = self.estado,
+            config        = self.config_manager,
+            profile       = self.profile,
+            cycle_manager = self.cycle_manager,
+        )
+
         self.control_loop = ControlLoop(
             units=self.units,
             door_service=self.servicio_puertas,
@@ -72,6 +83,7 @@ class BackendContext:
             set_do=self.setdo,
             alarm_manager=self.alarm_manager,
             cycle_manager=self.cycle_manager,
-            config_manager=self.config_manager
+            config_manager=self.config_manager,
+            cycle_logger=self.cycle_logger,
         )
         self.control_loop.start()

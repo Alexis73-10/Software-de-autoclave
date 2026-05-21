@@ -1,9 +1,10 @@
 from autoclave.hal.units import Units
 from autoclave.protocols.serial_link import SerialLink
+from autoclave.utils.resources import resource_path
 
 
 def build_hardware():
-    units = Units("src/autoclave/config/calibration.yaml")
+    units = Units(resource_path("autoclave/config/calibration.yaml"))
 
     serial = SerialLink(
         on_update=lambda data: units.update_from_serial(data)

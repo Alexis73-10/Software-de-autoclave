@@ -14,11 +14,12 @@ class UIServiceBackend:
     """
 
     def __init__(self, backend_client, interval: float = 0.5):
-        self.backend = backend_client
-        self._lock = threading.Lock()
-        self._cache  = {}
-        self._config = {}
-        self._cycle  = {}
+        self.backend   = backend_client
+        self._interval = interval          # antes nunca se asignaba → hasattr siempre False
+        self._lock     = threading.Lock()
+        self._cache    = {}
+        self._config   = {}
+        self._cycle    = {}
         self.connected = False
 
         # Hilo de actualización en segundo plano
@@ -146,3 +147,59 @@ class UIServiceBackend:
     def get_cycle_param(self, param):
         with self._lock:
             return self._cycle.get(param)
+
+    # ==============================
+    # FASE CICLO
+    # ==============================
+
+    def get_fase_ciclo(self) -> str:
+        """Retorna la fase activa del ciclo ('PRECALENTAMIENTO', 'ESTERILIZACION', etc.)."""
+        with self._lock:
+            return self._cache.get("fase_ciclo", "")
+
+    # ==============================
+    # SENSORES EXTENDIDOS
+    # ==============================
+
+    def get_temp_camara_2(self):
+        """Retorna la temperatura del segundo sensor de cámara."""
+        with self._lock:
+            return self._cache.get("sensors", {}).get("temperature", {}).get("camara_2")
+
+    # ==============================
+    # LECTURAS EN VIVO (gráfica)
+    # ==============================
+
+    def get_current_cycle_readings(self) -> dict:
+        """
+        Llama al endpoint /cycle/current/readings y retorna el dict
+        con ciclo_id + lista de lecturas.
+        Devuelve {} si falla.
+        """
+        try:
+            return self.backend.get(path="/cycle/current/readings")
+        except Exception as e:
+            logger.debug("get_current_cycle_readings: %s", e)
+            return {}
+
+    # ==============================
+    # ACCIONES DE CICLO
+    # ==============================
+
+    def start_cycle(self) -> bool:
+        """Envía POST /cycle/start. Retorna True si tuvo éxito."""
+        try:
+            self.backend.post(path="/cycle/start")
+            return True
+        except Exception as e:
+            logger.warning("start_cycle error: %s", e)
+            return False
+
+    def abort_cycle(self) -> bool:
+        """Envía POST /cycle/abort. Retorna True si tuvo éxito."""
+        try:
+            self.backend.post(path="/cycle/abort")
+            return True
+        except Exception as e:
+            logger.warning("abort_cycle error: %s", e)
+            return False

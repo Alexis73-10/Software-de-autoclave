@@ -20,6 +20,41 @@
             "presion_precalentamiento": { "value": 300,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
             "timeout_precalentamiento": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
         },
+        "purga": {
+            "tiempo_purga": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },
+            "presion_purga": { "value": 300,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
+            "timeout_purga": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
+        },
+        "prevacio": {
+            "conteo_pulso_a": { "value": 4, "unit": "", "min": 0, "max": 100 },
+            "presion_alta_pulso_a": { "value": 90, "unit": "kPa", "min": 0, "max": 1000 },
+            "presion_baja_pulso_a": { "value": 20, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_pulso_a": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+
+            "conteo_pulso_b": { "value": 4, "unit": "", "min": 0, "max": 100 },
+            "presion_alta_pulso_b": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+            "presion_baja_pulso_b": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_pulso_b": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+
+            "conteo_pulso_c": { "value": 0, "unit": "", "min": 0, "max": 100 },
+            "presion_alta_pulso_c": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+            "presion_baja_pulso_c": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_pulso_c": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+
+            "conteo_pulso_d": { "value": 0, "unit": "", "min": 0, "max": 100 },
+            "presion_alta_pulso_d": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+            "presion_baja_pulso_d": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_pulso_d": { "value": 3, "unit": "sec", "min": 0, "max": 3600 }
+        },
+
+        "calentamiento": { 
+            "temperatura_calentamiento": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
+            "tasa_calentamiento": { "value": 5.0, "type": "float", "unit": "°C/min", "min": 0.1, "max": 20 },
+            "timeout_calentamiento": { "value": 60, "type":"int", "unit": "min", "min": 0, "max": 3600 },
+            "presion_add_calentamiento": { "value": 9, "type":"int", "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_estable_preesterilizacion": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 }
+        },
+
         "esterilizacion": {
             "temperatura_esterilizacion": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
             "tiempo_esterilizacion":       { "value": 3.5,   "type": "float", "unit": "min", "min": 0, "max": 1000 },

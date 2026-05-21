@@ -95,13 +95,18 @@ class ServicioPuertas:
     # ============================
     # REGLAS Y POLÍTICAS
     # ============================
+
+    def can(self, permission: str) -> bool:
+        """Consulta si el rol actual tiene el permiso indicado."""
+        role_perms = PERMISSIONS.get(self.profile.role, {})
+        return role_perms.get(permission, False)
+
     def can_open(self, door_name):
         if not self.can_open_from_context(door_name):
             self.logger.warning(
                 f"Apertura no permitida desde puerta {self.profile.door_id}"
             )
             return False
-
         return self._can_open_physical(door_name)
 
     def can_close(self, door_name):
@@ -110,23 +115,16 @@ class ServicioPuertas:
                 f"Cierre no permitido desde puerta {self.profile.door_id}"
             )
             return False
-
         return self._can_close_physical(door_name)
-    
+
     def can_open_from_context(self, door_name) -> bool:
-    # ¿es mi puerta?
         if door_name != self.profile.door_id:
             return self.can("open_other_door")
-
         return self.can("open_own_door")
 
-
     def can_close_from_context(self, door_name) -> bool:
-        # normalmente cerrar es menos restrictivo,
-        # pero dejamos el hook por consistencia
         if door_name != self.profile.door_id:
             return self.can("open_other_door")
-
         return True
 
 
@@ -178,7 +176,9 @@ class ServicioPuertas:
                 self.logger.warning("No se puede cerrar: cámara presurizada (%.1f kPa)", pres)
                 return False
 
-        pres_empaque = self.estado.sensores_pres.get(f"pres_empaque_{door_name}")
+        # door_name es "Puerta 1" / "Puerta 2" → clave en mapa es "pres_empaque_1" / "pres_empaque_2"
+        door_num     = door_name.split()[-1]
+        pres_empaque = self.estado.sensores_pres.get(f"pres_empaque_{door_num}")
         if pres_empaque is not None and atm is not None and rango is not None:
             if pres_empaque > atm + rango:
                 self.logger.warning("No se puede cerrar: empaque presurizado")
