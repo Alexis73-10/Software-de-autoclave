@@ -27,6 +27,11 @@ unsigned long tAnalog = 0;
 unsigned long tIO = 0;
 unsigned long tPublish = 0;
 
+/* -------------------- WATCHDOG CONEXIÓN -------------------- */
+unsigned long tLastRx       = 0;
+bool          wdActivo      = false;
+const unsigned long WD_TIMEOUT_MS = 5000; // 5 s sin datos => ALL_OFF
+
 /* -------------------- SERIAL -------------------- */
 String serialBuffer = "";
 
@@ -52,6 +57,7 @@ void loop() {
   leerAnalogico();       // PRIORIDAD 2
   leerDigital();         // PRIORIDAD 3
   publicarEstados();     // PRIORIDAD 4
+  verificarWatchdog();   // PRIORIDAD 5
 }
 
 /* -------------------- SERIAL NO BLOQUEANTE -------------------- */
@@ -67,12 +73,31 @@ void leerSerial() {
   }
 }
 
+/* -------------------- WATCHDOG -------------------- */
+void verificarWatchdog() {
+  if (!wdActivo) return;
+  if (millis() - tLastRx > WD_TIMEOUT_MS) {
+    estadoOut1 = 0xFFFF;
+    estadoOut2 = 0xFFFF;
+    pcf_out_1.write16(estadoOut1);
+    pcf_out_2.write16(estadoOut2);
+    wdActivo = false;
+    Serial.println("WD: ALL_OFF");
+  }
+}
+
 /* -------------------- COMANDOS -------------------- */
 void procesarComando(String cmd) {
   cmd.trim();
   cmd.toUpperCase();
 
+  // Cualquier comando recibido resetea el watchdog
+  tLastRx  = millis();
+  wdActivo = true;
+
   Serial.println("ACK"); // respuesta inmediata
+
+  if (cmd == "HB") return; // heartbeat — solo mantiene la conexión viva
 
   if (cmd == "ALL_OFF") {
     estadoOut1 = 0xFFFF;
