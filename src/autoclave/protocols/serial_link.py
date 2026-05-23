@@ -27,7 +27,8 @@ from autoclave.utils.logging import logger
 
 
 class SerialLink:
-    DATA_TIMEOUT = 3.0  # segundos sin datos => comunicación caída
+    DATA_TIMEOUT       = 3.0  # segundos sin datos => comunicación caída
+    HEARTBEAT_INTERVAL = 2.0  # segundos entre HB enviados al ESP32
 
     def __init__(
         self,
@@ -161,10 +162,19 @@ class SerialLink:
                 self._disconnect()
 
     def _watchdog_loop(self):
+        last_hb = 0.0
+        last_scan = 0.0
         while self.running:
+            now = time.time()
             if not self.data["port_open"]:
-                self._connect()
-            time.sleep(self.scan_interval)
+                if now - last_scan >= self.scan_interval:
+                    self._connect()
+                    last_scan = now
+            else:
+                if now - last_hb >= self.HEARTBEAT_INTERVAL:
+                    self._send_raw("HB\n")
+                    last_hb = now
+            time.sleep(0.5)
 
     def _check_timeout(self):
         with self.data_lock:

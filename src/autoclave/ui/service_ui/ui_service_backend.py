@@ -13,9 +13,13 @@ class UIServiceBackend:
     el hilo principal de Tkinter.
     """
 
-    def __init__(self, backend_client, interval: float = 0.5):
+    # Intervalo de polling para /status (sensores en tiempo real)
+    _STATUS_INTERVAL = 0.2   # 200 ms
+    # /global_params y /cycle cambian raramente; se refrescan cada N ciclos de status
+    _STATIC_EVERY    = 25    # cada 25 × 200 ms = 5 s
+
+    def __init__(self, backend_client):
         self.backend   = backend_client
-        self._interval = interval          # antes nunca se asignaba → hasattr siempre False
         self._lock     = threading.Lock()
         self._cache    = {}
         self._config   = {}
@@ -23,7 +27,7 @@ class UIServiceBackend:
         self.connected = False
 
         # Hilo de actualización en segundo plano
-        self._stop = threading.Event()
+        self._stop   = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
@@ -32,24 +36,36 @@ class UIServiceBackend:
     # ==============================
 
     def _loop(self):
+        _counter = 0
         while not self._stop.is_set():
-            self._fetch()
-            self._stop.wait(self._interval if hasattr(self, "_interval") else 0.5)
+            self._fetch_status()
+            if _counter == 0:
+                self._fetch_static()
+            _counter = (_counter + 1) % self._STATIC_EVERY
+            self._stop.wait(self._STATUS_INTERVAL)
 
-    def _fetch(self):
+    def _fetch_status(self):
+        """Obtiene /status (sensores, estado, fases) — alta frecuencia."""
         try:
-            cache  = self.backend.get_status()
-            config = self.backend.get_config()
-            cycle  = self.backend.get_cycle()
+            cache = self.backend.get_status()
             with self._lock:
-                self._cache  = cache
-                self._config = config
-                self._cycle  = cycle
+                self._cache    = cache
                 self.connected = True
         except Exception as e:
             with self._lock:
                 self.connected = False
             logger.warning("⚠️ Backend no disponible: %s", e)
+
+    def _fetch_static(self):
+        """Obtiene /global_params y /cycle — baja frecuencia."""
+        try:
+            config = self.backend.get_config()
+            cycle  = self.backend.get_cycle()
+            with self._lock:
+                self._config = config
+                self._cycle  = cycle
+        except Exception as e:
+            logger.debug("_fetch_static error: %s", e)
 
     def update(self):
         """Compatibilidad: el hilo de fondo ya actualiza el cache."""
@@ -133,8 +149,16 @@ class UIServiceBackend:
             return dict(self._config)
 
     def get_config_param(self, name):
+        """
+        Retorna el valor del parámetro global.
+        Desenvuelve automáticamente la estructura {"value": x, "type": ...}
+        que devuelve el endpoint /global_params.
+        """
         with self._lock:
-            return self._config.get(name)
+            val = self._config.get(name)
+        if isinstance(val, dict) and "value" in val:
+            return val["value"]
+        return val
 
     # ==============================
     # CICLO ACTUAL
@@ -156,6 +180,11 @@ class UIServiceBackend:
         """Retorna la fase activa del ciclo ('PRECALENTAMIENTO', 'ESTERILIZACION', etc.)."""
         with self._lock:
             return self._cache.get("fase_ciclo", "")
+
+    def get_fase_en_sostenimiento(self) -> bool:
+        """True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento."""
+        with self._lock:
+            return bool(self._cache.get("fase_en_sostenimiento", False))
 
     # ==============================
     # SENSORES EXTENDIDOS
@@ -202,4 +231,31 @@ class UIServiceBackend:
             return True
         except Exception as e:
             logger.warning("abort_cycle error: %s", e)
+            return False
+
+    def acknowledge_cycle(self) -> bool:
+        """Envía POST /cycle/acknowledge. Retorna True si tuvo éxito."""
+        try:
+            self.backend.post(path="/cycle/acknowledge")
+            return True
+        except Exception as e:
+            logger.warning("acknowledge_cycle error: %s", e)
+            return False
+
+    def reset_fault(self) -> bool:
+        """Envía POST /fault/reset para salir del estado FALLA. Retorna True si tuvo éxito."""
+        try:
+            self.backend.post(path="/fault/reset")
+            return True
+        except Exception as e:
+            logger.warning("reset_fault error: %s", e)
+            return False
+
+    def reset_outputs(self) -> bool:
+        """Apaga todas las salidas digitales. Llamar al cerrar la aplicación."""
+        try:
+            self.backend.post(path="/outputs/reset")
+            return True
+        except Exception as e:
+            logger.warning("reset_outputs error: %s", e)
             return False

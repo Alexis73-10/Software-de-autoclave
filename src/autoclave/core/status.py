@@ -78,11 +78,13 @@ class EstadoAutoclave:
     }
     
     _flags_map = {
-        "LISTO_PARA_CICLO": 0,
-        "START_CICLO": 1,
-        "FALLO_GENERAL": 2,
-        "PARO_EMERGENCIA": 3,
-        "CICLO_CANCELADO": 4,
+        "LISTO_PARA_CICLO":   0,
+        "START_CICLO":        1,
+        "FALLO_GENERAL":      2,
+        "PARO_EMERGENCIA":    3,
+        "CICLO_CANCELADO":    4,
+        "CICLO_CONFIRMADO":   5,   # operador confirmó la visualización del resultado
+        "RESET_FALLA":        6,   # operador solicitó salir del estado FALLA
     }
 
     def __init__(self):
@@ -97,6 +99,8 @@ class EstadoAutoclave:
         self.Alarmas_activas = []
         # Fase actual del ciclo (string legible para la UI)
         self.fase_ciclo: str = ""
+        # True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento
+        self.fase_en_sostenimiento: bool = False
         
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

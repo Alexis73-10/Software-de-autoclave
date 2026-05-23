@@ -8,6 +8,7 @@ from PIL import ImageTk
 import logging
 
 from autoclave.ui.cycle.cycle_window import CycleWindow
+
 from autoclave.utils.resources import resource_path
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,10 @@ class InterfazPrincipal(tk.Tk):
         self.update_idletasks()                               # forzar render antes de medir pantalla
 
         # ── estado interno ────────────────────────────────────────────────────
-        self.cycle_name = self.ui_service.get_cycle_param("name") or "Cargando..."
+        self.cycle_name        = self.ui_service.get_cycle_param("name") or "Cargando..."
+        self._prev_machine_state = ""
+        self._cycle_win          = None
+        self._toast_widget       = None
 
         # ── construir UI ──────────────────────────────────────────────────────
         self._build_header()
@@ -178,6 +182,19 @@ class InterfazPrincipal(tk.Tk):
         self._boton_iniciar.place(relx=0.79, rely=0.76, relwidth=0.16, relheight=0.21)
         self._inicio_habilitado = False
 
+        # ── Botón RESET FALLA (oculto hasta entrar en estado FALLA) ───
+        self._btn_reset_falla = ctk.CTkButton(
+            pnl,
+            text="RECONOCER\nFALLA",
+            font=("Segoe UI", 14, "bold"),
+            fg_color="#c0392b",
+            hover_color="#922b21",
+            text_color=CLR_W,
+            corner_radius=14,
+            command=self._do_reset_falla,
+        )
+        # Se posiciona al entrar en FALLA; oculto por defecto
+
     def _pill(self, parent, label, value, unit, relx, rely, relwidth, relheight):
         """
         Pill oscura con:  [ Label ·····  valor  unidad ]
@@ -294,17 +311,55 @@ class InterfazPrincipal(tk.Tk):
     def _accion_puerta_1(self):
         estado = self.ui_service.get_estado_puerta(self._door_name)
         if estado == "ABIERTO":
-            self.door_commands.close(self._door_name)
+            ok, motivo = self.door_commands.close(self._door_name)
         else:
-            self.door_commands.open(self._door_name)
+            ok, motivo = self.door_commands.open(self._door_name)
+
+        if not ok and motivo:
+            self._mostrar_toast(motivo)
 
     def start_cycle(self):
         logger.info("▶️ Iniciando ciclo...")
-        w = CycleWindow(self)
-        w.grab_set()
+        if not self.ui_service.start_cycle():
+            logger.warning("Backend rechazó el inicio del ciclo")
+            return
+        self._open_cycle_window()
+
+    def _open_cycle_window(self):
+        """Abre la CycleWindow si no hay una ya abierta."""
+        if self._cycle_win is not None:
+            try:
+                if self._cycle_win.winfo_exists():
+                    return   # ya está abierta
+            except tk.TclError:
+                pass
+
+        def _on_cycle_win_close():
+            """Callback: la CycleWindow se cerró — limpiar referencia."""
+            self._cycle_win = None
+
+        self._cycle_win = CycleWindow(
+            parent     = self,
+            ui_service = self.ui_service,
+            door_name  = self._door_name,
+            on_close   = _on_cycle_win_close,
+        )
+
+    def _do_reset_falla(self):
+        logger.info("Operador reconoció la falla — enviando RESET_FALLA")
+        if not self.ui_service.reset_fault():
+            logger.warning("Backend rechazó el reset de falla")
 
     def apagar_equipo(self):
         logger.info("⏻ Apagando equipo...")
+
+        # Apagar todas las salidas ANTES de la pantalla de apagado
+        try:
+            self.ui_service.reset_outputs()
+            logger.info("Salidas digitales apagadas")
+        except Exception as e:
+            logger.warning("No se pudieron apagar las salidas: %s", e)
+
         self.withdraw()
         win = tk.Toplevel(self)
         win.attributes("-fullscreen", True)
@@ -346,6 +401,13 @@ class InterfazPrincipal(tk.Tk):
                     self._upd_panel_izquierdo()
                     self._upd_listo()
                     self._actualizar_imagen_puerta()
+
+                    # Auto-abrir CycleWindow solo al ENTRAR en estado CICLO
+                    # (no en cada tick; evita reabrir después de confirmar fin de ciclo)
+                    estado_actual = self.ui_service.get_estado_global()
+                    if estado_actual == "CICLO" and self._prev_machine_state != "CICLO":
+                        self._open_cycle_window()
+                    self._prev_machine_state = estado_actual
 
             except Exception as e:
                 logger.warning("⚠️ Error UI loop: %s", e)
@@ -401,15 +463,35 @@ class InterfazPrincipal(tk.Tk):
 
         # alarmas activas del sistema
         for alarma in self.ui_service.get_alarmas()[:_MAX_COND]:
-            conds.append(f"⚠ {alarma.get('id', '')}")
+            alarm_id = alarma.get("id", "")
+            legible  = alarm_id.replace("_", " ").title()
+            conds.append(f"⚠ {legible}")
 
         # actualizar labels
         for i, lbl in enumerate(self._lbl_cond):
             lbl.configure(text=conds[i] if i < len(conds) else "")
 
+        # mostrar / ocultar botón de reset según estado FALLA
+        en_falla = (estado == "FALLA")
+        if en_falla:
+            self._boton_iniciar.place_forget()
+            self._btn_reset_falla.place(relx=0.30, rely=0.76, relwidth=0.65, relheight=0.21)
+        else:
+            self._btn_reset_falla.place_forget()
+            self._boton_iniciar.place(relx=0.79, rely=0.76, relwidth=0.16, relheight=0.21)
+
     def _upd_listo(self):
-        ok = self.ui_service.get_estado_flag("LISTO_PARA_CICLO")
-        self._boton_iniciar.configure(state="normal" if ok else "disabled")
+        ok = bool(self.ui_service.get_estado_flag("LISTO_PARA_CICLO"))
+        if ok == self._inicio_habilitado:
+            return   # sin cambio
+
+        self._inicio_habilitado = ok
+        if ok:
+            self._boton_iniciar.bind("<Button-1>", lambda e: self.start_cycle())
+            self._boton_iniciar.configure(cursor="hand2")
+        else:
+            self._boton_iniciar.unbind("<Button-1>")
+            self._boton_iniciar.configure(cursor="")
 
     def _actualizar_imagen_puerta(self):
         if not hasattr(self, "_img_puerta_ab"):
@@ -418,6 +500,80 @@ class InterfazPrincipal(tk.Tk):
         img = self._img_puerta_ce if estado == "CERRADO" else self._img_puerta_ab
         self._boton_puerta.configure(image=img)
         self._boton_puerta.update_idletasks()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # NOTIFICACIÓN DE ERROR — overlay centrado con botón confirmar
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _mostrar_toast(self, mensaje: str):
+        """
+        Muestra un overlay centrado con el motivo del rechazo y un botón
+        "Aceptar" para cerrarlo.  Si ya hay uno visible, lo reemplaza.
+        """
+        # Destruir overlay anterior si existe
+        if getattr(self, "_toast_widget", None):
+            try:
+                self._toast_widget.destroy()
+            except tk.TclError:
+                pass
+            self._toast_widget = None
+
+        # Tarjeta flotante centrada (sin fondo oscuro)
+        card = tk.Frame(
+            self,
+            bg="#c0392b",
+            highlightbackground="#7b0d0d",
+            highlightthickness=2,
+        )
+        card.place(relx=0.5, rely=0.5, anchor="center",
+                   relwidth=0.40, relheight=0.26)
+        card.lift()
+
+        # Icono + título
+        tk.Label(
+            card,
+            text="⚠  Acción no permitida",
+            font=("Segoe UI", 15, "bold"),
+            bg="#c0392b",
+            fg="white",
+        ).pack(pady=(18, 6))
+
+        # Mensaje de motivo
+        tk.Label(
+            card,
+            text=mensaje,
+            font=("Segoe UI", 13),
+            bg="#c0392b",
+            fg="white",
+            wraplength=380,
+            justify="center",
+        ).pack(pady=(0, 16), padx=20)
+
+        # Botón Aceptar
+        def _cerrar():
+            try:
+                card.destroy()
+            except tk.TclError:
+                pass
+            if self._toast_widget is card:
+                self._toast_widget = None
+
+        tk.Button(
+            card,
+            text="Aceptar",
+            font=("Segoe UI", 13, "bold"),
+            bg="white",
+            fg="#c0392b",
+            activebackground="#f0f0f0",
+            activeforeground="#c0392b",
+            relief="flat",
+            cursor="hand2",
+            padx=24,
+            pady=6,
+            command=_cerrar,
+        ).pack()
+
+        self._toast_widget = card
 
     # ══════════════════════════════════════════════════════════════════════════
     # HELPERS

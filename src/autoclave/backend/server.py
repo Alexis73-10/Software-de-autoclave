@@ -2,8 +2,11 @@
 
 
 
+import logging
 from fastapi import HTTPException, FastAPI, Body
 from autoclave.backend.context import BackendContext
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Autoclave Backend")
 
@@ -72,11 +75,12 @@ def get_status():
     # RESPUESTA FINAL (DTO)
     # ------------------------------
     return {
-        "machine_state": machine_state,
-        "fase_ciclo": getattr(estado, "fase_ciclo", ""),
-        "doors": doors,
+        "machine_state":        machine_state,
+        "fase_ciclo":           getattr(estado, "fase_ciclo", ""),
+        "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
+        "doors":   doors,
         "sensors": sensors,
-        "alarms": alarms,
+        "alarms":  alarms,
     }
 
 @app.get("/global_params")
@@ -210,14 +214,63 @@ def abort_cycle():
     return {"ok": True, "action": "CICLO_CANCELADO"}
 
 
+@app.post("/fault/reset")
+def reset_fault():
+    """Reconoce el estado de falla y solicita retornar a PREPARACION."""
+    if context.estado.get_machine_state().name != "FALLA":
+        raise HTTPException(
+            status_code=409,
+            detail="El sistema no está en estado de falla"
+        )
+    context.estado.set_flag("RESET_FALLA", True)
+    return {"ok": True, "action": "RESET_FALLA"}
+
+
+@app.post("/outputs/reset")
+def reset_outputs():
+    """
+    Apaga todas las salidas digitales.
+    Llamar antes de cerrar la aplicación o ante cualquier apagado seguro.
+    """
+    try:
+        context.control_loop.stop()   # evita que el loop re-active salidas durante el reset
+        context.setdo.reset_all_outputs()
+        logger.info("outputs/reset: todas las salidas apagadas")
+        return {"ok": True}
+    except Exception as e:
+        logger.error("outputs/reset error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/cycle/acknowledge")
+def acknowledge_cycle():
+    """
+    El operador confirmó que vio el resultado del ciclo.
+    Activa CICLO_CONFIRMADO para que CicloState libere la transición.
+    Solo tiene efecto mientras el estado sea CICLO (esperando confirmación).
+    """
+    estado = context.estado
+
+    from autoclave.state_machine.machine.eum_global import GlobalState
+    if estado.get_machine_state() != GlobalState.CICLO:
+        raise HTTPException(
+            status_code=409,
+            detail="No hay un ciclo esperando confirmación"
+        )
+
+    estado.set_flag("CICLO_CONFIRMADO", True)
+    return {"ok": True, "action": "CICLO_CONFIRMADO"}
+
+
 @app.post("/doors/{door_name}/open")
 def open_door(door_name: str, body: dict = Body(...)):
     source_door = body.get("source_door")
 
-    if not context.servicio_puertas.request_open(door_name):
+    ok, reason = context.servicio_puertas.request_open(door_name)
+    if not ok:
         raise HTTPException(
             status_code=403,
-            detail="Apertura de puerta no permitida"
+            detail=reason or "Apertura de puerta no permitida"
         )
 
     return {
@@ -232,10 +285,11 @@ def open_door(door_name: str, body: dict = Body(...)):
 def close_door(door_name: str, body: dict = Body(...)):
     source_door = body.get("source_door")
 
-    if not context.servicio_puertas.request_close(door_name):
+    ok, reason = context.servicio_puertas.request_close(door_name)
+    if not ok:
         raise HTTPException(
             status_code=403,
-            detail="Cierre de puerta no permitido"
+            detail=reason or "Cierre de puerta no permitido"
         )
 
     return {

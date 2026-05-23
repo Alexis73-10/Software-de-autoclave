@@ -2,7 +2,7 @@ from autoclave.state_machine.machine.eum_global import GlobalState
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState
-from autoclave.state_machine.states.falla import falla_run
+from autoclave.state_machine.states.falla import FallaState
 from autoclave.state_machine.states.emergencia import emergencia_run
 from autoclave.state_machine.states.hibernacion import hibernacion_run
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
@@ -24,6 +24,7 @@ class StateMachine:
         self.preparacion = preparacion_state(self.alarm_manager, estado, set_do, cycle, config)
         self.preparado   = preparado_state(self.alarm_manager, estado, set_do, cycle, config)
         self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager)
+        self.falla       = FallaState(estado)
 
         self.prev_state  = None
 
@@ -37,7 +38,8 @@ class StateMachine:
 
         elif state == GlobalState.CICLO:
             # Limpiar flags de ciclo anteriores y arrancar el pipeline
-            self.estado.set_flag("CICLO_CANCELADO", False)
+            self.estado.set_flag("CICLO_CANCELADO",  False)
+            self.estado.set_flag("CICLO_CONFIRMADO", False)
             self.estado.set_flag("LISTO_PARA_CICLO", False)
             self.ciclo.reset()
             logger.info("StateMachine: entrando a CICLO")
@@ -108,25 +110,28 @@ class StateMachine:
                 logger.warning("StateMachine: ciclo cancelado → PREPARADO")
                 self.estado.set_machine_state(GlobalState.PREPARADO)
 
-            # "EN_CURSO" → no hacer nada, seguir en CICLO
+            # "EN_CURSO" o "ESPERANDO_CONFIRMACION" → no hacer nada, seguir en CICLO
 
         # ==============================================================
         # FALLA
         # ==============================================================
         elif current_state == GlobalState.FALLA:
             logger.debug("Estado actual: FALLA")
-            falla_run(self)
+            if self.falla.run():
+                self.estado.Alarmas_activas.clear()
+                self.estado.fase_ciclo = ""
+                self.estado.set_machine_state(GlobalState.PREPARACION)
 
         # ==============================================================
         # EMERGENCIA
         # ==============================================================
         elif current_state == GlobalState.EMERGENCIA:
             logger.debug("Estado actual: EMERGENCIA")
-            emergencia_run(self)
+            emergencia_run()
 
         # ==============================================================
         # HIBERNACION
         # ==============================================================
         elif current_state == GlobalState.HIBERNACION:
             logger.debug("Estado actual: HIBERNACION")
-            hibernacion_run(self)
+            hibernacion_run()
