@@ -101,6 +101,8 @@ class EstadoAutoclave:
         self.fase_ciclo: str = ""
         # True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento
         self.fase_en_sostenimiento: bool = False
+        # Progreso del pre-vacío: "A 1/4", "B 2/4", etc. (vacío cuando no aplica)
+        self.prevacio_progreso: str = ""
         
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

@@ -93,6 +93,13 @@ def main():
     def on_close():
         logger.info("🛑 Cerrando aplicación...")
 
+        # Apagar todas las salidas ANTES de matar el backend
+        try:
+            ui_service.reset_outputs()
+            logger.info("✅ Salidas digitales apagadas")
+        except Exception as e:
+            logger.warning("⚠️ No se pudieron apagar las salidas: %s", e)
+
         ui_service.stop()   # detiene el hilo de fondo HTTP
 
         if backend_process:

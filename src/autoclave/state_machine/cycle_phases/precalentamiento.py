@@ -35,11 +35,12 @@ class PrecalentamientoFase(BaseFase):
         self._inicializado        = False
         self._timer_timeout_fin   = None   # time.time() al que expira el timeout
         self._timer_sostenimiento = None   # time.time() en que empezó el sostenimiento
+        self.estado.fase_en_sostenimiento = False
 
     def update(self) -> FaseResult:
 
         # ── 1. Parámetros del ciclo ───────────────────────────────────────
-        tiempo_seg   = (self.cycle.get_param("precalentamiento", "tiempo_precalentamiento")   or 0) * 60
+        tiempo_seg   = (self.cycle.get_param("precalentamiento", "tiempo_precalentamiento")   or 0) 
         temp_obj     =  self.cycle.get_param("precalentamiento", "temperatura_precalentamiento") or 0
         pres_obj     =  self.cycle.get_param("precalentamiento", "presion_precalentamiento")    or 0
         timeout_seg  = (self.cycle.get_param("precalentamiento", "timeout_precalentamiento")   or 10) * 60
@@ -85,6 +86,7 @@ class PrecalentamientoFase(BaseFase):
             # Arrancar o continuar el timer de sostenimiento
             if self._timer_sostenimiento is None:
                 self._timer_sostenimiento = time.time()
+                self.estado.fase_en_sostenimiento = True
                 logger.info(
                     "Precalentamiento: condiciones alcanzadas (%.1f°C / %.1f kPa) — sosteniendo %.0fs",
                     temp, pres, tiempo_seg
@@ -100,6 +102,7 @@ class PrecalentamientoFase(BaseFase):
             if transcurrido >= tiempo_seg:
                 logger.info("Precalentamiento: COMPLETADO")
                 self.set_do.vapor_camara_off()
+                self.estado.fase_en_sostenimiento = False
                 return FaseResult.COMPLETADO
 
         else:
@@ -110,5 +113,6 @@ class PrecalentamientoFase(BaseFase):
                     temp, pres
                 )
                 self._timer_sostenimiento = None
+                self.estado.fase_en_sostenimiento = False
 
         return FaseResult.EN_CURSO

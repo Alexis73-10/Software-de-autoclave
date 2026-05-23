@@ -16,8 +16,8 @@
         },
         "precalentamiento": {
             "tiempo_precalentamiento": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },
-            "temperatura_precalentamiento": { "value": 0, "type":"int", "unit": "°C", "min": 0, "max": 200 },
-            "presion_precalentamiento": { "value": 300,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
+            "temperatura_precalentamiento": { "value": 120, "type":"int", "unit": "°C", "min": 0, "max": 200 },
+            "presion_precalentamiento": { "value": 200,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
             "timeout_precalentamiento": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
         },
         "purga": {
@@ -28,23 +28,31 @@
         "prevacio": {
             "conteo_pulso_a": { "value": 4, "unit": "", "min": 0, "max": 100 },
             "presion_alta_pulso_a": { "value": 90, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_adicional_alto_a": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
             "presion_baja_pulso_a": { "value": 20, "unit": "kPa", "min": 0, "max": 1000 },
-            "tiempo_pulso_a": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+            "tiempo_adicional_bajo_a": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
 
             "conteo_pulso_b": { "value": 4, "unit": "", "min": 0, "max": 100 },
             "presion_alta_pulso_b": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_adicional_alto_b": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
             "presion_baja_pulso_b": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
-            "tiempo_pulso_b": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+            "tiempo_adicional_bajo_b": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
 
             "conteo_pulso_c": { "value": 0, "unit": "", "min": 0, "max": 100 },
             "presion_alta_pulso_c": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_adicional_alto_c": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
             "presion_baja_pulso_c": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
-            "tiempo_pulso_c": { "value": 3, "unit": "sec", "min": 0, "max": 3600 },
+            "tiempo_adicional_bajo_c": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
+
 
             "conteo_pulso_d": { "value": 0, "unit": "", "min": 0, "max": 100 },
             "presion_alta_pulso_d": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
+            "tiempo_adicional_alto_d": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
             "presion_baja_pulso_d": { "value": 110, "unit": "kPa", "min": 0, "max": 1000 },
-            "tiempo_pulso_d": { "value": 3, "unit": "sec", "min": 0, "max": 3600 }
+            "tiempo_adicional_bajo_d": { "value": 0, "unit": "sec", "min": 0, "max": 3600 },
+
+            "timeout_bajo": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 },
+            "timeout_alto": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
         },
 
         "calentamiento": { 

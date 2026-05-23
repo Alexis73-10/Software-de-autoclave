@@ -186,6 +186,11 @@ class UIServiceBackend:
         with self._lock:
             return bool(self._cache.get("fase_en_sostenimiento", False))
 
+    def get_prevacio_progreso(self) -> str:
+        """Retorna el progreso del pre-vacío: 'A 1/4', 'B 2/4', etc."""
+        with self._lock:
+            return self._cache.get("prevacio_progreso", "")
+
     # ==============================
     # SENSORES EXTENDIDOS
     # ==============================

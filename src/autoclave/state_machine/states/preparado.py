@@ -1,5 +1,3 @@
-from autoclave.state_machine.cicles.parametros import Parm_prep
-from autoclave.state_machine.machine.parametros_gobales import parametros_globales
 from autoclave.state_machine.alarms.alarm import Alarm, AlarmType
 import logging
 import time
@@ -16,7 +14,7 @@ class preparado_state:
         self.config = config
 
         # Tiempo requerido para considerar estable
-        self.tiempo_estable = Parm_prep.TIEMPO_ESTABLE
+        self.tiempo_estable = self.config.get("tiempo_estable_alarma")
 
         # Timer de estabilidad
         self.timer_estabilidad = None
@@ -167,11 +165,32 @@ class preparado_state:
             self.alarm(alarm_id, AlarmType.ALERTA)
 
     # ==============================
+    # PUERTAS CERRADAS
+    # ==============================
+    def puertas_cerradas(self) -> bool:
+        """Ambas puertas deben estar cerradas para que el ciclo pueda arrancar."""
+        p1 = bool(self.estado.sensores_di.get("puerta_1_cerrada", 0))
+        p2 = bool(self.estado.sensores_di.get("puerta_2_cerrada", 0))
+
+        if not p1:
+            self.alarm("PUERTA_1_ABIERTA", AlarmType.ALERTA)
+        else:
+            self.alarm_manager.clear("PUERTA_1_ABIERTA")
+
+        if not p2:
+            self.alarm("PUERTA_2_ABIERTA", AlarmType.ALERTA)
+        else:
+            self.alarm_manager.clear("PUERTA_2_ABIERTA")
+
+        return p1 and p2
+
+    # ==============================
     # VALIDACIÓN FINAL
     # ==============================
     def esta_preparado(self):
 
         condiciones = (
+            self.puertas_cerradas() and
             self.mantener_chaqueta() and
             self.mantener_presion_camara() and
             self.mantener_drenaje() and
