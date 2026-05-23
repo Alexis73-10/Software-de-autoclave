@@ -27990,3 +27990,26 @@
 2026-05-21 17:41:27,489 [INFO] autoclave.state_machine.states.preparado: Estado PREPARADO: control y supervisión activa
 2026-05-21 17:41:28,001 [INFO] autoclave.state_machine.states.preparado: Estado PREPARADO: control y supervisión activa
 2026-05-21 17:41:28,512 [INFO] autoclave.state_machine.states.preparado: Estado PREPARADO: control y supervisión activa
+2026-05-23 17:35:56,698 [INFO] autoclave.core.cycle_manager: 📂 Buscando en: D:\Documentos_y_Código\Código\Python\Proyectos_Funcionales\codigo_autoclave\src\autoclave\cycles/factory
+2026-05-23 17:35:56,699 [INFO] autoclave.core.cycle_manager: 📂 Buscando en: D:\Documentos_y_Código\Código\Python\Proyectos_Funcionales\codigo_autoclave\src\autoclave\cycles/user
+2026-05-23 17:35:56,716 [INFO] autoclave.backend.context: Ciclos cargados: ['bowe_dick', '134_instrumental']
+2026-05-23 17:35:56,733 [INFO] autoclave: Iniciando SerialLink
+2026-05-23 17:35:56,754 [INFO] autoclave.services.domain.logging.db_manager: SQLite iniciado: D:\Documentos_y_Código\Código\Python\Proyectos_Funcionales\codigo_autoclave\data\autoclave.db
+2026-05-23 17:35:56,755 [INFO] autoclave.state_machine.alarms.alarm_manager: Alarma reportada: NO_HAY_CONEXION - No hay comunicación con el hardware.
+2026-05-23 17:35:56,756 [ERROR] autoclave.state_machine.alarms.alarm_manager: ALARMA FALLA: NO_HAY_CONEXION - No hay comunicación con el hardware.
+2026-05-23 17:36:52,874 [WARNING] autoclave.backend.context: No se puede abrir: Puerta 2 no está cerrada
+2026-05-23 17:36:52,874 [WARNING] autoclave.backend.context: Apertura denegada: puerta Puerta 1 — Puerta 2 no está cerrada
+2026-05-23 17:36:56,329 [WARNING] autoclave.backend.context: No se puede abrir: Puerta 2 no está cerrada
+2026-05-23 17:36:56,329 [WARNING] autoclave.backend.context: Apertura denegada: puerta Puerta 1 — Puerta 2 no está cerrada
+2026-05-23 17:37:08,098 [WARNING] autoclave: Timeout esperando OK ALL_OFF
+2026-05-23 17:37:08,099 [INFO] autoclave: Deteniendo SerialLink
+2026-05-23 17:37:08,307 [INFO] autoclave.services.domain.loop.control_loop: Control loop detenido.
+2026-05-23 17:37:09,308 [WARNING] autoclave: Timeout esperando OK ALL_OFF
+2026-05-23 17:37:09,308 [INFO] autoclave.backend.server: outputs/reset: todas las salidas apagadas
+2026-05-23 17:38:46,372 [INFO] autoclave.core.cycle_manager: 📂 Buscando en: D:\Documentos_y_Código\Código\Python\Proyectos_Funcionales\codigo_autoclave\src\autoclave\cycles/factory
+2026-05-23 17:38:46,373 [INFO] autoclave.core.cycle_manager: 📂 Buscando en: D:\Documentos_y_Código\Código\Python\Proyectos_Funcionales\codigo_autoclave\src\autoclave\cycles/user
+2026-05-23 17:38:46,374 [INFO] autoclave.backend.context: Ciclos cargados: ['bowe_dick', '134_instrumental']
+2026-05-23 17:38:46,389 [INFO] autoclave: Iniciando SerialLink
+2026-05-23 17:38:46,393 [INFO] autoclave.services.domain.logging.db_manager: SQLite iniciado: D:\Documentos_y_Código\Código\Python\Proyectos_Funcionales\codigo_autoclave\data\autoclave.db
+2026-05-23 17:38:46,394 [INFO] autoclave.state_machine.alarms.alarm_manager: Alarma reportada: NO_HAY_CONEXION - No hay comunicación con el hardware.
+2026-05-23 17:38:46,395 [ERROR] autoclave.state_machine.alarms.alarm_manager: ALARMA FALLA: NO_HAY_CONEXION - No hay comunicación con el hardware.
