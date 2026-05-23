@@ -75,3 +75,11 @@ BEEP_AVISO = [
     (1, 0.1),
     (0, 0.05),
 ]
+
+# Secuencia de fin de ciclo con fallo/cancelación:
+# dos pitidos cortos + uno largo → indica que la cámara es segura para abrir
+BEEP_FALLO = [
+    (1, 0.25), (0, 0.1),
+    (1, 0.25), (0, 0.1),
+    (1, 0.8),  (0, 0.2),
+]

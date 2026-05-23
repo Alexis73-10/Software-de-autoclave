@@ -404,9 +404,6 @@ class AdvancedDoor(Door):
         pass
     
     def _from_cerrado(self):
-        # Puerta ya cerrada y bloqueada mecánicamente por pulso de bloquear.
-        # El actuador de cierre debe estar APAGADO — mantenerlo energizado
-        # desgastaría la bobina sin ningún efecto útil.
         self.cerrar_on()
         if not self.puerta_cerrada():
             self.set_state(DoorState.ERROR)
@@ -417,11 +414,10 @@ class AdvancedDoor(Door):
             logger.error("Error: Inconsistencia detectada, puerta no puede estar abierta y cerrada a la vez.")
             return
         if self.presion_empaque() < self.config.get("presion_empaque"):
-            self.set_state(DoorState.ERROR)
-            logger.error("Error: Inconsistencia detectada, presión de empaque insuficiente.")
-            return
-        #esperando comando abrir
-        pass
+            self.bloquear_on()
+            logger.warning(f"Puerta {self.name}: presión de empaque baja, re-presurizando.")
+        else:
+            self.bloquear_off()
         
     
     def _from_cerrando(self):
@@ -450,19 +446,12 @@ class AdvancedDoor(Door):
             self.cerrar_on()
 
         if self.puerta_cerrada() and not self.puerta_abierta():
-            self.cerrar_off()        # puerta llegó: apagar actuador mecánico
             self.desbloquear_off()
             self.vacio_off()
-
-            if not self._pulso_bloqueo_enviado:
-                self.bloquear_on()               # pulso único al biestable
-                self._pulso_bloqueo_enviado = True
-                return                           # esperar al próximo ciclo
-
-            self.bloquear_off()                  # cortar pulso en el ciclo siguiente
+            self.bloquear_on()  # mantener aire al empaque hasta alcanzar presión requerida
 
             if self.presion_empaque() >= self.config.get("presion_empaque"):
-                self._pulso_bloqueo_enviado = False  # reset para próximo uso
+                self.bloquear_off()
                 self.timer_start = None
                 self.set_state(DoorState.CERRADO)
                 logger.info("Puerta cerrada correctamente.")

@@ -57,32 +57,35 @@ class ServicioPuertas:
     # API HACIA LA INTERFAZ
     # ============================
 
-    def request_open(self, door_name):
-
+    def request_open(self, door_name) -> tuple:
+        """Retorna (True, "") si se envió el comando, (False, motivo) si se denegó."""
         if door_name not in self.doors:
             self.logger.error(f"Puerta desconocida: {door_name}")
-            return False
-        
-        if not self._can_open_physical(door_name):
-            self.logger.warning(f"Apertura denegada: puerta {door_name}")
-            return False
+            return False, "Puerta desconocida"
+
+        ok, reason = self._can_open_physical(door_name)
+        if not ok:
+            self.logger.warning(f"Apertura denegada: puerta {door_name} — {reason}")
+            return False, reason
 
         self.doors[door_name].cmd_abrir()
         self.logger.info(f"Comando abrir enviado a puerta {door_name}")
-        return True
+        return True, ""
 
-    def request_close(self, door_name):
+    def request_close(self, door_name) -> tuple:
+        """Retorna (True, "") si se envió el comando, (False, motivo) si se denegó."""
         if door_name not in self.doors:
             self.logger.error(f"Puerta desconocida: {door_name}")
-            return False
+            return False, "Puerta desconocida"
 
-        if not self._can_close_physical(door_name):
-            self.logger.warning(f"Cierre denegado: puerta {door_name}")
-            return False
+        ok, reason = self._can_close_physical(door_name)
+        if not ok:
+            self.logger.warning(f"Cierre denegado: puerta {door_name} — {reason}")
+            return False, reason
 
         self.doors[door_name].cmd_cerrar()
         self.logger.info(f"Comando cerrar enviado a puerta {door_name}")
-        return True
+        return True, ""
 
     def get_status(self, door_name=None):
         if door_name is None:
@@ -101,20 +104,18 @@ class ServicioPuertas:
         role_perms = PERMISSIONS.get(self.profile.role, {})
         return role_perms.get(permission, False)
 
-    def can_open(self, door_name):
+    def can_open(self, door_name) -> tuple:
         if not self.can_open_from_context(door_name):
-            self.logger.warning(
-                f"Apertura no permitida desde puerta {self.profile.door_id}"
-            )
-            return False
+            msg = f"No permitido desde puerta {self.profile.door_id}"
+            self.logger.warning("Apertura no permitida: %s", msg)
+            return False, msg
         return self._can_open_physical(door_name)
 
-    def can_close(self, door_name):
+    def can_close(self, door_name) -> tuple:
         if not self.can_close_from_context(door_name):
-            self.logger.warning(
-                f"Cierre no permitido desde puerta {self.profile.door_id}"
-            )
-            return False
+            msg = f"No permitido desde puerta {self.profile.door_id}"
+            self.logger.warning("Cierre no permitido: %s", msg)
+            return False, msg
         return self._can_close_physical(door_name)
 
     def can_open_from_context(self, door_name) -> bool:
@@ -128,7 +129,8 @@ class ServicioPuertas:
         return True
 
 
-    def _can_open_physical(self, door_name):
+    def _can_open_physical(self, door_name) -> tuple:
+        """Retorna (True, "") si se puede abrir, (False, motivo) si no."""
         pres     = self.pres
         temp     = self.temp
         atm      = self.press_atm
@@ -138,34 +140,39 @@ class ServicioPuertas:
         # si los parámetros de config no están disponibles, permitir (modo degradado)
         if atm is not None and rango is not None and pres is not None:
             if pres > atm + rango:
-                self.logger.warning("No se puede abrir: sobrepresión en cámara (%.1f kPa)", pres)
-                return False
+                msg = f"Sobrepresión en cámara ({pres:.0f} kPa)"
+                self.logger.warning("No se puede abrir: %s", msg)
+                return False, msg
             if pres < atm - rango:
-                self.logger.warning("No se puede abrir: cámara en vacío (%.1f kPa)", pres)
-                return False
+                msg = f"Cámara en vacío ({pres:.0f} kPa)"
+                self.logger.warning("No se puede abrir: %s", msg)
+                return False, msg
         else:
             self.logger.debug("_can_open_physical: sensores de presión no disponibles, omitiendo verificación")
 
         if temp_max is not None and temp is not None:
             if temp > temp_max:
-                self.logger.warning("No se puede abrir: temperatura alta (%.1f °C)", temp)
-                return False
+                msg = f"Temperatura demasiado alta ({temp:.0f} °C)"
+                self.logger.warning("No se puede abrir: %s", msg)
+                return False, msg
         else:
             self.logger.debug("_can_open_physical: sensor de temperatura no disponible, omitiendo verificación")
 
         for name in self.doors:
             if name != door_name:
                 if self.estado.get_door_state(name) != DoorState.CERRADO:
-                    self.logger.warning("No se puede abrir: otra puerta no cerrada")
-                    return False
+                    msg = f"{name} no está cerrada"
+                    self.logger.warning("No se puede abrir: %s", msg)
+                    return False, msg
 
-        return True
+        return True, ""
 
-    def _can_close_physical(self, door_name):
+    def _can_close_physical(self, door_name) -> tuple:
+        """Retorna (True, "") si se puede cerrar, (False, motivo) si no."""
         state = self.estado.get_door_state(door_name)
 
         if state in (DoorState.CERRADO, DoorState.CERRANDO):
-            return False
+            return False, "La puerta ya está cerrada"
 
         pres  = self.pres
         atm   = self.press_atm
@@ -173,18 +180,20 @@ class ServicioPuertas:
 
         if atm is not None and rango is not None and pres is not None:
             if pres > atm + rango:
-                self.logger.warning("No se puede cerrar: cámara presurizada (%.1f kPa)", pres)
-                return False
+                msg = f"Cámara presurizada ({pres:.0f} kPa)"
+                self.logger.warning("No se puede cerrar: %s", msg)
+                return False, msg
 
         # door_name es "Puerta 1" / "Puerta 2" → clave en mapa es "pres_empaque_1" / "pres_empaque_2"
         door_num     = door_name.split()[-1]
         pres_empaque = self.estado.sensores_pres.get(f"pres_empaque_{door_num}")
         if pres_empaque is not None and atm is not None and rango is not None:
             if pres_empaque > atm + rango:
-                self.logger.warning("No se puede cerrar: empaque presurizado")
-                return False
+                msg = "Empaque presurizado"
+                self.logger.warning("No se puede cerrar: %s", msg)
+                return False, msg
 
-        return True
+        return True, ""
 
     # ============================
     # OBSERVACIÓN DE ESTADOS

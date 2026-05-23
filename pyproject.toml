@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta" #Usa el backend de construcción de setu
 
 [project] #Este bloque es para el programa, describe el software
 name = "autoclave" #Nombre del paquete
-version = "0.2.0" #Versión del paquete
+version = "0.3.5" #Versión del paquete
 description = "Sistema de control para autoclave" #Descripción corta del paquete (aparece en metadatos)
 readme = "README.md" #Archivo README que contiene la descripción larga del paquete
 requires-python = ">=3.11" #Versión mínima de Python requerida

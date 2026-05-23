@@ -169,7 +169,15 @@ class SetOutput:
     def buzer_emergencia(self):
         self.buzer.play(buzer.BEEP_EMERGENCY)
 
+    def buzer_fallo(self):
+        """Pitido de aviso: cámara alcanzó condiciones seguras tras fallo/cancelación."""
+        self.buzer.play(buzer.BEEP_FALLO, repeticiones=1)
+
     def reset_all_outputs(self):
-        self.io.all_off()
+        """Apaga todas las salidas. Usa ALL_OFF con ACK; si falla, cae a comandos individuales."""
+        ok = self.io.all_off()
+        if not ok:
+            for channel in range(1, 25):
+                self.io.set_output(channel, False)
 
 

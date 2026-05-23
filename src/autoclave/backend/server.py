@@ -76,8 +76,9 @@ def get_status():
     # ------------------------------
     return {
         "machine_state":        machine_state,
-        "fase_ciclo":           getattr(estado, "fase_ciclo", ""),
+        "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
+        "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
         "doors":   doors,
         "sensors": sensors,
         "alarms":  alarms,
@@ -259,6 +260,14 @@ def acknowledge_cycle():
         )
 
     estado.set_flag("CICLO_CONFIRMADO", True)
+
+    # Si el ciclo terminó en fallo/emergencia el operador ya lo vio en CycleWindow.
+    # Pre-armar RESET_FALLA para que la máquina salte el estado FALLA y vuelva
+    # directo a PREPARACION sin requerir un segundo "RECONOCER FALLA".
+    fase = getattr(estado, "fase_ciclo", "")
+    if fase and (fase.startswith("FALLO_") or fase == "EMERGENCIA"):
+        estado.set_flag("RESET_FALLA", True)
+
     return {"ok": True, "action": "CICLO_CONFIRMADO"}
 
 

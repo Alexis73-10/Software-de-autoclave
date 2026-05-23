@@ -5,9 +5,10 @@
     "temp_max_apertura": {"value":120, "type": "int", "unit": "°C"},
     "presion_empaque": {"value": 300, "type": "int", "unit": "kPa"},
     "vacio_empaque": {"value": 30, "type": "int", "unit": "kPa"},
-    "timeout_puerta": {"value": 10, "type": "int", "unit": "seg", "min": 0, "max": 3600},
+    "timeout_puerta": {"value": 60, "type": "int", "unit": "seg", "min": 0, "max": 3600},
     "tipo_puerta": {"value":2, "type":"int", "min":0, "max":10},
     "temp_segura_drenaje": {"value":40, "type":"int", "unit":"°C"},
     "intervalo_impresion": {"value": 180, "type": "int", "unit": "seg", "min": 0, "max": 3600},
-    "intervalo_imprecion_esterilizacion": {"value": 60, "type": "int", "unit": "seg", "min": 0, "max": 3600}
+    "intervalo_imprecion_esterilizacion": {"value": 60, "type": "int", "unit": "seg", "min": 0, "max": 3600},
+    "tiempo_estable_alarma": {"value": 5, "type": "int", "unit": "seg", "min": 0, "max": 3600}
 } 

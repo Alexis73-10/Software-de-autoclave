@@ -1,5 +1,4 @@
-#preparacion.py   
-from autoclave.state_machine.cicles.parametros import Parm_prep
+# preparacion.py
 from autoclave.state_machine.machine.parametros_gobales import parametros_globales
 from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType 

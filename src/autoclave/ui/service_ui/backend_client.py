@@ -25,7 +25,7 @@ class BackendClient:
     # ------------------------------------------------------------------
 
     def get(self, path: str, **kwargs) -> dict:
-        r = requests.get(f"{self.base_url}{path}", timeout=1.5, **kwargs)
+        r = requests.get(f"{self.base_url}{path}", timeout=0.8, **kwargs)
         r.raise_for_status()
         return r.json()
 
@@ -33,7 +33,7 @@ class BackendClient:
         r = requests.post(
             f"{self.base_url}{path}",
             json=body or {},
-            timeout=1.5,
+            timeout=0.8,
             **kwargs,
         )
         r.raise_for_status()
