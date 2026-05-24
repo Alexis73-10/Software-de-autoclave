@@ -204,7 +204,7 @@ def abort_cycle():
     """
     estado = context.estado
 
-    from autoclave.state_machine.machine.eum_global import GlobalState
+    from autoclave.state_machine.machine.enum_global import GlobalState
     if estado.get_machine_state() != GlobalState.CICLO:
         raise HTTPException(
             status_code=409,
@@ -252,7 +252,7 @@ def acknowledge_cycle():
     """
     estado = context.estado
 
-    from autoclave.state_machine.machine.eum_global import GlobalState
+    from autoclave.state_machine.machine.enum_global import GlobalState
     if estado.get_machine_state() != GlobalState.CICLO:
         raise HTTPException(
             status_code=409,

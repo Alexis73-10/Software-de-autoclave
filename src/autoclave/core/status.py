@@ -5,7 +5,7 @@
 #Actualizacion : 
     #se agregaran los estados de las (DI) entradas digitales
 from autoclave.devices.puertas.advanced_door import DoorState
-from autoclave.state_machine.machine.eum_global import GlobalState
+from autoclave.state_machine.machine.enum_global import GlobalState
 
 
 class EstadoAutoclave:

@@ -1,5 +1,5 @@
 from autoclave.devices.puertas.base_puertas import Door
-from autoclave.devices.puertas.eum_doors import DoorState
+from autoclave.devices.puertas.enum_doors import DoorState
 
 
 class SimpleDoor(Door):

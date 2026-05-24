@@ -1,4 +1,4 @@
-from autoclave.state_machine.machine.eum_global import GlobalState
+from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState

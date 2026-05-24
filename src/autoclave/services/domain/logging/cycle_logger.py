@@ -20,7 +20,7 @@
 import time
 import logging
 from datetime import datetime
-from autoclave.state_machine.machine.eum_global import GlobalState
+from autoclave.state_machine.machine.enum_global import GlobalState
 
 logger = logging.getLogger(__name__)
 
