@@ -4,7 +4,7 @@ from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState
 from autoclave.state_machine.states.falla import FallaState
 from autoclave.state_machine.states.emergencia import emergencia_run
-from autoclave.state_machine.states.hibernacion import hibernacion_run
+from autoclave.state_machine.states.hibernacion import Hibernacion
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 import logging
 
@@ -24,7 +24,8 @@ class StateMachine:
         self.preparacion = preparacion_state(self.alarm_manager, estado, set_do, cycle, config)
         self.preparado   = preparado_state(self.alarm_manager, estado, set_do, cycle, config)
         self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager)
-        self.falla       = FallaState(estado)
+        self.falla       = FallaState(estado, set_do, self.alarm_manager)
+        self.hibernacion = Hibernacion(estado, set_do, self.alarm_manager)
 
         self.prev_state  = None
 
@@ -134,4 +135,4 @@ class StateMachine:
         # ==============================================================
         elif current_state == GlobalState.HIBERNACION:
             logger.debug("Estado actual: HIBERNACION")
-            hibernacion_run()
+            self.hibernacion.run()
