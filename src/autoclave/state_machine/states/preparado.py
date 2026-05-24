@@ -36,6 +36,16 @@ class preparado_state:
     # RUN PRINCIPAL
     # ==============================
     def run(self):
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            self.set_do.reset_all_outputs()
+            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA)
+            self.set_do.buzer_emergencia()
+            self.timer_estabilidad = None
+            return False
+        else:
+            self.set_do.buzer_off()
+            self.alarm_manager.clear("PARO_EMERGENCIA")
+
         if not self.supervisor():
             self.timer_estabilidad = None
             return False
