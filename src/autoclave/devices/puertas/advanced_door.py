@@ -155,7 +155,7 @@
 #Nada de strings sueltos
 #Esto evita errores tontos y hace el debug legible
 
-from autoclave.devices.puertas.eum_doors import DoorState
+from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.devices.puertas.base_puertas import Door
 import logging
 import time

@@ -19,7 +19,7 @@
 import logging
 from autoclave.devices.puertas.advanced_door import DoorState
 from .permissions import PERMISSIONS
-from autoclave.state_machine.machine.parametros_gobales import ParametrosGlobales
+from autoclave.state_machine.machine.parametros_globales import ParametrosGlobales
 
 logger = logging.getLogger(__name__)
 
