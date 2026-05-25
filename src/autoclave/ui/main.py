@@ -7,6 +7,7 @@ import requests
 
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.wizard import launch_installation_wizard
+from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave.ui.window.main_window import InterfazPrincipal
 from autoclave.ui.service_ui.backend_client import BackendClient
 from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
@@ -43,14 +44,28 @@ def wait_for_backend(process=None, max_wait=40):
 
 def main():
     # ── 1. Verificar instalación ───────────────────────────────────────────
-    profile = get_installation_profile()
+    try:
+        profile = get_installation_profile()
+    except ClockTamperedError as e:
+        import tkinter as tk
+        from tkinter import messagebox
+        _root = tk.Tk()
+        _root.withdraw()
+        messagebox.showerror("Error de sistema", f"No se puede iniciar el software.\n\n{e}")
+        _root.destroy()
+        sys.exit(1)
+
     if profile is None:
         logger.info("Perfil de instalación no encontrado o inválido — iniciando wizard")
         completed = launch_installation_wizard()
         if not completed:
             logger.error("Instalación requerida para continuar. Cerrando.")
             sys.exit(1)
-        profile = get_installation_profile()
+        try:
+            profile = get_installation_profile()
+        except ClockTamperedError as e:
+            logger.error("Reloj adulterado tras wizard: %s", e)
+            sys.exit(1)
         if profile is None:
             logger.error("Error crítico: perfil sigue inválido tras wizard. Cerrando.")
             sys.exit(1)
