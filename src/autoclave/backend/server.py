@@ -3,8 +3,15 @@
 
 
 import logging
+from pathlib import Path
+
 from fastapi import HTTPException, FastAPI, Body
+from fastapi.responses import PlainTextResponse
+
 from autoclave.backend.context import BackendContext
+from autoclave.services.domain.logging.ticket_formatter import format_ticket
+
+_TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +180,23 @@ def get_cycle_ticket(ciclo_id: int):
         "ciclo":    dict(ciclo),
         "lecturas": [dict(r) for r in rows],
     }
+
+
+@app.get("/cycle/history/{ciclo_id}/ticket.txt", response_class=PlainTextResponse)
+def get_cycle_ticket_txt(ciclo_id: int):
+    """Retorna el ticket como texto plano y lo guarda en data/tickets/."""
+    ciclo = context.db.get_ciclo(ciclo_id)
+    if ciclo is None:
+        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+
+    rows  = context.db.get_lecturas_para_imprimir(ciclo_id)
+    text  = format_ticket(ciclo, rows)
+
+    _TICKETS_DIR.mkdir(parents=True, exist_ok=True)
+    ticket_path = _TICKETS_DIR / f"ciclo_{ciclo['numero_ciclo']:05d}.txt"
+    ticket_path.write_text(text, encoding="utf-8")
+
+    return PlainTextResponse(content=text)
 
 
 @app.post("/cycle/start")
