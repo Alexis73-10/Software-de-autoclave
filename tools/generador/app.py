@@ -70,7 +70,7 @@ async def root(request: Request):
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_get(error: str = ""):
-    err = f'<p class="error">{error}</p>' if error else ""
+    err = f'<p class="error">{html.escape(error)}</p>' if error else ""
     return HTMLResponse(f"""<!DOCTYPE html><html><head><title>Generador — Login</title>
 <style>{_CSS}</style></head><body><div class="card">
 <h1>Generador de Códigos</h1>
@@ -113,7 +113,7 @@ async def generar_post(request: Request, serial: str = Form(...)):
         return RedirectResponse("/login")
     serial = serial.strip().upper()
     if not serial:
-        return HTMLResponse(_dashboard("", "", "El serial no puede estar vacío"))
+        return HTMLResponse(_dashboard("", "", "", error="El serial no puede estar vacío"))
     install_code = generate_installation_code(serial)
     factory_key  = generate_factory_key(serial)
     return HTMLResponse(_dashboard(serial, install_code, factory_key))
