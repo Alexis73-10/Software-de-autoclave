@@ -6,7 +6,7 @@ import logging
 
 from .profile import InstallationProfile, Role
 from .storage import save
-from .activation import validate_code
+from .activation import validate_installation_code
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +59,8 @@ def launch_installation_wizard() -> bool:
         if not code:
             err1.config(text="Ingrese el código de activación")
             return
-        if not validate_code(serial, code):
-            err1.config(text="Código de activación incorrecto")
+        if not validate_installation_code(serial, code):
+            err1.config(text="Código de activación incorrecto o expirado")
             logger.warning("Intento de instalación con código inválido para serie '%s'", serial)
             return
         err1.config(text="")
