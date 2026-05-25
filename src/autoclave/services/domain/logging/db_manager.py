@@ -55,6 +55,12 @@ CREATE TABLE IF NOT EXISTS lecturas (
 
 CREATE INDEX IF NOT EXISTS idx_lecturas_ciclo
     ON lecturas(ciclo_id);
+
+CREATE INDEX IF NOT EXISTS idx_ciclos_fecha
+    ON ciclos(fecha_inicio);
+
+CREATE INDEX IF NOT EXISTS idx_ciclos_numero
+    ON ciclos(numero_ciclo);
 """
 
 
