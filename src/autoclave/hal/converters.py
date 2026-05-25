@@ -70,7 +70,10 @@ def _factory_calibrate(raw_value: int, calib, full_scale: float, is_pressure=Fal
 
         if None not in (adc_min, adc_max, val_min, val_max):
             if adc_max != adc_min:
-                return (raw_value - adc_min) * (val_max - val_min) / (adc_max - adc_min) + val_min
+                value = (raw_value - adc_min) * (val_max - val_min) / (adc_max - adc_min) + val_min
+                gain   = getattr(calib, "gain",   1.0)
+                offset = getattr(calib, "offset", 0.0)
+                return value * gain + offset
 
     return (raw_value / 4095.0) * full_scale
 
