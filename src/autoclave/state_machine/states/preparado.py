@@ -73,7 +73,7 @@ class preparado_state:
     # ==============================
     def ejecutor(self):
 
-        logger.info("Estado PREPARADO: control y supervisión activa")
+        #logger.info("Estado PREPARADO: control y supervisión activa")
 
         # 🔧 CONTROL CONTINUO
         self.mantener_chaqueta()

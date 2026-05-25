@@ -321,6 +321,7 @@ class AdvancedDoor(Door):
         cerrada = self.puerta_cerrada()
 
         if abierta and not cerrada:
+            self.vacio_off()
             self.set_state(DoorState.ABIERTO)
             return
 
@@ -383,15 +384,11 @@ class AdvancedDoor(Door):
             logger.error("Error: Tiempo de apertura agotado.")
     
     def _from_abierto(self):
-        #mantiene salidas apagadas
+        # Apaga actuadores propios de esta puerta (no la bomba de vacío que es compartida)
         self.abrir_off()
         self.cerrar_off()
         self.desbloquear_off()
         self.bloquear_off()
-        self.vacio_off()
-        #verifica que no haya inconsistencias
-        #- que la puerta este abierta
-        #- que la puerta no este cerrada
         if not self.puerta_abierta():
             self.set_state(DoorState.ERROR)
             logger.error("Error: Inconsistencia detectada, puerta no está abierta.")
@@ -400,8 +397,6 @@ class AdvancedDoor(Door):
             self.set_state(DoorState.ERROR)
             logger.error("Error: Inconsistencia detectada, puerta no puede estar abierta y cerrada a la vez.")
             return
-        #esperando comando cerrar
-        pass
     
     def _from_cerrado(self):
         self.cerrar_on()
@@ -478,6 +473,7 @@ class AdvancedDoor(Door):
             logger.info("Iniciando apertura automática de puerta atrapada.")
         
         else:
+            self.vacio_off()
             self.set_state(DoorState.ABIERTO)
             logger.info("Puerta liberada y abierta correctamente.")
         
@@ -487,6 +483,7 @@ class AdvancedDoor(Door):
         cerrada = self.puerta_cerrada()
         
         if abierta and not cerrada:
+            self.vacio_off()
             self.set_state(DoorState.ABIERTO)
             logger.info("Recuperación de error: Estado detectado ABIERTO.")
             return
