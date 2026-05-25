@@ -8,50 +8,50 @@ calibration:
         adc_max: 4000
         temp_min: 0
         temp_max: 200
-        gain: 0.9893
-        offset: 11.63
+        gain: 1.0
+        offset: 0.0
 
       - adc_min: 100
         adc_max: 4000
         temp_min: 0
         temp_max: 200
-        gain: 0.9893
-        offset: 11.63
+        gain: 1.0
+        offset: 0.0
 
       - adc_min: 105
         adc_max: 3990
         temp_min: 0
         temp_max: 200
-        gain: 0.9893
-        offset: 11.63
+        gain: 1.0
+        offset: 0.0
 
       - adc_min: 100
         adc_max: 4000
         temp_min: 0
         temp_max: 200
-        gain: 0.9893
-        offset: 11.63
+        gain: 1.0
+        offset: 0.0
 
       - adc_min: 95
         adc_max: 4010
         temp_min: 0
         temp_max: 200
-        gain: 0.9893
-        offset: 11.63
+        gain: 1.0
+        offset: 0.0
 
       - adc_min: 100
         adc_max: 4000
         temp_min: 0
         temp_max: 200
-        gain: 0.9893
-        offset: 11.63
+        gain: 1.0
+        offset: 0.0
 
       - adc_min: 102
         adc_max: 3995
         temp_min: 0
         temp_max: 200
-        gain: 0.9893
-        offset: 11.63
+        gain: 1.0
+        offset: 0.0
 
       - adc_min: 100
         adc_max: 4000
@@ -120,29 +120,29 @@ calibration:
 
   user:
     temperature:
-      - gain: 1.0
-        offset: 0.0
+      - gain: 0.9893
+        offset: 11.63
 
-      - gain: 1.0
-        offset: 14.0
+      - gain: 0.9893
+        offset: 11.63
 
-      - gain: 1.0
-        offset: 14.0
+      - gain: 0.9893
+        offset: 11.63
 
-      - gain: 1.0
-        offset: 14.0
+      - gain: 0.9893
+        offset: 11.63
 
-      - gain: 1.0
-        offset: 14.0
+      - gain: 0.9893
+        offset: 11.63
 
-      - gain: 1.0
-        offset: 14.0
+      - gain: 0.9893
+        offset: 11.63
 
-      - gain: 1.0
-        offset: 14.0
+      - gain: 0.9893
+        offset: 11.63
 
-      - gain: 1.0
-        offset: 14.0
+      - gain: 0.9893
+        offset: 11.63
 
 
     pressure:
