@@ -82,7 +82,9 @@ async def login_get(error: str = ""):
 
 
 @app.post("/login")
-async def login_post(username: str = Form(...), password: str = Form(...)):
+async def login_post(username: str = Form(default=""), password: str = Form(default="")):
+    if not username or not password:
+        return RedirectResponse("/login?error=Ingrese+usuario+y+contraseña", status_code=303)
     if username == _USER and password == _PASS:
         token = secrets.token_hex(32)
         _sessions.add(token)
