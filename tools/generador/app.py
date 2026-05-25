@@ -14,6 +14,7 @@ Variables de entorno (opcionales):
     GENERADOR_HOST  — host de escucha (default: 0.0.0.0)
     GENERADOR_PORT  — puerto (default: 8080)
 """
+import html
 import os
 import sys
 import secrets
@@ -120,24 +121,26 @@ async def generar_post(request: Request, serial: str = Form(...)):
 
 def _dashboard(serial: str, install_code: str, factory_key: str, error: str = "") -> str:
     today = date.today().isoformat()
+    safe_serial = html.escape(serial)
+    safe_error  = html.escape(error)
     result = ""
     if install_code:
         result = f"""<div class="result">
   <div class="chip-label">Serial</div>
-  <div class="code">{serial}</div>
+  <div class="code">{safe_serial}</div>
   <div class="chip-label">Código de instalación</div>
   <div class="code">{install_code}</div>
   <div class="chip-label">Clave de fábrica</div>
   <div class="code">{factory_key}</div>
   <div class="date-note">Válidos solo el día de hoy: {today}</div>
 </div>"""
-    err = f'<p class="error">{error}</p>' if error else ""
+    err = f'<p class="error">{safe_error}</p>' if error else ""
     return f"""<!DOCTYPE html><html><head><title>Generador</title>
 <style>{_CSS}</style></head><body><div class="card">
 <h1>Generador de Códigos</h1>
 <form method="POST" action="/generar">
   <label>Número de serie del equipo</label>
-  <input name="serial" type="text" value="{serial}" placeholder="SN123456" autofocus>
+  <input name="serial" type="text" value="{safe_serial}" placeholder="SN123456" autofocus>
   <button type="submit">Generar</button>
 </form>{err}{result}
 <div class="logout"><a href="/logout">Cerrar sesión</a></div>

@@ -64,7 +64,12 @@ def main():
         try:
             profile = get_installation_profile()
         except ClockTamperedError as e:
-            logger.error("Reloj adulterado tras wizard: %s", e)
+            import tkinter as tk
+            from tkinter import messagebox
+            _root = tk.Tk()
+            _root.withdraw()
+            messagebox.showerror("Error de sistema", f"No se puede iniciar el software.\n\n{e}")
+            _root.destroy()
             sys.exit(1)
         if profile is None:
             logger.error("Error crítico: perfil sigue inválido tras wizard. Cerrando.")
