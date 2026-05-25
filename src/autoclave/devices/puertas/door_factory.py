@@ -2,11 +2,11 @@ from .simple_door import SimpleDoor
 from .advanced_door import AdvancedDoor
 
 def create_door(config, io):
-    door_type = config.get("tipo_puerta")
-
-    cfg = io["cfg"]
+    cfg    = io["cfg"]
     estado = io["estado"]
-    setdo = io["setdo"]
+    setdo  = io["setdo"]
+
+    door_type = cfg["type"]
 
     if door_type == 1:
         return SimpleDoor(

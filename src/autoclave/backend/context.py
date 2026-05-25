@@ -39,7 +39,7 @@ class BackendContext:
 
 
         # Hardware real
-        self.units, self.serial, doors_cfg = build_hardware()
+        self.units, self.serial, doors_cfg = build_hardware(self.profile)
 
         self.setdo = SetOutput(self.serial, self.estado)
 
