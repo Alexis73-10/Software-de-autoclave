@@ -11,7 +11,33 @@ Las fases calentamiento, estabilización y esterilización son las fases crític
 
 - `descompresion_lenta` siempre activa durante toda la fase
 - Al finalizar (COMPLETADO o FALLO): todas las salidas de la fase se apagan explícitamente
-- Verificación continua de condiciones de seguridad (paro de emergencia, puertas, sensores ausentes)
+- Las condiciones de seguridad transversales **no son responsabilidad de cada fase** — las maneja `CicloState.run()` antes de llamar a cualquier `fase.update()`
+
+---
+
+## Verificaciones transversales — `CicloState.run()`
+
+Estas verificaciones se ejecutan en cada tick **antes** de delegar a la fase activa. Si alguna falla, el ciclo termina en FALLO sin importar qué fase esté activa.
+
+| Paso | Verificación | Estado actual |
+|------|-------------|---------------|
+| 1 | Cancelación por operador | ✅ implementado |
+| 2 | Paro de emergencia | ✅ implementado |
+| 3 | Puertas cerradas y empaque | ✅ implementado |
+| 4 | **Sensor ausente** (cualquier sensor crítico = `None`) | por agregar |
+| 5 | **Temperatura de drenaje fuera de rango** | implementación futura |
+
+### Sensor ausente (paso 4 — nuevo)
+
+`CicloState.run()` verificará que los sensores críticos del ciclo no sean `None` antes de ejecutar cada fase. La lista de sensores críticos se define en `CicloState` (no en las fases):
+
+```
+sensores_criticos = ["temp_camara", "pres_camara", "pres_chaqueta", ...]
+```
+
+Si alguno es `None` → alarma `SENSOR_AUSENTE` + protocolo de fallo + `FALLO`.
+
+Las fases individuales **no repiten** esta verificación — asumen que los sensores están disponibles cuando su `update()` es llamado.
 
 ---
 
@@ -96,25 +122,19 @@ Cada ciclo:
     1. Timeout global
            now > timer_timeout → apagar salidas → FALLO
 
-    2. Sensores
-           temp o pres = None → EN_CURSO (esperar)
-
-    3. Emergencia / puertas / sensores
-           condición activa → apagar salidas → FALLO
-
-    4. Control de rampa
+    2. Control de rampa
            T_permitida = T_inicio + tasa × elapsed
            if T_real >= T_permitida: vapor_camara_off()
            else:                     vapor_camara_on()
 
-    5. Checkpoint (si queda alguno y T_real >= checkpoint[0])
+    3. Checkpoint (si queda alguno y T_real >= checkpoint[0])
            Entrar en bucle de verificación:
                if P_real > P_sat(T_real) + tolerancia: vapor_camara_off(), esperar
                if P_real < P_sat(T_real) - tolerancia: vapor_camara_on() (pulso corto)
                if |P_real - P_sat(T_real)| <= tolerancia: pop checkpoint[0], salir bucle
            → EN_CURSO mientras el checkpoint no se libere
 
-    6. Condición de finalización
+    4. Condición de finalización
            T_real >= temperatura_calentamiento → apagar salidas → COMPLETADO
 ```
 
@@ -162,27 +182,23 @@ Inicializar:
 
 Cada ciclo:
 
-    1. Sensores ausentes → apagar salidas → FALLO
+    1. Leer T y P
 
-    2. Emergencia / puertas → apagar salidas → FALLO
-
-    3. Leer T y P
-
-    4. Verificar condiciones:
+    2. Verificar condiciones:
            dentro_rango = (|T - T_obj| <= rango_temp_estabilizacion) AND (|P - P_sat(T)| <= presion_add_calentamiento)
 
-    5. Recuperación:
+    3. Recuperación:
            if not dentro_rango:
                if timer_recuperacion is None: timer_recuperacion = now + timeout_recuperacion_seg
                if now > timer_recuperacion: apagar salidas → FALLO
            else:
                timer_recuperacion = None
 
-    6. Control bang-bang:
+    4. Control bang-bang:
            T < T_obj: vapor_camara_on()
            T >= T_obj: vapor_camara_off()
 
-    7. Condición de finalización:
+    5. Condición de finalización:
            now >= timer_principal_fin → apagar salidas → COMPLETADO
 ```
 
@@ -254,31 +270,25 @@ Inicializar:
 
 Cada ciclo:
 
-    1. Sensores ausentes → apagar salidas → FALLO (sensor ausente)
+    1. Leer T y P
 
-    2. Emergencia → apagar salidas → FALLO (paro de emergencia)
-
-    3. Puertas abiertas o en error → apagar salidas → FALLO (puerta)
-
-    4. Leer T y P
-
-    5. Verificar temperatura:
+    2. Verificar temperatura:
            T < T_est                             → FALLO: temp baja
            T > T_est + add + error_temp          → FALLO: temp alta
 
-    6. Verificar presión:
+    3. Verificar presión:
            P < P_sat(T_actual)                   → FALLO: presión baja
            P > P_sat(T_actual) + rango + error_P → FALLO: presión alta
 
-    7. Control (zona normal):
+    4. Control (zona normal):
            T < T_esterilizacion: vapor_camara_on() (pulso corto)
            T >= T_esterilizacion: vapor_camara_off()
 
-    8. Condición de finalización:
+    5. Condición de finalización:
            now >= timer_esterilizacion_fin → apagar salidas → COMPLETADO
 ```
 
-### FALLOs posibles
+### FALLOs posibles (responsabilidad de la fase)
 
 | Código | Condición |
 |--------|-----------|
@@ -286,9 +296,8 @@ Cada ciclo:
 | `TEMP_BAJA` | T < T_esterilizacion |
 | `PRES_ALTA` | P > P_sat(T) + rango + error_P |
 | `PRES_BAJA` | P < P_sat(T_actual) |
-| `PARO_EMERGENCIA` | Entrada de emergencia activa |
-| `PUERTA` | Puerta abierta o en estado de error |
-| `SENSOR_AUSENTE` | temp_camara o pres_camara = None |
+
+Los FALLOs por emergencia, puertas y sensor ausente son responsabilidad de `CicloState` y se evalúan antes de llamar a esta fase.
 
 ### Salidas al terminar
 
@@ -304,15 +313,16 @@ Cada ciclo:
 | Archivo | Cambio |
 |---------|--------|
 | `src/autoclave/core/steam.py` | Nuevo — función `p_saturacion_kpa()` |
+| `src/autoclave/state_machine/states/ciclo.py` | Agregar verificación de sensor ausente (paso 4 transversal) |
 | `src/autoclave/state_machine/cycle_phases/base_fase.py` | Agregar helper `_verificar_vapor_saturado()` |
 | `src/autoclave/state_machine/cycle_phases/calentamiento.py` | Implementar lógica completa |
 | `src/autoclave/state_machine/cycle_phases/estabilizacion.py` | Implementar lógica completa |
 | `src/autoclave/state_machine/cycle_phases/esterilizacion.py` | Implementar lógica completa |
-| `src/autoclave/cycles/factory/instrumental_134.json` | Agregar parámetros nuevos de esterilización |
-| `src/autoclave/cycles/factory/bowe_dick.json` | Agregar parámetros nuevos de esterilización |
+| `src/autoclave/cycles/factory/instrumental_134.json` | Agregar parámetros nuevos de estabilización y esterilización |
+| `src/autoclave/cycles/factory/bowe_dick.json` | Agregar parámetros nuevos de estabilización y esterilización |
 
 ## Lo que NO cambia
 
 - Interfaz `BaseFase` (`update()` / `reset()`)
-- Orquestación en `CicloState`
+- Estructura existente de emergencia y puertas en `CicloState`
 - Estructura de alarmas existente
