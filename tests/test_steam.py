@@ -22,3 +22,41 @@ def test_p_saturacion_monotonica():
     presiones = [p_saturacion_kpa(t) for t in temps]
     for i in range(len(presiones) - 1):
         assert presiones[i] < presiones[i + 1]
+
+
+# Tests para _verificar_vapor_saturado() helper
+from unittest.mock import MagicMock
+from autoclave.state_machine.cycle_phases.base_fase import BaseFase
+
+
+def _make_base_fase():
+    estado = MagicMock()
+    set_do = MagicMock()
+    cycle = MagicMock()
+    config = MagicMock()
+    alarms = MagicMock()
+    # BaseFase no puede instanciarse directamente (update() es abstracto),
+    # usamos una subclase mínima.
+    class FaseTest(BaseFase):
+        name = "TEST"
+        def reset(self): pass
+        def update(self): pass
+    return FaseTest(estado, set_do, cycle, config, alarms)
+
+
+def test_verificar_vapor_saturado_dentro_tolerancia():
+    fase = _make_base_fase()
+    # P_sat(134°C) ≈ 302.2 kPa — dentro de ±10 kPa → True
+    assert fase._verificar_vapor_saturado(134.0, 302.2, 10.0) is True
+
+
+def test_verificar_vapor_saturado_fuera_tolerancia_alta():
+    fase = _make_base_fase()
+    # P_real = 320 kPa, P_sat ≈ 302.2 → delta = 17.8 > 10 → False
+    assert fase._verificar_vapor_saturado(134.0, 320.0, 10.0) is False
+
+
+def test_verificar_vapor_saturado_fuera_tolerancia_baja():
+    fase = _make_base_fase()
+    # P_real = 285 kPa, P_sat ≈ 302.2 → delta = 17.2 > 10 → False
+    assert fase._verificar_vapor_saturado(134.0, 285.0, 10.0) is False
