@@ -63,15 +63,18 @@ class CalentamientoFase(BaseFase):
         temp = self._temp_camara()
         pres = self._pres_camara()
 
-        # ── 3. Entrada a checkpoint ──────────────────────────────────────
-        # Si no estamos en checkpoint, limpiar checkpoints que hemos pasado (overshooting)
-        # Limpiar todos los checkpoints que estamos sobrepasando
-        if not self._en_checkpoint and self._checkpoints and temp is not None:
-            while self._checkpoints and temp > self._checkpoints[0]:
-                self._checkpoints.pop(0)
+        # ── 3. Verificar completación antes de checkpoint ─────────────────
+        if temp is None:
+            return FaseResult.EN_CURSO
 
+        if temp >= t_obj:
+            logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
+            self._apagar_salidas()
+            return FaseResult.COMPLETADO
+
+        # ── 4. Entrada a checkpoint ──────────────────────────────────────
         if (not self._en_checkpoint and self._checkpoints
-                and temp is not None and temp >= self._checkpoints[0]):
+                and temp >= self._checkpoints[0]):
             self._en_checkpoint = True
             self.estado.fase_en_sostenimiento = True
             logger.info(
@@ -79,7 +82,7 @@ class CalentamientoFase(BaseFase):
                 self._checkpoints[0],
             )
 
-        # ── 4. Lógica de checkpoint ──────────────────────────────────────
+        # ── 5. Lógica de checkpoint ──────────────────────────────────────
         if self._en_checkpoint:
             if pres is None:
                 return FaseResult.EN_CURSO
@@ -96,17 +99,10 @@ class CalentamientoFase(BaseFase):
                     self.set_do.vapor_camara_on()
             return FaseResult.EN_CURSO
 
-        # ── 5. Control de rampa ──────────────────────────────────────────
-        if temp is None:
-            return FaseResult.EN_CURSO
-
-        if temp >= t_obj:
-            logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
-            self._apagar_salidas()
-            return FaseResult.COMPLETADO
+        # ── 6. Control de rampa ──────────────────────────────────────────
 
         elapsed     = time.time() - self._t_inicio_fase
-        t_permitida = min(self._t_inicio + tasa_seg * elapsed, t_obj)
+        t_permitida = self._t_inicio + tasa_seg * elapsed
 
         if temp >= t_permitida:
             self.set_do.vapor_camara_off()
