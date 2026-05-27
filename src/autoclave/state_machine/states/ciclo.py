@@ -203,6 +203,21 @@ class CicloState:
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
+        # ── 2b. ¿Fallo de suministro eléctrico? ──────────────────────
+        if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"):
+            logger.error("CicloState: ABORTADO por fallo de suministro eléctrico")
+            self.estado.fase_ciclo = "FALLO_SUMINISTRO"
+            self.alarm_manager.report(Alarm(
+                alarm_id="FALLO_SUMINISTRO_ELECTRICO",
+                alarm_type=AlarmType.EMERGENCIA,
+                source_state="CICLO",
+                description="Pérdida de suministro eléctrico durante el ciclo.",
+                recoverable=False,
+            ))
+            self._protocolo.ejecutar()
+            self._resultado_pendiente = CicloResultado.FALLO
+            return CicloResultado.ESPERANDO_CONFIRMACION
+
         # ── 3. Verificar puertas y empaque ────────────────────────────
         puertas_ok, codigo_fallo = self._verificar_puertas()
         if not puertas_ok:
