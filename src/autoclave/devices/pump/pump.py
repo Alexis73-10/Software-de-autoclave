@@ -14,10 +14,14 @@ class VacuumPump:
         return self.estado.salidas_do.get("bomba_vacio")
     
     def puede_activar(self):
+        if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"):
+            logger.warning("Bomba bloqueada: fallo de suministro eléctrico.")
+            return False
+
         if not self.agua_bomba():
             logger.warning("Advertencia: No hay agua en la bomba de vacío.")
             return False
-        
+
         if not self.bomba_vacio() and self.agua_bomba():
             logger.info("Activando bomba de vacío.")
             return True
