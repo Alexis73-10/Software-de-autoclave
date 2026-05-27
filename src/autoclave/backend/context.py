@@ -47,9 +47,10 @@ class BackendContext:
             create_door(
                 config=self.config_manager,
                 io={
-                    "cfg": cfg,
-                    "estado": self.estado,
-                    "setdo": self.setdo,
+                    "cfg":           cfg,
+                    "estado":        self.estado,
+                    "setdo":         self.setdo,
+                    "alarm_manager": self.alarm_manager,
                 }
             )
             for cfg in doors_cfg
