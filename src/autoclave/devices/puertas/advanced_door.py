@@ -358,12 +358,13 @@ class AdvancedDoor(Door):
             self.bloquear_off()
             self.cerrar_off()
             if safe_mode:
-                self.alarm_manager.report(Alarm(
-                    alarm_id="ABRIENDO_MODO_SEGURO",
+                self._alarm_report(Alarm(
+                    alarm_id=f"ABRIENDO_MODO_SEGURO_{self.name}",
                     alarm_type=AlarmType.ALERTA,
                     source_state="PUERTA",
                     description=f"Puerta {self.name}: abriendo en modo seguro (sin bomba de vacío).",
                     recoverable=True,
+                    blocks_operation=False,
                 ))
             else:
                 self.vacio_on()
@@ -388,7 +389,7 @@ class AdvancedDoor(Door):
         if self.puerta_abierta() and not self.puerta_cerrada():
             self.abrir_off()
             self.vacio_off()
-            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
+            self._alarm_clear(f"ABRIENDO_MODO_SEGURO_{self.name}")
             self.timer_start = None
             self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ABIERTO)
@@ -398,7 +399,7 @@ class AdvancedDoor(Door):
         if time.time() > self.timer_start:
             self.abrir_off()
             self.vacio_off()
-            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
+            self._alarm_clear(f"ABRIENDO_MODO_SEGURO_{self.name}")
             self.timer_start = None
             self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ERROR)
@@ -444,12 +445,13 @@ class AdvancedDoor(Door):
             self._pulso_bloqueo_enviado = False
             self._pulso_desbloqueo_enviado = False
             if safe_mode:
-                self.alarm_manager.report(Alarm(
-                    alarm_id="ABRIENDO_MODO_SEGURO",
+                self._alarm_report(Alarm(
+                    alarm_id=f"CERRANDO_MODO_SEGURO_{self.name}",
                     alarm_type=AlarmType.ALERTA,
                     source_state="PUERTA",
                     description=f"Puerta {self.name}: cerrando en modo seguro (sin bomba de vacío).",
                     recoverable=True,
+                    blocks_operation=False,
                 ))
             else:
                 self.vacio_on()
@@ -462,7 +464,7 @@ class AdvancedDoor(Door):
 
         if self.atrapamiento() == 1:
             self.cerrar_off()
-            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
+            self._alarm_clear(f"CERRANDO_MODO_SEGURO_{self.name}")
             self.timer_start = None
             self._pulso_bloqueo_enviado = False
             self._pulso_desbloqueo_enviado = False
@@ -486,7 +488,7 @@ class AdvancedDoor(Door):
 
             if self.presion_empaque() >= self.config.get("presion_empaque"):
                 self.bloquear_off()
-                self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
+                self._alarm_clear(f"CERRANDO_MODO_SEGURO_{self.name}")
                 self.timer_start = None
                 self.set_state(DoorState.CERRADO)
                 logger.info("Puerta cerrada correctamente.")
@@ -497,7 +499,7 @@ class AdvancedDoor(Door):
             self.vacio_off()
             self.desbloquear_off()
             self.bloquear_off()
-            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
+            self._alarm_clear(f"CERRANDO_MODO_SEGURO_{self.name}")
             self._pulso_bloqueo_enviado = False
             self.timer_start = None
             self.set_state(DoorState.ERROR)
@@ -555,9 +557,21 @@ class AdvancedDoor(Door):
         
         
     #============================
+    #HELPERS DE ALARMAS
+    #============================
+
+    def _alarm_report(self, alarm):
+        if self.alarm_manager is not None:
+            self.alarm_manager.report(alarm)
+
+    def _alarm_clear(self, alarm_id):
+        if self.alarm_manager is not None:
+            self.alarm_manager.clear(alarm_id)
+
+    #============================
     #COMANDOS EXTERNOS
     #============================
-    
+
     def cmd_abrir(self):
         self.set_state(DoorState.ABRIENDO)
             
