@@ -39,6 +39,7 @@ class EstadoAutoclave:
         "paro_emergencia": 10,
         "agua_camara": 11,
         "vapor_suministro": 12,
+        "suministro_electrico": 13,
     }
     
     map_do = {
@@ -78,13 +79,14 @@ class EstadoAutoclave:
     }
     
     _flags_map = {
-        "LISTO_PARA_CICLO":   0,
-        "START_CICLO":        1,
-        "FALLO_GENERAL":      2,
-        "PARO_EMERGENCIA":    3,
-        "CICLO_CANCELADO":    4,
-        "CICLO_CONFIRMADO":   5,   # operador confirmó la visualización del resultado
-        "RESET_FALLA":        6,   # operador solicitó salir del estado FALLA
+        "LISTO_PARA_CICLO":             0,
+        "START_CICLO":                  1,
+        "FALLO_GENERAL":                2,
+        "PARO_EMERGENCIA":              3,
+        "CICLO_CANCELADO":              4,
+        "CICLO_CONFIRMADO":             5,   # operador confirmó la visualización del resultado
+        "RESET_FALLA":                  6,   # operador solicitó salir del estado FALLA
+        "FALLO_SUMINISTRO_ELECTRICO":   7,
     }
 
     def __init__(self):
