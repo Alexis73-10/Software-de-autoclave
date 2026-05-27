@@ -2,9 +2,10 @@ from .simple_door import SimpleDoor
 from .advanced_door import AdvancedDoor
 
 def create_door(config, io):
-    cfg    = io["cfg"]
-    estado = io["estado"]
-    setdo  = io["setdo"]
+    cfg           = io["cfg"]
+    estado        = io["estado"]
+    setdo         = io["setdo"]
+    alarm_manager = io.get("alarm_manager")
 
     door_type = cfg["type"]
 
@@ -23,7 +24,8 @@ def create_door(config, io):
             ai=cfg["ai"],
             estado=estado,
             setdo=setdo,
-            config=config
+            config=config,
+            alarm_manager=alarm_manager,
         )
 
     else:

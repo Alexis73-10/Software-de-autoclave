@@ -157,6 +157,8 @@
 
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.devices.puertas.base_puertas import Door
+from autoclave.state_machine.alarms.alarm import Alarm
+from autoclave.state_machine.alarms.alarm_types import AlarmType
 import logging
 import time
 
@@ -167,7 +169,7 @@ logger = logging.getLogger(__name__)
 # CLASE PUERTA
 #============================
 class AdvancedDoor(Door):
-    def __init__(self, name, di, do, ai, estado, setdo, config):
+    def __init__(self, name, di, do, ai, estado, setdo, config, alarm_manager):
         # io: objeto que sabe escribir salidas digitales (hardware/mock)
         self.config = config
         self.name = name
@@ -176,6 +178,7 @@ class AdvancedDoor(Door):
         self.ai = ai
         self.estado = estado
         self.set_do = setdo
+        self.alarm_manager = alarm_manager
 
         self.timer_start = None
         self._estabilizacion_start = None
@@ -347,28 +350,45 @@ class AdvancedDoor(Door):
 
     
     def _from_abriendo(self):
+        safe_mode = self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")
+
         if self.timer_start is None:
-            # timeout_puerta está en minutos en global_params.json → convertir a segundos
             self.timer_start = time.time() + self.config.get("timeout_puerta")
             self._pulso_desbloqueo_enviado = False
-            self.bloquear_off()    # asegurar que bloqueo esté inactivo
+            self.bloquear_off()
             self.cerrar_off()
-            self.vacio_on()
-            self.desbloquear_on()  # inicio de pulso
-            logger.info("Iniciando apertura de puerta.")
-            return                 # esperar un ciclo
+            if safe_mode:
+                self.alarm_manager.report(Alarm(
+                    alarm_id="ABRIENDO_MODO_SEGURO",
+                    alarm_type=AlarmType.ALERTA,
+                    source_state="PUERTA",
+                    description=f"Puerta {self.name}: abriendo en modo seguro (sin bomba de vacío).",
+                    recoverable=True,
+                ))
+            else:
+                self.vacio_on()
+            self.desbloquear_on()
+            logger.info("Iniciando apertura de puerta%s.", " (modo seguro)" if safe_mode else "")
+            return
 
-        # cortar pulso de desbloqueo en el ciclo siguiente a su emisión
         if not self._pulso_desbloqueo_enviado:
             self.desbloquear_off()
             self._pulso_desbloqueo_enviado = True
 
-        if self.presion_empaque() <= self.config.get("vacio_empaque"):
+        umbral = (
+            (self.config.get("presion_admosferica") or 101.3) +
+            (self.config.get("rango_presion_atm") or 20.0)
+            if safe_mode
+            else self.config.get("vacio_empaque")
+        )
+
+        if self.presion_empaque() <= umbral:
             self.abrir_on()
 
         if self.puerta_abierta() and not self.puerta_cerrada():
             self.abrir_off()
             self.vacio_off()
+            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
             self.timer_start = None
             self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ABIERTO)
@@ -378,6 +398,7 @@ class AdvancedDoor(Door):
         if time.time() > self.timer_start:
             self.abrir_off()
             self.vacio_off()
+            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
             self.timer_start = None
             self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ERROR)
@@ -416,37 +437,56 @@ class AdvancedDoor(Door):
         
     
     def _from_cerrando(self):
+        safe_mode = self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")
+
         if self.timer_start is None:
-            # timeout_puerta está en minutos en global_params.json → convertir a segundos
-            self.timer_start = time.time() + self.config.get("timeout_puerta") 
-            self._pulso_bloqueo_enviado = False  # flag de control del biestable
+            self.timer_start = time.time() + self.config.get("timeout_puerta")
+            self._pulso_bloqueo_enviado = False
             self._pulso_desbloqueo_enviado = False
-            self.vacio_on()
+            if safe_mode:
+                self.alarm_manager.report(Alarm(
+                    alarm_id="ABRIENDO_MODO_SEGURO",
+                    alarm_type=AlarmType.ALERTA,
+                    source_state="PUERTA",
+                    description=f"Puerta {self.name}: cerrando en modo seguro (sin bomba de vacío).",
+                    recoverable=True,
+                ))
+            else:
+                self.vacio_on()
             self.desbloquear_on()
-            logger.info("Iniciando cierre de puerta.")
+            logger.info("Iniciando cierre de puerta%s.", " (modo seguro)" if safe_mode else "")
 
         if not self._pulso_desbloqueo_enviado:
-            self.desbloquear_on()  # pulso de desbloqueo al inicio del cierre
+            self.desbloquear_on()
             self._pulso_desbloqueo_enviado = True
 
         if self.atrapamiento() == 1:
             self.cerrar_off()
+            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
             self.timer_start = None
             self._pulso_bloqueo_enviado = False
             self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ATRAPADA)
             return
 
-        if self.presion_empaque() <= self.config.get("vacio_empaque") and not self.puerta_cerrada():
+        umbral = (
+            (self.config.get("presion_admosferica") or 101.3) +
+            (self.config.get("rango_presion_atm") or 20.0)
+            if safe_mode
+            else self.config.get("vacio_empaque")
+        )
+
+        if self.presion_empaque() <= umbral and not self.puerta_cerrada():
             self.cerrar_on()
 
         if self.puerta_cerrada() and not self.puerta_abierta():
             self.desbloquear_off()
             self.vacio_off()
-            self.bloquear_on()  # mantener aire al empaque hasta alcanzar presión requerida
+            self.bloquear_on()
 
             if self.presion_empaque() >= self.config.get("presion_empaque"):
                 self.bloquear_off()
+                self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
                 self.timer_start = None
                 self.set_state(DoorState.CERRADO)
                 logger.info("Puerta cerrada correctamente.")
@@ -457,6 +497,7 @@ class AdvancedDoor(Door):
             self.vacio_off()
             self.desbloquear_off()
             self.bloquear_off()
+            self.alarm_manager.clear("ABRIENDO_MODO_SEGURO")
             self._pulso_bloqueo_enviado = False
             self.timer_start = None
             self.set_state(DoorState.ERROR)
