@@ -204,7 +204,8 @@ class preparado_state:
             self.mantener_chaqueta() and
             self.mantener_presion_camara() and
             self.mantener_drenaje() and
-            not self.estado.get_flag("PARO_EMERGENCIA")
+            not self.estado.get_flag("PARO_EMERGENCIA") and
+            not self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")
         )
 
         if condiciones:
@@ -245,5 +246,12 @@ class preparado_state:
                     ok = False
                 else:
                     self.alarm_manager.clear(f"SUMINISTRO_{suministro.upper()}")
+
+        # Suministro eléctrico
+        if not self.estado.sensores_di.get("suministro_electrico", 1):
+            self.alarm("SUMINISTRO_ELECTRICO", AlarmType.ALERTA)
+            ok = False
+        else:
+            self.alarm_manager.clear("SUMINISTRO_ELECTRICO")
 
         return ok
