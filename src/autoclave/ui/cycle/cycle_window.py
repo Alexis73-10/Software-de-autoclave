@@ -114,6 +114,7 @@ class CycleWindow(tk.Toplevel):
     # ══════════════════════════════════════════════════════════════════════
 
     def _build_ui_cw(self):
+        # Recalcula dimensiones para soportar rebuild tras cambio de orientación
         sw = self.winfo_screenwidth()
         sh = self.winfo_screenheight()
         self._scale = font_scale(sw, sh)
@@ -232,7 +233,7 @@ class CycleWindow(tk.Toplevel):
         self._btn_confirm = ctk.CTkButton(
             pnl,
             text="CONFIRMAR",
-            font=("Segoe UI", 15, "bold"),
+            font=("Segoe UI", scaled_font(15, self._scale), "bold"),
             fg_color=CLR_OK,
             hover_color="#155d32",
             text_color=CLR_W,
@@ -666,13 +667,16 @@ class CycleWindow(tk.Toplevel):
         try:
             info = self._btn_abort.place_info()
             self._btn_abort.place_forget()
-            self._btn_confirm.place(
-                relx=float(info.get("relx", 0.65)),
-                rely=float(info.get("rely", 0.56)),
-                relwidth=float(info.get("relwidth", 0.35)),
-                relheight=float(info.get("relheight", 0.26)),
-                in_=self._btn_abort.master,
-            )
+            if info:
+                self._btn_confirm.place(
+                    relx=float(info["relx"]),
+                    rely=float(info["rely"]),
+                    relwidth=float(info["relwidth"]),
+                    relheight=float(info["relheight"]),
+                    in_=self._btn_abort.master,
+                )
+            else:
+                logger.warning("_on_ciclo_fin: _btn_abort not placed — CONFIRMAR not shown")
         except tk.TclError:
             pass
 
