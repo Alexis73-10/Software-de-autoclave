@@ -19,7 +19,8 @@ class PhaseIndicator(ctk.CTkFrame):
         ind.update("ESTERILIZACION", elapsed_min=2.5, total_min=5.0)
     """
 
-    def __init__(self, parent, bg_color: str = "#ffffff", **kwargs):
+    def __init__(self, parent, bg_color: str = "#ffffff",
+                 font_size_label: int = 22, font_size_timer: int = 20, **kwargs):
         super().__init__(
             parent,
             corner_radius=30,
@@ -27,11 +28,13 @@ class PhaseIndicator(ctk.CTkFrame):
             bg_color=bg_color,
             **kwargs,
         )
+        self._font_size_label = font_size_label
+        self._font_size_timer = font_size_timer
 
         self._lbl_fase = ctk.CTkLabel(
             self,
             text="---",
-            font=("Segoe UI", 22, "bold"),
+            font=("Segoe UI", font_size_label, "bold"),
             text_color=CLR_W,
             fg_color="transparent",
             anchor="w",
@@ -41,7 +44,7 @@ class PhaseIndicator(ctk.CTkFrame):
         self._lbl_timer = ctk.CTkLabel(
             self,
             text="",
-            font=("Segoe UI", 20),
+            font=("Segoe UI", font_size_timer),
             text_color=CLR_W,
             fg_color="transparent",
             anchor="e",

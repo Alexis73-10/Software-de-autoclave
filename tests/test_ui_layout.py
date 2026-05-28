@@ -89,3 +89,45 @@ def test_check_small_width_only():
     portrait, rebuild = check_orientation_changed(50, 800, True)
     assert portrait is True
     assert rebuild is False
+
+
+import tkinter as tk
+from autoclave.ui.cycle.widgets.phase_indicator import PhaseIndicator
+
+
+def test_phase_indicator_default_fonts():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        ind = PhaseIndicator(root)
+        root.update()
+        # Verificar que los defaults son 22 y 20
+        assert ind._font_size_label == 22
+        assert ind._font_size_timer == 20
+    finally:
+        root.destroy()
+
+
+def test_phase_indicator_custom_fonts():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        ind = PhaseIndicator(root, font_size_label=16, font_size_timer=14)
+        root.update()
+        assert ind._font_size_label == 16
+        assert ind._font_size_timer == 14
+    finally:
+        root.destroy()
+
+
+def test_phase_indicator_update_no_crash():
+    root = tk.Tk()
+    root.withdraw()
+    try:
+        ind = PhaseIndicator(root, font_size_label=16, font_size_timer=14)
+        ind.update("ESTERILIZACION", 2.0, 4.0)
+        ind.update_approach("CALENTAMIENTO", 87.0, 134.0, "°C")
+        ind.update_info("PRE_VACIO", "A 1/4")
+        root.update()
+    finally:
+        root.destroy()
