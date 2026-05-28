@@ -145,8 +145,95 @@ class InterfazPrincipal(tk.Tk):
         self._btn_reset_falla_pos = dict(relx=0.30, rely=0.76, relwidth=0.65, relheight=0.21)
 
     def _build_body_portrait(self, sw: int, sh: int):
-        # Placeholder — implemented in Task 4
-        self._build_body_landscape(sw, sh)
+        self._body_bg = tk.Frame(self, bg=CLR_BG)
+        self._body_bg.pack(fill=tk.BOTH, expand=True)
+
+        self._card = ctk.CTkFrame(self._body_bg, corner_radius=28,
+                                   fg_color=CLR_CARD, bg_color=CLR_BG)
+        self._card.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.94)
+
+        # ── Banda de estado (22%) ─────────────────────────────────────────────
+        band = ctk.CTkFrame(self._card, corner_radius=16,
+                            fg_color=CLR_DARK, bg_color=CLR_CARD)
+        band.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.22)
+
+        self._lbl_n_ciclo = ctk.CTkLabel(
+            band, text="01",
+            font=("Segoe UI", scaled_font(90, self._scale), "bold"),
+            text_color=CLR_W, fg_color="transparent")
+        self._lbl_n_ciclo.place(relx=0.12, rely=0.5, anchor="center")
+
+        ctk.CTkFrame(band, fg_color="#ffffff", corner_radius=0,
+                     bg_color=CLR_DARK).place(
+            relx=0.27, rely=0.1, relwidth=0.003, relheight=0.8)
+
+        self._lbl_ciclo_nombre = ctk.CTkLabel(
+            band, text=self.cycle_name.upper(),
+            font=("Segoe UI", scaled_font(30, self._scale), "bold"),
+            text_color=CLR_W, fg_color="transparent")
+        self._lbl_ciclo_nombre.place(relx=0.63, rely=0.22, anchor="center")
+
+        self._lbl_estado = ctk.CTkLabel(
+            band, text="Cargando...",
+            font=("Segoe UI", scaled_font(22, self._scale), "bold"),
+            text_color=CLR_W, fg_color="transparent",
+            wraplength=int(sw * 0.55))
+        self._lbl_estado.place(relx=0.63, rely=0.52, anchor="center")
+
+        self._lbl_cond = []
+        for i in range(_MAX_COND):
+            lbl = ctk.CTkLabel(
+                band, text="",
+                font=("Segoe UI", scaled_font(14, self._scale)),
+                text_color=CLR_W, fg_color="transparent")
+            lbl.place(relx=0.63, rely=0.70 + i * 0.065, anchor="center")
+            self._lbl_cond.append(lbl)
+
+        # ── Grid de pills 2×3 (34%) ───────────────────────────────────────────
+        pills_zone = ctk.CTkFrame(self._card, corner_radius=0,
+                                   fg_color=CLR_CARD, bg_color=CLR_CARD)
+        pills_zone.place(relx=0.02, rely=0.27, relwidth=0.96, relheight=0.34)
+
+        PW, PH = 0.485, 0.30
+        cols = [0.0, 0.515]
+        rows = [0.02, 0.36, 0.68]
+
+        self._val_temp_ester   = self._pill(pills_zone, "Temp. Ester",   "---", "°C",  cols[0], rows[0], PW, PH)
+        self._val_tiempo_ester = self._pill(pills_zone, "Tiempo Ester",  "---", "min", cols[0], rows[1], PW, PH)
+        self._val_tiempo_sec   = self._pill(pills_zone, "Tiempo Sec",    "---", "min", cols[0], rows[2], PW, PH)
+        self._val_temp_cam     = self._pill(pills_zone, "Temp.",         "---", "°C",  cols[1], rows[0], PW, PH)
+        self._val_temp_ref     = self._pill(pills_zone, "Temp. 1",       "---", "°C",  cols[1], rows[1], PW, PH)
+        self._val_pres_cam     = self._pill(pills_zone, "Presión",       "---", "kPa", cols[1], rows[2], PW, PH)
+
+        # ── Zona de acción (28%) ──────────────────────────────────────────────
+        action_zone = ctk.CTkFrame(self._card, corner_radius=0,
+                                    fg_color=CLR_CARD, bg_color=CLR_CARD)
+        action_zone.place(relx=0.02, rely=0.63, relwidth=0.96, relheight=0.28)
+        self._panel_der = action_zone
+
+        self._boton_puerta = tk.Label(action_zone, bg=CLR_CARD, cursor="hand2")
+        self._boton_puerta.bind("<Button-1>", lambda e: self._accion_puerta_1())
+        self._boton_puerta.bind("<Enter>", lambda e: self._boton_puerta.configure(bg=CLR_BG))
+        self._boton_puerta.bind("<Leave>", lambda e: self._boton_puerta.configure(bg=CLR_CARD))
+        self._boton_puerta.place(relx=0.04, rely=0.15, relwidth=0.42, relheight=0.75)
+
+        self._boton_iniciar = tk.Label(action_zone, bg=CLR_CARD, cursor="")
+        self._boton_iniciar.bind("<Enter>", lambda e: self._boton_iniciar.configure(bg=CLR_BG) if self._inicio_habilitado else None)
+        self._boton_iniciar.bind("<Leave>", lambda e: self._boton_iniciar.configure(bg=CLR_CARD))
+        self._boton_iniciar.place(relx=0.54, rely=0.15, relwidth=0.42, relheight=0.75)
+        self._inicio_habilitado = False
+
+        self._btn_reset_falla = ctk.CTkButton(
+            action_zone,
+            text="RECONOCER\nFALLA",
+            font=("Segoe UI", scaled_font(14, self._scale), "bold"),
+            fg_color="#c0392b", hover_color="#922b21",
+            text_color=CLR_W, corner_radius=14,
+            command=self._do_reset_falla,
+        )
+
+        self._boton_iniciar_pos   = dict(relx=0.54, rely=0.15, relwidth=0.42, relheight=0.75)
+        self._btn_reset_falla_pos = dict(relx=0.04, rely=0.15, relwidth=0.92, relheight=0.75)
 
     # ── Panel izquierdo ───────────────────────────────────────────────────────
 
