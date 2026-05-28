@@ -105,7 +105,7 @@ class CycleWindow(tk.Toplevel):
         # ── Diferir init de buffer e imágenes (ventana debe renderizarse) ─
         self.after(150, self._init_buffer)
         self.after(350, self._load_images)
-        self.after(1000, self._update_loop)
+        self._update_job_cw = self.after(1000, self._update_loop)
         self.bind("<Configure>", self._on_configure_cw)
 
         logger.info("CycleWindow abierta")
@@ -396,6 +396,8 @@ class CycleWindow(tk.Toplevel):
     # ══════════════════════════════════════════════════════════════════════
 
     def _load_images(self):
+        if self._closing:
+            return
         try:
             self.update()
             sw = self.winfo_screenwidth()
@@ -477,7 +479,7 @@ class CycleWindow(tk.Toplevel):
             self._update_loop_body()
         except Exception as e:
             logger.warning("CycleWindow update error: %s", e)
-        self.after(1000, self._update_loop)
+        self._update_job_cw = self.after(1000, self._update_loop)
 
     def _update_loop_body(self):
         self._upd_sensores()
@@ -516,16 +518,7 @@ class CycleWindow(tk.Toplevel):
     # ══════════════════════════════════════════════════════════════════════
 
     def _schedule_update_cw(self):
-        self._update_job_cw = self.after(1000, self._run_update_cw)
-
-    def _run_update_cw(self):
-        if self._closing:
-            return
-        try:
-            self._update_loop_body()
-        except Exception as e:
-            logger.warning("CycleWindow update error: %s", e)
-        self._update_job_cw = self.after(1000, self._run_update_cw)
+        self._update_job_cw = self.after(1000, self._update_loop)
 
     def _on_configure_cw(self, event):
         if event.widget is not self:
@@ -549,6 +542,8 @@ class CycleWindow(tk.Toplevel):
             return
 
     def _rebuild_layout_cw(self):
+        if self._closing:
+            return
         if self._update_job_cw:
             self.after_cancel(self._update_job_cw)
             self._update_job_cw = None
