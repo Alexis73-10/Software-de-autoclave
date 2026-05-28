@@ -663,19 +663,28 @@ class InterfazPrincipal(tk.Tk):
         )
 
     def _check_orientation(self, w: int, h: int):
-        new_portrait, should_rebuild = check_orientation_changed(
-            w, h, self._current_portrait
-        )
-        self._current_portrait = new_portrait
-        if should_rebuild:
-            self._rebuild_layout()
+        self._resize_job = None
+        try:
+            new_portrait, should_rebuild = check_orientation_changed(
+                w, h, self._current_portrait
+            )
+            self._current_portrait = new_portrait
+            if should_rebuild:
+                self._rebuild_layout()
+        except tk.TclError:
+            return  # window destroyed during debounce
 
     def _rebuild_layout(self):
         if self._update_job:
             self.after_cancel(self._update_job)
             self._update_job = None
         for child in self.winfo_children():
-            child.destroy()
+            if self._cycle_win is not None and child is self._cycle_win:
+                continue  # CycleWindow handles its own rebuild via <Configure>
+            try:
+                child.destroy()
+            except tk.TclError:
+                pass
         self._build_ui()
         self.after(300, self._load_action_images)
         self._schedule_update()
