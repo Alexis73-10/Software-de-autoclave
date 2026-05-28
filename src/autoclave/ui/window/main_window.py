@@ -10,6 +10,11 @@ import logging
 from autoclave.ui.cycle.cycle_window import CycleWindow
 
 from autoclave.utils.resources import resource_path
+from autoclave.ui.layout import (
+    is_portrait, font_scale, scaled_font,
+    check_orientation_changed,
+    load_footer_icons,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -48,50 +53,88 @@ class InterfazPrincipal(tk.Tk):
         self._cycle_win          = None
         self._toast_widget       = None
 
-        # ── construir UI ──────────────────────────────────────────────────────
-        self._build_header()
-        self._build_body()
-        self._build_footer()
+        self._scale            = 1.0   # factor de escala de fuente, calculado en _build_ui
+        self._current_portrait = None  # None = no determinado todavía
+        self._update_job       = None  # handle del after() del loop de polling
+        self._resize_job       = None  # handle del debounce de <Configure>
+        self._hora_job         = None  # handle del after() del reloj
+        self._tick             = 0
 
-        # ── arrancar loop ─────────────────────────────────────────────────────
-        self.after(300, self._load_action_images)   # cargar imágenes después de fullscreen
-        self.after(500, self._update_ui)
+        # ── construir UI ──────────────────────────────────────────────────────
+        self._build_ui()
+
+        # ── arrancar loop e imagen ────────────────────────────────────────────
+        self.after(300, self._load_action_images)
+        self._schedule_update()
+
+        # ── detección de orientación (para ambos monitores) ───────────────────
+        self.bind("<Configure>", self._on_configure)
 
         logger.info("✅ Interfaz creada correctamente.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PUNTO DE ENTRADA DE CONSTRUCCIÓN
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _build_ui(self):
+        # winfo_width/height dan las dimensiones reales de la ventana (correcto en
+        # multi-monitor). winfo_screenwidth/height siempre devuelve el monitor principal.
+        sw = self.winfo_width()
+        sh = self.winfo_height()
+        if sw < 100 or sh < 100:   # ventana aún no renderizada — usar pantalla principal
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+        self._scale = font_scale(sw, sh)
+        self._build_header(sh)
+        if is_portrait(sw, sh):
+            self._build_body_portrait(sw, sh)
+        else:
+            self._build_body_landscape(sw, sh)
+        self._build_footer(sh)
+
+    def _schedule_update(self):
+        self._update_job = self.after(500, self._run_update)
+
+    def _run_update(self):
+        self._update_ui()
+        self._update_job = self.after(500, self._run_update)
 
     # ══════════════════════════════════════════════════════════════════════════
     # HEADER
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _build_header(self):
-        hdr = tk.Frame(self, bg=CLR_DARK, height=58)
+    def _build_header(self, sh: int):
+        hdr = tk.Frame(self, bg=CLR_DARK, height=int(sh * 0.04))
         hdr.pack(fill=tk.X, side=tk.TOP)
         hdr.pack_propagate(False)
 
         tk.Label(hdr, text="ESPECIFIKA S.A.S",
-                 font=("Segoe UI", 14, "italic"),
+                 font=("Segoe UI", scaled_font(14, self._scale), "italic"),
                  bg=CLR_DARK, fg=CLR_W).pack(side=tk.LEFT, padx=20)
 
         self._lbl_modelo = tk.Label(hdr, text="AUTOCLAVE",
-                                     font=("Segoe UI", 16, "bold"),
+                                     font=("Segoe UI", scaled_font(16, self._scale), "bold"),
                                      bg=CLR_DARK, fg=CLR_W)
         self._lbl_modelo.pack(side=tk.LEFT, expand=True)
 
         self._lbl_hora = tk.Label(hdr, text="",
-                                   font=("Segoe UI", 14),
+                                   font=("Segoe UI", scaled_font(14, self._scale)),
                                    bg=CLR_DARK, fg=CLR_W)
         self._lbl_hora.pack(side=tk.RIGHT, padx=20)
         self._tick_hora()
 
     def _tick_hora(self):
-        self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
-        self.after(1000, self._tick_hora)
+        try:
+            self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
+        except tk.TclError:
+            return  # widget destroyed — stop silently
+        self._hora_job = self.after(1000, self._tick_hora)
 
     # ══════════════════════════════════════════════════════════════════════════
     # BODY  (fondo azul → tarjeta blanca → panel izq + panel der)
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _build_body(self):
+    def _build_body_landscape(self, sw: int, sh: int):
         self._body_bg = tk.Frame(self, bg=CLR_BG)
         self._body_bg.pack(fill=tk.BOTH, expand=True)
 
@@ -103,6 +146,101 @@ class InterfazPrincipal(tk.Tk):
         self._build_left_panel()
         self._build_right_panel()
 
+        # Guardar coordenadas para _upd_panel_izquierdo
+        self._boton_iniciar_pos   = dict(relx=0.79, rely=0.76, relwidth=0.16, relheight=0.21)
+        self._btn_reset_falla_pos = dict(relx=0.30, rely=0.76, relwidth=0.65, relheight=0.21)
+
+    def _build_body_portrait(self, sw: int, sh: int):
+        self._body_bg = tk.Frame(self, bg=CLR_BG)
+        self._body_bg.pack(fill=tk.BOTH, expand=True)
+
+        self._card = ctk.CTkFrame(self._body_bg, corner_radius=28,
+                                   fg_color=CLR_CARD, bg_color=CLR_BG)
+        self._card.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.94)
+
+        # ── Banda de estado (22%) ─────────────────────────────────────────────
+        band = ctk.CTkFrame(self._card, corner_radius=16,
+                            fg_color=CLR_DARK, bg_color=CLR_CARD)
+        band.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.22)
+
+        self._lbl_n_ciclo = ctk.CTkLabel(
+            band, text="01",
+            font=("Segoe UI", scaled_font(90, self._scale), "bold"),
+            text_color=CLR_W, fg_color="transparent")
+        self._lbl_n_ciclo.place(relx=0.12, rely=0.5, anchor="center")
+
+        ctk.CTkFrame(band, fg_color="#ffffff", corner_radius=0,
+                     bg_color=CLR_DARK).place(
+            relx=0.27, rely=0.1, relwidth=0.003, relheight=0.8)
+
+        self._lbl_ciclo_nombre = ctk.CTkLabel(
+            band, text=self.cycle_name.upper(),
+            font=("Segoe UI", scaled_font(30, self._scale), "bold"),
+            text_color=CLR_W, fg_color="transparent")
+        self._lbl_ciclo_nombre.place(relx=0.63, rely=0.22, anchor="center")
+
+        self._lbl_estado = ctk.CTkLabel(
+            band, text="Cargando...",
+            font=("Segoe UI", scaled_font(22, self._scale), "bold"),
+            text_color=CLR_W, fg_color="transparent",
+            wraplength=int(sw * 0.55))
+        self._lbl_estado.place(relx=0.63, rely=0.52, anchor="center")
+
+        self._lbl_cond = []
+        for i in range(_MAX_COND):
+            lbl = ctk.CTkLabel(
+                band, text="",
+                font=("Segoe UI", scaled_font(14, self._scale)),
+                text_color=CLR_W, fg_color="transparent")
+            lbl.place(relx=0.63, rely=0.70 + i * 0.065, anchor="center")
+            self._lbl_cond.append(lbl)
+
+        # ── Grid de pills 2×3 (34%) ───────────────────────────────────────────
+        pills_zone = ctk.CTkFrame(self._card, corner_radius=0,
+                                   fg_color=CLR_CARD, bg_color=CLR_CARD)
+        pills_zone.place(relx=0.02, rely=0.27, relwidth=0.96, relheight=0.34)
+
+        PW, PH = 0.485, 0.30
+        cols = [0.0, 0.515]
+        rows = [0.02, 0.36, 0.68]
+
+        self._val_temp_ester   = self._pill(pills_zone, "Temp. Ester",   "---", "°C",  cols[0], rows[0], PW, PH)
+        self._val_tiempo_ester = self._pill(pills_zone, "Tiempo Ester",  "---", "min", cols[0], rows[1], PW, PH)
+        self._val_tiempo_sec   = self._pill(pills_zone, "Tiempo Sec",    "---", "min", cols[0], rows[2], PW, PH)
+        self._val_temp_cam     = self._pill(pills_zone, "Temp.",         "---", "°C",  cols[1], rows[0], PW, PH)
+        self._val_temp_ref     = self._pill(pills_zone, "Temp. 1",       "---", "°C",  cols[1], rows[1], PW, PH)
+        self._val_pres_cam     = self._pill(pills_zone, "Presión",       "---", "kPa", cols[1], rows[2], PW, PH)
+
+        # ── Zona de acción (28%) ──────────────────────────────────────────────
+        action_zone = ctk.CTkFrame(self._card, corner_radius=0,
+                                    fg_color=CLR_CARD, bg_color=CLR_CARD)
+        action_zone.place(relx=0.02, rely=0.63, relwidth=0.96, relheight=0.28)
+        self._panel_der = action_zone
+
+        self._boton_puerta = tk.Label(action_zone, bg=CLR_CARD, cursor="hand2")
+        self._boton_puerta.bind("<Button-1>", lambda e: self._accion_puerta_1())
+        self._boton_puerta.bind("<Enter>", lambda e: self._boton_puerta.configure(bg=CLR_BG))
+        self._boton_puerta.bind("<Leave>", lambda e: self._boton_puerta.configure(bg=CLR_CARD))
+        self._boton_puerta.place(relx=0.04, rely=0.15, relwidth=0.42, relheight=0.75)
+
+        self._boton_iniciar = tk.Label(action_zone, bg=CLR_CARD, cursor="")
+        self._boton_iniciar.bind("<Enter>", lambda e: self._boton_iniciar.configure(bg=CLR_BG) if self._inicio_habilitado else None)
+        self._boton_iniciar.bind("<Leave>", lambda e: self._boton_iniciar.configure(bg=CLR_CARD))
+        self._boton_iniciar.place(relx=0.54, rely=0.15, relwidth=0.42, relheight=0.75)
+        self._inicio_habilitado = False
+
+        self._btn_reset_falla = ctk.CTkButton(
+            action_zone,
+            text="RECONOCER\nFALLA",
+            font=("Segoe UI", scaled_font(14, self._scale), "bold"),
+            fg_color="#c0392b", hover_color="#922b21",
+            text_color=CLR_W, corner_radius=14,
+            command=self._do_reset_falla,
+        )
+
+        self._boton_iniciar_pos   = dict(relx=0.54, rely=0.15, relwidth=0.42, relheight=0.75)
+        self._btn_reset_falla_pos = dict(relx=0.04, rely=0.15, relwidth=0.92, relheight=0.75)
+
     # ── Panel izquierdo ───────────────────────────────────────────────────────
 
     def _build_left_panel(self):
@@ -113,16 +251,16 @@ class InterfazPrincipal(tk.Tk):
         # número de ciclo
         self._lbl_n_ciclo = ctk.CTkLabel(
             pnl, text="01",
-            font=("Segoe UI", 90, "bold"),
+            font=("Segoe UI", scaled_font(90, self._scale), "bold"),
             text_color=CLR_W, fg_color="transparent")
         self._lbl_n_ciclo.place(relx=0.5, rely=0.20, anchor="center")
 
         # estado de máquina
         self._lbl_estado = ctk.CTkLabel(
             pnl, text="Cargando...",
-            font=("Segoe UI", 22, "bold"),
+            font=("Segoe UI", scaled_font(22, self._scale), "bold"),
             text_color=CLR_W, fg_color="transparent",
-            wraplength=190)
+            wraplength=int(self.winfo_screenwidth() * 0.10))
         self._lbl_estado.place(relx=0.5, rely=0.43, anchor="center")
 
         # alarmas y condiciones dinámicas
@@ -130,7 +268,7 @@ class InterfazPrincipal(tk.Tk):
         for i in range(_MAX_COND):
             lbl = ctk.CTkLabel(
                 pnl, text="",
-                font=("Segoe UI", 16),
+                font=("Segoe UI", scaled_font(16, self._scale)),
                 text_color=CLR_W, fg_color="transparent")
             lbl.place(relx=0.5, rely=0.57 + i * 0.082, anchor="center")
             self._lbl_cond.append(lbl)
@@ -146,7 +284,7 @@ class InterfazPrincipal(tk.Tk):
         # título del ciclo
         self._lbl_ciclo_nombre = ctk.CTkLabel(
             pnl, text=self.cycle_name.upper(),
-            font=("Segoe UI", 46, "bold"),
+            font=("Segoe UI", scaled_font(46, self._scale), "bold"),
             text_color=CLR_B, fg_color="transparent")
         self._lbl_ciclo_nombre.place(relx=0.5, rely=0.09, anchor="center")
 
@@ -186,7 +324,7 @@ class InterfazPrincipal(tk.Tk):
         self._btn_reset_falla = ctk.CTkButton(
             pnl,
             text="RECONOCER\nFALLA",
-            font=("Segoe UI", 14, "bold"),
+            font=("Segoe UI", scaled_font(14, self._scale), "bold"),
             fg_color="#c0392b",
             hover_color="#922b21",
             text_color=CLR_W,
@@ -205,17 +343,17 @@ class InterfazPrincipal(tk.Tk):
         frame.place(relx=relx, rely=rely, relwidth=relwidth, relheight=relheight)
 
         ctk.CTkLabel(frame, text=label,
-                     font=("Segoe UI", 18, "bold"),
+                     font=("Segoe UI", scaled_font(18, self._scale), "bold"),
                      text_color=CLR_W, fg_color="transparent",
                      anchor="w").place(relx=0.05, rely=0.5, anchor="w")
 
         ctk.CTkLabel(frame, text=unit,
-                     font=("Segoe UI", 15),
+                     font=("Segoe UI", scaled_font(15, self._scale)),
                      text_color=CLR_W, fg_color="transparent",
                      anchor="e").place(relx=0.97, rely=0.5, anchor="e")
 
         lbl_val = ctk.CTkLabel(frame, text=value,
-                                font=("Segoe UI", 20, "bold"),
+                                font=("Segoe UI", scaled_font(20, self._scale), "bold"),
                                 text_color=CLR_W, fg_color="transparent",
                                 anchor="e")
         lbl_val.place(relx=0.74, rely=0.5, anchor="e")
@@ -226,8 +364,8 @@ class InterfazPrincipal(tk.Tk):
     # FOOTER
     # ══════════════════════════════════════════════════════════════════════════
 
-    def _build_footer(self):
-        footer = tk.Frame(self, bg=CLR_BG, height=90)
+    def _build_footer(self, sh: int):
+        footer = tk.Frame(self, bg=CLR_BG, height=int(sh * 0.065))
         footer.pack(fill=tk.X, side=tk.BOTTOM)
         footer.pack_propagate(False)
 
@@ -238,30 +376,31 @@ class InterfazPrincipal(tk.Tk):
                    relwidth=0.52, relheight=0.82)
 
         # cargar iconos footer
-        def _ico(name, size=(46, 40)):
-            img = Image.open(resource_path(f"autoclave/images/{name}"))
-            return ctk.CTkImage(light_image=img, dark_image=img, size=size)
+        icons = load_footer_icons(self._scale)
+        self._img_info     = icons["info"]
+        self._img_settings = icons["settings"]
 
-        self._img_info     = _ico("info_icon.png")
-        self._img_settings = _ico("settings_icon.png")
-        self._img_OFF     = _ico("power_icon.png")
+        # Power icon — loaded separately (not in load_footer_icons)
+        _off_raw = Image.open(resource_path("autoclave/images/power_icon.png"))
+        ico_size = (scaled_font(46, self._scale), scaled_font(40, self._scale))
+        self._img_OFF = ctk.CTkImage(light_image=_off_raw, dark_image=_off_raw, size=ico_size)
 
         ctk.CTkButton(pill, text="", image=self._img_info,
                       fg_color="transparent", hover_color="#406080",
-                      width=56).pack(side=tk.LEFT, padx=18)
+                      width=scaled_font(56, self._scale)).pack(side=tk.LEFT, padx=18)
 
         ctk.CTkButton(pill, text="", image=self._img_settings,
                       fg_color="transparent", hover_color="#406080",
-                      width=56).pack(side=tk.LEFT, padx=8)
+                      width=scaled_font(56, self._scale)).pack(side=tk.LEFT, padx=8)
 
         ctk.CTkButton(pill, text="", image=self._img_OFF,
                       fg_color="transparent", hover_color="#406080",
                       command=self.apagar_equipo,
-                      width=56).pack(side=tk.RIGHT, padx=18)
+                      width=scaled_font(56, self._scale)).pack(side=tk.RIGHT, padx=18)
 
         # indicador de conexión
         self._lbl_conexion = tk.Label(footer, text="⚪ Conectando...",
-                                       font=("Segoe UI", 12),
+                                       font=("Segoe UI", scaled_font(12, self._scale)),
                                        bg=CLR_BG, fg="white")
         self._lbl_conexion.place(relx=0.01, rely=0.5, anchor="w")
 
@@ -269,7 +408,7 @@ class InterfazPrincipal(tk.Tk):
         self._lbl_suministro = tk.Label(
             footer,
             text="⚡ Suministro: OK",
-            font=("Segoe UI", 12),
+            font=("Segoe UI", scaled_font(12, self._scale)),
             bg=CLR_BG,
             fg="#7FFF7F",
         )
@@ -393,8 +532,6 @@ class InterfazPrincipal(tk.Tk):
     # ══════════════════════════════════════════════════════════════════════════
 
     def _update_ui(self):
-        if not hasattr(self, "_tick"):
-            self._tick = 0
         self._tick += 1
 
         self._upd_conexion()
@@ -422,8 +559,6 @@ class InterfazPrincipal(tk.Tk):
 
             except Exception as e:
                 logger.warning("⚠️ Error UI loop: %s", e)
-
-        self.after(500, self._update_ui)
 
     # ── helpers de actualización ──────────────────────────────────────────────
 
@@ -486,10 +621,10 @@ class InterfazPrincipal(tk.Tk):
         en_falla = (estado == "FALLA")
         if en_falla:
             self._boton_iniciar.place_forget()
-            self._btn_reset_falla.place(relx=0.30, rely=0.76, relwidth=0.65, relheight=0.21)
+            self._btn_reset_falla.place(**self._btn_reset_falla_pos)
         else:
             self._btn_reset_falla.place_forget()
-            self._boton_iniciar.place(relx=0.79, rely=0.76, relwidth=0.16, relheight=0.21)
+            self._boton_iniciar.place(**self._boton_iniciar_pos)
 
     def _upd_suministro(self):
         di = self.ui_service.get_sensores_di()
@@ -519,6 +654,50 @@ class InterfazPrincipal(tk.Tk):
         img = self._img_puerta_ce if estado == "CERRADO" else self._img_puerta_ab
         self._boton_puerta.configure(image=img)
         self._boton_puerta.update_idletasks()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # DETECCIÓN DE ORIENTACIÓN
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _on_configure(self, event):
+        if event.widget is not self:
+            return
+        if self._resize_job:
+            self.after_cancel(self._resize_job)
+        self._resize_job = self.after(
+            150, lambda: self._check_orientation(event.width, event.height)
+        )
+
+    def _check_orientation(self, w: int, h: int):
+        self._resize_job = None
+        try:
+            new_portrait, should_rebuild = check_orientation_changed(
+                w, h, self._current_portrait
+            )
+            self._current_portrait = new_portrait
+            if should_rebuild:
+                self._rebuild_layout()
+        except tk.TclError:
+            return  # window destroyed during debounce
+
+    def _rebuild_layout(self):
+        if self._hora_job:
+            self.after_cancel(self._hora_job)
+            self._hora_job = None
+        if self._update_job:
+            self.after_cancel(self._update_job)
+            self._update_job = None
+        for child in self.winfo_children():
+            if self._cycle_win is not None and child is self._cycle_win:
+                continue  # CycleWindow handles its own rebuild via <Configure>
+            try:
+                child.destroy()
+            except tk.TclError:
+                pass
+        self._toast_widget = None
+        self._build_ui()
+        self.after(300, self._load_action_images)
+        self._schedule_update()
 
     # ══════════════════════════════════════════════════════════════════════════
     # NOTIFICACIÓN DE ERROR — overlay centrado con botón confirmar

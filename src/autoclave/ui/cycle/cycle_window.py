@@ -20,6 +20,7 @@ from autoclave.ui.cycle.data.cycle_buffer import CycleBuffer, FASE_DURACION_PARA
 from autoclave.ui.cycle.widgets.phase_indicator import PhaseIndicator
 from autoclave.ui.cycle.widgets.live_graph import LiveGraph
 from autoclave.utils.resources import resource_path
+from autoclave.ui.layout import is_portrait, font_scale, scaled_font, load_footer_icons, check_orientation_changed
 
 logger = logging.getLogger(__name__)
 
@@ -89,17 +90,46 @@ class CycleWindow(tk.Toplevel):
         self.attributes("-fullscreen", True)
         self.grab_set()
 
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        self._scale = font_scale(sw, sh)
+        self._sh    = sh
+
+        self._current_portrait = None
+        self._update_job_cw    = None
+        self._resize_job_cw    = None
+        self._hora_job         = None
+
         # ── Construir UI ──────────────────────────────────────────────────
-        self._build_header()
-        self._build_body()
-        self._build_footer()
+        self._build_ui_cw()
 
         # ── Diferir init de buffer e imágenes (ventana debe renderizarse) ─
         self.after(150, self._init_buffer)
         self.after(350, self._load_images)
-        self.after(1000, self._update_loop)
+        self._update_job_cw = self.after(1000, self._update_loop)
+        self.bind("<Configure>", self._on_configure_cw)
 
         logger.info("CycleWindow abierta")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BUILD UI (dispatcher landscape / portrait)
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _build_ui_cw(self):
+        # winfo_width/height dan las dimensiones reales — correcto en multi-monitor.
+        sw = self.winfo_width()
+        sh = self.winfo_height()
+        if sw < 100 or sh < 100:
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
+        self._scale = font_scale(sw, sh)
+        self._sh    = sh
+        self._build_header()
+        if is_portrait(sw, sh):
+            self._build_body_portrait_cw(sw, sh)
+        else:
+            self._build_body_landscape()
+        self._build_footer()
 
     # ══════════════════════════════════════════════════════════════════════
     # HEADER
@@ -127,15 +157,15 @@ class CycleWindow(tk.Toplevel):
     def _tick_hora(self):
         try:
             self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
-            self.after(1000, self._tick_hora)
+            self._hora_job = self.after(1000, self._tick_hora)
         except tk.TclError:
             pass   # ventana ya destruida
 
     # ══════════════════════════════════════════════════════════════════════
-    # BODY
+    # BODY LANDSCAPE
     # ══════════════════════════════════════════════════════════════════════
 
-    def _build_body(self):
+    def _build_body_landscape(self):
         body = tk.Frame(self, bg=CLR_BG)
         body.pack(fill=tk.BOTH, expand=True)
 
@@ -208,7 +238,7 @@ class CycleWindow(tk.Toplevel):
         self._btn_confirm = ctk.CTkButton(
             pnl,
             text="CONFIRMAR",
-            font=("Segoe UI", 15, "bold"),
+            font=("Segoe UI", scaled_font(15, self._scale), "bold"),
             fg_color=CLR_OK,
             hover_color="#155d32",
             text_color=CLR_W,
@@ -244,14 +274,115 @@ class CycleWindow(tk.Toplevel):
         return lbl_val
 
     # ══════════════════════════════════════════════════════════════════════
+    # BODY PORTRAIT — CycleWindow
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _build_body_portrait_cw(self, sw: int, sh: int):
+        body = tk.Frame(self, bg=CLR_BG)
+        body.pack(fill=tk.BOTH, expand=True)
+
+        card = ctk.CTkFrame(body, corner_radius=28,
+                            fg_color=CLR_CARD, bg_color=CLR_BG)
+        card.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.94)
+        self._card = card
+
+        # Nombre del ciclo
+        nombre = (self.ui_service.get_cycle_param("name") or "CICLO").upper()
+        self._lbl_nombre = ctk.CTkLabel(
+            card, text=nombre,
+            font=("Segoe UI", scaled_font(34, self._scale), "bold"),
+            text_color=CLR_B, fg_color="transparent",
+        )
+        self._lbl_nombre.place(relx=0.5, rely=0.04, anchor="center")
+
+        # Separador
+        ctk.CTkFrame(card, fg_color="#cccccc", corner_radius=0,
+                    bg_color=CLR_CARD).place(
+            relx=0.01, rely=0.10, relwidth=0.98, relheight=0.003)
+
+        # Pill de fase
+        self._phase_ind = PhaseIndicator(
+            card, bg_color=CLR_CARD,
+            font_size_label=scaled_font(20, self._scale),
+            font_size_timer=scaled_font(18, self._scale),
+        )
+        self._phase_ind.place(relx=0.01, rely=0.11, relwidth=0.98, relheight=0.10)
+
+        # Gráfica (zona dominante)
+        graph_frame = tk.Frame(card, bg=CLR_CARD)
+        graph_frame.place(relx=0.01, rely=0.23, relwidth=0.98, relheight=0.44)
+        self._graph = LiveGraph(graph_frame, bg=CLR_CARD)
+        self._graph.pack(fill=tk.BOTH, expand=True)
+
+        # Separador
+        ctk.CTkFrame(card, fg_color="#cccccc", corner_radius=0,
+                    bg_color=CLR_CARD).place(
+            relx=0.01, rely=0.68, relwidth=0.98, relheight=0.003)
+
+        # Sensores en fila horizontal
+        self._val_temp  = self._pill(card, "Temp.",   "---", "°C",  0.01, 0.69, 0.32, 0.13)
+        self._val_temp2 = self._pill(card, "Temp. 1", "---", "°C",  0.34, 0.69, 0.32, 0.13)
+        self._val_pres  = self._pill(card, "Presión", "---", "kPa", 0.67, 0.69, 0.32, 0.13)
+
+        # Separador
+        ctk.CTkFrame(card, fg_color="#cccccc", corner_radius=0,
+                    bg_color=CLR_CARD).place(
+            relx=0.01, rely=0.83, relwidth=0.98, relheight=0.003)
+
+        # Puertas + botón acción
+        doors_frame = tk.Frame(card, bg=CLR_CARD)
+        doors_frame.place(relx=0.01, rely=0.84, relwidth=0.35, relheight=0.13)
+
+        self._lbl_puerta1 = tk.Label(doors_frame, bg=CLR_CARD)
+        self._lbl_puerta1.pack(side=tk.LEFT, padx=6)
+
+        self._lbl_puerta2 = tk.Label(doors_frame, bg=CLR_CARD)
+        self._lbl_puerta2.pack(side=tk.LEFT, padx=6)
+
+        self._btn_abort = tk.Label(card, bg=CLR_CARD, cursor="hand2")
+        self._btn_abort.bind("<Button-1>", lambda e: self._confirmar_abort())
+        self._btn_abort.bind("<Enter>",    lambda e: self._btn_abort.configure(bg=CLR_BG))
+        self._btn_abort.bind("<Leave>",    lambda e: self._btn_abort.configure(bg=CLR_CARD))
+        self._btn_abort.place(relx=0.37, rely=0.84, relwidth=0.62, relheight=0.13)
+
+        self._btn_confirm = ctk.CTkButton(
+            card,
+            text="CONFIRMAR",
+            font=("Segoe UI", scaled_font(15, self._scale), "bold"),
+            fg_color=CLR_OK, hover_color="#155d32",
+            text_color=CLR_W, corner_radius=14,
+            state="disabled",
+            command=self._do_confirm,
+        )
+
+    # ══════════════════════════════════════════════════════════════════════
     # FOOTER
     # ══════════════════════════════════════════════════════════════════════
 
     def _build_footer(self):
-        footer = tk.Frame(self, bg=CLR_BG, height=90)
+        footer = tk.Frame(self, bg=CLR_BG, height=int(self._sh * 0.065))
         footer.pack(fill=tk.X, side=tk.BOTTOM)
         footer.pack_propagate(False)
 
+        # Pill izquierda: info + settings
+        icons = load_footer_icons(self._scale)
+        self._img_info_cw     = icons["info"]
+        self._img_settings_cw = icons["settings"]
+
+        pill_left = ctk.CTkFrame(footer, corner_radius=30,
+                                  fg_color=CLR_FOOTER, bg_color=CLR_BG)
+        pill_left.place(relx=0.01, rely=0.5, anchor="w",
+                        relwidth=0.20, relheight=0.82)
+
+        ctk.CTkButton(pill_left, text="", image=self._img_info_cw,
+                      fg_color="transparent", hover_color="#406080",
+                      width=scaled_font(56, self._scale)).pack(side=tk.LEFT, padx=12)
+
+        ctk.CTkButton(pill_left, text="", image=self._img_settings_cw,
+                      fg_color="transparent", hover_color="#406080",
+                      width=scaled_font(56, self._scale)).pack(side=tk.LEFT, padx=8)
+
+        # Pill central: estado del ciclo
         pill = ctk.CTkFrame(footer, corner_radius=45,
                             fg_color=CLR_FOOTER, bg_color=CLR_BG)
         pill.place(relx=0.5, rely=0.5, anchor="center",
@@ -259,7 +390,7 @@ class CycleWindow(tk.Toplevel):
 
         self._lbl_estado = ctk.CTkLabel(
             pill, text="Ciclo en progreso...",
-            font=("Segoe UI", 16),
+            font=("Segoe UI", scaled_font(16, self._scale)),
             text_color=CLR_W, fg_color="transparent",
         )
         self._lbl_estado.pack(expand=True)
@@ -269,6 +400,8 @@ class CycleWindow(tk.Toplevel):
     # ══════════════════════════════════════════════════════════════════════
 
     def _load_images(self):
+        if self._closing:
+            return
         try:
             self.update()
             sw = self.winfo_screenwidth()
@@ -345,44 +478,91 @@ class CycleWindow(tk.Toplevel):
     def _update_loop(self):
         if self._closing:
             return
-
         self._tick += 1
         try:
-            self._upd_sensores()
-            self._upd_fase()
-
-            if self._tick % _GRAPH_TICKS == 0:
-                self._graph.update_data(
-                    self._buffer.points,
-                    self._buffer.phase_boundaries,
-                )
-
-            if self._tick % 4 == 0:
-                self._upd_puertas()
-
-            # ── Detección de fin de ciclo ─────────────────────────────
-            machine_state = self.ui_service.get_estado_global()
-            fase_actual   = self.ui_service.get_fase_ciclo()
-
-            # Paso 1: confirmar que el ciclo llegó a estar activo
-            # (máquina en CICLO con una fase no-terminal)
-            if not self._ciclo_activo_detectado:
-                if machine_state == "CICLO" and not _es_fase_terminal(fase_actual):
-                    self._ciclo_activo_detectado = True
-
-            # Paso 2: solo DESPUÉS de estar activo detectar el fin
-            if self._ciclo_activo_detectado and not self._ciclo_terminado:
-                if _es_fase_terminal(fase_actual):
-                    self._on_ciclo_fin(fase_actual)
-
-            # Si ya terminó, verificar seguridad para habilitar confirmación
-            if self._ciclo_terminado:
-                self._upd_confirm_safety()
-
+            self._update_loop_body()
         except Exception as e:
             logger.warning("CycleWindow update error: %s", e)
+        self._update_job_cw = self.after(1000, self._update_loop)
 
-        self.after(1000, self._update_loop)
+    def _update_loop_body(self):
+        self._upd_sensores()
+        self._upd_fase()
+
+        if self._tick % _GRAPH_TICKS == 0:
+            self._graph.update_data(
+                self._buffer.points,
+                self._buffer.phase_boundaries,
+            )
+
+        if self._tick % 4 == 0:
+            self._upd_puertas()
+
+        # ── Detección de fin de ciclo ─────────────────────────────
+        machine_state = self.ui_service.get_estado_global()
+        fase_actual   = self.ui_service.get_fase_ciclo()
+
+        # Paso 1: confirmar que el ciclo llegó a estar activo
+        # (máquina en CICLO con una fase no-terminal)
+        if not self._ciclo_activo_detectado:
+            if machine_state == "CICLO" and not _es_fase_terminal(fase_actual):
+                self._ciclo_activo_detectado = True
+
+        # Paso 2: solo DESPUÉS de estar activo detectar el fin
+        if self._ciclo_activo_detectado and not self._ciclo_terminado:
+            if _es_fase_terminal(fase_actual):
+                self._on_ciclo_fin(fase_actual)
+
+        # Si ya terminó, verificar seguridad para habilitar confirmación
+        if self._ciclo_terminado:
+            self._upd_confirm_safety()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # DETECCIÓN DE ORIENTACIÓN — CycleWindow
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _schedule_update_cw(self):
+        self._update_job_cw = self.after(1000, self._update_loop)
+
+    def _on_configure_cw(self, event):
+        if event.widget is not self:
+            return
+        if self._resize_job_cw:
+            self.after_cancel(self._resize_job_cw)
+        self._resize_job_cw = self.after(
+            150, lambda: self._check_orientation_cw(event.width, event.height)
+        )
+
+    def _check_orientation_cw(self, w: int, h: int):
+        self._resize_job_cw = None
+        try:
+            new_portrait, should_rebuild = check_orientation_changed(
+                w, h, self._current_portrait
+            )
+            self._current_portrait = new_portrait
+            if should_rebuild:
+                self._rebuild_layout_cw()
+        except tk.TclError:
+            return
+
+    def _rebuild_layout_cw(self):
+        if self._closing:
+            return
+        if self._hora_job:
+            self.after_cancel(self._hora_job)
+            self._hora_job = None
+        if self._update_job_cw:
+            self.after_cancel(self._update_job_cw)
+            self._update_job_cw = None
+        for child in self.winfo_children():
+            try:
+                child.destroy()
+            except tk.TclError:
+                pass
+        self._build_ui_cw()
+        self.grab_set()              # re-aplicar grab modal
+        self.after(350, self._load_images)
+        self._schedule_update_cw()
 
     # ── Helpers de actualización ──────────────────────────────────────────
 
@@ -539,8 +719,18 @@ class CycleWindow(tk.Toplevel):
 
         # Ocultar botón ABORTAR y mostrar botón CONFIRMAR
         try:
+            info = self._btn_abort.place_info()
             self._btn_abort.place_forget()
-            self._btn_confirm.place(relx=0.65, rely=0.56, relwidth=0.35, relheight=0.26)
+            if info:
+                self._btn_confirm.place(
+                    relx=float(info["relx"]),
+                    rely=float(info["rely"]),
+                    relwidth=float(info["relwidth"]),
+                    relheight=float(info["relheight"]),
+                    in_=self._btn_abort.master,
+                )
+            else:
+                logger.warning("_on_ciclo_fin: _btn_abort not placed — CONFIRMAR not shown")
         except tk.TclError:
             pass
 
