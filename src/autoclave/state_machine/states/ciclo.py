@@ -27,6 +27,9 @@ from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFa
 
 logger = logging.getLogger(__name__)
 
+_SENSORES_TEMP_CRITICOS = ["temp_camara"]
+_SENSORES_PRES_CRITICOS = ["pres_camara"]
+
 # Resultado textual que CicloState devuelve al StateMachine
 class CicloResultado:
     EN_CURSO               = "EN_CURSO"
@@ -200,6 +203,21 @@ class CicloState:
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
+        # ── 2b. ¿Fallo de suministro eléctrico? ──────────────────────
+        if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"):
+            logger.error("CicloState: ABORTADO por fallo de suministro eléctrico")
+            self.estado.fase_ciclo = "FALLO_SUMINISTRO"
+            self.alarm_manager.report(Alarm(
+                alarm_id="FALLO_SUMINISTRO_ELECTRICO",
+                alarm_type=AlarmType.EMERGENCIA,
+                source_state="CICLO",
+                description="Pérdida de suministro eléctrico durante el ciclo.",
+                recoverable=False,
+            ))
+            self._protocolo.ejecutar()
+            self._resultado_pendiente = CicloResultado.FALLO
+            return CicloResultado.ESPERANDO_CONFIRMACION
+
         # ── 3. Verificar puertas y empaque ────────────────────────────
         puertas_ok, codigo_fallo = self._verificar_puertas()
         if not puertas_ok:
@@ -216,17 +234,39 @@ class CicloState:
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
-        # ── 4. Mantener presión de chaqueta ───────────────────────────
+        # ── 4. Verificar sensores críticos ────────────────────────────
+        ausentes = [
+            s for s in _SENSORES_TEMP_CRITICOS
+            if self.estado.sensores_temp.get(s) is None
+        ] + [
+            s for s in _SENSORES_PRES_CRITICOS
+            if self.estado.sensores_pres.get(s) is None
+        ]
+        if ausentes:
+            logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
+            self.estado.fase_ciclo = "SENSOR_AUSENTE"
+            self.alarm_manager.report(Alarm(
+                alarm_id="SENSOR_AUSENTE",
+                alarm_type=AlarmType.EMERGENCIA,
+                source_state="CICLO",
+                description=f"Sensor crítico ausente: {', '.join(ausentes)}",
+                recoverable=False,
+            ))
+            self._protocolo.ejecutar()
+            self._resultado_pendiente = CicloResultado.FALLO
+            return CicloResultado.ESPERANDO_CONFIRMACION
+
+        # ── 5. Mantener presión de chaqueta ───────────────────────────
         self._mantener_chaqueta()
 
-        # ── 5. ¿Ya se completaron todas las fases? ────────────────────
+        # ── 6. ¿Ya se completaron todas las fases? ────────────────────
         if self._fase_idx >= len(self._fases):
             logger.info("CicloState: COMPLETADO — todas las fases finalizadas")
             self.estado.fase_ciclo = "COMPLETADO"
             self._resultado_pendiente = CicloResultado.COMPLETADO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
-        # ── 6. Ejecutar la fase actual ────────────────────────────────
+        # ── 7. Ejecutar la fase actual ────────────────────────────────
         fase = self._fases[self._fase_idx]
         resultado = fase.update()
 

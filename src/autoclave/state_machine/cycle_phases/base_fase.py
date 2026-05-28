@@ -7,6 +7,8 @@ from __future__ import annotations
 from enum import Enum, auto
 import logging
 
+from autoclave.core.steam import p_saturacion_kpa
+
 logger = logging.getLogger(__name__)
 
 
@@ -63,3 +65,7 @@ class BaseFase:
 
     def _rango_atm(self) -> float:
         return self.config.get("rango_presion_atm") or 20.0
+
+    def _verificar_vapor_saturado(self, t_celsius: float, p_real_kpa: float, tolerancia_kpa: float) -> bool:
+        """True si |P_real - P_sat(T)| <= tolerancia."""
+        return abs(p_real_kpa - p_saturacion_kpa(t_celsius)) <= tolerancia_kpa

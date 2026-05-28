@@ -6,6 +6,7 @@ from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType
 from autoclave.state_machine.state_machine import StateMachine
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
+from autoclave.devices.suministro_electrico.suministro_electrico import SuministroElectrico
 
 import logging
 
@@ -43,6 +44,7 @@ class ControlLoop:
         )
         self.link_was_connected = True
         self.paro_emergencia    = EmergencyStop(estado)
+        self.suministro_electrico = SuministroElectrico(estado, set_do)
 
         self.thread: threading.Thread | None = None
 
@@ -80,6 +82,11 @@ class ControlLoop:
             # 2. Paro de emergencia → actualiza flag en estado
             self.paro_emergencia.update(
                 bool(self.estado.sensores_di.get("paro_emergencia", 0))
+            )
+
+            # 2b. Suministro eléctrico → actualiza flag en estado
+            self.suministro_electrico.update(
+                bool(self.estado.sensores_di.get("suministro_electrico", 1))
             )
 
             # 3. Dispositivos → actúan

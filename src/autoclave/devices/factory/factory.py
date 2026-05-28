@@ -2,8 +2,10 @@ from autoclave.hal.units import Units
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.utils.resources import resource_path
 
+_DOOR_TYPE_MAP = {"simple": 1, "advanced": 2}
 
-def build_hardware():
+
+def build_hardware(profile):
     units = Units(resource_path("autoclave/config/calibration.yaml"))
 
     serial = SerialLink(
@@ -12,10 +14,12 @@ def build_hardware():
     serial._scan_ports()
     serial.start()
 
-    doors_cfg = [
+    door_type_int = _DOOR_TYPE_MAP[profile.door_type]
+
+    all_doors_cfg = [
         {
             "name": "Puerta 1",
-            "type": 2,  # Tipo de puerta (1 = simple, 2 = avanzada)
+            "type": door_type_int,
             "di": {
                 "abierta": "puerta_1_abierta",
                 "cerrada": "puerta_1_cerrada",
@@ -26,7 +30,7 @@ def build_hardware():
         },
         {
             "name": "Puerta 2",
-            "type": 2,  # Tipo de puerta (1 = simple, 2 = avanzada)
+            "type": door_type_int,
             "di": {
                 "abierta": "puerta_2_abierta",
                 "cerrada": "puerta_2_cerrada",
@@ -37,4 +41,4 @@ def build_hardware():
         },
     ]
 
-    return units, serial, doors_cfg
+    return units, serial, all_doors_cfg[:profile.door_count]

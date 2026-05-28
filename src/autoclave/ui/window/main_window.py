@@ -265,6 +265,16 @@ class InterfazPrincipal(tk.Tk):
                                        bg=CLR_BG, fg="white")
         self._lbl_conexion.place(relx=0.01, rely=0.5, anchor="w")
 
+        # indicador de suministro eléctrico
+        self._lbl_suministro = tk.Label(
+            footer,
+            text="⚡ Suministro: OK",
+            font=("Segoe UI", 12),
+            bg=CLR_BG,
+            fg="#7FFF7F",
+        )
+        self._lbl_suministro.place(relx=0.17, rely=0.5, anchor="w")
+
     # ══════════════════════════════════════════════════════════════════════════
     # IMÁGENES DE BOTONES DE ACCIÓN (cargadas después de render)
     # ══════════════════════════════════════════════════════════════════════════
@@ -400,6 +410,7 @@ class InterfazPrincipal(tk.Tk):
                     self._upd_params_ciclo()
                     self._upd_panel_izquierdo()
                     self._upd_listo()
+                    self._upd_suministro()
                     self._actualizar_imagen_puerta()
 
                     # Auto-abrir CycleWindow solo al ENTRAR en estado CICLO
@@ -479,6 +490,14 @@ class InterfazPrincipal(tk.Tk):
         else:
             self._btn_reset_falla.place_forget()
             self._boton_iniciar.place(relx=0.79, rely=0.76, relwidth=0.16, relheight=0.21)
+
+    def _upd_suministro(self):
+        di = self.ui_service.get_sensores_di()
+        ok = bool(di.get("suministro_electrico", 1))
+        if ok:
+            self._lbl_suministro.configure(text="⚡ Suministro: OK", fg="#7FFF7F")
+        else:
+            self._lbl_suministro.configure(text="⚡ Sin suministro", fg="#FF7F7F")
 
     def _upd_listo(self):
         ok = bool(self.ui_service.get_estado_flag("LISTO_PARA_CICLO"))
