@@ -1,7 +1,9 @@
 import pytest
+import tkinter as tk
 from autoclave.ui.layout import (
     is_portrait, font_scale, scaled_font, check_orientation_changed
 )
+from autoclave.ui.cycle.widgets.phase_indicator import PhaseIndicator
 
 
 def test_is_portrait_landscape():
@@ -89,10 +91,6 @@ def test_check_small_width_only():
     portrait, rebuild = check_orientation_changed(50, 800, True)
     assert portrait is True
     assert rebuild is False
-
-
-import tkinter as tk
-from autoclave.ui.cycle.widgets.phase_indicator import PhaseIndicator
 
 
 def test_phase_indicator_default_fonts():

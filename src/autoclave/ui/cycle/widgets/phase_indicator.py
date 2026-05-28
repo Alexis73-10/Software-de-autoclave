@@ -14,7 +14,7 @@ class PhaseIndicator(ctk.CTkFrame):
     """
     Pill oscura con nombre de fase (izquierda) y timer X/Y Min (derecha).
     Uso:
-        ind = PhaseIndicator(parent, bg_color="#ffffff")
+        ind = PhaseIndicator(parent, bg_color="#ffffff", font_size_label=22, font_size_timer=20)
         ind.place(...)
         ind.update("ESTERILIZACION", elapsed_min=2.5, total_min=5.0)
     """
