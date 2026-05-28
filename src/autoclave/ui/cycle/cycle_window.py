@@ -20,7 +20,7 @@ from autoclave.ui.cycle.data.cycle_buffer import CycleBuffer, FASE_DURACION_PARA
 from autoclave.ui.cycle.widgets.phase_indicator import PhaseIndicator
 from autoclave.ui.cycle.widgets.live_graph import LiveGraph
 from autoclave.utils.resources import resource_path
-from autoclave.ui.layout import font_scale, scaled_font, load_footer_icons
+from autoclave.ui.layout import is_portrait, font_scale, scaled_font, load_footer_icons
 
 logger = logging.getLogger(__name__)
 
@@ -95,10 +95,12 @@ class CycleWindow(tk.Toplevel):
         self._scale = font_scale(sw, sh)
         self._sh    = sh
 
+        self._current_portrait = None
+        self._update_job_cw    = None
+        self._resize_job_cw    = None
+
         # ── Construir UI ──────────────────────────────────────────────────
-        self._build_header()
-        self._build_body()
-        self._build_footer()
+        self._build_ui_cw()
 
         # ── Diferir init de buffer e imágenes (ventana debe renderizarse) ─
         self.after(150, self._init_buffer)
@@ -106,6 +108,22 @@ class CycleWindow(tk.Toplevel):
         self.after(1000, self._update_loop)
 
         logger.info("CycleWindow abierta")
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BUILD UI (dispatcher landscape / portrait)
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _build_ui_cw(self):
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        self._scale = font_scale(sw, sh)
+        self._sh    = sh
+        self._build_header()
+        if is_portrait(sw, sh):
+            self._build_body_portrait_cw(sw, sh)
+        else:
+            self._build_body_landscape()
+        self._build_footer()
 
     # ══════════════════════════════════════════════════════════════════════
     # HEADER
@@ -138,10 +156,10 @@ class CycleWindow(tk.Toplevel):
             pass   # ventana ya destruida
 
     # ══════════════════════════════════════════════════════════════════════
-    # BODY
+    # BODY LANDSCAPE
     # ══════════════════════════════════════════════════════════════════════
 
-    def _build_body(self):
+    def _build_body_landscape(self):
         body = tk.Frame(self, bg=CLR_BG)
         body.pack(fill=tk.BOTH, expand=True)
 
@@ -248,6 +266,88 @@ class CycleWindow(tk.Toplevel):
                                 anchor="e")
         lbl_val.place(relx=0.74, rely=0.5, anchor="e")
         return lbl_val
+
+    # ══════════════════════════════════════════════════════════════════════
+    # BODY PORTRAIT — CycleWindow
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _build_body_portrait_cw(self, sw: int, sh: int):
+        body = tk.Frame(self, bg=CLR_BG)
+        body.pack(fill=tk.BOTH, expand=True)
+
+        card = ctk.CTkFrame(body, corner_radius=28,
+                            fg_color=CLR_CARD, bg_color=CLR_BG)
+        card.place(relx=0.02, rely=0.03, relwidth=0.96, relheight=0.94)
+        self._card = card
+
+        # Nombre del ciclo
+        nombre = (self.ui_service.get_cycle_param("name") or "CICLO").upper()
+        self._lbl_nombre = ctk.CTkLabel(
+            card, text=nombre,
+            font=("Segoe UI", scaled_font(34, self._scale), "bold"),
+            text_color=CLR_B, fg_color="transparent",
+        )
+        self._lbl_nombre.place(relx=0.5, rely=0.04, anchor="center")
+
+        # Separador
+        ctk.CTkFrame(card, fg_color="#cccccc", corner_radius=0,
+                    bg_color=CLR_CARD).place(
+            relx=0.01, rely=0.10, relwidth=0.98, relheight=0.003)
+
+        # Pill de fase
+        self._phase_ind = PhaseIndicator(
+            card, bg_color=CLR_CARD,
+            font_size_label=scaled_font(20, self._scale),
+            font_size_timer=scaled_font(18, self._scale),
+        )
+        self._phase_ind.place(relx=0.01, rely=0.11, relwidth=0.98, relheight=0.10)
+
+        # Gráfica (zona dominante)
+        graph_frame = tk.Frame(card, bg=CLR_CARD)
+        graph_frame.place(relx=0.01, rely=0.23, relwidth=0.98, relheight=0.44)
+        self._graph = LiveGraph(graph_frame, bg=CLR_CARD)
+        self._graph.pack(fill=tk.BOTH, expand=True)
+
+        # Separador
+        ctk.CTkFrame(card, fg_color="#cccccc", corner_radius=0,
+                    bg_color=CLR_CARD).place(
+            relx=0.01, rely=0.68, relwidth=0.98, relheight=0.003)
+
+        # Sensores en fila horizontal
+        self._val_temp  = self._pill(card, "Temp.",   "---", "°C",  0.01, 0.69, 0.32, 0.13)
+        self._val_temp2 = self._pill(card, "Temp. 1", "---", "°C",  0.34, 0.69, 0.32, 0.13)
+        self._val_pres  = self._pill(card, "Presión", "---", "kPa", 0.67, 0.69, 0.32, 0.13)
+
+        # Separador
+        ctk.CTkFrame(card, fg_color="#cccccc", corner_radius=0,
+                    bg_color=CLR_CARD).place(
+            relx=0.01, rely=0.83, relwidth=0.98, relheight=0.003)
+
+        # Puertas + botón acción
+        doors_frame = tk.Frame(card, bg=CLR_CARD)
+        doors_frame.place(relx=0.01, rely=0.84, relwidth=0.35, relheight=0.13)
+
+        self._lbl_puerta1 = tk.Label(doors_frame, bg=CLR_CARD)
+        self._lbl_puerta1.pack(side=tk.LEFT, padx=6)
+
+        self._lbl_puerta2 = tk.Label(doors_frame, bg=CLR_CARD)
+        self._lbl_puerta2.pack(side=tk.LEFT, padx=6)
+
+        self._btn_abort = tk.Label(card, bg=CLR_CARD, cursor="hand2")
+        self._btn_abort.bind("<Button-1>", lambda e: self._confirmar_abort())
+        self._btn_abort.bind("<Enter>",    lambda e: self._btn_abort.configure(bg=CLR_BG))
+        self._btn_abort.bind("<Leave>",    lambda e: self._btn_abort.configure(bg=CLR_CARD))
+        self._btn_abort.place(relx=0.37, rely=0.84, relwidth=0.62, relheight=0.13)
+
+        self._btn_confirm = ctk.CTkButton(
+            card,
+            text="CONFIRMAR",
+            font=("Segoe UI", scaled_font(15, self._scale), "bold"),
+            fg_color=CLR_OK, hover_color="#155d32",
+            text_color=CLR_W, corner_radius=14,
+            state="disabled",
+            command=self._do_confirm,
+        )
 
     # ══════════════════════════════════════════════════════════════════════
     # FOOTER
@@ -564,8 +664,15 @@ class CycleWindow(tk.Toplevel):
 
         # Ocultar botón ABORTAR y mostrar botón CONFIRMAR
         try:
+            info = self._btn_abort.place_info()
             self._btn_abort.place_forget()
-            self._btn_confirm.place(relx=0.65, rely=0.56, relwidth=0.35, relheight=0.26)
+            self._btn_confirm.place(
+                relx=float(info.get("relx", 0.65)),
+                rely=float(info.get("rely", 0.56)),
+                relwidth=float(info.get("relwidth", 0.35)),
+                relheight=float(info.get("relheight", 0.26)),
+                in_=self._btn_abort.master,
+            )
         except tk.TclError:
             pass
 
