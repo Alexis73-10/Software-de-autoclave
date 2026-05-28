@@ -23,7 +23,7 @@
             "tiempo_purga": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 }
         },
         "prevacio": {
-            "conteo_pulso_a": { "value": 4, "unit": "", "min": 0, "max": 100 },
+            "conteo_pulso_a": { "value": 1, "unit": "", "min": 0, "max": 100 },
             "presion_alta_pulso_a": { "value": 160, "unit": "kPa", "min": 0, "max": 1000 },
             "tiempo_adicional_alto_a": { "value": 0, "unit": "seg", "min": 0, "max": 3600 },
             "presion_baja_pulso_a": { "value": 50, "unit": "kPa", "min": 0, "max": 1000 },
