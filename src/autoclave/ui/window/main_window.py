@@ -12,7 +12,8 @@ from autoclave.ui.cycle.cycle_window import CycleWindow
 from autoclave.utils.resources import resource_path
 from autoclave.ui.layout import (
     is_portrait, font_scale, scaled_font,
-    check_orientation_changed, load_footer_icons,
+    check_orientation_changed,  # noqa: F401 — used in Task 5 _check_orientation
+    load_footer_icons,
 )
 
 logger = logging.getLogger(__name__)
@@ -117,7 +118,10 @@ class InterfazPrincipal(tk.Tk):
         self._tick_hora()
 
     def _tick_hora(self):
-        self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
+        try:
+            self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
+        except tk.TclError:
+            return  # widget destroyed — stop silently
         self.after(1000, self._tick_hora)
 
     # ══════════════════════════════════════════════════════════════════════════
