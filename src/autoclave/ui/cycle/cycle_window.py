@@ -20,6 +20,7 @@ from autoclave.ui.cycle.data.cycle_buffer import CycleBuffer, FASE_DURACION_PARA
 from autoclave.ui.cycle.widgets.phase_indicator import PhaseIndicator
 from autoclave.ui.cycle.widgets.live_graph import LiveGraph
 from autoclave.utils.resources import resource_path
+from autoclave.ui.layout import font_scale, scaled_font, load_footer_icons
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,11 @@ class CycleWindow(tk.Toplevel):
         self.configure(bg=CLR_BG)
         self.attributes("-fullscreen", True)
         self.grab_set()
+
+        sw = self.winfo_screenwidth()
+        sh = self.winfo_screenheight()
+        self._scale = font_scale(sw, sh)
+        self._sh    = sh
 
         # ── Construir UI ──────────────────────────────────────────────────
         self._build_header()
@@ -248,10 +254,29 @@ class CycleWindow(tk.Toplevel):
     # ══════════════════════════════════════════════════════════════════════
 
     def _build_footer(self):
-        footer = tk.Frame(self, bg=CLR_BG, height=90)
+        footer = tk.Frame(self, bg=CLR_BG, height=int(self._sh * 0.065))
         footer.pack(fill=tk.X, side=tk.BOTTOM)
         footer.pack_propagate(False)
 
+        # Pill izquierda: info + settings
+        icons = load_footer_icons(self._scale)
+        self._img_info_cw     = icons["info"]
+        self._img_settings_cw = icons["settings"]
+
+        pill_left = ctk.CTkFrame(footer, corner_radius=30,
+                                  fg_color=CLR_FOOTER, bg_color=CLR_BG)
+        pill_left.place(relx=0.01, rely=0.5, anchor="w",
+                        relwidth=0.20, relheight=0.82)
+
+        ctk.CTkButton(pill_left, text="", image=self._img_info_cw,
+                      fg_color="transparent", hover_color="#406080",
+                      width=scaled_font(56, self._scale)).pack(side=tk.LEFT, padx=12)
+
+        ctk.CTkButton(pill_left, text="", image=self._img_settings_cw,
+                      fg_color="transparent", hover_color="#406080",
+                      width=scaled_font(56, self._scale)).pack(side=tk.LEFT, padx=8)
+
+        # Pill central: estado del ciclo
         pill = ctk.CTkFrame(footer, corner_radius=45,
                             fg_color=CLR_FOOTER, bg_color=CLR_BG)
         pill.place(relx=0.5, rely=0.5, anchor="center",
@@ -259,7 +284,7 @@ class CycleWindow(tk.Toplevel):
 
         self._lbl_estado = ctk.CTkLabel(
             pill, text="Ciclo en progreso...",
-            font=("Segoe UI", 16),
+            font=("Segoe UI", scaled_font(16, self._scale)),
             text_color=CLR_W, fg_color="transparent",
         )
         self._lbl_estado.pack(expand=True)
