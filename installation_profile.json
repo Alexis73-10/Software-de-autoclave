@@ -1,11 +1,13 @@
 {
-  "machine_id": "AUTOCLAVE-001",
-  "model_id": "MX-500",
-  "serial_number": "SN123456",
+  "machine_id": "ACV-2026-SN1132547",
+  "model_id": "SPK-AVH-450",
+  "serial_number": "SN1132547",
   "door_count": 2,
+  "door_type": "advanced",
+  "equipment_type": "horizontal",
   "drying_type": "vacuum",
   "door_id": 1,
   "role": "operator_front",
-  "created_at": "2026-02-03T19:51:41.986620",
+  "created_at": "2026-05-25T05:49:47.409834",
   "locked": true
 }

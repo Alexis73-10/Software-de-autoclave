@@ -7,7 +7,23 @@
       "Read(//c/Users/tecni/.local/bin/**)",
       "Bash(git commit -m ' *)",
       "Bash(where gh *)",
-      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)"
+      "PowerShell(Get-Command gh -ErrorAction SilentlyContinue)",
+      "Bash(python -m pytest tests/ --ignore=tests/test_config.py -q)",
+      "Bash(gh pr *)",
+      "Bash(git push *)",
+      "Bash(git commit -m 'calib: ajustar offset presion pres_camara a -32.0 *)",
+      "Bash(python *)",
+      "Bash(pytest tests/test_suministro_electrico.py -v)",
+      "Bash(git commit *)",
+      "Bash(pytest tests/test_pump.py::test_no_puede_activar_con_fallo_suministro -v)",
+      "Bash(pytest tests/test_pump.py -v)",
+      "Bash(pytest tests/test_suministro_electrico.py tests/test_pump.py -v)",
+      "Bash(git *)",
+      "PowerShell(python -m pytest tests/test_advanced_door_safe_mode.py -v)",
+      "PowerShell(cd \"D:\\\\Documentos_y_Código\\\\Código\\\\Python\\\\Proyectos_Funcionales\\\\codigo_autoclave\"; python -m pytest tests/test_config.py tests/test_converters_realistic.py tests/test_profile_validation.py tests/test_steam.py tests/test_clock_guard.py tests/test_precalentamiento_fase.py tests/test_purga_fase.py tests/test_door_from_profile.py tests/test_ciclo_sensores.py tests/test_calentamiento_fase.py tests/test_estabilizacion_fase.py tests/test_esterilizacion_fase.py -v --tb=short 2>&1; Write-Output \"EXIT: $LASTEXITCODE\")",
+      "PowerShell(cd \"D:\\\\Documentos_y_Código\\\\Código\\\\Python\\\\Proyectos_Funcionales\\\\codigo_autoclave\"; python -m pytest tests/test_converters_realistic.py tests/test_profile_validation.py tests/test_steam.py tests/test_clock_guard.py tests/test_precalentamiento_fase.py tests/test_purga_fase.py tests/test_door_from_profile.py tests/test_ciclo_sensores.py tests/test_calentamiento_fase.py tests/test_estabilizacion_fase.py tests/test_esterilizacion_fase.py -v --tb=short 2>&1; Write-Output \"EXIT: $LASTEXITCODE\")",
+      "Bash(pytest tests/test_ui_layout.py -v --tb=short)",
+      "Bash(pytest tests/test_ui_layout.py -v)"
     ]
   }
 }
