@@ -80,4 +80,12 @@ def test_check_flip_to_landscape():
 
 def test_check_too_small_dimensions():
     portrait, rebuild = check_orientation_changed(50, 50, False)
+    assert portrait is False  # current_portrait unchanged
     assert rebuild is False  # ignorar dimensiones transitorias
+
+
+def test_check_small_width_only():
+    # w < 100 but h is large — still a transient, portrait state must not change
+    portrait, rebuild = check_orientation_changed(50, 800, True)
+    assert portrait is True
+    assert rebuild is False
