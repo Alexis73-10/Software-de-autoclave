@@ -77,8 +77,13 @@ class InterfazPrincipal(tk.Tk):
     # ══════════════════════════════════════════════════════════════════════════
 
     def _build_ui(self):
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
+        # winfo_width/height dan las dimensiones reales de la ventana (correcto en
+        # multi-monitor). winfo_screenwidth/height siempre devuelve el monitor principal.
+        sw = self.winfo_width()
+        sh = self.winfo_height()
+        if sw < 100 or sh < 100:   # ventana aún no renderizada — usar pantalla principal
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
         self._scale = font_scale(sw, sh)
         self._build_header(sh)
         if is_portrait(sw, sh):

@@ -116,9 +116,12 @@ class CycleWindow(tk.Toplevel):
     # ══════════════════════════════════════════════════════════════════════
 
     def _build_ui_cw(self):
-        # Recalcula dimensiones para soportar rebuild tras cambio de orientación
-        sw = self.winfo_screenwidth()
-        sh = self.winfo_screenheight()
+        # winfo_width/height dan las dimensiones reales — correcto en multi-monitor.
+        sw = self.winfo_width()
+        sh = self.winfo_height()
+        if sw < 100 or sh < 100:
+            sw = self.winfo_screenwidth()
+            sh = self.winfo_screenheight()
         self._scale = font_scale(sw, sh)
         self._sh    = sh
         self._build_header()
