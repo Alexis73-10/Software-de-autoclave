@@ -57,6 +57,7 @@ class InterfazPrincipal(tk.Tk):
         self._current_portrait = None  # None = no determinado todavía
         self._update_job       = None  # handle del after() del loop de polling
         self._resize_job       = None  # handle del debounce de <Configure>
+        self._hora_job         = None  # handle del after() del reloj
         self._tick             = 0
 
         # ── construir UI ──────────────────────────────────────────────────────
@@ -122,7 +123,7 @@ class InterfazPrincipal(tk.Tk):
             self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
         except tk.TclError:
             return  # widget destroyed — stop silently
-        self.after(1000, self._tick_hora)
+        self._hora_job = self.after(1000, self._tick_hora)
 
     # ══════════════════════════════════════════════════════════════════════════
     # BODY  (fondo azul → tarjeta blanca → panel izq + panel der)
@@ -675,6 +676,9 @@ class InterfazPrincipal(tk.Tk):
             return  # window destroyed during debounce
 
     def _rebuild_layout(self):
+        if self._hora_job:
+            self.after_cancel(self._hora_job)
+            self._hora_job = None
         if self._update_job:
             self.after_cancel(self._update_job)
             self._update_job = None
@@ -685,6 +689,7 @@ class InterfazPrincipal(tk.Tk):
                 child.destroy()
             except tk.TclError:
                 pass
+        self._toast_widget = None
         self._build_ui()
         self.after(300, self._load_action_images)
         self._schedule_update()

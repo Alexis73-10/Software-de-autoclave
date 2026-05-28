@@ -98,6 +98,7 @@ class CycleWindow(tk.Toplevel):
         self._current_portrait = None
         self._update_job_cw    = None
         self._resize_job_cw    = None
+        self._hora_job         = None
 
         # ── Construir UI ──────────────────────────────────────────────────
         self._build_ui_cw()
@@ -153,7 +154,7 @@ class CycleWindow(tk.Toplevel):
     def _tick_hora(self):
         try:
             self._lbl_hora.config(text=time.strftime("%d/%m/%Y   %I:%M:%S %p"))
-            self.after(1000, self._tick_hora)
+            self._hora_job = self.after(1000, self._tick_hora)
         except tk.TclError:
             pass   # ventana ya destruida
 
@@ -544,6 +545,9 @@ class CycleWindow(tk.Toplevel):
     def _rebuild_layout_cw(self):
         if self._closing:
             return
+        if self._hora_job:
+            self.after_cancel(self._hora_job)
+            self._hora_job = None
         if self._update_job_cw:
             self.after_cancel(self._update_job_cw)
             self._update_job_cw = None
