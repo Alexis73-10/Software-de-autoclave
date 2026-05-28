@@ -20,7 +20,7 @@ from autoclave.ui.cycle.data.cycle_buffer import CycleBuffer, FASE_DURACION_PARA
 from autoclave.ui.cycle.widgets.phase_indicator import PhaseIndicator
 from autoclave.ui.cycle.widgets.live_graph import LiveGraph
 from autoclave.utils.resources import resource_path
-from autoclave.ui.layout import is_portrait, font_scale, scaled_font, load_footer_icons
+from autoclave.ui.layout import is_portrait, font_scale, scaled_font, load_footer_icons, check_orientation_changed
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +106,7 @@ class CycleWindow(tk.Toplevel):
         self.after(150, self._init_buffer)
         self.after(350, self._load_images)
         self.after(1000, self._update_loop)
+        self.bind("<Configure>", self._on_configure_cw)
 
         logger.info("CycleWindow abierta")
 
@@ -471,44 +472,95 @@ class CycleWindow(tk.Toplevel):
     def _update_loop(self):
         if self._closing:
             return
-
         self._tick += 1
         try:
-            self._upd_sensores()
-            self._upd_fase()
-
-            if self._tick % _GRAPH_TICKS == 0:
-                self._graph.update_data(
-                    self._buffer.points,
-                    self._buffer.phase_boundaries,
-                )
-
-            if self._tick % 4 == 0:
-                self._upd_puertas()
-
-            # ── Detección de fin de ciclo ─────────────────────────────
-            machine_state = self.ui_service.get_estado_global()
-            fase_actual   = self.ui_service.get_fase_ciclo()
-
-            # Paso 1: confirmar que el ciclo llegó a estar activo
-            # (máquina en CICLO con una fase no-terminal)
-            if not self._ciclo_activo_detectado:
-                if machine_state == "CICLO" and not _es_fase_terminal(fase_actual):
-                    self._ciclo_activo_detectado = True
-
-            # Paso 2: solo DESPUÉS de estar activo detectar el fin
-            if self._ciclo_activo_detectado and not self._ciclo_terminado:
-                if _es_fase_terminal(fase_actual):
-                    self._on_ciclo_fin(fase_actual)
-
-            # Si ya terminó, verificar seguridad para habilitar confirmación
-            if self._ciclo_terminado:
-                self._upd_confirm_safety()
-
+            self._update_loop_body()
         except Exception as e:
             logger.warning("CycleWindow update error: %s", e)
-
         self.after(1000, self._update_loop)
+
+    def _update_loop_body(self):
+        self._upd_sensores()
+        self._upd_fase()
+
+        if self._tick % _GRAPH_TICKS == 0:
+            self._graph.update_data(
+                self._buffer.points,
+                self._buffer.phase_boundaries,
+            )
+
+        if self._tick % 4 == 0:
+            self._upd_puertas()
+
+        # ── Detección de fin de ciclo ─────────────────────────────
+        machine_state = self.ui_service.get_estado_global()
+        fase_actual   = self.ui_service.get_fase_ciclo()
+
+        # Paso 1: confirmar que el ciclo llegó a estar activo
+        # (máquina en CICLO con una fase no-terminal)
+        if not self._ciclo_activo_detectado:
+            if machine_state == "CICLO" and not _es_fase_terminal(fase_actual):
+                self._ciclo_activo_detectado = True
+
+        # Paso 2: solo DESPUÉS de estar activo detectar el fin
+        if self._ciclo_activo_detectado and not self._ciclo_terminado:
+            if _es_fase_terminal(fase_actual):
+                self._on_ciclo_fin(fase_actual)
+
+        # Si ya terminó, verificar seguridad para habilitar confirmación
+        if self._ciclo_terminado:
+            self._upd_confirm_safety()
+
+    # ══════════════════════════════════════════════════════════════════════
+    # DETECCIÓN DE ORIENTACIÓN — CycleWindow
+    # ══════════════════════════════════════════════════════════════════════
+
+    def _schedule_update_cw(self):
+        self._update_job_cw = self.after(1000, self._run_update_cw)
+
+    def _run_update_cw(self):
+        if self._closing:
+            return
+        try:
+            self._update_loop_body()
+        except Exception as e:
+            logger.warning("CycleWindow update error: %s", e)
+        self._update_job_cw = self.after(1000, self._run_update_cw)
+
+    def _on_configure_cw(self, event):
+        if event.widget is not self:
+            return
+        if self._resize_job_cw:
+            self.after_cancel(self._resize_job_cw)
+        self._resize_job_cw = self.after(
+            150, lambda: self._check_orientation_cw(event.width, event.height)
+        )
+
+    def _check_orientation_cw(self, w: int, h: int):
+        self._resize_job_cw = None
+        try:
+            new_portrait, should_rebuild = check_orientation_changed(
+                w, h, self._current_portrait
+            )
+            self._current_portrait = new_portrait
+            if should_rebuild:
+                self._rebuild_layout_cw()
+        except tk.TclError:
+            return
+
+    def _rebuild_layout_cw(self):
+        if self._update_job_cw:
+            self.after_cancel(self._update_job_cw)
+            self._update_job_cw = None
+        for child in self.winfo_children():
+            try:
+                child.destroy()
+            except tk.TclError:
+                pass
+        self._build_ui_cw()
+        self.grab_set()              # re-aplicar grab modal
+        self.after(350, self._load_images)
+        self._schedule_update_cw()
 
     # ── Helpers de actualización ──────────────────────────────────────────
 
