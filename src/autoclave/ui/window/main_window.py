@@ -12,7 +12,7 @@ from autoclave.ui.cycle.cycle_window import CycleWindow
 from autoclave.utils.resources import resource_path
 from autoclave.ui.layout import (
     is_portrait, font_scale, scaled_font,
-    check_orientation_changed,  # noqa: F401 — used in Task 5 _check_orientation
+    check_orientation_changed,
     load_footer_icons,
 )
 
@@ -650,17 +650,35 @@ class InterfazPrincipal(tk.Tk):
         self._boton_puerta.update_idletasks()
 
     # ══════════════════════════════════════════════════════════════════════════
-    # DETECCIÓN DE ORIENTACIÓN (stubs — implementados en Task 5)
+    # DETECCIÓN DE ORIENTACIÓN
     # ══════════════════════════════════════════════════════════════════════════
 
     def _on_configure(self, event):
-        pass  # implemented in Task 5
+        if event.widget is not self:
+            return
+        if self._resize_job:
+            self.after_cancel(self._resize_job)
+        self._resize_job = self.after(
+            150, lambda: self._check_orientation(event.width, event.height)
+        )
 
-    def _check_orientation(self, w, h):
-        pass  # implemented in Task 5
+    def _check_orientation(self, w: int, h: int):
+        new_portrait, should_rebuild = check_orientation_changed(
+            w, h, self._current_portrait
+        )
+        self._current_portrait = new_portrait
+        if should_rebuild:
+            self._rebuild_layout()
 
     def _rebuild_layout(self):
-        pass  # implemented in Task 5
+        if self._update_job:
+            self.after_cancel(self._update_job)
+            self._update_job = None
+        for child in self.winfo_children():
+            child.destroy()
+        self._build_ui()
+        self.after(300, self._load_action_images)
+        self._schedule_update()
 
     # ══════════════════════════════════════════════════════════════════════════
     # NOTIFICACIÓN DE ERROR — overlay centrado con botón confirmar
