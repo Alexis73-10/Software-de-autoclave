@@ -1,4 +1,4 @@
-# Handoff — Estado al 2026-05-28
+# Handoff — Estado al 2026-06-01
 
 **Rama activa:** `dev`  
 **PR abierto:** [#16 — feat: UI responsive a orientación — layout portrait + font scaling](https://github.com/Alexis73-10/Software-de-autoclave/pull/16)  
@@ -6,81 +6,118 @@
 
 ---
 
-## Qué se hizo hoy
+## Qué se hizo hoy (2026-06-01) — Diseño de perfiles de equipo
 
-### Feature completa: UI responsive a orientación y relación de aspecto
+### Resultado
 
-La UI de autoclave ahora detecta flips landscape ↔ portrait en ambos monitores (13" 1920×1080 y 8" 1280×800) y reconstruye el layout sin perder estado del ciclo.
+Se definió y aprobó el diseño completo para que el software soporte 5 tipos de equipo distintos. El diseño está documentado en:
 
-**Comportamiento implementado:**
+**`docs/superpowers/specs/2026-06-01-equipment-profiles-design.md`** (commit `e8aac80`)
 
-- **Detección:** evento `<Configure>` de Tkinter con debounce 150ms en `InterfazPrincipal` y `CycleWindow`. Solo dispara rebuild cuando realmente cambia la orientación (`h > w`).
-- **Font scaling:** `font_scale(w, h) = min(w, h) / 1080` — escala 1.0 en 1080p, 0.74 en 800p. Fuentes de toda la UI pasan por `scaled_font(base, scale)`.
-- **Header/footer:** alturas relativas (`0.04 × sh` y `0.065 × sh`) en lugar de píxeles fijos.
-- **Layout portrait de `InterfazPrincipal`:** banda de estado (22%) + grid de pills 2×3 (34%) + zona de acción (28%).
-- **Layout portrait de `CycleWindow`:** gráfica T/P prominente (44% ancho completo), sensores en fila horizontal, puertas + botón acción al pie.
-- **Footer de `CycleWindow`:** botones ℹ️ y ⚙️ ahora accesibles durante el ciclo (antes solo en ventana principal).
-- **Multi-monitor:** fix para Windows — `winfo_width/height()` en lugar de `winfo_screenwidth/height()` (que siempre devuelve el monitor principal), con fallback al primer render.
-
-**Invariantes garantizadas tras rebuild:**
-
-- `_buffer` (puntos T/P), `_ciclo_activo_detectado`, `_ciclo_terminado`, `_hold_start_time`, `_fase_temp_targets` sobreviven intactos en `CycleWindow`.
-- `InterfazPrincipal` no destruye la `CycleWindow` hija.
-- Un único loop de actualización activo por ventana en todo momento (`_update_job_cw` cancela el anterior antes de reiniciar).
-- `grab_set()` re-aplicado tras cada rebuild de `CycleWindow`.
-- Chain de `_tick_hora` garantizado único (handle cancelado antes de rebuild).
-- `_toast_widget` puesto a `None` tras el loop de destrucción.
-
-**Archivos creados/modificados:**
-
-| Archivo | Cambio |
-|---------|--------|
-| `src/autoclave/ui/layout.py` | **Nuevo** — `is_portrait`, `font_scale`, `scaled_font`, `check_orientation_changed`, `load_footer_icons` |
-| `tests/test_ui_layout.py` | **Nuevo** — 20 tests (helpers puros + PhaseIndicator), fixture module-scoped |
-| `ui/cycle/widgets/phase_indicator.py` | Añade `font_size_label` y `font_size_timer` como parámetros |
-| `ui/window/main_window.py` | Font scaling, alturas relativas, `_build_body_landscape/portrait`, `<Configure>` handler |
-| `ui/cycle/cycle_window.py` | Layout portrait, footer con info/settings, `<Configure>` handler, unificación de loops |
-
-**Tests:** 20 nuevos, todos green.
-
-**Commits relevantes (más reciente primero):**
-```
-d20e14b  fix: usar winfo_width/height en _build_ui para soporte multi-monitor
-9b54a67  test: usar fixture module-scoped para tests de PhaseIndicator
-b00ff82  fix: cancelar _tick_hora antes de rebuild y limpiar _toast_widget
-53eba85  fix: CycleWindow — unificar loop de actualización, guards _closing
-b9d9fad  feat: CycleWindow detecta cambios de orientación (rebuild preservando datos)
-b7f39bd  feat: CycleWindow — layout portrait con gráfica prominente
-c4b862b  feat: CycleWindow footer — botones info y settings accesibles durante ciclo
-a2618dd  fix: orientation rebuild — preservar CycleWindow, limpiar resize_job
-cfb873e  feat: InterfazPrincipal detecta cambios de orientación y reconstruye layout
-d82338f  feat: InterfazPrincipal — layout portrait (banda estado + grid pills + acción)
-b16ffc4  fix: _tick_hora resiliente a TclError tras rebuild
-d8ce807  refactor: InterfazPrincipal usa font scaling e alturas relativas
-2e371e7  feat: PhaseIndicator acepta font_size_label y font_size_timer
-3e62ed3  feat: layout.py — helpers de escala de fuente y detección de orientación
-```
+**No se tocó código aún** — hoy fue puramente diseño/spec.
 
 ---
 
-## Feature anterior: `suministro_electrico` — modo seguro (2026-05-27)
+### Los 5 perfiles de equipo
 
-**PR #15** — pendiente de merge a `main`.
+| # | Perfil | Enum key |
+|---|--------|----------|
+| 1 | Mesa Clase N | `MESA_N` |
+| 2 | Mesa Clase B | `MESA_B` |
+| 3 | Mesa Clase B Laboratorio | `MESA_B_LAB` |
+| 4 | Piso | `PISO` |
+| 5 | Piso Laboratorio | `PISO_LAB` |
 
-**Comportamiento implementado:**
+**Reglas importantes:**
+- Mesa Clase N **no tiene** variante laboratorio
+- Equipos de piso son **siempre Clase B** (vacío implícito)
+- Mesa usa serpentín de cobre (pseudo-chaqueta), Piso usa chaqueta de vapor real
 
-- **Fuera de ciclo (PREPARADO):** flag `FALLO_SUMINISTRO_ELECTRICO` bloquea el botón de inicio y la bomba de vacío; genera alarma `ALERTA` recuperable `"SUMINISTRO_ELECTRICO"`.
-- **En ciclo (CICLO):** ciclo abortado inmediatamente, `ProtocoloFallo` descomprime sin bomba, transición a FALLA requiere confirmación del operador.
-- **Puertas avanzadas (modo seguro):** apertura/cierre sin bomba, solo válvula de empaque (`desbloquear_on`), umbral de presión atmosférica, alarma no bloqueante única por puerta.
-- **UI:** indicador `⚡ Suministro: OK` (verde) / `⚡ Sin suministro` (rojo) en el footer.
+### Tabla de capacidades aprobada
 
-**Archivos principales:** `devices/suministro_electrico/`, `core/status.py`, `devices/pump/pump.py`, `devices/puertas/advanced_door.py`, `state_machine/states/preparado.py`, `state_machine/states/ciclo.py`.
+| Perfil | vacuum | jacket | doors_max | cooling_max | liquids | liq_sensor | bleve |
+|--------|--------|--------|-----------|-------------|---------|------------|-------|
+| Mesa N | ✗ | ✗ | 1 | 0 | ✗ | ✗ | ✗ |
+| Mesa B | ✓ | ✗ | 1 | 0 | ✗ | ✗ | ✗ |
+| Mesa B Lab | ✓ | ✗ | 1 | 0 | ✓ | ✓ | ✓ |
+| Piso | ✓ | ✓ | 2 | 4 | ✗ | ✗ | ✗ |
+| Piso Lab | ✓ | ✓ | 2 | 4 | ✓ | ✓ | ✓ |
+
+- `cooling_max`: nivel máximo de enfriamiento (0=ninguno, 1-4 modos por definir — agua/aire)
+- `liq_sensor`: sensor `temp_2_camara` (sumergido en líquido)
+- `bleve`: escape controlado anti-BLEVE en descompresión
+
+### Los 5 tipos de puerta
+
+| Tipo | DI posición | DO apertura/cierre | DO bloqueo | AI presión empaque | Atrapamiento |
+|------|-------------|-------------------|------------|-------------------|--------------|
+| `SIMPLE` | ✓ | ✗ | ✗ | ✗ | ✗ |
+| `MOTORIZED` | ✓ | ✓ | ✗ | ✗ | ✗ |
+| `LOCKING` | ✓ | ✗ | ✓ | ✗ | ✗ |
+| `MOTORIZED_LOCKING` | ✓ | ✓ | ✓ | ✗ | ✗ |
+| `ADVANCED` | ✓ | ✓ | ✓ | ✓ | ✓ |
+
+- Solo `ADVANCED` tiene sensor de presión de empaque y sensor de atrapamiento
+- Un equipo tiene **un solo** `DoorType` para todas sus puertas
+- Cualquier perfil puede tener cualquier tipo de puerta
+
+### Cambios aprobados en `InstallationProfile`
+
+**Campos nuevos:** `equipment_class: EquipmentClass`, `cooling_level: int`  
+**Campo modificado:** `door_type: str` → `door_type: DoorType` (enum de 5 valores)  
+**Campos eliminados:** `drying_type` (se deriva de `cap.has_vacuum`), `equipment_type` (no controla comportamiento)
+
+### Arquitectura central (opción B aprobada)
+
+- `EquipmentClass` (enum 5 valores) se guarda en `InstallationProfile` en disco
+- `EquipmentCapabilities` (dataclass frozen con flags) se **deriva en memoria** al arrancar via `get_capabilities(profile.equipment_class)` — nunca se serializa
+- El resto del código usa **solo los flags**, nunca el enum directamente
+- Todo vive en un nuevo archivo: `src/autoclave/installation/equipment.py`
+
+### Fases del ciclo y sus condiciones
+
+| Fase | Condición | Cambio |
+|------|-----------|--------|
+| `Prevacio` | `cap.has_vacuum` | Se omite si no hay bomba |
+| `Precalentamiento` | ciclo define `is_liquid` | Rampa más lenta para líquidos |
+| `Calentamiento` | `cap.has_liquid_sensor` | Usa `temp_camara` + `temp_2_camara` |
+| `Estabilizacion` | — | Sin cambios |
+| `Esterilizacion` | `cap.has_liquid_sensor` | Ambos sensores deben alcanzar setpoint |
+| `Descompresion` | `cap.bleve_protection` / `cap.cooling_level` | Escape controlado + enfriamiento |
+| `Secado` | — | Basado en tiempo; 4 modos por definir |
+| `Finalizando` / `Finalizado` | — | Sin cambios |
+
+**Nota:** el operador elige el ciclo; el ciclo ya trae `is_liquid` en su config. No hay selección de tipo de carga en runtime.
 
 ---
 
-## Issue pendiente: CalentamientoFase crash en producción
+## Qué sigue mañana
 
-**Este issue existía antes de ayer y NO fue resuelto.**
+### Paso inmediato: plan de implementación
+
+El diseño está aprobado. El siguiente paso es invocar `writing-plans` para crear el plan de implementación detallado antes de tocar código. Punto de partida: spec en `docs/superpowers/specs/2026-06-01-equipment-profiles-design.md`.
+
+### Orden sugerido de implementación
+
+1. **`src/autoclave/installation/equipment.py`** — crear `EquipmentClass`, `EquipmentCapabilities`, `get_capabilities()` + tests
+2. **`src/autoclave/installation/profile.py`** — actualizar `InstallationProfile` y validación
+3. **`src/autoclave/devices/puertas/`** — `DoorType` enum + actualizar `AdvancedDoor` + `door_factory.py`
+4. **`src/autoclave/devices/factory/factory.py`** — IO condicional por capacidades
+5. **`src/autoclave/installation/wizard.py`** — 3 pasos nuevos (perfil, puertas, enfriamiento)
+6. **`src/autoclave/state_machine/cycle_phases/base_fase.py`** — agregar `cap` al constructor
+7. **Fases con lógica condicional** — `prevacio`, `precalentamiento`, `calentamiento`, `esterilizacion`, `descompresion`
+
+### Pendiente fuera de alcance del plan de hoy
+
+- Definición de los 4 modos de enfriamiento (cooling_level 1-4)
+- Definición de los 4 modos de secado
+- Relación entre `model_id` y perfiles de equipo
+
+---
+
+## Issue pendiente anterior: CalentamientoFase crash en producción
+
+**Este issue existía antes y NO fue resuelto. Se debe atender después de implementar los perfiles.**
 
 ### Crash observado
 
@@ -117,15 +154,27 @@ El código (línea 39) usa `rango_presion_calentamiento`, pero `instrumental_134
 
 ### Opciones para resolver
 
-**A. Unificar en `rango_presion_calentamiento`** — renombrar en `instrumental_134.json` + `or 9.0` de fallback.  
-**B. Buscar con fallback entre las dos claves** — código prueba una, luego la otra. Más flexible.  
-**C. Unificar en `presion_add_calentamiento`** — renombrar en `bowe_dick.json`.
+**A.** Unificar en `rango_presion_calentamiento` — renombrar en `instrumental_134.json` + fallback `or 9.0`.  
+**B.** Buscar con fallback entre las dos claves — más flexible.  
+**C.** Unificar en `presion_add_calentamiento` — renombrar en `bowe_dick.json`.
 
 ### Qué falta
 
 1. Elegir estrategia (A, B o C).
 2. Actualizar los JSONs afectados.
 3. Restaurar defaults `or X` en líneas 36-39 de `calentamiento.py`.
-4. Decidir si checkpoints van a 0.50/0.90 (spec) o 0.80/0.97 (cambio del fix subagent). El test `test_checkpoint_entra_en_sostenimiento` falla por este motivo.
+4. Decidir si checkpoints van a 0.50/0.90 (spec) o 0.80/0.97. El test `test_checkpoint_entra_en_sostenimiento` falla por este motivo.
 5. Commitear `calentamiento.py`.
 6. `pytest tests/test_calentamiento_fase.py -v` para verificar.
+
+---
+
+## Historial de sesiones anteriores
+
+### 2026-05-28 — UI responsive a orientación
+
+La UI detecta flips landscape ↔ portrait en ambos monitores y reconstruye el layout sin perder estado del ciclo. Font scaling, layout portrait para `InterfazPrincipal` y `CycleWindow`, fix multi-monitor con `winfo_width/height`. 20 tests nuevos. Commits `d20e14b` → `3e62ed3`.
+
+### 2026-05-27 — `suministro_electrico` modo seguro (PR #15)
+
+Flag `FALLO_SUMINISTRO_ELECTRICO` bloquea inicio de ciclo y bomba. En ciclo activo aborta y descomprime sin bomba. Puertas avanzadas con apertura sin bomba. Indicador en footer UI.
