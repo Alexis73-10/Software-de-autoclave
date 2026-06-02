@@ -59,6 +59,9 @@ class PrevacioFase(BaseFase):
     # ------------------------------------------------------------------
 
     def update(self) -> FaseResult:
+        if not self.cap.has_vacuum:
+            logger.info("PrevacioFase: sin bomba de vacío — fase saltada")
+            return FaseResult.COMPLETADO
         if not self._inicializado:
             resultado = self._inicializar()
             if resultado is not None:
