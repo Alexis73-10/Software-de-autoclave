@@ -7,19 +7,17 @@ from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 
 
 def _make_fase(tiempo_min=5):
-    """Construye una PurgaFase con mocks configurados."""
     estado = MagicMock()
     set_do = MagicMock()
-
-    cycle = MagicMock()
+    cycle  = MagicMock()
     def get_param(seccion, param, default=None):
         return {"tiempo_purga": tiempo_min}.get(param, default)
     cycle.get_param.side_effect = get_param
-
     config = MagicMock()
     alarms = MagicMock()
+    cap    = MagicMock()
 
-    fase = PurgaFase(estado, set_do, cycle, config, alarms)
+    fase = PurgaFase(estado, set_do, cycle, config, alarms, cap)
     fase.reset()
     return fase, estado, set_do
 

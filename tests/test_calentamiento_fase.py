@@ -9,24 +9,23 @@ def _make_fase(t_obj=134.0, tasa=5.0, timeout_min=60, tolerancia=9.0, t_inicial=
     estado.sensores_temp = {"temp_camara": t_inicial}
     estado.sensores_pres = {"pres_camara": 100.0}
     estado.fase_en_sostenimiento = False
-
     set_do = MagicMock()
-
-    cycle = MagicMock()
+    cycle  = MagicMock()
     def get_param(seccion, param, default=None):
         valores = {
             "temperatura_calentamiento": t_obj,
-            "tasa_calentamiento": tasa,
-            "timeout_calentamiento": timeout_min,
+            "tasa_calentamiento":        tasa,
+            "timeout_calentamiento":     timeout_min,
             "presion_add_calentamiento": tolerancia,
         }
         return valores.get(param, default)
     cycle.get_param.side_effect = get_param
-
     config = MagicMock()
     alarms = MagicMock()
+    cap    = MagicMock()
+    cap.has_liquid_sensor = False
 
-    fase = CalentamientoFase(estado, set_do, cycle, config, alarms)
+    fase = CalentamientoFase(estado, set_do, cycle, config, alarms, cap)
     fase.reset()
     return fase, estado, set_do
 

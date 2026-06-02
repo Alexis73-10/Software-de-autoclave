@@ -6,27 +6,24 @@ from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 
 
 def _make_fase(tiempo_min=5, presion_obj=200.0, timeout_min=10):
-    """Construye una PrecalentamientoFase con mocks configurados."""
     estado = MagicMock()
     estado.sensores_pres = {"pres_chaqueta": 0.0}
     estado.fase_en_sostenimiento = False
-
     set_do = MagicMock()
-
-    cycle = MagicMock()
+    cycle  = MagicMock()
     def get_param(seccion, param, default=None):
         valores = {
-            "tiempo_precalentamiento": tiempo_min,
+            "tiempo_precalentamiento":  tiempo_min,
             "presion_precalentamiento": presion_obj,
             "timeout_precalentamiento": timeout_min,
         }
         return valores.get(param, default)
     cycle.get_param.side_effect = get_param
+    config = MagicMock()
+    alarms = MagicMock()
+    cap    = MagicMock()
 
-    config  = MagicMock()
-    alarms  = MagicMock()
-
-    fase = PrecalentamientoFase(estado, set_do, cycle, config, alarms)
+    fase = PrecalentamientoFase(estado, set_do, cycle, config, alarms, cap)
     fase.reset()
     return fase, estado, set_do
 

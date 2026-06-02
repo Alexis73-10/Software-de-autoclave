@@ -28,8 +28,9 @@ def _make_fase(tiempo_min=5, t_obj=134.0, rango_temp=1.0, rango_pres=9.0, timeou
 
     config = MagicMock()
     alarms = MagicMock()
+    cap    = MagicMock()
 
-    fase = EstabilizacionFase(estado, set_do, cycle, config, alarms)
+    fase = EstabilizacionFase(estado, set_do, cycle, config, alarms, cap)
     fase.reset()
     return fase, estado, set_do
 
