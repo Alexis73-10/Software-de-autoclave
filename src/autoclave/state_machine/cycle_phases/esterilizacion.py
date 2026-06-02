@@ -68,6 +68,7 @@ class EsterilizacionFase(BaseFase):
 
         temp = self._temp_camara()
         pres = self._pres_camara()
+        temp2 = self._temp_camara_2() if self.cap.has_liquid_sensor else None
 
         # ── 2. Verificar temperatura ─────────────────────────────────────
         if temp < t_est:
@@ -79,6 +80,12 @@ class EsterilizacionFase(BaseFase):
             return self._fallo(
                 "ESTERILIZACION_TEMP_ALTA",
                 f"Temperatura alta: {temp:.1f}°C > {t_est + temp_add + temp_err:.1f}°C"
+            )
+
+        if self.cap.has_liquid_sensor and temp2 is not None and temp2 < t_est:
+            return self._fallo(
+                "ESTERILIZACION_TEMP2_BAJA",
+                f"Temperatura sensor líquido baja: {temp2:.1f}°C < {t_est:.1f}°C"
             )
 
         # ── 3. Verificar presión ─────────────────────────────────────────
