@@ -52,3 +52,15 @@ def test_con_sensor_liquido_en_curso_ambos_sobre_setpoint():
     fase, estado, _ = _make_fase(has_liquid_sensor=True, t_camara=135.0, t_2_camara=135.0)
     result = fase.update()
     assert result == FaseResult.EN_CURSO
+
+
+def test_con_sensor_liquido_falla_si_temp2_es_none():
+    """Sensor declarado pero sin lectura debe fallar (no silenciar)."""
+    fase, estado, alarms = _make_fase(has_liquid_sensor=True, t_camara=135.0, t_2_camara=135.0)
+    # Remove temp_2_camara from sensores to simulate a missing sensor reading
+    del estado.sensores_temp["temp_2_camara"]
+    result = fase.update()
+    assert result == FaseResult.FALLO
+    alarms.report.assert_called()
+    alarm_id = alarms.report.call_args[0][0].id
+    assert "TEMP2" in alarm_id
