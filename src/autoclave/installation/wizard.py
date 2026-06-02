@@ -20,15 +20,6 @@ _EQUIPMENT_LABELS = {
     EquipmentClass.PISO_LAB:   "Piso Laboratorio",
 }
 
-_DOOR_TYPE_LABELS = {
-    DoorType.SIMPLE:            "Simple (solo sensor posición)",
-    DoorType.MOTORIZED:         "Motorizada (apertura/cierre automático)",
-    DoorType.LOCKING:           "Con bloqueo (seguro de empaque)",
-    DoorType.MOTORIZED_LOCKING: "Motorizada con bloqueo",
-    DoorType.ADVANCED:          "Avanzada (motorizada + bloqueo + sensor empaque)",
-}
-
-
 def launch_installation_wizard() -> bool:
     result = {"done": False}
 
@@ -156,7 +147,7 @@ def launch_installation_wizard() -> bool:
         frame3.pack_forget()
         if cap.cooling_level_max == 0:
             frame4.pack_forget()
-            frame5.pack()
+            _mostrar_frame5()
         else:
             _actualizar_frame4(cap)
             frame4.pack()
@@ -183,7 +174,7 @@ def launch_installation_wizard() -> bool:
 
     def ir_a_paso5():
         frame4.pack_forget()
-        frame5.pack()
+        _mostrar_frame5()
 
     tk.Button(frame4, text="Siguiente →", command=ir_a_paso5, width=20).pack(pady=(10, 0))
 
@@ -201,8 +192,19 @@ def launch_installation_wizard() -> bool:
         f.pack(fill="x", pady=4)
 
     fila(frame5, "Modelo:", lambda p: tk.Entry(p, textvariable=model_var))
-    fila(frame5, "Puerta de este PC (1/2):", lambda p: ttk.Spinbox(
-        p, from_=1, to=2, textvariable=door_id_var, width=6, state="readonly"))
+
+    _door_id_row = tk.Frame(frame5)
+    tk.Label(_door_id_row, text="Puerta de este PC (1/2):", width=22, anchor="w").pack(side="left")
+    _door_id_spin = ttk.Spinbox(_door_id_row, from_=1, to=2,
+                                textvariable=door_id_var, width=6, state="readonly")
+    _door_id_spin.pack(side="left")
+    _door_id_row.pack(fill="x", pady=4)
+
+    def _mostrar_frame5():
+        cap = _cap_holder[0]
+        _door_id_spin.config(to=cap.door_count_max)
+        door_id_var.set(min(door_id_var.get(), cap.door_count_max))
+        frame5.pack()
 
     err5 = tk.Label(frame5, text="", fg="red")
     err5.pack(pady=(10, 0))
