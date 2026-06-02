@@ -67,10 +67,22 @@ class CalentamientoFase(BaseFase):
         if temp is None:
             return FaseResult.EN_CURSO
 
-        if temp >= t_obj:
-            logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
-            self._apagar_salidas()
-            return FaseResult.COMPLETADO
+        if self.cap.has_liquid_sensor:
+            temp2 = self._temp_camara_2()
+            if temp2 is None:
+                return FaseResult.EN_CURSO
+            if temp >= t_obj and temp2 >= t_obj:
+                logger.info(
+                    "Calentamiento: COMPLETADO — camara=%.1f°C liquido=%.1f°C",
+                    temp, temp2,
+                )
+                self._apagar_salidas()
+                return FaseResult.COMPLETADO
+        else:
+            if temp >= t_obj:
+                logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
+                self._apagar_salidas()
+                return FaseResult.COMPLETADO
 
         # ── 4. Entrada a checkpoint ──────────────────────────────────────
         if (not self._en_checkpoint and self._checkpoints
