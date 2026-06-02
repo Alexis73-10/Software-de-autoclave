@@ -3,6 +3,7 @@
 from autoclave.core.status import EstadoAutoclave
 from autoclave.services.domain.puertas.ser_puertas import ServicioPuertas
 from autoclave.installation.bootstrap import get_installation_profile
+from autoclave.installation.equipment import get_capabilities
 from autoclave.devices.factory.factory import build_hardware
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.door_factory import create_door
@@ -36,6 +37,7 @@ class BackendContext:
         self.profile = get_installation_profile()
         if self.profile is None:
             raise RuntimeError("Backend sin InstallationProfile")
+        cap = get_capabilities(self.profile.equipment_class)
 
 
         # Hardware real
@@ -86,5 +88,6 @@ class BackendContext:
             cycle_manager=self.cycle_manager,
             config_manager=self.config_manager,
             cycle_logger=self.cycle_logger,
+            cap=cap,
         )
         self.control_loop.start()

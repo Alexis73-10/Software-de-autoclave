@@ -52,15 +52,16 @@ class CicloState:
         alarm_manager → AlarmManager
     """
 
-    def __init__(self, estado, set_do, cycle, config, alarm_manager):
+    def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None):
         self.estado        = estado
         self.set_do        = set_do
         self.cycle         = cycle
         self.config        = config
         self.alarm_manager = alarm_manager
+        self.cap           = cap
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
-        _args = (estado, set_do, cycle, config, alarm_manager)
+        _args = (estado, set_do, cycle, config, alarm_manager, cap)
         self._fases = [
             PrecalentamientoFase(*_args),
             PurgaFase(*_args),
