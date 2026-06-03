@@ -1,4 +1,3 @@
-# tools/generador/app.py
 """
 Generador interno de códigos de instalación y claves de fábrica.
 
@@ -24,9 +23,9 @@ import uvicorn
 from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
-# Permite importar el paquete sin instalarlo si se corre directamente
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "src"))
 from autoclave.installation.activation import generate_installation_code, generate_factory_key
+import db as generador_db
 
 # ── Configuración ────────────────────────────────────────────────────────────
 _USER = os.environ.get("GENERADOR_USER", "especifika")
@@ -34,12 +33,11 @@ _PASS = os.environ.get("GENERADOR_PASS", "cambiar_esto_2026")
 _HOST = os.environ.get("GENERADOR_HOST", "0.0.0.0")
 _PORT = int(os.environ.get("GENERADOR_PORT", "8080"))
 
-# ── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(docs_url=None, redoc_url=None)
-_sessions: set[str] = set()
+_sessions: dict[str, str] = {}   # token → username
 
 _CSS = """
-body{font-family:sans-serif;max-width:500px;margin:60px auto;padding:0 20px;background:#f5f5f5}
+body{font-family:sans-serif;max-width:560px;margin:60px auto;padding:0 20px;background:#f5f5f5}
 .card{background:#fff;border-radius:8px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,.1)}
 h1{margin-top:0;font-size:1.3rem;color:#2c3e50}
 label{display:block;margin:14px 0 4px;font-size:.9rem;color:#555}
@@ -48,6 +46,8 @@ input[type=text],input[type=password]{width:100%;box-sizing:border-box;padding:1
 button{width:100%;margin-top:18px;padding:12px;background:#27ae60;color:#fff;
   border:none;border-radius:4px;font-size:1rem;cursor:pointer}
 button:hover{background:#219653}
+button.warning{background:#e67e22}
+button.warning:hover{background:#ca6f1e}
 .error{color:#e74c3c;font-size:.9rem;margin-top:10px}
 .result{margin-top:22px;padding:18px;background:#eaf6f0;border-radius:6px}
 .chip-label{font-size:.75rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 2px}
@@ -56,11 +56,18 @@ button:hover{background:#219653}
 .logout{margin-top:20px;text-align:right}
 .logout a{color:#aaa;font-size:.82rem;text-decoration:none}
 .logout a:hover{color:#888}
+table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:6px}
+th{text-align:left;color:#888;font-weight:normal;padding:2px 6px}
+td{padding:3px 6px;border-top:1px solid #eee}
 """
 
 
 def _is_authenticated(request: Request) -> bool:
     return request.cookies.get("session", "") in _sessions
+
+
+def _get_usuario(request: Request) -> str:
+    return _sessions.get(request.cookies.get("session", ""), "desconocido")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -87,7 +94,7 @@ async def login_post(username: str = Form(default=""), password: str = Form(defa
         return RedirectResponse("/login?error=Ingrese+usuario+y+contraseña", status_code=303)
     if username == _USER and password == _PASS:
         token = secrets.token_hex(32)
-        _sessions.add(token)
+        _sessions[token] = username
         resp = RedirectResponse("/generar", status_code=303)
         resp.set_cookie("session", token, httponly=True, samesite="strict")
         return resp
@@ -96,7 +103,7 @@ async def login_post(username: str = Form(default=""), password: str = Form(defa
 
 @app.get("/logout")
 async def logout(request: Request):
-    _sessions.discard(request.cookies.get("session", ""))
+    _sessions.pop(request.cookies.get("session", ""), None)
     resp = RedirectResponse("/login", status_code=303)
     resp.delete_cookie("session")
     return resp
@@ -106,50 +113,134 @@ async def logout(request: Request):
 async def generar_get(request: Request):
     if not _is_authenticated(request):
         return RedirectResponse("/login")
-    return HTMLResponse(_dashboard("", "", ""))
+    return HTMLResponse(_dashboard("", "", "", ya_instalado=False))
 
 
 @app.post("/generar", response_class=HTMLResponse)
 async def generar_post(request: Request, serial: str = Form(...)):
     if not _is_authenticated(request):
         return RedirectResponse("/login")
+
     serial = serial.strip().upper()
+    usuario = _get_usuario(request)
+
     if not serial:
-        return HTMLResponse(_dashboard("", "", "", error="El serial no puede estar vacío"))
-    install_code = generate_installation_code(serial)
+        return HTMLResponse(_dashboard("", "", "", error="El serial no puede estar vacío", ya_instalado=False))
+
+    ya_instalado = generador_db.fue_instalado(serial)
     factory_key  = generate_factory_key(serial)
-    return HTMLResponse(_dashboard(serial, install_code, factory_key))
+    history      = generador_db.get_history(serial)
+
+    if ya_instalado:
+        generador_db.log_codigo(serial, "fabrica", usuario)
+        return HTMLResponse(_dashboard(serial, "", factory_key,
+                                       ya_instalado=True, history=history))
+    else:
+        install_code = generate_installation_code(serial)
+        generador_db.log_codigo(serial, "instalacion", usuario)
+        return HTMLResponse(_dashboard(serial, install_code, factory_key,
+                                       ya_instalado=False, history=history))
 
 
-def _dashboard(serial: str, install_code: str, factory_key: str, error: str = "") -> str:
-    today = date.today().isoformat()
-    safe_serial = html.escape(serial)
-    safe_error  = html.escape(error)
-    result = ""
-    if install_code:
-        result = f"""<div class="result">
-  <div class="chip-label">Serial</div>
-  <div class="code">{safe_serial}</div>
-  <div class="chip-label">Código de instalación</div>
-  <div class="code">{install_code}</div>
-  <div class="chip-label">Clave de fábrica</div>
-  <div class="code">{factory_key}</div>
-  <div class="date-note">Válidos solo el día de hoy: {today}</div>
-</div>"""
-    err = f'<p class="error">{safe_error}</p>' if error else ""
-    return f"""<!DOCTYPE html><html><head><title>Generador</title>
-<style>{_CSS}</style></head><body><div class="card">
-<h1>Generador de Códigos</h1>
-<form method="POST" action="/generar">
-  <label>Número de serie del equipo</label>
-  <input name="serial" type="text" value="{safe_serial}" placeholder="SN123456" autofocus>
-  <button type="submit">Generar</button>
-</form>{err}{result}
-<div class="logout"><a href="/logout">Cerrar sesión</a></div>
-</div></body></html>"""
+@app.post("/reinstalar", response_class=HTMLResponse)
+async def reinstalar_post(request: Request, serial: str = Form(...)):
+    if not _is_authenticated(request):
+        return RedirectResponse("/login")
+
+    serial  = serial.strip().upper()
+    usuario = _get_usuario(request)
+
+    install_code = generate_installation_code(serial)
+    generador_db.log_codigo(serial, "reinstalacion", usuario)
+    history = generador_db.get_history(serial)
+
+    return HTMLResponse(_dashboard(serial, install_code, "", ya_instalado=True,
+                                   history=history, reinstalacion=True))
+
+
+def _render_history(history: list[dict]) -> str:
+    if not history:
+        return ""
+    rows = "".join(
+        f"<tr><td>{html.escape(h['tipo'])}</td>"
+        f"<td>{html.escape(h['fecha'])}</td>"
+        f"<td>{html.escape(h['usuario'])}</td></tr>"
+        for h in history
+    )
+    return (
+        '<div class="result"><div class="chip-label">Historial</div>'
+        "<table><tr><th>Tipo</th><th>Fecha</th><th>Usuario</th></tr>"
+        f"{rows}</table></div>"
+    )
+
+
+def _dashboard(
+    serial: str,
+    install_code: str,
+    factory_key: str,
+    error: str = "",
+    history: list[dict] | None = None,
+    ya_instalado: bool = False,
+    reinstalacion: bool = False,
+) -> str:
+    today        = date.today().isoformat()
+    safe_serial  = html.escape(serial)
+    safe_error   = html.escape(error)
+    result       = ""
+    reinstall_form = ""
+
+    if install_code or factory_key:
+        codes_html = ""
+        if reinstalacion:
+            codes_html += (
+                '<div class="chip-label">Código de reinstalación</div>'
+                f'<div class="code">{install_code}</div>'
+            )
+        elif not ya_instalado and install_code:
+            codes_html += (
+                '<div class="chip-label">Código de instalación</div>'
+                f'<div class="code">{install_code}</div>'
+            )
+        if factory_key:
+            codes_html += (
+                '<div class="chip-label">Clave de fábrica</div>'
+                f'<div class="code">{factory_key}</div>'
+            )
+        result = (
+            f'<div class="result">'
+            f'<div class="chip-label">Serial</div><div class="code">{safe_serial}</div>'
+            f"{codes_html}"
+            f'<div class="date-note">Válidos solo el día de hoy: {today}</div>'
+            f"</div>"
+        )
+
+    if ya_instalado and not reinstalacion:
+        reinstall_form = (
+            f'<form method="POST" action="/reinstalar" style="margin-top:8px">'
+            f'<input type="hidden" name="serial" value="{safe_serial}">'
+            f'<button class="warning" type="submit">Solicitar reinstalación</button>'
+            f"</form>"
+        )
+
+    err        = f'<p class="error">{safe_error}</p>' if error else ""
+    hist_html  = _render_history(history or [])
+
+    return (
+        f'<!DOCTYPE html><html><head><title>Generador</title>'
+        f"<style>{_CSS}</style></head><body><div class=\"card\">"
+        f"<h1>Generador de Códigos</h1>"
+        f'<form method="POST" action="/generar">'
+        f"  <label>Número de serie del equipo</label>"
+        f'  <input name="serial" type="text" value="{safe_serial}" placeholder="SN123456" autofocus>'
+        f'  <button type="submit">Generar</button>'
+        f"</form>{err}{result}{reinstall_form}{hist_html}"
+        f'<div class="logout"><a href="/logout">Cerrar sesión</a></div>'
+        f"</div></body></html>"
+    )
 
 
 if __name__ == "__main__":
+    generador_db.init_db()
     print(f"\nGenerador corriendo en http://localhost:{_PORT}")
     print(f"Desde otra máquina: http://<ip-de-esta-PC>:{_PORT}\n")
     uvicorn.run(app, host=_HOST, port=_PORT, log_level="warning")
