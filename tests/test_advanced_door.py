@@ -135,3 +135,5 @@ def test_desbloquear_se_apaga_con_presion_baja():
     door._from_abriendo()
     # desbloquear_off → set_output(8, False) debe llamarse
     set_do.set_output.assert_any_call(8, False)
+    # desbloquear_on → set_output(8, True) NO debe llamarse
+    assert (8, True) not in [tuple(c.args) for c in set_do.set_output.call_args_list]
