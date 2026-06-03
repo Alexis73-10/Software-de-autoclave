@@ -129,15 +129,16 @@ async def generar_post(request: Request, serial: str = Form(...)):
 
     ya_instalado = generador_db.fue_instalado(serial)
     factory_key  = generate_factory_key(serial)
-    history      = generador_db.get_history(serial)
 
     if ya_instalado:
         generador_db.log_codigo(serial, "fabrica", usuario)
+        history = generador_db.get_history(serial)
         return HTMLResponse(_dashboard(serial, "", factory_key,
                                        ya_instalado=True, history=history))
     else:
         install_code = generate_installation_code(serial)
         generador_db.log_codigo(serial, "instalacion", usuario)
+        history = generador_db.get_history(serial)
         return HTMLResponse(_dashboard(serial, install_code, factory_key,
                                        ya_instalado=False, history=history))
 
@@ -149,6 +150,9 @@ async def reinstalar_post(request: Request, serial: str = Form(...)):
 
     serial  = serial.strip().upper()
     usuario = _get_usuario(request)
+
+    if not serial:
+        return HTMLResponse(_dashboard("", "", "", error="El serial no puede estar vacío", ya_instalado=False))
 
     install_code = generate_installation_code(serial)
     generador_db.log_codigo(serial, "reinstalacion", usuario)
@@ -194,17 +198,17 @@ def _dashboard(
         if reinstalacion:
             codes_html += (
                 '<div class="chip-label">Código de reinstalación</div>'
-                f'<div class="code">{install_code}</div>'
+                f'<div class="code">{html.escape(install_code)}</div>'
             )
         elif not ya_instalado and install_code:
             codes_html += (
                 '<div class="chip-label">Código de instalación</div>'
-                f'<div class="code">{install_code}</div>'
+                f'<div class="code">{html.escape(install_code)}</div>'
             )
         if factory_key:
             codes_html += (
                 '<div class="chip-label">Clave de fábrica</div>'
-                f'<div class="code">{factory_key}</div>'
+                f'<div class="code">{html.escape(factory_key)}</div>'
             )
         result = (
             f'<div class="result">'
