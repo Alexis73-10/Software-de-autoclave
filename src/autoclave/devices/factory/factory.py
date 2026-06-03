@@ -23,6 +23,7 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
     has_motor  = door_type in (DoorType.MOTORIZED, DoorType.MOTORIZED_LOCKING, DoorType.ADVANCED)
     has_lock   = door_type in (DoorType.LOCKING, DoorType.MOTORIZED_LOCKING, DoorType.ADVANCED)
     has_sensor = door_type == DoorType.ADVANCED
+    has_mech_lock_sensor = door_type in (DoorType.MOTORIZED, DoorType.MOTORIZED_LOCKING)
 
     if has_motor or has_lock:
         do = {}
@@ -37,6 +38,9 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
     if has_sensor:
         cfg["di"]["atrapamiento"] = f"atrapamiento_puerta_{n}"
         cfg["ai"] = {"presion_empaque": f"pres_empaque_{n}"}
+
+    if has_mech_lock_sensor:
+        cfg["di"]["bloqueo"] = f"bloqueo_puerta_{n}"
 
     return cfg
 
