@@ -1,6 +1,6 @@
 # autoclave.core.converters.py
 
-from typing import List, Dict
+from typing import List, Dict, Optional
 from autoclave.config.schema import CalibrationConfig
 from collections import deque
 import statistics
@@ -83,19 +83,16 @@ def _factory_calibrate(raw_value: int, calib, full_scale: float, is_pressure=Fal
 # ==============================
 
 def _user_calibrate(value: float, calib) -> float:
-    """
-    Aplica calibración de usuario (gain/offset).
-    """
-
     if calib:
+        poly = getattr(calib, "poly", None)
+        if poly and len(poly) >= 2:
+            result = 0.0
+            for coeff in poly:
+                result = result * value + coeff
+            return result
         gain = getattr(calib, "gain", 1.0)
         offset = getattr(calib, "offset", 0.0)
-        #print(f"gain: {gain}, offset: {offset}")
-
-        calib_user = value * gain + offset
-
-        return calib_user
-
+        return value * gain + offset
     return value
 
 
@@ -103,7 +100,7 @@ def _user_calibrate(value: float, calib) -> float:
 # TEMPERATURA
 # ==============================
 
-def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) -> List[float]:
+def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) -> List[Optional[float]]:
 
     if isinstance(config, dict):
         factory_list = config.get("calibration", {}).get("factory", {}).get("temperature", [])
@@ -118,6 +115,13 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
 
     for i in range(8):
         raw = raw_ai[i] if i < len(raw_ai) else 0
+
+        # Sensor desconectado: ADC en 0 (cable a GND) o 4095 (cable al aire/VCC)
+        if raw == 0 or raw >= 4095:
+            _ma_temp[i].buffer.clear()
+            _prev_temp_values[i] = None
+            temps.append(None)
+            continue
 
         # 1. Pre-filtro: MA ligero sobre valores crudos (rechaza picos del ADC)
         smoothed_raw = _ma_temp[i].update(raw)
