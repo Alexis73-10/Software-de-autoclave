@@ -6,7 +6,7 @@ import logging
 
 from .profile import InstallationProfile, Role
 from .equipment import EquipmentClass, get_capabilities
-from .storage import save
+from .storage import save, delete as delete_profile
 from .activation import validate_installation_code
 from autoclave.devices.puertas.door_type import DoorType
 
@@ -230,6 +230,7 @@ def launch_installation_wizard() -> bool:
         )
 
         try:
+            delete_profile()
             save(profile)
         except Exception as e:
             err5.config(text=f"Error al guardar: {e}")

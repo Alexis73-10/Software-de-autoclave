@@ -53,3 +53,7 @@ def save(profile: InstallationProfile):
         "created_at":      profile.created_at.isoformat(),
         "locked":          profile.locked,
     }, indent=2, ensure_ascii=False), encoding="utf-8")
+
+
+def delete():
+    INSTALLATION_FILE.unlink(missing_ok=True)
