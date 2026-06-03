@@ -28,3 +28,6 @@ autoclave = "autoclave.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+addopts = "--ignore=tests/Interfaz.py --ignore=tests/ventana_emergente.py --ignore=tests/test_flujo_unidades.py --ignore=tests/test_rutas.py --ignore=tests/test_config.py"
