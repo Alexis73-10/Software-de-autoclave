@@ -1,8 +1,8 @@
 # Handoff — Estado al 2026-06-03 (sesión 2)
 
 **Rama activa:** `dev`  
-**PR abierto:** [#16 — feat: UI responsive a orientación — layout portrait + font scaling](https://github.com/Alexis73-10/Software-de-autoclave/pull/16)  
-**PR anterior (pendiente de merge):** [#15 — feat: suministro_electrico modo seguro](https://github.com/Alexis73-10/Software-de-autoclave/pull/15)
+**PR activo:** [#18 — feat: perfiles de equipo, puertas avanzadas y generador con historial](https://github.com/Alexis73-10/Software-de-autoclave/pull/18)  
+**PRs anteriores (pendientes de merge):** [#15](https://github.com/Alexis73-10/Software-de-autoclave/pull/15), [#16](https://github.com/Alexis73-10/Software-de-autoclave/pull/16)
 
 ---
 
