@@ -11,12 +11,11 @@ def init_db():
             CREATE TABLE IF NOT EXISTS codigos_generados (
                 id      INTEGER PRIMARY KEY AUTOINCREMENT,
                 serial  TEXT NOT NULL,
-                tipo    TEXT NOT NULL,
+                tipo    TEXT NOT NULL CHECK(tipo IN ('instalacion', 'reinstalacion', 'fabrica')),
                 fecha   TEXT NOT NULL,
                 usuario TEXT NOT NULL
             )
         """)
-        con.commit()
 
 
 def fue_instalado(serial: str) -> bool:
@@ -36,7 +35,6 @@ def log_codigo(serial: str, tipo: str, usuario: str, day: date | None = None):
             "INSERT INTO codigos_generados (serial, tipo, fecha, usuario) VALUES (?, ?, ?, ?)",
             (serial, tipo, fecha, usuario)
         )
-        con.commit()
 
 
 def get_history(serial: str) -> list[dict]:
