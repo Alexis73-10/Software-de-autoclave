@@ -68,3 +68,11 @@ def test_all_equipment_classes_have_capabilities():
     for ec in EquipmentClass:
         cap = get_capabilities(ec)
         assert isinstance(cap, EquipmentCapabilities)
+
+
+def test_cooling_mode_max_por_clase():
+    assert get_capabilities(EquipmentClass.MESA_N).cooling_mode_max == 1
+    assert get_capabilities(EquipmentClass.MESA_B).cooling_mode_max == 3
+    assert get_capabilities(EquipmentClass.MESA_B_LAB).cooling_mode_max == 5
+    assert get_capabilities(EquipmentClass.PISO).cooling_mode_max == 3
+    assert get_capabilities(EquipmentClass.PISO_LAB).cooling_mode_max == 5
