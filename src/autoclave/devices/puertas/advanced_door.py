@@ -587,7 +587,7 @@ class AdvancedDoor(Door):
     def cmd_abrir(self):
         if "bloqueo" in self.di:
             if self.estado.sensores_di.get(self.di["bloqueo"]):
-                logger.warning("Puerta %s: bloqueada mecánicamente, apertura denegada", self.name)
+                logger.warning("Puerta %s: bloqueada mecánicamente, apertura denegada.", self.name)
                 return
         self.set_state(DoorState.ABRIENDO)
             

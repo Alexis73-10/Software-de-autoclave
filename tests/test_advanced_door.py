@@ -18,7 +18,9 @@ def _make_door(di_extra=None, bloqueo_sensor_val=0):
     estado = MagicMock()
     estado.get_door_state.return_value = DoorState.CERRADO
     estado.get_flag.return_value = False
-    estado.sensores_di.get.return_value = bloqueo_sensor_val
+    estado.sensores_di.get.side_effect = lambda key, *a: (
+        bloqueo_sensor_val if key == "bloqueo_puerta_1" else 0
+    )
     estado.sensores_pres.get.return_value = 300.0
 
     di = {"abierta": "puerta_1_abierta", "cerrada": "puerta_1_cerrada"}
@@ -52,6 +54,11 @@ def test_motorized_locking_cfg_tiene_sensor_bloqueo():
     assert cfg["di"]["bloqueo"] == "bloqueo_puerta_1"
 
 
+def test_motorized_cfg_puerta2_sensor_bloqueo_correcto():
+    cfg = _build_door_cfg(2, DoorType.MOTORIZED)
+    assert cfg["di"]["bloqueo"] == "bloqueo_puerta_2"
+
+
 def test_advanced_cfg_no_tiene_sensor_bloqueo():
     cfg = _build_door_cfg(1, DoorType.ADVANCED)
     assert "bloqueo" not in cfg["di"]
@@ -59,6 +66,11 @@ def test_advanced_cfg_no_tiene_sensor_bloqueo():
 
 def test_simple_cfg_no_tiene_sensor_bloqueo():
     cfg = _build_door_cfg(1, DoorType.SIMPLE)
+    assert "bloqueo" not in cfg["di"]
+
+
+def test_locking_cfg_no_tiene_sensor_bloqueo():
+    cfg = _build_door_cfg(1, DoorType.LOCKING)
     assert "bloqueo" not in cfg["di"]
 
 
