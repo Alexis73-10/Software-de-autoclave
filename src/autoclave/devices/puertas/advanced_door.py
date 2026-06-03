@@ -366,7 +366,6 @@ class AdvancedDoor(Door):
 
         if self.timer_start is None:
             self.timer_start = time.time() + self.config.get("timeout_puerta")
-            self._pulso_desbloqueo_enviado = False
             self.bloquear_off()
             self.cerrar_off()
             if safe_mode:
@@ -384,9 +383,11 @@ class AdvancedDoor(Door):
             logger.info("Iniciando apertura de puerta%s.", " (modo seguro)" if safe_mode else "")
             return
 
-        if not self._pulso_desbloqueo_enviado:
+        # Mantener desbloquear activo hasta que el empaque alcance vacío
+        if self.presion_empaque() > self.config.get("vacio_empaque"):
+            self.desbloquear_on()
+        else:
             self.desbloquear_off()
-            self._pulso_desbloqueo_enviado = True
 
         umbral = (
             (self.config.get("presion_admosferica") or 101.3) +

@@ -93,3 +93,45 @@ def test_cmd_abrir_sin_sensor_bloqueo_siempre_transiciona():
     door = _make_door()
     door.cmd_abrir()
     door.estado.update_door_state.assert_called_once_with("Puerta 1", DoorState.ABRIENDO)
+
+
+import time as _time
+
+
+def _make_abriendo_door(presion_empaque_val: float):
+    estado = MagicMock()
+    estado.get_flag.return_value = False          # sin safe_mode
+    estado.sensores_pres.get.return_value = presion_empaque_val
+    estado.sensores_di.get.return_value = 0       # puerta no abierta ni cerrada
+
+    set_do = MagicMock()
+    door = AdvancedDoor(
+        name="Puerta 1",
+        di={"abierta": "puerta_1_abierta", "cerrada": "puerta_1_cerrada"},
+        do={"abrir": 19, "cerrar": 21, "desbloquear": 8},
+        ai={"presion_empaque": "pres_empaque_1"},
+        estado=estado,
+        setdo=set_do,
+        config=_CONFIG,
+        alarm_manager=None,
+    )
+    door.timer_start = _time.time() + 60   # saltar el bloque de inicialización
+    return door, set_do
+
+
+def test_desbloquear_se_mantiene_con_presion_alta():
+    """Con presión de empaque sobre vacio_empaque, desbloquear debe permanecer activo."""
+    door, set_do = _make_abriendo_door(presion_empaque_val=200.0)   # > 30 kPa
+    door._from_abriendo()
+    # desbloquear_on → set_output(8, True) debe llamarse
+    set_do.set_output.assert_any_call(8, True)
+    # desbloquear_off → set_output(8, False) NO debe llamarse
+    assert (8, False) not in [tuple(c.args) for c in set_do.set_output.call_args_list]
+
+
+def test_desbloquear_se_apaga_con_presion_baja():
+    """Con presión de empaque bajo vacio_empaque, desbloquear debe apagarse."""
+    door, set_do = _make_abriendo_door(presion_empaque_val=15.0)    # < 30 kPa
+    door._from_abriendo()
+    # desbloquear_off → set_output(8, False) debe llamarse
+    set_do.set_output.assert_any_call(8, False)
