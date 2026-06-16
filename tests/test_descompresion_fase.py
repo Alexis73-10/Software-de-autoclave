@@ -140,3 +140,41 @@ def test_apagar_todo_al_fallo_timeout():
     set_do.descompresion_lenta_off.assert_called()
     set_do.aire_comprimido_camara_off.assert_called()
     set_do.agua_chaqueta_off.assert_called()
+
+
+# ── Modo 3 ────────────────────────────────────────────────────────────────────
+
+def test_modo_3_lenta_hasta_presion_cambio():
+    # presion_cambio=150, pres=300 → sub-etapa lenta, rapida no activa
+    fase, estado, set_do = _make_fase(modo=3, pres=300.0)
+    fase.update()
+    fase.update()
+    set_do.descompresion_lenta_on.assert_called()
+    set_do.descompresion_rapida_on.assert_not_called()
+
+
+def test_modo_3_transicion_a_rapida():
+    # pres=140 <= presion_cambio=150 → cierra lenta, sub-etapa = "rapida"
+    fase, estado, set_do = _make_fase(modo=3, pres=140.0)
+    fase.update()
+    fase.update()
+    set_do.descompresion_lenta_off.assert_called()
+    assert fase._sub_etapa == "rapida"
+
+
+def test_modo_3_completa_en_subetapa_rapida():
+    # Forzar sub-etapa rapida con pres <= atm+rango
+    fase, estado, set_do = _make_fase(modo=3, pres=121.0)
+    fase.update()
+    fase._sub_etapa = "rapida"
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_called()
+
+
+def test_modo_3_timeout_retorna_fallo():
+    fase, estado, set_do = _make_fase(modo=3, pres=300.0)
+    fase.update()
+    fase._t_timeout = _time.time() - 1
+    result = fase.update()
+    assert result == FaseResult.FALLO
