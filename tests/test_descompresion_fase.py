@@ -178,3 +178,101 @@ def test_modo_3_timeout_retorna_fallo():
     fase._t_timeout = _time.time() - 1
     result = fase.update()
     assert result == FaseResult.FALLO
+
+
+# ── Modo 4 ────────────────────────────────────────────────────────────────────
+
+def test_modo_4_activa_agua_chaqueta():
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    fase.update()
+    fase.update()
+    set_do.agua_chaqueta_on.assert_called()
+
+
+def test_modo_4_pulso_aire_cuando_pres_baja():
+    # pres=100 < presion_camara_enfriamiento=200 → aire_on
+    fase, estado, set_do = _make_fase(modo=4, pres=100.0, temp=120.0)
+    fase.update()
+    fase.update()
+    set_do.aire_comprimido_camara_on.assert_called()
+
+
+def test_modo_4_aire_espera_3s_entre_pulsos():
+    # Segundo tick dentro de 3 s: no vuelve a pulsar
+    fase, estado, set_do = _make_fase(modo=4, pres=100.0, temp=120.0)
+    fase.update()
+    fase.update()   # pulso → _t_aire = now + 3 s
+    set_do.aire_comprimido_camara_on.reset_mock()
+    fase.update()   # dentro de 3 s → sin nuevo pulso
+    set_do.aire_comprimido_camara_on.assert_not_called()
+
+
+def test_modo_4_chaqueta_siempre_abierta_si_cierre_0():
+    fase, estado, set_do = _make_fase(
+        modo=4, pres=300.0, temp=120.0,
+        extra_params={("descompresion", "modo_4", "tiempo_cierre_chaqueta"): 0},
+    )
+    fase.update()
+    set_do.reset_mock()
+    fase.update()
+    set_do.descompresion_chaqueta_on.assert_called()
+    set_do.descompresion_chaqueta_off.assert_not_called()
+
+
+def test_modo_4_chaqueta_pulso_on_off():
+    fase, estado, set_do = _make_fase(
+        modo=4, pres=300.0, temp=120.0,
+        extra_params={
+            ("descompresion", "modo_4", "tiempo_apertura_chaqueta"): 5,
+            ("descompresion", "modo_4", "tiempo_cierre_chaqueta"): 10,
+        },
+    )
+    fase.update()
+    fase.update()   # primer tick: _t_pulso inicializado, chaqueta ON
+    # Simular > 5 s transcurridos
+    fase._t_pulso_chaqueta = _time.time() - 6
+    fase._chaqueta_abierta = True
+    set_do.reset_mock()
+    fase.update()
+    set_do.descompresion_chaqueta_off.assert_called()
+
+
+def test_modo_4_transicion_a_descompresion_al_alcanzar_temp():
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    fase.update()
+    estado.sensores_temp["temp_camara"] = 79.0   # <= temperatura_enfriamiento=80
+    fase.update()
+    set_do.agua_chaqueta_off.assert_called()
+    set_do.aire_comprimido_camara_off.assert_called()
+    set_do.descompresion_rapida_on.assert_called()
+    set_do.descompresion_chaqueta_on.assert_called()
+    assert fase._sub_etapa == "descompresion"
+
+
+def test_modo_4_completa_al_alcanzar_presion_atm():
+    # Forzar sub-etapa descompresion con pres <= atm+rango
+    fase, estado, set_do = _make_fase(modo=4, pres=121.0, temp=120.0)
+    fase.update()
+    fase._sub_etapa = "descompresion"
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_called()
+    set_do.descompresion_chaqueta_off.assert_called()
+
+
+# ── Modo 5 ────────────────────────────────────────────────────────────────────
+
+def test_modo_5_lenta_activa_durante_enfriamiento():
+    fase, estado, set_do = _make_fase(modo=5, pres=300.0, temp=120.0)
+    fase.update()
+    fase.update()
+    set_do.descompresion_lenta_on.assert_called()
+
+
+def test_modo_5_lenta_apagada_al_transicionar():
+    fase, estado, set_do = _make_fase(modo=5, pres=300.0, temp=120.0)
+    fase.update()
+    estado.sensores_temp["temp_camara"] = 79.0
+    fase.update()
+    set_do.descompresion_lenta_off.assert_called()
+    set_do.descompresion_rapida_on.assert_called()
