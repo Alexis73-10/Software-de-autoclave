@@ -1,3 +1,4 @@
+import time as _time
 from unittest.mock import MagicMock
 from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
@@ -84,3 +85,58 @@ def test_modo_0_completa_al_alcanzar_presion_atm():
     fase.update()
     result = fase.update()
     assert result == FaseResult.COMPLETADO
+
+
+# ── Modo 1 ────────────────────────────────────────────────────────────────────
+
+def test_modo_1_activa_rapida():
+    fase, estado, set_do = _make_fase(modo=1, pres=300.0)
+    fase.update()
+    fase.update()
+    set_do.descompresion_rapida_on.assert_called()
+
+
+def test_modo_1_completa_y_apaga_salidas():
+    fase, estado, set_do = _make_fase(modo=1, pres=121.0)
+    fase.update()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_called()
+
+
+# ── Modo 2 ────────────────────────────────────────────────────────────────────
+
+def test_modo_2_activa_lenta():
+    fase, estado, set_do = _make_fase(modo=2, pres=300.0)
+    fase.update()
+    fase.update()
+    set_do.descompresion_lenta_on.assert_called()
+
+
+def test_modo_2_completa_y_apaga_salidas():
+    fase, estado, set_do = _make_fase(modo=2, pres=121.0)
+    fase.update()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_lenta_off.assert_called()
+
+
+# ── Timeouts ──────────────────────────────────────────────────────────────────
+
+def test_modo_1_timeout_retorna_fallo():
+    fase, estado, set_do = _make_fase(modo=1, pres=300.0)
+    fase.update()
+    fase._t_timeout = _time.time() - 1  # expirado
+    result = fase.update()
+    assert result == FaseResult.FALLO
+
+
+def test_apagar_todo_al_fallo_timeout():
+    fase, estado, set_do = _make_fase(modo=1, pres=300.0)
+    fase.update()
+    fase._t_timeout = _time.time() - 1
+    fase.update()
+    set_do.descompresion_rapida_off.assert_called()
+    set_do.descompresion_lenta_off.assert_called()
+    set_do.aire_comprimido_camara_off.assert_called()
+    set_do.agua_chaqueta_off.assert_called()
