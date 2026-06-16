@@ -61,6 +61,15 @@ CREATE INDEX IF NOT EXISTS idx_ciclos_fecha
 
 CREATE INDEX IF NOT EXISTS idx_ciclos_numero
     ON ciclos(numero_ciclo);
+
+CREATE TABLE IF NOT EXISTS usuarios (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre   TEXT NOT NULL,
+    usuario  TEXT UNIQUE NOT NULL,
+    hash_pw  TEXT NOT NULL,
+    rol      TEXT DEFAULT 'operador',
+    activo   INTEGER DEFAULT 1
+);
 """
 
 
@@ -85,6 +94,7 @@ class DbManager:
         )
         self._conn.row_factory = sqlite3.Row
         self._apply_schema()
+        self.seed_admin_if_empty()
         logger.info("SQLite iniciado: %s", self._path)
 
     # ------------------------------------------------------------------
@@ -228,3 +238,71 @@ class DbManager:
                 logger.info("SQLite cerrado.")
             except Exception as e:
                 logger.warning("Error cerrando SQLite: %s", e)
+
+    # ------------------------------------------------------------------
+    # Usuarios
+    # ------------------------------------------------------------------
+
+    def crear_usuario(
+        self,
+        nombre: str,
+        usuario: str,
+        hash_pw: str,
+        rol: str = "operador",
+        activo: int = 1,
+    ) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo)"
+                " VALUES (?,?,?,?,?)",
+                (nombre, usuario, hash_pw, rol, activo),
+            )
+            self._conn.commit()
+            return cur.lastrowid
+
+    def get_usuario_by_username(self, usuario: str) -> dict | None:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT * FROM usuarios WHERE usuario=? AND activo=1",
+                (usuario,),
+            ).fetchone()
+        return dict(row) if row else None
+
+    def seed_admin_if_empty(self) -> None:
+        import hashlib
+        with self._lock:
+            count = self._conn.execute(
+                "SELECT COUNT(*) FROM usuarios"
+            ).fetchone()[0]
+            if count == 0:
+                admin_hash = hashlib.sha256(
+                    "admin1234".encode("utf-8")
+                ).hexdigest()
+                self._conn.execute(
+                    "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo)"
+                    " VALUES (?,?,?,?,?)",
+                    ("Administrador", "admin", admin_hash, "admin", 1),
+                )
+                self._conn.commit()
+
+    def get_ciclos_rango(
+        self,
+        desde: str | None = None,
+        hasta: str | None = None,
+        limite: int = 100,
+    ) -> list:
+        with self._lock:
+            conditions: list[str] = []
+            params: list = []
+            if desde:
+                conditions.append("fecha_inicio >= ?")
+                params.append(desde)
+            if hasta:
+                conditions.append("fecha_inicio <= ?")
+                params.append(hasta + "T23:59:59")
+            where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+            params.append(limite)
+            return self._conn.execute(
+                f"SELECT * FROM ciclos {where} ORDER BY id DESC LIMIT ?",
+                params,
+            ).fetchall()
