@@ -24,6 +24,7 @@ from autoclave.state_machine.cycle_phases.prevacio import PrevacioFase
 from autoclave.state_machine.cycle_phases.calentamiento import CalentamientoFase
 from autoclave.state_machine.cycle_phases.estabilizacion import EstabilizacionFase
 from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFase
+from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ class CicloState:
             CalentamientoFase(*_args),
             EstabilizacionFase(*_args),
             EsterilizacionFase(*_args),
+            DescompresionFase(*_args),
         ]
 
         self._protocolo          = ProtocoloFallo(estado, set_do, config)
