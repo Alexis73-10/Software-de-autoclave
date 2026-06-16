@@ -1,12 +1,70 @@
-# Handoff — Estado al 2026-06-03 (sesión 2)
+# Handoff — Estado al 2026-06-16 (sesión 3)
 
 **Rama activa:** `dev`  
-**PR activo:** [#18 — feat: perfiles de equipo, puertas avanzadas y generador con historial](https://github.com/Alexis73-10/Software-de-autoclave/pull/18)  
-**PRs anteriores (pendientes de merge):** [#15](https://github.com/Alexis73-10/Software-de-autoclave/pull/15), [#16](https://github.com/Alexis73-10/Software-de-autoclave/pull/16)
+**PR activo:** [#19 — feat: DescompresionFase con 6 modos de operación](https://github.com/Alexis73-10/Software-de-autoclave/pull/19)  
+**PRs anteriores (pendientes de merge):** [#15](https://github.com/Alexis73-10/Software-de-autoclave/pull/15), [#16](https://github.com/Alexis73-10/Software-de-autoclave/pull/16), [#18](https://github.com/Alexis73-10/Software-de-autoclave/pull/18)
 
 ---
 
-## Qué se hizo hoy (sesión 2, 2026-06-03) — Puertas + modos descomp + generador
+## Qué se hizo hoy (sesión 3, 2026-06-16) — DescompresionFase con 6 modos
+
+### Commits del día (sesión 3)
+
+| Commit | Descripción |
+|--------|-------------|
+| `70f872b` | docs: spec fase de descompresión con 6 modos |
+| `e501ffa` | docs: plan de implementación fase de descompresión (6 modos) |
+| `42e7b12` | feat: DescompresionFase — pre-espera y modo 0 |
+| `7bc3b1f` | fix: remover import time sin usar en test_descompresion_fase |
+| `7be40a6` | test: modos 1, 2 y timeouts de DescompresionFase |
+| `8981ad2` | test: modo 3 combinado de DescompresionFase |
+| `9bcf261` | test: modos 4 y 5 de DescompresionFase (enfriamiento + descompresión) |
+| `418c8b7` | feat: DescompresionFase integrada al pipeline del ciclo |
+| `78d4563` | feat: parámetros de descompresión agregados a los ciclos factory y user |
+
+### Detalle
+
+**`DescompresionFase` (`42e7b12` → `78d4563`):**
+
+Clase única `DescompresionFase(BaseFase)` en `src/autoclave/state_machine/cycle_phases/descompresion.py`. Agregada al final del pipeline en `ciclo.py`. 6 modos de operación:
+
+- **Modo 0** — Pasivo. Sin salidas. Espera enfriamiento natural hasta presión atmosférica. Sin timeout.
+- **Modo 1** — `descompresion_rapida_on` hasta presión atm. Con timeout.
+- **Modo 2** — `descompresion_lenta_on` hasta presión atm. Con timeout.
+- **Modo 3** — Lenta hasta `presion_cambio`, luego rápida hasta presión atm. Timeout único.
+- **Modo 4** — Enfriamiento: `agua_chaqueta_on` permanente + pulsos `aire_comprimido_camara` (re-evalúa cada 3s) + pulsos `descompresion_chaqueta` (`tiempo_apertura`/`tiempo_cierre`, si cierre=0 siempre abierta). Al alcanzar `temperatura_enfriamiento`: descompresión rápida + chaqueta. Con timeout global.
+- **Modo 5** — Igual que modo 4 pero agrega `descompresion_lenta_on` durante enfriamiento (y la apaga al transicionar).
+
+Pre-espera configurable: `tiempo_pre_despresurizacion` segundos con todas las salidas apagadas antes de iniciar el modo.
+
+**Parámetros JSON:** Sección `"descompresion"` agregada a los 4 archivos de ciclos (`factory/` y `user/`), con parámetros anidados por modo (`modo_1.timeout`, `modo_3.presion_cambio`, `modo_4.temperatura_enfriamiento`, etc.).
+
+### Archivos nuevos
+
+| Archivo | Descripción |
+|---------|-------------|
+| `src/autoclave/state_machine/cycle_phases/descompresion.py` | Implementación completa |
+| `tests/test_descompresion_fase.py` | 23 tests (pre-espera, modos 0–5, timeouts) |
+| `docs/superpowers/specs/2026-06-16-descompresion-fase-design.md` | Spec de diseño |
+| `docs/superpowers/plans/2026-06-16-descompresion-fase-impl.md` | Plan de implementación |
+
+### Estado de tests
+
+```
+pytest tests/ --ignore=tests/Interfaz.py --ignore=tests/ventana_emergente.py --ignore=tests/test_serial_directo.py
+```
+
+- **196 passed**, 2 warnings (deprecation en `test_storage.py` — `datetime.utcnow()`, pre-existente)
+
+---
+
+## Qué sigue
+
+- Mergear PRs pendientes (#15, #16, #18, #19) — están en orden de antigüedad
+
+---
+
+## Qué se hizo antes (sesión 2, 2026-06-03) — Puertas + modos descomp + generador
 
 ### Commits del día (sesión 2)
 
@@ -51,10 +109,10 @@ Nuevo `tools/generador/db.py` con `init_db()`, `fue_instalado()`, `log_codigo()`
 
 ---
 
-## Qué sigue
+## Qué siguió (completado en sesión 3)
 
-- Cerrar la rama: invocar `superpowers:finishing-a-development-branch` para review final + PR
-- Issue pendiente (pre-existente): `test_checkpoint_entra_en_sostenimiento` — checkpoints en código 0.80/0.97 vs spec 0.50/0.90
+- `DescompresionFase` implementada y PR #19 creado
+- Issue pendiente (pre-existente): `test_checkpoint_entra_en_sostenimiento` — checkpoints en código 0.80/0.97 vs spec 0.50/0.90 — sin resolver aún
 
 ---
 
