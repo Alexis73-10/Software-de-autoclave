@@ -41,7 +41,8 @@ def _make_base_fase():
         name = "TEST"
         def reset(self): pass
         def update(self): pass
-    return FaseTest(estado, set_do, cycle, config, alarms)
+    cap = MagicMock()
+    return FaseTest(estado, set_do, cycle, config, alarms, cap)
 
 
 def test_verificar_vapor_saturado_dentro_tolerancia():

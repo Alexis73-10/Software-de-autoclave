@@ -197,10 +197,14 @@ class AdvancedDoor(Door):
         return val if val is not None else False
     
     def atrapamiento(self, ):
+        if "atrapamiento" not in self.di:
+            return False
         val = self.estado.sensores_di.get(self.di["atrapamiento"])
         return val if val is not None else False
     
     def presion_empaque(self, ):
+        if "presion_empaque" not in self.ai:
+            return 0.0
         val = self.estado.sensores_pres.get(self.ai["presion_empaque"])
         return val if val is not None else 0.0
 
@@ -210,45 +214,53 @@ class AdvancedDoor(Door):
     
     #Activa actuador de apertura
     def abrir_on (self):
-        self.set_do.set_output(self.do["abrir"], True)
+        if "abrir" in self.do:
+            self.set_do.set_output(self.do["abrir"], True)
         #logger.info("Actuador de apertura activado.")
 
     #Desactiva actuador de apertura
     def abrir_off (self):
-        self.set_do.set_output(self.do["abrir"], False)
+        if "abrir" in self.do:
+            self.set_do.set_output(self.do["abrir"], False)
         #logger.info("Actuador de apertura desactivado.")
         
 
     #Activa actuador de cierre
     def cerrar_on (self):
-        self.set_do.set_output(self.do["cerrar"], True)
+        if "cerrar" in self.do:
+            self.set_do.set_output(self.do["cerrar"], True)
         #logger.info("Actuador de cierre activado.")
         
     #Desactiva actuador de cierre
     def cerrar_off (self):
-        self.set_do.set_output(self.do["cerrar"], False)
+        if "cerrar" in self.do:
+            self.set_do.set_output(self.do["cerrar"], False)
         #logger.info("Actuador de cierre desactivado.")
         
         
     #Bloquea la puerta (Aire comprimido al empaque)
     def bloquear_on(self):
-        self.set_do.set_output(self.do["bloquear"], True)
+        if "bloquear" in self.do:
+            self.set_do.set_output(self.do["bloquear"], True)
         #logger.info("Bloqueo de puerta activado.")
         
         
     def bloquear_off(self):
-        self.set_do.set_output(self.do["bloquear"], False)
+        if "bloquear" in self.do:
+            self.set_do.set_output(self.do["bloquear"], False)
         #logger.info("Bloqueo de puerta desactivado.")
         
         
     #Desbloquea la puerta (Corta aire comprimido al empaque)
     def desbloquear_on(self):
-        self.set_do.set_output(self.do["desbloquear"], True)
+        if "desbloquear" in self.do:
+            self.set_do.set_output(self.do["desbloquear"], True)
         #logger.info("Desbloqueo de puerta activado.")
         
     
     def desbloquear_off(self):
-        self.set_do.set_output(self.do["desbloquear"], False)
+        if "desbloquear" in self.do:
+            self.set_do.set_output(self.do["desbloquear"], False)
         #logger.info("Desbloqueo de puerta desactivado.")
         
     #Bomba encendida
@@ -354,7 +366,6 @@ class AdvancedDoor(Door):
 
         if self.timer_start is None:
             self.timer_start = time.time() + self.config.get("timeout_puerta")
-            self._pulso_desbloqueo_enviado = False
             self.bloquear_off()
             self.cerrar_off()
             if safe_mode:
@@ -372,9 +383,11 @@ class AdvancedDoor(Door):
             logger.info("Iniciando apertura de puerta%s.", " (modo seguro)" if safe_mode else "")
             return
 
-        if not self._pulso_desbloqueo_enviado:
+        # Mantener desbloquear activo hasta que el empaque alcance vacío
+        if self.presion_empaque() > self.config.get("vacio_empaque"):
+            self.desbloquear_on()
+        else:
             self.desbloquear_off()
-            self._pulso_desbloqueo_enviado = True
 
         umbral = (
             (self.config.get("presion_admosferica") or 101.3) +
@@ -573,6 +586,10 @@ class AdvancedDoor(Door):
     #============================
 
     def cmd_abrir(self):
+        if "bloqueo" in self.di:
+            if self.estado.sensores_di.get(self.di["bloqueo"]):
+                logger.warning("Puerta %s: bloqueada mecánicamente, apertura denegada.", self.name)
+                return
         self.set_state(DoorState.ABRIENDO)
             
     def cmd_cerrar(self):

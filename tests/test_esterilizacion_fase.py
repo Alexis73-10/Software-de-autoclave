@@ -33,8 +33,10 @@ def _make_fase(t_est=134.0, tiempo_min=3.5, temp_add=2.0, temp_err=5.0,
 
     config = MagicMock()
     alarms = MagicMock()
+    cap    = MagicMock()
+    cap.has_liquid_sensor = False
 
-    fase = EsterilizacionFase(estado, set_do, cycle, config, alarms)
+    fase = EsterilizacionFase(estado, set_do, cycle, config, alarms, cap)
     fase.reset()
     return fase, estado, set_do
 

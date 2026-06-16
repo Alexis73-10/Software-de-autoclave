@@ -9,24 +9,23 @@ def _make_fase(t_obj=134.0, tasa=5.0, timeout_min=60, tolerancia=9.0, t_inicial=
     estado.sensores_temp = {"temp_camara": t_inicial}
     estado.sensores_pres = {"pres_camara": 100.0}
     estado.fase_en_sostenimiento = False
-
     set_do = MagicMock()
-
-    cycle = MagicMock()
+    cycle  = MagicMock()
     def get_param(seccion, param, default=None):
         valores = {
             "temperatura_calentamiento": t_obj,
-            "tasa_calentamiento": tasa,
-            "timeout_calentamiento": timeout_min,
-            "presion_add_calentamiento": tolerancia,
+            "tasa_calentamiento":        tasa,
+            "timeout_calentamiento":     timeout_min,
+            "rango_presion_calentamiento": tolerancia,
         }
         return valores.get(param, default)
     cycle.get_param.side_effect = get_param
-
     config = MagicMock()
     alarms = MagicMock()
+    cap    = MagicMock()
+    cap.has_liquid_sensor = False
 
-    fase = CalentamientoFase(estado, set_do, cycle, config, alarms)
+    fase = CalentamientoFase(estado, set_do, cycle, config, alarms, cap)
     fase.reset()
     return fase, estado, set_do
 
@@ -83,11 +82,11 @@ def test_rampa_frena_valvula_cuando_supera_limite():
 
 
 def test_checkpoint_entra_en_sostenimiento():
-    """Al alcanzar el 50% del objetivo, la fase entra en verificación."""
+    """Al alcanzar el 80% del objetivo, la fase entra en verificación."""
     fase, estado, set_do = _make_fase(t_obj=134.0)
     fase.update()  # inicializar
-    estado.sensores_temp["temp_camara"] = 67.0  # 50% de 134
-    # P_sat(67°C) ≈ 27.6 kPa — poner presión muy alta (aire)
+    estado.sensores_temp["temp_camara"] = 107.2  # 80% de 134
+    # P_sat(107.2°C) ≈ 130 kPa — poner presión muy alta (aire)
     estado.sensores_pres["pres_camara"] = 200.0
     result = fase.update()
     assert result == FaseResult.EN_CURSO
@@ -99,9 +98,9 @@ def test_checkpoint_se_libera_con_presion_correcta():
     from autoclave.core.steam import p_saturacion_kpa
     fase, estado, set_do = _make_fase(t_obj=134.0, tolerancia=15.0)
     fase.update()  # inicializar
-    estado.sensores_temp["temp_camara"] = 67.0
+    estado.sensores_temp["temp_camara"] = 107.2  # 80% de 134
     # Presión correcta para el checkpoint
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(67.0)
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(107.2)
     fase.update()  # entrar en checkpoint
     result = fase.update()  # liberar checkpoint
     assert fase._en_checkpoint is False

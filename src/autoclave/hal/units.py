@@ -43,7 +43,7 @@ class Units:
         self._raw_do: List[int] = [0] * 32
 
         # aqui se inicializan los datos convertidos
-        self._temperature: List[float] = [0.0] * 8
+        self._temperature: List[Optional[float]] = [None] * 8
         self._pressure: List[float] = [0.0] * 8
 
         # otros estados
@@ -87,7 +87,7 @@ class Units:
                 "last_update": self._last_update, # Fecha y hora de la última actualización
             }
 
-    def get_temperature(self, index: int) -> float:
+    def get_temperature(self, index: int) -> Optional[float]:
         with self._lock:
             return self._temperature[index]
 

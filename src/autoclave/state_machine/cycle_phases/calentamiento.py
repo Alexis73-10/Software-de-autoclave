@@ -33,10 +33,10 @@ class CalentamientoFase(BaseFase):
         self.estado.fase_en_sostenimiento = False
 
     def update(self) -> FaseResult:
-        t_obj       = self.cycle.get_param("calentamiento", "temperatura_calentamiento")
-        tasa_seg    = (self.cycle.get_param("calentamiento", "tasa_calentamiento")) / 60
-        timeout_seg = (self.cycle.get_param("calentamiento", "timeout_calentamiento")) * 60
-        tolerancia  = self.cycle.get_param("calentamiento", "rango_presion_calentamiento")
+        t_obj       = self.cycle.get_param("calentamiento", "temperatura_calentamiento") or 134.0
+        tasa_seg    = (self.cycle.get_param("calentamiento", "tasa_calentamiento") or 5.0) / 60
+        timeout_seg = (self.cycle.get_param("calentamiento", "timeout_calentamiento") or 60) * 60
+        tolerancia  = self.cycle.get_param("calentamiento", "rango_presion_calentamiento") or 9.0
 
         # ── 1. Inicialización ────────────────────────────────────────────
         if not self._inicializado:
@@ -67,10 +67,22 @@ class CalentamientoFase(BaseFase):
         if temp is None:
             return FaseResult.EN_CURSO
 
-        if temp >= t_obj:
-            logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
-            self._apagar_salidas()
-            return FaseResult.COMPLETADO
+        if self.cap.has_liquid_sensor:
+            temp2 = self._temp_camara_2()
+            if temp2 is None:
+                return FaseResult.EN_CURSO
+            if temp >= t_obj and temp2 >= t_obj:
+                logger.info(
+                    "Calentamiento: COMPLETADO — camara=%.1f°C liquido=%.1f°C",
+                    temp, temp2,
+                )
+                self._apagar_salidas()
+                return FaseResult.COMPLETADO
+        else:
+            if temp >= t_obj:
+                logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
+                self._apagar_salidas()
+                return FaseResult.COMPLETADO
 
         # ── 4. Entrada a checkpoint ──────────────────────────────────────
         if (not self._en_checkpoint and self._checkpoints

@@ -23,7 +23,7 @@ class ControlLoop:
 
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
-                 cycle_logger=None, interval=0.5):
+                 cycle_logger=None, interval=0.5, cap=None):
         self.units          = units
         self.door_service   = door_service
         self.doors          = doors
@@ -40,7 +40,7 @@ class ControlLoop:
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
-            cycle=self.cycle, config=self.config_manager
+            cycle=self.cycle, config=self.config_manager, cap=cap
         )
         self.link_was_connected = True
         self.paro_emergencia    = EmergencyStop(estado)
