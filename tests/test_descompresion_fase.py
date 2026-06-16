@@ -1,4 +1,3 @@
-import time as _time
 from unittest.mock import MagicMock
 from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
