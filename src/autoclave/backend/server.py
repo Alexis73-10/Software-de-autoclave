@@ -331,3 +331,42 @@ def close_door(door_name: str, body: dict = Body(...)):
         "action": "close",
         "source_door": source_door,
     }
+
+
+@app.patch("/cycle/parameters")
+def update_cycle_parameters(body: dict = Body(...)):
+    """Actualiza parámetros del ciclo seleccionado en memoria y persiste si es ciclo user."""
+    cycle = context.cycle_manager.get_selected_cycle()
+
+    if "tiempo_secado" in body:
+        try:
+            value = float(body["tiempo_secado"])
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=422,
+                detail="tiempo_secado debe ser numérico",
+            )
+        if not (0.0 <= value <= 120.0):
+            raise HTTPException(
+                status_code=422,
+                detail="tiempo_secado fuera de rango (0-120 min)",
+            )
+        cycle.parameters["esterilizacion"]["tiempo_secado"]["value"] = value
+
+    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+        _save_cycle_json(cycle)
+
+    return {"ok": True}
+
+
+def _save_cycle_json(cycle) -> None:
+    """Escribe cycle.parameters de vuelta al JSON del ciclo (solo ciclos user)."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    path = _Path(cycle._path)
+    with open(path, "r", encoding="utf-8") as f:
+        data = _json.load(f)
+    data["parameters"] = cycle.parameters
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(data, f, indent=4, ensure_ascii=False)
