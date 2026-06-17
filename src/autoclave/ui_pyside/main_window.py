@@ -1,5 +1,3 @@
-import subprocess
-import sys
 from datetime import datetime
 
 from PySide6.QtCore import Qt, QTimer
@@ -19,9 +17,8 @@ from qfluentwidgets import PushButton, setTheme, Theme
 class MainWindowFluent(QMainWindow):
     BACKEND_URL = "http://localhost:8000"
 
-    def __init__(self, tkinter_proc=None):
+    def __init__(self):
         super().__init__()
-        self._tkinter_proc = tkinter_proc
         setTheme(Theme.DARK)
         self.setWindowTitle("Especifika — Autoclave")
         self.setMinimumSize(800, 600)
@@ -111,12 +108,6 @@ class MainWindowFluent(QMainWindow):
         lbl_ver.setStyleSheet("color: white;")
         layout.addWidget(lbl_ver)
 
-        layout.addStretch()
-
-        btn_monitor = PushButton("Monitor")
-        btn_monitor.clicked.connect(self._open_monitor)
-        layout.addWidget(btn_monitor)
-
         return footer
 
     # ── Navegación ───────────────────────────────────────────────────
@@ -138,14 +129,6 @@ class MainWindowFluent(QMainWindow):
         now = datetime.now()
         self._lbl_time.setText(now.strftime("%H:%M"))
         self._lbl_date.setText(now.strftime("%d %b %Y"))
-
-    # ── Monitor tkinter ──────────────────────────────────────────────
-
-    def _open_monitor(self) -> None:
-        if self._tkinter_proc is None or self._tkinter_proc.poll() is not None:
-            self._tkinter_proc = subprocess.Popen(
-                [sys.executable, "-m", "autoclave.ui.main"],
-            )
 
     # ── Cierre ──────────────────────────────────────────────────────
 
