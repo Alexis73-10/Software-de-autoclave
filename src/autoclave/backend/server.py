@@ -7,8 +7,10 @@ from pathlib import Path
 
 from fastapi import HTTPException, FastAPI, Body
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 from autoclave.backend.context import BackendContext
+from autoclave.core.status import EstadoAutoclave
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 
 _TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
@@ -388,3 +390,26 @@ def _save_cycle_json(cycle) -> None:
     data["parameters"] = cycle.parameters
     with open(path, "w", encoding="utf-8") as f:
         _json.dump(data, f, indent=4, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# IO test endpoints — modo prueba de salidas digitales
+# ---------------------------------------------------------------------------
+
+class _OutputSetBody(BaseModel):
+    value: bool
+
+
+@app.post("/io/test/reset_all")
+def io_test_reset_all():
+    context.setdo.reset_all_outputs()
+    return {"ok": True}
+
+
+@app.patch("/io/test/output/{name}")
+def io_test_set_output(name: str, body: _OutputSetBody):
+    if name not in EstadoAutoclave.map_do:
+        raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
+    index = EstadoAutoclave.map_do[name]
+    context.setdo.set_output(index, body.value)
+    return {"ok": True, "name": name, "value": body.value}
