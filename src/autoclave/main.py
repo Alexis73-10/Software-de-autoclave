@@ -97,44 +97,43 @@ def main():
         if not wait_for_backend(max_wait=40):
             logger.warning("Backend no disponible, la UI seguirá intentando...")
 
-    # ── 3. Arrancar UI (PySide6) ────────────────────────────────────────────
-    from PySide6.QtWidgets import QApplication
-    from autoclave.ui_pyside.main_window import MainWindowFluent
-    from autoclave.ui.service_ui.backend_client import BackendClient as _BC
+    # ── 3. Arrancar UI (tkinter) ────────────────────────────────────────────
+    from autoclave.ui.service_ui.backend_client import BackendClient
+    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.services.domain.puertas.door_command_service import DoorCommandService
+    from autoclave.ui.window.main_window import InterfazPrincipal
 
-    # Lanzar ventana tkinter como subprocess para monitoreo de ciclo
-    tkinter_proc = subprocess.Popen(
-        [sys.executable, "-m", "autoclave.ui.main"],
-        env={**os.environ, "PYTHONIOENCODING": "utf-8"},
-    )
+    backend       = BackendClient(BACKEND_URL)
+    ui_service    = UIServiceBackend(backend)
+    door_commands = DoorCommandService(backend_client=backend, source_door=SOURCE_DOOR)
 
-    qt_app = QApplication.instance() or QApplication(sys.argv)
-    window = MainWindowFluent(tkinter_proc=tkinter_proc)
-    window.showMaximized()
-
-    def on_quit():
+    def on_close():
         logger.info("Cerrando aplicación...")
         try:
-            _BC(BACKEND_URL).post("/outputs/reset")
+            ui_service.reset_outputs()
             logger.info("Salidas digitales apagadas")
         except Exception as e:
             logger.warning("No se pudieron apagar las salidas: %s", e)
-        if tkinter_proc.poll() is None:
-            tkinter_proc.terminate()
-            try:
-                tkinter_proc.wait(timeout=2)
-            except subprocess.TimeoutExpired:
-                tkinter_proc.kill()
+        ui_service.stop()
+        if hasattr(app, '_settings_proc') and app._settings_proc and app._settings_proc.poll() is None:
+            app._settings_proc.terminate()
         if backend_process:
             backend_process.terminate()
             try:
                 backend_process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 backend_process.kill()
+        app.destroy()
 
-    qt_app.aboutToQuit.connect(on_quit)
-    logger.info("UI PySide6 iniciada")
-    sys.exit(qt_app.exec())
+    app = InterfazPrincipal(
+        ui_service=ui_service,
+        door_commands=door_commands,
+        on_shutdown=on_close,
+        source_door=SOURCE_DOOR,
+    )
+    logger.info("UI Autoclave iniciada")
+    app.protocol("WM_DELETE_WINDOW", on_close)
+    app.mainloop()
 
 
 if __name__ == "__main__":
