@@ -13,11 +13,17 @@ from PySide6.QtWidgets import (
 from qfluentwidgets import (
     BodyLabel,
     CalendarPicker,
+    CheckBox,
     PrimaryPushButton,
     PushButton,
     SubtitleLabel,
     TableWidget,
 )
+
+_MESES = {
+    1: "ENE", 2: "FEB", 3: "MAR", 4: "ABR", 5: "MAY", 6: "JUN",
+    7: "JUL", 8: "AGO", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DIC",
+}
 
 
 class CiclosView(QWidget):
@@ -57,23 +63,30 @@ class CiclosView(QWidget):
         btn_filter.clicked.connect(self._load_data)
         filter_row.addWidget(btn_filter)
         filter_row.addStretch()
+
+        self._chk_all = CheckBox("Seleccionar todos")
+        self._chk_all.stateChanged.connect(self._toggle_all)
+        filter_row.addWidget(self._chk_all)
+
         layout.addLayout(filter_row)
 
         # Tabla
         self._table = TableWidget()
-        self._table.setColumnCount(5)
+        self._table.setColumnCount(6)
         self._table.setHorizontalHeaderLabels(
-            ["#", "Programa", "Fecha inicio", "Duración (min)", "Resultado"]
+            ["✓", "#", "Programa", "Fecha inicio", "Duración (min)", "Resultado"]
         )
         self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
         self._table.horizontalHeader().setStretchLastSection(True)
+        self._table.setColumnWidth(0, 36)
         layout.addWidget(self._table, stretch=1)
 
         # Botón imprimir
-        btn_print = PrimaryPushButton("Imprimir")
-        btn_print.setFixedWidth(160)
-        btn_print.clicked.connect(self._print_table)
+        btn_print = PrimaryPushButton("Imprimir seleccionados")
+        btn_print.setFixedWidth(200)
+        btn_print.clicked.connect(self._print_selected)
         layout.addWidget(btn_print, alignment=Qt.AlignmentFlag.AlignRight)
 
     def showEvent(self, event) -> None:
@@ -88,6 +101,10 @@ class CiclosView(QWidget):
 
         rows = self._db.get_ciclos_rango(desde=desde, hasta=hasta, limite=200)
 
+        self._chk_all.blockSignals(True)
+        self._chk_all.setChecked(False)
+        self._chk_all.blockSignals(False)
+
         self._table.setRowCount(len(rows))
         for i, row in enumerate(rows):
             inicio = row["fecha_inicio"] or ""
@@ -99,43 +116,114 @@ class CiclosView(QWidget):
             except Exception:
                 dur = "—"
 
-            self._table.setItem(i, 0, QTableWidgetItem(str(row["numero_ciclo"])))
-            self._table.setItem(i, 1, QTableWidgetItem(row["nombre_ciclo"] or ""))
-            self._table.setItem(i, 2, QTableWidgetItem(inicio[:19]))
-            self._table.setItem(i, 3, QTableWidgetItem(dur))
-            self._table.setItem(i, 4, QTableWidgetItem(row["resultado"] or ""))
+            chk_item = QTableWidgetItem()
+            chk_item.setCheckState(Qt.CheckState.Unchecked)
+            chk_item.setFlags(Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsUserCheckable)
+            chk_item.setData(Qt.ItemDataRole.UserRole, row["id"])
+            self._table.setItem(i, 0, chk_item)
 
-    def _print_table(self) -> None:
+            self._table.setItem(i, 1, QTableWidgetItem(str(row["numero_ciclo"])))
+            self._table.setItem(i, 2, QTableWidgetItem(row["nombre_ciclo"] or ""))
+            self._table.setItem(i, 3, QTableWidgetItem(inicio[:19]))
+            self._table.setItem(i, 4, QTableWidgetItem(dur))
+            self._table.setItem(i, 5, QTableWidgetItem(row["resultado"] or ""))
+
+    def _toggle_all(self, state: int) -> None:
+        check = Qt.CheckState.Checked if state == Qt.CheckState.Checked.value else Qt.CheckState.Unchecked
+        for r in range(self._table.rowCount()):
+            item = self._table.item(r, 0)
+            if item:
+                item.setCheckState(check)
+
+    def _print_selected(self) -> None:
+        ciclo_ids = []
+        for r in range(self._table.rowCount()):
+            item = self._table.item(r, 0)
+            if item and item.checkState() == Qt.CheckState.Checked:
+                ciclo_ids.append(item.data(Qt.ItemDataRole.UserRole))
+        if not ciclo_ids:
+            return
+        self._print_cycles(ciclo_ids)
+
+    def _print_cycles(self, ciclo_ids: list) -> None:
         printer = QPrinter(QPrinter.PrinterMode.HighResolution)
         dialog  = QPrintDialog(printer, self)
         if dialog.exec() != QPrintDialog.DialogCode.Accepted:
             return
+        html_parts = []
+        for i, ciclo_id in enumerate(ciclo_ids):
+            ciclo    = self._db.get_ciclo(ciclo_id)
+            lecturas = self._db.get_lecturas_para_imprimir(ciclo_id)
+            if ciclo is None:
+                continue
+            is_last = (i == len(ciclo_ids) - 1)
+            html_parts.append(
+                self._build_cycle_html(dict(ciclo), [dict(l) for l in lecturas], is_last)
+            )
+        if not html_parts:
+            return
         doc = QTextDocument()
-        doc.setHtml(self._build_html())
+        doc.setHtml("<html><body>" + "".join(html_parts) + "</body></html>")
         doc.print_(printer)
 
-    def _build_html(self) -> str:
-        headers = ["#", "Programa", "Fecha inicio", "Duración (min)", "Resultado"]
-        th_cells = "".join(
-            f"<th style='padding:6px 8px; background:#5789a7; color:white;"
-            f" border:1px solid #5789a7;'>{h}</th>"
-            for h in headers
-        )
-        rows_html = ""
-        for r in range(self._table.rowCount()):
-            cells = "".join(
-                f"<td style='padding:4px 8px; border:1px solid #ccc;'>"
-                f"{self._table.item(r, c).text() if self._table.item(r, c) else ''}</td>"
-                for c in range(self._table.columnCount())
-            )
-            rows_html += f"<tr>{cells}</tr>"
+    def _build_cycle_html(self, ciclo: dict, lecturas: list, is_last: bool = False) -> str:
+        try:
+            t_inicio = datetime.fromisoformat(ciclo["fecha_inicio"])
+            mes = _MESES[t_inicio.month]
+            fecha_str     = f"{t_inicio.day:02d}/{mes}/{t_inicio.year}"
+            hora_inicio   = t_inicio.strftime("%H:%M:%S")
+        except Exception:
+            fecha_str   = "—"
+            hora_inicio = "—"
+
+        try:
+            t_fin     = datetime.fromisoformat(ciclo["fecha_fin"])
+            hora_fin  = t_fin.strftime("%H:%M:%S")
+        except Exception:
+            hora_fin = "—"
+
+        temp_final = "—"
+        if lecturas:
+            tc = lecturas[-1].get("temp_camara")
+            if tc is not None:
+                temp_final = f"{tc:.0f}"
+
+        log_lines = ""
+        for lec in lecturas:
+            fase  = (lec.get("fase_codigo") or " ").ljust(1)
+            ts    = lec.get("timestamp_rel") or ""
+            tc    = lec.get("temp_camara")
+            pc    = lec.get("pres_camara")
+            tc_s  = f"{tc:06.1f}" if tc is not None else "  —   "
+            pc_s  = f"{pc:06.1f}" if pc is not None else "  —   "
+            log_lines += f"{fase} {ts}  {tc_s}  {pc_s}\n"
+
+        numero   = f"{ciclo.get('numero_ciclo', 0):06d}"
+        temp_e   = ciclo.get("temp_esterilizacion") or ""
+        tiempo_e = ciclo.get("tiempo_esterilizacion") or ""
+        pb = "" if is_last else "page-break-after: always;"
 
         return (
-            "<html><body>"
-            "<h2 style='font-family:Segoe UI;'>Historial de Ciclos — Especifika</h2>"
-            "<table style='border-collapse:collapse; font-family:Segoe UI;"
-            " font-size:12px; width:100%;'>"
-            f"<thead><tr>{th_cells}</tr></thead>"
-            f"<tbody>{rows_html}</tbody>"
-            "</table></body></html>"
+            f"<pre style=\"font-family: 'Courier New', monospace; font-size: 10pt; {pb}\">"
+            f"\n \n"
+            f"------------------------\n"
+            f"Fecha: {fecha_str}\n"
+            f"Hora: {hora_inicio}\n"
+            f"Núm de serie: {ciclo.get('serie', '')}\n"
+            f"Modelo: {ciclo.get('modelo', '')}\n"
+            f"Ver de SoftW.: {ciclo.get('version_sw', '')}\n"
+            f"Número de ciclo: {numero}\n"
+            f"{ciclo.get('nombre_ciclo', '')}\n"
+            f"({ciclo.get('tipo_ciclo', '')})\n"
+            f"Temp. Ester. {temp_e} °C\n"
+            f"Tiempo Ester {tiempo_e} min\n"
+            f"Temperatura final {temp_final} °C\n"
+            f"  Hora       °C      kPa\n"
+            f"{log_lines}"
+            f"Estado: {ciclo.get('resultado', '')}\n"
+            f"Hora: {hora_fin}\n"
+            f"Operador: ____________\n"
+            f"------------------------\n"
+            f" \n"
+            f"</pre>"
         )
