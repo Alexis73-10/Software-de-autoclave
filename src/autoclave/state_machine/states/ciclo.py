@@ -25,6 +25,7 @@ from autoclave.state_machine.cycle_phases.calentamiento import CalentamientoFase
 from autoclave.state_machine.cycle_phases.estabilizacion import EstabilizacionFase
 from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFase
 from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
+from autoclave.state_machine.cycle_phases.secado import SecadoFase
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,7 @@ class CicloState:
             CalentamientoFase(*_args),
             EstabilizacionFase(*_args),
             EsterilizacionFase(*_args),
+            SecadoFase(*_args),
             DescompresionFase(*_args),
         ]
 
@@ -131,6 +133,8 @@ class CicloState:
 
     def _mantener_chaqueta(self):
         """Mantiene la presión de la chaqueta durante todas las fases del ciclo."""
+        if self._fase_idx < len(self._fases) and isinstance(self._fases[self._fase_idx], SecadoFase):
+            return
         pres = self.estado.sensores_pres.get("pres_chaqueta")
         if pres is None:
             return
