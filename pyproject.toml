@@ -19,8 +19,11 @@ dependencies = [ #Lista de dependencias del paquete
   "pillow",
   "PyYAML",
   "SQLAlchemy",
-  "pydantic"
-  # aquí van las reales
+  "pydantic",
+  "PySide6",
+  "PySide6-Fluent-Widgets[full]",
+  "pyqtgraph",
+  "keyring"
 ]
 
 [project.scripts] #Define los puntos de entrada para los scripts ejecutables

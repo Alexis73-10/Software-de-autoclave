@@ -57,6 +57,7 @@ class CycleManager:
                         )
 
                         cycle.source = source
+                        cycle._path  = full_path
 
                         # 🔥 aquí pasa la magia
                         self.cycles[cycle.id] = cycle

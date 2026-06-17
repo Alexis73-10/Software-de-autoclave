@@ -1,6 +1,8 @@
 # autoclave/ui/main_window.py
 
 import time
+import subprocess
+import sys
 import tkinter as tk
 import customtkinter as ctk
 import PIL.Image as Image
@@ -52,6 +54,7 @@ class InterfazPrincipal(tk.Tk):
         self._prev_machine_state = ""
         self._cycle_win          = None
         self._toast_widget       = None
+        self._settings_proc      = None
 
         self._scale            = 1.0   # factor de escala de fuente, calculado en _build_ui
         self._current_portrait = None  # None = no determinado todavía
@@ -391,6 +394,7 @@ class InterfazPrincipal(tk.Tk):
 
         ctk.CTkButton(pill, text="", image=self._img_settings,
                       fg_color="transparent", hover_color="#406080",
+                      command=self._open_settings,
                       width=scaled_font(56, self._scale)).pack(side=tk.LEFT, padx=8)
 
         ctk.CTkButton(pill, text="", image=self._img_OFF,
@@ -526,6 +530,30 @@ class InterfazPrincipal(tk.Tk):
                 self.destroy()        # solo si no hay callback externo
 
         win.after(3000, _shutdown)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # MENÚ DE CONFIGURACIÓN (PySide6 como subprocess)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _open_settings(self):
+        if self._settings_proc and self._settings_proc.poll() is None:
+            return  # ya abierto — ignorar doble click
+        try:
+            self.withdraw()
+            self._settings_proc = subprocess.Popen(
+                [sys.executable, "-m", "autoclave.ui_pyside.app"]
+            )
+            self.after(500, self._poll_settings)
+        except OSError as e:
+            logger.error("No se pudo lanzar el menú de configuración: %s", e)
+            self.deiconify()
+
+    def _poll_settings(self):
+        if self._settings_proc and self._settings_proc.poll() is not None:
+            self._settings_proc = None
+            self.deiconify()
+        else:
+            self.after(500, self._poll_settings)
 
     # ══════════════════════════════════════════════════════════════════════════
     # LOOP DE ACTUALIZACIÓN

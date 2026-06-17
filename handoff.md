@@ -1,8 +1,9 @@
 # Handoff — Estado al 2026-06-16 (sesión 3)
 
 **Rama activa:** `dev`  
-**PR activo:** [#19 — feat: DescompresionFase con 6 modos de operación](https://github.com/Alexis73-10/Software-de-autoclave/pull/19)  
-**PRs anteriores (pendientes de merge):** [#15](https://github.com/Alexis73-10/Software-de-autoclave/pull/15), [#16](https://github.com/Alexis73-10/Software-de-autoclave/pull/16), [#18](https://github.com/Alexis73-10/Software-de-autoclave/pull/18)
+**PR activo:** ninguno — todos mergeados  
+**PRs mergeados (sesión 3):** [#19](https://github.com/Alexis73-10/Software-de-autoclave/pull/19) — DescompresionFase  
+**PRs mergeados (anteriores):** [#15](https://github.com/Alexis73-10/Software-de-autoclave/pull/15), [#16](https://github.com/Alexis73-10/Software-de-autoclave/pull/16), [#18](https://github.com/Alexis73-10/Software-de-autoclave/pull/18)
 
 ---
 
@@ -60,7 +61,8 @@ pytest tests/ --ignore=tests/Interfaz.py --ignore=tests/ventana_emergente.py --i
 
 ## Qué sigue
 
-- Mergear PRs pendientes (#15, #16, #18, #19) — están en orden de antigüedad
+- `main` está al día — todos los PRs mergeados, rama `dev` sin trabajo pendiente
+- Issue pre-existente sin resolver: `test_checkpoint_entra_en_sostenimiento` — checkpoints en código 0.80/0.97 vs spec 0.50/0.90
 
 ---
 
@@ -111,8 +113,7 @@ Nuevo `tools/generador/db.py` con `init_db()`, `fue_instalado()`, `log_codigo()`
 
 ## Qué siguió (completado en sesión 3)
 
-- `DescompresionFase` implementada y PR #19 creado
-- Issue pendiente (pre-existente): `test_checkpoint_entra_en_sostenimiento` — checkpoints en código 0.80/0.97 vs spec 0.50/0.90 — sin resolver aún
+- `DescompresionFase` implementada, PR #19 creado y mergeado a `main`
 
 ---
 

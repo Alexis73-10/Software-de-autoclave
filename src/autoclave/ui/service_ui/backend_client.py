@@ -38,3 +38,13 @@ class BackendClient:
         )
         r.raise_for_status()
         return r.json()
+
+    def patch(self, path: str, body: dict | None = None, **kwargs) -> dict:
+        r = requests.patch(
+            f"{self.base_url}{path}",
+            json=body or {},
+            timeout=0.8,
+            **kwargs,
+        )
+        r.raise_for_status()
+        return r.json()
