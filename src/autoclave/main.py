@@ -121,6 +121,10 @@ def main():
             logger.warning("No se pudieron apagar las salidas: %s", e)
         if tkinter_proc.poll() is None:
             tkinter_proc.terminate()
+            try:
+                tkinter_proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                tkinter_proc.kill()
         if backend_process:
             backend_process.terminate()
             try:
