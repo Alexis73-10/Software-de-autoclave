@@ -45,7 +45,7 @@ def test_cycle_manager_asigna_path_al_cargar(tmp_path):
         "cycle_id": "ciclo_test",
         "display_name": "Test",
         "parameters": {
-            "esterilizacion": {
+            "secado": {
                 "tiempo_secado": {
                     "value": 2.0, "type": "float", "unit": "min", "min": 0, "max": 120
                 }
