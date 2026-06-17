@@ -1,25 +1,24 @@
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
-    QFrame,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
-from qfluentwidgets import PushButton, setTheme, Theme
+from qfluentwidgets import FluentIcon, TransparentToolButton, setTheme, Theme
 
 
 class MainWindowFluent(QMainWindow):
-    BACKEND_URL = "http://localhost:8000"
 
     def __init__(self):
         super().__init__()
-        setTheme(Theme.DARK)
+        setTheme(Theme.LIGHT)
         self.setWindowTitle("Especifika — Autoclave")
         self.setMinimumSize(800, 600)
 
@@ -36,18 +35,20 @@ class MainWindowFluent(QMainWindow):
 
         root.addWidget(self._build_footer())
 
-        # Importar vistas aquí para evitar imports circulares al importar main_window
-        from autoclave.ui_pyside.views.home   import HomeView
-        from autoclave.ui_pyside.views.secado import SecadoView
-        from autoclave.ui_pyside.views.login  import LoginView
-        from autoclave.ui_pyside.views.ciclos import CiclosView
+        from autoclave.ui_pyside.views.home       import HomeView
+        from autoclave.ui_pyside.views.secado     import SecadoView
+        from autoclave.ui_pyside.views.login      import LoginView
+        from autoclave.ui_pyside.views.ciclos     import CiclosView
+        from autoclave.ui_pyside.views.admin_menu import AdminMenuView
 
-        self._home   = HomeView(nav_callback=self.navigate_to)
-        self._secado = SecadoView(nav_callback=self.navigate_to)
-        self._login  = LoginView(nav_callback=self.navigate_to)
-        self._ciclos = CiclosView(nav_callback=self.navigate_to)
+        self._home       = HomeView(nav_callback=self.navigate_to)
+        self._secado     = SecadoView(nav_callback=self.navigate_to)
+        self._login      = LoginView(nav_callback=self.navigate_to)
+        self._ciclos     = CiclosView(nav_callback=self.navigate_to)
+        self._admin_menu = AdminMenuView(nav_callback=self.navigate_to)
 
-        for view in (self._home, self._secado, self._login, self._ciclos):
+        for view in (self._home, self._secado, self._login,
+                     self._ciclos, self._admin_menu):
             self._stack.addWidget(view)
 
         self._stack.setCurrentWidget(self._home)
@@ -88,24 +89,52 @@ class MainWindowFluent(QMainWindow):
 
         return header
 
-    # ── Footer ────────────────────────────────────────────────────────
+    # ── Footer — barra de navegación ─────────────────────────────────
 
     def _build_footer(self) -> QFrame:
         footer = QFrame()
-        footer.setFixedHeight(56)
-        footer.setStyleSheet("background-color: #5789a7;")
+        footer.setFixedHeight(64)
+        footer.setStyleSheet("""
+            QFrame {
+                background: white;
+                border-top: 1px solid #e0e0e0;
+            }
+        """)
 
         layout = QHBoxLayout(footer)
-        layout.setContentsMargins(20, 0, 20, 0)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        btn_salir = PushButton("Salir")
-        btn_salir.clicked.connect(self.close)
-        layout.addWidget(btn_salir)
+        nav_items = [
+            (FluentIcon.PEOPLE,          "login",  True),
+            (FluentIcon.HISTORY,         "ciclos", True),
+            (FluentIcon.DEVELOPER_TOOLS, None,     False),
+            (FluentIcon.HOME,            "home",   True),
+        ]
 
-        layout.addStretch()
+        for idx, (icon, target, active) in enumerate(nav_items):
+            if idx > 0:
+                sep = QFrame()
+                sep.setFrameShape(QFrame.Shape.VLine)
+                sep.setFixedWidth(1)
+                sep.setStyleSheet("background: #e0e0e0;")
+                layout.addWidget(sep)
 
-        lbl_ver = QLabel("v1.0")
-        lbl_ver.setStyleSheet("color: white;")
+            btn = TransparentToolButton(icon)
+            btn.setFixedSize(64, 64)
+            btn.setIconSize(QSize(28, 28))
+            if active and target:
+                btn.clicked.connect(
+                    lambda checked=False, t=target: self.navigate_to(t)
+                )
+            else:
+                btn.setEnabled(False)
+                btn.setToolTip("Próximamente")
+            layout.addWidget(btn, stretch=1)
+
+        lbl_ver = QLabel("V:1.0")
+        lbl_ver.setStyleSheet("color: #bbb; font-size: 11px; padding-right: 10px;")
+        lbl_ver.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         layout.addWidget(lbl_ver)
 
         return footer
@@ -114,10 +143,11 @@ class MainWindowFluent(QMainWindow):
 
     def navigate_to(self, view_name: str) -> None:
         views = {
-            "home":   self._home,
-            "secado": self._secado,
-            "login":  self._login,
-            "ciclos": self._ciclos,
+            "home":       self._home,
+            "secado":     self._secado,
+            "login":      self._login,
+            "ciclos":     self._ciclos,
+            "admin_menu": self._admin_menu,
         }
         target = views.get(view_name)
         if target:
@@ -130,7 +160,7 @@ class MainWindowFluent(QMainWindow):
         self._lbl_time.setText(now.strftime("%H:%M"))
         self._lbl_date.setText(now.strftime("%d %b %Y"))
 
-    # ── Cierre ──────────────────────────────────────────────────────
+    # ── Cierre ───────────────────────────────────────────────────────
 
     def closeEvent(self, event) -> None:
         self._clock_timer.stop()
