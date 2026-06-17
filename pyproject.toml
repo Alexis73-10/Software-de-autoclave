@@ -22,7 +22,8 @@ dependencies = [ #Lista de dependencias del paquete
   "pydantic",
   "PySide6",
   "PySide6-Fluent-Widgets[full]",
-  "pyqtgraph"
+  "pyqtgraph",
+  "keyring"
 ]
 
 [project.scripts] #Define los puntos de entrada para los scripts ejecutables
