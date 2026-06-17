@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
     QDialogButtonBox,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
     QLineEdit,
     QMessageBox,
     QTableWidgetItem,
@@ -140,14 +141,23 @@ class _EmailDialog(QDialog):
 
         self._pw = QLineEdit()
         self._pw.setEchoMode(QLineEdit.EchoMode.Password)
-        self._pw.setPlaceholderText("Contraseña de aplicación")
-        form.addRow("Contraseña:", self._pw)
+        self._pw.setPlaceholderText("xxxx xxxx xxxx xxxx  (16 caracteres)")
+        form.addRow("Contraseña de app:", self._pw)
 
         self._smtp = QLineEdit(cfg.value(self._S_SMTP, "smtp.gmail.com"))
         form.addRow("Servidor SMTP:", self._smtp)
 
         self._port = QLineEdit(cfg.value(self._S_PORT, "587"))
         form.addRow("Puerto:", self._port)
+
+        note = QLabel(
+            "<small><b>Gmail:</b> la contraseña de app se genera en<br>"
+            "Cuenta Google → Seguridad → Verificación en 2 pasos<br>"
+            "→ Contraseñas de aplicaciones.<br>"
+            "NO uses tu contraseña normal de Gmail.</small>"
+        )
+        note.setWordWrap(True)
+        note.setStyleSheet("color: #888; padding: 6px 0;")
 
         btns = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
@@ -157,6 +167,7 @@ class _EmailDialog(QDialog):
 
         root = QVBoxLayout(self)
         root.addLayout(form)
+        root.addWidget(note)
         root.addWidget(btns)
 
     def _on_ok(self):
