@@ -1,5 +1,5 @@
 # autoclave/main.py
-# Punto de entrada principal — PySide6 como UI principal, tkinter como subprocess de monitoreo
+# Punto de entrada principal — tkinter como UI principal, PySide6 como subprocess de settings
 
 import logging
 import subprocess
