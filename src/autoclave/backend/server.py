@@ -336,7 +336,10 @@ def close_door(door_name: str, body: dict = Body(...)):
 @app.patch("/cycle/parameters")
 def update_cycle_parameters(body: dict = Body(...)):
     """Actualiza parámetros del ciclo seleccionado en memoria y persiste si es ciclo user."""
-    cycle = context.cycle_manager.get_selected_cycle()
+    try:
+        cycle = context.cycle_manager.get_selected_cycle()
+    except Exception:
+        raise HTTPException(status_code=503, detail="No hay ciclo activo seleccionado")
 
     if "tiempo_secado" in body:
         try:

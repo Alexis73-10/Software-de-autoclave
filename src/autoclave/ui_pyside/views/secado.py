@@ -1,4 +1,5 @@
 import requests
+from autoclave.ui.service_ui.backend_client import BackendClient
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (
@@ -61,11 +62,8 @@ class SecadoView(QWidget):
 
     def _load_current(self) -> None:
         try:
-            r = requests.get(f"{self.BACKEND_URL}/cycle", timeout=1.5)
-            r.raise_for_status()
-            value = (
-                r.json()["parameters"]["esterilizacion"]["tiempo_secado"]["value"]
-            )
+            data = BackendClient(self.BACKEND_URL).get("/cycle")
+            value = data["parameters"]["esterilizacion"]["tiempo_secado"]["value"]
             self._spin.setValue(float(value))
         except Exception:
             pass  # mantiene valor actual si el backend no está disponible
@@ -73,12 +71,7 @@ class SecadoView(QWidget):
     def _save(self) -> None:
         value = self._spin.value()
         try:
-            r = requests.patch(
-                f"{self.BACKEND_URL}/cycle/parameters",
-                json={"tiempo_secado": value},
-                timeout=2.0,
-            )
-            r.raise_for_status()
+            BackendClient(self.BACKEND_URL).patch("/cycle/parameters", {"tiempo_secado": value})
             InfoBar.success(
                 title="Guardado",
                 content=f"Tiempo de secado actualizado a {value:.1f} min",

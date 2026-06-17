@@ -24,6 +24,8 @@ class CiclosView(QWidget):
     def __init__(self, nav_callback):
         super().__init__()
         self._nav = nav_callback
+        from autoclave.services.domain.logging.db_manager import DbManager as _DbManager
+        self._db = _DbManager()
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 20, 24, 20)
@@ -74,21 +76,17 @@ class CiclosView(QWidget):
         btn_print.clicked.connect(self._print_table)
         layout.addWidget(btn_print, alignment=Qt.AlignmentFlag.AlignRight)
 
-        self._load_data()
-
     def showEvent(self, event) -> None:
         super().showEvent(event)
         self._load_data()
 
     def _load_data(self) -> None:
-        from autoclave.services.domain.logging.db_manager import DbManager
-
         desde_q = self._desde.getDate()
         hasta_q = self._hasta.getDate()
         desde = desde_q.toString("yyyy-MM-dd") if desde_q.isValid() else None
         hasta = hasta_q.toString("yyyy-MM-dd") if hasta_q.isValid() else None
 
-        rows = DbManager().get_ciclos_rango(desde=desde, hasta=hasta, limite=200)
+        rows = self._db.get_ciclos_rango(desde=desde, hasta=hasta, limite=200)
 
         self._table.setRowCount(len(rows))
         for i, row in enumerate(rows):

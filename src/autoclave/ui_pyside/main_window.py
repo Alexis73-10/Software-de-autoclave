@@ -151,6 +151,4 @@ class MainWindowFluent(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._clock_timer.stop()
-        if self._tkinter_proc and self._tkinter_proc.poll() is None:
-            self._tkinter_proc.terminate()
         event.accept()
