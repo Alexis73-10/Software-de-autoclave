@@ -1,7 +1,5 @@
 # autoclave/backend/server.py
 
-
-
 import logging
 from pathlib import Path
 
@@ -392,9 +390,7 @@ def _save_cycle_json(cycle) -> None:
         _json.dump(data, f, indent=4, ensure_ascii=False)
 
 
-# ---------------------------------------------------------------------------
-# IO test endpoints — modo prueba de salidas digitales
-# ---------------------------------------------------------------------------
+# Direct hardware access — bypasses control_loop, for bench validation only
 
 class _OutputSetBody(BaseModel):
     value: bool
