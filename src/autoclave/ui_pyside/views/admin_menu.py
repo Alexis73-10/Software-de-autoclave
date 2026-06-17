@@ -19,6 +19,10 @@ _OPTIONS = [
     ("⚡", "Opciones avanzadas"),
 ]
 
+_OPTION_ROUTES = {
+    "Entradas / Salidas": "io_menu",
+}
+
 _BTN_OPTION = """
     QPushButton {{
         background: {bg};
@@ -149,6 +153,10 @@ class AdminMenuView(QWidget):
             pass
 
     def _option_clicked(self, name: str) -> None:
+        target = _OPTION_ROUTES.get(name)
+        if target:
+            self._nav(target)
+            return
         InfoBar.info(
             title=name,
             content="Esta sección estará disponible próximamente.",

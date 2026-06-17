@@ -32,3 +32,15 @@ def test_monitor_base_timer_arranca_en_show():
         assert view._timer.isActive()
         view.hide()
         assert not view._timer.isActive()
+
+
+def test_io_menu_instancia_sin_crash():
+    from autoclave.ui_pyside.views.io_menu import EntradasSalidasMenuView
+    nav_calls = []
+    view = EntradasSalidasMenuView(nav_callback=nav_calls.append)
+    assert view is not None
+
+
+def test_io_menu_tiene_cuatro_botones():
+    from autoclave.ui_pyside.views.io_menu import _IO_OPTIONS
+    assert len(_IO_OPTIONS) == 4
