@@ -42,6 +42,7 @@ class MainWindowFluent(QMainWindow):
         from autoclave.ui_pyside.views.admin_menu import AdminMenuView
         from autoclave.ui_pyside.views.io_menu    import EntradasSalidasMenuView
         from autoclave.ui_pyside.views.io_di      import EntradasDigitalesView
+        from autoclave.ui_pyside.views.io_temp    import TemperaturasView
 
         self._home       = HomeView(nav_callback=self.navigate_to)
         self._secado     = SecadoView(nav_callback=self.navigate_to)
@@ -50,10 +51,11 @@ class MainWindowFluent(QMainWindow):
         self._admin_menu = AdminMenuView(nav_callback=self.navigate_to)
         self._io_menu    = EntradasSalidasMenuView(nav_callback=self.navigate_to)
         self._io_di      = EntradasDigitalesView(nav_callback=self.navigate_to)
+        self._io_temp    = TemperaturasView(nav_callback=self.navigate_to)
 
         for view in (self._home, self._secado, self._login,
                      self._ciclos, self._admin_menu, self._io_menu,
-                     self._io_di):
+                     self._io_di, self._io_temp):
             self._stack.addWidget(view)
 
         self._stack.setCurrentWidget(self._home)
@@ -155,6 +157,7 @@ class MainWindowFluent(QMainWindow):
             "admin_menu": self._admin_menu,
             "io_menu":    self._io_menu,
             "io_di":      self._io_di,
+            "io_temp":    self._io_temp,
         }
         target = views.get(view_name)
         if target:

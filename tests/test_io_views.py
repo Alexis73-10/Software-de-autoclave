@@ -64,3 +64,23 @@ def test_entradas_digitales_view_tiene_14_cards():
     from autoclave.ui_pyside.views.io_di import EntradasDigitalesView
     view = EntradasDigitalesView(nav_callback=lambda x: None)
     assert len(view._cards) == 14
+
+
+def test_temp_card_muestra_valor_con_decimal():
+    from autoclave.ui_pyside.views.io_temp import _TempCard
+    card = _TempCard("temp_camara")
+    card.set_value(121.5)
+    assert "121.5 °C" in card._lbl_value.text()
+
+
+def test_temp_card_none_muestra_guiones():
+    from autoclave.ui_pyside.views.io_temp import _TempCard
+    card = _TempCard("temp_ref")
+    card.set_value(None)
+    assert "---" in card._lbl_value.text()
+
+
+def test_temperaturas_view_tiene_6_cards():
+    from autoclave.ui_pyside.views.io_temp import TemperaturasView
+    view = TemperaturasView(nav_callback=lambda x: None)
+    assert len(view._cards) == 6
