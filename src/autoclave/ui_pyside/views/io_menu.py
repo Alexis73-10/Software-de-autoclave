@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -42,7 +43,7 @@ _BTN_BACK = """
 
 
 class EntradasSalidasMenuView(QWidget):
-    def __init__(self, nav_callback):
+    def __init__(self, nav_callback: Callable[[str], None]) -> None:
         super().__init__()
         self._nav = nav_callback
 

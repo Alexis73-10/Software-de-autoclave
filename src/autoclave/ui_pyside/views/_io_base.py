@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -32,7 +33,7 @@ class _MonitorBase(QWidget):
     POLL_MS = 2000
     BACKEND_URL = _BACKEND_URL
 
-    def __init__(self, title: str, back_target: str, nav_callback):
+    def __init__(self, title: str, back_target: str, nav_callback: Callable[[str], None]) -> None:
         super().__init__()
         self._nav = nav_callback
         self._client = BackendClient(self.BACKEND_URL)
