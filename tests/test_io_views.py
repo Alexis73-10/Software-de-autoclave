@@ -84,3 +84,16 @@ def test_temperaturas_view_tiene_6_cards():
     from autoclave.ui_pyside.views.io_temp import TemperaturasView
     view = TemperaturasView(nav_callback=lambda x: None)
     assert len(view._cards) == 6
+
+
+def test_pres_card_muestra_valor_con_dos_decimales():
+    from autoclave.ui_pyside.views.io_pres import _PresCard
+    card = _PresCard("pres_camara")
+    card.set_value(2.15)
+    assert "2.15 bar" in card._lbl_value.text()
+
+
+def test_presiones_view_tiene_4_cards():
+    from autoclave.ui_pyside.views.io_pres import PresionesView
+    view = PresionesView(nav_callback=lambda x: None)
+    assert len(view._cards) == 4
