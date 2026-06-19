@@ -97,3 +97,47 @@ def test_presiones_view_tiene_4_cards():
     from autoclave.ui_pyside.views.io_pres import PresionesView
     view = PresionesView(nav_callback=lambda x: None)
     assert len(view._cards) == 4
+
+
+def test_do_card_off_por_defecto():
+    from autoclave.ui_pyside.views.io_do import _DoCard
+    card = _DoCard("vapor_generador", lambda n, v: None)
+    card.refresh(0)
+    assert "OFF" in card._lbl_state.text()
+    assert not card._btn.isEnabled()
+
+
+def test_do_card_on_muestra_texto():
+    from autoclave.ui_pyside.views.io_do import _DoCard
+    card = _DoCard("vapor_caldera", lambda n, v: None)
+    card.refresh(1)
+    assert "ON" in card._lbl_state.text()
+
+
+def test_do_card_enable_test_mode_habilita_boton():
+    from autoclave.ui_pyside.views.io_do import _DoCard
+    card = _DoCard("vapor_chaqueta", lambda n, v: None)
+    card.enable_test_mode()
+    assert card._btn.isEnabled()
+
+
+def test_do_card_toggle_llama_callback():
+    from autoclave.ui_pyside.views.io_do import _DoCard
+    calls = []
+    card = _DoCard("bomba_vacio", lambda n, v: calls.append((n, v)))
+    card.enable_test_mode()
+    card.refresh(0)
+    card._on_click()
+    assert calls == [("bomba_vacio", True)]
+
+
+def test_salidas_digitales_view_tiene_24_cards():
+    from autoclave.ui_pyside.views.io_do import SalidasDigitalesView
+    view = SalidasDigitalesView(nav_callback=lambda x: None)
+    assert len(view._cards) == 24
+
+
+def test_salidas_digitales_test_mode_inactivo_por_defecto():
+    from autoclave.ui_pyside.views.io_do import SalidasDigitalesView
+    view = SalidasDigitalesView(nav_callback=lambda x: None)
+    assert view._test_mode is False
