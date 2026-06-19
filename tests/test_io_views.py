@@ -44,3 +44,23 @@ def test_io_menu_instancia_sin_crash():
 def test_io_menu_tiene_cuatro_botones():
     from autoclave.ui_pyside.views.io_menu import _IO_OPTIONS
     assert len(_IO_OPTIONS) == 4
+
+
+def test_di_card_activo_muestra_verde():
+    from autoclave.ui_pyside.views.io_di import _DiCard
+    card = _DiCard("aire_comprimido")
+    card.set_value(1)
+    assert "ACTIVO" in card._lbl_state.text()
+
+
+def test_di_card_inactivo_muestra_gris():
+    from autoclave.ui_pyside.views.io_di import _DiCard
+    card = _DiCard("presion_agua")
+    card.set_value(0)
+    assert "INACTIVO" in card._lbl_state.text()
+
+
+def test_entradas_digitales_view_tiene_14_cards():
+    from autoclave.ui_pyside.views.io_di import EntradasDigitalesView
+    view = EntradasDigitalesView(nav_callback=lambda x: None)
+    assert len(view._cards) == 14
