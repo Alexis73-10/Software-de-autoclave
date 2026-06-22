@@ -3,10 +3,12 @@ from datetime import datetime
 from PySide6.QtCore import Qt, QSize, QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
+    QPushButton,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -40,11 +42,12 @@ class MainWindowFluent(QMainWindow):
         from autoclave.ui_pyside.views.login      import LoginView
         from autoclave.ui_pyside.views.ciclos     import CiclosView
         from autoclave.ui_pyside.views.admin_menu import AdminMenuView
-        from autoclave.ui_pyside.views.io_menu    import EntradasSalidasMenuView
-        from autoclave.ui_pyside.views.io_di      import EntradasDigitalesView
-        from autoclave.ui_pyside.views.io_temp    import TemperaturasView
-        from autoclave.ui_pyside.views.io_pres    import PresionesView
-        from autoclave.ui_pyside.views.io_do      import SalidasDigitalesView
+        from autoclave.ui_pyside.views.entrdas_salidas.io_menu    import EntradasSalidasMenuView
+        from autoclave.ui_pyside.views.entrdas_salidas.io_di      import EntradasDigitalesView
+        from autoclave.ui_pyside.views.entrdas_salidas.io_temp    import TemperaturasView
+        from autoclave.ui_pyside.views.entrdas_salidas.io_pres    import PresionesView
+        from autoclave.ui_pyside.views.entrdas_salidas.io_do      import SalidasDigitalesView
+        from autoclave.ui_pyside.views.params_ciclo.params_ciclo import ParametrosCicloView
 
         self._home       = HomeView(nav_callback=self.navigate_to)
         self._secado     = SecadoView(nav_callback=self.navigate_to)
@@ -56,10 +59,12 @@ class MainWindowFluent(QMainWindow):
         self._io_temp    = TemperaturasView(nav_callback=self.navigate_to)
         self._io_pres    = PresionesView(nav_callback=self.navigate_to)
         self._io_do      = SalidasDigitalesView(nav_callback=self.navigate_to)
+        self._params_ciclo = ParametrosCicloView(nav_callback=self.navigate_to)
 
         for view in (self._home, self._secado, self._login,
                      self._ciclos, self._admin_menu, self._io_menu,
-                     self._io_di, self._io_temp, self._io_pres, self._io_do):
+                     self._io_di, self._io_temp, self._io_pres, self._io_do,
+                     self._params_ciclo):
             self._stack.addWidget(view)
 
         self._stack.setCurrentWidget(self._home)
@@ -97,6 +102,20 @@ class MainWindowFluent(QMainWindow):
         layout.addWidget(self._lbl_date)
 
         layout.addStretch()
+
+        btn_exit = QPushButton("✕ Salir")
+        btn_exit.setFixedHeight(36)
+        btn_exit.setStyleSheet("""
+            QPushButton {
+                background: transparent; color: #ff6b6b;
+                border: 1.5px solid #ff6b6b; border-radius: 8px;
+                font-size: 13px; font-weight: bold; padding: 0 14px;
+            }
+            QPushButton:hover { background: rgba(255,107,107,0.15); }
+        """)
+        btn_exit.setToolTip("Cerrar menú y volver a pantalla principal")
+        btn_exit.clicked.connect(lambda: QApplication.instance().quit())
+        layout.addWidget(btn_exit)
 
         return header
 
@@ -154,16 +173,17 @@ class MainWindowFluent(QMainWindow):
 
     def navigate_to(self, view_name: str) -> None:
         views = {
-            "home":       self._home,
-            "secado":     self._secado,
-            "login":      self._login,
-            "ciclos":     self._ciclos,
-            "admin_menu": self._admin_menu,
-            "io_menu":    self._io_menu,
-            "io_di":      self._io_di,
-            "io_temp":    self._io_temp,
-            "io_pres":    self._io_pres,
-            "io_do":      self._io_do,
+            "home":         self._home,
+            "secado":       self._secado,
+            "login":        self._login,
+            "ciclos":       self._ciclos,
+            "admin_menu":   self._admin_menu,
+            "io_menu":      self._io_menu,
+            "io_di":        self._io_di,
+            "io_temp":      self._io_temp,
+            "io_pres":      self._io_pres,
+            "io_do":        self._io_do,
+            "params_ciclo": self._params_ciclo,
         }
         target = views.get(view_name)
         if target:

@@ -20,7 +20,8 @@ _OPTIONS = [
 ]
 
 _OPTION_ROUTES = {
-    "Entradas / Salidas": "io_menu",
+    "Parámetros del ciclo": "params_ciclo",
+    "Entradas / Salidas":   "io_menu",
 }
 
 _BTN_OPTION = """
