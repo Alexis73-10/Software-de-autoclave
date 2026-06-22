@@ -30,6 +30,16 @@ _BTN_BACK = """
     QPushButton:hover { background: #e0e0e0; }
 """
 
+_CARD_NORMAL = (
+    "QFrame { background: white; border-radius: 10px; border: 1.5px solid #e8eaed; }"
+)
+_CARD_HOVER = (
+    "QFrame { background: #eff6ff; border-radius: 10px; border: 1.5px solid #2563eb; }"
+)
+_CARD_READONLY = (
+    "QFrame { background: #f9fafb; border-radius: 10px; border: 1.5px solid #e8eaed; }"
+)
+
 # (label visible, clave interna usada en _build_tab_grid)
 _TABS = [
     ("Pre-calentamiento", "precalentamiento"),
@@ -56,16 +66,100 @@ _CAL_ESTAB_KEYS = {
 
 
 class _ParamCard(QFrame):
-    """Stub — se implementa en Task 4."""
-    def __init__(self, display_name, param_meta, factory_value, cycle,
-                 fase, path, audit_db, is_readonly=False):
+    def __init__(
+        self,
+        display_name: str,
+        param_meta: dict,
+        factory_value,
+        cycle,
+        fase: str,
+        path: list[str],
+        audit_db,
+        is_readonly: bool = False,
+    ):
         super().__init__()
+        self._display_name  = display_name
+        self._param_meta    = param_meta
+        self._factory_value = factory_value
+        self._cycle         = cycle
+        self._fase          = fase
+        self._path          = path
+        self._audit_db      = audit_db
+        self._is_readonly   = is_readonly
+
+        self.setStyleSheet(_CARD_READONLY if is_readonly else _CARD_NORMAL)
+        self.setMinimumSize(155, 90)
+        if not is_readonly:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+
         lay = QVBoxLayout(self)
-        lay.addWidget(QLabel(display_name))
-        self.setMinimumSize(155, 80)
-        self.setStyleSheet(
-            "QFrame { background: white; border-radius: 10px; border: 1.5px solid #e8eaed; }"
-        )
+        lay.setContentsMargins(10, 8, 10, 8)
+        lay.setSpacing(3)
+
+        lbl_name = QLabel(display_name)
+        lbl_name.setFont(QFont("Segoe UI", 9))
+        lbl_name.setWordWrap(True)
+        lbl_name.setStyleSheet("color: #6b7280; border: none;")
+        lay.addWidget(lbl_name)
+
+        self._lbl_value = QLabel(self._render_value())
+        self._lbl_value.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        self._lbl_value.setStyleSheet("color: #1a2a3a; border: none;")
+        lay.addWidget(self._lbl_value)
+
+        if is_readonly:
+            lbl_lock = QLabel("🔒")
+            lbl_lock.setStyleSheet("border: none; font-size: 10px; color: #9ca3af;")
+            lay.addWidget(lbl_lock)
+
+    # ── helpers ──────────────────────────────────────────────────────────
+
+    def _render_value(self) -> str:
+        val  = self._param_meta.get("value")
+        unit = self._param_meta.get("unit", "")
+        if isinstance(val, bool):
+            return "Sí" if val else "No"
+        if isinstance(val, float):
+            return f"{val:.1f} {unit}".strip()
+        return f"{val} {unit}".strip()
+
+    def refresh(self, new_value) -> None:
+        self._param_meta["value"] = new_value
+        self._lbl_value.setText(self._render_value())
+
+    # ── eventos de mouse ─────────────────────────────────────────────────
+
+    def enterEvent(self, event) -> None:
+        if not self._is_readonly:
+            self.setStyleSheet(_CARD_HOVER)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self.setStyleSheet(_CARD_READONLY if self._is_readonly else _CARD_NORMAL)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event) -> None:
+        if not self._is_readonly and event.button() == Qt.MouseButton.LeftButton:
+            self._open_edit()
+        super().mousePressEvent(event)
+
+    def _open_edit(self) -> None:
+        try:
+            from PySide6.QtWidgets import QDialog
+            dlg = _ParamEditDialog(
+                display_name=self._display_name,
+                param_meta=self._param_meta,
+                factory_value=self._factory_value,
+                cycle=self._cycle,
+                fase=self._fase,
+                path=self._path,
+                audit_db=self._audit_db,
+                parent=self,
+            )
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                self.refresh(self._param_meta["value"])
+        except Exception:
+            pass
 
 
 class ParametrosCicloView(QWidget):
