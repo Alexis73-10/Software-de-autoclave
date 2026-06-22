@@ -7,13 +7,18 @@ _logger = logging.getLogger(__name__)
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
+    QCheckBox,
     QComboBox,
+    QDialog,
+    QDoubleSpinBox,
+    QFormLayout,
     QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
     QPushButton,
     QScrollArea,
+    QSpinBox,
     QTabWidget,
     QVBoxLayout,
     QWidget,
@@ -144,22 +149,190 @@ class _ParamCard(QFrame):
         super().mousePressEvent(event)
 
     def _open_edit(self) -> None:
+        dlg = _ParamEditDialog(
+            display_name=self._display_name,
+            param_meta=self._param_meta,
+            factory_value=self._factory_value,
+            cycle=self._cycle,
+            fase=self._fase,
+            path=self._path,
+            audit_db=self._audit_db,
+            parent=self,
+        )
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            self.refresh(self._param_meta["value"])
+
+
+class _ParamEditDialog(QDialog):
+    def __init__(
+        self,
+        display_name: str,
+        param_meta: dict,
+        factory_value,
+        cycle,
+        fase: str,
+        path: list[str],
+        audit_db,
+        parent: QWidget,
+    ):
+        super().__init__(parent)
+        self.setWindowTitle("Editar parámetro")
+        self.setMinimumWidth(420)
+        self._cycle      = cycle
+        self._fase       = fase
+        self._path       = path
+        self._audit_db   = audit_db
+        self._param_meta = param_meta
+
+        lay = QVBoxLayout(self)
+        lay.setSpacing(14)
+        lay.setContentsMargins(24, 20, 24, 20)
+
+        # ── Título ──────────────────────────────────────────────────────
+        lbl_title = QLabel(display_name)
+        lbl_title.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
+        lbl_title.setStyleSheet("color: #1a2a3a;")
+        lay.addWidget(lbl_title)
+
+        sep1 = QFrame()
+        sep1.setFrameShape(QFrame.Shape.HLine)
+        sep1.setStyleSheet("color: #e8eaed;")
+        lay.addWidget(sep1)
+
+        # ── Formulario ──────────────────────────────────────────────────
+        form = QFormLayout()
+        form.setSpacing(8)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
+
+        param_type  = param_meta.get("type", "int")
+        unit        = param_meta.get("unit", "")
+        current_val = param_meta.get("value")
+        pmin        = param_meta.get("min", 0)
+        pmax        = param_meta.get("max", 9999)
+        suffix      = f"  {unit}" if unit else ""
+
+        if param_type == "bool":
+            self._input = QCheckBox()
+            self._input.setChecked(bool(current_val))
+        elif param_type == "float":
+            self._input = QDoubleSpinBox()
+            self._input.setDecimals(1)
+            self._input.setMinimum(float(pmin))
+            self._input.setMaximum(float(pmax))
+            self._input.setValue(float(current_val or 0))
+            self._input.setSuffix(suffix)
+        else:
+            self._input = QSpinBox()
+            self._input.setMinimum(int(pmin))
+            self._input.setMaximum(int(pmax))
+            self._input.setValue(int(current_val or 0))
+            self._input.setSuffix(suffix)
+
+        form.addRow("Valor:", self._input)
+        form.addRow("Mínimo:", QLabel(f"{pmin}{suffix}"))
+        form.addRow("Máximo:", QLabel(f"{pmax}{suffix}"))
+
+        fv_text = (
+            f"{factory_value}{suffix}" if factory_value is not None else "—"
+        )
+        lbl_default = QLabel(fv_text)
+        lbl_default.setStyleSheet("color: #6b7280;")
+        form.addRow("Por defecto:", lbl_default)
+        lay.addLayout(form)
+
+        sep2 = QFrame()
+        sep2.setFrameShape(QFrame.Shape.HLine)
+        sep2.setStyleSheet("color: #e8eaed;")
+        lay.addWidget(sep2)
+
+        # ── Auditoría ────────────────────────────────────────────────────
+        audit_key = ".".join(path)
+        last = audit_db.get_last_change(cycle.id, fase, audit_key)
+        if last:
+            audit_text = f"Última modificación:\n  {last['usuario']}  ·  {last['timestamp']}"
+        else:
+            audit_text = "Sin modificaciones previas"
+        lbl_audit = QLabel(audit_text)
+        lbl_audit.setStyleSheet("color: #6b7280; font-size: 12px;")
+        lay.addWidget(lbl_audit)
+
+        sep3 = QFrame()
+        sep3.setFrameShape(QFrame.Shape.HLine)
+        sep3.setStyleSheet("color: #e8eaed;")
+        lay.addWidget(sep3)
+
+        # ── Botones ──────────────────────────────────────────────────────
+        btns = QHBoxLayout()
+        btn_cancel = QPushButton("Cancelar")
+        btn_cancel.setFixedHeight(36)
+        btn_cancel.setStyleSheet(
+            "QPushButton { background: #f0f0f0; color: #333; border-radius: 8px;"
+            " border: none; font-size: 13px; padding: 0 16px; }"
+            "QPushButton:hover { background: #e0e0e0; }"
+        )
+        btn_cancel.clicked.connect(self.reject)
+
+        self._btn_save = QPushButton("Guardar")
+        self._btn_save.setFixedHeight(36)
+        self._btn_save.setStyleSheet(
+            "QPushButton { background: #2563eb; color: white; border-radius: 8px;"
+            " border: none; font-size: 13px; font-weight: bold; padding: 0 20px; }"
+            "QPushButton:hover { background: #1d4ed8; }"
+            "QPushButton:disabled { background: #93c5fd; }"
+        )
+        self._btn_save.clicked.connect(self._on_save)
+
+        # Deshabilitar si no hay sesión activa
         try:
-            from PySide6.QtWidgets import QDialog
-            dlg = _ParamEditDialog(
-                display_name=self._display_name,
-                param_meta=self._param_meta,
-                factory_value=self._factory_value,
-                cycle=self._cycle,
-                fase=self._fase,
-                path=self._path,
-                audit_db=self._audit_db,
-                parent=self,
-            )
-            if dlg.exec() == QDialog.DialogCode.Accepted:
-                self.refresh(self._param_meta["value"])
+            from autoclave.ui_pyside.services.session_manager import SessionManager
+            self._btn_save.setEnabled(SessionManager.is_logged_in())
         except Exception:
-            pass
+            self._btn_save.setEnabled(False)
+
+        btns.addStretch()
+        btns.addWidget(btn_cancel)
+        btns.addSpacing(8)
+        btns.addWidget(self._btn_save)
+        lay.addLayout(btns)
+
+    # ── Guardar ──────────────────────────────────────────────────────────
+
+    def _get_new_value(self):
+        if isinstance(self._input, QCheckBox):
+            return self._input.isChecked()
+        return self._input.value()
+
+    def _on_save(self) -> None:
+        new_val = self._get_new_value()
+        old_val = self._param_meta.get("value")
+
+        # 1. Escribir JSON
+        _save_to_json(self._cycle._path, self._fase, self._path, new_val)
+
+        # 2. Actualizar en memoria
+        node = self._cycle.parameters[self._fase]
+        for key in self._path[:-1]:
+            node = node[key]
+        node[self._path[-1]]["value"] = new_val
+        self._param_meta["value"] = new_val
+
+        # 3. Registrar auditoría
+        try:
+            from autoclave.ui_pyside.services.session_manager import SessionManager
+            user = (
+                SessionManager.current_user.get("nombre", "Desconocido")
+                if SessionManager.is_logged_in()
+                else "Desconocido"
+            )
+        except Exception:
+            user = "Desconocido"
+
+        audit_key = ".".join(self._path)
+        self._audit_db.log_change(
+            self._cycle.id, self._fase, audit_key, old_val, new_val, user
+        )
+
+        self.accept()
 
 
 class ParametrosCicloView(QWidget):
@@ -274,6 +447,18 @@ def _load_factory_params(user_cycle_path: str) -> dict:
         with open(factory_p, "r", encoding="utf-8") as f:
             return json.load(f).get("parameters", {})
     return {}
+
+
+def _save_to_json(cycle_path: str, fase: str, path: list[str], new_value) -> None:
+    p = Path(cycle_path)
+    with open(p, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    node = data["parameters"][fase]
+    for key in path[:-1]:
+        node = node[key]
+    node[path[-1]]["value"] = new_value
+    with open(p, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
 
 
 def _iter_section(section: dict, filter_keys=None):
