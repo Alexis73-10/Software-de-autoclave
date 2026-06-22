@@ -52,13 +52,14 @@
             "timeout_alto": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
         },
 
-        "calentamiento": { 
+        "calentamiento": {
             "temperatura_calentamiento": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
             "tasa_calentamiento": { "value": 60.0, "type": "float", "unit": "°C/min", "min": 0.1, "max": 20 },
             "timeout_calentamiento": { "value": 60, "type":"int", "unit": "min", "min": 0, "max": 3600 },
             "rango_presion_calentamiento": { "value": 9, "type":"int", "unit": "kPa", "min": 0, "max": 1000 },
             "rango_temp_estabilizacion": { "value": 1.0, "type": "float", "unit": "°C", "min": 0, "max": 10 },
-            "timeout_recuperacion_estabilizacion": { "value": 5, "type": "int", "unit": "min", "min": 1, "max": 60 }
+            "timeout_recuperacion_estabilizacion": { "value": 5, "type": "int", "unit": "min", "min": 1, "max": 60 },
+            "presion_add_calentamiento": { "value": 9.0, "type": "float", "unit": "kPa", "min": 0, "max": 50 }
         },
 
         "estabilizacion":{
@@ -124,6 +125,12 @@
                 "tiempo_cierre_chaqueta":      { "value": 10,  "type": "int",   "unit": "sec", "min": 0, "max": 3600 },
                 "timeout":                     { "value": 120, "type": "int",   "unit": "min", "min": 1, "max": 3600 }
             }
+        },
+        "finalizacion": {
+            "tiempo_espera_apertura": { "value": 60,   "type": "int",   "unit": "seg", "min": 0, "max": 3600 },
+            "temp_max_apertura":      { "value": 80.0, "type": "float", "unit": "°C",  "min": 0, "max": 150  },
+            "timeout_temperatura":    { "value": 30,   "type": "int",   "unit": "min", "min": 1, "max": 120  },
+            "apertura_automatica":    { "value": false, "type": "bool",  "unit": ""                           }
         }
     }
 }
