@@ -1,5 +1,8 @@
 # src/autoclave/ui_pyside/views/params_ciclo/params_ciclo.py
+import logging
 from collections.abc import Callable
+
+_logger = logging.getLogger(__name__)
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -145,9 +148,10 @@ class ParametrosCicloView(QWidget):
             self._combo.blockSignals(False)
 
             if user_cycles:
-                self._load_cycle(user_cycles[0])
+                first = sorted(user_cycles, key=lambda c: c.name)[0]
+                self._load_cycle(first)
         except Exception:
-            pass
+            _logger.exception("Error cargando ciclos de usuario")
 
     def _on_cycle_changed(self, idx: int) -> None:
         cycle_id = self._combo.itemData(idx)
