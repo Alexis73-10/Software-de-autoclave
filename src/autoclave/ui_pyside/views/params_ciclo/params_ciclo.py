@@ -178,6 +178,10 @@ class _ParamEditDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Editar parámetro")
         self.setMinimumWidth(420)
+        self.setStyleSheet(
+            "QDialog { background: white; }"
+            "QLabel  { color: #374151; background: transparent; }"
+        )
         self._cycle      = cycle
         self._fase       = fase
         self._path       = path
