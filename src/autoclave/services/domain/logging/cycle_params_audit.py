@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[5]
@@ -34,7 +34,7 @@ class CycleParamsAuditDB:
         valor_nuevo,
         usuario: str,
     ) -> None:
-        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        ts = datetime.now().strftime("%Y-%m-%d %H:%M")
         with sqlite3.connect(self._db_path) as conn:
             conn.execute(
                 "INSERT INTO cycle_params_audit "
