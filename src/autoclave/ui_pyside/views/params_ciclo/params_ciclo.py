@@ -104,17 +104,17 @@ class _ParamCard(QFrame):
         lbl_name = QLabel(display_name)
         lbl_name.setFont(QFont("Segoe UI", 9))
         lbl_name.setWordWrap(True)
-        lbl_name.setStyleSheet("color: #6b7280; border: none;")
+        lbl_name.setStyleSheet("color: #6b7280; border: none; background: transparent;")
         lay.addWidget(lbl_name)
 
         self._lbl_value = QLabel(self._render_value())
         self._lbl_value.setFont(QFont("Segoe UI", 13, QFont.Weight.Bold))
-        self._lbl_value.setStyleSheet("color: #1a2a3a; border: none;")
+        self._lbl_value.setStyleSheet("color: #1a2a3a; border: none; background: transparent;")
         lay.addWidget(self._lbl_value)
 
         if is_readonly:
             lbl_lock = QLabel("🔒")
-            lbl_lock.setStyleSheet("border: none; font-size: 10px; color: #9ca3af;")
+            lbl_lock.setStyleSheet("border: none; font-size: 10px; color: #9ca3af; background: transparent;")
             lay.addWidget(lbl_lock)
 
     # ── helpers ──────────────────────────────────────────────────────────
@@ -342,6 +342,9 @@ class ParametrosCicloView(QWidget):
         self._audit_db = CycleParamsAuditDB()
         self._cycles: dict = {}   # cycle_id → Cycle
 
+        self.setObjectName("paramsCicloView")
+        self.setStyleSheet("QWidget#paramsCicloView { background: #f3f4f6; }")
+
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
         root.setSpacing(10)
@@ -381,8 +384,11 @@ class ParametrosCicloView(QWidget):
         self._tabs = QTabWidget()
         self._tabs.setDocumentMode(True)
         self._tabs.setStyleSheet(
-            "QTabBar::tab { padding: 6px 12px; font-size: 12px; }"
-            "QTabBar::tab:selected { font-weight: bold; color: #2563eb; }"
+            "QTabWidget::pane { background: #f3f4f6; border: 1px solid #e8eaed; }"
+            "QTabBar::tab { padding: 6px 12px; font-size: 12px; background: #e5e7eb;"
+            " color: #374151; border-radius: 4px 4px 0 0; margin-right: 2px; }"
+            "QTabBar::tab:selected { background: #f3f4f6; font-weight: bold; color: #2563eb; }"
+            "QTabBar::tab:hover { background: #d1d5db; color: #111827; }"
         )
         for label, _ in _TABS:
             scroll = QScrollArea()
@@ -504,6 +510,8 @@ def _build_tab_grid(cycle, factory_params: dict, tab_key: str, audit_db) -> QWid
     factory_section = factory_params.get(fase, {})
 
     gw = QWidget()
+    gw.setObjectName("tabGrid")
+    gw.setStyleSheet("QWidget#tabGrid { background: #f3f4f6; }")
     grid = QGridLayout(gw)
     grid.setSpacing(10)
     grid.setContentsMargins(8, 8, 8, 8)
