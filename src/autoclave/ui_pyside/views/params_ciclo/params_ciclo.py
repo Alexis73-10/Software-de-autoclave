@@ -286,13 +286,6 @@ class _ParamEditDialog(QDialog):
         )
         self._btn_save.clicked.connect(self._on_save)
 
-        # Deshabilitar si no hay sesión activa
-        try:
-            from autoclave.ui_pyside.services.session_manager import SessionManager
-            self._btn_save.setEnabled(SessionManager.is_logged_in())
-        except Exception:
-            self._btn_save.setEnabled(False)
-
         btns.addStretch()
         btns.addWidget(btn_cancel)
         btns.addSpacing(8)
