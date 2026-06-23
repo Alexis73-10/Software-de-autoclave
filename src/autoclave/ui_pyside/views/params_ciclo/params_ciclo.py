@@ -317,8 +317,8 @@ class _ParamEditDialog(QDialog):
         try:
             from autoclave.ui_pyside.services.session_manager import SessionManager
             user = (
-                SessionManager.current_user.get("nombre", "Desconocido")
-                if SessionManager.is_logged_in()
+                SessionManager.current_user().get("nombre", "Desconocido")
+                if SessionManager.is_authenticated()
                 else "Desconocido"
             )
         except Exception:
