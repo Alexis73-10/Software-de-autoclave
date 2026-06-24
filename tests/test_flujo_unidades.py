@@ -1,7 +1,7 @@
 #tests/test_flujo_unidades.py
 import time
 from autoclave.protocols.serial_link import SerialLink
-from autoclave.hal.units import Units
+from autoclave.hal.measures.units import Units
 
 # Creamos la instancia de Units que manejará los datos convertidos
 units = Units("src/autoclave/config/calibration.yaml")
