@@ -402,7 +402,7 @@ class ParametrosCicloView(QWidget):
 
     def _reload_cycles(self) -> None:
         try:
-            from autoclave.core.cycle_manager import CycleManager
+            from autoclave.core.managers.cycle_manager import CycleManager
             cm = CycleManager()
             cm.load_all_cycles()
             user_cycles = [

@@ -1,6 +1,6 @@
 # autoclave/backend/context.py
 
-from autoclave.core.status import EstadoAutoclave
+from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.puertas.ser_puertas import ServicioPuertas
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.equipment import get_capabilities
@@ -10,8 +10,8 @@ from autoclave.devices.puertas.door_factory import create_door
 from autoclave.devices.io.set_io import SetOutput
 from autoclave.services.domain.loop.control_loop import ControlLoop
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.core.cycle_manager import CycleManager
-from autoclave.core.config_manager import ConfigManager
+from autoclave.core.managers.cycle_manager import CycleManager
+from autoclave.core.managers.config_manager import ConfigManager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.cycle_logger import CycleLogger
 

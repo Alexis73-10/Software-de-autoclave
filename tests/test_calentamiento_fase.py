@@ -95,7 +95,7 @@ def test_checkpoint_entra_en_sostenimiento():
 
 def test_checkpoint_se_libera_con_presion_correcta():
     """Cuando presión ≈ P_sat(T), el checkpoint se libera."""
-    from autoclave.core.steam import p_saturacion_kpa
+    from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, set_do = _make_fase(t_obj=134.0, tolerancia=15.0)
     fase.update()  # inicializar
     estado.sensores_temp["temp_camara"] = 107.2  # 80% de 134

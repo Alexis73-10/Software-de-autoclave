@@ -1,6 +1,6 @@
 # tests/test_esterilizacion_fase.py
 from unittest.mock import MagicMock
-from autoclave.core.steam import p_saturacion_kpa
+from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFase
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 

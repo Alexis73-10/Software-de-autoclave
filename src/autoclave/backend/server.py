@@ -8,7 +8,7 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from autoclave.backend.context import BackendContext
-from autoclave.core.status import EstadoAutoclave
+from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 
 _TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
