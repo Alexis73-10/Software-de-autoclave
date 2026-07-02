@@ -20,8 +20,10 @@ def print_raw(text: str, printer_name: str = PRINTER_NAME) -> None:
 
     try:
         win32print.StartDocPrinter(handle, 1, ("Autoclave", None, "RAW"))
-        win32print.WritePrinter(handle, text.encode("cp437", errors="replace"))
-        win32print.EndDocPrinter(handle)
+        try:
+            win32print.WritePrinter(handle, text.encode("cp437", errors="replace"))
+        finally:
+            win32print.EndDocPrinter(handle)
     except Exception as exc:
         logger.warning("print_raw: error al enviar datos: %s", exc)
     finally:

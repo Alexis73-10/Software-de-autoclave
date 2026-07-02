@@ -99,6 +99,7 @@ def main():
             logger.warning("Backend no disponible, la UI seguirá intentando...")
 
     # ── 2b. Iniciar heartbeat de impresora ────────────────────────────────────
+    _last_shutdown_time = heartbeat.read_last_shutdown()
     heartbeat.start(interval=30)
 
     # ── 3. Arrancar UI (tkinter) ────────────────────────────────────────────
@@ -135,6 +136,7 @@ def main():
         on_shutdown=on_close,
         source_door=SOURCE_DOOR,
         profile=profile,
+        last_shutdown=_last_shutdown_time,
     )
     logger.info("UI Autoclave iniciada")
     app.protocol("WM_DELETE_WINDOW", on_close)

@@ -35,13 +35,14 @@ _MAX_COND   = 5           # máximo de condiciones/alarmas visibles en panel izq
 class InterfazPrincipal(tk.Tk):
 # ══════════════════════════════════════════════════════════════════════════════
 
-    def __init__(self, ui_service, door_commands, on_shutdown=None, source_door=1, profile=None):
+    def __init__(self, ui_service, door_commands, on_shutdown=None, source_door=1, profile=None, last_shutdown=None):
         super().__init__()
         self._on_shutdown  = on_shutdown
         self.ui_service    = ui_service
         self.door_commands = door_commands
         self._source_door  = source_door                      # 1 o 2
         self._profile      = profile
+        self._last_shutdown = last_shutdown
         self._door_name    = f"Puerta {source_door}"          # "Puerta 1" o "Puerta 2"
 
         # ── ventana ───────────────────────────────────────────────────────────
@@ -104,13 +105,11 @@ class InterfazPrincipal(tk.Tk):
         try:
             import importlib.metadata
             from datetime import datetime
-            from autoclave.devices.printer.heartbeat import read_last_shutdown
             from autoclave.devices.printer.startup_ticket import format_startup_ticket
             from autoclave.devices.printer.win32_printer import print_raw
             version = importlib.metadata.version("autoclave")
-            last_shutdown = read_last_shutdown()
             text = format_startup_ticket(
-                self._profile, version, last_shutdown, datetime.now()
+                self._profile, version, self._last_shutdown, datetime.now()
             )
             print_raw(text)
             logger.info("Ticket de arranque enviado a impresora")
