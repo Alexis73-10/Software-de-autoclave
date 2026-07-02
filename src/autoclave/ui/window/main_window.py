@@ -101,13 +101,12 @@ class InterfazPrincipal(tk.Tk):
         self._update_job = self.after(500, self._run_update)
 
     def _print_startup_ticket(self):
-        import importlib.metadata
-        from datetime import datetime
-        from autoclave.devices.printer.heartbeat import read_last_shutdown
-        from autoclave.devices.printer.startup_ticket import format_startup_ticket
-        from autoclave.devices.printer.win32_printer import print_raw
-
         try:
+            import importlib.metadata
+            from datetime import datetime
+            from autoclave.devices.printer.heartbeat import read_last_shutdown
+            from autoclave.devices.printer.startup_ticket import format_startup_ticket
+            from autoclave.devices.printer.win32_printer import print_raw
             version = importlib.metadata.version("autoclave")
             last_shutdown = read_last_shutdown()
             text = format_startup_ticket(
