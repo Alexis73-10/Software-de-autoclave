@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from autoclave.hal import converters
+from autoclave.hal.measures import converters
 from autoclave.config import load_config
 from autoclave.config.schema import AppConfig
 import logging

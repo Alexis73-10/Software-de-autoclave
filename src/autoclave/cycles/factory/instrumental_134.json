@@ -53,25 +53,33 @@
             "timeout_alto": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
         },
 
-        "calentamiento": { 
+        "calentamiento": {
             "temperatura_calentamiento": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
             "tasa_calentamiento": { "value": 5.0, "type": "float", "unit": "°C/min", "min": 0.1, "max": 20 },
             "timeout_calentamiento": { "value": 60, "type":"int", "unit": "min", "min": 0, "max": 3600 },
             "rango_presion_calentamiento": { "value": 9, "type":"int", "unit": "kPa", "min": 0, "max": 1000 },
             "tiempo_estable_preesterilizacion": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },
             "rango_temp_estabilizacion": { "value": 1.0, "type": "float", "unit": "°C", "min": 0, "max": 10 },
-            "timeout_recuperacion_estabilizacion": { "value": 5, "type": "int", "unit": "min", "min": 1, "max": 60 }
+            "timeout_recuperacion_estabilizacion": { "value": 5, "type": "int", "unit": "min", "min": 1, "max": 60 },
+            "presion_add_calentamiento": { "value": 9.0, "type": "float", "unit": "kPa", "min": 0, "max": 50 }
         },
 
         "esterilizacion": {
             "temperatura_esterilizacion": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
             "tiempo_esterilizacion":       { "value": 3.5,   "type": "float", "unit": "min", "min": 0, "max": 1000 },
-            "tiempo_secado":               { "value": 2.0,   "type": "float", "unit": "min", "min": 0, "max": 1000 },
-            "tipo_secado":                 { "value": 1,     "type": "int",   "unit": "",    "min": 1, "max": 4 },
             "temperatura_add_esterilizacion": { "value": 2.0, "type": "float", "unit": "°C", "min": 0, "max": 20 },
             "temperatura_error_esterilizacion": { "value": 5.0, "type": "float", "unit": "°C", "min": 0, "max": 30 },
             "rango_presion_esterilizacion": { "value": 20.0, "type": "float", "unit": "kPa", "min": 0, "max": 100 },
             "presion_error_esterilizacion": { "value": 40.0, "type": "float", "unit": "kPa", "min": 0, "max": 200 }
+        },
+        "secado": {
+            "modo":                    { "value": 1,   "type": "int",   "unit": "",    "min": 1, "max": 3 },
+            "tiempo_secado":           { "value": 2.0, "type": "float", "unit": "min", "min": 0, "max": 120 },
+            "presion_chaqueta_secado": { "value": 200, "type": "int",   "unit": "kPa", "min": 0, "max": 500 },
+            "rango_chaqueta_secado":   { "value": 30,  "type": "int",   "unit": "kPa", "min": 0, "max": 100 },
+            "presion_baja_secado":     { "value": 20,  "type": "int",   "unit": "kPa", "min": 0, "max": 200 },
+            "presion_alta_secado":     { "value": 80,  "type": "int",   "unit": "kPa", "min": 0, "max": 300 },
+            "timeout_pulso":           { "value": 10,  "type": "int",   "unit": "seg", "min": 1, "max": 600 }
         },
         "descompresion": {
             "modo": {
@@ -104,6 +112,12 @@
                 "tiempo_cierre_chaqueta":      { "value": 10,  "type": "int",   "unit": "sec", "min": 0, "max": 3600 },
                 "timeout":                     { "value": 120, "type": "int",   "unit": "min", "min": 1, "max": 3600 }
             }
+        },
+        "finalizacion": {
+            "tiempo_espera_apertura": { "value": 60,   "type": "int",   "unit": "seg", "min": 0, "max": 3600 },
+            "temp_max_apertura":      { "value": 80.0, "type": "float", "unit": "°C",  "min": 0, "max": 150  },
+            "timeout_temperatura":    { "value": 30,   "type": "int",   "unit": "min", "min": 1, "max": 120  },
+            "apertura_automatica":    { "value": false, "type": "bool",  "unit": ""                           }
         }
     }
 }

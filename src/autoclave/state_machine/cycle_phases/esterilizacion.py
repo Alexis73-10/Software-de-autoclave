@@ -13,7 +13,7 @@
 
 import time
 import logging
-from autoclave.core.steam import p_saturacion_kpa
+from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType
 from .base_fase import BaseFase, FaseResult

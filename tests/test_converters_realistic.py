@@ -1,4 +1,4 @@
-from autoclave.hal import converters
+from autoclave.hal.measures import converters
 
 def test_converters_realistic():
     data = [0, 1024, 2048, 3072, 4095, 2000, 3000, 1000,

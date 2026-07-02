@@ -1,4 +1,4 @@
-from autoclave.hal.units import Units
+from autoclave.hal.measures.units import Units
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.utils.resources import resource_path
 from autoclave.devices.puertas.door_type import DoorType

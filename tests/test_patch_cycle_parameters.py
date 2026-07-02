@@ -2,7 +2,7 @@ import json
 import pytest
 from unittest.mock import MagicMock, patch
 from autoclave.ui.service_ui.backend_client import BackendClient
-from autoclave.core.cycle_manager import CycleManager
+from autoclave.core.managers.cycle_manager import CycleManager
 
 
 # ── BackendClient.patch() ────────────────────────────────────────────
@@ -45,7 +45,7 @@ def test_cycle_manager_asigna_path_al_cargar(tmp_path):
         "cycle_id": "ciclo_test",
         "display_name": "Test",
         "parameters": {
-            "esterilizacion": {
+            "secado": {
                 "tiempo_secado": {
                     "value": 2.0, "type": "float", "unit": "min", "min": 0, "max": 120
                 }

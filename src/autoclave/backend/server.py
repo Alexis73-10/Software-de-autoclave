@@ -1,14 +1,14 @@
 # autoclave/backend/server.py
 
-
-
 import logging
 from pathlib import Path
 
 from fastapi import HTTPException, FastAPI, Body
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 
 from autoclave.backend.context import BackendContext
+from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 
 _TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
@@ -335,26 +335,41 @@ def close_door(door_name: str, body: dict = Body(...)):
 
 @app.patch("/cycle/parameters")
 def update_cycle_parameters(body: dict = Body(...)):
-    """Actualiza parámetros del ciclo seleccionado en memoria y persiste si es ciclo user."""
+    """Actualiza parámetros de la sección 'secado' del ciclo activo y persiste si es user."""
     try:
         cycle = context.cycle_manager.get_selected_cycle()
     except Exception:
         raise HTTPException(status_code=503, detail="No hay ciclo activo seleccionado")
 
-    if "tiempo_secado" in body:
+    _SECADO_PARAMS = {
+        "modo":                    (int,   1,   3),
+        "tiempo_secado":           (float, 0.0, 120.0),
+        "presion_chaqueta_secado": (int,   0,   500),
+        "rango_chaqueta_secado":   (int,   0,   100),
+        "presion_baja_secado":     (int,   0,   200),
+        "presion_alta_secado":     (int,   0,   300),
+        "timeout_pulso":           (int,   1,   600),
+    }
+
+    secado = cycle.parameters.get("secado")
+    if secado is None:
+        raise HTTPException(status_code=422, detail="El ciclo no tiene sección 'secado'")
+
+    for param, (tipo, v_min, v_max) in _SECADO_PARAMS.items():
+        if param not in body:
+            continue
         try:
-            value = float(body["tiempo_secado"])
+            value = tipo(body[param])
         except (TypeError, ValueError):
+            raise HTTPException(status_code=422, detail=f"{param} debe ser numérico")
+        if not (v_min <= value <= v_max):
             raise HTTPException(
                 status_code=422,
-                detail="tiempo_secado debe ser numérico",
+                detail=f"{param} fuera de rango ({v_min}-{v_max})",
             )
-        if not (0.0 <= value <= 120.0):
-            raise HTTPException(
-                status_code=422,
-                detail="tiempo_secado fuera de rango (0-120 min)",
-            )
-        cycle.parameters["esterilizacion"]["tiempo_secado"]["value"] = value
+        if param not in secado:
+            raise HTTPException(status_code=422, detail=f"Parámetro '{param}' no existe en 'secado'")
+        secado[param]["value"] = value
 
     if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
         _save_cycle_json(cycle)
@@ -373,3 +388,24 @@ def _save_cycle_json(cycle) -> None:
     data["parameters"] = cycle.parameters
     with open(path, "w", encoding="utf-8") as f:
         _json.dump(data, f, indent=4, ensure_ascii=False)
+
+
+# Direct hardware access — bypasses control_loop, for bench validation only
+
+class _OutputSetBody(BaseModel):
+    value: bool
+
+
+@app.post("/io/test/reset_all")
+def io_test_reset_all():
+    context.setdo.reset_all_outputs()
+    return {"ok": True}
+
+
+@app.patch("/io/test/output/{name}")
+def io_test_set_output(name: str, body: _OutputSetBody):
+    if name not in EstadoAutoclave.map_do:
+        raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
+    index = EstadoAutoclave.map_do[name]
+    context.setdo.set_output(index, body.value)
+    return {"ok": True, "name": name, "value": body.value}

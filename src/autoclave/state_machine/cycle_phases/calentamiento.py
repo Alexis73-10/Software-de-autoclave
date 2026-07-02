@@ -8,7 +8,7 @@
 
 import time
 import logging
-from autoclave.core.steam import p_saturacion_kpa
+from autoclave.core.runtime.steam import p_saturacion_kpa
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)

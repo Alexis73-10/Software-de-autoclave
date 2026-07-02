@@ -3,7 +3,7 @@ from __future__ import annotations
 from enum import Enum, auto
 import logging
 
-from autoclave.core.steam import p_saturacion_kpa
+from autoclave.core.runtime.steam import p_saturacion_kpa
 
 logger = logging.getLogger(__name__)
 

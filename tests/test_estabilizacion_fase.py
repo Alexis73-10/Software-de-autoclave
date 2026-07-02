@@ -1,6 +1,6 @@
 # tests/test_estabilizacion_fase.py
 from unittest.mock import MagicMock
-from autoclave.core.steam import p_saturacion_kpa
+from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.state_machine.cycle_phases.estabilizacion import EstabilizacionFase
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 
@@ -70,7 +70,7 @@ def test_fallo_si_no_recupera_temperatura():
 
 
 def test_timer_recuperacion_se_resetea_al_recuperar():
-    from autoclave.core.steam import p_saturacion_kpa
+    from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, set_do = _make_fase(tiempo_min=5, timeout_rec_min=2)
     fase.update()  # inicializar
     # Simular que la condición sale del rango
