@@ -2,21 +2,21 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-PRINTER_NAME = "Generic / Text Only"
+PRINTER_NAME = "Impresora_Termica"
 
 
-def print_raw(text: str, printer_name: str = PRINTER_NAME) -> None:
+def print_raw(text: str, printer_name: str = PRINTER_NAME) -> bool:
     try:
         import win32print
     except ImportError:
         logger.warning("win32print no disponible — impresión omitida")
-        return
+        return False
 
     try:
         handle = win32print.OpenPrinter(printer_name)
     except Exception as exc:
         logger.warning("print_raw: no se pudo abrir impresora '%s': %s", printer_name, exc)
-        return
+        return False
 
     try:
         win32print.StartDocPrinter(handle, 1, ("Autoclave", None, "RAW"))
@@ -24,7 +24,9 @@ def print_raw(text: str, printer_name: str = PRINTER_NAME) -> None:
             win32print.WritePrinter(handle, text.encode("cp437", errors="replace"))
         finally:
             win32print.EndDocPrinter(handle)
+        return True
     except Exception as exc:
         logger.warning("print_raw: error al enviar datos: %s", exc)
+        return False
     finally:
         win32print.ClosePrinter(handle)

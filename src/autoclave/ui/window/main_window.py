@@ -111,8 +111,10 @@ class InterfazPrincipal(tk.Tk):
             text = format_startup_ticket(
                 self._profile, version, self._last_shutdown, datetime.now()
             )
-            print_raw(text)
-            logger.info("Ticket de arranque enviado a impresora")
+            if print_raw(text):
+                logger.info("Ticket de arranque enviado a impresora")
+            else:
+                logger.warning("Ticket de arranque: impresión falló (ver warnings anteriores)")
         except Exception as exc:
             logger.warning("_print_startup_ticket: error inesperado: %s", exc)
 
