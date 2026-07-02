@@ -23,7 +23,25 @@
       "PowerShell(cd \"D:\\\\Documentos_y_Código\\\\Código\\\\Python\\\\Proyectos_Funcionales\\\\codigo_autoclave\"; python -m pytest tests/test_config.py tests/test_converters_realistic.py tests/test_profile_validation.py tests/test_steam.py tests/test_clock_guard.py tests/test_precalentamiento_fase.py tests/test_purga_fase.py tests/test_door_from_profile.py tests/test_ciclo_sensores.py tests/test_calentamiento_fase.py tests/test_estabilizacion_fase.py tests/test_esterilizacion_fase.py -v --tb=short 2>&1; Write-Output \"EXIT: $LASTEXITCODE\")",
       "PowerShell(cd \"D:\\\\Documentos_y_Código\\\\Código\\\\Python\\\\Proyectos_Funcionales\\\\codigo_autoclave\"; python -m pytest tests/test_converters_realistic.py tests/test_profile_validation.py tests/test_steam.py tests/test_clock_guard.py tests/test_precalentamiento_fase.py tests/test_purga_fase.py tests/test_door_from_profile.py tests/test_ciclo_sensores.py tests/test_calentamiento_fase.py tests/test_estabilizacion_fase.py tests/test_esterilizacion_fase.py -v --tb=short 2>&1; Write-Output \"EXIT: $LASTEXITCODE\")",
       "Bash(pytest tests/test_ui_layout.py -v --tb=short)",
-      "Bash(pytest tests/test_ui_layout.py -v)"
+      "Bash(pytest tests/test_ui_layout.py -v)",
+      "Bash(bash \"C:/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-06-24-reestructuracion-modulos.md 1)",
+      "Bash(python3 -c \"from autoclave.hal.measures.units import Units; from autoclave.hal.measures import converters; print\\('✓ Interfaces públicas correctas'\\)\")",
+      "Bash(New-Item -ItemType Directory -Force src/autoclave/core/managers)",
+      "Bash(Out-Null)",
+      "Bash(New-Item -ItemType Directory -Force src/autoclave/core/runtime)",
+      "Bash(Write-Output \"Directories created\")",
+      "Bash(bash \"C:\\\\Users\\\\tecni\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.0.3\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"docs/superpowers/plans/2026-07-02-printer-startup-ticket.md\" 1)",
+      "Bash(cd /d \"D:\\\\Documentos_y_Código\\\\Código\\\\Python\\\\Proyectos_Funcionales\\\\codigo_autoclave\")",
+      "Bash(pip install *)",
+      "Bash(bash \"C:\\\\Users\\\\tecni\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.0.3\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" d9359e8 HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\tecni\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.0.3\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"docs/superpowers/plans/2026-07-02-printer-startup-ticket.md\" 2)",
+      "Bash(bash \"C:\\\\Users\\\\tecni\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.0.3\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" c241d1b HEAD)",
+      "Bash(bash \"C:\\\\Users\\\\tecni\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.0.3\\\\skills\\\\subagent-driven-development\\\\scripts\\\\task-brief\" \"docs/superpowers/plans/2026-07-02-printer-startup-ticket.md\" 5)",
+      "Bash(bash \"C:\\\\Users\\\\tecni\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\6.0.3\\\\skills\\\\subagent-driven-development\\\\scripts\\\\review-package\" 329408a HEAD)",
+      "Bash(pytest tests/test_startup_ticket.py tests/test_heartbeat.py tests/test_win32_printer.py -v --tb=short)",
+      "Bash(pytest tests/test_startup_ticket.py tests/test_heartbeat.py tests/test_win32_printer.py -q)",
+      "Skill(run)",
+      "Skill(run:*)"
     ]
   }
 }
