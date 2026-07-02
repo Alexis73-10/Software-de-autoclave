@@ -38,7 +38,7 @@ def test_ticket_contiene_version():
         datetime(2026, 7, 2, 10, 15, 8),
         datetime(2026, 7, 2, 10, 47, 23),
     )
-    assert "0.4.0" in text
+    assert "v0.4.0" in text
 
 
 def test_ticket_contiene_hora_encendido():
@@ -80,3 +80,39 @@ def test_ninguna_linea_supera_48_chars():
     )
     for linea in text.splitlines():
         assert len(linea) <= 48, f"Línea demasiado larga ({len(linea)}): {linea!r}"
+
+
+def test_status_aparece_en_ticket():
+    from autoclave.devices.printer.startup_ticket import format_startup_ticket
+    text = format_startup_ticket(
+        _profile(), "0.4.0",
+        datetime(2026, 7, 2, 10, 15, 8),
+        datetime(2026, 7, 2, 10, 47, 23),
+        status=[("Backend", "OK"), ("Tarjeta", "OK")],
+    )
+    assert "Backend:" in text
+    assert "Tarjeta:" in text
+
+
+def test_footer_fallo_cuando_hay_error():
+    from autoclave.devices.printer.startup_ticket import format_startup_ticket
+    text = format_startup_ticket(
+        _profile(), "0.4.0",
+        None,
+        datetime(2026, 7, 2, 10, 47, 23),
+        status=[("Backend", "FALLO"), ("Tarjeta", "FALLO")],
+    )
+    assert "FALLO EN ARRANQUE" in text
+    assert "Sistema listo" not in text
+
+
+def test_footer_sistema_listo_cuando_ok():
+    from autoclave.devices.printer.startup_ticket import format_startup_ticket
+    text = format_startup_ticket(
+        _profile(), "0.4.0",
+        datetime(2026, 7, 2, 10, 15, 8),
+        datetime(2026, 7, 2, 10, 47, 23),
+        status=[("Backend", "OK"), ("Tarjeta", "OK")],
+    )
+    assert "Sistema listo" in text
+    assert "FALLO" not in text

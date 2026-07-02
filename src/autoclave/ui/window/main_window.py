@@ -102,14 +102,40 @@ class InterfazPrincipal(tk.Tk):
         self._update_job = self.after(500, self._run_update)
 
     def _print_startup_ticket(self):
+        import threading
+        threading.Thread(target=self._do_print_startup_ticket, daemon=True).start()
+
+    def _do_print_startup_ticket(self):
         try:
             import importlib.metadata
+            import requests
             from datetime import datetime
             from autoclave.devices.printer.startup_ticket import format_startup_ticket
             from autoclave.devices.printer.win32_printer import print_raw
+
+            # Verificar estado del backend y tarjeta
+            try:
+                r = requests.get("http://localhost:8000/status", timeout=1)
+                if r.status_code == 200:
+                    backend_str = "OK"
+                    data = r.json()
+                    temp = data.get("sensors", {}).get("temperature", {}).get("camara")
+                    card_str = "OK" if temp is not None else "Sin datos"
+                else:
+                    backend_str = "ERROR"
+                    card_str = "Sin datos"
+            except Exception:
+                backend_str = "FALLO"
+                card_str = "FALLO"
+
+            status = [
+                ("Backend", backend_str),
+                ("Tarjeta", card_str),
+            ]
+
             version = importlib.metadata.version("autoclave")
             text = format_startup_ticket(
-                self._profile, version, self._last_shutdown, datetime.now()
+                self._profile, version, self._last_shutdown, datetime.now(), status
             )
             if print_raw(text):
                 logger.info("Ticket de arranque enviado a impresora")
