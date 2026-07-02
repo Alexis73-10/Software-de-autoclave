@@ -35,12 +35,13 @@ _MAX_COND   = 5           # máximo de condiciones/alarmas visibles en panel izq
 class InterfazPrincipal(tk.Tk):
 # ══════════════════════════════════════════════════════════════════════════════
 
-    def __init__(self, ui_service, door_commands, on_shutdown=None, source_door=1):
+    def __init__(self, ui_service, door_commands, on_shutdown=None, source_door=1, profile=None):
         super().__init__()
         self._on_shutdown  = on_shutdown
         self.ui_service    = ui_service
         self.door_commands = door_commands
         self._source_door  = source_door                      # 1 o 2
+        self._profile      = profile
         self._door_name    = f"Puerta {source_door}"          # "Puerta 1" o "Puerta 2"
 
         # ── ventana ───────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ class InterfazPrincipal(tk.Tk):
         # ── arrancar loop e imagen ────────────────────────────────────────────
         self.after(300, self._load_action_images)
         self._schedule_update()
+        self.after(500, self._print_startup_ticket)
 
         # ── detección de orientación (para ambos monitores) ───────────────────
         self.bind("<Configure>", self._on_configure)
@@ -97,6 +99,24 @@ class InterfazPrincipal(tk.Tk):
 
     def _schedule_update(self):
         self._update_job = self.after(500, self._run_update)
+
+    def _print_startup_ticket(self):
+        import importlib.metadata
+        from datetime import datetime
+        from autoclave.devices.printer.heartbeat import read_last_shutdown
+        from autoclave.devices.printer.startup_ticket import format_startup_ticket
+        from autoclave.devices.printer.win32_printer import print_raw
+
+        try:
+            version = importlib.metadata.version("autoclave")
+            last_shutdown = read_last_shutdown()
+            text = format_startup_ticket(
+                self._profile, version, last_shutdown, datetime.now()
+            )
+            print_raw(text)
+            logger.info("Ticket de arranque enviado a impresora")
+        except Exception as exc:
+            logger.warning("_print_startup_ticket: error inesperado: %s", exc)
 
     def _run_update(self):
         self._update_ui()

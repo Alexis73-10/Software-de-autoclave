@@ -11,6 +11,7 @@ import requests
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.wizard import launch_installation_wizard
 from autoclave.installation.clock_guard import ClockTamperedError
+from autoclave.devices.printer import heartbeat
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -97,6 +98,9 @@ def main():
         if not wait_for_backend(max_wait=40):
             logger.warning("Backend no disponible, la UI seguirá intentando...")
 
+    # ── 2b. Iniciar heartbeat de impresora ────────────────────────────────────
+    heartbeat.start(interval=30)
+
     # ── 3. Arrancar UI (tkinter) ────────────────────────────────────────────
     from autoclave.ui.service_ui.backend_client import BackendClient
     from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
@@ -130,6 +134,7 @@ def main():
         door_commands=door_commands,
         on_shutdown=on_close,
         source_door=SOURCE_DOOR,
+        profile=profile,
     )
     logger.info("UI Autoclave iniciada")
     app.protocol("WM_DELETE_WINDOW", on_close)
