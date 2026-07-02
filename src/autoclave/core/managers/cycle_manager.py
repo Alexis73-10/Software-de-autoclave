@@ -6,7 +6,7 @@ from autoclave.utils.resources import resource_path
 
 logger = logging.getLogger(__name__)
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 class Cycle:
     def __init__(self, cycle_id: str, name: str, parameters: dict):
         self.id = cycle_id
