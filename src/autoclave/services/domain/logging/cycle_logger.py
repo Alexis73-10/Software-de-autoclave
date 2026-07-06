@@ -21,6 +21,11 @@ import time
 import logging
 from datetime import datetime
 from autoclave.state_machine.machine.enum_global import GlobalState
+from autoclave.services.domain.logging.ticket_formatter import (
+    format_footer,
+    format_header,
+    format_row,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,12 +72,13 @@ class CycleLogger:
         cycle_manager → CycleManager
     """
 
-    def __init__(self, db, estado, config, profile, cycle_manager):
+    def __init__(self, db, estado, config, profile, cycle_manager, printer=None):
         self.db            = db
         self.estado        = estado
         self.config        = config
         self.profile       = profile
         self.cycle_manager = cycle_manager
+        self.printer       = printer
 
         # Estado interno
         self._activo            = False
@@ -132,6 +138,8 @@ class CycleLogger:
         except Exception as exc:
             logger.warning("CycleLogger: no se pudo leer el ciclo: %s", exc)
 
+        serie = getattr(self.profile, "serial_number", "")
+
         self._ciclo_id = self.db.crear_ciclo(
             numero      = numero,
             tipo        = tipo,
@@ -139,13 +147,26 @@ class CycleLogger:
             temp_ester  = temp_e,
             tiempo_ester= t_e,
             modelo      = getattr(self.profile, "model_id",      ""),
-            serie       = getattr(self.profile, "serial_number", ""),
+            serie       = serie,
             version_sw  = VERSION_SW,
         )
         self._ciclo_inicio       = time.time()
         self._ultimo_log         = 0.0    # primera lectura se hace inmediatamente
         self._ultima_fase_codigo = None
         self._activo             = True
+
+        if self.printer is not None:
+            meta = {
+                "numero_ciclo":          numero,
+                "serie":                 serie,
+                "nombre_ciclo":          nombre,
+                "tipo_ciclo":            tipo,
+                "operador":              "",
+                "temp_esterilizacion":   temp_e,
+                "tiempo_esterilizacion": t_e,
+                "fecha_inicio":          datetime.now().isoformat(),
+            }
+            self.printer.enqueue(format_header(meta))
 
         logger.info(
             "CycleLogger: ciclo #%05d iniciado → DB id=%d | %s",
@@ -157,6 +178,10 @@ class CycleLogger:
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
             self.db.cerrar_ciclo(self._ciclo_id, resultado)
+
+            if self.printer is not None:
+                self.printer.enqueue(format_footer(resultado, datetime.now().isoformat()))
+
             logger.info(
                 "CycleLogger: ciclo id=%d cerrado → %s", self._ciclo_id, resultado
             )
@@ -203,13 +228,14 @@ class CycleLogger:
 
         ahora   = time.time()
         elapsed = ahora - (self._ciclo_inicio or ahora)
+        timestamp_rel = _fmt_elapsed(elapsed)
 
         temp = self.estado.sensores_temp.get("temp_camara")
         pres = self.estado.sensores_pres.get("pres_camara")
 
         self.db.insertar_lectura(
             ciclo_id      = self._ciclo_id,
-            timestamp_rel = _fmt_elapsed(elapsed),
+            timestamp_rel = timestamp_rel,
             timestamp_abs = datetime.now().isoformat(),
             fase_codigo   = fase_codigo,
             temp          = temp,
@@ -218,10 +244,18 @@ class CycleLogger:
         )
         self._ultimo_log = ahora
 
+        if para_imprimir and self.printer is not None:
+            self.printer.enqueue(format_row({
+                "fase_codigo":   fase_codigo,
+                "timestamp_rel": timestamp_rel,
+                "temp_camara":   temp,
+                "pres_camara":   pres,
+            }))
+
         logger.debug(
             "LOG [%s] %s  %.1f°C  %.1f kPa  imprimir=%s",
             fase_codigo,
-            _fmt_elapsed(elapsed),
+            timestamp_rel,
             temp or 0.0,
             pres or 0.0,
             para_imprimir,
