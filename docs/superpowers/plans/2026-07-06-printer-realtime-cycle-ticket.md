@@ -38,7 +38,7 @@
   - `meta` para `format_header`: `numero_ciclo`, `serie`, `nombre_ciclo`, `tipo_ciclo`, `operador`, `temp_esterilizacion`, `tiempo_esterilizacion`, `fecha_inicio`.
   - `lectura` para `format_row`: `fase_codigo`, `timestamp_rel`, `temp_camara`, `pres_camara`.
 
-- [ ] **Step 1: Escribir el test de equivalencia y los tests unitarios (deben fallar)**
+- [x] **Step 1: Escribir el test de equivalencia y los tests unitarios (deben fallar)**
 
 Crear `tests/test_ticket_formatter.py`:
 
@@ -128,12 +128,12 @@ def test_header_filas_pie_equivalen_a_format_ticket():
     assert ensamblado == format_ticket(ciclo, lecturas)
 ```
 
-- [ ] **Step 2: Correr los tests para verificar que fallan**
+- [x] **Step 2: Correr los tests para verificar que fallan**
 
 Run: `pytest tests/test_ticket_formatter.py -v`
 Expected: `ImportError: cannot import name 'format_header'` (las tres funciones nuevas no existen todavía).
 
-- [ ] **Step 3: Reemplazar el contenido de `ticket_formatter.py`**
+- [x] **Step 3: Reemplazar el contenido de `ticket_formatter.py`**
 
 Reemplazar el archivo completo por:
 
@@ -241,12 +241,12 @@ def format_ticket(ciclo, lecturas) -> str:
     return "\n".join(parts)
 ```
 
-- [ ] **Step 4: Correr los tests para verificar que pasan**
+- [x] **Step 4: Correr los tests para verificar que pasan**
 
 Run: `pytest tests/test_ticket_formatter.py -v`
 Expected: 6 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/autoclave/services/domain/logging/ticket_formatter.py tests/test_ticket_formatter.py
@@ -265,7 +265,7 @@ git commit -m "refactor: exponer format_header/format_row/format_footer en ticke
 - Consumes: `autoclave.devices.printer.win32_printer.print_raw(text: str, printer_name: str) -> bool`, `PRINTER_NAME: str`.
 - Produces: `RealtimePrinter(printer_name: str = PRINTER_NAME)` con método `enqueue(text: str) -> None` (no bloqueante, nunca lanza).
 
-- [ ] **Step 1: Escribir los tests (deben fallar)**
+- [x] **Step 1: Escribir los tests (deben fallar)**
 
 Crear `tests/test_realtime_printer.py`:
 
@@ -331,12 +331,12 @@ def test_print_raw_false_loguea_warning_y_continua(monkeypatch, caplog):
     assert "print_raw devolvió False" in caplog.text
 ```
 
-- [ ] **Step 2: Correr los tests para verificar que fallan**
+- [x] **Step 2: Correr los tests para verificar que fallan**
 
 Run: `pytest tests/test_realtime_printer.py -v`
 Expected: `ModuleNotFoundError: No module named 'autoclave.devices.printer.realtime_printer'`
 
-- [ ] **Step 3: Crear `realtime_printer.py`**
+- [x] **Step 3: Crear `realtime_printer.py`**
 
 ```python
 import logging
@@ -373,12 +373,12 @@ class RealtimePrinter:
                 self._queue.task_done()
 ```
 
-- [ ] **Step 4: Correr los tests para verificar que pasan**
+- [x] **Step 4: Correr los tests para verificar que pasan**
 
 Run: `pytest tests/test_realtime_printer.py -v`
 Expected: 3 passed.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/autoclave/devices/printer/realtime_printer.py tests/test_realtime_printer.py
@@ -397,7 +397,7 @@ git commit -m "feat: agregar RealtimePrinter (cola + hilo worker) para impresion
 - Consumes: `format_header`, `format_row`, `format_footer` (Task 1); cualquier objeto con `.enqueue(text: str) -> None` (Task 2 lo cumple; los tests usan un doble).
 - Produces: `CycleLogger(db, estado, config, profile, cycle_manager, printer=None)` — nuevo parámetro opcional `printer`, sin cambios de comportamiento cuando es `None`.
 
-- [ ] **Step 1: Escribir los tests (deben fallar)**
+- [x] **Step 1: Escribir los tests (deben fallar)**
 
 Crear `tests/test_cycle_logger_printer.py`:
 
@@ -554,12 +554,12 @@ def test_sin_printer_no_falla():
     cl.update()
 ```
 
-- [ ] **Step 2: Correr los tests para verificar que fallan**
+- [x] **Step 2: Correr los tests para verificar que fallan**
 
 Run: `pytest tests/test_cycle_logger_printer.py -v`
 Expected: `TypeError: CycleLogger.__init__() got an unexpected keyword argument 'printer'`
 
-- [ ] **Step 3: Modificar `cycle_logger.py`**
+- [x] **Step 3: Modificar `cycle_logger.py`**
 
 Agregar el import de las funciones de formateo justo debajo del import existente de `GlobalState` (línea 23):
 
@@ -712,17 +712,17 @@ Reemplazar `_registrar_lectura` (líneas 200-228) por:
         )
 ```
 
-- [ ] **Step 4: Correr los tests para verificar que pasan**
+- [x] **Step 4: Correr los tests para verificar que pasan**
 
 Run: `pytest tests/test_cycle_logger_printer.py -v`
 Expected: 6 passed.
 
-- [ ] **Step 5: Correr toda la suite de tests para verificar que no se rompió nada**
+- [x] **Step 5: Correr toda la suite de tests para verificar que no se rompió nada**
 
 Run: `pytest tests/ -v`
 Expected: todos los tests existentes siguen pasando (en particular `test_win32_printer.py`, `test_startup_ticket.py`, y cualquier test que ya cubra `CycleLogger`/`ticket_formatter` indirectamente).
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/autoclave/services/domain/logging/cycle_logger.py tests/test_cycle_logger_printer.py
@@ -739,7 +739,7 @@ git commit -m "feat: imprimir ticket de ciclo en tiempo real desde CycleLogger"
 **Interfaces:**
 - Consumes: `RealtimePrinter` (Task 2), `CycleLogger(..., printer=...)` (Task 3).
 
-- [ ] **Step 1: Agregar el import**
+- [x] **Step 1: Agregar el import**
 
 En `src/autoclave/backend/context.py`, junto a los demás imports de `autoclave.services.domain.logging` (línea 16), agregar:
 
@@ -747,7 +747,7 @@ En `src/autoclave/backend/context.py`, junto a los demás imports de `autoclave.
 from autoclave.devices.printer.realtime_printer import RealtimePrinter
 ```
 
-- [ ] **Step 2: Instanciar el printer y pasarlo a `CycleLogger`**
+- [x] **Step 2: Instanciar el printer y pasarlo a `CycleLogger`**
 
 Reemplazar el bloque actual (líneas 70-78):
 
@@ -779,7 +779,7 @@ por:
         )
 ```
 
-- [ ] **Step 3: Verificar que el backend sigue arrancando**
+- [x] **Step 3: Verificar que el backend sigue arrancando**
 
 Run: `python -c "import autoclave.backend.context"`
 Expected: no lanza `ImportError` ni `SyntaxError` (verificación estática; `RealtimePrinter()` abre un hilo daemon inofensivo aunque no exista la impresora física — `print_raw` ya maneja ese caso con un warning).
@@ -787,7 +787,7 @@ Expected: no lanza `ImportError` ni `SyntaxError` (verificación estática; `Rea
 Run: `pytest tests/ -v`
 Expected: todos los tests siguen pasando (este archivo no tiene tests dedicados porque instancia hardware real; se cubre por los tests de `RealtimePrinter` y `CycleLogger` de las tasks anteriores).
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add src/autoclave/backend/context.py
