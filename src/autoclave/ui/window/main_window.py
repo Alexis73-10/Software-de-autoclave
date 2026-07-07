@@ -108,25 +108,36 @@ class InterfazPrincipal(tk.Tk):
     def _do_print_startup_ticket(self):
         try:
             import importlib.metadata
+            import time
             import requests
             from datetime import datetime
             from autoclave.devices.printer.startup_ticket import format_startup_ticket
-            from autoclave.devices.printer.win32_printer import print_raw
+            from autoclave.devices.printer.win32_printer import print_startup
 
-            # Verificar estado del backend y tarjeta
-            try:
-                r = requests.get("http://localhost:8000/status", timeout=1)
-                if r.status_code == 200:
-                    backend_str = "OK"
-                    data = r.json()
-                    temp = data.get("sensors", {}).get("temperature", {}).get("camara")
-                    card_str = "OK" if temp is not None else "Sin datos"
-                else:
-                    backend_str = "ERROR"
-                    card_str = "Sin datos"
-            except Exception:
-                backend_str = "FALLO"
-                card_str = "FALLO"
+            # Esperar hasta que la tarjeta tenga datos o se agote el timeout
+            _TIMEOUT = 15.0
+            _INTERVAL = 0.5
+            deadline = time.monotonic() + _TIMEOUT
+            backend_str = "FALLO"
+            card_str = "FALLO"
+
+            while time.monotonic() < deadline:
+                try:
+                    r = requests.get("http://localhost:8000/status", timeout=1)
+                    if r.status_code == 200:
+                        backend_str = "OK"
+                        data = r.json()
+                        if data.get("card_connected"):
+                            card_str = "OK"
+                            break
+                        card_str = "Sin datos"
+                    else:
+                        backend_str = "ERROR"
+                        card_str = "Sin datos"
+                except Exception:
+                    backend_str = "FALLO"
+                    card_str = "FALLO"
+                time.sleep(_INTERVAL)
 
             status = [
                 ("Backend", backend_str),
@@ -137,7 +148,7 @@ class InterfazPrincipal(tk.Tk):
             text = format_startup_ticket(
                 self._profile, version, self._last_shutdown, datetime.now(), status
             )
-            if print_raw(text):
+            if print_startup(text):
                 logger.info("Ticket de arranque enviado a impresora")
             else:
                 logger.warning("Ticket de arranque: impresión falló (ver warnings anteriores)")
