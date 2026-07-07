@@ -1,4 +1,5 @@
 from collections.abc import Callable
+import requests
 from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -216,8 +217,16 @@ class SalidasDigitalesView(QWidget):
 
         try:
             self._client.post("/io/test/enter")
-        except Exception:
-            pass
+        except requests.HTTPError as exc:
+            reason = exc.response.json().get("detail", str(exc)) if exc.response is not None else str(exc)
+            QMessageBox.warning(self, "No se pudo activar el modo prueba", reason)
+            return
+        except Exception as exc:
+            QMessageBox.warning(
+                self, "No se pudo activar el modo prueba",
+                f"Sin comunicación con el backend: {exc}",
+            )
+            return
 
         self._test_mode = True
         self._banner.show()
@@ -259,6 +268,21 @@ class SalidasDigitalesView(QWidget):
         except Exception:
             pass
 
+    def _sync_forced_exit(self, reason: str) -> None:
+        """El backend canceló el modo prueba por su cuenta (p.ej. paro de
+        emergencia). Sincroniza la UI sin volver a llamar a /io/test/exit."""
+        self._test_mode = False
+        self._banner.hide()
+        self._btn_test.setText("🔧 Habilitar modo prueba")
+        self._btn_test.setStyleSheet("""
+            QPushButton { background: #f0f0f0; color: #333; border-radius: 8px;
+                          border: 1px solid #ccc; font-size: 13px; padding: 0 12px; }
+            QPushButton:hover { background: #e0e0e0; }
+        """)
+        for card in self._cards.values():
+            card.disable_test_mode()
+        QMessageBox.warning(self, "Modo prueba cancelado", reason)
+
     def _refresh(self) -> None:
         try:
             status = self._client.get_status()
@@ -267,6 +291,12 @@ class SalidasDigitalesView(QWidget):
                 card.refresh(do_data.get(name, 0))
             self._lbl_conn.setText("● Conectado")
             self._lbl_conn.setStyleSheet("color: #22c55e; font-size: 12px;")
+
+            if self._test_mode and not status.get("test_mode_active", True):
+                self._sync_forced_exit(
+                    "El sistema canceló el modo prueba automáticamente "
+                    "(paro de emergencia activado)."
+                )
         except Exception:
             self._lbl_conn.setText("○ Sin datos")
             self._lbl_conn.setStyleSheet("color: #ef4444; font-size: 12px;")
