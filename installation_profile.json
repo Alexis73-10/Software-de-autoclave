@@ -5,9 +5,11 @@
   "door_count": 2,
   "door_type": "advanced",
   "equipment_type": "horizontal",
+  "equipment_class": "piso",
   "drying_type": "vacuum",
   "door_id": 1,
   "role": "operator_front",
   "created_at": "2026-05-25T05:49:47.409834",
+  "cooling_level": 3,
   "locked": true
 }

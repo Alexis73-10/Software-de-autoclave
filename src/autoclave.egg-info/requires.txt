@@ -4,3 +4,8 @@ pillow
 PyYAML
 SQLAlchemy
 pydantic
+PySide6
+PySide6-Fluent-Widgets[full]
+pyqtgraph
+keyring
+pywin32

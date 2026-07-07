@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoclave
-Version: 0.2.0
+Version: 0.4.0
 Summary: Sistema de control para autoclave
 Author: Especifika S.A.S., Cristian Cubides
 Requires-Python: >=3.11
@@ -11,3 +11,8 @@ Requires-Dist: pillow
 Requires-Dist: PyYAML
 Requires-Dist: SQLAlchemy
 Requires-Dist: pydantic
+Requires-Dist: PySide6
+Requires-Dist: PySide6-Fluent-Widgets[full]
+Requires-Dist: pyqtgraph
+Requires-Dist: keyring
+Requires-Dist: pywin32
