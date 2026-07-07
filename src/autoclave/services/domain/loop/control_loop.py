@@ -5,6 +5,7 @@ import threading
 from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType
 from autoclave.state_machine.state_machine import StateMachine
+from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
 from autoclave.devices.suministro_electrico.suministro_electrico import SuministroElectrico
 
@@ -48,6 +49,10 @@ class ControlLoop:
 
         self.thread: threading.Thread | None = None
 
+        # Modo prueba (bench validation): pausa state_machine.update() sin
+        # detener el resto del loop (sensores, puertas, enlace serial).
+        self._test_mode = threading.Event()
+
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
     # =========================================================================
@@ -89,22 +94,42 @@ class ControlLoop:
                 bool(self.estado.sensores_di.get("suministro_electrico", 1))
             )
 
-            # 3. Dispositivos → actúan
-            for door in self.doors:
-                door.update()
+            # 2c. Salvaguarda: si se activa el paro de emergencia estando en
+            # modo prueba, se cancela el modo prueba de inmediato para que la
+            # máquina de estados retome el control y aplique su protocolo de
+            # paro de emergencia en este mismo tick.
+            if self._test_mode.is_set() and self.estado.get_flag("PARO_EMERGENCIA"):
+                self.set_do.reset_all_outputs()
+                self._test_mode.clear()
+                logger.warning(
+                    "Modo prueba cancelado automáticamente: paro de emergencia activado."
+                )
+
+            # 3. Dispositivos → actúan (pausado durante el modo prueba: las
+            # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
+            # cada tick mientras están CERRADO, lo que pisaría el control
+            # manual de esas mismas salidas desde /io/test/output).
+            if not self._test_mode.is_set():
+                for door in self.doors:
+                    door.update()
 
             # 4. Servicios → deciden
             self.door_service.update()
 
-            # 5. Máquina de estados global
-            self.state_machine.update()
+            # 5. Máquina de estados global (pausada durante el modo prueba)
+            if not self._test_mode.is_set():
+                self.state_machine.update()
 
             # 6. Data logger (observa machine_state internamente)
             if self.cycle_logger is not None:
                 self.cycle_logger.update()
 
-            # 7. Buzzer
-            self.set_do.buzer.update()
+            # 7. Buzzer (pausado durante el modo prueba: una secuencia ya en
+            # curso al entrar — p.ej. alarma de FALLA, que no bloquea la
+            # entrada a modo prueba — seguiría escribiendo buzer_alarma y
+            # pisaría el control manual de esa salida).
+            if not self._test_mode.is_set():
+                self.set_do.buzer.update()
 
             time.sleep(self.interval)
 
@@ -132,3 +157,31 @@ class ControlLoop:
             self.thread.join(timeout=3)
 
         logger.info("Control loop detenido.")
+
+    # =========================================================================
+    # MODO PRUEBA (bench validation)
+    # =========================================================================
+
+    @property
+    def test_mode_active(self) -> bool:
+        return self._test_mode.is_set()
+
+    def enter_test_mode(self) -> tuple[bool, str]:
+        """Pausa state_machine.update(), las puertas y el buzzer, y apaga
+        todas las salidas para permitir control manual. No pausa la lectura
+        de sensores ni el paro de emergencia."""
+        if self.estado.get_machine_state() == GlobalState.CICLO:
+            return False, "No se puede activar el modo prueba durante un ciclo en curso."
+
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            return False, "No se puede activar el modo prueba con el paro de emergencia activado."
+
+        self._test_mode.set()
+        self.set_do.buzer.stop()
+        self.set_do.reset_all_outputs()
+        return True, ""
+
+    def exit_test_mode(self) -> None:
+        """Apaga todas las salidas y reanuda state_machine.update()."""
+        self._test_mode.clear()
+        self.set_do.reset_all_outputs()

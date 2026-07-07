@@ -30,13 +30,15 @@ def test_reset_all_devuelve_ok(io_client):
 
 
 def test_set_output_activa_vapor_generador(io_client):
+    """map_do es 0-indexado (vapor_generador=0) pero serial_link.set_output()
+    espera el canal DO físico 1-indexado (DO1)."""
     client, mock_setdo = io_client
     mock_setdo.set_output.reset_mock()
     resp = client.patch("/io/test/output/vapor_generador", json={"value": True})
     assert resp.status_code == 200
     data = resp.json()
     assert data == {"ok": True, "name": "vapor_generador", "value": True}
-    mock_setdo.set_output.assert_called_once_with(0, True)
+    mock_setdo.set_output.assert_called_once_with(1, True)
 
 
 def test_set_output_apaga_vapor_caldera(io_client):
@@ -44,7 +46,7 @@ def test_set_output_apaga_vapor_caldera(io_client):
     mock_setdo.set_output.reset_mock()
     resp = client.patch("/io/test/output/vapor_caldera", json={"value": False})
     assert resp.status_code == 200
-    mock_setdo.set_output.assert_called_once_with(1, False)
+    mock_setdo.set_output.assert_called_once_with(2, False)
 
 
 def test_set_output_404_para_nombre_invalido(io_client):

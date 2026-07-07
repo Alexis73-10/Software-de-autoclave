@@ -41,7 +41,28 @@
       "Bash(pytest tests/test_startup_ticket.py tests/test_heartbeat.py tests/test_win32_printer.py -v --tb=short)",
       "Bash(pytest tests/test_startup_ticket.py tests/test_heartbeat.py tests/test_win32_printer.py -q)",
       "Skill(run)",
-      "Skill(run:*)"
+      "Skill(run:*)",
+      "PowerShell(winget install --id AnyDeskSoftwareGmbH.AnyDesk --accept-source-agreements --accept-package-agreements)",
+      "PowerShell(winget install --id AnyDeskSoftwareGmbH.AnyDesk --source winget --accept-source-agreements --accept-package-agreements)",
+      "PowerShell(winget search anydesk --source winget 2>&1)",
+      "PowerShell(winget install --id AnyDesk.AnyDesk --source winget --accept-source-agreements --accept-package-agreements)",
+      "PowerShell(winget install --id oschwartz10612.poppler --source winget --accept-source-agreements --accept-package-agreements)",
+      "PowerShell(pdftoppm --version 2>&1; \\(Get-Command pdftoppm -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell($env:PATH = [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"Machine\"\\) + \";\" + [System.Environment]::GetEnvironmentVariable\\(\"PATH\", \"User\"\\); \\(Get-Command pdftoppm -ErrorAction SilentlyContinue\\).Source)",
+      "PowerShell($pdftoppm = \"C:\\\\Users\\\\tecni\\\\AppData\\\\Local\\\\Microsoft\\\\WinGet\\\\Packages\\\\oschwartz10612.Poppler_Microsoft.Winget.Source_8wekyb3d8bbwe\\\\poppler-25.07.0\\\\Library\\\\bin\\\\pdftoppm.exe\"; & $pdftoppm -r 150 \"C:\\\\Users\\\\tecni\\\\.claude\\\\uploads\\\\2a677653-a606-4148-bc44-750d9b91dab2\\\\296c22bc-S45813ab799e74fd08b9a30fbbbb91eedN_1.pdf\" \"C:\\\\Users\\\\tecni\\\\AppData\\\\Local\\\\Temp\\\\caysn_pdf\\\\page\" 2>&1; echo \"done\")",
+      "PowerShell(New-Item -ItemType Directory -Force \"C:\\\\Users\\\\tecni\\\\AppData\\\\Local\\\\Temp\\\\caysn_pdf\" | Out-Null; $pdftoppm = \"C:\\\\Users\\\\tecni\\\\AppData\\\\Local\\\\Microsoft\\\\WinGet\\\\Packages\\\\oschwartz10612.Poppler_Microsoft.Winget.Source_8wekyb3d8bbwe\\\\poppler-25.07.0\\\\Library\\\\bin\\\\pdftoppm.exe\"; & $pdftoppm -r 150 -png \"C:\\\\Users\\\\tecni\\\\.claude\\\\uploads\\\\2a677653-a606-4148-bc44-750d9b91dab2\\\\296c22bc-S45813ab799e74fd08b9a30fbbbb91eedN_1.pdf\" \"C:\\\\Users\\\\tecni\\\\AppData\\\\Local\\\\Temp\\\\caysn_pdf\\\\page\" 2>&1; echo \"done\")",
+      "PowerShell(python -c \"import escpos; print\\(escpos.__version__\\)\" 2>&1)",
+      "PowerShell(pip install python-escpos)",
+      "Bash(\"C:/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.0/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-07-06-printer-realtime-cycle-ticket.md 1)",
+      "Bash(\"C:/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.0/skills/subagent-driven-development/scripts/review-package\" 8f3800b 75e8e07)",
+      "Bash(\"C:/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.0/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-07-06-printer-realtime-cycle-ticket.md 2)",
+      "Bash(\"C:/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.0/skills/subagent-driven-development/scripts/review-package\" 75e8e07 39dd0f4)",
+      "Bash(\"C:/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.0/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-07-06-printer-realtime-cycle-ticket.md 3)",
+      "Bash(find docs *)",
+      "Bash(find docs/handoff -iname \"*2026-07*\")",
+      "Bash(pip show *)",
+      "Bash(powershell -Command \"Get-Process python* -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,StartTime\")",
+      "Bash(powershell -Command \"Stop-Process -Id 5528,26668 -Force -ErrorAction SilentlyContinue\")"
     ]
   }
 }

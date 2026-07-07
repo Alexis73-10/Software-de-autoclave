@@ -86,6 +86,8 @@ def get_status():
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
+        "card_connected":        context.units.is_connected(),
+        "test_mode_active":      context.control_loop.test_mode_active,
         "doors":   doors,
         "sensors": sensors,
         "alarms":  alarms,
@@ -402,10 +404,31 @@ def io_test_reset_all():
     return {"ok": True}
 
 
+@app.post("/io/test/enter")
+def io_test_enter():
+    """Activa el modo prueba: pausa la máquina de estados (sin importar la
+    fase — PREPARACION o PREPARADO) y apaga todas las salidas para permitir
+    control manual. Rechazado durante CICLO o con el paro de emergencia activo."""
+    ok, reason = context.control_loop.enter_test_mode()
+    if not ok:
+        raise HTTPException(status_code=409, detail=reason)
+    return {"ok": True}
+
+
+@app.post("/io/test/exit")
+def io_test_exit():
+    """Sale del modo prueba: apaga todas las salidas y reanuda la máquina de estados."""
+    context.control_loop.exit_test_mode()
+    return {"ok": True}
+
+
 @app.patch("/io/test/output/{name}")
 def io_test_set_output(name: str, body: _OutputSetBody):
     if name not in EstadoAutoclave.map_do:
         raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
+    # map_do es 0-indexado (posición en el bitstream DO), pero
+    # serial_link.set_output() espera el número de canal DO físico
+    # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
     index = EstadoAutoclave.map_do[name]
-    context.setdo.set_output(index, body.value)
+    context.setdo.set_output(index + 1, body.value)
     return {"ok": True, "name": name, "value": body.value}
