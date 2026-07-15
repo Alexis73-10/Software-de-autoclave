@@ -8,6 +8,8 @@ from autoclave.state_machine.state_machine import StateMachine
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
 from autoclave.devices.suministro_electrico.suministro_electrico import SuministroElectrico
+from datetime import datetime
+from autoclave.devices.printer.connectivity_ticket import format_connectivity_ticket
 
 import logging
 
@@ -24,7 +26,7 @@ class ControlLoop:
 
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
-                 cycle_logger=None, interval=0.5, cap=None):
+                 cycle_logger=None, interval=0.5, cap=None, realtime_printer=None):
         self.units          = units
         self.door_service   = door_service
         self.doors          = doors
@@ -38,6 +40,7 @@ class ControlLoop:
         self.alarm_manager  = alarm_manager
         self.cycle_manager  = cycle_manager
         self.cycle_logger   = cycle_logger
+        self.realtime_printer = realtime_printer
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
@@ -72,8 +75,16 @@ class ControlLoop:
                         blocks_operation=True,
                     )
                 )
+                if self.realtime_printer is not None:
+                    self.realtime_printer.enqueue(
+                        format_connectivity_ticket("TARJETA", False, datetime.now())
+                    )
             elif connected and not self.link_was_connected:
                 self.alarm_manager.clear("NO_HAY_CONEXION")
+                if self.realtime_printer is not None:
+                    self.realtime_printer.enqueue(
+                        format_connectivity_ticket("TARJETA", True, datetime.now())
+                    )
 
             self.link_was_connected = connected
 
