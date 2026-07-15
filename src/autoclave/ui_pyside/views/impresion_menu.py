@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from datetime import datetime
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
@@ -39,6 +40,28 @@ _BTN_BACK = """
     }
     QPushButton:hover { background: #e0e0e0; }
 """
+
+
+def _build_alarms_ticket_lines(alarms: list[dict]) -> list[str]:
+    now = datetime.now()
+    lines: list[str] = [
+        "------------------------",
+        "ALARMAS ACTIVAS",
+        f"Fecha: {now.strftime('%d/%m/%Y')}",
+        f"Hora:  {now.strftime('%H:%M:%S')}",
+        "------------------------",
+    ]
+    for alarma in alarms:
+        lines += [
+            f"ID: {alarma.get('id', '')}",
+            f"Nivel: {alarma.get('level', '')}",
+            f"Origen: {alarma.get('source_state', '')}",
+            alarma.get("description") or "",
+            "------------------------",
+        ]
+    lines.append(f"Total: {len(alarms)} alarma(s)")
+    lines.append("------------------------")
+    return lines
 
 
 class ImpresionMenuView(QWidget):
