@@ -1,22 +1,34 @@
 from collections.abc import Callable
 from datetime import datetime
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QFont
+from PySide6.QtCore import Qt, QMarginsF, QSizeF
+from PySide6.QtGui import QFont, QPainter, QPageLayout, QPageSize
+from PySide6.QtPrintSupport import QPrintDialog, QPrinter
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
+from autoclave.ui.service_ui.backend_client import BackendClient
+
 _PRINT_OPTIONS: list[tuple[str, str, str | None]] = [
     ("📋", "Imprimir Ciclos",  "ciclos"),
     ("🚨", "Imprimir Alarmas", None),
 ]
+
+_BACKEND_URL = "http://localhost:8000"
+
+_PAPER_W_MM  = 55.0
+_MARGIN_H_MM = 2.0
+_MARGIN_V_MM = 3.0
+_FONT_PT     = 7
+_FONT_FAMILY = "Courier New"
 
 _BTN_OPTION = """
     QPushButton {{
@@ -64,10 +76,37 @@ def _build_alarms_ticket_lines(alarms: list[dict]) -> list[str]:
     return lines
 
 
+def _wrap(text: str, max_chars: int) -> list[str]:
+    if len(text) <= max_chars:
+        return [text]
+    return [text[i:i + max_chars] for i in range(0, len(text), max_chars)]
+
+
+def _draw_ticket_lines(printer: QPrinter, lines: list[str]) -> None:
+    painter = QPainter(printer)
+    font = QFont(_FONT_FAMILY, _FONT_PT)
+    painter.setFont(font)
+    fm = painter.fontMetrics()
+
+    page_rect  = printer.pageRect(QPrinter.Unit.DevicePixel)
+    char_w     = fm.horizontalAdvance("M")
+    chars_line = max(20, int(page_rect.width() // char_w))
+    line_h     = fm.lineSpacing() + 1
+
+    y = page_rect.top() + fm.ascent()
+    for raw in lines:
+        for seg in _wrap(raw, chars_line):
+            painter.drawText(int(page_rect.left()), int(y), seg)
+            y += line_h
+
+    painter.end()
+
+
 class ImpresionMenuView(QWidget):
     def __init__(self, nav_callback: Callable[[str], None]) -> None:
         super().__init__()
         self._nav = nav_callback
+        self._client = BackendClient(_BACKEND_URL)
 
         self.setStyleSheet("""
             ImpresionMenuView {
@@ -139,5 +178,25 @@ class ImpresionMenuView(QWidget):
     # ── Impresión de alarmas ──────────────────────────────────────────
 
     def _print_alarms(self) -> None:
-        """Implementado en la Tarea 4."""
-        pass
+        try:
+            status = self._client.get_status()
+            alarms = status.get("alarms", [])
+        except Exception:
+            alarms = []
+
+        if not alarms:
+            QMessageBox.information(self, "Alarmas", "No hay alarmas activas.")
+            return
+
+        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
+        printer.setPageSize(
+            QPageSize(QSizeF(_PAPER_W_MM, 297.0), QPageSize.Unit.Millimeter)
+        )
+        printer.setPageMargins(
+            QMarginsF(_MARGIN_H_MM, _MARGIN_V_MM, _MARGIN_H_MM, _MARGIN_V_MM),
+            QPageLayout.Unit.Millimeter,
+        )
+        if QPrintDialog(printer, self).exec() != QPrintDialog.DialogCode.Accepted:
+            return
+
+        _draw_ticket_lines(printer, _build_alarms_ticket_lines(alarms))
