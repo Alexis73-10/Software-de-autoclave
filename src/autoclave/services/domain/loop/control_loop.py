@@ -62,87 +62,91 @@ class ControlLoop:
 
     def run(self):
         while self._running.is_set():
-            connected = self.link.is_connected()
-
-            if not connected and self.link_was_connected:
-                self.alarm_manager.report(
-                    Alarm(
-                        alarm_id="NO_HAY_CONEXION",
-                        alarm_type=AlarmType.FALLA,
-                        source_state="CONTROL_LOOP",
-                        description="No hay comunicación con el hardware.",
-                        recoverable=True,
-                        blocks_operation=True,
-                    )
-                )
-                if self.realtime_printer is not None:
-                    self.realtime_printer.enqueue(
-                        format_connectivity_ticket("TARJETA", False, datetime.now())
-                    )
-            elif connected and not self.link_was_connected:
-                self.alarm_manager.clear("NO_HAY_CONEXION")
-                if self.realtime_printer is not None:
-                    self.realtime_printer.enqueue(
-                        format_connectivity_ticket("TARJETA", True, datetime.now())
-                    )
-
-            self.link_was_connected = connected
-
-            if not connected:
-                time.sleep(self.interval)
-                continue
-
-            # 1. Publicar estado global
-            self.estado.update(self.units.get_all())
-
-            # 2. Paro de emergencia → actualiza flag en estado
-            self.paro_emergencia.update(
-                bool(self.estado.sensores_di.get("paro_emergencia", 0))
-            )
-
-            # 2b. Suministro eléctrico → actualiza flag en estado
-            self.suministro_electrico.update(
-                bool(self.estado.sensores_di.get("suministro_electrico", 1))
-            )
-
-            # 2c. Salvaguarda: si se activa el paro de emergencia estando en
-            # modo prueba, se cancela el modo prueba de inmediato para que la
-            # máquina de estados retome el control y aplique su protocolo de
-            # paro de emergencia en este mismo tick.
-            if self._test_mode.is_set() and self.estado.get_flag("PARO_EMERGENCIA"):
-                self.set_do.reset_all_outputs()
-                self._test_mode.clear()
-                logger.warning(
-                    "Modo prueba cancelado automáticamente: paro de emergencia activado."
-                )
-
-            # 3. Dispositivos → actúan (pausado durante el modo prueba: las
-            # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
-            # cada tick mientras están CERRADO, lo que pisaría el control
-            # manual de esas mismas salidas desde /io/test/output).
-            if not self._test_mode.is_set():
-                for door in self.doors:
-                    door.update()
-
-            # 4. Servicios → deciden
-            self.door_service.update()
-
-            # 5. Máquina de estados global (pausada durante el modo prueba)
-            if not self._test_mode.is_set():
-                self.state_machine.update()
-
-            # 6. Data logger (observa machine_state internamente)
-            if self.cycle_logger is not None:
-                self.cycle_logger.update()
-
-            # 7. Buzzer (pausado durante el modo prueba: una secuencia ya en
-            # curso al entrar — p.ej. alarma de FALLA, que no bloquea la
-            # entrada a modo prueba — seguiría escribiendo buzer_alarma y
-            # pisaría el control manual de esa salida).
-            if not self._test_mode.is_set():
-                self.set_do.buzer.update()
-
+            try:
+                self._tick()
+            except Exception as exc:
+                logger.warning("ControlLoop: error inesperado en el ciclo: %s", exc)
             time.sleep(self.interval)
+
+    def _tick(self):
+        connected = self.link.is_connected()
+
+        if not connected and self.link_was_connected:
+            self.alarm_manager.report(
+                Alarm(
+                    alarm_id="NO_HAY_CONEXION",
+                    alarm_type=AlarmType.FALLA,
+                    source_state="CONTROL_LOOP",
+                    description="No hay comunicación con el hardware.",
+                    recoverable=True,
+                    blocks_operation=True,
+                )
+            )
+            if self.realtime_printer is not None:
+                self.realtime_printer.enqueue(
+                    format_connectivity_ticket("TARJETA", False, datetime.now())
+                )
+        elif connected and not self.link_was_connected:
+            self.alarm_manager.clear("NO_HAY_CONEXION")
+            if self.realtime_printer is not None:
+                self.realtime_printer.enqueue(
+                    format_connectivity_ticket("TARJETA", True, datetime.now())
+                )
+
+        self.link_was_connected = connected
+
+        if not connected:
+            return
+
+        # 1. Publicar estado global
+        self.estado.update(self.units.get_all())
+
+        # 2. Paro de emergencia → actualiza flag en estado
+        self.paro_emergencia.update(
+            bool(self.estado.sensores_di.get("paro_emergencia", 0))
+        )
+
+        # 2b. Suministro eléctrico → actualiza flag en estado
+        self.suministro_electrico.update(
+            bool(self.estado.sensores_di.get("suministro_electrico", 1))
+        )
+
+        # 2c. Salvaguarda: si se activa el paro de emergencia estando en
+        # modo prueba, se cancela el modo prueba de inmediato para que la
+        # máquina de estados retome el control y aplique su protocolo de
+        # paro de emergencia en este mismo tick.
+        if self._test_mode.is_set() and self.estado.get_flag("PARO_EMERGENCIA"):
+            self.set_do.reset_all_outputs()
+            self._test_mode.clear()
+            logger.warning(
+                "Modo prueba cancelado automáticamente: paro de emergencia activado."
+            )
+
+        # 3. Dispositivos → actúan (pausado durante el modo prueba: las
+        # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
+        # cada tick mientras están CERRADO, lo que pisaría el control
+        # manual de esas mismas salidas desde /io/test/output).
+        if not self._test_mode.is_set():
+            for door in self.doors:
+                door.update()
+
+        # 4. Servicios → deciden
+        self.door_service.update()
+
+        # 5. Máquina de estados global (pausada durante el modo prueba)
+        if not self._test_mode.is_set():
+            self.state_machine.update()
+
+        # 6. Data logger (observa machine_state internamente)
+        if self.cycle_logger is not None:
+            self.cycle_logger.update()
+
+        # 7. Buzzer (pausado durante el modo prueba: una secuencia ya en
+        # curso al entrar — p.ej. alarma de FALLA, que no bloquea la
+        # entrada a modo prueba — seguiría escribiendo buzer_alarma y
+        # pisaría el control manual de esa salida).
+        if not self._test_mode.is_set():
+            self.set_do.buzer.update()
 
     # =========================================================================
     # CONTROL DE VIDA
