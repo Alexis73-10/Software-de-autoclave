@@ -197,10 +197,14 @@ class AdvancedDoor(Door):
         return val if val is not None else False
     
     def atrapamiento(self, ):
+        # Sensor NC: el equipo envía 0 cuando la puerta está atrapada y 1 en
+        # operación normal, señal invertida respecto al resto de las DI.
         if "atrapamiento" not in self.di:
             return False
         val = self.estado.sensores_di.get(self.di["atrapamiento"])
-        return val if val is not None else False
+        if val is None:
+            return False
+        return val == 0
     
     def presion_empaque(self, ):
         if "presion_empaque" not in self.ai:
@@ -475,7 +479,7 @@ class AdvancedDoor(Door):
             self.desbloquear_on()
             self._pulso_desbloqueo_enviado = True
 
-        if self.atrapamiento() == 1:
+        if self.atrapamiento():
             self.cerrar_off()
             self._alarm_clear(f"CERRANDO_MODO_SEGURO_{self.name}")
             self.timer_start = None

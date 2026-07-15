@@ -23,9 +23,9 @@ class HomeView(QWidget):
                 "secado",
             ),
             (
-                "🖨  Imprimir Ciclos",
-                "Consulta e imprime el historial de ciclos",
-                "ciclos",
+                "🖨  Impresión General",
+                "Imprime ciclos, alarmas y más",
+                "impresion_menu",
             ),
             (
                 "👤  Login",

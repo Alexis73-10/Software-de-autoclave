@@ -92,5 +92,6 @@ class BackendContext:
             config_manager=self.config_manager,
             cycle_logger=self.cycle_logger,
             cap=cap,
+            realtime_printer=self.realtime_printer,
         )
         self.control_loop.start()

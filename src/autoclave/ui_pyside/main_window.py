@@ -41,6 +41,7 @@ class MainWindowFluent(QMainWindow):
         from autoclave.ui_pyside.views.secado     import SecadoView
         from autoclave.ui_pyside.views.login      import LoginView
         from autoclave.ui_pyside.views.ciclos     import CiclosView
+        from autoclave.ui_pyside.views.impresion_menu import ImpresionMenuView
         from autoclave.ui_pyside.views.admin_menu import AdminMenuView
         from autoclave.ui_pyside.views.entrdas_salidas.io_menu    import EntradasSalidasMenuView
         from autoclave.ui_pyside.views.entrdas_salidas.io_di      import EntradasDigitalesView
@@ -53,6 +54,7 @@ class MainWindowFluent(QMainWindow):
         self._secado     = SecadoView(nav_callback=self.navigate_to)
         self._login      = LoginView(nav_callback=self.navigate_to)
         self._ciclos     = CiclosView(nav_callback=self.navigate_to)
+        self._impresion_menu = ImpresionMenuView(nav_callback=self.navigate_to)
         self._admin_menu = AdminMenuView(nav_callback=self.navigate_to)
         self._io_menu    = EntradasSalidasMenuView(nav_callback=self.navigate_to)
         self._io_di      = EntradasDigitalesView(nav_callback=self.navigate_to)
@@ -62,7 +64,7 @@ class MainWindowFluent(QMainWindow):
         self._params_ciclo = ParametrosCicloView(nav_callback=self.navigate_to)
 
         for view in (self._home, self._secado, self._login,
-                     self._ciclos, self._admin_menu, self._io_menu,
+                     self._ciclos, self._impresion_menu, self._admin_menu, self._io_menu,
                      self._io_di, self._io_temp, self._io_pres, self._io_do,
                      self._params_ciclo):
             self._stack.addWidget(view)
@@ -177,6 +179,7 @@ class MainWindowFluent(QMainWindow):
             "secado":       self._secado,
             "login":        self._login,
             "ciclos":       self._ciclos,
+            "impresion_menu": self._impresion_menu,
             "admin_menu":   self._admin_menu,
             "io_menu":      self._io_menu,
             "io_di":        self._io_di,

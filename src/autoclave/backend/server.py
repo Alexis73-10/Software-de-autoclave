@@ -74,6 +74,8 @@ def get_status():
         {
             "id": alarma.id,
             "level": alarma.type.name,
+            "description": alarma.description,
+            "source_state": alarma.source_state,
         }
         for alarma in estado.Alarmas_activas
     ]
