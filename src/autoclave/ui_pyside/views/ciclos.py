@@ -266,7 +266,7 @@ class CiclosView(QWidget):
         # Cabecera
         header_row = QHBoxLayout()
         btn_back = PushButton("← Volver")
-        btn_back.clicked.connect(lambda: self._nav("home"))
+        btn_back.clicked.connect(lambda: self._nav("impresion_menu"))
         header_row.addWidget(btn_back)
         header_row.addStretch()
         layout.addLayout(header_row)
