@@ -11,7 +11,7 @@ def _make_door(fallo_suministro=False):
         lambda f: fallo_suministro if f == "FALLO_SUMINISTRO_ELECTRICO" else False
     )
     estado.sensores_di = {
-        "puerta_1_abierta": 0, "puerta_1_cerrada": 0, "atrapamiento_puerta_1": 0,
+        "puerta_1_abierta": 0, "puerta_1_cerrada": 0, "atrapamiento_puerta_1": 1,
     }
     estado.sensores_pres = {"pres_empaque_1": 200.0}
     estado.get_door_state.return_value = DoorState.ABRIENDO
@@ -122,3 +122,24 @@ def test_modo_seguro_usa_umbral_atmosferico_al_cerrar():
     door._from_cerrando()
     # cerrar_on (DO22) should NOT have been called
     assert (22, True) not in [c.args for c in set_do.set_output.call_args_list]
+
+
+# ─── Polaridad de la señal de atrapamiento (NC: 0 físico = atrapada) ──────────
+
+def test_atrapamiento_en_0_transiciona_a_atrapada():
+    """Sensor NC: valor físico 0 significa puerta atrapada."""
+    door, set_do, alarm_mgr, _ = _make_door(fallo_suministro=False)
+    door.estado.sensores_di["atrapamiento_puerta_1"] = 0
+    door._from_cerrando()
+    door.estado.update_door_state.assert_called_with("Puerta 1", DoorState.ATRAPADA)
+
+
+def test_atrapamiento_en_1_no_transiciona_a_atrapada():
+    """Sensor NC: valor físico 1 significa operación normal, no atrapada."""
+    door, set_do, alarm_mgr, _ = _make_door(fallo_suministro=False)
+    door.estado.sensores_di["atrapamiento_puerta_1"] = 1
+    door._from_cerrando()
+    assert (
+        ("Puerta 1", DoorState.ATRAPADA)
+        not in [c.args for c in door.estado.update_door_state.call_args_list]
+    )
