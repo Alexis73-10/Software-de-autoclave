@@ -125,7 +125,7 @@ def test_print_alarms_backend_no_disponible_muestra_aviso_no_abre_dialogo():
         mock_dialog.assert_not_called()
 
 
-def test_print_alarms_con_alarmas_abre_dialogo_impresion():
+def test_print_alarms_con_alarmas_dialogo_rechazado_no_dibuja_ticket():
     from autoclave.ui_pyside.views.impresion_menu import ImpresionMenuView
     from PySide6.QtPrintSupport import QPrintDialog
 
@@ -139,9 +139,57 @@ def test_print_alarms_con_alarmas_abre_dialogo_impresion():
     }
 
     with patch("autoclave.ui_pyside.views.impresion_menu.QMessageBox") as mock_box, \
-         patch("autoclave.ui_pyside.views.impresion_menu.QPrintDialog") as mock_dialog_cls:
+         patch("autoclave.ui_pyside.views.impresion_menu.QPrintDialog") as mock_dialog_cls, \
+         patch("autoclave.ui_pyside.views.impresion_menu._draw_ticket_lines") as mock_draw:
+        # Se preserva el enum real para que la comparación de la clase mockeada
+        # en producción (QPrintDialog.DialogCode.Accepted) siga funcionando.
+        mock_dialog_cls.DialogCode = QPrintDialog.DialogCode
         mock_dialog_cls.return_value.exec.return_value = QPrintDialog.DialogCode.Rejected
         view._print_alarms()
 
         mock_dialog_cls.assert_called_once()
         mock_box.information.assert_not_called()
+        mock_draw.assert_not_called()
+
+
+def test_print_alarms_con_alarmas_dialogo_aceptado_dibuja_ticket():
+    from autoclave.ui_pyside.views.impresion_menu import (
+        ImpresionMenuView,
+        _build_alarms_ticket_lines,
+    )
+    from PySide6.QtPrintSupport import QPrintDialog
+    from PySide6.QtPrintSupport import QPrinter
+
+    alarms = [{
+        "id": "X", "level": "ALERTA",
+        "description": "desc", "source_state": "CICLO",
+    }]
+
+    view = ImpresionMenuView(nav_callback=lambda x: None)
+    view._client = MagicMock()
+    view._client.get_status.return_value = {"alarms": alarms}
+
+    with patch("autoclave.ui_pyside.views.impresion_menu.QMessageBox") as mock_box, \
+         patch("autoclave.ui_pyside.views.impresion_menu.QPrintDialog") as mock_dialog_cls, \
+         patch("autoclave.ui_pyside.views.impresion_menu._draw_ticket_lines") as mock_draw:
+        # Se preserva el enum real para que la comparación de la clase mockeada
+        # en producción (QPrintDialog.DialogCode.Accepted) siga funcionando.
+        mock_dialog_cls.DialogCode = QPrintDialog.DialogCode
+        mock_dialog_cls.return_value.exec.return_value = QPrintDialog.DialogCode.Accepted
+        view._print_alarms()
+
+        mock_dialog_cls.assert_called_once()
+        mock_box.information.assert_not_called()
+        mock_draw.assert_called_once()
+
+        printer_arg, lines_arg = mock_draw.call_args[0]
+        assert isinstance(printer_arg, QPrinter)
+        expected_text = "\n".join(_build_alarms_ticket_lines(alarms))
+        actual_text = "\n".join(lines_arg)
+        assert "ID: X" in actual_text
+        assert "Nivel: ALERTA" in actual_text
+        assert "Origen: CICLO" in actual_text
+        assert "Total: 1 alarma(s)" in actual_text
+        # Compara también contra la construcción real de líneas (salvo el
+        # timestamp, que puede variar en microsegundos entre ambas llamadas).
+        assert len(lines_arg) == len(expected_text.split("\n"))
