@@ -11,6 +11,7 @@ import requests
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.wizard import launch_installation_wizard
 from autoclave.installation.clock_guard import ClockTamperedError
+from autoclave.installation import backend_guard
 from autoclave.devices.printer import heartbeat
 
 logging.basicConfig(level=logging.INFO)
@@ -84,6 +85,7 @@ def main():
         if is_backend_alive():
             logger.info("Backend ya estaba corriendo")
         else:
+            backend_guard.cleanup_stale_backend()
             logger.info("Iniciando backend...")
             backend_process = subprocess.Popen(
                 [sys.executable, "-m", "autoclave.backend.main"],
@@ -91,6 +93,7 @@ def main():
                 stderr=None,
                 env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             )
+            backend_guard.write_backend_pid(backend_process.pid)
             if not wait_for_backend(process=backend_process, max_wait=40):
                 logger.error("Backend no respondió — la UI arrancará sin datos")
     else:
