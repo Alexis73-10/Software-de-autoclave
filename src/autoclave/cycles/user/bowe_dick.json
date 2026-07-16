@@ -75,7 +75,7 @@
                 "max": 100
             },
             "presion_alta_pulso_a": {
-                "value": 160,
+                "value": 90,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -87,7 +87,7 @@
                 "max": 3600
             },
             "presion_baja_pulso_a": {
-                "value": 50,
+                "value": 40,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -117,7 +117,7 @@
                 "max": 3600
             },
             "presion_baja_pulso_b": {
-                "value": 110,
+                "value": 100,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -277,7 +277,7 @@
         },
         "estabilizacion": {
             "tiempo_estabilizacion": {
-                "value": 0,
+                "value": 60,
                 "type": "int",
                 "unit": "seg",
                 "min": 0,
@@ -305,7 +305,7 @@
                 "max": 1000
             },
             "timeout_recuperacion": {
-                "value": 10,
+                "value": 5,
                 "type": "int",
                 "unit": "seg",
                 "min": 0,
