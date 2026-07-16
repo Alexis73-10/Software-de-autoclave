@@ -97,6 +97,7 @@ class CalentamientoFase(BaseFase):
                 if pres > p_sat + tolerancia:
                     self.set_do.vapor_camara_off()
                     self._t_pulso_vapor_chk = None
+                    self._vapor_chk_abierto = False
                 elif temp < techo:
                     t_on  = self.cycle.get_param("calentamiento", "tiempo_apertura_vapor_checkpoint")
                     t_off = self.cycle.get_param("calentamiento", "tiempo_cierre_vapor_checkpoint")
@@ -118,6 +119,7 @@ class CalentamientoFase(BaseFase):
                 else:
                     self.set_do.vapor_camara_off()
                     self._t_pulso_vapor_chk = None
+                    self._vapor_chk_abierto = False
             return FaseResult.EN_CURSO
 
         # ── 5. Verificar completación ───────────────────────────────────
