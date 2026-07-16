@@ -13,7 +13,7 @@ import keyring
 
 from PySide6.QtCore import QDate, QMarginsF, QSettings, QSizeF, Qt
 from PySide6.QtGui import QFont, QPainter, QPageLayout, QPageSize
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from PySide6.QtPrintSupport import QPrinter
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QDialog,
@@ -37,6 +37,8 @@ from qfluentwidgets import (
     SubtitleLabel,
     TableWidget,
 )
+
+from autoclave.devices.printer.win32_printer import PRINTER_NAME, print_raw
 
 _MESES = {
     1: "ENE", 2: "FEB", 3: "MAR", 4: "ABR", 5: "MAY", 6: "JUN",
@@ -399,17 +401,16 @@ class CiclosView(QWidget):
         ids = self._get_selected_ids()
         if not ids:
             return
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        printer.setPageSize(
-            QPageSize(QSizeF(_PAPER_W_MM, 297.0), QPageSize.Unit.Millimeter)
-        )
-        printer.setPageMargins(
-            QMarginsF(_MARGIN_H_MM, _MARGIN_V_MM, _MARGIN_H_MM, _MARGIN_V_MM),
-            QPageLayout.Unit.Millimeter,
-        )
-        if QPrintDialog(printer, self).exec() != QPrintDialog.DialogCode.Accepted:
+        cycles_data = self._load_cycles_data(ids)
+        if not cycles_data:
             return
-        self._draw_cycles(printer, self._load_cycles_data(ids))
+        text = "\n".join(
+            line
+            for ciclo, lecturas in cycles_data
+            for line in _build_cycle_lines(ciclo, lecturas)
+        )
+        if not print_raw(text, PRINTER_NAME):
+            QMessageBox.warning(self, "Imprimir", "No se pudo imprimir el ticket.")
 
     def _draw_cycles(self, printer: QPrinter, cycles_data: list) -> None:
         if not cycles_data:
