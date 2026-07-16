@@ -46,13 +46,39 @@ def test_calentamiento_normal_valvula_on():
 
 
 def test_completado_cuando_alcanza_temperatura():
+    """Con ambos checkpoints liberados, alcanzar t_obj completa la fase."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, set_do = _make_fase(t_obj=134.0)
     fase.update()  # inicializar
+
+    estado.sensores_temp["temp_camara"] = 107.2  # 80% — libera checkpoint 1
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(107.2)
+    fase.update()
+
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera checkpoint 2
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
+    fase.update()
+
     estado.sensores_temp["temp_camara"] = 135.0
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.vapor_camara_off.assert_called()
     set_do.descompresion_lenta_off.assert_called()
+
+
+def test_checkpoint_pendiente_bloquea_completacion():
+    """Si temp >= t_obj pero un checkpoint sigue sin liberarse, no completa."""
+    fase, estado, set_do = _make_fase(t_obj=134.0)
+    fase.update()  # inicializar
+
+    # Salta directo a t_obj sin pasar por los checkpoints con presión correcta
+    # (aire residual / vapor no saturado: presión fija en 100.0 kPa)
+    estado.sensores_temp["temp_camara"] = 135.0
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._en_checkpoint is True
+    set_do.vapor_camara_off.assert_not_called()
+    set_do.descompresion_lenta_off.assert_not_called()
 
 
 def test_fallo_por_timeout():
@@ -108,8 +134,18 @@ def test_checkpoint_se_libera_con_presion_correcta():
 
 
 def test_salidas_apagadas_al_completar():
+    from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, set_do = _make_fase(t_obj=134.0)
     fase.update()
+
+    estado.sensores_temp["temp_camara"] = 107.2  # 80% — libera checkpoint 1
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(107.2)
+    fase.update()
+
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera checkpoint 2
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
+    fase.update()
+
     estado.sensores_temp["temp_camara"] = 134.0
     fase.update()
     set_do.vapor_camara_off.assert_called()

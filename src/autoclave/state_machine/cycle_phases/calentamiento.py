@@ -63,10 +63,38 @@ class CalentamientoFase(BaseFase):
         temp = self._temp_camara()
         pres = self._pres_camara()
 
-        # ── 3. Verificar completación antes de checkpoint ─────────────────
         if temp is None:
             return FaseResult.EN_CURSO
 
+        # ── 3. Entrada a checkpoint ───────────────────────────────────────
+        if (not self._en_checkpoint and self._checkpoints
+                and temp >= self._checkpoints[0]):
+            self._en_checkpoint = True
+            self.estado.fase_en_sostenimiento = True
+            logger.info(
+                "Calentamiento: checkpoint %.1f°C — verificando vapor saturado",
+                self._checkpoints[0],
+            )
+
+        # ── 4. Lógica de checkpoint — bloquea la finalización mientras esté
+        #      pendiente, aunque temp ya haya alcanzado t_obj ─────────────
+        if self._en_checkpoint:
+            if pres is None:
+                return FaseResult.EN_CURSO
+            if self._verificar_vapor_saturado(temp, pres, tolerancia):
+                logger.info("Calentamiento: checkpoint %.1f°C liberado", self._checkpoints[0])
+                self._checkpoints.pop(0)
+                self._en_checkpoint = False
+                self.estado.fase_en_sostenimiento = False
+            else:
+                p_sat = p_saturacion_kpa(temp)
+                if pres > p_sat + tolerancia:
+                    self.set_do.vapor_camara_off()
+                else:
+                    self.set_do.vapor_camara_on()
+            return FaseResult.EN_CURSO
+
+        # ── 5. Verificar completación ───────────────────────────────────
         if self.cap.has_liquid_sensor:
             temp2 = self._temp_camara_2()
             if temp2 is None:
@@ -83,33 +111,6 @@ class CalentamientoFase(BaseFase):
                 logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
                 self._apagar_salidas()
                 return FaseResult.COMPLETADO
-
-        # ── 4. Entrada a checkpoint ──────────────────────────────────────
-        if (not self._en_checkpoint and self._checkpoints
-                and temp >= self._checkpoints[0]):
-            self._en_checkpoint = True
-            self.estado.fase_en_sostenimiento = True
-            logger.info(
-                "Calentamiento: checkpoint %.1f°C — verificando vapor saturado",
-                self._checkpoints[0],
-            )
-
-        # ── 5. Lógica de checkpoint ──────────────────────────────────────
-        if self._en_checkpoint:
-            if pres is None:
-                return FaseResult.EN_CURSO
-            if self._verificar_vapor_saturado(temp, pres, tolerancia):
-                logger.info("Calentamiento: checkpoint %.1f°C liberado", self._checkpoints[0])
-                self._checkpoints.pop(0)
-                self._en_checkpoint = False
-                self.estado.fase_en_sostenimiento = False
-            else:
-                p_sat = p_saturacion_kpa(temp)
-                if pres > p_sat + tolerancia:
-                    self.set_do.vapor_camara_off()
-                else:
-                    self.set_do.vapor_camara_on()
-            return FaseResult.EN_CURSO
 
         # ── 6. Control de rampa ──────────────────────────────────────────
 
