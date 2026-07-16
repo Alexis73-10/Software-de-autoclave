@@ -6,8 +6,11 @@ _PID_FILE = Path(__file__).resolve().parents[3] / "data" / "backend.pid"
 
 
 def write_backend_pid(pid: int, path: Path = _PID_FILE) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(str(pid), encoding="utf-8")
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(str(pid), encoding="utf-8")
+    except Exception as exc:
+        logger.warning("write_backend_pid: no se pudo escribir %s: %s", path, exc)
 
 
 def read_backend_pid(path: Path = _PID_FILE) -> int | None:
@@ -33,7 +36,10 @@ def is_stale_backend_running(pid: int) -> bool:
 
 
 def kill_stale_backend(pid: int) -> None:
-    subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True, timeout=5)
+    try:
+        subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True, timeout=5)
+    except Exception as exc:
+        logger.warning("kill_stale_backend: no se pudo terminar PID %d: %s", pid, exc)
 
 
 def cleanup_stale_backend(path: Path = _PID_FILE) -> None:

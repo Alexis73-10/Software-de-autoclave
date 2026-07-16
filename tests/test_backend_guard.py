@@ -19,6 +19,12 @@ def test_read_backend_pid_corrupt_content_returns_none(tmp_path):
     assert backend_guard.read_backend_pid(path) is None
 
 
+def test_write_backend_pid_no_lanza_si_falla_la_escritura(tmp_path):
+    path = tmp_path / "sub" / "backend.pid"
+    with patch("autoclave.installation.backend_guard.Path.write_text", side_effect=PermissionError("denegado")):
+        backend_guard.write_backend_pid(4242, path)  # no debe lanzar
+
+
 def test_is_stale_backend_running_true_when_cmdline_matches():
     with patch("autoclave.installation.backend_guard.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(
@@ -45,6 +51,11 @@ def test_kill_stale_backend_calls_taskkill_con_pid():
         mock_run.assert_called_once()
         args = mock_run.call_args[0][0]
         assert args == ["taskkill", "/PID", "4321", "/F"]
+
+
+def test_kill_stale_backend_no_lanza_si_taskkill_falla():
+    with patch("autoclave.installation.backend_guard.subprocess.run", side_effect=Exception("taskkill no disponible")):
+        backend_guard.kill_stale_backend(4321)  # no debe lanzar
 
 
 def test_cleanup_stale_backend_mata_proceso_huerfano(tmp_path):
