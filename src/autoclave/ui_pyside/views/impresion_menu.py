@@ -1,9 +1,8 @@
 from collections.abc import Callable
 from datetime import datetime
 
-from PySide6.QtCore import Qt, QMarginsF, QSizeF
-from PySide6.QtGui import QFont, QPainter, QPageLayout, QPageSize
-from PySide6.QtPrintSupport import QPrintDialog, QPrinter
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -15,6 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from autoclave.devices.printer.win32_printer import PRINTER_NAME, print_raw
 from autoclave.ui.service_ui.backend_client import BackendClient
 
 _PRINT_OPTIONS: list[tuple[str, str, str | None]] = [
@@ -23,12 +23,6 @@ _PRINT_OPTIONS: list[tuple[str, str, str | None]] = [
 ]
 
 _BACKEND_URL = "http://localhost:8000"
-
-_PAPER_W_MM  = 55.0
-_MARGIN_H_MM = 2.0
-_MARGIN_V_MM = 3.0
-_FONT_PT     = 7
-_FONT_FAMILY = "Courier New"
 
 _BTN_OPTION = """
     QPushButton {{
@@ -74,32 +68,6 @@ def _build_alarms_ticket_lines(alarms: list[dict]) -> list[str]:
     lines.append(f"Total: {len(alarms)} alarma(s)")
     lines.append("------------------------")
     return lines
-
-
-def _wrap(text: str, max_chars: int) -> list[str]:
-    if len(text) <= max_chars:
-        return [text]
-    return [text[i:i + max_chars] for i in range(0, len(text), max_chars)]
-
-
-def _draw_ticket_lines(printer: QPrinter, lines: list[str]) -> None:
-    painter = QPainter(printer)
-    font = QFont(_FONT_FAMILY, _FONT_PT)
-    painter.setFont(font)
-    fm = painter.fontMetrics()
-
-    page_rect  = printer.pageRect(QPrinter.Unit.DevicePixel)
-    char_w     = fm.horizontalAdvance("M")
-    chars_line = max(20, int(page_rect.width() // char_w))
-    line_h     = fm.lineSpacing() + 1
-
-    y = page_rect.top() + fm.ascent()
-    for raw in lines:
-        for seg in _wrap(raw, chars_line):
-            painter.drawText(int(page_rect.left()), int(y), seg)
-            y += line_h
-
-    painter.end()
 
 
 class ImpresionMenuView(QWidget):
@@ -188,15 +156,6 @@ class ImpresionMenuView(QWidget):
             QMessageBox.information(self, "Alarmas", "No hay alarmas activas.")
             return
 
-        printer = QPrinter(QPrinter.PrinterMode.HighResolution)
-        printer.setPageSize(
-            QPageSize(QSizeF(_PAPER_W_MM, 297.0), QPageSize.Unit.Millimeter)
-        )
-        printer.setPageMargins(
-            QMarginsF(_MARGIN_H_MM, _MARGIN_V_MM, _MARGIN_H_MM, _MARGIN_V_MM),
-            QPageLayout.Unit.Millimeter,
-        )
-        if QPrintDialog(printer, self).exec() != QPrintDialog.DialogCode.Accepted:
-            return
-
-        _draw_ticket_lines(printer, _build_alarms_ticket_lines(alarms))
+        text = "\n".join(_build_alarms_ticket_lines(alarms))
+        if not print_raw(text, PRINTER_NAME):
+            QMessageBox.warning(self, "Alarmas", "No se pudo imprimir el ticket de alarmas.")

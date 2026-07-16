@@ -95,7 +95,7 @@ def test_build_alarms_ticket_lines_multiples_alarmas():
     assert "Total: 2 alarma(s)" in text
 
 
-def test_print_alarms_sin_alarmas_muestra_aviso_no_abre_dialogo():
+def test_print_alarms_sin_alarmas_muestra_aviso_no_imprime():
     from autoclave.ui_pyside.views.impresion_menu import ImpresionMenuView
 
     view = ImpresionMenuView(nav_callback=lambda x: None)
@@ -103,14 +103,14 @@ def test_print_alarms_sin_alarmas_muestra_aviso_no_abre_dialogo():
     view._client.get_status.return_value = {"alarms": []}
 
     with patch("autoclave.ui_pyside.views.impresion_menu.QMessageBox") as mock_box, \
-         patch("autoclave.ui_pyside.views.impresion_menu.QPrintDialog") as mock_dialog:
+         patch("autoclave.ui_pyside.views.impresion_menu.print_raw") as mock_print:
         view._print_alarms()
 
         mock_box.information.assert_called_once()
-        mock_dialog.assert_not_called()
+        mock_print.assert_not_called()
 
 
-def test_print_alarms_backend_no_disponible_muestra_aviso_no_abre_dialogo():
+def test_print_alarms_backend_no_disponible_muestra_aviso_no_imprime():
     from autoclave.ui_pyside.views.impresion_menu import ImpresionMenuView
 
     view = ImpresionMenuView(nav_callback=lambda x: None)
@@ -118,47 +118,19 @@ def test_print_alarms_backend_no_disponible_muestra_aviso_no_abre_dialogo():
     view._client.get_status.side_effect = Exception("backend caído")
 
     with patch("autoclave.ui_pyside.views.impresion_menu.QMessageBox") as mock_box, \
-         patch("autoclave.ui_pyside.views.impresion_menu.QPrintDialog") as mock_dialog:
+         patch("autoclave.ui_pyside.views.impresion_menu.print_raw") as mock_print:
         view._print_alarms()
 
         mock_box.information.assert_called_once()
-        mock_dialog.assert_not_called()
+        mock_print.assert_not_called()
 
 
-def test_print_alarms_con_alarmas_dialogo_rechazado_no_dibuja_ticket():
-    from autoclave.ui_pyside.views.impresion_menu import ImpresionMenuView
-    from PySide6.QtPrintSupport import QPrintDialog
-
-    view = ImpresionMenuView(nav_callback=lambda x: None)
-    view._client = MagicMock()
-    view._client.get_status.return_value = {
-        "alarms": [{
-            "id": "X", "level": "ALERTA",
-            "description": "desc", "source_state": "CICLO",
-        }]
-    }
-
-    with patch("autoclave.ui_pyside.views.impresion_menu.QMessageBox") as mock_box, \
-         patch("autoclave.ui_pyside.views.impresion_menu.QPrintDialog") as mock_dialog_cls, \
-         patch("autoclave.ui_pyside.views.impresion_menu._draw_ticket_lines") as mock_draw:
-        # Se preserva el enum real para que la comparación de la clase mockeada
-        # en producción (QPrintDialog.DialogCode.Accepted) siga funcionando.
-        mock_dialog_cls.DialogCode = QPrintDialog.DialogCode
-        mock_dialog_cls.return_value.exec.return_value = QPrintDialog.DialogCode.Rejected
-        view._print_alarms()
-
-        mock_dialog_cls.assert_called_once()
-        mock_box.information.assert_not_called()
-        mock_draw.assert_not_called()
-
-
-def test_print_alarms_con_alarmas_dialogo_aceptado_dibuja_ticket():
+def test_print_alarms_con_alarmas_imprime_directo_sin_dialogo():
     from autoclave.ui_pyside.views.impresion_menu import (
         ImpresionMenuView,
+        PRINTER_NAME,
         _build_alarms_ticket_lines,
     )
-    from PySide6.QtPrintSupport import QPrintDialog
-    from PySide6.QtPrintSupport import QPrinter
 
     alarms = [{
         "id": "X", "level": "ALERTA",
@@ -170,26 +142,42 @@ def test_print_alarms_con_alarmas_dialogo_aceptado_dibuja_ticket():
     view._client.get_status.return_value = {"alarms": alarms}
 
     with patch("autoclave.ui_pyside.views.impresion_menu.QMessageBox") as mock_box, \
-         patch("autoclave.ui_pyside.views.impresion_menu.QPrintDialog") as mock_dialog_cls, \
-         patch("autoclave.ui_pyside.views.impresion_menu._draw_ticket_lines") as mock_draw:
-        # Se preserva el enum real para que la comparación de la clase mockeada
-        # en producción (QPrintDialog.DialogCode.Accepted) siga funcionando.
-        mock_dialog_cls.DialogCode = QPrintDialog.DialogCode
-        mock_dialog_cls.return_value.exec.return_value = QPrintDialog.DialogCode.Accepted
+         patch("autoclave.ui_pyside.views.impresion_menu.print_raw") as mock_print:
+        mock_print.return_value = True
         view._print_alarms()
 
-        mock_dialog_cls.assert_called_once()
         mock_box.information.assert_not_called()
-        mock_draw.assert_called_once()
+        mock_box.warning.assert_not_called()
+        mock_print.assert_called_once()
 
-        printer_arg, lines_arg = mock_draw.call_args[0]
-        assert isinstance(printer_arg, QPrinter)
+        text_arg, printer_arg = mock_print.call_args[0]
+        assert printer_arg == PRINTER_NAME
         expected_text = "\n".join(_build_alarms_ticket_lines(alarms))
-        actual_text = "\n".join(lines_arg)
-        assert "ID: X" in actual_text
-        assert "Nivel: ALERTA" in actual_text
-        assert "Origen: CICLO" in actual_text
-        assert "Total: 1 alarma(s)" in actual_text
-        # Compara también contra la construcción real de líneas (salvo el
+        assert "ID: X" in text_arg
+        assert "Nivel: ALERTA" in text_arg
+        assert "Origen: CICLO" in text_arg
+        assert "Total: 1 alarma(s)" in text_arg
+        # Compara la cantidad de líneas contra la construcción real (salvo el
         # timestamp, que puede variar en microsegundos entre ambas llamadas).
-        assert len(lines_arg) == len(expected_text.split("\n"))
+        assert len(text_arg.split("\n")) == len(expected_text.split("\n"))
+
+
+def test_print_alarms_falla_impresion_muestra_aviso():
+    from autoclave.ui_pyside.views.impresion_menu import ImpresionMenuView
+
+    alarms = [{
+        "id": "X", "level": "ALERTA",
+        "description": "desc", "source_state": "CICLO",
+    }]
+
+    view = ImpresionMenuView(nav_callback=lambda x: None)
+    view._client = MagicMock()
+    view._client.get_status.return_value = {"alarms": alarms}
+
+    with patch("autoclave.ui_pyside.views.impresion_menu.QMessageBox") as mock_box, \
+         patch("autoclave.ui_pyside.views.impresion_menu.print_raw") as mock_print:
+        mock_print.return_value = False
+        view._print_alarms()
+
+        mock_print.assert_called_once()
+        mock_box.warning.assert_called_once()

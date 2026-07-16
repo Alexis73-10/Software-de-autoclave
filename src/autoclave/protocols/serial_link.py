@@ -24,11 +24,13 @@ from datetime import datetime
 from typing import Optional, Callable, Dict, Any
 
 from autoclave.utils.logging import logger
+from autoclave.protocols import device_reset
 
 
 class SerialLink:
     DATA_TIMEOUT       = 3.0  # segundos sin datos => comunicación caída
     HEARTBEAT_INTERVAL = 2.0  # segundos entre HB enviados al ESP32
+    GEN_FAILURE_RESET_THRESHOLD = 5  # ~15s de reintentos (scan_interval=3.0) antes de resetear el dispositivo
 
     def __init__(
         self,
@@ -57,6 +59,10 @@ class SerialLink:
 
         self._ack_event = threading.Event()
         self._expected_ack: Optional[str] = None
+
+        self._ever_connected = False
+        self._device_reset_attempted = False
+        self._consecutive_gen_failures = 0
 
         self._read_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
@@ -115,11 +121,29 @@ class SerialLink:
                 self.data["data_alive"] = False
                 self.data["last_update"] = None
 
+            self._ever_connected = True
+            self._consecutive_gen_failures = 0
             return True
 
         except Exception as e:
             logger.warning(f"Error abriendo puerto {port}: {e}")
             self.serial = None
+
+            if not self._ever_connected and not self._device_reset_attempted:
+                if device_reset.is_device_not_functioning_error(e):
+                    self._consecutive_gen_failures += 1
+                    if self._consecutive_gen_failures >= self.GEN_FAILURE_RESET_THRESHOLD:
+                        self._device_reset_attempted = True
+                        logger.warning(
+                            "SerialLink: %d intentos con dispositivo no funcional — "
+                            "intentando reset PnP de %s",
+                            self._consecutive_gen_failures, port,
+                        )
+                        device_reset.reset_usb_serial_device(port)
+                        self._consecutive_gen_failures = 0
+                else:
+                    self._consecutive_gen_failures = 0
+
             return False
 
     def _disconnect(self):
