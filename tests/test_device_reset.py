@@ -25,6 +25,16 @@ def test_is_device_not_functioning_error_false_para_excepcion_generica():
     assert device_reset.is_device_not_functioning_error(exc) is False
 
 
+def test_is_device_not_functioning_error_false_para_texto_no_relacionado_gpio():
+    exc = Exception("GPIO pin out of range (0, 31)")
+    assert device_reset.is_device_not_functioning_error(exc) is False
+
+
+def test_is_device_not_functioning_error_false_para_texto_no_relacionado_valueerror():
+    exc = Exception("ValueError: bad args (1, 31)")
+    assert device_reset.is_device_not_functioning_error(exc) is False
+
+
 def test_reset_usb_serial_device_true_cuando_powershell_reporta_ok():
     with patch("autoclave.protocols.device_reset.subprocess.run") as mock_run:
         mock_run.return_value = MagicMock(stdout="OK\r\n", returncode=0)
