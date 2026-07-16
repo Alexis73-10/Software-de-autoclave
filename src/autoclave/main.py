@@ -43,6 +43,55 @@ def wait_for_backend(process=None, max_wait=40):
     return False
 
 
+def _hardware_connected() -> bool:
+    try:
+        r = requests.get(f"{BACKEND_URL}/status", timeout=1)
+        if r.status_code != 200:
+            return False
+        alarms = r.json().get("alarms", [])
+        return not any(a.get("id") == "NO_HAY_CONEXION" for a in alarms)
+    except requests.RequestException:
+        return False
+
+
+def wait_for_hardware_connection(max_wait=40) -> bool:
+    """Ventana de espera mínima mientras la tarjeta no está conectada. Se cierra
+    sola al conectar, o muestra un mensaje final y se cierra igual al agotar
+    max_wait (no bloquea el arranque de la UI — placeholder hasta que se
+    implemente la pantalla de arranque definitiva)."""
+    if _hardware_connected():
+        return True
+
+    import tkinter as tk
+    root = tk.Tk()
+    root.title("Autoclave")
+    root.geometry("360x120")
+    label = tk.Label(root, text="Conectando con la tarjeta...", font=("Segoe UI", 12))
+    label.pack(expand=True, padx=20, pady=20)
+
+    start = time.time()
+    connected = False
+
+    def _poll():
+        nonlocal connected
+        if _hardware_connected():
+            connected = True
+            root.destroy()
+            return
+        if time.time() - start >= max_wait:
+            label.config(
+                text="No se pudo establecer comunicación con la tarjeta.\n"
+                     "Verifique la conexión y reinicie el equipo."
+            )
+            root.after(5000, root.destroy)
+            return
+        root.after(1000, _poll)
+
+    root.after(1000, _poll)
+    root.mainloop()
+    return connected
+
+
 def main():
     # ── 1. Verificar instalación ───────────────────────────────────────────
     try:
@@ -96,6 +145,7 @@ def main():
             backend_guard.write_backend_pid(backend_process.pid)
             if not wait_for_backend(process=backend_process, max_wait=40):
                 logger.error("Backend no respondió — la UI arrancará sin datos")
+        wait_for_hardware_connection(max_wait=40)
     else:
         logger.info("PC puerta 2 — esperando backend en red...")
         if not wait_for_backend(max_wait=40):
