@@ -17,6 +17,18 @@ def test_is_device_not_functioning_error_false_para_winerror_5():
     assert device_reset.is_device_not_functioning_error(exc) is False
 
 
+def test_is_device_not_functioning_error_true_para_mensaje_con_apostrofe_embebido():
+    # Cuando el texto del mensaje contiene una comilla simple, repr() de Python
+    # cambia el delimitador a comillas dobles (ej. "El dispositivo 'X' ...").
+    # El regex no debe depender del caracter delimitador usado.
+    inner = PermissionError(13, "El dispositivo 'X' no funciona.", None, 31)
+    exc = Exception(
+        "Cannot configure port, something went wrong. Original message: "
+        + repr(inner)
+    )
+    assert device_reset.is_device_not_functioning_error(exc) is True
+
+
 def test_is_device_not_functioning_error_false_para_excepcion_generica():
     exc = Exception(
         "could not open port 'COM9': FileNotFoundError(2, 'El sistema no puede "

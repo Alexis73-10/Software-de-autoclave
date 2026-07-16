@@ -7,7 +7,7 @@ def is_device_not_functioning_error(exc: Exception) -> bool:
     """True si el mensaje de la excepción corresponde a Win32 ERROR_GEN_FAILURE
     (31) — 'dispositivo no funciona' — la firma de un adaptador USB-serial
     atascado a nivel de driver, que ningún reintento de apertura puede resolver."""
-    return bool(re.search(r"Error\(\d+,\s*'[^']*',\s*None,\s*31\)\s*$", str(exc)))
+    return bool(re.search(r"Error\(\d+,\s*.*,\s*None,\s*31\)\s*$", str(exc)))
 
 
 def reset_usb_serial_device(port_name: str, timeout: float = 15.0) -> bool:
