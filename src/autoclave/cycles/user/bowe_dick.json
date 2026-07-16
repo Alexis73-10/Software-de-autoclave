@@ -232,6 +232,27 @@
                 "min": 0,
                 "max": 1000
             },
+            "margen_techo_calentamiento": {
+                "value": 2.0,
+                "type": "float",
+                "unit": "°C",
+                "min": 0,
+                "max": 10
+            },
+            "tiempo_apertura_vapor_checkpoint": {
+                "value": 3,
+                "type": "int",
+                "unit": "sec",
+                "min": 1,
+                "max": 60
+            },
+            "tiempo_cierre_vapor_checkpoint": {
+                "value": 5,
+                "type": "int",
+                "unit": "sec",
+                "min": 1,
+                "max": 60
+            },
             "rango_temp_estabilizacion": {
                 "value": 1.0,
                 "type": "float",
