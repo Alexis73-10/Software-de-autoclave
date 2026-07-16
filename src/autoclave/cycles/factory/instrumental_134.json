@@ -55,7 +55,7 @@
 
         "calentamiento": {
             "temperatura_calentamiento": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
-            "tasa_calentamiento": { "value": 5.0, "type": "float", "unit": "°C/min", "min": 0.1, "max": 20 },
+            "tasa_calentamiento": { "value": 5.0, "type": "float", "unit": "°C/min", "min": 0.1, "max": 100 },
             "timeout_calentamiento": { "value": 60, "type":"int", "unit": "min", "min": 0, "max": 3600 },
             "rango_presion_calentamiento": { "value": 9, "type":"int", "unit": "kPa", "min": 0, "max": 1000 },
             "margen_techo_calentamiento": { "value": 2.0, "type": "float", "unit": "°C", "min": 0, "max": 10 },

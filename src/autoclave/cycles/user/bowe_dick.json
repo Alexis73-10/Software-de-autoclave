@@ -216,7 +216,7 @@
                 "type": "float",
                 "unit": "°C/min",
                 "min": 0.1,
-                "max": 20
+                "max": 100
             },
             "timeout_calentamiento": {
                 "value": 60,
