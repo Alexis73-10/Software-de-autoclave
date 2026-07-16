@@ -47,6 +47,7 @@ class ControlLoop:
             cycle=self.cycle, config=self.config_manager, cap=cap
         )
         self.link_was_connected = True
+        self._link_ever_connected = False
         self.paro_emergencia    = EmergencyStop(estado)
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
@@ -82,16 +83,22 @@ class ControlLoop:
                     blocks_operation=True,
                 )
             )
-            if self.realtime_printer is not None:
+            # El handshake serial inicial (escaneo de puerto + primer dato)
+            # tarda unos instantes tras el arranque del backend; ese hueco
+            # no es una desconexión real y no debe imprimirse.
+            if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
                     format_connectivity_ticket("TARJETA", False, datetime.now())
                 )
         elif connected and not self.link_was_connected:
             self.alarm_manager.clear("NO_HAY_CONEXION")
-            if self.realtime_printer is not None:
+            if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
                     format_connectivity_ticket("TARJETA", True, datetime.now())
                 )
+
+        if connected:
+            self._link_ever_connected = True
 
         self.link_was_connected = connected
 

@@ -6,6 +6,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Palabra que describe cada nivel de alarma — debe coincidir con lo que se
+# imprime como "Nivel:" en el ticket de alarmas (impresion_menu.py), para
+# que el texto libre de la descripción no contradiga el nivel real.
+_NIVEL_TXT = {
+    AlarmType.ALERTA:     "Alerta",
+    AlarmType.FALLA:      "Fallo",
+    AlarmType.EMERGENCIA: "Emergencia",
+}
+
+
 class preparacion_state:
     def __init__(self, alarm_manager, estado, set_do, cycle, config):
         self.step = 0
@@ -36,11 +46,12 @@ class preparacion_state:
     # - no pueden estar en 0 (fallo de sensor)
     
     def alarm (self, alarm_id, alarm_type):
+        nivel = _NIVEL_TXT.get(alarm_type, "Alerta")
         alarm = Alarm(
             alarm_id=alarm_id,
             alarm_type=alarm_type,
             source_state="PREPARACION",
-            description=f"Fallo {alarm_id} en  PREPARACION.",
+            description=f"{nivel}: {alarm_id} en PREPARACION.",
             recoverable=True
         )
         self.alarm_manager.report(alarm)

@@ -10,14 +10,16 @@ def _ciclo():
     return {
         "numero_ciclo": 7,
         "serie": "SN-001",
+        "modelo": "SPK-AVH-450",
+        "version_sw": "0.4.0",
         "nombre_ciclo": "Bowie-Dick",
         "tipo_ciclo": "bowe_dick",
-        "operador": "Juan",
         "temp_esterilizacion": 134.0,
         "tiempo_esterilizacion": 3.5,
         "fecha_inicio": "2026-07-06T08:00:00",
         "fecha_fin": "2026-07-06T08:45:00",
         "resultado": "COMPLETADO",
+        "motivo_fallo": "",
     }
 
 
@@ -30,23 +32,29 @@ def _lecturas():
 
 
 def test_format_header_incluye_numero_de_ciclo_y_serie():
-    meta = _ciclo()
-    header = format_header(meta)
-    assert "00007" in header
-    assert "SN-001" in header
-    assert "ESPECIFIKA -- AUTOCLAVE MX-500" in header
+    header = format_header(_ciclo())
+    assert "Ciclo No.: 000007" in header
+    assert "Num serie: SN-001" in header
+    assert "Modelo: SPK-AVH-450" in header
+    assert "SoftW.: 0.4.0" in header
 
 
-def test_format_header_usa_tipo_ciclo_si_no_hay_nombre():
-    meta = _ciclo()
-    meta["nombre_ciclo"] = ""
-    header = format_header(meta)
-    assert "bowe_dick" in header
+def test_format_header_incluye_temp_y_tiempo_esterilizacion():
+    header = format_header(_ciclo())
+    assert "Temp. Ester.: 134.0 C" in header
+    assert "Tiempo Ester.: 3.5 min" in header
+
+
+def test_format_header_no_incluye_temp_final():
+    """Temp. final sólo se conoce al cerrar el ciclo — no puede ir en el
+    encabezado de un ticket que se imprime en tiempo real."""
+    header = format_header(_ciclo())
+    assert "Temp. final" not in header
 
 
 def test_format_row_formatea_una_lectura():
     row = format_row({"fase_codigo": "S", "timestamp_rel": "00:20:00", "temp_camara": 134.2, "pres_camara": 210.0})
-    assert row == f"  {'00:20:00':<10}{'Esteriliz.':<12}{'134.2':>8}  {'210.0':>9}"
+    assert row == "S 00:20:00 0134.2 0210.0"
 
 
 def test_format_row_maneja_valores_none():
@@ -54,30 +62,41 @@ def test_format_row_maneja_valores_none():
     assert "--" in row
 
 
-def test_format_footer_incluye_resultado_y_fin():
+def test_format_footer_incluye_estado_y_hora_fin():
     footer = format_footer("COMPLETADO", "2026-07-06T08:45:00")
-    assert "Resultado:   COMPLETADO" in footer
-    assert "2026-07-06 08:45:00" in footer
+    assert "Estado: COMPLETADO" in footer
+    assert "Hora fin: 08:45:00" in footer
+
+
+def test_format_footer_incluye_temp_final():
+    footer = format_footer("COMPLETADO", "2026-07-06T08:45:00", temp_final=60.0)
+    assert "Temp. final: 60 C" in footer
+
+
+def test_format_footer_sin_motivo_no_agrega_linea():
+    footer = format_footer("COMPLETADO", "2026-07-06T08:45:00")
+    assert "Motivo:" not in footer
+
+
+def test_format_footer_con_motivo_agrega_linea():
+    footer = format_footer(
+        "FALLO_ESTERILIZACION", "2026-07-06T08:45:00",
+        motivo="Temperatura baja: 100.0°C < 134.0°C",
+    )
+    assert "Motivo: Temperatura baja: 100.0°C < 134.0°C" in footer
 
 
 def test_header_filas_pie_equivalen_a_format_ticket():
     ciclo = _ciclo()
     lecturas = _lecturas()
 
-    meta = {
-        "numero_ciclo": ciclo["numero_ciclo"],
-        "serie": ciclo["serie"],
-        "nombre_ciclo": ciclo["nombre_ciclo"],
-        "tipo_ciclo": ciclo["tipo_ciclo"],
-        "operador": ciclo["operador"],
-        "temp_esterilizacion": ciclo["temp_esterilizacion"],
-        "tiempo_esterilizacion": ciclo["tiempo_esterilizacion"],
-        "fecha_inicio": ciclo["fecha_inicio"],
-    }
     ensamblado = "\n".join(
-        [format_header(meta)]
+        [format_header(ciclo)]
         + [format_row(r) for r in lecturas]
-        + [format_footer(ciclo["resultado"], ciclo["fecha_fin"])]
+        + [format_footer(
+            ciclo["resultado"], ciclo["fecha_fin"],
+            temp_final=lecturas[-1]["temp_camara"], motivo=None,
+        )]
     )
 
     assert ensamblado == format_ticket(ciclo, lecturas)

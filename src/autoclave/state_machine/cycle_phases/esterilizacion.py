@@ -38,6 +38,7 @@ class EsterilizacionFase(BaseFase):
     def _fallo(self, alarm_id: str, descripcion: str) -> FaseResult:
         logger.error("Esterilización: FALLO — %s", alarm_id)
         self._apagar_salidas()
+        self.estado.motivo_fallo = descripcion
         self.alarm_manager.report(Alarm(
             alarm_id=alarm_id,
             alarm_type=AlarmType.FALLA,

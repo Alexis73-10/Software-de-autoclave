@@ -53,10 +53,39 @@ def _run_one_tick(loop, connected):
         loop.run()
 
 
-def test_desconexion_imprime_ticket():
+def test_arranque_sin_tarjeta_no_imprime():
+    """Al arrancar, la tarjeta aún no respondió (handshake serial en curso).
+    Esto NO es una desconexión real — no debe imprimirse nada."""
     printer = MagicMock()
     loop = _make_loop(realtime_printer=printer)
     assert loop.link_was_connected is True  # estado primado
+    assert loop._link_ever_connected is False
+
+    _run_one_tick(loop, connected=False)
+
+    printer.enqueue.assert_not_called()
+
+
+def test_arranque_conexion_inicial_no_imprime():
+    """La tarjeta conecta por primera vez tras el arranque — es el final
+    normal del handshake, no una 'reconexión'. No debe imprimirse nada."""
+    printer = MagicMock()
+    loop = _make_loop(realtime_printer=printer)
+    loop.link_was_connected = False       # arranque aún sin datos
+    loop._link_ever_connected = False     # nunca estuvo realmente conectada
+
+    _run_one_tick(loop, connected=True)
+
+    printer.enqueue.assert_not_called()
+
+
+def test_desconexion_real_imprime_ticket():
+    """Una vez que la tarjeta ya estuvo conectada de verdad, una caída real
+    durante la sesión sí debe imprimirse."""
+    printer = MagicMock()
+    loop = _make_loop(realtime_printer=printer)
+    loop.link_was_connected = True
+    loop._link_ever_connected = True      # ya hubo conexión real antes
 
     _run_one_tick(loop, connected=False)
 
@@ -65,10 +94,12 @@ def test_desconexion_imprime_ticket():
     assert "TARJETA: DESCONECTADA" in texto
 
 
-def test_reconexion_imprime_ticket():
+def test_reconexion_real_imprime_ticket():
+    """Reconexión tras una caída real (no el handshake inicial) sí se imprime."""
     printer = MagicMock()
     loop = _make_loop(realtime_printer=printer)
-    loop.link_was_connected = False  # simula que ya estaba desconectada
+    loop.link_was_connected = False       # simula que ya estaba desconectada
+    loop._link_ever_connected = True      # ...tras haber estado conectada de verdad
 
     _run_one_tick(loop, connected=True)
 

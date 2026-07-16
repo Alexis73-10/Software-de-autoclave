@@ -39,11 +39,12 @@ from qfluentwidgets import (
 )
 
 from autoclave.devices.printer.win32_printer import PRINTER_NAME, print_raw
+from autoclave.services.domain.logging.ticket_formatter import (
+    format_footer,
+    format_header,
+    format_row,
+)
 
-_MESES = {
-    1: "ENE", 2: "FEB", 3: "MAR", 4: "ABR", 5: "MAY", 6: "JUN",
-    7: "JUL", 8: "AGO", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DIC",
-}
 _PAPER_W_MM   = 55.0
 _MARGIN_H_MM  = 2.0
 _MARGIN_V_MM  = 3.0
@@ -55,62 +56,33 @@ _FONT_FAMILY  = "Courier New"
 # ── Construcción de líneas de un ciclo ────────────────────────────────────────
 
 def _build_cycle_lines(ciclo: dict, lecturas: list) -> list[str]:
-    try:
-        t0 = datetime.fromisoformat(ciclo["fecha_inicio"])
-        fecha_str   = f"{t0.day:02d}/{_MESES[t0.month]}/{t0.year}"
-        hora_inicio = t0.strftime("%H:%M:%S")
-    except Exception:
-        fecha_str = hora_inicio = "---"
+    """Arma el ticket de un ciclo guardado reutilizando el mismo formato
+    (header/row/footer) que usa la impresión en tiempo real, para que ambas
+    salidas sean idénticas."""
+    meta = {
+        "numero_ciclo":          ciclo.get("numero_ciclo", 0),
+        "serie":                 ciclo.get("serie", ""),
+        "modelo":                ciclo.get("modelo", ""),
+        "version_sw":            ciclo.get("version_sw", ""),
+        "nombre_ciclo":          ciclo.get("nombre_ciclo") or "",
+        "tipo_ciclo":            ciclo.get("tipo_ciclo") or "",
+        "temp_esterilizacion":   ciclo.get("temp_esterilizacion"),
+        "tiempo_esterilizacion": ciclo.get("tiempo_esterilizacion"),
+        "fecha_inicio":          ciclo.get("fecha_inicio", ""),
+    }
 
-    try:
-        t1      = datetime.fromisoformat(ciclo["fecha_fin"])
-        hora_fin = t1.strftime("%H:%M:%S")
-    except Exception:
-        hora_fin = "---"
-
-    temp_final = "---"
+    temp_final = None
     if lecturas:
         tc = lecturas[-1].get("temp_camara")
         if tc is not None:
-            temp_final = f"{tc:.0f}"
+            temp_final = tc
 
-    numero   = f"{ciclo.get('numero_ciclo', 0):06d}"
-    temp_e   = ciclo.get("temp_esterilizacion") or ""
-    tiempo_e = ciclo.get("tiempo_esterilizacion") or ""
-
-    lines: list[str] = [
-        " ",
-        "------------------------",
-        f"Fecha: {fecha_str}",
-        f"Hora:  {hora_inicio}",
-        f"Num serie: {ciclo.get('serie', '')}",
-        f"Modelo: {ciclo.get('modelo', '')}",
-        f"SoftW.: {ciclo.get('version_sw', '')}",
-        f"Ciclo No.: {numero}",
-        ciclo.get("nombre_ciclo") or "",
-        f"({ciclo.get('tipo_ciclo') or ''})",
-        f"Temp. Ester.: {temp_e} C",
-        f"Tiempo Ester.: {tiempo_e} min",
-        f"Temp. final: {temp_final} C",
-        "  Hora      C      kPa",
-    ]
-
-    for lec in lecturas:
-        fase = (lec.get("fase_codigo") or " ").ljust(1)
-        ts   = lec.get("timestamp_rel") or ""
-        tc   = lec.get("temp_camara")
-        pc   = lec.get("pres_camara")
-        tc_s = f"{tc:06.1f}" if tc is not None else " -----"
-        pc_s = f"{pc:06.1f}" if pc is not None else " -----"
-        lines.append(f"{fase} {ts} {tc_s} {pc_s}")
-
-    lines += [
-        f"Estado: {ciclo.get('resultado', '')}",
-        f"Hora fin: {hora_fin}",
-        "Operador: ____________",
-        "------------------------",
-        " ",
-    ]
+    lines = format_header(meta).split("\n")
+    lines += [format_row(lec) for lec in lecturas]
+    lines += format_footer(
+        ciclo.get("resultado", ""), ciclo.get("fecha_fin", ""),
+        temp_final=temp_final, motivo=ciclo.get("motivo_fallo"),
+    ).split("\n")
     return lines
 
 

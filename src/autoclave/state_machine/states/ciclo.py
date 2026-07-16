@@ -90,6 +90,7 @@ class CicloState:
         """
         self._fase_idx            = 0
         self._resultado_pendiente = None
+        self.estado.motivo_fallo  = ""
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -199,11 +200,12 @@ class CicloState:
         if self.estado.get_flag("PARO_EMERGENCIA"):
             logger.error("CicloState: ABORTADO por paro de emergencia")
             self.estado.fase_ciclo = "EMERGENCIA"
+            self.estado.motivo_fallo = "Paro de emergencia activado durante el ciclo."
             self.alarm_manager.report(Alarm(
                 alarm_id="PARO_EMERGENCIA",
                 alarm_type=AlarmType.EMERGENCIA,
                 source_state="CICLO",
-                description="Paro de emergencia activado durante el ciclo.",
+                description=self.estado.motivo_fallo,
                 recoverable=False,
             ))
             self._protocolo.ejecutar()
@@ -214,11 +216,12 @@ class CicloState:
         if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"):
             logger.error("CicloState: ABORTADO por fallo de suministro eléctrico")
             self.estado.fase_ciclo = "FALLO_SUMINISTRO"
+            self.estado.motivo_fallo = "Pérdida de suministro eléctrico durante el ciclo."
             self.alarm_manager.report(Alarm(
                 alarm_id="FALLO_SUMINISTRO_ELECTRICO",
                 alarm_type=AlarmType.EMERGENCIA,
                 source_state="CICLO",
-                description="Pérdida de suministro eléctrico durante el ciclo.",
+                description=self.estado.motivo_fallo,
                 recoverable=False,
             ))
             self._protocolo.ejecutar()
@@ -230,11 +233,12 @@ class CicloState:
         if not puertas_ok:
             logger.error("CicloState: FALLO de seguridad — %s", codigo_fallo)
             self.estado.fase_ciclo = codigo_fallo
+            self.estado.motivo_fallo = f"Fallo de seguridad: {codigo_fallo.replace('_', ' ').lower()}."
             self.alarm_manager.report(Alarm(
                 alarm_id=codigo_fallo,
                 alarm_type=AlarmType.FALLA,
                 source_state="CICLO",
-                description=f"Fallo de seguridad: {codigo_fallo.replace('_', ' ').lower()}.",
+                description=self.estado.motivo_fallo,
                 recoverable=True,
             ))
             self._protocolo.ejecutar()
@@ -252,11 +256,12 @@ class CicloState:
         if ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
             self.estado.fase_ciclo = "SENSOR_AUSENTE"
+            self.estado.motivo_fallo = f"Sensor crítico ausente: {', '.join(ausentes)}"
             self.alarm_manager.report(Alarm(
                 alarm_id="SENSOR_AUSENTE",
                 alarm_type=AlarmType.EMERGENCIA,
                 source_state="CICLO",
-                description=f"Sensor crítico ausente: {', '.join(ausentes)}",
+                description=self.estado.motivo_fallo,
                 recoverable=False,
             ))
             self._protocolo.ejecutar()
@@ -300,11 +305,16 @@ class CicloState:
         elif resultado == FaseResult.FALLO:
             logger.error("CicloState: FALLO en fase %s", fase.name)
             self.estado.fase_ciclo = f"FALLO_{fase.name}"
+            # La fase puede haber reportado ya un motivo específico (p.ej.
+            # EsterilizacionFase._fallo() con la lectura exacta que falló);
+            # sólo se usa el genérico si la fase no dejó uno más preciso.
+            if not self.estado.motivo_fallo:
+                self.estado.motivo_fallo = f"Fallo en la fase {fase.name.replace('_', ' ').lower()}."
             self.alarm_manager.report(Alarm(
                 alarm_id=f"FALLO_{fase.name}",
                 alarm_type=AlarmType.FALLA,
                 source_state="CICLO",
-                description=f"Fallo en la fase {fase.name.replace('_', ' ').lower()}.",
+                description=self.estado.motivo_fallo,
                 recoverable=True,
             ))
             self._protocolo.ejecutar()

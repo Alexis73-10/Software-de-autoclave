@@ -101,6 +101,9 @@ class EstadoAutoclave:
         self.Alarmas_activas = []
         # Fase actual del ciclo (string legible para la UI)
         self.fase_ciclo: str = ""
+        # Motivo específico del último fallo de ciclo (para tickets/DB);
+        # se limpia al iniciar cada ciclo nuevo
+        self.motivo_fallo: str = ""
         # True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento
         self.fase_en_sostenimiento: bool = False
         # Progreso del pre-vacío: "A 1/4", "B 2/4", etc. (vacío cuando no aplica)
