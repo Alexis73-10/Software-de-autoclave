@@ -76,12 +76,14 @@ def test_checkpoint_pendiente_bloquea_completacion():
     fase.update()  # inicializar
 
     # Salta directo a t_obj sin pasar por los checkpoints con presión correcta
-    # (aire residual / vapor no saturado: presión fija en 100.0 kPa)
+    # (aire residual / vapor no saturado: presión fija en 100.0 kPa). La temperatura
+    # también supera el techo del checkpoint (107.2 + 2.0 = 109.2), así que el
+    # mecanismo de pulsos fuerza la válvula a OFF en vez de pulsar — eso es correcto,
+    # lo que este test verifica es que la fase NO completa mientras tanto.
     estado.sensores_temp["temp_camara"] = 135.0
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._en_checkpoint is True
-    set_do.vapor_camara_off.assert_not_called()
     set_do.descompresion_lenta_off.assert_not_called()
 
 
@@ -183,6 +185,7 @@ def test_checkpoint_techo_alcanzado_fuerza_off_sin_pulsar():
     fase, estado, set_do = _make_fase(t_obj=134.0, tolerancia=9.0, margen_techo=2.0)
     fase.update()  # inicializar
 
+    set_do.reset_mock()  # el tick de inicialización enciende vapor por rampa; aislar el tick bajo prueba
     # checkpoint 1 = 107.2, techo = 107.2 + 2.0 = 109.2
     estado.sensores_temp["temp_camara"] = 109.2
     estado.sensores_pres["pres_camara"] = 50.0

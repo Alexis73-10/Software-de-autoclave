@@ -16,6 +16,9 @@ def _make_fase(has_liquid_sensor: bool, t_inicial=20.0, t_inicial_2=20.0):
             "tasa_calentamiento":        5.0,
             "timeout_calentamiento":     60,
             "rango_presion_calentamiento": 9.0,
+            "margen_techo_calentamiento": 2.0,
+            "tiempo_apertura_vapor_checkpoint": 3,
+            "tiempo_cierre_vapor_checkpoint": 5,
         }.get(param, default)
     cycle.get_param.side_effect = get_param
     config = MagicMock()

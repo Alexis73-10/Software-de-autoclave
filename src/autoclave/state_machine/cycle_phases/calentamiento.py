@@ -25,6 +25,8 @@ class CalentamientoFase(BaseFase):
         self._timer_timeout_fin = None
         self._checkpoints = None
         self._en_checkpoint = False
+        self._t_pulso_vapor_chk = None
+        self._vapor_chk_abierto = False
         self.estado.fase_en_sostenimiento = False
 
     def _apagar_salidas(self):
@@ -86,12 +88,36 @@ class CalentamientoFase(BaseFase):
                 self._checkpoints.pop(0)
                 self._en_checkpoint = False
                 self.estado.fase_en_sostenimiento = False
+                self._t_pulso_vapor_chk = None
+                self._vapor_chk_abierto = False
             else:
                 p_sat = p_saturacion_kpa(temp)
+                margen = self.cycle.get_param("calentamiento", "margen_techo_calentamiento")
+                techo  = self._checkpoints[0] + margen
                 if pres > p_sat + tolerancia:
                     self.set_do.vapor_camara_off()
+                    self._t_pulso_vapor_chk = None
+                elif temp < techo:
+                    t_on  = self.cycle.get_param("calentamiento", "tiempo_apertura_vapor_checkpoint")
+                    t_off = self.cycle.get_param("calentamiento", "tiempo_cierre_vapor_checkpoint")
+                    now = time.time()
+                    if self._t_pulso_vapor_chk is None:
+                        self._t_pulso_vapor_chk = now
+                        self._vapor_chk_abierto = True
+                        self.set_do.vapor_camara_on()
+                    else:
+                        elapsed = now - self._t_pulso_vapor_chk
+                        if self._vapor_chk_abierto and elapsed >= t_on:
+                            self.set_do.vapor_camara_off()
+                            self._vapor_chk_abierto = False
+                            self._t_pulso_vapor_chk = now
+                        elif not self._vapor_chk_abierto and elapsed >= t_off:
+                            self.set_do.vapor_camara_on()
+                            self._vapor_chk_abierto = True
+                            self._t_pulso_vapor_chk = now
                 else:
-                    self.set_do.vapor_camara_on()
+                    self.set_do.vapor_camara_off()
+                    self._t_pulso_vapor_chk = None
             return FaseResult.EN_CURSO
 
         # ── 5. Verificar completación ───────────────────────────────────
