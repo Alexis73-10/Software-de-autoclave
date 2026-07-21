@@ -323,3 +323,30 @@ class CicloState:
 
         # Fallback (no debería ocurrir)
         return CicloResultado.EN_CURSO
+
+    # ------------------------------------------------------------------
+    # Aborto forzado por el ControlLoop (fuera del tick normal de run())
+    # ------------------------------------------------------------------
+
+    def abortar_por_desconexion(self):
+        """Llamado por ControlLoop cuando se pierde la comunicación serial
+        durante un ciclo en curso. run() no puede detectarlo por sí mismo
+        porque, sin conexión, el ControlLoop deja de invocar
+        state_machine.update() (no hay datos frescos de sensores) — así que
+        el aborto se dispara directamente en cuanto se detecta la caída,
+        sin esperar al siguiente tick normal."""
+        if self._resultado_pendiente is not None:
+            return  # ya se estaba abortando/terminando por otra causa
+
+        logger.error("CicloState: ABORTADO por pérdida de comunicación serial")
+        self.estado.fase_ciclo = "FALLO_CONEXION"
+        self.estado.motivo_fallo = "Se perdió la comunicación con el hardware durante el ciclo."
+        self.alarm_manager.report(Alarm(
+            alarm_id="FALLO_CONEXION",
+            alarm_type=AlarmType.EMERGENCIA,
+            source_state="CICLO",
+            description=self.estado.motivo_fallo,
+            recoverable=True,
+        ))
+        self._protocolo.ejecutar()
+        self._resultado_pendiente = CicloResultado.FALLO

@@ -129,7 +129,7 @@ class SerialLink:
             logger.warning(f"Error abriendo puerto {port}: {e}")
             self.serial = None
 
-            if not self._ever_connected and not self._device_reset_attempted:
+            if not self._device_reset_attempted:
                 if device_reset.is_device_not_functioning_error(e):
                     self._consecutive_gen_failures += 1
                     if self._consecutive_gen_failures >= self.GEN_FAILURE_RESET_THRESHOLD:
@@ -158,6 +158,12 @@ class SerialLink:
         with self.data_lock:
             self.data["port_open"] = False
             self.data["data_alive"] = False
+
+        # Nueva caída = nuevo episodio: habilita un nuevo intento de reset
+        # PnP si este episodio también termina atascado (no solo el primero
+        # de toda la vida del proceso).
+        self._device_reset_attempted = False
+        self._consecutive_gen_failures = 0
 
     def is_connected(self) -> bool:
         with self.data_lock:

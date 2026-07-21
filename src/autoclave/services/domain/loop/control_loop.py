@@ -90,6 +90,13 @@ class ControlLoop:
                 self.realtime_printer.enqueue(
                     format_connectivity_ticket("TARJETA", False, datetime.now())
                 )
+            # Sin conexión no hay datos frescos de sensores, así que este
+            # mismo _tick() va a retornar temprano y state_machine.update()
+            # no correrá — si había un ciclo en curso, no se detectaría el
+            # fallo por sí solo. Se aborta aquí directamente en vez de
+            # esperar a una reconexión que puede tardar o no llegar.
+            if self.estado.get_machine_state() == GlobalState.CICLO:
+                self.state_machine.ciclo.abortar_por_desconexion()
         elif connected and not self.link_was_connected:
             self.alarm_manager.clear("NO_HAY_CONEXION")
             if self.realtime_printer is not None and self._link_ever_connected:

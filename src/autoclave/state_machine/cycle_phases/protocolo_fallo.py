@@ -30,12 +30,14 @@ class ProtocoloFallo:
         self.estado  = estado
         self.set_do  = set_do
         self.config  = config
-        self._ejecutado     = False
-        self._buzzer_emitido = False
+        self._ejecutado       = False
+        self._buzzer_emitido  = False
+        self._salidas_apagadas = False
 
     def reset(self):
-        self._ejecutado      = False
-        self._buzzer_emitido = False
+        self._ejecutado       = False
+        self._buzzer_emitido  = False
+        self._salidas_apagadas = False
 
     # ------------------------------------------------------------------
     # DISPARO — llamar UNA vez al detectar el fallo
@@ -47,8 +49,9 @@ class ProtocoloFallo:
 
         logger.warning("Protocolo de fallo ejecutado — apagando todas las salidas")
 
-        # 1. Todas las salidas a cero
-        self.set_do.reset_all_outputs()
+        # 1. Todas las salidas a cero (si no hay enlace serial, esto puede no
+        # confirmarse — se reintenta en update() hasta que se confirme).
+        self._salidas_apagadas = self.set_do.reset_all_outputs()
 
         # 2. Válvula de seguridad inicial según estado de la cámara
         pres  = self.estado.sensores_pres.get("pres_camara")
@@ -88,6 +91,13 @@ class ProtocoloFallo:
         """
         if not self._ejecutado:
             return
+
+        # Reintentar el apagado si la primera confirmación (ACK de ALL_OFF)
+        # no llegó — p.ej. porque el enlace serial cayó justo al fallar.
+        if not self._salidas_apagadas:
+            self._salidas_apagadas = self.set_do.reset_all_outputs()
+            if self._salidas_apagadas:
+                logger.info("Protocolo fallo: apagado de salidas confirmado tras reintento")
 
         pres     = self.estado.sensores_pres.get("pres_camara")
         temp     = self.estado.sensores_temp.get("temp_camara")
