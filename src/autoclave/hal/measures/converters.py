@@ -80,7 +80,12 @@ _ma_pres: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtr
 # "Valores iniciales de mincutoff/beta" para la pasada de calibración pendiente.
 TEMP_MINCUTOFF = 0.05
 TEMP_BETA = 0.02
-PRES_MINCUTOFF = 0.1
+# PRES_MINCUTOFF bajado de 0.1 a 0.03 (feedback de campo: con 0.1 seguía
+# saltando ±5-7kPa en esterilización, con presión sostenida y estable —
+# es decir, en reposo real, no un cambio genuino). PRES_BETA se deja igual:
+# controla la respuesta ante cambios reales (purga, vacío) y no fue reportado
+# como problema.
+PRES_MINCUTOFF = 0.03
 PRES_BETA = 0.05
 DCUTOFF = 1.0
 
