@@ -269,10 +269,18 @@ def test_convert_temperatures_tracks_real_change_within_two_ticks(monkeypatch):
         fake_time[0] += 0.5
         val_before = converters.convert_temperatures(raw_cold, {})[1]
 
+    # El pre-filtro de mediana (ventana 5, sin tocar en esta tarea) necesita 3
+    # muestras nuevas para reflejar el cambio real — recién ahí el OneEuroFilter
+    # ve el valor nuevo. Las primeras 2 muestras "calientes" no alcanzan a mover
+    # la mediana todavía.
+    for _ in range(2):
+        fake_time[0] += 0.5
+        converters.convert_temperatures(raw_hot, {})[1]
+
     fake_time[0] += 0.5
-    first_after_step = converters.convert_temperatures(raw_hot, {})[1]
+    first_after_step = converters.convert_temperatures(raw_hot, {})[1]  # mediana recién volteó
     fake_time[0] += 0.5
-    second_after_step = converters.convert_temperatures(raw_hot, {})[1]
+    second_after_step = converters.convert_temperatures(raw_hot, {})[1]  # 1 tick de OneEuroFilter después
 
     assert val_before is not None
     assert first_after_step > val_before + 50  # ya se movió fuerte hacia el valor real
