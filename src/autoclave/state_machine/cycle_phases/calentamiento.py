@@ -39,6 +39,7 @@ class CalentamientoFase(BaseFase):
         tasa_seg    = (self.cycle.get_param("calentamiento", "tasa_calentamiento")) / 60
         timeout_seg = (self.cycle.get_param("calentamiento", "timeout_calentamiento")) * 60
         tolerancia  = self.cycle.get_param("calentamiento", "rango_presion_calentamiento")
+        margen_ester = self.cycle.get_param("calentamiento", "margen_entrada_esterilizacion") or 0.5
 
         # ── 1. Inicialización ────────────────────────────────────────────
         if not self._inicializado:
@@ -123,11 +124,17 @@ class CalentamientoFase(BaseFase):
             return FaseResult.EN_CURSO
 
         # ── 5. Verificar completación ───────────────────────────────────
+        # Se exige temp >= t_obj + margen_ester (no justo t_obj): la lectura
+        # real fluctúa un poco al llegar al objetivo, así que completar justo
+        # en t_obj puede caer por debajo de temperatura_esterilizacion en el
+        # primer tick de ESTERILIZACION (que no tiene tolerancia) y disparar
+        # un FALLO espurio. El margen da un colchón contra esa fluctuación.
+        t_completar = t_obj + margen_ester
         if self.cap.has_liquid_sensor:
             temp2 = self._temp_camara_2()
             if temp2 is None:
                 return FaseResult.EN_CURSO
-            if temp >= t_obj and temp2 >= t_obj:
+            if temp >= t_completar and temp2 >= t_completar:
                 logger.info(
                     "Calentamiento: COMPLETADO — camara=%.1f°C liquido=%.1f°C",
                     temp, temp2,
@@ -135,7 +142,7 @@ class CalentamientoFase(BaseFase):
                 self._apagar_salidas()
                 return FaseResult.COMPLETADO
         else:
-            if temp >= t_obj:
+            if temp >= t_completar:
                 logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
                 self._apagar_salidas()
                 return FaseResult.COMPLETADO

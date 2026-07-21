@@ -5,7 +5,8 @@ from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 
 
 def _make_fase(t_obj=134.0, tasa=5.0, timeout_min=60, tolerancia=9.0, t_inicial=20.0,
-               margen_techo=2.0, tiempo_apertura=3, tiempo_cierre=5):
+               margen_techo=2.0, tiempo_apertura=3, tiempo_cierre=5,
+               margen_entrada_esterilizacion=0.5):
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": t_inicial}
     estado.sensores_pres = {"pres_camara": 100.0}
@@ -21,6 +22,7 @@ def _make_fase(t_obj=134.0, tasa=5.0, timeout_min=60, tolerancia=9.0, t_inicial=
             "margen_techo_calentamiento": margen_techo,
             "tiempo_apertura_vapor_checkpoint": tiempo_apertura,
             "tiempo_cierre_vapor_checkpoint": tiempo_cierre,
+            "margen_entrada_esterilizacion": margen_entrada_esterilizacion,
         }
         return valores.get(param, default)
     cycle.get_param.side_effect = get_param
@@ -63,6 +65,31 @@ def test_completado_cuando_alcanza_temperatura():
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.vapor_camara_off.assert_called()
+    set_do.descompresion_lenta_off.assert_called()
+
+
+def test_no_completa_justo_en_t_obj_espera_margen_entrada_esterilizacion():
+    """Con el checkpoint ya liberado, llegar exactamente a t_obj no alcanza
+    para completar — hace falta t_obj + margen_entrada_esterilizacion, para
+    dar colchón contra la fluctuación real de la lectura al llegar al
+    objetivo (evita un FALLO espurio al entrar a ESTERILIZACION, que no
+    tiene tolerancia en su primer chequeo de temperatura)."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    fase, estado, set_do = _make_fase(t_obj=134.0, margen_entrada_esterilizacion=0.5)
+    fase.update()  # inicializar
+
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera el checkpoint
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
+    fase.update()
+
+    estado.sensores_temp["temp_camara"] = 134.0  # == t_obj, sin margen todavía
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.descompresion_lenta_off.assert_not_called()
+
+    estado.sensores_temp["temp_camara"] = 134.5  # == t_obj + margen
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
     set_do.descompresion_lenta_off.assert_called()
 
 
@@ -144,7 +171,7 @@ def test_salidas_apagadas_al_completar():
     estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
     fase.update()
 
-    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_temp["temp_camara"] = 135.0  # >= t_obj + margen_entrada_esterilizacion (134.5)
     fase.update()
     set_do.vapor_camara_off.assert_called()
     set_do.descompresion_lenta_off.assert_called()

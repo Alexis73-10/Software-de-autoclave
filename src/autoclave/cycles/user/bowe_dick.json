@@ -239,6 +239,13 @@
                 "min": 0,
                 "max": 10
             },
+            "margen_entrada_esterilizacion": {
+                "value": 0.5,
+                "type": "float",
+                "unit": "°C",
+                "min": 0,
+                "max": 5
+            },
             "tiempo_apertura_vapor_checkpoint": {
                 "value": 3,
                 "type": "int",
