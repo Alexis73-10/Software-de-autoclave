@@ -83,8 +83,7 @@ class OneEuroFilter:
             self.t_prev = timestamp
             return value
 
-        dt = max(timestamp - self.t_prev, 1e-3)
-        dt = min(dt, MAX_DT)  # clamp ante gaps largos (freeze/reconexión)
+        dt = max(timestamp - self.t_prev, 1e-3)  # piso: evita división por dt≈0
 
         dx = (value - self.x_prev) / dt
         a_d = self._alpha(self.dcutoff, dt)
@@ -105,10 +104,13 @@ class OneEuroFilter:
 
 - `timestamp` se pasa explícitamente (no `time.monotonic()` interno a la clase) para
   que los tests puedan controlar el tiempo sin mockear el reloj del sistema.
-- `MAX_DT` (constante, propuesta 2.0s): si el hilo se congela o hay una reconexión
-  serial larga, evita que un `dt` gigante genere una `dx` artificialmente enorme al
-  volver, lo que dispararía el `cutoff` (y por ende el suavizado se apagaría de golpe
-  en el peor momento).
+- Solo se clampea el piso de `dt` (mínimo `1e-3`s) para evitar división por ~0 si
+  llegan dos lecturas con timestamps casi idénticos. No hace falta un techo (`MAX_DT`):
+  con `alpha = 1/(1+tau/dt)`, a medida que `dt` crece `tau/dt→0` y `alpha→1` para
+  cualquier `cutoff` — es decir, ante un gap largo (freeze del hilo, reconexión) el
+  filtro ya converge solo a confiar por completo en la lectura nueva en esa única
+  actualización, que es exactamente el comportamiento deseado (no hace falta un tope
+  artificial para lograrlo).
 - Primera lectura real: arranca directo en el valor, sin rampa inicial (igual que el
   comportamiento actual del EMA).
 
@@ -138,7 +140,6 @@ del ruido real de este equipo disponible en esta sesión):
 | `PRES_MINCUTOFF` | 0.1 Hz | Algo menos agresivo que temperatura — presión cambia más rápido |
 | `PRES_BETA` | 0.05 | Mayor sensibilidad a cambios reales (purga, vacío) |
 | `DCUTOFF` | 1.0 Hz | Valor estándar del algoritmo original, rara vez necesita ajuste |
-| `MAX_DT` | 2.0 s | Tope de gap de tiempo entre lecturas consecutivas |
 
 **Estos valores requieren una pasada de calibración empírica después de implementar**:
 loguear valor crudo + filtrado durante (a) el equipo en reposo/estable y (b) una
@@ -148,8 +149,8 @@ la implementación inicial.
 
 ## Fuera de alcance
 
-- Exponer `mincutoff`/`beta`/`MAX_DT` en `calibration.yaml` (se mantienen como
-  constantes de módulo por ahora, YAGNI).
+- Exponer `mincutoff`/`beta` en `calibration.yaml` (se mantienen como constantes de
+  módulo por ahora, YAGNI).
 - Agregar detección de sensor desconectado a presión (inconsistencia preexistente,
   no relacionada a este cambio).
 - Aumentar el promedio de muestras en firmware (`ADC_SAMPLES` en el `.ino`) — fuera
@@ -174,9 +175,9 @@ para los unitarios aislados):
 3. **`reset()`**: confirmar que tras `reset()`, la siguiente lectura arranca directo
    en el valor nuevo (sin rampa), y que el estado interno (`x_prev`, `dx_prev`,
    `t_prev`) vuelve a `None`/`0.0`.
-4. **`dt` clamp**: simular un gap de tiempo mayor a `MAX_DT` entre dos `update()` →
-   confirmar que no se dispara un `cutoff` desproporcionado (comparar contra el caso
-   sin clamp).
+4. **Gap de tiempo largo**: simular un `dt` grande entre dos `update()` (freeze del
+   hilo / reconexión) → confirmar que la salida converge al valor nuevo en esa misma
+   actualización (alpha≈1), en vez de arrastrar el valor viejo con lag.
 5. **Integración `convert_temperatures`**: reemplazo del EMA verificado end-to-end;
    desconexión (`raw=0`)/reconexión de un canal → confirmar que `reset()` se invoca y
    no hay salto artificial al reconectar.
