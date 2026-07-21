@@ -17,7 +17,16 @@ class RealtimePrinter:
         self._thread.start()
 
     def enqueue(self, text: str) -> None:
-        """Encola texto para impresión. No bloquea ni lanza excepciones."""
+        """Encola texto para impresión. No bloquea ni lanza excepciones.
+
+        Cada llamada se imprime en un job RAW independiente (no se concatenan
+        en un único string como hace la reimpresión de ciclos guardados). Si
+        el texto no termina en salto de línea, al llegar a la impresora física
+        queda pegado sin espacio al siguiente fragmento encolado — se agrega
+        aquí para garantizar que cada fragmento encolado quede en su propia línea.
+        """
+        if not text.endswith("\n"):
+            text += "\n"
         self._queue.put(text)
 
     def _worker(self):
