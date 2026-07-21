@@ -35,3 +35,9 @@ def test_ticket_usa_el_mismo_formato_corto_que_ticket_formatter():
     assert "-" * 24 in lineas
     assert "=" * 48 not in texto
     assert "ESPECIFIKA" not in texto
+
+
+def test_ticket_termina_con_avance_de_papel_para_corte():
+    texto = format_connectivity_ticket("TARJETA", False, datetime(2026, 7, 7, 14, 32, 10))
+    lineas = texto.split("\n")
+    assert lineas[-5:] == [""] * 5

@@ -80,8 +80,7 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
         f"Hora fin: {hora_fin}",
         "Operador: ____________",
         "------------------------",
-        " ",
-    ]
+    ] + [""] * 5  # avance de papel en blanco para poder cortar sin abrir la tapa
     return "\n".join(lines)
 
 

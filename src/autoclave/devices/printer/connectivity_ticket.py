@@ -22,6 +22,5 @@ def format_connectivity_ticket(subsystem: str, ok: bool, when: datetime) -> str:
         mensaje,
         when.strftime("%Y-%m-%d %H:%M:%S"),
         _DIV,
-        " ",
-    ]
+    ] + [""] * 5  # avance de papel en blanco para poder cortar sin abrir la tapa
     return "\n".join(lines)

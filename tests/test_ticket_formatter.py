@@ -86,6 +86,14 @@ def test_format_footer_con_motivo_agrega_linea():
     assert "Motivo: Temperatura baja: 100.0°C < 134.0°C" in footer
 
 
+def test_format_footer_termina_con_avance_de_papel_para_corte():
+    """Deja suficiente papel en blanco al final para poder cortar sin tener
+    que avanzarlo manualmente."""
+    footer = format_footer("COMPLETADO", "2026-07-06T08:45:00")
+    lineas = footer.split("\n")
+    assert lineas[-5:] == [""] * 5
+
+
 def test_header_filas_pie_equivalen_a_format_ticket():
     ciclo = _ciclo()
     lecturas = _lecturas()
