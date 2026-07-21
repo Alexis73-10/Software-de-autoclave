@@ -1,7 +1,10 @@
 from datetime import datetime
 
-_W   = 48
-_SEP = "=" * _W
+# Mismo estilo de divisor corto que ticket_formatter.py (confirmado
+# funcionando en la impresora térmica real) — las barras de 48 "=" y el
+# título centrado que este ticket usaba antes fueron el formato que se
+# abandonó ahí por dar problemas de impresión.
+_DIV = "-" * 24
 
 _MENSAJES = {
     ("TARJETA", False): "TARJETA: DESCONECTADA",
@@ -14,12 +17,11 @@ _MENSAJES = {
 def format_connectivity_ticket(subsystem: str, ok: bool, when: datetime) -> str:
     mensaje = _MENSAJES[(subsystem, ok)]
     lines = [
-        _SEP,
-        "ESPECIFIKA -- AUTOCLAVE".center(_W),
-        _SEP,
-        f" {mensaje}",
-        f" {when.strftime('%Y-%m-%d %H:%M:%S')}",
-        _SEP,
-        "",
+        " ",
+        _DIV,
+        mensaje,
+        when.strftime("%Y-%m-%d %H:%M:%S"),
+        _DIV,
+        " ",
     ]
     return "\n".join(lines)
