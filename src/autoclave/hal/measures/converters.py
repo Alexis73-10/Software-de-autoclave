@@ -1,5 +1,6 @@
 # autoclave.core.converters.py
 
+import math
 from typing import List, Dict, Optional
 from autoclave.config.schema import CalibrationConfig
 from collections import deque
@@ -23,6 +24,47 @@ class MedianFilter:
     def update(self, value: float) -> float:
         self.buffer.append(value)
         return round(statistics.median(self.buffer), 2)
+
+class OneEuroFilter:
+    """Casiez et al. 2012. Suaviza fuerte cuando la señal está estática (ruido de
+    fondo) y responde rápido cuando la derivada estimada indica un cambio real."""
+
+    def __init__(self, mincutoff: float, beta: float, dcutoff: float = 1.0):
+        self.mincutoff = mincutoff
+        self.beta = beta
+        self.dcutoff = dcutoff
+        self.x_prev: Optional[float] = None
+        self.dx_prev: float = 0.0
+        self.t_prev: Optional[float] = None
+
+    def _alpha(self, cutoff: float, dt: float) -> float:
+        tau = 1.0 / (2 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def update(self, value: float, timestamp: float) -> float:
+        if self.t_prev is None:
+            self.x_prev = value
+            self.t_prev = timestamp
+            return value
+
+        dt = max(timestamp - self.t_prev, 1e-3)  # piso: evita división por dt≈0
+
+        dx = (value - self.x_prev) / dt
+        a_d = self._alpha(self.dcutoff, dt)
+        edx = a_d * dx + (1 - a_d) * self.dx_prev
+
+        cutoff = self.mincutoff + self.beta * abs(edx)
+        a = self._alpha(cutoff, dt)
+        x_hat = a * value + (1 - a) * self.x_prev
+
+        self.x_prev, self.dx_prev, self.t_prev = x_hat, edx, timestamp
+        return x_hat
+
+    def reset(self) -> None:
+        self.x_prev = None
+        self.dx_prev = 0.0
+        self.t_prev = None
+
 # ==============================
 # Estado interno de filtros
 # ==============================
