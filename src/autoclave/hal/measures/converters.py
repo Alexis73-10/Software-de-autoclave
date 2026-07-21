@@ -1,6 +1,7 @@
 # autoclave.core.converters.py
 
 import math
+import time
 from typing import List, Dict, Optional
 from autoclave.config.schema import CalibrationConfig
 from collections import deque
@@ -68,30 +69,27 @@ class OneEuroFilter:
 # ==============================
 # Estado interno de filtros
 # ==============================
-# Pipeline simplificado: raw → MA(pre-filter) → calibrar → EMA(suavizado)
-# Una sola etapa de MA y una sola EMA eliminan el lag del doble MA anterior.
+# Pipeline: raw → MedianFilter(pre-filtro) → calibrar → OneEuroFilter(suavizado adaptativo)
 
 _ma_temp: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtro ligero
 _ma_pres: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtro ligero
 
-_prev_temp_values: List[float] = [None] * 8   # None = sin lectura inicial
-_prev_pres_values: List[float] = [None] * 8
+# mincutoff: suavizado en reposo (más bajo = más suave). beta: qué tan rápido se
+# relaja el suavizado cuando la derivada estimada indica un cambio real.
+# Puntos de partida sin calibrar con datos reales — ver spec, sección
+# "Valores iniciales de mincutoff/beta" para la pasada de calibración pendiente.
+TEMP_MINCUTOFF = 0.05
+TEMP_BETA = 0.02
+PRES_MINCUTOFF = 0.1
+PRES_BETA = 0.05
+DCUTOFF = 1.0
 
-# α = 0.1 → peso nuevo valor: 10 %, constante de tiempo ≈ 9 muestras
-# Para temperatura (cambios lentos) 0.1 es ideal.
-# Para presión (puede cambiar más rápido) usamos 0.15.
-TEMP_ALPHA = 0.15
-PRES_ALPHA = 0.2
-
-
-# ==============================
-# EMA FILTER
-# ==============================
-
-def _ema(previous: float, new_value: float, alpha: float) -> float:
-    ema = round((alpha * new_value + (1 - alpha) * previous),2)
-
-    return ema
+_oe_temp: List[OneEuroFilter] = [
+    OneEuroFilter(TEMP_MINCUTOFF, TEMP_BETA, DCUTOFF) for _ in range(8)
+]
+_oe_pres: List[OneEuroFilter] = [
+    OneEuroFilter(PRES_MINCUTOFF, PRES_BETA, DCUTOFF) for _ in range(8)
+]
 
 
 # ==============================
@@ -151,8 +149,7 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
         factory_list = config.calibration.factory.temperature
         user_list = config.calibration.user.temperature
 
-    global _prev_temp_values
-
+    timestamp = time.monotonic()
     temps = []
 
     for i in range(8):
@@ -161,11 +158,11 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
         # Sensor desconectado: ADC en 0 (cable a GND) o 4095 (cable al aire/VCC)
         if raw == 0 or raw >= 4095:
             _ma_temp[i].buffer.clear()
-            _prev_temp_values[i] = None
+            _oe_temp[i].reset()
             temps.append(None)
             continue
 
-        # 1. Pre-filtro: MA ligero sobre valores crudos (rechaza picos del ADC)
+        # 1. Pre-filtro: mediana ligera sobre valores crudos (rechaza picos del ADC)
         smoothed_raw = _ma_temp[i].update(raw)
 
         factory_calib = factory_list[i] if i < len(factory_list) else None
@@ -175,10 +172,8 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
         value = _factory_calibrate(smoothed_raw, factory_calib, 200.0)
         value = _user_calibrate(value, user_calib)
 
-        # 3. EMA: arrancar desde el primer valor real para evitar rampa inicial
-        prev = _prev_temp_values[i]
-        value = value if prev is None else _ema(prev, value, TEMP_ALPHA)
-        _prev_temp_values[i] = value
+        # 3. Suavizado adaptativo: fuerte en reposo, rápido ante cambios reales
+        value = _oe_temp[i].update(value, timestamp)
 
         temps.append(round(value, 1))
 
@@ -198,15 +193,14 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig) -> Li
         factory_list = config.calibration.factory.pressure
         user_list = config.calibration.user.pressure
 
-    global _prev_pres_values
-
+    timestamp = time.monotonic()
     press = []
 
     for i in range(8):
         raw_index = 8 + i
         raw = raw_ai[raw_index] if raw_index < len(raw_ai) else 0
 
-        # 1. Pre-filtro: MA ligero sobre valores crudos
+        # 1. Pre-filtro: mediana ligera sobre valores crudos
         smoothed_raw = _ma_pres[i].update(raw)
 
         factory_calib = factory_list[i] if i < len(factory_list) else None
@@ -216,10 +210,8 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig) -> Li
         value = _factory_calibrate(smoothed_raw, factory_calib, 400.0, is_pressure=True)
         value = _user_calibrate(value, user_calib)
 
-        # 3. EMA: arrancar desde el primer valor real para evitar rampa inicial
-        prev = _prev_pres_values[i]
-        value = value if prev is None else _ema(prev, value, PRES_ALPHA)
-        _prev_pres_values[i] = value
+        # 3. Suavizado adaptativo: fuerte en reposo, rápido ante cambios reales
+        value = _oe_pres[i].update(value, timestamp)
 
         # 4. Clamp: la presión nunca es negativa
         value = max(0.0, value)
