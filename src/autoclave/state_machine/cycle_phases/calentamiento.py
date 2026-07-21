@@ -3,8 +3,8 @@
 # FASE 4 — CALENTAMIENTO
 #
 # Eleva T de la cámara hasta temperatura_calentamiento siguiendo una rampa
-# de tasa_calentamiento °C/min. Pausa en checkpoints al 50% y 90% de T_obj
-# para verificar vapor saturado (|P_real - P_sat(T)| <= presion_add_calentamiento).
+# de tasa_calentamiento °C/min. Pausa en un checkpoint al 97% de T_obj para
+# verificar vapor saturado (|P_real - P_sat(T)| <= presion_add_calentamiento).
 
 import time
 import logging
@@ -48,7 +48,7 @@ class CalentamientoFase(BaseFase):
             self._t_inicio          = temp
             self._t_inicio_fase     = time.time()
             self._timer_timeout_fin = time.time() + timeout_seg
-            self._checkpoints       = [0.80 * t_obj, 0.97 * t_obj]
+            self._checkpoints       = [0.97 * t_obj]
             self.set_do.descompresion_lenta_on()
             self._inicializado = True
             logger.info(

@@ -50,16 +50,12 @@ def test_calentamiento_normal_valvula_on():
 
 
 def test_completado_cuando_alcanza_temperatura():
-    """Con ambos checkpoints liberados, alcanzar t_obj completa la fase."""
+    """Con el checkpoint liberado, alcanzar t_obj completa la fase."""
     from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, set_do = _make_fase(t_obj=134.0)
     fase.update()  # inicializar
 
-    estado.sensores_temp["temp_camara"] = 107.2  # 80% — libera checkpoint 1
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(107.2)
-    fase.update()
-
-    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera checkpoint 2
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera el checkpoint
     estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
     fase.update()
 
@@ -71,13 +67,13 @@ def test_completado_cuando_alcanza_temperatura():
 
 
 def test_checkpoint_pendiente_bloquea_completacion():
-    """Si temp >= t_obj pero un checkpoint sigue sin liberarse, no completa."""
+    """Si temp >= t_obj pero el checkpoint sigue sin liberarse, no completa."""
     fase, estado, set_do = _make_fase(t_obj=134.0)
     fase.update()  # inicializar
 
-    # Salta directo a t_obj sin pasar por los checkpoints con presión correcta
+    # Salta directo a t_obj sin pasar por el checkpoint con presión correcta
     # (aire residual / vapor no saturado: presión fija en 100.0 kPa). La temperatura
-    # también supera el techo del checkpoint (107.2 + 2.0 = 109.2), así que el
+    # también supera el techo del checkpoint (129.98 + 2.0 = 131.98), así que el
     # mecanismo de pulsos fuerza la válvula a OFF en vez de pulsar — eso es correcto,
     # lo que este test verifica es que la fase NO completa mientras tanto.
     estado.sensores_temp["temp_camara"] = 135.0
@@ -114,11 +110,11 @@ def test_rampa_frena_valvula_cuando_supera_limite():
 
 
 def test_checkpoint_entra_en_sostenimiento():
-    """Al alcanzar el 80% del objetivo, la fase entra en verificación."""
+    """Al alcanzar el 97% del objetivo, la fase entra en verificación."""
     fase, estado, set_do = _make_fase(t_obj=134.0)
     fase.update()  # inicializar
-    estado.sensores_temp["temp_camara"] = 107.2  # 80% de 134
-    # P_sat(107.2°C) ≈ 130 kPa — poner presión muy alta (aire)
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% de 134
+    # P_sat(129.98°C) es alto — poner presión muy alta (aire)
     estado.sensores_pres["pres_camara"] = 200.0
     result = fase.update()
     assert result == FaseResult.EN_CURSO
@@ -130,9 +126,9 @@ def test_checkpoint_se_libera_con_presion_correcta():
     from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, set_do = _make_fase(t_obj=134.0, tolerancia=15.0)
     fase.update()  # inicializar
-    estado.sensores_temp["temp_camara"] = 107.2  # 80% de 134
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% de 134
     # Presión correcta para el checkpoint
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(107.2)
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
     fase.update()  # entrar en checkpoint
     result = fase.update()  # liberar checkpoint
     assert fase._en_checkpoint is False
@@ -144,11 +140,7 @@ def test_salidas_apagadas_al_completar():
     fase, estado, set_do = _make_fase(t_obj=134.0)
     fase.update()
 
-    estado.sensores_temp["temp_camara"] = 107.2  # 80% — libera checkpoint 1
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(107.2)
-    fase.update()
-
-    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera checkpoint 2
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera el checkpoint
     estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
     fase.update()
 
@@ -163,8 +155,8 @@ def test_checkpoint_pulso_on_luego_off_por_tiempo():
     fase, estado, set_do = _make_fase(t_obj=134.0, tolerancia=9.0)
     fase.update()  # inicializar
 
-    estado.sensores_temp["temp_camara"] = 107.2  # 80% de 134 → checkpoint 1
-    estado.sensores_pres["pres_camara"] = 50.0   # muy por debajo de P_sat(107.2)-9
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% de 134 → checkpoint
+    estado.sensores_pres["pres_camara"] = 50.0    # muy por debajo de P_sat(129.98)-9
     result = fase.update()  # entra a checkpoint + primer pulso
     assert result == FaseResult.EN_CURSO
     assert fase._vapor_chk_abierto is True
@@ -186,8 +178,8 @@ def test_checkpoint_techo_alcanzado_fuerza_off_sin_pulsar():
     fase.update()  # inicializar
 
     set_do.reset_mock()  # el tick de inicialización enciende vapor por rampa; aislar el tick bajo prueba
-    # checkpoint 1 = 107.2, techo = 107.2 + 2.0 = 109.2
-    estado.sensores_temp["temp_camara"] = 109.2
+    # checkpoint = 129.98, techo = 129.98 + 2.0 = 131.98
+    estado.sensores_temp["temp_camara"] = 131.98
     estado.sensores_pres["pres_camara"] = 50.0
     result = fase.update()
     assert result == FaseResult.EN_CURSO
@@ -201,13 +193,13 @@ def test_checkpoint_retoma_pulso_al_bajar_del_techo():
     fase, estado, set_do = _make_fase(t_obj=134.0, tolerancia=9.0, margen_techo=2.0)
     fase.update()  # inicializar
 
-    estado.sensores_temp["temp_camara"] = 109.2  # en el techo → frena
+    estado.sensores_temp["temp_camara"] = 131.98  # en el techo → frena
     estado.sensores_pres["pres_camara"] = 50.0
     fase.update()
     assert fase._t_pulso_vapor_chk is None
 
     set_do.reset_mock()
-    estado.sensores_temp["temp_camara"] = 108.0  # baja del techo de nuevo
+    estado.sensores_temp["temp_camara"] = 130.78  # baja del techo de nuevo
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._vapor_chk_abierto is True
@@ -220,12 +212,12 @@ def test_checkpoint_liberado_resetea_estado_de_pulso():
     fase, estado, set_do = _make_fase(t_obj=134.0, tolerancia=9.0)
     fase.update()  # inicializar
 
-    estado.sensores_temp["temp_camara"] = 107.2
+    estado.sensores_temp["temp_camara"] = 129.98
     estado.sensores_pres["pres_camara"] = 50.0
     fase.update()  # entra a checkpoint, arranca pulso ON
     assert fase._t_pulso_vapor_chk is not None
 
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(107.2)  # presión correcta → libera
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)  # presión correcta → libera
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._en_checkpoint is False

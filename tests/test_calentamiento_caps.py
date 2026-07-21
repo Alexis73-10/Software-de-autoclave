@@ -32,9 +32,9 @@ def _make_fase(has_liquid_sensor: bool, t_inicial=20.0, t_inicial_2=20.0):
 
 
 def _liberar_checkpoints(fase, estado):
-    """Avanza la temp por los checkpoints 80%/97% con presión saturada."""
+    """Avanza la temp por el checkpoint único (97% de t_obj) con presión saturada."""
     from autoclave.core.runtime.steam import p_saturacion_kpa
-    for temp in (107.2, 129.98):  # 80% y 97% de t_obj=134.0
+    for temp in (129.98,):  # 97% de t_obj=134.0
         estado.sensores_temp["temp_camara"] = temp
         estado.sensores_pres["pres_camara"] = p_saturacion_kpa(temp)
         fase.update()
