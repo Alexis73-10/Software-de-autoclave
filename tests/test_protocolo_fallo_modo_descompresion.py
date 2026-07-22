@@ -110,3 +110,64 @@ def test_modo_5_va_directo_a_final_sin_enfriamiento():
     set_do.descompresion_rapida_on.assert_called_once()
     set_do.agua_chaqueta_on.assert_not_called()
     set_do.aire_comprimido_camara_on.assert_not_called()
+
+
+def test_modo_3_continua_transicion_en_update():
+    # DescompresionFase (y esta réplica) apagan "lenta" y cambian de
+    # sub-etapa en el tick en que se cruza presion_cambio, pero recién
+    # activan "rapida" en el tick siguiente.
+    protocolo, set_do, _ = _make_protocolo(modo=3, pres_camara=300.0, presion_cambio=150)
+    protocolo.ejecutar()
+    set_do.reset_mock()
+
+    protocolo.estado.sensores_pres["pres_camara"] = 140.0
+    protocolo.update()
+
+    set_do.descompresion_lenta_off.assert_called_once()
+    assert protocolo._sub_etapa == "rapida"
+
+    set_do.reset_mock()
+    protocolo.update()
+
+    set_do.descompresion_rapida_on.assert_called_once()
+    set_do.descompresion_lenta_on.assert_not_called()
+
+
+def test_transicion_a_presion_normal_apaga_valvulas_y_activa_atm():
+    protocolo, set_do, _ = _make_protocolo(modo=1, pres_camara=300.0)
+    protocolo.ejecutar()
+    set_do.reset_mock()
+
+    protocolo.estado.sensores_pres["pres_camara"] = 101.3
+    protocolo.update()
+
+    set_do.descompresion_rapida_off.assert_called_once()
+    set_do.descompresion_lenta_off.assert_called_once()
+    set_do.descompresion_chaqueta_off.assert_called_once()
+    set_do.aire_admosferico_camara_on.assert_called_once()
+
+
+def test_normal_vacio_al_disparo_update_sin_cambios():
+    protocolo, set_do, _ = _make_protocolo(modo=1, pres_camara=101.3)
+    protocolo.ejecutar()
+    set_do.reset_mock()
+
+    protocolo.update()
+
+    set_do.descompresion_lenta_off.assert_not_called()
+    set_do.aire_admosferico_camara_on.assert_called_once()
+
+
+def test_buzzer_sin_cambios_tras_descompresion_por_modo():
+    protocolo, set_do, _ = _make_protocolo(modo=1, pres_camara=300.0)
+    protocolo.ejecutar()
+
+    protocolo.estado.sensores_pres["pres_camara"] = 101.3
+    protocolo.estado.sensores_temp["temp_camara"] = 25.0
+    protocolo.update()
+
+    set_do.buzer_fallo.assert_called_once()
+
+    set_do.reset_mock()
+    protocolo.update()
+    set_do.buzer_fallo.assert_not_called()
