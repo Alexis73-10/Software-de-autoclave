@@ -45,14 +45,15 @@ class preparacion_state:
     # Verificar que todos los sonsores esten en funcionamiento (sin importar su valor)
     # - no pueden estar en 0 (fallo de sensor)
     
-    def alarm (self, alarm_id, alarm_type):
+    def alarm (self, alarm_id, alarm_type, blocks_operation=True):
         nivel = _NIVEL_TXT.get(alarm_type, "Alerta")
         alarm = Alarm(
             alarm_id=alarm_id,
             alarm_type=alarm_type,
             source_state="PREPARACION",
             description=f"{nivel}: {alarm_id} en PREPARACION.",
-            recoverable=True
+            recoverable=True,
+            blocks_operation=blocks_operation,
         )
         self.alarm_manager.report(alarm)
     
@@ -87,29 +88,35 @@ class preparacion_state:
             self.set_do.buzer_off()
             self.alarm_manager.clear("PARO_EMERGENCIA")
 
+        # Desde el paso 2 en adelante, la chaqueta se acondiciona en cada
+        # tick sin importar el paso actual: si el vapor vuelve después de
+        # que el secuenciador ya avanzó, retoma sola sin bloquear nada.
+        chaqueta_lista = None
+        if self.step >= 2:
+            chaqueta_lista = self.suministrar_vapor_chaqueta()
 
         if self.step == 0:
                 self.step = 1
-        
+
         elif self.step == 1:
                 self.step = 2
-        
+
         elif self.step == 2:
-            if self.suministrar_vapor_chaqueta():
+            if chaqueta_lista:
                 self.step = 3
-                
+
         elif self.step == 3:
             if self.igualar_presion_camara():
                 self.step = 4
-                
+
         elif self.step == 4:
             if self.drenar_camara():
                 self.step = 5
-                
+
         elif self.step == 5:
             if self.verificar_temperatura_drenaje():
                 return True  # Indica que la preparación ha finalizado
-            
+
         return False
     
     def verificar_sensores(self):
@@ -189,11 +196,15 @@ class preparacion_state:
             limite_inf = pres_obj - rango
             limite_sup = pres_obj + rango
 
-            # Verificar suministro
+            # Verificar suministro. Si no hay vapor, no insistir en abrir la
+            # válvula (generaría vapor demasiado húmedo por baja presión de
+            # línea): se deja "pendiente", no bloqueante.
             if not self.estado.sensores_di["vapor_suministro"]:
-                alarm_id = "SUMINISTRO_VAPOR"
-                self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
+                self.set_do.vapor_chaqueta_off()
+                self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
+                self.alarm_manager.clear("CHAQUETA_FRIA")
+                self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+                return True
             else:
                 self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
