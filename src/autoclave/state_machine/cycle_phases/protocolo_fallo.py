@@ -19,6 +19,7 @@
 #       AND temp_camara <= temp_max_apertura):
 #       emite BEEP_FALLO UNA sola vez
 
+import time
 import logging
 
 logger = logging.getLogger(__name__)
@@ -74,11 +75,15 @@ class ProtocoloFallo:
                 "Protocolo fallo: presión desconocida — no se activa válvula de seguridad"
             )
         elif pres > atm + rango:
-            # Cámara presurizada → descompresión lenta
+            self._presurizado_al_disparo = True
+            self._modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
+            self._sub_etapa = "lenta" if self._modo == 3 else None
+            self._t_timeout_descompresion = self._calcular_timeout()
             logger.warning(
-                "Protocolo fallo: cámara presurizada (%.1f kPa) → descompresión lenta", pres
+                "Protocolo fallo: cámara presurizada (%.1f kPa) → modo de descompresión %d",
+                pres, self._modo
             )
-            self.set_do.descompresion_lenta_on()
+            self._aplicar_paso_modo(pres)
         else:
             # Presión normal o bajo vacío → aire atmosférico
             logger.warning(
@@ -87,6 +92,42 @@ class ProtocoloFallo:
             self.set_do.aire_admosferico_camara_on()
 
         self._ejecutado = True
+
+    # ------------------------------------------------------------------
+    # Estrategia de válvulas según el modo de descompresión del ciclo
+    # ------------------------------------------------------------------
+
+    def _calcular_timeout(self) -> float:
+        timeout_key = "modo_2" if self._modo == 0 else f"modo_{self._modo}"
+        timeout_min = self.cycle.get_param("descompresion", timeout_key, "timeout", default=60)
+        return time.time() + (timeout_min or 60) * 60
+
+    def _aplicar_paso_modo(self, pres: float) -> None:
+        if self._escalado:
+            self.set_do.descompresion_chaqueta_on()
+            self.set_do.descompresion_rapida_on()
+            return
+
+        modo_efectivo = 2 if self._modo == 0 else self._modo
+
+        if modo_efectivo == 1:
+            self.set_do.descompresion_rapida_on()
+        elif modo_efectivo == 2:
+            self.set_do.descompresion_lenta_on()
+        elif modo_efectivo == 3:
+            if self._sub_etapa == "lenta":
+                presion_cambio = self.cycle.get_param(
+                    "descompresion", "modo_3", "presion_cambio", default=150
+                )
+                self.set_do.descompresion_lenta_on()
+                if pres <= presion_cambio:
+                    self.set_do.descompresion_lenta_off()
+                    self._sub_etapa = "rapida"
+            else:
+                self.set_do.descompresion_rapida_on()
+        elif modo_efectivo in (4, 5):
+            self.set_do.descompresion_chaqueta_on()
+            self.set_do.descompresion_rapida_on()
 
     # ------------------------------------------------------------------
     # MANTENIMIENTO — llamar en cada tick mientras se espera confirmación
