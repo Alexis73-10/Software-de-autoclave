@@ -93,14 +93,26 @@ def test_fallo_temp_alta():
 
 
 def test_fallo_presion_baja():
-    fase, estado, set_do = _make_fase(t_est=134.0)
+    fase, estado, set_do = _make_fase(t_est=134.0, pres_rango=20.0, pres_err=40.0)
     fase.update()
     p_sat = p_saturacion_kpa(134.0)
-    estado.sensores_pres["pres_camara"] = p_sat - 0.1  # justo debajo de P_sat
+    # P_lim_baja = P_sat - 20 - 40 = P_sat - 60
+    estado.sensores_pres["pres_camara"] = p_sat - 61.0
     result = fase.update()
     assert result == FaseResult.FALLO
     alarm = fase.alarm_manager.report.call_args[0][0]
     assert "PRES_BAJA" in alarm.id
+
+
+def test_presion_dentro_del_margen_inferior_no_falla():
+    """Ruido residual del sensor por debajo de P_sat, dentro del margen
+    (rango + error), no debe disparar FALLO — simétrico al margen superior."""
+    fase, estado, set_do = _make_fase(t_est=134.0, pres_rango=20.0, pres_err=40.0)
+    fase.update()
+    p_sat = p_saturacion_kpa(134.0)
+    estado.sensores_pres["pres_camara"] = p_sat - 7.0  # ruido residual típico
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
 
 
 def test_fallo_presion_alta():
