@@ -240,7 +240,7 @@ class preparado_state:
         ok = True
 
         for suministro, estado in self.estado.sensores_di.items():
-            if suministro in ["vapor_suministro", "agua_bomba", "agua_generador", "aire_comprimido"]:
+            if suministro in ["agua_bomba", "agua_generador", "aire_comprimido"]:
                 if not estado:
                     self.alarm(f"SUMINISTRO_{suministro.upper()}", AlarmType.ALERTA)
                     ok = False
