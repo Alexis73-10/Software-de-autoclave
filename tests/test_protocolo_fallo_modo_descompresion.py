@@ -154,7 +154,8 @@ def test_normal_vacio_al_disparo_update_sin_cambios():
 
     protocolo.update()
 
-    set_do.descompresion_lenta_off.assert_not_called()
+    set_do.descompresion_lenta_on.assert_not_called()
+    set_do.descompresion_rapida_on.assert_not_called()
     set_do.aire_admosferico_camara_on.assert_called_once()
 
 

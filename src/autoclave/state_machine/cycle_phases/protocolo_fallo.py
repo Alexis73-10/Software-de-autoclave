@@ -170,19 +170,13 @@ class ProtocoloFallo:
                 self.set_do.descompresion_lenta_on()
                 self.set_do.aire_admosferico_camara_off()
         else:
-            # Dentro del rango normal o en vacío
-            if self._presurizado_al_disparo:
-                # Fue presurizada al disparo, ahora se normalizó:
-                # cerrar todas las válvulas de descompresión y mantener
-                # aire atmosférico para evitar caída de presión por enfriamiento
-                self.set_do.descompresion_rapida_off()
-                self.set_do.descompresion_lenta_off()
-                self.set_do.descompresion_chaqueta_off()
-                self.set_do.aire_admosferico_camara_on()
-            else:
-                # Nunca estuvo presurizada al disparo: solo mantener aire
-                # atmosférico (las válvulas de descompresión nunca se abrieron)
-                self.set_do.aire_admosferico_camara_on()
+            # Dentro del rango normal o en vacío: cerrar todas las
+            # válvulas de descompresión y mantener aire atmosférico
+            # para evitar caída de presión por enfriamiento
+            self.set_do.descompresion_rapida_off()
+            self.set_do.descompresion_lenta_off()
+            self.set_do.descompresion_chaqueta_off()
+            self.set_do.aire_admosferico_camara_on()
 
         # ── Buzzer cuando se alcanzan condiciones seguras ─────────────
         if not self._buzzer_emitido:
