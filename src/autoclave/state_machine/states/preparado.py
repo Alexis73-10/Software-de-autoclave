@@ -22,13 +22,14 @@ class preparado_state:
     # ==============================
     # ALARMAS
     # ==============================
-    def alarm(self, alarm_id, alarm_type):
+    def alarm(self, alarm_id, alarm_type, blocks_operation=True):
         alarm = Alarm(
             alarm_id=alarm_id,
             alarm_type=alarm_type,
             source_state="PREPARADO",
             description=f"Error {alarm_id} en estado PREPARADO",
-            recoverable=True
+            recoverable=True,
+            blocks_operation=blocks_operation,
         )
         self.alarm_manager.report(alarm)
 
@@ -92,10 +93,14 @@ class preparado_state:
         limite_inf = press_obj - rango
         limite_sup = press_obj + rango
 
-        # Suministro
+        # Suministro. Sin vapor, no insistir en abrir la válvula: se deja
+        # "pendiente", no bloqueante (no debe frenar esta_preparado()).
         if not self.estado.sensores_di["vapor_suministro"]:
-            self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA)
-            return False
+            self.set_do.vapor_chaqueta_off()
+            self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
+            self.alarm_manager.clear("CHAQUETA_FRIA")
+            self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+            return True
         else:
             self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
