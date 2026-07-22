@@ -143,7 +143,17 @@ class CicloState:
         # Si no hay suministro de vapor, no intentar compensar
         if not self.estado.sensores_di.get("vapor_suministro", 0):
             self.set_do.vapor_chaqueta_off()
+            self.alarm_manager.report(Alarm(
+                alarm_id="SUMINISTRO_VAPOR",
+                alarm_type=AlarmType.ALERTA,
+                source_state="CICLO",
+                description="Sin suministro de vapor: chaqueta pendiente hasta que regrese.",
+                recoverable=True,
+                blocks_operation=False,
+            ))
             return
+        else:
+            self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
         press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
                     self.config.get("presion_chaqueta") or 320
