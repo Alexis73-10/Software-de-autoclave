@@ -163,6 +163,12 @@ class ProtocoloFallo:
         # ── Gestión dinámica de presión ───────────────────────────────
         if pres > atm + rango:
             if self._presurizado_al_disparo:
+                if not self._escalado and time.time() > self._t_timeout_descompresion:
+                    logger.error(
+                        "Protocolo fallo: timeout del modo %d agotado, escalando a chaqueta+rápida",
+                        self._modo,
+                    )
+                    self._escalado = True
                 self._aplicar_paso_modo(pres)
             else:
                 # Nunca estuvo presurizada al disparo pero subió después:

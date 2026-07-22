@@ -1,5 +1,7 @@
+import time as time_module
 from unittest.mock import MagicMock
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
+import autoclave.state_machine.cycle_phases.protocolo_fallo as protocolo_fallo_module
 
 
 def _make_protocolo(modo, pres_camara=300.0, presion_cambio=150):
@@ -172,3 +174,30 @@ def test_buzzer_sin_cambios_tras_descompresion_por_modo():
     set_do.reset_mock()
     protocolo.update()
     set_do.buzer_fallo.assert_not_called()
+
+
+def test_timeout_agotado_escala_a_rapida(monkeypatch):
+    protocolo, set_do, _ = _make_protocolo(modo=2, pres_camara=300.0)
+
+    t0 = 1_000_000.0
+    monkeypatch.setattr(protocolo_fallo_module.time, "time", lambda: t0)
+    protocolo.ejecutar()
+    set_do.reset_mock()
+
+    monkeypatch.setattr(protocolo_fallo_module.time, "time", lambda: t0 + 31 * 60)
+    protocolo.update()
+
+    assert protocolo._escalado is True
+    set_do.descompresion_chaqueta_on.assert_called_once()
+    set_do.descompresion_rapida_on.assert_called_once()
+
+
+def test_timeout_no_agotado_no_escala():
+    protocolo, set_do, _ = _make_protocolo(modo=2, pres_camara=300.0)
+    protocolo.ejecutar()
+    set_do.reset_mock()
+
+    protocolo.update()
+
+    assert protocolo._escalado is False
+    set_do.descompresion_chaqueta_on.assert_not_called()
