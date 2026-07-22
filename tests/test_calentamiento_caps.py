@@ -41,10 +41,12 @@ def _liberar_checkpoints(fase, estado):
 
 
 def test_sin_sensor_liquido_completa_con_un_sensor():
+    from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, _ = _make_fase(has_liquid_sensor=False)
     fase.update()  # inicializar
     _liberar_checkpoints(fase, estado)
     estado.sensores_temp["temp_camara"] = 135.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.0)
     result = fase.update()
     assert result == FaseResult.COMPLETADO
 
@@ -59,11 +61,13 @@ def test_con_sensor_liquido_no_completa_si_solo_camara_llega():
 
 
 def test_con_sensor_liquido_completa_cuando_ambos_llegan():
+    from autoclave.core.runtime.steam import p_saturacion_kpa
     fase, estado, _ = _make_fase(has_liquid_sensor=True)
     fase.update()  # inicializar
     _liberar_checkpoints(fase, estado)
     estado.sensores_temp["temp_camara"]   = 135.0
     estado.sensores_temp["temp_2_camara"] = 135.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.0)
     result = fase.update()
     assert result == FaseResult.COMPLETADO
 

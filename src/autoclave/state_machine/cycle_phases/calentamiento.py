@@ -133,21 +133,30 @@ class CalentamientoFase(BaseFase):
         # en t_obj puede caer por debajo de temperatura_esterilizacion en el
         # primer tick de ESTERILIZACION (que no tiene tolerancia) y disparar
         # un FALLO espurio. El margen da un colchón contra esa fluctuación.
+        # margen_ester nunca baja de MARGEN_MINIMO_ENTRADA_ESTERILIZACION
+        # (Task 1), y la presión exigida se deriva de la misma curva de
+        # saturación en vez de mantener un segundo número de margen en kPa.
         t_completar = t_obj + margen_ester
+        p_completar = p_saturacion_kpa(t_completar)
+        if pres is None:
+            return FaseResult.EN_CURSO
         if self.cap.has_liquid_sensor:
             temp2 = self._temp_camara_2()
             if temp2 is None:
                 return FaseResult.EN_CURSO
-            if temp >= t_completar and temp2 >= t_completar:
+            if temp >= t_completar and temp2 >= t_completar and pres >= p_completar:
                 logger.info(
-                    "Calentamiento: COMPLETADO — camara=%.1f°C liquido=%.1f°C",
-                    temp, temp2,
+                    "Calentamiento: COMPLETADO — camara=%.1f°C liquido=%.1f°C pres=%.1fkPa",
+                    temp, temp2, pres,
                 )
                 self._apagar_salidas()
                 return FaseResult.COMPLETADO
         else:
-            if temp >= t_completar:
-                logger.info("Calentamiento: COMPLETADO — %.1f°C alcanzados", temp)
+            if temp >= t_completar and pres >= p_completar:
+                logger.info(
+                    "Calentamiento: COMPLETADO — %.1f°C / %.1fkPa alcanzados",
+                    temp, pres,
+                )
                 self._apagar_salidas()
                 return FaseResult.COMPLETADO
 

@@ -62,6 +62,7 @@ def test_completado_cuando_alcanza_temperatura():
     fase.update()
 
     estado.sensores_temp["temp_camara"] = 135.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.0)
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.vapor_camara_off.assert_called()
@@ -88,6 +89,7 @@ def test_no_completa_justo_en_t_obj_espera_margen_entrada_esterilizacion():
     set_do.descompresion_lenta_off.assert_not_called()
 
     estado.sensores_temp["temp_camara"] = 134.5  # == t_obj + margen
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.5)
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.descompresion_lenta_off.assert_called()
@@ -172,6 +174,7 @@ def test_salidas_apagadas_al_completar():
     fase.update()
 
     estado.sensores_temp["temp_camara"] = 135.0  # >= t_obj + margen_entrada_esterilizacion (134.5)
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.0)
     fase.update()
     set_do.vapor_camara_off.assert_called()
     set_do.descompresion_lenta_off.assert_called()
@@ -294,3 +297,37 @@ def test_margen_json_mayor_al_piso_se_respeta():
     estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.0)
     result = fase.update()
     assert result == FaseResult.COMPLETADO
+
+
+def test_no_completa_si_presion_insuficiente():
+    """Temperatura alcanza el margen pero la presión se queda por debajo de
+    P_sat(t_completar) → no completa (piso de presión)."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    fase, estado, set_do = _make_fase(t_obj=134.0, margen_entrada_esterilizacion=0.5)
+    fase.update()  # inicializar
+
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera el checkpoint
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
+    fase.update()
+
+    estado.sensores_temp["temp_camara"] = 135.0  # >= t_obj + margen (134.5)
+    # la presión se queda en el nivel del checkpoint, por debajo de P_sat(134.5)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.descompresion_lenta_off.assert_not_called()
+
+
+def test_pres_none_no_completa():
+    """Si no hay lectura de presión, la fase no completa (y no lanza excepción)."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    fase, estado, set_do = _make_fase(t_obj=134.0, margen_entrada_esterilizacion=0.5)
+    fase.update()  # inicializar
+
+    estado.sensores_temp["temp_camara"] = 129.98
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
+    fase.update()
+
+    estado.sensores_temp["temp_camara"] = 135.0
+    estado.sensores_pres.pop("pres_camara", None)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
