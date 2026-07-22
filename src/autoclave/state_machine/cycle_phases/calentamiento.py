@@ -10,6 +10,7 @@ import time
 import logging
 from autoclave.core.runtime.steam import p_saturacion_kpa
 from .base_fase import BaseFase, FaseResult
+from autoclave.state_machine.machine.parametros_globales import parametros_globales
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,10 @@ class CalentamientoFase(BaseFase):
         tasa_seg    = (self.cycle.get_param("calentamiento", "tasa_calentamiento")) / 60
         timeout_seg = (self.cycle.get_param("calentamiento", "timeout_calentamiento")) * 60
         tolerancia  = self.cycle.get_param("calentamiento", "rango_presion_calentamiento")
-        margen_ester = self.cycle.get_param("calentamiento", "margen_entrada_esterilizacion") or 0.5
+        margen_ester = max(
+            self.cycle.get_param("calentamiento", "margen_entrada_esterilizacion") or 0.5,
+            parametros_globales.MARGEN_MINIMO_ENTRADA_ESTERILIZACION,
+        )
 
         # ── 1. Inicialización ────────────────────────────────────────────
         if not self._inicializado:

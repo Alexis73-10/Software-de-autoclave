@@ -250,3 +250,47 @@ def test_checkpoint_liberado_resetea_estado_de_pulso():
     assert fase._en_checkpoint is False
     assert fase._t_pulso_vapor_chk is None
     assert fase._vapor_chk_abierto is False
+
+
+def test_margen_minimo_hardcoded_ignora_json_menor():
+    """Aunque el JSON pida un margen de entrada menor al piso (0.2°C), se
+    exige al menos el piso antes de completar."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    fase, estado, set_do = _make_fase(t_obj=134.0, margen_entrada_esterilizacion=0.05)
+    fase.update()  # inicializar
+
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera el checkpoint
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
+    fase.update()
+
+    estado.sensores_temp["temp_camara"] = 134.05  # t_obj + 0.05 (json), no alcanza el piso
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.05)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+
+    estado.sensores_temp["temp_camara"] = 134.2  # t_obj + 0.2 (piso)
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.2)
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+
+
+def test_margen_json_mayor_al_piso_se_respeta():
+    """Si el JSON pide un margen mayor al piso, se respeta el mayor (el piso
+    no lo recorta)."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    fase, estado, set_do = _make_fase(t_obj=134.0, margen_entrada_esterilizacion=1.0)
+    fase.update()  # inicializar
+
+    estado.sensores_temp["temp_camara"] = 129.98  # 97% — libera el checkpoint
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(129.98)
+    fase.update()
+
+    estado.sensores_temp["temp_camara"] = 134.5  # t_obj + 0.5, por debajo del margen JSON (1.0)
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.5)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+
+    estado.sensores_temp["temp_camara"] = 135.0  # t_obj + 1.0 (margen JSON)
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.0)
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
