@@ -96,6 +96,54 @@ def test_preview_invalida_deshabilita_guardar():
     SessionManager.logout()
 
 
+def test_set_context_backend_caido_no_crashea_y_oculta_formulario():
+    from autoclave.ui_pyside.services.session_manager import SessionManager
+    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    view, _ = _make_view()
+    with patch.object(view, "_client") as mock_client:
+        mock_client.get_calibration.side_effect = ConnectionError("backend caido")
+        view.set_context(tipo="pressure", sensor="pres_camara")
+    assert view._formulario_visible() is False
+    assert view._btn_guardar.isVisibleTo(view) is False
+    assert "no se pudo conectar" in view._lbl_info.text().lower()
+    SessionManager.logout()
+
+
+def test_on_guardar_backend_caido_no_crashea_y_conserva_valores():
+    from autoclave.ui_pyside.services.session_manager import SessionManager
+    SessionManager.login({"id": 1, "nombre": "Tecnico Uno", "usuario": "tec1", "rol": "tecnico"})
+    view, _ = _make_view()
+    with patch.object(view, "_client") as mock_client:
+        mock_client.get_calibration.return_value = {
+            "gain": 1.3466, "offset": -67.11, "poly": None, "is_poly": False, "last_change": None,
+        }
+        view.set_context(tipo="pressure", sensor="pres_camara")
+        view._input_shown_low.setValue(12.0)
+        view._input_real_low.setValue(9.54)
+        view._input_shown_high.setValue(322.0)
+        view._input_real_high.setValue(300.0)
+        view._on_inputs_changed()
+
+        mock_client.save_calibration.side_effect = ConnectionError("backend caido")
+        view._on_guardar()
+
+        assert "no se pudo guardar" in view._lbl_info.text().lower()
+        assert view._input_shown_low.value() == 12.0
+        assert view._input_real_low.value() == 9.54
+        assert view._input_shown_high.value() == 322.0
+        assert view._input_real_high.value() == 300.0
+    SessionManager.logout()
+
+
+def test_on_inputs_changed_antes_de_set_context_no_lanza_attributeerror():
+    view, _ = _make_view()
+    # Sin set_context previo, shown_low == shown_high == 0.0 (valor inicial),
+    # así que forzamos valores distintos para ejercitar la rama que usa
+    # self._current_gain/offset/poly (con sus valores por defecto).
+    view._input_shown_high.setValue(1.0)
+    view._on_inputs_changed()
+
+
 def test_guardar_llama_save_calibration_con_usuario():
     from autoclave.ui_pyside.services.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Tecnico Uno", "usuario": "tec1", "rol": "tecnico"})

@@ -47,6 +47,9 @@ class CalibracionSensorView(QWidget):
         self._back_target = "io_temp"
         self._preview_gain: float | None = None
         self._preview_offset: float | None = None
+        self._current_gain: float = 1.0
+        self._current_offset: float = 0.0
+        self._current_poly = None
 
         root = QVBoxLayout(self)
         root.setContentsMargins(16, 16, 16, 16)
@@ -141,10 +144,18 @@ class CalibracionSensorView(QWidget):
             return
 
         self._lbl_denegado.hide()
+
+        try:
+            info = self._client.get_calibration(tipo, sensor)
+        except Exception:
+            self._form_widget.hide()
+            self._btn_guardar.hide()
+            self._lbl_info.setText("No se pudo conectar con el backend — inténtalo de nuevo.")
+            return
+
         self._form_widget.show()
         self._btn_guardar.show()
 
-        info = self._client.get_calibration(tipo, sensor)
         self._current_gain = info.get("gain", 1.0)
         self._current_offset = info.get("offset", 0.0)
         self._current_poly = info.get("poly")
@@ -224,7 +235,11 @@ class CalibracionSensorView(QWidget):
             "real_high": self._input_real_high.value(),
             "usuario": usuario,
         }
-        result = self._client.save_calibration(self._tipo, self._sensor, body)
+        try:
+            result = self._client.save_calibration(self._tipo, self._sensor, body)
+        except Exception:
+            self._lbl_info.setText("No se pudo guardar la calibración — inténtalo de nuevo.")
+            return
 
         self._current_gain = result["gain"]
         self._current_offset = result["offset"]
