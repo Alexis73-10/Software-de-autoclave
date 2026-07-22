@@ -155,7 +155,6 @@ class preparacion_state:
         
     def verificar_suministros(self):
         suministros = [
-            "vapor_suministro",
             "agua_bomba",
             "agua_generador",
             "aire_comprimido",
