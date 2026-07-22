@@ -69,3 +69,53 @@ def test_agrega_comentario_de_trazabilidad(tmp_path):
 
     texto = path.read_text(encoding="utf-8")
     assert "12.0" in texto and "300.0" in texto
+
+
+def test_no_reformatea_secciones_no_tocadas(tmp_path):
+    """Escribir un sensor no debe reflowear la indentacion de otras
+    entradas/secciones del archivo (regresion: antes ruamel usaba su
+    indent por defecto y reformateaba TODO el documento)."""
+    path = _make_yaml(tmp_path)
+    antes = path.read_text(encoding="utf-8").splitlines()
+
+    write_user_calibration(path, "temperature", 1, 1.02, 3.5,
+                            20.0, 21.1, 130.0, 129.8)
+
+    despues = path.read_text(encoding="utf-8").splitlines()
+
+    # La entrada de pressure (seccion no tocada) debe permanecer
+    # byte-identica linea por linea.
+    idx_pressure_antes = antes.index("    pressure:")
+    idx_pressure_despues = despues.index("    pressure:")
+    assert antes[idx_pressure_antes:] == despues[idx_pressure_despues:], (
+        "la seccion 'pressure' (no tocada) cambio de formato"
+    )
+
+    # El comentario de sensor 0 (escrito a mano) no debe moverse de columna.
+    linea_comentario = next(
+        l for l in despues if "calibrado con 5 puntos" in l
+    )
+    assert linea_comentario.startswith("      #"), (
+        f"el comentario existente cambio de indentacion: {linea_comentario!r}"
+    )
+
+
+def test_recalibrar_dos_veces_no_apila_comentarios(tmp_path):
+    """Escribir dos veces sobre el mismo indice debe reemplazar el
+    comentario de trazabilidad anterior, no apilarlo."""
+    path = _make_yaml(tmp_path)
+
+    write_user_calibration(path, "temperature", 1, 1.0, 0.0,
+                            20.0, 20.0, 130.0, 130.0)
+    write_user_calibration(path, "temperature", 1, 2.0, -1.0,
+                            15.0, 15.5, 140.0, 139.0)
+
+    texto = path.read_text(encoding="utf-8")
+    # Solo debe quedar un comentario auto-generado para este sensor.
+    assert texto.count("recalibrado") == 1
+    # Y debe reflejar los datos de la SEGUNDA escritura, no la primera.
+    assert "15.0->15.5" in texto or "15.0->15.5" in texto.replace(" ", "")
+    assert "140.0->139.0" in texto or "140.0->139.0" in texto.replace(" ", "")
+
+    # El comentario "hecho a mano" del sensor 0 sigue intacto.
+    assert "calibrado con 5 puntos" in texto
