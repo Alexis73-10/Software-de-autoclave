@@ -9,7 +9,9 @@ def _make_protocolo(pres_camara=101.3):
     config = MagicMock()
     config.get.return_value = None
     set_do = MagicMock()
-    return ProtocoloFallo(estado, set_do, config), set_do
+    cycle = MagicMock()
+    cycle.get_param.return_value = None
+    return ProtocoloFallo(estado, set_do, cycle, config), set_do
 
 
 def test_reset_all_outputs_se_reintenta_en_update_si_no_se_confirmo():

@@ -75,7 +75,7 @@ class CicloState:
             DescompresionFase(*_args),
         ]
 
-        self._protocolo          = ProtocoloFallo(estado, set_do, config)
+        self._protocolo          = ProtocoloFallo(estado, set_do, cycle, config)
         self._fase_idx           = 0
         self._resultado_pendiente: str | None = None   # resultado almacenado hasta confirmación
 

@@ -26,18 +26,29 @@ logger = logging.getLogger(__name__)
 
 class ProtocoloFallo:
 
-    def __init__(self, estado, set_do, config):
+    def __init__(self, estado, set_do, cycle, config):
         self.estado  = estado
         self.set_do  = set_do
+        self.cycle   = cycle
         self.config  = config
         self._ejecutado       = False
         self._buzzer_emitido  = False
         self._salidas_apagadas = False
+        self._presurizado_al_disparo  = False
+        self._modo                    = None
+        self._sub_etapa                = None
+        self._t_timeout_descompresion  = None
+        self._escalado                 = False
 
     def reset(self):
         self._ejecutado       = False
         self._buzzer_emitido  = False
         self._salidas_apagadas = False
+        self._presurizado_al_disparo  = False
+        self._modo                    = None
+        self._sub_etapa                = None
+        self._t_timeout_descompresion  = None
+        self._escalado                 = False
 
     # ------------------------------------------------------------------
     # DISPARO — llamar UNA vez al detectar el fallo
