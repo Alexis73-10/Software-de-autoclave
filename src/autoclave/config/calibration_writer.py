@@ -7,6 +7,8 @@ entrada del sensor calibrado (descarta poly/adc_min/etc previos) por un
 mapping simple {gain, offset}.
 """
 
+import io
+import re
 from datetime import date
 from pathlib import Path
 
@@ -37,27 +39,65 @@ _COMENTARIO_INDENT = 6
 _MARCADOR_AUTO = "[calibracion-auto]"
 
 
-def _es_comentario_auto(token) -> bool:
-    """True si el CommentToken corresponde a un comentario generado por
-    este escritor (identificado por _MARCADOR_AUTO), y no a texto escrito
-    a mano."""
-    valor = token.value.strip()
-    if valor.startswith("#"):
-        valor = valor[1:].strip()
-    return valor.startswith(_MARCADOR_AUTO)
+def _patron_comentario_auto_previo(tipo: str, index: int) -> re.Pattern:
+    """Construye el regex que detecta, en el TEXTO CRUDO del archivo (antes
+    de parsearlo con ruamel), la linea de comentario auto-generada por una
+    recalibracion anterior de este mismo sensor (mismo tipo + indice).
 
+    Se elimina por texto plano -- y no navegando `seq.ca.items` de ruamel --
+    porque ruamel no adjunta el comentario "before" de un item de secuencia
+    de forma consistente: segun la posicion del indice, a veces queda en
+    `seq.ca.items[index]`, a veces como comentario de fin de linea de la
+    ULTIMA clave del item anterior (`seq[index - 1].ca.items[...][2]`), y
+    si `index == 0` puede quedar en el slot de comentario de la propia
+    clave padre en el mapping contenedor. Perseguir cada variante interna
+    demostro ser fragil (solo funcionaba, por casualidad, para un indice
+    especifico). Al quitar la linea del texto crudo ANTES de que ruamel
+    la parsee, no importa donde ruamel la habria adjuntado: ya no esta.
 
-def _limpiar_comentario_auto_previo(seq, index: int) -> None:
-    """Elimina, si existe, el/los comentario(s) auto-generados en una
-    recalibracion anterior para este item de la secuencia, dejando
-    intacto cualquier comentario que no lleve el marcador (documentacion
-    escrita a mano, p.ej. la nota "Sensor 0 -- calibrado con 5 puntos...").
+    Se incluye el tipo (temperature/pressure) ademas del indice en el
+    patron para no confundir, p.ej., el comentario auto de
+    "pressure[3]" con el de "temperature[3]" -- ambas secciones reusan
+    los mismos indices 0-7. El `(?!\\d)` evita que el indice 1 matchee
+    tambien la linea del indice 10/11 (no ocurre hoy con brackets, pero
+    se deja por robustez si el formato del comentario cambiara).
     """
-    c = seq.ca.items.get(index)
-    if not c or not c[1]:
-        return
-    restantes = [tok for tok in c[1] if tok is not None and not _es_comentario_auto(tok)]
-    c[1] = restantes if restantes else None
+    marcador = re.escape(_MARCADOR_AUTO)
+    tipo_escapado = re.escape(tipo)
+    return re.compile(
+        rf"^[ \t]*#\s*{marcador}\s*Sensor\s+{tipo_escapado}\[{index}\](?!\d).*\n",
+        re.MULTILINE,
+    )
+
+
+def _reemplazar_entrada_sensor(seq, index: int, gain: float, offset: float) -> None:
+    """Reemplaza el contenido del item `index` de la secuencia por
+    {gain, offset}, MUTANDO el mapping existente en vez de sustituirlo por
+    un objeto `CommentedMap` nuevo.
+
+    Motivo: ruamel puede adjuntar un comentario escrito a mano que
+    (textualmente) precede al item SIGUIENTE como un comentario de fin de
+    linea de la ULTIMA clave de ESTE item (`seq[index].ca.items[<ultima
+    clave>][2]`) -- verificado empiricamente. Si se reemplaza `seq[index]`
+    por un objeto `CommentedMap` nuevo, esa metadata de comentario se
+    pierde junto con el objeto viejo, borrando silenciosamente una nota
+    escrita a mano que en realidad pertenece al sensor siguiente. Mutar el
+    mapping en el lugar (borrar sus claves viejas y asignar gain/offset)
+    preserva su `.ca` y por lo tanto ese comentario.
+    """
+    viejo = seq[index]
+    if isinstance(viejo, CommentedMap):
+        for clave in list(viejo.keys()):
+            del viejo[clave]
+        viejo["gain"] = round(gain, 6)
+        viejo["offset"] = round(offset, 6)
+    else:
+        # Defensivo: si el item no es un mapping (formato inesperado),
+        # conservamos el comportamiento anterior de reemplazo directo.
+        nuevo = CommentedMap()
+        nuevo["gain"] = round(gain, 6)
+        nuevo["offset"] = round(offset, 6)
+        seq[index] = nuevo
 
 
 def write_user_calibration(
@@ -73,29 +113,32 @@ def write_user_calibration(
 ) -> None:
     seccion = _SECCION_POR_TIPO[tipo]
 
+    yaml_path = Path(yaml_path)
+
+    # Quitar, en el texto CRUDO, cualquier comentario auto-generado que una
+    # recalibracion anterior haya dejado para este mismo (tipo, index) --
+    # antes de que ruamel llegue a parsear el archivo. Ver docstring de
+    # _patron_comentario_auto_previo para el porque.
+    texto_original = yaml_path.read_text(encoding="utf-8")
+    texto_limpio = _patron_comentario_auto_previo(tipo, index).sub("", texto_original)
+
     yaml = YAML(typ="rt")
     yaml.preserve_quotes = True
     # Debe coincidir con el estilo real de calibration.yaml (ver constantes
     # arriba) para no reformatear secciones que este escritor no toca.
     yaml.indent(mapping=_INDENT_MAPPING, sequence=_INDENT_SEQUENCE, offset=_INDENT_OFFSET)
 
-    yaml_path = Path(yaml_path)
-    with open(yaml_path, "r", encoding="utf-8") as f:
-        data = yaml.load(f)
+    data = yaml.load(io.StringIO(texto_limpio))
 
     seq = data["calibration"]["user"][seccion]
 
-    nuevo = CommentedMap()
-    nuevo["gain"] = round(gain, 6)
-    nuevo["offset"] = round(offset, 6)
-    seq[index] = nuevo
+    _reemplazar_entrada_sensor(seq, index, gain, offset)
 
     comentario = (
-        f"{_MARCADOR_AUTO} Sensor {index} -- recalibrado {date.today().isoformat()} "
+        f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- recalibrado {date.today().isoformat()} "
         f"con 2 puntos contra equipo patron: bajo {shown_low}->{real_low}, "
         f"alto {shown_high}->{real_high}."
     )
-    _limpiar_comentario_auto_previo(seq, index)
     seq.yaml_set_comment_before_after_key(index, before=comentario, indent=_COMENTARIO_INDENT)
 
     with open(yaml_path, "w", encoding="utf-8") as f:
