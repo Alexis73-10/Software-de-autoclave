@@ -53,3 +53,21 @@ def test_extremo_a_extremo_pres_camara_reproduce_calibration_yaml():
     gain, offset = fit_two_point(fv_low, 9.54, fv_high, 300.0)
     assert round(gain, 6) == pytest.approx(1.261721, abs=1e-6)
     assert round(offset, 6) == pytest.approx(-64.583518, abs=1e-5)
+
+
+def test_invert_poly_derivada_cero():
+    """Test error case: derivada cero durante Newton-Raphson.
+    poly = [1.0, 0.0, 5.0] represents f(x) = x^2 + 5, whose derivative
+    f'(x) = 2x is exactly 0 at x=0. Starting from x0=target=0 triggers
+    the "Derivada cero" error."""
+    with pytest.raises(ValueError, match="Derivada cero"):
+        invert_user_calibration(0.0, poly=[1.0, 0.0, 5.0])
+
+
+def test_invert_poly_no_convergio():
+    """Test error case: Newton-Raphson fails to converge within max_iter.
+    poly = [1.0, 0.0, -2.0, 2.0] represents f(x) = x^3 - 2x + 2, which
+    exhibits non-convergence behavior when solving f(x) = 0 (target=0)
+    starting from x0=0."""
+    with pytest.raises(ValueError, match="no convergio"):
+        invert_user_calibration(0.0, poly=[1.0, 0.0, -2.0, 2.0])
