@@ -14,6 +14,7 @@ from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.cycle_logger import CycleLogger
+from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.devices.printer.realtime_printer import RealtimePrinter
 
 import logging
@@ -70,6 +71,7 @@ class BackendContext:
 
         # Data logger (SQLite) + impresión en tiempo real
         self.db               = DbManager()
+        self.calibration_audit = SensorCalibrationAuditDB()
         self.realtime_printer = RealtimePrinter()
         self.cycle_logger = CycleLogger(
             db            = self.db,
