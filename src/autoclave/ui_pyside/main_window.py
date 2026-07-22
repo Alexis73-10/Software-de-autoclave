@@ -49,6 +49,7 @@ class MainWindowFluent(QMainWindow):
         from autoclave.ui_pyside.views.entrdas_salidas.io_pres    import PresionesView
         from autoclave.ui_pyside.views.entrdas_salidas.io_do      import SalidasDigitalesView
         from autoclave.ui_pyside.views.params_ciclo.params_ciclo import ParametrosCicloView
+        from autoclave.ui_pyside.views.entrdas_salidas.calibracion_sensor import CalibracionSensorView
 
         self._home       = HomeView(nav_callback=self.navigate_to)
         self._secado     = SecadoView(nav_callback=self.navigate_to)
@@ -62,11 +63,12 @@ class MainWindowFluent(QMainWindow):
         self._io_pres    = PresionesView(nav_callback=self.navigate_to)
         self._io_do      = SalidasDigitalesView(nav_callback=self.navigate_to)
         self._params_ciclo = ParametrosCicloView(nav_callback=self.navigate_to)
+        self._calibracion_sensor = CalibracionSensorView(nav_callback=self.navigate_to)
 
         for view in (self._home, self._secado, self._login,
                      self._ciclos, self._impresion_menu, self._admin_menu, self._io_menu,
                      self._io_di, self._io_temp, self._io_pres, self._io_do,
-                     self._params_ciclo):
+                     self._params_ciclo, self._calibracion_sensor):
             self._stack.addWidget(view)
 
         self._stack.setCurrentWidget(self._home)
@@ -173,7 +175,7 @@ class MainWindowFluent(QMainWindow):
 
     # ── Navegación ───────────────────────────────────────────────────
 
-    def navigate_to(self, view_name: str) -> None:
+    def navigate_to(self, view_name: str, payload: dict | None = None) -> None:
         views = {
             "home":         self._home,
             "secado":       self._secado,
@@ -187,9 +189,12 @@ class MainWindowFluent(QMainWindow):
             "io_pres":      self._io_pres,
             "io_do":        self._io_do,
             "params_ciclo": self._params_ciclo,
+            "calibracion_sensor": self._calibracion_sensor,
         }
         target = views.get(view_name)
         if target:
+            if payload and hasattr(target, "set_context"):
+                target.set_context(**payload)
             self._stack.setCurrentWidget(target)
 
     # ── Reloj ────────────────────────────────────────────────────────

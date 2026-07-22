@@ -20,6 +20,12 @@ class BackendClient:
     def get_cycle(self) -> dict:
         return self.get("/cycle")
 
+    def get_calibration(self, tipo: str, sensor: str) -> dict:
+        return self.get(f"/calibration/{tipo}/{sensor}")
+
+    def save_calibration(self, tipo: str, sensor: str, body: dict) -> dict:
+        return self.patch(f"/calibration/{tipo}/{sensor}", body)
+
     # ------------------------------------------------------------------
     # Métodos genéricos
     # ------------------------------------------------------------------

@@ -70,6 +70,14 @@ class Units:
             self._temperature = converters.convert_temperatures(self._raw_ai, self._config)
             self._pressure = converters.convert_pressures(self._raw_ai, self._config)
 
+    def reload_calibration(self, config_path: str | Path) -> None:
+        """Recarga factory+user calibration desde disco sin recrear Units
+        ni tocar la conexion serial (SerialLink vive fuera de este objeto).
+        Seguro de llamar mientras update_from_serial corre en otro hilo."""
+        new_config = load_config(config_path)
+        with self._lock:
+            self._config = new_config
+
     # -------------------------------------------------------------------------
     # API pública
     # -------------------------------------------------------------------------

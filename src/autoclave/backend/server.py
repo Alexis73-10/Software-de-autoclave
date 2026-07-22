@@ -10,6 +10,10 @@ from pydantic import BaseModel
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
+from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
+from autoclave.config.calibration_writer import write_user_calibration
+from autoclave.config import load_config
+from autoclave.utils.resources import resource_path
 
 _TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
 
@@ -18,6 +22,76 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Autoclave Backend")
 
 context = BackendContext()
+
+CALIBRATION_PATH = resource_path("autoclave/config/calibration.yaml")
+
+
+def _resolve_sensor_index(tipo: str, sensor: str) -> int:
+    name_map = {"temperature": EstadoAutoclave.map_temp, "pressure": EstadoAutoclave.map_pres}.get(tipo)
+    if name_map is None:
+        raise HTTPException(status_code=404, detail=f"Tipo de sensor desconocido: {tipo}")
+    if sensor not in name_map:
+        raise HTTPException(status_code=404, detail=f"Sensor desconocido: {sensor}")
+    return name_map[sensor]
+
+
+@app.get("/calibration/{tipo}/{sensor}")
+def get_calibration(tipo: str, sensor: str):
+    index = _resolve_sensor_index(tipo, sensor)
+    config = load_config(CALIBRATION_PATH)
+    calib = (config.calibration.user.temperature if tipo == "temperature"
+             else config.calibration.user.pressure)[index]
+    last = context.calibration_audit.get_last_change(tipo, sensor)
+    return {
+        "sensor": sensor,
+        "tipo": tipo,
+        "is_poly": bool(calib.poly),
+        "gain": calib.gain,
+        "offset": calib.offset,
+        "poly": calib.poly,
+        "last_change": last,
+    }
+
+
+@app.patch("/calibration/{tipo}/{sensor}")
+def update_calibration(tipo: str, sensor: str, body: dict = Body(...)):
+    index = _resolve_sensor_index(tipo, sensor)
+
+    try:
+        shown_low  = float(body["shown_low"]);  real_low  = float(body["real_low"])
+        shown_high = float(body["shown_high"]); real_high = float(body["real_high"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(
+            status_code=422,
+            detail="shown_low, real_low, shown_high, real_high son obligatorios y numericos",
+        )
+    usuario = str(body.get("usuario", "Desconocido"))
+
+    config = load_config(CALIBRATION_PATH)
+    user_list = (config.calibration.user.temperature if tipo == "temperature"
+                 else config.calibration.user.pressure)
+    old_calib = user_list[index]
+    old_gain, old_offset = old_calib.gain, old_calib.offset
+
+    try:
+        fv_low  = invert_user_calibration(shown_low, old_calib.gain, old_calib.offset, old_calib.poly)
+        fv_high = invert_user_calibration(shown_high, old_calib.gain, old_calib.offset, old_calib.poly)
+        new_gain, new_offset = fit_two_point(fv_low, real_low, fv_high, real_high)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    write_user_calibration(
+        CALIBRATION_PATH, tipo, index, new_gain, new_offset,
+        shown_low, real_low, shown_high, real_high,
+    )
+    context.units.reload_calibration(CALIBRATION_PATH)
+    context.calibration_audit.log_change(
+        tipo, sensor, shown_low, real_low, shown_high, real_high,
+        old_gain, old_offset, new_gain, new_offset, usuario,
+    )
+
+    return {"ok": True, "gain": new_gain, "offset": new_offset}
+
 
 @app.get("/status", response_model=None)
 def get_status():
