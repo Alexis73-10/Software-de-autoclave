@@ -22,35 +22,36 @@ def _make_preparacion(vapor=1, presion_chaqueta=300.0):
     return p, alarm_manager, set_do
 
 
-def test_sin_vapor_avanza_step_sin_bloquear():
+def test_sin_vapor_retorna_true_sin_bloquear():
     p, alarm_mgr, set_do = _make_preparacion(vapor=0)
-    p.step = 2
-    p.ejecutor()
-    assert p.step == 3
+    assert p.suministrar_vapor_chaqueta() is True
     set_do.vapor_chaqueta_off.assert_called()
 
 
 def test_sin_vapor_reporta_alarma_no_bloqueante():
     p, alarm_mgr, _ = _make_preparacion(vapor=0)
-    p.step = 2
-    p.ejecutor()
+    p.suministrar_vapor_chaqueta()
     alarma = alarm_mgr.report.call_args.args[0]
     assert alarma.id == "SUMINISTRO_VAPOR"
     assert alarma.blocks_operation is False
 
 
-def test_con_vapor_fuera_de_banda_no_avanza():
+def test_con_vapor_fuera_de_banda_retorna_false():
     p, alarm_mgr, set_do = _make_preparacion(vapor=1, presion_chaqueta=100.0)
-    p.step = 2
-    p.ejecutor()
-    assert p.step == 2
+    assert p.suministrar_vapor_chaqueta() is False
     set_do.vapor_chaqueta_on.assert_called()
 
 
-def test_vapor_vuelve_despues_de_avanzar_retoma_chaqueta():
+def test_vapor_vuelve_se_retoma_en_el_siguiente_tick():
+    # Ya no hay step que "saltar": suministrar_vapor_chaqueta() se evalua
+    # cada tick del ejecutor sin depender de las demas condiciones.
     p, alarm_mgr, set_do = _make_preparacion(vapor=0, presion_chaqueta=100.0)
-    p.step = 4
+    p.igualar_presion_camara = lambda: (True, False)
+    p.drenar_camara = lambda: (True, False)
+    p.verificar_temperatura_drenaje = lambda: True
+
     p.ejecutor()
     p.estado.sensores_di["vapor_suministro"] = 1
     p.ejecutor()
+
     set_do.vapor_chaqueta_on.assert_called()
