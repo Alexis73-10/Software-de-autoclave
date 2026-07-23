@@ -26,6 +26,7 @@ from autoclave.state_machine.cycle_phases.estabilizacion import EstabilizacionFa
 from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFase
 from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
+from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo, cerrar_valvulas_descompresion
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +167,25 @@ class CicloState:
             self.set_do.vapor_chaqueta_off()
         # Dentro del rango: no cambiar estado
 
+    def _mantener_valvula_reposo(self):
+        """Mientras se espera confirmación tras un COMPLETADO limpio (sin
+        ProtocoloFallo, que ya hace su propia gestión continua): si la
+        cámara cae en vacío por enfriamiento, abre aire atmosférico; si no,
+        mantiene la válvula de descompresión del modo configurado."""
+        pres = self.estado.sensores_pres.get("pres_camara")
+        if pres is None:
+            return
+        atm   = self.config.get("presion_admosferica") or 101.3
+        rango = self.config.get("rango_presion_atm")   or 20.0
+
+        if pres < atm - rango:
+            cerrar_valvulas_descompresion(self.set_do)
+            self.set_do.aire_admosferico_camara_on()
+        else:
+            self.set_do.aire_admosferico_camara_off()
+            modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
+            abrir_valvula_modo(self.set_do, modo)
+
     # ------------------------------------------------------------------
     # Tick principal
     # ------------------------------------------------------------------
@@ -193,8 +213,14 @@ class CicloState:
                 resultado_final = self._resultado_pendiente
                 self._resultado_pendiente = None
                 return resultado_final
-            # Mantener el protocolo activo (gestión de presión + buzzer)
-            self._protocolo.update()
+            # Mantener la válvula de reposo activa mientras se espera
+            # confirmación: COMPLETADO limpio usa su propio monitor de
+            # presión; el resto (FALLO/CANCELADO/emergencia) ya lo cubre
+            # el protocolo de fallo, que corre continuamente.
+            if self._resultado_pendiente == CicloResultado.COMPLETADO:
+                self._mantener_valvula_reposo()
+            else:
+                self._protocolo.update()
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 1. ¿El usuario canceló? ───────────────────────────────────
