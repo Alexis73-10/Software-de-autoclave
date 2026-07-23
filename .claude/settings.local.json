@@ -62,7 +62,11 @@
       "Bash(find docs/handoff -iname \"*2026-07*\")",
       "Bash(pip show *)",
       "Bash(powershell -Command \"Get-Process python* -ErrorAction SilentlyContinue | Select-Object Id,ProcessName,StartTime\")",
-      "Bash(powershell -Command \"Stop-Process -Id 5528,26668 -Force -ErrorAction SilentlyContinue\")"
+      "Bash(powershell -Command \"Stop-Process -Id 5528,26668 -Force -ErrorAction SilentlyContinue\")",
+      "Bash(bash \"/c/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/task-brief\" docs/superpowers/plans/2026-07-10-impresion-general-alarmas.md 5)",
+      "Bash(bash \"/c/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/review-package\" f6f6bfb 30037ae)",
+      "Bash(bash \"/c/Users/tecni/.claude/plugins/cache/claude-plugins-official/superpowers/6.1.1/skills/subagent-driven-development/scripts/review-package\" 80cc77b 30037ae)",
+      "Bash(xargs -I{} echo {})"
     ]
   }
 }

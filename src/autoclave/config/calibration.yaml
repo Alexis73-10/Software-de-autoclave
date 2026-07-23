@@ -69,50 +69,50 @@ calibration:
         gain: 1.0
         offset: 0.0
 
-      - adc_min: 820
-        adc_max: 3580
+      - adc_min: 50
+        adc_max: 4050
         pres_min: 0
         pres_max: 400
         gain: 1.0
         offset: 0.0
 
-      - adc_min: 810
-        adc_max: 3590
+      - adc_min: 50
+        adc_max: 4050
         pres_min: 0
         pres_max: 400
         gain: 1.0
         offset: 0.0
 
-      - adc_min: 800
-        adc_max: 3600
+      - adc_min: 50
+        adc_max: 4050
         pres_min: 0
         pres_max: 400
         gain: 1.0
         offset: 0.0
 
-      - adc_min: 805
-        adc_max: 3595
+      - adc_min: 50
+        adc_max: 4050
         pres_min: 0
         pres_max: 400
         gain: 1.0
         offset: 0.0
 
-      - adc_min: 800
-        adc_max: 3600
+      - adc_min: 50
+        adc_max: 4050
         pres_min: 0
         pres_max: 400
         gain: 1.0
         offset: 0.0
 
-      - adc_min: 800
-        adc_max: 3600
+      - adc_min: 50
+        adc_max: 4050
         pres_min: 0
         pres_max: 400
         gain: 1.0
         offset: 0.0
 
-      - adc_min: 800
-        adc_max: 3600
+      - adc_min: 50
+        adc_max: 4050
         pres_min: 0
         pres_max: 400
         gain: 1.0
@@ -120,10 +120,13 @@ calibration:
 
   user:
     temperature:
-      # Sensor 0 — calibrado con 5 puntos (2, 70, 100, 120, 135 °C)
-      # Cubica: y = a3*x^3 + a2*x^2 + a1*x + a0  (coefs orden descendente)
-      # Error maximo verificado: 0.03 °C en el rango 2-135 °C
-      - poly: [2.046e-05, -0.00511265, 1.35714148, -3.74342417]
+      # Sensor 0 — recalibrado 2026-07-22 con 2 puntos contra equipo patron:
+      # bajo 20.0->20.0 °C, alto 131.3->132.5 °C. Reemplaza el ajuste cubico
+      # anterior (5 puntos); a cambio de la simplicidad de 2 puntos, se acepta
+      # una desviacion de hasta ~1.5 °C en el rango intermedio 100-135 °C
+      # respecto al cubico previo (verificado, decision del usuario).
+      - gain: 1.010345
+        offset: 1.090435
 
       - gain: 1.0
         offset: 0.0
@@ -148,26 +151,26 @@ calibration:
 
 
     pressure:
-      - gain: 1.0
-        offset: -32.0
+      # Sensor 0 — recalibrado 2026-07-22 con 2 puntos contra equipo patron:
+      # bajo 12->9.54 kPa, alto 322->300 kPa.
+      # [calibracion-auto] Sensor pressure[0] -- recalibrado 2026-07-22 con 2 puntos contra equipo patron: bajo 80.0->76.0, alto 310.0->310.0.
+      - gain: 1.216645
+        offset: -55.044412
 
-      - gain: 1.0
-        offset: 0.0
+      - gain: 1.3466
+        offset: -67.11
 
-      - gain: 1.0
-        offset: 0.0
+      - gain: 1.3466
+        offset: -67.11
 
-      - gain: 1.0
-        offset: 0.0
+      - gain: 1.3466
+        offset: -67.11
 
-      - gain: 1.0
-        offset: 0.0
+      - gain: 1.3466
+        offset: -67.11
 
-      - gain: 1.0
-        offset: 0.0
+      - gain: 1.3466
+        offset: -67.11
 
-      - gain: 1.0
-        offset: 0.0
-
-      - gain: 1.0
-        offset: 0.0
+      - gain: 1.3466
+        offset: -67.11

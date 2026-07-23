@@ -54,6 +54,17 @@ _FASE_A_CODIGO: dict[str, str] = {
     "EMERGENCIA":       "F",
 }
 
+# Fases normales del pipeline (en curso) — cualquier otro valor de
+# fase_ciclo (CANCELADO, EMERGENCIA, FALLO_SUMINISTRO, SENSOR_AUSENTE,
+# FALLO_PUERTA_*, FALLO_CONEXION, FALLO_<fase>, etc.) representa un cierre
+# anormal del ciclo. "COMPLETADO" es el único cierre normal y se maneja
+# aparte (ver update()).
+_FASES_EN_CURSO: set[str] = {
+    "PRECALENTAMIENTO", "PURGA", "PRE_VACIO",
+    "CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION",
+    "SECADO", "DESCOMPRESION",
+}
+
 # Parámetros de intervalo según el código de fase
 _INTERVALO_PARAM: dict[str, str] = {
     "W": "intervalo_impresion",
@@ -96,6 +107,13 @@ class CycleLogger:
         self._ultimo_log        = 0.0     # time.time() del último registro
         self._ultima_fase_codigo = None   # para detectar cambio de fase
         self._ultima_temp        = None   # última temp_camara registrada (→ "Temp. final" del pie)
+        # CicloState deja el estado global en CICLO (ESPERANDO_CONFIRMACION)
+        # tras un fallo/cancelación/emergencia hasta que el operador confirma
+        # — puede tardar. Este flag marca que _on_fin() ya se ejecutó de
+        # inmediato al detectar el cierre anormal, para no reprocesar el
+        # mismo cierre ni arrancar un ciclo nuevo mientras se espera esa
+        # confirmación (ver update()).
+        self._cierre_ya_procesado = False
 
     # ------------------------------------------------------------------
     # API pública
@@ -109,14 +127,25 @@ class CycleLogger:
         current = self.estado.get_machine_state()
 
         if current == GlobalState.CICLO:
+            if self._cierre_ya_procesado:
+                return  # ya se cerró/imprimió; falta solo la confirmación
             if not self._activo:
                 self._on_inicio()
+                return
+            fase_nombre = self.estado.fase_ciclo or ""
+            if fase_nombre != "COMPLETADO" and fase_nombre not in _FASES_EN_CURSO:
+                # Cierre anormal (fallo/cancelación/emergencia): no esperar a
+                # que el estado global salga de CICLO (puede tardar hasta que
+                # el operador confirme) — cerrar e imprimir ahora mismo.
+                self._cierre_ya_procesado = True
+                self._on_fin(fase_nombre)
             else:
                 self._tick()
         else:
             if self._activo:
                 resultado = self.estado.fase_ciclo or "DESCONOCIDO"
                 self._on_fin(resultado)
+            self._cierre_ya_procesado = False
 
     @property
     def ciclo_id(self) -> int | None:
@@ -167,6 +196,7 @@ class CycleLogger:
         self._ultima_fase_codigo = None
         self._ultima_temp        = None
         self._activo             = True
+        self._cierre_ya_procesado = False
 
         if self.printer is not None:
             meta = {

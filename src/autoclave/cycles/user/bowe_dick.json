@@ -69,13 +69,13 @@
         },
         "prevacio": {
             "conteo_pulso_a": {
-                "value": 4,
+                "value": 2,
                 "unit": "",
                 "min": 0,
                 "max": 100
             },
             "presion_alta_pulso_a": {
-                "value": 90,
+                "value": 140,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -87,7 +87,7 @@
                 "max": 3600
             },
             "presion_baja_pulso_a": {
-                "value": 40,
+                "value": 30,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -99,7 +99,7 @@
                 "max": 3600
             },
             "conteo_pulso_b": {
-                "value": 2,
+                "value": 0,
                 "unit": "",
                 "min": 0,
                 "max": 100
@@ -226,7 +226,7 @@
                 "max": 3600
             },
             "rango_presion_calentamiento": {
-                "value": 9,
+                "value": 15,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
@@ -247,14 +247,14 @@
                 "max": 5
             },
             "tiempo_apertura_vapor_checkpoint": {
-                "value": 3,
+                "value": 1,
                 "type": "int",
                 "unit": "sec",
                 "min": 1,
                 "max": 60
             },
             "tiempo_cierre_vapor_checkpoint": {
-                "value": 5,
+                "value": 2,
                 "type": "int",
                 "unit": "sec",
                 "min": 1,
@@ -273,13 +273,6 @@
                 "unit": "min",
                 "min": 1,
                 "max": 60
-            },
-            "presion_add_calentamiento": {
-                "value": 9.0,
-                "type": "float",
-                "unit": "kPa",
-                "min": 0,
-                "max": 50
             }
         },
         "estabilizacion": {
@@ -305,7 +298,7 @@
                 "max": 50
             },
             "rango_presion_estabilizacion": {
-                "value": 9,
+                "value": 15,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,

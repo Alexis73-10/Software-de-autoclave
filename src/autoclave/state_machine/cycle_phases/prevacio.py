@@ -128,6 +128,7 @@ class PrevacioFase(BaseFase):
                 return FaseResult.FALLO
 
             presion_baja = self.cycle.get_param("prevacio", f"presion_baja_pulso_{tipo}") or 15
+            self.set_do.agua_intercambiador_on()
             self.set_do.bomba_vacio_on()
             self.set_do.vacio_camara_on()
 
@@ -143,6 +144,7 @@ class PrevacioFase(BaseFase):
         # ── 3. HOLD BAJO ──────────────────────────────────────────────
         if self._paso == _PASO_HOLD_BAJO:
             tiempo_hold = self.cycle.get_param("prevacio", f"tiempo_adicional_bajo_{tipo}") or 0
+            self.set_do.agua_intercambiador_on()
             self.set_do.bomba_vacio_on()
             self.set_do.vacio_camara_on()
 
@@ -235,6 +237,7 @@ class PrevacioFase(BaseFase):
     # ------------------------------------------------------------------
 
     def _apagar_vacio(self):
+        self.set_do.agua_intercambiador_off()
         self.set_do.bomba_vacio_off()
         self.set_do.vacio_camara_off()
 
