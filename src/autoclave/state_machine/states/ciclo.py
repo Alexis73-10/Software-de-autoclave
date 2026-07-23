@@ -167,6 +167,30 @@ class CicloState:
             self.set_do.vapor_chaqueta_off()
         # Dentro del rango: no cambiar estado
 
+    def _mantener_drenaje(self):
+        """Mantiene la temperatura de drenaje durante todas las fases del
+        ciclo, sin bloquear el flujo del ciclo (alarma informativa)."""
+        temp = self.estado.sensores_temp.get("temp_drenaje")
+        if temp is None:
+            return
+        temp_segura = self.config.get("temp_segura_drenaje")
+        if temp_segura is None:
+            return
+
+        if temp > temp_segura:
+            self.set_do.agua_intercambiador_on()
+            self.alarm_manager.report(Alarm(
+                alarm_id="TEMP_DRENAJE_ALTA",
+                alarm_type=AlarmType.ALERTA,
+                source_state="CICLO",
+                description="Temperatura de drenaje alta: enfriando.",
+                recoverable=True,
+                blocks_operation=False,
+            ))
+        else:
+            self.set_do.agua_intercambiador_off()
+            self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
+
     def _mantener_valvula_reposo(self):
         """Mientras se espera confirmación tras un COMPLETADO limpio (sin
         ProtocoloFallo, que ya hace su propia gestión continua): si la
@@ -304,8 +328,9 @@ class CicloState:
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
-        # ── 5. Mantener presión de chaqueta ───────────────────────────
+        # ── 5. Mantener presión de chaqueta y temperatura de drenaje ──
         self._mantener_chaqueta()
+        self._mantener_drenaje()
 
         # ── 6. ¿Ya se completaron todas las fases? ────────────────────
         if self._fase_idx >= len(self._fases):
