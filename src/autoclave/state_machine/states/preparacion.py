@@ -230,6 +230,9 @@ class preparacion_state:
                 return False
     
     def igualar_presion_camara(self):
+            """Retorna (ok, quiere_descompresion_rapida). No acciona la
+            válvula descompresion_rapida directamente: esa salida es
+            compartida con drenar_camara() y se combina en ejecutor()."""
             presion_camara = self.estado.sensores_pres["pres_camara"]
             presion_atmosferica = self.config.get("presion_admosferica")
             rango_presion_atmosferica = self.config.get("rango_presion_atm")
@@ -242,23 +245,20 @@ class preparacion_state:
                 self.set_do.descompresion_lenta_off()
                 self.alarm_manager.clear("PRESION_CAMARA_BAJA")
                 self.alarm_manager.clear("PRESION_CAMARA_ALTA")
-                return True
+                return True, False
 
-            if presion_camara < presion_atmosferica - rango_presion_atmosferica:
+            if presion_camara < pres_cam_min:
                 # Abrir entrada de aire comprimido a la camara
-                self.set_do.descompresion_rapida_off()
                 self.set_do.aire_admosferico_camara_on()
                 alarm_id = "PRESION_CAMARA_BAJA"
                 self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
-            
-            elif presion_camara > presion_atmosferica + rango_presion_atmosferica:
-                # Activar bomba de vacio
-                self.set_do.aire_admosferico_camara_off()
-                self.set_do.descompresion_rapida_on()
-                alarm_id = "PRESION_CAMARA_ALTA"
-                self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
+                return False, False
+
+            # presion_camara > pres_cam_max: requiere venteo/vacío
+            self.set_do.aire_admosferico_camara_off()
+            alarm_id = "PRESION_CAMARA_ALTA"
+            self.alarm(alarm_id, AlarmType.ALERTA)
+            return False, True
                 
     def drenar_camara(self):
             agua_residual = self.estado.sensores_di["agua_camara"]
