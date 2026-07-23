@@ -2,6 +2,7 @@ pyserial
 tk
 pillow
 PyYAML
+ruamel.yaml
 SQLAlchemy
 pydantic
 PySide6
