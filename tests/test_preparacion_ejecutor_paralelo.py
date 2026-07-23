@@ -87,6 +87,40 @@ def test_run_maneja_emergencia_sin_llamar_supervisor():
     set_do.buzer_emergencia.assert_called_once()
 
 
+def test_valvula_abre_con_funciones_reales_presion_alta_sin_agua_residual():
+    # Integración sin stubs: presión de cámara alta (igualar_presion_camara
+    # real pide la válvula) y sin agua residual (drenar_camara real NO la
+    # pide). Es el escenario que motivó pasar a OR en vez de sobreescritura
+    # secuencial — si alguien revirtiera a "el último que corre gana", este
+    # caso dejaría la válvula cerrada y PREPARACION nunca terminaría.
+    alarm_manager = MagicMock()
+    estado = MagicMock()
+    estado.sensores_di = {
+        "paro_emergencia": 0,
+        "vapor_suministro": 1,
+        "agua_camara": 0,
+    }
+    estado.sensores_pres = {"pres_camara": 1030.0, "pres_chaqueta": 300.0}
+    estado.sensores_temp = {"temp_drenaje": 20.0}
+    set_do = MagicMock()
+    cycle = MagicMock()
+    cycle.get_param.side_effect = lambda section, key: {
+        "presion_chaqueta": 300.0, "rango_presion_chaqueta": 20.0,
+    }[key]
+    config = MagicMock()
+    config.get.side_effect = lambda key: {
+        "presion_admosferica": 1013.0,
+        "rango_presion_atm": 5.0,
+        "temp_segura_drenaje": 40.0,
+    }[key]
+    p = preparacion_state(alarm_manager, estado, set_do, cycle, config)
+
+    p.ejecutor()
+
+    set_do.descompresion_rapida_on.assert_called_once()
+    set_do.descompresion_rapida_off.assert_not_called()
+
+
 def test_preparacion_state_no_tiene_atributo_step():
     p, _, _ = _make_preparacion()
     assert not hasattr(p, "step")
