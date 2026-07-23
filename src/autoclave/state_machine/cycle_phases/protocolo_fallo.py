@@ -74,22 +74,32 @@ class ProtocoloFallo:
             logger.warning(
                 "Protocolo fallo: presión desconocida — no se activa válvula de seguridad"
             )
-        elif pres > atm + rango:
-            self._presurizado_al_disparo = True
+        else:
             self._modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
             self._sub_etapa = "lenta" if self._modo == 3 else None
-            self._t_timeout_descompresion = self._calcular_timeout()
-            logger.warning(
-                "Protocolo fallo: cámara presurizada (%.1f kPa) → modo de descompresión %d",
-                pres, self._modo
-            )
-            self._aplicar_paso_modo(pres)
-        else:
-            # Presión normal o bajo vacío → aire atmosférico
-            logger.warning(
-                "Protocolo fallo: presión %.1f kPa → aire atmosférico", pres
-            )
-            self.set_do.aire_admosferico_camara_on()
+
+            if pres > atm + rango:
+                self._presurizado_al_disparo = True
+                self._t_timeout_descompresion = self._calcular_timeout()
+                logger.warning(
+                    "Protocolo fallo: cámara presurizada (%.1f kPa) → modo de descompresión %d",
+                    pres, self._modo
+                )
+                self._aplicar_paso_modo(pres)
+            elif pres < atm - rango:
+                # Vacío real → aire atmosférico, ninguna válvula de descompresión
+                logger.warning(
+                    "Protocolo fallo: cámara en vacío (%.1f kPa) → aire atmosférico", pres
+                )
+                self.set_do.aire_admosferico_camara_on()
+            else:
+                # Rango normal, sin presión que evacuar → deja la válvula
+                # de descompresión del modo configurado
+                logger.warning(
+                    "Protocolo fallo: presión normal (%.1f kPa) → válvula del modo %d",
+                    pres, self._modo
+                )
+                self._aplicar_paso_modo(pres)
 
         self._ejecutado = True
 
@@ -175,14 +185,18 @@ class ProtocoloFallo:
                 # comportamiento heredado, sin cambios.
                 self.set_do.descompresion_lenta_on()
                 self.set_do.aire_admosferico_camara_off()
-        else:
-            # Dentro del rango normal o en vacío: cerrar todas las
-            # válvulas de descompresión y mantener aire atmosférico
-            # para evitar caída de presión por enfriamiento
+        elif pres < atm - rango:
+            # Vacío real → cerrar válvulas de descompresión, aire atmosférico
             self.set_do.descompresion_rapida_off()
             self.set_do.descompresion_lenta_off()
             self.set_do.descompresion_chaqueta_off()
             self.set_do.aire_admosferico_camara_on()
+        else:
+            # Rango normal → mantener la válvula de descompresión del modo,
+            # aire atmosférico cerrado (evita cerrar en falso si la cámara
+            # todavía tiene algo de presión residual, no vacío)
+            self.set_do.aire_admosferico_camara_off()
+            self._aplicar_paso_modo(pres)
 
         # ── Buzzer cuando se alcanzan condiciones seguras ─────────────
         if not self._buzzer_emitido:

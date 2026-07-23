@@ -26,15 +26,23 @@ def _make_protocolo(modo, pres_camara=300.0, presion_cambio=150):
     return ProtocoloFallo(estado, set_do, cycle, config), set_do, cycle
 
 
-def test_normal_vacio_sin_cambios():
+def test_normal_sin_presion_abre_valvula_del_modo():
     protocolo, set_do, cycle = _make_protocolo(modo=1, pres_camara=101.3)
+
+    protocolo.ejecutar()
+
+    set_do.descompresion_rapida_on.assert_called_once()
+    set_do.aire_admosferico_camara_on.assert_not_called()
+
+
+def test_vacio_real_al_disparo_abre_aire_atmosferico():
+    protocolo, set_do, cycle = _make_protocolo(modo=1, pres_camara=50.0)
 
     protocolo.ejecutar()
 
     set_do.aire_admosferico_camara_on.assert_called_once()
     set_do.descompresion_rapida_on.assert_not_called()
     set_do.descompresion_lenta_on.assert_not_called()
-    cycle.get_param.assert_not_called()
 
 
 def test_modo_0_se_fuerza_a_lenta():
@@ -135,12 +143,25 @@ def test_modo_3_continua_transicion_en_update():
     set_do.descompresion_lenta_on.assert_not_called()
 
 
-def test_transicion_a_presion_normal_apaga_valvulas_y_activa_atm():
+def test_transicion_a_presion_normal_deja_valvula_del_modo_abierta():
     protocolo, set_do, _ = _make_protocolo(modo=1, pres_camara=300.0)
     protocolo.ejecutar()
     set_do.reset_mock()
 
     protocolo.estado.sensores_pres["pres_camara"] = 101.3
+    protocolo.update()
+
+    set_do.descompresion_rapida_on.assert_called_once()
+    set_do.aire_admosferico_camara_off.assert_called_once()
+    set_do.aire_admosferico_camara_on.assert_not_called()
+
+
+def test_transicion_a_vacio_real_cierra_valvulas_y_activa_atm():
+    protocolo, set_do, _ = _make_protocolo(modo=1, pres_camara=300.0)
+    protocolo.ejecutar()
+    set_do.reset_mock()
+
+    protocolo.estado.sensores_pres["pres_camara"] = 50.0
     protocolo.update()
 
     set_do.descompresion_rapida_off.assert_called_once()
@@ -149,16 +170,15 @@ def test_transicion_a_presion_normal_apaga_valvulas_y_activa_atm():
     set_do.aire_admosferico_camara_on.assert_called_once()
 
 
-def test_normal_vacio_al_disparo_update_sin_cambios():
+def test_normal_sin_presion_al_disparo_update_mantiene_valvula_del_modo():
     protocolo, set_do, _ = _make_protocolo(modo=1, pres_camara=101.3)
     protocolo.ejecutar()
     set_do.reset_mock()
 
     protocolo.update()
 
-    set_do.descompresion_lenta_on.assert_not_called()
-    set_do.descompresion_rapida_on.assert_not_called()
-    set_do.aire_admosferico_camara_on.assert_called_once()
+    set_do.descompresion_rapida_on.assert_called_once()
+    set_do.aire_admosferico_camara_on.assert_not_called()
 
 
 def test_buzzer_sin_cambios_tras_descompresion_por_modo():
