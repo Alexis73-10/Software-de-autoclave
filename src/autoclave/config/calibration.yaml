@@ -153,18 +153,26 @@ calibration:
     pressure:
       # Sensor 0 — recalibrado 2026-07-22 con 2 puntos contra equipo patron:
       # bajo 12->9.54 kPa, alto 322->300 kPa.
-      # [calibracion-auto] Sensor pressure[0] -- recalibrado 2026-07-22 con 2 puntos contra equipo patron: bajo 80.0->76.0, alto 310.0->310.0.
-      - gain: 1.216645
-        offset: -55.044412
+      # [calibracion-auto] Sensor pressure[0] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 16.0->14.0, alto 310.0->350.0.
+      - gain: 1.390451
+        offset: -67.193614
 
-      - gain: 1.3466
-        offset: -67.11
+      # Sensor 1 (pres_chaqueta) — reseteado a neutro 2026-07-23: el valor
+      # anterior (gain=1.3466, offset=-67.11) era el dato de ejemplo de
+      # pres_camara copiado por error a este canal durante el desarrollo de
+      # la pantalla de calibracion, nunca una calibracion real de este
+      # sensor. Pendiente: calibrar con manometro patron via la pantalla de
+      # calibracion.
+      - gain: 1.0
+        offset: 0.0
 
-      - gain: 1.3466
-        offset: -67.11
+      # Sensor 2 (pres_empaque_1) — mismo reseteo y misma razon que arriba.
+      - gain: 1.0
+        offset: 0.0
 
-      - gain: 1.3466
-        offset: -67.11
+      # Sensor 3 (pres_empaque_2) — mismo reseteo y misma razon que arriba.
+      - gain: 1.0
+        offset: 0.0
 
       - gain: 1.3466
         offset: -67.11
