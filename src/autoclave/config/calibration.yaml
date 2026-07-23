@@ -163,16 +163,19 @@ calibration:
       # la pantalla de calibracion, nunca una calibracion real de este
       # sensor. Pendiente: calibrar con manometro patron via la pantalla de
       # calibracion.
-      - gain: 1.0
-        offset: 0.0
+      # [calibracion-auto] Sensor pressure[1] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 105.0->75.0, alto 316.0->365.0.
+      - gain: 1.374408
+        offset: -69.312796
 
       # Sensor 2 (pres_empaque_1) — mismo reseteo y misma razon que arriba.
-      - gain: 1.0
-        offset: 0.0
+      # [calibracion-auto] Sensor pressure[2] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 55.0->10.0, alto 296.0->337.0.
+      - gain: 1.356846
+        offset: -64.626556
 
       # Sensor 3 (pres_empaque_2) — mismo reseteo y misma razon que arriba.
-      - gain: 1.0
-        offset: 0.0
+      # [calibracion-auto] Sensor pressure[3] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 55.0->10.0, alto 296.0->337.0.
+      - gain: 1.356846
+        offset: -64.626556
 
       - gain: 1.3466
         offset: -67.11
