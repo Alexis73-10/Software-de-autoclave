@@ -18,7 +18,6 @@ _NIVEL_TXT = {
 
 class preparacion_state:
     def __init__(self, alarm_manager, estado, set_do, cycle, config):
-        self.step = 0
         self.alarm_manager = alarm_manager
         self.estado = estado
         self.set_do = set_do
@@ -26,18 +25,15 @@ class preparacion_state:
         self.config = config
 
     #definicion del estado preparacion:
-    # - Realizar la verificacion inicial del equipo.
-        # - verificar todas señales de sensores 
-        # - verificar suministro de servicios (vapor, agua, aire comprimido)
-    # - Preparar el equipo para el ciclo 
-        # - suministrar vapor a la chaqueta 
-            #- para esto requiere verificar que exista suministro de vapor
-        # - verificar la presion de la camara de autoclave
-            # -igualar la presion a la atmosferica si es necesario
-        # - verificar si la camara tiene agua residual
-            # - drenar si es necesario
-    # verificar temperatura de drenaje
-        # - enfriar si es necesario
+    # Todas las condiciones se evalúan en paralelo, cada tick, sin bloquear
+    # unas a otras (mismo patrón que preparado_state):
+    # - verificar todas las señales de sensores
+    # - verificar suministro de servicios (vapor, agua, aire comprimido)
+    # - suministrar vapor a la chaqueta
+    # - igualar la presión de cámara a la atmosférica si es necesario
+    # - drenar la cámara si tiene agua residual
+    # - enfriar el drenaje si su temperatura no es segura
+    # PREPARACION termina cuando las 4 condiciones están OK en el mismo tick.
 
     #==============================
     # VERIFICACION INICIAL (SENSORES)
@@ -58,12 +54,18 @@ class preparacion_state:
         self.alarm_manager.report(alarm)
     
     def run(self):
-        
-        if not self.supervisor():
-            self.step = 0
+        if self.estado.sensores_di["paro_emergencia"]:
+            self.set_do.reset_all_outputs()
+            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA)
+            self.set_do.buzer_emergencia()
             return False
-        
-        
+        else:
+            self.set_do.buzer_off()
+            self.alarm_manager.clear("PARO_EMERGENCIA")
+
+        if not self.supervisor():
+            return False
+
         return self.ejecutor()
         
             
@@ -77,47 +79,19 @@ class preparacion_state:
         return ok
     
     def ejecutor(self):
-        logger.info(f"Ejecución del estado PREPARACION, paso {self.step}")
-        if self.estado.sensores_di["paro_emergencia"]:
-            self.set_do.reset_all_outputs()
-            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA)
-            self.set_do.buzer_emergencia()
-            return
+        logger.info("Ejecución del estado PREPARACION (paralelo)")
 
+        chaqueta_lista = self.suministrar_vapor_chaqueta()
+        presion_ok, quiere_rapida_presion = self.igualar_presion_camara()
+        drenaje_ok, quiere_rapida_drenaje = self.drenar_camara()
+        temp_ok = self.verificar_temperatura_drenaje()
+
+        if quiere_rapida_presion or quiere_rapida_drenaje:
+            self.set_do.descompresion_rapida_on()
         else:
-            self.set_do.buzer_off()
-            self.alarm_manager.clear("PARO_EMERGENCIA")
+            self.set_do.descompresion_rapida_off()
 
-        # Desde el paso 2 en adelante, la chaqueta se acondiciona en cada
-        # tick sin importar el paso actual: si el vapor vuelve después de
-        # que el secuenciador ya avanzó, retoma sola sin bloquear nada.
-        chaqueta_lista = None
-        if self.step >= 2:
-            chaqueta_lista = self.suministrar_vapor_chaqueta()
-
-        if self.step == 0:
-                self.step = 1
-
-        elif self.step == 1:
-                self.step = 2
-
-        elif self.step == 2:
-            if chaqueta_lista:
-                self.step = 3
-
-        elif self.step == 3:
-            if self.igualar_presion_camara():
-                self.step = 4
-
-        elif self.step == 4:
-            if self.drenar_camara():
-                self.step = 5
-
-        elif self.step == 5:
-            if self.verificar_temperatura_drenaje():
-                return True  # Indica que la preparación ha finalizado
-
-        return False
+        return chaqueta_lista and presion_ok and drenaje_ok and temp_ok
     
     def verificar_sensores(self):
             #==============================
@@ -288,4 +262,4 @@ class preparacion_state:
             return False
         
     def reset(self):
-        self.step = 0
+        pass
