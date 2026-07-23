@@ -261,16 +261,18 @@ class preparacion_state:
             return False, True
                 
     def drenar_camara(self):
+            """Retorna (ok, quiere_descompresion_rapida). No acciona la
+            válvula descompresion_rapida directamente: esa salida es
+            compartida con igualar_presion_camara() y se combina en
+            ejecutor()."""
             agua_residual = self.estado.sensores_di["agua_camara"]
             if not agua_residual:
-                self.set_do.descompresion_rapida_off()
                 self.alarm_manager.clear("AGUA_RESIDUAL_CAMARA")
-                return True
+                return True, False
 
-            self.set_do.descompresion_rapida_on()
             alarm_id = "AGUA_RESIDUAL_CAMARA"
             self.alarm(alarm_id, AlarmType.ALERTA)
-            return False
+            return False, True
         
     def verificar_temperatura_drenaje(self):
             temp_drenaje = self.estado.sensores_temp["temp_drenaje"]
