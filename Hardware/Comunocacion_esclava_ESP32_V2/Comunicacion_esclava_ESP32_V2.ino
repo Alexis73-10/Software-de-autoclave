@@ -17,6 +17,8 @@ const int analogPin = 36;
 const int numAnalogInputs = 16;
 uint16_t analogValues[numAnalogInputs];
 uint8_t analogChannel = 0;
+uint16_t analogMin[numAnalogInputs];
+uint16_t analogMax[numAnalogInputs];
 
 /* -------------------- SALIDAS -------------------- */
 uint16_t estadoOut1 = 0xFFFF; // 1 = OFF
@@ -38,6 +40,8 @@ String serialBuffer = "";
 /* -------------------- SETUP -------------------- */
 void setup() {
   Serial.begin(115200);
+  analogReadResolution(12);        // fija 12-bit explícito, no depende del default del core
+  analogSetAttenuation(ADC_11db);  // fija rango ~0-3.3V explícito, evita cambios de rango entre versiones
   Wire.begin(I2C_SDA, I2C_SCL);
 
   pcf_out_1.begin();
@@ -49,6 +53,11 @@ void setup() {
 
   pcf_out_1.write16(estadoOut1);
   pcf_out_2.write16(estadoOut2);
+
+  for (int i = 0; i < numAnalogInputs; i++) {
+    analogMin[i] = 4095;
+    analogMax[i] = 0;
+  }
 }
 
 /* -------------------- LOOP -------------------- */
@@ -108,6 +117,15 @@ void procesarComando(String cmd) {
     return;
   }
 
+  if (cmd == "RESET_MINMAX") {
+    for (int i = 0; i < numAnalogInputs; i++) {
+      analogMin[i] = 4095;
+      analogMax[i] = 0;
+    }
+    Serial.println("OK RESET_MINMAX");
+    return;
+  }
+
   if (!cmd.startsWith("SET DO")) return;
 
   int espacio = cmd.indexOf(' ', 7);
@@ -135,9 +153,10 @@ void procesarComando(String cmd) {
 }
 
 /* -------------------- ANALÓGICO ESCALONADO -------------------- */
-#define ADC_SAMPLES      8      // muestras promediadas por canal
-#define ADC_SETTLE_US  500      // µs de espera tras cambio de MUX
+#define ADC_SAMPLES     64      // muestras promediadas por canal (era 8 — reduce ruido aleatorio ~2.8x)
+#define ADC_SETTLE_US  800      // µs de espera tras cambio de MUX (era 500 — margen adicional de asentamiento)
 #define ADC_MS_PER_CH   20      // ms entre canales (16 ch × 20 ms = 320 ms ciclo)
+#define ADC_DISCARD      2      // muestras descartadas tras cambio de canal, antes de promediar
 
 void leerAnalogico() {
   if (millis() - tAnalog < ADC_MS_PER_CH) return;
@@ -150,13 +169,22 @@ void leerAnalogico() {
   // 2. Esperar que el condensador S&H del ADC se estabilice
   delayMicroseconds(ADC_SETTLE_US);
 
-  // 3. Promediar ADC_SAMPLES lecturas para reducir ruido térmico
+  // 3. Descartar primeras lecturas (aún influenciadas por el canal anterior)
+  for (int d = 0; d < ADC_DISCARD; d++) {
+    analogRead(analogPin);
+    delayMicroseconds(50);
+  }
+
+  // 4. Promediar ADC_SAMPLES lecturas para reducir ruido térmico
   uint32_t sum = 0;
   for (int k = 0; k < ADC_SAMPLES; k++) {
     sum += analogRead(analogPin);
     delayMicroseconds(50);
   }
   analogValues[analogChannel] = (uint16_t)(sum / ADC_SAMPLES);
+
+  if (analogValues[analogChannel] < analogMin[analogChannel]) analogMin[analogChannel] = analogValues[analogChannel];
+  if (analogValues[analogChannel] > analogMax[analogChannel]) analogMax[analogChannel] = analogValues[analogChannel];
 
   analogChannel++;
   if (analogChannel >= numAnalogInputs) analogChannel = 0;
