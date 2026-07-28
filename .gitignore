@@ -4,3 +4,5 @@
 **/*.pyo
 .worktrees/
 capturas_calibracion/
+*.pid
+*.laccdb
