@@ -62,7 +62,10 @@ _TABS = [
 # Filtros para la sección "calentamiento" que se comparte entre dos pestañas
 _CAL_MAIN_KEYS  = {
     "temperatura_calentamiento", "tasa_calentamiento",
-    "timeout_calentamiento", "rango_presion_calentamiento",
+    "timeout_calentamiento", "factor_calentamiento",
+    "rango_calentamiento", "tasa_presion", "intervalo_segmentos_calor",
+    "escape_lento_on", "escape_lento_off",
+    "escape_rapido_on", "escape_rapido_off",
 }
 _CAL_ESTAB_KEYS = {
     "tiempo_estable_preesterilizacion", "rango_temp_estabilizacion",

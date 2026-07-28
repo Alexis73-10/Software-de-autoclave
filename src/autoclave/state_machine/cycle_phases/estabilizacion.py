@@ -30,7 +30,7 @@ class EstabilizacionFase(BaseFase):
         self.estado.fase_en_sostenimiento = False
 
     def update(self) -> FaseResult:
-        tiempo_seg      = (self.cycle.get_param("calentamiento", "tiempo_estable_preesterilizacion") or 0) * 60
+        tiempo_seg      =  self.cycle.get_param("calentamiento", "tiempo_estable_preesterilizacion") or 0
         t_obj           =  self.cycle.get_param("calentamiento", "temperatura_calentamiento")         or 134.0
         rango_temp      =  self.cycle.get_param("calentamiento", "rango_temp_estabilizacion")         or 1.0
         rango_pres      =  self.cycle.get_param("calentamiento", "presion_add_calentamiento")         or 9.0
