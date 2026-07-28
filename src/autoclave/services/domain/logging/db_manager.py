@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS ciclos (
     modelo                TEXT    DEFAULT '',
     serie                 TEXT    DEFAULT '',
     version_sw            TEXT    DEFAULT '',
-    operador              TEXT    DEFAULT ''
+    operador              TEXT    DEFAULT '',
+    motivo_fallo          TEXT    DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS lecturas (
@@ -105,6 +106,18 @@ class DbManager:
         with self._lock:
             self._conn.executescript(_SCHEMA)
             self._conn.commit()
+            self._migrate()
+
+    def _migrate(self):
+        """Migraciones aditivas para bases de datos creadas antes de que
+        existiera esta columna — no toca datos existentes."""
+        try:
+            self._conn.execute(
+                "ALTER TABLE ciclos ADD COLUMN motivo_fallo TEXT DEFAULT ''"
+            )
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass  # la columna ya existe
 
     # ------------------------------------------------------------------
     # Ciclos
@@ -156,12 +169,12 @@ class DbManager:
             self._conn.commit()
             return cur.lastrowid
 
-    def cerrar_ciclo(self, ciclo_id: int, resultado: str):
-        """Registra la hora de fin y el resultado del ciclo."""
+    def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None):
+        """Registra la hora de fin, el resultado y (si lo hay) el motivo del ciclo."""
         with self._lock:
             self._conn.execute(
-                "UPDATE ciclos SET fecha_fin=?, resultado=? WHERE id=?",
-                (datetime.now().isoformat(), resultado, ciclo_id),
+                "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=? WHERE id=?",
+                (datetime.now().isoformat(), resultado, motivo_fallo or "", ciclo_id),
             )
             self._conn.commit()
 

@@ -7,9 +7,9 @@
 #   Temp normal:  [T_est, T_est + add]
 #   Temp error:   T > T_est + add + err_T  → FALLO TEMP_ALTA
 #                 T < T_est (sin tolerancia) → FALLO TEMP_BAJA
-#   Pres normal:  [P_sat(T), P_sat(T) + rango]
+#   Pres normal:  [P_sat(T) - rango, P_sat(T) + rango]
 #   Pres error:   P > P_sat(T) + rango + err_P → FALLO PRES_ALTA
-#                 P < P_sat(T) (sin tolerancia) → FALLO PRES_BAJA
+#                 P < P_sat(T) - rango - err_P → FALLO PRES_BAJA
 
 import time
 import logging
@@ -38,6 +38,7 @@ class EsterilizacionFase(BaseFase):
     def _fallo(self, alarm_id: str, descripcion: str) -> FaseResult:
         logger.error("Esterilización: FALLO — %s", alarm_id)
         self._apagar_salidas()
+        self.estado.motivo_fallo = descripcion
         self.alarm_manager.report(Alarm(
             alarm_id=alarm_id,
             alarm_type=AlarmType.FALLA,
@@ -91,11 +92,16 @@ class EsterilizacionFase(BaseFase):
                 )
 
         # ── 3. Verificar presión ─────────────────────────────────────────
+        # Margen simétrico al de PRES_ALTA: el ruido residual del sensor puede
+        # ubicar la lectura filtrada a ambos lados de la curva de saturación
+        # aun con presión real estable, por eso el límite inferior también
+        # usa rango_presion_esterilizacion + presion_error_esterilizacion.
         p_sat = p_saturacion_kpa(temp)
-        if pres < p_sat:
+        pres_lim_baja = p_sat - pres_rango - pres_err
+        if pres < pres_lim_baja:
             return self._fallo(
                 "ESTERILIZACION_PRES_BAJA",
-                f"Presión baja: {pres:.1f} kPa < P_sat({temp:.1f}°C)={p_sat:.1f} kPa"
+                f"Presión baja: {pres:.1f} kPa < {pres_lim_baja:.1f} kPa (P_sat({temp:.1f}°C)={p_sat:.1f} kPa)"
             )
         if pres > p_sat + pres_rango + pres_err:
             return self._fallo(

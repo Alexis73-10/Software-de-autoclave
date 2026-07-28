@@ -21,8 +21,8 @@ class FakeDb:
     def insertar_lectura(self, **kwargs):
         pass
 
-    def cerrar_ciclo(self, ciclo_id, resultado):
-        self.cerrados.append((ciclo_id, resultado))
+    def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None):
+        self.cerrados.append((ciclo_id, resultado, motivo_fallo))
 
 
 class FakeCycle:
@@ -30,8 +30,21 @@ class FakeCycle:
     name = "Bowie-Dick"
 
     def get_param(self, *keys, default=None):
-        valores = {"temperatura_esterilizacion": 134, "tiempo_esterilizacion": 3.5}
-        return valores.get(keys[0], default)
+        # Replica la semántica real de Cycle.get_param: recorre las claves
+        # anidadas (sección → parámetro), no sólo la última.
+        data = {
+            "esterilizacion": {
+                "temperatura_esterilizacion": 134,
+                "tiempo_esterilizacion": 3.5,
+            }
+        }
+        for key in keys:
+            if not isinstance(data, dict):
+                return default
+            data = data.get(key)
+            if data is None:
+                return default
+        return data
 
 
 class FakeCycleManager:
@@ -51,6 +64,7 @@ class FakeEstado:
     def __init__(self):
         self.machine_state = GlobalState.CICLO
         self.fase_ciclo = "PRECALENTAMIENTO"
+        self.motivo_fallo = ""
         self.sensores_temp = {"temp_camara": 25.0}
         self.sensores_pres = {"pres_camara": 74.5}
 
@@ -84,8 +98,11 @@ def test_inicio_de_ciclo_encola_encabezado():
     cl.update()   # transición → CICLO: dispara _on_inicio
 
     assert len(printer.calls) == 1
-    assert "ESPECIFIKA" in printer.calls[0]
-    assert "00007" in printer.calls[0]
+    assert "Ciclo No.: 000007" in printer.calls[0]
+    assert "Num serie: SN-001" in printer.calls[0]
+    assert "Modelo: MX-500" in printer.calls[0]
+    assert "Temp. Ester.: 134 C" in printer.calls[0]
+    assert "Tiempo Ester.: 3.5 min" in printer.calls[0]
 
 
 def test_cambio_de_fase_encola_una_fila():
@@ -96,7 +113,7 @@ def test_cambio_de_fase_encola_una_fila():
     cl.update()   # cambio de fase None -> "PH" -> fila
 
     assert len(printer.calls) == 2
-    assert "Pre-calent." in printer.calls[1]
+    assert printer.calls[1].startswith("PH ")
 
 
 def test_sin_cambio_de_fase_ni_intervalo_no_encola_nada_nuevo():
@@ -137,8 +154,9 @@ def test_fin_de_ciclo_encola_fila_final_y_pie():
     cl.update()   # _on_fin: fila "E" + pie
 
     assert len(printer.calls) == 4
-    assert "Resultado:" in printer.calls[3]
-    assert "Fin:" in printer.calls[3]
+    assert "Estado:" in printer.calls[3]
+    assert "Hora fin:" in printer.calls[3]
+    assert "Temp. final:" in printer.calls[3]
 
 
 def test_sin_printer_no_falla():

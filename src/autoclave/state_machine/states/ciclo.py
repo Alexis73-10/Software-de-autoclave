@@ -26,6 +26,7 @@ from autoclave.state_machine.cycle_phases.estabilizacion import EstabilizacionFa
 from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFase
 from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
+from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo, cerrar_valvulas_descompresion
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +76,7 @@ class CicloState:
             DescompresionFase(*_args),
         ]
 
-        self._protocolo          = ProtocoloFallo(estado, set_do, config)
+        self._protocolo          = ProtocoloFallo(estado, set_do, cycle, config)
         self._fase_idx           = 0
         self._resultado_pendiente: str | None = None   # resultado almacenado hasta confirmación
 
@@ -90,6 +91,7 @@ class CicloState:
         """
         self._fase_idx            = 0
         self._resultado_pendiente = None
+        self.estado.motivo_fallo  = ""
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -142,7 +144,17 @@ class CicloState:
         # Si no hay suministro de vapor, no intentar compensar
         if not self.estado.sensores_di.get("vapor_suministro", 0):
             self.set_do.vapor_chaqueta_off()
+            self.alarm_manager.report(Alarm(
+                alarm_id="SUMINISTRO_VAPOR",
+                alarm_type=AlarmType.ALERTA,
+                source_state="CICLO",
+                description="Sin suministro de vapor: chaqueta pendiente hasta que regrese.",
+                recoverable=True,
+                blocks_operation=False,
+            ))
             return
+        else:
+            self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
         press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
                     self.config.get("presion_chaqueta") or 320
@@ -154,6 +166,49 @@ class CicloState:
         elif pres > press_obj + rango:
             self.set_do.vapor_chaqueta_off()
         # Dentro del rango: no cambiar estado
+
+    def _mantener_drenaje(self):
+        """Mantiene la temperatura de drenaje durante todas las fases del
+        ciclo, sin bloquear el flujo del ciclo (alarma informativa)."""
+        temp = self.estado.sensores_temp.get("temp_drenaje")
+        if temp is None:
+            return
+        temp_segura = self.config.get("temp_segura_drenaje")
+        if temp_segura is None:
+            return
+
+        if temp > temp_segura:
+            self.set_do.agua_intercambiador_on()
+            self.alarm_manager.report(Alarm(
+                alarm_id="TEMP_DRENAJE_ALTA",
+                alarm_type=AlarmType.ALERTA,
+                source_state="CICLO",
+                description="Temperatura de drenaje alta: enfriando.",
+                recoverable=True,
+                blocks_operation=False,
+            ))
+        else:
+            self.set_do.agua_intercambiador_off()
+            self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
+
+    def _mantener_valvula_reposo(self):
+        """Mientras se espera confirmación tras un COMPLETADO limpio (sin
+        ProtocoloFallo, que ya hace su propia gestión continua): si la
+        cámara cae en vacío por enfriamiento, abre aire atmosférico; si no,
+        mantiene la válvula de descompresión del modo configurado."""
+        pres = self.estado.sensores_pres.get("pres_camara")
+        if pres is None:
+            return
+        atm   = self.config.get("presion_admosferica") or 101.3
+        rango = self.config.get("rango_presion_atm")   or 20.0
+
+        if pres < atm - rango:
+            cerrar_valvulas_descompresion(self.set_do)
+            self.set_do.aire_admosferico_camara_on()
+        else:
+            self.set_do.aire_admosferico_camara_off()
+            modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
+            abrir_valvula_modo(self.set_do, modo)
 
     # ------------------------------------------------------------------
     # Tick principal
@@ -182,8 +237,14 @@ class CicloState:
                 resultado_final = self._resultado_pendiente
                 self._resultado_pendiente = None
                 return resultado_final
-            # Mantener el protocolo activo (gestión de presión + buzzer)
-            self._protocolo.update()
+            # Mantener la válvula de reposo activa mientras se espera
+            # confirmación: COMPLETADO limpio usa su propio monitor de
+            # presión; el resto (FALLO/CANCELADO/emergencia) ya lo cubre
+            # el protocolo de fallo, que corre continuamente.
+            if self._resultado_pendiente == CicloResultado.COMPLETADO:
+                self._mantener_valvula_reposo()
+            else:
+                self._protocolo.update()
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 1. ¿El usuario canceló? ───────────────────────────────────
@@ -199,11 +260,12 @@ class CicloState:
         if self.estado.get_flag("PARO_EMERGENCIA"):
             logger.error("CicloState: ABORTADO por paro de emergencia")
             self.estado.fase_ciclo = "EMERGENCIA"
+            self.estado.motivo_fallo = "Paro de emergencia activado durante el ciclo."
             self.alarm_manager.report(Alarm(
                 alarm_id="PARO_EMERGENCIA",
                 alarm_type=AlarmType.EMERGENCIA,
                 source_state="CICLO",
-                description="Paro de emergencia activado durante el ciclo.",
+                description=self.estado.motivo_fallo,
                 recoverable=False,
             ))
             self._protocolo.ejecutar()
@@ -214,11 +276,12 @@ class CicloState:
         if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"):
             logger.error("CicloState: ABORTADO por fallo de suministro eléctrico")
             self.estado.fase_ciclo = "FALLO_SUMINISTRO"
+            self.estado.motivo_fallo = "Pérdida de suministro eléctrico durante el ciclo."
             self.alarm_manager.report(Alarm(
                 alarm_id="FALLO_SUMINISTRO_ELECTRICO",
                 alarm_type=AlarmType.EMERGENCIA,
                 source_state="CICLO",
-                description="Pérdida de suministro eléctrico durante el ciclo.",
+                description=self.estado.motivo_fallo,
                 recoverable=False,
             ))
             self._protocolo.ejecutar()
@@ -230,11 +293,12 @@ class CicloState:
         if not puertas_ok:
             logger.error("CicloState: FALLO de seguridad — %s", codigo_fallo)
             self.estado.fase_ciclo = codigo_fallo
+            self.estado.motivo_fallo = f"Fallo de seguridad: {codigo_fallo.replace('_', ' ').lower()}."
             self.alarm_manager.report(Alarm(
                 alarm_id=codigo_fallo,
                 alarm_type=AlarmType.FALLA,
                 source_state="CICLO",
-                description=f"Fallo de seguridad: {codigo_fallo.replace('_', ' ').lower()}.",
+                description=self.estado.motivo_fallo,
                 recoverable=True,
             ))
             self._protocolo.ejecutar()
@@ -252,19 +316,21 @@ class CicloState:
         if ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
             self.estado.fase_ciclo = "SENSOR_AUSENTE"
+            self.estado.motivo_fallo = f"Sensor crítico ausente: {', '.join(ausentes)}"
             self.alarm_manager.report(Alarm(
                 alarm_id="SENSOR_AUSENTE",
                 alarm_type=AlarmType.EMERGENCIA,
                 source_state="CICLO",
-                description=f"Sensor crítico ausente: {', '.join(ausentes)}",
+                description=self.estado.motivo_fallo,
                 recoverable=False,
             ))
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
-        # ── 5. Mantener presión de chaqueta ───────────────────────────
+        # ── 5. Mantener presión de chaqueta y temperatura de drenaje ──
         self._mantener_chaqueta()
+        self._mantener_drenaje()
 
         # ── 6. ¿Ya se completaron todas las fases? ────────────────────
         if self._fase_idx >= len(self._fases):
@@ -300,11 +366,16 @@ class CicloState:
         elif resultado == FaseResult.FALLO:
             logger.error("CicloState: FALLO en fase %s", fase.name)
             self.estado.fase_ciclo = f"FALLO_{fase.name}"
+            # La fase puede haber reportado ya un motivo específico (p.ej.
+            # EsterilizacionFase._fallo() con la lectura exacta que falló);
+            # sólo se usa el genérico si la fase no dejó uno más preciso.
+            if not self.estado.motivo_fallo:
+                self.estado.motivo_fallo = f"Fallo en la fase {fase.name.replace('_', ' ').lower()}."
             self.alarm_manager.report(Alarm(
                 alarm_id=f"FALLO_{fase.name}",
                 alarm_type=AlarmType.FALLA,
                 source_state="CICLO",
-                description=f"Fallo en la fase {fase.name.replace('_', ' ').lower()}.",
+                description=self.estado.motivo_fallo,
                 recoverable=True,
             ))
             self._protocolo.ejecutar()
@@ -313,3 +384,30 @@ class CicloState:
 
         # Fallback (no debería ocurrir)
         return CicloResultado.EN_CURSO
+
+    # ------------------------------------------------------------------
+    # Aborto forzado por el ControlLoop (fuera del tick normal de run())
+    # ------------------------------------------------------------------
+
+    def abortar_por_desconexion(self):
+        """Llamado por ControlLoop cuando se pierde la comunicación serial
+        durante un ciclo en curso. run() no puede detectarlo por sí mismo
+        porque, sin conexión, el ControlLoop deja de invocar
+        state_machine.update() (no hay datos frescos de sensores) — así que
+        el aborto se dispara directamente en cuanto se detecta la caída,
+        sin esperar al siguiente tick normal."""
+        if self._resultado_pendiente is not None:
+            return  # ya se estaba abortando/terminando por otra causa
+
+        logger.error("CicloState: ABORTADO por pérdida de comunicación serial")
+        self.estado.fase_ciclo = "FALLO_CONEXION"
+        self.estado.motivo_fallo = "Se perdió la comunicación con el hardware durante el ciclo."
+        self.alarm_manager.report(Alarm(
+            alarm_id="FALLO_CONEXION",
+            alarm_type=AlarmType.EMERGENCIA,
+            source_state="CICLO",
+            description=self.estado.motivo_fallo,
+            recoverable=True,
+        ))
+        self._protocolo.ejecutar()
+        self._resultado_pendiente = CicloResultado.FALLO

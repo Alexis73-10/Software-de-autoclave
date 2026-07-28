@@ -1,18 +1,24 @@
 from collections.abc import Callable
 from typing import Optional
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QFrame, QLabel, QVBoxLayout
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.ui_pyside.views.entrdas_salidas._io_base import _MonitorBase, _format_name
 
+_CARD_NORMAL = "QFrame { background: white; border-radius: 10px; border: 1.5px solid #e8eaed; }"
+_CARD_HOVER = "QFrame { background: #eff6ff; border-radius: 10px; border: 1.5px solid #2563eb; }"
+
 
 class _TempCard(QFrame):
-    def __init__(self, name: str):
+    def __init__(self, name: str, nav_callback: Optional[Callable] = None):
         super().__init__()
-        self.setStyleSheet(
-            "QFrame { background: white; border-radius: 10px; border: 1.5px solid #e8eaed; }"
-        )
+        self._name = name
+        self._nav = nav_callback
+        self.setStyleSheet(_CARD_NORMAL)
         self.setMinimumSize(180, 90)
+        if nav_callback is not None:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
 
         lay = QVBoxLayout(self)
         lay.setContentsMargins(12, 10, 12, 10)
@@ -36,6 +42,20 @@ class _TempCard(QFrame):
             self._lbl_value.setText(f"{value:.1f} °C")
             self._lbl_value.setStyleSheet("color: #1a2a3a; font-weight: bold; border: none;")
 
+    def enterEvent(self, event) -> None:
+        if self._nav is not None:
+            self.setStyleSheet(_CARD_HOVER)
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:
+        self.setStyleSheet(_CARD_NORMAL)
+        super().leaveEvent(event)
+
+    def mousePressEvent(self, event) -> None:
+        if self._nav is not None and event.button() == Qt.MouseButton.LeftButton:
+            self._nav("calibracion_sensor", {"tipo": "temperature", "sensor": self._name})
+        super().mousePressEvent(event)
+
 
 class TemperaturasView(_MonitorBase):
     _TEMP_NAMES = list(EstadoAutoclave.map_temp.keys())
@@ -53,7 +73,7 @@ class TemperaturasView(_MonitorBase):
         super().__init__("SENSORES DE TEMPERATURA", "io_menu", nav_callback)
         self._cards: dict[str, _TempCard] = {}
         for idx, name in enumerate(self._TEMP_NAMES):
-            card = _TempCard(name)
+            card = _TempCard(name, nav_callback=nav_callback)
             self._cards[name] = card
             row, col = divmod(idx, 2)
             self._grid.addWidget(card, row, col)

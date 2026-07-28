@@ -2,6 +2,7 @@ import time
 import logging
 
 from autoclave.state_machine.cycle_phases.base_fase import BaseFase, FaseResult
+from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo
 
 logger = logging.getLogger(__name__)
 
@@ -84,23 +85,31 @@ class DescompresionFase(BaseFase):
         self.set_do.aire_comprimido_camara_off()
         self.set_do.agua_chaqueta_off()
 
+    def _finalizar(self) -> FaseResult:
+        p = self._pres_camara()
+        if p is not None and p < self._pres_atm() - self._rango_atm():
+            self._apagar_todo()
+            self.set_do.aire_admosferico_camara_on()
+        else:
+            self.set_do.aire_admosferico_camara_off()
+            abrir_valvula_modo(self.set_do, self._modo)
+        return FaseResult.COMPLETADO
+
     def _tick_modo_0(self) -> FaseResult:
         if self._en_presion_atm():
-            return FaseResult.COMPLETADO
+            return self._finalizar()
         return FaseResult.EN_CURSO
 
     def _tick_modo_1(self) -> FaseResult:
         self.set_do.descompresion_rapida_on()
         if self._en_presion_atm():
-            self._apagar_todo()
-            return FaseResult.COMPLETADO
+            return self._finalizar()
         return FaseResult.EN_CURSO
 
     def _tick_modo_2(self) -> FaseResult:
         self.set_do.descompresion_lenta_on()
         if self._en_presion_atm():
-            self._apagar_todo()
-            return FaseResult.COMPLETADO
+            return self._finalizar()
         return FaseResult.EN_CURSO
 
     def _tick_modo_3(self) -> FaseResult:
@@ -114,8 +123,7 @@ class DescompresionFase(BaseFase):
         else:
             self.set_do.descompresion_rapida_on()
             if self._en_presion_atm():
-                self._apagar_todo()
-                return FaseResult.COMPLETADO
+                return self._finalizar()
         return FaseResult.EN_CURSO
 
     def _tick_modo_4(self) -> FaseResult:
@@ -185,6 +193,5 @@ class DescompresionFase(BaseFase):
         self.set_do.descompresion_chaqueta_on()
         self.set_do.descompresion_rapida_on()
         if self._en_presion_atm():
-            self._apagar_todo()
-            return FaseResult.COMPLETADO
+            return self._finalizar()
         return FaseResult.EN_CURSO

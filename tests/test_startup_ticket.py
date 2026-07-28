@@ -116,3 +116,14 @@ def test_footer_sistema_listo_cuando_ok():
     )
     assert "Sistema listo" in text
     assert "FALLO" not in text
+
+
+def test_ticket_termina_con_avance_de_papel_para_corte():
+    from autoclave.devices.printer.startup_ticket import format_startup_ticket
+    text = format_startup_ticket(
+        _profile(), "0.4.0",
+        datetime(2026, 7, 2, 10, 15, 8),
+        datetime(2026, 7, 2, 10, 47, 23),
+    )
+    lineas = text.split("\n")
+    assert lineas[-5:] == [""] * 5

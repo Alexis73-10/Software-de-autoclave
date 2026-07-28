@@ -24,8 +24,20 @@ def test_backend_reconectado():
     assert "BACKEND: RECONECTADO" in texto
 
 
-def test_ticket_usa_ancho_48_y_separador():
+def test_ticket_usa_el_mismo_formato_corto_que_ticket_formatter():
+    """connectivity_ticket.py debe usar el mismo estilo de divisor corto
+    ("-" * 24, sin barras de 48 "=" ni título centrado) que ya está
+    confirmado funcionando en ticket_formatter.py — el formato viejo con
+    barras de 48 caracteres fue el que se abandonó ahí por dar problemas
+    de impresión, y connectivity_ticket.py se había quedado con él."""
     texto = format_connectivity_ticket("TARJETA", False, datetime(2026, 7, 7, 14, 32, 10))
     lineas = texto.split("\n")
-    assert lineas[0] == "=" * 48
-    assert lineas[2] == "=" * 48
+    assert "-" * 24 in lineas
+    assert "=" * 48 not in texto
+    assert "ESPECIFIKA" not in texto
+
+
+def test_ticket_termina_con_avance_de_papel_para_corte():
+    texto = format_connectivity_ticket("TARJETA", False, datetime(2026, 7, 7, 14, 32, 10))
+    lineas = texto.split("\n")
+    assert lineas[-5:] == [""] * 5

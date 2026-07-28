@@ -2,3 +2,7 @@
 **/__pycache__/
 **/*.pyc
 **/*.pyo
+.worktrees/
+capturas_calibracion/
+*.pid
+*.laccdb

@@ -6,9 +6,18 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Palabra que describe cada nivel de alarma — debe coincidir con lo que se
+# imprime como "Nivel:" en el ticket de alarmas (impresion_menu.py), para
+# que el texto libre de la descripción no contradiga el nivel real.
+_NIVEL_TXT = {
+    AlarmType.ALERTA:     "Alerta",
+    AlarmType.FALLA:      "Fallo",
+    AlarmType.EMERGENCIA: "Emergencia",
+}
+
+
 class preparacion_state:
     def __init__(self, alarm_manager, estado, set_do, cycle, config):
-        self.step = 0
         self.alarm_manager = alarm_manager
         self.estado = estado
         self.set_do = set_do
@@ -16,18 +25,15 @@ class preparacion_state:
         self.config = config
 
     #definicion del estado preparacion:
-    # - Realizar la verificacion inicial del equipo.
-        # - verificar todas señales de sensores 
-        # - verificar suministro de servicios (vapor, agua, aire comprimido)
-    # - Preparar el equipo para el ciclo 
-        # - suministrar vapor a la chaqueta 
-            #- para esto requiere verificar que exista suministro de vapor
-        # - verificar la presion de la camara de autoclave
-            # -igualar la presion a la atmosferica si es necesario
-        # - verificar si la camara tiene agua residual
-            # - drenar si es necesario
-    # verificar temperatura de drenaje
-        # - enfriar si es necesario
+    # Todas las condiciones se evalúan en paralelo, cada tick, sin bloquear
+    # unas a otras (mismo patrón que preparado_state):
+    # - verificar todas las señales de sensores
+    # - verificar suministro de servicios (vapor, agua, aire comprimido)
+    # - suministrar vapor a la chaqueta
+    # - igualar la presión de cámara a la atmosférica si es necesario
+    # - drenar la cámara si tiene agua residual
+    # - enfriar el drenaje si su temperatura no es segura
+    # PREPARACION termina cuando las 4 condiciones están OK en el mismo tick.
 
     #==============================
     # VERIFICACION INICIAL (SENSORES)
@@ -35,23 +41,31 @@ class preparacion_state:
     # Verificar que todos los sonsores esten en funcionamiento (sin importar su valor)
     # - no pueden estar en 0 (fallo de sensor)
     
-    def alarm (self, alarm_id, alarm_type):
+    def alarm (self, alarm_id, alarm_type, blocks_operation=True):
+        nivel = _NIVEL_TXT.get(alarm_type, "Alerta")
         alarm = Alarm(
             alarm_id=alarm_id,
             alarm_type=alarm_type,
             source_state="PREPARACION",
-            description=f"Fallo {alarm_id} en  PREPARACION.",
-            recoverable=True
+            description=f"{nivel}: {alarm_id} en PREPARACION.",
+            recoverable=True,
+            blocks_operation=blocks_operation,
         )
         self.alarm_manager.report(alarm)
     
     def run(self):
-        
-        if not self.supervisor():
-            self.step = 0
+        if self.estado.sensores_di["paro_emergencia"]:
+            self.set_do.reset_all_outputs()
+            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA)
+            self.set_do.buzer_emergencia()
             return False
-        
-        
+        else:
+            self.set_do.buzer_off()
+            self.alarm_manager.clear("PARO_EMERGENCIA")
+
+        if not self.supervisor():
+            return False
+
         return self.ejecutor()
         
             
@@ -65,41 +79,19 @@ class preparacion_state:
         return ok
     
     def ejecutor(self):
-        logger.info(f"Ejecución del estado PREPARACION, paso {self.step}")
-        if self.estado.sensores_di["paro_emergencia"]:
-            self.set_do.reset_all_outputs()
-            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA)
-            self.set_do.buzer_emergencia()
-            return
+        logger.info("Ejecución del estado PREPARACION (paralelo)")
 
+        chaqueta_lista = self.suministrar_vapor_chaqueta()
+        presion_ok, quiere_rapida_presion = self.igualar_presion_camara()
+        drenaje_ok, quiere_rapida_drenaje = self.drenar_camara()
+        temp_ok = self.verificar_temperatura_drenaje()
+
+        if quiere_rapida_presion or quiere_rapida_drenaje:
+            self.set_do.descompresion_rapida_on()
         else:
-            self.set_do.buzer_off()
-            self.alarm_manager.clear("PARO_EMERGENCIA")
+            self.set_do.descompresion_rapida_off()
 
-
-        if self.step == 0:
-                self.step = 1
-        
-        elif self.step == 1:
-                self.step = 2
-        
-        elif self.step == 2:
-            if self.suministrar_vapor_chaqueta():
-                self.step = 3
-                
-        elif self.step == 3:
-            if self.igualar_presion_camara():
-                self.step = 4
-                
-        elif self.step == 4:
-            if self.drenar_camara():
-                self.step = 5
-                
-        elif self.step == 5:
-            if self.verificar_temperatura_drenaje():
-                return True  # Indica que la preparación ha finalizado
-            
-        return False
+        return chaqueta_lista and presion_ok and drenaje_ok and temp_ok
     
     def verificar_sensores(self):
             #==============================
@@ -144,7 +136,6 @@ class preparacion_state:
         
     def verificar_suministros(self):
         suministros = [
-            "vapor_suministro",
             "agua_bomba",
             "agua_generador",
             "aire_comprimido",
@@ -179,11 +170,15 @@ class preparacion_state:
             limite_inf = pres_obj - rango
             limite_sup = pres_obj + rango
 
-            # Verificar suministro
+            # Verificar suministro. Si no hay vapor, no insistir en abrir la
+            # válvula (generaría vapor demasiado húmedo por baja presión de
+            # línea): se deja "pendiente", no bloqueante.
             if not self.estado.sensores_di["vapor_suministro"]:
-                alarm_id = "SUMINISTRO_VAPOR"
-                self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
+                self.set_do.vapor_chaqueta_off()
+                self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
+                self.alarm_manager.clear("CHAQUETA_FRIA")
+                self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+                return True
             else:
                 self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
@@ -209,6 +204,9 @@ class preparacion_state:
                 return False
     
     def igualar_presion_camara(self):
+            """Retorna (ok, quiere_descompresion_rapida). No acciona la
+            válvula descompresion_rapida directamente: esa salida es
+            compartida con drenar_camara() y se combina en ejecutor()."""
             presion_camara = self.estado.sensores_pres["pres_camara"]
             presion_atmosferica = self.config.get("presion_admosferica")
             rango_presion_atmosferica = self.config.get("rango_presion_atm")
@@ -221,35 +219,34 @@ class preparacion_state:
                 self.set_do.descompresion_lenta_off()
                 self.alarm_manager.clear("PRESION_CAMARA_BAJA")
                 self.alarm_manager.clear("PRESION_CAMARA_ALTA")
-                return True
+                return True, False
 
-            if presion_camara < presion_atmosferica - rango_presion_atmosferica:
+            if presion_camara < pres_cam_min:
                 # Abrir entrada de aire comprimido a la camara
-                self.set_do.descompresion_rapida_off()
                 self.set_do.aire_admosferico_camara_on()
                 alarm_id = "PRESION_CAMARA_BAJA"
                 self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
-            
-            elif presion_camara > presion_atmosferica + rango_presion_atmosferica:
-                # Activar bomba de vacio
-                self.set_do.aire_admosferico_camara_off()
-                self.set_do.descompresion_rapida_on()
-                alarm_id = "PRESION_CAMARA_ALTA"
-                self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
+                return False, False
+
+            # presion_camara > pres_cam_max: requiere venteo/vacío
+            self.set_do.aire_admosferico_camara_off()
+            alarm_id = "PRESION_CAMARA_ALTA"
+            self.alarm(alarm_id, AlarmType.ALERTA)
+            return False, True
                 
     def drenar_camara(self):
+            """Retorna (ok, quiere_descompresion_rapida). No acciona la
+            válvula descompresion_rapida directamente: esa salida es
+            compartida con igualar_presion_camara() y se combina en
+            ejecutor()."""
             agua_residual = self.estado.sensores_di["agua_camara"]
             if not agua_residual:
-                self.set_do.descompresion_rapida_off()
                 self.alarm_manager.clear("AGUA_RESIDUAL_CAMARA")
-                return True
+                return True, False
 
-            self.set_do.descompresion_rapida_on()
             alarm_id = "AGUA_RESIDUAL_CAMARA"
             self.alarm(alarm_id, AlarmType.ALERTA)
-            return False
+            return False, True
         
     def verificar_temperatura_drenaje(self):
             temp_drenaje = self.estado.sensores_temp["temp_drenaje"]
@@ -265,4 +262,4 @@ class preparacion_state:
             return False
         
     def reset(self):
-        self.step = 0
+        pass

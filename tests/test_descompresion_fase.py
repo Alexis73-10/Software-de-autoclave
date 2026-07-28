@@ -87,6 +87,23 @@ def test_modo_0_completa_al_alcanzar_presion_atm():
     assert result == FaseResult.COMPLETADO
 
 
+def test_modo_0_completa_fuerza_lenta_abierta():
+    fase, estado, set_do = _make_fase(modo=0, pres=121.0)
+    fase.update()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_lenta_on.assert_called()
+
+
+def test_modo_0_completa_en_vacio_abre_aire_atmosferico():
+    fase, estado, set_do = _make_fase(modo=0, pres=50.0)
+    fase.update()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_lenta_on.assert_not_called()
+    set_do.aire_admosferico_camara_on.assert_called()
+
+
 # ── Modo 1 ────────────────────────────────────────────────────────────────────
 
 def test_modo_1_activa_rapida():
@@ -96,12 +113,23 @@ def test_modo_1_activa_rapida():
     set_do.descompresion_rapida_on.assert_called()
 
 
-def test_modo_1_completa_y_apaga_salidas():
+def test_modo_1_completa_y_deja_rapida_abierta():
     fase, estado, set_do = _make_fase(modo=1, pres=121.0)
+    fase.update()
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_not_called()
+    set_do.aire_admosferico_camara_off.assert_called()
+
+
+def test_modo_1_completa_en_vacio_cierra_rapida_y_abre_aire_atmosferico():
+    fase, estado, set_do = _make_fase(modo=1, pres=50.0)
     fase.update()
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.descompresion_rapida_off.assert_called()
+    set_do.aire_admosferico_camara_on.assert_called()
 
 
 # ── Modo 2 ────────────────────────────────────────────────────────────────────
@@ -113,12 +141,23 @@ def test_modo_2_activa_lenta():
     set_do.descompresion_lenta_on.assert_called()
 
 
-def test_modo_2_completa_y_apaga_salidas():
+def test_modo_2_completa_y_deja_lenta_abierta():
     fase, estado, set_do = _make_fase(modo=2, pres=121.0)
+    fase.update()
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_lenta_off.assert_not_called()
+    set_do.aire_admosferico_camara_off.assert_called()
+
+
+def test_modo_2_completa_en_vacio_cierra_lenta_y_abre_aire_atmosferico():
+    fase, estado, set_do = _make_fase(modo=2, pres=50.0)
     fase.update()
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.descompresion_lenta_off.assert_called()
+    set_do.aire_admosferico_camara_on.assert_called()
 
 
 # ── Timeouts ──────────────────────────────────────────────────────────────────
@@ -163,13 +202,24 @@ def test_modo_3_transicion_a_rapida():
 
 
 def test_modo_3_completa_en_subetapa_rapida():
-    # Forzar sub-etapa rapida con pres <= atm+rango
     fase, estado, set_do = _make_fase(modo=3, pres=121.0)
+    fase.update()
+    fase._sub_etapa = "rapida"
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_not_called()
+    set_do.aire_admosferico_camara_off.assert_called()
+
+
+def test_modo_3_completa_en_vacio_abre_aire_atmosferico():
+    fase, estado, set_do = _make_fase(modo=3, pres=50.0)
     fase.update()
     fase._sub_etapa = "rapida"
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.descompresion_rapida_off.assert_called()
+    set_do.aire_admosferico_camara_on.assert_called()
 
 
 def test_modo_3_timeout_retorna_fallo():
@@ -249,15 +299,27 @@ def test_modo_4_transicion_a_descompresion_al_alcanzar_temp():
     assert fase._sub_etapa == "descompresion"
 
 
-def test_modo_4_completa_al_alcanzar_presion_atm():
-    # Forzar sub-etapa descompresion con pres <= atm+rango
+def test_modo_4_completa_y_deja_chaqueta_rapida_abiertas():
     fase, estado, set_do = _make_fase(modo=4, pres=121.0, temp=120.0)
+    fase.update()
+    fase._sub_etapa = "descompresion"
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_not_called()
+    set_do.descompresion_chaqueta_off.assert_not_called()
+    set_do.aire_admosferico_camara_off.assert_called()
+
+
+def test_modo_4_completa_en_vacio_abre_aire_atmosferico():
+    fase, estado, set_do = _make_fase(modo=4, pres=50.0, temp=120.0)
     fase.update()
     fase._sub_etapa = "descompresion"
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.descompresion_rapida_off.assert_called()
     set_do.descompresion_chaqueta_off.assert_called()
+    set_do.aire_admosferico_camara_on.assert_called()
 
 
 # ── Modo 5 ────────────────────────────────────────────────────────────────────
@@ -276,3 +338,24 @@ def test_modo_5_lenta_apagada_al_transicionar():
     fase.update()
     set_do.descompresion_lenta_off.assert_called()
     set_do.descompresion_rapida_on.assert_called()
+
+
+def test_modo_5_completa_y_deja_chaqueta_rapida_abiertas():
+    fase, estado, set_do = _make_fase(modo=5, pres=121.0, temp=120.0)
+    fase.update()
+    fase._sub_etapa = "descompresion"
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_not_called()
+    set_do.aire_admosferico_camara_off.assert_called()
+
+
+def test_modo_5_completa_en_vacio_abre_aire_atmosferico():
+    fase, estado, set_do = _make_fase(modo=5, pres=50.0, temp=120.0)
+    fase.update()
+    fase._sub_etapa = "descompresion"
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.descompresion_rapida_off.assert_called()
+    set_do.aire_admosferico_camara_on.assert_called()

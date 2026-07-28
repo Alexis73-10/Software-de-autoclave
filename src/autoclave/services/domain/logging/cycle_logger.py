@@ -19,6 +19,7 @@
 
 import time
 import logging
+import importlib.metadata
 from datetime import datetime
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.services.domain.logging.ticket_formatter import (
@@ -29,7 +30,15 @@ from autoclave.services.domain.logging.ticket_formatter import (
 
 logger = logging.getLogger(__name__)
 
-VERSION_SW = "2.0.0"   # TODO: leer de pyproject.toml si se necesita dinámico
+
+def _software_version() -> str:
+    """Versión real instalada del paquete (misma fuente que el ticket de
+    arranque en main_window.py) — evita que el ticket de ciclo muestre una
+    versión desactualizada o inventada."""
+    try:
+        return importlib.metadata.version("autoclave")
+    except importlib.metadata.PackageNotFoundError:
+        return "?"
 
 # Fases internas → código del ticket
 _FASE_A_CODIGO: dict[str, str] = {
@@ -43,6 +52,17 @@ _FASE_A_CODIGO: dict[str, str] = {
     "CANCELADO":        "F",
     "FALLO":            "F",
     "EMERGENCIA":       "F",
+}
+
+# Fases normales del pipeline (en curso) — cualquier otro valor de
+# fase_ciclo (CANCELADO, EMERGENCIA, FALLO_SUMINISTRO, SENSOR_AUSENTE,
+# FALLO_PUERTA_*, FALLO_CONEXION, FALLO_<fase>, etc.) representa un cierre
+# anormal del ciclo. "COMPLETADO" es el único cierre normal y se maneja
+# aparte (ver update()).
+_FASES_EN_CURSO: set[str] = {
+    "PRECALENTAMIENTO", "PURGA", "PRE_VACIO",
+    "CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION",
+    "SECADO", "DESCOMPRESION",
 }
 
 # Parámetros de intervalo según el código de fase
@@ -86,6 +106,14 @@ class CycleLogger:
         self._ciclo_inicio      = None    # time.time() al iniciar
         self._ultimo_log        = 0.0     # time.time() del último registro
         self._ultima_fase_codigo = None   # para detectar cambio de fase
+        self._ultima_temp        = None   # última temp_camara registrada (→ "Temp. final" del pie)
+        # CicloState deja el estado global en CICLO (ESPERANDO_CONFIRMACION)
+        # tras un fallo/cancelación/emergencia hasta que el operador confirma
+        # — puede tardar. Este flag marca que _on_fin() ya se ejecutó de
+        # inmediato al detectar el cierre anormal, para no reprocesar el
+        # mismo cierre ni arrancar un ciclo nuevo mientras se espera esa
+        # confirmación (ver update()).
+        self._cierre_ya_procesado = False
 
     # ------------------------------------------------------------------
     # API pública
@@ -99,14 +127,25 @@ class CycleLogger:
         current = self.estado.get_machine_state()
 
         if current == GlobalState.CICLO:
+            if self._cierre_ya_procesado:
+                return  # ya se cerró/imprimió; falta solo la confirmación
             if not self._activo:
                 self._on_inicio()
+                return
+            fase_nombre = self.estado.fase_ciclo or ""
+            if fase_nombre != "COMPLETADO" and fase_nombre not in _FASES_EN_CURSO:
+                # Cierre anormal (fallo/cancelación/emergencia): no esperar a
+                # que el estado global salga de CICLO (puede tardar hasta que
+                # el operador confirme) — cerrar e imprimir ahora mismo.
+                self._cierre_ya_procesado = True
+                self._on_fin(fase_nombre)
             else:
                 self._tick()
         else:
             if self._activo:
                 resultado = self.estado.fase_ciclo or "DESCONOCIDO"
                 self._on_fin(resultado)
+            self._cierre_ya_procesado = False
 
     @property
     def ciclo_id(self) -> int | None:
@@ -133,12 +172,14 @@ class CycleLogger:
             cycle  = self.cycle_manager.get_selected_cycle()
             tipo   = cycle.id
             nombre = cycle.name
-            temp_e = cycle.get_param("temperatura_esterilizacion")
-            t_e    = cycle.get_param("tiempo_esterilizacion")
+            temp_e = cycle.get_param("esterilizacion", "temperatura_esterilizacion")
+            t_e    = cycle.get_param("esterilizacion", "tiempo_esterilizacion")
         except Exception as exc:
             logger.warning("CycleLogger: no se pudo leer el ciclo: %s", exc)
 
-        serie = getattr(self.profile, "serial_number", "")
+        serie      = getattr(self.profile, "serial_number", "")
+        modelo     = getattr(self.profile, "model_id", "")
+        version_sw = _software_version()
 
         self._ciclo_id = self.db.crear_ciclo(
             numero      = numero,
@@ -146,22 +187,25 @@ class CycleLogger:
             nombre      = nombre,
             temp_ester  = temp_e,
             tiempo_ester= t_e,
-            modelo      = getattr(self.profile, "model_id",      ""),
+            modelo      = modelo,
             serie       = serie,
-            version_sw  = VERSION_SW,
+            version_sw  = version_sw,
         )
         self._ciclo_inicio       = time.time()
         self._ultimo_log         = 0.0    # primera lectura se hace inmediatamente
         self._ultima_fase_codigo = None
+        self._ultima_temp        = None
         self._activo             = True
+        self._cierre_ya_procesado = False
 
         if self.printer is not None:
             meta = {
                 "numero_ciclo":          numero,
                 "serie":                 serie,
+                "modelo":                modelo,
+                "version_sw":            version_sw,
                 "nombre_ciclo":          nombre,
                 "tipo_ciclo":            tipo,
-                "operador":              "",
                 "temp_esterilizacion":   temp_e,
                 "tiempo_esterilizacion": t_e,
                 "fecha_inicio":          datetime.now().isoformat(),
@@ -177,10 +221,14 @@ class CycleLogger:
         if self._ciclo_id is not None:
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
-            self.db.cerrar_ciclo(self._ciclo_id, resultado)
+            motivo = getattr(self.estado, "motivo_fallo", "") or None
+            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo)
 
             if self.printer is not None:
-                self.printer.enqueue(format_footer(resultado, datetime.now().isoformat()))
+                self.printer.enqueue(format_footer(
+                    resultado, datetime.now().isoformat(),
+                    temp_final=self._ultima_temp, motivo=motivo,
+                ))
 
             logger.info(
                 "CycleLogger: ciclo id=%d cerrado → %s", self._ciclo_id, resultado
@@ -232,6 +280,9 @@ class CycleLogger:
 
         temp = self.estado.sensores_temp.get("temp_camara")
         pres = self.estado.sensores_pres.get("pres_camara")
+
+        if temp is not None:
+            self._ultima_temp = temp
 
         self.db.insertar_lectura(
             ciclo_id      = self._ciclo_id,

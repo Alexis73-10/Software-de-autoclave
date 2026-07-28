@@ -30,11 +30,21 @@ logger = logging.getLogger(__name__)
 
 _TIPOS = ['a', 'b', 'c', 'd']
 
-_PASO_DECOMPRESION = 'DECOMPRESION'
-_PASO_VACIO_BAJO   = 'VACIO_BAJO'
-_PASO_HOLD_BAJO    = 'HOLD_BAJO'
-_PASO_VAPOR_ALTO   = 'VAPOR_ALTO'
-_PASO_HOLD_ALTO    = 'HOLD_ALTO'
+_PASO_DECOMPRESION   = 'DECOMPRESION'
+_PASO_VACIO_BAJO     = 'VACIO_BAJO'
+_PASO_HOLD_BAJO      = 'HOLD_BAJO'
+_PASO_APAGANDO_VACIO = 'APAGANDO_VACIO'
+_PASO_VAPOR_ALTO     = 'VAPOR_ALTO'
+_PASO_HOLD_ALTO      = 'HOLD_ALTO'
+
+# Al cerrar el pulso bajo se desenergizan 4 bobinas de 24V casi a la vez
+# (bomba_vacio + agua_bomba, vacio_camara + agua_intercambiador). Sin diodo
+# flyback en alguna de ellas, el golpe inductivo combinado de apagarlas
+# juntas puede acoplarse por EMI a la tarjeta ESP32 y desconectarla del
+# puerto serial. Mitigación temporal: escalonar el apagado en dos grupos
+# separados por este intervalo, mientras se verifica/instala supresión en
+# las bobinas. No reemplaza el fix de hardware.
+_STAGGER_APAGADO_VACIO = 0.15  # segundos
 
 
 class PrevacioFase(BaseFase):
@@ -48,6 +58,7 @@ class PrevacioFase(BaseFase):
         self._paso             = None
         self._inicializado     = False
         self._hold_inicio      = None
+        self._t_apagado_vacio  = None
         self._timeout_bajo_fin = None
         self._timeout_alto_fin = None
         self.estado.fase_en_sostenimiento = False
@@ -147,7 +158,15 @@ class PrevacioFase(BaseFase):
             self.set_do.vacio_camara_on()
 
             if time.time() >= self._hold_inicio + float(tiempo_hold):
-                self._apagar_vacio()
+                self.set_do.bomba_vacio_off()
+                self._t_apagado_vacio = time.time()
+                self._paso = _PASO_APAGANDO_VACIO
+            return FaseResult.EN_CURSO
+
+        # ── 3b. APAGANDO VACIO (escalonado, ver _STAGGER_APAGADO_VACIO) ─
+        if self._paso == _PASO_APAGANDO_VACIO:
+            if time.time() - self._t_apagado_vacio >= _STAGGER_APAGADO_VACIO:
+                self.set_do.vacio_camara_off()
                 timeout_min = self.cycle.get_param("prevacio", "timeout_alto") or 10
                 self._timeout_alto_fin = time.time() + float(timeout_min) * 60
                 self._paso = _PASO_VAPOR_ALTO

@@ -55,3 +55,9 @@ def test_esta_preparado_false_con_fallo_suministro():
     p.mantener_drenaje = lambda: True
     p.puertas_cerradas = lambda: True
     assert p.esta_preparado() is False
+
+
+def test_falta_vapor_no_bloquea_verificar_suministros():
+    p, alarm_mgr = _make_preparado()
+    p.estado.sensores_di["vapor_suministro"] = 0
+    assert p.verificar_suministros() is True

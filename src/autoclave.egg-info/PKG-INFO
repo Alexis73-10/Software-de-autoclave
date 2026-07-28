@@ -9,6 +9,7 @@ Requires-Dist: pyserial
 Requires-Dist: tk
 Requires-Dist: pillow
 Requires-Dist: PyYAML
+Requires-Dist: ruamel.yaml
 Requires-Dist: SQLAlchemy
 Requires-Dist: pydantic
 Requires-Dist: PySide6

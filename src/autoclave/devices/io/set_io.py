@@ -173,11 +173,14 @@ class SetOutput:
         """Pitido de aviso: cámara alcanzó condiciones seguras tras fallo/cancelación."""
         self.buzer.play(buzer.BEEP_FALLO, repeticiones=1)
 
-    def reset_all_outputs(self):
-        """Apaga todas las salidas. Usa ALL_OFF con ACK; si falla, cae a comandos individuales."""
+    def reset_all_outputs(self) -> bool:
+        """Apaga todas las salidas. Usa ALL_OFF con ACK; si falla, cae a comandos
+        individuales (sin confirmación). Retorna True solo si el ESP32 confirmó
+        el apagado vía ACK de ALL_OFF."""
         ok = self.io.all_off()
         if not ok:
             for channel in range(1, 25):
                 self.io.set_output(channel, False)
+        return ok
 
 

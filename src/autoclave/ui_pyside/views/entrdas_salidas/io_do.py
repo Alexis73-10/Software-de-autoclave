@@ -143,6 +143,14 @@ class SalidasDigitalesView(QWidget):
         lbl_title.setFont(QFont("Segoe UI", 15, QFont.Weight.Bold))
         lbl_title.setStyleSheet("color: #1a2a3a;")
         hdr.addWidget(lbl_title)
+        hdr.addSpacing(20)
+        self._lbl_temp_camara = QLabel("🌡️ -- °C")
+        self._lbl_temp_camara.setStyleSheet("color: #b45309; font-size: 13px; font-weight: bold;")
+        hdr.addWidget(self._lbl_temp_camara)
+        hdr.addSpacing(12)
+        self._lbl_pres_camara = QLabel("📊 -- kPa")
+        self._lbl_pres_camara.setStyleSheet("color: #1d4ed8; font-size: 13px; font-weight: bold;")
+        hdr.addWidget(self._lbl_pres_camara)
         hdr.addStretch()
         self._lbl_conn = QLabel("○ Sin datos")
         self._lbl_conn.setStyleSheet("color: #999; font-size: 12px;")
@@ -292,6 +300,15 @@ class SalidasDigitalesView(QWidget):
             self._lbl_conn.setText("● Conectado")
             self._lbl_conn.setStyleSheet("color: #22c55e; font-size: 12px;")
 
+            temp_camara = status.get("sensors", {}).get("temperature", {}).get("camara")
+            pres_camara = status.get("sensors", {}).get("pressure", {}).get("camara")
+            self._lbl_temp_camara.setText(
+                f"🌡️ {temp_camara:.1f} °C" if temp_camara is not None else "🌡️ -- °C"
+            )
+            self._lbl_pres_camara.setText(
+                f"📊 {pres_camara:.2f} kPa" if pres_camara is not None else "📊 -- kPa"
+            )
+
             if self._test_mode and not status.get("test_mode_active", True):
                 self._sync_forced_exit(
                     "El sistema canceló el modo prueba automáticamente "
@@ -300,3 +317,5 @@ class SalidasDigitalesView(QWidget):
         except Exception:
             self._lbl_conn.setText("○ Sin datos")
             self._lbl_conn.setStyleSheet("color: #ef4444; font-size: 12px;")
+            self._lbl_temp_camara.setText("🌡️ -- °C")
+            self._lbl_pres_camara.setText("📊 -- kPa")

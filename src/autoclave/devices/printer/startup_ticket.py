@@ -41,6 +41,5 @@ def format_startup_ticket(
         _DIV,
         footer.center(_W),
         _SEP,
-        "",
-    ]
+    ] + [""] * 5  # avance de papel en blanco para poder cortar sin abrir la tapa
     return "\n".join(lines)
