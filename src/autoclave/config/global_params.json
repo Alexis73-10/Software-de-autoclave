@@ -1,6 +1,6 @@
 {
     "temp_max": {"value": 134, "type": "int", "unit": "°C"},
-    "presion_admosferica": {"value":74.5, "type":"float", "unit":"kPa"},
+    "presion_admosferica": {"value":90, "type":"float", "unit":"kPa"},
     "rango_presion_atm": {"value":5, "type":"float", "unit":"kPa"},
     "temp_max_apertura": {"value":120, "type": "int", "unit": "°C"},
     "presion_empaque": {"value": 300, "type": "int", "unit": "kPa"},

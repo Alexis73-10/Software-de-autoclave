@@ -62,7 +62,7 @@ calibration:
 
 
     pressure:
-      - adc_min: 50
+      - adc_min: 5
         adc_max: 4050
         pres_min: 2
         pres_max: 400
