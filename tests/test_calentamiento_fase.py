@@ -131,6 +131,35 @@ def test_pwm_factor_cero_permanece_encendido():
     set_do.vapor_camara_on.assert_called()
 
 
+def test_pwm_activo_ignora_tasa_calentamiento_excedida():
+    """El control por tasa es exclusivo de APROXIMACION (plan, restricción
+    global) — una vez en PWM_ACTIVO, una pendiente que excedería
+    tasa_calentamiento no debe forzar OFF fuera del ciclo PWM programado."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, rango=2.0, factor=50.0, intervalo=2,
+                                       tasa_calentamiento=10.0, tasa_presion=200.0)
+    fase.update()  # inicializar
+    estado.sensores_temp["temp_camara"] = 130.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(130.0)
+    fase.update()  # entra a PWM_ACTIVO
+    assert fase._en_pwm is True
+
+    fase._temp_anterior = 130.0
+    fase._t_tick_anterior = time.time() - 60
+    # Fuerza el flanco ON del ciclo PWM en este tick (mismo patrón que
+    # test_pwm_pulso_on_luego_off_por_tiempo): _t_pulso_pwm usa tiempo real
+    # de reloj, y el test corre en microsegundos, así que sin rebobinarlo
+    # _tick_dos_estados no vería elapsed >= t_off y no llamaría a ninguna
+    # salida este tick, dejando la aserción sin poder distinguir un bug real.
+    fase._pwm_abierto = False
+    fase._t_pulso_pwm = time.time() - 100
+    estado.sensores_temp["temp_camara"] = 200.0  # 70°C/min > 10, muy por encima del límite
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
 # ── Escape lento / escape rápido (paralelos, independientes) ─────────────
 
 def test_escape_lento_off_cero_permanece_abierto():
