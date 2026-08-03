@@ -61,8 +61,8 @@ Sin I/O nuevo — las tres salidas ya existen en el HAL.
 | 3 | Error de tiempo de calentamiento | `timeout_calentamiento` | min | 60 | 1 | 999 | Umbral de falla — timeout global de la fase |
 | 4 | Factor de calentamiento | `factor_calentamiento` | % | 50 | 0 | 100 | Setpoint de control — % de `intervalo_segmentos_calor` que `vapor_camara` permanece OFF durante PWM |
 | 5 | Rango de calentamiento | `rango_calentamiento` | kPa | 2 | 0 | 30 | Setpoint de control — banda alrededor de `P_sat(temp_actual)` que determina entrada a PWM |
-| 6 | Tasa de calentamiento | `tasa_calentamiento` | °C/min | 50 | 0 | 100 | Umbral de falla — pendiente máxima de temperatura (debounce 3 lecturas) |
-| 7 | Tasa de presion | `tasa_presion` | kPa/min | 100 | 0 | 300 | Umbral de falla — pendiente máxima de presión (debounce 3 lecturas) |
+| 6 | Tasa de calentamiento | `tasa_calentamiento` | °C/min | 50 | 0 | 100 | Setpoint de control (techo de subida en APROXIMACION, bang-bang de `vapor_camara`) + umbral de falla (debounce 3 lecturas) |
+| 7 | Tasa de presion | `tasa_presion` | kPa/min | 100 | 0 | 300 | Setpoint de control (techo de subida en APROXIMACION, bang-bang de `vapor_camara`) + umbral de falla (debounce 3 lecturas) |
 | 8 | Tiempo estable pre esterilizacion | `tiempo_estable_preesterilizacion` | seg | 3 | 0 | 180 | Setpoint de control — duración de sostenimiento antes de `COMPLETADO`; si=0, finaliza al cumplirse la condición instantánea |
 | 9 | Intervalo segmentos de calor | `intervalo_segmentos_calor` | seg | 2 | 0 | 30 | Setpoint de control — periodo del ciclo PWM de `vapor_camara` |
 | 10 | Escape lento encendido | `escape_lento_on` | seg | 1 | 0 | 1000 | Setpoint de control — tiempo abierto de `descompresion_lenta` |
@@ -115,13 +115,15 @@ Los lazos de `descompresion_lenta` y `descompresion_rapida` corren **en paralelo
 
 El chequeo de `tasa_calentamiento` / `tasa_presion` (con debounce de 3 lecturas) corre también en paralelo, activo durante toda la fase, y puede producir `FALLO` desde cualquier tramo.
 
+**Actualización (control por tasa en APROXIMACION):** dentro del tramo `APROXIMACION`, `vapor_camara` deja de ser "ON continuo" sin condición — pasa a un bang-bang directo por tick: ON salvo que la pendiente medida (`tasa_t`/`tasa_p`, mismo cálculo del chequeo de falla) ya supere `tasa_calentamiento`/`tasa_presion`. Solo limita la dirección de subida (la válvula no puede enfriar). `PWM_ACTIVO` y `ESTABLE_PREESTERILIZACION` no cambian. Ver detalle en `docs/superpowers/specs/2026-08-03-tasa-control-calentamiento-design.md`.
+
 ---
 
 ## 4. Lógica de control
 
 ### 4.1 Control de `vapor_camara`
 
-- Tramo `APROXIMACION`: `vapor_camara` en `ON` continuo (sin PWM, sin límite de rampa activo — `tasa_calentamiento` solo vigila, no limita).
+- Tramo `APROXIMACION`: `vapor_camara` en bang-bang directo por tick — ON salvo que la pendiente medida ese tick (`tasa_t = (temp - temp_anterior)/dt_min`, `tasa_p` análogo) ya supere `tasa_calentamiento`/`tasa_presion` (0 deshabilita ese límite). Solo se limita la dirección de subida: `tasa_t` se compara sin valor absoluto porque la válvula no puede enfriar la cámara. Sin tiempo mínimo de apagado — se reevalúa cada tick.
 - Entrada a `PWM_ACTIVO`: cuando `abs(pres_camara - p_saturacion_kpa(temp_camara)) <= rango_calentamiento`.
 - Dentro de `PWM_ACTIVO` y `ESTABLE_PREESTERILIZACION`: ciclo PWM de periodo `intervalo_segmentos_calor` segundos, con `vapor_camara` en `OFF` durante `factor_calentamiento` % del periodo y en `ON` el resto. Ejemplo con defectos (factor=50%, intervalo=2s): 1s ON / 1s OFF.
 - No hay retorno de `PWM_ACTIVO` a `APROXIMACION`: una vez dentro de la banda, el control permanece en PWM aunque la lectura salga momentáneamente de la banda (evita chattering entre modos de control ante ruido de sensor).
