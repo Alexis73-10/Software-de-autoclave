@@ -7,7 +7,9 @@
 # presion_add_calentamiento) y sostiene esa condición durante
 # tiempo_estable_preesterilizacion segundos. Tres tramos internos, sin
 # retroceso entre ellos:
-#   APROXIMACION              vapor_camara ON continuo
+#   APROXIMACION              vapor_camara en bang-bang por tick: ON salvo
+#                              que la pendiente ya supere tasa_calentamiento/
+#                              tasa_presion (0 = sin límite; solo limita subida)
 #   PWM_ACTIVO                entra al alcanzar |P - P_sat(T)| <= rango_calentamiento;
 #                              vapor_camara en PWM (factor_calentamiento / intervalo_segmentos_calor)
 #   ESTABLE_PREESTERILIZACION sostenimiento; timer no se reinicia si la
@@ -16,8 +18,9 @@
 #
 # escape_lento y escape_rapido corren con temporizadores de dos estados
 # independientes en paralelo durante toda la fase (no sincronizados con los
-# tramos anteriores). tasa_calentamiento/tasa_presion vigilan la pendiente
-# con debounce de 3 lecturas y pueden producir FALLO desde cualquier tramo.
+# tramos anteriores). tasa_calentamiento/tasa_presion también vigilan la
+# pendiente con debounce de 3 lecturas y pueden producir FALLO desde
+# cualquier tramo (chequeo sin cambios, independiente del control anterior).
 
 import time
 import logging
@@ -144,6 +147,10 @@ class CalentamientoFase(BaseFase):
         # Nota: la rampa de temperatura se vigila en valor absoluto (subida O
         # caída abrupta son ambas anómalas, ver FMEA sección 8); la de presión
         # solo en sentido de subida (sobrepresión por PWM mal calibrado).
+        # tasa_t/tasa_p también alimentan el control de vapor_camara en
+        # APROXIMACION (paso 5) — mismo cálculo, capturado una sola vez aquí.
+        tasa_t = None
+        tasa_p = None
         if self._t_tick_anterior is not None:
             dt_min = (now - self._t_tick_anterior) / 60
             if dt_min > 0:
@@ -178,7 +185,20 @@ class CalentamientoFase(BaseFase):
 
         # ── 5. Control de vapor_camara ─────────────────────────────────────
         if not self._en_pwm:
-            self.set_do.vapor_camara_on()
+            # Bang-bang directo por tick: ON salvo que la pendiente ya
+            # supere el techo de tasa_calentamiento/tasa_presion. Solo se
+            # limita la dirección de subida (tasa_t sin abs()) porque la
+            # válvula no puede enfriar la cámara. tasa_t/tasa_p en None
+            # (sin dato de pendiente aún) o el umbral en 0 (deshabilitado)
+            # no pueden forzar OFF.
+            dentro_de_tasa = (
+                (tasa_t is None or tasa_t_max <= 0 or tasa_t <= tasa_t_max)
+                and (tasa_p is None or tasa_p_max <= 0 or tasa_p <= tasa_p_max)
+            )
+            if dentro_de_tasa:
+                self.set_do.vapor_camara_on()
+            else:
+                self.set_do.vapor_camara_off()
         else:
             t_off_pwm = intervalo * (factor_pct / 100.0)
             t_on_pwm  = intervalo - t_off_pwm
