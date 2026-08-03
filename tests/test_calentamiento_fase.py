@@ -13,9 +13,9 @@ def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
                escape_rapido_on=0, escape_rapido_off=10):
     """tasa_calentamiento/tasa_presion quedan en 0 (deshabilitadas, ver guard
     '> 0' en calentamiento.py) por defecto: los tests que no ejercitan el
-    debounce de pendiente cambian temperatura/presión entre ticks sin
-    control de tiempo real, lo que produciría una tasa artificialmente alta
-    y un FALLO espurio si el chequeo estuviera activo."""
+    control por tasa cambian temperatura/presión entre ticks sin control de
+    tiempo real, lo que produciría una tasa artificialmente alta y forzaría
+    vapor_camara a OFF de forma espuria si el control estuviera activo."""
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": t_inicial}
     estado.sensores_pres = {"pres_camara": 100.0}
@@ -299,74 +299,6 @@ def test_fallo_por_timeout_apaga_las_tres_salidas():
     assert estado.motivo_fallo != ""
 
 
-# ── FALLO: debounce de pendiente (3 lecturas consecutivas) ────────────────
-
-def test_tasa_calentamiento_no_falla_con_1_o_2_lecturas_excesivas():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0)
-    fase.update()  # inicializar
-
-    for _ in range(2):
-        fase._temp_anterior = 20.0
-        fase._t_tick_anterior = time.time() - 60  # dt = 1 min
-        estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min > 10°C/min
-        result = fase.update()
-        assert result == FaseResult.EN_CURSO
-
-
-def test_tasa_calentamiento_falla_al_tercer_exceso_consecutivo():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0)
-    fase.update()  # inicializar
-
-    result = FaseResult.EN_CURSO
-    for _ in range(3):
-        fase._temp_anterior = 20.0
-        fase._t_tick_anterior = time.time() - 60
-        estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min > 10°C/min
-        result = fase.update()
-
-    assert result == FaseResult.FALLO
-    set_do.vapor_camara_off.assert_called()
-
-
-def test_tasa_calentamiento_bidireccional_detecta_caida_abrupta():
-    """El FMEA (plan sección 8) marca tanto subida como caída abrupta de
-    temperatura como anómalas, no solo la subida."""
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, t_inicial=134.0)
-    fase.update()  # inicializar
-
-    result = FaseResult.EN_CURSO
-    for _ in range(3):
-        fase._temp_anterior = 134.0
-        fase._t_tick_anterior = time.time() - 60
-        estado.sensores_temp["temp_camara"] = 100.0  # caída de 34°C/min > 10
-        result = fase.update()
-
-    assert result == FaseResult.FALLO
-
-
-def test_tasa_presion_falla_al_tercer_exceso_consecutivo():
-    fase, estado, set_do = _make_fase(tasa_presion=50.0)
-    fase.update()  # inicializar
-
-    result = FaseResult.EN_CURSO
-    for _ in range(3):
-        fase._pres_anterior = 100.0
-        fase._t_tick_anterior = time.time() - 60
-        estado.sensores_pres["pres_camara"] = 200.0  # 100 kPa/min > 50
-        result = fase.update()
-
-    assert result == FaseResult.FALLO
-    set_do.vapor_camara_off.assert_called()
-
-
-def test_tasa_deshabilitada_con_cero_no_falla_por_salto_grande():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=0.0, tasa_presion=0.0)
-    fase.update()
-    estado.sensores_temp["temp_camara"] = 135.0
-    estado.sensores_pres["pres_camara"] = 300.0
-    result = fase.update()
-    assert result != FaseResult.FALLO
-
 
 # ── Sensores no disponibles ────────────────────────────────────────────────
 
@@ -495,15 +427,14 @@ def test_aproximacion_bangbang_tasa_presion_deshabilitada():
 
 def test_aproximacion_bangbang_no_apaga_por_caida_abrupta_de_temperatura():
     """El control solo limita la dirección de subida (sin abs()) porque la
-    válvula no puede enfriar la cámara — a diferencia del chequeo de falla,
-    que sí es bidireccional (ver test_tasa_calentamiento_bidireccional_detecta_caida_abrupta)."""
+    válvula no puede enfriar la cámara."""
     fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=200.0)
     fase.update()
 
     fase._temp_anterior = 100.0
     fase._pres_anterior = 100.0
     fase._t_tick_anterior = time.time() - 60
-    estado.sensores_temp["temp_camara"] = 50.0  # caída de 50°C/min, excedería abs(10) del chequeo de falla
+    estado.sensores_temp["temp_camara"] = 50.0  # caída de 50°C/min
     estado.sensores_pres["pres_camara"] = 110.0  # dentro de rango
     set_do.reset_mock()
     result = fase.update()
@@ -512,18 +443,25 @@ def test_aproximacion_bangbang_no_apaga_por_caida_abrupta_de_temperatura():
     set_do.vapor_camara_off.assert_not_called()
 
 
-def test_aproximacion_bangbang_apaga_valvula_en_cada_tick_antes_del_debounce_de_fallo():
-    """El control por bang-bang ya actúa en los ticks que preceden al FALLO
-    por debounce de 3 lecturas — no espera a que se dispare la falla."""
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0)
+def test_tasa_excedida_muchos_ticks_consecutivos_nunca_produce_fallo():
+    """tasa_calentamiento/tasa_presion son ahora puramente de control — ya
+    no existe ningún camino de FALLO por pendiente, sin importar cuántos
+    ticks consecutivos excedan el límite (ver spec de remoción de FALLO,
+    docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md)."""
+    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=50.0)
     fase.update()  # inicializar
 
-    for _ in range(2):  # los primeros 2 excesos no fallan (debounce=3)
+    result = FaseResult.EN_CURSO
+    for _ in range(10):
         fase._temp_anterior = 20.0
+        fase._pres_anterior = 100.0
         fase._t_tick_anterior = time.time() - 60
-        estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min > 10
+        estado.sensores_temp["temp_camara"] = 100.0  # 80°C/min, muy por encima de 10
+        estado.sensores_pres["pres_camara"] = 500.0  # 400 kPa/min, muy por encima de 50
         set_do.reset_mock()
         result = fase.update()
         assert result == FaseResult.EN_CURSO
         set_do.vapor_camara_off.assert_called()
         set_do.vapor_camara_on.assert_not_called()
+
+    assert result != FaseResult.FALLO

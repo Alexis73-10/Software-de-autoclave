@@ -18,9 +18,10 @@
 #
 # escape_lento y escape_rapido corren con temporizadores de dos estados
 # independientes en paralelo durante toda la fase (no sincronizados con los
-# tramos anteriores). tasa_calentamiento/tasa_presion también vigilan la
-# pendiente con debounce de 3 lecturas y pueden producir FALLO desde
-# cualquier tramo (chequeo sin cambios, independiente del control anterior).
+# tramos anteriores). tasa_calentamiento/tasa_presion son puramente de
+# control (bang-bang en APROXIMACION) — no producen FALLO; si vapor_camara
+# no responde al comando OFF, no hay aborto automático por esta vía (riesgo
+# aceptado, ver docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md).
 
 import time
 import logging
@@ -28,8 +29,6 @@ from autoclave.core.runtime.steam import p_saturacion_kpa
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
-
-_DEBOUNCE_LECTURAS = 3
 
 
 class CalentamientoFase(BaseFase):
@@ -42,12 +41,11 @@ class CalentamientoFase(BaseFase):
         self._en_pwm = False
         self._timer_estable_inicio = None
 
-        # Debounce de pendiente (tasa_calentamiento / tasa_presion)
+        # Pendiente instantánea (tasa_calentamiento / tasa_presion) —
+        # alimenta el control de vapor_camara en APROXIMACION, paso 5
         self._temp_anterior = None
         self._pres_anterior = None
         self._t_tick_anterior = None
-        self._contador_exceso_temp = 0
-        self._contador_exceso_pres = 0
 
         # Temporizadores de dos estados (vapor PWM, escape lento, escape rápido)
         self._t_pulso_pwm = None
@@ -143,36 +141,17 @@ class CalentamientoFase(BaseFase):
 
         now = time.time()
 
-        # ── 3. Debounce de pendiente ──────────────────────────────────────
-        # Nota: la rampa de temperatura se vigila en valor absoluto (subida O
-        # caída abrupta son ambas anómalas, ver FMEA sección 8); la de presión
-        # solo en sentido de subida (sobrepresión por PWM mal calibrado).
-        # tasa_t/tasa_p también alimentan el control de vapor_camara en
-        # APROXIMACION (paso 5) — mismo cálculo, capturado una sola vez aquí.
+        # ── 3. Cálculo de pendiente ──────────────────────────────────────
+        # tasa_t/tasa_p alimentan el control de vapor_camara en APROXIMACION
+        # (paso 5). No disparan FALLO — riesgo aceptado si vapor_camara no
+        # responde al comando OFF, ver spec de remoción de FALLO.
         tasa_t = None
         tasa_p = None
         if self._t_tick_anterior is not None:
             dt_min = (now - self._t_tick_anterior) / 60
             if dt_min > 0:
                 tasa_t = (temp - self._temp_anterior) / dt_min
-                if tasa_t_max > 0 and abs(tasa_t) > tasa_t_max:
-                    self._contador_exceso_temp += 1
-                else:
-                    self._contador_exceso_temp = 0
-                if self._contador_exceso_temp >= _DEBOUNCE_LECTURAS:
-                    return self._fallo(
-                        f"Pendiente de temperatura excesiva: {tasa_t:.1f}°C/min (máx {tasa_t_max:.1f}°C/min)"
-                    )
-
                 tasa_p = (pres - self._pres_anterior) / dt_min
-                if tasa_p_max > 0 and tasa_p > tasa_p_max:
-                    self._contador_exceso_pres += 1
-                else:
-                    self._contador_exceso_pres = 0
-                if self._contador_exceso_pres >= _DEBOUNCE_LECTURAS:
-                    return self._fallo(
-                        f"Pendiente de presión excesiva: {tasa_p:.1f} kPa/min (máx {tasa_p_max:.1f} kPa/min)"
-                    )
 
         self._temp_anterior = temp
         self._pres_anterior = pres
