@@ -115,7 +115,7 @@ Los lazos de `descompresion_lenta` y `descompresion_rapida` corren **en paralelo
 
 `tasa_calentamiento` / `tasa_presion` ya no producen `FALLO` — son exclusivamente parámetros de control, consumidos por el bang-bang de `APROXIMACION` (ver nota de actualización debajo y sección 4.1).
 
-**Actualización (control por tasa en APROXIMACION):** dentro del tramo `APROXIMACION`, `vapor_camara` deja de ser "ON continuo" sin condición — pasa a un bang-bang directo por tick: ON salvo que la pendiente medida (`tasa_t`/`tasa_p`, mismo cálculo del chequeo de falla) ya supere `tasa_calentamiento`/`tasa_presion`. Solo limita la dirección de subida (la válvula no puede enfriar). `PWM_ACTIVO` y `ESTABLE_PREESTERILIZACION` no cambian. Ver detalle en `docs/superpowers/specs/2026-08-03-tasa-control-calentamiento-design.md`.
+**Actualización (control por tasa en APROXIMACION):** dentro del tramo `APROXIMACION`, `vapor_camara` deja de ser "ON continuo" sin condición — pasa a un bang-bang directo por tick: ON salvo que la pendiente medida (`tasa_t`/`tasa_p`, calculados en el paso 3 de update()) ya supere `tasa_calentamiento`/`tasa_presion`. Solo limita la dirección de subida (la válvula no puede enfriar). `PWM_ACTIVO` y `ESTABLE_PREESTERILIZACION` no cambian. Ver detalle en `docs/superpowers/specs/2026-08-03-tasa-control-calentamiento-design.md`.
 
 ---
 

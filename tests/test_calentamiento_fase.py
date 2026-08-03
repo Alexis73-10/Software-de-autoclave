@@ -299,7 +299,6 @@ def test_fallo_por_timeout_apaga_las_tres_salidas():
     assert estado.motivo_fallo != ""
 
 
-
 # ── Sensores no disponibles ────────────────────────────────────────────────
 
 def test_pres_none_no_avanza_ni_lanza_excepcion():
@@ -351,7 +350,7 @@ def test_aproximacion_bangbang_off_si_tasa_temperatura_excede():
     estado.sensores_pres["pres_camara"] = 150.0  # 50 kPa/min <= 200, dentro
     set_do.reset_mock()
     result = fase.update()
-    assert result == FaseResult.EN_CURSO  # 1 sola lectura, debounce de falla (3) no dispara aún
+    assert result == FaseResult.EN_CURSO  # el control por tasa nunca produce FALLO, solo fuerza OFF
     set_do.vapor_camara_off.assert_called()
     set_do.vapor_camara_on.assert_not_called()
 
