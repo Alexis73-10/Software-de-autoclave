@@ -65,6 +65,23 @@ def test_patch_actualiza_valor_en_memoria_y_lo_persiste(param_client):
     assert persisted["parameters"]["esterilizacion"]["temperatura_esterilizacion"]["value"] == 135.0
 
 
+def test_patch_autocomitea_el_json_persistido(param_client):
+    client, _, cycle_path = param_client
+
+    with patch("autoclave.backend.server.git_autocommit") as mock_autocommit:
+        resp = client.patch("/cycle/parameter", json={
+            "cycle_id": "ciclo_test",
+            "fase": "esterilizacion",
+            "path": ["temperatura_esterilizacion"],
+            "value": 135.0,
+        })
+
+    assert resp.status_code == 200
+    mock_autocommit.assert_called_once()
+    args = mock_autocommit.call_args.args
+    assert args[0] == cycle_path
+
+
 def test_patch_soporta_path_anidado(param_client):
     client, cycle, _ = param_client
     resp = client.patch("/cycle/parameter", json={

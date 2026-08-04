@@ -14,6 +14,7 @@ from autoclave.hal.measures.calibration_tools import invert_user_calibration, fi
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
 from autoclave.utils.resources import resource_path
+from autoclave.utils.git_autocommit import git_autocommit
 
 _TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
 
@@ -84,6 +85,7 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...)):
         CALIBRATION_PATH, tipo, index, new_gain, new_offset,
         shown_low, real_low, shown_high, real_high,
     )
+    git_autocommit(CALIBRATION_PATH, f"chore: recalibrar {tipo} {sensor} (auto)")
     context.units.reload_calibration(CALIBRATION_PATH)
     context.calibration_audit.log_change(
         tipo, sensor, shown_low, real_low, shown_high, real_high,
@@ -499,6 +501,7 @@ def _save_cycle_json(cycle) -> None:
     data["parameters"] = cycle.parameters
     with open(path, "w", encoding="utf-8") as f:
         _json.dump(data, f, indent=4, ensure_ascii=False)
+    git_autocommit(path, f"chore: actualizar parametros de ciclo {cycle.id} (auto)")
 
 
 # Direct hardware access — bypasses control_loop, for bench validation only
