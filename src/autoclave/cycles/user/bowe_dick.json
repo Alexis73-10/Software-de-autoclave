@@ -28,7 +28,7 @@
                 "max": 400
             },
             "rango_presion_chaqueta": {
-                "value": 50,
+                "value": 25,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
