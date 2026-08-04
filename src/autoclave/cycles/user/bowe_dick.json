@@ -87,7 +87,7 @@
                 "max": 3600
             },
             "presion_baja_pulso_a": {
-                "value": 30,
+                "value": 20,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -99,7 +99,7 @@
                 "max": 3600
             },
             "conteo_pulso_b": {
-                "value": 0,
+                "value": 2,
                 "unit": "",
                 "min": 0,
                 "max": 100
@@ -117,7 +117,7 @@
                 "max": 3600
             },
             "presion_baja_pulso_b": {
-                "value": 100,
+                "value": 30,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -240,14 +240,14 @@
                 "max": 30
             },
             "tasa_calentamiento": {
-                "value": 50.0,
+                "value": 100.0,
                 "type": "float",
                 "unit": "°C/min",
                 "min": 0,
                 "max": 100
             },
             "tasa_presion": {
-                "value": 100.0,
+                "value": 200.0,
                 "type": "float",
                 "unit": "kPa/min",
                 "min": 0,
