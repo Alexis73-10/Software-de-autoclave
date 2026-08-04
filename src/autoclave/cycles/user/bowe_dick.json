@@ -21,7 +21,7 @@
                 "type": "bool"
             },
             "presion_chaqueta": {
-                "value": 300,
+                "value": 400,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
@@ -391,7 +391,7 @@
                 "max": 9999
             },
             "factor_esterilizacion": {
-                "value": 50,
+                "value": 40,
                 "type": "int",
                 "unit": "%",
                 "min": 0,
