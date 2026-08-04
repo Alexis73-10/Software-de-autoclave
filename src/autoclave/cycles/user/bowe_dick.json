@@ -391,7 +391,7 @@
                 "max": 9999
             },
             "factor_esterilizacion": {
-                "value": 40,
+                "value": 70,
                 "type": "int",
                 "unit": "%",
                 "min": 0,
