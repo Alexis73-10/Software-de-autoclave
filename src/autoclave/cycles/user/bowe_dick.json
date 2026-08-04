@@ -99,7 +99,7 @@
                 "max": 3600
             },
             "conteo_pulso_b": {
-                "value": 2,
+                "value": 0,
                 "unit": "",
                 "min": 0,
                 "max": 100
