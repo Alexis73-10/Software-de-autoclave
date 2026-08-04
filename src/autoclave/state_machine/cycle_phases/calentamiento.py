@@ -4,17 +4,24 @@
 #
 # Eleva la cámara desde la salida de PRE_VACIO hasta el punto de vapor
 # saturado del setpoint de esterilización (temperatura_calentamiento +
-# presion_add_calentamiento) y sostiene esa condición durante
-# tiempo_estable_preesterilizacion segundos. Tres tramos internos, sin
-# retroceso entre ellos:
+# presion_add_calentamiento) y sostiene esa condición durante una ventana
+# continua de tiempo_estable_preesterilizacion segundos antes de entregar
+# control a ESTERILIZACION. Tres tramos internos, sin retroceso entre ellos:
 #   APROXIMACION              vapor_camara en bang-bang por tick: ON salvo
 #                              que la pendiente ya supere tasa_calentamiento/
 #                              tasa_presion (0 = sin límite; solo limita subida)
 #   PWM_ACTIVO                entra al alcanzar |P - P_sat(T)| <= rango_calentamiento;
 #                              vapor_camara en PWM (factor_calentamiento / intervalo_segmentos_calor)
-#   ESTABLE_PREESTERILIZACION sostenimiento; timer no se reinicia si la
-#                              condición sale momentáneamente de rango (riesgo
-#                              aceptado, a diferencia de EstabilizacionFase)
+#   ESTABLE_PREESTERILIZACION entra al cruzar temp>=t_obj y pres>=p_obj; exige
+#                              una ventana CONTINUA de tiempo_estable_preesterilizacion
+#                              segundos dentro de banda (|T-t_obj|<=rango_temp_estabilizacion
+#                              Y |P-p_obj|<=presion_add_calentamiento) — el conteo
+#                              se reinicia si sale de banda, así se espera a que
+#                              la inercia térmica se disipe antes de completar.
+#                              Timeout de recuperación dedicado
+#                              (timeout_recuperacion_estabilizacion) si nunca
+#                              converge. Ver docs/superpowers/specs/
+#                              2026-08-04-fusion-calentamiento-estabilizacion-design.md
 #
 # escape_lento y escape_rapido corren con temporizadores de dos estados
 # independientes en paralelo durante toda la fase (no sincronizados con los
@@ -39,7 +46,11 @@ class CalentamientoFase(BaseFase):
         self._inicializado = False
         self._timer_timeout_fin = None
         self._en_pwm = False
-        self._timer_estable_inicio = None
+
+        # Tramo ESTABLE_PREESTERILIZACION: ventana continua dentro de banda
+        self._en_sostenimiento = False
+        self._timer_sostenido_desde = None
+        self._timer_recuperacion_fin = None
 
         # Pendiente instantánea (tasa_calentamiento / tasa_presion) —
         # alimenta el control de vapor_camara en APROXIMACION, paso 5
@@ -115,6 +126,8 @@ class CalentamientoFase(BaseFase):
         lento_off   =  self.cycle.get_param("calentamiento", "escape_lento_off")                  or 0
         rapido_on   =  self.cycle.get_param("calentamiento", "escape_rapido_on")                  or 0
         rapido_off  =  self.cycle.get_param("calentamiento", "escape_rapido_off")                 or 0
+        rango_temp_estab =  self.cycle.get_param("calentamiento", "rango_temp_estabilizacion")           or 1.0
+        timeout_rec_seg  = (self.cycle.get_param("calentamiento", "timeout_recuperacion_estabilizacion")  or 5) * 60
 
         p_obj = p_saturacion_kpa(t_obj) + p_add
 
@@ -196,26 +209,41 @@ class CalentamientoFase(BaseFase):
             self.set_do.descompresion_rapida_on, self.set_do.descompresion_rapida_off, now,
         )
 
-        # ── 7. Condición de finalización ────────────────────────────────────
-        if self._timer_estable_inicio is not None:
-            # Ya en ESTABLE_PREESTERILIZACION: el timer no se reinicia aunque
-            # la condición salga de rango (riesgo aceptado, ver FMEA sección 8).
-            if now - self._timer_estable_inicio >= tiempo_est:
+        # ── 7. Entrada y control de ESTABLE_PREESTERILIZACION ───────────────
+        # Exige una ventana CONTINUA de tiempo_est segundos dentro de banda
+        # respecto a los objetivos fijos (t_obj, p_obj) — el conteo se
+        # reinicia si sale de banda, así se espera a que la inercia térmica
+        # se disipe antes de entregar control a ESTERILIZACION.
+        if not self._en_sostenimiento:
+            if temp >= t_obj and pres >= p_obj:
+                self._en_sostenimiento = True
+                logger.info("Calentamiento: condición alcanzada — entra a ESTABLE_PREESTERILIZACION")
+            else:
+                return FaseResult.EN_CURSO
+
+        dentro_rango = abs(temp - t_obj) <= rango_temp_estab and abs(pres - p_obj) <= p_add
+
+        if dentro_rango:
+            self._timer_recuperacion_fin = None
+            if self._timer_sostenido_desde is None:
+                self._timer_sostenido_desde = now
+            self.estado.fase_en_sostenimiento = True
+            if now - self._timer_sostenido_desde >= tiempo_est:
                 logger.info(
-                    "Calentamiento: COMPLETADO tras sostenimiento de %.0fs — %.1f°C / %.1f kPa",
+                    "Calentamiento: COMPLETADO tras sostenimiento continuo de %.0fs — %.1f°C / %.1f kPa",
                     tiempo_est, temp, pres,
                 )
                 self._apagar_salidas()
                 return FaseResult.COMPLETADO
-            return FaseResult.EN_CURSO
-
-        if temp >= t_obj and pres >= p_obj:
-            if tiempo_est <= 0:
-                logger.info("Calentamiento: COMPLETADO — %.1f°C / %.1f kPa alcanzados", temp, pres)
-                self._apagar_salidas()
-                return FaseResult.COMPLETADO
-            self._timer_estable_inicio = now
-            self.estado.fase_en_sostenimiento = True
-            logger.info("Calentamiento: condición alcanzada — sosteniendo %.0fs", tiempo_est)
+        else:
+            self._timer_sostenido_desde = None
+            self.estado.fase_en_sostenimiento = False
+            if self._timer_recuperacion_fin is None:
+                self._timer_recuperacion_fin = now + timeout_rec_seg
+                logger.warning("Calentamiento: condición fuera de rango en sostenimiento — recuperando")
+            if now > self._timer_recuperacion_fin:
+                return self._fallo(
+                    f"No se logró sostener condición estable en {timeout_rec_seg / 60:.0f} min"
+                )
 
         return FaseResult.EN_CURSO

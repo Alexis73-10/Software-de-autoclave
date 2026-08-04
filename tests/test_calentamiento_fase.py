@@ -10,7 +10,8 @@ def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
                factor=50.0, rango=2.0, tasa_calentamiento=0.0, tasa_presion=0.0,
                tiempo_estable=0, intervalo=2, t_inicial=20.0,
                escape_lento_on=1, escape_lento_off=0,
-               escape_rapido_on=0, escape_rapido_off=10):
+               escape_rapido_on=0, escape_rapido_off=10,
+               rango_temp_estabilizacion=1.0, timeout_recuperacion_estabilizacion=5):
     """tasa_calentamiento/tasa_presion quedan en 0 (deshabilitadas, ver guard
     '> 0' en calentamiento.py) por defecto: los tests que no ejercitan el
     control por tasa cambian temperatura/presión entre ticks sin control de
@@ -39,6 +40,8 @@ def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
             "escape_lento_off": escape_lento_off,
             "escape_rapido_on": escape_rapido_on,
             "escape_rapido_off": escape_rapido_off,
+            "rango_temp_estabilizacion": rango_temp_estabilizacion,
+            "timeout_recuperacion_estabilizacion": timeout_recuperacion_estabilizacion,
         }
         return valores.get(param, default)
 
@@ -215,7 +218,7 @@ def test_escapes_no_bloquean_a_vapor_camara():
     set_do.vapor_camara_on.assert_called()
 
 
-# ── Condición de finalización ─────────────────────────────────────────────
+# ── Condición de finalización / tramo ESTABLE_PREESTERILIZACION ──────────────
 
 def test_completa_sin_sostenimiento_cuando_tiempo_estable_es_cero():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=0)
@@ -247,7 +250,8 @@ def test_sostenimiento_arma_timer_y_no_completa_de_inmediato():
     estado.sensores_pres["pres_camara"] = p_obj
     result = fase.update()
     assert result == FaseResult.EN_CURSO
-    assert fase._timer_estable_inicio is not None
+    assert fase._en_sostenimiento is True
+    assert fase._timer_sostenido_desde is not None
     assert estado.fase_en_sostenimiento is True
 
 
@@ -259,30 +263,79 @@ def test_sostenimiento_completa_tras_transcurrir_el_tiempo():
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
 
-    fase._timer_estable_inicio -= 6  # simula que ya pasaron 6s (>= 5)
+    fase._timer_sostenido_desde -= 6  # simula que ya pasaron 6s (>= 5) dentro de banda
     result = fase.update()
     assert result == FaseResult.COMPLETADO
 
 
-def test_sostenimiento_timer_no_se_reinicia_si_condicion_sale_de_rango():
-    """A diferencia de EstabilizacionFase, el timer de sostenimiento de
-    CALENTAMIENTO no se reinicia ante una lectura momentáneamente fuera de
-    rango — es una decisión de diseño explícita (plan sección 5, FMEA)."""
+def test_sostenimiento_se_reinicia_si_presion_excede_la_banda_superior():
+    """Caso central del rediseño: si la presión se pasa de banda por inercia
+    térmica durante el sostenimiento, el conteo se reinicia — la fase espera
+    a que la presión regrese cerca de p_obj antes de volver a contar, en vez
+    de completar con la presión todavía inflada (motivo original del cambio:
+    CALENTAMIENTO entregaba a ESTERILIZACION con presión alta)."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.update()
     p_obj = p_saturacion_kpa(134.0) + 11.0
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
-    timer_inicial = fase._timer_estable_inicio
+    assert fase._timer_sostenido_desde is not None
 
-    estado.sensores_temp["temp_camara"] = 130.0  # sale de rango momentáneamente
+    estado.sensores_pres["pres_camara"] = p_obj + 50.0  # overshoot, muy fuera de banda (+-11)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._timer_sostenido_desde is None  # se reinició
+    assert estado.fase_en_sostenimiento is False
+
+    # Vuelve a banda: arranca un timer nuevo, no retoma el anterior
+    estado.sensores_pres["pres_camara"] = p_obj
     fase.update()
-    assert fase._timer_estable_inicio == timer_inicial  # no se reinició
+    assert fase._timer_sostenido_desde is not None
 
-    fase._timer_estable_inicio -= 6
+    fase._timer_sostenido_desde -= 6
     result = fase.update()
     assert result == FaseResult.COMPLETADO
+
+
+def test_sostenimiento_timer_recuperacion_se_cancela_al_recuperar():
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5,
+                                       timeout_recuperacion_estabilizacion=2)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # arma el timer de sostenimiento
+
+    estado.sensores_pres["pres_camara"] = p_obj + 50.0  # sale de banda
+    fase.update()
+    assert fase._timer_recuperacion_fin is not None
+
+    estado.sensores_pres["pres_camara"] = p_obj  # recupera
+    fase.update()
+    assert fase._timer_recuperacion_fin is None
+
+
+def test_sostenimiento_fallo_si_nunca_converge_dentro_del_timeout_recuperacion():
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5,
+                                       timeout_recuperacion_estabilizacion=1)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # entra al tramo y arma timer de sostenimiento
+
+    estado.sensores_pres["pres_camara"] = p_obj + 50.0  # sale de banda, arma recuperación
+    fase.update()
+    assert fase._timer_recuperacion_fin is not None
+
+    fase._timer_recuperacion_fin -= 100  # simula que expiró el timeout de recuperación
+    result = fase.update()
+    assert result == FaseResult.FALLO
+    assert estado.motivo_fallo != ""
+    set_do.vapor_camara_off.assert_called()
+    set_do.descompresion_lenta_off.assert_called()
+    set_do.descompresion_rapida_off.assert_called()
 
 
 # ── FALLO: timeout global ──────────────────────────────────────────────────
