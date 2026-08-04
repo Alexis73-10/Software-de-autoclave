@@ -398,7 +398,7 @@
                 "max": 100
             },
             "presion_add_esterilizacion": {
-                "value": 11.0,
+                "value": 9.0,
                 "type": "float",
                 "unit": "kPa",
                 "min": 0,
