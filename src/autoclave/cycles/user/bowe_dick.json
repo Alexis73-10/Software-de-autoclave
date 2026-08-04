@@ -653,7 +653,7 @@
                 "max": 120
             },
             "apertura_automatica": {
-                "value": false,
+                "value": true,
                 "type": "bool",
                 "unit": ""
             }
