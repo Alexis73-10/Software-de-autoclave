@@ -69,7 +69,7 @@
         },
         "prevacio": {
             "conteo_pulso_a": {
-                "value": 2,
+                "value": 4,
                 "unit": "",
                 "min": 0,
                 "max": 100
