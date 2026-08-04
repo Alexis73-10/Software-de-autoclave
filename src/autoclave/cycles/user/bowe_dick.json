@@ -240,7 +240,7 @@
                 "max": 30
             },
             "tasa_calentamiento": {
-                "value": 100.0,
+                "value": 50.0,
                 "type": "float",
                 "unit": "°C/min",
                 "min": 0,
