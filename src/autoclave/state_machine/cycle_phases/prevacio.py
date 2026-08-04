@@ -9,9 +9,13 @@
 #   1. DESCOMPRESION → si pres > atm+rango: descompresion_rapida hasta pres ≤ atm+rango
 #   2. VACIO_BAJO    → bomba_vacio + vacio_camara hasta pres ≤ presion_baja_pulso_X
 #   3. HOLD_BAJO     → mantener vacío durante tiempo_adicional_bajo_X (seg)
-#   4. VAPOR_ALTO    → vapor_camara hasta pres ≥ presion_alta_pulso_X
-#   5. HOLD_ALTO     → mantener vapor durante tiempo_adicional_alto_X (seg)
+#   4. VAPOR_ALTO    → vapor_camara + descompresion_lenta hasta pres ≥ presion_alta_pulso_X
+#   5. HOLD_ALTO     → mantener vapor_camara + descompresion_lenta durante tiempo_adicional_alto_X (seg)
 #   → siguiente pulso / siguiente tipo / COMPLETADO
+#
+# descompresion_lenta se enciende en espejo de vapor_camara durante los pasos
+# VAPOR_ALTO/HOLD_ALTO (sin timer propio) y se apaga junto con vapor_camara al
+# cerrar el pulso, sea por éxito o por timeout de presión alta.
 #
 # Parámetros JSON (sección "prevacio"):
 #   conteo_pulso_{x}          — número de pulsos del tipo (0 = saltar)
@@ -186,10 +190,12 @@ class PrevacioFase(BaseFase):
                     tipo.upper(), self._pulso_actual
                 )
                 self.set_do.vapor_camara_off()
+                self.set_do.descompresion_lenta_off()
                 return FaseResult.FALLO
 
             presion_alta = self.cycle.get_param("prevacio", f"presion_alta_pulso_{tipo}") or 180
             self.set_do.vapor_camara_on()
+            self.set_do.descompresion_lenta_on()
 
             if pres is not None and pres >= presion_alta:
                 self._hold_inicio = time.time()
@@ -204,9 +210,11 @@ class PrevacioFase(BaseFase):
         if self._paso == _PASO_HOLD_ALTO:
             tiempo_hold = self.cycle.get_param("prevacio", f"tiempo_adicional_alto_{tipo}") or 0
             self.set_do.vapor_camara_on()
+            self.set_do.descompresion_lenta_on()
 
             if time.time() >= self._hold_inicio + float(tiempo_hold):
                 self.set_do.vapor_camara_off()
+                self.set_do.descompresion_lenta_off()
                 return self._avanzar_pulso()
             return FaseResult.EN_CURSO
 
