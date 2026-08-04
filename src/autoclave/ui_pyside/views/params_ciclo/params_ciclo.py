@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -23,8 +24,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+import requests
 
 from autoclave.services.domain.logging.cycle_params_audit import CycleParamsAuditDB
+from autoclave.ui.service_ui.backend_client import BackendClient
+
+_BACKEND_URL = "http://localhost:8000"
 
 _BTN_BACK = """
     QPushButton {
@@ -306,10 +311,30 @@ class _ParamEditDialog(QDialog):
         new_val = self._get_new_value()
         old_val = self._param_meta.get("value")
 
-        # 1. Escribir JSON
-        _save_to_json(self._cycle._path, self._fase, self._path, new_val)
+        # 1. Sincronizar con el backend (memoria en vivo del ControlLoop + persistencia
+        #    en disco) — sin esto, el cambio no se aplicaba hasta reiniciar el software.
+        try:
+            BackendClient(_BACKEND_URL).patch("/cycle/parameter", {
+                "cycle_id": self._cycle.id,
+                "fase":     self._fase,
+                "path":     self._path,
+                "value":    new_val,
+            })
+        except requests.HTTPError as e:
+            try:
+                detail = e.response.json().get("detail", str(e))
+            except Exception:
+                detail = str(e)
+            QMessageBox.critical(self, "Error al guardar", f"No se pudo guardar el parámetro:\n{detail}")
+            return
+        except requests.RequestException as e:
+            QMessageBox.critical(
+                self, "Error al guardar",
+                f"No se pudo contactar al backend, el cambio no se guardó:\n{e}"
+            )
+            return
 
-        # 2. Actualizar en memoria
+        # 2. Reflejar en memoria local (refresca la tarjeta al instante)
         node = self._cycle.parameters[self._fase]
         for key in self._path[:-1]:
             node = node[key]
@@ -453,18 +478,6 @@ def _load_factory_params(user_cycle_path: str) -> dict:
         with open(factory_p, "r", encoding="utf-8") as f:
             return json.load(f).get("parameters", {})
     return {}
-
-
-def _save_to_json(cycle_path: str, fase: str, path: list[str], new_value) -> None:
-    p = Path(cycle_path)
-    with open(p, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    node = data["parameters"][fase]
-    for key in path[:-1]:
-        node = node[key]
-    node[path[-1]]["value"] = new_value
-    with open(p, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
 
 
 def _iter_section(section: dict, filter_keys=None):

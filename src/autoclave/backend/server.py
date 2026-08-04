@@ -455,6 +455,39 @@ def update_cycle_parameters(body: dict = Body(...)):
     return {"ok": True}
 
 
+class _CycleParamValueBody(BaseModel):
+    cycle_id: str
+    fase: str
+    path: list[str]
+    value: object
+
+
+@app.patch("/cycle/parameter")
+def update_cycle_parameter(body: _CycleParamValueBody):
+    """Actualiza un único parámetro (cualquier sección) de cualquier ciclo cargado
+    y persiste si es 'user'. A diferencia de /cycle/parameters, no está limitado
+    a 'secado' ni requiere una tabla de validación hardcodeada: valida contra el
+    'type'/'min'/'max' que ya trae cada parámetro en su propio JSON."""
+    cycle = context.cycle_manager.cycles.get(body.cycle_id)
+    if cycle is None:
+        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
+
+    if not body.path:
+        raise HTTPException(status_code=422, detail="'path' no puede estar vacío")
+
+    try:
+        value = cycle.set_param(body.fase, body.path, body.value)
+    except KeyError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except (TypeError, ValueError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+        _save_cycle_json(cycle)
+
+    return {"ok": True, "value": value}
+
+
 def _save_cycle_json(cycle) -> None:
     """Escribe cycle.parameters de vuelta al JSON del ciclo (solo ciclos user)."""
     import json as _json
