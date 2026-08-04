@@ -64,6 +64,8 @@ class PrevacioFase(BaseFase):
         self.estado.fase_en_sostenimiento = False
         if hasattr(self.estado, "prevacio_progreso"):
             self.estado.prevacio_progreso = ""
+        if hasattr(self.estado, "sub_estado_ciclo"):
+            self.estado.sub_estado_ciclo = ""
 
     # ------------------------------------------------------------------
     # Punto de entrada
@@ -90,7 +92,7 @@ class PrevacioFase(BaseFase):
             if conteo > 0:
                 self._conteo_tipo  = conteo
                 self._pulso_actual = 1
-                self._paso         = _PASO_DECOMPRESION
+                self._set_paso(_PASO_DECOMPRESION)
                 self._inicializado = True
                 self._actualizar_progreso()
                 logger.info("PrevacioFase: tipo %s, %d pulsos — inicio", tipo.upper(), conteo)
@@ -121,7 +123,7 @@ class PrevacioFase(BaseFase):
                 self.set_do.descompresion_rapida_off()
                 timeout_min = self.cycle.get_param("prevacio", "timeout_bajo") or 10
                 self._timeout_bajo_fin = time.time() + float(timeout_min) * 60
-                self._paso = _PASO_VACIO_BAJO
+                self._set_paso(_PASO_VACIO_BAJO)
                 logger.info(
                     "PrevacioFase: tipo %s pulso %d/%d — iniciando vacío",
                     tipo.upper(), self._pulso_actual, self._conteo_tipo
@@ -144,7 +146,7 @@ class PrevacioFase(BaseFase):
 
             if pres is not None and pres <= presion_baja:
                 self._hold_inicio = time.time()
-                self._paso = _PASO_HOLD_BAJO
+                self._set_paso(_PASO_HOLD_BAJO)
                 logger.info(
                     "PrevacioFase: vacío bajo alcanzado %.1f kPa (tipo %s pulso %d)",
                     pres, tipo.upper(), self._pulso_actual
@@ -160,7 +162,7 @@ class PrevacioFase(BaseFase):
             if time.time() >= self._hold_inicio + float(tiempo_hold):
                 self.set_do.bomba_vacio_off()
                 self._t_apagado_vacio = time.time()
-                self._paso = _PASO_APAGANDO_VACIO
+                self._set_paso(_PASO_APAGANDO_VACIO)
             return FaseResult.EN_CURSO
 
         # ── 3b. APAGANDO VACIO (escalonado, ver _STAGGER_APAGADO_VACIO) ─
@@ -169,7 +171,7 @@ class PrevacioFase(BaseFase):
                 self.set_do.vacio_camara_off()
                 timeout_min = self.cycle.get_param("prevacio", "timeout_alto") or 10
                 self._timeout_alto_fin = time.time() + float(timeout_min) * 60
-                self._paso = _PASO_VAPOR_ALTO
+                self._set_paso(_PASO_VAPOR_ALTO)
                 logger.info(
                     "PrevacioFase: hold bajo completado (tipo %s pulso %d) — activando vapor",
                     tipo.upper(), self._pulso_actual
@@ -191,7 +193,7 @@ class PrevacioFase(BaseFase):
 
             if pres is not None and pres >= presion_alta:
                 self._hold_inicio = time.time()
-                self._paso = _PASO_HOLD_ALTO
+                self._set_paso(_PASO_HOLD_ALTO)
                 logger.info(
                     "PrevacioFase: presión alta alcanzada %.1f kPa (tipo %s pulso %d)",
                     pres, tipo.upper(), self._pulso_actual
@@ -218,7 +220,7 @@ class PrevacioFase(BaseFase):
         self._pulso_actual += 1
 
         if self._pulso_actual <= self._conteo_tipo:
-            self._paso = _PASO_DECOMPRESION
+            self._set_paso(_PASO_DECOMPRESION)
             self._actualizar_progreso()
             tipo = _TIPOS[self._tipo_idx]
             logger.info(
@@ -235,7 +237,7 @@ class PrevacioFase(BaseFase):
             if sig_conteo > 0:
                 self._conteo_tipo  = sig_conteo
                 self._pulso_actual = 1
-                self._paso         = _PASO_DECOMPRESION
+                self._set_paso(_PASO_DECOMPRESION)
                 self._actualizar_progreso()
                 logger.info(
                     "PrevacioFase: avanzando a tipo %s (%d pulsos)", sig_tipo.upper(), sig_conteo
@@ -247,6 +249,8 @@ class PrevacioFase(BaseFase):
         logger.info("PrevacioFase: COMPLETADO")
         if hasattr(self.estado, "prevacio_progreso"):
             self.estado.prevacio_progreso = ""
+        if hasattr(self.estado, "sub_estado_ciclo"):
+            self.estado.sub_estado_ciclo = ""
         return FaseResult.COMPLETADO
 
     # ------------------------------------------------------------------
@@ -256,6 +260,11 @@ class PrevacioFase(BaseFase):
     def _apagar_vacio(self):
         self.set_do.bomba_vacio_off()
         self.set_do.vacio_camara_off()
+
+    def _set_paso(self, paso: str) -> None:
+        self._paso = paso
+        if hasattr(self.estado, "sub_estado_ciclo"):
+            self.estado.sub_estado_ciclo = paso
 
     def _actualizar_progreso(self):
         if hasattr(self.estado, "prevacio_progreso") and self._tipo_idx < len(_TIPOS):

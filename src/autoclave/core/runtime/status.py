@@ -108,7 +108,11 @@ class EstadoAutoclave:
         self.fase_en_sostenimiento: bool = False
         # Progreso del pre-vacío: "A 1/4", "B 2/4", etc. (vacío cuando no aplica)
         self.prevacio_progreso: str = ""
-        
+        # Paso interno de la fase activa (p.ej. pasos de PRE_VACIO). Cuando cambia,
+        # el CycleLogger imprime una línea de referencia aunque no se haya cumplido
+        # el intervalo periódico de impresión. Vacío cuando la fase no lo usa.
+        self.sub_estado_ciclo: str = ""
+
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)
         #actualizamos los datos del cofre con los nuevos datos recibidos
