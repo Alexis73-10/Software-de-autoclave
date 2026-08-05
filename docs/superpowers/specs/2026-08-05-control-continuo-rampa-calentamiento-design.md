@@ -63,11 +63,13 @@ def _prox(dist, margen):
         return 1.0 if dist > 0 else 0.0
     return max(0.0, min(dist / margen, 1.0))
 
-p = max(_prox(t_obj - temp, rango_cal), _prox(p_obj - pres, rango_cal))
-duty_proximidad = duty_estable + (1.0 - duty_estable) * p
+cercania = min(_prox(t_obj - temp, rango_cal), _prox(p_obj - pres, rango_cal))
+duty_proximidad = duty_estable + (1.0 - duty_estable) * cercania
 ```
 
-Lejos del objetivo (`dist >= rango_calentamiento` en cualquiera de las dos variables) → `duty_proximidad = 1.0`, equivalente al bang-bang actual de APROXIMACION. Dentro de la banda o ya cruzado (`dist <= 0`) → `duty_proximidad = duty_estable`, el mismo duty que hoy aplica PWM_ACTIVO de forma fija vía `factor_calentamiento`. Entre ambos extremos interpola lineal — la distancia se mide siempre contra `t_obj`/`p_obj` fijos, nunca contra `P_sat(temp_actual)`, eliminando la causa raíz del bug del ciclo 72.
+`min()`, no `max()`: cada variable puede disparar la reducción de duty por sí sola, igual que el gate que reemplaza (`pres >= p_obj - rango_cal OR temp >= t_obj`, un OR de dos condiciones independientes). Con `max()` el duty solo bajaría cuando **ambas** variables estuvieran cerca a la vez, perdiendo el seguro de la dirección contraria (mecanismo 1 original: si la temperatura cruza `t_obj` antes de que la presión se acerque a `p_obj`, la válvula debe dejar de estar a fondo igual).
+
+Lejos del objetivo (`dist >= rango_calentamiento` en **ambas** variables) → `duty_proximidad = 1.0`. Tan pronto **cualquiera** de las dos entra en su banda (`dist <= 0`) → `duty_proximidad = duty_estable`, el mismo duty que hoy aplica PWM_ACTIVO de forma fija vía `factor_calentamiento`. Entre ambos extremos interpola lineal — la distancia se mide siempre contra `t_obj`/`p_obj` fijos, nunca contra `P_sat(temp_actual)`, eliminando la causa raíz del bug del ciclo 72.
 
 ### 3.3 Duty final y aplicación
 
