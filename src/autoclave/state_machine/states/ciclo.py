@@ -5,7 +5,7 @@
 # Orquesta el pipeline de fases del ciclo de esterilización:
 #
 #   PRECALENTAMIENTO → PURGA → PRE_VACIO →
-#   CALENTAMIENTO → ESTABILIZACION → ESTERILIZACION
+#   CALENTAMIENTO → ESTERILIZACION
 #
 # Retorna una de estas cadenas al StateMachine en cada tick:
 #   "EN_CURSO"   — ciclo en ejecución, no hacer nada
@@ -22,7 +22,6 @@ from autoclave.state_machine.cycle_phases.precalentamiento import Precalentamien
 from autoclave.state_machine.cycle_phases.purga import PurgaFase
 from autoclave.state_machine.cycle_phases.prevacio import PrevacioFase
 from autoclave.state_machine.cycle_phases.calentamiento import CalentamientoFase
-from autoclave.state_machine.cycle_phases.estabilizacion import EstabilizacionFase
 from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFase
 from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
@@ -70,7 +69,6 @@ class CicloState:
             PurgaFase(*_args),
             PrevacioFase(*_args),
             CalentamientoFase(*_args),
-            EstabilizacionFase(*_args),
             EsterilizacionFase(*_args),
             SecadoFase(*_args),
             DescompresionFase(*_args),
