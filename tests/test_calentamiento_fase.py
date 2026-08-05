@@ -1,5 +1,6 @@
 # tests/test_calentamiento_fase.py
 import time
+import logging
 from unittest.mock import MagicMock
 from autoclave.state_machine.cycle_phases.calentamiento import CalentamientoFase
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
@@ -205,7 +206,113 @@ def test_duty_tasa_restringe_incluso_cerca_del_objetivo():
     estado.sensores_pres["pres_camara"] = p_obj + 3.0  # 18 kPa/min > tasa_presion=10, bajo el techo
     result = fase.update()
     assert result == FaseResult.EN_CURSO
-    assert fase._duty_actual < 1.0
+    # tasa medida = (3.0 kPa) / (10s -> 1/6 min) = 18 kPa/min; duty_tasa = 10/18.
+    # Tolerancia relajada a 1e-3 (en vez de 1e-9): _sembrar_historial siembra
+    # el timestamp de referencia con time.time() real, y el tiempo de
+    # ejecucion entre esa llamada y este update() (microsegundos, variable
+    # segun la maquina/carga) se suma a la ventana de 10s medida -- con
+    # 1e-9 esta asercion falla de forma reproducible por jitter de reloj de
+    # pared, no por un error de formula. 1e-3 sigue siendo lo bastante
+    # estricta para detectar una formula incorrecta (que produciria una
+    # diferencia de ordenes de magnitud mayor).
+    assert abs(fase._duty_actual - (10.0 / 18.0)) < 1e-3
+
+
+# ── Correcciones de revisión final (sostenimiento / intervalo=0 / log) ────
+
+def test_duty_calidad_vapor_no_restringe_dentro_de_sostenimiento():
+    """Reproduce el patron del ciclo 72 dentro de ESTABLE_PREESTERILIZACION:
+    temp ya paso el tope del 97% y la presion real todavia no "alcanza" a
+    esa temperatura -- fuera de sostenimiento esto forzaria duty=0, pero
+    dentro de la banda de sostenimiento el chequeo no debe aplicarse (paso
+    7 ya maneja la seguridad de esa banda con su propio timeout de
+    recuperacion)."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0,
+                                       tiempo_estable=999)
+    fase.update()  # inicializar
+    fase._en_sostenimiento = True
+
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_min_para_temp = p_saturacion_kpa(134.5) + 11.0
+    assert p_obj < p_min_para_temp  # confirma que el escenario ejercita el caso: sin la
+    # correccion, duty_calidad_vapor evaluaria 0.0 aqui
+
+    estado.sensores_temp["temp_camara"] = 134.5  # dentro de t_obj + rango_temp_estabilizacion (1.0)
+    estado.sensores_pres["pres_camara"] = p_obj + 1.7  # >= p_obj, pero < p_min_para_temp(134.5)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual > 0.0  # NO forzado a 0.0 por duty_calidad_vapor
+
+
+def test_intervalo_cero_con_duty_cero_apaga_vapor_directo():
+    """intervalo_segmentos_calor<=0 debe aplicar duty directo a
+    vapor_camara_on/off sin pasar por _tick_dos_estados -- de lo contrario
+    (t_on=t_off=0) _tick_dos_estados cae en su rama 'enclavada abierta' sin
+    importar duty."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0,
+                                       intervalo=0)
+    fase.update()  # inicializar
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj + 20.0  # supera el techo -> duty=0.0
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 0.0
+    set_do.vapor_camara_off.assert_called()
+    set_do.vapor_camara_on.assert_not_called()
+
+
+def test_intervalo_cero_con_duty_uno_enciende_vapor_directo():
+    fase, estado, set_do = _make_fase(t_obj=134.0, t_inicial=20.0, intervalo=0)
+    result = fase.update()  # lejos del objetivo -> duty=1.0
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 1.0
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
+def test_log_observabilidad_edge_triggered_en_transicion_a_duty_cero(caplog):
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0)
+    fase.update()  # inicializar, duty=1.0 (lejos del objetivo)
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj + 20.0  # supera el techo -> duty=0.0
+
+    caplog.set_level(logging.WARNING)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 0.0
+    assert caplog.text.count("vapor_camara a 0") == 1
+
+    caplog.clear()
+    fase.update()  # duty se mantiene en 0.0 -- edge-triggered, no debe repetirse
+    assert fase._duty_actual == 0.0
+    assert "vapor_camara a 0" not in caplog.text
+
+
+def test_tasa_excedida_muchos_ticks_consecutivos_nunca_produce_fallo():
+    """Restituido (eliminado sin reemplazo en un cambio anterior, señalado en
+    la revision final): la unica garantia de integracion de que
+    tasa_calentamiento/tasa_presion excedidas nunca producen FaseResult.FALLO
+    -- los tests puros de _duty_por_tasa no ven FaseResult. A diferencia del
+    test viejo (bang-bang), ahora el duty es proporcional, asi que no se
+    aserta vapor_camara_off en cada tick -- solo que la fase nunca falla."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0,
+                                       tasa_calentamiento=1.0, tasa_presion=1.0)
+    fase.update()  # inicializar
+
+    temp = 20.0
+    pres = 100.0
+    for i in range(30):
+        temp_anterior, pres_anterior = temp, pres
+        temp += 5.0  # salto grande cada tick -> tasa medida muy por encima del limite
+        pres += 1.0  # se mantiene lejos de p_obj (~313 kPa) durante todo el bucle
+        estado.sensores_temp["temp_camara"] = temp
+        estado.sensores_pres["pres_camara"] = pres
+        _sembrar_historial(fase, temp_anterior, pres_anterior, 10)
+        result = fase.update()
+        assert result == FaseResult.EN_CURSO
 
 
 def test_pwm_pulso_on_luego_off_por_tiempo():
@@ -540,13 +647,11 @@ def test_duty_por_calidad_vapor_sin_restriccion_bajo_el_tope_del_97_por_ciento()
 
 
 def test_duty_por_calidad_vapor_cero_si_supera_el_tope_y_presion_no_corresponde():
-    from autoclave.core.runtime.steam import p_saturacion_kpa
     # temp=130 >= tope (129.98); presion muy por debajo de P_sat(130)+11
     assert _duty_por_calidad_vapor(temp=130.0, pres=1.0, t_obj=134.0, p_add=11.0) == 0.0
 
 
 def test_duty_por_calidad_vapor_uno_si_presion_ya_corresponde_a_la_temperatura():
-    from autoclave.core.runtime.steam import p_saturacion_kpa
     temp = 130.0
     p_min = p_saturacion_kpa(temp) + 11.0
     assert _duty_por_calidad_vapor(temp=temp, pres=p_min, t_obj=134.0, p_add=11.0) == 1.0

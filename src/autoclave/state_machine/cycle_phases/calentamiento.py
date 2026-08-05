@@ -117,7 +117,7 @@ class CalentamientoFase(BaseFase):
         self._timer_recuperacion_fin = None
 
         # Pendiente sobre ventana (tasa_calentamiento / tasa_presion) —
-        # alimenta el control de vapor_camara en APROXIMACION, paso 5.
+        # alimenta duty_tasa en el paso 4 (control continuo de vapor_camara).
         # Historial [(timestamp, temp, pres), ...] de al menos
         # _VENTANA_PENDIENTE_SEG de profundidad; ver constante de módulo.
         self._historial_pendiente = deque()
@@ -219,8 +219,8 @@ class CalentamientoFase(BaseFase):
         now = time.time()
 
         # ── 3. Cálculo de pendiente ──────────────────────────────────────
-        # tasa_t/tasa_p alimentan el control de vapor_camara en APROXIMACION
-        # (paso 5). No disparan FALLO — riesgo aceptado si vapor_camara no
+        # tasa_t/tasa_p alimentan duty_tasa en el paso 4 (control continuo de
+        # vapor_camara). No disparan FALLO — riesgo aceptado si vapor_camara no
         # responde al comando OFF, ver spec de remoción de FALLO. Se miden
         # contra la muestra más antigua del historial que ya tenga al menos
         # _VENTANA_PENDIENTE_SEG de antigüedad (no contra el tick anterior
@@ -248,9 +248,14 @@ class CalentamientoFase(BaseFase):
         # fijos t_obj/p_obj (nunca contra P_sat(temp_actual)), y
         # duty_calidad_vapor corta a 0 si la temperatura ya cruzo el tope
         # del 97% pero la presion no corresponde a vapor saturado a esa
-        # temperatura. Gana el mas restrictivo (min); el techo independiente
-        # corta a 0 sin importar el resto si la presion ya rebaso lo
-        # tolerado.
+        # temperatura -- salvo que la fase ya este en ESTABLE_PREESTERILIZACION
+        # (self._en_sostenimiento), donde ese chequeo no aplica: la
+        # seguridad de esa banda ya la maneja el paso 7 con su propio
+        # timeout de recuperacion, y aplicar duty_calidad_vapor ahi forzaba
+        # duty=0 dentro del propio tramo de sostenimiento (confirmado con
+        # datos reales del ciclo 72 -- ver spec, seccion 3.3). Gana el mas
+        # restrictivo (min); el techo independiente corta a 0 sin importar
+        # el resto si la presion ya rebaso lo tolerado.
         duty_tasa = min(
             _duty_por_tasa(tasa_t, tasa_t_max),
             _duty_por_tasa(tasa_p, tasa_p_max),
@@ -263,7 +268,10 @@ class CalentamientoFase(BaseFase):
         )
         duty_proximidad = duty_estable + (1.0 - duty_estable) * cercania
 
-        duty_calidad_vapor = _duty_por_calidad_vapor(temp, pres, t_obj, p_add)
+        if self._en_sostenimiento:
+            duty_calidad_vapor = 1.0
+        else:
+            duty_calidad_vapor = _duty_por_calidad_vapor(temp, pres, t_obj, p_add)
 
         duty = min(duty_tasa, duty_proximidad, duty_calidad_vapor)
 
@@ -271,14 +279,49 @@ class CalentamientoFase(BaseFase):
         if pres >= p_techo:
             duty = 0.0
 
+        duty_anterior = self._duty_actual
         self._duty_actual = duty
 
-        t_on_pwm = intervalo * duty
-        t_off_pwm = intervalo - t_on_pwm
-        self._tick_dos_estados(
-            "_t_pulso_pwm", "_pwm_abierto", t_on_pwm, t_off_pwm,
-            self.set_do.vapor_camara_on, self.set_do.vapor_camara_off, now,
-        )
+        if duty <= 0.0 and (duty_anterior is None or duty_anterior > 0.0):
+            razones = []
+            if duty_tasa <= 0.0:
+                razones.append("tasa")
+            if duty_proximidad <= 0.0:
+                razones.append("proximidad")
+            if duty_calidad_vapor <= 0.0:
+                razones.append("calidad_vapor")
+            if pres >= p_techo:
+                razones.append("techo")
+            logger.warning(
+                "Calentamiento: vapor_camara a 0 (%s) — T=%.1f°C P=%.1f kPa",
+                ",".join(razones) or "?", temp, pres,
+            )
+        elif duty > 0.0 and duty_anterior == 0.0:
+            logger.info(
+                "Calentamiento: vapor_camara reanuda (duty=%.2f) — T=%.1f°C P=%.1f kPa",
+                duty, temp, pres,
+            )
+
+        if intervalo <= 0:
+            # intervalo<=0 haria que _tick_dos_estados caiga en su rama
+            # "enclavada abierta" (t_off<=0) sin importar duty -- los
+            # cuatro mecanismos de arriba quedarian anulados por un solo
+            # parametro de ciclo mal configurado (la UI permite
+            # intervalo_segmentos_calor=0). Aplicar duty directo.
+            if duty > 0.0:
+                self.set_do.vapor_camara_on()
+                self._pwm_abierto = True
+            else:
+                self.set_do.vapor_camara_off()
+                self._pwm_abierto = False
+            self._t_pulso_pwm = None
+        else:
+            t_on_pwm = intervalo * duty
+            t_off_pwm = intervalo - t_on_pwm
+            self._tick_dos_estados(
+                "_t_pulso_pwm", "_pwm_abierto", t_on_pwm, t_off_pwm,
+                self.set_do.vapor_camara_on, self.set_do.vapor_camara_off, now,
+            )
 
         # ── 6. Control de escapes (paralelo e independiente) ───────────────
         self._tick_dos_estados(
