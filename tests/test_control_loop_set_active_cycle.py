@@ -1,3 +1,5 @@
+import threading
+import time
 from unittest.mock import MagicMock, patch
 
 from autoclave.state_machine.machine.enum_global import GlobalState
@@ -97,3 +99,65 @@ def test_set_active_cycle_permitido_en_estados_no_ciclo(mock_sm_class):
         ok, _ = loop.set_active_cycle(MagicMock())
 
         assert ok is True, f"debería permitir cambio de ciclo en estado {state}"
+
+
+@patch("autoclave.services.domain.loop.control_loop.StateMachine")
+def test_set_active_cycle_bloquea_mientras_sm_lock_esta_tomado(mock_sm_class):
+    """Verifica que set_active_cycle() se serializa correctamente contra
+    _sm_lock: si otro hilo lo sostiene (simulando _tick() a mitad de
+    state_machine.update()), set_active_cycle() debe bloquear hasta que se
+    libere, en vez de colarse entre el chequeo de estado y la reconstrucción
+    de la StateMachine (la carrera check-then-act original del finding)."""
+    loop, mock_sm_cls, _, _ = _make_control_loop()
+    mock_sm_class.reset_mock()
+    new_cycle = MagicMock(name="new_cycle")
+
+    held = threading.Event()
+    release = threading.Event()
+    order = []
+
+    def holder():
+        with loop._sm_lock:
+            order.append("locked")
+            held.set()
+            # Espera a que el hilo principal confirme que set_active_cycle
+            # quedó bloqueado antes de soltar el lock.
+            release.wait(timeout=5)
+            order.append("about_to_release")
+
+    holder_thread = threading.Thread(target=holder, name="holder")
+    holder_thread.start()
+    assert held.wait(timeout=5), "el hilo holder no logró tomar _sm_lock"
+
+    result = {}
+
+    def caller():
+        ok, reason = loop.set_active_cycle(new_cycle)
+        order.append("set_active_cycle_returned")
+        result["ok"] = ok
+        result["reason"] = reason
+
+    caller_thread = threading.Thread(target=caller, name="caller")
+    caller_thread.start()
+
+    # Margen generoso (no es una comparación de timestamps, solo espera a
+    # que caller_thread alcance a bloquearse en lock.acquire()) para poder
+    # afirmar que set_active_cycle() NO retornó mientras el lock seguía
+    # tomado -- si el lock no sirviera para nada, caller_thread ya habría
+    # terminado en este punto.
+    time.sleep(0.3)
+    assert caller_thread.is_alive(), (
+        "set_active_cycle no se bloqueó mientras _sm_lock estaba tomado por otro hilo"
+    )
+
+    release.set()
+    holder_thread.join(timeout=5)
+    caller_thread.join(timeout=5)
+
+    assert not holder_thread.is_alive()
+    assert not caller_thread.is_alive()
+    # El orden prueba que set_active_cycle solo avanzó después de que el
+    # holder soltó el lock, nunca antes.
+    assert order == ["locked", "about_to_release", "set_active_cycle_returned"]
+    assert result == {"ok": True, "reason": ""}
+    assert loop.cycle is new_cycle
