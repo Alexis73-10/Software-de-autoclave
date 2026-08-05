@@ -24,6 +24,11 @@ class ControlLoop:
     # - Actualiza dispositivos
     # - Publica estado global
 
+    # Tolerancia a caídas breves del link durante un ciclo: una desconexión
+    # de menos de este umbral no lo aborta (ruido momentáneo en el serial).
+    # Si se supera, se aborta — ver abortar_por_desconexion().
+    _TOLERANCIA_DESCONEXION_SEG = 5.0
+
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
                  cycle_logger=None, interval=0.5, cap=None, realtime_printer=None):
@@ -48,6 +53,7 @@ class ControlLoop:
         )
         self.link_was_connected = True
         self._link_ever_connected = False
+        self._desconectado_desde: float | None = None
         self.paro_emergencia    = EmergencyStop(estado)
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
@@ -71,33 +77,41 @@ class ControlLoop:
 
     def _tick(self):
         connected = self.link.is_connected()
+        now = time.monotonic()
 
-        if not connected and self.link_was_connected:
-            self.alarm_manager.report(
-                Alarm(
-                    alarm_id="NO_HAY_CONEXION",
-                    alarm_type=AlarmType.FALLA,
-                    source_state="CONTROL_LOOP",
-                    description="No hay comunicación con el hardware.",
-                    recoverable=True,
-                    blocks_operation=True,
+        if not connected:
+            if self.link_was_connected:
+                self._desconectado_desde = now
+                self.alarm_manager.report(
+                    Alarm(
+                        alarm_id="NO_HAY_CONEXION",
+                        alarm_type=AlarmType.FALLA,
+                        source_state="CONTROL_LOOP",
+                        description="No hay comunicación con el hardware.",
+                        recoverable=True,
+                        blocks_operation=True,
+                    )
                 )
-            )
-            # El handshake serial inicial (escaneo de puerto + primer dato)
-            # tarda unos instantes tras el arranque del backend; ese hueco
-            # no es una desconexión real y no debe imprimirse.
-            if self.realtime_printer is not None and self._link_ever_connected:
-                self.realtime_printer.enqueue(
-                    format_connectivity_ticket("TARJETA", False, datetime.now())
-                )
+                # El handshake serial inicial (escaneo de puerto + primer dato)
+                # tarda unos instantes tras el arranque del backend; ese hueco
+                # no es una desconexión real y no debe imprimirse.
+                if self.realtime_printer is not None and self._link_ever_connected:
+                    self.realtime_printer.enqueue(
+                        format_connectivity_ticket("TARJETA", False, datetime.now())
+                    )
             # Sin conexión no hay datos frescos de sensores, así que este
             # mismo _tick() va a retornar temprano y state_machine.update()
             # no correrá — si había un ciclo en curso, no se detectaría el
             # fallo por sí solo. Se aborta aquí directamente en vez de
-            # esperar a una reconexión que puede tardar o no llegar.
-            if self.estado.get_machine_state() == GlobalState.CICLO:
+            # esperar a una reconexión que puede tardar o no llegar, pero
+            # solo una vez agotada la tolerancia: una caída breve (ruido
+            # momentáneo en el serial) no debe tirar el ciclo completo.
+            if (self._desconectado_desde is not None
+                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG
+                    and self.estado.get_machine_state() == GlobalState.CICLO):
                 self.state_machine.ciclo.abortar_por_desconexion()
         elif connected and not self.link_was_connected:
+            self._desconectado_desde = None
             self.alarm_manager.clear("NO_HAY_CONEXION")
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
