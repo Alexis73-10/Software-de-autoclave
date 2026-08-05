@@ -65,14 +65,6 @@ def _sembrar_historial(fase, temp, pres, hace_seg):
 
 # ── APROXIMACION ──────────────────────────────────────────────────────────
 
-def test_aproximacion_vapor_on_continuo_lejos_de_la_banda():
-    fase, estado, set_do = _make_fase(t_obj=134.0, t_inicial=20.0)
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    assert fase._en_pwm is False
-    set_do.vapor_camara_on.assert_called()
-
-
 def test_primer_tick_espera_si_temp_none():
     fase, estado, set_do = _make_fase()
     estado.sensores_temp.pop("temp_camara", None)
@@ -81,83 +73,158 @@ def test_primer_tick_espera_si_temp_none():
     assert fase._inicializado is False
 
 
-# ── Entrada a PWM_ACTIVO ─────────────────────────────────────────────────
+# ── Controlador continuo (RAMPA) ──────────────────────────────────────────
 
-def test_entra_a_pwm_dentro_de_la_banda():
-    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0)
-    fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
-    estado.sensores_temp["temp_camara"] = 130.0
-    estado.sensores_pres["pres_camara"] = p_obj
+def test_lejos_del_objetivo_duty_es_uno_y_vapor_on_continuo():
+    fase, estado, set_do = _make_fase(t_obj=134.0, t_inicial=20.0)
     result = fase.update()
     assert result == FaseResult.EN_CURSO
-    assert fase._en_pwm is True
+    assert fase._duty_actual == 1.0
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
 
 
-def test_pwm_no_retorna_a_aproximacion_si_sale_de_la_banda():
-    """Una vez en PWM_ACTIVO, no hay retroceso aunque la lectura salga
-    momentáneamente de la banda (evita chattering, ver plan sección 4.1)."""
-    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0)
-    fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
-    estado.sensores_temp["temp_camara"] = 130.0
-    estado.sensores_pres["pres_camara"] = p_obj
-    fase.update()
-    assert fase._en_pwm is True
-
-    estado.sensores_pres["pres_camara"] = 50.0  # muy fuera de la banda ahora
-    fase.update()
-    assert fase._en_pwm is True
-
-
-def test_entra_a_pwm_por_presion_cercana_al_objetivo_aunque_lejos_de_p_sat_temp():
-    """Regresión del bug real (ciclo 72, 2026-08-05): la presión corre
-    persistentemente por encima de P_sat(temp_actual) durante toda la subida
-    (chaqueta/aire residual/calibración) — el gate viejo (abs(pres -
-    P_sat(temp)) <= rango_cal) nunca se cumplía hasta muy tarde. El nuevo
-    gate debe disparar por cercanía al objetivo fijo p_obj, sin importar
-    P_sat(temp_actual)."""
-    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0)
+def test_duty_baja_por_presion_cercana_al_objetivo_aunque_lejos_de_p_sat_temp():
+    """Regresion del bug real (ciclo 72, 2026-08-05): la presion corre
+    persistentemente por encima de P_sat(temp_actual) durante toda la
+    subida (chaqueta/aire residual/calibracion). duty_proximidad se mide
+    contra p_obj fijo, nunca contra P_sat(temp_actual) -- por eso ya cae
+    antes de cruzar el objetivo. temp=110 se mantiene bien debajo del tope
+    del 97% (129.98 con t_obj=134) para que duty_calidad_vapor no
+    interfiera en este caso."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()  # inicializar
     p_obj = p_saturacion_kpa(134.0) + 11.0
     estado.sensores_temp["temp_camara"] = 110.0  # P_sat(110) ~ 146 kPa, muy lejos de p_obj
-    estado.sensores_pres["pres_camara"] = p_obj - 1.0  # a 1 kPa del objetivo
+    estado.sensores_pres["pres_camara"] = p_obj - 1.0  # a 1 kPa del objetivo, dentro de rango=2.0
     result = fase.update()
     assert result == FaseResult.EN_CURSO
-    assert fase._en_pwm is True
+    assert fase._duty_actual < 1.0
 
 
-def test_entra_a_pwm_por_temperatura_si_presion_esta_rezagada():
-    """Seguro en la dirección contraria: si la temperatura cruza t_obj antes
-    de que la presión se acerque a p_obj, igual se entra a PWM_ACTIVO —
-    nunca se sigue con la válvula a fondo una vez cruzado el setpoint de
-    temperatura."""
-    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0)
+def test_calidad_vapor_fuerza_cero_si_temp_supera_el_tope_y_presion_no_corresponde():
+    """Si la temperatura ya cruzo t_obj (por lo tanto tambien el tope del
+    97%) pero la presion esta muy por debajo de lo que esa temperatura
+    implicaria (vapor no saturado), duty_calidad_vapor gana sobre
+    duty_proximidad y fuerza duty a 0 -- mas estricto que el duty_estable
+    que aplicaria por proximidad sola. Reemplaza el viejo seguro
+    unidireccional del gate anterior (temp >= t_obj) con uno mas estricto."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()  # inicializar
     estado.sensores_temp["temp_camara"] = 134.0
-    estado.sensores_pres["pres_camara"] = 50.0  # muy por debajo de p_obj
+    estado.sensores_pres["pres_camara"] = 50.0  # muy por debajo de lo que P_sat(134)+11 exige
     result = fase.update()
     assert result == FaseResult.EN_CURSO
-    assert fase._en_pwm is True
+    assert fase._duty_actual == 0.0
 
 
-# ── PWM duty cycle ────────────────────────────────────────────────────────
-
-def test_pwm_pulso_on_luego_off_por_tiempo():
-    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0, intervalo=2)
+def test_calidad_vapor_no_restringe_por_debajo_del_tope_de_97_por_ciento():
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()  # inicializar
+    estado.sensores_temp["temp_camara"] = 129.0  # < 0.97*134 = 129.98
+    estado.sensores_pres["pres_camara"] = 50.0  # lejos de P_sat(129)+11, pero el tope no se activo aun
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 1.0  # ni proximidad ni calidad_vapor restringen todavia
+
+
+def test_duty_estable_igual_al_factor_configurado_en_el_objetivo():
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=70.0)
+    fase.update()
     p_obj = p_saturacion_kpa(134.0) + 11.0
-    estado.sensores_temp["temp_camara"] = 130.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()
+    assert abs(fase._duty_actual - 0.3) < 1e-9  # 1 - 70/100
+
+
+def test_duty_estable_cero_si_factor_es_cien():
+    # tiempo_estable=999: evita que ESTABLE_PREESTERILIZACION (paso 7, fuera
+    # de alcance de esta tarea) complete la fase en el mismo tick en que
+    # temp/pres tocan el objetivo -- este test aisla solo el duty cycle.
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=100.0,
+                                       tiempo_estable=999)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     set_do.reset_mock()
-    result = fase.update()  # entra a PWM, primer pulso ON
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 0.0
+    set_do.vapor_camara_off.assert_called()
+    set_do.vapor_camara_on.assert_not_called()
+
+
+def test_duty_interpola_linealmente_dentro_de_la_banda_de_proximidad():
+    """Ejercita la interpolacion via la distancia de PRESION (no de
+    temperatura): con temp=100 bien debajo del tope del 97%,
+    duty_calidad_vapor no interfiere y se puede aislar la formula de
+    duty_proximidad."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 100.0  # dist_t grande -> prox_t=1.0 (clamped)
+    estado.sensores_pres["pres_camara"] = p_obj - 1.0  # dist_p=1.0, margen=2.0 -> prox_p=0.5
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    # cercania=min(1.0, 0.5)=0.5 -> duty_proximidad=0.5+0.5*0.5=0.75
+    assert abs(fase._duty_actual - 0.75) < 1e-9
+
+
+def test_techo_independiente_fuerza_duty_cero_sin_importar_el_resto():
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj + 20.0  # supera el techo (p_obj + presion_add)
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 0.0
+    set_do.vapor_camara_off.assert_called()
+    set_do.vapor_camara_on.assert_not_called()
+
+
+def test_duty_tasa_restringe_incluso_cerca_del_objetivo():
+    """Cambio de comportamiento intencional respecto al diseno anterior: la
+    tasa ya no es exclusiva de un tramo de aproximacion -- restringe en
+    todo momento. Se ejercita via tasa_presion, con temp=100 (debajo del
+    tope del 97%) para que duty_calidad_vapor no enmascare el efecto, y un
+    salto de presion pequeno (+3 kPa) para quedar bajo el techo
+    independiente (p_obj + 11) y no enmascararlo tampoco."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0,
+                                       tasa_calentamiento=200.0, tasa_presion=10.0)
+    fase.update()  # inicializar
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 100.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # duty_proximidad ya en duty_estable=1.0 (factor=0), sin tasa aun
+
+    _sembrar_historial(fase, 100.0, p_obj, 10)
+    estado.sensores_pres["pres_camara"] = p_obj + 3.0  # 18 kPa/min > tasa_presion=10, bajo el techo
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual < 1.0
+
+
+def test_pwm_pulso_on_luego_off_por_tiempo():
+    # tiempo_estable=999: idem nota en test_duty_estable_cero_si_factor_es_cien.
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0, intervalo=2,
+                                       tiempo_estable=999)
+    fase.update()  # inicializar
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    set_do.reset_mock()
+    result = fase.update()  # duty=0.5 -> primer pulso ON
     assert result == FaseResult.EN_CURSO
     assert fase._pwm_abierto is True
     set_do.vapor_camara_on.assert_called()
     set_do.vapor_camara_off.assert_not_called()
 
     set_do.reset_mock()
-    fase._t_pulso_pwm -= 2  # simular que pasó t_on (50% de 2s = 1s)
+    fase._t_pulso_pwm -= 2  # simular que paso t_on (50% de 2s = 1s)
     fase.update()
     assert fase._pwm_abierto is False
     set_do.vapor_camara_off.assert_called()
@@ -165,44 +232,18 @@ def test_pwm_pulso_on_luego_off_por_tiempo():
 
 
 def test_pwm_factor_cero_permanece_encendido():
-    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0, intervalo=2)
+    # tiempo_estable=999: idem nota en test_duty_estable_cero_si_factor_es_cien.
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0, intervalo=2,
+                                       tiempo_estable=999)
     fase.update()
     p_obj = p_saturacion_kpa(134.0) + 11.0
-    estado.sensores_temp["temp_camara"] = 130.0
+    estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
-    fase.update()  # entra a PWM
+    fase.update()
     set_do.reset_mock()
     fase.update()
     set_do.vapor_camara_off.assert_not_called()
     set_do.vapor_camara_on.assert_called()
-
-
-def test_pwm_activo_ignora_tasa_calentamiento_excedida():
-    """El control por tasa es exclusivo de APROXIMACION (plan, restricción
-    global) — una vez en PWM_ACTIVO, una pendiente que excedería
-    tasa_calentamiento no debe forzar OFF fuera del ciclo PWM programado.
-    El salto de temperatura se mantiene pequeño y dentro del objetivo
-    (132°C, con t_obj=134°C) para no cruzar el tope del 97% ni el techo
-    independiente agregados en la Tarea 2 de este plan — ver
-    docs/superpowers/specs/2026-08-05-fix-overshoot-calentamiento-design.md."""
-    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0, intervalo=2,
-                                       tasa_calentamiento=10.0, tasa_presion=200.0)
-    fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
-    estado.sensores_temp["temp_camara"] = 130.0
-    estado.sensores_pres["pres_camara"] = p_obj
-    fase.update()  # entra a PWM_ACTIVO
-    assert fase._en_pwm is True
-
-    _sembrar_historial(fase, 130.0, p_obj, 10)  # ventana corta: un salto chico ya excede la tasa
-    fase._pwm_abierto = False
-    fase._t_pulso_pwm = time.time() - 100
-    estado.sensores_temp["temp_camara"] = 132.0  # 12°C/min > 10, pero se mantiene bajo t_obj
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    set_do.vapor_camara_on.assert_called()
-    set_do.vapor_camara_off.assert_not_called()
 
 
 # ── Escape lento / escape rápido (paralelos, independientes) ─────────────
@@ -443,152 +484,6 @@ def test_pres_none_no_avanza_ni_lanza_excepcion():
     estado.sensores_pres.pop("pres_camara", None)
     result = fase.update()
     assert result == FaseResult.EN_CURSO
-
-
-# ── Control por tasa en APROXIMACION (bang-bang) ──────────────────────────
-
-def test_aproximacion_bangbang_on_primer_tick_sin_pendiente_disponible():
-    """Aunque tasa_calentamiento/tasa_presion estén habilitadas, el primer
-    tick no tiene pendiente calculable (historial con una sola muestra, edad
-    0 < _VENTANA_PENDIENTE_SEG) — la válvula permanece ON por defecto."""
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=50.0)
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    assert fase._en_pwm is False
-    set_do.vapor_camara_on.assert_called()
-    set_do.vapor_camara_off.assert_not_called()
-
-
-def test_aproximacion_bangbang_on_si_tasas_dentro_del_limite():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=50.0, tasa_presion=200.0)
-    fase.update()  # inicializar, primer tick sin pendiente
-
-    _sembrar_historial(fase, 20.0, 100.0, 60)  # dt = 1 min
-    estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min <= 50
-    estado.sensores_pres["pres_camara"] = 150.0  # 50 kPa/min <= 200
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    set_do.vapor_camara_on.assert_called()
-    set_do.vapor_camara_off.assert_not_called()
-
-
-def test_aproximacion_bangbang_off_si_tasa_temperatura_excede():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=200.0)
-    fase.update()
-
-    _sembrar_historial(fase, 20.0, 100.0, 60)
-    estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min > 10
-    estado.sensores_pres["pres_camara"] = 150.0  # 50 kPa/min <= 200, dentro
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO  # el control por tasa nunca produce FALLO, solo fuerza OFF
-    set_do.vapor_camara_off.assert_called()
-    set_do.vapor_camara_on.assert_not_called()
-
-
-def test_aproximacion_bangbang_off_si_tasa_presion_excede():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=100.0, tasa_presion=30.0)
-    fase.update()
-
-    _sembrar_historial(fase, 20.0, 100.0, 60)
-    estado.sensores_temp["temp_camara"] = 25.0  # 5°C/min <= 100, dentro
-    estado.sensores_pres["pres_camara"] = 200.0  # 100 kPa/min > 30
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    set_do.vapor_camara_off.assert_called()
-    set_do.vapor_camara_on.assert_not_called()
-
-
-def test_aproximacion_bangbang_vuelve_a_on_sin_tiempo_minimo_de_apagado():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=200.0)
-    fase.update()
-
-    _sembrar_historial(fase, 20.0, 100.0, 60)
-    estado.sensores_temp["temp_camara"] = 40.0  # excede -> OFF
-    estado.sensores_pres["pres_camara"] = 150.0
-    fase.update()
-    assert fase._en_pwm is False
-
-    _sembrar_historial(fase, 40.0, 150.0, 60)  # siguiente tick, dt = 1 min otra vez
-    estado.sensores_temp["temp_camara"] = 41.0  # 1°C/min <= 10 ahora
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    set_do.vapor_camara_on.assert_called()
-    set_do.vapor_camara_off.assert_not_called()
-
-
-def test_aproximacion_bangbang_tasa_temperatura_deshabilitada():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=0.0, tasa_presion=30.0)
-    fase.update()
-
-    _sembrar_historial(fase, 20.0, 100.0, 60)
-    estado.sensores_temp["temp_camara"] = 200.0  # 180°C/min, sería enorme pero deshabilitado (0)
-    estado.sensores_pres["pres_camara"] = 110.0  # 10 kPa/min <= 30, dentro
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    set_do.vapor_camara_on.assert_called()
-    set_do.vapor_camara_off.assert_not_called()
-
-
-def test_aproximacion_bangbang_tasa_presion_deshabilitada():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=100.0, tasa_presion=0.0)
-    fase.update()
-
-    _sembrar_historial(fase, 20.0, 100.0, 60)
-    estado.sensores_temp["temp_camara"] = 25.0  # 5°C/min <= 100, dentro
-    estado.sensores_pres["pres_camara"] = 900.0  # 800 kPa/min, sería enorme pero deshabilitado (0)
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    set_do.vapor_camara_on.assert_called()
-    set_do.vapor_camara_off.assert_not_called()
-
-
-def test_aproximacion_bangbang_no_apaga_por_caida_abrupta_de_temperatura():
-    """El control solo limita la dirección de subida (sin abs()) porque la
-    válvula no puede enfriar la cámara."""
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=200.0)
-    fase.update()
-
-    _sembrar_historial(fase, 100.0, 100.0, 60)
-    estado.sensores_temp["temp_camara"] = 50.0  # caída de 50°C/min
-    estado.sensores_pres["pres_camara"] = 110.0  # dentro de rango
-    set_do.reset_mock()
-    result = fase.update()
-    assert result == FaseResult.EN_CURSO
-    set_do.vapor_camara_on.assert_called()
-    set_do.vapor_camara_off.assert_not_called()
-
-
-def test_tasa_excedida_muchos_ticks_consecutivos_nunca_produce_fallo():
-    """tasa_calentamiento/tasa_presion son ahora puramente de control — ya
-    no existe ningún camino de FALLO por pendiente, sin importar cuántos
-    ticks consecutivos excedan el límite (ver spec de remoción de FALLO,
-    docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md).
-    pres_camara se mantiene en 200 kPa (antes 500) para exceder tasa_presion
-    sin cruzar el nuevo gate de entrada a PWM_ACTIVO (Tarea 1,
-    2026-08-05-fix-overshoot-calentamiento), anclado a p_obj (~313 kPa con
-    los defaults de t_obj/presion_add) — con 500 kPa el escenario dejaba de
-    ejercitar el control por tasa en APROXIMACION y pasaba a PWM_ACTIVO."""
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=50.0)
-    fase.update()  # inicializar
-
-    result = FaseResult.EN_CURSO
-    for _ in range(10):
-        _sembrar_historial(fase, 20.0, 100.0, 60)
-        estado.sensores_temp["temp_camara"] = 100.0  # 80°C/min, muy por encima de 10
-        estado.sensores_pres["pres_camara"] = 200.0  # 100 kPa/min, muy por encima de 50
-        set_do.reset_mock()
-        result = fase.update()
-        assert result == FaseResult.EN_CURSO
-        set_do.vapor_camara_off.assert_called()
-        set_do.vapor_camara_on.assert_not_called()
-
-    assert result != FaseResult.FALLO
 
 
 # ── Funciones puras de duty cycle (control continuo) ─────────────────────
