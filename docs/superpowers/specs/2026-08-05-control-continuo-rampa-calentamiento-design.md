@@ -3,7 +3,9 @@
 **Proyecto:** Software-de-autoclave (Especifika S.A.S.)
 **Alcance:** `src/autoclave/state_machine/cycle_phases/calentamiento.py` — reemplaza los pasos 4 y 5 de `update()` (gate de entrada a PWM_ACTIVO y control de `vapor_camara`). No toca `ESTABLE_PREESTERILIZACION` (paso 7), los escapes (paso 6), el cálculo de pendiente (paso 3) ni ninguna otra fase.
 
-**Reemplaza a:** `docs/superpowers/specs/2026-08-05-fix-overshoot-calentamiento-design.md` (no implementado). Ese spec corregía el mismo bug (sobrepaso a 133.4°C en ciclo 72, objetivo 121°C) con tres mecanismos discretos superpuestos al gate existente. Este diseño ataca la misma causa raíz de otra forma: elimina el gate discreto en sí mismo y lo reemplaza por una ley de control continua, por lo que sus mecanismos 1 y 2 quedan sin objeto. El mecanismo 3 (techo independiente de presión) se conserva como resguardo de seguridad — ver sección 5.
+**Reemplaza a:** `docs/superpowers/specs/2026-08-05-fix-overshoot-calentamiento-design.md`. De sus tres mecanismos, el **mecanismo 1** (gate anclado a `p_obj`/`t_obj`) ya se implementó por separado y está en `dev` (commits `211f2fd`, `5201370`) — este diseño lo reemplaza otra vez, de raíz: en vez de corregir el gate discreto, lo elimina y lo reemplaza por una ley de control continua (sección 2). El **mecanismo 2** (tope de temperatura al 97% con espera de presión) no está implementado todavía y se conserva aquí como tercer término del duty (`duty_calidad_vapor`, sección 3.3). El **mecanismo 3** (techo independiente de presión) tampoco está implementado y se conserva como resguardo de seguridad (sección 6).
+
+**Nota de coordinación (2026-08-05):** este spec se escribió en paralelo a una sesión que implementaba el spec reemplazado; esa sesión ya había commiteado el mecanismo 1 antes de que este documento se aprobara. La Tarea 2 del plan de implementación debe partir del `calentamiento.py` real en `dev` (con el gate `pres >= p_obj - rango_cal or temp >= t_obj` ya presente), no de la versión pre-fix descrita en la sección 1.
 
 ---
 
@@ -35,7 +37,7 @@ RAMPA (control continuo)  →  ESTABLE_PREESTERILIZACION (sin cambios)
 
 ## 3. Ley de control
 
-Dos duty cycles independientes, calculados en cada tick; se aplica el más restrictivo (mínimo):
+Tres duty cycles independientes, calculados en cada tick; se aplica el más restrictivo (mínimo):
 
 ### 3.1 `duty_tasa` — límite de pendiente
 
@@ -71,10 +73,27 @@ duty_proximidad = duty_estable + (1.0 - duty_estable) * cercania
 
 Lejos del objetivo (`dist >= rango_calentamiento` en **ambas** variables) → `duty_proximidad = 1.0`. Tan pronto **cualquiera** de las dos entra en su banda (`dist <= 0`) → `duty_proximidad = duty_estable`, el mismo duty que hoy aplica PWM_ACTIVO de forma fija vía `factor_calentamiento`. Entre ambos extremos interpola lineal — la distancia se mide siempre contra `t_obj`/`p_obj` fijos, nunca contra `P_sat(temp_actual)`, eliminando la causa raíz del bug del ciclo 72.
 
-### 3.3 Duty final y aplicación
+### 3.3 `duty_calidad_vapor` — temperatura no adelantada a la presión real
+
+Retoma el mecanismo 2 del spec reemplazado, expresado como tercer término del duty en vez de una pausa aparte. Cubre un caso que `duty_proximidad` no cubre: la temperatura puede estar lejos de `t_obj` (o incluso cerca) mientras la presión real no "corresponde" a esa temperatura — vapor no saturado, típicamente por calor de chaqueta llegando al sensor antes de que la cámara esté realmente llena de vapor a esa condición. Es un chequeo de consistencia física, no de distancia al objetivo:
 
 ```python
-duty = min(duty_tasa, duty_proximidad)
+_FACTOR_TOPE_TEMPERATURA = 0.97
+
+def _duty_por_calidad_vapor(temp, pres, t_obj, p_add):
+    temp_cap = _FACTOR_TOPE_TEMPERATURA * t_obj
+    if temp < temp_cap:
+        return 1.0
+    p_min_para_temp = p_saturacion_kpa(temp) + p_add  # recalculado en vivo cada tick
+    return 1.0 if pres >= p_min_para_temp else 0.0
+```
+
+Sin restricción (`1.0`) mientras `temp` no llegó al 97% de `t_obj`. Al cruzar ese umbral, exige que la presión ya "corresponda" a la temperatura actual (`P_sat(temp) + p_add`, el mismo criterio que define `p_obj` pero evaluado con la temperatura real en vez de la fija) — si no, corta el duty a `0.0` por completo (pausa binaria, igual que el mecanismo original; no es una interpolación continua porque lo que se verifica es una condición física de sí/no, no una distancia). `p_min_para_temp` se recalcula cada tick con la temperatura real, nunca se congela al cruzar el 97%. Como `temp < t_obj` por construcción mientras la pausa está activa (97% < 100%), no interfiere con la entrada a `ESTABLE_PREESTERILIZACION` (paso 7): ese gate simplemente no puede cumplirse todavía. No genera `FALLO` ni tiene timeout propio — si la presión nunca "alcanza" a la temperatura, el ciclo queda pausado hasta el timeout general de `timeout_calentamiento`, sin cambios.
+
+### 3.4 Duty final y aplicación
+
+```python
+duty = min(duty_tasa, duty_proximidad, duty_calidad_vapor)
 t_on_pwm  = intervalo * duty
 t_off_pwm = intervalo - t_on_pwm
 self._tick_dos_estados(
@@ -96,11 +115,11 @@ Reutiliza los parámetros existentes de la sección `calentamiento` de los JSON 
 | `factor_calentamiento` | % OFF fijo dentro de PWM_ACTIVO | Duty de convergencia (`duty_estable`) — mismo significado práctico |
 | `intervalo_segmentos_calor` | Periodo del pulso PWM | Sin cambio |
 
-No se agregan parámetros a los JSON de ciclo (`instrumental_121.json`, `instrumental_134.json`, `bowe_dick.json`, factory y user).
+No se agregan parámetros a los JSON de ciclo (`instrumental_121.json`, `instrumental_134.json`, `bowe_dick.json`, factory y user). `_FACTOR_TOPE_TEMPERATURA = 0.97` (sección 3.3) es una constante de módulo, mismo estilo que `_VENTANA_PENDIENTE_SEG` — no un parámetro configurable por ciclo, igual que en el spec reemplazado.
 
 ## 5. Techo independiente de presión (resguardo de seguridad, retenido)
 
-`duty_proximidad` no baja a `0.0` una vez cruzado el objetivo — se estabiliza en `duty_estable` (p. ej. 30% si `factor_calentamiento=70`). Si la inercia térmica empuja la presión bien por encima de `p_obj` mientras `duty_tasa` no lo detecta (pendiente ya no creciendo en el momento evaluado), el controlador seguiría inyectando vapor a `duty_estable` en vez de cortar. Se retiene el mecanismo 3 del spec reemplazado como resguardo, evaluado *después* de calcular `duty`:
+Ni `duty_proximidad` ni `duty_calidad_vapor` bajan a `0.0` de forma permanente una vez cruzado el objetivo — `duty_proximidad` se estabiliza en `duty_estable` (p. ej. 30% si `factor_calentamiento=70`) y `duty_calidad_vapor` vuelve a `1.0` en cuanto la presión "alcanza" a la temperatura. Si la inercia térmica empuja la presión bien por encima de `p_obj` mientras `duty_tasa` no lo detecta (pendiente ya no creciendo en el momento evaluado), el controlador seguiría inyectando vapor en vez de cortar. Se retiene el mecanismo 3 del spec reemplazado como resguardo, evaluado *después* de calcular `duty`:
 
 ```python
 p_techo = p_obj + p_add
@@ -116,6 +135,8 @@ No es parte de la ley de control proporcional — es un corte duro de emergencia
 - `tasa_calentamiento`/`tasa_presion` en `0` (deshabilitado) → sin restricción por esa vía, igual que hoy.
 - `rango_calentamiento` en `0` → `duty_proximidad` degenera a un escalón (`1.0` lejos, `duty_estable` en o después del objetivo), sin división por cero.
 - `factor_calentamiento` en `0` → `duty_estable = 1.0` (válvula siempre a fondo incluso convergido); en `100` → `duty_estable = 0.0` (cerrada al converger) — misma semántica que la fórmula actual de PWM_ACTIVO.
+- `temp < 0.97 * t_obj` → `duty_calidad_vapor = 1.0` sin importar la presión (el chequeo no se activa todavía).
+- `temp >= 0.97 * t_obj` y `pres >= P_sat(temp) + p_add` → `duty_calidad_vapor = 1.0` (presión ya corresponde a la temperatura real).
 - Sensor `None` → ya se corta en el paso 2 existente, antes de llegar a este cálculo; sin cambios.
 
 ## 7. Qué NO cambia
@@ -129,10 +150,10 @@ No es parte de la ley de control proporcional — es un corte duro de emergencia
 
 ## 8. Riesgos aceptados / fuera de alcance
 
-- Igual que el spec reemplazado: si `timeout_calentamiento` se agota mientras la presión está atascada por debajo de lo que la temperatura sugeriría, la fase falla por el timeout global existente — no se agrega timeout dedicado.
+- Igual que el spec reemplazado: si `timeout_calentamiento` se agota mientras `duty_calidad_vapor` mantiene la pausa (presión nunca "alcanza" a la temperatura), la fase falla por el timeout global existente — no se agrega timeout dedicado para este caso.
 - El caso de sensor en `None` sigue sin timeout dedicado (riesgo ya documentado en `CLAUDE.md`), sin cambios.
 - No se replica esta ley de control continua en `esterilizacion.py`, que ya tiene su propia lógica bidireccional con banda fija — cambio acotado a `calentamiento.py`.
-- El estado `_en_pwm` y el log "banda alcanzada — entra a PWM_ACTIVO" desaparecen; cualquier código o test que dependa de ese estado interno debe actualizarse (ver sección 9).
+- El estado `_en_pwm` y el log "objetivo cercano — entra a PWM_ACTIVO" desaparecen; cualquier código o test que dependa de ese estado interno debe actualizarse (ver sección 9).
 
 ## 9. Tests
 
@@ -140,10 +161,11 @@ Reemplazar/ampliar `tests/test_calentamiento_fase.py`:
 
 - `duty_tasa` baja de `1.0` cuando la pendiente medida supera `tasa_max`, y vuelve a `1.0` cuando la pendiente baja del límite.
 - `duty_proximidad` interpola linealmente entre `1.0` (a `rango_calentamiento` de distancia o más) y `duty_estable` (en o después de `t_obj`/`p_obj`), medido siempre contra los objetivos fijos — no contra `P_sat(temp_actual)`.
+- `duty_calidad_vapor` permanece en `1.0` mientras `temp < 0.97*t_obj`; cae a `0.0` al cruzar ese umbral si la presión no corresponde a `P_sat(temp) + p_add`; vuelve a `1.0` apenas la presión alcanza ese nivel.
 - Regresión del bug real (ciclo 72): con presión persistentemente por encima de la curva de saturación pura, el duty ya empieza a bajar antes de cruzar el objetivo, en vez de mantenerse en `1.0` hasta 133°C.
-- Techo independiente: `pres >= p_obj + p_add` fuerza `duty = 0.0` sin importar `duty_tasa`/`duty_proximidad`.
+- Techo independiente: `pres >= p_obj + p_add` fuerza `duty = 0.0` sin importar los otros tres términos.
 - Caso sano (sin overshoot, presión siguiendo de cerca la curva de saturación): el ciclo completa con el mismo resultado final que con el código actual.
-- Casos borde de la sección 6 (`rango_calentamiento=0`, `factor_calentamiento` en `0`/`100`, tasas deshabilitadas).
+- Casos borde de la sección 6 (`rango_calentamiento=0`, `factor_calentamiento` en `0`/`100`, tasas deshabilitadas, `duty_calidad_vapor` antes/después del 97%).
 - Eliminar/actualizar cualquier test existente que dependa del estado `_en_pwm` o del log de "entra a PWM_ACTIVO", que ya no existen.
 
 ## 10. Documentación a actualizar (en la implementación)
