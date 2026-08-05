@@ -189,12 +189,9 @@ class CalentamientoFase(BaseFase):
             tasa_p = (pres - pres_ref) / dt_min
 
         # ── 4. Entrada a PWM (unidireccional) ─────────────────────────────
-        # Ancla la entrada al objetivo fijo (p_obj/t_obj), no a la curva de
-        # saturación de la temperatura actual (que se mueve mientras sube) —
-        # ver docs/superpowers/specs/2026-08-05-fix-overshoot-calentamiento-design.md.
-        if not self._en_pwm and (pres >= p_obj - rango_cal or temp >= t_obj):
+        if not self._en_pwm and abs(pres - p_saturacion_kpa(temp)) <= rango_cal:
             self._en_pwm = True
-            logger.info("Calentamiento: objetivo cercano (%.1f kPa / %.1f°C) — entra a PWM_ACTIVO", p_obj, t_obj)
+            logger.info("Calentamiento: banda alcanzada (%.1f kPa) — entra a PWM_ACTIVO", rango_cal)
 
         # ── 5. Control de vapor_camara ─────────────────────────────────────
         if not self._en_pwm:
