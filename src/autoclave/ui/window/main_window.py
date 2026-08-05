@@ -56,6 +56,7 @@ class InterfazPrincipal(tk.Tk):
         self._prev_machine_state = ""
         self._cycle_win          = None
         self._toast_widget       = None
+        self._cycle_selector_habilitado = False
         self._settings_proc      = None
 
         self._scale            = 1.0   # factor de escala de fuente, calculado en _build_ui
@@ -632,6 +633,7 @@ class InterfazPrincipal(tk.Tk):
                     self._upd_params_ciclo()
                     self._upd_panel_izquierdo()
                     self._upd_listo()
+                    self._upd_cycle_selector_habilitado()
                     self._upd_suministro()
                     self._actualizar_imagen_puerta()
 
@@ -732,6 +734,77 @@ class InterfazPrincipal(tk.Tk):
             self._boton_iniciar.unbind("<Button-1>")
             self._boton_iniciar.configure(cursor="")
 
+    def _upd_cycle_selector_habilitado(self):
+        habilitado = self.ui_service.get_estado_global() != "CICLO"
+        if habilitado == self._cycle_selector_habilitado:
+            return   # sin cambio
+
+        self._cycle_selector_habilitado = habilitado
+        if habilitado:
+            self._lbl_n_ciclo.bind("<Button-1>", lambda e: self._abrir_selector_ciclo())
+            self._lbl_n_ciclo.configure(cursor="hand2")
+        else:
+            self._lbl_n_ciclo.unbind("<Button-1>")
+            self._lbl_n_ciclo.configure(cursor="")
+
+    def _abrir_selector_ciclo(self):
+        cycles = self.ui_service.list_user_cycles()
+        if not cycles:
+            self._mostrar_toast("No hay ciclos de usuario disponibles.")
+            return
+
+        current_id = self.ui_service.get_cycle_param("id")
+
+        dlg = tk.Toplevel(self)
+        dlg.overrideredirect(True)
+        dlg.configure(bg=CLR_DARK)
+        dlg.resizable(False, False)
+        dlg.grab_set()
+
+        self.update_idletasks()
+        w = 440
+        h = 130 + 60 * len(cycles)
+        x = self.winfo_x() + (self.winfo_width()  - w) // 2
+        y = self.winfo_y() + (self.winfo_height() - h) // 2
+        dlg.geometry(f"{w}x{h}+{x}+{y}")
+
+        ctk.CTkLabel(
+            dlg, text="Seleccionar ciclo",
+            font=("Segoe UI", 22, "bold"),
+            text_color=CLR_W, fg_color="transparent",
+        ).pack(pady=(24, 16))
+
+        for cycle in cycles:
+            es_actual = cycle["id"] == current_id
+            ctk.CTkButton(
+                dlg,
+                text=f"✓  {cycle['name']}" if es_actual else cycle["name"],
+                font=("Segoe UI", 16, "bold" if es_actual else "normal"),
+                fg_color="#1e8449" if es_actual else "#5789a7",
+                hover_color="#155d32" if es_actual else "#406080",
+                width=360, height=44,
+                state="disabled" if es_actual else "normal",
+                command=lambda cid=cycle["id"], name=cycle["name"]: self._seleccionar_ciclo(dlg, cid, name),
+            ).pack(pady=6)
+
+        ctk.CTkButton(
+            dlg, text="Cancelar",
+            font=("Segoe UI", 14),
+            fg_color="#5789a7", hover_color="#406080",
+            width=160, height=36,
+            command=dlg.destroy,
+        ).pack(pady=(16, 20))
+
+    def _seleccionar_ciclo(self, dlg, cycle_id, name):
+        dlg.destroy()
+        ok, motivo = self.ui_service.select_cycle(cycle_id)
+        if not ok:
+            self._mostrar_toast(motivo)
+            return
+        # actualización optimista inmediata — no esperar el refresco de /cycle (~5 s)
+        self.cycle_name = name
+        self._lbl_ciclo_nombre.configure(text=self.cycle_name.upper())
+
     def _actualizar_imagen_puerta(self):
         if not hasattr(self, "_img_puerta_ab"):
             return
@@ -780,6 +853,7 @@ class InterfazPrincipal(tk.Tk):
             except tk.TclError:
                 pass
         self._toast_widget = None
+        self._cycle_selector_habilitado = False
         self._build_ui()
         self.after(300, self._load_action_images)
         self._schedule_update()

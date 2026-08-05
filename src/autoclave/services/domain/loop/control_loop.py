@@ -40,12 +40,14 @@ class ControlLoop:
         self.link           = link
         self.set_do         = set_do
         self._running       = threading.Event()
+        self._sm_lock       = threading.Lock()
         self.cycle          = cycle_manager.get_selected_cycle()
         self.config_manager = config_manager
         self.alarm_manager  = alarm_manager
         self.cycle_manager  = cycle_manager
         self.cycle_logger   = cycle_logger
         self.realtime_printer = realtime_printer
+        self.cap             = cap
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
@@ -163,7 +165,8 @@ class ControlLoop:
 
         # 5. Máquina de estados global (pausada durante el modo prueba)
         if not self._test_mode.is_set():
-            self.state_machine.update()
+            with self._sm_lock:
+                self.state_machine.update()
 
         # 6. Data logger (observa machine_state internamente)
         if self.cycle_logger is not None:
@@ -228,3 +231,29 @@ class ControlLoop:
         """Apaga todas las salidas y reanuda state_machine.update()."""
         self._test_mode.clear()
         self.set_do.reset_all_outputs()
+
+    # =========================================================================
+    # CAMBIO DE CICLO ACTIVO
+    # =========================================================================
+
+    def set_active_cycle(self, cycle) -> tuple[bool, str]:
+        """Reemplaza el ciclo activo y reconstruye la StateMachine para que el
+        cambio se propague a todos los sub-estados y fases. Solo seguro fuera
+        de CICLO: no hay fases en curso cuyo estado interno se pierda.
+
+        El chequeo de estado y la reconstrucción corren dentro de _sm_lock
+        para que no puedan intercalarse con state_machine.update() en
+        _tick() (hilo de fondo) — sin el lock, un START_CICLO concurrente
+        podía colarse entre el chequeo y la reconstrucción y dejar una
+        StateMachine nueva (prev_state=None) pisando un ciclo recién
+        iniciado."""
+        with self._sm_lock:
+            if self.estado.get_machine_state() == GlobalState.CICLO:
+                return False, "No se puede cambiar de ciclo mientras hay uno en curso."
+
+            self.cycle = cycle
+            self.state_machine = StateMachine(
+                io=self.link, estado=self.estado, set_do=self.set_do,
+                cycle=cycle, config=self.config_manager, cap=self.cap,
+            )
+            return True, ""
