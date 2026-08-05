@@ -13,7 +13,7 @@
 #
 # Mapping de fases a códigos del ticket:
 #   W (Warming)        → PRECALENTAMIENTO, PURGA, PRE_VACIO
-#   H (Heating)        → CALENTAMIENTO, ESTABILIZACION
+#   H (Heating)        → CALENTAMIENTO
 #   S (Sterilization)  → ESTERILIZACION
 #   E (Exhaust/End)    → COMPLETADO, CANCELADO, FALLO, EMERGENCIA
 
@@ -46,7 +46,6 @@ _FASE_A_CODIGO: dict[str, str] = {
     "PURGA":            "PG",
     "PRE_VACIO":        "PV",
     "CALENTAMIENTO":    "H",
-    "ESTABILIZACION":   "E",
     "ESTERILIZACION":   "S",
     "COMPLETADO":       "E",
     "CANCELADO":        "F",
@@ -61,7 +60,7 @@ _FASE_A_CODIGO: dict[str, str] = {
 # aparte (ver update()).
 _FASES_EN_CURSO: set[str] = {
     "PRECALENTAMIENTO", "PURGA", "PRE_VACIO",
-    "CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION",
+    "CALENTAMIENTO", "ESTERILIZACION",
     "SECADO", "DESCOMPRESION",
 }
 

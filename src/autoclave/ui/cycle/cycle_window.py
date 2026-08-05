@@ -44,7 +44,6 @@ _FASES_TERMINALES = {"COMPLETADO", "CANCELADO", "EMERGENCIA"}
 _FASE_TEMP_TARGET = {
     "PRECALENTAMIENTO": ("precalentamiento", "temperatura_precalentamiento"),
     "CALENTAMIENTO":    ("calentamiento",    "temperatura_calentamiento"),
-    "ESTABILIZACION":   ("estabilizacion",   "temperatura_estabilizacion"),
     "ESTERILIZACION":   ("esterilizacion",   "temperatura_esterilizacion"),
 }
 
