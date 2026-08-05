@@ -221,7 +221,7 @@ class CalentamientoFase(BaseFase):
             else:
                 return FaseResult.EN_CURSO
 
-        dentro_rango = abs(temp - t_obj) <= rango_temp_estab and abs(pres - p_obj) <= p_add
+        dentro_rango = t_obj <= temp <= t_obj + rango_temp_estab and p_obj <= pres <= p_obj + p_add
 
         if dentro_rango:
             self._timer_recuperacion_fin = None

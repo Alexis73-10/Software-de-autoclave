@@ -298,6 +298,47 @@ def test_sostenimiento_se_reinicia_si_presion_excede_la_banda_superior():
     assert result == FaseResult.COMPLETADO
 
 
+def test_sostenimiento_no_completa_si_temp_cae_por_debajo_del_objetivo():
+    """Regresión: la banda de sostenimiento debe ser de un solo lado — tolera
+    overshoot por encima de t_obj/p_obj (el proposito de este tramo), pero
+    nunca debe aceptar una lectura por debajo del objetivo, porque ESTERILIZACION
+    falla con solo 0.1°C de margen inferior (brecha_error_temperatura) y 3
+    ticks de debounce — una entrega por debajo del setpoint aborta el ciclo
+    casi de inmediato."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # arma el timer
+    assert fase._timer_sostenido_desde is not None
+
+    estado.sensores_temp["temp_camara"] = 133.5  # 0.5°C bajo el objetivo, dentro de rango_temp_estabilizacion=1.0
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._timer_sostenido_desde is None  # se reinició, NO se considera "dentro de rango"
+    assert estado.fase_en_sostenimiento is False
+
+
+def test_sostenimiento_no_completa_si_presion_cae_por_debajo_del_objetivo():
+    """Mismo caso que el de temperatura, pero para presión: una lectura bajo
+    p_obj no debe contar como "dentro de rango" aunque esté dentro de la
+    banda en valor absoluto."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # arma el timer
+    assert fase._timer_sostenido_desde is not None
+
+    estado.sensores_pres["pres_camara"] = p_obj - 5.0  # bajo el objetivo, dentro de presion_add=11 en valor absoluto
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._timer_sostenido_desde is None  # se reinició
+    assert estado.fase_en_sostenimiento is False
+
+
 def test_sostenimiento_timer_recuperacion_se_cancela_al_recuperar():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5,
                                        timeout_recuperacion_estabilizacion=2)
