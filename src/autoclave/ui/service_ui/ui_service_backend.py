@@ -2,6 +2,7 @@
 
 import threading
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -264,3 +265,30 @@ class UIServiceBackend:
         except Exception as e:
             logger.warning("reset_outputs error: %s", e)
             return False
+
+    # ==============================
+    # SELECCIÓN DE CICLO ACTIVO
+    # ==============================
+
+    def list_user_cycles(self) -> list[dict]:
+        """Lista los ciclos de usuario disponibles para seleccionar."""
+        try:
+            cycles = self.backend.get(path="/cycles")
+            return [c for c in cycles if c.get("source") == "user"]
+        except Exception as e:
+            logger.warning("list_user_cycles error: %s", e)
+            return []
+
+    def select_cycle(self, cycle_id: str) -> tuple[bool, str]:
+        """Cambia el ciclo activo. Retorna (ok, motivo — vacío si ok)."""
+        try:
+            self.backend.post(path="/cycle/select", body={"cycle_id": cycle_id})
+            return True, ""
+        except requests.HTTPError as e:
+            try:
+                detail = e.response.json().get("detail", str(e))
+            except Exception:
+                detail = str(e)
+            return False, detail
+        except requests.RequestException as e:
+            return False, f"No se pudo contactar al backend: {e}"
