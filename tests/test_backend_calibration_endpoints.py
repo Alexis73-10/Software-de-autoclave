@@ -73,6 +73,20 @@ def test_patch_calibration_422_puntos_iguales(calib_client):
     assert resp.status_code == 422
 
 
+def test_patch_calibration_autocomitea_el_yaml(calib_client):
+    client, _, yaml_path = calib_client
+
+    with patch("autoclave.backend.server.git_autocommit") as mock_autocommit:
+        resp = client.patch("/calibration/pressure/pres_camara", json={
+            "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0,
+        })
+
+    assert resp.status_code == 200
+    mock_autocommit.assert_called_once()
+    args = mock_autocommit.call_args.args
+    assert args[0] == yaml_path
+
+
 def test_patch_calibration_actualiza_yaml_recarga_y_audita(calib_client):
     client, mock_ctx, yaml_path = calib_client
     resp = client.patch("/calibration/pressure/pres_camara", json={

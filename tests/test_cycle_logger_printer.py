@@ -64,6 +64,7 @@ class FakeEstado:
     def __init__(self):
         self.machine_state = GlobalState.CICLO
         self.fase_ciclo = "PRECALENTAMIENTO"
+        self.sub_estado_ciclo = ""
         self.motivo_fallo = ""
         self.sensores_temp = {"temp_camara": 25.0}
         self.sensores_pres = {"pres_camara": 74.5}
@@ -125,6 +126,38 @@ def test_sin_cambio_de_fase_ni_intervalo_no_encola_nada_nuevo():
     cl.update()   # misma fase, intervalo (99999s) no cumplido
 
     assert len(printer.calls) == 2
+
+
+def test_cambio_de_sub_estado_encola_fila_sin_esperar_intervalo():
+    printer = FakePrinter()
+    cl = _build_logger(printer, config=FakeConfig(intervalo=99999))
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase (None -> "PH")
+    assert len(printer.calls) == 2
+
+    cl.estado.sub_estado_ciclo = "VACIO_BAJO"
+    cl.update()   # misma fase, pero cambió el paso interno -> fila igual
+    assert len(printer.calls) == 3
+    assert printer.calls[2].startswith("PH ")
+
+    cl.estado.sub_estado_ciclo = "HOLD_BAJO"
+    cl.update()   # otro cambio de paso interno -> otra fila
+    assert len(printer.calls) == 4
+
+
+def test_sin_cambio_de_sub_estado_no_encola_fila_extra():
+    printer = FakePrinter()
+    cl = _build_logger(printer, config=FakeConfig(intervalo=99999))
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase
+    cl.estado.sub_estado_ciclo = "VACIO_BAJO"
+    cl.update()   # fila por cambio de sub-estado
+    assert len(printer.calls) == 3
+
+    cl.update()   # mismo sub-estado, sin cambio de fase, intervalo no cumplido
+    assert len(printer.calls) == 3
 
 
 def test_intervalo_cumplido_encola_fila_periodica(monkeypatch):

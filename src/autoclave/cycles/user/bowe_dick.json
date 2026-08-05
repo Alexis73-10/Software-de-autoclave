@@ -21,14 +21,14 @@
                 "type": "bool"
             },
             "presion_chaqueta": {
-                "value": 300,
+                "value": 350,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
                 "max": 400
             },
             "rango_presion_chaqueta": {
-                "value": 50,
+                "value": 25,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
@@ -69,7 +69,7 @@
         },
         "prevacio": {
             "conteo_pulso_a": {
-                "value": 2,
+                "value": 4,
                 "unit": "",
                 "min": 0,
                 "max": 100
@@ -87,7 +87,7 @@
                 "max": 3600
             },
             "presion_baja_pulso_a": {
-                "value": 30,
+                "value": 20,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -117,7 +117,7 @@
                 "max": 3600
             },
             "presion_baja_pulso_b": {
-                "value": 100,
+                "value": 30,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -348,47 +348,110 @@
             }
         },
         "esterilizacion": {
+            "escape_lento_on_ester": {
+                "value": 1,
+                "type": "int",
+                "unit": "seg",
+                "min": 0,
+                "max": 1000
+            },
+            "escape_lento_off_ester": {
+                "value": 0,
+                "type": "int",
+                "unit": "seg",
+                "min": 0,
+                "max": 1000
+            },
+            "escape_rapido_on_ester": {
+                "value": 0,
+                "type": "int",
+                "unit": "seg",
+                "min": 0,
+                "max": 1000
+            },
+            "escape_rapido_off_ester": {
+                "value": 400,
+                "type": "int",
+                "unit": "seg",
+                "min": 0,
+                "max": 1000
+            },
             "temperatura_esterilizacion": {
                 "value": 134.0,
                 "type": "float",
                 "unit": "°C",
-                "min": 0,
-                "max": 200
+                "min": 100,
+                "max": 140
             },
             "tiempo_esterilizacion": {
                 "value": 3.5,
                 "type": "float",
                 "unit": "min",
                 "min": 0,
-                "max": 1000
+                "max": 9999
             },
-            "rango_presion_esterilizacion": {
-                "value": 9,
+            "factor_esterilizacion": {
+                "value": 70,
                 "type": "int",
+                "unit": "%",
+                "min": 0,
+                "max": 100
+            },
+            "presion_add_esterilizacion": {
+                "value": 9.0,
+                "type": "float",
                 "unit": "kPa",
                 "min": 0,
-                "max": 1000
+                "max": 100
             },
-            "temperatura_add_esterilizacion": {
+            "intervalo_segmentos_ester": {
+                "value": 3,
+                "type": "int",
+                "unit": "seg",
+                "min": 0,
+                "max": 30
+            },
+            "rango_temperatura_ester": {
                 "value": 3.0,
                 "type": "float",
                 "unit": "°C",
                 "min": 0,
-                "max": 200
+                "max": 50
             },
-            "temperatura_error_esterilizacion": {
-                "value": 0.5,
+            "rango_presion_ester": {
+                "value": 30.0,
+                "type": "float",
+                "unit": "kPa",
+                "min": 0,
+                "max": 100
+            },
+            "brecha_segura_temperatura": {
+                "value": 0.3,
                 "type": "float",
                 "unit": "°C",
                 "min": 0,
-                "max": 200
+                "max": 2
             },
-            "presion_error_esterilizacion": {
-                "value": 3,
-                "type": "int",
+            "brecha_error_temperatura": {
+                "value": 0.1,
+                "type": "float",
+                "unit": "°C",
+                "min": 0,
+                "max": 2
+            },
+            "brecha_error_presion": {
+                "value": 2.0,
+                "type": "float",
                 "unit": "kPa",
                 "min": 0,
-                "max": 1000
+                "max": 10
+            },
+            "brecha_segura_presion": {
+                "value": 6.0,
+                "type": "float",
+                "unit": "kPa",
+                "min": 0,
+                "max": 20
             }
         },
         "despresurizacion": {},
@@ -576,7 +639,7 @@
                 "max": 3600
             },
             "temp_max_apertura": {
-                "value": 80.0,
+                "value": 100.0,
                 "type": "float",
                 "unit": "°C",
                 "min": 0,
@@ -590,7 +653,7 @@
                 "max": 120
             },
             "apertura_automatica": {
-                "value": false,
+                "value": true,
                 "type": "bool",
                 "unit": ""
             }

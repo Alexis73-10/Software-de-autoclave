@@ -79,12 +79,20 @@
         },
 
         "esterilizacion": {
-            "temperatura_esterilizacion": { "value": 134.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
-            "tiempo_esterilizacion":       { "value": 3.5,   "type": "float", "unit": "min", "min": 0, "max": 1000 },
-            "rango_presion_esterilizacion": { "value": 9, "type":"int", "unit": "kPa", "min": 0, "max": 1000 },
-            "temperatura_add_esterilizacion": { "value": 3.0, "type": "float", "unit": "°C", "min": 0, "max": 200 },
-            "temperatura_error_esterilizacion": { "value": 0.5, "type": "float", "unit": "°C", "min": 0, "max": 200 },
-            "presion_error_esterilizacion": { "value": 3, "type":"int", "unit": "kPa", "min": 0, "max": 1000 }
+            "escape_lento_on_ester": { "value": 1, "type": "int", "unit": "seg", "min": 0, "max": 1000 },
+            "escape_lento_off_ester": { "value": 0, "type": "int", "unit": "seg", "min": 0, "max": 1000 },
+            "escape_rapido_on_ester": { "value": 0, "type": "int", "unit": "seg", "min": 0, "max": 1000 },
+            "escape_rapido_off_ester": { "value": 400, "type": "int", "unit": "seg", "min": 0, "max": 1000 },
+            "temperatura_esterilizacion": { "value": 134.0, "type": "float", "unit": "°C", "min": 100, "max": 140 },
+            "tiempo_esterilizacion": { "value": 3.5, "type": "float", "unit": "min", "min": 0, "max": 9999 },
+            "factor_esterilizacion": { "value": 70, "type": "int", "unit": "%", "min": 0, "max": 100 },
+            "presion_add_esterilizacion": { "value": 11.0, "type": "float", "unit": "kPa", "min": 0, "max": 100 },
+            "intervalo_segmentos_ester": { "value": 3, "type": "int", "unit": "seg", "min": 0, "max": 30 },
+            "rango_temperatura_ester": { "value": 3.0, "type": "float", "unit": "°C", "min": 0, "max": 50 },
+            "rango_presion_ester": { "value": 30.0, "type": "float", "unit": "kPa", "min": 0, "max": 100 },
+            "brecha_segura_temperatura": { "value": 0.3, "type": "float", "unit": "°C", "min": 0, "max": 2 },
+            "brecha_error_temperatura": { "value": 0.1, "type": "float", "unit": "°C", "min": 0, "max": 2 },
+            "brecha_error_presion": { "value": 2.0, "type": "float", "unit": "kPa", "min": 0, "max": 10 }
         },
 
         "despresurizacion": {

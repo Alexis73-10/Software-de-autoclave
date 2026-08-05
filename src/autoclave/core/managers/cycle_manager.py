@@ -18,8 +18,46 @@ class Cycle:
 
         for key in keys:
             data = data.get(key, {})
-        
+
         return data.get("value", default)
+
+    def set_param(self, fase: str, path: list[str], value):
+        """Actualiza el 'value' de un parámetro navegando fase + path, coercionando
+        y validando contra el 'type'/'min'/'max' propio del JSON del ciclo.
+        Devuelve el valor ya coercionado. No muta nada si la validación falla."""
+        section = self.parameters.get(fase)
+        if section is None:
+            raise KeyError(f"El ciclo no tiene la sección '{fase}'")
+
+        node = section
+        for key in path[:-1]:
+            if not isinstance(node, dict) or key not in node:
+                raise KeyError(f"Ruta de parámetro inválida: {'.'.join(path)}")
+            node = node[key]
+
+        leaf_key = path[-1]
+        if not isinstance(node, dict) or leaf_key not in node or "value" not in node[leaf_key]:
+            raise KeyError(f"El parámetro '{'.'.join(path)}' no existe en '{fase}'")
+
+        leaf = node[leaf_key]
+        param_type = leaf.get("type", "int")
+
+        if param_type == "bool":
+            coerced = bool(value)
+        elif param_type == "float":
+            coerced = float(value)
+        else:
+            coerced = int(value)
+
+        if param_type != "bool":
+            pmin, pmax = leaf.get("min"), leaf.get("max")
+            if pmin is not None and coerced < pmin:
+                raise ValueError(f"'{leaf_key}' fuera de rango (mínimo {pmin})")
+            if pmax is not None and coerced > pmax:
+                raise ValueError(f"'{leaf_key}' fuera de rango (máximo {pmax})")
+
+        leaf["value"] = coerced
+        return coerced
 
 
 class CycleManager:

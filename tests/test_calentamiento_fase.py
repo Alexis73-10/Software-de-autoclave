@@ -10,12 +10,13 @@ def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
                factor=50.0, rango=2.0, tasa_calentamiento=0.0, tasa_presion=0.0,
                tiempo_estable=0, intervalo=2, t_inicial=20.0,
                escape_lento_on=1, escape_lento_off=0,
-               escape_rapido_on=0, escape_rapido_off=10):
+               escape_rapido_on=0, escape_rapido_off=10,
+               rango_temp_estabilizacion=1.0, timeout_recuperacion_estabilizacion=5):
     """tasa_calentamiento/tasa_presion quedan en 0 (deshabilitadas, ver guard
     '> 0' en calentamiento.py) por defecto: los tests que no ejercitan el
-    debounce de pendiente cambian temperatura/presión entre ticks sin
-    control de tiempo real, lo que produciría una tasa artificialmente alta
-    y un FALLO espurio si el chequeo estuviera activo."""
+    control por tasa cambian temperatura/presión entre ticks sin control de
+    tiempo real, lo que produciría una tasa artificialmente alta y forzaría
+    vapor_camara a OFF de forma espuria si el control estuviera activo."""
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": t_inicial}
     estado.sensores_pres = {"pres_camara": 100.0}
@@ -39,6 +40,8 @@ def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
             "escape_lento_off": escape_lento_off,
             "escape_rapido_on": escape_rapido_on,
             "escape_rapido_off": escape_rapido_off,
+            "rango_temp_estabilizacion": rango_temp_estabilizacion,
+            "timeout_recuperacion_estabilizacion": timeout_recuperacion_estabilizacion,
         }
         return valores.get(param, default)
 
@@ -131,6 +134,35 @@ def test_pwm_factor_cero_permanece_encendido():
     set_do.vapor_camara_on.assert_called()
 
 
+def test_pwm_activo_ignora_tasa_calentamiento_excedida():
+    """El control por tasa es exclusivo de APROXIMACION (plan, restricción
+    global) — una vez en PWM_ACTIVO, una pendiente que excedería
+    tasa_calentamiento no debe forzar OFF fuera del ciclo PWM programado."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, rango=2.0, factor=50.0, intervalo=2,
+                                       tasa_calentamiento=10.0, tasa_presion=200.0)
+    fase.update()  # inicializar
+    estado.sensores_temp["temp_camara"] = 130.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(130.0)
+    fase.update()  # entra a PWM_ACTIVO
+    assert fase._en_pwm is True
+
+    fase._temp_anterior = 130.0
+    fase._t_tick_anterior = time.time() - 60
+    # Fuerza el flanco ON del ciclo PWM en este tick (mismo patrón que
+    # test_pwm_pulso_on_luego_off_por_tiempo): _t_pulso_pwm usa tiempo real
+    # de reloj, y el test corre en microsegundos, así que sin rebobinarlo
+    # _tick_dos_estados no vería elapsed >= t_off y no llamaría a ninguna
+    # salida este tick, dejando la aserción sin poder distinguir un bug real.
+    fase._pwm_abierto = False
+    fase._t_pulso_pwm = time.time() - 100
+    estado.sensores_temp["temp_camara"] = 200.0  # 70°C/min > 10, muy por encima del límite
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
 # ── Escape lento / escape rápido (paralelos, independientes) ─────────────
 
 def test_escape_lento_off_cero_permanece_abierto():
@@ -186,7 +218,7 @@ def test_escapes_no_bloquean_a_vapor_camara():
     set_do.vapor_camara_on.assert_called()
 
 
-# ── Condición de finalización ─────────────────────────────────────────────
+# ── Condición de finalización / tramo ESTABLE_PREESTERILIZACION ──────────────
 
 def test_completa_sin_sostenimiento_cuando_tiempo_estable_es_cero():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=0)
@@ -218,7 +250,8 @@ def test_sostenimiento_arma_timer_y_no_completa_de_inmediato():
     estado.sensores_pres["pres_camara"] = p_obj
     result = fase.update()
     assert result == FaseResult.EN_CURSO
-    assert fase._timer_estable_inicio is not None
+    assert fase._en_sostenimiento is True
+    assert fase._timer_sostenido_desde is not None
     assert estado.fase_en_sostenimiento is True
 
 
@@ -230,30 +263,120 @@ def test_sostenimiento_completa_tras_transcurrir_el_tiempo():
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
 
-    fase._timer_estable_inicio -= 6  # simula que ya pasaron 6s (>= 5)
+    fase._timer_sostenido_desde -= 6  # simula que ya pasaron 6s (>= 5) dentro de banda
     result = fase.update()
     assert result == FaseResult.COMPLETADO
 
 
-def test_sostenimiento_timer_no_se_reinicia_si_condicion_sale_de_rango():
-    """A diferencia de EstabilizacionFase, el timer de sostenimiento de
-    CALENTAMIENTO no se reinicia ante una lectura momentáneamente fuera de
-    rango — es una decisión de diseño explícita (plan sección 5, FMEA)."""
+def test_sostenimiento_se_reinicia_si_presion_excede_la_banda_superior():
+    """Caso central del rediseño: si la presión se pasa de banda por inercia
+    térmica durante el sostenimiento, el conteo se reinicia — la fase espera
+    a que la presión regrese cerca de p_obj antes de volver a contar, en vez
+    de completar con la presión todavía inflada (motivo original del cambio:
+    CALENTAMIENTO entregaba a ESTERILIZACION con presión alta)."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.update()
     p_obj = p_saturacion_kpa(134.0) + 11.0
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
-    timer_inicial = fase._timer_estable_inicio
+    assert fase._timer_sostenido_desde is not None
 
-    estado.sensores_temp["temp_camara"] = 130.0  # sale de rango momentáneamente
+    estado.sensores_pres["pres_camara"] = p_obj + 50.0  # overshoot, muy fuera de banda (+-11)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._timer_sostenido_desde is None  # se reinició
+    assert estado.fase_en_sostenimiento is False
+
+    # Vuelve a banda: arranca un timer nuevo, no retoma el anterior
+    estado.sensores_pres["pres_camara"] = p_obj
     fase.update()
-    assert fase._timer_estable_inicio == timer_inicial  # no se reinició
+    assert fase._timer_sostenido_desde is not None
 
-    fase._timer_estable_inicio -= 6
+    fase._timer_sostenido_desde -= 6
     result = fase.update()
     assert result == FaseResult.COMPLETADO
+
+
+def test_sostenimiento_no_completa_si_temp_cae_por_debajo_del_objetivo():
+    """Regresión: la banda de sostenimiento debe ser de un solo lado — tolera
+    overshoot por encima de t_obj/p_obj (el proposito de este tramo), pero
+    nunca debe aceptar una lectura por debajo del objetivo, porque ESTERILIZACION
+    falla con solo 0.1°C de margen inferior (brecha_error_temperatura) y 3
+    ticks de debounce — una entrega por debajo del setpoint aborta el ciclo
+    casi de inmediato."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # arma el timer
+    assert fase._timer_sostenido_desde is not None
+
+    estado.sensores_temp["temp_camara"] = 133.5  # 0.5°C bajo el objetivo, dentro de rango_temp_estabilizacion=1.0
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._timer_sostenido_desde is None  # se reinició, NO se considera "dentro de rango"
+    assert estado.fase_en_sostenimiento is False
+
+
+def test_sostenimiento_no_completa_si_presion_cae_por_debajo_del_objetivo():
+    """Mismo caso que el de temperatura, pero para presión: una lectura bajo
+    p_obj no debe contar como "dentro de rango" aunque esté dentro de la
+    banda en valor absoluto."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # arma el timer
+    assert fase._timer_sostenido_desde is not None
+
+    estado.sensores_pres["pres_camara"] = p_obj - 5.0  # bajo el objetivo, dentro de presion_add=11 en valor absoluto
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._timer_sostenido_desde is None  # se reinició
+    assert estado.fase_en_sostenimiento is False
+
+
+def test_sostenimiento_timer_recuperacion_se_cancela_al_recuperar():
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5,
+                                       timeout_recuperacion_estabilizacion=2)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # arma el timer de sostenimiento
+
+    estado.sensores_pres["pres_camara"] = p_obj + 50.0  # sale de banda
+    fase.update()
+    assert fase._timer_recuperacion_fin is not None
+
+    estado.sensores_pres["pres_camara"] = p_obj  # recupera
+    fase.update()
+    assert fase._timer_recuperacion_fin is None
+
+
+def test_sostenimiento_fallo_si_nunca_converge_dentro_del_timeout_recuperacion():
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5,
+                                       timeout_recuperacion_estabilizacion=1)
+    fase.update()
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    fase.update()  # entra al tramo y arma timer de sostenimiento
+
+    estado.sensores_pres["pres_camara"] = p_obj + 50.0  # sale de banda, arma recuperación
+    fase.update()
+    assert fase._timer_recuperacion_fin is not None
+
+    fase._timer_recuperacion_fin -= 100  # simula que expiró el timeout de recuperación
+    result = fase.update()
+    assert result == FaseResult.FALLO
+    assert estado.motivo_fallo != ""
+    set_do.vapor_camara_off.assert_called()
+    set_do.descompresion_lenta_off.assert_called()
+    set_do.descompresion_rapida_off.assert_called()
 
 
 # ── FALLO: timeout global ──────────────────────────────────────────────────
@@ -270,75 +393,6 @@ def test_fallo_por_timeout_apaga_las_tres_salidas():
     assert estado.motivo_fallo != ""
 
 
-# ── FALLO: debounce de pendiente (3 lecturas consecutivas) ────────────────
-
-def test_tasa_calentamiento_no_falla_con_1_o_2_lecturas_excesivas():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0)
-    fase.update()  # inicializar
-
-    for _ in range(2):
-        fase._temp_anterior = 20.0
-        fase._t_tick_anterior = time.time() - 60  # dt = 1 min
-        estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min > 10°C/min
-        result = fase.update()
-        assert result == FaseResult.EN_CURSO
-
-
-def test_tasa_calentamiento_falla_al_tercer_exceso_consecutivo():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0)
-    fase.update()  # inicializar
-
-    result = FaseResult.EN_CURSO
-    for _ in range(3):
-        fase._temp_anterior = 20.0
-        fase._t_tick_anterior = time.time() - 60
-        estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min > 10°C/min
-        result = fase.update()
-
-    assert result == FaseResult.FALLO
-    set_do.vapor_camara_off.assert_called()
-
-
-def test_tasa_calentamiento_bidireccional_detecta_caida_abrupta():
-    """El FMEA (plan sección 8) marca tanto subida como caída abrupta de
-    temperatura como anómalas, no solo la subida."""
-    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, t_inicial=134.0)
-    fase.update()  # inicializar
-
-    result = FaseResult.EN_CURSO
-    for _ in range(3):
-        fase._temp_anterior = 134.0
-        fase._t_tick_anterior = time.time() - 60
-        estado.sensores_temp["temp_camara"] = 100.0  # caída de 34°C/min > 10
-        result = fase.update()
-
-    assert result == FaseResult.FALLO
-
-
-def test_tasa_presion_falla_al_tercer_exceso_consecutivo():
-    fase, estado, set_do = _make_fase(tasa_presion=50.0)
-    fase.update()  # inicializar
-
-    result = FaseResult.EN_CURSO
-    for _ in range(3):
-        fase._pres_anterior = 100.0
-        fase._t_tick_anterior = time.time() - 60
-        estado.sensores_pres["pres_camara"] = 200.0  # 100 kPa/min > 50
-        result = fase.update()
-
-    assert result == FaseResult.FALLO
-    set_do.vapor_camara_off.assert_called()
-
-
-def test_tasa_deshabilitada_con_cero_no_falla_por_salto_grande():
-    fase, estado, set_do = _make_fase(tasa_calentamiento=0.0, tasa_presion=0.0)
-    fase.update()
-    estado.sensores_temp["temp_camara"] = 135.0
-    estado.sensores_pres["pres_camara"] = 300.0
-    result = fase.update()
-    assert result != FaseResult.FALLO
-
-
 # ── Sensores no disponibles ────────────────────────────────────────────────
 
 def test_pres_none_no_avanza_ni_lanza_excepcion():
@@ -347,3 +401,160 @@ def test_pres_none_no_avanza_ni_lanza_excepcion():
     estado.sensores_pres.pop("pres_camara", None)
     result = fase.update()
     assert result == FaseResult.EN_CURSO
+
+
+# ── Control por tasa en APROXIMACION (bang-bang) ──────────────────────────
+
+def test_aproximacion_bangbang_on_primer_tick_sin_pendiente_disponible():
+    """Aunque tasa_calentamiento/tasa_presion estén habilitadas, el primer
+    tick no tiene pendiente calculable (_t_tick_anterior aún None) — la
+    válvula permanece ON por defecto."""
+    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=50.0)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._en_pwm is False
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
+def test_aproximacion_bangbang_on_si_tasas_dentro_del_limite():
+    fase, estado, set_do = _make_fase(tasa_calentamiento=50.0, tasa_presion=200.0)
+    fase.update()  # inicializar, primer tick sin pendiente
+
+    fase._temp_anterior = 20.0
+    fase._pres_anterior = 100.0
+    fase._t_tick_anterior = time.time() - 60  # dt = 1 min
+    estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min <= 50
+    estado.sensores_pres["pres_camara"] = 150.0  # 50 kPa/min <= 200
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
+def test_aproximacion_bangbang_off_si_tasa_temperatura_excede():
+    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=200.0)
+    fase.update()
+
+    fase._temp_anterior = 20.0
+    fase._pres_anterior = 100.0
+    fase._t_tick_anterior = time.time() - 60
+    estado.sensores_temp["temp_camara"] = 40.0  # 20°C/min > 10
+    estado.sensores_pres["pres_camara"] = 150.0  # 50 kPa/min <= 200, dentro
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO  # el control por tasa nunca produce FALLO, solo fuerza OFF
+    set_do.vapor_camara_off.assert_called()
+    set_do.vapor_camara_on.assert_not_called()
+
+
+def test_aproximacion_bangbang_off_si_tasa_presion_excede():
+    fase, estado, set_do = _make_fase(tasa_calentamiento=100.0, tasa_presion=30.0)
+    fase.update()
+
+    fase._temp_anterior = 20.0
+    fase._pres_anterior = 100.0
+    fase._t_tick_anterior = time.time() - 60
+    estado.sensores_temp["temp_camara"] = 25.0  # 5°C/min <= 100, dentro
+    estado.sensores_pres["pres_camara"] = 200.0  # 100 kPa/min > 30
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_off.assert_called()
+    set_do.vapor_camara_on.assert_not_called()
+
+
+def test_aproximacion_bangbang_vuelve_a_on_sin_tiempo_minimo_de_apagado():
+    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=200.0)
+    fase.update()
+
+    fase._temp_anterior = 20.0
+    fase._pres_anterior = 100.0
+    fase._t_tick_anterior = time.time() - 60
+    estado.sensores_temp["temp_camara"] = 40.0  # excede -> OFF
+    estado.sensores_pres["pres_camara"] = 150.0
+    fase.update()
+    assert fase._en_pwm is False
+
+    fase._t_tick_anterior = time.time() - 60  # siguiente tick, dt = 1 min otra vez
+    estado.sensores_temp["temp_camara"] = 41.0  # 1°C/min <= 10 ahora
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
+def test_aproximacion_bangbang_tasa_temperatura_deshabilitada():
+    fase, estado, set_do = _make_fase(tasa_calentamiento=0.0, tasa_presion=30.0)
+    fase.update()
+
+    fase._temp_anterior = 20.0
+    fase._pres_anterior = 100.0
+    fase._t_tick_anterior = time.time() - 60
+    estado.sensores_temp["temp_camara"] = 200.0  # 180°C/min, sería enorme pero deshabilitado (0)
+    estado.sensores_pres["pres_camara"] = 110.0  # 10 kPa/min <= 30, dentro
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
+def test_aproximacion_bangbang_tasa_presion_deshabilitada():
+    fase, estado, set_do = _make_fase(tasa_calentamiento=100.0, tasa_presion=0.0)
+    fase.update()
+
+    fase._temp_anterior = 20.0
+    fase._pres_anterior = 100.0
+    fase._t_tick_anterior = time.time() - 60
+    estado.sensores_temp["temp_camara"] = 25.0  # 5°C/min <= 100, dentro
+    estado.sensores_pres["pres_camara"] = 900.0  # 800 kPa/min, sería enorme pero deshabilitado (0)
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
+def test_aproximacion_bangbang_no_apaga_por_caida_abrupta_de_temperatura():
+    """El control solo limita la dirección de subida (sin abs()) porque la
+    válvula no puede enfriar la cámara."""
+    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=200.0)
+    fase.update()
+
+    fase._temp_anterior = 100.0
+    fase._pres_anterior = 100.0
+    fase._t_tick_anterior = time.time() - 60
+    estado.sensores_temp["temp_camara"] = 50.0  # caída de 50°C/min
+    estado.sensores_pres["pres_camara"] = 110.0  # dentro de rango
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    set_do.vapor_camara_on.assert_called()
+    set_do.vapor_camara_off.assert_not_called()
+
+
+def test_tasa_excedida_muchos_ticks_consecutivos_nunca_produce_fallo():
+    """tasa_calentamiento/tasa_presion son ahora puramente de control — ya
+    no existe ningún camino de FALLO por pendiente, sin importar cuántos
+    ticks consecutivos excedan el límite (ver spec de remoción de FALLO,
+    docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md)."""
+    fase, estado, set_do = _make_fase(tasa_calentamiento=10.0, tasa_presion=50.0)
+    fase.update()  # inicializar
+
+    result = FaseResult.EN_CURSO
+    for _ in range(10):
+        fase._temp_anterior = 20.0
+        fase._pres_anterior = 100.0
+        fase._t_tick_anterior = time.time() - 60
+        estado.sensores_temp["temp_camara"] = 100.0  # 80°C/min, muy por encima de 10
+        estado.sensores_pres["pres_camara"] = 500.0  # 400 kPa/min, muy por encima de 50
+        set_do.reset_mock()
+        result = fase.update()
+        assert result == FaseResult.EN_CURSO
+        set_do.vapor_camara_off.assert_called()
+        set_do.vapor_camara_on.assert_not_called()
+
+    assert result != FaseResult.FALLO

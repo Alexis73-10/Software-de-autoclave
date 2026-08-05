@@ -14,6 +14,7 @@ from autoclave.hal.measures.calibration_tools import invert_user_calibration, fi
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
 from autoclave.utils.resources import resource_path
+from autoclave.utils.git_autocommit import git_autocommit
 
 _TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
 
@@ -84,6 +85,7 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...)):
         CALIBRATION_PATH, tipo, index, new_gain, new_offset,
         shown_low, real_low, shown_high, real_high,
     )
+    git_autocommit(CALIBRATION_PATH, f"chore: recalibrar {tipo} {sensor} (auto)")
     context.units.reload_calibration(CALIBRATION_PATH)
     context.calibration_audit.log_change(
         tipo, sensor, shown_low, real_low, shown_high, real_high,
@@ -455,6 +457,39 @@ def update_cycle_parameters(body: dict = Body(...)):
     return {"ok": True}
 
 
+class _CycleParamValueBody(BaseModel):
+    cycle_id: str
+    fase: str
+    path: list[str]
+    value: object
+
+
+@app.patch("/cycle/parameter")
+def update_cycle_parameter(body: _CycleParamValueBody):
+    """Actualiza un único parámetro (cualquier sección) de cualquier ciclo cargado
+    y persiste si es 'user'. A diferencia de /cycle/parameters, no está limitado
+    a 'secado' ni requiere una tabla de validación hardcodeada: valida contra el
+    'type'/'min'/'max' que ya trae cada parámetro en su propio JSON."""
+    cycle = context.cycle_manager.cycles.get(body.cycle_id)
+    if cycle is None:
+        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
+
+    if not body.path:
+        raise HTTPException(status_code=422, detail="'path' no puede estar vacío")
+
+    try:
+        value = cycle.set_param(body.fase, body.path, body.value)
+    except KeyError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    except (TypeError, ValueError) as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+        _save_cycle_json(cycle)
+
+    return {"ok": True, "value": value}
+
+
 def _save_cycle_json(cycle) -> None:
     """Escribe cycle.parameters de vuelta al JSON del ciclo (solo ciclos user)."""
     import json as _json
@@ -466,6 +501,7 @@ def _save_cycle_json(cycle) -> None:
     data["parameters"] = cycle.parameters
     with open(path, "w", encoding="utf-8") as f:
         _json.dump(data, f, indent=4, ensure_ascii=False)
+    git_autocommit(path, f"chore: actualizar parametros de ciclo {cycle.id} (auto)")
 
 
 # Direct hardware access — bypasses control_loop, for bench validation only

@@ -13,7 +13,7 @@
 #
 # Mapping de fases a códigos del ticket:
 #   W (Warming)        → PRECALENTAMIENTO, PURGA, PRE_VACIO
-#   H (Heating)        → CALENTAMIENTO, ESTABILIZACION
+#   H (Heating)        → CALENTAMIENTO
 #   S (Sterilization)  → ESTERILIZACION
 #   E (Exhaust/End)    → COMPLETADO, CANCELADO, FALLO, EMERGENCIA
 
@@ -46,7 +46,6 @@ _FASE_A_CODIGO: dict[str, str] = {
     "PURGA":            "PG",
     "PRE_VACIO":        "PV",
     "CALENTAMIENTO":    "H",
-    "ESTABILIZACION":   "E",
     "ESTERILIZACION":   "S",
     "COMPLETADO":       "E",
     "CANCELADO":        "F",
@@ -61,7 +60,7 @@ _FASE_A_CODIGO: dict[str, str] = {
 # aparte (ver update()).
 _FASES_EN_CURSO: set[str] = {
     "PRECALENTAMIENTO", "PURGA", "PRE_VACIO",
-    "CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION",
+    "CALENTAMIENTO", "ESTERILIZACION",
     "SECADO", "DESCOMPRESION",
 }
 
@@ -106,6 +105,7 @@ class CycleLogger:
         self._ciclo_inicio      = None    # time.time() al iniciar
         self._ultimo_log        = 0.0     # time.time() del último registro
         self._ultima_fase_codigo = None   # para detectar cambio de fase
+        self._ultimo_sub_estado  = None   # para detectar cambio de paso interno de la fase
         self._ultima_temp        = None   # última temp_camara registrada (→ "Temp. final" del pie)
         # CicloState deja el estado global en CICLO (ESPERANDO_CONFIRMACION)
         # tras un fallo/cancelación/emergencia hasta que el operador confirma
@@ -194,6 +194,7 @@ class CycleLogger:
         self._ciclo_inicio       = time.time()
         self._ultimo_log         = 0.0    # primera lectura se hace inmediatamente
         self._ultima_fase_codigo = None
+        self._ultimo_sub_estado  = None
         self._ultima_temp        = None
         self._activo             = True
         self._cierre_ya_procesado = False
@@ -246,13 +247,19 @@ class CycleLogger:
     def _tick(self):
         fase_nombre  = self.estado.fase_ciclo or ""
         fase_codigo  = _FASE_A_CODIGO.get(fase_nombre, " ")
+        sub_estado   = getattr(self.estado, "sub_estado_ciclo", "") or ""
 
-        # ¿Cambió de fase? → registrar siempre (marca transición)
-        cambio_fase = (fase_codigo != self._ultima_fase_codigo)
+        # ¿Cambió de fase, o de paso interno dentro de la misma fase (p.ej.
+        # pulso de vacío bajo → alto)? → registrar siempre, como referencia
+        # de presión/temperatura al momento del cambio, sin esperar el
+        # intervalo periódico de impresión.
+        cambio_fase       = (fase_codigo != self._ultima_fase_codigo)
+        cambio_sub_estado = (sub_estado != self._ultimo_sub_estado)
 
-        if cambio_fase:
+        if cambio_fase or cambio_sub_estado:
             self._registrar_lectura(fase_codigo, para_imprimir=True)
             self._ultima_fase_codigo = fase_codigo
+            self._ultimo_sub_estado  = sub_estado
             return   # ya registramos, resetear el timer natural
 
         # ¿Se cumplió el intervalo?

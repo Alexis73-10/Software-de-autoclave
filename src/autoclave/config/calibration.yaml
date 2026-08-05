@@ -125,8 +125,9 @@ calibration:
       # anterior (5 puntos); a cambio de la simplicidad de 2 puntos, se acepta
       # una desviacion de hasta ~1.5 °C en el rango intermedio 100-135 °C
       # respecto al cubico previo (verificado, decision del usuario).
-      - gain: 1.010345
-        offset: 1.090435
+      # [calibracion-auto] Sensor temperature[0] -- recalibrado 2026-08-04 con 2 puntos contra equipo patron: bajo 60.0->60.0, alto 134.5->135.7.
+      - gain: 1.079022
+        offset: -6.163755
 
       - gain: 1.0
         offset: 0.0
@@ -153,9 +154,9 @@ calibration:
     pressure:
       # Sensor 0 — recalibrado 2026-07-22 con 2 puntos contra equipo patron:
       # bajo 12->9.54 kPa, alto 322->300 kPa.
-      # [calibracion-auto] Sensor pressure[0] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 16.0->14.0, alto 310.0->350.0.
-      - gain: 1.390451
-        offset: -67.193614
+      # [calibracion-auto] Sensor pressure[0] -- recalibrado 2026-08-04 con 2 puntos contra equipo patron: bajo 20.0->20.0, alto 307.0->318.0.
+      - gain: 1.364056
+        offset: -75.348611
 
       # Sensor 1 (pres_chaqueta) — reseteado a neutro 2026-07-23: el valor
       # anterior (gain=1.3466, offset=-67.11) era el dato de ejemplo de
@@ -164,18 +165,18 @@ calibration:
       # sensor. Pendiente: calibrar con manometro patron via la pantalla de
       # calibracion.
       # [calibracion-auto] Sensor pressure[1] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 105.0->75.0, alto 316.0->365.0.
-      - gain: 1.374408
-        offset: -69.312796
+      - gain: 1.313705
+        offset: -71.829031
 
       # Sensor 2 (pres_empaque_1) — mismo reseteo y misma razon que arriba.
       # [calibracion-auto] Sensor pressure[2] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 55.0->10.0, alto 296.0->337.0.
-      - gain: 1.356846
-        offset: -64.626556
+      - gain: 1.313705
+        offset: -71.829031
 
       # Sensor 3 (pres_empaque_2) — mismo reseteo y misma razon que arriba.
       # [calibracion-auto] Sensor pressure[3] -- recalibrado 2026-07-23 con 2 puntos contra equipo patron: bajo 55.0->10.0, alto 296.0->337.0.
-      - gain: 1.356846
-        offset: -64.626556
+      - gain: 1.313705
+        offset: -71.829031
 
       - gain: 1.3466
         offset: -67.11
