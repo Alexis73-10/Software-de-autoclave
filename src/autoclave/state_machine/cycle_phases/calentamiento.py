@@ -48,6 +48,38 @@ logger = logging.getLogger(__name__)
 # extrapolación, dando una tasa que refleja el ritmo real sostenido.
 _VENTANA_PENDIENTE_SEG = 10
 
+_FACTOR_TOPE_TEMPERATURA = 0.97
+
+
+def _duty_por_tasa(tasa_actual, tasa_max):
+    """Duty (0 a 1) por limite de pendiente: 1.0 si no hay restriccion
+    configurada o la pendiente ya esta dentro del limite; cae
+    proporcionalmente (tasa_max / tasa_actual) si lo excede."""
+    if tasa_max <= 0 or tasa_actual is None or tasa_actual <= 0:
+        return 1.0
+    return min(tasa_max / tasa_actual, 1.0)
+
+
+def _duty_por_proximidad(dist, margen):
+    """Fraccion de rampa restante hacia el objetivo: 1.0 a `margen` unidades
+    o mas de distancia, 0.0 en o despues del objetivo (dist <= 0), lineal
+    en el medio."""
+    if margen <= 0:
+        return 1.0 if dist > 0 else 0.0
+    return max(0.0, min(dist / margen, 1.0))
+
+
+def _duty_por_calidad_vapor(temp, pres, t_obj, p_add):
+    """Corte binario (0 o 1): una vez que temp cruza el 97% de t_obj, exige
+    que la presion ya corresponda a la temperatura real (P_sat(temp) +
+    p_add) -- evita inyectar cuando el sensor de temperatura corre por
+    delante de vapor no saturado."""
+    temp_cap = _FACTOR_TOPE_TEMPERATURA * t_obj
+    if temp < temp_cap:
+        return 1.0
+    p_min_para_temp = p_saturacion_kpa(temp) + p_add
+    return 1.0 if pres >= p_min_para_temp else 0.0
+
 
 class CalentamientoFase(BaseFase):
 

@@ -589,3 +589,69 @@ def test_tasa_excedida_muchos_ticks_consecutivos_nunca_produce_fallo():
         set_do.vapor_camara_on.assert_not_called()
 
     assert result != FaseResult.FALLO
+
+
+# ── Funciones puras de duty cycle (control continuo) ─────────────────────
+from autoclave.state_machine.cycle_phases.calentamiento import (
+    _duty_por_tasa,
+    _duty_por_proximidad,
+    _duty_por_calidad_vapor,
+)
+
+
+def test_duty_por_tasa_sin_restriccion_si_tasa_max_es_cero():
+    assert _duty_por_tasa(tasa_actual=1000.0, tasa_max=0.0) == 1.0
+
+
+def test_duty_por_tasa_sin_restriccion_si_tasa_actual_es_none():
+    assert _duty_por_tasa(tasa_actual=None, tasa_max=10.0) == 1.0
+
+
+def test_duty_por_tasa_sin_restriccion_si_tasa_actual_es_negativa_o_cero():
+    assert _duty_por_tasa(tasa_actual=0.0, tasa_max=10.0) == 1.0
+    assert _duty_por_tasa(tasa_actual=-5.0, tasa_max=10.0) == 1.0
+
+
+def test_duty_por_tasa_uno_si_pendiente_dentro_del_limite():
+    assert _duty_por_tasa(tasa_actual=5.0, tasa_max=10.0) == 1.0
+
+
+def test_duty_por_tasa_proporcional_si_pendiente_excede_el_limite():
+    assert _duty_por_tasa(tasa_actual=20.0, tasa_max=10.0) == 0.5
+
+
+def test_duty_por_proximidad_uno_lejos_del_objetivo():
+    assert _duty_por_proximidad(dist=10.0, margen=2.0) == 1.0
+
+
+def test_duty_por_proximidad_cero_en_o_despues_del_objetivo():
+    assert _duty_por_proximidad(dist=0.0, margen=2.0) == 0.0
+    assert _duty_por_proximidad(dist=-5.0, margen=2.0) == 0.0
+
+
+def test_duty_por_proximidad_interpola_dentro_de_la_banda():
+    assert _duty_por_proximidad(dist=1.0, margen=2.0) == 0.5
+
+
+def test_duty_por_proximidad_margen_cero_es_un_escalon():
+    assert _duty_por_proximidad(dist=5.0, margen=0.0) == 1.0
+    assert _duty_por_proximidad(dist=0.0, margen=0.0) == 0.0
+    assert _duty_por_proximidad(dist=-1.0, margen=0.0) == 0.0
+
+
+def test_duty_por_calidad_vapor_sin_restriccion_bajo_el_tope_del_97_por_ciento():
+    # t_obj=134 -> tope = 129.98; temp=129.0 esta debajo, sin importar la presion
+    assert _duty_por_calidad_vapor(temp=129.0, pres=0.0, t_obj=134.0, p_add=11.0) == 1.0
+
+
+def test_duty_por_calidad_vapor_cero_si_supera_el_tope_y_presion_no_corresponde():
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    # temp=130 >= tope (129.98); presion muy por debajo de P_sat(130)+11
+    assert _duty_por_calidad_vapor(temp=130.0, pres=1.0, t_obj=134.0, p_add=11.0) == 0.0
+
+
+def test_duty_por_calidad_vapor_uno_si_presion_ya_corresponde_a_la_temperatura():
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    temp = 130.0
+    p_min = p_saturacion_kpa(temp) + 11.0
+    assert _duty_por_calidad_vapor(temp=temp, pres=p_min, t_obj=134.0, p_add=11.0) == 1.0
