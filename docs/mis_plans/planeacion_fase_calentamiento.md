@@ -9,7 +9,7 @@
 
 ### Objetivo
 
-Elevar la cámara desde la condición de salida de PRE_VACIO hasta el punto de vapor saturado correspondiente al setpoint de esterilización (`temperatura_calentamiento` + `presion_add_calentamiento`), y sostener esa condición (presión y temperatura) durante `tiempo_estable_preesterilizacion` segundos antes de entregar el control a ESTABILIZACION. Es la fase que prepara las condiciones de entrada para el ciclo de esterilización propiamente dicho; no realiza ninguna función de esterilización por sí misma.
+Elevar la cámara desde la condición de salida de PRE_VACIO hasta el punto de vapor saturado correspondiente al setpoint de esterilización (`temperatura_calentamiento` + `presion_add_calentamiento`), y sostener esa condición (presión y temperatura) mediante una ventana continua de `tiempo_estable_preesterilizacion` segundos dentro de banda — reiniciada si sale de rango — antes de entregar el control directamente a ESTERILIZACION. Es la fase que prepara las condiciones de entrada para el ciclo de esterilización propiamente dicho; no realiza ninguna función de esterilización por sí misma. Absorbe la función que antes cumplía la fase separada `EstabilizacionFase` (eliminada del pipeline, ver `docs/superpowers/specs/2026-08-04-fusion-calentamiento-estabilizacion-design.md`).
 
 ### Reemplazo, no modificación
 
@@ -20,7 +20,7 @@ Esta especificación **elimina completamente** la implementación actual de `cal
 Sin cambios en la orquestación de `CicloState`:
 
 ```
-PRECALENTAMIENTO → PURGA → PRE_VACIO → CALENTAMIENTO → ESTABILIZACION → ESTERILIZACION
+PRECALENTAMIENTO → PURGA → PRE_VACIO → CALENTAMIENTO → ESTERILIZACION
 ```
 
 `CALENTAMIENTO` sigue devolviendo `FaseResult.EN_CURSO / COMPLETADO / FALLO` al orquestador — el rediseño es interno a la fase, no toca `ciclo.py`.
@@ -102,20 +102,25 @@ Tres tramos secuenciales, sin retroceso entre ellos (excepto por FALLO, que cort
                                                               ▼
                                                ┌────────────────────────────────┐
                                                │  ESTABLE_PREESTERILIZACION      │
-                                               │  fase_en_sostenimiento = True   │
                                                │  vapor_camara sigue en PWM      │
+                                               │  dentro_rango = |T-t_obj|<=rango_temp_estabilizacion
+                                               │    Y |P-P_obj|<=presion_add_calentamiento │
                                                └────────────────────────────────┘
-                                                              │ transcurrido >= tiempo_estable_preesterilizacion
-                                                              │ (o inmediato si == 0)
-                                                              ▼
-                                                         COMPLETADO
+                                                              │
+                                        ┌─────────────────────┴─────────────────────┐
+                                        │ dentro_rango: cuenta ventana continua       │ fuera de rango: reinicia
+                                        │ tiempo_estable_preesterilizacion segundos   │ el conteo; arma timeout
+                                        ▼                                            │ de recuperación
+                                   COMPLETADO                                        ▼
+                                                                            FALLO si no converge
+                                                                            en timeout_recuperacion_estabilizacion
 ```
 
 Los lazos de `descompresion_lenta` y `descompresion_rapida` corren **en paralelo a los tres tramos**, desde el inicio de la fase hasta `COMPLETADO`/`FALLO` — no están sincronizados con las transiciones de estado anteriores.
 
-`tasa_calentamiento` / `tasa_presion` ya no producen `FALLO` — son exclusivamente parámetros de control, consumidos por el bang-bang de `APROXIMACION` (ver nota de actualización debajo y sección 4.1).
+`tasa_calentamiento` / `tasa_presion` no producen `FALLO` — son exclusivamente parámetros de control, consumidos por el bang-bang de `APROXIMACION`.
 
-**Actualización (control por tasa en APROXIMACION):** dentro del tramo `APROXIMACION`, `vapor_camara` deja de ser "ON continuo" sin condición — pasa a un bang-bang directo por tick: ON salvo que la pendiente medida (`tasa_t`/`tasa_p`, calculados en el paso 3 de update()) ya supere `tasa_calentamiento`/`tasa_presion`. Solo limita la dirección de subida (la válvula no puede enfriar). `PWM_ACTIVO` y `ESTABLE_PREESTERILIZACION` no cambian. Ver detalle en `docs/superpowers/specs/2026-08-03-tasa-control-calentamiento-design.md`.
+Dentro del tramo `APROXIMACION`, `vapor_camara` es un bang-bang directo por tick: ON salvo que la pendiente medida (`tasa_t`/`tasa_p`) ya supere `tasa_calentamiento`/`tasa_presion`. Solo limita la dirección de subida (la válvula no puede enfriar).
 
 ---
 
@@ -151,15 +156,22 @@ Mismo patrón, temporizador independiente:
 ```
 P_obj = p_saturacion_kpa(temperatura_calentamiento) + presion_add_calentamiento
 
-condición_instantánea =
+condición_entrada_al_tramo =
     temp_camara >= temperatura_calentamiento
     Y
     pres_camara >= P_obj
+
+dentro_rango (evaluado cada tick DENTRO del tramo) =
+    |temp_camara - temperatura_calentamiento| <= rango_temp_estabilizacion
+    Y
+    |pres_camara - P_obj| <= presion_add_calentamiento
 ```
 
-- Si `tiempo_estable_preesterilizacion == 0`: `FaseResult.COMPLETADO` en el mismo tick en que `condición_instantánea` se cumple por primera vez.
-- Si `tiempo_estable_preesterilizacion > 0`: al cumplirse `condición_instantánea` por primera vez, arranca un timer simple (`_timer_estable_inicio = time.time()`), se activa `fase_en_sostenimiento = True`. El timer **no se reinicia** si la condición sale momentáneamente de rango (a diferencia de `EstabilizacionFase`, que sí usa un timer de recuperación separado — decisión de diseño explícita para esta fase). `COMPLETADO` cuando `time.time() - _timer_estable_inicio >= tiempo_estable_preesterilizacion`.
-- No hay tolerancia de banda adicional para "estable" — se reutiliza la misma condición `>=` de arriba, evaluada en cada tick durante el sostenimiento.
+- Al cumplirse `condición_entrada_al_tramo` por primera vez, se entra a `ESTABLE_PREESTERILIZACION`.
+- Cada tick dentro del tramo se evalúa `dentro_rango` contra los objetivos fijos:
+  - Si `True`: se cancela cualquier timeout de recuperación pendiente; si no hay una ventana en curso, arranca una (`_timer_sostenido_desde = now`). `COMPLETADO` cuando `time.time() - _timer_sostenido_desde >= tiempo_estable_preesterilizacion`.
+  - Si `False`: la ventana en curso se reinicia (`_timer_sostenido_desde = None`) — el conteo debe volver a empezar desde cero la próxima vez que entre en banda. Si no había un timeout de recuperación armado, se arma uno (`now + timeout_recuperacion_estabilizacion*60`); si se excede sin haber vuelto a `dentro_rango`, `FALLO`.
+- Con `tiempo_estable_preesterilizacion == 0`, la fórmula de arriba completa en el mismo tick en que se entra al tramo (la ventana requerida es de 0 segundos) — no hace falta un caso especial en el código.
 
 ---
 
@@ -197,11 +209,9 @@ Sin adiciones al HAL — las tres salidas ya existen.
 | APROXIMACION → PWM_ACTIVO | Oscilación entre tramos por ruido de sensor | Chattering de válvula, desgaste prematuro | Ruido de lectura cerca del límite de `rango_calentamiento` | N/A (por diseño no hay retorno) | Transición unidireccional (sección 4.1) |
 | Todo tramo | Sobrepresión por PWM mal calibrado (`factor_calentamiento` muy bajo) en PWM_ACTIVO, o por control por tasa insuficiente en APROXIMACION | Presión sube más rápido de lo esperado | `intervalo_segmentos_calor`/`factor_calentamiento` mal configurados para el volumen de cámara (PWM_ACTIVO); `tasa_presion` configurado muy alto (APROXIMACION) | Ninguna a nivel de esta fase (riesgo aceptado — ver sección 2 de `docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md`) | En APROXIMACION, `tasa_presion` gobierna `vapor_camara` en bang-bang (sección 4.1); en PWM_ACTIVO no hay mitigación automática |
 | Todo tramo | Rampa de temperatura anómala (subida o caída abrupta) | Riesgo de choque térmico, indicativo de fuga o sensor dañado | Sensor de temperatura defectuoso, fuga de vapor directa a cámara | Ninguna a nivel de esta fase (riesgo aceptado — ver sección 2 de `docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md`) | En APROXIMACION, `tasa_calentamiento` gobierna `vapor_camara` en bang-bang, solo dirección de subida (sección 4.1); una caída abrupta no tiene mitigación en ningún tramo |
-| ESTABLE_PREESTERILIZACION | Condición sale de rango pero timer no se reinicia (por diseño) | Fase completa con estabilidad marginal, no con estabilidad real sostenida | Ruido de sensor puntual durante el conteo | Ninguna a nivel de esta fase (riesgo aceptado por decisión de diseño) | Ver nota de riesgo abajo |
+| ESTABLE_PREESTERILIZACION | Oscilación prolongada dentro/fuera de banda nunca completa una ventana continua | Fase nunca completa por esta vía | Control de vapor_camara (PWM_ACTIVO) mal calibrado para el volumen de cámara, o inercia térmica mayor a la esperada | `timeout_recuperacion_estabilizacion` (timeout dedicado, arma cuando sale de banda, se cancela al recuperar) | Timeout dedicado + `timeout_calentamiento` global como red de seguridad final |
 | Todo el ciclo de la fase | `descompresion_lenta`/`descompresion_rapida` con parámetros mal configurados (p. ej. ambas abiertas simultáneamente en exceso) | Pérdida de vapor, calentamiento más lento de lo esperado, no crítico para seguridad | Error de comisionamiento/configuración | Ninguna automática — es configuración, no falla de sensor | Validación de rangos en `ConfigManager` al cargar perfil (fuera de esta fase) |
 | Todo el ciclo de la fase | Sensor de presión o temperatura no disponible (`None`) | Fase bloqueada indefinidamente si no se maneja | Desconexión de sensor, fallo de comunicación ESP32 | Chequeo `if temp is None / pres is None: return EN_CURSO` (no avanza, pero tampoco falla) — el timeout global eventualmente lo captura | Igual que fases existentes (`precalentamiento.py`, `esterilizacion.py`) |
-
-**Nota de riesgo (fila 6 de la matriz):** el timer de `tiempo_estable_preesterilizacion` sin reinicio ante salida de rango es una decisión de diseño explícita. Queda documentada aquí como riesgo aceptado, no como omisión — si en pruebas de comisionamiento se observa que la fase completa con lecturas inestables cerca del límite del conteo, la mitigación sería introducir un timer de recuperación (patrón ya usado en `EstabilizacionFase`), pero eso quedaría fuera del alcance actual salvo que se solicite explícitamente.
 
 ---
 

@@ -22,12 +22,12 @@ Se **elimina también** el parámetro `Compruebe RTC` del Excel (fila 15) — la
 Sin cambios en la orquestación de `CicloState`:
 
 ```
-... → CALENTAMIENTO → ESTABILIZACION → ESTERILIZACION → (fin de ciclo)
+... → CALENTAMIENTO → ESTERILIZACION → (fin de ciclo)
 ```
 
 ### Entradas
 
-- Estado de cámara al salir de ESTABILIZACION (ya validada en condición de vapor saturado, pero esta fase no asume que se mantenga — contempla tramo de recuperación desde el primer tick).
+- Estado de cámara al salir de CALENTAMIENTO (ya validada en condición de vapor saturado tras la ventana continua de estabilidad de su tramo ESTABLE_PREESTERILIZACION, pero esta fase no asume que se mantenga — contempla tramo de recuperación desde el primer tick).
 - Lecturas continuas de `temp_camara` y `pres_camara`.
 - Parámetros de la sección `esterilizacion` del perfil (14, ver tabla).
 
@@ -79,7 +79,7 @@ Todos con debounce de 3 lecturas consecutivas para las 4 condiciones de falla (1
 ## 3. Máquina de estados interna de la fase
 
 ```
-[Entrada desde ESTABILIZACION]
+[Entrada desde CALENTAMIENTO]
         │
         ▼
    ¿T < temperatura_esterilizacion + brecha_segura_temperatura?
@@ -105,7 +105,7 @@ Todos con debounce de 3 lecturas consecutivas para las 4 condiciones de falla (1
         chequeo de fallas (temp/pres alta/baja, debounce 3) → FALLO
 ```
 
-No hay tramo de aproximación tipo CALENTAMIENTO: la fase asume condición inicial cercana al setpoint (viene de ESTABILIZACION), y cualquier desviación se resuelve con la transición RECUPERACION↔PWM_ACTIVO.
+No hay tramo de aproximación tipo CALENTAMIENTO: la fase asume condición inicial cercana al setpoint (viene de CALENTAMIENTO tras su tramo ESTABLE_PREESTERILIZACION), y cualquier desviación se resuelve con la transición RECUPERACION↔PWM_ACTIVO.
 
 ---
 
