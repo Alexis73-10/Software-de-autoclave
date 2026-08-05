@@ -32,10 +32,21 @@
 
 import time
 import logging
+from collections import deque
 from autoclave.core.runtime.steam import p_saturacion_kpa
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
+
+# Ventana mínima (seg) para medir tasa_calentamiento/tasa_presion. El loop de
+# control tiquea cada ~0.5s (control_loop.py) y el sensor llega redondeado a
+# 0.1°C (converters.py) — una pendiente tick-a-tick queda dominada por ese
+# redondeo: la mayoría de los ticks miden delta=0 (vapor_camara ON sin freno)
+# y el resto un pico artificial extrapolado x120 (1min/0.5s) cuando el
+# redondeo por fin salta. Medir contra una muestra de al menos esta
+# antigüedad diluye tanto el ruido de cuantización como el factor de
+# extrapolación, dando una tasa que refleja el ritmo real sostenido.
+_VENTANA_PENDIENTE_SEG = 10
 
 
 class CalentamientoFase(BaseFase):
@@ -52,11 +63,11 @@ class CalentamientoFase(BaseFase):
         self._timer_sostenido_desde = None
         self._timer_recuperacion_fin = None
 
-        # Pendiente instantánea (tasa_calentamiento / tasa_presion) —
-        # alimenta el control de vapor_camara en APROXIMACION, paso 5
-        self._temp_anterior = None
-        self._pres_anterior = None
-        self._t_tick_anterior = None
+        # Pendiente sobre ventana (tasa_calentamiento / tasa_presion) —
+        # alimenta el control de vapor_camara en APROXIMACION, paso 5.
+        # Historial [(timestamp, temp, pres), ...] de al menos
+        # _VENTANA_PENDIENTE_SEG de profundidad; ver constante de módulo.
+        self._historial_pendiente = deque()
 
         # Temporizadores de dos estados (vapor PWM, escape lento, escape rápido)
         self._t_pulso_pwm = None
@@ -157,23 +168,33 @@ class CalentamientoFase(BaseFase):
         # ── 3. Cálculo de pendiente ──────────────────────────────────────
         # tasa_t/tasa_p alimentan el control de vapor_camara en APROXIMACION
         # (paso 5). No disparan FALLO — riesgo aceptado si vapor_camara no
-        # responde al comando OFF, ver spec de remoción de FALLO.
+        # responde al comando OFF, ver spec de remoción de FALLO. Se miden
+        # contra la muestra más antigua del historial que ya tenga al menos
+        # _VENTANA_PENDIENTE_SEG de antigüedad (no contra el tick anterior
+        # inmediato — ver constante de módulo).
+        self._historial_pendiente.append((now, temp, pres))
+        while (
+            len(self._historial_pendiente) > 1
+            and now - self._historial_pendiente[1][0] >= _VENTANA_PENDIENTE_SEG
+        ):
+            self._historial_pendiente.popleft()
+
         tasa_t = None
         tasa_p = None
-        if self._t_tick_anterior is not None:
-            dt_min = (now - self._t_tick_anterior) / 60
-            if dt_min > 0:
-                tasa_t = (temp - self._temp_anterior) / dt_min
-                tasa_p = (pres - self._pres_anterior) / dt_min
-
-        self._temp_anterior = temp
-        self._pres_anterior = pres
-        self._t_tick_anterior = now
+        t_ref, temp_ref, pres_ref = self._historial_pendiente[0]
+        edad = now - t_ref
+        if edad >= _VENTANA_PENDIENTE_SEG:
+            dt_min = edad / 60
+            tasa_t = (temp - temp_ref) / dt_min
+            tasa_p = (pres - pres_ref) / dt_min
 
         # ── 4. Entrada a PWM (unidireccional) ─────────────────────────────
-        if not self._en_pwm and abs(pres - p_saturacion_kpa(temp)) <= rango_cal:
+        # Ancla la entrada al objetivo fijo (p_obj/t_obj), no a la curva de
+        # saturación de la temperatura actual (que se mueve mientras sube) —
+        # ver docs/superpowers/specs/2026-08-05-fix-overshoot-calentamiento-design.md.
+        if not self._en_pwm and (pres >= p_obj - rango_cal or temp >= t_obj):
             self._en_pwm = True
-            logger.info("Calentamiento: banda alcanzada (%.1f kPa) — entra a PWM_ACTIVO", rango_cal)
+            logger.info("Calentamiento: objetivo cercano (%.1f kPa / %.1f°C) — entra a PWM_ACTIVO", p_obj, t_obj)
 
         # ── 5. Control de vapor_camara ─────────────────────────────────────
         if not self._en_pwm:
