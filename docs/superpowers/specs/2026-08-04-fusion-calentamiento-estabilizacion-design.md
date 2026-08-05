@@ -63,8 +63,8 @@ PWM_ACTIVO ──(temp >= t_obj Y pres >= p_obj)──► ESTABLE_PREESTERILIZAC
 | Parámetro | Rol nuevo |
 |---|---|
 | `tiempo_estable_preesterilizacion` | Duración de la ventana **continua** dentro de banda requerida para completar |
-| `rango_temp_estabilizacion` | Tolerancia de `temp` alrededor de `t_obj` para `dentro_rango` |
-| `presion_add_calentamiento` | Doble rol: define `p_obj = P_sat(t_obj) + presion_add_calentamiento` (sin cambio) y ahora también el ancho de tolerancia de `pres` alrededor de `p_obj` para `dentro_rango` |
+| `rango_temp_estabilizacion` | Tolerancia de `temp` **por encima** de `t_obj` para `dentro_rango` (banda de un solo lado — ver corrección debajo) |
+| `presion_add_calentamiento` | Doble rol: define `p_obj = P_sat(t_obj) + presion_add_calentamiento` (sin cambio) y ahora también el ancho de tolerancia de `pres` **por encima** de `p_obj` para `dentro_rango` |
 | `timeout_recuperacion_estabilizacion` | Timeout dedicado: si nunca se logra una ventana continua dentro de este tiempo, `FALLO` específico |
 
 Ningún parámetro nuevo. Ninguna migración de sección JSON.
@@ -122,5 +122,18 @@ Estas referencias a `estabilizacion.*` (sección que nunca existió en perfiles 
 ## 11. Riesgos aceptados / fuera de alcance
 
 - No hay control activo de venteo rápido si la presión se pasa de banda durante el sostenimiento — se sigue confiando en `descompresion_lenta` + ausencia de nueva inyección de vapor para que baje pasivamente. Si en comisionamiento se observa que esto tarda demasiado (choca seguido con el timeout de recuperación), la mitigación sería abrir `descompresion_rapida` como parte del tramo — explícitamente fuera de este alcance salvo que se solicite.
+- **Recuperación pasiva también por debajo de banda.** `EstabilizacionFase` (fase eliminada) hacía recuperación activa: `vapor_camara` en ON continuo mientras `temp < t_obj`. El tramo fusionado no reproduce ese control — `vapor_camara` sigue en el duty cycle normal de `PWM_ACTIVO` (paso 5 de `calentamiento.py`) sin importar cuán lejos esté por debajo del objetivo; solo cambia la condición de finalización (sección 3), no el control de la válvula. Si en comisionamiento se observa que el timeout de recuperación dispara con frecuencia por este motivo, la mitigación sería forzar `vapor_camara` ON continuo por debajo de banda dentro del tramo — explícitamente fuera de este alcance salvo que se solicite.
 - No se toca la sección JSON huérfana `estabilizacion` de `bowe_dick.json` (ver sección 8).
+
+### Corrección post-revisión (2026-08-05): banda de un solo lado
+
+La revisión final de la implementación encontró que la fórmula original de `dentro_rango` en las secciones 3-4 de este documento era **simétrica** (`|temp - t_obj| <= rango_temp_estabilizacion`, `|pres - p_obj| <= presion_add_calentamiento`), heredada sin querer de una lectura descuidada de "banda de tolerancia". Eso permitía completar el tramo con `temp`/`pres` **por debajo** del objetivo — contradiciendo la condición de entrada al tramo (`temp >= t_obj Y pres >= p_obj`) y, más grave, entregando a ESTERILIZACION con margen insuficiente: esa fase falla por temperatura/presión baja con solo `brecha_error_temperatura=0.1°C` / `brecha_error_presion=2kPa` de tolerancia y 3 ticks de debounce (~1.5s) — un handoff por debajo del setpoint aborta el ciclo casi de inmediato.
+
+Corregido a banda de un solo lado en `calentamiento.py:224`:
+
+```python
+dentro_rango = t_obj <= temp <= t_obj + rango_temp_estab and p_obj <= pres <= p_obj + p_add
+```
+
+Tolera overshoot por encima del objetivo (el propósito de este tramo) pero nunca acepta una lectura por debajo — consistente con la condición de entrada. Ver `tests/test_calentamiento_fase.py::test_sostenimiento_no_completa_si_temp_cae_por_debajo_del_objetivo` y `::test_sostenimiento_no_completa_si_presion_cae_por_debajo_del_objetivo` (regresión). Las secciones 3-4 de arriba ya reflejan la fórmula corregida.
 - Sensor de líquido secundario (`temp_camara_2`) — pendiente compartido ya documentado, no afectado por este cambio.
