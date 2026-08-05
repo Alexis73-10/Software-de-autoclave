@@ -8,7 +8,7 @@ from autoclave.core.runtime.steam import p_saturacion_kpa
 
 def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
                intervalo=3, rango_temp=3.0, rango_pres=30.0,
-               brecha_seg=0.3, brecha_err_t=0.1, brecha_err_p=2.0,
+               brecha_seg=0.3, brecha_seg_p=6.0, brecha_err_t=0.1, brecha_err_p=2.0,
                escape_lento_on=1, escape_lento_off=0,
                escape_rapido_on=0, escape_rapido_off=400,
                t_inicial=None, p_inicial=None):
@@ -38,6 +38,7 @@ def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
             "rango_temperatura_ester": rango_temp,
             "rango_presion_ester": rango_pres,
             "brecha_segura_temperatura": brecha_seg,
+            "brecha_segura_presion": brecha_seg_p,
             "brecha_error_temperatura": brecha_err_t,
             "brecha_error_presion": brecha_err_p,
             "escape_lento_on_ester": escape_lento_on,
@@ -103,6 +104,38 @@ def test_transicion_bidireccional_vuelve_a_recuperacion_sin_chattering_guard():
     assert result == FaseResult.EN_CURSO
     assert fase._en_recuperacion is True
     set_do.vapor_camara_on.assert_called()
+
+
+def test_presion_baja_dispara_recuperacion_aunque_temperatura_este_alta():
+    """Regresión directa del patrón observado en producción: la fuga
+    continua de descompresion_lenta hace caer la presión mientras la
+    temperatura se mantiene igual o por encima del setpoint. Sin este
+    disparador, RECUPERACION solo miraba temperatura y nunca se activaba
+    en ese caso — la presión seguía cayendo bajo el techo de PWM_ACTIVO
+    hasta FALLO sin que el control pasara a modo agresivo."""
+    fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=6.0)
+    fase.update()  # inicializa en RECUPERACION
+    p_sat_est = p_saturacion_kpa(134.0)
+    temp = 135.0  # por encima del setpoint, NO dispararía por temperatura
+    estado.sensores_temp["temp_camara"] = temp
+    estado.sensores_pres["pres_camara"] = p_sat_est - 6.1  # < P_sat(t_est) - 6.0
+    set_do.reset_mock()
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._en_recuperacion is True
+    set_do.vapor_camara_on.assert_called()
+
+
+def test_presion_dentro_del_margen_no_dispara_recuperacion_por_presion():
+    fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=6.0)
+    fase.update()
+    p_sat_est = p_saturacion_kpa(134.0)
+    temp = 135.0
+    estado.sensores_temp["temp_camara"] = temp
+    estado.sensores_pres["pres_camara"] = p_sat_est - 5.9  # dentro del margen
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._en_recuperacion is False
 
 
 # ── PWM_ACTIVO: banda fija [-2,+1] kPa sobre P_sat(T_actual) ────────────────

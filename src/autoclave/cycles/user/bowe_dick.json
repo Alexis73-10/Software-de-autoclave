@@ -405,7 +405,7 @@
                 "max": 100
             },
             "intervalo_segmentos_ester": {
-                "value": 3,
+                "value": 2,
                 "type": "int",
                 "unit": "seg",
                 "min": 0,

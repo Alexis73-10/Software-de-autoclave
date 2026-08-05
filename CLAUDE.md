@@ -41,9 +41,11 @@ Sostener la cámara en vapor saturado a `temperatura_esterilizacion` durante `ti
 
 ```
 RECUPERACION            T < temperatura_esterilizacion + brecha_segura_temperatura
-  vapor_camara ON continuo
+                        O P < P_sat(temperatura_esterilizacion) - brecha_segura_presion
+  vapor_camara ON continuo (sin techo de control)
        ↕ (evaluado en cada tick, sin guardia anti-chattering — a diferencia de CALENTAMIENTO)
 PWM_ACTIVO               T >= temperatura_esterilizacion + brecha_segura_temperatura
+                        Y P >= P_sat(temperatura_esterilizacion) - brecha_segura_presion
   vapor_camara en PWM dentro de banda fija [P_sat(T_actual)-2, P_sat(T_actual)+1] kPa:
     P < banda baja  → ON forzado
     P > banda alta  → OFF forzado
@@ -52,6 +54,8 @@ PWM_ACTIVO               T >= temperatura_esterilizacion + brecha_segura_tempera
     → OFF forzado sin importar la banda local (evita que la banda, que sigue a T_actual, arrastre
       la presión hasta el umbral real de falla rango_presion_ester)
 ```
+
+El disparador por presión (`brecha_segura_presion`, agregado 2026-08-04) cubre un caso visto en producción: la temperatura se mantiene igual o por encima del setpoint mientras la presión sola cae de forma sostenida (fuga continua de `descompresion_lenta`, que corre enclavada abierta durante toda la fase, más rápido de lo que el duty cycle de PWM_ACTIVO alcanza a compensar). Antes de este cambio, RECUPERACION solo miraba temperatura y nunca se activaba en ese escenario — la presión seguía cayendo bajo el techo de PWM_ACTIVO hasta disparar `FALLO_PRES_BAJA` sin que el control pasara nunca a modo agresivo (sin techo). Debe cumplirse `brecha_segura_presion > brecha_error_presion` para que RECUPERACION dispare antes que el FALLO, no al mismo tiempo.
 
 En paralelo, desde el primer tick e independientes entre sí:
 - `descompresion_lenta` / `descompresion_rapida` — temporizador de dos estados estándar (`escape_lento_on_ester`/`off_ester`, `escape_rapido_on_ester`/`off_ester`).
@@ -75,7 +79,8 @@ En paralelo, desde el primer tick e independientes entre sí:
 | `intervalo_segmentos_ester` | seg | 3 | Periodo del ciclo PWM |
 | `rango_temperatura_ester` | °C | 3 | Umbral de falla temp alta |
 | `rango_presion_ester` | kPa | 30 | Umbral de falla pres alta |
-| `brecha_segura_temperatura` | °C | 0.3 | Umbral bidireccional RECUPERACION↔PWM_ACTIVO |
+| `brecha_segura_temperatura` | °C | 0.3 | Umbral bidireccional RECUPERACION↔PWM_ACTIVO (temperatura) |
+| `brecha_segura_presion` | kPa | 6 | Umbral bidireccional RECUPERACION↔PWM_ACTIVO (presión) |
 | `brecha_error_temperatura` | °C | 0.1 | Umbral de falla temp baja |
 | `brecha_error_presion` | kPa | 2 | Umbral de falla pres baja |
 
