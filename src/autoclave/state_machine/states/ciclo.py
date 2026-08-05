@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 _SENSORES_TEMP_CRITICOS = ["temp_camara"]
 _SENSORES_PRES_CRITICOS = ["pres_camara"]
+_DEBOUNCE_LECTURAS_DRENAJE = 3
 
 # Resultado textual que CicloState devuelve al StateMachine
 class CicloResultado:
@@ -61,6 +62,8 @@ class CicloState:
         self.config        = config
         self.alarm_manager = alarm_manager
         self.cap           = cap
+        self._contador_drenaje_alta = 0
+        self._contador_drenaje_baja = 0
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -89,6 +92,8 @@ class CicloState:
         """
         self._fase_idx            = 0
         self._resultado_pendiente = None
+        self._contador_drenaje_alta = 0
+        self._contador_drenaje_baja = 0
         self.estado.motivo_fallo  = ""
         self._protocolo.reset()
 
@@ -166,8 +171,12 @@ class CicloState:
         # Dentro del rango: no cambiar estado
 
     def _mantener_drenaje(self):
-        """Mantiene la temperatura de drenaje durante todas las fases del
-        ciclo, sin bloquear el flujo del ciclo (alarma informativa)."""
+        """Mantiene la temperatura de drenaje durante todo el ciclo, incluyendo
+        las esperas de confirmación (COMPLETADO/FALLO/CANCELADO/emergencia).
+        Debounce simétrico de _DEBOUNCE_LECTURAS_DRENAJE lecturas consecutivas
+        antes de cambiar el estado de la válvula, para evitar activarla por
+        oscilaciones de temp_drenaje cerca del umbral. Sensor ausente no
+        resetea los contadores en progreso, solo salta el tick."""
         temp = self.estado.sensores_temp.get("temp_drenaje")
         if temp is None:
             return
@@ -176,6 +185,13 @@ class CicloState:
             return
 
         if temp > temp_segura:
+            self._contador_drenaje_alta += 1
+            self._contador_drenaje_baja = 0
+        else:
+            self._contador_drenaje_baja += 1
+            self._contador_drenaje_alta = 0
+
+        if self._contador_drenaje_alta >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_on()
             self.alarm_manager.report(Alarm(
                 alarm_id="TEMP_DRENAJE_ALTA",
@@ -185,7 +201,7 @@ class CicloState:
                 recoverable=True,
                 blocks_operation=False,
             ))
-        else:
+        elif self._contador_drenaje_baja >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_off()
             self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
 
