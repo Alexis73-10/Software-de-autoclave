@@ -256,11 +256,15 @@ class CicloState:
             # presión; el resto (FALLO/CANCELADO/emergencia) ya lo cubre
             # el protocolo de fallo, que corre continuamente. El drenaje
             # se mantiene sin importar la causa de fin de ciclo.
-            self._mantener_drenaje()
+            # _mantener_drenaje() corre DESPUÉS de _protocolo.update(): si el
+            # ALL_OFF inicial no se confirmó (ACK perdido por caída serial),
+            # update() reintenta reset_all_outputs() y apagaría el agua del
+            # intercambiador justo después de que este método la encendiera.
             if self._resultado_pendiente == CicloResultado.COMPLETADO:
                 self._mantener_valvula_reposo()
             else:
                 self._protocolo.update()
+            self._mantener_drenaje()
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 1. ¿El usuario canceló? ───────────────────────────────────
