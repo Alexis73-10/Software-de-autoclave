@@ -37,8 +37,8 @@ PWM_ACTIVO ──(temp >= t_obj Y pres >= p_obj)──► ESTABLE_PREESTERILIZAC
                                      ┌─────────────────────────────┐
                                      │  cada tick:                  │
                                      │  dentro_rango =               │
-                                     │    |temp - t_obj| <= rango_temp_estabilizacion
-                                     │    Y |pres - p_obj| <= presion_add_calentamiento
+                                     │    t_obj <= temp <= t_obj + rango_temp_estabilizacion
+                                     │    Y p_obj <= pres <= p_obj + presion_add_calentamiento
                                      └─────────────────────────────┘
                                                    │
                           ┌────────────────────────┴────────────────────────┐
