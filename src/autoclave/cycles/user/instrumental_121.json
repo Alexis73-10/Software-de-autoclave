@@ -377,7 +377,7 @@
                 "max": 1000
             },
             "temperatura_esterilizacion": {
-                "value": 134.0,
+                "value": 121.0,
                 "type": "float",
                 "unit": "°C",
                 "min": 100,
