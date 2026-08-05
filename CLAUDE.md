@@ -17,15 +17,14 @@ Convenciones compartidas por las fases:
 Secuencia actual (sin cambios de orquestación):
 
 ```
-PRECALENTAMIENTO → PURGA → PREVACIO → CALENTAMIENTO → ESTABILIZACION → ESTERILIZACION → (descompresión / secado / fin)
+PRECALENTAMIENTO → PURGA → PREVACIO → CALENTAMIENTO → ESTERILIZACION → (descompresión / secado / fin)
 ```
 
 Fases y su estado de diseño:
 - `precalentamiento.py` — sostiene presión de chaqueta.
 - `purga.py` — flujo de vapor para desplazar aire seco.
 - `prevacio.py` — pulsos de vacío/vapor (hasta 4 tipos configurables).
-- `calentamiento.py` — **rediseñado** (ver `docs/mis_plans/planeacion_fase_calentamiento.md`): tramos APROXIMACION → PWM_ACTIVO → ESTABLE_PREESTERILIZACION, sin retroceso entre ellos.
-- `estabilizacion.py` — sostiene `temperatura_calentamiento`; timer de recuperación separado si sale de rango.
+- `calentamiento.py` — **rediseñado** (ver `docs/mis_plans/planeacion_fase_calentamiento.md`): tramos APROXIMACION → PWM_ACTIVO → ESTABLE_PREESTERILIZACION, sin retroceso entre ellos. ESTABLE_PREESTERILIZACION exige una ventana continua de estabilidad (con reinicio ante overshoot) antes de entregar control a ESTERILIZACION — fusiona lo que antes era la fase separada `EstabilizacionFase` (ver `docs/superpowers/specs/2026-08-04-fusion-calentamiento-estabilizacion-design.md`).
 - `esterilizacion.py` — **rediseñado**, ver detalle abajo.
 - `descompresion.py`, `secado.py`, `valvula_reposo.py`, `protocolo_fallo.py` — sin cambios recientes.
 
@@ -36,7 +35,7 @@ Fases y su estado de diseño:
 Ver plan completo en `docs/mis_plans/planeacion_fase_esterilizacion.md`. Reemplazo total del `esterilizacion.py` anterior, que fallaba sin tolerancia inferior en temperatura/presión (bug `ESTERILIZACION_PRES_BAJA`: evaluaba la presión contra `P_sat(T_actual)` en vez de `P_sat(temperatura_esterilizacion)` fija).
 
 ### Objetivo
-Sostener la cámara en vapor saturado a `temperatura_esterilizacion` durante `tiempo_esterilizacion` minutos — la fase que efectivamente esteriliza. No hay tramo de aproximación: viene de ESTABILIZACION ya en condición de vapor saturado.
+Sostener la cámara en vapor saturado a `temperatura_esterilizacion` durante `tiempo_esterilizacion` minutos — la fase que efectivamente esteriliza. No hay tramo de aproximación: viene de CALENTAMIENTO ya en condición de vapor saturado.
 
 ### Máquina de estados interna (bidireccional, sin chattering-guard)
 
