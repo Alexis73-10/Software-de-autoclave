@@ -17,6 +17,7 @@ class SecadoFase(BaseFase):
         self._timer_fin         = None
         self._timeout_pulso_fin = None
         self._sub_estado        = None
+        self.estado.fase_en_sostenimiento = False
 
     def update(self) -> FaseResult:
         if not self.cap.has_vacuum:
@@ -37,6 +38,7 @@ class SecadoFase(BaseFase):
                 self._timeout_pulso_fin = time.time() + float(timeout_seg)
                 self._sub_estado = _PASO_VACIO_BAJO
             self._inicializado = True
+            self.estado.fase_en_sostenimiento = True
             logger.info("SecadoFase: modo %d | %.1f min", modo, float(tiempo_min))
 
         if modo == 1:
@@ -67,6 +69,7 @@ class SecadoFase(BaseFase):
         self.set_do.vacio_camara_off()
         self.set_do.aire_admosferico_camara_off()
         self.set_do.vapor_chaqueta_off()
+        self.estado.fase_en_sostenimiento = False
 
     # ── modos ───────────────────────────────────────────────────────────
 
