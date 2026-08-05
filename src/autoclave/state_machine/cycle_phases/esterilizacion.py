@@ -6,11 +6,23 @@
 # tiempo_esterilizacion minutos. No hay tramo de aproximación (viene ya
 # validada de ESTABILIZACION): dos tramos internos, bidireccionales entre sí,
 # evaluados en cada tick sin chattering-guard:
-#   RECUPERACION   T < T_est + brecha_segura_temperatura -> vapor_camara ON continuo
-#   PWM_ACTIVO     T >= T_est + brecha_segura_temperatura -> vapor_camara en PWM,
-#                  banda fija [-2,+1] kPa sobre P_sat(T_actual), techo de
-#                  control P_control_max = P_sat(T_est) + presion_add_esterilizacion
+#   RECUPERACION   T < T_est + brecha_segura_temperatura
+#                  O P < P_sat(T_est) - brecha_segura_presion
+#                  -> vapor_camara ON continuo (sin techo de control)
+#   PWM_ACTIVO     T >= T_est + brecha_segura_temperatura
+#                  Y P >= P_sat(T_est) - brecha_segura_presion
+#                  -> vapor_camara en PWM, banda fija [-2,+1] kPa sobre
+#                  P_sat(T_actual), techo de control
+#                  P_control_max = P_sat(T_est) + presion_add_esterilizacion
 #                  (fuerza OFF sin importar la banda local)
+#
+# El disparador por presión (brecha_segura_presion) cubre el caso en que la
+# presión cae de forma sostenida mientras la temperatura se mantiene cerca
+# o por encima del setpoint (fuga por descompresion_lenta, que corre
+# enclavada abierta durante toda la fase, más rápido de lo que el duty
+# cycle de PWM_ACTIVO puede compensar): sin este disparador, RECUPERACION
+# nunca se activaba porque solo miraba temperatura, y la presión seguía
+# cayendo hasta FALLO sin que el control pasara a modo agresivo.
 #
 # escape_lento y escape_rapido corren con temporizadores de dos estados
 # independientes en paralelo durante toda la fase, sin depender del tramo
@@ -147,6 +159,7 @@ class EsterilizacionFase(BaseFase):
         rango_temp   =  self.cycle.get_param("esterilizacion", "rango_temperatura_ester")      or 0.0
         rango_pres   =  self.cycle.get_param("esterilizacion", "rango_presion_ester")          or 0.0
         brecha_seg   =  self.cycle.get_param("esterilizacion", "brecha_segura_temperatura")    or 0.0
+        brecha_seg_p =  self.cycle.get_param("esterilizacion", "brecha_segura_presion")        or 0.0
         brecha_err_t =  self.cycle.get_param("esterilizacion", "brecha_error_temperatura")     or 0.0
         brecha_err_p =  self.cycle.get_param("esterilizacion", "brecha_error_presion")         or 0.0
         lento_on     =  self.cycle.get_param("esterilizacion", "escape_lento_on_ester")        or 0
@@ -215,8 +228,15 @@ class EsterilizacionFase(BaseFase):
 
         # ── 3. Transición bidireccional RECUPERACION↔PWM_ACTIVO ────────────
         # Sin chattering-guard: reacción inmediata ante pérdida de reserva
-        # térmica es el objetivo de diseño (plan sección 4.1).
-        self._en_recuperacion = temp < t_est + brecha_seg
+        # térmica o de presión es el objetivo de diseño (plan sección 4.1).
+        # La presión también dispara RECUPERACION: la temperatura puede
+        # mantenerse cerca del setpoint mientras la presión sola cae por la
+        # fuga continua de descompresion_lenta, y sin este chequeo el modo
+        # agresivo (sin techo de control) nunca se activaba en ese caso.
+        self._en_recuperacion = (
+            temp < t_est + brecha_seg
+            or pres < p_sat_est - brecha_seg_p
+        )
 
         # ── 4. Control de vapor_camara ─────────────────────────────────────
         if self._en_recuperacion:
