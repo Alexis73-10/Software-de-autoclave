@@ -21,7 +21,7 @@
                 "type": "bool"
             },
             "presion_chaqueta": {
-                "value": 350,
+                "value": 250,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
