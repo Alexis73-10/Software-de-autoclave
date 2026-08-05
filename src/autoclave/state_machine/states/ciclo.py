@@ -254,7 +254,9 @@ class CicloState:
             # Mantener la válvula de reposo activa mientras se espera
             # confirmación: COMPLETADO limpio usa su propio monitor de
             # presión; el resto (FALLO/CANCELADO/emergencia) ya lo cubre
-            # el protocolo de fallo, que corre continuamente.
+            # el protocolo de fallo, que corre continuamente. El drenaje
+            # se mantiene sin importar la causa de fin de ciclo.
+            self._mantener_drenaje()
             if self._resultado_pendiente == CicloResultado.COMPLETADO:
                 self._mantener_valvula_reposo()
             else:
