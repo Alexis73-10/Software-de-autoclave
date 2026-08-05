@@ -292,3 +292,5 @@ class UIServiceBackend:
             return False, detail
         except requests.RequestException as e:
             return False, f"No se pudo contactar al backend: {e}"
+        except Exception as e:
+            return False, f"Error inesperado: {e}"

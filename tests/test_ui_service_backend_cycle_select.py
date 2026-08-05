@@ -67,3 +67,16 @@ def test_select_cycle_error_conexion():
 
     assert ok is False
     assert "backend" in motivo.lower()
+
+
+def test_select_cycle_error_inesperado_jsondecode():
+    """Verifica que JSONDecodeError (respuesta 200 con body no JSON) sea capturado."""
+    backend = MagicMock()
+    backend.post.side_effect = ValueError("respuesta invalida")
+    service = _make_service(backend)
+
+    ok, motivo = service.select_cycle("bowe_dick")
+
+    assert ok is False
+    assert "Error inesperado" in motivo
+    assert "respuesta invalida" in motivo
