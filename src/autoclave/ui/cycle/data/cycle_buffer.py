@@ -19,6 +19,7 @@ FASE_DURACION_PARAM: dict[str, str] = {
     "PRE_VACIO":        "tiempo_prevacio",
     "CALENTAMIENTO":    "tiempo_calentamiento",
     "ESTERILIZACION":   "tiempo_esterilizacion",
+    "SECADO":           "tiempo_secado",
 }
 
 

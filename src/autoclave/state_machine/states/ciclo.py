@@ -70,8 +70,8 @@ class CicloState:
             PrevacioFase(*_args),
             CalentamientoFase(*_args),
             EsterilizacionFase(*_args),
-            SecadoFase(*_args),
             DescompresionFase(*_args),
+            SecadoFase(*_args),
         ]
 
         self._protocolo          = ProtocoloFallo(estado, set_do, cycle, config)
@@ -388,12 +388,13 @@ class CicloState:
     # ------------------------------------------------------------------
 
     def abortar_por_desconexion(self):
-        """Llamado por ControlLoop cuando se pierde la comunicación serial
+        """Llamado por ControlLoop cuando la comunicación serial lleva caída
+        más que su tolerancia (ControlLoop._TOLERANCIA_DESCONEXION_SEG)
         durante un ciclo en curso. run() no puede detectarlo por sí mismo
         porque, sin conexión, el ControlLoop deja de invocar
         state_machine.update() (no hay datos frescos de sensores) — así que
-        el aborto se dispara directamente en cuanto se detecta la caída,
-        sin esperar al siguiente tick normal."""
+        el aborto se dispara directamente desde ControlLoop en vez de
+        esperar al siguiente tick normal."""
         if self._resultado_pendiente is not None:
             return  # ya se estaba abortando/terminando por otra causa
 
