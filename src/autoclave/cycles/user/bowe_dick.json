@@ -44,7 +44,7 @@
                 "max": 3600
             },
             "presion_precalentamiento": {
-                "value": 250,
+                "value": 350,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
