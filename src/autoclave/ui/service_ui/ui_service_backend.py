@@ -29,6 +29,10 @@ class UIServiceBackend:
 
         # Hilo de actualización en segundo plano
         self._stop   = threading.Event()
+        # Fuerza un refresh inmediato de _fetch_static() (en vez de esperar
+        # hasta 5s) — usado por select_cycle() para que el cambio de ciclo
+        # optimista en la UI no sea revertido por el cache viejo.
+        self._force_static = threading.Event()
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
@@ -40,8 +44,9 @@ class UIServiceBackend:
         _counter = 0
         while not self._stop.is_set():
             self._fetch_status()
-            if _counter == 0:
+            if _counter == 0 or self._force_static.is_set():
                 self._fetch_static()
+                self._force_static.clear()
             _counter = (_counter + 1) % self._STATIC_EVERY
             self._stop.wait(self._STATUS_INTERVAL)
 
@@ -280,9 +285,15 @@ class UIServiceBackend:
             return []
 
     def select_cycle(self, cycle_id: str) -> tuple[bool, str]:
-        """Cambia el ciclo activo. Retorna (ok, motivo — vacío si ok)."""
+        """Cambia el ciclo activo. Retorna (ok, motivo — vacío si ok).
+
+        Al tener éxito, dispara un refresh inmediato de /cycle y
+        /global_params (en vez de esperar hasta 5s al próximo ciclo de
+        _fetch_static) para que el nombre optimista ya pintado en la UI no
+        sea revertido por el cache viejo poco después."""
         try:
             self.backend.post(path="/cycle/select", body={"cycle_id": cycle_id})
+            self._force_static.set()
             return True, ""
         except requests.HTTPError as e:
             try:
