@@ -176,3 +176,32 @@ import time
 | `src/autoclave/services/domain/loop/control_loop.py` | Modificar — pasar `door_service=self.door_service` en las dos construcciones de `StateMachine` |
 | `tests/test_ciclo_apertura_automatica.py` | Crear |
 | `tests/test_control_loop.py` (o equivalente) | Modificar — test de wiring de `door_service` |
+
+---
+
+## Addendum (2026-08-06) — correcciones tras la revisión final de rama completa
+
+La implementación de las 3 tareas de arriba pasó revisión individual limpia, pero la revisión final de rama completa (que mira el conjunto, no cada commit aislado) encontró brechas de seguridad reales que este addendum corrige. Cambia el comportamiento de `_mantener_apertura_automatica()` descrito arriba en 3 puntos; el resto de la spec (parámetros, disparador, alcance) no cambia.
+
+### 1. Gate de presión fail-closed (antes: ausente)
+
+La única protección de presión era `ServicioPuertas._can_open_physical`, que **omite el chequeo si falta el sensor** (falla abierto). El botón manual CONFIRMAR de la UI hace lo contrario — exige `pres_camara` presente y dentro de `presion_admosferica ± rango_presion_atm` para siquiera habilitar el botón (falla cerrado). Se replica ese mismo criterio fail-closed dentro de `_mantener_apertura_automatica()`, antes de intentar abrir: sensor ausente o presión fuera de rango → no se intenta nada (se sigue esperando, sin alarma nueva — el chequeo de temperatura ya cubre el caso "sigue esperando indefinidamente").
+
+### 2. Confirmación basada en el estado observado de la puerta, no en la respuesta de `request_open`
+
+`request_open() == True` solo significa que el comando se despachó, no que la puerta se movió: `AdvancedDoor.cmd_abrir()` se auto-cancela en silencio si el DI de bloqueo mecánico está activo (sigue devolviendo éxito desde `request_open`), y una puerta `SimpleDoor` no tiene actuador (`cmd_abrir()` es un no-op). Confirmar el ciclo en ese momento cerraría el ciclo sin que la puerta realmente abra.
+
+Se reemplaza el chequeo `if ok:` por una verificación del estado observado (`door_service.get_status(puerta)` — ya existente, wrapper de `estado.get_door_state`). Solo se confirma cuando el estado es `"ABRIENDO"` o `"ABIERTO"`. Mientras no lo sea, se reintenta `request_open` cada `_INTERVALO_REINTENTO_APERTURA_SEG = 5.0` segundos (antes se reintentaba en cada tick — con el intervalo de control por defecto de 0.5s, eso significaba ~2 intentos/seg y ~4 líneas de warning/seg hacia `src/logs/autoclave.log`, que no tiene rotación). Si la denegación se sostiene más de `_TIMEOUT_APERTURA_DENEGADA_SEG = 60.0` segundos, se reporta una alarma `ALERTA` no bloqueante de una sola vez (`APERTURA_AUTOMATICA_DENEGADA`, con el motivo real devuelto por `request_open`) — igual que la alarma de timeout de temperatura, nunca se deja de esperar ni se cae a modo manual; la alarma es solo aviso.
+
+### 3. `temp_max_apertura` del ciclo nunca por encima del global
+
+El valor por ciclo (`finalizacion.temp_max_apertura`) y el global (`config.temp_max_apertura`, el que valida `ServicioPuertas._can_open_physical`) son independientes — nada impedía configurar el del ciclo más alto que el global, lo que reproduciría el punto 2 en silencio (el gate por ciclo pasa, pero `_can_open_physical` bloquea para siempre sin que nada lo distinga de una puerta con interlock). Se resuelve tomando el mínimo de los dos en el punto de uso: `temp_max = min(temp_max_ciclo, temp_max_global)` si el global existe. Invariante a respetar al configurar equipos en campo: `finalizacion.temp_max_apertura` (por ciclo) no debería configurarse por encima del `temp_max_apertura` global del equipo — si se hace, esta cláusula lo vuelve inofensivo (se usa el más estricto) en vez de fallar en silencio.
+
+### Rollout
+
+Los 3 perfiles `src/autoclave/cycles/user/*.json` (`instrumental_134`, `instrumental_121`, `bowe_dick`) traían `apertura_automatica: true` desde que se agregó el parámetro (spec `2026-06-22-params-ciclo`), sin que la función tuviera lógica detrás. Con esta spec implementada, dejarlo así activaría la apertura automática en producción apenas se despliegue, sin validación previa en campo. Se cambian los 3 a `false` — se activa manualmente por sitio cuando esté validado. Los perfiles `factory/*.json` ya traían `false` por defecto, sin cambios.
+
+### No incluido en este addendum (evaluado y descartado por alcance)
+
+- Cerrar la ventana de la UI (`CycleWindow`) automáticamente al salir de `CICLO` tras la auto-confirmación — hoy el operador aún debe hacer clic en CONFIRMAR aunque el backend ya haya transicionado (el clic no falla, solo es un paso manual redundante). Se deja para un cambio de UI aparte; no es un riesgo de seguridad, solo una molestia de flujo.
+- `time.monotonic()` en vez de `time.time()` para los timers de esta función — se mantiene `time.time()` por consistencia con el resto del archivo (`esterilizacion.py`, `calentamiento.py`, `descompresion.py`, `prevacio.py` usan el mismo patrón); un salto de reloj hacia atrás afecta a todos esos timers por igual, no es un riesgo nuevo introducido por esta feature.
