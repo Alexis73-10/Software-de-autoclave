@@ -642,6 +642,19 @@ class InterfazPrincipal(tk.Tk):
                     estado_actual = self.ui_service.get_estado_global()
                     if estado_actual == "CICLO" and self._prev_machine_state != "CICLO":
                         self._open_cycle_window()
+                    elif estado_actual != "CICLO" and self._cycle_win is not None:
+                        # El backend ya transicionó fuera de CICLO (confirmación
+                        # manual o automática vía apertura_automatica) pero la
+                        # ventana sigue abierta -- ciérrala sin esperar al
+                        # operador. En el flujo manual esto es un no-op: el
+                        # click en CONFIRMAR ya cerró la ventana (y puso
+                        # self._cycle_win en None vía el callback on_close)
+                        # antes de que este poll corra.
+                        try:
+                            if self._cycle_win.winfo_exists():
+                                self._cycle_win._close()
+                        except tk.TclError:
+                            pass
                     self._prev_machine_state = estado_actual
 
             except Exception as e:
