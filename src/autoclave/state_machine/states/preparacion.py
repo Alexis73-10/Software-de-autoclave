@@ -27,6 +27,7 @@ class preparacion_state:
 
         # Confirmadores de apagado (evitan chattering de valvula)
         self._confirmador_chaqueta = ConfirmadorApagado()
+        self._confirmador_drenaje = ConfirmadorApagado()
 
     #definicion del estado preparacion:
     # Todas las condiciones se evalúan en paralelo, cada tick, sin bloquear
@@ -255,16 +256,29 @@ class preparacion_state:
         
     def verificar_temperatura_drenaje(self):
             temp_drenaje = self.estado.sensores_temp["temp_drenaje"]
-            temp_segura = self.config.get("temp_segura_drenaje")
-            if temp_drenaje <= temp_segura:  # Suponiendo 40°C como temperatura segura
-                self.set_do.agua_intercambiador_off()
-                self.alarm_manager.clear("TEMPERATURA_DRENAJE_ALTA")
-                return True
+            temp_obj = self.config.get("temp_segura_drenaje")
+            rango = self.config.get("rango_temp_drenaje")
 
-            self.set_do.agua_intercambiador_on()
-            alarm_id = "TEMPERATURA_DRENAJE_ALTA"
-            self.alarm(alarm_id, AlarmType.ALERTA)
-            return False
+            r = evaluar_banda(temp_drenaje, temp_obj, rango, activar_si_bajo=False)
+
+            # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
+            if r.debe_activar:
+                self.set_do.agua_intercambiador_on()
+                self._confirmador_drenaje.reset()
+            elif self._confirmador_drenaje.confirmar(True):
+                self.set_do.agua_intercambiador_off()
+
+            # Alarma bloqueante: solo al cruzar el borde superior de la banda.
+            # No hay alarma de lado bajo: no existe accion fisica para
+            # "drenaje muy frio", pero el lado bajo si participa del gate de
+            # listo/inicio via dentro_de_banda.
+            if r.fuera_por_encima:
+                alarm_id = "TEMPERATURA_DRENAJE_ALTA"
+                self.alarm(alarm_id, AlarmType.ALERTA)
+            else:
+                self.alarm_manager.clear("TEMPERATURA_DRENAJE_ALTA")
+
+            return r.dentro_de_banda
         
     def reset(self):
         pass
