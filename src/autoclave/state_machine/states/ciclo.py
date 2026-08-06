@@ -55,13 +55,14 @@ class CicloState:
         alarm_manager → AlarmManager
     """
 
-    def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None):
+    def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None, door_service=None):
         self.estado        = estado
         self.set_do        = set_do
         self.cycle         = cycle
         self.config        = config
         self.alarm_manager = alarm_manager
         self.cap           = cap
+        self.door_service  = door_service
         self._contador_drenaje_alta = 0
         self._contador_drenaje_baja = 0
 

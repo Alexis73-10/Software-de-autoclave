@@ -122,3 +122,28 @@ def test_sin_realtime_printer_no_rompe():
     loop = _make_loop(realtime_printer=None)
 
     _run_one_tick(loop, connected=False)  # no debe lanzar excepción
+
+
+def test_control_loop_pasa_door_service_a_state_machine():
+    from unittest.mock import patch
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+
+    cycle_manager = MagicMock()
+    cycle_manager.get_selected_cycle.return_value = MagicMock()
+    door_service = MagicMock()
+
+    with patch("autoclave.services.domain.loop.control_loop.StateMachine") as MockSM:
+        ControlLoop(
+            units=MagicMock(),
+            door_service=door_service,
+            doors=[],
+            estado=_FakeEstado(),
+            link=MagicMock(),
+            set_do=MagicMock(),
+            alarm_manager=MagicMock(),
+            cycle_manager=cycle_manager,
+            config_manager=MagicMock(),
+        )
+
+    _, kwargs = MockSM.call_args
+    assert kwargs["door_service"] is door_service
