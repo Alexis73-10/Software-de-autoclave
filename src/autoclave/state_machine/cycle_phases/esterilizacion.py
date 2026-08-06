@@ -56,6 +56,7 @@ class EsterilizacionFase(BaseFase):
     def reset(self):
         self._inicializado = False
         self._timer_fin = None
+        self._timer_timeout_max = None
         self._en_recuperacion = True
 
         # Debounce de las 4 condiciones de falla (referencia fija t_est)
@@ -166,6 +167,8 @@ class EsterilizacionFase(BaseFase):
         lento_off    =  self.cycle.get_param("esterilizacion", "escape_lento_off_ester")       or 0
         rapido_on    =  self.cycle.get_param("esterilizacion", "escape_rapido_on_ester")       or 0
         rapido_off   =  self.cycle.get_param("esterilizacion", "escape_rapido_off_ester")      or 0
+        f0_activo    =  bool(self.cycle.get_param("globals", "F0"))
+        f0_objetivo  =  self.cycle.get_param("globals", "F0_objetivo")      or 0.0
 
         p_sat_est = p_saturacion_kpa(t_est)
         p_control_max = p_sat_est + presion_add
@@ -175,6 +178,8 @@ class EsterilizacionFase(BaseFase):
         # la disponibilidad de sensores (plan sección 5).
         if not self._inicializado:
             self._timer_fin = time.time() + tiempo_seg
+            if f0_activo:
+                self._timer_timeout_max = time.time() + 2 * tiempo_seg
             self._inicializado = True
             self.estado.fase_en_sostenimiento = True
             logger.info(
@@ -255,11 +260,33 @@ class EsterilizacionFase(BaseFase):
         )
 
         # ── 6. Condición de finalización ─────────────────────────────────
-        # Única variable de éxito: el conteo de tiempo, sin importar el tramo
-        # de control activo (RECUPERACION o PWM_ACTIVO).
-        if now >= self._timer_fin:
-            logger.info("Esterilización: COMPLETADO — %.0f seg completados", tiempo_seg)
+        # Sin F0: única variable de éxito es el conteo de tiempo, sin
+        # importar el tramo de control activo (RECUPERACION o PWM_ACTIVO).
+        # Con F0: además del tiempo, exige letalidad acumulada suficiente —
+        # un timeout de seguridad (2x tiempo_esterilizacion) cubre el caso
+        # en que F0 nunca llega (fuga, descalibración de sensor).
+        tiempo_cumplido = now >= self._timer_fin
+
+        if not f0_activo:
+            if tiempo_cumplido:
+                logger.info("Esterilización: COMPLETADO — %.0f seg completados", tiempo_seg)
+                self._apagar_salidas()
+                return FaseResult.COMPLETADO
+            return FaseResult.EN_CURSO
+
+        f0_cumplido = self.estado.f0_acumulado >= f0_objetivo
+        if tiempo_cumplido and f0_cumplido:
+            logger.info(
+                "Esterilización: COMPLETADO — %.0f seg completados, F0=%.2f/%.1f min",
+                tiempo_seg, self.estado.f0_acumulado, f0_objetivo,
+            )
             self._apagar_salidas()
             return FaseResult.COMPLETADO
+
+        if now >= self._timer_timeout_max:
+            return self._fallo(
+                f"ESTERILIZACION_TIMEOUT_F0: F0 no alcanzado tras {2 * tiempo_seg / 60:.0f} min "
+                f"(F0={self.estado.f0_acumulado:.2f}/{f0_objetivo:.1f} min)"
+            )
 
         return FaseResult.EN_CURSO

@@ -9,6 +9,7 @@
     "parameters": {
         "globals": {
             "F0": {"value":false, "type": "bool"},
+            "F0_objetivo": {"value":12, "type": "float", "unit":"min", "min":0, "max":60},
             "ciclos_multiples": {"value":true, "type":"bool"},
             "enfriar_chaqueta_secado": {"value":false, "type":"bool"},
             "presion_chaqueta": {"value":300, "type":"int", "unit":"kPa", "min":0, "max":400},

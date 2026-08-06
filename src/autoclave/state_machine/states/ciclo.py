@@ -109,6 +109,7 @@ class CicloState:
         self._apertura_auto_denegada_desde = None
         self._apertura_auto_alarmado_denegacion = False
         self.estado.motivo_fallo  = ""
+        self.estado.f0_acumulado  = 0.0
         self._protocolo.reset()
 
         for fase in self._fases:

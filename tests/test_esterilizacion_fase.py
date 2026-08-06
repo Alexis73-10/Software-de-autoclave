@@ -11,7 +11,8 @@ def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
                brecha_seg=0.3, brecha_seg_p=1.5, brecha_err_t=0.1, brecha_err_p=2.0,
                escape_lento_on=1, escape_lento_off=0,
                escape_rapido_on=0, escape_rapido_off=400,
-               t_inicial=None, p_inicial=None):
+               t_inicial=None, p_inicial=None,
+               f0_activo=False, f0_objetivo=12.0, f0_acumulado_inicial=0.0):
     """Por defecto arranca en RECUPERACION: T_inicial = t_est (viene de
     ESTABILIZACION ya en condición de vapor saturado), presión en
     P_sat(t_est) — dentro de todos los márgenes de falla por defecto."""
@@ -25,6 +26,7 @@ def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
     estado.sensores_pres = {"pres_camara": p_inicial}
     estado.fase_en_sostenimiento = False
     estado.motivo_fallo = ""
+    estado.f0_acumulado = f0_acumulado_inicial
     set_do = MagicMock()
     cycle = MagicMock()
 
@@ -45,6 +47,8 @@ def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
             "escape_lento_off_ester": escape_lento_off,
             "escape_rapido_on_ester": escape_rapido_on,
             "escape_rapido_off_ester": escape_rapido_off,
+            "F0": f0_activo,
+            "F0_objetivo": f0_objetivo,
         }
         return valores.get(param, default)
 
@@ -444,5 +448,67 @@ def test_sensor_none_no_completa_aunque_el_timer_ya_haya_expirado():
     fase.update()  # inicializa y fija _timer_fin
     fase._timer_fin -= 100  # el timer ya venció
     estado.sensores_pres.pop("pres_camara", None)
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+
+
+# ── F0 (letalidad acumulada) — condición de finalización AND ────────────────
+
+def test_f0_false_completa_solo_por_tiempo_sin_mirar_f0_acumulado():
+    """Regresión: con F0 desactivado el comportamiento es exactamente el
+    original, aunque f0_acumulado esté muy por debajo del objetivo."""
+    fase, estado, set_do = _make_fase(tiempo_min=1, f0_activo=False, f0_acumulado_inicial=0.0)
+    fase.update()
+    fase._timer_fin -= 100
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+
+
+def test_f0_true_tiempo_cumplido_pero_f0_pendiente_no_completa():
+    fase, estado, set_do = _make_fase(
+        tiempo_min=1, f0_activo=True, f0_objetivo=12.0, f0_acumulado_inicial=5.0,
+    )
+    fase.update()
+    fase._timer_fin -= 100  # tiempo cumplido
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+
+
+def test_f0_true_f0_cumplido_pero_tiempo_pendiente_no_completa():
+    fase, estado, set_do = _make_fase(
+        tiempo_min=10, f0_activo=True, f0_objetivo=12.0, f0_acumulado_inicial=20.0,
+    )
+    result = fase.update()  # tiempo NO cumplido (recién inicia)
+    assert result == FaseResult.EN_CURSO
+
+
+def test_f0_true_completa_cuando_ambos_criterios_se_cumplen():
+    fase, estado, set_do = _make_fase(
+        tiempo_min=1, f0_activo=True, f0_objetivo=12.0, f0_acumulado_inicial=20.0,
+    )
+    fase.update()
+    fase._timer_fin -= 100  # tiempo cumplido, F0 ya cumplido de entrada
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.vapor_camara_off.assert_called()
+
+
+def test_f0_true_falla_por_timeout_al_superar_2x_tiempo_esterilizacion_sin_f0():
+    fase, estado, set_do = _make_fase(
+        tiempo_min=1, f0_activo=True, f0_objetivo=12.0, f0_acumulado_inicial=0.0,
+    )
+    fase.update()  # inicializa _timer_fin y _timer_timeout_max (2 * 60s = 120s)
+    fase._timer_timeout_max -= 121  # supera el timeout, F0 sigue en 0.0
+    result = fase.update()
+    assert result == FaseResult.FALLO
+    assert "ESTERILIZACION_TIMEOUT_F0" in estado.motivo_fallo
+    set_do.vapor_camara_off.assert_called()
+
+
+def test_f0_true_no_falla_por_timeout_antes_de_cumplirse():
+    fase, estado, set_do = _make_fase(
+        tiempo_min=1, f0_activo=True, f0_objetivo=12.0, f0_acumulado_inicial=0.0,
+    )
+    fase.update()  # timeout = 120s, aún no vencido
     result = fase.update()
     assert result == FaseResult.EN_CURSO

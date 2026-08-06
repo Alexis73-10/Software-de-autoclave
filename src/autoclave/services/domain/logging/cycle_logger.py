@@ -226,9 +226,17 @@ class CycleLogger:
             self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo)
 
             if self.printer is not None:
+                f0_total = None
+                try:
+                    cycle = self.cycle_manager.get_selected_cycle()
+                    if cycle and cycle.get_param("globals", "F0"):
+                        f0_total = self.estado.f0_acumulado
+                except Exception as exc:
+                    logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
+
                 self.printer.enqueue(format_footer(
                     resultado, datetime.now().isoformat(),
-                    temp_final=self._ultima_temp, motivo=motivo,
+                    temp_final=self._ultima_temp, motivo=motivo, f0_total=f0_total,
                 ))
 
             logger.info(

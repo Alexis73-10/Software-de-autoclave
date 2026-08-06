@@ -10,10 +10,17 @@ from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
 from autoclave.devices.suministro_electrico.suministro_electrico import SuministroElectrico
 from datetime import datetime
 from autoclave.devices.printer.connectivity_ticket import format_connectivity_ticket
+from autoclave.core.runtime.letalidad import calcular_incremento_f0
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Fases del ciclo donde hay letalidad real y corresponde acumular F0.
+# ESTABILIZACION ya no existe como fase.name propia (fusionada dentro de
+# CALENTAMIENTO, ver CLAUDE.md) — se conserva en el conjunto por si una
+# futura reversión de esa fusión la reintroduce; hoy nunca hace match.
+_F0_FASES_ACUMULAN = {"CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION"}
 
 
 class ControlLoop:
@@ -65,6 +72,10 @@ class ControlLoop:
         # Modo prueba (bench validation): pausa state_machine.update() sin
         # detener el resto del loop (sensores, puertas, enlace serial).
         self._test_mode = threading.Event()
+
+        # Acumulación de F0 (letalidad): timestamp del último tick que
+        # acumuló, para calcular dt_min real (no el interval nominal).
+        self._f0_ultimo_tick: float | None = None
 
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
@@ -169,6 +180,10 @@ class ControlLoop:
             with self._sm_lock:
                 self.state_machine.update()
 
+        # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
+        # publicado, así que el orden respecto al paso 5 no importa.
+        self._acumular_f0(now)
+
         # 6. Data logger (observa machine_state internamente)
         if self.cycle_logger is not None:
             self.cycle_logger.update()
@@ -179,6 +194,41 @@ class ControlLoop:
         # pisaría el control manual de esa salida).
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
+
+    def _acumular_f0(self, now: float) -> None:
+        """Acumula letalidad (F0) mientras el ciclo está en una fase con
+        letalidad real y el ciclo activo tiene globals.F0 activado. El
+        timestamp se resetea a None cada vez que alguna condición no se
+        cumple, así que al reingresar a las fases que acumulan (p.ej. tras
+        PRE_VACIO, que nunca acumula) el primer tick solo inicializa el
+        timestamp sin sumar — evita un dt_min inflado por el tiempo pasado
+        en fases previas."""
+        condiciones = (
+            self.estado.get_machine_state() == GlobalState.CICLO
+            and self.estado.fase_ciclo in _F0_FASES_ACUMULAN
+            and bool(self.cycle.get_param("globals", "F0"))
+        )
+        if not condiciones:
+            self._f0_ultimo_tick = None
+            return
+
+        ultimo = self._f0_ultimo_tick
+        self._f0_ultimo_tick = now
+        if ultimo is None:
+            return
+
+        temp_camara = self.estado.sensores_temp.get("temp_camara")
+        if temp_camara is None:
+            return
+
+        if self.cap is not None and getattr(self.cap, "has_liquid_sensor", False):
+            temp_2 = self.estado.sensores_temp.get("temp_2_camara")
+            t_ref = min(temp_camara, temp_2) if temp_2 is not None else temp_camara
+        else:
+            t_ref = temp_camara
+
+        dt_min = (now - ultimo) / 60.0
+        self.estado.f0_acumulado += calcular_incremento_f0(t_ref, dt_min)
 
     # =========================================================================
     # CONTROL DE VIDA

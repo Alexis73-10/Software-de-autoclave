@@ -12,6 +12,13 @@
                 "value": false,
                 "type": "bool"
             },
+            "F0_objetivo": {
+                "value": 12,
+                "type": "float",
+                "unit": "min",
+                "min": 0,
+                "max": 60
+            },
             "ciclos_multiples": {
                 "value": true,
                 "type": "bool"

@@ -30,6 +30,16 @@ Fases y su estado de diseño:
 
 ---
 
+## F0 (letalidad acumulada) — nueva funcionalidad opcional (2026-08-06)
+
+Ver plan completo en `docs/mis_plans/planeacion_f0.md`. Adición, no reemplazo: activable por ciclo vía `globals.F0` (ya existía como flag sin uso); con `F0=false` el comportamiento de `ESTERILIZACION` es exactamente el de antes.
+
+`ControlLoop._acumular_f0()` (nuevo paso en `_tick()`, no depende del orden respecto a `state_machine.update()` porque solo lee `estado.fase_ciclo` ya publicado) acumula en `estado.f0_acumulado` mientras `estado.get_machine_state() == CICLO`, `estado.fase_ciclo` esté en `{"CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION"}` y `globals.F0` sea `true`. `ESTABILIZACION` nunca hace match hoy (fusionada dentro de `CalentamientoFase`, que conserva `name = "CALENTAMIENTO"` durante todo su tramo interno, incluida la ventana de estabilidad) — se deja en el conjunto por si una futura reversión de esa fusión la reintroduce. `T_ref` es `temp_camara`, o `min(temp_camara, temp_2_camara)` si `cap.has_liquid_sensor` y hay lectura del segundo sensor (degrada a solo `temp_camara` si no la hay). `dt_min` es el tiempo real transcurrido desde el tick anterior (no el `interval` nominal), vía `ControlLoop._f0_ultimo_tick`. Ese timestamp se resetea a `None` cada vez que alguna condición no se cumple — como PRE_VACIO nunca acumula y siempre corre antes de CALENTAMIENTO, esto ya cubre el reset entre ciclos sin que `CicloState` necesite conocer a `ControlLoop`; `CicloState.reset()` solo pone `estado.f0_acumulado = 0.0`. La fórmula pura vive en `core/runtime/letalidad.py` (`calcular_incremento_f0`, z=10 y 121.1°C fijos en código).
+
+En `EsterilizacionFase`, con `F0=true` la finalización exitosa exige tiempo Y F0 (`estado.f0_acumulado >= globals.F0_objetivo`); el criterio de solo-tiempo original se mantiene intacto si `F0=false`. Timeout de seguridad nuevo, armado solo si `F0=true`: `2 × tiempo_esterilizacion`, FALLO `ESTERILIZACION_TIMEOUT_F0` (mensaje de texto plano vía `self._fallo(...)`, que en este código nunca toma `alarm_id` — no una alarma separada). `globals.F0_objetivo` (min, defecto 12, rango 0-60) se agregó a los 5 perfiles JSON existentes. El footer del ticket (`format_footer`) agrega `F0 total: {valor:.1f} min` solo si el ciclo tenía F0 activo.
+
+---
+
 ## PREPARADO / PREPARACION — separación válvula / alarma / gate (2026-08-06)
 
 El control de presión de chaqueta (`presion_chaqueta`/`rango_presion_chaqueta`) y temperatura de drenaje (`temp_segura_drenaje`/`rango_temp_drenaje`, nuevo) en `preparado.py` y `preparacion.py` usaba un único umbral (borde de la banda `objetivo±rango`, o techo único en drenaje) tanto para accionar la válvula como para disparar la alarma bloqueante y decidir si el equipo está "listo". Esto hacía que la alarma bloqueante (`CHAQUETA_FRIA`, `TEMP_DRENAJE_ALTA`/`TEMPERATURA_DRENAJE_ALTA`) disparara casi en cada arranque en frío, porque la válvula no reaccionaba hasta que ya se había cruzado el borde tolerado.

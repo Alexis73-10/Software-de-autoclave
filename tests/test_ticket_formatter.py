@@ -94,6 +94,16 @@ def test_format_footer_termina_con_avance_de_papel_para_corte():
     assert lineas[-5:] == [""] * 5
 
 
+def test_format_footer_sin_f0_total_no_agrega_linea():
+    footer = format_footer("COMPLETADO", "2026-07-06T08:45:00")
+    assert "F0 total" not in footer
+
+
+def test_format_footer_con_f0_total_agrega_linea():
+    footer = format_footer("COMPLETADO", "2026-07-06T08:45:00", f0_total=15.3)
+    assert "F0 total: 15.3 min" in footer
+
+
 def test_header_filas_pie_equivalen_a_format_ticket():
     ciclo = _ciclo()
     lecturas = _lecturas()

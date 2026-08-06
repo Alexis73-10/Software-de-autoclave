@@ -5,6 +5,9 @@ class _FakeEstado:
     def __init__(self):
         self._flags = {"PARO_EMERGENCIA": False, "FALLO_SUMINISTRO_ELECTRICO": False}
         self.sensores_di = {"paro_emergencia": 0, "suministro_electrico": 1}
+        self.sensores_temp = {"temp_camara": None}
+        self.fase_ciclo = ""
+        self.f0_acumulado = 0.0
 
     def get_machine_state(self):
         from autoclave.state_machine.machine.enum_global import GlobalState

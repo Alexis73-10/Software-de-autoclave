@@ -112,6 +112,10 @@ class EstadoAutoclave:
         # el CycleLogger imprime una línea de referencia aunque no se haya cumplido
         # el intervalo periódico de impresión. Vacío cuando la fase no lo usa.
         self.sub_estado_ciclo: str = ""
+        # Letalidad acumulada (F0, min equivalentes a 121.1°C) durante
+        # CALENTAMIENTO/ESTABILIZACION/ESTERILIZACION; se limpia al iniciar
+        # cada ciclo nuevo (CicloState.reset())
+        self.f0_acumulado: float = 0.0
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)
