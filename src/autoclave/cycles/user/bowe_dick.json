@@ -51,7 +51,7 @@
                 "max": 1000
             },
             "timeout_precalentamiento": {
-                "value": 10,
+                "value": 1,
                 "type": "int",
                 "unit": "min",
                 "min": 0,
