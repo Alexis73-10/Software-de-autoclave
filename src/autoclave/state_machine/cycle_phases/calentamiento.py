@@ -21,7 +21,16 @@
 #                                  (1 - factor_calentamiento/100) cerca de
 #                                  él, medido contra los objetivos fijos
 #                                  t_obj/p_obj (nunca contra P_sat(temp
-#                                  actual), que se mueve mientras sube)
+#                                  actual), que se mueve mientras sube).
+#                                  Una vez superado el objetivo, ese piso
+#                                  duty_estable se escala hacia 0 a medida
+#                                  que el sobrepaso crece (0 a partir de
+#                                  rango_calentamiento unidades pasado el
+#                                  objetivo) — corrige que el controlador
+#                                  siguiera inyectando vapor a duty_estable
+#                                  de forma indefinida muy por encima del
+#                                  objetivo (ciclo 79, 2026-08-06: 136.7°C
+#                                  con t_obj=134.0°C)
 #                                duty_calidad_vapor   corta a 0 si temp ya
 #                                  cruzó el tope del 97% de t_obj pero la
 #                                  presión no corresponde a vapor saturado
@@ -88,6 +97,20 @@ def _duty_por_proximidad(dist, margen):
     if margen <= 0:
         return 1.0 if dist > 0 else 0.0
     return max(0.0, min(dist / margen, 1.0))
+
+
+def _duty_por_sobrepaso(dist, margen):
+    """Factor (0 a 1) que escala el piso duty_estable hacia abajo a medida
+    que ya se superó el objetivo: 1.0 en el objetivo o antes (dist >= 0,
+    sin restringir todavía), cae linealmente a 0.0 al superarlo por
+    `margen` unidades o más. Sin esto, duty_proximidad se queda clavado en
+    duty_estable de forma indefinida sin importar cuánto se haya pasado del
+    objetivo -- bug real (ciclo 79, 2026-08-06): con temp a 136.7°C
+    (t_obj=134.0) el duty seguía en 0.5, como si 136.7°C fuera un punto
+    válido para sostener con PWM en vez de apagar."""
+    if margen <= 0:
+        return 1.0 if dist >= 0 else 0.0
+    return max(0.0, min(1.0 + dist / margen, 1.0))
 
 
 def _duty_por_calidad_vapor(temp, pres, t_obj, p_add):
@@ -266,7 +289,17 @@ class CalentamientoFase(BaseFase):
             _duty_por_proximidad(t_obj - temp, rango_cal),
             _duty_por_proximidad(p_obj - pres, rango_cal),
         )
-        duty_proximidad = duty_estable + (1.0 - duty_estable) * cercania
+        # sobrepaso escala duty_estable hacia 0 a medida que temp/pres ya
+        # superaron el objetivo -- sin esto, duty_proximidad se queda en
+        # duty_estable indefinidamente sin importar cuánto se haya pasado
+        # (ver _duty_por_sobrepaso). No afecta el lado de aproximación
+        # (dist >= 0): ahí sobrepaso=1.0 y el comportamiento es idéntico al
+        # anterior.
+        sobrepaso = min(
+            _duty_por_sobrepaso(t_obj - temp, rango_cal),
+            _duty_por_sobrepaso(p_obj - pres, rango_cal),
+        )
+        duty_proximidad = duty_estable * sobrepaso + (1.0 - duty_estable) * cercania
 
         if self._en_sostenimiento:
             duty_calidad_vapor = 1.0

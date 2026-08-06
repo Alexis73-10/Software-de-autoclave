@@ -192,18 +192,21 @@ def test_duty_tasa_restringe_incluso_cerca_del_objetivo():
     tasa ya no es exclusiva de un tramo de aproximacion -- restringe en
     todo momento. Se ejercita via tasa_presion, con temp=100 (debajo del
     tope del 97%) para que duty_calidad_vapor no enmascare el efecto, y un
-    salto de presion pequeno (+3 kPa) para quedar bajo el techo
-    independiente (p_obj + 11) y no enmascararlo tampoco."""
+    salto de presion pequeno (+3 kPa) que llega exactamente a p_obj (no lo
+    supera) para que _duty_por_sobrepaso no enmascare el efecto -- pasado
+    p_obj por mas de rango_calentamiento, duty_proximidad ya cae a 0 por
+    diseno (ver test_duty_baja_a_cero_...), lo que taparia la restriccion
+    por tasa que este test aisla."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0,
                                        tasa_calentamiento=200.0, tasa_presion=10.0)
     fase.update()  # inicializar
     p_obj = p_saturacion_kpa(134.0) + 11.0
     estado.sensores_temp["temp_camara"] = 100.0
-    estado.sensores_pres["pres_camara"] = p_obj
+    estado.sensores_pres["pres_camara"] = p_obj - 3.0
     fase.update()  # duty_proximidad ya en duty_estable=1.0 (factor=0), sin tasa aun
 
-    _sembrar_historial(fase, 100.0, p_obj, 10)
-    estado.sensores_pres["pres_camara"] = p_obj + 3.0  # 18 kPa/min > tasa_presion=10, bajo el techo
+    _sembrar_historial(fase, 100.0, p_obj - 3.0, 10)
+    estado.sensores_pres["pres_camara"] = p_obj  # 18 kPa/min > tasa_presion=10, bajo el techo
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     # tasa medida = (3.0 kPa) / (10s -> 1/6 min) = 18 kPa/min; duty_tasa = 10/18.
@@ -242,6 +245,32 @@ def test_duty_calidad_vapor_no_restringe_dentro_de_sostenimiento():
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._duty_actual > 0.0  # NO forzado a 0.0 por duty_calidad_vapor
+
+
+def test_duty_baja_a_cero_lejos_por_encima_del_objetivo_dentro_de_sostenimiento():
+    """Regresión directa del ciclo 79 (2026-08-06): CALENTAMIENTO se pasó a
+    136.7°C (t_obj=134.0, rango_calentamiento=2.0) y quedó atascado 5
+    minutos sin bajar de ~136°C -- las lecturas mostraban pulsos de vapor
+    como si el control quisiera sostener 136°C. Causa: duty_proximidad se
+    quedaba clavado en duty_estable (0.5 con factor=50) sin importar cuánto
+    se hubiera superado el objetivo. Con presión por debajo del techo
+    independiente (para no enmascarar el efecto) y dentro de sostenimiento
+    (para que duty_calidad_vapor no interfiera, como en el ciclo real), el
+    duty debe caer a 0 en vez de sostenerse en duty_estable."""
+    fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0,
+                                       tiempo_estable=999)
+    fase.update()  # inicializar
+    fase._en_sostenimiento = True
+
+    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_techo = p_obj + 11.0
+    estado.sensores_temp["temp_camara"] = 136.7  # 2.7°C sobre t_obj, > rango_calentamiento=2.0
+    estado.sensores_pres["pres_camara"] = p_obj + 1.7  # por debajo del techo (p_techo)
+    assert estado.sensores_pres["pres_camara"] < p_techo  # confirma que no es el techo quien corta
+
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 0.0  # antes de la corrección: 0.5 (duty_estable), atascado
 
 
 def test_intervalo_cero_con_duty_cero_apaga_vapor_directo():
@@ -597,6 +626,7 @@ def test_pres_none_no_avanza_ni_lanza_excepcion():
 from autoclave.state_machine.cycle_phases.calentamiento import (
     _duty_por_tasa,
     _duty_por_proximidad,
+    _duty_por_sobrepaso,
     _duty_por_calidad_vapor,
 )
 
@@ -639,6 +669,26 @@ def test_duty_por_proximidad_margen_cero_es_un_escalon():
     assert _duty_por_proximidad(dist=5.0, margen=0.0) == 1.0
     assert _duty_por_proximidad(dist=0.0, margen=0.0) == 0.0
     assert _duty_por_proximidad(dist=-1.0, margen=0.0) == 0.0
+
+
+def test_duty_por_sobrepaso_uno_antes_o_en_el_objetivo():
+    assert _duty_por_sobrepaso(dist=10.0, margen=2.0) == 1.0
+    assert _duty_por_sobrepaso(dist=0.0, margen=2.0) == 1.0
+
+
+def test_duty_por_sobrepaso_interpola_al_superar_el_objetivo():
+    assert abs(_duty_por_sobrepaso(dist=-1.0, margen=2.0) - 0.5) < 1e-9
+
+
+def test_duty_por_sobrepaso_cero_al_superar_el_margen():
+    assert _duty_por_sobrepaso(dist=-2.0, margen=2.0) == 0.0
+    assert _duty_por_sobrepaso(dist=-5.0, margen=2.0) == 0.0
+
+
+def test_duty_por_sobrepaso_margen_cero_es_un_escalon():
+    assert _duty_por_sobrepaso(dist=1.0, margen=0.0) == 1.0
+    assert _duty_por_sobrepaso(dist=0.0, margen=0.0) == 1.0
+    assert _duty_por_sobrepaso(dist=-1.0, margen=0.0) == 0.0
 
 
 def test_duty_por_calidad_vapor_sin_restriccion_bajo_el_tope_del_97_por_ciento():
