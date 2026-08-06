@@ -19,10 +19,12 @@ def _make_preparacion(pres_camara, presion_admosferica=1013.0, rango=5.0):
 
 def test_presion_en_banda_ok_sin_pedir_rapida():
     p, alarm_mgr, set_do = _make_preparacion(pres_camara=1013.0)
+    p.igualar_presion_camara()
+    p.igualar_presion_camara()
     ok, quiere_rapida = p.igualar_presion_camara()
     assert ok is True
     assert quiere_rapida is False
-    set_do.aire_admosferico_camara_off.assert_called()
+    set_do.aire_admosferico_camara_off.assert_called_once()
     set_do.descompresion_lenta_off.assert_called()
     set_do.descompresion_rapida_on.assert_not_called()
     set_do.descompresion_rapida_off.assert_not_called()
@@ -46,3 +48,27 @@ def test_presion_alta_pide_rapida():
     set_do.aire_admosferico_camara_off.assert_called()
     ids = [call.args[0].id for call in alarm_mgr.report.call_args_list]
     assert "PRESION_CAMARA_ALTA" in ids
+
+
+def test_apagado_aire_requiere_3_confirmaciones():
+    p, alarm_mgr, set_do = _make_preparacion(pres_camara=1013.0)
+    p.igualar_presion_camara()
+    p.igualar_presion_camara()
+    set_do.aire_admosferico_camara_off.assert_not_called()
+    p.igualar_presion_camara()
+    set_do.aire_admosferico_camara_off.assert_called_once()
+
+
+def test_apagado_aire_se_resetea_si_baja_antes_de_confirmar():
+    p, alarm_mgr, set_do = _make_preparacion(pres_camara=1013.0)
+    p.igualar_presion_camara()
+    p.igualar_presion_camara()
+    p.estado.sensores_pres["pres_camara"] = 1000.0
+    p.igualar_presion_camara()
+    set_do.aire_admosferico_camara_on.assert_called()
+    p.estado.sensores_pres["pres_camara"] = 1013.0
+    p.igualar_presion_camara()
+    p.igualar_presion_camara()
+    set_do.aire_admosferico_camara_off.assert_not_called()
+    p.igualar_presion_camara()
+    set_do.aire_admosferico_camara_off.assert_called_once()

@@ -28,6 +28,7 @@ class preparacion_state:
         # Confirmadores de apagado (evitan chattering de valvula)
         self._confirmador_chaqueta = ConfirmadorApagado()
         self._confirmador_drenaje = ConfirmadorApagado()
+        self._confirmador_aire_camara = ConfirmadorApagado()
 
     #definicion del estado preparacion:
     # Todas las condiciones se evalúan en paralelo, cada tick, sin bloquear
@@ -221,7 +222,8 @@ class preparacion_state:
 
             if pres_cam_min <= presion_camara <= pres_cam_max:
                 # Presión igualada
-                self.set_do.aire_admosferico_camara_off()
+                if self._confirmador_aire_camara.confirmar(True):
+                    self.set_do.aire_admosferico_camara_off()
                 self.set_do.descompresion_lenta_off()
                 self.alarm_manager.clear("PRESION_CAMARA_BAJA")
                 self.alarm_manager.clear("PRESION_CAMARA_ALTA")
@@ -230,12 +232,14 @@ class preparacion_state:
             if presion_camara < pres_cam_min:
                 # Abrir entrada de aire comprimido a la camara
                 self.set_do.aire_admosferico_camara_on()
+                self._confirmador_aire_camara.reset()
                 alarm_id = "PRESION_CAMARA_BAJA"
                 self.alarm(alarm_id, AlarmType.ALERTA)
                 return False, False
 
             # presion_camara > pres_cam_max: requiere venteo/vacío
             self.set_do.aire_admosferico_camara_off()
+            self._confirmador_aire_camara.reset()
             alarm_id = "PRESION_CAMARA_ALTA"
             self.alarm(alarm_id, AlarmType.ALERTA)
             return False, True
