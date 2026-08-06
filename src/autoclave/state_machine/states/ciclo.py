@@ -33,6 +33,8 @@ logger = logging.getLogger(__name__)
 _SENSORES_TEMP_CRITICOS = ["temp_camara"]
 _SENSORES_PRES_CRITICOS = ["pres_camara"]
 _DEBOUNCE_LECTURAS_DRENAJE = 3
+_INTERVALO_REINTENTO_APERTURA_SEG = 5.0
+_TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 
 # Resultado textual que CicloState devuelve al StateMachine
 class CicloResultado:
@@ -66,6 +68,9 @@ class CicloState:
         self.door_service  = door_service
         self._apertura_auto_t_inicio = None
         self._apertura_auto_alarmado = False
+        self._apertura_auto_ultimo_intento = None
+        self._apertura_auto_denegada_desde = None
+        self._apertura_auto_alarmado_denegacion = False
         self._contador_drenaje_alta = 0
         self._contador_drenaje_baja = 0
 
@@ -100,6 +105,9 @@ class CicloState:
         self._contador_drenaje_baja = 0
         self._apertura_auto_t_inicio = None
         self._apertura_auto_alarmado = False
+        self._apertura_auto_ultimo_intento = None
+        self._apertura_auto_denegada_desde = None
+        self._apertura_auto_alarmado_denegacion = False
         self.estado.motivo_fallo  = ""
         self._protocolo.reset()
 
@@ -234,9 +242,16 @@ class CicloState:
         """Si finalizacion.apertura_automatica está activo, abre la puerta de
         descarga y confirma el ciclo sin esperar al operador. Solo se llama
         mientras _resultado_pendiente == COMPLETADO. Secuencia: espera fija
-        (tiempo_espera_apertura) → espera a que temp_camara baje a
-        temp_max_apertura (avisando por alarma no bloqueante si tarda más de
-        timeout_temperatura, sin dejar de esperar) → abrir puerta + confirmar."""
+        (tiempo_espera_apertura) → espera a que temp_camara Y pres_camara
+        estén en condición segura (mismo criterio fail-closed que el botón
+        CONFIRMAR manual: sensor ausente no habilita nada; temp_max_apertura
+        nunca por encima del tope global) → confirma solo cuando el estado
+        observado de la puerta (no la sola respuesta de request_open)
+        muestra que empezó a moverse. Mientras la puerta no responda
+        (bloqueo mecánico, interlock, tipo de puerta sin actuador), reintenta
+        cada _INTERVALO_REINTENTO_APERTURA_SEG segundos y avisa una sola vez
+        por alarma no bloqueante si la denegación se sostiene más de
+        _TIMEOUT_APERTURA_DENEGADA_SEG segundos — sin dejar de esperar."""
         if self.door_service is None:
             return
         if not self.cycle.get_param("finalizacion", "apertura_automatica", default=False):
@@ -246,6 +261,8 @@ class CicloState:
             self._apertura_auto_t_inicio = time.time()
 
         tiempo_espera = self.cycle.get_param("finalizacion", "tiempo_espera_apertura", default=60)
+        if tiempo_espera is None:
+            tiempo_espera = 60
         elapsed = time.time() - self._apertura_auto_t_inicio
         if elapsed < tiempo_espera:
             return
@@ -254,9 +271,17 @@ class CicloState:
         if temp is None:
             return
 
-        temp_max = self.cycle.get_param("finalizacion", "temp_max_apertura", default=80.0)
+        temp_max_ciclo  = self.cycle.get_param("finalizacion", "temp_max_apertura", default=80.0)
+        if temp_max_ciclo is None:
+            temp_max_ciclo = 80.0
+        temp_max_global = self.config.get("temp_max_apertura")
+        temp_max = min(temp_max_ciclo, temp_max_global) if temp_max_global is not None else temp_max_ciclo
+
         if temp > temp_max:
-            timeout_seg = self.cycle.get_param("finalizacion", "timeout_temperatura", default=30) * 60
+            timeout_min = self.cycle.get_param("finalizacion", "timeout_temperatura", default=30)
+            if timeout_min is None:
+                timeout_min = 30
+            timeout_seg = timeout_min * 60
             if not self._apertura_auto_alarmado and (elapsed - tiempo_espera) > timeout_seg:
                 self._apertura_auto_alarmado = True
                 self.alarm_manager.report(Alarm(
@@ -269,12 +294,46 @@ class CicloState:
                 ))
             return
 
+        pres = self.estado.sensores_pres.get("pres_camara")
+        if pres is None:
+            return
+        presion_atm = self.config.get("presion_admosferica") or 101.3
+        rango_atm   = self.config.get("rango_presion_atm")   or 20.0
+        if abs(pres - presion_atm) > rango_atm:
+            return
+
         puerta = "Puerta 2" if "Puerta 2" in self.door_service.doors else "Puerta 1"
-        ok, _motivo = self.door_service.request_open(puerta)
-        if ok:
+        estado_puerta = self.door_service.get_status(puerta)
+        if estado_puerta in ("ABRIENDO", "ABIERTO"):
             if self._apertura_auto_alarmado:
                 self.alarm_manager.clear("TIMEOUT_APERTURA_AUTOMATICA")
+            if self._apertura_auto_alarmado_denegacion:
+                self.alarm_manager.clear("APERTURA_AUTOMATICA_DENEGADA")
             self.estado.set_flag("CICLO_CONFIRMADO", True)
+            return
+
+        ahora = time.time()
+        if (self._apertura_auto_ultimo_intento is not None
+                and (ahora - self._apertura_auto_ultimo_intento) < _INTERVALO_REINTENTO_APERTURA_SEG):
+            return
+        self._apertura_auto_ultimo_intento = ahora
+
+        if self._apertura_auto_denegada_desde is None:
+            self._apertura_auto_denegada_desde = ahora
+
+        _ok, motivo = self.door_service.request_open(puerta)
+
+        if (not self._apertura_auto_alarmado_denegacion
+                and (ahora - self._apertura_auto_denegada_desde) > _TIMEOUT_APERTURA_DENEGADA_SEG):
+            self._apertura_auto_alarmado_denegacion = True
+            self.alarm_manager.report(Alarm(
+                alarm_id="APERTURA_AUTOMATICA_DENEGADA",
+                alarm_type=AlarmType.ALERTA,
+                source_state="CICLO",
+                description=f"Apertura automática: no se pudo abrir {puerta} — {motivo or 'sin motivo reportado'}.",
+                recoverable=True,
+                blocks_operation=False,
+            ))
 
     # ------------------------------------------------------------------
     # Tick principal

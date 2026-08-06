@@ -42,6 +42,18 @@ Ver spec: `docs/superpowers/specs/2026-08-06-control-banda-objetivo-alarma-gate-
 
 ---
 
+## APERTURA AUTOMÁTICA DE PUERTA AL FINALIZAR EL CICLO (2026-08-06)
+
+La sección `finalizacion` de cada perfil JSON de ciclo trae 4 parámetros (`tiempo_espera_apertura`, `temp_max_apertura`, `timeout_temperatura`, `apertura_automatica`) implementados en `CicloState._mantener_apertura_automatica()`. Cuando el ciclo termina en `COMPLETADO` y `apertura_automatica=true`, el equipo abre solo la puerta de descarga (`"Puerta 2"` si existe, si no `"Puerta 1"`) y confirma el ciclo (`CICLO_CONFIRMADO`) sin esperar al operador, en vez del flujo manual normal (botón CONFIRMAR + apertura manual). No aplica a `FALLO`/`CANCELADO`/emergencia.
+
+Secuencia: espera fija `tiempo_espera_apertura` segundos → espera a que `temp_camara` Y `pres_camara` estén en condición segura (mismo criterio fail-closed que el botón CONFIRMAR manual — sensor ausente nunca habilita nada; `temp_max_apertura` del ciclo se recorta al tope global si este es menor, para que una mala configuración por sitio no reproduzca el problema de abajo en silencio) → confirma solo cuando el **estado observado** de la puerta (`ServicioPuertas.get_status`) muestra `ABRIENDO`/`ABIERTO` — no basta con que `request_open()` devuelva éxito, porque eso solo significa que el comando se despachó (una puerta `SimpleDoor` no tiene actuador, y `AdvancedDoor.cmd_abrir()` se autocancela en silencio si el bloqueo mecánico está activo). Mientras la puerta no se mueva, reintenta cada 5 segundos y avisa una sola vez por alarma no bloqueante (`APERTURA_AUTOMATICA_DENEGADA`) si la denegación supera 60 segundos — sigue esperando indefinidamente, igual que el aviso de timeout de temperatura (`TIMEOUT_APERTURA_AUTOMATICA`).
+
+Los perfiles `factory/*.json` traen `apertura_automatica=false` por defecto; los `user/*.json` también, hasta validar la función en campo por sitio.
+
+Ver spec: `docs/superpowers/specs/2026-08-06-apertura-automatica-puerta-design.md` (incluye el addendum del 2026-08-06 con el detalle de estas 3 correcciones de seguridad).
+
+---
+
 ## ESTERILIZACION — diseño (rediseño 2026-07-28)
 
 Ver plan completo en `docs/mis_plans/planeacion_fase_esterilizacion.md`. Reemplazo total del `esterilizacion.py` anterior, que fallaba sin tolerancia inferior en temperatura/presión (bug `ESTERILIZACION_PRES_BAJA`: evaluaba la presión contra `P_sat(T_actual)` en vez de `P_sat(temperatura_esterilizacion)` fija).
