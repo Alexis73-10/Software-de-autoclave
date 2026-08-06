@@ -314,6 +314,7 @@ class CicloState:
             # intercambiador justo después de que este método la encendiera.
             if self._resultado_pendiente == CicloResultado.COMPLETADO:
                 self._mantener_valvula_reposo()
+                self._mantener_apertura_automatica()
             else:
                 self._protocolo.update()
             self._mantener_drenaje()

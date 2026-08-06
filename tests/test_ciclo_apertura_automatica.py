@@ -234,3 +234,65 @@ def test_sensor_ausente_no_avanza_ni_rompe(monkeypatch):
 
     door_service.request_open.assert_not_called()
     estado.set_flag.assert_not_called()
+
+
+def test_run_llama_apertura_automatica_en_completado(monkeypatch):
+    import autoclave.state_machine.states.ciclo as ciclo_module
+    door_service = MagicMock()
+    door_service.doors = {"Puerta 2": MagicMock()}
+    door_service.request_open.return_value = (True, "")
+    ciclo, estado, set_do, alarm_manager = _make_ciclo(
+        door_service=door_service, apertura_automatica=True,
+        tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
+
+    monkeypatch.setattr(ciclo_module.time, "time", lambda: 9_000_000.0)
+    resultado = ciclo.run()
+
+    assert resultado == CicloResultado.ESPERANDO_CONFIRMACION
+    door_service.request_open.assert_called_once_with("Puerta 2")
+
+
+def test_run_no_llama_apertura_automatica_en_fallo():
+    door_service = MagicMock()
+    door_service.doors = {"Puerta 2": MagicMock()}
+    ciclo, estado, set_do, alarm_manager = _make_ciclo(
+        door_service=door_service, apertura_automatica=True,
+        tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
+    ciclo._resultado_pendiente = CicloResultado.FALLO
+    ciclo._protocolo = MagicMock()
+
+    ciclo.run()
+
+    door_service.request_open.assert_not_called()
+
+
+def test_run_no_llama_apertura_automatica_en_cancelado():
+    door_service = MagicMock()
+    door_service.doors = {"Puerta 2": MagicMock()}
+    ciclo, estado, set_do, alarm_manager = _make_ciclo(
+        door_service=door_service, apertura_automatica=True,
+        tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
+    ciclo._resultado_pendiente = CicloResultado.CANCELADO
+    ciclo._protocolo = MagicMock()
+
+    ciclo.run()
+
+    door_service.request_open.assert_not_called()
+
+
+def test_reset_reinicia_temporizador_de_apertura_automatica(monkeypatch):
+    import autoclave.state_machine.states.ciclo as ciclo_module
+    door_service = MagicMock()
+    door_service.doors = {"Puerta 2": MagicMock()}
+    ciclo, estado, set_do, alarm_manager = _make_ciclo(
+        door_service=door_service, apertura_automatica=True,
+        tiempo_espera=60, temp_max=80.0, temp_camara=95.0)
+
+    monkeypatch.setattr(ciclo_module.time, "time", lambda: 10_000_000.0)
+    ciclo._mantener_apertura_automatica()
+    assert ciclo._apertura_auto_t_inicio is not None
+
+    ciclo.reset()
+
+    assert ciclo._apertura_auto_t_inicio is None
+    assert ciclo._apertura_auto_alarmado is False
