@@ -188,7 +188,7 @@ class preparado_state:
         else:
             self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
 
-        return r.dentro_de_banda
+        return not r.fuera_por_encima
 
     # ==============================
     # TEMPORIZADOR DE ALARMAS

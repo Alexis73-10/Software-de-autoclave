@@ -282,7 +282,7 @@ class preparacion_state:
             else:
                 self.alarm_manager.clear("TEMPERATURA_DRENAJE_ALTA")
 
-            return r.dentro_de_banda
+            return not r.fuera_por_encima
         
     def reset(self):
         pass

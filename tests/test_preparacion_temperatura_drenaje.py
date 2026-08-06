@@ -40,12 +40,22 @@ def test_alarma_dispara_sobre_limite_superior():
     assert "TEMPERATURA_DRENAJE_ALTA" in ids_reportados
 
 
-def test_gate_false_bajo_limite_inferior_de_banda_sin_alarma():
+def test_gate_true_bajo_limite_inferior_de_banda_sin_alarma():
+    # El gate de drenaje es de un solo lado: temp_segura_drenaje es un techo
+    # de seguridad, no un objetivo -- estar por debajo del piso de la banda
+    # nunca debe bloquear el arranque, solo exceder el techo lo hace.
     p, alarm_mgr, set_do = _make_preparacion(temp_drenaje=60.0)
     resultado = p.verificar_temperatura_drenaje()
-    assert resultado is False
+    assert resultado is True
     ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
     assert "TEMPERATURA_DRENAJE_ALTA" not in ids_reportados
+
+
+def test_gate_true_a_temperatura_ambiente():
+    # Caso real: arranque en frio con el drenaje a temperatura ambiente,
+    # muy por debajo de temp_segura_drenaje. Debe permitir arrancar.
+    p, alarm_mgr, set_do = _make_preparacion(temp_drenaje=25.0)
+    assert p.verificar_temperatura_drenaje() is True
 
 
 def test_apagado_requiere_3_confirmaciones():
