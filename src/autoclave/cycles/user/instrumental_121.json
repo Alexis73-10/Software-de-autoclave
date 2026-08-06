@@ -447,7 +447,7 @@
                 "max": 10
             },
             "brecha_segura_presion": {
-                "value": 6.0,
+                "value": 1.5,
                 "type": "float",
                 "unit": "kPa",
                 "min": 0,

@@ -8,7 +8,7 @@ from autoclave.core.runtime.steam import p_saturacion_kpa
 
 def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
                intervalo=3, rango_temp=3.0, rango_pres=30.0,
-               brecha_seg=0.3, brecha_seg_p=6.0, brecha_err_t=0.1, brecha_err_p=2.0,
+               brecha_seg=0.3, brecha_seg_p=1.5, brecha_err_t=0.1, brecha_err_p=2.0,
                escape_lento_on=1, escape_lento_off=0,
                escape_rapido_on=0, escape_rapido_off=400,
                t_inicial=None, p_inicial=None):
@@ -113,12 +113,12 @@ def test_presion_baja_dispara_recuperacion_aunque_temperatura_este_alta():
     disparador, RECUPERACION solo miraba temperatura y nunca se activaba
     en ese caso — la presión seguía cayendo bajo el techo de PWM_ACTIVO
     hasta FALLO sin que el control pasara a modo agresivo."""
-    fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=6.0)
+    fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=1.5)
     fase.update()  # inicializa en RECUPERACION
     p_sat_est = p_saturacion_kpa(134.0)
     temp = 135.0  # por encima del setpoint, NO dispararía por temperatura
     estado.sensores_temp["temp_camara"] = temp
-    estado.sensores_pres["pres_camara"] = p_sat_est - 6.1  # < P_sat(t_est) - 6.0
+    estado.sensores_pres["pres_camara"] = p_sat_est - 1.6  # < P_sat(t_est) - 1.5
     set_do.reset_mock()
     result = fase.update()
     assert result == FaseResult.EN_CURSO
@@ -127,15 +127,39 @@ def test_presion_baja_dispara_recuperacion_aunque_temperatura_este_alta():
 
 
 def test_presion_dentro_del_margen_no_dispara_recuperacion_por_presion():
-    fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=6.0)
+    fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=1.5)
     fase.update()
     p_sat_est = p_saturacion_kpa(134.0)
     temp = 135.0
     estado.sensores_temp["temp_camara"] = temp
-    estado.sensores_pres["pres_camara"] = p_sat_est - 5.9  # dentro del margen
+    estado.sensores_pres["pres_camara"] = p_sat_est - 1.4  # dentro del margen
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._en_recuperacion is False
+
+
+def test_brecha_segura_presion_dispara_antes_de_completar_el_debounce_de_fallo():
+    """Regresión del bug encontrado el 2026-08-06: con brecha_segura_presion
+    (6.0) > brecha_error_presion (2.0), una presión sostenida dentro del
+    'hueco' entre ambos umbrales (ej. 3 kPa bajo el setpoint) nunca activaba
+    RECUPERACION y terminaba en FALLO_PRES_BAJA por el debounce sin que el
+    control pasara nunca a modo agresivo — visible en campo como pulsos de
+    PWM que se alargaban acercándose a la presión de falla. Con
+    brecha_segura_presion=1.5 < brecha_error_presion=2.0, RECUPERACION debe
+    dispararse desde el primer tick, antes de que el debounce de 3 lecturas
+    alcance a completar el FALLO."""
+    fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=1.5, brecha_err_p=2.0)
+    fase.update()  # inicializa
+    p_sat_est = p_saturacion_kpa(134.0)
+    estado.sensores_temp["temp_camara"] = 134.5  # temperatura OK, no dispara por temperatura
+    estado.sensores_pres["pres_camara"] = p_sat_est - 3.0  # dentro del hueco 1.5-6.0 del bug viejo
+
+    for _ in range(3):
+        result = fase.update()
+
+    assert fase._en_recuperacion is True
+    assert result == FaseResult.FALLO  # el debounce igual completa: sostenida sin recuperar de verdad
+    set_do.vapor_camara_on.assert_called()  # pero se intentó en modo agresivo, no en duty-cycle pasivo
 
 
 # ── PWM_ACTIVO: banda fija [-2,+1] kPa sobre P_sat(T_actual) ────────────────

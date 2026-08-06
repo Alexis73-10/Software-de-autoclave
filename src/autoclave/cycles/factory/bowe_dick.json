@@ -93,7 +93,7 @@
             "brecha_segura_temperatura": { "value": 0.3, "type": "float", "unit": "°C", "min": 0, "max": 2 },
             "brecha_error_temperatura": { "value": 0.1, "type": "float", "unit": "°C", "min": 0, "max": 2 },
             "brecha_error_presion": { "value": 2.0, "type": "float", "unit": "kPa", "min": 0, "max": 10 },
-            "brecha_segura_presion": { "value": 6.0, "type": "float", "unit": "kPa", "min": 0, "max": 20 }
+            "brecha_segura_presion": { "value": 1.5, "type": "float", "unit": "kPa", "min": 0, "max": 20 }
         },
 
         "despresurizacion": {
