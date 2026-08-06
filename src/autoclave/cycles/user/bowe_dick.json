@@ -471,7 +471,7 @@
                 "max": 120
             },
             "presion_chaqueta_secado": {
-                "value": 200,
+                "value": 300,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
