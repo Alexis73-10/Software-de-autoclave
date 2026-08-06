@@ -464,7 +464,7 @@
                 "max": 3
             },
             "tiempo_secado": {
-                "value": 2.0,
+                "value": 15.0,
                 "type": "float",
                 "unit": "min",
                 "min": 0,
