@@ -457,7 +457,7 @@
         "despresurizacion": {},
         "secado": {
             "modo": {
-                "value": 3,
+                "value": 1,
                 "type": "int",
                 "unit": "",
                 "min": 1,
