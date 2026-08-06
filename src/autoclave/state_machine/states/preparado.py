@@ -1,4 +1,5 @@
 from autoclave.state_machine.alarms.alarm import Alarm, AlarmType
+from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 import logging
 import time
 
@@ -18,6 +19,9 @@ class preparado_state:
 
         # Timer de estabilidad
         self.timer_estabilidad = None
+
+        # Confirmadores de apagado (evitan chattering de valvula)
+        self._confirmador_chaqueta = ConfirmadorApagado()
 
     # ==============================
     # ALARMAS
@@ -89,14 +93,11 @@ class preparado_state:
         press_obj = self.cycle.get_param("globals", "presion_chaqueta")
         rango=self.cycle.get_param("globals","rango_presion_chaqueta")
 
-
-        limite_inf = press_obj - rango
-        limite_sup = press_obj + rango
-
         # Suministro. Sin vapor, no insistir en abrir la válvula: se deja
         # "pendiente", no bloqueante (no debe frenar esta_preparado()).
         if not self.estado.sensores_di["vapor_suministro"]:
             self.set_do.vapor_chaqueta_off()
+            self._confirmador_chaqueta.reset()
             self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
             self.alarm_manager.clear("CHAQUETA_FRIA")
             self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
@@ -104,23 +105,27 @@ class preparado_state:
         else:
             self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
-        # Dentro de rango
-        if limite_inf <= press_chaqueta <= limite_sup:
-            self.set_do.vapor_chaqueta_off()
-            self.alarm_manager.clear("CHAQUETA_FRIA")
-            self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
-            return True
+        r = evaluar_banda(press_chaqueta, press_obj, rango, activar_si_bajo=True)
 
-        # Fuera de rango → compensación
-        if press_chaqueta < limite_inf:
+        # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
+        if r.debe_activar:
             self.set_do.vapor_chaqueta_on()
-            self.generar_alarma_temporizada("CHAQUETA_FRIA")
-
-        elif press_chaqueta > limite_sup:
+            self._confirmador_chaqueta.reset()
+        elif self._confirmador_chaqueta.confirmar(True):
             self.set_do.vapor_chaqueta_off()
-            self.generar_alarma_temporizada("CHAQUETA_SOBRECALENTADA")
 
-        return False
+        # Alarma bloqueante: solo al cruzar el borde de la banda.
+        if r.fuera_por_debajo:
+            self.generar_alarma_temporizada("CHAQUETA_FRIA")
+        else:
+            self.alarm_manager.clear("CHAQUETA_FRIA")
+
+        if r.fuera_por_encima:
+            self.generar_alarma_temporizada("CHAQUETA_SOBRECALENTADA")
+        else:
+            self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+
+        return r.dentro_de_banda
 
     # ==============================
     # CONTROL PRESIÓN CÁMARA
