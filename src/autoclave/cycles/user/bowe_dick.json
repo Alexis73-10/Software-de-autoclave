@@ -384,7 +384,7 @@
                 "max": 140
             },
             "tiempo_esterilizacion": {
-                "value": 7.0,
+                "value": 3.5,
                 "type": "float",
                 "unit": "min",
                 "min": 0,
