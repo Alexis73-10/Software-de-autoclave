@@ -30,6 +30,18 @@ Fases y su estado de diseño:
 
 ---
 
+## PREPARADO / PREPARACION — separación válvula / alarma / gate (2026-08-06)
+
+El control de presión de chaqueta (`presion_chaqueta`/`rango_presion_chaqueta`) y temperatura de drenaje (`temp_segura_drenaje`/`rango_temp_drenaje`, nuevo) en `preparado.py` y `preparacion.py` usaba un único umbral (borde de la banda `objetivo±rango`, o techo único en drenaje) tanto para accionar la válvula como para disparar la alarma bloqueante y decidir si el equipo está "listo". Esto hacía que la alarma bloqueante (`CHAQUETA_FRIA`, `TEMP_DRENAJE_ALTA`/`TEMPERATURA_DRENAJE_ALTA`) disparara casi en cada arranque en frío, porque la válvula no reaccionaba hasta que ya se había cruzado el borde tolerado.
+
+Separado en `control_banda.py` (`evaluar_banda()`): la válvula reacciona al **objetivo** exacto, sin tolerancia (chaqueta: ON si `presión < objetivo`; drenaje: ON si `temp > objetivo`, sin cambios respecto al drenaje anterior). La alarma bloqueante y el gate de listo/inicio de ciclo siguen usando la **banda** `objetivo±rango`, sin cambiar esos umbrales — solo se separan de la válvula. Drenaje no tiene alarma de lado bajo (no existe acción física para "muy frío"), pero el lado bajo de su banda sí participa del gate.
+
+`control_banda.py` también expone `ConfirmadorApagado`: exige 3 ticks consecutivos de "debe estar apagado" antes de cortar `vapor_chaqueta`, `agua_intercambiador` o `aire_admosferico_camara` — el encendido sigue siendo inmediato. Necesario porque, al mover el umbral de encendido al objetivo exacto (sin histéresis), es más fácil que la válvula oscile justo en ese punto.
+
+Ver spec: `docs/superpowers/specs/2026-08-06-control-banda-objetivo-alarma-gate-design.md`.
+
+---
+
 ## ESTERILIZACION — diseño (rediseño 2026-07-28)
 
 Ver plan completo en `docs/mis_plans/planeacion_fase_esterilizacion.md`. Reemplazo total del `esterilizacion.py` anterior, que fallaba sin tolerancia inferior en temperatura/presión (bug `ESTERILIZACION_PRES_BAJA`: evaluaba la presión contra `P_sat(T_actual)` en vez de `P_sat(temperatura_esterilizacion)` fija).
