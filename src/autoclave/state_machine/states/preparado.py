@@ -22,6 +22,7 @@ class preparado_state:
 
         # Confirmadores de apagado (evitan chattering de valvula)
         self._confirmador_chaqueta = ConfirmadorApagado()
+        self._confirmador_drenaje = ConfirmadorApagado()
 
     # ==============================
     # ALARMAS
@@ -162,17 +163,28 @@ class preparado_state:
     # ==============================
     def mantener_drenaje(self):
         temp = self.estado.sensores_temp["temp_drenaje"]
-        temp_segura = self.config.get("temp_segura_drenaje")
+        temp_obj = self.config.get("temp_segura_drenaje")
+        rango = self.config.get("rango_temp_drenaje")
 
-        if temp <= temp_segura:
+        r = evaluar_banda(temp, temp_obj, rango, activar_si_bajo=False)
+
+        # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
+        if r.debe_activar:
+            self.set_do.agua_intercambiador_on()
+            self._confirmador_drenaje.reset()
+        elif self._confirmador_drenaje.confirmar(True):
             self.set_do.agua_intercambiador_off()
+
+        # Alarma bloqueante: solo al cruzar el borde superior de la banda.
+        # No hay alarma de lado bajo: no existe accion fisica para "drenaje
+        # muy frio" (no hay calefactor), pero el lado bajo si participa del
+        # gate de listo/inicio via dentro_de_banda.
+        if r.fuera_por_encima:
+            self.generar_alarma_temporizada("TEMP_DRENAJE_ALTA")
+        else:
             self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
-            return True
 
-        self.set_do.agua_intercambiador_on()
-        self.generar_alarma_temporizada("TEMP_DRENAJE_ALTA")
-
-        return False
+        return r.dentro_de_banda
 
     # ==============================
     # TEMPORIZADOR DE ALARMAS
