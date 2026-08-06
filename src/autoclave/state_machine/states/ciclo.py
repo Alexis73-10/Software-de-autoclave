@@ -14,6 +14,7 @@
 #   "CANCELADO"  — usuario abortó → volver a PREPARADO
 
 import logging
+import time
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType
@@ -63,6 +64,8 @@ class CicloState:
         self.alarm_manager = alarm_manager
         self.cap           = cap
         self.door_service  = door_service
+        self._apertura_auto_t_inicio = None
+        self._apertura_auto_alarmado = False
         self._contador_drenaje_alta = 0
         self._contador_drenaje_baja = 0
 
@@ -95,6 +98,8 @@ class CicloState:
         self._resultado_pendiente = None
         self._contador_drenaje_alta = 0
         self._contador_drenaje_baja = 0
+        self._apertura_auto_t_inicio = None
+        self._apertura_auto_alarmado = False
         self.estado.motivo_fallo  = ""
         self._protocolo.reset()
 
@@ -224,6 +229,52 @@ class CicloState:
             self.set_do.aire_admosferico_camara_off()
             modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
             abrir_valvula_modo(self.set_do, modo)
+
+    def _mantener_apertura_automatica(self):
+        """Si finalizacion.apertura_automatica está activo, abre la puerta de
+        descarga y confirma el ciclo sin esperar al operador. Solo se llama
+        mientras _resultado_pendiente == COMPLETADO. Secuencia: espera fija
+        (tiempo_espera_apertura) → espera a que temp_camara baje a
+        temp_max_apertura (avisando por alarma no bloqueante si tarda más de
+        timeout_temperatura, sin dejar de esperar) → abrir puerta + confirmar."""
+        if self.door_service is None:
+            return
+        if not self.cycle.get_param("finalizacion", "apertura_automatica", default=False):
+            return
+
+        if self._apertura_auto_t_inicio is None:
+            self._apertura_auto_t_inicio = time.time()
+
+        tiempo_espera = self.cycle.get_param("finalizacion", "tiempo_espera_apertura", default=60)
+        elapsed = time.time() - self._apertura_auto_t_inicio
+        if elapsed < tiempo_espera:
+            return
+
+        temp = self.estado.sensores_temp.get("temp_camara")
+        if temp is None:
+            return
+
+        temp_max = self.cycle.get_param("finalizacion", "temp_max_apertura", default=80.0)
+        if temp > temp_max:
+            timeout_seg = self.cycle.get_param("finalizacion", "timeout_temperatura", default=30) * 60
+            if not self._apertura_auto_alarmado and (elapsed - tiempo_espera) > timeout_seg:
+                self._apertura_auto_alarmado = True
+                self.alarm_manager.report(Alarm(
+                    alarm_id="TIMEOUT_APERTURA_AUTOMATICA",
+                    alarm_type=AlarmType.ALERTA,
+                    source_state="CICLO",
+                    description="Apertura automática: la cámara tarda más de lo esperado en enfriar.",
+                    recoverable=True,
+                    blocks_operation=False,
+                ))
+            return
+
+        puerta = "Puerta 2" if "Puerta 2" in self.door_service.doors else "Puerta 1"
+        ok, _motivo = self.door_service.request_open(puerta)
+        if ok:
+            if self._apertura_auto_alarmado:
+                self.alarm_manager.clear("TIMEOUT_APERTURA_AUTOMATICA")
+            self.estado.set_flag("CICLO_CONFIRMADO", True)
 
     # ------------------------------------------------------------------
     # Tick principal
