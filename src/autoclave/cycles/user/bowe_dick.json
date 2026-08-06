@@ -499,7 +499,7 @@
                 "max": 300
             },
             "timeout_pulso": {
-                "value": 10,
+                "value": 120,
                 "type": "int",
                 "unit": "seg",
                 "min": 1,
