@@ -492,7 +492,7 @@
                 "max": 200
             },
             "presion_alta_secado": {
-                "value": 80,
+                "value": 50,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
