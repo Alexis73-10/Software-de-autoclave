@@ -22,6 +22,20 @@ def test_volumen_fuera_de_rango_usa_default(tmp_path):
     assert prefs == {"audio": {"enabled": False, "volume": 80}}
 
 
+def test_carga_defaults_si_audio_no_es_dict(tmp_path):
+    path = tmp_path / "preferences.json"
+    path.write_text(json.dumps({"audio": None}), encoding="utf-8")
+    prefs = load_preferences(path)
+    assert prefs == {"audio": {"enabled": True, "volume": 80}}
+
+
+def test_carga_defaults_si_audio_es_string(tmp_path):
+    path = tmp_path / "preferences.json"
+    path.write_text(json.dumps({"audio": "not_a_dict"}), encoding="utf-8")
+    prefs = load_preferences(path)
+    assert prefs == {"audio": {"enabled": True, "volume": 80}}
+
+
 def test_guardar_y_recargar_conserva_valores(tmp_path):
     path = tmp_path / "preferences.json"
     save_preferences({"audio": {"enabled": False, "volume": 42}}, path)

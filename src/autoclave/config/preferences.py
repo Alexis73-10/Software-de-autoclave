@@ -16,7 +16,9 @@ def load_preferences(path: Path | None = None) -> dict:
     except (FileNotFoundError, json.JSONDecodeError, OSError):
         data = {}
 
-    audio = data.get("audio", {}) if isinstance(data, dict) else {}
+    audio = data.get("audio") if isinstance(data, dict) else None
+    if not isinstance(audio, dict):
+        audio = {}
     enabled = audio.get("enabled", _DEFAULTS["enabled"])
     volume = audio.get("volume", _DEFAULTS["volume"])
 
