@@ -6,12 +6,41 @@
 # saturado del setpoint de esterilización (temperatura_calentamiento +
 # presion_add_calentamiento) y sostiene esa condición durante una ventana
 # continua de tiempo_estable_preesterilizacion segundos antes de entregar
-# control a ESTERILIZACION. Tres tramos internos, sin retroceso entre ellos:
-#   APROXIMACION              vapor_camara en bang-bang por tick: ON salvo
-#                              que la pendiente ya supere tasa_calentamiento/
-#                              tasa_presion (0 = sin límite; solo limita subida)
-#   PWM_ACTIVO                entra al alcanzar |P - P_sat(T)| <= rango_calentamiento;
-#                              vapor_camara en PWM (factor_calentamiento / intervalo_segmentos_calor)
+# control a ESTERILIZACION. Dos tramos internos, sin retroceso entre ellos:
+#   RAMPA (control continuo)  vapor_camara con un duty cycle (0 a 1)
+#                              recalculado en cada tick — reemplaza los
+#                              antiguos tramos discretos APROXIMACION/
+#                              PWM_ACTIVO por un único controlador continuo
+#                              que combina tres señales independientes
+#                              (gana la más restrictiva, min):
+#                                duty_tasa           limita la pendiente
+#                                  (tasa_calentamiento/tasa_presion; 0 = sin
+#                                  límite; solo limita subida)
+#                                duty_proximidad      interpola desde 1.0
+#                                  lejos del objetivo hasta duty_estable
+#                                  (1 - factor_calentamiento/100) cerca de
+#                                  él, medido contra los objetivos fijos
+#                                  t_obj/p_obj (nunca contra P_sat(temp
+#                                  actual), que se mueve mientras sube).
+#                                  Una vez superado el objetivo, ese piso
+#                                  duty_estable se escala hacia 0 a medida
+#                                  que el sobrepaso crece (0 a partir de
+#                                  rango_calentamiento unidades pasado el
+#                                  objetivo) — corrige que el controlador
+#                                  siguiera inyectando vapor a duty_estable
+#                                  de forma indefinida muy por encima del
+#                                  objetivo (ciclo 79, 2026-08-06: 136.7°C
+#                                  con t_obj=134.0°C)
+#                                duty_calidad_vapor   corta a 0 si temp ya
+#                                  cruzó el tope del 97% de t_obj pero la
+#                                  presión no corresponde a vapor saturado
+#                                  a esa temperatura real
+#                              Un techo independiente (P >= p_obj + presion_
+#                              add_calentamiento) fuerza duty=0 sin importar
+#                              el resto. El duty resultante se traduce a PWM
+#                              sobre intervalo_segmentos_calor. Ver docs/
+#                              superpowers/specs/2026-08-05-control-continuo-
+#                              rampa-calentamiento-design.md
 #   ESTABLE_PREESTERILIZACION entra al cruzar temp>=t_obj y pres>=p_obj; exige
 #                              una ventana CONTINUA de tiempo_estable_preesterilizacion
 #                              segundos dentro de banda (|T-t_obj|<=rango_temp_estabilizacion
@@ -26,16 +55,74 @@
 # escape_lento y escape_rapido corren con temporizadores de dos estados
 # independientes en paralelo durante toda la fase (no sincronizados con los
 # tramos anteriores). tasa_calentamiento/tasa_presion son puramente de
-# control (bang-bang en APROXIMACION) — no producen FALLO; si vapor_camara
-# no responde al comando OFF, no hay aborto automático por esta vía (riesgo
-# aceptado, ver docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md).
+# control (via duty_tasa, en todo momento, no solo en un tramo de
+# aproximación) — no producen FALLO; si vapor_camara no responde al comando
+# OFF, no hay aborto automático por esta vía (riesgo aceptado, ver
+# docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md).
 
 import time
 import logging
+from collections import deque
 from autoclave.core.runtime.steam import p_saturacion_kpa
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
+
+# Ventana mínima (seg) para medir tasa_calentamiento/tasa_presion. El loop de
+# control tiquea cada ~0.5s (control_loop.py) y el sensor llega redondeado a
+# 0.1°C (converters.py) — una pendiente tick-a-tick queda dominada por ese
+# redondeo: la mayoría de los ticks miden delta=0 (vapor_camara ON sin freno)
+# y el resto un pico artificial extrapolado x120 (1min/0.5s) cuando el
+# redondeo por fin salta. Medir contra una muestra de al menos esta
+# antigüedad diluye tanto el ruido de cuantización como el factor de
+# extrapolación, dando una tasa que refleja el ritmo real sostenido.
+_VENTANA_PENDIENTE_SEG = 10
+
+_FACTOR_TOPE_TEMPERATURA = 0.97
+
+
+def _duty_por_tasa(tasa_actual, tasa_max):
+    """Duty (0 a 1) por limite de pendiente: 1.0 si no hay restriccion
+    configurada o la pendiente ya esta dentro del limite; cae
+    proporcionalmente (tasa_max / tasa_actual) si lo excede."""
+    if tasa_max <= 0 or tasa_actual is None or tasa_actual <= 0:
+        return 1.0
+    return min(tasa_max / tasa_actual, 1.0)
+
+
+def _duty_por_proximidad(dist, margen):
+    """Fraccion de rampa restante hacia el objetivo: 1.0 a `margen` unidades
+    o mas de distancia, 0.0 en o despues del objetivo (dist <= 0), lineal
+    en el medio."""
+    if margen <= 0:
+        return 1.0 if dist > 0 else 0.0
+    return max(0.0, min(dist / margen, 1.0))
+
+
+def _duty_por_sobrepaso(dist, margen):
+    """Factor (0 a 1) que escala el piso duty_estable hacia abajo a medida
+    que ya se superó el objetivo: 1.0 en el objetivo o antes (dist >= 0,
+    sin restringir todavía), cae linealmente a 0.0 al superarlo por
+    `margen` unidades o más. Sin esto, duty_proximidad se queda clavado en
+    duty_estable de forma indefinida sin importar cuánto se haya pasado del
+    objetivo -- bug real (ciclo 79, 2026-08-06): con temp a 136.7°C
+    (t_obj=134.0) el duty seguía en 0.5, como si 136.7°C fuera un punto
+    válido para sostener con PWM en vez de apagar."""
+    if margen <= 0:
+        return 1.0 if dist >= 0 else 0.0
+    return max(0.0, min(1.0 + dist / margen, 1.0))
+
+
+def _duty_por_calidad_vapor(temp, pres, t_obj, p_add):
+    """Corte binario (0 o 1): una vez que temp cruza el 97% de t_obj, exige
+    que la presion ya corresponda a la temperatura real (P_sat(temp) +
+    p_add) -- evita inyectar cuando el sensor de temperatura corre por
+    delante de vapor no saturado."""
+    temp_cap = _FACTOR_TOPE_TEMPERATURA * t_obj
+    if temp < temp_cap:
+        return 1.0
+    p_min_para_temp = p_saturacion_kpa(temp) + p_add
+    return 1.0 if pres >= p_min_para_temp else 0.0
 
 
 class CalentamientoFase(BaseFase):
@@ -45,18 +132,18 @@ class CalentamientoFase(BaseFase):
     def reset(self):
         self._inicializado = False
         self._timer_timeout_fin = None
-        self._en_pwm = False
+        self._duty_actual = None
 
         # Tramo ESTABLE_PREESTERILIZACION: ventana continua dentro de banda
         self._en_sostenimiento = False
         self._timer_sostenido_desde = None
         self._timer_recuperacion_fin = None
 
-        # Pendiente instantánea (tasa_calentamiento / tasa_presion) —
-        # alimenta el control de vapor_camara en APROXIMACION, paso 5
-        self._temp_anterior = None
-        self._pres_anterior = None
-        self._t_tick_anterior = None
+        # Pendiente sobre ventana (tasa_calentamiento / tasa_presion) —
+        # alimenta duty_tasa en el paso 4 (control continuo de vapor_camara).
+        # Historial [(timestamp, temp, pres), ...] de al menos
+        # _VENTANA_PENDIENTE_SEG de profundidad; ver constante de módulo.
+        self._historial_pendiente = deque()
 
         # Temporizadores de dos estados (vapor PWM, escape lento, escape rápido)
         self._t_pulso_pwm = None
@@ -155,45 +242,115 @@ class CalentamientoFase(BaseFase):
         now = time.time()
 
         # ── 3. Cálculo de pendiente ──────────────────────────────────────
-        # tasa_t/tasa_p alimentan el control de vapor_camara en APROXIMACION
-        # (paso 5). No disparan FALLO — riesgo aceptado si vapor_camara no
-        # responde al comando OFF, ver spec de remoción de FALLO.
+        # tasa_t/tasa_p alimentan duty_tasa en el paso 4 (control continuo de
+        # vapor_camara). No disparan FALLO — riesgo aceptado si vapor_camara no
+        # responde al comando OFF, ver spec de remoción de FALLO. Se miden
+        # contra la muestra más antigua del historial que ya tenga al menos
+        # _VENTANA_PENDIENTE_SEG de antigüedad (no contra el tick anterior
+        # inmediato — ver constante de módulo).
+        self._historial_pendiente.append((now, temp, pres))
+        while (
+            len(self._historial_pendiente) > 1
+            and now - self._historial_pendiente[1][0] >= _VENTANA_PENDIENTE_SEG
+        ):
+            self._historial_pendiente.popleft()
+
         tasa_t = None
         tasa_p = None
-        if self._t_tick_anterior is not None:
-            dt_min = (now - self._t_tick_anterior) / 60
-            if dt_min > 0:
-                tasa_t = (temp - self._temp_anterior) / dt_min
-                tasa_p = (pres - self._pres_anterior) / dt_min
+        t_ref, temp_ref, pres_ref = self._historial_pendiente[0]
+        edad = now - t_ref
+        if edad >= _VENTANA_PENDIENTE_SEG:
+            dt_min = edad / 60
+            tasa_t = (temp - temp_ref) / dt_min
+            tasa_p = (pres - pres_ref) / dt_min
 
-        self._temp_anterior = temp
-        self._pres_anterior = pres
-        self._t_tick_anterior = now
+        # ── 4. Duty cycle continuo de vapor_camara ─────────────────────────
+        # Reemplaza los tramos discretos APROXIMACION/PWM_ACTIVO: duty_tasa
+        # limita la pendiente (paso 3), duty_proximidad se acerca a
+        # duty_estable a medida que temp/pres se acercan a los objetivos
+        # fijos t_obj/p_obj (nunca contra P_sat(temp_actual)), y
+        # duty_calidad_vapor corta a 0 si la temperatura ya cruzo el tope
+        # del 97% pero la presion no corresponde a vapor saturado a esa
+        # temperatura -- salvo que la fase ya este en ESTABLE_PREESTERILIZACION
+        # (self._en_sostenimiento), donde ese chequeo no aplica: la
+        # seguridad de esa banda ya la maneja el paso 7 con su propio
+        # timeout de recuperacion, y aplicar duty_calidad_vapor ahi forzaba
+        # duty=0 dentro del propio tramo de sostenimiento (confirmado con
+        # datos reales del ciclo 72 -- ver spec, seccion 3.3). Gana el mas
+        # restrictivo (min); el techo independiente corta a 0 sin importar
+        # el resto si la presion ya rebaso lo tolerado.
+        duty_tasa = min(
+            _duty_por_tasa(tasa_t, tasa_t_max),
+            _duty_por_tasa(tasa_p, tasa_p_max),
+        )
 
-        # ── 4. Entrada a PWM (unidireccional) ─────────────────────────────
-        if not self._en_pwm and abs(pres - p_saturacion_kpa(temp)) <= rango_cal:
-            self._en_pwm = True
-            logger.info("Calentamiento: banda alcanzada (%.1f kPa) — entra a PWM_ACTIVO", rango_cal)
+        duty_estable = 1.0 - factor_pct / 100.0
+        cercania = min(
+            _duty_por_proximidad(t_obj - temp, rango_cal),
+            _duty_por_proximidad(p_obj - pres, rango_cal),
+        )
+        # sobrepaso escala duty_estable hacia 0 a medida que temp/pres ya
+        # superaron el objetivo -- sin esto, duty_proximidad se queda en
+        # duty_estable indefinidamente sin importar cuánto se haya pasado
+        # (ver _duty_por_sobrepaso). No afecta el lado de aproximación
+        # (dist >= 0): ahí sobrepaso=1.0 y el comportamiento es idéntico al
+        # anterior.
+        sobrepaso = min(
+            _duty_por_sobrepaso(t_obj - temp, rango_cal),
+            _duty_por_sobrepaso(p_obj - pres, rango_cal),
+        )
+        duty_proximidad = duty_estable * sobrepaso + (1.0 - duty_estable) * cercania
 
-        # ── 5. Control de vapor_camara ─────────────────────────────────────
-        if not self._en_pwm:
-            # Bang-bang directo por tick: ON salvo que la pendiente ya
-            # supere el techo de tasa_calentamiento/tasa_presion. Solo se
-            # limita la dirección de subida (tasa_t sin abs()) porque la
-            # válvula no puede enfriar la cámara. tasa_t/tasa_p en None
-            # (sin dato de pendiente aún) o el umbral en 0 (deshabilitado)
-            # no pueden forzar OFF.
-            dentro_de_tasa = (
-                (tasa_t is None or tasa_t_max <= 0 or tasa_t <= tasa_t_max)
-                and (tasa_p is None or tasa_p_max <= 0 or tasa_p <= tasa_p_max)
+        if self._en_sostenimiento:
+            duty_calidad_vapor = 1.0
+        else:
+            duty_calidad_vapor = _duty_por_calidad_vapor(temp, pres, t_obj, p_add)
+
+        duty = min(duty_tasa, duty_proximidad, duty_calidad_vapor)
+
+        p_techo = p_obj + p_add
+        if pres >= p_techo:
+            duty = 0.0
+
+        duty_anterior = self._duty_actual
+        self._duty_actual = duty
+
+        if duty <= 0.0 and (duty_anterior is None or duty_anterior > 0.0):
+            razones = []
+            if duty_tasa <= 0.0:
+                razones.append("tasa")
+            if duty_proximidad <= 0.0:
+                razones.append("proximidad")
+            if duty_calidad_vapor <= 0.0:
+                razones.append("calidad_vapor")
+            if pres >= p_techo:
+                razones.append("techo")
+            logger.warning(
+                "Calentamiento: vapor_camara a 0 (%s) — T=%.1f°C P=%.1f kPa",
+                ",".join(razones) or "?", temp, pres,
             )
-            if dentro_de_tasa:
+        elif duty > 0.0 and duty_anterior == 0.0:
+            logger.info(
+                "Calentamiento: vapor_camara reanuda (duty=%.2f) — T=%.1f°C P=%.1f kPa",
+                duty, temp, pres,
+            )
+
+        if intervalo <= 0:
+            # intervalo<=0 haria que _tick_dos_estados caiga en su rama
+            # "enclavada abierta" (t_off<=0) sin importar duty -- los
+            # cuatro mecanismos de arriba quedarian anulados por un solo
+            # parametro de ciclo mal configurado (la UI permite
+            # intervalo_segmentos_calor=0). Aplicar duty directo.
+            if duty > 0.0:
                 self.set_do.vapor_camara_on()
+                self._pwm_abierto = True
             else:
                 self.set_do.vapor_camara_off()
+                self._pwm_abierto = False
+            self._t_pulso_pwm = None
         else:
-            t_off_pwm = intervalo * (factor_pct / 100.0)
-            t_on_pwm  = intervalo - t_off_pwm
+            t_on_pwm = intervalo * duty
+            t_off_pwm = intervalo - t_on_pwm
             self._tick_dos_estados(
                 "_t_pulso_pwm", "_pwm_abierto", t_on_pwm, t_off_pwm,
                 self.set_do.vapor_camara_on, self.set_do.vapor_camara_off, now,

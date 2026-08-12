@@ -1,7 +1,8 @@
 # preparacion.py
 from autoclave.state_machine.machine.parametros_globales import parametros_globales
 from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType 
+from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,11 @@ class preparacion_state:
         self.set_do = set_do
         self.cycle = cycle
         self.config = config
+
+        # Confirmadores de apagado (evitan chattering de valvula)
+        self._confirmador_chaqueta = ConfirmadorApagado()
+        self._confirmador_drenaje = ConfirmadorApagado()
+        self._confirmador_aire_camara = ConfirmadorApagado()
 
     #definicion del estado preparacion:
     # Todas las condiciones se evalúan en paralelo, cada tick, sin bloquear
@@ -167,14 +173,12 @@ class preparacion_state:
             pres_obj=self.cycle.get_param("globals","presion_chaqueta")
             rango=self.cycle.get_param("globals","rango_presion_chaqueta")
 
-            limite_inf = pres_obj - rango
-            limite_sup = pres_obj + rango
-
             # Verificar suministro. Si no hay vapor, no insistir en abrir la
             # válvula (generaría vapor demasiado húmedo por baja presión de
             # línea): se deja "pendiente", no bloqueante.
             if not self.estado.sensores_di["vapor_suministro"]:
                 self.set_do.vapor_chaqueta_off()
+                self._confirmador_chaqueta.reset()
                 self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
                 self.alarm_manager.clear("CHAQUETA_FRIA")
                 self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
@@ -182,26 +186,29 @@ class preparacion_state:
             else:
                 self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
-            # Presión dentro de rango → listo
-            if limite_inf <= presion <= limite_sup:
-                self.set_do.vapor_chaqueta_off()
-                self.alarm_manager.clear("CHAQUETA_FRIA")
-                self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
-                return True
+            r = evaluar_banda(presion, pres_obj, rango, activar_si_bajo=True)
 
-            # Presión baja → abrir vapor
-            if presion < limite_inf:
+            # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
+            if r.debe_activar:
                 self.set_do.vapor_chaqueta_on()
+                self._confirmador_chaqueta.reset()
+            elif self._confirmador_chaqueta.confirmar(True):
+                self.set_do.vapor_chaqueta_off()
+
+            # Alarma bloqueante: solo al cruzar el borde de la banda.
+            if r.fuera_por_debajo:
                 alarm_id = "CHAQUETA_FRIA"
                 self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
+            else:
+                self.alarm_manager.clear("CHAQUETA_FRIA")
 
-            # Presión alta → cerrar vapor
-            elif presion >= limite_sup:
-                self.set_do.vapor_chaqueta_off()
+            if r.fuera_por_encima:
                 alarm_id = "CHAQUETA_SOBRECALENTADA"
                 self.alarm(alarm_id, AlarmType.ALERTA)
-                return False
+            else:
+                self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+
+            return r.dentro_de_banda
     
     def igualar_presion_camara(self):
             """Retorna (ok, quiere_descompresion_rapida). No acciona la
@@ -215,7 +222,8 @@ class preparacion_state:
 
             if pres_cam_min <= presion_camara <= pres_cam_max:
                 # Presión igualada
-                self.set_do.aire_admosferico_camara_off()
+                if self._confirmador_aire_camara.confirmar(True):
+                    self.set_do.aire_admosferico_camara_off()
                 self.set_do.descompresion_lenta_off()
                 self.alarm_manager.clear("PRESION_CAMARA_BAJA")
                 self.alarm_manager.clear("PRESION_CAMARA_ALTA")
@@ -224,12 +232,14 @@ class preparacion_state:
             if presion_camara < pres_cam_min:
                 # Abrir entrada de aire comprimido a la camara
                 self.set_do.aire_admosferico_camara_on()
+                self._confirmador_aire_camara.reset()
                 alarm_id = "PRESION_CAMARA_BAJA"
                 self.alarm(alarm_id, AlarmType.ALERTA)
                 return False, False
 
             # presion_camara > pres_cam_max: requiere venteo/vacío
             self.set_do.aire_admosferico_camara_off()
+            self._confirmador_aire_camara.reset()
             alarm_id = "PRESION_CAMARA_ALTA"
             self.alarm(alarm_id, AlarmType.ALERTA)
             return False, True
@@ -250,16 +260,29 @@ class preparacion_state:
         
     def verificar_temperatura_drenaje(self):
             temp_drenaje = self.estado.sensores_temp["temp_drenaje"]
-            temp_segura = self.config.get("temp_segura_drenaje")
-            if temp_drenaje <= temp_segura:  # Suponiendo 40°C como temperatura segura
-                self.set_do.agua_intercambiador_off()
-                self.alarm_manager.clear("TEMPERATURA_DRENAJE_ALTA")
-                return True
+            temp_obj = self.config.get("temp_segura_drenaje")
+            rango = self.config.get("rango_temp_drenaje")
 
-            self.set_do.agua_intercambiador_on()
-            alarm_id = "TEMPERATURA_DRENAJE_ALTA"
-            self.alarm(alarm_id, AlarmType.ALERTA)
-            return False
+            r = evaluar_banda(temp_drenaje, temp_obj, rango, activar_si_bajo=False)
+
+            # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
+            if r.debe_activar:
+                self.set_do.agua_intercambiador_on()
+                self._confirmador_drenaje.reset()
+            elif self._confirmador_drenaje.confirmar(True):
+                self.set_do.agua_intercambiador_off()
+
+            # Alarma bloqueante: solo al cruzar el borde superior de la banda.
+            # No hay alarma de lado bajo: no existe accion fisica para
+            # "drenaje muy frio", pero el lado bajo si participa del gate de
+            # listo/inicio via dentro_de_banda.
+            if r.fuera_por_encima:
+                alarm_id = "TEMPERATURA_DRENAJE_ALTA"
+                self.alarm(alarm_id, AlarmType.ALERTA)
+            else:
+                self.alarm_manager.clear("TEMPERATURA_DRENAJE_ALTA")
+
+            return not r.fuera_por_encima
         
     def reset(self):
         pass

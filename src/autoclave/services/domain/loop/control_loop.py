@@ -10,10 +10,17 @@ from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
 from autoclave.devices.suministro_electrico.suministro_electrico import SuministroElectrico
 from datetime import datetime
 from autoclave.devices.printer.connectivity_ticket import format_connectivity_ticket
+from autoclave.core.runtime.letalidad import calcular_incremento_f0
 
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Fases del ciclo donde hay letalidad real y corresponde acumular F0.
+# ESTABILIZACION ya no existe como fase.name propia (fusionada dentro de
+# CALENTAMIENTO, ver CLAUDE.md) — se conserva en el conjunto por si una
+# futura reversión de esa fusión la reintroduce; hoy nunca hace match.
+_F0_FASES_ACUMULAN = {"CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION"}
 
 
 class ControlLoop:
@@ -23,6 +30,11 @@ class ControlLoop:
     # - Ejecuta servicios (reglas)
     # - Actualiza dispositivos
     # - Publica estado global
+
+    # Tolerancia a caídas breves del link durante un ciclo: una desconexión
+    # de menos de este umbral no lo aborta (ruido momentáneo en el serial).
+    # Si se supera, se aborta — ver abortar_por_desconexion().
+    _TOLERANCIA_DESCONEXION_SEG = 5.0
 
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
@@ -35,19 +47,23 @@ class ControlLoop:
         self.link           = link
         self.set_do         = set_do
         self._running       = threading.Event()
+        self._sm_lock       = threading.Lock()
         self.cycle          = cycle_manager.get_selected_cycle()
         self.config_manager = config_manager
         self.alarm_manager  = alarm_manager
         self.cycle_manager  = cycle_manager
         self.cycle_logger   = cycle_logger
         self.realtime_printer = realtime_printer
+        self.cap             = cap
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
-            cycle=self.cycle, config=self.config_manager, cap=cap
+            cycle=self.cycle, config=self.config_manager, cap=cap,
+            door_service=door_service,
         )
         self.link_was_connected = True
         self._link_ever_connected = False
+        self._desconectado_desde: float | None = None
         self.paro_emergencia    = EmergencyStop(estado)
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
@@ -56,6 +72,10 @@ class ControlLoop:
         # Modo prueba (bench validation): pausa state_machine.update() sin
         # detener el resto del loop (sensores, puertas, enlace serial).
         self._test_mode = threading.Event()
+
+        # Acumulación de F0 (letalidad): timestamp del último tick que
+        # acumuló, para calcular dt_min real (no el interval nominal).
+        self._f0_ultimo_tick: float | None = None
 
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
@@ -71,33 +91,41 @@ class ControlLoop:
 
     def _tick(self):
         connected = self.link.is_connected()
+        now = time.monotonic()
 
-        if not connected and self.link_was_connected:
-            self.alarm_manager.report(
-                Alarm(
-                    alarm_id="NO_HAY_CONEXION",
-                    alarm_type=AlarmType.FALLA,
-                    source_state="CONTROL_LOOP",
-                    description="No hay comunicación con el hardware.",
-                    recoverable=True,
-                    blocks_operation=True,
+        if not connected:
+            if self.link_was_connected:
+                self._desconectado_desde = now
+                self.alarm_manager.report(
+                    Alarm(
+                        alarm_id="NO_HAY_CONEXION",
+                        alarm_type=AlarmType.FALLA,
+                        source_state="CONTROL_LOOP",
+                        description="No hay comunicación con el hardware.",
+                        recoverable=True,
+                        blocks_operation=True,
+                    )
                 )
-            )
-            # El handshake serial inicial (escaneo de puerto + primer dato)
-            # tarda unos instantes tras el arranque del backend; ese hueco
-            # no es una desconexión real y no debe imprimirse.
-            if self.realtime_printer is not None and self._link_ever_connected:
-                self.realtime_printer.enqueue(
-                    format_connectivity_ticket("TARJETA", False, datetime.now())
-                )
+                # El handshake serial inicial (escaneo de puerto + primer dato)
+                # tarda unos instantes tras el arranque del backend; ese hueco
+                # no es una desconexión real y no debe imprimirse.
+                if self.realtime_printer is not None and self._link_ever_connected:
+                    self.realtime_printer.enqueue(
+                        format_connectivity_ticket("TARJETA", False, datetime.now())
+                    )
             # Sin conexión no hay datos frescos de sensores, así que este
             # mismo _tick() va a retornar temprano y state_machine.update()
             # no correrá — si había un ciclo en curso, no se detectaría el
             # fallo por sí solo. Se aborta aquí directamente en vez de
-            # esperar a una reconexión que puede tardar o no llegar.
-            if self.estado.get_machine_state() == GlobalState.CICLO:
+            # esperar a una reconexión que puede tardar o no llegar, pero
+            # solo una vez agotada la tolerancia: una caída breve (ruido
+            # momentáneo en el serial) no debe tirar el ciclo completo.
+            if (self._desconectado_desde is not None
+                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG
+                    and self.estado.get_machine_state() == GlobalState.CICLO):
                 self.state_machine.ciclo.abortar_por_desconexion()
         elif connected and not self.link_was_connected:
+            self._desconectado_desde = None
             self.alarm_manager.clear("NO_HAY_CONEXION")
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
@@ -149,7 +177,12 @@ class ControlLoop:
 
         # 5. Máquina de estados global (pausada durante el modo prueba)
         if not self._test_mode.is_set():
-            self.state_machine.update()
+            with self._sm_lock:
+                self.state_machine.update()
+
+        # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
+        # publicado, así que el orden respecto al paso 5 no importa.
+        self._acumular_f0(now)
 
         # 6. Data logger (observa machine_state internamente)
         if self.cycle_logger is not None:
@@ -161,6 +194,41 @@ class ControlLoop:
         # pisaría el control manual de esa salida).
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
+
+    def _acumular_f0(self, now: float) -> None:
+        """Acumula letalidad (F0) mientras el ciclo está en una fase con
+        letalidad real y el ciclo activo tiene globals.F0 activado. El
+        timestamp se resetea a None cada vez que alguna condición no se
+        cumple, así que al reingresar a las fases que acumulan (p.ej. tras
+        PRE_VACIO, que nunca acumula) el primer tick solo inicializa el
+        timestamp sin sumar — evita un dt_min inflado por el tiempo pasado
+        en fases previas."""
+        condiciones = (
+            self.estado.get_machine_state() == GlobalState.CICLO
+            and self.estado.fase_ciclo in _F0_FASES_ACUMULAN
+            and bool(self.cycle.get_param("globals", "F0"))
+        )
+        if not condiciones:
+            self._f0_ultimo_tick = None
+            return
+
+        ultimo = self._f0_ultimo_tick
+        self._f0_ultimo_tick = now
+        if ultimo is None:
+            return
+
+        temp_camara = self.estado.sensores_temp.get("temp_camara")
+        if temp_camara is None:
+            return
+
+        if self.cap is not None and getattr(self.cap, "has_liquid_sensor", False):
+            temp_2 = self.estado.sensores_temp.get("temp_2_camara")
+            t_ref = min(temp_camara, temp_2) if temp_2 is not None else temp_camara
+        else:
+            t_ref = temp_camara
+
+        dt_min = (now - ultimo) / 60.0
+        self.estado.f0_acumulado += calcular_incremento_f0(t_ref, dt_min)
 
     # =========================================================================
     # CONTROL DE VIDA
@@ -214,3 +282,30 @@ class ControlLoop:
         """Apaga todas las salidas y reanuda state_machine.update()."""
         self._test_mode.clear()
         self.set_do.reset_all_outputs()
+
+    # =========================================================================
+    # CAMBIO DE CICLO ACTIVO
+    # =========================================================================
+
+    def set_active_cycle(self, cycle) -> tuple[bool, str]:
+        """Reemplaza el ciclo activo y reconstruye la StateMachine para que el
+        cambio se propague a todos los sub-estados y fases. Solo seguro fuera
+        de CICLO: no hay fases en curso cuyo estado interno se pierda.
+
+        El chequeo de estado y la reconstrucción corren dentro de _sm_lock
+        para que no puedan intercalarse con state_machine.update() en
+        _tick() (hilo de fondo) — sin el lock, un START_CICLO concurrente
+        podía colarse entre el chequeo y la reconstrucción y dejar una
+        StateMachine nueva (prev_state=None) pisando un ciclo recién
+        iniciado."""
+        with self._sm_lock:
+            if self.estado.get_machine_state() == GlobalState.CICLO:
+                return False, "No se puede cambiar de ciclo mientras hay uno en curso."
+
+            self.cycle = cycle
+            self.state_machine = StateMachine(
+                io=self.link, estado=self.estado, set_do=self.set_do,
+                cycle=cycle, config=self.config_manager, cap=self.cap,
+                door_service=self.door_service,
+            )
+            return True, ""

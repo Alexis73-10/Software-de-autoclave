@@ -12,6 +12,13 @@
                 "value": false,
                 "type": "bool"
             },
+            "F0_objetivo": {
+                "value": 12,
+                "type": "float",
+                "unit": "min",
+                "min": 0,
+                "max": 60
+            },
             "ciclos_multiples": {
                 "value": true,
                 "type": "bool"
@@ -51,7 +58,7 @@
                 "max": 1000
             },
             "timeout_precalentamiento": {
-                "value": 10,
+                "value": 1,
                 "type": "int",
                 "unit": "min",
                 "min": 0,
@@ -405,7 +412,7 @@
                 "max": 100
             },
             "intervalo_segmentos_ester": {
-                "value": 3,
+                "value": 2,
                 "type": "int",
                 "unit": "seg",
                 "min": 0,
@@ -447,7 +454,7 @@
                 "max": 10
             },
             "brecha_segura_presion": {
-                "value": 6.0,
+                "value": 1.5,
                 "type": "float",
                 "unit": "kPa",
                 "min": 0,
@@ -464,14 +471,14 @@
                 "max": 3
             },
             "tiempo_secado": {
-                "value": 2.0,
+                "value": 1.0,
                 "type": "float",
                 "unit": "min",
                 "min": 0,
                 "max": 120
             },
             "presion_chaqueta_secado": {
-                "value": 200,
+                "value": 300,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
@@ -492,14 +499,14 @@
                 "max": 200
             },
             "presion_alta_secado": {
-                "value": 80,
+                "value": 50,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
                 "max": 300
             },
             "timeout_pulso": {
-                "value": 10,
+                "value": 120,
                 "type": "int",
                 "unit": "seg",
                 "min": 1,
@@ -653,7 +660,7 @@
                 "max": 120
             },
             "apertura_automatica": {
-                "value": true,
+                "value": false,
                 "type": "bool",
                 "unit": ""
             }

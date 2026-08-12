@@ -6,11 +6,23 @@
 # tiempo_esterilizacion minutos. No hay tramo de aproximación (viene ya
 # validada de ESTABILIZACION): dos tramos internos, bidireccionales entre sí,
 # evaluados en cada tick sin chattering-guard:
-#   RECUPERACION   T < T_est + brecha_segura_temperatura -> vapor_camara ON continuo
-#   PWM_ACTIVO     T >= T_est + brecha_segura_temperatura -> vapor_camara en PWM,
-#                  banda fija [-2,+1] kPa sobre P_sat(T_actual), techo de
-#                  control P_control_max = P_sat(T_est) + presion_add_esterilizacion
+#   RECUPERACION   T < T_est + brecha_segura_temperatura
+#                  O P < P_sat(T_est) - brecha_segura_presion
+#                  -> vapor_camara ON continuo (sin techo de control)
+#   PWM_ACTIVO     T >= T_est + brecha_segura_temperatura
+#                  Y P >= P_sat(T_est) - brecha_segura_presion
+#                  -> vapor_camara en PWM, banda fija [-2,+1] kPa sobre
+#                  P_sat(T_actual), techo de control
+#                  P_control_max = P_sat(T_est) + presion_add_esterilizacion
 #                  (fuerza OFF sin importar la banda local)
+#
+# El disparador por presión (brecha_segura_presion) cubre el caso en que la
+# presión cae de forma sostenida mientras la temperatura se mantiene cerca
+# o por encima del setpoint (fuga por descompresion_lenta, que corre
+# enclavada abierta durante toda la fase, más rápido de lo que el duty
+# cycle de PWM_ACTIVO puede compensar): sin este disparador, RECUPERACION
+# nunca se activaba porque solo miraba temperatura, y la presión seguía
+# cayendo hasta FALLO sin que el control pasara a modo agresivo.
 #
 # escape_lento y escape_rapido corren con temporizadores de dos estados
 # independientes en paralelo durante toda la fase, sin depender del tramo
@@ -44,6 +56,7 @@ class EsterilizacionFase(BaseFase):
     def reset(self):
         self._inicializado = False
         self._timer_fin = None
+        self._timer_timeout_max = None
         self._en_recuperacion = True
 
         # Debounce de las 4 condiciones de falla (referencia fija t_est)
@@ -147,12 +160,15 @@ class EsterilizacionFase(BaseFase):
         rango_temp   =  self.cycle.get_param("esterilizacion", "rango_temperatura_ester")      or 0.0
         rango_pres   =  self.cycle.get_param("esterilizacion", "rango_presion_ester")          or 0.0
         brecha_seg   =  self.cycle.get_param("esterilizacion", "brecha_segura_temperatura")    or 0.0
+        brecha_seg_p =  self.cycle.get_param("esterilizacion", "brecha_segura_presion")        or 0.0
         brecha_err_t =  self.cycle.get_param("esterilizacion", "brecha_error_temperatura")     or 0.0
         brecha_err_p =  self.cycle.get_param("esterilizacion", "brecha_error_presion")         or 0.0
         lento_on     =  self.cycle.get_param("esterilizacion", "escape_lento_on_ester")        or 0
         lento_off    =  self.cycle.get_param("esterilizacion", "escape_lento_off_ester")       or 0
         rapido_on    =  self.cycle.get_param("esterilizacion", "escape_rapido_on_ester")       or 0
         rapido_off   =  self.cycle.get_param("esterilizacion", "escape_rapido_off_ester")      or 0
+        f0_activo    =  bool(self.cycle.get_param("globals", "F0"))
+        f0_objetivo  =  self.cycle.get_param("globals", "F0_objetivo")      or 0.0
 
         p_sat_est = p_saturacion_kpa(t_est)
         p_control_max = p_sat_est + presion_add
@@ -162,6 +178,8 @@ class EsterilizacionFase(BaseFase):
         # la disponibilidad de sensores (plan sección 5).
         if not self._inicializado:
             self._timer_fin = time.time() + tiempo_seg
+            if f0_activo:
+                self._timer_timeout_max = time.time() + 2 * tiempo_seg
             self._inicializado = True
             self.estado.fase_en_sostenimiento = True
             logger.info(
@@ -215,8 +233,15 @@ class EsterilizacionFase(BaseFase):
 
         # ── 3. Transición bidireccional RECUPERACION↔PWM_ACTIVO ────────────
         # Sin chattering-guard: reacción inmediata ante pérdida de reserva
-        # térmica es el objetivo de diseño (plan sección 4.1).
-        self._en_recuperacion = temp < t_est + brecha_seg
+        # térmica o de presión es el objetivo de diseño (plan sección 4.1).
+        # La presión también dispara RECUPERACION: la temperatura puede
+        # mantenerse cerca del setpoint mientras la presión sola cae por la
+        # fuga continua de descompresion_lenta, y sin este chequeo el modo
+        # agresivo (sin techo de control) nunca se activaba en ese caso.
+        self._en_recuperacion = (
+            temp < t_est + brecha_seg
+            or pres < p_sat_est - brecha_seg_p
+        )
 
         # ── 4. Control de vapor_camara ─────────────────────────────────────
         if self._en_recuperacion:
@@ -235,11 +260,33 @@ class EsterilizacionFase(BaseFase):
         )
 
         # ── 6. Condición de finalización ─────────────────────────────────
-        # Única variable de éxito: el conteo de tiempo, sin importar el tramo
-        # de control activo (RECUPERACION o PWM_ACTIVO).
-        if now >= self._timer_fin:
-            logger.info("Esterilización: COMPLETADO — %.0f seg completados", tiempo_seg)
+        # Sin F0: única variable de éxito es el conteo de tiempo, sin
+        # importar el tramo de control activo (RECUPERACION o PWM_ACTIVO).
+        # Con F0: además del tiempo, exige letalidad acumulada suficiente —
+        # un timeout de seguridad (2x tiempo_esterilizacion) cubre el caso
+        # en que F0 nunca llega (fuga, descalibración de sensor).
+        tiempo_cumplido = now >= self._timer_fin
+
+        if not f0_activo:
+            if tiempo_cumplido:
+                logger.info("Esterilización: COMPLETADO — %.0f seg completados", tiempo_seg)
+                self._apagar_salidas()
+                return FaseResult.COMPLETADO
+            return FaseResult.EN_CURSO
+
+        f0_cumplido = self.estado.f0_acumulado >= f0_objetivo
+        if tiempo_cumplido and f0_cumplido:
+            logger.info(
+                "Esterilización: COMPLETADO — %.0f seg completados, F0=%.2f/%.1f min",
+                tiempo_seg, self.estado.f0_acumulado, f0_objetivo,
+            )
             self._apagar_salidas()
             return FaseResult.COMPLETADO
+
+        if now >= self._timer_timeout_max:
+            return self._fallo(
+                f"ESTERILIZACION_TIMEOUT_F0: F0 no alcanzado tras {2 * tiempo_seg / 60:.0f} min "
+                f"(F0={self.estado.f0_acumulado:.2f}/{f0_objetivo:.1f} min)"
+            )
 
         return FaseResult.EN_CURSO

@@ -1,4 +1,5 @@
 from autoclave.state_machine.alarms.alarm import Alarm, AlarmType
+from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 import logging
 import time
 
@@ -18,6 +19,11 @@ class preparado_state:
 
         # Timer de estabilidad
         self.timer_estabilidad = None
+
+        # Confirmadores de apagado (evitan chattering de valvula)
+        self._confirmador_chaqueta = ConfirmadorApagado()
+        self._confirmador_drenaje = ConfirmadorApagado()
+        self._confirmador_aire_camara = ConfirmadorApagado()
 
     # ==============================
     # ALARMAS
@@ -89,14 +95,11 @@ class preparado_state:
         press_obj = self.cycle.get_param("globals", "presion_chaqueta")
         rango=self.cycle.get_param("globals","rango_presion_chaqueta")
 
-
-        limite_inf = press_obj - rango
-        limite_sup = press_obj + rango
-
         # Suministro. Sin vapor, no insistir en abrir la válvula: se deja
         # "pendiente", no bloqueante (no debe frenar esta_preparado()).
         if not self.estado.sensores_di["vapor_suministro"]:
             self.set_do.vapor_chaqueta_off()
+            self._confirmador_chaqueta.reset()
             self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
             self.alarm_manager.clear("CHAQUETA_FRIA")
             self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
@@ -104,23 +107,27 @@ class preparado_state:
         else:
             self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
-        # Dentro de rango
-        if limite_inf <= press_chaqueta <= limite_sup:
-            self.set_do.vapor_chaqueta_off()
-            self.alarm_manager.clear("CHAQUETA_FRIA")
-            self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
-            return True
+        r = evaluar_banda(press_chaqueta, press_obj, rango, activar_si_bajo=True)
 
-        # Fuera de rango → compensación
-        if press_chaqueta < limite_inf:
+        # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
+        if r.debe_activar:
             self.set_do.vapor_chaqueta_on()
-            self.generar_alarma_temporizada("CHAQUETA_FRIA")
-
-        elif press_chaqueta > limite_sup:
+            self._confirmador_chaqueta.reset()
+        elif self._confirmador_chaqueta.confirmar(True):
             self.set_do.vapor_chaqueta_off()
-            self.generar_alarma_temporizada("CHAQUETA_SOBRECALENTADA")
 
-        return False
+        # Alarma bloqueante: solo al cruzar el borde de la banda.
+        if r.fuera_por_debajo:
+            self.generar_alarma_temporizada("CHAQUETA_FRIA")
+        else:
+            self.alarm_manager.clear("CHAQUETA_FRIA")
+
+        if r.fuera_por_encima:
+            self.generar_alarma_temporizada("CHAQUETA_SOBRECALENTADA")
+        else:
+            self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+
+        return r.dentro_de_banda
 
     # ==============================
     # CONTROL PRESIÓN CÁMARA
@@ -134,7 +141,8 @@ class preparado_state:
         max_p = pres_atm + rango
 
         if min_p <= presion_camara <= max_p:
-            self.set_do.aire_admosferico_camara_off()
+            if self._confirmador_aire_camara.confirmar(True):
+                self.set_do.aire_admosferico_camara_off()
             self.set_do.descompresion_rapida_off()
             self.alarm_manager.clear("PRESION_CAMARA_BAJA")
             self.alarm_manager.clear("PRESION_CAMARA_ALTA")
@@ -142,11 +150,13 @@ class preparado_state:
 
         if presion_camara < min_p:
             self.set_do.aire_admosferico_camara_on()
+            self._confirmador_aire_camara.reset()
             self.set_do.descompresion_rapida_off()
             self.generar_alarma_temporizada("PRESION_CAMARA_BAJA")
 
         elif presion_camara > max_p:
             self.set_do.aire_admosferico_camara_off()
+            self._confirmador_aire_camara.reset()
             self.set_do.descompresion_rapida_on()
             self.generar_alarma_temporizada("PRESION_CAMARA_ALTA")
 
@@ -157,17 +167,28 @@ class preparado_state:
     # ==============================
     def mantener_drenaje(self):
         temp = self.estado.sensores_temp["temp_drenaje"]
-        temp_segura = self.config.get("temp_segura_drenaje")
+        temp_obj = self.config.get("temp_segura_drenaje")
+        rango = self.config.get("rango_temp_drenaje")
 
-        if temp <= temp_segura:
+        r = evaluar_banda(temp, temp_obj, rango, activar_si_bajo=False)
+
+        # Válvula: reacciona en el objetivo, sin esperar a cruzar la banda.
+        if r.debe_activar:
+            self.set_do.agua_intercambiador_on()
+            self._confirmador_drenaje.reset()
+        elif self._confirmador_drenaje.confirmar(True):
             self.set_do.agua_intercambiador_off()
+
+        # Alarma bloqueante: solo al cruzar el borde superior de la banda.
+        # No hay alarma de lado bajo: no existe accion fisica para "drenaje
+        # muy frio" (no hay calefactor), pero el lado bajo si participa del
+        # gate de listo/inicio via dentro_de_banda.
+        if r.fuera_por_encima:
+            self.generar_alarma_temporizada("TEMP_DRENAJE_ALTA")
+        else:
             self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
-            return True
 
-        self.set_do.agua_intercambiador_on()
-        self.generar_alarma_temporizada("TEMP_DRENAJE_ALTA")
-
-        return False
+        return not r.fuera_por_encima
 
     # ==============================
     # TEMPORIZADOR DE ALARMAS

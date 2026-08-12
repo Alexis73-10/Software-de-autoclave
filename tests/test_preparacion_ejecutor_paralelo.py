@@ -112,6 +112,7 @@ def test_valvula_abre_con_funciones_reales_presion_alta_sin_agua_residual():
         "presion_admosferica": 1013.0,
         "rango_presion_atm": 5.0,
         "temp_segura_drenaje": 40.0,
+        "rango_temp_drenaje": 5.0,
     }[key]
     p = preparacion_state(alarm_manager, estado, set_do, cycle, config)
 

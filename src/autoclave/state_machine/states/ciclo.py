@@ -14,6 +14,7 @@
 #   "CANCELADO"  — usuario abortó → volver a PREPARADO
 
 import logging
+import time
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType
@@ -31,6 +32,9 @@ logger = logging.getLogger(__name__)
 
 _SENSORES_TEMP_CRITICOS = ["temp_camara"]
 _SENSORES_PRES_CRITICOS = ["pres_camara"]
+_DEBOUNCE_LECTURAS_DRENAJE = 3
+_INTERVALO_REINTENTO_APERTURA_SEG = 5.0
+_TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 
 # Resultado textual que CicloState devuelve al StateMachine
 class CicloResultado:
@@ -54,13 +58,21 @@ class CicloState:
         alarm_manager → AlarmManager
     """
 
-    def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None):
+    def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None, door_service=None):
         self.estado        = estado
         self.set_do        = set_do
         self.cycle         = cycle
         self.config        = config
         self.alarm_manager = alarm_manager
         self.cap           = cap
+        self.door_service  = door_service
+        self._apertura_auto_t_inicio = None
+        self._apertura_auto_alarmado = False
+        self._apertura_auto_ultimo_intento = None
+        self._apertura_auto_denegada_desde = None
+        self._apertura_auto_alarmado_denegacion = False
+        self._contador_drenaje_alta = 0
+        self._contador_drenaje_baja = 0
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -89,7 +101,15 @@ class CicloState:
         """
         self._fase_idx            = 0
         self._resultado_pendiente = None
+        self._contador_drenaje_alta = 0
+        self._contador_drenaje_baja = 0
+        self._apertura_auto_t_inicio = None
+        self._apertura_auto_alarmado = False
+        self._apertura_auto_ultimo_intento = None
+        self._apertura_auto_denegada_desde = None
+        self._apertura_auto_alarmado_denegacion = False
         self.estado.motivo_fallo  = ""
+        self.estado.f0_acumulado  = 0.0
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -166,8 +186,12 @@ class CicloState:
         # Dentro del rango: no cambiar estado
 
     def _mantener_drenaje(self):
-        """Mantiene la temperatura de drenaje durante todas las fases del
-        ciclo, sin bloquear el flujo del ciclo (alarma informativa)."""
+        """Mantiene la temperatura de drenaje durante todo el ciclo, incluyendo
+        las esperas de confirmación (COMPLETADO/FALLO/CANCELADO/emergencia).
+        Debounce simétrico de _DEBOUNCE_LECTURAS_DRENAJE lecturas consecutivas
+        antes de cambiar el estado de la válvula, para evitar activarla por
+        oscilaciones de temp_drenaje cerca del umbral. Sensor ausente no
+        resetea los contadores en progreso, solo salta el tick."""
         temp = self.estado.sensores_temp.get("temp_drenaje")
         if temp is None:
             return
@@ -176,6 +200,13 @@ class CicloState:
             return
 
         if temp > temp_segura:
+            self._contador_drenaje_alta += 1
+            self._contador_drenaje_baja = 0
+        else:
+            self._contador_drenaje_baja += 1
+            self._contador_drenaje_alta = 0
+
+        if self._contador_drenaje_alta >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_on()
             self.alarm_manager.report(Alarm(
                 alarm_id="TEMP_DRENAJE_ALTA",
@@ -185,7 +216,7 @@ class CicloState:
                 recoverable=True,
                 blocks_operation=False,
             ))
-        else:
+        elif self._contador_drenaje_baja >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_off()
             self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
 
@@ -207,6 +238,103 @@ class CicloState:
             self.set_do.aire_admosferico_camara_off()
             modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
             abrir_valvula_modo(self.set_do, modo)
+
+    def _mantener_apertura_automatica(self):
+        """Si finalizacion.apertura_automatica está activo, abre la puerta de
+        descarga y confirma el ciclo sin esperar al operador. Solo se llama
+        mientras _resultado_pendiente == COMPLETADO. Secuencia: espera fija
+        (tiempo_espera_apertura) → espera a que temp_camara Y pres_camara
+        estén en condición segura (mismo criterio fail-closed que el botón
+        CONFIRMAR manual: sensor ausente no habilita nada; temp_max_apertura
+        nunca por encima del tope global) → confirma solo cuando el estado
+        observado de la puerta (no la sola respuesta de request_open)
+        muestra que empezó a moverse. Mientras la puerta no responda
+        (bloqueo mecánico, interlock, tipo de puerta sin actuador), reintenta
+        cada _INTERVALO_REINTENTO_APERTURA_SEG segundos y avisa una sola vez
+        por alarma no bloqueante si la denegación se sostiene más de
+        _TIMEOUT_APERTURA_DENEGADA_SEG segundos — sin dejar de esperar."""
+        if self.door_service is None:
+            return
+        if not self.cycle.get_param("finalizacion", "apertura_automatica", default=False):
+            return
+
+        if self._apertura_auto_t_inicio is None:
+            self._apertura_auto_t_inicio = time.time()
+
+        tiempo_espera = self.cycle.get_param("finalizacion", "tiempo_espera_apertura", default=60)
+        if tiempo_espera is None:
+            tiempo_espera = 60
+        elapsed = time.time() - self._apertura_auto_t_inicio
+        if elapsed < tiempo_espera:
+            return
+
+        temp = self.estado.sensores_temp.get("temp_camara")
+        if temp is None:
+            return
+
+        temp_max_ciclo  = self.cycle.get_param("finalizacion", "temp_max_apertura", default=80.0)
+        if temp_max_ciclo is None:
+            temp_max_ciclo = 80.0
+        temp_max_global = self.config.get("temp_max_apertura")
+        temp_max = min(temp_max_ciclo, temp_max_global) if temp_max_global is not None else temp_max_ciclo
+
+        if temp > temp_max:
+            timeout_min = self.cycle.get_param("finalizacion", "timeout_temperatura", default=30)
+            if timeout_min is None:
+                timeout_min = 30
+            timeout_seg = timeout_min * 60
+            if not self._apertura_auto_alarmado and (elapsed - tiempo_espera) > timeout_seg:
+                self._apertura_auto_alarmado = True
+                self.alarm_manager.report(Alarm(
+                    alarm_id="TIMEOUT_APERTURA_AUTOMATICA",
+                    alarm_type=AlarmType.ALERTA,
+                    source_state="CICLO",
+                    description="Apertura automática: la cámara tarda más de lo esperado en enfriar.",
+                    recoverable=True,
+                    blocks_operation=False,
+                ))
+            return
+
+        pres = self.estado.sensores_pres.get("pres_camara")
+        if pres is None:
+            return
+        presion_atm = self.config.get("presion_admosferica") or 101.3
+        rango_atm   = self.config.get("rango_presion_atm")   or 20.0
+        if abs(pres - presion_atm) > rango_atm:
+            return
+
+        puerta = "Puerta 2" if "Puerta 2" in self.door_service.doors else "Puerta 1"
+        estado_puerta = self.door_service.get_status(puerta)
+        if estado_puerta in ("ABRIENDO", "ABIERTO"):
+            if self._apertura_auto_alarmado:
+                self.alarm_manager.clear("TIMEOUT_APERTURA_AUTOMATICA")
+            if self._apertura_auto_alarmado_denegacion:
+                self.alarm_manager.clear("APERTURA_AUTOMATICA_DENEGADA")
+            self.estado.set_flag("CICLO_CONFIRMADO", True)
+            return
+
+        ahora = time.time()
+        if (self._apertura_auto_ultimo_intento is not None
+                and (ahora - self._apertura_auto_ultimo_intento) < _INTERVALO_REINTENTO_APERTURA_SEG):
+            return
+        self._apertura_auto_ultimo_intento = ahora
+
+        if self._apertura_auto_denegada_desde is None:
+            self._apertura_auto_denegada_desde = ahora
+
+        _ok, motivo = self.door_service.request_open(puerta)
+
+        if (not self._apertura_auto_alarmado_denegacion
+                and (ahora - self._apertura_auto_denegada_desde) > _TIMEOUT_APERTURA_DENEGADA_SEG):
+            self._apertura_auto_alarmado_denegacion = True
+            self.alarm_manager.report(Alarm(
+                alarm_id="APERTURA_AUTOMATICA_DENEGADA",
+                alarm_type=AlarmType.ALERTA,
+                source_state="CICLO",
+                description=f"Apertura automática: no se pudo abrir {puerta} — {motivo or 'sin motivo reportado'}.",
+                recoverable=True,
+                blocks_operation=False,
+            ))
 
     # ------------------------------------------------------------------
     # Tick principal
@@ -238,11 +366,18 @@ class CicloState:
             # Mantener la válvula de reposo activa mientras se espera
             # confirmación: COMPLETADO limpio usa su propio monitor de
             # presión; el resto (FALLO/CANCELADO/emergencia) ya lo cubre
-            # el protocolo de fallo, que corre continuamente.
+            # el protocolo de fallo, que corre continuamente. El drenaje
+            # se mantiene sin importar la causa de fin de ciclo.
+            # _mantener_drenaje() corre DESPUÉS de _protocolo.update(): si el
+            # ALL_OFF inicial no se confirmó (ACK perdido por caída serial),
+            # update() reintenta reset_all_outputs() y apagaría el agua del
+            # intercambiador justo después de que este método la encendiera.
             if self._resultado_pendiente == CicloResultado.COMPLETADO:
                 self._mantener_valvula_reposo()
+                self._mantener_apertura_automatica()
             else:
                 self._protocolo.update()
+            self._mantener_drenaje()
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 1. ¿El usuario canceló? ───────────────────────────────────

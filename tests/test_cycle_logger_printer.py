@@ -29,6 +29,9 @@ class FakeCycle:
     id = "bowe_dick"
     name = "Bowie-Dick"
 
+    def __init__(self, f0_activo=False):
+        self.f0_activo = f0_activo
+
     def get_param(self, *keys, default=None):
         # Replica la semántica real de Cycle.get_param: recorre las claves
         # anidadas (sección → parámetro), no sólo la última.
@@ -36,7 +39,10 @@ class FakeCycle:
             "esterilizacion": {
                 "temperatura_esterilizacion": 134,
                 "tiempo_esterilizacion": 3.5,
-            }
+            },
+            "globals": {
+                "F0": self.f0_activo,
+            },
         }
         for key in keys:
             if not isinstance(data, dict):
@@ -48,8 +54,11 @@ class FakeCycle:
 
 
 class FakeCycleManager:
+    def __init__(self, f0_activo=False):
+        self.f0_activo = f0_activo
+
     def get_selected_cycle(self):
-        return FakeCycle()
+        return FakeCycle(f0_activo=self.f0_activo)
 
 
 class FakeConfig:
@@ -68,6 +77,7 @@ class FakeEstado:
         self.motivo_fallo = ""
         self.sensores_temp = {"temp_camara": 25.0}
         self.sensores_pres = {"pres_camara": 74.5}
+        self.f0_acumulado = 0.0
 
     def get_machine_state(self):
         return self.machine_state
@@ -81,13 +91,13 @@ class FakePrinter:
         self.calls.append(text)
 
 
-def _build_logger(printer, config=None):
+def _build_logger(printer, config=None, cycle_manager=None):
     return CycleLogger(
         db=FakeDb(),
         estado=FakeEstado(),
         config=config or FakeConfig(),
         profile=SimpleNamespace(serial_number="SN-001", model_id="MX-500"),
-        cycle_manager=FakeCycleManager(),
+        cycle_manager=cycle_manager or FakeCycleManager(),
         printer=printer,
     )
 
@@ -190,6 +200,32 @@ def test_fin_de_ciclo_encola_fila_final_y_pie():
     assert "Estado:" in printer.calls[3]
     assert "Hora fin:" in printer.calls[3]
     assert "Temp. final:" in printer.calls[3]
+
+
+def test_fin_de_ciclo_sin_f0_activo_no_incluye_f0_total_en_el_pie():
+    printer = FakePrinter()
+    cl = _build_logger(printer, cycle_manager=FakeCycleManager(f0_activo=False))
+    cl.estado.f0_acumulado = 15.3
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase
+    cl.estado.machine_state = GlobalState.PREPARADO
+    cl.update()   # _on_fin: fila "E" + pie
+
+    assert "F0 total" not in printer.calls[3]
+
+
+def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
+    printer = FakePrinter()
+    cl = _build_logger(printer, cycle_manager=FakeCycleManager(f0_activo=True))
+    cl.estado.f0_acumulado = 15.3
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase
+    cl.estado.machine_state = GlobalState.PREPARADO
+    cl.update()   # _on_fin: fila "E" + pie
+
+    assert "F0 total: 15.3 min" in printer.calls[3]
 
 
 def test_sin_printer_no_falla():

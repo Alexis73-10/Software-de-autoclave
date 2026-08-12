@@ -189,6 +189,34 @@ def get_selected_cycle():
         "parameters": cycle.parameters
     }
 
+
+@app.get("/cycles")
+def list_cycles():
+    return [
+        {"id": c.id, "name": c.name, "source": getattr(c, "source", "user")}
+        for c in context.cycle_manager.cycles.values()
+    ]
+
+
+class _SelectCycleBody(BaseModel):
+    cycle_id: str
+
+
+@app.post("/cycle/select")
+def select_cycle(body: _SelectCycleBody):
+    cycle = context.cycle_manager.cycles.get(body.cycle_id)
+    if cycle is None:
+        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
+    if getattr(cycle, "source", "user") != "user":
+        raise HTTPException(status_code=422, detail="Solo se pueden seleccionar ciclos de usuario")
+
+    ok, reason = context.control_loop.set_active_cycle(cycle)
+    if not ok:
+        raise HTTPException(status_code=409, detail=reason)
+
+    context.cycle_manager.set_default_cycle(body.cycle_id)
+    return {"ok": True, "id": cycle.id, "name": cycle.name}
+
 @app.get("/cycle/current/readings")
 def get_current_cycle_readings():
     """

@@ -76,10 +76,16 @@ _ma_pres: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtr
 
 # mincutoff: suavizado en reposo (más bajo = más suave). beta: qué tan rápido se
 # relaja el suavizado cuando la derivada estimada indica un cambio real.
-# Puntos de partida sin calibrar con datos reales — ver spec, sección
-# "Valores iniciales de mincutoff/beta" para la pasada de calibración pendiente.
+# TEMP_BETA subido de 0.02 a 0.06 (feedback de campo: la temperatura se sentía
+# lenta para reaccionar). Barrido con datos sintéticos (rampa 2-8°C/min, DT=0.5s
+# como el control loop real): reduce el lag de rampa en régimen establecido de
+# ~2.4s a ~1.7s, mientras el ruido residual durante la rampa se mantiene bajo
+# (<0.1°C) y el rechazo de ruido en reposo baja de ~67% a ~52% (std filtrada /
+# std cruda pasa de 0.33 a 0.48) — sigue muy por debajo del EMA que reemplazó.
+# TEMP_MINCUTOFF sin tocar: controla el suavizado en reposo y no fue lo reportado
+# como lento.
 TEMP_MINCUTOFF = 0.05
-TEMP_BETA = 0.02
+TEMP_BETA = 0.06
 # PRES_MINCUTOFF bajado de 0.1 a 0.03, y luego a 0.01 (feedback de campo:
 # incluso en 0.03 seguía saltando ~7-8kPa en esterilización, con presión
 # sostenida y estable — es decir, en reposo real, no un cambio genuino).

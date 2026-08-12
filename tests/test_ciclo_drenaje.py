@@ -17,8 +17,18 @@ def _make_ciclo(temp_drenaje=25.0, temp_segura=40.0):
     return ciclo, set_do, alarm_manager, estado
 
 
-def test_temp_alta_enciende_agua_y_reporta_alarma_no_bloqueante():
+def test_temp_alta_no_activa_agua_antes_de_3_lecturas():
     ciclo, set_do, alarm_manager, _ = _make_ciclo(temp_drenaje=45.0, temp_segura=40.0)
+    ciclo._mantener_drenaje()
+    ciclo._mantener_drenaje()
+    set_do.agua_intercambiador_on.assert_not_called()
+    alarm_manager.report.assert_not_called()
+
+
+def test_temp_alta_activa_agua_al_llegar_a_3_lecturas():
+    ciclo, set_do, alarm_manager, _ = _make_ciclo(temp_drenaje=45.0, temp_segura=40.0)
+    ciclo._mantener_drenaje()
+    ciclo._mantener_drenaje()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_on.assert_called_once()
     alarma = alarm_manager.report.call_args.args[0]
@@ -26,11 +36,33 @@ def test_temp_alta_enciende_agua_y_reporta_alarma_no_bloqueante():
     assert alarma.blocks_operation is False
 
 
-def test_temp_segura_apaga_agua_y_limpia_alarma():
-    ciclo, set_do, alarm_manager, _ = _make_ciclo(temp_drenaje=30.0, temp_segura=40.0)
+def test_temp_segura_apaga_agua_al_llegar_a_3_lecturas():
+    ciclo, set_do, alarm_manager, estado = _make_ciclo(temp_drenaje=45.0, temp_segura=40.0)
+    ciclo._mantener_drenaje()
+    ciclo._mantener_drenaje()
+    ciclo._mantener_drenaje()
+    set_do.agua_intercambiador_on.assert_called_once()
+
+    estado.sensores_temp["temp_drenaje"] = 30.0
+    ciclo._mantener_drenaje()
+    ciclo._mantener_drenaje()
+    set_do.agua_intercambiador_off.assert_not_called()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_off.assert_called_once()
     alarm_manager.clear.assert_any_call("TEMP_DRENAJE_ALTA")
+
+
+def test_oscilacion_resetea_contador_sin_falso_positivo():
+    ciclo, set_do, alarm_manager, estado = _make_ciclo(temp_drenaje=45.0, temp_segura=40.0)
+    ciclo._mantener_drenaje()  # alta (1)
+    ciclo._mantener_drenaje()  # alta (2)
+    estado.sensores_temp["temp_drenaje"] = 30.0
+    ciclo._mantener_drenaje()  # baja (1) -- resetea contador de alta
+    estado.sensores_temp["temp_drenaje"] = 45.0
+    ciclo._mantener_drenaje()  # alta (1)
+    ciclo._mantener_drenaje()  # alta (2)
+    set_do.agua_intercambiador_on.assert_not_called()
+    set_do.agua_intercambiador_off.assert_not_called()
 
 
 def test_temp_drenaje_ausente_no_hace_nada():
@@ -41,6 +73,17 @@ def test_temp_drenaje_ausente_no_hace_nada():
     set_do.agua_intercambiador_off.assert_not_called()
     alarm_manager.report.assert_not_called()
     alarm_manager.clear.assert_not_called()
+
+
+def test_sensor_ausente_no_reinicia_contador_en_progreso():
+    ciclo, set_do, alarm_manager, estado = _make_ciclo(temp_drenaje=45.0, temp_segura=40.0)
+    ciclo._mantener_drenaje()  # alta (1)
+    ciclo._mantener_drenaje()  # alta (2)
+    estado.sensores_temp = {}
+    ciclo._mantener_drenaje()  # sensor ausente, no toca contadores
+    estado.sensores_temp = {"temp_drenaje": 45.0}
+    ciclo._mantener_drenaje()  # alta (3) -- debe disparar, no reiniciarse a 1
+    set_do.agua_intercambiador_on.assert_called_once()
 
 
 def test_se_llama_en_run_sin_importar_la_fase_activa():
@@ -62,5 +105,7 @@ def test_se_llama_en_run_sin_importar_la_fase_activa():
     # PrevacioFase está en índice 2 del pipeline (PRECALENTAMIENTO, PURGA, PRE_VACIO, ...)
     ciclo.reset()
     ciclo._fase_idx = 2
+    ciclo.run()
+    ciclo.run()
     ciclo.run()
     set_do.agua_intercambiador_on.assert_called()
