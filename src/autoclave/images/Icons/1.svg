@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Creator: CorelDRAW 2021 (64-Bit) -->
+<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="32px" height="32px" version="1.1" style="shape-rendering:geometricPrecision; text-rendering:geometricPrecision; image-rendering:optimizeQuality; fill-rule:evenodd; clip-rule:evenodd"
+viewBox="0 0 141000 141000"
+ xmlns:xlink="http://www.w3.org/1999/xlink"
+ xmlns:xodm="http://www.corel.com/coreldraw/odm/2003">
+ <defs>
+  <style type="text/css">
+   <![CDATA[
+    .fil0 {fill:#FF9933}
+    .fil1 {fill:black;fill-rule:nonzero}
+   ]]>
+  </style>
+ </defs>
+ <g id="Capa_x0020_1">
+  <metadata id="CorelCorpID_0Corel-Layer"/>
+  <g id="_1843518161776">
+   <path class="fil0" d="M71000 0c39000,0 70000,32000 70000,71000 0,39000 -31000,70000 -70000,70000 -39000,0 -71000,-31000 -71000,-70000 0,-39000 32000,-71000 71000,-71000z"/>
+   <path class="fil1" d="M64000 82000l14000 0 3000 -51000 -21000 0 4000 51000zm7000 29000c6000,0 11000,-5000 11000,-11000 0,-5000 -5000,-10000 -11000,-10000 -7000,0 -11000,5000 -11000,10000 0,6000 4000,11000 11000,11000z"/>
+  </g>
+ </g>
+</svg>
