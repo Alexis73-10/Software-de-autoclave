@@ -69,3 +69,23 @@ def test_sha256_incorrecto_lanza_manifest_error(tmp_path):
     manifest_path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ManifestError):
         load_manifest(manifest_path)
+
+
+def test_sha256_faltante_lanza_manifest_error(tmp_path):
+    manifest_path = _manifest_valido(tmp_path)
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    # Remover la entrada sha256 completamente
+    del data["eventos"]["evt_test"]["sha256"]
+    manifest_path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ManifestError):
+        load_manifest(manifest_path)
+
+
+def test_prioridad_faltante_lanza_manifest_error(tmp_path):
+    manifest_path = _manifest_valido(tmp_path)
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    # Remover prioridad
+    del data["eventos"]["evt_test"]["prioridad"]
+    manifest_path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ManifestError):
+        load_manifest(manifest_path)

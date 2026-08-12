@@ -42,8 +42,10 @@ def load_manifest(manifest_path: Path, idioma: str = "es") -> dict:
             raise ManifestError(f"Archivo faltante para '{event_id}': {wav_path}") from exc
 
         sha_esperado = meta.get("sha256", {}).get(idioma)
+        if not sha_esperado:
+            raise ManifestError(f"Falta sha256 para '{event_id}' (idioma '{idioma}')")
         sha_real = hashlib.sha256(raw).hexdigest()
-        if sha_esperado and sha_real != sha_esperado:
+        if sha_real != sha_esperado:
             raise ManifestError(f"SHA-256 no coincide para '{event_id}'")
 
         try:
@@ -51,10 +53,16 @@ def load_manifest(manifest_path: Path, idioma: str = "es") -> dict:
         except Exception as exc:
             raise ManifestError(f"No se pudo decodificar '{event_id}': {exc}") from exc
 
+        try:
+            prioridad = int(meta["prioridad"])
+            cooldown_s = float(meta["cooldown_s"])
+        except (KeyError, ValueError, TypeError) as exc:
+            raise ManifestError(f"Metadato invalido para '{event_id}': {exc}") from exc
+
         eventos[event_id] = EventoAudio(
             event_id=event_id,
-            prioridad=int(meta["prioridad"]),
-            cooldown_s=float(meta["cooldown_s"]),
+            prioridad=prioridad,
+            cooldown_s=cooldown_s,
             texto=meta.get("texto", ""),
             samples=samples,
             sample_rate=sample_rate,
