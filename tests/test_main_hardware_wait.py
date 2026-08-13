@@ -32,3 +32,8 @@ def test_hardware_connected_false_si_request_lanza_excepcion():
 def test_ui_ready_se_llama_tras_construir_la_ventana(mock_post):
     main_module.notify_ui_ready()
     mock_post.assert_called_once_with(f"{main_module.BACKEND_URL}/audio/ui-ready", timeout=2)
+
+
+def test_notify_ui_ready_no_lanza_si_falla_la_conexion():
+    with patch("autoclave.main.requests.post", side_effect=requests.RequestException("boom")):
+        main_module.notify_ui_ready()  # no debe lanzar
