@@ -1,0 +1,358 @@
+{
+  "version": "1.0",
+  "idioma_default": "es",
+  "eventos": {
+    "emg_paro_emergencia": {
+      "prioridad": 0,
+      "cooldown_s": 60,
+      "texto": "Paro de emergencia activado.",
+      "archivos": {
+        "es": "es/emg_paro_emergencia.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "emg_fallo_electrico": {
+      "prioridad": 0,
+      "cooldown_s": 60,
+      "texto": "Fallo de suministro electrico.",
+      "archivos": {
+        "es": "es/emg_fallo_electrico.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "emg_sensor_ausente": {
+      "prioridad": 0,
+      "cooldown_s": 60,
+      "texto": "Sensor critico ausente. Ciclo abortado.",
+      "archivos": {
+        "es": "es/emg_sensor_ausente.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "emg_puerta_1_atrapada": {
+      "prioridad": 0,
+      "cooldown_s": 60,
+      "texto": "Atrapamiento en puerta uno.",
+      "archivos": {
+        "es": "es/emg_puerta_1_atrapada.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "emg_puerta_2_atrapada": {
+      "prioridad": 0,
+      "cooldown_s": 60,
+      "texto": "Atrapamiento en puerta dos.",
+      "archivos": {
+        "es": "es/emg_puerta_2_atrapada.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "fal_ciclo_abortado": {
+      "prioridad": 1,
+      "cooldown_s": 60,
+      "texto": "Ciclo abortado por fallo.",
+      "archivos": {
+        "es": "es/fal_ciclo_abortado.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "fal_camara_segura": {
+      "prioridad": 1,
+      "cooldown_s": 60,
+      "texto": "Camara en condiciones seguras.",
+      "archivos": {
+        "es": "es/fal_camara_segura.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "fal_puerta_1_error": {
+      "prioridad": 1,
+      "cooldown_s": 60,
+      "texto": "Fallo en puerta uno.",
+      "archivos": {
+        "es": "es/fal_puerta_1_error.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "fal_puerta_2_error": {
+      "prioridad": 1,
+      "cooldown_s": 60,
+      "texto": "Fallo en puerta dos.",
+      "archivos": {
+        "es": "es/fal_puerta_2_error.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_sum_agua_bomba": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Falta suministro de agua de bomba.",
+      "archivos": {
+        "es": "es/alr_sum_agua_bomba.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_sum_agua_generador": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Falta suministro de agua de generador.",
+      "archivos": {
+        "es": "es/alr_sum_agua_generador.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_sum_aire_comprimido": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Falta suministro de aire comprimido.",
+      "archivos": {
+        "es": "es/alr_sum_aire_comprimido.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_sum_electrico": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Alerta de suministro electrico.",
+      "archivos": {
+        "es": "es/alr_sum_electrico.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_pres_camara": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de presion de camara.",
+      "archivos": {
+        "es": "es/alr_ai_pres_camara.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_pres_chaqueta": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de presion de chaqueta.",
+      "archivos": {
+        "es": "es/alr_ai_pres_chaqueta.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_pres_empaque_1": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de presion de empaque uno.",
+      "archivos": {
+        "es": "es/alr_ai_pres_empaque_1.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_pres_empaque_2": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de presion de empaque dos.",
+      "archivos": {
+        "es": "es/alr_ai_pres_empaque_2.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_temp_camara": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de temperatura de camara.",
+      "archivos": {
+        "es": "es/alr_ai_temp_camara.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_temp_2_camara": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de temperatura de camara dos.",
+      "archivos": {
+        "es": "es/alr_ai_temp_2_camara.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_temp_ref": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de temperatura de referencia.",
+      "archivos": {
+        "es": "es/alr_ai_temp_ref.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_temp_chaqueta": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de temperatura de chaqueta.",
+      "archivos": {
+        "es": "es/alr_ai_temp_chaqueta.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_temp_drenaje_cam": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de temperatura de drenaje de camara.",
+      "archivos": {
+        "es": "es/alr_ai_temp_drenaje_cam.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "alr_ai_temp_drenaje": {
+      "prioridad": 2,
+      "cooldown_s": 60,
+      "texto": "Error en sensor de temperatura de drenaje.",
+      "archivos": {
+        "es": "es/alr_ai_temp_drenaje.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "pta_1_abierta": {
+      "prioridad": 3,
+      "cooldown_s": 5,
+      "texto": "Puerta uno abierta.",
+      "archivos": {
+        "es": "es/pta_1_abierta.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "pta_1_cerrada": {
+      "prioridad": 3,
+      "cooldown_s": 5,
+      "texto": "Puerta uno cerrada.",
+      "archivos": {
+        "es": "es/pta_1_cerrada.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "pta_2_abierta": {
+      "prioridad": 3,
+      "cooldown_s": 5,
+      "texto": "Puerta dos abierta.",
+      "archivos": {
+        "es": "es/pta_2_abierta.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "pta_2_cerrada": {
+      "prioridad": 3,
+      "cooldown_s": 5,
+      "texto": "Puerta dos cerrada.",
+      "archivos": {
+        "es": "es/pta_2_cerrada.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "cic_iniciado": {
+      "prioridad": 4,
+      "cooldown_s": 5,
+      "texto": "Ciclo iniciado.",
+      "archivos": {
+        "es": "es/cic_iniciado.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "cic_completado": {
+      "prioridad": 4,
+      "cooldown_s": 5,
+      "texto": "Ciclo completado.",
+      "archivos": {
+        "es": "es/cic_completado.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "equipo_preparado": {
+      "prioridad": 4,
+      "cooldown_s": 5,
+      "texto": "Equipo preparado.",
+      "archivos": {
+        "es": "es/equipo_preparado.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "sys_bienvenida": {
+      "prioridad": 5,
+      "cooldown_s": 5,
+      "texto": "Bienvenido. Autoclave Especifika.",
+      "archivos": {
+        "es": "es/sys_bienvenida.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    },
+    "sys_prueba_audio": {
+      "prioridad": 5,
+      "cooldown_s": 5,
+      "texto": "Prueba de audio correcta.",
+      "archivos": {
+        "es": "es/sys_prueba_audio.wav"
+      },
+      "sha256": {
+        "es": "78bca75d8c690c1050d1421c9273d0ab63e61609ec204c2ea6c3ce7b3f8a3eb7"
+      }
+    }
+  }
+}
