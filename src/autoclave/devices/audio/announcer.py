@@ -91,11 +91,20 @@ class Announcer:
                 self._prioridad_sonando = prioridad
                 self._ultimo_reproducido[event_id] = time.monotonic()
 
-            evento = self._eventos[event_id]
+                evento = self._eventos[event_id]
+                try:
+                    volumen = max(0, min(100, self._get_volume()))
+                    ganancia = (volumen / 100) ** 2.0
+                    sd.play(evento.samples * ganancia, evento.sample_rate)
+                except Exception as exc:
+                    self._fallos_consecutivos += 1
+                    logger.warning("Announcer: fallo de reproduccion (%s): %s", event_id, exc)
+                    if self._fallos_consecutivos >= 3 and self._on_fallo_persistente:
+                        self._on_fallo_persistente()
+                    self._prioridad_sonando = None
+                    continue
+
             try:
-                volumen = max(0, min(100, self._get_volume()))
-                ganancia = (volumen / 100) ** 2.0
-                sd.play(evento.samples * ganancia, evento.sample_rate)
                 sd.wait()
                 self._fallos_consecutivos = 0
             except Exception as exc:
