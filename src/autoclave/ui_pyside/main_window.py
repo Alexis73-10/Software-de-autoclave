@@ -50,6 +50,7 @@ class MainWindowFluent(QMainWindow):
         from autoclave.ui_pyside.views.entrdas_salidas.io_do      import SalidasDigitalesView
         from autoclave.ui_pyside.views.params_ciclo.params_ciclo import ParametrosCicloView
         from autoclave.ui_pyside.views.entrdas_salidas.calibracion_sensor import CalibracionSensorView
+        from autoclave.ui_pyside.views.audio_config import AudioConfigView
 
         self._home       = HomeView(nav_callback=self.navigate_to)
         self._secado     = SecadoView(nav_callback=self.navigate_to)
@@ -64,11 +65,12 @@ class MainWindowFluent(QMainWindow):
         self._io_do      = SalidasDigitalesView(nav_callback=self.navigate_to)
         self._params_ciclo = ParametrosCicloView(nav_callback=self.navigate_to)
         self._calibracion_sensor = CalibracionSensorView(nav_callback=self.navigate_to)
+        self._audio_config = AudioConfigView(nav_callback=self.navigate_to)
 
         for view in (self._home, self._secado, self._login,
                      self._ciclos, self._impresion_menu, self._admin_menu, self._io_menu,
                      self._io_di, self._io_temp, self._io_pres, self._io_do,
-                     self._params_ciclo, self._calibracion_sensor):
+                     self._params_ciclo, self._calibracion_sensor, self._audio_config):
             self._stack.addWidget(view)
 
         self._stack.setCurrentWidget(self._home)
@@ -190,6 +192,7 @@ class MainWindowFluent(QMainWindow):
             "io_do":        self._io_do,
             "params_ciclo": self._params_ciclo,
             "calibracion_sensor": self._calibracion_sensor,
+            "audio":        self._audio_config,
         }
         target = views.get(view_name)
         if target:
