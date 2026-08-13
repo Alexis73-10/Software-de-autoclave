@@ -25,7 +25,9 @@ dependencies = [ #Lista de dependencias del paquete
   "PySide6-Fluent-Widgets[full]",
   "pyqtgraph",
   "keyring",
-  "pywin32"
+  "pywin32",
+  "sounddevice",
+  "soundfile"
 ]
 
 [project.scripts] #Define los puntos de entrada para los scripts ejecutables
