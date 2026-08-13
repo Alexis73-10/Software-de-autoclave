@@ -16,6 +16,13 @@ from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.cycle_logger import CycleLogger
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.devices.printer.realtime_printer import RealtimePrinter
+from autoclave.config.preferences import load_preferences, save_preferences
+from autoclave.devices.audio.manifest import load_manifest, ManifestError
+from autoclave.devices.audio.announcer import Announcer
+from autoclave.services.domain.audio.announcer_observer import AnnouncerObserver
+from autoclave.state_machine.alarms.alarm import Alarm
+from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.utils.resources import resource_path
 
 import logging
 
@@ -82,6 +89,40 @@ class BackendContext:
             printer       = self.realtime_printer,
         )
 
+        # Anuncios por voz — deshabilitado en caliente si el manifiesto no
+        # carga (archivo faltante/corrupto); el equipo sigue operando (D-14).
+        self.audio_preferences = load_preferences()
+        try:
+            eventos_audio = load_manifest(resource_path("autoclave/assets/audio/manifest.json"))
+            self._audio_disponible = True
+        except ManifestError as exc:
+            logger.warning("Anuncios por voz deshabilitados: %s", exc)
+            eventos_audio = {}
+            self._audio_disponible = False
+
+        def _reportar_audio_no_disponible():
+            self._audio_disponible = False
+            self.alarm_manager.report(Alarm(
+                alarm_id="AUDIO_NO_DISPONIBLE",
+                alarm_type=AlarmType.ALERTA,
+                source_state="ANNOUNCER",
+                description="Subsistema de anuncios por voz no disponible.",
+                recoverable=True,
+                blocks_operation=False,
+            ))
+
+        if not self._audio_disponible:
+            _reportar_audio_no_disponible()
+
+        self.announcer = Announcer(
+            eventos=eventos_audio,
+            get_volume=lambda: self.audio_preferences["audio"]["volume"],
+            get_enabled=lambda: self.audio_preferences["audio"]["enabled"] and self._audio_disponible,
+            on_fallo_persistente=_reportar_audio_no_disponible,
+        )
+        self.announcer.start()
+        announcer_observer = AnnouncerObserver(self.announcer)
+
         self.control_loop = ControlLoop(
             units=self.units,
             door_service=self.servicio_puertas,
@@ -95,5 +136,6 @@ class BackendContext:
             cycle_logger=self.cycle_logger,
             cap=cap,
             realtime_printer=self.realtime_printer,
+            announcer_observer=announcer_observer,
         )
         self.control_loop.start()

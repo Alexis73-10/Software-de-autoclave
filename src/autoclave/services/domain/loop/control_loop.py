@@ -38,7 +38,8 @@ class ControlLoop:
 
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
-                 cycle_logger=None, interval=0.5, cap=None, realtime_printer=None):
+                 cycle_logger=None, interval=0.5, cap=None, realtime_printer=None,
+                 announcer_observer=None):
         self.units          = units
         self.door_service   = door_service
         self.doors          = doors
@@ -55,6 +56,7 @@ class ControlLoop:
         self.cycle_logger   = cycle_logger
         self.realtime_printer = realtime_printer
         self.cap             = cap
+        self.announcer_observer = announcer_observer
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
@@ -194,6 +196,12 @@ class ControlLoop:
         # pisaría el control manual de esa salida).
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
+
+        # 8. Anuncios por voz — observador no bloqueante, solo lee estado ya
+        # publicado. Pausado en modo prueba por la misma razon que 3/5/7:
+        # no debe reaccionar a manipulacion manual de /io/test/*.
+        if not self._test_mode.is_set() and self.announcer_observer is not None:
+            self.announcer_observer.update(self.estado)
 
     def _acumular_f0(self, now: float) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con
