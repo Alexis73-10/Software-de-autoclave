@@ -34,6 +34,7 @@ class ProtocoloFallo:
         self.config  = config
         self._ejecutado       = False
         self._buzzer_emitido  = False
+        self.estado.camara_segura_confirmada = False
         self._salidas_apagadas = False
         self._presurizado_al_disparo  = False
         self._modo                    = None
@@ -44,6 +45,7 @@ class ProtocoloFallo:
     def reset(self):
         self._ejecutado       = False
         self._buzzer_emitido  = False
+        self.estado.camara_segura_confirmada = False
         self._salidas_apagadas = False
         self._presurizado_al_disparo  = False
         self._modo                    = None
@@ -210,3 +212,4 @@ class ProtocoloFallo:
                 )
                 self.set_do.buzer_fallo()
                 self._buzzer_emitido = True
+                self.estado.camara_segura_confirmada = True

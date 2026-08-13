@@ -106,6 +106,10 @@ class EstadoAutoclave:
         self.motivo_fallo: str = ""
         # True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento
         self.fase_en_sostenimiento: bool = False
+        # True cuando ProtocoloFallo confirmo que la camara alcanzo
+        # condiciones seguras (mismo tick en que emite el buzzer de fallo).
+        # Se reinicia a False en ProtocoloFallo.reset()/__init__.
+        self.camara_segura_confirmada: bool = False
         # Progreso del pre-vacío: "A 1/4", "B 2/4", etc. (vacío cuando no aplica)
         self.prevacio_progreso: str = ""
         # Paso interno de la fase activa (p.ej. pasos de PRE_VACIO). Cuando cambia,
