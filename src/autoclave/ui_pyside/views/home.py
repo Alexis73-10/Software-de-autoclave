@@ -32,6 +32,11 @@ class HomeView(QWidget):
                 "Inicia sesión en el sistema",
                 "login",
             ),
+            (
+                "🔊  Anuncios por Voz",
+                "Configura los anuncios de voz del equipo",
+                "audio",
+            ),
         ]
 
         grid = QGridLayout()
