@@ -66,9 +66,17 @@ class AudioConfigView(QWidget):
         layout.addStretch()
 
         self._refresh_timer = QTimer(self)
+        self._refresh_timer.setInterval(5000)
         self._refresh_timer.timeout.connect(self._refresh_status)
-        self._refresh_timer.start(5000)
+
+    def showEvent(self, event) -> None:
+        super().showEvent(event)
         self._refresh_status()
+        self._refresh_timer.start()
+
+    def hideEvent(self, event) -> None:
+        super().hideEvent(event)
+        self._refresh_timer.stop()
 
     def _refresh_status(self) -> None:
         try:

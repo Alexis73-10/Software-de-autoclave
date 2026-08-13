@@ -367,6 +367,7 @@ def reset_outputs():
     """
     try:
         context.control_loop.stop()   # evita que el loop re-active salidas durante el reset
+        context.announcer.stop()      # detiene el worker de audio y cualquier reproduccion en curso
         context.setdo.reset_all_outputs()
         logger.info("outputs/reset: todas las salidas apagadas")
         return {"ok": True}

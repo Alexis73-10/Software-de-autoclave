@@ -96,7 +96,10 @@ def test_evento_mas_urgente_interrumpe_al_que_suena(mock_sd):
     try:
         announcer.say("lento")
         time.sleep(0.15)  # da tiempo a que el worker entre a sd.play/sd.wait
+        inicio = time.monotonic()
         announcer.say("urgente")
+        transcurrido = time.monotonic() - inicio
+        assert transcurrido < 0.05, "say() no debe bloquear aunque el worker este en sd.wait()"
         time.sleep(0.05)
         assert mock_sd.stop.called
     finally:
@@ -121,29 +124,33 @@ def test_ganancia_cuadratica_se_aplica_al_volumen(mock_sd):
 
 
 @patch("autoclave.devices.audio.announcer.sd")
-def test_interrupcion_no_pierde_el_stop_por_condicion_de_carrera(mock_sd):
-    # Regresión: si el worker soltara el lock entre popear el item de la cola y
-    # llamar a sd.play(), un say() concurrente podría alcanzar a invocar
-    # sd.stop() ANTES de que sd.play() se llamara siquiera — "deteniendo" una
-    # reproducción que en realidad nunca arrancó.
+def test_interrupcion_no_bloquea_al_control_loop_ni_pierde_el_stop(mock_sd):
+    # Regresión del hallazgo crítico de la revisión final: el fix anterior
+    # (lock sostenido durante sd.play()) cerraba la condición de carrera de
+    # abajo, pero a costa de bloquear a say() -- llamado desde el hilo del
+    # ControlLoop -- durante lo que tardara sd.play() en abrir el dispositivo
+    # de audio (potencialmente indefinido con hardware colgado). El nuevo
+    # contrato exige que say() SIEMPRE retorne casi de inmediato, sin importar
+    # en qué punto esté el worker -- incluso en el hueco entre popear el item
+    # de la cola y llamar a sd.play() -- a costa de reabrir una ventana de
+    # carrera muy angosta y sin contención de lock donde, en el peor caso, el
+    # sd.stop() de una interrupción podría no alcanzar a detener ese sonido
+    # específico. Riesgo residual aceptado: el audio no tiene rol de
+    # seguridad en este sistema (ver spec).
     #
-    # Para exponer esa ventana con precisión (sin depender de sleeps a ciegas),
-    # inyectamos la demora justo en el hueco entre popear el item y llamar a
-    # sd.play() usando get_volume (una dependencia real de _run(), ubicada
-    # exactamente ahí en el código): entrado_get_volume se dispara apenas el
-    # worker entra a esa sección, y solo entonces el test dispara el say()
-    # interruptor. Si el worker soltara el lock antes de sd.play() (el bug),
-    # ese say() alcanzaría a ejecutar sd.stop() durante la demora, antes de que
-    # sd.play() se invoque siquiera. Con el fix (lock sostenido hasta incluir
-    # sd.play()), el say() interruptor debe bloquearse en el lock hasta que
-    # sd.play() ya haya sido llamado.
+    # Para forzar el peor caso (say() interruptor llega mientras el worker
+    # sigue en el hueco, antes de sd.play()) inyectamos la demora en
+    # get_volume() -- dependencia real de _run(), ubicada justo ahí en el
+    # código -- y solo disparamos el say() interruptor una vez que el worker
+    # ya entró a esa sección.
     lento = _evento("lento", prioridad=3)
     urgente = _evento("urgente", prioridad=0)
     entrado_get_volume = threading.Event()
+    seguir = threading.Event()
 
     def _get_volume_lento():
         entrado_get_volume.set()
-        time.sleep(0.15)
+        seguir.wait(2)
         return 80
 
     announcer = Announcer(
@@ -156,13 +163,24 @@ def test_interrupcion_no_pierde_el_stop_por_condicion_de_carrera(mock_sd):
     try:
         announcer.say("lento")
         assert entrado_get_volume.wait(1), "el worker no llego a get_volume()"
-        announcer.say("urgente")  # con el fix, debe esperar el lock hasta que play() ya se haya llamado
 
-        nombres_llamadas = [c[0] for c in mock_sd.mock_calls]
-        idx_play = nombres_llamadas.index("play")
-        idx_stop = nombres_llamadas.index("stop")
-        assert idx_play < idx_stop
+        # El worker ya soltó el lock (popeó "lento", está dentro de
+        # get_volume(), antes de llamar sd.play()). say() debe retornar casi
+        # de inmediato de todos modos -- ya NO debe esperar a que el worker
+        # llegue a llamar sd.play().
+        inicio = time.monotonic()
+        announcer.say("urgente")
+        transcurrido = time.monotonic() - inicio
+        assert transcurrido < 0.05, "say() no debe bloquear esperando al worker/dispositivo de audio"
+
+        # El sd.stop() de la interrupción se ejecuta dentro de say() mismo,
+        # fuera del lock -- debe quedar hecho ya, sin esperar a que el worker
+        # termine get_volume()/play()/wait().
+        assert mock_sd.stop.called
+
+        seguir.set()  # libera al worker para que termine get_volume() y play()/wait()
     finally:
+        seguir.set()
         announcer.stop()
 
 

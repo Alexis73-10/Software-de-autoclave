@@ -17,8 +17,6 @@ from autoclave.services.domain.logging.cycle_logger import CycleLogger
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.devices.printer.realtime_printer import RealtimePrinter
 from autoclave.config.preferences import load_preferences, save_preferences
-from autoclave.devices.audio.manifest import load_manifest, ManifestError
-from autoclave.devices.audio.announcer import Announcer
 from autoclave.services.domain.audio.announcer_observer import AnnouncerObserver
 from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType
@@ -27,6 +25,30 @@ from autoclave.utils.resources import resource_path
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+class _NullAnnouncer:
+    """Sustituto sin dependencias nativas para cuando 'sounddevice'/'soundfile'
+    no pueden ni siquiera importarse (OSError de libreria nativa en esta
+    maquina). server.py y AnnouncerObserver llaman a context.announcer sin
+    comprobar disponibilidad, asi que necesitan algo con esta interfaz aunque
+    el audio real no exista — no-op total, coherente con D-14 (el equipo
+    sigue operando sin audio)."""
+
+    def __init__(self, eventos=None, get_volume=None, get_enabled=None, on_fallo_persistente=None):
+        pass
+
+    def start(self):
+        pass
+
+    def stop(self):
+        pass
+
+    def say(self, event_id: str) -> None:
+        pass
+
+    def disable_now(self) -> None:
+        pass
 
 
 class BackendContext:
@@ -90,15 +112,26 @@ class BackendContext:
         )
 
         # Anuncios por voz — deshabilitado en caliente si el manifiesto no
-        # carga (archivo faltante/corrupto); el equipo sigue operando (D-14).
+        # carga (archivo faltante/corrupto) o si las librerias nativas de
+        # audio (PortAudio/libsndfile) no cargan en esta maquina; el equipo
+        # sigue operando (D-14). Los imports de sounddevice/soundfile pueden
+        # lanzar OSError en tiempo de IMPORT (no solo de llamada) si la
+        # libreria nativa falla, asi que quedan diferidos hasta aqui adentro
+        # y el try/except es deliberadamente amplio (Exception, no solo
+        # ManifestError) para que ningun fallo de este subsistema opcional
+        # tumbe el arranque del backend.
         self.audio_preferences = load_preferences()
         try:
+            from autoclave.devices.audio.manifest import load_manifest, ManifestError
+            from autoclave.devices.audio.announcer import Announcer
+
             eventos_audio = load_manifest(resource_path("autoclave/assets/audio/manifest.json"))
             self._audio_disponible = True
-        except ManifestError as exc:
+        except Exception as exc:
             logger.warning("Anuncios por voz deshabilitados: %s", exc)
             eventos_audio = {}
             self._audio_disponible = False
+            Announcer = _NullAnnouncer
 
         def _reportar_audio_no_disponible():
             self._audio_disponible = False

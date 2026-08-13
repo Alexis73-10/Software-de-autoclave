@@ -27,11 +27,24 @@ def load_manifest(manifest_path: Path, idioma: str = "es") -> dict:
     except (FileNotFoundError, json.JSONDecodeError, OSError) as exc:
         raise ManifestError(f"No se pudo leer el manifiesto: {exc}") from exc
 
+    if not isinstance(data, dict):
+        raise ManifestError("Manifiesto invalido: la raiz debe ser un objeto")
+
     eventos = {}
     base_dir = Path(manifest_path).parent
 
-    for event_id, meta in data.get("eventos", {}).items():
-        archivo = meta.get("archivos", {}).get(idioma)
+    eventos_raw = data.get("eventos", {})
+    if not isinstance(eventos_raw, dict):
+        raise ManifestError("Manifiesto invalido: 'eventos' debe ser un objeto")
+
+    for event_id, meta in eventos_raw.items():
+        if not isinstance(meta, dict):
+            raise ManifestError(f"Manifiesto invalido: entrada de evento no es un objeto: {event_id}")
+
+        archivos = meta.get("archivos", {})
+        if not isinstance(archivos, dict):
+            raise ManifestError(f"Manifiesto invalido: 'archivos' no es un objeto para '{event_id}'")
+        archivo = archivos.get(idioma)
         if not archivo:
             raise ManifestError(f"Evento sin archivo para idioma '{idioma}': {event_id}")
 
@@ -41,7 +54,10 @@ def load_manifest(manifest_path: Path, idioma: str = "es") -> dict:
         except OSError as exc:
             raise ManifestError(f"Archivo faltante para '{event_id}': {wav_path}") from exc
 
-        sha_esperado = meta.get("sha256", {}).get(idioma)
+        sha256_raw = meta.get("sha256", {})
+        if not isinstance(sha256_raw, dict):
+            raise ManifestError(f"Manifiesto invalido: 'sha256' no es un objeto para '{event_id}'")
+        sha_esperado = sha256_raw.get(idioma)
         if not sha_esperado:
             raise ManifestError(f"Falta sha256 para '{event_id}' (idioma '{idioma}')")
         sha_real = hashlib.sha256(raw).hexdigest()

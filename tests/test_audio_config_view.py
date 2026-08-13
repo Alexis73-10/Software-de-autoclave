@@ -19,6 +19,7 @@ def test_carga_config_inicial_desde_el_backend():
         return_value={"enabled": False, "volume": 42, "available": True},
     ):
         view = AudioConfigView(nav_callback=lambda *_: None)
+        view.show()  # dispara showEvent(), que ahora es lo que arranca el refresh
 
     assert view._chk_enabled.isChecked() is False
     assert view._slider_volume.value() == 42
@@ -63,5 +64,6 @@ def test_backend_no_disponible_no_lanza_excepcion():
         side_effect=requests.RequestException("sin conexion"),
     ):
         view = AudioConfigView(nav_callback=lambda *_: None)  # no debe lanzar
+        view.show()  # dispara showEvent(), que ahora es lo que arranca el refresh
 
     assert "sin conexión" in view._lbl_available.text().lower()

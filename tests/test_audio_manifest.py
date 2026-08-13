@@ -89,3 +89,50 @@ def test_prioridad_faltante_lanza_manifest_error(tmp_path):
     manifest_path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(ManifestError):
         load_manifest(manifest_path)
+
+
+# --- Regresion (hallazgo Importante de la revision final): formas invalidas
+# de JSON (listas/strings donde se esperaba un objeto) deben degradar a
+# ManifestError, no a AttributeError/TypeError sin controlar -- esas
+# excepciones no las captura context.py y tumbarian el backend entero.
+
+
+def test_raiz_no_es_objeto_lanza_manifest_error(tmp_path):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps(["no", "es", "un", "objeto"]), encoding="utf-8")
+    with pytest.raises(ManifestError):
+        load_manifest(manifest_path)
+
+
+def test_eventos_no_es_objeto_lanza_manifest_error(tmp_path):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(json.dumps({"eventos": ["no", "es", "un", "objeto"]}), encoding="utf-8")
+    with pytest.raises(ManifestError):
+        load_manifest(manifest_path)
+
+
+def test_entrada_de_evento_no_es_objeto_lanza_manifest_error(tmp_path):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps({"eventos": {"evt_test": "no es un objeto"}}), encoding="utf-8"
+    )
+    with pytest.raises(ManifestError):
+        load_manifest(manifest_path)
+
+
+def test_archivos_no_es_objeto_lanza_manifest_error(tmp_path):
+    manifest_path = _manifest_valido(tmp_path)
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data["eventos"]["evt_test"]["archivos"] = ["es/evt_test.wav"]
+    manifest_path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ManifestError):
+        load_manifest(manifest_path)
+
+
+def test_sha256_no_es_objeto_lanza_manifest_error(tmp_path):
+    manifest_path = _manifest_valido(tmp_path)
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data["eventos"]["evt_test"]["sha256"] = ["deadbeef"]
+    manifest_path.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ManifestError):
+        load_manifest(manifest_path)

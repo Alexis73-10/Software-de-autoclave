@@ -77,3 +77,15 @@ def test_post_audio_ui_ready_es_idempotente(audio_client):
     resp2 = client.post("/audio/ui-ready")
     assert resp1.status_code == 200 and resp2.status_code == 200
     ctx.announcer.say.assert_called_once_with("sys_bienvenida")
+
+
+def test_outputs_reset_detiene_tambien_al_announcer(audio_client):
+    """Regresion (hallazgo Importante de la revision final): /outputs/reset
+    es el path documentado de apagado seguro ("llamar ... ante cualquier
+    apagado seguro"). Antes solo paraba el control_loop y dejaba el worker
+    de audio (y cualquier reproduccion en curso) vivo. Debe detener ambos."""
+    client, ctx = audio_client
+    resp = client.post("/outputs/reset")
+    assert resp.status_code == 200
+    ctx.control_loop.stop.assert_called_once()
+    ctx.announcer.stop.assert_called_once()
