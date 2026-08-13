@@ -572,3 +572,57 @@ def io_test_set_output(name: str, body: _OutputSetBody):
     index = EstadoAutoclave.map_do[name]
     context.setdo.set_output(index + 1, body.value)
     return {"ok": True, "name": name, "value": body.value}
+
+
+# Anuncios de voz — configuración y prueba
+
+_ui_ready_emitido = False
+
+
+@app.get("/audio/config")
+def get_audio_config():
+    audio = context.audio_preferences["audio"]
+    return {"enabled": audio["enabled"], "volume": audio["volume"], "available": context._audio_disponible}
+
+
+@app.patch("/audio/config")
+def update_audio_config(body: dict = Body(...)):
+    audio = context.audio_preferences["audio"]
+
+    if "volume" in body:
+        volume = body["volume"]
+        if not isinstance(volume, int) or isinstance(volume, bool) or not (0 <= volume <= 100):
+            raise HTTPException(status_code=422, detail="volume debe ser un entero entre 0 y 100")
+        audio["volume"] = volume
+
+    if "enabled" in body:
+        enabled = body["enabled"]
+        if not isinstance(enabled, bool):
+            raise HTTPException(status_code=422, detail="enabled debe ser booleano")
+        audio["enabled"] = enabled
+        if not enabled:
+            context.announcer.disable_now()
+
+    from autoclave.config.preferences import save_preferences
+    save_preferences(context.audio_preferences)
+
+    return {"ok": True, "enabled": audio["enabled"], "volume": audio["volume"]}
+
+
+@app.post("/audio/test")
+def test_audio():
+    # El botón de prueba es el mecanismo de reintento de campo (spec §7.2):
+    # si el subsistema se autodeshabilitó por 3 fallos consecutivos, esta
+    # llamada vuelve a habilitar el intento de reproducción.
+    context._audio_disponible = True
+    context.announcer.say("sys_prueba_audio")
+    return {"ok": True}
+
+
+@app.post("/audio/ui-ready")
+def audio_ui_ready():
+    global _ui_ready_emitido
+    if not _ui_ready_emitido:
+        context.announcer.say("sys_bienvenida")
+        _ui_ready_emitido = True
+    return {"ok": True}
