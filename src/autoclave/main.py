@@ -43,6 +43,13 @@ def wait_for_backend(process=None, max_wait=40):
     return False
 
 
+def notify_ui_ready():
+    try:
+        requests.post(f"{BACKEND_URL}/audio/ui-ready", timeout=2)
+    except requests.RequestException:
+        logger.warning("No se pudo notificar ui-ready al backend (sin audio de bienvenida)")
+
+
 def _hardware_connected() -> bool:
     try:
         r = requests.get(f"{BACKEND_URL}/status", timeout=1)
@@ -192,6 +199,7 @@ def main():
         last_shutdown=_last_shutdown_time,
     )
     logger.info("UI Autoclave iniciada")
+    notify_ui_ready()
     app.protocol("WM_DELETE_WINDOW", on_close)
     app.mainloop()
 

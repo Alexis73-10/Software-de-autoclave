@@ -26,3 +26,9 @@ def test_hardware_connected_false_si_status_no_responde_200():
 def test_hardware_connected_false_si_request_lanza_excepcion():
     with patch("autoclave.main.requests.get", side_effect=requests.RequestException("boom")):
         assert main_module._hardware_connected() is False
+
+
+@patch("autoclave.main.requests.post")
+def test_ui_ready_se_llama_tras_construir_la_ventana(mock_post):
+    main_module.notify_ui_ready()
+    mock_post.assert_called_once_with(f"{main_module.BACKEND_URL}/audio/ui-ready", timeout=2)
