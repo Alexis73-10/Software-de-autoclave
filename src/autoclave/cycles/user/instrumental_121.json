@@ -3,9 +3,11 @@
     "display_name": "Instrumental 121°C",
     "cycle_icon": "BigPackages",
     "cycle_temperature_sensors": {
-        "1": "temp_camara",
-        "2": "temp_ref"
+        "temp_camara": "principal",
+        "temp_2_camara": "no_en_uso",
+        "temp_ref": "no_en_uso"
     },
+    "cycle_display_slots": [null, null, null],
     "parameters": {
         "globals": {
             "F0": {
