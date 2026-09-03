@@ -1,0 +1,262 @@
+/* =============================================================================
+   ESPECIFIKA HMI — TOKENS DE DISEÑO
+   v1.0.0 · 2026-08-12
+   Valores extraídos por muestreo de píxel de los mockups de referencia.
+   ---------------------------------------------------------------------------
+   REGLA: este es el ÚNICO archivo del proyecto autorizado para contener
+   valores hexadecimales. Cualquier componente que declare un color literal
+   debe ser rechazado en revisión de código.
+   ============================================================================= */
+
+:root {
+  /* ---------------------------------------------------------------------------
+     1. SUPERFICIES DE MARCA (fondos oscuros)
+     --------------------------------------------------------------------------- */
+  --surface-navy-900: #070B15;   /* punto más oscuro del splash */
+  --surface-navy-800: #20252B;   /* esquina inferior del fondo de app */
+  --surface-navy-700: #233348;   /* inicio del degradado del header */
+  --surface-navy-600: #28466C;
+  --surface-header:   #2C4B70;   /* color medio del AppHeader */
+  --surface-navy-400: #3B6E99;   /* último valor que admite texto blanco AA */
+  --surface-sky-300:  #569AD3;   /* halo del fondo — decorativo */
+  --surface-sky-200:  #78AED6;   /* decorativo */
+  --surface-sky-100:  #99C5E2;   /* núcleo del halo — decorativo, requiere scrim */
+
+  /* Degradados normativos */
+  --gradient-header: linear-gradient(135deg, #233348 0%, #2C4B70 55%, #3A6397 100%);
+  --gradient-app:    radial-gradient(120% 90% at 45% 38%, #99C5E2 0%, #569AD3 32%, #3B6E99 58%, #28466C 78%, #20252B 100%);
+  --gradient-splash: radial-gradient(90% 70% at 32% 34%, #63A3D8 0%, #3B669A 34%, #244463 62%, #1B222A 100%);
+  --gradient-pause:  linear-gradient(180deg, #2747D5 0%, #152593 60%, #0B1370 100%);
+  --gradient-stop:   linear-gradient(180deg, #EA0000 0%, #D00000 45%, #760000 100%);
+
+  /* Velo obligatorio detrás de texto blanco sobre el fondo con degradado */
+  --scrim-text:      linear-gradient(180deg, rgba(6,18,32,.46) 0%, rgba(6,18,32,0) 100%);
+  --scrim-shadow:    0 1px 3px rgba(4,14,26,.55);
+
+  /* ---------------------------------------------------------------------------
+     2. PRIMARIO / ACCIÓN
+     --------------------------------------------------------------------------- */
+  --color-primary-050:    #E2EDFE;  /* fondo de pestaña activa, fondo de icono azul */
+  --color-primary-100:    #C7DCFD;  /* halo de foco */
+  --color-primary-200:    #9DC1F7;
+  --color-primary:        #1168F6;  /* BASE: botón primario, controles activos */
+  --color-primary-strong: #0D53C4;  /* OBLIGATORIO para texto azul y estado presionado */
+  --color-primary-800:    #0A3F95;
+  --color-steel:          #035B8F;  /* azul institucional: paso activo del stepper */
+  --color-indigo-800:     #003499;  /* detalle profundo de iconos multitono */
+
+  /* ---------------------------------------------------------------------------
+     3. SEMÁNTICOS DE ESTADO
+     Uso exclusivo — ver sección 4 del documento de especificación.
+     --------------------------------------------------------------------------- */
+  /* Éxito / listo / completado */
+  --color-success-050:    #E9F8EE;
+  --color-success:        #009933;  /* solo iconos y rellenos (3.75:1) */
+  --color-success-strong: #007A29;  /* OBLIGATORIO para texto (5.50:1) */
+
+  /* Aviso / no preparado / atención */
+  --color-warning-050:    #FFF4E6;
+  --color-warning:        #FF9933;  /* relleno de chip; tinta oscura encima, nunca blanco */
+  --color-warning-strong: #B35A00;  /* OBLIGATORIO para texto (4.80:1) */
+
+  /* Peligro / alarma / detención */
+  --color-danger-050:     #FFECEC;
+  --color-danger:         #EA0000;
+  --color-danger-strong:  #D00000;
+  --color-danger-900:     #760000;
+
+  /* Proceso / medición en vivo */
+  --color-process-050:    #E5FAF7;
+  --color-process:        #03C9B2;  /* solo trazos e iconos (2.10:1) */
+  --color-process-strong: #00806F;  /* OBLIGATORIO para texto (4.86:1) */
+
+  /* Histórico / registros */
+  --color-history-050:    #F6EAFC;
+  --color-history:        #9933CC;  /* apto para texto (5.68:1) */
+
+  /* Neutro mecánico */
+  --color-neutral-strong: #2E3A45;
+
+  /* ---------------------------------------------------------------------------
+     4. COLORES CATEGÓRICOS DE MÓDULO
+     --------------------------------------------------------------------------- */
+  --module-cycle:       #009933;
+  --module-history:     #9933CC;
+  --module-programs:    #1168F6;
+  --module-reports:     #FF9933;
+  --module-print:       #2E3A45;
+  --module-maintenance: #FF9933;
+  --module-network:     #1168F6;
+  --module-info:        #1168F6;
+
+  /* ---------------------------------------------------------------------------
+     5. SERIES DE DATOS (gráfica de ciclo)
+     --------------------------------------------------------------------------- */
+  --chart-series-1:        #6699FF;  /* temperatura de cámara — eje °C */
+  --chart-series-2:        #9933CC;  /* temperatura de camisa — eje °C */
+  --chart-series-3:        #03C9B2;  /* presión — eje kPa */
+  --chart-series-4:        #FF9933;  /* consigna / setpoint — trazo discontinuo */
+  --chart-grid:            #E6E6E6;
+  --chart-axis:            #808080;
+  --chart-phase-divider:   #B3B3B3;
+  --chart-cursor:          #4D4D4D;
+  --chart-tooltip-bg:      #FFFFFF;
+  --chart-tooltip-border:  #CCCCCC;
+
+  /* ---------------------------------------------------------------------------
+     6. NEUTRALES, SUPERFICIES Y TEXTO
+     --------------------------------------------------------------------------- */
+  --bg-card:          #FFFFFF;
+  --bg-alt:           #FAFBFC;
+  --bg-subtle:        #F5F7FA;
+  --bg-icon-neutral:  #EEF2F7;
+  --border-subtle:    #E6E6E6;
+  --border-default:   #CCCCCC;
+  --fg-primary:       #1A1A1A;
+  --fg-secondary:     #4D4D4D;
+  --fg-muted:         #808080;   /* solo texto ≥24px o ≥19px bold */
+  --fg-disabled:      #B3B3B3;
+  --fg-on-color:      #FFFFFF;
+
+  /* ---------------------------------------------------------------------------
+     7. ESPACIADO (base 4)
+     --------------------------------------------------------------------------- */
+  --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+  --space-5: 20px; --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  /* ---------------------------------------------------------------------------
+     8. RADIOS
+     --------------------------------------------------------------------------- */
+  --radius-xs: 4px;   /* casillas */
+  --radius-sm: 6px;   /* campos, botones */
+  --radius-md: 10px;  /* mosaicos, tarjetas de métrica */
+  --radius-lg: 14px;  /* contenedor de pantalla */
+  --radius-pill: 999px;
+
+  /* ---------------------------------------------------------------------------
+     9. BORDES Y FOCO
+     --------------------------------------------------------------------------- */
+  --border-hairline: 1px solid var(--border-subtle);
+  --border-control:  1px solid var(--border-default);
+  --focus-ring:      0 0 0 3px var(--color-primary-100);
+  --focus-border:    2px solid var(--color-primary);
+
+  /* ---------------------------------------------------------------------------
+     10. ELEVACIÓN
+     --------------------------------------------------------------------------- */
+  --shadow-1:     0 1px 2px rgba(16,24,40,.06);
+  --shadow-2:     0 4px 12px rgba(16,24,40,.10);
+  --shadow-3:     0 8px 24px rgba(3,18,38,.24);
+  --shadow-nav:   0 -2px 10px rgba(3,18,38,.16);
+  --shadow-press: inset 0 2px 4px rgba(0,0,0,.22);
+
+  /* ---------------------------------------------------------------------------
+     11. TIPOGRAFÍA
+     --------------------------------------------------------------------------- */
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --numeric-tabular: tabular-nums;
+
+  --type-display-clock: 200 160px/160px var(--font-ui);
+  --type-clock:         600 30px/30px var(--font-ui);
+  --type-clock-date:    500 11px/14px var(--font-ui);
+  --type-screen-title:  700 20px/24px var(--font-ui);
+  --type-section-label: 700 13px/16px var(--font-ui);
+  --type-tile-title:    700 15px/18px var(--font-ui);
+  --type-tile-desc:     400 12px/16px var(--font-ui);
+  --type-body:          400 15px/22px var(--font-ui);
+  --type-field-label:   500 12px/16px var(--font-ui);
+  --type-input:         400 15px/20px var(--font-ui);
+  --type-button:        600 15px/20px var(--font-ui);
+  --type-metric-value:  700 30px/32px var(--font-ui);
+  --type-metric-unit:   400 12px/16px var(--font-ui);
+  --type-kpi-value:     700 26px/28px var(--font-ui);
+  --type-timer:         600 44px/44px var(--font-ui);
+  --type-chip:          700 11px/14px var(--font-ui);
+  --type-caption:       400 11px/14px var(--font-ui);
+  --type-axis:          500 10px/12px var(--font-ui);
+  --type-meta:          500 9px/11px var(--font-ui);
+
+  --tracking-title:   0.05em;
+  --tracking-label:   0.08em;
+  --tracking-chip:    0.07em;
+
+  /* ---------------------------------------------------------------------------
+     12. MOVIMIENTO
+     --------------------------------------------------------------------------- */
+  --motion-instant: 90ms;
+  --motion-fast:    160ms;
+  --motion-base:    240ms;
+  --motion-slow:    400ms;
+  --motion-progress: 1000ms;
+  --ease-standard:   cubic-bezier(.4, 0, .2, 1);
+  --ease-emphasized: cubic-bezier(.2, 0, 0, 1);
+
+  /* ---------------------------------------------------------------------------
+     13. ESTRUCTURA
+     --------------------------------------------------------------------------- */
+  --canvas-width:   800px;
+  --canvas-height:  1280px;
+  --header-height:  72px;
+  --nav-height:     72px;
+  --page-padding:   16px;
+  --grid-gutter:    12px;
+  --touch-min:      48px;   /* objetivo táctil mínimo */
+  --touch-process:  64px;   /* controles de proceso (pausa / detener) */
+  --z-content: 10; --z-chrome: 100; --z-dropdown: 200;
+  --z-modal: 300;  --z-toast: 400;  --z-alarm: 500;
+}
+
+/* =============================================================================
+   TEMA OSCURO — se activa con <html data-theme="dark">
+   Los colores de seguridad NO cambian de significado: solo se ajusta su
+   luminosidad para conservar el contraste sobre superficies oscuras.
+   ============================================================================= */
+[data-theme="dark"] {
+  --bg-card:         #16202B;
+  --bg-alt:          #1A2531;
+  --bg-subtle:       #1E2B39;
+  --bg-icon-neutral: #22303F;
+  --border-subtle:   #26374A;
+  --border-default:  #33465A;
+  --fg-primary:      #F2F6FA;
+  --fg-secondary:    #A8B9C9;
+  --fg-muted:        #7D91A5;
+  --fg-disabled:     #4E6377;
+
+  --color-primary:        #4C8FFB;
+  --color-primary-strong: #7FB0FC;
+  --color-primary-050:    #16273D;
+
+  --color-success:        #22C55E;
+  --color-success-strong: #4ADE80;
+  --color-success-050:    #12291C;
+
+  --color-warning:        #FFB25C;
+  --color-warning-strong: #FFC98A;
+  --color-warning-050:    #2E2113;
+
+  --color-danger:         #FF4D4D;
+  --color-danger-strong:  #FF7A7A;
+  --color-danger-050:     #2E1414;
+
+  --color-process:        #2DDCC6;
+  --color-process-strong: #6BE9D8;
+
+  --color-history:        #C07FE8;
+
+  --chart-grid: #26374A;
+  --chart-axis: #7D91A5;
+}
+
+/* =============================================================================
+   REDUCCIÓN DE MOVIMIENTO
+   Se eliminan desplazamientos y escalados. El parpadeo de alarma se conserva:
+   es señalización de seguridad, no decoración.
+   ============================================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *:not(.alarm-blink) {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

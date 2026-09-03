@@ -6,3 +6,4 @@
 capturas_calibracion/
 *.pid
 *.laccdb
+/_*_tmp.qml
