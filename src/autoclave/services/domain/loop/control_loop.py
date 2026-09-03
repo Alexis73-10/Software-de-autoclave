@@ -217,15 +217,10 @@ class ControlLoop:
         if ultimo is None:
             return
 
-        temp_camara = self.estado.sensores_temp.get("temp_camara")
-        if temp_camara is None:
+        principal_sensor = self.cycle.get_principal_sensor()
+        t_ref = self.estado.sensores_temp.get(principal_sensor)
+        if t_ref is None:
             return
-
-        if self.cap is not None and getattr(self.cap, "has_liquid_sensor", False):
-            temp_2 = self.estado.sensores_temp.get("temp_2_camara")
-            t_ref = min(temp_camara, temp_2) if temp_2 is not None else temp_camara
-        else:
-            t_ref = temp_camara
 
         dt_min = (now - ultimo) / 60.0
         self.estado.f0_acumulado += calcular_incremento_f0(t_ref, dt_min)

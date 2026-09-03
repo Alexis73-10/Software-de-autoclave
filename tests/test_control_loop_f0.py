@@ -23,6 +23,7 @@ def _make_loop(estado=None, cap=None, f0_activo=True):
     cycle.get_param.side_effect = lambda seccion, nombre, default=None: {
         ("globals", "F0"): f0_activo,
     }.get((seccion, nombre), default)
+    cycle.get_principal_sensor.return_value = "temp_camara"
     cycle_manager = MagicMock()
     cycle_manager.get_selected_cycle.return_value = cycle
 
@@ -91,35 +92,39 @@ def test_no_acumula_ni_lanza_excepcion_si_temp_camara_es_none():
     assert estado.f0_acumulado == 0.0
 
 
-def test_usa_el_minimo_entre_ambos_sensores_cuando_hay_sensor_de_liquido():
+
+
+def test_usa_el_sensor_principal_configurado_en_el_ciclo():
     estado = _FakeEstado()
     estado.sensores_temp["temp_camara"] = 134.0
-    estado.sensores_temp["temp_2_camara"] = 100.0  # el líquido va más atrás -> debe dominar
-    cap = MagicMock(has_liquid_sensor=True)
-    loop, estado, _ = _make_loop(estado=estado, cap=cap)
+    estado.sensores_temp["temp_2_camara"] = 100.0  # el líquido va más atrás
+    loop, estado, cycle = _make_loop(estado=estado)
+    cycle.get_principal_sensor.return_value = "temp_2_camara"
     loop._acumular_f0(now=1000.0)
     loop._acumular_f0(now=1060.0)
-    f0_con_liquido = estado.f0_acumulado
+    f0_con_principal_liquido = estado.f0_acumulado
 
     estado2 = _FakeEstado()
     estado2.sensores_temp["temp_camara"] = 134.0
-    loop2, estado2, _ = _make_loop(estado=estado2, cap=None)
+    estado2.sensores_temp["temp_2_camara"] = 100.0
+    loop2, estado2, cycle2 = _make_loop(estado=estado2)
+    cycle2.get_principal_sensor.return_value = "temp_camara"
     loop2._acumular_f0(now=1000.0)
     loop2._acumular_f0(now=1060.0)
-    f0_solo_camara = estado2.f0_acumulado
+    f0_con_principal_vapor = estado2.f0_acumulado
 
-    assert f0_con_liquido < f0_solo_camara
+    assert f0_con_principal_liquido < f0_con_principal_vapor
 
 
-def test_degrada_a_temp_camara_si_hay_liquido_sensor_pero_sin_lectura():
+def test_no_acumula_si_la_lectura_del_sensor_principal_es_none():
     estado = _FakeEstado()
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_temp["temp_2_camara"] = None
-    cap = MagicMock(has_liquid_sensor=True)
-    loop, estado, _ = _make_loop(estado=estado, cap=cap)
+    loop, estado, cycle = _make_loop(estado=estado)
+    cycle.get_principal_sensor.return_value = "temp_2_camara"
     loop._acumular_f0(now=1000.0)
     loop._acumular_f0(now=1060.0)
-    assert estado.f0_acumulado > 0.0
+    assert estado.f0_acumulado == 0.0
 
 
 def test_transicion_calentamiento_a_esterilizacion_no_reinicia_dt():
