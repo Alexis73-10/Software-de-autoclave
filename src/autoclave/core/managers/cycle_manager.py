@@ -7,11 +7,19 @@ from autoclave.utils.resources import resource_path
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_ROLES_SENSOR_VALIDOS = {"principal", "referencia", "no_en_uso"}
+
+
 class Cycle:
-    def __init__(self, cycle_id: str, name: str, parameters: dict):
+    def __init__(self, cycle_id: str, name: str, parameters: dict,
+                 sensor_roles: dict | None = None,
+                 display_slots: list | None = None):
         self.id = cycle_id
         self.name = name
         self.parameters = parameters
+        self.sensor_roles = sensor_roles or {}
+        self.display_slots = display_slots or [None, None, None]
 
     def get_param(self, *keys, default=None):
         data = self.parameters
@@ -59,6 +67,49 @@ class Cycle:
         leaf["value"] = coerced
         return coerced
 
+    def get_principal_sensor(self) -> str:
+        for sensor, rol in self.sensor_roles.items():
+            if rol == "principal":
+                return sensor
+        return "temp_camara"
+
+    def get_referencia_sensor(self) -> str | None:
+        for sensor, rol in self.sensor_roles.items():
+            if rol == "referencia":
+                return sensor
+        return None
+
+    def set_sensor_roles(self, roles: dict) -> None:
+        from autoclave.core.runtime.status import EstadoAutoclave
+        sensores_validos = set(EstadoAutoclave.map_temp.keys())
+
+        principales = 0
+        for sensor, rol in roles.items():
+            if sensor not in sensores_validos:
+                raise ValueError(f"Sensor desconocido: '{sensor}'")
+            if rol not in _ROLES_SENSOR_VALIDOS:
+                raise ValueError(f"Rol inválido para '{sensor}': '{rol}'")
+            if rol == "principal":
+                principales += 1
+
+        if principales > 1:
+            raise ValueError("Solo puede haber un sensor 'principal'")
+
+        self.sensor_roles = dict(roles)
+
+    def set_display_slots(self, slots: list) -> None:
+        from autoclave.core.runtime.status import EstadoAutoclave
+
+        if len(slots) != 3:
+            raise ValueError("display_slots debe tener exactamente 3 elementos")
+
+        sensores_validos = set(EstadoAutoclave.map_temp.keys()) | set(EstadoAutoclave.map_pres.keys())
+        for slot in slots:
+            if slot is not None and slot not in sensores_validos:
+                raise ValueError(f"Sensor desconocido: '{slot}'")
+
+        self.display_slots = list(slots)
+
 
 class CycleManager:
     def __init__(self):
@@ -91,7 +142,9 @@ class CycleManager:
                         cycle = Cycle(
                             cycle_id=data["cycle_id"],
                             name=data.get("display_name", data.get("cycle_name", data["cycle_id"])),
-                            parameters=data.get("parameters", {})
+                            parameters=data.get("parameters", {}),
+                            sensor_roles=data.get("cycle_temperature_sensors", {}),
+                            display_slots=data.get("cycle_display_slots", [None, None, None]),
                         )
 
                         cycle.source = source
