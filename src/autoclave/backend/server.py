@@ -532,6 +532,81 @@ def _save_cycle_json(cycle) -> None:
     git_autocommit(path, f"chore: actualizar parametros de ciclo {cycle.id} (auto)")
 
 
+class _SensorRolesBody(BaseModel):
+    cycle_id: str
+    sensor_roles: dict[str, str]
+
+
+@app.patch("/cycle/sensor-roles")
+def update_sensor_roles(body: _SensorRolesBody):
+    """Actualiza los roles de sensor de temperatura (principal/referencia/
+    no_en_uso) de un ciclo y persiste si es 'user'."""
+    cycle = context.cycle_manager.cycles.get(body.cycle_id)
+    if cycle is None:
+        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
+
+    try:
+        cycle.set_sensor_roles(body.sensor_roles)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+        _save_cycle_sensor_roles(cycle)
+
+    return {"ok": True}
+
+
+def _save_cycle_sensor_roles(cycle) -> None:
+    """Escribe cycle.sensor_roles de vuelta al JSON del ciclo (solo ciclos user)."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    path = _Path(cycle._path)
+    with open(path, "r", encoding="utf-8") as f:
+        data = _json.load(f)
+    data["cycle_temperature_sensors"] = cycle.sensor_roles
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(data, f, indent=4, ensure_ascii=False)
+    git_autocommit(path, f"chore: actualizar roles de sensor de ciclo {cycle.id} (auto)")
+
+
+class _DisplaySlotsBody(BaseModel):
+    cycle_id: str
+    display_slots: list[str | None]
+
+
+@app.patch("/cycle/display-slots")
+def update_display_slots(body: _DisplaySlotsBody):
+    """Actualiza las 3 entradas exhibidas de un ciclo y persiste si es 'user'."""
+    cycle = context.cycle_manager.cycles.get(body.cycle_id)
+    if cycle is None:
+        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
+
+    try:
+        cycle.set_display_slots(body.display_slots)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+        _save_cycle_display_slots(cycle)
+
+    return {"ok": True}
+
+
+def _save_cycle_display_slots(cycle) -> None:
+    """Escribe cycle.display_slots de vuelta al JSON del ciclo (solo ciclos user)."""
+    import json as _json
+    from pathlib import Path as _Path
+
+    path = _Path(cycle._path)
+    with open(path, "r", encoding="utf-8") as f:
+        data = _json.load(f)
+    data["cycle_display_slots"] = cycle.display_slots
+    with open(path, "w", encoding="utf-8") as f:
+        _json.dump(data, f, indent=4, ensure_ascii=False)
+    git_autocommit(path, f"chore: actualizar entradas exhibidas de ciclo {cycle.id} (auto)")
+
+
 # Direct hardware access — bypasses control_loop, for bench validation only
 
 class _OutputSetBody(BaseModel):
