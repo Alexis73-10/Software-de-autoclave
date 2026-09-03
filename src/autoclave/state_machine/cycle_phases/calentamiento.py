@@ -161,6 +161,19 @@ class CalentamientoFase(BaseFase):
         self.set_do.descompresion_rapida_off()
         self.estado.fase_en_sostenimiento = False
 
+    def _principal_en_saturacion(self, pres: float, tolerancia: float) -> bool:
+        """True si no hay una sonda de referencia distinta configurada (nada
+        que verificar — comportamiento actual sin cambios), o si la sonda
+        principal ya corresponde a vapor saturado contra la presión real de
+        cámara. False bloquea el COMPLETADO sin fallar — mismo patrón de
+        riesgo aceptado que el resto de la fase."""
+        if self.cycle.get_referencia_sensor() is None:
+            return True
+        principal = self._temp_principal()
+        if principal is None:
+            return False
+        return self._verificar_vapor_saturado(principal, pres, tolerancia)
+
     def _fallo(self, mensaje: str) -> FaseResult:
         logger.error("Calentamiento: FALLO — %s", mensaje)
         self._apagar_salidas()
@@ -234,7 +247,7 @@ class CalentamientoFase(BaseFase):
         if time.monotonic() > self._timer_timeout_fin:
             return self._fallo(f"Timeout de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
 
-        temp = self._temp_camara()
+        temp = self._temp_control()
         pres = self._pres_camara()
         if temp is None or pres is None:
             return FaseResult.EN_CURSO
@@ -386,6 +399,8 @@ class CalentamientoFase(BaseFase):
                 self._timer_sostenido_desde = now
             self.estado.fase_en_sostenimiento = True
             if now - self._timer_sostenido_desde >= tiempo_est:
+                if not self._principal_en_saturacion(pres, rango_cal):
+                    return FaseResult.EN_CURSO
                 logger.info(
                     "Calentamiento: COMPLETADO tras sostenimiento continuo de %.0fs — %.1f°C / %.1f kPa",
                     tiempo_est, temp, pres,

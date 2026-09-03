@@ -12,7 +12,8 @@ def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
                tiempo_estable=0, intervalo=2, t_inicial=20.0,
                escape_lento_on=1, escape_lento_off=0,
                escape_rapido_on=0, escape_rapido_off=10,
-               rango_temp_estabilizacion=1.0, timeout_recuperacion_estabilizacion=5):
+               rango_temp_estabilizacion=1.0, timeout_recuperacion_estabilizacion=5,
+               principal_sensor="temp_camara", referencia_sensor=None):
     """tasa_calentamiento/tasa_presion quedan en 0 (deshabilitadas, ver guard
     '> 0' en calentamiento.py) por defecto: los tests que no ejercitan el
     control por tasa cambian temperatura/presión entre ticks sin control de
@@ -47,6 +48,8 @@ def _make_fase(t_obj=134.0, presion_add=11.0, timeout_min=60,
         return valores.get(param, default)
 
     cycle.get_param.side_effect = get_param
+    cycle.get_principal_sensor.return_value = principal_sensor
+    cycle.get_referencia_sensor.return_value = referencia_sensor
     config = MagicMock()
     alarms = MagicMock()
     cap = MagicMock()
@@ -720,3 +723,47 @@ def test_duty_por_calidad_vapor_uno_si_presion_ya_corresponde_a_la_temperatura()
     temp = 130.0
     p_min = p_saturacion_kpa(temp) + 11.0
     assert _duty_por_calidad_vapor(temp=temp, pres=p_min, t_obj=134.0, p_add=11.0) == 1.0
+
+
+# ── Roles de sensor (referencia controla, principal valida saturación) ──────
+
+def test_duty_sigue_a_la_referencia_no_al_principal():
+    fase, estado, set_do = _make_fase(
+        t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0,
+        referencia_sensor="temp_camara", principal_sensor="temp_2_camara",
+    )
+    fase.update()  # inicializar
+    estado.sensores_temp["temp_camara"] = 20.0     # referencia lejos -> debe seguir rampeando
+    estado.sensores_temp["temp_2_camara"] = 134.0    # principal ya "caliente" pero no debe importar aquí
+    estado.sensores_pres["pres_camara"] = 100.0
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._duty_actual == 1.0
+
+
+def test_no_completa_hasta_que_el_principal_valide_saturacion_de_vapor():
+    fase, estado, set_do = _make_fase(
+        t_obj=134.0, presion_add=0.0, rango=2.0, tiempo_estable=0,
+        referencia_sensor="temp_camara", principal_sensor="temp_2_camara",
+    )
+    fase.update()  # inicializar
+    p_obj = p_saturacion_kpa(134.0)
+    estado.sensores_temp["temp_camara"] = 134.0      # referencia ya en objetivo
+    estado.sensores_pres["pres_camara"] = p_obj
+    estado.sensores_temp["temp_2_camara"] = 100.0     # principal (líquido) todavía frío
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+
+
+def test_completa_cuando_el_principal_tambien_valida_saturacion():
+    fase, estado, set_do = _make_fase(
+        t_obj=134.0, presion_add=0.0, rango=2.0, tiempo_estable=0,
+        referencia_sensor="temp_camara", principal_sensor="temp_2_camara",
+    )
+    fase.update()  # inicializar
+    p_obj = p_saturacion_kpa(134.0)
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_obj
+    estado.sensores_temp["temp_2_camara"] = 134.0     # principal ya corresponde a vapor saturado
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
