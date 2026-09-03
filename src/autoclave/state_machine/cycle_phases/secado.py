@@ -32,10 +32,10 @@ class SecadoFase(BaseFase):
         modo = int(self.cycle.get_param("secado", "modo") or 1)
 
         if not self._inicializado:
-            self._timer_fin = time.time() + float(tiempo_min) * 60
+            self._timer_fin = time.monotonic() + float(tiempo_min) * 60
             if modo == 3:
                 timeout_seg = self.cycle.get_param("secado", "timeout_pulso") or 10
-                self._timeout_pulso_fin = time.time() + float(timeout_seg)
+                self._timeout_pulso_fin = time.monotonic() + float(timeout_seg)
                 self._sub_estado = _PASO_VACIO_BAJO
             self._inicializado = True
             self.estado.fase_en_sostenimiento = True
@@ -74,7 +74,7 @@ class SecadoFase(BaseFase):
     # ── modos ───────────────────────────────────────────────────────────
 
     def _tick_modo_1(self) -> FaseResult:
-        if time.time() >= self._timer_fin:
+        if time.monotonic() >= self._timer_fin:
             self._apagar_todo()
             logger.info("SecadoFase modo 1: COMPLETADO")
             return FaseResult.COMPLETADO
@@ -84,7 +84,7 @@ class SecadoFase(BaseFase):
         return FaseResult.EN_CURSO
 
     def _tick_modo_2(self) -> FaseResult:
-        if time.time() >= self._timer_fin:
+        if time.monotonic() >= self._timer_fin:
             self._apagar_todo()
             logger.info("SecadoFase modo 2: COMPLETADO")
             return FaseResult.COMPLETADO
@@ -95,7 +95,7 @@ class SecadoFase(BaseFase):
         return FaseResult.EN_CURSO
 
     def _tick_modo_3(self) -> FaseResult:
-        if time.time() >= self._timer_fin:
+        if time.monotonic() >= self._timer_fin:
             self._apagar_todo()
             logger.info("SecadoFase modo 3: COMPLETADO")
             return FaseResult.COMPLETADO
@@ -108,7 +108,7 @@ class SecadoFase(BaseFase):
             self.set_do.bomba_vacio_on()
             self.set_do.vacio_camara_on()
 
-            if time.time() > self._timeout_pulso_fin:
+            if time.monotonic() > self._timeout_pulso_fin:
                 logger.error("SecadoFase modo 3: TIMEOUT en VACIO_BAJO")
                 self._apagar_todo()
                 return FaseResult.FALLO
@@ -117,7 +117,7 @@ class SecadoFase(BaseFase):
                 self.set_do.bomba_vacio_off()
                 self.set_do.vacio_camara_off()
                 timeout_seg = self.cycle.get_param("secado", "timeout_pulso") or 10
-                self._timeout_pulso_fin = time.time() + float(timeout_seg)
+                self._timeout_pulso_fin = time.monotonic() + float(timeout_seg)
                 self._sub_estado = _PASO_AIRE_ALTO
                 logger.info("SecadoFase: %.1f kPa ≤ pres_baja → AIRE_ALTO", pres)
 
@@ -125,7 +125,7 @@ class SecadoFase(BaseFase):
             presion_alta = float(self.cycle.get_param("secado", "presion_alta_secado") or 80)
             self.set_do.aire_admosferico_camara_on()
 
-            if time.time() > self._timeout_pulso_fin:
+            if time.monotonic() > self._timeout_pulso_fin:
                 logger.error("SecadoFase modo 3: TIMEOUT en AIRE_ALTO")
                 self._apagar_todo()
                 return FaseResult.FALLO
@@ -133,7 +133,7 @@ class SecadoFase(BaseFase):
             if pres is not None and pres >= presion_alta:
                 self.set_do.aire_admosferico_camara_off()
                 timeout_seg = self.cycle.get_param("secado", "timeout_pulso") or 10
-                self._timeout_pulso_fin = time.time() + float(timeout_seg)
+                self._timeout_pulso_fin = time.monotonic() + float(timeout_seg)
                 self._sub_estado = _PASO_VACIO_BAJO
                 logger.info("SecadoFase: %.1f kPa ≥ pres_alta → VACIO_BAJO", pres)
 

@@ -200,11 +200,29 @@ def test_timeout_agotado_escala_a_rapida(monkeypatch):
     protocolo, set_do, _ = _make_protocolo(modo=2, pres_camara=300.0)
 
     t0 = 1_000_000.0
-    monkeypatch.setattr(protocolo_fallo_module.time, "time", lambda: t0)
+    monkeypatch.setattr(protocolo_fallo_module.time, "monotonic", lambda: t0)
     protocolo.ejecutar()
     set_do.reset_mock()
 
-    monkeypatch.setattr(protocolo_fallo_module.time, "time", lambda: t0 + 31 * 60)
+    monkeypatch.setattr(protocolo_fallo_module.time, "monotonic", lambda: t0 + 31 * 60)
+    protocolo.update()
+
+    assert protocolo._escalado is True
+    set_do.descompresion_chaqueta_on.assert_called_once()
+    set_do.descompresion_rapida_on.assert_called_once()
+
+
+def test_timeout_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    protocolo, set_do, _ = _make_protocolo(modo=2, pres_camara=300.0)
+
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(protocolo_fallo_module.time, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(protocolo_fallo_module.time, "time", lambda: 10.0)
+
+    protocolo.ejecutar()  # arma _t_timeout_descompresion con monotonic=1000.0 (timeout=30min)
+    set_do.reset_mock()
+
+    fake_monotonic[0] += 31 * 60  # reloj monótono avanza 31min (timeout cumplido)
     protocolo.update()
 
     assert protocolo._escalado is True

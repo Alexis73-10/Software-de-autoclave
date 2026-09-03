@@ -177,9 +177,9 @@ class EsterilizacionFase(BaseFase):
         # El timer de finalización se fija al entrar a la fase, sin importar
         # la disponibilidad de sensores (plan sección 5).
         if not self._inicializado:
-            self._timer_fin = time.time() + tiempo_seg
+            self._timer_fin = time.monotonic() + tiempo_seg
             if f0_activo:
-                self._timer_timeout_max = time.time() + 2 * tiempo_seg
+                self._timer_timeout_max = time.monotonic() + 2 * tiempo_seg
             self._inicializado = True
             self.estado.fase_en_sostenimiento = True
             logger.info(
@@ -192,7 +192,7 @@ class EsterilizacionFase(BaseFase):
         if temp is None or pres is None:
             return FaseResult.EN_CURSO
 
-        now = time.time()
+        now = time.monotonic()
 
         # ── 2. Chequeo de fallas (debounce 3, referencia fija t_est) ───────
         if temp > t_est + rango_temp:

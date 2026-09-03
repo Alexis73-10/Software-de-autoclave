@@ -1,3 +1,4 @@
+import time as time_module
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparado import preparado_state
 
@@ -70,6 +71,24 @@ def test_alarma_chaqueta_fria_dispara_bajo_limite_inferior():
     # primera llamada (no hay que esperar tiempo real).
     p, alarm_mgr, set_do = _make_preparado(vapor=1, pres_chaqueta=270.0)
     p.tiempo_estable = 0
+    p.mantener_chaqueta()
+    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
+    assert "CHAQUETA_FRIA" in ids_reportados
+
+
+def test_timer_estabilidad_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(time_module, "time", lambda: 10.0)
+
+    p, alarm_mgr, set_do = _make_preparado(vapor=1, pres_chaqueta=270.0)
+    p.tiempo_estable = 60
+    p.mantener_chaqueta()  # arma timer_estabilidad con monotonic=1000.0
+    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
+    assert "CHAQUETA_FRIA" not in ids_reportados  # aún no pasó tiempo_estable
+
+    fake_monotonic[0] += 61  # reloj monótono avanza 61s (tiempo_estable cumplido)
+    alarm_mgr.report.reset_mock()
     p.mantener_chaqueta()
     ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
     assert "CHAQUETA_FRIA" in ids_reportados

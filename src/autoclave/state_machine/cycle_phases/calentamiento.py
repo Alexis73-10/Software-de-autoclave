@@ -223,7 +223,7 @@ class CalentamientoFase(BaseFase):
             temp_inicial = self._temp_camara()
             if temp_inicial is None:
                 return FaseResult.EN_CURSO
-            self._timer_timeout_fin = time.time() + timeout_seg
+            self._timer_timeout_fin = time.monotonic() + timeout_seg
             self._inicializado = True
             logger.info(
                 "Calentamiento: iniciando desde %.1f°C | objetivo %.1f°C / %.1f kPa | timeout %.0fs",
@@ -231,7 +231,7 @@ class CalentamientoFase(BaseFase):
             )
 
         # ── 2. Timeout global ────────────────────────────────────────────
-        if time.time() > self._timer_timeout_fin:
+        if time.monotonic() > self._timer_timeout_fin:
             return self._fallo(f"Timeout de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
 
         temp = self._temp_camara()
@@ -239,7 +239,7 @@ class CalentamientoFase(BaseFase):
         if temp is None or pres is None:
             return FaseResult.EN_CURSO
 
-        now = time.time()
+        now = time.monotonic()
 
         # ── 3. Cálculo de pendiente ──────────────────────────────────────
         # tasa_t/tasa_p alimentan duty_tasa en el paso 4 (control continuo de

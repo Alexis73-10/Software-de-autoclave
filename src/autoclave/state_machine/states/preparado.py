@@ -195,9 +195,9 @@ class preparado_state:
     # ==============================
     def generar_alarma_temporizada(self, alarm_id):
         if self.timer_estabilidad is None:
-            self.timer_estabilidad = time.time() + self.tiempo_estable
+            self.timer_estabilidad = time.monotonic() + self.tiempo_estable
 
-        if time.time() >= self.timer_estabilidad:
+        if time.monotonic() >= self.timer_estabilidad:
             self.alarm(alarm_id, AlarmType.ALERTA)
 
     # ==============================

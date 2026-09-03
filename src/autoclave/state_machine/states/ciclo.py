@@ -259,12 +259,12 @@ class CicloState:
             return
 
         if self._apertura_auto_t_inicio is None:
-            self._apertura_auto_t_inicio = time.time()
+            self._apertura_auto_t_inicio = time.monotonic()
 
         tiempo_espera = self.cycle.get_param("finalizacion", "tiempo_espera_apertura", default=60)
         if tiempo_espera is None:
             tiempo_espera = 60
-        elapsed = time.time() - self._apertura_auto_t_inicio
+        elapsed = time.monotonic() - self._apertura_auto_t_inicio
         if elapsed < tiempo_espera:
             return
 
@@ -313,7 +313,7 @@ class CicloState:
             self.estado.set_flag("CICLO_CONFIRMADO", True)
             return
 
-        ahora = time.time()
+        ahora = time.monotonic()
         if (self._apertura_auto_ultimo_intento is not None
                 and (ahora - self._apertura_auto_ultimo_intento) < _INTERVALO_REINTENTO_APERTURA_SEG):
             return

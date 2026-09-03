@@ -46,7 +46,7 @@ class PrecalentamientoFase(BaseFase):
 
         # ── 3. Inicialización ────────────────────────────────────────────────
         if not self._inicializado:
-            self._timer_timeout_fin = time.time() + timeout_seg
+            self._timer_timeout_fin = time.monotonic() + timeout_seg
             self._inicializado = True
             logger.info(
                 "Precalentamiento: iniciando | obj %.1f kPa | sostenimiento %.0fs | timeout %.0fs",
@@ -54,7 +54,7 @@ class PrecalentamientoFase(BaseFase):
             )
 
         # ── 4. Timeout global ────────────────────────────────────────────────
-        if time.time() > self._timer_timeout_fin:
+        if time.monotonic() > self._timer_timeout_fin:
             logger.error(
                 "Precalentamiento: TIMEOUT — no se alcanzó %.1f kPa en %.0f min",
                 presion_obj, timeout_seg / 60
@@ -73,7 +73,7 @@ class PrecalentamientoFase(BaseFase):
         if self._timer_sostenimiento is None:
             self.set_do.vapor_chaqueta_on()
             if pres >= presion_obj:
-                self._timer_sostenimiento = time.time()
+                self._timer_sostenimiento = time.monotonic()
                 self.estado.fase_en_sostenimiento = True
                 logger.info(
                     "Precalentamiento: %.1f kPa alcanzados — sosteniendo %.0fs",
@@ -87,7 +87,7 @@ class PrecalentamientoFase(BaseFase):
         else:
             self.set_do.vapor_chaqueta_on()
 
-        transcurrido = time.time() - self._timer_sostenimiento
+        transcurrido = time.monotonic() - self._timer_sostenimiento
         logger.debug(
             "Precalentamiento: sosteniendo %.1fs / %.1fs | %.1f kPa",
             transcurrido, tiempo_seg, pres

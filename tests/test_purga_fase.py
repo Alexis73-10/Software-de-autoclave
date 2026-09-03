@@ -1,4 +1,5 @@
 # tests/test_purga_fase.py
+import time as time_module
 from unittest.mock import MagicMock
 import pytest
 
@@ -86,3 +87,25 @@ def test_reset_limpia_estado():
     fase.reset()
     assert fase._inicializado == False
     assert fase._timer_fin is None
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 6. El timer debe usar reloj monótono, inmune a saltos del reloj de pared (C-01)
+# ──────────────────────────────────────────────────────────────────────────────
+
+def test_timer_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: fake_monotonic[0])
+    # El reloj de pared salta hacia atrás dramáticamente (ajuste manual, DST,
+    # NTP) justo después de iniciar la fase. No debe afectar el timer.
+    monkeypatch.setattr(time_module, "time", lambda: 10.0)
+
+    fase, _, set_do = _make_fase(tiempo_min=1)   # 60 s
+    fase.update()                                 # inicializa timer con monotonic=1000.0
+
+    fake_monotonic[0] += 61                        # reloj monótono avanza 61 s (tiempo cumplido)
+
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.vapor_camara_off.assert_called_once()
+    set_do.descompresion_rapida_off.assert_called_once()

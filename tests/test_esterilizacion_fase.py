@@ -502,6 +502,23 @@ def test_f0_true_falla_por_timeout_al_superar_2x_tiempo_esterilizacion_sin_f0():
     result = fase.update()
     assert result == FaseResult.FALLO
     assert "ESTERILIZACION_TIMEOUT_F0" in estado.motivo_fallo
+
+
+# ── Reloj monótono (C-01) ────────────────────────────────────────────────
+
+def test_timer_fin_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(time, "time", lambda: 10.0)
+
+    fase, estado, set_do = _make_fase(tiempo_min=1)  # 60s
+    fase.update()  # inicializa _timer_fin con monotonic=1000.0
+
+    fake_monotonic[0] += 61  # reloj monótono avanza 61s (tiempo cumplido)
+
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
+    set_do.vapor_camara_off.assert_called()
     set_do.vapor_camara_off.assert_called()
 
 

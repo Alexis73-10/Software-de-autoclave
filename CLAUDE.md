@@ -13,6 +13,7 @@ Convenciones compartidas por las fases:
 - Temporizador de dos estados (abre `t_on` seg, cierra `t_off` seg, repite; `t_off<=0` → enclavada abierta, `t_on<=0` → enclavada cerrada) es el patrón estándar para escapes (`descompresion_lenta`/`descompresion_rapida`) y para PWM de vapor. Ver `_tick_dos_estados` en `calentamiento.py`/`esterilizacion.py`.
 - Condiciones de falla usan debounce de 3 lecturas consecutivas (constante `_DEBOUNCE_LECTURAS`) antes de disparar `FaseResult.FALLO`.
 - Al entrar en `FALLO`, se apagan todas las salidas de la fase y se registra `self.estado.motivo_fallo`.
+- Todo temporizador de proceso (timers de fase, timeouts, debounce, hold) usa `time.monotonic()`, nunca `time.time()` — un salto del reloj de pared (ajuste manual, NTP futuro) no debe alterar la duración medida. `time.time()`/`datetime.now()` quedan reservados para sellos de tiempo de registros/auditoría (ver §11.3 de `docs/mis_plans/planeacion_ui_dual_pantalla.md`). Estos timers son atributos en memoria por instancia de fase, no persisten entre reinicios.
 
 Secuencia actual (sin cambios de orquestación):
 

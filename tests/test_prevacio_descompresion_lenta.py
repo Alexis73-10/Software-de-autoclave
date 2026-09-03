@@ -47,7 +47,7 @@ def _avanzar_hasta_vapor_alto(fase, estado):
     assert fase._paso == "APAGANDO_VACIO"
 
     import time as time_module
-    fase._t_apagado_vacio = time_module.time() - 10  # forzar fin del stagger
+    fase._t_apagado_vacio = time_module.monotonic() - 10  # forzar fin del stagger
     fase.update()  # APAGANDO_VACIO -> VAPOR_ALTO
     assert fase._paso == "VAPOR_ALTO"
 
@@ -106,7 +106,7 @@ def test_timeout_vapor_alto_apaga_descompresion_lenta(monkeypatch):
 
     t_fin = fase._timeout_alto_fin
     monkeypatch.setattr(
-        "autoclave.state_machine.cycle_phases.prevacio.time.time",
+        "autoclave.state_machine.cycle_phases.prevacio.time.monotonic",
         lambda: t_fin + 1,
     )
     resultado = fase.update()
