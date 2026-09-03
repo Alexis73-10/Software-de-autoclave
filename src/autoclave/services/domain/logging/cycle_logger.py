@@ -294,6 +294,14 @@ class CycleLogger:
         timestamp_rel = _fmt_elapsed(elapsed)
 
         temp = self.estado.sensores_temp.get("temp_camara")
+        if fase_codigo == "S":  # ESTERILIZACION — usar el sensor principal del ciclo
+            try:
+                cycle = self.cycle_manager.get_selected_cycle()
+                temp_principal = self.estado.sensores_temp.get(cycle.get_principal_sensor())
+                if temp_principal is not None:
+                    temp = temp_principal
+            except Exception as exc:
+                logger.warning("CycleLogger: no se pudo resolver el sensor principal: %s", exc)
         pres = self.estado.sensores_pres.get("pres_camara")
 
         if temp is not None:

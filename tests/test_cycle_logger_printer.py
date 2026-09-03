@@ -29,8 +29,12 @@ class FakeCycle:
     id = "bowe_dick"
     name = "Bowie-Dick"
 
-    def __init__(self, f0_activo=False):
+    def __init__(self, f0_activo=False, principal_sensor="temp_camara"):
         self.f0_activo = f0_activo
+        self.principal_sensor = principal_sensor
+
+    def get_principal_sensor(self):
+        return self.principal_sensor
 
     def get_param(self, *keys, default=None):
         # Replica la semántica real de Cycle.get_param: recorre las claves
@@ -54,11 +58,12 @@ class FakeCycle:
 
 
 class FakeCycleManager:
-    def __init__(self, f0_activo=False):
+    def __init__(self, f0_activo=False, principal_sensor="temp_camara"):
         self.f0_activo = f0_activo
+        self.principal_sensor = principal_sensor
 
     def get_selected_cycle(self):
-        return FakeCycle(f0_activo=self.f0_activo)
+        return FakeCycle(f0_activo=self.f0_activo, principal_sensor=self.principal_sensor)
 
 
 class FakeConfig:
@@ -235,3 +240,30 @@ def test_sin_printer_no_falla():
     cl.update()
     cl.estado.machine_state = GlobalState.PREPARADO
     cl.update()
+
+
+def test_en_esterilizacion_imprime_la_temperatura_del_sensor_principal():
+    printer = FakePrinter()
+    cl = _build_logger(printer, cycle_manager=FakeCycleManager(principal_sensor="temp_2_camara"))
+    cl.estado.fase_ciclo = "ESTERILIZACION"
+    cl.estado.sensores_temp = {"temp_camara": 134.0, "temp_2_camara": 110.0}
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase -> "S"
+
+    assert len(printer.calls) == 2
+    assert "110.0" in printer.calls[1]
+    assert "134.0" not in printer.calls[1]
+
+
+def test_fuera_de_esterilizacion_sigue_usando_temp_camara():
+    printer = FakePrinter()
+    cl = _build_logger(printer, cycle_manager=FakeCycleManager(principal_sensor="temp_2_camara"))
+    cl.estado.sensores_temp = {"temp_camara": 25.0, "temp_2_camara": 999.0}
+    # fase_ciclo por defecto es "PRECALENTAMIENTO"
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase -> "PH"
+
+    assert "25.0" in printer.calls[1]
+    assert "999.0" not in printer.calls[1]
