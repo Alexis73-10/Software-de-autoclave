@@ -53,9 +53,15 @@ def _equipo_tiene_sonda_liquido() -> bool:
 
 
 class _SensorRoleRow(QFrame):
-    def __init__(self, sensor_name: str, on_change: Callable[[str, str], None]):
+    def __init__(
+        self,
+        sensor_name: str,
+        on_change: Callable[[str, str], None],
+        no_disponible: bool = False,
+    ):
         super().__init__()
         self.sensor_name = sensor_name
+        self.no_disponible = no_disponible
         self._on_change = on_change
         self.setStyleSheet(_CARD)
 
@@ -66,6 +72,14 @@ class _SensorRoleRow(QFrame):
         lbl.setFont(QFont("Segoe UI", 12))
         lbl.setStyleSheet("border: none;")
         lay.addWidget(lbl)
+
+        if no_disponible:
+            lbl_no_disponible = QLabel("No disponible en este equipo")
+            lbl_no_disponible.setFont(QFont("Segoe UI", 9, QFont.Weight.Bold))
+            lbl_no_disponible.setStyleSheet("border: none; color: #b06a00;")
+            lay.addSpacing(8)
+            lay.addWidget(lbl_no_disponible)
+
         lay.addStretch()
 
         self._group = QButtonGroup(self)
@@ -188,8 +202,24 @@ class SensoresTemperaturaView(QWidget):
             row.setParent(None)
         self._rows.clear()
 
-        for sensor in self._candidatos():
-            row = _SensorRoleRow(sensor, on_change=self._on_role_changed)
+        candidatos = self._candidatos()
+        # Sensores que ya tienen un rol activo asignado (ej. "principal" fijado
+        # cuando el perfil corría en un equipo con más sondas) pero que el
+        # filtro de capacidad del equipo actual dejaría fuera. Se muestran
+        # igual -- de lo contrario el operador no puede ver ni liberar un rol
+        # "principal" atascado en un sensor que este equipo no tiene.
+        no_disponibles = [
+            sensor
+            for sensor, rol in cycle.sensor_roles.items()
+            if rol != "no_en_uso" and sensor not in candidatos
+        ]
+
+        for sensor in candidatos + no_disponibles:
+            row = _SensorRoleRow(
+                sensor,
+                on_change=self._on_role_changed,
+                no_disponible=sensor in no_disponibles,
+            )
             row.set_role(cycle.sensor_roles.get(sensor, "no_en_uso"))
             self._rows_layout.insertWidget(self._rows_layout.count() - 1, row)
             self._rows[sensor] = row

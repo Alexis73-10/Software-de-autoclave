@@ -314,6 +314,63 @@ def test_candidatos_perfil_invalido_no_lanza_excepcion():
     assert candidatos == ["temp_camara", "temp_ref"]
 
 
+# ── sensor "principal" atascado fuera del filtro de capacidad ───────────
+
+
+def test_sensor_principal_fuera_de_capacidad_se_muestra_y_se_puede_liberar():
+    """Ciclo configurado con temp_2_camara="principal" en equipo que en ese
+    momento tenía sonda de líquido, abierto luego en equipo SIN esa sonda.
+    _candidatos() ya no incluye temp_2_camara, pero la fila debe seguir
+    renderizada (marcada como no disponible) para que el operador pueda
+    verla y degradarla, liberando el slot "principal" para otro sensor."""
+    from autoclave.ui_pyside.views.params_ciclo.sensores_temperatura import (
+        SensoresTemperaturaView,
+    )
+
+    view = SensoresTemperaturaView(nav_callback=lambda x: None)
+    cycle = _FakeCycle(
+        sensor_roles={
+            "temp_camara": "no_en_uso",
+            "temp_2_camara": "principal",
+            "temp_ref": "no_en_uso",
+        }
+    )
+
+    with _no_sonda_liquido():
+        view._load_cycle(cycle)
+
+    # La fila se renderiza aunque el equipo actual no tenga sonda de líquido.
+    assert "temp_2_camara" in view._rows
+    row = view._rows["temp_2_camara"]
+    assert row.get_role() == "principal"
+    assert row.no_disponible is True
+
+    # El resto de filas normales siguen presentes y sin marcar.
+    assert view._rows["temp_camara"].no_disponible is False
+    assert view._rows["temp_ref"].no_disponible is False
+
+    # Degradar la fila atascada a "No en uso" (click real) libera el slot
+    # "principal" -- el PATCH debe ir sin error de validación en el mock.
+    with patch.object(view._client, "patch") as mock_patch:
+        row._buttons["no_en_uso"].click()
+
+    mock_patch.assert_called_once()
+    body = mock_patch.call_args[0][1]
+    assert body["sensor_roles"]["temp_2_camara"] == "no_en_uso"
+    assert cycle.sensor_roles["temp_2_camara"] == "no_en_uso"
+    assert row.get_role() == "no_en_uso"
+
+    # Ahora se puede asignar "principal" a otro sensor sin conflicto.
+    with patch.object(view._client, "patch") as mock_patch_2:
+        view._rows["temp_camara"]._buttons["principal"].click()
+
+    mock_patch_2.assert_called_once()
+    body_2 = mock_patch_2.call_args[0][1]
+    assert body_2["sensor_roles"]["temp_camara"] == "principal"
+    assert view._rows["temp_camara"].get_role() == "principal"
+    assert cycle.sensor_roles["temp_camara"] == "principal"
+
+
 # ── registro en main_window ──────────────────────────────────────────────
 
 
