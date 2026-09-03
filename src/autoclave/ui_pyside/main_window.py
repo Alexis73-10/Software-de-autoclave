@@ -51,6 +51,7 @@ class MainWindowFluent(QMainWindow):
         from autoclave.ui_pyside.views.params_ciclo.params_ciclo import ParametrosCicloView
         from autoclave.ui_pyside.views.params_ciclo.params_ciclo_menu import ParametrosCicloMenuView
         from autoclave.ui_pyside.views.params_ciclo.sensores_temperatura import SensoresTemperaturaView
+        from autoclave.ui_pyside.views.params_ciclo.entradas_exhibidas import EntradasExhibidasView
         from autoclave.ui_pyside.views.entrdas_salidas.calibracion_sensor import CalibracionSensorView
 
         self._home       = HomeView(nav_callback=self.navigate_to)
@@ -67,13 +68,15 @@ class MainWindowFluent(QMainWindow):
         self._params_ciclo = ParametrosCicloView(nav_callback=self.navigate_to)
         self._params_ciclo_menu = ParametrosCicloMenuView(nav_callback=self.navigate_to)
         self._sensores_temperatura_ciclo = SensoresTemperaturaView(nav_callback=self.navigate_to)
+        self._entradas_exhibidas_ciclo = EntradasExhibidasView(nav_callback=self.navigate_to)
         self._calibracion_sensor = CalibracionSensorView(nav_callback=self.navigate_to)
 
         for view in (self._home, self._secado, self._login,
                      self._ciclos, self._impresion_menu, self._admin_menu, self._io_menu,
                      self._io_di, self._io_temp, self._io_pres, self._io_do,
                      self._params_ciclo, self._params_ciclo_menu,
-                     self._sensores_temperatura_ciclo, self._calibracion_sensor):
+                     self._sensores_temperatura_ciclo, self._entradas_exhibidas_ciclo,
+                     self._calibracion_sensor):
             self._stack.addWidget(view)
 
         self._stack.setCurrentWidget(self._home)
@@ -196,6 +199,7 @@ class MainWindowFluent(QMainWindow):
             "params_ciclo": self._params_ciclo,
             "params_ciclo_menu": self._params_ciclo_menu,
             "sensores_temperatura_ciclo": self._sensores_temperatura_ciclo,
+            "entradas_exhibidas_ciclo": self._entradas_exhibidas_ciclo,
             "calibracion_sensor": self._calibracion_sensor,
         }
         target = views.get(view_name)
