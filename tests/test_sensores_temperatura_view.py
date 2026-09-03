@@ -204,6 +204,41 @@ def test_error_http_en_patch_muestra_detail_del_backend():
     assert "Solo puede haber un sensor" in message
 
 
+def test_error_en_patch_durante_degradacion_no_corrompe_estado():
+    """Regresión: click en "Principal" sobre una fila mientras OTRA fila es
+    "principal" (dispara la mutua exclusión) Y el PATCH falla. Antes del fix,
+    self._cycle.sensor_roles del sensor degradado se mutaba de forma eager e
+    incondicional ANTES del PATCH y nunca se revertía en el `except`, dejando
+    el ciclo en memoria sin ningún sensor "principal" aunque el servidor
+    nunca recibió el cambio."""
+    from autoclave.ui_pyside.views.params_ciclo.sensores_temperatura import (
+        SensoresTemperaturaView,
+    )
+
+    view = SensoresTemperaturaView(nav_callback=lambda x: None)
+    cycle = _FakeCycle(
+        sensor_roles={"temp_camara": "principal", "temp_ref": "no_en_uso"}
+    )
+
+    with _no_sonda_liquido():
+        view._load_cycle(cycle)
+
+    with patch.object(
+        view._client, "patch", side_effect=requests.ConnectionError("backend caído")
+    ), patch(
+        "autoclave.ui_pyside.views.params_ciclo.sensores_temperatura.QMessageBox"
+    ) as mock_box:
+        view._rows["temp_ref"]._buttons["principal"].click()
+
+    mock_box.critical.assert_called_once()
+
+    # el modelo en memoria del ciclo queda exactamente como estaba antes del click
+    assert cycle.sensor_roles == {"temp_camara": "principal", "temp_ref": "no_en_uso"}
+
+    # la fila degradada (temp_camara) nunca se tocó: su widget sigue en "principal"
+    assert view._rows["temp_camara"].get_role() == "principal"
+
+
 # ── _candidatos(): filtro por capacidad de equipo ────────────────────────
 
 

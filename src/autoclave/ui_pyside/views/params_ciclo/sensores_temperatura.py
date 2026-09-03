@@ -198,14 +198,20 @@ class SensoresTemperaturaView(QWidget):
         if self._cycle is None:
             return
 
+        # Compute the full new dict as a LOCAL copy first. Nothing below this
+        # point may mutate self._cycle.sensor_roles or call set_role() on the
+        # demoted row's widget until the PATCH has actually succeeded — on
+        # failure both the model and the other row's widget must remain
+        # exactly as they were before this click.
+        nuevos_roles = dict(self._cycle.sensor_roles)
+        nuevos_roles[sensor] = rol
+
+        sensores_a_degradar: list[str] = []
         if rol == "principal":
             for other_sensor, row in self._rows.items():
                 if other_sensor != sensor and row.get_role() == "principal":
-                    row.set_role("no_en_uso")
-                    self._cycle.sensor_roles[other_sensor] = "no_en_uso"
-
-        nuevos_roles = dict(self._cycle.sensor_roles)
-        nuevos_roles[sensor] = rol
+                    nuevos_roles[other_sensor] = "no_en_uso"
+                    sensores_a_degradar.append(other_sensor)
 
         try:
             self._client.patch("/cycle/sensor-roles", {
@@ -227,3 +233,5 @@ class SensoresTemperaturaView(QWidget):
             return
 
         self._cycle.sensor_roles = nuevos_roles
+        for other_sensor in sensores_a_degradar:
+            self._rows[other_sensor].set_role("no_en_uso")
