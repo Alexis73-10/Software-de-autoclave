@@ -20,7 +20,7 @@ _OPTIONS = [
 ]
 
 _OPTION_ROUTES = {
-    "Parámetros del ciclo": "params_ciclo",
+    "Parámetros del ciclo": "params_ciclo_menu",
     "Entradas / Salidas":   "io_menu",
 }
 
