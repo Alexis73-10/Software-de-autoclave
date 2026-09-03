@@ -187,30 +187,32 @@ class EsterilizacionFase(BaseFase):
                 tiempo_seg, t_est, p_control_max,
             )
 
-        temp = self._temp_camara()
+        temp_control = self._temp_control()
+        temp_principal = self._temp_principal()
         pres = self._pres_camara()
-        if temp is None or pres is None:
+        if temp_control is None or temp_principal is None or pres is None:
             return FaseResult.EN_CURSO
 
         now = time.monotonic()
 
-        # ── 2. Chequeo de fallas (debounce 3, referencia fija t_est) ───────
-        if temp > t_est + rango_temp:
+        # ── 2. Chequeo de fallas (debounce 3, referencia fija t_est, sonda
+        # principal — es la que puede sobrecalentarse o enfriarse de verdad) ─
+        if temp_principal > t_est + rango_temp:
             self._contador_temp_alta += 1
         else:
             self._contador_temp_alta = 0
         if self._contador_temp_alta >= _DEBOUNCE_LECTURAS:
             return self._fallo(
-                f"Temperatura alta: {temp:.1f}°C > {t_est + rango_temp:.1f}°C"
+                f"Temperatura alta: {temp_principal:.1f}°C > {t_est + rango_temp:.1f}°C"
             )
 
-        if temp < t_est - brecha_err_t:
+        if temp_principal < t_est - brecha_err_t:
             self._contador_temp_baja += 1
         else:
             self._contador_temp_baja = 0
         if self._contador_temp_baja >= _DEBOUNCE_LECTURAS:
             return self._fallo(
-                f"Temperatura baja: {temp:.1f}°C < {t_est - brecha_err_t:.1f}°C"
+                f"Temperatura baja: {temp_principal:.1f}°C < {t_est - brecha_err_t:.1f}°C"
             )
 
         if pres > p_sat_est + rango_pres:
@@ -234,12 +236,15 @@ class EsterilizacionFase(BaseFase):
         # ── 3. Transición bidireccional RECUPERACION↔PWM_ACTIVO ────────────
         # Sin chattering-guard: reacción inmediata ante pérdida de reserva
         # térmica o de presión es el objetivo de diseño (plan sección 4.1).
-        # La presión también dispara RECUPERACION: la temperatura puede
-        # mantenerse cerca del setpoint mientras la presión sola cae por la
-        # fuga continua de descompresion_lenta, y sin este chequeo el modo
-        # agresivo (sin techo de control) nunca se activaba en ese caso.
+        # Reacciona a la sonda de control (referencia si hay una configurada,
+        # si no el principal): es la sonda rápida, evita el lag térmico del
+        # líquido en el lazo de control. La presión también dispara
+        # RECUPERACION: la temperatura puede mantenerse cerca del setpoint
+        # mientras la presión sola cae por la fuga continua de
+        # descompresion_lenta, y sin este chequeo el modo agresivo (sin techo
+        # de control) nunca se activaba en ese caso.
         self._en_recuperacion = (
-            temp < t_est + brecha_seg
+            temp_control < t_est + brecha_seg
             or pres < p_sat_est - brecha_seg_p
         )
 
@@ -247,7 +252,7 @@ class EsterilizacionFase(BaseFase):
         if self._en_recuperacion:
             self.set_do.vapor_camara_on()
         else:
-            self._control_vapor_pwm(temp, pres, factor_pct, intervalo, p_control_max, now)
+            self._control_vapor_pwm(temp_control, pres, factor_pct, intervalo, p_control_max, now)
 
         # ── 5. Control de escapes (paralelo e independiente) ───────────────
         self._tick_dos_estados(

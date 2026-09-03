@@ -12,7 +12,8 @@ def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
                escape_lento_on=1, escape_lento_off=0,
                escape_rapido_on=0, escape_rapido_off=400,
                t_inicial=None, p_inicial=None,
-               f0_activo=False, f0_objetivo=12.0, f0_acumulado_inicial=0.0):
+               f0_activo=False, f0_objetivo=12.0, f0_acumulado_inicial=0.0,
+               principal_sensor="temp_camara", referencia_sensor=None):
     """Por defecto arranca en RECUPERACION: T_inicial = t_est (viene de
     ESTABILIZACION ya en condición de vapor saturado), presión en
     P_sat(t_est) — dentro de todos los márgenes de falla por defecto."""
@@ -53,6 +54,8 @@ def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
         return valores.get(param, default)
 
     cycle.get_param.side_effect = get_param
+    cycle.get_principal_sensor.return_value = principal_sensor
+    cycle.get_referencia_sensor.return_value = referencia_sensor
     config = MagicMock()
     alarms = MagicMock()
     cap = MagicMock()
@@ -529,3 +532,32 @@ def test_f0_true_no_falla_por_timeout_antes_de_cumplirse():
     fase.update()  # timeout = 120s, aún no vencido
     result = fase.update()
     assert result == FaseResult.EN_CURSO
+
+
+# ── Roles de sensor (referencia controla el PWM, principal decide fallas) ───
+
+def test_temp_baja_dispara_falla_segun_el_principal_no_la_referencia():
+    fase, estado, set_do = _make_fase(
+        t_est=134.0, brecha_err_t=0.1,
+        referencia_sensor="temp_camara", principal_sensor="temp_2_camara",
+    )
+    estado.sensores_temp["temp_2_camara"] = 130.0  # principal muy por debajo -> debe fallar
+    result = None
+    for _ in range(3):
+        result = fase.update()
+    assert result == FaseResult.FALLO
+    assert "Temperatura baja" in estado.motivo_fallo
+
+
+def test_pwm_activo_reacciona_a_la_referencia_no_al_principal():
+    fase, estado, set_do = _make_fase(
+        t_est=134.0, brecha_seg=0.3, brecha_seg_p=1.5,
+        referencia_sensor="temp_camara", principal_sensor="temp_2_camara",
+    )
+    fase.update()  # inicializa en RECUPERACION
+    estado.sensores_temp["temp_camara"] = 135.0         # referencia ya por encima de la brecha segura
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.0)
+    estado.sensores_temp["temp_2_camara"] = 100.0        # principal (líquido) todavía muy frío
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
+    assert fase._en_recuperacion is False  # el líquido frío no debe forzar RECUPERACION
