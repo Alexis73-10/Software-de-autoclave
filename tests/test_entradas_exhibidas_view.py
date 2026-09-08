@@ -278,6 +278,11 @@ def test_error_en_patch_durante_cambio_de_casilla_no_corrompe_estado():
     # el modelo en memoria del ciclo queda exactamente como estaba antes del cambio
     assert cycle.display_slots == ["temp_camara", "pres_camara", None]
 
+    # el combo CLICKEADO revierte a su selección anterior -- Qt ya había
+    # cambiado el índice del combo ANTES de que el handler corriera, así que
+    # sin el revert explícito quedaría mostrando "temp_ref" pese al PATCH fallido
+    assert view._combos[2].currentData() is None
+
 
 # ── cambio de ciclo en el combo superior ────────────────────────────────
 

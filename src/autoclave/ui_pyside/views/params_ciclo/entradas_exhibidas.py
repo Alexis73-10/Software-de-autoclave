@@ -150,9 +150,18 @@ class EntradasExhibidasView(QWidget):
             return
 
         sensor = self._combos[slot_idx].itemData(combo_idx)
+        slots_previos = list(self._cycle.display_slots) + [None, None, None]
+        sensor_anterior = slots_previos[:3][slot_idx]
         slots = list(self._cycle.display_slots) + [None, None, None]
         slots = slots[:3]
         slots[slot_idx] = sensor
+
+        def _revertir_combo() -> None:
+            combo = self._combos[slot_idx]
+            combo.blockSignals(True)
+            idx = combo.findData(sensor_anterior)
+            combo.setCurrentIndex(idx if idx >= 0 else 0)
+            combo.blockSignals(False)
 
         try:
             self._client.patch("/cycle/display-slots", {
@@ -165,12 +174,14 @@ class EntradasExhibidasView(QWidget):
             except Exception:
                 detail = str(e)
             QMessageBox.critical(self, "Error al guardar", f"No se pudo guardar la entrada exhibida:\n{detail}")
+            _revertir_combo()
             return
         except requests.RequestException as e:
             QMessageBox.critical(
                 self, "Error al guardar",
                 f"No se pudo contactar al backend, el cambio no se guardó:\n{e}"
             )
+            _revertir_combo()
             return
 
         self._cycle.display_slots = slots
