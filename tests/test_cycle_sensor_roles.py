@@ -48,6 +48,14 @@ def test_set_sensor_roles_rechaza_dos_principales():
     assert cycle.sensor_roles == {"temp_camara": "principal"}
 
 
+def test_set_sensor_roles_rechaza_dos_referencias():
+    cycle = _cycle(sensor_roles={"temp_camara": "referencia"})
+    with pytest.raises(ValueError):
+        cycle.set_sensor_roles({"temp_camara": "referencia", "temp_2_camara": "referencia"})
+    # no debe mutar ante el rechazo
+    assert cycle.sensor_roles == {"temp_camara": "referencia"}
+
+
 def test_set_sensor_roles_rechaza_sensor_desconocido():
     cycle = _cycle()
     with pytest.raises(ValueError):

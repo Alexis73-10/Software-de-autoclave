@@ -238,6 +238,46 @@ def test_error_en_patch_durante_degradacion_no_corrompe_estado():
     # la fila degradada (temp_camara) nunca se tocó: su widget sigue en "principal"
     assert view._rows["temp_camara"].get_role() == "principal"
 
+    # la fila CLICKEADA (temp_ref) revierte a su rol anterior -- Qt ya había
+    # cambiado el radio button ANTES de que el handler corriera, así que sin
+    # el revert explícito quedaría mostrando "principal" pese al PATCH fallido
+    assert view._rows["temp_ref"].get_role() == "no_en_uso"
+
+
+def test_click_referencia_desmarca_referencia_de_otra_fila():
+    from autoclave.ui_pyside.views.params_ciclo.sensores_temperatura import (
+        SensoresTemperaturaView,
+    )
+
+    view = SensoresTemperaturaView(nav_callback=lambda x: None)
+    cycle = _FakeCycle(
+        sensor_roles={"temp_camara": "referencia", "temp_ref": "no_en_uso"}
+    )
+
+    with _no_sonda_liquido():
+        view._load_cycle(cycle)
+
+    assert view._rows["temp_camara"].get_role() == "referencia"
+    assert view._rows["temp_ref"].get_role() == "no_en_uso"
+
+    with patch.object(view._client, "patch") as mock_patch:
+        view._rows["temp_ref"]._buttons["referencia"].click()
+
+    # la mutua exclusión se disparó por la señal real de Qt, no por llamada directa
+    assert view._rows["temp_ref"].get_role() == "referencia"
+    assert view._rows["temp_camara"].get_role() == "no_en_uso"
+
+    mock_patch.assert_called_once()
+    path, body = mock_patch.call_args[0][0], mock_patch.call_args[0][1]
+    assert path == "/cycle/sensor-roles"
+    assert body["cycle_id"] == cycle.id
+    assert body["sensor_roles"]["temp_ref"] == "referencia"
+    assert body["sensor_roles"]["temp_camara"] == "no_en_uso"
+
+    # el estado en memoria del ciclo también se actualizó
+    assert cycle.sensor_roles["temp_ref"] == "referencia"
+    assert cycle.sensor_roles["temp_camara"] == "no_en_uso"
+
 
 # ── _candidatos(): filtro por capacidad de equipo ────────────────────────
 

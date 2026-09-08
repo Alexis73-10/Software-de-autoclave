@@ -84,6 +84,7 @@ class Cycle:
         sensores_validos = set(EstadoAutoclave.map_temp.keys())
 
         principales = 0
+        referencias = 0
         for sensor, rol in roles.items():
             if sensor not in sensores_validos:
                 raise ValueError(f"Sensor desconocido: '{sensor}'")
@@ -91,9 +92,13 @@ class Cycle:
                 raise ValueError(f"Rol inválido para '{sensor}': '{rol}'")
             if rol == "principal":
                 principales += 1
+            elif rol == "referencia":
+                referencias += 1
 
         if principales > 1:
             raise ValueError("Solo puede haber un sensor 'principal'")
+        if referencias > 1:
+            raise ValueError("Solo puede haber un sensor 'referencia'")
 
         self.sensor_roles = dict(roles)
 

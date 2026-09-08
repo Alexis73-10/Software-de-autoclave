@@ -228,6 +228,8 @@ class SensoresTemperaturaView(QWidget):
         if self._cycle is None:
             return
 
+        rol_anterior = self._cycle.sensor_roles.get(sensor, "no_en_uso")
+
         # Compute the full new dict as a LOCAL copy first. Nothing below this
         # point may mutate self._cycle.sensor_roles or call set_role() on the
         # demoted row's widget until the PATCH has actually succeeded — on
@@ -237,9 +239,9 @@ class SensoresTemperaturaView(QWidget):
         nuevos_roles[sensor] = rol
 
         sensores_a_degradar: list[str] = []
-        if rol == "principal":
+        if rol in ("principal", "referencia"):
             for other_sensor, row in self._rows.items():
-                if other_sensor != sensor and row.get_role() == "principal":
+                if other_sensor != sensor and row.get_role() == rol:
                     nuevos_roles[other_sensor] = "no_en_uso"
                     sensores_a_degradar.append(other_sensor)
 
@@ -254,12 +256,14 @@ class SensoresTemperaturaView(QWidget):
             except Exception:
                 detail = str(e)
             QMessageBox.critical(self, "Error al guardar", f"No se pudo guardar el rol:\n{detail}")
+            self._rows[sensor].set_role(rol_anterior)
             return
         except requests.RequestException as e:
             QMessageBox.critical(
                 self, "Error al guardar",
                 f"No se pudo contactar al backend, el cambio no se guardó:\n{e}"
             )
+            self._rows[sensor].set_role(rol_anterior)
             return
 
         self._cycle.sensor_roles = nuevos_roles
