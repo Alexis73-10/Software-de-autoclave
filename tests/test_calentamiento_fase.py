@@ -767,3 +767,34 @@ def test_completa_cuando_el_principal_tambien_valida_saturacion():
     estado.sensores_temp["temp_2_camara"] = 134.0     # principal ya corresponde a vapor saturado
     result = fase.update()
     assert result == FaseResult.COMPLETADO
+
+
+def test_timeout_global_falla_si_el_principal_nunca_valida_saturacion():
+    """Sin timeout de fase, un gate _principal_en_saturacion() que nunca se
+    cumple (sonda principal nunca llega a vapor saturado, aunque la
+    referencia que controla el PWM ya luzca en objetivo) dejaría la fase
+    esperando en EN_CURSO para siempre. El timeout global de calentamiento
+    (_timer_timeout_fin) es lo que evita ese cuelgue indefinido."""
+    fase, estado, set_do = _make_fase(
+        timeout_min=1, t_obj=134.0, presion_add=0.0, rango=2.0, tiempo_estable=0,
+        referencia_sensor="temp_camara", principal_sensor="temp_2_camara",
+    )
+    fase.update()  # inicializar _timer_timeout_fin
+
+    p_obj = p_saturacion_kpa(134.0)
+    estado.sensores_temp["temp_camara"] = 134.0     # referencia ya en objetivo
+    estado.sensores_pres["pres_camara"] = p_obj
+    estado.sensores_temp["temp_2_camara"] = 100.0    # principal nunca corresponde a vapor saturado
+
+    # Varios ticks con el gate nunca satisfecho: sigue en EN_CURSO, sin FALLO
+    # ni COMPLETADO -- el cuelgue que el timeout global existe para evitar.
+    for _ in range(3):
+        result = fase.update()
+        assert result == FaseResult.EN_CURSO
+
+    fase._timer_timeout_fin -= 100  # fuerza el vencimiento del timeout global
+    result = fase.update()
+
+    assert result == FaseResult.FALLO
+    assert estado.motivo_fallo != ""
+    set_do.vapor_camara_off.assert_called()

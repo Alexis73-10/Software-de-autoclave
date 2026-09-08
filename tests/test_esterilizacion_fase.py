@@ -561,3 +561,18 @@ def test_pwm_activo_reacciona_a_la_referencia_no_al_principal():
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._en_recuperacion is False  # el líquido frío no debe forzar RECUPERACION
+
+
+def test_principal_ausente_con_referencia_presente_no_avanza_ni_lanza_excepcion():
+    """Riesgo aceptado (ver CLAUDE.md, sección ESTERILIZACION): si la sonda
+    'principal' (la que decide las fallas) queda en None, la fase espera
+    indefinidamente -- ni FALLO ni COMPLETADO -- aunque la sonda 'referencia'
+    (la que controla el PWM) tenga una lectura válida."""
+    fase, estado, set_do = _make_fase(
+        referencia_sensor="temp_camara", principal_sensor="temp_2_camara",
+    )
+    fase.update()  # inicializa
+    estado.sensores_temp.pop("temp_2_camara", None)  # principal ausente
+    assert "temp_camara" in estado.sensores_temp  # referencia sigue con lectura válida
+    result = fase.update()
+    assert result == FaseResult.EN_CURSO
