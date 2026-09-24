@@ -2,10 +2,10 @@ pragma Singleton
 import QtQuick
 
 QtObject {
-    // Lienzo de referencia del diseñador (06_MEDIDAS/medidas.csv: mesa_de_trabajo).
-    // CAMBIAR estos dos valores a 1200x1920 cuando lleguen los assets corregidos
-    // para el panel real medido (1200x1920, 5:8) — es el único lugar que hay que tocar.
-    readonly property real anchoDiseno: 1080
+    // Lienzo de diseño = panel real medido (1200x1920, proporción 5:8).
+    // Las referencias del diseñador (06_MEDIDAS/medidas.csv) vienen en 1080x1920;
+    // este es el único lugar que hay que tocar si el lienzo cambia.
+    readonly property real anchoDiseno: 1200
     readonly property real altoDiseno: 1920
 
     property real factor: 1.0

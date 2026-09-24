@@ -4,7 +4,7 @@ import "Pantallas"
 
 Window {
     id: ventana
-    width: 540; height: 960
+    width: 600; height: 960   // 5:8, igual que el lienzo de Escala
     visibility: Window.Windowed   // producción: Window.FullScreen
     visible: true
     color: Colores.fondoMarinoOscuro

@@ -8,16 +8,13 @@ Item {
     id: raiz
     signal tocado()
 
-    // Aproximación de --gradient-splash con Gradient lineal (QML no trae
-    // radial nativo sin Qt5Compat.GraphicalEffects). Ajustar con el
-    // componente real cuando se decida si vale la pena esa dependencia extra.
-    Rectangle {
+    // Fondo exportado por el diseñador a 1200x1920 (reemplaza la aproximación
+    // lineal de --gradient-splash). Si el archivo falta, queda vacío y se ve
+    // el color de la ventana.
+    Image {
         anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Colores.fondoCieloNucleo }
-            GradientStop { position: 0.4; color: Colores.fondoAzulMedio }
-            GradientStop { position: 1.0; color: Colores.fondoMarinoOscuro }
-        }
+        source: "../../assets/fondos/fondo-arranque.png"
+        fillMode: Image.PreserveAspectCrop
     }
 
     property var _meses: ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
@@ -44,7 +41,9 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             text: raiz._dosDigitos(raiz._ahora.getHours()) + ":" +
                   raiz._dosDigitos(raiz._ahora.getMinutes())
-            color: "white"
+            color: "transparent"
+            style: Text.Outline
+            styleColor: "white"
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(Tipografia.relojDisplayTam)
             font.weight: Tipografia.pesoLight
