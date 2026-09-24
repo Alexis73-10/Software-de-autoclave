@@ -1,0 +1,101 @@
+{
+  "app": {
+    "nombre": "e-specifika",
+    "version": "V: 1.0"
+  },
+  "menu": {
+    "titulo": "MENÚ PRINCIPAL",
+    "resumen": "RESUMEN DEL SISTEMA"
+  },
+  "modulos": {
+    "iniciar_ciclo": "INICIAR CICLO",
+    "historial": "HISTORIAL",
+    "programas": "PROGRAMAS",
+    "reportes": "REPORTES",
+    "impresion": "IMPRESIÓN",
+    "mantenimiento": "MANTENIMIENTO",
+    "conectividad": "CONECTIVIDAD",
+    "informacion": "INFORMACIÓN"
+  },
+  "ciclo": {
+    "activo": "CICLO ACTIVO",
+    "programa": "PROGRAMA",
+    "estado": "ESTADO",
+    "grafica": "GRÁFICA DEL CICLO",
+    "tiempo_transcurrido": "Tiempo transcurrido",
+    "pausar": "PAUSAR CICLO",
+    "continuar": "CONTINUAR CICLO",
+    "cancelar": "CANCELAR CICLO"
+  },
+  "fases": [
+    "Precalentamiento",
+    "Vacío",
+    "Calentamiento",
+    "Esterilización",
+    "Descompresión",
+    "Secado"
+  ],
+  "sensores": [
+    {
+      "clave": "precalentamiento",
+      "etiqueta": "Precalentamiento",
+      "unidad": "°C"
+    },
+    {
+      "clave": "tiempo_est",
+      "etiqueta": "Tiempo Est.",
+      "unidad": "min"
+    },
+    {
+      "clave": "tiempo_sec",
+      "etiqueta": "Tiempo Sec.",
+      "unidad": "min"
+    },
+    {
+      "clave": "temp_1",
+      "etiqueta": "Temp 1",
+      "unidad": "°C"
+    },
+    {
+      "clave": "presion",
+      "etiqueta": "Presión",
+      "unidad": "kPa"
+    }
+  ],
+  "estados": {
+    "no_preparado": "No preparado",
+    "listo": "Listo",
+    "ejecutando": "Ejecutando",
+    "en_pausa": "En pausa",
+    "exitoso": "Exitoso",
+    "cancelado": "Cancelado",
+    "fallo": "Fallo"
+  },
+  "acciones": {
+    "guardar": "Guardar cambios",
+    "guardar_usuario": "Guardar usuario",
+    "cancelar": "Cancelar",
+    "restablecer": "Restablecer valores",
+    "iniciar_sesion": "INICIAR SESIÓN",
+    "confirmar": "Confirmar",
+    "reconocer": "Reconocer"
+  },
+  "formulario": {
+    "nombre_completo": "Nombre Completo",
+    "nombre_usuario": "Nombre Usuario",
+    "contrasena": "Contraseña",
+    "confirmar_contrasena": "Confirmar Contraseña",
+    "rol": "Rol",
+    "nivel_acceso": "Nivel de acceso",
+    "codigo_id": "Código / ID (Opcional)",
+    "estado": "Estado",
+    "activo": "Activo",
+    "recordar_usuario": "Recordar Usuario",
+    "olvido_contrasena": "¿Olvidó su contraseña?"
+  },
+  "sistema": {
+    "sin_conexion": "Sin conexión con el controlador. Los valores mostrados no están actualizados.",
+    "modo_prueba": "MODO PRUEBA ACTIVO — los ciclos no son válidos para carga estéril",
+    "sin_lectura": "—"
+  }
+}

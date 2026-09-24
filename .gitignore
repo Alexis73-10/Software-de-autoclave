@@ -6,3 +6,6 @@
 capturas_calibracion/
 *.pid
 *.laccdb
+
+# Material original de entregas de diseno (archivado, no versionar)
+_archivo/

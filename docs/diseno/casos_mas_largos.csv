@@ -1,0 +1,11 @@
+campo,ejemplo_actual,caso_mas_largo,ancho_reservado
+nombre_programa,BOTELLONES VACÍOS,ESTERILIZACIÓN DE LÍQUIDOS CON ENFRIAMIENTO,"620 px, dos lineas"
+estado_equipo,No preparado,Bloqueada: ciclo en curso en puerta 2,320 px
+valor_presion,100.8 kPa,-100.0 kPa,9 caracteres tabulares
+valor_temperatura,121.0 °C,-015.5 °C,8 caracteres tabulares
+temporizador,00:15:23,99:59:59,8 caracteres tabulares
+numero_ciclo,03,99999,5 caracteres
+nombre_usuario,operador_1,administrador_mantenimiento,28 caracteres
+mensaje_alarma,Sobrepresión en cámara,Presión por debajo del mínimo durante la esterilización,2 lineas de 46
+modelo_serie,SPK-SAT 45H · Sn123456,SPK-SAT 1200HD-DP · Sn0000123456,32 caracteres
+fecha_hora,12 oct - 2026 · 16:00,12 septiembre - 2026 · 16:00,28 caracteres
