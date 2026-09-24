@@ -1,19 +1,17 @@
 import QtQuick
 import Tema
 
-// Barra inferior de navegación (1080x168). Recibe una lista de botones:
-// [{icono: "casa", activo: true, accion: function(){...}}, ...]
-Rectangle {
+// Barra de navegación inferior: solo la fila de iconos, sin fondo propio.
+// La dimensiona quien la usa (normalmente el slot "pie" de TarjetaContenido).
+// Recibe una lista de botones: [{icono: "casa", activo: true, accion: function(){...}}, ...]
+// Activo e inactivo se ven igual por ahora: la diferencia visual la define
+// el diseñador en las pantallas que faltan.
+Item {
     id: raiz
     property var botones: []
+    property string version: ""   // ej. "V: 1.0" — dejar vacío si no aplica
 
-    width: Escala.px(Escala.anchoDiseno)
-    height: Escala.px(168)
-    color: Colores.fondoTarjeta
-
-    // Ruta de assets: ajustar si la ubicación final de los SVG cambia.
-    // Activo e inactivo se ven igual por ahora: la diferencia visual la
-    // define el diseñador en las pantallas que faltan.
+    // Ruta de assets: ajustar si la ubicación final de los SVG cambia
     property string carpetaIconos: "../../assets/iconos/mono/"
 
     Row {
@@ -41,5 +39,17 @@ Rectangle {
                 }
             }
         }
+    }
+
+    Text {
+        visible: raiz.version.length > 0
+        text: raiz.version
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.margins: Escala.px(16)
+        color: Colores.textoGuia
+        font.family: Tipografia.familia
+        font.pixelSize: Escala.fuente(16)   // meta_version de estilos_de_texto.csv
+        font.weight: Tipografia.pesoMedium
     }
 }

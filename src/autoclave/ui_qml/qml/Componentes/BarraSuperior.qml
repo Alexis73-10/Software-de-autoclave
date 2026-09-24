@@ -6,7 +6,7 @@ Rectangle {
     id: raiz
     width: Escala.px(Escala.anchoDiseno)
     height: Escala.px(176)
-    color: Colores.fondoBarraSuperior
+    color: "transparent"   // logo y reloj flotan sobre FondoApp
 
     // Reloj en vivo: formato manual (no Qt.locale) para no depender de que el
     // sistema tenga datos de localización en español instalados.
