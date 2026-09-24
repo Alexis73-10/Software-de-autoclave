@@ -12,8 +12,9 @@ Rectangle {
     color: Colores.fondoTarjeta
 
     // Ruta de assets: ajustar si la ubicación final de los SVG cambia.
-    // Botón activo usa la variante color/, inactivo la mono/.
-    property string carpetaIconos: "../../assets/iconos/"
+    // Activo e inactivo se ven igual por ahora: la diferencia visual la
+    // define el diseñador en las pantallas que faltan.
+    property string carpetaIconos: "../../assets/iconos/mono/"
 
     Row {
         anchors.centerIn: parent
@@ -24,13 +25,12 @@ Rectangle {
             delegate: Rectangle {
                 width: Escala.px(68); height: Escala.px(68)
                 radius: Escala.px(12)
-                color: modelData.activo ? Colores.accionPrimario : "transparent"
+                color: "transparent"
 
                 Image {
                     anchors.centerIn: parent
-                    width: Escala.px(28); height: Escala.px(28)
-                    source: raiz.carpetaIconos + (modelData.activo ? "color/" : "mono/") +
-                            modelData.icono + ".svg"
+                    width: Escala.px(48); height: Escala.px(48)
+                    source: raiz.carpetaIconos + modelData.icono + ".svg"
                     sourceSize.width: width
                     sourceSize.height: height
                 }
