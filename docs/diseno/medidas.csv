@@ -1,0 +1,28 @@
+elemento,ancho_px,alto_px,nota
+mesa_de_trabajo,1080,1920,Una por pantalla y una por componente
+margen_lateral,24,,Del borde de la mesa a cualquier contenido
+barra_superior,1080,176,"Logotipo, reloj, campana, engranaje"
+barra_inferior,1080,168,"De 2 a 4 acciones, inicio siempre a la derecha"
+area_contenido,1032,1504,Entre separaciones de 24 px
+gutter_mosaico,18,,Retícula de 3 columnas
+columna_mosaico,332,,24 + 332 + 18 + 332 + 18 + 332 + 24 = 1080
+tarjeta_resumen,246,,4 columnas con gutter de 16
+tarjeta_sensor,200,230,5 tarjetas dentro del contenedor de 1032
+relleno_tarjeta,24,,Del borde de la tarjeta a su contenido
+separacion_etiqueta_campo,12,,Formulario
+separacion_entre_campos,28,,Formulario
+separacion_entre_bloques,48,,Entre grupos de una misma pantalla
+alto_campo_y_boton,88,,"Entrada, selector, boton primario y secundario"
+boton_proceso,264,96,Pausar ciclo y cancelar ciclo
+paso_indicador_fase,72,72,Conector de 6 px entre circulos
+circulo_icono,88,88,Fondo tenue del color del modulo
+fila_de_lista,96,,"Menu lateral, historial, listados"
+tecla_teclado,96,88,Separacion 12 px
+radio_casilla,8,,Casillas y chips pequenos
+radio_control,12,,"Campos, selectores, botones, teclas"
+radio_tarjeta,20,,"Mosaicos, tarjetas de sensor, dialogos"
+radio_contenedor,28,,Contenedor blanco de pantalla y barra inferior
+borde_divisor,2,,Color #E6E6E6
+borde_control,2,,Color #CCCCCC
+borde_foco,3,,Color #1168F6 con halo de 6 px
+objetivo_tactil_minimo,96,96,110 px si el equipo mas pequeno es de 7 pulgadas

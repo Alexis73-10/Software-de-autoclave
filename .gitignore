@@ -7,3 +7,6 @@ capturas_calibracion/
 *.pid
 *.laccdb
 /_*_tmp.qml
+
+# Material original de entregas de diseno (archivado, no versionar)
+_archivo/

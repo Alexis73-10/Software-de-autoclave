@@ -1,0 +1,48 @@
+grupo,nombre_muestra,hex,r,g,b,uso
+FONDOS,fondo_marino_950,#1B222A,27,34,42,Borde inferior del fondo y del arranque
+FONDOS,fondo_marino_900,#23425F,35,66,95,Extremo superior del degradado del arranque
+FONDOS,fondo_marino_800,#28466C,40,70,108,Cuerpo de la barra superior
+FONDOS,fondo_marino_700,#2C4B70,44,75,112,Color medio de la barra superior
+FONDOS,fondo_azul_700,#2E597C,46,89,124,Esquina superior izquierda del fondo
+FONDOS,fondo_azul_600,#3B6E99,59,110,153,Zona superior del fondo
+FONDOS,fondo_azul_500,#4888B8,72,136,184,Transicion del halo
+FONDOS,fondo_cielo_400,#569AD3,86,154,211,Halo luminoso
+FONDOS,fondo_cielo_300,#5C97DB,92,151,219,Nucleo del halo en el arranque
+FONDOS,fondo_cielo_200,#99C5E2,153,197,226,Punto mas claro del fondo
+FONDOS,fondo_pizarra_700,#3C4B5D,60,75,93,Esquina inferior derecha del fondo
+ACCION,accion_azul_050,#E2ECFD,226,236,253,Fondo de elemento seleccionado
+ACCION,accion_azul_200,#9DC1F7,157,193,247,Halo de foco
+ACCION,accion_azul_500,#1168F6,17,104,246,Boton primario y controles activos
+ACCION,accion_azul_700,#0D53C4,13,83,196,Texto azul y estado presionado
+ACCION,accion_azul_900,#003399,0,51,153,Detalle profundo de iconos
+ESTADO,estado_exito_500,#009933,0,153,51,"Iniciar ciclo, resultado correcto"
+ESTADO,estado_exito_700,#007A29,0,122,41,Texto verde sobre blanco
+ESTADO,estado_aviso_500,#FF9933,255,153,51,Distintivo de estado y chip de atencion
+ESTADO,estado_aviso_700,#B35A00,179,90,0,Texto naranja sobre blanco
+ESTADO,estado_peligro_500,#EE0000,238,0,0,Cara superior del boton cancelar ciclo
+ESTADO,estado_peligro_700,#D00000,208,0,0,Cuerpo del boton cancelar y error
+ESTADO,estado_peligro_900,#7B0000,123,0,0,Base del degradado y relieve
+ESTADO,estado_proceso_400,#03C9B2,3,201,178,Ejecutando y serie de presion
+ESTADO,estado_proceso_700,#00806F,0,128,111,Texto turquesa sobre blanco
+ESTADO,estado_historico_500,#9933CC,153,51,204,Historial y serie Temp 1
+ALARMA_IEC60601,alarma_alta,#EE0000,238,0,0,"Prioridad alta, parpadeo 1.4 a 2.8 Hz"
+ALARMA_IEC60601,alarma_media,#FFCC00,255,204,0,"Prioridad media, parpadeo 0.4 a 0.8 Hz"
+ALARMA_IEC60601,alarma_baja,#00CCFF,0,204,255,"Prioridad baja, fijo sin parpadeo"
+GRAFICA,grafica_serie_1,#6699FF,102,153,255,Curva de temperatura de camara
+GRAFICA,grafica_serie_2,#9933CC,153,51,204,Curva Temp 1
+GRAFICA,grafica_serie_3,#03C9B2,3,201,178,Curva de presion
+GRAFICA,grafica_serie_4,#FF9933,255,153,51,"Curva de consigna, trazo discontinuo"
+GRAFICA,grafica_cuadricula,#E6E6E6,230,230,230,Lineas horizontales
+GRAFICA,grafica_eje,#808080,128,128,128,Rotulos de eje
+GRAFICA,grafica_fase,#B3B3B3,179,179,179,Separador de fase discontinuo
+GRAFICA,grafica_cursor,#4D4D4D,77,77,77,Cursor de inspeccion
+NEUTROS,neutro_000,#FFFFFF,255,255,255,"Tarjetas, campos, barra inferior"
+NEUTROS,neutro_050,#F6F6F6,246,246,246,Fondo de seccion dentro de tarjeta
+NEUTROS,neutro_200,#E6E6E6,230,230,230,"Bordes, divisores, retícula"
+NEUTROS,neutro_300,#CCCCCC,204,204,204,Borde de campo y de selector
+NEUTROS,neutro_400,#B3B3B3,179,179,179,Icono inactivo y deshabilitado
+NEUTROS,neutro_500,#808080,128,128,128,Texto guia y unidades
+NEUTROS,neutro_600,#666666,102,102,102,Texto secundario
+NEUTROS,neutro_700,#4D4D4D,77,77,77,Etiquetas de campo y temporizador
+NEUTROS,neutro_800,#333333,51,51,51,Iconos de la barra inferior
+NEUTROS,neutro_900,#031225,3,18,37,Titulos y valores de sensor

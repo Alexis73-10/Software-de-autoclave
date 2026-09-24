@@ -1,0 +1,22 @@
+nombre_estilo,tamano_px,interlineado_px,peso,tracking,cifras_tabulares,uso
+reloj_display,158,158,Light 300,-2%,no,Reloj gigante del arranque
+reloj_barra,54,54,SemiBold 600,0,SI,Reloj de la barra superior
+reloj_fecha,20,26,Medium 500,+6%,SI,Fecha bajo el reloj
+titulo_pantalla,36,44,Bold 700,+5%,no,"LOGIN, OPCIONES, NUEVO USUARIO"
+titulo_seccion,24,30,Bold 700,+8%,no,"GENERAL, GRAFICA DEL CICLO"
+tarjeta_titulo,26,32,Bold 700,+3%,no,Titulos de mosaico del menu
+tarjeta_descripcion,21,28,Regular 400,0,no,Descripcion de mosaico
+cuerpo,26,38,Regular 400,0,no,Texto corrido y valor de selector
+campo_etiqueta,22,28,Medium 500,+1%,no,"Nombre Completo, Idioma"
+campo_valor,26,34,Regular 400,0,no,Contenido escrito del campo
+campo_placeholder,26,34,Regular 400,0,no,Texto guia en gris
+boton_etiqueta,26,32,SemiBold 600,+1%,no,"Guardar cambios, Iniciar sesion"
+sensor_valor,54,58,Bold 700,-1%,SI,121.0 / 085.0 / 100.8
+sensor_etiqueta,19,24,SemiBold 600,+2%,no,"Precalentamiento, Tiempo Est."
+sensor_unidad,21,26,Regular 400,+2%,no,"C, min, kPa"
+kpi_valor,46,50,Bold 700,0,SI,5 / 15 dias / 03
+temporizador,78,78,SemiBold 600,+1%,SI,00:15:23
+chip_etiqueta,19,24,Bold 700,+7%,no,"CICLO ACTIVO, PROGRAMA, ESTADO"
+pie_nota,18,24,Regular 400,+1%,no,"No preparado, Ejecutando"
+grafica_eje,18,22,Medium 500,+2%,SI,Rotulos de eje y leyenda
+meta_version,16,20,Medium 500,+4%,no,"V: 1.0, modelo y serie"
