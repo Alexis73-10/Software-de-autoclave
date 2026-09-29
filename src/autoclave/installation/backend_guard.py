@@ -1,8 +1,9 @@
 from pathlib import Path
 import subprocess
 from autoclave.utils.logging import logger
+from autoclave.utils.paths import app_root
 
-_PID_FILE = Path(__file__).resolve().parents[3] / "data" / "backend.pid"
+_PID_FILE = app_root() / "data" / "backend.pid"
 
 
 def write_backend_pid(pid: int, path: Path = _PID_FILE) -> None:
@@ -30,7 +31,7 @@ def is_stale_backend_running(pid: int) -> bool:
             capture_output=True, text=True, timeout=5,
         )
         cmdline = (result.stdout or "").strip()
-        return "autoclave.backend.main" in cmdline
+        return "autoclave.backend.main" in cmdline or "AutoclaveBackend" in cmdline
     except Exception:
         return False
 

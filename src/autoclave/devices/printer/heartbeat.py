@@ -3,10 +3,11 @@ import logging
 import threading
 from datetime import datetime
 from pathlib import Path
+from autoclave.utils.paths import app_root
 
 logger = logging.getLogger(__name__)
 
-_DEFAULT_FILE = Path(__file__).resolve().parents[4] / "data" / "last_shutdown.json"
+_DEFAULT_FILE = app_root() / "data" / "last_shutdown.json"
 
 
 def write_timestamp(path: Path = _DEFAULT_FILE) -> None:

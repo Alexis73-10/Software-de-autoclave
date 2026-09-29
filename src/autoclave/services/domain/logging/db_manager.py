@@ -15,12 +15,11 @@ import logging
 import threading
 from datetime import datetime
 from pathlib import Path
+from autoclave.utils.paths import app_root
 
 logger = logging.getLogger(__name__)
 
-# Ruta absoluta de la DB relativa a este archivo
-_PROJECT_ROOT = Path(__file__).resolve().parents[5]   # src/ → raíz del proyecto
-DB_DEFAULT    = _PROJECT_ROOT / "data" / "autoclave.db"
+DB_DEFAULT = app_root() / "data" / "autoclave.db"
 
 _SCHEMA = """
 PRAGMA journal_mode = WAL;

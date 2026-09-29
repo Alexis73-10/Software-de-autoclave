@@ -1,8 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 
-
 a = Analysis(
-    ['src\\autoclave\\main.py'],
+    ['src\\autoclave\\ui_pyside\\app.py'],
     pathex=['src'],
     binaries=[],
     datas=[
@@ -26,7 +25,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='AutoclaveUI',
+    name='AutoclaveSettings',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

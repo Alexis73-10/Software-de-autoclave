@@ -1,7 +1,6 @@
 # autoclave/backend/server.py
 
 import logging
-from pathlib import Path
 
 from fastapi import HTTPException, FastAPI, Body
 from fastapi.responses import PlainTextResponse
@@ -13,10 +12,10 @@ from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
-from autoclave.utils.resources import resource_path
 from autoclave.utils.git_autocommit import git_autocommit
+from autoclave.utils.paths import app_root, calibration_path
 
-_TICKETS_DIR = Path(__file__).resolve().parents[3] / "data" / "tickets"
+_TICKETS_DIR = app_root() / "data" / "tickets"
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +23,7 @@ app = FastAPI(title="Autoclave Backend")
 
 context = BackendContext()
 
-CALIBRATION_PATH = resource_path("autoclave/config/calibration.yaml")
+CALIBRATION_PATH = calibration_path()
 
 
 def _resolve_sensor_index(tipo: str, sensor: str) -> int:
