@@ -10,3 +10,20 @@ capturas_calibracion/
 
 # Material original de entregas de diseno (archivado, no versionar)
 _archivo/
+
+# Artefactos de build y datos de runtime (no versionar)
+/build/
+/dist/*
+!/dist/*.bat
+*.egg-info/
+/data/*.db
+/data/*.db-wal
+/data/*.db-shm
+/data/*.log
+/data/last_shutdown.json
+/data/calibration.yaml
+/data/tickets/
+/src/logs/
+/installation_profile.json
+/tools/generador/generador.db
+/.claude/worktrees/
