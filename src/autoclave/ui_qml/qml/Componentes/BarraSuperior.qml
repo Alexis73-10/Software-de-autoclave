@@ -39,7 +39,7 @@ Rectangle {
             text: raiz._dosDigitos(raiz._ahora.getHours()) + ":" +
                   raiz._dosDigitos(raiz._ahora.getMinutes())
             color: "white"
-            font.family: Tipografia.familia
+            font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(Tipografia.relojBarraTam)
             font.weight: Tipografia.pesoSemiBold
         }
@@ -49,7 +49,7 @@ Rectangle {
                   raiz._meses[raiz._ahora.getMonth()] + "  -  " +
                   raiz._ahora.getFullYear()
             color: "#C7DCFD"
-            font.family: Tipografia.familia
+            font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(Tipografia.relojFechaTam)
             font.weight: Tipografia.pesoMedium
         }

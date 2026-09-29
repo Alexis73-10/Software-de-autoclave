@@ -44,7 +44,7 @@ Item {
             color: "transparent"
             style: Text.Outline
             styleColor: "white"
-            font.family: Tipografia.familia
+            font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(Tipografia.relojDisplayTam)
             font.weight: Tipografia.pesoLight
         }
@@ -55,7 +55,7 @@ Item {
                   raiz._meses[raiz._ahora.getMonth()] + "  -  " +
                   raiz._ahora.getFullYear()
             color: "#C7DCFD"
-            font.family: Tipografia.familia
+            font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(Tipografia.relojFechaTam)
             font.weight: Tipografia.pesoMedium
         }
