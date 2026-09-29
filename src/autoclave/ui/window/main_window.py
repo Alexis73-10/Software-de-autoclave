@@ -3,6 +3,7 @@
 import time
 import subprocess
 import sys
+import os
 import tkinter as tk
 import customtkinter as ctk
 import PIL.Image as Image
@@ -35,7 +36,8 @@ _MAX_COND   = 5           # máximo de condiciones/alarmas visibles en panel izq
 class InterfazPrincipal(tk.Tk):
 # ══════════════════════════════════════════════════════════════════════════════
 
-    def __init__(self, ui_service, door_commands, on_shutdown=None, source_door=1, profile=None, last_shutdown=None):
+    def __init__(self, ui_service, door_commands, on_shutdown=None, source_door=1, profile=None,
+                 last_shutdown=None, monitor_index=None, print_startup_ticket=True):
         super().__init__()
         self._on_shutdown  = on_shutdown
         self.ui_service    = ui_service
@@ -44,11 +46,23 @@ class InterfazPrincipal(tk.Tk):
         self._profile      = profile
         self._last_shutdown = last_shutdown
         self._door_name    = f"Puerta {source_door}"          # "Puerta 1" o "Puerta 2"
+        self._print_startup_ticket_habilitado = print_startup_ticket
 
         # ── ventana ───────────────────────────────────────────────────────────
         self.title("Autoclave de vapor")
         self.configure(bg=CLR_BG)
-        self.attributes("-fullscreen", True)
+        posicionado = self._position_on_monitor(monitor_index) if monitor_index is not None else False
+        if posicionado:
+            self.update_idletasks()   # aplicar el movimiento antes de lo de abajo
+            # El atributo "-fullscreen" de Tk en Windows no siempre respeta el
+            # monitor de destino aunque la ventana ya se haya movido ahí — hay
+            # builds de Tk donde igual arma el fullscreen del tamaño de la
+            # pantalla PRIMARIA. Con la ventana ya puesta exactamente en el
+            # tamaño y posición del monitor de destino, alcanza con quitarle
+            # la decoración en vez de pedirle a Tk que "adivine" el monitor.
+            self.overrideredirect(True)
+        else:
+            self.attributes("-fullscreen", True)
         self.update_idletasks()                               # forzar render antes de medir pantalla
 
         # ── estado interno ────────────────────────────────────────────────────
@@ -72,12 +86,55 @@ class InterfazPrincipal(tk.Tk):
         # ── arrancar loop e imagen ────────────────────────────────────────────
         self.after(300, self._load_action_images)
         self._schedule_update()
-        self.after(500, self._print_startup_ticket)
+        if self._print_startup_ticket_habilitado:
+            self.after(500, self._print_startup_ticket)
 
         # ── detección de orientación (para ambos monitores) ───────────────────
         self.bind("<Configure>", self._on_configure)
 
         logger.info("✅ Interfaz creada correctamente.")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # POSICIONAMIENTO EN MONITOR (PC único, 2 monitores)
+    # ══════════════════════════════════════════════════════════════════════════
+
+    def _position_on_monitor(self, monitor_index: int) -> bool:
+        """Mueve y redimensiona la ventana para cubrir exactamente el monitor
+        `monitor_index` (0 = el más a la izquierda del escritorio virtual).
+        Devuelve True si lo logró — el llamador decide entonces NO usar el
+        atributo "-fullscreen" de Tk (ver comentario en __init__) y en cambio
+        quitar la decoración con overrideredirect sobre esta geometría ya
+        exacta.
+
+        Selección por POSICIÓN, no por identificador de hardware del monitor
+        — suficiente para habilitar pruebas reales en banco con esta UI ya
+        mientras se termina la interfaz nueva. Una instalación de producción
+        debería enlazar por EDID/serial de monitor en vez de por orden de
+        enumeración (ver docs/mis_plans/planeacion_ui_dual_pantalla.md §5,
+        M-1) para no depender de cómo Windows numera los monitores tras un
+        reinicio o un cambio de cableado."""
+        try:
+            import win32api
+            monitores = sorted(
+                (info[2] for info in win32api.EnumDisplayMonitors()),
+                key=lambda rect: rect[0],
+            )
+            logger.info("Monitores detectados: %s", monitores)
+            if monitor_index >= len(monitores):
+                logger.warning(
+                    "Monitor %d solicitado pero solo hay %d conectado(s) — se deja la ventana donde Windows la ubique por defecto",
+                    monitor_index + 1, len(monitores),
+                )
+                return False
+            left, top, right, bottom = monitores[monitor_index]
+            ancho, alto = right - left, bottom - top
+            geom = f"{ancho}x{alto}+{left}+{top}"
+            logger.info("Posicionando ventana en monitor %d: %s", monitor_index + 1, geom)
+            self.geometry(geom)
+            return True
+        except Exception:
+            logger.warning("No se pudo posicionar la ventana en el monitor %d", monitor_index + 1, exc_info=True)
+            return False
 
     # ══════════════════════════════════════════════════════════════════════════
     # PUNTO DE ENTRADA DE CONSTRUCCIÓN
@@ -593,14 +650,36 @@ class InterfazPrincipal(tk.Tk):
     # MENÚ DE CONFIGURACIÓN (PySide6 como subprocess)
     # ══════════════════════════════════════════════════════════════════════════
 
+    def _settings_command(self) -> list[str]:
+        """Comando para lanzar el menú de configuración (PySide6) como
+        subproceso. Mismo problema que el backend (ver `_backend_command` en
+        `autoclave/main.py`): en un build congelado, `sys.executable` es el
+        propio .exe de esta UI, no un intérprete de Python — `-m
+        autoclave.ui_pyside.app` lanzaría una segunda copia de este mismo
+        .exe, que se cerraría de inmediato al no reconocer esos argumentos.
+        En ese caso se usa `AutoclaveSettings.exe`, empaquetado aparte y
+        ubicado junto al ejecutable de la UI."""
+        if getattr(sys, "frozen", False):
+            settings_exe = os.path.join(os.path.dirname(sys.executable), "AutoclaveSettings.exe")
+            return [settings_exe]
+        return [sys.executable, "-m", "autoclave.ui_pyside.app"]
+
+    @staticmethod
+    def _settings_env() -> dict:
+        """Igual que `_backend_env` en `autoclave/main.py`: hay que quitar
+        `_MEIPASS2` antes de heredar el entorno, o el bootloader de
+        AutoclaveSettings.exe (otro .exe de PyInstaller) confunde la carpeta
+        de extracción de la UI con la suya propia y no llega a arrancar."""
+        env = {**os.environ}
+        env.pop("_MEIPASS2", None)
+        return env
+
     def _open_settings(self):
         if self._settings_proc and self._settings_proc.poll() is None:
             return  # ya abierto — ignorar doble click
         try:
             self.withdraw()
-            self._settings_proc = subprocess.Popen(
-                [sys.executable, "-m", "autoclave.ui_pyside.app"]
-            )
+            self._settings_proc = subprocess.Popen(self._settings_command(), env=self._settings_env())
             self.after(500, self._poll_settings)
         except OSError as e:
             logger.error("No se pudo lanzar el menú de configuración: %s", e)
