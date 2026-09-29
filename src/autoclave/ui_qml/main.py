@@ -5,6 +5,9 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
+# Registra los tipos QML de Autoclave.Controllers (qmlRegisterType al importar)
+from autoclave.ui_qml.controllers import ciclo_controller  # noqa: F401
+
 BASE_DIR = Path(__file__).resolve().parent
 QML_DIR = BASE_DIR / "qml"
 FUENTES_DIR = BASE_DIR / "assets" / "fuentes"
