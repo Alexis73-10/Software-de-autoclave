@@ -27,9 +27,9 @@ def test_valvula_enciende_sobre_objetivo_sin_disparar_alarma():
     p, alarm_mgr, set_do = _make_preparacion(temp_drenaje=71.0)
     resultado = p.verificar_temperatura_drenaje()
     set_do.agua_intercambiador_on.assert_called()
-    alarm_mgr.clear.assert_any_call("TEMPERATURA_DRENAJE_ALTA")
+    alarm_mgr.clear.assert_any_call("TEMP_DRENAJE_ALTA")
     ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "TEMPERATURA_DRENAJE_ALTA" not in ids_reportados
+    assert "TEMP_DRENAJE_ALTA" not in ids_reportados
     assert resultado is True
 
 
@@ -37,7 +37,7 @@ def test_alarma_dispara_sobre_limite_superior():
     p, alarm_mgr, set_do = _make_preparacion(temp_drenaje=76.0)
     p.verificar_temperatura_drenaje()
     ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "TEMPERATURA_DRENAJE_ALTA" in ids_reportados
+    assert "TEMP_DRENAJE_ALTA" in ids_reportados
 
 
 def test_gate_true_bajo_limite_inferior_de_banda_sin_alarma():
@@ -48,7 +48,7 @@ def test_gate_true_bajo_limite_inferior_de_banda_sin_alarma():
     resultado = p.verificar_temperatura_drenaje()
     assert resultado is True
     ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "TEMPERATURA_DRENAJE_ALTA" not in ids_reportados
+    assert "TEMP_DRENAJE_ALTA" not in ids_reportados
 
 
 def test_gate_true_a_temperatura_ambiente():

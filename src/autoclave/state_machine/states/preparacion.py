@@ -277,10 +277,10 @@ class preparacion_state:
             # "drenaje muy frio", pero el lado bajo si participa del gate de
             # listo/inicio via dentro_de_banda.
             if r.fuera_por_encima:
-                alarm_id = "TEMPERATURA_DRENAJE_ALTA"
+                alarm_id = "TEMP_DRENAJE_ALTA"
                 self.alarm(alarm_id, AlarmType.ALERTA)
             else:
-                self.alarm_manager.clear("TEMPERATURA_DRENAJE_ALTA")
+                self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
 
             return not r.fuera_por_encima
         
