@@ -1,6 +1,6 @@
 from autoclave.hal.measures.units import Units
 from autoclave.protocols.serial_link import SerialLink
-from autoclave.utils.resources import resource_path
+from autoclave.utils.paths import calibration_path
 from autoclave.devices.puertas.door_type import DoorType
 
 _DOOR_DO_CHANNELS = {
@@ -46,7 +46,7 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
 
 
 def build_hardware(profile):
-    units = Units(resource_path("autoclave/config/calibration.yaml"))
+    units = Units(calibration_path())
     serial = SerialLink(on_update=lambda data: units.update_from_serial(data))
     serial._scan_ports()
     serial.start()

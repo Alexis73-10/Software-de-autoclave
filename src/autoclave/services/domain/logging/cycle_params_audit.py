@@ -1,9 +1,9 @@
 import sqlite3
 from datetime import datetime
 from pathlib import Path
+from autoclave.utils.paths import app_root
 
-_PROJECT_ROOT = Path(__file__).resolve().parents[5]
-_DB_DEFAULT   = _PROJECT_ROOT / "data" / "autoclave.db"
+_DB_DEFAULT = app_root() / "data" / "autoclave.db"
 
 _CREATE_TABLE = """
 CREATE TABLE IF NOT EXISTS cycle_params_audit (

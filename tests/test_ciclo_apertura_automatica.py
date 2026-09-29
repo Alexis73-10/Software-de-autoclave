@@ -74,15 +74,15 @@ def test_espera_fija_antes_de_intentar_abrir(monkeypatch):
         tiempo_espera=60, temp_max=80.0, temp_camara=25.0)
 
     t0 = 1_000_000.0
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0)
     ciclo._mantener_apertura_automatica()
     door_service.request_open.assert_not_called()
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 59)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 59)
     ciclo._mantener_apertura_automatica()
     door_service.request_open.assert_not_called()
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 60)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60)
     ciclo._mantener_apertura_automatica()
     door_service.request_open.assert_called_once_with("Puerta 2")
 
@@ -96,7 +96,7 @@ def test_abre_puerta_2_si_existe(monkeypatch):
         door_service=door_service, apertura_automatica=True,
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 2_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 2_000_000.0)
     ciclo._mantener_apertura_automatica()
 
     door_service.request_open.assert_called_once_with("Puerta 2")
@@ -111,7 +111,7 @@ def test_abre_puerta_1_si_es_equipo_de_una_puerta(monkeypatch):
         door_service=door_service, apertura_automatica=True,
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 2_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 2_000_000.0)
     ciclo._mantener_apertura_automatica()
 
     door_service.request_open.assert_called_once_with("Puerta 1")
@@ -126,7 +126,7 @@ def test_espera_temperatura_antes_de_abrir(monkeypatch):
         door_service=door_service, apertura_automatica=True,
         tiempo_espera=0, temp_max=80.0, temp_camara=95.0)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 3_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 3_000_000.0)
     ciclo._mantener_apertura_automatica()
     door_service.request_open.assert_not_called()
 
@@ -145,12 +145,12 @@ def test_confirma_solo_al_abrir_con_exito(monkeypatch):
         door_service=door_service, apertura_automatica=True,
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 4_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 4_000_000.0)
     ciclo._mantener_apertura_automatica()
     estado.set_flag.assert_not_called()
 
     door_service.get_status.return_value = "ABRIENDO"
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 4_000_010.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 4_000_010.0)
     ciclo._mantener_apertura_automatica()
     estado.set_flag.assert_called_once_with("CICLO_CONFIRMADO", True)
 
@@ -165,21 +165,21 @@ def test_no_confirma_si_abrir_falla(monkeypatch):
         door_service=door_service, apertura_automatica=True,
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 5_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 5_000_000.0)
     ciclo._mantener_apertura_automatica()
     estado.set_flag.assert_not_called()
     door_service.request_open.assert_called_once_with("Puerta 2")
 
     # reintenta en un tick posterior (pasado el intervalo de reintento de 5s)
     door_service.request_open.return_value = (True, "")
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 5_000_010.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 5_000_010.0)
     ciclo._mantener_apertura_automatica()
     assert door_service.request_open.call_count == 2
     estado.set_flag.assert_not_called()  # dispatch exitoso, pero aun no se observa ABRIENDO
 
     # el siguiente tick observa que la puerta empezo a abrir -> confirma
     door_service.get_status.return_value = "ABRIENDO"
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 5_000_020.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 5_000_020.0)
     ciclo._mantener_apertura_automatica()
     estado.set_flag.assert_called_once_with("CICLO_CONFIRMADO", True)
 
@@ -193,11 +193,11 @@ def test_alarma_timeout_temperatura_una_sola_vez(monkeypatch):
         tiempo_espera=60, temp_max=80.0, timeout_min=30, temp_camara=95.0)
 
     t0 = 6_000_000.0
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0)
     ciclo._mantener_apertura_automatica()  # fija _apertura_auto_t_inicio = t0
 
     # tiempo_espera (60s) + timeout_temperatura (30min = 1800s) + margen
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 60 + 1801)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1801)
     ciclo._mantener_apertura_automatica()
     alarm_manager.report.assert_called_once()
     alarma = alarm_manager.report.call_args.args[0]
@@ -205,7 +205,7 @@ def test_alarma_timeout_temperatura_una_sola_vez(monkeypatch):
     assert alarma.blocks_operation is False
 
     # sigue en temperatura alta: no debe repetir la alarma
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 60 + 2000)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 2000)
     ciclo._mantener_apertura_automatica()
     alarm_manager.report.assert_called_once()
 
@@ -221,21 +221,21 @@ def test_sigue_esperando_tras_alarma_timeout_hasta_que_baja_temp(monkeypatch):
         tiempo_espera=60, temp_max=80.0, timeout_min=30, temp_camara=95.0)
 
     t0 = 7_000_000.0
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0)
     ciclo._mantener_apertura_automatica()
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 60 + 1801)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1801)
     ciclo._mantener_apertura_automatica()
     alarm_manager.report.assert_called_once()
 
     estado.sensores_temp["temp_camara"] = 75.0
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 60 + 1802)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1802)
     ciclo._mantener_apertura_automatica()
     door_service.request_open.assert_called_once_with("Puerta 2")
     estado.set_flag.assert_not_called()
 
     door_service.get_status.return_value = "ABRIENDO"
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 60 + 1810)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1810)
     ciclo._mantener_apertura_automatica()
     estado.set_flag.assert_called_once_with("CICLO_CONFIRMADO", True)
     alarm_manager.clear.assert_called_once_with("TIMEOUT_APERTURA_AUTOMATICA")
@@ -250,7 +250,7 @@ def test_sensor_ausente_no_avanza_ni_rompe(monkeypatch):
         tiempo_espera=0, temp_max=80.0)
     estado.sensores_temp = {}
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 8_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 8_000_000.0)
     ciclo._mantener_apertura_automatica()
 
     door_service.request_open.assert_not_called()
@@ -266,7 +266,7 @@ def test_run_llama_apertura_automatica_en_completado(monkeypatch):
         door_service=door_service, apertura_automatica=True,
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 9_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 9_000_000.0)
     resultado = ciclo.run()
 
     assert resultado == CicloResultado.ESPERANDO_CONFIRMACION
@@ -309,7 +309,7 @@ def test_reset_reinicia_temporizador_de_apertura_automatica(monkeypatch):
         door_service=door_service, apertura_automatica=True,
         tiempo_espera=60, temp_max=80.0, temp_camara=95.0)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 10_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 10_000_000.0)
     ciclo._mantener_apertura_automatica()
     assert ciclo._apertura_auto_t_inicio is not None
 
@@ -331,7 +331,7 @@ def test_pres_camara_ausente_no_abre_aunque_temp_este_bien(monkeypatch):
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
     estado.sensores_pres = {}
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 11_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 11_000_000.0)
     ciclo._mantener_apertura_automatica()
 
     door_service.request_open.assert_not_called()
@@ -347,7 +347,7 @@ def test_pres_camara_fuera_de_rango_atmosferico_no_abre(monkeypatch):
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
     estado.sensores_pres["pres_camara"] = 50.0  # fuera de 101.3 +/- 20 (defaults del mock)
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 11_000_100.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 11_000_100.0)
     ciclo._mantener_apertura_automatica()
 
     door_service.request_open.assert_not_called()
@@ -365,11 +365,11 @@ def test_alarma_apertura_denegada_tras_denegacion_sostenida(monkeypatch):
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
 
     t0 = 12_000_000.0
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0)
     ciclo._mantener_apertura_automatica()
     alarm_manager.report.assert_not_called()
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 61)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 61)
     ciclo._mantener_apertura_automatica()
     alarm_manager.report.assert_called_once()
     alarma = alarm_manager.report.call_args.args[0]
@@ -377,16 +377,16 @@ def test_alarma_apertura_denegada_tras_denegacion_sostenida(monkeypatch):
     assert "Puerta 1 no esta cerrada" in alarma.description
 
     # no debe repetir la alarma en un intento posterior aun denegado
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 70)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 70)
     ciclo._mantener_apertura_automatica()
     alarm_manager.report.assert_called_once()
 
     # se limpia cuando finalmente abre
     door_service.request_open.return_value = (True, "")
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 80)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 80)
     ciclo._mantener_apertura_automatica()
     door_service.get_status.return_value = "ABRIENDO"
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 90)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 90)
     ciclo._mantener_apertura_automatica()
     alarm_manager.clear.assert_any_call("APERTURA_AUTOMATICA_DENEGADA")
 
@@ -402,17 +402,17 @@ def test_reintento_respeta_intervalo(monkeypatch):
         tiempo_espera=0, temp_max=80.0, temp_camara=25.0)
 
     t0 = 13_000_000.0
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0)
     ciclo._mantener_apertura_automatica()
     door_service.request_open.assert_called_once()
 
     # 1 segundo despues (menos que el intervalo de 5s) -> no reintenta todavia
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 1)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 1)
     ciclo._mantener_apertura_automatica()
     door_service.request_open.assert_called_once()
 
     # pasado el intervalo -> reintenta
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: t0 + 5)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 5)
     ciclo._mantener_apertura_automatica()
     assert door_service.request_open.call_count == 2
 
@@ -426,8 +426,29 @@ def test_temp_max_apertura_no_supera_el_global(monkeypatch):
         tiempo_espera=0, temp_max=130.0, temp_camara=125.0)
     ciclo.config.get.side_effect = lambda nombre: 120.0 if nombre == "temp_max_apertura" else None
 
-    monkeypatch.setattr(ciclo_module.time, "time", lambda: 14_000_000.0)
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: 14_000_000.0)
     ciclo._mantener_apertura_automatica()
 
     # temp_camara=125 > min(130 del ciclo, 120 global)=120 -> sigue esperando
     door_service.request_open.assert_not_called()
+
+
+def test_espera_fija_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    import autoclave.state_machine.states.ciclo as ciclo_module
+    door_service = MagicMock()
+    door_service.doors = {"Puerta 2": MagicMock()}
+    door_service.request_open.return_value = (True, "")
+    ciclo, estado, set_do, alarm_manager = _make_ciclo(
+        door_service=door_service, apertura_automatica=True,
+        tiempo_espera=60, temp_max=80.0, temp_camara=25.0)
+
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(ciclo_module.time, "time", lambda: 10.0)
+
+    ciclo._mantener_apertura_automatica()  # fija _apertura_auto_t_inicio con monotonic=1000.0
+    door_service.request_open.assert_not_called()
+
+    fake_monotonic[0] += 61  # reloj monótono avanza 61s (tiempo_espera cumplido)
+    ciclo._mantener_apertura_automatica()
+    door_service.request_open.assert_called_once_with("Puerta 2")

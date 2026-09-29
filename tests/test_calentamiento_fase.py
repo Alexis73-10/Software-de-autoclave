@@ -61,7 +61,7 @@ def _sembrar_historial(fase, temp, pres, hace_seg):
     referencia con `hace_seg` segundos de antigüedad (>= _VENTANA_PENDIENTE_SEG
     para que el próximo update() la use al calcular tasa_t/tasa_p)."""
     fase._historial_pendiente.clear()
-    fase._historial_pendiente.append((time.time() - hace_seg, temp, pres))
+    fase._historial_pendiente.append((time.monotonic() - hace_seg, temp, pres))
 
 
 # ── APROXIMACION ──────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ def test_duty_tasa_restringe_incluso_cerca_del_objetivo():
     assert result == FaseResult.EN_CURSO
     # tasa medida = (3.0 kPa) / (10s -> 1/6 min) = 18 kPa/min; duty_tasa = 10/18.
     # Tolerancia relajada a 1e-3 (en vez de 1e-9): _sembrar_historial siembra
-    # el timestamp de referencia con time.time() real, y el tiempo de
+    # el timestamp de referencia con time.monotonic() real, y el tiempo de
     # ejecucion entre esa llamada y este update() (microsegundos, variable
     # segun la maquina/carga) se suma a la ventana de 10s medida -- con
     # 1e-9 esta asercion falla de forma reproducible por jitter de reloj de
@@ -610,6 +610,21 @@ def test_fallo_por_timeout_apaga_las_tres_salidas():
     set_do.descompresion_lenta_off.assert_called()
     set_do.descompresion_rapida_off.assert_called()
     assert estado.motivo_fallo != ""
+
+
+def test_timeout_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(time, "time", lambda: 10.0)
+
+    fase, estado, set_do = _make_fase(timeout_min=1)  # 60s
+    fase.update()  # inicializa _timer_timeout_fin con monotonic=1000.0
+
+    fake_monotonic[0] += 61  # reloj monótono avanza 61s (timeout cumplido)
+
+    result = fase.update()
+    assert result == FaseResult.FALLO
+    set_do.vapor_camara_off.assert_called()
 
 
 # ── Sensores no disponibles ────────────────────────────────────────────────

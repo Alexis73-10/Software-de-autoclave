@@ -119,12 +119,12 @@ class ServicioPuertas:
         return self._can_close_physical(door_name)
 
     def can_open_from_context(self, door_name) -> bool:
-        if door_name != self.profile.door_id:
+        if door_name != f"Puerta {self.profile.door_id}":
             return self.can("open_other_door")
         return self.can("open_own_door")
 
     def can_close_from_context(self, door_name) -> bool:
-        if door_name != self.profile.door_id:
+        if door_name != f"Puerta {self.profile.door_id}":
             return self.can("open_other_door")
         return True
 

@@ -1,14 +1,14 @@
 import json
 import logging
-from pathlib import Path
 from datetime import datetime
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.devices.puertas.door_type import DoorType
+from autoclave.utils.paths import app_root
 from .profile import InstallationProfile, Role, ProfileValidationError, validate_profile_data
 
 logger = logging.getLogger(__name__)
 
-INSTALLATION_FILE = Path(__file__).resolve().parents[3] / "installation_profile.json"
+INSTALLATION_FILE = app_root() / "installation_profile.json"
 
 
 def exists() -> bool:

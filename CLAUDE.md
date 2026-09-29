@@ -13,6 +13,7 @@ Convenciones compartidas por las fases:
 - Temporizador de dos estados (abre `t_on` seg, cierra `t_off` seg, repite; `t_off<=0` → enclavada abierta, `t_on<=0` → enclavada cerrada) es el patrón estándar para escapes (`descompresion_lenta`/`descompresion_rapida`) y para PWM de vapor. Ver `_tick_dos_estados` en `calentamiento.py`/`esterilizacion.py`.
 - Condiciones de falla usan debounce de 3 lecturas consecutivas (constante `_DEBOUNCE_LECTURAS`) antes de disparar `FaseResult.FALLO`.
 - Al entrar en `FALLO`, se apagan todas las salidas de la fase y se registra `self.estado.motivo_fallo`.
+- Todo temporizador de proceso (timers de fase, timeouts, debounce, hold) usa `time.monotonic()`, nunca `time.time()` — un salto del reloj de pared (ajuste manual, NTP futuro) no debe alterar la duración medida. `time.time()`/`datetime.now()` quedan reservados para sellos de tiempo de registros/auditoría (ver §11.3 de `docs/mis_plans/planeacion_ui_dual_pantalla.md`). Estos timers son atributos en memoria por instancia de fase, no persisten entre reinicios.
 
 Secuencia actual (sin cambios de orquestación):
 
@@ -42,7 +43,7 @@ En `EsterilizacionFase`, con `F0=true` la finalización exitosa exige tiempo Y F
 
 ## PREPARADO / PREPARACION — separación válvula / alarma / gate (2026-08-06)
 
-El control de presión de chaqueta (`presion_chaqueta`/`rango_presion_chaqueta`) y temperatura de drenaje (`temp_segura_drenaje`/`rango_temp_drenaje`, nuevo) en `preparado.py` y `preparacion.py` usaba un único umbral (borde de la banda `objetivo±rango`, o techo único en drenaje) tanto para accionar la válvula como para disparar la alarma bloqueante y decidir si el equipo está "listo". Esto hacía que la alarma bloqueante (`CHAQUETA_FRIA`, `TEMP_DRENAJE_ALTA`/`TEMPERATURA_DRENAJE_ALTA`) disparara casi en cada arranque en frío, porque la válvula no reaccionaba hasta que ya se había cruzado el borde tolerado.
+El control de presión de chaqueta (`presion_chaqueta`/`rango_presion_chaqueta`) y temperatura de drenaje (`temp_segura_drenaje`/`rango_temp_drenaje`, nuevo) en `preparado.py` y `preparacion.py` usaba un único umbral (borde de la banda `objetivo±rango`, o techo único en drenaje) tanto para accionar la válvula como para disparar la alarma bloqueante y decidir si el equipo está "listo". Esto hacía que la alarma bloqueante (`CHAQUETA_FRIA`, `TEMP_DRENAJE_ALTA`) disparara casi en cada arranque en frío, porque la válvula no reaccionaba hasta que ya se había cruzado el borde tolerado.
 
 Separado en `control_banda.py` (`evaluar_banda()`): la válvula reacciona al **objetivo** exacto, sin tolerancia (chaqueta: ON si `presión < objetivo`; drenaje: ON si `temp > objetivo`, sin cambios respecto al drenaje anterior). La alarma bloqueante y el gate de listo/inicio de ciclo siguen usando la **banda** `objetivo±rango`, sin cambiar esos umbrales — solo se separan de la válvula. Drenaje es un caso especial: `temp_segura_drenaje` es un techo de seguridad de un solo lado (no un objetivo — no existe calefactor de drenaje, un drenaje frío siempre es seguro), así que a diferencia de chaqueta, tanto la alarma bloqueante como el gate de listo/inicio para drenaje solo miran el lado alto de la banda (`fuera_por_encima`) — el lado bajo no participa de ninguno de los dos, para no bloquear el arranque en frío.
 

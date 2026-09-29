@@ -1,0 +1,586 @@
+import QtQuick
+import QtQuick.Effects
+import QtQuick.Shapes
+import Tema
+import Autoclave.Controllers
+import "../Componentes"
+
+// Pantalla de ciclo (mockup-01, docs/mis_plans/planeacion_pantalla_ciclo_ui.md).
+// Referencia: images/pantalla_ciclo_sin_grafica.png (1196 x 1917).
+//
+// Geometría: todas las medidas son px del lienzo del mockup (1196 x 1917) y pasan
+// por m(), que escala uniformemente con el ancho real (plan §2: s = ancho / 1196).
+// No se usa Escala.px() porque el lienzo de Escala es 1200 x 1920 y el mockup se
+// midió a 1196 x 1917; con m() la pantalla coincide al píxel con la referencia.
+//
+// Datos: programa y tarjeta de parámetros vienen del backend vía CicloController
+// (consignas de GET /cycle, lecturas de GET /status). Sin conexión, los valores
+// quedan congelados y en gris (no vigentes, planeacion_ui_dual_pantalla.md §6.4).
+// PENDIENTE (PC-04): ciclo activo, estados, insignia y alarmas siguen con los
+// valores de ejemplo del mockup hasta definir su fuente.
+// PENDIENTE (PC-03): tipografías y activos definitivos del diseñador.
+Item {
+    id: raiz
+
+    CicloController { id: datos }
+
+    // ---- datos del backend ----
+    // "?." evita TypeError al destruir la pantalla (datos se libera antes que las bindings)
+    property string programa: datos?.programa ?? ""
+    property string tempEsterilizacion: datos?.tempEsterilizacion ?? ""
+    property string tiempoEsterilizacion: datos?.tiempoEsterilizacion ?? ""
+    property string tiempoSecado: datos?.tiempoSecado ?? ""
+    property string tempCamara: datos?.tempCamara ?? ""
+    property string presionCamara: datos?.presionCamara ?? ""
+    property bool datosVigentes: datos?.conectado ?? false
+
+    // ---- datos de ejemplo del mockup (PC-04: fuente sin definir) ----
+    property string cicloActivo: "03"
+    property string cicloActivoEstado: textos.noPreparado
+    property string programaEstado: textos.ejecutando
+    property string estadoTexto: textos.noPreparado
+    property int conteoNotificaciones: 2
+    property bool puertaAbierta: false
+    property string modelo: "SPK-SAT 45H"
+    property string serie: "Sn123456"
+    property string version: "V: 1.0"
+    // Filas de alarmas/avisos. Formato de fila pendiente (PC-06): hoy solo se
+    // usa el conteo para mostrar el estado vacío.
+    property var alarmas: []
+
+    // ---- acciones: las resuelve quien usa la pantalla (servicios, plan §7) ----
+    signal puertaPulsada()        // abrir si puertaAbierta es false, cerrar si es true
+    signal iniciarCicloPulsado()
+    signal avatarPulsado()        // destino indefinido (PC-05)
+    signal campanaPulsada()
+    signal ajustesPulsado()
+    signal inicioPulsado()
+
+    // PC-07: textos del mockup sin confirmar, como constantes fáciles de cambiar.
+    // Deben migrar a assets/textos/es.json cuando se confirmen.
+    readonly property QtObject textos: QtObject {
+        readonly property string cicloActivo: "CICLO ACTIVO"
+        readonly property string programa: "PROGRAMA"
+        readonly property string estado: "ESTADO"
+        readonly property string noPreparado: "No preparado"
+        readonly property string ejecutando: "Ejecutando"
+        readonly property string tempEster: "Temp. Ester."
+        readonly property string tiempoEst: "Tiempo Est."
+        readonly property string tiempoSec: "Tiempo Sec."
+        readonly property string tempCamara: "Temp cámara"
+        readonly property string presion: "Presión"
+        readonly property string unidadTemp: "°C"
+        readonly property string unidadTiempo: "min"
+        readonly property string unidadPresion: "°Kpa"   // PC-07: lo correcto es "kPa"
+        readonly property string alarmasTitulo: "ALARMAS Y AVISOS"
+        readonly property string sinAlarmas: "Sin alarmas ni avisos activos"
+        readonly property string abrirPuerta: "ABRIR PUERTA"
+        readonly property string cerrarPuerta: "CERRAR PUERTA"   // PC-05: sin mockup
+        readonly property string iniciarCiclo: "INICIAR CICLO"
+        readonly property string modelo: "Modelo: "
+        readonly property string serie: "Serie: "
+    }
+
+    // Colores medidos sobre el mockup. PENDIENTE: promover a Tema/Colores.qml
+    // cuando el diseñador los confirme; se dejan aquí para no tocar el tema.
+    readonly property QtObject paleta: QtObject {
+        readonly property color negro: "#000000"
+        readonly property color programa: "#000209"
+        readonly property color naranjaTexto: "#EC9233"
+        readonly property color naranjaEstado: "#FF962B"
+        readonly property color verdeEjecutando: "#25BA9E"
+        readonly property color insignia: "#08C9F9"
+        readonly property color bordeTarjeta: "#E5E5E5"
+        readonly property color bordeSuave: "#F5F5F5"
+        readonly property color divisorCiclo: "#C0C0C0"
+        readonly property color divisorParam: "#C3C3C3"
+        readonly property color divisorPie: "#BEBEBE"
+        readonly property color lineaAlarmas: "#D7D7D7"
+        readonly property color tituloAlarmas: "#010006"
+        readonly property color textoVacio: "#969BA0"
+        readonly property color etiqueta: "#393939"
+        readonly property color unidad: "#424242"
+        readonly property color textoPie: "#3B3B3B"
+        readonly property color versionTexto: "#8F8F8F"
+        readonly property color avatarFondo: "#E6E6E6"
+        readonly property color iconoGris: "#808080"
+    }
+
+    // Sustitutos (PC-03): Poppins no está disponible, se usa Montserrat
+    // (Tipografia.familia); "sans tipo Arial" se resuelve con Arial del sistema.
+    readonly property string fuenteNumeros: "Arial"
+
+    readonly property real anchoMockup: 1196
+    function m(v) { return v * raiz.width / anchoMockup }
+    // pixelSize exige entero > 0 (width es 0 antes del primer layout)
+    function fuente(v) { return Math.max(1, Math.round(m(v))) }
+
+    readonly property string iconosColor: "../../assets/iconos/color/"
+    readonly property string imagenes: "../../../images/"
+
+    // Texto ubicado por línea base (bl) y por centro (cx) o borde izquierdo (lx),
+    // todo en px del mockup: las cajas del plan son de tinta, no de caja de texto.
+    component Texto: Text {
+        property real cx: -1
+        property real lx: -1
+        property real bl: 0
+        property real tam: 16
+        font.pixelSize: raiz.fuente(tam)
+        x: lx >= 0 ? raiz.m(lx) : raiz.m(cx) - width / 2
+        y: raiz.m(bl) - baselineOffset
+    }
+
+    // Icono SVG de 48x48 ubicado para que su tinta llene la caja del mockup.
+    // tinta = [x0, y0, x1, y1] de la tinta dentro del viewBox (medido con QSvgRenderer).
+    component Icono: Image {
+        property var caja: [0, 0, 0, 0]
+        property var tinta: [0, 0, 48, 48]
+        readonly property real _escala: raiz.m(caja[3]) / (tinta[3] - tinta[1])
+        width: 48 * _escala
+        height: width
+        x: raiz.m(caja[0] + caja[2] / 2) - (tinta[0] + tinta[2]) / 2 * _escala
+        y: raiz.m(caja[1]) - tinta[1] * _escala
+        sourceSize.width: width
+        sourceSize.height: height
+    }
+
+    // Icono recoloreado con MultiEffect (la fuente se oculta). Con fuente blanca,
+    // colorization 1.0 la lleva al color pedido.
+    component IconoTenido: Item {
+        id: tenido
+        property alias caja: fuente.caja
+        property alias tinta: fuente.tinta
+        property alias source: fuente.source
+        property color color: "white"
+        anchors.fill: parent
+        Icono { id: fuente; visible: false }
+        MultiEffect {
+            x: fuente.x; y: fuente.y; width: fuente.width; height: fuente.height
+            source: fuente
+            colorization: 1.0
+            colorizationColor: tenido.color
+        }
+    }
+
+    component Divisor: Rectangle {
+        property real cx: 0
+        property real y0: 0
+        property real y1: 0
+        x: raiz.m(cx - 1); y: raiz.m(y0)
+        width: raiz.m(2); height: raiz.m(y1 - y0)
+    }
+
+    // ======================= fondo =======================
+    FondoApp { anchors.fill: parent }
+
+    // ======================= cabecera =======================
+    Image {
+        x: raiz.m(73); y: raiz.m(57)
+        width: raiz.m(267)
+        height: width * 42427 / 158611   // proporción del viewBox del SVG
+        source: "../../assets/logo/logo-especifika-blanco.svg"
+        sourceSize.width: width
+        sourceSize.height: height
+    }
+
+    Item {
+        id: reloj
+        anchors.fill: parent
+        // mismo formato manual que BarraSuperior (sin depender de Qt.locale)
+        property var _meses: ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
+        property date _ahora: new Date()
+        Timer { interval: 1000; running: true; repeat: true; onTriggered: reloj._ahora = new Date() }
+        function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
+
+        Texto {
+            cx: 597.5; bl: 108; tam: 97
+            text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
+                  reloj._dosDigitos(reloj._ahora.getMinutes())
+            color: "white"
+            font.family: Tipografia.familiaReloj
+            font.weight: Tipografia.pesoBold
+        }
+        Texto {
+            cx: 598; bl: 141; tam: 26
+            text: reloj._ahora.getDate() + " " +
+                  reloj._meses[reloj._ahora.getMonth()] + "  -  " +
+                  reloj._ahora.getFullYear()
+            color: "white"
+            font.family: Tipografia.familiaReloj
+        }
+    }
+
+    Item {
+        anchors.fill: parent
+        Icono {
+            caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
+            source: raiz.iconosColor + "campana.svg"   // variante blanca
+        }
+        Rectangle {
+            visible: raiz.conteoNotificaciones > 0
+            x: raiz.m(922); y: raiz.m(50)
+            width: raiz.m(26); height: raiz.m(25); radius: width / 2
+            color: raiz.paleta.insignia
+            Text {
+                anchors.centerIn: parent
+                text: raiz.conteoNotificaciones
+                color: "white"
+                font.family: Tipografia.familia
+                font.pixelSize: raiz.fuente(17)
+            }
+        }
+        MouseArea {
+            x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
+            onClicked: raiz.campanaPulsada()
+        }
+
+        Icono {
+            caja: [1043, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
+            source: raiz.iconosColor + "engranaje.svg"   // variante blanca
+        }
+        MouseArea {
+            x: raiz.m(1025); y: raiz.m(45); width: raiz.m(95); height: raiz.m(95)
+            onClicked: raiz.ajustesPulsado()
+        }
+    }
+
+    // ======================= panel principal =======================
+    Rectangle {
+        x: raiz.m(19); y: raiz.m(177)
+        width: raiz.m(1159); height: raiz.m(1723)
+        radius: raiz.m(30)
+        color: Colores.fondoTarjeta
+    }
+
+    // ---- tarjeta de ciclo ----
+    Rectangle {
+        x: raiz.m(19); y: raiz.m(404); width: raiz.m(1159); height: raiz.m(2)
+        color: raiz.paleta.bordeTarjeta
+    }
+    Divisor { cx: 351; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+    Divisor { cx: 839; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+
+    component Rotulo: Texto {
+        bl: 229; tam: 17
+        color: raiz.paleta.negro
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoMedium
+    }
+    component TextoNaranja: Texto {
+        bl: 375; tam: 22
+        color: raiz.paleta.naranjaTexto
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+
+    Rotulo { cx: 199; text: raiz.textos.cicloActivo }
+    Texto {
+        cx: 200; bl: 333; tam: 103
+        text: raiz.cicloActivo
+        color: raiz.paleta.negro
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+    TextoNaranja { cx: 201; text: raiz.cicloActivoEstado }
+
+    Rotulo { cx: 599.5; text: raiz.textos.programa }
+    Texto {
+        cx: 599; bl: 308; tam: 36
+        text: raiz.programa
+        color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoBold
+    }
+    Rectangle {
+        x: raiz.m(503); y: raiz.m(342); width: raiz.m(21); height: width; radius: width / 2
+        color: raiz.paleta.verdeEjecutando
+    }
+    Texto {
+        lx: 543; bl: 359; tam: 21
+        text: raiz.programaEstado
+        color: raiz.paleta.verdeEjecutando
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoMedium
+    }
+
+    Rotulo { cx: 1011; text: raiz.textos.estado }
+    Rectangle {
+        x: raiz.m(972); y: raiz.m(256); width: raiz.m(78); height: width; radius: width / 2
+        color: raiz.paleta.naranjaEstado
+        Text {
+            anchors.centerIn: parent
+            text: "!"
+            color: "white"
+            font.family: raiz.fuenteNumeros
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: raiz.fuente(56)
+        }
+    }
+    TextoNaranja { cx: 1010; text: raiz.estadoTexto }
+
+    // ---- tarjeta de parámetros ----
+    Rectangle {
+        x: raiz.m(34); y: raiz.m(425); width: raiz.m(1129); height: raiz.m(208)
+        radius: raiz.m(30)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(2); border.color: raiz.paleta.bordeSuave
+    }
+    Divisor { cx: 255; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
+    Divisor { cx: 482; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
+    Divisor { cx: 708; y0: 452; y1: 608; color: raiz.paleta.divisorParam }
+    Divisor { cx: 938; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
+
+    component Etiqueta: Texto {
+        tam: 12
+        color: raiz.paleta.etiqueta
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+    component Valor: Texto {
+        bl: 554; tam: 55
+        color: raiz.datosVigentes ? raiz.paleta.negro : Colores.textoGuia
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+    component Unidad: Texto {
+        bl: 606; tam: 27
+        color: raiz.paleta.unidad
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+
+    readonly property var tintaTermometro: [12.25, 4.0, 36.55, 44.0]
+
+    Icono { caja: [73, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura.svg" }
+    Etiqueta { lx: 129; bl: 469; text: raiz.textos.tempEster }
+    Valor { cx: 152; text: raiz.tempEsterilizacion }
+    Unidad { cx: 151.5; text: raiz.textos.unidadTemp }
+
+    Icono { caja: [294, 447, 35, 35]; tinta: [5.9, 5.9, 42.1, 42.1]; source: raiz.iconosColor + "sensor_tiempo.svg" }
+    Etiqueta { lx: 357; bl: 467; text: raiz.textos.tiempoEst }
+    Valor { cx: 371.5; text: raiz.tiempoEsterilizacion }
+    Unidad { cx: 378; text: raiz.textos.unidadTiempo }
+
+    // color/sensor_tiempo_secado.svg viene en blanco: se tiñe de gris
+    IconoTenido {
+        caja: [532, 446, 27, 39]; tinta: [10.05, 4.2, 37.95, 43.8]
+        source: raiz.iconosColor + "sensor_tiempo_secado.svg"
+        color: raiz.paleta.iconoGris
+    }
+    Etiqueta { lx: 588; bl: 467; text: raiz.textos.tiempoSec }
+    Valor { cx: 599; text: raiz.tiempoSecado }
+    Unidad { cx: 599; text: raiz.textos.unidadTiempo }
+
+    Icono { caja: [751, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura_2.svg" }
+    Etiqueta { lx: 798; bl: 469; text: raiz.textos.tempCamara }
+    Valor { cx: 830.5; text: raiz.tempCamara }
+    Unidad { cx: 821.5; text: raiz.textos.unidadTemp }
+
+    Icono { caja: [983, 450, 37, 31]; tinta: [5.3, 8.0, 43.7, 40.85]; source: raiz.iconosColor + "sensor_presion.svg" }
+    Etiqueta { lx: 1051; bl: 467; text: raiz.textos.presion }
+    Valor { cx: 1045.5; text: raiz.presionCamara }
+    Unidad { cx: 1061; text: raiz.textos.unidadPresion }
+
+    // ---- tarjeta de alarmas y avisos ----
+    Rectangle {
+        x: raiz.m(34); y: raiz.m(655); width: raiz.m(1130); height: raiz.m(944)
+        radius: raiz.m(30)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(2); border.color: raiz.paleta.bordeTarjeta
+    }
+    Texto {
+        lx: 81; bl: 717; tam: 27
+        text: raiz.textos.alarmasTitulo
+        color: raiz.paleta.tituloAlarmas
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoBold
+    }
+    Rectangle {
+        x: raiz.m(81); y: raiz.m(737); width: raiz.m(1116 - 81); height: raiz.m(2)
+        color: raiz.paleta.lineaAlarmas
+    }
+    // Zona del listado (PC-06): geometría fija, se puebla sin moverla.
+    Item {
+        id: zonaAlarmas
+        x: raiz.m(81); y: raiz.m(739)
+        width: raiz.m(1116 - 81); height: raiz.m(1598 - 739)
+    }
+    Texto {
+        visible: raiz.alarmas.length === 0
+        cx: 598.5; bl: 1176; tam: 28
+        text: raiz.textos.sinAlarmas
+        color: raiz.paleta.textoVacio
+        font.family: Tipografia.familia
+    }
+
+    // ======================= fila de botones =======================
+    component BotonAccion: Item {
+        id: boton
+        property var caja: [0, 0, 0, 0]
+        property color colorArriba
+        property color colorAbajo
+        property string texto: ""
+        property real textoX: 0            // x absoluta del mockup donde empieza el texto
+        property real circuloX: 0          // x absoluta del mockup del círculo de contorno
+        property alias contenidoCirculo: circulo.data
+        signal pulsado()
+
+        x: raiz.m(caja[0]); y: raiz.m(caja[1])
+        width: raiz.m(caja[2]); height: raiz.m(caja[3])
+
+        Rectangle {
+            id: cuerpo
+            anchors.fill: parent
+            radius: raiz.m(14)
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: boton.colorArriba }
+                GradientStop { position: 1.0; color: boton.colorAbajo }
+            }
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: "#40000000"
+                shadowVerticalOffset: raiz.m(3)
+                shadowBlur: 0.4
+            }
+        }
+        Rectangle {
+            id: circulo
+            x: raiz.m(boton.circuloX - boton.caja[0])
+            y: raiz.m(1629) - boton.y
+            width: raiz.m(84); height: width; radius: width / 2
+            color: "transparent"
+            border.color: "white"; border.width: raiz.m(4)
+        }
+        Text {
+            x: raiz.m(boton.textoX) - boton.x
+            y: raiz.m(1676) - boton.y - baselineOffset
+            text: boton.texto
+            color: "white"
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoMedium
+            font.pixelSize: raiz.fuente(17)
+        }
+        MouseArea { anchors.fill: parent; onClicked: boton.pulsado() }
+    }
+
+    // Degradados medidos a x=310 / x=1010 (plan §6.1–6.2), extrapolados linealmente
+    // a los bordes del cuerpo.
+    BotonAccion {
+        caja: [41, 1615, 298, 110]
+        colorArriba: Qt.rgba(47/255, 88/255, 251/255, 1)
+        colorAbajo: Qt.rgba(0, 0, 73/255, 1)
+        texto: raiz.puertaAbierta ? raiz.textos.cerrarPuerta : raiz.textos.abrirPuerta
+        textoX: 172
+        circuloX: 64
+        onPulsado: raiz.puertaPulsada()
+
+        // PROVISIONAL (PC-03): PNG de puerta del UI anterior, aclarado a blanco.
+        contenidoCirculo: [
+        Image {
+            id: imgPuerta
+            anchors.centerIn: parent
+            height: raiz.m(42); width: height * 607 / 992
+            source: raiz.imagenes + (raiz.puertaAbierta ? "close_door_1.png" : "open_door_1.png")
+            sourceClipRect: raiz.puertaAbierta ? Qt.rect(670, 37, 598, 962) : Qt.rect(665, 22, 607, 992)
+            visible: false
+        },
+        MultiEffect {
+            anchors.fill: imgPuerta
+            source: imgPuerta
+            brightness: 1.0
+        }
+        ]
+    }
+
+    BotonAccion {
+        caja: [845, 1616, 302, 110]
+        colorArriba: Qt.rgba(8/255, 170/255, 65/255, 1)
+        colorAbajo: Qt.rgba(1/255, 80/255, 30/255, 1)
+        texto: raiz.textos.iniciarCiclo
+        textoX: 980
+        circuloX: 866
+        onPulsado: raiz.iniciarCicloPulsado()
+
+        // triángulo "play", desplazado a la derecha por compensación óptica
+        contenidoCirculo: Shape {
+            anchors.centerIn: parent
+            anchors.horizontalCenterOffset: raiz.m(3)
+            width: raiz.m(30); height: raiz.m(34)
+            preferredRendererType: Shape.CurveRenderer
+            ShapePath {
+                strokeWidth: 0
+                fillColor: "white"
+                startX: 0; startY: 0
+                PathLine { x: raiz.m(30); y: raiz.m(17) }
+                PathLine { x: 0; y: raiz.m(34) }
+                PathLine { x: 0; y: 0 }
+            }
+        }
+    }
+
+    // ======================= barra inferior =======================
+    Rectangle {
+        x: raiz.m(33); y: raiz.m(1744); width: raiz.m(1130); height: raiz.m(141)
+        radius: raiz.m(26)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(2); border.color: raiz.paleta.bordeSuave
+    }
+    Divisor { cx: 347; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
+    Divisor { cx: 834; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
+
+    // Icono de equipo: PROVISIONAL (PC-03), no hay activo; se dibuja con contornos.
+    Item {
+        x: raiz.m(71); y: raiz.m(1763); width: raiz.m(80); height: raiz.m(52)
+        Rectangle {
+            anchors.fill: parent
+            color: "transparent"
+            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
+        }
+        Rectangle {
+            x: raiz.m(42); y: raiz.m(4); width: raiz.m(18); height: raiz.m(44)
+            color: "transparent"
+            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
+        }
+    }
+    component TextoPie: Texto {
+        lx: 70; tam: 17
+        color: raiz.paleta.textoPie
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+    TextoPie { bl: 1838; text: raiz.textos.modelo + raiz.modelo }
+    TextoPie { bl: 1862; text: raiz.textos.serie + raiz.serie }
+
+    Rectangle {
+        x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
+        color: raiz.paleta.avatarFondo
+    }
+    Icono {
+        caja: [576, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
+        source: raiz.iconosColor + "usuario.svg"
+    }
+    MouseArea {
+        x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width
+        onClicked: raiz.avatarPulsado()
+    }
+
+    // color/casa.svg trae #333333; el mockup mide #232323 (diferencia menor, se usa el activo)
+    Icono {
+        caja: [957, 1769, 88, 77]; tinta: [4.1, 6.8, 43.9, 41.4]
+        source: raiz.iconosColor + "casa.svg"
+    }
+    MouseArea {
+        x: raiz.m(940); y: raiz.m(1755); width: raiz.m(122); height: raiz.m(105)
+        onClicked: raiz.inicioPulsado()
+    }
+    Text {
+        x: raiz.m(1141) - width
+        y: raiz.m(1867) - baselineOffset
+        text: raiz.version
+        color: raiz.paleta.versionTexto
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoBold
+        font.pixelSize: raiz.fuente(20)
+    }
+}

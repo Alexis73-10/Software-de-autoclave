@@ -110,7 +110,7 @@ class ProtocoloFallo:
     def _calcular_timeout(self) -> float:
         timeout_key = "modo_2" if self._modo == 0 else f"modo_{self._modo}"
         timeout_min = self.cycle.get_param("descompresion", timeout_key, "timeout", default=60)
-        return time.time() + (timeout_min or 60) * 60
+        return time.monotonic() + (timeout_min or 60) * 60
 
     def _aplicar_paso_modo(self, pres: float) -> None:
         if self._escalado:
@@ -173,7 +173,7 @@ class ProtocoloFallo:
         # ── Gestión dinámica de presión ───────────────────────────────
         if pres > atm + rango:
             if self._presurizado_al_disparo:
-                if not self._escalado and time.time() > self._t_timeout_descompresion:
+                if not self._escalado and time.monotonic() > self._t_timeout_descompresion:
                     logger.error(
                         "Protocolo fallo: timeout del modo %d agotado, escalando a chaqueta+rápida",
                         self._modo,

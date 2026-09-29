@@ -39,12 +39,12 @@ class PurgaFase(BaseFase):
         if not self._inicializado:
             self.set_do.vapor_camara_on()
             self.set_do.descompresion_rapida_on()
-            self._timer_fin = time.time() + tiempo_seg
+            self._timer_fin = time.monotonic() + tiempo_seg
             self._inicializado = True
             logger.info("Purga: iniciando | %.0f s", tiempo_seg)
 
         # ── 4. Verificar tiempo ───────────────────────────────────────────────
-        if time.time() >= self._timer_fin:
+        if time.monotonic() >= self._timer_fin:
             logger.info("Purga: COMPLETADO")
             self.set_do.vapor_camara_off()
             self.set_do.descompresion_rapida_off()

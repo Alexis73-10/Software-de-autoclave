@@ -2,10 +2,14 @@
 
 
 a = Analysis(
-    ['src\\autoclave\\ui\\main.py'],
-    pathex=[],
+    ['src\\autoclave\\main.py'],
+    pathex=['src'],
     binaries=[],
-    datas=[('src/autoclave/images', 'autoclave/images')],
+    datas=[
+        ('src/autoclave/images', 'autoclave/images'),
+        ('src/autoclave/cycles', 'autoclave/cycles'),
+        ('src/autoclave/config', 'autoclave/config'),
+    ],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},

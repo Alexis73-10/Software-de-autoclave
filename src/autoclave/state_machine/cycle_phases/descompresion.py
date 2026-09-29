@@ -26,7 +26,7 @@ class DescompresionFase(BaseFase):
             t_pre = self.cycle.get_param("descompresion", "tiempo_pre_despresurizacion", default=0)
             if t_pre and t_pre > 0:
                 self._etapa    = "pre_espera"
-                self._t_inicio = time.time()
+                self._t_inicio = time.monotonic()
             else:
                 self._etapa = "modo"
                 self._iniciar_modo()
@@ -34,7 +34,7 @@ class DescompresionFase(BaseFase):
 
         if self._etapa == "pre_espera":
             t_pre = self.cycle.get_param("descompresion", "tiempo_pre_despresurizacion", default=0)
-            if time.time() - self._t_inicio >= t_pre:
+            if time.monotonic() - self._t_inicio >= t_pre:
                 self._etapa = "modo"
                 self._iniciar_modo()
             return FaseResult.EN_CURSO
@@ -42,7 +42,7 @@ class DescompresionFase(BaseFase):
         return self._tick_modo()
 
     def _iniciar_modo(self):
-        self._t_inicio = time.time()
+        self._t_inicio = time.monotonic()
         if self._modo > 0:
             timeout_min     = self.cycle.get_param("descompresion", f"modo_{self._modo}", "timeout", default=60)
             self._t_timeout = self._t_inicio + (timeout_min or 60) * 60
@@ -55,7 +55,7 @@ class DescompresionFase(BaseFase):
             self._t_aire_comprimido = None
 
     def _tick_modo(self) -> FaseResult:
-        if self._modo > 0 and self._t_timeout and time.time() > self._t_timeout:
+        if self._modo > 0 and self._t_timeout and time.monotonic() > self._t_timeout:
             self._apagar_todo()
             logger.error("DescompresionFase: timeout en modo %d", self._modo)
             return FaseResult.FALLO
@@ -138,7 +138,7 @@ class DescompresionFase(BaseFase):
         return self._tick_sub_descompresion()
 
     def _tick_sub_enfriamiento(self, modo_key: str, use_lenta: bool) -> FaseResult:
-        now = time.time()
+        now = time.monotonic()
 
         presion_obj = self.cycle.get_param("descompresion", modo_key, "presion_camara_enfriamiento", default=200)
         p = self._pres_camara()

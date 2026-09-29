@@ -1,0 +1,4 @@
+module Tema
+singleton Escala 1.0 Escala.qml
+singleton Colores 1.0 Colores.qml
+singleton Tipografia 1.0 Tipografia.qml

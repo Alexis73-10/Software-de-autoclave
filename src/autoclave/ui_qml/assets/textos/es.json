@@ -23,8 +23,6 @@
     "estado": "ESTADO",
     "grafica": "GRÁFICA DEL CICLO",
     "tiempo_transcurrido": "Tiempo transcurrido",
-    "pausar": "PAUSAR CICLO",
-    "continuar": "CONTINUAR CICLO",
     "cancelar": "CANCELAR CICLO"
   },
   "fases": [
@@ -66,7 +64,6 @@
     "no_preparado": "No preparado",
     "listo": "Listo",
     "ejecutando": "Ejecutando",
-    "en_pausa": "En pausa",
     "exitoso": "Exitoso",
     "cancelado": "Cancelado",
     "fallo": "Fallo"

@@ -1,4 +1,5 @@
 # tests/test_secado_fase.py
+import time as time_module
 from unittest.mock import MagicMock
 from autoclave.state_machine.cycle_phases.secado import (
     SecadoFase, _PASO_VACIO_BAJO, _PASO_AIRE_ALTO
@@ -166,4 +167,21 @@ def test_modo3_completa_cuando_expira_timer_fin():
     fase.update()
     fase._timer_fin -= 200
     assert fase.update() == FaseResult.COMPLETADO
+    set_do.bomba_vacio_off.assert_called()
+
+
+# ── Reloj monótono (C-01) ────────────────────────────────────────────────
+
+def test_timer_fin_inmune_a_salto_de_reloj_de_pared(monkeypatch):
+    fake_monotonic = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: fake_monotonic[0])
+    monkeypatch.setattr(time_module, "time", lambda: 10.0)
+
+    fase, _, set_do = _make_fase(modo=1, tiempo_min=1)  # 60s
+    fase.update()  # inicializa _timer_fin con monotonic=1000.0
+
+    fake_monotonic[0] += 61  # reloj monótono avanza 61s (tiempo cumplido)
+
+    result = fase.update()
+    assert result == FaseResult.COMPLETADO
     set_do.bomba_vacio_off.assert_called()

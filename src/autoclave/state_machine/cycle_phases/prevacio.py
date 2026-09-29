@@ -126,7 +126,7 @@ class PrevacioFase(BaseFase):
             else:
                 self.set_do.descompresion_rapida_off()
                 timeout_min = self.cycle.get_param("prevacio", "timeout_bajo") or 10
-                self._timeout_bajo_fin = time.time() + float(timeout_min) * 60
+                self._timeout_bajo_fin = time.monotonic() + float(timeout_min) * 60
                 self._set_paso(_PASO_VACIO_BAJO)
                 logger.info(
                     "PrevacioFase: tipo %s pulso %d/%d — iniciando vacío",
@@ -136,7 +136,7 @@ class PrevacioFase(BaseFase):
 
         # ── 2. VACIO BAJO ─────────────────────────────────────────────
         if self._paso == _PASO_VACIO_BAJO:
-            if time.time() > self._timeout_bajo_fin:
+            if time.monotonic() > self._timeout_bajo_fin:
                 logger.error(
                     "PrevacioFase: TIMEOUT vacío bajo (tipo %s pulso %d)",
                     tipo.upper(), self._pulso_actual
@@ -149,7 +149,7 @@ class PrevacioFase(BaseFase):
             self.set_do.vacio_camara_on()
 
             if pres is not None and pres <= presion_baja:
-                self._hold_inicio = time.time()
+                self._hold_inicio = time.monotonic()
                 self._set_paso(_PASO_HOLD_BAJO)
                 logger.info(
                     "PrevacioFase: vacío bajo alcanzado %.1f kPa (tipo %s pulso %d)",
@@ -163,18 +163,18 @@ class PrevacioFase(BaseFase):
             self.set_do.bomba_vacio_on()
             self.set_do.vacio_camara_on()
 
-            if time.time() >= self._hold_inicio + float(tiempo_hold):
+            if time.monotonic() >= self._hold_inicio + float(tiempo_hold):
                 self.set_do.bomba_vacio_off()
-                self._t_apagado_vacio = time.time()
+                self._t_apagado_vacio = time.monotonic()
                 self._set_paso(_PASO_APAGANDO_VACIO)
             return FaseResult.EN_CURSO
 
         # ── 3b. APAGANDO VACIO (escalonado, ver _STAGGER_APAGADO_VACIO) ─
         if self._paso == _PASO_APAGANDO_VACIO:
-            if time.time() - self._t_apagado_vacio >= _STAGGER_APAGADO_VACIO:
+            if time.monotonic() - self._t_apagado_vacio >= _STAGGER_APAGADO_VACIO:
                 self.set_do.vacio_camara_off()
                 timeout_min = self.cycle.get_param("prevacio", "timeout_alto") or 10
-                self._timeout_alto_fin = time.time() + float(timeout_min) * 60
+                self._timeout_alto_fin = time.monotonic() + float(timeout_min) * 60
                 self._set_paso(_PASO_VAPOR_ALTO)
                 logger.info(
                     "PrevacioFase: hold bajo completado (tipo %s pulso %d) — activando vapor",
@@ -184,7 +184,7 @@ class PrevacioFase(BaseFase):
 
         # ── 4. VAPOR ALTO ─────────────────────────────────────────────
         if self._paso == _PASO_VAPOR_ALTO:
-            if time.time() > self._timeout_alto_fin:
+            if time.monotonic() > self._timeout_alto_fin:
                 logger.error(
                     "PrevacioFase: TIMEOUT presión alta (tipo %s pulso %d)",
                     tipo.upper(), self._pulso_actual
@@ -198,7 +198,7 @@ class PrevacioFase(BaseFase):
             self.set_do.descompresion_lenta_on()
 
             if pres is not None and pres >= presion_alta:
-                self._hold_inicio = time.time()
+                self._hold_inicio = time.monotonic()
                 self._set_paso(_PASO_HOLD_ALTO)
                 logger.info(
                     "PrevacioFase: presión alta alcanzada %.1f kPa (tipo %s pulso %d)",
@@ -212,7 +212,7 @@ class PrevacioFase(BaseFase):
             self.set_do.vapor_camara_on()
             self.set_do.descompresion_lenta_on()
 
-            if time.time() >= self._hold_inicio + float(tiempo_hold):
+            if time.monotonic() >= self._hold_inicio + float(tiempo_hold):
                 self.set_do.vapor_camara_off()
                 self.set_do.descompresion_lenta_off()
                 return self._avanzar_pulso()
