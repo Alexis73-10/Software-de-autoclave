@@ -7,11 +7,22 @@ from autoclave.utils.resources import resource_path
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
+def _numero_de_ciclo(valor) -> int | None:
+    if isinstance(valor, bool) or not isinstance(valor, int) or valor < 1:
+        return None
+    return valor
+
+
 class Cycle:
-    def __init__(self, cycle_id: str, name: str, parameters: dict):
+    def __init__(self, cycle_id: str, name: str, parameters: dict, number: int | None = None):
         self.id = cycle_id
         self.name = name
         self.parameters = parameters
+        # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
+        # None si falta, no es entero positivo o está repetido.
+        self.number = number
 
     def get_param(self, *keys, default=None):
         data = self.parameters
@@ -70,6 +81,22 @@ class CycleManager:
 
         self._load_from_folder("cycles/factory", source="factory")
         self._load_from_folder("cycles/user", source="user")
+        self._descartar_numeros_repetidos()
+
+    def _descartar_numeros_repetidos(self):
+        """Un mismo cycle_number en dos ciclos distintos es un error de
+        configuración: ninguno de los dos lo conserva (se muestra sin número)
+        antes que presentar un indicativo ambiguo."""
+        por_numero = {}
+        for cycle in self.cycles.values():
+            if cycle.number is not None:
+                por_numero.setdefault(cycle.number, []).append(cycle)
+        for numero, ciclos in por_numero.items():
+            if len(ciclos) > 1:
+                logger.error("cycle_number %d repetido en %s — se descarta en todos",
+                             numero, ", ".join(sorted(c.id for c in ciclos)))
+                for c in ciclos:
+                    c.number = None
 
     def _load_from_folder(self, folder_path, source):
         folder_path = os.path.join(BASE_DIR, folder_path)
@@ -91,7 +118,8 @@ class CycleManager:
                         cycle = Cycle(
                             cycle_id=data["cycle_id"],
                             name=data.get("display_name", data.get("cycle_name", data["cycle_id"])),
-                            parameters=data.get("parameters", {})
+                            parameters=data.get("parameters", {}),
+                            number=_numero_de_ciclo(data.get("cycle_number")),
                         )
 
                         cycle.source = source

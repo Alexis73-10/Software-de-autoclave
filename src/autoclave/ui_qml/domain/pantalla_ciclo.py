@@ -75,6 +75,14 @@ def parametros_de_ciclo(ciclo) -> dict:
     }
 
 
+def numero_de_ciclo(ciclo) -> str:
+    """Indicativo del ciclo seleccionado ("number" de GET /cycle), dos dígitos (01)."""
+    numero = _obtener(ciclo, "number")
+    if isinstance(numero, bool) or not isinstance(numero, int) or numero < 1:
+        return SIN_DATO
+    return f"{numero:02d}"
+
+
 def lecturas_de_status(status) -> dict:
     """Lecturas de cámara (respuesta de GET /status), ya formateadas."""
     return {

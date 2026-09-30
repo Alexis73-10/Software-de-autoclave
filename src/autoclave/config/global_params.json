@@ -11,5 +11,6 @@
     "rango_temp_drenaje": {"value":5, "type":"int", "unit":"°C"},
     "intervalo_impresion": {"value": 60, "type": "int", "unit": "seg", "min": 0, "max": 3600},
     "intervalo_imprecion_esterilizacion": {"value": 30, "type": "int", "unit": "seg", "min": 0, "max": 3600},
-    "tiempo_estable_alarma": {"value": 5, "type": "int", "unit": "seg", "min": 0, "max": 3600}
+    "tiempo_estable_alarma": {"value": 5, "type": "int", "unit": "seg", "min": 0, "max": 3600},
+    "tiempo_standby": {"value": 5, "type": "int", "unit": "min", "min": 1, "max": 60}
 } 

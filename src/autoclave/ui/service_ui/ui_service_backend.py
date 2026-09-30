@@ -130,6 +130,12 @@ class UIServiceBackend:
         with self._lock:
             return self._cache.get("machine_state", "DESCONOCIDO")
 
+    def get_inactividad_ui(self):
+        """Segundos sin actividad en ninguna pantalla QML (reloj del backend),
+        o None si nadie ha tocado desde que arrancó el backend. Standby simultáneo."""
+        with self._lock:
+            return self._cache.get("ui_inactividad_s")
+
     # ==============================
     # PUERTAS
     # ==============================

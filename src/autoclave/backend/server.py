@@ -6,6 +6,7 @@ from fastapi import HTTPException, FastAPI, Body
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
+from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
@@ -22,6 +23,9 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Autoclave Backend")
 
 context = BackendContext()
+
+# Actividad compartida de las pantallas QML (standby simultáneo); solo presentación.
+actividad_ui = ActividadUI()
 
 CALIBRATION_PATH = calibration_path()
 
@@ -165,10 +169,19 @@ def get_status():
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
         "card_connected":        context.units.is_connected(),
         "test_mode_active":      context.control_loop.test_mode_active,
+        "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,
         "sensors": sensors,
         "alarms":  alarms,
     }
+
+@app.post("/ui/activity")
+def registrar_actividad_ui():
+    """Una pantalla QML informa un toque/tecla del operador. Reinicia el
+    contador de inactividad común a ambas pantallas (standby simultáneo)."""
+    actividad_ui.registrar()
+    return {"ok": True}
+
 
 @app.get("/global_params")
 def get_global_params():
@@ -185,6 +198,7 @@ def get_selected_cycle():
     return {
         "id": cycle.id,
         "name": cycle.name,
+        "number": getattr(cycle, "number", None),
         "parameters": cycle.parameters
     }
 

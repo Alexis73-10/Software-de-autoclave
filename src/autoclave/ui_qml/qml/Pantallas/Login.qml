@@ -16,6 +16,9 @@ import "../Componentes"
 Item {
     id: raiz
 
+    // Casa de la barra inferior: volver a la pantalla principal (la resuelve Main.qml)
+    signal inicioPulsado()
+
     // Iconos del formulario: variante color/ (gris / azul del checkbox),
     // que es la que coincide con 05_PNG_REFERENCIA/pantalla_03_login.
     readonly property string iconos: "../../assets/iconos/color/"
@@ -268,7 +271,7 @@ Item {
                         { icono: "salir_sesion",  activo: false },
                         { icono: "historial",     activo: false },
                         { icono: "mantenimiento", activo: false },
-                        { icono: "casa",          activo: true  }
+                        { icono: "casa",          activo: true, accion: function() { raiz.inicioPulsado() } }
                     ]
                 }
             ]

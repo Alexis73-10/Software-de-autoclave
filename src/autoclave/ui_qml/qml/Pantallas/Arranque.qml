@@ -8,6 +8,9 @@ Item {
     id: raiz
     signal tocado()
 
+    // Contenido de assets/textos/es.json (lo pasa Main.qml)
+    property var textosJson: ({})
+
     // Fondo exportado por el diseñador a 1200x1920 (reemplaza la aproximación
     // lineal de --gradient-splash). Si el archivo falta, queda vacío y se ve
     // el color de la ventana.
@@ -17,7 +20,7 @@ Item {
         fillMode: Image.PreserveAspectCrop
     }
 
-    property var _meses: ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
+    readonly property var _meses: (textosJson.fecha && textosJson.fecha.meses) || []
     property date _ahora: new Date()
     Timer { interval: 1000; running: true; repeat: true; onTriggered: raiz._ahora = new Date() }
     function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
@@ -52,7 +55,7 @@ Item {
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
             text: raiz._ahora.getDate() + " " +
-                  raiz._meses[raiz._ahora.getMonth()] + "  -  " +
+                  (raiz._meses[raiz._ahora.getMonth()] ?? "") + "  -  " +
                   raiz._ahora.getFullYear()
             color: "#C7DCFD"
             font.family: Tipografia.familiaReloj

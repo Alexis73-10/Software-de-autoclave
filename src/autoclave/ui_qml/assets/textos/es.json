@@ -23,7 +23,26 @@
     "estado": "ESTADO",
     "grafica": "GRÁFICA DEL CICLO",
     "tiempo_transcurrido": "Tiempo transcurrido",
-    "cancelar": "CANCELAR CICLO"
+    "cancelar": "CANCELAR CICLO",
+    "temp_ester": "Temp. Ester.",
+    "tiempo_est": "Tiempo Est.",
+    "tiempo_sec": "Tiempo Sec.",
+    "temp_camara": "Temp cámara",
+    "presion": "Presión",
+    "alarmas_titulo": "ALARMAS Y AVISOS",
+    "sin_alarmas": "Sin alarmas ni avisos activos",
+    "abrir_puerta": "ABRIR PUERTA",
+    "cerrar_puerta": "CERRAR PUERTA",
+    "modelo": "Modelo: ",
+    "serie": "Serie: "
+  },
+  "unidades": {
+    "temperatura": "°C",
+    "tiempo": "min",
+    "presion": "kPa"
+  },
+  "fecha": {
+    "meses": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   },
   "fases": [
     "Precalentamiento",
@@ -75,7 +94,30 @@
     "restablecer": "Restablecer valores",
     "iniciar_sesion": "INICIAR SESIÓN",
     "confirmar": "Confirmar",
-    "reconocer": "Reconocer"
+    "reconocer": "Reconocer",
+    "cerrar": "CERRAR"
+  },
+  "notificaciones": {
+    "titulo": "NOTIFICACIONES",
+    "alertas_avisos": "Alertas y avisos"
+  },
+  "equipo": {
+    "titulo": "INFORMACIÓN DEL EQUIPO",
+    "modelo": "Modelo",
+    "serie": "Serie",
+    "id_maquina": "ID de máquina",
+    "clase": "Clase de equipo",
+    "puertas": "Número de puertas",
+    "tipo_puerta": "Tipo de puerta",
+    "puerta_pantalla": "Puerta de esta pantalla",
+    "enfriamiento": "Nivel de enfriamiento",
+    "fecha_instalacion": "Fecha de instalación",
+    "ciclos_realizados": "Ciclos realizados",
+    "ultimo_ciclo": "Último ciclo",
+    "ultimo_mantenimiento": "Último mantenimiento",
+    "version_software": "Versión de software",
+    "version_tarjeta": "Versión de tarjeta",
+    "no_disponible": "No disponible"
   },
   "formulario": {
     "nombre_completo": "Nombre Completo",

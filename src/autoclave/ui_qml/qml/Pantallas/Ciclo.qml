@@ -2,7 +2,6 @@ import QtQuick
 import QtQuick.Effects
 import QtQuick.Shapes
 import Tema
-import Autoclave.Controllers
 import "../Componentes"
 
 // Pantalla de ciclo (mockup-01, docs/mis_plans/planeacion_pantalla_ciclo_ui.md).
@@ -13,40 +12,58 @@ import "../Componentes"
 // No se usa Escala.px() porque el lienzo de Escala es 1200 x 1920 y el mockup se
 // midió a 1196 x 1917; con m() la pantalla coincide al píxel con la referencia.
 //
-// Datos: programa y tarjeta de parámetros vienen del backend vía CicloController
-// (consignas de GET /cycle, lecturas de GET /status). Sin conexión, los valores
-// quedan congelados y en gris (no vigentes, planeacion_ui_dual_pantalla.md §6.4).
-// PENDIENTE (PC-04): ciclo activo, estados, insignia y alarmas siguen con los
-// valores de ejemplo del mockup hasta definir su fuente.
+// Datos: número y nombre del ciclo, estado, tarjeta de parámetros, puerta y
+// alarmas vienen del puente de solo lectura UiBridge (bridge/ui_bridge.py), que
+// lee el caché de UIServiceBackend. Sin conexión, los valores quedan congelados
+// y en gris (no vigentes, planeacion_ui_dual_pantalla.md §6.4) y los botones de
+// acción se deshabilitan. Textos: assets/textos/es.json (textosJson).
+// Modelo y serie: perfil de instalación (InfoEquipo). La campana abre el panel
+// de notificaciones y el recuadro de modelo/serie el de información del equipo
+// (ambos PROVISIONALES, sin diseño).
+// PENDIENTE (PC-04): insignia del estado sigue con el ejemplo del mockup.
 // PENDIENTE (PC-03): tipografías y activos definitivos del diseñador.
 Item {
     id: raiz
 
-    CicloController { id: datos }
+    // Los inyecta Main.qml: UiBridge (solo lectura), comandos de puerta y de
+    // inicio de ciclo (aquí solo se lee su estado; las acciones las conecta
+    // Main), InfoEquipo y es.json.
+    property QtObject puente: null
+    property QtObject comandosPuerta: null
+    property QtObject comandoCiclo: null
+    property QtObject infoEquipo: null
+    property var textosJson: ({})
 
     // ---- datos del backend ----
-    // "?." evita TypeError al destruir la pantalla (datos se libera antes que las bindings)
-    property string programa: datos?.programa ?? ""
-    property string tempEsterilizacion: datos?.tempEsterilizacion ?? ""
-    property string tiempoEsterilizacion: datos?.tiempoEsterilizacion ?? ""
-    property string tiempoSecado: datos?.tiempoSecado ?? ""
-    property string tempCamara: datos?.tempCamara ?? ""
-    property string presionCamara: datos?.presionCamara ?? ""
-    property bool datosVigentes: datos?.conectado ?? false
+    // "?." evita TypeError si no hay puente o al destruir la pantalla
+    property string programa: puente?.programa ?? ""
+    property string tempEsterilizacion: puente?.tempEsterilizacion ?? ""
+    property string tiempoEsterilizacion: puente?.tiempoEsterilizacion ?? ""
+    property string tiempoSecado: puente?.tiempoSecado ?? ""
+    property string tempCamara: puente?.tempCamara ?? ""
+    property string presionCamara: puente?.presionCamara ?? ""
+    property bool datosVigentes: puente?.connected ?? false
+    property string cicloActivo: puente?.cicloActivo ?? ""   // "cycle_number" del ciclo (01, 02...)
+    property string estadoTexto: tx("estados", puente?.estadoEquipo ?? "no_preparado")
+    property int puerta: puente?.door ?? 1
+    // ABIERTO/ABRIENDO -> "abierta" (acción: cerrar); regla en UiBridge.doorOpen,
+    // la misma que usa ComandosPuerta para decidir qué comando enviar.
+    property bool puertaAbierta: puente?.doorOpen ?? false
+    property bool puertaOcupada: comandosPuerta?.ocupado ?? false
+    property string mensajePuerta: comandosPuerta?.mensaje ?? ""   // motivo de rechazo del backend
+    // Modelo de alarmas activas (roles: id, level, description, source_state, priority)
+    property var alarmas: puente?.alarms ?? null
+    readonly property int conteoAlarmas: alarmas?.count ?? 0
+    // Misma bandera que _upd_listo de tkinter; sin ella el botón INICIAR CICLO desaparece
+    property bool listoParaCiclo: puente?.listoParaCiclo ?? false
+    property bool cicloOcupado: comandoCiclo?.ocupado ?? false
 
-    // ---- datos de ejemplo del mockup (PC-04: fuente sin definir) ----
-    property string cicloActivo: "03"
-    property string cicloActivoEstado: textos.noPreparado
-    property string programaEstado: textos.ejecutando
-    property string estadoTexto: textos.noPreparado
-    property int conteoNotificaciones: 2
-    property bool puertaAbierta: false
-    property string modelo: "SPK-SAT 45H"
-    property string serie: "Sn123456"
-    property string version: "V: 1.0"
-    // Filas de alarmas/avisos. Formato de fila pendiente (PC-06): hoy solo se
-    // usa el conteo para mostrar el estado vacío.
-    property var alarmas: []
+    // Insignia de la campana: única categoría de notificaciones por ahora (alertas y avisos)
+    property int conteoNotificaciones: conteoAlarmas
+    // Perfil de instalación; "—" si no se pudo leer
+    property string modelo: (infoEquipo?.modelo ?? "") || tx("sistema", "sin_lectura")
+    property string serie: (infoEquipo?.serie ?? "") || tx("sistema", "sin_lectura")
+    property string version: tx("app", "version")
 
     // ---- acciones: las resuelve quien usa la pantalla (servicios, plan §7) ----
     signal puertaPulsada()        // abrir si puertaAbierta es false, cerrar si es true
@@ -56,29 +73,33 @@ Item {
     signal ajustesPulsado()
     signal inicioPulsado()
 
-    // PC-07: textos del mockup sin confirmar, como constantes fáciles de cambiar.
-    // Deben migrar a assets/textos/es.json cuando se confirmen.
+    // Texto de es.json por sección y clave; "" si falta (test_ui_qml_app lo vigila).
+    function tx(seccion, clave) {
+        const s = textosJson ? textosJson[seccion] : undefined
+        return (s && s[clave] !== undefined) ? s[clave] : ""
+    }
+
+    // Textos de la pantalla (PC-07: siguen sin confirmar por el diseñador).
     readonly property QtObject textos: QtObject {
-        readonly property string cicloActivo: "CICLO ACTIVO"
-        readonly property string programa: "PROGRAMA"
-        readonly property string estado: "ESTADO"
-        readonly property string noPreparado: "No preparado"
-        readonly property string ejecutando: "Ejecutando"
-        readonly property string tempEster: "Temp. Ester."
-        readonly property string tiempoEst: "Tiempo Est."
-        readonly property string tiempoSec: "Tiempo Sec."
-        readonly property string tempCamara: "Temp cámara"
-        readonly property string presion: "Presión"
-        readonly property string unidadTemp: "°C"
-        readonly property string unidadTiempo: "min"
-        readonly property string unidadPresion: "°Kpa"   // PC-07: lo correcto es "kPa"
-        readonly property string alarmasTitulo: "ALARMAS Y AVISOS"
-        readonly property string sinAlarmas: "Sin alarmas ni avisos activos"
-        readonly property string abrirPuerta: "ABRIR PUERTA"
-        readonly property string cerrarPuerta: "CERRAR PUERTA"   // PC-05: sin mockup
-        readonly property string iniciarCiclo: "INICIAR CICLO"
-        readonly property string modelo: "Modelo: "
-        readonly property string serie: "Serie: "
+        readonly property string cicloActivo: raiz.tx("ciclo", "activo")
+        readonly property string programa: raiz.tx("ciclo", "programa")
+        readonly property string estado: raiz.tx("ciclo", "estado")
+        readonly property string tempEster: raiz.tx("ciclo", "temp_ester")
+        readonly property string tiempoEst: raiz.tx("ciclo", "tiempo_est")
+        readonly property string tiempoSec: raiz.tx("ciclo", "tiempo_sec")
+        readonly property string tempCamara: raiz.tx("ciclo", "temp_camara")
+        readonly property string presion: raiz.tx("ciclo", "presion")
+        readonly property string unidadTemp: raiz.tx("unidades", "temperatura")
+        readonly property string unidadTiempo: raiz.tx("unidades", "tiempo")
+        readonly property string unidadPresion: raiz.tx("unidades", "presion")
+        readonly property string alarmasTitulo: raiz.tx("ciclo", "alarmas_titulo")
+        readonly property string sinAlarmas: raiz.tx("ciclo", "sin_alarmas")
+        readonly property string sinConexion: raiz.tx("sistema", "sin_conexion")
+        readonly property string abrirPuerta: raiz.tx("ciclo", "abrir_puerta")
+        readonly property string cerrarPuerta: raiz.tx("ciclo", "cerrar_puerta")   // PC-05: sin mockup
+        readonly property string iniciarCiclo: raiz.tx("modulos", "iniciar_ciclo")
+        readonly property string modelo: raiz.tx("ciclo", "modelo")
+        readonly property string serie: raiz.tx("ciclo", "serie")
     }
 
     // Colores medidos sobre el mockup. PENDIENTE: promover a Tema/Colores.qml
@@ -187,7 +208,7 @@ Item {
         id: reloj
         anchors.fill: parent
         // mismo formato manual que BarraSuperior (sin depender de Qt.locale)
-        property var _meses: ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
+        readonly property var _meses: (raiz.textosJson.fecha && raiz.textosJson.fecha.meses) || []
         property date _ahora: new Date()
         Timer { interval: 1000; running: true; repeat: true; onTriggered: reloj._ahora = new Date() }
         function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
@@ -203,7 +224,7 @@ Item {
         Texto {
             cx: 598; bl: 141; tam: 26
             text: reloj._ahora.getDate() + " " +
-                  reloj._meses[reloj._ahora.getMonth()] + "  -  " +
+                  (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
                   reloj._ahora.getFullYear()
             color: "white"
             font.family: Tipografia.familiaReloj
@@ -231,7 +252,7 @@ Item {
         }
         MouseArea {
             x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
-            onClicked: raiz.campanaPulsada()
+            onClicked: { raiz.campanaPulsada(); panelNotificaciones.abrir() }
         }
 
         Icono {
@@ -277,11 +298,10 @@ Item {
     Texto {
         cx: 200; bl: 333; tam: 103
         text: raiz.cicloActivo
-        color: raiz.paleta.negro
+        color: raiz.datosVigentes ? raiz.paleta.negro : Colores.textoGuia
         font.family: raiz.fuenteNumeros
         font.weight: Tipografia.pesoBold
     }
-    TextoNaranja { cx: 201; text: raiz.cicloActivoEstado }
 
     Rotulo { cx: 599.5; text: raiz.textos.programa }
     Texto {
@@ -290,17 +310,6 @@ Item {
         color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
-    }
-    Rectangle {
-        x: raiz.m(503); y: raiz.m(342); width: raiz.m(21); height: width; radius: width / 2
-        color: raiz.paleta.verdeEjecutando
-    }
-    Texto {
-        lx: 543; bl: 359; tam: 21
-        text: raiz.programaEstado
-        color: raiz.paleta.verdeEjecutando
-        font.family: Tipografia.familia
-        font.weight: Tipografia.pesoMedium
     }
 
     Rotulo { cx: 1011; text: raiz.textos.estado }
@@ -400,13 +409,73 @@ Item {
         color: raiz.paleta.lineaAlarmas
     }
     // Zona del listado (PC-06): geometría fija, se puebla sin moverla.
+    // PROVISIONAL (PC-06, sin diseño de fila): barra de color por prioridad
+    // IEC 60601-1-8 (Colores.alarma*) + descripción. Sin conexión, el aviso
+    // sistema.sin_conexion va arriba y la lista (congelada) se atenúa.
+    // PROVISIONAL (sin diseño de toast): el mismo aviso muestra durante 5 s el
+    // motivo con que el backend rechazó el último comando de puerta.
     Item {
         id: zonaAlarmas
         x: raiz.m(81); y: raiz.m(739)
         width: raiz.m(1116 - 81); height: raiz.m(1598 - 739)
+
+        Text {
+            id: avisoSinConexion
+            visible: !raiz.datosVigentes || raiz.mensajePuerta !== ""
+            width: parent.width
+            height: visible ? implicitHeight : 0
+            topPadding: raiz.m(12)
+            bottomPadding: raiz.m(12)
+            text: !raiz.datosVigentes ? raiz.textos.sinConexion : raiz.mensajePuerta
+            wrapMode: Text.WordWrap
+            color: Colores.textoSecundario
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: raiz.fuente(24)
+        }
+
+        ListView {
+            anchors.top: avisoSinConexion.bottom
+            anchors.bottom: parent.bottom
+            width: parent.width
+            clip: true
+            opacity: raiz.datosVigentes ? 1.0 : 0.4
+            model: raiz.alarmas
+            delegate: Item {
+                id: fila
+                // roles del modelo: id, level, description, source_state, priority
+                required property var model
+                width: ListView.view.width
+                height: raiz.m(72)
+
+                Rectangle {
+                    x: 0; y: raiz.m(12)
+                    width: raiz.m(12); height: fila.height - raiz.m(24)
+                    radius: raiz.m(3)
+                    color: fila.model.priority === "media" ? Colores.alarmaMedia
+                         : fila.model.priority === "baja"  ? Colores.alarmaBaja
+                         : Colores.alarmaAlta
+                }
+                Text {
+                    x: raiz.m(32)
+                    width: fila.width - x
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: fila.model.description !== "" ? fila.model.description : fila.model.id
+                    elide: Text.ElideRight
+                    color: Colores.textoPrimario
+                    font.family: Tipografia.familia
+                    font.pixelSize: raiz.fuente(24)
+                }
+                Rectangle {
+                    anchors.bottom: parent.bottom
+                    width: fila.width; height: raiz.m(1)
+                    color: raiz.paleta.lineaAlarmas
+                }
+            }
+        }
     }
     Texto {
-        visible: raiz.alarmas.length === 0
+        visible: raiz.conteoAlarmas === 0 && raiz.datosVigentes
         cx: 598.5; bl: 1176; tam: 28
         text: raiz.textos.sinAlarmas
         color: raiz.paleta.textoVacio
@@ -424,6 +493,10 @@ Item {
         property real circuloX: 0          // x absoluta del mockup del círculo de contorno
         property alias contenidoCirculo: circulo.data
         signal pulsado()
+
+        // Sin conexión: deshabilitado (PROVISIONAL, sin diseño: opacidad 0.4)
+        enabled: raiz.datosVigentes
+        opacity: enabled ? 1.0 : 0.4
 
         x: raiz.m(caja[0]); y: raiz.m(caja[1])
         width: raiz.m(caja[2]); height: raiz.m(caja[3])
@@ -473,6 +546,8 @@ Item {
         texto: raiz.puertaAbierta ? raiz.textos.cerrarPuerta : raiz.textos.abrirPuerta
         textoX: 172
         circuloX: 64
+        // además de sin conexión, deshabilitado mientras hay un comando en curso
+        enabled: raiz.datosVigentes && !raiz.puertaOcupada
         onPulsado: raiz.puertaPulsada()
 
         // PROVISIONAL (PC-03): PNG de puerta del UI anterior, aclarado a blanco.
@@ -481,8 +556,11 @@ Item {
             id: imgPuerta
             anchors.centerIn: parent
             height: raiz.m(42); width: height * 607 / 992
-            source: raiz.imagenes + (raiz.puertaAbierta ? "close_door_1.png" : "open_door_1.png")
-            sourceClipRect: raiz.puertaAbierta ? Qt.rect(670, 37, 598, 962) : Qt.rect(665, 22, 607, 992)
+            source: raiz.imagenes + (raiz.puertaAbierta ? "close_door_" : "open_door_") + raiz.puerta + ".png"
+            // recortes = caja de tinta de cada PNG (1920x1080), medida con PIL getbbox()
+            sourceClipRect: raiz.puerta === 2
+                ? (raiz.puertaAbierta ? Qt.rect(653, 37, 603, 962) : Qt.rect(647, 22, 615, 992))
+                : (raiz.puertaAbierta ? Qt.rect(670, 37, 598, 962) : Qt.rect(665, 22, 607, 992))
             visible: false
         },
         MultiEffect {
@@ -500,6 +578,10 @@ Item {
         texto: raiz.textos.iniciarCiclo
         textoX: 980
         circuloX: 866
+        // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
+        // no está listo; mientras se envía la orden no acepta otro toque.
+        visible: raiz.listoParaCiclo && raiz.datosVigentes
+        enabled: !raiz.cicloOcupado
         onPulsado: raiz.iniciarCicloPulsado()
 
         // triángulo "play", desplazado a la derecha por compensación óptica
@@ -551,18 +633,32 @@ Item {
     }
     TextoPie { bl: 1838; text: raiz.textos.modelo + raiz.modelo }
     TextoPie { bl: 1862; text: raiz.textos.serie + raiz.serie }
-
-    Rectangle {
-        x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
-        color: raiz.paleta.avatarFondo
-    }
-    Icono {
-        caja: [576, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
-        source: raiz.iconosColor + "usuario.svg"
-    }
+    // Tocar el recuadro de equipo (hasta el primer divisor) abre la información del equipo
     MouseArea {
-        x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width
-        onClicked: raiz.avatarPulsado()
+        x: raiz.m(33); y: raiz.m(1744); width: raiz.m(347 - 33); height: raiz.m(141)
+        onClicked: {
+            raiz.infoEquipo?.actualizar()
+            panelEquipo.abrir()
+        }
+    }
+
+    // Avatar: deshabilitado sin conexión (PROVISIONAL: opacidad 0.4)
+    Item {
+        anchors.fill: parent
+        enabled: raiz.datosVigentes
+        opacity: enabled ? 1.0 : 0.4
+        Rectangle {
+            x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
+            color: raiz.paleta.avatarFondo
+        }
+        Icono {
+            caja: [576, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
+            source: raiz.iconosColor + "usuario.svg"
+        }
+        MouseArea {
+            x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width
+            onClicked: raiz.avatarPulsado()
+        }
     }
 
     // color/casa.svg trae #333333; el mockup mide #232323 (diferencia menor, se usa el activo)
@@ -582,5 +678,23 @@ Item {
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
         font.pixelSize: raiz.fuente(20)
+    }
+
+    // ======================= paneles (PROVISIONALES) =======================
+    PanelNotificaciones {
+        id: panelNotificaciones
+        titulo: raiz.tx("notificaciones", "titulo")
+        textoCerrar: raiz.tx("acciones", "cerrar")
+        rotuloAlertas: raiz.tx("notificaciones", "alertas_avisos")
+        textoSinAlarmas: raiz.textos.sinAlarmas
+        alarmas: raiz.alarmas
+    }
+    PanelEquipo {
+        id: panelEquipo
+        titulo: raiz.tx("equipo", "titulo")
+        textoCerrar: raiz.tx("acciones", "cerrar")
+        filas: raiz.infoEquipo?.filas ?? []
+        textosEquipo: raiz.textosJson.equipo ?? ({})
+        sinLectura: raiz.tx("sistema", "sin_lectura")
     }
 }
