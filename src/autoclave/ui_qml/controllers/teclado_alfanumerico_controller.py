@@ -75,6 +75,11 @@ class TecladoAlfanumericoController(QObject):
     def filasLetras(self):
         return list(dominio.FILAS_QWERTY_ES)
 
+    @Property("QVariantList", notify=capaChanged)
+    def filasCapa(self):
+        """Filas de la capa activa sobre las posiciones de las letras."""
+        return list(dominio.filas_de_capa(self._capa))
+
     @Property(str, constant=True)
     def digitos(self) -> str:
         return dominio.DIGITOS

@@ -5,10 +5,11 @@
 # texto con longitud máxima y tecla Aa de un solo uso. Vive en domain, no en
 # el componente QML (TEC-D15).
 #
-# Tres capas que comparten retícula: letras (distribución del diseñador,
-# pág. 25 de la especificación), dígitos y símbolos. Estas dos últimas se
-# modelan como conjuntos de caracteres, sin filas: su posición en la
-# retícula está pendiente del diseñador (Paso 7 del plan).
+# Dos capas que comparten retícula: letras (distribución del diseñador,
+# pág. 25 de la especificación) y "?123", dígitos y símbolos juntos como en
+# el teclado de Google para Android. Decisión de Cristian (2026-10-01): une
+# las capas 123 y @._ de TEC-D03 en una sola para darle más ancho a la
+# barra espaciadora; el juego de caracteres de TEC-D03 no cambia.
 
 # Sin tildes ni diéresis, con ñ.
 FILAS_QWERTY_ES = (
@@ -19,16 +20,31 @@ FILAS_QWERTY_ES = (
 
 DIGITOS = "0123456789"
 
-# Los 11 símbolos de TEC-D03, sin repetir el guion.
-SIMBOLOS = "@._-()?+*/="
+# Los 11 símbolos de TEC-D03, sin repetir el guion, más 6 que agregó Cristian
+# (2026-10-01) para completar la fila 3 de la capa ?123: ¿ ¡ ! : " '.
+# Siguen excluidos # $ % & , ; (la coma, por el punto decimal de TEC-D14).
+SIMBOLOS = "@._-()?+*/=" + "¿¡!:\"'"
 
 ESPACIO = " "
 
-CAPAS = ("letras", "digitos", "simbolos")
+# Capa ?123 sobre las posiciones de las letras: fila 1 (10 teclas) los
+# dígitos, fila 2 (10) y fila 3 (7, tras Aa) los 17 símbolos. Una fila más
+# corta que la de letras dejaría sin tecla las posiciones finales.
+FILAS_NUMEROS = (
+    "1234567890",
+    "@._-+*/=()",
+    "¿?¡!:\"'",
+)
+
+CAPAS = ("letras", "numeros")
 CAPA_INICIAL = "letras"
 
 _LETRAS = frozenset("".join(FILAS_QWERTY_ES))
 _PERMITIDOS = _LETRAS | {c.upper() for c in _LETRAS} | set(DIGITOS) | set(SIMBOLOS) | {ESPACIO}
+
+
+def filas_de_capa(capa: str) -> tuple[str, ...]:
+    return FILAS_NUMEROS if capa == "numeros" else FILAS_QWERTY_ES
 
 
 def caracter_permitido(caracter: str) -> bool:

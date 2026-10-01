@@ -104,18 +104,18 @@ def test_mayusculas_changed_se_emite(controller):
 def test_juegos_de_caracteres_expuestos(controller):
     assert list(controller.filasLetras) == ["qwertyuiop", "asdfghjklñ", "zxcvbnm"]
     assert controller.digitos == "0123456789"
-    assert controller.simbolos == "@._-()?+*/="
+    assert controller.simbolos == "@._-()?+*/=¿¡!:\"'"
 
 
 def test_cambiar_capa(controller):
     spy = QSignalSpy(controller.capaChanged)
-    controller.cambiarCapa("digitos")
-    assert controller.capa == "digitos"
-    controller.cambiarCapa("simbolos")
-    assert controller.capa == "simbolos"
+    controller.cambiarCapa("numeros")
+    assert controller.capa == "numeros"
+    assert list(controller.filasCapa) == ["1234567890", "@._-+*/=()", "¿?¡!:\"'"]
     controller.cambiarCapa("letras")
     assert controller.capa == "letras"
-    assert spy.count() == 3
+    assert list(controller.filasCapa) == ["qwertyuiop", "asdfghjklñ", "zxcvbnm"]
+    assert spy.count() == 2
 
 
 def test_capa_desconocida_se_ignora(controller):
@@ -127,8 +127,7 @@ def test_cambio_de_capa_conserva_texto_y_no_confirma(controller):
     _escribir(controller, "ana")
     spy_texto = QSignalSpy(controller.textoChanged)
     spy_ok = QSignalSpy(controller.confirmado)
-    controller.cambiarCapa("digitos")
-    controller.cambiarCapa("simbolos")
+    controller.cambiarCapa("numeros")
     controller.cambiarCapa("letras")
     assert controller.texto == "Ana"
     assert spy_texto.count() == 0
@@ -179,7 +178,7 @@ def test_borrar_mantenido_vacia_el_campo_una_vez(controller, reloj):
 # ── abrir / confirmar / cancelar (TEC-D07/D09/D13) ───────────────────────
 
 def test_abrir_configura_campo(controller):
-    controller.cambiarCapa("simbolos")
+    controller.cambiarCapa("numeros")
     controller.abrir("Nombre del operador", "Ana", 30)
     assert controller.titulo == "Nombre del operador"
     assert controller.texto == "Ana"

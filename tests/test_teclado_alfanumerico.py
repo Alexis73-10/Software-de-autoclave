@@ -1,8 +1,8 @@
 # tests/test_teclado_alfanumerico.py
 #
 # Lógica pura del teclado alfanumérico en pantalla: acumulación de texto con
-# longitud máxima, tecla Aa de un solo uso y tres capas (letras, dígitos,
-# símbolos). Vive en domain — el componente QML solo llama estas funciones.
+# longitud máxima, tecla Aa de un solo uso y dos capas (letras y ?123,
+# dígitos y símbolos juntos). Vive en domain — el componente QML solo llama estas funciones.
 # Reglas: TEC-D03/D05/D09 y §7 de planeacion_teclados_qml.md.
 
 import pytest
@@ -11,6 +11,7 @@ from autoclave.ui_qml.domain.teclado_alfanumerico import (
     CAPAS,
     CAPA_INICIAL,
     DIGITOS,
+    FILAS_NUMEROS,
     FILAS_QWERTY_ES,
     SIMBOLOS,
     aa_al_abrir,
@@ -19,6 +20,7 @@ from autoclave.ui_qml.domain.teclado_alfanumerico import (
     alternar_mayusculas,
     borrar,
     caracter_permitido,
+    filas_de_capa,
     pulsar_caracter,
     transformar_caracter,
 )
@@ -106,7 +108,7 @@ def test_letra_bloqueada_por_longitud_no_consume_aa():
     assert pulsar_caracter("abc", "d", mayusculas=True, longitud_maxima=3) == ("abc", True)
 
 
-@pytest.mark.parametrize("caracter", ["#", "$", "%", "&", "!", ",", ";", ":", "á", "é", "ü", "ab", ""])
+@pytest.mark.parametrize("caracter", ["#", "$", "%", "&", ",", ";", "á", "é", "ü", "ab", ""])
 def test_caracter_no_permitido_se_ignora(caracter):
     assert pulsar_caracter("x", caracter, mayusculas=True, longitud_maxima=30) == ("x", True)
 
@@ -129,11 +131,11 @@ def test_digitos():
 
 
 def test_once_simbolos_exactos():
-    assert SIMBOLOS == "@._-()?+*/="
-    assert len(SIMBOLOS) == 11
+    assert SIMBOLOS == "@._-()?+*/=¿¡!:\"'"
+    assert len(SIMBOLOS) == len(set(SIMBOLOS)) == 17
 
 
-@pytest.mark.parametrize("caracter", list("#$%&!,;:"))
+@pytest.mark.parametrize("caracter", list("#$%&,;"))
 def test_simbolos_eliminados_no_estan_permitidos(caracter):
     assert caracter_permitido(caracter) is False
 
@@ -144,8 +146,25 @@ def test_permitidos_letras_digitos_simbolos_y_espacio():
 
 
 def test_capas():
-    assert CAPAS == ("letras", "digitos", "simbolos")
+    assert CAPAS == ("letras", "numeros")
     assert CAPA_INICIAL == "letras"
+
+
+def test_capa_numeros_trae_exactamente_digitos_y_simbolos():
+    caracteres = "".join(FILAS_NUMEROS)
+    assert sorted(caracteres) == sorted(DIGITOS + SIMBOLOS)
+    assert FILAS_NUMEROS[0] == "1234567890"
+
+
+def test_capa_numeros_cabe_en_las_posiciones_de_las_letras():
+    for numeros, letras in zip(FILAS_NUMEROS, FILAS_QWERTY_ES):
+        assert len(numeros) <= len(letras)
+    assert len(FILAS_NUMEROS) <= len(FILAS_QWERTY_ES)
+
+
+def test_filas_de_capa():
+    assert filas_de_capa("letras") == FILAS_QWERTY_ES
+    assert filas_de_capa("numeros") == FILAS_NUMEROS
 
 
 # ── Aa se arma con el campo vacío (instrucción de Cristian, 2026-09-30) ──

@@ -99,7 +99,11 @@
     "borrar": "Borrar"
   },
   "teclado": {
-    "rango": "Rango: {minimo} a {maximo} {unidad}"
+    "rango": "Rango: {minimo} a {maximo} {unidad}",
+    "aa": "Aa",
+    "capa_numeros": "?123",
+    "capa_letras": "ABC",
+    "espacio": "espacio"
   },
   "prueba_teclado": {
     "aviso": "PANTALLA DE PRUEBA — no es parte de la navegación de producción",
@@ -108,7 +112,9 @@
     "valor_entregado": "Valor entregado:",
     "cancelado": "Cancelado: no se entregó valor",
     "sin_valor": "—",
-    "reabrir": "Toque aquí para reabrir el teclado"
+    "reabrir": "Toque aquí para reabrir el teclado",
+    "titulo_alfanumerico": "Teclado alfanumérico",
+    "campo_alfanumerico": "Nombre de prueba"
   },
   "notificaciones": {
     "titulo": "NOTIFICACIONES",

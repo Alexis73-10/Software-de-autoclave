@@ -108,12 +108,12 @@ def test_sin_avisos_del_motor_qml(salida):
 def test_medidas_y_separacion_a_escala_1(salida):
     g = salida["geo"]
     for c in "0123456789-.":
-        assert g[c][2:] == [262.0, 140.0], c
-    assert g["8"][0] - (g["7"][0] + 262) == 14     # separación horizontal
-    assert g["4"][1] - (g["7"][1] + 140) == 14     # separación vertical
-    assert g["Cancelar"][2:] == [262.0, 140.0]
-    assert g["Borrar"][2:] == [262.0, 140.0]
-    assert g["Confirmar"][2:] == [262.0, 2 * 140.0 + 14]
+        assert g[c][2:] == [206.0, 120.0], c
+    assert g["8"][0] - (g["7"][0] + 206) == 14     # separación horizontal
+    assert g["4"][1] - (g["7"][1] + 120) == 14     # separación vertical
+    assert g["Cancelar"][2:] == [206.0, 120.0]
+    assert g["Borrar"][2:] == [206.0, 120.0]
+    assert g["Confirmar"][2:] == [206.0, 2 * 120.0 + 14]
 
 
 def test_distribucion_del_disenador(salida):

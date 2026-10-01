@@ -1,13 +1,16 @@
 # ui_qml/prueba_teclado_numerico.py
 #
-# PRUEBA DESECHABLE (planeacion_teclados_qml.md, Paso 3): abre
+# PRUEBA DESECHABLE (planeacion_teclados_qml.md, Pasos 3 y 4): abre
 # qml/Pruebas/PruebaTecladoNumerico.qml, el teclado numérico anclado al pie
-# (mínimo -100, máximo 400, 1 decimal). No forma parte de la app ni de la
-# navegación de producción; no se conecta al backend. Borrar al terminar.
+# (mínimo -100, máximo 400, 1 decimal), o con --alfanumerico
+# qml/Pruebas/PruebaTecladoAlfanumerico.qml (longitud máxima 30). No forma
+# parte de la app ni de la navegación de producción; no se conecta al
+# backend. Borrar al terminar.
 #
 #   python -m autoclave.ui_qml.prueba_teclado_numerico              (ventana 600x960)
 #   python -m autoclave.ui_qml.prueba_teclado_numerico --completa   (pantalla completa)
 #   python -m autoclave.ui_qml.prueba_teclado_numerico --completa --screen 1
+#   python -m autoclave.ui_qml.prueba_teclado_numerico --alfanumerico [--completa ...]
 
 import argparse
 import sys
@@ -16,13 +19,15 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
-# Registra TecladoNumericoController en Autoclave.Controllers (qmlRegisterType al importar)
+# Registran los controladores en Autoclave.Controllers (qmlRegisterType al importar)
+from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
 from autoclave.ui_qml.controllers import teclado_numerico_controller  # noqa: F401
 from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes, cargar_textos, elegir_pantalla
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="PRUEBA: teclado numérico QML")
+    parser = argparse.ArgumentParser(description="PRUEBA: teclados QML")
+    parser.add_argument("--alfanumerico", action="store_true", help="Teclado alfanumérico")
     parser.add_argument("--completa", action="store_true", help="Pantalla completa")
     parser.add_argument("--screen", type=int, default=0, help="Índice del monitor")
     args = parser.parse_args(argv)
@@ -32,7 +37,8 @@ def main(argv=None) -> int:
     engine = QQmlApplicationEngine()
     engine.addImportPath(QML_DIR)
     engine.setInitialProperties({"textosJson": cargar_textos()})
-    engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/PruebaTecladoNumerico.qml"))
+    pantalla_qml = "PruebaTecladoAlfanumerico.qml" if args.alfanumerico else "PruebaTecladoNumerico.qml"
+    engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/{pantalla_qml}"))
     if not engine.rootObjects():
         return 1
     ventana = engine.rootObjects()[0]
