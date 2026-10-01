@@ -14,6 +14,17 @@ QtObject {
     // Acción
     readonly property color accionPrimario:      "#1168F6" // botón primario
     readonly property color accionPrimarioTexto: "#0D53C4" // obligatorio para texto (contraste)
+    readonly property color accionFondoTenue:    "#E2ECFD" // color-primary-050: relleno de tecla presionada / seleccionado
+
+    // Peligro (acciones destructivas, p. ej. BORRAR del teclado) — NO es color de alarma
+    readonly property color peligroFondo: "#FFECEC" // color-danger-050
+    readonly property color peligroTexto: "#D00000" // color-danger-strong
+
+    // Advertencia (BORRAR del teclado) — tokens color-warning* del diseñador. NO es el
+    // amarillo de alarma (alarmaMedia), que está reservado por IEC 60601-1-8.
+    readonly property color advertenciaFondo: "#FFF4E6" // color-warning-050
+    readonly property color advertencia:      "#FF9933" // color-warning
+    readonly property color advertenciaTexto: "#B35A00" // color-warning-strong (texto)
 
     // Alarmas IEC 60601-1-8 — reservado, no usar para nada que no sea alarma
     readonly property color alarmaAlta:  "#EE0000"
@@ -25,6 +36,7 @@ QtObject {
     readonly property color textoSecundario:    "#4D4D4D" // neutro_700
     readonly property color textoGuia:          "#808080" // neutro_500 — placeholder, ≥19px
     readonly property color bordeCampo:         "#CCCCCC" // neutro_300
+    readonly property color fondoSutil:         "#F6F6F6" // bg-subtle
     readonly property color fondoTarjeta:       "#FFFFFF"
     readonly property color iconoBarraInferior: "#333333" // neutro_800
 }

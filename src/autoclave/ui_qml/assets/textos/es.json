@@ -95,7 +95,20 @@
     "iniciar_sesion": "INICIAR SESIÓN",
     "confirmar": "Confirmar",
     "reconocer": "Reconocer",
-    "cerrar": "CERRAR"
+    "cerrar": "CERRAR",
+    "borrar": "Borrar"
+  },
+  "teclado": {
+    "rango": "Rango: {minimo} a {maximo} {unidad}"
+  },
+  "prueba_teclado": {
+    "aviso": "PANTALLA DE PRUEBA — no es parte de la navegación de producción",
+    "titulo": "Teclado numérico",
+    "campo": "Temperatura de prueba",
+    "valor_entregado": "Valor entregado:",
+    "cancelado": "Cancelado: no se entregó valor",
+    "sin_valor": "—",
+    "reabrir": "Toque aquí para reabrir el teclado"
   },
   "notificaciones": {
     "titulo": "NOTIFICACIONES",

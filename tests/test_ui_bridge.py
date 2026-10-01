@@ -86,11 +86,11 @@ def test_primer_refresco_publica_el_cache():
     assert puente.machineState == "PREPARADO"
     assert puente.doorState == "CERRADO"
     assert puente.programa == "BOWIE"
-    assert puente.tempEsterilizacion == "134,0"
-    assert puente.tiempoEsterilizacion == "3,5"
+    assert puente.tempEsterilizacion == "134.0"
+    assert puente.tiempoEsterilizacion == "3.5"
     assert puente.tiempoSecado == "15"
-    assert puente.tempCamara == "134,2"
-    assert puente.presionCamara == "304,0"
+    assert puente.tempCamara == "134.2"
+    assert puente.presionCamara == "304.0"
 
 
 # ── conexión perdida / recuperada ─────────────────────────────────────────
@@ -126,7 +126,7 @@ def test_sin_conexion_conserva_los_ultimos_valores():
     puente.refrescar()
     assert puente.connected is False
     assert puente.doorState == "CERRADO"
-    assert puente.tempCamara == "134,0"
+    assert puente.tempCamara == "134.0"
     assert puente.alarms.count == 1
 
 

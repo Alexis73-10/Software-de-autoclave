@@ -54,8 +54,8 @@ def test_aplicar_ciclo_publica_consignas():
     c = _controller()
     c.aplicar_ciclo(_ciclo())
     assert c.programa == "BOWE & DICK"
-    assert c.tempEsterilizacion == "134,0"
-    assert c.tiempoEsterilizacion == "3,5"
+    assert c.tempEsterilizacion == "134.0"
+    assert c.tiempoEsterilizacion == "3.5"
     assert c.tiempoSecado == "15"
 
 
@@ -63,14 +63,14 @@ def test_cambio_de_consigna_en_backend_se_refleja():
     c = _controller()
     c.aplicar_ciclo(_ciclo(temp=134.0))
     c.aplicar_ciclo(_ciclo(temp=121.0))
-    assert c.tempEsterilizacion == "121,0"
+    assert c.tempEsterilizacion == "121.0"
 
 
 def test_aplicar_status_publica_lecturas_y_marca_conectado():
     c = _controller()
     c.aplicar_status(_status())
-    assert c.tempCamara == "085,0"
-    assert c.presionCamara == "100,8"
+    assert c.tempCamara == "085.0"
+    assert c.presionCamara == "100.8"
     assert c.conectado is True
 
 
@@ -98,8 +98,8 @@ def test_perdida_de_conexion_congela_valores_y_baja_conectado():
     spy = QSignalSpy(c.conectadoChanged)
     c.marcar_sin_conexion()
     assert c.conectado is False
-    assert c.tempCamara == "085,0"
-    assert c.tempEsterilizacion == "134,0"
+    assert c.tempCamara == "085.0"
+    assert c.tempEsterilizacion == "134.0"
     assert spy.count() == 1
 
 
@@ -109,7 +109,7 @@ def test_reconexion_vuelve_a_marcar_conectado():
     c.marcar_sin_conexion()
     c.aplicar_status(_status(temp=90.0))
     assert c.conectado is True
-    assert c.tempCamara == "090,0"
+    assert c.tempCamara == "090.0"
 
 
 # ── transporte REST real contra un servidor HTTP local ───────────────────
@@ -156,7 +156,7 @@ def test_sondeo_http_lee_status_y_cycle_del_backend():
     srv = _servidor({"/status": (200, _status(temp=120.5)), "/cycle": (200, _ciclo(temp=121.0))})
     try:
         c = CicloController(url_base=f"http://127.0.0.1:{srv.server_port}", intervalo_ms=100)
-        assert _esperar(lambda: c.tempCamara == "120,5" and c.tempEsterilizacion == "121,0")
+        assert _esperar(lambda: c.tempCamara == "120.5" and c.tempEsterilizacion == "121.0")
         assert c.conectado is True
     finally:
         srv.shutdown()
@@ -180,4 +180,4 @@ def test_sondeo_http_backend_caido_queda_sin_conexion():
     c = CicloController(url_base=f"http://127.0.0.1:{puerto}", intervalo_ms=100)
     c.aplicar_status(_status())          # venía conectado
     assert _esperar(lambda: not c.conectado)
-    assert c.tempCamara == "085,0"       # valor congelado
+    assert c.tempCamara == "085.0"       # valor congelado

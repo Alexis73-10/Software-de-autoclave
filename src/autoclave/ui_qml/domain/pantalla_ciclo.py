@@ -7,8 +7,8 @@
 #
 # Frontera de confianza (§6.1 principio 3 de planeacion_ui_dual_pantalla.md):
 # un dato ausente o mal formado se muestra como SIN_DATO, nunca se pinta a
-# medias ni tumba el resto de la tarjeta. Coma decimal en presentación (D-19),
-# vía formato_numerico.formatear_decimal (único punto de conversión).
+# medias ni tumba el resto de la tarjeta. Punto decimal en presentación
+# (TEC-D14, revoca D-19), vía formato_numerico.formatear_decimal.
 
 import math
 
@@ -26,19 +26,19 @@ def _numero(valor) -> float | None:
 
 
 def formatear_temperatura(valor) -> str:
-    """Consigna de temperatura: un decimal (134,0)."""
+    """Consigna de temperatura: un decimal (134.0)."""
     v = _numero(valor)
     return SIN_DATO if v is None else formatear_decimal(v, 1)
 
 
 def formatear_temp_camara(valor) -> str:
-    """Lectura de cámara: un decimal y tres dígitos enteros (085,0), como el mockup."""
+    """Lectura de cámara: un decimal y tres dígitos enteros (085.0), como el mockup."""
     v = _numero(valor)
-    return SIN_DATO if v is None else f"{v:05.1f}".replace(".", ",")
+    return SIN_DATO if v is None else f"{v:05.1f}"
 
 
 def formatear_minutos(valor) -> str:
-    """Tiempos en minutos: sin decimal si es entero (15), si no uno (3,5)."""
+    """Tiempos en minutos: sin decimal si es entero (15), si no uno (3.5)."""
     v = _numero(valor)
     if v is None:
         return SIN_DATO
@@ -47,7 +47,7 @@ def formatear_minutos(valor) -> str:
 
 
 def formatear_presion(valor) -> str:
-    """Lectura de presión de cámara: un decimal (100,8)."""
+    """Lectura de presión de cámara: un decimal (100.8)."""
     v = _numero(valor)
     return SIN_DATO if v is None else formatear_decimal(v, 1)
 
