@@ -99,3 +99,79 @@ def test_alto_flexible_en_9_16_lo_absorbe_la_grafica():
     escala = 540 / 600
     assert alto["grafica_y"] == pytest.approx(base["grafica_y"] * escala, abs=1)
     assert alto["grafica_alto"] > base["grafica_alto"] * escala + 50
+
+
+_SCRIPT_INTERACCION = textwrap.dedent(r"""
+    import json, math, sys
+    from PySide6.QtCore import QObject, QPoint, Qt, QUrl
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtQml import QQmlApplicationEngine
+    from PySide6.QtQuick import QQuickItem, QQuickWindow  # noqa: F401
+    from PySide6.QtTest import QTest
+
+    qml_dir, es_json = sys.argv[1], sys.argv[2]
+    app = QGuiApplication([])
+    engine = QQmlApplicationEngine()
+    engine.addImportPath(qml_dir)
+    engine.setInitialProperties({"textosJson": json.load(open(es_json, encoding="utf-8"))})
+    engine.load(QUrl.fromLocalFile(qml_dir + "/Pruebas/PruebaCicloEnCurso.qml"))
+    ventana = engine.rootObjects()[0]
+    ventana.setWidth(600); ventana.setHeight(960)
+    ventana.show()
+    QTest.qWait(300)
+
+    def todos(tipo):
+        return [o for o in ventana.findChildren(QObject)
+                if o.metaObject().className().startswith(tipo + "_QML")]
+    pantalla = todos("PantallaCicloEnCurso")[0]
+    tarjeta = [g for g in todos("GraficaCiclo") if not g.property("modoPantallaCompleta")][0]
+    tarjeta.setProperty("ocultarCursorMs", 300)
+
+    def punto(item, x, y):   # px de la tarjeta (mockup) -> ventana
+        s = tarjeta.property("escala")
+        p = item.mapToScene(QPoint(0, 0))
+        return QPoint(int(p.x() + x * s), int(p.y() + y * s))
+
+    r = {}
+    # toque sobre el área de trazado, en el minuto 20 (x = 93 + 20/40 * 942)
+    QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, punto(tarjeta, 93 + 0.5 * 942, 500))
+    QTest.qWait(50)
+    r["cursor_min"] = tarjeta.property("cursorMin")
+    QTest.qWait(500)
+    r["cursor_oculto"] = math.isnan(tarjeta.property("cursorMin"))
+
+    # botón Tiempos (856..1010 x 43..101)
+    QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, punto(tarjeta, 930, 70))
+    QTest.qWait(50)
+    desplegable = [o for o in tarjeta.findChildren(QQuickItem) if o.property("abierto") is not None][0]
+    r["tiempos_abierto"] = desplegable.property("abierto")
+    QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, punto(tarjeta, 300, 60))   # fuera
+    QTest.qWait(50)
+    r["tiempos_cerrado"] = not desplegable.property("abierto")
+
+    # pantalla completa (1037..1095 x 43..101) y CERRAR (885..1095)
+    QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, punto(tarjeta, 1066, 70))
+    QTest.qWait(50)
+    r["completa_abre"] = pantalla.property("pantallaCompleta")
+    completa = [g for g in todos("GraficaCiclo") if g.property("modoPantallaCompleta")][0]
+    QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, punto(completa, 990, 70))
+    QTest.qWait(50)
+    r["completa_cierra"] = not pantalla.property("pantallaCompleta")
+    print(json.dumps(r))
+""")
+
+
+def test_interaccion_cursor_tiempos_y_pantalla_completa():
+    r = subprocess.run(
+        [sys.executable, "-c", _SCRIPT_INTERACCION, str(RAIZ_QML), str(ES_JSON)],
+        capture_output=True, text=True, encoding="utf-8",
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"}, timeout=60,
+    )
+    assert r.returncode == 0, r.stderr
+    s = json.loads(r.stdout.strip().splitlines()[-1])
+    assert s["cursor_min"] == pytest.approx(20.0, abs=0.3)
+    assert s["cursor_oculto"] is True
+    assert s["tiempos_abierto"] is True
+    assert s["tiempos_cerrado"] is True
+    assert s["completa_abre"] is True
+    assert s["completa_cierra"] is True

@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Effects
 import Tema
 import "../Componentes"
+import "../../../images"   // IconoEjecucion.qml (engranaje + flechas animados)
 
 // Pantalla de ciclo en curso (docs/mis_plans/planeacion_pantalla_ciclo_en_curso.md).
 // Referencia: images/pantalla_ciclo_con_grafica_editada.png (1196 x 1917).
@@ -14,37 +15,55 @@ import "../Componentes"
 // la geometría de Ciclo.qml (tarjeta de parámetros desplazada +151 px);
 // PENDIENTE (Fase 5): extraer las partes comunes al renombrar Ciclo.qml.
 //
-// FASE 2: solo presentación. Todos los datos entran por propiedades; los de
-// ejemplo los pone qml/Pruebas/PruebaCicloEnCurso.qml. La conexión al backend
-// es la Fase 3; la navegación, la cancelación y los paneles, la Fase 4.
+// Datos: tarjeta de ciclo y de parámetros, alarmas y conexión desde UiBridge
+// (mismas propiedades y formatos que Ciclo.qml); fases, tiempos y gráfica desde
+// ProgresoCiclo (bridge/progreso_ciclo.py), que solo consulta mientras esta
+// pantalla está visible. qml/Pruebas/PruebaCicloEnCurso.qml asigna datos de
+// ejemplo directamente. Navegación, cancelación y paneles: Fase 4.
 Item {
     id: raiz
 
+    property QtObject puente: null     // UiBridge (solo lectura)
+    property QtObject progreso: null   // ProgresoCiclo (solo lectura)
+    property QtObject infoEquipo: null
     property var textosJson: ({})
 
-    // ---- datos (Fase 3: desde el puente) ----
-    property string cicloActivo: ""
-    property string programa: ""
-    property string tempEsterilizacion: ""
-    property string tiempoEsterilizacion: ""
-    property string tiempoSecado: ""
-    property string tempCamara: ""
-    property string presionCamara: ""
-    property bool datosVigentes: false
-    property int conteoNotificaciones: 0
-    property string modelo: ""
-    property string serie: ""
+    // ---- datos ----
+    // "?." evita TypeError si no hay puente o al destruir la pantalla.
+    property bool datosVigentes: puente?.connected ?? false
+    property string cicloActivo: puente?.cicloActivo ?? ""
+    property string programa: puente?.programa ?? ""
+    property string tempEsterilizacion: puente?.tempEsterilizacion ?? ""
+    property string tiempoEsterilizacion: puente?.tiempoEsterilizacion ?? ""
+    property string tiempoSecado: puente?.tiempoSecado ?? ""
+    // lecturas en vivo: sin conexión se muestran "—" (plan §15.8)
+    property string tempCamara: datosVigentes ? (puente?.tempCamara ?? "") : ""
+    property string presionCamara: datosVigentes ? (puente?.presionCamara ?? "") : ""
+    property var alarmas: puente?.alarms ?? null
+    property int conteoNotificaciones: alarmas?.count ?? 0
+    property string modelo: infoEquipo?.modelo ?? ""
+    property string serie: infoEquipo?.serie ?? ""
     property string version: tx("app", "version")
-    // [{fase, estado}] de las fases que aplican (GET /cycle/current/progress)
-    property var fases: []
-    // segundos (reloj monotónico del backend); restanteS null = no estimable
-    property var transcurridoS: null
-    property var restanteS: null
+    // [{fase, estado, duracion_s}] de las fases que aplican
+    property var fases: progreso?.fases ?? []
+    // segundos (reloj monotónico del backend); restanteS null = no estimable;
+    // sin conexión no se muestran (quedarían congelados)
+    property var transcurridoS: datosVigentes ? (progreso?.transcurridoS ?? null) : null
+    property var restanteS: datosVigentes ? (progreso?.restanteS ?? null) : null
     // gráfica: ver GraficaCiclo.datos / fases
-    property var datosGrafica: ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
-    property var fasesGrafica: []
-    property real tiempoActualMin: 0
+    property var datosGrafica: progreso?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
+    property var fasesGrafica: progreso?.fasesGrafica ?? []
+    property real tiempoActualMin: progreso?.tiempoActualMin ?? 0
     property real cursorMin: NaN
+    property bool pantallaCompleta: false
+
+    // ProgresoCiclo solo consulta el backend mientras esta pantalla se ve
+    Binding {
+        target: raiz.progreso
+        when: raiz.progreso !== null
+        property: "activo"
+        value: raiz.visible
+    }
 
     // ---- acciones: las resuelve quien usa la pantalla (Fase 4) ----
     signal campanaPulsada()
@@ -69,7 +88,7 @@ Item {
         const dos = n => n < 10 ? "0" + n : "" + n
         return dos(Math.floor(s / 3600)) + ":" + dos(Math.floor(s % 3600 / 60)) + ":" + dos(s % 60)
     }
-    readonly property real progreso: {
+    readonly property real fraccionProgreso: {
         const t = raiz.transcurridoS, r = raiz.restanteS
         if (t === null || t === undefined || r === null || r === undefined || t + r <= 0)
             return 0
@@ -308,20 +327,15 @@ Item {
     Rectangle {
         x: raiz.m(970); y: raiz.m(254); width: raiz.m(80); height: width; radius: width / 2
         color: raiz.paleta.verdeEjecutando
-        // images/engranaje.svg es verde: brightness 1.0 lo lleva a blanco
-        // (tinta 48 px = 48 % del viewBox de 64 -> imagen de 100 px)
-        Image {
-            id: engranajeEstado
+        // Engranaje animado (decisión de Cristian, 2026-10-01): images/IconoEjecucion.qml.
+        // Sus SVG son verdes: brightness 1.0 los lleva a blanco. Las flechas ocupan el
+        // 92 % del viewBox: con 72 px el anillo (≈ 66 px) cabe en el círculo de 80.
+        IconoEjecucion {
             anchors.centerIn: parent
-            width: raiz.m(100); height: width
-            source: raiz.imagenes + "engranaje.svg"
-            sourceSize.width: width; sourceSize.height: height
-            visible: false
-        }
-        MultiEffect {
-            anchors.fill: engranajeEstado
-            source: engranajeEstado
-            brightness: 1.0
+            size: raiz.m(72)
+            running: raiz.visible
+            layer.enabled: true
+            layer.effect: MultiEffect { brightness: 1.0 }
         }
     }
     Texto {
@@ -416,8 +430,33 @@ Item {
         fases: raiz.fasesGrafica
         tiempoActualMin: raiz.tiempoActualMin
         cursorMin: raiz.cursorMin
+        tiempos: raiz.fases
         onTiemposPulsado: raiz.tiemposPulsado()
-        onPantallaCompletaPulsado: raiz.pantallaCompletaPulsado()
+        onPantallaCompletaPulsado: { raiz.pantallaCompleta = true; raiz.pantallaCompletaPulsado() }
+
+        // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
+        // mismo texto que Ciclo.qml; los datos de la gráfica quedan congelados.
+        Rectangle {
+            visible: !raiz.datosVigentes
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: raiz.m(170)
+            width: raiz.m(960); height: avisoSinConexion.implicitHeight + raiz.m(24)
+            radius: raiz.m(10)
+            color: Colores.fondoSutil
+            border.width: raiz.m(1.5); border.color: raiz.paleta.bordeTarjeta
+            Text {
+                id: avisoSinConexion
+                x: raiz.m(20); width: parent.width - raiz.m(40)
+                anchors.verticalCenter: parent.verticalCenter
+                text: raiz.tx("sistema", "sin_conexion")
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                color: Colores.textoSecundario
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoSemiBold
+                font.pixelSize: raiz.fuente(24)
+            }
+        }
     }
 
     // ======================= relojes y progreso (anclados abajo) =======================
@@ -446,8 +485,8 @@ Item {
         radius: height / 2
         color: raiz.paleta.pistaProgreso
         Rectangle {
-            visible: raiz.progreso > 0
-            width: Math.max(height, pista.width * raiz.progreso); height: pista.height
+            visible: raiz.fraccionProgreso > 0
+            width: Math.max(height, pista.width * raiz.fraccionProgreso); height: pista.height
             radius: height / 2
             gradient: Gradient {
                 orientation: Gradient.Horizontal
@@ -564,5 +603,27 @@ Item {
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
         font.pixelSize: raiz.fuente(20)
+    }
+
+    // ======================= gráfica a pantalla completa =======================
+    // Solo la gráfica (leyenda y ejes incluidos) y un botón CERRAR; el cursor y la
+    // actualización en vivo siguen funcionando (mismos datos que la tarjeta).
+    Item {
+        visible: raiz.pantallaCompleta
+        anchors.fill: parent
+        FondoApp { anchors.fill: parent }
+        MouseArea { anchors.fill: parent }   // nada debajo recibe toques
+        GraficaCiclo {
+            x: raiz.m(33); y: raiz.m(40)
+            width: raiz.m(1162 - 33)
+            height: parent.height - raiz.m(80)
+            escala: raiz.m(1)
+            modoPantallaCompleta: true
+            textosJson: raiz.textosJson
+            datos: raiz.datosGrafica
+            fases: raiz.fasesGrafica
+            tiempoActualMin: raiz.tiempoActualMin
+            onCerrarPulsado: raiz.pantallaCompleta = false
+        }
     }
 }

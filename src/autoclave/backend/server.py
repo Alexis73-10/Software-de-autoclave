@@ -318,6 +318,7 @@ def get_current_cycle_graph(desde_id: int | None = None):
                 "id":          r["id"],
                 "t_s":         r["t_s"],
                 "fase":        r["fase"],
+                "fase_ui":     progreso_ciclo.fase_ui(r["fase"]),
                 "temp_camara": r["temp_camara"],
                 "temp_ref":    r["temp_ref"],
                 "pres_camara": r["pres_camara"],

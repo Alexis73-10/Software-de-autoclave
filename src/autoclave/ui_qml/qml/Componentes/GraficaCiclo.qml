@@ -29,11 +29,21 @@ Item {
     // Inicio de cada fase de la UI en el ciclo actual, en orden: [{clave, inicioMin}]
     property var fases: []
     property real tiempoActualMin: 0
-    // Cursor: minuto señalado; NaN = oculto
+    // Cursor: minuto señalado; NaN = oculto. Lo mueve el toque/arrastre sobre el
+    // área de trazado y se oculta solo tras OCULTAR_CURSOR_MS sin interacción.
     property real cursorMin: NaN
+    // Desplegable "Tiempos": [{fase, estado, duracion_s}] de las fases que aplican
+    // (GET /cycle/current/progress; la activa se actualiza en vivo).
+    property var tiempos: []
+    // Pantalla completa: sin botones Tiempos / pantalla completa; botón CERRAR.
+    property bool modoPantallaCompleta: false
+
+    // Decisión delegada (plan §14), a validar visualmente; configurable.
+    property int ocultarCursorMs: 5000
 
     signal tiemposPulsado()
     signal pantallaCompletaPulsado()
+    signal cerrarPulsado()
 
     function tx(seccion, clave) {
         const s = textosJson ? textosJson[seccion] : undefined
@@ -179,8 +189,10 @@ Item {
         }
     }
 
-    // botón "Tiempos" (desplegable: §8, Fase 3)
+    // botón "Tiempos": abre/cierra el desplegable de duraciones por fase
     Rectangle {
+        id: botonTiempos
+        visible: !raiz.modoPantallaCompleta
         x: raiz.m(856); y: raiz.m(43); width: raiz.m(154); height: raiz.m(58)
         radius: raiz.m(6)
         color: Colores.fondoTarjeta
@@ -200,11 +212,15 @@ Item {
             source: raiz.iconosColor + "chevron_abajo.svg"
             sourceSize.width: width; sourceSize.height: height
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.tiemposPulsado() }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: { desplegable.abierto = !desplegable.abierto; raiz.tiemposPulsado() }
+        }
     }
 
     // botón de pantalla completa
     Rectangle {
+        visible: !raiz.modoPantallaCompleta
         x: raiz.m(1037); y: raiz.m(43); width: raiz.m(58); height: raiz.m(58)
         radius: raiz.m(6)
         color: Colores.fondoTarjeta
@@ -216,6 +232,24 @@ Item {
             sourceSize.width: width; sourceSize.height: height
         }
         MouseArea { anchors.fill: parent; onClicked: raiz.pantallaCompletaPulsado() }
+    }
+
+    // botón CERRAR de la pantalla completa (PROVISIONAL: sin diseño; estilo del botón Tiempos)
+    Rectangle {
+        visible: raiz.modoPantallaCompleta
+        x: raiz.m(885); y: raiz.m(43); width: raiz.m(210); height: raiz.m(58)
+        radius: raiz.m(6)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
+        Text {
+            anchors.centerIn: parent
+            text: raiz.tx("acciones", "cerrar")
+            color: raiz.paleta.texto
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: raiz.fuente(20)
+        }
+        MouseArea { anchors.fill: parent; onClicked: raiz.cerrarPulsado() }
     }
 
     Rectangle {
@@ -372,6 +406,31 @@ Item {
         }
     }
 
+    // ---- interacción del cursor ----
+    function _tDesdeX(px) {
+        const ts = raiz.datos.t_min || []
+        if (ts.length === 0) return NaN
+        const t = (px - xDato0) / (xDato1 - xDato0) * ejeX.maximo
+        return Math.max(ts[0], Math.min(ts[ts.length - 1], t))
+    }
+    MouseArea {
+        id: toqueGrafica
+        x: raiz.m(68); y: raiz.yArriba - raiz.m(20)
+        width: raiz.m(1059 - 68); height: raiz.yAbajo - y
+        preventStealing: true
+        function mover(mx) {
+            raiz.cursorMin = raiz._tDesdeX(x + mx)
+            ocultarCursor.restart()
+        }
+        onPressed: (evento) => mover(evento.x)
+        onPositionChanged: (evento) => mover(evento.x)
+    }
+    Timer {
+        id: ocultarCursor
+        interval: raiz.ocultarCursorMs
+        onTriggered: raiz.cursorMin = NaN
+    }
+
     // ---- cursor y globo de valores ----
     Item {
         id: cursor
@@ -457,6 +516,82 @@ Item {
                         font.family: Tipografia.familia
                         font.weight: Tipografia.pesoSemiBold
                         font.pixelSize: raiz.fuente(16)
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- desplegable "Tiempos" ----
+    // PROVISIONAL (sin diseño en el mockup): lista bajo el botón con la duración
+    // de cada fase que aplica; completadas = duración final, activa = en curso
+    // (se actualiza con el progreso), pendientes = "—". Se cierra al tocar fuera.
+    function _formatoDuracion(seg) {
+        if (seg === null || seg === undefined || !isFinite(seg))
+            return raiz.tx("sistema", "sin_lectura")
+        const s = Math.max(0, Math.floor(seg))
+        const dos = n => n < 10 ? "0" + n : "" + n
+        return dos(Math.floor(s / 3600)) + ":" + dos(Math.floor(s % 3600 / 60)) + ":" + dos(s % 60)
+    }
+    function _nombreFase(clave) {
+        const f = raiz.textosJson ? raiz.textosJson.fases : undefined
+        return (f && f[clave] !== undefined) ? f[clave] : ""
+    }
+    MouseArea {
+        visible: desplegable.abierto
+        anchors.fill: parent
+        onClicked: desplegable.abierto = false
+    }
+    Rectangle {
+        id: desplegable
+        property bool abierto: false
+        visible: abierto && !raiz.modoPantallaCompleta
+        x: botonTiempos.x + botonTiempos.width - width
+        y: botonTiempos.y + botonTiempos.height + raiz.m(8)
+        width: raiz.m(420)
+        height: columnaTiempos.height + raiz.m(16)
+        radius: raiz.m(10)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: "#30000000"
+            shadowVerticalOffset: raiz.m(3)
+            shadowBlur: 0.5
+        }
+        MouseArea { anchors.fill: parent }   // no cerrar al tocar dentro
+        Column {
+            id: columnaTiempos
+            x: 0; y: raiz.m(8)
+            width: parent.width
+            Repeater {
+                model: raiz.tiempos
+                delegate: Item {
+                    id: filaTiempo
+                    required property var modelData
+                    width: columnaTiempos.width
+                    height: raiz.m(56)
+                    Text {
+                        x: raiz.m(24)
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: raiz._nombreFase(filaTiempo.modelData.fase)
+                        color: raiz.paleta.texto
+                        font.family: Tipografia.familia
+                        font.weight: filaTiempo.modelData.estado === "activa" ? Tipografia.pesoBold : Tipografia.pesoRegular
+                        font.pixelSize: raiz.fuente(21)
+                    }
+                    Text {
+                        x: parent.width - width - raiz.m(24)
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: filaTiempo.modelData.estado === "pendiente"
+                              ? raiz.tx("sistema", "sin_lectura")
+                              : raiz._formatoDuracion(filaTiempo.modelData.duracion_s)
+                        color: raiz.paleta.texto
+                        font.family: Tipografia.familia
+                        font.weight: filaTiempo.modelData.estado === "activa" ? Tipografia.pesoBold : Tipografia.pesoRegular
+                        font.pixelSize: raiz.fuente(21)
+                        font.features: { "tnum": 1 }
                     }
                 }
             }

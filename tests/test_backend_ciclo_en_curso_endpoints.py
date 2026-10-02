@@ -131,7 +131,8 @@ def test_grafica_completa_e_incremental(entorno):
     assert todo["ciclo_db_id"] == cid
     assert [l["t_s"] for l in todo["lecturas"]] == [0.0, 1.0, 2.0, 3.0]
     primera = todo["lecturas"][0]
-    assert set(primera) == {"id", "t_s", "fase", "temp_camara", "temp_ref", "pres_camara"}
+    assert set(primera) == {"id", "t_s", "fase", "fase_ui", "temp_camara", "temp_ref", "pres_camara"}
+    assert primera["fase_ui"] == "vacio"     # la UI no traduce fases (plan §5.3)
     assert primera["temp_ref"] == 79.0
 
     desde = todo["lecturas"][1]["id"]
