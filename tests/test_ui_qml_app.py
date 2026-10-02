@@ -147,6 +147,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
         "version": ciclo.property("version"),
         "cicloActivo": ciclo.property("cicloActivo"),
         "estadoTexto": ciclo.property("estadoTexto"),
+        "estadoListo": ciclo.property("estadoListo"),
     }))
 """)
 
@@ -265,6 +266,7 @@ def test_main_qml_navega_a_ciclo_sin_avisos(conectado, door, puerta_abierta):
     assert salida["login_abre"] is True
     assert salida["login_regresa"] is True
     assert salida["estadoTexto"] == "Listo"   # PREPARADO + LISTO_PARA_CICLO
+    assert salida["estadoListo"] is True      # insignia verde con check, no "!" naranja
 
 
 

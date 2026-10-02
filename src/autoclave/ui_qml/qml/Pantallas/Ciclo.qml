@@ -20,7 +20,7 @@ import "../Componentes"
 // Modelo y serie: perfil de instalación (InfoEquipo). La campana abre el panel
 // de notificaciones y el recuadro de modelo/serie el de información del equipo
 // (ambos PROVISIONALES, sin diseño).
-// PENDIENTE (PC-04): insignia del estado sigue con el ejemplo del mockup.
+// Insignia del estado: check verde en "Listo"; "!" naranja en el resto (PC-04).
 // PENDIENTE (PC-03): tipografías y activos definitivos del diseñador.
 Item {
     id: raiz
@@ -45,6 +45,9 @@ Item {
     property bool datosVigentes: puente?.connected ?? false
     property string cicloActivo: puente?.cicloActivo ?? ""   // "cycle_number" del ciclo (01, 02...)
     property string estadoTexto: tx("estados", puente?.estadoEquipo ?? "no_preparado")
+    // Insignia de ESTADO: check verde si el equipo está listo (decisión de
+    // Cristian, 2026-10-01); "!" naranja en los demás estados.
+    readonly property bool estadoListo: (puente?.estadoEquipo ?? "") === "listo"
     property int puerta: puente?.door ?? 1
     // ABIERTO/ABRIENDO -> "abierta" (acción: cerrar); regla en UiBridge.doorOpen,
     // la misma que usa ComandosPuerta para decidir qué comando enviar.
@@ -315,8 +318,24 @@ Item {
     Rotulo { cx: 1011; text: raiz.textos.estado }
     Rectangle {
         x: raiz.m(972); y: raiz.m(256); width: raiz.m(78); height: width; radius: width / 2
-        color: raiz.paleta.naranjaEstado
+        color: raiz.estadoListo ? raiz.paleta.verdeEjecutando : raiz.paleta.naranjaEstado
+        // confirmar.svg es oscuro: brightness 1.0 lo lleva a blanco
+        Image {
+            id: checkListo
+            visible: false
+            anchors.centerIn: parent
+            width: raiz.m(62); height: width
+            source: raiz.iconosColor + "confirmar.svg"
+            sourceSize.width: width; sourceSize.height: height
+        }
+        MultiEffect {
+            visible: raiz.estadoListo
+            anchors.fill: checkListo
+            source: checkListo
+            brightness: 1.0
+        }
         Text {
+            visible: !raiz.estadoListo
             anchors.centerIn: parent
             text: "!"
             color: "white"
@@ -325,7 +344,10 @@ Item {
             font.pixelSize: raiz.fuente(56)
         }
     }
-    TextoNaranja { cx: 1010; text: raiz.estadoTexto }
+    TextoNaranja {
+        cx: 1010; text: raiz.estadoTexto
+        color: raiz.estadoListo ? raiz.paleta.verdeEjecutando : raiz.paleta.naranjaTexto
+    }
 
     // ---- tarjeta de parámetros ----
     Rectangle {
