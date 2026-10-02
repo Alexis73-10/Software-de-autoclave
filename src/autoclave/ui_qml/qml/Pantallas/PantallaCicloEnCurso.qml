@@ -1,0 +1,568 @@
+import QtQuick
+import QtQuick.Effects
+import Tema
+import "../Componentes"
+
+// Pantalla de ciclo en curso (docs/mis_plans/planeacion_pantalla_ciclo_en_curso.md).
+// Referencia: images/pantalla_ciclo_con_grafica_editada.png (1196 x 1917).
+//
+// Geometría: px del mockup pasados por m() (escala uniforme con el ancho, igual
+// que Ciclo.qml). El alto es flexible (Escala.altoLienzo): lo que está por
+// encima de la gráfica queda fijo arriba, lo que está por debajo se ancla abajo
+// (yb()) y la tarjeta de la gráfica absorbe la diferencia (plan §11).
+// Cabecera, tarjeta de ciclo, tarjeta de parámetros y barra inferior replican
+// la geometría de Ciclo.qml (tarjeta de parámetros desplazada +151 px);
+// PENDIENTE (Fase 5): extraer las partes comunes al renombrar Ciclo.qml.
+//
+// FASE 2: solo presentación. Todos los datos entran por propiedades; los de
+// ejemplo los pone qml/Pruebas/PruebaCicloEnCurso.qml. La conexión al backend
+// es la Fase 3; la navegación, la cancelación y los paneles, la Fase 4.
+Item {
+    id: raiz
+
+    property var textosJson: ({})
+
+    // ---- datos (Fase 3: desde el puente) ----
+    property string cicloActivo: ""
+    property string programa: ""
+    property string tempEsterilizacion: ""
+    property string tiempoEsterilizacion: ""
+    property string tiempoSecado: ""
+    property string tempCamara: ""
+    property string presionCamara: ""
+    property bool datosVigentes: false
+    property int conteoNotificaciones: 0
+    property string modelo: ""
+    property string serie: ""
+    property string version: tx("app", "version")
+    // [{fase, estado}] de las fases que aplican (GET /cycle/current/progress)
+    property var fases: []
+    // segundos (reloj monotónico del backend); restanteS null = no estimable
+    property var transcurridoS: null
+    property var restanteS: null
+    // gráfica: ver GraficaCiclo.datos / fases
+    property var datosGrafica: ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
+    property var fasesGrafica: []
+    property real tiempoActualMin: 0
+    property real cursorMin: NaN
+
+    // ---- acciones: las resuelve quien usa la pantalla (Fase 4) ----
+    signal campanaPulsada()
+    signal ajustesPulsado()
+    signal avatarPulsado()
+    signal equipoPulsado()
+    signal cancelarPulsado()
+    signal tiemposPulsado()
+    signal pantallaCompletaPulsado()
+
+    function tx(seccion, clave) {
+        const s = textosJson ? textosJson[seccion] : undefined
+        return (s && s[clave] !== undefined) ? s[clave] : ""
+    }
+    function sinLectura(valor) { return valor !== "" ? valor : tx("sistema", "sin_lectura") }
+
+    // HH:MM:SS de segundos ya medidos por el backend; null -> "—"
+    function formatoReloj(seg) {
+        if (seg === null || seg === undefined || !isFinite(seg))
+            return tx("sistema", "sin_lectura")
+        const s = Math.max(0, Math.floor(seg))
+        const dos = n => n < 10 ? "0" + n : "" + n
+        return dos(Math.floor(s / 3600)) + ":" + dos(Math.floor(s % 3600 / 60)) + ":" + dos(s % 60)
+    }
+    readonly property real progreso: {
+        const t = raiz.transcurridoS, r = raiz.restanteS
+        if (t === null || t === undefined || r === null || r === undefined || t + r <= 0)
+            return 0
+        return Math.max(0, Math.min(1, t / (t + r)))
+    }
+
+    readonly property QtObject textos: QtObject {
+        readonly property string cicloActivo: raiz.tx("ciclo", "activo")
+        readonly property string programa: raiz.tx("ciclo", "programa")
+        readonly property string estado: raiz.tx("ciclo", "estado")
+        readonly property string enEjecucion: raiz.tx("estados", "ejecutando")
+        readonly property string tempEster: raiz.tx("ciclo", "temp_ester")
+        readonly property string tiempoEst: raiz.tx("ciclo", "tiempo_est")
+        readonly property string tiempoSec: raiz.tx("ciclo", "tiempo_sec")
+        readonly property string tempCamara: raiz.tx("ciclo", "temp_camara")
+        readonly property string presion: raiz.tx("ciclo", "presion")
+        readonly property string unidadTemp: raiz.tx("unidades", "temperatura")
+        readonly property string unidadTiempo: raiz.tx("unidades", "tiempo")
+        readonly property string unidadPresion: raiz.tx("unidades", "presion")
+        readonly property string transcurrido: raiz.tx("ciclo", "tiempo_transcurrido")
+        readonly property string restante: raiz.tx("ciclo", "tiempo_restante")
+        readonly property string cancelar: raiz.tx("ciclo", "cancelar")
+        readonly property string modelo: raiz.tx("ciclo", "modelo")
+        readonly property string serie: raiz.tx("ciclo", "serie")
+    }
+
+    // Colores medidos sobre el mockup (los compartidos con Ciclo.qml, iguales).
+    // PENDIENTE: promover a Tema/Colores.qml cuando el diseñador los confirme.
+    readonly property QtObject paleta: QtObject {
+        readonly property color negro: "#000000"
+        readonly property color programa: "#000209"
+        readonly property color verdeEjecutando: "#25BA9E"
+        readonly property color insignia: "#08C9F9"
+        readonly property color bordeTarjeta: "#E5E5E5"
+        readonly property color bordeSuave: "#F5F5F5"
+        readonly property color divisorCiclo: "#C0C0C0"
+        readonly property color divisorParam: "#C3C3C3"
+        readonly property color divisorPie: "#BEBEBE"
+        readonly property color etiqueta: "#393939"
+        readonly property color unidad: "#424242"
+        readonly property color textoPie: "#3B3B3B"
+        readonly property color versionTexto: "#8F8F8F"
+        readonly property color avatarFondo: "#E6E6E6"
+        readonly property color iconoGris: "#808080"
+        readonly property color reloj: "#383838"
+        readonly property color rotuloReloj: "#3E3E3E"
+        readonly property color pistaProgreso: "#DEE4EC"
+        readonly property color progresoInicio: "#04439B"
+        readonly property color progresoFin: "#0BB8FA"
+        readonly property color cancelarArriba: "#F40000"
+        readonly property color cancelarAbajo: "#870004"
+    }
+
+    readonly property string fuenteNumeros: "Arial"   // como Ciclo.qml (PC-03)
+
+    readonly property real anchoMockup: 1196
+    readonly property real altoMockup: 1917
+    function m(v) { return v * raiz.width / anchoMockup }
+    function fuente(v) { return Math.max(1, Math.round(m(v))) }
+    // alto sobrante respecto al mockup; lo absorbe la gráfica
+    readonly property real extra: raiz.height - m(altoMockup)
+    function yb(v) { return m(v) + extra }
+
+    readonly property string iconosColor: "../../assets/iconos/color/"
+    readonly property string imagenes: "../../../images/"
+
+    // Texto por línea base (bl) y centro (cx) o borde izquierdo (lx), en px del
+    // mockup; abajo = true ancla la línea base al borde inferior (yb).
+    component Texto: Text {
+        property real cx: -1
+        property real lx: -1
+        property real bl: 0
+        property real tam: 16
+        property bool abajo: false
+        font.pixelSize: raiz.fuente(tam)
+        x: lx >= 0 ? raiz.m(lx) : raiz.m(cx) - width / 2
+        y: (abajo ? raiz.yb(bl) : raiz.m(bl)) - baselineOffset
+    }
+
+    // Icono SVG de 48x48 cuya tinta llena la caja del mockup (como Ciclo.qml).
+    component Icono: Image {
+        property var caja: [0, 0, 0, 0]
+        property var tinta: [0, 0, 48, 48]
+        property bool abajo: false
+        readonly property real _escala: raiz.m(caja[3]) / (tinta[3] - tinta[1])
+        width: 48 * _escala
+        height: width
+        x: raiz.m(caja[0] + caja[2] / 2) - (tinta[0] + tinta[2]) / 2 * _escala
+        y: (abajo ? raiz.yb(caja[1]) : raiz.m(caja[1])) - tinta[1] * _escala
+        sourceSize.width: width
+        sourceSize.height: height
+    }
+
+    component IconoTenido: Item {
+        id: tenido
+        property alias caja: fuenteIcono.caja
+        property alias tinta: fuenteIcono.tinta
+        property alias source: fuenteIcono.source
+        property color color: "white"
+        anchors.fill: parent
+        Icono { id: fuenteIcono; visible: false }
+        MultiEffect {
+            x: fuenteIcono.x; y: fuenteIcono.y; width: fuenteIcono.width; height: fuenteIcono.height
+            source: fuenteIcono
+            colorization: 1.0
+            colorizationColor: tenido.color
+        }
+    }
+
+    component Divisor: Rectangle {
+        property real cx: 0
+        property real y0: 0
+        property real y1: 0
+        property bool abajo: false
+        x: raiz.m(cx - 1); y: abajo ? raiz.yb(y0) : raiz.m(y0)
+        width: raiz.m(2); height: raiz.m(y1 - y0)
+    }
+
+    // ======================= fondo =======================
+    FondoApp { anchors.fill: parent }
+
+    // ======================= cabecera (= Ciclo.qml) =======================
+    Image {
+        x: raiz.m(73); y: raiz.m(57)
+        width: raiz.m(267)
+        height: width * 42427 / 158611
+        source: "../../assets/logo/logo-especifika-blanco.svg"
+        sourceSize.width: width
+        sourceSize.height: height
+    }
+
+    Item {
+        id: reloj
+        anchors.fill: parent
+        // reloj del sistema: solo para mostrar la hora (no es tiempo de proceso)
+        readonly property var _meses: (raiz.textosJson.fecha && raiz.textosJson.fecha.meses) || []
+        property date _ahora: new Date()
+        Timer { interval: 1000; running: true; repeat: true; onTriggered: reloj._ahora = new Date() }
+        function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
+
+        Texto {
+            cx: 597.5; bl: 108; tam: 97
+            text: reloj._dosDigitos(reloj._ahora.getHours()) + ":" +
+                  reloj._dosDigitos(reloj._ahora.getMinutes())
+            color: "white"
+            font.family: Tipografia.familiaReloj
+            font.weight: Tipografia.pesoBold
+        }
+        Texto {
+            cx: 598; bl: 141; tam: 26
+            text: reloj._ahora.getDate() + " " +
+                  (reloj._meses[reloj._ahora.getMonth()] ?? "") + "  -  " +
+                  reloj._ahora.getFullYear()
+            color: "white"
+            font.family: Tipografia.familiaReloj
+        }
+    }
+
+    Item {
+        anchors.fill: parent
+        Icono {
+            caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
+            source: raiz.iconosColor + "campana.svg"
+        }
+        Rectangle {
+            visible: raiz.conteoNotificaciones > 0
+            x: raiz.m(922); y: raiz.m(50)
+            width: raiz.m(26); height: raiz.m(25); radius: width / 2
+            color: raiz.paleta.insignia
+            Text {
+                anchors.centerIn: parent
+                text: raiz.conteoNotificaciones
+                color: "white"
+                font.family: Tipografia.familia
+                font.pixelSize: raiz.fuente(17)
+            }
+        }
+        MouseArea {
+            x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
+            onClicked: raiz.campanaPulsada()
+        }
+
+        Icono {
+            caja: [1043, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
+            source: raiz.iconosColor + "engranaje.svg"
+        }
+        MouseArea {
+            x: raiz.m(1025); y: raiz.m(45); width: raiz.m(95); height: raiz.m(95)
+            onClicked: raiz.ajustesPulsado()
+        }
+    }
+
+    // ======================= panel principal =======================
+    Rectangle {
+        x: raiz.m(19); y: raiz.m(177)
+        width: raiz.m(1159); height: raiz.yb(1900) - y
+        radius: raiz.m(30)
+        color: Colores.fondoTarjeta
+    }
+
+    // ---- tarjeta de ciclo (= Ciclo.qml salvo ESTADO) ----
+    Rectangle {
+        x: raiz.m(19); y: raiz.m(404); width: raiz.m(1159); height: raiz.m(2)
+        color: raiz.paleta.bordeTarjeta
+    }
+    Divisor { cx: 351; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+    Divisor { cx: 839; y0: 219; y1: 384; color: raiz.paleta.divisorCiclo }
+
+    component Rotulo: Texto {
+        bl: 229; tam: 17
+        color: raiz.paleta.negro
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoMedium
+    }
+
+    Rotulo { cx: 199; text: raiz.textos.cicloActivo }
+    Texto {
+        cx: 200; bl: 333; tam: 103
+        text: raiz.sinLectura(raiz.cicloActivo)
+        color: raiz.datosVigentes ? raiz.paleta.negro : Colores.textoGuia
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+
+    Rotulo { cx: 599.5; text: raiz.textos.programa }
+    Texto {
+        cx: 599; bl: 308; tam: 36
+        text: raiz.sinLectura(raiz.programa)
+        color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoBold
+    }
+
+    // ESTADO: único estado del alcance, "En ejecución" (plan §5.2)
+    Rotulo { cx: 1011; text: raiz.textos.estado }
+    Rectangle {
+        x: raiz.m(970); y: raiz.m(254); width: raiz.m(80); height: width; radius: width / 2
+        color: raiz.paleta.verdeEjecutando
+        // images/engranaje.svg es verde: brightness 1.0 lo lleva a blanco
+        // (tinta 48 px = 48 % del viewBox de 64 -> imagen de 100 px)
+        Image {
+            id: engranajeEstado
+            anchors.centerIn: parent
+            width: raiz.m(100); height: width
+            source: raiz.imagenes + "engranaje.svg"
+            sourceSize.width: width; sourceSize.height: height
+            visible: false
+        }
+        MultiEffect {
+            anchors.fill: engranajeEstado
+            source: engranajeEstado
+            brightness: 1.0
+        }
+    }
+    Texto {
+        cx: 1010; bl: 380; tam: 22
+        text: raiz.textos.enEjecucion
+        color: raiz.paleta.verdeEjecutando
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+
+    // ======================= barra de fases =======================
+    BarraFases {
+        anchors.fill: parent
+        escala: raiz.m(1)
+        textosJson: raiz.textosJson
+        fases: raiz.fases
+    }
+
+    // ======================= tarjeta de parámetros (= Ciclo.qml, +151) =======================
+    component Etiqueta: Texto {
+        tam: 12
+        color: raiz.paleta.etiqueta
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+    component Valor: Texto {
+        bl: 554; tam: 55
+        color: raiz.datosVigentes ? raiz.paleta.negro : Colores.textoGuia
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+    component Unidad: Texto {
+        bl: 606; tam: 27
+        color: raiz.paleta.unidad
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+
+    Item {
+        anchors.fill: parent
+        transform: Translate { y: raiz.m(151) }
+
+        Rectangle {
+            x: raiz.m(34); y: raiz.m(425); width: raiz.m(1129); height: raiz.m(208)
+            radius: raiz.m(30)
+            color: Colores.fondoTarjeta
+            border.width: raiz.m(2); border.color: raiz.paleta.bordeSuave
+        }
+        Divisor { cx: 255; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
+        Divisor { cx: 482; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
+        Divisor { cx: 708; y0: 452; y1: 608; color: raiz.paleta.divisorParam }
+        Divisor { cx: 938; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
+
+        Icono { caja: [73, 448, 20, 33]; tinta: [12.25, 4.0, 36.55, 44.0]; source: raiz.iconosColor + "sensor_temperatura.svg" }
+        Etiqueta { lx: 129; bl: 469; text: raiz.textos.tempEster }
+        Valor { cx: 152; text: raiz.sinLectura(raiz.tempEsterilizacion) }
+        Unidad { cx: 151.5; text: raiz.textos.unidadTemp }
+
+        Icono { caja: [294, 447, 35, 35]; tinta: [5.9, 5.9, 42.1, 42.1]; source: raiz.iconosColor + "sensor_tiempo.svg" }
+        Etiqueta { lx: 357; bl: 467; text: raiz.textos.tiempoEst }
+        Valor { cx: 371.5; text: raiz.sinLectura(raiz.tiempoEsterilizacion) }
+        Unidad { cx: 378; text: raiz.textos.unidadTiempo }
+
+        IconoTenido {
+            caja: [532, 446, 27, 39]; tinta: [10.05, 4.2, 37.95, 43.8]
+            source: raiz.iconosColor + "sensor_tiempo_secado.svg"
+            color: raiz.paleta.iconoGris
+        }
+        Etiqueta { lx: 588; bl: 467; text: raiz.textos.tiempoSec }
+        Valor { cx: 599; text: raiz.sinLectura(raiz.tiempoSecado) }
+        Unidad { cx: 599; text: raiz.textos.unidadTiempo }
+
+        Icono { caja: [751, 448, 20, 33]; tinta: [12.25, 4.0, 36.55, 44.0]; source: raiz.iconosColor + "sensor_temperatura_2.svg" }
+        Etiqueta { lx: 798; bl: 469; text: raiz.textos.tempCamara }
+        Valor { cx: 830.5; text: raiz.sinLectura(raiz.tempCamara) }
+        Unidad { cx: 821.5; text: raiz.textos.unidadTemp }
+
+        Icono { caja: [983, 450, 37, 31]; tinta: [5.3, 8.0, 43.7, 40.85]; source: raiz.iconosColor + "sensor_presion.svg" }
+        Etiqueta { lx: 1051; bl: 467; text: raiz.textos.presion }
+        Valor { cx: 1045.5; text: raiz.sinLectura(raiz.presionCamara) }
+        Unidad { cx: 1061; text: raiz.textos.unidadPresion }
+    }
+
+    // ======================= gráfica (alto flexible) =======================
+    GraficaCiclo {
+        x: raiz.m(33); y: raiz.m(804)
+        width: raiz.m(1162 - 33)
+        height: raiz.yb(1598) - y
+        escala: raiz.m(1)
+        textosJson: raiz.textosJson
+        datos: raiz.datosGrafica
+        fases: raiz.fasesGrafica
+        tiempoActualMin: raiz.tiempoActualMin
+        cursorMin: raiz.cursorMin
+        onTiemposPulsado: raiz.tiemposPulsado()
+        onPantallaCompletaPulsado: raiz.pantallaCompletaPulsado()
+    }
+
+    // ======================= relojes y progreso (anclados abajo) =======================
+    component Reloj: Texto {
+        abajo: true; bl: 1656; tam: 48
+        color: raiz.paleta.reloj
+        font.family: raiz.fuenteNumeros
+        font.weight: Tipografia.pesoBold
+    }
+    component RotuloReloj: Texto {
+        abajo: true; bl: 1681; tam: 19
+        color: raiz.paleta.rotuloReloj
+        font.family: Tipografia.familia
+    }
+    Reloj { cx: 426.5; text: raiz.formatoReloj(raiz.transcurridoS) }
+    RotuloReloj { cx: 426.5; text: raiz.textos.transcurrido }
+    Reloj { cx: 995; text: raiz.formatoReloj(raiz.restanteS) }
+    RotuloReloj { cx: 994.5; text: raiz.textos.restante }
+
+    // Barra de progreso: ancho completo bajo los relojes (plan §5.6; el mockup
+    // la corta en x = 814). Sin estimación de restante queda vacía.
+    Rectangle {
+        id: pista
+        x: raiz.m(39); y: raiz.yb(1691)
+        width: raiz.m(1157 - 39); height: raiz.m(32)
+        radius: height / 2
+        color: raiz.paleta.pistaProgreso
+        Rectangle {
+            visible: raiz.progreso > 0
+            width: Math.max(height, pista.width * raiz.progreso); height: pista.height
+            radius: height / 2
+            gradient: Gradient {
+                orientation: Gradient.Horizontal
+                GradientStop { position: 0.0; color: raiz.paleta.progresoInicio }
+                GradientStop { position: 1.0; color: raiz.paleta.progresoFin }
+            }
+        }
+    }
+
+    // ======================= barra inferior (= Ciclo.qml salvo la derecha) =======================
+    Rectangle {
+        x: raiz.m(33); y: raiz.yb(1744); width: raiz.m(1130); height: raiz.m(141)
+        radius: raiz.m(26)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(2); border.color: raiz.paleta.bordeSuave
+    }
+    Divisor { abajo: true; cx: 347; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
+    Divisor { abajo: true; cx: 834; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
+
+    // Icono de equipo: igual que Ciclo.qml (PROVISIONAL, PC-03) hasta recibir el SVG del diseñador.
+    Item {
+        x: raiz.m(71); y: raiz.yb(1763); width: raiz.m(80); height: raiz.m(52)
+        Rectangle {
+            anchors.fill: parent
+            color: "transparent"
+            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
+        }
+        Rectangle {
+            x: raiz.m(42); y: raiz.m(4); width: raiz.m(18); height: raiz.m(44)
+            color: "transparent"
+            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
+        }
+    }
+    component TextoPie: Texto {
+        abajo: true; lx: 70; tam: 17
+        color: raiz.paleta.textoPie
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoSemiBold
+    }
+    TextoPie { bl: 1838; text: raiz.textos.modelo + raiz.sinLectura(raiz.modelo) }
+    TextoPie { bl: 1862; text: raiz.textos.serie + raiz.sinLectura(raiz.serie) }
+    MouseArea {
+        x: raiz.m(33); y: raiz.yb(1744); width: raiz.m(347 - 33); height: raiz.m(141)
+        onClicked: raiz.equipoPulsado()
+    }
+
+    // Avatar: deshabilitado sin conexión (como Ciclo.qml)
+    Item {
+        anchors.fill: parent
+        enabled: raiz.datosVigentes
+        opacity: enabled ? 1.0 : 0.4
+        Rectangle {
+            x: raiz.m(550); y: raiz.yb(1762); width: raiz.m(88); height: width; radius: width / 2
+            color: raiz.paleta.avatarFondo
+        }
+        Icono {
+            abajo: true
+            caja: [576, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
+            source: raiz.iconosColor + "usuario.svg"
+        }
+        MouseArea {
+            x: raiz.m(550); y: raiz.yb(1762); width: raiz.m(88); height: width
+            onClicked: raiz.avatarPulsado()
+        }
+    }
+
+    // Botón CANCELAR CICLO (mockup: x 846..1081, y 1768..1856)
+    Item {
+        id: botonCancelar
+        x: raiz.m(846); y: raiz.yb(1768)
+        width: raiz.m(235); height: raiz.m(88)
+        enabled: raiz.datosVigentes
+        opacity: enabled ? 1.0 : 0.4
+        Rectangle {
+            anchors.fill: parent
+            radius: raiz.m(14)
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: raiz.paleta.cancelarArriba }
+                GradientStop { position: 1.0; color: raiz.paleta.cancelarAbajo }
+            }
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: "#40000000"
+                shadowVerticalOffset: raiz.m(3)
+                shadowBlur: 0.4
+            }
+        }
+        // detener.svg (blanco): anillo exterior 4..44 de 48 -> 65 px en el mockup
+        Image {
+            x: raiz.m(894 - 846) - width / 2
+            y: raiz.m(1812 - 1768) - height / 2
+            width: raiz.m(65 * 48 / 40); height: width
+            source: raiz.iconosColor + "detener.svg"
+            sourceSize.width: width; sourceSize.height: height
+        }
+        Text {
+            x: raiz.m(941 - 846)
+            y: raiz.m(1816 - 1768) - baselineOffset
+            text: raiz.textos.cancelar
+            color: "white"
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoMedium
+            font.pixelSize: raiz.fuente(13)
+        }
+        MouseArea { anchors.fill: parent; onClicked: raiz.cancelarPulsado() }
+    }
+
+    Text {
+        x: raiz.m(1141) - width
+        y: raiz.yb(1867) - baselineOffset
+        text: raiz.version
+        color: raiz.paleta.versionTexto
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoBold
+        font.pixelSize: raiz.fuente(20)
+    }
+}

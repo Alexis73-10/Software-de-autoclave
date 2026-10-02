@@ -23,6 +23,12 @@
     "estado": "ESTADO",
     "grafica": "GRÁFICA DEL CICLO",
     "tiempo_transcurrido": "Tiempo transcurrido",
+    "tiempo_restante": "Tiempo restante",
+    "tiempos": "Tiempos",
+    "grafica_eje_tiempo": "Tiempo (min)",
+    "serie_temp_camara": "Temp Cámara",
+    "serie_temp_ref": "Temp Ref",
+    "serie_presion": "Presión",
     "cancelar": "CANCELAR CICLO",
     "temp_ester": "Temp. Ester.",
     "tiempo_est": "Tiempo Est.",
@@ -44,14 +50,14 @@
   "fecha": {
     "meses": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   },
-  "fases": [
-    "Precalentamiento",
-    "Vacío",
-    "Calentamiento",
-    "Esterilización",
-    "Descompresión",
-    "Secado"
-  ],
+  "fases": {
+    "precalentamiento": "Precalentamiento",
+    "vacio": "Vacío",
+    "calentamiento": "Calentamiento",
+    "esterilizacion": "Esterilización",
+    "descompresion": "Descompresión",
+    "secado": "Secado"
+  },
   "sensores": [
     {
       "clave": "precalentamiento",
@@ -82,7 +88,7 @@
   "estados": {
     "no_preparado": "No preparado",
     "listo": "Listo",
-    "ejecutando": "Ejecutando",
+    "ejecutando": "En ejecución",
     "exitoso": "Exitoso",
     "cancelado": "Cancelado",
     "fallo": "Fallo"

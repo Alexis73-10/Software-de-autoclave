@@ -10,6 +10,13 @@ QtObject {
 
     property real factor: 1.0
 
+    // Alto del lienzo en px de diseño (>= altoDiseno). En pantallas más altas que
+    // 5:8 (p. ej. 9:16) manda el ancho y el lienzo crece hacia abajo en vez de
+    // dejar franjas: las pantallas de alto flexible (PantallaCicloEnCurso) reparten
+    // ese espacio; las de alto fijo van dentro de AreaFija, centradas en un área de
+    // altoDiseno. En pantallas más anchas que 5:8 manda el alto y quedan franjas laterales.
+    property real altoLienzo: altoDiseno
+
     function px(valor) { return valor * factor }
     // pixelSize exige entero; redondear evita que Qt trunque y el texto quede chico
     function fuente(valor) { return Math.max(1, Math.round(valor * factor)) }

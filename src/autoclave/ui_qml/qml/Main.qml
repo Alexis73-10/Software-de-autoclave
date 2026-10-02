@@ -50,10 +50,15 @@ Window {
         value: Math.min(ventana.width / Escala.anchoDiseno,
                         ventana.height / Escala.altoDiseno)
     }
+    Binding {
+        target: Escala
+        property: "altoLienzo"
+        value: Math.max(Escala.altoDiseno, ventana.height / Escala.factor)
+    }
 
     Item {
         width: Escala.px(Escala.anchoDiseno)
-        height: Escala.px(Escala.altoDiseno)
+        height: Escala.px(Escala.altoLienzo)
         anchors.centerIn: parent
         clip: true
 
@@ -76,35 +81,45 @@ Window {
         }
     }
 
+    // Pantallas de alto fijo (1920 de diseño): centradas en el lienzo (AreaFija)
     Component {
         id: esperaComp
-        Arranque {
-            textosJson: ventana.textosJson
-            // con standby, el toque ya lo registró el filtro de eventos y el
-            // cambio llega por aplicarStandby(); sin él (pruebas), navegación local
-            onTocado: if (!ventana.standby) pila.push(cicloComp)
+        AreaFija {
+            Arranque {
+                anchors.fill: parent
+                textosJson: ventana.textosJson
+                // con standby, el toque ya lo registró el filtro de eventos y el
+                // cambio llega por aplicarStandby(); sin él (pruebas), navegación local
+                onTocado: if (!ventana.standby) pila.push(cicloComp)
+            }
         }
     }
     Component {
         id: cicloComp
-        Ciclo {
-            puente: ventana.puente
-            comandosPuerta: ventana.comandosPuerta
-            comandoCiclo: ventana.comandoCiclo
-            infoEquipo: ventana.infoEquipo
-            textosJson: ventana.textosJson
-            onPuertaPulsada: ventana.comandosPuerta?.alternar()
-            onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
-            onAjustesPulsado: ventana.ajustes?.abrir()
-            onAvatarPulsado: pila.push(loginComp)
+        AreaFija {
+            Ciclo {
+                anchors.fill: parent
+                puente: ventana.puente
+                comandosPuerta: ventana.comandosPuerta
+                comandoCiclo: ventana.comandoCiclo
+                infoEquipo: ventana.infoEquipo
+                textosJson: ventana.textosJson
+                onPuertaPulsada: ventana.comandosPuerta?.alternar()
+                onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
+                onAjustesPulsado: ventana.ajustes?.abrir()
+                onAvatarPulsado: pila.push(loginComp)
+            }
         }
     }
     Component {
         id: loginComp
-        Login {
-            teclado: panelTeclado
-            textosJson: ventana.textosJson
-            onInicioPulsado: pila.pop()
+        AreaFija {
+            Login {
+                anchors.fill: parent
+                teclado: panelTeclado
+                textosJson: ventana.textosJson
+                onInicioPulsado: pila.pop()
+            }
         }
     }
 }
