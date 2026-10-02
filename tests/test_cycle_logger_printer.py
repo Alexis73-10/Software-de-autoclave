@@ -24,6 +24,16 @@ class FakeDb:
     def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None):
         self.cerrados.append((ciclo_id, resultado, motivo_fallo))
 
+    # Pantalla de ciclo en curso (gráfica y tramos de fase): no se verifican aquí
+    def insertar_lectura_grafica(self, *args):
+        pass
+
+    def abrir_fase(self, *args):
+        pass
+
+    def cerrar_fase_abierta(self, *args):
+        pass
+
 
 class FakeCycle:
     id = "bowe_dick"

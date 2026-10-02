@@ -8,7 +8,11 @@
 #
 # Tablas:
 #   ciclos   — un registro por ciclo ejecutado (metadatos + resultado)
-#   lecturas — una fila por lectura de sensores durante el ciclo
+#   lecturas — una fila por lectura de sensores durante el ciclo (ticket)
+#   lecturas_grafica — serie de ~1 s para la gráfica de la pantalla de ciclo
+#                      en curso (separada del ticket; tiempo monotónico)
+#   ciclo_fases — inicio/fin/duración de cada fase de cada ciclo (estimador
+#                 de tiempo restante y desplegable "Tiempos")
 
 import sqlite3
 import logging
@@ -61,6 +65,35 @@ CREATE INDEX IF NOT EXISTS idx_ciclos_fecha
 
 CREATE INDEX IF NOT EXISTS idx_ciclos_numero
     ON ciclos(numero_ciclo);
+
+-- Serie de la gráfica de la pantalla de ciclo en curso. t_s: segundos desde
+-- el inicio del ciclo medidos con time.monotonic() (C-01); fase: fase_ciclo.
+CREATE TABLE IF NOT EXISTS lecturas_grafica (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ciclo_id        INTEGER NOT NULL REFERENCES ciclos(id),
+    t_s             REAL    NOT NULL,
+    fase            TEXT    NOT NULL,
+    temp_camara     REAL,
+    temp_ref        REAL,
+    pres_camara     REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_lecturas_grafica_ciclo
+    ON lecturas_grafica(ciclo_id, id);
+
+-- Una fila por tramo de fase (fase = fase_ciclo del backend). inicio_s/fin_s
+-- en segundos monotónicos desde el inicio del ciclo; fin_s NULL = en curso.
+CREATE TABLE IF NOT EXISTS ciclo_fases (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    ciclo_id        INTEGER NOT NULL REFERENCES ciclos(id),
+    fase            TEXT    NOT NULL,
+    inicio_s        REAL    NOT NULL,
+    fin_s           REAL,
+    duracion_s      REAL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ciclo_fases_ciclo
+    ON ciclo_fases(ciclo_id);
 
 CREATE TABLE IF NOT EXISTS usuarios (
     id       INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -238,6 +271,79 @@ class DbManager:
                 "SELECT * FROM lecturas WHERE ciclo_id=? AND para_imprimir=1 ORDER BY id",
                 (ciclo_id,),
             ).fetchall()
+
+    # ------------------------------------------------------------------
+    # Gráfica de la pantalla de ciclo en curso
+    # ------------------------------------------------------------------
+
+    def insertar_lectura_grafica(self, ciclo_id: int, t_s: float, fase: str,
+                                 temp_camara, temp_ref, pres_camara):
+        def r(v):
+            return round(v, 2) if v is not None else None
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO lecturas_grafica"
+                " (ciclo_id, t_s, fase, temp_camara, temp_ref, pres_camara)"
+                " VALUES (?,?,?,?,?,?)",
+                (ciclo_id, round(t_s, 3), fase or "", r(temp_camara), r(temp_ref), r(pres_camara)),
+            )
+            self._conn.commit()
+
+    def get_lecturas_grafica(self, ciclo_id: int, desde_id: int | None = None) -> list:
+        """Lecturas de la gráfica del ciclo; con desde_id, solo las posteriores a ese id."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT * FROM lecturas_grafica WHERE ciclo_id=? AND id>? ORDER BY id",
+                (ciclo_id, desde_id or 0),
+            ).fetchall()
+
+    # ------------------------------------------------------------------
+    # Duración por fase
+    # ------------------------------------------------------------------
+
+    def abrir_fase(self, ciclo_id: int, fase: str, inicio_s: float):
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO ciclo_fases (ciclo_id, fase, inicio_s) VALUES (?,?,?)",
+                (ciclo_id, fase, inicio_s),
+            )
+            self._conn.commit()
+
+    def cerrar_fase_abierta(self, ciclo_id: int, fin_s: float):
+        """Cierra la fase en curso del ciclo (si la hay) con su duración."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE ciclo_fases SET fin_s=?, duracion_s=?-inicio_s"
+                " WHERE ciclo_id=? AND fin_s IS NULL",
+                (fin_s, fin_s, ciclo_id),
+            )
+            self._conn.commit()
+
+    def get_fases_ciclo(self, ciclo_id: int) -> list:
+        with self._lock:
+            return self._conn.execute(
+                "SELECT * FROM ciclo_fases WHERE ciclo_id=? ORDER BY id", (ciclo_id,)
+            ).fetchall()
+
+    def get_duraciones_referencia(self, tipo_ciclo: str) -> dict[str, float]:
+        """Duración total por fase (fase_ciclo -> s) del último ciclo COMPLETADO
+        del mismo programa que tenga registro de fases; {} si no hay ninguno."""
+        with self._lock:
+            fila = self._conn.execute(
+                "SELECT c.id FROM ciclos c"
+                " WHERE c.tipo_ciclo=? AND c.resultado='COMPLETADO'"
+                " AND EXISTS (SELECT 1 FROM ciclo_fases f WHERE f.ciclo_id=c.id)"
+                " ORDER BY c.id DESC LIMIT 1",
+                (tipo_ciclo,),
+            ).fetchone()
+            if fila is None:
+                return {}
+            filas = self._conn.execute(
+                "SELECT fase, SUM(duracion_s) FROM ciclo_fases"
+                " WHERE ciclo_id=? AND duracion_s IS NOT NULL GROUP BY fase",
+                (fila[0],),
+            ).fetchall()
+        return {fase: total for fase, total in filas}
 
     # ------------------------------------------------------------------
     # Ciclo de vida

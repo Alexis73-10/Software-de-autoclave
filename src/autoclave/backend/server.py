@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
+from autoclave.core.runtime import progreso_ciclo
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
 from autoclave.config.calibration_writer import write_user_calibration
@@ -252,6 +253,74 @@ def get_current_cycle_readings():
                 "fase_codigo":   r["fase_codigo"],
                 "temp_camara":   r["temp_camara"],
                 "pres_camara":   r["pres_camara"],
+            }
+            for r in rows
+        ],
+    }
+
+
+def _ciclo_de_pantalla() -> int | None:
+    """ID en BD del ciclo que muestra la pantalla de ciclo en curso, o None
+    si la máquina no está en CICLO."""
+    from autoclave.state_machine.machine.enum_global import GlobalState
+    if context.estado.get_machine_state() != GlobalState.CICLO:
+        return None
+    logger_svc = context.cycle_logger
+    return logger_svc.ciclo_id_pantalla if logger_svc else None
+
+
+@app.get("/cycle/current/progress")
+def get_current_cycle_progress():
+    """Progreso del ciclo en curso para la pantalla QML (fases que aplican,
+    fase activa, duración por fase, transcurrido y restante en segundos
+    monotónicos). Separado de /status para no cargar su sondeo de 200 ms.
+    Sigue respondiendo con el ciclo terminado mientras la máquina espera la
+    confirmación del operador. Sin ciclo: {"activo": false}."""
+    ciclo_id = _ciclo_de_pantalla()
+    transcurrido = context.cycle_logger.transcurrido_s() if ciclo_id is not None else None
+    if ciclo_id is None or transcurrido is None:
+        return {"activo": False}
+
+    cycle = context.cycle_manager.get_selected_cycle()
+    aplicables = progreso_ciclo.fases_aplicables(cycle, context.cap)
+    filas = [dict(f) for f in context.db.get_fases_ciclo(ciclo_id)]
+
+    fila_ciclo = context.db.get_ciclo(ciclo_id)
+    tipo = fila_ciclo["tipo_ciclo"] if fila_ciclo is not None else getattr(cycle, "id", "")
+    referencias = {}
+    for fase, duracion in context.db.get_duraciones_referencia(tipo).items():
+        fase_ui = progreso_ciclo.fase_ui(fase)
+        if fase_ui is not None:
+            referencias[fase_ui] = referencias.get(fase_ui, 0.0) + duracion
+
+    fase_ciclo = getattr(context.estado, "fase_ciclo", "") or ""
+    return {
+        "activo": True,
+        "ciclo_db_id": ciclo_id,
+        "fase_ciclo": fase_ciclo,
+        **progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido, referencias),
+    }
+
+
+@app.get("/cycle/current/graph")
+def get_current_cycle_graph(desde_id: int | None = None):
+    """Serie de la gráfica del ciclo en curso (~1 s, t_s monotónico, con
+    temp_ref). Sin desde_id devuelve el histórico completo (al entrar o tras
+    reiniciar la UI); con desde_id solo las lecturas posteriores a ese id."""
+    ciclo_id = _ciclo_de_pantalla()
+    if ciclo_id is None:
+        return {"ciclo_db_id": None, "lecturas": []}
+    rows = context.db.get_lecturas_grafica(ciclo_id, desde_id)
+    return {
+        "ciclo_db_id": ciclo_id,
+        "lecturas": [
+            {
+                "id":          r["id"],
+                "t_s":         r["t_s"],
+                "fase":        r["fase"],
+                "temp_camara": r["temp_camara"],
+                "temp_ref":    r["temp_ref"],
+                "pres_camara": r["pres_camara"],
             }
             for r in rows
         ],

@@ -15,15 +15,14 @@ Convenciones compartidas por las fases:
 - Al entrar en `FALLO`, se apagan todas las salidas de la fase y se registra `self.estado.motivo_fallo`.
 - Todo temporizador de proceso (timers de fase, timeouts, debounce, hold) usa `time.monotonic()`, nunca `time.time()` — un salto del reloj de pared (ajuste manual, NTP futuro) no debe alterar la duración medida. `time.time()`/`datetime.now()` quedan reservados para sellos de tiempo de registros/auditoría (ver §11.3 de `docs/mis_plans/planeacion_ui_dual_pantalla.md`). Estos timers son atributos en memoria por instancia de fase, no persisten entre reinicios.
 
-Secuencia actual (sin cambios de orquestación):
+Secuencia actual (PURGA eliminada el 2026-10-01 — todos los perfiles la tenían en `tiempo_purga=0`, nunca corría):
 
 ```
-PRECALENTAMIENTO → PURGA → PREVACIO → CALENTAMIENTO → ESTERILIZACION → (descompresión / secado / fin)
+PRECALENTAMIENTO → PREVACIO → CALENTAMIENTO → ESTERILIZACION → DESCOMPRESION → SECADO
 ```
 
 Fases y su estado de diseño:
 - `precalentamiento.py` — sostiene presión de chaqueta.
-- `purga.py` — flujo de vapor para desplazar aire seco.
 - `prevacio.py` — pulsos de vacío/vapor (hasta 4 tipos configurables).
 - `calentamiento.py` — **rediseñado**: RAMPA (control continuo de `vapor_camara` vía duty cycle — el mínimo entre tres términos: un límite de pendiente `tasa_calentamiento`/`tasa_presion`, una aproximación lineal a `factor_calentamiento` a medida que `temp`/`pres` se acercan a los objetivos fijos, y un corte si la temperatura supera el 97% del objetivo sin que la presión corresponda a vapor saturado — más un techo independiente de presión como resguardo — ver `docs/superpowers/specs/2026-08-05-control-continuo-rampa-calentamiento-design.md`) → ESTABLE_PREESTERILIZACION. ESTABLE_PREESTERILIZACION exige una ventana continua de estabilidad (con reinicio ante overshoot) antes de entregar control a ESTERILIZACION — fusiona lo que antes era la fase separada `EstabilizacionFase` (ver `docs/superpowers/specs/2026-08-04-fusion-calentamiento-estabilizacion-design.md`). El término de proximidad tiene un piso `duty_estable` (`1 - factor_calentamiento/100`) que antes se sostenía indefinidamente en cuanto `temp`/`pres` superaban el objetivo, sin importar cuánto — bug real (ciclo 79, 2026-08-06): con `t_obj=134.0` y la cámara ya en 136.7°C, el duty seguía en 0.5 en vez de ir a 0, y el control se veía "sosteniendo" una temperatura muy por encima del setpoint con pulsos de vapor. Corregido escalando ese piso hacia 0 a medida que el sobrepaso crece, llegando a 0 a partir de `rango_calentamiento` unidades pasado el objetivo (función `_duty_por_sobrepaso`).
 - `esterilizacion.py` — **rediseñado**, ver detalle abajo.

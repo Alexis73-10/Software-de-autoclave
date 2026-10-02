@@ -53,7 +53,6 @@ _CARD_READONLY = (
 # (label visible, clave interna usada en _build_tab_grid)
 _TABS = [
     ("Pre-calentamiento", "precalentamiento"),
-    ("Purga",             "purga"),
     ("Crear pulso",       "prevacio"),
     ("Calentamiento",     "calentamiento_main"),
     ("Estabilización",    "calentamiento_estab"),

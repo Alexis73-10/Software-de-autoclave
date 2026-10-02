@@ -40,6 +40,7 @@ class BackendContext:
         if self.profile is None:
             raise RuntimeError("Backend sin InstallationProfile")
         cap = get_capabilities(self.profile.equipment_class)
+        self.cap = cap
 
 
         # Hardware real

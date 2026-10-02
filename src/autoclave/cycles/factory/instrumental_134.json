@@ -21,10 +21,6 @@
             "presion_precalentamiento": { "value": 200,"type":"int", "unit": "kPa", "min": 0, "max": 1000 },
             "timeout_precalentamiento": { "value": 10, "type":"int", "unit": "min", "min": 0, "max": 3600 }
         },
-        "purga": {
-            "tiempo_purga": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },
-            "presion_purga": { "value": 300,"type":"int", "unit": "kPa", "min": 0, "max": 1000 }
-        },
         "prevacio": {
             "conteo_pulso_a": { "value": 4, "unit": "", "min": 0, "max": 100 },
             "presion_alta_pulso_a": { "value": 80, "unit": "kPa", "min": 0, "max": 1000 },

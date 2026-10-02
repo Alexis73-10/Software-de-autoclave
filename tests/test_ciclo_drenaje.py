@@ -102,9 +102,9 @@ def test_se_llama_en_run_sin_importar_la_fase_activa():
     ciclo.cap.has_vacuum = False
     for fase in ciclo._fases:
         fase.cap = ciclo.cap
-    # PrevacioFase está en índice 2 del pipeline (PRECALENTAMIENTO, PURGA, PRE_VACIO, ...)
+    # PrevacioFase está en índice 1 del pipeline (PRECALENTAMIENTO, PRE_VACIO, ...)
     ciclo.reset()
-    ciclo._fase_idx = 2
+    ciclo._fase_idx = 1
     ciclo.run()
     ciclo.run()
     ciclo.run()

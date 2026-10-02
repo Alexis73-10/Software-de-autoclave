@@ -6,13 +6,16 @@
 #   - Detectar automáticamente el inicio/fin del estado CICLO
 #   - Registrar lecturas de sensores en la DB según intervalos configurados
 #   - Marcar qué lecturas van al ticket de impresión (para_imprimir)
+#   - Alimentar la pantalla de ciclo en curso: serie de la gráfica cada
+#     _PERIODO_GRAFICA_S (lecturas_grafica) y tramos de fase (ciclo_fases),
+#     ambos con reloj monotónico (C-01). Independiente del ticket.
 #
 # Integración:
 #   El control loop llama a cycle_logger.update() en cada tick.
 #   El logger NO bloquea: opera en el mismo hilo del control loop.
 #
 # Mapping de fases a códigos del ticket:
-#   W (Warming)        → PRECALENTAMIENTO, PURGA, PRE_VACIO
+#   W (Warming)        → PRECALENTAMIENTO, PRE_VACIO
 #   H (Heating)        → CALENTAMIENTO
 #   S (Sterilization)  → ESTERILIZACION
 #   E (Exhaust/End)    → COMPLETADO, CANCELADO, FALLO, EMERGENCIA
@@ -43,7 +46,6 @@ def _software_version() -> str:
 # Fases internas → código del ticket
 _FASE_A_CODIGO: dict[str, str] = {
     "PRECALENTAMIENTO": "PH",
-    "PURGA":            "PG",
     "PRE_VACIO":        "PV",
     "CALENTAMIENTO":    "H",
     "ESTERILIZACION":   "S",
@@ -59,7 +61,7 @@ _FASE_A_CODIGO: dict[str, str] = {
 # anormal del ciclo. "COMPLETADO" es el único cierre normal y se maneja
 # aparte (ver update()).
 _FASES_EN_CURSO: set[str] = {
-    "PRECALENTAMIENTO", "PURGA", "PRE_VACIO",
+    "PRECALENTAMIENTO", "PRE_VACIO",
     "CALENTAMIENTO", "ESTERILIZACION",
     "SECADO", "DESCOMPRESION",
 }
@@ -71,6 +73,9 @@ _INTERVALO_PARAM: dict[str, str] = {
     "S": "intervalo_imprecion_esterilizacion",   # nota: typo intencional del JSON
     "E": None,
 }
+
+# Periodo de muestreo de la serie de la gráfica (pantalla de ciclo en curso).
+_PERIODO_GRAFICA_S = 1.0
 
 _INTERVALO_DEFAULT: dict[str, int] = {
     "W": 180,   # 3 min
@@ -91,7 +96,8 @@ class CycleLogger:
         cycle_manager → CycleManager
     """
 
-    def __init__(self, db, estado, config, profile, cycle_manager, printer=None):
+    def __init__(self, db, estado, config, profile, cycle_manager, printer=None,
+                 reloj_mono=time.monotonic):
         self.db            = db
         self.estado        = estado
         self.config        = config
@@ -115,6 +121,14 @@ class CycleLogger:
         # confirmación (ver update()).
         self._cierre_ya_procesado = False
 
+        # Pantalla de ciclo en curso (reloj monotónico, aparte del ticket)
+        self._reloj_mono        = reloj_mono
+        self._t0_mono: float | None = None    # inicio del ciclo
+        self._t_fin_s: float | None = None    # transcurrido congelado al terminar
+        self._fase_seguida: str | None = None
+        self._proxima_muestra_s: float | None = None
+        self._ciclo_id_cerrado: int | None = None   # ciclo ya cerrado, aún en CICLO
+
     # ------------------------------------------------------------------
     # API pública
     # ------------------------------------------------------------------
@@ -131,8 +145,10 @@ class CycleLogger:
                 return  # ya se cerró/imprimió; falta solo la confirmación
             if not self._activo:
                 self._on_inicio()
+                self._seguir_pantalla()
                 return
             fase_nombre = self.estado.fase_ciclo or ""
+            self._seguir_pantalla()
             if fase_nombre != "COMPLETADO" and fase_nombre not in _FASES_EN_CURSO:
                 # Cierre anormal (fallo/cancelación/emergencia): no esperar a
                 # que el estado global salga de CICLO (puede tardar hasta que
@@ -146,6 +162,9 @@ class CycleLogger:
                 resultado = self.estado.fase_ciclo or "DESCONOCIDO"
                 self._on_fin(resultado)
             self._cierre_ya_procesado = False
+            self._ciclo_id_cerrado = None
+            self._t0_mono = None
+            self._t_fin_s = None
 
     @property
     def ciclo_id(self) -> int | None:
@@ -155,6 +174,22 @@ class CycleLogger:
     @property
     def activo(self) -> bool:
         return self._activo
+
+    @property
+    def ciclo_id_pantalla(self) -> int | None:
+        """ID en BD del ciclo que muestra la pantalla de ciclo en curso: el
+        activo, o el recién cerrado por fallo/cancelación mientras la máquina
+        sigue en CICLO esperando confirmación (ciclo_id ya es None ahí)."""
+        return self._ciclo_id if self._ciclo_id is not None else self._ciclo_id_cerrado
+
+    def transcurrido_s(self) -> float | None:
+        """Segundos monotónicos desde el inicio del ciclo, congelados al
+        terminar; None sin ciclo."""
+        if self._t0_mono is None:
+            return None
+        if self._t_fin_s is not None:
+            return self._t_fin_s
+        return self._reloj_mono() - self._t0_mono
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -198,6 +233,11 @@ class CycleLogger:
         self._ultima_temp        = None
         self._activo             = True
         self._cierre_ya_procesado = False
+        self._t0_mono            = self._reloj_mono()
+        self._t_fin_s            = None
+        self._fase_seguida       = None
+        self._proxima_muestra_s  = None
+        self._ciclo_id_cerrado   = None
 
         if self.printer is not None:
             meta = {
@@ -220,6 +260,10 @@ class CycleLogger:
 
     def _on_fin(self, resultado: str):
         if self._ciclo_id is not None:
+            if self._t_fin_s is None and self._t0_mono is not None:
+                self._t_fin_s = self._reloj_mono() - self._t0_mono
+                self._guardar(self.db.cerrar_fase_abierta, self._ciclo_id, self._t_fin_s)
+            self._ciclo_id_cerrado = self._ciclo_id
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
@@ -247,6 +291,45 @@ class CycleLogger:
         self._ciclo_id          = None
         self._ciclo_inicio      = None
         self._ultima_fase_codigo = None
+
+    # ------------------------------------------------------------------
+    # Pantalla de ciclo en curso: tramos de fase y serie de la gráfica
+    # ------------------------------------------------------------------
+
+    def _seguir_pantalla(self):
+        if self._ciclo_id is None or self._t0_mono is None:
+            return
+        fase = self.estado.fase_ciclo or ""
+        t = self._reloj_mono() - self._t0_mono
+        en_curso = fase in _FASES_EN_CURSO
+
+        if fase != self._fase_seguida:
+            if self._fase_seguida is not None:
+                self._guardar(self.db.cerrar_fase_abierta, self._ciclo_id, t)
+            if en_curso:
+                self._guardar(self.db.abrir_fase, self._ciclo_id, fase, t)
+            elif self._t_fin_s is None:
+                self._t_fin_s = t    # COMPLETADO / cierre anormal: el reloj se detiene
+            self._fase_seguida = fase
+
+        if en_curso and (self._proxima_muestra_s is None or t >= self._proxima_muestra_s):
+            self._guardar(
+                self.db.insertar_lectura_grafica, self._ciclo_id, t, fase,
+                self.estado.sensores_temp.get("temp_camara"),
+                self.estado.sensores_temp.get("temp_ref"),
+                self.estado.sensores_pres.get("pres_camara"),
+            )
+            # sin ráfagas de recuperación si un tick llega tarde
+            siguiente = (self._proxima_muestra_s or t) + _PERIODO_GRAFICA_S
+            self._proxima_muestra_s = siguiente if siguiente > t else t + _PERIODO_GRAFICA_S
+
+    def _guardar(self, operacion, *args):
+        """La gráfica y los tramos son solo presentación: un error de BD aquí
+        se registra y no corta el tick del control loop."""
+        try:
+            operacion(*args)
+        except Exception as exc:
+            logger.warning("CycleLogger: no se pudo guardar dato de pantalla: %s", exc)
 
     # ------------------------------------------------------------------
     # Tick: evaluar si es momento de registrar
