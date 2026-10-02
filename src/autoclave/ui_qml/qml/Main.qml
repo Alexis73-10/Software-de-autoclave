@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Controls
 import Tema
 import "Pantallas"
+import "Componentes"
 
 Window {
     id: ventana
@@ -30,6 +31,7 @@ Window {
     function aplicarStandby() {
         if (!standby)
             return
+        panelTeclado.cerrar()
         if (standby.activo) {
             if (pila.depth > 1)
                 pila.pop(null)
@@ -61,6 +63,16 @@ Window {
             id: pila
             anchors.fill: parent
             initialItem: esperaComp
+            // un teclado abierto no sobrevive a un cambio de pantalla
+            onCurrentItemChanged: panelTeclado.cerrar()
+        }
+
+        // Teclado en pantalla de esta ventana (Paso 5 de planeacion_teclados_qml.md):
+        // sobre el StackView, inyectado a las pantallas como `teclado`.
+        PanelTeclado {
+            id: panelTeclado
+            objectName: "panelTeclado"
+            textosJson: ventana.textosJson
         }
     }
 
@@ -89,6 +101,10 @@ Window {
     }
     Component {
         id: loginComp
-        Login { onInicioPulsado: pila.pop() }
+        Login {
+            teclado: panelTeclado
+            textosJson: ventana.textosJson
+            onInicioPulsado: pila.pop()
+        }
     }
 }

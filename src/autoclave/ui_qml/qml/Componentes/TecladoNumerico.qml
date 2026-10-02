@@ -154,7 +154,8 @@ Item {
             height: raiz._altoTecla
             tamTexto: TecladoProvisional.tamTextoAccionNumerico
             variante: "borrar"
-            texto: raiz._tx("acciones", "borrar")
+            // ícono universal de borrar (borrar.svg del diseñador), pedido por Cristian
+            icono: "../../assets/iconos/color/borrar.svg"
             // un toque borra un carácter; mantenida 600 ms, todo (TEC-D12, controlador)
             onPresionada: ctrl.presionarBorrar()
             onSoltada: ctrl.soltarBorrar()

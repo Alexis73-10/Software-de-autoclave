@@ -84,7 +84,7 @@ Rectangle {
     Image {
         anchors.centerIn: parent
         visible: raiz.texto === "" && raiz.icono.toString() !== ""
-        width: Escala.px(40); height: width
+        width: Escala.px(48); height: width   // tamaño nativo de los íconos del diseñador
         source: raiz.icono
         sourceSize.width: width
         sourceSize.height: height

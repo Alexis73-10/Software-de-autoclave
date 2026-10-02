@@ -25,6 +25,8 @@ Item {
     id: raiz
 
     property var textosJson: ({})
+    // campos de contraseña: el encabezado muestra puntos en vez del texto
+    property bool ocultarTexto: false
     readonly property alias controlador: ctrl
 
     signal confirmado(string texto)
@@ -77,7 +79,7 @@ Item {
             width: parent.width
             // alto fijo de una línea aunque el texto esté vacío
             height: raiz._estilo(TecladoProvisional.encabezadoValorEstilo).interlineado
-            text: ctrl.texto
+            text: raiz.ocultarTexto ? "•".repeat(ctrl.texto.length) : ctrl.texto
             elide: Text.ElideLeft   // con texto largo se ve lo último que se escribió
             color: Colores.textoPrimario
             font.family: raiz._estilo(TecladoProvisional.encabezadoValorEstilo).familia
@@ -138,7 +140,8 @@ Item {
             width: Escala.px(TecladoProvisional.anchoBorrarAlfanumerico)
             height: raiz._altoTecla
             variante: "borrar"
-            texto: raiz._tx("acciones", "borrar")
+            // ícono universal de borrar (borrar.svg del diseñador), pedido por Cristian
+            icono: "../../assets/iconos/color/borrar.svg"
             // un toque borra un carácter; mantenida 600 ms, todo (TEC-D12, controlador)
             onPresionada: ctrl.presionarBorrar()
             onSoltada: ctrl.soltarBorrar()

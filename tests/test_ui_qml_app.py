@@ -90,6 +90,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     from PySide6.QtQml import QQmlApplicationEngine
     from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
+    from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401  (PanelTeclado)
 
     qml_dir, es_json, conectado, door = sys.argv[1], sys.argv[2], sys.argv[3] == "1", int(sys.argv[4])
     qapp = QGuiApplication([])
@@ -161,6 +162,7 @@ _SCRIPT_DOS_PANTALLAS = textwrap.dedent(r"""
     from autoclave.backend.actividad_ui import ActividadUI
     from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.standby import Standby
+    from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401  (PanelTeclado)
 
     qml_dir, es_json = sys.argv[1], sys.argv[2]
     qapp = QGuiApplication([])
@@ -263,3 +265,16 @@ def test_main_qml_navega_a_ciclo_sin_avisos(conectado, door, puerta_abierta):
     assert salida["login_abre"] is True
     assert salida["login_regresa"] is True
     assert salida["estadoTexto"] == "Listo"   # PREPARADO + LISTO_PARA_CICLO
+
+
+
+def test_forzar_tema_claro_aunque_windows_este_en_oscuro():
+    # Con Windows en modo oscuro, los controles estándar de Qt pintaban el
+    # texto de los campos en blanco sobre blanco (Login). La plataforma
+    # offscreen de las pruebas ignora el esquema de color, así que se
+    # verifica la petición; el efecto se comprobó en Windows real.
+    from unittest.mock import MagicMock
+    from PySide6.QtCore import Qt
+    qapp = MagicMock()
+    app.forzar_tema_claro(qapp)
+    qapp.styleHints.return_value.setColorScheme.assert_called_once_with(Qt.ColorScheme.Light)

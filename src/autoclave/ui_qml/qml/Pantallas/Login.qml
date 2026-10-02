@@ -13,8 +13,51 @@ import "../Componentes"
 // PENDIENTE: la autenticación contra el backend no está conectada — este es
 // el cascarón visual. Falta resolver el canal de comunicación (HTTP vs.
 // acceso directo) antes de cablear el botón "INICIAR SESIÓN".
+// Los campos se escriben con el teclado en pantalla (PanelTeclado, inyectado
+// por Main.qml como `teclado`): tocar un campo abre el alfanumérico, el campo
+// muestra lo que se escribe, Confirmar guarda y pasa al siguiente campo (en
+// el último, cierra). La contraseña va oculta también en el encabezado.
 Item {
     id: raiz
+
+    property QtObject teclado: null
+    property var textosJson: ({})
+    function tx(seccion, clave) {
+        const s = textosJson ? textosJson[seccion] : undefined
+        return (s && s[clave] !== undefined) ? s[clave] : ""
+    }
+
+    // TEC-D10: nombre de hasta 30 caracteres; la contraseña usa el mismo tope
+    readonly property int longitudMaxima: 30
+    // Valores confirmados de los campos
+    property string usuario: ""
+    property string clave: ""
+    // campo que se está escribiendo ("", "usuario" o "clave"): se resalta y
+    // muestra lo que se lleva escrito; al cancelar vuelve a su valor
+    property string campoActivo: ""
+    Connections {
+        target: raiz.teclado
+        function onAbiertoChanged() { if (!raiz.teclado.abierto) raiz.campoActivo = "" }
+    }
+    // Orden de los campos: Confirmar en uno pasa al siguiente (PanelTeclado)
+    readonly property var campos: [
+        { nombre: "usuario", clave: "nombre_usuario", ocultar: false },
+        { nombre: "clave",   clave: "contrasena",     ocultar: true }
+    ]
+    function editar(nombre) {
+        if (!teclado)
+            return
+        const i = campos.findIndex(c => c.nombre === nombre)
+        const campo = campos[i]
+        const siguiente = i + 1 < campos.length ? campos[i + 1].nombre : ""
+        teclado.abrirAlfanumerico(tx("formulario", campo.clave), raiz[nombre], longitudMaxima,
+                                  campo.ocultar, texto => raiz[nombre] = texto,
+                                  siguiente ? () => raiz.editar(siguiente) : null)
+        campoActivo = nombre
+    }
+    function textoCampo(nombre) {
+        return campoActivo === nombre && teclado ? teclado.textoEnEdicion : raiz[nombre]
+    }
 
     // Casa de la barra inferior: volver a la pantalla principal (la resuelve Main.qml)
     signal inicioPulsado()
@@ -91,7 +134,9 @@ Item {
 
                         Rectangle {
                             width: parent.width; height: Escala.px(88); radius: Escala.px(6)
-                            border.color: Colores.bordeCampo; border.width: 1
+                            border.color: raiz.campoActivo === "usuario" ? Colores.accionPrimario
+                                                                         : Colores.bordeCampo
+                            border.width: raiz.campoActivo === "usuario" ? 2 : 1
 
                             Image {
                                 id: iconoUsuario
@@ -105,6 +150,15 @@ Item {
                             }
 
                             TextField {
+                                id: campoUsuario
+                                objectName: "campoUsuario"
+                                readOnly: true   // se escribe con el teclado en pantalla
+                                text: raiz.textoCampo("usuario")
+                                // colores fijos: con Windows en modo oscuro, el estilo Basic
+                                // toma la paleta del sistema y pinta el texto en blanco
+                                color: Colores.textoPrimario
+                                placeholderTextColor: Colores.textoGuia
+                                font.family: Tipografia.familia
                                 anchors.left: iconoUsuario.right
                                 anchors.right: parent.right
                                 anchors.top: parent.top
@@ -115,11 +169,17 @@ Item {
                                 font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
                                 background: null
                             }
+                            MouseArea {
+                                anchors.fill: parent
+                                onClicked: raiz.editar("usuario")
+                            }
                         }
 
                         Rectangle {
                             width: parent.width; height: Escala.px(88); radius: Escala.px(6)
-                            border.color: Colores.bordeCampo; border.width: 1
+                            border.color: raiz.campoActivo === "clave" ? Colores.accionPrimario
+                                                                       : Colores.bordeCampo
+                            border.width: raiz.campoActivo === "clave" ? 2 : 1
 
                             Image {
                                 id: iconoCandado
@@ -156,6 +216,12 @@ Item {
 
                             TextField {
                                 id: campoClave
+                                objectName: "campoClave"
+                                readOnly: true   // se escribe con el teclado en pantalla
+                                text: raiz.textoCampo("clave")
+                                color: Colores.textoPrimario
+                                placeholderTextColor: Colores.textoGuia
+                                font.family: Tipografia.familia
                                 anchors.left: iconoCandado.right
                                 anchors.right: iconoOjo.left
                                 anchors.top: parent.top
@@ -167,6 +233,15 @@ Item {
                                 echoMode: TextInput.Password
                                 font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
                                 background: null
+                            }
+                            // todo el campo menos el ojo, que tiene su propio toque
+                            MouseArea {
+                                anchors.left: parent.left
+                                anchors.right: iconoOjo.left
+                                anchors.rightMargin: Escala.px(16)   // no tapa el área ampliada del ojo
+                                anchors.top: parent.top
+                                anchors.bottom: parent.bottom
+                                onClicked: raiz.editar("clave")
                             }
                         }
 

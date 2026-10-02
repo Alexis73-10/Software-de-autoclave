@@ -44,8 +44,12 @@ _SCRIPT = textwrap.dedent(r"""
             yield h
             yield from visuales(h)
 
-    teclas = {o.property("texto"): o for o in visuales(w.contentItem())
+    # caracteres por su texto; acciones por objectName (Borrar no tiene texto: ícono)
+    teclas = {{"teclaCancelar": "Cancelar", "teclaBorrar": "Borrar", "teclaConfirmar": "Confirmar"}
+              .get(o.objectName(), o.property("texto")): o
+              for o in visuales(w.contentItem())
               if o.metaObject().className().startswith("Tecla_QML")}
+    r_icono_borrar = teclas["Borrar"].property("icono").toString()
     ctrl = w.findChild(QObject, "tecladoNumerico").findChildren(TecladoNumericoController)[0]
     resultado = w.findChild(QObject, "resultado")
 
@@ -87,6 +91,8 @@ _SCRIPT = textwrap.dedent(r"""
     tocar("Cancelar", esperar=50)
     r["tras_cancelar"] = resultado.property("text")
     r["texto_tras_cancelar"] = ctrl.property("texto")
+    r["icono_borrar"] = r_icono_borrar
+    r["texto_borrar"] = teclas["Borrar"].property("texto")
     r["avisos"] = avisos
     print(json.dumps(r, ensure_ascii=False))
 """)
@@ -144,3 +150,8 @@ def test_comportamiento_por_toques(salida):
     assert salida["entregado_tras_500"] == "134.5"   # 500 no se entrega
     assert salida["tras_cancelar"].startswith("Cancelado")
     assert salida["texto_tras_cancelar"] == ""
+
+
+def test_borrar_lleva_el_icono_universal(salida):
+    assert salida["icono_borrar"].endswith("/iconos/color/borrar.svg")
+    assert salida["texto_borrar"] == ""

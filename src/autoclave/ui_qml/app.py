@@ -14,7 +14,7 @@ import logging
 import os
 import sys
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -27,6 +27,10 @@ from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, versi
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
 from autoclave.ui_qml.bridge.standby import Standby
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
+# Registran los controladores de los teclados en Autoclave.Controllers
+# (qmlRegisterType al importar); los usa PanelTeclado de Main.qml.
+from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
+from autoclave.ui_qml.controllers import teclado_numerico_controller  # noqa: F401
 from autoclave.utils.resources import resource_path
 
 logger = logging.getLogger(__name__)
@@ -75,11 +79,20 @@ def _cargar_fuentes() -> None:
             QFontDatabase.addApplicationFont(os.path.join(FUENTES_DIR, nombre))
 
 
+def forzar_tema_claro(app: QGuiApplication) -> None:
+    """La UI usa siempre el tema claro del diseñador, aunque Windows esté en
+    modo oscuro. Sin esto, los controles estándar de Qt (TextField, etc.)
+    toman la paleta oscura del sistema y, por ejemplo, pintan el texto en
+    blanco sobre los campos blancos."""
+    app.styleHints().setColorScheme(Qt.ColorScheme.Light)
+
+
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
 
     app = QGuiApplication(sys.argv[:1])
+    forzar_tema_claro(app)
     _cargar_fuentes()
 
     backend = BackendClient(BACKEND_URL)
