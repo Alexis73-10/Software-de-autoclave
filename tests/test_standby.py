@@ -95,10 +95,12 @@ def test_toque_local_despierta_y_avisa_al_backend():
 
 
 def test_toque_en_la_otra_pantalla_despierta_esta():
+    reloj = _Reloj()
     ui = _ui(inactividad=None)
-    s, _ = _standby(ui)
+    s, _ = _standby(ui, reloj)
     s.evaluar()
     assert s.activo is True
+    reloj.t += 2
     ui.get_inactividad_ui.return_value = 0.3     # la otra pantalla informó un toque
     s.evaluar()
     assert s.activo is False
@@ -151,6 +153,7 @@ def test_cambio_de_estado_del_equipo_despierta_ambas():
     assert s.activo is True
     backend.post.assert_not_called()
 
+    reloj.t += 10                    # pasada la gracia de arranque
     ui.get_estado_global.return_value = "PREPARADO"
     s.evaluar()
     assert s.activo is False
@@ -158,12 +161,15 @@ def test_cambio_de_estado_del_equipo_despierta_ambas():
 
 
 def test_alarma_nueva_despierta_pero_la_misma_no():
+    reloj = _Reloj()
     ui = _ui(inactividad=None, alarmas=[{"id": "A"}])
-    s, backend = _standby(ui)
+    s, backend = _standby(ui, reloj)
     s.evaluar()
     s.evaluar()
     assert s.activo is True
     backend.post.assert_not_called()
+
+    reloj.t += 10                    # pasada la gracia de arranque
 
     ui.get_alarmas.return_value = [{"id": "A"}, {"id": "B"}]
     s.evaluar()
@@ -205,3 +211,58 @@ def test_filtro_ignora_otros_eventos():
     s.evaluar()
     assert s.eventFilter(None, QEvent(QEvent.Type.MouseMove)) is False
     assert s.activo is True
+
+
+# ── arranque: no salir solo de la pantalla de arranque ───────────────────
+
+def test_actividad_del_backend_anterior_al_arranque_no_despierta():
+    # el backend ya corría y alguien tocó hace 60 s: esta UI recién abierta
+    # no debe arrancar en la pantalla principal
+    reloj = _Reloj()
+    ui = _ui(inactividad=60.0)
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is True
+    reloj.t += 5
+    ui.get_inactividad_ui.return_value = 65.0
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_actividad_del_backend_posterior_al_arranque_si_despierta():
+    reloj = _Reloj()
+    ui = _ui(inactividad=60.0)
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 5
+    ui.get_inactividad_ui.return_value = 1.0     # la otra pantalla tocó después
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_cambios_de_estado_y_alarmas_durante_la_gracia_no_despiertan():
+    reloj = _Reloj()
+    ui = _ui(estado="INICIO", inactividad=None)
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 3
+    ui.get_estado_global.return_value = "PREPARACION"
+    ui.get_alarmas.return_value = [{"id": "CHAQUETA_FRIA"}]
+    s.evaluar()
+    reloj.t += 6
+    ui.get_estado_global.return_value = "PREPARADO"
+    s.evaluar()
+    assert s.activo is True
+    backend.post.assert_not_called()
+
+    reloj.t += 1                     # 10 s: termina la gracia
+    ui.get_estado_global.return_value = "FALLA_PREVIA"
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_toque_durante_la_gracia_si_despierta():
+    s, _ = _standby(_ui())
+    s.evaluar()
+    s.registrarActividad()
+    assert s.activo is False

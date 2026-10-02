@@ -135,7 +135,11 @@ def main(argv=None) -> int:
     ventana.setScreen(pantalla)
     ventana.setGeometry(pantalla.geometry())
     ventana.showFullScreen()
-    ventana.requestActivate()   # foco de teclado (login) aunque se lance desde una terminal
+    # Solo la puerta 1 pide el foco: si ambas ventanas (procesos distintos) lo
+    # piden, Windows se lo niega a una y hace parpadear su icono, lo que saca
+    # la barra de tareas sobre la pantalla completa. La otra lo toma al tocarla.
+    if args.door == 1:
+        ventana.requestActivate()   # foco de teclado (login) aunque se lance desde una terminal
     ventana.installEventFilter(standby)   # todo toque/tecla de esta ventana cuenta como actividad
     ajustes.ventana = ventana
     logger.info("UI QML iniciada — puerta %d, monitor %s", args.door, pantalla.name())

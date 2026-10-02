@@ -16,7 +16,11 @@
 #     (despierta ambas pantallas y reinicia el conteo), para que no pasen
 #     inadvertidos detrás de la pantalla de arranque;
 #   - sin conexión con el backend, cada pantalla usa solo su inactividad local;
-#   - con el menú de configuración PySide abierto se considera actividad.
+#   - con el menú de configuración PySide abierto se considera actividad;
+#   - al abrir, la UI arranca siempre en la pantalla de arranque: no cuenta la
+#     actividad que el backend registró antes de que esta UI arrancara (backend
+#     que ya corría), ni los cambios de estado/alarmas de los primeros
+#     GRACIA_ARRANQUE_S segundos (transiciones propias del encendido).
 # Tiempos con time.monotonic() (CLAUDE.md: timers de proceso nunca con time.time()).
 
 import logging
@@ -28,6 +32,7 @@ from PySide6.QtCore import QEvent, Property, QObject, QTimer, Signal, Slot
 logger = logging.getLogger(__name__)
 
 MINUTOS_DEFECTO = 5
+GRACIA_ARRANQUE_S = 10.0
 ESTADOS_SIN_STANDBY = {"CICLO", "FALLA", "EMERGENCIA"}
 _EVENTOS_ACTIVIDAD = {
     QEvent.Type.MouseButtonPress, QEvent.Type.TouchBegin, QEvent.Type.KeyPress,
@@ -62,7 +67,8 @@ class Standby(QObject):
 
     def __init__(self, ui_service, backend_client, parent=None, reloj=time.monotonic,
                  ejecutar=_en_hilo, intervalo_ms: int = 500, iniciar: bool = True,
-                 envio_min_s: float = 1.0, mantener_despierto=None):
+                 envio_min_s: float = 1.0, mantener_despierto=None,
+                 gracia_arranque_s: float = GRACIA_ARRANQUE_S):
         super().__init__(parent)
         self._ui = ui_service
         self._backend = backend_client
@@ -70,6 +76,8 @@ class Standby(QObject):
         self._ejecutar = ejecutar
         self._envio_min_s = envio_min_s
         self._mantener_despierto = mantener_despierto or (lambda: False)
+        self._inicio = reloj()
+        self._gracia_arranque_s = gracia_arranque_s
 
         self._activo = True           # la app arranca en la pantalla de arranque
         self._ultima_local = None     # último toque en ESTA pantalla
@@ -122,7 +130,7 @@ class Standby(QObject):
         estado = None
         if conectado:
             estado = self._ui.get_estado_global()
-            if self._hubo_evento_de_equipo(estado):
+            if self._hubo_evento_de_equipo(estado) and not self._en_gracia_arranque():
                 self._marcar_actividad(forzar=True)
         if self._mantener_despierto():
             self._marcar_actividad(forzar=False)
@@ -130,7 +138,7 @@ class Standby(QObject):
         local = None if self._ultima_local is None else self._reloj() - self._ultima_local
         activo = debe_estar_en_standby(
             conectado,
-            self._ui.get_inactividad_ui() if conectado else None,
+            self._inactividad_backend() if conectado else None,
             local,
             minutos_standby(self._ui.get_config_param("tiempo_standby")),
             estado,
@@ -139,6 +147,17 @@ class Standby(QObject):
             self._activo = activo
             logger.info("Standby %s", "activado" if activo else "desactivado")
             self.activoChanged.emit()
+
+    def _en_gracia_arranque(self) -> bool:
+        return self._reloj() - self._inicio < self._gracia_arranque_s
+
+    def _inactividad_backend(self):
+        """Inactividad común del backend, o None si el último toque es anterior
+        al arranque de esta UI (no debe sacarla de la pantalla de arranque)."""
+        inactividad = self._ui.get_inactividad_ui()
+        if inactividad is None or inactividad > self._reloj() - self._inicio:
+            return None
+        return inactividad
 
     def _hubo_evento_de_equipo(self, estado) -> bool:
         alarmas = {a.get("id") for a in self._ui.get_alarmas() if isinstance(a, dict)}
