@@ -1,7 +1,7 @@
 # tests/test_pantalla_ciclo.py
 #
 # Extracción y formato de los datos de la tarjeta de parámetros de la
-# pantalla de ciclo (Pantallas/Ciclo.qml) a partir de las respuestas REST
+# pantalla de ciclo (Pantallas/PantallaPreciclo.qml) a partir de las respuestas REST
 # del backend: GET /cycle (consignas del ciclo seleccionado) y GET /status
 # (lecturas de cámara). Presentación con punto decimal (TEC-D14, revoca D-19).
 

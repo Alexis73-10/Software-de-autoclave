@@ -4,7 +4,9 @@ import QtQuick.Shapes
 import Tema
 import "../Componentes"
 
-// Pantalla de ciclo (mockup-01, docs/mis_plans/planeacion_pantalla_ciclo_ui.md).
+// Pantalla previa al inicio del ciclo (mockup-01, docs/mis_plans/planeacion_pantalla_ciclo_ui.md).
+// Antes Ciclo.qml; renombrada a PantallaPreciclo (planeacion_pantalla_ciclo_en_curso.md 14.7)
+// para no confundirla con PantallaCicloEnCurso.
 // Referencia: images/pantalla_ciclo_sin_grafica.png (1196 x 1917).
 //
 // Geometría: todas las medidas son px del lienzo del mockup (1196 x 1917) y pasan

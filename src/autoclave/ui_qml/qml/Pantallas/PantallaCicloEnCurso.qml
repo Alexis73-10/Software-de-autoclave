@@ -8,15 +8,15 @@ import "../../../images"   // IconoEjecucion.qml (engranaje + flechas animados)
 // Referencia: images/pantalla_ciclo_con_grafica_editada.png (1196 x 1917).
 //
 // Geometría: px del mockup pasados por m() (escala uniforme con el ancho, igual
-// que Ciclo.qml). El alto es flexible (Escala.altoLienzo): lo que está por
+// que PantallaPreciclo.qml). El alto es flexible (Escala.altoLienzo): lo que está por
 // encima de la gráfica queda fijo arriba, lo que está por debajo se ancla abajo
 // (yb()) y la tarjeta de la gráfica absorbe la diferencia (plan §11).
 // Cabecera, tarjeta de ciclo, tarjeta de parámetros y barra inferior replican
-// la geometría de Ciclo.qml (tarjeta de parámetros desplazada +151 px);
-// PENDIENTE (Fase 5): extraer las partes comunes al renombrar Ciclo.qml.
+// la geometría de PantallaPreciclo.qml (tarjeta de parámetros desplazada +151 px);
+// PENDIENTE (Fase 5): extraer las partes comunes al renombrar PantallaPreciclo.qml.
 //
 // Datos: tarjeta de ciclo y de parámetros, alarmas y conexión desde UiBridge
-// (mismas propiedades y formatos que Ciclo.qml); fases, tiempos y gráfica desde
+// (mismas propiedades y formatos que PantallaPreciclo.qml); fases, tiempos y gráfica desde
 // ProgresoCiclo (bridge/progreso_ciclo.py), que solo consulta mientras esta
 // pantalla está visible. qml/Pruebas/PruebaCicloEnCurso.qml asigna datos de
 // ejemplo directamente.
@@ -127,7 +127,7 @@ Item {
         readonly property string serie: raiz.tx("ciclo", "serie")
     }
 
-    // Colores medidos sobre el mockup (los compartidos con Ciclo.qml, iguales).
+    // Colores medidos sobre el mockup (los compartidos con PantallaPreciclo.qml, iguales).
     // PENDIENTE: promover a Tema/Colores.qml cuando el diseñador los confirme.
     readonly property QtObject paleta: QtObject {
         readonly property color negro: "#000000"
@@ -135,7 +135,7 @@ Item {
         readonly property color verdeEjecutando: "#25BA9E"
         readonly property color naranjaTexto: "#EC9233"
         readonly property color naranjaEstado: "#FF962B"
-        readonly property color confirmarArriba: "#08AA41"   // = INICIAR CICLO de Ciclo.qml
+        readonly property color confirmarArriba: "#08AA41"   // = INICIAR CICLO de PantallaPreciclo.qml
         readonly property color confirmarAbajo: "#01501E"
         readonly property color insignia: "#08C9F9"
         readonly property color bordeTarjeta: "#E5E5E5"
@@ -158,7 +158,7 @@ Item {
         readonly property color cancelarAbajo: "#870004"
     }
 
-    readonly property string fuenteNumeros: "Arial"   // como Ciclo.qml (PC-03)
+    readonly property string fuenteNumeros: "Arial"   // como PantallaPreciclo.qml (PC-03)
 
     readonly property real anchoMockup: 1196
     readonly property real altoMockup: 1917
@@ -184,7 +184,7 @@ Item {
         y: (abajo ? raiz.yb(bl) : raiz.m(bl)) - baselineOffset
     }
 
-    // Icono SVG de 48x48 cuya tinta llena la caja del mockup (como Ciclo.qml).
+    // Icono SVG de 48x48 cuya tinta llena la caja del mockup (como PantallaPreciclo.qml).
     component Icono: Image {
         property var caja: [0, 0, 0, 0]
         property var tinta: [0, 0, 48, 48]
@@ -226,7 +226,7 @@ Item {
     // ======================= fondo =======================
     FondoApp { anchors.fill: parent }
 
-    // ======================= cabecera (= Ciclo.qml) =======================
+    // ======================= cabecera (= PantallaPreciclo.qml) =======================
     Image {
         x: raiz.m(73); y: raiz.m(57)
         width: raiz.m(267)
@@ -305,7 +305,7 @@ Item {
         color: Colores.fondoTarjeta
     }
 
-    // ---- tarjeta de ciclo (= Ciclo.qml salvo ESTADO) ----
+    // ---- tarjeta de ciclo (= PantallaPreciclo.qml salvo ESTADO) ----
     Rectangle {
         x: raiz.m(19); y: raiz.m(404); width: raiz.m(1159); height: raiz.m(2)
         color: raiz.paleta.bordeTarjeta
@@ -340,7 +340,7 @@ Item {
 
     // ESTADO: "En ejecución" (plan §5.2). Al terminar, el resultado del backend
     // (PROVISIONAL, sin diseño: check verde si fue exitoso, "!" naranja si no,
-    // como la insignia de Ciclo.qml).
+    // como la insignia de PantallaPreciclo.qml).
     Rotulo { cx: 1011; text: raiz.textos.estado }
     Rectangle {
         visible: !raiz.terminado
@@ -402,7 +402,7 @@ Item {
         fases: raiz.fases
     }
 
-    // ======================= tarjeta de parámetros (= Ciclo.qml, +151) =======================
+    // ======================= tarjeta de parámetros (= PantallaPreciclo.qml, +151) =======================
     component Etiqueta: Texto {
         tam: 12
         color: raiz.paleta.etiqueta
@@ -483,7 +483,7 @@ Item {
         onPantallaCompletaPulsado: { raiz.pantallaCompleta = true; raiz.pantallaCompletaPulsado() }
 
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
-        // mismo texto que Ciclo.qml; los datos de la gráfica quedan congelados.
+        // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
         Rectangle {
             visible: !raiz.datosVigentes
             anchors.horizontalCenter: parent.horizontalCenter
@@ -544,7 +544,7 @@ Item {
         }
     }
 
-    // ======================= barra inferior (= Ciclo.qml salvo la derecha) =======================
+    // ======================= barra inferior (= PantallaPreciclo.qml salvo la derecha) =======================
     Rectangle {
         x: raiz.m(33); y: raiz.yb(1744); width: raiz.m(1130); height: raiz.m(141)
         radius: raiz.m(26)
@@ -554,7 +554,7 @@ Item {
     Divisor { abajo: true; cx: 347; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
     Divisor { abajo: true; cx: 834; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
 
-    // Icono de equipo: igual que Ciclo.qml (PROVISIONAL, PC-03) hasta recibir el SVG del diseñador.
+    // Icono de equipo: igual que PantallaPreciclo.qml (PROVISIONAL, PC-03) hasta recibir el SVG del diseñador.
     Item {
         x: raiz.m(71); y: raiz.yb(1763); width: raiz.m(80); height: raiz.m(52)
         Rectangle {
@@ -585,7 +585,7 @@ Item {
         }
     }
 
-    // Avatar: deshabilitado sin conexión (como Ciclo.qml)
+    // Avatar: deshabilitado sin conexión (como PantallaPreciclo.qml)
     Item {
         anchors.fill: parent
         enabled: raiz.datosVigentes
@@ -715,7 +715,7 @@ Item {
         }
     }
 
-    // ======================= paneles (PROVISIONALES, como Ciclo.qml) =======================
+    // ======================= paneles (PROVISIONALES, como PantallaPreciclo.qml) =======================
     PanelNotificaciones {
         id: panelNotificaciones
         titulo: raiz.tx("notificaciones", "titulo")

@@ -1,7 +1,7 @@
 # tests/test_ui_qml_app.py
 #
 # Punto de entrada QML (ui_qml/app.py): argumentos, elección de monitor, textos
-# de es.json que usan las pantallas, y carga real de Main.qml -> Ciclo.qml con
+# de es.json que usan las pantallas, y carga real de Main.qml -> PantallaPreciclo.qml con
 # un UIServiceBackend simulado (en subproceso, para tener un QGuiApplication
 # propio sin depender del QCoreApplication que crean otras pruebas).
 
@@ -64,9 +64,9 @@ def test_pantalla_inexistente_usa_la_primaria_y_avisa(indice, caplog):
 
 def test_es_json_trae_todas_las_claves_que_usa_ciclo_qml():
     textos = json.loads(ES_JSON.read_text(encoding="utf-8"))
-    qml = (RAIZ_QML / "Pantallas" / "Ciclo.qml").read_text(encoding="utf-8")
+    qml = (RAIZ_QML / "Pantallas" / "PantallaPreciclo.qml").read_text(encoding="utf-8")
     usadas = re.findall(r'tx\("(\w+)",\s*"(\w+)"\)', qml)
-    assert usadas, "Ciclo.qml debería leer sus textos con tx()"
+    assert usadas, "PantallaPreciclo.qml debería leer sus textos con tx()"
     faltantes = [f"{s}.{c}" for s, c in usadas if not isinstance(textos.get(s, {}).get(c), str)]
     assert faltantes == []
 
@@ -126,7 +126,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     QMetaObject.invokeMethod(arranque, "tocado")
     for _ in range(5):
         qapp.processEvents()
-    ciclo = buscar("Ciclo")[0]
+    ciclo = buscar("PantallaPreciclo")[0]
 
     from PySide6.QtTest import QTest
     QMetaObject.invokeMethod(ciclo, "avatarPulsado")      # avatar -> login QML
@@ -204,7 +204,7 @@ _SCRIPT_DOS_PANTALLAS = textwrap.dedent(r"""
         QTest.qWait(700)                          # transición del StackView
 
     def en_ciclo(p):
-        return any(o.metaObject().className().startswith("Ciclo_QML")
+        return any(o.metaObject().className().startswith("PantallaPreciclo_QML")
                    for o in p[2].findChildren(QObject))
 
     estados = []

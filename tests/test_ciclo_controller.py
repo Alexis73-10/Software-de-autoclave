@@ -1,6 +1,6 @@
 # tests/test_ciclo_controller.py
 #
-# Puente QObject entre domain/pantalla_ciclo.py y Pantallas/Ciclo.qml. Las
+# Puente QObject entre domain/pantalla_ciclo.py y Pantallas/PantallaPreciclo.qml. Las
 # pruebas alimentan las respuestas REST directamente (aplicar_ciclo /
 # aplicar_status / marcar_sin_conexion) con iniciar=False, sin red real.
 

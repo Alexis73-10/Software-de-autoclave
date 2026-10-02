@@ -58,7 +58,7 @@ _SCRIPT = textwrap.dedent(r"""
     def pantalla():
         QTest.qWait(700)   # transición del StackView
         if visibles("PantallaCicloEnCurso"): return "en_curso"
-        if visibles("Ciclo"): return "preciclo"
+        if visibles("PantallaPreciclo"): return "preciclo"
         if visibles("Arranque"): return "arranque"
         return "?"
 

@@ -360,7 +360,7 @@ Item {
                     PathLine { x: raiz.xDe(tramo.inicio); y: raiz.yAbajo }
                 }
             }
-            // ícono blanco teñido de gris (misma técnica que IconoTenido de Ciclo.qml)
+            // ícono blanco teñido de gris (misma técnica que IconoTenido de PantallaPreciclo.qml)
             Image {
                 id: iconoFase
                 visible: false

@@ -1,6 +1,6 @@
 # ui_qml/controllers/ciclo_controller.py
 #
-# Puente QObject entre domain/pantalla_ciclo.py y Pantallas/Ciclo.qml: publica
+# Puente QObject entre domain/pantalla_ciclo.py y Pantallas/PantallaPreciclo.qml: publica
 # las consignas del ciclo seleccionado y las lecturas de cámara.
 #
 # Transporte provisional: sondeo REST a GET /status y GET /cycle cada

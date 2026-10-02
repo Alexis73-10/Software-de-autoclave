@@ -129,7 +129,7 @@ Window {
     Component {
         id: cicloComp
         AreaFija {
-            Ciclo {
+            PantallaPreciclo {
                 anchors.fill: parent
                 puente: ventana.puente
                 comandosPuerta: ventana.comandosPuerta

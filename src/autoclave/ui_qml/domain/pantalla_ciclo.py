@@ -1,6 +1,6 @@
 # ui_qml/domain/pantalla_ciclo.py
 #
-# Datos de la tarjeta de parámetros de la pantalla de ciclo (Pantallas/Ciclo.qml)
+# Datos de la tarjeta de parámetros de la pantalla de ciclo (Pantallas/PantallaPreciclo.qml)
 # a partir de las respuestas REST del backend:
 #   GET /cycle  -> consignas del ciclo seleccionado (parameters.<seccion>.<nombre>.value)
 #   GET /status -> lecturas de cámara (sensors.temperature.camara / sensors.pressure.camara)
