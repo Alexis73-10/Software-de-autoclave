@@ -164,3 +164,14 @@ def test_al_terminar_el_ciclo_se_vacia():
     assert p.hayCiclo is False
     assert p.datosGrafica["t_min"] == []
     assert p.fases == []
+
+
+def test_publica_el_resultado_del_ciclo():
+    backend = _Backend()
+    backend.progreso = _progreso_activo(fase_ciclo="CANCELADO", fase_activa=None, resultado="cancelado")
+    backend.ciclo = 7
+    p, ejecutor = _nuevo(backend)
+    assert p.resultado == ""
+    p.activo = True
+    p.refrescar(); ejecutor.correr()
+    assert p.resultado == "cancelado"

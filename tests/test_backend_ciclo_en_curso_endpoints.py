@@ -91,6 +91,7 @@ def test_progreso_con_ciclo_y_referencia(entorno):
     assert body["ciclo_db_id"] == cid
     assert body["fase_ciclo"] == "CALENTAMIENTO"
     assert body["fase_activa"] == "calentamiento"
+    assert body["resultado"] is None
     assert body["transcurrido_s"] == 710.0
     assert [(f["fase"], f["estado"]) for f in body["fases"]] == [
         ("vacio", "completada"), ("calentamiento", "activa"),

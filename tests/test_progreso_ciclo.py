@@ -226,3 +226,22 @@ def test_armar_progreso_ciclo_cancelado_sin_restante():
     assert p["restante_s"] is None
     assert p["fases"][0] == {"fase": "vacio", "estado": "completada", "duracion_s": 30.0}
     assert p["fases"][1]["estado"] == "pendiente"
+
+
+# ── resultado del ciclo (pantalla: ESTADO y botón CONFIRMAR) ────────────
+
+@pytest.mark.parametrize("fase, resultado", [
+    ("PRE_VACIO", None), ("SECADO", None), ("PRECALENTAMIENTO", None),
+    ("COMPLETADO", "exitoso"),
+    ("CANCELADO", "cancelado"),
+    ("FALLO_CALENTAMIENTO", "fallo"), ("EMERGENCIA", "fallo"),
+    ("SENSOR_AUSENTE", "fallo"), ("FALLO_CONEXION", "fallo"), ("FALLO_SUMINISTRO", "fallo"),
+    ("", None), (None, None),
+])
+def test_resultado_del_ciclo(fase, resultado):
+    assert pc.resultado(fase) == resultado
+
+
+def test_armar_progreso_incluye_resultado():
+    assert pc.armar_progreso(_APLICA, [], "CANCELADO", 30.0, _REF)["resultado"] == "cancelado"
+    assert pc.armar_progreso(_APLICA, [], "PRE_VACIO", 30.0, _REF)["resultado"] is None

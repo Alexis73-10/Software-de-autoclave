@@ -4,9 +4,12 @@
 #   python -m autoclave.ui_qml.app --door N --screen I
 #
 # Solo se conecta al backend en BACKEND_URL; no lo arranca ni lo apaga. Los
-# únicos comandos que envía son abrir/cerrar la puerta de esta ventana e
-# iniciar ciclo (misma lógica que tkinter); no toca salidas. El backend se
-# lanza aparte con `python -m autoclave.backend.main`.
+# únicos comandos que envía son abrir/cerrar la puerta de esta ventana, iniciar
+# ciclo (misma lógica que tkinter) y, desde la pantalla de ciclo en curso,
+# cancelar (con confirmación) y confirmar el fin del ciclo; no toca salidas.
+# El backend se lanza aparte con `python -m autoclave.backend.main`.
+# Sin tarjeta, AUTOCLAVE_BACKEND_URL=http://127.0.0.1:8001 apunta la UI al backend
+# simulado (`python -m autoclave.simulador`, herramienta de desarrollo).
 
 import argparse
 import json
@@ -22,9 +25,11 @@ from autoclave.ui.service_ui.backend_client import BackendClient
 from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
 from autoclave.services.domain.puertas.door_command_service import DoorCommandService
 from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
+from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
+from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
 from autoclave.ui_qml.bridge.standby import Standby
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
 # Registran los controladores de los teclados en Autoclave.Controllers
@@ -36,6 +41,11 @@ from autoclave.utils.resources import resource_path
 logger = logging.getLogger(__name__)
 
 BACKEND_URL = "http://localhost:8000"
+
+
+def url_backend(entorno=os.environ) -> str:
+    """BACKEND_URL, o AUTOCLAVE_BACKEND_URL si está definida (p. ej. el simulador)."""
+    return (entorno.get("AUTOCLAVE_BACKEND_URL") or "").strip() or BACKEND_URL
 
 QML_DIR = resource_path("autoclave/ui_qml/qml")
 FUENTES_DIR = resource_path("autoclave/ui_qml/assets/fuentes")
@@ -95,7 +105,7 @@ def main(argv=None) -> int:
     forzar_tema_claro(app)
     _cargar_fuentes()
 
-    backend = BackendClient(BACKEND_URL)
+    backend = BackendClient(url_backend())
     ui_service = UIServiceBackend(backend)
     puente = UiBridge(ui_service, door=args.door)
     comandos_puerta = ComandosPuerta(
@@ -104,10 +114,13 @@ def main(argv=None) -> int:
     info_equipo = InfoEquipo(cargar_perfil(), args.door, backend, version_software())
     ajustes = LanzadorAjustes()
     standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto)
+    progreso = ProgresoCiclo(backend)
+    comandos_en_curso = ComandosCicloEnCurso(puente, ui_service)
 
     def _al_salir():
         puente.detener()
         standby.detener()
+        progreso.detener()
         ajustes.cerrar()
         ui_service.stop()   # solo detiene el hilo de lectura; no toca salidas ni backend
 
@@ -122,6 +135,8 @@ def main(argv=None) -> int:
         "infoEquipo": info_equipo,
         "ajustes": ajustes,
         "standby": standby,
+        "progreso": progreso,
+        "comandosCicloEnCurso": comandos_en_curso,
         "textosJson": cargar_textos(),
     })
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Main.qml"))

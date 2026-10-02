@@ -23,7 +23,24 @@ Window {
     property QtObject ajustes: null
     // standby: activo = mostrar la pantalla de arranque (simultáneo en ambas pantallas)
     property QtObject standby: null
+    // progreso / comandosCicloEnCurso: datos y comandos de la pantalla de ciclo en curso
+    property QtObject progreso: null
+    property QtObject comandosCicloEnCurso: null
     property var textosJson: ({})
+
+    // Pantalla principal según el estado de la máquina que reporta el backend
+    // (planeacion_pantalla_ciclo_en_curso.md §9): en CICLO, la de ciclo en curso
+    // (también tras el fin, mientras se espera la confirmación); si no, la previa
+    // al inicio. No depende del toque local de INICIAR CICLO. Cada pantalla física
+    // lo decide por su cuenta con el mismo backend (sin estado compartido).
+    readonly property string estadoMaquina: puente?.machineState ?? "DESCONOCIDO"
+    readonly property bool enCiclo: estadoMaquina === "CICLO"
+    property bool mostrandoEnCurso: false
+    function destinoPrincipal() { return enCiclo ? enCursoComp : cicloComp }
+    function irAPrincipal() {
+        pila.push(destinoPrincipal())
+        mostrandoEnCurso = enCiclo
+    }
 
     // Arranque <-> principal lo decide el standby (única transición simultánea):
     // activo -> se vuelve al arranque desde cualquier pantalla; inactivo -> principal.
@@ -36,13 +53,28 @@ Window {
             if (pila.depth > 1)
                 pila.pop(null)
         } else if (pila.depth === 1) {
-            pila.push(cicloComp)
+            irAPrincipal()
         }
     }
     Connections {
         target: ventana.standby
         function onActivoChanged() { ventana.aplicarStandby() }
     }
+
+    // Entrada/salida de la pantalla de ciclo en curso. Con estado desconocido
+    // (sin datos del backend) no se navega; en el arranque lo resuelve el standby.
+    function aplicarEstadoMaquina() {
+        if (estadoMaquina === "DESCONOCIDO" || pila.depth <= 1 || enCiclo === mostrandoEnCurso)
+            return
+        panelTeclado.cerrar()
+        pila.pop(null)
+        irAPrincipal()
+    }
+    onEnCicloChanged: aplicarEstadoMaquina()
+    onEstadoMaquinaChanged: aplicarEstadoMaquina()
+    // UI que arranca (o se reinicia) con la máquina ya en CICLO: directo a la
+    // pantalla de ciclo en curso, sin esperar el toque del arranque (plan §9)
+    Component.onCompleted: if (enCiclo && pila.depth === 1) irAPrincipal()
 
     Binding {
         target: Escala
@@ -90,7 +122,7 @@ Window {
                 textosJson: ventana.textosJson
                 // con standby, el toque ya lo registró el filtro de eventos y el
                 // cambio llega por aplicarStandby(); sin él (pruebas), navegación local
-                onTocado: if (!ventana.standby) pila.push(cicloComp)
+                onTocado: if (!ventana.standby) ventana.irAPrincipal()
             }
         }
     }
@@ -109,6 +141,20 @@ Window {
                 onAjustesPulsado: ventana.ajustes?.abrir()
                 onAvatarPulsado: pila.push(loginComp)
             }
+        }
+    }
+    // Pantalla de ciclo en curso: alto flexible (sin AreaFija). Campana y panel de
+    // equipo los abre la propia pantalla; engranaje y avatar, igual que la previa.
+    Component {
+        id: enCursoComp
+        PantallaCicloEnCurso {
+            puente: ventana.puente
+            progreso: ventana.progreso
+            comandos: ventana.comandosCicloEnCurso
+            infoEquipo: ventana.infoEquipo
+            textosJson: ventana.textosJson
+            onAjustesPulsado: ventana.ajustes?.abrir()
+            onAvatarPulsado: pila.push(loginComp)
         }
     }
     Component {

@@ -19,12 +19,18 @@ import "../../../images"   // IconoEjecucion.qml (engranaje + flechas animados)
 // (mismas propiedades y formatos que Ciclo.qml); fases, tiempos y gráfica desde
 // ProgresoCiclo (bridge/progreso_ciclo.py), que solo consulta mientras esta
 // pantalla está visible. qml/Pruebas/PruebaCicloEnCurso.qml asigna datos de
-// ejemplo directamente. Navegación, cancelación y paneles: Fase 4.
+// ejemplo directamente.
+// Comandos (ComandosCicloEnCurso): CANCELAR CICLO con diálogo de confirmación;
+// al terminar el ciclo (resultado del backend) el botón pasa a CONFIRMAR, que
+// envía /cycle/acknowledge; nunca se confirma solo (decisión de Cristian,
+// 2026-10-01: un fallo no debe salir de FALLA sin que alguien lo vea). La
+// navegación de entrada y salida la decide Main.qml con el estado de la máquina.
 Item {
     id: raiz
 
     property QtObject puente: null     // UiBridge (solo lectura)
     property QtObject progreso: null   // ProgresoCiclo (solo lectura)
+    property QtObject comandos: null   // ComandosCicloEnCurso (cancelar / confirmar)
     property QtObject infoEquipo: null
     property var textosJson: ({})
 
@@ -56,6 +62,11 @@ Item {
     property real tiempoActualMin: progreso?.tiempoActualMin ?? 0
     property real cursorMin: NaN
     property bool pantallaCompleta: false
+    // "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
+    property string resultado: progreso?.resultado ?? ""
+    readonly property bool terminado: resultado !== ""
+    property bool comandoOcupado: comandos?.ocupado ?? false
+    property string errorComando: comandos?.error ?? ""
 
     // ProgresoCiclo solo consulta el backend mientras esta pantalla se ve
     Binding {
@@ -70,7 +81,8 @@ Item {
     signal ajustesPulsado()
     signal avatarPulsado()
     signal equipoPulsado()
-    signal cancelarPulsado()
+    signal cancelarPulsado()      // tras confirmar en el diálogo
+    signal confirmarPulsado()
     signal tiemposPulsado()
     signal pantallaCompletaPulsado()
 
@@ -121,6 +133,10 @@ Item {
         readonly property color negro: "#000000"
         readonly property color programa: "#000209"
         readonly property color verdeEjecutando: "#25BA9E"
+        readonly property color naranjaTexto: "#EC9233"
+        readonly property color naranjaEstado: "#FF962B"
+        readonly property color confirmarArriba: "#08AA41"   // = INICIAR CICLO de Ciclo.qml
+        readonly property color confirmarAbajo: "#01501E"
         readonly property color insignia: "#08C9F9"
         readonly property color bordeTarjeta: "#E5E5E5"
         readonly property color bordeSuave: "#F5F5F5"
@@ -268,7 +284,7 @@ Item {
         }
         MouseArea {
             x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
-            onClicked: raiz.campanaPulsada()
+            onClicked: { raiz.campanaPulsada(); panelNotificaciones.abrir() }
         }
 
         Icono {
@@ -322,9 +338,12 @@ Item {
         font.weight: Tipografia.pesoBold
     }
 
-    // ESTADO: único estado del alcance, "En ejecución" (plan §5.2)
+    // ESTADO: "En ejecución" (plan §5.2). Al terminar, el resultado del backend
+    // (PROVISIONAL, sin diseño: check verde si fue exitoso, "!" naranja si no,
+    // como la insignia de Ciclo.qml).
     Rotulo { cx: 1011; text: raiz.textos.estado }
     Rectangle {
+        visible: !raiz.terminado
         x: raiz.m(970); y: raiz.m(254); width: raiz.m(80); height: width; radius: width / 2
         color: raiz.paleta.verdeEjecutando
         // Engranaje animado (decisión de Cristian, 2026-10-01): images/IconoEjecucion.qml.
@@ -338,10 +357,39 @@ Item {
             layer.effect: MultiEffect { brightness: 1.0 }
         }
     }
+    Rectangle {
+        visible: raiz.terminado
+        x: raiz.m(970); y: raiz.m(254); width: raiz.m(80); height: width; radius: width / 2
+        color: raiz.resultado === "exitoso" ? raiz.paleta.verdeEjecutando : raiz.paleta.naranjaEstado
+        Image {
+            id: checkEstado
+            visible: false
+            anchors.centerIn: parent
+            width: raiz.m(64); height: width
+            source: raiz.iconosColor + "confirmar.svg"
+            sourceSize.width: width; sourceSize.height: height
+        }
+        MultiEffect {
+            visible: raiz.resultado === "exitoso"
+            anchors.fill: checkEstado
+            source: checkEstado
+            brightness: 1.0
+        }
+        Text {
+            visible: raiz.resultado !== "exitoso"
+            anchors.centerIn: parent
+            text: "!"
+            color: "white"
+            font.family: raiz.fuenteNumeros
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: raiz.fuente(56)
+        }
+    }
     Texto {
         cx: 1010; bl: 380; tam: 22
-        text: raiz.textos.enEjecucion
-        color: raiz.paleta.verdeEjecutando
+        text: raiz.terminado ? raiz.tx("estados", raiz.resultado) : raiz.textos.enEjecucion
+        color: !raiz.terminado || raiz.resultado === "exitoso" ? raiz.paleta.verdeEjecutando
+                                                                : raiz.paleta.naranjaTexto
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoSemiBold
     }
@@ -530,7 +578,11 @@ Item {
     TextoPie { bl: 1862; text: raiz.textos.serie + raiz.sinLectura(raiz.serie) }
     MouseArea {
         x: raiz.m(33); y: raiz.yb(1744); width: raiz.m(347 - 33); height: raiz.m(141)
-        onClicked: raiz.equipoPulsado()
+        onClicked: {
+            raiz.equipoPulsado()
+            raiz.infoEquipo?.actualizar()
+            panelEquipo.abrir()
+        }
     }
 
     // Avatar: deshabilitado sin conexión (como Ciclo.qml)
@@ -553,19 +605,22 @@ Item {
         }
     }
 
-    // Botón CANCELAR CICLO (mockup: x 846..1081, y 1768..1856)
+    // Botón CANCELAR CICLO (mockup: x 846..1081, y 1768..1856). Al terminar el
+    // ciclo el mismo lugar lo ocupa CONFIRMAR (PROVISIONAL: colores de INICIAR
+    // CICLO, ícono de check). Deshabilitado sin conexión y mientras hay un envío
+    // en curso (anti doble toque).
     Item {
         id: botonCancelar
         x: raiz.m(846); y: raiz.yb(1768)
         width: raiz.m(235); height: raiz.m(88)
-        enabled: raiz.datosVigentes
+        enabled: raiz.datosVigentes && !raiz.comandoOcupado
         opacity: enabled ? 1.0 : 0.4
         Rectangle {
             anchors.fill: parent
             radius: raiz.m(14)
             gradient: Gradient {
-                GradientStop { position: 0.0; color: raiz.paleta.cancelarArriba }
-                GradientStop { position: 1.0; color: raiz.paleta.cancelarAbajo }
+                GradientStop { position: 0.0; color: raiz.terminado ? raiz.paleta.confirmarArriba : raiz.paleta.cancelarArriba }
+                GradientStop { position: 1.0; color: raiz.terminado ? raiz.paleta.confirmarAbajo : raiz.paleta.cancelarAbajo }
             }
             layer.enabled: true
             layer.effect: MultiEffect {
@@ -577,22 +632,55 @@ Item {
         }
         // detener.svg (blanco): anillo exterior 4..44 de 48 -> 65 px en el mockup
         Image {
+            visible: !raiz.terminado
             x: raiz.m(894 - 846) - width / 2
             y: raiz.m(1812 - 1768) - height / 2
             width: raiz.m(65 * 48 / 40); height: width
             source: raiz.iconosColor + "detener.svg"
             sourceSize.width: width; sourceSize.height: height
         }
+        // CONFIRMAR: anillo blanco con check (mismo tamaño que el de detener.svg)
+        Rectangle {
+            visible: raiz.terminado
+            x: raiz.m(894 - 846) - width / 2
+            y: raiz.m(1812 - 1768) - height / 2
+            width: raiz.m(65); height: width; radius: width / 2
+            color: "transparent"
+            border.color: "white"; border.width: raiz.m(2)
+            Image {
+                id: checkConfirmar
+                visible: false
+                anchors.centerIn: parent
+                width: raiz.m(48); height: width
+                source: raiz.iconosColor + "confirmar.svg"
+                sourceSize.width: width; sourceSize.height: height
+            }
+            MultiEffect {
+                anchors.fill: checkConfirmar
+                source: checkConfirmar
+                brightness: 1.0
+            }
+        }
         Text {
             x: raiz.m(941 - 846)
             y: raiz.m(1816 - 1768) - baselineOffset
-            text: raiz.textos.cancelar
+            text: raiz.terminado ? raiz.tx("ciclo", "confirmar") : raiz.textos.cancelar
             color: "white"
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoMedium
             font.pixelSize: raiz.fuente(13)
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.cancelarPulsado() }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: {
+                if (raiz.terminado) {
+                    raiz.confirmarPulsado()
+                    raiz.comandos?.confirmar()
+                } else {
+                    dialogoCancelar.abrir()
+                }
+            }
+        }
     }
 
     Text {
@@ -624,6 +712,60 @@ Item {
             fases: raiz.fasesGrafica
             tiempoActualMin: raiz.tiempoActualMin
             onCerrarPulsado: raiz.pantallaCompleta = false
+        }
+    }
+
+    // ======================= paneles (PROVISIONALES, como Ciclo.qml) =======================
+    PanelNotificaciones {
+        id: panelNotificaciones
+        titulo: raiz.tx("notificaciones", "titulo")
+        textoCerrar: raiz.tx("acciones", "cerrar")
+        rotuloAlertas: raiz.tx("notificaciones", "alertas_avisos")
+        textoSinAlarmas: raiz.tx("ciclo", "sin_alarmas")
+        alarmas: raiz.alarmas
+    }
+    PanelEquipo {
+        id: panelEquipo
+        titulo: raiz.tx("equipo", "titulo")
+        textoCerrar: raiz.tx("acciones", "cerrar")
+        filas: raiz.infoEquipo?.filas ?? []
+        textosEquipo: raiz.textosJson.equipo ?? ({})
+        sinLectura: raiz.tx("sistema", "sin_lectura")
+    }
+
+    // Cancelación: solo confirmación, sin credencial ni rol (plan §10)
+    DialogoConfirmacion {
+        id: dialogoCancelar
+        mensaje: raiz.tx("ciclo", "cancelar_pregunta")
+        textoConfirmar: raiz.tx("acciones", "confirmar")
+        textoCancelar: raiz.tx("acciones", "cancelar")
+        colorConfirmar: raiz.paleta.cancelarArriba
+        onConfirmado: {
+            raiz.cancelarPulsado()
+            raiz.comandos?.cancelar()
+        }
+    }
+
+    // Aviso si el backend no aceptó el comando o no hay conexión: se queda en la
+    // pantalla; el ciclo no se da por cancelado/confirmado (plan §10).
+    Connections {
+        target: raiz.comandos
+        function onErrorChanged() { if (raiz.errorComando !== "") avisoComando.abrir() }
+    }
+    PanelModal {
+        id: avisoComando
+        altoTarjeta: Escala.px(560)
+        titulo: raiz.tx("ciclo", "aviso_titulo")
+        textoCerrar: raiz.tx("acciones", "cerrar")
+        onVisibleChanged: if (!visible) raiz.comandos?.descartarError()
+        Text {
+            width: parent.width
+            text: raiz.errorComando === "confirmar" ? raiz.tx("ciclo", "confirmar_error")
+                                                     : raiz.tx("ciclo", "cancelar_error")
+            wrapMode: Text.WordWrap
+            color: Colores.textoPrimario
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(28)
         }
     }
 }

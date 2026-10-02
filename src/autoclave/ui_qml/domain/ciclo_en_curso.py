@@ -15,6 +15,7 @@ import math
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 
 _ESTADOS_FASE = {"completada", "activa", "pendiente"}
+_RESULTADOS = {"exitoso", "cancelado", "fallo"}
 _SERIES = ("temp_camara", "temp_ref", "pres_camara")
 
 
@@ -92,6 +93,7 @@ class AcumuladorGrafica:
 def normalizar_progreso(respuesta) -> dict:
     """Respuesta de GET /cycle/current/progress validada para la pantalla."""
     vacio = {"activo": False, "ciclo_db_id": None, "fase_ciclo": "", "fase_activa": None,
+             "resultado": None,
              "fases": [], "aplicables": [], "transcurrido_s": None, "restante_s": None}
     if not isinstance(respuesta, dict) or respuesta.get("activo") is not True:
         return vacio
@@ -115,6 +117,7 @@ def normalizar_progreso(respuesta) -> dict:
         "ciclo_db_id": ciclo if isinstance(ciclo, int) and not isinstance(ciclo, bool) else None,
         "fase_ciclo": fase_ciclo if isinstance(fase_ciclo, str) else "",
         "fase_activa": fase_activa if fase_activa in FASES_UI else None,
+        "resultado": respuesta.get("resultado") if respuesta.get("resultado") in _RESULTADOS else None,
         "fases": fases,
         "aplicables": [f["fase"] for f in fases],
         "transcurrido_s": _numero(respuesta.get("transcurrido_s")),

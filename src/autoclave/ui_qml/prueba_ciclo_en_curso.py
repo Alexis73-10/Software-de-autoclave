@@ -10,7 +10,8 @@
 #   python -m autoclave.ui_qml.prueba_ciclo_en_curso --ancho 540        (540x960, 9:16)
 #   python -m autoclave.ui_qml.prueba_ciclo_en_curso --completa [--screen 1]
 #   python -m autoclave.ui_qml.prueba_ciclo_en_curso --ancho 1200 --alto 1920 --captura salida.png
-#   python -m autoclave.ui_qml.prueba_ciclo_en_curso --backend          (backend en BACKEND_URL)
+#   python -m autoclave.ui_qml.prueba_ciclo_en_curso --backend          (backend en BACKEND_URL
+#                                                                        o AUTOCLAVE_BACKEND_URL)
 
 import argparse
 import sys
@@ -20,8 +21,8 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401  (rootObjects() -> QQuickWindow.grabWindow)
 
-from autoclave.ui_qml.app import (BACKEND_URL, QML_DIR, _cargar_fuentes, cargar_textos,
-                                  elegir_pantalla, forzar_tema_claro)
+from autoclave.ui_qml.app import (QML_DIR, _cargar_fuentes, cargar_textos, elegir_pantalla,
+                                  forzar_tema_claro, url_backend)
 
 
 def main(argv=None) -> int:
@@ -48,7 +49,7 @@ def main(argv=None) -> int:
         from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
         from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
         from autoclave.ui_qml.bridge.ui_bridge import UiBridge
-        backend = BackendClient(BACKEND_URL)
+        backend = BackendClient(url_backend())
         ui_service = UIServiceBackend(backend)
         propiedades.update({
             "puente": UiBridge(ui_service, door=args.door),

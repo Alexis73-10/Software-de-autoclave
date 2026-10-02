@@ -32,6 +32,19 @@ def fase_ui(fase_ciclo) -> str | None:
     return _FASE_BACKEND_A_UI.get(fase_ciclo)
 
 
+def resultado(fase_ciclo) -> str | None:
+    """Cómo terminó el ciclo, según fase_ciclo: None mientras corre una fase
+    (o sin dato), "exitoso" (COMPLETADO), "cancelado" (CANCELADO) o "fallo"
+    (cualquier otro cierre: FALLO_*, EMERGENCIA, SENSOR_AUSENTE, ...)."""
+    if not fase_ciclo or fase_ciclo in _FASE_BACKEND_A_UI:
+        return None
+    if fase_ciclo == "COMPLETADO":
+        return "exitoso"
+    if fase_ciclo == "CANCELADO":
+        return "cancelado"
+    return "fallo"
+
+
 def _numero(valor) -> float:
     try:
         return float(valor or 0)
@@ -119,6 +132,7 @@ def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, r
 
     return {
         "fase_activa": activa,
+        "resultado": resultado(fase_ciclo),
         "fases": fases,
         "transcurrido_s": transcurrido_s,
         "restante_s": restante,

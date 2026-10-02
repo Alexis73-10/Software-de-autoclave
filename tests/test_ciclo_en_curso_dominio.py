@@ -132,3 +132,12 @@ def test_progreso_descarta_fases_desconocidas_y_estados_invalidos():
 @pytest.mark.parametrize("basura", [None, [], "x", 3])
 def test_progreso_mal_formado_es_sin_ciclo(basura):
     assert normalizar_progreso(basura)["activo"] is False
+
+
+@pytest.mark.parametrize("valor, esperado", [
+    ("exitoso", "exitoso"), ("cancelado", "cancelado"), ("fallo", "fallo"),
+    (None, None), ("raro", None), (3, None),
+])
+def test_progreso_resultado_validado(valor, esperado):
+    assert normalizar_progreso({"activo": True, "resultado": valor})["resultado"] == esperado
+    assert normalizar_progreso({"activo": False})["resultado"] is None

@@ -123,6 +123,12 @@ class ProgresoCiclo(QObject):
     def faseCiclo(self) -> str:
         return self._progreso["fase_ciclo"]
 
+    # "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
+    # (la máquina sigue en CICLO esperando la confirmación del operador)
+    @Property(str, notify=progresoChanged)
+    def resultado(self) -> str:
+        return self._progreso["resultado"] or ""
+
     @Property("QVariantList", notify=progresoChanged)
     def fases(self) -> list:
         return self._progreso["fases"]
