@@ -16,7 +16,7 @@ from autoclave.services.domain.puertas.door_command_service import DoorCommandSe
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "http://127.0.0.1:8000"
 
 
 def is_backend_alive(timeout=1):

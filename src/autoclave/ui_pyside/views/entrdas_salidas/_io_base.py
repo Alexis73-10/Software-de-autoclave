@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
 )
 from autoclave.ui.service_ui.backend_client import BackendClient
 
-_BACKEND_URL = "http://localhost:8000"
+_BACKEND_URL = "http://127.0.0.1:8000"
 
 _BTN_BACK = """
     QPushButton {

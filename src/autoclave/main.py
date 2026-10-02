@@ -18,7 +18,7 @@ from autoclave.devices.printer import heartbeat
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-BACKEND_URL = "http://localhost:8000"
+BACKEND_URL = "http://127.0.0.1:8000"
 
 
 def _configurar_logging_archivo(sufijo: str) -> None:

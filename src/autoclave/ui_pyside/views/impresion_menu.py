@@ -22,7 +22,7 @@ _PRINT_OPTIONS: list[tuple[str, str, str | None]] = [
     ("🚨", "Imprimir Alarmas", None),
 ]
 
-_BACKEND_URL = "http://localhost:8000"
+_BACKEND_URL = "http://127.0.0.1:8000"
 
 _BTN_OPTION = """
     QPushButton {{

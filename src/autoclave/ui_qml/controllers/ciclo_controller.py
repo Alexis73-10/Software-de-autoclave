@@ -20,7 +20,7 @@ from PySide6.QtQml import qmlRegisterType
 
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
-URL_BACKEND = "http://localhost:8000"
+URL_BACKEND = "http://127.0.0.1:8000"
 _TIMEOUT_MS = 800   # mismo timeout que BackendClient
 
 

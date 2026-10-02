@@ -40,7 +40,9 @@ from autoclave.utils.resources import resource_path
 
 logger = logging.getLogger(__name__)
 
-BACKEND_URL = "http://localhost:8000"
+# 127.0.0.1 y no "localhost": en Windows "localhost" se prueba primero como IPv6
+# (::1), donde el backend no escucha, y cada petición tardaba 0.8–2 s.
+BACKEND_URL = "http://127.0.0.1:8000"
 
 
 def url_backend(entorno=os.environ) -> str:

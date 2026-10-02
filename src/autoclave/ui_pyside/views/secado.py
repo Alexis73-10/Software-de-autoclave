@@ -16,7 +16,7 @@ from qfluentwidgets import (
 
 
 class SecadoView(QWidget):
-    BACKEND_URL = "http://localhost:8000"
+    BACKEND_URL = "http://127.0.0.1:8000"
 
     def __init__(self, nav_callback):
         super().__init__()

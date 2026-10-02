@@ -181,7 +181,7 @@ class InterfazPrincipal(tk.Tk):
 
             while time.monotonic() < deadline:
                 try:
-                    r = requests.get("http://localhost:8000/status", timeout=1)
+                    r = requests.get("http://127.0.0.1:8000/status", timeout=1)
                     if r.status_code == 200:
                         backend_str = "OK"
                         data = r.json()
