@@ -43,11 +43,20 @@ class ReporteResumen(QObject):
 
     @Slot(str)
     def consultar(self, periodo: str) -> None:
-        """Resumen del periodo de calendario actual."""
+        """Resumen del periodo de calendario actual (al abrir la ventana)."""
         if periodo not in PERIODOS:
             logger.warning("Periodo de reporte desconocido: %r", periodo)
             return
         self._navegador.ir_al_actual(periodo)
+        self._pedir()
+
+    @Slot(str)
+    def cambiarPeriodo(self, periodo: str) -> None:
+        """Filtros Diario / Semanal / Mensual: conserva la fecha que se está viendo."""
+        if periodo not in PERIODOS:
+            logger.warning("Periodo de reporte desconocido: %r", periodo)
+            return
+        self._navegador.cambiar(periodo)
         self._pedir()
 
     @Slot(int)

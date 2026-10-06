@@ -119,3 +119,14 @@ def test_respuesta_tardia_se_descarta():
     pendientes[0]()   # la del mes actual llega después: se descarta
     QCoreApplication.processEvents()
     assert r.fecha == "2026-09-01" and r.cargando is False
+
+
+def test_cambiar_de_periodo_conserva_la_fecha_vista():
+    r, backend = _reporte()
+    r.consultar("mes")
+    r.moverPeriodo(-3)
+    r.cambiarPeriodo("dia")
+    assert r.rotuloPeriodo == "Miércoles 1 jul 2026"
+    assert backend.get.call_args.kwargs["params"] == {"periodo": "dia", "fecha": "2026-07-01"}
+    r.cambiarPeriodo("anio")              # desconocido: no hace nada
+    assert r.periodo == "dia"

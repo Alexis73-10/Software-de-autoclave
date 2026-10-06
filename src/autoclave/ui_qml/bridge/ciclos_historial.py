@@ -77,11 +77,20 @@ class CiclosHistorial(QObject):
 
     @Slot(str)
     def consultarHistorial(self, periodo: str) -> None:
-        """Historial: ciclos del periodo de calendario actual, por fecha de inicio."""
+        """Historial al abrirse: ciclos del periodo de calendario actual, por fecha de inicio."""
         if periodo not in PERIODOS:
             logger.warning("Periodo de historial desconocido: %r", periodo)
             return
         self._navegador.ir_al_actual(periodo)
+        self._pedir_periodo()
+
+    @Slot(str)
+    def cambiarPeriodo(self, periodo: str) -> None:
+        """Filtros Diario / Semanal / Mensual: conserva la fecha que se está viendo."""
+        if periodo not in PERIODOS:
+            logger.warning("Periodo de historial desconocido: %r", periodo)
+            return
+        self._navegador.cambiar(periodo)
         self._pedir_periodo()
 
     @Slot(int)

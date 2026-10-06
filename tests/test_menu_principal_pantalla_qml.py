@@ -101,6 +101,8 @@ _SCRIPT = textwrap.dedent(r"""
                               ejecutar=lambda t: t(),
                               generar_pdf=lambda ruta, *a: open(ruta, "wb").write(b"%PDF"),
                               generar_pdf_resumen=lambda ruta, *a: open(ruta, "wb").write(b"%PDF"),
+                              generar_pdf_consolidado=lambda ruta, *a, **k: (
+                                  open(ruta, "wb").write(b"%PDF"), [])[1],
                               enviar=lambda c, m: correos.append(m["To"]))
 
     class InfoEquipo(QObject):          # misma interfaz que bridge/info_equipo.py
@@ -303,6 +305,20 @@ _SCRIPT = textwrap.dedent(r"""
         r["rep_selector"] = item(vr, "selectorDestinoReportes").property("visible")
         tocar(item(item(vr, "selectorDestinoReportes"), "destino_Mantenimiento"))
         r["rep_correos"] = list(correos)
+        # pestaña Consolidado: mismo periodo, solo correo
+        tocar(item(vr, "pestana_consolidado"))
+        r["con_visible"] = [vr.findChild(QObject, "consolidado").isVisible(),
+                            vr.findChild(QObject, "resumenPeriodo").isVisible(),
+                            item(vr, "botonImprimirResumen").isVisible()]
+        r["con_cuenta"] = item(vr, "cuentaConsolidado").property("text")
+        r["con_rotulo"] = item(vr, "rotuloPeriodo").property("text")
+        tocar(item(vr, "botonEnviarResumen"))
+        tocar(item(item(vr, "selectorDestinoReportes"), "destino_Mantenimiento"))
+        r["con_correos"] = list(correos)
+        r["con_aviso"] = item(vr, "textoAvisoAccion").property("text")
+        # Diario conserva la fecha vista (septiembre), no vuelve a hoy
+        tocar(item(vr, "filtro_dia"))
+        r["con_dia"] = [item(vr, "rotuloPeriodo").property("text"), reporte.property("fecha")]
     else:
         r["rep_aviso_falla"] = item(vr, "avisoReporte").property("text")
         r["rep_botones_falla"] = [item(vr, "botonImprimirResumen").property("habilitado"),
@@ -561,3 +577,15 @@ def test_reportes_sin_conexion(rfalla):
     assert rfalla["rep_abierta"] is True
     assert rfalla["rep_aviso_falla"] == "Sin conexión con el equipo"
     assert rfalla["rep_botones_falla"] == [False, False]
+
+
+def test_reportes_consolidado(r):
+    # el consolidado se ve en su pestaña; el resumen y la impresión se ocultan
+    assert r["con_visible"] == [True, False, False]
+    assert r["con_cuenta"] == "4" and r["con_rotulo"] == "Septiembre 2026"   # periodo común
+    assert len(r["con_correos"]) == len(r["rep_correos"]) + 1 and r["con_correos"][-1] == "mant@x.com"
+    assert "consolidado" in r["con_aviso"] and "mant@x.com" in r["con_aviso"]
+
+
+def test_filtros_conservan_la_fecha_vista(r):
+    assert r["con_dia"] == ["Martes 1 sep 2026", "2026-09-01"]

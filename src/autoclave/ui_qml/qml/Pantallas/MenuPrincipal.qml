@@ -560,7 +560,8 @@ Item {
         titulo: seleccion ? raiz.tx("menu", "ciclo_titulo") + " " + seleccion.numero
                           : raiz.tx("menu", "ventana_historial")
 
-        function elegir(p) { periodo = p; seleccion = null; mensaje = ""; raiz.historial?.consultarHistorial(p) }
+        // al abrir: hoy; los filtros conservan la fecha que se está viendo
+        function elegir(p) { periodo = p; seleccion = null; mensaje = ""; raiz.historial?.cambiarPeriodo(p) }
         function mover(pasos) { mensaje = ""; raiz.historial?.moverPeriodo(pasos) }
         function volverAlListado() { seleccion = null; mensaje = ""; raiz.historial?.limpiarGrafica() }
         function imprimir(ids) {
@@ -582,7 +583,9 @@ Item {
             seleccion = null
             eligiendoDestino = false
             raiz.acciones?.actualizarCorreo()   // config/correo.json se edita a mano por ahora
-            elegir("dia")
+            periodo = "dia"
+            mensaje = ""
+            raiz.historial?.consultarHistorial("dia")
         }
         onCerrada: {
             seleccion = null
@@ -775,9 +778,12 @@ Item {
         }
     }
 
-    // Reportes: por ahora la pestaña Resumen (totales por resultado, por programa
-    // y causas de fallo de un periodo de calendario), que se imprime en la térmica
-    // o se envía por correo como PDF. Consolidado y Alarmas se agregan después.
+    // Reportes, con un periodo de calendario común a sus pestañas:
+    // - Resumen: totales por resultado, por programa y causas de fallo; se imprime
+    //   en la térmica o se envía por correo como PDF.
+    // - Consolidado: un solo PDF por correo con el resumen, el índice y las
+    //   páginas de cada ciclo del periodo (gráfica con consignas); sin térmica.
+    // Alarmas se agrega después.
     VentanaFlotante {
         id: ventanaReportes
         objectName: "ventanaReportes"
@@ -785,6 +791,7 @@ Item {
         altoTarjeta: 1500
         titulo: raiz.tx("reportes", "titulo")
         property string periodo: "dia"
+        property string pestana: "resumen"     // "resumen" / "consolidado"
         property string accionEnCurso: ""      // "imprimir" / "enviar" mientras trabaja
         property string mensaje: ""
         property bool mensajeExito: true
@@ -793,7 +800,8 @@ Item {
         readonly property bool correoListo: raiz.acciones?.correoConfigurado ?? false
         readonly property bool hayCiclos: raiz.reporte?.hayCiclos ?? false
 
-        function elegir(p) { periodo = p; mensaje = ""; raiz.reporte?.consultar(p) }
+        // al abrir: hoy; los filtros conservan la fecha que se está viendo
+        function elegir(p) { periodo = p; mensaje = ""; raiz.reporte?.cambiarPeriodo(p) }
         function imprimir() {
             mensaje = ""
             accionEnCurso = "imprimir"
@@ -802,12 +810,18 @@ Item {
         function enviar(correo) {
             eligiendoDestino = false
             accionEnCurso = "enviar"
-            raiz.acciones?.enviarResumen(raiz.reporte.periodo, raiz.reporte.fecha, correo)
+            if (pestana === "consolidado")
+                raiz.acciones?.enviarConsolidado(raiz.reporte.periodo, raiz.reporte.fecha, correo)
+            else
+                raiz.acciones?.enviarResumen(raiz.reporte.periodo, raiz.reporte.fecha, correo)
         }
         onMostrada: {
+            pestana = "resumen"
             eligiendoDestino = false
             raiz.acciones?.actualizarCorreo()
-            elegir("dia")
+            periodo = "dia"
+            mensaje = ""
+            raiz.reporte?.consultar("dia")
         }
         onCerrada: { eligiendoDestino = false; mensaje = ""; raiz.teclado?.cerrar() }
 
@@ -820,26 +834,38 @@ Item {
             }
         }
 
-        // Pestañas: solo Resumen por ahora
+        // Pestañas
         Row {
             id: pestanas
-            spacing: raiz.m(16)
-            Item {
-                objectName: "pestanaResumen"
-                width: textoPestana.implicitWidth + raiz.m(16); height: raiz.m(56)
-                Text {
-                    id: textoPestana
-                    anchors.centerIn: parent
-                    text: raiz.tx("reportes", "pestana_resumen")
-                    color: Colores.accionPrimarioTexto
-                    font.family: Tipografia.familia
-                    font.weight: Tipografia.pesoBold
-                    font.pixelSize: raiz.fuente(26)
-                }
-                Rectangle {
-                    anchors.bottom: parent.bottom
-                    width: parent.width; height: raiz.m(4); radius: height / 2
-                    color: Colores.accionPrimario
+            spacing: raiz.m(40)
+            Repeater {
+                model: [["resumen", "pestana_resumen"], ["consolidado", "pestana_consolidado"]]
+                Item {
+                    id: pestana
+                    required property var modelData
+                    readonly property bool activa: ventanaReportes.pestana === modelData[0]
+                    objectName: "pestana_" + modelData[0]
+                    width: textoPestana.implicitWidth + raiz.m(16); height: raiz.m(56)
+                    Text {
+                        id: textoPestana
+                        anchors.centerIn: parent
+                        text: raiz.tx("reportes", pestana.modelData[1])
+                        color: pestana.activa ? Colores.accionPrimarioTexto : Colores.textoSecundario
+                        font.family: Tipografia.familia
+                        font.weight: pestana.activa ? Tipografia.pesoBold : Tipografia.pesoSemiBold
+                        font.pixelSize: raiz.fuente(26)
+                    }
+                    Rectangle {
+                        visible: pestana.activa
+                        anchors.bottom: parent.bottom
+                        width: parent.width; height: raiz.m(4); radius: height / 2
+                        color: Colores.accionPrimario
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: !ventanaReportes.ocupado
+                        onClicked: { ventanaReportes.mensaje = ""; ventanaReportes.pestana = pestana.modelData[0] }
+                    }
                 }
             }
         }
@@ -867,7 +893,7 @@ Item {
             ResumenPeriodo {
                 objectName: "resumenPeriodo"
                 anchors.fill: parent
-                visible: ventanaReportes.hayCiclos
+                visible: ventanaReportes.hayCiclos && ventanaReportes.pestana === "resumen"
                 escala: raiz.escala
                 textosJson: raiz.textosJson
                 datos: raiz.reporte?.datos ?? ({ total: "0", totales: [], por_programa: [], causas: [] })
@@ -888,6 +914,42 @@ Item {
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: raiz.fuente(26)
             }
+            // Consolidado: cuántos ciclos entran y qué se enviará
+            Column {
+                objectName: "consolidado"
+                visible: ventanaReportes.hayCiclos && ventanaReportes.pestana === "consolidado"
+                width: parent.width
+                spacing: raiz.m(20)
+                Row {
+                    spacing: raiz.m(16)
+                    Text {
+                        id: cuentaConsolidado
+                        objectName: "cuentaConsolidado"
+                        text: raiz.reporte?.datos?.total ?? "0"
+                        color: Colores.textoPrimario
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoBold
+                        font.pixelSize: raiz.fuente(64)
+                    }
+                    Text {
+                        anchors.baseline: cuentaConsolidado.baseline
+                        text: raiz.tx("reportes", "consolidado_cuenta")
+                        color: Colores.textoSecundario
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoSemiBold
+                        font.pixelSize: raiz.fuente(28)
+                    }
+                }
+                Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: raiz.tx("reportes", "consolidado_desc")
+                    color: Colores.textoSecundario
+                    font.family: Tipografia.familia
+                    font.pixelSize: raiz.fuente(24)
+                    lineHeight: 1.2
+                }
+            }
         }
 
         AvisoAccion {
@@ -899,7 +961,10 @@ Item {
             anchors.bottomMargin: raiz.m(16)
             trabajando: ventanaReportes.accionEnCurso !== ""
             error: !trabajando && !ventanaReportes.mensajeExito
+            // el consolidado tarda: muestra su avance (AccionesCiclos.progreso)
             texto: ventanaReportes.eligiendoDestino ? ""
+                 : ventanaReportes.accionEnCurso !== "" && (raiz.acciones?.progreso ?? "") !== ""
+                   ? raiz.acciones.progreso
                  : ventanaReportes.accionEnCurso === "imprimir" ? raiz.tx("menu", "imprimiendo")
                  : ventanaReportes.accionEnCurso === "enviar" ? raiz.tx("menu", "enviando")
                  : ventanaReportes.mensaje
@@ -918,10 +983,12 @@ Item {
                                                    : raiz.tx("menu", "correo_no_configurado")
                 habilitado: !ventanaReportes.ocupado && ventanaReportes.correoListo
                             && !(raiz.reporte?.sinConexion ?? true)
+                            && (ventanaReportes.pestana === "resumen" || ventanaReportes.hayCiclos)
                 onPulsado: { ventanaReportes.mensaje = ""; ventanaReportes.eligiendoDestino = true }
             }
             BotonPildora {
                 objectName: "botonImprimirResumen"
+                visible: ventanaReportes.pestana === "resumen"   // el consolidado es solo por correo
                 escala: raiz.escala
                 primario: true
                 texto: raiz.tx("menu", "imprimir")

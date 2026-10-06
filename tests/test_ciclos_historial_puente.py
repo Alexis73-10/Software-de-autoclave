@@ -258,3 +258,33 @@ def test_no_marca_ciclos_que_no_estan_en_el_listado():
     _procesar()
     h.alternarSeleccion(999)
     assert h.seleccionados == []
+
+
+# ── cambiar de Día / Semana / Mes conserva la fecha que se está viendo ──
+
+def test_cambiar_de_periodo_conserva_la_fecha_vista():
+    h, backend = _historial_con_hoy()
+    h.consultarHistorial("mes")          # al abrir: el periodo actual
+    h.moverPeriodo(-3)                   # julio 2026
+    h.cambiarPeriodo("semana")           # la semana del 1 de julio
+    assert h.rotuloPeriodo == "29 jun – 5 jul 2026"
+    h.moverPeriodo(1)
+    h.cambiarPeriodo("dia")              # el lunes de esa semana
+    assert h.rotuloPeriodo == "Lunes 6 jul 2026"
+    assert backend.get.call_args.kwargs["params"]["fecha"] == "2026-07-06"
+    h.cambiarPeriodo("mes")
+    assert h.rotuloPeriodo == "Julio 2026" and h.esPeriodoActual is False
+
+
+def test_cambiar_de_periodo_sin_haber_abierto_usa_hoy():
+    h, _ = _historial_con_hoy()
+    h.cambiarPeriodo("semana")
+    assert h.rotuloPeriodo == "5 oct – 11 oct 2026"
+
+
+def test_abrir_otra_vez_vuelve_al_periodo_actual():
+    h, _ = _historial_con_hoy()
+    h.consultarHistorial("mes")
+    h.moverPeriodo(-2)
+    h.consultarHistorial("dia")
+    assert h.rotuloPeriodo == "Martes 6 oct 2026"

@@ -11,6 +11,10 @@
 #     o varios en un ZIP), como lo hacía ui_pyside/views/ciclos.py.
 #   - Resumen por periodo: POST /report/summary/print (mismas reglas que la
 #     reimpresión) o GET /report/summary -> PDF (exportacion/pdf_resumen.py) -> correo.
+#   - Reporte consolidado de un periodo: resumen + /cycle/list + ticket y curva de
+#     cada ciclo -> un solo PDF (exportacion/pdf_consolidado.py) -> correo, con el
+#     avance en `progreso` mientras trabaja.
+# Las gráficas de los PDF llevan las consignas de esterilización (domain/consignas.py).
 # Una acción a la vez (`ocupado`); el resultado llega por accionTerminada(éxito,
 # mensaje) para que la pantalla lo muestre.
 
@@ -26,9 +30,14 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.ui_qml.domain import reporte_resumen
+from autoclave.ui_qml.domain.consignas import consigna_esterilizacion
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica
 from autoclave.ui_qml.exportacion import config_correo, correo
+from autoclave.ui_qml.exportacion.textos import textos_ciclo
+
+# tope de ciclos del consolidado: el adjunto queda lejos del límite de 25 MB de Gmail
+MAX_CICLOS_CONSOLIDADO = 200
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +57,11 @@ def _generar_pdf_resumen(*args) -> None:
     generar_pdf_resumen(*args)
 
 
+def _generar_pdf_consolidado(*args, **kwargs) -> list:
+    from autoclave.ui_qml.exportacion.pdf_consolidado import generar_pdf_consolidado
+    return generar_pdf_consolidado(*args, **kwargs)
+
+
 class _ErrorConMensaje(Exception):
     """Fallo ya traducido al mensaje que verá el usuario."""
 
@@ -56,11 +70,14 @@ class AccionesCiclos(QObject):
     ocupadoChanged = Signal()
     correoChanged = Signal()
     accionTerminada = Signal(bool, str)
-    _terminado = Signal(bool, str)          # emitida desde el hilo de trabajo
+    progresoChanged = Signal()
+    _terminado = Signal(bool, str)          # emitidas desde el hilo de trabajo
+    _avance = Signal(str)
 
     def __init__(self, backend_client, textos: dict, parent=None, cargar_config=config_correo.cargar,
                  ejecutar=_en_hilo, generar_pdf=_generar_pdf, enviar=correo.enviar,
-                 generar_pdf_resumen=_generar_pdf_resumen):
+                 generar_pdf_resumen=_generar_pdf_resumen,
+                 generar_pdf_consolidado=_generar_pdf_consolidado):
         super().__init__(parent)
         self._backend = backend_client
         self._textos = textos
@@ -68,10 +85,13 @@ class AccionesCiclos(QObject):
         self._ejecutar = ejecutar
         self._generar_pdf = generar_pdf
         self._generar_pdf_resumen = generar_pdf_resumen
+        self._generar_pdf_consolidado = generar_pdf_consolidado
+        self._progreso = ""
         self._enviar = enviar
         self._ocupado = False
         self._config = cargar_config()
         self._terminado.connect(self._al_terminar)
+        self._avance.connect(self._fijar_progreso)
 
     def _tx(self, seccion: str, clave: str, **valores) -> str:
         texto = (self._textos.get(seccion) or {}).get(clave, clave)
@@ -82,6 +102,16 @@ class AccionesCiclos(QObject):
     @Property(bool, notify=ocupadoChanged)
     def ocupado(self) -> bool:
         return self._ocupado
+
+    @Property(str, notify=progresoChanged)
+    def progreso(self) -> str:
+        """Avance de la acción en curso ("Preparando ciclo 3 de 40…"); "" si no hay."""
+        return self._progreso
+
+    def _fijar_progreso(self, texto: str) -> None:
+        if texto != self._progreso:
+            self._progreso = texto
+            self.progresoChanged.emit()
 
     @Property(bool, notify=correoChanged)
     def correoConfigurado(self) -> bool:
@@ -118,6 +148,7 @@ class AccionesCiclos(QObject):
         return True
 
     def _al_terminar(self, exito: bool, mensaje: str) -> None:
+        self._fijar_progreso("")
         self._ocupado = False
         self.ocupadoChanged.emit()
         self.accionTerminada.emit(exito, mensaje)
@@ -230,6 +261,74 @@ class AccionesCiclos(QObject):
 
         self._empezar(tarea)
 
+    @Slot(str, str, str)
+    def enviarConsolidado(self, periodo: str, fecha: str, destino: str) -> None:
+        """Un solo PDF con el resumen, el índice y las páginas de cada ciclo del
+        periodo que contiene `fecha` (ISO), por correo."""
+        destino = (destino or "").strip()
+        config = self._config
+
+        def tarea():
+            self._validar_envio(config, destino)
+            try:
+                r = self._backend.get("/report/summary", params={"periodo": periodo, "fecha": fecha})
+            except Exception as e:
+                logger.debug("resumen del periodo no disponible: %s", e)
+                raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+            total = (r.get("totales") or {}).get("total", 0)
+            if not total:
+                raise _ErrorConMensaje(self._tx("exportacion", "consolidado_vacio"))
+            if total > MAX_CICLOS_CONSOLIDADO:
+                raise _ErrorConMensaje(self._tx("exportacion", "consolidado_demasiados", n=total,
+                                                maximo=MAX_CICLOS_CONSOLIDADO))
+            try:
+                lista = self._backend.get("/cycle/list", params={
+                    "periodo": periodo, "terminados": "false", "fecha": fecha,
+                    "limite": MAX_CICLOS_CONSOLIDADO})
+            except Exception as e:
+                logger.debug("listado del periodo no disponible: %s", e)
+                raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+            filas = list(reversed(lista.get("ciclos") or []))   # el más antiguo primero
+            ciclos = []
+            for i, fila in enumerate(filas, start=1):
+                self._avance.emit(self._tx("exportacion", "preparando", i=i, n=len(filas)))
+                c = self._datos_ciclo(fila["id"])
+                p = dominio.ciclo_presentable(fila)
+                c["indice"] = [f"{c['ciclo']['numero_ciclo']:06d}", p["fecha"], p["hora"],
+                               " · ".join(x for x in (p["programa"], p["programa_nombre"])
+                                          if x != dominio.SIN_DATO) or dominio.SIN_DATO,
+                               dict(c["datos"]["campos"])[self._tx("exportacion", "resultado")]]
+                ciclos.append(c)
+
+            desde, hasta = r.get("desde", ""), r.get("hasta", "")
+            texto_periodo = self._tx("exportacion", "periodo_resumen",
+                                     desde=dominio.formatear_fecha(desde),
+                                     hasta=dominio.formatear_fecha(hasta))
+            portada = {
+                "empresa": self._tx("exportacion", "empresa", modelo=r.get("modelo") or "",
+                                    serie=r.get("serie") or ""),
+                "titulo": self._tx("exportacion", "titulo_consolidado"),
+                "periodo": texto_periodo,
+                "resumen": reporte_resumen.presentable(r),
+            }
+            nombre = f"consolidado_{desde}_{hasta}.pdf"
+            with tempfile.TemporaryDirectory() as carpeta:
+                ruta = Path(carpeta) / nombre
+                self._generar_pdf_consolidado(
+                    ruta, portada, ciclos, self._textos,
+                    progreso=lambda f: self._avance.emit(
+                        self._tx("exportacion", "generando", porcentaje=round(100 * f))))
+                contenido = ruta.read_bytes()
+            self._avance.emit(self._tx("menu", "enviando"))
+            self._enviar_mensaje(config, destino,
+                                 self._tx("exportacion", "asunto_consolidado", serie=r.get("serie") or "",
+                                          periodo=texto_periodo),
+                                 self._tx("exportacion", "cuerpo_consolidado"),
+                                 (nombre, contenido, "pdf"))
+            return True, self._tx("exportacion", "enviado_consolidado", n=len(ciclos), destino=destino)
+
+        self._empezar(tarea)
+
     def _validar_envio(self, config, destino: str) -> None:
         if not config_correo.correo_valido(destino):
             raise _ErrorConMensaje(self._tx("exportacion", "correo_invalido"))
@@ -251,23 +350,38 @@ class AccionesCiclos(QObject):
         pdfs, ciclos = [], []
         with tempfile.TemporaryDirectory() as carpeta:
             for ciclo_id in ids:
-                try:
-                    ticket = self._backend.get(f"/cycle/history/{ciclo_id}/ticket")
-                    grafica = self._backend.get(f"/cycle/history/{ciclo_id}/graph")
-                except Exception as e:
-                    logger.debug("datos del ciclo %s no disponibles: %s", ciclo_id, e)
-                    raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
-                ciclo = ticket["ciclo"]
-                acumulador = AcumuladorGrafica()
-                acumulador.incorporar(grafica)
-                nombre = f"ciclo_{ciclo['numero_ciclo']:06d}.pdf"
+                c = self._datos_ciclo(ciclo_id)
+                nombre = f"ciclo_{c['ciclo']['numero_ciclo']:06d}.pdf"
                 ruta = Path(carpeta) / nombre
-                self._generar_pdf(ruta, self._datos_pdf(ciclo), format_ticket(ciclo, ticket["lecturas"]),
-                                  acumulador.datos(), acumulador.inicios_de_fase(FASES_UI),
-                                  self._textos_pdf())
+                self._generar_pdf(ruta, c["datos"], c["ticket"], c["grafica"], c["fases"],
+                                  textos_ciclo(self._textos), c["consigna"])
                 pdfs.append((nombre, ruta.read_bytes()))
-                ciclos.append(ciclo)
+                ciclos.append(c["ciclo"])
         return pdfs, ciclos
+
+    def _datos_ciclo(self, ciclo_id: int) -> dict:
+        """Lo que necesitan las páginas de un ciclo: {ciclo, datos, ticket,
+        grafica, fases, consigna} (GET /cycle/history/{id}/ticket y /graph)."""
+        try:
+            ticket = self._backend.get(f"/cycle/history/{ciclo_id}/ticket")
+            grafica = self._backend.get(f"/cycle/history/{ciclo_id}/graph")
+        except Exception as e:
+            logger.debug("datos del ciclo %s no disponibles: %s", ciclo_id, e)
+            raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+        ciclo = ticket["ciclo"]
+        acumulador = AcumuladorGrafica()
+        acumulador.incorporar(grafica)
+        datos_grafica = acumulador.datos()
+        fases = acumulador.inicios_de_fase(FASES_UI)
+        t_fin = datos_grafica["t_min"][-1] if datos_grafica["t_min"] else 0.0
+        return {
+            "ciclo": ciclo,
+            "datos": self._datos_pdf(ciclo),
+            "ticket": format_ticket(ciclo, ticket["lecturas"]),
+            "grafica": datos_grafica,
+            "fases": fases,
+            "consigna": consigna_esterilizacion(ciclo.get("temp_esterilizacion"), fases, t_fin),
+        }
 
     def _datos_pdf(self, ciclo: dict) -> dict:
         fila = dominio.ciclo_presentable({
@@ -291,15 +405,4 @@ class AccionesCiclos(QObject):
                  f"{fin}  {hora_fin}" if fin != dominio.SIN_DATO else dominio.SIN_DATO),
                 (self._tx("exportacion", "resultado"), resultado),
             ],
-        }
-
-    def _textos_pdf(self) -> dict:
-        ciclo = self._textos.get("ciclo") or {}
-        return {
-            "fases": self._textos.get("fases") or {},
-            "series": {"temp_camara": ciclo.get("serie_temp_camara", ""),
-                       "temp_ref": ciclo.get("serie_temp_ref", ""),
-                       "pres_camara": ciclo.get("serie_presion", "")},
-            **{k: self._tx("exportacion", k)
-               for k in ("eje_tiempo", "eje_temp", "eje_pres", "sin_grafica", "ticket")},
         }
