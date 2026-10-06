@@ -1,10 +1,12 @@
 # autoclave/backend/server.py
 
 import logging
+from datetime import date, datetime, time, timedelta
+from typing import Literal
 
 from fastapi import HTTPException, FastAPI, Body
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.context import BackendContext
@@ -15,6 +17,7 @@ from autoclave.hal.measures.calibration_tools import invert_user_calibration, fi
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
 from autoclave.utils.git_autocommit import git_autocommit
+from autoclave.utils import periodos
 from autoclave.utils.paths import app_root, calibration_path
 
 _TICKETS_DIR = app_root() / "data" / "tickets"
@@ -328,6 +331,134 @@ def get_current_cycle_graph(desde_id: int | None = None):
     }
 
 
+def _inicio_del_dia() -> str:
+    """Medianoche local en el formato de ciclos.fecha_fin (ISO sin zona, hora
+    local del equipo). Reloj de pared: solo para presentar "ciclos hoy", no
+    temporiza nada del proceso (C-01)."""
+    return datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+
+
+def _rango_del_periodo(periodo: str, fecha: date) -> tuple[str, str]:
+    """Periodo de calendario que contiene `fecha` (Historial, utils/periodos.py):
+    (desde, hasta) como medianoche local en el formato de la tabla ciclos; `hasta`
+    es exclusivo (medianoche del primer día del periodo siguiente)."""
+    inicio, fin = periodos.rango(periodo, fecha)
+    return datetime.combine(inicio, time()).isoformat(), datetime.combine(fin, time()).isoformat()
+
+
+def _ciclo_json(fila) -> dict:
+    """Un ciclo de la tabla `ciclos` para el Menú Principal. El número de programa
+    no se guarda en `ciclos`: se toma del programa actual con ese id (None si ya
+    no existe o no tiene número)."""
+    programa = context.cycle_manager.cycles.get(fila["tipo_ciclo"])
+    return {
+        "id":              fila["id"],   # para pedir su curva a /cycle/history/{id}/graph
+        "numero_ciclo":    fila["numero_ciclo"],
+        "fecha_inicio":    fila["fecha_inicio"],
+        "fecha_fin":       fila["fecha_fin"],
+        "programa_id":     fila["tipo_ciclo"],
+        "programa_nombre": fila["nombre_ciclo"],
+        "programa_numero": getattr(programa, "number", None),
+        "resultado":       fila["resultado"],
+        # CycleLogger hoy no lo guarda (siempre ''): queda None hasta que exista
+        # el registro de operadores (B-02 de planeacion_menu_principal.md)
+        "operador":        fila["operador"] or None,
+    }
+
+
+@app.get("/cycle/summary")
+def get_cycle_summary():
+    """Resumen de solo lectura para el Resumen del Sistema del Menú Principal
+    (planeacion_menu_principal_ui_qml.md, D-14)."""
+    r = context.db.get_resumen_ciclos(_inicio_del_dia())
+    ultimo = _ciclo_json(r["ultimo"]) if r["ultimo"] is not None else None
+    return {
+        "ciclos_totales": r["total"],   # TODO(MP-06a): último numero_ciclo, no contador persistente
+        "ciclos_hoy":     r["hoy"],
+        "ultimo_ciclo":   ultimo,
+    }
+
+
+@app.get("/cycle/list")
+def get_cycle_list(periodo: Literal["dia", "semana", "mes"] = "dia",
+                   fecha: date | None = None,
+                   terminados: bool = False, limite: int = 500):
+    """Ciclos del periodo de calendario que contiene `fecha` (por defecto hoy), más
+    recientes primero; solo lectura. Lo usan la ventana de Ciclos hoy (periodo=dia,
+    terminados=true: los mismos que cuenta /cycle/summary) y la de Historial (por
+    fecha de inicio, con los interrumpidos). truncado = había más de `limite`;
+    desde/hasta = primer y último día del periodo, para rotularlo."""
+    limite = max(1, min(limite, 2000))
+    if fecha is None:
+        fecha = date.fromisoformat(_inicio_del_dia()[:10])
+    desde, hasta = _rango_del_periodo(periodo, fecha)
+    filas = context.db.get_ciclos_desde(desde, terminados, limite + 1, hasta=hasta)
+    return {
+        "periodo":   periodo,
+        "desde":     desde[:10],
+        "hasta":     (date.fromisoformat(hasta[:10]) - timedelta(days=1)).isoformat(),
+        "ciclos":    [_ciclo_json(f) for f in filas[:limite]],
+        "truncado":  len(filas) > limite,
+    }
+
+
+class _ImprimirCiclosBody(BaseModel):
+    ids: list[int] = Field(min_length=1)
+
+
+@app.post("/cycle/history/print")
+def print_cycle_history(body: _ImprimirCiclosBody):
+    """Reimprime en la impresora térmica el ticket de cada ciclo pedido, en ese
+    orden, por la misma cola que la impresión en tiempo real. Se rechaza durante
+    un ciclo (409): el ticket en vivo se imprime línea a línea por esa cola y la
+    reimpresión quedaría intercalada en él. Y si Windows no reporta la impresora
+    lista (503, detail.impresora = desconectada / sin_papel / no_instalada / error)."""
+    from autoclave.state_machine.machine.enum_global import GlobalState
+    if context.estado.get_machine_state() == GlobalState.CICLO:
+        raise HTTPException(status_code=409, detail="No se puede imprimir durante un ciclo")
+
+    tickets = []
+    for ciclo_id in body.ids:
+        ciclo = context.db.get_ciclo(ciclo_id)
+        if ciclo is None:
+            raise HTTPException(status_code=404, detail=f"Ciclo {ciclo_id} no encontrado")
+        lecturas = [dict(r) for r in context.db.get_lecturas_para_imprimir(ciclo_id)]
+        tickets.append(format_ticket(dict(ciclo), lecturas))
+    # Windows acepta el trabajo aunque la impresora esté desconectada y lo deja
+    # en su cola: se consulta antes para avisar en vez de encolar a ciegas
+    estado_impresora = context.realtime_printer.estado()
+    if estado_impresora != "lista":
+        raise HTTPException(status_code=503, detail={"impresora": estado_impresora})
+    for texto in tickets:   # se encola solo si existen todos y la impresora está lista
+        context.realtime_printer.enqueue(texto)
+    return {"ok": True, "impresos": len(tickets)}
+
+
+@app.get("/cycle/history/{ciclo_id}/graph")
+def get_cycle_history_graph(ciclo_id: int):
+    """Serie de la gráfica (lecturas_grafica, ~1 s, t_s monotónico) de un ciclo
+    del historial, con el mismo formato que /cycle/current/graph. Solo lectura;
+    la usa la ventana flotante de Último ciclo del Menú Principal (D-21)."""
+    if context.db.get_ciclo(ciclo_id) is None:
+        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+    rows = context.db.get_lecturas_grafica(ciclo_id)
+    return {
+        "ciclo_db_id": ciclo_id,
+        "lecturas": [
+            {
+                "id":          r["id"],
+                "t_s":         r["t_s"],
+                "fase":        r["fase"],
+                "fase_ui":     progreso_ciclo.fase_ui(r["fase"]),
+                "temp_camara": r["temp_camara"],
+                "temp_ref":    r["temp_ref"],
+                "pres_camara": r["pres_camara"],
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/cycle/history")
 def get_cycle_history(limite: int = 50):
     """Lista de ciclos registrados (más recientes primero)."""
@@ -381,7 +512,7 @@ def get_cycle_ticket_txt(ciclo_id: int):
         raise HTTPException(status_code=404, detail="Ciclo no encontrado")
 
     rows  = context.db.get_lecturas_para_imprimir(ciclo_id)
-    text  = format_ticket(ciclo, rows)
+    text  = format_ticket(dict(ciclo), [dict(r) for r in rows])
 
     _TICKETS_DIR.mkdir(parents=True, exist_ok=True)
     ticket_path = _TICKETS_DIR / f"ciclo_{ciclo['numero_ciclo']:05d}.txt"

@@ -31,7 +31,19 @@ QtObject {
     readonly property color alarmaMedia: "#FFCC00"
     readonly property color alarmaBaja:  "#00CCFF"
 
+    // Acentos del Menú Principal: medidos sobre el mockup v3 (planeacion_menu_principal_ui_qml.md §5).
+    // No coinciden con ningún token del paquete del diseñador (accionPrimario #1168F6 y
+    // advertencia #FF9933 son tonos distintos): confirmar con él si unifica. El verde NO es
+    // estado de alarma; ninguno de estos sustituye a los colores alarma*.
+    readonly property color menuVerde:        "#009535" // borde e icono (Iniciar sesión)
+    readonly property color menuVerdeTexto:   "#0D8C2C" // texto verde (p. ej. resultado exitoso)
+    readonly property color menuAzul:         "#0361EC"
+    readonly property color menuNaranja:      "#FF9720"
+    readonly property color menuNaranjaTexto: "#F26500" // texto naranja (p. ej. programa)
+    readonly property color menuMorado:       "#9827D1"
+
     // Neutros / texto
+    readonly property color bordeDivisor:       "#E6E6E6" // borde_divisor de tokens.css (aro neutro de tarjeta)
     readonly property color textoPrimario:      "#031225" // neutro_900
     readonly property color textoSecundario:    "#4D4D4D" // neutro_700
     readonly property color textoGuia:          "#808080" // neutro_500 — placeholder, ≥19px

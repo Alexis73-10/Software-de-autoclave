@@ -222,6 +222,50 @@ class DbManager:
                 "SELECT * FROM ciclos ORDER BY id DESC LIMIT ?", (limite,)
             ).fetchall()
 
+    def get_resumen_ciclos(self, desde: str) -> dict:
+        """Resumen de solo lectura para el Menú Principal (GET /cycle/summary).
+
+        total: último numero_ciclo (no un conteo de filas: sobrevive a filas
+               faltantes, pero no a vaciar la tabla — TODO(MP-06a)).
+        hoy:   ciclos terminados (con fecha_fin, cualquier resultado) desde
+               `desde`, medianoche local en el mismo formato ISO sin zona que
+               guardan crear_ciclo/cerrar_ciclo (datetime.now().isoformat()).
+        ultimo: fila del ciclo de mayor id (puede no estar cerrado), o None.
+        """
+        with self._lock:
+            total = self._conn.execute(
+                "SELECT COALESCE(MAX(numero_ciclo), 0) FROM ciclos"
+            ).fetchone()[0]
+            hoy = self._conn.execute(
+                "SELECT COUNT(*) FROM ciclos WHERE fecha_fin IS NOT NULL AND fecha_fin >= ?",
+                (desde,),
+            ).fetchone()[0]
+            ultimo = self._conn.execute(
+                "SELECT * FROM ciclos ORDER BY id DESC LIMIT 1"
+            ).fetchone()
+        return {"total": total, "hoy": hoy, "ultimo": ultimo}
+
+    def get_ciclos_desde(self, desde: str, terminados: bool, limite: int,
+                         hasta: str | None = None) -> list:
+        """Ciclos desde `desde` (ISO local sin zona) y, si se da, antes de `hasta`
+        (exclusivo), más recientes primero; solo lectura (Ciclos hoy e Historial
+        del Menú Principal).
+
+        terminados=False: por fecha_inicio, incluidos los interrumpidos (sin fecha_fin).
+        terminados=True:  por fecha_fin (>= desde), el mismo criterio que el conteo
+                          "hoy" de get_resumen_ciclos.
+        """
+        campo = "fecha_fin" if terminados else "fecha_inicio"
+        sql = f"SELECT * FROM ciclos WHERE {campo} IS NOT NULL AND {campo} >= ?"
+        params: list = [desde]
+        if hasta is not None:
+            sql += f" AND {campo} < ?"
+            params.append(hasta)
+        sql += " ORDER BY id DESC LIMIT ?"
+        params.append(limite)
+        with self._lock:
+            return self._conn.execute(sql, params).fetchall()
+
     # ------------------------------------------------------------------
     # Lecturas
     # ------------------------------------------------------------------

@@ -26,6 +26,12 @@ Window {
     // progreso / comandosCicloEnCurso: datos y comandos de la pantalla de ciclo en curso
     property QtObject progreso: null
     property QtObject comandosCicloEnCurso: null
+    // resumen: Resumen del Sistema del Menú Principal (ResumenSistema, solo lectura)
+    property QtObject resumen: null
+    // historial: listados de Ciclos hoy e Historial del Menú Principal (CiclosHistorial)
+    property QtObject historial: null
+    // acciones: imprimir / enviar por correo ciclos del Historial (AccionesCiclos)
+    property QtObject acciones: null
     property var textosJson: ({})
 
     // Pantalla principal según el estado de la máquina que reporta el backend
@@ -138,13 +144,15 @@ Window {
                 textosJson: ventana.textosJson
                 onPuertaPulsada: ventana.comandosPuerta?.alternar()
                 onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
-                onAjustesPulsado: ventana.ajustes?.abrir()
+                onAjustesPulsado: pila.push(menuComp)
                 onAvatarPulsado: pila.push(loginComp)
             }
         }
     }
     // Pantalla de ciclo en curso: alto flexible (sin AreaFija). Campana y panel de
     // equipo los abre la propia pantalla; engranaje y avatar, igual que la previa.
+    // Si la máquina sale de CICLO con el menú abierto, aplicarEstadoMaquina()
+    // vacía la pila y vuelve a la pantalla principal que corresponda.
     Component {
         id: enCursoComp
         PantallaCicloEnCurso {
@@ -153,8 +161,28 @@ Window {
             comandos: ventana.comandosCicloEnCurso
             infoEquipo: ventana.infoEquipo
             textosJson: ventana.textosJson
-            onAjustesPulsado: ventana.ajustes?.abrir()
+            onAjustesPulsado: pila.push(menuComp)
             onAvatarPulsado: pila.push(loginComp)
+        }
+    }
+    // Menú Principal (planeacion_menu_principal_ui_qml.md): lo abre el engranaje de
+    // la pantalla de preciclo y el de la de ciclo en curso (decisión de Cristian,
+    // 2026-10-02); su casa regresa a esa pantalla. Iniciar sesión abre el login QML
+    // (su casa regresa al menú); Información y la campana abren sus paneles dentro
+    // del propio menú. Alto flexible (sin AreaFija).
+    Component {
+        id: menuComp
+        MenuPrincipal {
+            puente: ventana.puente
+            resumen: ventana.resumen
+            historial: ventana.historial
+            acciones: ventana.acciones
+            teclado: panelTeclado
+            infoEquipo: ventana.infoEquipo
+            textosJson: ventana.textosJson
+            inicioActivo: true
+            onInicioPulsado: pila.pop()
+            onIniciarSesionPulsado: pila.push(loginComp)
         }
     }
     Component {

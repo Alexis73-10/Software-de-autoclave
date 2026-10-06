@@ -24,12 +24,15 @@ from PySide6.QtQml import QQmlApplicationEngine
 from autoclave.ui.service_ui.backend_client import BackendClient
 from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
 from autoclave.services.domain.puertas.door_command_service import DoorCommandService
+from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
+from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
 from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
 from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
 from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
+from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
 from autoclave.ui_qml.bridge.standby import Standby
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
 # Registran los controladores de los teclados en Autoclave.Controllers
@@ -118,11 +121,19 @@ def main(argv=None) -> int:
     standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto)
     progreso = ProgresoCiclo(backend)
     comandos_en_curso = ComandosCicloEnCurso(puente, ui_service)
+    # Resumen del Sistema del Menú Principal: solo lectura; sondea solo mientras el menú está visible
+    resumen = ResumenSistema(backend)
+    # Listados de Ciclos hoy e Historial del menú: solo lectura, bajo demanda
+    historial = CiclosHistorial(backend)
+    # Historial: reimprimir en la térmica o enviar por correo los ciclos marcados
+    textos = cargar_textos()
+    acciones = AccionesCiclos(backend, textos)
 
     def _al_salir():
         puente.detener()
         standby.detener()
         progreso.detener()
+        resumen.detener()
         ajustes.cerrar()
         ui_service.stop()   # solo detiene el hilo de lectura; no toca salidas ni backend
 
@@ -139,7 +150,10 @@ def main(argv=None) -> int:
         "standby": standby,
         "progreso": progreso,
         "comandosCicloEnCurso": comandos_en_curso,
-        "textosJson": cargar_textos(),
+        "resumen": resumen,
+        "historial": historial,
+        "acciones": acciones,
+        "textosJson": textos,
     })
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Main.qml"))
     if not engine.rootObjects():
