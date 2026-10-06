@@ -23,7 +23,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica
-from autoclave.utils import periodos as calendario
+from autoclave.ui_qml.domain.navegador_periodo import NavegadorPeriodo
 
 logger = logging.getLogger(__name__)
 
@@ -49,9 +49,7 @@ class CiclosHistorial(QObject):
         super().__init__(parent)
         self._backend = backend_client
         self._ejecutar = ejecutar
-        self._hoy = hoy                      # reloj de pared: solo para elegir el periodo
-        self._periodo_historial = ""         # "" = el Historial no se ha consultado
-        self._fecha_historial = None
+        self._navegador = NavegadorPeriodo(hoy)   # periodo del Historial
         self._seleccionados: list = []
         self._pedido_lista = 0
         self._periodo = ""
@@ -83,25 +81,21 @@ class CiclosHistorial(QObject):
         if periodo not in PERIODOS:
             logger.warning("Periodo de historial desconocido: %r", periodo)
             return
-        self._ir_a(periodo, self._hoy())
+        self._navegador.ir_al_actual(periodo)
+        self._pedir_periodo()
 
     @Slot(int)
     def moverPeriodo(self, pasos: int) -> None:
         """Flechas del Historial: `pasos` periodos antes (negativo) o después, sin
         pasar del actual."""
-        if not self._periodo_historial:
-            return
-        destino = calendario.desplazar(self._periodo_historial, self._fecha_historial,
-                                       pasos, self._hoy())
-        if calendario.rango(self._periodo_historial, destino) !=                 calendario.rango(self._periodo_historial, self._fecha_historial):
-            self._ir_a(self._periodo_historial, destino)
+        if self._navegador.mover(pasos):
+            self._pedir_periodo()
 
-    def _ir_a(self, periodo: str, fecha: date) -> None:
-        self._periodo_historial = periodo
-        self._fecha_historial = fecha
+    def _pedir_periodo(self) -> None:
+        n = self._navegador
         self.periodoChanged.emit()
-        self._pedir_lista(periodo, {"periodo": periodo, "terminados": "false",
-                                    "fecha": fecha.isoformat()})
+        self._pedir_lista(n.periodo, {"periodo": n.periodo, "terminados": "false",
+                                      "fecha": n.fecha.isoformat()})
 
     def _pedir_lista(self, periodo: str, params: dict) -> None:
         self._pedido_lista += 1
@@ -217,15 +211,12 @@ class CiclosHistorial(QObject):
     @Property(str, notify=periodoChanged)
     def rotuloPeriodo(self) -> str:
         """Periodo del Historial entre las flechas ("Octubre 2026")."""
-        if not self._periodo_historial:
-            return ""
-        return dominio.rotulo_periodo(self._periodo_historial, self._fecha_historial)
+        return self._navegador.rotulo
 
     @Property(bool, notify=periodoChanged)
     def esPeriodoActual(self) -> bool:
         """La flecha siguiente se apaga en el periodo actual."""
-        return not self._periodo_historial or calendario.es_actual(
-            self._periodo_historial, self._fecha_historial, self._hoy())
+        return self._navegador.es_actual
 
     @Property("QVariantList", notify=seleccionChanged)
     def seleccionados(self) -> list:

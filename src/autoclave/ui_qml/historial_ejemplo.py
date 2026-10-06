@@ -14,6 +14,7 @@ from datetime import date, datetime, timedelta
 import requests
 
 from autoclave.core.runtime import progreso_ciclo
+from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.utils import periodos
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,8 @@ class BackendEjemplo:
                 ciclos.extend(self._ciclos_del_dia(d))
                 d += timedelta(days=1)
             return {"periodo": params["periodo"], "ciclos": ciclos[::-1], "truncado": False}
+        if ruta == "/report/summary":
+            return self._resumen(params)
         ciclo_id = int(ruta.split("/")[3])
         if ruta.endswith("/graph"):
             return {"ciclo_db_id": ciclo_id, "lecturas": [
@@ -97,10 +100,24 @@ class BackendEjemplo:
             return {"ciclo": ciclo, "lecturas": lecturas}
         raise requests.HTTPError(response=type("R", (), {"status_code": 404})())
 
+    def _resumen(self, params) -> dict:
+        """Resumen calculado sobre los mismos ciclos de ejemplo del listado."""
+        fecha = date.fromisoformat(params["fecha"]) if params.get("fecha") else self._hoy()
+        inicio, fin = periodos.rango(params["periodo"], fecha)
+        filas, d = [], inicio
+        while d < fin and d <= self._hoy():
+            filas += [{"tipo_ciclo": c["programa_id"], "nombre_ciclo": c["programa_nombre"],
+                       "resultado": c["resultado"], "cantidad": 1} for c in self._ciclos_del_dia(d)]
+            d += timedelta(days=1)
+        numeros = {p[0]: p[2] for p in _PROGRAMAS}
+        return {"periodo": params["periodo"], "desde": inicio.isoformat(),
+                "hasta": (fin - timedelta(days=1)).isoformat(), "serie": "EJEMPLO-001",
+                "modelo": "SPK-AVH-450", **resumen_periodo.resumir(filas, numeros)}
+
     def post(self, ruta: str, body=None, **_):
         if self.sin_conexion:
             raise requests.ConnectionError("backend de ejemplo sin conexión")
-        if ruta == "/cycle/history/print":
+        if ruta in ("/cycle/history/print", "/report/summary/print"):
             time.sleep(0.8)
             # estado REAL de la impresora (como el backend), aunque no se imprime nada
             from autoclave.devices.printer.win32_printer import estado_impresora
@@ -109,8 +126,8 @@ class BackendEjemplo:
                 respuesta = type("R", (), {"status_code": 503,
                                            "json": lambda self: {"detail": {"impresora": estado}}})()
                 raise requests.HTTPError(response=respuesta)
-            logger.info("EJEMPLO: se imprimirían los ciclos %s", body["ids"])
-            return {"ok": True, "impresos": len(body["ids"])}
+            logger.info("EJEMPLO: se imprimiría %s %s", ruta, body)
+            return {"ok": True, "impresos": len(body.get("ids", []))}
         raise requests.HTTPError(response=type("R", (), {"status_code": 404})())
 
 

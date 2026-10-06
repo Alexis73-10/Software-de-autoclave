@@ -266,6 +266,20 @@ class DbManager:
         with self._lock:
             return self._conn.execute(sql, params).fetchall()
 
+    def get_conteo_resultados(self, desde: str, hasta: str) -> list:
+        """Cantidad de ciclos por (tipo_ciclo, resultado) iniciados en [desde, hasta)
+        (ISO local sin zona), con el nombre de programa más reciente; solo lectura
+        (resumen por periodo de la pantalla Reportes)."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT tipo_ciclo, resultado, COUNT(*) AS cantidad,"
+                " (SELECT c2.nombre_ciclo FROM ciclos c2 WHERE c2.tipo_ciclo = c.tipo_ciclo"
+                "  ORDER BY c2.id DESC LIMIT 1) AS nombre_ciclo"
+                " FROM ciclos c WHERE fecha_inicio >= ? AND fecha_inicio < ?"
+                " GROUP BY tipo_ciclo, resultado",
+                (desde, hasta),
+            ).fetchall()
+
     # ------------------------------------------------------------------
     # Lecturas
     # ------------------------------------------------------------------

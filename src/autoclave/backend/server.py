@@ -13,6 +13,7 @@ from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
+from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
@@ -406,17 +407,28 @@ class _ImprimirCiclosBody(BaseModel):
     ids: list[int] = Field(min_length=1)
 
 
-@app.post("/cycle/history/print")
-def print_cycle_history(body: _ImprimirCiclosBody):
-    """Reimprime en la impresora térmica el ticket de cada ciclo pedido, en ese
-    orden, por la misma cola que la impresión en tiempo real. Se rechaza durante
-    un ciclo (409): el ticket en vivo se imprime línea a línea por esa cola y la
-    reimpresión quedaría intercalada en él. Y si Windows no reporta la impresora
-    lista (503, detail.impresora = desconectada / sin_papel / no_instalada / error)."""
+def _encolar_en_impresora(tickets: list[str]) -> None:
+    """Pone los tickets en la cola de la impresora térmica, la misma de la
+    impresión en tiempo real. Se rechaza durante un ciclo (409): el ticket en
+    vivo se imprime línea a línea por esa cola y lo nuevo quedaría intercalado
+    en él. Y si Windows no reporta la impresora lista (503, detail.impresora =
+    desconectada / sin_papel / no_instalada / error): Windows acepta el trabajo
+    aunque esté desconectada y lo deja en su cola, así que se avisa en vez de
+    encolar a ciegas."""
     from autoclave.state_machine.machine.enum_global import GlobalState
     if context.estado.get_machine_state() == GlobalState.CICLO:
         raise HTTPException(status_code=409, detail="No se puede imprimir durante un ciclo")
+    estado_impresora = context.realtime_printer.estado()
+    if estado_impresora != "lista":
+        raise HTTPException(status_code=503, detail={"impresora": estado_impresora})
+    for texto in tickets:
+        context.realtime_printer.enqueue(texto)
 
+
+@app.post("/cycle/history/print")
+def print_cycle_history(body: _ImprimirCiclosBody):
+    """Reimprime en la impresora térmica el ticket de cada ciclo pedido, en ese
+    orden (404 y nada impreso si alguno no existe; 409/503: _encolar_en_impresora)."""
     tickets = []
     for ciclo_id in body.ids:
         ciclo = context.db.get_ciclo(ciclo_id)
@@ -424,14 +436,48 @@ def print_cycle_history(body: _ImprimirCiclosBody):
             raise HTTPException(status_code=404, detail=f"Ciclo {ciclo_id} no encontrado")
         lecturas = [dict(r) for r in context.db.get_lecturas_para_imprimir(ciclo_id)]
         tickets.append(format_ticket(dict(ciclo), lecturas))
-    # Windows acepta el trabajo aunque la impresora esté desconectada y lo deja
-    # en su cola: se consulta antes para avisar en vez de encolar a ciegas
-    estado_impresora = context.realtime_printer.estado()
-    if estado_impresora != "lista":
-        raise HTTPException(status_code=503, detail={"impresora": estado_impresora})
-    for texto in tickets:   # se encola solo si existen todos y la impresora está lista
-        context.realtime_printer.enqueue(texto)
+    _encolar_en_impresora(tickets)
     return {"ok": True, "impresos": len(tickets)}
+
+
+def _resumen_periodo(periodo: str, fecha: date | None) -> dict:
+    if fecha is None:
+        fecha = date.fromisoformat(_inicio_del_dia()[:10])
+    desde, hasta = _rango_del_periodo(periodo, fecha)
+    numeros = {tipo: getattr(c, "number", None) for tipo, c in context.cycle_manager.cycles.items()}
+    resumen = resumen_periodo.resumir(context.db.get_conteo_resultados(desde, hasta), numeros)
+    perfil = context.profile
+    return {
+        "periodo": periodo,
+        "serie":   getattr(perfil, "serial_number", "") or "",
+        "modelo":  getattr(perfil, "model_id", "") or "",
+        "desde":   desde[:10],
+        "hasta":   (date.fromisoformat(hasta[:10]) - timedelta(days=1)).isoformat(),
+        **resumen,
+    }
+
+
+@app.get("/report/summary")
+def get_report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: date | None = None):
+    """Resumen de los ciclos iniciados en el periodo de calendario que contiene
+    `fecha` (por defecto hoy): totales por resultado, por programa y causas de
+    fallo (services/domain/reportes/resumen_periodo.py). Solo lectura."""
+    return _resumen_periodo(periodo, fecha)
+
+
+class _ImprimirResumenBody(BaseModel):
+    periodo: Literal["dia", "semana", "mes"] = "dia"
+    fecha: date | None = None
+
+
+@app.post("/report/summary/print")
+def print_report_summary(body: _ImprimirResumenBody):
+    """Imprime el resumen del periodo en la impresora térmica (409/503:
+    _encolar_en_impresora)."""
+    r = _resumen_periodo(body.periodo, body.fecha)
+    _encolar_en_impresora([resumen_periodo.format_ticket_resumen(
+        r, r["desde"], r["hasta"], serie=r["serie"], modelo=r["modelo"])])
+    return {"ok": True}
 
 
 @app.get("/cycle/history/{ciclo_id}/graph")

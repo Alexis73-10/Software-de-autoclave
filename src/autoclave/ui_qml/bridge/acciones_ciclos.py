@@ -1,6 +1,7 @@
 # ui_qml/bridge/acciones_ciclos.py
 #
-# Acciones sobre ciclos del Historial del Menú Principal, fuera del hilo de la GUI:
+# Acciones de impresión y correo del Menú Principal, fuera del hilo de la GUI,
+# sobre ciclos del Historial y sobre el resumen por periodo de Reportes:
 #   - Imprimir: POST /cycle/history/print; el backend los encola en la impresora
 #     térmica (lo rechaza con 409 durante un ciclo y con 503 si Windows no
 #     reporta la impresora lista: desconectada, sin papel, no instalada o error).
@@ -8,6 +9,8 @@
 #     /graph, arma un PDF con la gráfica y el ticket (exportacion/pdf_ciclo.py) y
 #     lo envía por SMTP con el remitente de exportacion/config_correo.py (un PDF,
 #     o varios en un ZIP), como lo hacía ui_pyside/views/ciclos.py.
+#   - Resumen por periodo: POST /report/summary/print (mismas reglas que la
+#     reimpresión) o GET /report/summary -> PDF (exportacion/pdf_resumen.py) -> correo.
 # Una acción a la vez (`ocupado`); el resultado llega por accionTerminada(éxito,
 # mensaje) para que la pantalla lo muestre.
 
@@ -22,6 +25,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
+from autoclave.ui_qml.domain import reporte_resumen
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica
 from autoclave.ui_qml.exportacion import config_correo, correo
@@ -39,6 +43,11 @@ def _generar_pdf(*args) -> None:
     generar_pdf(*args)
 
 
+def _generar_pdf_resumen(*args) -> None:
+    from autoclave.ui_qml.exportacion.pdf_resumen import generar_pdf_resumen
+    generar_pdf_resumen(*args)
+
+
 class _ErrorConMensaje(Exception):
     """Fallo ya traducido al mensaje que verá el usuario."""
 
@@ -50,13 +59,15 @@ class AccionesCiclos(QObject):
     _terminado = Signal(bool, str)          # emitida desde el hilo de trabajo
 
     def __init__(self, backend_client, textos: dict, parent=None, cargar_config=config_correo.cargar,
-                 ejecutar=_en_hilo, generar_pdf=_generar_pdf, enviar=correo.enviar):
+                 ejecutar=_en_hilo, generar_pdf=_generar_pdf, enviar=correo.enviar,
+                 generar_pdf_resumen=_generar_pdf_resumen):
         super().__init__(parent)
         self._backend = backend_client
         self._textos = textos
         self._cargar_config = cargar_config
         self._ejecutar = ejecutar
         self._generar_pdf = generar_pdf
+        self._generar_pdf_resumen = generar_pdf_resumen
         self._enviar = enviar
         self._ocupado = False
         self._config = cargar_config()
@@ -120,21 +131,34 @@ class AccionesCiclos(QObject):
             return
 
         def tarea():
-            try:
-                r = self._backend.post("/cycle/history/print", {"ids": ids})
-            except requests.HTTPError as e:
-                codigo = getattr(e.response, "status_code", None)
-                if codigo == 409:
-                    raise _ErrorConMensaje(self._tx("exportacion", "imprimir_en_ciclo"))
-                if codigo == 503:
-                    raise _ErrorConMensaje(self._mensaje_impresora(e.response))
-                raise _ErrorConMensaje(self._tx("exportacion", "imprimir_error"))
-            except Exception as e:
-                logger.debug("impresión no disponible: %s", e)
-                raise _ErrorConMensaje(self._tx("exportacion", "imprimir_error"))
+            r = self._post_impresion("/cycle/history/print", {"ids": ids})
             return True, self._tx("exportacion", "impreso", n=r.get("impresos", len(ids)))
 
         self._empezar(tarea)
+
+    @Slot(str, str)
+    def imprimirResumen(self, periodo: str, fecha: str) -> None:
+        """Resumen del periodo de calendario que contiene `fecha` (ISO)."""
+        def tarea():
+            self._post_impresion("/report/summary/print", {"periodo": periodo, "fecha": fecha})
+            return True, self._tx("exportacion", "impreso_resumen")
+
+        self._empezar(tarea)
+
+    def _post_impresion(self, ruta: str, cuerpo: dict) -> dict:
+        """POST de impresión con sus errores traducidos al aviso de la pantalla."""
+        try:
+            return self._backend.post(ruta, cuerpo)
+        except requests.HTTPError as e:
+            codigo = getattr(e.response, "status_code", None)
+            if codigo == 409:
+                raise _ErrorConMensaje(self._tx("exportacion", "imprimir_en_ciclo"))
+            if codigo == 503:
+                raise _ErrorConMensaje(self._mensaje_impresora(e.response))
+            raise _ErrorConMensaje(self._tx("exportacion", "imprimir_error"))
+        except Exception as e:
+            logger.debug("impresión no disponible: %s", e)
+            raise _ErrorConMensaje(self._tx("exportacion", "imprimir_error"))
 
     def _mensaje_impresora(self, respuesta) -> str:
         """Aviso del estado de la impresora que devolvió el backend (503)."""
@@ -157,28 +181,70 @@ class AccionesCiclos(QObject):
         config = self._config
 
         def tarea():
-            if not config_correo.correo_valido(destino):
-                raise _ErrorConMensaje(self._tx("exportacion", "correo_invalido"))
-            if not config.configurado:
-                raise _ErrorConMensaje(self._tx("exportacion", "correo_no_configurado"))
+            self._validar_envio(config, destino)
             pdfs, ciclos = self._pdfs(ids)
             serie = ciclos[0].get("serie") or ""
             numeros = ", ".join(f"{c['numero_ciclo']:06d}" for c in ciclos)
-            mensaje = correo.armar_mensaje(
-                config.remitente, destino,
-                self._tx("exportacion", "asunto", serie=serie, ciclos=numeros),
-                self._tx("exportacion", "cuerpo"),
-                correo.adjunto(pdfs, self._tx("exportacion", "nombre_zip")))
-            try:
-                self._enviar(config, mensaje)
-            except smtplib.SMTPAuthenticationError:
-                raise _ErrorConMensaje(self._tx("exportacion", "error_autenticacion"))
-            except (smtplib.SMTPException, OSError) as e:
-                logger.warning("Envío de correo fallido: %s", e)
-                raise _ErrorConMensaje(self._tx("exportacion", "error_envio"))
+            self._enviar_mensaje(config, destino,
+                                 self._tx("exportacion", "asunto", serie=serie, ciclos=numeros),
+                                 self._tx("exportacion", "cuerpo"),
+                                 correo.adjunto(pdfs, self._tx("exportacion", "nombre_zip")))
             return True, self._tx("exportacion", "enviado", n=len(ids), destino=destino)
 
         self._empezar(tarea)
+
+    @Slot(str, str, str)
+    def enviarResumen(self, periodo: str, fecha: str, destino: str) -> None:
+        """PDF del resumen del periodo que contiene `fecha` (ISO), por correo."""
+        destino = (destino or "").strip()
+        config = self._config
+
+        def tarea():
+            self._validar_envio(config, destino)
+            try:
+                r = self._backend.get("/report/summary", params={"periodo": periodo, "fecha": fecha})
+            except Exception as e:
+                logger.debug("resumen del periodo no disponible: %s", e)
+                raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+            desde, hasta = r.get("desde", ""), r.get("hasta", "")
+            texto_periodo = self._tx("exportacion", "periodo_resumen",
+                                     desde=dominio.formatear_fecha(desde),
+                                     hasta=dominio.formatear_fecha(hasta))
+            nombre = f"resumen_{desde}_{hasta}.pdf"
+            with tempfile.TemporaryDirectory() as carpeta:
+                ruta = Path(carpeta) / nombre
+                self._generar_pdf_resumen(ruta, {
+                    "empresa": self._tx("exportacion", "empresa", modelo=r.get("modelo") or "",
+                                        serie=r.get("serie") or ""),
+                    "titulo": self._tx("exportacion", "titulo_resumen"),
+                    "periodo": texto_periodo,
+                    "resumen": reporte_resumen.presentable(r),
+                }, dict(self._textos.get("reportes") or {}))
+                contenido = ruta.read_bytes()
+            self._enviar_mensaje(config, destino,
+                                 self._tx("exportacion", "asunto_resumen", serie=r.get("serie") or "",
+                                          periodo=texto_periodo),
+                                 self._tx("exportacion", "cuerpo_resumen"),
+                                 (nombre, contenido, "pdf"))
+            return True, self._tx("exportacion", "enviado_resumen", destino=destino)
+
+        self._empezar(tarea)
+
+    def _validar_envio(self, config, destino: str) -> None:
+        if not config_correo.correo_valido(destino):
+            raise _ErrorConMensaje(self._tx("exportacion", "correo_invalido"))
+        if not config.configurado:
+            raise _ErrorConMensaje(self._tx("exportacion", "correo_no_configurado"))
+
+    def _enviar_mensaje(self, config, destino: str, asunto: str, cuerpo: str, archivo) -> None:
+        mensaje = correo.armar_mensaje(config.remitente, destino, asunto, cuerpo, archivo)
+        try:
+            self._enviar(config, mensaje)
+        except smtplib.SMTPAuthenticationError:
+            raise _ErrorConMensaje(self._tx("exportacion", "error_autenticacion"))
+        except (smtplib.SMTPException, OSError) as e:
+            logger.warning("Envío de correo fallido: %s", e)
+            raise _ErrorConMensaje(self._tx("exportacion", "error_envio"))
 
     def _pdfs(self, ids: list) -> tuple[list, list]:
         """[(nombre, bytes)] de cada ciclo y sus datos, en el orden pedido."""

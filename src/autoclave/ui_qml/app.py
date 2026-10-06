@@ -32,6 +32,7 @@ from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
 from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
+from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
 from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
 from autoclave.ui_qml.bridge.standby import Standby
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
@@ -128,6 +129,8 @@ def main(argv=None) -> int:
     # Historial: reimprimir en la térmica o enviar por correo los ciclos marcados
     textos = cargar_textos()
     acciones = AccionesCiclos(backend, textos)
+    # Reportes: resumen de ciclos por periodo, solo lectura, bajo demanda
+    reporte = ReporteResumen(backend)
 
     def _al_salir():
         puente.detener()
@@ -153,6 +156,7 @@ def main(argv=None) -> int:
         "resumen": resumen,
         "historial": historial,
         "acciones": acciones,
+        "reporte": reporte,
         "textosJson": textos,
     })
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Main.qml"))

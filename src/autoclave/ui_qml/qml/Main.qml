@@ -32,6 +32,8 @@ Window {
     property QtObject historial: null
     // acciones: imprimir / enviar por correo ciclos del Historial (AccionesCiclos)
     property QtObject acciones: null
+    // reporte: resumen de ciclos por periodo de Reportes (ReporteResumen)
+    property QtObject reporte: null
     property var textosJson: ({})
 
     // Pantalla principal según el estado de la máquina que reporta el backend
@@ -177,6 +179,7 @@ Window {
             resumen: ventana.resumen
             historial: ventana.historial
             acciones: ventana.acciones
+            reporte: ventana.reporte
             teclado: panelTeclado
             infoEquipo: ventana.infoEquipo
             textosJson: ventana.textosJson

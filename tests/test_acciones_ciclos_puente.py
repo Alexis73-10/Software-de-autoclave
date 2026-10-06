@@ -228,3 +228,63 @@ def test_error_de_red_al_enviar():
     exito, mensaje = e.resultado()
     assert not exito and "internet" in mensaje
     assert e.a.ocupado is False
+
+
+# ── resumen por periodo (pantalla Reportes) ──────────────────────────────
+
+_RESUMEN = {
+    "periodo": "mes", "desde": "2026-09-01", "hasta": "2026-09-30", "serie": "SPK-1", "modelo": "AVH",
+    "totales": {"total": 3, "completados": 2, "fallos": 1, "cancelados": 0, "sin_cierre": 0},
+    "por_programa": [{"programa_id": "instrumental_134", "programa_nombre": "Instrumental 134",
+                      "programa_numero": 2, "total": 3, "completados": 2, "fallos": 1,
+                      "cancelados": 0, "sin_cierre": 0}],
+    "causas_fallo": [{"causa": "FALLO_SECADO", "cantidad": 1}],
+}
+
+
+def test_imprimir_resumen():
+    e = _Entorno(post=lambda ruta, body: {"ok": True})
+    e.a.imprimirResumen("mes", "2026-09-15")
+    exito, mensaje = e.resultado()
+    e.backend.post.assert_called_once_with("/report/summary/print", {"periodo": "mes", "fecha": "2026-09-15"})
+    assert exito and "impresora" in mensaje
+
+
+def test_imprimir_resumen_con_la_impresora_desconectada():
+    def post(ruta, body):
+        raise _error_http(503, {"impresora": "desconectada"})
+    e = _Entorno(post=post)
+    e.a.imprimirResumen("mes", "2026-09-15")
+    assert e.resultado() == (False, "La impresora no está conectada")
+
+
+def test_enviar_resumen_en_pdf():
+    pdfs = []
+    e = _Entorno(get=lambda ruta, params=None: _RESUMEN)
+    e.a._generar_pdf_resumen = lambda ruta, datos, textos: (pdfs.append(datos), open(ruta, "wb").write(b"%PDF-r"))
+    e.a.enviarResumen("mes", "2026-09-15", "mant@x.com")
+    exito, mensaje = e.resultado()
+    e.backend.get.assert_called_once_with("/report/summary", params={"periodo": "mes", "fecha": "2026-09-15"})
+    assert exito and "mant@x.com" in mensaje
+    datos = pdfs[0]
+    assert datos["titulo"] == "Resumen de ciclos" and "01/09/2026" in datos["periodo"]
+    assert datos["resumen"]["total"] == "3"
+    m = e.enviados[0]
+    adjunto = next(m.iter_attachments())
+    assert adjunto.get_filename() == "resumen_2026-09-01_2026-09-30.pdf"
+    assert "SPK-1" in m["Subject"]
+
+
+def test_enviar_resumen_sin_backend():
+    def get(ruta, **k):
+        raise requests.ConnectionError()
+    e = _Entorno(get=get)
+    e.a.enviarResumen("mes", "2026-09-15", "mant@x.com")
+    exito, mensaje = e.resultado()
+    assert not exito and "conexión con el equipo" in mensaje and e.enviados == []
+
+
+def test_enviar_resumen_destino_invalido():
+    e = _Entorno(get=lambda ruta, params=None: _RESUMEN)
+    e.a.enviarResumen("mes", "2026-09-15", "x")
+    assert e.resultado()[0] is False and e.enviados == []

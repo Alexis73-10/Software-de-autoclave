@@ -40,7 +40,8 @@ def main(argv=None) -> int:
                         help="Pantalla completa en su arnés (por defecto: galería de componentes)")
     parser.add_argument("--backend", action="store_true",
                         help="Con --pantalla: datos reales del backend en BACKEND_URL (solo lectura)")
-    parser.add_argument("--ventana", choices=("ultimo_ciclo", "mantenimiento", "ciclos_hoy", "historial"),
+    parser.add_argument("--ventana", choices=("ultimo_ciclo", "mantenimiento", "ciclos_hoy", "historial",
+                                              "reportes"),
                         help="Con --pantalla: abre esa ventana flotante al iniciar")
     parser.add_argument("--sin-conexion", action="store_true",
                         help="Con --pantalla y datos de ejemplo: simula el backend sin respuesta")
@@ -70,6 +71,7 @@ def main(argv=None) -> int:
             from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
             from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
             from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
+            from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
             from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
             from autoclave.ui_qml.bridge.ui_bridge import UiBridge
             backend = BackendClient(BACKEND_URL)
@@ -79,17 +81,20 @@ def main(argv=None) -> int:
                 "resumen": ResumenSistema(backend),
                 "historial": CiclosHistorial(backend),
                 "acciones": AccionesCiclos(backend, textos),
+                "reporte": ReporteResumen(backend),
             })
             app.aboutToQuit.connect(ui_service.stop)
         else:
             from autoclave.ui_qml import historial_ejemplo as ejemplo
             from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
             from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
+            from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
             backend = ejemplo.BackendEjemplo(sin_conexion=args.sin_conexion)
             propiedades.update({
                 "historial": CiclosHistorial(backend),
                 "acciones": AccionesCiclos(backend, textos, cargar_config=ejemplo.config_correo_ejemplo,
                                            enviar=ejemplo.enviar_ejemplo),
+                "reporte": ReporteResumen(backend),
             })
     engine.setInitialProperties(propiedades)
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/{archivo}"))

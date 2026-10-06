@@ -337,3 +337,54 @@ def test_ticket_txt_con_lecturas(cliente, db, tmp_path):
     with patch.object(server, "_TICKETS_DIR", tmp_path):
         r = cliente.get(f"/cycle/history/{cid}/ticket.txt")
     assert r.status_code == 200 and "0120.0 0200.0" in r.text
+
+
+# ── resumen por periodo (pantalla Reportes) ──────────────────────────────
+
+def test_resumen_de_un_mes(cliente, db):
+    _fechas(db, _crear(db), "2026-08-31T23:00:00", "2026-08-31T23:40:00", "COMPLETADO")   # fuera
+    _fechas(db, _crear(db), "2026-09-02T08:00:00", "2026-09-02T08:40:00", "COMPLETADO")
+    _fechas(db, _crear(db), "2026-09-03T08:00:00", "2026-09-03T08:40:00", "FALLO_SECADO")
+    _fechas(db, _crear(db), "2026-09-04T08:00:00")                                         # sin cierre
+    r = cliente.get("/report/summary", params={"periodo": "mes", "fecha": "2026-09-15"}).json()
+    assert (r["periodo"], r["desde"], r["hasta"]) == ("mes", "2026-09-01", "2026-09-30")
+    assert r["totales"] == {"total": 3, "completados": 1, "fallos": 1, "cancelados": 0, "sin_cierre": 1}
+    assert r["por_programa"] == [{
+        "programa_id": "instrumental_134", "programa_nombre": "Instrumental 134", "programa_numero": 2,
+        "total": 3, "completados": 1, "fallos": 1, "cancelados": 0, "sin_cierre": 1}]
+    assert r["causas_fallo"] == [{"causa": "FALLO_SECADO", "cantidad": 1}]
+
+
+def test_resumen_sin_fecha_es_el_periodo_de_hoy(cliente):
+    r = cliente.get("/report/summary", params={"periodo": "semana"}).json()
+    assert (r["desde"], r["hasta"]) == ("2026-09-28", "2026-10-04")   # hoy: viernes 2026-10-02
+    assert r["totales"]["total"] == 0
+
+
+def test_resumen_periodo_invalido(cliente):
+    assert cliente.get("/report/summary", params={"periodo": "anio"}).status_code == 422
+
+
+def test_imprimir_resumen(cliente, db, estado_maquina):
+    estado_maquina.profile.serial_number = "SPK-1"
+    estado_maquina.profile.model_id = "AVH-450"
+    _fechas(db, _crear(db), "2026-10-02T08:00:00", "2026-10-02T08:40:00", "COMPLETADO")
+    r = cliente.post("/report/summary/print", json={"periodo": "dia"})
+    assert r.status_code == 200 and r.json() == {"ok": True}
+    texto = estado_maquina.realtime_printer.enqueue.call_args.args[0]
+    assert "RESUMEN DE CICLOS" in texto and "Total: 1" in texto and "Num serie: SPK-1" in texto
+    assert "Desde: 02/10/2026" in texto
+
+
+def test_imprimir_resumen_rechazado_durante_un_ciclo(cliente, estado_maquina):
+    from autoclave.state_machine.machine.enum_global import GlobalState
+    estado_maquina.estado.get_machine_state.return_value = GlobalState.CICLO
+    assert cliente.post("/report/summary/print", json={"periodo": "dia"}).status_code == 409
+    estado_maquina.realtime_printer.enqueue.assert_not_called()
+
+
+def test_imprimir_resumen_con_la_impresora_desconectada(cliente, estado_maquina):
+    estado_maquina.realtime_printer.estado.return_value = "desconectada"
+    r = cliente.post("/report/summary/print", json={"periodo": "mes", "fecha": "2026-09-01"})
+    assert r.status_code == 503 and r.json()["detail"] == {"impresora": "desconectada"}
+    estado_maquina.realtime_printer.enqueue.assert_not_called()

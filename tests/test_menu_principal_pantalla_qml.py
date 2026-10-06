@@ -37,6 +37,7 @@ _SCRIPT = textwrap.dedent(r"""
     from datetime import date
     from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
     from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
+    from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
     from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
     from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
 
@@ -56,6 +57,12 @@ _SCRIPT = textwrap.dedent(r"""
                 "programa_nombre": "Instrumental 134", "programa_numero": 2,
                 "resultado": resultado, "operador": None}
     LISTA = {"truncado": False, "ciclos": [fila(91, "COMPLETADO"), fila(90, "FALLO_SECADO")]}
+    RESUMEN_PERIODO = {"desde": "2026-10-12", "hasta": "2026-10-12", "serie": "S", "modelo": "M",
+        "totales": {"total": 4, "completados": 3, "fallos": 1, "cancelados": 0, "sin_cierre": 0},
+        "por_programa": [{"programa_id": "instrumental_134", "programa_nombre": "Instrumental 134",
+                          "programa_numero": 2, "total": 4, "completados": 3, "fallos": 1,
+                          "cancelados": 0, "sin_cierre": 0}],
+        "causas_fallo": [{"causa": "FALLO_SECADO", "cantidad": 1}]}
     pedidos = []
     listas = []
 
@@ -67,6 +74,8 @@ _SCRIPT = textwrap.dedent(r"""
             raise ConnectionError("sin backend")
         if ruta == "/cycle/list":
             return {**LISTA, "periodo": params["periodo"]}
+        if ruta == "/report/summary":
+            return {**RESUMEN_PERIODO, "periodo": params["periodo"]}
         if ruta.endswith("/ticket"):
             i = int(ruta.split("/")[3])
             return {"ciclo": {**fila(i, "COMPLETADO"), "nombre_ciclo": "Instrumental 134",
@@ -82,14 +91,16 @@ _SCRIPT = textwrap.dedent(r"""
     _cargar_fuentes()
     resumen = ResumenSistema(backend, ejecutar=lambda t: t())
     historial = CiclosHistorial(backend, ejecutar=lambda t: t(), hoy=lambda: date(2026, 10, 12))
+    reporte = ReporteResumen(backend, ejecutar=lambda t: t(), hoy=lambda: date(2026, 10, 12))
     impresos, correos = [], []
     backend.post.side_effect = lambda ruta, body: (impresos.append((ruta, body)),
-                                                   {"ok": True, "impresos": len(body["ids"])})[1]
+                                                   {"ok": True, "impresos": len(body.get("ids", []))})[1]
     config = ConfigCorreo("equipo@x.com", "smtp.x.com", 587,
                           [{"nombre": "Mantenimiento", "correo": "mant@x.com"}], "clave")
     acciones = AccionesCiclos(backend, cargar_textos(), cargar_config=lambda: config,
                               ejecutar=lambda t: t(),
                               generar_pdf=lambda ruta, *a: open(ruta, "wb").write(b"%PDF"),
+                              generar_pdf_resumen=lambda ruta, *a: open(ruta, "wb").write(b"%PDF"),
                               enviar=lambda c, m: correos.append(m["To"]))
 
     class InfoEquipo(QObject):          # misma interfaz que bridge/info_equipo.py
@@ -108,7 +119,7 @@ _SCRIPT = textwrap.dedent(r"""
     engine.addImportPath(QML_DIR)
     engine.setInitialProperties({"textosJson": cargar_textos(), "resumen": resumen,
                                  "infoEquipo": info, "historial": historial,
-                                 "acciones": acciones})
+                                 "acciones": acciones, "reporte": reporte})
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/PruebaMenuPrincipal.qml"))
     w = engine.rootObjects()[0]
     w.setWidth(ancho); w.setHeight(alto); w.show()
@@ -163,7 +174,7 @@ _SCRIPT = textwrap.dedent(r"""
 
     def ventanas_abiertas():
         return sorted(n for n in ("ventanaUltimoCiclo", "ventanaMantenimiento",
-                                  "ventanaCiclosHoy", "ventanaHistorial")
+                                  "ventanaCiclosHoy", "ventanaHistorial", "ventanaReportes")
                       if obj(n).property("visible"))
 
     # señales: Iniciar sesión emite. Sin engranaje en el menú.
@@ -273,6 +284,31 @@ _SCRIPT = textwrap.dedent(r"""
         r["hist_volvio"] = lista_hist.isVisible()
     QMetaObject.invokeMethod(vhi, "cerrar")
 
+    # Reportes: resumen del periodo con flechas, imprimir y enviar por correo
+    tocar(obj("tarjetaReportes"))
+    vr = obj("ventanaReportes")
+    r["rep_abierta"] = vr.property("visible")
+    r["rep_pedido"] = [p for p in pedidos if p == "/report/summary"][-1:] and reporte.property("fecha")
+    if not falla:
+        tocar(item(vr, "filtro_mes"))
+        r["rep_rotulo"] = item(vr, "rotuloPeriodo").property("text")
+        tocar(item(vr, "flechaAnterior"))
+        r["rep_anterior"] = [reporte.property("fecha"), item(vr, "rotuloPeriodo").property("text"),
+                             item(vr, "flechaSiguiente").property("habilitada")]
+        r["rep_textos"] = list(textos(vr.findChild(QObject, "resumenPeriodo")))
+        tocar(item(vr, "botonImprimirResumen"))
+        r["rep_impreso"] = list(impresos[-1])
+        r["rep_aviso"] = item(vr, "textoAvisoAccion").property("text")
+        tocar(item(vr, "botonEnviarResumen"))
+        r["rep_selector"] = item(vr, "selectorDestinoReportes").property("visible")
+        tocar(item(item(vr, "selectorDestinoReportes"), "destino_Mantenimiento"))
+        r["rep_correos"] = list(correos)
+    else:
+        r["rep_aviso_falla"] = item(vr, "avisoReporte").property("text")
+        r["rep_botones_falla"] = [item(vr, "botonImprimirResumen").property("habilitado"),
+                                  item(vr, "botonEnviarResumen").property("habilitado")]
+    QMetaObject.invokeMethod(vr, "cerrar")
+
     # Información: abre el panel de información del equipo (el de la esquina
     # inferior izquierda de la pantalla de preciclo) y pide actualizar sus datos
     pe = obj("panelEquipoMenu")
@@ -328,7 +364,7 @@ def test_activa_el_sondeo_del_resumen(r):
 def test_estados_de_las_tarjetas(r):
     assert r["habilitadas"] == {
         "tarjetaIniciarSesion": True, "tarjetaHistorial": True,
-        "tarjetaReportes": False,                                  # D-13, TODO(MP-04)
+        "tarjetaReportes": True,
         "tarjetaInformacion": True, "tarjetaSecado": True,
         "resumenCiclosTotales": True, "resumenCiclosHoy": True,
         "resumenMantenimiento": True, "resumenUltimoCiclo": True,
@@ -437,7 +473,7 @@ def test_es_json_trae_las_claves_que_usa_el_menu():
 
 def test_marcadores_todo_pendientes():
     fuente = (_QML / "Pantallas" / "MenuPrincipal.qml").read_text(encoding="utf-8")
-    for marca in ("TODO(MP-11)", "TODO(MP-14b)", "TODO(MP-03)", "TODO(MP-04)", "TODO(MP-06a)"):
+    for marca in ("TODO(MP-11)", "TODO(MP-14b)", "TODO(MP-03)", "TODO(MP-06a)"):
         assert marca in fuente
 
 
@@ -503,3 +539,25 @@ def test_historial_abre_el_ciclo_con_sus_acciones(r):
     assert r["hist_detalle"] is True
     assert r["hist_impreso_detalle"] == {"ids": [90]}
     assert r["hist_volvio"] is True
+
+
+def test_reportes_resumen_del_periodo(r):
+    assert r["rep_abierta"] is True
+    assert r["rep_pedido"] == "2026-10-12"                       # Diario de hoy al abrir
+    assert r["rep_rotulo"] == "Octubre 2026"
+    assert r["rep_anterior"] == ["2026-09-01", "Septiembre 2026", True]
+    t = r["rep_textos"]
+    assert "4" in t and "75%" in t and "02 · Instrumental 134" in t and "FALLO_SECADO" in t
+
+
+def test_reportes_imprimir_y_enviar(r):
+    assert r["rep_impreso"] == ["/report/summary/print", {"periodo": "mes", "fecha": "2026-09-01"}]
+    assert "impresora" in r["rep_aviso"]
+    assert r["rep_selector"] is True
+    assert r["rep_correos"][-1] == "mant@x.com"
+
+
+def test_reportes_sin_conexion(rfalla):
+    assert rfalla["rep_abierta"] is True
+    assert rfalla["rep_aviso_falla"] == "Sin conexión con el equipo"
+    assert rfalla["rep_botones_falla"] == [False, False]

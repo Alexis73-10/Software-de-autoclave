@@ -26,7 +26,8 @@ Item {
     property QtObject resumen: null     // ResumenSistema (o datos de ejemplo del arnés)
     property QtObject infoEquipo: null  // InfoEquipo: panel de información del equipo
     property QtObject historial: null   // CiclosHistorial: listados de Ciclos hoy e Historial
-    property QtObject acciones: null    // AccionesCiclos: imprimir / enviar por correo (Historial)
+    property QtObject acciones: null    // AccionesCiclos: imprimir / enviar por correo (Historial, Reportes)
+    property QtObject reporte: null     // ReporteResumen: resumen por periodo de Reportes
     property QtObject teclado: null     // PanelTeclado: correo de destino escrito a mano
     property var textosJson: ({})
     // Casa de la barra: activa cuando hay una pantalla a la que regresar (la de
@@ -85,12 +86,13 @@ Item {
     readonly property color colorResultado: colorDeResultado(claveResultado)
 
     // Abre una ventana flotante por nombre ("ultimo_ciclo", "mantenimiento",
-    // "ciclos_hoy", "historial"), como si se tocara su tarjeta (arnés y capturas)
+    // "ciclos_hoy", "historial", "reportes"), como si se tocara su tarjeta (arnés y capturas)
     function abrirVentana(nombre) {
         if (nombre === "ultimo_ciclo") ventanaUltimoCiclo.abrir()
         else if (nombre === "mantenimiento") ventanaMantenimiento.abrir()
         else if (nombre === "ciclos_hoy") ventanaCiclosHoy.abrir()
         else if (nombre === "historial") ventanaHistorial.abrir()
+        else if (nombre === "reportes") ventanaReportes.abrir()
     }
 
     // La pantalla activa consulta el resumen y lo sondea cada 10 s (§6.5)
@@ -207,17 +209,17 @@ Item {
         iconoIncluyeAro: true
         onPulsada: { raiz.historialPulsado(); ventanaHistorial.abrir() }
     }
-    // D-13: Reportes visible y deshabilitada. TODO(MP-04): habilitar cuando exista su pantalla.
+    // Reportes: resumen por periodo (decisión de Cristian, 2026-10-06); el
+    // consolidado y las alarmas se agregan después como pestañas
     Fila2 {
         objectName: "tarjetaReportes"
         x: raiz.m(54)
-        enabled: false
         titulo: raiz.tx("modulos", "reportes")
         descripcion: raiz.tx("menu", "reportes_desc")
         icono: raiz.iconosMono + "reportes.svg"
         tamIcono: 85
         colorAcento: Colores.menuNaranja
-        onPulsada: raiz.reportesPulsado()
+        onPulsada: { raiz.reportesPulsado(); ventanaReportes.abrir() }
     }
     Fila2 {
         objectName: "tarjetaInformacion"
@@ -531,69 +533,6 @@ Item {
         }
     }
 
-    // Botón de texto en píldora de la ventana de Historial.
-    // DISEÑO PROVISIONAL: sin diseño del diseñador.
-    component BotonVentana: Item {
-        id: boton
-        property string texto: ""
-        property bool primario: false
-        property bool habilitado: true
-        signal pulsado()
-        width: Math.max(raiz.m(220), textoBoton.implicitWidth + raiz.m(56))
-        height: raiz.m(64)
-        opacity: habilitado ? 1 : 0.4
-        Rectangle {
-            anchors.fill: parent
-            radius: height / 2
-            color: boton.primario ? Colores.accionPrimario : Colores.fondoSutil
-            border.width: boton.primario ? 0 : raiz.m(2)
-            border.color: Colores.bordeDivisor
-            opacity: zonaBoton.pressed ? 0.8 : 1
-        }
-        Text {
-            id: textoBoton
-            anchors.centerIn: parent
-            text: boton.texto
-            color: boton.primario ? "white" : Colores.textoPrimario
-            font.family: Tipografia.familia
-            font.weight: Tipografia.pesoSemiBold
-            font.pixelSize: raiz.fuente(22)
-        }
-        MouseArea {
-            id: zonaBoton
-            anchors.fill: parent
-            enabled: boton.habilitado
-            onClicked: boton.pulsado()
-        }
-    }
-
-    // Flecha del periodo del Historial: anterior (atras) o siguiente
-    component FlechaPeriodo: Item {
-        id: flecha
-        property bool atras: true
-        property bool habilitada: true
-        signal pulsada()
-        width: raiz.m(96)
-        opacity: habilitada ? 1 : 0.25
-        Rectangle {
-            anchors.centerIn: parent
-            width: raiz.m(72); height: width; radius: width / 2
-            color: Colores.fondoSutil
-            border.width: raiz.m(2); border.color: Colores.bordeDivisor
-        }
-        // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]
-        Image {
-            readonly property real _k: raiz.m(26) / (43.8 - 4.3)
-            width: 48 * _k; height: width
-            anchors.centerIn: parent
-            rotation: flecha.atras ? 180 : 0
-            source: raiz.iconosMono + "chevron_derecha.svg"
-            sourceSize.width: width
-            sourceSize.height: height
-        }
-        MouseArea { anchors.fill: parent; enabled: flecha.habilitada; onClicked: flecha.pulsada() }
-    }
-
     // Historial: listado por periodo de calendario (Diario / Semanal / Mensual,
     // recorrido con las flechas sin pasar del actual), por fecha de inicio (incluye
     // ciclos interrumpidos). Tocar un ciclo muestra sus datos y su gráfica; las
@@ -634,7 +573,6 @@ Item {
             idsCorreo = ids
             eligiendoDestino = true
         }
-        function cancelarDestino() { raiz.teclado?.cerrar(); eligiendoDestino = false }
         function enviar(correo) {
             eligiendoDestino = false
             accionEnCurso = "enviar"
@@ -655,7 +593,7 @@ Item {
         }
 
         Connections {
-            target: raiz.acciones
+            target: ventanaHistorial.visible ? raiz.acciones : null
             function onAccionTerminada(exito, texto) {
                 ventanaHistorial.accionEnCurso = ""
                 ventanaHistorial.mensajeExito = exito
@@ -668,71 +606,21 @@ Item {
             anchors.fill: parent
             visible: ventanaHistorial.seleccion === null
 
-            Row {
-                id: filtros
-                spacing: raiz.m(16)
-                Repeater {
-                    model: [["dia", "filtro_diario"], ["semana", "filtro_semanal"], ["mes", "filtro_mensual"]]
-                    Rectangle {
-                        id: filtro
-                        required property var modelData
-                        readonly property bool elegido: ventanaHistorial.periodo === modelData[0]
-                        objectName: "filtro_" + modelData[0]
-                        width: raiz.m(200); height: raiz.m(60)
-                        radius: height / 2
-                        color: elegido ? Colores.accionPrimario : Colores.fondoSutil
-                        border.width: elegido ? 0 : raiz.m(2)
-                        border.color: Colores.bordeDivisor
-                        Text {
-                            anchors.centerIn: parent
-                            text: raiz.tx("menu", filtro.modelData[1])
-                            color: filtro.elegido ? "white" : Colores.textoPrimario
-                            font.family: Tipografia.familia
-                            font.weight: Tipografia.pesoSemiBold
-                            font.pixelSize: raiz.fuente(22)
-                        }
-                        MouseArea { anchors.fill: parent; onClicked: ventanaHistorial.elegir(filtro.modelData[0]) }
-                    }
-                }
-            }
-
-            // Periodo entre flechas; la siguiente se apaga en el periodo actual
-            Item {
-                id: navegacion
-                anchors.top: filtros.bottom
-                anchors.topMargin: raiz.m(20)
+            SelectorPeriodo {
+                id: selectorHistorial
                 width: parent.width
-                height: raiz.m(72)
-                FlechaPeriodo {
-                    objectName: "flechaAnterior"
-                    height: parent.height
-                    onPulsada: ventanaHistorial.mover(-1)
-                }
-                Text {
-                    objectName: "rotuloPeriodo"
-                    anchors.centerIn: parent
-                    width: parent.width - raiz.m(220)
-                    horizontalAlignment: Text.AlignHCenter
-                    elide: Text.ElideRight
-                    text: raiz.historial?.rotuloPeriodo ?? ""
-                    color: Colores.textoPrimario
-                    font.family: Tipografia.familia
-                    font.weight: Tipografia.pesoBold
-                    font.pixelSize: raiz.fuente(28)
-                }
-                FlechaPeriodo {
-                    objectName: "flechaSiguiente"
-                    anchors.right: parent.right
-                    height: parent.height
-                    atras: false
-                    habilitada: !(raiz.historial?.esPeriodoActual ?? true)
-                    onPulsada: ventanaHistorial.mover(1)
-                }
+                escala: raiz.escala
+                textosJson: raiz.textosJson
+                periodo: ventanaHistorial.periodo
+                rotulo: raiz.historial?.rotuloPeriodo ?? ""
+                esActual: raiz.historial?.esPeriodoActual ?? true
+                onElegido: (p) => ventanaHistorial.elegir(p)
+                onMovido: (pasos) => ventanaHistorial.mover(pasos)
             }
 
             ListaCiclos {
                 objectName: "listaHistorial"
-                anchors.top: navegacion.bottom
+                anchors.top: selectorHistorial.bottom
                 anchors.topMargin: raiz.m(16)
                 anchors.bottom: barraAcciones.top
                 anchors.bottomMargin: raiz.m(16) + (notaHistorial.visible ? notaHistorial.height + raiz.m(8) : 0)
@@ -782,15 +670,17 @@ Item {
                 Row {
                     anchors.right: parent.right
                     spacing: raiz.m(16)
-                    BotonVentana {
+                    BotonPildora {
                         objectName: "botonEnviarMarcados"
+                        escala: raiz.escala
                         texto: ventanaHistorial.textoEnviar
                         habilitado: barraAcciones.cuenta > 0 && !ventanaHistorial.ocupado
                                     && ventanaHistorial.correoListo
                         onPulsado: ventanaHistorial.pedirDestino(ventanaHistorial.marcados)
                     }
-                    BotonVentana {
+                    BotonPildora {
                         objectName: "botonImprimirMarcados"
+                        escala: raiz.escala
                         primario: true
                         texto: raiz.tx("menu", "imprimir")
                         habilitado: barraAcciones.cuenta > 0 && !ventanaHistorial.ocupado
@@ -804,23 +694,26 @@ Item {
         Item {
             anchors.fill: parent
             visible: ventanaHistorial.seleccion !== null
-            BotonVentana {
+            BotonPildora {
                 id: volverHistorial
                 objectName: "botonVolverHistorial"
+                escala: raiz.escala
                 texto: "‹  " + raiz.tx("menu", "volver")
                 onPulsado: ventanaHistorial.volverAlListado()
             }
             Row {
                 anchors.right: parent.right
                 spacing: raiz.m(16)
-                BotonVentana {
+                BotonPildora {
                     objectName: "botonEnviarCiclo"
+                    escala: raiz.escala
                     texto: ventanaHistorial.textoEnviar
                     habilitado: !ventanaHistorial.ocupado && ventanaHistorial.correoListo
                     onPulsado: ventanaHistorial.pedirDestino([ventanaHistorial.seleccion.id])
                 }
-                BotonVentana {
+                BotonPildora {
                     objectName: "botonImprimirCiclo"
+                    escala: raiz.escala
                     primario: true
                     texto: raiz.tx("menu", "imprimir")
                     habilitado: !ventanaHistorial.ocupado
@@ -832,7 +725,7 @@ Item {
                 anchors.top: volverHistorial.bottom
                 anchors.topMargin: raiz.m(24)
                 anchors.bottom: parent.bottom
-                anchors.bottomMargin: avisoAccion.visible ? avisoAccion.height + raiz.m(16) : 0
+                anchors.bottomMargin: avisoHistorial.visible ? avisoHistorial.height + raiz.m(16) : 0
                 width: parent.width
                 escala: raiz.escala
                 textosJson: raiz.textosJson
@@ -853,135 +746,200 @@ Item {
             }
         }
 
-        // ---------- aviso de la acción: en curso o su resultado (tocarlo lo cierra) ----------
-        Rectangle {
-            id: avisoAccion
+        AvisoAccion {
+            id: avisoHistorial
             objectName: "avisoAccionHistorial"
-            readonly property bool trabajando: ventanaHistorial.accionEnCurso !== ""
-            readonly property string texto: ventanaHistorial.accionEnCurso === "imprimir" ? raiz.tx("menu", "imprimiendo")
-                                          : ventanaHistorial.accionEnCurso === "enviar" ? raiz.tx("menu", "enviando")
-                                          : ventanaHistorial.mensaje
-            readonly property bool error: !trabajando && !ventanaHistorial.mensajeExito
-            visible: texto !== "" && !ventanaHistorial.eligiendoDestino
+            escala: raiz.escala
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: ventanaHistorial.seleccion === null ? raiz.m(84) : 0
-            width: Math.min(parent.width, textoAvisoAccion.implicitWidth + raiz.m(64))
-            height: textoAvisoAccion.height + raiz.m(32)
-            radius: raiz.m(20)
-            color: error ? Colores.peligroFondo : Colores.fondoTarjeta
-            border.width: raiz.m(2)
-            border.color: error ? Colores.peligroTexto : Colores.bordeDivisor
-            Text {
-                id: textoAvisoAccion
-                objectName: "textoAvisoAccion"
-                anchors.centerIn: parent
-                width: Math.min(implicitWidth, avisoAccion.parent.width - raiz.m(64))
-                wrapMode: Text.WordWrap
-                horizontalAlignment: Text.AlignHCenter
-                text: avisoAccion.texto
-                color: avisoAccion.error ? Colores.peligroTexto
-                     : avisoAccion.trabajando ? Colores.textoPrimario : Colores.menuVerdeTexto
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoSemiBold
-                font.pixelSize: raiz.fuente(24)
-            }
-            MouseArea {
-                anchors.fill: parent
-                enabled: !avisoAccion.trabajando
-                onClicked: ventanaHistorial.mensaje = ""
-            }
+            trabajando: ventanaHistorial.accionEnCurso !== ""
+            error: !trabajando && !ventanaHistorial.mensajeExito
+            texto: ventanaHistorial.eligiendoDestino ? ""
+                 : ventanaHistorial.accionEnCurso === "imprimir" ? raiz.tx("menu", "imprimiendo")
+                 : ventanaHistorial.accionEnCurso === "enviar" ? raiz.tx("menu", "enviando")
+                 : ventanaHistorial.mensaje
+            onCerrado: ventanaHistorial.mensaje = ""
         }
 
-        // ---------- destino del correo: uno predeterminado u otro escrito a mano ----------
-        Rectangle {
-            id: selectorDestino
+        SelectorDestino {
             objectName: "selectorDestino"
             anchors.fill: parent
             visible: ventanaHistorial.eligiendoDestino
-            color: Colores.fondoTarjeta
-            MouseArea { anchors.fill: parent }   // no dejar pasar el toque a lo de abajo
-            Column {
-                anchors.centerIn: parent
-                width: Math.min(parent.width, raiz.m(760))
-                spacing: raiz.m(20)
+            escala: raiz.escala
+            textosJson: raiz.textosJson
+            destinos: raiz.acciones?.destinos ?? []
+            teclado: raiz.teclado
+            onElegido: (correo) => ventanaHistorial.enviar(correo)
+            onCancelado: ventanaHistorial.eligiendoDestino = false
+        }
+    }
+
+    // Reportes: por ahora la pestaña Resumen (totales por resultado, por programa
+    // y causas de fallo de un periodo de calendario), que se imprime en la térmica
+    // o se envía por correo como PDF. Consolidado y Alarmas se agregan después.
+    VentanaFlotante {
+        id: ventanaReportes
+        objectName: "ventanaReportes"
+        escala: raiz.escala
+        altoTarjeta: 1500
+        titulo: raiz.tx("reportes", "titulo")
+        property string periodo: "dia"
+        property string accionEnCurso: ""      // "imprimir" / "enviar" mientras trabaja
+        property string mensaje: ""
+        property bool mensajeExito: true
+        property bool eligiendoDestino: false
+        readonly property bool ocupado: raiz.acciones?.ocupado ?? false
+        readonly property bool correoListo: raiz.acciones?.correoConfigurado ?? false
+        readonly property bool hayCiclos: raiz.reporte?.hayCiclos ?? false
+
+        function elegir(p) { periodo = p; mensaje = ""; raiz.reporte?.consultar(p) }
+        function imprimir() {
+            mensaje = ""
+            accionEnCurso = "imprimir"
+            raiz.acciones?.imprimirResumen(raiz.reporte.periodo, raiz.reporte.fecha)
+        }
+        function enviar(correo) {
+            eligiendoDestino = false
+            accionEnCurso = "enviar"
+            raiz.acciones?.enviarResumen(raiz.reporte.periodo, raiz.reporte.fecha, correo)
+        }
+        onMostrada: {
+            eligiendoDestino = false
+            raiz.acciones?.actualizarCorreo()
+            elegir("dia")
+        }
+        onCerrada: { eligiendoDestino = false; mensaje = ""; raiz.teclado?.cerrar() }
+
+        Connections {
+            target: ventanaReportes.visible ? raiz.acciones : null
+            function onAccionTerminada(exito, texto) {
+                ventanaReportes.accionEnCurso = ""
+                ventanaReportes.mensajeExito = exito
+                ventanaReportes.mensaje = texto
+            }
+        }
+
+        // Pestañas: solo Resumen por ahora
+        Row {
+            id: pestanas
+            spacing: raiz.m(16)
+            Item {
+                objectName: "pestanaResumen"
+                width: textoPestana.implicitWidth + raiz.m(16); height: raiz.m(56)
                 Text {
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
-                    text: raiz.tx("menu", "enviar_a")
-                    color: Colores.textoPrimario
+                    id: textoPestana
+                    anchors.centerIn: parent
+                    text: raiz.tx("reportes", "pestana_resumen")
+                    color: Colores.accionPrimarioTexto
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoBold
-                    font.pixelSize: raiz.fuente(30)
-                }
-                Repeater {
-                    model: raiz.acciones?.destinos ?? []
-                    Rectangle {
-                        id: destino
-                        required property var modelData
-                        objectName: "destino_" + modelData.nombre
-                        width: parent.width; height: raiz.m(112)
-                        radius: raiz.m(20)
-                        color: zonaDestino.pressed ? Colores.fondoSutil : Colores.fondoTarjeta
-                        border.width: raiz.m(2); border.color: Colores.bordeDivisor
-                        Column {
-                            anchors.verticalCenter: parent.verticalCenter
-                            x: raiz.m(32)
-                            width: parent.width - 2 * x
-                            spacing: raiz.m(4)
-                            Text {
-                                text: destino.modelData.nombre
-                                color: Colores.textoPrimario
-                                font.family: Tipografia.familia
-                                font.weight: Tipografia.pesoBold
-                                font.pixelSize: raiz.fuente(26)
-                            }
-                            Text {
-                                width: parent.width
-                                elide: Text.ElideRight
-                                text: destino.modelData.correo
-                                color: Colores.textoSecundario
-                                font.family: Tipografia.familia
-                                font.pixelSize: raiz.fuente(22)
-                            }
-                        }
-                        MouseArea {
-                            id: zonaDestino
-                            anchors.fill: parent
-                            onClicked: ventanaHistorial.enviar(destino.modelData.correo)
-                        }
-                    }
+                    font.pixelSize: raiz.fuente(26)
                 }
                 Rectangle {
-                    objectName: "destinoOtro"
-                    width: parent.width; height: raiz.m(112)
-                    radius: raiz.m(20)
-                    color: zonaOtro.pressed ? Colores.fondoSutil : Colores.fondoTarjeta
-                    border.width: raiz.m(2); border.color: Colores.bordeDivisor
-                    Text {
-                        anchors.verticalCenter: parent.verticalCenter
-                        x: raiz.m(32)
-                        text: raiz.tx("menu", "otro_correo")
-                        color: Colores.accionPrimarioTexto
-                        font.family: Tipografia.familia
-                        font.weight: Tipografia.pesoBold
-                        font.pixelSize: raiz.fuente(26)
-                    }
-                    MouseArea {
-                        id: zonaOtro
-                        anchors.fill: parent
-                        onClicked: raiz.teclado?.abrirAlfanumerico(
-                            raiz.tx("menu", "titulo_otro_correo"), "", 80, false,
-                            function (valor) { if (valor !== "") ventanaHistorial.enviar(valor) })
-                    }
-                }
-                BotonVentana {
-                    objectName: "botonCancelarDestino"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    texto: raiz.tx("acciones", "cancelar")
-                    onPulsado: ventanaHistorial.cancelarDestino()
+                    anchors.bottom: parent.bottom
+                    width: parent.width; height: raiz.m(4); radius: height / 2
+                    color: Colores.accionPrimario
                 }
             }
+        }
+
+        SelectorPeriodo {
+            id: selectorReportes
+            anchors.top: pestanas.bottom
+            anchors.topMargin: raiz.m(24)
+            width: parent.width
+            escala: raiz.escala
+            textosJson: raiz.textosJson
+            periodo: ventanaReportes.periodo
+            rotulo: raiz.reporte?.rotuloPeriodo ?? ""
+            esActual: raiz.reporte?.esPeriodoActual ?? true
+            onElegido: (p) => ventanaReportes.elegir(p)
+            onMovido: (pasos) => { ventanaReportes.mensaje = ""; raiz.reporte?.moverPeriodo(pasos) }
+        }
+
+        Item {
+            anchors.top: selectorReportes.bottom
+            anchors.topMargin: raiz.m(28)
+            anchors.bottom: accionesReportes.top
+            anchors.bottomMargin: raiz.m(16) + (avisoReportes.visible ? avisoReportes.height + raiz.m(16) : 0)
+            width: parent.width
+            ResumenPeriodo {
+                objectName: "resumenPeriodo"
+                anchors.fill: parent
+                visible: ventanaReportes.hayCiclos
+                escala: raiz.escala
+                textosJson: raiz.textosJson
+                datos: raiz.reporte?.datos ?? ({ total: "0", totales: [], por_programa: [], causas: [] })
+            }
+            Text {
+                objectName: "avisoReporte"
+                anchors.centerIn: parent
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                visible: text !== ""
+                text: (raiz.reporte?.cargando ?? false) && !ventanaReportes.hayCiclos ? raiz.tx("menu", "cargando")
+                    : (raiz.reporte?.sinConexion ?? false) ? raiz.tx("menu", "sin_conexion")
+                    : !ventanaReportes.hayCiclos ? raiz.tx("reportes", "sin_ciclos")
+                    : ""
+                color: Colores.textoSecundario
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoSemiBold
+                font.pixelSize: raiz.fuente(26)
+            }
+        }
+
+        AvisoAccion {
+            id: avisoReportes
+            objectName: "avisoAccionReportes"
+            escala: raiz.escala
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: accionesReportes.top
+            anchors.bottomMargin: raiz.m(16)
+            trabajando: ventanaReportes.accionEnCurso !== ""
+            error: !trabajando && !ventanaReportes.mensajeExito
+            texto: ventanaReportes.eligiendoDestino ? ""
+                 : ventanaReportes.accionEnCurso === "imprimir" ? raiz.tx("menu", "imprimiendo")
+                 : ventanaReportes.accionEnCurso === "enviar" ? raiz.tx("menu", "enviando")
+                 : ventanaReportes.mensaje
+            onCerrado: ventanaReportes.mensaje = ""
+        }
+
+        Row {
+            id: accionesReportes
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            spacing: raiz.m(16)
+            BotonPildora {
+                objectName: "botonEnviarResumen"
+                escala: raiz.escala
+                texto: ventanaReportes.correoListo ? raiz.tx("menu", "enviar_correo")
+                                                   : raiz.tx("menu", "correo_no_configurado")
+                habilitado: !ventanaReportes.ocupado && ventanaReportes.correoListo
+                            && !(raiz.reporte?.sinConexion ?? true)
+                onPulsado: { ventanaReportes.mensaje = ""; ventanaReportes.eligiendoDestino = true }
+            }
+            BotonPildora {
+                objectName: "botonImprimirResumen"
+                escala: raiz.escala
+                primario: true
+                texto: raiz.tx("menu", "imprimir")
+                habilitado: !ventanaReportes.ocupado && !(raiz.reporte?.sinConexion ?? true)
+                onPulsado: ventanaReportes.imprimir()
+            }
+        }
+
+        SelectorDestino {
+            objectName: "selectorDestinoReportes"
+            anchors.fill: parent
+            visible: ventanaReportes.eligiendoDestino
+            escala: raiz.escala
+            textosJson: raiz.textosJson
+            destinos: raiz.acciones?.destinos ?? []
+            teclado: raiz.teclado
+            onElegido: (correo) => ventanaReportes.enviar(correo)
+            onCancelado: ventanaReportes.eligiendoDestino = false
         }
     }
 
