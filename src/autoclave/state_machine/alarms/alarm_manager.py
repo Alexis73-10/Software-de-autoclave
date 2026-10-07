@@ -175,6 +175,14 @@ class AlarmManager:
         self.active_alarms.append(alarm)
         logger.info(f"Alarma reportada: {alarm.id} - {alarm.description}")
 
+        # Se elimina junto con report() en la tarea 10.
+        if alarm.type == AlarmType.EMERGENCIA:
+            logger.critical(f"ALARMA EMERGENCIA: {alarm.id} - {alarm.description}")
+        elif alarm.type == AlarmType.FALLA:
+            logger.error(f"ALARMA FALLA: {alarm.id} - {alarm.description}")
+        else:
+            logger.warning(f"ALARMA ALERTA: {alarm.id} - {alarm.description}")
+
     def clear(self, alarm_id: str):
         before = len(self.active_alarms)
         self.active_alarms[:] = [a for a in self.active_alarms if a.id != alarm_id]
