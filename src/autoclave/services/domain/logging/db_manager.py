@@ -465,12 +465,6 @@ class DbManager:
             )
             self._conn.commit()
 
-    def reabrir_alarma(self, id_):
-        with self._lock:
-            self._conn.execute(
-                "UPDATE alarmas_historial SET resuelta=NULL WHERE id=?", (id_,))
-            self._conn.commit()
-
     def get_alarmas_historial(self, desde: str | None = None, hasta: str | None = None,
                               nivel: str | None = None, limite: int = 200) -> list[dict]:
         condiciones, args = [], []

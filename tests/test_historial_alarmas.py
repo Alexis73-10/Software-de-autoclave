@@ -47,7 +47,7 @@ def test_aparicion_resolucion_y_reconocimiento_quedan_en_bd(tmp_path):
     assert fila["descripcion_final"] == fila["descripcion_inicial"]
 
 
-def test_valores_finales_y_reapertura(tmp_path):
+def test_valores_finales_y_reactivacion_en_fila_nueva(tmp_path):
     db, am = _db(tmp_path), _gestor()
     h = _historial(db, am)
     am.activar(PRE_06, temp=70.0, maximo=65.0)
@@ -60,10 +60,13 @@ def test_valores_finales_y_reapertura(tmp_path):
 
     am.activar(COM_01)
     am.resolver(COM_01)
-    am.activar(COM_01)            # reactivación: misma fila, resuelta vuelve a NULL
+    am.activar(COM_01)            # reactivación: instancia y fila nuevas
     assert h.vaciar()
-    filas = [f for f in db.get_alarmas_historial() if f["codigo"] == "COM-01"]
-    assert len(filas) == 1 and filas[0]["resuelta"] is None
+    filas = sorted((f for f in db.get_alarmas_historial() if f["codigo"] == "COM-01"),
+                   key=lambda f: f["id"])
+    assert len(filas) == 2
+    assert filas[0]["resuelta"] and filas[0]["reconocida_por"] is None
+    assert filas[1]["resuelta"] is None
 
 
 def test_ciclo_id_se_toma_al_aparecer(tmp_path):

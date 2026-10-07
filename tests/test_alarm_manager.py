@@ -127,10 +127,15 @@ def test_reactivar_resuelta_sin_reconocer():
     hora = inst.aparecida
     am.resolver(COM_01)
     otra = am.activar(COM_01)
-    assert otra is inst and inst.estado is EstadoInstancia.ACTIVA
-    assert inst.resuelta is None and inst.aparecida == hora
-    assert eventos[-1] == (EventoAlarma.REACTIVADA, "COM-01")
-    assert [e for e, _ in eventos].count(EventoAlarma.APARECIDA) == 1
+    # Instancia nueva (spec §5.2, corrección 2026-10-07): la vieja queda en
+    # su fila del historial, resuelta y sin reconocer.
+    assert otra is not inst
+    assert otra.estado is EstadoInstancia.ACTIVA and otra.resuelta is None
+    assert otra.aparecida > hora and otra.reconocida_por is None
+    assert inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER
+    assert am.activas() == [otra] and am.obtener("COM-01") is otra
+    assert eventos[-1] == (EventoAlarma.APARECIDA, "COM-01")
+    assert [e for e, _ in eventos].count(EventoAlarma.APARECIDA) == 2
 
 
 def test_resolver_todas_por_reinicio_conserva_no_reconocidas():

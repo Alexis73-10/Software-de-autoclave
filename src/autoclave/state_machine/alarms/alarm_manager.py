@@ -58,7 +58,11 @@ class AlarmManager:
                 evento = EventoAlarma.APARECIDA
             else:
                 inst = self._instancias.get(clave)
-                if inst is None:
+                # Una RESUELTA_SIN_RECONOCER que vuelve a aparecer es una
+                # ocurrencia nueva (spec §5.2, corrección 2026-10-07): instancia
+                # y fila de historial propias, con su hora y ciclo. La vieja
+                # sale de memoria; su fila queda resuelta y sin reconocer.
+                if inst is None or inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER:
                     inst = InstanciaAlarma(clave, definicion, origen, dict(valores),
                                            descripcion, ahora)
                     self._instancias[clave] = inst
@@ -66,10 +70,6 @@ class AlarmManager:
                 else:
                     inst.valores = dict(valores)
                     inst.descripcion = descripcion
-                    if inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER:
-                        inst.estado = EstadoInstancia.ACTIVA
-                        inst.resuelta = None
-                        evento = EventoAlarma.REACTIVADA
         if evento is EventoAlarma.APARECIDA:
             logger.log(_LOG_POR_NIVEL[definicion.nivel], "Alarma %s: %s — %s",
                        clave, definicion.titulo, descripcion)

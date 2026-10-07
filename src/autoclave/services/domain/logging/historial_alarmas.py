@@ -148,5 +148,3 @@ class HistorialAlarmas:
         elif reg.evento is EventoAlarma.RECONOCIDA:
             self._db.marcar_alarma_reconocida(
                 id_historial, reg.reconocida_por, _iso(reg.reconocida_en))
-        elif reg.evento is EventoAlarma.REACTIVADA:
-            self._db.reabrir_alarma(id_historial)

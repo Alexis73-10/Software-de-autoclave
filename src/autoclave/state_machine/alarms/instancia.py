@@ -14,7 +14,6 @@ class EventoAlarma(Enum):
     APARECIDA = "APARECIDA"
     RESUELTA = "RESUELTA"
     RECONOCIDA = "RECONOCIDA"
-    REACTIVADA = "REACTIVADA"
 
 
 def clave_de(codigo: str, origen: str | None) -> str:
