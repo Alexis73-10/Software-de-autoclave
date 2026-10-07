@@ -1,5 +1,7 @@
 import sqlite3
-from types import SimpleNamespace
+import threading
+
+import pytest
 
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.historial_alarmas import HistorialAlarmas
@@ -12,15 +14,32 @@ def _db(tmp_path):
 
 
 def _gestor():
-    return AlarmManager(estado=SimpleNamespace(Alarmas_activas=[]))
+    return AlarmManager()
+
+
+_creados = []
+
+
+@pytest.fixture(autouse=True)
+def _detener_historiales():
+    yield
+    while _creados:
+        _creados.pop().detener()
+
+
+def _historial(db, am, **kwargs):
+    historial = HistorialAlarmas(db, am, **kwargs)
+    _creados.append(historial)
+    return historial
 
 
 def test_aparicion_resolucion_y_reconocimiento_quedan_en_bd(tmp_path):
     db, am = _db(tmp_path), _gestor()
-    HistorialAlarmas(db, am, ciclo_actual=lambda: None)
+    h = _historial(db, am, ciclo_actual=lambda: None)
     am.activar(COM_01)
     am.resolver(COM_01)
     am.reconocer("COM-01", "cristian")
+    assert h.vaciar()
     [fila] = db.get_alarmas_historial()
     assert fila["codigo"] == "COM-01" and fila["nivel"] == "ALARMA"
     assert fila["titulo"] == "Sin comunicación con la tarjeta"
@@ -30,10 +49,11 @@ def test_aparicion_resolucion_y_reconocimiento_quedan_en_bd(tmp_path):
 
 def test_valores_finales_y_reapertura(tmp_path):
     db, am = _db(tmp_path), _gestor()
-    HistorialAlarmas(db, am)
+    h = _historial(db, am)
     am.activar(PRE_06, temp=70.0, maximo=65.0)
     am.activar(PRE_06, temp=80.0, maximo=65.0)
     am.resolver(PRE_06)
+    assert h.vaciar()
     [fila] = db.get_alarmas_historial()
     assert "70.0" in fila["descripcion_inicial"] and "80.0" in fila["descripcion_final"]
     assert '"temp": 80.0' in fila["valores_json"]
@@ -41,6 +61,7 @@ def test_valores_finales_y_reapertura(tmp_path):
     am.activar(COM_01)
     am.resolver(COM_01)
     am.activar(COM_01)            # reactivación: misma fila, resuelta vuelve a NULL
+    assert h.vaciar()
     filas = [f for f in db.get_alarmas_historial() if f["codigo"] == "COM-01"]
     assert len(filas) == 1 and filas[0]["resuelta"] is None
 
@@ -48,17 +69,19 @@ def test_valores_finales_y_reapertura(tmp_path):
 def test_ciclo_id_se_toma_al_aparecer(tmp_path):
     db, am = _db(tmp_path), _gestor()
     ciclo_id = db.crear_ciclo(**_args_ciclo())
-    HistorialAlarmas(db, am, ciclo_actual=lambda: ciclo_id)
+    h = _historial(db, am, ciclo_actual=lambda: ciclo_id)
     inst = am.activar(COM_01)
     assert inst.ciclo_id == ciclo_id
+    assert h.vaciar()
     assert db.get_alarmas_historial()[0]["ciclo_id"] == ciclo_id
 
 
 def test_filtros_y_limite(tmp_path):
     db, am = _db(tmp_path), _gestor()
-    HistorialAlarmas(db, am)
+    h = _historial(db, am)
     am.activar(PRE_06, temp=70.0, maximo=65.0)
     am.activar(COM_01)
+    assert h.vaciar()
     assert [f["codigo"] for f in db.get_alarmas_historial(nivel="ALARMA")] == ["COM-01"]
     assert len(db.get_alarmas_historial(limite=1)) == 1
     assert db.get_alarmas_historial(desde="2999-01-01T00:00:00") == []
@@ -70,9 +93,10 @@ def test_fallo_de_escritura_no_propaga_y_activa_sis02_una_vez(tmp_path):
             raise sqlite3.OperationalError("disk I/O error")
 
     am = _gestor()
-    HistorialAlarmas(_DbRota(), am)
+    h = _historial(_DbRota(), am)
     am.activar(COM_01)                      # no lanza
     am.activar(PRE_06, temp=70.0, maximo=65.0)
+    assert h.vaciar()
     codigos = [i.codigo for i in am.activas()]
     assert codigos.count("SIS-02") == 1
     sis02 = next(i for i in am.activas() if i.codigo == "SIS-02")
@@ -90,6 +114,53 @@ def test_bd_vieja_se_migra(tmp_path):
     columnas = {r[1] for r in db._conn.execute("PRAGMA table_info(ciclos)")}
     assert "codigo_fallo" in columnas
     assert db.get_alarmas_historial() == []
+
+
+def test_call_no_escribe_desde_el_hilo_que_cambia_la_alarma():
+    class _DbEspia:
+        def __init__(self):
+            self.hilos = []
+
+        def insertar_alarma(self, *a, **k):
+            self.hilos.append(threading.get_ident())
+            return 1
+
+        def marcar_alarma_resuelta(self, *a, **k):
+            self.hilos.append(threading.get_ident())
+
+    db, am = _DbEspia(), _gestor()
+    h = _historial(db, am)
+    am.activar(PRE_06, temp=70.0, maximo=65.0)
+    am.resolver(PRE_06)
+    assert h.vaciar()
+    assert len(db.hilos) == 2
+    assert threading.get_ident() not in db.hilos
+
+
+def test_aparecida_y_reconocida_seguidas_conservan_el_reconocimiento(tmp_path):
+    db, am = _db(tmp_path), _gestor()
+    h = _historial(db, am)
+    am.activar(COM_01)
+    am.reconocer("COM-01", "cristian")       # encolado justo detrás del APARECIDA
+    assert h.vaciar()
+    [fila] = db.get_alarmas_historial()
+    assert fila["reconocida_por"] == "cristian" and fila["reconocida_en"]
+
+
+def test_valores_se_copian_al_encolar(tmp_path):
+    db, am = _db(tmp_path), _gestor()
+    h = _historial(db, am)
+    inst = am.activar(PRE_06, temp=70.0, maximo=65.0)
+    inst.valores["temp"] = 999.0            # cambio posterior no debe llegar a la fila
+    assert h.vaciar()
+    [fila] = db.get_alarmas_historial()
+    assert '"temp": 70.0' in fila["valores_json"]
+
+
+def test_detener_termina_el_hilo_escritor(tmp_path):
+    h = HistorialAlarmas(_db(tmp_path), _gestor())
+    h.detener()
+    assert not h._hilo.is_alive()
 
 
 def _args_ciclo():
