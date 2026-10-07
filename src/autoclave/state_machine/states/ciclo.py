@@ -16,8 +16,10 @@
 import logging
 import time
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import (
+    CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08,
+    COM_02, PRE_06, PUE_02, PUE_03, SEN_02, SIS_01, SUM_01, SUM_06, nombre_legible,
+)
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
 from autoclave.state_machine.cycle_phases.prevacio import PrevacioFase
@@ -34,6 +36,11 @@ _SENSORES_PRES_CRITICOS = ["pres_camara"]
 _DEBOUNCE_LECTURAS_DRENAJE = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
 _TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
+_CIC_POR_FASE = {
+    "PRECALENTAMIENTO": CIC_01, "PRE_VACIO": CIC_02, "CALENTAMIENTO": CIC_03,
+    "ESTERILIZACION": CIC_04, "DESCOMPRESION": CIC_05, "SECADO": CIC_06,
+}
+_MOTIVO_NO_REGISTRADO = "La fase terminó en fallo; el motivo detallado aún no se registra."
 
 # Resultado textual que CicloState devuelve al StateMachine
 class CicloResultado:
@@ -107,6 +114,7 @@ class CicloState:
         self._apertura_auto_denegada_desde = None
         self._apertura_auto_alarmado_denegacion = False
         self.estado.motivo_fallo  = ""
+        self.estado.codigo_fallo  = ""
         self.estado.f0_acumulado  = 0.0
         self._protocolo.reset()
 
@@ -127,27 +135,39 @@ class CicloState:
     # Supervisores continuos (llamados en cada tick activo)
     # ------------------------------------------------------------------
 
-    def _verificar_puertas(self) -> tuple[bool, str]:
-        """
-        Verifica que ambas puertas estén cerradas y con presión de empaque.
-        Retorna (ok, codigo_fallo).
-        El código se usa como fase_ciclo para que la UI muestre el motivo.
-        """
+    def _fase_actual_legible(self) -> str:
+        if self._fase_idx < len(self._fases):
+            return nombre_legible(self._fases[self._fase_idx].name)
+        return "fin de ciclo"
+
+    def _registrar_fallo(self, codigo, origen=None, **valores):
+        """Activa la alarma causante y deja motivo_fallo/codigo_fallo para
+        CycleLogger y el ticket (spec §5.4)."""
+        inst = self.alarm_manager.activar(codigo, origen, **valores)
+        self.estado.motivo_fallo = f"{inst.codigo} · {inst.titulo}: {inst.descripcion}"
+        self.estado.codigo_fallo = inst.codigo
+
+    def _verificar_puertas(self) -> tuple[bool, str, str | None, dict]:
+        """Retorna (ok, fase_ciclo, codigo_alarma, valores). fase_ciclo
+        conserva el código histórico (FALLO_PUERTA_n_*) que usan CycleLogger
+        y la UI."""
         min_empaque = (self.config.get("presion_empaque") or 300) * 0.6
 
         for num, di_cerrada, sensor_emp in [
             (1, "puerta_1_cerrada", "pres_empaque_1"),
             (2, "puerta_2_cerrada", "pres_empaque_2"),
         ]:
+            puerta = f"Puerta {num}"
             cerrada = bool(self.estado.sensores_di.get(di_cerrada, 0))
             if not cerrada:
-                return False, f"FALLO_PUERTA_{num}_ABIERTA"
+                return False, f"FALLO_PUERTA_{num}_ABIERTA", PUE_02, {"puerta": puerta}
 
             emp = self.estado.sensores_pres.get(sensor_emp)
             if emp is not None and emp < min_empaque:
-                return False, f"FALLO_PUERTA_{num}_EMPAQUE"
+                return (False, f"FALLO_PUERTA_{num}_EMPAQUE", PUE_03,
+                        {"puerta": puerta, "pres": emp, "minimo": min_empaque})
 
-        return True, ""
+        return True, "", None, {}
 
     def _mantener_chaqueta(self):
         """Mantiene la presión de la chaqueta durante todas las fases del ciclo."""
@@ -160,17 +180,10 @@ class CicloState:
         # Si no hay suministro de vapor, no intentar compensar
         if not self.estado.sensores_di.get("vapor_suministro", 0):
             self.set_do.vapor_chaqueta_off()
-            self.alarm_manager.report(Alarm(
-                alarm_id="SUMINISTRO_VAPOR",
-                alarm_type=AlarmType.ALERTA,
-                source_state="CICLO",
-                description="Sin suministro de vapor: chaqueta pendiente hasta que regrese.",
-                recoverable=True,
-                blocks_operation=False,
-            ))
+            self.alarm_manager.activar(SUM_06, estado="Ciclo")
             return
         else:
-            self.alarm_manager.clear("SUMINISTRO_VAPOR")
+            self.alarm_manager.resolver(SUM_06)
 
         press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
                     self.config.get("presion_chaqueta") or 320
@@ -206,17 +219,10 @@ class CicloState:
 
         if self._contador_drenaje_alta >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_on()
-            self.alarm_manager.report(Alarm(
-                alarm_id="TEMP_DRENAJE_ALTA",
-                alarm_type=AlarmType.ALERTA,
-                source_state="CICLO",
-                description="Temperatura de drenaje alta: enfriando.",
-                recoverable=True,
-                blocks_operation=False,
-            ))
+            self.alarm_manager.activar(PRE_06, temp=temp, maximo=temp_segura)
         elif self._contador_drenaje_baja >= _DEBOUNCE_LECTURAS_DRENAJE:
             self.set_do.agua_intercambiador_off()
-            self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
+            self.alarm_manager.resolver(PRE_06)
 
     def _mantener_valvula_reposo(self):
         """Mientras se espera confirmación tras un COMPLETADO limpio (sin
@@ -283,14 +289,9 @@ class CicloState:
             timeout_seg = timeout_min * 60
             if not self._apertura_auto_alarmado and (elapsed - tiempo_espera) > timeout_seg:
                 self._apertura_auto_alarmado = True
-                self.alarm_manager.report(Alarm(
-                    alarm_id="TIMEOUT_APERTURA_AUTOMATICA",
-                    alarm_type=AlarmType.ALERTA,
-                    source_state="CICLO",
-                    description="Apertura automática: la cámara tarda más de lo esperado en enfriar.",
-                    recoverable=True,
-                    blocks_operation=False,
-                ))
+                self.alarm_manager.activar(
+                    CIC_07, temp=temp, maximo=temp_max,
+                    minutos=(elapsed - tiempo_espera) / 60)
             return
 
         pres = self.estado.sensores_pres.get("pres_camara")
@@ -305,9 +306,9 @@ class CicloState:
         estado_puerta = self.door_service.get_status(puerta)
         if estado_puerta in ("ABRIENDO", "ABIERTO"):
             if self._apertura_auto_alarmado:
-                self.alarm_manager.clear("TIMEOUT_APERTURA_AUTOMATICA")
+                self.alarm_manager.resolver(CIC_07)
             if self._apertura_auto_alarmado_denegacion:
-                self.alarm_manager.clear("APERTURA_AUTOMATICA_DENEGADA")
+                self.alarm_manager.resolver(CIC_08)
             self.estado.set_flag("CICLO_CONFIRMADO", True)
             return
 
@@ -325,14 +326,8 @@ class CicloState:
         if (not self._apertura_auto_alarmado_denegacion
                 and (ahora - self._apertura_auto_denegada_desde) > _TIMEOUT_APERTURA_DENEGADA_SEG):
             self._apertura_auto_alarmado_denegacion = True
-            self.alarm_manager.report(Alarm(
-                alarm_id="APERTURA_AUTOMATICA_DENEGADA",
-                alarm_type=AlarmType.ALERTA,
-                source_state="CICLO",
-                description=f"Apertura automática: no se pudo abrir {puerta} — {motivo or 'sin motivo reportado'}.",
-                recoverable=True,
-                blocks_operation=False,
-            ))
+            self.alarm_manager.activar(
+                CIC_08, puerta=puerta, motivo=motivo or "sin motivo reportado")
 
     # ------------------------------------------------------------------
     # Tick principal
@@ -391,14 +386,7 @@ class CicloState:
         if self.estado.get_flag("PARO_EMERGENCIA"):
             logger.error("CicloState: ABORTADO por paro de emergencia")
             self.estado.fase_ciclo = "EMERGENCIA"
-            self.estado.motivo_fallo = "Paro de emergencia activado durante el ciclo."
-            self.alarm_manager.report(Alarm(
-                alarm_id="PARO_EMERGENCIA",
-                alarm_type=AlarmType.EMERGENCIA,
-                source_state="CICLO",
-                description=self.estado.motivo_fallo,
-                recoverable=False,
-            ))
+            self._registrar_fallo(SIS_01, estado="Ciclo")
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
@@ -407,31 +395,19 @@ class CicloState:
         if self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"):
             logger.error("CicloState: ABORTADO por fallo de suministro eléctrico")
             self.estado.fase_ciclo = "FALLO_SUMINISTRO"
-            self.estado.motivo_fallo = "Pérdida de suministro eléctrico durante el ciclo."
-            self.alarm_manager.report(Alarm(
-                alarm_id="FALLO_SUMINISTRO_ELECTRICO",
-                alarm_type=AlarmType.EMERGENCIA,
-                source_state="CICLO",
-                description=self.estado.motivo_fallo,
-                recoverable=False,
-            ))
+            fase = self._fase_actual_legible()
+            self._registrar_fallo(SUM_01, origen=fase, fase=fase)
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 3. Verificar puertas y empaque ────────────────────────────
-        puertas_ok, codigo_fallo = self._verificar_puertas()
+        puertas_ok, fase_fallo, codigo, valores = self._verificar_puertas()
         if not puertas_ok:
-            logger.error("CicloState: FALLO de seguridad — %s", codigo_fallo)
-            self.estado.fase_ciclo = codigo_fallo
-            self.estado.motivo_fallo = f"Fallo de seguridad: {codigo_fallo.replace('_', ' ').lower()}."
-            self.alarm_manager.report(Alarm(
-                alarm_id=codigo_fallo,
-                alarm_type=AlarmType.FALLA,
-                source_state="CICLO",
-                description=self.estado.motivo_fallo,
-                recoverable=True,
-            ))
+            logger.error("CicloState: FALLO de seguridad — %s", fase_fallo)
+            self.estado.fase_ciclo = fase_fallo
+            self._registrar_fallo(codigo, origen=valores["puerta"],
+                                  fase=self._fase_actual_legible(), **valores)
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
@@ -447,14 +423,10 @@ class CicloState:
         if ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
             self.estado.fase_ciclo = "SENSOR_AUSENTE"
-            self.estado.motivo_fallo = f"Sensor crítico ausente: {', '.join(ausentes)}"
-            self.alarm_manager.report(Alarm(
-                alarm_id="SENSOR_AUSENTE",
-                alarm_type=AlarmType.EMERGENCIA,
-                source_state="CICLO",
-                description=self.estado.motivo_fallo,
-                recoverable=False,
-            ))
+            fase = self._fase_actual_legible()
+            legibles = [nombre_legible(s) for s in ausentes]
+            self._registrar_fallo(SEN_02, origen=fase,
+                                  sensores=", ".join(legibles), fase=fase)
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
@@ -497,18 +469,12 @@ class CicloState:
         elif resultado == FaseResult.FALLO:
             logger.error("CicloState: FALLO en fase %s", fase.name)
             self.estado.fase_ciclo = f"FALLO_{fase.name}"
-            # La fase puede haber reportado ya un motivo específico (p.ej.
+            # La fase puede haber dejado ya un motivo específico (p.ej.
             # EsterilizacionFase._fallo() con la lectura exacta que falló);
-            # sólo se usa el genérico si la fase no dejó uno más preciso.
-            if not self.estado.motivo_fallo:
-                self.estado.motivo_fallo = f"Fallo en la fase {fase.name.replace('_', ' ').lower()}."
-            self.alarm_manager.report(Alarm(
-                alarm_id=f"FALLO_{fase.name}",
-                alarm_type=AlarmType.FALLA,
-                source_state="CICLO",
-                description=self.estado.motivo_fallo,
-                recoverable=True,
-            ))
+            # sólo se usa el genérico si no dejó uno más preciso.
+            self._registrar_fallo(_CIC_POR_FASE[fase.name],
+                                  origen=nombre_legible(fase.name),
+                                  motivo=self.estado.motivo_fallo or _MOTIVO_NO_REGISTRADO)
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
@@ -520,7 +486,7 @@ class CicloState:
     # Aborto forzado por el ControlLoop (fuera del tick normal de run())
     # ------------------------------------------------------------------
 
-    def abortar_por_desconexion(self):
+    def abortar_por_desconexion(self, segundos: float = 5.0):
         """Llamado por ControlLoop cuando la comunicación serial lleva caída
         más que su tolerancia (ControlLoop._TOLERANCIA_DESCONEXION_SEG)
         durante un ciclo en curso. run() no puede detectarlo por sí mismo
@@ -533,13 +499,7 @@ class CicloState:
 
         logger.error("CicloState: ABORTADO por pérdida de comunicación serial")
         self.estado.fase_ciclo = "FALLO_CONEXION"
-        self.estado.motivo_fallo = "Se perdió la comunicación con el hardware durante el ciclo."
-        self.alarm_manager.report(Alarm(
-            alarm_id="FALLO_CONEXION",
-            alarm_type=AlarmType.EMERGENCIA,
-            source_state="CICLO",
-            description=self.estado.motivo_fallo,
-            recoverable=True,
-        ))
+        fase = self._fase_actual_legible()
+        self._registrar_fallo(COM_02, origen=fase, segundos=segundos, fase=fase)
         self._protocolo.ejecutar()
         self._resultado_pendiente = CicloResultado.FALLO

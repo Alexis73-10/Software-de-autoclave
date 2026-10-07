@@ -1,4 +1,6 @@
 from unittest.mock import MagicMock
+from tests.alarmas_helpers import ultima_activacion, codigos_resueltos
+from autoclave.state_machine.alarms.catalogo import PRE_06
 from autoclave.state_machine.states.ciclo import CicloState
 
 
@@ -22,7 +24,7 @@ def test_temp_alta_no_activa_agua_antes_de_3_lecturas():
     ciclo._mantener_drenaje()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_on.assert_not_called()
-    alarm_manager.report.assert_not_called()
+    alarm_manager.activar.assert_not_called()
 
 
 def test_temp_alta_activa_agua_al_llegar_a_3_lecturas():
@@ -31,9 +33,7 @@ def test_temp_alta_activa_agua_al_llegar_a_3_lecturas():
     ciclo._mantener_drenaje()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_on.assert_called_once()
-    alarma = alarm_manager.report.call_args.args[0]
-    assert alarma.id == "TEMP_DRENAJE_ALTA"
-    assert alarma.blocks_operation is False
+    assert ultima_activacion(alarm_manager)[0] == PRE_06
 
 
 def test_temp_segura_apaga_agua_al_llegar_a_3_lecturas():
@@ -49,7 +49,7 @@ def test_temp_segura_apaga_agua_al_llegar_a_3_lecturas():
     set_do.agua_intercambiador_off.assert_not_called()
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_off.assert_called_once()
-    alarm_manager.clear.assert_any_call("TEMP_DRENAJE_ALTA")
+    assert PRE_06 in codigos_resueltos(alarm_manager)
 
 
 def test_oscilacion_resetea_contador_sin_falso_positivo():
@@ -71,8 +71,8 @@ def test_temp_drenaje_ausente_no_hace_nada():
     ciclo._mantener_drenaje()
     set_do.agua_intercambiador_on.assert_not_called()
     set_do.agua_intercambiador_off.assert_not_called()
-    alarm_manager.report.assert_not_called()
-    alarm_manager.clear.assert_not_called()
+    alarm_manager.activar.assert_not_called()
+    alarm_manager.resolver.assert_not_called()
 
 
 def test_sensor_ausente_no_reinicia_contador_en_progreso():

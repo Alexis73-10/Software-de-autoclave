@@ -1,5 +1,6 @@
 # tests/test_ciclo_sensores.py
 from unittest.mock import MagicMock, patch
+from tests.alarmas_helpers import ultima_activacion
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 
 
@@ -31,7 +32,8 @@ def test_fallo_si_temp_camara_ausente():
 
     assert result == CicloResultado.ESPERANDO_CONFIRMACION
     assert estado.fase_ciclo == "SENSOR_AUSENTE"
-    ciclo.alarm_manager.report.assert_called_once()
+    ciclo.alarm_manager.activar.assert_called_once()
+    assert ultima_activacion(ciclo.alarm_manager)[0] == "SEN-02"
 
 
 def test_fallo_si_pres_camara_ausente():

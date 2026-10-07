@@ -1,4 +1,6 @@
 from unittest.mock import MagicMock
+from tests.alarmas_helpers import codigos_resueltos, ultima_activacion
+from autoclave.state_machine.alarms.catalogo import CIC_07, CIC_08
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 
 
@@ -199,15 +201,13 @@ def test_alarma_timeout_temperatura_una_sola_vez(monkeypatch):
     # tiempo_espera (60s) + timeout_temperatura (30min = 1800s) + margen
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1801)
     ciclo._mantener_apertura_automatica()
-    alarm_manager.report.assert_called_once()
-    alarma = alarm_manager.report.call_args.args[0]
-    assert alarma.id == "TIMEOUT_APERTURA_AUTOMATICA"
-    assert alarma.blocks_operation is False
+    alarm_manager.activar.assert_called_once()
+    assert ultima_activacion(alarm_manager)[0] == CIC_07
 
     # sigue en temperatura alta: no debe repetir la alarma
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 2000)
     ciclo._mantener_apertura_automatica()
-    alarm_manager.report.assert_called_once()
+    alarm_manager.activar.assert_called_once()
 
 
 def test_sigue_esperando_tras_alarma_timeout_hasta_que_baja_temp(monkeypatch):
@@ -226,7 +226,7 @@ def test_sigue_esperando_tras_alarma_timeout_hasta_que_baja_temp(monkeypatch):
 
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1801)
     ciclo._mantener_apertura_automatica()
-    alarm_manager.report.assert_called_once()
+    alarm_manager.activar.assert_called_once()
 
     estado.sensores_temp["temp_camara"] = 75.0
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1802)
@@ -238,7 +238,7 @@ def test_sigue_esperando_tras_alarma_timeout_hasta_que_baja_temp(monkeypatch):
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 60 + 1810)
     ciclo._mantener_apertura_automatica()
     estado.set_flag.assert_called_once_with("CICLO_CONFIRMADO", True)
-    alarm_manager.clear.assert_called_once_with("TIMEOUT_APERTURA_AUTOMATICA")
+    alarm_manager.resolver.assert_called_once_with(CIC_07)
 
 
 def test_sensor_ausente_no_avanza_ni_rompe(monkeypatch):
@@ -367,19 +367,18 @@ def test_alarma_apertura_denegada_tras_denegacion_sostenida(monkeypatch):
     t0 = 12_000_000.0
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0)
     ciclo._mantener_apertura_automatica()
-    alarm_manager.report.assert_not_called()
+    alarm_manager.activar.assert_not_called()
 
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 61)
     ciclo._mantener_apertura_automatica()
-    alarm_manager.report.assert_called_once()
-    alarma = alarm_manager.report.call_args.args[0]
-    assert alarma.id == "APERTURA_AUTOMATICA_DENEGADA"
-    assert "Puerta 1 no esta cerrada" in alarma.description
+    alarm_manager.activar.assert_called_once()
+    assert ultima_activacion(alarm_manager)[0] == CIC_08
+    assert "Puerta 1 no esta cerrada" in ultima_activacion(alarm_manager)[2]["motivo"]
 
     # no debe repetir la alarma en un intento posterior aun denegado
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 70)
     ciclo._mantener_apertura_automatica()
-    alarm_manager.report.assert_called_once()
+    alarm_manager.activar.assert_called_once()
 
     # se limpia cuando finalmente abre
     door_service.request_open.return_value = (True, "")
@@ -388,7 +387,7 @@ def test_alarma_apertura_denegada_tras_denegacion_sostenida(monkeypatch):
     door_service.get_status.return_value = "ABRIENDO"
     monkeypatch.setattr(ciclo_module.time, "monotonic", lambda: t0 + 90)
     ciclo._mantener_apertura_automatica()
-    alarm_manager.clear.assert_any_call("APERTURA_AUTOMATICA_DENEGADA")
+    assert CIC_08 in codigos_resueltos(alarm_manager)
 
 
 def test_reintento_respeta_intervalo(monkeypatch):

@@ -114,7 +114,8 @@ class ControlLoop:
             if (self._desconectado_desde is not None
                     and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG
                     and self.estado.get_machine_state() == GlobalState.CICLO):
-                self.state_machine.ciclo.abortar_por_desconexion()
+                self.state_machine.ciclo.abortar_por_desconexion(
+                    segundos=now - self._desconectado_desde)
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
             self.alarm_manager.resolver(COM_01)
