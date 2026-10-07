@@ -29,6 +29,7 @@ from autoclave.services.domain.logging.ticket_formatter import (
     format_footer,
     format_header,
     format_row,
+    motivo_ticket,
 )
 
 logger = logging.getLogger(__name__)
@@ -267,7 +268,8 @@ class CycleLogger:
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
-            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo)
+            codigo = getattr(self.estado, "codigo_fallo", "") or None
+            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo, codigo)
 
             if self.printer is not None:
                 f0_total = None
@@ -280,7 +282,7 @@ class CycleLogger:
 
                 self.printer.enqueue(format_footer(
                     resultado, datetime.now().isoformat(),
-                    temp_final=self._ultima_temp, motivo=motivo, f0_total=f0_total,
+                    temp_final=self._ultima_temp, motivo=motivo_ticket(codigo, motivo), f0_total=f0_total,
                 ))
 
             logger.info(

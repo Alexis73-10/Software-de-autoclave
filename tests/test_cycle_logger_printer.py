@@ -9,6 +9,7 @@ class FakeDb:
     def __init__(self):
         self._next_id = 1
         self.cerrados = []
+        self.codigos = []
 
     def siguiente_numero_ciclo(self):
         return 7
@@ -21,8 +22,9 @@ class FakeDb:
     def insertar_lectura(self, **kwargs):
         pass
 
-    def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None):
+    def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None, codigo_fallo=None):
         self.cerrados.append((ciclo_id, resultado, motivo_fallo))
+        self.codigos.append(codigo_fallo)
 
     # Pantalla de ciclo en curso (gráfica y tramos de fase): no se verifican aquí
     def insertar_lectura_grafica(self, *args):
@@ -85,6 +87,7 @@ class FakeEstado:
         self.fase_ciclo = "PRECALENTAMIENTO"
         self.sub_estado_ciclo = ""
         self.motivo_fallo = ""
+        self.codigo_fallo = ""
         self.sensores_temp = {"temp_camara": 25.0}
         self.sensores_pres = {"pres_camara": 74.5}
         self.f0_acumulado = 0.0
@@ -236,6 +239,22 @@ def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
     cl.update()   # _on_fin: fila "E" + pie
 
     assert "F0 total: 15.3 min" in printer.calls[3]
+
+
+def test_fin_de_ciclo_con_fallo_guarda_codigo_y_imprime_codigo_y_titulo():
+    printer = FakePrinter()
+    cl = _build_logger(printer)
+    cl.estado.codigo_fallo = "CIC-03"
+    cl.estado.motivo_fallo = "CIC-03 · Fallo en calentamiento: x"
+
+    cl.update()   # header
+    cl.update()   # fila por cambio de fase
+    cl.estado.machine_state = GlobalState.PREPARADO
+    cl.update()   # _on_fin
+
+    assert cl.db.codigos == ["CIC-03"]
+    assert "Motivo: CIC-03 - Fallo en calentamiento" in printer.calls[3]
+    assert "calentamiento: x" not in printer.calls[3]
 
 
 def test_sin_printer_no_falla():
