@@ -117,6 +117,10 @@ Notas sobre la migración:
 - **PRE-06:** hoy TEMP_DRENAJE_ALTA es no bloqueante en CICLO y bloqueante en los demás estados. Como `bloquea_inicio` no tiene consumidores (§4.1), PRE-06 queda con un único `bloquea_inicio = sí` y eso no cambia el comportamiento. Si la Parte C llega a usar ese campo, debe tratarlo como irrelevante durante CICLO.
 - **`AlarmType`** se mantiene como alias de `Nivel` (`ALERTA = AVISO`, etc.) solo durante la migración. Al cerrar la Parte A ningún módulo de `src/` debe importar `Alarm` ni `AlarmType`.
 
+**Corrección del 2026-10-07, en la revisión final de la rama (COM-01 en el arranque):** el `ControlLoop` arranca suponiendo que el enlace estaba conectado, así que el primer tick sin datos del handshake serial normal activaba COM-01 y la dejaba escrita en el historial como ALARMA en cada arranque. Regla nueva: tras la primera conexión real, el flanco de desconexión activa COM-01 de inmediato, como antes. Mientras el enlace **nunca** haya conectado, COM-01 se activa solo cuando la desconexión continua alcanza `_TOLERANCIA_DESCONEXION_SEG` (5 s), una sola vez; así una tarjeta que nunca responde sigue dando COM-01, unos 5 s más tarde. La resolución al conectar, el aborto del ciclo por desconexión y los tickets de conectividad no cambian.
+
+**Corrección del 2026-10-07, en la ronda de correcciones F4 (textos):** la descripción de SIS-01 queda "Se presionó el paro de emergencia en estado {estado}." (se quitó "Todas las salidas están apagadas.", que es falso en CICLO: allí el protocolo de fallo ventea la cámara). La de COM-02 usa `{segundos:.1f}` en vez de `{segundos:.0f}`, porque el redondeo convertía 5,5 s en "más de 6 s".
+
 ## 5. Instancias y `AlarmManager`
 
 ### 5.1 Instancia (`InstanciaAlarma`)
@@ -134,6 +138,8 @@ Notas sobre la migración:
 | `activas() -> list[InstanciaAlarma]` | Copia ordenada por nivel (de mayor a menor) y luego por `aparecida` |
 | `eventos_recientes() -> list` | Ver §5.6 |
 | `has_emergency/has_failure/has_alert/has_blocking_alarm/has_active_alarms` | Se conservan con la equivalencia de §2 y cuentan solo instancias `ACTIVA` |
+
+**Corrección del 2026-10-07, en la revisión final de la rama (reactivación, §5.1/§5.2/§6):** si `activar()` encuentra la clave en `RESUELTA_SIN_RECONOCER`, ya **no** la reactiva: la reemplaza por una instancia nueva (nueva `aparecida`, `ACTIVA`, sin reconocimiento, con su propio `ciclo_id` e `id_historial`) y notifica `APARECIDA`. La instancia vieja sale de memoria y su fila del historial queda como estaba: resuelta y sin reconocer. Si la clave existe `ACTIVA`, nada cambia (se actualizan valores y descripción, sin evento). El evento `REACTIVADA` desaparece. Por qué: hasta la Parte C no hay cliente de reconocimiento y `/status` oculta las resueltas sin reconocer (corrección de §7.1), así que con la regla anterior cada repetición de una ALARMA o FALLO_CRITICO se acumulaba en la fila de la primera vez, con hora y `ciclo_id` equivocados, en un registro de software Clase C. Esto adelanta el hallazgo SAF-05 de la revisión de seguridad; el costo es tener más filas en el historial y es reversible en la Parte C.
 
 ### 5.3 Instancia única y concurrencia
 
@@ -199,6 +205,8 @@ Cuándo se escribe:
 | Reconocimiento | UPDATE de `reconocida_por` y `reconocida_en` |
 | Reactivación de una `RESUELTA_SIN_RECONOCER` | UPDATE de `resuelta = NULL` |
 
+**Corrección del 2026-10-07 (ver §5.2):** la reactivación de una `RESUELTA_SIN_RECONOCER` ya no hace UPDATE: es una aparición nueva y hace INSERT de una fila propia. La fila vieja no se toca. `DbManager.reabrir_alarma` se eliminó.
+
 ### 6.2 Desacople
 
 `AlarmManager` no importa nada de la base de datos. Expone `suscribir(oyente)`, y el oyente recibe `(evento, instancia)` con evento en `APARECIDA` / `RESUELTA` / `RECONOCIDA` / `REACTIVADA`. En `BackendContext` se registra `HistorialAlarmas(db)` (nuevo, `services/domain/logging/historial_alarmas.py`), que traduce los eventos a `DbManager` y guarda `id_historial` en la instancia.
@@ -210,6 +218,8 @@ Si la escritura falla, `HistorialAlarmas`:
 3. activa `SIS-02` una sola vez por arranque, sin escribirla en el historial.
 
 `ciclo_id` lo obtiene de `CycleLogger`, que ya conoce el ciclo abierto.
+
+**Corrección del 2026-10-07, en la ronda de correcciones F3 (escritura asíncrona):** el oyente corre en el hilo que cambió la alarma (ControlLoop o HTTP), y un INSERT síncrono de SQLite ahí retrasaba el tick de control justo antes de `_protocolo.ejecutar()`. Ahora `HistorialAlarmas.__call__` no hace E/S: toma una foto inmutable del evento (valores copiados, horas, usuario, `ciclo_id`) y la encola en una cola FIFO. Un hilo escritor propio (daemon, `historial-alarmas`) la procesa en orden, de modo que una RESOLUCIÓN o un RECONOCIMIENTO siempre encuentran el `id_historial` que dejó su APARICIÓN. `vaciar(timeout)` espera a que lo encolado hasta ese momento quede escrito (pruebas) y `detener(timeout)` procesa lo pendiente y termina el hilo. El manejo de fallos de escritura (log, no propagar, SIS-02 una sola vez) se mantiene, ahora desde el hilo escritor. Con la corrección de §5.2, el oyente recibe solo `APARECIDA` / `RESUELTA` / `RECONOCIDA`; `REACTIVADA` ya no existe.
 
 ## 7. Backend
 
@@ -226,6 +236,8 @@ Cada elemento lleva:
 | `source_state` | compat. | `origen` |
 
 Se agrega además `eventos_recientes` (lista de §5.6) al mensaje de `/status`. Los consumidores actuales ignoran las claves extra: `UiBridge` lee solo `alarms`, y `ui_qml/domain/telemetria.py` valida otro mensaje, comprobando que estén sus claves requeridas sin rechazar las adicionales. Se verifica con `test_ui_bridge`.
+
+**Corrección del 2026-10-07, en la ronda de correcciones F1 (decisión de Cristian):** `alarms` lleva **solo** las instancias `ACTIVA`. Las `RESUELTA_SIN_RECONOCER` van en una clave nueva de primer nivel, `alarmas_sin_reconocer`, con el mismo DTO, hasta que la Parte C traiga la interfaz de reconocimiento. Sin esto, una ALARMA ya resuelta quedaba visible para siempre en todas las pantallas, sin forma de reconocerla. Además, `main.py` deja de buscar COM-01 en `alarms` para la espera de arranque del hardware y usa `card_connected` de `/status` (`True` → conectado; clave ausente o distinta de `True` → no conectado): con la clave COM-01 resuelta sin reconocer tras el handshake, la búsqueda anterior daba siempre "no conectado".
 
 ### 7.2 Endpoints nuevos
 
