@@ -1,5 +1,4 @@
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import SIS_01
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,11 +14,5 @@ class Hibernacion:
     def run(self):
         if self.estado.get_flag("PARO_EMERGENCIA"):
             self.set_do.reset_all_outputs()
-            self.alarm_manager.report(Alarm(
-                alarm_id="PARO_EMERGENCIA",
-                alarm_type=AlarmType.EMERGENCIA,
-                source_state="HIBERNACION",
-                description="Paro de emergencia activado en estado HIBERNACION.",
-                recoverable=False,
-            ))
+            self.alarm_manager.activar(SIS_01, estado="Hibernación")
             self.set_do.buzer_emergencia()

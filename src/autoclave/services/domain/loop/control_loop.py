@@ -2,8 +2,7 @@
 
 import time
 import threading
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import COM_01
 from autoclave.state_machine.state_machine import StateMachine
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
@@ -97,16 +96,7 @@ class ControlLoop:
         if not connected:
             if self.link_was_connected:
                 self._desconectado_desde = now
-                self.alarm_manager.report(
-                    Alarm(
-                        alarm_id="NO_HAY_CONEXION",
-                        alarm_type=AlarmType.FALLA,
-                        source_state="CONTROL_LOOP",
-                        description="No hay comunicación con el hardware.",
-                        recoverable=True,
-                        blocks_operation=True,
-                    )
-                )
+                self.alarm_manager.activar(COM_01)
                 # El handshake serial inicial (escaneo de puerto + primer dato)
                 # tarda unos instantes tras el arranque del backend; ese hueco
                 # no es una desconexión real y no debe imprimirse.
@@ -127,7 +117,7 @@ class ControlLoop:
                 self.state_machine.ciclo.abortar_por_desconexion()
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
-            self.alarm_manager.clear("NO_HAY_CONEXION")
+            self.alarm_manager.resolver(COM_01)
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
                     format_connectivity_ticket("TARJETA", True, datetime.now())

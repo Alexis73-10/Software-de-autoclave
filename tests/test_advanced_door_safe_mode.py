@@ -3,6 +3,8 @@ import time
 from unittest.mock import MagicMock
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.enum_doors import DoorState
+from autoclave.state_machine.alarms.catalogo import CATALOGO, PUE_04, PUE_05
+from tests.alarmas_helpers import activaciones
 
 
 def _make_door(fallo_suministro=False):
@@ -48,7 +50,7 @@ def test_modo_normal_activa_bomba_al_abrir():
     door, set_do, alarm_mgr, _ = _make_door(fallo_suministro=False)
     door._from_abriendo()
     set_do.bomba_vacio_on.assert_called()
-    alarm_mgr.report.assert_not_called()
+    alarm_mgr.activar.assert_not_called()
 
 
 def test_modo_seguro_no_activa_bomba_al_abrir():
@@ -60,11 +62,9 @@ def test_modo_seguro_no_activa_bomba_al_abrir():
 def test_modo_seguro_genera_alarma_no_bloqueante():
     door, set_do, alarm_mgr, _ = _make_door(fallo_suministro=True)
     door._from_abriendo()
-    alarm_mgr.report.assert_called_once()
-    alarma = alarm_mgr.report.call_args[0][0]
-    assert alarma.id == "ABRIENDO_MODO_SEGURO_Puerta 1"
-    assert alarma.recoverable is True
-    assert alarma.blocks_operation is False
+    [(codigo, origen, valores)] = activaciones(alarm_mgr)
+    assert (codigo, origen, valores) == (PUE_04, "Puerta 1", {"puerta": "Puerta 1"})
+    assert CATALOGO[PUE_04].bloquea_inicio is False
 
 
 def test_modo_seguro_usa_umbral_atmosferico():
@@ -93,7 +93,7 @@ def test_modo_seguro_activa_abrir_cuando_presion_baja():
 def test_modo_normal_no_genera_alarma_al_cerrar():
     door, set_do, alarm_mgr, _ = _make_door(fallo_suministro=False)
     door._from_cerrando()
-    alarm_mgr.report.assert_not_called()
+    alarm_mgr.activar.assert_not_called()
     set_do.bomba_vacio_on.assert_called()
 
 
@@ -106,11 +106,9 @@ def test_modo_seguro_no_activa_bomba_al_cerrar():
 def test_modo_seguro_genera_alarma_al_cerrar():
     door, set_do, alarm_mgr, _ = _make_door(fallo_suministro=True)
     door._from_cerrando()
-    alarm_mgr.report.assert_called_once()
-    alarma = alarm_mgr.report.call_args[0][0]
-    assert alarma.id == "CERRANDO_MODO_SEGURO_Puerta 1"
-    assert alarma.recoverable is True
-    assert alarma.blocks_operation is False
+    [(codigo, origen, valores)] = activaciones(alarm_mgr)
+    assert (codigo, origen, valores) == (PUE_05, "Puerta 1", {"puerta": "Puerta 1"})
+    assert CATALOGO[PUE_05].bloquea_inicio is False
 
 
 def test_modo_seguro_usa_umbral_atmosferico_al_cerrar():

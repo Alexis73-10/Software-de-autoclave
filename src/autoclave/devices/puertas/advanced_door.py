@@ -157,8 +157,7 @@
 
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.devices.puertas.base_puertas import Door
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import PUE_04, PUE_05
 import logging
 import time
 
@@ -373,14 +372,7 @@ class AdvancedDoor(Door):
             self.bloquear_off()
             self.cerrar_off()
             if safe_mode:
-                self._alarm_report(Alarm(
-                    alarm_id=f"ABRIENDO_MODO_SEGURO_{self.name}",
-                    alarm_type=AlarmType.ALERTA,
-                    source_state="PUERTA",
-                    description=f"Puerta {self.name}: abriendo en modo seguro (sin bomba de vacío).",
-                    recoverable=True,
-                    blocks_operation=False,
-                ))
+                self._alarma_activar(PUE_04)
             else:
                 self.vacio_on()
             self.desbloquear_on()
@@ -406,7 +398,7 @@ class AdvancedDoor(Door):
         if self.puerta_abierta() and not self.puerta_cerrada():
             self.abrir_off()
             self.vacio_off()
-            self._alarm_clear(f"ABRIENDO_MODO_SEGURO_{self.name}")
+            self._alarma_resolver(PUE_04)
             self.timer_start = None
             self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ABIERTO)
@@ -416,7 +408,7 @@ class AdvancedDoor(Door):
         if time.time() > self.timer_start:
             self.abrir_off()
             self.vacio_off()
-            self._alarm_clear(f"ABRIENDO_MODO_SEGURO_{self.name}")
+            self._alarma_resolver(PUE_04)
             self.timer_start = None
             self._pulso_desbloqueo_enviado = False
             self.set_state(DoorState.ERROR)
@@ -462,14 +454,7 @@ class AdvancedDoor(Door):
             self._pulso_bloqueo_enviado = False
             self._pulso_desbloqueo_enviado = False
             if safe_mode:
-                self._alarm_report(Alarm(
-                    alarm_id=f"CERRANDO_MODO_SEGURO_{self.name}",
-                    alarm_type=AlarmType.ALERTA,
-                    source_state="PUERTA",
-                    description=f"Puerta {self.name}: cerrando en modo seguro (sin bomba de vacío).",
-                    recoverable=True,
-                    blocks_operation=False,
-                ))
+                self._alarma_activar(PUE_05)
             else:
                 self.vacio_on()
             self.desbloquear_on()
@@ -481,7 +466,7 @@ class AdvancedDoor(Door):
 
         if self.atrapamiento():
             self.cerrar_off()
-            self._alarm_clear(f"CERRANDO_MODO_SEGURO_{self.name}")
+            self._alarma_resolver(PUE_05)
             self.timer_start = None
             self._pulso_bloqueo_enviado = False
             self._pulso_desbloqueo_enviado = False
@@ -505,7 +490,7 @@ class AdvancedDoor(Door):
 
             if self.presion_empaque() >= self.config.get("presion_empaque"):
                 self.bloquear_off()
-                self._alarm_clear(f"CERRANDO_MODO_SEGURO_{self.name}")
+                self._alarma_resolver(PUE_05)
                 self.timer_start = None
                 self.set_state(DoorState.CERRADO)
                 logger.info("Puerta cerrada correctamente.")
@@ -516,7 +501,7 @@ class AdvancedDoor(Door):
             self.vacio_off()
             self.desbloquear_off()
             self.bloquear_off()
-            self._alarm_clear(f"CERRANDO_MODO_SEGURO_{self.name}")
+            self._alarma_resolver(PUE_05)
             self._pulso_bloqueo_enviado = False
             self.timer_start = None
             self.set_state(DoorState.ERROR)
@@ -577,13 +562,13 @@ class AdvancedDoor(Door):
     #HELPERS DE ALARMAS
     #============================
 
-    def _alarm_report(self, alarm):
+    def _alarma_activar(self, codigo):
         if self.alarm_manager is not None:
-            self.alarm_manager.report(alarm)
+            self.alarm_manager.activar(codigo, origen=self.name, puerta=self.name)
 
-    def _alarm_clear(self, alarm_id):
+    def _alarma_resolver(self, codigo):
         if self.alarm_manager is not None:
-            self.alarm_manager.clear(alarm_id)
+            self.alarm_manager.resolver(codigo, origen=self.name)
 
     #============================
     #COMANDOS EXTERNOS

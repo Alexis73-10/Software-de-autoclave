@@ -1,6 +1,5 @@
 import logging
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import SIS_01
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +19,7 @@ class FallaState:
         """
         if self.estado.get_flag("PARO_EMERGENCIA"):
             self.set_do.reset_all_outputs()
-            self.alarm_manager.report(Alarm(
-                alarm_id="PARO_EMERGENCIA",
-                alarm_type=AlarmType.EMERGENCIA,
-                source_state="FALLA",
-                description="Paro de emergencia activado en estado FALLA.",
-                recoverable=False,
-            ))
+            self.alarm_manager.activar(SIS_01, estado="Falla")
             self.set_do.buzer_emergencia()
             return False
 
