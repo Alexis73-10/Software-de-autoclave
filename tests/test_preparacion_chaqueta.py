@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparacion import preparacion_state
+from autoclave.state_machine.alarms.catalogo import PRE_01, SUM_06, CATALOGO
+from tests.alarmas_helpers import codigos_activados, ultima_activacion
 
 
 def _make_preparacion(vapor=1, presion_chaqueta=300.0):
@@ -31,9 +33,9 @@ def test_sin_vapor_retorna_true_sin_bloquear():
 def test_sin_vapor_reporta_alarma_no_bloqueante():
     p, alarm_mgr, _ = _make_preparacion(vapor=0)
     p.suministrar_vapor_chaqueta()
-    alarma = alarm_mgr.report.call_args.args[0]
-    assert alarma.id == "SUMINISTRO_VAPOR"
-    assert alarma.blocks_operation is False
+    codigo, _, valores = ultima_activacion(alarm_mgr)
+    assert codigo == SUM_06
+    assert CATALOGO[SUM_06].bloquea_inicio is False
 
 
 def test_con_vapor_fuera_de_banda_retorna_false():
@@ -61,9 +63,9 @@ def test_valvula_enciende_bajo_objetivo_sin_disparar_alarma():
     p, alarm_mgr, set_do = _make_preparacion(vapor=1, presion_chaqueta=299.0)
     resultado = p.suministrar_vapor_chaqueta()
     set_do.vapor_chaqueta_on.assert_called()
-    alarm_mgr.clear.assert_any_call("CHAQUETA_FRIA")
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "CHAQUETA_FRIA" not in ids_reportados
+    alarm_mgr.resolver.assert_any_call(PRE_01)
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_01 not in ids_reportados
     assert resultado is True
 
 
@@ -76,8 +78,8 @@ def test_valvula_no_enciende_en_objetivo():
 def test_alarma_chaqueta_fria_dispara_bajo_limite_inferior():
     p, alarm_mgr, set_do = _make_preparacion(vapor=1, presion_chaqueta=270.0)
     p.suministrar_vapor_chaqueta()
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "CHAQUETA_FRIA" in ids_reportados
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_01 in ids_reportados
 
 
 def test_apagado_requiere_3_confirmaciones():
