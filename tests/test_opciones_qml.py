@@ -267,17 +267,18 @@ def test_tecnico_entra_a_opciones(estado, bloqueado):
     assert r["proximamente"] is True
     assert r["sin_secciones"] is False
     assert r["aviso_bloqueo"] is bloqueado
+    assert r["aviso_bloqueo_segunda"] is bloqueado
     if estado != "CICLO":
         assert r["inicio_desde_menu"] is True
 
 
-def test_ingeniero_edita_parametros_ciclo_en_ciclo():
-    # Excepción de Cristian (2026-10-07): solo Parámetros del ciclo, solo el ingeniero
+def test_ingeniero_edita_con_ciclo_en_curso():
+    # Excepción de Cristian (2026-10-07): el ingeniero modifica lo que sea en cualquier momento
     r = _correr("CICLO", "ingeniero")
     _navegacion_comun(r)
     assert r["entradas"] == _TECNICAS
-    assert r["aviso_bloqueo"] is False            # Parámetros del ciclo: editable
-    assert r["aviso_bloqueo_segunda"] is True     # Parámetros del sistema: bloqueada
+    assert r["aviso_bloqueo"] is False            # Parámetros del ciclo
+    assert r["aviso_bloqueo_segunda"] is False    # Parámetros del sistema
 
 
 def test_admin_ve_solo_usuarios_y_conectividad():

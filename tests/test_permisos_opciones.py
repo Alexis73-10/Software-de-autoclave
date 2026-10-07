@@ -60,16 +60,18 @@ def test_edicion_permitida(estado, permitida):
     assert edicion_permitida(estado) is permitida
 
 
-# Excepción (Cristian, 2026-10-07): el ingeniero ajusta Parámetros del ciclo con
-# un ciclo en curso; el técnico no. Solo esa sección y solo en CICLO.
+# Excepción (Cristian, 2026-10-07): el ingeniero modifica cualquier sección en
+# cualquier estado; técnico, biomédico y admin solo en PREPARACION / PREPARADO.
 @pytest.mark.parametrize("estado,rol,seccion,permitida", [
     ("CICLO", "ingeniero", "parametros_ciclo", True),
-    ("CICLO", "ingeniero", "parametros_sistema", False),
+    ("CICLO", "ingeniero", "parametros_sistema", True),
+    ("FALLA", "ingeniero", "mantenimiento", True),
+    ("EMERGENCIA", "ingeniero", "parametros_ciclo", True),
     ("CICLO", "tecnico", "parametros_ciclo", False),
     ("CICLO", "biomedico", "parametros_ciclo", False),
-    ("CICLO", "admin", "parametros_ciclo", False),
-    ("FALLA", "ingeniero", "parametros_ciclo", False),
+    ("CICLO", "admin", "usuarios", False),
     ("PREPARADO", "tecnico", "parametros_sistema", True),
+    ("PREPARADO", "biomedico", "parametros_ciclo", True),
 ])
-def test_edicion_permitida_por_rol_y_seccion(estado, rol, seccion, permitida):
+def test_edicion_permitida_por_rol(estado, rol, seccion, permitida):
     assert edicion_permitida(estado, rol, seccion) is permitida

@@ -34,7 +34,7 @@ No hubo bloqueos.
   - admin ve solo Usuarios y Conectividad, y aterriza en Usuarios;
   - cualquier otro rol ve "Su perfil no tiene secciones disponibles", con "OPCIONES" como título.
 - **Sesión** (`OpcionesController`): expone `usuario`, `nombre`, `rol`, `secciones`, `cerrarSesion()` y `edicionPermitida` (solo PREPARACION y PREPARADO).
-- **Solo lectura:** fuera de PREPARACION y PREPARADO aparece el aviso "Edición bloqueada: ciclo en curso". Excepción (§8): con un ciclo en curso, el ingeniero puede editar Parámetros del ciclo.
+- **Solo lectura:** fuera de PREPARACION y PREPARADO aparece el aviso "Edición bloqueada: ciclo en curso". Excepción (§8): el ingeniero puede editar cualquier sección en cualquier estado.
 - **Salida.** Salir cierra la sesión, con confirmación si hay cambios sin guardar. Inicio conserva la sesión. Los dos vuelven a preciclo o a ciclo en curso según el estado de la máquina, aunque se haya llegado por el Menú Principal.
 - **`lanzador_ajustes`:** no se tocó. Ya no se usa desde QML.
 - **Textos** en `es.json`, bajo `opciones.*`. Los nombres de sección quedan en una sola línea.
@@ -78,7 +78,7 @@ No hubo bloqueos.
 
 ## 7. Pendiente
 
-- Dudas 2 a 6 de la sección 3 y las nuevas de la sección 8.
+- Dudas 2 a 6 de la sección 3.
 - Fase 2 según las puertas de entrada del plan.
 
 ## 8. Revisión de Cristian (2026-10-07)
@@ -96,3 +96,9 @@ Dudas nuevas (no decididas; se implementó lo más restrictivo):
 8. **Biomédico.** Se trató como el técnico: no edita durante el ciclo. ¿Es correcto?
 9. **Alcance de la excepción.** Se aplica solo en el estado CICLO y solo a Parámetros del ciclo. En FALLA, EMERGENCIA y demás estados el ingeniero sigue bloqueado, y también en las otras secciones.
 10. **Choque con la especificación 1.** RB-01 y U-8 bloquean en el backend toda edición fuera de PREPARACION y PREPARADO. Antes de la Fase 3 hay que decidir si el backend acepta esta excepción, y qué parámetros del ciclo en curso se pueden cambiar en caliente y desde cuándo surten efecto: de inmediato en la fase activa o desde el siguiente ciclo. Esto toca el control de actuadores, así que conviene una revisión de seguridad (safety-reviewer) en esa fase.
+
+### Respuestas a las dudas 8 a 10 (2026-10-07)
+
+8. Sí: el biomédico se trata como el técnico.
+9. El ingeniero puede modificar lo que sea en cualquier momento. Se implementó así: `edicion_permitida` devuelve verdadero para el ingeniero en cualquier sección y en cualquier estado, incluidos CICLO, FALLA y EMERGENCIA. Técnico, biomédico y admin solo editan en PREPARACION y PREPARADO.
+10. Un cambio hecho con el ciclo en curso surte efecto desde la fase activa. Esto se aplica en el backend en la Fase 3. La especificación 1 (RB-01 y U-8) debe incluir la excepción del ingeniero antes de esa fase.

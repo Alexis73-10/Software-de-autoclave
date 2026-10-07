@@ -58,14 +58,15 @@ def secciones_visibles(rol: str | None) -> list[Seccion]:
 # D-1). El backend lo impone; la interfaz solo lo refleja.
 ESTADOS_EDICION = frozenset({"PREPARACION", "PREPARADO"})
 
-# Excepción (Cristian, 2026-10-07): con un ciclo en curso el ingeniero puede
-# ajustar Parámetros del ciclo; el técnico no. Solo en CICLO y solo esa sección.
-_EDICION_EN_CICLO = {"parametros_ciclo": frozenset({"ingeniero"})}
+# Excepción (Cristian, 2026-10-07): el ingeniero puede modificar cualquier
+# sección en cualquier estado; técnico y biomédico, solo en ESTADOS_EDICION.
+# Un cambio hecho con ciclo en curso surte efecto desde la fase activa (lo
+# implementa el backend en la Fase 3; la especificación 1, RB-01, debe reflejarlo).
+_EDICION_SIEMPRE = frozenset({"ingeniero"})
 
 
 def edicion_permitida(estado_maquina: str | None, rol: str | None = None,
                       seccion: str | None = None) -> bool:
-    if estado_maquina in ESTADOS_EDICION:
+    if rol in _EDICION_SIEMPRE:
         return True
-    return (estado_maquina == "CICLO" and bool(rol)
-            and rol in _EDICION_EN_CICLO.get(seccion, frozenset()))
+    return estado_maquina in ESTADOS_EDICION

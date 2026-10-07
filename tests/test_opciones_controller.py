@@ -74,15 +74,23 @@ def test_edicion_permitida_sigue_al_estado():
     assert avisos == [1, 1]
 
 
-def test_edicion_del_ingeniero_en_ciclo_sigue_a_la_seccion():
+def test_ingeniero_edita_en_cualquier_estado_y_seccion():
     SessionManager.login(_usuario("ingeniero"))
+    c = OpcionesController()
+    for estado in ("CICLO", "FALLA", "PREPARADO"):
+        c.estadoMaquina = estado
+        for seccion in ("parametros_ciclo", "mantenimiento"):
+            c.seccion = seccion
+            assert c.edicionPermitida is True
+
+
+def test_edicion_cambia_con_la_sesion():
     c = OpcionesController()
     avisos = []
     c.edicionChanged.connect(lambda: avisos.append(1))
     c.estadoMaquina = "CICLO"
     assert c.edicionPermitida is False
-    c.seccion = "parametros_ciclo"
+    SessionManager.login(_usuario("ingeniero"))
+    c.refrescar()
     assert c.edicionPermitida is True
-    c.seccion = "mantenimiento"
-    assert c.edicionPermitida is False
-    assert len(avisos) == 3
+    assert len(avisos) == 2
