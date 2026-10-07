@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
+from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
@@ -103,6 +104,44 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...)):
     return {"ok": True, "gain": new_gain, "offset": new_offset}
 
 
+def _hora_iso(dt) -> str | None:
+    return dt.isoformat(timespec="seconds") if dt is not None else None
+
+
+def _alarma_dto(inst) -> dict:
+    """Instancia de alarma → JSON de /status (spec 2026-10-06 §7.1). Los
+    campos id/level/description/source_state mantienen compatible a la UI
+    actual hasta la Parte C."""
+    origen = inst.origen or ""
+    return {
+        "clave": inst.clave,
+        "codigo": inst.codigo,
+        "nivel": inst.nivel.name,
+        "titulo": inst.titulo,
+        "descripcion": inst.descripcion,
+        "accion": inst.definicion.accion,
+        "origen": origen,
+        "aparecida": _hora_iso(inst.aparecida),
+        "estado": inst.estado.value,
+        "requiere_reconocimiento": inst.nivel.requiere_reconocimiento,
+        "reconocida_por": inst.reconocida_por,
+        "id": inst.clave,
+        "level": inst.nivel.nombre_compat,
+        "description": inst.descripcion,
+        "source_state": origen,
+    }
+
+
+def _evento_dto(inst) -> dict:
+    return {
+        "codigo": inst.codigo,
+        "titulo": inst.titulo,
+        "descripcion": inst.descripcion,
+        "origen": inst.origen or "",
+        "hora": _hora_iso(inst.aparecida),
+    }
+
+
 @app.get("/status", response_model=None)
 def get_status():
     estado = context.estado
@@ -163,6 +202,8 @@ def get_status():
         }
         for alarma in estado.Alarmas_activas
     ]
+    alarms += [_alarma_dto(inst) for inst in context.alarm_manager.activas()]
+    eventos_recientes = [_evento_dto(inst) for inst in context.alarm_manager.eventos_recientes()]
 
     # ------------------------------
     # RESPUESTA FINAL (DTO)
@@ -178,6 +219,7 @@ def get_status():
         "doors":   doors,
         "sensors": sensors,
         "alarms":  alarms,
+        "eventos_recientes": eventos_recientes,
     }
 
 @app.post("/ui/activity")
@@ -661,6 +703,43 @@ def acknowledge_cycle():
         estado.set_flag("RESET_FALLA", True)
 
     return {"ok": True, "action": "CICLO_CONFIRMADO"}
+
+
+@app.post("/alarms/{clave}/acknowledge")
+def acknowledge_alarm(clave: str, body: dict = Body(default={})):
+    """El operador reconoce una alarma ALARMA/FALLO_CRITICO (spec §7.2)."""
+    usuario = str(body.get("usuario") or "").strip()
+    if not usuario:
+        raise HTTPException(status_code=422, detail="Falta el usuario que reconoce")
+    inst = context.alarm_manager.obtener(clave)
+    if inst is None:
+        raise HTTPException(status_code=404, detail="La alarma no está activa")
+    if not inst.nivel.requiere_reconocimiento:
+        raise HTTPException(status_code=422, detail="Esta alarma no requiere reconocimiento")
+    context.alarm_manager.reconocer(clave, usuario)
+    return {"ok": True}
+
+
+def _fecha_iso_o_422(valor: str | None, campo: str) -> str | None:
+    if valor is None:
+        return None
+    try:
+        datetime.fromisoformat(valor)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"{campo} no es una fecha ISO válida")
+    return valor
+
+
+@app.get("/alarms/history")
+def alarm_history(desde: str | None = None, hasta: str | None = None,
+                  nivel: str | None = None, limite: int = 200):
+    if nivel is not None and nivel not in Nivel.__members__:
+        raise HTTPException(status_code=422, detail="Nivel desconocido")
+    filas = context.db.get_alarmas_historial(
+        _fecha_iso_o_422(desde, "desde"), _fecha_iso_o_422(hasta, "hasta"),
+        nivel, max(1, min(int(limite), 1000)),
+    )
+    return {"alarmas": filas}
 
 
 @app.post("/doors/{door_name}/open")
