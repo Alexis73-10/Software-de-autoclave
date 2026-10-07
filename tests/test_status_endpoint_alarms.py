@@ -68,3 +68,29 @@ def test_status_publica_instancias_nuevas_con_compatibilidad(status_client):
         "source_state": "Puerta 1",
     }]
     assert cuerpo["eventos_recientes"] == []
+
+
+def test_status_separa_activas_de_resueltas_sin_reconocer(status_client):
+    from datetime import datetime
+    from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+    from autoclave.state_machine.alarms.catalogo import COM_01, PUE_01
+
+    client, mock_ctx = status_client
+    _stub_estado_collections(mock_ctx)
+    am = AlarmManager(reloj=lambda: datetime(2026, 10, 7, 9, 30, 0))
+    am.activar(PUE_01, origen="Puerta 1", puerta="Puerta 1")
+    am.activar(COM_01)
+    am.resolver(COM_01)          # ALARMA sin reconocer → RESUELTA_SIN_RECONOCER
+    mock_ctx.alarm_manager = am
+
+    cuerpo = client.get("/status").json()
+    assert [a["clave"] for a in cuerpo["alarms"]] == ["PUE-01|Puerta 1"]
+    assert [a["clave"] for a in cuerpo["alarmas_sin_reconocer"]] == ["COM-01"]
+    assert cuerpo["alarmas_sin_reconocer"][0]["estado"] == "RESUELTA_SIN_RECONOCER"
+    assert cuerpo["alarmas_sin_reconocer"][0]["requiere_reconocimiento"] is True
+
+
+def test_status_alarmas_sin_reconocer_vacia_por_defecto(status_client):
+    client, mock_ctx = status_client
+    _stub_estado_collections(mock_ctx)
+    assert client.get("/status").json()["alarmas_sin_reconocer"] == []

@@ -12,6 +12,7 @@ from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.catalogo import Nivel
+from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
@@ -193,7 +194,13 @@ def get_status():
     # ------------------------------
     # ALARMAS
     # ------------------------------
-    alarms = [_alarma_dto(inst) for inst in context.alarm_manager.activas()]
+    # Hasta la Parte C (botón de reconocer en la UI) las pantallas actuales solo
+    # ven las ACTIVA en "alarms"; las RESUELTA_SIN_RECONOCER van aparte.
+    instancias = context.alarm_manager.activas()
+    alarms = [_alarma_dto(inst) for inst in instancias
+              if inst.estado is EstadoInstancia.ACTIVA]
+    alarmas_sin_reconocer = [_alarma_dto(inst) for inst in instancias
+                             if inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER]
     eventos_recientes = [_evento_dto(inst) for inst in context.alarm_manager.eventos_recientes()]
 
     # ------------------------------
@@ -210,6 +217,7 @@ def get_status():
         "doors":   doors,
         "sensors": sensors,
         "alarms":  alarms,
+        "alarmas_sin_reconocer": alarmas_sin_reconocer,
         "eventos_recientes": eventos_recientes,
     }
 

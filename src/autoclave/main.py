@@ -14,7 +14,6 @@ from autoclave.installation.wizard import launch_installation_wizard
 from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave.installation import backend_guard
 from autoclave.devices.printer import heartbeat
-from autoclave.state_machine.alarms.catalogo import COM_01
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -112,8 +111,8 @@ def _hardware_connected() -> bool:
         r = requests.get(f"{BACKEND_URL}/status", timeout=1)
         if r.status_code != 200:
             return False
-        alarms = r.json().get("alarms", [])
-        return not any(a.get("codigo") == COM_01 for a in alarms)
+        # Dato real del enlace serial (server.py); clave ausente → no conectado.
+        return r.json().get("card_connected") is True
     except requests.RequestException:
         return False
 
