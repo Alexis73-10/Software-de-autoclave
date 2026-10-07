@@ -127,6 +127,54 @@ def test_sin_realtime_printer_no_rompe():
     _run_one_tick(loop, connected=False)  # no debe lanzar excepción
 
 
+def _llamadas_activar_com01(loop):
+    from autoclave.state_machine.alarms.catalogo import COM_01
+    return [c for c in loop.alarm_manager.activar.call_args_list
+            if c.args and c.args[0] == COM_01]
+
+
+def test_arranque_con_handshake_breve_no_activa_com01():
+    """El handshake serial del arranque (un tick sin datos y luego conexión)
+    no es una desconexión: COM-01 no debe quedar en el historial."""
+    loop = _make_loop()
+
+    _run_one_tick(loop, connected=False)
+    _run_one_tick(loop, connected=True)
+
+    assert _llamadas_activar_com01(loop) == []
+
+
+def test_arranque_sin_tarjeta_activa_com01_al_agotar_la_tolerancia():
+    """Si la tarjeta nunca conecta, COM-01 aparece al cumplirse la
+    tolerancia de desconexión continua, no antes, y una sola vez."""
+    loop = _make_loop()
+    loop.link.is_connected.return_value = False
+    tol = loop._TOLERANCIA_DESCONEXION_SEG
+
+    with patch("time.monotonic", side_effect=[0.0, 1.0, tol - 0.1]):
+        loop._tick()
+        loop._tick()
+        loop._tick()
+    assert _llamadas_activar_com01(loop) == []
+
+    with patch("time.monotonic", side_effect=[tol, tol + 1.0]):
+        loop._tick()
+        loop._tick()
+    assert len(_llamadas_activar_com01(loop)) == 1
+
+
+def test_desconexion_tras_haber_conectado_activa_com01_en_el_flanco():
+    loop = _make_loop()
+    _run_one_tick(loop, connected=True)
+    assert _llamadas_activar_com01(loop) == []
+
+    loop.link.is_connected.return_value = False
+    with patch("time.monotonic", side_effect=[100.0]):
+        loop._tick()
+
+    assert len(_llamadas_activar_com01(loop)) == 1
+
+
 def test_control_loop_pasa_door_service_a_state_machine():
     from unittest.mock import patch
     from autoclave.services.domain.loop.control_loop import ControlLoop

@@ -64,6 +64,7 @@ class ControlLoop:
         self.link_was_connected = True
         self._link_ever_connected = False
         self._desconectado_desde: float | None = None
+        self._com01_arranque_activada = False
         self.paro_emergencia    = EmergencyStop(estado)
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
@@ -96,7 +97,9 @@ class ControlLoop:
         if not connected:
             if self.link_was_connected:
                 self._desconectado_desde = now
-                self.alarm_manager.activar(COM_01)
+                # Tras una conexión real, la caída activa COM-01 en el flanco.
+                if self._link_ever_connected:
+                    self.alarm_manager.activar(COM_01)
                 # El handshake serial inicial (escaneo de puerto + primer dato)
                 # tarda unos instantes tras el arranque del backend; ese hueco
                 # no es una desconexión real y no debe imprimirse.
@@ -104,6 +107,16 @@ class ControlLoop:
                     self.realtime_printer.enqueue(
                         format_connectivity_ticket("TARJETA", False, datetime.now())
                     )
+            # Mientras el enlace nunca haya conectado (handshake del arranque),
+            # COM-01 espera a que la desconexión continua alcance la
+            # tolerancia: el arranque normal no deja COM-01 en el historial,
+            # pero una tarjeta que nunca responde sí la da (una sola vez).
+            if (not self._link_ever_connected
+                    and not self._com01_arranque_activada
+                    and self._desconectado_desde is not None
+                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG):
+                self._com01_arranque_activada = True
+                self.alarm_manager.activar(COM_01)
             # Sin conexión no hay datos frescos de sensores, así que este
             # mismo _tick() va a retornar temprano y state_machine.update()
             # no correrá — si había un ciclo en curso, no se detectaría el
