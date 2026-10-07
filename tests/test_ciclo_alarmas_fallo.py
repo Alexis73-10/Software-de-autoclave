@@ -1,9 +1,11 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
-from autoclave.state_machine.states.ciclo import CicloState
+from autoclave.state_machine.states.ciclo import CicloResultado, CicloState
 
 
 def _ciclo(sensores_di=None, sensores_pres=None, sensores_temp=None, flags=None):
@@ -71,6 +73,75 @@ def test_desconexion_registra_segundos():
     [inst] = am.activas()
     assert inst.codigo == "COM-02" and "6 s" in inst.descripcion
     assert estado.fase_ciclo == "FALLO_CONEXION"
+
+
+def _activar_que_lanza(am):
+    def lanza(*args, **kwargs):
+        raise RuntimeError("activar roto")
+    am.activar = lanza
+
+
+def _forzar_fallo_de_fase(ciclo, estado):
+    ciclo._fases[0].update = lambda: FaseResult.FALLO
+    estado.motivo_fallo = ""
+
+
+def _forzar_fallo_de_puerta(ciclo, estado):
+    estado.sensores_pres["pres_empaque_2"] = 100.0
+
+
+def _forzar_sensor_ausente(ciclo, estado):
+    estado.sensores_temp["temp_camara"] = None
+
+
+def _forzar_emergencia(ciclo, estado):
+    estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+
+
+def _forzar_corte_electrico(ciclo, estado):
+    estado.get_flag.side_effect = lambda f: f == "FALLO_SUMINISTRO_ELECTRICO"
+
+
+@pytest.mark.parametrize("forzar, codigo", [
+    (_forzar_fallo_de_fase, "CIC-01"),
+    (_forzar_fallo_de_puerta, "PUE-03"),
+    (_forzar_sensor_ausente, "SEN-02"),
+    (_forzar_emergencia, "SIS-01"),
+    (_forzar_corte_electrico, "SUM-01"),
+])
+def test_activar_que_lanza_no_impide_el_protocolo_de_fallo(forzar, codigo):
+    ciclo, estado, am = _ciclo()
+    _activar_que_lanza(am)
+    forzar(ciclo, estado)
+    assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
+    ciclo._protocolo.ejecutar.assert_called_once()
+    assert ciclo._resultado_pendiente == CicloResultado.FALLO
+    assert estado.codigo_fallo == codigo
+    assert codigo in estado.motivo_fallo
+
+
+def test_activar_que_lanza_no_impide_el_protocolo_en_desconexion():
+    ciclo, estado, am = _ciclo()
+    _activar_que_lanza(am)
+    ciclo.abortar_por_desconexion(segundos=6.2)
+    ciclo._protocolo.ejecutar.assert_called_once()
+    assert ciclo._resultado_pendiente == CicloResultado.FALLO
+    assert estado.codigo_fallo == "COM-02"
+    assert "COM-02" in estado.motivo_fallo
+
+
+def test_fase_fuera_de_cic_por_fase_igual_ejecuta_el_protocolo():
+    ciclo, estado, am = _ciclo()
+    fase = ciclo._fases[0]
+    fase.name = "FASE_DESCONOCIDA"
+    def falla():
+        estado.motivo_fallo = "Motivo propio de la fase"
+        return FaseResult.FALLO
+    fase.update = falla
+    assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
+    ciclo._protocolo.ejecutar.assert_called_once()
+    assert ciclo._resultado_pendiente == CicloResultado.FALLO
+    assert "Motivo propio de la fase" in estado.motivo_fallo
 
 
 def test_reset_limpia_codigo_fallo():

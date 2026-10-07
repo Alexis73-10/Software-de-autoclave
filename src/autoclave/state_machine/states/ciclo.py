@@ -142,10 +142,40 @@ class CicloState:
 
     def _registrar_fallo(self, codigo, origen=None, **valores):
         """Activa la alarma causante y deja motivo_fallo/codigo_fallo para
-        CycleLogger y el ticket (spec §5.4)."""
-        inst = self.alarm_manager.activar(codigo, origen, **valores)
-        self.estado.motivo_fallo = f"{inst.codigo} · {inst.titulo}: {inst.descripcion}"
-        self.estado.codigo_fallo = inst.codigo
+        CycleLogger y el ticket (spec §5.4).
+
+        Nunca lanza (SAF-03): el registro de la alarma no puede impedir que
+        el llamador ejecute el protocolo de fallo a continuación."""
+        try:
+            inst = self.alarm_manager.activar(codigo, origen, **valores)
+            self.estado.motivo_fallo = f"{inst.codigo} · {inst.titulo}: {inst.descripcion}"
+            self.estado.codigo_fallo = inst.codigo
+        except Exception:
+            logger.exception("CicloState: no se pudo registrar la alarma %s", codigo)
+            try:
+                self.estado.motivo_fallo = f"{codigo}: no se pudo registrar el detalle de la alarma."
+                self.estado.codigo_fallo = codigo
+            except Exception:
+                logger.exception("CicloState: no se pudo dejar motivo_fallo de %s", codigo)
+
+    def _registrar_fallo_de_fase(self, nombre_fase):
+        """Registra el CIC-0x de la fase que devolvió FALLO. Nunca lanza: una
+        fase fuera de _CIC_POR_FASE deja un motivo de respaldo legible y el
+        llamador igual ejecuta el protocolo de fallo."""
+        try:
+            # La fase puede haber dejado ya un motivo específico (p.ej.
+            # EsterilizacionFase._fallo() con la lectura exacta que falló);
+            # sólo se usa el genérico si no dejó uno más preciso.
+            motivo = self.estado.motivo_fallo or _MOTIVO_NO_REGISTRADO
+            codigo = _CIC_POR_FASE.get(nombre_fase)
+            if codigo is None:
+                logger.error("CicloState: fase %s sin código CIC asociado", nombre_fase)
+                self.estado.motivo_fallo = f"Fallo en la fase {nombre_legible(nombre_fase)}: {motivo}"
+                self.estado.codigo_fallo = ""
+                return
+            self._registrar_fallo(codigo, origen=nombre_legible(nombre_fase), motivo=motivo)
+        except Exception:
+            logger.exception("CicloState: no se pudo registrar el fallo de la fase %s", nombre_fase)
 
     def _verificar_puertas(self) -> tuple[bool, str, str | None, dict]:
         """Retorna (ok, fase_ciclo, codigo_alarma, valores). fase_ciclo
@@ -469,12 +499,7 @@ class CicloState:
         elif resultado == FaseResult.FALLO:
             logger.error("CicloState: FALLO en fase %s", fase.name)
             self.estado.fase_ciclo = f"FALLO_{fase.name}"
-            # La fase puede haber dejado ya un motivo específico (p.ej.
-            # EsterilizacionFase._fallo() con la lectura exacta que falló);
-            # sólo se usa el genérico si no dejó uno más preciso.
-            self._registrar_fallo(_CIC_POR_FASE[fase.name],
-                                  origen=nombre_legible(fase.name),
-                                  motivo=self.estado.motivo_fallo or _MOTIVO_NO_REGISTRADO)
+            self._registrar_fallo_de_fase(fase.name)
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
