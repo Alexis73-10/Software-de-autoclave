@@ -1,65 +1,206 @@
 import logging
-from autoclave.state_machine.alarms.alarm import Alarm
+import threading
+from collections import deque
+from datetime import datetime
+
 from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import CATALOGO, Nivel
+from autoclave.state_machine.alarms.instancia import (
+    EstadoInstancia, EventoAlarma, InstanciaAlarma, clave_de,
+)
 
 logger = logging.getLogger(__name__)
 
+DETALLE_NO_DISPONIBLE = "Detalle no disponible."
+_MAX_EVENTOS_RECIENTES = 20
+_LOG_POR_NIVEL = {
+    Nivel.INFORMATIVO: logging.INFO,
+    Nivel.AVISO: logging.WARNING,
+    Nivel.ALARMA: logging.ERROR,
+    Nivel.FALLO_CRITICO: logging.CRITICAL,
+}
+
 
 class AlarmManager:
-    def __init__(self, estado):
-        self.estado = estado
-        # Lista compartida de alarmas activas del sistema
-        self.active_alarms = self.estado.Alarmas_activas
+    """Alarmas del equipo (spec 2026-10-06-sistema-alarmas-parte-a §5).
 
-    def report(self, alarm: Alarm):
-        #print("alarm manager:", self.active_alarms)
+    API nueva: activar / resolver / reconocer. Las instancias viven aquí,
+    protegidas por un candado: reconocer() llega por HTTP mientras el
+    ControlLoop activa y resuelve. Los oyentes (historial) se notifican
+    fuera del candado.
+
+    report/clear/active_alarms son la API vieja; se eliminan al terminar
+    la migración (plan 2026-10-07, tarea 10)."""
+
+    def __init__(self, estado=None, catalogo=None, reloj=None):
+        self.estado = estado
+        # API vieja: lista compartida en estado.Alarmas_activas
+        self.active_alarms = estado.Alarmas_activas if estado is not None else []
+
+        self._catalogo = catalogo if catalogo is not None else CATALOGO
+        self._reloj = reloj if reloj is not None else datetime.now
+        self._lock = threading.Lock()
+        self._instancias: dict[str, InstanciaAlarma] = {}
+        self._eventos: deque[InstanciaAlarma] = deque(maxlen=_MAX_EVENTOS_RECIENTES)
+        self._oyentes = []
+
+    # ------------------------------------------------------------------
+    # API nueva
+    # ------------------------------------------------------------------
+
+    def suscribir(self, oyente) -> None:
+        self._oyentes.append(oyente)
+
+    def activar(self, codigo: str, origen: str | None = None, **valores) -> InstanciaAlarma:
+        definicion = self._catalogo[codigo]          # código desconocido → KeyError
+        descripcion = self._renderizar(definicion, valores)
+        ahora = self._reloj()
+        clave = clave_de(codigo, origen)
+        evento = None
+        with self._lock:
+            if definicion.nivel is Nivel.INFORMATIVO:
+                inst = InstanciaAlarma(clave, definicion, origen, dict(valores),
+                                       descripcion, ahora, resuelta=ahora)
+                self._eventos.append(inst)
+                evento = EventoAlarma.APARECIDA
+            else:
+                inst = self._instancias.get(clave)
+                if inst is None:
+                    inst = InstanciaAlarma(clave, definicion, origen, dict(valores),
+                                           descripcion, ahora)
+                    self._instancias[clave] = inst
+                    evento = EventoAlarma.APARECIDA
+                else:
+                    inst.valores = dict(valores)
+                    inst.descripcion = descripcion
+                    if inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER:
+                        inst.estado = EstadoInstancia.ACTIVA
+                        inst.resuelta = None
+                        evento = EventoAlarma.REACTIVADA
+        if evento is EventoAlarma.APARECIDA:
+            logger.log(_LOG_POR_NIVEL[definicion.nivel], "Alarma %s: %s — %s",
+                       clave, definicion.titulo, descripcion)
+        self._notificar(evento, inst)
+        return inst
+
+    def resolver(self, codigo: str, origen: str | None = None) -> None:
+        with self._lock:
+            inst = self._resolver_sin_candado(clave_de(codigo, origen))
+        if inst is not None:
+            logger.info("Alarma resuelta: %s", inst.clave)
+            self._notificar(EventoAlarma.RESUELTA, inst)
+
+    def obtener(self, clave: str) -> InstanciaAlarma | None:
+        with self._lock:
+            return self._instancias.get(clave)
+
+    def reconocer(self, clave: str, usuario: str) -> bool:
+        with self._lock:
+            inst = self._instancias.get(clave)
+            if inst is None or not inst.nivel.requiere_reconocimiento:
+                return False
+            if inst.reconocida_por is not None:
+                return True
+            inst.reconocida_por = usuario
+            inst.reconocida_en = self._reloj()
+            if inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER:
+                del self._instancias[clave]
+        logger.info("Alarma reconocida: %s por %s", clave, usuario)
+        self._notificar(EventoAlarma.RECONOCIDA, inst)
+        return True
+
+    def resolver_todas_por_reinicio(self) -> None:
+        with self._lock:
+            resueltas = [self._resolver_sin_candado(c) for c in list(self._instancias)]
+        for inst in resueltas:
+            if inst is not None:
+                self._notificar(EventoAlarma.RESUELTA, inst)
+
+    def activas(self) -> list[InstanciaAlarma]:
+        with self._lock:
+            instancias = list(self._instancias.values())
+        return sorted(instancias, key=lambda i: (-i.nivel.value, i.aparecida))
+
+    def eventos_recientes(self) -> list[InstanciaAlarma]:
+        with self._lock:
+            return list(self._eventos)
+
+    # ------------------------------------------------------------------
+    # Internos
+    # ------------------------------------------------------------------
+
+    def _resolver_sin_candado(self, clave: str) -> InstanciaAlarma | None:
+        inst = self._instancias.get(clave)
+        if inst is None or inst.estado is not EstadoInstancia.ACTIVA:
+            return None
+        inst.resuelta = self._reloj()
+        if inst.nivel.requiere_reconocimiento and inst.reconocida_por is None:
+            inst.estado = EstadoInstancia.RESUELTA_SIN_RECONOCER
+        else:
+            del self._instancias[clave]
+        return inst
+
+    @staticmethod
+    def _renderizar(definicion, valores) -> str:
+        try:
+            return definicion.renderizar(valores)
+        except (KeyError, IndexError, ValueError, TypeError) as exc:
+            logger.error("Alarma %s: plantilla con valores incompletos (%r): %r",
+                         definicion.codigo, exc, valores)
+            return DETALLE_NO_DISPONIBLE
+
+    def _notificar(self, evento, inst) -> None:
+        if evento is None:
+            return
+        for oyente in list(self._oyentes):
+            try:
+                oyente(evento, inst)
+            except Exception:
+                logger.exception("Oyente de alarmas falló en %s de %s", evento, inst.clave)
+
+    def _activas_nuevas(self, *niveles) -> bool:
+        with self._lock:
+            return any(i.estado is EstadoInstancia.ACTIVA and (not niveles or i.nivel in niveles)
+                       for i in self._instancias.values())
+
+    # ------------------------------------------------------------------
+    # API vieja (se elimina en la tarea 10)
+    # ------------------------------------------------------------------
+
+    def report(self, alarm):
         if alarm is None:
             return
-
-        # Evitar alarmas duplicadas por ID
         if any(a.id == alarm.id for a in self.active_alarms):
             return
-
         self.active_alarms.append(alarm)
         logger.info(f"Alarma reportada: {alarm.id} - {alarm.description}")
 
-        # Logging según severidad
-        if alarm.type == AlarmType.EMERGENCIA:
-            logger.critical(f"ALARMA EMERGENCIA: {alarm.id} - {alarm.description}")
-        elif alarm.type == AlarmType.FALLA:
-            logger.error(f"ALARMA FALLA: {alarm.id} - {alarm.description}")
-        else:
-            logger.warning(f"ALARMA ALERTA: {alarm.id} - {alarm.description}")
-
     def clear(self, alarm_id: str):
         before = len(self.active_alarms)
-
-        self.active_alarms[:] = [
-            a for a in self.active_alarms
-            if a.id != alarm_id
-        ]
-
+        self.active_alarms[:] = [a for a in self.active_alarms if a.id != alarm_id]
         if len(self.active_alarms) < before:
             logger.info(f"Alarma despejada: {alarm_id}")
 
     def clear_recoverable(self):
-        # El criterio vive en la alarma, no aquí
-        self.active_alarms[:] = [
-            a for a in self.active_alarms
-            if not a.is_auto_clearable()
-        ]
+        self.active_alarms[:] = [a for a in self.active_alarms if not a.is_auto_clearable()]
 
     def has_emergency(self) -> bool:
-        return any(a.type == AlarmType.EMERGENCIA for a in self.active_alarms)
+        return (any(a.type == AlarmType.EMERGENCIA for a in self.active_alarms)
+                or self._activas_nuevas(Nivel.FALLO_CRITICO))
 
     def has_failure(self) -> bool:
-        return any(a.type == AlarmType.FALLA for a in self.active_alarms)
+        return (any(a.type == AlarmType.FALLA for a in self.active_alarms)
+                or self._activas_nuevas(Nivel.ALARMA))
 
     def has_alert(self) -> bool:
-        return any(a.type == AlarmType.ALERTA for a in self.active_alarms)
+        return (any(a.type == AlarmType.ALERTA for a in self.active_alarms)
+                or self._activas_nuevas(Nivel.AVISO))
 
     def has_blocking_alarm(self) -> bool:
-        return any(a.blocks_operation for a in self.active_alarms)
+        with self._lock:
+            nuevas = any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
+                         for i in self._instancias.values())
+        return any(a.blocks_operation for a in self.active_alarms) or nuevas
 
     def has_active_alarms(self) -> bool:
-        return bool(self.active_alarms)
+        return bool(self.active_alarms) or self._activas_nuevas()
