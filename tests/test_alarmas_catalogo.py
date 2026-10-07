@@ -106,3 +106,13 @@ def test_nombres_legibles_cubren_claves_actuales(clave):
 
 def test_nombre_legible_desconocido_devuelve_la_clave():
     assert nombre_legible("sensor_raro") == "sensor_raro"
+
+
+def test_sis01_no_promete_salidas_apagadas():
+    texto = CATALOGO["SIS-01"].renderizar({"estado": "Ciclo"})
+    assert texto == "Se presionó el paro de emergencia en estado Ciclo."
+
+
+def test_com02_muestra_segundos_con_un_decimal():
+    texto = CATALOGO["COM-02"].renderizar({"segundos": 5.5, "fase": "Secado"})
+    assert "más de 5.5 s" in texto

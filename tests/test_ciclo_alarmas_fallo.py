@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
@@ -18,7 +17,7 @@ def _ciclo(sensores_di=None, sensores_pres=None, sensores_temp=None, flags=None)
     estado.get_flag.side_effect = lambda f: (flags or {}).get(f, False)
     cycle = MagicMock(); cycle.get_param.return_value = None
     config = MagicMock(); config.get.return_value = None
-    am = AlarmManager(estado=SimpleNamespace(Alarmas_activas=[]))
+    am = AlarmManager()
     ciclo = CicloState(estado, MagicMock(), cycle, config, am)
     ciclo.reset()
     ciclo._protocolo = MagicMock()
@@ -71,7 +70,7 @@ def test_desconexion_registra_segundos():
     ciclo, estado, am = _ciclo()
     ciclo.abortar_por_desconexion(segundos=6.2)
     [inst] = am.activas()
-    assert inst.codigo == "COM-02" and "6 s" in inst.descripcion
+    assert inst.codigo == "COM-02" and "6.2 s" in inst.descripcion
     assert estado.fase_ciclo == "FALLO_CONEXION"
 
 

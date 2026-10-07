@@ -43,15 +43,12 @@ def test_status_alarmas_vacias_devuelve_lista_vacia(status_client):
 
 def test_status_publica_instancias_nuevas_con_compatibilidad(status_client):
     from datetime import datetime
-    from types import SimpleNamespace
     from autoclave.state_machine.alarms.alarm_manager import AlarmManager
     from autoclave.state_machine.alarms.catalogo import PUE_01
 
     client, mock_ctx = status_client
     _stub_estado_collections(mock_ctx)
-    mock_ctx.estado.Alarmas_activas = []
-    am = AlarmManager(estado=SimpleNamespace(Alarmas_activas=[]),
-                      reloj=lambda: datetime(2026, 10, 7, 9, 30, 0))
+    am = AlarmManager(reloj=lambda: datetime(2026, 10, 7, 9, 30, 0))
     am.activar(PUE_01, origen="Puerta 1", puerta="Puerta 1")
     mock_ctx.alarm_manager = am
 

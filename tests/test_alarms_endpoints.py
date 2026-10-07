@@ -1,4 +1,3 @@
-from types import SimpleNamespace
 from urllib.parse import quote
 
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
@@ -7,7 +6,7 @@ from tests.test_status_endpoint_alarms import status_client  # noqa: F401  (fixt
 
 
 def _con_gestor(mock_ctx):
-    am = AlarmManager(estado=SimpleNamespace(Alarmas_activas=[]))
+    am = AlarmManager()
     mock_ctx.alarm_manager = am
     return am
 
@@ -54,3 +53,16 @@ def test_historial_rechaza_nivel_o_fecha_invalidos(status_client):
     client, _ = status_client
     assert client.get("/alarms/history", params={"nivel": "GRAVE"}).status_code == 422
     assert client.get("/alarms/history", params={"desde": "ayer"}).status_code == 422
+
+
+def test_reconocer_que_pierde_la_carrera_404(status_client):
+    """obtener() la encuentra pero se resuelve/borra antes de reconocer()."""
+    from unittest.mock import MagicMock
+    client, mock_ctx = status_client
+    am = MagicMock()
+    am.obtener.return_value.nivel.requiere_reconocimiento = True
+    am.reconocer.return_value = False
+    mock_ctx.alarm_manager = am
+    resp = client.post("/alarms/COM-01/acknowledge", json={"usuario": "x"})
+    assert resp.status_code == 404
+    am.reconocer.assert_called_once_with("COM-01", "x")

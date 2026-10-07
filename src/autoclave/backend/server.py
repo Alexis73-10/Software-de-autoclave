@@ -715,7 +715,9 @@ def acknowledge_alarm(clave: str, body: dict = Body(default={})):
         raise HTTPException(status_code=404, detail="La alarma no está activa")
     if not inst.nivel.requiere_reconocimiento:
         raise HTTPException(status_code=422, detail="Esta alarma no requiere reconocimiento")
-    context.alarm_manager.reconocer(clave, usuario)
+    if not context.alarm_manager.reconocer(clave, usuario):
+        # Se resolvió y retiró entre obtener() y reconocer().
+        raise HTTPException(status_code=404, detail="La alarma no está activa")
     return {"ok": True}
 
 

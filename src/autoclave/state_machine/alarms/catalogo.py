@@ -74,7 +74,7 @@ def _d(codigo, nivel, bloquea, despeje, titulo, descripcion, accion):
 
 DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SIS_01, _FC, True, _A, "Paro de emergencia activado",
-       "Se presionó el paro de emergencia en estado {estado}. Todas las salidas están apagadas.",
+       "Se presionó el paro de emergencia en estado {estado}.",
        "Verifique que no haya riesgo y libere el botón de paro."),
     _d(SIS_02, _AV, False, _M, "Historial de alarmas no disponible",
        "No se pudo guardar el historial de alarmas: {error}. Las alarmas siguen "
@@ -165,7 +165,7 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "No llegan datos válidos de la tarjeta de control.",
        "Verifique el cable USB y la alimentación de la tarjeta."),
     _d(COM_02, _FC, True, _M, "Comunicación perdida durante el ciclo",
-       "Se perdió la comunicación con la tarjeta por más de {segundos:.0f} s en la fase "
+       "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase "
        "{fase}. El ciclo se abortó.",
        "Verifique el cable USB y la alimentación de la tarjeta antes de reiniciar."),
 )

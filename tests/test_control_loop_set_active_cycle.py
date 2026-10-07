@@ -12,7 +12,6 @@ class _FakeEstado:
         self._flags = {"PARO_EMERGENCIA": False, "FALLO_SUMINISTRO_ELECTRICO": False}
         self._state = GlobalState.PREPARACION
         self.sensores_di = {"paro_emergencia": 0, "suministro_electrico": 1}
-        self.Alarmas_activas = []  # Required by AlarmManager
 
     def get_machine_state(self):
         return self._state
