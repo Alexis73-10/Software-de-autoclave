@@ -60,6 +60,7 @@ class ControlLoop:
             io=self.link, estado=self.estado, set_do=set_do,
             cycle=self.cycle, config=self.config_manager, cap=cap,
             door_service=door_service,
+            alarm_manager=self.alarm_manager,
         )
         self.link_was_connected = True
         self._link_ever_connected = False
@@ -307,5 +308,6 @@ class ControlLoop:
                 io=self.link, estado=self.estado, set_do=self.set_do,
                 cycle=cycle, config=self.config_manager, cap=self.cap,
                 door_service=self.door_service,
+                alarm_manager=self.alarm_manager,
             )
             return True, ""

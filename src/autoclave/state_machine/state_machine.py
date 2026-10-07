@@ -12,14 +12,17 @@ logger = logging.getLogger(__name__)
 
 
 class StateMachine:
-    def __init__(self, io, estado, set_do, cycle, config, cap=None, door_service=None):
+    def __init__(self, io, estado, set_do, cycle, config, cap=None, door_service=None,
+                 alarm_manager=None):
         self.io            = io
         self.estado        = estado
         self.set_do        = set_do
         self.cycle         = cycle
         self.config        = config
 
-        self.alarm_manager = AlarmManager(estado)
+        # Una sola instancia en todo el backend (spec §5.3): la inyecta el
+        # ControlLoop. El AlarmManager propio queda solo para usos aislados.
+        self.alarm_manager = alarm_manager if alarm_manager is not None else AlarmManager(estado)
 
         self.preparacion = preparacion_state(self.alarm_manager, estado, set_do, cycle, config)
         self.preparado   = preparado_state(self.alarm_manager, estado, set_do, cycle, config)
@@ -119,7 +122,8 @@ class StateMachine:
         elif current_state == GlobalState.FALLA:
             logger.debug("Estado actual: FALLA")
             if self.falla.run():
-                self.estado.Alarmas_activas.clear()
+                self.estado.Alarmas_activas.clear()          # API vieja (tarea 10 lo quita)
+                self.alarm_manager.resolver_todas_por_reinicio()
                 self.estado.fase_ciclo = ""
                 self.estado.set_machine_state(GlobalState.PREPARACION)
 

@@ -14,6 +14,7 @@ from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.cycle_logger import CycleLogger
+from autoclave.services.domain.logging.historial_alarmas import HistorialAlarmas
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.devices.printer.realtime_printer import RealtimePrinter
 
@@ -81,6 +82,12 @@ class BackendContext:
             profile       = self.profile,
             cycle_manager = self.cycle_manager,
             printer       = self.realtime_printer,
+        )
+        # Historial persistente de alarmas (spec 2026-10-06 §6). El ciclo en
+        # curso se lee al aparecer cada alarma.
+        self.historial_alarmas = HistorialAlarmas(
+            self.db, self.alarm_manager,
+            ciclo_actual=lambda: self.cycle_logger.ciclo_id,
         )
 
         self.control_loop = ControlLoop(
