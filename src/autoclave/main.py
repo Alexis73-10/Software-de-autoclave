@@ -14,6 +14,7 @@ from autoclave.installation.wizard import launch_installation_wizard
 from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave.installation import backend_guard
 from autoclave.devices.printer import heartbeat
+from autoclave.state_machine.alarms.catalogo import COM_01
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -112,7 +113,7 @@ def _hardware_connected() -> bool:
         if r.status_code != 200:
             return False
         alarms = r.json().get("alarms", [])
-        return not any(a.get("id") == "NO_HAY_CONEXION" for a in alarms)
+        return not any(a.get("codigo") == COM_01 for a in alarms)
     except requests.RequestException:
         return False
 
