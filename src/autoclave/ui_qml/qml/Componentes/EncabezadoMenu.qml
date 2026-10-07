@@ -17,6 +17,8 @@ Item {
     property var textosJson: ({})
     // Contador de la campana; < 0 = sin fuente -> sin contador (D-17)
     property int conteoAlarmas: -1
+    // Engranaje inerte, por consistencia visual (lo usa Opciones.qml; el menú no)
+    property bool conEngranaje: false
 
     // La campana abre el panel de notificaciones (lo resuelve la pantalla)
     signal campanaPulsada()
@@ -104,6 +106,15 @@ Item {
             font.pixelSize: raiz.fuente(17)
         }
     }
+    // Engranaje solo decorativo (OPCIONES, U-6: ya se está en configuración):
+    // sin zona táctil. Misma caja que el de PantallaPreciclo.qml.
+    Icono {
+        objectName: "engranajeEncabezado"
+        visible: raiz.conEngranaje
+        caja: [1043, 64, 57, 58]; tinta: [4.0, 4.0, 44.0, 44.0]
+        source: raiz._iconos + "engranaje.svg"   // variante blanca
+    }
+
     MouseArea {
         objectName: "zonaCampana"
         x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)   // como PantallaPreciclo.qml

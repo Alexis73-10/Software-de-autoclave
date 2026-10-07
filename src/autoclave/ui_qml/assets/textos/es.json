@@ -3,6 +3,25 @@
     "nombre": "e-specifika",
     "version": "V: 1.0"
   },
+  "opciones": {
+    "titulo": "OPCIONES",
+    "proximamente": "Próximamente",
+    "sin_secciones": "Su perfil no tiene secciones disponibles",
+    "edicion_bloqueada": "Edición bloqueada: ciclo en curso",
+    "salir_pregunta": "Hay cambios sin guardar. ¿Salir y descartarlos?",
+    "salir_confirmar": "Salir",
+    "cambiar_seccion_pregunta": "Hay cambios sin guardar. ¿Cambiar de sección y descartarlos?",
+    "cambiar_seccion_confirmar": "Descartar",
+    "secciones": {
+      "parametros_ciclo": "Parámetros del ciclo",
+      "parametros_sistema": "Parámetros del sistema",
+      "entradas_salidas": "Entradas / Salidas",
+      "mantenimiento": "Mantenimiento",
+      "opciones_avanzadas": "Opciones avanzadas",
+      "usuarios": "Usuarios",
+      "conectividad": "Conectividad"
+    }
+  },
   "menu": {
     "titulo": "MENÚ PRINCIPAL",
     "resumen": "RESUMEN DEL SISTEMA",

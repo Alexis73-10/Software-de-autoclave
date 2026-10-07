@@ -7,6 +7,9 @@
 # login regresa al menú; el menú no tiene engranaje. Carga real en
 # subproceso, offscreen.
 # Revisión del 2026-10-02: Iniciar sesión abre el login QML (no la configuración PySide).
+# Revisión del 2026-10-07 (planeacion_opciones_parametros_ciclo.md, U-18): el engranaje
+# de la pantalla de ciclo en curso ya no abre el menú sino el login
+# (tests/test_opciones_qml.py); aquí queda solo el de preciclo.
 
 import json
 import os
@@ -115,7 +118,7 @@ _SCRIPT = textwrap.dedent(r"""
 """)
 
 
-@pytest.mark.parametrize("estado", ["PREPARADO", "CICLO"])
+@pytest.mark.parametrize("estado", ["PREPARADO"])
 def test_engranaje_abre_el_menu_y_la_casa_regresa(estado):
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen", "PYTHONIOENCODING": "utf-8"}
     proc = subprocess.run([sys.executable, "-c", _SCRIPT, estado], capture_output=True, text=True,

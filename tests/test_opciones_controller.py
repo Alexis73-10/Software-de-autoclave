@@ -1,0 +1,88 @@
+# tests/test_opciones_controller.py
+#
+# OpcionesController (planeacion_opciones_parametros_ciclo.md, Fase 1): expone
+# la identidad de la sesión de SessionManager, las secciones visibles por rol,
+# el cierre de sesión y edicionPermitida según el estado global.
+
+import pytest
+
+pytest.importorskip("PySide6")
+
+from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui_qml.controllers.opciones_controller import OpcionesController
+
+
+def _usuario(rol):
+    return {"id": 1, "nombre": "Ana Ruiz", "usuario": "anar", "rol": rol}
+
+
+@pytest.fixture(autouse=True)
+def _sin_sesion():
+    SessionManager.logout()
+    yield
+    SessionManager.logout()
+
+
+def test_sin_sesion():
+    c = OpcionesController()
+    assert c.sesionActiva is False
+    assert (c.usuario, c.nombre, c.rol) == ("", "", "")
+    assert c.secciones == []
+
+
+def test_identidad_y_secciones_de_un_tecnico():
+    SessionManager.login(_usuario("tecnico"))
+    c = OpcionesController()
+    assert c.sesionActiva is True
+    assert (c.usuario, c.nombre, c.rol) == ("anar", "Ana Ruiz", "tecnico")
+    assert [s["clave"] for s in c.secciones][0] == "parametros_ciclo"
+    assert len(c.secciones) == 5
+    assert all(s["icono"].endswith(".svg") for s in c.secciones)
+
+
+def test_refrescar_detecta_la_sesion_nueva_y_notifica():
+    c = OpcionesController()
+    avisos = []
+    c.sesionChanged.connect(lambda: avisos.append(1))
+    SessionManager.login(_usuario("admin"))
+    c.refrescar()
+    assert c.sesionActiva is True
+    assert [s["clave"] for s in c.secciones] == ["usuarios", "conectividad"]
+    assert avisos == [1]
+    c.refrescar()   # sin cambios: no vuelve a notificar
+    assert avisos == [1]
+
+
+def test_cerrar_sesion():
+    SessionManager.login(_usuario("ingeniero"))
+    c = OpcionesController()
+    c.cerrarSesion()
+    assert SessionManager.is_authenticated() is False
+    assert c.sesionActiva is False
+    assert c.secciones == []
+
+
+def test_edicion_permitida_sigue_al_estado():
+    c = OpcionesController()
+    avisos = []
+    c.estadoMaquinaChanged.connect(lambda: avisos.append(1))
+    assert c.edicionPermitida is False
+    c.estadoMaquina = "PREPARADO"
+    assert c.edicionPermitida is True
+    c.estadoMaquina = "CICLO"
+    assert c.edicionPermitida is False
+    assert avisos == [1, 1]
+
+
+def test_edicion_del_ingeniero_en_ciclo_sigue_a_la_seccion():
+    SessionManager.login(_usuario("ingeniero"))
+    c = OpcionesController()
+    avisos = []
+    c.edicionChanged.connect(lambda: avisos.append(1))
+    c.estadoMaquina = "CICLO"
+    assert c.edicionPermitida is False
+    c.seccion = "parametros_ciclo"
+    assert c.edicionPermitida is True
+    c.seccion = "mantenimiento"
+    assert c.edicionPermitida is False
+    assert len(avisos) == 3

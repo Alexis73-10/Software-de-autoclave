@@ -3,6 +3,7 @@ import QtQuick.Controls.Basic
 import QtQuick.Effects
 import QtQuick.Layouts
 import Tema
+import Autoclave.Controllers
 import "../Componentes"
 
 // Pantalla 03 · Inicio de sesión.
@@ -10,9 +11,12 @@ import "../Componentes"
 // "Inicie sesión para continuar" — solo etiquetas de campo. Quedan como
 // placeholder marcados abajo; hay que pedírselos al diseñador junto con
 // el resto de textos que faltan.
-// PENDIENTE: la autenticación contra el backend no está conectada — este es
-// el cascarón visual. Falta resolver el canal de comunicación (HTTP vs.
-// acceso directo) antes de cablear el botón "INICIAR SESIÓN".
+// PROVISIONAL (enmienda de planeacion_nuevo_usuario.md, 2026-10-01):
+// "INICIAR SESIÓN" valida contra la tabla usuarios con LoginController (mismo
+// hash que el login PySide, acceso directo a SQLite) y emite sesionIniciada,
+// con la que Main.qml reemplaza esta pantalla por OPCIONES
+// (planeacion_opciones_parametros_ciclo.md, Fase 1). La contraseña se vacía
+// tras cada intento.
 // Los campos se escriben con el teclado en pantalla (PanelTeclado, inyectado
 // por Main.qml como `teclado`): tocar un campo abre el alfanumérico, el campo
 // muestra lo que se escribe, Confirmar guarda y pasa al siguiente campo (en
@@ -61,6 +65,25 @@ Item {
 
     // Casa de la barra inferior: volver a la pantalla principal (la resuelve Main.qml)
     signal inicioPulsado()
+    // Sesión validada (usuario, rol): Main.qml abre OPCIONES.
+    signal sesionIniciada(string usuario, string rol)
+
+    LoginController {
+        id: sesion
+        onSesionIniciada: (usuario, rol) => raiz.sesionIniciada(usuario, rol)
+    }
+    // TODO(corregir más adelante, reporte de Cristian 2026-10-07): lo escrito en el
+    // teclado sin tocar Confirmar se pierde. Si se escribe la contraseña y se toca
+    // directamente INICIAR SESIÓN, el login responde que falta la contraseña: el
+    // texto en edición no llega a `usuario`/`clave`. Debe poder omitirse Confirmar
+    // (tomar teclado.textoEnEdicion del campo activo antes de validar). Revisar
+    // también tocar otro campo con el teclado abierto.
+    function iniciarSesion() {
+        if (teclado)
+            teclado.cerrar()   // OJO: el comentario original decía que lo escrito sin Confirmar ya quedaba en el campo; no ocurre (TODO arriba)
+        sesion.iniciarSesion(usuario, clave)
+        clave = ""
+    }
 
     // Iconos del formulario: variante color/ (gris / azul del checkbox),
     // que es la que coincide con 05_PNG_REFERENCIA/pantalla_03_login.
@@ -284,6 +307,7 @@ Item {
                         }
 
                         Rectangle {
+                            objectName: "botonIniciarSesion"
                             width: Escala.px(625); height: Escala.px(88); radius: Escala.px(6)
                             anchors.horizontalCenter: parent.horizontalCenter
                             color: Colores.accionPrimario
@@ -319,8 +343,21 @@ Item {
                                     font.weight: Tipografia.pesoSemiBold
                                 }
                             }
-                            // TODO: conectar con backend cuando se resuelva el canal
-                            MouseArea { anchors.fill: parent }
+                            MouseArea { anchors.fill: parent; onClicked: raiz.iniciarSesion() }
+                        }
+
+                        // Error de validación o, PROVISIONAL, aviso de sesión iniciada
+                        Text {
+                            objectName: "mensajeLogin"
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            readonly property bool _exito: sesion.mensajeError === "" && sesion.nombreSesion !== ""
+                            visible: text !== ""
+                            text: sesion.mensajeError !== "" ? sesion.mensajeError
+                                : _exito ? "Sesión iniciada: " + sesion.nombreSesion : ""
+                            color: _exito ? Colores.menuVerdeTexto : Colores.peligroTexto
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
+                            font.weight: Tipografia.pesoMedium
                         }
 
                         Text {

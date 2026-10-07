@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Controls
 import Tema
+import Autoclave.Controllers
 import "Pantallas"
 import "Componentes"
 
@@ -57,6 +58,7 @@ Window {
         if (!standby)
             return
         panelTeclado.cerrar()
+        cerrarSesionPorStandby()
         if (standby.activo) {
             if (pila.depth > 1)
                 pila.pop(null)
@@ -67,6 +69,21 @@ Window {
     Connections {
         target: ventana.standby
         function onActivoChanged() { ventana.aplicarStandby() }
+    }
+
+    // Sesión de esta ventana (SessionManager, una por proceso): decide si el
+    // acceso a la configuración pasa por el login o va directo a OPCIONES
+    // (planeacion_opciones_parametros_ciclo.md, U-5: Inicio conserva la sesión).
+    OpcionesController { id: sesionVentana }
+    function abrirConfiguracion() {
+        sesionVentana.refrescar()
+        pila.push(sesionVentana.sesionActiva ? opcionesComp : loginComp)
+    }
+    // El standby (equipo desatendido) cierra la sesión: quien vuelva debe
+    // iniciarla de nuevo. PROVISIONAL, sin decisión explícita de Cristian.
+    function cerrarSesionPorStandby() {
+        if (standby?.activo)
+            sesionVentana.cerrarSesion()
     }
 
     // Entrada/salida de la pantalla de ciclo en curso. Con estado desconocido
@@ -103,7 +120,7 @@ Window {
         clip: true
 
         // Navegación arranque <-> ciclo por standby; desde ciclo, el avatar abre
-        // el login QML (aún sin autenticación) y su casa regresa a ciclo.
+        // el login QML, que al validar lleva a OPCIONES; su casa regresa a ciclo.
         StackView {
             id: pila
             anchors.fill: parent
@@ -147,12 +164,13 @@ Window {
                 onPuertaPulsada: ventana.comandosPuerta?.alternar()
                 onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
                 onAjustesPulsado: pila.push(menuComp)
-                onAvatarPulsado: pila.push(loginComp)
+                onAvatarPulsado: ventana.abrirConfiguracion()
             }
         }
     }
     // Pantalla de ciclo en curso: alto flexible (sin AreaFija). Campana y panel de
-    // equipo los abre la propia pantalla; engranaje y avatar, igual que la previa.
+    // equipo los abre la propia pantalla; el engranaje y el avatar abren el login
+    // (u OPCIONES si ya hay sesión) — decisión de Cristian, 2026-10-07 (U-18).
     // Si la máquina sale de CICLO con el menú abierto, aplicarEstadoMaquina()
     // vacía la pila y vuelve a la pantalla principal que corresponda.
     Component {
@@ -163,8 +181,8 @@ Window {
             comandos: ventana.comandosCicloEnCurso
             infoEquipo: ventana.infoEquipo
             textosJson: ventana.textosJson
-            onAjustesPulsado: pila.push(menuComp)
-            onAvatarPulsado: pila.push(loginComp)
+            onAjustesPulsado: ventana.abrirConfiguracion()
+            onAvatarPulsado: ventana.abrirConfiguracion()
         }
     }
     // Menú Principal (planeacion_menu_principal_ui_qml.md): lo abre el engranaje de
@@ -185,7 +203,7 @@ Window {
             textosJson: ventana.textosJson
             inicioActivo: true
             onInicioPulsado: pila.pop()
-            onIniciarSesionPulsado: pila.push(loginComp)
+            onIniciarSesionPulsado: ventana.abrirConfiguracion()
         }
     }
     Component {
@@ -196,7 +214,26 @@ Window {
                 teclado: panelTeclado
                 textosJson: ventana.textosJson
                 onInicioPulsado: pila.pop()
+                // sesión validada: el login se reemplaza por OPCIONES
+                onSesionIniciada: pila.replace(opcionesComp)
             }
+        }
+    }
+    // OPCIONES (planeacion_opciones_parametros_ciclo.md, Fase 1). Alto flexible.
+    // Inicio sale conservando la sesión; Salir la cierra. Ambos regresan a la
+    // pantalla principal según el estado (preciclo o ciclo en curso), aunque se
+    // haya llegado por el Menú Principal (decisión de Cristian, 2026-10-07).
+    function volverAPrincipal() {
+        pila.pop(null)
+        irAPrincipal()
+    }
+    Component {
+        id: opcionesComp
+        Opciones {
+            puente: ventana.puente
+            textosJson: ventana.textosJson
+            onInicioPulsado: ventana.volverAPrincipal()
+            onSesionCerrada: ventana.volverAPrincipal()
         }
     }
 }
