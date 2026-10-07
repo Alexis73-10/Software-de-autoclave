@@ -98,7 +98,6 @@ class EstadoAutoclave:
         self.estado_puertas = {k: DoorState.DESCONOCIDO for k in self.state_doors}
         self.estado_maquina = {k: GlobalState.PREPARACION for k in self.state_maquina}
         self.flags = {k: False for k in self._flags_map}
-        self.Alarmas_activas = []
         # Fase actual del ciclo (string legible para la UI)
         self.fase_ciclo: str = ""
         # Motivo específico del último fallo de ciclo (para tickets/DB);

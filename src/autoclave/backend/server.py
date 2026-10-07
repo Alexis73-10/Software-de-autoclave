@@ -193,16 +193,7 @@ def get_status():
     # ------------------------------
     # ALARMAS
     # ------------------------------
-    alarms = [
-        {
-            "id": alarma.id,
-            "level": alarma.type.name,
-            "description": alarma.description,
-            "source_state": alarma.source_state,
-        }
-        for alarma in estado.Alarmas_activas
-    ]
-    alarms += [_alarma_dto(inst) for inst in context.alarm_manager.activas()]
+    alarms = [_alarma_dto(inst) for inst in context.alarm_manager.activas()]
     eventos_recientes = [_evento_dto(inst) for inst in context.alarm_manager.eventos_recientes()]
 
     # ------------------------------

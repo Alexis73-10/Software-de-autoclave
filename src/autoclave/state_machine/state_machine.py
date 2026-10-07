@@ -122,7 +122,6 @@ class StateMachine:
         elif current_state == GlobalState.FALLA:
             logger.debug("Estado actual: FALLA")
             if self.falla.run():
-                self.estado.Alarmas_activas.clear()          # API vieja (tarea 10 lo quita)
                 self.alarm_manager.resolver_todas_por_reinicio()
                 self.estado.fase_ciclo = ""
                 self.estado.set_machine_state(GlobalState.PREPARACION)

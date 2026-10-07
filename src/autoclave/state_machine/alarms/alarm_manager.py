@@ -3,7 +3,6 @@ import threading
 from collections import deque
 from datetime import datetime
 
-from autoclave.state_machine.alarms.alarm_types import AlarmType
 from autoclave.state_machine.alarms.catalogo import CATALOGO, Nivel
 from autoclave.state_machine.alarms.instancia import (
     EstadoInstancia, EventoAlarma, InstanciaAlarma, clave_de,
@@ -27,16 +26,10 @@ class AlarmManager:
     API nueva: activar / resolver / reconocer. Las instancias viven aquí,
     protegidas por un candado: reconocer() llega por HTTP mientras el
     ControlLoop activa y resuelve. Los oyentes (historial) se notifican
-    fuera del candado.
-
-    report/clear/active_alarms son la API vieja; se eliminan al terminar
-    la migración (plan 2026-10-07, tarea 10)."""
+    fuera del candado."""
 
     def __init__(self, estado=None, catalogo=None, reloj=None):
         self.estado = estado
-        # API vieja: lista compartida en estado.Alarmas_activas
-        self.active_alarms = estado.Alarmas_activas if estado is not None else []
-
         self._catalogo = catalogo if catalogo is not None else CATALOGO
         self._reloj = reloj if reloj is not None else datetime.now
         self._lock = threading.Lock()
@@ -163,52 +156,19 @@ class AlarmManager:
             return any(i.estado is EstadoInstancia.ACTIVA and (not niveles or i.nivel in niveles)
                        for i in self._instancias.values())
 
-    # ------------------------------------------------------------------
-    # API vieja (se elimina en la tarea 10)
-    # ------------------------------------------------------------------
-
-    def report(self, alarm):
-        if alarm is None:
-            return
-        if any(a.id == alarm.id for a in self.active_alarms):
-            return
-        self.active_alarms.append(alarm)
-        logger.info(f"Alarma reportada: {alarm.id} - {alarm.description}")
-
-        # Se elimina junto con report() en la tarea 10.
-        if alarm.type == AlarmType.EMERGENCIA:
-            logger.critical(f"ALARMA EMERGENCIA: {alarm.id} - {alarm.description}")
-        elif alarm.type == AlarmType.FALLA:
-            logger.error(f"ALARMA FALLA: {alarm.id} - {alarm.description}")
-        else:
-            logger.warning(f"ALARMA ALERTA: {alarm.id} - {alarm.description}")
-
-    def clear(self, alarm_id: str):
-        before = len(self.active_alarms)
-        self.active_alarms[:] = [a for a in self.active_alarms if a.id != alarm_id]
-        if len(self.active_alarms) < before:
-            logger.info(f"Alarma despejada: {alarm_id}")
-
-    def clear_recoverable(self):
-        self.active_alarms[:] = [a for a in self.active_alarms if not a.is_auto_clearable()]
-
     def has_emergency(self) -> bool:
-        return (any(a.type == AlarmType.EMERGENCIA for a in self.active_alarms)
-                or self._activas_nuevas(Nivel.FALLO_CRITICO))
+        return self._activas_nuevas(Nivel.FALLO_CRITICO)
 
     def has_failure(self) -> bool:
-        return (any(a.type == AlarmType.FALLA for a in self.active_alarms)
-                or self._activas_nuevas(Nivel.ALARMA))
+        return self._activas_nuevas(Nivel.ALARMA)
 
     def has_alert(self) -> bool:
-        return (any(a.type == AlarmType.ALERTA for a in self.active_alarms)
-                or self._activas_nuevas(Nivel.AVISO))
+        return self._activas_nuevas(Nivel.AVISO)
 
     def has_blocking_alarm(self) -> bool:
         with self._lock:
-            nuevas = any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
-                         for i in self._instancias.values())
-        return any(a.blocks_operation for a in self.active_alarms) or nuevas
+            return any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
+                       for i in self._instancias.values())
 
     def has_active_alarms(self) -> bool:
-        return bool(self.active_alarms) or self._activas_nuevas()
+        return self._activas_nuevas()

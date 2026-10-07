@@ -29,7 +29,7 @@ def _gestor(con_informativo=False):
     if con_informativo:
         catalogo[_INFO.codigo] = _INFO
     eventos = []
-    am = AlarmManager(estado=SimpleNamespace(Alarmas_activas=[]), catalogo=catalogo, reloj=_Reloj())
+    am = AlarmManager(catalogo=catalogo, reloj=_Reloj())
     am.suscribir(lambda ev, inst: eventos.append((ev, inst.clave)))
     return am, eventos
 

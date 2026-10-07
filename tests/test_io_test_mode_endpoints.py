@@ -67,7 +67,8 @@ def test_set_output_usa_el_canal_do_fisico_1_indexado(io_client):
 def test_status_incluye_test_mode_active(io_client):
     client, mock_ctx = io_client
     mock_ctx.control_loop.test_mode_active = True
-    mock_ctx.estado.Alarmas_activas = []
+    mock_ctx.alarm_manager.activas.return_value = []
+    mock_ctx.alarm_manager.eventos_recientes.return_value = []
     mock_ctx.estado.estado_puertas = {}
     mock_ctx.estado.sensores_temp = {}
     mock_ctx.estado.sensores_pres = {}
