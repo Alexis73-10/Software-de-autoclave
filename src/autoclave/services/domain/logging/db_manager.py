@@ -103,6 +103,24 @@ CREATE TABLE IF NOT EXISTS usuarios (
     rol      TEXT DEFAULT 'operador',
     activo   INTEGER DEFAULT 1
 );
+
+CREATE TABLE IF NOT EXISTS alarmas_historial (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    codigo               TEXT NOT NULL,
+    nivel                TEXT NOT NULL,
+    titulo               TEXT NOT NULL,
+    origen               TEXT DEFAULT '',
+    descripcion_inicial  TEXT NOT NULL,
+    descripcion_final    TEXT DEFAULT '',
+    valores_json         TEXT DEFAULT '{}',
+    aparecida            TEXT NOT NULL,
+    resuelta             TEXT,
+    reconocida_por       TEXT,
+    reconocida_en        TEXT,
+    ciclo_id             INTEGER REFERENCES ciclos(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_alarmas_aparecida ON alarmas_historial(aparecida);
 """
 
 
@@ -146,6 +164,13 @@ class DbManager:
         try:
             self._conn.execute(
                 "ALTER TABLE ciclos ADD COLUMN motivo_fallo TEXT DEFAULT ''"
+            )
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass  # la columna ya existe
+        try:
+            self._conn.execute(
+                "ALTER TABLE ciclos ADD COLUMN codigo_fallo TEXT DEFAULT ''"
             )
             self._conn.commit()
         except sqlite3.OperationalError:
@@ -201,12 +226,15 @@ class DbManager:
             self._conn.commit()
             return cur.lastrowid
 
-    def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None):
-        """Registra la hora de fin, el resultado y (si lo hay) el motivo del ciclo."""
+    def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
+                     codigo_fallo: str | None = None):
+        """Registra la hora de fin, el resultado y (si lo hay) el motivo y código del ciclo."""
         with self._lock:
             self._conn.execute(
-                "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=? WHERE id=?",
-                (datetime.now().isoformat(), resultado, motivo_fallo or "", ciclo_id),
+                "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=? "
+                "WHERE id=?",
+                (datetime.now().isoformat(), resultado, motivo_fallo or "",
+                 codigo_fallo or "", ciclo_id),
             )
             self._conn.commit()
 
@@ -402,6 +430,66 @@ class DbManager:
                 (fila[0],),
             ).fetchall()
         return {fase: total for fase, total in filas}
+
+    # ------------------------------------------------------------------
+    # Historial de alarmas
+    # ------------------------------------------------------------------
+
+    def insertar_alarma(self, codigo, nivel, titulo, origen, descripcion, valores_json,
+                        aparecida, resuelta, ciclo_id) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO alarmas_historial (codigo, nivel, titulo, origen, "
+                "descripcion_inicial, valores_json, aparecida, resuelta, ciclo_id) "
+                "VALUES (?,?,?,?,?,?,?,?,?)",
+                (codigo, nivel, titulo, origen or "", descripcion, valores_json,
+                 aparecida, resuelta, ciclo_id),
+            )
+            self._conn.commit()
+            return cur.lastrowid
+
+    def marcar_alarma_resuelta(self, id_, resuelta, descripcion_final, valores_json):
+        with self._lock:
+            self._conn.execute(
+                "UPDATE alarmas_historial SET resuelta=?, descripcion_final=?, valores_json=? "
+                "WHERE id=?",
+                (resuelta, descripcion_final, valores_json, id_),
+            )
+            self._conn.commit()
+
+    def marcar_alarma_reconocida(self, id_, usuario, en):
+        with self._lock:
+            self._conn.execute(
+                "UPDATE alarmas_historial SET reconocida_por=?, reconocida_en=? WHERE id=?",
+                (usuario, en, id_),
+            )
+            self._conn.commit()
+
+    def reabrir_alarma(self, id_):
+        with self._lock:
+            self._conn.execute(
+                "UPDATE alarmas_historial SET resuelta=NULL WHERE id=?", (id_,))
+            self._conn.commit()
+
+    def get_alarmas_historial(self, desde: str | None = None, hasta: str | None = None,
+                              nivel: str | None = None, limite: int = 200) -> list[dict]:
+        condiciones, args = [], []
+        if desde:
+            condiciones.append("aparecida >= ?")
+            args.append(desde)
+        if hasta:
+            condiciones.append("aparecida <= ?")
+            args.append(hasta)
+        if nivel:
+            condiciones.append("nivel = ?")
+            args.append(nivel)
+        where = f"WHERE {' AND '.join(condiciones)}" if condiciones else ""
+        with self._lock:
+            filas = self._conn.execute(
+                f"SELECT * FROM alarmas_historial {where} ORDER BY aparecida DESC, id DESC "
+                "LIMIT ?", (*args, int(limite)),
+            ).fetchall()
+        return [dict(f) for f in filas]
 
     # ------------------------------------------------------------------
     # Ciclo de vida
