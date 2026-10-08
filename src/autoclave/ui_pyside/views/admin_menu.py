@@ -17,18 +17,16 @@ _OPTIONS = [
     ("🔌", "Entradas / Salidas"),
     ("🔧", "Mantenimiento"),
     ("⚡", "Opciones avanzadas"),
-    ("👤", "Nuevo usuario"),
 ]
+# "Nuevo usuario" se quitó de este menú (etapa 4 de autenticación, R2-6): la
+# pantalla vive en OPCIONES › Usuarios de la UI QML, con el token de la
+# ventana; el login PySide no obtiene token (decisión 3). La vista
+# (views/nuevo_usuario) y su puente se conservan.
 
 _OPTION_ROUTES = {
     "Parámetros del ciclo": "params_ciclo",
     "Entradas / Salidas":   "io_menu",
-    "Nuevo usuario":        "nuevo_usuario",
 }
-
-# Opciones visibles solo con sesión admin (planeacion_nuevo_usuario.md, D-05).
-# Ocultarlas no basta: _option_clicked y la propia pantalla vuelven a verificar.
-_SOLO_ADMIN = {"Nuevo usuario"}
 
 _BTN_OPTION = """
     QPushButton {{
@@ -143,7 +141,6 @@ class AdminMenuView(QWidget):
             btn.clicked.connect(lambda checked=False, n=label: self._option_clicked(n))
             cl.addWidget(btn)
             self._botones[label] = btn
-        self._aplicar_permisos()
 
         # Centrar card
         row = QHBoxLayout()
@@ -155,7 +152,6 @@ class AdminMenuView(QWidget):
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
-        self._aplicar_permisos()
         try:
             from autoclave.ui_pyside.services.session_manager import SessionManager
             if SessionManager.is_authenticated():
@@ -163,20 +159,7 @@ class AdminMenuView(QWidget):
         except Exception:
             pass
 
-    @staticmethod
-    def _es_admin() -> bool:
-        from autoclave.ui_pyside.services.roles import ROL_ADMIN
-        from autoclave.ui_pyside.services.session_manager import SessionManager
-        return SessionManager.is_authenticated() and SessionManager.current_role() == ROL_ADMIN
-
-    def _aplicar_permisos(self) -> None:
-        es_admin = self._es_admin()
-        for label in _SOLO_ADMIN:
-            self._botones[label].setVisible(es_admin)
-
     def _option_clicked(self, name: str) -> None:
-        if name in _SOLO_ADMIN and not self._es_admin():
-            return
         target = _OPTION_ROUTES.get(name)
         if target:
             self._nav(target)

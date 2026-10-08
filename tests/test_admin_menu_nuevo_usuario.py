@@ -1,7 +1,8 @@
-# Punto de entrada de la pantalla Nuevo Usuario (planeacion_nuevo_usuario.md,
-# F4): opción del menú de administración solo para admin (D-05, NU-05),
-# corrección de NU-08 y alojamiento en MainWindowFluent con la bandera
-# genérica que oculta encabezado y pie.
+# Pantalla Nuevo Usuario en la UI PySide (planeacion_nuevo_usuario.md, F4):
+# desde la etapa 4 de autenticación ya no está en el menú de administración
+# (vive en OPCIONES › Usuarios de la UI QML); se conservan la corrección de
+# NU-08 y el alojamiento en MainWindowFluent con la bandera que oculta
+# encabezado y pie.
 
 import sys
 
@@ -40,25 +41,11 @@ def _menu(qapp, sesion=None):
 
 # ── admin_menu ────────────────────────────────────────────────────────────────
 
-def test_opcion_visible_para_admin(qapp):
-    menu, _ = _menu(qapp, ADMIN)
-    assert menu._botones["Nuevo usuario"].isVisible()
-
-
-@pytest.mark.parametrize("sesion", [None, TECNICO])
-def test_opcion_oculta_sin_admin(qapp, sesion):
-    menu, _ = _menu(qapp, sesion)
-    assert not menu._botones["Nuevo usuario"].isVisible()
-
-
-def test_opcion_navega_a_nuevo_usuario(qapp):
-    menu, destinos = _menu(qapp, ADMIN)
-    menu._botones["Nuevo usuario"].click()
-    assert destinos == ["nuevo_usuario"]
-
-
-def test_opcion_no_navega_sin_admin_aunque_se_invoque(qapp):
-    menu, destinos = _menu(qapp, TECNICO)
+@pytest.mark.parametrize("sesion", [None, ADMIN, TECNICO])
+def test_nuevo_usuario_ya_no_esta_en_el_menu(qapp, sesion):
+    """Etapa 4 de autenticación (R2-6): Nuevo usuario vive en OPCIONES de la UI QML."""
+    menu, destinos = _menu(qapp, sesion)
+    assert "Nuevo usuario" not in menu._botones
     menu._option_clicked("Nuevo usuario")
     assert destinos == []
 
