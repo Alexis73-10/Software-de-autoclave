@@ -1,6 +1,6 @@
 # Etapa 4 — SAF-01: cierre de la sesión por inactividad (y estabilidad de la suite)
 
-**Fecha:** 2026-10-08 · **Rama:** `dev` (sobre `30ed280`) · **Sin commit.**
+**Fecha:** 2026-10-08 · **Rama:** `dev` · **Commit:** `0958f78`.
 **Suite:** 2131 en verde en tres corridas completas seguidas (5 min 17 s – 5 min 42 s).
 
 ## Decisión (Cristian, 2026-10-08)
@@ -8,7 +8,7 @@
 Opción 1 de SAF-01: límite de inactividad propio de la sesión, válido en cualquier estado del equipo (también CICLO, FALLA y EMERGENCIA, donde el standby no actúa).
 - **5 minutos** sin actividad.
 - **Solo cuenta la actividad de esta pantalla** (toques y teclas en esta ventana); la otra puerta no la mantiene viva.
-- **Al vencer:** logout (`/auth/logout`) y, si estaba en OPCIONES, Nuevo usuario, Cambio de clave o el Login, vuelta a la pantalla principal según estado. El siguiente login muestra "Sesión cerrada por inactividad; inicie sesión de nuevo" (`sesion.sesion_expirada`, texto **propuesto**).
+- **Al vencer:** logout (`/auth/logout`) y, si estaba en OPCIONES, Nuevo usuario, Cambio de clave o el Login, vuelta a la pantalla principal según estado. El siguiente login muestra "Sesión cerrada por inactividad; inicie sesión de nuevo" (`sesion.sesion_expirada`, texto aprobado por Cristian el 2026-10-08).
 
 ## Implementación
 

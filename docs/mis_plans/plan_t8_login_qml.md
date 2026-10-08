@@ -1,5 +1,6 @@
 # Plan etapa 4 (T-8 + T-14) — Login QML contra el backend (Fase 1, solo plan)
 
+**Estado:** cerrado (2026-10-08): implementado en `8e33d64`, `cae6365`, `22b72f5`, `30ed280`, `0958f78` (SAF-01) y el refactor de `SessionManager` (§9).
 **Versión:** v5.1 — aprobada para implementar (2026-10-08): renombre en commit 1; simulador nace con `/usuarios` y `clave` en commit 2; contrato verifica nombres de campo del 422 en ambos; etiquetas fijas de `Login.qml` registradas en el plan de idiomas (`planeacion_opciones.md` §11); bloqueo de usuario legítimo como riesgo residual 4 de la spec y candidato NRM-01; prueba "Admin"/"admin" con contador y respuesta compartidos
 **Spec:** `docs/mis_plans/planeacion_backend_autenticacion.md` v7 (en revisión: decisiones 33-35, §4.1 con `GET /auth/sesion` e `igual_actual`, §6 riesgo residual 3, T-14)
 **Rama:** `dev` (HEAD `dd8f107`). Sin cambios de código, ramas ni commits en esta fase.

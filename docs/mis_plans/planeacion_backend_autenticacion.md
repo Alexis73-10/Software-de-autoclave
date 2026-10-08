@@ -1,7 +1,7 @@
 # Planeación — Autenticación y endurecimiento del backend
 
 **Proyecto:** Software de Autoclave (Especifika S.A.S.)
-**Estado:** v7 (en revisión) — v6 cerrada para implementación; la v7 añade el cambio de contrato de la etapa 4 (decisiones 33 a 35, §4.1, T-14), pendiente de aprobar el cuerpo final (`plan_t8_login_qml.md` §3) — precede a `planeacion_backend_parametros.md`
+**Estado:** v7 — cerrada (2026-10-08). La v7 añade el cambio de contrato de la etapa 4 (decisiones 33 a 36, §4.1, riesgos residuales 3 y 4, T-14); cuerpo final aprobado en `plan_t8_login_qml.md` §3.4. T-8 y T-14 implementados — precede a `planeacion_backend_parametros.md`
 **Ubicación sugerida:** `docs\mis_plans\planeacion_backend_autenticacion.md`
 **Origen:** informes de Code del 7-oct (inventario de endpoints, login, clientes) y hallazgos H-03, OPC-02, OPC-14, OPC-16 a OPC-19
 **Documentos relacionados:** `planeacion_opciones.md`, `planeacion_backend_parametros.md`
@@ -69,6 +69,7 @@ Se implementa en **una sola fase** (token y roles incluidos). El software no est
 33. **(v7) Bloqueo con segundos restantes:** el 429 de `POST /auth/login` lleva un código estable, los segundos restantes y la cabecera `Retry-After`. El 5.º intento fallido ya responde 429 (antes 401). Un intento con la contraseña correcta no cuenta como fallo. La UI traduce el código con `es.json` y hace la cuenta regresiva local. Un login que la UI dio por vencido cuenta igual en el backend (aceptado). Los fallos de la clave actual en `POST /auth/change_password` suman al mismo contador del usuario; al 5.º responde el mismo 429 y se invalida ese token; un cambio exitoso reinicia el contador (H-T8-01).
 34. **(v7) Códigos estables en los rechazos:** las respuestas 401, 403, 409 y 422 que muestra la UI llevan un código estable; la UI traduce todo mensaje con `es.json`, el 422 por campo y tipo, nunca con el texto de FastAPI. Código desconocido: mensaje genérico y registro. Cuerpo final en revisión.
 35. **(v7) Simulador:** usuarios sembrados por rol en memoria (uno con clave pendiente y uno dedicado al bloqueo) y token determinista por sesión `sim-<usuario>-<n>` con tabla en memoria, para respetar la decisión 8. Definido solo en `simulador/`, escuchando en 127.0.0.1, sin trato especial en el cliente ni en producción.
+36. **(v7) Inactividad de la sesión (SAF-01):** la sesión de cada ventana QML se cierra con logout tras 5 min sin toques ni teclas en esa pantalla, en cualquier estado del equipo (el standby no actúa en CICLO, FALLA ni EMERGENCIA). La actividad de la otra puerta no la mantiene viva. Al vencer, la ventana vuelve a la pantalla principal y el siguiente login avisa la causa.
 
 ## 4. Reglas por endpoint
 
@@ -231,12 +232,12 @@ Los endpoints de parámetros del sistema y de sensores y entradas mostradas se d
 | **T-5** | `requiere_rol` y guard de estado (`distinto_de_ciclo`, `distinto_de_ciclo_e_hibernacion` con EMERGENCIA) | código | |
 | **T-6** | Aplicar token, rol y guard a los endpoints de 4.4 y 4.5; quitar `usuario` del cuerpo en calibración | código | |
 | **T-7** | Host fijo `127.0.0.1` | código | |
-| **T-8** | Puente QML: login contra el backend, token por ventana, manejo de 401/403/409, cambio de contraseña obligatorio | código | |
+| **T-8** | Puente QML: login contra el backend, token por ventana, manejo de 401/403/409, cambio de contraseña obligatorio | código | hecho (`22b72f5`, `30ed280`, `0958f78`) |
 | **T-10** | Eliminar `git_autocommit` de calibración y parámetros de ciclo; auditoría de ambos en `audit_log`; borrar `utils/git_autocommit.py` y `tests/test_git_autocommit.py` | código | |
 | **T-11** | Eliminar `/io/test/reset_all`, `ticket.txt` y `PATCH /cycle/parameters`, ajustar tests | código | |
 | **T-12** | `/outputs/reset` con 409 en CICLO; `/io/test/exit` con 409 fuera de modo prueba | código | |
 | **T-13** | Puertas: guard distinto de CICLO y rechazo por sensor faltante (5.3) | código | tras T-9 |
-| **T-14** | Simulador: mismo contrato que el backend (decisiones 33 a 35): sesión, cambio de clave, bloqueo con segundos restantes, `/usuarios`, 401/403/409 con código estable; usuarios sembrados por rol y token determinista por sesión `sim-<usuario>-<n>`; pruebas de contrato compartidas contra backend y simulador, con dos sesiones simultáneas y cierre en una | código | |
+| **T-14** | Simulador: mismo contrato que el backend (decisiones 33 a 35): sesión, cambio de clave, bloqueo con segundos restantes, `/usuarios`, 401/403/409 con código estable; usuarios sembrados por rol y token determinista por sesión `sim-<usuario>-<n>`; pruebas de contrato compartidas contra backend y simulador, con dos sesiones simultáneas y cierre en una | código | hecho (`8e33d64` contrato, `cae6365` simulador) |
 | **T-15** | `ciclo_controller.py` con la constante de URL común | código | |
 | **T-16** | Fallas: `acknowledge` para todo FALLO, botón QML "Reconocer falla", descarte de `RESET_FALLA` con paro activo (5.9) | código | |
 | **T-17** | Copia profunda de parámetros al iniciar el ciclo y regla de fases pendientes (5.8) | código | |
