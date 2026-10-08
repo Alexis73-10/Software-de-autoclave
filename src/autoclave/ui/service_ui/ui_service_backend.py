@@ -270,12 +270,25 @@ class UIServiceBackend:
 
     def reset_outputs(self) -> bool:
         """Apaga todas las salidas digitales. Llamar al cerrar la aplicación."""
+        return self.reset_outputs_al_cerrar() == "apagado"
+
+    def reset_outputs_al_cerrar(self) -> str:
+        """POST /outputs/reset al cerrar. Devuelve "apagado" si el backend apagó
+        las salidas, "ciclo" si lo rechazó con 409 por un ciclo en curso (no se
+        debe terminar el backend: mataría el ciclo sin apagar nada) y "error"
+        en cualquier otro caso (p. ej. backend inaccesible)."""
         try:
             self.backend.post(path="/outputs/reset")
-            return True
+            return "apagado"
+        except requests.HTTPError as e:
+            if getattr(e.response, "status_code", None) == 409:
+                logger.warning("reset_outputs rechazado: ciclo en curso")
+                return "ciclo"
+            logger.warning("reset_outputs error: %s", e)
+            return "error"
         except Exception as e:
             logger.warning("reset_outputs error: %s", e)
-            return False
+            return "error"
 
     # ==============================
     # SELECCIÓN DE CICLO ACTIVO

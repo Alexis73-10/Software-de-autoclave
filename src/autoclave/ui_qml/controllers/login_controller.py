@@ -1,9 +1,10 @@
 # ui_qml/controllers/login_controller.py
 #
 # Validación del Login QML (provisional, enmienda de planeacion_nuevo_usuario.md
-# del 2026-10-01). Misma regla que el login PySide (views/login.py):
-# usuario activo + SHA-256 de la contraseña (D-03), por acceso directo a SQLite
-# (D-04, sin endpoint FastAPI). Al validar abre la sesión en SessionManager —
+# del 2026-10-01): usuario activo + hash PBKDF2 del backend
+# (planeacion_backend_autenticacion.md, decisión 4), por acceso directo a
+# SQLite. PROVISIONAL hasta T-8 (etapa 4), que pasa este login a POST
+# /auth/login y guarda el token. Al validar abre la sesión en SessionManager —
 # una por proceso, es decir, por ventana QML — y emite sesionIniciada; a qué
 # pantalla lleva eso lo decide Main.qml cuando se defina.
 #
@@ -15,7 +16,8 @@ import logging
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
-from autoclave.ui_pyside.services.session_manager import SessionManager, hash_password
+from autoclave.backend.contrasenas import verificar_password
+from autoclave.ui_pyside.services.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +74,7 @@ class LoginController(QObject):
             return False
 
         user = self._base().get_usuario_by_username(usuario)
-        if user is None or user["hash_pw"] != hash_password(clave):
+        if user is None or not verificar_password(clave, user["hash_pw"]):
             logger.warning("Inicio de sesión QML rechazado para '%s'", usuario)
             self._set_error(CREDENCIALES_INVALIDAS)
             return False

@@ -76,6 +76,7 @@ Window {
             tiempoEsterilizacion: "10"
             tiempoSecado: "15"
             tempCamara: "085.0"
+            tempReferencia: "084.6"
             presionCamara: "100.8"
             datosVigentes: true
             conteoNotificaciones: 2

@@ -47,7 +47,18 @@ class ControlLoop:
         self.link           = link
         self.set_do         = set_do
         self._running       = threading.Event()
-        self._sm_lock       = threading.Lock()
+        # Reentrante: el backend lo toma en su guard de estado
+        # (bloqueo_maquina) y dentro llama a enter/exit_test_mode, que también
+        # lo toman (planeacion_backend_autenticacion.md, revisión de la etapa 1).
+        self._sm_lock       = threading.RLock()
+        # Avisos de "modo prueba cancelado por paro de emergencia" (el backend
+        # limpia la sesión dueña y lo registra en audit_log).
+        self._al_cancelar_prueba = []
+        # Configuración inválida al arrancar (CONFIGURACION_INVALIDA): motivo
+        # del bloqueo, o None. _bloqueo_apagado indica si ya se mandó ALL_OFF
+        # en la conexión actual con la tarjeta.
+        self._bloqueo_config: str | None = None
+        self._bloqueo_apagado = False
         self.cycle          = cycle_manager.get_selected_cycle()
         self.config_manager = config_manager
         self.alarm_manager  = alarm_manager
@@ -126,6 +137,7 @@ class ControlLoop:
                 self.state_machine.ciclo.abortar_por_desconexion()
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
+            self._bloqueo_apagado = False   # tras reconectar, volver a apagar
             self.alarm_manager.clear("NO_HAY_CONEXION")
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
@@ -153,32 +165,51 @@ class ControlLoop:
             bool(self.estado.sensores_di.get("suministro_electrico", 1))
         )
 
-        # 2c. Salvaguarda: si se activa el paro de emergencia estando en
-        # modo prueba, se cancela el modo prueba de inmediato para que la
-        # máquina de estados retome el control y aplique su protocolo de
-        # paro de emergencia en este mismo tick.
-        if self._test_mode.is_set() and self.estado.get_flag("PARO_EMERGENCIA"):
-            self.set_do.reset_all_outputs()
-            self._test_mode.clear()
-            logger.warning(
-                "Modo prueba cancelado automáticamente: paro de emergencia activado."
-            )
+        # 2d. Configuración inválida: el equipo queda con todo apagado y sin
+        # puertas, máquina de estados, registro de ciclo ni buzzer. Sí se
+        # siguen publicando sensores y paro de emergencia para la UI.
+        if self._bloqueo_config is not None:
+            if not self._bloqueo_apagado:
+                self.set_do.reset_all_outputs()
+                self._bloqueo_apagado = True
+            return
 
-        # 3. Dispositivos → actúan (pausado durante el modo prueba: las
-        # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
-        # cada tick mientras están CERRADO, lo que pisaría el control
-        # manual de esas mismas salidas desde /io/test/output).
-        if not self._test_mode.is_set():
-            for door in self.doors:
-                door.update()
+        # Pasos 2c a 5 bajo _sm_lock: el modo prueba solo cambia con este lock
+        # tomado (enter/exit_test_mode y el guard del backend), así que lo que
+        # aquí se decide según _test_mode no puede quedar desfasado a mitad de
+        # tick (revisión de la etapa 1 de autenticación, TMG-04 / SAF-03).
+        with self._sm_lock:
+            # 2c. Salvaguarda: si se activa el paro de emergencia estando en
+            # modo prueba, se cancela el modo prueba de inmediato para que la
+            # máquina de estados retome el control y aplique su protocolo de
+            # paro de emergencia en este mismo tick.
+            cancelado_por_paro = (self._test_mode.is_set()
+                                  and self.estado.get_flag("PARO_EMERGENCIA"))
+            if cancelado_por_paro:
+                self.set_do.reset_all_outputs()
+                self._test_mode.clear()
+                logger.warning(
+                    "Modo prueba cancelado automáticamente: paro de emergencia activado."
+                )
 
-        # 4. Servicios → deciden
-        self.door_service.update()
+            # 3. Dispositivos → actúan (pausado durante el modo prueba: las
+            # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
+            # cada tick mientras están CERRADO, lo que pisaría el control
+            # manual de esas mismas salidas desde /io/test/output).
+            if not self._test_mode.is_set():
+                for door in self.doors:
+                    door.update()
 
-        # 5. Máquina de estados global (pausada durante el modo prueba)
-        if not self._test_mode.is_set():
-            with self._sm_lock:
+            # 4. Servicios → deciden
+            self.door_service.update()
+
+            # 5. Máquina de estados global (pausada durante el modo prueba)
+            if not self._test_mode.is_set():
                 self.state_machine.update()
+
+        # Fuera del lock: quien escucha registra en la bitácora (SQLite)
+        if cancelado_por_paro:
+            self._avisar_cancelacion_prueba()
 
         # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
         # publicado, así que el orden respecto al paso 5 no importa.
@@ -263,25 +294,66 @@ class ControlLoop:
     def test_mode_active(self) -> bool:
         return self._test_mode.is_set()
 
+    def bloqueo_maquina(self):
+        """Lock de la máquina de estados (_sm_lock, reentrante), para que el
+        guard de estado del backend compruebe y escriba sin intercalarse con
+        el tick — mismo precedente que set_active_cycle."""
+        return self._sm_lock
+
+    def al_cancelar_modo_prueba(self, callback) -> None:
+        """Registra `callback()`, llamado desde el hilo del loop (fuera de
+        _sm_lock) cuando el paro de emergencia cancela el modo prueba."""
+        self._al_cancelar_prueba.append(callback)
+
+    def _avisar_cancelacion_prueba(self) -> None:
+        for callback in self._al_cancelar_prueba:
+            try:
+                callback()
+            except Exception:
+                logger.exception("Error en el aviso de cancelación del modo prueba")
+
+    @property
+    def bloqueo_configuracion(self) -> str | None:
+        """Motivo del bloqueo por configuración inválida, o None."""
+        return self._bloqueo_config
+
+    def bloquear_por_configuracion(self, motivo: str) -> None:
+        """Deja el equipo bloqueado hasta reiniciar: cada tick solo publica
+        sensores y paro de emergencia, y las salidas se apagan en cuanto hay
+        conexión con la tarjeta. Llamar antes de start()."""
+        with self._sm_lock:
+            self._bloqueo_config = motivo
+            self._bloqueo_apagado = False
+        logger.critical("Equipo bloqueado por configuración inválida: %s", motivo)
+
     def enter_test_mode(self) -> tuple[bool, str]:
         """Pausa state_machine.update(), las puertas y el buzzer, y apaga
         todas las salidas para permitir control manual. No pausa la lectura
-        de sensores ni el paro de emergencia."""
-        if self.estado.get_machine_state() == GlobalState.CICLO:
-            return False, "No se puede activar el modo prueba durante un ciclo en curso."
+        de sensores ni el paro de emergencia. Bajo _sm_lock: ningún tick queda
+        a medio camino con la decisión de modo prueba vieja."""
+        with self._sm_lock:
+            if self._bloqueo_config is not None:
+                return False, f"Configuración inválida: {self._bloqueo_config}"
 
-        if self.estado.get_flag("PARO_EMERGENCIA"):
-            return False, "No se puede activar el modo prueba con el paro de emergencia activado."
+            if self.estado.get_machine_state() == GlobalState.CICLO:
+                return False, "No se puede activar el modo prueba durante un ciclo en curso."
 
-        self._test_mode.set()
-        self.set_do.buzer.stop()
-        self.set_do.reset_all_outputs()
-        return True, ""
+            if self.estado.get_flag("PARO_EMERGENCIA"):
+                return False, "No se puede activar el modo prueba con el paro de emergencia activado."
+
+            self._test_mode.set()
+            self.set_do.buzer.stop()
+            self.set_do.reset_all_outputs()
+            return True, ""
 
     def exit_test_mode(self) -> None:
-        """Apaga todas las salidas y reanuda state_machine.update()."""
-        self._test_mode.clear()
-        self.set_do.reset_all_outputs()
+        """Apaga todas las salidas y reanuda state_machine.update(). Bajo
+        _sm_lock y en este orden (apagar, luego reanudar): una orden de
+        /io/test/output ya validada no puede llegar después del apagado, y la
+        máquina de estados no corre un tick con salidas de prueba encendidas."""
+        with self._sm_lock:
+            self.set_do.reset_all_outputs()
+            self._test_mode.clear()
 
     # =========================================================================
     # CAMBIO DE CICLO ACTIVO

@@ -18,7 +18,7 @@ _ADMIN = ["usuarios", "conectividad"]
 _ESPERADO = {
     "admin":     _ADMIN,
     "tecnico":   _TECNICAS,
-    "biomedico": _TECNICAS,
+    "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     "ingeniero": _TECNICAS,
     "operador":  [],      # defecto de la tabla usuarios, fuera de roles.py
     "":          [],
@@ -61,17 +61,15 @@ def test_edicion_permitida(estado, permitida):
 
 
 # Excepción (Cristian, 2026-10-07): el ingeniero modifica cualquier sección en
-# cualquier estado; técnico, biomédico y admin solo en PREPARACION / PREPARADO.
+# cualquier estado; técnico y admin solo en PREPARACION / PREPARADO.
 @pytest.mark.parametrize("estado,rol,seccion,permitida", [
     ("CICLO", "ingeniero", "parametros_ciclo", True),
     ("CICLO", "ingeniero", "parametros_sistema", True),
     ("FALLA", "ingeniero", "mantenimiento", True),
     ("EMERGENCIA", "ingeniero", "parametros_ciclo", True),
     ("CICLO", "tecnico", "parametros_ciclo", False),
-    ("CICLO", "biomedico", "parametros_ciclo", False),
     ("CICLO", "admin", "usuarios", False),
     ("PREPARADO", "tecnico", "parametros_sistema", True),
-    ("PREPARADO", "biomedico", "parametros_ciclo", True),
 ])
 def test_edicion_permitida_por_rol(estado, rol, seccion, permitida):
     assert edicion_permitida(estado, rol, seccion) is permitida

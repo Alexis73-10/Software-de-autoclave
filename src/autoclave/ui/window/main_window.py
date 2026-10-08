@@ -621,12 +621,22 @@ class InterfazPrincipal(tk.Tk):
     def apagar_equipo(self):
         logger.info("⏻ Apagando equipo...")
 
-        # Apagar todas las salidas ANTES de la pantalla de apagado
-        try:
-            self.ui_service.reset_outputs()
+        # Apagar todas las salidas ANTES de la pantalla de apagado. Con un ciclo
+        # en curso el backend lo rechaza (409) y no se apaga: terminar el
+        # backend mataría el ciclo sin apagar las salidas.
+        resultado = self.ui_service.reset_outputs_al_cerrar()
+        if resultado == "ciclo":
+            logger.warning("Apagado cancelado: ciclo en curso")
+            from tkinter import messagebox
+            messagebox.showwarning(
+                "Ciclo en curso",
+                "No se puede apagar el equipo con un ciclo en curso.\n\n"
+                "Espere a que termine o abórtelo antes de apagar.")
+            return
+        if resultado == "apagado":
             logger.info("Salidas digitales apagadas")
-        except Exception as e:
-            logger.warning("No se pudieron apagar las salidas: %s", e)
+        else:
+            logger.warning("No se pudieron apagar las salidas")
 
         self.withdraw()
         win = tk.Toplevel(self)

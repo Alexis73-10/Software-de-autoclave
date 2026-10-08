@@ -42,11 +42,12 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import login_controller, teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401
     from autoclave.services.domain.logging.db_manager import DbManager
-    from autoclave.ui_pyside.services.session_manager import SessionManager, hash_password
+    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.backend.contrasenas import hash_password
 
     estado, rol = sys.argv[1], sys.argv[2]
     db = DbManager(db_path=pathlib.Path(tempfile.mkdtemp()) / "t.db")
-    db.crear_usuario("Ana Ruiz", "anar", hash_password("clave1234"), rol)
+    db.crear_usuario("Ana Ruiz", "anar", hash_password("clave1234", 1000), rol)
     login_controller._db_por_defecto = lambda: db
 
     qapp = QGuiApplication([])
@@ -144,6 +145,17 @@ _SCRIPT = textwrap.dedent(r"""
     borde = cajon.mapToScene(cajon.boundingRect().topRight()).x()
     r["entradas_dentro"] = all(
         i.mapToScene(i.boundingRect().topRight()).x() <= borde + 0.5 for i in entradas())
+    # un nombre que no cabe en una línea pasa a dos (U-2, rev. 3.1)
+    if entradas():
+        fila = entradas()[0]
+        texto = fila.findChild(QObject, "textoEntrada")
+        alto_una = fila.property("height")
+        texto.setProperty("text", "Nombre de sección muy largo que no cabe en una sola línea del cajón")
+        QTest.qWait(50)
+        # dos líneas y el texto cabe en la fila (crece solo si hace falta)
+        r["dos_lineas"] = (texto.property("lineCount") == 2
+                           and fila.property("height") >= alto_una
+                           and texto.property("contentHeight") <= fila.property("height"))
     r["hamburguesa_abre"] = op.property("cajonAbierto") and hijo("fondoCajon").property("visible")
     tocar_punto(0.85, 0.5)
     r["fuera_cierra"] = not op.property("cajonAbierto")
@@ -245,6 +257,8 @@ def _navegacion_comun(r):
     assert r["hamburguesa_abre"] is True
     assert r["fuera_cierra"] is True
     assert r["entradas_dentro"] is True
+    if r["entradas"]:
+        assert r["dos_lineas"] is True
     assert r["alternar"] is True
     assert r["fondo_bloquea"] is True
     assert r["salir_regresa"] is True

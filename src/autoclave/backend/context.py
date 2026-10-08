@@ -9,9 +9,12 @@ from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.door_factory import create_door
 from autoclave.devices.io.set_io import SetOutput
 from autoclave.services.domain.loop.control_loop import ControlLoop
+from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+from autoclave.state_machine.alarms.alarm_types import AlarmType
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
+from autoclave.core.managers.validacion_config import errores_config_arranque
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.cycle_logger import CycleLogger
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
@@ -97,4 +100,24 @@ class BackendContext:
             cap=cap,
             realtime_printer=self.realtime_printer,
         )
+        self._validar_configuracion()
         self.control_loop.start()
+
+    def _validar_configuracion(self) -> None:
+        """Con la configuración inválida el backend arranca igual, para que la
+        UI muestre la causa, pero bloqueado: alarma CONFIGURACION_INVALIDA y
+        control loop sin puertas ni máquina de estados (todo apagado). Se
+        corrige la configuración y se reinicia."""
+        errores = errores_config_arranque(self.config_manager)
+        if not errores:
+            return
+        motivo = "; ".join(errores)
+        self.alarm_manager.report(Alarm(
+            alarm_id="CONFIGURACION_INVALIDA",
+            alarm_type=AlarmType.FALLA,
+            source_state="ARRANQUE",
+            description=f"Configuración inválida: {motivo}",
+            recoverable=False,
+            blocks_operation=True,
+        ))
+        self.control_loop.bloquear_por_configuracion(motivo)

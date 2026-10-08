@@ -8,7 +8,8 @@ import logging
 import pytest
 
 from autoclave.services.domain.logging.db_manager import DbManager
-from autoclave.ui_pyside.services.session_manager import SessionManager, hash_password
+from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.backend.contrasenas import hash_password
 from autoclave.ui_qml.controllers.login_controller import (
     CAMPOS_VACIOS, CREDENCIALES_INVALIDAS, LoginController,
 )
@@ -24,8 +25,8 @@ def sesion_limpia():
 @pytest.fixture
 def db(tmp_path):
     base = DbManager(db_path=tmp_path / "t.db")   # trae admin / admin1234 (seed)
-    base.crear_usuario("Ana Ruiz", "anar", hash_password("clave1234"), "tecnico")
-    base.crear_usuario("Inactivo", "inact", hash_password("clave1234"), "tecnico", activo=0)
+    base.crear_usuario("Ana Ruiz", "anar", hash_password("clave1234", 1000), "tecnico")
+    base.crear_usuario("Inactivo", "inact", hash_password("clave1234", 1000), "tecnico", activo=0)
     return base
 
 
@@ -116,4 +117,4 @@ def test_contrasena_no_aparece_en_logs(ctrl, caplog):
         ctrl.iniciarSesion("anar", "secreta999")
     assert "clave1234" not in caplog.text
     assert "secreta999" not in caplog.text
-    assert hash_password("clave1234") not in caplog.text
+    assert ctrl._base().get_usuario_by_username("anar")["hash_pw"] not in caplog.text

@@ -26,7 +26,7 @@ def qt_app():
 
 
 def _servicio(connected=True, estado="PREPARADO", puertas=None, alarmas=None,
-              ciclo=None, temp=None, pres=None, listo=False):
+              ciclo=None, temp=None, pres=None, temp_ref=None, listo=False):
     """UIServiceBackend simulado: solo los getters de caché que usa el puente."""
     ui = MagicMock(spec=UIServiceBackend)
     ui.connected = connected
@@ -36,7 +36,7 @@ def _servicio(connected=True, estado="PREPARADO", puertas=None, alarmas=None,
     ui.get_estado_puerta.side_effect = lambda nombre: puertas.get(nombre)
     ui.get_alarmas.return_value = [] if alarmas is None else alarmas
     ui.get_cycle.return_value = {} if ciclo is None else ciclo
-    ui.get_sensores_temp.return_value = {"temp_camara": temp}
+    ui.get_sensores_temp.return_value = {"temp_camara": temp, "temp_ref": temp_ref}
     ui.get_sensores_pres.return_value = {"pres_camara": pres}
     return ui
 
@@ -75,7 +75,7 @@ def test_temporizador_de_500_ms_en_el_hilo_de_la_gui():
 
 
 def test_primer_refresco_publica_el_cache():
-    ui = _servicio(temp=134.2, pres=304.0,
+    ui = _servicio(temp=134.2, pres=304.0, temp_ref=133.8,
                    ciclo={"name": "Bowie", "parameters": {
                        "esterilizacion": {"temperatura_esterilizacion": {"value": 134},
                                           "tiempo_esterilizacion": {"value": 3.5}},
@@ -90,7 +90,15 @@ def test_primer_refresco_publica_el_cache():
     assert puente.tiempoEsterilizacion == "3.5"
     assert puente.tiempoSecado == "15"
     assert puente.tempCamara == "134.2"
+    assert puente.tempReferencia == "133.8"
     assert puente.presionCamara == "304.0"
+
+
+def test_sensor_de_referencia_ausente_se_muestra_sin_dato():
+    puente = UiBridge(_servicio(temp=134.2, temp_ref=None), door=1, iniciar=False)
+    puente.refrescar()
+    assert puente.tempReferencia == SIN_DATO
+    assert puente.tempCamara == "134.2"
 
 
 # ── conexión perdida / recuperada ─────────────────────────────────────────

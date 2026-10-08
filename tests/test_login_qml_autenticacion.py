@@ -27,10 +27,11 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes, cargar_textos
     from autoclave.ui_qml.controllers import login_controller
     from autoclave.services.domain.logging.db_manager import DbManager
-    from autoclave.ui_pyside.services.session_manager import SessionManager, hash_password
+    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.backend.contrasenas import hash_password
 
     db = DbManager(db_path=pathlib.Path(tempfile.mkdtemp()) / "t.db")
-    db.crear_usuario("Ana Ruiz", "anar", hash_password("clave1234"), "tecnico")
+    db.crear_usuario("Ana Ruiz", "anar", hash_password("clave1234", 1000), "tecnico")
     login_controller._db_por_defecto = lambda: db
 
     QML = '''

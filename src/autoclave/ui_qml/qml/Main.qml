@@ -80,7 +80,7 @@ Window {
         pila.push(sesionVentana.sesionActiva ? opcionesComp : loginComp)
     }
     // El standby (equipo desatendido) cierra la sesión: quien vuelva debe
-    // iniciarla de nuevo. PROVISIONAL, sin decisión explícita de Cristian.
+    // iniciarla de nuevo (confirmado por Cristian, 2026-10-07).
     function cerrarSesionPorStandby() {
         if (standby?.activo)
             sesionVentana.cerrarSesion()

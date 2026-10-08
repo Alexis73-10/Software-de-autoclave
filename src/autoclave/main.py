@@ -21,6 +21,17 @@ logger = logging.getLogger(__name__)
 BACKEND_URL = "http://127.0.0.1:8000"
 
 
+def _avisar_ciclo_en_curso():
+    """Con un ciclo en curso la ventana no se cierra: terminar el backend
+    mataría el ciclo sin apagar las salidas (revisión de la etapa 1 de
+    autenticación, hallazgo B)."""
+    from tkinter import messagebox
+    messagebox.showwarning(
+        "Ciclo en curso",
+        "No se puede cerrar con un ciclo en curso.\n\n"
+        "Espere a que termine o abórtelo antes de cerrar.")
+
+
 def _configurar_logging_archivo(sufijo: str) -> None:
     """En un build congelado (.exe) no hay consola visible ni stdout — sin
     esto, un fallo de esta ventana (p. ej. al posicionarla en un monitor)
@@ -264,11 +275,15 @@ def main():
             ui_service.stop()
             app.destroy()
             return
-        try:
-            ui_service.reset_outputs()
+        resultado = ui_service.reset_outputs_al_cerrar()
+        if resultado == "ciclo":
+            logger.warning("Cierre cancelado: ciclo en curso, el backend sigue en marcha")
+            _avisar_ciclo_en_curso()
+            return
+        if resultado == "apagado":
             logger.info("Salidas digitales apagadas")
-        except Exception as e:
-            logger.warning("No se pudieron apagar las salidas: %s", e)
+        else:
+            logger.warning("No se pudieron apagar las salidas")
         ui_service.stop()
         if hasattr(app, '_settings_proc') and app._settings_proc and app._settings_proc.poll() is None:
             app._settings_proc.terminate()
