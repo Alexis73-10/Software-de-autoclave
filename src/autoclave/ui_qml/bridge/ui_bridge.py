@@ -142,7 +142,7 @@ class UiBridge(QObject):
         self._door_state = ESTADO_DESCONOCIDO
         self._listo = False
         self._estado_equipo = estado_equipo(None, False)
-        self._datos_ciclo = self._datos(None, None, None)
+        self._datos_ciclo = self._datos(None, None, None, None)
         self._alarms = AlarmListModel(self)
 
         self._timer = QTimer(self)
@@ -153,11 +153,12 @@ class UiBridge(QObject):
             QTimer.singleShot(0, self.refrescar)
 
     @staticmethod
-    def _datos(ciclo, temp, pres) -> dict:
+    def _datos(ciclo, temp, temp_ref, pres) -> dict:
         return {
             **dominio.parametros_de_ciclo(ciclo),
             "ciclo_activo": dominio.numero_de_ciclo(ciclo),
             "temp_camara": dominio.formatear_temp_camara(temp),
+            "temp_referencia": dominio.formatear_temp_camara(temp_ref),
             "presion_camara": dominio.formatear_presion(pres),
         }
 
@@ -184,8 +185,10 @@ class UiBridge(QObject):
         self._alarms.establecer(self._ui.get_alarmas())
 
         ciclo = self._ui.get_cycle() or None   # {} = aún no se recibió /cycle
+        temps = self._ui.get_sensores_temp()
         datos = self._datos(ciclo,
-                            self._ui.get_sensores_temp().get("temp_camara"),
+                            temps.get("temp_camara"),
+                            temps.get("temp_ref"),
                             self._ui.get_sensores_pres().get("pres_camara"))
         self._fijar("_datos_ciclo", datos, self.datosCicloChanged)
 
@@ -251,6 +254,10 @@ class UiBridge(QObject):
     @Property(str, notify=datosCicloChanged)
     def tempCamara(self) -> str:
         return self._datos_ciclo["temp_camara"]
+
+    @Property(str, notify=datosCicloChanged)
+    def tempReferencia(self) -> str:
+        return self._datos_ciclo["temp_referencia"]
 
     @Property(str, notify=datosCicloChanged)
     def presionCamara(self) -> str:

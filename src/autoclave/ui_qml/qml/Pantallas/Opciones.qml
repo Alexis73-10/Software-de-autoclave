@@ -288,7 +288,9 @@ Item {
                         objectName: "entrada_" + modelData.clave
                         // mismo margen a ambos lados, dentro del borde del cajón
                         width: cajon.width - cajon.radius - 2 * raiz.m(25)
-                        height: raiz.m(97)   // > 64 px de área táctil (U-14)
+                        // > 64 px de área táctil (U-14); si el nombre no cabe en una
+                        // línea, la fila crece y pasa a dos (U-2, rev. 3.1)
+                        height: Math.max(raiz.m(97), textoEntrada.contentHeight + raiz.m(36))
 
                         Rectangle {
                             anchors.fill: parent
@@ -309,9 +311,13 @@ Item {
                             color: entrada.activa ? Colores.accionPrimario : Colores.textoPrimario
                         }
                         Text {
+                            id: textoEntrada
+                            objectName: "textoEntrada"
                             x: raiz.m(160 - 25)
                             width: parent.width - x - raiz.m(12)
                             anchors.verticalCenter: parent.verticalCenter
+                            wrapMode: Text.WordWrap
+                            maximumLineCount: 2
                             elide: Text.ElideRight
                             text: raiz.nombreSeccion(entrada.modelData.clave)
                             color: entrada.activa ? Colores.accionPrimarioTexto : Colores.textoPrimario

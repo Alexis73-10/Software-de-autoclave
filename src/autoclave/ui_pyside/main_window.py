@@ -30,12 +30,14 @@ class MainWindowFluent(QMainWindow):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(self._build_header())
+        self._header = self._build_header()
+        root.addWidget(self._header)
 
         self._stack = QStackedWidget()
         root.addWidget(self._stack, stretch=1)
 
-        root.addWidget(self._build_footer())
+        self._footer = self._build_footer()
+        root.addWidget(self._footer)
 
         from autoclave.ui_pyside.views.home       import HomeView
         from autoclave.ui_pyside.views.secado     import SecadoView
@@ -50,6 +52,7 @@ class MainWindowFluent(QMainWindow):
         from autoclave.ui_pyside.views.entrdas_salidas.io_do      import SalidasDigitalesView
         from autoclave.ui_pyside.views.params_ciclo.params_ciclo import ParametrosCicloView
         from autoclave.ui_pyside.views.entrdas_salidas.calibracion_sensor import CalibracionSensorView
+        from autoclave.ui_pyside.views.nuevo_usuario.vista import NuevoUsuarioView
 
         self._home       = HomeView(nav_callback=self.navigate_to)
         self._secado     = SecadoView(nav_callback=self.navigate_to)
@@ -64,11 +67,12 @@ class MainWindowFluent(QMainWindow):
         self._io_do      = SalidasDigitalesView(nav_callback=self.navigate_to)
         self._params_ciclo = ParametrosCicloView(nav_callback=self.navigate_to)
         self._calibracion_sensor = CalibracionSensorView(nav_callback=self.navigate_to)
+        self._nuevo_usuario = NuevoUsuarioView(nav_callback=self.navigate_to)
 
         for view in (self._home, self._secado, self._login,
                      self._ciclos, self._impresion_menu, self._admin_menu, self._io_menu,
                      self._io_di, self._io_temp, self._io_pres, self._io_do,
-                     self._params_ciclo, self._calibracion_sensor):
+                     self._params_ciclo, self._calibracion_sensor, self._nuevo_usuario):
             self._stack.addWidget(view)
 
         self._stack.setCurrentWidget(self._home)
@@ -190,11 +194,17 @@ class MainWindowFluent(QMainWindow):
             "io_do":        self._io_do,
             "params_ciclo": self._params_ciclo,
             "calibracion_sensor": self._calibracion_sensor,
+            "nuevo_usuario": self._nuevo_usuario,
         }
         target = views.get(view_name)
         if target:
             if payload and hasattr(target, "set_context"):
                 target.set_context(**payload)
+            # Una vista con oculta_marco = True trae su propio encabezado y pie
+            # (p. ej. las pantallas QML alojadas en QQuickWidget)
+            marco = not getattr(target, "oculta_marco", False)
+            self._header.setVisible(marco)
+            self._footer.setVisible(marco)
             self._stack.setCurrentWidget(target)
 
     # ── Reloj ────────────────────────────────────────────────────────

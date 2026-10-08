@@ -6,6 +6,8 @@ import uvicorn
 
 from autoclave.utils.paths import app_root
 
+HOST = "127.0.0.1"
+
 
 def _configurar_logging_archivo() -> None:
     """En un build congelado (.exe) no hay consola visible ni stdout — sin
@@ -26,7 +28,9 @@ def main():
     logging.getLogger(__name__).info("Backend iniciado desde: %s", __file__)
     uvicorn.run(
         "autoclave.backend.server:app",
-        host="0.0.0.0",   # CRÍTICO: escucha en red
+        # Fijo, sin configuración (planeacion_backend_autenticacion.md, decisión 1):
+        # solo procesos de este PC; las escrituras exigen además token.
+        host=HOST,
         port=8000,
         log_level="info",
     )

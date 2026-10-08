@@ -1,14 +1,18 @@
 # autoclave/backend/server.py
 
 import logging
+import sqlite3
+import threading
+from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, time, timedelta
 from typing import Literal
 
-from fastapi import HTTPException, FastAPI, Body
-from fastapi.responses import PlainTextResponse
+from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
 from pydantic import BaseModel, Field
 
 from autoclave.backend.actividad_ui import ActividadUI
+from autoclave.backend.autenticacion import AlmacenTokens, ControlIntentos, Sesion
+from autoclave.backend.contrasenas import hash_password, simular_verificacion, verificar_password
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.core.runtime import progreso_ciclo
@@ -17,15 +21,29 @@ from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
-from autoclave.utils.git_autocommit import git_autocommit
+from autoclave.state_machine.machine.enum_global import GlobalState
+from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO, ROLES_CREABLES
+from autoclave.ui_pyside.services.validacion_usuario import USUARIO_EXISTE, validar_nuevo_usuario
 from autoclave.utils import periodos
-from autoclave.utils.paths import app_root, calibration_path
-
-_TICKETS_DIR = app_root() / "data" / "tickets"
+from autoclave.utils.paths import calibration_path
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Autoclave Backend")
+@asynccontextmanager
+async def _ciclo_de_vida(_app):
+    yield
+    # Apagado ordenado del backend (Ctrl+C, SIGTERM de uvicorn): detiene el
+    # loop y apaga todas las salidas. Un TerminateProcess de Windows no pasa
+    # por aquí; por eso la UI no termina el backend con un ciclo en curso
+    # (revisión de la etapa 1 de autenticación, hallazgo B).
+    try:
+        context.control_loop.stop()
+        logger.info("Backend detenido: control loop parado y salidas apagadas")
+    except Exception:
+        logger.exception("Error al detener el control loop en el apagado del backend")
+
+
+app = FastAPI(title="Autoclave Backend", lifespan=_ciclo_de_vida)
 
 context = BackendContext()
 
@@ -33,6 +51,301 @@ context = BackendContext()
 actividad_ui = ActividadUI()
 
 CALIBRATION_PATH = calibration_path()
+
+
+# =============================================================================
+# SEGURIDAD (planeacion_backend_autenticacion.md)
+# =============================================================================
+# Sesiones en memoria: un reinicio del backend invalida todos los tokens
+# (decisión 2). Nada de esto toca el ControlLoop: un token vencido nunca afecta
+# a un ciclo en curso, solo a escrituras de configuración y al modo de prueba.
+
+tokens = AlmacenTokens()
+intentos_login = ControlIntentos()
+
+# Token de la sesión que activó el modo prueba: solo ella enciende salidas y
+# sale (§5.4). Se lee y escribe con _sm_lock tomado (bloqueo_maquina).
+_token_modo_prueba: str | None = None
+
+# Serializa las escrituras de archivos de configuración (YAML de calibración,
+# JSON de ciclos), que se hacen fuera de _sm_lock.
+_lock_archivos = threading.Lock()
+
+# Variantes del guard de estado (§5.5). EMERGENCIA y HIBERNACION hoy no se
+# alcanzan (OPC-25), pero se bloquean igual (decisiones 15 y 20).
+DISTINTO_DE_CICLO = frozenset({GlobalState.CICLO})
+DISTINTO_DE_CICLO_E_HIBERNACION = frozenset({
+    GlobalState.CICLO, GlobalState.HIBERNACION, GlobalState.EMERGENCIA,
+})
+
+_MOTIVO_ESTADO = {
+    GlobalState.CICLO:       "No permitido con un ciclo en curso",
+    GlobalState.HIBERNACION: "No permitido con el equipo en suspensión",
+    GlobalState.EMERGENCIA:  "No permitido en estado de emergencia",
+}
+
+
+def _auditar(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
+             entidad: str = "", valor_anterior=None, valor_nuevo=None,
+             detalle: dict | None = None) -> None:
+    """Escribe en audit_log. Un fallo de la bitácora queda en el log pero no
+    deshace ni bloquea la acción que se está registrando."""
+    try:
+        context.db.registrar_auditoria(
+            evento,
+            usuario=sesion.usuario if sesion else usuario,
+            rol=sesion.rol if sesion else "",
+            entidad=entidad,
+            valor_anterior=valor_anterior,
+            valor_nuevo=valor_nuevo,
+            detalle=detalle,
+        )
+    except Exception:
+        logger.exception("No se pudo registrar '%s' en audit_log", evento)
+
+
+def _rechazar(status: int, motivo: str, entidad: str, sesion: Sesion | None = None,
+              headers: dict | None = None):
+    """Registra el rechazo (rechazo_401/403/409) y lo lanza como HTTPException.
+    Escribe en SQLite: nunca llamarla con _sm_lock tomado (usar _Rechazo)."""
+    _auditar(f"rechazo_{status}", sesion, entidad=entidad, detalle={"motivo": motivo})
+    raise HTTPException(status_code=status, detail=motivo, headers=headers)
+
+
+class _Rechazo(Exception):
+    """Rechazo decidido dentro de guard_estado. El guard lo registra y lo
+    convierte en HTTPException después de soltar _sm_lock, para que la
+    bitácora no detenga el tick del control loop."""
+    def __init__(self, status: int, motivo: str):
+        super().__init__(motivo)
+        self.status = status
+        self.motivo = motivo
+
+
+def _token_de(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    esquema, _, token = authorization.partition(" ")
+    if esquema.lower() != "bearer" or not token.strip():
+        return None
+    return token.strip()
+
+
+def requiere_rol(*roles: str, permitir_cambio_pendiente: bool = False):
+    """Dependencia FastAPI (§5.2): 401 sin token o con token inválido; 403 si
+    la sesión debe cambiar la contraseña (salvo en change_password y logout) o
+    si su rol no está en `roles` (vacío = cualquier rol). El rol sale siempre
+    del token, nunca del cuerpo de la petición."""
+    def dependencia(request: Request, authorization: str | None = Header(None)) -> Sesion:
+        entidad = request.url.path
+        sesion = tokens.obtener(_token_de(authorization))
+        if sesion is None:
+            _rechazar(401, "Sesión no válida o vencida; inicie sesión de nuevo", entidad,
+                      headers={"WWW-Authenticate": "Bearer"})
+        if sesion.debe_cambiar_clave and not permitir_cambio_pendiente:
+            _rechazar(403, "Debe cambiar la contraseña", entidad, sesion)
+        if roles and sesion.rol not in roles:
+            _rechazar(403, "Su rol no tiene permiso para esta acción", entidad, sesion)
+        return sesion
+    return dependencia
+
+
+@contextmanager
+def guard_estado(prohibidos: frozenset, entidad: str, sesion: Sesion | None = None,
+                 excepcion_ingeniero: bool = False):
+    """Guard de estado (§5.5): comprueba el estado de máquina dentro de
+    _sm_lock y mantiene el lock mientras dura el bloque, para que la acción
+    no se intercale con el tick (p. ej. con START_CICLO).
+    Con `excepcion_ingeniero`, un ingeniero pasa en CICLO (§5.8).
+    Devuelve el estado observado.
+
+    El bloque solo debe hacer comprobaciones y cambios en memoria o en la
+    tarjeta: mientras dura, el tick completo del control loop espera. Archivos
+    y bitácora van fuera. Para rechazar dentro del bloque se lanza _Rechazo,
+    que se registra cuando el lock ya está libre."""
+    try:
+        with context.control_loop.bloqueo_maquina():
+            estado = context.estado.get_machine_state()
+            exceptuado = (excepcion_ingeniero and estado == GlobalState.CICLO
+                          and sesion is not None and sesion.rol == ROL_INGENIERO)
+            if estado in prohibidos and not exceptuado:
+                raise _Rechazo(409, _MOTIVO_ESTADO.get(estado, "No permitido en el estado actual"))
+            yield estado
+    except _Rechazo as r:
+        _rechazar(r.status, r.motivo, entidad, sesion)
+
+
+def _rechazar_si_config_invalida(entidad: str) -> None:
+    """409 si el backend arrancó con la configuración inválida
+    (CONFIGURACION_INVALIDA): sin ciclo, puertas ni modo prueba."""
+    motivo = context.control_loop.bloqueo_configuracion
+    if isinstance(motivo, str) and motivo:
+        _rechazar(409, f"Configuración inválida: {motivo}", entidad)
+
+
+def _contexto_ciclo() -> dict:
+    """Ciclo y fase en curso para el `detalle` de la bitácora; vacío fuera de CICLO."""
+    if context.estado.get_machine_state() != GlobalState.CICLO:
+        return {}
+    return {
+        "ciclo": _ciclo_de_pantalla(),
+        "fase": getattr(context.estado, "fase_ciclo", ""),
+        "programa": getattr(getattr(context.control_loop, "cycle", None), "id", None),
+    }
+
+
+def _salir_modo_prueba() -> None:
+    """Apaga las salidas, reanuda la máquina y olvida la sesión dueña. Llamar
+    con _sm_lock tomado; quien llama registra modo_prueba_sale al soltarlo."""
+    global _token_modo_prueba
+    context.control_loop.exit_test_mode()
+    _token_modo_prueba = None
+
+
+def _prueba_cancelada_por_paro() -> None:
+    """Aviso del ControlLoop (hilo del loop, fuera de _sm_lock): el paro de
+    emergencia canceló el modo prueba. Olvida la sesión dueña y lo registra."""
+    global _token_modo_prueba
+    with context.control_loop.bloqueo_maquina():
+        if context.control_loop.test_mode_active:
+            return   # ya se volvió a entrar: no es esta cancelación
+        token, _token_modo_prueba = _token_modo_prueba, None
+    sesion = tokens.obtener(token) if token else None
+    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "paro de emergencia"})
+
+
+context.control_loop.al_cancelar_modo_prueba(_prueba_cancelada_por_paro)
+
+
+# ── Endpoints de sesión ──────────────────────────────────────────────────────
+
+class _LoginBody(BaseModel):
+    usuario: str
+    clave: str
+
+
+@app.post("/auth/login")
+def login(body: _LoginBody):
+    """401 genérico (sin distinguir usuario inexistente, inactivo o clave
+    errónea) y 429 con el usuario bloqueado, aunque la clave sea correcta.
+    Los intentos cuentan también para usuarios inexistentes (decisión 29)."""
+    usuario = body.usuario.strip()
+    # comprobar y contar en un solo paso, antes de la verificación lenta
+    if not intentos_login.reservar_intento(usuario):
+        _auditar("login_bloqueado", usuario=usuario, entidad="/auth/login")
+        raise HTTPException(status_code=429,
+                            detail="Usuario bloqueado por intentos fallidos; espere 5 minutos")
+
+    fila = context.db.get_usuario_by_username(usuario) if usuario else None
+    if fila is None:
+        simular_verificacion()
+        valido = False
+    else:
+        valido = verificar_password(body.clave, fila.get("hash_pw"))
+
+    if not valido:
+        quedo_bloqueado = intentos_login.bloqueado(usuario)
+        _auditar("login_fallido", usuario=usuario, entidad="/auth/login",
+                 detalle={"bloqueado": True} if quedo_bloqueado else None)
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+    intentos_login.registrar_exito(usuario)
+    sesion = tokens.emitir(fila["usuario"], fila.get("nombre") or "", fila.get("rol") or "",
+                           bool(fila.get("debe_cambiar_clave")))
+    _auditar("login_ok", sesion)
+    return {
+        "token": sesion.token,
+        "usuario": sesion.usuario,
+        "nombre": sesion.nombre,
+        "rol": sesion.rol,
+        "debe_cambiar_clave": sesion.debe_cambiar_clave,
+    }
+
+
+@app.post("/auth/logout")
+def logout(sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True))):
+    # Decisión 30: si esta sesión tenía el modo prueba, nadie más podría salir.
+    # Invalidar y comprobar bajo el lock: un /io/test/enter de esta misma
+    # sesión en vuelo vuelve a validar el token dentro del lock y se rechaza.
+    with context.control_loop.bloqueo_maquina():
+        tokens.invalidar(sesion.token)
+        salio = (_token_modo_prueba == sesion.token
+                 and context.control_loop.test_mode_active)
+        if salio:
+            _salir_modo_prueba()
+    _auditar("logout", sesion)
+    if salio:
+        _auditar("modo_prueba_sale", sesion, detalle={"motivo": "sesión cerrada"})
+    return {"ok": True}
+
+
+class _CambioClaveBody(BaseModel):
+    clave_actual: str
+    clave_nueva: str
+    confirmacion: str
+
+
+@app.post("/auth/change_password")
+def change_password(body: _CambioClaveBody,
+                    sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True))):
+    entidad = "/auth/change_password"
+    fila = context.db.get_usuario_by_username(sesion.usuario)
+    if fila is None or not verificar_password(body.clave_actual, fila.get("hash_pw")):
+        _rechazar(403, "La contraseña actual no es correcta", entidad, sesion)
+    # Mismas reglas de longitud y confirmación que Nuevo usuario
+    errores = validar_nuevo_usuario(
+        sesion.nombre or sesion.usuario, sesion.usuario, body.clave_nueva, body.confirmacion,
+        sesion.rol, existe_usuario=lambda _u: False,
+    )
+    errores = {k: v for k, v in errores.items() if k in ("password", "confirmacion")}
+    if not errores and body.clave_nueva == body.clave_actual:
+        errores["password"] = "La nueva contraseña debe ser distinta de la actual"
+    if errores:
+        raise HTTPException(status_code=422, detail={"errores": errores})
+
+    context.db.actualizar_password(sesion.usuario, hash_password(body.clave_nueva))
+    tokens.clave_cambiada(sesion.token)
+    _auditar("cambio_clave", sesion)
+    return {"ok": True}
+
+
+class _NuevoUsuarioBody(BaseModel):
+    nombre: str
+    usuario: str
+    clave: str
+    confirmacion: str
+    rol: str
+    activo: bool = True
+
+
+@app.post("/usuarios")
+def crear_usuario(body: _NuevoUsuarioBody,
+                  sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_INGENIERO))):
+    """Decisión 26: ingeniero crea admin, técnico e ingeniero; admin crea admin
+    y técnico. 403 si el rol no puede crear el rol pedido, 409 si el usuario ya
+    existe (sin distinguir mayúsculas), 422 con {campo: mensaje} si no valida."""
+    entidad = "/usuarios"
+    errores = validar_nuevo_usuario(body.nombre, body.usuario, body.clave, body.confirmacion,
+                                    body.rol, existe_usuario=lambda _u: False)
+    if errores:
+        raise HTTPException(status_code=422, detail={"errores": errores})
+    if body.rol not in ROLES_CREABLES.get(sesion.rol, frozenset()):
+        _rechazar(403, "Su rol no puede crear usuarios con ese rol", entidad, sesion)
+    if context.db.existe_usuario(body.usuario):
+        _rechazar(409, USUARIO_EXISTE, entidad, sesion)
+
+    try:
+        context.db.crear_usuario(
+            body.nombre.strip(), body.usuario, hash_password(body.clave), body.rol,
+            activo=1 if body.activo else 0, creado_por=sesion.usuario,
+        )
+    except sqlite3.IntegrityError:
+        # carrera con otra creación del mismo nombre entre la consulta y el INSERT
+        _rechazar(409, USUARIO_EXISTE, entidad, sesion)
+
+    _auditar("usuario_creado", sesion, entidad=body.usuario,
+             valor_nuevo={"rol": body.rol, "activo": body.activo})
+    return {"ok": True, "usuario": body.usuario}
 
 
 def _resolve_sensor_index(tipo: str, sensor: str) -> int:
@@ -50,7 +363,7 @@ def get_calibration(tipo: str, sensor: str):
     config = load_config(CALIBRATION_PATH)
     calib = (config.calibration.user.temperature if tipo == "temperature"
              else config.calibration.user.pressure)[index]
-    last = context.calibration_audit.get_last_change(tipo, sensor)
+    last = _ultimo_cambio_calibracion(tipo, sensor)
     return {
         "sensor": sensor,
         "tipo": tipo,
@@ -62,8 +375,30 @@ def get_calibration(tipo: str, sensor: str):
     }
 
 
+def _ultimo_cambio_calibracion(tipo: str, sensor: str) -> dict | None:
+    """Último cambio: primero audit_log; si no hay, la tabla histórica
+    sensor_calibration_audit (§5.10), que ya no recibe escrituras."""
+    try:
+        filas = context.db.get_auditoria(evento="calibracion_cambio",
+                                         entidad=f"{tipo}/{sensor}", limite=1)
+    except Exception:
+        logger.exception("No se pudo leer audit_log")
+        filas = []
+    if isinstance(filas, list) and filas:
+        fila = filas[0]
+        try:
+            ts = datetime.fromisoformat(fila["ts"]).strftime("%Y-%m-%d %H:%M")
+        except (TypeError, ValueError):
+            ts = fila["ts"]
+        return {"usuario": fila["usuario"], "timestamp": ts}
+    return context.calibration_audit.get_last_change(tipo, sensor)
+
+
 @app.patch("/calibration/{tipo}/{sensor}")
-def update_calibration(tipo: str, sensor: str, body: dict = Body(...)):
+def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
+                       sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+    """Solo ingeniero (decisión 25). En CICLO aplica de inmediato (§5.8). El
+    usuario sale del token: un `usuario` en el cuerpo se ignora."""
     index = _resolve_sensor_index(tipo, sensor)
 
     try:
@@ -74,33 +409,54 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...)):
             status_code=422,
             detail="shown_low, real_low, shown_high, real_high son obligatorios y numericos",
         )
-    usuario = str(body.get("usuario", "Desconocido"))
+    entidad = f"{tipo}/{sensor}"
 
-    config = load_config(CALIBRATION_PATH)
-    user_list = (config.calibration.user.temperature if tipo == "temperature"
-                 else config.calibration.user.pressure)
-    old_calib = user_list[index]
-    old_gain, old_offset = old_calib.gain, old_calib.offset
+    # Solo comprobación bajo _sm_lock: el guard solo deja pasar en CICLO al
+    # ingeniero, que es el único rol que llega aquí, así que la escritura no
+    # necesita ser atómica con la comprobación. YAML y recarga van fuera del
+    # lock para no detener el tick (revisión de la etapa 1, hallazgo D).
+    with guard_estado(DISTINTO_DE_CICLO, f"/calibration/{entidad}", sesion,
+                      excepcion_ingeniero=True):
+        contexto_ciclo = _contexto_ciclo()
 
-    try:
-        fv_low  = invert_user_calibration(shown_low, old_calib.gain, old_calib.offset, old_calib.poly)
-        fv_high = invert_user_calibration(shown_high, old_calib.gain, old_calib.offset, old_calib.poly)
-        new_gain, new_offset = fit_two_point(fv_low, real_low, fv_high, real_high)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
+    with _lock_archivos:
+        config = load_config(CALIBRATION_PATH)
+        user_list = (config.calibration.user.temperature if tipo == "temperature"
+                     else config.calibration.user.pressure)
+        old_calib = user_list[index]
+        old_gain, old_offset = old_calib.gain, old_calib.offset
 
-    write_user_calibration(
-        CALIBRATION_PATH, tipo, index, new_gain, new_offset,
-        shown_low, real_low, shown_high, real_high,
-    )
-    git_autocommit(CALIBRATION_PATH, f"chore: recalibrar {tipo} {sensor} (auto)")
-    context.units.reload_calibration(CALIBRATION_PATH)
-    context.calibration_audit.log_change(
-        tipo, sensor, shown_low, real_low, shown_high, real_high,
-        old_gain, old_offset, new_gain, new_offset, usuario,
-    )
+        try:
+            fv_low  = invert_user_calibration(shown_low, old_calib.gain, old_calib.offset, old_calib.poly)
+            fv_high = invert_user_calibration(shown_high, old_calib.gain, old_calib.offset, old_calib.poly)
+            new_gain, new_offset = fit_two_point(fv_low, real_low, fv_high, real_high)
+        except ValueError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        write_user_calibration(
+            CALIBRATION_PATH, tipo, index, new_gain, new_offset,
+            shown_low, real_low, shown_high, real_high,
+        )
+        context.units.reload_calibration(CALIBRATION_PATH)
+    detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
+                          "shown_high": shown_high, "real_high": real_high}}
+    detalle.update(contexto_ciclo)
+
+    _auditar("calibracion_cambio", sesion, entidad=entidad,
+             valor_anterior={"gain": old_gain, "offset": old_offset},
+             valor_nuevo={"gain": new_gain, "offset": new_offset},
+             detalle=detalle)
 
     return {"ok": True, "gain": new_gain, "offset": new_offset}
+
+
+def _diagnostico_comunicacion() -> dict | None:
+    """Contadores y estado del enlace serial con la tarjeta (diagnóstico)."""
+    try:
+        diag = context.serial.get_diagnostico()
+    except Exception:
+        return None
+    return diag if isinstance(diag, dict) else None
 
 
 @app.get("/status", response_model=None)
@@ -172,7 +528,10 @@ def get_status():
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
-        "card_connected":        context.units.is_connected(),
+        # Del enlace serial, no de Units: Units solo se entera por on_update
+        # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).
+        "card_connected":        context.serial.is_connected(),
+        "comunicacion":          _diagnostico_comunicacion(),
         "test_mode_active":      context.control_loop.test_mode_active,
         "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,
@@ -550,23 +909,6 @@ def get_cycle_ticket(ciclo_id: int):
     }
 
 
-@app.get("/cycle/history/{ciclo_id}/ticket.txt", response_class=PlainTextResponse)
-def get_cycle_ticket_txt(ciclo_id: int):
-    """Retorna el ticket como texto plano y lo guarda en data/tickets/."""
-    ciclo = context.db.get_ciclo(ciclo_id)
-    if ciclo is None:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-
-    rows  = context.db.get_lecturas_para_imprimir(ciclo_id)
-    text  = format_ticket(dict(ciclo), [dict(r) for r in rows])
-
-    _TICKETS_DIR.mkdir(parents=True, exist_ok=True)
-    ticket_path = _TICKETS_DIR / f"ciclo_{ciclo['numero_ciclo']:05d}.txt"
-    ticket_path.write_text(text, encoding="utf-8")
-
-    return PlainTextResponse(content=text)
-
-
 @app.post("/cycle/start")
 def start_cycle():
     """
@@ -576,6 +918,7 @@ def start_cycle():
     la transición real.
     """
     estado = context.estado
+    _rechazar_si_config_invalida("/cycle/start")
 
     if not estado.get_flag("LISTO_PARA_CICLO"):
         raise HTTPException(
@@ -622,9 +965,15 @@ def reset_fault():
 @app.post("/outputs/reset")
 def reset_outputs():
     """
-    Apaga todas las salidas digitales.
+    Apaga todas las salidas digitales y detiene el control loop.
     Llamar antes de cerrar la aplicación o ante cualquier apagado seguro.
+    409 en CICLO: para detener un ciclo existe /cycle/abort.
     """
+    # Solo la comprobación va dentro de _sm_lock: stop() espera al hilo del
+    # loop, que puede estar esperando ese mismo lock. Si un ciclo arrancara
+    # justo después, stop() lo deja con todo apagado (estado seguro).
+    with guard_estado(DISTINTO_DE_CICLO, "/outputs/reset"):
+        pass
     try:
         context.control_loop.stop()   # evita que el loop re-active salidas durante el reset
         context.setdo.reset_all_outputs()
@@ -666,6 +1015,7 @@ def acknowledge_cycle():
 @app.post("/doors/{door_name}/open")
 def open_door(door_name: str, body: dict = Body(...)):
     source_door = body.get("source_door")
+    _rechazar_si_config_invalida(f"/doors/{door_name}/open")
 
     ok, reason = context.servicio_puertas.request_open(door_name)
     if not ok:
@@ -685,6 +1035,7 @@ def open_door(door_name: str, body: dict = Body(...)):
 @app.post("/doors/{door_name}/close")
 def close_door(door_name: str, body: dict = Body(...)):
     source_door = body.get("source_door")
+    _rechazar_si_config_invalida(f"/doors/{door_name}/close")
 
     ok, reason = context.servicio_puertas.request_close(door_name)
     if not ok:
@@ -701,50 +1052,6 @@ def close_door(door_name: str, body: dict = Body(...)):
     }
 
 
-@app.patch("/cycle/parameters")
-def update_cycle_parameters(body: dict = Body(...)):
-    """Actualiza parámetros de la sección 'secado' del ciclo activo y persiste si es user."""
-    try:
-        cycle = context.cycle_manager.get_selected_cycle()
-    except Exception:
-        raise HTTPException(status_code=503, detail="No hay ciclo activo seleccionado")
-
-    _SECADO_PARAMS = {
-        "modo":                    (int,   1,   3),
-        "tiempo_secado":           (float, 0.0, 120.0),
-        "presion_chaqueta_secado": (int,   0,   500),
-        "rango_chaqueta_secado":   (int,   0,   100),
-        "presion_baja_secado":     (int,   0,   200),
-        "presion_alta_secado":     (int,   0,   300),
-        "timeout_pulso":           (int,   1,   600),
-    }
-
-    secado = cycle.parameters.get("secado")
-    if secado is None:
-        raise HTTPException(status_code=422, detail="El ciclo no tiene sección 'secado'")
-
-    for param, (tipo, v_min, v_max) in _SECADO_PARAMS.items():
-        if param not in body:
-            continue
-        try:
-            value = tipo(body[param])
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=422, detail=f"{param} debe ser numérico")
-        if not (v_min <= value <= v_max):
-            raise HTTPException(
-                status_code=422,
-                detail=f"{param} fuera de rango ({v_min}-{v_max})",
-            )
-        if param not in secado:
-            raise HTTPException(status_code=422, detail=f"Parámetro '{param}' no existe en 'secado'")
-        secado[param]["value"] = value
-
-    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        _save_cycle_json(cycle)
-
-    return {"ok": True}
-
-
 class _CycleParamValueBody(BaseModel):
     cycle_id: str
     fase: str
@@ -752,12 +1059,23 @@ class _CycleParamValueBody(BaseModel):
     value: object
 
 
+def _valor_parametro(cycle, fase: str, path: list[str]):
+    """Valor actual de un parámetro, o None si la ruta no existe."""
+    nodo = cycle.parameters.get(fase) if isinstance(cycle.parameters, dict) else None
+    for clave in path:
+        if not isinstance(nodo, dict) or clave not in nodo:
+            return None
+        nodo = nodo[clave]
+    return nodo.get("value") if isinstance(nodo, dict) else None
+
+
 @app.patch("/cycle/parameter")
-def update_cycle_parameter(body: _CycleParamValueBody):
-    """Actualiza un único parámetro (cualquier sección) de cualquier ciclo cargado
-    y persiste si es 'user'. A diferencia de /cycle/parameters, no está limitado
-    a 'secado' ni requiere una tabla de validación hardcodeada: valida contra el
-    'type'/'min'/'max' que ya trae cada parámetro en su propio JSON."""
+def update_cycle_parameter(body: _CycleParamValueBody,
+                           sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+    """Actualiza un único parámetro (cualquier sección, incluido el secado) de
+    cualquier ciclo cargado y persiste si es 'user'. Valida contra el
+    'type'/'min'/'max' que ya trae cada parámetro en su propio JSON.
+    Solo ingeniero (decisión 25); en CICLO, §5.8."""
     cycle = context.cycle_manager.cycles.get(body.cycle_id)
     if cycle is None:
         raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
@@ -765,17 +1083,42 @@ def update_cycle_parameter(body: _CycleParamValueBody):
     if not body.path:
         raise HTTPException(status_code=422, detail="'path' no puede estar vacío")
 
-    try:
-        value = cycle.set_param(body.fase, body.path, body.value)
-    except KeyError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except (TypeError, ValueError) as e:
-        raise HTTPException(status_code=422, detail=str(e))
+    entidad = f"{body.cycle_id}/{body.fase}/{'.'.join(body.path)}"
+    with guard_estado(DISTINTO_DE_CICLO, "/cycle/parameter", sesion,
+                      excepcion_ingeniero=True) as estado:
+        en_ciclo = estado == GlobalState.CICLO
+        programa_en_curso = getattr(getattr(context.control_loop, "cycle", None), "id", None)
+        if en_ciclo and body.cycle_id == programa_en_curso:
+            # PROVISIONAL hasta T-17 (etapa 3): sin la copia profunda, editar el
+            # programa en ejecución mutaría el objeto que usan las fases (OPC-26).
+            raise _Rechazo(409, "El programa en curso no se puede editar hasta que termine el ciclo")
 
+        anterior = _valor_parametro(cycle, body.fase, body.path)
+        try:
+            value = cycle.set_param(body.fase, body.path, body.value)
+        except KeyError as e:
+            raise HTTPException(status_code=422, detail=str(e))
+        except (TypeError, ValueError) as e:
+            raise HTTPException(status_code=422, detail=str(e))
+
+        # Fuera de CICLO, o en otro programa durante CICLO (§5.8, 5b), el
+        # cambio solo rige desde el siguiente ciclo que use ese programa.
+        aplica = "siguiente"
+        detalle = {"programa": body.cycle_id, "fase": body.fase, "aplica": aplica}
+        if en_ciclo:
+            ctx = _contexto_ciclo()
+            detalle.update({"ciclo": ctx.get("ciclo"), "fase_en_curso": ctx.get("fase"),
+                            "programa_en_curso": ctx.get("programa")})
+
+    # El JSON se escribe fuera de _sm_lock (hallazgo D); el valor en memoria
+    # ya quedó cambiado bajo el lock, atómico con la comprobación de estado.
     if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        _save_cycle_json(cycle)
+        with _lock_archivos:
+            _save_cycle_json(cycle)
 
-    return {"ok": True, "value": value}
+    _auditar("param_ciclo_cambio", sesion, entidad=entidad,
+             valor_anterior=anterior, valor_nuevo=value, detalle=detalle)
+    return {"ok": True, "value": value, "aplica": aplica}
 
 
 def _save_cycle_json(cycle) -> None:
@@ -789,7 +1132,6 @@ def _save_cycle_json(cycle) -> None:
     data["parameters"] = cycle.parameters
     with open(path, "w", encoding="utf-8") as f:
         _json.dump(data, f, indent=4, ensure_ascii=False)
-    git_autocommit(path, f"chore: actualizar parametros de ciclo {cycle.id} (auto)")
 
 
 # Direct hardware access — bypasses control_loop, for bench validation only
@@ -798,37 +1140,136 @@ class _OutputSetBody(BaseModel):
     value: bool
 
 
-@app.post("/io/test/reset_all")
-def io_test_reset_all():
-    context.setdo.reset_all_outputs()
-    return {"ok": True}
+_requiere_rol_prueba = requiere_rol(ROL_TECNICO, ROL_INGENIERO)
 
 
 @app.post("/io/test/enter")
-def io_test_enter():
+def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
     """Activa el modo prueba: pausa la máquina de estados (sin importar la
-    fase — PREPARACION o PREPARADO) y apaga todas las salidas para permitir
-    control manual. Rechazado durante CICLO o con el paro de emergencia activo."""
-    ok, reason = context.control_loop.enter_test_mode()
-    if not ok:
-        raise HTTPException(status_code=409, detail=reason)
+    fase — PREPARACION, PREPARADO o FALLA) y apaga todas las salidas para
+    permitir control manual. Rechazado en CICLO, HIBERNACION, EMERGENCIA o con
+    el paro de emergencia activo. Recuerda la sesión que entró (§5.4).
+
+    El ALL_OFF de enter_test_mode corre con _sm_lock tomado (espera el ACK
+    hasta 1 s); es aceptable porque el guard excluye CICLO."""
+    global _token_modo_prueba
+    with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, "/io/test/enter", sesion):
+        motivo_config = context.control_loop.bloqueo_configuracion
+        if isinstance(motivo_config, str) and motivo_config:
+            raise _Rechazo(409, f"Configuración inválida: {motivo_config}")
+        # un logout de esta sesión pudo llegar mientras esta petición esperaba
+        if tokens.obtener(sesion.token) is None:
+            raise _Rechazo(401, "Sesión no válida o vencida; inicie sesión de nuevo")
+        # sin esto, otra sesión le quitaría la propiedad a la que entró
+        if (context.control_loop.test_mode_active
+                and _token_modo_prueba not in (None, sesion.token)):
+            raise _Rechazo(409, "El modo prueba ya está activo en otra sesión")
+        ok, reason = context.control_loop.enter_test_mode()
+        if not ok:
+            raise _Rechazo(409, reason)
+        _token_modo_prueba = sesion.token
+    _auditar("modo_prueba_entra", sesion)
     return {"ok": True}
 
 
 @app.post("/io/test/exit")
-def io_test_exit():
-    """Sale del modo prueba: apaga todas las salidas y reanuda la máquina de estados."""
-    context.control_loop.exit_test_mode()
+def io_test_exit(sesion: Sesion = Depends(_requiere_rol_prueba)):
+    """Sale del modo prueba: apaga todas las salidas y reanuda la máquina de
+    estados. 409 si no se estaba en modo prueba o si lo pide otra sesión.
+    Comprobación y salida bajo _sm_lock: ninguna orden de encendido ya
+    validada puede llegar después del apagado."""
+    with guard_estado(frozenset(), "/io/test/exit", sesion):
+        if not context.control_loop.test_mode_active:
+            raise _Rechazo(409, "El modo prueba no está activo")
+        if _token_modo_prueba != sesion.token:
+            raise _Rechazo(409, "Solo la sesión que activó el modo prueba puede salir de él")
+        _salir_modo_prueba()
+    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "salida solicitada"})
     return {"ok": True}
 
 
+def _es_numero(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _entrada_digital(valor) -> bool | None:
+    """1/True → True, 0/False → False; cualquier otra cosa (None, lectura
+    inválida) → None, que R-02 trata como "sin lectura"."""
+    if isinstance(valor, bool):
+        return valor
+    if isinstance(valor, int) and valor in (0, 1):
+        return valor == 1
+    return None
+
+
+def _motivo_puerta_no_cerrada(door) -> str | None:
+    """Posición de la puerta leída EN VIVO de sus entradas digitales, no del
+    estado lógico: durante el modo prueba door.update() está en pausa y ese
+    estado queda congelado (revisión de la etapa 1, hallazgo A). Cerrada exige
+    cerrada=1 y, si la puerta tiene sensor de abierta, abierta=0."""
+    nombre = getattr(door, "name", None)
+    di = getattr(door, "di", None)
+    if not nombre or not isinstance(di, dict) or "cerrada" not in di:
+        return "Sin lectura del estado de las puertas"
+    entradas = context.estado.sensores_di
+    cerrada = _entrada_digital(entradas.get(di["cerrada"]))
+    abierta = _entrada_digital(entradas.get(di["abierta"])) if "abierta" in di else False
+    if cerrada is None or abierta is None:
+        return f"Sin lectura del estado de {nombre}"
+    if not cerrada or abierta:
+        return f"{nombre} no está cerrada"
+    return None
+
+
+def _motivo_r02() -> str | None:
+    """Condiciones de R-02 para encender una salida en prueba (§5.4): cámara a
+    presión atmosférica (ambas absolutas) y todas las puertas cerradas según
+    sus entradas en vivo. Sin lectura o sin configuración, rechaza. Valores
+    leídos en vivo de la configuración."""
+    pres = context.estado.sensores_pres.get("pres_camara")
+    atm = context.config_manager.get("presion_admosferica")
+    rango = context.config_manager.get("rango_presion_atm")
+    if not _es_numero(pres):
+        return "Sin lectura de presión de cámara"
+    if not (_es_numero(atm) and _es_numero(rango)):
+        return "Configuración de presión atmosférica no disponible"
+    if not (atm - rango <= pres <= atm + rango):
+        return f"Cámara fuera de presión atmosférica ({pres:.0f} kPa)"
+    puertas = list(context.doors or [])
+    if not puertas:
+        return "Sin lectura del estado de las puertas"
+    for door in puertas:
+        motivo = _motivo_puerta_no_cerrada(door)
+        if motivo:
+            return motivo
+    return None
+
+
 @app.patch("/io/test/output/{name}")
-def io_test_set_output(name: str, body: _OutputSetBody):
+def io_test_set_output(name: str, body: _OutputSetBody,
+                       sesion: Sesion = Depends(_requiere_rol_prueba)):
+    """Acciona una salida en modo prueba. Apagar siempre se permite dentro del
+    modo prueba; encender exige además ser la sesión dueña y R-02 (§5.4)."""
     if name not in EstadoAutoclave.map_do:
         raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
-    # map_do es 0-indexado (posición en el bitstream DO), pero
-    # serial_link.set_output() espera el número de canal DO físico
-    # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
-    index = EstadoAutoclave.map_do[name]
-    context.setdo.set_output(index + 1, body.value)
+    entidad = f"/io/test/output/{name}"
+    with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad, sesion):
+        if not context.control_loop.test_mode_active:
+            raise _Rechazo(409, "El modo prueba no está activo")
+        if context.estado.get_flag("PARO_EMERGENCIA"):
+            raise _Rechazo(409, "Paro de emergencia activado")
+        if body.value:
+            # encender solo desde la sesión que está a cargo de la prueba;
+            # apagar queda abierto a cualquier sesión de prueba (es lo seguro)
+            if _token_modo_prueba != sesion.token:
+                raise _Rechazo(409, "Solo la sesión que activó el modo prueba puede encender salidas")
+            motivo = _motivo_r02()
+            if motivo:
+                raise _Rechazo(409, motivo)
+        # map_do es 0-indexado (posición en el bitstream DO), pero
+        # serial_link.set_output() espera el número de canal DO físico
+        # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
+        index = EstadoAutoclave.map_do[name]
+        context.setdo.set_output(index + 1, body.value)
+    _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
     return {"ok": True, "name": name, "value": body.value}

@@ -15,6 +15,8 @@ class SessionManager:
             "nombre":  user_dict["nombre"],
             "usuario": user_dict["usuario"],
             "rol":     user_dict["rol"],
+            # token del backend (POST /auth/login); None si el login fue local
+            "token":   user_dict.get("token"),
         }
 
     @classmethod

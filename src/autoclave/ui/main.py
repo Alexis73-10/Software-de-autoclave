@@ -19,6 +19,17 @@ logger = logging.getLogger(__name__)
 BACKEND_URL = "http://127.0.0.1:8000"
 
 
+def _avisar_ciclo_en_curso():
+    """Con un ciclo en curso la ventana no se cierra: terminar el backend
+    mataría el ciclo sin apagar las salidas (revisión de la etapa 1 de
+    autenticación, hallazgo B)."""
+    from tkinter import messagebox
+    messagebox.showwarning(
+        "Ciclo en curso",
+        "No se puede cerrar con un ciclo en curso.\n\n"
+        "Espere a que termine o abórtelo antes de cerrar.")
+
+
 def is_backend_alive(timeout=1):
     try:
         r = requests.get(f"{BACKEND_URL}/status", timeout=timeout)
@@ -105,11 +116,15 @@ def main():
 
     def on_close():
         logger.info("Cerrando aplicación...")
-        try:
-            ui_service.reset_outputs()
+        resultado = ui_service.reset_outputs_al_cerrar()
+        if resultado == "ciclo":
+            logger.warning("Cierre cancelado: ciclo en curso, el backend sigue en marcha")
+            _avisar_ciclo_en_curso()
+            return
+        if resultado == "apagado":
             logger.info("Salidas digitales apagadas")
-        except Exception as e:
-            logger.warning("No se pudieron apagar las salidas: %s", e)
+        else:
+            logger.warning("No se pudieron apagar las salidas")
         ui_service.stop()
         if backend_process:
             logger.info("Deteniendo backend...")

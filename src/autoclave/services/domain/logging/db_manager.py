@@ -13,7 +13,10 @@
 #                      en curso (separada del ticket; tiempo monotónico)
 #   ciclo_fases — inicio/fin/duración de cada fase de cada ciclo (estimador
 #                 de tiempo restante y desplegable "Tiempos")
+#   audit_log — bitácora de seguridad y configuración (migración v1,
+#               planeacion_backend_autenticacion.md §5.10)
 
+import json
 import sqlite3
 import logging
 import threading
@@ -101,9 +104,58 @@ CREATE TABLE IF NOT EXISTS usuarios (
     usuario  TEXT UNIQUE NOT NULL,
     hash_pw  TEXT NOT NULL,
     rol      TEXT DEFAULT 'operador',
-    activo   INTEGER DEFAULT 1
+    activo   INTEGER DEFAULT 1,
+    creado_por      TEXT DEFAULT '',
+    creado_en       TEXT DEFAULT '',
+    codigo_creacion TEXT DEFAULT '',
+    debe_cambiar_clave INTEGER DEFAULT 0
 );
 """
+
+# Usuarios semilla (planeacion_backend_autenticacion.md, decisión 5), ambos con
+# debe_cambiar_clave. El hash PBKDF2 va precalculado con una sal fija: la
+# contraseña semilla es pública y se cambia en el primer login, así que la sal
+# fija no expone nada y evita 600 000 iteraciones en cada base nueva.
+_USUARIOS_SEMILLA = (
+    ("Administrador", "admin", "admin",          # contraseña: admin1234
+     "pbkdf2$600000$244c45ae5ee701d94ead2bfad6339db3$"
+     "5abbc82ab1c70a268623cc8f2c774a1733f3851d9a30f9a3fcd835f3afc5a190"),
+    ("Ingeniero", "ingeniero", "ingeniero",      # contraseña: ingeniero1234
+     "pbkdf2$600000$dd26db607bc796ade9d097563e47d0e1$"
+     "f8fa605e93fc5e4e035c60d0e07b23a96ca6390830855f36c14cb03a2d609019"),
+)
+
+
+# ── Migraciones numeradas (PRAGMA user_version) ─────────────────────────────
+# La base anterior a este mecanismo es v0. Cada migración es atómica (una
+# transacción) y registra su versión al terminar. v2 queda reservada para
+# planeacion_backend_parametros.md (system_params, entradas mostradas, gráfica).
+
+def _migracion_v1(conn: sqlite3.Connection) -> None:
+    """Bitácora audit_log (planeacion_backend_parametros.md §7). `ts` es
+    reloj de pared: es un sello de registro, no un temporizador."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS audit_log (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            ts             TEXT NOT NULL,
+            usuario        TEXT NOT NULL DEFAULT '',
+            rol            TEXT NOT NULL DEFAULT '',
+            evento         TEXT NOT NULL,
+            entidad        TEXT NOT NULL DEFAULT '',
+            valor_anterior TEXT,
+            valor_nuevo    TEXT,
+            detalle        TEXT
+        )""")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audit_log_evento ON audit_log(evento, entidad)"
+    )
+
+
+_MIGRACIONES = (
+    (1, _migracion_v1),
+)
+
+ESQUEMA_VERSION = _MIGRACIONES[-1][0]
 
 
 class DbManager:
@@ -139,6 +191,7 @@ class DbManager:
             self._conn.executescript(_SCHEMA)
             self._conn.commit()
             self._migrate()
+            self._migrar_versiones()
 
     def _migrate(self):
         """Migraciones aditivas para bases de datos creadas antes de que
@@ -150,6 +203,100 @@ class DbManager:
             self._conn.commit()
         except sqlite3.OperationalError:
             pass  # la columna ya existe
+        # Auditoría de creación de usuarios (planeacion_nuevo_usuario.md, D-08/D-12)
+        for columna in ("creado_por", "creado_en", "codigo_creacion"):
+            try:
+                self._conn.execute(
+                    f"ALTER TABLE usuarios ADD COLUMN {columna} TEXT DEFAULT ''"
+                )
+                self._conn.commit()
+            except sqlite3.OperationalError:
+                pass  # la columna ya existe
+        # Cambio de contraseña obligatorio (planeacion_backend_autenticacion.md, decisión 5)
+        try:
+            self._conn.execute(
+                "ALTER TABLE usuarios ADD COLUMN debe_cambiar_clave INTEGER DEFAULT 0"
+            )
+            self._conn.commit()
+        except sqlite3.OperationalError:
+            pass  # la columna ya existe
+
+    def _migrar_versiones(self):
+        """Aplica en orden las migraciones numeradas pendientes. Si una falla,
+        se revierte entera y la versión no avanza."""
+        actual = self._conn.execute("PRAGMA user_version").fetchone()[0]
+        for version, migracion in _MIGRACIONES:
+            if version <= actual:
+                continue
+            try:
+                self._conn.execute("BEGIN")
+                migracion(self._conn)
+                self._conn.execute(f"PRAGMA user_version = {int(version)}")
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                logger.exception("Migración v%d fallida", version)
+                raise
+            logger.info("Base de datos migrada a v%d", version)
+
+    def get_version_esquema(self) -> int:
+        with self._lock:
+            return self._conn.execute("PRAGMA user_version").fetchone()[0]
+
+    # ------------------------------------------------------------------
+    # Bitácora (audit_log)
+    # ------------------------------------------------------------------
+
+    def registrar_auditoria(
+        self,
+        evento: str,
+        usuario: str = "",
+        rol: str = "",
+        entidad: str = "",
+        valor_anterior=None,
+        valor_nuevo=None,
+        detalle: dict | None = None,
+    ) -> int:
+        """Inserta una fila en audit_log. Los valores anterior y nuevo se
+        guardan como texto (JSON si no son str); `detalle`, como JSON."""
+        def texto(v):
+            if v is None or isinstance(v, str):
+                return v
+            return json.dumps(v, ensure_ascii=False)
+
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO audit_log (ts, usuario, rol, evento, entidad,"
+                " valor_anterior, valor_nuevo, detalle) VALUES (?,?,?,?,?,?,?,?)",
+                (datetime.now().isoformat(timespec="seconds"), usuario or "", rol or "",
+                 evento, entidad or "", texto(valor_anterior), texto(valor_nuevo),
+                 json.dumps(detalle, ensure_ascii=False) if detalle else None),
+            )
+            self._conn.commit()
+            return cur.lastrowid
+
+    def get_auditoria(self, evento: str | None = None, entidad: str | None = None,
+                      limite: int = 100) -> list[dict]:
+        """Filas de audit_log, la más reciente primero, con `detalle` ya decodificado."""
+        condiciones, params = [], []
+        if evento is not None:
+            condiciones.append("evento = ?")
+            params.append(evento)
+        if entidad is not None:
+            condiciones.append("entidad = ?")
+            params.append(entidad)
+        where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
+        params.append(limite)
+        with self._lock:
+            filas = self._conn.execute(
+                f"SELECT * FROM audit_log {where} ORDER BY id DESC LIMIT ?", params
+            ).fetchall()
+        resultado = []
+        for f in filas:
+            d = dict(f)
+            d["detalle"] = json.loads(d["detalle"]) if d["detalle"] else None
+            resultado.append(d)
+        return resultado
 
     # ------------------------------------------------------------------
     # Ciclos
@@ -426,15 +573,30 @@ class DbManager:
         hash_pw: str,
         rol: str = "operador",
         activo: int = 1,
+        creado_por: str = "",
+        codigo_creacion: str = "",
     ) -> int:
+        """Inserta un usuario. Deja propagar sqlite3.IntegrityError si
+        `usuario` ya existe (UNIQUE, incluidos inactivos)."""
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo)"
-                " VALUES (?,?,?,?,?)",
-                (nombre, usuario, hash_pw, rol, activo),
+                "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo,"
+                " creado_por, creado_en, codigo_creacion)"
+                " VALUES (?,?,?,?,?,?,?,?)",
+                (nombre, usuario, hash_pw, rol, activo,
+                 creado_por, datetime.now().isoformat(), codigo_creacion),
             )
             self._conn.commit()
             return cur.lastrowid
+
+    def existe_usuario(self, usuario: str) -> bool:
+        """True si ya hay un usuario con ese nombre, activo o inactivo, sin
+        distinguir mayúsculas. Se compara en Python con casefold() porque
+        LOWER/NOCASE de SQLite solo pliegan ASCII (no la Ñ ni acentos)."""
+        buscado = usuario.casefold()
+        with self._lock:
+            filas = self._conn.execute("SELECT usuario FROM usuarios").fetchall()
+        return any(f["usuario"].casefold() == buscado for f in filas)
 
     def get_usuario_by_username(self, usuario: str) -> dict | None:
         with self._lock:
@@ -444,21 +606,30 @@ class DbManager:
             ).fetchone()
         return dict(row) if row else None
 
+    def actualizar_password(self, usuario: str, hash_pw: str) -> None:
+        """Guarda el nuevo hash y baja la bandera debe_cambiar_clave."""
+        with self._lock:
+            self._conn.execute(
+                "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=0 WHERE usuario=?",
+                (hash_pw, usuario),
+            )
+            self._conn.commit()
+
     def seed_admin_if_empty(self) -> None:
-        import hashlib
+        """Con la tabla vacía crea los usuarios semilla `admin` e `ingeniero`,
+        ambos obligados a cambiar la contraseña en el primer login."""
         with self._lock:
             count = self._conn.execute(
                 "SELECT COUNT(*) FROM usuarios"
             ).fetchone()[0]
             if count == 0:
-                admin_hash = hashlib.sha256(
-                    "admin1234".encode("utf-8")
-                ).hexdigest()
-                self._conn.execute(
-                    "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo)"
-                    " VALUES (?,?,?,?,?)",
-                    ("Administrador", "admin", admin_hash, "admin", 1),
-                )
+                for nombre, usuario, rol, hash_pw in _USUARIOS_SEMILLA:
+                    self._conn.execute(
+                        "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo,"
+                        " creado_por, creado_en, debe_cambiar_clave)"
+                        " VALUES (?,?,?,?,1,'semilla',?,1)",
+                        (nombre, usuario, hash_pw, rol, datetime.now().isoformat()),
+                    )
                 self._conn.commit()
 
     def get_ciclos_rango(

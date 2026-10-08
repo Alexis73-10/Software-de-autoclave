@@ -1,8 +1,8 @@
-import sys
-import importlib
 import textwrap
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+from tests.backend_doble import cabecera, cargar_servidor
 
 
 @pytest.fixture
@@ -20,18 +20,14 @@ def calib_client(tmp_path):
     """), encoding="utf-8")
 
     mock_ctx = MagicMock()
-
-    for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
-            del sys.modules[key]
-
-    with patch("autoclave.backend.context.BackendContext", return_value=mock_ctx):
-        srv = importlib.import_module("autoclave.backend.server")
+    mock_ctx.db.get_auditoria.return_value = []   # sin cambios en audit_log
+    srv, _ = cargar_servidor(mock_ctx)
 
     srv.CALIBRATION_PATH = yaml_path
 
     from fastapi.testclient import TestClient
-    return TestClient(srv.app), mock_ctx, yaml_path
+    # solo ingeniero calibra (planeacion_backend_autenticacion.md, decisión 25)
+    return TestClient(srv.app, headers=cabecera(srv, "ingeniero")), mock_ctx, yaml_path
 
 
 def test_get_calibration_404_tipo_invalido(calib_client):
@@ -73,18 +69,10 @@ def test_patch_calibration_422_puntos_iguales(calib_client):
     assert resp.status_code == 422
 
 
-def test_patch_calibration_autocomitea_el_yaml(calib_client):
-    client, _, yaml_path = calib_client
-
-    with patch("autoclave.backend.server.git_autocommit") as mock_autocommit:
-        resp = client.patch("/calibration/pressure/pres_camara", json={
-            "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0,
-        })
-
-    assert resp.status_code == 200
-    mock_autocommit.assert_called_once()
-    args = mock_autocommit.call_args.args
-    assert args[0] == yaml_path
+def test_patch_calibration_sin_git_autocommit(calib_client):
+    # decisión 9: git_autocommit se eliminó del backend
+    import autoclave.backend.server as srv
+    assert not hasattr(srv, "git_autocommit")
 
 
 def test_patch_calibration_actualiza_yaml_recarga_y_audita(calib_client):
@@ -103,8 +91,14 @@ def test_patch_calibration_actualiza_yaml_recarga_y_audita(calib_client):
 
     mock_ctx.units.reload_calibration.assert_called_once_with(yaml_path)
 
-    mock_ctx.calibration_audit.log_change.assert_called_once()
-    args = mock_ctx.calibration_audit.log_change.call_args.args
-    assert args[0] == "pressure"
-    assert args[1] == "pres_camara"
-    assert args[-1] == "tecnico1"
+    # auditoría en audit_log con el usuario del token; `usuario` del cuerpo se
+    # ignora y la tabla histórica ya no recibe escrituras (§5.10)
+    mock_ctx.calibration_audit.log_change.assert_not_called()
+    mock_ctx.db.registrar_auditoria.assert_called_once()
+    args, kwargs = mock_ctx.db.registrar_auditoria.call_args
+    assert args[0] == "calibracion_cambio"
+    assert kwargs["usuario"] == "usuario_ingeniero"
+    assert kwargs["rol"] == "ingeniero"
+    assert kwargs["entidad"] == "pressure/pres_camara"
+    assert kwargs["valor_anterior"] == {"gain": 1.3466, "offset": -67.11}
+    assert kwargs["valor_nuevo"]["gain"] == pytest.approx(1.261721, abs=1e-6)

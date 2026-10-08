@@ -328,15 +328,9 @@ def test_imprimir_sin_ciclos(cliente, estado_maquina):
     assert cliente.post("/cycle/history/print", json={"ids": []}).status_code == 422
 
 
-def test_ticket_txt_con_lecturas(cliente, db, tmp_path):
-    # antes fallaba: format_ticket usa .get y recibía filas sqlite3.Row
-    from autoclave.backend import server
-    cid = _crear(db)
-    db.insertar_lectura(cid, "00:00:10", "2026-10-02T08:00:10", "CALENTAMIENTO", 120.0, 200.0,
-                        para_imprimir=True)
-    with patch.object(server, "_TICKETS_DIR", tmp_path):
-        r = cliente.get(f"/cycle/history/{cid}/ticket.txt")
-    assert r.status_code == 200 and "0120.0 0200.0" in r.text
+def test_ticket_txt_eliminado(cliente, db):
+    # planeacion_backend_autenticacion.md §4.6: un GET no debe escribir archivos
+    assert cliente.get(f"/cycle/history/{_crear(db)}/ticket.txt").status_code == 404
 
 
 # ── resumen por periodo (pantalla Reportes) ──────────────────────────────

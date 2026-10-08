@@ -212,3 +212,81 @@ def test_paro_emergencia_cancela_modo_prueba_y_reanuda_en_el_mismo_tick():
     assert loop.test_mode_active is False
     loop.set_do.reset_all_outputs.assert_called()
     mock_sm.update.assert_called_once()
+
+
+# ── Revisión de seguridad de la etapa 1 de autenticación (SAF-03, TMG-01/04) ──
+
+def test_lock_de_la_maquina_es_reentrante():
+    """El backend toma bloqueo_maquina() en su guard y dentro llama a
+    enter/exit_test_mode, que también lo toman: no debe bloquearse."""
+    loop, _, _ = _make_control_loop()
+    with loop.bloqueo_maquina():
+        assert loop.enter_test_mode() == (True, "")
+        loop.exit_test_mode()
+    assert loop.test_mode_active is False
+
+
+def test_enter_y_exit_corren_con_el_lock_tomado():
+    loop, _, _ = _make_control_loop()
+    tomado = []
+    loop.set_do.reset_all_outputs.side_effect = lambda: tomado.append(loop._sm_lock._is_owned())
+    loop.enter_test_mode()
+    loop.exit_test_mode()
+    assert tomado == [True, True]
+
+
+def test_exit_apaga_antes_de_reanudar():
+    """Si reanudara primero, un tick podría correr la máquina de estados con
+    las salidas de prueba todavía encendidas."""
+    loop, _, _ = _make_control_loop()
+    loop.enter_test_mode()
+    en_prueba_al_apagar = []
+    loop.set_do.reset_all_outputs.side_effect = lambda: en_prueba_al_apagar.append(loop.test_mode_active)
+    loop.exit_test_mode()
+    assert en_prueba_al_apagar == [True]
+    assert loop.test_mode_active is False
+
+
+def test_tick_decide_puertas_y_maquina_con_el_lock_tomado():
+    """TMG-04: la comprobación de modo prueba y lo que depende de ella van
+    dentro del mismo lock que usan enter/exit."""
+    puerta = MagicMock()
+    loop, mock_sm, _ = _make_control_loop(doors=[puerta])
+    vistos = []
+    puerta.update.side_effect = lambda: vistos.append(("puerta", loop._sm_lock._is_owned()))
+    mock_sm.update.side_effect = lambda: vistos.append(("maquina", loop._sm_lock._is_owned()))
+    _run_one_tick(loop)
+    assert vistos == [("puerta", True), ("maquina", True)]
+
+
+def test_cancelacion_por_paro_avisa_una_vez_y_fuera_del_lock():
+    loop, _, estado = _make_control_loop()
+    avisos = []
+    loop.al_cancelar_modo_prueba(lambda: avisos.append(loop._sm_lock._is_owned()))
+    loop.enter_test_mode()
+    estado.sensores_di["paro_emergencia"] = 1
+
+    _run_one_tick(loop)
+    _run_one_tick(loop)   # ya fuera de modo prueba: no vuelve a avisar
+
+    assert avisos == [False]
+
+
+def test_cancelacion_por_paro_apaga_con_el_lock_tomado():
+    loop, _, estado = _make_control_loop()
+    loop.enter_test_mode()
+    tomado = []
+    loop.set_do.reset_all_outputs.side_effect = lambda: tomado.append(loop._sm_lock._is_owned())
+    estado.sensores_di["paro_emergencia"] = 1
+    _run_one_tick(loop)
+    assert tomado and all(tomado)
+
+
+def test_error_en_un_aviso_no_rompe_el_tick():
+    loop, mock_sm, estado = _make_control_loop()
+    loop.al_cancelar_modo_prueba(lambda: 1 / 0)
+    loop.enter_test_mode()
+    estado.sensores_di["paro_emergencia"] = 1
+    _run_one_tick(loop)
+    assert loop.test_mode_active is False
+    mock_sm.update.assert_called_once()

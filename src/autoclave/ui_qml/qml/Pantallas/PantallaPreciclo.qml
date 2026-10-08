@@ -43,6 +43,7 @@ Item {
     property string tiempoEsterilizacion: puente?.tiempoEsterilizacion ?? ""
     property string tiempoSecado: puente?.tiempoSecado ?? ""
     property string tempCamara: puente?.tempCamara ?? ""
+    property string tempReferencia: puente?.tempReferencia ?? ""
     property string presionCamara: puente?.presionCamara ?? ""
     property bool datosVigentes: puente?.connected ?? false
     property string cicloActivo: puente?.cicloActivo ?? ""   // "cycle_number" del ciclo (01, 02...)
@@ -93,6 +94,7 @@ Item {
         readonly property string tiempoEst: raiz.tx("ciclo", "tiempo_est")
         readonly property string tiempoSec: raiz.tx("ciclo", "tiempo_sec")
         readonly property string tempCamara: raiz.tx("ciclo", "temp_camara")
+        readonly property string tempReferencia: raiz.tx("ciclo", "temp_referencia")
         readonly property string presion: raiz.tx("ciclo", "presion")
         readonly property string unidadTemp: raiz.tx("unidades", "temperatura")
         readonly property string unidadTiempo: raiz.tx("unidades", "tiempo")
@@ -358,10 +360,13 @@ Item {
         color: Colores.fondoTarjeta
         border.width: raiz.m(2); border.color: raiz.paleta.bordeSuave
     }
-    Divisor { cx: 255; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
-    Divisor { cx: 482; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
-    Divisor { cx: 708; y0: 452; y1: 608; color: raiz.paleta.divisorParam }
-    Divisor { cx: 938; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
+    // 6 columnas iguales (1129/6 ≈ 188 px): 3 parámetros de ciclo y 3 sensores.
+    // Valor y unidad centrados en la columna; icono y etiqueta desplazados como grupo.
+    Divisor { cx: 222.2; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
+    Divisor { cx: 410.3; y0: 452; y1: 604; color: raiz.paleta.divisorParam }
+    Divisor { cx: 598.5; y0: 452; y1: 608; color: raiz.paleta.divisorParam }
+    Divisor { cx: 786.7; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
+    Divisor { cx: 974.8; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
 
     component Etiqueta: Texto {
         tam: 12
@@ -384,35 +389,40 @@ Item {
 
     readonly property var tintaTermometro: [12.25, 4.0, 36.55, 44.0]
 
-    Icono { caja: [73, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura.svg" }
-    Etiqueta { lx: 129; bl: 469; text: raiz.textos.tempEster }
-    Valor { cx: 152; text: raiz.tempEsterilizacion }
-    Unidad { cx: 151.5; text: raiz.textos.unidadTemp }
+    Icono { caja: [59.1, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura.svg" }
+    Etiqueta { lx: 115.1; bl: 469; text: raiz.textos.tempEster }
+    Valor { cx: 128.1; text: raiz.tempEsterilizacion }
+    Unidad { cx: 127.6; text: raiz.textos.unidadTemp }
 
-    Icono { caja: [294, 447, 35, 35]; tinta: [5.9, 5.9, 42.1, 42.1]; source: raiz.iconosColor + "sensor_tiempo.svg" }
-    Etiqueta { lx: 357; bl: 467; text: raiz.textos.tiempoEst }
-    Valor { cx: 371.5; text: raiz.tiempoEsterilizacion }
-    Unidad { cx: 378; text: raiz.textos.unidadTiempo }
+    Icono { caja: [246.7, 447, 35, 35]; tinta: [5.9, 5.9, 42.1, 42.1]; source: raiz.iconosColor + "sensor_tiempo.svg" }
+    Etiqueta { lx: 309.7; bl: 467; text: raiz.textos.tiempoEst }
+    Valor { cx: 316.2; text: raiz.tiempoEsterilizacion }
+    Unidad { cx: 322.7; text: raiz.textos.unidadTiempo }
 
     // color/sensor_tiempo_secado.svg viene en blanco: se tiñe de gris
     IconoTenido {
-        caja: [532, 446, 27, 39]; tinta: [10.05, 4.2, 37.95, 43.8]
+        caja: [437.4, 446, 27, 39]; tinta: [10.05, 4.2, 37.95, 43.8]
         source: raiz.iconosColor + "sensor_tiempo_secado.svg"
         color: raiz.paleta.iconoGris
     }
-    Etiqueta { lx: 588; bl: 467; text: raiz.textos.tiempoSec }
-    Valor { cx: 599; text: raiz.tiempoSecado }
-    Unidad { cx: 599; text: raiz.textos.unidadTiempo }
+    Etiqueta { lx: 493.4; bl: 467; text: raiz.textos.tiempoSec }
+    Valor { cx: 504.4; text: raiz.tiempoSecado }
+    Unidad { cx: 504.4; text: raiz.textos.unidadTiempo }
 
-    Icono { caja: [751, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura_2.svg" }
-    Etiqueta { lx: 798; bl: 469; text: raiz.textos.tempCamara }
-    Valor { cx: 830.5; text: raiz.tempCamara }
-    Unidad { cx: 821.5; text: raiz.textos.unidadTemp }
+    Icono { caja: [625.1, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura_2.svg" }
+    Etiqueta { lx: 672.1; bl: 469; text: raiz.textos.tempCamara }
+    Valor { cx: 692.6; text: raiz.tempCamara }
+    Unidad { cx: 683.6; text: raiz.textos.unidadTemp }
 
-    Icono { caja: [983, 450, 37, 31]; tinta: [5.3, 8.0, 43.7, 40.85]; source: raiz.iconosColor + "sensor_presion.svg" }
-    Etiqueta { lx: 1051; bl: 467; text: raiz.textos.presion }
-    Valor { cx: 1045.5; text: raiz.presionCamara }
-    Unidad { cx: 1061; text: raiz.textos.unidadPresion }
+    Icono { caja: [804.3, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura_2.svg" }
+    Etiqueta { lx: 851.3; bl: 469; text: raiz.textos.tempReferencia }
+    Valor { cx: 880.8; text: raiz.tempReferencia }
+    Unidad { cx: 871.8; text: raiz.textos.unidadTemp }
+
+    Icono { caja: [1006.4, 450, 37, 31]; tinta: [5.3, 8.0, 43.7, 40.85]; source: raiz.iconosColor + "sensor_presion.svg" }
+    Etiqueta { lx: 1074.4; bl: 467; text: raiz.textos.presion }
+    Valor { cx: 1068.9; text: raiz.presionCamara }
+    Unidad { cx: 1084.4; text: raiz.textos.unidadPresion }
 
     // ---- tarjeta de alarmas y avisos ----
     Rectangle {

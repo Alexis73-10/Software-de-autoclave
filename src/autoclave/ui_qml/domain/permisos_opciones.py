@@ -5,7 +5,7 @@
 # comparan roles, solo preguntan puede_ver(seccion, rol).
 #
 # Política inicial (U-7, Q-1 con la recomendación del documento): las cinco
-# secciones técnicas para técnico, biomédico e ingeniero; admin no (nivel alto
+# secciones técnicas para técnico e ingeniero; admin no (nivel alto
 # pero sin conocimientos técnicos). Usuarios y Conectividad solo para admin.
 # La matriz fina por rol sigue pendiente en el plan de roles: cambiarla aquí no
 # requiere tocar la pantalla. Un rol desconocido (p. ej. "operador", defecto de
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 
 from autoclave.ui_pyside.services.roles import ROL_ADMIN
 
-_TECNICOS = frozenset({"tecnico", "biomedico", "ingeniero"})
+_TECNICOS = frozenset({"tecnico", "ingeniero"})
 _SOLO_ADMIN = frozenset({ROL_ADMIN})
 
 
@@ -59,7 +59,7 @@ def secciones_visibles(rol: str | None) -> list[Seccion]:
 ESTADOS_EDICION = frozenset({"PREPARACION", "PREPARADO"})
 
 # Excepción (Cristian, 2026-10-07): el ingeniero puede modificar cualquier
-# sección en cualquier estado; técnico y biomédico, solo en ESTADOS_EDICION.
+# sección en cualquier estado; técnico, solo en ESTADOS_EDICION.
 # Un cambio hecho con ciclo en curso surte efecto desde la fase activa (lo
 # implementa el backend en la Fase 3; la especificación 1, RB-01, debe reflejarlo).
 _EDICION_SIEMPRE = frozenset({"ingeniero"})

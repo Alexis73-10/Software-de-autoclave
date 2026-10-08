@@ -78,7 +78,6 @@ No hubo bloqueos.
 
 ## 7. Pendiente
 
-- Dudas 2 a 6 de la sección 3.
 - Fase 2 según las puertas de entrada del plan.
 
 ## 8. Revisión de Cristian (2026-10-07)
@@ -102,3 +101,13 @@ Dudas nuevas (no decididas; se implementó lo más restrictivo):
 8. Sí: el biomédico se trata como el técnico.
 9. El ingeniero puede modificar lo que sea en cualquier momento. Se implementó así: `edicion_permitida` devuelve verdadero para el ingeniero en cualquier sección y en cualquier estado, incluidos CICLO, FALLA y EMERGENCIA. Técnico, biomédico y admin solo editan en PREPARACION y PREPARADO.
 10. Un cambio hecho con el ciclo en curso surte efecto desde la fase activa. Esto se aplica en el backend en la Fase 3. La especificación 1 (RB-01 y U-8) debe incluir la excepción del ingeniero antes de esa fase.
+
+### Respuestas a las dudas 2 a 6 (2026-10-07)
+
+2. Una sola línea por nombre (§5.0 manda). Cristian corrigió U-2 en la rev. 3.1: si un nombre no cupiera, la fila pasa a dos líneas y crece lo necesario. Implementado: antes se recortaba con "…"; ahora el texto se ajusta a un máximo de dos líneas y la fila crece si hace falta. La prueba QML lo comprueba con un nombre largo.
+3. Se quedan los iconos provisionales hasta que llegue el oficial.
+4. "Próximamente" se queda así; es temporal.
+5. El standby cierra la sesión: confirmado. Se quitó la marca PROVISIONAL de `Main.qml`.
+6. Si la máquina entra o sale de CICLO, OPCIONES se cierra: confirmado, sin cambios.
+
+Suite completa tras estos ajustes: 1881 pruebas pasan, 6 advertencias ya existentes.
