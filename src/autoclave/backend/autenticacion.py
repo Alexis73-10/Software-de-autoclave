@@ -7,6 +7,7 @@
 # Los plazos usan time.monotonic(): un ajuste del reloj de pared no debe
 # alargar ni acortar un bloqueo. `emitido` es solo un sello de registro.
 
+import math
 import secrets
 import threading
 import time
@@ -95,6 +96,15 @@ class ControlIntentos:
     def bloqueado(self, usuario: str) -> bool:
         with self._lock:
             return self._bloqueado(self._clave(usuario))
+
+    def segundos_restantes(self, usuario: str) -> int:
+        """Segundos que faltan para que venza el bloqueo, redondeados hacia
+        arriba (mínimo 1 mientras dure); 0 si no está bloqueado."""
+        clave = self._clave(usuario)
+        with self._lock:
+            if not self._bloqueado(clave):
+                return 0
+            return max(1, math.ceil(self._bloqueado_hasta[clave] - self._reloj()))
 
     def reservar_intento(self, usuario: str) -> bool:
         """False si el usuario está bloqueado. Si no, cuenta el intento como

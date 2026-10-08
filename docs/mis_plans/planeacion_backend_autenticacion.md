@@ -1,7 +1,7 @@
 # Planeación — Autenticación y endurecimiento del backend
 
 **Proyecto:** Software de Autoclave (Especifika S.A.S.)
-**Estado:** v6 — cerrada para implementación (incorpora las respuestas a las preguntas de Code previas a la etapa 1) — precede a `planeacion_backend_parametros.md`
+**Estado:** v7 (en revisión) — v6 cerrada para implementación; la v7 añade el cambio de contrato de la etapa 4 (decisiones 33 a 35, §4.1, T-14), pendiente de aprobar el cuerpo final (`plan_t8_login_qml.md` §3) — precede a `planeacion_backend_parametros.md`
 **Ubicación sugerida:** `docs\mis_plans\planeacion_backend_autenticacion.md`
 **Origen:** informes de Code del 7-oct (inventario de endpoints, login, clientes) y hallazgos H-03, OPC-02, OPC-14, OPC-16 a OPC-19
 **Documentos relacionados:** `planeacion_opciones.md`, `planeacion_backend_parametros.md`
@@ -66,6 +66,9 @@ Se implementa en **una sola fase** (token y roles incluidos). El software no est
 30. **Token del modo prueba invalidado** (logout o suspensión): el backend sale del modo prueba y apaga las salidas.
 31. **Suspensión y token:** en la etapa 1 el token vence por logout o reinicio del backend; en la etapa 4 el puente QML llama a `/auth/logout` al entrar en suspensión.
 32. **`PATCH /cycle/parameters` se elimina:** `PATCH /cycle/parameter` cubre el secado.
+33. **(v7) Bloqueo con segundos restantes:** el 429 de `POST /auth/login` lleva un código estable, los segundos restantes y la cabecera `Retry-After`. El 5.º intento fallido ya responde 429 (antes 401). Un intento con la contraseña correcta no cuenta como fallo. La UI traduce el código con `es.json` y hace la cuenta regresiva local. Un login que la UI dio por vencido cuenta igual en el backend (aceptado). Los fallos de la clave actual en `POST /auth/change_password` suman al mismo contador del usuario; al 5.º responde el mismo 429 y se invalida ese token; un cambio exitoso reinicia el contador (H-T8-01).
+34. **(v7) Códigos estables en los rechazos:** las respuestas 401, 403, 409 y 422 que muestra la UI llevan un código estable; la UI traduce todo mensaje con `es.json`, el 422 por campo y tipo, nunca con el texto de FastAPI. Código desconocido: mensaje genérico y registro. Cuerpo final en revisión.
+35. **(v7) Simulador:** usuarios sembrados por rol en memoria (uno con clave pendiente y uno dedicado al bloqueo) y token determinista por sesión `sim-<usuario>-<n>` con tabla en memoria, para respetar la decisión 8. Definido solo en `simulador/`, escuchando en 127.0.0.1, sin trato especial en el cliente ni en producción.
 
 ## 4. Reglas por endpoint
 
@@ -75,9 +78,10 @@ Se implementa en **una sola fase** (token y roles incluidos). El software no est
 
 | Endpoint | Token | Guard | Notas |
 |---|---|---|---|
-| `POST /auth/login` | — | bloqueo por intentos | devuelve token, rol y `debe_cambiar_clave` |
+| `POST /auth/login` | — | bloqueo por intentos | devuelve token, rol y `debe_cambiar_clave`; (v7) 429 con código estable, segundos restantes y `Retry-After`, también en el 5.º fallo (decisión 33) |
 | `POST /auth/logout` | sí | — | invalida el token |
-| `POST /auth/change_password` | sí | — | obligatorio si `debe_cambiar_clave` |
+| `POST /auth/change_password` | sí | — | obligatorio si `debe_cambiar_clave`; (v7) rechaza la clave nueva igual a la actual con 422 `igual_actual` en `clave_nueva`; los fallos de la clave actual cuentan para el bloqueo del login (429 al 5.º e invalidación del token, decisión 33) |
+| `GET /auth/sesion` | sí | — | (v7) endpoint de autenticación: valida el token. 200 `{usuario, rol}` o 401 estándar. La UI lo llama una vez al reconectar con el backend, nunca de forma periódica |
 | `POST /usuarios` | sí (admin o ingeniero) | — | reglas de creación de la decisión 26; 403 si el rol no puede crear el rol pedido, 409 si el usuario ya existe (sin distinguir mayúsculas), 422 si falla la validación. Validaciones de `validacion_usuario.py` excepto el campo Código/ID, eliminado de la pantalla |
 
 ### 4.2 Lectura (sin token, sin cambios)
@@ -213,6 +217,8 @@ Los endpoints de parámetros del sistema y de sensores y entradas mostradas se d
 
 1. **Procesos locales:** cualquier proceso del PC puede llamar a los endpoints operativos y de lectura en `127.0.0.1` sin token. Se acepta porque el PC queda en modo quiosco (decisión 17). La implementación del quiosco se define aparte.
 2. **AnyDesk desatendido (OPC-21):** fuera de alcance. Se trata en una spec aparte.
+3. **(v7) Token huérfano sin expiración:** si un login llega al backend y su respuesta nunca llega a la UI (timeout), o la UI se cierra sin logout (corte de energía, cierre forzado), el token queda válido hasta su logout o el reinicio del backend. Se acepta y se mantiene la decisión 2 (sin expiración propia). Tokens de `secrets.token_urlsafe(32)` (256 bits), solo en memoria del backend y escuchando en 127.0.0.1. Candidato al futuro fichero de gestión de riesgos (NRM-01).
+4. **(v7) Bloqueo de un usuario legítimo:** cualquiera con acceso a la pantalla puede bloquear 5 min a un usuario real con 5 intentos fallidos (decisión 10; el bloqueo es por usuario y no revela si existe). Afecta al acceso a Opciones, no a los ciclos: los endpoints operativos no exigen token (decisión 7). Se acepta. Candidato a NRM-01.
 
 ## 7. Tareas para Code
 
@@ -230,7 +236,7 @@ Los endpoints de parámetros del sistema y de sensores y entradas mostradas se d
 | **T-11** | Eliminar `/io/test/reset_all`, `ticket.txt` y `PATCH /cycle/parameters`, ajustar tests | código | |
 | **T-12** | `/outputs/reset` con 409 en CICLO; `/io/test/exit` con 409 fuera de modo prueba | código | |
 | **T-13** | Puertas: guard distinto de CICLO y rechazo por sensor faltante (5.3) | código | tras T-9 |
-| **T-14** | Simulador: mismas respuestas y token de prueba fijo | código | |
+| **T-14** | Simulador: mismo contrato que el backend (decisiones 33 a 35): sesión, cambio de clave, bloqueo con segundos restantes, `/usuarios`, 401/403/409 con código estable; usuarios sembrados por rol y token determinista por sesión `sim-<usuario>-<n>`; pruebas de contrato compartidas contra backend y simulador, con dos sesiones simultáneas y cierre en una | código | |
 | **T-15** | `ciclo_controller.py` con la constante de URL común | código | |
 | **T-16** | Fallas: `acknowledge` para todo FALLO, botón QML "Reconocer falla", descarte de `RESET_FALLA` con paro activo (5.9) | código | |
 | **T-17** | Copia profunda de parámetros al iniciar el ciclo y regla de fases pendientes (5.8) | código | |

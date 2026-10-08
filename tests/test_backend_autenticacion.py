@@ -109,9 +109,16 @@ def test_login_401_generico(entorno, db, usuario, clave):
 
 
 def test_cinco_fallos_bloquean_aunque_la_clave_sea_correcta(entorno, db):
+    """Decisión 33 (v7): el 5.º fallo ya responde 429 con código, segundos
+    restantes y Retry-After."""
     client, _, _ = entorno
-    for _ in range(5):
+    for _ in range(4):
         assert _login(client, "tec1", "mala").status_code == 401
+    r = _login(client, "tec1", "mala")
+    assert r.status_code == 429
+    assert r.json() == {"detail": "Usuario bloqueado por intentos fallidos; espere 5 minutos",
+                        "codigo": "usuario_bloqueado", "segundos_restantes": 300}
+    assert r.headers["retry-after"] == "300"
     assert _login(client, "tec1").status_code == 429
     assert _login(client, "TEC1").status_code == 429   # sin distinguir mayúsculas
     assert len(_eventos(db, "login_fallido")) == 5
@@ -134,6 +141,23 @@ def test_usuario_inexistente_tambien_se_bloquea(entorno):
     for _ in range(5):
         _login(client, "fantasma", "x")
     assert _login(client, "fantasma", "x").status_code == 429
+
+
+def test_segundos_restantes_redondea_hacia_arriba():
+    """Decisión 33: segundos enteros hacia arriba, mínimo 1 mientras dure, 0 sin bloqueo."""
+    ahora = [1000.0]
+    c = ControlIntentos(reloj=lambda: ahora[0])
+    assert c.segundos_restantes("ana") == 0
+    for _ in range(5):
+        c.reservar_intento("ana")
+    assert c.segundos_restantes("ana") == 300
+    assert c.segundos_restantes("ANA") == 300   # sin distinguir mayúsculas
+    ahora[0] += 12.3
+    assert c.segundos_restantes("ana") == 288
+    ahora[0] += 287.69
+    assert c.segundos_restantes("ana") == 1
+    ahora[0] += 0.01
+    assert c.segundos_restantes("ana") == 0
 
 
 def test_bloqueo_dura_cinco_minutos():
@@ -188,7 +212,11 @@ def test_logins_en_paralelo_contra_el_endpoint_no_superan_el_maximo(entorno):
         h.start()
     for h in hilos:
         h.join()
-    assert codigos.count(401) == 5 and codigos.count(429) == 5
+    # 5 intentos reservados (los que verifican la clave); el resto, 429 directo.
+    # De los reservados, los que terminan con el bloqueo ya activo dan 429 (v7).
+    assert len(codigos) == 10 and set(codigos) <= {401, 429}
+    assert codigos.count(401) <= 4 and codigos.count(429) >= 6
+    assert len(_eventos(entorno[1].db, "login_fallido")) == 5
 
 
 def test_primer_login_de_semillas_obliga_a_cambiar_clave(entorno, db):
@@ -465,7 +493,12 @@ def test_usuario_invalido_422_con_errores_por_campo(entorno):
     r = client.post("/usuarios", headers=cabecera(srv, "admin"),
                     json=_nuevo(usuario="a b", clave="corta", confirmacion="otra", rol="biomedico"))
     assert r.status_code == 422
-    assert set(r.json()["detail"]["errores"]) == {"usuario", "password", "confirmacion", "rol"}
+    assert r.json() == {"detail": "Datos inválidos", "codigo": "validacion", "errores": [
+        {"campo": "usuario", "codigo": "formato"},
+        {"campo": "clave", "codigo": "corta"},
+        {"campo": "confirmacion", "codigo": "no_coinciden"},
+        {"campo": "rol", "codigo": "rol_invalido"},
+    ]}
     assert not ctx.db.existe_usuario("a b")
 
 

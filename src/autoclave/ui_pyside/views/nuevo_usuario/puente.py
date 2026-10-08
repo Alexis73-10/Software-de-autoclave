@@ -17,8 +17,8 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from autoclave.ui_pyside.services.roles import ROLES, ROLES_CREABLES
 from autoclave.ui_pyside.services.session_manager import SessionManager
 from autoclave.ui_pyside.services.validacion_usuario import (
-    NOMBRE_MAX, PASSWORD_MAX, PASSWORD_MIN, USUARIO_EXISTE, USUARIO_MAX,
-    validar_nuevo_usuario,
+    NOMBRE_MAX, PASSWORD_MAX, PASSWORD_MIN, USUARIO_EXISTE, USUARIO_MAX, campo_pantalla,
+    texto_error, validar_nuevo_usuario,
 )
 
 logger = logging.getLogger(__name__)
@@ -139,8 +139,12 @@ class NuevoUsuarioBridge(QObject):
             return {"general": SESION_VENCIDA}
         if codigo_http == 409:
             return {"usuario": USUARIO_EXISTE}
-        if codigo_http == 422 and isinstance(detalle, dict) and detalle.get("errores"):
-            return dict(detalle["errores"])
+        errores = datos.get("errores") if isinstance(datos, dict) else None
+        if codigo_http == 422 and isinstance(errores, list) and errores:
+            # contrato v7: lista {campo, codigo} con los campos del cuerpo
+            return {campo_pantalla(e.get("campo", "")): texto_error(e.get("campo", ""),
+                                                                    e.get("codigo", ""))
+                    for e in errores if isinstance(e, dict)}
         if codigo_http == 403 and isinstance(detalle, str):
             return {"general": detalle}
         logger.error("Creación de usuario rechazada por el backend: HTTP %s", codigo_http)

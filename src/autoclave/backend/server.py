@@ -8,6 +8,7 @@ from datetime import date, datetime, time, timedelta
 from typing import Literal
 
 from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from autoclave.backend.actividad_ui import ActividadUI
@@ -23,7 +24,10 @@ from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO, ROLES_CREABLES
-from autoclave.ui_pyside.services.validacion_usuario import USUARIO_EXISTE, validar_nuevo_usuario
+from autoclave.ui_pyside.services.validacion_usuario import (
+    COD_IGUAL_ACTUAL, COD_OBLIGATORIO, USUARIO_EXISTE, codigo_clave, codigo_confirmacion,
+    codigos_nuevo_usuario,
+)
 from autoclave.utils import periodos
 from autoclave.utils.paths import calibration_path
 
@@ -104,22 +108,65 @@ def _auditar(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
         logger.exception("No se pudo registrar '%s' en audit_log", evento)
 
 
-def _rechazar(status: int, motivo: str, entidad: str, sesion: Sesion | None = None,
-              headers: dict | None = None):
-    """Registra el rechazo (rechazo_401/403/409) y lo lanza como HTTPException.
+class RechazoApi(Exception):
+    """Rechazo con código estable (spec v7, decisiones 33 y 34). Cuerpo:
+    {"detail": <texto en español>, "codigo": <código>, **extra}. `detail` sigue
+    siendo texto para los clientes que ya lo muestran (puertas, Tk)."""
+    def __init__(self, status: int, codigo: str, motivo: str, extra: dict | None = None,
+                 headers: dict | None = None):
+        super().__init__(motivo)
+        self.status = status
+        self.codigo = codigo
+        self.motivo = motivo
+        self.extra = extra or {}
+        self.headers = headers
+
+
+@app.exception_handler(RechazoApi)
+def _responder_rechazo(_request: Request, r: RechazoApi):
+    return JSONResponse(status_code=r.status, headers=r.headers,
+                        content={"detail": r.motivo, "codigo": r.codigo, **r.extra})
+
+
+def _rechazar(status: int, codigo: str, motivo: str, entidad: str,
+              sesion: Sesion | None = None, headers: dict | None = None,
+              extra: dict | None = None):
+    """Registra el rechazo (rechazo_401/403/409) y lo lanza como RechazoApi.
     Escribe en SQLite: nunca llamarla con _sm_lock tomado (usar _Rechazo)."""
     _auditar(f"rechazo_{status}", sesion, entidad=entidad, detalle={"motivo": motivo})
-    raise HTTPException(status_code=status, detail=motivo, headers=headers)
+    raise RechazoApi(status, codigo, motivo, extra=extra, headers=headers)
 
 
 class _Rechazo(Exception):
     """Rechazo decidido dentro de guard_estado. El guard lo registra y lo
-    convierte en HTTPException después de soltar _sm_lock, para que la
+    convierte en RechazoApi después de soltar _sm_lock, para que la
     bitácora no detenga el tick del control loop."""
-    def __init__(self, status: int, motivo: str):
+    def __init__(self, status: int, codigo: str, motivo: str, extra: dict | None = None):
         super().__init__(motivo)
         self.status = status
+        self.codigo = codigo
         self.motivo = motivo
+        self.extra = extra
+
+
+def _rechazar_validacion(errores: dict[str, str]):
+    """422 de las pantallas de sesión y usuarios: lista {campo, codigo} en el
+    orden de los campos del cuerpo. Sin auditoría (no es un rechazo de acceso)."""
+    raise RechazoApi(422, "validacion", "Datos inválidos", extra={
+        "errores": [{"campo": c, "codigo": cod} for c, cod in errores.items()]})
+
+
+_MOTIVO_SESION_INVALIDA = "Sesión no válida o vencida; inicie sesión de nuevo"
+_MOTIVO_BLOQUEADO = "Usuario bloqueado por intentos fallidos; espere 5 minutos"
+
+
+def _rechazar_bloqueado(usuario: str):
+    """429 del bloqueo por intentos (decisión 33): código, segundos restantes
+    y Retry-After con el mismo valor."""
+    segundos = max(1, intentos_login.segundos_restantes(usuario))
+    raise RechazoApi(429, "usuario_bloqueado", _MOTIVO_BLOQUEADO,
+                     extra={"segundos_restantes": segundos},
+                     headers={"Retry-After": str(segundos)})
 
 
 def _token_de(authorization: str | None) -> str | None:
@@ -140,12 +187,13 @@ def requiere_rol(*roles: str, permitir_cambio_pendiente: bool = False):
         entidad = request.url.path
         sesion = tokens.obtener(_token_de(authorization))
         if sesion is None:
-            _rechazar(401, "Sesión no válida o vencida; inicie sesión de nuevo", entidad,
+            _rechazar(401, "sesion_invalida", _MOTIVO_SESION_INVALIDA, entidad,
                       headers={"WWW-Authenticate": "Bearer"})
         if sesion.debe_cambiar_clave and not permitir_cambio_pendiente:
-            _rechazar(403, "Debe cambiar la contraseña", entidad, sesion)
+            _rechazar(403, "clave_pendiente", "Debe cambiar la contraseña", entidad, sesion)
         if roles and sesion.rol not in roles:
-            _rechazar(403, "Su rol no tiene permiso para esta acción", entidad, sesion)
+            _rechazar(403, "rol_sin_permiso", "Su rol no tiene permiso para esta acción",
+                      entidad, sesion)
         return sesion
     return dependencia
 
@@ -169,10 +217,12 @@ def guard_estado(prohibidos: frozenset, entidad: str, sesion: Sesion | None = No
             exceptuado = (excepcion_ingeniero and estado == GlobalState.CICLO
                           and sesion is not None and sesion.rol == ROL_INGENIERO)
             if estado in prohibidos and not exceptuado:
-                raise _Rechazo(409, _MOTIVO_ESTADO.get(estado, "No permitido en el estado actual"))
+                raise _Rechazo(409, "estado_no_permitido",
+                               _MOTIVO_ESTADO.get(estado, "No permitido en el estado actual"),
+                               extra={"estado": getattr(estado, "name", str(estado))})
             yield estado
     except _Rechazo as r:
-        _rechazar(r.status, r.motivo, entidad, sesion)
+        _rechazar(r.status, r.codigo, r.motivo, entidad, sesion, extra=r.extra)
 
 
 def _rechazar_si_config_invalida(entidad: str) -> None:
@@ -180,7 +230,7 @@ def _rechazar_si_config_invalida(entidad: str) -> None:
     (CONFIGURACION_INVALIDA): sin ciclo, puertas ni modo prueba."""
     motivo = context.control_loop.bloqueo_configuracion
     if isinstance(motivo, str) and motivo:
-        _rechazar(409, f"Configuración inválida: {motivo}", entidad)
+        _rechazar(409, "configuracion_invalida", f"Configuración inválida: {motivo}", entidad)
 
 
 def _contexto_ciclo() -> dict:
@@ -228,13 +278,13 @@ class _LoginBody(BaseModel):
 def login(body: _LoginBody):
     """401 genérico (sin distinguir usuario inexistente, inactivo o clave
     errónea) y 429 con el usuario bloqueado, aunque la clave sea correcta.
-    Los intentos cuentan también para usuarios inexistentes (decisión 29)."""
+    Los intentos cuentan también para usuarios inexistentes (decisión 29).
+    El fallo que activa el bloqueo ya responde 429 (decisión 33)."""
     usuario = body.usuario.strip()
     # comprobar y contar en un solo paso, antes de la verificación lenta
     if not intentos_login.reservar_intento(usuario):
         _auditar("login_bloqueado", usuario=usuario, entidad="/auth/login")
-        raise HTTPException(status_code=429,
-                            detail="Usuario bloqueado por intentos fallidos; espere 5 minutos")
+        _rechazar_bloqueado(usuario)
 
     fila = context.db.get_usuario_by_username(usuario) if usuario else None
     if fila is None:
@@ -247,7 +297,9 @@ def login(body: _LoginBody):
         quedo_bloqueado = intentos_login.bloqueado(usuario)
         _auditar("login_fallido", usuario=usuario, entidad="/auth/login",
                  detalle={"bloqueado": True} if quedo_bloqueado else None)
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+        if quedo_bloqueado:
+            _rechazar_bloqueado(usuario)
+        raise RechazoApi(401, "credenciales_invalidas", "Usuario o contraseña incorrectos")
 
     intentos_login.registrar_exito(usuario)
     sesion = tokens.emitir(fila["usuario"], fila.get("nombre") or "", fila.get("rol") or "",
@@ -262,21 +314,34 @@ def login(body: _LoginBody):
     }
 
 
-@app.post("/auth/logout")
-def logout(sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True))):
-    # Decisión 30: si esta sesión tenía el modo prueba, nadie más podría salir.
-    # Invalidar y comprobar bajo el lock: un /io/test/enter de esta misma
-    # sesión en vuelo vuelve a validar el token dentro del lock y se rechaza.
+def _invalidar_sesion(sesion: Sesion) -> bool:
+    """Invalida el token y, si esta sesión tenía el modo prueba, sale de él
+    (decisión 30: nadie más podría salir). Bajo el lock: un /io/test/enter de
+    esta misma sesión en vuelo vuelve a validar el token dentro del lock y se
+    rechaza. Devuelve True si salió del modo prueba; quien llama lo registra."""
     with context.control_loop.bloqueo_maquina():
         tokens.invalidar(sesion.token)
         salio = (_token_modo_prueba == sesion.token
                  and context.control_loop.test_mode_active)
         if salio:
             _salir_modo_prueba()
+    return salio
+
+
+@app.post("/auth/logout")
+def logout(sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True))):
+    salio = _invalidar_sesion(sesion)
     _auditar("logout", sesion)
     if salio:
         _auditar("modo_prueba_sale", sesion, detalle={"motivo": "sesión cerrada"})
     return {"ok": True}
+
+
+@app.get("/auth/sesion")
+def sesion_actual(sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True))):
+    """Valida el token (spec v7, §4.1): la UI lo llama una vez al reconectar con
+    el backend, nunca en sondeo. 401 estándar si el token no es válido."""
+    return {"usuario": sesion.usuario, "rol": sesion.rol}
 
 
 class _CambioClaveBody(BaseModel):
@@ -285,23 +350,49 @@ class _CambioClaveBody(BaseModel):
     confirmacion: str
 
 
+def _bloquear_por_cambio_clave(sesion: Sesion, entidad: str):
+    """429 en el cambio de contraseña (H-T8-01): invalida el token de la sesión,
+    como un logout, y responde el mismo cuerpo que el login."""
+    salio = _invalidar_sesion(sesion)
+    _auditar("login_bloqueado", sesion, entidad=entidad, detalle={"origen": "cambio_clave"})
+    if salio:
+        _auditar("modo_prueba_sale", sesion, detalle={"motivo": "sesión bloqueada"})
+    _rechazar_bloqueado(sesion.usuario)
+
+
 @app.post("/auth/change_password")
 def change_password(body: _CambioClaveBody,
                     sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True))):
+    """Los fallos de la clave actual suman al contador del login del mismo
+    usuario (H-T8-01): al 5.º responde 429 y se invalida el token. Una clave
+    actual correcta reinicia el contador. 422 con la lista {campo, codigo}."""
     entidad = "/auth/change_password"
+    if not body.clave_actual:
+        _rechazar_validacion({"clave_actual": COD_OBLIGATORIO})
+
+    if not intentos_login.reservar_intento(sesion.usuario):
+        _bloquear_por_cambio_clave(sesion, entidad)
     fila = context.db.get_usuario_by_username(sesion.usuario)
     if fila is None or not verificar_password(body.clave_actual, fila.get("hash_pw")):
-        _rechazar(403, "La contraseña actual no es correcta", entidad, sesion)
+        if intentos_login.bloqueado(sesion.usuario):
+            _auditar("login_fallido", sesion, entidad=entidad,
+                     detalle={"origen": "cambio_clave", "bloqueado": True})
+            _bloquear_por_cambio_clave(sesion, entidad)
+        _rechazar(403, "clave_actual_incorrecta", "La contraseña actual no es correcta",
+                  entidad, sesion)
+    intentos_login.registrar_exito(sesion.usuario)
+
     # Mismas reglas de longitud y confirmación que Nuevo usuario
-    errores = validar_nuevo_usuario(
-        sesion.nombre or sesion.usuario, sesion.usuario, body.clave_nueva, body.confirmacion,
-        sesion.rol, existe_usuario=lambda _u: False,
-    )
-    errores = {k: v for k, v in errores.items() if k in ("password", "confirmacion")}
-    if not errores and body.clave_nueva == body.clave_actual:
-        errores["password"] = "La nueva contraseña debe ser distinta de la actual"
+    errores = {}
+    for campo, codigo in (("clave_nueva", codigo_clave(body.clave_nueva)),
+                          ("confirmacion", codigo_confirmacion(body.confirmacion,
+                                                               body.clave_nueva))):
+        if codigo:
+            errores[campo] = codigo
+    if "clave_nueva" not in errores and body.clave_nueva == body.clave_actual:
+        errores = {"clave_nueva": COD_IGUAL_ACTUAL, **errores}
     if errores:
-        raise HTTPException(status_code=422, detail={"errores": errores})
+        _rechazar_validacion(errores)
 
     context.db.actualizar_password(sesion.usuario, hash_password(body.clave_nueva))
     tokens.clave_cambiada(sesion.token)
@@ -323,16 +414,18 @@ def crear_usuario(body: _NuevoUsuarioBody,
                   sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_INGENIERO))):
     """Decisión 26: ingeniero crea admin, técnico e ingeniero; admin crea admin
     y técnico. 403 si el rol no puede crear el rol pedido, 409 si el usuario ya
-    existe (sin distinguir mayúsculas), 422 con {campo: mensaje} si no valida."""
+    existe (sin distinguir mayúsculas), 422 con la lista {campo, codigo} si no
+    valida (campos del cuerpo: nombre, usuario, clave, confirmacion, rol)."""
     entidad = "/usuarios"
-    errores = validar_nuevo_usuario(body.nombre, body.usuario, body.clave, body.confirmacion,
+    errores = codigos_nuevo_usuario(body.nombre, body.usuario, body.clave, body.confirmacion,
                                     body.rol, existe_usuario=lambda _u: False)
     if errores:
-        raise HTTPException(status_code=422, detail={"errores": errores})
+        _rechazar_validacion(errores)
     if body.rol not in ROLES_CREABLES.get(sesion.rol, frozenset()):
-        _rechazar(403, "Su rol no puede crear usuarios con ese rol", entidad, sesion)
+        _rechazar(403, "rol_no_creable", "Su rol no puede crear usuarios con ese rol",
+                  entidad, sesion)
     if context.db.existe_usuario(body.usuario):
-        _rechazar(409, USUARIO_EXISTE, entidad, sesion)
+        _rechazar(409, "usuario_existe", USUARIO_EXISTE, entidad, sesion)
 
     try:
         context.db.crear_usuario(
@@ -341,7 +434,7 @@ def crear_usuario(body: _NuevoUsuarioBody,
         )
     except sqlite3.IntegrityError:
         # carrera con otra creación del mismo nombre entre la consulta y el INSERT
-        _rechazar(409, USUARIO_EXISTE, entidad, sesion)
+        _rechazar(409, "usuario_existe", USUARIO_EXISTE, entidad, sesion)
 
     _auditar("usuario_creado", sesion, entidad=body.usuario,
              valor_nuevo={"rol": body.rol, "activo": body.activo})
@@ -1079,7 +1172,8 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         if en_ciclo and body.cycle_id == programa_en_curso:
             # PROVISIONAL hasta T-17 (etapa 3): sin la copia profunda, editar el
             # programa en ejecución mutaría el objeto que usan las fases (OPC-26).
-            raise _Rechazo(409, "El programa en curso no se puede editar hasta que termine el ciclo")
+            raise _Rechazo(409, "programa_en_curso",
+                           "El programa en curso no se puede editar hasta que termine el ciclo")
 
         anterior = _valor_parametro(cycle, body.fase, body.path)
         try:
@@ -1144,17 +1238,19 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, "/io/test/enter", sesion):
         motivo_config = context.control_loop.bloqueo_configuracion
         if isinstance(motivo_config, str) and motivo_config:
-            raise _Rechazo(409, f"Configuración inválida: {motivo_config}")
+            raise _Rechazo(409, "configuracion_invalida",
+                           f"Configuración inválida: {motivo_config}")
         # un logout de esta sesión pudo llegar mientras esta petición esperaba
         if tokens.obtener(sesion.token) is None:
-            raise _Rechazo(401, "Sesión no válida o vencida; inicie sesión de nuevo")
+            raise _Rechazo(401, "sesion_invalida", _MOTIVO_SESION_INVALIDA)
         # sin esto, otra sesión le quitaría la propiedad a la que entró
         if (context.control_loop.test_mode_active
                 and _token_modo_prueba not in (None, sesion.token)):
-            raise _Rechazo(409, "El modo prueba ya está activo en otra sesión")
+            raise _Rechazo(409, "modo_prueba_otra_sesion",
+                           "El modo prueba ya está activo en otra sesión")
         ok, reason = context.control_loop.enter_test_mode()
         if not ok:
-            raise _Rechazo(409, reason)
+            raise _Rechazo(409, "modo_prueba_rechazado", reason)
         _token_modo_prueba = sesion.token
     _auditar("modo_prueba_entra", sesion)
     return {"ok": True}
@@ -1168,9 +1264,10 @@ def io_test_exit(sesion: Sesion = Depends(_requiere_rol_prueba)):
     validada puede llegar después del apagado."""
     with guard_estado(frozenset(), "/io/test/exit", sesion):
         if not context.control_loop.test_mode_active:
-            raise _Rechazo(409, "El modo prueba no está activo")
+            raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
         if _token_modo_prueba != sesion.token:
-            raise _Rechazo(409, "Solo la sesión que activó el modo prueba puede salir de él")
+            raise _Rechazo(409, "modo_prueba_no_dueno",
+                           "Solo la sesión que activó el modo prueba puede salir de él")
         _salir_modo_prueba()
     _auditar("modo_prueba_sale", sesion, detalle={"motivo": "salida solicitada"})
     return {"ok": True}
@@ -1243,17 +1340,18 @@ def io_test_set_output(name: str, body: _OutputSetBody,
     entidad = f"/io/test/output/{name}"
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad, sesion):
         if not context.control_loop.test_mode_active:
-            raise _Rechazo(409, "El modo prueba no está activo")
+            raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
         if context.estado.get_flag("PARO_EMERGENCIA"):
-            raise _Rechazo(409, "Paro de emergencia activado")
+            raise _Rechazo(409, "paro_emergencia", "Paro de emergencia activado")
         if body.value:
             # encender solo desde la sesión que está a cargo de la prueba;
             # apagar queda abierto a cualquier sesión de prueba (es lo seguro)
             if _token_modo_prueba != sesion.token:
-                raise _Rechazo(409, "Solo la sesión que activó el modo prueba puede encender salidas")
+                raise _Rechazo(409, "modo_prueba_no_dueno",
+                               "Solo la sesión que activó el modo prueba puede encender salidas")
             motivo = _motivo_r02()
             if motivo:
-                raise _Rechazo(409, motivo)
+                raise _Rechazo(409, "modo_prueba_rechazado", motivo)
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.

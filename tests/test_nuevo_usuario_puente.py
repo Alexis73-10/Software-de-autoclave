@@ -225,8 +225,10 @@ def test_guardar_sin_token_en_la_sesion(puente, backend):
     ((401, {"detail": "x"}), {"general": "Sesión no válida o vencida; inicie sesión de nuevo"}),
     ((403, {"detail": "Su rol no puede crear usuarios con ese rol"}),
      {"general": "Su rol no puede crear usuarios con ese rol"}),
-    ((422, {"detail": {"errores": {"password": "Mínimo 8 caracteres"}}}),
-     {"password": "Mínimo 8 caracteres"}),
+    ((422, {"detail": "Datos inválidos", "codigo": "validacion",
+            "errores": [{"campo": "clave", "codigo": "corta"},
+                        {"campo": "confirmacion", "codigo": "no_coinciden"}]}),
+     {"password": "Mínimo 8 caracteres", "confirmacion": "Las contraseñas no coinciden"}),
     ((500, {}), {"general": "No se pudo guardar el usuario"}),
 ])
 def test_guardar_traduce_respuestas_del_backend(respuesta, errores):
