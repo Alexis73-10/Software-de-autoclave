@@ -342,7 +342,7 @@ class _ParamEditDialog(QDialog):
 
         # 3. Registrar auditoría
         try:
-            from autoclave.ui_pyside.services.session_manager import SessionManager
+            from autoclave.ui.service_ui.session_manager import SessionManager
             user = (
                 SessionManager.current_user().get("nombre", "Desconocido")
                 if SessionManager.is_authenticated()

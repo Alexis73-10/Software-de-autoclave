@@ -1,5 +1,5 @@
 import pytest
-from autoclave.ui_pyside.services.session_manager import SessionManager, hash_password
+from autoclave.ui.service_ui.session_manager import SessionManager, hash_password
 
 
 @pytest.fixture(autouse=True)

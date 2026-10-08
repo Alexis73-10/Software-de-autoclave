@@ -1,3 +1,9 @@
+# autoclave/ui/service_ui/session_manager.py
+#
+# Sesión de la ventana (una por proceso). Paquete neutral compartido por la
+# UI QML y la PySide, junto a backend_client y ui_service_backend; antes en
+# ui_pyside/services (refactor posterior a T-8, plan_t8_login_qml.md §5 y §9).
+
 import hashlib
 
 

@@ -8,7 +8,7 @@ import pytest
 from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QApplication
 
-from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui.service_ui.session_manager import SessionManager
 from autoclave.ui_qml.controllers.cambio_clave_controller import CambioClaveController
 from autoclave.ui_qml.sesion_backend import SesionVentana
 

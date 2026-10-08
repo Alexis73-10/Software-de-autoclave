@@ -21,14 +21,14 @@ def qapp():
 
 @pytest.fixture(autouse=True)
 def sesion_limpia():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.logout()
     yield
     SessionManager.logout()
 
 
 def _menu(qapp, sesion=None):
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     from autoclave.ui_pyside.views.admin_menu import AdminMenuView
     if sesion:
         SessionManager.login(sesion)
@@ -66,7 +66,7 @@ def test_opciones_existentes_siguen_igual(qapp):
 
 def test_navegar_a_nuevo_usuario_oculta_marco(qapp):
     from autoclave.ui_pyside.main_window import MainWindowFluent
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login(ADMIN)
     win = MainWindowFluent()
     win.navigate_to("nuevo_usuario")

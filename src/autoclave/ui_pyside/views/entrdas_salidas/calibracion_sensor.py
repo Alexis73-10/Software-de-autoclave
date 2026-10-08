@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
 from autoclave.ui.service_ui.backend_client import BackendClient
-from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui.service_ui.session_manager import SessionManager
 
 _BACKEND_URL = "http://127.0.0.1:8000"
 

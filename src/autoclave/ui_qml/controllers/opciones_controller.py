@@ -14,7 +14,7 @@
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
-from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui.service_ui.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain.permisos_opciones import edicion_permitida, secciones_visibles
 

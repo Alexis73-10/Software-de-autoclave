@@ -35,7 +35,7 @@ from dataclasses import dataclass, field
 
 from PySide6.QtCore import Property, QEvent, QObject, QTimer, Signal, Slot
 
-from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui.service_ui.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 

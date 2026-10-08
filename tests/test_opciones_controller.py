@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui.service_ui.session_manager import SessionManager
 from autoclave.ui_qml.controllers.opciones_controller import OpcionesController
 
 

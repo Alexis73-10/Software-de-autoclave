@@ -41,7 +41,7 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.app import QML_DIR, cargar_textos
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import login_controller, teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     from autoclave.ui_qml import sesion_backend
 
     estado, rol = sys.argv[1], sys.argv[2]

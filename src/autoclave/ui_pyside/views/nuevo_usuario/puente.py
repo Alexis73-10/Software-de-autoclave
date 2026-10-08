@@ -19,7 +19,7 @@ import logging
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from autoclave.ui_pyside.services.roles import ROLES, ROLES_CREABLES
-from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui.service_ui.session_manager import SessionManager
 from autoclave.ui_pyside.services.validacion_usuario import (
     NOMBRE_MAX, PASSWORD_MAX, PASSWORD_MIN, USUARIO_MAX, campo_pantalla,
     codigos_nuevo_usuario, error_ui,

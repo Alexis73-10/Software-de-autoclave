@@ -215,7 +215,7 @@ class LoginView(QWidget):
 
     def _do_login(self) -> None:
         from autoclave.services.domain.logging.db_manager import DbManager
-        from autoclave.ui_pyside.services.session_manager import SessionManager
+        from autoclave.ui.service_ui.session_manager import SessionManager
 
         username = self._username[1].text().strip()
         password = self._password.text()

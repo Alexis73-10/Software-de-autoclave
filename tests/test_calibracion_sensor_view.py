@@ -18,7 +18,7 @@ def _make_view():
 
 
 def test_sin_sesion_bloquea_formulario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.logout()
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -30,7 +30,7 @@ def test_sin_sesion_bloquea_formulario():
 
 
 def test_rol_operador_bloquea_formulario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Juan", "usuario": "juan", "rol": "operador"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -43,7 +43,7 @@ def test_rol_operador_bloquea_formulario():
 
 
 def test_rol_admin_habilita_formulario_y_muestra_info():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -59,7 +59,7 @@ def test_rol_admin_habilita_formulario_y_muestra_info():
 
 
 def test_preview_se_calcula_localmente_sin_llamar_backend():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -79,7 +79,7 @@ def test_preview_se_calcula_localmente_sin_llamar_backend():
 
 
 def test_preview_invalida_deshabilita_guardar():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -97,7 +97,7 @@ def test_preview_invalida_deshabilita_guardar():
 
 
 def test_set_context_backend_caido_no_crashea_y_oculta_formulario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -110,7 +110,7 @@ def test_set_context_backend_caido_no_crashea_y_oculta_formulario():
 
 
 def test_on_guardar_backend_caido_no_crashea_y_conserva_valores():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Tecnico Uno", "usuario": "tec1", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -145,7 +145,7 @@ def test_on_inputs_changed_antes_de_set_context_no_lanza_attributeerror():
 
 
 def test_guardar_llama_save_calibration_con_usuario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.ui.service_ui.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Tecnico Uno", "usuario": "tec1", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
