@@ -9,6 +9,8 @@
 #   /cycle/abort       solo en CICLO; congela el ciclo en "CANCELADO"
 #   /cycle/acknowledge solo en CICLO y con el ciclo ya terminado        -> PREPARADO
 # Las alarmas siempre vienen vacías.
+# Sesión y usuarios (T-14): mismo contrato que el backend real, ver
+# autenticacion_simulada.py.
 
 import time
 
@@ -16,6 +18,7 @@ from fastapi import Body, FastAPI, HTTPException
 
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.core.runtime import progreso_ciclo
+from autoclave.simulador.autenticacion_simulada import registrar_autenticacion
 
 _PUERTAS = ("Puerta 1", "Puerta 2")
 
@@ -58,6 +61,7 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
     app = FastAPI(title="Autoclave — backend SIMULADO")
     est = _Estado(repeticion, velocidad, reloj)
     actividad = ActividadUI()
+    registrar_autenticacion(app, reloj=reloj)
 
     def _referencias():
         ref = {}
