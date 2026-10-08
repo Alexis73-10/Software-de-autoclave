@@ -28,6 +28,7 @@ def sesion_limpia():
     SessionManager.logout()
     yield
     SessionManager.logout()
+    _recolectar()
 
 
 def transporte_de(cliente):
@@ -127,3 +128,12 @@ def test_ni_la_contrasena_ni_el_token_aparecen_en_logs(ctrl, caplog):
         ctrl.iniciarSesion("tec1", "otra-mala")
     assert "clave1234" not in caplog.text and "otra-mala" not in caplog.text
     assert token not in caplog.text
+
+
+def _recolectar():
+    """Destruye en un punto seguro los QObject de la prueba que quedaron en
+    ciclos de referencias: si el recolector lo hace durante processEvents,
+    mientras Qt despacha uno de sus timers, el proceso cae."""
+    import gc
+    gc.collect()
+    QCoreApplication.processEvents()

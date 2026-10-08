@@ -24,6 +24,7 @@ def sesion_pendiente():
                           "debe_cambiar_clave": True}, token="tok")
     yield
     SessionManager.logout()
+    _recolectar()
 
 
 class Transporte:
@@ -102,3 +103,12 @@ def test_abandonar_cierra_con_logout():
     c, _, t = _control()
     c.abandonar()
     assert not SessionManager.is_authenticated() and t.llamadas == ["/auth/logout"]
+
+
+def _recolectar():
+    """Destruye en un punto seguro los QObject de la prueba que quedaron en
+    ciclos de referencias: si el recolector lo hace durante processEvents,
+    mientras Qt despacha uno de sus timers, el proceso cae."""
+    import gc
+    gc.collect()
+    QCoreApplication.processEvents()

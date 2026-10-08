@@ -135,6 +135,13 @@ Window {
             else
                 ventana.volverAPrincipal()
         }
+        // 5 min sin actividad en esta ventana (SAF-01): la sesión ya se cerró
+        // con logout; si había una pantalla con token o el login, a la principal
+        function onCierrePorInactividad() {
+            sesionVentana.refrescar()
+            if (ventana.enPantallaConToken || pila.currentItem?.objectName === "areaLogin")
+                ventana.volverAPrincipal()
+        }
         // 401 en una escritura o al validar tras reconectar: volver al login
         function onSesionInvalida() {
             sesionVentana.refrescar()

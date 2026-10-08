@@ -56,6 +56,7 @@ def sesion_limpia():
     SessionManager.logout()
     yield
     SessionManager.logout()
+    _recolectar()
 
 
 @pytest.fixture
@@ -311,3 +312,12 @@ def test_salir_cierra_sesion_con_logout_y_va_a_login(puente, backend):
     assert SessionManager.is_authenticated() is False
     assert backend.llamadas == [("/auth/logout", None, "tok-admin")]
     assert destinos == ["login"]
+
+
+def _recolectar():
+    """Destruye en un punto seguro los QObject de la prueba que quedaron en
+    ciclos de referencias: si el recolector lo hace durante processEvents,
+    mientras Qt despacha uno de sus timers, el proceso cae."""
+    import gc
+    gc.collect()
+    QCoreApplication.processEvents()

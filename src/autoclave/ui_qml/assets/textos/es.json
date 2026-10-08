@@ -316,6 +316,7 @@
     "backend_no_responde": "El equipo no responde; intente de nuevo",
     "clave_pendiente": "Debe cambiar la contraseña",
     "sesion_invalida": "Sesión no válida o vencida; inicie sesión de nuevo",
+    "sesion_expirada": "Sesión cerrada por inactividad; inicie sesión de nuevo",
     "clave_actual_incorrecta": "La contraseña actual no es correcta",
     "clave_pudo_cambiar": "No se pudo confirmar el cambio de contraseña. Inicie sesión con la contraseña nueva; si no funciona, use la anterior.",
     "sin_conexion_escrituras": "Sin conexión con el equipo: no se pueden guardar cambios",

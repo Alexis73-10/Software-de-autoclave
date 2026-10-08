@@ -19,17 +19,21 @@
 #   - SesionVentana: abre y cierra la sesión en SessionManager, guarda el aviso
 #     que debe mostrar el login (sesión inválida, bloqueo, clave que pudo
 #     cambiar), envía las escrituras con el token y vigila la conexión mientras
-#     una pantalla con token está en uso (§3.7).
+#     una pantalla con token está en uso (§3.7). Cierra además la sesión tras
+#     SESION_INACTIVIDAD_S sin toques ni teclas en ESTA ventana, en cualquier
+#     estado del equipo (SAF-01: el standby no actúa en CICLO, FALLA ni
+#     EMERGENCIA y toma la actividad de las dos pantallas).
 #
 # El token nunca se registra: los logs llevan causa, ruta y código HTTP.
 
 import logging
 import math
+import queue
 import threading
 import time
 from dataclasses import dataclass, field
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
+from PySide6.QtCore import Property, QEvent, QObject, QTimer, Signal, Slot
 
 from autoclave.ui_pyside.services.session_manager import SessionManager
 
@@ -38,6 +42,9 @@ logger = logging.getLogger(__name__)
 PLAZO_S = 5.0                 # plazo total de login, logout y cambio de contraseña
 PLAZO_SALIDA_S = 1.0          # logout al cerrar la aplicación: no retrasar el cierre
 SIN_CONEXION_CIERRE_S = 15    # sin conexión continua con token en uso -> cerrar sesión
+SESION_INACTIVIDAD_S = 5 * 60  # sin actividad en esta ventana -> cerrar sesión (SAF-01)
+_EVENTOS_ACTIVIDAD = {QEvent.Type.MouseButtonPress, QEvent.Type.TouchBegin,
+                      QEvent.Type.KeyPress}
 
 OK = "ok"
 BACKEND_NO_RESPONDE = "backend_no_responde"
@@ -142,15 +149,16 @@ class OperacionSesion(QObject):
     resultado o con backend_no_responde si vence el plazo; `al_tardio(resultado)`
     (GUI) recibe la respuesta que llegó después del plazo o de cancelar().
 
-    `_respuesta` usa la conexión automática: el receptor es un método de este
-    QObject (hilo de la GUI) y se emite desde el hilo de trabajo, así que Qt la
-    encola; con un ejecutor síncrono (pruebas) es directa.
+    El hilo de trabajo no toca Qt: deja (id, resultado) en una cola de Python
+    que el hilo de la GUI vacía con un QTimer mientras haya operaciones
+    pendientes. Emitir una señal desde el hilo sobre un QObject ya destruido
+    (cierre de la aplicación, objeto recolectado) tumba el proceso; con la
+    cola, una respuesta huérfana simplemente no se lee.
 
     Al vencer o cancelar se libera la UI aunque el hilo siga esperando la red:
     puede salir otra petición mientras la anterior termina (se acepta; el
     backend cuenta los intentos que le lleguen)."""
     ocupadoChanged = Signal()
-    _respuesta = Signal(int, object)   # emitida desde el hilo de trabajo
 
     def __init__(self, parent=None, ejecutar=_en_hilo, plazo_s: float = PLAZO_S):
         super().__init__(parent)
@@ -162,7 +170,10 @@ class OperacionSesion(QObject):
         self._timer = QTimer(self)
         self._timer.setSingleShot(True)
         self._timer.timeout.connect(self._vencer)
-        self._respuesta.connect(self._al_responder)
+        self._cola = queue.SimpleQueue()   # (id, resultado) desde el hilo de trabajo
+        self._timer_cola = QTimer(self)
+        self._timer_cola.setInterval(20)
+        self._timer_cola.timeout.connect(self._drenar)
 
     @Property(bool, notify=ocupadoChanged)
     def ocupado(self) -> bool:
@@ -183,13 +194,27 @@ class OperacionSesion(QObject):
             except Exception:
                 logger.exception("Operación de sesión fallida")
                 resultado = Resultado(ERROR_GENERICO)
-            try:
-                self._respuesta.emit(ident, resultado)
-            except RuntimeError:
-                pass   # el objeto ya se destruyó (cierre de la aplicación)
+            cola.put((ident, resultado))   # sin Qt en el hilo de trabajo
 
+        cola = self._cola
         self._ejecutar(trabajo)
+        self._drenar()                     # ejecutor síncrono: ya está en la cola
+        if self._pendientes():
+            self._timer_cola.start()
         return True
+
+    def _pendientes(self) -> bool:
+        return self._en_vuelo is not None or bool(self._vencidas)
+
+    def _drenar(self) -> None:
+        while True:
+            try:
+                ident, resultado = self._cola.get_nowait()
+            except queue.Empty:
+                break
+            self._al_responder(ident, resultado)
+        if not self._pendientes():
+            self._timer_cola.stop()
 
     def _liberar(self) -> tuple:
         ident, _, al_terminar, al_tardio = self._en_vuelo
@@ -223,6 +248,7 @@ class OperacionSesion(QObject):
         nombre = self._en_vuelo[1]
         ident, _, al_tardio = self._liberar()
         self._apartar(ident, al_tardio)
+        self._timer_cola.start()           # para entregar la respuesta tardía
         logger.info("Operación de sesión cancelada: %s", nombre or "sin nombre")
 
     def _al_responder(self, ident: int, resultado) -> None:
@@ -245,11 +271,13 @@ class SesionVentana(QObject):
     # 15 s sin conexión con token en uso; destino "login" (cambio obligatorio)
     # o "principal"
     cierrePorDesconexion = Signal(str)
-    _logoutPendiente = Signal(str)   # emitida desde el hilo de trabajo
+    # SESION_INACTIVIDAD_S sin actividad en esta ventana: la sesión ya se cerró
+    cierrePorInactividad = Signal()
 
     def __init__(self, parent=None, transporte=None, ejecutar=_en_hilo,
                  plazo_s: float = PLAZO_S, reloj=time.monotonic,
-                 cierre_s: float = SIN_CONEXION_CIERRE_S, intervalo_ms: int = 250):
+                 cierre_s: float = SIN_CONEXION_CIERRE_S, intervalo_ms: int = 250,
+                 inactividad_s: float = SESION_INACTIVIDAD_S):
         super().__init__(parent)
         if transporte is None:
             base = _url_backend()   # se resuelve aquí, en el hilo de la GUI (TMG-09)
@@ -265,12 +293,19 @@ class SesionVentana(QObject):
         self._validacion = OperacionSesion(self, ejecutar=ejecutar, plazo_s=plazo_s)
         self._aviso = None                 # (clave es.json, segundos | None) para el login
         self._sin_conexion_desde = None    # reloj() del primer sondeo fallido
-        self._tokens_por_invalidar = []    # logout que no llegó: se reintenta al reconectar
+        # logout que no llegó: se reintenta al reconectar. Lo llena también el
+        # hilo de trabajo (sin Qt), por eso va con candado propio.
+        self._tokens_por_invalidar = []
+        self._lock_tokens = threading.Lock()
         self._conectado = True             # último estado visto por vigilar()
-        self._logoutPendiente.connect(self._tokens_por_invalidar.append)
         self._timer = QTimer(self)
         self._timer.setInterval(intervalo_ms)
         self._timer.timeout.connect(self._revisar_conexion)
+        self._inactividad_s = inactividad_s
+        self._ultima_actividad = reloj()
+        self._timer_inactividad = QTimer(self)
+        self._timer_inactividad.setInterval(intervalo_ms)
+        self._timer_inactividad.timeout.connect(self._revisar_inactividad)   # solo con sesión
 
     # ── estado ───────────────────────────────────────────────────────
 
@@ -292,6 +327,15 @@ class SesionVentana(QObject):
         aviso, self._aviso = self._aviso, None
         return aviso
 
+    def _peticion(self, metodo: str, ruta: str, cuerpo: dict | None = None,
+                  token: str | None = None, plazo: float | None = None):
+        """Tarea para el hilo de trabajo SIN referencias a este QObject: si el
+        hilo soltara la última referencia, Python lo destruiría (con sus
+        QTimer) fuera del hilo de la GUI y el proceso caería."""
+        transporte = self._transporte
+        plazo = self._plazo_s if plazo is None else plazo
+        return lambda: llamar(transporte, metodo, ruta, cuerpo, token, plazo=plazo)
+
     # ── login, cambio de contraseña ──────────────────────────────────
 
     def iniciar_sesion(self, usuario: str, clave: str, al_terminar) -> bool:
@@ -301,11 +345,12 @@ class SesionVentana(QObject):
             self.cerrar_sesion()   # un intento nuevo cierra la sesión previa de esta ventana
         cuerpo = {"usuario": usuario, "clave": clave}
 
-        def tarea():
-            return llamar(self._transporte, "POST", "/auth/login", cuerpo, plazo=self._plazo_s)
+        tarea = self._peticion("POST", "/auth/login", cuerpo)
 
         def terminar(r: Resultado):
             if r.ok:
+                self._ultima_actividad = self._reloj()
+                self._timer_inactividad.start()
                 SessionManager.login(r.datos, token=r.datos.get("token"))
                 self.sesionChanged.emit()
                 logger.info("Inicio de sesión QML: %s (rol %s)", r.datos.get("usuario"),
@@ -331,9 +376,7 @@ class SesionVentana(QObject):
         usuario = (SessionManager.current_user() or {}).get("usuario", "")
         cuerpo = {"clave_actual": actual, "clave_nueva": nueva, "confirmacion": confirmacion}
 
-        def tarea():
-            return llamar(self._transporte, "POST", "/auth/change_password", cuerpo, token,
-                          plazo=self._plazo_s)
+        tarea = self._peticion("POST", "/auth/change_password", cuerpo, token)
 
         def terminar(r: Resultado):
             if r.ok:
@@ -366,6 +409,7 @@ class SesionVentana(QObject):
         if aviso is not None:
             self._aviso = aviso
         self.operacion.cancelar()
+        self._timer_inactividad.stop()
         if SessionManager.is_authenticated():
             SessionManager.logout()
             logger.info("Sesión cerrada en esta ventana")
@@ -380,36 +424,44 @@ class SesionVentana(QObject):
             self._logout_en_segundo_plano(token)
 
     def _logout_en_segundo_plano(self, token: str) -> None:
+        pendientes, candado = self._tokens_por_invalidar, self._lock_tokens
+        peticion = self._peticion("POST", "/auth/logout", None, token)
+
         def tarea():
-            r = llamar(self._transporte, "POST", "/auth/logout", None, token, plazo=self._plazo_s)
+            r = peticion()
             if r.ok or r.causa == "sesion_invalida":
                 return
             logger.warning("Cierre de sesión sin confirmar del backend: %s", r.causa)
             if r.causa == BACKEND_NO_RESPONDE:
-                try:
-                    self._logoutPendiente.emit(token)   # se reintenta al reconectar (TMG-04)
-                except RuntimeError:
-                    pass
+                with candado:
+                    pendientes.append(token)   # se reintenta al reconectar (TMG-04)
         self._ejecutar(tarea)
 
+    def _tomar_pendientes(self) -> list:
+        with self._lock_tokens:
+            tokens = list(self._tokens_por_invalidar)
+            self._tokens_por_invalidar.clear()
+        return tokens
+
     def _reintentar_logouts(self) -> None:
-        pendientes, self._tokens_por_invalidar[:] = list(self._tokens_por_invalidar), []
-        for token in pendientes:
+        for token in self._tomar_pendientes():
             self._logout_en_segundo_plano(token)
 
     def cerrar_al_salir(self, plazo_s: float = PLAZO_SALIDA_S) -> None:
         """Al cerrar la aplicación: logout de la sesión y de los tokens
         pendientes, en hilos, esperando como mucho `plazo_s` en total."""
         self.operacion.cancelar()
-        tokens = list(self._tokens_por_invalidar)
+        self._timer_inactividad.stop()
+        tokens = self._tomar_pendientes()
         if SessionManager.token():
             tokens.append(SessionManager.token())
-        self._tokens_por_invalidar.clear()
         SessionManager.logout()
         confirmados = []
 
+        transporte = self._transporte
+
         def logout(token):
-            r = llamar(self._transporte, "POST", "/auth/logout", None, token, plazo=plazo_s)
+            r = llamar(transporte, "POST", "/auth/logout", None, token, plazo=plazo_s)
             if r.ok or r.causa == "sesion_invalida":
                 confirmados.append(token)
 
@@ -445,22 +497,46 @@ class SesionVentana(QObject):
         r = self._llamar_con_plazo(metodo, ruta, cuerpo, token)
         if r.causa == "sesion_invalida":
             self.cerrar_local(("sesion.sesion_invalida", None))
-            # en diferido: la pantalla que llamó aún espera este valor de retorno
-            QTimer.singleShot(0, self.sesionInvalida.emit)
+            # en diferido: la pantalla que llamó aún espera este valor de retorno;
+            # con este objeto como contexto, Qt lo cancela si se destruye antes
+            QTimer.singleShot(0, self, self.sesionInvalida.emit)
         return r
 
     def _llamar_con_plazo(self, metodo, ruta, cuerpo, token) -> Resultado:
         """Llamada síncrona con plazo TOTAL (SAF-05): la petición va en un
         hilo y se la espera como mucho el plazo; si no responde, se abandona."""
         resultado = []
-        hilo = threading.Thread(daemon=True, name="sesion-escritura", target=lambda: resultado.append(
-            llamar(self._transporte, metodo, ruta, cuerpo, token, plazo=self._plazo_s)))
+        peticion = self._peticion(metodo, ruta, cuerpo, token)
+        hilo = threading.Thread(daemon=True, name="sesion-escritura",
+                                target=lambda: resultado.append(peticion()))
         hilo.start()
         hilo.join(self._plazo_s)
         if not resultado:
             logger.warning("Escritura sin respuesta en %.1f s: %s %s", self._plazo_s, metodo, ruta)
             return Resultado(BACKEND_NO_RESPONDE)
         return resultado[0]
+
+    # ── inactividad de la sesión (SAF-01) ────────────────────────────
+
+    @Slot()
+    def registrarActividad(self) -> None:
+        """Toque o tecla en esta ventana."""
+        self._ultima_actividad = self._reloj()
+
+    def eventFilter(self, obj, evento) -> bool:
+        if evento.type() in _EVENTOS_ACTIVIDAD:
+            self.registrarActividad()
+        return False   # nunca consume el evento
+
+    def _revisar_inactividad(self) -> None:
+        if not SessionManager.is_authenticated():
+            return
+        if self._reloj() - self._ultima_actividad < self._inactividad_s:
+            return
+        logger.warning("Sesión cerrada tras %s s sin actividad en esta ventana",
+                       self._inactividad_s)
+        self.cerrar_sesion(aviso=("sesion.sesion_expirada", None))
+        self.cierrePorInactividad.emit()
 
     # ── vigilancia de la conexión (§3.7) ─────────────────────────────
 
@@ -517,7 +593,8 @@ class SesionVentana(QObject):
             self.cierrePorDesconexion.emit("login")
         else:
             if SessionManager.token():
-                self._tokens_por_invalidar.append(SessionManager.token())
+                with self._lock_tokens:
+                    self._tokens_por_invalidar.append(SessionManager.token())
             logger.warning("Sesión cerrada tras %s s sin conexión con el equipo", self._cierre_s)
             self.cerrar_local()
             self.cierrePorDesconexion.emit("principal")
@@ -528,9 +605,7 @@ class SesionVentana(QObject):
         if not token:
             return
 
-        def tarea():
-            return llamar(self._transporte, "GET", "/auth/sesion", None, token,
-                          plazo=self._plazo_s)
+        tarea = self._peticion("GET", "/auth/sesion", None, token)
 
         def terminar(r: Resultado):
             if r.causa == "sesion_invalida" and SessionManager.token() == token:

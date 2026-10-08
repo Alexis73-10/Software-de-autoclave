@@ -189,6 +189,7 @@ def main(argv=None) -> int:
     if args.door == 1:
         ventana.requestActivate()   # foco de teclado (login) aunque se lance desde una terminal
     ventana.installEventFilter(standby)   # todo toque/tecla de esta ventana cuenta como actividad
+    ventana.installEventFilter(sesion)    # y mantiene viva la sesión de esta ventana (SAF-01)
     ajustes.ventana = ventana
     logger.info("UI QML iniciada — puerta %d, monitor %s", args.door, pantalla.name())
     return app.exec()

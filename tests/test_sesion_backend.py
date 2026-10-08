@@ -33,6 +33,7 @@ def sesion_limpia():
     SessionManager.logout()
     yield
     SessionManager.logout()
+    _recolectar()
 
 
 class Transporte:
@@ -493,3 +494,64 @@ def test_saf06_un_rechazo_no_registra_el_usuario_tecleado(caplog):
     with caplog.at_level(logging.DEBUG):
         s.iniciar_sesion("MiClaveSecreta99", "x", lambda r: None)
     assert "MiClaveSecreta99" not in caplog.text
+
+
+# ── Inactividad de la sesión (SAF-01, decisión de Cristian 2026-10-08) ────────
+
+def test_saf01_cinco_minutos_sin_actividad_cierran_la_sesion_con_logout():
+    reloj, t = Reloj(), Transporte()
+    s = _sesion(t, reloj=reloj)
+    assert sb.SESION_INACTIVIDAD_S == 300
+    SessionManager.login(USUARIO_OK, token=TOKEN)
+    cierres = []
+    s.cierrePorInactividad.connect(lambda: cierres.append(True))
+    reloj.t += 299
+    s._revisar_inactividad()
+    assert SessionManager.is_authenticated() and cierres == []
+    reloj.t += 1
+    s._revisar_inactividad()
+    assert not SessionManager.is_authenticated() and cierres == [True]
+    assert t.llamadas == [("POST", "/auth/logout", TOKEN)]
+    assert LoginController(sesion=s).mensajeClave == "sesion.sesion_expirada"
+
+
+def test_saf01_la_actividad_de_esta_ventana_reinicia_el_conteo():
+    from PySide6.QtCore import QEvent
+
+    class Evento:   # el filtro solo mira type(); un QMouseEvent real cae al liberarse aquí
+        def __init__(self, tipo):
+            self._tipo = tipo
+
+        def type(self):
+            return self._tipo
+
+    reloj = Reloj()
+    s = _sesion(Transporte(), reloj=reloj)
+    SessionManager.login(USUARIO_OK, token=TOKEN)
+    reloj.t += 290
+    assert s.eventFilter(None, Evento(QEvent.Type.Paint)) is False
+    s._revisar_inactividad()
+    assert SessionManager.is_authenticated()            # un repintado no cuenta
+    assert s.eventFilter(None, Evento(QEvent.Type.MouseButtonPress)) is False   # no lo consume
+    reloj.t += 290
+    s._revisar_inactividad()
+    assert SessionManager.is_authenticated()
+
+
+def test_saf01_el_login_reinicia_el_conteo():
+    reloj = Reloj()
+    t = Transporte({("POST", "/auth/login"): (200, USUARIO_OK)})
+    s = _sesion(t, reloj=reloj)
+    reloj.t += 1000                                     # ventana sin uso antes del login
+    s.iniciar_sesion("tec1", "clave1234", lambda r: None)
+    s._revisar_inactividad()
+    assert SessionManager.is_authenticated()
+
+
+def _recolectar():
+    """Destruye en un punto seguro los QObject de la prueba que quedaron en
+    ciclos de referencias: si el recolector lo hace durante processEvents,
+    mientras Qt despacha uno de sus timers, el proceso cae."""
+    import gc
+    gc.collect()
+    QCoreApplication.processEvents()

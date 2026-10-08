@@ -10,7 +10,8 @@
 # - sin conexión con token en uso: aviso con cuenta regresiva; reconexión antes
 #   del plazo con GET /auth/sesion 200 (sigue) o 401 (Login); plazo vencido ->
 #   principal y logout al volver; en el cambio obligatorio -> Login sin enviar nada;
-# - HIBERNACION -> logout y pantalla principal.
+# - HIBERNACION -> logout y pantalla principal;
+# - inactividad de la sesión (SAF-01) -> logout y pantalla principal.
 
 import json
 import os
@@ -213,6 +214,14 @@ _SCRIPT = textwrap.dedent(r"""
     esperar()
     r["abandonar"] = [pantalla(), SessionManager.is_authenticated(),
                       rutas().count("/auth/logout") - antes]
+
+    # inactividad (SAF-01; plazo reducido): OPCIONES -> principal con logout
+    entrar("adm1", "clave1234")
+    antes = rutas().count("/auth/logout")
+    sesion._inactividad_s = 0.3
+    esperar(1500)
+    r["inactividad"] = [pantalla(), SessionManager.is_authenticated(),
+                        rutas().count("/auth/logout") - antes]
     r["avisos"] = avisos
     print("RESULTADO=" + json.dumps(r))
 """)
@@ -278,3 +287,7 @@ def test_bloqueo_en_el_cambio_lleva_al_login_con_cuenta_regresiva(r):
 
 def test_abandonar_el_cambio_cierra_con_logout(r):
     assert r["abandonar"] == ["PantallaPreciclo", False, 1]
+
+
+def test_inactividad_cierra_la_sesion_y_vuelve_a_la_principal(r):
+    assert r["inactividad"] == ["PantallaPreciclo", False, 1]
