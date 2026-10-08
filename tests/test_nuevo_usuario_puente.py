@@ -1,14 +1,20 @@
 # Puente QML ↔ backend de la pantalla Nuevo Usuario
 # (planeacion_nuevo_usuario.md, F2 y sección 10; planeacion_backend_autenticacion.md,
 # decisión 26 y T-20: crea el usuario con POST /usuarios y el token de la sesión).
+# Desde T-8 escribe por la sesión de la ventana (sesion_backend) y devuelve los
+# errores por clave de es.json: {campo: {"clave", "valores"}}.
 
 import logging
+import sys
 
 import pytest
+from PySide6.QtCore import QCoreApplication
+from PySide6.QtWidgets import QApplication
 
 from autoclave.ui_pyside.services.roles import ROLES
 from autoclave.ui_pyside.services.session_manager import SessionManager
 from autoclave.ui_pyside.views.nuevo_usuario.puente import NuevoUsuarioBridge
+from autoclave.ui_qml.sesion_backend import SesionVentana
 
 ADMIN = {"id": 1, "nombre": "Administrador", "usuario": "admin", "rol": "admin", "token": "tok-admin"}
 INGENIERO = {"id": 3, "nombre": "Ing", "usuario": "ing1", "rol": "ingeniero", "token": "tok-ing"}
@@ -19,16 +25,30 @@ VALIDOS = dict(nombre="Ana Ruiz", usuario="anar", password="clave1234",
 
 
 class BackendFalso:
-    """Registra los POST y responde con (código, cuerpo) configurables."""
+    """Transporte de sesion_backend: registra las peticiones y responde con
+    (código, cuerpo) configurables."""
     def __init__(self, respuesta=(200, {"ok": True})):
         self.respuesta = respuesta
         self.llamadas = []
 
-    def __call__(self, ruta, cuerpo, token):
+    def __call__(self, metodo, ruta, cuerpo, token, plazo):
         self.llamadas.append((ruta, cuerpo, token))
         if isinstance(self.respuesta, Exception):
             raise self.respuesta
         return self.respuesta
+
+
+def _puente(backend):
+    return NuevoUsuarioBridge(sesion=SesionVentana(transporte=backend, ejecutar=lambda t: t()))
+
+
+def _e(clave, **valores):
+    return {"clave": clave, "valores": valores}
+
+
+@pytest.fixture(scope="session", autouse=True)
+def qt_app():
+    return QCoreApplication.instance() or QApplication(sys.argv)
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +65,7 @@ def backend():
 
 @pytest.fixture
 def puente(backend):
-    return NuevoUsuarioBridge(enviar=backend)
+    return _puente(backend)
 
 
 def _validar(puente, **cambios):
@@ -130,21 +150,21 @@ def test_datos_validos_sin_errores(puente):
 
 @pytest.mark.parametrize("campo", ["nombre", "usuario", "password", "confirmacion"])
 def test_obligatorios(puente, campo):
-    assert _validar(puente, **{campo: ""})[campo] == "Campo obligatorio"
+    assert _validar(puente, **{campo: ""})[campo] == _e("validacion.obligatorio")
 
 
 def test_nombre_solo_espacios_es_obligatorio(puente):
-    assert _validar(puente, nombre="   ")["nombre"] == "Campo obligatorio"
+    assert _validar(puente, nombre="   ")["nombre"] == _e("validacion.obligatorio")
 
 
 def test_nombre_maximo_50(puente):
     assert "nombre" not in _validar(puente, nombre="a" * 50)
-    assert _validar(puente, nombre="a" * 51)["nombre"] == "Máximo 50 caracteres"
+    assert _validar(puente, nombre="a" * 51)["nombre"] == _e("validacion.larga", max=50)
 
 
 @pytest.mark.parametrize("usuario", ["ab", "a" * 31, "ana r", " anar", "anar\t"])
 def test_usuario_longitud_y_espacios(puente, usuario):
-    assert _validar(puente, usuario=usuario)["usuario"] == "Sin espacios, de 3 a 30 caracteres"
+    assert _validar(puente, usuario=usuario)["usuario"] == _e("validacion.formato", min=3, max=30)
 
 
 @pytest.mark.parametrize("usuario", ["abc", "a" * 30])
@@ -154,23 +174,23 @@ def test_usuario_limites_validos(puente, usuario):
 
 def test_password_minimo_8(puente):
     e = _validar(puente, password="1234567", confirmacion="1234567")
-    assert e["password"] == "Mínimo 8 caracteres"
+    assert e["password"] == _e("validacion.corta", min=8)
 
 
 def test_password_maximo_64(puente):
     largo = "a" * 65
     e = _validar(puente, password=largo, confirmacion=largo)
-    assert e["password"] == "Máximo 64 caracteres"
+    assert e["password"] == _e("validacion.larga", max=64)
 
 
 def test_confirmacion_distinta(puente):
     e = _validar(puente, confirmacion="otra12345")
-    assert e["confirmacion"] == "Las contraseñas no coinciden"
+    assert e["confirmacion"] == _e("validacion.no_coinciden")
 
 
 @pytest.mark.parametrize("rol", ["", "operador", "Admin", "biomedico"])
 def test_rol_invalido(puente, rol):
-    assert _validar(puente, rol=rol)["rol"] == "Seleccione un rol"
+    assert _validar(puente, rol=rol)["rol"] == _e("validacion.rol_invalido")
 
 
 def test_todos_los_errores_a_la_vez(puente):
@@ -208,7 +228,7 @@ def test_guardar_con_errores_no_llama_al_backend(puente, backend):
     SessionManager.login(ADMIN)
     r = _guardar(puente, confirmacion="otra12345")
     assert r["ok"] is False
-    assert r["errores"]["confirmacion"] == "Las contraseñas no coinciden"
+    assert r["errores"]["confirmacion"] == _e("validacion.no_coinciden")
     assert backend.llamadas == []
 
 
@@ -216,25 +236,29 @@ def test_guardar_sin_token_en_la_sesion(puente, backend):
     SessionManager.login({**ADMIN, "token": None})
     r = _guardar(puente)
     assert r["ok"] is False
-    assert "inicie sesión" in r["errores"]["general"]
+    assert r["errores"]["general"] == _e("sesion.sesion_invalida")
     assert backend.llamadas == []
 
 
 @pytest.mark.parametrize("respuesta,errores", [
-    ((409, {"detail": "El usuario ya existe"}), {"usuario": "El usuario ya existe"}),
-    ((401, {"detail": "x"}), {"general": "Sesión no válida o vencida; inicie sesión de nuevo"}),
-    ((403, {"detail": "Su rol no puede crear usuarios con ese rol"}),
-     {"general": "Su rol no puede crear usuarios con ese rol"}),
+    ((409, {"detail": "El usuario ya existe", "codigo": "usuario_existe"}),
+     {"usuario": _e("usuarios.usuario_existe")}),
+    ((401, {"detail": "x", "codigo": "sesion_invalida"}), {"general": _e("sesion.sesion_invalida")}),
+    ((403, {"detail": "Su rol no puede crear usuarios con ese rol", "codigo": "rol_no_creable"}),
+     {"general": _e("usuarios.rol_no_creable")}),
+    ((403, {"detail": "Debe cambiar la contraseña", "codigo": "clave_pendiente"}),
+     {"general": _e("sesion.clave_pendiente")}),
     ((422, {"detail": "Datos inválidos", "codigo": "validacion",
             "errores": [{"campo": "clave", "codigo": "corta"},
                         {"campo": "confirmacion", "codigo": "no_coinciden"}]}),
-     {"password": "Mínimo 8 caracteres", "confirmacion": "Las contraseñas no coinciden"}),
-    ((500, {}), {"general": "No se pudo guardar el usuario"}),
+     {"password": _e("validacion.corta", min=8), "confirmacion": _e("validacion.no_coinciden")}),
+    ((422, {"detail": [{"loc": ["body", "rol"]}]}), {"general": _e("usuarios.guardado_error")}),
+    ((500, {}), {"general": _e("usuarios.guardado_error")}),
 ])
 def test_guardar_traduce_respuestas_del_backend(respuesta, errores):
     SessionManager.login(ADMIN)
     creados = []
-    p = NuevoUsuarioBridge(enviar=BackendFalso(respuesta))
+    p = _puente(BackendFalso(respuesta))
     p.usuarioCreado.connect(creados.append)
     assert _guardar(p) == {"ok": False, "errores": errores}
     assert creados == []
@@ -242,10 +266,19 @@ def test_guardar_traduce_respuestas_del_backend(respuesta, errores):
 
 def test_guardar_backend_caido_no_expone_detalles():
     SessionManager.login(ADMIN)
-    p = NuevoUsuarioBridge(enviar=BackendFalso(ConnectionError("http://127.0.0.1:8000 interno")))
+    p = _puente(BackendFalso(ConnectionError("http://127.0.0.1:8000 interno")))
     r = _guardar(p)
     assert r["ok"] is False
-    assert "127.0.0.1" not in r["errores"]["general"]
+    assert r["errores"]["general"] == _e("sesion.backend_no_responde")
+
+
+def test_guardar_sin_conexion_no_sale_a_la_red(backend):
+    SessionManager.login(ADMIN)
+    sesion = SesionVentana(transporte=backend, ejecutar=lambda t: t())
+    sesion.vigilar(False, True)
+    r = _guardar(NuevoUsuarioBridge(sesion=sesion))
+    assert r["errores"]["general"] == _e("sesion.backend_no_responde")
+    assert backend.llamadas == []
 
 
 # ── Logs ──────────────────────────────────────────────────────────────────────
@@ -253,9 +286,9 @@ def test_guardar_backend_caido_no_expone_detalles():
 def test_password_no_aparece_en_logs(caplog):
     SessionManager.login(ADMIN)
     with caplog.at_level(logging.DEBUG):
-        _guardar(NuevoUsuarioBridge(enviar=BackendFalso()))
-        _guardar(NuevoUsuarioBridge(enviar=BackendFalso((409, {}))))
-        _guardar(NuevoUsuarioBridge(enviar=BackendFalso()), confirmacion="otra12345")
+        _guardar(_puente(BackendFalso()))
+        _guardar(_puente(BackendFalso((409, {"codigo": "usuario_existe"}))))
+        _guardar(_puente(BackendFalso()), confirmacion="otra12345")
     texto = caplog.text
     assert "clave1234" not in texto
     assert "usuario creado: anar, rol tecnico, por admin" in texto
@@ -270,10 +303,11 @@ def test_navegar_emite_destino(puente):
     assert destinos == ["home"]
 
 
-def test_salir_cierra_sesion_y_va_a_login(puente):
+def test_salir_cierra_sesion_con_logout_y_va_a_login(puente, backend):
     SessionManager.login(ADMIN)
     destinos = []
     puente.solicitudNavegar.connect(destinos.append)
     puente.salir()
     assert SessionManager.is_authenticated() is False
+    assert backend.llamadas == [("/auth/logout", None, "tok-admin")]
     assert destinos == ["login"]

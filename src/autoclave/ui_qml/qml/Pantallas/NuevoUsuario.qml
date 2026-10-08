@@ -24,6 +24,16 @@ Item {
         const s = textosJson ? textosJson[seccion] : undefined
         return (s && s[clave] !== undefined) ? s[clave] : ""
     }
+    // Errores del puente por clave de es.json (T-8): {clave: "seccion.clave", valores}
+    function txRuta(ruta, valores) {
+        const i = ruta.indexOf(".")
+        let texto = i > 0 ? tx(ruta.slice(0, i), ruta.slice(i + 1)) : ""
+        for (const k in (valores || {}))
+            texto = texto.replace("{" + k + "}", valores[k])
+        return texto
+    }
+    // Pantalla con token en uso (OPCIONES › Usuarios): la vigila Main.qml
+    readonly property bool usaToken: true
 
     // Valores confirmados de los campos
     property string nombre: ""
@@ -150,7 +160,10 @@ Item {
             return
         }
     }
-    function error(campo) { return errores[campo] || "" }
+    function error(campo) {
+        const e = errores[campo]
+        return e ? txRuta(e.clave, e.valores) : ""
+    }
 
     // ── Presentación ─────────────────────────────────────────────────────
     readonly property string iconos: "../../assets/iconos/color/"
@@ -518,6 +531,19 @@ Item {
                             }
                         }
                         MouseArea { anchors.fill: parent; onClicked: raiz.pulsarGuardar() }
+                    }
+                    // Error que no es de un campo (permiso, sesión, sin conexión, ...)
+                    Text {
+                        objectName: "errorGeneral"
+                        x: filaRol.x; y: Escala.px(1290)
+                        width: Escala.px(1075) - filaRol.x
+                        visible: text !== ""
+                        text: raiz.error("general")
+                        wrapMode: Text.WordWrap
+                        color: Colores.peligroTexto
+                        font.family: Tipografia.familia
+                        font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
+                        font.weight: Tipografia.pesoMedium
                     }
 
                     // ---- lista de roles (sobre lo demás) ----

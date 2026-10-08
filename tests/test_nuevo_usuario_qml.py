@@ -2,7 +2,7 @@
 #
 # Pantalla Nuevo Usuario (planeacion_nuevo_usuario.md, F3 y sección 10):
 # la vista PySide real (QQuickWidget con NuevoUsuarioHost.qml) con un backend
-# falso (POST /usuarios, planeacion_backend_autenticacion.md T-20), en
+# falso (POST /usuarios por la sesión de la ventana, T-20 y T-8), en
 # subproceso para tener un QApplication propio y offscreen.
 # Cubre: confirmación de descarte solo con datos capturados (Cancelar, "<",
 # Salir, Inicio), ojo independiente por campo y su efecto en el teclado,
@@ -31,8 +31,10 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_pyside.services.session_manager import SessionManager
     from autoclave.ui_pyside.views.nuevo_usuario.vista import NuevoUsuarioView
 
+    from autoclave.ui_qml.sesion_backend import SesionVentana
+
     enviados = []   # POST /usuarios que llegarían al backend
-    def enviar(ruta, cuerpo, token):
+    def transporte(metodo, ruta, cuerpo, token, plazo):
         enviados.append({"ruta": ruta, "cuerpo": cuerpo, "token": token})
         return 200, {"ok": True}
     destinos = []
@@ -43,7 +45,8 @@ _SCRIPT = textwrap.dedent(r"""
         qapp.processEvents()
 
     def nueva_vista():
-        v = NuevoUsuarioView(nav_callback=destinos.append, enviar=enviar)
+        v = NuevoUsuarioView(nav_callback=destinos.append,
+                             sesion=SesionVentana(transporte=transporte, ejecutar=lambda t: t()))
         v.resize(600, 960)
         return v
 

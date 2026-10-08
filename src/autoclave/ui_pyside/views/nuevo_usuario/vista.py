@@ -23,11 +23,10 @@ logger = logging.getLogger(__name__)
 class NuevoUsuarioView(QQuickWidget):
     oculta_marco = True
 
-    def __init__(self, nav_callback, enviar=None):
+    def __init__(self, nav_callback, sesion=None):
         super().__init__()
         self._nav = nav_callback
-        opciones = {"enviar": enviar} if enviar else {}
-        self.puente = NuevoUsuarioBridge(self, **opciones)
+        self.puente = NuevoUsuarioBridge(self, sesion=sesion)
         self.puente.solicitudNavegar.connect(self._nav)
         self.puente.usuarioCreado.connect(self._al_crear)
 

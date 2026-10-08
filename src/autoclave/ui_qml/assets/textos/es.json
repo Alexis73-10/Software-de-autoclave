@@ -6,6 +6,7 @@
   "opciones": {
     "titulo": "OPCIONES",
     "proximamente": "Próximamente",
+    "nuevo_usuario": "Nuevo usuario",
     "sin_secciones": "Su perfil no tiene secciones disponibles",
     "edicion_bloqueada": "Edición bloqueada: ciclo en curso",
     "salir_pregunta": "Hay cambios sin guardar. ¿Salir y descartarlos?",
@@ -307,5 +308,41 @@
     "sin_conexion": "Sin conexión con el controlador. Los valores mostrados no están actualizados.",
     "modo_prueba": "MODO PRUEBA ACTIVO — los ciclos no son válidos para carga estéril",
     "sin_lectura": "—"
+  },
+  "sesion": {
+    "campos_vacios": "Ingrese usuario y contraseña",
+    "credenciales_invalidas": "Usuario o contraseña incorrectos",
+    "usuario_bloqueado": "Usuario bloqueado por intentos fallidos. Intente de nuevo en {tiempo}",
+    "backend_no_responde": "El equipo no responde; intente de nuevo",
+    "clave_pendiente": "Debe cambiar la contraseña",
+    "sesion_invalida": "Sesión no válida o vencida; inicie sesión de nuevo",
+    "clave_actual_incorrecta": "La contraseña actual no es correcta",
+    "clave_pudo_cambiar": "No se pudo confirmar el cambio de contraseña. Inicie sesión con la contraseña nueva; si no funciona, use la anterior.",
+    "sin_conexion_escrituras": "Sin conexión con el equipo: no se pueden guardar cambios",
+    "sin_conexion_cierre": "La sesión se cerrará en {tiempo} si no vuelve la conexión",
+    "validando": "Validando…",
+    "error_generico": "No se pudo completar la operación",
+    "rol_sin_permiso": "Su rol no tiene permiso para esta acción",
+    "titulo_cambio_clave": "CAMBIAR CONTRASEÑA",
+    "aviso_cambio_obligatorio": "Debe cambiar su contraseña antes de continuar",
+    "clave_actual": "Contraseña actual",
+    "clave_nueva": "Contraseña nueva",
+    "confirmar_clave_nueva": "Confirmar contraseña nueva",
+    "boton_cambiar_clave": "CAMBIAR CONTRASEÑA"
+  },
+  "usuarios": {
+    "sin_permiso": "Su rol no puede crear usuarios",
+    "guardado_error": "No se pudo guardar el usuario",
+    "rol_no_creable": "Su rol no puede crear usuarios con ese rol",
+    "usuario_existe": "El usuario ya existe"
+  },
+  "validacion": {
+    "obligatorio": "Campo obligatorio",
+    "formato": "Sin espacios, de {min} a {max} caracteres",
+    "corta": "Mínimo {min} caracteres",
+    "larga": "Máximo {max} caracteres",
+    "no_coinciden": "Las contraseñas no coinciden",
+    "rol_invalido": "Seleccione un rol",
+    "igual_actual": "La nueva contraseña debe ser distinta de la actual"
   }
 }

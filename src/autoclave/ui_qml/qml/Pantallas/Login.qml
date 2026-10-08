@@ -11,12 +11,16 @@ import "../Componentes"
 // "Inicie sesión para continuar" — solo etiquetas de campo. Quedan como
 // placeholder marcados abajo; hay que pedírselos al diseñador junto con
 // el resto de textos que faltan.
-// PROVISIONAL (enmienda de planeacion_nuevo_usuario.md, 2026-10-01):
-// "INICIAR SESIÓN" valida contra la tabla usuarios con LoginController (mismo
-// hash que el login PySide, acceso directo a SQLite) y emite sesionIniciada,
-// con la que Main.qml reemplaza esta pantalla por OPCIONES
-// (planeacion_opciones_parametros_ciclo.md, Fase 1). La contraseña se vacía
-// tras cada intento.
+// "INICIAR SESIÓN" se autentica contra el backend (POST /auth/login, T-8 de
+// planeacion_backend_autenticacion.md) con LoginController, fuera del hilo de
+// la GUI: mientras espera, el botón queda deshabilitado y se muestra
+// "Validando…". Con sesión válida emite sesionIniciada (Main.qml abre
+// OPCIONES) o, si la contraseña debe cambiarse, cambioClaveRequerido. Los
+// mensajes salen de es.json por clave (sección "sesion"); con el usuario
+// bloqueado, cuenta regresiva en m:ss y el botón (solo para ese usuario) se
+// habilita al llegar a cero.
+// La contraseña se vacía tras cada intento. Las etiquetas fijas de esta
+// pantalla quedan para el plan de idiomas (planeacion_opciones.md §11).
 // Los campos se escriben con el teclado en pantalla (PanelTeclado, inyectado
 // por Main.qml como `teclado`): tocar un campo abre el alfanumérico, el campo
 // muestra lo que se escribe, Confirmar guarda y pasa al siguiente campo (en
@@ -30,9 +34,20 @@ Item {
         const s = textosJson ? textosJson[seccion] : undefined
         return (s && s[clave] !== undefined) ? s[clave] : ""
     }
+    // Texto de una clave "seccion.clave" con sus marcadores ({tiempo}, ...)
+    function txRuta(ruta, valores) {
+        const i = ruta.indexOf(".")
+        let texto = i > 0 ? tx(ruta.slice(0, i), ruta.slice(i + 1)) : ""
+        for (const k in (valores || {}))
+            texto = texto.replace("{" + k + "}", valores[k])
+        return texto
+    }
 
-    // TEC-D10: nombre de hasta 30 caracteres; la contraseña usa el mismo tope
+    // TEC-D10: nombre de hasta 30 caracteres (USUARIO_MAX); la contraseña, hasta
+    // 64 (PASSWORD_MAX de validacion_usuario.py, el mismo tope de CAMBIAR
+    // CONTRASEÑA y Nuevo usuario), o no se podría entrar con una clave larga
     readonly property int longitudMaxima: 30
+    readonly property int longitudMaximaClave: 64
     // Valores confirmados de los campos
     property string usuario: ""
     property string clave: ""
@@ -45,8 +60,8 @@ Item {
     }
     // Orden de los campos: Confirmar en uno pasa al siguiente (PanelTeclado)
     readonly property var campos: [
-        { nombre: "usuario", clave: "nombre_usuario", ocultar: false },
-        { nombre: "clave",   clave: "contrasena",     ocultar: true }
+        { nombre: "usuario", clave: "nombre_usuario", ocultar: false, maximo: longitudMaxima },
+        { nombre: "clave",   clave: "contrasena",     ocultar: true,  maximo: longitudMaximaClave }
     ]
     function editar(nombre) {
         if (!teclado)
@@ -54,7 +69,7 @@ Item {
         const i = campos.findIndex(c => c.nombre === nombre)
         const campo = campos[i]
         const siguiente = i + 1 < campos.length ? campos[i + 1].nombre : ""
-        teclado.abrirAlfanumerico(tx("formulario", campo.clave), raiz[nombre], longitudMaxima,
+        teclado.abrirAlfanumerico(tx("formulario", campo.clave), raiz[nombre], campo.maximo,
                                   campo.ocultar, texto => raiz[nombre] = texto,
                                   siguiente ? () => raiz.editar(siguiente) : null)
         campoActivo = nombre
@@ -67,11 +82,18 @@ Item {
     signal inicioPulsado()
     // Sesión validada (usuario, rol): Main.qml abre OPCIONES.
     signal sesionIniciada(string usuario, string rol)
+    // Sesión válida con cambio de contraseña obligatorio: Main.qml abre CAMBIAR CONTRASEÑA
+    signal cambioClaveRequerido()
 
     LoginController {
         id: sesion
+        objectName: "loginController"
         onSesionIniciada: (usuario, rol) => raiz.sesionIniciada(usuario, rol)
+        onCambioClaveRequerido: raiz.cambioClaveRequerido()
     }
+    // el bloqueo es por usuario (como en el backend): otro usuario puede intentar
+    readonly property bool puedeIntentar: !sesion.ocupado
+        && !(sesion.bloqueado && usuario.trim().toLowerCase() === sesion.usuarioBloqueado)
     // TODO(corregir más adelante, reporte de Cristian 2026-10-07): lo escrito en el
     // teclado sin tocar Confirmar se pierde. Si se escribe la contraseña y se toca
     // directamente INICIAR SESIÓN, el login responde que falta la contraseña: el
@@ -79,6 +101,8 @@ Item {
     // (tomar teclado.textoEnEdicion del campo activo antes de validar). Revisar
     // también tocar otro campo con el teclado abierto.
     function iniciarSesion() {
+        if (!puedeIntentar)
+            return
         if (teclado)
             teclado.cerrar()   // OJO: el comentario original decía que lo escrito sin Confirmar ya quedaba en el campo; no ocurre (TODO arriba)
         sesion.iniciarSesion(usuario, clave)
@@ -311,6 +335,7 @@ Item {
                             width: Escala.px(625); height: Escala.px(88); radius: Escala.px(6)
                             anchors.horizontalCenter: parent.horizontalCenter
                             color: Colores.accionPrimario
+                            opacity: raiz.puedeIntentar ? 1 : 0.5
 
                             Row {
                                 anchors.centerIn: parent
@@ -343,18 +368,26 @@ Item {
                                     font.weight: Tipografia.pesoSemiBold
                                 }
                             }
-                            MouseArea { anchors.fill: parent; onClicked: raiz.iniciarSesion() }
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: raiz.puedeIntentar
+                                onClicked: raiz.iniciarSesion()
+                            }
                         }
 
-                        // Error de validación o, PROVISIONAL, aviso de sesión iniciada
+                        // "Validando…" mientras espera; si no, el mensaje de la última respuesta
                         Text {
                             objectName: "mensajeLogin"
                             anchors.horizontalCenter: parent.horizontalCenter
-                            readonly property bool _exito: sesion.mensajeError === "" && sesion.nombreSesion !== ""
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
                             visible: text !== ""
-                            text: sesion.mensajeError !== "" ? sesion.mensajeError
-                                : _exito ? "Sesión iniciada: " + sesion.nombreSesion : ""
-                            color: _exito ? Colores.menuVerdeTexto : Colores.peligroTexto
+                            text: sesion.ocupado ? raiz.txRuta("sesion.validando")
+                                : sesion.mensajeClave !== ""
+                                    ? raiz.txRuta(sesion.mensajeClave, { tiempo: sesion.tiempoBloqueo })
+                                    : ""
+                            color: sesion.ocupado ? Colores.textoSecundario : Colores.peligroTexto
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
                             font.weight: Tipografia.pesoMedium

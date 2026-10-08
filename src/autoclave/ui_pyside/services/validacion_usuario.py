@@ -14,9 +14,7 @@ USUARIO_MIN, USUARIO_MAX = 3, 30
 PASSWORD_MIN, PASSWORD_MAX = 8, 64
 
 # Códigos estables por campo (contrato v7, decisión 34): el backend los envía
-# en el 422 y la UI los traduce con es.json. Los textos de abajo son los de
-# siempre; solo los usa la envoltura validar_nuevo_usuario (pantalla PySide y
-# puente actual), que se retira cuando el puente traduzca por clave (T-8).
+# en el 422 y la UI los traduce con es.json (error_ui).
 COD_OBLIGATORIO = "obligatorio"
 COD_FORMATO = "formato"          # solo usuario
 COD_EXISTE = "existe"            # solo usuario, validación local con existe_usuario
@@ -26,15 +24,8 @@ COD_NO_COINCIDEN = "no_coinciden"   # solo confirmacion
 COD_ROL_INVALIDO = "rol_invalido"   # solo rol
 COD_IGUAL_ACTUAL = "igual_actual"   # solo clave_nueva (cambio de contraseña)
 
-OBLIGATORIO = "Campo obligatorio"
-USUARIO_FORMATO = f"Sin espacios, de {USUARIO_MIN} a {USUARIO_MAX} caracteres"
+# Texto del 409 del backend (detail); la UI muestra usuarios.usuario_existe
 USUARIO_EXISTE = "El usuario ya existe"
-PASSWORD_CORTA = f"Mínimo {PASSWORD_MIN} caracteres"
-PASSWORD_LARGA = f"Máximo {PASSWORD_MAX} caracteres"
-NO_COINCIDEN = "Las contraseñas no coinciden"
-SELECCIONE_ROL = "Seleccione un rol"
-NOMBRE_LARGO = f"Máximo {NOMBRE_MAX} caracteres"
-IGUAL_ACTUAL = "La nueva contraseña debe ser distinta de la actual"
 
 
 def codigo_clave(clave: str) -> str | None:
@@ -89,35 +80,26 @@ def codigos_nuevo_usuario(nombre: str, usuario: str, clave: str, confirmacion: s
     return errores
 
 
-_TEXTOS = {
-    ("nombre", COD_OBLIGATORIO): OBLIGATORIO, ("nombre", COD_LARGA): NOMBRE_LARGO,
-    ("usuario", COD_OBLIGATORIO): OBLIGATORIO, ("usuario", COD_FORMATO): USUARIO_FORMATO,
-    ("usuario", COD_EXISTE): USUARIO_EXISTE,
-    ("clave", COD_OBLIGATORIO): OBLIGATORIO, ("clave", COD_CORTA): PASSWORD_CORTA,
-    ("clave", COD_LARGA): PASSWORD_LARGA,
-    ("confirmacion", COD_OBLIGATORIO): OBLIGATORIO,
-    ("confirmacion", COD_NO_COINCIDEN): NO_COINCIDEN,
-    ("rol", COD_ROL_INVALIDO): SELECCIONE_ROL,
-}
-
 # La pantalla Nuevo usuario nombra "password" al campo que el cuerpo llama "clave"
 _CAMPO_PANTALLA = {"clave": "password"}
-
-
-def texto_error(campo: str, codigo: str) -> str:
-    """Texto actual de un error de Nuevo usuario (campo del cuerpo + código)."""
-    return _TEXTOS.get((campo, codigo), OBLIGATORIO if codigo == COD_OBLIGATORIO else codigo)
 
 
 def campo_pantalla(campo: str) -> str:
     return _CAMPO_PANTALLA.get(campo, campo)
 
 
-def validar_nuevo_usuario(nombre: str, usuario: str, password: str,
-                          confirmacion: str, rol: str,
-                          existe_usuario) -> dict[str, str]:
-    """Envoltura de textos: {campo de pantalla: mensaje} con todos los errores;
-    vacío si es válido. Mismo resultado que antes de los códigos."""
-    codigos = codigos_nuevo_usuario(nombre, usuario, password, confirmacion, rol,
-                                    existe_usuario)
-    return {campo_pantalla(c): texto_error(c, cod) for c, cod in codigos.items()}
+def error_ui(campo: str, codigo: str) -> dict:
+    """Error para la pantalla: {"clave": <seccion.clave de es.json>,
+    "valores": {marcador: valor}}. `campo` es el nombre del cuerpo (clave,
+    clave_nueva, nombre, usuario, ...); los límites salen de este módulo, la
+    misma fuente que usa el backend."""
+    if codigo == COD_EXISTE:
+        return {"clave": "usuarios.usuario_existe", "valores": {}}
+    valores = {}
+    if codigo == COD_CORTA:
+        valores = {"min": PASSWORD_MIN}
+    elif codigo == COD_LARGA:
+        valores = {"max": NOMBRE_MAX if campo == "nombre" else PASSWORD_MAX}
+    elif codigo == COD_FORMATO:
+        valores = {"min": USUARIO_MIN, "max": USUARIO_MAX}
+    return {"clave": f"validacion.{codigo}", "valores": valores}

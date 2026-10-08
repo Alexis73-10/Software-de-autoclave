@@ -19,7 +19,8 @@ _ESPERADO = {
     "admin":     _ADMIN,
     "tecnico":   _TECNICAS,
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
-    "ingeniero": _TECNICAS,
+    # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
+    "ingeniero": _TECNICAS + ["usuarios"],
     "operador":  [],      # defecto de la tabla usuarios, fuera de roles.py
     "":          [],
     None:        [],

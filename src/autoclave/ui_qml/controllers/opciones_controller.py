@@ -8,12 +8,14 @@
 #
 # La sesión es la de SessionManager (una por proceso, es decir, por ventana QML),
 # abierta por LoginController. SessionManager no notifica cambios: quien la
-# altera fuera de este controlador llama refrescar().
+# altera fuera de este controlador llama refrescar(). Cerrar la sesión pasa
+# por la sesión de la ventana (sesion_backend), que pide /auth/logout (T-8).
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
 from autoclave.ui_pyside.services.session_manager import SessionManager
+from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain.permisos_opciones import edicion_permitida, secciones_visibles
 
 
@@ -44,6 +46,10 @@ class OpcionesController(QObject):
     def sesionActiva(self) -> bool:
         return self._usuario is not None
 
+    @Property(bool, notify=sesionChanged)
+    def cambioClavePendiente(self) -> bool:
+        return bool((self._usuario or {}).get("debe_cambiar_clave"))
+
     @Property(str, notify=sesionChanged)
     def usuario(self) -> str:
         return self._dato("usuario")
@@ -63,7 +69,7 @@ class OpcionesController(QObject):
 
     @Slot()
     def cerrarSesion(self) -> None:
-        SessionManager.logout()
+        sesion_backend.ventana().cerrar_sesion()
         self.refrescar()
 
     def _get_estado(self) -> str:

@@ -6,7 +6,8 @@
 #
 # Política inicial (U-7, Q-1 con la recomendación del documento): las cinco
 # secciones técnicas para técnico e ingeniero; admin no (nivel alto
-# pero sin conocimientos técnicos). Usuarios y Conectividad solo para admin.
+# pero sin conocimientos técnicos). Usuarios para admin e ingeniero (confirmado
+# por Cristian el 2026-10-08, planeacion_opciones.md v4 §2); Conectividad solo admin.
 # La matriz fina por rol sigue pendiente en el plan de roles: cambiarla aquí no
 # requiere tocar la pantalla. Un rol desconocido (p. ej. "operador", defecto de
 # la tabla usuarios) o vacío no ve nada.
@@ -16,10 +17,11 @@
 
 from dataclasses import dataclass
 
-from autoclave.ui_pyside.services.roles import ROL_ADMIN
+from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO
 
 _TECNICOS = frozenset({"tecnico", "ingeniero"})
 _SOLO_ADMIN = frozenset({ROL_ADMIN})
+_GESTION_USUARIOS = frozenset({ROL_ADMIN, ROL_INGENIERO})
 
 
 @dataclass(frozen=True)
@@ -30,7 +32,7 @@ class Seccion:
 
 
 # Orden de la navegación lateral: las cinco de AdminMenuView._OPTIONS (U-2) y,
-# al final, las dos de admin (§5.0). Iconos PROVISIONALES donde el diseñador no
+# al final, Usuarios y Conectividad (§5.0). Iconos PROVISIONALES donde el diseñador no
 # entregó el definitivo (Entradas / Salidas, Opciones avanzadas).
 SECCIONES = (
     Seccion("parametros_ciclo",   "reloj.svg",              _TECNICOS),
@@ -38,7 +40,7 @@ SECCIONES = (
     Seccion("entradas_salidas",   "sensor_temperatura.svg", _TECNICOS),
     Seccion("mantenimiento",      "mantenimiento.svg",      _TECNICOS),
     Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
-    Seccion("usuarios",           "usuarios.svg",           _SOLO_ADMIN),
+    Seccion("usuarios",           "usuarios.svg",           _GESTION_USUARIOS),
     Seccion("conectividad",       "conectividad.svg",       _SOLO_ADMIN),
 )
 

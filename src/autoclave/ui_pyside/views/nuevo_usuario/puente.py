@@ -1,9 +1,14 @@
 # ui_pyside/views/nuevo_usuario/puente.py
 #
 # Puente entre la pantalla QML Nuevo Usuario y el backend
-# (planeacion_backend_autenticacion.md, decisión 26, T-20). Ya no escribe en
-# SQLite: crea el usuario con POST /usuarios, que exige el token de la sesión,
-# aplica las reglas de creación por rol, valida y guarda el hash PBKDF2.
+# (planeacion_backend_autenticacion.md, decisión 26, T-20; T-8). Crea el
+# usuario con POST /usuarios a través de la sesión de la ventana
+# (ui_qml/sesion_backend.py), que pone el token, rechaza sin red cuando no hay
+# conexión y, ante un 401, cierra la sesión y avisa a la ventana.
+#
+# Desde T-8 vive en el proceso QML (OPCIONES › Usuarios). Los errores van por
+# clave de es.json: {campo: {"clave": "seccion.clave", "valores": {...}}}, y
+# "general" para los que no son de un campo; la pantalla los traduce.
 #
 # Control de acceso (NU-05): la pantalla solo se abre con una sesión que pueda
 # crear usuarios, pero quien decide es el backend con el rol del token.
@@ -11,36 +16,20 @@
 
 import logging
 
-import requests
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from autoclave.ui_pyside.services.roles import ROLES, ROLES_CREABLES
 from autoclave.ui_pyside.services.session_manager import SessionManager
 from autoclave.ui_pyside.services.validacion_usuario import (
-    NOMBRE_MAX, PASSWORD_MAX, PASSWORD_MIN, USUARIO_EXISTE, USUARIO_MAX, campo_pantalla,
-    texto_error, validar_nuevo_usuario,
+    NOMBRE_MAX, PASSWORD_MAX, PASSWORD_MIN, USUARIO_MAX, campo_pantalla,
+    codigos_nuevo_usuario, error_ui,
 )
 
 logger = logging.getLogger(__name__)
 
-SIN_PERMISO = "Su rol no puede crear usuarios"
-SESION_VENCIDA = "Sesión no válida o vencida; inicie sesión de nuevo"
-ERROR_GUARDAR = "No se pudo guardar el usuario"
 
-# El backend tarda lo que cuesta el hash PBKDF2 (600 000 iteraciones)
-_TIMEOUT_S = 5.0
-
-
-def _enviar_por_defecto(ruta: str, cuerpo: dict, token: str):
-    """POST al backend; devuelve (código HTTP, cuerpo JSON o {})."""
-    from autoclave.ui_qml.app import url_backend
-    r = requests.post(f"{url_backend()}{ruta}", json=cuerpo,
-                      headers={"Authorization": f"Bearer {token}"}, timeout=_TIMEOUT_S)
-    try:
-        datos = r.json()
-    except ValueError:
-        datos = {}
-    return r.status_code, datos
+def _general(clave: str) -> dict:
+    return {"general": {"clave": clave, "valores": {}}}
 
 
 class NuevoUsuarioBridge(QObject):
@@ -48,9 +37,12 @@ class NuevoUsuarioBridge(QObject):
     solicitudNavegar = Signal(str)
     sesionChanged = Signal()
 
-    def __init__(self, parent=None, enviar=_enviar_por_defecto):
+    def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
-        self._enviar = enviar
+        if sesion is None:
+            from autoclave.ui_qml import sesion_backend
+            sesion = sesion_backend.ventana()
+        self._sesion = sesion
         self._usuario_actual = ""
         self._rol_actual = ""
         self.actualizarSesion()
@@ -94,61 +86,49 @@ class NuevoUsuarioBridge(QObject):
         return (SessionManager.is_authenticated()
                 and SessionManager.current_role() in ROLES_CREABLES)
 
+    @staticmethod
+    def _errores_ui(codigos: dict) -> dict:
+        return {campo_pantalla(c): error_ui(c, cod) for c, cod in codigos.items()}
+
     @Slot(str, str, str, str, str, result="QVariantMap")
     def validar(self, nombre, usuario, password, confirmacion, rol):
         """Validación local de formato para avisar sin ir al backend; la
         unicidad del usuario la decide el backend (409)."""
-        return validar_nuevo_usuario(nombre, usuario, password, confirmacion, rol,
-                                     existe_usuario=lambda _u: False)
+        return self._errores_ui(codigos_nuevo_usuario(
+            nombre, usuario, password, confirmacion, rol, existe_usuario=lambda _u: False))
 
     @Slot(str, str, str, str, str, bool, result="QVariantMap")
     def guardar(self, nombre, usuario, password, confirmacion, rol, activo):
         if not self.puedeCrear():
             logger.warning("Creación de usuario rechazada: la sesión no puede crear usuarios")
-            return {"ok": False, "errores": {"general": SIN_PERMISO}}
+            return {"ok": False, "errores": _general("usuarios.sin_permiso")}
 
         errores = self.validar(nombre, usuario, password, confirmacion, rol)
         if errores:
             return {"ok": False, "errores": errores}
 
-        token = (SessionManager.current_user() or {}).get("token")
-        if not token:
-            logger.warning("Creación de usuario sin token de backend en la sesión")
-            return {"ok": False, "errores": {"general": SESION_VENCIDA}}
-
         cuerpo = {"nombre": nombre.strip(), "usuario": usuario, "clave": password,
                   "confirmacion": confirmacion, "rol": rol, "activo": bool(activo)}
-        try:
-            codigo_http, datos = self._enviar("/usuarios", cuerpo, token)
-        except Exception as e:
-            # el detalle va al log (sin datos del formulario), no a la pantalla
-            logger.error("Backend no disponible al crear usuario: %s", type(e).__name__)
-            return {"ok": False, "errores": {"general": ERROR_GUARDAR}}
-
-        if codigo_http == 200:
-            creador = SessionManager.current_user()["usuario"]
+        creador = SessionManager.current_user()["usuario"]
+        r = self._sesion.enviar("POST", "/usuarios", cuerpo)
+        if r.ok:
             logger.info("usuario creado: %s, rol %s, por %s", usuario, rol, creador)
             self.usuarioCreado.emit(usuario)
             return {"ok": True, "errores": {}}
-        return {"ok": False, "errores": self._errores_de(codigo_http, datos)}
+        return {"ok": False, "errores": self._errores_de(r)}
 
-    @staticmethod
-    def _errores_de(codigo_http: int, datos: dict) -> dict:
-        detalle = datos.get("detail") if isinstance(datos, dict) else None
-        if codigo_http == 401:
-            return {"general": SESION_VENCIDA}
-        if codigo_http == 409:
-            return {"usuario": USUARIO_EXISTE}
-        errores = datos.get("errores") if isinstance(datos, dict) else None
-        if codigo_http == 422 and isinstance(errores, list) and errores:
+    def _errores_de(self, r) -> dict:
+        from autoclave.ui_qml.sesion_backend import clave_mensaje
+        if r.causa == "validacion":
             # contrato v7: lista {campo, codigo} con los campos del cuerpo
-            return {campo_pantalla(e.get("campo", "")): texto_error(e.get("campo", ""),
-                                                                    e.get("codigo", ""))
-                    for e in errores if isinstance(e, dict)}
-        if codigo_http == 403 and isinstance(detalle, str):
-            return {"general": detalle}
-        logger.error("Creación de usuario rechazada por el backend: HTTP %s", codigo_http)
-        return {"general": ERROR_GUARDAR}
+            return self._errores_ui({e.get("campo", ""): e.get("codigo", "")
+                                     for e in r.datos.get("errores", []) if isinstance(e, dict)})
+        if r.causa == "usuario_existe":
+            return {"usuario": {"clave": "usuarios.usuario_existe", "valores": {}}}
+        if r.causa in ("ok", "error_generico"):
+            return _general("usuarios.guardado_error")
+        logger.warning("Creación de usuario rechazada: %s", r.causa)
+        return _general(clave_mensaje(r.causa))
 
     # ── Navegación ───────────────────────────────────────────────────
 
@@ -158,7 +138,7 @@ class NuevoUsuarioBridge(QObject):
 
     @Slot()
     def salir(self) -> None:
-        """Salir de la barra inferior = cerrar sesión e ir al login (P-01)."""
-        SessionManager.logout()
+        """Salir de la barra inferior = cerrar sesión (con logout) e ir al login (P-01)."""
+        self._sesion.cerrar_sesion()
         self.actualizarSesion()
         self.solicitudNavegar.emit("login")

@@ -14,7 +14,7 @@
 #   cambios sin guardar cambiar de sección pide confirmación; el título muestra
 #   la sección activa y el admin aterriza en Usuarios;
 # - ningún acceso lanza PySide.
-# Carga real en subproceso, offscreen, con base de usuarios temporal.
+# Carga real en subproceso, offscreen, con un backend de sesión falso (T-8).
 
 import json
 import os
@@ -41,14 +41,20 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.app import QML_DIR, cargar_textos
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import login_controller, teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401
-    from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.ui_pyside.services.session_manager import SessionManager
-    from autoclave.backend.contrasenas import hash_password
+    from autoclave.ui_qml import sesion_backend
 
     estado, rol = sys.argv[1], sys.argv[2]
-    db = DbManager(db_path=pathlib.Path(tempfile.mkdtemp()) / "t.db")
-    db.crear_usuario("Ana Ruiz", "anar", hash_password("clave1234", 1000), rol)
-    login_controller._db_por_defecto = lambda: db
+    # backend falso de sesión (T-8): solo anar / clave1234, con el rol pedido
+    def transporte(metodo, ruta, cuerpo, token, plazo):
+        if ruta == "/auth/login":
+            if cuerpo == {"usuario": "anar", "clave": "clave1234"}:
+                return 200, {"token": "tok-anar", "usuario": "anar", "nombre": "Ana Ruiz",
+                             "rol": rol, "debe_cambiar_clave": False}
+            return 401, {"codigo": "credenciales_invalidas"}
+        return 200, {"ok": True}
+    sesion_backend.instalar(sesion_backend.SesionVentana(transporte=transporte,
+                                                         ejecutar=lambda t: t()))
 
     qapp = QGuiApplication([])
     ui = MagicMock(spec=UIServiceBackend)
@@ -133,6 +139,7 @@ _SCRIPT = textwrap.dedent(r"""
     r["seccion_activa"] = op.property("seccionActiva")
     r["titulo"] = hijo("tituloOpciones").property("text")
     r["proximamente"] = hijo("textoProximamente").property("visible")
+    r["boton_nuevo_usuario"] = hijo("botonNuevoUsuario").property("visible")
     r["sin_secciones"] = hijo("textoSinSecciones").property("visible")
     r["aviso_bloqueo"] = hijo("avisoEdicionBloqueada").property("visible")
     r["engranaje_visible"] = hijo("engranajeEncabezado").property("visible")
@@ -278,7 +285,7 @@ def test_tecnico_entra_a_opciones(estado, bloqueado):
     assert r["titulo_segunda"] == "PARÁMETROS DEL SISTEMA"
     assert r["pide_confirmar"] is True
     assert r["confirmar_cambia"] is True
-    assert r["proximamente"] is True
+    assert r["proximamente"] is True and r["boton_nuevo_usuario"] is False
     assert r["sin_secciones"] is False
     assert r["aviso_bloqueo"] is bloqueado
     assert r["aviso_bloqueo_segunda"] is bloqueado
@@ -290,7 +297,7 @@ def test_ingeniero_edita_con_ciclo_en_curso():
     # Excepción de Cristian (2026-10-07): el ingeniero modifica lo que sea en cualquier momento
     r = _correr("CICLO", "ingeniero")
     _navegacion_comun(r)
-    assert r["entradas"] == _TECNICAS
+    assert r["entradas"] == _TECNICAS + ["usuarios"]   # Usuarios también (T-8, R3-5)
     assert r["aviso_bloqueo"] is False            # Parámetros del ciclo
     assert r["aviso_bloqueo_segunda"] is False    # Parámetros del sistema
 
@@ -301,6 +308,8 @@ def test_admin_ve_solo_usuarios_y_conectividad():
     assert r["entradas"] == ["usuarios", "conectividad"]
     assert r["seccion_activa"] == "usuarios"     # el admin aterriza en Usuarios
     assert r["titulo"] == "USUARIOS"
+    # Usuarios: botón a Nuevo usuario en lugar de "Próximamente" (T-8, R2-5)
+    assert r["boton_nuevo_usuario"] is True and r["proximamente"] is False
 
 
 def test_rol_sin_secciones():

@@ -20,6 +20,10 @@ import "../Componentes"
 // Sesión y permisos: OpcionesController (SessionManager + domain/permisos_opciones.py).
 // La pantalla nunca compara roles. Salir cierra la sesión (con confirmación si
 // hay cambios sin guardar, U-5/U-13); Inicio sale conservándola.
+//
+// Usuarios (T-8, R2-5): un botón abre Nuevo usuario a pantalla completa sobre
+// OPCIONES (nuevoUsuarioPulsado; lo apila Main.qml). Es pantalla con token en
+// uso (`usaToken`): la vigilancia de conexión de Main.qml aplica aquí.
 Item {
     id: raiz
 
@@ -31,6 +35,9 @@ Item {
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
     signal sesionCerrada()     // Salir: sesión ya cerrada
+    signal nuevoUsuarioPulsado()   // sección Usuarios: abrir Nuevo usuario
+
+    readonly property bool usaToken: true
 
     function tx(seccion, clave) {
         const s = textosJson ? textosJson[seccion] : undefined
@@ -186,10 +193,28 @@ Item {
             }
         }
 
-        // Fase 1: ninguna sección migrada (U-4); centrado como en la imagen 1c
+        // Usuarios: por ahora solo crear (botón a Nuevo usuario, R2-5)
+        Rectangle {
+            objectName: "botonNuevoUsuario"
+            visible: raiz.seccionActiva === "usuarios"
+            anchors.centerIn: parent
+            width: raiz.m(560); height: raiz.m(96); radius: raiz.m(12)
+            color: Colores.accionPrimario
+            Text {
+                anchors.centerIn: parent
+                text: raiz.tx("opciones", "nuevo_usuario")
+                color: "white"
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoSemiBold
+                font.pixelSize: raiz.fuente(32)
+            }
+            MouseArea { anchors.fill: parent; onClicked: raiz.nuevoUsuarioPulsado() }
+        }
+
+        // Fase 1: ninguna otra sección migrada (U-4); centrado como en la imagen 1c
         Text {
             objectName: "textoProximamente"
-            visible: raiz.seccionActiva !== ""
+            visible: raiz.seccionActiva !== "" && raiz.seccionActiva !== "usuarios"
             anchors.centerIn: parent
             text: raiz.tx("opciones", "proximamente")
             color: Colores.textoGuia

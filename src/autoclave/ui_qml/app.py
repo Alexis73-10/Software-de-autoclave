@@ -7,6 +7,9 @@
 # únicos comandos que envía son abrir/cerrar la puerta de esta ventana, iniciar
 # ciclo (misma lógica que tkinter) y, desde la pantalla de ciclo en curso,
 # cancelar (con confirmación) y confirmar el fin del ciclo; no toca salidas.
+# La sesión de la ventana (login, logout, cambio de contraseña, crear
+# usuarios) va contra /auth/* y /usuarios con su token (sesion_backend, T-8);
+# al salir se cierra con /auth/logout.
 # El backend se lanza aparte con `python -m autoclave.backend.main`.
 # Sin tarjeta, AUTOCLAVE_BACKEND_URL=http://127.0.0.1:8001 apunta la UI al backend
 # simulado (`python -m autoclave.simulador`, herramienta de desarrollo).
@@ -24,6 +27,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 from autoclave.ui.service_ui.backend_client import BackendClient
 from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
 from autoclave.services.domain.puertas.door_command_service import DoorCommandService
+from autoclave.ui_pyside.views.nuevo_usuario.puente import NuevoUsuarioBridge
 from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
 from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
 from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
@@ -36,6 +40,7 @@ from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
 from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
 from autoclave.ui_qml.bridge.standby import Standby
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
+from autoclave.ui_qml import sesion_backend
 # Registran los controladores de los teclados en Autoclave.Controllers
 # (qmlRegisterType al importar); los usa PanelTeclado de Main.qml.
 from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
@@ -131,6 +136,11 @@ def main(argv=None) -> int:
     acciones = AccionesCiclos(backend, textos)
     # Reportes: resumen de ciclos por periodo, solo lectura, bajo demanda
     reporte = ReporteResumen(backend)
+    # Sesión de esta ventana contra el backend (token solo en memoria) y el
+    # puente de Nuevo usuario de OPCIONES › Usuarios, que escribe con ese token
+    sesion = sesion_backend.SesionVentana()
+    sesion_backend.instalar(sesion)
+    puente_nuevo_usuario = NuevoUsuarioBridge(sesion=sesion)
 
     def _al_salir():
         puente.detener()
@@ -138,6 +148,7 @@ def main(argv=None) -> int:
         progreso.detener()
         resumen.detener()
         ajustes.cerrar()
+        sesion.cerrar_al_salir()   # /auth/logout con plazo corto (decisión 31)
         ui_service.stop()   # solo detiene el hilo de lectura; no toca salidas ni backend
 
     app.aboutToQuit.connect(_al_salir)
@@ -157,6 +168,8 @@ def main(argv=None) -> int:
         "historial": historial,
         "acciones": acciones,
         "reporte": reporte,
+        "sesion": sesion,
+        "puenteNuevoUsuario": puente_nuevo_usuario,
         "textosJson": textos,
     })
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Main.qml"))
