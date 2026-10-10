@@ -199,7 +199,7 @@ Los endpoints de parámetros del sistema y de sensores y entradas mostradas se d
 
 **Secciones del JSON que no son fases propias:** `estabilizacion` se trata como CALENTAMIENTO; `despresurizacion` como DESCOMPRESION; `globals` y `finalizacion` como "Global". Consecuencia: un cambio en `finalizacion` durante el ciclo no afecta a la apertura automática de ese ciclo.
 
-**Registro:** todo cambio va a `audit_log` con ciclo, fase, programa y `aplica` (`actual` o `siguiente`) en `detalle`. El ciclo no se marca en el ticket, el PDF ni el historial (decisión de Cristian). La trazabilidad queda solo en `audit_log`.
+**Registro:** todo cambio va a `audit_log` con ciclo, fase, programa y `aplica` (`en_curso` o `siguiente`) en `detalle`. El ciclo no se marca en el ticket, el PDF ni el historial (decisión de Cristian). La trazabilidad queda solo en `audit_log`.
 
 ### 5.9 Fallas y restablecimiento
 
