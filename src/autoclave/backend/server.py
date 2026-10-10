@@ -724,7 +724,8 @@ def get_current_cycle_progress():
     if ciclo_id is None or transcurrido is None:
         return {"activo": False}
 
-    cycle = context.cycle_manager.get_selected_cycle()
+    # las fases que aplican salen de la copia con la que corre el ciclo (T-17)
+    cycle = context.control_loop.programa_en_ejecucion()
     aplicables = progreso_ciclo.fases_aplicables(cycle, context.cap)
     filas = [dict(f) for f in context.db.get_fases_ciclo(ciclo_id)]
 
@@ -1182,7 +1183,10 @@ def update_cycle_parameter(body: _CycleParamValueBody,
     """Actualiza un único parámetro (cualquier sección, incluido el secado) de
     cualquier ciclo cargado y persiste si es 'user'. Valida contra el
     'type'/'min'/'max' que ya trae cada parámetro en su propio JSON.
-    Solo ingeniero (decisión 25); en CICLO, §5.8."""
+    Solo ingeniero (decisión 25). En CICLO (§5.8, T-17) el cambio se guarda
+    siempre en el programa almacenado y aplica también al ciclo en curso solo
+    si es su programa y la fase del parámetro no ha iniciado; la respuesta
+    lo indica en `aplica` ("en_curso" o "siguiente")."""
     cycle = context.cycle_manager.cycles.get(body.cycle_id)
     if cycle is None:
         raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
@@ -1195,11 +1199,6 @@ def update_cycle_parameter(body: _CycleParamValueBody,
                       excepcion_ingeniero=True) as estado:
         en_ciclo = estado == GlobalState.CICLO
         programa_en_curso = getattr(getattr(context.control_loop, "cycle", None), "id", None)
-        if en_ciclo and body.cycle_id == programa_en_curso:
-            # PROVISIONAL hasta T-17 (etapa 3): sin la copia profunda, editar el
-            # programa en ejecución mutaría el objeto que usan las fases (OPC-26).
-            raise _Rechazo(409, "programa_en_curso",
-                           "El programa en curso no se puede editar hasta que termine el ciclo")
 
         anterior = _valor_parametro(cycle, body.fase, body.path)
         try:
@@ -1210,9 +1209,18 @@ def update_cycle_parameter(body: _CycleParamValueBody,
             raise HTTPException(status_code=422, detail=str(e))
 
         # Fuera de CICLO, o en otro programa durante CICLO (§5.8, 5b), el
-        # cambio solo rige desde el siguiente ciclo que use ese programa.
+        # cambio solo rige desde el siguiente ciclo que use ese programa. El
+        # ciclo en curso corre con una copia: solo una fase pendiente de su
+        # programa recibe el cambio, decidido aquí bajo _sm_lock (§5.8, 4).
         aplica = "siguiente"
+        if en_ciclo and body.cycle_id == programa_en_curso:
+            if context.control_loop.aplicar_a_ciclo_en_curso(body.fase, body.path, value):
+                aplica = "en_curso"
         detalle = {"programa": body.cycle_id, "fase": body.fase, "aplica": aplica}
+        # parámetros vinculados que cambiaron con este (SAF-02 de T-17)
+        vinculados = [f"{f}/{'.'.join(p)}" for f, p in cycle.vinculados(body.fase, body.path)[1:]]
+        if vinculados:
+            detalle["vinculados"] = vinculados
         if en_ciclo:
             ctx = _contexto_ciclo()
             detalle.update({"ciclo": ctx.get("ciclo"), "fase_en_curso": ctx.get("fase"),

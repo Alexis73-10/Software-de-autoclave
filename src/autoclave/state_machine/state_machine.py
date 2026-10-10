@@ -90,6 +90,12 @@ class StateMachine:
             if listo and self.estado.get_flag("START_CICLO"):
                 self.estado.set_flag("START_CICLO", False)
                 self.estado.set_machine_state(GlobalState.CICLO)
+                # Entrada inmediata (en este mismo tick, bajo _sm_lock): la
+                # copia del programa (T-17) debe existir antes de que el
+                # registro del ciclo, el progreso o un PATCH vean CICLO; si
+                # no, leerían la copia del ciclo anterior hasta el tick siguiente.
+                self.on_state_entry(GlobalState.CICLO)
+                self.prev_state = GlobalState.CICLO
 
         # ==============================================================
         # CICLO

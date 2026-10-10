@@ -453,7 +453,6 @@
                 "max": 20
             }
         },
-        "despresurizacion": {},
         "secado": {
             "modo": {
                 "value": 1,

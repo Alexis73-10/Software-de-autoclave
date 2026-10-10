@@ -23,6 +23,7 @@ def _make_ciclo(door_service=None, apertura_automatica=False,
         return valores.get((seccion, nombre), default)
 
     cycle.get_param.side_effect = _get_param
+    cycle.copia.return_value = cycle   # copia de T-17 con los mismos valores
     config = MagicMock()
     config.get.return_value = None
     alarm_manager = MagicMock()

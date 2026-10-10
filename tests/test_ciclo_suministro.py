@@ -21,6 +21,7 @@ def _make_ciclo(fallo_suministro=False):
 
     set_do = MagicMock()
     cycle  = MagicMock()
+    cycle.copia.return_value = cycle   # copia de T-17 con los mismos valores
     cycle.get_param.return_value = None
     config = MagicMock()
     config.get.return_value = None

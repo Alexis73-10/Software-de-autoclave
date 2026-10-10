@@ -11,7 +11,9 @@ class DescompresionFase(BaseFase):
     name = "DESCOMPRESION"
 
     def reset(self):
-        self._modo             = self.cycle.get_param("descompresion", "modo", default=0)
+        # el modo se lee al iniciar la fase, no al iniciar el ciclo: un cambio
+        # con la fase pendiente (T-17, §5.8) debe regir la fase completa
+        self._modo             = None
         self._etapa            = None
         self._sub_etapa        = None
         self._t_inicio         = None
@@ -22,6 +24,7 @@ class DescompresionFase(BaseFase):
 
     def update(self) -> FaseResult:
         if self._etapa is None:
+            self._modo = self.cycle.get_param("descompresion", "modo", default=0)
             self._apagar_todo()
             t_pre = self.cycle.get_param("descompresion", "tiempo_pre_despresurizacion", default=0)
             if t_pre and t_pre > 0:

@@ -9,6 +9,7 @@ def _make_ciclo(temp_drenaje=25.0, temp_segura=40.0):
     estado.get_flag.return_value = False
     set_do = MagicMock()
     cycle = MagicMock()
+    cycle.copia.return_value = cycle   # copia de T-17 con los mismos valores
     cycle.get_param.return_value = None
     config = MagicMock()
     config.get.return_value = temp_segura

@@ -104,6 +104,9 @@ class CycleLogger:
         self.profile       = profile
         self.cycle_manager = cycle_manager
         self.printer       = printer
+        # Lo fija ControlLoop: devuelve la copia con la que corre el ciclo
+        # (T-17). Sin él, el programa seleccionado.
+        self.programa_en_ejecucion = None
 
         # Estado interno
         self._activo            = False
@@ -195,6 +198,11 @@ class CycleLogger:
     # Lifecycle
     # ------------------------------------------------------------------
 
+    def _programa(self):
+        if self.programa_en_ejecucion is not None:
+            return self.programa_en_ejecucion()
+        return self.cycle_manager.get_selected_cycle()
+
     def _on_inicio(self):
         numero = self.db.siguiente_numero_ciclo()
 
@@ -204,7 +212,7 @@ class CycleLogger:
         temp_e = None
         t_e    = None
         try:
-            cycle  = self.cycle_manager.get_selected_cycle()
+            cycle  = self._programa()
             tipo   = cycle.id
             nombre = cycle.name
             temp_e = cycle.get_param("esterilizacion", "temperatura_esterilizacion")
@@ -272,7 +280,7 @@ class CycleLogger:
             if self.printer is not None:
                 f0_total = None
                 try:
-                    cycle = self.cycle_manager.get_selected_cycle()
+                    cycle = self._programa()
                     if cycle and cycle.get_param("globals", "F0"):
                         f0_total = self.estado.f0_acumulado
                 except Exception as exc:

@@ -39,6 +39,8 @@ def _make_loop(estado=None, cap=None, f0_activo=True):
             config_manager=MagicMock(),
             cap=cap,
         )
+    # el ciclo corre con la copia del programa (T-17); aquí, el mismo doble
+    loop.state_machine.ciclo.programa_en_curso = cycle
     return loop, estado, cycle
 
 

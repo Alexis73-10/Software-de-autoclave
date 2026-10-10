@@ -32,6 +32,7 @@ def entorno(tmp_path):
     ctx.db = db
     ctx.cap = SimpleNamespace(has_vacuum=True)
     ctx.cycle_manager.get_selected_cycle.return_value = _Ciclo()
+    ctx.control_loop.programa_en_ejecucion.return_value = _Ciclo()   # copia de T-17
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     ctx.estado.fase_ciclo = "CALENTAMIENTO"
     ctx.cycle_logger.ciclo_id_pantalla = None

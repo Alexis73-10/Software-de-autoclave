@@ -383,14 +383,57 @@ def test_ingeniero_en_ciclo_edita_otro_programa(entorno_config):
     assert detalle["programa_en_curso"] == "en_curso"
 
 
-def test_ingeniero_en_ciclo_programa_en_curso_409_provisional(entorno_config):
-    """Hasta T-17 (etapa 3) el programa en ejecución no se edita en CICLO: sin
-    copia profunda, el cambio mutaría el objeto que usan las fases (OPC-26)."""
+@pytest.mark.parametrize("aplico,aplica", [(True, "en_curso"), (False, "siguiente")])
+def test_ingeniero_en_ciclo_edita_el_programa_en_curso(entorno_config, aplico, aplica):
+    """T-17 (§5.8): se guarda en el programa almacenado y el ciclo en curso
+    decide, según su fase, si también aplica a su copia."""
     client, ctx, srv, _, en_curso = entorno_config
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
+    ctx.estado.fase_ciclo = "CALENTAMIENTO"
+    ctx.control_loop.aplicar_a_ciclo_en_curso.return_value = aplico
+    ctx.cycle_logger.ciclo_id_pantalla = 5
     r = _param(client, cabecera(srv, "ingeniero"), cycle_id="en_curso")
-    assert r.status_code == 409
+    assert r.status_code == 200 and r.json()["aplica"] == aplica
+    assert en_curso.get_param("secado", "tiempo_secado") == 20.0
+    ctx.control_loop.aplicar_a_ciclo_en_curso.assert_called_once_with(
+        "secado", ["tiempo_secado"], 20.0)
+    assert _eventos(ctx.db, "param_ciclo_cambio")[0]["detalle"]["aplica"] == aplica
+
+
+def test_ingeniero_en_ciclo_otro_programa_no_toca_el_ciclo_en_curso(entorno_config):
+    """§5.8, 5b: un programa no seleccionado no afecta al ciclo en curso."""
+    client, ctx, srv, otro, _ = entorno_config
+    ctx.estado.get_machine_state.return_value = GlobalState.CICLO
+    ctx.estado.fase_ciclo = "CALENTAMIENTO"
+    ctx.cycle_logger.ciclo_id_pantalla = 5
+    r = _param(client, cabecera(srv, "ingeniero"))
+    assert r.status_code == 200 and r.json()["aplica"] == "siguiente"
+    assert otro.get_param("secado", "tiempo_secado") == 20.0
+    ctx.control_loop.aplicar_a_ciclo_en_curso.assert_not_called()
+
+
+def test_parametro_vinculado_se_ajusta_y_se_audita(entorno_config):
+    """SAF-02 de T-17: temperatura de calentamiento y de esterilización van juntas."""
+    client, ctx, srv, otro, _ = entorno_config
+    hoja = {"value": 134.0, "type": "float", "min": 100, "max": 140}
+    otro.parameters["calentamiento"] = {"temperatura_calentamiento": dict(hoja)}
+    otro.parameters["esterilizacion"] = {"temperatura_esterilizacion": dict(hoja)}
+    r = client.patch("/cycle/parameter", headers=cabecera(srv, "ingeniero"), json={
+        "cycle_id": "otro", "fase": "esterilizacion", "path": ["temperatura_esterilizacion"],
+        "value": 121.0})
+    assert r.status_code == 200
+    assert otro.get_param("calentamiento", "temperatura_calentamiento") == 121.0
+    detalle = _eventos(ctx.db, "param_ciclo_cambio")[0]["detalle"]
+    assert detalle["vinculados"] == ["calentamiento/temperatura_calentamiento"]
+
+
+def test_valor_invalido_en_ciclo_no_toca_nada(entorno_config):
+    client, ctx, srv, _, en_curso = entorno_config
+    ctx.estado.get_machine_state.return_value = GlobalState.CICLO
+    r = _param(client, cabecera(srv, "ingeniero"), cycle_id="en_curso", valor=500.0)
+    assert r.status_code == 422
     assert en_curso.get_param("secado", "tiempo_secado") == 10.0
+    ctx.control_loop.aplicar_a_ciclo_en_curso.assert_not_called()
 
 
 def test_ingeniero_calibra_en_ciclo_y_aplica_de_inmediato(entorno_config):

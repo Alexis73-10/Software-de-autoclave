@@ -72,6 +72,10 @@ class ControlLoop:
             cycle=self.cycle, config=self.config_manager, cap=cap,
             door_service=door_service,
         )
+        # el registro del ciclo (ticket, F0 del pie) lee el programa con el
+        # que corre el ciclo, no el almacenado (T-17)
+        if self.cycle_logger is not None:
+            self.cycle_logger.programa_en_ejecucion = self.programa_en_ejecucion
         self.link_was_connected = True
         self._link_ever_connected = False
         self._desconectado_desde: float | None = None
@@ -100,6 +104,22 @@ class ControlLoop:
                 logger.warning("ControlLoop: error inesperado en el ciclo: %s", exc)
             time.sleep(self.interval)
 
+
+    def programa_en_ejecucion(self):
+        """Copia del programa con la que corre (o corrió) el último ciclo
+        (T-17); sin ciclo iniciado desde la última selección, el programa
+        seleccionado."""
+        copia = getattr(self.state_machine.ciclo, "programa_en_curso", None)
+        return copia if copia is not None else self.cycle
+
+    def aplicar_a_ciclo_en_curso(self, seccion: str, path: list[str], valor) -> bool:
+        """§5.8: aplica al ciclo en curso un cambio ya guardado en el programa
+        almacenado, solo si su fase no ha iniciado. Bajo _sm_lock (RLock: el
+        guard del backend ya lo tiene)."""
+        with self._sm_lock:
+            if self.estado.get_machine_state() != GlobalState.CICLO:
+                return False
+            return self.state_machine.ciclo.aplicar_si_fase_pendiente(seccion, path, valor)
 
     @property
     def desconectado(self) -> bool:
@@ -245,7 +265,7 @@ class ControlLoop:
         condiciones = (
             self.estado.get_machine_state() == GlobalState.CICLO
             and self.estado.fase_ciclo in _F0_FASES_ACUMULAN
-            and bool(self.cycle.get_param("globals", "F0"))
+            and bool(self.programa_en_ejecucion().get_param("globals", "F0"))
         )
         if not condiciones:
             self._f0_ultimo_tick = None

@@ -35,6 +35,19 @@ _DEBOUNCE_LECTURAS_DRENAJE = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
 _TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 
+# Sección del JSON del programa -> fase del pipeline que la usa (§5.8).
+# `estabilizacion` va con CALENTAMIENTO (fusionadas). Las secciones que no están aquí (`globals`, `finalizacion` o
+# cualquier otra) rigen todo el ciclo: se tratan como fase ya iniciada.
+_SECCION_A_FASE = {
+    "precalentamiento": "PRECALENTAMIENTO",
+    "prevacio":         "PRE_VACIO",
+    "calentamiento":    "CALENTAMIENTO",
+    "estabilizacion":   "CALENTAMIENTO",
+    "esterilizacion":   "ESTERILIZACION",
+    "descompresion":    "DESCOMPRESION",
+    "secado":           "SECADO",
+}
+
 # Resultado textual que CicloState devuelve al StateMachine
 class CicloResultado:
     EN_CURSO               = "EN_CURSO"
@@ -52,7 +65,8 @@ class CicloState:
     Dependencias inyectadas por StateMachine:
         estado        → EstadoAutoclave
         set_do        → SetOutput
-        cycle         → Cycle  (ciclo seleccionado al inicio del ciclo)
+        cycle         → Cycle  (programa almacenado; al entrar en CICLO las
+                                fases trabajan con una copia profunda, T-17)
         config        → ConfigManager
         alarm_manager → AlarmManager
     """
@@ -60,7 +74,12 @@ class CicloState:
     def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None, door_service=None):
         self.estado        = estado
         self.set_do        = set_do
+        # Programa almacenado (el que edita PATCH /cycle/parameter). Mientras
+        # corre un ciclo, self.cycle, las fases y el protocolo de fallo usan
+        # su copia (programa_en_curso), tomada en reset().
+        self._programa     = cycle
         self.cycle         = cycle
+        self.programa_en_curso = None
         self.config        = config
         self.alarm_manager = alarm_manager
         self.cap           = cap
@@ -95,8 +114,15 @@ class CicloState:
     def reset(self):
         """
         Llamar UNA vez al entrar al estado CICLO.
-        Reinicia todas las fases y el protocolo de fallo.
+        Toma la copia profunda del programa (T-17) y reinicia todas las fases
+        y el protocolo de fallo, que desde aquí leen la copia.
         """
+        self.programa_en_curso = self._programa.copia()
+        self.cycle = self.programa_en_curso
+        self._protocolo.cycle = self.programa_en_curso
+        for fase in self._fases:
+            fase.cycle = self.programa_en_curso
+
         self._fase_idx            = 0
         self._resultado_pendiente = None
         self._contador_drenaje_alta = 0
@@ -120,8 +146,36 @@ class CicloState:
         )
 
     # ------------------------------------------------------------------
-    # Tick principal
+    # Cambios del ingeniero con el ciclo en curso (T-17, §5.8)
     # ------------------------------------------------------------------
+
+    def aplicar_si_fase_pendiente(self, seccion: str, path: list[str], valor) -> bool:
+        """Aplica a la copia del ciclo en curso un cambio ya guardado en el
+        programa almacenado, solo si la fase de esa sección aún no ha
+        iniciado. Devuelve True si aplicó al ciclo en curso; False si rige
+        desde el siguiente (fase iniciada o terminada, sección global, ciclo
+        ya terminado o sin copia). Llamar con _sm_lock tomado: así la fase no
+        puede avanzar durante la decisión (si inicia en el mismo instante, el
+        tick que la inicia ya corrió y cuenta como iniciada)."""
+        if self.programa_en_curso is None or self._resultado_pendiente is not None:
+            return False
+        # un parámetro vinculado (p. ej. temperatura de calentamiento y de
+        # esterilización) arrastra a su pareja: se aplica solo si todas las
+        # fases afectadas están pendientes, para no dejarlas distintas
+        nombres = [f.name for f in self._fases]
+        for sec, _ in self.programa_en_curso.vinculados(seccion, path):
+            fase = _SECCION_A_FASE.get(sec)
+            if fase not in nombres or nombres.index(fase) <= self._fase_idx:
+                return False
+        try:
+            self.programa_en_curso.set_param(seccion, path, valor)
+        except (KeyError, TypeError, ValueError) as exc:
+            logger.warning("CicloState: el cambio %s/%s no se aplicó al ciclo en curso: %s",
+                           seccion, ".".join(path), exc)
+            return False
+        logger.info("CicloState: cambio %s/%s aplicado al ciclo en curso (fase pendiente)",
+                    seccion, ".".join(path))
+        return True
 
     # ------------------------------------------------------------------
     # Supervisores continuos (llamados en cada tick activo)

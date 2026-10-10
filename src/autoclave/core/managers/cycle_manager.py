@@ -1,4 +1,5 @@
 
+import copy
 import json
 import os
 import logging
@@ -15,6 +16,15 @@ def _numero_de_ciclo(valor) -> int | None:
     return valor
 
 
+# Parámetros vinculados (T-17, decisión de Cristian 2026-10-10): deben valer
+# siempre lo mismo; editar uno ajusta el otro en la misma operación, tanto en
+# el programa almacenado como en la copia del ciclo en curso.
+_VINCULADOS = (
+    (("calentamiento", "temperatura_calentamiento"),
+     ("esterilizacion", "temperatura_esterilizacion")),
+)
+
+
 class Cycle:
     def __init__(self, cycle_id: str, name: str, parameters: dict, number: int | None = None):
         self.id = cycle_id
@@ -24,6 +34,14 @@ class Cycle:
         # None si falta, no es entero positivo o está repetido.
         self.number = number
 
+    def copia(self) -> "Cycle":
+        """Copia profunda de los parámetros (T-17, §5.8): el ciclo en curso
+        trabaja con ella, así que editar el programa almacenado no cambia
+        ningún valor de una fase ya iniciada."""
+        c = Cycle(self.id, self.name, copy.deepcopy(self.parameters), self.number)
+        c.source = getattr(self, "source", None)
+        return c
+
     def get_param(self, *keys, default=None):
         data = self.parameters
 
@@ -32,25 +50,51 @@ class Cycle:
 
         return data.get("value", default)
 
+    def vinculados(self, fase: str, path: list[str]) -> list[tuple[str, list[str]]]:
+        """Parámetros que una edición de (fase, path) cambia: él mismo y, si
+        está en _VINCULADOS, su pareja (solo si existe en este programa)."""
+        resultado = [(fase, list(path))]
+        if len(path) == 1:
+            for a, b in _VINCULADOS:
+                for propio, otro in ((a, b), (b, a)):
+                    if propio == (fase, path[0]) and self._hoja(otro[0], [otro[1]]) is not None:
+                        resultado.append((otro[0], [otro[1]]))
+        return resultado
+
+    def _hoja(self, fase: str, path: list[str]):
+        """Nodo del parámetro, o None si la ruta no existe."""
+        node = self._nodo(fase, path)
+        return node if isinstance(node, dict) and "value" in node else None
+
     def set_param(self, fase: str, path: list[str], value):
         """Actualiza el 'value' de un parámetro navegando fase + path, coercionando
         y validando contra el 'type'/'min'/'max' propio del JSON del ciclo.
-        Devuelve el valor ya coercionado. No muta nada si la validación falla."""
-        section = self.parameters.get(fase)
-        if section is None:
+        Un parámetro vinculado (_VINCULADOS) arrastra a su pareja, validada
+        igual. Devuelve el valor ya coercionado. No muta nada si la validación
+        falla."""
+        if self.parameters.get(fase) is None:
             raise KeyError(f"El ciclo no tiene la sección '{fase}'")
-
-        node = section
-        for key in path[:-1]:
-            if not isinstance(node, dict) or key not in node:
-                raise KeyError(f"Ruta de parámetro inválida: {'.'.join(path)}")
-            node = node[key]
-
-        leaf_key = path[-1]
-        if not isinstance(node, dict) or leaf_key not in node or "value" not in node[leaf_key]:
+        if not isinstance(self._nodo(fase, path[:-1]), dict):
+            raise KeyError(f"Ruta de parámetro inválida: {'.'.join(path)}")
+        if self._hoja(fase, path) is None:
             raise KeyError(f"El parámetro '{'.'.join(path)}' no existe en '{fase}'")
 
-        leaf = node[leaf_key]
+        cambios = [(self._hoja(f, p), self._coercionar(self._hoja(f, p), p[-1], value))
+                   for f, p in self.vinculados(fase, path)]
+        for hoja, valor in cambios:
+            hoja["value"] = valor
+        return cambios[0][1]
+
+    def _nodo(self, fase: str, path: list[str]):
+        node = self.parameters.get(fase)
+        for key in path:
+            if not isinstance(node, dict) or key not in node:
+                return None
+            node = node[key]
+        return node
+
+    @staticmethod
+    def _coercionar(leaf: dict, leaf_key: str, value):
         param_type = leaf.get("type", "int")
 
         if param_type == "bool":
@@ -66,8 +110,6 @@ class Cycle:
                 raise ValueError(f"'{leaf_key}' fuera de rango (mínimo {pmin})")
             if pmax is not None and coerced > pmax:
                 raise ValueError(f"'{leaf_key}' fuera de rango (máximo {pmax})")
-
-        leaf["value"] = coerced
         return coerced
 
 
