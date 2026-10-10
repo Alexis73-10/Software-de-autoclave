@@ -19,6 +19,11 @@ class FallaState:
         debe transicionar a PREPARACION.
         """
         if self.estado.get_flag("PARO_EMERGENCIA"):
+            # §5.9 (OPC-23): un reconocimiento con el paro activo se descarta;
+            # tras soltar el paro hay que reconocer de nuevo
+            if self.estado.get_flag("RESET_FALLA"):
+                self.estado.set_flag("RESET_FALLA", False)
+                logger.warning("FallaState: RESET_FALLA descartado con el paro de emergencia activo")
             self.set_do.reset_all_outputs()
             self.alarm_manager.report(Alarm(
                 alarm_id="PARO_EMERGENCIA",

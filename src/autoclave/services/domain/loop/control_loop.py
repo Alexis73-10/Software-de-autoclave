@@ -100,6 +100,14 @@ class ControlLoop:
                 logger.warning("ControlLoop: error inesperado en el ciclo: %s", exc)
             time.sleep(self.interval)
 
+
+    @property
+    def desconectado(self) -> bool:
+        """True mientras el enlace con la tarjeta está caído (incluida la
+        tolerancia): las lecturas no son vigentes. Solo lectura, para el
+        backend (órdenes de puerta, revisión de seguridad de la etapa 2)."""
+        return self._desconectado_desde is not None
+
     def _tick(self):
         connected = self.link.is_connected()
         now = time.monotonic()

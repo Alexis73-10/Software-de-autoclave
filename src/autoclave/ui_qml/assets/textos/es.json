@@ -79,6 +79,7 @@
   },
   "modulos": {
     "iniciar_ciclo": "INICIAR CICLO",
+    "reconocer_falla": "RECONOCER FALLA",
     "historial": "HISTORIAL",
     "programas": "PROGRAMAS",
     "reportes": "REPORTES",

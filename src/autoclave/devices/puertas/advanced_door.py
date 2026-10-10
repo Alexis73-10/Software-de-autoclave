@@ -347,10 +347,10 @@ class AdvancedDoor(Door):
         if cerrada and not abierta:
             # estabilización no bloqueante
             if self._estabilizacion_start is None:
-                self._estabilizacion_start = time.time()
+                self._estabilizacion_start = time.monotonic()
                 return  # esperar al próximo ciclo
 
-            if time.time() - self._estabilizacion_start < 0.3:
+            if time.monotonic() - self._estabilizacion_start < 0.3:
                 return  # aún esperando
 
             self._estabilizacion_start = None  # reset
@@ -369,7 +369,7 @@ class AdvancedDoor(Door):
         safe_mode = self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")
 
         if self.timer_start is None:
-            self.timer_start = time.time() + self.config.get("timeout_puerta")
+            self.timer_start = time.monotonic() + self.config.get("timeout_puerta")
             self.bloquear_off()
             self.cerrar_off()
             if safe_mode:
@@ -413,7 +413,7 @@ class AdvancedDoor(Door):
             logger.info("Puerta abierta correctamente.")
             return
 
-        if time.time() > self.timer_start:
+        if time.monotonic() > self.timer_start:
             self.abrir_off()
             self.vacio_off()
             self._alarm_clear(f"ABRIENDO_MODO_SEGURO_{self.name}")
@@ -458,7 +458,7 @@ class AdvancedDoor(Door):
         safe_mode = self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")
 
         if self.timer_start is None:
-            self.timer_start = time.time() + self.config.get("timeout_puerta")
+            self.timer_start = time.monotonic() + self.config.get("timeout_puerta")
             self._pulso_bloqueo_enviado = False
             self._pulso_desbloqueo_enviado = False
             if safe_mode:
@@ -511,7 +511,7 @@ class AdvancedDoor(Door):
                 logger.info("Puerta cerrada correctamente.")
                 return
 
-        if time.time() > self.timer_start:
+        if time.monotonic() > self.timer_start:
             self.cerrar_off()
             self.vacio_off()
             self.desbloquear_off()
@@ -551,10 +551,10 @@ class AdvancedDoor(Door):
         if cerrada and not abierta:
             
             if self._estabilizacion_start is None:
-                self._estabilizacion_start = time.time()
+                self._estabilizacion_start = time.monotonic()
                 return  # esperar al próximo ciclo
             
-            if time.time() - self._estabilizacion_start < 0.3:
+            if time.monotonic() - self._estabilizacion_start < 0.3:
                 return  # aún esperando
             
             self._estabilizacion_start = None  # reset
@@ -589,13 +589,32 @@ class AdvancedDoor(Door):
     #COMANDOS EXTERNOS
     #============================
 
+    # Orígenes desde los que se acepta abrir: la puerta quieta. En movimiento
+    # (ABRIENDO, CERRANDO) o atrapada (ATRAPADA ya invierte sola) se rechaza:
+    # abrir desde CERRANDO dejaba energizados a la vez cerrar y abrir (o
+    # bloquear y desbloquear) y heredaba el plazo del cierre.
+    _ABRIR_DESDE = frozenset({DoorState.CERRADO, DoorState.DESCONOCIDO, DoorState.ERROR})
+
     def cmd_abrir(self):
+        """Devuelve (ok, motivo): el resultado real de la orden (T-18)."""
+        estado = self.get_state()
+        if estado == DoorState.ABIERTO:
+            return False, "La puerta ya está abierta"
+        if estado not in self._ABRIR_DESDE:
+            logger.warning("Puerta %s: apertura denegada en %s.", self.name, estado.name)
+            return False, f"La puerta está en movimiento ({estado.name})"
         if "bloqueo" in self.di:
             if self.estado.sensores_di.get(self.di["bloqueo"]):
                 logger.warning("Puerta %s: bloqueada mecánicamente, apertura denegada.", self.name)
-                return
+                return False, "Puerta bloqueada mecánicamente"
+        # arranque limpio: _from_abriendo apaga cerrar/bloquear y fija un plazo nuevo
+        self.timer_start = None
         self.set_state(DoorState.ABRIENDO)
-            
+        return True, ""
+
     def cmd_cerrar(self):
+        """Devuelve (ok, motivo): solo se cierra desde ABIERTO (T-18)."""
         if self.get_state() == DoorState.ABIERTO:
             self.set_state(DoorState.CERRANDO)
+            return True, ""
+        return False, f"La puerta no está abierta ({self.get_state().name})"

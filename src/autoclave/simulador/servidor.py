@@ -15,6 +15,7 @@
 import time
 
 from fastapi import Body, FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.core.runtime import progreso_ciclo
@@ -182,21 +183,26 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
     def history(limite: int = 50):
         return []
 
-    @app.post("/doors/{nombre}/open")
-    def abrir(nombre: str, body: dict = Body(default={})):
+    # Puertas con el contrato del backend (§5.3, T-13 y T-18): 409 con código
+    # en CICLO; "sin_actuador" en la respuesta. El simulador no modela
+    # sensores ni bloqueo mecánico.
+    def _puerta(nombre: str, accion: str, valor: str):
         if nombre not in est.puertas:
             raise HTTPException(status_code=404, detail="Puerta desconocida")
         if est.en_ciclo:
-            raise HTTPException(status_code=403, detail="Apertura de puerta no permitida durante el ciclo")
-        est.puertas[nombre] = "ABIERTO"
-        return {"ok": True, "door": nombre, "action": "open"}
+            return JSONResponse(status_code=409, content={
+                "detail": "No permitido con un ciclo en curso",
+                "codigo": "estado_no_permitido", "estado": "CICLO"})
+        est.puertas[nombre] = valor
+        return {"ok": True, "door": nombre, "action": accion, "sin_actuador": False}
+
+    @app.post("/doors/{nombre}/open")
+    def abrir(nombre: str, body: dict = Body(default={})):
+        return _puerta(nombre, "open", "ABIERTO")
 
     @app.post("/doors/{nombre}/close")
     def cerrar(nombre: str, body: dict = Body(default={})):
-        if nombre not in est.puertas:
-            raise HTTPException(status_code=404, detail="Puerta desconocida")
-        est.puertas[nombre] = "CERRADO"
-        return {"ok": True, "door": nombre, "action": "close"}
+        return _puerta(nombre, "close", "CERRADO")
 
     @app.post("/fault/reset")
     def fault_reset():

@@ -20,6 +20,8 @@ Window {
     property QtObject puente: null
     property QtObject comandosPuerta: null
     property QtObject comandoCiclo: null
+    // comandoFalla: RECONOCER FALLA de la pantalla de preciclo (T-16)
+    property QtObject comandoFalla: null
     property QtObject infoEquipo: null
     property QtObject ajustes: null
     // standby: activo = mostrar la pantalla de arranque (simultáneo en ambas pantallas)
@@ -272,10 +274,12 @@ Window {
                 puente: ventana.puente
                 comandosPuerta: ventana.comandosPuerta
                 comandoCiclo: ventana.comandoCiclo
+                comandoFalla: ventana.comandoFalla
                 infoEquipo: ventana.infoEquipo
                 textosJson: ventana.textosJson
                 onPuertaPulsada: ventana.comandosPuerta?.alternar()
                 onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
+                onReconocerFallaPulsado: ventana.comandoFalla?.reconocer()
                 onAjustesPulsado: pila.push(menuComp)
                 onAvatarPulsado: ventana.abrirConfiguracion()
             }

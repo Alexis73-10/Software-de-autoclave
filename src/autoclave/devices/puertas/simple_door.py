@@ -3,6 +3,10 @@ from autoclave.devices.puertas.enum_doors import DoorState
 
 
 class SimpleDoor(Door):
+    # Sin actuador: cmd_abrir / cmd_cerrar no mueven nada; el endpoint lo
+    # indica con "sin_actuador" (T-18).
+    tiene_actuador = False
+
     def __init__(self, name, di, estado):
         super().__init__(name)
         self.di = di

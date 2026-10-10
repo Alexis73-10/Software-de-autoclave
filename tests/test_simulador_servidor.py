@@ -116,7 +116,7 @@ def test_rechazos_como_el_backend_real(sim):
     assert client.post("/cycle/start").status_code == 409
     client.post("/doors/Puerta 1/close", json={})
     assert client.post("/cycle/start").status_code == 200
-    assert client.post("/doors/Puerta 1/open", json={}).status_code == 403   # en ciclo
+    assert client.post("/doors/Puerta 1/open", json={}).status_code == 409   # en ciclo (T-13)
 
 
 def test_confirmar_durante_el_ciclo_no_lo_termina(sim):

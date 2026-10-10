@@ -31,6 +31,7 @@ from autoclave.ui_pyside.views.nuevo_usuario.puente import NuevoUsuarioBridge
 from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
 from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
 from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
+from autoclave.ui_qml.bridge.comandos_falla import ComandoReconocerFalla
 from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
@@ -122,6 +123,7 @@ def main(argv=None) -> int:
     comandos_puerta = ComandosPuerta(
         puente, DoorCommandService(backend_client=backend, source_door=args.door))
     comando_ciclo = ComandoIniciarCiclo(puente, ui_service)
+    comando_falla = ComandoReconocerFalla(puente, ui_service)   # T-16
     info_equipo = InfoEquipo(cargar_perfil(), args.door, backend, version_software())
     ajustes = LanzadorAjustes()
     standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto)
@@ -159,6 +161,7 @@ def main(argv=None) -> int:
         "puente": puente,
         "comandosPuerta": comandos_puerta,
         "comandoCiclo": comando_ciclo,
+        "comandoFalla": comando_falla,
         "infoEquipo": info_equipo,
         "ajustes": ajustes,
         "standby": standby,

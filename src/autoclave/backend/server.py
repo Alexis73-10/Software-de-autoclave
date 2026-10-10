@@ -1030,15 +1030,27 @@ def abort_cycle():
     return {"ok": True, "action": "CICLO_CANCELADO"}
 
 
+_MOTIVO_PARO = "Paro de emergencia activado: suéltelo antes de reconocer"
+
+
 @app.post("/fault/reset")
 def reset_fault():
-    """Reconoce el estado de falla y solicita retornar a PREPARACION."""
-    if context.estado.get_machine_state().name != "FALLA":
-        raise HTTPException(
-            status_code=409,
-            detail="El sistema no está en estado de falla"
-        )
-    context.estado.set_flag("RESET_FALLA", True)
+    """Reconoce el estado de falla y solicita retornar a PREPARACION. Sin
+    identificación (decisión 16). Con el paro de emergencia activo, 409 y no
+    se guarda RESET_FALLA: tras soltarlo hay que reconocer de nuevo (§5.9)."""
+    entidad = "/fault/reset"
+    with guard_estado(frozenset(), entidad) as estado:
+        if context.estado.get_flag("PARO_EMERGENCIA"):
+            raise _Rechazo(409, "paro_emergencia", _MOTIVO_PARO)
+        # con el modo prueba la máquina está pausada: el reconocimiento se
+        # aplicaría al salir, sin uno posterior a las pruebas (TMG-07)
+        if context.control_loop.test_mode_active is True:
+            raise _Rechazo(409, "modo_prueba_activo", "No permitido con el modo prueba activo")
+        if estado != GlobalState.FALLA:
+            raise _Rechazo(409, "estado_no_permitido", "El sistema no está en estado de falla",
+                           extra={"estado": getattr(estado, "name", str(estado))})
+        context.estado.set_flag("RESET_FALLA", True)
+    _auditar("falla_reconocida", entidad=entidad)
     return {"ok": True, "action": "RESET_FALLA"}
 
 
@@ -1071,65 +1083,80 @@ def acknowledge_cycle():
     Activa CICLO_CONFIRMADO para que CicloState libere la transición.
     Solo tiene efecto mientras el estado sea CICLO (esperando confirmación).
     """
-    estado = context.estado
+    entidad = "/cycle/acknowledge"
+    with guard_estado(frozenset(), entidad) as actual:
+        if actual != GlobalState.CICLO:
+            raise _Rechazo(409, "estado_no_permitido", "No hay un ciclo esperando confirmación",
+                           extra={"estado": getattr(actual, "name", str(actual))})
+        # §5.9: con el paro activo no se confirma ni se guarda RESET_FALLA
+        if context.estado.get_flag("PARO_EMERGENCIA"):
+            raise _Rechazo(409, "paro_emergencia", _MOTIVO_PARO)
+        # solo con el ciclo ya terminado: una confirmación a mitad de ciclo
+        # quedaba guardada y la máquina salía al terminar sin que el operador
+        # viera el resultado (TMG-03/SAF-07)
+        fase = getattr(context.estado, "fase_ciclo", "")
+        if progreso_ciclo.resultado(fase) is None:
+            raise _Rechazo(409, "sin_resultado", "No hay un ciclo esperando confirmación")
 
-    from autoclave.state_machine.machine.enum_global import GlobalState
-    if estado.get_machine_state() != GlobalState.CICLO:
-        raise HTTPException(
-            status_code=409,
-            detail="No hay un ciclo esperando confirmación"
-        )
+        context.estado.set_flag("CICLO_CONFIRMADO", True)
 
-    estado.set_flag("CICLO_CONFIRMADO", True)
-
-    # Si el ciclo terminó en fallo/emergencia el operador ya lo vio en CycleWindow.
-    # Pre-armar RESET_FALLA para que la máquina salte el estado FALLA y vuelva
-    # directo a PREPARACION sin requerir un segundo "RECONOCER FALLA".
-    fase = getattr(estado, "fase_ciclo", "")
-    if fase and (fase.startswith("FALLO_") or fase == "EMERGENCIA"):
-        estado.set_flag("RESET_FALLA", True)
-
+        # El operador ya vio el resultado en la pantalla del ciclo: si terminó
+        # en cualquier FALLO (FALLO_*, EMERGENCIA, SENSOR_AUSENTE, ...), se
+        # pre-arma RESET_FALLA para no exigir un segundo reconocimiento
+        # (§5.9; antes solo FALLO_* y EMERGENCIA, y SENSOR_AUSENTE dejaba la
+        # máquina en FALLA sin salida desde QML, OPC-22).
+        reconoce_falla = progreso_ciclo.resultado(fase) == "fallo"
+        if reconoce_falla:
+            context.estado.set_flag("RESET_FALLA", True)
+    if reconoce_falla:
+        _auditar("falla_reconocida", entidad=entidad, detalle={"fase": fase})
     return {"ok": True, "action": "CICLO_CONFIRMADO"}
+
+
+def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
+    """Abrir o cerrar una puerta (§5.3, T-13 y T-18).
+
+    Guard de estado: 409 en CICLO, HIBERNACION y EMERGENCIA (en PREPARACION,
+    PREPARADO y FALLA se permite). Las condiciones físicas las aplica
+    ServicioPuertas, fallando cerradas; si las incumple, o si la puerta no
+    acepta la orden (bloqueo mecánico, no está abierta), 409 con el motivo.
+    La comprobación y la orden van bajo _sm_lock para no intercalarse con el
+    tick. `sin_actuador`: la puerta no tiene actuador (SimpleDoor) y la orden
+    no mueve nada. `source_door` sigue sin usarse (fuera de alcance)."""
+    entidad = f"/doors/{door_name}/{accion}"
+    _rechazar_si_config_invalida(entidad)
+    servicio = context.servicio_puertas
+    if door_name not in servicio.doors:
+        raise HTTPException(status_code=404, detail="Puerta desconocida")
+    with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad):
+        # con el modo prueba las puertas no se actualizan, y con el enlace
+        # caído las lecturas son viejas: la orden quedaría para después sin
+        # revalidar (revisión de seguridad de la etapa 2, SAF-04)
+        if context.control_loop.test_mode_active is True:
+            raise _Rechazo(409, "modo_prueba_activo", "No permitido con el modo prueba activo")
+        if context.control_loop.desconectado is True:
+            raise _Rechazo(409, "sin_conexion_tarjeta", "Sin conexión con la tarjeta de control")
+        pedir = servicio.request_open if accion == "open" else servicio.request_close
+        ok, reason = pedir(door_name)
+        if not ok:
+            raise _Rechazo(409, "puerta_rechazada", reason or "Orden de puerta no permitida")
+    return {
+        "ok": True,
+        "door": door_name,
+        "action": accion,
+        "source_door": source_door,
+        "sin_actuador": not servicio.tiene_actuador(door_name),
+    }
 
 
 @app.post("/doors/{door_name}/open")
 def open_door(door_name: str, body: dict = Body(...)):
-    source_door = body.get("source_door")
-    _rechazar_si_config_invalida(f"/doors/{door_name}/open")
-
-    ok, reason = context.servicio_puertas.request_open(door_name)
-    if not ok:
-        raise HTTPException(
-            status_code=403,
-            detail=reason or "Apertura de puerta no permitida"
-        )
-
-    return {
-        "ok": True,
-        "door": door_name,
-        "action": "open",
-        "source_door": source_door,
-    }
+    return _orden_puerta(door_name, "open", body.get("source_door"))
 
 
 @app.post("/doors/{door_name}/close")
 def close_door(door_name: str, body: dict = Body(...)):
-    source_door = body.get("source_door")
-    _rechazar_si_config_invalida(f"/doors/{door_name}/close")
-
-    ok, reason = context.servicio_puertas.request_close(door_name)
-    if not ok:
-        raise HTTPException(
-            status_code=403,
-            detail=reason or "Cierre de puerta no permitido"
-        )
-
-    return {
-        "ok": True,
-        "door": door_name,
-        "action": "close",
-        "source_door": source_door,
-    }
+    return _orden_puerta(door_name, "close", body.get("source_door"))
 
 
 class _CycleParamValueBody(BaseModel):

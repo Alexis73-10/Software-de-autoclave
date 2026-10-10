@@ -33,6 +33,8 @@ Item {
     property QtObject puente: null
     property QtObject comandosPuerta: null
     property QtObject comandoCiclo: null
+    // comandoFalla: botón RECONOCER FALLA (T-16), visible solo en FALLA
+    property QtObject comandoFalla: null
     property QtObject infoEquipo: null
     property var textosJson: ({})
 
@@ -63,6 +65,9 @@ Item {
     // Misma bandera que _upd_listo de tkinter; sin ella el botón INICIAR CICLO desaparece
     property bool listoParaCiclo: puente?.listoParaCiclo ?? false
     property bool cicloOcupado: comandoCiclo?.ocupado ?? false
+    // T-16 (§5.9, decisión 22): sin rol, solo con la máquina en FALLA
+    readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
+    property bool fallaOcupada: comandoFalla?.ocupado ?? false
 
     // Insignia de la campana: única categoría de notificaciones por ahora (alertas y avisos)
     property int conteoNotificaciones: conteoAlarmas
@@ -74,6 +79,7 @@ Item {
     // ---- acciones: las resuelve quien usa la pantalla (servicios, plan §7) ----
     signal puertaPulsada()        // abrir si puertaAbierta es false, cerrar si es true
     signal iniciarCicloPulsado()
+    signal reconocerFallaPulsado()
     signal avatarPulsado()        // destino indefinido (PC-05)
     signal campanaPulsada()
     signal ajustesPulsado()
@@ -105,6 +111,7 @@ Item {
         readonly property string abrirPuerta: raiz.tx("ciclo", "abrir_puerta")
         readonly property string cerrarPuerta: raiz.tx("ciclo", "cerrar_puerta")   // PC-05: sin mockup
         readonly property string iniciarCiclo: raiz.tx("modulos", "iniciar_ciclo")
+        readonly property string reconocerFalla: raiz.tx("modulos", "reconocer_falla")
         readonly property string modelo: raiz.tx("ciclo", "modelo")
         readonly property string serie: raiz.tx("ciclo", "serie")
     }
@@ -614,7 +621,7 @@ Item {
         circuloX: 866
         // Como tkinter (_upd_listo) pero oculto en vez de inactivo cuando el equipo
         // no está listo; mientras se envía la orden no acepta otro toque.
-        visible: raiz.listoParaCiclo && raiz.datosVigentes
+        visible: raiz.listoParaCiclo && raiz.datosVigentes && !raiz.enFalla
         enabled: !raiz.cicloOcupado
         onPulsado: raiz.iniciarCicloPulsado()
 
@@ -632,6 +639,31 @@ Item {
                 PathLine { x: 0; y: raiz.m(34) }
                 PathLine { x: 0; y: 0 }
             }
+        }
+    }
+
+    // RECONOCER FALLA (T-16): en el lugar de INICIAR CICLO, que en FALLA no
+    // aparece (el equipo no está listo). Sin rol; el backend rechaza con el
+    // paro de emergencia activo. Colores PROVISIONALES (sin mockup).
+    BotonAccion {
+        objectName: "botonReconocerFalla"
+        caja: [845, 1616, 302, 110]
+        colorArriba: Qt.rgba(230/255, 120/255, 20/255, 1)
+        colorAbajo: Qt.rgba(120/255, 50/255, 0, 1)
+        texto: raiz.textos.reconocerFalla
+        textoX: 980
+        circuloX: 866
+        visible: raiz.enFalla && raiz.datosVigentes
+        enabled: !raiz.fallaOcupada
+        onPulsado: raiz.reconocerFallaPulsado()
+
+        contenidoCirculo: Text {
+            anchors.centerIn: parent
+            text: "!"
+            color: "white"
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: raiz.fuente(40)
         }
     }
 
