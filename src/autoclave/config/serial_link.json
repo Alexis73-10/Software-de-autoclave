@@ -1,0 +1,10 @@
+{
+    "lineas_invalidas_max": 10,
+    "handshake_presupuesto_s": 15.0,
+    "all_off_intentos": 3,
+    "all_off_timeout_s": 1.0,
+    "tramas_discrepancia": 2,
+    "reintento_handshake_s": 3.0,
+    "longitud_max_linea": 256,
+    "disc_do_dispara_fallo": false
+}

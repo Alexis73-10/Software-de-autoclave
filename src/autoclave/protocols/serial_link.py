@@ -1,17 +1,24 @@
 
 # autoclave.protocols.serial_link
 # --------------------------------
-# Módulo responsable de la comunicación con la tarjeta ESP32 vía puerto serial.
+# Módulo responsable de la comunicación con la tarjeta ESP32 vía puerto serial
+# (protocolo v2 con CRC, ver docs/mis_plans/planeacion_protocolo_serial_esp32.md).
 
 # Funciones principales:
 # - Escanea automáticamente los puertos disponibles y detecta el ESP32.
 # - Reconecta de forma automática si se pierde la conexión.
-# - Lee continuamente los datos enviados (AI, DI, DO).
+# - Lee continuamente los datos enviados (AI, DI, DO), validando el CRC de
+#   cada línea; las líneas inválidas se descartan y se cuentan.
 # - Mantiene en memoria el último estado recibido.
-# - Permite enviar comandos SET DOx ON/OFF.
-# - Puede invocar un callback externo (`on_update`) al recibir nuevos datos.
+# - Permite enviar comandos SET DOx ON/OFF (con CRC).
+# - Puede invocar un callback externo (`on_update`) al recibir nuevos datos
+#   o al cambiar el estado del enlace.
 
 # No implementa lógica de control ni conversión de unidades.
+
+# Tiempos: toda medición de duración (vida de la comunicación, latido,
+# reintentos) usa time.monotonic(). data["last_update"] conserva
+# datetime.now() solo como sello informativo de visualización.
 
 
 from __future__ import annotations
@@ -25,21 +32,31 @@ from typing import Optional, Callable, Dict, Any
 
 from autoclave.utils.logging import logger
 from autoclave.protocols import device_reset
+from autoclave.protocols.crc16 import agregar_crc, validar_linea
+from autoclave.protocols.serial_link_config import SerialLinkConfig, cargar_config
+
+
+class LineaMalformada(ValueError):
+    """Línea con CRC válido pero contenido que no respeta el protocolo."""
 
 
 class SerialLink:
-    DATA_TIMEOUT       = 3.0  # segundos sin datos => comunicación caída
+    DATA_TIMEOUT       = 3.0  # segundos sin líneas válidas => comunicación caída
     HEARTBEAT_INTERVAL = 2.0  # segundos entre HB enviados al ESP32
     GEN_FAILURE_RESET_THRESHOLD = 5  # ~15s de reintentos (scan_interval=3.0) antes de resetear el dispositivo
+    _WATCHDOG_PERIOD   = 0.1  # periodo del hilo de supervisión (latido, timeout, reconexión)
 
     def __init__(
         self,
         baudrate: int = 115200,
-        scan_interval: float = 3.0,
+        scan_interval: Optional[float] = None,
         on_update: Optional[Callable[[Dict[str, Any]], None]] = None,
+        config: Optional[SerialLinkConfig] = None,
     ):
+        self.config = config if config is not None else cargar_config()
         self.baudrate = baudrate
-        self.scan_interval = scan_interval
+        self.scan_interval = (scan_interval if scan_interval is not None
+                              else self.config.reintento_handshake_s)
         self.on_update = on_update
 
         self.serial: Optional[serial.Serial] = None
@@ -56,6 +73,18 @@ class SerialLink:
             "data_alive": False,
             "last_update": None,
         }
+
+        # Vida de la comunicación: instante (monotonic) de la última línea
+        # con CRC válido, o de la apertura del puerto si aún no llega ninguna.
+        self._ultima_valida_mono: Optional[float] = None
+
+        # Diagnóstico de líneas inválidas (CRC, contenido o longitud).
+        self._invalidas_total = 0
+        self._invalidas_consecutivas = 0
+
+        # Buffer de recepción (solo lo toca el hilo lector).
+        self._rx_buf = bytearray()
+        self._descartando_linea_larga = False
 
         self._ack_event = threading.Event()
         self._expected_ack: Optional[str] = None
@@ -110,16 +139,21 @@ class SerialLink:
             return False
 
         try:
-            self.serial = serial.Serial(port, self.baudrate, timeout=0.2)
-            self.serial.reset_input_buffer()
-            self.serial.reset_output_buffer()
+            ser = serial.Serial(port, self.baudrate, timeout=0.2)
+            ser.reset_input_buffer()
+            ser.reset_output_buffer()
 
             logger.info(f"Conectado a ESP32 en {port}")
 
+            self._rx_buf = bytearray()
+            self._descartando_linea_larga = False
             with self.data_lock:
                 self.data["port_open"] = True
                 self.data["data_alive"] = False
                 self.data["last_update"] = None
+                self._ultima_valida_mono = time.monotonic()
+                self._invalidas_consecutivas = 0
+            self.serial = ser
 
             self._ever_connected = True
             self._consecutive_gen_failures = 0
@@ -146,8 +180,13 @@ class SerialLink:
 
             return False
 
-    def _disconnect(self):
+    def _disconnect(self, solo_si: Optional[serial.Serial] = None):
+        """Cierra el puerto. Con `solo_si`, solo actúa si ese objeto sigue
+        siendo el puerto vigente: evita que un error tardío del puerto viejo
+        (p.ej. el hilo lector saliendo de read()) cierre una conexión nueva."""
         with self.serial_lock:
+            if solo_si is not None and self.serial is not solo_si:
+                return
             if self.serial and self.serial.is_open:
                 try:
                     self.serial.close()
@@ -165,6 +204,10 @@ class SerialLink:
         self._device_reset_attempted = False
         self._consecutive_gen_failures = 0
 
+        # Sin esta notificación, quien deriva su estado de on_update (Units)
+        # se quedaría con el último "conectado" recibido.
+        self._notificar()
+
     def is_connected(self) -> bool:
         with self.data_lock:
             return self.data["port_open"] and self.data["data_alive"]
@@ -175,73 +218,185 @@ class SerialLink:
 
     def _read_loop(self):
         while self.running:
-            if not self.serial or not self.serial.is_open:
+            ser = self.serial
+            if not ser or not ser.is_open:
                 time.sleep(0.1)
                 continue
 
             try:
-                line = self.serial.readline().decode(errors="ignore").strip()
-                if not line:
-                    self._check_timeout()
-                    continue
+                chunk = ser.read(max(1, ser.in_waiting))
+            except Exception as e:
+                # SerialException o el error que lance pyserial si el puerto
+                # se cerró desde otro hilo durante read().
+                logger.warning("Conexión serial perdida: %s", e)
+                self._disconnect(solo_si=ser)
+                continue
 
-                self._process_line(line)
-
-            except serial.SerialException:
-                logger.warning("Conexión serial perdida")
-                self._disconnect()
+            if chunk:
+                self._alimentar(chunk)
 
     def _watchdog_loop(self):
-        last_hb = 0.0
-        last_scan = 0.0
+        last_hb: Optional[float] = None
+        last_scan: Optional[float] = None
         while self.running:
-            now = time.time()
-            if not self.data["port_open"]:
-                if now - last_scan >= self.scan_interval:
-                    self._connect()
-                    last_scan = now
-            else:
-                if now - last_hb >= self.HEARTBEAT_INTERVAL:
-                    self._send_raw("HB\n")
-                    last_hb = now
-            time.sleep(0.5)
+            try:
+                last_hb, last_scan = self._watchdog_tick(time.monotonic(), last_hb, last_scan)
+            except Exception as e:
+                logger.warning("SerialLink: error en supervisión: %s", e)
+            time.sleep(self._WATCHDOG_PERIOD)
 
-    def _check_timeout(self):
+    def _watchdog_tick(self, now: float, last_hb: Optional[float],
+                       last_scan: Optional[float]) -> tuple[Optional[float], Optional[float]]:
+        """Una pasada de supervisión con `now` = time.monotonic(). Separado
+        del loop para poder probarlo sin hilos."""
+        if not self.data["port_open"]:
+            if last_scan is None or now - last_scan >= self.scan_interval:
+                self._connect()
+                last_scan = now
+            return None, last_scan
+
+        if last_hb is None or now - last_hb >= self.HEARTBEAT_INTERVAL:
+            self._send_cmd("HB")
+            last_hb = now
+        self._check_timeout(now)
+        return last_hb, last_scan
+
+    def _check_timeout(self, now: Optional[float] = None):
+        """Declara caída la comunicación si pasan DATA_TIMEOUT segundos
+        (time.monotonic) sin una línea de CRC válido. Corre en el hilo de
+        supervisión, independiente de readline()/read()."""
+        if now is None:
+            now = time.monotonic()
         with self.data_lock:
-            last = self.data["last_update"]
+            if not self.data["port_open"]:
+                return
+            ultima = self._ultima_valida_mono
 
-        if last and (datetime.now() - last).total_seconds() > self.DATA_TIMEOUT:
-            logger.warning("Timeout de datos serial")
+        if ultima is not None and now - ultima > self.DATA_TIMEOUT:
+            logger.warning("Timeout de datos serial (%.1f s sin líneas válidas)", now - ultima)
             self._disconnect()
 
     # ---------------------------------------------------------------------
-    # Procesamiento
+    # Recepción
     # ---------------------------------------------------------------------
 
-    def _process_line(self, line: str):
+    def _alimentar(self, chunk: bytes):
+        """Acumula bytes y procesa cada línea completa terminada en \\n. Una
+        línea que supera longitud_max_linea sin \\n se descarta entera (hasta
+        el siguiente \\n) y cuenta como una sola línea inválida."""
+        self._rx_buf += chunk
+        maximo = self.config.longitud_max_linea
+        while True:
+            idx = self._rx_buf.find(b"\n")
+            if idx < 0:
+                if len(self._rx_buf) > maximo:
+                    if not self._descartando_linea_larga:
+                        self._registrar_invalida("línea demasiado larga sin \\n", None)
+                        self._descartando_linea_larga = True
+                    self._rx_buf.clear()
+                return
+
+            raw = bytes(self._rx_buf[:idx])
+            del self._rx_buf[:idx + 1]
+
+            if self._descartando_linea_larga:
+                self._descartando_linea_larga = False
+                continue
+            if len(raw) > maximo:
+                self._registrar_invalida("línea demasiado larga", None)
+                continue
+            self._procesar_linea_cruda(raw)
+
+    def _procesar_linea_cruda(self, raw: bytes):
+        """Procesa una línea (sin \\n). Nunca propaga excepciones: cualquier
+        error de la línea la descarta y la cuenta como inválida, para que el
+        hilo lector no muera."""
+        try:
+            try:
+                texto = raw.rstrip(b"\r").decode("ascii")
+            except UnicodeDecodeError:
+                self._registrar_invalida("bytes no ASCII", raw)
+                return
+
+            payload = validar_linea(texto)
+            if payload is None:
+                self._registrar_invalida("CRC inválido o ausente", raw)
+                return
+
+            try:
+                self._procesar_payload(payload)
+            except LineaMalformada as e:
+                self._registrar_invalida(f"contenido inválido ({e})", raw)
+                return
+
+            self._registrar_valida()
+        except Exception as e:  # salvaguarda: el hilo lector nunca muere
+            logger.exception("SerialLink: error inesperado procesando línea: %s", e)
+            try:
+                self._registrar_invalida(f"error inesperado ({e})", raw)
+            except Exception:
+                pass
+
+    def _registrar_valida(self):
         with self.data_lock:
-            if line.startswith("AI:"):
-                vals = line[3:].split(",")
-                if len(vals) == 16:
-                    self.data["ai"] = [int(v) for v in vals]
-
-            elif line.startswith("DI:"):
-                bits = line[3:]
-                if len(bits) >= 56:
-                    self.data["di"] = [int(b) for b in bits[:56]]
-
-            elif line.startswith("DO:"):
-                bits = line[3:]
-                if len(bits) >= 32:
-                    self.data["do"] = [int(b) for b in bits[:32]]
-
-            elif line.startswith("OK"):
-                if self._expected_ack and self._expected_ack in line:
-                    self._ack_event.set()
-
-            self.data["last_update"] = datetime.now()
+            self.data["last_update"] = datetime.now()  # sello informativo, no mide tiempos
             self.data["data_alive"] = True
+            self._ultima_valida_mono = time.monotonic()
+            self._invalidas_consecutivas = 0
+        self._notificar()
 
+    def _registrar_invalida(self, motivo: str, raw: Optional[bytes]):
+        with self.data_lock:
+            self._invalidas_total += 1
+            self._invalidas_consecutivas += 1
+            consecutivas = self._invalidas_consecutivas
+
+        muestra = raw[:80] if raw is not None else b""
+        logger.info("SerialLink: línea descartada (%s) %r [consecutivas=%d]",
+                    motivo, muestra, consecutivas)
+
+        if consecutivas >= self.config.lineas_invalidas_max:
+            logger.warning("SerialLink: %d líneas inválidas consecutivas — pérdida de comunicación",
+                           consecutivas)
+            with self.data_lock:
+                self._invalidas_consecutivas = 0
+            self._disconnect()
+
+    def _procesar_payload(self, payload: str):
+        """Interpreta un payload con CRC ya validado. Lanza LineaMalformada si
+        el contenido no respeta el protocolo; en ese caso no se modifica
+        ningún dato (se valida completo antes de publicar)."""
+        if payload.startswith("AI:"):
+            vals = payload[3:].split(",")
+            if len(vals) != 16:
+                raise LineaMalformada(f"AI con {len(vals)} valores")
+            ai = [_entero_decimal(v, 0, 4095) for v in vals]
+            with self.data_lock:
+                self.data["ai"] = ai
+
+        elif payload.startswith("DI:"):
+            self._bits("di", payload[3:], 56)
+
+        elif payload.startswith("DO:"):
+            self._bits("do", payload[3:], 32)
+
+        elif payload == "ACK":
+            pass
+
+        elif payload.startswith("OK "):
+            if self._expected_ack and payload == self._expected_ack:
+                self._ack_event.set()
+
+        else:
+            raise LineaMalformada("tipo de línea desconocido")
+
+    def _bits(self, clave: str, bits: str, n: int):
+        if len(bits) != n or any(b not in "01" for b in bits):
+            raise LineaMalformada(f"{clave.upper()} con formato inválido")
+        with self.data_lock:
+            self.data[clave] = [1 if b == "1" else 0 for b in bits]
+
+    def _notificar(self):
         if self.on_update:
             try:
                 self.on_update(self.get_state())
@@ -259,11 +414,28 @@ class SerialLink:
                 for k, v in self.data.items()
             }
 
+    def get_diagnostico(self) -> Dict[str, Any]:
+        """Contadores de diagnóstico de la comunicación (expuestos en /status)."""
+        with self.data_lock:
+            return {
+                "lineas_invalidas_total": self._invalidas_total,
+                "lineas_invalidas_consecutivas": self._invalidas_consecutivas,
+            }
+
     def _send_raw(self, cmd: str):
-        if not self.serial or not self.serial.is_open:
+        ser = self.serial
+        if not ser or not ser.is_open:
             return
-        with self.serial_lock:
-            self.serial.write(cmd.encode("utf-8"))
+        try:
+            with self.serial_lock:
+                ser.write(cmd.encode("ascii"))
+        except Exception as e:
+            logger.warning("SerialLink: error escribiendo en el puerto: %s", e)
+            self._disconnect(solo_si=ser)
+
+    def _send_cmd(self, payload: str):
+        """Envía un comando del protocolo v2: `payload*HHHH\\n`."""
+        self._send_raw(agregar_crc(payload) + "\n")
 
     def set_output(self, channel: int, state: bool) -> bool:
         if channel < 1 or channel > 32:
@@ -272,15 +444,14 @@ class SerialLink:
         if not self.serial or not self.serial.is_open:
             return False
 
-        cmd = f"SET DO{channel} {'ON' if state else 'OFF'}\n"
-        self._send_raw(cmd)
+        self._send_cmd(f"SET DO{channel} {'ON' if state else 'OFF'}")
         return True
 
     def all_off(self, timeout=1.0) -> bool:
         self._ack_event.clear()
         self._expected_ack = "OK ALL_OFF"
 
-        self._send_raw("ALL_OFF\n")
+        self._send_cmd("ALL_OFF")
 
         ok = self._ack_event.wait(timeout)
         self._expected_ack = None
@@ -289,3 +460,12 @@ class SerialLink:
             logger.warning("Timeout esperando OK ALL_OFF")
 
         return ok
+
+
+def _entero_decimal(texto: str, minimo: int, maximo: int) -> int:
+    if not texto.isdigit() or not texto.isascii():
+        raise LineaMalformada(f"valor no numérico {texto!r}")
+    valor = int(texto)
+    if not (minimo <= valor <= maximo):
+        raise LineaMalformada(f"valor fuera de rango {valor}")
+    return valor

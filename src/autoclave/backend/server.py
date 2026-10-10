@@ -543,6 +543,15 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
     return {"ok": True, "gain": new_gain, "offset": new_offset}
 
 
+def _diagnostico_comunicacion() -> dict | None:
+    """Contadores y estado del enlace serial con la tarjeta (diagnóstico)."""
+    try:
+        diag = context.serial.get_diagnostico()
+    except Exception:
+        return None
+    return diag if isinstance(diag, dict) else None
+
+
 @app.get("/status", response_model=None)
 def get_status():
     estado = context.estado
@@ -611,7 +620,10 @@ def get_status():
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
-        "card_connected":        context.units.is_connected(),
+        # Del enlace serial, no de Units: Units solo se entera por on_update
+        # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).
+        "card_connected":        context.serial.is_connected(),
+        "comunicacion":          _diagnostico_comunicacion(),
         "test_mode_active":      context.control_loop.test_mode_active,
         "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,
