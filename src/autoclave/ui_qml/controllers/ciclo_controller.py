@@ -11,6 +11,10 @@
 #
 # Pérdida de conexión (§6.4): los valores se congelan y `conectado` baja a
 # false para que la pantalla los marque como no vigentes.
+#
+# URL del backend: la común de la UI QML (`url_backend()` de app.py, que
+# respeta AUTOCLAVE_BACKEND_URL), no una constante propia (T-15 de
+# planeacion_backend_autenticacion.md, §5.7).
 
 import json
 
@@ -20,7 +24,6 @@ from PySide6.QtQml import qmlRegisterType
 
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
-URL_BACKEND = "http://127.0.0.1:8000"
 _TIMEOUT_MS = 800   # mismo timeout que BackendClient
 
 
@@ -28,8 +31,11 @@ class CicloController(QObject):
     datosChanged = Signal()
     conectadoChanged = Signal()
 
-    def __init__(self, parent=None, url_base=URL_BACKEND, intervalo_ms=1000, iniciar=True):
+    def __init__(self, parent=None, url_base=None, intervalo_ms=1000, iniciar=True):
         super().__init__(parent)
+        if url_base is None:
+            from autoclave.ui_qml.app import url_backend   # diferido: app importa controladores
+            url_base = url_backend()
         self._url_base = url_base.rstrip("/")
         self._datos = {**dominio.parametros_de_ciclo(None), **dominio.lecturas_de_status(None)}
         self._conectado = False

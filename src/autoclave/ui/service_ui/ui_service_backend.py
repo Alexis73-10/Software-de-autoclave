@@ -99,7 +99,6 @@ class UIServiceBackend:
         return {
             "temp_camara":  temp.get("camara"),
             "temp_ref":     temp.get("ref"),
-            "temp_chaqueta":temp.get("chaqueta"),
         }
 
     def get_sensores_pres(self):

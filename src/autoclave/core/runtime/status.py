@@ -9,11 +9,14 @@ from autoclave.state_machine.machine.enum_global import GlobalState
 
 
 class EstadoAutoclave:
+    # El índice es la posición de la lectura en la trama de la tarjeta. La
+    # posición 3 (temp_chaqueta) ya no se lee: ese sensor se retiró de todos
+    # los equipos (planeacion_backend_autenticacion.md, decisión 24, T-19).
+    # Los demás conservan su posición.
     map_temp = {
         "temp_camara": 0,
         "temp_2_camara": 1,
         "temp_ref": 2,
-        "temp_chaqueta": 3,
         "temp_drenaje_cam": 4,
         "temp_drenaje": 5, 
     }

@@ -181,3 +181,12 @@ def test_sondeo_http_backend_caido_queda_sin_conexion():
     c.aplicar_status(_status())          # venía conectado
     assert _esperar(lambda: not c.conectado)
     assert c.tempCamara == "085.0"       # valor congelado
+
+
+def test_t15_usa_la_url_comun_de_la_ui_qml(monkeypatch):
+    """T-15: sin url_base, la del resto de la UI QML (respeta AUTOCLAVE_BACKEND_URL)."""
+    monkeypatch.setenv("AUTOCLAVE_BACKEND_URL", "http://127.0.0.1:8001/")
+    assert CicloController(iniciar=False)._url_base == "http://127.0.0.1:8001"
+    monkeypatch.delenv("AUTOCLAVE_BACKEND_URL")
+    from autoclave.ui_qml.app import BACKEND_URL
+    assert CicloController(iniciar=False)._url_base == BACKEND_URL

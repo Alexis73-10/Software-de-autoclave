@@ -90,7 +90,7 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
             "doors": dict(est.puertas),
             "sensors": {
                 "temperature": {"camara": m["temp_camara"], "camara_2": None, "ref": m["temp_ref"],
-                                "chaqueta": None, "drenaje": None, "drenaje_camara": None},
+                                "drenaje": None, "drenaje_camara": None},
                 "pressure": {"camara": m["pres_camara"], "chaqueta": None,
                              "empaque_1": None, "empaque_2": None},
                 "digital_inputs": {},

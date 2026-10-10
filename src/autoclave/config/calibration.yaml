@@ -1,3 +1,6 @@
+# temperature[3] (en factory y en user) es la posición del sensor temp_chaqueta,
+# retirado de todos los equipos (T-19). No borrarla: la calibración es posicional
+# y quitarla correría la de temp_drenaje_cam (4) y temp_drenaje (5).
 name: "Calibracion Sensores PRO"
 sampling_interval_ms: 500
 

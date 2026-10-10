@@ -113,7 +113,6 @@ class preparacion_state:
                 "temp_camara",
                 "temp_2_camara",
                 "temp_ref",
-                "temp_chaqueta",
                 "temp_drenaje_cam",
                 "temp_drenaje",
             ]

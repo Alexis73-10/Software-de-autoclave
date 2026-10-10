@@ -572,7 +572,6 @@ def get_status():
             "camara": estado.sensores_temp.get("temp_camara"),
             "camara_2": estado.sensores_temp.get("temp_2_camara"),
             "ref": estado.sensores_temp.get("temp_ref"),
-            "chaqueta": estado.sensores_temp.get("temp_chaqueta"),
             "drenaje": estado.sensores_temp.get("temp_drenaje"),
             "drenaje_camara": estado.sensores_temp.get("temp_drenaje_cam"),
 
