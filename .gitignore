@@ -27,3 +27,4 @@ _archivo/
 /installation_profile.json
 /tools/generador/generador.db
 /.claude/worktrees/
+/.claude/settings.local.json
