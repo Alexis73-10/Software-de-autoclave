@@ -1,0 +1,1081 @@
+﻿superficie;archivo;línea;cadena literal;tipo;variables;criticidad;dominio sugerido;observación
+A. UI QML (Python→QML);src/autoclave/ui_qml/bridge/comandos_puerta.py;52;Puerta {self._puente.door};con variables;self._puente.door;informativa;ui;nombre de puerta: se usa como identificador (clave/API) y también aparece en textos visibles
+A. UI QML (Python→QML);src/autoclave/ui_qml/bridge/ui_bridge.py;139;Puerta {self._door};con variables;self._door;informativa;ui;nombre de puerta: se usa como identificador (clave/API) y también aparece en textos visibles
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/alarmas.py;28;Severidad de alarma desconocida: {severidad};con variables;severidad;informativa;ui;"mensaje de excepción; visible solo si la UI muestra str(e)"
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/formato_numerico.py;28;Número decimal inválido: {texto} (se espera punto decimal);con variables;texto;informativa;ui;"mensaje de excepción; visible solo si la UI muestra str(e)"
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/reconexion.py;14;intento debe ser >= 1, recibido {intento};con variables;intento;informativa;ui;"mensaje de excepción; visible solo si la UI muestra str(e)"
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;135;Lunes;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;135;Martes;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;135;Miércoles;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;135;Jueves;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;135;Viernes;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;135;Sábado;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;135;Domingo;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Enero;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Febrero;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Marzo;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Abril;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Mayo;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Junio;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Julio;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;136;Agosto;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;137;Septiembre;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;137;Octubre;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;137;Noviembre;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/resumen_sistema.py;137;Diciembre;fija;;informativa;ui;nombres de día/mes para el rótulo del periodo del Historial (texto armado en Python)
+A. UI QML (Python→QML);src/autoclave/ui_qml/domain/teclado_alfanumerico.py;17;asdfghjklñ;fija;;informativa;ui;"distribución de teclado QWERTY-ES (con ñ); no es texto traducible, decidir si cambia con el idioma"
+A. UI QML (Python→QML, módulo en ui_pyside);src/autoclave/ui_pyside/services/roles.py;18;Admin;fija;;informativa;sistema;"etiqueta de rol; QML la recibe vía NuevoUsuarioBridge.roles"
+A. UI QML (Python→QML, módulo en ui_pyside);src/autoclave/ui_pyside/services/roles.py;19;Técnico;fija;;informativa;sistema;"etiqueta de rol; QML la recibe vía NuevoUsuarioBridge.roles"
+A. UI QML (Python→QML, módulo en ui_pyside);src/autoclave/ui_pyside/services/roles.py;20;Ingeniero;fija;;informativa;sistema;"etiqueta de rol; QML la recibe vía NuevoUsuarioBridge.roles"
+A. UI QML (Python→QML, módulo en ui_pyside);src/autoclave/ui_pyside/services/validacion_usuario.py;28;El usuario ya existe;fija;;informativa;sistema;
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;3;e-specifika;fija;;informativa;app;"clave app.nombre; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;4;V: 1.0;fija;;informativa;app;"clave app.version; uso literal en Pantallas/CambioClave.qml, Pantallas/MenuPrincipal.qml, Pantallas/NuevoUsuario.qml, Pantallas/Opciones.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;7;OPCIONES;fija;;informativa;opciones;"clave opciones.titulo; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;8;Próximamente;fija;;informativa;opciones;"clave opciones.proximamente; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;9;Nuevo usuario;fija;;informativa;opciones;"clave opciones.nuevo_usuario; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;10;Su perfil no tiene secciones disponibles;fija;;informativa;opciones;"clave opciones.sin_secciones; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;11;Edición bloqueada: ciclo en curso;fija;;informativa;opciones;"clave opciones.edicion_bloqueada; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;12;Hay cambios sin guardar. ¿Salir y descartarlos?;fija;;informativa;opciones;"clave opciones.salir_pregunta; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;13;Salir;fija;;informativa;opciones;"clave opciones.salir_confirmar; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;14;Hay cambios sin guardar. ¿Cambiar de sección y descartarlos?;fija;;informativa;opciones;"clave opciones.cambiar_seccion_pregunta; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;15;Descartar;fija;;informativa;opciones;"clave opciones.cambiar_seccion_confirmar; uso literal en Pantallas/Opciones.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;17;Parámetros del ciclo;fija;;informativa;opciones.secciones;"clave opciones.secciones.parametros_ciclo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;18;Parámetros del sistema;fija;;informativa;opciones.secciones;"clave opciones.secciones.parametros_sistema; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;19;Entradas / Salidas;fija;;informativa;opciones.secciones;"clave opciones.secciones.entradas_salidas; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;20;Mantenimiento;fija;;informativa;opciones.secciones;"clave opciones.secciones.mantenimiento; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;21;Opciones avanzadas;fija;;informativa;opciones.secciones;"clave opciones.secciones.opciones_avanzadas; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;22;Usuarios;fija;;informativa;opciones.secciones;"clave opciones.secciones.usuarios; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;23;Conectividad;fija;;informativa;opciones.secciones;"clave opciones.secciones.conectividad; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;27;MENÚ PRINCIPAL;fija;;informativa;menu;"clave menu.titulo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;28;RESUMEN DEL SISTEMA;fija;;informativa;menu;"clave menu.resumen; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;29;Sin conexión con el equipo;fija;;alarma-seguridad;menu;"clave menu.sin_conexion; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;30;Ingrese con su usuario\ny contraseña;fija;;informativa;menu;"clave menu.iniciar_sesion_desc; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;31;Consulte los ciclos\nrealizados;fija;;informativa;menu;"clave menu.historial_desc; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;32;Visualice y administre\nreportes de ciclos;fija;;informativa;menu;"clave menu.reportes_desc; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;33;Información del equipo\ny del sistema;fija;;informativa;menu;"clave menu.informacion_desc; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;34;TIEMPO ADICIONAL\nDE SECADO;fija;;informativa;menu;"clave menu.secado_titulo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;35;Programa seleccionado;fija;;informativa;menu;"clave menu.secado_desc; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;36;CICLOS TOTALES\nDEL EQUIPO;fija;;informativa;menu;"clave menu.ciclos_totales; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;37;PRÓXIMO\nMANTENIMIENTO;fija;;informativa;menu;"clave menu.proximo_mantenimiento; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;38;CICLOS HOY;fija;;informativa;menu;"clave menu.ciclos_hoy; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;39;ÚLTIMO CICLO;fija;;informativa;menu;"clave menu.ultimo_ciclo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;40;Realizados;fija;;informativa;menu;"clave menu.realizados; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;41;Programa:;fija;;informativa;menu;"clave menu.programa; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;42;Resultado:;fija;;informativa;menu;"clave menu.resultado; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;43;Completado;fija;;informativa;menu;"clave menu.resultado_completado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;44;Fallo;fija;;alarma-seguridad;menu;"clave menu.resultado_fallo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;45;Cancelado;fija;;informativa;menu;"clave menu.resultado_cancelado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;46;ÚLTIMO CICLO;fija;;informativa;menu;"clave menu.ventana_ultimo_ciclo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;47;Fecha de inicio;fija;;informativa;menu;"clave menu.fecha_inicio; uso literal en Componentes/DetalleCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;48;Programa;fija;;informativa;menu;"clave menu.programa_dato; uso literal en Componentes/DetalleCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;49;Resultado;fija;;informativa;menu;"clave menu.resultado_dato; uso literal en Componentes/DetalleCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;50;Operador;fija;;informativa;menu;"clave menu.operador; uso literal en Componentes/DetalleCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;51;Gráfica no disponible;fija;;informativa;menu;"clave menu.grafica_no_disponible; uso literal en Componentes/DetalleCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;52;PRÓXIMO MANTENIMIENTO;fija;;informativa;menu;"clave menu.ventana_mantenimiento; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;53;Fecha del último mantenimiento;fija;;informativa;menu;"clave menu.ultimo_mantenimiento; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;54;Ciclos para el próximo mantenimiento;fija;;informativa;menu;"clave menu.ciclos_restantes; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;55;CICLOS DE HOY;fija;;informativa;menu;"clave menu.ventana_ciclos_hoy; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;56;HISTORIAL;fija;;informativa;menu;"clave menu.ventana_historial; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;57;CICLO;fija;;informativa;menu;"clave menu.ciclo_titulo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;58;Volver al listado;fija;;informativa;menu;"clave menu.volver; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;59;Diario;fija;;informativa;menu;"clave menu.filtro_diario; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;60;Semanal;fija;;informativa;menu;"clave menu.filtro_semanal; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;61;Mensual;fija;;informativa;menu;"clave menu.filtro_mensual; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;62;Ciclo;fija;;informativa;menu;"clave menu.col_ciclo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;63;Fecha;fija;;informativa;menu;"clave menu.col_fecha; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;64;Hora;fija;;informativa;menu;"clave menu.col_hora; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;65;Programa;fija;;informativa;menu;"clave menu.col_programa; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;66;Resultado;fija;;informativa;menu;"clave menu.col_resultado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;67;Cargando…;fija;;informativa;menu;"clave menu.cargando; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;68;No hay ciclos en este periodo;fija;;informativa;menu;"clave menu.sin_ciclos; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;69;Se muestran solo los ciclos más recientes;fija;;informativa;menu;"clave menu.lista_truncada; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;70;seleccionados;fija;;informativa;menu;"clave menu.seleccionados; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;71;IMPRIMIR;fija;;informativa;menu;"clave menu.imprimir; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;72;ENVIAR POR CORREO;fija;;informativa;menu;"clave menu.enviar_correo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;73;Correo no configurado;fija;;informativa;menu;"clave menu.correo_no_configurado; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;74;Elija el destino;fija;;informativa;menu;"clave menu.enviar_a; uso literal en Componentes/SelectorDestino.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;75;Otro correo…;fija;;informativa;menu;"clave menu.otro_correo; uso literal en Componentes/SelectorDestino.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;76;Correo de destino;fija;;informativa;menu;"clave menu.titulo_otro_correo; uso literal en Componentes/SelectorDestino.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;77;Enviando…;fija;;informativa;menu;"clave menu.enviando; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;78;Imprimiendo…;fija;;informativa;menu;"clave menu.imprimiendo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;81;INICIAR CICLO;fija;;informativa;modulos;"clave modulos.iniciar_ciclo; uso literal en Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;82;HISTORIAL;fija;;informativa;modulos;"clave modulos.historial; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;83;PROGRAMAS;fija;;informativa;modulos;"clave modulos.programas; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;84;REPORTES;fija;;informativa;modulos;"clave modulos.reportes; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;85;IMPRESIÓN;fija;;informativa;modulos;"clave modulos.impresion; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;86;MANTENIMIENTO;fija;;informativa;modulos;"clave modulos.mantenimiento; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;87;CONECTIVIDAD;fija;;informativa;modulos;"clave modulos.conectividad; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;88;INFORMACIÓN;fija;;informativa;modulos;"clave modulos.informacion; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;91;CICLO ACTIVO;fija;;informativa;ciclo;"clave ciclo.activo; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;92;PROGRAMA;fija;;informativa;ciclo;"clave ciclo.programa; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;93;ESTADO;fija;;informativa;ciclo;"clave ciclo.estado; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;94;GRÁFICA DEL CICLO;fija;;informativa;ciclo;"clave ciclo.grafica; uso literal en Componentes/GraficaCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;95;Tiempo transcurrido;fija;;informativa;ciclo;"clave ciclo.tiempo_transcurrido; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;96;Tiempo restante;fija;;informativa;ciclo;"clave ciclo.tiempo_restante; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;97;Tiempos;fija;;informativa;ciclo;"clave ciclo.tiempos; uso literal en Componentes/GraficaCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;98;Tiempo (min);fija;;informativa;ciclo;"clave ciclo.grafica_eje_tiempo; uso literal en Componentes/GraficaCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;99;Temp Cámara;fija;;informativa;ciclo;"clave ciclo.serie_temp_camara; uso literal en Componentes/GraficaCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;100;Temp Ref;fija;;informativa;ciclo;"clave ciclo.serie_temp_ref; uso literal en Componentes/GraficaCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;101;Presión;fija;;informativa;ciclo;"clave ciclo.serie_presion; uso literal en Componentes/GraficaCiclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;102;CANCELAR CICLO;fija;;alarma-seguridad;ciclo;"clave ciclo.cancelar; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;103;El ciclo en curso se cancelará. ¿Desea continuar?;fija;;alarma-seguridad;ciclo;"clave ciclo.cancelar_pregunta; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;104;No se pudo cancelar el ciclo. Verifique la conexión con el controlador e intente de nuevo.;fija;;alarma-seguridad;ciclo;"clave ciclo.cancelar_error; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;105;CONFIRMAR;fija;;alarma-seguridad;ciclo;"clave ciclo.confirmar; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;106;No se pudo confirmar el fin del ciclo. Verifique la conexión con el controlador e intente de nuevo.;fija;;alarma-seguridad;ciclo;"clave ciclo.confirmar_error; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;107;AVISO;fija;;alarma-seguridad;ciclo;"clave ciclo.aviso_titulo; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;108;Temp. Ester.;fija;;informativa;ciclo;"clave ciclo.temp_ester; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;109;Tiempo Est.;fija;;informativa;ciclo;"clave ciclo.tiempo_est; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;110;Tiempo Sec.;fija;;informativa;ciclo;"clave ciclo.tiempo_sec; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;111;Temp cámara;fija;;informativa;ciclo;"clave ciclo.temp_camara; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;112;Temp referencia;fija;;informativa;ciclo;"clave ciclo.temp_referencia; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;113;Presión;fija;;informativa;ciclo;"clave ciclo.presion; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;114;ALARMAS Y AVISOS;fija;;alarma-seguridad;ciclo;"clave ciclo.alarmas_titulo; uso literal en Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;115;Sin alarmas ni avisos activos;fija;;alarma-seguridad;ciclo;"clave ciclo.sin_alarmas; uso literal en Pantallas/MenuPrincipal.qml, Pantallas/Opciones.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;116;ABRIR PUERTA;fija;;alarma-seguridad;ciclo;"clave ciclo.abrir_puerta; uso literal en Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;117;CERRAR PUERTA;fija;;alarma-seguridad;ciclo;"clave ciclo.cerrar_puerta; uso literal en Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;118;Modelo: ;fija;;informativa;ciclo;"clave ciclo.modelo; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;119;Serie: ;fija;;informativa;ciclo;"clave ciclo.serie; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;122;°C;fija;;informativa;unidades;"clave unidades.temperatura; uso literal en Componentes/GraficaCiclo.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml, Pruebas/PruebaTecladoNumerico.qml; unidad: no se traduce (§3.2)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;123;min;fija;;informativa;unidades;"clave unidades.tiempo; uso literal en Componentes/GraficaCiclo.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml; unidad: no se traduce (§3.2)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;124;kPa;fija;;informativa;unidades;"clave unidades.presion; uso literal en Componentes/GraficaCiclo.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml; unidad: no se traduce (§3.2)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;127;ene | feb | mar | abr | may | jun | jul | ago | sep | oct | nov | dic;fija;;informativa;formato.fecha.meses;"clave fecha.meses; abreviaturas de mes en español usadas por los relojes QML (D-09 exige formato numérico)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;130;Precalentamiento;fija;;informativa;fases;"clave fases.precalentamiento; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;131;Vacío;fija;;informativa;fases;"clave fases.vacio; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;132;Calentamiento;fija;;informativa;fases;"clave fases.calentamiento; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;133;Esterilización;fija;;informativa;fases;"clave fases.esterilizacion; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;134;Descompresión;fija;;informativa;fases;"clave fases.descompresion; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;135;Secado;fija;;informativa;fases;"clave fases.secado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;140;Precalentamiento;fija;;informativa;sensor.etiqueta;"clave sensores[].etiqueta; lista 'sensores' de es.json"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;145;Tiempo Est.;fija;;informativa;sensor.etiqueta;"clave sensores[].etiqueta; lista 'sensores' de es.json"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;150;Tiempo Sec.;fija;;informativa;sensor.etiqueta;"clave sensores[].etiqueta; lista 'sensores' de es.json"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;155;Temp 1;fija;;informativa;sensor.etiqueta;"clave sensores[].etiqueta; lista 'sensores' de es.json"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;160;Presión;fija;;informativa;sensor.etiqueta;"clave sensores[].etiqueta; lista 'sensores' de es.json"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;165;No preparado;fija;;informativa;estados;"clave estados.no_preparado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;166;Listo;fija;;informativa;estados;"clave estados.listo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;167;En ejecución;fija;;informativa;estados;"clave estados.ejecutando; uso literal en Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;168;Exitoso;fija;;informativa;estados;"clave estados.exitoso; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;169;Cancelado;fija;;informativa;estados;"clave estados.cancelado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;170;Fallo;fija;;alarma-seguridad;estados;"clave estados.fallo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;173;Guardar cambios;fija;;informativa;acciones;"clave acciones.guardar; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;174;Guardar usuario;fija;;informativa;acciones;"clave acciones.guardar_usuario; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;175;Cancelar;fija;;informativa;acciones;"clave acciones.cancelar; uso literal en Componentes/SelectorDestino.qml, Componentes/TecladoAlfanumerico.qml, Componentes/TecladoNumerico.qml, Pantallas/NuevoUsuario.qml, Pantallas/Opciones.qml, Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;176;Restablecer valores;fija;;informativa;acciones;"clave acciones.restablecer; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;177;INICIAR SESIÓN;fija;;informativa;acciones;"clave acciones.iniciar_sesion; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;178;Confirmar;fija;;informativa;acciones;"clave acciones.confirmar; uso literal en Componentes/TecladoAlfanumerico.qml, Componentes/TecladoNumerico.qml, Pantallas/PantallaCicloEnCurso.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;179;Reconocer;fija;;alarma-seguridad;acciones;"clave acciones.reconocer; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;180;CERRAR;fija;;informativa;acciones;"clave acciones.cerrar; uso literal en Componentes/GraficaCiclo.qml, Pantallas/MenuPrincipal.qml, Pantallas/Opciones.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;181;Borrar;fija;;informativa;acciones;"clave acciones.borrar; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;184;Rango: {minimo} a {maximo} {unidad};con variables;"minimo;maximo;unidad";informativa;teclado;"clave teclado.rango; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;185;Aa;fija;;informativa;teclado;"clave teclado.aa; uso literal en Componentes/TecladoAlfanumerico.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;186;?123;fija;;informativa;teclado;"clave teclado.capa_numeros; uso literal en Componentes/TecladoAlfanumerico.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;187;ABC;fija;;informativa;teclado;"clave teclado.capa_letras; uso literal en Componentes/TecladoAlfanumerico.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;188;espacio;fija;;informativa;teclado;"clave teclado.espacio; uso literal en Componentes/TecladoAlfanumerico.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;202;NOTIFICACIONES;fija;;alarma-seguridad;notificaciones;"clave notificaciones.titulo; uso literal en Pantallas/MenuPrincipal.qml, Pantallas/Opciones.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;203;Alertas y avisos;fija;;alarma-seguridad;notificaciones;"clave notificaciones.alertas_avisos; uso literal en Pantallas/MenuPrincipal.qml, Pantallas/Opciones.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;206;INFORMACIÓN DEL EQUIPO;fija;;informativa;equipo;"clave equipo.titulo; uso literal en Pantallas/MenuPrincipal.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;207;Modelo;fija;;informativa;equipo;"clave equipo.modelo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;208;Serie;fija;;informativa;equipo;"clave equipo.serie; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;209;ID de máquina;fija;;informativa;equipo;"clave equipo.id_maquina; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;210;Clase de equipo;fija;;informativa;equipo;"clave equipo.clase; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;211;Número de puertas;fija;;informativa;equipo;"clave equipo.puertas; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;212;Tipo de puerta;fija;;informativa;equipo;"clave equipo.tipo_puerta; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;213;Puerta de esta pantalla;fija;;informativa;equipo;"clave equipo.puerta_pantalla; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;214;Nivel de enfriamiento;fija;;informativa;equipo;"clave equipo.enfriamiento; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;215;Fecha de instalación;fija;;informativa;equipo;"clave equipo.fecha_instalacion; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;216;Ciclos realizados;fija;;informativa;equipo;"clave equipo.ciclos_realizados; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;217;Último ciclo;fija;;informativa;equipo;"clave equipo.ultimo_ciclo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;218;Último mantenimiento;fija;;informativa;equipo;"clave equipo.ultimo_mantenimiento; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;219;Versión de software;fija;;informativa;equipo;"clave equipo.version_software; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;220;Versión de tarjeta;fija;;informativa;equipo;"clave equipo.version_tarjeta; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;221;No disponible;fija;;informativa;equipo;"clave equipo.no_disponible; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;224;Nombre Completo;fija;;informativa;formulario;"clave formulario.nombre_completo; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;225;Nombre Usuario;fija;;informativa;formulario;"clave formulario.nombre_usuario; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;226;Contraseña;fija;;informativa;formulario;"clave formulario.contrasena; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;227;Confirmar Contraseña;fija;;informativa;formulario;"clave formulario.confirmar_contrasena; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;228;Rol;fija;;informativa;formulario;"clave formulario.rol; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;229;Nivel de acceso;fija;;informativa;formulario;"clave formulario.nivel_acceso; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;230;Código / ID (Opcional);fija;;informativa;formulario;"clave formulario.codigo_id; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;231;Estado;fija;;informativa;formulario;"clave formulario.estado; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;232;Activo;fija;;informativa;formulario;"clave formulario.activo; uso literal en Pantallas/NuevoUsuario.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;233;Recordar Usuario;fija;;informativa;formulario;"clave formulario.recordar_usuario; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;234;¿Olvidó su contraseña?;fija;;informativa;formulario;"clave formulario.olvido_contrasena; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;282;REPORTES;fija;;informativa;reportes;"clave reportes.titulo; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;283;Resumen;fija;;informativa;reportes;"clave reportes.pestana_resumen; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;284;Consolidado;fija;;informativa;reportes;"clave reportes.pestana_consolidado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;285;ciclos en el periodo;fija;;informativa;reportes;"clave reportes.consolidado_cuenta; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;286;Se enviará un PDF con una portada (resumen e índice) y las páginas de cada ciclo: datos, gráfica con consignas y registro.;fija;;informativa;reportes;"clave reportes.consolidado_desc; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;287;Índice de ciclos;fija;;informativa;reportes;"clave reportes.indice; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;288;Pág.;fija;;informativa;reportes;"clave reportes.col_pagina; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;289;Ciclos del periodo;fija;;informativa;reportes;"clave reportes.total; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;290;Completados;fija;;informativa;reportes;"clave reportes.completados; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;291;Con fallo;fija;;informativa;reportes;"clave reportes.fallos; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;292;Cancelados;fija;;informativa;reportes;"clave reportes.cancelados; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;293;Sin cierre;fija;;informativa;reportes;"clave reportes.sin_cierre; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;294;Por programa;fija;;informativa;reportes;"clave reportes.por_programa; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;295;Programa;fija;;informativa;reportes;"clave reportes.programa; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;296;Total;fija;;informativa;reportes;"clave reportes.col_total; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;297;Compl.;fija;;informativa;reportes;"clave reportes.col_completados; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;298;Fallo;fija;;informativa;reportes;"clave reportes.col_fallos; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;299;Cancel.;fija;;informativa;reportes;"clave reportes.col_cancelados; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;300;Sin cierre;fija;;informativa;reportes;"clave reportes.col_sin_cierre; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;301;Causas de fallo;fija;;informativa;reportes;"clave reportes.causas_fallo; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;302;Causa;fija;;informativa;reportes;"clave reportes.causa; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;303;Cantidad;fija;;informativa;reportes;"clave reportes.cantidad; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;304;Sin fallos en el periodo;fija;;informativa;reportes;"clave reportes.sin_fallos; uso literal en Componentes/ResumenPeriodo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;305;No hay ciclos en este periodo;fija;;informativa;reportes;"clave reportes.sin_ciclos; uso literal en Pantallas/MenuPrincipal.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;308;Sin conexión con el controlador. Los valores mostrados no están actualizados.;fija;;alarma-seguridad;sistema;"clave sistema.sin_conexion; uso literal en Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;309;MODO PRUEBA ACTIVO — los ciclos no son válidos para carga estéril;fija;;alarma-seguridad;sistema;"clave sistema.modo_prueba; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;310;—;fija;;informativa;sistema;"clave sistema.sin_lectura; uso literal en Componentes/GraficaCiclo.qml, Pantallas/MenuPrincipal.qml, Pantallas/PantallaCicloEnCurso.qml, Pantallas/PantallaPreciclo.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;313;Ingrese usuario y contraseña;fija;;informativa;sesion;"clave sesion.campos_vacios; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;314;Usuario o contraseña incorrectos;fija;;informativa;sesion;"clave sesion.credenciales_invalidas; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;315;Usuario bloqueado por intentos fallidos. Intente de nuevo en {tiempo};con variables;tiempo;informativa;sesion;"clave sesion.usuario_bloqueado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;316;"El equipo no responde; intente de nuevo";fija;;informativa;sesion;"clave sesion.backend_no_responde; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;317;Debe cambiar la contraseña;fija;;informativa;sesion;"clave sesion.clave_pendiente; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;318;"Sesión no válida o vencida; inicie sesión de nuevo";fija;;informativa;sesion;"clave sesion.sesion_invalida; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;319;"Sesión cerrada por inactividad; inicie sesión de nuevo";fija;;informativa;sesion;"clave sesion.sesion_expirada; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;320;La contraseña actual no es correcta;fija;;informativa;sesion;"clave sesion.clave_actual_incorrecta; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;321;"No se pudo confirmar el cambio de contraseña. Inicie sesión con la contraseña nueva; si no funciona, use la anterior.";fija;;informativa;sesion;"clave sesion.clave_pudo_cambiar; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;322;Sin conexión con el equipo: no se pueden guardar cambios;fija;;alarma-seguridad;sesion;"clave sesion.sin_conexion_escrituras; uso literal en Main.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;323;La sesión se cerrará en {tiempo} si no vuelve la conexión;con variables;tiempo;alarma-seguridad;sesion;"clave sesion.sin_conexion_cierre; uso literal en Main.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;324;Validando…;fija;;informativa;sesion;"clave sesion.validando; uso literal en Pantallas/CambioClave.qml, Pantallas/Login.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;325;No se pudo completar la operación;fija;;informativa;sesion;"clave sesion.error_generico; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;326;Su rol no tiene permiso para esta acción;fija;;informativa;sesion;"clave sesion.rol_sin_permiso; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;327;CAMBIAR CONTRASEÑA;fija;;informativa;sesion;"clave sesion.titulo_cambio_clave; uso literal en Pantallas/CambioClave.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;328;Debe cambiar su contraseña antes de continuar;fija;;informativa;sesion;"clave sesion.aviso_cambio_obligatorio; uso literal en Pantallas/CambioClave.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;329;Contraseña actual;fija;;informativa;sesion;"clave sesion.clave_actual; uso literal en Pantallas/CambioClave.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;330;Contraseña nueva;fija;;informativa;sesion;"clave sesion.clave_nueva; uso literal en Pantallas/CambioClave.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;331;Confirmar contraseña nueva;fija;;informativa;sesion;"clave sesion.confirmar_clave_nueva; uso literal en Pantallas/CambioClave.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;332;CAMBIAR CONTRASEÑA;fija;;informativa;sesion;"clave sesion.boton_cambiar_clave; uso literal en Pantallas/CambioClave.qml"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;335;Su rol no puede crear usuarios;fija;;informativa;usuarios;"clave usuarios.sin_permiso; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;336;No se pudo guardar el usuario;fija;;informativa;usuarios;"clave usuarios.guardado_error; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;337;Su rol no puede crear usuarios con ese rol;fija;;informativa;usuarios;"clave usuarios.rol_no_creable; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;338;El usuario ya existe;fija;;informativa;usuarios;"clave usuarios.usuario_existe; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;341;Campo obligatorio;fija;;informativa;validacion;"clave validacion.obligatorio; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;342;Sin espacios, de {min} a {max} caracteres;con variables;"min;max";informativa;validacion;"clave validacion.formato; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;343;Mínimo {min} caracteres;con variables;min;informativa;validacion;"clave validacion.corta; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;344;Máximo {max} caracteres;con variables;max;informativa;validacion;"clave validacion.larga; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;345;Las contraseñas no coinciden;fija;;informativa;validacion;"clave validacion.no_coinciden; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;346;Seleccione un rol;fija;;informativa;validacion;"clave validacion.rol_invalido; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (es.json);src/autoclave/ui_qml/assets/textos/es.json;347;La nueva contraseña debe ser distinta de la actual;fija;;informativa;validacion;"clave validacion.igual_actual; sin uso literal en QML (uso dinámico en QML o desde Python)"
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Componentes/BarraSuperior.qml;22;ene | feb | mar | abr | may | jun | jul | ago | sep | oct | nov | dic;fija;;informativa;formato.fecha.meses;"meses fijos en QML; duplican fecha.meses de es.json y no lo usan"
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;141;LOGIN;fija;;informativa;login;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;166;Inicie sesión para continuar;fija;;informativa;login;"literal fijo en QML, fuera de es.json; marcado PLACEHOLDER en el código"
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;215;Nombre Usuario;fija;;informativa;login;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;279;Contraseña;fija;;informativa;login;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;323;Recordar Usuario;fija;;informativa;login;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;364;INICIAR SESIÓN;fija;;informativa;login;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;398;¿Olvidó su contraseña?;fija;;informativa;login;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/Login.qml;414;V: 1.0;fija;;informativa;login;"literal fijo en QML, fuera de es.json; duplica app.version de es.json"
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/MenuPrincipal.qml;499;\u2039  ;fija;;informativa;prueba;"símbolo de navegación concatenado con menu.volver; no requiere traducción"
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;312;NUEVO USUARIO;fija;;informativa;usuario;"literal fijo en QML, fuera de es.json; marcado PLACEHOLDER en el código"
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;340;Nombres y apellidos;fija;;informativa;usuario;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;363;Ingresar contraseña;fija;;informativa;usuario;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;416;Seleccione rol;fija;;informativa;usuario;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;658;¿Descartar datos?;fija;;informativa;usuario;"literal fijo en QML, fuera de es.json; marcado PLACEHOLDER en el código"
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;659;Seguir editando;fija;;informativa;usuario;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;679;Los datos capturados se perderán.;fija;;informativa;usuario;literal fijo en QML, fuera de es.json
+A. UI QML (literal en .qml);src/autoclave/ui_qml/qml/Pantallas/NuevoUsuario.qml;691;Descartar;fija;;informativa;usuario;literal fijo en QML, fuera de es.json
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/historial_ejemplo.py;22;Instrumental 134;fija;;informativa;ui;
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/historial_ejemplo.py;22;Bowie & Dick;fija;;informativa;ui;
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/historial_ejemplo.py;23;Instrumental 121;fija;;informativa;ui;
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/historial_ejemplo.py;72;backend de ejemplo sin conexión;fija;;informativa;ui;
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/historial_ejemplo.py;119;backend de ejemplo sin conexión;fija;;informativa;ui;
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/historial_ejemplo.py;139;equipo.ejemplo@example.com;fija;;informativa;ui;
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/lanzar.py;52;Backend simulado (sin tarjeta) + UI;fija;;informativa;ui;
+A. UI QML – herramientas de prueba/desarrollo (Python);src/autoclave/ui_qml/lanzar.py;53;UI contra el backend real (debe estar corriendo);fija;;informativa;ui;
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;191;PANTALLA DE PRUEBA — no es parte de la navegación de producción;fija;;informativa;prueba_teclado;"clave prueba_teclado.aviso; uso literal en Pruebas/PruebaTecladoAlfanumerico.qml, Pruebas/PruebaTecladoNumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;192;Teclado numérico;fija;;informativa;prueba_teclado;"clave prueba_teclado.titulo; uso literal en Pruebas/PruebaTecladoNumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;193;Temperatura de prueba;fija;;informativa;prueba_teclado;"clave prueba_teclado.campo; uso literal en Pruebas/PruebaTecladoNumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;194;Valor entregado:;fija;;informativa;prueba_teclado;"clave prueba_teclado.valor_entregado; uso literal en Pruebas/PruebaTecladoAlfanumerico.qml, Pruebas/PruebaTecladoNumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;195;Cancelado: no se entregó valor;fija;;informativa;prueba_teclado;"clave prueba_teclado.cancelado; uso literal en Pruebas/PruebaTecladoAlfanumerico.qml, Pruebas/PruebaTecladoNumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;196;—;fija;;informativa;prueba_teclado;"clave prueba_teclado.sin_valor; uso literal en Pruebas/PruebaTecladoAlfanumerico.qml, Pruebas/PruebaTecladoNumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;197;Toque aquí para reabrir el teclado;fija;;informativa;prueba_teclado;"clave prueba_teclado.reabrir; uso literal en Pruebas/PruebaTecladoAlfanumerico.qml, Pruebas/PruebaTecladoNumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;198;Teclado alfanumérico;fija;;informativa;prueba_teclado;"clave prueba_teclado.titulo_alfanumerico; uso literal en Pruebas/PruebaTecladoAlfanumerico.qml"
+A. UI QML – pantallas de prueba (es.json);src/autoclave/ui_qml/assets/textos/es.json;199;Nombre de prueba;fija;;informativa;prueba_teclado;"clave prueba_teclado.campo_alfanumerico; uso literal en Pruebas/PruebaTecladoAlfanumerico.qml"
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;51;INICIAR SESIÓN;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;52;Acceda con su usuario y contraseña;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;64;HISTORIAL;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;65;Consulte los ciclos realizados;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;77;REPORTES;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;78;Visualice y administre reportes de ciclos;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;87;INFORMACIÓN DEL EQUIPO Y DEL SISTEMA COMPLETO;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;88;Texto de descripción deliberadamente largo para comprobar que se corta sin desbordar la tarjeta;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;97;TIEMPO ADICIONAL\nDE SECADO;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;98;Programa seleccionado;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;111;TIEMPO ADICIONAL\nDE SECADO;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;112;Programa seleccionado;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;113;120.5 min;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;127;CICLOS HOY;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;129;Realizados;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;138;CICLOS TOTALES;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;140;Realizados;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;150;CICLOS TOTALES;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;152;Realizados;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;160;PRÓXIMO\nMANTENIMIENTO;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;169;CICLOS HOY;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;171;Realizados;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;181;ÚLTIMO CICLO;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;185;Programa:;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;185;02 · 134 INSTRUMENTAL;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;186;Resultado:;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;186;COMPLETADO;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/GaleriaMenuPrincipal.qml;194;V: 1.0;fija;;informativa;prueba;"literal fijo en QML, fuera de es.json; duplica app.version de es.json"
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/PruebaCicloEnCurso.qml;74;BOWE & DICK;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/PruebaCicloEnCurso.qml;83;SPK-SAT 45H;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/PruebaCicloEnCurso.qml;84;Sn123456;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/PruebaMenuPrincipal.qml;50;Chaqueta fría;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/PruebaMenuPrincipal.qml;52;Revise el suministro de agua;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+A. UI QML – pantallas de prueba (literal);src/autoclave/ui_qml/qml/Pruebas/PruebaMenuPrincipal.qml;66;Instrumental 134;fija;;informativa;prueba;literal fijo en QML, fuera de es.json
+B. Alarmas, fallas y eventos;src/autoclave/devices/puertas/advanced_door.py;380;Puerta {self.name}: abriendo en modo seguro (sin bomba de vacío).;con variables;self.name;alarma-seguridad;puerta;Alarm.description, id=f'ABRIENDO_MODO_SEGURO_{self.name}'
+B. Alarmas, fallas y eventos;src/autoclave/devices/puertas/advanced_door.py;469;Puerta {self.name}: cerrando en modo seguro (sin bomba de vacío).;con variables;self.name;alarma-seguridad;puerta;Alarm.description, id=f'CERRANDO_MODO_SEGURO_{self.name}'
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/loop/control_loop.py;115;No hay comunicación con el hardware.;fija;;alarma-seguridad;sistema;Alarm.description, id='NO_HAY_CONEXION'
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/loop/control_loop.py;336;Configuración inválida: {self._bloqueo_config};con variables;self._bloqueo_config;informativa;sistema;
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/loop/control_loop.py;339;No se puede activar el modo prueba durante un ciclo en curso.;fija;;informativa;sistema;
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/loop/control_loop.py;342;No se puede activar el modo prueba con el paro de emergencia activado.;fija;;informativa;sistema;
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/loop/control_loop.py;375;No se puede cambiar de ciclo mientras hay uno en curso.;fija;;informativa;sistema;
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/door_command_service.py;24;Error de comunicación;fija;;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/door_command_service.py;41;Error de comunicación;fija;;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;64;Puerta desconocida;fija;;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;79;Puerta desconocida;fija;;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;109;No permitido desde puerta {self.profile.door_id};con variables;self.profile.door_id;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;116;No permitido desde puerta {self.profile.door_id};con variables;self.profile.door_id;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;143;Sobrepresión en cámara ({pres:.0f} kPa);con variables;pres:.0f;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;147;Cámara en vacío ({pres:.0f} kPa);con variables;pres:.0f;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;155;Temperatura demasiado alta ({temp:.0f} °C);con variables;temp:.0f;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;164;{name} no está cerrada;con variables;name;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;175;La puerta ya está cerrada;fija;;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;183;Cámara presurizada ({pres:.0f} kPa);con variables;pres:.0f;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/services/domain/puertas/ser_puertas.py;192;Empaque presurizado;fija;;alarma-seguridad;puerta;"motivo de denegación de puerta; llega a QML como texto (ComandosPuerta.mensaje)"
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/base_fase.py;32;{self.__class__.__name__} debe implementar update();con variables;self.__class__.__name__;informativa;fase;
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/calentamiento.py;235;Timeout de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min;con variables;timeout_seg / 60:.0f;alarma-seguridad;fase;EsterilizacionFase/CalentamientoFase._fallo → estado.motivo_fallo
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/calentamiento.py;403;No se logró sostener condición estable en {timeout_rec_seg / 60:.0f} min;con variables;timeout_rec_seg / 60:.0f;alarma-seguridad;fase;EsterilizacionFase/CalentamientoFase._fallo → estado.motivo_fallo
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;204;Temperatura alta: {temp:.1f}°C > {t_est + rango_temp:.1f}°C;con variables;"temp:.1f;t_est + rango_temp:.1f";alarma-seguridad;fase;EsterilizacionFase/CalentamientoFase._fallo → estado.motivo_fallo
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;213;Temperatura baja: {temp:.1f}°C < {t_est - brecha_err_t:.1f}°C;con variables;"temp:.1f;t_est - brecha_err_t:.1f";alarma-seguridad;fase;EsterilizacionFase/CalentamientoFase._fallo → estado.motivo_fallo
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;222;Presión alta: {pres:.1f} kPa > {p_sat_est + rango_pres:.1f} kPa;con variables;"pres:.1f;p_sat_est + rango_pres:.1f";alarma-seguridad;fase;EsterilizacionFase/CalentamientoFase._fallo → estado.motivo_fallo
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;231;Presión baja: {pres:.1f} kPa < {p_sat_est - brecha_err_p:.1f} kPa;con variables;"pres:.1f;p_sat_est - brecha_err_p:.1f";alarma-seguridad;fase;EsterilizacionFase/CalentamientoFase._fallo → estado.motivo_fallo
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;288;ESTERILIZACION_TIMEOUT_F0: F0 no alcanzado tras {2 * tiempo_seg / 60:.0f} min (F0={self.estado.f0_acumulado:.2f}/{f0_objetivo:.1f} min);con variables;"2 * tiempo_seg / 60:.0f;self.estado.f0_acumulado:.2f;f0_objetivo:.1f";alarma-seguridad;fase;EsterilizacionFase/CalentamientoFase._fallo → estado.motivo_fallo
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/state_machine.py;62;Estado;fija;;informativa;alarma;
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;167;Sin suministro de vapor: chaqueta pendiente hasta que regrese.;fija;;alarma-seguridad;alarma;Alarm.description, id='SUMINISTRO_VAPOR'
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;213;Temperatura de drenaje alta: enfriando.;fija;;alarma-seguridad;alarma;Alarm.description, id='TEMP_DRENAJE_ALTA'
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;290;Apertura automática: la cámara tarda más de lo esperado en enfriar.;fija;;alarma-seguridad;alarma;Alarm.description, id='TIMEOUT_APERTURA_AUTOMATICA'
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;304;Puerta 2;fija;;informativa;alarma;nombre de puerta: se usa como identificador (clave/API) y también aparece en textos visibles
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;304;Puerta 1;fija;;informativa;alarma;nombre de puerta: se usa como identificador (clave/API) y también aparece en textos visibles
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;332;Apertura automática: no se pudo abrir {puerta} — {motivo or 'sin motivo reportado'}.;con variables;"puerta;motivo or 'sin motivo reportado'";alarma-seguridad;alarma;Alarm.description, id='APERTURA_AUTOMATICA_DENEGADA'
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;394;Paro de emergencia activado durante el ciclo.;fija;;alarma-seguridad;alarma;estado.motivo_fallo (se guarda en ciclos.motivo_fallo)
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;410;Pérdida de suministro eléctrico durante el ciclo.;fija;;alarma-seguridad;alarma;estado.motivo_fallo (se guarda en ciclos.motivo_fallo)
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;427;Fallo de seguridad: {codigo_fallo.replace('_', ' ').lower()}.;con variables;codigo_fallo.replace('_', ' ').lower();alarma-seguridad;alarma;estado.motivo_fallo (se guarda en ciclos.motivo_fallo)
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;450;Sensor crítico ausente: {', '.join(ausentes)};con variables;', '.join(ausentes);alarma-seguridad;alarma;estado.motivo_fallo (se guarda en ciclos.motivo_fallo)
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;504;Fallo en la fase {fase.name.replace('_', ' ').lower()}.;con variables;fase.name.replace('_', ' ').lower();alarma-seguridad;alarma;estado.motivo_fallo (se guarda en ciclos.motivo_fallo)
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/ciclo.py;536;Se perdió la comunicación con el hardware durante el ciclo.;fija;;alarma-seguridad;alarma;estado.motivo_fallo (se guarda en ciclos.motivo_fallo)
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/falla.py;27;Paro de emergencia activado en estado FALLA.;fija;;alarma-seguridad;alarma;Alarm.description, id='PARO_EMERGENCIA'
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/hibernacion.py;22;Paro de emergencia activado en estado HIBERNACION.;fija;;alarma-seguridad;alarma;Alarm.description, id='PARO_EMERGENCIA'
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/preparacion.py;14;Alerta;fija;;alarma-seguridad;alarma;_NIVEL_TXT: palabra de nivel insertada en Alarm.description
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/preparacion.py;15;Fallo;fija;;alarma-seguridad;alarma;_NIVEL_TXT: palabra de nivel insertada en Alarm.description
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/preparacion.py;16;Emergencia;fija;;alarma-seguridad;alarma;_NIVEL_TXT: palabra de nivel insertada en Alarm.description
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/preparacion.py;51;Alerta;fija;;alarma-seguridad;alarma;_NIVEL_TXT: palabra de nivel insertada en Alarm.description
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/preparacion.py;56;{nivel}: {alarm_id} en PREPARACION.;con variables;"nivel;alarm_id";alarma-seguridad;alarma;Alarm.description, id=alarm_id
+B. Alarmas, fallas y eventos;src/autoclave/state_machine/states/preparado.py;36;Error {alarm_id} en estado PREPARADO;con variables;alarm_id;alarma-seguridad;alarma;Alarm.description, id=alarm_id
+B. Mensajes del backend (API);src/autoclave/backend/context.py;44;Backend sin InstallationProfile;fija;;informativa;backend;"mensaje de excepción; visible solo si la UI muestra str(e)"
+B. Mensajes del backend (API);src/autoclave/backend/context.py;119;Configuración inválida: {motivo};con variables;motivo;alarma-seguridad;backend;Alarm.description, id='CONFIGURACION_INVALIDA'
+B. Mensajes del backend (API);src/autoclave/backend/main.py;21;%(asctime)s [%(levelname)s] %(name)s: %(message)s;fija;;informativa;backend;
+B. Mensajes del backend (API);src/autoclave/backend/server.py;86;No permitido con un ciclo en curso;fija;;alarma-seguridad;backend;"motivo de rechazo por estado (guard); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;87;No permitido con el equipo en suspensión;fija;;alarma-seguridad;backend;"motivo de rechazo por estado (guard); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;88;No permitido en estado de emergencia;fija;;alarma-seguridad;backend;"motivo de rechazo por estado (guard); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;155;Datos inválidos;fija;;alarma-seguridad;backend;RechazoApi: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;159;"Sesión no válida o vencida; inicie sesión de nuevo";fija;;informativa;backend;
+B. Mensajes del backend (API);src/autoclave/backend/server.py;160;"Usuario bloqueado por intentos fallidos; espere 5 minutos";fija;;informativa;backend;
+B. Mensajes del backend (API);src/autoclave/backend/server.py;193;Debe cambiar la contraseña;fija;;alarma-seguridad;backend;_rechazar: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;195;Su rol no tiene permiso para esta acción;fija;;alarma-seguridad;backend;_rechazar: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;221;No permitido en el estado actual;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;233;Configuración inválida: {motivo};con variables;motivo;alarma-seguridad;backend;_rechazar: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;264;paro de emergencia;fija;;informativa;backend;valor de diccionario
+B. Mensajes del backend (API);src/autoclave/backend/server.py;302;Usuario o contraseña incorrectos;fija;;alarma-seguridad;backend;RechazoApi: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;336;sesión cerrada;fija;;informativa;backend;valor de diccionario
+B. Mensajes del backend (API);src/autoclave/backend/server.py;359;sesión bloqueada;fija;;informativa;backend;valor de diccionario
+B. Mensajes del backend (API);src/autoclave/backend/server.py;381;La contraseña actual no es correcta;fija;;alarma-seguridad;backend;_rechazar: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;425;Su rol no puede crear usuarios con ese rol;fija;;alarma-seguridad;backend;_rechazar: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;447;Tipo de sensor desconocido: {tipo};con variables;tipo;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;449;Sensor desconocido: {sensor};con variables;sensor;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;503;shown_low, real_low, shown_high, real_high son obligatorios y numericos;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;653;No hay ciclo seleccionado;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;679;Ciclo '{body.cycle_id}' no encontrado;con variables;body.cycle_id;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;681;Solo se pueden seleccionar ciclos de usuario;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;872;No se puede imprimir durante un ciclo;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;888;Ciclo {ciclo_id} no encontrado;con variables;ciclo_id;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;941;Ciclo no encontrado;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;982;Ciclo no encontrado;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;996;Ciclo no encontrado;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1019;El sistema no está listo para iniciar un ciclo;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1039;No hay un ciclo en curso;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1052;El sistema no está en estado de falla;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1093;No hay un ciclo esperando confirmación;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1117;Apertura de puerta no permitida;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1137;Cierre de puerta no permitido;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1174;Ciclo '{body.cycle_id}' no encontrado;con variables;body.cycle_id;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1177;'path' no puede estar vacío;fija;;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1188;El programa en curso no se puede editar hasta que termine el ciclo;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1254;Configuración inválida: {motivo_config};con variables;motivo_config;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1262;El modo prueba ya está activo en otra sesión;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1279;El modo prueba no está activo;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1282;Solo la sesión que activó el modo prueba puede salir de él;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1284;salida solicitada;fija;;informativa;backend;valor de diccionario
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1310;Sin lectura del estado de las puertas;fija;;alarma-seguridad;backend;"motivo de rechazo de salida en modo prueba (R-02); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1315;Sin lectura del estado de {nombre};con variables;nombre;alarma-seguridad;backend;"motivo de rechazo de salida en modo prueba (R-02); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1317;{nombre} no está cerrada;con variables;nombre;alarma-seguridad;backend;"motivo de rechazo de salida en modo prueba (R-02); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1330;Sin lectura de presión de cámara;fija;;alarma-seguridad;backend;"motivo de rechazo de salida en modo prueba (R-02); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1332;Configuración de presión atmosférica no disponible;fija;;alarma-seguridad;backend;"motivo de rechazo de salida en modo prueba (R-02); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1334;Cámara fuera de presión atmosférica ({pres:.0f} kPa);con variables;pres:.0f;alarma-seguridad;backend;"motivo de rechazo de salida en modo prueba (R-02); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1337;Sin lectura del estado de las puertas;fija;;alarma-seguridad;backend;"motivo de rechazo de salida en modo prueba (R-02); llega como 'detail'"
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1351;Output '{name}' no encontrado;con variables;name;alarma-seguridad;backend;HTTPException: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1355;El modo prueba no está activo;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1357;Paro de emergencia activado;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+B. Mensajes del backend (API);src/autoclave/backend/server.py;1363;Solo la sesión que activó el modo prueba puede encender salidas;fija;;alarma-seguridad;backend;_Rechazo: texto de rechazo del backend (campo 'detail')
+C. Persistencia – configuración/perfil;src/autoclave/config/correo.json;7;Administrativo;fija;;informativa;correo.destino;"nombre de destino de correo; SelectorDestino.qml lo muestra tal cual"
+C. Persistencia – configuración/perfil;src/autoclave/config/correo.json;8;Mantenimiento;fija;;informativa;correo.destino;"nombre de destino de correo; SelectorDestino.qml lo muestra tal cual"
+C. Persistencia – configuración/perfil;src/autoclave/devices/factory/factory.py;15;Puerta {n};con variables;n;informativa;puerta.nombre;nombre de puerta = identificador en API (/doors/{door_name}) y texto visible en alarmas y motivos
+C. Persistencia – configuración/perfil;src/autoclave/devices/puertas/door_type.py;5;simple | motorized | locking | motorized_locking | advanced;fija;;informativa;equipo.tipo_puerta;"valor de DoorType (inglés); InfoEquipo lo entrega crudo a PanelEquipo (fila 'Tipo de puerta')"
+C. Persistencia – configuración/perfil;src/autoclave/installation/equipment.py;6;mesa_n | mesa_b | mesa_b_lab | piso | piso_lab;fija;;informativa;equipo.clase;"valor de EquipmentClass (español); InfoEquipo lo entrega crudo a PanelEquipo (fila 'Clase de equipo')"
+C. Persistencia – perfiles de ciclo;src/autoclave/cycles/factory/bowe_dick.json;4;Bowe & Dick;fija;;informativa;ciclo.nombre;"display_name de ciclo fábrica (cycles/factory); se copia a ciclos.nombre_ciclo al iniciar"
+C. Persistencia – perfiles de ciclo;src/autoclave/cycles/factory/instrumental_134.json;4;instrumental 134;fija;;informativa;ciclo.nombre;"display_name de ciclo fábrica (cycles/factory); se copia a ciclos.nombre_ciclo al iniciar"
+C. Persistencia – perfiles de ciclo;src/autoclave/cycles/user/bowe_dick.json;4;Bowe & Dick;fija;;informativa;ciclo.nombre;"display_name de ciclo usuario (cycles/user); se copia a ciclos.nombre_ciclo al iniciar"
+C. Persistencia – perfiles de ciclo;src/autoclave/cycles/user/instrumental_121.json;4;Instrumental 121°C;fija;;informativa;ciclo.nombre;"display_name de ciclo usuario (cycles/user); se copia a ciclos.nombre_ciclo al iniciar"
+C. Persistencia – perfiles de ciclo;src/autoclave/cycles/user/instrumental_134.json;4;instrumental 134;fija;;informativa;ciclo.nombre;"display_name de ciclo usuario (cycles/user); se copia a ciclos.nombre_ciclo al iniciar"
+C. Persistencia – usuarios semilla;src/autoclave/services/domain/logging/db_manager.py;120;Administrador;fija;;informativa;usuario.nombre;"usuarios.nombre de la semilla; nombre propio editable, no catálogo"
+C. Persistencia – usuarios semilla;src/autoclave/services/domain/logging/db_manager.py;123;Ingeniero;fija;;informativa;usuario.nombre;"usuarios.nombre de la semilla; nombre propio editable, no catálogo"
+D. Reportes PDF y correo;src/autoclave/ui_qml/exportacion/pdf_ciclo.py;116;Especifika Autoclave;fija;;informativa;reporte;
+D. Reportes PDF y correo;src/autoclave/ui_qml/exportacion/pdf_consolidado.py;62;el índice cambió de tamaño entre las dos pasadas;fija;;informativa;reporte;
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;237;Se enviaron {n} ciclo(s) a la impresora;con variables;n;informativa;exportacion;"clave exportacion.impreso; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;238;No se puede imprimir mientras hay un ciclo en curso;fija;;informativa;exportacion;"clave exportacion.imprimir_en_ciclo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;239;No se pudo imprimir: sin conexión con el equipo;fija;;informativa;exportacion;"clave exportacion.imprimir_error; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;240;La impresora no está conectada;fija;;informativa;exportacion;"clave exportacion.impresora_desconectada; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;241;La impresora no tiene papel;fija;;informativa;exportacion;"clave exportacion.impresora_sin_papel; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;242;La impresora no está instalada;fija;;informativa;exportacion;"clave exportacion.impresora_no_instalada; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;243;La impresora reporta un error;fija;;informativa;exportacion;"clave exportacion.impresora_error; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;244;Se enviaron {n} ciclo(s) a {destino};con variables;"n;destino";informativa;exportacion;"clave exportacion.enviado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;245;El correo de destino no es válido;fija;;informativa;exportacion;"clave exportacion.correo_invalido; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;246;Correo no configurado: falta el remitente o su contraseña;fija;;informativa;exportacion;"clave exportacion.correo_no_configurado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;247;No se pudo enviar: sin conexión con el equipo;fija;;informativa;exportacion;"clave exportacion.error_datos; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;248;No se pudo enviar el correo: el remitente o la contraseña no son válidos;fija;;informativa;exportacion;"clave exportacion.error_autenticacion; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;249;No se pudo enviar el correo: revise la conexión a internet;fija;;informativa;exportacion;"clave exportacion.error_envio; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;250;Ciclos del autoclave {serie}: {ciclos};con variables;"serie;ciclos";informativa;exportacion;"clave exportacion.asunto; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;251;Adjunto encontrará los ciclos de autoclave seleccionados en formato PDF, con su gráfica y su registro.;fija;;informativa;exportacion;"clave exportacion.cuerpo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;252;Especifika S.A.S. · Autoclave {modelo} · Serie {serie};con variables;"modelo;serie";informativa;exportacion;"clave exportacion.empresa; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;253;Ciclo N.º {numero} · {programa};con variables;"numero;programa";informativa;exportacion;"clave exportacion.titulo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;254;Inicio;fija;;informativa;exportacion;"clave exportacion.inicio; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;255;Fin;fija;;informativa;exportacion;"clave exportacion.fin; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;256;Resultado;fija;;informativa;exportacion;"clave exportacion.resultado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;257;Duración;fija;;informativa;exportacion;"clave exportacion.duracion; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;258;Tiempo (min);fija;;informativa;exportacion;"clave exportacion.eje_tiempo; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;259;°C;fija;;informativa;exportacion;"clave exportacion.eje_temp; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;260;kPa;fija;;informativa;exportacion;"clave exportacion.eje_pres; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;261;Gráfica no disponible;fija;;informativa;exportacion;"clave exportacion.sin_grafica; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;262;Registro del ciclo;fija;;informativa;exportacion;"clave exportacion.ticket; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;263;ciclos_autoclave.zip;fija;;informativa;exportacion;"clave exportacion.nombre_zip; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;264;Se envió el resumen a la impresora;fija;;informativa;exportacion;"clave exportacion.impreso_resumen; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;265;Se envió el resumen a {destino};con variables;destino;informativa;exportacion;"clave exportacion.enviado_resumen; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;266;Resumen de ciclos;fija;;informativa;exportacion;"clave exportacion.titulo_resumen; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;267;Del {desde} al {hasta};con variables;"desde;hasta";informativa;exportacion;"clave exportacion.periodo_resumen; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;268;Resumen de ciclos del autoclave {serie}: {periodo};con variables;"serie;periodo";informativa;exportacion;"clave exportacion.asunto_resumen; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;269;Adjunto encontrará el resumen de ciclos del periodo en formato PDF.;fija;;informativa;exportacion;"clave exportacion.cuerpo_resumen; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;270;Consigna temp.;fija;;informativa;exportacion;"clave exportacion.consigna_temp; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;271;Consigna presión;fija;;informativa;exportacion;"clave exportacion.consigna_pres; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;272;Reporte consolidado de ciclos;fija;;informativa;exportacion;"clave exportacion.titulo_consolidado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;273;Reporte consolidado del autoclave {serie}: {periodo};con variables;"serie;periodo";informativa;exportacion;"clave exportacion.asunto_consolidado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;274;Adjunto encontrará el reporte consolidado del periodo en formato PDF: el resumen, el índice y, para cada ciclo, sus datos, su gráfica con las consignas y su registro.;fija;;informativa;exportacion;"clave exportacion.cuerpo_consolidado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;275;Se envió el reporte consolidado ({n} ciclos) a {destino};con variables;"n;destino";informativa;exportacion;"clave exportacion.enviado_consolidado; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;276;No hay ciclos en este periodo;fija;;informativa;exportacion;"clave exportacion.consolidado_vacio; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;277;"El periodo tiene {n} ciclos; elija un periodo más corto (máximo {maximo})";con variables;"n;maximo";informativa;exportacion;"clave exportacion.consolidado_demasiados; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;278;Preparando ciclo {i} de {n}…;con variables;"i;n";informativa;exportacion;"clave exportacion.preparando; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Reportes PDF y correo (es.json);src/autoclave/ui_qml/assets/textos/es.json;279;Generando el PDF… {porcentaje}%;con variables;porcentaje;informativa;exportacion;"clave exportacion.generando; sin uso literal en QML (uso dinámico en QML o desde Python)"
+D. Ticket térmico / impresión;src/autoclave/devices/printer/connectivity_ticket.py;10;TARJETA: DESCONECTADA;fija;;alarma-seguridad;ticket;valor de diccionario
+D. Ticket térmico / impresión;src/autoclave/devices/printer/connectivity_ticket.py;11;TARJETA: RECONECTADA;fija;;alarma-seguridad;ticket;valor de diccionario
+D. Ticket térmico / impresión;src/autoclave/devices/printer/connectivity_ticket.py;12;BACKEND: SIN RESPUESTA;fija;;alarma-seguridad;ticket;valor de diccionario
+D. Ticket térmico / impresión;src/autoclave/devices/printer/connectivity_ticket.py;13;BACKEND: RECONECTADO;fija;;alarma-seguridad;ticket;valor de diccionario
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;19;Primer encendido;fija;;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;22;Sistema listo;fija;;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;22;** FALLO EN ARRANQUE **;fija;;alarma-seguridad;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;26;ESPECIFIKA -- AUTOCLAVE;fija;;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;28;Modelo:{profile.model_id};con variables;profile.model_id;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;29;Serie:{profile.serial_number};con variables;profile.serial_number;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;30;Clase:{profile.equipment_class.value};con variables;profile.equipment_class.value;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;31;Software:v{version};con variables;version;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;33;ENCENDIDO{startup_time.strftime('%Y-%m-%d  %H:%M:%S')};con variables;startup_time.strftime('%Y-%m-%d  %H:%M:%S');informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/devices/printer/startup_ticket.py;34;APAGADO{apagado};con variables;apagado;informativa;ticket;ticket impreso solo desde la UI tkinter (ui/window/main_window.py)
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;38;Fecha: {fecha_str};con variables;fecha_str;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;39;Hora:  {hora_inicio};con variables;hora_inicio;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;40;Num serie: {meta.get('serie', '')};con variables;meta.get('serie', '');informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;41;Modelo: {meta.get('modelo', '')};con variables;meta.get('modelo', '');informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;42;SoftW.: {meta.get('version_sw', '')};con variables;meta.get('version_sw', '');informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;43;Ciclo No.: {numero};con variables;numero;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;46;Temp. Ester.: {temp_e} C;con variables;temp_e;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;47;Tiempo Ester.: {tiempo_e} min;con variables;tiempo_e;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;48;  Hora      C      kPa;fija;;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;75;Temp. final: {temp_final_s} C;con variables;temp_final_s;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;76;Estado: {resultado or ''};con variables;resultado or '';alarma-seguridad;ticket;lleva código de resultado / motivo de fallo en texto libre
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;79;Motivo: {motivo};con variables;motivo;alarma-seguridad;ticket;lleva código de resultado / motivo de fallo en texto libre
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;81;F0 total: {f0_total:.1f} min;con variables;f0_total:.1f;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;83;Hora fin: {hora_fin};con variables;hora_fin;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/logging/ticket_formatter.py;84;Operador: ____________;fija;;informativa;ticket;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;71;RESUMEN DE CICLOS;fija;;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;72;Desde: {_fecha(desde)};con variables;_fecha(desde);informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;72;Hasta: {_fecha(hasta)};con variables;_fecha(hasta);informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;73;Num serie: {serie};con variables;serie;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;73;Modelo: {modelo};con variables;modelo;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;74;Impreso: {ahora.strftime('%d/%m/%Y')};con variables;ahora.strftime('%d/%m/%Y');informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;74;Hora:  {ahora.strftime('%H:%M:%S')};con variables;ahora.strftime('%H:%M:%S');informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;75;Total: {t['total']};con variables;t['total'];informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;77;Completados;fija;;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;77;Fallo;fija;;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;78;Cancelados;fija;;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;78;Sin cierre;fija;;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;81;Sin ciclos en el periodo;fija;;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;83;POR PROGRAMA;fija;;informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;90;  Sin cierre: {p['sin_cierre']};con variables;p['sin_cierre'];informativa;reporte;
+D. Ticket térmico / impresión;src/autoclave/services/domain/reportes/resumen_periodo.py;93;CAUSAS DE FALLO;fija;;informativa;reporte;
+E. Consola (print);src/autoclave/core/managers/cycle_manager.py;107;❌ No existe la carpeta;fija;;informativa;ciclo;logger.print
+E. Consola (print);src/autoclave/core/managers/cycle_manager.py;132;⚠️ Error cargando {file}: {e};con variables;"file;e";informativa;ciclo;logger.print
+E. Consola (print);src/autoclave/state_machine/states/emergencia.py;6;Estado de Emergencia activado.;fija;;informativa;alarma;logger.print
+E. Consola (print);src/autoclave/ui_qml/exportacion/config_correo.py;91;Falta el remitente en {RUTA};con variables;RUTA;informativa;reporte;logger.print
+E. Consola (print);src/autoclave/ui_qml/exportacion/config_correo.py;95;No se guardó nada.;fija;;informativa;reporte;logger.print
+E. Consola (print);src/autoclave/ui_qml/exportacion/config_correo.py;98;Contraseña guardada.;fija;;informativa;reporte;logger.print
+E. Consola (print/CLI);src/autoclave/main.py;53;Autoclave — interfaz de operador;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/main.py;56;Fuerza qué puerta representa ESTA ventana, para levantar dos ventanas (una por monitor) desde un mismo PC de dos puertas. Sin este flag el comportamiento es el de siempre: la puerta la decide el perfil de instalación y solo hay una ventana. Con este flag activo, además se posiciona la ventana en el monitor correspondiente (1=el más a la izquierda, 2=el siguiente) antes de pasar a pantalla completa.;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/simulador/__main__.py;31;Backend SIMULADO (sin tarjeta) para probar la UI;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/simulador/__main__.py;32;Puerto (defecto 8001);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/simulador/__main__.py;34;Veces más rápido que el ciclo real (defecto 10);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/simulador/__main__.py;36;ID en BD del ciclo a reproducir (defecto: último COMPLETADO);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/simulador/__main__.py;37;Base de datos (solo lectura);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/app.py;67;Autoclave — interfaz de operador (QML);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/app.py;69;Puerta que representa esta ventana (defecto: 1);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/app.py;71;Índice del monitor en QGuiApplication.screens() (defecto: 0);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/doble_pantalla.py;26;Autoclave — lanza las dos pantallas QML;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/doble_pantalla.py;28;Índice del monitor de la puerta 1 (defecto: 0);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/doble_pantalla.py;30;Índice del monitor de la puerta 2 (defecto: 1);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/exportacion/config_correo.py;93;Contraseña de aplicación de {config.remitente}: ;con variables;config.remitente;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/lanzar.py;50;Autoclave — lanza la UI QML con el simulador o el backend real;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/lanzar.py;55;Solo una pantalla;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/lanzar.py;57;Puerta de la pantalla con --una-pantalla (defecto 1);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/lanzar.py;62;Veces más rápido que el ciclo real (defecto 10);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;29;PRUEBA: pantalla de ciclo en curso;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;30;Ancho de la ventana;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;31;Alto de la ventana;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;32;Pantalla completa;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;33;Índice del monitor;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;34;Guarda un PNG de la ventana y sale;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;35;Datos reales del backend;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_ciclo_en_curso.py;36;Puerta (con --backend);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;38;PRUEBA: Menú Principal;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;40;Pantalla completa en su arnés (por defecto: galería de componentes);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;42;Con --pantalla: datos reales del backend en BACKEND_URL (solo lectura);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;45;Con --pantalla: abre esa ventana flotante al iniciar;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;47;Con --pantalla y datos de ejemplo: simula el backend sin respuesta;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;48;Puerta (con --backend);fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;49;Ancho de la ventana;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;50;Alto de la ventana;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_menu_principal.py;51;Guarda un PNG de la ventana y sale;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_teclado_numerico.py;30;PRUEBA: teclados QML;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_teclado_numerico.py;31;Teclado alfanumérico;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_teclado_numerico.py;32;Pantalla completa;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Consola (print/CLI);src/autoclave/ui_qml/prueba_teclado_numerico.py;33;Índice del monitor;fija;;informativa;cli;texto de ayuda de línea de comandos (argparse)
+E. Logs técnicos;src/autoclave/backend/context.py;38;Ciclos cargados: {list(self.cycle_manager.cycles.keys())};con variables;list(self.cycle_manager.cycles.keys());informativa;backend;logger.info
+E. Logs técnicos;src/autoclave/backend/main.py;28;Backend iniciado desde: %s;fija;;informativa;backend;logger.info
+E. Logs técnicos;src/autoclave/backend/server.py;45;Backend detenido: control loop parado y salidas apagadas;fija;;informativa;backend;logger.info
+E. Logs técnicos;src/autoclave/backend/server.py;47;Error al detener el control loop en el apagado del backend;fija;;informativa;backend;logger.exception
+E. Logs técnicos;src/autoclave/backend/server.py;108;No se pudo registrar '%s' en audit_log;fija;;informativa;backend;logger.exception
+E. Logs técnicos;src/autoclave/backend/server.py;478;No se pudo leer audit_log;fija;;informativa;backend;logger.exception
+E. Logs técnicos;src/autoclave/backend/server.py;1073;outputs/reset: todas las salidas apagadas;fija;;informativa;backend;logger.info
+E. Logs técnicos;src/autoclave/backend/server.py;1076;outputs/reset error: %s;fija;;informativa;backend;logger.error
+E. Logs técnicos;src/autoclave/core/managers/cycle_manager.py;96;cycle_number %d repetido en %s — se descarta en todos;fija;;informativa;ciclo;logger.error
+E. Logs técnicos;src/autoclave/core/managers/cycle_manager.py;104;📂 Buscando en: {folder_path};con variables;folder_path;informativa;ciclo;logger.info
+E. Logs técnicos;src/autoclave/devices/io/set_io.py;132;Bomba de vacio enviada.;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/devices/paro_emergencia/paro_emergencia.py;35;Paro de emergencia ACTIVADO;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/devices/paro_emergencia/paro_emergencia.py;38;Paro de emergencia LIBERADO;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/devices/printer/heartbeat.py;33;heartbeat: error al escribir timestamp: %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/realtime_printer.py;41;RealtimePrinter: print_raw devolvió False, línea descartada;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/realtime_printer.py;43;RealtimePrinter: error inesperado al imprimir: %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;15;python-escpos no disponible — usando impresión solo texto;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;21;print_startup: no se pudo abrir impresora '%s': %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;36;print_startup: error al imprimir: %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;49;win32print no disponible — impresión omitida;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;55;print_raw: no se pudo abrir impresora '%s': %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;66;print_raw: error al enviar datos: %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;92;estado_impresora: no se pudo abrir '%s': %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/printer/win32_printer.py;97;estado_impresora: no se pudo consultar '%s': %s;fija;;informativa;ticket;logger.warning
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;296;Error: Estado de puerta no definido.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;300;Estado actual: DESCONOCIDO.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;365;Error: Estado inicial de puerta inconsistente.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;387;Iniciando apertura de puerta%s.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;387; (modo seguro);fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;413;Puerta abierta correctamente.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;423;Error: Tiempo de apertura agotado.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;433;Error: Inconsistencia detectada, puerta no está abierta.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;437;Error: Inconsistencia detectada, puerta no puede estar abierta y cerrada a la vez.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;444;Error: Inconsistencia detectada, puerta no está cerrada.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;448;Error: Inconsistencia detectada, puerta no puede estar abierta y cerrada a la vez.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;452;Puerta {self.name}: presión de empaque baja, re-presurizando.;con variables;self.name;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;476;Iniciando cierre de puerta%s.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;476; (modo seguro);fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;511;Puerta cerrada correctamente.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;523;Error: Tiempo de cierre agotado.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;529;Puerta atrapada, intentando apertura automática.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;533;Iniciando apertura automática de puerta atrapada.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;538;Puerta liberada y abierta correctamente.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;548;Recuperación de error: Estado detectado ABIERTO.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;564;Recuperación de error: Estado detectado CERRADO.;fija;;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;573;Error persistente: Estado de puerta inconsistente.;fija;;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/devices/puertas/advanced_door.py;595;Puerta %s: bloqueada mecánicamente, apertura denegada.;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/devices/pump/pump.py;18;Bomba bloqueada: fallo de suministro eléctrico.;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/devices/pump/pump.py;22;Advertencia: No hay agua en la bomba de vacío.;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/devices/pump/pump.py;26;Activando bomba de vacío.;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/devices/suministro_electrico/suministro_electrico.py;22;Suministro eléctrico: CORTE DETECTADO;fija;;informativa;sistema;logger.error
+E. Logs técnicos;src/autoclave/devices/suministro_electrico/suministro_electrico.py;25;Suministro eléctrico: RESTAURADO;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/installation/backend_guard.py;14;write_backend_pid: no se pudo escribir %s: %s;fija;;informativa;instalacion;logger.warning
+E. Logs técnicos;src/autoclave/installation/backend_guard.py;43;kill_stale_backend: no se pudo terminar PID %d: %s;fija;;informativa;instalacion;logger.warning
+E. Logs técnicos;src/autoclave/installation/backend_guard.py;52;Backend huérfano detectado (PID %d) — terminando antes de arrancar uno nuevo;fija;;informativa;instalacion;logger.warning
+E. Logs técnicos;src/autoclave/installation/bootstrap.py;27;Perfil de instalación corrupto o inválido: %s;fija;;informativa;instalacion;logger.warning
+E. Logs técnicos;src/autoclave/installation/wizard.py;65;Intento de instalación con código inválido para serie '%s';fija;;informativa;instalacion;logger.warning
+E. Logs técnicos;src/autoclave/installation/wizard.py;237;Error guardando perfil de instalación: %s;fija;;informativa;instalacion;logger.error
+E. Logs técnicos;src/autoclave/installation/wizard.py;241;Instalación completada para serie '%s';fija;;informativa;instalacion;logger.info
+E. Logs técnicos;src/autoclave/main.py;106;Esperando backend...;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;110;El backend terminó inesperadamente (código %s);fija;;informativa;sistema;logger.error
+E. Logs técnicos;src/autoclave/main.py;113;Backend disponible (%.1fs);fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;116;Backend no respondió en %ds;fija;;informativa;sistema;logger.error
+E. Logs técnicos;src/autoclave/main.py;186;Perfil de instalación no encontrado o inválido — iniciando wizard;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;189;Instalación requerida para continuar. Cerrando.;fija;;informativa;sistema;logger.error
+E. Logs técnicos;src/autoclave/main.py;202;Error crítico: perfil sigue inválido tras wizard. Cerrando.;fija;;informativa;sistema;logger.error
+E. Logs técnicos;src/autoclave/main.py;213;Perfil cargado — serie: %s | puerta instalada: %s | puerta de esta ventana: %s%s;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;215; (ventana secundaria, mismo PC);fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;223;Ventana secundaria — esperando backend local ya iniciado por la ventana primaria...;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;225;Backend no disponible, la UI seguirá intentando...;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/main.py;228;Backend ya estaba corriendo;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;231;Iniciando backend...;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;240;Backend no respondió — la UI arrancará sin datos;fija;;informativa;sistema;logger.error
+E. Logs técnicos;src/autoclave/main.py;243;PC puerta 2 — esperando backend en red...;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;245;Backend no disponible, la UI seguirá intentando...;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/main.py;268;Cerrando aplicación...;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;280;Cierre cancelado: ciclo en curso, el backend sigue en marcha;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/main.py;284;Salidas digitales apagadas;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/main.py;286;No se pudieron apagar las salidas;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/main.py;308;UI Autoclave iniciada;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/protocols/device_reset.py;36;reset_usb_serial_device: no se encontró/reseteó %s (%s);fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/device_reset.py;41;reset_usb_serial_device: error ejecutando reset de %s: %s;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;107;Iniciando SerialLink;fija;;informativa;comunicacion;logger.info
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;121;Deteniendo SerialLink;fija;;informativa;comunicacion;logger.info
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;146;Conectado a ESP32 en {port};con variables;port;informativa;comunicacion;logger.info
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;163;Error abriendo puerto {port}: {e};con variables;"port;e";informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;172;SerialLink: %d intentos con dispositivo no funcional — intentando reset PnP de %s;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;231;Conexión serial perdida: %s;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;245;SerialLink: error en supervisión: %s;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;276;Timeout de datos serial (%.1f s sin líneas válidas);fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;334;SerialLink: error inesperado procesando línea: %s;fija;;informativa;comunicacion;logger.exception
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;355;SerialLink: línea descartada (%s) %r [consecutivas=%d];fija;;informativa;comunicacion;logger.info
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;359;SerialLink: %d líneas inválidas consecutivas — pérdida de comunicación;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;404;Error en on_update: {e};con variables;e;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;433;SerialLink: error escribiendo en el puerto: %s;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link.py;460;Timeout esperando OK ALL_OFF;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link_config.py;76;"serial_link: configuración %s inválida (no es un objeto JSON); se usan los valores internos";fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link_config.py;87;"serial_link: %s=%r rechazado en %s (%s); se usa el valor interno %r";fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link_config.py;93;serial_link: claves desconocidas ignoradas en %s: %s;fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link_config.py;105;"serial_link: no existe %s; se usan los valores internos";fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/protocols/serial_link_config.py;108;"serial_link: no se pudo leer %s (%s); se usan los valores internos";fija;;informativa;comunicacion;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/logging/cycle_logger.py;213;CycleLogger: no se pudo leer el ciclo: %s;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/logging/cycle_logger.py;257;CycleLogger: ciclo #%05d iniciado → DB id=%d | %s;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/services/domain/logging/cycle_logger.py;279;CycleLogger: no se pudo leer F0 del ciclo: %s;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/logging/cycle_logger.py;287;CycleLogger: ciclo id=%d cerrado → %s;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/services/domain/logging/cycle_logger.py;332;CycleLogger: no se pudo guardar dato de pantalla: %s;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/logging/cycle_logger.py;405;LOG [%s] %s  %.1f°C  %.1f kPa  imprimir=%s;fija;;informativa;sistema;logger.debug
+E. Logs técnicos;src/autoclave/services/domain/logging/db_manager.py;183;SQLite iniciado: %s;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/services/domain/logging/db_manager.py;238;Migración v%d fallida;fija;;informativa;sistema;logger.exception
+E. Logs técnicos;src/autoclave/services/domain/logging/db_manager.py;240;Base de datos migrada a v%d;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/services/domain/logging/db_manager.py;561;SQLite cerrado.;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/services/domain/logging/db_manager.py;563;Error cerrando SQLite: %s;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/loop/control_loop.py;100;ControlLoop: error inesperado en el ciclo: %s;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/loop/control_loop.py;192;Modo prueba cancelado automáticamente: paro de emergencia activado.;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/loop/control_loop.py;270;El bucle de control ya está en ejecución.;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/loop/control_loop.py;287;Control loop detenido.;fija;;informativa;sistema;logger.info
+E. Logs técnicos;src/autoclave/services/domain/loop/control_loop.py;313;Error en el aviso de cancelación del modo prueba;fija;;informativa;sistema;logger.exception
+E. Logs técnicos;src/autoclave/services/domain/loop/control_loop.py;327;Equipo bloqueado por configuración inválida: %s;fija;;informativa;sistema;logger.critical
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;63;Puerta desconocida: {door_name};con variables;door_name;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;68;Apertura denegada: puerta {door_name} — {reason};con variables;"door_name;reason";informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;72;Comando abrir enviado a puerta {door_name};con variables;door_name;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;78;Puerta desconocida: {door_name};con variables;door_name;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;83;Cierre denegado: puerta {door_name} — {reason};con variables;"door_name;reason";informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;87;Comando cerrar enviado a puerta {door_name};con variables;door_name;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;110;Apertura no permitida: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;117;Cierre no permitido: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;144;No se puede abrir: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;148;No se puede abrir: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;151;_can_open_physical: sensores de presión no disponibles, omitiendo verificación;fija;;informativa;puerta;logger.debug
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;156;No se puede abrir: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;159;_can_open_physical: sensor de temperatura no disponible, omitiendo verificación;fija;;informativa;puerta;logger.debug
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;165;No se puede abrir: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;184;No se puede cerrar: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;193;No se puede cerrar: %s;fija;;informativa;puerta;logger.warning
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;219;Puerta {door_name}: {prev.name} → {current.name};con variables;"door_name;prev.name;current.name";informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;240;ERROR en puerta {door_name};con variables;door_name;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;243;Puerta {door_name} abriéndose;con variables;door_name;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;246;Puerta {door_name} abierta;con variables;door_name;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;249;Puerta {door_name} cerrándose;con variables;door_name;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;252;Puerta {door_name} cerrada;con variables;door_name;informativa;puerta;logger.info
+E. Logs técnicos;src/autoclave/services/domain/puertas/ser_puertas.py;255;Puerta {door_name} ATRAPADA;con variables;door_name;informativa;puerta;logger.error
+E. Logs técnicos;src/autoclave/simulador/__main__.py;51;"Programa '%s' no encontrado; se muestra '%s'";fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/simulador/__main__.py;56;BACKEND SIMULADO — ciclo #%s (%s), %.1f min reales a %gx = %.1f min;fija;;informativa;sistema;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/alarms/alarm_manager.py;24;Alarma reportada: {alarm.id} - {alarm.description};con variables;"alarm.id;alarm.description";informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/alarms/alarm_manager.py;28;ALARMA EMERGENCIA: {alarm.id} - {alarm.description};con variables;"alarm.id;alarm.description";informativa;alarma;logger.critical
+E. Logs técnicos;src/autoclave/state_machine/alarms/alarm_manager.py;30;ALARMA FALLA: {alarm.id} - {alarm.description};con variables;"alarm.id;alarm.description";informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/alarms/alarm_manager.py;32;ALARMA ALERTA: {alarm.id} - {alarm.description};con variables;"alarm.id;alarm.description";informativa;alarma;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/alarms/alarm_manager.py;43;Alarma despejada: {alarm_id};con variables;alarm_id;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/calentamiento.py;165;Calentamiento: FALLO — %s;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/calentamiento.py;229;Calentamiento: iniciando desde %.1f°C | objetivo %.1f°C / %.1f kPa | timeout %.0fs;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/calentamiento.py;329;Calentamiento: vapor_camara a 0 (%s) — T=%.1f°C P=%.1f kPa;fija;;informativa;fase;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/calentamiento.py;334;Calentamiento: vapor_camara reanuda (duty=%.2f) — T=%.1f°C P=%.1f kPa;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/calentamiento.py;377;Calentamiento: condición alcanzada — entra a ESTABLE_PREESTERILIZACION;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/calentamiento.py;390;Calentamiento: COMPLETADO tras sostenimiento continuo de %.0fs — %.1f°C / %.1f kPa;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/calentamiento.py;400;Calentamiento: condición fuera de rango en sostenimiento — recuperando;fija;;informativa;fase;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/descompresion.py;60;DescompresionFase: timeout en modo %d;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/descompresion.py;73;DescompresionFase: modo desconocido %d;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;85;Esterilización: FALLO — %s;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;186;Esterilización: iniciando %.0fs a %.1f°C | P_control_max=%.1f kPa;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;272;Esterilización: COMPLETADO — %.0f seg completados;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/esterilizacion.py;280;Esterilización: COMPLETADO — %.0f seg completados, F0=%.2f/%.1f min;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/precalentamiento.py;44;Precalentamiento: tiempo=0, fase saltada;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/precalentamiento.py;52;Precalentamiento: iniciando | obj %.1f kPa | sostenimiento %.0fs | timeout %.0fs;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/precalentamiento.py;59;Precalentamiento: TIMEOUT — no se alcanzó %.1f kPa en %.0f min;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/precalentamiento.py;69;Precalentamiento: pres_chaqueta no disponible, esperando...;fija;;informativa;fase;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/precalentamiento.py;79;Precalentamiento: %.1f kPa alcanzados — sosteniendo %.0fs;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/precalentamiento.py;92;Precalentamiento: sosteniendo %.1fs / %.1fs | %.1f kPa;fija;;informativa;fase;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/precalentamiento.py;97;Precalentamiento: COMPLETADO;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;80;PrevacioFase: sin bomba de vacío — fase saltada;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;102;PrevacioFase: tipo %s, %d pulsos — inicio;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;104;PrevacioFase: tipo %s conteo=0, saltando;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;107;PrevacioFase: todos los tipos en 0 — fase saltada;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;132;PrevacioFase: tipo %s pulso %d/%d — iniciando vacío;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;141;PrevacioFase: TIMEOUT vacío bajo (tipo %s pulso %d);fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;155;PrevacioFase: vacío bajo alcanzado %.1f kPa (tipo %s pulso %d);fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;180;PrevacioFase: hold bajo completado (tipo %s pulso %d) — activando vapor;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;189;PrevacioFase: TIMEOUT presión alta (tipo %s pulso %d);fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;204;PrevacioFase: presión alta alcanzada %.1f kPa (tipo %s pulso %d);fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;235;PrevacioFase: pulso %d/%d tipo %s;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;251;PrevacioFase: avanzando a tipo %s (%d pulsos);fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;254;PrevacioFase: tipo %s conteo=0, saltando;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/prevacio.py;257;PrevacioFase: COMPLETADO;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;62;Protocolo de fallo ejecutado — apagando todas las salidas;fija;;informativa;fase;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;75;Protocolo fallo: presión desconocida — no se activa válvula de seguridad;fija;;informativa;fase;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;85;Protocolo fallo: cámara presurizada (%.1f kPa) → modo de descompresión %d;fija;;informativa;fase;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;92;Protocolo fallo: cámara en vacío (%.1f kPa) → aire atmosférico;fija;;informativa;fase;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;99;Protocolo fallo: presión normal (%.1f kPa) → válvula del modo %d;fija;;informativa;fase;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;162;Protocolo fallo: apagado de salidas confirmado tras reintento;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;178;Protocolo fallo: timeout del modo %d agotado, escalando a chaqueta+rápida;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/protocolo_fallo.py;208;Protocolo fallo: condiciones seguras (%.1f kPa / %.1f°C) → buzzer;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;24;SecadoFase: sin bomba de vacío — fase saltada;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;29;SecadoFase: tiempo_secado=0 — fase saltada;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;42;SecadoFase: modo %d | %.1f min;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;51;SecadoFase: modo desconocido %d;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;79;SecadoFase modo 1: COMPLETADO;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;89;SecadoFase modo 2: COMPLETADO;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;100;SecadoFase modo 3: COMPLETADO;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;112;SecadoFase modo 3: TIMEOUT en VACIO_BAJO;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;122;SecadoFase: %.1f kPa ≤ pres_baja → AIRE_ALTO;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;129;SecadoFase modo 3: TIMEOUT en AIRE_ALTO;fija;;informativa;fase;logger.error
+E. Logs técnicos;src/autoclave/state_machine/cycle_phases/secado.py;138;SecadoFase: %.1f kPa ≥ pres_alta → VACIO_BAJO;fija;;informativa;fase;logger.info
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;46;StateMachine: entrando a CICLO;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;51;StateMachine: entrando a PREPARADO;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;61;Actualizando maquina de estados. Estado actual: %s;fija;;informativa;alarma;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;74;Estado actual: PREPARACION;fija;;informativa;alarma;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;83;Estado actual: PREPARADO;fija;;informativa;alarma;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;98;Estado actual: CICLO;fija;;informativa;alarma;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;103;StateMachine: ciclo completado → PREPARADO;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;107;StateMachine: fallo en ciclo → FALLA;fija;;informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;111;StateMachine: ciclo cancelado → PREPARADO;fija;;informativa;alarma;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;120;Estado actual: FALLA;fija;;informativa;alarma;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;130;Estado actual: EMERGENCIA;fija;;informativa;alarma;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/state_machine.py;137;Estado actual: HIBERNACION;fija;;informativa;alarma;logger.debug
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;118;CicloState: INICIANDO — %d fases | primera: %s;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;358;CicloState: confirmación recibida → %s;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;383;CicloState: CANCELADO por operador;fija;;informativa;alarma;logger.warning
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;392;CicloState: ABORTADO por paro de emergencia;fija;;informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;408;CicloState: ABORTADO por fallo de suministro eléctrico;fija;;informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;425;CicloState: FALLO de seguridad — %s;fija;;informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;448;CicloState: SENSOR_AUSENTE — %s;fija;;informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;468;CicloState: COMPLETADO — todas las fases finalizadas;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;481;CicloState: fase %s completada;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;485;CicloState: COMPLETADO;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;494;CicloState: avanzando a fase %s;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;498;CicloState: FALLO en fase %s;fija;;informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/states/ciclo.py;534;CicloState: ABORTADO por pérdida de comunicación serial;fija;;informativa;alarma;logger.error
+E. Logs técnicos;src/autoclave/state_machine/states/falla.py;35;FallaState: reset solicitado → transicionando a PREPARACION;fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/preparacion.py;88;Ejecución del estado PREPARACION (paralelo);fija;;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/preparacion.py;126;Alarma generada: {alarm_id};con variables;alarm_id;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/preparacion.py;136;Alarma generada: {alarm_id};con variables;alarm_id;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/state_machine/states/preparacion.py;155;Alarma generada: {alarm_id};con variables;alarm_id;informativa;alarma;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/app.py;75;Sin --door: esta ventana representa la PUERTA 1 (monitor %d);fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/app.py;84;Monitor %d no existe (%d detectados) — se usa el primario;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/app.py;96;Carpeta de fuentes no encontrada: %s;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/app.py;194;UI QML iniciada — puerta %d, monitor %s;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/acciones_ciclos.py;143;Acción sobre ciclos fallida;fija;;informativa;ui;logger.exception
+E. Logs técnicos;src/autoclave/ui_qml/bridge/acciones_ciclos.py;191;impresión no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/acciones_ciclos.py;238;resumen del periodo no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/acciones_ciclos.py;276;resumen del periodo no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/acciones_ciclos.py;289;listado del periodo no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/acciones_ciclos.py;345;Envío de correo fallido: %s;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/acciones_ciclos.py;369;datos del ciclo %s no disponibles: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/ciclos_historial.py;74;Periodo de historial desconocido: %r;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/ciclos_historial.py;82;Periodo de historial desconocido: %r;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/ciclos_historial.py;91;Periodo de historial desconocido: %r;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/ciclos_historial.py;119;listado de ciclos no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/ciclos_historial.py;178;curva del ciclo %s no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_ciclo.py;40;Iniciando ciclo...;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_ciclo.py;47;start_cycle error: %s;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_ciclo.py;56;Inicio de ciclo aceptado por el backend;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_ciclo.py;58;Backend rechazó el inicio del ciclo;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_ciclo_en_curso.py;62;Solicitando %s ciclo...;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_ciclo_en_curso.py;79;Backend no aceptó %s ciclo;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_puerta.py;55;Solicitud de %s %s (estado mostrado: %s);fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_puerta.py;73;Comando de puerta aceptado;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/comandos_puerta.py;75;Comando de puerta rechazado: %s;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/info_equipo.py;31;No se pudo leer el perfil de instalación: %s;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/info_equipo.py;127;historial de ciclos no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/lanzador_ajustes.py;58;No se pudo lanzar el menú de configuración: %s;fija;;informativa;ui;logger.error
+E. Logs técnicos;src/autoclave/ui_qml/bridge/lanzador_ajustes.py;60;Menú de configuración abierto (PID %s);fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/lanzador_ajustes.py;71;Menú de configuración cerrado;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/bridge/progreso_ciclo.py;73;progreso del ciclo no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/reporte_resumen.py;48;Periodo de reporte desconocido: %r;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/reporte_resumen.py;57;Periodo de reporte desconocido: %r;fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/bridge/reporte_resumen.py;78;resumen del periodo no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/resumen_sistema.py;90;resumen del sistema no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/resumen_sistema.py;121;curva del último ciclo no disponible: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/standby.py;116;POST /ui/activity falló: %s;fija;;informativa;ui;logger.debug
+E. Logs técnicos;src/autoclave/ui_qml/bridge/standby.py;148;Standby %s;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/doble_pantalla.py;47;Lanzando: %s;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/doble_pantalla.py;53;Cerrando las dos pantallas...;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/exportacion/config_correo.py;57;Configuración de correo no disponible (%s): %s;fija;;informativa;reporte;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/exportacion/config_correo.py;80;No se pudo leer la contraseña del correo: %s;fija;;informativa;reporte;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/historial_ejemplo.py;129;EJEMPLO: se imprimiría %s %s;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/historial_ejemplo.py;148;EJEMPLO: correo a %s con %s (no se envió);fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/lanzar.py;84;Cerrando las pantallas...;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/lanzar.py;98;Lanzando el backend SIMULADO en %s ...;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/lanzar.py;101;"El simulador no respondió en %s; no se abre la UI";fija;;informativa;ui;logger.error
+E. Logs técnicos;src/autoclave/ui_qml/lanzar.py;107;"El backend real no responde en %s. Arráncalo en otra terminal con `python -m autoclave.backend.main`; la UI se conectará sola cuando esté disponible.";fija;;informativa;ui;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/lanzar.py;115;Lanzando: %s;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/lanzar.py;120;Deteniendo el simulador;fija;;informativa;ui;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;124;Respuesta no reconocida del backend: HTTP %s en %s (código %r);fija;;informativa;sesion;logger.error
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;134;Backend sin respuesta en %s %s: %s;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;195;Operación de sesión fallida;fija;;informativa;sesion;logger.exception
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;239;Operación de sesión sin respuesta en %.1f s;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;252;Operación de sesión cancelada: %s;fija;;informativa;sesion;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;252;sin nombre;fija;;informativa;sesion;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;356;Inicio de sesión QML: %s (rol %s);fija;;informativa;sesion;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;360;Inicio de sesión QML rechazado para '%s': %s;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;363;Inicio de sesión QML rechazado: %s;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;369;Login respondido tras el plazo o cancelado: se invalida ese token;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;398;Cambio de contraseña respondido tras el plazo o cancelado: %s;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;415;Sesión cerrada en esta ventana;fija;;informativa;sesion;logger.info
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;434;Cierre de sesión sin confirmar del backend: %s;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;477;Cierre de sesión al salir sin confirmar del backend (%d token/s);fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;484;Token descartado sin conexión durante el cambio obligatorio de contraseña;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;515;Escritura sin respuesta en %.1f s: %s %s;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;536;Sesión cerrada tras %s s sin actividad en esta ventana;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;598;Sesión cerrada tras %s s sin conexión con el equipo;fija;;informativa;sesion;logger.warning
+E. Logs técnicos;src/autoclave/ui_qml/sesion_backend.py;616;Validación de la sesión omitida: otra validación en curso;fija;;informativa;sesion;logger.warning
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;5;Paro de emergencia activado.;fija;;alarma-seguridad;voz.emg_paro_emergencia;"prioridad P0, cooldown 60 s, WAV es/emg_paro_emergencia.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;16;Fallo de suministro electrico.;fija;;alarma-seguridad;voz.emg_fallo_electrico;"prioridad P0, cooldown 60 s, WAV es/emg_fallo_electrico.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;27;Sensor critico ausente. Ciclo abortado.;fija;;alarma-seguridad;voz.emg_sensor_ausente;"prioridad P0, cooldown 60 s, WAV es/emg_sensor_ausente.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;38;Atrapamiento en puerta uno.;fija;;alarma-seguridad;voz.emg_puerta_1_atrapada;"prioridad P0, cooldown 60 s, WAV es/emg_puerta_1_atrapada.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;49;Atrapamiento en puerta dos.;fija;;alarma-seguridad;voz.emg_puerta_2_atrapada;"prioridad P0, cooldown 60 s, WAV es/emg_puerta_2_atrapada.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;60;Ciclo abortado por fallo.;fija;;alarma-seguridad;voz.fal_ciclo_abortado;"prioridad P1, cooldown 60 s, WAV es/fal_ciclo_abortado.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;71;Camara en condiciones seguras.;fija;;alarma-seguridad;voz.fal_camara_segura;"prioridad P1, cooldown 60 s, WAV es/fal_camara_segura.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;82;Fallo en puerta uno.;fija;;alarma-seguridad;voz.fal_puerta_1_error;"prioridad P1, cooldown 60 s, WAV es/fal_puerta_1_error.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;93;Fallo en puerta dos.;fija;;alarma-seguridad;voz.fal_puerta_2_error;"prioridad P1, cooldown 60 s, WAV es/fal_puerta_2_error.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;104;Falta suministro de agua de bomba.;fija;;alarma-seguridad;voz.alr_sum_agua_bomba;"prioridad P2, cooldown 60 s, WAV es/alr_sum_agua_bomba.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;115;Falta suministro de agua de generador.;fija;;alarma-seguridad;voz.alr_sum_agua_generador;"prioridad P2, cooldown 60 s, WAV es/alr_sum_agua_generador.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;126;Falta suministro de aire comprimido.;fija;;alarma-seguridad;voz.alr_sum_aire_comprimido;"prioridad P2, cooldown 60 s, WAV es/alr_sum_aire_comprimido.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;137;Alerta de suministro electrico.;fija;;alarma-seguridad;voz.alr_sum_electrico;"prioridad P2, cooldown 60 s, WAV es/alr_sum_electrico.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;148;Error en sensor de presion de camara.;fija;;alarma-seguridad;voz.alr_ai_pres_camara;"prioridad P2, cooldown 60 s, WAV es/alr_ai_pres_camara.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;159;Error en sensor de presion de chaqueta.;fija;;alarma-seguridad;voz.alr_ai_pres_chaqueta;"prioridad P2, cooldown 60 s, WAV es/alr_ai_pres_chaqueta.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;170;Error en sensor de presion de empaque uno.;fija;;alarma-seguridad;voz.alr_ai_pres_empaque_1;"prioridad P2, cooldown 60 s, WAV es/alr_ai_pres_empaque_1.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;181;Error en sensor de presion de empaque dos.;fija;;alarma-seguridad;voz.alr_ai_pres_empaque_2;"prioridad P2, cooldown 60 s, WAV es/alr_ai_pres_empaque_2.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;192;Error en sensor de temperatura de camara.;fija;;alarma-seguridad;voz.alr_ai_temp_camara;"prioridad P2, cooldown 60 s, WAV es/alr_ai_temp_camara.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;203;Error en sensor de temperatura de camara dos.;fija;;alarma-seguridad;voz.alr_ai_temp_2_camara;"prioridad P2, cooldown 60 s, WAV es/alr_ai_temp_2_camara.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;214;Error en sensor de temperatura de referencia.;fija;;alarma-seguridad;voz.alr_ai_temp_ref;"prioridad P2, cooldown 60 s, WAV es/alr_ai_temp_ref.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;225;Error en sensor de temperatura de chaqueta.;fija;;alarma-seguridad;voz.alr_ai_temp_chaqueta;"prioridad P2, cooldown 60 s, WAV es/alr_ai_temp_chaqueta.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;236;Error en sensor de temperatura de drenaje de camara.;fija;;alarma-seguridad;voz.alr_ai_temp_drenaje_cam;"prioridad P2, cooldown 60 s, WAV es/alr_ai_temp_drenaje_cam.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;247;Error en sensor de temperatura de drenaje.;fija;;alarma-seguridad;voz.alr_ai_temp_drenaje;"prioridad P2, cooldown 60 s, WAV es/alr_ai_temp_drenaje.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;258;Puerta uno abierta.;fija;;informativa;voz.pta_1_abierta;"prioridad P3, cooldown 5 s, WAV es/pta_1_abierta.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;269;Puerta uno cerrada.;fija;;informativa;voz.pta_1_cerrada;"prioridad P3, cooldown 5 s, WAV es/pta_1_cerrada.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;280;Puerta dos abierta.;fija;;informativa;voz.pta_2_abierta;"prioridad P3, cooldown 5 s, WAV es/pta_2_abierta.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;291;Puerta dos cerrada.;fija;;informativa;voz.pta_2_cerrada;"prioridad P3, cooldown 5 s, WAV es/pta_2_cerrada.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;302;Ciclo iniciado.;fija;;informativa;voz.cic_iniciado;"prioridad P4, cooldown 5 s, WAV es/cic_iniciado.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;313;Ciclo completado.;fija;;informativa;voz.cic_completado;"prioridad P4, cooldown 5 s, WAV es/cic_completado.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;324;Equipo preparado.;fija;;informativa;voz.equipo_preparado;"prioridad P4, cooldown 5 s, WAV es/equipo_preparado.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;335;Bienvenido. Autoclave Especifika.;fija;;informativa;voz.sys_bienvenida;"prioridad P5, cooldown 5 s, WAV es/sys_bienvenida.wav (tono placeholder, no locución); texto sin tildes"
+F. Voz (rama worktree-anuncios-voz, sin unir a dev);.claude/worktrees/anuncios-voz/src/autoclave/assets/audio/manifest.json;346;Prueba de audio correcta.;fija;;informativa;voz.sys_prueba_audio;"prioridad P5, cooldown 5 s, WAV es/sys_prueba_audio.wav (tono placeholder, no locución); texto sin tildes"
+G. Formato de fecha/hora/número;src/autoclave/backend/server.py;483;%Y-%m-%d %H:%M;fija;;informativa;formato;fecha del último cambio de calibración entregada por la API
+G. Formato de fecha/hora/número;src/autoclave/devices/printer/connectivity_ticket.py;23;%Y-%m-%d %H:%M:%S;fija;;informativa;formato;ticket de conectividad (formato ISO, distinto de D-09)
+G. Formato de fecha/hora/número;src/autoclave/devices/printer/startup_ticket.py;17;%Y-%m-%d  %H:%M:%S;fija;;informativa;formato;ticket de arranque (formato ISO, distinto de D-09)
+G. Formato de fecha/hora/número;src/autoclave/services/domain/logging/cycle_params_audit.py;37;%Y-%m-%d %H:%M;fija;;informativa;formato;sello de auditoría de parámetros
+G. Formato de fecha/hora/número;src/autoclave/services/domain/logging/sensor_calibration_audit.py;47;%Y-%m-%d %H:%M;fija;;informativa;formato;sello de auditoría de calibración
+G. Formato de fecha/hora/número;src/autoclave/services/domain/logging/ticket_formatter.py;26;{día:02d}/{MES_ES}/{año}  (ENE…DIC);fija;;informativa;formato;ticket de ciclo: fecha con mes abreviado en español (_MESES)
+G. Formato de fecha/hora/número;src/autoclave/services/domain/logging/ticket_formatter.py;27;%H:%M:%S;fija;;informativa;formato;ticket de ciclo: hora de inicio
+G. Formato de fecha/hora/número;src/autoclave/services/domain/logging/ticket_formatter.py;59;{tc:06.1f} / {pc:06.1f};fija;;informativa;formato;ticket: temperatura y presión con punto decimal y ceros a la izquierda
+G. Formato de fecha/hora/número;src/autoclave/services/domain/logging/ticket_formatter.py;68;%H:%M:%S;fija;;informativa;formato;ticket de ciclo: hora de fin
+G. Formato de fecha/hora/número;src/autoclave/services/domain/reportes/resumen_periodo.py;52;%d/%m/%Y;fija;;informativa;formato;ticket de resumen: Desde/Hasta
+G. Formato de fecha/hora/número;src/autoclave/services/domain/reportes/resumen_periodo.py;74;%d/%m/%Y y %H:%M:%S;fija;;informativa;formato;ticket de resumen: Impreso/Hora
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/bridge/info_equipo.py;50;%Y-%m-%d %H:%M;fija;;informativa;formato;panel Información del equipo: último ciclo (ISO, distinto de D-09)
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/bridge/info_equipo.py;87;%Y-%m-%d;fija;;informativa;formato;panel Información del equipo: fecha de instalación (ISO)
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/domain/formato_numerico.py;19;{valor:.{decimales}f};fija;;informativa;formato;"único formateador de decimales de la UI; punto decimal fijo (TEC-D14)"
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/domain/reloj_splash.py;11;{hour:02d}:{minute:02d};fija;;informativa;formato;reloj de la pantalla de espera
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/domain/resumen_sistema.py;48;{d.day:02d}/{d.month:02d}/{d.year:04d};fija;;informativa;formato;Menú/Historial/PDF: fecha dd/MM/yyyy
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/domain/resumen_sistema.py;54;{d.hour:02d}:{d.minute:02d};fija;;informativa;formato;Menú/Historial/PDF: hora HH:mm
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/domain/resumen_sistema.py;145;{d.day} {mes_corto_es};fija;;informativa;formato;rótulo de semana del Historial (mes abreviado en español)
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/domain/resumen_sistema.py;149;{Día_es} {d} {mes} {año};fija;;informativa;formato;rótulo de día del Historial (nombre de día en español)
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/domain/resumen_sistema.py;154;{Mes_es} {año};fija;;informativa;formato;rótulo de mes del Historial (nombre de mes en español)
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/exportacion/pdf_ciclo.py;74;{v:.0f} / {v:g};fija;;informativa;formato;PDF: marcas de eje
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/qml/Componentes/BarraSuperior.qml;58;d + mes_es + '  -  ' + yyyy;fija;;informativa;formato;"reloj de barra superior; meses fijos en el .qml"
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/qml/Componentes/EncabezadoMenu.qml;83;d + fecha.meses + '  -  ' + yyyy;fija;;informativa;formato;"reloj del Menú Principal; meses de es.json"
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/qml/Componentes/GraficaCiclo.qml;514;.toFixed(1);fija;;informativa;formato;gráfica: valor con 1 decimal, punto
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/qml/Pantallas/Arranque.qml;58;d + fecha.meses + '  -  ' + yyyy;fija;;informativa;formato;"reloj de Arranque; meses de es.json"
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/qml/Pantallas/PantallaCicloEnCurso.qml;261;d + fecha.meses + '  -  ' + yyyy;fija;;informativa;formato;"reloj de ciclo en curso; meses de es.json"
+G. Formato de fecha/hora/número;src/autoclave/ui_qml/qml/Pantallas/PantallaPreciclo.qml;234;d + fecha.meses + '  -  ' + yyyy;fija;;informativa;formato;"reloj de preciclo; meses de es.json"
+Otros (configuración, instalación, protocolos);src/autoclave/config/calibration_writer.py;39;[calibracion-auto];fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/calibration_writer.py;68;^[ \t]*#\s*{marcador}\s*Sensor\s+{tipo_escapado}\[{index}\](?!\d).*\n;con variables;"marcador;tipo_escapado;index";informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/calibration_writer.py;138;{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- recalibrado {date.today().isoformat()} con 2 puntos contra equipo patron: bajo {shown_low}->{real_low}, alto {shown_high}->{real_high}.;con variables;"_MARCADOR_AUTO;tipo;index;date.today().isoformat();shown_low;real_low;shown_high;real_high";informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;16;Desplazamiento del sensor;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;17;Ganancia o factor de escala;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;18;Coeficientes polinomiales opcionales;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;26;Valor ADC mínimo;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;27;Valor ADC máximo;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;28;Valor mínimo °C;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;29;Valor máximo °C;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;30;Valor mínimo de presión;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;31;Valor máximo de presión;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;61;Autoclave Principal;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/config/schema.py;65;Intervalo de muestreo en milisegundos (100–5000 ms);fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/cycle_manager.py;41;El ciclo no tiene la sección '{fase}';con variables;fase;informativa;ciclo;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/cycle_manager.py;46;Ruta de parámetro inválida: {'.'.join(path)};con variables;'.'.join(path);informativa;ciclo;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/cycle_manager.py;51;El parámetro '{'.'.join(path)}' no existe en '{fase}';con variables;"'.'.join(path);fase";informativa;ciclo;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/cycle_manager.py;66;'{leaf_key}' fuera de rango (mínimo {pmin});con variables;"leaf_key;pmin";informativa;ciclo;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/cycle_manager.py;68;'{leaf_key}' fuera de rango (máximo {pmax});con variables;"leaf_key;pmax";informativa;ciclo;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/cycle_manager.py;139;Ciclo por defecto '{cycle_id}' no encontrado;con variables;cycle_id;informativa;ciclo;
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/cycle_manager.py;143;No hay ciclo seleccionado;fija;;informativa;ciclo;
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/validacion_config.py;27;Falta el parámetro rango_presion_atm;fija;;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/validacion_config.py;29;rango_presion_atm no es numérico ({rango});con variables;rango;informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/core/managers/validacion_config.py;32;rango_presion_atm fuera de rango: {rango} kPa (permitido {minimo:g}–{maximo:g} kPa);con variables;"rango;minimo:g;maximo:g";informativa;configuracion;
+Otros (configuración, instalación, protocolos);src/autoclave/core/runtime/status.py;73;Puerta 1;fija;;informativa;ciclo;nombre de puerta: se usa como identificador (clave/API) y también aparece en textos visibles
+Otros (configuración, instalación, protocolos);src/autoclave/core/runtime/status.py;74;Puerta 2;fija;;informativa;ciclo;nombre de puerta: se usa como identificador (clave/API) y también aparece en textos visibles
+Otros (configuración, instalación, protocolos);src/autoclave/core/runtime/status.py;78;Estado;fija;;informativa;ciclo;valor de diccionario
+Otros (configuración, instalación, protocolos);src/autoclave/core/runtime/status.py;170;Estado;fija;;informativa;ciclo;
+Otros (configuración, instalación, protocolos);src/autoclave/core/runtime/status.py;176;Flag no definido: {flag};con variables;flag;informativa;ciclo;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/devices/factory/factory.py;15;Puerta {n};con variables;n;informativa;sistema;nombre de puerta: se usa como identificador (clave/API) y también aparece en textos visibles
+Otros (configuración, instalación, protocolos);src/autoclave/hal/measures/calibration_tools.py;24;"La calibracion actual tiene gain=0; no se puede invertir";fija;;informativa;sistema;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/hal/measures/calibration_tools.py;52;Derivada cero durante la inversion del polinomio;fija;;informativa;sistema;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/hal/measures/calibration_tools.py;57;La inversion del polinomio no convergio;fija;;informativa;sistema;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/hal/measures/calibration_tools.py;64;"Los dos puntos de fabrica coinciden; no se puede calcular una recta";fija;;informativa;sistema;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;30;Ciclo en curso;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;31;"No se puede cerrar con un ciclo en curso.
+
+Espere a que termine o abórtelo antes de cerrar.";fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;47;%(asctime)s [%(levelname)s] %(name)s: %(message)s;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;143;Conectando con la tarjeta...;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;143;Segoe UI;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;157;"No se pudo establecer comunicación con la tarjeta.
+Verifique la conexión y reinicie el equipo.";fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;181;Error de sistema;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;181;"No se puede iniciar el software.
+
+{e}";con variables;e;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;198;Error de sistema;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/main.py;198;"No se puede iniciar el software.
+
+{e}";con variables;e;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/device_reset.py;10;Error\(\d+,\s*.*,\s*None,\s*31\)\s*$;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/device_reset.py;18;"$dev = Get-PnpDevice -Class Ports | Where-Object { $_.FriendlyName -match '\({re.escape(port_name)}\)' } | Select-Object -First 1; if ($dev) { Disable-PnpDevice -InstanceId $dev.InstanceId -Confirm:$false; Start-Sleep -Seconds 2; Enable-PnpDevice -InstanceId $dev.InstanceId -Confirm:$false; Write-Output 'OK' } else { Write-Output 'NOTFOUND' }";con variables;re.escape(port_name);informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;294;línea demasiado larga sin \n;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;306;línea demasiado larga;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;318;bytes no ASCII;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;323;CRC inválido o ausente;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;329;contenido inválido ({e});con variables;e;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;336;error inesperado ({e});con variables;e;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;369;AI:;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;372;AI con {len(vals)} valores;con variables;len(vals);informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;377;DI:;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;380;DO:;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;386;OK ;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;391;tipo de línea desconocido;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;395;{clave.upper()} con formato inválido;con variables;clave.upper();informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;447;SET DO{channel} {'ON' if state else 'OFF'};con variables;"channel;'ON' if state else 'OFF'";informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;452;OK ALL_OFF;fija;;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;467;valor no numérico {texto};con variables;texto;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link.py;470;valor fuera de rango {valor};con variables;valor;informativa;comunicacion;
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link_config.py;61;debe ser true/false;fija;;informativa;comunicacion;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link_config.py;65;debe ser numérico;fija;;informativa;comunicacion;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link_config.py;67;debe ser entero;fija;;informativa;comunicacion;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/protocols/serial_link_config.py;69;fuera de rango [{minimo}, {maximo}];con variables;"minimo;maximo";informativa;comunicacion;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;120;Administrador;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;121;pbkdf2$600000$244c45ae5ee701d94ead2bfad6339db3$5abbc82ab1c70a268623cc8f2c774a1733f3851d9a30f9a3fcd835f3afc5a190;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;123;Ingeniero;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;124;pbkdf2$600000$dd26db607bc796ade9d097563e47d0e1$f8fa605e93fc5e4e035c60d0e07b23a96ca6390830855f36c14cb03a2d609019;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;283;evento = ?;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;286;entidad = ?;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;288;WHERE ;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;288; AND ;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;409; AND {campo} < ?;con variables;campo;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;411; ORDER BY id DESC LIMIT ?;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;645;fecha_inicio >= ?;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;648;fecha_inicio <= ?;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;650;WHERE ;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/services/domain/logging/db_manager.py;650; AND ;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/utils/logging.py;13;%(asctime)s [%(levelname)s] %(name)s: %(message)s;fija;;informativa;sistema;
+Otros (configuración, instalación, protocolos);src/autoclave/utils/periodos.py;24;Periodo desconocido: {periodo};con variables;periodo;informativa;sistema;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros – asistente de instalación (tkinter);src/autoclave/installation/backend_guard.py;30;"(Get-CimInstance Win32_Process -Filter ""ProcessId={pid}"").CommandLine";con variables;pid;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/clock_guard.py;17;Reloj del sistema ({today}) es anterior a la fecha de instalación ({installed_at.date()}). Verifique la fecha y hora del sistema.;con variables;"today;installed_at.date()";informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;17;Acceso de fabricante — Autoclave Especifika;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;24;Acceso de fabricante;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;25;Serial: {serial_number};con variables;serial_number;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;27;Clave de fabricante:;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;37;Ingrese la clave;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;41;Acceso concedido;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;41;Modo fabricante activado.;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;44;Clave incorrecta o expirada;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;46;Verificar;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/factory_dialog.py;47;Cancelar;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;17;"Perfil de instalación inválido: {'; '.join(errors)}";con variables;"'; '.join(errors)";informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;59;campo faltante: '{field}';con variables;field;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;62;tipo incorrecto en '{field}': esperado {expected_type.__name__}, recibido {type(data[field]).__name__};con variables;"field;expected_type.__name__;type(data[field]).__name__";informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;70;valor inválido en 'door_count': '{data['door_count']}' no está en {1, 2};con variables;data['door_count'];informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;76;valor inválido en 'equipment_class': '{data['equipment_class']}' no está en {_VALID_EQUIPMENT_CLASSES};con variables;"data['equipment_class'];_VALID_EQUIPMENT_CLASSES";informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;83;valor inválido en 'door_type': '{data['door_type']}' no está en {_VALID_DOOR_TYPES};con variables;"data['door_type'];_VALID_DOOR_TYPES";informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;95;door_count {data['door_count']} excede el máximo ({cap.door_count_max}) para '{ec_value}';con variables;"data['door_count'];cap.door_count_max;ec_value";informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/profile.py;100;cooling_level {data['cooling_level']} excede el máximo ({cap.cooling_level_max}) para '{ec_value}';con variables;"data['cooling_level'];cap.cooling_level_max;ec_value";informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/storage.py;41;El perfil de instalación está bloqueado y no puede modificarse;fija;;informativa;instalacion;"mensaje de excepción; visible solo si la UI muestra str(e)"
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;16;Mesa Clase N;fija;;informativa;instalacion;valor de diccionario
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;17;Mesa Clase B;fija;;informativa;instalacion;valor de diccionario
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;18;Mesa Clase B Laboratorio;fija;;informativa;instalacion;valor de diccionario
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;19;Piso;fija;;informativa;instalacion;valor de diccionario
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;20;Piso Laboratorio;fija;;informativa;instalacion;valor de diccionario
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;27;Instalación — Autoclave Especifika;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;47;Instalación del equipo;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;49;Número de serie del equipo:;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;51;Código de activación:;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;60;Ingrese el número de serie;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;62;Ingrese el código de activación;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;64;Código de activación incorrecto o expirado;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;71;Siguiente →;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;76;Perfil de equipo;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;78;Seleccione el tipo de equipo:;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;110;Siguiente →;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;115;Configuración de puertas;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;120;N° de puertas:;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;127;Tipo de puerta:;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;155;Siguiente →;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;160;Configuración de enfriamiento;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;162;Nivel de enfriamiento (0 = sin enfriamiento):;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;179;Siguiente →;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;184;Datos del equipo;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;194;Modelo:;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;197;Puerta de este PC (1/2):;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;215;El modelo es obligatorio;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;236;Error al guardar: {e};con variables;e;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;243;Instalación completada;fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;244;"El equipo ha sido registrado correctamente.
+Reinicie el software para continuar.";fija;;informativa;instalacion;
+Otros – asistente de instalación (tkinter);src/autoclave/installation/wizard.py;249;Instalar;fija;;informativa;instalacion;
