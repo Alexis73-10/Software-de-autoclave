@@ -117,9 +117,13 @@ class CycleManager:
     def __init__(self):
         self.cycles = {}
         self.selected_cycle = None
-    
+        # JSON de ciclo que no se pudieron cargar en el último load_all_cycles()
+        # (el arranque degrada su etapa con ARR_CICLO_CORRUPTO)
+        self.errores_carga: list[str] = []
+
     def load_all_cycles(self):
         self.cycles.clear()
+        self.errores_carga = []
 
         self._load_from_folder("cycles/factory", source="factory")
         self._load_from_folder("cycles/user", source="user")
@@ -172,6 +176,7 @@ class CycleManager:
 
                 except Exception as e:
                     print(f"⚠️ Error cargando {file}: {e}")
+                    self.errores_carga.append(full_path)
 
     def set_default_cycle(self, cycle_id: str):
         if cycle_id in self.cycles:

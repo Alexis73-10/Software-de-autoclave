@@ -45,11 +45,19 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
     return cfg
 
 
-def build_hardware(profile):
-    units = Units(calibration_path())
+def build_serial(units) -> SerialLink:
+    """Enlace serial con la tarjeta, ya iniciado (abre el puerto y sus hilos)."""
     serial = SerialLink(on_update=lambda data: units.update_from_serial(data))
     serial._scan_ports()
     serial.start()
+    return serial
 
-    doors_cfg = [_build_door_cfg(n + 1, profile.door_type) for n in range(profile.door_count)]
-    return units, serial, doors_cfg
+
+def build_doors_cfg(profile) -> list[dict]:
+    return [_build_door_cfg(n + 1, profile.door_type) for n in range(profile.door_count)]
+
+
+def build_hardware(profile):
+    units = Units(calibration_path())
+    serial = build_serial(units)
+    return units, serial, build_doors_cfg(profile)

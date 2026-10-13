@@ -12,6 +12,9 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from autoclave.backend.actividad_ui import ActividadUI
+from autoclave.backend.arranque.registro import RegistroArranque
+from autoclave.backend.arranque.secuencia import ejecutar_arranque
+from autoclave.backend.arranque.sin_bd import BdNoDisponibleError
 from autoclave.backend.autenticacion import AlmacenTokens, ControlIntentos, Sesion
 from autoclave.backend.contrasenas import hash_password, simular_verificacion, verificar_password
 from autoclave.backend.context import BackendContext
@@ -41,8 +44,14 @@ async def _ciclo_de_vida(_app):
     # loop y apaga todas las salidas. Un TerminateProcess de Windows no pasa
     # por aquí; por eso la UI no termina el backend con un ciclo en curso
     # (revisión de la etapa 1 de autenticación, hallazgo B).
+    _detener_arranque.set()
+    control_loop = getattr(context, "control_loop", None)
+    if control_loop is None:
+        # el arranque no llegó a construirlo: no hay loop ni orden a la tarjeta
+        logger.info("Backend detenido antes de construir el control loop")
+        return
     try:
-        context.control_loop.stop()
+        control_loop.stop()
         logger.info("Backend detenido: control loop parado y salidas apagadas")
     except Exception:
         logger.exception("Error al detener el control loop en el apagado del backend")
@@ -50,7 +59,72 @@ async def _ciclo_de_vida(_app):
 
 app = FastAPI(title="Autoclave Backend", lifespan=_ciclo_de_vida)
 
+# Sin E/S: cada parte se construye en su etapa de arranque (iniciar_arranque),
+# así el puerto 8000 responde desde t = 0 (fase B, ARR-01 / BAR-01).
 context = BackendContext()
+
+
+# =============================================================================
+# ARRANQUE POR ETAPAS (planeacion_barra_arranque_real.md §5)
+# =============================================================================
+# GET /arranque responde desde que el puerto abre, sin token (D-C). Mientras el
+# control no esté construido, el resto de rutas responde 503: la compuerta la
+# activa backend/main.py (preparar_arranque) antes de abrir el puerto; quien
+# importa este módulo sin pasar por main.py (pruebas) no la tiene.
+
+registro_arranque = RegistroArranque()
+_compuerta_arranque = False
+_contexto_operable = threading.Event()
+_detener_arranque = threading.Event()
+_hilo_arranque: threading.Thread | None = None
+_RUTAS_SIN_COMPUERTA = frozenset({"/arranque", "/ui/activity"})
+
+
+def preparar_arranque() -> None:
+    """Activa la compuerta 503: llamar antes de abrir el puerto."""
+    global _compuerta_arranque
+    _compuerta_arranque = True
+
+
+def iniciar_arranque() -> None:
+    """Lanza la secuencia de etapas en su hilo. Llamar con el puerto ya
+    enlazado (backend/main.py): si el enlace falla, nunca se abre el serial."""
+    global _hilo_arranque
+    if _hilo_arranque is not None:
+        return
+    _hilo_arranque = threading.Thread(
+        target=ejecutar_arranque,
+        args=(context, registro_arranque),
+        kwargs={"al_cancelar_prueba": _prueba_cancelada_por_paro,
+                "al_operable": _contexto_operable.set,
+                "detener": _detener_arranque},
+        name="arranque", daemon=True)
+    _hilo_arranque.start()
+
+
+@app.middleware("http")
+async def _compuerta_de_arranque(request: Request, call_next):
+    if (_compuerta_arranque and not _contexto_operable.is_set()
+            and request.url.path not in _RUTAS_SIN_COMPUERTA):
+        fallido = registro_arranque.fallo_bloqueante
+        return JSONResponse(status_code=503, content={
+            "detail": "Arranque fallido" if fallido else "Arranque en curso",
+            "codigo": "arranque_fallido" if fallido else "arranque_en_curso",
+        })
+    return await call_next(request)
+
+
+@app.get("/arranque")
+def get_arranque():
+    return registro_arranque.instantanea()
+
+
+@app.exception_handler(BdNoDisponibleError)
+def _responder_sin_bd(_request: Request, _e: BdNoDisponibleError):
+    # PROVISIONAL hasta el modo sin BD (§7 de planeacion_arranque_y_modo_sin_bd.md)
+    return JSONResponse(status_code=503, content={
+        "detail": "Base de datos no disponible", "codigo": "sin_base_de_datos"})
+
 
 # Actividad compartida de las pantallas QML (standby simultáneo); solo presentación.
 actividad_ui = ActividadUI()
@@ -264,8 +338,6 @@ def _prueba_cancelada_por_paro() -> None:
     sesion = tokens.obtener(token) if token else None
     _auditar("modo_prueba_sale", sesion, detalle={"motivo": "paro de emergencia"})
 
-
-context.control_loop.al_cancelar_modo_prueba(_prueba_cancelada_por_paro)
 
 
 # ── Endpoints de sesión ──────────────────────────────────────────────────────
@@ -1016,6 +1088,10 @@ def start_cycle():
     """
     estado = context.estado
     _rechazar_si_config_invalida("/cycle/start")
+    if getattr(context, "sin_base_de_datos", False) is True:
+        # alarma OPERANDO_SIN_BD: un ciclo sin registro rompe la trazabilidad
+        _rechazar(409, "sin_base_de_datos",
+                  "Base de datos no disponible: no se puede iniciar un ciclo", "/cycle/start")
 
     if not estado.get_flag("LISTO_PARA_CICLO"):
         raise HTTPException(

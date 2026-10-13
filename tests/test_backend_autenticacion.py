@@ -592,9 +592,10 @@ def test_outputs_reset_fuera_de_ciclo(entorno, estado):
 def test_backend_escucha_solo_en_localhost():
     from autoclave.backend import main
     assert main.HOST == "127.0.0.1"
-    with patch.object(main.uvicorn, "run") as run:
+    with patch.object(main.uvicorn, "Server") as servidor, \
+            patch.object(main.threading, "Thread"):
         main.main()
-    assert run.call_args.kwargs["host"] == "127.0.0.1"
+    assert servidor.call_args.args[0].host == "127.0.0.1"
 
 
 # ── Revisión de seguridad de la etapa 1 ──────────────────────────────────────
@@ -649,7 +650,7 @@ def test_logout_sale_del_modo_prueba_con_el_lock_tomado(entorno):
 
 def test_cancelacion_por_paro_olvida_al_dueno_y_queda_en_la_bitacora(entorno):
     client, ctx, srv = entorno
-    aviso = ctx.control_loop.al_cancelar_modo_prueba.call_args.args[0]
+    aviso = srv._prueba_cancelada_por_paro   # lo registra el arranque (construir_control)
     ctx.control_loop.enter_test_mode.return_value = (True, "")
     cab = cabecera(srv, "tecnico", "tec1")
     client.post("/io/test/enter", headers=cab)
@@ -667,7 +668,7 @@ def test_cancelacion_por_paro_olvida_al_dueno_y_queda_en_la_bitacora(entorno):
 
 def test_aviso_de_paro_tardio_no_toca_un_modo_prueba_nuevo(entorno):
     client, ctx, srv = entorno
-    aviso = ctx.control_loop.al_cancelar_modo_prueba.call_args.args[0]
+    aviso = srv._prueba_cancelada_por_paro   # lo registra el arranque (construir_control)
     srv._token_modo_prueba = "otro"
     ctx.control_loop.test_mode_active = True
     aviso()
