@@ -17,6 +17,7 @@ from autoclave.backend.contrasenas import hash_password, simular_verificacion, v
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.core.runtime import progreso_ciclo
+from autoclave.installation.profile import entradas_no_monitoreadas, sondas_no_vigiladas
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
@@ -582,7 +583,6 @@ def get_status():
             "camara_2": estado.sensores_temp.get("temp_2_camara"),
             "ref": estado.sensores_temp.get("temp_ref"),
             "drenaje": estado.sensores_temp.get("temp_drenaje"),
-            "drenaje_camara": estado.sensores_temp.get("temp_drenaje_cam"),
 
 
         },
@@ -629,6 +629,10 @@ def get_status():
         "doors":   doors,
         "sensors": sensors,
         "alarms":  alarms,
+        # Entradas de suministro que el perfil declara sin cablear (E1-1)
+        "entradas_no_monitoreadas": entradas_no_monitoreadas(getattr(context, "profile", None)),
+        # Canales de temperatura que el perfil declara sin sonda (A-2)
+        "sondas_no_vigiladas": sondas_no_vigiladas(getattr(context, "profile", None)),
     }
 
 @app.post("/ui/activity")
@@ -1271,6 +1275,16 @@ class _OutputSetBody(BaseModel):
 _requiere_rol_prueba = requiere_rol(ROL_TECNICO, ROL_INGENIERO)
 
 
+def _rechazar_si_sin_datos_vigentes() -> None:
+    """Modo prueba con el enlace caído o con la trama DI vencida: las órdenes
+    se darían sobre lecturas viejas (adenda E0/E1, A-8, TMG-05). Mismo código
+    de rechazo que las órdenes de puerta con el enlace caído."""
+    cl = context.control_loop
+    if cl.desconectado is True or cl.datos_vigentes is False:
+        raise _Rechazo(409, "sin_conexion_tarjeta",
+                       "Sin conexión con la tarjeta de control o datos no vigentes")
+
+
 @app.post("/io/test/enter")
 def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
     """Activa el modo prueba: pausa la máquina de estados (sin importar la
@@ -1286,6 +1300,7 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
         if isinstance(motivo_config, str) and motivo_config:
             raise _Rechazo(409, "configuracion_invalida",
                            f"Configuración inválida: {motivo_config}")
+        _rechazar_si_sin_datos_vigentes()
         # un logout de esta sesión pudo llegar mientras esta petición esperaba
         if tokens.obtener(sesion.token) is None:
             raise _Rechazo(401, "sesion_invalida", _MOTIVO_SESION_INVALIDA)
@@ -1389,6 +1404,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
         if context.estado.get_flag("PARO_EMERGENCIA"):
             raise _Rechazo(409, "paro_emergencia", "Paro de emergencia activado")
+        _rechazar_si_sin_datos_vigentes()
         if body.value:
             # encender solo desde la sesión que está a cargo de la prueba;
             # apagar queda abierto a cualquier sesión de prueba (es lo seguro)

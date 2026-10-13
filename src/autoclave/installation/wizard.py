@@ -4,7 +4,8 @@ from tkinter import ttk, messagebox
 from datetime import datetime
 import logging
 
-from .profile import InstallationProfile, Role
+from .profile import (InstallationProfile, Role, SUPPLY_INPUT_KEYS,
+                      TEMPERATURE_PROBE_KEYS, SONDA_OBLIGATORIA)
 from .equipment import EquipmentClass, get_capabilities
 from .storage import save, delete as delete_profile
 from .activation import validate_installation_code
@@ -18,6 +19,23 @@ _EQUIPMENT_LABELS = {
     EquipmentClass.MESA_B_LAB: "Mesa Clase B Laboratorio",
     EquipmentClass.PISO:       "Piso",
     EquipmentClass.PISO_LAB:   "Piso Laboratorio",
+}
+
+# Texto de cada entrada de suministro en el paso 5 (E1-1)
+_SUPPLY_LABELS = {
+    "agua_bomba":           "Agua de la bomba de vacío",
+    "agua_generador":       "Agua del generador",
+    "aire_comprimido":      "Aire comprimido",
+    "vapor_suministro":     "Presostato de suministro de vapor",
+    "suministro_electrico": "Suministro eléctrico",
+}
+
+# Texto de cada sonda de temperatura en el paso 5 (adenda E0/E1, A-2)
+_PROBE_LABELS = {
+    "temp_camara":      "Cámara 1 (control, obligatoria)",
+    "temp_2_camara":    "Cámara 2",
+    "temp_ref":         "Referencia",
+    "temp_drenaje":     "Drenaje",
 }
 
 def launch_installation_wizard() -> bool:
@@ -37,6 +55,10 @@ def launch_installation_wizard() -> bool:
     equipment_var    = tk.StringVar(value=EquipmentClass.MESA_B.value)
     cooling_var      = tk.IntVar(value=0)
     door_id_var      = tk.IntVar(value=1)
+    # Entradas de suministro cableadas: por defecto todas (falla cerrada)
+    supply_vars      = {k: tk.BooleanVar(value=True) for k in SUPPLY_INPUT_KEYS}
+    # Sondas de temperatura instaladas: por defecto todas (falla cerrada)
+    probe_vars       = {k: tk.BooleanVar(value=True) for k in TEMPERATURE_PROBE_KEYS}
 
     # Estado compartido derivado del perfil seleccionado
     _cap_holder = [None]  # cap actual, actualizado en paso 2
@@ -200,6 +222,24 @@ def launch_installation_wizard() -> bool:
     _door_id_spin.pack(side="left")
     _door_id_row.pack(fill="x", pady=4)
 
+    # Entradas de suministro (E1-1): una entrada desmarcada no se vigila
+    # (sin alarma ni bloqueo). Marcar solo las que el equipo tiene cableadas.
+    tk.Label(frame5, text="Entradas de suministro cableadas:",
+             anchor="w").pack(fill="x", pady=(10, 2))
+    for clave in SUPPLY_INPUT_KEYS:
+        tk.Checkbutton(frame5, text=_SUPPLY_LABELS[clave],
+                       variable=supply_vars[clave], anchor="w").pack(fill="x")
+
+    # Sondas de temperatura (A-2): un canal desmarcado no se vigila ni
+    # bloquea. La sonda de cámara 1 controla el ciclo: no se puede desmarcar.
+    tk.Label(frame5, text="Sondas de temperatura instaladas:",
+             anchor="w").pack(fill="x", pady=(10, 2))
+    for clave in TEMPERATURE_PROBE_KEYS:
+        tk.Checkbutton(frame5, text=_PROBE_LABELS[clave], variable=probe_vars[clave],
+                       anchor="w",
+                       state="disabled" if clave == SONDA_OBLIGATORIA else "normal",
+                       ).pack(fill="x")
+
     def _mostrar_frame5():
         cap = _cap_holder[0]
         _door_id_spin.config(to=cap.door_count_max)
@@ -227,6 +267,8 @@ def launch_installation_wizard() -> bool:
             role=Role.OPERATOR_FRONT,
             created_at=datetime.utcnow(),
             locked=True,
+            supply_inputs={k: bool(v.get()) for k, v in supply_vars.items()},
+            temperature_probes={k: bool(v.get()) for k, v in probe_vars.items()},
         )
 
         try:

@@ -64,7 +64,6 @@ class TemperaturasView(_MonitorBase):
         "temp_camara":      "camara",
         "temp_2_camara":    "camara_2",
         "temp_ref":         "ref",
-        "temp_drenaje_cam": "drenaje_camara",
         "temp_drenaje":     "drenaje",
     }
 

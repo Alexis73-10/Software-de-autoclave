@@ -26,6 +26,9 @@ from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFa
 from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo, cerrar_valvulas_descompresion
+from autoclave.installation.profile import entrada_requerida, numero_puertas, revisa_empaque
+from autoclave.devices.paro_emergencia.paro_emergencia import AVISO_CABLEADO_NC
+from autoclave.core.runtime.lectura import lectura_valida
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +74,8 @@ class CicloState:
         alarm_manager → AlarmManager
     """
 
-    def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None, door_service=None):
+    def __init__(self, estado, set_do, cycle, config, alarm_manager, cap=None, door_service=None,
+                 profile=None):
         self.estado        = estado
         self.set_do        = set_do
         # Programa almacenado (el que edita PATCH /cycle/parameter). Mientras
@@ -84,6 +88,9 @@ class CicloState:
         self.alarm_manager = alarm_manager
         self.cap           = cap
         self.door_service  = door_service
+        # Perfil de instalación (E1): entradas de suministro y puertas.
+        # None = comportamiento previo (todo requerido, 2 puertas con empaque).
+        self.profile       = profile
         self._apertura_auto_t_inicio = None
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
@@ -183,22 +190,24 @@ class CicloState:
 
     def _verificar_puertas(self) -> tuple[bool, str]:
         """
-        Verifica que ambas puertas estén cerradas y con presión de empaque.
+        Verifica que las puertas del perfil (door_count, E1-2) estén cerradas
+        y, salvo door_type=simple, con presión de empaque.
         Retorna (ok, codigo_fallo).
         El código se usa como fase_ciclo para que la UI muestre el motivo.
         """
         min_empaque = (self.config.get("presion_empaque") or 300) * 0.6
+        con_empaque = revisa_empaque(self.profile)
 
-        for num, di_cerrada, sensor_emp in [
-            (1, "puerta_1_cerrada", "pres_empaque_1"),
-            (2, "puerta_2_cerrada", "pres_empaque_2"),
-        ]:
-            cerrada = bool(self.estado.sensores_di.get(di_cerrada, 0))
+        for num in range(1, numero_puertas(self.profile) + 1):
+            cerrada = bool(self.estado.sensores_di.get(f"puerta_{num}_cerrada", 0))
             if not cerrada:
                 return False, f"FALLO_PUERTA_{num}_ABIERTA"
 
-            emp = self.estado.sensores_pres.get(sensor_emp)
-            if emp is not None and emp < min_empaque:
+            if not con_empaque:
+                continue
+            emp = self.estado.sensores_pres.get(f"pres_empaque_{num}")
+            # Sin lectura válida se omite, como antes con None (A-9)
+            if lectura_valida(emp) and emp < min_empaque:
                 return False, f"FALLO_PUERTA_{num}_EMPAQUE"
 
         return True, ""
@@ -208,11 +217,15 @@ class CicloState:
         if self._fase_idx < len(self._fases) and isinstance(self._fases[self._fase_idx], SecadoFase):
             return
         pres = self.estado.sensores_pres.get("pres_chaqueta")
-        if pres is None:
+        # Sin dato: vapor OFF, no se deja la válvula como esté (A-5)
+        if not lectura_valida(pres):
+            self.set_do.vapor_chaqueta_off()
             return
 
-        # Si no hay suministro de vapor, no intentar compensar
-        if not self.estado.sensores_di.get("vapor_suministro", 0):
+        # Si no hay suministro de vapor, no intentar compensar. Sin presostato
+        # declarado en el perfil (E1-1) se controla solo por presión.
+        vigilar_vapor = entrada_requerida(self.profile, "vapor_suministro")
+        if vigilar_vapor and not self.estado.sensores_di.get("vapor_suministro", 0):
             self.set_do.vapor_chaqueta_off()
             self.alarm_manager.report(Alarm(
                 alarm_id="SUMINISTRO_VAPOR",
@@ -223,7 +236,7 @@ class CicloState:
                 blocks_operation=False,
             ))
             return
-        else:
+        elif vigilar_vapor:
             self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
         press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
@@ -242,10 +255,13 @@ class CicloState:
         las esperas de confirmación (COMPLETADO/FALLO/CANCELADO/emergencia).
         Debounce simétrico de _DEBOUNCE_LECTURAS_DRENAJE lecturas consecutivas
         antes de cambiar el estado de la válvula, para evitar activarla por
-        oscilaciones de temp_drenaje cerca del umbral. Sensor ausente no
-        resetea los contadores en progreso, solo salta el tick."""
+        oscilaciones de temp_drenaje cerca del umbral. Sin lectura válida
+        (o sin sonda) se enfría siempre y se reinicia el conteo de apagado
+        (A-4, reemplaza el "solo salta el tick" anterior)."""
         temp = self.estado.sensores_temp.get("temp_drenaje")
-        if temp is None:
+        if not lectura_valida(temp):
+            self.set_do.agua_intercambiador_on()
+            self._contador_drenaje_baja = 0
             return
         temp_segura = self.config.get("temp_segura_drenaje")
         if temp_segura is None:
@@ -278,7 +294,7 @@ class CicloState:
         cámara cae en vacío por enfriamiento, abre aire atmosférico; si no,
         mantiene la válvula de descompresión del modo configurado."""
         pres = self.estado.sensores_pres.get("pres_camara")
-        if pres is None:
+        if not lectura_valida(pres):
             return
         atm   = self.config.get("presion_admosferica") or 101.3
         rango = self.config.get("rango_presion_atm")   or 20.0
@@ -310,6 +326,12 @@ class CicloState:
         if not self.cycle.get_param("finalizacion", "apertura_automatica", default=False):
             return
 
+        # Puerta sin actuador (manual): no hay nada que abrir. Se ignora el
+        # parámetro en silencio, sin reintentos ni APERTURA_AUTOMATICA_DENEGADA (E1-4).
+        puerta = "Puerta 2" if "Puerta 2" in self.door_service.doors else "Puerta 1"
+        if not self.door_service.tiene_actuador(puerta):
+            return
+
         if self._apertura_auto_t_inicio is None:
             self._apertura_auto_t_inicio = time.monotonic()
 
@@ -321,7 +343,7 @@ class CicloState:
             return
 
         temp = self.estado.sensores_temp.get("temp_camara")
-        if temp is None:
+        if not lectura_valida(temp):
             return
 
         temp_max_ciclo  = self.cycle.get_param("finalizacion", "temp_max_apertura", default=80.0)
@@ -348,14 +370,13 @@ class CicloState:
             return
 
         pres = self.estado.sensores_pres.get("pres_camara")
-        if pres is None:
+        if not lectura_valida(pres):
             return
         presion_atm = self.config.get("presion_admosferica") or 101.3
         rango_atm   = self.config.get("rango_presion_atm")   or 20.0
         if abs(pres - presion_atm) > rango_atm:
             return
 
-        puerta = "Puerta 2" if "Puerta 2" in self.door_service.doors else "Puerta 1"
         estado_puerta = self.door_service.get_status(puerta)
         if estado_puerta in ("ABRIENDO", "ABIERTO"):
             if self._apertura_auto_alarmado:
@@ -450,7 +471,7 @@ class CicloState:
                 alarm_id="PARO_EMERGENCIA",
                 alarm_type=AlarmType.EMERGENCIA,
                 source_state="CICLO",
-                description=self.estado.motivo_fallo,
+                description=f"{self.estado.motivo_fallo} {AVISO_CABLEADO_NC}",
                 recoverable=False,
             ))
             self._protocolo.ejecutar()
@@ -493,10 +514,10 @@ class CicloState:
         # ── 4. Verificar sensores críticos ────────────────────────────
         ausentes = [
             s for s in _SENSORES_TEMP_CRITICOS
-            if self.estado.sensores_temp.get(s) is None
+            if not lectura_valida(self.estado.sensores_temp.get(s))
         ] + [
             s for s in _SENSORES_PRES_CRITICOS
-            if self.estado.sensores_pres.get(s) is None
+            if not lectura_valida(self.estado.sensores_pres.get(s))
         ]
         if ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)

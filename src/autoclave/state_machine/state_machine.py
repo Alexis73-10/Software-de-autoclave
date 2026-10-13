@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class StateMachine:
-    def __init__(self, io, estado, set_do, cycle, config, cap=None, door_service=None):
+    def __init__(self, io, estado, set_do, cycle, config, cap=None, door_service=None, profile=None):
         self.io            = io
         self.estado        = estado
         self.set_do        = set_do
@@ -21,9 +21,10 @@ class StateMachine:
 
         self.alarm_manager = AlarmManager(estado)
 
-        self.preparacion = preparacion_state(self.alarm_manager, estado, set_do, cycle, config)
-        self.preparado   = preparado_state(self.alarm_manager, estado, set_do, cycle, config)
-        self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager, cap, door_service)
+        self.preparacion = preparacion_state(self.alarm_manager, estado, set_do, cycle, config, profile)
+        self.preparado   = preparado_state(self.alarm_manager, estado, set_do, cycle, config, profile)
+        self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager, cap, door_service,
+                                      profile)
         self.falla       = FallaState(estado, set_do, self.alarm_manager)
         self.hibernacion = Hibernacion(estado, set_do, self.alarm_manager)
 

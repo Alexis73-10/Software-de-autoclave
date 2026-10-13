@@ -2,15 +2,25 @@
 from autoclave.devices.pump.pump import VacuumPump
 import autoclave.devices.buzer.buzer as buzer
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
+# Con el paro activo, ALL_OFF a lo sumo una vez por este intervalo, salvo que
+# el último DO reportado tenga una salida encendida (adenda E0/E1, A-7).
+_INTERVALO_ALL_OFF_PARO_SEG = 1.0
+# Salidas que no cuentan como "encendidas" para repetir el ALL_OFF del paro:
+# el buzzer suena a propósito durante el paro.
+_SALIDAS_IGNORADAS_PARO = frozenset({"buzer_alarma"})
+
 
 class SetOutput:
-    def __init__(self, io, estado):
+    def __init__(self, io, estado, profile=None):
         self.io = io
-        self.vacump = VacuumPump(estado)
+        self.estado = estado
+        self.vacump = VacuumPump(estado, profile=profile)
         self.buzer = buzer.BuzzerPlayer(self.buzer_on, self.buzer_off)
+        self._ultimo_all_off_paro: float | None = None
         
     def set_output(self, index, value):
         self.io.set_output(index, value)
@@ -182,5 +192,26 @@ class SetOutput:
             for channel in range(1, 25):
                 self.io.set_output(channel, False)
         return ok
+
+    def apagar_por_paro(self) -> bool | None:
+        """Apagado repetido mientras dura el paro de emergencia. Envía ALL_OFF
+        si pasó _INTERVALO_ALL_OFF_PARO_SEG desde el último o si el último DO
+        reportado tiene una salida encendida; si no, no hace nada y devuelve
+        None. Evita esperar el ACK (hasta 1 s, bajo el lock del lazo) en cada
+        tick y que el ALL_OFF corte el patrón del buzzer (TMG-09)."""
+        ahora = time.monotonic()
+        vencido = (self._ultimo_all_off_paro is None
+                   or ahora - self._ultimo_all_off_paro >= _INTERVALO_ALL_OFF_PARO_SEG)
+        if not (vencido or self._hay_salida_encendida()):
+            return None
+        self._ultimo_all_off_paro = ahora
+        return self.reset_all_outputs()
+
+    def _hay_salida_encendida(self) -> bool:
+        """Según el último DO reportado por la tarjeta. Sin dato = encendida."""
+        salidas = getattr(self.estado, "salidas_do", None)
+        if not isinstance(salidas, dict):
+            return True
+        return any(v for k, v in salidas.items() if k not in _SALIDAS_IGNORADAS_PARO)
 
 

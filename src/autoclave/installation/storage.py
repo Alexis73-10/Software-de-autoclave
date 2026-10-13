@@ -4,7 +4,8 @@ from datetime import datetime
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.devices.puertas.door_type import DoorType
 from autoclave.utils.paths import app_root
-from .profile import InstallationProfile, Role, ProfileValidationError, validate_profile_data
+from .profile import (InstallationProfile, Role, ProfileValidationError, validate_profile_data,
+                      normalizar_supply_inputs, normalizar_temperature_probes)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,8 @@ def load() -> InstallationProfile:
         role=Role(data["role"]),
         created_at=datetime.fromisoformat(data["created_at"]),
         locked=data["locked"],
+        supply_inputs=normalizar_supply_inputs(data.get("supply_inputs")),
+        temperature_probes=normalizar_temperature_probes(data.get("temperature_probes")),
     )
 
 
@@ -52,6 +55,8 @@ def save(profile: InstallationProfile):
         "role":            profile.role.value,
         "created_at":      profile.created_at.isoformat(),
         "locked":          profile.locked,
+        "supply_inputs":   normalizar_supply_inputs(profile.supply_inputs),
+        "temperature_probes": normalizar_temperature_probes(profile.temperature_probes),
     }, indent=2, ensure_ascii=False), encoding="utf-8")
 
 

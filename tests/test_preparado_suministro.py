@@ -12,7 +12,7 @@ def _make_preparado(suministro_electrico=1, fallo_suministro=False):
     }
     estado.sensores_temp = {
         "temp_camara": 25.0, "temp_2_camara": 25.0, "temp_ref": 25.0,
-        "temp_drenaje_cam": 25.0, "temp_drenaje": 25.0,
+        "temp_drenaje": 25.0,
     }
     estado.sensores_di = {
         "vapor_suministro": 1, "agua_bomba": 1,

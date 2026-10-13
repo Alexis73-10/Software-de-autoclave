@@ -4,6 +4,7 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.puertas.ser_puertas import ServicioPuertas
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.equipment import get_capabilities
+from autoclave.installation.profile import entradas_no_monitoreadas, sondas_no_vigiladas
 from autoclave.devices.factory.factory import build_hardware
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.door_factory import create_door
@@ -25,6 +26,20 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def avisar_entradas_no_monitoreadas(profile) -> None:
+    """Deja constancia al arrancar de las entradas de suministro que el
+    perfil declara sin cablear (E1-1): el equipo no las vigila."""
+    no_monitoreadas = entradas_no_monitoreadas(profile)
+    if no_monitoreadas:
+        logger.warning("Entradas de suministro no monitoreadas (perfil de instalación): %s",
+                       ", ".join(no_monitoreadas))
+    # Canales de temperatura sin sonda declarada (A-2): no se vigilan
+    sin_sonda = sondas_no_vigiladas(profile)
+    if sin_sonda:
+        logger.warning("Sondas de temperatura no vigiladas (perfil de instalación): %s",
+                       ", ".join(sin_sonda))
+
+
 class BackendContext:
     def __init__(self):
         self.estado = EstadoAutoclave()
@@ -44,12 +59,13 @@ class BackendContext:
             raise RuntimeError("Backend sin InstallationProfile")
         cap = get_capabilities(self.profile.equipment_class)
         self.cap = cap
+        avisar_entradas_no_monitoreadas(self.profile)
 
 
         # Hardware real
         self.units, self.serial, doors_cfg = build_hardware(self.profile)
 
-        self.setdo = SetOutput(self.serial, self.estado)
+        self.setdo = SetOutput(self.serial, self.estado, profile=self.profile)
 
         self.doors = [
             create_door(
@@ -99,6 +115,7 @@ class BackendContext:
             cycle_logger=self.cycle_logger,
             cap=cap,
             realtime_printer=self.realtime_printer,
+            profile=self.profile,
         )
         self._validar_configuracion()
         self.control_loop.start()

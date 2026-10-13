@@ -58,9 +58,8 @@ class SimpleDoor(Door):
     def update(self):
         cerrada = self.puerta_cerrada()
 
-        if cerrada is None:
-            return  # sensor inválido
-
+        # Lectura inválida o ausente = puerta abierta (posición segura,
+        # HAZ-FC-02): no se conserva el último estado conocido (E1-3).
         if cerrada:
             self.set_state(DoorState.CERRADO)
         else:

@@ -13,12 +13,14 @@ class EstadoAutoclave:
     # posición 3 (temp_chaqueta) ya no se lee: ese sensor se retiró de todos
     # los equipos (planeacion_backend_autenticacion.md, decisión 24, T-19).
     # Los demás conservan su posición.
+    # temp_drenaje_cam (posición 4) era de una versión anterior y ya no existe:
+    # su entrada la ocupa ahora temp_drenaje, y la posición 5 queda sin sensor
+    # (decisión de Cristian, adenda E0/E1, 2026-10-12).
     map_temp = {
         "temp_camara": 0,
         "temp_2_camara": 1,
         "temp_ref": 2,
-        "temp_drenaje_cam": 4,
-        "temp_drenaje": 5, 
+        "temp_drenaje": 4,
     }
 
     map_pres = {

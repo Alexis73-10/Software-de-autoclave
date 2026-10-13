@@ -458,8 +458,10 @@ class ParametrosCicloView(QWidget):
 
     def _load_cycle(self, cycle) -> None:
         factory_params = _load_factory_params(cycle._path)
+        tiene_actuador = _puerta_tiene_actuador()
         for tab_idx, (_, tab_key) in enumerate(_TABS):
-            gw = _build_tab_grid(cycle, factory_params, tab_key, self._audit_db)
+            gw = _build_tab_grid(cycle, factory_params, tab_key, self._audit_db,
+                                 tiene_actuador)
             scroll: QScrollArea = self._tabs.widget(tab_idx)
             scroll.setWidget(gw)
 
@@ -479,9 +481,31 @@ def _load_factory_params(user_cycle_path: str) -> dict:
     return {}
 
 
-def _iter_section(section: dict, filter_keys=None):
+def _claves_ocultas(fase: str, tiene_actuador: bool) -> set:
+    """Parámetros que no se muestran según el equipo: con puerta sin
+    actuador la apertura automática no aplica (E1-4, D-11)."""
+    if fase == "finalizacion" and not tiene_actuador:
+        return {"apertura_automatica"}
+    return set()
+
+
+def _puerta_tiene_actuador() -> bool:
+    """Según el tipo de puerta del perfil de instalación local. Si no se
+    puede leer, se muestra todo (el ciclo ignora el valor de todos modos)."""
+    try:
+        from autoclave.installation.storage import load
+        from autoclave.devices.puertas.door_factory import tipo_tiene_actuador
+        return tipo_tiene_actuador(load().door_type)
+    except Exception:
+        _logger.warning("No se pudo leer el tipo de puerta del perfil de instalación")
+        return True
+
+
+def _iter_section(section: dict, filter_keys=None, ocultas=frozenset()):
     """Yield (flat_name, param_meta) para todos los parámetros hoja de una sección."""
     for key, val in section.items():
+        if key in ocultas:
+            continue
         if isinstance(val, dict) and "value" in val:
             if filter_keys is None or key in filter_keys:
                 yield key, val
@@ -509,7 +533,8 @@ def _format_param_name(raw: str) -> str:
     return raw.replace("_", " ").replace(" — ", " / ").capitalize()
 
 
-def _build_tab_grid(cycle, factory_params: dict, tab_key: str, audit_db) -> QWidget:
+def _build_tab_grid(cycle, factory_params: dict, tab_key: str, audit_db,
+                    tiene_actuador: bool = True) -> QWidget:
     if tab_key == "calentamiento_main":
         fase, filter_keys = "calentamiento", _CAL_MAIN_KEYS
     elif tab_key == "calentamiento_estab":
@@ -530,7 +555,8 @@ def _build_tab_grid(cycle, factory_params: dict, tab_key: str, audit_db) -> QWid
     grid.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
     cards = []
-    for flat_name, param_meta in _iter_section(section, filter_keys):
+    ocultas = _claves_ocultas(fase, tiene_actuador)
+    for flat_name, param_meta in _iter_section(section, filter_keys, ocultas):
         path = flat_name.split(" — ") if " — " in flat_name else [flat_name]
         factory_val = _get_factory_value(factory_section, flat_name)
         card = _ParamCard(

@@ -3,6 +3,9 @@ from autoclave.state_machine.machine.parametros_globales import parametros_globa
 from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_types import AlarmType
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
+from autoclave.devices.paro_emergencia.paro_emergencia import AVISO_CABLEADO_NC
+from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.installation.profile import entrada_requerida, sensores_empaque, sonda_instalada
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,12 +21,15 @@ _NIVEL_TXT = {
 
 
 class preparacion_state:
-    def __init__(self, alarm_manager, estado, set_do, cycle, config):
+    def __init__(self, alarm_manager, estado, set_do, cycle, config, profile=None):
         self.alarm_manager = alarm_manager
         self.estado = estado
         self.set_do = set_do
         self.cycle = cycle
         self.config = config
+        # Perfil de instalación (E1): entradas de suministro y puertas.
+        # None = comportamiento previo (todo requerido, 2 puertas con empaque).
+        self.profile = profile
 
         # Confirmadores de apagado (evitan chattering de valvula)
         self._confirmador_chaqueta = ConfirmadorApagado()
@@ -47,22 +53,24 @@ class preparacion_state:
     # Verificar que todos los sonsores esten en funcionamiento (sin importar su valor)
     # - no pueden estar en 0 (fallo de sensor)
     
-    def alarm (self, alarm_id, alarm_type, blocks_operation=True):
+    def alarm (self, alarm_id, alarm_type, blocks_operation=True, detalle=""):
         nivel = _NIVEL_TXT.get(alarm_type, "Alerta")
         alarm = Alarm(
             alarm_id=alarm_id,
             alarm_type=alarm_type,
             source_state="PREPARACION",
-            description=f"{nivel}: {alarm_id} en PREPARACION.",
+            description=f"{nivel}: {alarm_id} en PREPARACION." + (f" {detalle}" if detalle else ""),
             recoverable=True,
             blocks_operation=blocks_operation,
         )
         self.alarm_manager.report(alarm)
     
     def run(self):
-        if self.estado.sensores_di["paro_emergencia"]:
-            self.set_do.reset_all_outputs()
-            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA)
+        # Flag publicado por EmergencyStop, no el DI crudo (E1-5, D-16)
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
+            self.set_do.apagar_por_paro()
+            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA, detalle=AVISO_CABLEADO_NC)
             self.set_do.buzer_emergencia()
             return False
         else:
@@ -70,9 +78,20 @@ class preparacion_state:
             self.alarm_manager.clear("PARO_EMERGENCIA")
 
         if not self.supervisor():
+            self._salidas_seguras_supervisor()
             return False
 
         return self.ejecutor()
+
+    def _salidas_seguras_supervisor(self):
+        """Supervisor falló por un sensor analógico (adenda E0/E1, A-2) o por
+        un suministro (decisión P4): las salidas no pueden quedar
+        congeladas. Vapor de chaqueta y de cámara a OFF; siguen los lazos que no aportan energía (presión de cámara,
+        drenaje de cámara y enfriamiento del drenaje, este con A-4)."""
+        self.set_do.vapor_chaqueta_off()
+        self._confirmador_chaqueta.reset()
+        self.set_do.vapor_camara_off()
+        self.ejecutor(controlar_chaqueta=False)
         
             
     def supervisor(self) -> bool:
@@ -84,42 +103,43 @@ class preparacion_state:
             
         return ok
     
-    def ejecutor(self):
+    def ejecutor(self, controlar_chaqueta=True):
         logger.info("Ejecución del estado PREPARACION (paralelo)")
 
-        chaqueta_lista = self.suministrar_vapor_chaqueta()
+        chaqueta_lista = self.suministrar_vapor_chaqueta() if controlar_chaqueta else False
         presion_ok, quiere_rapida_presion = self.igualar_presion_camara()
         drenaje_ok, quiere_rapida_drenaje = self.drenar_camara()
         temp_ok = self.verificar_temperatura_drenaje()
 
         if quiere_rapida_presion or quiere_rapida_drenaje:
             self.set_do.descompresion_rapida_on()
-        else:
+        elif quiere_rapida_presion is not None:
             self.set_do.descompresion_rapida_off()
+        # quiere_rapida_presion None: sin dato de presión, sin orden (E0-3)
 
         return chaqueta_lista and presion_ok and drenaje_ok and temp_ok
     
     def verificar_sensores(self):
             #==============================
 
+            # Empaque solo de las puertas declaradas y si el tipo lo tiene
+            # (door_type=simple no tiene sensor de empaque, E1-2)
             sensores_presion = [
                 "pres_camara",
                 "pres_chaqueta",
-                "pres_empaque_1",
-                "pres_empaque_2",
-            ]
+            ] + sensores_empaque(self.profile)
             
             sensores_temperatura = [
                 "temp_camara",
                 "temp_2_camara",
                 "temp_ref",
-                "temp_drenaje_cam",
                 "temp_drenaje",
             ]
             ok=True
             for sensor in sensores_presion:
-                pres_value = self.estado.sensores_pres[sensor]
-                if pres_value == 0:
+                pres_value = self.estado.sensores_pres.get(sensor)
+                # Sin dato / no finito = error de sensor, igual que un 0 (A-5)
+                if not lectura_valida(pres_value) or pres_value == 0:
                     alarm_id = f"ERROR_AI_{sensor.upper()}"
                     self.alarm(alarm_id, AlarmType.ALERTA)
                     logger.info(f"Alarma generada: {alarm_id}")
@@ -128,15 +148,19 @@ class preparacion_state:
                     self.alarm_manager.clear(f"ERROR_AI_{sensor.upper()}")
                 
             for sensor in sensores_temperatura:
-                temp_value = self.estado.sensores_temp[sensor]
-                if temp_value == 0:
+                # Canal sin sonda declarado en el perfil: no se vigila (A-2)
+                if not sonda_instalada(self.profile, sensor):
+                    continue
+                temp_value = self.estado.sensores_temp.get(sensor)
+                # None / no finito = sensor desconectado, igual que un 0 (E0-1)
+                if not lectura_valida(temp_value) or temp_value == 0:
                     alarm_id = f"ERROR_AI_{sensor.upper()}"
                     self.alarm(alarm_id, AlarmType.ALERTA)
                     logger.info(f"Alarma generada: {alarm_id}")
                     ok = False
                 else:
                     self.alarm_manager.clear(f"ERROR_AI_{sensor.upper()}")
-                
+
             return ok
         
     def verificar_suministros(self):
@@ -147,6 +171,9 @@ class preparacion_state:
         ]
         ok=True
         for suministro in suministros:
+            # Entrada declarada "no aplica" en el perfil: no se vigila (E1-1)
+            if not entrada_requerida(self.profile, suministro):
+                continue
             estado_suministro = self.estado.sensores_di[suministro]
             if not estado_suministro:
                 alarm_id = f"SUMINISTRO_{suministro.upper()}"
@@ -168,21 +195,31 @@ class preparacion_state:
         # Verificar temperatura de drenaje
     
     def suministrar_vapor_chaqueta(self):
-            presion = self.estado.sensores_pres["pres_chaqueta"]
+            presion = self.estado.sensores_pres.get("pres_chaqueta")
             pres_obj=self.cycle.get_param("globals","presion_chaqueta")
             rango=self.cycle.get_param("globals","rango_presion_chaqueta")
+
+            # Sin dato: no lista y vapor OFF; la alarma ERROR_AI_PRES_CHAQUETA
+            # la emite verificar_sensores() (E0-3, A-5)
+            if not lectura_valida(presion):
+                self.set_do.vapor_chaqueta_off()
+                self._confirmador_chaqueta.reset()
+                return False
 
             # Verificar suministro. Si no hay vapor, no insistir en abrir la
             # válvula (generaría vapor demasiado húmedo por baja presión de
             # línea): se deja "pendiente", no bloqueante.
-            if not self.estado.sensores_di["vapor_suministro"]:
+            # Sin presostato declarado (E1-1): la chaqueta se controla solo
+            # por presión, sin OFF forzado ni alarma SUMINISTRO_VAPOR.
+            vigilar_vapor = entrada_requerida(self.profile, "vapor_suministro")
+            if vigilar_vapor and not self.estado.sensores_di["vapor_suministro"]:
                 self.set_do.vapor_chaqueta_off()
                 self._confirmador_chaqueta.reset()
                 self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
                 self.alarm_manager.clear("CHAQUETA_FRIA")
                 self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
                 return True
-            else:
+            elif vigilar_vapor:
                 self.alarm_manager.clear("SUMINISTRO_VAPOR")
 
             r = evaluar_banda(presion, pres_obj, rango, activar_si_bajo=True)
@@ -212,8 +249,12 @@ class preparacion_state:
     def igualar_presion_camara(self):
             """Retorna (ok, quiere_descompresion_rapida). No acciona la
             válvula descompresion_rapida directamente: esa salida es
-            compartida con drenar_camara() y se combina en ejecutor()."""
-            presion_camara = self.estado.sensores_pres["pres_camara"]
+            compartida con drenar_camara() y se combina en ejecutor(). Sin dato de presión retorna (False, None):
+            no ordena nada, ni siquiera apagar la rápida."""
+            presion_camara = self.estado.sensores_pres.get("pres_camara")
+            # Sin dato (antes de la primera trama): sin órdenes (E0-3)
+            if not lectura_valida(presion_camara):
+                return False, None
             presion_atmosferica = self.config.get("presion_admosferica")
             rango_presion_atmosferica = self.config.get("rango_presion_atm")
             pres_cam_min = presion_atmosferica - rango_presion_atmosferica
@@ -258,9 +299,19 @@ class preparacion_state:
             return False, True
         
     def verificar_temperatura_drenaje(self):
-            temp_drenaje = self.estado.sensores_temp["temp_drenaje"]
+            temp_drenaje = self.estado.sensores_temp.get("temp_drenaje")
             temp_obj = self.config.get("temp_segura_drenaje")
             rango = self.config.get("rango_temp_drenaje")
+
+            # Sin sonda declarada o sin lectura válida: enfriar siempre (A-4,
+            # reemplaza lo pedido en E0-2). Apagar después exige otra vez la
+            # confirmación completa. Sin sonda no bloquea; con sonda caída no
+            # queda listo (la alarma la emite verificar_sensores()).
+            instalada = sonda_instalada(self.profile, "temp_drenaje")
+            if not instalada or not lectura_valida(temp_drenaje):
+                self.set_do.agua_intercambiador_on()
+                self._confirmador_drenaje.reset()
+                return not instalada
 
             r = evaluar_banda(temp_drenaje, temp_obj, rango, activar_si_bajo=False)
 

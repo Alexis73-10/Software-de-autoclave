@@ -11,6 +11,7 @@ from autoclave.devices.suministro_electrico.suministro_electrico import Suminist
 from datetime import datetime
 from autoclave.devices.printer.connectivity_ticket import format_connectivity_ticket
 from autoclave.core.runtime.letalidad import calcular_incremento_f0
+from autoclave.installation.profile import entrada_requerida, numero_puertas
 
 import logging
 
@@ -36,9 +37,15 @@ class ControlLoop:
     # Si se supera, se aborta — ver abortar_por_desconexion().
     _TOLERANCIA_DESCONEXION_SEG = 5.0
 
+    # Vigencia de la trama DI: tres periodos de 500 ms de la tarjeta. Si la
+    # última DI es más vieja (o no hay), el paro se publica activo: "sin datos
+    # de las entradas = paro" (adenda E0/E1, A-3, TMG-01).
+    _VIGENCIA_DI_SEG = 1.5
+
     def __init__(self, units, door_service, doors, estado, link, set_do,
                  alarm_manager, cycle_manager, config_manager,
-                 cycle_logger=None, interval=0.5, cap=None, realtime_printer=None):
+                 cycle_logger=None, interval=0.5, cap=None, realtime_printer=None,
+                 profile=None):
         self.units          = units
         self.door_service   = door_service
         self.doors          = doors
@@ -66,11 +73,13 @@ class ControlLoop:
         self.cycle_logger   = cycle_logger
         self.realtime_printer = realtime_printer
         self.cap             = cap
+        # Perfil de instalación (E1): entradas de suministro y puertas.
+        self.profile         = profile
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
             cycle=self.cycle, config=self.config_manager, cap=cap,
-            door_service=door_service,
+            door_service=door_service, profile=profile,
         )
         # el registro del ciclo (ticket, F0 del pie) lee el programa con el
         # que corre el ciclo, no el almacenado (T-17)
@@ -91,6 +100,17 @@ class ControlLoop:
         # Acumulación de F0 (letalidad): timestamp del último tick que
         # acumuló, para calcular dt_min real (no el interval nominal).
         self._f0_ultimo_tick: float | None = None
+
+        # Último valor visto de puerta_2_cerrada con door_count=1, para
+        # avisar solo en el flanco (A-6, SAF-07).
+        self._puerta_2_no_declarada_cerrada = False
+
+        # Instante (monotonic) desde el que el enlace está conectado en la
+        # conexión actual, o None si está caído. Hasta la primera trama DI de
+        # esa conexión (como máximo _VIGENCIA_DI_SEG) la máquina de estados no
+        # corre: una línea AI: llegada antes que la DI no debe abortar el
+        # ciclo por un paro que solo es falta de datos (decisión P3).
+        self._conectado_desde: float | None = None
 
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
@@ -127,6 +147,35 @@ class ControlLoop:
         tolerancia): las lecturas no son vigentes. Solo lectura, para el
         backend (órdenes de puerta, revisión de seguridad de la etapa 2)."""
         return self._desconectado_desde is not None
+
+    def _di_vigente(self) -> bool:
+        """True si la última trama DI del enlace tiene a lo sumo
+        _VIGENCIA_DI_SEG segundos. Un enlace que no informa la edad (o la
+        informa con un valor no numérico) no se da por vigente."""
+        edad = self.link.edad_ultima_di()
+        if isinstance(edad, bool) or not isinstance(edad, (int, float)):
+            return False
+        return edad <= self._VIGENCIA_DI_SEG
+
+    @property
+    def datos_vigentes(self) -> bool:
+        """True si hay enlace y la trama DI está vigente (A-8: el modo prueba
+        no acepta órdenes con datos viejos)."""
+        return not self.desconectado and self.link.is_connected() and self._di_vigente()
+
+    def _avisar_puerta_2_no_declarada(self) -> None:
+        """Aviso (solo log, en el flanco) si la entrada de la puerta 2 lee
+        cerrada en un perfil de una puerta: una puerta 2 real quedaría sin
+        interlock por software (A-6, SAF-07)."""
+        cerrada = (numero_puertas(self.profile) == 1
+                   and bool(self.estado.sensores_di.get("puerta_2_cerrada", 0)))
+        if cerrada and not self._puerta_2_no_declarada_cerrada:
+            logger.warning(
+                "La entrada puerta_2_cerrada lee 1 pero el perfil declara door_count=1: "
+                "si el equipo tiene segunda puerta, queda sin interlock por software. "
+                "Revisar el perfil de instalación."
+            )
+        self._puerta_2_no_declarada_cerrada = cerrada
 
     def _tick(self):
         connected = self.link.is_connected()
@@ -177,21 +226,44 @@ class ControlLoop:
 
         self.link_was_connected = connected
 
+        if connected and self._conectado_desde is None:
+            self._conectado_desde = now
+        elif not connected:
+            self._conectado_desde = None
+
         if not connected:
+            # Sin enlace no hay datos de las entradas: paro (A-3). La máquina
+            # de estados no corre, pero el flag queda publicado para la UI, el
+            # backend y el primer tick tras reconectar.
+            self.paro_emergencia.update(None)
             return
 
         # 1. Publicar estado global
         self.estado.update(self.units.get_all())
 
-        # 2. Paro de emergencia → actualiza flag en estado
+        # 2. Paro de emergencia → actualiza flag en estado. DI crudo, contacto
+        # NC: EmergencyStop interpreta 0 o ausente como paro (D-16).
+        # Trama DI vencida (la tarjeta manda AI: pero no DI:) = sin datos (A-3)
         self.paro_emergencia.update(
-            bool(self.estado.sensores_di.get("paro_emergencia", 0))
+            self.estado.sensores_di.get("paro_emergencia") if self._di_vigente() else None
         )
+        self._avisar_puerta_2_no_declarada()
 
-        # 2b. Suministro eléctrico → actualiza flag en estado
-        self.suministro_electrico.update(
-            bool(self.estado.sensores_di.get("suministro_electrico", 1))
-        )
+        # 2a. Recién conectado y sin la primera DI: se publica lo anterior para
+        # la UI, pero sin suministro, puertas, máquina de estados ni buzzer (las
+        # entradas están en 0 por _connect()). Pasada la vigencia sin DI, se
+        # sigue normal con el paro activo y la máquina de estados lo aplica.
+        if (self.link.edad_ultima_di() is None
+                and now - self._conectado_desde < self._VIGENCIA_DI_SEG):
+            return
+
+        # 2b. Suministro eléctrico → actualiza flag en estado. Sin la entrada
+        # declarada en el perfil (E1-1) no se vigila: ni fallo ni apagado.
+        if entrada_requerida(self.profile, "suministro_electrico"):
+            # Sin la entrada en la trama = sin suministro (A-9)
+            self.suministro_electrico.update(
+                bool(self.estado.sensores_di.get("suministro_electrico"))
+            )
 
         # 2d. Configuración inválida: el equipo queda con todo apagado y sin
         # puertas, máquina de estados, registro de ciclo ni buzzer. Sí se
@@ -406,6 +478,6 @@ class ControlLoop:
             self.state_machine = StateMachine(
                 io=self.link, estado=self.estado, set_do=self.set_do,
                 cycle=cycle, config=self.config_manager, cap=self.cap,
-                door_service=self.door_service,
+                door_service=self.door_service, profile=self.profile,
             )
             return True, ""

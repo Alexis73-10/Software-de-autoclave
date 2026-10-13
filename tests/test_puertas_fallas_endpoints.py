@@ -209,14 +209,14 @@ def test_status_sin_temperatura_de_chaqueta(entorno):
     ctx.estado = estado
     temperatura = cliente.get("/status").json()["sensors"]["temperature"]
     assert "chaqueta" not in temperatura
-    assert temperatura["drenaje_camara"] == 60.0 and temperatura["drenaje"] == 40.0
+    # temp_drenaje ocupa la posición 4 (temp_drenaje_cam ya no existe, 2026-10-12)
+    assert "drenaje_camara" not in temperatura and temperatura["drenaje"] == 60.0
 
 
 def test_calibracion_por_nombre_sin_chaqueta_y_sin_correr_indices(entorno):
     _, _, _, _ = entorno
     from autoclave.backend import server
-    assert server._resolve_sensor_index("temperature", "temp_drenaje_cam") == 4
-    assert server._resolve_sensor_index("temperature", "temp_drenaje") == 5
+    assert server._resolve_sensor_index("temperature", "temp_drenaje") == 4
     with pytest.raises(Exception) as e:
         server._resolve_sensor_index("temperature", "temp_chaqueta")
     assert getattr(e.value, "status_code", None) == 404

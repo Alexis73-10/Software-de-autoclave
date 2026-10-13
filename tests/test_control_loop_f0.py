@@ -14,6 +14,10 @@ class _FakeEstado:
     def get_machine_state(self):
         return self._state
 
+    def set_flag(self, name, value):
+        # EmergencyStop publica el paro al construirse (D-16)
+        pass
+
 
 def _make_loop(estado=None, cap=None, f0_activo=True):
     from autoclave.services.domain.loop.control_loop import ControlLoop

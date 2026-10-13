@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from autoclave.installation.equipment import EquipmentClass
@@ -9,6 +9,109 @@ class Role(Enum):
     OPERATOR_FRONT = "operator_front"
     OPERATOR_BACK  = "operator_back"
     SERVICE        = "service"
+
+
+# Entradas digitales de suministro que un equipo puede o no tener cableadas
+# (E1-1, CR-FC-02). Una entrada sin cablear lee 0 y bloquearía el equipo.
+SUPPLY_INPUT_KEYS = (
+    "agua_bomba",
+    "agua_generador",
+    "aire_comprimido",
+    "vapor_suministro",
+    "suministro_electrico",
+)
+
+
+def supply_inputs_por_defecto() -> dict[str, bool]:
+    """Todas cableadas: falla cerrada para perfiles sin el campo."""
+    return {k: True for k in SUPPLY_INPUT_KEYS}
+
+
+def normalizar_supply_inputs(valor) -> dict[str, bool]:
+    """Completa con True las claves que falten (campo ausente = todas)."""
+    resultado = supply_inputs_por_defecto()
+    if isinstance(valor, dict):
+        for k in SUPPLY_INPUT_KEYS:
+            if valor.get(k) is False:
+                resultado[k] = False
+    return resultado
+
+
+def entrada_requerida(profile, clave: str) -> bool:
+    """True si el equipo tiene la entrada `clave` cableada y debe vigilarse.
+    Sin perfil, o con un valor distinto de False, se considera requerida."""
+    si = getattr(profile, "supply_inputs", None)
+    if not isinstance(si, dict):
+        return True
+    return si.get(clave, True) is not False
+
+
+def numero_puertas(profile) -> int:
+    """Puertas declaradas en el perfil (E1-2). Sin perfil válido, 2 (como antes)."""
+    n = getattr(profile, "door_count", None)
+    return n if n in (1, 2) else 2
+
+
+def revisa_empaque(profile) -> bool:
+    """False solo para door_type=simple (sin sensor de empaque, E1-2). Los
+    demás tipos y la falta de perfil conservan la revisión de siempre."""
+    return getattr(profile, "door_type", None) != DoorType.SIMPLE
+
+
+def sensores_empaque(profile) -> list[str]:
+    """Sensores de empaque que se revisan: uno por puerta declarada, o
+    ninguno si el tipo de puerta no tiene empaque."""
+    if not revisa_empaque(profile):
+        return []
+    return [f"pres_empaque_{n}" for n in range(1, numero_puertas(profile) + 1)]
+
+
+def entradas_no_monitoreadas(profile) -> list[str]:
+    """Entradas declaradas "no aplica" en el perfil, en orden fijo."""
+    return [k for k in SUPPLY_INPUT_KEYS if not entrada_requerida(profile, k)]
+
+
+# Canales de temperatura que un equipo puede o no tener con sonda (adenda
+# E0/E1, A-2). Mismos nombres que EstadoAutoclave.map_temp. temp_camara es la
+# sonda de control: siempre instalada (la validación rechaza False).
+TEMPERATURE_PROBE_KEYS = (
+    "temp_camara",
+    "temp_2_camara",
+    "temp_ref",
+    "temp_drenaje",
+)
+SONDA_OBLIGATORIA = "temp_camara"
+
+
+def temperature_probes_por_defecto() -> dict[str, bool]:
+    """Todas instaladas: falla cerrada para perfiles sin el campo."""
+    return {k: True for k in TEMPERATURE_PROBE_KEYS}
+
+
+def normalizar_temperature_probes(valor) -> dict[str, bool]:
+    """Completa con True las claves que falten (campo ausente = todas)."""
+    resultado = temperature_probes_por_defecto()
+    if isinstance(valor, dict):
+        for k in TEMPERATURE_PROBE_KEYS:
+            if valor.get(k) is False and k != SONDA_OBLIGATORIA:
+                resultado[k] = False
+    return resultado
+
+
+def sonda_instalada(profile, canal: str) -> bool:
+    """True si el canal tiene sonda y debe vigilarse. Sin perfil, o con un
+    valor distinto de False, se considera instalada."""
+    if canal == SONDA_OBLIGATORIA:
+        return True
+    tp = getattr(profile, "temperature_probes", None)
+    if not isinstance(tp, dict):
+        return True
+    return tp.get(canal, True) is not False
+
+
+def sondas_no_vigiladas(profile) -> list[str]:
+    """Canales declarados sin sonda en el perfil, en orden fijo."""
+    return [k for k in TEMPERATURE_PROBE_KEYS if not sonda_instalada(profile, k)]
 
 
 class ProfileValidationError(Exception):
@@ -30,6 +133,10 @@ class InstallationProfile:
     role:            Role
     created_at:      datetime
     locked:          bool = True
+    # E1-1: entrada -> True si está cableada. Falta el campo = todas True.
+    supply_inputs:   dict = field(default_factory=supply_inputs_por_defecto)
+    # A-2: canal de temperatura -> True si tiene sonda. Falta el campo = todas.
+    temperature_probes: dict = field(default_factory=temperature_probes_por_defecto)
 
 
 _REQUIRED_TYPES: dict[str, type] = {
@@ -83,6 +190,49 @@ def validate_profile_data(data: dict) -> list[str]:
                 f"valor inválido en 'door_type': '{data['door_type']}' "
                 f"no está en {_VALID_DOOR_TYPES}"
             )
+
+    # supply_inputs es opcional; si está, solo claves conocidas y booleanas
+    if "supply_inputs" in data:
+        si = data["supply_inputs"]
+        if not isinstance(si, dict):
+            errors.append(
+                f"tipo incorrecto en 'supply_inputs': esperado dict, "
+                f"recibido {type(si).__name__}"
+            )
+        else:
+            desconocidas = sorted(set(si) - set(SUPPLY_INPUT_KEYS))
+            if desconocidas:
+                errors.append(
+                    f"claves desconocidas en 'supply_inputs': {desconocidas} "
+                    f"(válidas: {list(SUPPLY_INPUT_KEYS)})"
+                )
+            no_bool = sorted(k for k, v in si.items() if not isinstance(v, bool))
+            if no_bool:
+                errors.append(f"valores no booleanos en 'supply_inputs': {no_bool}")
+
+    # temperature_probes es opcional; mismo patrón, y temp_camara no puede faltar
+    if "temperature_probes" in data:
+        tp = data["temperature_probes"]
+        if not isinstance(tp, dict):
+            errors.append(
+                f"tipo incorrecto en 'temperature_probes': esperado dict, "
+                f"recibido {type(tp).__name__}"
+            )
+        else:
+            desconocidas = sorted(set(tp) - set(TEMPERATURE_PROBE_KEYS))
+            if desconocidas:
+                errors.append(
+                    f"claves desconocidas en 'temperature_probes': {desconocidas} "
+                    f"(válidas: {list(TEMPERATURE_PROBE_KEYS)})"
+                )
+            no_bool = sorted(k for k, v in tp.items() if not isinstance(v, bool))
+            if no_bool:
+                errors.append(f"valores no booleanos en 'temperature_probes': {no_bool}")
+            if tp.get(SONDA_OBLIGATORIA) is False:
+                errors.append(
+                    f"'temperature_probes.{SONDA_OBLIGATORIA}' no puede ser false: "
+                    f"es la sonda de control del ciclo"
+                )
 
     # Validaciones cruzadas (solo si equipment_class es válido)
     ec_value = data.get("equipment_class")

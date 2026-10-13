@@ -78,6 +78,11 @@ class SerialLink:
         # con CRC válido, o de la apertura del puerto si aún no llega ninguna.
         self._ultima_valida_mono: Optional[float] = None
 
+        # Instante (monotonic) de la última trama DI válida, o None si en esta
+        # conexión no ha llegado ninguna. Sin DI vigente, el ControlLoop
+        # publica paro de emergencia (adenda E0/E1, A-3; E6 lo reutiliza).
+        self._ultima_di_mono: Optional[float] = None
+
         # Diagnóstico de líneas inválidas (CRC, contenido o longitud).
         self._invalidas_total = 0
         self._invalidas_consecutivas = 0
@@ -151,6 +156,10 @@ class SerialLink:
                 self.data["port_open"] = True
                 self.data["data_alive"] = False
                 self.data["last_update"] = None
+                # DI de la conexión anterior no vale: 0 = paro (contacto NC)
+                # hasta la primera trama DI de esta conexión (A-3)
+                self.data["di"] = [0] * 56
+                self._ultima_di_mono = None
                 self._ultima_valida_mono = time.monotonic()
                 self._invalidas_consecutivas = 0
             self.serial = ser
@@ -197,6 +206,7 @@ class SerialLink:
         with self.data_lock:
             self.data["port_open"] = False
             self.data["data_alive"] = False
+            self._ultima_di_mono = None
 
         # Nueva caída = nuevo episodio: habilita un nuevo intento de reset
         # PnP si este episodio también termina atascado (no solo el primero
@@ -207,6 +217,15 @@ class SerialLink:
         # Sin esta notificación, quien deriva su estado de on_update (Units)
         # se quedaría con el último "conectado" recibido.
         self._notificar()
+
+    def edad_ultima_di(self, now: Optional[float] = None) -> Optional[float]:
+        """Segundos (time.monotonic) desde la última trama DI válida, o None
+        si en esta conexión no ha llegado ninguna."""
+        with self.data_lock:
+            ultima = self._ultima_di_mono
+        if ultima is None:
+            return None
+        return (time.monotonic() if now is None else now) - ultima
 
     def is_connected(self) -> bool:
         with self.data_lock:
@@ -395,6 +414,8 @@ class SerialLink:
             raise LineaMalformada(f"{clave.upper()} con formato inválido")
         with self.data_lock:
             self.data[clave] = [1 if b == "1" else 0 for b in bits]
+            if clave == "di":
+                self._ultima_di_mono = time.monotonic()
 
     def _notificar(self):
         if self.on_update:
