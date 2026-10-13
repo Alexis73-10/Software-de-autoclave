@@ -127,6 +127,15 @@
   "fecha": {
     "meses": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   },
+  "arranque": {
+    "iniciando_servicios": "Iniciando servicios",
+    "conectando_tarjeta": "Conectando con la tarjeta de E/S",
+    "verificando_sensores": "Verificando sensores",
+    "abriendo_base_datos": "Abriendo base de datos",
+    "fallo_titulo": "Fallo de arranque",
+    "fallo_bloqueante": "El arranque no puede continuar",
+    "sin_progreso": "Sin respuesta del sistema de control"
+  },
   "fases": {
     "precalentamiento": "Precalentamiento",
     "vacio": "Vacío",

@@ -36,6 +36,7 @@ from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
+from autoclave.ui_qml.bridge.progreso_arranque import SimuladorProgresoArranque, parse_simulacion
 from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
 from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
 from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
@@ -117,6 +118,14 @@ def main(argv=None) -> int:
     forzar_tema_claro(app)
     _cargar_fuentes()
 
+    # Intro de arranque: el progreso corre desde t = 0 en paralelo con todo lo
+    # demás; no espera ni condiciona nada. PROVISIONAL (ARR-03): simulado, sin
+    # conexión con la secuencia de arranque real.
+    progreso_arranque = SimuladorProgresoArranque(
+        **parse_simulacion(os.environ.get("AUTOCLAVE_INTRO_SIMULACION")))
+    progreso_arranque.iniciar()
+    version = version_software()
+
     backend = BackendClient(url_backend())
     ui_service = UIServiceBackend(backend)
     puente = UiBridge(ui_service, door=args.door)
@@ -124,7 +133,7 @@ def main(argv=None) -> int:
         puente, DoorCommandService(backend_client=backend, source_door=args.door))
     comando_ciclo = ComandoIniciarCiclo(puente, ui_service)
     comando_falla = ComandoReconocerFalla(puente, ui_service)   # T-16
-    info_equipo = InfoEquipo(cargar_perfil(), args.door, backend, version_software())
+    info_equipo = InfoEquipo(cargar_perfil(), args.door, backend, version)
     ajustes = LanzadorAjustes()
     standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto)
     progreso = ProgresoCiclo(backend)
@@ -150,6 +159,7 @@ def main(argv=None) -> int:
         progreso.detener()
         resumen.detener()
         ajustes.cerrar()
+        progreso_arranque.detener()
         sesion.cerrar_al_salir()   # /auth/logout con plazo corto (decisión 31)
         ui_service.stop()   # solo detiene el hilo de lectura; no toca salidas ni backend
 
@@ -174,6 +184,8 @@ def main(argv=None) -> int:
         "sesion": sesion,
         "puenteNuevoUsuario": puente_nuevo_usuario,
         "textosJson": textos,
+        "progresoArranque": progreso_arranque,
+        "versionSoftware": version or "",
     })
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Main.qml"))
     if not engine.rootObjects():

@@ -42,6 +42,12 @@ Window {
     property QtObject sesion: null
     // puenteNuevoUsuario: NuevoUsuarioBridge de OPCIONES › Usuarios
     property QtObject puenteNuevoUsuario: null
+    // progresoArranque: progreso del arranque para la intro (hoy un simulador,
+    // bridge/progreso_arranque.py); versionSoftware: para el pie de la intro.
+    // Sin progresoArranque (pruebas) no se muestra la intro.
+    property QtObject progresoArranque: null
+    property string versionSoftware: ""
+    property bool introTerminada: false
     property var textosJson: ({})
     function txRuta(ruta, valores) {
         const i = ruta.indexOf(".")
@@ -249,6 +255,48 @@ Window {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(24)
                 }
+            }
+        }
+
+        // Intro de arranque (planeacion_animacion_arranque.md): lo primero que se
+        // ve, encima de la pantalla de reposo que ya está debajo en la pila. Su
+        // último cuadro es el fondo de reposo; al terminar se descarga.
+        Loader {
+            id: intro
+            objectName: "introArranque"
+            anchors.fill: parent
+            active: ventana.progresoArranque !== null && !ventana.introTerminada
+            sourceComponent: IntroArranque {
+                progreso: ventana.progresoArranque
+                modelo: ventana.infoEquipo?.modelo ?? ""
+                versionSoftware: ventana.versionSoftware
+                textosJson: ventana.textosJson
+                onFinalizada: ventana.introTerminada = true
+            }
+        }
+
+        // PROVISIONAL (sin capa de alarmas en QML; ver sistema de alarmas): fallo
+        // bloqueante de arranque superpuesto a la intro congelada (regla 3).
+        Rectangle {
+            objectName: "alarmaArranque"
+            visible: intro.item?.falloBloqueante ?? false
+            anchors.left: parent.left; anchors.right: parent.right
+            anchors.verticalCenter: parent.verticalCenter
+            anchors.margins: Escala.px(48)
+            height: filaAlarmaArranque.height + Escala.px(48)
+            radius: Escala.px(16)
+            color: Colores.fondoTarjeta
+            FilaAlarma {
+                id: filaAlarmaArranque
+                anchors.left: parent.left; anchors.right: parent.right
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.margins: Escala.px(24)
+                height: Escala.px(96)
+                prioridad: "alta"
+                idAlarma: "ARRANQUE"
+                descripcion: ventana.txRuta("arranque.fallo_titulo") + ": " +
+                             ventana.txRuta((intro.item?.sinProgreso ?? false)
+                                            ? "arranque.sin_progreso" : "arranque.fallo_bloqueante")
             }
         }
     }

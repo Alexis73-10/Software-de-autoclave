@@ -57,7 +57,7 @@ Item {
             text: raiz._ahora.getDate() + " " +
                   (raiz._meses[raiz._ahora.getMonth()] ?? "") + "  -  " +
                   raiz._ahora.getFullYear()
-            color: "#C7DCFD"
+            color: Colores.textoFechaReposo
             font.family: Tipografia.familiaReloj
             font.pixelSize: Escala.fuente(Tipografia.relojFechaTam)
             font.weight: Tipografia.pesoMedium

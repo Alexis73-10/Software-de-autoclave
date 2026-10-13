@@ -10,6 +10,7 @@ QtObject {
     readonly property color fondoAzulMedio:     "#2E597C"  // fondo_azul_700
     readonly property color fondoCieloNucleo:   "#5C97DB"  // fondo_cielo_300 — halo del arranque
     readonly property color fondoCieloClaro:    "#99C5E2"  // fondo_cielo_200
+    readonly property color textoFechaReposo:   "#C7DCFD"  // fecha de la pantalla de reposo y pie de la intro
 
     // Acción
     readonly property color accionPrimario:      "#1168F6" // botón primario
