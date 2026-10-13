@@ -52,12 +52,13 @@ Cada etapa tiene peso en la barra, texto corto y resultado. El avance refleja el
 4. Cargando configuración y ciclos — sin timeout. Bloqueante: `global_params.json` ilegible o ciclo por defecto inexistente. Degradable: un JSON de ciclo individual corrupto (se omite, queda en log y se avisa).
 5. Verificando calibración — sin timeout. Falla: bloqueante, sin valores por defecto silenciosos.
 6. Abriendo base de datos — 5 s, 3 reintentos. Falla: degradable (modo sin base de datos, sección 7).
-7. Conectando con módulos de E/S — 15 s (antes "Conectando con la tarjeta"). El handshake del protocolo serial queda sin objeto con Modbus TCP; el criterio se conserva: ningún ciclo ni salida hasta tener las E/S verificadas en estado seguro. Las condiciones de falla se redefinen en la capa de E/S abstracta (secciones 6 y 7 del documento hermano, que sobreviven al cambio de medio).
+7. Conectando con módulos de E/S — 15 s (antes "Conectando con la tarjeta"). Al agotarse, el splash se libera a la pantalla de espera con alarma (ver excepción en "Comportamiento ante resultado"). El handshake del protocolo serial queda sin objeto con Modbus TCP; el criterio se conserva: ningún ciclo ni salida hasta tener las E/S verificadas en estado seguro. Las condiciones de falla se redefinen en la capa de E/S abstracta (secciones 6 y 7 del documento hermano, que sobreviven al cambio de medio).
 8. Verificando sensores — 10 s tras la conexión. Criterios en la sección 6.
 9. Preparando interfaz — 10 s. Bloqueante: `es.json` ausente o inválido. Degradable: imágenes de botones. Informativo: fuentes.
 
 Comportamiento ante resultado:
 - Bloqueante: el splash muestra el nombre del proceso que falló y un código; no avanza. Cuando el flujo sea reintentable (tarjeta, sensores), reintenta automáticamente.
+- Excepción aprobada el 2026-10-12 (D-E de `planeacion_barra_arranque_real.md`, D-02 del plan serial): sin módulos de E/S la barra se detiene en la etapa 7 con el código `ARR_SIN_ES`; a los 15 s el equipo pasa a la pantalla de espera con alarma específica e INICIAR deshabilitado, y sigue reintentando. Las etapas 8 y siguientes no corren hasta tener E/S verificadas; al conectarse, el arranque retoma desde la etapa 7.
 - Degradable: aviso breve y continúa; si aplica, queda alarma persistente.
 - Informativo: se registra y continúa.
 - Falla del ticket de arranque o del heartbeat: informativo.
@@ -70,7 +71,7 @@ Interfaz del splash:
 ## 5. Clasificación de fallos de arranque (aprobada)
 
 Bloqueante:
-- Perfil de instalación inválido; reloj alterado.
+- Perfil de instalación inválido (`ARR_PERFIL`); reloj alterado (`ARR_RELOJ`, etapa 1: reloj del sistema anterior a la fecha de instalación).
 - Calibración ausente, corrupta o que no pasa la validación.
 - `global_params.json` ilegible; ciclo por defecto inexistente.
 - Backend que no abre el puerto; puerto ocupado.
@@ -189,7 +190,7 @@ Cada fase termina con la confirmación visual de Cristian antes del commit.
 ## 11. Supuestos y decisiones por confirmar
 
 - D-01: RESUELTA el 2026-10-07, opción B (backend único custodio, sección 7.8).
-- D-02: sin tarjeta (documento hermano, sección 10).
+- D-02: sin tarjeta (documento hermano, sección 10). Confirmada el 2026-10-12: el splash se libera a la pantalla de espera con alarma a los 15 s.
 - D-03: severidad de `OPERANDO_SIN_BD` como ALERTA no bloqueante.
 - D-04: relanzado de UI cerrada por el lanzador (3 veces, 5 s).
 - D-06: sensores no críticos no bloquean el paso a "listo".

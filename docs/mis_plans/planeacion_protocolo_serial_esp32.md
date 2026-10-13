@@ -160,7 +160,7 @@ Nota: si el backend se reinicia con un ciclo en curso, el `ALL_OFF` del paso 5 d
 
 ## 10. Pendientes y supuestos por confirmar
 
-- D-02: sin tarjeta o con handshake fallido, el equipo continúa a pantalla de espera con alarma y sin poder iniciar ciclos (comportamiento actual con timeout y mensaje propios). Recomendación; confirmar.
+- D-02: sin tarjeta o con handshake fallido, el equipo continúa a pantalla de espera con alarma y sin poder iniciar ciclos (comportamiento actual con timeout y mensaje propios). CONFIRMADA el 2026-10-12: el splash se libera a la pantalla de espera a los 15 s (ver `planeacion_barra_arranque_real.md`, D-E).
 - D-05: la lectura de vuelta de salidas se debe validar en el hardware real antes de usarla como disparador de fallo. Con una salida alta, el pin solo tiene pull-up débil y una etapa de potencia de baja impedancia podría leerlo como 0 sin que haya falla. Mientras no se valide, `disc_do` se registra y se muestra como diagnóstico, sin disparar protocolo de fallo.
 - El tamaño de los buffers de línea y los valores por defecto (10 líneas inválidas, 15 s de handshake, 3 reintentos) son ajustables en configuración.
 - Prueba de banco de sensores: diferida; los umbrales dependen de ella (documento hermano).
