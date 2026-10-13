@@ -1,7 +1,7 @@
 import QtQuick
 import Tema
 
-// Pantalla 06 · Arranque. Sin dependencias de backend: solo reloj y logo.
+// Pantalla 06 · Reposo (antes Arranque.qml, ARR-01). Sin dependencias de backend: solo reloj y logo.
 // Avanza al tocar cualquier punto — es la señal más simple posible; se
 // reemplaza por un disparo real (ej. "backend listo") cuando se defina.
 Item {

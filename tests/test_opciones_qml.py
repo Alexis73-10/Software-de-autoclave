@@ -99,7 +99,7 @@ _SCRIPT = textwrap.dedent(r"""
         QTest.qWait(700)   # transición del StackView
 
     if estado != "CICLO":
-        QMetaObject.invokeMethod(buscar("Arranque")[0], "tocado")
+        QMetaObject.invokeMethod(buscar("Reposo")[0], "tocado")
         esperar()
     origen = "PantallaCicloEnCurso" if estado == "CICLO" else "PantallaPreciclo"
     # ciclo en curso: engranaje (U-18); preciclo: avatar (su engranaje abre el menú)

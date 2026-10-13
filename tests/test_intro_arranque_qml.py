@@ -78,7 +78,7 @@ _SCRIPT = textwrap.dedent(r"""
         r["t_intro"] = round(time.monotonic() - t0, 2)
         r["termino"] = esperar(lambda: not loader.property("active"), 4)
         r["t_total"] = round(time.monotonic() - t0, 2)
-        r["reposo"] = hay("Arranque")
+        r["reposo"] = hay("Reposo")
         r["alarma"] = bool(alarma.property("visible"))
     elif escenario.startswith("fallo:"):
         intro = loader.property("item")

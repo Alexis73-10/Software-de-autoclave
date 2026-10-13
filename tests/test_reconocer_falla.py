@@ -93,7 +93,7 @@ _SCRIPT = textwrap.dedent(r"""
     ventana = engine.rootObjects()[0]
     ventana.show()
     arranque = [o for o in ventana.findChildren(QObject)
-                if o.metaObject().className().startswith("Arranque_QML")][0]
+                if o.metaObject().className().startswith("Reposo_QML")][0]
     QMetaObject.invokeMethod(arranque, "tocado")
     QTest.qWait(700)
 

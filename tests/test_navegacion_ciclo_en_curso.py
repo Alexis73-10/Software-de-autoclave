@@ -59,7 +59,7 @@ _SCRIPT = textwrap.dedent(r"""
         QTest.qWait(700)   # transición del StackView
         if visibles("PantallaCicloEnCurso"): return "en_curso"
         if visibles("PantallaPreciclo"): return "preciclo"
-        if visibles("Arranque"): return "arranque"
+        if visibles("Reposo"): return "arranque"
         return "?"
 
     def fijar(maquina):
@@ -68,7 +68,7 @@ _SCRIPT = textwrap.dedent(r"""
 
     pasos = [("inicio", pantalla())]
     QMetaObject.invokeMethod([o for o in ventana.findChildren(QObject)
-                              if o.metaObject().className().startswith("Arranque_QML")][0], "tocado")
+                              if o.metaObject().className().startswith("Reposo_QML")][0], "tocado")
     pasos.append(("toque", pantalla()))
     for maquina in sys.argv[4:]:
         fijar(maquina)

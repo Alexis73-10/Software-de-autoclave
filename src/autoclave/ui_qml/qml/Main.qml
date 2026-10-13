@@ -72,7 +72,7 @@ Window {
         mostrandoEnCurso = enCiclo
     }
 
-    // Arranque <-> principal lo decide el standby (única transición simultánea):
+    // Reposo <-> principal lo decide el standby (única transición simultánea):
     // activo -> se vuelve al arranque desde cualquier pantalla; inactivo -> principal.
     // El resto de la navegación (login, paneles) es local de cada pantalla.
     function aplicarStandby() {
@@ -305,7 +305,7 @@ Window {
     Component {
         id: esperaComp
         AreaFija {
-            Arranque {
+            Reposo {
                 anchors.fill: parent
                 textosJson: ventana.textosJson
                 // con standby, el toque ya lo registró el filtro de eventos y el

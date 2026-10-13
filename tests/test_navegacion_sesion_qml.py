@@ -127,7 +127,7 @@ _SCRIPT = textwrap.dedent(r"""
         esperar()
 
     r = {}
-    QMetaObject.invokeMethod(buscar("Arranque")[0], "tocado")
+    QMetaObject.invokeMethod(buscar("Reposo")[0], "tocado")
     esperar()
 
     # cambio obligatorio -> OPCIONES -> Nuevo usuario

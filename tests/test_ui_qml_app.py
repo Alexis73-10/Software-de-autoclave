@@ -122,7 +122,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
         return [o for o in ventana.findChildren(QObject)
                 if o.metaObject().className().startswith(nombre_tipo + "_QML")]
 
-    arranque = buscar("Arranque")[0]
+    arranque = buscar("Reposo")[0]
     QMetaObject.invokeMethod(arranque, "tocado")
     for _ in range(5):
         qapp.processEvents()
