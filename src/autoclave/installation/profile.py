@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
@@ -114,6 +115,25 @@ def sondas_no_vigiladas(profile) -> list[str]:
     return [k for k in TEMPERATURE_PROBE_KEYS if not sonda_instalada(profile, k)]
 
 
+# FW-D7: ID único de la tarjeta de E/S (MAC de fábrica del ESP32, 12 dígitos
+# hex en mayúscula) registrado por el ingeniero con tools/emparejar_tarjeta.py.
+_RE_BOARD_ID = re.compile(r"^[0-9A-F]{12}$")
+
+
+def board_id_valido(valor) -> bool:
+    return isinstance(valor, str) and bool(_RE_BOARD_ID.match(valor))
+
+
+def tarjeta_emparejada(profile, id_tarjeta) -> bool | None:
+    """True si la tarjeta conectada es la registrada en el perfil; False si
+    es otra o el perfil no tiene board_id (sin emparejar); None si no se
+    conoce el ID de la tarjeta. En la versión 1.0 es solo una advertencia
+    no bloqueante (FW-D7)."""
+    if not id_tarjeta:
+        return None
+    return getattr(profile, "board_id", None) == id_tarjeta
+
+
 class ProfileValidationError(Exception):
     def __init__(self, errors: list[str]):
         self.errors = errors
@@ -137,6 +157,8 @@ class InstallationProfile:
     supply_inputs:   dict = field(default_factory=supply_inputs_por_defecto)
     # A-2: canal de temperatura -> True si tiene sonda. Falta el campo = todas.
     temperature_probes: dict = field(default_factory=temperature_probes_por_defecto)
+    # FW-D7: ID de la tarjeta de E/S emparejada. None = sin emparejar.
+    board_id:        str | None = None
 
 
 _REQUIRED_TYPES: dict[str, type] = {
@@ -233,6 +255,13 @@ def validate_profile_data(data: dict) -> list[str]:
                     f"'temperature_probes.{SONDA_OBLIGATORIA}' no puede ser false: "
                     f"es la sonda de control del ciclo"
                 )
+
+    # board_id es opcional (FW-D7); si está, 12 dígitos hex en mayúscula
+    if "board_id" in data and not board_id_valido(data["board_id"]):
+        errors.append(
+            f"valor inválido en 'board_id': {data['board_id']!r} "
+            f"(se esperan 12 dígitos hexadecimales en mayúscula)"
+        )
 
     # Validaciones cruzadas (solo si equipment_class es válido)
     ec_value = data.get("equipment_class")

@@ -19,14 +19,24 @@
 # Tiempos: toda medición de duración (vida de la comunicación, latido,
 # reintentos) usa time.monotonic(). data["last_update"] conserva
 # datetime.now() solo como sello informativo de visualización.
+#
+# E6 (planeacion_firmware_1_5.md §5): handshake de conexión (§4.6 del plan de
+# protocolo), parseo de BOOT/VER/ST/WD, comparación comandado vs DO reportado
+# y latido atado al tick del ControlLoop (FW-D6). Mientras el handshake no se
+# completa, is_connected() es False y no salen órdenes de salida. Los fallos
+# y sucesos de la tarjeta se encolan como EventoTarjeta; quien decide la
+# reacción (alarma, FALLO del ciclo, nuevo handshake) es el ControlLoop, que
+# los toma en cada tick con tomar_eventos().
 
 
 from __future__ import annotations
 
+import re
 import serial
 import serial.tools.list_ports
 import threading
 import time
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Callable, Dict, Any
 
@@ -36,8 +46,45 @@ from autoclave.protocols.crc16 import agregar_crc, validar_linea
 from autoclave.protocols.serial_link_config import SerialLinkConfig, cargar_config
 
 
+PROTOCOLO_ESPERADO = 2
+PCF_OK_SANO = "3F"          # los 6 expansores sin error (plan de protocolo §4.5)
+
+# Alarmas del plan de protocolo §11.6.
+ALARMAS_HANDSHAKE = (
+    "TARJETA_SIN_TRAMA_VALIDA",
+    "TARJETA_VERSION_INCOMPATIBLE",
+    "TARJETA_SIN_ACK",
+    "TARJETA_ALL_OFF_SIN_CONFIRMAR",
+    "TARJETA_SALIDAS_NO_APAGADAS",
+    "TARJETA_EXPANSOR_FUERA_DE_LINEA",
+)
+ALARMAS_OPERACION = (
+    "TARJETA_WATCHDOG",
+    "TARJETA_REINICIO",
+    "DISCREPANCIA_SALIDAS",
+    "TARJETA_EXPANSOR_FUERA_DE_LINEA",
+)
+
+_RE_VERSION = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}$")
+_RE_ID = re.compile(r"^[0-9A-F]{12}$")
+_RE_HEX = {n: re.compile(rf"^[0-9A-F]{{{n}}}$") for n in (2, 4, 8)}
+_MAX_U32 = 2 ** 32 - 1
+_MAX_U64 = 2 ** 64 - 1
+
+
 class LineaMalformada(ValueError):
     """Línea con CRC válido pero contenido que no respeta el protocolo."""
+
+
+@dataclass(frozen=True)
+class EventoTarjeta:
+    """Suceso de la tarjeta para el ControlLoop.
+    origen: "handshake" (falló el handshake), "operacion" (WD, reinicio,
+    expansor o discrepancia con el handshake ya hecho) o "conectada"
+    (handshake completo; alarm_id None)."""
+    origen: str
+    alarm_id: Optional[str]
+    motivo: str
 
 
 class SerialLink:
@@ -45,6 +92,14 @@ class SerialLink:
     HEARTBEAT_INTERVAL = 2.0  # segundos entre HB enviados al ESP32
     GEN_FAILURE_RESET_THRESHOLD = 5  # ~15s de reintentos (scan_interval=3.0) antes de resetear el dispositivo
     _WATCHDOG_PERIOD   = 0.1  # periodo del hilo de supervisión (latido, timeout, reconexión)
+    # FW-D6: el HB solo sale si el ControlLoop completó un tick en este margen.
+    # Si el lazo se congela, el latido se detiene y el watchdog de 5 s del
+    # firmware apaga todas las salidas.
+    MARGEN_TICK_CONTROL = 1.5
+    # Plan de protocolo §6.5: no se comparan los canales comandados hace menos.
+    _TOLERANCIA_COMANDO_S = 1.0
+    # TMG-05: tope de una escritura al puerto; al vencer = desconexión.
+    _WRITE_TIMEOUT_S = 0.5
 
     def __init__(
         self,
@@ -64,6 +119,11 @@ class SerialLink:
 
         self.data_lock = threading.Lock()
         self.serial_lock = threading.Lock()
+        # TMG-03: registrar una orden de salida y escribirla al puerto es
+        # atómico respecto a otros escritores (lazo, reenvío del lector,
+        # /io/test). Sin esto un reenvío rezagado podía salir después de una
+        # orden nueva e invertir la salida.
+        self._cmd_lock = threading.RLock()
 
         self.data = {
             "ai": [0] * 16,
@@ -97,6 +157,42 @@ class SerialLink:
         self._ever_connected = False
         self._device_reset_attempted = False
         self._consecutive_gen_failures = 0
+
+        # --- Handshake (E6) -------------------------------------------------
+        # _handshake_ok: conexión válida; solo entonces is_connected() y las
+        # órdenes de salida. _handshake_pendiente: ejecutarlo en el próximo
+        # tick de supervisión (tras conectar, WD o reinicio de la tarjeta).
+        # _proximo_handshake: reintento tras un handshake fallido.
+        self._handshake_ok = False
+        self._handshake_pendiente = False
+        self._proximo_handshake: Optional[float] = None
+        self._en_handshake = False
+        # Progreso del handshake, escrito por el hilo lector (bajo _hs_cond).
+        self._hs_cond = threading.Condition()
+        self._hs_reset()
+
+        self._tarjeta: Dict[str, Any] = {"version": None, "protocolo": None, "id": None}
+        self._st: Optional[Dict[str, Any]] = None
+        self._ultimo_uptime: Optional[int] = None
+        self._pcf_malas = 0
+        self._pcf_reportado = False
+
+        # Comparación comandado vs DO reportado: canal -> (estado, instante
+        # monotonic de la orden). Solo canales comandados desde el handshake.
+        self._comandado: Dict[int, tuple[bool, float]] = {}
+        self._discrepancia_tramas = 0
+        self._reenvio_hecho = False
+        self._discrepancia_reportada = False
+
+        self._eventos_lock = threading.Lock()
+        self._eventos: list[EventoTarjeta] = []
+
+        # FW-D6: último tick completado del ControlLoop (monotonic) o None.
+        self._ultimo_tick_control: Optional[float] = None
+
+        # Callback(tarjeta: dict) al completar cada handshake (audit_log,
+        # emparejamiento). Corre en el hilo de supervisión.
+        self.al_conectar: Optional[Callable[[Dict[str, Any]], None]] = None
 
         self._read_thread: Optional[threading.Thread] = None
         self._watchdog_thread: Optional[threading.Thread] = None
@@ -144,7 +240,10 @@ class SerialLink:
             return False
 
         try:
-            ser = serial.Serial(port, self.baudrate, timeout=0.2)
+            # TMG-05: write_timeout para que un driver USB atascado no
+            # bloquee para siempre al escritor con serial_lock tomado.
+            ser = serial.Serial(port, self.baudrate, timeout=0.2,
+                                write_timeout=self._WRITE_TIMEOUT_S)
             ser.reset_input_buffer()
             ser.reset_output_buffer()
 
@@ -162,6 +261,10 @@ class SerialLink:
                 self._ultima_di_mono = None
                 self._ultima_valida_mono = time.monotonic()
                 self._invalidas_consecutivas = 0
+                # Conexión nueva = handshake nuevo antes de aceptar órdenes
+                self._handshake_ok = False
+                self._handshake_pendiente = True
+                self._proximo_handshake = None
             self.serial = ser
 
             self._ever_connected = True
@@ -207,6 +310,11 @@ class SerialLink:
             self.data["port_open"] = False
             self.data["data_alive"] = False
             self._ultima_di_mono = None
+            self._handshake_ok = False
+            self._handshake_pendiente = False
+            self._proximo_handshake = None
+        with self._hs_cond:
+            self._hs_cond.notify_all()      # un handshake en curso deja de esperar
 
         # Nueva caída = nuevo episodio: habilita un nuevo intento de reset
         # PnP si este episodio también termina atascado (no solo el primero
@@ -228,8 +336,64 @@ class SerialLink:
         return (time.monotonic() if now is None else now) - ultima
 
     def is_connected(self) -> bool:
+        """Puerto abierto, datos vivos y handshake completo (D-02: sin
+        handshake válido el equipo queda sin conexión para todo el sistema)."""
         with self.data_lock:
-            return self.data["port_open"] and self.data["data_alive"]
+            return (self.data["port_open"] and self.data["data_alive"]
+                    and self._handshake_ok)
+
+    @property
+    def handshake_completo(self) -> bool:
+        return self._handshake_ok
+
+    def tarjeta(self) -> Dict[str, Any]:
+        """Versión, protocolo e ID informados por la tarjeta en el último
+        handshake (None si aún no hay)."""
+        with self.data_lock:
+            return dict(self._tarjeta)
+
+    def marcar_tick_control(self) -> None:
+        """Lo llama ControlLoop.run() al completarse cada tick sin excepción (FW-D6, TMG-01)."""
+        self._ultimo_tick_control = time.monotonic()
+
+    def expansor_fuera_de_linea(self) -> bool:
+        """SAF-01: con la conexión válida, un expansor ya reportado fuera de
+        línea (pcf_ok distinto de 3F sostenido) que no se ha recuperado. Sus
+        entradas quedan congeladas en el firmware (FW-01)."""
+        return self._handshake_ok and self._pcf_reportado
+
+    def solicitar_handshake(self) -> None:
+        """Invalida la conexión y repite el handshake en el próximo tick de
+        supervisión (alarma fuera de ciclo, plan de protocolo §7)."""
+        with self.data_lock:
+            if not self.data["port_open"]:
+                return
+            self._handshake_ok = False
+            self._handshake_pendiente = True
+        self._notificar()
+
+    def tomar_eventos(self) -> list[EventoTarjeta]:
+        """Devuelve y vacía la cola de eventos de la tarjeta."""
+        with self._eventos_lock:
+            eventos, self._eventos = self._eventos, []
+        return eventos
+
+    def _evento(self, origen: str, alarm_id: Optional[str], motivo: str) -> None:
+        if alarm_id is not None:
+            logger.warning("SerialLink: %s (%s): %s", alarm_id, origen, motivo)
+        with self._eventos_lock:
+            self._eventos.append(EventoTarjeta(origen, alarm_id, motivo))
+
+    def _invalidar_por_tarjeta(self, alarm_id: str, motivo: str) -> None:
+        """WD o reinicio de la tarjeta con el handshake hecho: el firmware
+        quedó NO_SINCRONIZADO (rechaza SET), así que se repite el handshake
+        antes de aceptar órdenes (plan de protocolo §6.7)."""
+        with self.data_lock:
+            if not self._handshake_ok:
+                return
+            self._handshake_ok = False
+            self._handshake_pendiente = True
+        self._evento("operacion", alarm_id, motivo)
 
     # ---------------------------------------------------------------------
     # Loops
@@ -274,11 +438,203 @@ class SerialLink:
                 last_scan = now
             return None, last_scan
 
-        if last_hb is None or now - last_hb >= self.HEARTBEAT_INTERVAL:
-            self._send_cmd("HB")
-            last_hb = now
+        if not self._handshake_ok:
+            vencido = (self._proximo_handshake is not None
+                       and now >= self._proximo_handshake)
+            if self._handshake_pendiente or vencido:
+                if not self._ejecutar_handshake():
+                    # D-02: reintento automático cada reintento_handshake_s
+                    self._proximo_handshake = now + self.config.reintento_handshake_s
+                    self._handshake_pendiente = False
+        elif self._tick_control_reciente(now):
+            # FW-D6: sin tick reciente del lazo no hay HB; el watchdog del
+            # firmware apaga todo a los 5 s.
+            if last_hb is None or now - last_hb >= self.HEARTBEAT_INTERVAL:
+                self._send_cmd("HB")
+                last_hb = now
         self._check_timeout(now)
         return last_hb, last_scan
+
+    def _tick_control_reciente(self, now: float) -> bool:
+        ultimo = self._ultimo_tick_control
+        return ultimo is not None and now - ultimo <= self.MARGEN_TICK_CONTROL
+
+    # ---------------------------------------------------------------------
+    # Handshake de conexión (plan de protocolo §4.6)
+    # ---------------------------------------------------------------------
+
+    def _hs_reset(self) -> None:
+        with self._hs_cond:
+            self._hs_valida = False          # llegó una línea de CRC válido
+            self._hs_sin_crc = 0             # líneas AI/DI/DO sin CRC (firmware V2)
+            self._hs_ver: Optional[tuple] = None
+            self._hs_acks = 0
+            self._hs_ok_all_off = 0
+            self._hs_esperando_estado = False
+            self._hs_do: Optional[list] = None   # último DO tras OK ALL_OFF
+            self._hs_st: list[dict] = []         # ST recibidas tras OK ALL_OFF
+
+    def _hs_esperar(self, condicion, fin: float, timeout: Optional[float] = None) -> bool:
+        """Espera `condicion()` hasta `fin` (o `timeout`). Deja de esperar si
+        el puerto se cierra (p.ej. 10 líneas inválidas seguidas)."""
+        restante = fin - time.monotonic()
+        if timeout is not None:
+            restante = min(restante, timeout)
+        with self._hs_cond:
+            if restante > 0:
+                self._hs_cond.wait_for(
+                    lambda: condicion() or not self.data["port_open"], restante)
+            return bool(condicion())
+
+    def _hs_comando(self, payload: str, contador: Callable[[], Any], fin: float) -> bool:
+        """Envía `payload` hasta all_off_intentos veces, esperando
+        all_off_timeout_s cada vez a que `contador()` cambie."""
+        for _ in range(self.config.all_off_intentos):
+            if time.monotonic() >= fin:
+                return False
+            with self._hs_cond:
+                antes = contador()
+            self._send_cmd(payload)
+            if self._hs_esperar(lambda: contador() != antes, fin,
+                                self.config.all_off_timeout_s):
+                return True
+        return False
+
+    def _ejecutar_handshake(self) -> bool:
+        """Handshake completo. Bloquea el hilo de supervisión hasta
+        handshake_presupuesto_s. True si la conexión quedó válida; si falla,
+        encola un EventoTarjeta con la alarma específica."""
+        fin = time.monotonic() + self.config.handshake_presupuesto_s
+        with self.data_lock:
+            self._handshake_ok = False
+            self._handshake_pendiente = False
+            self._tarjeta = {"version": None, "protocolo": None, "id": None}
+        # TMG-02: ALL_OFF de mejor esfuerzo antes de empezar. Si la tarjeta
+        # seguía SINCRONIZADA con salidas en ON (handshake invalidado fuera
+        # de ciclo), las líneas VER/HB de un handshake que falla alimentan su
+        # watchdog y las salidas quedarían en su último estado sin límite.
+        # No se espera OK: la confirmación es el paso 5.
+        self._send_cmd("ALL_OFF")
+        self._hs_reset()
+        self._en_handshake = True
+        try:
+            alarma, motivo = self._handshake_pasos(fin)
+        finally:
+            self._en_handshake = False
+            # SAF-02: fuera del handshake no se acumulan ST ni DO (antes
+            # _hs_st crecía sin límite con cada ST en operación).
+            with self._hs_cond:
+                self._hs_esperando_estado = False
+                self._hs_st = []
+                self._hs_do = None
+
+        if alarma is not None:
+            self._evento("handshake", alarma, motivo)
+            return False
+
+        with self.data_lock:
+            self._comandado = {}
+            self._discrepancia_tramas = 0
+            self._reenvio_hecho = False
+            self._discrepancia_reportada = False
+            self._pcf_malas = 0
+            self._pcf_reportado = False
+            self._ultimo_uptime = (self._st or {}).get("uptime_s")
+            self._handshake_ok = True
+            self._proximo_handshake = None
+            tarjeta = dict(self._tarjeta)
+        logger.info("SerialLink: handshake completo con la tarjeta %s (firmware %s)",
+                    tarjeta["id"], tarjeta["version"])
+        self._evento("conectada", None, "Handshake completo")
+        if self.al_conectar is not None:
+            try:
+                self.al_conectar(tarjeta)
+            except Exception as e:
+                logger.warning("SerialLink: error en al_conectar: %s", e)
+        self._notificar()
+        return True
+
+    def _handshake_pasos(self, fin: float) -> tuple[Optional[str], str]:
+        """Pasos 2 a 6 del §4.6. Devuelve (alarma, motivo); alarma None = OK."""
+        # 2. Primera trama con CRC válido
+        if not self._hs_esperar(lambda: self._hs_valida, fin):
+            if self._hs_sin_crc:
+                # HAZ-FC-11: firmware V2 (sin CRC) cargado en la tarjeta
+                return ("TARJETA_VERSION_INCOMPATIBLE",
+                        "La tarjeta envía tramas sin CRC: firmware anterior a 1.0.0 "
+                        "(protocolo 1). Cargar el firmware 1.0.0.")
+            return "TARJETA_SIN_TRAMA_VALIDA", "No llegó ninguna trama válida de la tarjeta."
+
+        # 3. VER y protocolo 2
+        if not self._hs_comando("VER", lambda: self._hs_ver, fin):
+            return ("TARJETA_VERSION_INCOMPATIBLE",
+                    "La tarjeta no respondió a VER: firmware sin soporte del protocolo 2.")
+        version, protocolo, ident = self._hs_ver
+        with self.data_lock:
+            self._tarjeta = {"version": version, "protocolo": protocolo, "id": ident}
+        if protocolo != PROTOCOLO_ESPERADO:
+            return ("TARJETA_VERSION_INCOMPATIBLE",
+                    f"La tarjeta informa protocolo {protocolo} (firmware {version}); "
+                    f"se requiere el protocolo {PROTOCOLO_ESPERADO}.")
+
+        # 4. HB y ACK
+        if not self._hs_comando("HB", lambda: self._hs_acks, fin):
+            return "TARJETA_SIN_ACK", "La tarjeta no confirmó el latido (HB sin ACK)."
+
+        # 5. ALL_OFF y OK ALL_OFF (all_off_intentos de all_off_timeout_s)
+        if not self._hs_comando("ALL_OFF", lambda: self._hs_ok_all_off, fin):
+            return ("TARJETA_ALL_OFF_SIN_CONFIRMAR",
+                    "La tarjeta no confirmó el apagado de salidas (ALL_OFF).")
+
+        # 6. Dos ST consecutivas sanas (pcf_ok=3F, sync=1) con DO todo en 0
+        return self._hs_verificar_estado(fin)
+
+    def _hs_verificar_estado(self, fin: float) -> tuple[Optional[str], str]:
+        n = self.config.tramas_discrepancia
+        vistas = 0
+        buenas = 0
+        malas: dict[str, int] = {}
+        ultima_causa: Optional[tuple[str, str]] = None
+        while True:
+            if not self._hs_esperar(lambda: len(self._hs_st) > vistas, fin):
+                if ultima_causa is not None:
+                    return ultima_causa
+                return ("TARJETA_SIN_TRAMA_VALIDA",
+                        "La tarjeta no envió tramas de estado (ST) tras el ALL_OFF.")
+            with self._hs_cond:
+                nuevas = self._hs_st[vistas:]
+                vistas = len(self._hs_st)
+            for ev in nuevas:
+                if ev["do"] is None:
+                    continue    # ST anterior al primer DO tras el ALL_OFF: no cuenta
+                causa = self._hs_causa(ev)
+                if causa is None:
+                    buenas += 1
+                    malas = {}
+                    if buenas >= n:
+                        return None, ""
+                    continue
+                buenas = 0
+                ultima_causa = causa
+                malas = {causa[0]: malas.get(causa[0], 0) + 1}
+                if malas[causa[0]] >= n:
+                    return causa
+
+    @staticmethod
+    def _hs_causa(ev: dict) -> Optional[tuple[str, str]]:
+        """None si la trama ST (con el DO previo) es sana; si no, la causa."""
+        if ev["pcf_ok"] != PCF_OK_SANO:
+            return ("TARJETA_EXPANSOR_FUERA_DE_LINEA",
+                    f"Expansor de E/S sin respuesta (pcf_ok={ev['pcf_ok']}, se espera "
+                    f"{PCF_OK_SANO}).")
+        if any(ev["do"]):
+            encendidas = [str(i + 1) for i, b in enumerate(ev["do"]) if b]
+            return ("TARJETA_SALIDAS_NO_APAGADAS",
+                    f"Salidas encendidas tras el ALL_OFF: DO{', DO'.join(encendidas)}.")
+        if ev["sync"] != 1:
+            return ("TARJETA_ALL_OFF_SIN_CONFIRMAR",
+                    "La tarjeta sigue NO_SINCRONIZADA tras el ALL_OFF (sync=0).")
+        return None
 
     def _check_timeout(self, now: Optional[float] = None):
         """Declara caída la comunicación si pasan DATA_TIMEOUT segundos
@@ -339,6 +695,10 @@ class SerialLink:
 
             payload = validar_linea(texto)
             if payload is None:
+                if "*" not in texto and texto[:3] in ("AI:", "DI:", "DO:"):
+                    # Trama del firmware V2 (sin CRC): el handshake lo informa
+                    with self._hs_cond:
+                        self._hs_sin_crc += 1
                 self._registrar_invalida("CRC inválido o ausente", raw)
                 return
 
@@ -362,6 +722,10 @@ class SerialLink:
             self.data["data_alive"] = True
             self._ultima_valida_mono = time.monotonic()
             self._invalidas_consecutivas = 0
+        with self._hs_cond:
+            if not self._hs_valida:
+                self._hs_valida = True
+                self._hs_cond.notify_all()
         self._notificar()
 
     def _registrar_invalida(self, motivo: str, raw: Optional[bytes]):
@@ -398,16 +762,140 @@ class SerialLink:
 
         elif payload.startswith("DO:"):
             self._bits("do", payload[3:], 32)
+            do = self.get_state()["do"]
+            with self._hs_cond:
+                if self._hs_esperando_estado:
+                    self._hs_do = do
+            self._comparar_salidas(do)
+
+        elif payload.startswith("ST:"):
+            self._procesar_st(_parsear_st(payload[3:]))
 
         elif payload == "ACK":
-            pass
+            with self._hs_cond:
+                self._hs_acks += 1
+                self._hs_cond.notify_all()
 
         elif payload.startswith("OK "):
             if self._expected_ack and payload == self._expected_ack:
                 self._ack_event.set()
+            if payload == "OK ALL_OFF":
+                with self._hs_cond:
+                    self._hs_ok_all_off += 1
+                    if self._en_handshake:
+                        # Solo cuentan el DO y las ST posteriores a la confirmación
+                        self._hs_esperando_estado = True
+                        self._hs_do = None
+                        self._hs_st = []
+                    self._hs_cond.notify_all()
+
+        elif payload.startswith("VER "):
+            datos = _parsear_version(payload[4:])
+            with self._hs_cond:
+                self._hs_ver = datos
+                self._hs_cond.notify_all()
+
+        elif payload.startswith("BOOT "):
+            version, _, ident = _parsear_version(payload[5:])
+            logger.info("SerialLink: BOOT de la tarjeta %s (firmware %s)", ident, version)
+            self._invalidar_por_tarjeta(
+                "TARJETA_REINICIO",
+                f"La tarjeta se reinició (BOOT, firmware {version}); salidas apagadas.")
+
+        elif payload == "WD: ALL_OFF":
+            self._invalidar_por_tarjeta(
+                "TARJETA_WATCHDOG",
+                "El watchdog de la tarjeta apagó todas las salidas (sin órdenes válidas del PC).")
 
         else:
             raise LineaMalformada("tipo de línea desconocido")
+
+    def _procesar_st(self, st: Dict[str, Any]):
+        with self.data_lock:
+            self._st = st
+            anterior = self._ultimo_uptime
+            if self._handshake_ok:
+                self._ultimo_uptime = st["uptime_s"]
+        with self._hs_cond:
+            if self._hs_esperando_estado:
+                self._hs_st.append({"pcf_ok": st["pcf_ok"], "sync": st["sync"],
+                                    "do": self._hs_do})
+                self._hs_cond.notify_all()
+
+        if not self._handshake_ok:
+            return
+        # Reinicio que no llegó como BOOT: uptime que retrocede, o la tarjeta
+        # informa watchdog disparado / NO_SINCRONIZADO con la conexión válida.
+        if anterior is not None and st["uptime_s"] < anterior:
+            self._invalidar_por_tarjeta(
+                "TARJETA_REINICIO",
+                f"El tiempo de funcionamiento de la tarjeta retrocedió "
+                f"({anterior} s -> {st['uptime_s']} s): reinicio.")
+            return
+        if st["wd"] == 1 or st["sync"] == 0:
+            self._invalidar_por_tarjeta(
+                "TARJETA_WATCHDOG",
+                f"La tarjeta informa watchdog={st['wd']} sync={st['sync']}: salidas apagadas.")
+            return
+
+        # pcf_ok distinto de 3F sostenido N tramas (filtra un NACK aislado)
+        if st["pcf_ok"] != PCF_OK_SANO:
+            self._pcf_malas += 1
+            if self._pcf_malas >= self.config.tramas_discrepancia and not self._pcf_reportado:
+                self._pcf_reportado = True
+                self._evento("operacion", "TARJETA_EXPANSOR_FUERA_DE_LINEA",
+                             f"Expansor de E/S sin respuesta (pcf_ok={st['pcf_ok']}).")
+        else:
+            self._pcf_malas = 0
+            self._pcf_reportado = False
+
+    def _comparar_salidas(self, do: list):
+        """Plan de protocolo §6.5: discrepancia entre lo comandado y el DO
+        reportado, sostenida tramas_discrepancia tramas, genera un único
+        reenvío; si persiste, un evento DISCREPANCIA_SALIDAS. Solo canales
+        comandados desde el handshake y hace al menos 1 s."""
+        if not self._handshake_ok:
+            return
+        ahora = time.monotonic()
+        with self.data_lock:
+            difieren = sorted(
+                ch for ch, (est, t) in self._comandado.items()
+                if ahora - t >= self._TOLERANCIA_COMANDO_S and bool(do[ch - 1]) != est
+            )
+            if not difieren:
+                self._discrepancia_tramas = 0
+                self._reenvio_hecho = False
+                self._discrepancia_reportada = False
+                return
+            self._discrepancia_tramas += 1
+            if self._discrepancia_tramas < self.config.tramas_discrepancia:
+                return
+            self._discrepancia_tramas = 0
+            reenviar = not self._reenvio_hecho
+            reportar = self._reenvio_hecho and not self._discrepancia_reportada
+            if reenviar:
+                self._reenvio_hecho = True
+                for ch in difieren:
+                    self._comandado[ch] = (self._comandado[ch][0], ahora)
+            if reportar:
+                self._discrepancia_reportada = True
+            estados = {ch: self._comandado[ch][0] for ch in difieren}
+
+        canales = ", ".join(f"DO{ch}" for ch in difieren)
+        if reenviar:
+            logger.warning("SerialLink: salidas %s distintas de lo comandado; reenvío único",
+                           canales)
+            # TMG-03: el estado a reenviar se relee bajo _cmd_lock justo antes
+            # de escribir; si el lazo comandó otro valor entretanto, sale ese.
+            with self._cmd_lock:
+                for ch in estados:
+                    with self.data_lock:
+                        est = self._comandado[ch][0] if ch in self._comandado else None
+                    if est is not None and self._handshake_ok:
+                        self._send_cmd(f"SET DO{ch} {'ON' if est else 'OFF'}")
+        elif reportar:
+            self._evento("operacion", "DISCREPANCIA_SALIDAS",
+                         f"Las salidas {canales} no siguen lo comandado tras el reenvío.")
 
     def _bits(self, clave: str, bits: str, n: int):
         if len(bits) != n or any(b not in "01" for b in bits):
@@ -441,6 +929,10 @@ class SerialLink:
             return {
                 "lineas_invalidas_total": self._invalidas_total,
                 "lineas_invalidas_consecutivas": self._invalidas_consecutivas,
+                "handshake_completo": self._handshake_ok,
+                # Última trama ST de la tarjeta (contadores del firmware,
+                # disc_do y ai_inv solo diagnóstico, D-05), o None.
+                "tarjeta_st": dict(self._st) if self._st is not None else None,
             }
 
     def _send_raw(self, cmd: str):
@@ -465,14 +957,38 @@ class SerialLink:
         if not self.serial or not self.serial.is_open:
             return False
 
-        self._send_cmd(f"SET DO{channel} {'ON' if state else 'OFF'}")
+        # Sin handshake completo no salen órdenes de salida (§5 punto 1)
+        if not self._handshake_ok:
+            return False
+
+        with self._cmd_lock:
+            with self.data_lock:
+                self._registrar_comando(channel, bool(state), time.monotonic())
+            self._send_cmd(f"SET DO{channel} {'ON' if state else 'OFF'}")
         return True
 
-    def all_off(self, timeout=1.0) -> bool:
-        self._ack_event.clear()
-        self._expected_ack = "OK ALL_OFF"
+    def _registrar_comando(self, channel: int, estado: bool, ahora: float) -> None:
+        """Bajo data_lock. La exclusión de 1 s de la comparación cuenta desde
+        el último CAMBIO de estado comandado: las puertas y otras salidas se
+        reafirman en cada tick con el mismo valor, y renovar el instante en
+        cada reenvío las dejaría sin comparar nunca."""
+        previo = self._comandado.get(channel)
+        if previo is None or previo[0] != estado:
+            self._comandado[channel] = (estado, ahora)
 
-        self._send_cmd("ALL_OFF")
+    def all_off(self, timeout=1.0) -> bool:
+        # El ALL_OFF del handshake va por _hs_comando; este es el del lazo.
+        if not self._handshake_ok:
+            return False
+        with self._cmd_lock:
+            ahora = time.monotonic()
+            with self.data_lock:
+                for ch in range(1, 33):
+                    self._registrar_comando(ch, False, ahora)
+            self._ack_event.clear()
+            self._expected_ack = "OK ALL_OFF"
+
+            self._send_cmd("ALL_OFF")
 
         ok = self._ack_event.wait(timeout)
         self._expected_ack = None
@@ -490,3 +1006,48 @@ def _entero_decimal(texto: str, minimo: int, maximo: int) -> int:
     if not (minimo <= valor <= maximo):
         raise LineaMalformada(f"valor fuera de rango {valor}")
     return valor
+
+
+def _hex(texto: str, ancho: int) -> str:
+    if not _RE_HEX[ancho].match(texto):
+        raise LineaMalformada(f"hexadecimal de {ancho} dígitos inválido {texto!r}")
+    return texto
+
+
+def _bit(texto: str) -> int:
+    if texto not in ("0", "1"):
+        raise LineaMalformada(f"se esperaba 0 o 1, llegó {texto!r}")
+    return int(texto)
+
+
+def _parsear_st(campos_texto: str) -> Dict[str, Any]:
+    """`<ver>,<pcf_ok>,<disc_do>,<ai_inv>,<crc_rx_err>,<i2c_err>,<wd>,<uptime_s>,<sync>`
+    (planeacion_firmware_1_5.md §4.5)."""
+    c = campos_texto.split(",")
+    if len(c) != 9:
+        raise LineaMalformada(f"ST con {len(c)} campos")
+    if _entero_decimal(c[0], 0, _MAX_U32) != PROTOCOLO_ESPERADO:
+        raise LineaMalformada(f"ST de protocolo {c[0]}")
+    return {
+        "pcf_ok": _hex(c[1], 2),
+        "disc_do": _hex(c[2], 8),
+        "ai_inv": _hex(c[3], 4),
+        "crc_rx_err": _entero_decimal(c[4], 0, _MAX_U32),
+        "i2c_err": _entero_decimal(c[5], 0, _MAX_U32),
+        "wd": _bit(c[6]),
+        "uptime_s": _entero_decimal(c[7], 0, _MAX_U64),
+        "sync": _bit(c[8]),
+    }
+
+
+def _parsear_version(texto: str) -> tuple[str, int, str]:
+    """`<version> <protocolo> <ID12>` de BOOT y VER (FW-D1, FW-D2)."""
+    partes = texto.split(" ")
+    if len(partes) != 3:
+        raise LineaMalformada("BOOT/VER con formato inválido")
+    version, protocolo, ident = partes
+    if not _RE_VERSION.match(version):
+        raise LineaMalformada(f"versión inválida {version!r}")
+    if not _RE_ID.match(ident):
+        raise LineaMalformada(f"ID de tarjeta inválido {ident!r}")
+    return version, _entero_decimal(protocolo, 0, 999), ident

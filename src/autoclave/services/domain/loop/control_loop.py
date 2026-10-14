@@ -23,6 +23,10 @@ logger = logging.getLogger(__name__)
 # futura reversión de esa fusión la reintroduce; hoy nunca hace match.
 _F0_FASES_ACUMULAN = {"CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION"}
 
+# Fallas de la tarjeta que, fuera de ciclo, piden repetir el handshake
+# (plan de protocolo serial §6.5 y §7).
+_ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS"}
+
 
 class ControlLoop:
 
@@ -112,6 +116,11 @@ class ControlLoop:
         # ciclo por un paro que solo es falta de datos (decisión P3).
         self._conectado_desde: float | None = None
 
+        # Alarmas de la tarjeta reportadas fuera de ciclo, que se despejan al
+        # completar el siguiente handshake. Las del fallo de un ciclo no: esas
+        # se liberan con el reconocimiento del operador.
+        self._alarmas_tarjeta: set[str] = set()
+
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
     # =========================================================================
@@ -122,6 +131,11 @@ class ControlLoop:
                 self._tick()
             except Exception as exc:
                 logger.warning("ControlLoop: error inesperado en el ciclo: %s", exc)
+            else:
+                # FW-D6 (TMG-01): solo un tick COMPLETADO renueva el latido.
+                # Un lazo vivo que falla en cada tick deja de alimentar el HB y
+                # el watchdog del firmware apaga todo a los 5 s.
+                self.link.marcar_tick_control()
             time.sleep(self.interval)
 
 
@@ -177,7 +191,71 @@ class ControlLoop:
             )
         self._puerta_2_no_declarada_cerrada = cerrada
 
+    def _procesar_eventos_tarjeta(self) -> None:
+        """Reacción a los eventos de la tarjeta de E/S (plan de protocolo
+        serial §7, E6). En ciclo, toda falla en operación aborta el ciclo
+        (FALLO + protocolo de fallo). Fuera de ciclo, alarma bloqueante hasta
+        el próximo handshake válido; el expansor fuera de línea y la
+        discrepancia de salidas además piden ese handshake (WD y reinicio ya
+        lo repite el propio enlace)."""
+        eventos = self.link.tomar_eventos()
+        if not isinstance(eventos, list):
+            return
+        for ev in eventos:
+            # TMG-06: un error con un evento no debe perder los siguientes
+            # (la cola ya se vació) ni cortar el resto del tick.
+            try:
+                self._procesar_evento_tarjeta(ev)
+            except Exception as exc:
+                logger.error("ControlLoop: error procesando evento de tarjeta %s: %s",
+                             getattr(ev, "alarm_id", None), exc)
+
+    def _procesar_evento_tarjeta(self, ev) -> None:
+        if ev.origen == "conectada":
+            for alarm_id in sorted(self._alarmas_tarjeta):
+                self.alarm_manager.clear(alarm_id)
+            self._alarmas_tarjeta.clear()
+            return
+
+        en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
+        if ev.origen == "operacion" and en_ciclo:
+            # TMG-07: si el ciclo ya terminaba (resultado pendiente), el
+            # aborto no actúa y se sigue la ruta de fuera de ciclo.
+            if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
+                return
+
+        self.alarm_manager.report(Alarm(
+            alarm_id=ev.alarm_id,
+            alarm_type=AlarmType.FALLA,
+            source_state="CONTROL_LOOP",
+            description=ev.motivo,
+            recoverable=True,
+            blocks_operation=True,
+        ))
+        self._alarmas_tarjeta.add(ev.alarm_id)
+        # Decisión 8: en CICLO (también con el resultado ya pendiente) no se
+        # repite el handshake; su ALL_OFF cerraría el venteo del protocolo de
+        # fallo. Al salir de CICLO lo pide el chequeo SAF-01 de _tick().
+        if (ev.origen == "operacion" and ev.alarm_id in _ALARMAS_PIDEN_HANDSHAKE
+                and not en_ciclo):
+            self.link.solicitar_handshake()
+
     def _tick(self):
+        # FW-D6: el latido lo renueva run() al completarse este tick (TMG-01).
+        # Antes del chequeo de conexión: un WD o reinicio de la tarjeta deja
+        # el enlace sin handshake y el resto del tick no correría.
+        self._procesar_eventos_tarjeta()
+        # SAF-01: un expansor caído en ciclo aborta el ciclo pero no repite el
+        # handshake (el protocolo de fallo necesita las salidas). Fuera de
+        # CICLO no se sigue operando con entradas congeladas: se repite el
+        # handshake, que falla en el paso 6 mientras pcf_ok no sea 3F y deja
+        # la FALLA bloqueante y el equipo sin conexión.
+        if (self.estado.get_machine_state() != GlobalState.CICLO
+                and self.link.expansor_fuera_de_linea() is True):
+            logger.error("ControlLoop: expansor de E/S fuera de línea fuera de ciclo; "
+                         "se repite el handshake")
+            self.link.solicitar_handshake()
+
         connected = self.link.is_connected()
         now = time.monotonic()
 

@@ -8,8 +8,10 @@
 #   - versión del software (metadatos del paquete, igual que el ticket de arranque)
 #   - ciclos realizados / último ciclo: GET /cycle/history?limite=1, consultado
 #     fuera del hilo de la GUI al abrir el panel
-# Sin fuente en el código (se muestran como "No disponible"): fecha del último
-# mantenimiento y versión de la tarjeta.
+#   - versión, ID y emparejamiento de la tarjeta de E/S: GET /status (campo
+#     `tarjeta`, del último handshake; E6, FW-D2 y FW-D7), en la misma consulta
+# Sin fuente en el código (se muestra como "No disponible"): fecha del último
+# mantenimiento.
 
 import importlib.metadata
 import logging
@@ -58,8 +60,26 @@ def _fila(clave, valor, disponible=True) -> dict:
     return {"clave": clave, "valor": None if valor is None else str(valor), "disponible": disponible}
 
 
-def filas_equipo(perfil, door: int, version_sw, historial) -> list[dict]:
-    """historial: None = aún no se pudo consultar; [] = sin ciclos; [fila] = último ciclo."""
+# FW-D7: emparejada -> clave del texto en la sección "equipo" de es.json
+_TEXTO_EMPAREJAMIENTO = {True: "tarjeta_emparejada", False: "tarjeta_no_emparejada"}
+
+
+def _filas_tarjeta(tarjeta) -> list[dict]:
+    t = tarjeta if isinstance(tarjeta, dict) else {}
+    emparejamiento = _fila("emparejamiento_tarjeta", None)
+    clave = _TEXTO_EMPAREJAMIENTO.get(t.get("emparejada"))
+    if clave is not None:
+        emparejamiento["valorClave"] = clave
+    return [
+        _fila("version_tarjeta", t.get("version")),
+        _fila("id_tarjeta", t.get("id")),
+        emparejamiento,
+    ]
+
+
+def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None) -> list[dict]:
+    """historial: None = aún no se pudo consultar; [] = sin ciclos; [fila] = último ciclo.
+    tarjeta: campo `tarjeta` de /status ({version, id, emparejada}) o None."""
     p = perfil
     ultimo = historial[0] if historial else None
     if historial is None:
@@ -89,7 +109,7 @@ def filas_equipo(perfil, door: int, version_sw, historial) -> list[dict]:
         _fila("ultimo_ciclo", ultimo_ciclo),
         _fila("ultimo_mantenimiento", None, disponible=False),
         _fila("version_software", version_sw),
-        _fila("version_tarjeta", None, disponible=False),
+        *_filas_tarjeta(tarjeta),
     ]
 
 
@@ -109,6 +129,7 @@ class InfoEquipo(QObject):
         self._version = version_sw
         self._ejecutar = ejecutar
         self._historial = None
+        self._tarjeta = None
         self._consultando = False
         self._filas = filas_equipo(perfil, door, version_sw, None)
         self._historial_recibido.connect(self._al_recibir)
@@ -126,16 +147,26 @@ class InfoEquipo(QObject):
             except Exception as e:
                 logger.debug("historial de ciclos no disponible: %s", e)
                 filas = None
-            self._historial_recibido.emit(filas)
+            try:
+                status = self._backend.get("/status")
+                tarjeta = status.get("tarjeta") if isinstance(status, dict) else None
+            except Exception as e:
+                logger.debug("estado de la tarjeta no disponible: %s", e)
+                tarjeta = None
+            self._historial_recibido.emit((filas, tarjeta))
 
         self._ejecutar(tarea)
 
-    def _al_recibir(self, filas) -> None:
+    def _al_recibir(self, datos) -> None:
         self._consultando = False
+        filas, tarjeta = datos
         if isinstance(filas, list):
             self._historial = filas
-        # si falla, se conserva el último historial conocido
-        nuevas = filas_equipo(self._perfil, self._door, self._version, self._historial)
+        if isinstance(tarjeta, dict):
+            self._tarjeta = tarjeta
+        # si falla, se conserva el último dato conocido
+        nuevas = filas_equipo(self._perfil, self._door, self._version, self._historial,
+                              self._tarjeta)
         if nuevas != self._filas:
             self._filas = nuevas
             self.filasChanged.emit()

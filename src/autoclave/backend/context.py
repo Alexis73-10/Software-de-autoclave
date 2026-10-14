@@ -5,7 +5,8 @@ from autoclave.services.domain.puertas.ser_puertas import ServicioPuertas
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave.installation.equipment import get_capabilities
-from autoclave.installation.profile import entradas_no_monitoreadas, sondas_no_vigiladas
+from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
+                                           tarjeta_emparejada)
 from autoclave.devices.factory.factory import build_doors_cfg, build_serial
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.door_factory import create_door
@@ -164,7 +165,7 @@ class BackendContext:
         """Abre el serial, construye puertas, registro de ciclo y ControlLoop,
         y arranca el loop. `al_cancelar_prueba` se registra antes de start(),
         para no perder un paro que llegue en el primer tick."""
-        self.serial = build_serial(self.units)
+        self.serial = build_serial(self.units, al_conectar=self._al_conectar_tarjeta)
         self.setdo = SetOutput(self.serial, self.estado, profile=self.profile)
 
         self.doors = [
@@ -218,6 +219,32 @@ class BackendContext:
         if al_cancelar_prueba is not None:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
         self.control_loop.start()
+
+    def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
+        """Cada handshake completo con la tarjeta de E/S: registro en
+        audit_log y comparación con el board_id del perfil (FW-D7). Una
+        tarjeta distinta o sin registrar es solo advertencia en la versión
+        1.0 (no bloquea). Corre en el hilo de supervisión del enlace."""
+        emparejada = tarjeta_emparejada(getattr(self, "profile", None), tarjeta.get("id"))
+        board_id = getattr(getattr(self, "profile", None), "board_id", None)
+        if not emparejada:
+            logger.warning(
+                "Tarjeta de E/S %s no emparejada con el equipo (board_id del perfil: %s). "
+                "Registrarla con tools/emparejar_tarjeta.py si es la correcta.",
+                tarjeta.get("id"), board_id or "sin registrar")
+        db = getattr(self, "db", None)
+        if db is None:
+            return
+        try:
+            db.registrar_auditoria(
+                "tarjeta_conectada",
+                usuario="sistema",
+                entidad="tarjeta_es",
+                valor_nuevo=dict(tarjeta),
+                detalle={"emparejada": emparejada, "board_id": board_id},
+            )
+        except Exception:
+            logger.exception("No se pudo registrar la conexión de la tarjeta en audit_log")
 
     def es_conectada(self) -> bool:
         return self.serial is not None and self.serial.is_connected()

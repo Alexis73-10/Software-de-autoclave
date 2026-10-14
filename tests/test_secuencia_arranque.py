@@ -333,7 +333,7 @@ def test_bd_que_falla_una_vez_y_luego_abre(monkeypatch):
 
 def test_construir_control_registra_el_aviso_antes_de_start(monkeypatch):
     loop = MagicMock()
-    monkeypatch.setattr(ctx_mod, "build_serial", lambda units: MagicMock())
+    monkeypatch.setattr(ctx_mod, "build_serial", lambda units, al_conectar=None: MagicMock())
     monkeypatch.setattr(ctx_mod, "build_doors_cfg", lambda profile: [])
     for nombre in ("SetOutput", "ServicioPuertas", "RealtimePrinter", "CycleLogger"):
         monkeypatch.setattr(ctx_mod, nombre, MagicMock())

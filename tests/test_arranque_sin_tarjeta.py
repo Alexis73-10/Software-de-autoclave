@@ -87,7 +87,7 @@ def _etapa(reg, clave):
 def backend(monkeypatch, tmp_path):
     enlaces = []
 
-    def build_serial(units):
+    def build_serial(units, al_conectar=None):
         enlaces.append(_EnlaceSinTarjeta(units))
         return enlaces[-1]
 

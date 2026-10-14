@@ -232,21 +232,29 @@ def test_timeout_ignora_saltos_del_reloj_de_pared():
 
 
 def test_latido_usa_monotonic_y_no_se_detiene_con_cambio_de_hora():
+    # E6 (FW-D6): el HB exige handshake completo y un tick reciente del lazo
     link, puerto = _link()
+    link._handshake_ok = True
     with patch.object(sl_mod.time, "time", side_effect=AssertionError("no debe usarse time.time")):
         link._ultima_valida_mono = 0.0
+        link._ultimo_tick_control = 0.0
         hb, scan = link._watchdog_tick(0.0, None, None)
+        link._ultimo_tick_control = 1.0
         hb, scan = link._watchdog_tick(1.0, hb, scan)
         link._ultima_valida_mono = 2.0
+        link._ultimo_tick_control = 2.0
         hb, scan = link._watchdog_tick(2.0, hb, scan)
         link._ultima_valida_mono = 4.0
+        link._ultimo_tick_control = 4.0
         hb, scan = link._watchdog_tick(4.0, hb, scan)
     assert puerto.comandos().count("HB") == 3
 
 
 def test_latido_lleva_crc():
     link, puerto = _link()
+    link._handshake_ok = True
     link._ultima_valida_mono = 0.0
+    link._ultimo_tick_control = 0.0
     link._watchdog_tick(0.0, None, None)
     assert puerto.escrito == ["HB*" + format(sl_mod.agregar_crc("HB").split("*")[1]) + "\n"]
 
@@ -275,6 +283,7 @@ def test_disconnect_condicional_no_cierra_conexion_nueva():
 
 def test_set_output_envia_comando_con_crc():
     link, puerto = _link()
+    link._handshake_ok = True
     assert link.set_output(4, True) is True
     assert puerto.escrito[-1].startswith("SET DO4 ON*")
     assert sl_mod.validar_linea(puerto.escrito[-1].rstrip("\n")) == "SET DO4 ON"

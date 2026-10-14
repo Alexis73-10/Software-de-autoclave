@@ -45,9 +45,12 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
     return cfg
 
 
-def build_serial(units) -> SerialLink:
-    """Enlace serial con la tarjeta, ya iniciado (abre el puerto y sus hilos)."""
+def build_serial(units, al_conectar=None) -> SerialLink:
+    """Enlace serial con la tarjeta, ya iniciado (abre el puerto y sus hilos).
+    `al_conectar(tarjeta)` se registra antes de start() para no perder el
+    primer handshake (audit_log y emparejamiento, FW-D7)."""
     serial = SerialLink(on_update=lambda data: units.update_from_serial(data))
+    serial.al_conectar = al_conectar
     serial._scan_ports()
     serial.start()
     return serial

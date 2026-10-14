@@ -20,7 +20,8 @@ from autoclave.backend.contrasenas import hash_password, simular_verificacion, v
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.core.runtime import progreso_ciclo
-from autoclave.installation.profile import entradas_no_monitoreadas, sondas_no_vigiladas
+from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
+                                           tarjeta_emparejada)
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
@@ -625,6 +626,23 @@ def _diagnostico_comunicacion() -> dict | None:
     return diag if isinstance(diag, dict) else None
 
 
+def _tarjeta_status() -> dict:
+    """Versión e ID de la tarjeta de E/S del último handshake y si coincide
+    con la emparejada en el perfil (FW-D7: solo advertencia, no bloquea)."""
+    try:
+        info = context.serial.tarjeta()
+    except Exception:
+        info = None
+    if not isinstance(info, dict):
+        info = {}
+    ident = info.get("id")
+    return {
+        "version": info.get("version"),
+        "id": ident,
+        "emparejada": tarjeta_emparejada(getattr(context, "profile", None), ident),
+    }
+
+
 @app.get("/status", response_model=None)
 def get_status():
     estado = context.estado
@@ -696,6 +714,7 @@ def get_status():
         # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).
         "card_connected":        context.serial.is_connected(),
         "comunicacion":          _diagnostico_comunicacion(),
+        "tarjeta":               _tarjeta_status(),
         "test_mode_active":      context.control_loop.test_mode_active,
         "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,

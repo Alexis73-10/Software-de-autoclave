@@ -36,6 +36,7 @@ def load() -> InstallationProfile:
         locked=data["locked"],
         supply_inputs=normalizar_supply_inputs(data.get("supply_inputs")),
         temperature_probes=normalizar_temperature_probes(data.get("temperature_probes")),
+        board_id=data.get("board_id"),
     )
 
 
@@ -57,6 +58,8 @@ def save(profile: InstallationProfile):
         "locked":          profile.locked,
         "supply_inputs":   normalizar_supply_inputs(profile.supply_inputs),
         "temperature_probes": normalizar_temperature_probes(profile.temperature_probes),
+        # FW-D7: solo si está emparejada (el campo ausente = sin emparejar)
+        **({"board_id": profile.board_id} if profile.board_id else {}),
     }, indent=2, ensure_ascii=False), encoding="utf-8")
 
 

@@ -618,3 +618,32 @@ class CicloState:
         ))
         self._protocolo.ejecutar()
         self._resultado_pendiente = CicloResultado.FALLO
+
+    def abortar_por_falla_io(self, alarm_id: str, motivo: str):
+        """Llamado por ControlLoop cuando la tarjeta de E/S informa una falla
+        durante un ciclo en curso: watchdog disparado, reinicio, expansor
+        fuera de línea o salidas que no siguen lo comandado (plan de
+        protocolo serial §7 y §11.5). Análogo a abortar_por_desconexion(): el
+        enlace puede quedar sin handshake (WD/BOOT) y entonces run() no corre,
+        así que el aborto y el protocolo de fallo se disparan desde aquí.
+
+        Devuelve True si abortó; False si el ciclo ya se estaba terminando
+        por otra causa (el ControlLoop entonces la reporta como fuera de
+        ciclo, TMG-07)."""
+        if self._resultado_pendiente is not None:
+            return False  # ya se estaba abortando/terminando por otra causa
+
+        logger.error("CicloState: ABORTADO por falla de la tarjeta de E/S (%s): %s",
+                     alarm_id, motivo)
+        self.estado.fase_ciclo = "FALLO_IO"
+        self.estado.motivo_fallo = motivo
+        self.alarm_manager.report(Alarm(
+            alarm_id=alarm_id,
+            alarm_type=AlarmType.EMERGENCIA,
+            source_state="CICLO",
+            description=motivo,
+            recoverable=True,
+        ))
+        self._protocolo.ejecutar()
+        self._resultado_pendiente = CicloResultado.FALLO
+        return True

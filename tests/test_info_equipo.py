@@ -58,9 +58,8 @@ def test_filas_con_perfil_e_historial():
 def test_sin_fuente_en_el_software_se_marca_no_disponible():
     f = _por_clave(filas_equipo(_perfil(), 1, "0.5.0", []))
     assert f["ultimo_mantenimiento"]["disponible"] is False
-    assert f["version_tarjeta"]["disponible"] is False
-    assert all(v["disponible"] for k, v in f.items()
-               if k not in ("ultimo_mantenimiento", "version_tarjeta"))
+    # E6: la versión de la tarjeta ya tiene fuente (/status.tarjeta)
+    assert all(v["disponible"] for k, v in f.items() if k != "ultimo_mantenimiento")
 
 
 def test_historial_vacio_y_desconocido():
@@ -92,7 +91,7 @@ def test_actualizar_consulta_el_historial_y_emite():
     espia = QSignalSpy(info.filasChanged)
     info.actualizar()
     QCoreApplication.processEvents()
-    backend.get.assert_called_once_with("/cycle/history", params={"limite": 1})
+    backend.get.assert_any_call("/cycle/history", params={"limite": 1})
     assert _por_clave(info.filas)["ciclos_realizados"]["valor"] == "5"
     assert espia.count() == 1
 
