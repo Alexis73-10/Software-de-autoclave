@@ -2,7 +2,7 @@
 
 Inventario de las alarmas (`Alarm`, `state_machine/alarms/`) que el código genera hoy, obtenido por
 búsqueda directa en `src/` (rama `dev`). No existe un registro central de `alarm_id`: cada
-`Alarm(...)` se instancia donde ocurre la condición. Actualizado 2026-10-11 (versión anterior:
+`Alarm(...)` se instancia donde ocurre la condición. Actualizado 2026-10-14 (E6: §2.2 y fila de §4.1); antes 2026-10-11 (versión anterior:
 2026-09-18, respaldada en `catalogo_alarmas.2026-09-18.bak.md`).
 
 Cambios respecto a la versión del 18-sep: se agrega `CONFIGURACION_INVALIDA`; se elimina PURGA de
@@ -52,6 +52,27 @@ Fuente: `backend/arranque/secuencia.py`. No son alarmas del `AlarmManager`: son 
 | `ARR_SIN_ES` | conectando_modulos_es | en_curso | 15 s sin E/S conectadas; sigue reintentando (D-E). |
 | `ARR_ERROR_INTERNO` | cualquiera | fallo | Excepción no prevista en la etapa (queda la traza en el log). |
 
+### 2.2 Tarjeta de E/S (E6, 2026-10-14)
+
+Fuente: `protocols/serial_link.py` (detección, `EventoTarjeta`) y `services/domain/loop/control_loop.py`
+(`_procesar_eventos_tarjeta`). Ids aprobados en `planeacion_protocolo_serial_esp32.md` §11.6. Fuera de ciclo
+el `ControlLoop` las reporta como FALLA bloqueante y recuperable (`source_state="CONTROL_LOOP"`) y las despeja
+al completarse el siguiente handshake. En ciclo, las de operación abortan el ciclo (ver §4.1). La descripción
+lleva el motivo concreto (texto en español generado en `serial_link.py`). Mientras el handshake no se completa,
+`is_connected()` es False, así que además aparece `NO_HAY_CONEXION`.
+
+| ID | Tipo | Bloq. | Recup. | Condición | Acción del operador |
+|---|---|---|---|---|---|
+| `TARJETA_SIN_TRAMA_VALIDA` | FALLA | sí | sí | Handshake: ninguna línea de CRC válido dentro del presupuesto (15 s), o ninguna ST tras el ALL_OFF. Reintento cada 3 s. | Revisar cable USB y alimentación de la tarjeta. Llamar a servicio técnico. |
+| `TARJETA_VERSION_INCOMPATIBLE` | FALLA | sí | sí | Handshake: `VER` sin respuesta, protocolo distinto de 2, o tramas sin CRC (firmware V2 cargado, HAZ-FC-11). | Cargar el firmware 1.0.0 (servicio técnico). |
+| `TARJETA_SIN_ACK` | FALLA | sí | sí | Handshake: `HB` sin `ACK` en 3 intentos de 1 s. | Servicio técnico. |
+| `TARJETA_ALL_OFF_SIN_CONFIRMAR` | FALLA | sí | sí | Handshake: `ALL_OFF` sin `OK ALL_OFF` en 3 intentos de 1 s, o la tarjeta sigue con `sync=0` en 2 ST seguidas tras confirmarlo. | Servicio técnico. |
+| `TARJETA_SALIDAS_NO_APAGADAS` | FALLA | sí | sí | Handshake: `DO:` con alguna salida en 1 en 2 tramas seguidas tras el `ALL_OFF`. | No operar. Servicio técnico (etapa de potencia o expansor). |
+| `TARJETA_EXPANSOR_FUERA_DE_LINEA` | FALLA (EMERGENCIA en ciclo) | sí | sí | `pcf_ok` distinto de `3F` en 2 ST seguidas: en el handshake, o en operación (fuera de ciclo pide nuevo handshake). | Servicio técnico (bus I2C / expansor PCF8575). |
+| `TARJETA_WATCHDOG` | FALLA (EMERGENCIA en ciclo) | sí | sí | Con handshake hecho: `WD: ALL_OFF`, o ST con `wd=1` o `sync=0`. El enlace repite el handshake solo. | Revisar si el PC o el lazo de control se congelaron (FW-D6). |
+| `TARJETA_REINICIO` | FALLA (EMERGENCIA en ciclo) | sí | sí | Con handshake hecho: `BOOT` inesperado o `uptime_s` que retrocede. El enlace repite el handshake solo. | Revisar alimentación de la tarjeta. |
+| `DISCREPANCIA_SALIDAS` | FALLA (EMERGENCIA en ciclo) | sí | sí | `DO:` reportado distinto de lo comandado (canales comandados desde el handshake y hace ≥ 1 s) en 2 tramas, tras un reenvío único. Fuera de ciclo pide nuevo handshake. Independiente de `disc_do`, que es solo diagnóstico (D-05). | Servicio técnico. |
+
 ## 3. PREPARADO y PREPARACION
 
 Fuente: `states/preparado.py`, `states/preparacion.py`. Separación válvula/alarma/gate: ver
@@ -92,6 +113,7 @@ Fuente: `states/ciclo.py`. Al entrar en cualquier FALLA/EMERGENCIA de ciclo se e
 | `FALLO_PUERTA_2_EMPAQUE` | FALLA | sí | sí | `pres_empaque_2` < 0.6 × `presion_empaque`. | Ídem puerta 2. |
 | `SENSOR_AUSENTE` | EMERGENCIA | sí | no | Sin lectura (`None`) de `temp_camara` o `pres_camara` (únicos críticos hoy). | Revisar sensor/comunicación; servicio técnico. |
 | `FALLO_CONEXION` | EMERGENCIA | sí | **sí** | Enlace serial caído más de `_TOLERANCIA_DESCONEXION_SEG` (5 s) en ciclo; lo dispara `ControlLoop` vía `abortar_por_desconexion()`. | Revisar enlace con la tarjeta. |
+| `TARJETA_WATCHDOG` / `TARJETA_REINICIO` / `TARJETA_EXPANSOR_FUERA_DE_LINEA` / `DISCREPANCIA_SALIDAS` | EMERGENCIA | sí | sí | Falla de la tarjeta de E/S en ciclo (ver §2.2); lo dispara `ControlLoop` vía `abortar_por_falla_io(alarm_id, motivo)`. `fase_ciclo = "FALLO_IO"`. | Ver §2.2. |
 | `FALLO_<FASE>` | FALLA | sí | sí | Una fase devolvió `FaseResult.FALLO`. Ver §4.3. | Según motivo (`estado.motivo_fallo`). |
 
 ### 4.2 No abortan el ciclo
@@ -206,6 +228,7 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | `NO_HAY_CONEXION` | COM-01 | ALARMA |
 | `FALLO_CONEXION` | COM-02 | FALLO_CRITICO |
 | `CONFIGURACION_INVALIDA` | **sin código en el diseño** | — |
+| `TARJETA_*` (9 ids de §2.2, E6) | **sin código en el diseño** | — |
 | (nueva) | SIS-02 Historial no disponible | AVISO |
 
 Observación: el diseño Parte A no contempla `CONFIGURACION_INVALIDA` (alarma agregada al backend el
