@@ -4,7 +4,7 @@
 # planeacion_animacion_arranque.md §6. Expone a QML:
 #   fraccion        0–1, etapas completadas / total
 #   proceso         clave del texto del proceso en curso (sección "arranque" de
-#                   assets/textos/<idioma>.json)
+#                   autoclave/i18n/<idioma>.json)
 #   terminado       el arranque terminó
 #   falloBloqueante el arranque no puede continuar
 #

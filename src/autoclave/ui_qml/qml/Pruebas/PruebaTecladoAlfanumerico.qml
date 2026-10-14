@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
 import "../Componentes"
+import Autoclave.I18n
 
 // PRUEBA DESECHABLE (planeacion_teclados_qml.md, Paso 4): muestra el teclado
 // alfanumérico anclado al pie con longitud máxima 30. NO es parte de la
@@ -13,16 +14,11 @@ Window {
     visible: true
     color: Colores.fondoTarjeta
 
-    property var textosJson: ({})
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
 
-    property string resultado: tx("prueba_teclado", "sin_valor")
+    property string resultado: I18n.t("prueba_teclado.sin_valor", I18n.lang)
 
     function abrirTeclado() {
-        teclado.abrir(tx("prueba_teclado", "campo_alfanumerico"), "", 30)
+        teclado.abrir(I18n.t("prueba_teclado.campo_alfanumerico", I18n.lang), "", 30)
     }
 
     Binding {
@@ -50,7 +46,7 @@ Window {
                 width: parent.width - Escala.px(48)
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
-                text: ventana.tx("prueba_teclado", "aviso")
+                text: I18n.t("prueba_teclado.aviso", I18n.lang)
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
@@ -64,7 +60,7 @@ Window {
             spacing: Escala.px(16)
 
             Text {
-                text: ventana.tx("prueba_teclado", "titulo_alfanumerico")
+                text: I18n.t("prueba_teclado.titulo_alfanumerico", I18n.lang)
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
@@ -81,7 +77,7 @@ Window {
                     x: Escala.px(24)
                     spacing: Escala.px(4)
                     Text {
-                        text: ventana.tx("prueba_teclado", "valor_entregado")
+                        text: I18n.t("prueba_teclado.valor_entregado", I18n.lang)
                         color: Colores.textoSecundario
                         font.family: Tipografia.familia
                         font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
@@ -98,7 +94,7 @@ Window {
                 MouseArea { anchors.fill: parent; onClicked: ventana.abrirTeclado() }
             }
             Text {
-                text: ventana.tx("prueba_teclado", "reabrir")
+                text: I18n.t("prueba_teclado.reabrir", I18n.lang)
                 color: Colores.textoGuia
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
@@ -113,13 +109,12 @@ Window {
             anchors.bottomMargin: Escala.px(24)
             anchors.horizontalCenter: parent.horizontalCenter
             width: implicitWidth; height: implicitHeight
-            textosJson: ventana.textosJson
             onConfirmado: valor => {
                 ventana.resultado = "«" + valor + "»"
                 ventana.abrirTeclado()
             }
             onCancelado: {
-                ventana.resultado = ventana.tx("prueba_teclado", "cancelado")
+                ventana.resultado = I18n.t("prueba_teclado.cancelado", I18n.lang)
                 ventana.abrirTeclado()
             }
         }

@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Resumen de ciclos de un periodo (pestaña Resumen de Reportes): totales por
 // resultado con su porcentaje y una barra de proporciones, la tabla por
@@ -12,15 +13,10 @@ Flickable {
     id: raiz
 
     property real escala: 1
-    property var textosJson: ({})
     property var datos: ({ total: "0", totales: [], por_programa: [], causas: [] })
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
-    function tx(clave) {
-        const s = textosJson ? textosJson["reportes"] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
     function colorDe(clave) {
         return clave === "completados" ? Colores.menuVerdeTexto
              : clave === "fallos" ? Colores.peligroTexto
@@ -94,7 +90,7 @@ Flickable {
                 Text {
                     width: parent.width - raiz.m(8)
                     wrapMode: Text.WordWrap
-                    text: raiz.tx("total")
+                    text: I18n.t("reportes.total", I18n.lang)
                     color: Colores.textoSecundario
                     font.family: Tipografia.familia
                     font.pixelSize: raiz.fuente(20)
@@ -119,7 +115,7 @@ Flickable {
                     Text {
                         width: parent.width - raiz.m(8)
                         wrapMode: Text.WordWrap
-                        text: raiz.tx(total.modelData.clave)
+                        text: I18n.t("reportes." + total.modelData.clave, I18n.lang)
                         color: Colores.textoSecundario
                         font.family: Tipografia.familia
                         font.pixelSize: raiz.fuente(20)
@@ -168,7 +164,7 @@ Flickable {
         }
 
         // ---------- por programa ----------
-        Titulo { text: raiz.tx("por_programa"); topPadding: raiz.m(16) }
+        Titulo { text: I18n.t("reportes.por_programa", I18n.lang); topPadding: raiz.m(16) }
         Column {
             objectName: "tablaProgramas"
             width: parent.width
@@ -176,8 +172,12 @@ Flickable {
             FilaTabla {
                 encabezado: true
                 proporciones: parent._prop
-                celdas: [raiz.tx("programa"), raiz.tx("col_total"), raiz.tx("col_completados"),
-                         raiz.tx("col_fallos"), raiz.tx("col_cancelados"), raiz.tx("col_sin_cierre")]
+                celdas: [I18n.t("reportes.programa", I18n.lang),
+                         I18n.t("reportes.col_total", I18n.lang),
+                         I18n.t("reportes.col_completados", I18n.lang),
+                         I18n.t("reportes.col_fallos", I18n.lang),
+                         I18n.t("reportes.col_cancelados", I18n.lang),
+                         I18n.t("reportes.col_sin_cierre", I18n.lang)]
             }
             Repeater {
                 model: raiz.datos.por_programa
@@ -193,11 +193,11 @@ Flickable {
         }
 
         // ---------- causas de fallo ----------
-        Titulo { text: raiz.tx("causas_fallo"); topPadding: raiz.m(16) }
+        Titulo { text: I18n.t("reportes.causas_fallo", I18n.lang); topPadding: raiz.m(16) }
         Text {
             objectName: "sinFallos"
             visible: raiz.datos.causas.length === 0
-            text: raiz.tx("sin_fallos")
+            text: I18n.t("reportes.sin_fallos", I18n.lang)
             color: Colores.textoSecundario
             font.family: Tipografia.familia
             font.pixelSize: raiz.fuente(24)
@@ -209,7 +209,7 @@ Flickable {
             FilaTabla {
                 encabezado: true
                 proporciones: [0.8, 0.2]
-                celdas: [raiz.tx("causa"), raiz.tx("cantidad")]
+                celdas: [I18n.t("reportes.causa", I18n.lang), I18n.t("reportes.cantidad", I18n.lang)]
             }
             Repeater {
                 model: raiz.datos.causas

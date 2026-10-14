@@ -3,6 +3,7 @@ import QtQuick.Effects
 import QtQuick.Shapes
 import Tema
 import "../Componentes"
+import Autoclave.I18n
 
 // Pantalla previa al inicio del ciclo (mockup-01, docs/mis_plans/planeacion_pantalla_ciclo_ui.md).
 // Antes Ciclo.qml; renombrada a PantallaPreciclo (planeacion_pantalla_ciclo_en_curso.md 14.7)
@@ -18,7 +19,7 @@ import "../Componentes"
 // alarmas vienen del puente de solo lectura UiBridge (bridge/ui_bridge.py), que
 // lee el caché de UIServiceBackend. Sin conexión, los valores quedan congelados
 // y en gris (no vigentes, planeacion_ui_dual_pantalla.md §6.4) y los botones de
-// acción se deshabilitan. Textos: assets/textos/es.json (textosJson).
+// acción se deshabilitan. Textos: singleton I18n (autoclave/i18n).
 // Modelo y serie: perfil de instalación (InfoEquipo). La campana abre el panel
 // de notificaciones y el recuadro de modelo/serie el de información del equipo
 // (ambos PROVISIONALES, sin diseño).
@@ -36,7 +37,6 @@ Item {
     // comandoFalla: botón RECONOCER FALLA (T-16), visible solo en FALLA
     property QtObject comandoFalla: null
     property QtObject infoEquipo: null
-    property var textosJson: ({})
 
     // ---- datos del backend ----
     // "?." evita TypeError si no hay puente o al destruir la pantalla
@@ -49,7 +49,7 @@ Item {
     property string presionCamara: puente?.presionCamara ?? ""
     property bool datosVigentes: puente?.connected ?? false
     property string cicloActivo: puente?.cicloActivo ?? ""   // "cycle_number" del ciclo (01, 02...)
-    property string estadoTexto: tx("estados", puente?.estadoEquipo ?? "no_preparado")
+    property string estadoTexto: I18n.t("estados." + (puente?.estadoEquipo ?? "no_preparado"), I18n.lang)
     // Insignia de ESTADO: check verde si el equipo está listo (decisión de
     // Cristian, 2026-10-01); "!" naranja en los demás estados.
     readonly property bool estadoListo: (puente?.estadoEquipo ?? "") === "listo"
@@ -72,9 +72,9 @@ Item {
     // Insignia de la campana: única categoría de notificaciones por ahora (alertas y avisos)
     property int conteoNotificaciones: conteoAlarmas
     // Perfil de instalación; "—" si no se pudo leer
-    property string modelo: (infoEquipo?.modelo ?? "") || tx("sistema", "sin_lectura")
-    property string serie: (infoEquipo?.serie ?? "") || tx("sistema", "sin_lectura")
-    property string version: tx("app", "version")
+    property string modelo: (infoEquipo?.modelo ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
+    property string serie: (infoEquipo?.serie ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
+    property string version: I18n.t("app.version", I18n.lang)
 
     // ---- acciones: las resuelve quien usa la pantalla (servicios, plan §7) ----
     signal puertaPulsada()        // abrir si puertaAbierta es false, cerrar si es true
@@ -85,35 +85,29 @@ Item {
     signal ajustesPulsado()
     signal inicioPulsado()
 
-    // Texto de es.json por sección y clave; "" si falta (test_ui_qml_app lo vigila).
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
-
     // Textos de la pantalla (PC-07: siguen sin confirmar por el diseñador).
     readonly property QtObject textos: QtObject {
-        readonly property string cicloActivo: raiz.tx("ciclo", "activo")
-        readonly property string programa: raiz.tx("ciclo", "programa")
-        readonly property string estado: raiz.tx("ciclo", "estado")
-        readonly property string tempEster: raiz.tx("ciclo", "temp_ester")
-        readonly property string tiempoEst: raiz.tx("ciclo", "tiempo_est")
-        readonly property string tiempoSec: raiz.tx("ciclo", "tiempo_sec")
-        readonly property string tempCamara: raiz.tx("ciclo", "temp_camara")
-        readonly property string tempReferencia: raiz.tx("ciclo", "temp_referencia")
-        readonly property string presion: raiz.tx("ciclo", "presion")
-        readonly property string unidadTemp: raiz.tx("unidades", "temperatura")
-        readonly property string unidadTiempo: raiz.tx("unidades", "tiempo")
-        readonly property string unidadPresion: raiz.tx("unidades", "presion")
-        readonly property string alarmasTitulo: raiz.tx("ciclo", "alarmas_titulo")
-        readonly property string sinAlarmas: raiz.tx("ciclo", "sin_alarmas")
-        readonly property string sinConexion: raiz.tx("sistema", "sin_conexion")
-        readonly property string abrirPuerta: raiz.tx("ciclo", "abrir_puerta")
-        readonly property string cerrarPuerta: raiz.tx("ciclo", "cerrar_puerta")   // PC-05: sin mockup
-        readonly property string iniciarCiclo: raiz.tx("modulos", "iniciar_ciclo")
-        readonly property string reconocerFalla: raiz.tx("modulos", "reconocer_falla")
-        readonly property string modelo: raiz.tx("ciclo", "modelo")
-        readonly property string serie: raiz.tx("ciclo", "serie")
+        readonly property string cicloActivo: I18n.t("ciclo.activo", I18n.lang)
+        readonly property string programa: I18n.t("ciclo.programa", I18n.lang)
+        readonly property string estado: I18n.t("ciclo.estado", I18n.lang)
+        readonly property string tempEster: I18n.t("ciclo.temp_ester", I18n.lang)
+        readonly property string tiempoEst: I18n.t("ciclo.tiempo_est", I18n.lang)
+        readonly property string tiempoSec: I18n.t("ciclo.tiempo_sec", I18n.lang)
+        readonly property string tempCamara: I18n.t("ciclo.temp_camara", I18n.lang)
+        readonly property string tempReferencia: I18n.t("ciclo.temp_referencia", I18n.lang)
+        readonly property string presion: I18n.t("ciclo.presion", I18n.lang)
+        readonly property string unidadTemp: I18n.t("unidades.temperatura", I18n.lang)
+        readonly property string unidadTiempo: I18n.t("unidades.tiempo", I18n.lang)
+        readonly property string unidadPresion: I18n.t("unidades.presion", I18n.lang)
+        readonly property string alarmasTitulo: I18n.t("ciclo.alarmas_titulo", I18n.lang)
+        readonly property string sinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
+        readonly property string sinConexion: I18n.t("sistema.sin_conexion", I18n.lang)
+        readonly property string abrirPuerta: I18n.t("ciclo.abrir_puerta", I18n.lang)
+        readonly property string cerrarPuerta: I18n.t("ciclo.cerrar_puerta", I18n.lang)   // PC-05: sin mockup
+        readonly property string iniciarCiclo: I18n.t("modulos.iniciar_ciclo", I18n.lang)
+        readonly property string reconocerFalla: I18n.t("modulos.reconocer_falla", I18n.lang)
+        readonly property string modelo: I18n.t("ciclo.modelo", I18n.lang)
+        readonly property string serie: I18n.t("ciclo.serie", I18n.lang)
     }
 
     // Colores medidos sobre el mockup. PENDIENTE: promover a Tema/Colores.qml
@@ -222,7 +216,7 @@ Item {
         id: reloj
         anchors.fill: parent
         // mismo formato manual que BarraSuperior (sin depender de Qt.locale)
-        readonly property var _meses: (raiz.textosJson.fecha && raiz.textosJson.fecha.meses) || []
+        readonly property var _meses: I18n.valor("fecha.meses", I18n.lang) || []
         property date _ahora: new Date()
         Timer { interval: 1000; running: true; repeat: true; onTriggered: reloj._ahora = new Date() }
         function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
@@ -749,18 +743,17 @@ Item {
     // ======================= paneles (PROVISIONALES) =======================
     PanelNotificaciones {
         id: panelNotificaciones
-        titulo: raiz.tx("notificaciones", "titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
-        rotuloAlertas: raiz.tx("notificaciones", "alertas_avisos")
+        titulo: I18n.t("notificaciones.titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
+        rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: raiz.textos.sinAlarmas
         alarmas: raiz.alarmas
     }
     PanelEquipo {
         id: panelEquipo
-        titulo: raiz.tx("equipo", "titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
+        titulo: I18n.t("equipo.titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
         filas: raiz.infoEquipo?.filas ?? []
-        textosEquipo: raiz.textosJson.equipo ?? ({})
-        sinLectura: raiz.tx("sistema", "sin_lectura")
+        sinLectura: I18n.t("sistema.sin_lectura", I18n.lang)
     }
 }

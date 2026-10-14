@@ -1,4 +1,100 @@
 {
+  "instalacion": {
+    "titulo": "INSTALACIÓN DEL EQUIPO",
+    "paso_de": "Paso {n} de {total}",
+    "paso_activacion": "Activación",
+    "paso_equipo": "Tipo de equipo",
+    "paso_puertas": "Puertas",
+    "paso_enfriamiento": "Enfriamiento",
+    "paso_vapor": "Fuente de vapor",
+    "paso_datos": "Datos del equipo",
+    "paso_resumen": "Resumen",
+    "atras": "Atrás",
+    "siguiente": "Siguiente",
+    "instalar": "Instalar equipo",
+    "continuar": "Continuar",
+    "serie": "Número de serie del equipo",
+    "serie_marcador": "Número de serie",
+    "codigo": "Código de activación",
+    "codigo_marcador": "Código de 12 caracteres",
+    "activacion_ayuda": "Especifika emite el código para este número de serie. Solo es válido el día en que se genera.",
+    "error_serie": "Ingrese el número de serie",
+    "error_codigo_vacio": "Ingrese el código de activación",
+    "error_codigo": "Código de activación incorrecto o expirado",
+    "equipo_titulo": "Seleccione el tipo de equipo",
+    "error_equipo": "Seleccione el tipo de equipo",
+    "clase_mesa_n": "Mesa Clase N",
+    "clase_mesa_b": "Mesa Clase B",
+    "clase_mesa_b_lab": "Mesa Clase B Laboratorio",
+    "clase_piso": "Piso",
+    "clase_piso_lab": "Piso Laboratorio",
+    "cap_vacio": "Vacío",
+    "cap_chaqueta": "Chaqueta",
+    "cap_liquidos": "Líquidos",
+    "cap_una_puerta": "1 puerta",
+    "cap_dos_puertas": "Hasta 2 puertas",
+    "puertas_cantidad": "Número de puertas",
+    "puertas_una": "1 puerta",
+    "puertas_dos": "2 puertas",
+    "puertas_fija": "Este tipo de equipo tiene una sola puerta.",
+    "error_cantidad_puertas": "Seleccione el número de puertas",
+    "puertas_tipo": "Tipo de puerta",
+    "error_tipo_puerta": "Seleccione el tipo de puerta",
+    "puerta_simple": "Simple",
+    "puerta_simple_desc": "Sin sensor de empaque ni actuador",
+    "puerta_motorized": "Motorizada",
+    "puerta_locking": "Con bloqueo",
+    "puerta_motorized_locking": "Motorizada con bloqueo",
+    "puerta_advanced": "Avanzada",
+    "puerta_pc": "Puerta que gestiona este PC",
+    "puerta_pc_1": "Puerta 1",
+    "puerta_pc_2": "Puerta 2",
+    "enfriamiento_titulo": "Nivel de enfriamiento",
+    "enfriamiento_ayuda": "0 = sin enfriamiento. El máximo depende del tipo de equipo.",
+    "vapor_titulo": "Seleccione la fuente de vapor",
+    "error_vapor": "Seleccione la fuente de vapor",
+    "vapor_interno": "Generador interno",
+    "vapor_interno_desc": "El equipo genera su propio vapor",
+    "vapor_externo": "Caldera externa",
+    "vapor_externo_desc": "Conexión a la red de vapor del cliente",
+    "vapor_mixto": "Mixto",
+    "vapor_mixto_desc": "Circuito que alterna entre generador interno y caldera externa",
+    "modelo": "Modelo",
+    "modelo_marcador": "Modelo del equipo",
+    "error_modelo": "El modelo es obligatorio",
+    "suministros_titulo": "Entradas de suministro cableadas",
+    "suministros_ayuda": "Active solo las que el equipo tiene cableadas. Una entrada desactivada no se vigila: sin alarma ni bloqueo.",
+    "sum_agua_bomba": "Agua de la bomba de vacío",
+    "sum_agua_generador": "Agua del generador",
+    "sum_aire_comprimido": "Aire comprimido",
+    "sum_vapor_suministro": "Presostato de suministro de vapor",
+    "sum_suministro_electrico": "Suministro eléctrico",
+    "sondas_titulo": "Sondas de temperatura instaladas",
+    "sondas_ayuda": "La sonda de cámara 1 controla el ciclo y no se puede desactivar.",
+    "sonda_temp_camara": "Cámara 1 (control)",
+    "sonda_temp_2_camara": "Cámara 2",
+    "sonda_temp_ref": "Referencia",
+    "sonda_temp_drenaje": "Drenaje",
+    "resumen_titulo": "Revise los datos antes de instalar",
+    "resumen_aviso": "Al instalar, el perfil queda bloqueado y no se puede modificar desde el software.",
+    "resumen_serie": "Número de serie",
+    "resumen_modelo": "Modelo",
+    "resumen_equipo": "Tipo de equipo",
+    "resumen_puertas": "Puertas",
+    "resumen_puerta_pc": "Puerta de este PC",
+    "resumen_enfriamiento": "Enfriamiento",
+    "resumen_vapor": "Fuente de vapor",
+    "resumen_sin_vigilar": "Entradas sin vigilar",
+    "resumen_sin_sonda": "Sondas sin instalar",
+    "resumen_ninguna": "Ninguna",
+    "resumen_nivel": "Nivel {n}",
+    "resumen_sin_enfriamiento": "Sin enfriamiento",
+    "confirmar_pregunta": "¿Instalar el equipo con estos datos? El perfil quedará bloqueado.",
+    "confirmar_si": "Instalar",
+    "error_guardar": "Error al guardar: {detalle}",
+    "listo_titulo": "Instalación completada",
+    "listo_texto": "El equipo ha sido registrado correctamente. Reinicie el software para continuar."
+  },
   "app": {
     "nombre": "e-specifika",
     "version": "V: 1.0"
@@ -134,7 +230,13 @@
     "abriendo_base_datos": "Abriendo base de datos",
     "fallo_titulo": "Fallo de arranque",
     "fallo_bloqueante": "El arranque no puede continuar",
-    "sin_progreso": "Sin respuesta del sistema de control"
+    "sin_progreso": "Sin respuesta del sistema de control",
+    "verificando_instalacion": "Verificando instalación",
+    "liberando_procesos": "Liberando procesos",
+    "cargando_configuracion": "Cargando configuración",
+    "verificando_calibracion": "Verificando calibración",
+    "conectando_modulos_es": "Conectando módulos de E/S",
+    "preparando_interfaz": "Preparando interfaz"
   },
   "fases": {
     "precalentamiento": "Precalentamiento",
@@ -228,6 +330,10 @@
     "ultimo_mantenimiento": "Último mantenimiento",
     "version_software": "Versión de software",
     "version_tarjeta": "Versión de tarjeta",
+    "id_tarjeta": "ID de tarjeta",
+    "emparejamiento_tarjeta": "Tarjeta del equipo",
+    "tarjeta_emparejada": "Emparejada",
+    "tarjeta_no_emparejada": "No emparejada (aviso)",
     "no_disponible": "No disponible"
   },
   "formulario": {
@@ -355,5 +461,43 @@
     "no_coinciden": "Las contraseñas no coinciden",
     "rol_invalido": "Seleccione un rol",
     "igual_actual": "La nueva contraseña debe ser distinta de la actual"
+  },
+  "alarmas": {
+    "TARJETA_SIN_TRAMA_VALIDA": {
+      "titulo": "La tarjeta de E/S no envía datos válidos",
+      "accion": "Revise el cable USB y la alimentación de la tarjeta. Llame a servicio técnico."
+    },
+    "TARJETA_VERSION_INCOMPATIBLE": {
+      "titulo": "Firmware de la tarjeta de E/S incompatible",
+      "accion": "Cargue el firmware 1.0.0 (servicio técnico)."
+    },
+    "TARJETA_SIN_ACK": {
+      "titulo": "La tarjeta de E/S no confirma los comandos",
+      "accion": "Llame a servicio técnico."
+    },
+    "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
+      "titulo": "La tarjeta de E/S no confirmó el apagado de salidas",
+      "accion": "Llame a servicio técnico."
+    },
+    "TARJETA_SALIDAS_NO_APAGADAS": {
+      "titulo": "Salidas de la tarjeta de E/S no apagadas",
+      "accion": "No opere el equipo. Llame a servicio técnico (etapa de potencia o expansor)."
+    },
+    "TARJETA_EXPANSOR_FUERA_DE_LINEA": {
+      "titulo": "Expansor de la tarjeta de E/S fuera de línea",
+      "accion": "Llame a servicio técnico (bus I2C / expansor)."
+    },
+    "TARJETA_WATCHDOG": {
+      "titulo": "La tarjeta de E/S apagó las salidas por falta de comunicación",
+      "accion": "Revise si el equipo de control se congeló. Si se repite, llame a servicio técnico."
+    },
+    "TARJETA_REINICIO": {
+      "titulo": "La tarjeta de E/S se reinició",
+      "accion": "Revise la alimentación de la tarjeta. Si se repite, llame a servicio técnico."
+    },
+    "DISCREPANCIA_SALIDAS": {
+      "titulo": "Las salidas de la tarjeta no coinciden con lo comandado",
+      "accion": "Llame a servicio técnico."
+    }
   }
 }

@@ -1,5 +1,6 @@
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Datos y gráfica de un ciclo del historial, para las ventanas flotantes del
 // Menú Principal (Último ciclo y el ciclo elegido en Ciclos hoy). Solo
@@ -11,7 +12,6 @@ Item {
     id: raiz
 
     property real escala: 1
-    property var textosJson: ({})
     property string fecha: "—"
     property string hora: "—"
     property string programa: "—"           // número (02)
@@ -29,10 +29,6 @@ Item {
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
     readonly property string _sinDato: "—"
 
     component Campo: Column {
@@ -76,25 +72,25 @@ Item {
         readonly property real _util: width - 3 * spacing
         Campo {
             width: filaDatos._util * 0.25
-            rotulo: raiz.tx("menu", "fecha_inicio")
+            rotulo: I18n.t("menu.fecha_inicio", I18n.lang)
             valor: raiz.fecha !== raiz._sinDato ? raiz.fecha + "  " + raiz.hora : raiz._sinDato
         }
         Campo {
             width: filaDatos._util * 0.37
-            rotulo: raiz.tx("menu", "programa_dato")
+            rotulo: I18n.t("menu.programa_dato", I18n.lang)
             valor: raiz.programa + (raiz.programaNombre !== raiz._sinDato ? " · " + raiz.programaNombre : "")
             colorValor: Colores.menuNaranjaTexto
         }
         Campo {
             width: filaDatos._util * 0.2
-            rotulo: raiz.tx("menu", "resultado_dato")
+            rotulo: I18n.t("menu.resultado_dato", I18n.lang)
             valor: raiz.resultadoTexto
             detalle: raiz.resultadoDetalle
             colorValor: raiz.colorResultado
         }
         Campo {
             width: filaDatos._util * 0.18
-            rotulo: raiz.tx("menu", "operador")
+            rotulo: I18n.t("menu.operador", I18n.lang)
             valor: raiz.operador
         }
     }
@@ -109,7 +105,6 @@ Item {
         height: parent.height - y
         escala: width / 1129
         modoPantallaCompleta: true
-        textosJson: raiz.textosJson
         datos: raiz.datosGrafica
         fases: raiz.fasesGrafica
         tiempoActualMin: {
@@ -122,7 +117,7 @@ Item {
             objectName: "graficaNoDisponible"
             visible: !raiz.graficaDisponible
             anchors.centerIn: parent
-            text: raiz.tx("menu", "grafica_no_disponible")
+            text: I18n.t("menu.grafica_no_disponible", I18n.lang)
             color: Colores.textoSecundario
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold

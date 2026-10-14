@@ -4,6 +4,7 @@ import QtQuick.Effects
 import QtQuick.Shapes
 import Tema
 import "grafica_ejes.mjs" as Ejes
+import Autoclave.I18n
 
 // Tarjeta "GRÁFICA DEL CICLO" de la pantalla de ciclo en curso
 // (planeacion_pantalla_ciclo_en_curso.md §8; referencia:
@@ -21,7 +22,6 @@ Item {
     id: raiz
 
     property real escala: 1.0
-    property var textosJson: ({})
 
     // Datos: arreglos paralelos ordenados por tiempo (t_min en minutos desde el
     // inicio del ciclo); los valores sin lectura van como null.
@@ -45,20 +45,16 @@ Item {
     signal pantallaCompletaPulsado()
     signal cerrarPulsado()
 
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
 
     // Series de la gráfica. Los sensores mostrados serán configurables desde
     // configuración en el futuro; por ahora esta es la única lista.
     readonly property var series: [
-        { clave: "temp_camara", texto: tx("ciclo", "serie_temp_camara"), color: "#6599FC",
-          eje: "izquierdo", unidad: tx("unidades", "temperatura") },
-        { clave: "temp_ref", texto: tx("ciclo", "serie_temp_ref"), color: "#9732DA",
-          eje: "izquierdo", unidad: tx("unidades", "temperatura") },
-        { clave: "pres_camara", texto: tx("ciclo", "serie_presion"), color: "#00CCB0",
-          eje: "derecho", unidad: tx("unidades", "presion") },
+        { clave: "temp_camara", texto: I18n.t("ciclo.serie_temp_camara", I18n.lang), color: "#6599FC",
+          eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
+        { clave: "temp_ref", texto: I18n.t("ciclo.serie_temp_ref", I18n.lang), color: "#9732DA",
+          eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
+        { clave: "pres_camara", texto: I18n.t("ciclo.serie_presion", I18n.lang), color: "#00CCB0",
+          eje: "derecho", unidad: I18n.t("unidades.presion", I18n.lang) },
     ]
 
     readonly property QtObject paleta: QtObject {
@@ -161,7 +157,7 @@ Item {
     // ---- cabecera ----
     Texto {
         lx: 48; bl: 62; tam: 26
-        text: raiz.tx("ciclo", "grafica")
+        text: I18n.t("ciclo.grafica", I18n.lang)
         color: raiz.paleta.titulo
         font.weight: Tipografia.pesoBold
     }
@@ -200,7 +196,7 @@ Item {
         Text {
             x: raiz.m(25)
             anchors.verticalCenter: parent.verticalCenter
-            text: raiz.tx("ciclo", "tiempos")
+            text: I18n.t("ciclo.tiempos", I18n.lang)
             color: raiz.paleta.texto
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
@@ -243,7 +239,7 @@ Item {
         border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
         Text {
             anchors.centerIn: parent
-            text: raiz.tx("acciones", "cerrar")
+            text: I18n.t("acciones.cerrar", I18n.lang)
             color: raiz.paleta.texto
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
@@ -260,12 +256,12 @@ Item {
     // ---- unidades de los ejes ----
     Texto {
         lx: 21; bl: 246; tam: 20
-        text: raiz.tx("unidades", "temperatura")
+        text: I18n.t("unidades.temperatura", I18n.lang)
         color: raiz.paleta.etiquetaEje
     }
     Texto {
         lx: 1075; bl: 245; tam: 20
-        text: raiz.tx("unidades", "presion")
+        text: I18n.t("unidades.presion", I18n.lang)
         color: raiz.paleta.etiquetaEje
     }
 
@@ -327,7 +323,7 @@ Item {
     Text {
         x: raiz.m(564) - width / 2
         y: raiz.yb(779) - baselineOffset
-        text: raiz.tx("ciclo", "grafica_eje_tiempo")
+        text: I18n.t("ciclo.grafica_eje_tiempo", I18n.lang)
         color: raiz.paleta.tituloEje
         font.family: Tipografia.familia
         font.pixelSize: raiz.fuente(20)
@@ -479,7 +475,7 @@ Item {
             }
             Text {
                 x: raiz.m(18); y: raiz.m(36) - baselineOffset
-                text: raiz._formatoMmSs(cursor.tCursor) + " " + raiz.tx("unidades", "tiempo")
+                text: raiz._formatoMmSs(cursor.tCursor) + " " + I18n.t("unidades.tiempo", I18n.lang)
                 color: raiz.paleta.texto
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoMedium
@@ -510,7 +506,7 @@ Item {
                         // alineado a la derecha del globo (mockup: termina en x = 211 de 220)
                         x: raiz.m(211) - width; y: filaGlobo.bl - baselineOffset
                         text: (filaGlobo.valor === null || filaGlobo.valor === undefined
-                               ? raiz.tx("sistema", "sin_lectura")
+                               ? I18n.t("sistema.sin_lectura", I18n.lang)
                                : Number(filaGlobo.valor).toFixed(1)) + " " + filaGlobo.modelData.unidad
                         color: raiz.paleta.texto
                         font.family: Tipografia.familia
@@ -528,14 +524,13 @@ Item {
     // (se actualiza con el progreso), pendientes = "—". Se cierra al tocar fuera.
     function _formatoDuracion(seg) {
         if (seg === null || seg === undefined || !isFinite(seg))
-            return raiz.tx("sistema", "sin_lectura")
+            return I18n.t("sistema.sin_lectura", I18n.lang)
         const s = Math.max(0, Math.floor(seg))
         const dos = n => n < 10 ? "0" + n : "" + n
         return dos(Math.floor(s / 3600)) + ":" + dos(Math.floor(s % 3600 / 60)) + ":" + dos(s % 60)
     }
     function _nombreFase(clave) {
-        const f = raiz.textosJson ? raiz.textosJson.fases : undefined
-        return (f && f[clave] !== undefined) ? f[clave] : ""
+        return I18n.existe("fases." + clave, I18n.lang) ? I18n.t("fases." + clave, I18n.lang) : ""
     }
     MouseArea {
         visible: desplegable.abierto
@@ -585,7 +580,7 @@ Item {
                         x: parent.width - width - raiz.m(24)
                         anchors.verticalCenter: parent.verticalCenter
                         text: filaTiempo.modelData.estado === "pendiente"
-                              ? raiz.tx("sistema", "sin_lectura")
+                              ? I18n.t("sistema.sin_lectura", I18n.lang)
                               : raiz._formatoDuracion(filaTiempo.modelData.duracion_s)
                         color: raiz.paleta.texto
                         font.family: Tipografia.familia

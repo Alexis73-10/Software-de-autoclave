@@ -3,6 +3,7 @@ import QtQuick.Effects
 import Tema
 import "../Componentes"
 import "../../../images"   // IconoEjecucion.qml (engranaje + flechas animados)
+import Autoclave.I18n
 
 // Pantalla de ciclo en curso (docs/mis_plans/planeacion_pantalla_ciclo_en_curso.md).
 // Referencia: images/pantalla_ciclo_con_grafica_editada.png (1196 x 1917).
@@ -32,7 +33,6 @@ Item {
     property QtObject progreso: null   // ProgresoCiclo (solo lectura)
     property QtObject comandos: null   // ComandosCicloEnCurso (cancelar / confirmar)
     property QtObject infoEquipo: null
-    property var textosJson: ({})
 
     // ---- datos ----
     // "?." evita TypeError si no hay puente o al destruir la pantalla.
@@ -50,7 +50,7 @@ Item {
     property int conteoNotificaciones: alarmas?.count ?? 0
     property string modelo: infoEquipo?.modelo ?? ""
     property string serie: infoEquipo?.serie ?? ""
-    property string version: tx("app", "version")
+    property string version: I18n.t("app.version", I18n.lang)
     // [{fase, estado, duracion_s}] de las fases que aplican
     property var fases: progreso?.fases ?? []
     // segundos (reloj monotónico del backend); restanteS null = no estimable;
@@ -87,16 +87,12 @@ Item {
     signal tiemposPulsado()
     signal pantallaCompletaPulsado()
 
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
-    function sinLectura(valor) { return valor !== "" ? valor : tx("sistema", "sin_lectura") }
+    function sinLectura(valor) { return valor !== "" ? valor : I18n.t("sistema.sin_lectura", I18n.lang) }
 
     // HH:MM:SS de segundos ya medidos por el backend; null -> "—"
     function formatoReloj(seg) {
         if (seg === null || seg === undefined || !isFinite(seg))
-            return tx("sistema", "sin_lectura")
+            return I18n.t("sistema.sin_lectura", I18n.lang)
         const s = Math.max(0, Math.floor(seg))
         const dos = n => n < 10 ? "0" + n : "" + n
         return dos(Math.floor(s / 3600)) + ":" + dos(Math.floor(s % 3600 / 60)) + ":" + dos(s % 60)
@@ -109,24 +105,24 @@ Item {
     }
 
     readonly property QtObject textos: QtObject {
-        readonly property string cicloActivo: raiz.tx("ciclo", "activo")
-        readonly property string programa: raiz.tx("ciclo", "programa")
-        readonly property string estado: raiz.tx("ciclo", "estado")
-        readonly property string enEjecucion: raiz.tx("estados", "ejecutando")
-        readonly property string tempEster: raiz.tx("ciclo", "temp_ester")
-        readonly property string tiempoEst: raiz.tx("ciclo", "tiempo_est")
-        readonly property string tiempoSec: raiz.tx("ciclo", "tiempo_sec")
-        readonly property string tempCamara: raiz.tx("ciclo", "temp_camara")
-        readonly property string tempReferencia: raiz.tx("ciclo", "temp_referencia")
-        readonly property string presion: raiz.tx("ciclo", "presion")
-        readonly property string unidadTemp: raiz.tx("unidades", "temperatura")
-        readonly property string unidadTiempo: raiz.tx("unidades", "tiempo")
-        readonly property string unidadPresion: raiz.tx("unidades", "presion")
-        readonly property string transcurrido: raiz.tx("ciclo", "tiempo_transcurrido")
-        readonly property string restante: raiz.tx("ciclo", "tiempo_restante")
-        readonly property string cancelar: raiz.tx("ciclo", "cancelar")
-        readonly property string modelo: raiz.tx("ciclo", "modelo")
-        readonly property string serie: raiz.tx("ciclo", "serie")
+        readonly property string cicloActivo: I18n.t("ciclo.activo", I18n.lang)
+        readonly property string programa: I18n.t("ciclo.programa", I18n.lang)
+        readonly property string estado: I18n.t("ciclo.estado", I18n.lang)
+        readonly property string enEjecucion: I18n.t("estados.ejecutando", I18n.lang)
+        readonly property string tempEster: I18n.t("ciclo.temp_ester", I18n.lang)
+        readonly property string tiempoEst: I18n.t("ciclo.tiempo_est", I18n.lang)
+        readonly property string tiempoSec: I18n.t("ciclo.tiempo_sec", I18n.lang)
+        readonly property string tempCamara: I18n.t("ciclo.temp_camara", I18n.lang)
+        readonly property string tempReferencia: I18n.t("ciclo.temp_referencia", I18n.lang)
+        readonly property string presion: I18n.t("ciclo.presion", I18n.lang)
+        readonly property string unidadTemp: I18n.t("unidades.temperatura", I18n.lang)
+        readonly property string unidadTiempo: I18n.t("unidades.tiempo", I18n.lang)
+        readonly property string unidadPresion: I18n.t("unidades.presion", I18n.lang)
+        readonly property string transcurrido: I18n.t("ciclo.tiempo_transcurrido", I18n.lang)
+        readonly property string restante: I18n.t("ciclo.tiempo_restante", I18n.lang)
+        readonly property string cancelar: I18n.t("ciclo.cancelar", I18n.lang)
+        readonly property string modelo: I18n.t("ciclo.modelo", I18n.lang)
+        readonly property string serie: I18n.t("ciclo.serie", I18n.lang)
     }
 
     // Colores medidos sobre el mockup (los compartidos con PantallaPreciclo.qml, iguales).
@@ -242,7 +238,7 @@ Item {
         id: reloj
         anchors.fill: parent
         // reloj del sistema: solo para mostrar la hora (no es tiempo de proceso)
-        readonly property var _meses: (raiz.textosJson.fecha && raiz.textosJson.fecha.meses) || []
+        readonly property var _meses: I18n.valor("fecha.meses", I18n.lang) || []
         property date _ahora: new Date()
         Timer { interval: 1000; running: true; repeat: true; onTriggered: reloj._ahora = new Date() }
         function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }
@@ -389,7 +385,8 @@ Item {
     }
     Texto {
         cx: 1010; bl: 380; tam: 22
-        text: raiz.terminado ? raiz.tx("estados", raiz.resultado) : raiz.textos.enEjecucion
+        text: !raiz.terminado ? raiz.textos.enEjecucion
+              : raiz.resultado ? I18n.t("estados." + raiz.resultado, I18n.lang) : ""
         color: !raiz.terminado || raiz.resultado === "exitoso" ? raiz.paleta.verdeEjecutando
                                                                 : raiz.paleta.naranjaTexto
         font.family: Tipografia.familia
@@ -400,7 +397,6 @@ Item {
     BarraFases {
         anchors.fill: parent
         escala: raiz.m(1)
-        textosJson: raiz.textosJson
         fases: raiz.fases
     }
 
@@ -483,7 +479,6 @@ Item {
         width: raiz.m(1162 - 33)
         height: raiz.yb(1598) - y
         escala: raiz.m(1)
-        textosJson: raiz.textosJson
         datos: raiz.datosGrafica
         fases: raiz.fasesGrafica
         tiempoActualMin: raiz.tiempoActualMin
@@ -506,7 +501,7 @@ Item {
                 id: avisoSinConexion
                 x: raiz.m(20); width: parent.width - raiz.m(40)
                 anchors.verticalCenter: parent.verticalCenter
-                text: raiz.tx("sistema", "sin_conexion")
+                text: I18n.t("sistema.sin_conexion", I18n.lang)
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
                 color: Colores.textoSecundario
@@ -674,7 +669,7 @@ Item {
         Text {
             x: raiz.m(941 - 846)
             y: raiz.m(1816 - 1768) - baselineOffset
-            text: raiz.terminado ? raiz.tx("ciclo", "confirmar") : raiz.textos.cancelar
+            text: raiz.terminado ? I18n.t("ciclo.confirmar", I18n.lang) : raiz.textos.cancelar
             color: "white"
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoMedium
@@ -717,7 +712,6 @@ Item {
             height: parent.height - raiz.m(80)
             escala: raiz.m(1)
             modoPantallaCompleta: true
-            textosJson: raiz.textosJson
             datos: raiz.datosGrafica
             fases: raiz.fasesGrafica
             tiempoActualMin: raiz.tiempoActualMin
@@ -728,27 +722,26 @@ Item {
     // ======================= paneles (PROVISIONALES, como PantallaPreciclo.qml) =======================
     PanelNotificaciones {
         id: panelNotificaciones
-        titulo: raiz.tx("notificaciones", "titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
-        rotuloAlertas: raiz.tx("notificaciones", "alertas_avisos")
-        textoSinAlarmas: raiz.tx("ciclo", "sin_alarmas")
+        titulo: I18n.t("notificaciones.titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
+        rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
+        textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.alarmas
     }
     PanelEquipo {
         id: panelEquipo
-        titulo: raiz.tx("equipo", "titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
+        titulo: I18n.t("equipo.titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
         filas: raiz.infoEquipo?.filas ?? []
-        textosEquipo: raiz.textosJson.equipo ?? ({})
-        sinLectura: raiz.tx("sistema", "sin_lectura")
+        sinLectura: I18n.t("sistema.sin_lectura", I18n.lang)
     }
 
     // Cancelación: solo confirmación, sin credencial ni rol (plan §10)
     DialogoConfirmacion {
         id: dialogoCancelar
-        mensaje: raiz.tx("ciclo", "cancelar_pregunta")
-        textoConfirmar: raiz.tx("acciones", "confirmar")
-        textoCancelar: raiz.tx("acciones", "cancelar")
+        mensaje: I18n.t("ciclo.cancelar_pregunta", I18n.lang)
+        textoConfirmar: I18n.t("acciones.confirmar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: raiz.paleta.cancelarArriba
         onConfirmado: {
             raiz.cancelarPulsado()
@@ -765,13 +758,13 @@ Item {
     PanelModal {
         id: avisoComando
         altoTarjeta: Escala.px(560)
-        titulo: raiz.tx("ciclo", "aviso_titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
+        titulo: I18n.t("ciclo.aviso_titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
         onVisibleChanged: if (!visible) raiz.comandos?.descartarError()
         Text {
             width: parent.width
-            text: raiz.errorComando === "confirmar" ? raiz.tx("ciclo", "confirmar_error")
-                                                     : raiz.tx("ciclo", "cancelar_error")
+            text: raiz.errorComando === "confirmar" ? I18n.t("ciclo.confirmar_error", I18n.lang)
+                                                     : I18n.t("ciclo.cancelar_error", I18n.lang)
             wrapMode: Text.WordWrap
             color: Colores.textoPrimario
             font.family: Tipografia.familia

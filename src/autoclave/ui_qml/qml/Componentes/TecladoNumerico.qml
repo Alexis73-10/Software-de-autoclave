@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
 import Autoclave.Controllers
+import Autoclave.I18n
 
 // Teclado numérico en pantalla (Paso 3 de planeacion_teclados_qml.md v2.1).
 // Solo presenta y transmite toques: las reglas (signo, punto, decimales,
@@ -22,7 +23,6 @@ import Autoclave.Controllers
 Item {
     id: raiz
 
-    property var textosJson: ({})
     readonly property alias controlador: ctrl
 
     signal confirmado(real valor)
@@ -32,17 +32,13 @@ Item {
         ctrl.abrir(titulo, unidad, valorInicial, minimo, maximo, decimales)
     }
 
-    function _tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
     function _estilo(nombre) { return Tipografia.estilo(nombre) }
 
     readonly property real _sep: Escala.px(Teclado.separacion)
     readonly property real _anchoTecla: Escala.px(TecladoProvisional.anchoTeclaNumerico)
     readonly property real _altoTecla: Escala.px(TecladoProvisional.altoTeclaNumerico)
     readonly property real _anchoAcciones: Escala.px(TecladoProvisional.anchoColumnaAccionesNumerico)
-    readonly property string textoRango: _tx("teclado", TecladoProvisional.claveMensajeRango)
+    readonly property string textoRango: I18n.t("teclado." + TecladoProvisional.claveMensajeRango, I18n.lang)
         .replace("{minimo}", ctrl.minimoTexto)
         .replace("{maximo}", ctrl.maximoTexto)
         .replace("{unidad}", ctrl.unidad)
@@ -143,7 +139,7 @@ Item {
             height: raiz._altoTecla
             tamTexto: TecladoProvisional.tamTextoAccionNumerico
             variante: "cancelar"
-            texto: raiz._tx("acciones", "cancelar")
+            texto: I18n.t("acciones.cancelar", I18n.lang)
             onPulsada: ctrl.cancelar()
         }
         Tecla {
@@ -169,7 +165,7 @@ Item {
             height: 2 * raiz._altoTecla + raiz._sep
             tamTexto: TecladoProvisional.tamTextoAccionNumerico
             variante: "confirmar"
-            texto: raiz._tx("acciones", "confirmar")
+            texto: I18n.t("acciones.confirmar", I18n.lang)
             onPulsada: ctrl.confirmar()
         }
     }

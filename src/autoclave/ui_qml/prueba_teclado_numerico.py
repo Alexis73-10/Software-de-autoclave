@@ -22,7 +22,7 @@ from PySide6.QtQml import QQmlApplicationEngine
 # Registran los controladores en Autoclave.Controllers (qmlRegisterType al importar)
 from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
 from autoclave.ui_qml.controllers import teclado_numerico_controller  # noqa: F401
-from autoclave.ui_qml.app import (QML_DIR, _cargar_fuentes, cargar_textos, elegir_pantalla,
+from autoclave.ui_qml.app import (QML_DIR, _cargar_fuentes, elegir_pantalla,
                                   forzar_tema_claro)
 
 
@@ -38,7 +38,6 @@ def main(argv=None) -> int:
     _cargar_fuentes()
     engine = QQmlApplicationEngine()
     engine.addImportPath(QML_DIR)
-    engine.setInitialProperties({"textosJson": cargar_textos()})
     pantalla_qml = "PruebaTecladoAlfanumerico.qml" if args.alfanumerico else "PruebaTecladoNumerico.qml"
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/{pantalla_qml}"))
     if not engine.rootObjects():

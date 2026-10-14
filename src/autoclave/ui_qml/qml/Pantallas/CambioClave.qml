@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import Tema
 import Autoclave.Controllers
 import "../Componentes"
+import Autoclave.I18n
 
 // CAMBIAR CONTRASEÑA (cambio obligatorio, T-8; plan_t8_login_qml.md §3.3).
 // Misma composición que Login.qml (sin diseño propio, R1-2): título, avatar,
@@ -25,18 +26,6 @@ Item {
     objectName: "cambioClave"
 
     property QtObject teclado: null
-    property var textosJson: ({})
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
-    function txRuta(ruta, valores) {
-        const i = ruta.indexOf(".")
-        let texto = i > 0 ? tx(ruta.slice(0, i), ruta.slice(i + 1)) : ""
-        for (const k in (valores || {}))
-            texto = texto.replace("{" + k + "}", valores[k])
-        return texto
-    }
 
     signal claveCambiada()
     signal sesionTerminada()
@@ -69,7 +58,7 @@ Item {
             return
         const i = campos.findIndex(c => c.nombre === nombre)
         const siguiente = i + 1 < campos.length ? campos[i + 1].nombre : ""
-        teclado.abrirAlfanumerico(tx("sesion", campos[i].etiqueta), raiz[nombre],
+        teclado.abrirAlfanumerico(I18n.t("sesion." + (campos[i].etiqueta), I18n.lang), raiz[nombre],
                                   control.longitudMaxima, true, texto => raiz[nombre] = texto,
                                   siguiente ? () => raiz.editar(siguiente) : null)
         campoActivo = nombre
@@ -79,7 +68,7 @@ Item {
     }
     function error(campo) {
         const e = control.errores[campo]
-        return e ? txRuta(e.clave, e.valores) : ""
+        return e ? I18n.t(e.clave, I18n.lang, e.valores) : ""
     }
     function limpiar() {
         clave_actual = ""; clave_nueva = ""; confirmacion = ""
@@ -208,7 +197,7 @@ Item {
                         Text {
                             objectName: "tituloCambioClave"
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: raiz.tx("sesion", "titulo_cambio_clave")
+                            text: I18n.t("sesion.titulo_cambio_clave", I18n.lang)
                             color: Colores.textoPrimario
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(Tipografia.tituloPantallaTam)
@@ -232,7 +221,7 @@ Item {
                         Text {
                             objectName: "avisoCambioObligatorio"
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: raiz.tx("sesion", "aviso_cambio_obligatorio")
+                            text: I18n.t("sesion.aviso_cambio_obligatorio", I18n.lang)
                             color: Colores.textoSecundario
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
@@ -246,11 +235,11 @@ Item {
                         Layout.alignment: Qt.AlignHCenter
                         spacing: Escala.px(20)
 
-                        CampoClave { nombre: "clave_actual"; marcador: raiz.tx("sesion", "clave_actual") }
-                        CampoClave { nombre: "clave_nueva"; marcador: raiz.tx("sesion", "clave_nueva") }
+                        CampoClave { nombre: "clave_actual"; marcador: I18n.t("sesion.clave_actual", I18n.lang) }
+                        CampoClave { nombre: "clave_nueva"; marcador: I18n.t("sesion.clave_nueva", I18n.lang) }
                         CampoClave {
                             nombre: "confirmacion"
-                            marcador: raiz.tx("sesion", "confirmar_clave_nueva")
+                            marcador: I18n.t("sesion.confirmar_clave_nueva", I18n.lang)
                         }
 
                         Rectangle {
@@ -262,7 +251,7 @@ Item {
 
                             Text {
                                 anchors.centerIn: parent
-                                text: raiz.tx("sesion", "boton_cambiar_clave")
+                                text: I18n.t("sesion.boton_cambiar_clave", I18n.lang)
                                 color: "white"
                                 font.family: Tipografia.familia
                                 font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
@@ -281,8 +270,8 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                             visible: text !== ""
-                            text: control.ocupado ? raiz.txRuta("sesion.validando")
-                                : control.mensajeClave !== "" ? raiz.txRuta(control.mensajeClave) : ""
+                            text: control.ocupado ? I18n.t("sesion.validando", I18n.lang)
+                                : control.mensajeClave !== "" ? I18n.t(control.mensajeClave, I18n.lang) : ""
                             color: control.ocupado ? Colores.textoSecundario : Colores.peligroTexto
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
@@ -298,7 +287,7 @@ Item {
             pie: [
                 BarraInferior {
                     anchors.fill: parent
-                    version: raiz.tx("app", "version")
+                    version: I18n.t("app.version", I18n.lang)
                     // Salir e Inicio abandonan el cambio: cierran la sesión (R1-3)
                     botones: [
                         { icono: "salir_sesion",  activo: true, accion: function() { raiz.abandonar() } },

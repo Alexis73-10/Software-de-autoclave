@@ -3,6 +3,7 @@ import QtQuick
 import Tema
 import Autoclave.Controllers
 import "../Componentes"
+import Autoclave.I18n
 
 // OPCIONES, Fase 1: marco (planeacion_opciones_parametros_ciclo.md, rev. 3, §5.0,
 // U-2, U-5, U-6, U-19 y §7). Referencia: src/autoclave/images/opciones_cajon_comparativo.png
@@ -28,7 +29,6 @@ Item {
     id: raiz
 
     property QtObject puente: null      // UiBridge: estado de la máquina y campana
-    property var textosJson: ({})
     // Cambios sin guardar de la sección activa. Fase 1: ninguna sección edita,
     // siempre false; las fases 3 y 4 lo alimentan (U-13, U-19).
     property bool cambiosPendientes: false
@@ -39,14 +39,10 @@ Item {
 
     readonly property bool usaToken: true
 
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
     // Nombre de la sección en una línea (cajón y título, §5.0)
     function nombreSeccion(clave) {
-        const s = textosJson?.opciones?.secciones
-        return ((s && s[clave] !== undefined) ? s[clave] : clave).replace(/\n/g, " ")
+        const k = "opciones.secciones." + clave
+        return (I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : clave).replace(/\n/g, " ")
     }
 
     readonly property real anchoMockup: 1196
@@ -116,7 +112,6 @@ Item {
     EncabezadoMenu {
         objectName: "encabezadoOpciones"
         escala: raiz.escala
-        textosJson: raiz.textosJson
         conteoAlarmas: raiz.puente?.alarms?.count ?? -1
         conEngranaje: true
         onCampanaPulsada: panelNotificaciones.abrir()
@@ -156,7 +151,7 @@ Item {
         width: raiz.m(1140) - x
         elide: Text.ElideRight
         text: raiz.seccionActiva !== "" ? raiz.nombreSeccion(raiz.seccionActiva).toUpperCase()
-                                        : raiz.tx("opciones", "titulo")
+                                        : I18n.t("opciones.titulo", I18n.lang)
         color: Colores.textoPrimario
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
@@ -184,7 +179,7 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: raiz.m(24); anchors.rightMargin: raiz.m(24)
                 verticalAlignment: Text.AlignVCenter
-                text: raiz.tx("opciones", "edicion_bloqueada")
+                text: I18n.t("opciones.edicion_bloqueada", I18n.lang)
                 wrapMode: Text.WordWrap
                 color: Colores.advertenciaTexto
                 font.family: Tipografia.familia
@@ -202,7 +197,7 @@ Item {
             color: Colores.accionPrimario
             Text {
                 anchors.centerIn: parent
-                text: raiz.tx("opciones", "nuevo_usuario")
+                text: I18n.t("opciones.nuevo_usuario", I18n.lang)
                 color: "white"
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
@@ -216,7 +211,7 @@ Item {
             objectName: "textoProximamente"
             visible: raiz.seccionActiva !== "" && raiz.seccionActiva !== "usuarios"
             anchors.centerIn: parent
-            text: raiz.tx("opciones", "proximamente")
+            text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
@@ -230,7 +225,7 @@ Item {
             anchors.centerIn: parent
             width: parent.width - raiz.m(80)
             horizontalAlignment: Text.AlignHCenter
-            text: raiz.tx("opciones", "sin_secciones")
+            text: I18n.t("opciones.sin_secciones", I18n.lang)
             wrapMode: Text.WordWrap
             color: Colores.textoSecundario
             font.family: Tipografia.familia
@@ -245,7 +240,7 @@ Item {
         x: raiz.m(34)
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
-        version: raiz.tx("app", "version")
+        version: I18n.t("app.version", I18n.lang)
         salirHabilitado: true
         inicioActivo: true
         onSalirPulsado: raiz.salir()
@@ -286,7 +281,7 @@ Item {
                 objectName: "tituloCajon"
                 x: raiz.m(60)
                 y: raiz.m(160) - baselineOffset
-                text: raiz.tx("opciones", "titulo")
+                text: I18n.t("opciones.titulo", I18n.lang)
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
@@ -364,10 +359,10 @@ Item {
     PanelNotificaciones {
         id: panelNotificaciones
         objectName: "panelNotificacionesOpciones"
-        titulo: raiz.tx("notificaciones", "titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
-        rotuloAlertas: raiz.tx("notificaciones", "alertas_avisos")
-        textoSinAlarmas: raiz.tx("ciclo", "sin_alarmas")
+        titulo: I18n.t("notificaciones.titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
+        rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
+        textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.puente?.alarms ?? null
     }
 
@@ -375,18 +370,18 @@ Item {
     DialogoConfirmacion {
         id: dialogoSalir
         objectName: "dialogoSalirOpciones"
-        mensaje: raiz.tx("opciones", "salir_pregunta")
-        textoConfirmar: raiz.tx("opciones", "salir_confirmar")
-        textoCancelar: raiz.tx("acciones", "cancelar")
+        mensaje: I18n.t("opciones.salir_pregunta", I18n.lang)
+        textoConfirmar: I18n.t("opciones.salir_confirmar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         onConfirmado: raiz._cerrarSesion()
     }
     // Cambiar de sección con cambios sin guardar (U-19): confirmar descarta y cambia
     DialogoConfirmacion {
         id: dialogoCambiarSeccion
         objectName: "dialogoCambiarSeccion"
-        mensaje: raiz.tx("opciones", "cambiar_seccion_pregunta")
-        textoConfirmar: raiz.tx("opciones", "cambiar_seccion_confirmar")
-        textoCancelar: raiz.tx("acciones", "cancelar")
+        mensaje: I18n.t("opciones.cambiar_seccion_pregunta", I18n.lang)
+        textoConfirmar: I18n.t("opciones.cambiar_seccion_confirmar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         onConfirmado: { raiz.seccionActiva = raiz._seccionPendiente; raiz._seccionPendiente = "" }
         onDescartado: raiz._seccionPendiente = ""
     }

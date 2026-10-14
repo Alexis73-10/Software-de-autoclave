@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Selector de periodo de calendario del Historial y de Reportes: filtros
 // Diario / Semanal / Mensual y, debajo, el periodo entre flechas (anterior /
@@ -12,7 +13,6 @@ Column {
     id: raiz
 
     property real escala: 1
-    property var textosJson: ({})
     property string periodo: "dia"      // filtro marcado
     property string rotulo: ""          // "Octubre 2026"
     property bool esActual: true
@@ -22,10 +22,6 @@ Column {
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
 
     spacing: m(20)
 
@@ -45,7 +41,7 @@ Column {
                 border.color: Colores.bordeDivisor
                 Text {
                     anchors.centerIn: parent
-                    text: raiz.tx("menu", filtro.modelData[1])
+                    text: I18n.t("menu." + (filtro.modelData[1]), I18n.lang)
                     color: filtro.marcado ? "white" : Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold

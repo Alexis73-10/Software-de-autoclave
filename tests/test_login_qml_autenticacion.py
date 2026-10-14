@@ -31,7 +31,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQuick import QQuickWindow  # noqa: F401  da a los Item su tipo (mapToScene)
     from PySide6.QtTest import QTest
     from autoclave.ui_qml import app as _app  # noqa: F401  registra los controladores
-    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes, cargar_textos
+    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from autoclave.ui_qml import sesion_backend
     from autoclave.ui.service_ui.session_manager import SessionManager
     from tests.test_contrato_autenticacion import _backend_real
@@ -53,12 +53,11 @@ _SCRIPT = textwrap.dedent(r"""
     Window {
         id: ventana
         width: 1200; height: 1920; visible: true
-        property var textosJson: ({})
         Binding { target: Escala; property: "factor"; value: 1 }
         Item {
             anchors.fill: parent
-            Login { objectName: "login"; anchors.fill: parent; teclado: panel; textosJson: ventana.textosJson }
-            PanelTeclado { id: panel; objectName: "panelTeclado"; textosJson: ventana.textosJson }
+            Login { objectName: "login"; anchors.fill: parent; teclado: panel }
+            PanelTeclado { id: panel; objectName: "panelTeclado" }
         }
     }
     '''
@@ -71,7 +70,7 @@ _SCRIPT = textwrap.dedent(r"""
         avisos = []
         engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
         engine.addImportPath(QML_DIR)
-        engine.setInitialProperties({"textosJson": cargar_textos()})
+        engine.setInitialProperties({})
         engine.load(QUrl.fromLocalFile(ruta))
     finally:
         import os; os.remove(ruta)
@@ -162,9 +161,9 @@ def salida():
 
 
 def _texto(ruta, **valores):
-    from autoclave.ui_qml.app import cargar_textos
+    from autoclave import i18n
     seccion, clave = ruta.split(".", 1)
-    texto = cargar_textos()[seccion][clave]
+    texto = i18n.catalogo("es")[seccion][clave]
     for k, v in valores.items():
         texto = texto.replace("{" + k + "}", v)
     return texto

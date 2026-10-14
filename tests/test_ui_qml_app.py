@@ -21,7 +21,7 @@ pytest.importorskip("PySide6")
 from autoclave.ui_qml import app
 
 RAIZ_QML = Path(app.__file__).resolve().parent / "qml"
-ES_JSON = Path(app.__file__).resolve().parent / "assets" / "textos" / "es.json"
+ES_JSON = Path(app.__file__).resolve().parents[1] / "i18n" / "es.json"
 
 
 # ── argumentos y monitor ──────────────────────────────────────────────────
@@ -65,8 +65,8 @@ def test_pantalla_inexistente_usa_la_primaria_y_avisa(indice, caplog):
 def test_es_json_trae_todas_las_claves_que_usa_ciclo_qml():
     textos = json.loads(ES_JSON.read_text(encoding="utf-8"))
     qml = (RAIZ_QML / "Pantallas" / "PantallaPreciclo.qml").read_text(encoding="utf-8")
-    usadas = re.findall(r'tx\("(\w+)",\s*"(\w+)"\)', qml)
-    assert usadas, "PantallaPreciclo.qml debería leer sus textos con tx()"
+    usadas = re.findall(r'I18n\.t\("(\w+)\.(\w+)",\s*I18n\.lang', qml)
+    assert usadas, "PantallaPreciclo.qml debería leer sus textos con I18n.t()"
     faltantes = [f"{s}.{c}" for s, c in usadas if not isinstance(textos.get(s, {}).get(c), str)]
     assert faltantes == []
 
@@ -76,8 +76,10 @@ def test_es_json_trae_los_doce_meses():
     assert len(textos["fecha"]["meses"]) == 12
 
 
-def test_cargar_textos_lee_es_json():
-    assert app.cargar_textos(str(ES_JSON))["sistema"]["sin_conexion"]
+def test_i18n_lee_es_json():
+    from autoclave import i18n
+    assert i18n.t("sistema.sin_conexion", "es") == json.loads(
+        ES_JSON.read_text(encoding="utf-8"))["sistema"]["sin_conexion"]
 
 
 # ── carga real de los .qml ────────────────────────────────────────────────
@@ -88,6 +90,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     from PySide6.QtCore import QUrl, QMetaObject
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401  (PanelTeclado)
@@ -113,7 +116,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     engine = QQmlApplicationEngine()
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     engine.addImportPath(qml_dir)
-    engine.setInitialProperties({"puente": puente, "textosJson": json.load(open(es_json, encoding="utf-8"))})
+    engine.setInitialProperties({"puente": puente})
     engine.load(QUrl.fromLocalFile(qml_dir + "/Main.qml"))
     ventana = engine.rootObjects()[0]
 
@@ -158,6 +161,7 @@ _SCRIPT_DOS_PANTALLAS = textwrap.dedent(r"""
     from PySide6.QtCore import QObject, QPoint, Qt, QUrl
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
     from autoclave.backend.actividad_ui import ActividadUI
@@ -189,8 +193,7 @@ _SCRIPT_DOS_PANTALLAS = textwrap.dedent(r"""
         standby = Standby(ui, Backend(), reloj=reloj, ejecutar=lambda t: t(), iniciar=False)
         engine = QQmlApplicationEngine()
         engine.addImportPath(qml_dir)
-        engine.setInitialProperties({"standby": standby,
-                                     "textosJson": json.load(open(es_json, encoding="utf-8"))})
+        engine.setInitialProperties({"standby": standby})
         engine.load(QUrl.fromLocalFile(qml_dir + "/Main.qml"))
         ventana = engine.rootObjects()[0]
         ventana.installEventFilter(standby)

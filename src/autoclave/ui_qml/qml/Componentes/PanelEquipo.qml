@@ -1,18 +1,24 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // PROVISIONAL (sin diseño): información del equipo, abre al tocar el recuadro
 // de modelo/serie. Filas de InfoEquipo.filas: {clave, valor, disponible}.
 // valor null -> dato aún desconocido (sistema.sin_lectura); disponible false
-// -> sin fuente en el software (equipo.no_disponible).
+// -> sin fuente en el software (equipo.no_disponible). valorClave (opcional)
+// -> el valor es un texto de la sección "equipo" (p.ej. emparejamiento de la
+// tarjeta, E6).
 PanelModal {
     id: raiz
     altoTarjeta: Escala.px(1500)
 
     property var filas: []
-    property var textosEquipo: ({})     // sección "equipo" de es.json
     property string sinLectura: "—"
+    // Texto de la sección "equipo"; la clave misma si no existe (como antes de F1)
+    function textoEquipo(clave) {
+        return I18n.existe("equipo." + clave, I18n.lang) ? I18n.t("equipo." + clave, I18n.lang) : clave
+    }
 
     ListView {
         anchors.fill: parent
@@ -28,7 +34,7 @@ PanelModal {
                 anchors.left: parent.left
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width * 0.5
-                text: raiz.textosEquipo[fila.modelData.clave] ?? fila.modelData.clave
+                text: raiz.textoEquipo(fila.modelData.clave)
                 elide: Text.ElideRight
                 color: Colores.textoSecundario
                 font.family: Tipografia.familia
@@ -40,7 +46,8 @@ PanelModal {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width * 0.5
                 horizontalAlignment: Text.AlignRight
-                text: !fila.modelData.disponible ? (raiz.textosEquipo.no_disponible ?? "")
+                text: !fila.modelData.disponible ? I18n.t("equipo.no_disponible", I18n.lang)
+                    : fila.modelData.valorClave ? raiz.textoEquipo(fila.modelData.valorClave)
                     : (fila.modelData.valor ?? raiz.sinLectura)
                 elide: Text.ElideLeft
                 color: fila.modelData.disponible ? Colores.textoPrimario : Colores.textoGuia

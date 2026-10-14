@@ -19,14 +19,15 @@ _SCRIPT = textwrap.dedent(r"""
     import json, sys
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtPdf import QPdfDocument
-    from autoclave.ui_qml.app import _cargar_fuentes, cargar_textos
+    from autoclave import i18n
+    from autoclave.ui_qml.app import _cargar_fuentes
     from autoclave.ui_qml.domain.reporte_resumen import presentable
     from autoclave.ui_qml.exportacion.pdf_consolidado import generar_pdf_consolidado
 
     salida, n_ciclos, lineas_largo = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
     app = QGuiApplication([])
     _cargar_fuentes()
-    textos = cargar_textos()
+    textos = i18n.catalogo("es")
     t = [i / 6 for i in range(241)]
     grafica = {"t_min": t, "temp_camara": [40 + 94 * min(1, x / 15) for x in t],
                "temp_ref": [38 + 95 * min(1, x / 16) for x in t],

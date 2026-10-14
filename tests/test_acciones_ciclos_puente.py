@@ -18,7 +18,7 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtTest import QSignalSpy
 from PySide6.QtWidgets import QApplication
 
-from autoclave.ui_qml.app import cargar_textos
+from autoclave import i18n
 from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
 from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
 
@@ -68,7 +68,7 @@ class _Entorno:
             with open(ruta, "wb") as f:
                 f.write(b"%PDF-" + datos["titulo"].encode())
 
-        self.a = AccionesCiclos(self.backend, cargar_textos(), cargar_config=lambda: self.config,
+        self.a = AccionesCiclos(self.backend, cargar_config=lambda: self.config,
                                 ejecutar=lambda t: t(), generar_pdf=generar_pdf,
                                 enviar=enviar or (lambda config, m: self.enviados.append(m)))
         self.terminadas = QSignalSpy(self.a.accionTerminada)

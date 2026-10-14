@@ -30,7 +30,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401  (rootObjects() -> QQuickWindow.grabWindow)
 
-from autoclave.ui_qml.app import (BACKEND_URL, QML_DIR, _cargar_fuentes, cargar_textos,
+from autoclave.ui_qml.app import (BACKEND_URL, QML_DIR, _cargar_fuentes,
                                   forzar_tema_claro)
 
 
@@ -59,8 +59,7 @@ def main(argv=None) -> int:
     _cargar_fuentes()
     engine = QQmlApplicationEngine()
     engine.addImportPath(QML_DIR)
-    textos = cargar_textos()
-    propiedades = {"textosJson": textos}
+    propiedades = {}
     archivo = "GaleriaMenuPrincipal.qml"
     if args.pantalla:
         archivo = "PruebaMenuPrincipal.qml"
@@ -80,7 +79,7 @@ def main(argv=None) -> int:
                 "puente": UiBridge(ui_service, door=args.door),
                 "resumen": ResumenSistema(backend),
                 "historial": CiclosHistorial(backend),
-                "acciones": AccionesCiclos(backend, textos),
+                "acciones": AccionesCiclos(backend),
                 "reporte": ReporteResumen(backend),
             })
             app.aboutToQuit.connect(ui_service.stop)
@@ -92,7 +91,7 @@ def main(argv=None) -> int:
             backend = ejemplo.BackendEjemplo(sin_conexion=args.sin_conexion)
             propiedades.update({
                 "historial": CiclosHistorial(backend),
-                "acciones": AccionesCiclos(backend, textos, cargar_config=ejemplo.config_correo_ejemplo,
+                "acciones": AccionesCiclos(backend, cargar_config=ejemplo.config_correo_ejemplo,
                                            enviar=ejemplo.enviar_ejemplo),
                 "reporte": ReporteResumen(backend),
             })

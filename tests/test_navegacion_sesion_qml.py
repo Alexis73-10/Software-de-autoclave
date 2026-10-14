@@ -35,7 +35,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
     from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
-    from autoclave.ui_qml.app import QML_DIR, cargar_textos
+    from autoclave.ui_qml.app import QML_DIR
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
     from autoclave.ui_qml import sesion_backend
@@ -82,8 +82,7 @@ _SCRIPT = textwrap.dedent(r"""
     engine = QQmlApplicationEngine()
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     engine.addImportPath(QML_DIR)
-    engine.setInitialProperties({"puente": puente, "textosJson": cargar_textos(),
-                                 "sesion": sesion, "puenteNuevoUsuario": puente_nu})
+    engine.setInitialProperties({"puente": puente, "sesion": sesion, "puenteNuevoUsuario": puente_nu})
     engine.load(QUrl.fromLocalFile(QML_DIR + "/Main.qml"))
     ventana = engine.rootObjects()[0]
     ventana.show()

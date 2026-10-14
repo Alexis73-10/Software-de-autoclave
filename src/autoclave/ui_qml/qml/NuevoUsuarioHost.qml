@@ -8,12 +8,11 @@ import "Componentes"
 // ui_pyside/views/nuevo_usuario/vista.py; alojamiento (a) de G0 en
 // planeacion_nuevo_usuario.md). Hace lo mismo que Main.qml para una sola
 // pantalla: fija la Escala del lienzo 1200x1920 y pone el PanelTeclado sobre
-// ella. `puente` y `textosJson` los inyecta la vista (setInitialProperties).
+// ella. `puente` lo inyecta la vista (setInitialProperties); textos: singleton I18n.
 Item {
     id: host
 
     property QtObject puente: null
-    property var textosJson: ({})
 
     // La vista los llama al ocultarse / mostrarse
     function limpiar() { pantalla.limpiar() }
@@ -40,13 +39,11 @@ Item {
             anchors.fill: parent
             teclado: panelTeclado
             puente: host.puente
-            textosJson: host.textosJson
         }
 
         PanelTeclado {
             id: panelTeclado
             objectName: "panelTeclado"
-            textosJson: host.textosJson
         }
     }
 }

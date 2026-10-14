@@ -30,7 +30,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtTest import QSignalSpy, QTest
-    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes, cargar_textos
+    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
 
     app = QGuiApplication([])
     _cargar_fuentes()
@@ -38,7 +38,7 @@ _SCRIPT = textwrap.dedent(r"""
     avisos = []
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     engine.addImportPath(QML_DIR)
-    engine.setInitialProperties({"textosJson": cargar_textos()})
+    engine.setInitialProperties({})
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/GaleriaMenuPrincipal.qml"))
     w = engine.rootObjects()[0]
     w.setWidth(1200); w.setHeight(1920); w.show()

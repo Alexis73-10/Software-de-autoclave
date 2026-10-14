@@ -1,5 +1,6 @@
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Encabezado del Menú Principal: logo, hora y fecha centradas y campana con
 // contador (planeacion_menu_principal_ui_qml.md §5 y §6.1). Sin engranaje: el
@@ -14,7 +15,6 @@ Item {
     id: raiz
 
     property real escala: 1
-    property var textosJson: ({})
     // Contador de la campana; < 0 = sin fuente -> sin contador (D-17)
     property int conteoAlarmas: -1
     // Engranaje inerte, por consistencia visual (lo usa Opciones.qml; el menú no)
@@ -58,8 +58,7 @@ Item {
     Item {
         id: reloj
         anchors.fill: parent
-        readonly property var _meses: (raiz.textosJson && raiz.textosJson.fecha
-                                       && raiz.textosJson.fecha.meses) || []
+        readonly property var _meses: I18n.valor("fecha.meses", I18n.lang) || []
         property date _ahora: new Date()
         Timer { interval: 1000; running: true; repeat: true; onTriggered: reloj._ahora = new Date() }
         function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }

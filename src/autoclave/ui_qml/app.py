@@ -15,7 +15,6 @@
 # simulado (`python -m autoclave.simulador`, herramienta de desarrollo).
 
 import argparse
-import json
 import logging
 import os
 import sys
@@ -24,6 +23,7 @@ from PySide6.QtCore import Qt, QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
+from autoclave import i18n
 from autoclave.ui.service_ui.backend_client import BackendClient
 from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
 from autoclave.services.domain.puertas.door_command_service import DoorCommandService
@@ -43,6 +43,9 @@ from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
 from autoclave.ui_qml.bridge.standby import Standby
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
 from autoclave.ui_qml import sesion_backend
+# Registra el singleton de textos I18n en Autoclave.I18n (al importar); lo usan
+# todas las pantallas QML.
+from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401
 # Registran los controladores de los teclados en Autoclave.Controllers
 # (qmlRegisterType al importar); los usa PanelTeclado de Main.qml.
 from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
@@ -62,7 +65,6 @@ def url_backend(entorno=os.environ) -> str:
 
 QML_DIR = resource_path("autoclave/ui_qml/qml")
 FUENTES_DIR = resource_path("autoclave/ui_qml/assets/fuentes")
-TEXTOS_ES = resource_path("autoclave/ui_qml/assets/textos/es.json")
 
 
 def parse_args(argv=None):
@@ -88,11 +90,6 @@ def elegir_pantalla(pantallas, indice: int, primaria):
     return primaria
 
 
-def cargar_textos(ruta: str = TEXTOS_ES) -> dict:
-    with open(ruta, encoding="utf-8") as f:
-        return json.load(f)
-
-
 def _cargar_fuentes() -> None:
     if not os.path.isdir(FUENTES_DIR):
         logger.warning("Carpeta de fuentes no encontrada: %s", FUENTES_DIR)
@@ -114,6 +111,8 @@ def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
 
+    # Sin catálogos de textos (es/en) la UI no arranca
+    i18n.cargar()
     app = QGuiApplication(sys.argv[:1])
     forzar_tema_claro(app)
     _cargar_fuentes()
@@ -143,8 +142,7 @@ def main(argv=None) -> int:
     # Listados de Ciclos hoy e Historial del menú: solo lectura, bajo demanda
     historial = CiclosHistorial(backend)
     # Historial: reimprimir en la térmica o enviar por correo los ciclos marcados
-    textos = cargar_textos()
-    acciones = AccionesCiclos(backend, textos)
+    acciones = AccionesCiclos(backend)
     # Reportes: resumen de ciclos por periodo, solo lectura, bajo demanda
     reporte = ReporteResumen(backend)
     # Sesión de esta ventana contra el backend (token solo en memoria) y el
@@ -183,7 +181,6 @@ def main(argv=None) -> int:
         "reporte": reporte,
         "sesion": sesion,
         "puenteNuevoUsuario": puente_nuevo_usuario,
-        "textosJson": textos,
         "progresoArranque": progreso_arranque,
         "versionSoftware": version or "",
     })

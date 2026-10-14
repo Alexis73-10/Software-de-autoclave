@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
 import Autoclave.Controllers
+import Autoclave.I18n
 
 // Teclado alfanumérico en pantalla (Paso 4 de planeacion_teclados_qml.md v2.1).
 // Solo presenta y transmite toques: las reglas (Aa de un solo uso, longitud
@@ -24,7 +25,6 @@ import Autoclave.Controllers
 Item {
     id: raiz
 
-    property var textosJson: ({})
     // campos de contraseña: el encabezado muestra puntos en vez del texto
     property bool ocultarTexto: false
     readonly property alias controlador: ctrl
@@ -36,10 +36,6 @@ Item {
         ctrl.abrir(titulo, valorInicial, longitudMaxima)
     }
 
-    function _tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
     function _estilo(nombre) { return Tipografia.estilo(nombre) }
 
     readonly property real _sep: Escala.px(Teclado.separacion)
@@ -129,7 +125,7 @@ Item {
             y: 2 * (raiz._altoTecla + raiz._sep)
             width: raiz._anchoTecla
             height: raiz._altoTecla
-            texto: raiz._tx("teclado", "aa")
+            texto: I18n.t("teclado.aa", I18n.lang)
             marcada: ctrl.mayusculas          // PROV-02
             onPulsada: ctrl.alternarMayusculas()
         }
@@ -157,8 +153,8 @@ Item {
             width: Escala.px(TecladoProvisional.anchoCapaAlfanumerico)
             height: raiz._altoTecla
             // ?123 en letras, ABC en la capa de dígitos y símbolos
-            texto: raiz._capaLetras ? raiz._tx("teclado", "capa_numeros")
-                                    : raiz._tx("teclado", "capa_letras")
+            texto: raiz._capaLetras ? I18n.t("teclado.capa_numeros", I18n.lang)
+                                    : I18n.t("teclado.capa_letras", I18n.lang)
             onPulsada: ctrl.cambiarCapa(raiz._capaLetras ? "numeros" : "letras")
         }
         Tecla {
@@ -169,7 +165,7 @@ Item {
             width: Escala.px(TecladoProvisional.anchoCancelarAlfanumerico)
             height: raiz._altoTecla
             variante: "cancelar"
-            texto: raiz._tx("acciones", "cancelar")
+            texto: I18n.t("acciones.cancelar", I18n.lang)
             onPulsada: ctrl.cancelar()
         }
         Tecla {
@@ -178,7 +174,7 @@ Item {
             y: teclaCapa.y
             width: teclaConfirmar.x - raiz._sep - x
             height: raiz._altoTecla
-            texto: raiz._tx("teclado", "espacio")
+            texto: I18n.t("teclado.espacio", I18n.lang)
             onPulsada: ctrl.presionarCaracter(" ")
         }
         Tecla {
@@ -189,7 +185,7 @@ Item {
             width: Escala.px(TecladoProvisional.anchoConfirmarAlfanumerico)
             height: raiz._altoTecla
             variante: "confirmar"
-            texto: raiz._tx("acciones", "confirmar")
+            texto: I18n.t("acciones.confirmar", I18n.lang)
             onPulsada: ctrl.confirmar()
         }
     }

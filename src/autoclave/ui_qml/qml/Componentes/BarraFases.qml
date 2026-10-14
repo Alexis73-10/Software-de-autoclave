@@ -2,6 +2,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import Tema
+import Autoclave.I18n
 
 // Barra de fases de la pantalla de ciclo en curso
 // (planeacion_pantalla_ciclo_en_curso.md §5.3). Ocupa el ancho de la pantalla;
@@ -13,15 +14,13 @@ Item {
     id: raiz
 
     property real escala: 1.0
-    property var textosJson: ({})
     // [{fase: "vacio", estado: "completada" | "activa" | "pendiente"}], en orden
     property var fases: []
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
     function nombre(clave) {
-        const f = textosJson ? textosJson.fases : undefined
-        return (f && f[clave] !== undefined) ? f[clave] : ""
+        return I18n.existe("fases." + clave, I18n.lang) ? I18n.t("fases." + clave, I18n.lang) : ""
     }
     // TODO-DISEÑO (plan 14.8): "completada" no tiene diseño; apariencia
     // provisional igual a la activa, pero se mantiene como estado separado.

@@ -1,6 +1,7 @@
 import QtQuick
 import Tema
 import "../Componentes"
+import Autoclave.I18n
 
 // Intro de arranque "del vapor a la precisión" (planeacion_animacion_arranque.md).
 // Dura 3,5 s, no se puede saltar y termina convertida en el splash de arranque:
@@ -21,7 +22,6 @@ Item {
     property QtObject progreso: null
     property string modelo: ""
     property string versionSoftware: ""
-    property var textosJson: ({})
     // Regla 4: sin progreso durante este plazo = fallo bloqueante de arranque
     property int plazoSinProgresoMs: 20000
 
@@ -41,10 +41,6 @@ Item {
     readonly property bool introCompleta: t >= duracionIntro
     readonly property bool enSalida: introCompleta && terminadoFuente && !falloBloqueante
 
-    function _tx(clave) {
-        const sec = textosJson ? textosJson["arranque"] : undefined
-        return sec && typeof sec[clave] === "string" ? sec[clave] : ""
-    }
 
     // ── curvas ─────────────────────────────────────────────────────────────
     function tramo(a, b) { return Math.max(0, Math.min(1, (t - a) / (b - a))) }
@@ -233,7 +229,8 @@ Item {
         objectName: "procesoArranque"
         anchors.horizontalCenter: parent.horizontalCenter
         y: raiz.yBarra + raiz.altoBarra / 2 + Escala.px(34)
-        text: raiz._tx(raiz.procesoFuente)
+        text: I18n.existe("arranque." + raiz.procesoFuente, I18n.lang)
+              ? I18n.t("arranque." + raiz.procesoFuente, I18n.lang) : ""
         color: "white"
         opacity: 0.90 * raiz.pTextos * raiz.visibleSalida
         visible: opacity > 0

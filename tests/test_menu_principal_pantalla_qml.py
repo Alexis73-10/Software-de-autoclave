@@ -33,7 +33,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtCore import QMetaObject
     from PySide6.QtTest import QSignalSpy, QTest
-    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes, cargar_textos
+    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from datetime import date
     from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
     from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
@@ -97,7 +97,7 @@ _SCRIPT = textwrap.dedent(r"""
                                                    {"ok": True, "impresos": len(body.get("ids", []))})[1]
     config = ConfigCorreo("equipo@x.com", "smtp.x.com", 587,
                           [{"nombre": "Mantenimiento", "correo": "mant@x.com"}], "clave")
-    acciones = AccionesCiclos(backend, cargar_textos(), cargar_config=lambda: config,
+    acciones = AccionesCiclos(backend, cargar_config=lambda: config,
                               ejecutar=lambda t: t(),
                               generar_pdf=lambda ruta, *a: open(ruta, "wb").write(b"%PDF"),
                               generar_pdf_resumen=lambda ruta, *a: open(ruta, "wb").write(b"%PDF"),
@@ -119,7 +119,7 @@ _SCRIPT = textwrap.dedent(r"""
     avisos = []
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     engine.addImportPath(QML_DIR)
-    engine.setInitialProperties({"textosJson": cargar_textos(), "resumen": resumen,
+    engine.setInitialProperties({"resumen": resumen,
                                  "infoEquipo": info, "historial": historial,
                                  "acciones": acciones, "reporte": reporte})
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/Pruebas/PruebaMenuPrincipal.qml"))
@@ -477,13 +477,13 @@ def test_sin_conexion_la_ventana_dice_grafica_no_disponible(rfalla):
 
 def test_es_json_trae_las_claves_que_usa_el_menu():
     fuente = (_QML / "Pantallas" / "MenuPrincipal.qml").read_text(encoding="utf-8")
-    usadas = set(re.findall(r'tx\("(\w+)",\s*"(\w+)"\)', fuente))
-    textos = json.loads((_RAIZ / "src" / "autoclave" / "ui_qml" / "assets" / "textos" / "es.json")
+    usadas = set(re.findall(r'I18n\.t\("(\w+)\.(\w+)",\s*I18n\.lang', fuente))
+    textos = json.loads((_RAIZ / "src" / "autoclave" / "i18n" / "es.json")
                         .read_text(encoding="utf-8"))
     assert usadas
     faltan = [(s, c) for s, c in usadas if c not in textos.get(s, {})]
     assert faltan == []
-    for clave in ("completado", "fallo", "cancelado"):   # tx("menu", "resultado_" + clave)
+    for clave in ("completado", "fallo", "cancelado"):   # I18n.t("menu.resultado_" + clave, ...)
         assert f"resultado_{clave}" in textos["menu"]
 
 

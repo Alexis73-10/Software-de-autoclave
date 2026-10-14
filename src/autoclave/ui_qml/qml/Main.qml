@@ -5,6 +5,7 @@ import Tema
 import Autoclave.Controllers
 import "Pantallas"
 import "Componentes"
+import Autoclave.I18n
 
 Window {
     id: ventana
@@ -15,7 +16,7 @@ Window {
 
     // Los inyecta app.py (setInitialProperties). puente: UiBridge de solo lectura;
     // comandosPuerta: abrir/cerrar la puerta de esta ventana; ajustes: lanzador
-    // del menú de configuración PySide; textosJson: assets/textos/es.json.
+    // del menú de configuración PySide. Textos: singleton I18n (autoclave/i18n).
     // comandoCiclo: iniciar ciclo; infoEquipo: modelo/serie y panel de equipo.
     property QtObject puente: null
     property QtObject comandosPuerta: null
@@ -48,15 +49,6 @@ Window {
     property QtObject progresoArranque: null
     property string versionSoftware: ""
     property bool introTerminada: false
-    property var textosJson: ({})
-    function txRuta(ruta, valores) {
-        const i = ruta.indexOf(".")
-        const s = i > 0 && textosJson ? textosJson[ruta.slice(0, i)] : undefined
-        let texto = s && s[ruta.slice(i + 1)] !== undefined ? s[ruta.slice(i + 1)] : ""
-        for (const k in (valores || {}))
-            texto = texto.replace("{" + k + "}", valores[k])
-        return texto
-    }
 
     // Pantalla principal según el estado de la máquina que reporta el backend
     // (planeacion_pantalla_ciclo_en_curso.md §9): en CICLO, la de ciclo en curso
@@ -215,7 +207,6 @@ Window {
         PanelTeclado {
             id: panelTeclado
             objectName: "panelTeclado"
-            textosJson: ventana.textosJson
         }
 
         // Sin conexión con token en uso: escrituras bloqueadas y cuenta
@@ -238,7 +229,7 @@ Window {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
-                    text: ventana.txRuta("sesion.sin_conexion_escrituras")
+                    text: I18n.t("sesion.sin_conexion_escrituras", I18n.lang)
                     color: Colores.advertenciaTexto
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold
@@ -249,8 +240,7 @@ Window {
                     width: parent.width
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.WordWrap
-                    text: ventana.txRuta("sesion.sin_conexion_cierre",
-                                         { tiempo: ventana.sesion?.tiempoParaCierre ?? "" })
+                    text: I18n.t("sesion.sin_conexion_cierre", I18n.lang, { tiempo: ventana.sesion?.tiempoParaCierre ?? "" })
                     color: Colores.advertenciaTexto
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(24)
@@ -270,7 +260,6 @@ Window {
                 progreso: ventana.progresoArranque
                 modelo: ventana.infoEquipo?.modelo ?? ""
                 versionSoftware: ventana.versionSoftware
-                textosJson: ventana.textosJson
                 onFinalizada: ventana.introTerminada = true
             }
         }
@@ -294,9 +283,9 @@ Window {
                 height: Escala.px(96)
                 prioridad: "alta"
                 idAlarma: "ARRANQUE"
-                descripcion: ventana.txRuta("arranque.fallo_titulo") + ": " +
-                             ventana.txRuta((intro.item?.sinProgreso ?? false)
-                                            ? "arranque.sin_progreso" : "arranque.fallo_bloqueante")
+                descripcion: I18n.t("arranque.fallo_titulo", I18n.lang) + ": " +
+                             I18n.t((intro.item?.sinProgreso ?? false)
+                                            ? "arranque.sin_progreso" : "arranque.fallo_bloqueante", I18n.lang)
             }
         }
     }
@@ -307,7 +296,6 @@ Window {
         AreaFija {
             Reposo {
                 anchors.fill: parent
-                textosJson: ventana.textosJson
                 // con standby, el toque ya lo registró el filtro de eventos y el
                 // cambio llega por aplicarStandby(); sin él (pruebas), navegación local
                 onTocado: if (!ventana.standby) ventana.irAPrincipal()
@@ -324,7 +312,6 @@ Window {
                 comandoCiclo: ventana.comandoCiclo
                 comandoFalla: ventana.comandoFalla
                 infoEquipo: ventana.infoEquipo
-                textosJson: ventana.textosJson
                 onPuertaPulsada: ventana.comandosPuerta?.alternar()
                 onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
                 onReconocerFallaPulsado: ventana.comandoFalla?.reconocer()
@@ -345,7 +332,6 @@ Window {
             progreso: ventana.progreso
             comandos: ventana.comandosCicloEnCurso
             infoEquipo: ventana.infoEquipo
-            textosJson: ventana.textosJson
             onAjustesPulsado: ventana.abrirConfiguracion()
             onAvatarPulsado: ventana.abrirConfiguracion()
         }
@@ -365,7 +351,6 @@ Window {
             reporte: ventana.reporte
             teclado: panelTeclado
             infoEquipo: ventana.infoEquipo
-            textosJson: ventana.textosJson
             inicioActivo: true
             onInicioPulsado: pila.pop()
             onIniciarSesionPulsado: ventana.abrirConfiguracion()
@@ -378,7 +363,6 @@ Window {
             Login {
                 anchors.fill: parent
                 teclado: panelTeclado
-                textosJson: ventana.textosJson
                 onInicioPulsado: pila.pop()
                 // sesión validada: el login se reemplaza por OPCIONES, o por
                 // CAMBIAR CONTRASEÑA si es obligatorio (T-8)
@@ -397,7 +381,6 @@ Window {
             CambioClave {
                 anchors.fill: parent
                 teclado: panelTeclado
-                textosJson: ventana.textosJson
                 onClaveCambiada: { sesionVentana.refrescar(); pila.replace(opcionesComp) }
                 onSesionTerminada: { sesionVentana.refrescar(); pila.replace(loginComp) }
                 onAbandonado: { sesionVentana.refrescar(); ventana.volverAPrincipal() }
@@ -414,7 +397,6 @@ Window {
                 anchors.fill: parent
                 teclado: panelTeclado
                 puente: ventana.puenteNuevoUsuario
-                textosJson: ventana.textosJson
             }
         }
     }
@@ -434,7 +416,6 @@ Window {
         id: opcionesComp
         Opciones {
             puente: ventana.puente
-            textosJson: ventana.textosJson
             onInicioPulsado: ventana.volverAPrincipal()
             onSesionCerrada: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()

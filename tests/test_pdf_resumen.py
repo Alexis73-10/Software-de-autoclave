@@ -17,7 +17,8 @@ _SCRIPT = textwrap.dedent(r"""
     import json, sys
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtPdf import QPdfDocument
-    from autoclave.ui_qml.app import _cargar_fuentes, cargar_textos
+    from autoclave import i18n
+    from autoclave.ui_qml.app import _cargar_fuentes
     from autoclave.ui_qml.domain.reporte_resumen import presentable
     from autoclave.ui_qml.exportacion.pdf_resumen import generar_pdf_resumen
 
@@ -34,7 +35,7 @@ _SCRIPT = textwrap.dedent(r"""
          "causas_fallo": [{"causa": "FALLO_ESTERILIZACION", "cantidad": total // 4}] if con_ciclos else []}
     datos = {"empresa": "Especifika S.A.S. · Autoclave M · Serie S", "titulo": "Resumen de ciclos",
              "periodo": "Del 01/09/2026 al 30/09/2026", "resumen": presentable(r)}
-    generar_pdf_resumen(salida, datos, cargar_textos()["reportes"])
+    generar_pdf_resumen(salida, datos, i18n.catalogo("es")["reportes"])
     doc = QPdfDocument()
     doc.load(salida)
     doc.render(0, doc.pagePointSize(0).toSize() * 2).save(salida + ".png")

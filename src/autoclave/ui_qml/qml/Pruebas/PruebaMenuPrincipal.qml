@@ -16,7 +16,6 @@ Window {
     visible: true
     color: Colores.fondoMarinoOscuro
 
-    property var textosJson: ({})
     property QtObject puente: null
     property QtObject resumen: null
     // CiclosHistorial y AccionesCiclos: los da siempre prueba_menu_principal.py
@@ -118,7 +117,6 @@ Window {
             id: menu
             objectName: "menuPrincipal"
             anchors.fill: parent
-            textosJson: ventana.textosJson
             puente: ventana.puente ?? puenteEjemplo
             resumen: ventana.resumen ?? resumenEjemplo
             historial: ventana.historial
@@ -137,7 +135,6 @@ Window {
         PanelTeclado {
             id: panelTeclado
             objectName: "panelTeclado"
-            textosJson: ventana.textosJson
         }
     }
 

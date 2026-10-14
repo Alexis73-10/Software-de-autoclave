@@ -28,7 +28,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
     from autoclave.ui_qml import app as _app  # noqa: F401  registra los controladores
-    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes, cargar_textos
+    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
 
     # Ventana mínima: Login + PanelTeclado como los arma Main.qml
     QML = '''
@@ -38,12 +38,11 @@ _SCRIPT = textwrap.dedent(r"""
     import "Componentes"
     Window {
         width: 1200; height: 1920; visible: true
-        property var textosJson: ({})
         Binding { target: Escala; property: "factor"; value: 1 }
         Item {
             anchors.fill: parent
-            Login { objectName: "login"; anchors.fill: parent; teclado: panel; textosJson: parent.parent.textosJson }
-            PanelTeclado { id: panel; objectName: "panelTeclado"; textosJson: parent.parent.textosJson }
+            Login { objectName: "login"; anchors.fill: parent; teclado: panel }
+            PanelTeclado { id: panel; objectName: "panelTeclado" }
         }
     }
     '''
@@ -56,7 +55,7 @@ _SCRIPT = textwrap.dedent(r"""
         avisos = []
         engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
         engine.addImportPath(QML_DIR)
-        engine.setInitialProperties({"textosJson": cargar_textos()})
+        engine.setInitialProperties({})
         engine.load(QUrl.fromLocalFile(ruta))
     finally:
         import os; os.remove(ruta)

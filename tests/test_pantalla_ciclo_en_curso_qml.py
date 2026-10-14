@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 RAIZ_QML = Path(__file__).resolve().parents[1] / "src" / "autoclave" / "ui_qml" / "qml"
-ES_JSON = RAIZ_QML.parent / "assets" / "textos" / "es.json"
+ES_JSON = RAIZ_QML.parents[1] / "i18n" / "es.json"
 ARCHIVOS = [RAIZ_QML / "Pantallas" / "PantallaCicloEnCurso.qml",
             RAIZ_QML / "Componentes" / "GraficaCiclo.qml"]
 
@@ -23,7 +23,7 @@ ARCHIVOS = [RAIZ_QML / "Pantallas" / "PantallaCicloEnCurso.qml",
 @pytest.mark.parametrize("archivo", ARCHIVOS, ids=lambda p: p.name)
 def test_es_json_trae_las_claves_que_usa(archivo):
     textos = json.loads(ES_JSON.read_text(encoding="utf-8"))
-    usadas = re.findall(r'tx\("(\w+)",\s*"(\w+)"\)', archivo.read_text(encoding="utf-8"))
+    usadas = re.findall(r'I18n\.t\("(\w+)\.(\w+)",\s*I18n\.lang', archivo.read_text(encoding="utf-8"))
     assert usadas
     faltantes = [f"{s}.{c}" for s, c in usadas if not isinstance(textos.get(s, {}).get(c), str)]
     assert faltantes == []
@@ -45,6 +45,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtCore import QObject, QUrl
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from PySide6.QtQuick import QQuickItem, QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
 
@@ -54,7 +55,7 @@ _SCRIPT = textwrap.dedent(r"""
     engine = QQmlApplicationEngine()
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     engine.addImportPath(qml_dir)
-    engine.setInitialProperties({"textosJson": json.load(open(es_json, encoding="utf-8"))})
+    engine.setInitialProperties({})
     engine.load(QUrl.fromLocalFile(qml_dir + "/Pruebas/PruebaCicloEnCurso.qml"))
     ventana = engine.rootObjects()[0]
     ventana.setWidth(ancho); ventana.setHeight(alto)
@@ -106,6 +107,7 @@ _SCRIPT_INTERACCION = textwrap.dedent(r"""
     from PySide6.QtCore import QObject, QPoint, Qt, QUrl
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from PySide6.QtQuick import QQuickItem, QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
 
@@ -113,7 +115,7 @@ _SCRIPT_INTERACCION = textwrap.dedent(r"""
     app = QGuiApplication([])
     engine = QQmlApplicationEngine()
     engine.addImportPath(qml_dir)
-    engine.setInitialProperties({"textosJson": json.load(open(es_json, encoding="utf-8"))})
+    engine.setInitialProperties({})
     engine.load(QUrl.fromLocalFile(qml_dir + "/Pruebas/PruebaCicloEnCurso.qml"))
     ventana = engine.rootObjects()[0]
     ventana.setWidth(600); ventana.setHeight(960)

@@ -1,5 +1,6 @@
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Pantalla 06 · Reposo (antes Arranque.qml, ARR-01). Sin dependencias de backend: solo reloj y logo.
 // Avanza al tocar cualquier punto — es la señal más simple posible; se
@@ -7,9 +8,6 @@ import Tema
 Item {
     id: raiz
     signal tocado()
-
-    // Contenido de assets/textos/es.json (lo pasa Main.qml)
-    property var textosJson: ({})
 
     // Fondo exportado por el diseñador a 1200x1920 (reemplaza la aproximación
     // lineal de --gradient-splash). Si el archivo falta, queda vacío y se ve
@@ -20,7 +18,7 @@ Item {
         fillMode: Image.PreserveAspectCrop
     }
 
-    readonly property var _meses: (textosJson.fecha && textosJson.fecha.meses) || []
+    readonly property var _meses: I18n.valor("fecha.meses", I18n.lang) || []
     property date _ahora: new Date()
     Timer { interval: 1000; running: true; repeat: true; onTriggered: raiz._ahora = new Date() }
     function _dosDigitos(n) { return n < 10 ? "0" + n : "" + n }

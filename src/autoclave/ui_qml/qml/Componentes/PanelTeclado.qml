@@ -27,7 +27,6 @@ import Tema
 Item {
     id: raiz
 
-    property var textosJson: ({})
     // "pie" (por defecto) o "superior"
     property string posicion: "pie"
 
@@ -149,7 +148,6 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: raiz._margen
         width: implicitWidth; height: implicitHeight
-        textosJson: raiz.textosJson
         onConfirmado: valor => raiz._entregar(valor)
         onCancelado: raiz._cancelar()
     }
@@ -160,7 +158,6 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: raiz._margen
         width: implicitWidth; height: implicitHeight
-        textosJson: raiz.textosJson
         onConfirmado: texto => raiz._entregar(texto)
         onCancelado: raiz._cancelar()
     }

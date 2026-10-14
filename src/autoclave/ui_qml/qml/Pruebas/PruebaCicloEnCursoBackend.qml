@@ -15,7 +15,6 @@ Window {
     property QtObject puente: null
     property QtObject progreso: null
     property QtObject infoEquipo: null
-    property var textosJson: ({})
 
     Binding {
         target: Escala
@@ -39,7 +38,6 @@ Window {
             puente: ventana.puente
             progreso: ventana.progreso
             infoEquipo: ventana.infoEquipo
-            textosJson: ventana.textosJson
         }
     }
 }

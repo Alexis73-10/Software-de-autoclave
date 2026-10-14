@@ -27,6 +27,7 @@ from pathlib import Path
 import requests
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from autoclave import i18n
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.ui_qml.domain import reporte_resumen
@@ -74,13 +75,12 @@ class AccionesCiclos(QObject):
     _terminado = Signal(bool, str)          # emitidas desde el hilo de trabajo
     _avance = Signal(str)
 
-    def __init__(self, backend_client, textos: dict, parent=None, cargar_config=config_correo.cargar,
+    def __init__(self, backend_client, parent=None, cargar_config=config_correo.cargar,
                  ejecutar=_en_hilo, generar_pdf=_generar_pdf, enviar=correo.enviar,
                  generar_pdf_resumen=_generar_pdf_resumen,
                  generar_pdf_consolidado=_generar_pdf_consolidado):
         super().__init__(parent)
         self._backend = backend_client
-        self._textos = textos
         self._cargar_config = cargar_config
         self._ejecutar = ejecutar
         self._generar_pdf = generar_pdf
@@ -92,10 +92,6 @@ class AccionesCiclos(QObject):
         self._config = cargar_config()
         self._terminado.connect(self._al_terminar)
         self._avance.connect(self._fijar_progreso)
-
-    def _tx(self, seccion: str, clave: str, **valores) -> str:
-        texto = (self._textos.get(seccion) or {}).get(clave, clave)
-        return texto.format(**valores) if valores else texto
 
     # ── estado ───────────────────────────────────────────────────────────
 
@@ -141,7 +137,7 @@ class AccionesCiclos(QObject):
                 exito, mensaje = False, str(e)
             except Exception:
                 logger.exception("Acción sobre ciclos fallida")
-                exito, mensaje = False, self._tx("exportacion", "error_envio")
+                exito, mensaje = False, i18n.t("exportacion.error_envio")
             self._terminado.emit(exito, mensaje)
 
         self._ejecutar(envoltura)
@@ -163,7 +159,7 @@ class AccionesCiclos(QObject):
 
         def tarea():
             r = self._post_impresion("/cycle/history/print", {"ids": ids})
-            return True, self._tx("exportacion", "impreso", n=r.get("impresos", len(ids)))
+            return True, i18n.t("exportacion.impreso", n=r.get("impresos", len(ids)))
 
         self._empezar(tarea)
 
@@ -172,7 +168,7 @@ class AccionesCiclos(QObject):
         """Resumen del periodo de calendario que contiene `fecha` (ISO)."""
         def tarea():
             self._post_impresion("/report/summary/print", {"periodo": periodo, "fecha": fecha})
-            return True, self._tx("exportacion", "impreso_resumen")
+            return True, i18n.t("exportacion.impreso_resumen")
 
         self._empezar(tarea)
 
@@ -183,13 +179,13 @@ class AccionesCiclos(QObject):
         except requests.HTTPError as e:
             codigo = getattr(e.response, "status_code", None)
             if codigo == 409:
-                raise _ErrorConMensaje(self._tx("exportacion", "imprimir_en_ciclo"))
+                raise _ErrorConMensaje(i18n.t("exportacion.imprimir_en_ciclo"))
             if codigo == 503:
                 raise _ErrorConMensaje(self._mensaje_impresora(e.response))
-            raise _ErrorConMensaje(self._tx("exportacion", "imprimir_error"))
+            raise _ErrorConMensaje(i18n.t("exportacion.imprimir_error"))
         except Exception as e:
             logger.debug("impresión no disponible: %s", e)
-            raise _ErrorConMensaje(self._tx("exportacion", "imprimir_error"))
+            raise _ErrorConMensaje(i18n.t("exportacion.imprimir_error"))
 
     def _mensaje_impresora(self, respuesta) -> str:
         """Aviso del estado de la impresora que devolvió el backend (503)."""
@@ -199,7 +195,7 @@ class AccionesCiclos(QObject):
             estado = "error"
         if estado not in ("desconectada", "sin_papel", "no_instalada"):
             estado = "error"
-        return self._tx("exportacion", "impresora_" + estado)
+        return i18n.t("exportacion.impresora_" + estado)
 
     # ── enviar por correo ────────────────────────────────────────────────
 
@@ -217,10 +213,10 @@ class AccionesCiclos(QObject):
             serie = ciclos[0].get("serie") or ""
             numeros = ", ".join(f"{c['numero_ciclo']:06d}" for c in ciclos)
             self._enviar_mensaje(config, destino,
-                                 self._tx("exportacion", "asunto", serie=serie, ciclos=numeros),
-                                 self._tx("exportacion", "cuerpo"),
-                                 correo.adjunto(pdfs, self._tx("exportacion", "nombre_zip")))
-            return True, self._tx("exportacion", "enviado", n=len(ids), destino=destino)
+                                 i18n.t("exportacion.asunto", serie=serie, ciclos=numeros),
+                                 i18n.t("exportacion.cuerpo"),
+                                 correo.adjunto(pdfs, i18n.t("exportacion.nombre_zip")))
+            return True, i18n.t("exportacion.enviado", n=len(ids), destino=destino)
 
         self._empezar(tarea)
 
@@ -236,28 +232,28 @@ class AccionesCiclos(QObject):
                 r = self._backend.get("/report/summary", params={"periodo": periodo, "fecha": fecha})
             except Exception as e:
                 logger.debug("resumen del periodo no disponible: %s", e)
-                raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+                raise _ErrorConMensaje(i18n.t("exportacion.error_datos"))
             desde, hasta = r.get("desde", ""), r.get("hasta", "")
-            texto_periodo = self._tx("exportacion", "periodo_resumen",
-                                     desde=dominio.formatear_fecha(desde),
-                                     hasta=dominio.formatear_fecha(hasta))
+            texto_periodo = i18n.t("exportacion.periodo_resumen",
+                                   desde=dominio.formatear_fecha(desde),
+                                   hasta=dominio.formatear_fecha(hasta))
             nombre = f"resumen_{desde}_{hasta}.pdf"
             with tempfile.TemporaryDirectory() as carpeta:
                 ruta = Path(carpeta) / nombre
                 self._generar_pdf_resumen(ruta, {
-                    "empresa": self._tx("exportacion", "empresa", modelo=r.get("modelo") or "",
-                                        serie=r.get("serie") or ""),
-                    "titulo": self._tx("exportacion", "titulo_resumen"),
+                    "empresa": i18n.t("exportacion.empresa", modelo=r.get("modelo") or "",
+                                      serie=r.get("serie") or ""),
+                    "titulo": i18n.t("exportacion.titulo_resumen"),
                     "periodo": texto_periodo,
                     "resumen": reporte_resumen.presentable(r),
-                }, dict(self._textos.get("reportes") or {}))
+                }, dict(i18n.valor("reportes")))
                 contenido = ruta.read_bytes()
             self._enviar_mensaje(config, destino,
-                                 self._tx("exportacion", "asunto_resumen", serie=r.get("serie") or "",
-                                          periodo=texto_periodo),
-                                 self._tx("exportacion", "cuerpo_resumen"),
+                                 i18n.t("exportacion.asunto_resumen", serie=r.get("serie") or "",
+                                        periodo=texto_periodo),
+                                 i18n.t("exportacion.cuerpo_resumen"),
                                  (nombre, contenido, "pdf"))
-            return True, self._tx("exportacion", "enviado_resumen", destino=destino)
+            return True, i18n.t("exportacion.enviado_resumen", destino=destino)
 
         self._empezar(tarea)
 
@@ -274,40 +270,40 @@ class AccionesCiclos(QObject):
                 r = self._backend.get("/report/summary", params={"periodo": periodo, "fecha": fecha})
             except Exception as e:
                 logger.debug("resumen del periodo no disponible: %s", e)
-                raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+                raise _ErrorConMensaje(i18n.t("exportacion.error_datos"))
             total = (r.get("totales") or {}).get("total", 0)
             if not total:
-                raise _ErrorConMensaje(self._tx("exportacion", "consolidado_vacio"))
+                raise _ErrorConMensaje(i18n.t("exportacion.consolidado_vacio"))
             if total > MAX_CICLOS_CONSOLIDADO:
-                raise _ErrorConMensaje(self._tx("exportacion", "consolidado_demasiados", n=total,
-                                                maximo=MAX_CICLOS_CONSOLIDADO))
+                raise _ErrorConMensaje(i18n.t("exportacion.consolidado_demasiados", n=total,
+                                              maximo=MAX_CICLOS_CONSOLIDADO))
             try:
                 lista = self._backend.get("/cycle/list", params={
                     "periodo": periodo, "terminados": "false", "fecha": fecha,
                     "limite": MAX_CICLOS_CONSOLIDADO})
             except Exception as e:
                 logger.debug("listado del periodo no disponible: %s", e)
-                raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+                raise _ErrorConMensaje(i18n.t("exportacion.error_datos"))
             filas = list(reversed(lista.get("ciclos") or []))   # el más antiguo primero
             ciclos = []
             for i, fila in enumerate(filas, start=1):
-                self._avance.emit(self._tx("exportacion", "preparando", i=i, n=len(filas)))
+                self._avance.emit(i18n.t("exportacion.preparando", i=i, n=len(filas)))
                 c = self._datos_ciclo(fila["id"])
                 p = dominio.ciclo_presentable(fila)
                 c["indice"] = [f"{c['ciclo']['numero_ciclo']:06d}", p["fecha"], p["hora"],
                                " · ".join(x for x in (p["programa"], p["programa_nombre"])
                                           if x != dominio.SIN_DATO) or dominio.SIN_DATO,
-                               dict(c["datos"]["campos"])[self._tx("exportacion", "resultado")]]
+                               dict(c["datos"]["campos"])[i18n.t("exportacion.resultado")]]
                 ciclos.append(c)
 
             desde, hasta = r.get("desde", ""), r.get("hasta", "")
-            texto_periodo = self._tx("exportacion", "periodo_resumen",
-                                     desde=dominio.formatear_fecha(desde),
-                                     hasta=dominio.formatear_fecha(hasta))
+            texto_periodo = i18n.t("exportacion.periodo_resumen",
+                                   desde=dominio.formatear_fecha(desde),
+                                   hasta=dominio.formatear_fecha(hasta))
             portada = {
-                "empresa": self._tx("exportacion", "empresa", modelo=r.get("modelo") or "",
-                                    serie=r.get("serie") or ""),
-                "titulo": self._tx("exportacion", "titulo_consolidado"),
+                "empresa": i18n.t("exportacion.empresa", modelo=r.get("modelo") or "",
+                                  serie=r.get("serie") or ""),
+                "titulo": i18n.t("exportacion.titulo_consolidado"),
                 "periodo": texto_periodo,
                 "resumen": reporte_resumen.presentable(r),
             }
@@ -315,35 +311,35 @@ class AccionesCiclos(QObject):
             with tempfile.TemporaryDirectory() as carpeta:
                 ruta = Path(carpeta) / nombre
                 self._generar_pdf_consolidado(
-                    ruta, portada, ciclos, self._textos,
+                    ruta, portada, ciclos, i18n.catalogo(),
                     progreso=lambda f: self._avance.emit(
-                        self._tx("exportacion", "generando", porcentaje=round(100 * f))))
+                        i18n.t("exportacion.generando", porcentaje=round(100 * f))))
                 contenido = ruta.read_bytes()
-            self._avance.emit(self._tx("menu", "enviando"))
+            self._avance.emit(i18n.t("menu.enviando"))
             self._enviar_mensaje(config, destino,
-                                 self._tx("exportacion", "asunto_consolidado", serie=r.get("serie") or "",
-                                          periodo=texto_periodo),
-                                 self._tx("exportacion", "cuerpo_consolidado"),
+                                 i18n.t("exportacion.asunto_consolidado", serie=r.get("serie") or "",
+                                        periodo=texto_periodo),
+                                 i18n.t("exportacion.cuerpo_consolidado"),
                                  (nombre, contenido, "pdf"))
-            return True, self._tx("exportacion", "enviado_consolidado", n=len(ciclos), destino=destino)
+            return True, i18n.t("exportacion.enviado_consolidado", n=len(ciclos), destino=destino)
 
         self._empezar(tarea)
 
     def _validar_envio(self, config, destino: str) -> None:
         if not config_correo.correo_valido(destino):
-            raise _ErrorConMensaje(self._tx("exportacion", "correo_invalido"))
+            raise _ErrorConMensaje(i18n.t("exportacion.correo_invalido"))
         if not config.configurado:
-            raise _ErrorConMensaje(self._tx("exportacion", "correo_no_configurado"))
+            raise _ErrorConMensaje(i18n.t("exportacion.correo_no_configurado"))
 
     def _enviar_mensaje(self, config, destino: str, asunto: str, cuerpo: str, archivo) -> None:
         mensaje = correo.armar_mensaje(config.remitente, destino, asunto, cuerpo, archivo)
         try:
             self._enviar(config, mensaje)
         except smtplib.SMTPAuthenticationError:
-            raise _ErrorConMensaje(self._tx("exportacion", "error_autenticacion"))
+            raise _ErrorConMensaje(i18n.t("exportacion.error_autenticacion"))
         except (smtplib.SMTPException, OSError) as e:
             logger.warning("Envío de correo fallido: %s", e)
-            raise _ErrorConMensaje(self._tx("exportacion", "error_envio"))
+            raise _ErrorConMensaje(i18n.t("exportacion.error_envio"))
 
     def _pdfs(self, ids: list) -> tuple[list, list]:
         """[(nombre, bytes)] de cada ciclo y sus datos, en el orden pedido."""
@@ -354,7 +350,7 @@ class AccionesCiclos(QObject):
                 nombre = f"ciclo_{c['ciclo']['numero_ciclo']:06d}.pdf"
                 ruta = Path(carpeta) / nombre
                 self._generar_pdf(ruta, c["datos"], c["ticket"], c["grafica"], c["fases"],
-                                  textos_ciclo(self._textos), c["consigna"])
+                                  textos_ciclo(i18n.catalogo()), c["consigna"])
                 pdfs.append((nombre, ruta.read_bytes()))
                 ciclos.append(c["ciclo"])
         return pdfs, ciclos
@@ -367,7 +363,7 @@ class AccionesCiclos(QObject):
             grafica = self._backend.get(f"/cycle/history/{ciclo_id}/graph")
         except Exception as e:
             logger.debug("datos del ciclo %s no disponibles: %s", ciclo_id, e)
-            raise _ErrorConMensaje(self._tx("exportacion", "error_datos"))
+            raise _ErrorConMensaje(i18n.t("exportacion.error_datos"))
         ciclo = ticket["ciclo"]
         acumulador = AcumuladorGrafica()
         acumulador.incorporar(grafica)
@@ -389,20 +385,20 @@ class AccionesCiclos(QObject):
             "fecha_inicio": ciclo.get("fecha_inicio"), "fecha_fin": ciclo.get("fecha_fin"),
             "programa_nombre": ciclo.get("nombre_ciclo"), "resultado": ciclo.get("resultado")})
         clave = fila["resultado"]
-        resultado = self._tx("menu", "resultado_" + clave.lower()) if clave else dominio.SIN_DATO
+        resultado = i18n.t("menu.resultado_" + clave.lower()) if clave else dominio.SIN_DATO
         if fila["resultado_detalle"]:
             resultado += f" ({fila['resultado_detalle']})"
         fin = dominio.formatear_fecha(ciclo.get("fecha_fin"))
         hora_fin = dominio.formatear_hora(ciclo.get("fecha_fin"))
         return {
-            "empresa": self._tx("exportacion", "empresa", modelo=ciclo.get("modelo") or "",
-                                serie=ciclo.get("serie") or ""),
-            "titulo": self._tx("exportacion", "titulo", numero=f"{ciclo['numero_ciclo']:06d}",
-                               programa=ciclo.get("nombre_ciclo") or dominio.SIN_DATO),
+            "empresa": i18n.t("exportacion.empresa", modelo=ciclo.get("modelo") or "",
+                              serie=ciclo.get("serie") or ""),
+            "titulo": i18n.t("exportacion.titulo", numero=f"{ciclo['numero_ciclo']:06d}",
+                             programa=ciclo.get("nombre_ciclo") or dominio.SIN_DATO),
             "campos": [
-                (self._tx("exportacion", "inicio"), f"{fila['fecha']}  {fila['hora']}"),
-                (self._tx("exportacion", "fin"),
+                (i18n.t("exportacion.inicio"), f"{fila['fecha']}  {fila['hora']}"),
+                (i18n.t("exportacion.fin"),
                  f"{fin}  {hora_fin}" if fin != dominio.SIN_DATO else dominio.SIN_DATO),
-                (self._tx("exportacion", "resultado"), resultado),
+                (i18n.t("exportacion.resultado"), resultado),
             ],
         }

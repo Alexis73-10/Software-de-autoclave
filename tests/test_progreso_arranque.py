@@ -20,8 +20,8 @@ from autoclave.ui_qml.bridge.progreso_arranque import (
     parse_simulacion,
 )
 
-ES_JSON = (Path(__file__).resolve().parents[1] / "src" / "autoclave" / "ui_qml"
-           / "assets" / "textos" / "es.json")
+ES_JSON = (Path(__file__).resolve().parents[1] / "src" / "autoclave" / "i18n"
+           / "es.json")
 
 
 @pytest.fixture(scope="session", autouse=True)

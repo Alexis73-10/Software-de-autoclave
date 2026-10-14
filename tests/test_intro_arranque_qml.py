@@ -21,13 +21,14 @@ pytest.importorskip("PySide6")
 from autoclave.ui_qml import app
 
 RAIZ_QML = Path(app.__file__).resolve().parent / "qml"
-ES_JSON = Path(app.__file__).resolve().parent / "assets" / "textos" / "es.json"
+ES_JSON = Path(app.__file__).resolve().parents[1] / "i18n" / "es.json"
 
 _SCRIPT = textwrap.dedent(r"""
     import json, sys, time
     from PySide6.QtCore import QObject, QUrl
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from PySide6.QtTest import QTest
     from autoclave.ui_qml.bridge.progreso_arranque import SimuladorProgresoArranque
     from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401
@@ -45,7 +46,7 @@ _SCRIPT = textwrap.dedent(r"""
     engine = QQmlApplicationEngine()
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     engine.addImportPath(qml_dir)
-    props = {"textosJson": json.load(open(es_json, encoding="utf-8")), "versionSoftware": "1.0"}
+    props = {"versionSoftware": "1.0"}
     if sim is not None:
         props["progresoArranque"] = sim
     engine.setInitialProperties(props)

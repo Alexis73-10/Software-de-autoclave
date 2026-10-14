@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Elección del destino de un envío por correo (Historial y Reportes): los
 // destinos por defecto de config/correo.json (AccionesCiclos.destinos), "Otro
@@ -11,7 +12,6 @@ Rectangle {
     id: raiz
 
     property real escala: 1
-    property var textosJson: ({})
     property var destinos: []           // [{nombre, correo}]
     property QtObject teclado: null     // PanelTeclado
 
@@ -20,10 +20,6 @@ Rectangle {
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
 
     color: Colores.fondoTarjeta
     MouseArea { anchors.fill: parent }   // no dejar pasar el toque a lo de abajo
@@ -45,7 +41,7 @@ Rectangle {
         Text {
             width: parent.width
             horizontalAlignment: Text.AlignHCenter
-            text: raiz.tx("menu", "enviar_a")
+            text: I18n.t("menu.enviar_a", I18n.lang)
             color: Colores.textoPrimario
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoBold
@@ -84,12 +80,12 @@ Rectangle {
         Opcion {
             objectName: "destinoOtro"
             onTocada: raiz.teclado?.abrirAlfanumerico(
-                raiz.tx("menu", "titulo_otro_correo"), "", 80, false,
+                I18n.t("menu.titulo_otro_correo", I18n.lang), "", 80, false,
                 function (valor) { if (valor !== "") raiz.elegido(valor) })
             Text {
                 anchors.verticalCenter: parent.verticalCenter
                 x: raiz.m(32)
-                text: raiz.tx("menu", "otro_correo")
+                text: I18n.t("menu.otro_correo", I18n.lang)
                 color: Colores.accionPrimarioTexto
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
@@ -100,7 +96,7 @@ Rectangle {
             objectName: "botonCancelarDestino"
             anchors.horizontalCenter: parent.horizontalCenter
             escala: raiz.escala
-            texto: raiz.tx("acciones", "cancelar")
+            texto: I18n.t("acciones.cancelar", I18n.lang)
             onPulsado: { raiz.teclado?.cerrar(); raiz.cancelado() }
         }
     }

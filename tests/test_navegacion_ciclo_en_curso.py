@@ -14,7 +14,7 @@ import textwrap
 from pathlib import Path
 
 RAIZ_QML = Path(__file__).resolve().parents[1] / "src" / "autoclave" / "ui_qml" / "qml"
-ES_JSON = RAIZ_QML.parent / "assets" / "textos" / "es.json"
+ES_JSON = RAIZ_QML.parents[1] / "i18n" / "es.json"
 
 _SCRIPT = textwrap.dedent(r"""
     import json, sys
@@ -22,6 +22,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtCore import QMetaObject, QObject, QUrl
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
+    from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from PySide6.QtTest import QTest
     from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
@@ -46,8 +47,7 @@ _SCRIPT = textwrap.dedent(r"""
     engine = QQmlApplicationEngine()
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     engine.addImportPath(qml_dir)
-    engine.setInitialProperties({"puente": puente,
-                                 "textosJson": json.load(open(es_json, encoding="utf-8"))})
+    engine.setInitialProperties({"puente": puente})
     engine.load(QUrl.fromLocalFile(qml_dir + "/Main.qml"))
     ventana = engine.rootObjects()[0]
 

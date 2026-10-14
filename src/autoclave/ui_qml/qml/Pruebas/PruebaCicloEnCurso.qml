@@ -14,7 +14,6 @@ Window {
     visible: true
     color: Colores.fondoMarinoOscuro
 
-    property var textosJson: ({})
 
     Binding {
         target: Escala
@@ -68,7 +67,6 @@ Window {
 
         PantallaCicloEnCurso {
             anchors.fill: parent
-            textosJson: ventana.textosJson
             // DATOS DE EJEMPLO
             cicloActivo: "03"
             programa: "BOWE & DICK"

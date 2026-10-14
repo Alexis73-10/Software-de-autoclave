@@ -14,7 +14,7 @@ from PySide6.QtCore import QMetaObject, Qt, QTimer, QUrl
 from PySide6.QtQuickWidgets import QQuickWidget
 
 # Importar app registra los controladores de los teclados (Autoclave.Controllers)
-from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes, cargar_textos
+from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
 from autoclave.ui_pyside.views.nuevo_usuario.puente import NuevoUsuarioBridge
 
 logger = logging.getLogger(__name__)
@@ -33,7 +33,7 @@ class NuevoUsuarioView(QQuickWidget):
         _cargar_fuentes()
         self.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
         self.engine().addImportPath(QML_DIR)   # visibiliza el módulo "Tema"
-        self.setInitialProperties({"puente": self.puente, "textosJson": cargar_textos()})
+        self.setInitialProperties({"puente": self.puente})
         self.setSource(QUrl.fromLocalFile(f"{QML_DIR}/NuevoUsuarioHost.qml"))
         for error in self.errors():
             logger.error("NuevoUsuarioHost.qml: %s", error.toString())

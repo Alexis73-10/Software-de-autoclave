@@ -1,6 +1,7 @@
 pragma ComponentBehavior: Bound
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Listado de ciclos para las ventanas de Ciclos hoy e Historial del Menú
 // Principal: encabezado de columnas (Ciclo, Fecha, Hora, Programa, Resultado)
@@ -17,7 +18,6 @@ Item {
     id: raiz
 
     property real escala: 1
-    property var textosJson: ({})
     property var ciclos: []
     property bool seleccionable: false
     property bool marcable: false
@@ -35,10 +35,6 @@ Item {
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
 
     // Proporción del ancho de cada columna (la flecha ocupa el resto si es seleccionable),
     // a la derecha de la casilla si es marcable
@@ -106,7 +102,7 @@ Item {
                 required property string modelData
                 required property int index
                 columna: index
-                text: raiz.tx("menu", modelData)
+                text: I18n.t("menu." + modelData, I18n.lang)
                 color: Colores.textoSecundario
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: raiz.fuente(20)

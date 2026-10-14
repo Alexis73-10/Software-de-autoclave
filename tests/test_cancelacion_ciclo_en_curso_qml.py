@@ -14,7 +14,7 @@ import textwrap
 from pathlib import Path
 
 RAIZ_QML = Path(__file__).resolve().parents[1] / "src" / "autoclave" / "ui_qml" / "qml"
-ES_JSON = RAIZ_QML.parent / "assets" / "textos" / "es.json"
+ES_JSON = RAIZ_QML.parents[1] / "i18n" / "es.json"
 
 _QML = r"""
 import QtQuick
@@ -23,7 +23,6 @@ import "Pantallas"
 Window {
     id: ventana
     width: 600; height: 960; visible: true
-    property var textosJson: ({})
     QtObject {
         id: comandos
         property int cancelaciones: 0
@@ -43,7 +42,6 @@ Window {
     PantallaCicloEnCurso {
         id: pantalla
         anchors.fill: parent
-        textosJson: ventana.textosJson
         comandos: comandos
         progreso: progresoFalso
         datosVigentes: true
@@ -56,6 +54,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtCore import QObject, QPoint, Qt, QUrl
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlComponent, QQmlEngine
+    from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from PySide6.QtQuick import QQuickItem, QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
 
@@ -67,7 +66,7 @@ _SCRIPT = textwrap.dedent(r"""
     engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
     comp = QQmlComponent(engine)
     comp.setData(qml.encode("utf-8"), QUrl.fromLocalFile(qml_dir + "/prueba_cancelacion.qml"))
-    ventana = comp.createWithInitialProperties({"textosJson": json.load(open(es_json, encoding="utf-8"))})
+    ventana = comp.createWithInitialProperties({})
     assert ventana is not None, comp.errorString()
     ventana.show()
     QTest.qWait(300)

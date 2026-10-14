@@ -21,7 +21,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuick import QQuickWindow  # noqa: F401  (rootObjects() -> QQuickWindow.grabWindow)
 
-from autoclave.ui_qml.app import (QML_DIR, _cargar_fuentes, cargar_textos, elegir_pantalla,
+from autoclave.ui_qml.app import (QML_DIR, _cargar_fuentes, elegir_pantalla,
                                   forzar_tema_claro, url_backend)
 
 
@@ -41,7 +41,7 @@ def main(argv=None) -> int:
     _cargar_fuentes()
     engine = QQmlApplicationEngine()
     engine.addImportPath(QML_DIR)
-    propiedades = {"textosJson": cargar_textos()}
+    propiedades = {}
     archivo = "PruebaCicloEnCurso.qml"
     if args.backend:
         from autoclave.ui.service_ui.backend_client import BackendClient

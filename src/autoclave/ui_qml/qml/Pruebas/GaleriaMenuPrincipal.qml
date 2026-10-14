@@ -14,7 +14,6 @@ Window {
     visible: true
     color: Colores.fondoMarinoOscuro
 
-    property var textosJson: ({})
 
     Binding {
         target: Escala
@@ -39,7 +38,6 @@ Window {
         EncabezadoMenu {
             objectName: "galeriaEncabezado"
             escala: lienzo.escala
-            textosJson: ventana.textosJson
             conteoAlarmas: 2
         }
 

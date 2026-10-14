@@ -3,6 +3,7 @@ import QtQuick
 import QtQuick.Shapes
 import Tema
 import "../Componentes"
+import Autoclave.I18n
 
 // Menú Principal (planeacion_menu_principal_ui_qml.md, Fase 3). Referencia:
 // docs/mockups/menu_principal_v3.png (1188 x 1906).
@@ -29,7 +30,6 @@ Item {
     property QtObject acciones: null    // AccionesCiclos: imprimir / enviar por correo (Historial, Reportes)
     property QtObject reporte: null     // ReporteResumen: resumen por periodo de Reportes
     property QtObject teclado: null     // PanelTeclado: correo de destino escrito a mano
-    property var textosJson: ({})
     // Casa de la barra: activa cuando hay una pantalla a la que regresar (la de
     // preciclo o la de ciclo en curso, desde cuyo engranaje se abrió el menú)
     property bool inicioActivo: false
@@ -47,10 +47,6 @@ Item {
     signal mantenimientoPulsado()
     signal ultimoCicloPulsado()
 
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
 
     readonly property string sinDato: "—"
     function dato(v) { return (v === undefined || v === null || v === "") ? sinDato : v }
@@ -71,7 +67,7 @@ Item {
     readonly property bool sinConexion: resumen?.sinConexion ?? false
     // Resultado de un ciclo por su clave (COMPLETADO / CANCELADO / FALLO, o "")
     function textoDeResultado(clave) {
-        return clave ? tx("menu", "resultado_" + clave.toLowerCase()) : sinDato
+        return clave ? I18n.t("menu.resultado_" + clave.toLowerCase(), I18n.lang) : sinDato
     }
     // COMPLETADO verde (mockup); FALLO y CANCELADO PROVISIONALES: tonos de peligro y
     // advertencia, NO los colores de alarma reservados por IEC 60601-1-8
@@ -108,7 +104,6 @@ Item {
     EncabezadoMenu {
         objectName: "encabezadoMenu"
         escala: raiz.escala
-        textosJson: raiz.textosJson
         conteoAlarmas: raiz.puente?.alarms?.count ?? -1
         onCampanaPulsada: { raiz.campanaPulsada(); panelNotificaciones.abrir() }
     }
@@ -127,7 +122,7 @@ Item {
         Text {
             id: textoAviso
             anchors.centerIn: parent
-            text: raiz.tx("menu", "sin_conexion")
+            text: I18n.t("menu.sin_conexion", I18n.lang)
             color: Colores.textoSecundario
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoSemiBold
@@ -170,7 +165,7 @@ Item {
         font.weight: Tipografia.pesoSemiBold
         font.pixelSize: raiz.fuente(39)
     }
-    Titulo { objectName: "tituloMenu"; cx: 596.5; bl: 390; text: raiz.tx("menu", "titulo") }
+    Titulo { objectName: "tituloMenu"; cx: 596.5; bl: 390; text: I18n.t("menu.titulo", I18n.lang) }
 
     // ======================= tarjetas de menú =======================
     component Fila1: TarjetaMenu {
@@ -186,8 +181,8 @@ Item {
     Fila1 {
         objectName: "tarjetaIniciarSesion"
         x: raiz.m(54); width: raiz.m(716)
-        titulo: raiz.tx("acciones", "iniciar_sesion")
-        descripcion: raiz.tx("menu", "iniciar_sesion_desc")
+        titulo: I18n.t("acciones.iniciar_sesion", I18n.lang)
+        descripcion: I18n.t("menu.iniciar_sesion_desc", I18n.lang)
         icono: raiz.iconosMono + "usuario.svg"
         tamIcono: 87
         colorAcento: Colores.menuVerde
@@ -201,8 +196,8 @@ Item {
     Fila1 {
         objectName: "tarjetaHistorial"
         x: raiz.m(789); width: raiz.m(350)
-        titulo: raiz.tx("modulos", "historial")
-        descripcion: raiz.tx("menu", "historial_desc")
+        titulo: I18n.t("modulos.historial", I18n.lang)
+        descripcion: I18n.t("menu.historial_desc", I18n.lang)
         // variante color: glifo morado con su propio aro gris, como el v3
         icono: raiz.iconosColor + "historial.svg"
         iconoTenido: false
@@ -214,8 +209,8 @@ Item {
     Fila2 {
         objectName: "tarjetaReportes"
         x: raiz.m(54)
-        titulo: raiz.tx("modulos", "reportes")
-        descripcion: raiz.tx("menu", "reportes_desc")
+        titulo: I18n.t("modulos.reportes", I18n.lang)
+        descripcion: I18n.t("menu.reportes_desc", I18n.lang)
         icono: raiz.iconosMono + "reportes.svg"
         tamIcono: 85
         colorAcento: Colores.menuNaranja
@@ -226,8 +221,8 @@ Item {
         x: raiz.m(422)
         // Abre la información del equipo, el mismo panel que el recuadro de modelo
         // y serie de PantallaPreciclo.qml (decisión de Cristian, 2026-10-02)
-        titulo: raiz.tx("modulos", "informacion")
-        descripcion: raiz.tx("menu", "informacion_desc")
+        titulo: I18n.t("modulos.informacion", I18n.lang)
+        descripcion: I18n.t("menu.informacion_desc", I18n.lang)
         icono: raiz.iconosMono + "informacion.svg"
         iconoIncluyeAro: true
         colorAcento: Colores.menuAzul
@@ -246,8 +241,8 @@ Item {
         x: raiz.m(790)
         interactiva: false
         flechaVisible: false
-        titulo: raiz.tx("menu", "secado_titulo")
-        descripcion: raiz.tx("menu", "secado_desc")
+        titulo: I18n.t("menu.secado_titulo", I18n.lang)
+        descripcion: I18n.t("menu.secado_desc", I18n.lang)
         valor: raiz.dato(raiz.resumen?.tiempoSecado)
         icono: raiz.iconosMono + "sensor_tiempo_secado.svg"
         tamIcono: 76
@@ -262,7 +257,7 @@ Item {
         height: parent.height
         y: raiz.m(raiz._desfaseResumen)
 
-        Titulo { objectName: "tituloResumen"; cx: 598; bl: 1244; text: raiz.tx("menu", "resumen") }
+        Titulo { objectName: "tituloResumen"; cx: 598; bl: 1244; text: I18n.t("menu.resumen", I18n.lang) }
 
         component Resumen: TarjetaResumen {
             escala: raiz.escala
@@ -277,9 +272,9 @@ Item {
             icono: raiz.iconosMono + "ciclos_totales.svg"
             tamIcono: 79
             colorAcento: Colores.menuAzul
-            rotulo: raiz.tx("menu", "ciclos_totales")
+            rotulo: I18n.t("menu.ciclos_totales", I18n.lang)
             valor: raiz.dato(raiz.resumen?.ciclosTotales)   // TODO(MP-06a): último numero_ciclo
-            subrotulo: raiz.tx("menu", "realizados")
+            subrotulo: I18n.t("menu.realizados", I18n.lang)
             onPulsada: raiz.ciclosTotalesPulsado()
         }
         Resumen {
@@ -288,7 +283,7 @@ Item {
             icono: raiz.iconosMono + "mantenimiento.svg"
             tamIcono: 73
             colorAcento: Colores.menuNaranja
-            rotulo: raiz.tx("menu", "proximo_mantenimiento")
+            rotulo: I18n.t("menu.proximo_mantenimiento", I18n.lang)
             valor: raiz.dato(raiz.resumen?.proximoMantenimiento)   // MP-06b: sin fuente
             onPulsada: { raiz.mantenimientoPulsado(); ventanaMantenimiento.abrir() }
         }
@@ -299,9 +294,9 @@ Item {
             icono: raiz.iconosMono + "reloj.svg"
             iconoIncluyeAro: true
             colorAcento: Colores.menuMorado
-            rotulo: raiz.tx("menu", "ciclos_hoy")
+            rotulo: I18n.t("menu.ciclos_hoy", I18n.lang)
             valor: raiz.dato(raiz.resumen?.ciclosHoy)
-            subrotulo: raiz.tx("menu", "realizados")
+            subrotulo: I18n.t("menu.realizados", I18n.lang)
             onPulsada: { raiz.ciclosHoyPulsado(); ventanaCiclosHoy.abrir() }
         }
         Resumen {
@@ -310,15 +305,15 @@ Item {
             icono: raiz.iconosMono + "reproducir.svg"
             iconoIncluyeAro: true
             colorAcento: Colores.menuAzul
-            rotulo: raiz.tx("menu", "ultimo_ciclo")
+            rotulo: I18n.t("menu.ultimo_ciclo", I18n.lang)
             onPulsada: { raiz.ultimoCicloPulsado(); ventanaUltimoCiclo.abrir() }
             DetalleUltimoCiclo {
                 escala: raiz.escala
                 fecha: raiz.dato(raiz.resumen?.ultimoFecha)
                 hora: raiz.dato(raiz.resumen?.ultimoHora)
-                rotuloPrograma: raiz.tx("menu", "programa")
+                rotuloPrograma: I18n.t("menu.programa", I18n.lang)
                 programa: raiz.dato(raiz.resumen?.ultimoPrograma)
-                rotuloResultado: raiz.tx("menu", "resultado")
+                rotuloResultado: I18n.t("menu.resultado", I18n.lang)
                 resultado: raiz.textoResultado
                 colorResultado: raiz.colorResultado
             }
@@ -331,7 +326,7 @@ Item {
         x: raiz.m(34)
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
-        version: raiz.tx("app", "version")
+        version: I18n.t("app.version", I18n.lang)
         salirHabilitado: false   // D-12, TODO(MP-03): sin canal de sesión con el login PySide
         inicioActivo: raiz.inicioActivo
         onSalirPulsado: raiz.salirPulsado()
@@ -377,7 +372,7 @@ Item {
         objectName: "ventanaUltimoCiclo"
         escala: raiz.escala
         altoTarjeta: 1500
-        titulo: raiz.tx("menu", "ventana_ultimo_ciclo")
+        titulo: I18n.t("menu.ventana_ultimo_ciclo", I18n.lang)
         // la curva se pide solo al abrir (GET /cycle/history/{id}/graph)
         onMostrada: raiz.resumen?.cargarGraficaUltimo()
 
@@ -385,7 +380,6 @@ Item {
             objectName: "detalleUltimoCiclo"
             anchors.fill: parent
             escala: raiz.escala
-            textosJson: raiz.textosJson
             fecha: raiz.dato(raiz.resumen?.ultimoFecha)
             hora: raiz.dato(raiz.resumen?.ultimoHora)
             programa: raiz.dato(raiz.resumen?.ultimoPrograma)
@@ -408,12 +402,12 @@ Item {
         objectName: "ventanaMantenimiento"
         escala: raiz.escala
         altoTarjeta: 380
-        titulo: raiz.tx("menu", "ventana_mantenimiento")
+        titulo: I18n.t("menu.ventana_mantenimiento", I18n.lang)
         Column {
             width: parent.width
             spacing: raiz.m(28)
-            Campo { width: parent.width; rotulo: raiz.tx("menu", "ultimo_mantenimiento"); valor: raiz.sinDato }
-            Campo { width: parent.width; rotulo: raiz.tx("menu", "ciclos_restantes"); valor: raiz.sinDato }
+            Campo { width: parent.width; rotulo: I18n.t("menu.ultimo_mantenimiento", I18n.lang); valor: raiz.sinDato }
+            Campo { width: parent.width; rotulo: I18n.t("menu.ciclos_restantes", I18n.lang); valor: raiz.sinDato }
         }
     }
 
@@ -428,15 +422,15 @@ Item {
         font.weight: Tipografia.pesoSemiBold
         font.pixelSize: raiz.fuente(26)
         text: (raiz.historial?.cargando ?? false) && (raiz.historial?.ciclos?.length ?? 0) === 0
-              ? raiz.tx("menu", "cargando")
-              : (raiz.historial?.sinConexion ?? false) ? raiz.tx("menu", "sin_conexion")
-              : (raiz.historial?.ciclos?.length ?? 0) === 0 ? raiz.tx("menu", "sin_ciclos")
+              ? I18n.t("menu.cargando", I18n.lang)
+              : (raiz.historial?.sinConexion ?? false) ? I18n.t("menu.sin_conexion", I18n.lang)
+              : (raiz.historial?.ciclos?.length ?? 0) === 0 ? I18n.t("menu.sin_ciclos", I18n.lang)
               : ""
         visible: text !== ""
     }
     component NotaTruncado: Text {
         visible: raiz.historial?.truncado ?? false
-        text: raiz.tx("menu", "lista_truncada")
+        text: I18n.t("menu.lista_truncada", I18n.lang)
         color: Colores.textoSecundario
         font.family: Tipografia.familia
         font.pixelSize: raiz.fuente(20)
@@ -452,8 +446,8 @@ Item {
         altoTarjeta: 1500
         // fila elegida del listado (null = se muestra el listado)
         property var seleccion: null
-        titulo: seleccion ? raiz.tx("menu", "ciclo_titulo") + " " + seleccion.numero
-                          : raiz.tx("menu", "ventana_ciclos_hoy")
+        titulo: seleccion ? I18n.t("menu.ciclo_titulo", I18n.lang) + " " + seleccion.numero
+                          : I18n.t("menu.ventana_ciclos_hoy", I18n.lang)
         onMostrada: { seleccion = null; raiz.historial?.consultar("dia", true) }
         onCerrada: { seleccion = null; raiz.historial?.limpiarGrafica() }
 
@@ -465,7 +459,6 @@ Item {
                 anchors.fill: parent
                 anchors.bottomMargin: notaHoy.visible ? notaHoy.height + raiz.m(12) : 0
                 escala: raiz.escala
-                textosJson: raiz.textosJson
                 ciclos: raiz.historial?.ciclos ?? []
                 seleccionable: true
                 textoResultado: raiz.textoDeResultado
@@ -496,7 +489,7 @@ Item {
                 Text {
                     id: textoVolver
                     anchors.centerIn: parent
-                    text: "\u2039  " + raiz.tx("menu", "volver")
+                    text: "\u2039  " + I18n.t("menu.volver", I18n.lang)
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold
@@ -514,7 +507,6 @@ Item {
                 anchors.bottom: parent.bottom
                 width: parent.width
                 escala: raiz.escala
-                textosJson: raiz.textosJson
                 readonly property var c: ventanaCiclosHoy.seleccion ?? ({})
                 fecha: raiz.dato(c.fecha)
                 hora: raiz.dato(c.hora)
@@ -555,10 +547,10 @@ Item {
         readonly property bool ocupado: raiz.acciones?.ocupado ?? false
         readonly property var marcados: raiz.historial?.seleccionados ?? []
         readonly property bool correoListo: raiz.acciones?.correoConfigurado ?? false
-        readonly property string textoEnviar: correoListo ? raiz.tx("menu", "enviar_correo")
-                                                          : raiz.tx("menu", "correo_no_configurado")
-        titulo: seleccion ? raiz.tx("menu", "ciclo_titulo") + " " + seleccion.numero
-                          : raiz.tx("menu", "ventana_historial")
+        readonly property string textoEnviar: correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
+                                                          : I18n.t("menu.correo_no_configurado", I18n.lang)
+        titulo: seleccion ? I18n.t("menu.ciclo_titulo", I18n.lang) + " " + seleccion.numero
+                          : I18n.t("menu.ventana_historial", I18n.lang)
 
         // al abrir: hoy; los filtros conservan la fecha que se está viendo
         function elegir(p) { periodo = p; seleccion = null; mensaje = ""; raiz.historial?.cambiarPeriodo(p) }
@@ -613,7 +605,6 @@ Item {
                 id: selectorHistorial
                 width: parent.width
                 escala: raiz.escala
-                textosJson: raiz.textosJson
                 periodo: ventanaHistorial.periodo
                 rotulo: raiz.historial?.rotuloPeriodo ?? ""
                 esActual: raiz.historial?.esPeriodoActual ?? true
@@ -629,7 +620,6 @@ Item {
                 anchors.bottomMargin: raiz.m(16) + (notaHistorial.visible ? notaHistorial.height + raiz.m(8) : 0)
                 width: parent.width
                 escala: raiz.escala
-                textosJson: raiz.textosJson
                 ciclos: raiz.historial?.ciclos ?? []
                 seleccionable: true
                 marcable: true
@@ -664,7 +654,7 @@ Item {
                     objectName: "cuentaMarcados"
                     anchors.verticalCenter: parent.verticalCenter
                     visible: barraAcciones.cuenta > 0
-                    text: barraAcciones.cuenta + " " + raiz.tx("menu", "seleccionados")
+                    text: barraAcciones.cuenta + " " + I18n.t("menu.seleccionados", I18n.lang)
                     color: Colores.textoSecundario
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold
@@ -685,7 +675,7 @@ Item {
                         objectName: "botonImprimirMarcados"
                         escala: raiz.escala
                         primario: true
-                        texto: raiz.tx("menu", "imprimir")
+                        texto: I18n.t("menu.imprimir", I18n.lang)
                         habilitado: barraAcciones.cuenta > 0 && !ventanaHistorial.ocupado
                         onPulsado: ventanaHistorial.imprimir(ventanaHistorial.marcados)
                     }
@@ -701,7 +691,7 @@ Item {
                 id: volverHistorial
                 objectName: "botonVolverHistorial"
                 escala: raiz.escala
-                texto: "‹  " + raiz.tx("menu", "volver")
+                texto: "‹  " + I18n.t("menu.volver", I18n.lang)
                 onPulsado: ventanaHistorial.volverAlListado()
             }
             Row {
@@ -718,7 +708,7 @@ Item {
                     objectName: "botonImprimirCiclo"
                     escala: raiz.escala
                     primario: true
-                    texto: raiz.tx("menu", "imprimir")
+                    texto: I18n.t("menu.imprimir", I18n.lang)
                     habilitado: !ventanaHistorial.ocupado
                     onPulsado: ventanaHistorial.imprimir([ventanaHistorial.seleccion.id])
                 }
@@ -731,7 +721,6 @@ Item {
                 anchors.bottomMargin: avisoHistorial.visible ? avisoHistorial.height + raiz.m(16) : 0
                 width: parent.width
                 escala: raiz.escala
-                textosJson: raiz.textosJson
                 readonly property var c: ventanaHistorial.seleccion ?? ({})
                 fecha: raiz.dato(c.fecha)
                 hora: raiz.dato(c.hora)
@@ -759,8 +748,8 @@ Item {
             trabajando: ventanaHistorial.accionEnCurso !== ""
             error: !trabajando && !ventanaHistorial.mensajeExito
             texto: ventanaHistorial.eligiendoDestino ? ""
-                 : ventanaHistorial.accionEnCurso === "imprimir" ? raiz.tx("menu", "imprimiendo")
-                 : ventanaHistorial.accionEnCurso === "enviar" ? raiz.tx("menu", "enviando")
+                 : ventanaHistorial.accionEnCurso === "imprimir" ? I18n.t("menu.imprimiendo", I18n.lang)
+                 : ventanaHistorial.accionEnCurso === "enviar" ? I18n.t("menu.enviando", I18n.lang)
                  : ventanaHistorial.mensaje
             onCerrado: ventanaHistorial.mensaje = ""
         }
@@ -770,7 +759,6 @@ Item {
             anchors.fill: parent
             visible: ventanaHistorial.eligiendoDestino
             escala: raiz.escala
-            textosJson: raiz.textosJson
             destinos: raiz.acciones?.destinos ?? []
             teclado: raiz.teclado
             onElegido: (correo) => ventanaHistorial.enviar(correo)
@@ -789,7 +777,7 @@ Item {
         objectName: "ventanaReportes"
         escala: raiz.escala
         altoTarjeta: 1500
-        titulo: raiz.tx("reportes", "titulo")
+        titulo: I18n.t("reportes.titulo", I18n.lang)
         property string periodo: "dia"
         property string pestana: "resumen"     // "resumen" / "consolidado"
         property string accionEnCurso: ""      // "imprimir" / "enviar" mientras trabaja
@@ -849,7 +837,7 @@ Item {
                     Text {
                         id: textoPestana
                         anchors.centerIn: parent
-                        text: raiz.tx("reportes", pestana.modelData[1])
+                        text: I18n.t("reportes." + (pestana.modelData[1]), I18n.lang)
                         color: pestana.activa ? Colores.accionPrimarioTexto : Colores.textoSecundario
                         font.family: Tipografia.familia
                         font.weight: pestana.activa ? Tipografia.pesoBold : Tipografia.pesoSemiBold
@@ -876,7 +864,6 @@ Item {
             anchors.topMargin: raiz.m(24)
             width: parent.width
             escala: raiz.escala
-            textosJson: raiz.textosJson
             periodo: ventanaReportes.periodo
             rotulo: raiz.reporte?.rotuloPeriodo ?? ""
             esActual: raiz.reporte?.esPeriodoActual ?? true
@@ -895,7 +882,6 @@ Item {
                 anchors.fill: parent
                 visible: ventanaReportes.hayCiclos && ventanaReportes.pestana === "resumen"
                 escala: raiz.escala
-                textosJson: raiz.textosJson
                 datos: raiz.reporte?.datos ?? ({ total: "0", totales: [], por_programa: [], causas: [] })
             }
             Text {
@@ -905,9 +891,9 @@ Item {
                 horizontalAlignment: Text.AlignHCenter
                 wrapMode: Text.WordWrap
                 visible: text !== ""
-                text: (raiz.reporte?.cargando ?? false) && !ventanaReportes.hayCiclos ? raiz.tx("menu", "cargando")
-                    : (raiz.reporte?.sinConexion ?? false) ? raiz.tx("menu", "sin_conexion")
-                    : !ventanaReportes.hayCiclos ? raiz.tx("reportes", "sin_ciclos")
+                text: (raiz.reporte?.cargando ?? false) && !ventanaReportes.hayCiclos ? I18n.t("menu.cargando", I18n.lang)
+                    : (raiz.reporte?.sinConexion ?? false) ? I18n.t("menu.sin_conexion", I18n.lang)
+                    : !ventanaReportes.hayCiclos ? I18n.t("reportes.sin_ciclos", I18n.lang)
                     : ""
                 color: Colores.textoSecundario
                 font.family: Tipografia.familia
@@ -933,7 +919,7 @@ Item {
                     }
                     Text {
                         anchors.baseline: cuentaConsolidado.baseline
-                        text: raiz.tx("reportes", "consolidado_cuenta")
+                        text: I18n.t("reportes.consolidado_cuenta", I18n.lang)
                         color: Colores.textoSecundario
                         font.family: Tipografia.familia
                         font.weight: Tipografia.pesoSemiBold
@@ -943,7 +929,7 @@ Item {
                 Text {
                     width: parent.width
                     wrapMode: Text.WordWrap
-                    text: raiz.tx("reportes", "consolidado_desc")
+                    text: I18n.t("reportes.consolidado_desc", I18n.lang)
                     color: Colores.textoSecundario
                     font.family: Tipografia.familia
                     font.pixelSize: raiz.fuente(24)
@@ -965,8 +951,8 @@ Item {
             texto: ventanaReportes.eligiendoDestino ? ""
                  : ventanaReportes.accionEnCurso !== "" && (raiz.acciones?.progreso ?? "") !== ""
                    ? raiz.acciones.progreso
-                 : ventanaReportes.accionEnCurso === "imprimir" ? raiz.tx("menu", "imprimiendo")
-                 : ventanaReportes.accionEnCurso === "enviar" ? raiz.tx("menu", "enviando")
+                 : ventanaReportes.accionEnCurso === "imprimir" ? I18n.t("menu.imprimiendo", I18n.lang)
+                 : ventanaReportes.accionEnCurso === "enviar" ? I18n.t("menu.enviando", I18n.lang)
                  : ventanaReportes.mensaje
             onCerrado: ventanaReportes.mensaje = ""
         }
@@ -979,8 +965,8 @@ Item {
             BotonPildora {
                 objectName: "botonEnviarResumen"
                 escala: raiz.escala
-                texto: ventanaReportes.correoListo ? raiz.tx("menu", "enviar_correo")
-                                                   : raiz.tx("menu", "correo_no_configurado")
+                texto: ventanaReportes.correoListo ? I18n.t("menu.enviar_correo", I18n.lang)
+                                                   : I18n.t("menu.correo_no_configurado", I18n.lang)
                 habilitado: !ventanaReportes.ocupado && ventanaReportes.correoListo
                             && !(raiz.reporte?.sinConexion ?? true)
                             && (ventanaReportes.pestana === "resumen" || ventanaReportes.hayCiclos)
@@ -991,7 +977,7 @@ Item {
                 visible: ventanaReportes.pestana === "resumen"   // el consolidado es solo por correo
                 escala: raiz.escala
                 primario: true
-                texto: raiz.tx("menu", "imprimir")
+                texto: I18n.t("menu.imprimir", I18n.lang)
                 habilitado: !ventanaReportes.ocupado && !(raiz.reporte?.sinConexion ?? true)
                 onPulsado: ventanaReportes.imprimir()
             }
@@ -1002,7 +988,6 @@ Item {
             anchors.fill: parent
             visible: ventanaReportes.eligiendoDestino
             escala: raiz.escala
-            textosJson: raiz.textosJson
             destinos: raiz.acciones?.destinos ?? []
             teclado: raiz.teclado
             onElegido: (correo) => ventanaReportes.enviar(correo)
@@ -1015,19 +1000,18 @@ Item {
     PanelNotificaciones {
         id: panelNotificaciones
         objectName: "panelNotificacionesMenu"
-        titulo: raiz.tx("notificaciones", "titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
-        rotuloAlertas: raiz.tx("notificaciones", "alertas_avisos")
-        textoSinAlarmas: raiz.tx("ciclo", "sin_alarmas")
+        titulo: I18n.t("notificaciones.titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
+        rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
+        textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.puente?.alarms ?? null
     }
     PanelEquipo {
         id: panelEquipo
         objectName: "panelEquipoMenu"
-        titulo: raiz.tx("equipo", "titulo")
-        textoCerrar: raiz.tx("acciones", "cerrar")
+        titulo: I18n.t("equipo.titulo", I18n.lang)
+        textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
         filas: raiz.infoEquipo?.filas ?? []
-        textosEquipo: raiz.textosJson.equipo ?? ({})
-        sinLectura: raiz.tx("sistema", "sin_lectura")
+        sinLectura: I18n.t("sistema.sin_lectura", I18n.lang)
     }
 }

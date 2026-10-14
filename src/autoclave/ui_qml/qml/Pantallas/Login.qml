@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import Tema
 import Autoclave.Controllers
 import "../Componentes"
+import Autoclave.I18n
 
 // Pantalla 03 · Inicio de sesión.
 // PENDIENTE (bloqueante real): el JSON de textos no trae "LOGIN" ni
@@ -29,20 +30,6 @@ Item {
     id: raiz
 
     property QtObject teclado: null
-    property var textosJson: ({})
-    function tx(seccion, clave) {
-        const s = textosJson ? textosJson[seccion] : undefined
-        return (s && s[clave] !== undefined) ? s[clave] : ""
-    }
-    // Texto de una clave "seccion.clave" con sus marcadores ({tiempo}, ...)
-    function txRuta(ruta, valores) {
-        const i = ruta.indexOf(".")
-        let texto = i > 0 ? tx(ruta.slice(0, i), ruta.slice(i + 1)) : ""
-        for (const k in (valores || {}))
-            texto = texto.replace("{" + k + "}", valores[k])
-        return texto
-    }
-
     // TEC-D10: nombre de hasta 30 caracteres (USUARIO_MAX); la contraseña, hasta
     // 64 (PASSWORD_MAX de validacion_usuario.py, el mismo tope de CAMBIAR
     // CONTRASEÑA y Nuevo usuario), o no se podría entrar con una clave larga
@@ -69,7 +56,7 @@ Item {
         const i = campos.findIndex(c => c.nombre === nombre)
         const campo = campos[i]
         const siguiente = i + 1 < campos.length ? campos[i + 1].nombre : ""
-        teclado.abrirAlfanumerico(tx("formulario", campo.clave), raiz[nombre], campo.maximo,
+        teclado.abrirAlfanumerico(I18n.t("formulario." + campo.clave, I18n.lang), raiz[nombre], campo.maximo,
                                   campo.ocultar, texto => raiz[nombre] = texto,
                                   siguiente ? () => raiz.editar(siguiente) : null)
         campoActivo = nombre
@@ -383,9 +370,9 @@ Item {
                             horizontalAlignment: Text.AlignHCenter
                             wrapMode: Text.WordWrap
                             visible: text !== ""
-                            text: sesion.ocupado ? raiz.txRuta("sesion.validando")
+                            text: sesion.ocupado ? I18n.t("sesion.validando", I18n.lang)
                                 : sesion.mensajeClave !== ""
-                                    ? raiz.txRuta(sesion.mensajeClave, { tiempo: sesion.tiempoBloqueo })
+                                    ? I18n.t(sesion.mensajeClave, I18n.lang, { tiempo: sesion.tiempoBloqueo })
                                     : ""
                             color: sesion.ocupado ? Colores.textoSecundario : Colores.peligroTexto
                             font.family: Tipografia.familia
