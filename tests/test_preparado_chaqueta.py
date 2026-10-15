@@ -46,6 +46,7 @@ def test_esta_preparado_true_sin_vapor_con_resto_ok():
     p.mantener_presion_camara = lambda: True
     p.mantener_drenaje = lambda: True
     p.puertas_cerradas = lambda: True
+    p.camara_segura = lambda: True        # D-04 (T4): fuera del alcance de esta prueba
     p.estado.get_flag.side_effect = lambda f: False
     assert p.esta_preparado() is True
 

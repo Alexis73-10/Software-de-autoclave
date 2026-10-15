@@ -182,6 +182,7 @@ class BackendContext:
             logger=logger,
             config = self.config_manager,
             programas=self.programas_para_seguridad,
+            temp_max_ciclo=self.temp_max_tras_ciclo,
         )
 
         # Data logger (SQLite) + impresión en tiempo real
@@ -264,6 +265,10 @@ class BackendContext:
         cm = getattr(self, "cycle_manager", None)
         seleccionado = getattr(cm, "selected_cycle", None)
         return [seleccionado] if seleccionado is not None else []
+
+    def temp_max_tras_ciclo(self):
+        loop = getattr(self, "control_loop", None)
+        return loop.temp_max_tras_ciclo() if loop is not None else None
 
     def es_conectada(self) -> bool:
         return self.serial is not None and self.serial.is_connected()

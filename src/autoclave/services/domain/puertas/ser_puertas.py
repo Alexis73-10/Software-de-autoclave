@@ -32,6 +32,7 @@ from autoclave.devices.puertas.advanced_door import AdvancedDoor, DoorState
 from .permissions import PERMISSIONS
 from autoclave.state_machine.machine.parametros_globales import ParametrosGlobales
 from autoclave.core.runtime.sensores_ciclo import temp_seguridad
+from autoclave.core.runtime import camara_segura
 
 logger = logging.getLogger(__name__)
 
@@ -60,12 +61,14 @@ def _numero(valor) -> float | None:
 
 class ServicioPuertas:
 
-    def __init__(self, doors, estado, profile, config, logger=logger, programas=None):
+    def __init__(self, doors, estado, profile, config, logger=logger, programas=None,
+                 temp_max_ciclo=None):
         self.config = config
         # Callable -> lista de programas cuyos sensores Principales deciden la
         # temperatura de apertura (tanda §1.1; SAF-01 de T3: el seleccionado y,
         # hasta que la cámara sea segura, el del último ciclo). None = temp_camara.
         self._programas = programas
+        self._temp_max_ciclo = temp_max_ciclo   # callable (SAF-04 de T4)
         self.doors = {d.name: d for d in doors}
         self.estado = estado
         self.profile = profile
@@ -225,33 +228,26 @@ class ServicioPuertas:
         Falla cerrada: sin lectura válida o sin configuración, no abre."""
         if self._paro_activo():
             return False, _MOTIVO_PARO
-        falta = self._falta_config(_CLAVE_ATM, _CLAVE_RANGO, _CLAVE_TEMP_MAX)
-        if falta:
-            self.logger.warning("No se puede abrir: %s", falta)
-            return False, falta
-        atm, rango, temp_max = self.press_atm, self.rango_atm, self.temp_max
-
-        pres = _numero(self.pres)
-        if pres is None:
-            msg = "Sin lectura válida de presión de cámara"
-            self.logger.warning("No se puede abrir: %s", msg)
+        # Cámara segura (E2, fin de ciclo §5): misma condición que "NO ABRIR"
+        # y el inicio de ciclo; falla cerrada sin lectura o sin configuración.
+        programas = None
+        if self._programas is not None:
+            try:
+                programas = self._programas()
+            except Exception:
+                msg = "No se pudo determinar el sensor de temperatura"
+                self.logger.exception("No se puede abrir: %s", msg)
+                return False, msg
+        try:
+            temp_max_ciclo = self._temp_max_ciclo() if self._temp_max_ciclo is not None else None
+            segura, msg = camara_segura.evaluar(self.estado, self.config, programas,
+                                                self.profile, temp_max_ciclo=temp_max_ciclo)
+        except Exception:
+            # SAF-06 de T4: un error al evaluar no abre ni corta el tick
+            msg = "No se pudo evaluar la cámara segura"
+            self.logger.exception("No se puede abrir: %s", msg)
             return False, msg
-        temp = _numero(self.temp)
-        if temp is None:
-            msg = "Sin lectura válida de temperatura de cámara"
-            self.logger.warning("No se puede abrir: %s", msg)
-            return False, msg
-
-        if pres > atm + rango:
-            msg = f"Sobrepresión en cámara ({pres:.0f} kPa)"
-            self.logger.warning("No se puede abrir: %s", msg)
-            return False, msg
-        if pres < atm - rango:
-            msg = f"Cámara en vacío ({pres:.0f} kPa)"
-            self.logger.warning("No se puede abrir: %s", msg)
-            return False, msg
-        if temp > temp_max:
-            msg = f"Temperatura demasiado alta ({temp:.0f} °C)"
+        if not segura:
             self.logger.warning("No se puede abrir: %s", msg)
             return False, msg
 

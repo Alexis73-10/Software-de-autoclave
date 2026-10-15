@@ -170,7 +170,7 @@ def _config():
     cfg.get.side_effect = lambda k: {
         "presion_admosferica": 101.3, "rango_presion_atm": 20.0,
         "temp_segura_drenaje": 60.0, "rango_temp_drenaje": 5.0,
-        "tiempo_estable_alarma": 0,
+        "tiempo_estable_alarma": 0, "temp_max_apertura": 80.0,
     }.get(k)
     return cfg
 

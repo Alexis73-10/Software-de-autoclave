@@ -14,7 +14,7 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 | T1 alarmas-parte-a | HECHA | dev-noche | merge (ver git log) | 3001 passed | `T1_alarmas_parte_a.md` |
 | T2 E1b vapor_source | HECHA | dev-noche | ver git log | 3023 passed | `T2_vapor_source.md` |
 | T3 Sensores backend | HECHA | dev-noche | ver git log | 3119 passed | `T3_sensores_backend.md` |
-| T4 E2 camara_segura | pendiente | dev-noche | | | |
+| T4 E2 camara_segura | HECHA | dev-noche | ver git log | 3133 passed | `T4_camara_segura.md` |
 | T5 E3 estado seguro | pendiente | dev-noche | | | |
 | T6 E4 arranque seguro | pendiente | dev-noche | | | |
 | T7 E5 UI | pendiente | dev-noche | | | |
@@ -30,4 +30,4 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 ## Etapa actual
 
-T4: E2 `camara_segura`, NO ABRIR y condición de inicio.
+T5: E3 estado seguro común, matriz de fin de ciclo, PF-10, TMG-03/04, SECADO, líquidos.

@@ -68,6 +68,8 @@ def test_set_active_cycle_permitido_fuera_de_ciclo_reconstruye_state_machine(moc
         cycle=new_cycle, config=loop.config_manager, cap="fake_cap",
         door_service=loop.door_service, profile=loop.profile,
         alarm_manager=loop.alarm_manager,
+        programas_seguridad=loop.programas_para_seguridad,   # T3/T4
+        temp_max_ciclo=loop.temp_max_tras_ciclo,
     )
     assert loop.state_machine is mock_sm_class.return_value
 

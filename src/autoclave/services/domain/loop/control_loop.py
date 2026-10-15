@@ -27,6 +27,10 @@ _F0_FASES_ACUMULAN = {"CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION"}
 
 # Fallas de la tarjeta que, fuera de ciclo, piden repetir el handshake
 # (plan de protocolo serial §6.5 y §7).
+# TMG-01 de T4: ticks consecutivos de cámara segura para dejar de considerar
+# el Principal del último ciclo (convención de debounce de 3 lecturas).
+_TICKS_SEGUROS_OLVIDAR_CICLO = 3
+
 _ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS"}
 
 
@@ -87,6 +91,8 @@ class ControlLoop:
             cycle=self.cycle, config=self.config_manager, cap=cap,
             door_service=door_service, profile=profile,
             alarm_manager=self.alarm_manager,
+            programas_seguridad=self.programas_para_seguridad,
+            temp_max_ciclo=self.temp_max_tras_ciclo,
         )
         # el registro del ciclo (ticket, F0 del pie) lee el programa con el
         # que corre el ciclo, no el almacenado (T-17)
@@ -129,6 +135,7 @@ class ControlLoop:
         # CICLO su Principal sigue contando para la seguridad de apertura hasta
         # que la cámara sea segura (sobrevive a set_active_cycle).
         self._programa_ultimo_ciclo = None
+        self._ticks_seguros_tras_ciclo = 0
 
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
@@ -173,18 +180,34 @@ class ControlLoop:
             return [self.programa_en_ejecucion()]
         return [p for p in (self.cycle, self._programa_ultimo_ciclo) if p is not None]
 
+    def temp_max_tras_ciclo(self):
+        """`finalizacion.temp_max_apertura` del último ciclo mientras su
+        Principal siga contando para la seguridad (SAF-04 de T4); si no, None."""
+        programa = self._programa_ultimo_ciclo
+        if programa is None or self.estado.get_machine_state() == GlobalState.CICLO:
+            return None
+        try:
+            return programa.get_param("finalizacion", "temp_max_apertura")
+        except Exception:
+            return None
+
     def _seguir_programa_ultimo_ciclo(self) -> None:
         if self.estado.get_machine_state() == GlobalState.CICLO:
             copia = getattr(self.state_machine.ciclo, "programa_en_curso", None)
             if copia is not None:
                 self._programa_ultimo_ciclo = copia
+            self._ticks_seguros_tras_ciclo = 0
             return
         if self._programa_ultimo_ciclo is None:
             return
         segura, _ = camara_segura.evaluar(self.estado, self.config_manager,
-                                          self.programas_para_seguridad(), self.profile)
-        if segura:
+                                          self.programas_para_seguridad(), self.profile,
+                                          temp_max_ciclo=self.temp_max_tras_ciclo())
+        # TMG-01 de T4: 3 ticks seguros consecutivos (un tick ruidoso no basta)
+        self._ticks_seguros_tras_ciclo = self._ticks_seguros_tras_ciclo + 1 if segura else 0
+        if self._ticks_seguros_tras_ciclo >= _TICKS_SEGUROS_OLVIDAR_CICLO:
             self._programa_ultimo_ciclo = None
+            self._ticks_seguros_tras_ciclo = 0
 
     def aplicar_a_ciclo_en_curso(self, seccion: str, path: list[str], valor) -> bool:
         """§5.8: aplica al ciclo en curso un cambio ya guardado en el programa
@@ -606,5 +629,7 @@ class ControlLoop:
                 cycle=cycle, config=self.config_manager, cap=self.cap,
                 door_service=self.door_service, profile=self.profile,
                 alarm_manager=self.alarm_manager,
+                programas_seguridad=self.programas_para_seguridad,
+                temp_max_ciclo=self.temp_max_tras_ciclo,
             )
             return True, ""

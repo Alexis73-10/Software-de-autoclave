@@ -20,7 +20,8 @@ from tests.test_control_loop_test_mode import _make_control_loop, _run_one_tick
 
 class _Config:
     def __init__(self, **valores):
-        self._valores = valores
+        # Claves de cámara segura (SAF-03 de T4) con sus valores de fábrica
+        self._valores = {"presion_admosferica": 75.0, "temp_max_apertura": 120, **valores}
 
     def get(self, clave, default=None):
         return self._valores.get(clave, default)
@@ -42,6 +43,17 @@ def test_rango_valido(rango):
 def test_rango_invalido(rango, texto):
     errores = errores_config_arranque(_Config(rango_presion_atm=rango))
     assert len(errores) == 1 and texto in errores[0]
+
+
+@pytest.mark.parametrize("clave,valor,texto", [
+    ("presion_admosferica", None, "Falta"), ("temp_max_apertura", None, "Falta"),
+    ("presion_admosferica", 30.0, "fuera de rango"), ("temp_max_apertura", 150, "fuera de rango"),
+    ("temp_max_apertura", "80", "no es numérico"),
+])
+def test_claves_de_camara_segura(clave, valor, texto):
+    # SAF-03 de T4: sin ellas la cámara nunca es segura y PREPARADO no avanza
+    errores = errores_config_arranque(_Config(rango_presion_atm=5, **{clave: valor}))
+    assert len(errores) == 1 and clave in errores[0] and texto in errores[0]
 
 
 def test_configuracion_de_fabrica_es_valida():

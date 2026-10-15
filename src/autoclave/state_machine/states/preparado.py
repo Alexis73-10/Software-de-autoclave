@@ -4,6 +4,7 @@ from autoclave.state_machine.alarms.catalogo import (
 )
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime.sensores_ciclo import SENSORES as SENSORES_CICLO, vigilar_fuera_de_ciclo
 from autoclave.installation.profile import (entrada_requerida, numero_puertas, sensores_empaque,
                                             sonda_instalada)
@@ -26,6 +27,10 @@ class preparado_state:
         # Perfil de instalación (E1): entradas de suministro y puertas.
         # None = comportamiento previo (todo requerido, 2 puertas con empaque).
         self.profile = profile
+        # Callable -> programas cuyos Principales deciden "cámara segura"
+        # (T3/T4). Lo fija la StateMachine; None = el programa seleccionado.
+        self.programas_seguridad = None
+        self.temp_max_ciclo = None      # callable: temp_max del último ciclo (SAF-04 de T4)
 
         # Tiempo requerido para considerar estable
         self.tiempo_estable = self.config.get("tiempo_estable_alarma")
@@ -270,7 +275,10 @@ class preparado_state:
             not self.estado.get_flag("PARO_EMERGENCIA") and
             # Sin entrada de suministro eléctrico declarada, no aplica (E1-1)
             not (entrada_requerida(self.profile, "suministro_electrico")
-                 and self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO"))
+                 and self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")) and
+            # D-04 (fin de ciclo §5): no se inicia sin cámara segura; al final
+            # para no saltar la actualización de las alarmas de las demás
+            self.camara_segura()
         )
 
         if condiciones:
@@ -278,6 +286,25 @@ class preparado_state:
             return True
 
         return False
+
+    def camara_segura(self) -> bool:
+        programas = [self.cycle]
+        if self.programas_seguridad is not None:
+            try:
+                programas = self.programas_seguridad()
+            except Exception:
+                logger.exception("PREPARADO: no se pudieron obtener los programas de seguridad")
+                return False
+        temp_max_ciclo = None
+        if self.temp_max_ciclo is not None:
+            try:
+                temp_max_ciclo = self.temp_max_ciclo()
+            except Exception:
+                logger.exception("PREPARADO: no se pudo leer temp_max_apertura del ciclo")
+                return False
+        segura, _ = camara_segura.evaluar(self.estado, self.config, programas, self.profile,
+                                          temp_max_ciclo=temp_max_ciclo)
+        return segura
 
     # ==============================
     # REUTILIZADOS DE PREPARACIÓN

@@ -437,7 +437,10 @@ def test_tras_un_ciclo_cuenta_el_principal_del_ultimo_ciclo_hasta_que_sea_seguro
     assert loop.programas_para_seguridad() == [loop.cycle, ultimo]   # sigue caliente
     estado.sensores_temp["temp_camara"] = 60.0
     loop._seguir_programa_ultimo_ciclo()
-    assert loop.programas_para_seguridad() == [loop.cycle]           # ya segura
+    loop._seguir_programa_ultimo_ciclo()
+    assert ultimo in loop.programas_para_seguridad()                # debounce: 2 ticks
+    loop._seguir_programa_ultimo_ciclo()
+    assert loop.programas_para_seguridad() == [loop.cycle]           # 3 ticks: segura
 
 
 def test_set_active_cycle_conserva_el_ultimo_ciclo():

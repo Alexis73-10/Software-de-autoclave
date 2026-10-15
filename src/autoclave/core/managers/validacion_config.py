@@ -11,6 +11,13 @@
 # spec (§4.2) se añadirá aquí.
 
 RANGO_PRESION_ATM_KPA = (1.0, 10.0)
+# SAF-03 de T4: sin estas claves la cámara nunca es segura (falla cerrada) y
+# PREPARADO queda bloqueado sin diagnóstico. Límites amplios que no rechazan los
+# valores actuales de fábrica (75 kPa, 120 °C). DECISIÓN SIN CONFIRMAR.
+LIMITES_CAMARA_SEGURA = {
+    "presion_admosferica": (50.0, 110.0),   # kPa
+    "temp_max_apertura": (40.0, 120.0),     # °C (techo de 120 °C intencional)
+}
 
 
 def _es_numero(v) -> bool:
@@ -30,4 +37,12 @@ def errores_config_arranque(config) -> list[str]:
     elif not minimo <= rango <= maximo:
         errores.append(
             f"rango_presion_atm fuera de rango: {rango} kPa (permitido {minimo:g}–{maximo:g} kPa)")
+    for clave, (bajo, alto) in LIMITES_CAMARA_SEGURA.items():
+        valor = config.get(clave)
+        if valor is None:
+            errores.append(f"Falta el parámetro {clave}")
+        elif not _es_numero(valor) or valor != valor:
+            errores.append(f"{clave} no es numérico ({valor!r})")
+        elif not bajo <= valor <= alto:
+            errores.append(f"{clave} fuera de rango: {valor} (permitido {bajo:g}–{alto:g})")
     return errores

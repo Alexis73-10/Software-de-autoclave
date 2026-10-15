@@ -24,6 +24,7 @@ from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
+from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
                                            tarjeta_emparejada)
@@ -696,6 +697,20 @@ def _evento_dto(inst) -> dict:
     }
 
 
+def _camara_segura_status(estado) -> dict:
+    try:
+        programas = context.programas_para_seguridad()
+        vigentes = getattr(context.control_loop, "datos_vigentes", False) is True
+        segura, motivo = camara_segura.evaluar(estado, context.config_manager, programas,
+                                               getattr(context, "profile", None),
+                                               datos_vigentes=vigentes,
+                                               temp_max_ciclo=context.temp_max_tras_ciclo())
+    except Exception as exc:
+        logger.exception("/status: no se pudo evaluar camara_segura")
+        segura, motivo = False, f"No se pudo evaluar: {exc}"
+    return {"camara_segura": segura, "no_abrir": not segura, "camara_segura_motivo": motivo}
+
+
 def _sensores_programa(estado) -> dict:
     try:
         programa = context.programa_para_sensores()
@@ -783,6 +798,8 @@ def get_status():
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
         # Del enlace serial, no de Units: Units solo se entera por on_update
         # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).
+        # E2 (fin de ciclo §5): falla cerrada; "NO ABRIR" en cualquier estado
+        **_camara_segura_status(estado),
         "card_connected":        context.serial.is_connected(),
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
