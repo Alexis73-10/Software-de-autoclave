@@ -180,7 +180,8 @@ class DescompresionFase(BaseFase):
             self.set_do.descompresion_lenta_on()
 
         temp_obj = self.cycle.get_param("descompresion", modo_key, "temperatura_enfriamiento", default=80.0)
-        t = self._temp_camara()
+        # Enfriamiento (modos 4/5) medido con el Principal (tanda §1.1)
+        t = self._temp_principal()
         if t is not None and t <= temp_obj:
             self.set_do.aire_comprimido_camara_off()
             self.set_do.agua_chaqueta_off()

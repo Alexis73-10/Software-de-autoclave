@@ -4,6 +4,7 @@ import json
 import os
 import logging
 from autoclave.utils.resources import resource_path
+from autoclave.core.runtime.sensores_ciclo import asignacion_por_omision, interpretar_asignacion
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,10 @@ class Cycle:
         # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
         # None si falta, no es entero positivo o está repetido.
         self.number = number
+        # Roles de los sensores de temperatura (tanda §1.1). La carga desde
+        # JSON la fija con interpretar_asignacion (migración perezosa).
+        self.sensores: dict = asignacion_por_omision()
+        self.sensores_formato_antiguo = True
 
     def copia(self) -> "Cycle":
         """Copia profunda de los parámetros (T-17, §5.8): el ciclo en curso
@@ -40,6 +45,9 @@ class Cycle:
         ningún valor de una fase ya iniciada."""
         c = Cycle(self.id, self.name, copy.deepcopy(self.parameters), self.number)
         c.source = getattr(self, "source", None)
+        # RS-03.4: la asignación de sensores es una instantánea al iniciar
+        c.sensores = dict(getattr(self, "sensores", None) or asignacion_por_omision())
+        c.sensores_formato_antiguo = getattr(self, "sensores_formato_antiguo", True)
         return c
 
     def get_param(self, *keys, default=None):
@@ -170,6 +178,11 @@ class CycleManager:
 
                         cycle.source = source
                         cycle._path  = full_path
+                        cycle.sensores, cycle.sensores_formato_antiguo =                             interpretar_asignacion(data.get("cycle_temperature_sensors"))
+                        if cycle.sensores_formato_antiguo:
+                            logger.warning("Ciclo %s: cycle_temperature_sensors ausente o en "
+                                           "formato antiguo; se usa la asignación de fábrica "
+                                           "(Principal = temp_camara)", cycle.id)
 
                         # 🔥 aquí pasa la magia
                         self.cycles[cycle.id] = cycle

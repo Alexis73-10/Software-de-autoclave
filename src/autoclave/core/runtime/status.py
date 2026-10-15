@@ -121,6 +121,8 @@ class EstadoAutoclave:
         # CALENTAMIENTO/ESTABILIZACION/ESTERILIZACION; se limpia al iniciar
         # cada ciclo nuevo (CicloState.reset())
         self.f0_acumulado: float = 0.0
+        # Avisos del ciclo que van al pie del ticket (SAF-04 de T3)
+        self.avisos_ciclo: list = []
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

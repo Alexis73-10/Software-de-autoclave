@@ -38,6 +38,8 @@ _EJEMPLOS = {
     "COM-01": {},
     "COM-02": {"segundos": 5.0, "fase": "Calentamiento"},
     "COM-03": {"causa": "TARJETA_WATCHDOG", "motivo": "x.", "fase": "Secado"},
+    "SEN-03": {"sensor": "Referencia", "valor": None},
+    "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "OPERANDO_SIN_BD": {},
     "CONFIGURACION_INVALIDA": {"motivo": "x"},
     **{codigo: {"motivo": "x"} for codigo in CODIGOS_TARJETA},

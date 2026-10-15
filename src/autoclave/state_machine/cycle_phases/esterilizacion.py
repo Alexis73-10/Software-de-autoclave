@@ -40,6 +40,8 @@
 import time
 import logging
 from autoclave.core.runtime.steam import p_saturacion_kpa
+from autoclave.core.runtime.sensores_ciclo import NOMBRES
+from autoclave.state_machine.alarms.catalogo import CIC_09
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -64,6 +66,10 @@ class EsterilizacionFase(BaseFase):
         self._contador_temp_baja = 0
         self._contador_pres_alta = 0
         self._contador_pres_baja = 0
+        # Uniformidad térmica de las Referencias (tanda §1.1 b): debounce por
+        # sensor y alerta una sola vez por ciclo y sensor.
+        self._contador_ref_fuera: dict[str, int] = {}
+        self._ref_alertada: set[str] = set()
 
         # Temporizadores de dos estados (vapor PWM, escape lento, escape rápido)
         self._t_pulso_pwm = None
@@ -80,6 +86,34 @@ class EsterilizacionFase(BaseFase):
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_rapida_off()
         self.estado.fase_en_sostenimiento = False
+
+    def _vigilar_referencias(self, minimo: float, maximo: float) -> None:
+        for sensor, temp in self._temps_referencia().items():
+            if temp is None:
+                continue        # lo trata la vigilancia SENSOR_AUSENTE de CicloState
+            if minimo <= temp <= maximo:
+                self._contador_ref_fuera[sensor] = 0
+                continue
+            n = self._contador_ref_fuera.get(sensor, 0) + 1
+            self._contador_ref_fuera[sensor] = n
+            if n >= _DEBOUNCE_LECTURAS and sensor not in self._ref_alertada:
+                self._ref_alertada.add(sensor)
+                logger.warning("Esterilización: referencia %s fuera de rango (%.1f °C)",
+                               sensor, temp)
+                # SAF-04 de T3: queda en el pie del ticket del ciclo
+                try:
+                    avisos = getattr(self.estado, "avisos_ciclo", None)
+                    if isinstance(avisos, list):
+                        avisos.append(f"Uniformidad termica fuera de rango: "
+                                      f"{NOMBRES.get(sensor, sensor)} {temp:.1f} C")
+                except Exception:
+                    logger.exception("Esterilización: no se pudo anotar el aviso de uniformidad")
+                try:
+                    self.alarm_manager.activar(CIC_09, origen=sensor,
+                                               sensor=NOMBRES.get(sensor, sensor),
+                                               temp=temp, minimo=minimo, maximo=maximo)
+                except Exception:
+                    logger.exception("Esterilización: no se pudo registrar CIC-09")
 
     def _fallo(self, mensaje: str) -> FaseResult:
         logger.error("Esterilización: FALLO — %s", mensaje)
@@ -167,7 +201,10 @@ class EsterilizacionFase(BaseFase):
         lento_off    =  self.cycle.get_param("esterilizacion", "escape_lento_off_ester")       or 0
         rapido_on    =  self.cycle.get_param("esterilizacion", "escape_rapido_on_ester")       or 0
         rapido_off   =  self.cycle.get_param("esterilizacion", "escape_rapido_off_ester")      or 0
-        f0_activo    =  bool(self.cycle.get_param("globals", "F0"))
+        # F0 solo en equipos de laboratorio (tanda §1.1); sin capacidades
+        # conocidas se respeta el parámetro (comportamiento previo)
+        f0_activo    =  bool(self.cycle.get_param("globals", "F0")) and (
+            self.cap is None or bool(getattr(self.cap, "has_liquid_sensor", False)))
         f0_objetivo  =  self.cycle.get_param("globals", "F0_objetivo")      or 0.0
 
         p_sat_est = p_saturacion_kpa(t_est)
@@ -187,7 +224,7 @@ class EsterilizacionFase(BaseFase):
                 tiempo_seg, t_est, p_control_max,
             )
 
-        temp = self._temp_camara()
+        temp = self._temp_principal()
         pres = self._pres_camara()
         if temp is None or pres is None:
             return FaseResult.EN_CURSO
@@ -230,6 +267,11 @@ class EsterilizacionFase(BaseFase):
             return self._fallo(
                 f"Presión baja: {pres:.1f} kPa < {p_sat_est - brecha_err_p:.1f} kPa"
             )
+
+        # ── 2b. Referencias (tanda §1.1 b): fuera de rango NO falla; alerta
+        # de uniformidad térmica no bloqueante. El control y el conteo siguen
+        # solo con el Principal (que falla por sí mismo si sale de rango).
+        self._vigilar_referencias(t_est - brecha_err_t, t_est + rango_temp)
 
         # ── 3. Transición bidireccional RECUPERACION↔PWM_ACTIVO ────────────
         # Sin chattering-guard: reacción inmediata ante pérdida de reserva

@@ -220,7 +220,7 @@ class CalentamientoFase(BaseFase):
 
         # ── 1. Inicialización ────────────────────────────────────────────
         if not self._inicializado:
-            temp_inicial = self._temp_camara()
+            temp_inicial = self._temp_principal()
             if temp_inicial is None:
                 return FaseResult.EN_CURSO
             self._timer_timeout_fin = time.monotonic() + timeout_seg
@@ -234,7 +234,7 @@ class CalentamientoFase(BaseFase):
         if time.monotonic() > self._timer_timeout_fin:
             return self._fallo(f"Timeout de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
 
-        temp = self._temp_camara()
+        temp = self._temp_principal()
         pres = self._pres_camara()
         if temp is None or pres is None:
             return FaseResult.EN_CURSO
@@ -379,6 +379,14 @@ class CalentamientoFase(BaseFase):
                 return FaseResult.EN_CURSO
 
         dentro_rango = t_obj <= temp <= t_obj + rango_temp_estab and p_obj <= pres <= p_obj + p_add
+        # Tanda §1.1 (a): todas las sondas en uso deben estar en la consigna
+        # durante la ventana. Las Referencias no se comparan con el Principal
+        # ni entre sí: solo contra la consigna (cota inferior; pueden ir más
+        # frías que el Principal, nunca se les exige un techo). Una lectura
+        # None la detiene antes la vigilancia SENSOR_AUSENTE de CicloState.
+        refs_en_consigna = all(t is not None and t >= t_obj
+                               for t in self._temps_referencia().values())
+        dentro_rango = dentro_rango and refs_en_consigna
 
         if dentro_rango:
             self._timer_recuperacion_fin = None

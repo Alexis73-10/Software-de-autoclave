@@ -14,6 +14,10 @@ from autoclave.state_machine.states.preparado import preparado_state
 from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 _TEMPS = ["temp_camara", "temp_2_camara", "temp_ref", "temp_drenaje"]
+# Tanda 2026-10-14 §1.1: los sensores del ciclo (Cámara 1, Cámara 2,
+# Referencia) sin lectura dan una alerta NO bloqueante (SEN-03, ver
+# test_t3_sensores_ciclo.py); solo el drenaje sigue bloqueando.
+_TEMPS_BLOQUEAN = ["temp_drenaje"]
 
 # Órdenes de válvula que PREPARACION/PREPARADO pueden emitir
 _ORDENES_VALVULA = [
@@ -110,7 +114,7 @@ def _ordenes(set_do):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("clase", [preparacion_state, preparado_state])
-@pytest.mark.parametrize("sensor", _TEMPS)
+@pytest.mark.parametrize("sensor", _TEMPS_BLOQUEAN)
 def test_temperatura_none_es_error_de_sensor(clase, sensor):
     obj, alarm_mgr, _ = _make(clase, **{sensor: None})
     assert obj.verificar_sensores() is False
@@ -120,7 +124,7 @@ def test_temperatura_none_es_error_de_sensor(clase, sensor):
 
 
 @pytest.mark.parametrize("clase", [preparacion_state, preparado_state])
-@pytest.mark.parametrize("sensor", _TEMPS)
+@pytest.mark.parametrize("sensor", _TEMPS_BLOQUEAN)
 def test_temperatura_nan_es_error_de_sensor(clase, sensor):
     obj, alarm_mgr, _ = _make(clase, **{sensor: math.nan})
     assert obj.verificar_sensores() is False
@@ -128,7 +132,7 @@ def test_temperatura_nan_es_error_de_sensor(clase, sensor):
 
 
 @pytest.mark.parametrize("clase", [preparacion_state, preparado_state])
-@pytest.mark.parametrize("sensor", _TEMPS)
+@pytest.mark.parametrize("sensor", _TEMPS_BLOQUEAN)
 def test_temperatura_none_run_no_lanza_y_no_queda_listo(clase, sensor):
     obj, alarm_mgr, set_do = _make(clase, **{sensor: None})
     assert obj.run() is False

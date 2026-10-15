@@ -146,7 +146,7 @@ _USUARIOS_SEMILLA = (
 
 # ── Migraciones numeradas (PRAGMA user_version) ─────────────────────────────
 # La base anterior a este mecanismo es v0. Cada migración es atómica (una
-# transacción) y registra su versión al terminar. v2 queda reservada para
+# transacción) y registra su versión al terminar. v2: sensores del ciclo (tanda
 # planeacion_backend_parametros.md (system_params, entradas mostradas, gráfica).
 
 def _migracion_v1(conn: sqlite3.Connection) -> None:
@@ -169,8 +169,29 @@ def _migracion_v1(conn: sqlite3.Connection) -> None:
     )
 
 
+def _migracion_v2(conn: sqlite3.Connection) -> None:
+    """Sensores del ciclo (tanda 2026-10-14 §1.1, RS-08): asignación de roles
+    vigente al inicio (JSON canónico), F0 final y número de programa en
+    `ciclos`; temperatura del Principal en `lecturas`; Cámara 2 en la gráfica.
+    Aditiva: las filas anteriores quedan con NULL / ''."""
+    for tabla, columna, tipo in (
+        ("ciclos", "asignacion_sensores", "TEXT DEFAULT ''"),
+        ("ciclos", "f0_final", "REAL"),
+        ("ciclos", "numero_programa", "INTEGER"),
+        ("lecturas", "temp_principal", "REAL"),
+        ("lecturas_grafica", "temp_2_camara", "REAL"),
+    ):
+        columnas = {f[1] for f in conn.execute(f"PRAGMA table_info({tabla})")}
+        if columna not in columnas:
+            conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo}")
+
+
+# v2 la toma la tanda 2026-10-14 (sensores del ciclo); lo que estaba previsto
+# para planeacion_backend_parametros.md pasa a v3 o posterior. Las versiones
+# son secuenciales: no se deja ningún hueco.
 _MIGRACIONES = (
     (1, _migracion_v1),
+    (2, _migracion_v2),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -194,6 +215,7 @@ class DbManager:
         self._conn = sqlite3.connect(
             str(self._path),
             check_same_thread=False,   # protegido por Lock manual
+            timeout=10.0,              # espera un bloqueo de otro proceso (TMG-03 de T3)
         )
         self._conn.row_factory = sqlite3.Row
         self._apply_schema()
@@ -255,7 +277,7 @@ class DbManager:
             if version <= actual:
                 continue
             try:
-                self._conn.execute("BEGIN")
+                self._conn.execute("BEGIN IMMEDIATE")   # TMG-03 de T3
                 migracion(self._conn)
                 self._conn.execute(f"PRAGMA user_version = {int(version)}")
                 self._conn.commit()
@@ -347,6 +369,8 @@ class DbManager:
         serie: str,
         version_sw: str,
         operador: str = "",
+        asignacion_sensores: str = "",
+        numero_programa: int | None = None,
     ) -> int:
         """Inserta un nuevo ciclo y retorna su ID."""
         with self._lock:
@@ -355,8 +379,9 @@ class DbManager:
                 INSERT INTO ciclos
                     (numero_ciclo, fecha_inicio, tipo_ciclo, nombre_ciclo,
                      temp_esterilizacion, tiempo_esterilizacion,
-                     modelo, serie, version_sw, operador)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
+                     modelo, serie, version_sw, operador,
+                     asignacion_sensores, numero_programa)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     numero,
@@ -369,20 +394,23 @@ class DbManager:
                     serie or "",
                     version_sw or "",
                     operador or "",
+                    asignacion_sensores or "",
+                    numero_programa,
                 ),
             )
             self._conn.commit()
             return cur.lastrowid
 
     def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
-                     codigo_fallo: str | None = None):
-        """Registra la hora de fin, el resultado y (si lo hay) el motivo y código del ciclo."""
+                     codigo_fallo: str | None = None, f0_final: float | None = None):
+        """Registra la hora de fin, el resultado y (si lo hay) el motivo y código
+        del ciclo, y el F0 final si el ciclo tenía F0 activo."""
         with self._lock:
             self._conn.execute(
-                "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=? "
-                "WHERE id=?",
+                "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
+                "f0_final=? WHERE id=?",
                 (datetime.now().isoformat(), resultado, motivo_fallo or "",
-                 codigo_fallo or "", ciclo_id),
+                 codigo_fallo or "", f0_final, ciclo_id),
             )
             self._conn.commit()
 
@@ -469,14 +497,15 @@ class DbManager:
         temp,
         pres,
         para_imprimir: bool = False,
+        temp_principal=None,
     ):
         with self._lock:
             self._conn.execute(
                 """
                 INSERT INTO lecturas
                     (ciclo_id, timestamp_rel, timestamp_abs, fase_codigo,
-                     temp_camara, pres_camara, para_imprimir)
-                VALUES (?,?,?,?,?,?,?)
+                     temp_camara, pres_camara, para_imprimir, temp_principal)
+                VALUES (?,?,?,?,?,?,?,?)
                 """,
                 (
                     ciclo_id,
@@ -486,6 +515,7 @@ class DbManager:
                     round(temp, 2) if temp is not None else None,
                     round(pres, 2) if pres is not None else None,
                     1 if para_imprimir else 0,
+                    round(temp_principal, 2) if temp_principal is not None else None,
                 ),
             )
             self._conn.commit()
@@ -511,15 +541,16 @@ class DbManager:
     # ------------------------------------------------------------------
 
     def insertar_lectura_grafica(self, ciclo_id: int, t_s: float, fase: str,
-                                 temp_camara, temp_ref, pres_camara):
+                                 temp_camara, temp_ref, pres_camara, temp_2_camara=None):
         def r(v):
             return round(v, 2) if v is not None else None
         with self._lock:
             self._conn.execute(
                 "INSERT INTO lecturas_grafica"
-                " (ciclo_id, t_s, fase, temp_camara, temp_ref, pres_camara)"
-                " VALUES (?,?,?,?,?,?)",
-                (ciclo_id, round(t_s, 3), fase or "", r(temp_camara), r(temp_ref), r(pres_camara)),
+                " (ciclo_id, t_s, fase, temp_camara, temp_ref, pres_camara, temp_2_camara)"
+                " VALUES (?,?,?,?,?,?,?)",
+                (ciclo_id, round(t_s, 3), fase or "", r(temp_camara), r(temp_ref), r(pres_camara),
+                 r(temp_2_camara)),
             )
             self._conn.commit()
 

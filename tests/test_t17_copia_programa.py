@@ -198,6 +198,8 @@ class _Estado:
         self.maquina = GlobalState.PREPARADO
         self.flags = {"START_CICLO": True}
         self.sensores_temp, self.sensores_pres, self.sensores_di = {}, {}, {}
+        # RS-06 (tanda §1.1): el Principal debe tener lectura para iniciar
+        self.sensores_temp["temp_camara"] = 25.0
         self.fase_ciclo = ""
         self.estado_maquina = {}
         self.Alarmas_activas = {}

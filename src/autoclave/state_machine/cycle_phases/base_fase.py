@@ -4,6 +4,7 @@ from enum import Enum, auto
 import logging
 
 from autoclave.core.runtime.steam import p_saturacion_kpa
+from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_referencia
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,15 @@ class BaseFase:
 
     def _temp_camara(self) -> float | None:
         return self.estado.sensores_temp.get("temp_camara")
+
+    def _temp_principal(self) -> float | None:
+        """Sensor Principal del programa con el que corre la fase (tanda §1.1):
+        control de vapor, fallas, saturación, enfriamiento."""
+        return self.estado.sensores_temp.get(sensor_principal(self.cycle))
+
+    def _temps_referencia(self) -> dict:
+        """{sensor: lectura} de las Referencias del programa (puede haber None)."""
+        return {s: self.estado.sensores_temp.get(s) for s in sensores_referencia(self.cycle)}
 
     def _temp_camara_2(self) -> float | None:
         return self.estado.sensores_temp.get("temp_2_camara")

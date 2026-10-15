@@ -16,7 +16,7 @@ def _columnas(db, tabla):
 
 def test_base_nueva_queda_en_v1_con_audit_log(tmp_path):
     db = DbManager(db_path=tmp_path / "t.db")
-    assert db.get_version_esquema() == 1 == db_manager.ESQUEMA_VERSION
+    assert db.get_version_esquema() == 2 == db_manager.ESQUEMA_VERSION
     assert _columnas(db, "audit_log") == {
         "id", "ts", "usuario", "rol", "evento", "entidad",
         "valor_anterior", "valor_nuevo", "detalle"}
@@ -34,7 +34,7 @@ def test_base_v0_existente_migra_sin_perder_datos(tmp_path):
     con.close()
 
     db = DbManager(db_path=ruta)
-    assert db.get_version_esquema() == 1
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION
     assert db.get_usuario_by_username("viejo")["debe_cambiar_clave"] == 0
     assert db.get_auditoria() == []
     # con usuarios previos no se siembra nada
@@ -45,7 +45,7 @@ def test_migracion_idempotente(tmp_path):
     db1 = DbManager(db_path=tmp_path / "t.db")
     db1.registrar_auditoria("login_ok", usuario="ana")
     db2 = DbManager(db_path=tmp_path / "t.db")
-    assert db2.get_version_esquema() == 1
+    assert db2.get_version_esquema() == db_manager.ESQUEMA_VERSION
     assert len(db2.get_auditoria()) == 1
 
 

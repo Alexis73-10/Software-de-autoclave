@@ -1,5 +1,7 @@
 # Planeación: sensores de temperatura del ciclo (roles Principal, Referencia y No en uso)
 
+> **Adenda 2026-10-14 (tanda, T3):** implementado con los cambios de `instruccion_claude_code_tanda_noche.md` §1.1, que prevalecen: el Principal decide también puertas, apertura automática, cámara segura y F0 (se elimina S-8 y la vigilancia fija de `temp_camara`); F0 solo con el Principal (C-1) y solo en equipos de laboratorio; las Referencias solo condicionan la entrada a esterilización y generan la alerta CIC-09; un sensor `no_en_uso` no se vigila; fuera de ciclo un sensor del ciclo sin lectura es alerta no bloqueante (SEN-03) y bloquea al iniciar (RS-06); permisos de roles y calibración: técnico e ingeniero (sin biomédico ni admin). Detalle: `docs/informes/tanda/T3_sensores_backend.md`.
+
 Estado: BORRADOR, revisión 2 (corregida con `INFORME_VERIFICACION_SPECS_PARAMETROS_SENSORES.md`). Pendiente de aprobación de Cristian. No hay código escrito ni se debe escribir hasta que este documento sea aprobado.
 Ubicación prevista: `docs\mis_plans\planeacion_sensores_ciclo.md`
 Depende de: `planeacion_endurecimiento_backend_parametros.md` (en particular RB-01 a RB-04 y el servicio único de RB-08).

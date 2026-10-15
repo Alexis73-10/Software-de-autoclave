@@ -1,5 +1,6 @@
 # autoclave/backend/server.py
 
+from types import SimpleNamespace
 import logging
 import sqlite3
 import threading
@@ -22,6 +23,8 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import progreso_ciclo
+from autoclave.core.runtime import sensores_ciclo as sc
+from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
                                            tarjeta_emparejada)
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
@@ -565,9 +568,11 @@ def _ultimo_cambio_calibracion(tipo: str, sensor: str) -> dict | None:
 
 @app.patch("/calibration/{tipo}/{sensor}")
 def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
-                       sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
-    """Solo ingeniero (decisión 25). En CICLO aplica de inmediato (§5.8). El
-    usuario sale del token: un `usuario` en el cuerpo se ignora."""
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Técnico e ingeniero (tanda 2026-10-14 §1.1, C-5; antes solo ingeniero).
+    Técnico solo fuera de CICLO; el ingeniero también en CICLO, donde aplica de
+    inmediato (§5.8). El usuario sale del token: un `usuario` en el cuerpo se
+    ignora."""
     index = _resolve_sensor_index(tipo, sensor)
 
     try:
@@ -581,8 +586,8 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
     entidad = f"{tipo}/{sensor}"
 
     # Solo comprobación bajo _sm_lock: el guard solo deja pasar en CICLO al
-    # ingeniero, que es el único rol que llega aquí, así que la escritura no
-    # necesita ser atómica con la comprobación. YAML y recarga van fuera del
+    # ingeniero (el técnico recibe 409), así que la escritura no necesita ser
+    # atómica con la comprobación. YAML y recarga van fuera del
     # lock para no detener el tick (revisión de la etapa 1, hallazgo D).
     with guard_estado(DISTINTO_DE_CICLO, f"/calibration/{entidad}", sesion,
                       excepcion_ingeniero=True):
@@ -602,6 +607,14 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
+        # SAF-03 de T3: si un ciclo arrancó entre la comprobación y este
+        # punto, el técnico no puede cambiar la calibración en curso
+        if sesion.rol != ROL_INGENIERO:
+            with context.control_loop.bloqueo_maquina():
+                en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
+            if en_ciclo:
+                raise HTTPException(status_code=409,
+                                    detail="Hay un ciclo en curso: calibración no aplicada")
         write_user_calibration(
             CALIBRATION_PATH, tipo, index, new_gain, new_offset,
             shown_low, real_low, shown_high, real_high,
@@ -683,6 +696,24 @@ def _evento_dto(inst) -> dict:
     }
 
 
+def _sensores_programa(estado) -> dict:
+    try:
+        programa = context.programa_para_sensores()
+    except Exception:
+        programa = None
+    # una sola lectura de la asignación (TMG-05 de T3)
+    instantanea = SimpleNamespace(sensores=dict(sc.asignacion_de(programa)))
+    principal = sc.sensor_principal(instantanea)
+    return {
+        "sensor": principal,
+        "nombre": sc.NOMBRES[principal],
+        "valor": estado.sensores_temp.get(principal),
+        "referencias": [{"sensor": s, "nombre": sc.NOMBRES[s],
+                         "valor": estado.sensores_temp.get(s)}
+                        for s in sc.sensores_referencia(instantanea)],
+    }
+
+
 @app.get("/status", response_model=None)
 def get_status():
     estado = context.estado
@@ -713,9 +744,10 @@ def get_status():
             "camara_2": estado.sensores_temp.get("temp_2_camara"),
             "ref": estado.sensores_temp.get("temp_ref"),
             "drenaje": estado.sensores_temp.get("temp_drenaje"),
-
-
         },
+        # Tanda §1.1: sensor Principal del programa vigente (seleccionado; en
+        # CICLO, el del ciclo en curso) y sus Referencias
+        "principal": _sensores_programa(estado),
         "pressure": {
             "camara": estado.sensores_pres.get("pres_camara"),
             "chaqueta": estado.sensores_pres.get("pres_chaqueta"),
@@ -1159,6 +1191,13 @@ def start_cycle():
             detail="El sistema no está listo para iniciar un ciclo"
         )
 
+    # RS-06 (tanda §1.1): asignación de sensores válida y todos los sensores
+    # en uso del programa seleccionado con lectura
+    rechazo = sc.verificar_inicio(getattr(context.control_loop, "cycle", None),
+                                  getattr(context, "profile", None), estado)
+    if rechazo is not None:
+        _rechazar(409, rechazo[0], rechazo[1], "/cycle/start")
+
     estado.set_flag("START_CICLO", True)
     return {"ok": True, "action": "START_CICLO"}
 
@@ -1386,6 +1425,12 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         raise HTTPException(status_code=422, detail="'path' no puede estar vacío")
 
     entidad = f"{body.cycle_id}/{body.fase}/{'.'.join(body.path)}"
+    # F0 solo en equipos de laboratorio (tanda §1.1): fuera de lab no se ofrece
+    # y el backend rechaza activarlo
+    if (body.fase == "globals" and body.path == ["F0"] and bool(body.value)
+            and not sc.f0_disponible(getattr(context, "profile", None))):
+        _rechazar(422, "f0_no_disponible",
+                  "F0 solo está disponible en equipos de laboratorio", entidad, sesion)
     with guard_estado(DISTINTO_DE_CICLO, "/cycle/parameter", sesion,
                       excepcion_ingeniero=True) as estado:
         en_ciclo = estado == GlobalState.CICLO
@@ -1428,17 +1473,151 @@ def update_cycle_parameter(body: _CycleParamValueBody,
     return {"ok": True, "value": value, "aplica": aplica}
 
 
-def _save_cycle_json(cycle) -> None:
-    """Escribe cycle.parameters de vuelta al JSON del ciclo (solo ciclos user)."""
+# ── Sensores del ciclo (tanda 2026-10-14 §1.1; RS-01, RS-02) ───────────────
+
+def _programa_por_numero(numero: int):
+    for cycle in context.cycle_manager.cycles.values():
+        if getattr(cycle, "number", None) == numero:
+            return cycle
+    raise HTTPException(status_code=404, detail=f"Programa {numero} no encontrado")
+
+
+@app.get("/cycle/sensors")
+def get_cycle_sensors(programa: int):
+    """Sensores del programa N: id, nombre (ubicación), tipo, estado
+    (disponible / sin_senal / no_instalado), lectura y rol. Un sensor
+    no_instalado solo se lista si el programa le asigna un rol activo."""
+    cycle = _programa_por_numero(programa)
+    perfil = getattr(context, "profile", None)
+    asignacion = sc.asignacion_de(cycle)
+    sensores = []
+    for s in sc.SENSORES:
+        estado_s = sc.estado_sensor(perfil, context.estado, s)
+        rol = asignacion.get(s, sc.NO_EN_USO)
+        if estado_s == sc.NO_INSTALADO and rol == sc.NO_EN_USO:
+            continue
+        lectura = context.estado.sensores_temp.get(s)
+        sensores.append({
+            "id": s, "nombre": sc.NOMBRES[s], "tipo": sc.TIPOS[s], "estado": estado_s,
+            "lectura": lectura if lectura_valida(lectura) else None, "rol": rol,
+        })
+    return {
+        "programa": programa,
+        "cycle_id": cycle.id,
+        "asignacion": asignacion,
+        "errores": sc.errores_asignacion(asignacion),
+        "formato_antiguo": bool(getattr(cycle, "sensores_formato_antiguo", False)),
+        "editable": getattr(cycle, "source", "") == "user",
+        "sensores": sensores,
+    }
+
+
+class _SensorRolesBody(BaseModel):
+    programa: int
+    asignacion: dict
+    asignacion_anterior_esperada: dict
+
+
+def _normalizar_asignacion(asignacion: dict) -> dict:
+    """Completa con no_en_uso los sensores del catálogo que falten; conserva
+    las claves desconocidas para que la validación las rechace."""
+    return {**{s: sc.NO_EN_USO for s in sc.SENSORES}, **asignacion}
+
+
+def _escribir_json_programa(cycle, cambiar) -> None:
+    """Lee el JSON del programa, aplica `cambiar(data)` y lo escribe de forma
+    atómica (.tmp + fsync + os.replace): un corte a mitad de la escritura no
+    deja el programa truncado (TMG-02 de T3). Si falla, borra el .tmp."""
     import json as _json
+    import os as _os
     from pathlib import Path as _Path
 
     path = _Path(cycle._path)
     with open(path, "r", encoding="utf-8") as f:
         data = _json.load(f)
-    data["parameters"] = cycle.parameters
-    with open(path, "w", encoding="utf-8") as f:
-        _json.dump(data, f, indent=4, ensure_ascii=False)
+    cambiar(data)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            _json.dump(data, f, indent=4, ensure_ascii=False)
+            f.flush()
+            _os.fsync(f.fileno())
+        _os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+
+
+def _escribir_sensores_json(cycle, asignacion: dict) -> None:
+    """Campo cycle_temperature_sensors del JSON (RS-02)."""
+    def cambiar(data):
+        data["cycle_temperature_sensors"] = {s: asignacion[s] for s in sc.SENSORES}
+    _escribir_json_programa(cycle, cambiar)
+
+
+@app.put("/cycle/sensor-roles")
+def put_sensor_roles(body: _SensorRolesBody,
+                     sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Asigna los roles de los sensores de un programa: todo o nada, con
+    control de concurrencia por asignacion_anterior_esperada y auditoría
+    ROLES_SENSOR (RS-02). Técnico fuera de CICLO; ingeniero también en CICLO
+    (el ciclo en curso conserva su instantánea, RS-03.4). Solo programas de
+    usuario."""
+    cycle = _programa_por_numero(body.programa)
+    entidad = f"{cycle.id}/cycle_temperature_sensors"
+    if getattr(cycle, "source", "") != "user" or not hasattr(cycle, "_path"):
+        _rechazar(409, "programa_de_fabrica",
+                  "Los programas de fábrica no se modifican", entidad, sesion)
+    nueva = _normalizar_asignacion(body.asignacion)
+    errores = sc.errores_asignacion(nueva)
+    if errores:
+        _rechazar(422, sc.ASIGNACION_INVALIDA, "; ".join(errores), entidad, sesion,
+                  extra={"errores": errores})
+    esperada = _normalizar_asignacion(body.asignacion_anterior_esperada)
+
+    with _lock_archivos:      # serializa escritores: la asignación no cambia entre pasos
+        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
+            anterior = dict(sc.asignacion_de(cycle))
+            if sc.canonica(esperada) != sc.canonica(anterior):
+                raise _Rechazo(409, "asignacion_desfasada",
+                               "La asignación cambió desde que se leyó; vuelva a cargarla",
+                               extra={"asignacion_actual": anterior})
+            faltan = sc.errores_disponibilidad(nueva, getattr(context, "profile", None),
+                                               context.estado)
+            if faltan:
+                raise _Rechazo(422, sc.SENSOR_NO_DISPONIBLE,
+                               f"Sensores sin lectura o no instalados: {faltan}",
+                               extra={"sensores": faltan})
+        # archivo fuera de _sm_lock (no detener el tick); si falla, nada cambió
+        try:
+            _escribir_sensores_json(cycle, nueva)
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"No se pudo guardar el programa: {exc}")
+        with context.control_loop.bloqueo_maquina():
+            # SAF-05 de T3: el ciclo pudo arrancar mientras se escribía el
+            # archivo; un técnico no modifica el programa en CICLO.
+            en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
+            permitido = not en_ciclo or sesion.rol == ROL_INGENIERO
+            if permitido:
+                cycle.sensores = dict(nueva)
+                cycle.sensores_formato_antiguo = False
+        if not permitido:
+            _escribir_sensores_json(cycle, anterior)       # revierte el archivo
+            _rechazar(409, "estado_no_permitido",
+                      "Hay un ciclo en curso: no se aplicó el cambio", entidad, sesion)
+
+    _auditar("ROLES_SENSOR", sesion, entidad=entidad,
+             valor_anterior=sc.canonica(anterior), valor_nuevo=sc.canonica(nueva),
+             detalle={"programa": cycle.id, "numero": body.programa,
+                      "param": "cycle_temperature_sensors"})
+    return {"ok": True, "asignacion": nueva}
+
+
+def _save_cycle_json(cycle) -> None:
+    """Escribe cycle.parameters de vuelta al JSON del ciclo (solo ciclos user)."""
+    def cambiar(data):
+        data["parameters"] = cycle.parameters
+    _escribir_json_programa(cycle, cambiar)
 
 
 # Direct hardware access — bypasses control_loop, for bench validation only

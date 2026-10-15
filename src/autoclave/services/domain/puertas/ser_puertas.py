@@ -31,6 +31,7 @@ import math
 from autoclave.devices.puertas.advanced_door import AdvancedDoor, DoorState
 from .permissions import PERMISSIONS
 from autoclave.state_machine.machine.parametros_globales import ParametrosGlobales
+from autoclave.core.runtime.sensores_ciclo import temp_seguridad
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +60,12 @@ def _numero(valor) -> float | None:
 
 class ServicioPuertas:
 
-    def __init__(self, doors, estado, profile, config, logger=logger, ):
+    def __init__(self, doors, estado, profile, config, logger=logger, programas=None):
         self.config = config
+        # Callable -> lista de programas cuyos sensores Principales deciden la
+        # temperatura de apertura (tanda §1.1; SAF-01 de T3: el seleccionado y,
+        # hasta que la cámara sea segura, el del último ciclo). None = temp_camara.
+        self._programas = programas
         self.doors = {d.name: d for d in doors}
         self.estado = estado
         self.profile = profile
@@ -108,7 +113,19 @@ class ServicioPuertas:
 
     @property
     def temp(self):
-        return self.estado.sensores_temp.get("temp_camara")
+        """Temperatura del sensor Principal (tanda §1.1). Lectura None = no
+        seguro: _can_open_physical falla cerrada. Si el técnico asigna como
+        Principal una sonda fría, la decisión puede ser optimista (riesgo
+        registrado en el análisis de riesgos, sin advertencia en la UI)."""
+        programas = None
+        if self._programas is not None:
+            try:
+                programas = self._programas()
+            except Exception:
+                # SAF-08 de T3: sin saber qué sensor decide, no es seguro
+                logger.exception("ServicioPuertas: no se pudo obtener el programa")
+                return None
+        return temp_seguridad(self.estado, programas, self.profile)
 
 
     # ============================

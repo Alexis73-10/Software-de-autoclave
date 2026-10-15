@@ -460,7 +460,10 @@
     "larga": "Máximo {max} caracteres",
     "no_coinciden": "Las contraseñas no coinciden",
     "rol_invalido": "Seleccione un rol",
-    "igual_actual": "La nueva contraseña debe ser distinta de la actual"
+    "igual_actual": "La nueva contraseña debe ser distinta de la actual",
+    "ASIGNACION_INVALIDA": "La asignación de sensores no es válida",
+    "SENSOR_NO_DISPONIBLE": "Un sensor en uso no tiene lectura o no está instalado",
+    "ASIGNACION_SENSORES_INVALIDA": "El programa tiene una asignación de sensores inválida"
   },
   "alarmas": {
     "TARJETA_SIN_TRAMA_VALIDA": {
@@ -499,5 +502,16 @@
       "titulo": "Las salidas de la tarjeta no coinciden con lo comandado",
       "accion": "Llame a servicio técnico."
     }
+  },
+  "sensores_ciclo": {
+    "temp_camara": "Cámara 1",
+    "temp_2_camara": "Cámara 2",
+    "temp_ref": "Referencia",
+    "rol_principal": "Principal",
+    "rol_referencia": "Referencia",
+    "rol_no_en_uso": "No en uso",
+    "estado_disponible": "Disponible",
+    "estado_sin_senal": "Sin señal",
+    "estado_no_instalado": "No instalado"
   }
 }

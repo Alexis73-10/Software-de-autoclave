@@ -29,6 +29,10 @@ from autoclave.state_machine.states.preparado import preparado_state
 from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 _TEMPS = ["temp_camara", "temp_2_camara", "temp_ref", "temp_drenaje"]
+# Tanda 2026-10-14 §1.1: los sensores del ciclo (Cámara 1, Cámara 2,
+# Referencia) sin lectura dan una alerta NO bloqueante (SEN-03, ver
+# test_t3_sensores_ciclo.py); solo el drenaje sigue bloqueando.
+_TEMPS_BLOQUEAN = ["temp_drenaje"]
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +229,7 @@ def test_sonda_no_instalada_sin_lectura_no_alarma_ni_bloquea(clase, sensor):
 
 
 @pytest.mark.parametrize("clase", _ESTADOS)
-@pytest.mark.parametrize("sensor", _TEMPS)
+@pytest.mark.parametrize("sensor", _TEMPS_BLOQUEAN)
 def test_sonda_instalada_sin_lectura_sigue_alarmando(clase, sensor):
     perfil = SimpleNamespace(temperature_probes={k: True for k in _TEMPS})
     obj, am, _ = _make(clase, perfil, **{sensor: None})
@@ -260,7 +264,7 @@ def test_preparado_sin_sondas_opcionales_queda_listo():
 # ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("clase", _ESTADOS)
-@pytest.mark.parametrize("sensor", ["temp_camara", "temp_ref", "temp_2_camara"])
+@pytest.mark.parametrize("sensor", _TEMPS_BLOQUEAN)
 def test_sonda_caida_apaga_vapor_de_chaqueta_y_camara(clase, sensor):
     # chaqueta fría: sin la corrección, el lazo la habría dejado en ON
     obj, _, set_do = _make(clase, None, pres_chaqueta=200.0, **{sensor: None})

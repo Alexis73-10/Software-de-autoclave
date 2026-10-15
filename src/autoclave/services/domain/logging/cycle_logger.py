@@ -25,6 +25,8 @@ import logging
 import importlib.metadata
 from datetime import datetime
 from autoclave.state_machine.machine.enum_global import GlobalState
+from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_disponible,
+                                                   sensor_principal)
 from autoclave.services.domain.logging.ticket_formatter import (
     format_footer,
     format_header,
@@ -215,12 +217,17 @@ class CycleLogger:
         nombre = ""
         temp_e = None
         t_e    = None
+        asignacion = ""
+        numero_programa = None
         try:
             cycle  = self._programa()
             tipo   = cycle.id
             nombre = cycle.name
             temp_e = cycle.get_param("esterilizacion", "temperatura_esterilizacion")
             t_e    = cycle.get_param("esterilizacion", "tiempo_esterilizacion")
+            # RS-08: asignación de sensores vigente al inicio y número de programa
+            asignacion = canonica(asignacion_de(cycle))
+            numero_programa = getattr(cycle, "number", None)
         except Exception as exc:
             logger.warning("CycleLogger: no se pudo leer el ciclo: %s", exc)
 
@@ -237,6 +244,8 @@ class CycleLogger:
             modelo      = modelo,
             serie       = serie,
             version_sw  = version_sw,
+            asignacion_sensores = asignacion,
+            numero_programa = numero_programa,
         )
         self._ciclo_inicio       = time.time()
         self._ultimo_log         = None   # primera lectura se hace inmediatamente
@@ -280,20 +289,22 @@ class CycleLogger:
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
             codigo = getattr(self.estado, "codigo_fallo", "") or None
-            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo, codigo)
+            f0_total = None
+            try:
+                cycle = self._programa()
+                # F0 solo en laboratorio (SAF-06 de T3), como las fases
+                if (cycle and cycle.get_param("globals", "F0")
+                        and f0_disponible(self.profile)):
+                    f0_total = self.estado.f0_acumulado
+            except Exception as exc:
+                logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
+            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo, codigo, f0_final=f0_total)
 
             if self.printer is not None:
-                f0_total = None
-                try:
-                    cycle = self._programa()
-                    if cycle and cycle.get_param("globals", "F0"):
-                        f0_total = self.estado.f0_acumulado
-                except Exception as exc:
-                    logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
-
                 self.printer.enqueue(format_footer(
                     resultado, datetime.now().isoformat(),
                     temp_final=self._ultima_temp, motivo=motivo_ticket(codigo, motivo), f0_total=f0_total,
+                    avisos=list(getattr(self.estado, "avisos_ciclo", None) or []) or None,
                 ))
 
             logger.info(
@@ -331,6 +342,7 @@ class CycleLogger:
                 self.estado.sensores_temp.get("temp_camara"),
                 self.estado.sensores_temp.get("temp_ref"),
                 self.estado.sensores_pres.get("pres_camara"),
+                self.estado.sensores_temp.get("temp_2_camara"),
             )
             # sin ráfagas de recuperación si un tick llega tarde
             siguiente = (self._proxima_muestra_s or t) + _PERIODO_GRAFICA_S
@@ -389,7 +401,12 @@ class CycleLogger:
         elapsed = ahora - self._t0_mono if self._t0_mono is not None else 0.0
         timestamp_rel = _fmt_elapsed(elapsed)
 
-        temp = self.estado.sensores_temp.get("temp_camara")
+        temp_c = self.estado.sensores_temp.get("temp_camara")
+        # El ticket y la temperatura final usan el sensor Principal (RS-08)
+        try:
+            temp = self.estado.sensores_temp.get(sensor_principal(self._programa()))
+        except Exception:
+            temp = temp_c
         pres = self.estado.sensores_pres.get("pres_camara")
 
         if temp is not None:
@@ -400,9 +417,10 @@ class CycleLogger:
             timestamp_rel = timestamp_rel,
             timestamp_abs = datetime.now().isoformat(),
             fase_codigo   = fase_codigo,
-            temp          = temp,
+            temp          = temp_c,
             pres          = pres,
             para_imprimir = para_imprimir,
+            temp_principal = temp,
         )
         self._ultimo_log = ahora
 
@@ -410,7 +428,7 @@ class CycleLogger:
             self.printer.enqueue(format_row({
                 "fase_codigo":   fase_codigo,
                 "timestamp_rel": timestamp_rel,
-                "temp_camara":   temp,
+                "temp_camara":   temp,      # columna del ticket = Principal
                 "pres_camara":   pres,
             }))
 

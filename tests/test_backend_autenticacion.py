@@ -330,18 +330,36 @@ def _param(client, cab, cycle_id="otro", valor=20.0):
         "cycle_id": cycle_id, "fase": "secado", "path": ["tiempo_secado"], "value": valor})
 
 
-@pytest.mark.parametrize("rol", ["admin", "tecnico"])
 @pytest.mark.parametrize("estado", [GlobalState.PREPARADO, GlobalState.CICLO])
-def test_configuracion_403_para_admin_y_tecnico_en_cualquier_estado(entorno_config, rol, estado):
+def test_configuracion_403_para_admin_en_cualquier_estado(entorno_config, estado):
     client, ctx, srv, otro, _ = entorno_config
     ctx.estado.get_machine_state.return_value = estado
-    cab = cabecera(srv, rol)
+    cab = cabecera(srv, "admin")
     assert client.patch("/calibration/pressure/pres_camara", headers=cab,
                         json=_CUERPO_CALIB).status_code == 403
     assert _param(client, cab).status_code == 403
     assert otro.get_param("secado", "tiempo_secado") == 10.0
     ctx.units.reload_calibration.assert_not_called()
     assert _eventos(ctx.db, "rechazo_403")
+
+
+def test_tecnico_calibra_fuera_de_ciclo(entorno_config):
+    # Tanda 2026-10-14 §1.1 (C-5): calibración para técnico e ingeniero
+    client, ctx, srv, _, _ = entorno_config
+    ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
+    r = client.patch("/calibration/pressure/pres_camara", headers=cabecera(srv, "tecnico"),
+                     json=_CUERPO_CALIB)
+    assert r.status_code == 200
+    ctx.units.reload_calibration.assert_called_once()
+
+
+def test_tecnico_no_calibra_en_ciclo(entorno_config):
+    client, ctx, srv, _, _ = entorno_config
+    ctx.estado.get_machine_state.return_value = GlobalState.CICLO
+    r = client.patch("/calibration/pressure/pres_camara", headers=cabecera(srv, "tecnico"),
+                     json=_CUERPO_CALIB)
+    assert r.status_code == 409
+    ctx.units.reload_calibration.assert_not_called()
 
 
 def test_configuracion_sin_token_401(entorno_config):

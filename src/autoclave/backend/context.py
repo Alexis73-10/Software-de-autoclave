@@ -180,7 +180,8 @@ class BackendContext:
             estado=self.estado,
             profile=self.profile,
             logger=logger,
-            config = self.config_manager
+            config = self.config_manager,
+            programas=self.programas_para_seguridad,
         )
 
         # Data logger (SQLite) + impresión en tiempo real
@@ -244,6 +245,25 @@ class BackendContext:
             )
         except Exception:
             logger.exception("No se pudo registrar la conexión de la tarjeta en audit_log")
+
+    def programa_para_sensores(self):
+        """Programa del sensor Principal (tanda §1.1). Antes de construir el
+        ControlLoop, el seleccionado; sin ninguno, None (= temp_camara)."""
+        loop = getattr(self, "control_loop", None)
+        if loop is not None:
+            return loop.programa_para_sensores()
+        cm = getattr(self, "cycle_manager", None)
+        return getattr(cm, "selected_cycle", None)
+
+    def programas_para_seguridad(self) -> list:
+        """Programas cuyos Principales deciden apertura y cámara segura
+        (SAF-01 de T3). Antes de construir el ControlLoop, el seleccionado."""
+        loop = getattr(self, "control_loop", None)
+        if loop is not None:
+            return loop.programas_para_seguridad()
+        cm = getattr(self, "cycle_manager", None)
+        seleccionado = getattr(cm, "selected_cycle", None)
+        return [seleccionado] if seleccionado is not None else []
 
     def es_conectada(self) -> bool:
         return self.serial is not None and self.serial.is_connected()

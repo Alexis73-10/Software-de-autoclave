@@ -22,7 +22,8 @@ class FakeDb:
     def insertar_lectura(self, **kwargs):
         pass
 
-    def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None, codigo_fallo=None):
+    def cerrar_ciclo(self, ciclo_id, resultado, motivo_fallo=None, codigo_fallo=None,
+                     f0_final=None):
         self.cerrados.append((ciclo_id, resultado, motivo_fallo))
         self.codigos.append(codigo_fallo)
 
@@ -234,6 +235,9 @@ def test_fin_de_ciclo_sin_f0_activo_no_incluye_f0_total_en_el_pie():
 def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
     printer = FakePrinter()
     cl = _build_logger(printer, cycle_manager=FakeCycleManager(f0_activo=True))
+    # F0 solo en equipos de laboratorio (tanda 2026-10-14 §1.1)
+    from autoclave.installation.equipment import EquipmentClass
+    cl.profile.equipment_class = EquipmentClass.PISO_LAB
     cl.estado.f0_acumulado = 15.3
 
     cl.update()   # header
@@ -242,6 +246,19 @@ def test_fin_de_ciclo_con_f0_activo_incluye_f0_total_en_el_pie():
     cl.update()   # _on_fin: fila "E" + pie
 
     assert "F0 total: 15.3 min" in printer.calls[3]
+
+
+def test_fin_de_ciclo_con_f0_en_equipo_no_lab_no_imprime_f0():
+    from autoclave.installation.equipment import EquipmentClass
+    printer = FakePrinter()
+    cl = _build_logger(printer, cycle_manager=FakeCycleManager(f0_activo=True))
+    cl.profile.equipment_class = EquipmentClass.PISO
+    cl.estado.f0_acumulado = 15.3
+    cl.update()
+    cl.update()
+    cl.estado.machine_state = GlobalState.PREPARADO
+    cl.update()
+    assert "F0 total" not in printer.calls[3]
 
 
 def test_fin_de_ciclo_con_fallo_guarda_codigo_y_imprime_codigo_y_titulo():

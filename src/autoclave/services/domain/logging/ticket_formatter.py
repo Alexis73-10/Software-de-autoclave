@@ -81,7 +81,7 @@ def format_row(lectura: dict) -> str:
 
 
 def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str | None = None,
-                   f0_total: float | None = None) -> str:
+                   f0_total: float | None = None, avisos: list | None = None) -> str:
     """Pie del ticket (todo lo posterior a las filas de lecturas)."""
     try:
         hora_fin = datetime.fromisoformat(fecha_fin).strftime("%H:%M:%S")
@@ -98,6 +98,8 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
         lines.append(f"Motivo: {motivo}")
     if f0_total is not None:
         lines.append(f"F0 total: {f0_total:.1f} min")
+    for aviso in avisos or []:
+        lines.append(f"Aviso: {aviso}")
     lines += [
         f"Hora fin: {hora_fin}",
         "Operador: ____________",

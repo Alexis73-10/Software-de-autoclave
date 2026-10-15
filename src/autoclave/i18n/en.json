@@ -460,7 +460,10 @@
     "larga": "Maximum {max} characters",
     "no_coinciden": "The passwords do not match",
     "rol_invalido": "Select a role",
-    "igual_actual": "The new password must be different from the current one"
+    "igual_actual": "The new password must be different from the current one",
+    "ASIGNACION_INVALIDA": "The sensor assignment is not valid",
+    "SENSOR_NO_DISPONIBLE": "A sensor in use has no reading or is not installed",
+    "ASIGNACION_SENSORES_INVALIDA": "The program has an invalid sensor assignment"
   },
   "alarmas": {
     "TARJETA_SIN_TRAMA_VALIDA": {
@@ -499,5 +502,16 @@
       "titulo": "Board outputs do not match the commanded state",
       "accion": "Call technical service."
     }
+  },
+  "sensores_ciclo": {
+    "temp_camara": "Chamber 1",
+    "temp_2_camara": "Chamber 2",
+    "temp_ref": "Reference",
+    "rol_principal": "Main",
+    "rol_referencia": "Reference",
+    "rol_no_en_uso": "Not in use",
+    "estado_disponible": "Available",
+    "estado_sin_senal": "No signal",
+    "estado_no_instalado": "Not installed"
   }
 }

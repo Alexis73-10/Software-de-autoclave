@@ -10,6 +10,9 @@ from autoclave.devices.suministro_electrico.suministro_electrico import Suminist
 from datetime import datetime
 from autoclave.devices.printer.connectivity_ticket import format_connectivity_ticket
 from autoclave.core.runtime.letalidad import calcular_incremento_f0
+from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.core.runtime.sensores_ciclo import sensor_principal
+from autoclave.core.runtime import camara_segura
 from autoclave.installation.profile import entrada_requerida, numero_puertas
 
 import logging
@@ -122,6 +125,11 @@ class ControlLoop:
         # se liberan con el reconocimiento del operador.
         self._alarmas_tarjeta: set[str] = set()
 
+        # SAF-01 de T3: copia del programa del último ciclo ejecutado. Fuera de
+        # CICLO su Principal sigue contando para la seguridad de apertura hasta
+        # que la cámara sea segura (sobrevive a set_active_cycle).
+        self._programa_ultimo_ciclo = None
+
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
     # =========================================================================
@@ -146,6 +154,37 @@ class ControlLoop:
         seleccionado."""
         copia = getattr(self.state_machine.ciclo, "programa_en_curso", None)
         return copia if copia is not None else self.cycle
+
+    def programa_para_sensores(self):
+        """Programa cuyo sensor Principal decide temperatura de apertura,
+        cámara segura y "NO ABRIR" (tanda §1.1): en CICLO, la copia del ciclo
+        en curso; fuera de CICLO, el seleccionado y, sin selección, el del
+        último ciclo ejecutado. None = temp_camara."""
+        if self.estado.get_machine_state() == GlobalState.CICLO:
+            return self.programa_en_ejecucion()
+        return self.cycle or getattr(self.state_machine.ciclo, "programa_en_curso", None)
+
+    def programas_para_seguridad(self) -> list:
+        """Programas cuyos sensores Principales deciden la seguridad de
+        apertura (SAF-01 de T3): en CICLO, la copia del ciclo en curso; fuera,
+        el seleccionado y, mientras la cámara no haya sido segura desde el
+        último ciclo, también el de ese ciclo (se toma el máximo)."""
+        if self.estado.get_machine_state() == GlobalState.CICLO:
+            return [self.programa_en_ejecucion()]
+        return [p for p in (self.cycle, self._programa_ultimo_ciclo) if p is not None]
+
+    def _seguir_programa_ultimo_ciclo(self) -> None:
+        if self.estado.get_machine_state() == GlobalState.CICLO:
+            copia = getattr(self.state_machine.ciclo, "programa_en_curso", None)
+            if copia is not None:
+                self._programa_ultimo_ciclo = copia
+            return
+        if self._programa_ultimo_ciclo is None:
+            return
+        segura, _ = camara_segura.evaluar(self.estado, self.config_manager,
+                                          self.programas_para_seguridad(), self.profile)
+        if segura:
+            self._programa_ultimo_ciclo = None
 
     def aplicar_a_ciclo_en_curso(self, seccion: str, path: list[str], valor) -> bool:
         """§5.8: aplica al ciclo en curso un cambio ya guardado en el programa
@@ -389,6 +428,7 @@ class ControlLoop:
             # 5. Máquina de estados global (pausada durante el modo prueba)
             if not self._test_mode.is_set():
                 self.state_machine.update()
+            self._seguir_programa_ultimo_ciclo()
 
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
         if cancelado_por_paro:
@@ -417,8 +457,12 @@ class ControlLoop:
         PRE_VACIO, que nunca acumula) el primer tick solo inicializa el
         timestamp sin sumar — evita un dt_min inflado por el tiempo pasado
         en fases previas."""
+        # F0 solo en equipos de laboratorio (tanda §1.1); sin capacidades
+        # conocidas se respeta el parámetro (comportamiento previo)
+        es_lab = self.cap is None or bool(getattr(self.cap, "has_liquid_sensor", False))
         condiciones = (
-            self.estado.get_machine_state() == GlobalState.CICLO
+            es_lab
+            and self.estado.get_machine_state() == GlobalState.CICLO
             and self.estado.fase_ciclo in _F0_FASES_ACUMULAN
             and bool(self.programa_en_ejecucion().get_param("globals", "F0"))
         )
@@ -431,15 +475,11 @@ class ControlLoop:
         if ultimo is None:
             return
 
-        temp_camara = self.estado.sensores_temp.get("temp_camara")
-        if temp_camara is None:
+        # F0 usa solo el sensor Principal del programa en curso (tanda §1.1;
+        # reemplaza el mínimo temp_camara/temp_2_camara, decisión C-1)
+        t_ref = self.estado.sensores_temp.get(sensor_principal(self.programa_en_ejecucion()))
+        if not lectura_valida(t_ref):
             return
-
-        if self.cap is not None and getattr(self.cap, "has_liquid_sensor", False):
-            temp_2 = self.estado.sensores_temp.get("temp_2_camara")
-            t_ref = min(temp_camara, temp_2) if temp_2 is not None else temp_camara
-        else:
-            t_ref = temp_camara
 
         dt_min = (now - ultimo) / 60.0
         self.estado.f0_acumulado += calcular_incremento_f0(t_ref, dt_min)

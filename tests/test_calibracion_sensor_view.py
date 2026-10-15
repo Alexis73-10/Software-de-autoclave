@@ -42,9 +42,9 @@ def test_rol_operador_bloquea_formulario():
     SessionManager.logout()
 
 
-def test_rol_admin_habilita_formulario_y_muestra_info():
+def test_rol_tecnico_habilita_formulario_y_muestra_info():
     from autoclave.ui.service_ui.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.return_value = {
@@ -60,7 +60,7 @@ def test_rol_admin_habilita_formulario_y_muestra_info():
 
 def test_preview_se_calcula_localmente_sin_llamar_backend():
     from autoclave.ui.service_ui.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.return_value = {
@@ -80,7 +80,7 @@ def test_preview_se_calcula_localmente_sin_llamar_backend():
 
 def test_preview_invalida_deshabilita_guardar():
     from autoclave.ui.service_ui.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.return_value = {
@@ -98,7 +98,7 @@ def test_preview_invalida_deshabilita_guardar():
 
 def test_set_context_backend_caido_no_crashea_y_oculta_formulario():
     from autoclave.ui.service_ui.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.side_effect = ConnectionError("backend caido")

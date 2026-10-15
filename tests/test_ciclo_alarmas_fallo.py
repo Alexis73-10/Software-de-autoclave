@@ -63,7 +63,7 @@ def test_sensor_ausente_lista_nombres_legibles():
     ciclo, estado, am = _ciclo(sensores_temp={"temp_camara": None})
     ciclo.run()
     [inst] = am.activas()
-    assert inst.codigo == "SEN-02" and "Temperatura de cámara" in inst.descripcion
+    assert inst.codigo == "SEN-02" and "Cámara 1" in inst.descripcion   # ubicación física
     assert "temp_camara" not in inst.descripcion
 
 

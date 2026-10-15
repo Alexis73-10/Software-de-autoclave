@@ -59,9 +59,10 @@ SUM_01, SUM_02, SUM_03, SUM_04, SUM_05, SUM_06 = (
 PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06 = (
     "PRE-01", "PRE-02", "PRE-03", "PRE-04", "PRE-05", "PRE-06")
 PUE_01, PUE_02, PUE_03, PUE_04, PUE_05 = "PUE-01", "PUE-02", "PUE-03", "PUE-04", "PUE-05"
-SEN_01, SEN_02 = "SEN-01", "SEN-02"
+SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
+CIC_09 = "CIC-09"
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
 # Tarjeta de E/S (E6): los ids se conservan como códigos (no se renombran).
 TARJETA_SIN_TRAMA_VALIDA = "TARJETA_SIN_TRAMA_VALIDA"
@@ -167,6 +168,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_02, _FC, True, _M, "Sensor crítico sin lectura",
        "Sin lectura de: {sensores}, en la fase {fase}. El ciclo se abortó.",
        "Verifique la conexión de los sensores antes de reiniciar."),
+    # Tanda §1.1: sensor de temperatura del ciclo declarado y sin lectura,
+    # fuera de ciclo. No bloquea el equipo; bloquea al INICIAR un programa
+    # que lo use (RS-06, SENSOR_NO_DISPONIBLE).
+    _d(SEN_03, _AV, False, _A, "Sensor de temperatura sin señal",
+       "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
+       "Verifique la conexión de la sonda o asígnele el rol No en uso."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",
@@ -186,6 +193,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(CIC_08, _AV, False, _A, "Apertura automática denegada",
        "No se pudo abrir {puerta}: {motivo}.",
        "Verifique el bloqueo mecánico de la puerta."),
+    # Tanda §1.1 (b): una Referencia fuera de rango en esterilización no falla
+    # el ciclo; alerta no bloqueante que queda en el historial.
+    _d(CIC_09, _AV, False, _A, "Uniformidad térmica fuera de rango",
+       "{sensor} está en {temp:.1f} °C, fuera del rango de esterilización "
+       "({minimo:.1f}–{maximo:.1f} °C). El ciclo sigue controlado por el sensor Principal.",
+       "Revise la carga y la ubicación de la sonda de referencia."),
     _d(COM_01, _AL, True, _A, "Sin comunicación con la tarjeta",
        "No llegan datos válidos de la tarjeta de control.",
        "Verifique el cable USB y la alimentación de la tarjeta."),
@@ -243,9 +256,10 @@ CATALOGO: dict[str, DefinicionAlarma] = {d.codigo: d for d in DEFINICIONES}
 
 NOMBRES_LEGIBLES: dict[str, str] = {
     # Sensores
-    "temp_camara": "Temperatura de cámara",
-    "temp_2_camara": "Temperatura de cámara 2",
-    "temp_ref": "Temperatura de referencia",
+    # Sensores del ciclo: solo ubicación física (tanda §1.1)
+    "temp_camara": "Cámara 1",
+    "temp_2_camara": "Cámara 2",
+    "temp_ref": "Referencia",
     "temp_chaqueta": "Temperatura de chaqueta",
     "temp_drenaje_cam": "Temperatura de drenaje de cámara",
     "temp_drenaje": "Temperatura de drenaje",

@@ -21,6 +21,7 @@
 
 import time
 import logging
+from autoclave.core.runtime.sensores_ciclo import sensor_principal
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +163,8 @@ class ProtocoloFallo:
                 logger.info("Protocolo fallo: apagado de salidas confirmado tras reintento")
 
         pres     = self.estado.sensores_pres.get("pres_camara")
-        temp     = self.estado.sensores_temp.get("temp_camara")
+        # Principal del programa del ciclo (tanda §1.1)
+        temp     = self.estado.sensores_temp.get(sensor_principal(self.cycle))
         atm      = self.config.get("presion_admosferica") or 101.3
         rango    = self.config.get("rango_presion_atm")   or 20.0
         temp_max = self.config.get("temp_max_apertura")   or 120.0

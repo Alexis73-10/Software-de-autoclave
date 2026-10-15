@@ -30,10 +30,13 @@ from autoclave.state_machine.cycle_phases.secado import SecadoFase
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo, cerrar_valvulas_descompresion
 from autoclave.installation.profile import entrada_requerida, numero_puertas, revisa_empaque
 from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 
 logger = logging.getLogger(__name__)
 
-_SENSORES_TEMP_CRITICOS = ["temp_camara"]
+# Temperatura: los sensores EN USO del programa (Principal + Referencias),
+# tanda §1.1; un sensor no_en_uso no se vigila (se retira la vigilancia fija
+# de temp_camara, antiguo S-8).
 _SENSORES_PRES_CRITICOS = ["pres_camara"]
 _DEBOUNCE_LECTURAS_DRENAJE = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
@@ -148,6 +151,7 @@ class CicloState:
         self.estado.motivo_fallo  = ""
         self.estado.codigo_fallo  = ""
         self.estado.f0_acumulado  = 0.0
+        self.estado.avisos_ciclo  = []
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -376,7 +380,8 @@ class CicloState:
         if elapsed < tiempo_espera:
             return
 
-        temp = self.estado.sensores_temp.get("temp_camara")
+        # Principal del programa del ciclo (tanda §1.1); sin lectura = no seguro
+        temp = self.estado.sensores_temp.get(sensor_principal(self.cycle))
         if not lectura_valida(temp):
             return
 
@@ -516,8 +521,10 @@ class CicloState:
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 4. Verificar sensores críticos ────────────────────────────
+        # DECISIÓN SIN CONFIRMAR (tanda §1.1): una Referencia caída también
+        # dispara SENSOR_AUSENTE → FALLO, igual que el Principal.
         ausentes = [
-            s for s in _SENSORES_TEMP_CRITICOS
+            s for s in sensores_en_uso(self.cycle)
             if not lectura_valida(self.estado.sensores_temp.get(s))
         ] + [
             s for s in _SENSORES_PRES_CRITICOS

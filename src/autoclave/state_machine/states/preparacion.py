@@ -6,6 +6,7 @@ from autoclave.state_machine.alarms.catalogo import (
 )
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.core.runtime.sensores_ciclo import SENSORES as SENSORES_CICLO, vigilar_fuera_de_ciclo
 from autoclave.installation.profile import entrada_requerida, sensores_empaque, sonda_instalada
 import logging
 
@@ -131,6 +132,11 @@ class preparacion_state:
                     self.alarm_manager.resolver(SEN_01, origen=legible)
 
             for sensor in sensores_temperatura:
+                # Sensores del ciclo: alerta no bloqueante (tanda §1.1, RS-06)
+                if sensor in SENSORES_CICLO:
+                    vigilar_fuera_de_ciclo(self.alarm_manager, self.profile, sensor,
+                                           self.estado.sensores_temp.get(sensor))
+                    continue
                 # Canal sin sonda declarado en el perfil: no se vigila (A-2)
                 if not sonda_instalada(self.profile, sensor):
                     continue

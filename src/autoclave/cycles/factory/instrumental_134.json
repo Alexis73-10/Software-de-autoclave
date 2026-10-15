@@ -4,8 +4,9 @@
     "display_name":"instrumental 134",
     "cycle_icon":"BigPackages",
     "cycle_temperature_sensors": {
-        "1":"temp_camara",
-        "2":"temp_ref"
+        "temp_camara": "principal",
+        "temp_2_camara": "no_en_uso",
+        "temp_ref": "no_en_uso"
     },
     "parameters": {
         "globals": {

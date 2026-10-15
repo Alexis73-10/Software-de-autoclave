@@ -6,6 +6,7 @@ from autoclave.state_machine.states.falla import FallaState
 from autoclave.state_machine.states.emergencia import emergencia_run
 from autoclave.state_machine.states.hibernacion import Hibernacion
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+from autoclave.core.runtime.sensores_ciclo import verificar_inicio
 import logging
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,7 @@ class StateMachine:
         self.set_do        = set_do
         self.cycle         = cycle
         self.config        = config
+        self.profile       = profile
 
         # Una sola instancia en todo el backend (spec §5.3): la inyecta el
         # ControlLoop. El AlarmManager propio queda solo para usos aislados.
@@ -93,6 +95,12 @@ class StateMachine:
             # el operador pulsó "Iniciar ciclo"
             if listo and self.estado.get_flag("START_CICLO"):
                 self.estado.set_flag("START_CICLO", False)
+                # RS-06 (tanda §1.1): asignación válida y sensores en uso con
+                # lectura. Defensa en profundidad: /cycle/start ya lo rechaza.
+                rechazo = verificar_inicio(self.ciclo._programa, self.profile, self.estado)
+                if rechazo is not None:
+                    logger.error("StateMachine: inicio de ciclo rechazado — %s: %s", *rechazo)
+                    return
                 self.estado.set_machine_state(GlobalState.CICLO)
                 # Entrada inmediata (en este mismo tick, bajo _sm_lock): la
                 # copia del programa (T-17) debe existir antes de que el

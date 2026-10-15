@@ -13,7 +13,7 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 | E-0 Commits previos | HECHA | dev | `39bb723` (F1), `d81d763` (E6), `1339cd2` (docs) | 2818 passed | `E0_commits_previos.md` |
 | T1 alarmas-parte-a | HECHA | dev-noche | merge (ver git log) | 3001 passed | `T1_alarmas_parte_a.md` |
 | T2 E1b vapor_source | HECHA | dev-noche | ver git log | 3023 passed | `T2_vapor_source.md` |
-| T3 Sensores backend | pendiente | dev-noche | | | |
+| T3 Sensores backend | HECHA | dev-noche | ver git log | 3119 passed | `T3_sensores_backend.md` |
 | T4 E2 camara_segura | pendiente | dev-noche | | | |
 | T5 E3 estado seguro | pendiente | dev-noche | | | |
 | T6 E4 arranque seguro | pendiente | dev-noche | | | |
@@ -30,4 +30,4 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 ## Etapa actual
 
-T3: sensores (backend).
+T4: E2 `camara_segura`, NO ABRIR y condición de inicio.

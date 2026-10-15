@@ -34,7 +34,7 @@ _BTN_GUARDAR = """
     QPushButton:disabled { background: #93c5fd; }
 """
 
-_ROLES_PERMITIDOS = ("admin", "tecnico")
+_ROLES_PERMITIDOS = ("tecnico", "ingeniero")   # tanda 2026-10-14 §1.1 (C-5)
 
 
 class CalibracionSensorView(QWidget):
