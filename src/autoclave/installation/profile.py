@@ -134,6 +134,26 @@ def tarjeta_emparejada(profile, id_tarjeta) -> bool | None:
     return getattr(profile, "board_id", None) == id_tarjeta
 
 
+# E1b (D-23): fuente de vapor del equipo. La salida de la fuente que el
+# equipo no tiene no se enciende nunca; en mixto quedan las dos. Campo ausente
+# = comportamiento previo (ambas disponibles) para perfiles anteriores a E1b.
+VAPOR_SOURCES = ("generator", "boiler", "mixed")
+_SALIDAS_VAPOR = {
+    "generator": frozenset({"vapor_generador"}),
+    "boiler":    frozenset({"vapor_caldera"}),
+    "mixed":     frozenset({"vapor_generador", "vapor_caldera"}),
+}
+
+
+def salidas_vapor_permitidas(profile) -> set[str]:
+    """None (perfil anterior a E1b) = ambas; un valor desconocido = ninguna
+    (falla cerrada: nunca se habilita una fuente por un valor mal escrito)."""
+    fuente = getattr(profile, "vapor_source", None)
+    if fuente is None:
+        return set(_SALIDAS_VAPOR["mixed"])
+    return set(_SALIDAS_VAPOR.get(fuente, frozenset()))
+
+
 class ProfileValidationError(Exception):
     def __init__(self, errors: list[str]):
         self.errors = errors
@@ -159,6 +179,8 @@ class InstallationProfile:
     temperature_probes: dict = field(default_factory=temperature_probes_por_defecto)
     # FW-D7: ID de la tarjeta de E/S emparejada. None = sin emparejar.
     board_id:        str | None = None
+    # E1b: generator | boiler | mixed. None = perfil anterior a E1b.
+    vapor_source:    str | None = None
 
 
 _REQUIRED_TYPES: dict[str, type] = {
@@ -261,6 +283,13 @@ def validate_profile_data(data: dict) -> list[str]:
         errors.append(
             f"valor inválido en 'board_id': {data['board_id']!r} "
             f"(se esperan 12 dígitos hexadecimales en mayúscula)"
+        )
+
+    # vapor_source es opcional (E1b); si está, uno de VAPOR_SOURCES
+    if "vapor_source" in data and data["vapor_source"] not in VAPOR_SOURCES:
+        errors.append(
+            f"valor inválido en 'vapor_source': {data['vapor_source']!r} "
+            f"(se espera uno de {list(VAPOR_SOURCES)})"
         )
 
     # Validaciones cruzadas (solo si equipment_class es válido)

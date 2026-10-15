@@ -8,7 +8,7 @@ import Autoclave.I18n
 // Se muestra solo cuando falta el perfil de instalación (arranque, etapa 1).
 // Pasos, en el orden del asistente actual: activación (serie + código),
 // tipo de equipo, puertas, enfriamiento (se omite si el equipo no lo admite),
-// fuente de vapor (NUEVO: aún no existe en el perfil, ver planeacion_menu_instalacion_ui.md),
+// fuente de vapor (vapor_source del perfil: generator, boiler o mixed; E1b),
 // datos (modelo, suministros, sondas) y resumen. Al final, pantalla de resultado.
 //
 // Solo presenta: la validación del código, las capacidades por clase de equipo
@@ -47,7 +47,7 @@ Item {
     readonly property var clavesSonda: ["temp_camara", "temp_2_camara", "temp_ref", "temp_drenaje"]
     readonly property string sondaObligatoria: "temp_camara"
     readonly property var clavesTipoPuerta: ["simple", "motorized", "locking", "motorized_locking", "advanced"]
-    readonly property var clavesVapor: ["interno", "externo", "mixto"]
+    readonly property var clavesVapor: ["generator", "boiler", "mixed"]   // vapor_source del perfil (E1b)
 
     // {campo: mensaje} del paso en curso; el campo lo pinta en rojo
     property var errores: ({})
@@ -173,7 +173,7 @@ Item {
             door_type: tipoPuerta,
             door_id: puertaPc,
             cooling_level: nivelEnfriamiento,
-            vapor_source: fuenteVapor,           // NUEVO (E1b)
+            vapor_source: fuenteVapor,           // E1b: generator | boiler | mixed
             supply_inputs: suministros,
             temperature_probes: sondas
         }

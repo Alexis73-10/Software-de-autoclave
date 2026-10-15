@@ -1,5 +1,6 @@
 # src/autoclave/devices/io/set_io.py
 from autoclave.devices.pump.pump import VacuumPump
+from autoclave.installation.profile import salidas_vapor_permitidas
 import autoclave.devices.buzer.buzer as buzer
 import logging
 import time
@@ -12,6 +13,8 @@ _INTERVALO_ALL_OFF_PARO_SEG = 1.0
 # Salidas que no cuentan como "encendidas" para repetir el ALL_OFF del paro:
 # el buzzer suena a propósito durante el paro.
 _SALIDAS_IGNORADAS_PARO = frozenset({"buzer_alarma"})
+# Canales físicos (1-indexados) de las salidas de fuente de vapor.
+_CANALES_VAPOR = {"vapor_generador": 1, "vapor_caldera": 2}
 
 
 class SetOutput:
@@ -21,8 +24,22 @@ class SetOutput:
         self.vacump = VacuumPump(estado, profile=profile)
         self.buzer = buzer.BuzzerPlayer(self.buzer_on, self.buzer_off)
         self._ultimo_all_off_paro: float | None = None
-        
+        # E1b (D-23): canales de vapor de la fuente que el equipo no tiene.
+        permitidas = salidas_vapor_permitidas(profile)
+        self._canales_bloqueados = {canal for nombre, canal in _CANALES_VAPOR.items()
+                                    if nombre not in permitidas}
+
+    def salida_bloqueada(self, index) -> bool:
+        """True si el canal es de una fuente de vapor que el equipo no tiene."""
+        return index in self._canales_bloqueados
+
     def set_output(self, index, value):
+        # Todo encendido pasa por aquí (lazo, fases, /io/test/output): la
+        # fuente de vapor ausente nunca se enciende; se reafirma OFF.
+        if value and index in self._canales_bloqueados:
+            logger.warning("SetOutput: DO%d es de una fuente de vapor que el equipo "
+                           "no tiene (vapor_source); se mantiene apagada", index)
+            value = False
         self.io.set_output(index, value)
         
     def vapor_generador_on(self):

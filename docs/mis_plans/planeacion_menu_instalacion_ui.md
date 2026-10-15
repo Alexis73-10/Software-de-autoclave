@@ -1,5 +1,7 @@
 # Menú de instalación — requisitos de UI y pantallas (borrador v1, 12-oct-2026)
 
+> **Adenda 2026-10-14 (tanda, T2/E1b):** `vapor_source` ya existe en el perfil, la validación y `storage`. Valores `generator | boiler | mixed` (no `interno | externo | mixto`); la UI y las claves `instalacion.vapor_*` se renombraron igual. La salida de la fuente ausente se bloquea en `SetOutput.set_output`. Campo ausente = ambas salidas (perfiles anteriores).
+
 Reemplaza el asistente tkinter `installation/wizard.py`. Solo UI: el puente Python y la integración con el arranque quedan fuera (ver §6).
 
 ## 1. Cómo funciona hoy (código)

@@ -37,6 +37,7 @@ def load() -> InstallationProfile:
         supply_inputs=normalizar_supply_inputs(data.get("supply_inputs")),
         temperature_probes=normalizar_temperature_probes(data.get("temperature_probes")),
         board_id=data.get("board_id"),
+        vapor_source=data.get("vapor_source"),
     )
 
 
@@ -60,6 +61,8 @@ def save(profile: InstallationProfile):
         "temperature_probes": normalizar_temperature_probes(profile.temperature_probes),
         # FW-D7: solo si está emparejada (el campo ausente = sin emparejar)
         **({"board_id": profile.board_id} if profile.board_id else {}),
+        # E1b: solo si se eligió (ausente = perfil anterior, ambas salidas)
+        **({"vapor_source": profile.vapor_source} if profile.vapor_source else {}),
     }, indent=2, ensure_ascii=False), encoding="utf-8")
 
 

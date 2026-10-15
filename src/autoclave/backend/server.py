@@ -1593,6 +1593,10 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
         index = EstadoAutoclave.map_do[name]
+        if body.value and context.setdo.salida_bloqueada(index + 1) is True:
+            # E1b: salida de una fuente de vapor que el equipo no tiene
+            raise _Rechazo(409, "fuente_vapor_no_instalada",
+                           "La fuente de vapor de esta salida no está instalada")
         context.setdo.set_output(index + 1, body.value)
     _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
     return {"ok": True, "name": name, "value": body.value}
