@@ -29,6 +29,7 @@ from autoclave.services.domain.logging.ticket_formatter import (
     format_footer,
     format_header,
     format_row,
+    motivo_ticket,
 )
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,10 @@ class CycleLogger:
         self._activo            = False
         self._ciclo_id: int | None = None
         self._ciclo_inicio      = None    # time.time() al iniciar
-        self._ultimo_log        = 0.0     # time.time() del último registro
+        # Reloj monotónico del último registro (None = registrar ya). Intervalos
+        # y tiempo transcurrido con monotonic: un salto del reloj de pared no
+        # debe frenar ni inflar el registro (auditoría de temporización T1).
+        self._ultimo_log: float | None = None
         self._ultima_fase_codigo = None   # para detectar cambio de fase
         self._ultimo_sub_estado  = None   # para detectar cambio de paso interno de la fase
         self._ultima_temp        = None   # última temp_camara registrada (→ "Temp. final" del pie)
@@ -235,7 +239,7 @@ class CycleLogger:
             version_sw  = version_sw,
         )
         self._ciclo_inicio       = time.time()
-        self._ultimo_log         = 0.0    # primera lectura se hace inmediatamente
+        self._ultimo_log         = None   # primera lectura se hace inmediatamente
         self._ultima_fase_codigo = None
         self._ultimo_sub_estado  = None
         self._ultima_temp        = None
@@ -275,7 +279,8 @@ class CycleLogger:
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
-            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo)
+            codigo = getattr(self.estado, "codigo_fallo", "") or None
+            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo, codigo)
 
             if self.printer is not None:
                 f0_total = None
@@ -288,7 +293,7 @@ class CycleLogger:
 
                 self.printer.enqueue(format_footer(
                     resultado, datetime.now().isoformat(),
-                    temp_final=self._ultima_temp, motivo=motivo, f0_total=f0_total,
+                    temp_final=self._ultima_temp, motivo=motivo_ticket(codigo, motivo), f0_total=f0_total,
                 ))
 
             logger.info(
@@ -367,9 +372,9 @@ class CycleLogger:
             return   # código E → no hay intervalo periódico
 
         intervalo = self.config.get(param_key) or _INTERVALO_DEFAULT.get(fase_codigo, 60)
-        ahora     = time.time()
+        ahora     = self._reloj_mono()
 
-        if (ahora - self._ultimo_log) >= intervalo:
+        if self._ultimo_log is None or (ahora - self._ultimo_log) >= intervalo:
             self._registrar_lectura(fase_codigo, para_imprimir=True)
 
     # ------------------------------------------------------------------
@@ -380,8 +385,8 @@ class CycleLogger:
         if self._ciclo_id is None:
             return
 
-        ahora   = time.time()
-        elapsed = ahora - (self._ciclo_inicio or ahora)
+        ahora   = self._reloj_mono()
+        elapsed = ahora - self._t0_mono if self._t0_mono is not None else 0.0
         timestamp_rel = _fmt_elapsed(elapsed)
 
         temp = self.estado.sensores_temp.get("temp_camara")

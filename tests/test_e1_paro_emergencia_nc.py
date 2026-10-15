@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
+from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.devices.paro_emergencia.paro_emergencia import AVISO_CABLEADO_NC, EmergencyStop
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.states.preparacion import preparacion_state
@@ -111,7 +112,7 @@ def _preparacion(flag_paro, di_paro):
     estado = MagicMock()
     estado.sensores_di = {"paro_emergencia": di_paro}
     estado.get_flag.side_effect = lambda f: flag_paro if f == "PARO_EMERGENCIA" else False
-    p = preparacion_state(MagicMock(), estado, MagicMock(), MagicMock(), MagicMock())
+    p = preparacion_state(AlarmManager(), estado, MagicMock(), MagicMock(), MagicMock())
     p.supervisor = MagicMock(return_value=False)
     # supervisor en False lleva a salidas seguras (decisión P4); aquí solo
     # importa el flag del paro
@@ -123,9 +124,9 @@ def test_preparacion_paro_por_flag_aunque_el_di_valga_1():
     p = _preparacion(flag_paro=True, di_paro=1)
     assert p.run() is False
     p.set_do.apagar_por_paro.assert_called_once()      # ALL_OFF limitado (A-7)
-    alarma = p.alarm_manager.report.call_args.args[0]
-    assert alarma.id == "PARO_EMERGENCIA"
-    assert AVISO_CABLEADO_NC in alarma.description
+    [alarma] = p.alarm_manager.activas()
+    assert alarma.codigo == "SIS-01"
+    assert AVISO_CABLEADO_NC in alarma.descripcion
     p.supervisor.assert_not_called()
 
 
@@ -133,7 +134,7 @@ def test_preparacion_sin_paro_por_flag_aunque_el_di_valga_0():
     p = _preparacion(flag_paro=False, di_paro=0)
     p.run()
     p.set_do.apagar_por_paro.assert_not_called()
-    p.alarm_manager.clear.assert_any_call("PARO_EMERGENCIA")
+    assert p.alarm_manager.activas() == []
     p.supervisor.assert_called_once()
 
 
@@ -158,9 +159,9 @@ def test_mensaje_de_alarma_menciona_cableado_nc_en_todos_los_estados():
         lambda am: FallaState(_estado(), MagicMock(), am).run(),
         lambda am: Hibernacion(_estado(), MagicMock(), am).run(),
     ):
-        am = MagicMock()
+        am = AlarmManager()
         construir(am)
-        descripciones.append(am.report.call_args.args[0].description)
+        descripciones.append(am.activas()[0].descripcion)
 
     cycle = MagicMock()
     cycle.copia.return_value = cycle
@@ -170,11 +171,11 @@ def test_mensaje_de_alarma_menciona_cableado_nc_en_todos_los_estados():
     estado = _estado()
     estado.sensores_pres = {}
     estado.sensores_temp = {}
-    am = MagicMock()
+    am = AlarmManager()
     ciclo = CicloState(estado, MagicMock(), cycle, config, am)
     ciclo.reset()
     ciclo.run()
-    descripciones.append(am.report.call_args.args[0].description)
+    descripciones.append(am.activas()[0].descripcion)
 
     for d in descripciones:
         assert AVISO_CABLEADO_NC in d

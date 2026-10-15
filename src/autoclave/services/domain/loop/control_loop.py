@@ -2,8 +2,7 @@
 
 import time
 import threading
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import COM_01
 from autoclave.state_machine.state_machine import StateMachine
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
@@ -84,6 +83,7 @@ class ControlLoop:
             io=self.link, estado=self.estado, set_do=set_do,
             cycle=self.cycle, config=self.config_manager, cap=cap,
             door_service=door_service, profile=profile,
+            alarm_manager=self.alarm_manager,
         )
         # el registro del ciclo (ticket, F0 del pie) lee el programa con el
         # que corre el ciclo, no el almacenado (T-17)
@@ -92,6 +92,7 @@ class ControlLoop:
         self.link_was_connected = True
         self._link_ever_connected = False
         self._desconectado_desde: float | None = None
+        self._com01_arranque_activada = False
         self.paro_emergencia    = EmergencyStop(estado)
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
@@ -213,7 +214,7 @@ class ControlLoop:
     def _procesar_evento_tarjeta(self, ev) -> None:
         if ev.origen == "conectada":
             for alarm_id in sorted(self._alarmas_tarjeta):
-                self.alarm_manager.clear(alarm_id)
+                self.alarm_manager.resolver(alarm_id)
             self._alarmas_tarjeta.clear()
             return
 
@@ -224,21 +225,18 @@ class ControlLoop:
             if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
                 return
 
-        self.alarm_manager.report(Alarm(
-            alarm_id=ev.alarm_id,
-            alarm_type=AlarmType.FALLA,
-            source_state="CONTROL_LOOP",
-            description=ev.motivo,
-            recoverable=True,
-            blocks_operation=True,
-        ))
-        self._alarmas_tarjeta.add(ev.alarm_id)
+        # La acción de seguridad va antes que la alarma (SAF-01 de T1): un
+        # error al registrar no debe impedir el nuevo handshake.
         # Decisión 8: en CICLO (también con el resultado ya pendiente) no se
         # repite el handshake; su ALL_OFF cerraría el venteo del protocolo de
         # fallo. Al salir de CICLO lo pide el chequeo SAF-01 de _tick().
         if (ev.origen == "operacion" and ev.alarm_id in _ALARMAS_PIDEN_HANDSHAKE
                 and not en_ciclo):
             self.link.solicitar_handshake()
+        # Fuera de ciclo: FALLA bloqueante (nivel ALARMA del catálogo) que se
+        # resuelve al completarse el siguiente handshake (E6 decisión 9).
+        self._alarmas_tarjeta.add(ev.alarm_id)
+        self.alarm_manager.activar(ev.alarm_id, motivo=ev.motivo)
 
     def _tick(self):
         # FW-D6: el latido lo renueva run() al completarse este tick (TMG-01).
@@ -262,16 +260,12 @@ class ControlLoop:
         if not connected:
             if self.link_was_connected:
                 self._desconectado_desde = now
-                self.alarm_manager.report(
-                    Alarm(
-                        alarm_id="NO_HAY_CONEXION",
-                        alarm_type=AlarmType.FALLA,
-                        source_state="CONTROL_LOOP",
-                        description="No hay comunicación con el hardware.",
-                        recoverable=True,
-                        blocks_operation=True,
-                    )
-                )
+                # Tras una conexión real, la caída activa COM-01 en el flanco.
+                if self._link_ever_connected:
+                    try:
+                        self.alarm_manager.activar(COM_01)
+                    except Exception:
+                        logger.exception("ControlLoop: no se pudo activar COM-01")
                 # El handshake serial inicial (escaneo de puerto + primer dato)
                 # tarda unos instantes tras el arranque del backend; ese hueco
                 # no es una desconexión real y no debe imprimirse.
@@ -279,6 +273,16 @@ class ControlLoop:
                     self.realtime_printer.enqueue(
                         format_connectivity_ticket("TARJETA", False, datetime.now())
                     )
+            # Mientras el enlace nunca haya conectado (handshake del arranque),
+            # COM-01 espera a que la desconexión continua alcance la
+            # tolerancia: el arranque normal no deja COM-01 en el historial,
+            # pero una tarjeta que nunca responde sí la da (una sola vez).
+            if (not self._link_ever_connected
+                    and not self._com01_arranque_activada
+                    and self._desconectado_desde is not None
+                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG):
+                self._com01_arranque_activada = True
+                self.alarm_manager.activar(COM_01)
             # Sin conexión no hay datos frescos de sensores, así que este
             # mismo _tick() va a retornar temprano y state_machine.update()
             # no correrá — si había un ciclo en curso, no se detectaría el
@@ -289,11 +293,12 @@ class ControlLoop:
             if (self._desconectado_desde is not None
                     and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG
                     and self.estado.get_machine_state() == GlobalState.CICLO):
-                self.state_machine.ciclo.abortar_por_desconexion()
+                self.state_machine.ciclo.abortar_por_desconexion(
+                    segundos=now - self._desconectado_desde)
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
             self._bloqueo_apagado = False   # tras reconectar, volver a apagar
-            self.alarm_manager.clear("NO_HAY_CONEXION")
+            self.alarm_manager.resolver(COM_01)
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
                     format_connectivity_ticket("TARJETA", True, datetime.now())
@@ -453,14 +458,17 @@ class ControlLoop:
         self.thread.start()
 
     def stop(self):
-        if self.link:
-            self.link.all_off()
-            self.link.stop()
-
+        # Primero se detiene el lazo y después se apaga (TMG-11 de E6, TMG-02
+        # de T1): un tick que corriera tras el ALL_OFF podía volver a encender
+        # salidas hasta el watchdog del firmware.
         self._running.clear()
 
         if self.thread and threading.current_thread() is not self.thread:
             self.thread.join(timeout=3)
+
+        if self.link:
+            self.link.all_off()
+            self.link.stop()
 
         logger.info("Control loop detenido.")
 
@@ -557,5 +565,6 @@ class ControlLoop:
                 io=self.link, estado=self.estado, set_do=self.set_do,
                 cycle=cycle, config=self.config_manager, cap=self.cap,
                 door_service=self.door_service, profile=self.profile,
+                alarm_manager=self.alarm_manager,
             )
             return True, ""

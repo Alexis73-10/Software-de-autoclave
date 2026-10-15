@@ -10,8 +10,8 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 | Etapa | Estado | Rama | Commit(s) | Pruebas al cerrar | Informe |
 |---|---|---|---|---|---|
-| E-0 Commits previos | HECHA | dev | `39bb723` (F1), `d81d763` (E6), commit docs siguiente | 2818 passed | `E0_commits_previos.md` |
-| T1 alarmas-parte-a | pendiente | dev-noche | | | |
+| E-0 Commits previos | HECHA | dev | `39bb723` (F1), `d81d763` (E6), `1339cd2` (docs) | 2818 passed | `E0_commits_previos.md` |
+| T1 alarmas-parte-a | HECHA | dev-noche | merge (ver git log) | 3001 passed | `T1_alarmas_parte_a.md` |
 | T2 E1b vapor_source | pendiente | dev-noche | | | |
 | T3 Sensores backend | pendiente | dev-noche | | | |
 | T4 E2 camara_segura | pendiente | dev-noche | | | |
@@ -30,4 +30,4 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 ## Etapa actual
 
-T1: integrar `alarmas-parte-a` en `dev-noche`.
+T2: `vapor_source` (E1b).

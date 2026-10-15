@@ -1,23 +1,18 @@
 # preparacion.py
 from autoclave.state_machine.machine.parametros_globales import parametros_globales
-from autoclave.state_machine.alarms.alarm import Alarm
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import (
+    PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06, SEN_01, SIS_01,
+    SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
+)
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
-from autoclave.devices.paro_emergencia.paro_emergencia import AVISO_CABLEADO_NC
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.installation.profile import entrada_requerida, sensores_empaque, sonda_instalada
 import logging
 
 logger = logging.getLogger(__name__)
 
-# Palabra que describe cada nivel de alarma — debe coincidir con lo que se
-# imprime como "Nivel:" en el ticket de alarmas (impresion_menu.py), para
-# que el texto libre de la descripción no contradiga el nivel real.
-_NIVEL_TXT = {
-    AlarmType.ALERTA:     "Alerta",
-    AlarmType.FALLA:      "Fallo",
-    AlarmType.EMERGENCIA: "Emergencia",
-}
+_ESTADO = "Preparación"
+_SUMINISTROS = {"agua_bomba": SUM_03, "agua_generador": SUM_04, "aire_comprimido": SUM_05}
 
 
 class preparacion_state:
@@ -53,29 +48,17 @@ class preparacion_state:
     # Verificar que todos los sonsores esten en funcionamiento (sin importar su valor)
     # - no pueden estar en 0 (fallo de sensor)
     
-    def alarm (self, alarm_id, alarm_type, blocks_operation=True, detalle=""):
-        nivel = _NIVEL_TXT.get(alarm_type, "Alerta")
-        alarm = Alarm(
-            alarm_id=alarm_id,
-            alarm_type=alarm_type,
-            source_state="PREPARACION",
-            description=f"{nivel}: {alarm_id} en PREPARACION." + (f" {detalle}" if detalle else ""),
-            recoverable=True,
-            blocks_operation=blocks_operation,
-        )
-        self.alarm_manager.report(alarm)
-    
     def run(self):
         # Flag publicado por EmergencyStop, no el DI crudo (E1-5, D-16)
         if self.estado.get_flag("PARO_EMERGENCIA"):
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
             self.set_do.apagar_por_paro()
-            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA, detalle=AVISO_CABLEADO_NC)
+            self.alarm_manager.activar(SIS_01, estado=_ESTADO)
             self.set_do.buzer_emergencia()
             return False
         else:
             self.set_do.buzer_off()
-            self.alarm_manager.clear("PARO_EMERGENCIA")
+            self.alarm_manager.resolver(SIS_01)
 
         if not self.supervisor():
             self._salidas_seguras_supervisor()
@@ -138,50 +121,43 @@ class preparacion_state:
             ok=True
             for sensor in sensores_presion:
                 pres_value = self.estado.sensores_pres.get(sensor)
+                legible = nombre_legible(sensor)
                 # Sin dato / no finito = error de sensor, igual que un 0 (A-5)
                 if not lectura_valida(pres_value) or pres_value == 0:
-                    alarm_id = f"ERROR_AI_{sensor.upper()}"
-                    self.alarm(alarm_id, AlarmType.ALERTA)
-                    logger.info(f"Alarma generada: {alarm_id}")
+                    self.alarm_manager.activar(SEN_01, origen=legible, sensor=legible,
+                                               valor=pres_value)
                     ok = False
                 else:
-                    self.alarm_manager.clear(f"ERROR_AI_{sensor.upper()}")
-                
+                    self.alarm_manager.resolver(SEN_01, origen=legible)
+
             for sensor in sensores_temperatura:
                 # Canal sin sonda declarado en el perfil: no se vigila (A-2)
                 if not sonda_instalada(self.profile, sensor):
                     continue
                 temp_value = self.estado.sensores_temp.get(sensor)
+                legible = nombre_legible(sensor)
                 # None / no finito = sensor desconectado, igual que un 0 (E0-1)
                 if not lectura_valida(temp_value) or temp_value == 0:
-                    alarm_id = f"ERROR_AI_{sensor.upper()}"
-                    self.alarm(alarm_id, AlarmType.ALERTA)
-                    logger.info(f"Alarma generada: {alarm_id}")
+                    self.alarm_manager.activar(SEN_01, origen=legible, sensor=legible,
+                                               valor=temp_value)
                     ok = False
                 else:
-                    self.alarm_manager.clear(f"ERROR_AI_{sensor.upper()}")
+                    self.alarm_manager.resolver(SEN_01, origen=legible)
 
             return ok
         
     def verificar_suministros(self):
-        suministros = [
-            "agua_bomba",
-            "agua_generador",
-            "aire_comprimido",
-        ]
         ok=True
-        for suministro in suministros:
+        for suministro, codigo in _SUMINISTROS.items():
             # Entrada declarada "no aplica" en el perfil: no se vigila (E1-1)
             if not entrada_requerida(self.profile, suministro):
                 continue
             estado_suministro = self.estado.sensores_di[suministro]
             if not estado_suministro:
-                alarm_id = f"SUMINISTRO_{suministro.upper()}"
-                self.alarm(alarm_id, AlarmType.ALERTA)
-                logger.info(f"Alarma generada: {alarm_id}")
+                self.alarm_manager.activar(codigo)
                 ok = False
             else:
-                self.alarm_manager.clear(f"SUMINISTRO_{suministro.upper()}")
+                self.alarm_manager.resolver(codigo)
 
         return ok
                 
@@ -215,12 +191,12 @@ class preparacion_state:
             if vigilar_vapor and not self.estado.sensores_di["vapor_suministro"]:
                 self.set_do.vapor_chaqueta_off()
                 self._confirmador_chaqueta.reset()
-                self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
-                self.alarm_manager.clear("CHAQUETA_FRIA")
-                self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+                self.alarm_manager.activar(SUM_06, estado=_ESTADO)
+                self.alarm_manager.resolver(PRE_01)
+                self.alarm_manager.resolver(PRE_02)
                 return True
             elif vigilar_vapor:
-                self.alarm_manager.clear("SUMINISTRO_VAPOR")
+                self.alarm_manager.resolver(SUM_06)
 
             r = evaluar_banda(presion, pres_obj, rango, activar_si_bajo=True)
 
@@ -233,16 +209,16 @@ class preparacion_state:
 
             # Alarma bloqueante: solo al cruzar el borde de la banda.
             if r.fuera_por_debajo:
-                alarm_id = "CHAQUETA_FRIA"
-                self.alarm(alarm_id, AlarmType.ALERTA)
+                self.alarm_manager.activar(PRE_01, pres=presion, minimo=pres_obj - rango,
+                                           objetivo=pres_obj, rango=rango)
             else:
-                self.alarm_manager.clear("CHAQUETA_FRIA")
+                self.alarm_manager.resolver(PRE_01)
 
             if r.fuera_por_encima:
-                alarm_id = "CHAQUETA_SOBRECALENTADA"
-                self.alarm(alarm_id, AlarmType.ALERTA)
+                self.alarm_manager.activar(PRE_02, pres=presion, maximo=pres_obj + rango,
+                                           objetivo=pres_obj, rango=rango)
             else:
-                self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+                self.alarm_manager.resolver(PRE_02)
 
             return r.dentro_de_banda
     
@@ -265,23 +241,21 @@ class preparacion_state:
                 if self._confirmador_aire_camara.confirmar(True):
                     self.set_do.aire_admosferico_camara_off()
                 self.set_do.descompresion_lenta_off()
-                self.alarm_manager.clear("PRESION_CAMARA_BAJA")
-                self.alarm_manager.clear("PRESION_CAMARA_ALTA")
+                self.alarm_manager.resolver(PRE_03)
+                self.alarm_manager.resolver(PRE_04)
                 return True, False
 
             if presion_camara < pres_cam_min:
                 # Abrir entrada de aire comprimido a la camara
                 self.set_do.aire_admosferico_camara_on()
                 self._confirmador_aire_camara.reset()
-                alarm_id = "PRESION_CAMARA_BAJA"
-                self.alarm(alarm_id, AlarmType.ALERTA)
+                self.alarm_manager.activar(PRE_03, pres=presion_camara, minimo=pres_cam_min)
                 return False, False
 
             # presion_camara > pres_cam_max: requiere venteo/vacío
             self.set_do.aire_admosferico_camara_off()
             self._confirmador_aire_camara.reset()
-            alarm_id = "PRESION_CAMARA_ALTA"
-            self.alarm(alarm_id, AlarmType.ALERTA)
+            self.alarm_manager.activar(PRE_04, pres=presion_camara, maximo=pres_cam_max)
             return False, True
                 
     def drenar_camara(self):
@@ -291,11 +265,10 @@ class preparacion_state:
             ejecutor()."""
             agua_residual = self.estado.sensores_di["agua_camara"]
             if not agua_residual:
-                self.alarm_manager.clear("AGUA_RESIDUAL_CAMARA")
+                self.alarm_manager.resolver(PRE_05)
                 return True, False
 
-            alarm_id = "AGUA_RESIDUAL_CAMARA"
-            self.alarm(alarm_id, AlarmType.ALERTA)
+            self.alarm_manager.activar(PRE_05)
             return False, True
         
     def verificar_temperatura_drenaje(self):
@@ -327,10 +300,9 @@ class preparacion_state:
             # "drenaje muy frio", pero el lado bajo si participa del gate de
             # listo/inicio via dentro_de_banda.
             if r.fuera_por_encima:
-                alarm_id = "TEMP_DRENAJE_ALTA"
-                self.alarm(alarm_id, AlarmType.ALERTA)
+                self.alarm_manager.activar(PRE_06, temp=temp_drenaje, maximo=temp_obj + rango)
             else:
-                self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
+                self.alarm_manager.resolver(PRE_06)
 
             return not r.fuera_por_encima
         

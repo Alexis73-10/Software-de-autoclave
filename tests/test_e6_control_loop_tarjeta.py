@@ -7,7 +7,9 @@ import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.protocols.serial_link import EventoTarjeta
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+from autoclave.state_machine.alarms.catalogo import COM_03, Nivel
+from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.states.ciclo import CicloResultado, CicloState
 
@@ -25,18 +27,24 @@ def _make_ciclo():
     cycle.get_param.return_value = None
     config = MagicMock()
     config.get.return_value = None
-    ciclo = CicloState(estado, MagicMock(), cycle, config, MagicMock())
+    ciclo = CicloState(estado, MagicMock(), cycle, config, AlarmManager())
     ciclo.reset()
     return ciclo, estado
 
 
-def test_abortar_por_falla_io_reporta_emergencia_con_el_id_recibido():
+def test_abortar_por_falla_io_activa_com03_critico_con_el_id_como_causa():
+    # T1 (tanda 2026-10-14): en ciclo, COM-03 (FALLO_CRITICO, "EMERGENCIA"
+    # en /status) con el id de la tarjeta como origen y causa (P5).
     ciclo, estado = _make_ciclo()
     ciclo.abortar_por_falla_io("TARJETA_WATCHDOG", "watchdog disparado")
-    alarma = ciclo.alarm_manager.report.call_args[0][0]
-    assert alarma.id == "TARJETA_WATCHDOG"
-    assert alarma.type == AlarmType.EMERGENCIA
-    assert estado.motivo_fallo == "watchdog disparado"
+    [alarma] = ciclo.alarm_manager.activas()
+    assert alarma.codigo == COM_03
+    assert alarma.nivel is Nivel.FALLO_CRITICO
+    assert alarma.origen == "TARJETA_WATCHDOG"
+    assert "TARJETA_WATCHDOG" in alarma.descripcion
+    assert "watchdog disparado" in alarma.descripcion
+    assert estado.codigo_fallo == COM_03
+    assert "watchdog disparado" in estado.motivo_fallo
     assert estado.fase_ciclo == "FALLO_IO"
 
 
@@ -55,7 +63,7 @@ def test_abortar_por_falla_io_no_duplica():
     ciclo.abortar_por_falla_io("TARJETA_REINICIO", "x")
     ciclo.abortar_por_falla_io("DISCREPANCIA_SALIDAS", "y")
     ciclo.abortar_por_desconexion()
-    ciclo.alarm_manager.report.assert_called_once()
+    assert len(ciclo.alarm_manager.activas()) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +78,7 @@ def _loop(estado_maquina=GlobalState.PREPARADO, conectado=True):
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
         loop = ControlLoop(units=MagicMock(), door_service=MagicMock(), doors=[],
                            estado=estado, link=MagicMock(), set_do=MagicMock(),
-                           alarm_manager=MagicMock(), cycle_manager=cm,
+                           alarm_manager=AlarmManager(), cycle_manager=cm,
                            config_manager=MagicMock())
     loop.units.get_all.return_value = {}
     estado.sensores_di["paro_emergencia"] = 1
@@ -82,8 +90,8 @@ def _loop(estado_maquina=GlobalState.PREPARADO, conectado=True):
     return loop, estado
 
 
-def _reportadas(loop):
-    return [c[0][0] for c in loop.alarm_manager.report.call_args_list]
+def _activa(loop, codigo):
+    return next((a for a in loop.alarm_manager.activas() if a.codigo == codigo), None)
 
 
 def _correr_un_tick(loop, tick):
@@ -129,10 +137,10 @@ def test_fallo_de_handshake_reporta_alarma_bloqueante():
     loop.link.tomar_eventos.return_value = [
         EventoTarjeta("handshake", "TARJETA_SIN_ACK", "sin ack")]
     loop._tick()
-    alarma = next(a for a in _reportadas(loop) if a.id == "TARJETA_SIN_ACK")
-    assert alarma.type == AlarmType.FALLA
-    assert alarma.blocks_operation is True
-    assert alarma.description == "sin ack"
+    alarma = _activa(loop, "TARJETA_SIN_ACK")
+    assert alarma.nivel is Nivel.ALARMA          # "FALLA" en /status
+    assert alarma.definicion.bloquea_inicio is True
+    assert alarma.descripcion == "sin ack"
 
 
 @pytest.mark.parametrize("alarm_id", ["TARJETA_WATCHDOG", "TARJETA_REINICIO",
@@ -159,8 +167,8 @@ def test_wd_o_reinicio_fuera_de_ciclo_es_alarma_bloqueante(alarm_id):
     loop.link.tomar_eventos.return_value = [EventoTarjeta("operacion", alarm_id, "m")]
     loop._tick()
     loop.state_machine.ciclo.abortar_por_falla_io.assert_not_called()
-    alarma = next(a for a in _reportadas(loop) if a.id == alarm_id)
-    assert alarma.type == AlarmType.FALLA and alarma.blocks_operation is True
+    alarma = _activa(loop, alarm_id)
+    assert alarma.nivel is Nivel.ALARMA and alarma.definicion.bloquea_inicio is True
     # el propio enlace ya repite el handshake tras WD/BOOT
     loop.link.solicitar_handshake.assert_not_called()
 
@@ -170,7 +178,7 @@ def test_expansor_o_discrepancia_fuera_de_ciclo_pide_nuevo_handshake(alarm_id):
     loop, _ = _loop(GlobalState.PREPARADO)
     loop.link.tomar_eventos.return_value = [EventoTarjeta("operacion", alarm_id, "m")]
     loop._tick()
-    assert any(a.id == alarm_id for a in _reportadas(loop))
+    assert _activa(loop, alarm_id) is not None
     loop.link.solicitar_handshake.assert_called_once()
 
 
@@ -182,19 +190,26 @@ def test_handshake_ok_despeja_las_alarmas_de_tarjeta_de_fuera_de_ciclo():
     loop._tick()
     loop.link.tomar_eventos.return_value = [EventoTarjeta("conectada", None, "ok")]
     loop._tick()
-    despejadas = {c[0][0] for c in loop.alarm_manager.clear.call_args_list}
-    assert {"TARJETA_SIN_ACK", "TARJETA_WATCHDOG"} <= despejadas
+    # Resueltas: dejan de bloquear (quedan para reconocer, nivel ALARMA)
+    assert not loop.alarm_manager.has_blocking_alarm()
+    for codigo in ("TARJETA_SIN_ACK", "TARJETA_WATCHDOG"):
+        inst = loop.alarm_manager.obtener(codigo)
+        assert inst is None or inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER
 
 
 def test_handshake_ok_no_despeja_la_alarma_del_fallo_del_ciclo():
+    # SAF-06: la del ciclo es COM-03 (otro código), nunca la toca "conectada"
     loop, _ = _loop(GlobalState.CICLO)
+    ciclo, _ = _make_ciclo()
+    ciclo.alarm_manager = loop.alarm_manager
+    loop.state_machine.ciclo = ciclo
     loop.link.tomar_eventos.return_value = [
         EventoTarjeta("operacion", "TARJETA_WATCHDOG", "m")]
     loop._tick()
     loop.link.tomar_eventos.return_value = [EventoTarjeta("conectada", None, "ok")]
     loop._tick()
-    despejadas = {c[0][0] for c in loop.alarm_manager.clear.call_args_list}
-    assert "TARJETA_WATCHDOG" not in despejadas
+    inst = loop.alarm_manager.obtener(f"{COM_03}|TARJETA_WATCHDOG")
+    assert inst is not None and inst.estado is EstadoInstancia.ACTIVA
 
 
 def test_enlace_sin_tomar_eventos_no_rompe_el_tick():
@@ -215,13 +230,15 @@ def test_evento_que_falla_no_pierde_los_siguientes():
         EventoTarjeta("handshake", "TARJETA_SIN_TRAMA_VALIDA", "b"),
     ]
     reportes = []
+    original = loop.alarm_manager.activar
 
-    def report(alarma):
-        reportes.append(alarma.id)
+    def activar(codigo, *a, **k):
+        reportes.append(codigo)
         if len(reportes) == 1:
             raise RuntimeError("falla al reportar")
+        return original(codigo, *a, **k)
 
-    loop.alarm_manager.report.side_effect = report
+    loop.alarm_manager.activar = activar
     loop._tick()
     assert reportes == ["TARJETA_SIN_ACK", "TARJETA_SIN_TRAMA_VALIDA"]
 
@@ -234,7 +251,7 @@ def test_falla_en_operacion_con_ciclo_terminando_se_reporta_fuera_de_ciclo():
     loop.link.tomar_eventos.return_value = [
         EventoTarjeta("operacion", "DISCREPANCIA_SALIDAS", "motivo")]
     loop._tick()
-    assert "DISCREPANCIA_SALIDAS" in _reportadas_ids(loop)
+    assert _activa(loop, "DISCREPANCIA_SALIDAS") is not None
     loop.link.solicitar_handshake.assert_not_called()
 
 
@@ -243,9 +260,6 @@ def test_abortar_por_falla_io_devuelve_si_actuo():
     assert ciclo.abortar_por_falla_io("TARJETA_REINICIO", "x") is True
     assert ciclo.abortar_por_falla_io("TARJETA_REINICIO", "x") is False
 
-
-def _reportadas_ids(loop):
-    return [c[0][0].id for c in loop.alarm_manager.report.call_args_list]
 
 
 def test_expansor_caido_fuera_de_ciclo_repite_el_handshake():

@@ -227,9 +227,17 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | `TIMEOUT_APERTURA_AUTOMATICA` / `APERTURA_AUTOMATICA_DENEGADA` | CIC-07 / CIC-08 | AVISO |
 | `NO_HAY_CONEXION` | COM-01 | ALARMA |
 | `FALLO_CONEXION` | COM-02 | FALLO_CRITICO |
-| `CONFIGURACION_INVALIDA` | **sin código en el diseño** | — |
-| `TARJETA_*` (9 ids de §2.2, E6) | **sin código en el diseño** | — |
+| `CONFIGURACION_INVALIDA` | `CONFIGURACION_INVALIDA` (id conservado, tanda 2026-10-14) | ALARMA, bloquea, despeje manual |
+| `OPERANDO_SIN_BD` | `OPERANDO_SIN_BD` (id conservado) | ALARMA, bloquea, despeje manual (provisional hasta T8) |
+| `TARJETA_*` (9 ids de §2.2, E6), fuera de ciclo | mismos ids (conservados) | ALARMA, bloquea, se resuelven al completar el handshake |
+| `TARJETA_*` en ciclo (`abortar_por_falla_io`) | **COM-03** con origen = id de la tarjeta (`COM-03\|TARJETA_WATCHDOG`) | FALLO_CRITICO, despeje manual; `fase_ciclo = "FALLO_IO"` |
 | (nueva) | SIS-02 Historial no disponible | AVISO |
 
-Observación: el diseño Parte A no contempla `CONFIGURACION_INVALIDA` (alarma agregada al backend el
+**Integración (tanda 2026-10-14, T1):** la Parte A está unida a `dev-noche`; esta tabla ya describe el código.
+La regla de la tanda "ningún id existente se renombra" se aplicó a los ids que la rama no había migrado:
+los 9 de la tarjeta, `CONFIGURACION_INVALIDA` y `OPERANDO_SIN_BD` quedan con su nombre
+(`CODIGOS_CONSERVADOS` en `catalogo.py`). Los textos `alarmas.<ID>.{titulo, accion}` de `es.json`/`en.json`
+duplican los del catálogo para los 9 de la tarjeta; la UI todavía muestra `titulo`/`descripcion` de `/status`.
+
+Observación (histórica): el diseño Parte A no contempla `CONFIGURACION_INVALIDA` (alarma agregada al backend el
 mismo periodo). Hay que asignarle código (¿`SIS-03`?) antes de implementar el catálogo central.

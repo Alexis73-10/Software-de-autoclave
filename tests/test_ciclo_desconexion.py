@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from tests.alarmas_helpers import codigos_activados
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 
 
@@ -24,9 +25,8 @@ def test_abortar_por_desconexion_reporta_alarma():
     ciclo, estado = _make_ciclo()
     ciclo.abortar_por_desconexion()
 
-    ciclo.alarm_manager.report.assert_called_once()
-    alarma = ciclo.alarm_manager.report.call_args[0][0]
-    assert alarma.id == "FALLO_CONEXION"
+    ciclo.alarm_manager.activar.assert_called_once()
+    assert codigos_activados(ciclo.alarm_manager) == ["COM-02"]
 
 
 def test_abortar_por_desconexion_ejecuta_protocolo():
@@ -53,4 +53,4 @@ def test_abortar_por_desconexion_no_duplica_si_ya_hay_resultado_pendiente():
     ciclo.abortar_por_desconexion()
     ciclo.abortar_por_desconexion()
 
-    ciclo.alarm_manager.report.assert_called_once()
+    ciclo.alarm_manager.activar.assert_called_once()

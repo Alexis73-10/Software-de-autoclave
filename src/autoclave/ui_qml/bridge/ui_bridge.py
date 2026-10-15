@@ -17,7 +17,7 @@ from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
 ESTADO_DESCONOCIDO = "DESCONOCIDO"
 
-# Nivel del backend (AlarmType.name) -> prioridad IEC 60601-1-8.
+# Nivel del backend (campo level, compatibilidad) -> prioridad IEC 60601-1-8.
 # Decisión de Cristian (2026-09-29): EMERGENCIA alta, FALLA media, ALERTA baja.
 _PRIORIDAD_POR_NIVEL = {"EMERGENCIA": "alta", "FALLA": "media", "ALERTA": "baja"}
 

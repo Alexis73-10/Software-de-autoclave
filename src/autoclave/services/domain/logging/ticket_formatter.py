@@ -12,6 +12,25 @@
 
 from datetime import datetime
 
+from autoclave.state_machine.alarms.catalogo import CATALOGO
+
+
+def motivo_ticket(codigo: str | None, motivo: str | None) -> str | None:
+    """Línea de motivo del ticket térmico: solo código y título (spec §5.4).
+    Ciclos anteriores al catálogo (sin codigo_fallo) conservan su motivo."""
+    definicion = CATALOGO.get(codigo or "")
+    if definicion is not None:
+        return f"{definicion.codigo} - {definicion.titulo}"
+    return motivo or None
+
+
+def _campo(fila, clave):
+    """Lee una clave de dict o sqlite3.Row; None si no existe."""
+    try:
+        return fila[clave]
+    except (KeyError, IndexError):
+        return None
+
 _MESES = {
     1: "ENE", 2: "FEB", 3: "MAR", 4: "ABR", 5: "MAY", 6: "JUN",
     7: "JUL", 8: "AGO", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DIC",
@@ -111,6 +130,7 @@ def format_ticket(ciclo, lecturas) -> str:
     parts += [format_row(r) for r in lecturas]
     parts.append(format_footer(
         ciclo["resultado"], ciclo["fecha_fin"],
-        temp_final=temp_final, motivo=ciclo.get("motivo_fallo"),
+        temp_final=temp_final, motivo=motivo_ticket(
+            _campo(ciclo, "codigo_fallo"), _campo(ciclo, "motivo_fallo")),
     ))
     return "\n".join(parts)

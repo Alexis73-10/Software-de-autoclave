@@ -11,6 +11,7 @@ import pytest
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
+from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 _TEMPS = ["temp_camara", "temp_2_camara", "temp_ref", "temp_drenaje"]
 
@@ -97,7 +98,7 @@ def _make(clase, **overrides):
 
 
 def _reportadas(alarm_mgr):
-    return [c.args[0].id for c in alarm_mgr.report.call_args_list]
+    return ids_viejos_activados(alarm_mgr)
 
 
 def _ordenes(set_do):
@@ -115,7 +116,7 @@ def test_temperatura_none_es_error_de_sensor(clase, sensor):
     assert obj.verificar_sensores() is False
     assert f"ERROR_AI_{sensor.upper()}" in _reportadas(alarm_mgr)
     # y no se limpia la alarma de ese sensor en el mismo tick
-    assert f"ERROR_AI_{sensor.upper()}" not in [c.args[0] for c in alarm_mgr.clear.call_args_list]
+    assert f"ERROR_AI_{sensor.upper()}" not in ids_viejos_resueltos(alarm_mgr)
 
 
 @pytest.mark.parametrize("clase", [preparacion_state, preparado_state])

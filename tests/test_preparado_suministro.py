@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparado import preparado_state
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import SUM_02
+from tests.alarmas_helpers import codigos_activados
 
 
 def _make_preparado(suministro_electrico=1, fallo_suministro=False):
@@ -38,14 +39,14 @@ def _make_preparado(suministro_electrico=1, fallo_suministro=False):
 def test_suministro_off_genera_alarma():
     p, alarm_mgr = _make_preparado(suministro_electrico=0, fallo_suministro=True)
     p.verificar_suministros()
-    ids = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "SUMINISTRO_ELECTRICO" in ids
+    ids = codigos_activados(alarm_mgr)
+    assert SUM_02 in ids
 
 
 def test_suministro_ok_limpia_alarma():
     p, alarm_mgr = _make_preparado(suministro_electrico=1, fallo_suministro=False)
     p.verificar_suministros()
-    alarm_mgr.clear.assert_any_call("SUMINISTRO_ELECTRICO")
+    alarm_mgr.resolver.assert_any_call(SUM_02)
 
 
 def test_esta_preparado_false_con_fallo_suministro():

@@ -12,7 +12,6 @@ class _FakeEstado:
         self._flags = {"PARO_EMERGENCIA": False, "FALLO_SUMINISTRO_ELECTRICO": False}
         self._state = GlobalState.PREPARACION
         self.sensores_di = {"paro_emergencia": 0, "suministro_electrico": 1}
-        self.Alarmas_activas = []  # Required by AlarmManager
 
     def get_machine_state(self):
         return self._state
@@ -68,6 +67,7 @@ def test_set_active_cycle_permitido_fuera_de_ciclo_reconstruye_state_machine(moc
         io=loop.link, estado=loop.estado, set_do=loop.set_do,
         cycle=new_cycle, config=loop.config_manager, cap="fake_cap",
         door_service=loop.door_service, profile=loop.profile,
+        alarm_manager=loop.alarm_manager,
     )
     assert loop.state_machine is mock_sm_class.return_value
 

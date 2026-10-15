@@ -1,13 +1,18 @@
-from autoclave.state_machine.alarms.alarm import Alarm, AlarmType
+from autoclave.state_machine.alarms.catalogo import (
+    PRE_01, PRE_02, PRE_03, PRE_04, PRE_06, PUE_01, SEN_01, SIS_01,
+    SUM_02, SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
+)
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 from autoclave.core.runtime.lectura import lectura_valida
-from autoclave.devices.paro_emergencia.paro_emergencia import AVISO_CABLEADO_NC
 from autoclave.installation.profile import (entrada_requerida, numero_puertas, sensores_empaque,
                                             sonda_instalada)
 import logging
 import time
 
 logger = logging.getLogger(__name__)
+
+_ESTADO = "Preparado"
+_SUMINISTROS = {"agua_bomba": SUM_03, "agua_generador": SUM_04, "aire_comprimido": SUM_05}
 
 
 class preparado_state:
@@ -33,33 +38,19 @@ class preparado_state:
         self._confirmador_aire_camara = ConfirmadorApagado()
 
     # ==============================
-    # ALARMAS
-    # ==============================
-    def alarm(self, alarm_id, alarm_type, blocks_operation=True, detalle=""):
-        alarm = Alarm(
-            alarm_id=alarm_id,
-            alarm_type=alarm_type,
-            source_state="PREPARADO",
-            description=f"Error {alarm_id} en estado PREPARADO" + (f". {detalle}" if detalle else ""),
-            recoverable=True,
-            blocks_operation=blocks_operation,
-        )
-        self.alarm_manager.report(alarm)
-
-    # ==============================
     # RUN PRINCIPAL
     # ==============================
     def run(self):
         if self.estado.get_flag("PARO_EMERGENCIA"):
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
             self.set_do.apagar_por_paro()
-            self.alarm("PARO_EMERGENCIA", AlarmType.EMERGENCIA, detalle=AVISO_CABLEADO_NC)
+            self.alarm_manager.activar(SIS_01, estado=_ESTADO)
             self.set_do.buzer_emergencia()
             self.timer_estabilidad = None
             return False
         else:
             self.set_do.buzer_off()
-            self.alarm_manager.clear("PARO_EMERGENCIA")
+            self.alarm_manager.resolver(SIS_01)
 
         if not self.supervisor():
             self.timer_estabilidad = None
@@ -130,12 +121,12 @@ class preparado_state:
         if vigilar_vapor and not self.estado.sensores_di["vapor_suministro"]:
             self.set_do.vapor_chaqueta_off()
             self._confirmador_chaqueta.reset()
-            self.alarm("SUMINISTRO_VAPOR", AlarmType.ALERTA, blocks_operation=False)
-            self.alarm_manager.clear("CHAQUETA_FRIA")
-            self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+            self.alarm_manager.activar(SUM_06, estado=_ESTADO)
+            self.alarm_manager.resolver(PRE_01)
+            self.alarm_manager.resolver(PRE_02)
             return True
         elif vigilar_vapor:
-            self.alarm_manager.clear("SUMINISTRO_VAPOR")
+            self.alarm_manager.resolver(SUM_06)
 
         r = evaluar_banda(press_chaqueta, press_obj, rango, activar_si_bajo=True)
 
@@ -148,14 +139,18 @@ class preparado_state:
 
         # Alarma bloqueante: solo al cruzar el borde de la banda.
         if r.fuera_por_debajo:
-            self.generar_alarma_temporizada("CHAQUETA_FRIA")
+            self.generar_alarma_temporizada(PRE_01, pres=press_chaqueta,
+                                            minimo=press_obj - rango,
+                                            objetivo=press_obj, rango=rango)
         else:
-            self.alarm_manager.clear("CHAQUETA_FRIA")
+            self.alarm_manager.resolver(PRE_01)
 
         if r.fuera_por_encima:
-            self.generar_alarma_temporizada("CHAQUETA_SOBRECALENTADA")
+            self.generar_alarma_temporizada(PRE_02, pres=press_chaqueta,
+                                            maximo=press_obj + rango,
+                                            objetivo=press_obj, rango=rango)
         else:
-            self.alarm_manager.clear("CHAQUETA_SOBRECALENTADA")
+            self.alarm_manager.resolver(PRE_02)
 
         return r.dentro_de_banda
 
@@ -178,21 +173,21 @@ class preparado_state:
             if self._confirmador_aire_camara.confirmar(True):
                 self.set_do.aire_admosferico_camara_off()
             self.set_do.descompresion_rapida_off()
-            self.alarm_manager.clear("PRESION_CAMARA_BAJA")
-            self.alarm_manager.clear("PRESION_CAMARA_ALTA")
+            self.alarm_manager.resolver(PRE_03)
+            self.alarm_manager.resolver(PRE_04)
             return True
 
         if presion_camara < min_p:
             self.set_do.aire_admosferico_camara_on()
             self._confirmador_aire_camara.reset()
             self.set_do.descompresion_rapida_off()
-            self.generar_alarma_temporizada("PRESION_CAMARA_BAJA")
+            self.generar_alarma_temporizada(PRE_03, pres=presion_camara, minimo=min_p)
 
         elif presion_camara > max_p:
             self.set_do.aire_admosferico_camara_off()
             self._confirmador_aire_camara.reset()
             self.set_do.descompresion_rapida_on()
-            self.generar_alarma_temporizada("PRESION_CAMARA_ALTA")
+            self.generar_alarma_temporizada(PRE_04, pres=presion_camara, maximo=max_p)
 
         return False
 
@@ -228,21 +223,21 @@ class preparado_state:
         # muy frio" (no hay calefactor), pero el lado bajo si participa del
         # gate de listo/inicio via dentro_de_banda.
         if r.fuera_por_encima:
-            self.generar_alarma_temporizada("TEMP_DRENAJE_ALTA")
+            self.generar_alarma_temporizada(PRE_06, temp=temp, maximo=temp_obj + rango)
         else:
-            self.alarm_manager.clear("TEMP_DRENAJE_ALTA")
+            self.alarm_manager.resolver(PRE_06)
 
         return not r.fuera_por_encima
 
     # ==============================
     # TEMPORIZADOR DE ALARMAS
     # ==============================
-    def generar_alarma_temporizada(self, alarm_id):
+    def generar_alarma_temporizada(self, codigo, **valores):
         if self.timer_estabilidad is None:
             self.timer_estabilidad = time.monotonic() + self.tiempo_estable
 
         if time.monotonic() >= self.timer_estabilidad:
-            self.alarm(alarm_id, AlarmType.ALERTA)
+            self.alarm_manager.activar(codigo, **valores)
 
     # ==============================
     # PUERTAS CERRADAS
@@ -251,13 +246,14 @@ class preparado_state:
         """Todas las puertas del perfil (door_count, E1-2) deben estar
         cerradas para que el ciclo pueda arrancar. Sin dato = abierta."""
         todas = True
-        for n in range(1, numero_puertas(self.profile) + 1):
-            cerrada = bool(self.estado.sensores_di.get(f"puerta_{n}_cerrada", 0))
+        for num in range(1, numero_puertas(self.profile) + 1):
+            cerrada = bool(self.estado.sensores_di.get(f"puerta_{num}_cerrada", 0))
+            puerta = f"Puerta {num}"
             if not cerrada:
-                self.alarm(f"PUERTA_{n}_ABIERTA", AlarmType.ALERTA)
+                self.alarm_manager.activar(PUE_01, origen=puerta, puerta=puerta)
                 todas = False
             else:
-                self.alarm_manager.clear(f"PUERTA_{n}_ABIERTA")
+                self.alarm_manager.resolver(PUE_01, origen=puerta)
         return todas
 
     # ==============================
@@ -293,23 +289,27 @@ class preparado_state:
         for sensor, value in self.estado.sensores_pres.items():
             if sensor.startswith("pres_empaque_") and sensor not in empaque:
                 continue
+            legible = nombre_legible(sensor)
             # Sin dato / no finito = error de sensor, igual que un 0 (A-5)
             if not lectura_valida(value) or value == 0:
-                self.alarm(f"ERROR_AI_{sensor.upper()}", AlarmType.ALERTA)
+                self.alarm_manager.activar(SEN_01, origen=legible, sensor=legible,
+                                           valor=value)
                 ok = False
             else:
-                self.alarm_manager.clear(f"ERROR_AI_{sensor.upper()}")
+                self.alarm_manager.resolver(SEN_01, origen=legible)
 
         for sensor, value in self.estado.sensores_temp.items():
             # Canal sin sonda declarado en el perfil: no se vigila (A-2)
             if not sonda_instalada(self.profile, sensor):
                 continue
+            legible = nombre_legible(sensor)
             # None / no finito = sensor desconectado, igual que un 0 (E0-1)
             if not lectura_valida(value) or value == 0:
-                self.alarm(f"ERROR_AI_{sensor.upper()}", AlarmType.ALERTA)
+                self.alarm_manager.activar(SEN_01, origen=legible, sensor=legible,
+                                           valor=value)
                 ok = False
             else:
-                self.alarm_manager.clear(f"ERROR_AI_{sensor.upper()}")
+                self.alarm_manager.resolver(SEN_01, origen=legible)
 
         return ok
 
@@ -317,24 +317,24 @@ class preparado_state:
         ok = True
 
         for suministro, estado in self.estado.sensores_di.items():
-            if suministro in ["agua_bomba", "agua_generador", "aire_comprimido"]:
+            if suministro in _SUMINISTROS:
                 # Entrada declarada "no aplica" en el perfil: no se vigila (E1-1)
                 if not entrada_requerida(self.profile, suministro):
                     continue
                 if not estado:
-                    self.alarm(f"SUMINISTRO_{suministro.upper()}", AlarmType.ALERTA)
+                    self.alarm_manager.activar(_SUMINISTROS[suministro])
                     ok = False
                 else:
-                    self.alarm_manager.clear(f"SUMINISTRO_{suministro.upper()}")
+                    self.alarm_manager.resolver(_SUMINISTROS[suministro])
 
         # Suministro eléctrico (se omite si el perfil no tiene la entrada)
         if not entrada_requerida(self.profile, "suministro_electrico"):
             pass
         # Sin la entrada en la trama = sin suministro, no "presente" (A-9)
         elif not self.estado.sensores_di.get("suministro_electrico"):
-            self.alarm("SUMINISTRO_ELECTRICO", AlarmType.ALERTA)
+            self.alarm_manager.activar(SUM_02)
             ok = False
         else:
-            self.alarm_manager.clear("SUMINISTRO_ELECTRICO")
+            self.alarm_manager.resolver(SUM_02)
 
         return ok

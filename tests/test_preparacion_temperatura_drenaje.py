@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparacion import preparacion_state
+from autoclave.state_machine.alarms.catalogo import PRE_06
+from tests.alarmas_helpers import codigos_activados
 
 
 def _make_preparacion(temp_drenaje, temp_segura=70.0, rango=5.0):
@@ -27,17 +29,17 @@ def test_valvula_enciende_sobre_objetivo_sin_disparar_alarma():
     p, alarm_mgr, set_do = _make_preparacion(temp_drenaje=71.0)
     resultado = p.verificar_temperatura_drenaje()
     set_do.agua_intercambiador_on.assert_called()
-    alarm_mgr.clear.assert_any_call("TEMP_DRENAJE_ALTA")
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "TEMP_DRENAJE_ALTA" not in ids_reportados
+    alarm_mgr.resolver.assert_any_call(PRE_06)
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_06 not in ids_reportados
     assert resultado is True
 
 
 def test_alarma_dispara_sobre_limite_superior():
     p, alarm_mgr, set_do = _make_preparacion(temp_drenaje=76.0)
     p.verificar_temperatura_drenaje()
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "TEMP_DRENAJE_ALTA" in ids_reportados
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_06 in ids_reportados
 
 
 def test_gate_true_bajo_limite_inferior_de_banda_sin_alarma():
@@ -47,8 +49,8 @@ def test_gate_true_bajo_limite_inferior_de_banda_sin_alarma():
     p, alarm_mgr, set_do = _make_preparacion(temp_drenaje=60.0)
     resultado = p.verificar_temperatura_drenaje()
     assert resultado is True
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "TEMP_DRENAJE_ALTA" not in ids_reportados
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_06 not in ids_reportados
 
 
 def test_gate_true_a_temperatura_ambiente():

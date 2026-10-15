@@ -48,6 +48,13 @@ _BTN_BACK = """
 """
 
 
+def _hora_ticket(iso: str | None) -> str:
+    try:
+        return datetime.fromisoformat(iso).strftime("%H:%M:%S %d/%m/%Y")
+    except (TypeError, ValueError):
+        return "--:--:--"
+
+
 def _build_alarms_ticket_lines(alarms: list[dict]) -> list[str]:
     now = datetime.now()
     lines: list[str] = [
@@ -58,6 +65,14 @@ def _build_alarms_ticket_lines(alarms: list[dict]) -> list[str]:
         "------------------------",
     ]
     for alarma in alarms:
+        codigo, titulo = alarma.get("codigo"), alarma.get("titulo")
+        if codigo and titulo:
+            lines += [
+                f"{codigo} - {titulo}",
+                f"{_hora_ticket(alarma.get('aparecida'))} - {alarma.get('origen') or '-'}",
+                "------------------------",
+            ]
+            continue
         lines += [
             f"ID: {alarma.get('id', '')}",
             f"Nivel: {alarma.get('level', '')}",

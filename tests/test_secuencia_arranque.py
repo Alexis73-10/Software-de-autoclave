@@ -16,6 +16,7 @@ from autoclave.backend.arranque.secuencia import ErrorArranque, ejecutar_arranqu
 from autoclave.backend.arranque.sin_bd import BdNoDisponible, BdNoDisponibleError
 from autoclave.backend.context import BackendContext
 from autoclave.installation.clock_guard import ClockTamperedError
+from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
 # ── secuencia con un contexto falso ──────────────────────────────────────────
@@ -258,7 +259,7 @@ def test_configuracion_invalida_es_fallo_con_alarma_y_sin_control_loop(monkeypat
     with pytest.raises(ErrorArranque) as e:
         ctx.cargar_configuracion()
     assert e.value.codigo == "CONFIGURACION_INVALIDA"
-    assert [a.id for a in ctx.alarm_manager.active_alarms] == ["CONFIGURACION_INVALIDA"]
+    assert ids_viejos_activos(ctx.alarm_manager) == ["CONFIGURACION_INVALIDA"]
 
 
 def test_ciclo_corrupto_devuelve_degradado(monkeypatch):
@@ -312,9 +313,10 @@ def test_bd_que_falla_tres_veces_degrada_con_alarma(monkeypatch):
     assert db.call_count == 3
     assert isinstance(ctx.db, BdNoDisponible) and isinstance(ctx.calibration_audit, BdNoDisponible)
     assert ctx.sin_base_de_datos is True
-    [alarma] = ctx.alarm_manager.active_alarms
-    assert alarma.id == "OPERANDO_SIN_BD"
-    assert alarma.blocks_operation is True and alarma.recoverable is False
+    [alarma] = ctx.alarm_manager.activas()
+    assert alarma.codigo == "OPERANDO_SIN_BD"
+    assert alarma.definicion.bloquea_inicio is True
+    assert alarma.definicion.despeje.value == "MANUAL"
     with pytest.raises(BdNoDisponibleError):
         ctx.db.get_ciclo(1)
 
@@ -328,7 +330,7 @@ def test_bd_que_falla_una_vez_y_luego_abre(monkeypatch):
     assert ctx.abrir_base_datos(3) is None
     assert ctx.db is abierta
     assert ctx.sin_base_de_datos is False
-    assert ctx.alarm_manager.active_alarms == []
+    assert ctx.alarm_manager.activas() == []
 
 
 def test_construir_control_registra_el_aviso_antes_de_start(monkeypatch):

@@ -122,8 +122,8 @@ def _hardware_connected() -> bool:
         r = requests.get(f"{BACKEND_URL}/status", timeout=1)
         if r.status_code != 200:
             return False
-        alarms = r.json().get("alarms", [])
-        return not any(a.get("id") == "NO_HAY_CONEXION" for a in alarms)
+        # Dato real del enlace serial (server.py); clave ausente → no conectado.
+        return r.json().get("card_connected") is True
     except requests.RequestException:
         return False
 

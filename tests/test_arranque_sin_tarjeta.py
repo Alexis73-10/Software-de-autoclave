@@ -29,6 +29,7 @@ from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.backend_doble import cargar_servidor
+from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
 class _EnlaceSinTarjeta(SerialLink):
@@ -139,7 +140,9 @@ def test_sin_tarjeta_no_se_inicia_ciclo_ni_se_enciende_ninguna_salida(backend):
     assert ctx.estado.get_machine_state() != GlobalState.CICLO
 
     # alarma de la pantalla de espera (D-E) y paro publicado: sin datos = paro (A-3)
-    assert "NO_HAY_CONEXION" in [a.id for a in ctx.alarm_manager.active_alarms]
+    # COM-01 (antes NO_HAY_CONEXION): sin conexión nunca establecida aparece
+    # al agotar la tolerancia de 5 s (alarmas Parte A, a2dcbc7)
+    assert _esperar(lambda: "NO_HAY_CONEXION" in ids_viejos_activos(ctx.alarm_manager), 8.0)
     assert ctx.estado.get_flag("PARO_EMERGENCIA") is True
 
     [enlace] = enlaces

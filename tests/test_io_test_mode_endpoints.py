@@ -142,7 +142,8 @@ def test_logout_de_otra_sesion_no_sale_del_modo_prueba(io_client):
 def test_status_incluye_test_mode_active(io_client):
     client, ctx, _ = io_client
     ctx.control_loop.test_mode_active = True
-    ctx.estado.Alarmas_activas = []
+    ctx.alarm_manager.activas.return_value = []
+    ctx.alarm_manager.eventos_recientes.return_value = []
     ctx.estado.estado_puertas = {}
     ctx.estado.sensores_temp = {}
     ctx.estado.sensores_pres = {}

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend.context import BackendContext
 from autoclave.core.managers.validacion_config import errores_config_arranque
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import Despeje, Nivel
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.backend_doble import cabecera, cargar_servidor
 from tests.test_control_loop_test_mode import _make_control_loop, _run_one_tick
@@ -70,11 +70,12 @@ def test_arranque_con_rango_invalido_queda_bloqueado_con_alarma():
     ctx = _contexto(25)
     ctx._validar_configuracion()
 
-    [alarma] = ctx.alarm_manager.active_alarms
-    assert alarma.id == "CONFIGURACION_INVALIDA"
-    assert alarma.type == AlarmType.FALLA
-    assert alarma.blocks_operation is True and alarma.recoverable is False
-    assert "rango_presion_atm" in alarma.description
+    [alarma] = ctx.alarm_manager.activas()
+    assert alarma.codigo == "CONFIGURACION_INVALIDA"
+    assert alarma.nivel is Nivel.ALARMA
+    assert alarma.definicion.bloquea_inicio is True
+    assert alarma.definicion.despeje is Despeje.MANUAL
+    assert "rango_presion_atm" in alarma.descripcion
     motivo = ctx.control_loop.bloquear_por_configuracion.call_args.args[0]
     assert "25" in motivo
 
@@ -82,7 +83,7 @@ def test_arranque_con_rango_invalido_queda_bloqueado_con_alarma():
 def test_arranque_con_rango_valido_no_bloquea():
     ctx = _contexto(5)
     ctx._validar_configuracion()
-    assert ctx.alarm_manager.active_alarms == []
+    assert ctx.alarm_manager.activas() == []
     ctx.control_loop.bloquear_por_configuracion.assert_not_called()
 
 

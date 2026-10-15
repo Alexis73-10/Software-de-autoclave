@@ -1,4 +1,5 @@
 from unittest.mock import MagicMock
+from tests.alarmas_helpers import codigos_activados
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 
 
@@ -42,9 +43,8 @@ def test_fallo_suministro_aborta_ciclo():
 def test_fallo_suministro_reporta_alarma_emergencia():
     ciclo, estado = _make_ciclo(fallo_suministro=True)
     ciclo.run()
-    ciclo.alarm_manager.report.assert_called_once()
-    alarma = ciclo.alarm_manager.report.call_args[0][0]
-    assert alarma.id == "FALLO_SUMINISTRO_ELECTRICO"
+    ciclo.alarm_manager.activar.assert_called_once()
+    assert codigos_activados(ciclo.alarm_manager) == ["SUM-01"]
 
 
 def test_fallo_suministro_ejecuta_protocolo():

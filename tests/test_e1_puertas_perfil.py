@@ -14,6 +14,7 @@ from autoclave.installation.profile import numero_puertas, revisa_empaque
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
+from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
 def _perfil(door_count=2, door_type=DoorType.SIMPLE):
@@ -63,7 +64,7 @@ def _config():
 
 
 def _reportadas(alarm_mgr):
-    return [c.args[0].id for c in alarm_mgr.report.call_args_list]
+    return ids_viejos_activados(alarm_mgr)
 
 
 # ---------------------------------------------------------------------------
@@ -142,18 +143,18 @@ def _ciclo(perfil, **kw):
 @pytest.mark.parametrize("emp", [0.0, None])
 def test_ciclo_simple_sin_empaque_no_falla(emp):
     ciclo = _ciclo(_perfil(door_type=DoorType.SIMPLE), emp1=emp, emp2=emp)
-    assert ciclo._verificar_puertas() == (True, "")
+    assert ciclo._verificar_puertas()[:2] == (True, "")
 
 
 def test_ciclo_una_puerta_ignora_la_segunda():
     ciclo = _ciclo(_perfil(door_count=1), p2=0)
-    assert ciclo._verificar_puertas() == (True, "")
+    assert ciclo._verificar_puertas()[:2] == (True, "")
 
 
 @pytest.mark.parametrize("door_type", [DoorType.SIMPLE, DoorType.ADVANCED])
 def test_ciclo_puerta_2_abierta_falla(door_type):
     ciclo = _ciclo(_perfil(door_type=door_type), p2=0)
-    assert ciclo._verificar_puertas() == (False, "FALLO_PUERTA_2_ABIERTA")
+    assert ciclo._verificar_puertas()[:2] == (False, "FALLO_PUERTA_2_ABIERTA")
     assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
     assert "FALLO_PUERTA_2_ABIERTA" in _reportadas(ciclo.alarm_manager)
 
@@ -162,7 +163,7 @@ def test_ciclo_puerta_2_abierta_falla(door_type):
                          ids=["sin_perfil", "advanced"])
 def test_ciclo_advanced_empaque_bajo_falla_como_antes(perfil):
     ciclo = _ciclo(perfil, emp1=100.0)
-    assert ciclo._verificar_puertas() == (False, "FALLO_PUERTA_1_EMPAQUE")
+    assert ciclo._verificar_puertas()[:2] == (False, "FALLO_PUERTA_1_EMPAQUE")
 
 
 def test_ciclo_simple_primer_tick_sin_fallo_de_puerta():

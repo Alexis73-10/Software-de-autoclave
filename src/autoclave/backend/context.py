@@ -13,14 +13,14 @@ from autoclave.devices.puertas.door_factory import create_door
 from autoclave.devices.io.set_io import SetOutput
 from autoclave.hal.measures.units import Units
 from autoclave.services.domain.loop.control_loop import ControlLoop
-from autoclave.state_machine.alarms.alarm import Alarm
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.alarm_types import AlarmType
+from autoclave.state_machine.alarms.catalogo import CONFIGURACION_INVALIDA, OPERANDO_SIN_BD
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
 from autoclave.core.managers.validacion_config import errores_config_arranque
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.cycle_logger import CycleLogger
+from autoclave.services.domain.logging.historial_alarmas import HistorialAlarmas
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.devices.printer.realtime_printer import RealtimePrinter
 from autoclave.backend.arranque import secuencia
@@ -149,14 +149,7 @@ class BackendContext:
         self.db = BdNoDisponible()
         self.calibration_audit = BdNoDisponible()
         self.sin_base_de_datos = True
-        self.alarm_manager.report(Alarm(
-            alarm_id="OPERANDO_SIN_BD",
-            alarm_type=AlarmType.FALLA,
-            source_state="ARRANQUE",
-            description="Base de datos no disponible: el inicio de ciclo queda bloqueado",
-            recoverable=False,
-            blocks_operation=True,
-        ))
+        self.alarm_manager.activar(OPERANDO_SIN_BD)
         return secuencia.ARR_SIN_BD
 
     # ── 7. conectando_modulos_es ─────────────────────────────────────────────
@@ -199,6 +192,12 @@ class BackendContext:
             profile       = self.profile,
             cycle_manager = self.cycle_manager,
             printer       = self.realtime_printer,
+        )
+        # Historial persistente de alarmas (spec 2026-10-06 §6). El ciclo en
+        # curso se lee al aparecer cada alarma.
+        self.historial_alarmas = HistorialAlarmas(
+            self.db, self.alarm_manager,
+            ciclo_actual=lambda: self.cycle_logger.ciclo_id,
         )
 
         self.control_loop = ControlLoop(
@@ -259,14 +258,7 @@ class BackendContext:
         if not errores:
             return None
         motivo = "; ".join(errores)
-        self.alarm_manager.report(Alarm(
-            alarm_id="CONFIGURACION_INVALIDA",
-            alarm_type=AlarmType.FALLA,
-            source_state="ARRANQUE",
-            description=f"Configuración inválida: {motivo}",
-            recoverable=False,
-            blocks_operation=True,
-        ))
+        self.alarm_manager.activar(CONFIGURACION_INVALIDA, motivo=motivo)
         control_loop = getattr(self, "control_loop", None)
         if control_loop is not None:
             control_loop.bloquear_por_configuracion(motivo)

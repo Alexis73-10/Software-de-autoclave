@@ -26,6 +26,7 @@ from autoclave.installation.profile import (
 from autoclave.state_machine.states.ciclo import CicloState
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
+from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 _TEMPS = ["temp_camara", "temp_2_camara", "temp_ref", "temp_drenaje"]
 
@@ -204,7 +205,7 @@ def _make(clase, perfil=None, **overrides):
 
 
 def _reportadas(alarm_mgr):
-    return [c.args[0].id for c in alarm_mgr.report.call_args_list]
+    return ids_viejos_activados(alarm_mgr)
 
 
 _ESTADOS = [preparacion_state, preparado_state]
@@ -437,7 +438,7 @@ def test_ciclo_sensor_critico_nan_es_sensor_ausente(sensor, grupo):
     ciclo, _, am = _ciclo()
     getattr(ciclo.estado, f"sensores_{grupo}")[sensor] = math.nan
     ciclo.run()
-    assert "SENSOR_AUSENTE" in [c.args[0].id for c in am.report.call_args_list]
+    assert "SENSOR_AUSENTE" in ids_viejos_activados(am)
 
 
 def test_ciclo_valvula_reposo_pres_nan_sin_orden():

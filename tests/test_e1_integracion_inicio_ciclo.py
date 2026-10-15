@@ -29,6 +29,9 @@ def _estado_listo():
     return estado
 
 
+from tests.alarmas_helpers import ids_viejos_activos
+
+
 def _maquina(estado, perfil):
     cycle = MagicMock()
     cycle.copia.return_value = cycle
@@ -45,8 +48,8 @@ def _maquina(estado, perfil):
                         config=config, profile=perfil)
 
 
-def _ids(estado):
-    return [a.id for a in estado.Alarmas_activas]
+def _ids(sm):
+    return ids_viejos_activos(sm.alarm_manager)
 
 
 def test_simple_sin_empaque_solo_aire_inicia_ciclo():
@@ -62,7 +65,7 @@ def test_simple_sin_empaque_solo_aire_inicia_ciclo():
     assert estado.get_machine_state() == GlobalState.CICLO
     sm.update()                                    # primer tick de CICLO
     assert not estado.fase_ciclo.startswith("FALLO_PUERTA")
-    assert not [i for i in _ids(estado) if i.startswith("SUMINISTRO") or "EMPAQUE" in i]
+    assert not [i for i in _ids(sm) if i.startswith("SUMINISTRO") or "EMPAQUE" in i]
 
 
 def test_mismo_equipo_sin_perfil_queda_bloqueado_como_antes():
@@ -70,6 +73,6 @@ def test_mismo_equipo_sin_perfil_queda_bloqueado_como_antes():
     sm = _maquina(estado, None)
     sm.update()
     assert estado.get_machine_state() == GlobalState.PREPARACION
-    ids = _ids(estado)
+    ids = _ids(sm)
     assert "ERROR_AI_PRES_EMPAQUE_1" in ids
     assert "SUMINISTRO_AGUA_BOMBA" in ids

@@ -26,6 +26,7 @@ from autoclave.devices.puertas.door_type import DoorType
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState
+from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 _VALIDO = {
     "machine_id": "ACV-2026-SN001", "model_id": "MX-500", "serial_number": "SN001",
@@ -162,7 +163,7 @@ def _config():
 
 
 def _reportadas(alarm_mgr):
-    return [c.args[0].id for c in alarm_mgr.report.call_args_list]
+    return ids_viejos_activados(alarm_mgr)
 
 
 _COMBINACIONES = [dict(zip(SUPPLY_INPUT_KEYS, vals))
