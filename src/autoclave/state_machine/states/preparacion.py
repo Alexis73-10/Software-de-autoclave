@@ -26,6 +26,9 @@ class preparacion_state:
         # Perfil de instalación (E1): entradas de suministro y puertas.
         # None = comportamiento previo (todo requerido, 2 puertas con empaque).
         self.profile = profile
+        # callable: protocolo de estado seguro en curso (E4, ciclo
+        # interrumpido): mientras dure, él maneja la cámara
+        self.estado_seguro_activo = None
 
         # Confirmadores de apagado (evitan chattering de valvula)
         self._confirmador_chaqueta = ConfirmadorApagado()
@@ -60,6 +63,14 @@ class preparacion_state:
         else:
             self.set_do.buzer_off()
             self.alarm_manager.resolver(SIS_01)
+
+        if self.estado_seguro_activo is not None and self.estado_seguro_activo():
+            # Sin venteo propio (la rápida está prohibida en líquidos calientes),
+            # sin chaqueta y sin avanzar: el estado seguro maneja la cámara
+            self.supervisor()
+            self.set_do.vapor_chaqueta_off()
+            self.set_do.vapor_camara_off()
+            return False
 
         if not self.supervisor():
             self._salidas_seguras_supervisor()

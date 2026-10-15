@@ -186,12 +186,33 @@ def _migracion_v2(conn: sqlite3.Connection) -> None:
             conn.execute(f"ALTER TABLE {tabla} ADD COLUMN {columna} {tipo}")
 
 
+def _migracion_v3(conn: sqlite3.Connection) -> None:
+    """E4 (tanda 2026-10-14; planeacion_arranque_y_modo_sin_bd §7.5): UUID por
+    ciclo (idempotencia de la reimportación del respaldo) e instantánea del
+    programa con el que corrió (JSON). Índice UNIQUE sobre numero_ciclo, solo
+    si no hay duplicados: con duplicados se registran y NO se crea (migración
+    no destructiva)."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    for columna, tipo in (("uuid", "TEXT"), ("programa_json", "TEXT")):
+        if columna not in columnas:
+            conn.execute(f"ALTER TABLE ciclos ADD COLUMN {columna} {tipo}")
+    duplicados = conn.execute(
+        "SELECT numero_ciclo, COUNT(*) FROM ciclos GROUP BY numero_ciclo HAVING COUNT(*) > 1"
+    ).fetchall()
+    if duplicados:
+        logger.error("Migración v3: números de ciclo duplicados %s; no se crea el índice UNIQUE",
+                     [tuple(d) for d in duplicados])
+        return
+    conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_ciclos_numero_unico ON ciclos(numero_ciclo)")
+
+
 # v2 la toma la tanda 2026-10-14 (sensores del ciclo); lo que estaba previsto
 # para planeacion_backend_parametros.md pasa a v3 o posterior. Las versiones
 # son secuenciales: no se deja ningún hueco.
 _MIGRACIONES = (
     (1, _migracion_v1),
     (2, _migracion_v2),
+    (3, _migracion_v3),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -350,6 +371,34 @@ class DbManager:
     # Ciclos
     # ------------------------------------------------------------------
 
+    def max_numero_ciclo(self) -> int:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT COALESCE(MAX(numero_ciclo), 0) FROM ciclos").fetchone()
+        return row[0]
+
+    def indice_numero_unico(self) -> bool:
+        """True si existe el índice UNIQUE de v3 (no se crea con duplicados)."""
+        with self._lock:
+            return self._conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_ciclos_numero_unico'"
+            ).fetchone() is not None
+
+    def cerrar_ciclos_interrumpidos(self, motivo: str) -> list[dict]:
+        """D-08 / PF-17: todo ciclo sin fecha_fin quedó interrumpido (corte de
+        energía o reinicio). Se cierra como INTERRUMPIDO, nunca se reanuda.
+        Devuelve las filas cerradas (la más reciente al final)."""
+        with self._lock:
+            filas = [dict(f) for f in self._conn.execute(
+                "SELECT * FROM ciclos WHERE fecha_fin IS NULL ORDER BY id").fetchall()]
+            if filas:
+                self._conn.execute(
+                    "UPDATE ciclos SET fecha_fin=?, resultado='INTERRUMPIDO', motivo_fallo=? "
+                    "WHERE fecha_fin IS NULL",
+                    (datetime.now().isoformat(), motivo))
+                self._conn.commit()
+        return filas
+
     def siguiente_numero_ciclo(self) -> int:
         """Retorna MAX(numero_ciclo)+1 ó 1 si la tabla está vacía."""
         with self._lock:
@@ -371,6 +420,8 @@ class DbManager:
         operador: str = "",
         asignacion_sensores: str = "",
         numero_programa: int | None = None,
+        uuid: str | None = None,
+        programa_json: str | None = None,
     ) -> int:
         """Inserta un nuevo ciclo y retorna su ID."""
         with self._lock:
@@ -380,8 +431,8 @@ class DbManager:
                     (numero_ciclo, fecha_inicio, tipo_ciclo, nombre_ciclo,
                      temp_esterilizacion, tiempo_esterilizacion,
                      modelo, serie, version_sw, operador,
-                     asignacion_sensores, numero_programa)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+                     asignacion_sensores, numero_programa, uuid, programa_json)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
                     numero,
@@ -396,6 +447,8 @@ class DbManager:
                     operador or "",
                     asignacion_sensores or "",
                     numero_programa,
+                    uuid,
+                    programa_json,
                 ),
             )
             self._conn.commit()

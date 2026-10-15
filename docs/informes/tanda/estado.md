@@ -16,7 +16,7 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 | T3 Sensores backend | HECHA | dev-noche | ver git log | 3119 passed | `T3_sensores_backend.md` |
 | T4 E2 camara_segura | HECHA | dev-noche | ver git log | 3133 passed | `T4_camara_segura.md` |
 | T5 E3 estado seguro | HECHA | dev-noche | ver git log | 3191 passed | `T5_estado_seguro.md` |
-| T6 E4 arranque seguro | pendiente | dev-noche | | | |
+| T6 E4 arranque seguro | HECHA | dev-noche | ver git log | 3213 passed | `T6_arranque_seguro.md` |
 | T7 E5 UI | pendiente | dev-noche | | | |
 | T8 Modo sin BD | pendiente | dev-noche | | | |
 | T9 Menú de instalación | pendiente | dev-noche | | | |
@@ -30,4 +30,4 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 ## Etapa actual
 
-T6: E4 arranque seguro (ciclos interrumpidos, cierre del COMPLETADO, contador, UNIQUE, instantánea).
+T7: E5 UI (NO ABRIR, paro, barra del login, Apagar equipo, MODO PRUEBA, versión/ID de tarjeta).

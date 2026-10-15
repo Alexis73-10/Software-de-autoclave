@@ -14,6 +14,7 @@ from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 from autoclave.core.runtime import camara_segura
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.installation.profile import entrada_requerida, numero_puertas
 
 import logging
@@ -97,6 +98,10 @@ class ControlLoop:
         # SAF-01 de T3 (se usan desde el primer StateMachine)
         self._programa_ultimo_ciclo = None
         self._ticks_seguros_tras_ciclo = 0
+        # E4 (D-08): programa del ciclo interrumpido por un reinicio, a
+        # recuperar con el primer dato vigente
+        self._recuperacion_pendiente = None
+        self._ticks_seguros_recuperacion = 0
 
         # Protocolo de estado seguro (fin de ciclo §15): una sola instancia que
         # sobrevive a set_active_cycle. `al_evento_seguridad(evento, detalle)`
@@ -223,6 +228,45 @@ class ControlLoop:
             return [self.programa_en_ejecucion()]
         return [p for p in (self.cycle, self._programa_ultimo_ciclo) if p is not None]
 
+    def recuperar_ciclo_interrumpido(self, programa) -> None:
+        """E4 (D-08, SAF-08 de T5): tras un reinicio con un ciclo sin cerrar,
+        su sensor Principal cuenta para la seguridad hasta que la cámara sea
+        segura y, si no lo es, arranca el protocolo de estado seguro con ese
+        programa (modo de descompresión, carga líquida) y con confirmación."""
+        with self._sm_lock:
+            self._recuperacion_pendiente = programa
+            self._ticks_seguros_recuperacion = 0
+            self._programa_ultimo_ciclo = programa
+
+    def _procesar_recuperacion(self) -> None:
+        programa = self._recuperacion_pendiente
+        if programa is None:
+            return
+        if self.estado.get_machine_state() == GlobalState.CICLO:
+            logger.warning("ControlLoop: recuperación de arranque descartada (CICLO)")
+            self._recuperacion_pendiente = None
+            return
+        segura, motivo = camara_segura.evaluar(self.estado, self.config_manager,
+                                               self.programas_para_seguridad(), self.profile,
+                                               temp_max_ciclo=self.temp_max_tras_ciclo())
+        if segura:
+            # SAF-02 de T6: 3 ticks seguros seguidos antes de descartar
+            self._ticks_seguros_recuperacion += 1
+            if self._ticks_seguros_recuperacion >= _TICKS_SEGUROS_OLVIDAR_CICLO:
+                logger.info("ControlLoop: arranque con la cámara segura")
+                self._recuperacion_pendiente = None
+            return
+        self._ticks_seguros_recuperacion = 0
+        logger.error("ControlLoop: arranque con la cámara no segura (%s) — "
+                     "estado seguro con confirmación", motivo)
+        protocolo = ProtocoloFallo(self.estado, self.set_do, programa, self.config_manager)
+        protocolo.ejecutar(abrir_valvulas=False)
+        self.estado_seguro.iniciar(protocolo, requiere_confirmacion=True)
+        if self.estado_seguro.activo:
+            self._recuperacion_pendiente = None     # entregada (si no, se reintenta)
+        self._evento_seguridad("arranque_camara_no_segura",
+                               {"programa": getattr(programa, "id", None), "motivo": motivo})
+
     def _evento_seguridad(self, evento: str, detalle: dict) -> None:
         if self.al_evento_seguridad is not None:
             self.al_evento_seguridad(evento, detalle)
@@ -244,7 +288,7 @@ class ControlLoop:
         except Exception:
             return None
 
-    def _seguir_programa_ultimo_ciclo(self) -> None:
+    def _seguir_programa_ultimo_ciclo(self, vigentes: bool = True) -> None:
         if self.estado.get_machine_state() == GlobalState.CICLO:
             copia = getattr(self.state_machine.ciclo, "programa_en_curso", None)
             if copia is not None:
@@ -252,6 +296,11 @@ class ControlLoop:
             self._ticks_seguros_tras_ciclo = 0
             return
         if self._programa_ultimo_ciclo is None:
+            return
+        # TMG-04 de T6: con datos no vigentes o una recuperación pendiente no
+        # se cuenta ningún tick como seguro
+        if not vigentes or self._recuperacion_pendiente is not None:
+            self._ticks_seguros_tras_ciclo = 0
             return
         segura, _ = camara_segura.evaluar(self.estado, self.config_manager,
                                           self.programas_para_seguridad(), self.profile,
@@ -506,8 +555,11 @@ class ControlLoop:
                 # TMG-03 de T5: el estado seguro solo avanza con datos vigentes
                 # (sin volver a consultar el enlace: se usa la lectura de este tick)
                 vigentes = connected and not self.desconectado and self._di_vigente()
+                if vigentes and self._recuperacion_pendiente is not None:
+                    self._procesar_recuperacion()
                 self.state_machine.update(datos_vigentes=vigentes)
-            self._seguir_programa_ultimo_ciclo()
+            self._seguir_programa_ultimo_ciclo(
+                vigentes=connected and not self.desconectado and self._di_vigente())
 
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
         if cancelado_por_paro:
@@ -645,6 +697,11 @@ class ControlLoop:
 
             if self.estado.get_flag("PARO_EMERGENCIA"):
                 return False, "No se puede activar el modo prueba con el paro de emergencia activado."
+
+            # SAF-03 de T6: no mientras se decide o se lleva la cámara a estado seguro
+            if self.estado_seguro.activo or self._recuperacion_pendiente is not None:
+                return False, ("No se puede activar el modo prueba mientras la cámara se "
+                               "lleva a estado seguro.")
 
             self._test_mode.set()
             self.set_do.buzer.stop()

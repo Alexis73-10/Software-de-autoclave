@@ -45,6 +45,7 @@ class StateMachine:
             estado, config, profile=profile, programas_seguridad=programas_seguridad,
             al_evento=al_evento_seguridad)
         self.preparado.estado_seguro_activo = lambda: self.estado_seguro.activo
+        self.preparacion.estado_seguro_activo = lambda: self.estado_seguro.activo
         self.estado_seguro.mantener_drenaje = self.ciclo._mantener_drenaje
         if getattr(self.estado_seguro, "alarm_manager", None) is None:
             self.estado_seguro.alarm_manager = self.alarm_manager

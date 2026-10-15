@@ -26,14 +26,29 @@ from autoclave.devices.printer.realtime_printer import RealtimePrinter
 from autoclave.backend.arranque import secuencia
 from autoclave.backend.arranque.secuencia import ErrorArranque
 from autoclave.backend.arranque.sin_bd import BdNoDisponible
-from autoclave.utils.paths import calibration_path
+from autoclave.utils.paths import app_root, calibration_path
+from autoclave.core.runtime.contador_ciclos import ContadorCiclos
+from autoclave.core.runtime.sensores_ciclo import interpretar_asignacion
+from autoclave.core.managers.cycle_manager import Cycle
 
+import json
 import logging
 import threading
 
 import yaml
 
 logger = logging.getLogger(__name__)
+
+def _programa_desconocido():
+    """Programa del ciclo interrumpido cuando no se puede reconstruir: se
+    trata como carga líquida (nunca la rápida) con el modo de descompresión
+    por omisión (lenta). Lado seguro (TMG-03 de T6)."""
+    return Cycle("desconocido", "Programa desconocido",
+                 {"globals": {"tipo_carga": {"value": "liquido"}}})
+
+
+MOTIVO_INTERRUMPIDO = ("Ciclo interrumpido: el equipo se reinició o perdió energía "
+                       "sin cerrarlo. El ciclo no se reanuda; la carga NO está estéril.")
 
 
 def avisar_entradas_no_monitoreadas(profile) -> None:
@@ -143,6 +158,7 @@ class BackendContext:
             try:
                 self.db = DbManager()
                 self.calibration_audit = SensorCalibrationAuditDB()
+                self._numeracion_y_ciclos_interrumpidos()
                 return None
             except Exception:
                 logger.exception("Base de datos no disponible (intento %d de %d)", intento, intentos)
@@ -150,6 +166,8 @@ class BackendContext:
         self.db = BdNoDisponible()
         self.calibration_audit = BdNoDisponible()
         self.sin_base_de_datos = True
+        self.contador_ciclos.sincronizar(None)
+        self._marca_interrumpido = self.contador_ciclos.en_curso()
         self.alarm_manager.activar(OPERANDO_SIN_BD)
         return secuencia.ARR_SIN_BD
 
@@ -196,6 +214,7 @@ class BackendContext:
             profile       = self.profile,
             cycle_manager = self.cycle_manager,
             printer       = self.realtime_printer,
+            contador      = self.contador_ciclos,
         )
         # Historial persistente de alarmas (spec 2026-10-06 §6). El ciclo en
         # curso se lee al aparecer cada alarma.
@@ -223,6 +242,12 @@ class BackendContext:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
         # Fin de ciclo §15: paro, confirmación y estado seguro en audit_log
         self.control_loop.al_evento_seguridad = self._auditar_evento_seguridad
+        # E4 (D-08; SAF-01 de T6): se decide por el estado físico, no por la
+        # base. En CADA arranque, con el primer dato vigente, si la cámara no
+        # es segura el equipo entra en estado seguro con confirmación. El
+        # programa: el del ciclo interrumpido, si no el del último ciclo
+        # registrado y, si no, uno conservador (líquido, solo la lenta).
+        self.control_loop.recuperar_ciclo_interrumpido(self._programa_para_arranque())
         self.control_loop.start()
 
     def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
@@ -270,6 +295,88 @@ class BackendContext:
             except Exception:
                 logger.exception("No se pudo registrar %s en audit_log", evento)
         threading.Thread(target=escribir, name="AuditoriaEstadoSeguro", daemon=True).start()
+
+    @property
+    def contador_ciclos(self) -> ContadorCiclos:
+        """Contador persistente de ciclos (E4, §7.5): data/ciclo_contador.json."""
+        if getattr(self, "_contador_ciclos", None) is None:
+            self._contador_ciclos = ContadorCiclos(app_root() / "data" / "ciclo_contador.json")
+        return self._contador_ciclos
+
+    def _numeracion_y_ciclos_interrumpidos(self) -> None:
+        """E4 (D-08, PF-17): sincroniza el contador con la base y cierra como
+        INTERRUMPIDO todo ciclo sin fecha de fin. El último se recupera al
+        construir el control: si la cámara no es segura, arranca en estado
+        seguro con confirmación (nunca se reanuda el ciclo)."""
+        try:
+            self.contador_ciclos.sincronizar(self.db.max_numero_ciclo())
+        except Exception:
+            logger.exception("No se pudo sincronizar el contador de ciclos")
+        # TMG-03 de T6: marca persistente, independiente de la base
+        self._marca_interrumpido = self.contador_ciclos.en_curso()
+        try:
+            cerrados = self.db.cerrar_ciclos_interrumpidos(MOTIVO_INTERRUMPIDO)
+        except Exception:
+            logger.exception("No se pudieron cerrar los ciclos interrumpidos")
+            return
+        for fila in cerrados:
+            logger.error("Ciclo #%s (id %s) interrumpido: cerrado al arrancar",
+                         fila.get("numero_ciclo"), fila.get("id"))
+            try:
+                self.db.registrar_auditoria("ciclo_interrumpido", usuario="sistema",
+                                            entidad=f"ciclo/{fila.get('id')}",
+                                            detalle={"numero": fila.get("numero_ciclo"),
+                                                     "programa": fila.get("tipo_ciclo")})
+            except Exception:
+                logger.exception("No se pudo auditar el ciclo interrumpido")
+        self._ciclo_interrumpido = cerrados[-1] if cerrados else None
+
+    def _programa_del_ciclo_interrumpido(self):
+        """Reconstruye el programa con el que corría el ciclo interrumpido:
+        la instantánea (v3) o, en filas anteriores, el programa cargado con
+        la asignación de sensores registrada (v2)."""
+        fila = getattr(self, "_ciclo_interrumpido", None)
+        marca = getattr(self, "_marca_interrumpido", None)
+        if not fila and marca:
+            # Sin fila en la base (base caída o bloqueada): la marca del contador
+            if marca.get("programa"):
+                try:
+                    return Cycle.desde_instantanea(marca["programa"])
+                except Exception:
+                    logger.exception("Instantánea de la marca de ciclo ilegible")
+            return _programa_desconocido()
+        if not fila:
+            return None
+        try:
+            if fila.get("programa_json"):
+                return Cycle.desde_instantanea(json.loads(fila["programa_json"]))
+            base = self.cycle_manager.cycles.get(fila.get("tipo_ciclo"))
+            if base is None:
+                return None
+            programa = base.copia()
+            if fila.get("asignacion_sensores"):
+                programa.sensores, _ = interpretar_asignacion(json.loads(fila["asignacion_sensores"]))
+            return programa
+        except Exception:
+            logger.exception("No se pudo reconstruir el programa del ciclo interrumpido")
+            return None
+
+    def _programa_para_arranque(self):
+        programa = self._programa_del_ciclo_interrumpido()
+        if programa is None:
+            try:
+                recientes = self.db.get_ciclos_recientes(1)
+                fila = dict(recientes[0]) if recientes else None
+                if fila and fila.get("programa_json"):
+                    programa = Cycle.desde_instantanea(json.loads(fila["programa_json"]))
+            except Exception:
+                logger.exception("No se pudo leer el último ciclo registrado")
+        if programa is None:
+            return _programa_desconocido()
+        # SAF-05 de T6: sin tipo de carga registrado, se recupera como líquido
+        if programa.get_param("globals", "tipo_carga") is None:
+            programa.parameters.setdefault("globals", {})["tipo_carga"] = {"value": "liquido"}
+        return programa
 
     def programas_para_seguridad(self) -> list:
         """Programas cuyos Principales deciden apertura y cámara segura

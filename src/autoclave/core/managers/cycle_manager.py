@@ -50,6 +50,22 @@ class Cycle:
         c.sensores_formato_antiguo = getattr(self, "sensores_formato_antiguo", True)
         return c
 
+    def instantanea(self) -> dict:
+        """Programa con el que corre un ciclo (E4, §7.5): basta para
+        reconstruirlo tras un reinicio (desde_instantanea)."""
+        return {"cycle_id": self.id, "nombre": self.name, "numero": self.number,
+                "source": getattr(self, "source", None),
+                "sensores": dict(getattr(self, "sensores", None) or asignacion_por_omision()),
+                "parameters": copy.deepcopy(self.parameters)}
+
+    @classmethod
+    def desde_instantanea(cls, datos: dict) -> "Cycle":
+        c = cls(datos.get("cycle_id", ""), datos.get("nombre", ""),
+                copy.deepcopy(datos.get("parameters") or {}), datos.get("numero"))
+        c.source = datos.get("source")
+        c.sensores, c.sensores_formato_antiguo = interpretar_asignacion(datos.get("sensores"))
+        return c
+
     def get_param(self, *keys, default=None):
         data = self.parameters
 

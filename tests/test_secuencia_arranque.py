@@ -343,7 +343,9 @@ def test_construir_control_registra_el_aviso_antes_de_start(monkeypatch):
     ctx = BackendContext()
     aviso = object()
     ctx.construir_control(aviso)
-    assert [c[0] for c in loop.method_calls] == ["al_cancelar_modo_prueba", "start"]
+    # T6 (E4): la recuperación de arranque se arma antes de start()
+    assert [c[0] for c in loop.method_calls] == ["al_cancelar_modo_prueba",
+                                                 "recuperar_ciclo_interrumpido", "start"]
     assert loop.al_cancelar_modo_prueba.call_args.args[0] is aviso
     assert ctx.control_loop is loop
 

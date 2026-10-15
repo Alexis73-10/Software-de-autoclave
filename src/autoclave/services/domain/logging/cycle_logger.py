@@ -23,6 +23,8 @@
 import time
 import logging
 import importlib.metadata
+import json
+import uuid
 from datetime import datetime
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_disponible,
@@ -61,8 +63,8 @@ _FASE_A_CODIGO: dict[str, str] = {
 # Fases normales del pipeline (en curso) — cualquier otro valor de
 # fase_ciclo (CANCELADO, EMERGENCIA, FALLO_SUMINISTRO, SENSOR_AUSENTE,
 # FALLO_PUERTA_*, FALLO_CONEXION, FALLO_<fase>, etc.) representa un cierre
-# anormal del ciclo. "COMPLETADO" es el único cierre normal y se maneja
-# aparte (ver update()).
+# anormal del ciclo. "COMPLETADO" es el cierre normal; también se cierra al
+# instante en el registro (PF-17, ver update()).
 _FASES_EN_CURSO: set[str] = {
     "PRECALENTAMIENTO", "PRE_VACIO",
     "CALENTAMIENTO", "ESTERILIZACION",
@@ -100,7 +102,7 @@ class CycleLogger:
     """
 
     def __init__(self, db, estado, config, profile, cycle_manager, printer=None,
-                 reloj_mono=time.monotonic):
+                 reloj_mono=time.monotonic, contador=None):
         self.db            = db
         self.estado        = estado
         self.config        = config
@@ -110,6 +112,11 @@ class CycleLogger:
         # Lo fija ControlLoop: devuelve la copia con la que corre el ciclo
         # (T-17). Sin él, el programa seleccionado.
         self.programa_en_ejecucion = None
+        # Contador persistente de ciclos (E4, §7.5); sin él, MAX(numero)+1
+        self.contador = contador
+        self.uuid_ciclo: str | None = None
+        self._numero_reservado: int | None = None
+        self.sin_registro = False
 
         # Estado interno
         self._activo            = False
@@ -153,15 +160,17 @@ class CycleLogger:
             if self._cierre_ya_procesado:
                 return  # ya se cerró/imprimió; falta solo la confirmación
             if not self._activo:
-                self._on_inicio()
+                self._on_inicio_protegido()
                 self._seguir_pantalla()
                 return
             fase_nombre = self.estado.fase_ciclo or ""
             self._seguir_pantalla()
-            if fase_nombre != "COMPLETADO" and fase_nombre not in _FASES_EN_CURSO:
-                # Cierre anormal (fallo/cancelación/emergencia): no esperar a
-                # que el estado global salga de CICLO (puede tardar hasta que
-                # el operador confirme) — cerrar e imprimir ahora mismo.
+            if fase_nombre not in _FASES_EN_CURSO:
+                # Fin del ciclo (COMPLETADO, fallo, cancelación, emergencia):
+                # no esperar a que el estado global salga de CICLO (puede
+                # tardar hasta que el operador confirme) — cerrar e imprimir
+                # ahora mismo. El COMPLETADO también (PF-17, E4): un corte de
+                # energía antes de confirmar no lo deja sin cierre.
                 self._cierre_ya_procesado = True
                 self._on_fin(fase_nombre)
             else:
@@ -209,8 +218,37 @@ class CycleLogger:
             return self.programa_en_ejecucion()
         return self.cycle_manager.get_selected_cycle()
 
+    def _on_inicio_protegido(self) -> None:
+        """TMG-01 de T6: un fallo al registrar el inicio (contador o base) no
+        sube como excepción del tick (cortaría el latido y el lazo reintentaría
+        cada 0,5 s apagando y encendiendo salidas). El ciclo sigue sin registro
+        en la base; `sin_registro` lo deja visible y el número reservado se
+        conserva (sin huecos por reintentos)."""
+        try:
+            self._on_inicio()
+        except Exception:
+            logger.exception("CycleLogger: no se pudo registrar el inicio del ciclo")
+            self._ciclo_id = None
+            self._activo = True
+            self.sin_registro = True
+            self._t0_mono = self._reloj_mono()
+
+    def _numero_nuevo(self) -> int:
+        if self.contador is None:
+            return self.db.siguiente_numero_ciclo()
+        try:
+            maximo_bd = self.db.max_numero_ciclo()
+        except Exception:
+            logger.exception("CycleLogger: no se pudo leer MAX(numero) de la base")
+            maximo_bd = None
+        return self.contador.siguiente(maximo_bd)
+
     def _on_inicio(self):
-        numero = self.db.siguiente_numero_ciclo()
+        self.sin_registro = False
+        if self._numero_reservado is None:
+            self._numero_reservado = self._numero_nuevo()
+        numero = self._numero_reservado
+        self.uuid_ciclo = str(uuid.uuid4())
 
         # Leer metadatos del ciclo seleccionado
         tipo   = ""
@@ -219,6 +257,7 @@ class CycleLogger:
         t_e    = None
         asignacion = ""
         numero_programa = None
+        programa_json = None
         try:
             cycle  = self._programa()
             tipo   = cycle.id
@@ -228,12 +267,24 @@ class CycleLogger:
             # RS-08: asignación de sensores vigente al inicio y número de programa
             asignacion = canonica(asignacion_de(cycle))
             numero_programa = getattr(cycle, "number", None)
+            if hasattr(cycle, "instantanea"):
+                programa_json = json.dumps(cycle.instantanea(), ensure_ascii=False,
+                                           sort_keys=True)
         except Exception as exc:
             logger.warning("CycleLogger: no se pudo leer el ciclo: %s", exc)
 
         serie      = getattr(self.profile, "serial_number", "")
         modelo     = getattr(self.profile, "model_id", "")
         version_sw = _software_version()
+
+        # Marca de ciclo en curso ANTES de la base: si la base falla, la marca
+        # permite recuperar el ciclo interrumpido tras un corte (TMG-03 de T6)
+        if self.contador is not None:
+            try:
+                self.contador.marcar_en_curso(
+                    numero, json.loads(programa_json) if programa_json else None)
+            except Exception:
+                logger.exception("CycleLogger: no se pudo marcar el ciclo en curso")
 
         self._ciclo_id = self.db.crear_ciclo(
             numero      = numero,
@@ -246,7 +297,10 @@ class CycleLogger:
             version_sw  = version_sw,
             asignacion_sensores = asignacion,
             numero_programa = numero_programa,
+            uuid        = self.uuid_ciclo,
+            programa_json = programa_json,
         )
+        self._numero_reservado = None
         self._ciclo_inicio       = time.time()
         self._ultimo_log         = None   # primera lectura se hace inmediatamente
         self._ultima_fase_codigo = None
@@ -315,6 +369,12 @@ class CycleLogger:
         self._ciclo_id          = None
         self._ciclo_inicio      = None
         self._ultima_fase_codigo = None
+        self._numero_reservado  = None
+        if self.contador is not None:
+            try:
+                self.contador.limpiar_en_curso()
+            except Exception:
+                logger.exception("CycleLogger: no se pudo limpiar la marca de ciclo en curso")
 
     # ------------------------------------------------------------------
     # Pantalla de ciclo en curso: tramos de fase y serie de la gráfica
