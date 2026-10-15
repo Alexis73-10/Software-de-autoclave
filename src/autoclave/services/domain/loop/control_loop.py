@@ -13,6 +13,7 @@ from autoclave.core.runtime.letalidad import calcular_incremento_f0
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 from autoclave.core.runtime import camara_segura
+from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.installation.profile import entrada_requerida, numero_puertas
 
 import logging
@@ -27,6 +28,11 @@ _F0_FASES_ACUMULAN = {"CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION"}
 
 # Fallas de la tarjeta que, fuera de ciclo, piden repetir el handshake
 # (plan de protocolo serial §6.5 y §7).
+# TMG-03 (E3): ticks fallidos seguidos antes de apagar todo (≈1,5 s con el
+# periodo de 0,5 s) y frecuencia del log con traza
+_EXCEPCIONES_PARA_APAGAR = 3
+_LOG_CADA_EXCEPCIONES = 20
+
 # TMG-01 de T4: ticks consecutivos de cámara segura para dejar de considerar
 # el Principal del último ciclo (convención de debounce de 3 lecturas).
 _TICKS_SEGUROS_OLVIDAR_CICLO = 3
@@ -85,6 +91,21 @@ class ControlLoop:
         self.cap             = cap
         # Perfil de instalación (E1): entradas de suministro y puertas.
         self.profile         = profile
+        # TMG-03 (E3): ticks fallidos seguidos
+        self._excepciones_seguidas = 0
+        self._apagado_por_excepcion = False
+        # SAF-01 de T3 (se usan desde el primer StateMachine)
+        self._programa_ultimo_ciclo = None
+        self._ticks_seguros_tras_ciclo = 0
+
+        # Protocolo de estado seguro (fin de ciclo §15): una sola instancia que
+        # sobrevive a set_active_cycle. `al_evento_seguridad(evento, detalle)`
+        # lo fija el backend para el audit_log.
+        self.al_evento_seguridad = None
+        self.estado_seguro = ProtocoloEstadoSeguro(
+            estado, config_manager, profile=profile,
+            programas_seguridad=self.programas_para_seguridad,
+            al_evento=self._evento_seguridad, alarm_manager=alarm_manager)
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
@@ -93,6 +114,7 @@ class ControlLoop:
             alarm_manager=self.alarm_manager,
             programas_seguridad=self.programas_para_seguridad,
             temp_max_ciclo=self.temp_max_tras_ciclo,
+            estado_seguro=self.estado_seguro,
         )
         # el registro del ciclo (ticket, F0 del pie) lee el programa con el
         # que corre el ciclo, no el almacenado (T-17)
@@ -137,6 +159,7 @@ class ControlLoop:
         self._programa_ultimo_ciclo = None
         self._ticks_seguros_tras_ciclo = 0
 
+
     # =========================================================================
     # LOOP DE ACTUALIZACIÓN
     # =========================================================================
@@ -145,15 +168,35 @@ class ControlLoop:
         while self._running.is_set():
             try:
                 self._tick()
-            except Exception as exc:
-                logger.warning("ControlLoop: error inesperado en el ciclo: %s", exc)
+            except Exception:
+                self._tick_fallido()
             else:
+                self._excepciones_seguidas = 0
+                self._apagado_por_excepcion = False
                 # FW-D6 (TMG-01): solo un tick COMPLETADO renueva el latido.
                 # Un lazo vivo que falla en cada tick deja de alimentar el HB y
                 # el watchdog del firmware apaga todo a los 5 s.
                 self.link.marcar_tick_control()
             time.sleep(self.interval)
 
+
+    def _tick_fallido(self) -> None:
+        """TMG-03 (E3): un tick que lanza no renueva el latido (TMG-01 de E6)
+        y, tras _EXCEPCIONES_PARA_APAGAR seguidos, se apagan todas las salidas
+        desde aquí, sin esperar al watchdog de la tarjeta. Log con traza, pero
+        limitado (el primero y uno cada _LOG_CADA_EXCEPCIONES)."""
+        self._excepciones_seguidas += 1
+        if self._excepciones_seguidas == 1 or self._excepciones_seguidas % _LOG_CADA_EXCEPCIONES == 0:
+            logger.exception("ControlLoop: error inesperado en el tick (%d seguidos)",
+                             self._excepciones_seguidas)
+        if self._excepciones_seguidas >= _EXCEPCIONES_PARA_APAGAR and not self._apagado_por_excepcion:
+            self._apagado_por_excepcion = True
+            logger.critical("ControlLoop: %d ticks fallidos seguidos — apagando todas las salidas",
+                            self._excepciones_seguidas)
+            try:
+                self.set_do.reset_all_outputs()
+            except Exception:
+                logger.exception("ControlLoop: no se pudieron apagar las salidas")
 
     def programa_en_ejecucion(self):
         """Copia del programa con la que corre (o corrió) el último ciclo
@@ -179,6 +222,16 @@ class ControlLoop:
         if self.estado.get_machine_state() == GlobalState.CICLO:
             return [self.programa_en_ejecucion()]
         return [p for p in (self.cycle, self._programa_ultimo_ciclo) if p is not None]
+
+    def _evento_seguridad(self, evento: str, detalle: dict) -> None:
+        if self.al_evento_seguridad is not None:
+            self.al_evento_seguridad(evento, detalle)
+
+    def confirmar_estado_seguro(self) -> bool:
+        """"Confirmar y llevar a estado seguro" (cualquier operador). Bajo
+        _sm_lock para no intercalarse con el tick."""
+        with self._sm_lock:
+            return self.estado_seguro.confirmar()
 
     def temp_max_tras_ciclo(self):
         """`finalizacion.temp_max_apertura` del último ciclo mientras su
@@ -450,7 +503,10 @@ class ControlLoop:
 
             # 5. Máquina de estados global (pausada durante el modo prueba)
             if not self._test_mode.is_set():
-                self.state_machine.update()
+                # TMG-03 de T5: el estado seguro solo avanza con datos vigentes
+                # (sin volver a consultar el enlace: se usa la lectura de este tick)
+                vigentes = connected and not self.desconectado and self._di_vigente()
+                self.state_machine.update(datos_vigentes=vigentes)
             self._seguir_programa_ultimo_ciclo()
 
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
@@ -631,5 +687,6 @@ class ControlLoop:
                 alarm_manager=self.alarm_manager,
                 programas_seguridad=self.programas_para_seguridad,
                 temp_max_ciclo=self.temp_max_tras_ciclo,
+                estado_seguro=self.estado_seguro,
             )
             return True, ""

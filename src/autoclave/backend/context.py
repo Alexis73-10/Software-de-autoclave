@@ -29,6 +29,7 @@ from autoclave.backend.arranque.sin_bd import BdNoDisponible
 from autoclave.utils.paths import calibration_path
 
 import logging
+import threading
 
 import yaml
 
@@ -183,6 +184,7 @@ class BackendContext:
             config = self.config_manager,
             programas=self.programas_para_seguridad,
             temp_max_ciclo=self.temp_max_tras_ciclo,
+            estado_seguro_activo=self.estado_seguro_activo,
         )
 
         # Data logger (SQLite) + impresión en tiempo real
@@ -219,6 +221,8 @@ class BackendContext:
         )
         if al_cancelar_prueba is not None:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
+        # Fin de ciclo §15: paro, confirmación y estado seguro en audit_log
+        self.control_loop.al_evento_seguridad = self._auditar_evento_seguridad
         self.control_loop.start()
 
     def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
@@ -256,6 +260,17 @@ class BackendContext:
         cm = getattr(self, "cycle_manager", None)
         return getattr(cm, "selected_cycle", None)
 
+    def _auditar_evento_seguridad(self, evento: str, detalle: dict) -> None:
+        """Lo llama el tick del ControlLoop: la escritura en SQLite va en un
+        hilo propio para no detener el lazo (eventos poco frecuentes)."""
+        def escribir():
+            try:
+                self.db.registrar_auditoria(evento, usuario="sistema", entidad="estado_seguro",
+                                            detalle=detalle or None)
+            except Exception:
+                logger.exception("No se pudo registrar %s en audit_log", evento)
+        threading.Thread(target=escribir, name="AuditoriaEstadoSeguro", daemon=True).start()
+
     def programas_para_seguridad(self) -> list:
         """Programas cuyos Principales deciden apertura y cámara segura
         (SAF-01 de T3). Antes de construir el ControlLoop, el seleccionado."""
@@ -265,6 +280,10 @@ class BackendContext:
         cm = getattr(self, "cycle_manager", None)
         seleccionado = getattr(cm, "selected_cycle", None)
         return [seleccionado] if seleccionado is not None else []
+
+    def estado_seguro_activo(self) -> bool:
+        loop = getattr(self, "control_loop", None)
+        return bool(loop is not None and loop.estado_seguro.activo)
 
     def temp_max_tras_ciclo(self):
         loop = getattr(self, "control_loop", None)

@@ -31,6 +31,9 @@ class preparado_state:
         # (T3/T4). Lo fija la StateMachine; None = el programa seleccionado.
         self.programas_seguridad = None
         self.temp_max_ciclo = None      # callable: temp_max del último ciclo (SAF-04 de T4)
+        # callable: protocolo de estado seguro en curso tras una cancelación
+        # (fin de ciclo §15): mientras dure, él maneja la cámara
+        self.estado_seguro_activo = None
 
         # Tiempo requerido para considerar estable
         self.tiempo_estable = self.config.get("tiempo_estable_alarma")
@@ -57,6 +60,17 @@ class preparado_state:
         else:
             self.set_do.buzer_off()
             self.alarm_manager.resolver(SIS_01)
+
+        if self.estado_seguro_activo is not None and self.estado_seguro_activo():
+            # El protocolo de estado seguro de la cancelación maneja la cámara
+            # (en líquidos nunca la rápida): sin venteo propio, sin chaqueta y
+            # sin inicio. Antes que el supervisor, cuyas salidas seguras
+            # ventean con la rápida (TMG-01 de T5). Las alarmas sí se evalúan.
+            self.supervisor()
+            self.set_do.vapor_chaqueta_off()
+            self.set_do.vapor_camara_off()
+            self.timer_estabilidad = None
+            return False
 
         if not self.supervisor():
             self.timer_estabilidad = None

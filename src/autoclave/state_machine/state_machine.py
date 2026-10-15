@@ -7,6 +7,7 @@ from autoclave.state_machine.states.emergencia import emergencia_run
 from autoclave.state_machine.states.hibernacion import Hibernacion
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.core.runtime.sensores_ciclo import verificar_inicio
+from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 import logging
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 class StateMachine:
     def __init__(self, io, estado, set_do, cycle, config, cap=None, door_service=None,
                  profile=None, alarm_manager=None, programas_seguridad=None,
-                 temp_max_ciclo=None):
+                 temp_max_ciclo=None, al_evento_seguridad=None, estado_seguro=None):
         self.io            = io
         self.estado        = estado
         self.set_do        = set_do
@@ -38,6 +39,16 @@ class StateMachine:
 
         self.prev_state  = None
 
+        # Protocolo de estado seguro común (fin de ciclo §15). El ControlLoop
+        # lo conserva entre reconstrucciones (set_active_cycle).
+        self.estado_seguro = estado_seguro if estado_seguro is not None else ProtocoloEstadoSeguro(
+            estado, config, profile=profile, programas_seguridad=programas_seguridad,
+            al_evento=al_evento_seguridad)
+        self.preparado.estado_seguro_activo = lambda: self.estado_seguro.activo
+        self.estado_seguro.mantener_drenaje = self.ciclo._mantener_drenaje
+        if getattr(self.estado_seguro, "alarm_manager", None) is None:
+            self.estado_seguro.alarm_manager = self.alarm_manager
+
     # ------------------------------------------------------------------
     # Entry hook — llamado UNA vez al cambiar de estado
     # ------------------------------------------------------------------
@@ -47,6 +58,10 @@ class StateMachine:
             self.preparacion.reset()
 
         elif state == GlobalState.CICLO:
+            # Un ciclo nuevo cierra cualquier protocolo de estado seguro previo
+            # antes de reiniciar el ProtocoloFallo que comparte
+            if self.estado_seguro.activo:
+                self.estado_seguro.terminar()
             # Limpiar flags de ciclo anteriores y arrancar el pipeline
             self.estado.set_flag("CICLO_CANCELADO",  False)
             self.estado.set_flag("CICLO_CONFIRMADO", False)
@@ -63,13 +78,22 @@ class StateMachine:
     # Tick principal
     # ------------------------------------------------------------------
 
-    def update(self):
+    def update(self, datos_vigentes: bool = True):
         current_state = self.estado.get_machine_state()
 
         logger.debug(
             "Actualizando maquina de estados. Estado actual: %s",
             self.estado.estado_maquina.get("Estado")
         )
+
+        # Protocolo de estado seguro (§15): fuera de CICLO, antes del estado
+        if current_state != GlobalState.CICLO:
+            # TMG-04 de T5: un error del estado seguro no impide que el estado
+            # corra (ni que FALLA mantenga el ALL_OFF del paro)
+            try:
+                self.estado_seguro.update(datos_vigentes=datos_vigentes)
+            except Exception:
+                logger.exception("StateMachine: error en el protocolo de estado seguro")
 
         # Detectar cambio de estado → disparar hook de entrada
         if current_state != self.prev_state:
@@ -127,10 +151,12 @@ class StateMachine:
             elif resultado == "FALLO":
                 logger.error("StateMachine: fallo en ciclo → FALLA")
                 self.estado.set_machine_state(GlobalState.FALLA)
+                self.estado_seguro.iniciar(self.ciclo._protocolo)
 
             elif resultado == "CANCELADO":
                 logger.warning("StateMachine: ciclo cancelado → PREPARADO")
                 self.estado.set_machine_state(GlobalState.PREPARADO)
+                self.estado_seguro.iniciar(self.ciclo._protocolo)
 
             # "EN_CURSO" o "ESPERANDO_CONFIRMACION" → no hacer nada, seguir en CICLO
 
@@ -139,7 +165,7 @@ class StateMachine:
         # ==============================================================
         elif current_state == GlobalState.FALLA:
             logger.debug("Estado actual: FALLA")
-            if self.falla.run():
+            if self.falla.run(puede_salir=not self.estado_seguro.activo):
                 self.alarm_manager.resolver_todas_por_reinicio()
                 self.estado.fase_ciclo = ""
                 self.estado.set_machine_state(GlobalState.PREPARACION)

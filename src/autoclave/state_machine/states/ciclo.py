@@ -93,6 +93,9 @@ class CicloState:
         self._programa     = cycle
         self.cycle         = cycle
         self.programa_en_curso = None
+        # Paro durante el ciclo o con el resultado pendiente: no se mueve nada
+        # hasta la confirmación (fin de ciclo §15.1-2, TMG-04)
+        self._paro_en_espera = False
         self.config        = config
         self.alarm_manager = alarm_manager
         self.cap           = cap
@@ -152,6 +155,7 @@ class CicloState:
         self.estado.codigo_fallo  = ""
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
+        self._paro_en_espera = False
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -326,6 +330,24 @@ class CicloState:
             self.set_do.agua_intercambiador_off()
             self.alarm_manager.resolver(PRE_06)
 
+    def _ejecutar_protocolo_respetando_paro(self) -> None:
+        """Abortos forzados por el ControlLoop: con el paro activo, ALL_OFF sin
+        válvulas y confirmación posterior (SAF-05 de T5, §15.1)."""
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            self._protocolo.ejecutar(abrir_valvulas=False)
+            self._paro_en_espera = True
+        else:
+            self._protocolo.ejecutar()
+
+    def _principal_enfriada(self, modo) -> bool:
+        """Principal en o por debajo de temperatura_enfriamiento del modo
+        (líquidos, tanda §1.2). Sin lectura: no enfriada (falla cerrada)."""
+        modo_key = f"modo_{2 if not modo else modo}"
+        t_enfr = self.cycle.get_param("descompresion", modo_key, "temperatura_enfriamiento",
+                                      default=80.0)
+        temp = self.estado.sensores_temp.get(sensor_principal(self.cycle))
+        return lectura_valida(temp) and t_enfr is not None and temp <= t_enfr
+
     def _mantener_valvula_reposo(self):
         """Mientras se espera confirmación tras un COMPLETADO limpio (sin
         ProtocoloFallo, que ya hace su propia gestión continua): si la
@@ -343,7 +365,9 @@ class CicloState:
         else:
             self.set_do.aire_admosferico_camara_off()
             modo = self.cycle.get_param("descompresion", "modo", default=0) or 0
-            abrir_valvula_modo(self.set_do, modo)
+            liquido = self.cycle.get_param("globals", "tipo_carga", default="solido") == "liquido"
+            abrir_valvula_modo(self.set_do, modo, liquido=liquido,
+                               enfriada=self._principal_enfriada(modo))
 
     def _mantener_apertura_automatica(self):
         """Si finalizacion.apertura_automatica está activo, abre la puerta de
@@ -456,6 +480,19 @@ class CicloState:
 
         # ── 0. ¿Pendiente de confirmación y ya confirmado? ────────────
         if self._resultado_pendiente is not None:
+            # TMG-04 (E3): el paro se evalúa también con el resultado pendiente.
+            # Paro activo = ALL_OFF continuo; al liberarlo, salidas en 0 y sin
+            # avance automático hasta la confirmación (fin de ciclo §15.1-2).
+            if self.estado.get_flag("PARO_EMERGENCIA"):
+                if not self._paro_en_espera:
+                    logger.error("CicloState: paro de emergencia con el resultado pendiente")
+                self._paro_en_espera = True
+                # una confirmación que entró durante el paro no vale (TMG-06 de T5)
+                for bandera in ("CICLO_CONFIRMADO", "RESET_FALLA"):
+                    if self.estado.get_flag(bandera):
+                        self.estado.set_flag(bandera, False)
+                self.set_do.apagar_por_paro()
+                return CicloResultado.ESPERANDO_CONFIRMACION
             if self.estado.get_flag("CICLO_CONFIRMADO"):
                 logger.info(
                     "CicloState: confirmación recibida → %s", self._resultado_pendiente
@@ -473,6 +510,9 @@ class CicloState:
             # ALL_OFF inicial no se confirmó (ACK perdido por caída serial),
             # update() reintenta reset_all_outputs() y apagaría el agua del
             # intercambiador justo después de que este método la encendiera.
+            if self._paro_en_espera:
+                # Paro liberado sin confirmar: nada se mueve (§15.2)
+                return CicloResultado.ESPERANDO_CONFIRMACION
             if self._resultado_pendiente == CicloResultado.COMPLETADO:
                 self._mantener_valvula_reposo()
                 self._mantener_apertura_automatica()
@@ -481,8 +521,8 @@ class CicloState:
             self._mantener_drenaje()
             return CicloResultado.ESPERANDO_CONFIRMACION
 
-        # ── 1. ¿El usuario canceló? ───────────────────────────────────
-        if self.estado.get_flag("CICLO_CANCELADO"):
+        # ── 1. ¿El usuario canceló? (el paro domina: SAF-05 de T5) ─────
+        if self.estado.get_flag("CICLO_CANCELADO") and not self.estado.get_flag("PARO_EMERGENCIA"):
             logger.warning("CicloState: CANCELADO por operador")
             self.estado.fase_ciclo = "CANCELADO"
             self._protocolo.ejecutar()
@@ -495,7 +535,9 @@ class CicloState:
             logger.error("CicloState: ABORTADO por paro de emergencia")
             self.estado.fase_ciclo = "EMERGENCIA"
             self._registrar_fallo(SIS_01, estado="Ciclo")
-            self._protocolo.ejecutar()
+            # §15.1: con el paro activo, ALL_OFF y ninguna válvula
+            self._protocolo.ejecutar(abrir_valvulas=False)
+            self._paro_en_espera = True
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
@@ -606,7 +648,7 @@ class CicloState:
         self.estado.fase_ciclo = "FALLO_CONEXION"
         fase = self._fase_actual_legible()
         self._registrar_fallo(COM_02, origen=fase, segundos=segundos, fase=fase)
-        self._protocolo.ejecutar()
+        self._ejecutar_protocolo_respetando_paro()
         self._resultado_pendiente = CicloResultado.FALLO
 
     def abortar_por_falla_io(self, alarm_id: str, motivo: str):
@@ -630,6 +672,6 @@ class CicloState:
         # de COM-03, que es FALLO_CRITICO y no se despeja sola).
         self._registrar_fallo(COM_03, origen=alarm_id, causa=alarm_id, motivo=motivo,
                               fase=self._fase_actual_legible())
-        self._protocolo.ejecutar()
+        self._ejecutar_protocolo_respetando_paro()
         self._resultado_pendiente = CicloResultado.FALLO
         return True

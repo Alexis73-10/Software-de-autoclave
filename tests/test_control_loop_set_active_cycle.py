@@ -70,6 +70,7 @@ def test_set_active_cycle_permitido_fuera_de_ciclo_reconstruye_state_machine(moc
         alarm_manager=loop.alarm_manager,
         programas_seguridad=loop.programas_para_seguridad,   # T3/T4
         temp_max_ciclo=loop.temp_max_tras_ciclo,
+        estado_seguro=loop.estado_seguro,                    # T5 (fin de ciclo §15)
     )
     assert loop.state_machine is mock_sm_class.return_value
 

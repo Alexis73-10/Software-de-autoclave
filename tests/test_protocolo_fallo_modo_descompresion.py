@@ -100,27 +100,31 @@ def test_modo_3_transicion_a_rapida():
     assert protocolo._sub_etapa == "rapida"
 
 
-def test_modo_4_va_directo_a_final_sin_enfriamiento():
+def test_modo_4_carga_fria_despresuriza_tras_confirmar_el_enfriamiento():
+    # PF-19 (T5): ya no va directo a chaqueta + rápida; con la carga fría
+    # (25 °C) basta confirmar 3 lecturas bajo temperatura_enfriamiento
     protocolo, set_do, _ = _make_protocolo(modo=4)
 
     protocolo.ejecutar()
+    set_do.descompresion_rapida_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
 
-    set_do.descompresion_chaqueta_on.assert_called_once()
-    set_do.descompresion_rapida_on.assert_called_once()
-    set_do.agua_chaqueta_on.assert_not_called()
-    set_do.aire_comprimido_camara_on.assert_not_called()
+    set_do.descompresion_chaqueta_on.assert_called()
+    set_do.descompresion_rapida_on.assert_called()
+    set_do.aire_comprimido_camara_on.assert_not_called()   # 300 kPa > 200 de contrapresión
 
 
-def test_modo_5_va_directo_a_final_sin_enfriamiento():
+def test_modo_5_carga_fria_despresuriza_tras_confirmar_el_enfriamiento():
     protocolo, set_do, _ = _make_protocolo(modo=5)
 
     protocolo.ejecutar()
+    set_do.descompresion_rapida_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
 
-    set_do.descompresion_chaqueta_on.assert_called_once()
-    set_do.descompresion_rapida_on.assert_called_once()
-    set_do.agua_chaqueta_on.assert_not_called()
-    set_do.aire_comprimido_camara_on.assert_not_called()
-
+    set_do.descompresion_chaqueta_on.assert_called()
+    set_do.descompresion_rapida_on.assert_called()
 
 def test_modo_3_continua_transicion_en_update():
     # DescompresionFase (y esta réplica) apagan "lenta" y cambian de

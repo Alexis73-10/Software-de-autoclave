@@ -35,7 +35,9 @@ def _make_fase(
     cycle = MagicMock()
     cycle.get_param.side_effect = lambda seccion, param, default=None: params.get(param, default)
 
-    fase = SecadoFase(estado, set_do, cycle, MagicMock(), MagicMock(), MagicMock())
+    config = MagicMock()
+    config.get.return_value = None      # atm 101.3 / rango 20 por defecto
+    fase = SecadoFase(estado, set_do, cycle, config, MagicMock(), MagicMock())
     fase.cap.has_vacuum = has_vacuum
     fase.reset()
     return fase, estado, set_do
@@ -185,3 +187,51 @@ def test_timer_fin_inmune_a_salto_de_reloj_de_pared(monkeypatch):
     result = fase.update()
     assert result == FaseResult.COMPLETADO
     set_do.bomba_vacio_off.assert_called()
+
+
+# ── E3 (tanda 2026-10-14): modos 1/2 exigen vacío real ─────────────────────
+
+import pytest                                                          # noqa: E402
+
+
+@pytest.mark.parametrize("modo", [1, 2])
+def test_sin_vacio_real_falla_tras_timeout_pulso(modo, monkeypatch):
+    fase, estado, set_do = _make_fase(modo=modo, pres_camara=101.0, timeout_pulso=10)
+    reloj = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: reloj[0])
+    assert fase.update() == FaseResult.EN_CURSO
+    reloj[0] += 11
+    assert fase.update() == FaseResult.FALLO
+    assert "sin vacío real" in estado.motivo_fallo
+    set_do.bomba_vacio_off.assert_called()
+
+
+@pytest.mark.parametrize("modo", [1, 2])
+def test_perdida_de_vacio_sostenida_falla(modo, monkeypatch):
+    fase, estado, _ = _make_fase(modo=modo, pres_camara=30.0)
+    reloj = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: reloj[0])
+    fase.update()
+    estado.sensores_pres["pres_camara"] = 100.0
+    assert fase.update() == FaseResult.EN_CURSO
+    assert fase.update() == FaseResult.EN_CURSO
+    assert fase.update() == FaseResult.FALLO
+    assert "perdió el vacío" in estado.motivo_fallo
+
+
+def test_con_vacio_completa_por_tiempo(monkeypatch):
+    fase, estado, _ = _make_fase(modo=1, pres_camara=30.0, tiempo_min=1.0)
+    reloj = [1000.0]
+    monkeypatch.setattr(time_module, "monotonic", lambda: reloj[0])
+    fase.update()
+    reloj[0] += 61
+    assert fase.update() == FaseResult.COMPLETADO
+
+
+def test_secado_cierra_las_descompresiones_al_empezar():
+    # La válvula de reposo de DESCOMPRESION impediría el vacío (revisión de T5)
+    fase, estado, set_do = _make_fase(modo=1, pres_camara=30.0)
+    fase.update()
+    set_do.descompresion_rapida_off.assert_called()
+    set_do.descompresion_lenta_off.assert_called()
+    set_do.descompresion_chaqueta_off.assert_called()

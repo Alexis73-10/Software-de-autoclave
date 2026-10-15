@@ -2,6 +2,8 @@
 
 > **Adenda 2026-10-14 (tanda, T3):** el §17 (sensores) queda reemplazado por `instruccion_claude_code_tanda_noche.md` §1.1: el sensor Principal del programa decide temperatura de apertura, cámara segura, "NO ABRIR" y apertura automática; lectura `None` del Principal = cámara NO segura. Implementado en `core/runtime/sensores_ciclo.py` y `ser_puertas.py`.
 
+> **Adenda 2026-10-14 (tanda, T4/T5):** E2 (§5) y E3 (§4, §15) implementados: `camara_segura` falla cerrada también con datos no vigentes; el protocolo de estado seguro continúa el protocolo de fallo tras confirmar y FALLA espera el estado seguro antes de PREPARACION; modos 4/5 enfrían antes de despresurizar (con contrapresión solo si la cámara estaba presurizada al disparo). Detalle: `docs/informes/tanda/T4_camara_segura.md` y `T5_estado_seguro.md`.
+
 **Versión:** borrador v3 · **Fecha:** 2026-10-12 · **Rama base:** `dev`
 **Equipo objetivo:** autoclave de **piso de laboratorio**, 2 puertas abatibles manuales, con chaqueta, fuente de vapor **por confirmar** (generador interno, caldera externa o mixto; aún no está definido si este equipo lleva generador) y sin presostato de suministro de vapor ni entrada de suministro eléctrico en esta versión, bomba de vacío de anillo líquido y todos los tipos de secado. Instalación objetivo 2026-10-19. Programas: Bowie & Dick, Instrumental 134, Instrumental 121 y Líquidos (el quinto no está definido y no sale). Se instala como equipo demo en un laboratorio donde tendrá uso real después de las pruebas de seguridad y la validación del proceso (ver §14).
 **Estado:** pendiente de aprobación. Sin código escrito. Los puntos marcados **S-xx** son supuestos por confirmar y **V-xx** son verificaciones que debe hacer Claude Code en solo lectura antes de implementar.

@@ -259,7 +259,7 @@ def test_tick_decide_puertas_y_maquina_con_el_lock_tomado():
     loop, mock_sm, _ = _make_control_loop(doors=[puerta])
     vistos = []
     puerta.update.side_effect = lambda: vistos.append(("puerta", loop._sm_lock._is_owned()))
-    mock_sm.update.side_effect = lambda: vistos.append(("maquina", loop._sm_lock._is_owned()))
+    mock_sm.update.side_effect = lambda **_: vistos.append(("maquina", loop._sm_lock._is_owned()))
     _run_one_tick(loop)
     assert vistos == [("puerta", True), ("maquina", True)]
 

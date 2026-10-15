@@ -15,7 +15,9 @@ def _make_ciclo(door_service=None, apertura_automatica=False,
     set_do = MagicMock()
     cycle = MagicMock()
 
-    def _get_param(seccion, nombre, default=None):
+    def _get_param(seccion, nombre, *resto, default=None):
+        if resto:          # parámetros anidados (p. ej. temperatura_enfriamiento)
+            return default
         valores = {
             ("finalizacion", "apertura_automatica"): apertura_automatica,
             ("finalizacion", "tiempo_espera_apertura"): tiempo_espera,

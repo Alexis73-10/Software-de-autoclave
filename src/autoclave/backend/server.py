@@ -697,6 +697,15 @@ def _evento_dto(inst) -> dict:
     }
 
 
+def _estado_seguro_status() -> dict:
+    """Protocolo de estado seguro (fin de ciclo §15): activo y si espera la
+    confirmación "Confirmar y llevar a estado seguro"."""
+    es = getattr(context.control_loop, "estado_seguro", None)
+    activo = getattr(es, "activo", False) is True
+    return {"activo": activo,
+            "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True}
+
+
 def _camara_segura_status(estado) -> dict:
     try:
         programas = context.programas_para_seguridad()
@@ -800,6 +809,7 @@ def get_status():
         # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).
         # E2 (fin de ciclo §5): falla cerrada; "NO ABRIR" en cualquier estado
         **_camara_segura_status(estado),
+        "estado_seguro":         _estado_seguro_status(),
         "card_connected":        context.serial.is_connected(),
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
@@ -1259,8 +1269,26 @@ def reset_fault():
             raise _Rechazo(409, "estado_no_permitido", "El sistema no está en estado de falla",
                            extra={"estado": getattr(estado, "name", str(estado))})
         context.estado.set_flag("RESET_FALLA", True)
+    # Fin de ciclo §15.2: reconocer la falla tras soltar el paro es también
+    # "Confirmar y llevar a estado seguro" (fusionados, cualquier operador)
+    context.control_loop.confirmar_estado_seguro()
     _auditar("falla_reconocida", entidad=entidad)
     return {"ok": True, "action": "RESET_FALLA"}
+
+
+@app.post("/safe-state/confirm")
+def confirm_safe_state():
+    """"Confirmar y llevar a estado seguro" (fin de ciclo §15.2): tras soltar
+    el paro, el protocolo de estado seguro no avanza hasta esta confirmación.
+    Cualquier operador, sin rol. 409 con el paro activo o si no hace falta."""
+    entidad = "/safe-state/confirm"
+    if context.estado.get_flag("PARO_EMERGENCIA"):
+        _rechazar(409, "paro_emergencia", "Paro de emergencia activado: suéltelo antes de confirmar",
+                  entidad)
+    if context.control_loop.confirmar_estado_seguro() is not True:
+        _rechazar(409, "sin_confirmacion_pendiente",
+                  "No hay un estado seguro pendiente de confirmación", entidad)
+    return {"ok": True}
 
 
 @app.post("/outputs/reset")

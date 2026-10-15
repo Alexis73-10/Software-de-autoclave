@@ -11,7 +11,7 @@ class FallaState:
         self.set_do = set_do
         self.alarm_manager = alarm_manager
 
-    def run(self) -> bool:
+    def run(self, puede_salir: bool = True) -> bool:
         """
         Llamar en cada tick mientras el estado sea FALLA.
         Retorna True cuando el operador reconoció la falla y la máquina
@@ -29,7 +29,9 @@ class FallaState:
             self.set_do.buzer_emergencia()
             return False
 
-        if self.estado.get_flag("RESET_FALLA"):
+        # Fin de ciclo §15.4: se sale a PREPARACION solo con el estado seguro
+        # alcanzado; el reconocimiento queda guardado mientras tanto.
+        if self.estado.get_flag("RESET_FALLA") and puede_salir:
             self.estado.set_flag("RESET_FALLA", False)
             logger.info("FallaState: reset solicitado → transicionando a PREPARACION")
             return True

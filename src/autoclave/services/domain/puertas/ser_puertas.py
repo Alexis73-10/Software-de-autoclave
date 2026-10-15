@@ -62,13 +62,15 @@ def _numero(valor) -> float | None:
 class ServicioPuertas:
 
     def __init__(self, doors, estado, profile, config, logger=logger, programas=None,
-                 temp_max_ciclo=None):
+                 temp_max_ciclo=None, estado_seguro_activo=None):
         self.config = config
         # Callable -> lista de programas cuyos sensores Principales deciden la
         # temperatura de apertura (tanda §1.1; SAF-01 de T3: el seleccionado y,
         # hasta que la cámara sea segura, el del último ciclo). None = temp_camara.
         self._programas = programas
         self._temp_max_ciclo = temp_max_ciclo   # callable (SAF-04 de T4)
+        # callable: protocolo de estado seguro en curso (SAF-03 de T5)
+        self._estado_seguro_activo = estado_seguro_activo
         self.doors = {d.name: d for d in doors}
         self.estado = estado
         self.profile = profile
@@ -228,6 +230,15 @@ class ServicioPuertas:
         Falla cerrada: sin lectura válida o sin configuración, no abre."""
         if self._paro_activo():
             return False, _MOTIVO_PARO
+        if self._estado_seguro_activo is not None:
+            try:
+                activo = self._estado_seguro_activo() is True
+            except Exception:
+                activo = True
+            if activo:
+                msg = "Protocolo de estado seguro en curso"
+                self.logger.warning("No se puede abrir: %s", msg)
+                return False, msg
         # Cámara segura (E2, fin de ciclo §5): misma condición que "NO ABRIR"
         # y el inicio de ciclo; falla cerrada sin lectura o sin configuración.
         programas = None

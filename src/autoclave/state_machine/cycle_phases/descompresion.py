@@ -95,7 +95,12 @@ class DescompresionFase(BaseFase):
             self.set_do.aire_admosferico_camara_on()
         else:
             self.set_do.aire_admosferico_camara_off()
-            abrir_valvula_modo(self.set_do, self._modo)
+            liquido = self.cycle.get_param("globals", "tipo_carga", default="solido") == "liquido"
+            temp_obj = self.cycle.get_param("descompresion", f"modo_{self._modo or 2}",
+                                            "temperatura_enfriamiento", default=80.0)
+            t = self._temp_principal()
+            enfriada = t is not None and temp_obj is not None and t <= temp_obj
+            abrir_valvula_modo(self.set_do, self._modo, liquido=liquido, enfriada=enfriada)
         return FaseResult.COMPLETADO
 
     def _tick_modo_0(self) -> FaseResult:
