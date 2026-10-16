@@ -66,7 +66,7 @@ Corregidos:
   - el resumen muestra "Cerrojo: controlado / NO controlado" y "Sensor de empaque";
   - con un tipo sin cerrojo, la confirmación final lo dice expresamente.
 
-  DECISIÓN SIN CONFIRMAR D-T9-5: falta definir los tipos de puerta válidos por `EquipmentClass` y, si se puede, comprobarlos contra el hardware en el primer arranque.
+  D-T9-5 CERRADA (Cristian, 2026-10-16): cualquier tipo de puerta puede ir con cualquier equipo; por eso el asistente los pide por separado. No hay matriz por clase; el aviso del resumen queda como información.
 - **TMG-03 / SAF-04 (medio / bajo)**: `storage.save` escribe el perfil de forma atómica (temporal, fsync y `os.replace`).
 - **TMG-02 (medio)**: al terminar, el asistente sale con el código 3 (`CODIGO_INSTALACION_TERMINADA`). El vigilante D-04 no lo relanza, no lo cuenta y registra en el log que hay que reiniciar el equipo.
 - **SAF-06 (bajo)**: un perfil ilegible por otras causas (raíz que no es objeto, permisos) se trata como inválido y abre el asistente; antes la UI caía sin mensaje.

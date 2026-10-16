@@ -30,6 +30,12 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Estado de
 
 Ninguna. Todas las etapas se cerraron con la suite completa en verde.
 
+## 2b. Decisiones confirmadas por Cristian (2026-10-16)
+
+- **Líquidos (HAZ-LIQ-01): de acuerdo.** Las decisiones se toman con el Principal, con la sonda flexible dentro del líquido; los valores siguen siendo provisionales hasta el banco.
+- **Tipo de puerta: cualquier tipo puede ir con cualquier equipo.** Por eso el asistente pide por separado el tipo de equipo y el tipo de puerta. No se agrega una matriz de tipos de puerta por clase; el aviso de cerrojo y de empaque del resumen queda solo como información (D-T9-5 cerrada).
+- **Instalación: ok.** Tras el asistente se reinicia el equipo (D-T9-2 cerrada).
+
 ## 3. Decisiones sin confirmar (resumen; el detalle y la alternativa están en cada informe)
 
 **Prioridad para Cristian (afectan seguridad o la instalación del 19-oct):**
