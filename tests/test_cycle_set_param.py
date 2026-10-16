@@ -53,10 +53,14 @@ def test_set_param_coerciona_tipo_int():
     assert isinstance(cycle.parameters["esterilizacion"]["factor_esterilizacion"]["value"], int)
 
 
-def test_set_param_coerciona_tipo_bool():
+def test_set_param_bool_estricto():
+    """RB-05.3 (T10): un booleano solo acepta true/false, no 1 ni "false"."""
     cycle = _cycle()
-    cycle.set_param("finalizacion", ["apertura_automatica"], 1)
+    cycle.set_param("finalizacion", ["apertura_automatica"], True)
     assert cycle.parameters["finalizacion"]["apertura_automatica"]["value"] is True
+    for malo in (1, "false"):
+        with pytest.raises(ValueError):
+            cycle.set_param("finalizacion", ["apertura_automatica"], malo)
 
 
 def test_set_param_navega_paths_anidados():

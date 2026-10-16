@@ -17,10 +17,11 @@ _ADMIN = ["usuarios", "conectividad"]
 
 _ESPERADO = {
     "admin":     _ADMIN,
-    "tecnico":   _TECNICAS,
+    # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
+    "tecnico":   _TECNICAS + ["conectividad"],
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
-    "ingeniero": _TECNICAS + ["usuarios"],
+    "ingeniero": _TECNICAS + _ADMIN,
     "operador":  [],      # defecto de la tabla usuarios, fuera de roles.py
     "":          [],
     None:        [],
@@ -52,9 +53,11 @@ def test_seccion_desconocida_no_se_ve():
     assert puede_ver("general", "tecnico") is False
 
 
+# Tanda 2026-10-14 §1.6: técnico en cualquier estado distinto de CICLO,
+# alineado con el guard DISTINTO_DE_CICLO del backend
 @pytest.mark.parametrize("estado,permitida", [
     ("PREPARACION", True), ("PREPARADO", True),
-    ("CICLO", False), ("FALLA", False), ("EMERGENCIA", False),
+    ("CICLO", False), ("FALLA", True), ("EMERGENCIA", True),
     ("DESCONOCIDO", False), ("", False), (None, False),
 ])
 def test_edicion_permitida(estado, permitida):

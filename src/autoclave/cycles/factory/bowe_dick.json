@@ -15,7 +15,8 @@
             "ciclos_multiples": {"value":true, "type":"bool"},
             "enfriar_chaqueta_secado": {"value":false, "type":"bool"},
             "presion_chaqueta": {"value":300, "type":"int", "unit":"kPa", "min":0, "max":400},
-            "rango_presion_chaqueta": {"value":50, "type":"int", "unit":"kPa", "min":0, "max":100}
+            "rango_presion_chaqueta": {"value":50, "type":"int", "unit":"kPa", "min":0, "max":100},
+            "tipo_carga": {"value":"solido", "type":"enum", "options":["solido","liquido"], "unit":""}
         },
         "precalentamiento": {
             "tiempo_precalentamiento": { "value": 0, "type":"int", "unit": "min", "min": 0, "max": 3600 },

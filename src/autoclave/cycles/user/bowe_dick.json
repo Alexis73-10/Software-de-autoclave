@@ -42,6 +42,15 @@
                 "unit": "kPa",
                 "min": 0,
                 "max": 100
+            },
+            "tipo_carga": {
+                "value": "solido",
+                "type": "enum",
+                "options": [
+                    "solido",
+                    "liquido"
+                ],
+                "unit": ""
             }
         },
         "precalentamiento": {

@@ -28,3 +28,6 @@ _archivo/
 /tools/generador/generador.db
 /.claude/worktrees/
 /.claude/settings.local.json
+
+# Copias .bak de los programas de usuario (RB-04.2, T10)
+src/autoclave/cycles/user/*.json.bak

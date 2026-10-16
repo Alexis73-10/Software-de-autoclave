@@ -210,10 +210,20 @@ def _migracion_v3(conn: sqlite3.Connection) -> None:
 # v2 la toma la tanda 2026-10-14 (sensores del ciclo); lo que estaba previsto
 # para planeacion_backend_parametros.md pasa a v3 o posterior. Las versiones
 # son secuenciales: no se deja ningún hueco.
+def _migracion_v4(conn: sqlite3.Connection) -> None:
+    """RB-03.7 (T10): audit_log es de solo anexar. UPDATE y DELETE abortan."""
+    for accion in ("UPDATE", "DELETE"):
+        conn.execute(
+            f"CREATE TRIGGER IF NOT EXISTS audit_log_sin_{accion.lower()} "
+            f"BEFORE {accion} ON audit_log "
+            "BEGIN SELECT RAISE(ABORT, 'audit_log es de solo anexar'); END")
+
+
 _MIGRACIONES = (
     (1, _migracion_v1),
     (2, _migracion_v2),
     (3, _migracion_v3),
+    (4, _migracion_v4),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]

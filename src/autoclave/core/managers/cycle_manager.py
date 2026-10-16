@@ -5,6 +5,7 @@ import os
 import logging
 from autoclave.utils.resources import resource_path
 from autoclave.core.runtime.sensores_ciclo import asignacion_por_omision, interpretar_asignacion
+from autoclave.core.managers import catalogo_parametros
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,9 @@ class Cycle:
         # JSON la fija con interpretar_asignacion (migración perezosa).
         self.sensores: dict = asignacion_por_omision()
         self.sensores_formato_antiguo = True
+        # RB-04.4 / RB-05.5 (T10): errores del catálogo al cargar; un programa
+        # dañado no se selecciona, no se inicia ni se edita
+        self.danado: list[str] = []
 
     def copia(self) -> "Cycle":
         """Copia profunda de los parámetros (T-17, §5.8): el ciclo en curso
@@ -103,10 +107,17 @@ class Cycle:
         if self._hoja(fase, path) is None:
             raise KeyError(f"El parámetro '{'.'.join(path)}' no existe en '{fase}'")
 
-        cambios = [(self._hoja(f, p), self._coercionar(self._hoja(f, p), p[-1], value))
+        cambios = [(self._hoja(f, p), catalogo_parametros.coercionar(self._hoja(f, p), f, p, value))
                    for f, p in self.vinculados(fase, path)]
+        previos = [(hoja, hoja["value"]) for hoja, _ in cambios]
         for hoja, valor in cambios:
             hoja["value"] = valor
+        # Reglas entre parámetros (T10, decisión 1.2): si no se cumplen, nada cambia
+        errores = catalogo_parametros.errores_coherencia(self.parameters)
+        if errores:
+            for hoja, valor in previos:
+                hoja["value"] = valor
+            raise ValueError("; ".join(errores))
         return cambios[0][1]
 
     def _nodo(self, fase: str, path: list[str]):
@@ -117,24 +128,6 @@ class Cycle:
             node = node[key]
         return node
 
-    @staticmethod
-    def _coercionar(leaf: dict, leaf_key: str, value):
-        param_type = leaf.get("type", "int")
-
-        if param_type == "bool":
-            coerced = bool(value)
-        elif param_type == "float":
-            coerced = float(value)
-        else:
-            coerced = int(value)
-
-        if param_type != "bool":
-            pmin, pmax = leaf.get("min"), leaf.get("max")
-            if pmin is not None and coerced < pmin:
-                raise ValueError(f"'{leaf_key}' fuera de rango (mínimo {pmin})")
-            if pmax is not None and coerced > pmax:
-                raise ValueError(f"'{leaf_key}' fuera de rango (máximo {pmax})")
-        return coerced
 
 
 class CycleManager:
@@ -200,12 +193,34 @@ class CycleManager:
                                            "formato antiguo; se usa la asignación de fábrica "
                                            "(Principal = temp_camara)", cycle.id)
 
-                        # 🔥 aquí pasa la magia
+                        # RB-05.5 (T10): valores fuera del catálogo → se intenta
+                        # el .bak; si tampoco vale, el programa queda dañado
+                        self._validar_al_cargar(cycle, full_path)
                         self.cycles[cycle.id] = cycle
 
                 except Exception as e:
                     print(f"⚠️ Error cargando {file}: {e}")
                     self.errores_carga.append(full_path)
+
+    def _validar_al_cargar(self, cycle, full_path: str) -> None:
+        errores = catalogo_parametros.errores_programa(cycle.parameters)
+        if not errores:
+            return
+        bak = full_path + ".bak"
+        if os.path.exists(bak):
+            try:
+                with open(bak, "r", encoding="utf-8") as f:
+                    respaldo = json.load(f).get("parameters", {})
+                if not catalogo_parametros.errores_programa(respaldo):
+                    logger.error("Programa %s fuera del catálogo (%s); se usa %s",
+                                 cycle.id, "; ".join(errores), os.path.basename(bak))
+                    cycle.parameters = respaldo
+                    return
+            except Exception:
+                logger.exception("Programa %s: %s ilegible", cycle.id, os.path.basename(bak))
+        logger.error("Programa %s DAÑADO, no ejecutable: %s", cycle.id, "; ".join(errores))
+        cycle.danado = errores
+        self.errores_carga.append(full_path)
 
     def set_default_cycle(self, cycle_id: str):
         if cycle_id in self.cycles:

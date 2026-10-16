@@ -901,6 +901,10 @@ def select_cycle(body: _SelectCycleBody):
         raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
     if getattr(cycle, "source", "user") != "user":
         raise HTTPException(status_code=422, detail="Solo se pueden seleccionar ciclos de usuario")
+    # RB-04.4 (T10): un programa dañado no es ejecutable
+    if getattr(cycle, "danado", None):
+        _rechazar(409, "PROGRAMA_NO_EDITABLE",
+                  f"Programa dañado (fuera del catálogo): {cycle.danado[0]}", "/cycle/select")
 
     ok, reason = context.control_loop.set_active_cycle(cycle)
     if not ok:
@@ -1265,6 +1269,13 @@ def start_cycle(body: dict | None = Body(default=None)):
             detail="El sistema no está listo para iniciar un ciclo"
         )
 
+    # RB-04.4 (T10): un programa dañado no se inicia
+    seleccionado = getattr(context.control_loop, "cycle", None)
+    danado = getattr(seleccionado, "danado", None)
+    if isinstance(danado, list) and danado:
+        _rechazar(409, "PROGRAMA_NO_EDITABLE",
+                  f"Programa dañado (fuera del catálogo): {danado[0]}", "/cycle/start")
+
     # RS-06 (tanda §1.1): asignación de sensores válida y todos los sensores
     # en uso del programa seleccionado con lectura
     rechazo = sc.verificar_inicio(getattr(context.control_loop, "cycle", None),
@@ -1558,11 +1569,18 @@ def close_door(door_name: str, body: dict = Body(...)):
     return _orden_puerta(door_name, "close", body.get("source_door"))
 
 
+_SIN_VALOR = object()
+
+
 class _CycleParamValueBody(BaseModel):
     cycle_id: str
     fase: str
     path: list[str]
     value: object
+    # RB-06 (T10): si viene y no coincide con el valor actual, 409 VALOR_CAMBIO.
+    # Opcional para no romper los clientes actuales (PySide).
+    valor_anterior_esperado: object = None
+    model_config = {"extra": "ignore"}
 
 
 def _valor_parametro(cycle, fase: str, path: list[str]):
@@ -1577,11 +1595,13 @@ def _valor_parametro(cycle, fase: str, path: list[str]):
 
 @app.patch("/cycle/parameter")
 def update_cycle_parameter(body: _CycleParamValueBody,
-                           sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+                           sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
     """Actualiza un único parámetro (cualquier sección, incluido el secado) de
-    cualquier ciclo cargado y persiste si es 'user'. Valida contra el
-    'type'/'min'/'max' que ya trae cada parámetro en su propio JSON.
-    Solo ingeniero (decisión 25). En CICLO (§5.8, T-17) el cambio se guarda
+    cualquier ciclo cargado y persiste si es 'user'. Valida tipos estrictos y
+    el rango efectivo (catálogo ∩ JSON, RB-05; T10) y las reglas entre
+    parámetros (tipo_carga). Técnico e ingeniero (tanda §1.6; técnico fuera de
+    CICLO). La auditoría es parte del cambio: si no se registra, el cambio se
+    revierte (RB-03.5). En CICLO (§5.8, T-17) el cambio se guarda
     siempre en el programa almacenado y aplica también al ciclo en curso solo
     si es su programa y la fase del parámetro no ha iniciado; la respuesta
     lo indica en `aplica` ("en_curso" o "siguiente")."""
@@ -1593,6 +1613,13 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         raise HTTPException(status_code=422, detail="'path' no puede estar vacío")
 
     entidad = f"{body.cycle_id}/{body.fase}/{'.'.join(body.path)}"
+    if getattr(cycle, "danado", None):
+        _rechazar(409, "PROGRAMA_NO_EDITABLE",
+                  f"Programa dañado (fuera del catálogo): {cycle.danado[0]}", entidad, sesion)
+    # RB-03.5: sin base de datos no hay auditoría; el cambio no se aplica
+    if getattr(context, "sin_base_de_datos", False) is True:
+        _rechazar(503, "BASE_OCUPADA", "Base de datos no disponible: cambio no aplicado",
+                  entidad, sesion)
     # F0 solo en equipos de laboratorio (tanda §1.1): fuera de lab no se ofrece
     # y el backend rechaza activarlo
     if (body.fase == "globals" and body.path == ["F0"] and bool(body.value)
@@ -1605,12 +1632,17 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         programa_en_curso = getattr(getattr(context.control_loop, "cycle", None), "id", None)
 
         anterior = _valor_parametro(cycle, body.fase, body.path)
+        if (body.valor_anterior_esperado is not None
+                and body.valor_anterior_esperado != anterior):
+            raise _Rechazo(409, "VALOR_CAMBIO", "El valor cambió desde que se leyó",
+                           extra={"valor_actual": anterior})
+        previos = [(f, p, _valor_parametro(cycle, f, p)) for f, p in cycle.vinculados(body.fase, body.path)]
         try:
             value = cycle.set_param(body.fase, body.path, body.value)
         except KeyError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except (TypeError, ValueError) as e:
-            raise HTTPException(status_code=422, detail=str(e))
+            raise _Rechazo(422, "VALOR_INVALIDO", str(e))
 
         # Fuera de CICLO, o en otro programa durante CICLO (§5.8, 5b), el
         # cambio solo rige desde el siguiente ciclo que use ese programa. El
@@ -1636,9 +1668,32 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         with _lock_archivos:
             _save_cycle_json(cycle)
 
-    _auditar("param_ciclo_cambio", sesion, entidad=entidad,
-             valor_anterior=anterior, valor_nuevo=value, detalle=detalle)
+    # RB-03.5 (T10): sin registro en audit_log el cambio no queda aplicado
+    try:
+        context.db.registrar_auditoria(
+            "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol, entidad=entidad,
+            valor_anterior=anterior, valor_nuevo=value, detalle=detalle)
+    except Exception:
+        logger.exception("Parámetro %s sin auditoría: se revierte", entidad)
+        _revertir_parametro(cycle, previos, aplica == "en_curso")
+        _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
+                  entidad, sesion)
     return {"ok": True, "value": value, "aplica": aplica}
+
+
+def _revertir_parametro(cycle, previos, en_curso: bool) -> None:
+    """Restaura los valores previos (también los vinculados) en el programa,
+    su JSON y, si se había aplicado, la copia del ciclo en curso."""
+    with context.control_loop.bloqueo_maquina():
+        for fase, path, valor in previos:
+            hoja = cycle._hoja(fase, path)
+            if hoja is not None:
+                hoja["value"] = valor
+            if en_curso:
+                context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor)
+    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+        with _lock_archivos:
+            _save_cycle_json(cycle)
 
 
 # ── Sensores del ciclo (tanda 2026-10-14 §1.1; RS-01, RS-02) ───────────────
@@ -1700,10 +1755,14 @@ def _escribir_json_programa(cycle, cambiar) -> None:
     import os as _os
     from pathlib import Path as _Path
 
+    import shutil as _shutil
+
     path = _Path(cycle._path)
     with open(path, "r", encoding="utf-8") as f:
         data = _json.load(f)
     cambiar(data)
+    # RB-04.2 (T10): la versión anterior queda como <nombre>.json.bak
+    _shutil.copy2(path, path.with_name(path.name + ".bak"))
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         with open(tmp, "w", encoding="utf-8") as f:
