@@ -329,6 +329,7 @@ Window {
                 comandosSistema: ventana.comandosSistema
                 onPuertaPulsada: ventana.comandosPuerta?.alternar()
                 onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
+                onIniciarSinRegistroPulsado: ventana.comandoCiclo?.iniciarSinRegistro()
                 onReconocerFallaPulsado: ventana.comandoFalla?.reconocer()
                 onAjustesPulsado: pila.push(menuComp)
                 onAvatarPulsado: ventana.abrirConfiguracion()
@@ -380,6 +381,7 @@ Window {
             Login {
                 anchors.fill: parent
                 teclado: panelTeclado
+                puente: ventana.puente
                 onInicioPulsado: pila.pop()
                 // sesión validada: el login se reemplaza por OPCIONES, o por
                 // CAMBIAR CONTRASEÑA si es obligatorio (T-8)

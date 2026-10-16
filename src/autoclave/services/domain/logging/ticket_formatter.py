@@ -64,8 +64,11 @@ def format_header(meta: dict) -> str:
         f"({meta.get('tipo_ciclo') or ''})",
         f"Temp. Ester.: {temp_e} C",
         f"Tiempo Ester.: {tiempo_e} min",
-        "  Hora      C      kPa",
     ]
+    # T8 (§7.6): ciclo sin base de datos, sin operador registrado
+    if meta.get("sin_registro"):
+        lines.append("SIN OPERADOR / SIN BD")
+    lines.append("  Hora      C      kPa")
     return "\n".join(lines)
 
 

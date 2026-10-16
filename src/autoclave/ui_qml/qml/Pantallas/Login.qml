@@ -30,6 +30,9 @@ Item {
     id: raiz
 
     property QtObject teclado: null
+    // T8 (§7.6): sin base de datos no se puede validar el login
+    property QtObject puente: null
+    readonly property bool sinBaseDatos: puente?.sinBaseDatos ?? false
     // TEC-D10: nombre de hasta 30 caracteres (USUARIO_MAX); la contraseña, hasta
     // 64 (PASSWORD_MAX de validacion_usuario.py, el mismo tope de CAMBIAR
     // CONTRASEÑA y Nuevo usuario), o no se podría entrar con una clave larga
@@ -386,6 +389,42 @@ Item {
                             color: Colores.accionPrimarioTexto
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(22)
+                        }
+
+                        // T8 (§7.6), PROVISIONAL (sin diseño): sin base de datos el
+                        // login no valida; los ciclos se inician sin operador desde el
+                        // menú principal, con confirmación en cada ciclo
+                        Text {
+                            objectName: "avisoSinBaseDatos"
+                            visible: raiz.sinBaseDatos
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            text: I18n.t("sesion.sin_bd", I18n.lang)
+                            color: Colores.peligroTexto
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
+                            font.weight: Tipografia.pesoMedium
+                        }
+                        Rectangle {
+                            objectName: "botonSinOperador"
+                            visible: raiz.sinBaseDatos
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: textoSinOperador.implicitWidth + Escala.px(64)
+                            height: Escala.px(72)
+                            radius: Escala.px(36)
+                            color: Colores.accionPrimarioTexto
+                            Text {
+                                id: textoSinOperador
+                                anchors.centerIn: parent
+                                text: I18n.t("sesion.continuar_sin_operador", I18n.lang)
+                                color: "white"
+                                font.family: Tipografia.familia
+                                font.weight: Tipografia.pesoSemiBold
+                                font.pixelSize: Escala.fuente(22)
+                            }
+                            MouseArea { anchors.fill: parent; onClicked: raiz.inicioPulsado() }
                         }
                     }
 

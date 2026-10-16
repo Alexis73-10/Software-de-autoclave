@@ -81,6 +81,8 @@ Item {
     // ---- acciones: las resuelve quien usa la pantalla (servicios, plan §7) ----
     signal puertaPulsada()        // abrir si puertaAbierta es false, cerrar si es true
     signal iniciarCicloPulsado()
+    // T8 (§7.6): sin base de datos, tras confirmar "Continuar sin registro"
+    signal iniciarSinRegistroPulsado()
     signal reconocerFallaPulsado()
     signal avatarPulsado()        // destino indefinido (PC-05)
     signal campanaPulsada()
@@ -619,7 +621,12 @@ Item {
         // no está listo; mientras se envía la orden no acepta otro toque.
         visible: raiz.listoParaCiclo && raiz.datosVigentes && !raiz.enFalla
         enabled: !raiz.cicloOcupado
-        onPulsado: raiz.iniciarCicloPulsado()
+        onPulsado: {
+            if (raiz.puente?.sinBaseDatos ?? false)
+                confirmarSinRegistro.abrir()
+            else
+                raiz.iniciarCicloPulsado()
+        }
 
         // triángulo "play", desplazado a la derecha por compensación óptica
         contenidoCirculo: Shape {
@@ -750,6 +757,15 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: raiz.textos.sinAlarmas
         alarmas: raiz.alarmas
+    }
+    // T8 (§7.6), PROVISIONAL (sin diseño): confirmación explícita por ciclo
+    DialogoConfirmacion {
+        id: confirmarSinRegistro
+        objectName: "confirmarSinRegistro"
+        mensaje: I18n.t("ciclo.sin_bd_pregunta", I18n.lang)
+        textoConfirmar: I18n.t("ciclo.sin_bd_continuar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        onConfirmado: { cerrar(); raiz.iniciarSinRegistroPulsado() }
     }
     PanelEquipo {
         comandosSistema: raiz.comandosSistema

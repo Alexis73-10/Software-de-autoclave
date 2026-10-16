@@ -228,10 +228,11 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | `NO_HAY_CONEXION` | COM-01 | ALARMA |
 | `FALLO_CONEXION` | COM-02 | FALLO_CRITICO |
 | `CONFIGURACION_INVALIDA` | `CONFIGURACION_INVALIDA` (id conservado, tanda 2026-10-14) | ALARMA, bloquea, despeje manual |
-| `OPERANDO_SIN_BD` | `OPERANDO_SIN_BD` (id conservado) | ALARMA, bloquea, despeje manual (provisional hasta T8) |
+| `OPERANDO_SIN_BD` | `OPERANDO_SIN_BD` (id conservado) | ALARMA, **no bloquea** (D-03, T8), despeje manual |
 | `TARJETA_*` (9 ids de §2.2, E6), fuera de ciclo | mismos ids (conservados) | ALARMA, bloquea, se resuelven al completar el handshake |
 | `TARJETA_*` en ciclo (`abortar_por_falla_io`) | **COM-03** con origen = id de la tarjeta (`COM-03\|TARJETA_WATCHDOG`) | FALLO_CRITICO, despeje manual; `fase_ciclo = "FALLO_IO"` |
 | (nueva) | SIS-02 Historial no disponible | AVISO |
+| (nueva, T8) | SIS-03 Respaldo del ciclo no disponible | AVISO, no bloquea, despeje manual |
 
 **Integración (tanda 2026-10-14, T1):** la Parte A está unida a `dev-noche`; esta tabla ya describe el código.
 La regla de la tanda "ningún id existente se renombra" se aplicó a los ids que la rama no había migrado:

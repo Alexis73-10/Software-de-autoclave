@@ -1,11 +1,12 @@
 # autoclave/backend/arranque/sin_bd.py
 #
-# PROVISIONAL hasta el modo sin base de datos (§7 de planeacion_arranque_y_modo_sin_bd.md).
+# Modo sin base de datos (§7 de planeacion_arranque_y_modo_sin_bd.md; T8).
 # Si la etapa "abriendo_base_datos" se degrada, context.db y
 # context.calibration_audit pasan a ser un BdNoDisponible: cualquier llamada
 # lanza BdNoDisponibleError, que server.py traduce a 503 "sin_base_de_datos".
-# El inicio de ciclo queda bloqueado aparte (alarma OPERANDO_SIN_BD y rechazo
-# en /cycle/start): un ciclo sin registro rompe la trazabilidad.
+# Los ciclos siguen (D-03, alarma OPERANDO_SIN_BD no bloqueante): /cycle/start
+# exige confirmar_sin_registro en cada ciclo y el registro va al respaldo JSONL
+# y al ticket.
 
 
 class BdNoDisponibleError(RuntimeError):

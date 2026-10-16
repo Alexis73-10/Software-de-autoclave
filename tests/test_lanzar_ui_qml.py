@@ -12,6 +12,16 @@ import pytest
 from autoclave.ui_qml import lanzar
 
 
+@pytest.fixture(autouse=True)
+def _sin_relanzar(monkeypatch):
+    """Estas pruebas miran qué se lanza; el relanzado (D-04) se prueba en
+    test_doble_pantalla. Aquí cada pantalla se lanza una vez y se espera."""
+    def vigilar(cmds, lanzar_cmd, **_k):
+        for p in [lanzar_cmd(c) for c in cmds]:
+            p.wait()
+    monkeypatch.setattr(lanzar, "vigilar_pantallas", vigilar)
+
+
 class _Proceso:
     def __init__(self, cmd, env):
         self.cmd, self.env = cmd, env

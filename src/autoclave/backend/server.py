@@ -4,7 +4,9 @@ from types import SimpleNamespace
 import logging
 import sqlite3
 import sys
+import os
 import threading
+from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, time, timedelta
 from typing import Literal
@@ -591,6 +593,10 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
     # ingeniero (el técnico recibe 409), así que la escritura no necesita ser
     # atómica con la comprobación. YAML y recarga van fuera del
     # lock para no detener el tick (revisión de la etapa 1, hallazgo D).
+    # SAF-05 de T8: sin base no hay auditoría; no se toca el archivo
+    if getattr(context, "sin_base_de_datos", False) is True:
+        _rechazar(503, "sin_base_de_datos", "Base de datos no disponible: calibración no aplicada",
+                  f"/calibration/{entidad}", sesion)
     with guard_estado(DISTINTO_DE_CICLO, f"/calibration/{entidad}", sesion,
                       excepcion_ingeniero=True):
         contexto_ciclo = _contexto_ciclo()
@@ -617,19 +623,38 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
             if en_ciclo:
                 raise HTTPException(status_code=409,
                                     detail="Hay un ciclo en curso: calibración no aplicada")
+        detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
+                              "shown_high": shown_high, "real_high": real_high}}
+        detalle.update(contexto_ciclo)
+        # BD-03 (T8, §7.6): sin registro en audit_log la calibración no queda
+        # activa. Se guarda el archivo previo y se restaura si la auditoría falla.
+        previo = Path(CALIBRATION_PATH).read_bytes()
         write_user_calibration(
             CALIBRATION_PATH, tipo, index, new_gain, new_offset,
             shown_low, real_low, shown_high, real_high,
         )
         context.units.reload_calibration(CALIBRATION_PATH)
-    detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
-                          "shown_high": shown_high, "real_high": real_high}}
-    detalle.update(contexto_ciclo)
-
-    _auditar("calibracion_cambio", sesion, entidad=entidad,
-             valor_anterior={"gain": old_gain, "offset": old_offset},
-             valor_nuevo={"gain": new_gain, "offset": new_offset},
-             detalle=detalle)
+        try:
+            context.db.registrar_auditoria(
+                "calibracion_cambio", usuario=sesion.usuario, rol=sesion.rol,
+                entidad=entidad,
+                valor_anterior={"gain": old_gain, "offset": old_offset},
+                valor_nuevo={"gain": new_gain, "offset": new_offset},
+                detalle=detalle)
+        except Exception:
+            logger.exception("Calibración %s sin auditoría: se revierte", entidad)
+            # restauración atómica (SAF-05/TMG-05 de T8): temporal + fsync + replace
+            ruta = Path(CALIBRATION_PATH)
+            tmp = ruta.with_name(ruta.name + ".restaurar")
+            with open(tmp, "wb") as f:
+                f.write(previo)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, ruta)
+            context.units.reload_calibration(CALIBRATION_PATH)
+            _rechazar(503, "auditoria_no_disponible",
+                      "No se pudo registrar el cambio: calibración no aplicada",
+                      f"/calibration/{entidad}", sesion)
 
     return {"ok": True, "gain": new_gain, "offset": new_offset}
 
@@ -803,6 +828,8 @@ def get_status():
     # ------------------------------
     return {
         "machine_state":        machine_state,
+        # T8 (§7.1): operación sin base de datos (alarma OPERANDO_SIN_BD)
+        "sin_base_de_datos":    getattr(context, "sin_base_de_datos", False) is True,
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
@@ -1198,20 +1225,37 @@ def get_cycle_ticket(ciclo_id: int):
     }
 
 
+@app.get("/db/estado")
+def get_db_estado():
+    """T8 (§7.1): "OK" o "DEGRADADA" (sin base de datos: alarma
+    OPERANDO_SIN_BD; los ciclos van al respaldo y al ticket)."""
+    sin_bd = getattr(context, "sin_base_de_datos", False) is True
+    return {"estado": "DEGRADADA" if sin_bd else "OK", "sin_base_de_datos": sin_bd}
+
+
 @app.post("/cycle/start")
-def start_cycle():
+def start_cycle(body: dict | None = Body(default=None)):
     """
     Solicita el inicio del ciclo de esterilización.
     Sólo tiene efecto cuando el sistema está en estado PREPARADO y
     la flag LISTO_PARA_CICLO es True.  La máquina de estados gestiona
     la transición real.
+    Sin base de datos (T8, §7.6) exige {"confirmar_sin_registro": true} en
+    cada ciclo: queda sin operador y sin registro en la base (respaldo y ticket).
     """
     estado = context.estado
     _rechazar_si_config_invalida("/cycle/start")
     if getattr(context, "sin_base_de_datos", False) is True:
-        # alarma OPERANDO_SIN_BD: un ciclo sin registro rompe la trazabilidad
-        _rechazar(409, "sin_base_de_datos",
-                  "Base de datos no disponible: no se puede iniciar un ciclo", "/cycle/start")
+        if not (isinstance(body, dict) and body.get("confirmar_sin_registro") is True):
+            _rechazar(409, "confirmar_sin_registro",
+                      "Base de datos no disponible: confirme que desea iniciar el ciclo "
+                      "sin registro en la base", "/cycle/start")
+        # SAF-01 de T8: sin base, el respaldo es el único registro electrónico
+        error = context.respaldo_ciclos.probar_escritura()
+        if error is not None:
+            _rechazar(503, "respaldo_no_disponible",
+                      f"Sin base de datos y sin respaldo del ciclo ({error}): no se puede "
+                      "iniciar un ciclo", "/cycle/start")
     if getattr(context.control_loop, "apagando", False) is True:
         _rechazar(409, "apagado_en_curso", "El equipo se está apagando", "/cycle/start")
 

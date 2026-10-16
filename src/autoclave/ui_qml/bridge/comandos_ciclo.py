@@ -35,14 +35,24 @@ class ComandoIniciarCiclo(QObject):
 
     @Slot()
     def iniciar(self) -> None:
+        self._iniciar(False)
+
+    @Slot()
+    def iniciarSinRegistro(self) -> None:
+        """T8 (§7.6): sin base de datos, tras la confirmación explícita del
+        operador ("Continuar sin registro"), en cada ciclo."""
+        self._iniciar(True)
+
+    def _iniciar(self, sin_registro: bool) -> None:
         if self._ocupado or not self._puente.connected or not self._puente.listoParaCiclo:
             return
-        logger.info("Iniciando ciclo...")
+        logger.info("Iniciando ciclo%s...", " sin registro en la base" if sin_registro else "")
         self._fijar_ocupado(True)
 
         def tarea():
             try:
-                ok = bool(self._ui.start_cycle())
+                ok = bool(self._ui.start_cycle(confirmar_sin_registro=True) if sin_registro
+                          else self._ui.start_cycle())
             except Exception as e:   # start_cycle ya captura todo; defensa extra
                 logger.warning("start_cycle error: %s", e)
                 ok = False

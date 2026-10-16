@@ -31,12 +31,13 @@ def test_monitores_configurables():
     ]
 
 
-def test_main_lanza_ambas_desde_la_raiz_del_proyecto():
+def test_main_lanza_ambas_desde_la_raiz_del_proyecto(monkeypatch):
+    monkeypatch.setattr(mod, "RELANZAMIENTOS_MAX", 0)
     lanzados = []
 
     def popen(cmd, cwd):
         p = MagicMock()
-        p.wait.return_value = 0
+        p.poll.return_value = 0
         lanzados.append((cmd, cwd))
         return p
 
@@ -52,9 +53,60 @@ def test_ctrl_c_termina_las_pantallas_abiertas():
     def popen(cmd, cwd):
         p = MagicMock()
         p.poll.return_value = None
-        p.wait.side_effect = KeyboardInterrupt
         procesos.append(p)
         return p
 
-    mod.main([], popen=popen)
-    assert all(p.terminate.called for p in procesos)
+    def interrumpir(_s):
+        raise KeyboardInterrupt
+
+    mod.vigilar_pantallas(mod.comandos(0, 1), lambda c: popen(c, None), dormir=interrumpir)
+    assert len(procesos) == 2 and all(p.terminate.called for p in procesos)
+
+
+class _Reloj:
+    def __init__(self):
+        self.t = 0.0
+
+    def __call__(self):
+        return self.t
+
+
+def test_d04_relanza_una_pantalla_cerrada_tres_veces_cada_5_s():
+    """D-04 (T8): la pantalla que se cierra se relanza 3 veces, 5 s después
+    de cada cierre; la otra sigue abierta."""
+    reloj = _Reloj()
+    lanzados = []
+    abierta = MagicMock()
+    abierta.poll.return_value = None
+
+    def lanzar(cmd):
+        if cmd[4] == "1":
+            lanzados.append(reloj.t)
+            p = MagicMock()
+            p.poll.return_value = 1        # se cierra enseguida
+            return p
+        return abierta
+
+    def dormir(s):
+        reloj.t += s
+        if reloj.t > 60:
+            raise KeyboardInterrupt
+
+    mod.vigilar_pantallas(mod.comandos(0, 1), lanzar, reloj=reloj, dormir=dormir)
+    assert len(lanzados) == 4                       # 1 inicial + 3 relanzamientos
+    assert all(b - a >= 5.0 for a, b in zip(lanzados, lanzados[1:]))
+    abierta.terminate.assert_called_once()          # Ctrl+C cierra la que sigue abierta
+
+
+def test_d04_termina_cuando_no_quedan_relanzamientos():
+    reloj = _Reloj()
+    cerrada = MagicMock()
+    cerrada.poll.return_value = 0
+
+    def dormir(s):
+        reloj.t += s
+
+    lanzados = []
+    mod.vigilar_pantallas([["py", "-m", "app"]], lambda c: lanzados.append(c) or cerrada,
+                          reloj=reloj, dormir=dormir)
+    assert len(lanzados) == 4

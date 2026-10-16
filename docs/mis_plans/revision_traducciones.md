@@ -78,6 +78,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 
 | 2026-10-14 | Tanda T3 | `sensores_ciclo.*` (nombres de ubicación Cámara 1/2 y Referencia, roles y estados de los sensores) y `validacion.ASIGNACION_INVALIDA`, `validacion.SENSOR_NO_DISPONIBLE`, `validacion.ASIGNACION_SENSORES_INVALIDA` | Ciclo y fases | sin revisar |
 | 2026-10-15 | Tanda T7 | `sistema.no_abrir`, `sistema.paro_no_abrir`, `sistema.paro_liberado`, `sistema.confirmar_estado_seguro`, `sistema.estado_seguro_en_curso`, `equipo.apagar`, `equipo.apagar_pregunta`, `equipo.apagar_rechazado` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-16 | Tanda T8 | `ciclo.sin_bd_pregunta`, `ciclo.sin_bd_continuar`, `sesion.sin_bd`, `sesion.continuar_sin_operador` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 
 ## Registro de revisiones
 

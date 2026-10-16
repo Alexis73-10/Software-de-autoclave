@@ -213,7 +213,9 @@
     "abrir_puerta": "OPEN DOOR",
     "cerrar_puerta": "CLOSE DOOR",
     "modelo": "Model: ",
-    "serie": "Serial: "
+    "serie": "Serial: ",
+    "sin_bd_pregunta": "Database not available. The cycle will run without an operator and without a database record (backup file and printout only). Do you want to continue without a record?",
+    "sin_bd_continuar": "Continue without record"
   },
   "unidades": {
     "temperatura": "°C",
@@ -453,7 +455,9 @@
     "clave_actual": "Current password",
     "clave_nueva": "New password",
     "confirmar_clave_nueva": "Confirm new password",
-    "boton_cambiar_clave": "CHANGE PASSWORD"
+    "boton_cambiar_clave": "CHANGE PASSWORD",
+    "sin_bd": "Database not available: login is not possible. Options, calibration and users are not available. Cycles can be started without an operator from the main menu.",
+    "continuar_sin_operador": "Continue without operator"
   },
   "usuarios": {
     "sin_permiso": "Your role cannot create users",

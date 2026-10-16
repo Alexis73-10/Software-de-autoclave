@@ -315,7 +315,8 @@ def test_bd_que_falla_tres_veces_degrada_con_alarma(monkeypatch):
     assert ctx.sin_base_de_datos is True
     [alarma] = ctx.alarm_manager.activas()
     assert alarma.codigo == "OPERANDO_SIN_BD"
-    assert alarma.definicion.bloquea_inicio is True
+    # T8 (D-03): alerta persistente no bloqueante
+    assert alarma.definicion.bloquea_inicio is False
     assert alarma.definicion.despeje.value == "MANUAL"
     with pytest.raises(BdNoDisponibleError):
         ctx.db.get_ciclo(1)

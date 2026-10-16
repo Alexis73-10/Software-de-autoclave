@@ -200,6 +200,7 @@ class UiBridge(QObject):
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
             "paro": self._ui.get_estado_flag("PARO_EMERGENCIA"),
             "estado_seguro": self._ui.get_campo("estado_seguro", {}),
+            "sin_bd": self._ui.get_campo("sin_base_de_datos", False),
         }) if self._connected else self._seguridad_de({}), self.seguridadChanged)
 
     @staticmethod
@@ -213,6 +214,8 @@ class UiBridge(QObject):
             "paro": bool(datos.get("paro")),
             "es_activo": es.get("activo") is True,
             "es_confirmar": es.get("requiere_confirmacion") is True,
+            # T8: el backend vuelve a exigir la confirmación por ciclo
+            "sin_bd": datos.get("sin_bd") is True,
         }
 
     def _fijar(self, atributo: str, valor, senal) -> None:
@@ -269,6 +272,11 @@ class UiBridge(QObject):
     @Property(bool, notify=seguridadChanged)
     def estadoSeguroRequiereConfirmacion(self) -> bool:
         return self._seguridad["es_confirmar"]
+
+    @Property(bool, notify=seguridadChanged)
+    def sinBaseDatos(self) -> bool:
+        """T8 (§7): el backend opera sin base de datos (OPERANDO_SIN_BD)."""
+        return self._seguridad["sin_bd"]
 
     @Property(int, constant=True)
     def door(self) -> int:

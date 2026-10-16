@@ -87,16 +87,45 @@ def test_bd_no_disponible_responde_503_sin_base_de_datos(servidor):
     assert r.json() == {"detail": "Base de datos no disponible", "codigo": "sin_base_de_datos"}
 
 
-def test_sin_bd_no_se_puede_iniciar_ciclo(servidor):
+def test_sin_bd_el_ciclo_exige_confirmacion(servidor):
+    """T8 (§7.6): sin base de datos, cada ciclo exige confirmar_sin_registro."""
     srv, ctx, client = servidor
     ctx.db = BdNoDisponible()
     ctx.sin_base_de_datos = True
     ctx.control_loop.bloqueo_configuracion = None
+    ctx.control_loop.apagando = False
     ctx.estado.get_flag.return_value = True     # LISTO_PARA_CICLO
     r = client.post("/cycle/start")
     assert r.status_code == 409
-    assert r.json()["codigo"] == "sin_base_de_datos"
+    assert r.json()["codigo"] == "confirmar_sin_registro"
     ctx.estado.set_flag.assert_not_called()     # START_CICLO nunca se levanta
+    r = client.post("/cycle/start", json={"confirmar_sin_registro": "si"})
+    assert r.status_code == 409                 # solo el booleano true confirma
+
+
+def test_sin_bd_con_confirmacion_inicia(servidor, monkeypatch):
+    srv, ctx, client = servidor
+    ctx.db = BdNoDisponible()
+    ctx.sin_base_de_datos = True
+    ctx.control_loop.bloqueo_configuracion = None
+    ctx.control_loop.apagando = False
+    ctx.estado.get_flag.return_value = True
+    monkeypatch.setattr(srv.sc, "verificar_inicio", lambda *a: None)
+    ctx.respaldo_ciclos.probar_escritura.return_value = "disco lleno"
+    r = client.post("/cycle/start", json={"confirmar_sin_registro": True})
+    assert r.status_code == 503 and r.json()["codigo"] == "respaldo_no_disponible"
+    ctx.estado.set_flag.assert_not_called()     # SAF-01: sin respaldo no hay ciclo
+    ctx.respaldo_ciclos.probar_escritura.return_value = None
+    r = client.post("/cycle/start", json={"confirmar_sin_registro": True})
+    assert r.status_code == 200
+    ctx.estado.set_flag.assert_called_once_with("START_CICLO", True)
+
+
+def test_db_estado(servidor):
+    srv, ctx, client = servidor
+    assert client.get("/db/estado").json()["estado"] == "OK"
+    ctx.sin_base_de_datos = True
+    assert client.get("/db/estado").json() == {"estado": "DEGRADADA", "sin_base_de_datos": True}
 
 
 def test_apagado_antes_de_construir_el_control_no_toca_la_tarjeta(servidor):

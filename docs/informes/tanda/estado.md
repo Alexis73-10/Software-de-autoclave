@@ -18,7 +18,7 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 | T5 E3 estado seguro | HECHA | dev-noche | ver git log | 3191 passed | `T5_estado_seguro.md` |
 | T6 E4 arranque seguro | HECHA | dev-noche | ver git log | 3213 passed | `T6_arranque_seguro.md` |
 | T7 E5 UI | HECHA | dev-noche | ver git log | 3239 passed | `T7_ui_e5.md` |
-| T8 Modo sin BD | pendiente | dev-noche | | | |
+| T8 Modo sin BD | HECHA | dev-noche | ver git log | 3290 passed | `T8_modo_sin_bd.md` |
 | T9 Menú de instalación | pendiente | dev-noche | | | |
 | T10 Endurecimiento | pendiente | dev-noche | | | |
 | T11 Programas | pendiente | dev-noche | | | |
@@ -30,4 +30,4 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 ## Etapa actual
 
-T8: modo sin base de datos (§7 y §9 con 1.7).
+T9: menú de instalación conectado (1.7).

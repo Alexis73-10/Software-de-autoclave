@@ -14,12 +14,14 @@ from autoclave.devices.io.set_io import SetOutput
 from autoclave.hal.measures.units import Units
 from autoclave.services.domain.loop.control_loop import ControlLoop
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.catalogo import CONFIGURACION_INVALIDA, OPERANDO_SIN_BD
+from autoclave.state_machine.alarms.catalogo import CONFIGURACION_INVALIDA, OPERANDO_SIN_BD, SIS_03
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
 from autoclave.core.managers.validacion_config import errores_config_arranque
-from autoclave.services.domain.logging.db_manager import DbManager
-from autoclave.services.domain.logging.cycle_logger import CycleLogger
+from autoclave.services.domain.logging.db_manager import (DB_DEFAULT, BdBloqueadaError, DbManager,
+                                                          apartar_base_corrupta, es_base_corrupta)
+from autoclave.core.runtime.respaldo_ciclos import RespaldoCiclos, reimportar
+from autoclave.services.domain.logging.cycle_logger import CycleLogger, EscritorBD
 from autoclave.services.domain.logging.historial_alarmas import HistorialAlarmas
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.devices.printer.realtime_printer import RealtimePrinter
@@ -160,9 +162,21 @@ class BackendContext:
                 self.calibration_audit = SensorCalibrationAuditDB()
                 self._numeracion_y_ciclos_interrumpidos()
                 return None
-            except Exception:
+            except BdBloqueadaError as e:
+                logger.critical("%s", e)
+                break
+            except Exception as e:
+                if es_base_corrupta(e):
+                    # §7.7: se aparta (nunca se borra) y no se reintenta
+                    try:
+                        destino = apartar_base_corrupta(DB_DEFAULT)
+                        logger.critical("Base de datos corrupta apartada en %s", destino)
+                    except Exception:
+                        logger.exception("No se pudo apartar la base de datos corrupta")
+                    break
                 logger.exception("Base de datos no disponible (intento %d de %d)", intento, intentos)
-        # PROVISIONAL hasta el modo sin BD (§7): sin registro no se inicia ciclo
+        # T8 (§7, D-03): el equipo opera sin base; los ciclos van al respaldo
+        # JSONL y al ticket, con confirmación explícita en cada inicio
         self.db = BdNoDisponible()
         self.calibration_audit = BdNoDisponible()
         self.sin_base_de_datos = True
@@ -215,6 +229,10 @@ class BackendContext:
             cycle_manager = self.cycle_manager,
             printer       = self.realtime_printer,
             contador      = self.contador_ciclos,
+            respaldo      = self.respaldo_ciclos,
+            sin_base_de_datos = self.sin_base_de_datos,
+            # TMG-01 de T8: la base del ciclo se escribe fuera del hilo del lazo
+            ejecutar_bd   = EscritorBD(),
         )
         # Historial persistente de alarmas (spec 2026-10-06 §6). El ciclo en
         # curso se lee al aparecer cada alarma.
@@ -303,6 +321,42 @@ class BackendContext:
             self._contador_ciclos = ContadorCiclos(app_root() / "data" / "ciclo_contador.json")
         return self._contador_ciclos
 
+    @property
+    def respaldo_ciclos(self) -> RespaldoCiclos:
+        """Respaldo JSONL por ciclo (T8, §7.4): data/respaldo_ciclos/."""
+        if getattr(self, "_respaldo_ciclos", None) is None:
+            self._respaldo_ciclos = RespaldoCiclos(app_root() / "data" / "respaldo_ciclos",
+                                                   al_fallar=self._respaldo_fallido)
+        return self._respaldo_ciclos
+
+    def _respaldo_fallido(self, error: str) -> None:
+        """SAF-01 de T8: alarma SIS-03 (aviso, despeje manual)."""
+        try:
+            self.alarm_manager.activar(SIS_03, error=error)
+        except Exception:
+            logger.exception("No se pudo activar la alarma de respaldo")
+
+    def _reimportar_respaldos(self) -> None:
+        """T8 (§7.4): ciclos del respaldo que no están en la base (ciclos sin
+        base de datos o con la base caída a mitad de ciclo) se reimportan;
+        idempotente por uuid."""
+        try:
+            r = reimportar(self.respaldo_ciclos, self.db, MOTIVO_INTERRUMPIDO)
+        except Exception:
+            logger.exception("No se pudieron reimportar los respaldos de ciclos")
+            return
+        for clave, evento in (("importados", "ciclo_reimportado"),
+                              ("completados", "ciclo_completado_desde_respaldo")):
+            for uuid_ciclo in r.get(clave, []):
+                logger.warning("Ciclo %s: %s", uuid_ciclo, evento)
+                try:
+                    self.db.registrar_auditoria(evento, usuario="sistema",
+                                                entidad=f"ciclo/{uuid_ciclo}")
+                except Exception:
+                    logger.exception("No se pudo auditar %s", evento)
+        for nombre in r["errores"]:
+            logger.error("Respaldo de ciclo %s no reimportado; se reintenta al arrancar", nombre)
+
     def _numeracion_y_ciclos_interrumpidos(self) -> None:
         """E4 (D-08, PF-17): sincroniza el contador con la base y cierra como
         INTERRUMPIDO todo ciclo sin fecha de fin. El último se recupera al
@@ -314,6 +368,7 @@ class BackendContext:
             logger.exception("No se pudo sincronizar el contador de ciclos")
         # TMG-03 de T6: marca persistente, independiente de la base
         self._marca_interrumpido = self.contador_ciclos.en_curso()
+        self._reimportar_respaldos()
         try:
             cerrados = self.db.cerrar_ciclos_interrumpidos(MOTIVO_INTERRUMPIDO)
         except Exception:

@@ -15,6 +15,7 @@ _AREAS = {"PUE", "CIC", "PRE", "COM", "SEN", "SUM", "SIS"}
 _EJEMPLOS = {
     "SIS-01": {"estado": "Preparación"},
     "SIS-02": {"error": "disk I/O error"},
+    "SIS-03": {"error": "No space left on device"},
     "SUM-01": {"fase": "Esterilización"},
     "SUM-02": {}, "SUM-03": {}, "SUM-04": {}, "SUM-05": {},
     "SUM-06": {"estado": "Ciclo"},

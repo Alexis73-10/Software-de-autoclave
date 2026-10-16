@@ -53,7 +53,7 @@ class DefinicionAlarma:
         return self.descripcion.format(**valores)
 
 
-SIS_01, SIS_02 = "SIS-01", "SIS-02"
+SIS_01, SIS_02, SIS_03 = "SIS-01", "SIS-02", "SIS-03"
 SUM_01, SUM_02, SUM_03, SUM_04, SUM_05, SUM_06 = (
     "SUM-01", "SUM-02", "SUM-03", "SUM-04", "SUM-05", "SUM-06")
 PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06 = (
@@ -106,6 +106,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "No se pudo guardar el historial de alarmas: {error}. Las alarmas siguen "
        "funcionando, pero no quedan registradas.",
        "Avise a soporte técnico."),
+    # T8 (SAF-01): el respaldo JSONL del ciclo no se pudo escribir. Sin base
+    # de datos es el único registro electrónico del ciclo.
+    _d(SIS_03, _AV, False, _M, "Respaldo del ciclo no disponible",
+       "No se pudo escribir el respaldo del ciclo: {error}. Sin base de datos, el "
+       "ciclo queda registrado solo en el ticket.",
+       "Avise a servicio técnico: revise el espacio y los permisos del disco."),
     _d(SUM_01, _FC, True, _M, "Corte eléctrico durante el ciclo",
        "Se perdió el suministro eléctrico en la fase {fase}. El ciclo se abortó.",
        "Verifique la alimentación del equipo antes de reiniciar."),
@@ -210,10 +216,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase "
        "{fase}. El ciclo se abortó.",
        "Verifique el cable USB y la alimentación de la tarjeta antes de reiniciar."),
-    # PROVISIONAL hasta el modo sin BD (T8): bloquea el inicio de ciclo.
-    _d(OPERANDO_SIN_BD, _AL, True, _M, "Base de datos no disponible",
-       "Base de datos no disponible: el inicio de ciclo queda bloqueado.",
-       "Reinicie el equipo. Si se repite, llame a servicio técnico."),
+    # T8 (D-03): alerta persistente, no bloqueante. Los ciclos se pueden
+    # iniciar con confirmación explícita y quedan en el respaldo y el ticket.
+    _d(OPERANDO_SIN_BD, _AL, False, _M, "Operando sin base de datos",
+       "Base de datos no disponible: los ciclos se registran solo en el respaldo y en "
+       "el ticket, sin operador. Opciones, calibración y usuarios no están disponibles.",
+       "Llame a servicio técnico para revisar la base de datos."),
     _d(CONFIGURACION_INVALIDA, _AL, True, _M, "Configuración inválida",
        "Configuración inválida: {motivo}",
        "Llame a servicio técnico para corregir la configuración."),

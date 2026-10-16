@@ -213,7 +213,9 @@
     "abrir_puerta": "ABRIR PUERTA",
     "cerrar_puerta": "CERRAR PUERTA",
     "modelo": "Modelo: ",
-    "serie": "Serie: "
+    "serie": "Serie: ",
+    "sin_bd_pregunta": "Base de datos no disponible. El ciclo se ejecutará sin operador y sin registro en la base de datos (solo respaldo y ticket). ¿Desea continuar sin registro?",
+    "sin_bd_continuar": "Continuar sin registro"
   },
   "unidades": {
     "temperatura": "°C",
@@ -453,7 +455,9 @@
     "clave_actual": "Contraseña actual",
     "clave_nueva": "Contraseña nueva",
     "confirmar_clave_nueva": "Confirmar contraseña nueva",
-    "boton_cambiar_clave": "CAMBIAR CONTRASEÑA"
+    "boton_cambiar_clave": "CAMBIAR CONTRASEÑA",
+    "sin_bd": "Base de datos no disponible: no se puede iniciar sesión. Opciones, calibración y usuarios no están disponibles. Los ciclos se pueden iniciar sin operador desde el menú principal.",
+    "continuar_sin_operador": "Continuar sin operador"
   },
   "usuarios": {
     "sin_permiso": "Su rol no puede crear usuarios",

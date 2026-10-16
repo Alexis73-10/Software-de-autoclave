@@ -235,10 +235,14 @@ class UIServiceBackend:
     # ACCIONES DE CICLO
     # ==============================
 
-    def start_cycle(self) -> bool:
-        """Envía POST /cycle/start. Retorna True si tuvo éxito."""
+    def start_cycle(self, confirmar_sin_registro: bool = False) -> bool:
+        """Envía POST /cycle/start. Retorna True si tuvo éxito. Sin base de
+        datos (T8) el backend exige `confirmar_sin_registro` en cada ciclo."""
         try:
-            self.backend.post(path="/cycle/start")
+            if confirmar_sin_registro:
+                self.backend.post(path="/cycle/start", body={"confirmar_sin_registro": True})
+            else:
+                self.backend.post(path="/cycle/start")
             return True
         except Exception as e:
             logger.warning("start_cycle error: %s", e)

@@ -17,6 +17,7 @@
 #               planeacion_backend_autenticacion.md §5.10)
 
 import json
+import os
 import sqlite3
 import logging
 import threading
@@ -218,6 +219,45 @@ _MIGRACIONES = (
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
 
 
+class BdBloqueadaError(RuntimeError):
+    """Existe la marca BD_BLOQUEADA (T8, §7.7)."""
+
+
+def marca_bd_bloqueada(db_path: Path = DB_DEFAULT) -> Path:
+    return Path(db_path).parent / "BD_BLOQUEADA"
+
+
+def es_base_corrupta(error: Exception) -> bool:
+    """True si el error de SQLite indica un archivo corrupto o que no es una
+    base (no un bloqueo ni un error de E/S transitorio)."""
+    if not isinstance(error, sqlite3.DatabaseError) or isinstance(error, sqlite3.OperationalError):
+        return False
+    texto = str(error).lower()
+    return "not a database" in texto or "malformed" in texto
+
+
+def apartar_base_corrupta(db_path: Path = DB_DEFAULT, ahora: datetime | None = None) -> Path:
+    """§7.7: la base corrupta no se borra ni se sobrescribe. Se renombra a
+    `autoclave.db.corrupta-<fecha>` y se deja la marca BD_BLOQUEADA, que
+    impide crear una base nueva y sembrar admin. Devuelve la ruta nueva."""
+    db_path = Path(db_path)
+    sello = (ahora or datetime.now()).strftime("%Y%m%d-%H%M%S")
+    destino = db_path.with_name(f"{db_path.name}.corrupta-{sello}")
+    # TMG-06 de T8: la marca va primero; si un archivo no se puede mover, el
+    # bloqueo ya rige y no se crea una base nueva junto a restos de la corrupta
+    marca = marca_bd_bloqueada(db_path)
+    marca.write_text(
+        f"Base de datos corrupta apartada en {destino.name} ({sello}).\n"
+        "No se crea una base nueva hasta que un técnico revise y borre este archivo.\n",
+        encoding="utf-8")
+    for sufijo in ("-wal", "-shm", "-journal"):
+        extra = db_path.with_name(db_path.name + sufijo)
+        if extra.exists():
+            os.replace(extra, destino.with_name(destino.name + sufijo))
+    os.replace(db_path, destino)
+    return destino
+
+
 class DbManager:
     """
     Singleton de acceso a la base de datos SQLite.
@@ -231,6 +271,12 @@ class DbManager:
 
     def __init__(self, db_path: Path = DB_DEFAULT):
         self._path = Path(db_path)
+        # T8 (§7.7, BD-06): tras detectar una base corrupta no se crea otra
+        # (ni se siembra admin) hasta que un técnico retire la marca
+        marca = marca_bd_bloqueada(self._path)
+        if marca.exists():
+            raise BdBloqueadaError(
+                f"Base de datos bloqueada por {marca.name}: requiere intervención de un técnico")
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(
@@ -239,8 +285,13 @@ class DbManager:
             timeout=10.0,              # espera un bloqueo de otro proceso (TMG-03 de T3)
         )
         self._conn.row_factory = sqlite3.Row
-        self._apply_schema()
-        self.seed_admin_if_empty()
+        try:
+            self._apply_schema()
+            self.seed_admin_if_empty()
+        except Exception:
+            # sin conexión abierta: en Windows impediría renombrar la base corrupta
+            self._conn.close()
+            raise
         logger.info("SQLite iniciado: %s", self._path)
 
     # ------------------------------------------------------------------
@@ -466,6 +517,119 @@ class DbManager:
                  codigo_fallo or "", f0_final, ciclo_id),
             )
             self._conn.commit()
+
+    def importar_ciclo_respaldo(self, encabezado: dict, lecturas: list[dict],
+                                cierre: dict | None, motivo_interrumpido: str) -> bool:
+        """Reimporta un ciclo del respaldo JSONL (T8, §7.4) en una sola
+        transacción. Idempotente por uuid. Devuelve "importado" (no estaba),
+        "completado" (estaba incompleto: la base falló a mitad de ciclo; se
+        agregan las lecturas que faltan y, si no tenía fin, el cierre del
+        respaldo; SAF-02) o "ya_registrado". Sin cierre, un ciclo nuevo queda
+        INTERRUMPIDO."""
+        uuid_ciclo = encabezado.get("uuid")
+        if not uuid_ciclo:
+            raise ValueError("respaldo sin uuid")
+        with self._lock:
+            fila = self._conn.execute("SELECT id, fecha_fin FROM ciclos WHERE uuid=?",
+                                      (uuid_ciclo,)).fetchone()
+            if fila is not None:
+                return self._completar_ciclo_respaldo(fila["id"], fila["fecha_fin"],
+                                                      lecturas, cierre)
+            try:
+                if cierre is not None:
+                    fin = (cierre.get("fecha_fin") or datetime.now().isoformat(),
+                           cierre.get("resultado") or "DESCONOCIDO",
+                           cierre.get("motivo") or "", cierre.get("codigo") or "",
+                           cierre.get("f0_final"))
+                else:
+                    fin = (datetime.now().isoformat(), "INTERRUMPIDO",
+                           motivo_interrumpido, "", None)
+                cur = self._conn.execute(
+                    """
+                    INSERT INTO ciclos
+                        (numero_ciclo, fecha_inicio, tipo_ciclo, nombre_ciclo,
+                         temp_esterilizacion, tiempo_esterilizacion,
+                         modelo, serie, version_sw, operador,
+                         asignacion_sensores, numero_programa, uuid, programa_json,
+                         fecha_fin, resultado, motivo_fallo, codigo_fallo, f0_final)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                    """,
+                    (
+                        encabezado.get("numero"),
+                        encabezado.get("fecha_inicio") or datetime.now().isoformat(),
+                        encabezado.get("tipo") or "",
+                        encabezado.get("nombre") or "",
+                        encabezado.get("temp_ester"),
+                        encabezado.get("tiempo_ester"),
+                        encabezado.get("modelo") or "",
+                        encabezado.get("serie") or "",
+                        encabezado.get("version_sw") or "",
+                        encabezado.get("operador") or "",
+                        encabezado.get("asignacion_sensores") or "",
+                        encabezado.get("numero_programa"),
+                        uuid_ciclo,
+                        encabezado.get("programa_json"),
+                    ) + fin,
+                )
+                ciclo_id = cur.lastrowid
+                for l in lecturas:
+                    self._insertar_lectura_respaldo(ciclo_id, l)
+                self._conn.commit()
+            except Exception:
+                self._conn.rollback()
+                raise
+        return "importado"
+
+    def _insertar_lectura_respaldo(self, ciclo_id: int, l: dict) -> None:
+        temp, pres, tp = l.get("temp"), l.get("pres"), l.get("temp_principal")
+        self._conn.execute(
+            """
+            INSERT INTO lecturas
+                (ciclo_id, timestamp_rel, timestamp_abs, fase_codigo,
+                 temp_camara, pres_camara, para_imprimir, temp_principal)
+            VALUES (?,?,?,?,?,?,?,?)
+            """,
+            (ciclo_id, l.get("timestamp_rel") or "", l.get("timestamp_abs") or "",
+             l.get("fase_codigo") or "",
+             round(temp, 2) if isinstance(temp, (int, float)) else None,
+             round(pres, 2) if isinstance(pres, (int, float)) else None,
+             1 if l.get("para_imprimir") else 0,
+             round(tp, 2) if isinstance(tp, (int, float)) else None),
+        )
+
+    def _completar_ciclo_respaldo(self, ciclo_id: int, fecha_fin, lecturas: list[dict],
+                                  cierre: dict | None) -> str:
+        """Con _lock tomado. SAF-02 de T8: agrega las lecturas del respaldo que
+        faltan (clave: timestamp_abs, timestamp_rel y fase) y, si la fila no
+        tiene fin, aplica el cierre del respaldo. Una fila ya cerrada conserva
+        su resultado."""
+        existentes = {
+            (r["timestamp_abs"], r["timestamp_rel"], r["fase_codigo"])
+            for r in self._conn.execute(
+                "SELECT timestamp_abs, timestamp_rel, fase_codigo FROM lecturas WHERE ciclo_id=?",
+                (ciclo_id,)).fetchall()
+        }
+        faltan = [l for l in lecturas
+                  if (l.get("timestamp_abs") or "", l.get("timestamp_rel") or "",
+                      l.get("fase_codigo") or "") not in existentes]
+        cerrar = fecha_fin is None and cierre is not None
+        if not faltan and not cerrar:
+            return "ya_registrado"
+        try:
+            for l in faltan:
+                self._insertar_lectura_respaldo(ciclo_id, l)
+            if cerrar:
+                self._conn.execute(
+                    "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
+                    "f0_final=? WHERE id=?",
+                    (cierre.get("fecha_fin") or datetime.now().isoformat(),
+                     cierre.get("resultado") or "DESCONOCIDO", cierre.get("motivo") or "",
+                     cierre.get("codigo") or "", cierre.get("f0_final"), ciclo_id))
+            self._conn.commit()
+        except Exception:
+            self._conn.rollback()
+            raise
+        return "completado"
 
     def get_ciclo(self, ciclo_id: int):
         with self._lock:

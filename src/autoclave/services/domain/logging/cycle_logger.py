@@ -24,6 +24,8 @@ import time
 import logging
 import importlib.metadata
 import json
+import queue
+import threading
 import uuid
 from datetime import datetime
 from autoclave.state_machine.machine.enum_global import GlobalState
@@ -89,6 +91,53 @@ _INTERVALO_DEFAULT: dict[str, int] = {
 }
 
 
+class _RegistroBD:
+    """Registro en la base del ciclo en curso (TMG-01 de T8). `id` lo fija la
+    tarea que crea el ciclo; `fallido` corta toda escritura posterior del
+    ciclo tras el primer error (el ciclo sigue en el respaldo y el ticket)."""
+    __slots__ = ("id", "fallido")
+
+    def __init__(self):
+        self.id: int | None = None
+        self.fallido = False
+
+
+class EscritorBD:
+    """TMG-01 de T8: las escrituras del ciclo en SQLite (lock compartido con el
+    backend y timeout de 10 s) salen del hilo del lazo. Un hilo propio las
+    ejecuta en orden; la cola es acotada y, llena, `__call__` lanza
+    queue.Full (el CycleLogger corta el registro en la base del ciclo)."""
+
+    def __init__(self, maximo: int = 1000):
+        self._cola: queue.Queue = queue.Queue(maxsize=maximo)
+        self._hilo = threading.Thread(target=self._correr, name="CycleLoggerBD", daemon=True)
+        self._hilo.start()
+
+    def __call__(self, tarea) -> None:
+        self._cola.put_nowait(tarea)
+
+    def _correr(self) -> None:
+        while True:
+            tarea = self._cola.get()
+            if tarea is None:
+                return
+            try:
+                tarea()
+            except Exception:
+                logger.exception("CycleLogger: error en la escritura en la base")
+
+    def detener(self, timeout: float = 2.0) -> None:
+        try:
+            self._cola.put(None, timeout=timeout)
+        except queue.Full:
+            return
+        self._hilo.join(timeout)
+
+
+def _en_linea(tarea) -> None:
+    tarea()
+
+
 class CycleLogger:
     """
     Servicio de logging de datos del ciclo de esterilización.
@@ -102,7 +151,8 @@ class CycleLogger:
     """
 
     def __init__(self, db, estado, config, profile, cycle_manager, printer=None,
-                 reloj_mono=time.monotonic, contador=None):
+                 reloj_mono=time.monotonic, contador=None, respaldo=None,
+                 sin_base_de_datos=False, ejecutar_bd=None):
         self.db            = db
         self.estado        = estado
         self.config        = config
@@ -114,13 +164,21 @@ class CycleLogger:
         self.programa_en_ejecucion = None
         # Contador persistente de ciclos (E4, §7.5); sin él, MAX(numero)+1
         self.contador = contador
+        # Respaldo JSONL por ciclo (T8, §7.4): se escribe siempre, con y sin base
+        self.respaldo = respaldo
+        # Arranque sin base de datos (OPERANDO_SIN_BD): el ticket lo indica
+        self.sin_base_de_datos = sin_base_de_datos
+        # TMG-01 de T8: el backend pasa un EscritorBD (hilo propio); sin él,
+        # en línea (pruebas)
+        self._ejecutar_bd = ejecutar_bd or _en_linea
+        self._reg: _RegistroBD | None = None
+        self._reg_cerrado: _RegistroBD | None = None   # ciclo ya cerrado, aún en CICLO
         self.uuid_ciclo: str | None = None
         self._numero_reservado: int | None = None
         self.sin_registro = False
 
         # Estado interno
         self._activo            = False
-        self._ciclo_id: int | None = None
         self._ciclo_inicio      = None    # time.time() al iniciar
         # Reloj monotónico del último registro (None = registrar ya). Intervalos
         # y tiempo transcurrido con monotonic: un salto del reloj de pared no
@@ -143,7 +201,6 @@ class CycleLogger:
         self._t_fin_s: float | None = None    # transcurrido congelado al terminar
         self._fase_seguida: str | None = None
         self._proxima_muestra_s: float | None = None
-        self._ciclo_id_cerrado: int | None = None   # ciclo ya cerrado, aún en CICLO
 
     # ------------------------------------------------------------------
     # API pública
@@ -180,9 +237,13 @@ class CycleLogger:
                 resultado = self.estado.fase_ciclo or "DESCONOCIDO"
                 self._on_fin(resultado)
             self._cierre_ya_procesado = False
-            self._ciclo_id_cerrado = None
+            self._reg_cerrado = None
             self._t0_mono = None
             self._t_fin_s = None
+
+    @property
+    def _ciclo_id(self) -> int | None:
+        return self._reg.id if self._reg is not None else None
 
     @property
     def ciclo_id(self) -> int | None:
@@ -198,7 +259,9 @@ class CycleLogger:
         """ID en BD del ciclo que muestra la pantalla de ciclo en curso: el
         activo, o el recién cerrado por fallo/cancelación mientras la máquina
         sigue en CICLO esperando confirmación (ciclo_id ya es None ahí)."""
-        return self._ciclo_id if self._ciclo_id is not None else self._ciclo_id_cerrado
+        if self._ciclo_id is not None:
+            return self._ciclo_id
+        return self._reg_cerrado.id if self._reg_cerrado is not None else None
 
     def transcurrido_s(self) -> float | None:
         """Segundos monotónicos desde el inicio del ciclo, congelados al
@@ -228,7 +291,7 @@ class CycleLogger:
             self._on_inicio()
         except Exception:
             logger.exception("CycleLogger: no se pudo registrar el inicio del ciclo")
-            self._ciclo_id = None
+            self._reg = None
             self._activo = True
             self.sin_registro = True
             self._t0_mono = self._reloj_mono()
@@ -286,7 +349,8 @@ class CycleLogger:
             except Exception:
                 logger.exception("CycleLogger: no se pudo marcar el ciclo en curso")
 
-        self._ciclo_id = self.db.crear_ciclo(
+        fecha_inicio = datetime.now().isoformat()
+        datos_ciclo = dict(
             numero      = numero,
             tipo        = tipo,
             nombre      = nombre,
@@ -297,9 +361,25 @@ class CycleLogger:
             version_sw  = version_sw,
             asignacion_sensores = asignacion,
             numero_programa = numero_programa,
-            uuid        = self.uuid_ciclo,
             programa_json = programa_json,
         )
+        # T8 (§7.4): respaldo antes de la base, con los mismos datos
+        if self.respaldo is not None:
+            self.respaldo.encabezado(self.uuid_ciclo, {
+                **datos_ciclo, "fecha_inicio": fecha_inicio,
+                "operador": "SIN OPERADOR / SIN BD" if self.sin_base_de_datos else "",
+            })
+
+        # T8 (BD-02, §7.3; TMG-01): la base se escribe fuera del tick y un
+        # fallo no detiene el ciclo; el registro sigue en el respaldo y el ticket
+        self._reg = _RegistroBD()
+        self.sin_registro = self.sin_base_de_datos
+        if self.sin_base_de_datos:
+            self._reg.fallido = True
+        else:
+            uuid_ciclo = self.uuid_ciclo
+            self._bd("crear el ciclo",
+                     lambda _id: self.db.crear_ciclo(uuid=uuid_ciclo, **datos_ciclo), crea=True)
         self._numero_reservado = None
         self._ciclo_inicio       = time.time()
         self._ultimo_log         = None   # primera lectura se hace inmediatamente
@@ -312,7 +392,7 @@ class CycleLogger:
         self._t_fin_s            = None
         self._fase_seguida       = None
         self._proxima_muestra_s  = None
-        self._ciclo_id_cerrado   = None
+        self._reg_cerrado        = None
 
         if self.printer is not None:
             meta = {
@@ -324,21 +404,25 @@ class CycleLogger:
                 "tipo_ciclo":            tipo,
                 "temp_esterilizacion":   temp_e,
                 "tiempo_esterilizacion": t_e,
-                "fecha_inicio":          datetime.now().isoformat(),
+                "fecha_inicio":          fecha_inicio,
+                "sin_registro":          self.sin_base_de_datos,
             }
             self.printer.enqueue(format_header(meta))
 
         logger.info(
-            "CycleLogger: ciclo #%05d iniciado → DB id=%d | %s",
+            "CycleLogger: ciclo #%05d iniciado → DB id=%s | %s",
             numero, self._ciclo_id, nombre
         )
 
     def _on_fin(self, resultado: str):
-        if self._ciclo_id is not None:
+        # T8: también sin registro en la base (respaldo y ticket siguen)
+        if self._activo:
             if self._t_fin_s is None and self._t0_mono is not None:
                 self._t_fin_s = self._reloj_mono() - self._t0_mono
-                self._guardar(self.db.cerrar_fase_abierta, self._ciclo_id, self._t_fin_s)
-            self._ciclo_id_cerrado = self._ciclo_id
+                t_fin = self._t_fin_s
+                self._bd("cerrar la fase", lambda i: self.db.cerrar_fase_abierta(i, t_fin),
+                         presentacion=True)
+            self._reg_cerrado = self._reg
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
@@ -352,7 +436,14 @@ class CycleLogger:
                     f0_total = self.estado.f0_acumulado
             except Exception as exc:
                 logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
-            self.db.cerrar_ciclo(self._ciclo_id, resultado, motivo, codigo, f0_final=f0_total)
+            # TMG-03 de T8: primero el respaldo, después la base
+            if self.respaldo is not None and self.uuid_ciclo:
+                self.respaldo.cierre(self.uuid_ciclo, {
+                    "fecha_fin": datetime.now().isoformat(), "resultado": resultado,
+                    "motivo": motivo, "codigo": codigo, "f0_final": f0_total,
+                })
+            self._bd("cerrar el ciclo", lambda i: self.db.cerrar_ciclo(
+                i, resultado, motivo, codigo, f0_final=f0_total))
 
             if self.printer is not None:
                 self.printer.enqueue(format_footer(
@@ -362,11 +453,11 @@ class CycleLogger:
                 ))
 
             logger.info(
-                "CycleLogger: ciclo id=%d cerrado → %s", self._ciclo_id, resultado
+                "CycleLogger: ciclo id=%s cerrado → %s", self._ciclo_id, resultado
             )
 
         self._activo            = False
-        self._ciclo_id          = None
+        self._reg               = None
         self._ciclo_inicio      = None
         self._ultima_fase_codigo = None
         self._numero_reservado  = None
@@ -381,7 +472,7 @@ class CycleLogger:
     # ------------------------------------------------------------------
 
     def _seguir_pantalla(self):
-        if self._ciclo_id is None or self._t0_mono is None:
+        if self._reg is None or self._reg.fallido or self._t0_mono is None:
             return
         fase = self.estado.fase_ciclo or ""
         t = self._reloj_mono() - self._t0_mono
@@ -389,32 +480,62 @@ class CycleLogger:
 
         if fase != self._fase_seguida:
             if self._fase_seguida is not None:
-                self._guardar(self.db.cerrar_fase_abierta, self._ciclo_id, t)
+                self._bd("cerrar la fase", lambda i: self.db.cerrar_fase_abierta(i, t),
+                         presentacion=True)
             if en_curso:
-                self._guardar(self.db.abrir_fase, self._ciclo_id, fase, t)
+                self._bd("abrir la fase", lambda i: self.db.abrir_fase(i, fase, t),
+                         presentacion=True)
             elif self._t_fin_s is None:
                 self._t_fin_s = t    # COMPLETADO / cierre anormal: el reloj se detiene
             self._fase_seguida = fase
 
         if en_curso and (self._proxima_muestra_s is None or t >= self._proxima_muestra_s):
-            self._guardar(
-                self.db.insertar_lectura_grafica, self._ciclo_id, t, fase,
-                self.estado.sensores_temp.get("temp_camara"),
-                self.estado.sensores_temp.get("temp_ref"),
-                self.estado.sensores_pres.get("pres_camara"),
-                self.estado.sensores_temp.get("temp_2_camara"),
-            )
+            valores = (t, fase,
+                       self.estado.sensores_temp.get("temp_camara"),
+                       self.estado.sensores_temp.get("temp_ref"),
+                       self.estado.sensores_pres.get("pres_camara"),
+                       self.estado.sensores_temp.get("temp_2_camara"))
+            self._bd("guardar la gráfica",
+                     lambda i: self.db.insertar_lectura_grafica(i, *valores),
+                     presentacion=True)
             # sin ráfagas de recuperación si un tick llega tarde
             siguiente = (self._proxima_muestra_s or t) + _PERIODO_GRAFICA_S
             self._proxima_muestra_s = siguiente if siguiente > t else t + _PERIODO_GRAFICA_S
 
-    def _guardar(self, operacion, *args):
-        """La gráfica y los tramos son solo presentación: un error de BD aquí
-        se registra y no corta el tick del control loop."""
+    def _bd(self, que: str, operacion, crea: bool = False, presentacion: bool = False):
+        """Escritura del ciclo en la base, fuera del tick (TMG-01 de T8).
+        `operacion(id)` corre en el ejecutor con el id del ciclo; sin id (aún no
+        creado o fallido) no corre. Un error corta el resto del registro del
+        ciclo en la base (cortacircuito), salvo en los datos de pantalla
+        (gráfica y tramos), que solo se registran en el log."""
+        reg = self._reg
+        if reg is None or reg.fallido:
+            return
+
+        def tarea():
+            if reg.fallido or (not crea and reg.id is None):
+                return
+            try:
+                resultado = operacion(reg.id)
+            except Exception as exc:
+                if presentacion:
+                    logger.warning("CycleLogger: no se pudo %s: %s", que, exc)
+                    return
+                logger.exception("CycleLogger: no se pudo %s en la base; el ciclo sigue "
+                                 "en el respaldo y el ticket", que)
+                reg.fallido = True
+                self.sin_registro = True
+                return
+            if crea:
+                reg.id = resultado
+
         try:
-            operacion(*args)
-        except Exception as exc:
-            logger.warning("CycleLogger: no se pudo guardar dato de pantalla: %s", exc)
+            self._ejecutar_bd(tarea)
+        except Exception:
+            logger.exception("CycleLogger: cola de escritura en la base llena; se corta "
+                             "el registro del ciclo en la base")
+            reg.fallido = True
+            self.sin_registro = True
 
     # ------------------------------------------------------------------
     # Tick: evaluar si es momento de registrar
@@ -454,7 +575,8 @@ class CycleLogger:
     # ------------------------------------------------------------------
 
     def _registrar_lectura(self, fase_codigo: str, para_imprimir: bool = False):
-        if self._ciclo_id is None:
+        # T8: sin registro en la base, la lectura va igual al respaldo y al ticket
+        if not self._activo:
             return
 
         ahora   = self._reloj_mono()
@@ -472,8 +594,7 @@ class CycleLogger:
         if temp is not None:
             self._ultima_temp = temp
 
-        self.db.insertar_lectura(
-            ciclo_id      = self._ciclo_id,
+        lectura = dict(
             timestamp_rel = timestamp_rel,
             timestamp_abs = datetime.now().isoformat(),
             fase_codigo   = fase_codigo,
@@ -482,6 +603,10 @@ class CycleLogger:
             para_imprimir = para_imprimir,
             temp_principal = temp,
         )
+        # TMG-03 de T8: primero el respaldo, después la base
+        if self.respaldo is not None and self.uuid_ciclo:
+            self.respaldo.lectura(self.uuid_ciclo, lectura)
+        self._bd("guardar la lectura", lambda i: self.db.insertar_lectura(ciclo_id=i, **lectura))
         self._ultimo_log = ahora
 
         if para_imprimir and self.printer is not None:

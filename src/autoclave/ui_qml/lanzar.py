@@ -24,7 +24,7 @@ import time
 import requests
 
 from autoclave.ui_qml.app import BACKEND_URL
-from autoclave.ui_qml.doble_pantalla import RAIZ_PROYECTO, comandos
+from autoclave.ui_qml.doble_pantalla import RAIZ_PROYECTO, comandos, vigilar_pantallas
 
 logger = logging.getLogger(__name__)
 
@@ -76,17 +76,6 @@ def _entorno(url: str | None) -> dict:
     return entorno
 
 
-def _esperar_pantallas(procesos) -> None:
-    try:
-        for p in procesos:
-            p.wait()
-    except KeyboardInterrupt:
-        logger.info("Cerrando las pantallas...")
-        for p in procesos:
-            if p.poll() is None:
-                p.terminate()
-
-
 def main(argv=None, popen=subprocess.Popen, esperar=esperar_backend) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
@@ -109,12 +98,10 @@ def main(argv=None, popen=subprocess.Popen, esperar=esperar_backend) -> int:
                            "cuando esté disponible.", BACKEND_URL)
         entorno = _entorno(None)
 
-    procesos = []
     try:
-        for cmd in _comandos_ui(args):
-            logger.info("Lanzando: %s", " ".join(cmd[1:]))
-            procesos.append(popen(cmd, cwd=str(RAIZ_PROYECTO), env=entorno))
-        _esperar_pantallas(procesos)
+        # D-04 (T8): una pantalla cerrada se relanza hasta 3 veces, cada 5 s
+        vigilar_pantallas(_comandos_ui(args),
+                          lambda cmd: popen(cmd, cwd=str(RAIZ_PROYECTO), env=entorno))
     finally:
         if simulador is not None and simulador.poll() is None:
             logger.info("Deteniendo el simulador")
