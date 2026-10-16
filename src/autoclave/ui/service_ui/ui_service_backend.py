@@ -6,6 +6,10 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# Apagar equipo sin respuesta del backend (TMG-02 de T7): no es un rechazo
+APAGADO_INCIERTO = ("Sin respuesta del controlador: el apagado puede estar en curso. "
+                    "Espere antes de volver a intentarlo.")
+
 
 class UIServiceBackend:
     """
@@ -257,6 +261,42 @@ class UIServiceBackend:
         except Exception as e:
             logger.warning("acknowledge_cycle error: %s", e)
             return False
+
+    def get_campo(self, clave, defecto=None):
+        """Campo de primer nivel de /status (caché), o `defecto`."""
+        with self._lock:
+            return self._cache.get(clave, defecto)
+
+    def confirmar_estado_seguro(self) -> bool:
+        """POST /safe-state/confirm (fin de ciclo §15.2). True si lo aceptó."""
+        try:
+            self.backend.post(path="/safe-state/confirm")
+            return True
+        except Exception as e:
+            logger.warning("confirmar_estado_seguro error: %s", e)
+            return False
+
+    def apagar_equipo(self, ventana: str) -> tuple[bool, str]:
+        """POST /system/shutdown (fin de ciclo §16). (ok, motivo del rechazo)."""
+        try:
+            # TMG-02 de T7: la petición espera el lock de la máquina y la
+            # bitácora; con 0.8 s se mostraba "falló" mientras se apagaba
+            self.backend.post(path="/system/shutdown", body={"ventana": ventana}, timeout=10.0)
+            return True, ""
+        except Exception as e:
+            respuesta = getattr(e, "response", None)
+            if respuesta is None:
+                # sin respuesta HTTP no se sabe si el backend lo aceptó
+                logger.warning("apagar_equipo sin respuesta: %s", e)
+                return False, APAGADO_INCIERTO
+            motivo = ""
+            try:
+                # SAF-02 de T7: RechazoApi responde {"detail", "codigo"}
+                motivo = str(respuesta.json().get("detail", "") or "")
+            except Exception:
+                motivo = ""
+            logger.warning("apagar_equipo rechazado: %s", motivo or e)
+            return False, motivo or str(e)
 
     def reset_fault(self) -> bool:
         """Envía POST /fault/reset para salir del estado FALLA. Retorna True si tuvo éxito."""

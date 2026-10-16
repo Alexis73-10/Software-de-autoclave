@@ -77,6 +77,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-14 | Tanda E-0 | `alarmas.<ID>.titulo` y `alarmas.<ID>.accion` para los 9 ids de la tarjeta de E/S (`TARJETA_SIN_TRAMA_VALIDA`, `TARJETA_VERSION_INCOMPATIBLE`, `TARJETA_SIN_ACK`, `TARJETA_ALL_OFF_SIN_CONFIRMAR`, `TARJETA_SALIDAS_NO_APAGADAS`, `TARJETA_EXPANSOR_FUERA_DE_LINEA`, `TARJETA_WATCHDOG`, `TARJETA_REINICIO`, `DISCREPANCIA_SALIDAS`) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 
 | 2026-10-14 | Tanda T3 | `sensores_ciclo.*` (nombres de ubicación Cámara 1/2 y Referencia, roles y estados de los sensores) y `validacion.ASIGNACION_INVALIDA`, `validacion.SENSOR_NO_DISPONIBLE`, `validacion.ASIGNACION_SENSORES_INVALIDA` | Ciclo y fases | sin revisar |
+| 2026-10-15 | Tanda T7 | `sistema.no_abrir`, `sistema.paro_no_abrir`, `sistema.paro_liberado`, `sistema.confirmar_estado_seguro`, `sistema.estado_seguro_en_curso`, `equipo.apagar`, `equipo.apagar_pregunta`, `equipo.apagar_rechazado` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 
 ## Registro de revisiones
 

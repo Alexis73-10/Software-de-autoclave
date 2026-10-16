@@ -26,6 +26,8 @@ Item {
     property QtObject puente: null      // UiBridge: alarmas de la campana (contador y panel)
     property QtObject resumen: null     // ResumenSistema (o datos de ejemplo del arnés)
     property QtObject infoEquipo: null  // InfoEquipo: panel de información del equipo
+    // ComandosSistema (E5): Apagar equipo en el panel de equipo
+    property QtObject comandosSistema: null
     property QtObject historial: null   // CiclosHistorial: listados de Ciclos hoy e Historial
     property QtObject acciones: null    // AccionesCiclos: imprimir / enviar por correo (Historial, Reportes)
     property QtObject reporte: null     // ReporteResumen: resumen por periodo de Reportes
@@ -1007,6 +1009,7 @@ Item {
         alarmas: raiz.puente?.alarms ?? null
     }
     PanelEquipo {
+        comandosSistema: raiz.comandosSistema
         id: panelEquipo
         objectName: "panelEquipoMenu"
         titulo: I18n.t("equipo.titulo", I18n.lang)

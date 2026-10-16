@@ -334,7 +334,10 @@
     "emparejamiento_tarjeta": "Equipment board",
     "tarjeta_emparejada": "Paired",
     "tarjeta_no_emparejada": "Not paired (notice)",
-    "no_disponible": "Not available"
+    "no_disponible": "Not available",
+    "apagar": "Shut down equipment",
+    "apagar_pregunta": "The equipment will shut down completely (including the PC). Do you want to continue?",
+    "apagar_rechazado": "Cannot shut down: {motivo}"
   },
   "formulario": {
     "nombre_completo": "Full Name",
@@ -423,7 +426,12 @@
   "sistema": {
     "sin_conexion": "No connection with the controller. The values shown are not up to date.",
     "modo_prueba": "TEST MODE ACTIVE — cycles are not valid for sterile loads",
-    "sin_lectura": "—"
+    "sin_lectura": "—",
+    "no_abrir": "DO NOT OPEN",
+    "paro_no_abrir": "EMERGENCY STOP — DO NOT OPEN",
+    "paro_liberado": "Emergency stop released. Check that there is no leak before continuing.",
+    "confirmar_estado_seguro": "Confirm and bring to safe state",
+    "estado_seguro_en_curso": "Bringing the chamber to a safe state"
   },
   "sesion": {
     "campos_vacios": "Enter username and password",

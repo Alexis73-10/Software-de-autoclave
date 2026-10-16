@@ -396,15 +396,17 @@ Item {
             ]
 
             pie: [
-                BarraInferior {
-                    anchors.fill: parent
-                    version: "V: 1.0"
-                    botones: [
-                        { icono: "salir_sesion",  activo: false },
-                        { icono: "historial",     activo: false },
-                        { icono: "mantenimiento", activo: false },
-                        { icono: "casa",          activo: true, accion: function() { raiz.inicioPulsado() } }
-                    ]
+                // E5 (tanda 2026-10-14): la misma barra inferior del Menú
+                // Principal y de Opciones (Salir deshabilitado sin sesión, Inicio
+                // activo) y la versión real del software, en vez de "V: 1.0" fija.
+                BarraInferiorMenu {
+                    objectName: "barraInferiorLogin"
+                    anchors.centerIn: parent
+                    escala: Math.min(parent.width / 1128, parent.height / 139)
+                    version: I18n.t("app.version", I18n.lang)
+                    salirHabilitado: false
+                    inicioActivo: true
+                    onInicioPulsado: raiz.inicioPulsado()
                 }
             ]
         }

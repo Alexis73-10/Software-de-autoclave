@@ -257,7 +257,8 @@ def test_el_puente_no_envia_comandos_ni_hace_red():
         puente.refrescar()
     usados = {c[0] for c in ui.method_calls}
     assert usados <= {"get_estado_global", "get_estado_puerta", "get_estado_flag", "get_alarmas",
-                      "get_cycle", "get_sensores_temp", "get_sensores_pres"}
+                      "get_cycle", "get_sensores_temp", "get_sensores_pres",
+                      "get_campo"}   # get_campo: lectura del caché (E5, tanda)
 
 
 # ── número de ciclo, puerta abierta y estado del equipo ───────────────────

@@ -37,6 +37,8 @@ Item {
     // comandoFalla: botón RECONOCER FALLA (T-16), visible solo en FALLA
     property QtObject comandoFalla: null
     property QtObject infoEquipo: null
+    // ComandosSistema (E5): Apagar equipo en el panel de equipo
+    property QtObject comandosSistema: null
 
     // ---- datos del backend ----
     // "?." evita TypeError si no hay puente o al destruir la pantalla
@@ -750,6 +752,7 @@ Item {
         alarmas: raiz.alarmas
     }
     PanelEquipo {
+        comandosSistema: raiz.comandosSistema
         id: panelEquipo
         titulo: I18n.t("equipo.titulo", I18n.lang)
         textoCerrar: I18n.t("acciones.cerrar", I18n.lang)

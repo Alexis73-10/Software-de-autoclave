@@ -14,6 +14,9 @@ PanelModal {
     altoTarjeta: Escala.px(1500)
 
     property var filas: []
+    // ComandosSistema (E5): "Apagar equipo" solo en la ventana principal (§16)
+    property QtObject comandosSistema: null
+    readonly property bool puedeApagar: comandosSistema?.ventanaPrincipal ?? false
     property string sinLectura: "—"
     // Texto de la sección "equipo"; la clave misma si no existe (como antes de F1)
     function textoEquipo(clave) {
@@ -21,7 +24,9 @@ PanelModal {
     }
 
     ListView {
-        anchors.fill: parent
+        anchors.left: parent.left; anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: raiz.puedeApagar ? zonaApagar.top : parent.bottom
         clip: true
         model: raiz.filas
         delegate: Item {
@@ -61,5 +66,57 @@ PanelModal {
                 color: "#E6E6E6"
             }
         }
+    }
+
+    // PROVISIONAL (sin diseño): Apagar equipo (fin de ciclo §16, D-20). El
+    // backend exige cámara segura y estado distinto de CICLO / estado seguro.
+    Column {
+        id: zonaApagar
+        visible: raiz.puedeApagar
+        anchors.left: parent.left; anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        spacing: Escala.px(8)
+        Text {
+            objectName: "mensajeApagar"
+            width: parent.width
+            visible: text.length > 0
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            text: (raiz.comandosSistema?.mensaje ?? "").length > 0
+                  ? I18n.t("equipo.apagar_rechazado", I18n.lang,
+                           {motivo: raiz.comandosSistema.mensaje}) : ""
+            color: Colores.advertenciaTexto
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(18)
+        }
+        Rectangle {
+            objectName: "botonApagarEquipo"
+            anchors.horizontalCenter: parent.horizontalCenter
+            width: textoApagar.implicitWidth + Escala.px(64)
+            height: Escala.px(72)
+            radius: Escala.px(36)
+            color: "#B71C1C"
+            opacity: (raiz.comandosSistema?.ocupado ?? false) ? 0.5 : 1.0
+            Text {
+                id: textoApagar
+                anchors.centerIn: parent
+                text: I18n.t("equipo.apagar", I18n.lang)
+                color: "white"
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: Escala.fuente(22)
+            }
+            MouseArea { anchors.fill: parent; onClicked: confirmarApagar.abrir() }
+        }
+    }
+
+    DialogoConfirmacion {
+        id: confirmarApagar
+        objectName: "confirmarApagar"
+        mensaje: I18n.t("equipo.apagar_pregunta", I18n.lang)
+        textoConfirmar: I18n.t("equipo.apagar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        colorConfirmar: "#B71C1C"
+        onConfirmado: { cerrar(); raiz.comandosSistema?.apagarEquipo() }
     }
 }

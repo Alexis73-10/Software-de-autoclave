@@ -71,6 +71,9 @@ class ControlLoop:
         self.link           = link
         self.set_do         = set_do
         self._running       = threading.Event()
+        # "Apagar equipo" aceptado (TMG-01 de T7): desde aquí ningún tick toca
+        # la máquina de estados, aunque estuviera esperando el lock
+        self._apagando      = False
         # Reentrante: el backend lo toma en su guard de estado
         # (bloqueo_maquina) y dentro llama a enter/exit_test_mode, que también
         # lo toman (planeacion_backend_autenticacion.md, revisión de la etapa 1).
@@ -526,6 +529,9 @@ class ControlLoop:
         # aquí se decide según _test_mode no puede quedar desfasado a mitad de
         # tick (revisión de la etapa 1 de autenticación, TMG-04 / SAF-03).
         with self._sm_lock:
+            # TMG-01 de T7: apagado aceptado mientras este tick esperaba el lock
+            if self._apagando:
+                return
             # 2c. Salvaguarda: si se activa el paro de emergencia estando en
             # modo prueba, se cancela el modo prueba de inmediato para que la
             # máquina de estados retome el control y aplique su protocolo de
@@ -628,6 +634,20 @@ class ControlLoop:
         self.thread = threading.Thread(target=self.run, name="ControlLoop", daemon=True)
         self.thread.start()
 
+    @property
+    def apagando(self) -> bool:
+        return self._apagando
+
+    def iniciar_apagado(self) -> None:
+        """"Apagar equipo" (TMG-01 de T7): llamado bajo _sm_lock por el
+        backend, en el mismo bloque que validó el apagado. Descarta un
+        START_CICLO pendiente y detiene el lazo sin esperar el hilo (el tick
+        espera este mismo lock); stop() hace después el join y el ALL_OFF."""
+        with self._sm_lock:
+            self._apagando = True
+            self.estado.set_flag("START_CICLO", False)
+            self._running.clear()
+
     def stop(self):
         # Primero se detiene el lazo y después se apaga (TMG-11 de E6, TMG-02
         # de T1): un tick que corriera tras el ALL_OFF podía volver a encender
@@ -637,8 +657,15 @@ class ControlLoop:
         if self.thread and threading.current_thread() is not self.thread:
             self.thread.join(timeout=3)
 
+        if self.thread and self.thread.is_alive():
+            logger.error("Control loop: el hilo no terminó en 3 s; se apaga igual")
+
         if self.link:
-            self.link.all_off()
+            # TMG-04 de T7: un ALL_OFF sin confirmar se reintenta una vez y se
+            # registra; el respaldo final es el watchdog de la tarjeta
+            if not self.link.all_off() and not self.link.all_off():
+                logger.error("Control loop: ALL_OFF sin confirmar al detener; "
+                             "queda el watchdog de la tarjeta")
             self.link.stop()
 
         logger.info("Control loop detenido.")

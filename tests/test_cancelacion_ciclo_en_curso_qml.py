@@ -82,7 +82,8 @@ _SCRIPT = textwrap.dedent(r"""
 
     def dialogo():
         return [o for o in ventana.findChildren(QObject)
-                if o.metaObject().className().startswith("DialogoConfirmacion_QML")][0]
+                if o.metaObject().className().startswith("DialogoConfirmacion_QML")
+                and o.objectName() != "confirmarApagar"][0]   # el de Apagar equipo (E5) no
 
     def aviso():
         return [o for o in ventana.findChildren(QObject)

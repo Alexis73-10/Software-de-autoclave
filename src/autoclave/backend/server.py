@@ -3,6 +3,7 @@
 from types import SimpleNamespace
 import logging
 import sqlite3
+import sys
 import threading
 from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, time, timedelta
@@ -1211,6 +1212,8 @@ def start_cycle():
         # alarma OPERANDO_SIN_BD: un ciclo sin registro rompe la trazabilidad
         _rechazar(409, "sin_base_de_datos",
                   "Base de datos no disponible: no se puede iniciar un ciclo", "/cycle/start")
+    if getattr(context.control_loop, "apagando", False) is True:
+        _rechazar(409, "apagado_en_curso", "El equipo se está apagando", "/cycle/start")
 
     if not estado.get_flag("LISTO_PARA_CICLO"):
         raise HTTPException(
@@ -1274,6 +1277,82 @@ def reset_fault():
     context.control_loop.confirmar_estado_seguro()
     _auditar("falla_reconocida", entidad=entidad)
     return {"ok": True, "action": "RESET_FALLA"}
+
+
+# ── Apagar equipo (fin de ciclo §16, D-20; tanda E5) ───────────────────────
+
+def _apagado_windows_habilitado() -> bool:
+    """El apagado real de Windows solo corre en el ejecutable empaquetado o
+    con AUTOCLAVE_APAGADO_REAL=1: nunca desde las pruebas ni en desarrollo."""
+    import os
+    return bool(getattr(sys, "frozen", False)) or os.environ.get("AUTOCLAVE_APAGADO_REAL") == "1"
+
+
+def _apagar_windows() -> None:
+    import subprocess
+    subprocess.run(["shutdown", "/s", "/t", "0"], check=False)
+
+
+def _secuencia_apagado() -> None:
+    """ALL_OFF y parada del lazo (control_loop.stop: detiene el lazo, ALL_OFF y
+    cierra el puerto serial), historial de alarmas, base de datos y, si está
+    habilitado, apagado de Windows. Corre en un hilo aparte para responder
+    antes de cortar."""
+    try:
+        context.control_loop.stop()
+    except Exception:
+        logger.exception("Apagar equipo: error al detener el lazo de control")
+    historial = getattr(context, "historial_alarmas", None)
+    if historial is not None and hasattr(historial, "detener"):
+        try:
+            historial.detener(2.0)
+        except Exception:
+            logger.exception("Apagar equipo: error al detener el historial de alarmas")
+    try:
+        context.db.close()
+    except Exception:
+        logger.exception("Apagar equipo: error al cerrar la base de datos")
+    if _apagado_windows_habilitado():
+        logger.warning("Apagar equipo: apagando Windows")
+        _apagar_windows()
+    else:
+        logger.warning("Apagar equipo: apagado de Windows omitido (no es el ejecutable)")
+
+
+@app.post("/system/shutdown")
+def shutdown_system(body: dict = Body(default={})):
+    """"Apagar equipo" (§16): solo con la cámara segura y fuera de CICLO y del
+    protocolo de estado seguro; solo desde la ventana principal (la UI de la
+    puerta 1 envía ventana="principal"). Confirmación: la de la propia UI."""
+    entidad = "/system/shutdown"
+    if body.get("ventana") != "principal":
+        _rechazar(403, "solo_ventana_principal",
+                  "Solo la ventana principal puede apagar el equipo", entidad)
+    with guard_estado(DISTINTO_DE_CICLO, entidad) as estado:
+        # TMG-05 de T7: un segundo apagado (doble toque) no lanza otra secuencia
+        if getattr(context.control_loop, "apagando", False) is True:
+            raise _Rechazo(409, "apagado_en_curso", "El equipo ya se está apagando")
+        # SAF-05 de T7: con el modo prueba se pide salir antes (queda registrado)
+        if context.control_loop.test_mode_active is True:
+            raise _Rechazo(409, "modo_prueba_activo", "No permitido con el modo prueba activo")
+        if getattr(context.control_loop.estado_seguro, "activo", False) is True:
+            raise _Rechazo(409, "estado_seguro_activo",
+                           "La cámara se está llevando a estado seguro")
+        programas = context.programas_para_seguridad()
+        vigentes = getattr(context.control_loop, "datos_vigentes", False) is True
+        segura, motivo = camara_segura.evaluar(
+            context.estado, context.config_manager, programas,
+            getattr(context, "profile", None), datos_vigentes=vigentes,
+            temp_max_ciclo=context.temp_max_tras_ciclo())
+        if not segura:
+            raise _Rechazo(409, "camara_no_segura", motivo)
+        # TMG-01 / SAF-01 de T7: en el mismo bloque que validó, sin soltar el
+        # lock: ningún tick posterior puede pasar a CICLO ni mover salidas
+        context.control_loop.iniciar_apagado()
+    _auditar("apagar_equipo", entidad=entidad,
+             detalle={"estado": getattr(estado, "name", str(estado))})
+    threading.Thread(target=_secuencia_apagado, name="ApagarEquipo", daemon=False).start()
+    return {"ok": True, "apagado_windows": _apagado_windows_habilitado()}
 
 
 @app.post("/safe-state/confirm")

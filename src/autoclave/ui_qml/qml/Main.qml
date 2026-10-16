@@ -24,6 +24,8 @@ Window {
     // comandoFalla: RECONOCER FALLA de la pantalla de preciclo (T-16)
     property QtObject comandoFalla: null
     property QtObject infoEquipo: null
+    // comandosSistema: Confirmar y llevar a estado seguro / Apagar equipo (E5)
+    property QtObject comandosSistema: null
     property QtObject ajustes: null
     // standby: activo = mostrar la pantalla de arranque (simultáneo en ambas pantallas)
     property QtObject standby: null
@@ -202,6 +204,18 @@ Window {
             onCurrentItemChanged: panelTeclado.cerrar()
         }
 
+        // E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
+        // sobre todas las pantallas (no durante la intro de arranque)
+        AvisosSeguridad {
+            objectName: "avisosSeguridad"
+            anchors.left: parent.left; anchors.right: parent.right
+            anchors.top: parent.top
+            z: 50
+            visible: ventana.introTerminada || !ventana.progresoArranque
+            puente: ventana.puente
+            comandos: ventana.comandosSistema
+        }
+
         // Teclado en pantalla de esta ventana (Paso 5 de planeacion_teclados_qml.md):
         // sobre el StackView, inyectado a las pantallas como `teclado`.
         PanelTeclado {
@@ -312,6 +326,7 @@ Window {
                 comandoCiclo: ventana.comandoCiclo
                 comandoFalla: ventana.comandoFalla
                 infoEquipo: ventana.infoEquipo
+                comandosSistema: ventana.comandosSistema
                 onPuertaPulsada: ventana.comandosPuerta?.alternar()
                 onIniciarCicloPulsado: ventana.comandoCiclo?.iniciar()
                 onReconocerFallaPulsado: ventana.comandoFalla?.reconocer()
@@ -332,6 +347,7 @@ Window {
             progreso: ventana.progreso
             comandos: ventana.comandosCicloEnCurso
             infoEquipo: ventana.infoEquipo
+            comandosSistema: ventana.comandosSistema
             onAjustesPulsado: ventana.abrirConfiguracion()
             onAvatarPulsado: ventana.abrirConfiguracion()
         }
@@ -351,6 +367,7 @@ Window {
             reporte: ventana.reporte
             teclado: panelTeclado
             infoEquipo: ventana.infoEquipo
+            comandosSistema: ventana.comandosSistema
             inicioActivo: true
             onInicioPulsado: pila.pop()
             onIniciarSesionPulsado: ventana.abrirConfiguracion()

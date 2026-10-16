@@ -334,7 +334,10 @@
     "emparejamiento_tarjeta": "Tarjeta del equipo",
     "tarjeta_emparejada": "Emparejada",
     "tarjeta_no_emparejada": "No emparejada (aviso)",
-    "no_disponible": "No disponible"
+    "no_disponible": "No disponible",
+    "apagar": "Apagar equipo",
+    "apagar_pregunta": "El equipo se apagará por completo (incluido el PC). ¿Desea continuar?",
+    "apagar_rechazado": "No se puede apagar: {motivo}"
   },
   "formulario": {
     "nombre_completo": "Nombre Completo",
@@ -423,7 +426,12 @@
   "sistema": {
     "sin_conexion": "Sin conexión con el controlador. Los valores mostrados no están actualizados.",
     "modo_prueba": "MODO PRUEBA ACTIVO — los ciclos no son válidos para carga estéril",
-    "sin_lectura": "—"
+    "sin_lectura": "—",
+    "no_abrir": "NO ABRIR",
+    "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
+    "paro_liberado": "Paro liberado. Verifique que no hay fuga antes de continuar.",
+    "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
+    "estado_seguro_en_curso": "Llevando la cámara a estado seguro"
   },
   "sesion": {
     "campos_vacios": "Ingrese usuario y contraseña",

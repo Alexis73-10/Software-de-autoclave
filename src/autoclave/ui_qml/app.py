@@ -34,6 +34,7 @@ from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
 from autoclave.ui_qml.bridge.comandos_falla import ComandoReconocerFalla
 from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
+from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
 from autoclave.ui_qml.bridge.progreso_arranque import SimuladorProgresoArranque, parse_simulacion
@@ -132,6 +133,8 @@ def main(argv=None) -> int:
         puente, DoorCommandService(backend_client=backend, source_door=args.door))
     comando_ciclo = ComandoIniciarCiclo(puente, ui_service)
     comando_falla = ComandoReconocerFalla(puente, ui_service)   # T-16
+    # E5: Confirmar y llevar a estado seguro; Apagar equipo (solo puerta 1)
+    comandos_sistema = ComandosSistema(puente, ui_service, args.door)
     info_equipo = InfoEquipo(cargar_perfil(), args.door, backend, version)
     ajustes = LanzadorAjustes()
     standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto)
@@ -170,6 +173,7 @@ def main(argv=None) -> int:
         "comandosPuerta": comandos_puerta,
         "comandoCiclo": comando_ciclo,
         "comandoFalla": comando_falla,
+        "comandosSistema": comandos_sistema,
         "infoEquipo": info_equipo,
         "ajustes": ajustes,
         "standby": standby,

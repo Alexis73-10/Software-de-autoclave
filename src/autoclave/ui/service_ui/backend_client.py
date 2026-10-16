@@ -35,11 +35,12 @@ class BackendClient:
         r.raise_for_status()
         return r.json()
 
-    def post(self, path: str, body: dict | None = None, **kwargs) -> dict:
+    def post(self, path: str, body: dict | None = None, timeout: float = 0.8,
+             **kwargs) -> dict:
         r = requests.post(
             f"{self.base_url}{path}",
             json=body or {},
-            timeout=0.8,
+            timeout=timeout,
             **kwargs,
         )
         r.raise_for_status()

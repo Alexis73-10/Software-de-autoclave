@@ -131,6 +131,7 @@ class UiBridge(QObject):
     estadoEquipoChanged = Signal()
     listoParaCicloChanged = Signal()
     datosCicloChanged = Signal()
+    seguridadChanged = Signal()
 
     def __init__(self, ui_service, door: int, parent=None, intervalo_ms: int = 500, iniciar: bool = True):
         super().__init__(parent)
@@ -144,6 +145,8 @@ class UiBridge(QObject):
         self._estado_equipo = estado_equipo(None, False)
         self._datos_ciclo = self._datos(None, None, None, None)
         self._alarms = AlarmListModel(self)
+        # E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
+        self._seguridad = self._seguridad_de({})
 
         self._timer = QTimer(self)
         self._timer.setInterval(intervalo_ms)
@@ -191,6 +194,26 @@ class UiBridge(QObject):
                             temps.get("temp_ref"),
                             self._ui.get_sensores_pres().get("pres_camara"))
         self._fijar("_datos_ciclo", datos, self.datosCicloChanged)
+        self._fijar("_seguridad", self._seguridad_de({
+            "no_abrir": self._ui.get_campo("no_abrir", True),
+            "motivo": self._ui.get_campo("camara_segura_motivo", ""),
+            "modo_prueba": self._ui.get_campo("test_mode_active", False),
+            "paro": self._ui.get_estado_flag("PARO_EMERGENCIA"),
+            "estado_seguro": self._ui.get_campo("estado_seguro", {}),
+        }) if self._connected else self._seguridad_de({}), self.seguridadChanged)
+
+    @staticmethod
+    def _seguridad_de(datos: dict) -> dict:
+        """Sin conexión o sin dato: NO ABRIR (falla cerrada, como el backend)."""
+        es = datos.get("estado_seguro") if isinstance(datos.get("estado_seguro"), dict) else {}
+        return {
+            "no_abrir": datos.get("no_abrir", True) is not False,
+            "motivo": str(datos.get("motivo") or ""),
+            "modo_prueba": datos.get("modo_prueba") is True,
+            "paro": bool(datos.get("paro")),
+            "es_activo": es.get("activo") is True,
+            "es_confirmar": es.get("requiere_confirmacion") is True,
+        }
 
     def _fijar(self, atributo: str, valor, senal) -> None:
         if getattr(self, atributo) != valor:
@@ -222,6 +245,30 @@ class UiBridge(QObject):
     @Property(bool, notify=listoParaCicloChanged)
     def listoParaCiclo(self) -> bool:
         return self._listo
+
+    @Property(bool, notify=seguridadChanged)
+    def noAbrir(self) -> bool:
+        return self._seguridad["no_abrir"]
+
+    @Property(str, notify=seguridadChanged)
+    def noAbrirMotivo(self) -> str:
+        return self._seguridad["motivo"]
+
+    @Property(bool, notify=seguridadChanged)
+    def modoPrueba(self) -> bool:
+        return self._seguridad["modo_prueba"]
+
+    @Property(bool, notify=seguridadChanged)
+    def paroActivo(self) -> bool:
+        return self._seguridad["paro"]
+
+    @Property(bool, notify=seguridadChanged)
+    def estadoSeguroActivo(self) -> bool:
+        return self._seguridad["es_activo"]
+
+    @Property(bool, notify=seguridadChanged)
+    def estadoSeguroRequiereConfirmacion(self) -> bool:
+        return self._seguridad["es_confirmar"]
 
     @Property(int, constant=True)
     def door(self) -> int:
