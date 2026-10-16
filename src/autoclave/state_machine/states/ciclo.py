@@ -29,7 +29,7 @@ from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo, cerrar_valvulas_descompresion
 from autoclave.installation.profile import entrada_requerida, numero_puertas, revisa_empaque
-from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 
 logger = logging.getLogger(__name__)
@@ -39,6 +39,8 @@ logger = logging.getLogger(__name__)
 # de temp_camara, antiguo S-8).
 _SENSORES_PRES_CRITICOS = ["pres_camara"]
 _DEBOUNCE_LECTURAS_DRENAJE = 3
+# Lecturas seguidas del Principal bajo temperatura_enfriamiento (SAF-01 de T11)
+_DEBOUNCE_ENFRIADA = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
 _TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 _CIC_POR_FASE = {
@@ -146,6 +148,7 @@ class CicloState:
         self._resultado_pendiente = None
         self._contador_drenaje_alta = 0
         self._contador_drenaje_baja = 0
+        self._lecturas_enfriada_reposo = 0
         self._apertura_auto_t_inicio = None
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
@@ -272,6 +275,12 @@ class CicloState:
         """Mantiene la presión de la chaqueta durante todas las fases del ciclo."""
         if self._fase_idx < len(self._fases) and isinstance(self._fases[self._fase_idx], SecadoFase):
             return
+        # TMG-01 de T11: en el enfriamiento de los modos 4/5 la chaqueta se
+        # ventea y se enfría con agua; reponer su vapor lo anularía
+        fase = self._fases[self._fase_idx] if self._fase_idx < len(self._fases) else None
+        if getattr(fase, "chaqueta_en_enfriamiento", False) is True:
+            self.set_do.vapor_chaqueta_off()
+            return
         pres = self.estado.sensores_pres.get("pres_chaqueta")
         # Sin dato: vapor OFF, no se deja la válvula como esté (A-5)
         if not lectura_valida(pres):
@@ -346,7 +355,13 @@ class CicloState:
         t_enfr = self.cycle.get_param("descompresion", modo_key, "temperatura_enfriamiento",
                                       default=80.0)
         temp = self.estado.sensores_temp.get(sensor_principal(self.cycle))
-        return lectura_valida(temp) and t_enfr is not None and temp <= t_enfr
+        # SAF-01 de T11: sin lectura o con 0 no está enfriada, y hacen falta
+        # 3 lecturas seguidas (un valor espurio no habilita la rápida)
+        if carga_enfriada(temp, t_enfr):
+            self._lecturas_enfriada_reposo = getattr(self, "_lecturas_enfriada_reposo", 0) + 1
+        else:
+            self._lecturas_enfriada_reposo = 0
+        return self._lecturas_enfriada_reposo >= _DEBOUNCE_ENFRIADA
 
     def _mantener_valvula_reposo(self):
         """Mientras se espera confirmación tras un COMPLETADO limpio (sin

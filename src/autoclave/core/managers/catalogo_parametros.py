@@ -90,6 +90,9 @@ CERO_VALIDO = frozenset({
 
 TIPOS_CARGA = ("solido", "liquido")
 MODOS_LIQUIDO = (4, 5)
+# Contrapresión mínima sobre P_sat(temperatura de esterilización) para carga
+# líquida (SAF-05 de T11): bajo ella la carga hierve al empezar a enfriar
+MARGEN_CONTRAPRESION_LIQUIDO = 30.0   # kPa
 
 
 def limites(fase: str, path) -> tuple:
@@ -156,21 +159,42 @@ def _hojas(parameters: dict):
         yield from recorrer(fase, nodo, [])
 
 
-def errores_coherencia(parameters: dict) -> list[str]:
-    """Reglas entre parámetros. Carga líquida (decisión 1.2): la descompresión
-    debe ser modo 4 o 5."""
-    errores = []
+def _valor(parameters: dict, *ruta, defecto=None):
+    nodo = parameters
     try:
-        tipo_carga = parameters["globals"]["tipo_carga"]["value"]
+        for clave in ruta:
+            nodo = nodo[clave]
+        return nodo["value"]
     except (KeyError, TypeError):
-        tipo_carga = "solido"
-    if tipo_carga == "liquido":
-        try:
-            modo = parameters["descompresion"]["modo"]["value"]
-        except (KeyError, TypeError):
-            modo = None
-        if modo not in MODOS_LIQUIDO:
-            errores.append("Carga líquida: la descompresión debe ser modo 4 o 5")
+        return defecto
+
+
+def errores_coherencia(parameters: dict) -> list[str]:
+    """Reglas entre parámetros para carga líquida (decisión 1.2; SAF-05 y
+    SAF-06 de T11): descompresión modo 4 o 5; sin prevacío ni secado (vacío
+    sobre líquido caliente); sin apertura automática; contrapresión de
+    enfriamiento de al menos P_sat(temperatura de esterilización) + 30 kPa."""
+    if _valor(parameters, "globals", "tipo_carga", defecto="solido") != "liquido":
+        return []
+    errores = []
+    modo = _valor(parameters, "descompresion", "modo")
+    if modo not in MODOS_LIQUIDO:
+        errores.append("Carga líquida: la descompresión debe ser modo 4 o 5")
+    if any(_valor(parameters, "prevacio", f"conteo_pulso_{p}", defecto=0) for p in _PULSOS):
+        errores.append("Carga líquida: sin pulsos de prevacío")
+    if _valor(parameters, "secado", "tiempo_secado", defecto=0):
+        errores.append("Carga líquida: sin secado (tiempo_secado = 0)")
+    if _valor(parameters, "finalizacion", "apertura_automatica", defecto=False) is True:
+        errores.append("Carga líquida: sin apertura automática")
+    if modo in MODOS_LIQUIDO:
+        from autoclave.core.runtime.steam import p_saturacion_kpa
+        t_est = _valor(parameters, "esterilizacion", "temperatura_esterilizacion")
+        p_enfr = _valor(parameters, "descompresion", f"modo_{modo}", "presion_camara_enfriamiento")
+        if isinstance(t_est, (int, float)) and isinstance(p_enfr, (int, float)):
+            minimo = p_saturacion_kpa(t_est) + MARGEN_CONTRAPRESION_LIQUIDO
+            if p_enfr < minimo:
+                errores.append(f"Carga líquida: la contrapresión de enfriamiento debe ser al "
+                               f"menos {minimo:.0f} kPa (P_sat + {MARGEN_CONTRAPRESION_LIQUIDO:.0f})")
     return errores
 
 

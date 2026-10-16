@@ -15,3 +15,12 @@ def lectura_valida(valor) -> bool:
         return math.isfinite(float(valor))
     except (TypeError, ValueError):
         return False
+
+
+def carga_enfriada(temp, temp_enfriamiento) -> bool:
+    """True si la lectura del Principal está en o bajo la temperatura de
+    enfriamiento (líquidos, modos 4/5). Falla cerrada (SAF-01 de T11): sin
+    lectura válida o con 0 (sensor sin señal, SEN-03) NO está enfriada."""
+    if not lectura_valida(temp) or float(temp) == 0 or not lectura_valida(temp_enfriamiento):
+        return False
+    return float(temp) <= float(temp_enfriamiento)

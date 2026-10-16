@@ -3,8 +3,14 @@ import logging
 
 from autoclave.state_machine.cycle_phases.base_fase import BaseFase, FaseResult
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo
+from autoclave.core.runtime.lectura import carga_enfriada
 
 logger = logging.getLogger(__name__)
+
+# TMG-02 de T11: lecturas consecutivas del Principal en o bajo la temperatura
+# de enfriamiento antes de abrir la rápida (modos 4/5), como en el protocolo
+# de fallo (SAF-06 de T5)
+_DEBOUNCE_LECTURAS = 3
 
 
 class DescompresionFase(BaseFase):
@@ -21,6 +27,13 @@ class DescompresionFase(BaseFase):
         self._t_pulso_chaqueta = None
         self._chaqueta_abierta = False
         self._t_aire_comprimido = None
+        self._lecturas_enfriada = 0
+
+    @property
+    def chaqueta_en_enfriamiento(self) -> bool:
+        """Modos 4/5 enfriando o despresurizando: la chaqueta se ventea y se
+        enfría con agua; su vapor debe quedar apagado (TMG-01 de T11)."""
+        return self._sub_etapa in ("enfriamiento", "descompresion")
 
     def update(self) -> FaseResult:
         if self._etapa is None:
@@ -61,6 +74,16 @@ class DescompresionFase(BaseFase):
         if self._modo > 0 and self._t_timeout and time.monotonic() > self._t_timeout:
             self._apagar_todo()
             logger.error("DescompresionFase: timeout en modo %d", self._modo)
+            # TMG-06 de T11: motivo específico para el ticket y el registro
+            t = self._temp_principal()
+            p = self._pres_camara()
+            etapa = {"enfriamiento": "enfriamiento", "descompresion": "despresurización final",
+                     "lenta": "descompresión lenta", "rapida": "descompresión rápida"}.get(
+                         self._sub_etapa, "descompresión")
+            self.estado.motivo_fallo = (
+                f"Timeout de {etapa} del modo {self._modo}"
+                + (f" (T={t:.1f} °C" if t is not None else " (T sin lectura")
+                + (f", P={p:.1f} kPa)" if p is not None else ")"))
             return FaseResult.FALLO
 
         _dispatch = {
@@ -99,7 +122,7 @@ class DescompresionFase(BaseFase):
             temp_obj = self.cycle.get_param("descompresion", f"modo_{self._modo or 2}",
                                             "temperatura_enfriamiento", default=80.0)
             t = self._temp_principal()
-            enfriada = t is not None and temp_obj is not None and t <= temp_obj
+            enfriada = carga_enfriada(t, temp_obj)
             abrir_valvula_modo(self.set_do, self._modo, liquido=liquido, enfriada=enfriada)
         return FaseResult.COMPLETADO
 
@@ -187,7 +210,9 @@ class DescompresionFase(BaseFase):
         temp_obj = self.cycle.get_param("descompresion", modo_key, "temperatura_enfriamiento", default=80.0)
         # Enfriamiento (modos 4/5) medido con el Principal (tanda §1.1)
         t = self._temp_principal()
-        if t is not None and t <= temp_obj:
+        # SAF-01 de T11: sin lectura o con 0 (sin señal) no cuenta como enfriada
+        self._lecturas_enfriada = self._lecturas_enfriada + 1 if carga_enfriada(t, temp_obj) else 0
+        if self._lecturas_enfriada >= _DEBOUNCE_LECTURAS:
             self.set_do.aire_comprimido_camara_off()
             self.set_do.agua_chaqueta_off()
             if use_lenta:

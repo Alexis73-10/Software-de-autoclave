@@ -1229,6 +1229,13 @@ def get_cycle_ticket(ciclo_id: int):
     }
 
 
+def _carga_liquida(programa) -> bool:
+    try:
+        return programa.get_param("globals", "tipo_carga", default="solido") == "liquido"
+    except Exception:
+        return False
+
+
 @app.get("/db/estado")
 def get_db_estado():
     """T8 (§7.1): "OK" o "DEGRADADA" (sin base de datos: alarma
@@ -1275,6 +1282,13 @@ def start_cycle(body: dict | None = Body(default=None)):
     if isinstance(danado, list) and danado:
         _rechazar(409, "PROGRAMA_NO_EDITABLE",
                   f"Programa dañado (fuera del catálogo): {danado[0]}", "/cycle/start")
+
+    # T11: un programa de carga líquida solo en equipos con capacidad de líquidos
+    if seleccionado is not None and _carga_liquida(seleccionado):
+        cap = getattr(context, "cap", None)
+        if cap is not None and getattr(cap, "has_liquids", None) is False:
+            _rechazar(409, "carga_liquida_no_disponible",
+                      "Este equipo no admite programas de carga líquida", "/cycle/start")
 
     # RS-06 (tanda §1.1): asignación de sensores válida y todos los sensores
     # en uso del programa seleccionado con lectura

@@ -117,10 +117,27 @@ def test_set_param_usa_el_catalogo_y_tipos_estrictos(tmp_path):
         c.set_param("globals", ["tipo_carga"], "liquido")   # modo 1: incoherente
     assert c.get_param("globals", "tipo_carga") == "solido"  # no muta si falla
     c.set_param("descompresion", ["modo"], 4)
-    assert c.set_param("globals", ["tipo_carga"], "liquido") == "liquido"
-    with pytest.raises(ValueError):
-        c.set_param("descompresion", ["modo"], 1)            # líquido: solo 4 o 5
-    assert c.get_param("descompresion", "modo") == 4
+    with pytest.raises(ValueError):                          # SAF-06 de T11: con prevacío
+        c.set_param("globals", ["tipo_carga"], "liquido")
+    assert c.get_param("globals", "tipo_carga") == "solido"
+
+
+def test_liquidos_reglas_de_coherencia():
+    """1.2 + SAF-05/06 de T11: modo 4/5, sin prevacío ni secado, sin apertura
+    automática y contrapresión >= P_sat(t_est) + 30 kPa."""
+    from autoclave.core.managers.cycle_manager import Cycle
+    ruta = next(r for r in PROGRAMAS if r.endswith("liquidos.json"))
+    datos = json.loads(Path(ruta).read_text(encoding="utf-8"))
+    c = Cycle("liq", "Líquidos", datos["parameters"], 4)
+    for fase, path, valor in (
+            ("descompresion", ["modo"], 1),
+            ("prevacio", ["conteo_pulso_a"], 2),
+            ("secado", ["tiempo_secado"], 5.0),
+            ("finalizacion", ["apertura_automatica"], True),
+            ("descompresion", ["modo_4", "presion_camara_enfriamiento"], 200)):
+        with pytest.raises(ValueError):
+            c.set_param(fase, path, valor)
+    assert cp.errores_programa(c.parameters) == []
 
 
 def test_programa_fuera_de_catalogo_queda_danado(tmp_path, monkeypatch):
@@ -247,3 +264,24 @@ def test_audit_log_es_de_solo_anexar(tmp_path):
             with db._lock:
                 db._conn.execute(sql)
     db.registrar_auditoria("otra", usuario="u")         # anexar sigue funcionando
+
+
+def test_t11_liquidos_solo_en_equipos_con_liquidos(monkeypatch):
+    from fastapi.testclient import TestClient
+    from tests.backend_doble import cargar_servidor
+    ctx = MagicMock()
+    ctx.sin_base_de_datos = False
+    ctx.control_loop.bloqueo_configuracion = None
+    ctx.control_loop.apagando = False
+    ctx.control_loop.cycle.danado = []
+    ctx.control_loop.cycle.get_param.side_effect = lambda *a, default=None: (
+        "liquido" if a == ("globals", "tipo_carga") else default)
+    ctx.estado.get_flag.return_value = True
+    ctx.cap.has_liquids = False
+    srv, _ = cargar_servidor(ctx)
+    monkeypatch.setattr(srv.sc, "verificar_inicio", lambda *a: None)
+    client = TestClient(srv.app)
+    r = client.post("/cycle/start")
+    assert r.status_code == 409 and r.json()["codigo"] == "carga_liquida_no_disponible"
+    ctx.cap.has_liquids = True
+    assert client.post("/cycle/start").status_code == 200

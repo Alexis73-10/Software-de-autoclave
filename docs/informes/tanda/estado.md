@@ -21,7 +21,7 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 | T8 Modo sin BD | HECHA | dev-noche | ver git log | 3290 passed | `T8_modo_sin_bd.md` |
 | T9 Menú de instalación | HECHA | dev-noche | ver git log | 3294 passed | `T9_menu_instalacion.md` |
 | T10 Endurecimiento | HECHA | dev-noche | ver git log | 3326 passed | `T10_endurecimiento.md` |
-| T11 Programas | pendiente | dev-noche | | | |
+| T11 Programas | HECHA | dev-noche | ver git log | 3343 passed | `T11_programas.md` |
 | T12 Opciones F2–F4 | pendiente | dev-noche | | | |
 
 ## Bloqueadas
@@ -30,4 +30,4 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 ## Etapa actual
 
-T11: programas (instrumental_121, liquidos, F0 por clase, integración con planta simulada).
+T12: Opciones, Fases 2 a 4 (parámetros del ciclo en lectura y edición, roles de sensor).

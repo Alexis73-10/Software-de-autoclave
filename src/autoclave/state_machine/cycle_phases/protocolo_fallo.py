@@ -35,7 +35,7 @@
 
 import time
 import logging
-from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 
 logger = logging.getLogger(__name__)
@@ -97,8 +97,8 @@ class ProtocoloFallo:
         return float(valor) if valor is not None else 80.0
 
     def _enfriada(self) -> bool:
-        temp = self._temp_principal()
-        return lectura_valida(temp) and temp <= self._temp_enfriamiento()
+        # SAF-01 de T11: un 0 (sensor sin señal) no cuenta como enfriada
+        return carga_enfriada(self._temp_principal(), self._temp_enfriamiento())
 
     def _enfriada_confirmada(self) -> bool:
         """3 lecturas seguidas bajo temperatura_enfriamiento (SAF-06 de T5):
