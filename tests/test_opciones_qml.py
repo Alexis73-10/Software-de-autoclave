@@ -139,6 +139,8 @@ _SCRIPT = textwrap.dedent(r"""
     r["seccion_activa"] = op.property("seccionActiva")
     r["titulo"] = hijo("tituloOpciones").property("text")
     r["proximamente"] = hijo("textoProximamente").property("visible")
+    # T12: Parámetros del ciclo ya migrado (Fases 2 a 4)
+    r["parametros_ciclo"] = hijo("cargadorParametrosCiclo").property("active")
     r["boton_nuevo_usuario"] = hijo("botonNuevoUsuario").property("visible")
     r["sin_secciones"] = hijo("textoSinSecciones").property("visible")
     r["aviso_bloqueo"] = hijo("avisoEdicionBloqueada").property("visible")
@@ -285,7 +287,9 @@ def test_tecnico_entra_a_opciones(estado, bloqueado):
     assert r["titulo_segunda"] == "PARÁMETROS DEL SISTEMA"
     assert r["pide_confirmar"] is True
     assert r["confirmar_cambia"] is True
-    assert r["proximamente"] is True and r["boton_nuevo_usuario"] is False
+    # T12: Parámetros del ciclo migrado; el resto sigue en "Próximamente"
+    assert r["proximamente"] is False and r["parametros_ciclo"] is True
+    assert r["boton_nuevo_usuario"] is False
     assert r["sin_secciones"] is False
     assert r["aviso_bloqueo"] is bloqueado
     assert r["aviso_bloqueo_segunda"] is bloqueado

@@ -134,12 +134,17 @@ class CycleManager:
     def __init__(self):
         self.cycles = {}
         self.selected_cycle = None
+        # Perfil de fábrica inmutable por NÚMERO de programa (opciones §6.1,
+        # T12): el valor por defecto de cada parámetro. Los de usuario con el
+        # mismo cycle_id reemplazan al de fábrica en `cycles`, no aquí.
+        self.fabrica: dict[int, Cycle] = {}
         # JSON de ciclo que no se pudieron cargar en el último load_all_cycles()
         # (el arranque degrada su etapa con ARR_CICLO_CORRUPTO)
         self.errores_carga: list[str] = []
 
     def load_all_cycles(self):
         self.cycles.clear()
+        self.fabrica.clear()
         self.errores_carga = []
 
         self._load_from_folder("cycles/factory", source="factory")
@@ -197,6 +202,8 @@ class CycleManager:
                         # el .bak; si tampoco vale, el programa queda dañado
                         self._validar_al_cargar(cycle, full_path)
                         self.cycles[cycle.id] = cycle
+                        if source == "factory" and cycle.number is not None:
+                            self.fabrica[cycle.number] = cycle.copia()
 
                 except Exception as e:
                     print(f"⚠️ Error cargando {file}: {e}")

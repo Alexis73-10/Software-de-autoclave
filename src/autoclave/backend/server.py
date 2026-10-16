@@ -1710,6 +1710,114 @@ def _revertir_parametro(cycle, previos, en_curso: bool) -> None:
             _save_cycle_json(cycle)
 
 
+# ── Opciones › Parámetros del ciclo, lectura (T12; opciones §5.1, §5.2, §6) ──
+
+# Orden de la pantalla 1: fases del ciclo y, al final, Generales y Finalización
+_SECCIONES_PROGRAMA = ("precalentamiento", "prevacio", "calentamiento", "esterilizacion",
+                       "descompresion", "secado", "globals", "finalizacion")
+
+
+def _no_se_ejecuta(cycle, seccion: str) -> bool:
+    """Q-2: la fase con su parámetro de activación en 0 se muestra con "No se
+    ejecuta" (precalentamiento, secado, tipos de pulso de vacío)."""
+    if seccion == "precalentamiento":
+        return not cycle.get_param("precalentamiento", "tiempo_precalentamiento")
+    if seccion == "secado":
+        return not cycle.get_param("secado", "tiempo_secado")
+    if seccion == "prevacio":
+        return not any(cycle.get_param("prevacio", f"conteo_pulso_{p}") for p in "abcd")
+    return False
+
+
+def _programa_editable(cycle) -> bool:
+    return getattr(cycle, "source", "") == "user" and not getattr(cycle, "danado", None)
+
+
+@app.get("/programas")
+def get_programas():
+    """Programas para Opciones (§6): número, nombre, origen, estado y sus
+    secciones con la marca "No se ejecuta". Sin lectura de disco en la UI."""
+    salida = []
+    for cycle in context.cycle_manager.cycles.values():
+        if cycle.number is None:
+            continue
+        salida.append({
+            "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
+            "origen": getattr(cycle, "source", ""), "danado": bool(getattr(cycle, "danado", None)),
+            "editable": _programa_editable(cycle),
+            "secciones": [{"clave": s, "no_se_ejecuta": _no_se_ejecuta(cycle, s)}
+                          for s in _SECCIONES_PROGRAMA if s in cycle.parameters],
+        })
+    return {"programas": sorted(salida, key=lambda p: p["numero"])}
+
+
+def _hojas_seccion(cycle, seccion: str) -> list[tuple[list[str], dict]]:
+    """Parámetros (ruta, hoja) de la sección. Descompresión: el modo, la
+    espera previa y solo los parámetros del modo activo (Q-3)."""
+    nodo = cycle.parameters.get(seccion) or {}
+    salida = []
+
+    def recorrer(n, ruta):
+        if isinstance(n, dict) and "value" in n and not isinstance(n.get("value"), dict):
+            salida.append((ruta, n))
+            return
+        if isinstance(n, dict):
+            for clave, sub in n.items():
+                recorrer(sub, ruta + [clave])
+
+    recorrer(nodo, [])
+    if seccion == "descompresion":
+        modo = cycle.get_param("descompresion", "modo")
+        activo = f"modo_{modo}"
+        salida = [(r, h) for r, h in salida if len(r) == 1 or r[0] == activo]
+    return salida
+
+
+def _ultimas_modificaciones(entidad_prefijo: str) -> dict:
+    """{entidad: {usuario, rol, ts, valor_anterior, valor_nuevo}} con la última
+    modificación auditada de cada parámetro del programa (RB-03.8)."""
+    try:
+        filas = context.db.get_auditoria(evento="param_ciclo_cambio", limite=2000)
+    except Exception:
+        return {}
+    ultimas = {}
+    for f in filas:                       # la más reciente primero
+        entidad = f.get("entidad") or ""
+        if entidad.startswith(entidad_prefijo) and entidad not in ultimas:
+            ultimas[entidad] = {k: f.get(k) for k in
+                                ("usuario", "rol", "ts", "valor_anterior", "valor_nuevo")}
+    return ultimas
+
+
+@app.get("/programas/{numero}/seccion/{seccion}")
+def get_programa_seccion(numero: int, seccion: str):
+    """Parámetros de una sección (§5.2, §6): valor, por defecto (perfil de
+    fábrica del mismo número; "—" si no lo hay, Q-4), rango efectivo (catálogo
+    ∩ JSON, RB-05.2), tipo, unidad, opciones, `modificado` y última
+    modificación."""
+    from autoclave.core.managers import catalogo_parametros as _cp
+    cycle = _programa_por_numero(numero)
+    if seccion not in _SECCIONES_PROGRAMA or seccion not in cycle.parameters:
+        raise HTTPException(status_code=404, detail=f"Sección '{seccion}' no encontrada")
+    fabrica = getattr(context.cycle_manager, "fabrica", {}).get(numero)
+    ultimas = _ultimas_modificaciones(f"{cycle.id}/{seccion}/")
+    parametros = []
+    for ruta, hoja in _hojas_seccion(cycle, seccion):
+        defecto = fabrica.get_param(seccion, *ruta) if fabrica is not None else None
+        minimo, maximo = _cp.rango_efectivo(hoja, seccion, ruta)
+        valor = hoja.get("value")
+        parametros.append({
+            "path": ruta, "clave": ".".join(ruta), "tipo": hoja.get("type") or "int",
+            "unidad": (hoja.get("unit") or "").replace("\ufffd", "°"),
+            "valor": valor, "defecto": defecto, "min": minimo, "max": maximo,
+            "opciones": hoja.get("options") or [],
+            "modificado": defecto is not None and defecto != valor,
+            "ultima_modificacion": ultimas.get(f"{cycle.id}/{seccion}/{'.'.join(ruta)}"),
+        })
+    return {"numero": numero, "cycle_id": cycle.id, "nombre": cycle.name, "seccion": seccion,
+            "editable": _programa_editable(cycle), "parametros": parametros}
+
+
 # ── Sensores del ciclo (tanda 2026-10-14 §1.1; RS-01, RS-02) ───────────────
 
 def _programa_por_numero(numero: int):

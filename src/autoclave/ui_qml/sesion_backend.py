@@ -60,6 +60,17 @@ _CLAVES = {
     "rol_sin_permiso": "sesion.rol_sin_permiso",
     "rol_no_creable": "usuarios.rol_no_creable",
     "usuario_existe": "usuarios.usuario_existe",
+    # Opciones › Parámetros del ciclo y sensores (T12; opciones §5.4)
+    "estado_no_permitido": "opciones.err_bloqueada",
+    "VALOR_CAMBIO": "opciones.err_valor_cambio",
+    "VALOR_INVALIDO": "opciones.err_valor_invalido",
+    "PROGRAMA_NO_EDITABLE": "opciones.err_no_editable",
+    "programa_de_fabrica": "opciones.err_no_editable",
+    "BASE_OCUPADA": "opciones.err_base_ocupada",
+    "f0_no_disponible": "opciones.err_f0",
+    "ASIGNACION_INVALIDA": "opciones.err_asignacion",
+    "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
+    "asignacion_desfasada": "opciones.err_valor_cambio",
     BACKEND_NO_RESPONDE: "sesion.backend_no_responde",
     ERROR_GENERICO: "sesion.error_generico",
 }

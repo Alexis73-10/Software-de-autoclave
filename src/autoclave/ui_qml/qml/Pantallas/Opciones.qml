@@ -29,9 +29,10 @@ Item {
     id: raiz
 
     property QtObject puente: null      // UiBridge: estado de la máquina y campana
-    // Cambios sin guardar de la sección activa. Fase 1: ninguna sección edita,
-    // siempre false; las fases 3 y 4 lo alimentan (U-13, U-19).
-    property bool cambiosPendientes: false
+    property QtObject teclado: null     // PanelTeclado de la ventana (T12: ajuste de parámetros)
+    // Cambios sin guardar de la sección activa (U-13, U-19): roles de sensor
+    // sin guardar en Parámetros del ciclo (T12)
+    property bool cambiosPendientes: parametrosCiclo.item?.cambiosPendientes ?? false
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
     signal sesionCerrada()     // Salir: sesión ya cerrada
@@ -206,10 +207,24 @@ Item {
             MouseArea { anchors.fill: parent; onClicked: raiz.nuevoUsuarioPulsado() }
         }
 
-        // Fase 1: ninguna otra sección migrada (U-4); centrado como en la imagen 1c
+        // Parámetros del ciclo, Fases 2 a 4 (T12): debajo del aviso de bloqueo
+        Loader {
+            id: parametrosCiclo
+            objectName: "cargadorParametrosCiclo"
+            active: raiz.seccionActiva === "parametros_ciclo"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesParametrosCiclo {
+                teclado: raiz.teclado
+                edicionPermitida: raiz.edicionPermitida
+            }
+        }
+
+        // Secciones aún no migradas (U-4); centrado como en la imagen 1c
         Text {
             objectName: "textoProximamente"
             visible: raiz.seccionActiva !== "" && raiz.seccionActiva !== "usuarios"
+                     && raiz.seccionActiva !== "parametros_ciclo"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia

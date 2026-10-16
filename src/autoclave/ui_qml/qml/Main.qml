@@ -435,6 +435,7 @@ Window {
         id: opcionesComp
         Opciones {
             puente: ventana.puente
+            teclado: panelTeclado
             onInicioPulsado: ventana.volverAPrincipal()
             onSesionCerrada: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()

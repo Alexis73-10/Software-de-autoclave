@@ -4,5 +4,6 @@
 from autoclave.ui_qml.controllers import login_controller  # noqa: F401
 # Opciones.qml y Main.qml usan OpcionesController (sesión y permisos de OPCIONES).
 from autoclave.ui_qml.controllers import opciones_controller  # noqa: F401
+from autoclave.ui_qml.controllers import parametros_ciclo_controller  # noqa: F401
 # CambioClave.qml usa CambioClaveController (cambio de contraseña obligatorio, T-8).
 from autoclave.ui_qml.controllers import cambio_clave_controller  # noqa: F401

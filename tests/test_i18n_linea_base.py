@@ -230,7 +230,10 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
     pares = [(res[i], res[i + 1]) for i in range(0, len(res) - 5, 2)]
     for (caso_ref, ref), (_, nuevo) in pares:
         clave = caso_ref["clave"]
-        if clave.startswith("opciones.secciones."):
+        if clave.startswith("opciones.secciones_programa."):
+            # T12: tercer nivel nuevo, sin referencia vieja; contra el catálogo
+            ref = es["opciones"]["secciones_programa"][clave.split(".")[2]]
+        elif clave.startswith("opciones.secciones."):
             # txRuta parte en el primer punto: no resolvía el tercer nivel;
             # Opciones lo leía directo del objeto.
             ref = es["opciones"]["secciones"][clave.split(".")[2]]

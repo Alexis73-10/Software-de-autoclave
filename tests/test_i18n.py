@@ -245,6 +245,11 @@ FAMILIAS = {
     "sesion.": lambda: _sufijos_campos("Pantallas/CambioClave.qml", "etiqueta"),
     "menu.resultado_": _sufijos_resultado_menu,
     "opciones.secciones.": _sufijos_secciones,
+    # T12: secciones de un programa (GET /programas) y valores de enumerados
+    "opciones.secciones_programa.": lambda: list(__import__(
+        "autoclave.backend.server", fromlist=["_SECCIONES_PROGRAMA"])._SECCIONES_PROGRAMA),
+    "opciones.valor_": lambda: list(__import__(
+        "autoclave.core.managers.catalogo_parametros", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "exportacion.impresora_": _sufijos_impresora,
     "validacion.": _sufijos_validacion,
 }
