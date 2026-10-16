@@ -2,6 +2,8 @@
 
 > **Adenda 2026-10-14 (tanda, T2/E1b):** `vapor_source` ya existe en el perfil, la validación y `storage`. Valores `generator | boiler | mixed` (no `interno | externo | mixto`); la UI y las claves `instalacion.vapor_*` se renombraron igual. La salida de la fuente ausente se bloquea en `SetOutput.set_output`. Campo ausente = ambas salidas (perfiles anteriores).
 
+> **Adenda 2026-10-14 (tanda, T9):** puente real en `ui_qml/bridge/puente_instalacion.py` (revalida todo en Python, nunca sobrescribe un perfil válido, aparta uno inválido, `created_at` en hora local); se abre desde `ui_qml/app.py` en la puerta 1 cuando falta el perfil (`InstalacionVentana.qml`). Sin clave de fabricante. `wizard.py` no se retira: lo siguen usando `main.py` y `ui/main.py`. El resumen muestra si el tipo de puerta controla el cerrojo y vigila el empaque.
+
 Reemplaza el asistente tkinter `installation/wizard.py`. Solo UI: el puente Python y la integración con el arranque quedan fuera (ver §6).
 
 ## 1. Cómo funciona hoy (código)

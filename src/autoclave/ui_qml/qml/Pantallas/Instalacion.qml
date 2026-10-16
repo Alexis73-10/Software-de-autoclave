@@ -178,6 +178,8 @@ Item {
             temperature_probes: sondas
         }
     }
+    // Tipos de puerta con cerrojo controlado por el software (devices/factory/factory.py)
+    readonly property bool conCerrojo: ["locking", "motorized_locking", "advanced"].indexOf(tipoPuerta) >= 0
     function pedirConfirmacion() { dialogoInstalar.abrir() }
     function instalar() {
         if (!puente)
@@ -210,6 +212,12 @@ Item {
         { clave: "resumen_modelo", valor: modelo.trim() },
         { clave: "resumen_equipo", valor: etiquetaClase(clase) },
         { clave: "resumen_puertas", valor: numPuertas + " · " + I18n.t("instalacion.puerta_" + tipoPuerta, I18n.lang) },
+        // SAF-01 de T9: el tipo de puerta decide si el software maneja el
+        // cerrojo y vigila el empaque; se muestra explícito
+        { clave: "resumen_cerrojo", valor: I18n.t(conCerrojo ? "instalacion.resumen_con_cerrojo"
+                                                              : "instalacion.resumen_sin_cerrojo", I18n.lang) },
+        { clave: "resumen_empaque", valor: I18n.t(tipoPuerta === "simple" ? "instalacion.resumen_sin_empaque"
+                                                                          : "instalacion.resumen_con_empaque", I18n.lang) },
         { clave: "resumen_puerta_pc", valor: numPuertas > 1 ? I18n.t("instalacion.puerta_pc_" + puertaPc, I18n.lang) : "" },
         { clave: "resumen_enfriamiento", valor: maxEnfriamiento === 0 ? ""
               : nivelEnfriamiento === 0 ? I18n.t("instalacion.resumen_sin_enfriamiento", I18n.lang)
@@ -792,7 +800,9 @@ Item {
     DialogoConfirmacion {
         id: dialogoInstalar
         objectName: "dialogoInstalar"
-        mensaje: I18n.t("instalacion.confirmar_pregunta", I18n.lang)
+        // SAF-01 de T9: sin cerrojo controlado, la confirmación lo dice expresamente
+        mensaje: raiz.conCerrojo ? I18n.t("instalacion.confirmar_pregunta", I18n.lang)
+                                 : I18n.t("instalacion.confirmar_sin_cerrojo", I18n.lang)
         textoConfirmar: I18n.t("instalacion.confirmar_si", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         onConfirmado: raiz.instalar()

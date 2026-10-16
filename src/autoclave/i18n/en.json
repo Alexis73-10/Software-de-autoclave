@@ -93,7 +93,14 @@
     "confirmar_si": "Install",
     "error_guardar": "Save error: {detalle}",
     "listo_titulo": "Installation complete",
-    "listo_texto": "The equipment has been registered successfully. Restart the software to continue."
+    "listo_texto": "The equipment has been registered successfully. Restart the software to continue.",
+    "resumen_cerrojo": "Door lock",
+    "resumen_con_cerrojo": "Controlled by the software",
+    "resumen_sin_cerrojo": "NOT controlled by the software",
+    "resumen_empaque": "Gasket sensor",
+    "resumen_con_empaque": "Monitored",
+    "resumen_sin_empaque": "NOT monitored",
+    "confirmar_sin_cerrojo": "The selected door type does NOT control the door lock. Confirm that the equipment has no lock before installing. The profile will be locked."
   },
   "app": {
     "nombre": "e-specifika",

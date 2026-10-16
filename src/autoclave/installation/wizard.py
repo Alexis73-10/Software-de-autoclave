@@ -256,7 +256,8 @@ def launch_installation_wizard() -> bool:
 
         serial = serial_var.get().strip().upper()
         profile = InstallationProfile(
-            machine_id=f"ACV-{datetime.utcnow().strftime('%Y')}-{serial}",
+            # hora local, como compara clock_guard (TMG-01 de T9)
+            machine_id=f"ACV-{datetime.now().strftime('%Y')}-{serial}",
             model_id=model,
             serial_number=serial,
             equipment_class=EquipmentClass(equipment_var.get()),
@@ -265,7 +266,7 @@ def launch_installation_wizard() -> bool:
             cooling_level=cooling_var.get(),
             door_id=door_id_var.get(),
             role=Role.OPERATOR_FRONT,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(),
             locked=True,
             supply_inputs={k: bool(v.get()) for k, v in supply_vars.items()},
             temperature_probes={k: bool(v.get()) for k, v in probe_vars.items()},

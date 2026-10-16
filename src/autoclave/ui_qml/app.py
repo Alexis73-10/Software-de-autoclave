@@ -35,6 +35,7 @@ from autoclave.ui_qml.bridge.comandos_falla import ComandoReconocerFalla
 from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
 from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
+from autoclave.ui_qml.bridge.puente_instalacion import PuenteInstalacion, requiere_instalacion
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
 from autoclave.ui_qml.bridge.progreso_arranque import SimuladorProgresoArranque, parse_simulacion
@@ -108,6 +109,25 @@ def forzar_tema_claro(app: QGuiApplication) -> None:
     app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
 
+def _abrir_instalacion(app: QGuiApplication, args) -> int:
+    puente_instalacion = PuenteInstalacion()
+    engine = QQmlApplicationEngine()
+    engine.addImportPath(QML_DIR)
+    engine.setInitialProperties({"puenteInstalacion": puente_instalacion})
+    engine.load(QUrl.fromLocalFile(f"{QML_DIR}/InstalacionVentana.qml"))
+    if not engine.rootObjects():
+        logger.error("No se pudo cargar %s/InstalacionVentana.qml", QML_DIR)
+        return 1
+    ventana = engine.rootObjects()[0]
+    pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
+    ventana.setScreen(pantalla)
+    ventana.setGeometry(pantalla.geometry())
+    ventana.showFullScreen()
+    ventana.requestActivate()
+    logger.warning("Sin perfil de instalación: se abre el asistente de instalación")
+    return app.exec()
+
+
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
@@ -117,6 +137,12 @@ def main(argv=None) -> int:
     app = QGuiApplication(sys.argv[:1])
     forzar_tema_claro(app)
     _cargar_fuentes()
+
+    # T9 (ARR-02 / MIG-07): sin perfil de instalación (o inválido), la ventana
+    # principal abre el asistente en lugar del menú; la puerta 2 sigue al
+    # menú, donde el arranque informa ARR_PERFIL
+    if args.door == 1 and requiere_instalacion():
+        return _abrir_instalacion(app, args)
 
     # Intro de arranque: el progreso corre desde t = 0 en paralelo con todo lo
     # demás; no espera ni condiciona nada. PROVISIONAL (ARR-03): simulado, sin

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from datetime import datetime
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.devices.puertas.door_type import DoorType
@@ -45,7 +46,7 @@ def save(profile: InstallationProfile):
     if profile.locked and exists():
         raise RuntimeError("El perfil de instalación está bloqueado y no puede modificarse")
 
-    INSTALLATION_FILE.write_text(json.dumps({
+    texto = json.dumps({
         "machine_id":      profile.machine_id,
         "model_id":        profile.model_id,
         "serial_number":   profile.serial_number,
@@ -63,7 +64,19 @@ def save(profile: InstallationProfile):
         **({"board_id": profile.board_id} if profile.board_id else {}),
         # E1b: solo si se eligió (ausente = perfil anterior, ambas salidas)
         **({"vapor_source": profile.vapor_source} if profile.vapor_source else {}),
-    }, indent=2, ensure_ascii=False), encoding="utf-8")
+    }, indent=2, ensure_ascii=False)
+    # TMG-03 de T9: escritura atómica (temporal + fsync + replace); un corte no
+    # deja el perfil truncado
+    tmp = INSTALLATION_FILE.with_name(INSTALLATION_FILE.name + ".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(texto)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, INSTALLATION_FILE)
+    finally:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
 
 
 def delete():

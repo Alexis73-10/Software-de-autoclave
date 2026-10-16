@@ -19,7 +19,7 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 | T6 E4 arranque seguro | HECHA | dev-noche | ver git log | 3213 passed | `T6_arranque_seguro.md` |
 | T7 E5 UI | HECHA | dev-noche | ver git log | 3239 passed | `T7_ui_e5.md` |
 | T8 Modo sin BD | HECHA | dev-noche | ver git log | 3290 passed | `T8_modo_sin_bd.md` |
-| T9 Menú de instalación | pendiente | dev-noche | | | |
+| T9 Menú de instalación | HECHA | dev-noche | ver git log | 3294 passed | `T9_menu_instalacion.md` |
 | T10 Endurecimiento | pendiente | dev-noche | | | |
 | T11 Programas | pendiente | dev-noche | | | |
 | T12 Opciones F2–F4 | pendiente | dev-noche | | | |
@@ -30,4 +30,4 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_noche.md`. Se actual
 
 ## Etapa actual
 
-T9: menú de instalación conectado (1.7).
+T10: endurecimiento remanente (RB faltantes, tipo_carga, límites del catálogo, permisos 1.6).

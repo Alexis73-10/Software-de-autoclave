@@ -93,7 +93,14 @@
     "confirmar_si": "Instalar",
     "error_guardar": "Error al guardar: {detalle}",
     "listo_titulo": "Instalación completada",
-    "listo_texto": "El equipo ha sido registrado correctamente. Reinicie el software para continuar."
+    "listo_texto": "El equipo ha sido registrado correctamente. Reinicie el software para continuar.",
+    "resumen_cerrojo": "Cerrojo de puerta",
+    "resumen_con_cerrojo": "Controlado por el software",
+    "resumen_sin_cerrojo": "NO controlado por el software",
+    "resumen_empaque": "Sensor de empaque",
+    "resumen_con_empaque": "Vigilado",
+    "resumen_sin_empaque": "NO vigilado",
+    "confirmar_sin_cerrojo": "El tipo de puerta elegido NO controla el cerrojo de la puerta. Confirme que el equipo no tiene cerrojo antes de instalar. El perfil quedará bloqueado."
   },
   "app": {
     "nombre": "e-specifika",
