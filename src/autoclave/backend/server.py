@@ -190,7 +190,20 @@ def _auditar(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
             detalle=detalle,
         )
     except Exception:
-        logger.exception("No se pudo registrar '%s' en audit_log", evento)
+        if getattr(context, "sin_base_de_datos", False) is True:
+            # T8: sin base no hay bitácora; queda en el log de texto (S2, TMG-05)
+            logger.warning("Sin base de datos: '%s' no queda en audit_log (%s, %s -> %s, %s)",
+                           evento, entidad, valor_anterior, valor_nuevo, detalle)
+        else:
+            logger.exception("No se pudo registrar '%s' en audit_log", evento)
+
+
+def _nombre_estado() -> str:
+    """Estado de la máquina para la bitácora; "" si no se puede leer."""
+    try:
+        return str(getattr(context.estado.get_machine_state(), "name", ""))
+    except Exception:
+        return ""
 
 
 class RechazoApi(Exception):
@@ -890,27 +903,71 @@ def list_cycles():
     ]
 
 
+# S2 (tanda 2): origen declarado por el cliente (no autenticado) del cambio de
+# programa, para la bitácora. Lista cerrada: un valor desconocido se rechaza.
+ORIGENES_SELECCION = ("puerta_1", "puerta_2", "remoto", "desconocido")
+
+
 class _SelectCycleBody(BaseModel):
     cycle_id: str
+    # Opcional: el endpoint sigue sin sesión (decisión 2 de Cristian)
+    origen: str | None = None
 
 
 @app.post("/cycle/select")
-def select_cycle(body: _SelectCycleBody):
+def select_cycle(body: _SelectCycleBody, request: Request):
+    """Cambia el programa activo. Sin sesión y permitido en FALLA (decisión 2
+    de Cristian, 19-oct: ningún fallo exige técnico). Rechazado con un ciclo
+    en curso en sentido amplio (ControlLoop._motivo_no_cambiar_ciclo), con un
+    programa dañado (RB-04.4) y con un programa de líquidos en un equipo sin
+    esa capacidad (T11). El cambio y todos sus rechazos quedan en audit_log
+    con el origen DECLARADO (no autenticado), el cliente HTTP y el estado (S2).
+    Lectura del programa anterior, cambio en el lazo y en el CycleManager van
+    juntos bajo el lock de la máquina; la bitácora se escribe al soltarlo."""
+    entidad = "/cycle/select"
+    detalle = {"origen": body.origen or "desconocido",
+               "origen_autenticado": False,
+               "cliente": request.client.host if request.client else ""}
     cycle = context.cycle_manager.cycles.get(body.cycle_id)
+    nombre = getattr(cycle, "name", None)
+
+    def rechazar(status: int, codigo: str, motivo: str, anterior=None, estado=""):
+        _auditar("PROGRAMA_SELECCION_RECHAZADA", entidad=entidad,
+                 valor_anterior=anterior, valor_nuevo=body.cycle_id,
+                 detalle={**detalle, "estado": estado or _nombre_estado(),
+                          "codigo": codigo, "motivo": motivo, "programa": nombre})
+        raise RechazoApi(status, codigo, motivo)
+
+    if detalle["origen"] not in ORIGENES_SELECCION:
+        rechazar(422, "origen_invalido",
+                 "Origen desconocido: %r (válidos: %s)"
+                 % (detalle["origen"][:40], ", ".join(ORIGENES_SELECCION)))
     if cycle is None:
-        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
+        rechazar(404, "programa_no_encontrado", f"Ciclo '{body.cycle_id}' no encontrado")
     if getattr(cycle, "source", "user") != "user":
-        raise HTTPException(status_code=422, detail="Solo se pueden seleccionar ciclos de usuario")
+        rechazar(422, "programa_de_fabrica", "Solo se pueden seleccionar ciclos de usuario")
     # RB-04.4 (T10): un programa dañado no es ejecutable
     if getattr(cycle, "danado", None):
-        _rechazar(409, "PROGRAMA_NO_EDITABLE",
-                  f"Programa dañado (fuera del catálogo): {cycle.danado[0]}", "/cycle/select")
+        rechazar(409, "PROGRAMA_NO_EDITABLE",
+                 f"Programa dañado (fuera del catálogo): {cycle.danado[0]}")
+    # T11 (revisión de S2): líquidos solo en equipos con esa capacidad
+    if _carga_liquida(cycle) and getattr(getattr(context, "cap", None), "has_liquids", None) is False:
+        rechazar(409, "carga_liquida_no_disponible",
+                 "Este equipo no admite programas de carga líquida")
 
-    ok, reason = context.control_loop.set_active_cycle(cycle)
+    loop = context.control_loop
+    with loop.bloqueo_maquina():
+        anterior = getattr(getattr(loop, "cycle", None), "id", None)
+        estado = _nombre_estado()
+        ok, reason = loop.set_active_cycle(cycle)
+        if ok:
+            context.cycle_manager.set_default_cycle(body.cycle_id)
+    detalle["estado"] = estado
     if not ok:
-        raise HTTPException(status_code=409, detail=reason)
+        rechazar(409, "cambio_no_permitido", reason, anterior=anterior, estado=estado)
 
-    context.cycle_manager.set_default_cycle(body.cycle_id)
+    _auditar("PROGRAMA_SELECCIONADO", entidad=entidad, valor_anterior=anterior,
+             valor_nuevo=body.cycle_id, detalle={**detalle, "programa": nombre})
     return {"ok": True, "id": cycle.id, "name": cycle.name}
 
 @app.get("/cycle/current/readings")
@@ -1270,35 +1327,42 @@ def start_cycle(body: dict | None = Body(default=None)):
     if getattr(context.control_loop, "apagando", False) is True:
         _rechazar(409, "apagado_en_curso", "El equipo se está apagando", "/cycle/start")
 
+    # S2 (revisión): la validación del programa y START_CICLO van juntas bajo
+    # el lock de la máquina: un /cycle/select concurrente no puede cambiar el
+    # programa entre la validación y el inicio. La bitácora del rechazo se
+    # escribe al soltar el lock.
+    with context.control_loop.bloqueo_maquina():
+        rechazo = _validar_inicio(estado)
+        if rechazo is None:
+            estado.set_flag("START_CICLO", True)
+    if rechazo is not None:
+        if rechazo[0] is None:
+            raise HTTPException(status_code=409, detail=rechazo[1])
+        _rechazar(409, rechazo[0], rechazo[1], "/cycle/start")
+    return {"ok": True, "action": "START_CICLO"}
+
+
+def _validar_inicio(estado) -> tuple | None:
+    """(código, motivo) si el programa seleccionado no puede iniciarse; código
+    None = rechazo sin código (no listo). Llamar bajo bloqueo_maquina()."""
     if not estado.get_flag("LISTO_PARA_CICLO"):
-        raise HTTPException(
-            status_code=409,
-            detail="El sistema no está listo para iniciar un ciclo"
-        )
+        return None, "El sistema no está listo para iniciar un ciclo"
 
     # RB-04.4 (T10): un programa dañado no se inicia
     seleccionado = getattr(context.control_loop, "cycle", None)
     danado = getattr(seleccionado, "danado", None)
     if isinstance(danado, list) and danado:
-        _rechazar(409, "PROGRAMA_NO_EDITABLE",
-                  f"Programa dañado (fuera del catálogo): {danado[0]}", "/cycle/start")
+        return "PROGRAMA_NO_EDITABLE", f"Programa dañado (fuera del catálogo): {danado[0]}"
 
     # T11: un programa de carga líquida solo en equipos con capacidad de líquidos
     if seleccionado is not None and _carga_liquida(seleccionado):
         cap = getattr(context, "cap", None)
         if cap is not None and getattr(cap, "has_liquids", None) is False:
-            _rechazar(409, "carga_liquida_no_disponible",
-                      "Este equipo no admite programas de carga líquida", "/cycle/start")
+            return "carga_liquida_no_disponible", "Este equipo no admite programas de carga líquida"
 
     # RS-06 (tanda §1.1): asignación de sensores válida y todos los sensores
     # en uso del programa seleccionado con lectura
-    rechazo = sc.verificar_inicio(getattr(context.control_loop, "cycle", None),
-                                  getattr(context, "profile", None), estado)
-    if rechazo is not None:
-        _rechazar(409, rechazo[0], rechazo[1], "/cycle/start")
-
-    estado.set_flag("START_CICLO", True)
-    return {"ok": True, "action": "START_CICLO"}
+    return sc.verificar_inicio(seleccionado, getattr(context, "profile", None), estado)
 
 
 @app.post("/cycle/abort")

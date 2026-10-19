@@ -11,8 +11,8 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_2.md`. Rama `tanda-2
 | U1 Alarmas fuera de la barra superior | hecha | `9fba067` | 3375 | `U1_avisos_en_campana.md` |
 | U2 Navegación inferior uniforme | hecha | `1c778c7` | 3386 | `U2_navegacion_inferior.md` |
 | U3 Botón de tiempo de secado | hecha (sin botón que retirar; sin código) | (este commit) | 3386 | `U3_boton_secado.md` |
-| S1 DO1/DO2 | hecha | (ver git log: S1) | 3394 | `S1_do1_do2.md` |
-| S2 `/cycle/select` | pendiente | — | — | — |
+| S1 DO1/DO2 | hecha | `5aa6f92` | 3394 | `S1_do1_do2.md` |
+| S2 `/cycle/select` | hecha | (ver git log: S2) | 3413 | `S2_cycle_select.md` |
 | S3 Pendientes de seguridad | pendiente | — | — | — |
 | R1 Retiro de tkinter | pendiente | — | — | — |
 | P1 Hoja de pruebas de banco | pendiente | — | — | — |

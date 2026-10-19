@@ -748,6 +748,37 @@ class ControlLoop:
     # CAMBIO DE CICLO ACTIVO
     # =========================================================================
 
+    def _motivo_no_cambiar_ciclo(self) -> str | None:
+        """S2 (tanda 2): "en curso" en sentido amplio. Además de CICLO (que
+        incluye la espera de confirmación), el paro, el estado seguro (en curso
+        o pendiente de confirmar), la recuperación pendiente tras un reinicio y
+        un inicio ya pedido (START_CICLO): la StateMachine nueva no debe
+        reemplazar a la que lleva la cámara a estado seguro ni descartar en
+        silencio el inicio validado con el programa anterior. También EMERGENCIA,
+        HIBERNACION, modo prueba, apagado y configuración inválida, como los
+        guards de escritura del backend. Llamar bajo _sm_lock. El chequeo del
+        paro es preventivo: la garantía es el update() de la StateMachine."""
+        estado_maquina = self.estado.get_machine_state()
+        if estado_maquina == GlobalState.CICLO:
+            return "No se puede cambiar de ciclo mientras hay uno en curso."
+        if estado_maquina in (GlobalState.EMERGENCIA, GlobalState.HIBERNACION):
+            return f"No se puede cambiar de ciclo en {estado_maquina.name}."
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            if self.desconectado:
+                return "No se puede cambiar de ciclo sin conexión con la tarjeta de control."
+            return "No se puede cambiar de ciclo con el paro de emergencia activado."
+        if self.estado_seguro.activo or self._recuperacion_pendiente is not None:
+            return "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro."
+        if self.estado.get_flag("START_CICLO"):
+            return "No se puede cambiar de ciclo: ya se pidió el inicio de uno."
+        if self._test_mode.is_set():
+            return "No se puede cambiar de ciclo con el modo prueba activo."
+        if self._apagando:
+            return "No se puede cambiar de ciclo: el equipo se está apagando."
+        if self._bloqueo_config is not None:
+            return f"Configuración inválida: {self._bloqueo_config}"
+        return None
+
     def set_active_cycle(self, cycle) -> tuple[bool, str]:
         """Reemplaza el ciclo activo y reconstruye la StateMachine para que el
         cambio se propague a todos los sub-estados y fases. Solo seguro fuera
@@ -760,8 +791,9 @@ class ControlLoop:
         StateMachine nueva (prev_state=None) pisando un ciclo recién
         iniciado."""
         with self._sm_lock:
-            if self.estado.get_machine_state() == GlobalState.CICLO:
-                return False, "No se puede cambiar de ciclo mientras hay uno en curso."
+            motivo = self._motivo_no_cambiar_ciclo()
+            if motivo is not None:
+                return False, motivo
 
             self.cycle = cycle
             self.state_machine = StateMachine(

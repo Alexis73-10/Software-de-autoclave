@@ -450,6 +450,7 @@ def test_set_active_cycle_conserva_el_ultimo_ciclo():
     ultimo = _prog(None)
     loop._programa_ultimo_ciclo = ultimo
     estado.set_machine_state(GlobalState.PREPARADO)
+    estado.set_flag("PARO_EMERGENCIA", False)          # S2: con paro se rechaza
     with patch("autoclave.services.domain.loop.control_loop.StateMachine"):
         assert loop.set_active_cycle(_prog(_ASIG_REF_PRINCIPAL))[0] is True
     assert ultimo in loop.programas_para_seguridad()
