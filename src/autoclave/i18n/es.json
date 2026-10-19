@@ -363,7 +363,10 @@
   },
   "notificaciones": {
     "titulo": "NOTIFICACIONES",
-    "alertas_avisos": "Alertas y avisos"
+    "alertas_avisos": "Alertas y avisos",
+    "grupo_emergencia": "Emergencia / Fallas",
+    "grupo_alarmas": "Alarmas",
+    "grupo_avisos": "Avisos"
   },
   "equipo": {
     "titulo": "INFORMACIÓN DEL EQUIPO",
@@ -488,7 +491,11 @@
     "confirmar_sin_sesion": "Disponible para cualquier operador, sin iniciar sesión",
     "estado_seguro_en_curso_boton": "En curso…",
     "no_abrir_hasta_segura": "NO ABRIR hasta que la cámara esté segura",
-    "seguridad_desconocida": "Sin conexión: estado del paro de emergencia y del estado seguro desconocido. NO ABRIR."
+    "seguridad_desconocida": "Sin conexión con el equipo: no se puede verificar el paro ni la cámara. NO ABRIR.",
+    "tarjeta_desconectada": "Tarjeta desconectada: no se puede verificar el paro ni la cámara. NO ABRIR.",
+    "tarjeta_sin_datos": "La tarjeta no envía datos válidos: no se puede verificar el paro ni la cámara. NO ABRIR.",
+    "tarjeta_desconectada_valores": "Tarjeta de control desconectada. Los valores mostrados no están actualizados.",
+    "tarjeta_sin_datos_valores": "La tarjeta de control no envía datos válidos. Los valores mostrados no están actualizados."
   },
   "sesion": {
     "campos_vacios": "Ingrese usuario y contraseña",
@@ -533,6 +540,11 @@
     "ASIGNACION_SENSORES_INVALIDA": "El programa tiene una asignación de sensores inválida"
   },
   "alarmas": {
+    "COM-01": {
+      "titulo": "Tarjeta de E/S desconectada",
+      "descripcion": "No se detecta la tarjeta de control.",
+      "accion": "Conecte la tarjeta (cable USB) y verifique su alimentación."
+    },
     "TARJETA_SIN_TRAMA_VALIDA": {
       "titulo": "La tarjeta de E/S no envía datos válidos",
       "accion": "Revise el cable USB y la alimentación de la tarjeta. Llame a servicio técnico."

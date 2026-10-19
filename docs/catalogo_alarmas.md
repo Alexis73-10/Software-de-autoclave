@@ -61,6 +61,15 @@ al completarse el siguiente handshake. En ciclo, las de operación abortan el ci
 lleva el motivo concreto (texto en español generado en `serial_link.py`). Mientras el handshake no se completa,
 `is_connected()` es False, así que además aparece `NO_HAY_CONEXION`.
 
+**U4 (tanda 2, 19-oct):** ya no. COM-01 (antes `NO_HAY_CONEXION`) sale solo con la tarjeta **desconectada**
+(ningún puerto de la tarjeta, o puerto perdido por error de lectura/escritura); con el puerto presente y sin
+datos válidos (sin handshake, CRC malo, firmware incompatible, DI vencida) aparece `TARJETA_SIN_TRAMA_VALIDA`
+u otra de esta tabla. Las dos son excluyentes: al pasar de una a otra se resuelve la anterior. Además, el
+`ControlLoop` activa `TARJETA_SIN_TRAMA_VALIDA` (motivo "no envía la trama de entradas (DI)") si, con el
+handshake hecho, la trama DI vence (> 1,5 s) fuera de la ventana de la primera DI; se resuelve al volver.
+SIS-01 (paro) ya no sale por falta de datos: solo con la entrada del paro leída en 0. Ver
+`docs/informes/tanda2/U4_tarjeta_desconectada.md`.
+
 | ID | Tipo | Bloq. | Recup. | Condición | Acción del operador |
 |---|---|---|---|---|---|
 | `TARJETA_SIN_TRAMA_VALIDA` | FALLA | sí | sí | Handshake: ninguna línea de CRC válido dentro del presupuesto (15 s), o ninguna ST tras el ALL_OFF. Reintento cada 3 s. | Revisar cable USB y alimentación de la tarjeta. Llamar a servicio técnico. |
@@ -208,7 +217,7 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 
 | ID actual | Código Parte A | Nivel nuevo |
 |---|---|---|
-| `PARO_EMERGENCIA` | SIS-01 | FALLO_CRITICO |
+| `PARO_EMERGENCIA` | SIS-01 (desde U4 solo con paro real: entrada leída en 0) | FALLO_CRITICO |
 | `FALLO_SUMINISTRO_ELECTRICO` | SUM-01 | FALLO_CRITICO |
 | `SUMINISTRO_ELECTRICO` | SUM-02 | AVISO |
 | `SUMINISTRO_AGUA_BOMBA` / `_AGUA_GENERADOR` / `_AIRE_COMPRIMIDO` | SUM-03 / SUM-04 / SUM-05 | AVISO |
@@ -225,7 +234,7 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | `SENSOR_AUSENTE` | SEN-02 | FALLO_CRITICO |
 | `FALLO_PRECALENTAMIENTO` / `_PRE_VACIO` / `_CALENTAMIENTO` / `_ESTERILIZACION` / `_DESCOMPRESION` / `_SECADO` | CIC-01 … CIC-06 | ALARMA |
 | `TIMEOUT_APERTURA_AUTOMATICA` / `APERTURA_AUTOMATICA_DENEGADA` | CIC-07 / CIC-08 | AVISO |
-| `NO_HAY_CONEXION` | COM-01 | ALARMA |
+| `NO_HAY_CONEXION` | COM-01 ("Tarjeta de E/S desconectada" desde U4; solo sin puerto) | ALARMA |
 | `FALLO_CONEXION` | COM-02 | FALLO_CRITICO |
 | `CONFIGURACION_INVALIDA` | `CONFIGURACION_INVALIDA` (id conservado, tanda 2026-10-14) | ALARMA, bloquea, despeje manual |
 | `OPERANDO_SIN_BD` | `OPERANDO_SIN_BD` (id conservado) | ALARMA, **no bloquea** (D-03, T8), despeje manual |

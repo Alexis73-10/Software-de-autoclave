@@ -97,8 +97,10 @@ Window {
     // U-5: Inicio conserva la sesión).
     OpcionesController { id: sesionVentana }
     function abrirConfiguracion() {
-        // U1 (TMG-02): con el paro o la confirmación pendiente el panel de la
-        // campana está abierto y bloqueado; no se abre nada encima
+        // U1 (TMG-02): con el paro real o la confirmación pendiente no se va a
+        // una pantalla sin campana (U4: el panel ya no se bloquea; el paro se
+        // ve en la tarjeta de alarmas de la principal). DECISIÓN SIN
+        // CONFIRMAR U4-3: se conserva este freno en el avatar.
         if (seguridadUrgente)
             return
         sesionVentana.refrescar()
@@ -177,7 +179,9 @@ Window {
 
     // U1 (tanda 2): con el paro o la confirmación de estado seguro pendiente,
     // una pantalla sin campana (login, cambio de clave, nuevo usuario) vuelve a
-    // la principal, cuyo panel de notificaciones se abre solo. La sesión no se
+    // la principal, cuya tarjeta de alarmas los muestra con el botón de
+    // confirmar (U4: el panel ya no se abre solo; paroActivo = paro real, la
+    // tarjeta desconectada no fuerza esta vuelta). La sesión no se
     // toca: solo la cierra la inactividad (SAF-01). No aplica a la pantalla de
     // reposo (el standby ya despierta con el paro) ni a la intro de arranque.
     readonly property bool seguridadUrgente: (puente?.paroActivo ?? false)
@@ -238,8 +242,9 @@ Window {
 
         // U1 (tanda 2): el paro, el estado seguro, NO ABRIR y el modo prueba ya
         // no van en una franja superior: están en el panel de la campana
-        // (PanelNotificaciones › SeccionEstadoSeguro), que se abre solo con el
-        // paro o la confirmación pendiente. Ver irAPanelSeguridad().
+        // (PanelNotificaciones › SeccionEstadoSeguro) y, desde U4, también en
+        // la tarjeta de alarmas de Preciclo y de Ciclo en curso. Ver
+        // irAPanelSeguridad().
 
         // Teclado en pantalla de esta ventana (Paso 5 de planeacion_teclados_qml.md):
         // sobre el StackView, inyectado a las pantallas como `teclado`.

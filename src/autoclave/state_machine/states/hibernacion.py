@@ -15,5 +15,6 @@ class Hibernacion:
         if self.estado.get_flag("PARO_EMERGENCIA"):
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
             self.set_do.apagar_por_paro()
-            self.alarm_manager.activar(SIS_01, estado="Hibernación")
+            if self.estado.get_flag("PARO_REAL"):      # U4: sin datos no es SIS-01
+                self.alarm_manager.activar(SIS_01, estado="Hibernación")
             self.set_do.buzer_emergencia()

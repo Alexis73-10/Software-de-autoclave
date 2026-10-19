@@ -35,6 +35,7 @@ def test_en_falla_sin_nada_en_curso_se_permite(_sm):
 def test_rechaza_con_paro_activo(sm):
     loop, inicial, estado = _loop()
     estado.set_flag("PARO_EMERGENCIA", True)
+    estado.set_flag("PARO_REAL", True)       # U4: sin datos el motivo habla de la tarjeta
     sm.reset_mock()
     ok, motivo = loop.set_active_cycle(MagicMock())
     assert ok is False and "paro" in motivo.lower()

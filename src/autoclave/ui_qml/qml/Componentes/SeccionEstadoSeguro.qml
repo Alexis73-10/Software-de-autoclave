@@ -4,37 +4,58 @@ import QtQuick.Controls
 import Tema
 import Autoclave.I18n
 
-// U1 (tanda 2, 2026-10-19): avisos de seguridad dentro del panel de la campana,
-// en lugar de la franja superior de E5. Mockup aprobado:
-// docs/mis_plans/mockup_estado_seguro.png (3 estados).
+// U1 (tanda 2, 2026-10-19): avisos de seguridad, antes franja superior de E5.
+// Mockup aprobado: docs/mis_plans/mockup_estado_seguro.png (3 estados).
 // 1. Paro activo: fila de alarma alta "PARO DE EMERGENCIA — NO ABRIR", sin botón.
 // 2. Paro liberado, estado seguro pendiente: fila de alarma, aviso naranja y
 //    botón "Confirmar y llevar a estado seguro" (cualquier operador, sin sesión).
 // 3. Estado seguro en curso: botón deshabilitado "En curso…" y "NO ABRIR hasta
 //    que la cámara esté segura".
 // Además (DECISIÓN SIN CONFIRMAR D-U1-2/D-U1-3): "NO ABRIR" con la cámara no
-// segura y el MODO PRUEBA, como filas del mismo panel.
-// Sin conexión, el puente entrega noAbrir = true (falla cerrada).
+// segura y el MODO PRUEBA, como filas.
+// U4 (tanda 2): componente compartido por el panel de la campana (por grupo),
+// la tarjeta de alarmas de Preciclo y la de Ciclo en curso. Distingue tarjeta
+// desconectada y tarjeta sin datos válidos del paro real (paroActivo = paro
+// real; sin datos de la tarjeta no se afirma paro).
+// Grupos (D3, nivel del catálogo): "emergencia" (sin conexión, tarjeta, paro y
+// estado seguro), "alarma" (NO ABRIR) y "aviso" (modo prueba); "" = todos.
 Column {
     id: raiz
     property QtObject puente: null
     property QtObject comandos: null    // ComandosSistema
+    property string grupo: ""
 
-    // sin conexión el puente entrega paro/estado seguro en false: se avisa que
-    // el estado de seguridad es desconocido (revisión U1, SAF-04)
+    // sin conexión con el backend el puente entrega paro/estado seguro en
+    // false: se avisa que el estado de seguridad es desconocido (SAF-04 de U1)
     readonly property bool sinConexion: !(puente?.connected ?? true)
+    readonly property string estadoTarjeta: puente?.estadoTarjeta ?? "ok"
+    readonly property bool tarjetaDesconectada: !sinConexion && estadoTarjeta === "desconectada"
+    readonly property bool tarjetaSinDatos: !sinConexion && estadoTarjeta === "sin_tramas_validas"
+    readonly property bool sinDatos: sinConexion || tarjetaDesconectada || tarjetaSinDatos
     readonly property bool paro: puente?.paroActivo ?? false
     readonly property bool confirmar: (puente?.estadoSeguroRequiereConfirmacion ?? false) && !paro
     readonly property bool enCurso: (puente?.estadoSeguroActivo ?? false) && !confirmar && !paro
-    readonly property bool noAbrir: (puente?.noAbrir ?? true) && !paro && !enCurso
+    // las filas sin datos ya dicen NO ABRIR: no se repite
+    readonly property bool noAbrir: (puente?.noAbrir ?? true) && !paro && !enCurso && !sinDatos
     readonly property bool modoPrueba: puente?.modoPrueba ?? false
     // la petición de confirmar ya salió (ComandosSistema.ocupado)
     readonly property bool enviando: confirmar && (comandos?.ocupado ?? false)
-    // filas de esta sección (cuentan en la insignia de la campana)
-    readonly property int conteo: (paro || confirmar || enCurso ? 1 : 0) + (sinConexion ? 1 : 0)
-                                  + (noAbrir ? 1 : 0) + (modoPrueba ? 1 : 0)
-    // la insignia debe verse en rojo (y parpadear con la confirmación pendiente)
-    readonly property bool urgente: paro || confirmar
+
+    // filas por grupo (cuentan en la insignia de la campana y en los grupos)
+    readonly property int conteoEmergencia: (paro || confirmar || enCurso ? 1 : 0) + (sinDatos ? 1 : 0)
+    readonly property int conteoAlarma: noAbrir ? 1 : 0
+    readonly property int conteoAviso: modoPrueba ? 1 : 0
+    readonly property int conteoTotal: conteoEmergencia + conteoAlarma + conteoAviso
+    // filas que muestra esta instancia
+    readonly property int conteo: grupo === "emergencia" ? conteoEmergencia
+                                : grupo === "alarma" ? conteoAlarma
+                                : grupo === "aviso" ? conteoAviso : conteoTotal
+    // insignia roja: paro real, confirmación pendiente o sin datos; parpadea
+    // solo con el paro real o la confirmación pendiente (U4)
+    readonly property bool urgente: paro || confirmar || sinDatos
+    readonly property bool parpadeo: paro || confirmar
+
+    function enGrupo(g) { return grupo === "" || grupo === g }
 
     width: parent ? parent.width : 0
     spacing: Escala.px(16)
@@ -67,10 +88,10 @@ Column {
         }
     }
 
-    // ---- sin conexión: estado de paro y de estado seguro desconocido ----
+    // ---- sin conexión con el backend: seguridad desconocida ----
     FilaAlarma {
         objectName: "filaSeguridadDesconocida"
-        visible: raiz.sinConexion
+        visible: raiz.sinConexion && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
         prioridad: "alta"
@@ -78,10 +99,30 @@ Column {
         descripcion: I18n.t("sistema.seguridad_desconocida", I18n.lang)
     }
 
+    // ---- U4: tarjeta desconectada / sin datos válidos (no afirma paro) ----
+    FilaAlarma {
+        objectName: "filaTarjetaDesconectada"
+        visible: raiz.tarjetaDesconectada && raiz.enGrupo("emergencia")
+        width: raiz.width
+        multilinea: true
+        prioridad: "alta"
+        idAlarma: "TARJETA_DESCONECTADA"
+        descripcion: I18n.t("sistema.tarjeta_desconectada", I18n.lang)
+    }
+    FilaAlarma {
+        objectName: "filaTarjetaSinDatos"
+        visible: raiz.tarjetaSinDatos && raiz.enGrupo("emergencia")
+        width: raiz.width
+        multilinea: true
+        prioridad: "alta"
+        idAlarma: "TARJETA_SIN_DATOS"
+        descripcion: I18n.t("sistema.tarjeta_sin_datos", I18n.lang)
+    }
+
     // ---- 1. paro activo ----
     FilaAlarma {
         objectName: "filaParo"
-        visible: raiz.paro
+        visible: raiz.paro && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
         prioridad: "alta"
@@ -89,14 +130,14 @@ Column {
         descripcion: I18n.t("sistema.paro_no_abrir", I18n.lang)
     }
     Nota {
-        visible: raiz.paro
+        visible: raiz.paro && raiz.enGrupo("emergencia")
         texto: I18n.t("sistema.paro_suelte", I18n.lang)
     }
 
     // ---- 2. paro liberado: confirmación pendiente ----
     FilaAlarma {
         objectName: "filaEstadoSeguroPendiente"
-        visible: raiz.confirmar
+        visible: raiz.confirmar && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
         prioridad: "alta"
@@ -105,7 +146,7 @@ Column {
     }
     Nota {
         objectName: "avisoParoLiberado"
-        visible: raiz.confirmar
+        visible: raiz.confirmar && raiz.enGrupo("emergencia")
         borde: true
         fondo: Colores.advertenciaFondo
         tinta: Colores.advertenciaTexto
@@ -115,7 +156,7 @@ Column {
     // ---- 3. estado seguro en curso ----
     FilaAlarma {
         objectName: "filaEstadoSeguroEnCurso"
-        visible: raiz.enCurso
+        visible: raiz.enCurso && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
         prioridad: "media"
@@ -127,7 +168,7 @@ Column {
     // pendiente y sin petición en vuelo
     Rectangle {
         objectName: "botonConfirmarEstadoSeguro"
-        visible: raiz.confirmar || raiz.enCurso
+        visible: (raiz.confirmar || raiz.enCurso) && raiz.enGrupo("emergencia")
         readonly property bool habilitado: raiz.confirmar && !raiz.enviando
         width: raiz.width
         height: Escala.px(96)
@@ -139,7 +180,7 @@ Column {
             spacing: Escala.px(16)
             BusyIndicator {
                 objectName: "indicadorEnCurso"
-                visible: raiz.enCurso || raiz.enviando
+                visible: (raiz.enCurso || raiz.enviando) && raiz.enGrupo("emergencia")
                 running: visible
                 width: Escala.px(48); height: width
                 anchors.verticalCenter: parent.verticalCenter
@@ -162,7 +203,7 @@ Column {
         }
     }
     Text {
-        visible: raiz.confirmar && !raiz.enviando
+        visible: raiz.confirmar && !raiz.enviando && raiz.enGrupo("emergencia")
         width: raiz.width
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
@@ -173,7 +214,7 @@ Column {
     }
     Text {
         objectName: "notaNoAbrirEnCurso"
-        visible: raiz.enCurso || raiz.enviando
+        visible: (raiz.enCurso || raiz.enviando) && raiz.enGrupo("emergencia")
         width: raiz.width
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
@@ -186,6 +227,7 @@ Column {
     Text {
         objectName: "mensajeConfirmar"
         visible: raiz.confirmar && !raiz.enviando && (raiz.comandos?.mensaje ?? "") !== ""
+                 && raiz.enGrupo("emergencia")
         width: raiz.width
         horizontalAlignment: Text.AlignHCenter
         wrapMode: Text.WordWrap
@@ -198,7 +240,7 @@ Column {
     // ---- cámara no segura (fuera del paro y del estado seguro) ----
     FilaAlarma {
         objectName: "filaNoAbrir"
-        visible: raiz.noAbrir
+        visible: raiz.noAbrir && raiz.enGrupo("alarma")
         width: raiz.width
         multilinea: true
         prioridad: "media"
@@ -213,7 +255,7 @@ Column {
     // ---- modo prueba (indicador permanente mientras dure) ----
     FilaAlarma {
         objectName: "filaModoPrueba"
-        visible: raiz.modoPrueba
+        visible: raiz.modoPrueba && raiz.enGrupo("aviso")
         width: raiz.width
         multilinea: true
         prioridad: "baja"

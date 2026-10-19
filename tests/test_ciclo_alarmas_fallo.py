@@ -95,7 +95,7 @@ def _forzar_sensor_ausente(ciclo, estado):
 
 
 def _forzar_emergencia(ciclo, estado):
-    estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+    estado.get_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")  # U4: paro real
 
 
 def _forzar_corte_electrico(ciclo, estado):

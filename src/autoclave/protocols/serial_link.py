@@ -155,6 +155,11 @@ class SerialLink:
         self._expected_ack: Optional[str] = None
 
         self._ever_connected = False
+        # U4 (tanda 2): hay un puerto de la tarjeta en el sistema y se pudo
+        # abrir. Distinto de data["port_open"]: un timeout de datos o 10
+        # líneas inválidas cierran el puerto para reintentar, pero la tarjeta
+        # sigue enchufada ("sin tramas válidas", no "desconectada").
+        self._puerto_presente = False
         self._device_reset_attempted = False
         self._consecutive_gen_failures = 0
 
@@ -221,7 +226,7 @@ class SerialLink:
     def stop(self):
         logger.info("Deteniendo SerialLink")
         self.running = False
-        self._disconnect()
+        self._disconnect(perdido=True)
 
     # ---------------------------------------------------------------------
     # Conexión
@@ -237,6 +242,7 @@ class SerialLink:
     def _connect(self) -> bool:
         port = self._scan_ports()
         if not port:
+            self._puerto_presente = False
             return False
 
         try:
@@ -265,15 +271,21 @@ class SerialLink:
                 self._handshake_ok = False
                 self._handshake_pendiente = True
                 self._proximo_handshake = None
-            self.serial = ser
+            with self.serial_lock:
+                self.serial = ser
+                self._puerto_presente = True
 
             self._ever_connected = True
             self._consecutive_gen_failures = 0
+            # U4 (revisión SAF-01): Units no debe conservar la DI de la
+            # conexión anterior (p. ej. paro=1) hasta la primera línea nueva
+            self._notificar()
             return True
 
         except Exception as e:
             logger.warning(f"Error abriendo puerto {port}: {e}")
             self.serial = None
+            self._puerto_presente = False
 
             if not self._device_reset_attempted:
                 if device_reset.is_device_not_functioning_error(e):
@@ -292,13 +304,17 @@ class SerialLink:
 
             return False
 
-    def _disconnect(self, solo_si: Optional[serial.Serial] = None):
+    def _disconnect(self, solo_si: Optional[serial.Serial] = None, perdido: bool = False):
         """Cierra el puerto. Con `solo_si`, solo actúa si ese objeto sigue
         siendo el puerto vigente: evita que un error tardío del puerto viejo
-        (p.ej. el hilo lector saliendo de read()) cierre una conexión nueva."""
+        (p.ej. el hilo lector saliendo de read()) cierre una conexión nueva.
+        `perdido`: error de lectura/escritura del puerto (cable quitado) o
+        stop(); la tarjeta pasa a "desconectada" hasta el próximo escaneo."""
         with self.serial_lock:
             if solo_si is not None and self.serial is not solo_si:
                 return
+            if perdido:
+                self._puerto_presente = False
             if self.serial and self.serial.is_open:
                 try:
                     self.serial.close()
@@ -334,6 +350,12 @@ class SerialLink:
         if ultima is None:
             return None
         return (time.monotonic() if now is None else now) - ultima
+
+    def puerto_presente(self) -> bool:
+        """U4 (tanda 2): True si el último escaneo encontró el puerto de la
+        tarjeta y se pudo abrir, aunque luego se cerrara por falta de tramas
+        válidas. False antes del primer escaneo (falla cerrada)."""
+        return self._puerto_presente
 
     def is_connected(self) -> bool:
         """Puerto abierto, datos vivos y handshake completo (D-02: sin
@@ -412,7 +434,7 @@ class SerialLink:
                 # SerialException o el error que lance pyserial si el puerto
                 # se cerró desde otro hilo durante read().
                 logger.warning("Conexión serial perdida: %s", e)
-                self._disconnect(solo_si=ser)
+                self._disconnect(solo_si=ser, perdido=True)
                 continue
 
             if chunk:
@@ -944,6 +966,8 @@ class SerialLink:
                 ser.write(cmd.encode("ascii"))
         except Exception as e:
             logger.warning("SerialLink: error escribiendo en el puerto: %s", e)
+            # TMG-06 de U4: un write_timeout no prueba que se quitó el cable;
+            # si se quitó, el error de lectura lo marca como perdido
             self._disconnect(solo_si=ser)
 
     def _send_cmd(self, payload: str):

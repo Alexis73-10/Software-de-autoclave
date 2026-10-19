@@ -363,7 +363,10 @@
   },
   "notificaciones": {
     "titulo": "NOTIFICATIONS",
-    "alertas_avisos": "Alerts and notices"
+    "alertas_avisos": "Alerts and notices",
+    "grupo_emergencia": "Emergency / Faults",
+    "grupo_alarmas": "Alarms",
+    "grupo_avisos": "Notices"
   },
   "equipo": {
     "titulo": "EQUIPMENT INFORMATION",
@@ -488,7 +491,11 @@
     "confirmar_sin_sesion": "Available to any operator, no login required",
     "estado_seguro_en_curso_boton": "In progress…",
     "no_abrir_hasta_segura": "DO NOT OPEN until the chamber is safe",
-    "seguridad_desconocida": "No connection: emergency stop and safe-state status unknown. DO NOT OPEN."
+    "seguridad_desconocida": "No connection with the equipment: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "tarjeta_desconectada": "Board disconnected: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "tarjeta_sin_datos": "The board is not sending valid data: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "tarjeta_desconectada_valores": "Control board disconnected. The values shown are not up to date.",
+    "tarjeta_sin_datos_valores": "The control board is not sending valid data. The values shown are not up to date."
   },
   "sesion": {
     "campos_vacios": "Enter username and password",
@@ -533,6 +540,11 @@
     "ASIGNACION_SENSORES_INVALIDA": "The program has an invalid sensor assignment"
   },
   "alarmas": {
+    "COM-01": {
+      "titulo": "I/O board disconnected",
+      "descripcion": "The control board is not detected.",
+      "accion": "Connect the board (USB cable) and check its power supply."
+    },
     "TARJETA_SIN_TRAMA_VALIDA": {
       "titulo": "The I/O board is not sending valid data",
       "accion": "Check the USB cable and the board power supply. Call technical service."

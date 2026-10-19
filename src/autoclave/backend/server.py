@@ -852,6 +852,8 @@ def get_status():
         **_camara_segura_status(estado),
         "estado_seguro":         _estado_seguro_status(),
         "card_connected":        context.serial.is_connected(),
+        # U4 (tanda 2): desconectada / sin_tramas_validas / ok
+        "estado_tarjeta":        _estado_tarjeta(),
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
         "test_mode_active":      context.control_loop.test_mode_active,
@@ -1386,6 +1388,22 @@ def abort_cycle():
 
 
 _MOTIVO_PARO = "Paro de emergencia activado: suéltelo antes de reconocer"
+# U4 (tanda 2): el flag PARO_EMERGENCIA también bloquea sin datos de la
+# tarjeta; el código de rechazo se conserva, el texto dice la causa real
+_MOTIVO_SIN_DATOS_TARJETA = ("Sin datos válidos de la tarjeta de control: no se puede "
+                             "verificar el paro de emergencia")
+
+
+def _motivo_paro(texto_paro: str) -> str:
+    if context.estado.get_flag("PARO_REAL"):
+        return texto_paro
+    return _MOTIVO_SIN_DATOS_TARJETA
+
+
+def _estado_tarjeta() -> str:
+    """U4: "desconectada", "sin_tramas_validas" u "ok"; falla cerrada."""
+    valor = getattr(context.control_loop, "estado_tarjeta", None)
+    return valor if valor in ("desconectada", "sin_tramas_validas", "ok") else "desconectada"
 
 
 @app.post("/fault/reset")
@@ -1396,7 +1414,7 @@ def reset_fault():
     entidad = "/fault/reset"
     with guard_estado(frozenset(), entidad) as estado:
         if context.estado.get_flag("PARO_EMERGENCIA"):
-            raise _Rechazo(409, "paro_emergencia", _MOTIVO_PARO)
+            raise _Rechazo(409, "paro_emergencia", _motivo_paro(_MOTIVO_PARO))
         # con el modo prueba la máquina está pausada: el reconocimiento se
         # aplicaría al salir, sin uno posterior a las pruebas (TMG-07)
         if context.control_loop.test_mode_active is True:
@@ -1495,7 +1513,8 @@ def confirm_safe_state():
     Cualquier operador, sin rol. 409 con el paro activo o si no hace falta."""
     entidad = "/safe-state/confirm"
     if context.estado.get_flag("PARO_EMERGENCIA"):
-        _rechazar(409, "paro_emergencia", "Paro de emergencia activado: suéltelo antes de confirmar",
+        _rechazar(409, "paro_emergencia",
+                  _motivo_paro("Paro de emergencia activado: suéltelo antes de confirmar"),
                   entidad)
     if context.control_loop.confirmar_estado_seguro() is not True:
         _rechazar(409, "sin_confirmacion_pendiente",
@@ -1539,7 +1558,7 @@ def acknowledge_cycle():
                            extra={"estado": getattr(actual, "name", str(actual))})
         # §5.9: con el paro activo no se confirma ni se guarda RESET_FALLA
         if context.estado.get_flag("PARO_EMERGENCIA"):
-            raise _Rechazo(409, "paro_emergencia", _MOTIVO_PARO)
+            raise _Rechazo(409, "paro_emergencia", _motivo_paro(_MOTIVO_PARO))
         # solo con el ciclo ya terminado: una confirmación a mitad de ciclo
         # quedaba guardada y la máquina salía al terminar sin que el operador
         # viera el resultado (TMG-03/SAF-07)
@@ -2170,7 +2189,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         if not context.control_loop.test_mode_active:
             raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
         if context.estado.get_flag("PARO_EMERGENCIA"):
-            raise _Rechazo(409, "paro_emergencia", "Paro de emergencia activado")
+            raise _Rechazo(409, "paro_emergencia", _motivo_paro("Paro de emergencia activado"))
         _rechazar_si_sin_datos_vigentes()
         if body.value:
             # encender solo desde la sesión que está a cargo de la prueba;

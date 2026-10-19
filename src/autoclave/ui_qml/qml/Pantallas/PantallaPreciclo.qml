@@ -50,6 +50,9 @@ Item {
     property string tempReferencia: puente?.tempReferencia ?? ""
     property string presionCamara: puente?.presionCamara ?? ""
     property bool datosVigentes: puente?.connected ?? false
+    // U4 (tanda 2): estado de la tarjeta de E/S ("desconectada",
+    // "sin_tramas_validas" u "ok"); solo cambia textos, no bloquea la pantalla
+    readonly property string estadoTarjeta: puente?.estadoTarjeta ?? "ok"
     property string cicloActivo: puente?.cicloActivo ?? ""   // "cycle_number" del ciclo (01, 02...)
     property string estadoTexto: I18n.t("estados." + (puente?.estadoEquipo ?? "no_preparado"), I18n.lang)
     // Insignia de ESTADO: check verde si el equipo está listo (decisión de
@@ -448,7 +451,12 @@ Item {
     // Zona del listado (PC-06): geometría fija, se puebla sin moverla.
     // PROVISIONAL (PC-06, sin diseño de fila): barra de color por prioridad
     // IEC 60601-1-8 (Colores.alarma*) + descripción. Sin conexión, el aviso
-    // sistema.sin_conexion va arriba y la lista (congelada) se atenúa.
+    // sistema.sin_conexion va arriba y la lista (congelada) se atenúa; con la
+    // tarjeta desconectada o sin datos, el aviso lo dice (U4).
+    // U4 (tanda 2): arriba de la lista, las filas de seguridad compartidas con
+    // el panel de la campana (SeccionEstadoSeguro): tarjeta desconectada o sin
+    // datos, paro real, estado seguro pendiente con el botón "Confirmar y
+    // llevar a estado seguro" (sin sesión), en curso, NO ABRIR y modo prueba.
     // PROVISIONAL (sin diseño de toast): el mismo aviso muestra durante 5 s el
     // motivo con que el backend rechazó el último comando de puerta.
     Item {
@@ -458,12 +466,18 @@ Item {
 
         Text {
             id: avisoSinConexion
-            visible: !raiz.datosVigentes || raiz.mensajePuerta !== ""
+            objectName: "avisoSinConexion"
+            visible: !raiz.datosVigentes || raiz.estadoTarjeta !== "ok" || raiz.mensajePuerta !== ""
             width: parent.width
             height: visible ? implicitHeight : 0
             topPadding: raiz.m(12)
             bottomPadding: raiz.m(12)
-            text: !raiz.datosVigentes ? raiz.textos.sinConexion : raiz.mensajePuerta
+            text: !raiz.datosVigentes ? raiz.textos.sinConexion
+                : raiz.estadoTarjeta === "desconectada"
+                  ? I18n.t("sistema.tarjeta_desconectada_valores", I18n.lang)
+                : raiz.estadoTarjeta !== "ok"
+                  ? I18n.t("sistema.tarjeta_sin_datos_valores", I18n.lang)
+                : raiz.mensajePuerta
             wrapMode: Text.WordWrap
             color: Colores.textoSecundario
             font.family: Tipografia.familia
@@ -471,12 +485,25 @@ Item {
             font.pixelSize: raiz.fuente(24)
         }
 
-        ListView {
+        // Fijas arriba, fuera de la lista: no se desplazan con ella
+        // (revisión SAF-04 de U4)
+        SeccionEstadoSeguro {
+            id: seguridadPreciclo
+            objectName: "seguridadPreciclo"
             anchors.top: avisoSinConexion.bottom
+            width: parent.width
+            puente: raiz.puente
+            comandos: raiz.comandosSistema
+            bottomPadding: conteo > 0 ? raiz.m(12) : 0
+        }
+
+        ListView {
+            id: listaAlarmas
+            objectName: "listaAlarmasPreciclo"
+            anchors.top: seguridadPreciclo.bottom
             anchors.bottom: parent.bottom
             width: parent.width
             clip: true
-            opacity: raiz.datosVigentes ? 1.0 : 0.4
             model: raiz.alarmas
             delegate: Item {
                 id: fila
@@ -484,6 +511,9 @@ Item {
                 required property var model
                 width: ListView.view.width
                 height: raiz.m(72)
+                // la lista congelada se atenúa sin conexión; las filas de
+                // seguridad no
+                opacity: raiz.datosVigentes ? 1.0 : 0.4
 
                 Rectangle {
                     x: 0; y: raiz.m(12)
@@ -513,6 +543,7 @@ Item {
     }
     Texto {
         visible: raiz.conteoAlarmas === 0 && raiz.datosVigentes
+                 && seguridadPreciclo.conteo === 0
         cx: 598.5; bl: 1176; tam: 28
         text: raiz.textos.sinAlarmas
         color: raiz.paleta.textoVacio

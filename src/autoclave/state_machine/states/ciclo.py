@@ -549,7 +549,16 @@ class CicloState:
         if self.estado.get_flag("PARO_EMERGENCIA"):
             logger.error("CicloState: ABORTADO por paro de emergencia")
             self.estado.fase_ciclo = "EMERGENCIA"
-            self._registrar_fallo(SIS_01, estado="Ciclo")
+            if self.estado.get_flag("PARO_REAL"):
+                self._registrar_fallo(SIS_01, estado="Ciclo")
+            else:
+                # U4: con el enlace hecho pero la trama DI vencida no se sabe
+                # si hay paro; el protocolo es el mismo (sin válvulas y con
+                # confirmación), pero la causa es la tarjeta, no SIS-01
+                self._registrar_fallo(COM_03, origen="TARJETA_SIN_TRAMA_VALIDA",
+                                      causa="TARJETA_SIN_TRAMA_VALIDA",
+                                      motivo="Sin datos vigentes de las entradas de la tarjeta.",
+                                      fase=self._fase_actual_legible())
             # §15.1: con el paro activo, ALL_OFF y ninguna válvula
             self._protocolo.ejecutar(abrir_valvulas=False)
             self._paro_en_espera = True

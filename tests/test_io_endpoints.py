@@ -113,7 +113,7 @@ def test_estados_bloqueados_409_incluso_para_apagar(io_client, estado):
 
 def test_con_paro_de_emergencia_409(io_client):
     client, ctx = io_client
-    ctx.estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+    ctx.estado.get_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")  # U4: paro real
     assert "Paro" in _rechazo(client, ctx, value=False)
 
 

@@ -9,8 +9,9 @@
 # la StateMachine entrega aquí el ProtocoloFallo del ciclo y este módulo lo
 # sigue ejecutando en el estado siguiente hasta que la cámara sea segura:
 #
-#  1. Paro activo: no hace nada (los estados mandan ALL_OFF continuo); se
-#     marca que hará falta una confirmación nueva.
+#  1. Paro activo: no hace nada (los estados mandan ALL_OFF continuo); si
+#     es un paro real (PARO_REAL, U4) se marca que hará falta una
+#     confirmación nueva. Sin datos de la tarjeta solo se pausa.
 #  2. Paro liberado: las salidas siguen en 0, sin avance automático, hasta
 #     "Confirmar y llevar a estado seguro" (cualquier operador, sin rol).
 #  3. Confirmado: exige datos vigentes; sigue el protocolo de fallo (modo de
@@ -130,10 +131,14 @@ class ProtocoloEstadoSeguro:
             return
 
         if self.estado.get_flag("PARO_EMERGENCIA"):
-            if not self._paro_visto:
-                self._paro_visto = True
-                self._evento("paro_activado")
-            self.requiere_confirmacion = True
+            # U4 (D2): solo un paro real exige "Confirmar y llevar a estado
+            # seguro". Sin datos de la tarjeta (desconectada o sin tramas) se
+            # pausa igual, y al volver los datos sigue sin confirmación.
+            if self.estado.get_flag("PARO_REAL"):
+                if not self._paro_visto:
+                    self._paro_visto = True
+                    self._evento("paro_activado")
+                self.requiere_confirmacion = True
             self._ticks_seguros = 0
             self._pausado = True
             return

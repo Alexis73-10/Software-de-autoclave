@@ -38,7 +38,7 @@ _SCRIPT = textwrap.dedent(r"""
     ui.get_estado_global.return_value = "PREPARADO"
     ui.get_estado_puerta.return_value = "CERRADO"
     ui.get_alarmas.return_value = []
-    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f == "PARO_EMERGENCIA" else True
+    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f in ("PARO_EMERGENCIA", "PARO_REAL") else True  # U4
     ui.get_campo.side_effect = lambda c, d=None: (estado["es"] if c == "estado_seguro"
                                                   else False if c == "no_abrir" else d)
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}

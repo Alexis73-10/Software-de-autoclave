@@ -111,7 +111,7 @@ def test_control_loop_entra_a_modo_prueba_solo_sin_paro():
 def _preparacion(flag_paro, di_paro):
     estado = MagicMock()
     estado.sensores_di = {"paro_emergencia": di_paro}
-    estado.get_flag.side_effect = lambda f: flag_paro if f == "PARO_EMERGENCIA" else False
+    estado.get_flag.side_effect = lambda f: flag_paro if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4
     p = preparacion_state(AlarmManager(), estado, MagicMock(), MagicMock(), MagicMock())
     p.supervisor = MagicMock(return_value=False)
     # supervisor en False lleva a salidas seguras (decisión P4); aquí solo
@@ -150,7 +150,7 @@ def test_mensaje_de_alarma_menciona_cableado_nc_en_todos_los_estados():
 
     def _estado():
         e = MagicMock()
-        e.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+        e.get_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")  # U4: paro real
         return e
 
     descripciones = []

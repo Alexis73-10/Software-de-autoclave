@@ -106,7 +106,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
         {"id": "PARO_EMERGENCIA", "level": "EMERGENCIA", "description": "Paro", "source_state": "PREPARADO"},
         {"id": "CHAQUETA_FRIA", "level": "FALLA", "description": "", "source_state": "PREPARADO"}]
     # LISTO_PARA_CICLO activo; sin paro (U1: el paro saca de las pantallas sin campana)
-    ui.get_estado_flag.side_effect = lambda f: f != "PARO_EMERGENCIA"
+    ui.get_estado_flag.side_effect = lambda f: f not in ("PARO_EMERGENCIA", "PARO_REAL")  # U4
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}
     ui.get_sensores_pres.return_value = {"pres_camara": 101.3}

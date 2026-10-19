@@ -92,6 +92,9 @@ class EstadoAutoclave:
         "CICLO_CONFIRMADO":             5,   # operador confirmó la visualización del resultado
         "RESET_FALLA":                  6,   # operador solicitó salir del estado FALLA
         "FALLO_SUMINISTRO_ELECTRICO":   7,
+        # U4 (tanda 2): paro de verdad (enlace + DI vigente + entrada en 0).
+        # PARO_EMERGENCIA también es True sin datos de la tarjeta (A-3).
+        "PARO_REAL":                    8,
     }
 
     def __init__(self):

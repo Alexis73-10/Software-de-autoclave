@@ -20,6 +20,8 @@ ESTADO_DESCONOCIDO = "DESCONOCIDO"
 # Nivel del backend (campo level, compatibilidad) -> prioridad IEC 60601-1-8.
 # Decisión de Cristian (2026-09-29): EMERGENCIA alta, FALLA media, ALERTA baja.
 _PRIORIDAD_POR_NIVEL = {"EMERGENCIA": "alta", "FALLA": "media", "ALERTA": "baja"}
+# Estado de la tarjeta de E/S en /status (U4 de la tanda 2)
+_ESTADOS_TARJETA = ("desconectada", "sin_tramas_validas", "ok")
 
 
 # Estados de puerta que la pantalla presenta como "abierta" (acción disponible:
@@ -198,7 +200,9 @@ class UiBridge(QObject):
             "no_abrir": self._ui.get_campo("no_abrir", True),
             "motivo": self._ui.get_campo("camara_segura_motivo", ""),
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
-            "paro": self._ui.get_estado_flag("PARO_EMERGENCIA"),
+            # U4: solo el paro real; sin datos de la tarjeta va en "tarjeta"
+            "paro": self._ui.get_estado_flag("PARO_REAL"),
+            "tarjeta": self._ui.get_campo("estado_tarjeta", "desconectada"),
             "estado_seguro": self._ui.get_campo("estado_seguro", {}),
             "sin_bd": self._ui.get_campo("sin_base_de_datos", False),
         }) if self._connected else self._seguridad_de({}), self.seguridadChanged)
@@ -207,6 +211,7 @@ class UiBridge(QObject):
     def _seguridad_de(datos: dict) -> dict:
         """Sin conexión o sin dato: NO ABRIR (falla cerrada, como el backend)."""
         es = datos.get("estado_seguro") if isinstance(datos.get("estado_seguro"), dict) else {}
+        tarjeta = datos.get("tarjeta")
         return {
             "no_abrir": datos.get("no_abrir", True) is not False,
             "motivo": str(datos.get("motivo") or ""),
@@ -216,6 +221,8 @@ class UiBridge(QObject):
             "es_confirmar": es.get("requiere_confirmacion") is True,
             # T8: el backend vuelve a exigir la confirmación por ciclo
             "sin_bd": datos.get("sin_bd") is True,
+            # U4: falla cerrada, sin dato o valor desconocido = desconectada
+            "tarjeta": tarjeta if tarjeta in _ESTADOS_TARJETA else "desconectada",
         }
 
     def _fijar(self, atributo: str, valor, senal) -> None:
@@ -264,6 +271,11 @@ class UiBridge(QObject):
     @Property(bool, notify=seguridadChanged)
     def paroActivo(self) -> bool:
         return self._seguridad["paro"]
+
+    @Property(str, notify=seguridadChanged)
+    def estadoTarjeta(self) -> str:
+        """U4 (tanda 2): "desconectada", "sin_tramas_validas" u "ok"."""
+        return self._seguridad["tarjeta"]
 
     @Property(bool, notify=seguridadChanged)
     def estadoSeguroActivo(self) -> bool:
