@@ -29,6 +29,7 @@ Item {
     id: raiz
 
     property QtObject puente: null      // UiBridge: estado de la máquina y campana
+    property QtObject comandosSistema: null   // confirmar estado seguro desde la campana (U1)
     property QtObject teclado: null     // PanelTeclado de la ventana (T12: ajuste de parámetros)
     // Cambios sin guardar de la sección activa (U-13, U-19): roles de sensor
     // sin guardar en Parámetros del ciclo (T12)
@@ -113,7 +114,11 @@ Item {
     EncabezadoMenu {
         objectName: "encabezadoOpciones"
         escala: raiz.escala
-        conteoAlarmas: raiz.puente?.alarms?.count ?? -1
+        // alarmas más avisos de seguridad del panel (U1 de la tanda 2)
+        conteoAlarmas: raiz.puente ? panelNotificaciones.conteoTotal : -1
+        urgente: panelNotificaciones.urgente
+        enCurso: panelNotificaciones.avisoEnCurso
+        parpadeo: panelNotificaciones.parpadeo
         conEngranaje: true
         onCampanaPulsada: panelNotificaciones.abrir()
     }
@@ -379,6 +384,8 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.puente?.alarms ?? null
+        puente: raiz.puente
+        comandosSistema: raiz.comandosSistema
     }
 
     // Salir con cambios sin guardar: Salir descarta y cierra la sesión (U-13)

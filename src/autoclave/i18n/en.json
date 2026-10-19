@@ -482,7 +482,13 @@
     "paro_no_abrir": "EMERGENCY STOP — DO NOT OPEN",
     "paro_liberado": "Emergency stop released. Check that there is no leak before continuing.",
     "confirmar_estado_seguro": "Confirm and bring to safe state",
-    "estado_seguro_en_curso": "Bringing the chamber to a safe state"
+    "estado_seguro_en_curso": "Bringing the chamber to a safe state",
+    "estado_seguro_pendiente": "Emergency stop released — safe state pending",
+    "paro_suelte": "Release the emergency stop button to continue. Until then no actions are available.",
+    "confirmar_sin_sesion": "Available to any operator, no login required",
+    "estado_seguro_en_curso_boton": "In progress…",
+    "no_abrir_hasta_segura": "DO NOT OPEN until the chamber is safe",
+    "seguridad_desconocida": "No connection: emergency stop and safe-state status unknown. DO NOT OPEN."
   },
   "sesion": {
     "campos_vacios": "Enter username and password",

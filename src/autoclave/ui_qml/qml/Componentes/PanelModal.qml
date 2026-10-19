@@ -13,10 +13,13 @@ Item {
     property string titulo: ""
     property string textoCerrar: ""
     property real altoTarjeta: Escala.px(1300)
+    // true = no se cierra (ni con el fondo ni con el botón): lo usa el panel de
+    // la campana mientras hay un paro o una confirmación de estado seguro (U1)
+    property bool bloqueado: false
     default property alias contenido: zona.data
 
     function abrir() { visible = true }
-    function cerrar() { visible = false }
+    function cerrar() { if (!bloqueado) visible = false }
 
     Rectangle {
         anchors.fill: parent
@@ -68,6 +71,7 @@ Item {
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Escala.px(40)
             color: Colores.accionPrimario
+            visible: !raiz.bloqueado
             Text {
                 anchors.centerIn: parent
                 text: raiz.textoCerrar

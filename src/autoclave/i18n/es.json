@@ -482,7 +482,13 @@
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
     "paro_liberado": "Paro liberado. Verifique que no hay fuga antes de continuar.",
     "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
-    "estado_seguro_en_curso": "Llevando la cámara a estado seguro"
+    "estado_seguro_en_curso": "Llevando la cámara a estado seguro",
+    "estado_seguro_pendiente": "Paro de emergencia liberado — estado seguro pendiente",
+    "paro_suelte": "Suelte el botón de paro para continuar. Hasta entonces no hay acciones disponibles.",
+    "confirmar_sin_sesion": "Disponible para cualquier operador, sin iniciar sesión",
+    "estado_seguro_en_curso_boton": "En curso…",
+    "no_abrir_hasta_segura": "NO ABRIR hasta que la cámara esté segura",
+    "seguridad_desconocida": "Sin conexión: estado del paro de emergencia y del estado seguro desconocido. NO ABRIR."
   },
   "sesion": {
     "campos_vacios": "Ingrese usuario y contraseña",

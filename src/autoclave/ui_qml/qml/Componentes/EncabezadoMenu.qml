@@ -17,6 +17,10 @@ Item {
     property real escala: 1
     // Contador de la campana; < 0 = sin fuente -> sin contador (D-17)
     property int conteoAlarmas: -1
+    // Estado de la insignia (InsigniaCampana, U1 de la tanda 2)
+    property bool urgente: false
+    property bool enCurso: false
+    property bool parpadeo: false
     // Engranaje inerte, por consistencia visual (lo usa Opciones.qml; el menú no)
     property bool conEngranaje: false
 
@@ -91,19 +95,16 @@ Item {
         caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
         source: raiz._iconos + "campana.svg"   // variante blanca
     }
-    Rectangle {
+    InsigniaCampana {
         objectName: "insigniaCampana"
-        visible: raiz.conteoAlarmas > 0
         x: raiz.m(922); y: raiz.m(50)
-        width: raiz.m(26); height: raiz.m(25); radius: width / 2
-        color: "#08C9F9"   // insignia medida en el mockup de ciclo (PantallaPreciclo.qml, paleta.insignia)
-        Text {
-            anchors.centerIn: parent
-            text: raiz.conteoAlarmas
-            color: "white"
-            font.family: Tipografia.familia
-            font.pixelSize: raiz.fuente(17)
-        }
+        width: raiz.m(26); height: raiz.m(25)
+        conteo: raiz.conteoAlarmas
+        urgente: raiz.urgente
+        enCurso: raiz.enCurso
+        parpadeo: raiz.parpadeo
+        colorNormal: "#08C9F9"   // insignia medida en el mockup de ciclo (PantallaPreciclo.qml, paleta.insignia)
+        tamFuente: raiz.fuente(17)
     }
     // Engranaje solo decorativo (OPCIONES, U-6: ya se está en configuración):
     // sin zona táctil. Misma caja que el de PantallaPreciclo.qml.

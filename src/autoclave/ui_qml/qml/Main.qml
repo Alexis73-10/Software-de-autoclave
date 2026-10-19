@@ -92,6 +92,10 @@ Window {
     // U-5: Inicio conserva la sesión).
     OpcionesController { id: sesionVentana }
     function abrirConfiguracion() {
+        // U1 (TMG-02): con el paro o la confirmación pendiente el panel de la
+        // campana está abierto y bloqueado; no se abre nada encima
+        if (seguridadUrgente)
+            return
         sesionVentana.refrescar()
         pila.push(!sesionVentana.sesionActiva ? loginComp
                   : sesionVentana.cambioClavePendiente ? cambioClaveComp : opcionesComp)
@@ -161,6 +165,23 @@ Window {
         }
     }
 
+    // U1 (tanda 2): con el paro o la confirmación de estado seguro pendiente,
+    // una pantalla sin campana (login, cambio de clave, nuevo usuario) vuelve a
+    // la principal, cuyo panel de notificaciones se abre solo. La sesión no se
+    // toca: solo la cierra la inactividad (SAF-01). No aplica a la pantalla de
+    // reposo (el standby ya despierta con el paro) ni a la intro de arranque.
+    readonly property bool seguridadUrgente: (puente?.paroActivo ?? false)
+                                             || (puente?.estadoSeguroRequiereConfirmacion ?? false)
+    function irAPanelSeguridad() {
+        if (!seguridadUrgente)
+            return
+        panelTeclado.cerrar()   // no tapa el panel (SAF-02)
+        introTerminada = true   // la intro no lo oculta (SAF-03)
+        if (pila.depth > 1 && (pila.currentItem?.sinCampana ?? false))
+            volverAPrincipal()
+    }
+    onSeguridadUrgenteChanged: irAPanelSeguridad()
+
     // Entrada/salida de la pantalla de ciclo en curso. Con estado desconocido
     // (sin datos del backend) no se navega; en el arranque lo resuelve el standby.
     function aplicarEstadoMaquina() {
@@ -174,7 +195,7 @@ Window {
     onEstadoMaquinaChanged: { aplicarEstadoMaquina(); aplicarSuspension() }
     // UI que arranca (o se reinicia) con la máquina ya en CICLO: directo a la
     // pantalla de ciclo en curso, sin esperar el toque del arranque (plan §9)
-    Component.onCompleted: if (enCiclo && pila.depth === 1) irAPrincipal()
+    Component.onCompleted: { if (enCiclo && pila.depth === 1) irAPrincipal(); irAPanelSeguridad() }
 
     Binding {
         target: Escala
@@ -200,21 +221,15 @@ Window {
             id: pila
             anchors.fill: parent
             initialItem: esperaComp
-            // un teclado abierto no sobrevive a un cambio de pantalla
+            // un teclado abierto no sobrevive a un cambio de pantalla; con el
+            // paro o la confirmación pendiente no se queda en una sin campana (U1)
             onCurrentItemChanged: panelTeclado.cerrar()
         }
 
-        // E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
-        // sobre todas las pantallas (no durante la intro de arranque)
-        AvisosSeguridad {
-            objectName: "avisosSeguridad"
-            anchors.left: parent.left; anchors.right: parent.right
-            anchors.top: parent.top
-            z: 50
-            visible: ventana.introTerminada || !ventana.progresoArranque
-            puente: ventana.puente
-            comandos: ventana.comandosSistema
-        }
+        // U1 (tanda 2): el paro, el estado seguro, NO ABRIR y el modo prueba ya
+        // no van en una franja superior: están en el panel de la campana
+        // (PanelNotificaciones › SeccionEstadoSeguro), que se abre solo con el
+        // paro o la confirmación pendiente. Ver irAPanelSeguridad().
 
         // Teclado en pantalla de esta ventana (Paso 5 de planeacion_teclados_qml.md):
         // sobre el StackView, inyectado a las pantallas como `teclado`.
@@ -378,6 +393,7 @@ Window {
         id: loginComp
         AreaFija {
             objectName: "areaLogin"
+            readonly property bool sinCampana: true
             Login {
                 anchors.fill: parent
                 teclado: panelTeclado
@@ -396,7 +412,9 @@ Window {
     Component {
         id: cambioClaveComp
         AreaFija {
+            objectName: "areaCambioClave"
             readonly property bool usaToken: true
+            readonly property bool sinCampana: true
             CambioClave {
                 anchors.fill: parent
                 teclado: panelTeclado
@@ -411,7 +429,9 @@ Window {
     Component {
         id: nuevoUsuarioComp
         AreaFija {
+            objectName: "areaNuevoUsuario"
             readonly property bool usaToken: true
+            readonly property bool sinCampana: true
             NuevoUsuario {
                 anchors.fill: parent
                 teclado: panelTeclado
@@ -420,6 +440,8 @@ Window {
         }
     }
     function abrirNuevoUsuario() {
+        if (seguridadUrgente)
+            return
         ventana.puenteNuevoUsuario?.actualizarSesion()
         pila.push(nuevoUsuarioComp)
     }
@@ -436,6 +458,7 @@ Window {
         Opciones {
             puente: ventana.puente
             teclado: panelTeclado
+            comandosSistema: ventana.comandosSistema
             onInicioPulsado: ventana.volverAPrincipal()
             onSesionCerrada: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()

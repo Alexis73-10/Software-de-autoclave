@@ -49,7 +49,8 @@ Item {
     property string tempReferencia: datosVigentes ? (puente?.tempReferencia ?? "") : ""
     property string presionCamara: datosVigentes ? (puente?.presionCamara ?? "") : ""
     property var alarmas: puente?.alarms ?? null
-    property int conteoNotificaciones: alarmas?.count ?? 0
+    // alarmas activas más los avisos de seguridad del panel (U1 de la tanda 2)
+    property int conteoNotificaciones: panelNotificaciones.conteoTotal
     property string modelo: infoEquipo?.modelo ?? ""
     property string serie: infoEquipo?.serie ?? ""
     property string version: I18n.t("app.version", I18n.lang)
@@ -269,18 +270,16 @@ Item {
             caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
             source: raiz.iconosColor + "campana.svg"
         }
-        Rectangle {
-            visible: raiz.conteoNotificaciones > 0
+        InsigniaCampana {
+            objectName: "insigniaCampana"
             x: raiz.m(922); y: raiz.m(50)
-            width: raiz.m(26); height: raiz.m(25); radius: width / 2
-            color: raiz.paleta.insignia
-            Text {
-                anchors.centerIn: parent
-                text: raiz.conteoNotificaciones
-                color: "white"
-                font.family: Tipografia.familia
-                font.pixelSize: raiz.fuente(17)
-            }
+            width: raiz.m(26); height: raiz.m(25)
+            conteo: raiz.conteoNotificaciones
+            urgente: panelNotificaciones.urgente
+            enCurso: panelNotificaciones.avisoEnCurso
+            parpadeo: panelNotificaciones.parpadeo
+            colorNormal: raiz.paleta.insignia
+            tamFuente: raiz.fuente(17)
         }
         MouseArea {
             x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
@@ -729,6 +728,8 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.alarmas
+        puente: raiz.puente
+        comandosSistema: raiz.comandosSistema
     }
     PanelEquipo {
         comandosSistema: raiz.comandosSistema

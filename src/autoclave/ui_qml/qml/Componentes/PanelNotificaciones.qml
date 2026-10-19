@@ -2,24 +2,52 @@ import QtQuick
 import Tema
 
 // PROVISIONAL (sin diseño): cuadro de notificaciones del software que abre la
-// campana. Por ahora una sola categoría, "Alertas y avisos": al tocarla se
-// despliega/pliega el listado de alarmas activas (mismo modelo que la
-// pantalla de ciclo).
+// campana. Arriba, los avisos de seguridad (paro, estado seguro, NO ABRIR,
+// modo prueba; U1 de la tanda 2, antes franja superior de E5); debajo, la
+// categoría "Alertas y avisos": al tocarla se despliega/pliega el listado de
+// alarmas activas (mismo modelo que la pantalla de ciclo).
 PanelModal {
     id: raiz
     altoTarjeta: Escala.px(1400)
 
     property var alarmas: null            // AlarmListModel de UiBridge
+    property QtObject puente: null        // UiBridge: avisos de seguridad
+    property QtObject comandosSistema: null   // "Confirmar y llevar a estado seguro"
     property string rotuloAlertas: ""
     property string textoSinAlarmas: ""
     property bool expandido: false
     readonly property int conteo: alarmas?.count ?? 0
 
+    // Para la insignia de la campana de la pantalla que contiene el panel
+    readonly property int conteoTotal: conteo + seguridad.conteo
+    readonly property bool urgente: seguridad.urgente
+    readonly property bool parpadeo: seguridad.confirmar
+    readonly property bool avisoEnCurso: seguridad.enCurso
+
     onVisibleChanged: if (!visible) expandido = false
 
+    // El paro y la confirmación pendiente abren el panel solos (al aparecer y
+    // al crear la pantalla con ellos ya activos) y no dejan cerrarlo mientras
+    // duren: deben verse sin tocar la campana (revisión U1: SAF-01/TMG-01).
+    // Encima de los demás modales de la pantalla (SAF-02).
+    z: 200
+    bloqueado: seguridad.urgente
+    onBloqueadoChanged: if (bloqueado) abrir()
+    Component.onCompleted: if (bloqueado) abrir()
+
     Column {
+        id: columna
         width: parent.width
         spacing: 0
+
+        SeccionEstadoSeguro {
+            id: seguridad
+            objectName: "seccionEstadoSeguro"
+            width: parent.width
+            puente: raiz.puente
+            comandos: raiz.comandosSistema
+            bottomPadding: seguridad.conteo > 0 ? Escala.px(24) : 0
+        }
 
         // Encabezado de la categoría: toca para desplegar/plegar
         Item {
@@ -81,7 +109,7 @@ PanelModal {
 
     ListView {
         visible: raiz.expandido
-        y: Escala.px(96)
+        y: columna.y + seguridad.height + Escala.px(96)
         width: parent.width
         height: parent.height - y
         clip: true

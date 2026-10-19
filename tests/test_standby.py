@@ -33,9 +33,12 @@ class _Reloj:
         return self.t
 
 
-def _ui(connected=True, estado="PREPARADO", inactividad=None, minutos=5, alarmas=None):
+def _ui(connected=True, estado="PREPARADO", inactividad=None, minutos=5, alarmas=None,
+        paro=False, estado_seguro=None):
     ui = MagicMock(spec=UIServiceBackend)
     ui.connected = connected
+    ui.get_estado_flag.side_effect = lambda f: paro if f == "PARO_EMERGENCIA" else False
+    ui.get_campo.side_effect = lambda c, d=None: (estado_seguro or {}) if c == "estado_seguro" else d
     ui.get_estado_global.return_value = estado
     ui.get_inactividad_ui.return_value = inactividad
     ui.get_config_param.side_effect = lambda n: minutos if n == "tiempo_standby" else None
@@ -265,4 +268,63 @@ def test_toque_durante_la_gracia_si_despierta():
     s, _ = _standby(_ui())
     s.evaluar()
     s.registrarActividad()
+    assert s.activo is False
+
+
+# ── U1 (tanda 2): sin franja superior, el paro y el estado seguro deben verse ──
+
+@pytest.mark.parametrize("pendiente", [True])
+def test_regla_nunca_en_standby_con_seguridad_pendiente(pendiente):
+    assert debe_estar_en_standby(True, 9999, 9999, 5, "PREPARADO",
+                                 seguridad_pendiente=pendiente) is False
+    assert debe_estar_en_standby(True, 9999, 9999, 5, "PREPARADO") is True
+
+
+@pytest.mark.parametrize("paro, es", [
+    (True, None),
+    (False, {"activo": True, "requiere_confirmacion": True}),
+    (False, {"activo": True, "requiere_confirmacion": False}),
+])
+def test_paro_o_estado_seguro_sacan_del_standby_incluso_en_la_gracia(paro, es):
+    reloj = _Reloj()
+    ui = _ui(estado="PREPARADO", inactividad=None, paro=paro, estado_seguro=es)
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_paro_que_aparece_despierta_ambas_y_avisa_al_backend():
+    reloj = _Reloj()
+    estado = {"paro": False}
+    ui = _ui(estado="PREPARADO", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f == "PARO_EMERGENCIA" else False
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is True
+    reloj.t += 10
+    estado["paro"] = True
+    s.evaluar()
+    assert s.activo is False
+    backend.post.assert_called_with("/ui/activity")
+
+
+def test_sin_conexion_no_lee_la_seguridad():
+    ui = _ui(connected=False, paro=True)
+    s, _ = _standby(ui)
+    s.evaluar()
+    assert s.activo is True
+
+
+def test_fin_del_paro_cuenta_como_actividad():
+    reloj = _Reloj()
+    estado = {"paro": True}
+    ui = _ui(estado="PREPARADO", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f == "PARO_EMERGENCIA" else False
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 10
+    backend.post.reset_mock()
+    estado["paro"] = False
+    s.evaluar()
+    backend.post.assert_called_with("/ui/activity")
     assert s.activo is False

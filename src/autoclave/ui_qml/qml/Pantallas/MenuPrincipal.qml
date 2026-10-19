@@ -106,7 +106,11 @@ Item {
     EncabezadoMenu {
         objectName: "encabezadoMenu"
         escala: raiz.escala
-        conteoAlarmas: raiz.puente?.alarms?.count ?? -1
+        // alarmas más avisos de seguridad del panel (U1 de la tanda 2)
+        conteoAlarmas: raiz.puente ? panelNotificaciones.conteoTotal : -1
+        urgente: panelNotificaciones.urgente
+        enCurso: panelNotificaciones.avisoEnCurso
+        parpadeo: panelNotificaciones.parpadeo
         onCampanaPulsada: { raiz.campanaPulsada(); panelNotificaciones.abrir() }
     }
 
@@ -1007,6 +1011,8 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.puente?.alarms ?? null
+        puente: raiz.puente
+        comandosSistema: raiz.comandosSistema
     }
     PanelEquipo {
         comandosSistema: raiz.comandosSistema

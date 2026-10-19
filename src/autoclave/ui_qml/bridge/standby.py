@@ -11,7 +11,10 @@
 # latencia del sondeo, < 1 s).
 #
 # Reglas (decisiones de seguridad/usabilidad, no del mockup):
-#   - nunca en standby durante CICLO, FALLA o EMERGENCIA;
+#   - nunca en standby durante CICLO, FALLA o EMERGENCIA, ni con el paro
+#     activo o el estado seguro en curso o pendiente de confirmar (U1 de la
+#     tanda 2: esos avisos ya no se dibujan sobre todas las pantallas, sino en
+#     el panel de la campana, que la pantalla de arranque taparía);
 #   - un cambio de estado del equipo o una alarma nueva cuenta como actividad
 #     (despierta ambas pantallas y reinicia el conteo), para que no pasen
 #     inadvertidos detrás de la pantalla de arranque;
@@ -47,9 +50,10 @@ def minutos_standby(valor) -> float:
 
 
 def debe_estar_en_standby(conectado: bool, inactividad_backend, inactividad_local,
-                          minutos: float, estado) -> bool:
-    """inactividad_* en segundos; None = sin actividad registrada (infinita)."""
-    if conectado and estado in ESTADOS_SIN_STANDBY:
+                          minutos: float, estado, seguridad_pendiente: bool = False) -> bool:
+    """inactividad_* en segundos; None = sin actividad registrada (infinita).
+    seguridad_pendiente: paro activo o estado seguro activo/por confirmar."""
+    if conectado and (estado in ESTADOS_SIN_STANDBY or seguridad_pendiente):
         return False
     infinito = float("inf")
     candidatos = [infinito if inactividad_local is None else inactividad_local]
@@ -84,6 +88,7 @@ class Standby(QObject):
         self._ultimo_envio = None
         self._estado_previo = None    # para detectar cambios de estado / alarmas nuevas
         self._alarmas_previas = None
+        self._seguridad_previa = False
 
         self._timer = QTimer(self)
         self._timer.setInterval(intervalo_ms)
@@ -128,9 +133,11 @@ class Standby(QObject):
     def evaluar(self) -> None:
         conectado = bool(self._ui.connected)
         estado = None
+        seguridad = False
         if conectado:
             estado = self._ui.get_estado_global()
-            if self._hubo_evento_de_equipo(estado) and not self._en_gracia_arranque():
+            seguridad = self._seguridad_pendiente()
+            if self._hubo_evento_de_equipo(estado, seguridad) and not self._en_gracia_arranque():
                 self._marcar_actividad(forzar=True)
         if self._mantener_despierto():
             self._marcar_actividad(forzar=False)
@@ -142,6 +149,7 @@ class Standby(QObject):
             local,
             minutos_standby(self._ui.get_config_param("tiempo_standby")),
             estado,
+            seguridad,
         )
         if activo != self._activo:
             self._activo = activo
@@ -159,12 +167,23 @@ class Standby(QObject):
             return None
         return inactividad
 
-    def _hubo_evento_de_equipo(self, estado) -> bool:
+    def _seguridad_pendiente(self) -> bool:
+        """Paro activo, o estado seguro activo o esperando confirmación."""
+        es = self._ui.get_campo("estado_seguro", {})
+        es = es if isinstance(es, dict) else {}
+        return (bool(self._ui.get_estado_flag("PARO_EMERGENCIA"))
+                or es.get("activo") is True or es.get("requiere_confirmacion") is True)
+
+    def _hubo_evento_de_equipo(self, estado, seguridad: bool = False) -> bool:
         alarmas = {a.get("id") for a in self._ui.get_alarmas() if isinstance(a, dict)}
         primera = self._estado_previo is None and self._alarmas_previas is None
         evento = not primera and (estado != self._estado_previo
-                                  or bool(alarmas - (self._alarmas_previas or set())))
+                                  or bool(alarmas - (self._alarmas_previas or set()))
+                                  # aparición y fin del paro/estado seguro: el fin
+                                  # también da tiempo_standby completo (TMG-04)
+                                  or seguridad != self._seguridad_previa)
         self._estado_previo, self._alarmas_previas = estado, alarmas
+        self._seguridad_previa = seguridad
         return evento
 
     @Property(bool, notify=activoChanged)

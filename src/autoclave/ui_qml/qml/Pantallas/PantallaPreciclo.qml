@@ -71,8 +71,9 @@ Item {
     readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
     property bool fallaOcupada: comandoFalla?.ocupado ?? false
 
-    // Insignia de la campana: única categoría de notificaciones por ahora (alertas y avisos)
-    property int conteoNotificaciones: conteoAlarmas
+    // Insignia de la campana: alarmas activas más los avisos de seguridad del
+    // panel (paro, estado seguro, NO ABRIR, modo prueba; U1 de la tanda 2)
+    property int conteoNotificaciones: panelNotificaciones.conteoTotal
     // Perfil de instalación; "—" si no se pudo leer
     property string modelo: (infoEquipo?.modelo ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
     property string serie: (infoEquipo?.serie ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
@@ -249,18 +250,16 @@ Item {
             caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
             source: raiz.iconosColor + "campana.svg"   // variante blanca
         }
-        Rectangle {
-            visible: raiz.conteoNotificaciones > 0
+        InsigniaCampana {
+            objectName: "insigniaCampana"
             x: raiz.m(922); y: raiz.m(50)
-            width: raiz.m(26); height: raiz.m(25); radius: width / 2
-            color: raiz.paleta.insignia
-            Text {
-                anchors.centerIn: parent
-                text: raiz.conteoNotificaciones
-                color: "white"
-                font.family: Tipografia.familia
-                font.pixelSize: raiz.fuente(17)
-            }
+            width: raiz.m(26); height: raiz.m(25)
+            conteo: raiz.conteoNotificaciones
+            urgente: panelNotificaciones.urgente
+            enCurso: panelNotificaciones.avisoEnCurso
+            parpadeo: panelNotificaciones.parpadeo
+            colorNormal: raiz.paleta.insignia
+            tamFuente: raiz.fuente(17)
         }
         MouseArea {
             x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
@@ -757,6 +756,8 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: raiz.textos.sinAlarmas
         alarmas: raiz.alarmas
+        puente: raiz.puente
+        comandosSistema: raiz.comandosSistema
     }
     // T8 (§7.6), PROVISIONAL (sin diseño): confirmación explícita por ciclo
     DialogoConfirmacion {
