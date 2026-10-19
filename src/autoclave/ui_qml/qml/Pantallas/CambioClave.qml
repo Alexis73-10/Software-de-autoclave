@@ -19,8 +19,9 @@ import Autoclave.I18n
 //   claveCambiada    -> OPCIONES (la sesión ya no tiene el cambio pendiente)
 //   sesionTerminada  -> Login (bloqueo, sin respuesta del equipo o 401: el
 //                       aviso queda en la sesión para el login)
-//   abandonado       -> pantalla principal; la sesión ya se cerró con logout
-//                       y el siguiente login vuelve a pedir el cambio (R1-3)
+//   atrasPulsado / inicioPulsado -> pantalla anterior / principal; la sesión
+//                       ya se descartó con logout y el siguiente login vuelve
+//                       a pedir el cambio (R1-3; U2 de la tanda 2)
 Item {
     id: raiz
     objectName: "cambioClave"
@@ -29,7 +30,12 @@ Item {
 
     signal claveCambiada()
     signal sesionTerminada()
-    signal abandonado()
+    // U2 (tanda 2): Atrás (pantalla anterior) e Inicio (principal) abandonan
+    // el cambio obligatorio: la sesión, que no llegó a completarse, se
+    // descarta con logout (revisión de U2: SAF-02/TMG-03). Deshabilitados con
+    // el cambio en vuelo, para no dejar un cambio aplicado sin saberlo.
+    signal atrasPulsado()
+    signal inicioPulsado()
 
     CambioClaveController {
         id: control
@@ -80,13 +86,17 @@ Item {
             teclado.cerrar()
         control.cambiar(clave_actual, clave_nueva, confirmacion)
     }
-    function abandonar() {
+    function _salirCon(senal) {
+        if (control.ocupado)
+            return
         if (teclado)
             teclado.cerrar()
         limpiar()
         control.abandonar()
-        abandonado()
+        senal()
     }
+    function atras() { _salirCon(atrasPulsado) }
+    function inicio() { _salirCon(inicioPulsado) }
 
     readonly property string iconos: "../../assets/iconos/color/"
 
@@ -288,12 +298,12 @@ Item {
                 BarraInferior {
                     anchors.fill: parent
                     version: I18n.t("app.version", I18n.lang)
-                    // Salir e Inicio abandonan el cambio: cierran la sesión (R1-3)
+                    // U2: Atrás e Inicio abandonan el cambio; los del centro, inactivos
                     botones: [
-                        { icono: "salir_sesion",  activo: true, accion: function() { raiz.abandonar() } },
+                        { icono: "flecha_atras",  activo: !control.ocupado, accion: function() { raiz.atras() } },
                         { icono: "historial",     activo: false },
                         { icono: "mantenimiento", activo: false },
-                        { icono: "casa",          activo: true, accion: function() { raiz.abandonar() } }
+                        { icono: "casa",          activo: !control.ocupado, accion: function() { raiz.inicio() } }
                     ]
                 }
             ]

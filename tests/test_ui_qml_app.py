@@ -138,7 +138,9 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     login_abre = len(buscar("Login")) == 1
     QMetaObject.invokeMethod(buscar("Login")[0], "inicioPulsado")   # casa -> principal
     QTest.qWait(600)
-    login_regresa = len(buscar("Login")) == 0 and bool(ciclo.property("visible"))
+    # U2: Home recrea la principal (pop(null) + push): se busca de nuevo
+    login_regresa = len(buscar("Login")) == 0 and any(o.property("visible") for o in buscar("PantallaPreciclo"))
+    ciclo = buscar("PantallaPreciclo")[-1]
 
     print(json.dumps({
         "login_abre": login_abre,

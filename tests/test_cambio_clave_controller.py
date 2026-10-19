@@ -99,7 +99,8 @@ def test_sin_conexion_no_sale_a_la_red():
     assert c.mensajeClave == "sesion.sin_conexion_escrituras" and t.llamadas == []
 
 
-def test_abandonar_cierra_con_logout():
+def test_abandonar_el_cambio_obligatorio_descarta_la_sesion():
+    """Revisión de U2: la sesión del cambio obligatorio no llegó a completarse."""
     c, _, t = _control()
     c.abandonar()
     assert not SessionManager.is_authenticated() and t.llamadas == ["/auth/logout"]

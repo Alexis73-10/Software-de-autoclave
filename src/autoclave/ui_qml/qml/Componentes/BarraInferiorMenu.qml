@@ -1,8 +1,10 @@
 import QtQuick
 import Tema
 
-// Barra inferior del Menú Principal (planeacion_menu_principal_ui_qml.md §5, D-06):
-// Salir a la izquierda, Home a la derecha, celda central vacía entre los dos
+// Barra inferior del Menú Principal (planeacion_menu_principal_ui_qml.md §5, D-06),
+// también la de Login y OPCIONES. U2 (tanda 2): Atrás a la izquierda (regresa a
+// la pantalla anterior; no cierra sesión, que solo cierra la inactividad SAF-01,
+// decisión 7) en el lugar del antiguo Salir, Home a la derecha, celda central vacía entre los dos
 // separadores y la versión abajo a la derecha. Medidas del v3 relativas a la
 // propia barra (1128 x 139; separadores en x 313 y 800; tinta de Salir 75 x 90 en
 // (116, 24); casa en la misma caja que la barra de PantallaPreciclo.qml). Estilo
@@ -13,13 +15,11 @@ Item {
 
     property real escala: 1
     property string version: ""
-    // D-12: Salir deshabilitado hasta tener canal de sesión (TODO(MP-03) en la pantalla)
-    property bool salirHabilitado: false
-    // Home en el propio menú: inactivo (no responde), sin atenuar — es la pantalla actual.
-    // PROVISIONAL: el diseñador define si va resaltado.
+    property bool atrasHabilitado: true
+    // Home: activo en Menú, Login y OPCIONES (lo fija cada pantalla).
     property bool inicioActivo: false
 
-    signal salirPulsado()
+    signal atrasPulsado()
     signal inicioPulsado()
 
     function m(v) { return v * escala }
@@ -47,19 +47,19 @@ Item {
     Divisor { cx: 800 }
 
     Item {
-        objectName: "botonSalir"
+        objectName: "botonAtras"
         x: 0; y: 0; width: raiz.m(313); height: parent.height
-        enabled: raiz.salirHabilitado
+        enabled: raiz.atrasHabilitado
         opacity: enabled ? 1.0 : 0.4   // PROVISIONAL, misma convención que PantallaPreciclo.qml
-        // tinta de salir_sesion.svg = [7.5, 4.0, 40.5, 44.0]: 90 de alto -> k = 2.25
+        // flecha_atras.svg (tinta ~[12.8, 4.3, 35.2, 43.7]) centrada en la celda, 80 de alto
         Image {
-            x: raiz.m(116 - 7.5 * 2.25); y: raiz.m(24 - 4.0 * 2.25)
-            width: raiz.m(48 * 2.25); height: width
-            source: raiz._iconos + "salir_sesion.svg"
+            anchors.centerIn: parent
+            width: raiz.m(96); height: width
+            source: raiz._iconos + "flecha_atras.svg"
             sourceSize.width: width
             sourceSize.height: height
         }
-        MouseArea { anchors.fill: parent; onClicked: raiz.salirPulsado() }
+        MouseArea { anchors.fill: parent; onClicked: raiz.atrasPulsado() }
     }
 
     Item {

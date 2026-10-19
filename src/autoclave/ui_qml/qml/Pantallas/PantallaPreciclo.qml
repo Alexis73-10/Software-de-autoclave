@@ -88,7 +88,6 @@ Item {
     signal avatarPulsado()        // destino indefinido (PC-05)
     signal campanaPulsada()
     signal ajustesPulsado()
-    signal inicioPulsado()
 
     // Textos de la pantalla (PC-07: siguen sin confirmar por el diseñador).
     readonly property QtObject textos: QtObject {
@@ -710,33 +709,26 @@ Item {
         }
     }
 
-    // Avatar: deshabilitado sin conexión (PROVISIONAL: opacidad 0.4)
+    // Avatar: deshabilitado sin conexión (PROVISIONAL: opacidad 0.4). U2 (tanda
+    // 2): sin Home en esta pantalla (es la principal); el avatar ocupa su lugar,
+    // centrado donde estaba la casa (x 1001 del mockup)
     Item {
+        objectName: "avatarPreciclo"
         anchors.fill: parent
         enabled: raiz.datosVigentes
         opacity: enabled ? 1.0 : 0.4
         Rectangle {
-            x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
+            x: raiz.m(957); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
             color: raiz.paleta.avatarFondo
         }
         Icono {
-            caja: [576, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
+            caja: [983, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
             source: raiz.iconosColor + "usuario.svg"
         }
         MouseArea {
-            x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width
+            x: raiz.m(940); y: raiz.m(1755); width: raiz.m(122); height: raiz.m(105)
             onClicked: raiz.avatarPulsado()
         }
-    }
-
-    // color/casa.svg trae #333333; el mockup mide #232323 (diferencia menor, se usa el activo)
-    Icono {
-        caja: [957, 1769, 88, 77]; tinta: [4.1, 6.8, 43.9, 41.4]
-        source: raiz.iconosColor + "casa.svg"
-    }
-    MouseArea {
-        x: raiz.m(940); y: raiz.m(1755); width: raiz.m(122); height: raiz.m(105)
-        onClicked: raiz.inicioPulsado()
     }
     Text {
         x: raiz.m(1141) - width

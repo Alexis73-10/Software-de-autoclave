@@ -60,10 +60,15 @@ Window {
     readonly property string estadoMaquina: puente?.machineState ?? "DESCONOCIDO"
     readonly property bool enCiclo: estadoMaquina === "CICLO"
     property bool mostrandoEnCurso: false
-    function destinoPrincipal() { return enCiclo ? enCursoComp : cicloComp }
+    // Sin datos del backend (DESCONOCIDO) se conserva la última principal: no
+    // se pasa a preciclo con un ciclo que puede seguir en marcha (revisión U2,
+    // TMG-04/SAF-03)
+    function _principalEnCurso() { return estadoMaquina === "DESCONOCIDO" ? mostrandoEnCurso : enCiclo }
+    function destinoPrincipal() { return _principalEnCurso() ? enCursoComp : cicloComp }
     function irAPrincipal() {
-        pila.push(destinoPrincipal())
-        mostrandoEnCurso = enCiclo
+        const enCurso = _principalEnCurso()
+        pila.push(enCurso ? enCursoComp : cicloComp)
+        mostrandoEnCurso = enCurso
     }
 
     // Reposo <-> principal lo decide el standby (única transición simultánea):
@@ -128,8 +133,13 @@ Window {
         panelTeclado.cerrar()
         pila.pop(null)
         irAPrincipal()
-        pila.push(loginComp)
+        if (!seguridadUrgente)   // U1: con paro, el login no tapa el panel (TMG-02 de U2)
+            pila.push(loginComp)
     }
+    // Revisión de U2 (TMG-01): una respuesta de login o de cambio de clave que
+    // llega cuando su pantalla ya salió (Atrás, Home, cambio de estado) no
+    // navega: si no, reemplazaría la pantalla principal
+    function esActual(item) { return item !== null && pila.currentItem === item }
     Connections {
         target: ventana.sesion
         // 15 s sin conexión: el cambio obligatorio vuelve al login (token
@@ -159,9 +169,9 @@ Window {
         target: ventana.puenteNuevoUsuario
         function onSolicitudNavegar(destino) {
             if (destino === "admin_menu")
-                pila.pop()                       // "<" y Cancelar: vuelven a Usuarios
+                ventana.atras()                  // "<", Atrás y Cancelar: vuelven a Usuarios
             else
-                ventana.volverAPrincipal()       // Inicio (sesión conservada) o Salir (cerrada)
+                ventana.volverAPrincipal()       // Inicio (sesión conservada)
         }
     }
 
@@ -195,7 +205,7 @@ Window {
     onEstadoMaquinaChanged: { aplicarEstadoMaquina(); aplicarSuspension() }
     // UI que arranca (o se reinicia) con la máquina ya en CICLO: directo a la
     // pantalla de ciclo en curso, sin esperar el toque del arranque (plan §9)
-    Component.onCompleted: { if (enCiclo && pila.depth === 1) irAPrincipal(); irAPanelSeguridad() }
+    Component.onCompleted: { if (enCiclo && pila.depth === 1) irAPrincipal(); irAPanelSeguridad(); vigilarConexion() }
 
     Binding {
         target: Escala
@@ -385,42 +395,55 @@ Window {
             infoEquipo: ventana.infoEquipo
             comandosSistema: ventana.comandosSistema
             inicioActivo: true
-            onInicioPulsado: pila.pop()
+            onAtrasPulsado: ventana.atras()
+            onInicioPulsado: ventana.volverAPrincipal()
             onIniciarSesionPulsado: ventana.abrirConfiguracion()
         }
     }
     Component {
         id: loginComp
         AreaFija {
+            id: areaLogin
             objectName: "areaLogin"
             readonly property bool sinCampana: true
             Login {
                 anchors.fill: parent
                 teclado: panelTeclado
                 puente: ventana.puente
-                onInicioPulsado: pila.pop()
+                onAtrasPulsado: ventana.atras()
+                onInicioPulsado: ventana.volverAPrincipal()
                 // sesión validada: el login se reemplaza por OPCIONES, o por
                 // CAMBIAR CONTRASEÑA si es obligatorio (T-8)
-                onSesionIniciada: pila.replace(opcionesComp)
-                onCambioClaveRequerido: pila.replace(cambioClaveComp)
+                onSesionIniciada: if (ventana.esActual(areaLogin)) pila.replace(opcionesComp)
+                onCambioClaveRequerido: if (ventana.esActual(areaLogin)) pila.replace(cambioClaveComp)
             }
         }
     }
     // Cambio de contraseña obligatorio (T-8): clave cambiada -> OPCIONES;
     // sesión terminada (bloqueo, sin respuesta, 401) -> Login con su aviso;
-    // abandonar (Salir / Inicio) -> logout y pantalla principal.
+    // Atrás / Inicio (U2) -> pantalla anterior / principal, sin logout.
     Component {
         id: cambioClaveComp
         AreaFija {
+            id: areaCambioClave
             objectName: "areaCambioClave"
             readonly property bool usaToken: true
             readonly property bool sinCampana: true
             CambioClave {
                 anchors.fill: parent
                 teclado: panelTeclado
-                onClaveCambiada: { sesionVentana.refrescar(); pila.replace(opcionesComp) }
-                onSesionTerminada: { sesionVentana.refrescar(); pila.replace(loginComp) }
-                onAbandonado: { sesionVentana.refrescar(); ventana.volverAPrincipal() }
+                onClaveCambiada: { sesionVentana.refrescar(); if (ventana.esActual(areaCambioClave)) pila.replace(opcionesComp) }
+                onSesionTerminada: {
+                    sesionVentana.refrescar()
+                    if (!ventana.esActual(areaCambioClave))
+                        return
+                    if (ventana.seguridadUrgente)
+                        ventana.volverAPrincipal()
+                    else
+                        pila.replace(loginComp)
+                }
+                onAtrasPulsado: { sesionVentana.refrescar(); ventana.atras() }
+                onInicioPulsado: { sesionVentana.refrescar(); ventana.volverAPrincipal() }
             }
         }
     }
@@ -446,9 +469,20 @@ Window {
         pila.push(nuevoUsuarioComp)
     }
     // OPCIONES (planeacion_opciones_parametros_ciclo.md, Fase 1). Alto flexible.
-    // Inicio sale conservando la sesión; Salir la cierra. Ambos regresan a la
+    // Inicio sale conservando la sesión; Atrás (U2) vuelve a la pantalla
+    // anterior, también sin cerrarla. Inicio regresa a la
     // pantalla principal según el estado (preciclo o ciclo en curso), aunque se
     // haya llegado por el Menú Principal (decisión de Cristian, 2026-10-07).
+    // U2 (tanda 2): Atrás regresa a la pantalla anterior de la pila sin cerrar
+    // la sesión. Nunca deja la pila sin pantalla principal: con solo reposo y
+    // principal debajo, vuelve a la principal que corresponda al estado.
+    function atras() {
+        panelTeclado.cerrar()
+        if (pila.depth > 2)
+            pila.pop()
+        else
+            volverAPrincipal()
+    }
     function volverAPrincipal() {
         pila.pop(null)
         irAPrincipal()
@@ -459,8 +493,8 @@ Window {
             puente: ventana.puente
             teclado: panelTeclado
             comandosSistema: ventana.comandosSistema
+            onAtrasPulsado: ventana.atras()
             onInicioPulsado: ventana.volverAPrincipal()
-            onSesionCerrada: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()
         }
     }

@@ -104,11 +104,11 @@ _SCRIPT = textwrap.dedent(r"""
     esperar()
     r["ajustes_tras_sesion"] = ajustes.veces
     r["login_abre"] = len(buscar("Login")) == 1 and visible("Login")
-    QMetaObject.invokeMethod(buscar("Login")[0], "inicioPulsado")   # casa del login -> menú
+    QMetaObject.invokeMethod(buscar("Login")[0], "atrasPulsado")    # U2: Atrás del login -> menú
     esperar()
     r["login_regresa_al_menu"] = len(buscar("Login")) == 0 and visible("MenuPrincipal")
 
-    QMetaObject.invokeMethod(menus[0], "inicioPulsado")             # casa -> de vuelta
+    QMetaObject.invokeMethod(buscar("MenuPrincipal")[0], "inicioPulsado")   # casa -> de vuelta
     esperar()
     r["menu_cierra"] = len(buscar("MenuPrincipal")) == 0
     r["origen_regresa"] = visible(origen)

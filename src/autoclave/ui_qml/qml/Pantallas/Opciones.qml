@@ -19,8 +19,8 @@ import Autoclave.I18n
 // Sin gesto de deslizamiento (Q-7). El título muestra la sección activa (Q-8).
 //
 // Sesión y permisos: OpcionesController (SessionManager + domain/permisos_opciones.py).
-// La pantalla nunca compara roles. Salir cierra la sesión (con confirmación si
-// hay cambios sin guardar, U-5/U-13); Inicio sale conservándola.
+// La pantalla nunca compara roles. Atrás e Inicio salen conservando la sesión
+// (con confirmación si hay cambios sin guardar, U-5/U-13; U2 de la tanda 2).
 //
 // Usuarios (T-8, R2-5): un botón abre Nuevo usuario a pantalla completa sobre
 // OPCIONES (nuevoUsuarioPulsado; lo apila Main.qml). Es pantalla con token en
@@ -36,7 +36,9 @@ Item {
     property bool cambiosPendientes: parametrosCiclo.item?.cambiosPendientes ?? false
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
-    signal sesionCerrada()     // Salir: sesión ya cerrada
+    // U2 (tanda 2): Atrás vuelve a la pantalla anterior conservando la sesión;
+    // ya no hay Salir que la cierre (solo la inactividad, SAF-01, decisión 7)
+    signal atrasPulsado()
     signal nuevoUsuarioPulsado()   // sección Usuarios: abrir Nuevo usuario
 
     readonly property bool usaToken: true
@@ -96,17 +98,19 @@ Item {
     }
 
     // ---- salida ----
-    function salir() {
+    // Atrás e Inicio con cambios sin guardar piden confirmar el descarte (U-13)
+    property var _salidaPendiente: null
+    function _salirCon(senal) {
         cerrarCajon()
-        if (cambiosPendientes)
+        if (cambiosPendientes) {
+            _salidaPendiente = senal
             dialogoSalir.abrir()
-        else
-            _cerrarSesion()
+        } else {
+            senal()
+        }
     }
-    function _cerrarSesion() {
-        control.cerrarSesion()
-        sesionCerrada()
-    }
+    function atras() { _salirCon(atrasPulsado) }
+    function inicio() { _salirCon(inicioPulsado) }
 
     // ======================= fondo y encabezado =======================
     FondoApp { anchors.fill: parent }
@@ -261,10 +265,9 @@ Item {
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)
-        salirHabilitado: true
         inicioActivo: true
-        onSalirPulsado: raiz.salir()
-        onInicioPulsado: raiz.inicioPulsado()
+        onAtrasPulsado: raiz.atras()
+        onInicioPulsado: raiz.inicio()
     }
 
     // ======================= cajón lateral (U-19, imágenes 1b y 1c) =======================
@@ -388,14 +391,15 @@ Item {
         comandosSistema: raiz.comandosSistema
     }
 
-    // Salir con cambios sin guardar: Salir descarta y cierra la sesión (U-13)
+    // Atrás/Inicio con cambios sin guardar: confirmar descarta y sale, sin
+    // cerrar la sesión (U-13; U2 de la tanda 2)
     DialogoConfirmacion {
         id: dialogoSalir
         objectName: "dialogoSalirOpciones"
         mensaje: I18n.t("opciones.salir_pregunta", I18n.lang)
         textoConfirmar: I18n.t("opciones.salir_confirmar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
-        onConfirmado: raiz._cerrarSesion()
+        onConfirmado: { cerrar(); const s = raiz._salidaPendiente; raiz._salidaPendiente = null; if (s) s() }
     }
     // Cambiar de sección con cambios sin guardar (U-19): confirmar descarta y cambia
     DialogoConfirmacion {

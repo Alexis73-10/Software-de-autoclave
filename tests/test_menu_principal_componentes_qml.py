@@ -105,7 +105,8 @@ _SCRIPT = textwrap.dedent(r"""
     r["desbordes"] = desbordes
 
     r["insignia"] = obj("insigniaCampana").property("visible")
-    r["salir_habilitado"] = obj("botonSalir").property("enabled")
+    r["atras_habilitado"] = obj("botonAtras").property("enabled")
+    r["sin_salir"] = obj("botonSalir") is None
     r["inicio_activo"] = obj("botonInicio").property("enabled")
     r["fecha"] = obj("fechaMenu").property("text")
     r["avisos"] = avisos
@@ -166,7 +167,8 @@ def test_ningun_texto_desborda_su_tarjeta(r):
 
 def test_campana_salir_y_home(r):
     assert r["insignia"] is True             # galería con conteoAlarmas = 2
-    assert r["salir_habilitado"] is False    # D-12
+    assert r["atras_habilitado"] is True     # U2: Atrás en lugar de Salir
+    assert r["sin_salir"] is True
     assert r["inicio_activo"] is False       # Home inactivo en el propio menú
 
 

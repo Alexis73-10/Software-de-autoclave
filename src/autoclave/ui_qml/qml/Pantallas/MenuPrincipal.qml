@@ -39,7 +39,7 @@ Item {
     // ---- acciones: las resuelve quien usa la pantalla (Main.qml) ----
     signal iniciarSesionPulsado()       // abre el login QML (Main.qml)
     signal campanaPulsada()
-    signal salirPulsado()
+    signal atrasPulsado()       // U2: pantalla anterior (no cierra sesión)
     signal inicioPulsado()
     signal historialPulsado()
     signal reportesPulsado()
@@ -333,9 +333,8 @@ Item {
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)
-        salirHabilitado: false   // D-12, TODO(MP-03): sin canal de sesión con el login PySide
         inicioActivo: raiz.inicioActivo
-        onSalirPulsado: raiz.salirPulsado()
+        onAtrasPulsado: raiz.atrasPulsado()
         onInicioPulsado: raiz.inicioPulsado()
     }
 
