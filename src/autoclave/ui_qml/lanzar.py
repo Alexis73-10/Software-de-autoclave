@@ -23,6 +23,7 @@ import time
 
 import requests
 
+from autoclave.ui_qml import barra_tareas
 from autoclave.ui_qml.app import BACKEND_URL
 from autoclave.ui_qml.doble_pantalla import RAIZ_PROYECTO, comandos, vigilar_pantallas
 
@@ -76,7 +77,7 @@ def _entorno(url: str | None) -> dict:
     return entorno
 
 
-def main(argv=None, popen=subprocess.Popen, esperar=esperar_backend) -> int:
+def main(argv=None, popen=subprocess.Popen, esperar=esperar_backend, barra=barra_tareas) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
     simulador = None
@@ -101,7 +102,7 @@ def main(argv=None, popen=subprocess.Popen, esperar=esperar_backend) -> int:
     try:
         # D-04 (T8): una pantalla cerrada se relanza hasta 3 veces, cada 5 s
         vigilar_pantallas(_comandos_ui(args),
-                          lambda cmd: popen(cmd, cwd=str(RAIZ_PROYECTO), env=entorno))
+                          lambda cmd: popen(cmd, cwd=str(RAIZ_PROYECTO), env=entorno), barra=barra)
     finally:
         if simulador is not None and simulador.poll() is None:
             logger.info("Deteniendo el simulador")

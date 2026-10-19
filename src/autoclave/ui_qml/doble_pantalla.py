@@ -18,6 +18,8 @@ import sys
 import time
 from pathlib import Path
 
+from autoclave.ui_qml import barra_tareas
+
 logger = logging.getLogger(__name__)
 
 # raíz del repo (…/src/autoclave/ui_qml/doble_pantalla.py -> parents[3]); resource_path
@@ -51,10 +53,13 @@ CODIGO_INSTALACION_TERMINADA = 3
 
 def vigilar_pantallas(cmds, lanzar, relanzamientos=RELANZAMIENTOS_MAX,
                       espera_s=ESPERA_RELANZAR_S, reloj=time.monotonic,
-                      dormir=time.sleep, periodo_s=0.5) -> None:
+                      dormir=time.sleep, periodo_s=0.5, barra=None) -> None:
     """D-04: lanza cada pantalla y, si una se cierra, la relanza hasta
     `relanzamientos` veces, `espera_s` después de cada cierre. Termina cuando
-    todas están cerradas y sin relanzamientos. Ctrl+C cierra todas."""
+    todas están cerradas y sin relanzamientos. Ctrl+C cierra todas.
+
+    `barra` (barra_tareas, o None para no tocarla) se oculta en cada vuelta
+    mientras haya pantallas y se vuelve a mostrar al terminar."""
     def _lanzar(cmd):
         # TMG-08 de T8: un fallo al lanzar cuenta como cierre, no mata al vigilante
         try:
@@ -69,6 +74,8 @@ def vigilar_pantallas(cmds, lanzar, relanzamientos=RELANZAMIENTOS_MAX,
         pantallas.append({"cmd": cmd, "proc": _lanzar(cmd), "usados": 0, "cerrada_en": None})
     try:
         while True:
+            if barra is not None:
+                barra.ocultar()
             vivas = False
             for p in pantallas:
                 codigo = p["proc"].poll() if p["proc"] is not None else 1
@@ -103,14 +110,17 @@ def vigilar_pantallas(cmds, lanzar, relanzamientos=RELANZAMIENTOS_MAX,
         for p in pantallas:
             if p["proc"] is not None and p["proc"].poll() is None:
                 p["proc"].terminate()
+    finally:
+        if barra is not None:
+            barra.mostrar()
 
 
-def main(argv=None, popen=subprocess.Popen) -> int:
+def main(argv=None, popen=subprocess.Popen, barra=barra_tareas) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
     vigilar_pantallas(comandos(args.monitor_puerta1, args.monitor_puerta2),
                       lambda cmd: popen(cmd, cwd=str(RAIZ_PROYECTO)),
-                      relanzamientos=RELANZAMIENTOS_MAX, espera_s=ESPERA_RELANZAR_S)
+                      relanzamientos=RELANZAMIENTOS_MAX, espera_s=ESPERA_RELANZAR_S, barra=barra)
     return 0
 
 

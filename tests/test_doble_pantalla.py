@@ -41,7 +41,7 @@ def test_main_lanza_ambas_desde_la_raiz_del_proyecto(monkeypatch):
         lanzados.append((cmd, cwd))
         return p
 
-    assert mod.main([], popen=popen) == 0
+    assert mod.main([], popen=popen, barra=_Barra()) == 0
     assert [_args(c)["--door"] for c, _ in lanzados] == ["1", "2"]
     assert all(cwd == str(mod.RAIZ_PROYECTO) for _, cwd in lanzados)
     assert (mod.RAIZ_PROYECTO / "src" / "autoclave" / "ui_qml" / "qml" / "Main.qml").exists()
@@ -110,3 +110,36 @@ def test_d04_termina_cuando_no_quedan_relanzamientos():
     mod.vigilar_pantallas([["py", "-m", "app"]], lambda c: lanzados.append(c) or cerrada,
                           reloj=reloj, dormir=dormir)
     assert len(lanzados) == 4
+
+
+class _Barra:
+    def __init__(self):
+        self.eventos = []
+
+    def ocultar(self):
+        self.eventos.append("ocultar")
+
+    def mostrar(self):
+        self.eventos.append("mostrar")
+
+
+def test_barra_de_tareas_oculta_mientras_hay_pantallas_y_vuelve_al_terminar():
+    barra = _Barra()
+    p = MagicMock()
+    p.poll.side_effect = [None, None, 0]
+    mod.vigilar_pantallas([["py", "-m", "app"]], lambda c: p, relanzamientos=0,
+                          dormir=lambda s: None, barra=barra)
+    assert barra.eventos == ["ocultar"] * 3 + ["mostrar"]
+
+
+def test_barra_de_tareas_vuelve_con_ctrl_c():
+    barra = _Barra()
+    p = MagicMock()
+    p.poll.return_value = None
+
+    def interrumpir(_s):
+        raise KeyboardInterrupt
+
+    mod.vigilar_pantallas([["py", "-m", "app"]], lambda c: p, dormir=interrumpir, barra=barra)
+    assert barra.eventos == ["ocultar", "mostrar"]
+    p.terminate.assert_called_once()

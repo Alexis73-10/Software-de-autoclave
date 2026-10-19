@@ -134,3 +134,37 @@ def test_cada_ciclo_tiene_id_propio(sim):
     client.post("/cycle/acknowledge")
     client.post("/cycle/start"); reloj.t += 1
     assert client.get("/cycle/current/progress").json()["ciclo_db_id"] != primero
+
+
+# ── historial: un ciclo simulado (el reproducido), fechado hoy ─────────────
+
+@pytest.fixture
+def sim_historial():
+    from datetime import datetime
+    app = crear_app(Repeticion(_CICLO), _GestorCiclos(), {}, reloj=Reloj(),
+                    ahora=lambda: datetime(2026, 10, 19, 12, 0, 0))
+    return TestClient(app)
+
+
+def test_historial_lista_el_ciclo_simulado_hoy(sim_historial):
+    r = sim_historial.get("/cycle/list", params={"periodo": "dia", "fecha": "2026-10-19"}).json()
+    assert [c["id"] for c in r["ciclos"]] == [76]
+    c = r["ciclos"][0]
+    assert c["resultado"] == "COMPLETADO" and c["programa_numero"] == 3
+    assert c["fecha_fin"] == "2026-10-19T11:50:00"
+    assert c["fecha_inicio"] == "2026-10-19T11:13:00"           # 2220 s antes
+    otro_dia = sim_historial.get("/cycle/list", params={"periodo": "dia", "fecha": "2026-10-18"}).json()
+    assert otro_dia["ciclos"] == []
+    assert sim_historial.get("/cycle/summary").json()["ultimo_ciclo"]["id"] == 76
+    assert sim_historial.get("/report/summary", params={"periodo": "mes"}).status_code == 200
+
+
+def test_historial_curva_y_ticket(sim_historial):
+    g = sim_historial.get("/cycle/history/76/graph").json()
+    assert g["ciclo_db_id"] == 76 and len(g["lecturas"]) == 2221
+    assert g["lecturas"][0]["fase_ui"] == "vacio"
+    assert g["lecturas"][-1]["temp_camara"] == pytest.approx(60.0)
+    t = sim_historial.get("/cycle/history/76/ticket").json()
+    assert t["ciclo"]["resultado"] == "COMPLETADO"
+    assert t["lecturas"][1]["timestamp_rel"] == "00:10:00"
+    assert sim_historial.get("/cycle/history/5/graph").status_code == 404
