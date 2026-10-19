@@ -82,6 +82,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-16 | Tanda T9 | `instalacion.resumen_cerrojo`, `instalacion.resumen_con_cerrojo`, `instalacion.resumen_sin_cerrojo`, `instalacion.resumen_empaque`, `instalacion.resumen_con_empaque`, `instalacion.resumen_sin_empaque`, `instalacion.confirmar_sin_cerrojo` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-16 | Tanda T8 | `ciclo.sin_bd_pregunta`, `ciclo.sin_bd_continuar`, `sesion.sin_bd`, `sesion.continuar_sin_operador` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-19 | Tanda 2 U1 | `sistema.estado_seguro_pendiente`, `sistema.paro_suelte`, `sistema.confirmar_sin_sesion`, `sistema.estado_seguro_en_curso_boton`, `sistema.no_abrir_hasta_segura`, `sistema.seguridad_desconocida` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-19 | Tanda 2 S1 | `instalacion.vapor_generator_desc` (texto cambiado) | Instalación | sin revisar |
 
 ## Registro de revisiones
 

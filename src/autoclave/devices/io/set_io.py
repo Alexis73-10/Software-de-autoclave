@@ -28,6 +28,12 @@ class SetOutput:
         permitidas = salidas_vapor_permitidas(profile)
         self._canales_bloqueados = {canal for nombre, canal in _CANALES_VAPOR.items()
                                     if nombre not in permitidas}
+        if self._canales_bloqueados:
+            # S1 (tanda 2): que quede constancia al arrancar (p. ej. generador
+            # interno: DO1 y DO2 deshabilitadas)
+            logger.info("SetOutput: fuente de vapor '%s'; salidas deshabilitadas: %s",
+                        getattr(profile, "vapor_source", None),
+                        ", ".join(f"DO{c}" for c in sorted(self._canales_bloqueados)))
 
     def salida_bloqueada(self, index) -> bool:
         """True si el canal es de una fuente de vapor que el equipo no tiene."""

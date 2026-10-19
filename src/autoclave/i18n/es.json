@@ -54,7 +54,7 @@
     "vapor_titulo": "Seleccione la fuente de vapor",
     "error_vapor": "Seleccione la fuente de vapor",
     "vapor_generator": "Generador interno",
-    "vapor_generator_desc": "El equipo genera su propio vapor",
+    "vapor_generator_desc": "El equipo genera su propio vapor; el generador tiene sus propios controles (sin salidas DO1/DO2)",
     "vapor_boiler": "Caldera externa",
     "vapor_boiler_desc": "Conexión a la red de vapor del cliente",
     "vapor_mixed": "Mixto",

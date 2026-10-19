@@ -54,7 +54,7 @@
     "vapor_titulo": "Select the steam source",
     "error_vapor": "Select the steam source",
     "vapor_generator": "Internal generator",
-    "vapor_generator_desc": "The equipment generates its own steam",
+    "vapor_generator_desc": "The unit generates its own steam; the generator has its own controls (no DO1/DO2 outputs)",
     "vapor_boiler": "External boiler",
     "vapor_boiler_desc": "Connection to the customer's steam supply",
     "vapor_mixed": "Mixed",
