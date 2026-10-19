@@ -8,9 +8,9 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_2.md`. Rama `tanda-2
 
 | Etapa | Estado | Commit | Pruebas al cerrar | Informe |
 |---|---|---|---|---|
-| U1 Alarmas fuera de la barra superior | hecha | (ver git log: feat(ui) U1) | 3375 | `U1_avisos_en_campana.md` |
-| U2 Navegación inferior uniforme | pendiente | — | — | — |
-| U3 Botón de tiempo de secado | pendiente | — | — | — |
+| U1 Alarmas fuera de la barra superior | hecha | `9fba067` | 3375 | `U1_avisos_en_campana.md` |
+| U2 Navegación inferior uniforme | hecha | `1c778c7` | 3386 | `U2_navegacion_inferior.md` |
+| U3 Botón de tiempo de secado | hecha (sin botón que retirar; sin código) | (este commit) | 3386 | `U3_boton_secado.md` |
 | S1 DO1/DO2 | pendiente | — | — | — |
 | S2 `/cycle/select` | pendiente | — | — | — |
 | S3 Pendientes de seguridad | pendiente | — | — | — |
