@@ -30,8 +30,8 @@ Cómo revertir: cada decisión está en su commit; `git revert <hash>` (o pide q
 | 10 | **M1-01** un reloj adelantado puede sellar un mantenimiento con fecha futura (tabla de solo anexar) | sin referencia de tiempo independiente | fila de anulación / confirmar fecha lejana | 44132ac | — |
 | 11 | **O1** se guarda el `usuario` (no el nombre); sin sesión queda vacío ("—"); sin BD se conserva la leyenda de T8 en el respaldo; reportes por periodo no se desglosan por operador | mínimo y reversible | guardar "SIN SESIÓN"; agregar "por operador" | 368b68c | — |
 | 12 | **U5** tarjeta de secado retirada junto con `menu.secado_*` y `ResumenSistema.tiempoSecado` | pedido | — | bbcea43 | revertir |
-| 13 | **F1** firma por prueba (y final); puerto 8090; sesión 10 h; cierre con pruebas sin resultado permitido con confirmación; el admin no edita registros ajenos; REG-03/04/09 aceptados | lo pidió el documento | firma por bloque | (commit F1) | — |
-| 14 | **E1** el simulador del repo no sirve para fallas: se usó la planta provisional de T11 | — | ensayo con el ControlLoop y la tarjeta | (commit E1) | — |
+| 13 | **F1** firma por prueba (y final); puerto 8090; sesión 10 h; cierre con pruebas sin resultado permitido con confirmación; el admin no edita registros ajenos; REG-03/04/09 aceptados | lo pidió el documento | firma por bloque | bde6e41 | — |
+| 14 | **E1** el simulador del repo no sirve para fallas: se usó la planta provisional de T11 | — | ensayo con el ControlLoop y la tarjeta | 8d3a8fb | — |
 | 15 | **H1** B-06 reescrita, nuevas B-07, C-04, D-06..D-09 y E-06 | cubrir A1, A2, M1, C1, C2, S4, U5, O1 | — | 09f4726 | — |
 
 ## Tanda 2 (sin confirmar; ver el informe de cada etapa)
