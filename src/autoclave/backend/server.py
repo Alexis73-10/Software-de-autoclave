@@ -1492,8 +1492,19 @@ def _secuencia_apagado() -> None:
             historial.detener(2.0)
         except Exception:
             logger.exception("Apagar equipo: error al detener el historial de alarmas")
+    # S3d: vaciar las colas de escritura del respaldo y de la base ANTES de
+    # cerrar la base (con el lazo ya detenido no entran tareas nuevas)
+    logger_ciclo = getattr(context, "cycle_logger", None)
+    if logger_ciclo is not None and hasattr(logger_ciclo, "detener"):
+        try:
+            logger_ciclo.detener(5.0)
+        except Exception:
+            logger.exception("Apagar equipo: error al vaciar la escritura del ciclo")
     try:
-        context.db.close()
+        # tras una falla de la base en caliente, context.db es BdNoDisponible
+        real = getattr(context, "db_real", None)
+        (real if getattr(context, "sin_base_de_datos", False) is True and real is not None
+         else context.db).close()
     except Exception:
         logger.exception("Apagar equipo: error al cerrar la base de datos")
     if _apagado_windows_habilitado():

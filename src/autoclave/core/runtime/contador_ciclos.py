@@ -85,9 +85,14 @@ class ContadorCiclos:
         with self._lock:
             self._escribir(self._leer(), en_curso={"numero": numero, "programa": programa})
 
-    def limpiar_en_curso(self) -> None:
+    def limpiar_en_curso(self, solo_numero: int | None = None) -> None:
+        """Borra la marca. Con `solo_numero`, solo si la marca es de ese ciclo:
+        una limpieza diferida (S3d) no debe borrar la marca de un ciclo que ya
+        inició después."""
         with self._lock:
-            if self._datos().get("en_curso"):
+            marca = self._datos().get("en_curso")
+            if marca and (solo_numero is None or (isinstance(marca, dict)
+                                                  and marca.get("numero") == solo_numero)):
                 self._escribir(self._leer(), en_curso=None)
 
     def en_curso(self) -> dict | None:
