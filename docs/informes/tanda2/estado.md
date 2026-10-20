@@ -18,6 +18,6 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_2.md`. Rama `tanda-2
 | R1 Retiro de tkinter | hecha | `ece51e9` | 3518 (2 fallos ajenos) | `R1_retiro_tkinter.md` |
 | P1 Hoja de pruebas de banco | hecha (solo documentos) | `382e672` | — | `P1_hoja_pruebas_banco.md` |
 | G1 Generador de códigos | hecha | `2ce4e98` | 30 de G1 | `G1_generador_codigos.md` |
-| W1 Estación Windows (opcional) | pendiente | — | — | — |
+| W1 Estación Windows (opcional) | hecha (solo documento) | (ver git log) | — | `docs/mis_plans/planeacion_estacion_windows.md` |
 
 **Bloqueadas:** ninguna.
