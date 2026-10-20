@@ -109,6 +109,13 @@
   "opciones": {
     "titulo": "OPCIONES",
     "proximamente": "Próximamente",
+    "err_unidades_cambiaron": "Las unidades cambiaron: vuelva a teclear el valor.",
+    "err_conversion": "No se puede convertir el valor (sin presión atmosférica calibrada o valor negativo en psi).",
+    "equipo_unidades": "Unidades",
+    "equipo_unidad_temperatura": "Temperatura",
+    "equipo_unidad_presion": "Presión",
+    "equipo_unidades_ayuda": "Solo cambia lo que se muestra y se teclea; el control sigue en °C y kPa absolutos. kPa, bar y mbar son absolutos; psi es manométrico (psig) y, bajo la atmosférica, pulgadas de mercurio de vacío (inHg).",
+    "equipo_err_unidades_ciclo": "Las unidades solo se cambian fuera de ciclo.",
     "entradas_titulo": "Entradas mostradas",
     "entradas_nota": "Elija de 1 a 3 entradas para Preciclo y Ciclo; el número indica el orden.",
     "gestion_titulo": "Gestión del programa",

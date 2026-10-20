@@ -357,6 +357,15 @@ class BackendContext:
                 self._config_impresora = ConfigImpresora(app_root() / "data" / "impresora.json")
             return self._config_impresora
 
+    @property
+    def config_unidades(self):
+        """U1 (tanda 5): unidades de presentación, data/unidades.json."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_config_unidades", None) is None:
+                from autoclave.core.runtime.unidades import ConfigUnidades
+                self._config_unidades = ConfigUnidades(app_root() / "data" / "unidades.json")
+            return self._config_unidades
+
     def iniciar_vigilancia_impresora(self) -> None:
         """B5 (tanda 4): verifica una vez, en un hilo con plazo de 5 s, que la
         impresora esté presente (solo si está habilitada) y avisa sin bloquear.

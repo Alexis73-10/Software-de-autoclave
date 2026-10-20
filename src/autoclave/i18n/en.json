@@ -109,6 +109,13 @@
   "opciones": {
     "titulo": "OPTIONS",
     "proximamente": "Coming soon",
+    "err_unidades_cambiaron": "Units changed: type the value again.",
+    "err_conversion": "The value cannot be converted (no calibrated atmospheric pressure, or negative psi).",
+    "equipo_unidades": "Units",
+    "equipo_unidad_temperatura": "Temperature",
+    "equipo_unidad_presion": "Pressure",
+    "equipo_unidades_ayuda": "Only changes what is shown and typed; control stays in °C and absolute kPa. kPa, bar and mbar are absolute; psi is gauge (psig) and, below atmospheric, inches of mercury vacuum (inHg).",
+    "equipo_err_unidades_ciclo": "Units can only be changed outside a cycle.",
     "entradas_titulo": "Displayed inputs",
     "entradas_nota": "Choose 1 to 3 inputs for Pre-cycle and Cycle; the number shows the order.",
     "gestion_titulo": "Program management",

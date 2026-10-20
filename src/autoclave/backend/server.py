@@ -1372,6 +1372,48 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
 # `habilitada` solo gobierna la verificación de arranque y el aviso de impresora
 # desconectada; no impide imprimir ni bloquea nada.
 
+# ── Unidades de presentación (U1, tanda 5; decisión 6 de Cristian) ─────────
+# Solo presentación y entrada de datos: el control, la BD, los JSON y esta API
+# siguen en °C y kPa absolutos. P_atm es la calibrada del equipo; sin valor
+# vigente se publica null y la UI no muestra psi.
+
+class _UnidadesBody(BaseModel):
+    temperatura: Literal["C", "F"]
+    presion: Literal["kPa", "bar", "mbar", "psi"]
+
+
+def _p_atm_vigente():
+    try:
+        v = context.config_manager.get("presion_admosferica")
+    except Exception:
+        return None
+    from autoclave.core.runtime.unidades import p_atm_valida
+    return p_atm_valida(v)       # fuera de 50-110 kPa: null (la UI no muestra psi)
+
+
+@app.get("/units")
+def get_units():
+    return {**context.config_unidades.leer(), "p_atm": _p_atm_vigente()}
+
+
+@app.put("/units")
+def put_units(body: _UnidadesBody,
+              sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Técnico e ingeniero, solo fuera de ciclo (también el ingeniero: un
+    cambio de unidades a mitad de ciclo se presta a leer mal un valor)."""
+    entidad = "/units"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        anterior = context.config_unidades.leer()
+    try:
+        nuevo = context.config_unidades.guardar(body.temperatura, body.presion)
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración",
+                  entidad, sesion)
+    _auditar("unidades_configuradas", sesion, entidad=entidad,
+             valor_anterior=anterior, valor_nuevo=nuevo)
+    return {"ok": True, **nuevo}
+
+
 class _ImpresoraConfigBody(BaseModel):
     habilitada: StrictBool     # P2: solo el literal JSON true/false (SAF-06)
 

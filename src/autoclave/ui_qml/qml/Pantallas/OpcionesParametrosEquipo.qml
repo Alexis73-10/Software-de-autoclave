@@ -8,7 +8,9 @@ import Autoclave.I18n
 // OPCIONES › Parámetros del equipo (P2, tanda 5). Diseño PROVISIONAL (sin
 // diseño final). Interruptor "Impresora habilitada" (data/impresora.json):
 // técnico e ingeniero, con auditoría en el backend. Deshabilitada, el equipo
-// no avisa por impresora desconectada; nunca bloquea un ciclo.
+// no avisa por impresora desconectada; nunca bloquea un ciclo. Unidades
+// (U1): temperatura °C/°F y presión kPa/bar/mbar (absolutas) o psi
+// (psig, inHg de vacío); solo fuera de ciclo. Solo cambia lo que se muestra.
 Item {
     id: raiz
     objectName: "opcionesParametrosEquipo"
@@ -21,6 +23,55 @@ Item {
         objectName: "parametrosEquipoController"
     }
     readonly property alias controlador: control
+
+    // Fila de opciones excluyentes (chips)
+    component FilaOpciones: Column {
+        id: fila
+        property string rotulo: ""
+        property var opciones: []
+        property string elegida: ""
+        signal elegir(string v)
+        width: parent ? parent.width : 0
+        spacing: Escala.px(8)
+        Text {
+            text: fila.rotulo
+            color: Colores.textoPrimario
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(26)
+        }
+        Flow {
+            width: parent.width
+            spacing: Escala.px(10)
+            Repeater {
+                model: fila.opciones
+                delegate: Rectangle {
+                    id: chip
+                    required property var modelData
+                    readonly property bool activa: modelData.v === fila.elegida
+                    objectName: fila.objectName + "_" + modelData.v
+                    width: textoChip.implicitWidth + Escala.px(48)
+                    height: Escala.px(72)
+                    radius: Escala.px(36)
+                    color: activa ? Colores.accionPrimario : Colores.fondoSutil
+                    opacity: raiz.edicionPermitida && fila.elegida !== "" ? 1.0 : 0.5
+                    Text {
+                        id: textoChip
+                        anchors.centerIn: parent
+                        text: chip.modelData.t
+                        color: chip.activa ? "white" : Colores.textoPrimario
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoSemiBold
+                        font.pixelSize: Escala.fuente(24)
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: raiz.edicionPermitida && fila.elegida !== "" && !chip.activa
+                        onClicked: fila.elegir(chip.modelData.v)
+                    }
+                }
+            }
+        }
+    }
     Component.onCompleted: control.cargar()
 
     Rectangle {
@@ -117,6 +168,39 @@ Item {
                 enabled: filaImpresora.habilitado
                 onClicked: control.fijarImpresora(!control.impresoraHabilitada)
             }
+        }
+
+        // ── Unidades (U1, tanda 5) ─────────────────────────────────────
+        Text {
+            width: parent.width
+            topPadding: Escala.px(24)
+            text: I18n.t("opciones.equipo_unidades", I18n.lang)
+            color: Colores.textoSecundario
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(24)
+        }
+        FilaOpciones {
+            objectName: "unidadTemperatura"
+            rotulo: I18n.t("opciones.equipo_unidad_temperatura", I18n.lang)
+            opciones: [{ v: "C", t: "°C" }, { v: "F", t: "°F" }]
+            elegida: control.unidadTemperatura
+            onElegir: (v) => control.fijarUnidades(v, control.unidadPresion)
+        }
+        FilaOpciones {
+            objectName: "unidadPresion"
+            rotulo: I18n.t("opciones.equipo_unidad_presion", I18n.lang)
+            opciones: [{ v: "kPa", t: "kPa" }, { v: "bar", t: "bar" }, { v: "mbar", t: "mbar" },
+                       { v: "psi", t: "psig / inHg" }]
+            elegida: control.unidadPresion
+            onElegir: (v) => control.fijarUnidades(control.unidadTemperatura, v)
+        }
+        Text {
+            width: parent.width
+            wrapMode: Text.WordWrap
+            text: I18n.t("opciones.equipo_unidades_ayuda", I18n.lang)
+            color: Colores.textoGuia
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(20)
         }
     }
 }

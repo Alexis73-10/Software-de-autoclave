@@ -16,6 +16,7 @@ _MENSAJES = {
     "sesion_invalida": "opciones.err_identidad",
     "estado_no_permitido": "opciones.err_bloqueada",
     "ARCHIVO_NO_ESCRIBIBLE": "opciones.equipo_err_guardar",
+    "estado_no_permitido_unidades": "opciones.equipo_err_unidades_ciclo",
     sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta",
 }
 
@@ -32,6 +33,7 @@ class ParametrosEquipoController(QObject):
         super().__init__(parent)
         self._sesion = sesion
         self._impresora = None          # None = se desconoce
+        self._unidades = {"temperatura": "", "presion": ""}   # U1; "" = se desconoce
         self._mensaje = ""
 
     def _s(self):
@@ -49,6 +51,10 @@ class ParametrosEquipoController(QObject):
         self._impresora = valor if isinstance(valor, bool) else None
         if self._impresora is None:
             self._fijar_mensaje(mensaje_de(r.causa))
+        ru = self._s().enviar("GET", "/units")
+        datos = ru.datos if ru.ok and isinstance(ru.datos, dict) else {}
+        self._unidades = {"temperatura": str(datos.get("temperatura") or ""),
+                          "presion": str(datos.get("presion") or "")}
         self.datosChanged.emit()
 
     @Slot(bool, result=bool)
@@ -60,6 +66,32 @@ class ParametrosEquipoController(QObject):
             return True
         self.cargar()                  # sin respuesta el resultado es incierto: se relee
         self._fijar_mensaje(mensaje_de(r.causa))
+        return False
+
+    # ── unidades (U1, tanda 5): solo fuera de ciclo, técnico e ingeniero ──
+
+    @Property(str, notify=datosChanged)
+    def unidadTemperatura(self) -> str:
+        return self._unidades["temperatura"]
+
+    @Property(str, notify=datosChanged)
+    def unidadPresion(self) -> str:
+        return self._unidades["presion"]
+
+    @Slot(str, str, result=bool)
+    def fijarUnidades(self, temperatura: str, presion: str) -> bool:
+        r = self._s().enviar("PUT", "/units", {"temperatura": temperatura, "presion": presion})
+        self.cargar()
+        try:                           # que las pantallas cambien ya, sin esperar el sondeo
+            from autoclave.ui_qml.bridge import unidades_qml
+            unidades_qml.instancia.refrescar()
+        except Exception:
+            pass
+        if r.ok:
+            self._fijar_mensaje("")
+            return True
+        self._fijar_mensaje("opciones.equipo_err_unidades_ciclo" if r.causa == "estado_no_permitido"
+                            else mensaje_de(r.causa))
         return False
 
     @Property(bool, notify=datosChanged)
