@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Callable
 
 from autoclave.installation.profile import validate_profile_data
+from autoclave.utils.archivos import escribir_texto_atomico
 
 NOMBRE_REGISTRO = "installation_profile_cambios.log"
 
@@ -62,7 +63,7 @@ def escribir_campo(perfil: Path, campo: str, valor: dict, herramienta: str,
 
     respaldo = perfil.with_name(f"{perfil.name}.{datetime.now():%Y%m%d-%H%M%S}.bak")
     shutil.copy2(perfil, respaldo)
-    perfil.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    escribir_texto_atomico(perfil, json.dumps(data, indent=2, ensure_ascii=False))   # A2: atómica
 
     registro = {
         "fecha": datetime.now().isoformat(timespec="seconds"),   # sello de auditoría

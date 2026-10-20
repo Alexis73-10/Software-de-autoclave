@@ -296,6 +296,7 @@ class DbManager:
         )
         self._conn.row_factory = sqlite3.Row
         try:
+            self._verificar_integridad()
             self._apply_schema()
             self.seed_admin_if_empty()
         except Exception:
@@ -307,6 +308,17 @@ class DbManager:
     # ------------------------------------------------------------------
     # Schema
     # ------------------------------------------------------------------
+
+    def _verificar_integridad(self):
+        """A2 (tanda 3): sin UPS, un corte puede dejar la base dañada. Se fija
+        `synchronous = FULL` (cada commit se fuerza a disco, también en WAL) y
+        se revisa la integridad al abrir. Si falla se lanza DatabaseError
+        "malformed": el arranque aparta la base y opera sin BD con alarma."""
+        self._conn.execute("PRAGMA synchronous = FULL")
+        resultado = [fila[0] for fila in self._conn.execute("PRAGMA quick_check")]
+        if resultado != ["ok"]:
+            raise sqlite3.DatabaseError(
+                "database disk image is malformed: quick_check: " + "; ".join(map(str, resultado[:3])))
 
     def _apply_schema(self):
         with self._lock:
