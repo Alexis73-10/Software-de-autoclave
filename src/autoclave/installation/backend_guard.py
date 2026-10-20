@@ -31,7 +31,8 @@ def is_stale_backend_running(pid: int) -> bool:
             capture_output=True, text=True, timeout=5,
         )
         cmdline = (result.stdout or "").strip()
-        return "autoclave.backend.main" in cmdline or "AutoclaveBackend" in cmdline
+        return ("autoclave.backend.main" in cmdline or "AutoclaveBackend" in cmdline
+                or "--rol backend" in cmdline)   # Autoclave.exe único (exe_unico.py)
     except Exception:
         return False
 
