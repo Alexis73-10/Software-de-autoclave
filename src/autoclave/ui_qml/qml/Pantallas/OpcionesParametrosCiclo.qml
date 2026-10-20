@@ -24,8 +24,24 @@ Item {
     property QtObject teclado: null
     property bool edicionPermitida: false      // estado y rol (OpcionesController)
     property string vista: "programa"          // programa | seccion | sensores
+    // Atrás de la barra inferior: sube un nivel dentro de la sección; false si ya
+    // está en la lista de programas (la pantalla Opciones entonces sale)
+    function retroceder() {
+        // primero cierra la ventana de ajuste; con el valor editado pregunta
+        if (ajuste.visible) {
+            if (ajuste.cambiado && ajuste.editable)
+                dialogoGuardarAjuste.abrir()
+            else
+                ajuste.cerrar()
+            return true
+        }
+        if (vista === "programa")
+            return false
+        vista = "programa"
+        return true
+    }
     // cambios sin guardar (roles de sensor): OPCIONES confirma antes de salir
-    readonly property bool cambiosPendientes: vista === "sensores" && _sensoresModificados
+    readonly property bool cambiosPendientes: (vista === "sensores" && _sensoresModificados) || ajuste.cambiado
 
     ParametrosCicloController {
         id: control
@@ -57,6 +73,31 @@ Item {
         if (tipo === "float")
             return Number(valor).toFixed(1)
         return String(valor)
+    }
+    // Descripción corta del parámetro (catálogo parametros_desc.<sección>.<clave>)
+    function descripcion(seccion, clave) {
+        const k = "parametros_desc." + seccion + "." + clave
+        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
+    // Parámetro "modo" de Descompresión: se elige entre los modos del catálogo
+    function esModoDescompresion(seccion, clave) { return seccion === "descompresion" && clave === "modo" }
+    function nombreModo(n) {
+        const k = "descompresion_modos." + n + ".nombre"
+        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : String(n)
+    }
+    function descripcionModo(n) {
+        const k = "descompresion_modos." + n + ".desc"
+        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
+    // "2026-10-20T14:05:33" -> "20/10/2026 14:05"
+    function fechaHora(ts) {
+        const m = /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})/.exec(String(ts || ""))
+        return m ? m[3] + "/" + m[2] + "/" + m[1] + " " + m[4] + ":" + m[5] : String(ts || "")
+    }
+    function textoModificacion(mod) {
+        return mod ? I18n.t("opciones.ultima_modificacion", I18n.lang,
+                            { usuario: mod.usuario, fecha: fechaHora(mod.ts) })
+                   : I18n.t("opciones.sin_cambios", I18n.lang)
     }
     function mensajeError() {
         if (control.mensaje === "")
@@ -218,9 +259,9 @@ Item {
             Text {
                 objectName: "volverSeccion"
                 text: "‹"
-                font.pixelSize: Escala.fuente(56)
+                font.pixelSize: Escala.fuente(96)
                 color: Colores.accionPrimarioTexto
-                MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(20); onClicked: raiz.vista = "programa" }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(28); onClicked: raiz.vista = "programa" }
             }
             Column {
                 Text {
@@ -297,9 +338,9 @@ Item {
             Text {
                 objectName: "volverSensores"
                 text: "‹"
-                font.pixelSize: Escala.fuente(56)
+                font.pixelSize: Escala.fuente(96)
                 color: Colores.accionPrimarioTexto
-                MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(20); onClicked: raiz.vista = "programa" }
+                MouseArea { anchors.fill: parent; anchors.margins: -Escala.px(28); onClicked: raiz.vista = "programa" }
             }
             Column {
                 Text {
@@ -400,6 +441,13 @@ Item {
         property var param: null
         property var nuevo: null
         readonly property bool editable: control.seccionEditable && raiz.edicionPermitida
+        readonly property bool esModo: param !== null && raiz.esModoDescompresion(control.seccion, param.clave)
+        readonly property var valorEnEdicion: nuevo !== null ? nuevo : (param ? param.valor : null)
+        readonly property bool cambiado: visible && nuevo !== null && param !== null && nuevo !== param.valor
+        function guardar() {
+            if (cambiado && control.guardar(param.clave, nuevo))
+                cerrar()
+        }
         function abrir(p) { param = p; nuevo = null; visible = true }
         function cerrar() { visible = false; if (raiz.teclado) raiz.teclado.cerrar() }
         visible: false
@@ -408,16 +456,16 @@ Item {
         MouseArea { anchors.fill: parent }            // modal
         Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
-            y: Escala.px(40)
+            y: Escala.px(97 + 32 + 16)      // bajo la franja de botones
             width: parent.width - Escala.px(40)
-            height: columnaAjuste.height + Escala.px(48)
+            height: columnaAjuste.height + Escala.px(72)
             radius: Escala.px(20)
             color: Colores.fondoTarjeta
             Column {
                 id: columnaAjuste
                 x: Escala.px(24); y: Escala.px(24)
                 width: parent.width - Escala.px(48)
-                spacing: Escala.px(14)
+                spacing: Escala.px(18)
                 Text {
                     text: ajuste.param ? raiz.etiqueta(control.seccion, ajuste.param.clave) : ""
                     font.family: Tipografia.familia; font.weight: Tipografia.pesoBold
@@ -474,20 +522,10 @@ Item {
                         }
                     }
                 }
-                Text {
-                    text: ajuste.param && ajuste.param.ultima_modificacion
-                          ? I18n.t("opciones.ultima_modificacion", I18n.lang,
-                                   { usuario: ajuste.param.ultima_modificacion.usuario,
-                                     fecha: ajuste.param.ultima_modificacion.ts })
-                          : I18n.t("opciones.sin_cambios", I18n.lang)
-                    font.family: Tipografia.familia
-                    font.pixelSize: Escala.fuente(20)
-                    color: Colores.textoSecundario
-                }
                 // Nuevo valor: numérico con el teclado; booleano y enumerado con opciones (U-17)
                 Rectangle {
                     objectName: "campoNuevoValor"
-                    visible: ajuste.param !== null && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
+                    visible: ajuste.param !== null && !ajuste.esModo && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
                     width: parent.width
                     height: Escala.px(88)
                     radius: Escala.px(12)
@@ -525,8 +563,39 @@ Item {
                     opciones: valores.map((v, i) => ({ valor: i, etiqueta: raiz.texto(v, ajuste.param.tipo) }))
                     onElegido: (i) => ajuste.nuevo = valores[i]
                 }
+                // Modo de descompresión: un botón por modo y qué hace el elegido
+                SelectorSegmentos {
+                    id: selectorModo
+                    objectName: "selectorModoDescompresion"
+                    visible: ajuste.esModo
+                    width: parent.width
+                    habilitado: ajuste.editable
+                    readonly property int minimo: ajuste.param && ajuste.param.min !== null ? ajuste.param.min : 0
+                    readonly property int maximo: ajuste.param && ajuste.param.max !== null ? ajuste.param.max : 5
+                    readonly property int actual: ajuste.nuevo !== null ? ajuste.nuevo : (ajuste.param ? ajuste.param.valor : minimo)
+                    valor: actual - minimo
+                    opciones: {
+                        const o = []
+                        for (let n = minimo; n <= maximo; n++)
+                            o.push({ valor: n - minimo, etiqueta: String(n) })
+                        return o
+                    }
+                    onElegido: (i) => ajuste.nuevo = minimo + i
+                }
                 Text {
-                    visible: ajuste.param !== null && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
+                    objectName: "descripcionModo"
+                    visible: ajuste.esModo
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: ajuste.esModo
+                          ? "<b>" + raiz.nombreModo(selectorModo.actual) + ".</b> " + raiz.descripcionModo(selectorModo.actual) : ""
+                    textFormat: Text.StyledText
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(22)
+                    color: Colores.textoPrimario
+                }
+                Text {
+                    visible: ajuste.param !== null && !ajuste.esModo && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
                     text: ajuste.param ? I18n.t("opciones.rango_permitido", I18n.lang,
                                                 { min: raiz.texto(ajuste.param.min, ajuste.param.tipo),
                                                   max: raiz.texto(ajuste.param.max, ajuste.param.tipo),
@@ -535,24 +604,80 @@ Item {
                     font.pixelSize: Escala.fuente(20)
                     color: Colores.textoGuia
                 }
-                Row {
-                    anchors.right: parent.right
-                    spacing: Escala.px(16)
-                    BotonFormulario {
-                        objectName: "cancelarAjuste"
-                        texto: I18n.t("acciones.cancelar", I18n.lang)
-                        onPulsado: ajuste.cerrar()
-                    }
-                    BotonFormulario {
-                        objectName: "guardarAjuste"
-                        texto: I18n.t("acciones.guardar", I18n.lang)
-                        primario: true
-                        habilitado: ajuste.editable && ajuste.nuevo !== null && ajuste.param !== null
-                                    && ajuste.nuevo !== ajuste.param.valor
-                        onPulsado: { if (habilitado && control.guardar(ajuste.param.clave, ajuste.nuevo)) ajuste.cerrar() }
-                    }
+                // Pie de la tarjeta: qué hace el parámetro y quién lo modificó por última vez
+                Rectangle { width: parent.width; height: 1; color: Colores.bordeDivisor }
+                Text {
+                    objectName: "descripcionAjuste"
+                    visible: text !== ""
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: ajuste.param ? raiz.descripcion(control.seccion, ajuste.param.clave) : ""
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(22)
+                    color: Colores.textoPrimario
+                }
+                Text {
+                    objectName: "modificacionAjuste"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: raiz.textoModificacion(ajuste.param ? ajuste.param.ultima_modificacion : null)
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(20)
+                    color: Colores.textoSecundario
                 }
             }
         }
+    }
+
+    // Cancelar / Por defecto / Guardar: franja superior de la ventana de ajuste.
+    // Arriba, no abajo, porque el teclado en pantalla sube desde el borde inferior
+    // y tapaba los botones mientras se editaba el valor.
+    Rectangle {
+        id: accionesAjuste
+        objectName: "accionesAjuste"
+        visible: ajuste.visible
+        z: 5
+        anchors.left: parent.left; anchors.right: parent.right
+        anchors.top: parent.top
+        height: Escala.px(97 + 32)
+        color: Colores.fondoTarjeta
+        Row {
+            anchors.centerIn: parent
+            spacing: Escala.px(16)
+            readonly property real anchoBoton: (accionesAjuste.width - Escala.px(40) - 2 * spacing) / 3
+            BotonFormulario {
+                objectName: "cancelarAjuste"
+                width: parent.anchoBoton
+                texto: I18n.t("acciones.cancelar", I18n.lang)
+                onPulsado: ajuste.cerrar()
+            }
+            BotonFormulario {
+                objectName: "defectoAjuste"
+                width: parent.anchoBoton
+                texto: I18n.t("opciones.por_defecto", I18n.lang)
+                habilitado: ajuste.editable && ajuste.param !== null && ajuste.param.defecto !== null
+                            && ajuste.param.defecto !== undefined && ajuste.valorEnEdicion !== ajuste.param.defecto
+                onPulsado: ajuste.nuevo = ajuste.param.defecto
+            }
+            BotonFormulario {
+                objectName: "guardarAjuste"
+                width: parent.anchoBoton
+                texto: I18n.t("acciones.guardar", I18n.lang)
+                primario: true
+                habilitado: ajuste.editable && ajuste.cambiado
+                onPulsado: ajuste.guardar()
+            }
+        }
+    }
+
+    // Atrás con un parámetro editado sin guardar: ¿guardar o descartar?
+    DialogoConfirmacion {
+        id: dialogoGuardarAjuste
+        objectName: "dialogoGuardarAjuste"
+        mensaje: I18n.t("opciones.guardar_parametro_pregunta", I18n.lang)
+        textoConfirmar: I18n.t("acciones.guardar", I18n.lang)
+        textoCancelar: I18n.t("opciones.descartar_cambios", I18n.lang)
+        onConfirmado: ajuste.guardar()
+        onDescartado: ajuste.cerrar()
     }
 }

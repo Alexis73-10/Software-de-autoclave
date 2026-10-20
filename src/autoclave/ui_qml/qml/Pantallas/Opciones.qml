@@ -40,6 +40,8 @@ Item {
     // ya no hay Salir que la cierre (solo la inactividad, SAF-01, decisión 7)
     signal atrasPulsado()
     signal nuevoUsuarioPulsado()   // sección Usuarios: abrir Nuevo usuario
+    signal cerrarSesionPulsado()   // barra inferior: cerrar la sesión y salir
+    signal menuPulsado()           // engranaje del encabezado: Menú Principal
 
     readonly property bool usaToken: true
 
@@ -102,6 +104,8 @@ Item {
     property var _salidaPendiente: null
     function _salirCon(senal) {
         cerrarCajon()
+        // salir de OPCIONES cierra el modo prueba de Entradas / Salidas (D-ES-08)
+        entradasSalidas.item?.cerrarModoPrueba("abandono de la sección")
         if (cambiosPendientes) {
             _salidaPendiente = senal
             dialogoSalir.abrir()
@@ -109,8 +113,18 @@ Item {
             senal()
         }
     }
-    function atras() { _salirCon(atrasPulsado) }
+    // Atrás sube un nivel dentro de OPCIONES (sección -> lista de programas);
+    // solo desde el nivel superior sale a la pantalla anterior
+    function atras() {
+        cerrarCajon()
+        if (parametrosCiclo.item?.retroceder())
+            return
+        if (entradasSalidas.item?.subirNivel())
+            return
+        _salirCon(atrasPulsado)
+    }
     function inicio() { _salirCon(inicioPulsado) }
+    function cerrarSesion() { _salirCon(cerrarSesionPulsado) }
 
     // ======================= fondo y encabezado =======================
     FondoApp { anchors.fill: parent }
@@ -125,6 +139,7 @@ Item {
         parpadeo: panelNotificaciones.parpadeo
         conEngranaje: true
         onCampanaPulsada: panelNotificaciones.abrir()
+        onEngranajePulsado: raiz.menuPulsado()
     }
 
     // ======================= tarjeta blanca =======================
@@ -242,12 +257,24 @@ Item {
             }
         }
 
+        // Entradas / Salidas (planeacion_opciones_entradas_salidas.md)
+        Loader {
+            id: entradasSalidas
+            objectName: "cargadorEntradasSalidas"
+            active: raiz.seccionActiva === "entradas_salidas"
+            anchors.fill: parent
+            sourceComponent: OpcionesEntradasSalidas {
+                teclado: raiz.teclado
+            }
+        }
+
         // Secciones aún no migradas (U-4); centrado como en la imagen 1c
         Text {
             objectName: "textoProximamente"
             visible: raiz.seccionActiva !== "" && raiz.seccionActiva !== "usuarios"
                      && raiz.seccionActiva !== "parametros_ciclo"
                      && raiz.seccionActiva !== "mantenimiento"
+                     && raiz.seccionActiva !== "entradas_salidas"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia
@@ -280,8 +307,10 @@ Item {
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)
         inicioActivo: true
+        cerrarSesionVisible: true
         onAtrasPulsado: raiz.atras()
         onInicioPulsado: raiz.inicio()
+        onCerrarSesionPulsado: raiz.cerrarSesion()
     }
 
     // ======================= cajón lateral (U-19, imágenes 1b y 1c) =======================

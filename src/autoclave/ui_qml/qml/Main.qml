@@ -510,6 +510,8 @@ Window {
             onAtrasPulsado: ventana.atras()
             onInicioPulsado: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()
+            onMenuPulsado: pila.push(menuComp)
+            onCerrarSesionPulsado: { sesionVentana.cerrarSesion(); ventana.volverAPrincipal() }
         }
     }
 }

@@ -149,6 +149,9 @@ def test_preciclo_sin_home_y_con_el_avatar_en_su_lugar():
 ])
 def test_ninguna_barra_cierra_la_sesion(qml):
     texto = (_QML / qml).read_text(encoding="utf-8")
+    # Pedido del 2026-10-20: OPCIONES tiene botón explícito de cerrar sesión
+    # (logout_icon en la celda central de la barra), por eso "cerrarSesion()"
+    # ya no se prohíbe; el antiguo Salir (salirPulsado, puente.salir()) sigue vetado.
     for prohibido in ("salir_sesion.svg", "salirPulsado", "salirHabilitado",
-                      "cerrarSesion()", "puente.salir()"):
+                      "puente.salir()"):
         assert prohibido not in texto, (qml, prohibido)

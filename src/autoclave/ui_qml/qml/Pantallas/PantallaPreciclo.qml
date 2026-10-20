@@ -736,19 +736,12 @@ Item {
     Divisor { cx: 347; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
     Divisor { cx: 834; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
 
-    // Icono de equipo: PROVISIONAL (PC-03), no hay activo; se dibuja con contornos.
-    Item {
-        x: raiz.m(71); y: raiz.m(1763); width: raiz.m(80); height: raiz.m(52)
-        Rectangle {
-            anchors.fill: parent
-            color: "transparent"
-            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
-        }
-        Rectangle {
-            x: raiz.m(42); y: raiz.m(4); width: raiz.m(18); height: raiz.m(44)
-            color: "transparent"
-            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
-        }
+    // Icono de equipo: icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
+    Image {
+        x: raiz.m(71 - 5.5); y: raiz.m(1763 - 5.5)
+        width: raiz.m(94); height: raiz.m(62)
+        source: raiz.iconosColor + "icono_autoclave.svg"
+        sourceSize.width: width; sourceSize.height: height
     }
     component TextoPie: Texto {
         lx: 70; tam: 17

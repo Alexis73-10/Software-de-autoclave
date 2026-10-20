@@ -601,19 +601,12 @@ Item {
     Divisor { abajo: true; cx: 347; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
     Divisor { abajo: true; cx: 834; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
 
-    // Icono de equipo: igual que PantallaPreciclo.qml (PROVISIONAL, PC-03) hasta recibir el SVG del diseñador.
-    Item {
-        x: raiz.m(71); y: raiz.yb(1763); width: raiz.m(80); height: raiz.m(52)
-        Rectangle {
-            anchors.fill: parent
-            color: "transparent"
-            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
-        }
-        Rectangle {
-            x: raiz.m(42); y: raiz.m(4); width: raiz.m(18); height: raiz.m(44)
-            color: "transparent"
-            border.color: raiz.paleta.iconoGris; border.width: raiz.m(1.5)
-        }
+    // Icono de equipo: icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
+    Image {
+        x: raiz.m(71 - 5.5); y: raiz.yb(1763 - 5.5)
+        width: raiz.m(94); height: raiz.m(62)
+        source: raiz.iconosColor + "icono_autoclave.svg"
+        sourceSize.width: width; sourceSize.height: height
     }
     component TextoPie: Texto {
         abajo: true; lx: 70; tam: 17

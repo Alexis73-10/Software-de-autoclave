@@ -19,8 +19,12 @@ Item {
     // Home: activo en Menú, Login y OPCIONES (lo fija cada pantalla).
     property bool inicioActivo: false
 
+    // Cerrar sesión en la celda central (solo OPCIONES)
+    property bool cerrarSesionVisible: false
+
     signal atrasPulsado()
     signal inicioPulsado()
+    signal cerrarSesionPulsado()
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
@@ -51,11 +55,11 @@ Item {
         x: 0; y: 0; width: raiz.m(313); height: parent.height
         enabled: raiz.atrasHabilitado
         opacity: enabled ? 1.0 : 0.4   // PROVISIONAL, misma convención que PantallaPreciclo.qml
-        // flecha_atras.svg (tinta ~[12.8, 4.3, 35.2, 43.7]) centrada en la celda, 80 de alto
+        // back_icon.svg centrada en la celda, 80 de alto
         Image {
             anchors.centerIn: parent
-            width: raiz.m(96); height: width
-            source: raiz._iconos + "flecha_atras.svg"
+            width: raiz.m(70); height: width
+            source: raiz._iconos + "back_icon.svg"
             sourceSize.width: width
             sourceSize.height: height
         }
@@ -66,17 +70,30 @@ Item {
         objectName: "botonInicio"
         x: raiz.m(800); y: 0; width: raiz.m(1128 - 800); height: parent.height
         enabled: raiz.inicioActivo
-        // caja [923, 23, 88, 77] de la barra; tinta de casa.svg = [4.1, 6.8, 43.9, 41.4]
-        readonly property real _k: 77 / (41.4 - 6.8)
+        // home_icon.svg (viewBox 1100 x 1080, tinta casi a sangre) centrado en la celda
         Image {
-            x: raiz.m(923 + 44 - 800 - (4.1 + 43.9) / 2 * parent._k)
-            y: raiz.m(23 - 6.8 * parent._k)
-            width: raiz.m(48 * parent._k); height: width
-            source: raiz._iconos + "casa.svg"
+            anchors.centerIn: parent
+            width: raiz.m(70); height: width
+            source: raiz._iconos + "home_icon.svg"
             sourceSize.width: width
             sourceSize.height: height
         }
         MouseArea { anchors.fill: parent; onClicked: raiz.inicioPulsado() }
+    }
+
+    // Cerrar sesión: celda central, solo si la pantalla lo habilita (OPCIONES)
+    Item {
+        objectName: "botonCerrarSesion"
+        visible: raiz.cerrarSesionVisible
+        x: raiz.m(313); y: 0; width: raiz.m(800 - 313); height: parent.height
+        Image {
+            anchors.centerIn: parent
+            width: raiz.m(70); height: width
+            source: raiz._iconos + "logout_icon.svg"
+            sourceSize.width: width
+            sourceSize.height: height
+        }
+        MouseArea { anchors.fill: parent; onClicked: raiz.cerrarSesionPulsado() }
     }
 
     Text {

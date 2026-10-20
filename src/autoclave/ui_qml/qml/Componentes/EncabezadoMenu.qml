@@ -26,6 +26,8 @@ Item {
 
     // La campana abre el panel de notificaciones (lo resuelve la pantalla)
     signal campanaPulsada()
+    // El engranaje (solo con conEngranaje) abre el Menú Principal
+    signal engranajePulsado()
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
@@ -106,8 +108,7 @@ Item {
         colorNormal: "#08C9F9"   // insignia medida en el mockup de ciclo (PantallaPreciclo.qml, paleta.insignia)
         tamFuente: raiz.fuente(17)
     }
-    // Engranaje solo decorativo (OPCIONES, U-6: ya se está en configuración):
-    // sin zona táctil. Misma caja que el de PantallaPreciclo.qml.
+    // Engranaje de OPCIONES: abre el Menú Principal. Misma caja que el de PantallaPreciclo.qml.
     Icono {
         objectName: "engranajeEncabezado"
         visible: raiz.conEngranaje
@@ -115,6 +116,12 @@ Item {
         source: raiz._iconos + "engranaje.svg"   // variante blanca
     }
 
+    MouseArea {
+        objectName: "zonaEngranajeOpciones"
+        enabled: raiz.conEngranaje
+        x: raiz.m(1020); y: raiz.m(40); width: raiz.m(100); height: raiz.m(95)
+        onClicked: raiz.engranajePulsado()
+    }
     MouseArea {
         objectName: "zonaCampana"
         x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)   // como PantallaPreciclo.qml
