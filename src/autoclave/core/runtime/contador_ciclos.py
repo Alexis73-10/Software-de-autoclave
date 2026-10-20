@@ -13,9 +13,16 @@ import json
 import logging
 import os
 import threading
+import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
+
+# TMG-01 (revisión de B9a): en Windows os.replace falla con PermissionError si
+# otro proceso (antivirus, indexador, OneDrive) tiene abierto el destino un
+# instante. Se reintenta pocas veces con una espera corta (corre en el tick).
+REINTENTOS_REEMPLAZO = 3
+ESPERA_REINTENTO_S = 0.02
 
 
 class ContadorCiclos:
@@ -57,7 +64,14 @@ class ContadorCiclos:
                 json.dump(datos, f, ensure_ascii=False)
                 f.flush()
                 os.fsync(f.fileno())
-            os.replace(tmp, self.ruta)
+            for intento in range(REINTENTOS_REEMPLAZO):
+                try:
+                    os.replace(tmp, self.ruta)
+                    break
+                except PermissionError:
+                    if intento == REINTENTOS_REEMPLAZO - 1:
+                        raise
+                    time.sleep(ESPERA_REINTENTO_S)
         finally:
             if tmp.exists():
                 tmp.unlink(missing_ok=True)

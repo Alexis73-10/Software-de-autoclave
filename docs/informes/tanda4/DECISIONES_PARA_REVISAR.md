@@ -1,7 +1,7 @@
 # Decisiones para revisar — tanda 4 (20-oct-2026)
 
 ## Resumen (10 líneas) — qué mirar primero
-1. **Agentes de revisión (`safety-reviewer`/`timing-auditor`) NO ejecutados** a partir de B4 por orden de Cristian durante la tanda; solo B3 se revisó (sin Críticos/Altos). **B5, B7, B8 y B9a son etapas de seguridad/temporización sin revisión de agentes: revisarlas aparte antes de instalar.**
+1. **Revisión con agentes hecha después (a pedido de Cristian):** B5, B7, B8 y B9a dieron 2 Altos (SAF-01 modo prueba huérfano al caducar el token; TMG-01 contador no escribible) y varios Medios: **todos los Altos y Medios corregidos**; quedan 3 Bajos pendientes. Ver `R_revision_agentes.md`.
 2. **Otra sesión trabajó en el mismo árbol** (teclados QML, Entradas/Salidas, calibración, `server.py`, `sesion_backend.py`, i18n). Mis commits llevan solo mis hunks; sus cambios sin commit siguen en el árbol. Ver "Coordinación" abajo antes de unir su trabajo.
 3. **B7 caducidad de tokens (5 min)**: la UI avisa al backend cada 30 s mientras se usa; sin uso el token caduca (401). El PySide no tiene aviso periódico: si se deja inactivo >5 min, el siguiente guardado pide iniciar sesión otra vez.
 4. **B8**: `POST /io/test/force-exit` (solo ingeniero, con confirmación, solo con el dueño sin sesión). **No hay botón en pantalla** todavía.
@@ -32,6 +32,7 @@ Cómo revertir: cada decisión está en el commit de su etapa (`git revert <hash
 | 13 | B7 ★ | El plazo vive en `core/runtime/sesion_inactividad.py` (neutral) y la UI lo importa | un solo parámetro, sin importar Qt en el backend | importar de la UI | b682c6c | — |
 | 14 | B8 ★ | La salida forzada exige dueño sin sesión; el ingeniero dueño también puede usarla; no cancela el estado seguro | solo se libera lo huérfano | permitir forzar con dueño vigente | b682c6c | endpoint `/io/test/force-exit` |
 | 15 | B9a ★ | No se cambian `contador.siguiente`/`marcar_en_curso`: se documentan con medición (~2 ms, una vez por ciclo) | preservar el orden "marca antes de la base" y la numeración sin huecos | llevarlas a un hilo | e071aed | — |
+| 17 | Revisión | Plazo del token del backend = 360 s (UI 300 s + 2 avisos); vigilante de 2 s del dueño del modo prueba; el técnico dueño puede forzar su propio modo prueba | SAF-01/02/03 | plazo igual al de la UI | (ver git log) | `sesion_inactividad.py`, `_revisar_dueno_modo_prueba` |
 | 16 | B9b | Permisos de puertas por rol DIFERIDO con `xfail(strict)` | el equipo de pruebas tiene 2 puertas manuales | implementar ya | 6ead212 | quitar el `xfail` al implementar |
 
 ★ = sin revisión de agentes de seguridad/temporización (orden de Cristian), salvo B3 (revisada, sin Críticos/Altos).

@@ -35,7 +35,8 @@ from dataclasses import dataclass, field
 
 from PySide6.QtCore import Property, QEvent, QObject, QTimer, Signal, Slot
 
-from autoclave.core.runtime.sesion_inactividad import SESION_INACTIVIDAD_S  # plazo único (B7)
+from autoclave.core.runtime.sesion_inactividad import (  # plazo único (B7)
+    SESION_INACTIVIDAD_S, SESION_KEEPALIVE_S)
 from autoclave.ui.service_ui.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -44,9 +45,9 @@ PLAZO_S = 5.0                 # plazo total de login, logout y cambio de contras
 PLAZO_SALIDA_S = 1.0          # logout al cerrar la aplicación: no retrasar el cierre
 SIN_CONEXION_CIERRE_S = 15    # sin conexión continua con token en uso -> cerrar sesión
 # SESION_INACTIVIDAD_S (importado arriba): sin actividad en esta ventana -> cerrar sesión (SAF-01).
-# El backend caduca el token con el mismo plazo (B7); mientras el operador usa la
-# ventana se le avisa cada KEEPALIVE_S (GET /auth/sesion) para que no caduque.
-KEEPALIVE_S = 30
+# El backend caduca el token con ese plazo más dos avisos (B7); mientras el
+# operador usa la ventana se le avisa cada KEEPALIVE_S (GET /auth/sesion).
+KEEPALIVE_S = SESION_KEEPALIVE_S
 _EVENTOS_ACTIVIDAD = {QEvent.Type.MouseButtonPress, QEvent.Type.TouchBegin,
                       QEvent.Type.KeyPress}
 

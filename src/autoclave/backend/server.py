@@ -6,6 +6,7 @@ import sqlite3
 import sys
 import os
 import threading
+import time
 from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, time, timedelta
@@ -13,7 +14,7 @@ from typing import Literal
 
 from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StrictBool
 
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.arranque.registro import RegistroArranque
@@ -111,6 +112,7 @@ def iniciar_arranque() -> None:
                 "detener": _detener_arranque},
         name="arranque", daemon=True)
     _hilo_arranque.start()
+    _iniciar_vigilancia_dueno_prueba()   # SAF-01 (revisión de B7)
 
 
 @app.middleware("http")
@@ -360,7 +362,55 @@ def _prueba_cancelada_por_paro() -> None:
             return   # ya se volvió a entrar: no es esta cancelación
         token, _token_modo_prueba = _token_modo_prueba, None
     sesion = tokens.obtener(token, renovar=False) if token else None
-    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "paro de emergencia"})
+    dueno = tokens.quien_fue(token) if sesion is None else None
+    _auditar("modo_prueba_sale", sesion, usuario=dueno[0] if dueno else "",
+             detalle={"motivo": "paro de emergencia"})
+
+
+# SAF-01 (revisión de B7): si la sesión dueña del modo prueba caduca (o se
+# invalida por otra vía que no lo cerró), el modo prueba no puede quedar con
+# salidas manuales y la máquina pausada sin nadie que pueda salir: un vigilante
+# del backend lo cierra igual que la salida normal (ALL_OFF y se reanuda la
+# máquina). Orden de candados: _sm_lock -> tokens (nunca al revés).
+VIGILANCIA_DUENO_PRUEBA_S = 2.0
+_hilo_vigilancia_dueno = None
+
+
+def _revisar_dueno_modo_prueba() -> bool:
+    """Una pasada del vigilante. True si sacó del modo prueba. Nunca lanza
+    hacia el hilo (el bucle lo protege)."""
+    token = _token_modo_prueba
+    if token is None or tokens.existe(token):
+        return False
+    with context.control_loop.bloqueo_maquina():
+        if (not context.control_loop.test_mode_active or _token_modo_prueba != token
+                or tokens.existe(token)):
+            return False
+        _salir_modo_prueba()
+    dueno = tokens.quien_fue(token)
+    logger.warning("Modo prueba cerrado: la sesión dueña (%s) ya no es válida",
+                   dueno[0] if dueno else "?")
+    _auditar("modo_prueba_sale", usuario=dueno[0] if dueno else "",
+             detalle={"motivo": "sesión del dueño caducada o cerrada"})
+    return True
+
+
+def _vigilar_dueno_modo_prueba(cada_s: float = VIGILANCIA_DUENO_PRUEBA_S) -> None:
+    while True:
+        try:
+            _revisar_dueno_modo_prueba()
+        except Exception:
+            logger.exception("Vigilancia del dueño del modo prueba")
+        time.sleep(cada_s)
+
+
+def _iniciar_vigilancia_dueno_prueba() -> None:
+    global _hilo_vigilancia_dueno
+    if _hilo_vigilancia_dueno is not None:
+        return
+    _hilo_vigilancia_dueno = threading.Thread(
+        target=_vigilar_dueno_modo_prueba, name="vigilancia-dueno-prueba", daemon=True)
+    _hilo_vigilancia_dueno.start()
 
 
 
@@ -2512,18 +2562,19 @@ def io_test_set_output(name: str, body: _OutputSetBody,
 
 
 class _SalidaForzadaBody(BaseModel):
-    confirmar: bool = False
+    confirmar: StrictBool = False         # SAF-06: solo el literal JSON true
     motivo: str = ""
 
 
 @app.post("/io/test/force-exit")
 def io_test_force_exit(body: _SalidaForzadaBody,
-                       sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
     """B8 (tanda 4): salida forzada del modo prueba HUÉRFANO. Solo el dueño
     puede dejar el modo prueba; si ese usuario ya no tiene sesión (token vencido
     por inactividad, cierre de sesión, cambio de turno), un INGENIERO con sesión
-    puede terminarlo con confirmación explícita (`confirmar: true`). El técnico
-    NO puede (403). Con el dueño aún en sesión, 409: debe salir él (o esperar a
+    puede terminarlo con confirmación explícita (`confirmar: true`). Un técnico
+    solo puede si es el mismo usuario dueño (SAF-03 de la revisión: salir es la
+    dirección segura); otro técnico, 403. Con el dueño aún en sesión, 409: debe salir él (o esperar a
     que su sesión caduque). Misma salida que la normal: todas las salidas a
     seguro y se reanuda la máquina; un estado seguro en curso sigue su camino.
     Queda en audit_log quién fuerza, a quién se le sacó y por qué."""
@@ -2541,6 +2592,9 @@ def io_test_force_exit(body: _SalidaForzadaBody,
             raise _Rechazo(409, "modo_prueba_dueno_vigente",
                            "El dueño del modo prueba sigue con sesión: debe salir él")
         dueno = tokens.quien_fue(dueno_token)
+        if sesion.rol != ROL_INGENIERO and (dueno is None or dueno[0] != sesion.usuario):
+            raise _Rechazo(403, "rol_sin_permiso",
+                           "Solo un ingeniero o el propio dueño pueden forzar la salida")
         estado_seguro = getattr(getattr(context.control_loop, "estado_seguro", None), "activo", False)
         _salir_modo_prueba()
     _auditar("modo_prueba_salida_forzada", sesion, entidad=entidad,

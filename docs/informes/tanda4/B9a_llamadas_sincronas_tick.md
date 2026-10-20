@@ -12,3 +12,7 @@
 
 El tick nominal es de 0.5 s (`interval=0.5`): el costo es <1 % del tick y ocurre una vez por ciclo. Riesgo residual: en un disco lento o con antivirus el fsync podría tardar decenas de ms; sigue muy por debajo del tick. **Comprobación manual sugerida en el equipo de pruebas:** ejecutar `tools/medir_contador_ciclos.py 100 <carpeta data del equipo>` y confirmar que el máximo es < 100 ms.
 Sin revisión de `timing-auditor` (no ejecutado por orden de Cristian, 20-oct).
+
+## Revisión `timing-auditor` (20-oct, posterior)
+- TMG-01 (Alta) y TMG-02 (Media) corregidos: ver `R_revision_agentes.md` (reintentos de `os.replace`, número provisional si el contador no se puede escribir, espera máxima de 50 ms por la base en el tick).
+- TMG-05: el límite relevante es el **watchdog de 5 s** de la tarjeta (a los 5 s sin tick completo apaga todo), no el tick de 0.5 s. La medición de arriba es en caliente y sin otros hilos usando la base. **Comprobación manual obligatoria en el equipo real:** `python tools/medir_contador_ciclos.py 100 <carpeta data del equipo>` con el backend en marcha, y verificar que `data/` no esté en una carpeta sincronizada (OneDrive) ni sin exclusión del antivirus.

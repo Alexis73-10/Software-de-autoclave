@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.backend.autenticacion import AlmacenTokens
-from autoclave.core.runtime.sesion_inactividad import SESION_INACTIVIDAD_S
+from autoclave.core.runtime.sesion_inactividad import PLAZO_TOKEN_BACKEND_S
 from autoclave.services.domain.logging.db_manager import DbManager
 from tests.backend_doble import cargar_servidor
 
@@ -44,7 +44,7 @@ def _h(srv, rol, usuario=None):
 
 def _huerfano(srv, reloj, dueno):
     """El dueño deja de tener sesión: caduca por inactividad."""
-    reloj.t += SESION_INACTIVIDAD_S + 1
+    reloj.t += PLAZO_TOKEN_BACKEND_S + 1
     assert srv.tokens.existe(dueno.token) is False
 
 

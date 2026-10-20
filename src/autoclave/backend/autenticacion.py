@@ -8,7 +8,8 @@
 # alargar ni acortar un bloqueo. `emitido` es solo un sello de registro.
 #
 # Caducidad por inactividad (B7, tanda 4): un token sin peticiones autenticadas
-# durante SESION_INACTIVIDAD_S (el mismo plazo que la UI) deja de valer (401).
+# durante PLAZO_TOKEN_BACKEND_S (el plazo de la UI más dos avisos, para que la
+# UI cierre primero) deja de valer (401).
 # Cada petición autenticada lo renueva. La caducidad solo afecta a las
 # peticiones que exigen sesión: el control del ciclo no depende de ella.
 
@@ -18,7 +19,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
-from autoclave.core.runtime.sesion_inactividad import SESION_INACTIVIDAD_S
+from autoclave.core.runtime.sesion_inactividad import PLAZO_TOKEN_BACKEND_S
 
 MAX_INTENTOS = 5
 BLOQUEO_S = 5 * 60
@@ -39,7 +40,7 @@ class AlmacenTokens:
     """Token aleatorio → sesión. Una sesión por login (una por ventana QML);
     invalidar un token no toca los demás."""
 
-    def __init__(self, reloj=time.monotonic, inactividad_s: float = SESION_INACTIVIDAD_S):
+    def __init__(self, reloj=time.monotonic, inactividad_s: float = PLAZO_TOKEN_BACKEND_S):
         self._sesiones: dict[str, Sesion] = {}
         self._lock = threading.Lock()
         self._reloj = reloj

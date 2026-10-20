@@ -514,10 +514,19 @@ class DbManager:
     # Ciclos
     # ------------------------------------------------------------------
 
-    def max_numero_ciclo(self) -> int:
-        with self._lock:
+    def max_numero_ciclo(self, espera_s: float | None = None) -> int:
+        """MAX(numero_ciclo). Con `espera_s` (TMG-02: llamada desde el tick)
+        no espera el candado de la base más de ese tiempo: lanza TimeoutError
+        y quien llama sigue sin el dato."""
+        if espera_s is None:
+            self._lock.acquire()
+        elif not self._lock.acquire(timeout=espera_s):
+            raise TimeoutError("base ocupada")
+        try:
             row = self._conn.execute(
                 "SELECT COALESCE(MAX(numero_ciclo), 0) FROM ciclos").fetchone()
+        finally:
+            self._lock.release()
         return row[0]
 
     def indice_numero_unico(self) -> bool:

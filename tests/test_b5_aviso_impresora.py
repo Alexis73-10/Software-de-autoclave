@@ -186,11 +186,16 @@ def test_iniciar_vuelve_de_inmediato(tmp_path):
     hilo.join(5)
 
 
-def test_una_impresion_exitosa_limpia_el_aviso(tmp_path, monkeypatch):
+def test_una_impresion_exitosa_limpia_el_aviso_si_la_impresora_se_confirma(tmp_path, monkeypatch):
     _win32(monkeypatch)
-    v, alarmas, _ = _vig(tmp_path, wp.DESCONECTADA)
+    estado = {"r": wp.DESCONECTADA}
+    v, alarmas, _ = _vig(tmp_path, None, consultar=lambda: estado["r"])
     v.verificar()
     assert _ids(alarmas) == [IMPRESORA_DESCONECTADA]
+    # TMG-03/SAF-05: Windows acepta el trabajo en la cola aunque esté desconectada
+    assert wp.print_raw("ticket") is True
+    assert _ids(alarmas) == [IMPRESORA_DESCONECTADA] and v.aviso_activo is True
+    estado["r"] = wp.CONECTADA
     assert wp.print_raw("ticket") is True
     assert _ids(alarmas) == [] and v.aviso_activo is False
 

@@ -8,7 +8,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.backend.autenticacion import AlmacenTokens
-from autoclave.core.runtime.sesion_inactividad import SESION_INACTIVIDAD_S
+from autoclave.core.runtime.sesion_inactividad import (
+    PLAZO_TOKEN_BACKEND_S, SESION_INACTIVIDAD_S, SESION_KEEPALIVE_S)
 from tests.backend_doble import cargar_servidor
 
 
@@ -25,18 +26,28 @@ def _almacen():
     return AlmacenTokens(reloj=reloj), reloj
 
 
-def test_el_plazo_es_el_mismo_que_usa_la_ui():
+def test_el_plazo_del_backend_es_el_de_la_ui_mas_dos_avisos():
+    """SAF-02/TMG-04: la UI cierra primero (con su logout y su mensaje)."""
     import autoclave.ui_qml.sesion_backend as ui
     assert ui.SESION_INACTIVIDAD_S == SESION_INACTIVIDAD_S == 300
-    assert AlmacenTokens()._inactividad_s == SESION_INACTIVIDAD_S
+    assert ui.KEEPALIVE_S == SESION_KEEPALIVE_S == 30
+    assert AlmacenTokens()._inactividad_s == PLAZO_TOKEN_BACKEND_S == 360
+
+
+def test_un_aviso_29_s_antes_del_ultimo_toque_no_deja_caducar_el_token_antes_que_la_ui():
+    a, reloj = _almacen()
+    s = a.emitir("tec", "Tec", "tecnico", False)
+    # aviso en t=0, último toque en t=29 (sin aviso); la UI cierra en t=329
+    reloj.t += 328
+    assert a.obtener(s.token, renovar=False) is s
 
 
 def test_token_vigente_y_caducado_por_inactividad():
     a, reloj = _almacen()
     s = a.emitir("tec", "Tec", "tecnico", False)
-    reloj.t += SESION_INACTIVIDAD_S - 1
+    reloj.t += PLAZO_TOKEN_BACKEND_S - 1
     assert a.obtener(s.token) is s
-    reloj.t += SESION_INACTIVIDAD_S
+    reloj.t += PLAZO_TOKEN_BACKEND_S
     assert a.obtener(s.token) is None
     assert a.obtener(s.token) is None                 # ya borrado
 
@@ -44,15 +55,15 @@ def test_token_vigente_y_caducado_por_inactividad():
 def test_cada_peticion_renueva_el_plazo():
     a, reloj = _almacen()
     s = a.emitir("tec", "Tec", "tecnico", False)
-    for _ in range(10):                               # 10 x 4 min = 40 min con uso constante
-        reloj.t += 240
+    for _ in range(10):                               # 10 x 5 min = 50 min con uso constante
+        reloj.t += 300
         assert a.obtener(s.token) is s
 
 
 def test_exactamente_en_el_plazo_caduca():
     a, reloj = _almacen()
     s = a.emitir("tec", "Tec", "tecnico", False)
-    reloj.t += SESION_INACTIVIDAD_S
+    reloj.t += PLAZO_TOKEN_BACKEND_S
     assert a.obtener(s.token) is None
 
 
@@ -61,7 +72,7 @@ def test_la_consulta_interna_no_renueva():
     s = a.emitir("tec", "Tec", "tecnico", False)
     reloj.t += 200
     assert a.obtener(s.token, renovar=False) is s and a.existe(s.token)
-    reloj.t += 150                                    # 350 s desde la emisión
+    reloj.t += 170                                    # 370 s desde la emisión
     assert a.obtener(s.token) is None
 
 
@@ -70,7 +81,7 @@ def test_se_purgan_las_caducadas_al_emitir_y_no_afectan_a_las_vigentes():
     vieja = a.emitir("a", "A", "tecnico", False)
     reloj.t += 200
     viva = a.emitir("b", "B", "ingeniero", False)
-    reloj.t += 150                                    # vieja: 350 s; viva: 150 s
+    reloj.t += 170                                    # vieja: 370 s; viva: 170 s
     nueva = a.emitir("c", "C", "tecnico", False)
     assert vieja.token not in a._sesiones
     assert a.obtener(viva.token) is viva and a.obtener(nueva.token) is nueva
@@ -110,7 +121,7 @@ def test_un_token_vencido_recibe_401_en_una_ruta_con_sesion(api):
     client, srv, ctx, reloj = api
     h, _ = _h(srv)
     assert client.get("/auth/sesion", headers=h).status_code == 200
-    reloj.t += SESION_INACTIVIDAD_S + 1
+    reloj.t += PLAZO_TOKEN_BACKEND_S + 1
     r = client.get("/auth/sesion", headers=h)
     assert r.status_code == 401 and r.json()["codigo"] == "sesion_invalida"
 
@@ -126,7 +137,7 @@ def test_las_peticiones_autenticadas_mantienen_viva_la_sesion(api):
 def test_el_401_por_caducidad_se_audita_como_rechazo_de_sesion(api):
     client, srv, ctx, reloj = api
     h, _ = _h(srv)
-    reloj.t += SESION_INACTIVIDAD_S + 1
+    reloj.t += PLAZO_TOKEN_BACKEND_S + 1
     client.get("/auth/sesion", headers=h)
     assert ctx.db.registrar_auditoria.called
 
@@ -135,7 +146,7 @@ def test_la_caducidad_no_toca_el_control_del_ciclo_ni_las_rutas_sin_sesion(api):
     client, srv, ctx, reloj = api
     h, _ = _h(srv)
     ctx.control_loop.reset_mock()
-    reloj.t += 10 * SESION_INACTIVIDAD_S
+    reloj.t += 10 * PLAZO_TOKEN_BACKEND_S
     # rutas sin sesión siguen respondiendo (el operador de la puerta, el apagado...)
     assert client.get("/db/estado").status_code == 200
     # ninguna llamada al ControlLoop por haber vencido el token
@@ -148,7 +159,7 @@ def test_la_caducidad_no_toca_el_control_del_ciclo_ni_las_rutas_sin_sesion(api):
 def test_login_nuevo_tras_caducar_funciona(api):
     client, srv, ctx, reloj = api
     h, s = _h(srv)
-    reloj.t += SESION_INACTIVIDAD_S + 1
+    reloj.t += PLAZO_TOKEN_BACKEND_S + 1
     assert client.get("/auth/sesion", headers=h).status_code == 401
     h2, _ = _h(srv)
     assert client.get("/auth/sesion", headers=h2).status_code == 200
@@ -157,7 +168,7 @@ def test_login_nuevo_tras_caducar_funciona(api):
 def test_el_modo_prueba_se_entera_de_que_el_dueno_ya_no_tiene_sesion(api):
     client, srv, ctx, reloj = api
     _, s = _h(srv, "tecnico")
-    reloj.t += SESION_INACTIVIDAD_S + 1
+    reloj.t += PLAZO_TOKEN_BACKEND_S + 1
     assert srv.tokens.existe(s.token) is False
 
 

@@ -49,16 +49,21 @@ def print_startup(text: str, printer_name: str = PRINTER_NAME) -> bool:
             p.image(img, high_density_horizontal=True, high_density_vertical=True)
             p.set(align="left")
         p.text(text)
-        _avisar_exito()
-        return True
     except Exception as exc:
         logger.warning("print_startup: error al imprimir: %s", exc)
-        return False
-    finally:
         try:
             p.close()
         except Exception:
             pass
+        return False
+    # TMG-03: el éxito se avisa solo tras cerrar el documento sin error
+    try:
+        p.close()
+    except Exception as exc:
+        logger.warning("print_startup: error al cerrar el trabajo: %s", exc)
+        return False
+    _avisar_exito()
+    return True
 
 
 def print_raw(text: str, printer_name: str = PRINTER_NAME) -> bool:

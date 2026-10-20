@@ -40,6 +40,9 @@ from autoclave.services.domain.logging.ticket_formatter import (
 
 logger = logging.getLogger(__name__)
 
+# TMG-02 (revisión de B9a): espera máxima por el candado de la base en el tick
+ESPERA_BD_EN_TICK_S = 0.05
+
 
 def _software_version() -> str:
     """Versión real instalada del paquete (misma fuente que el ticket de
@@ -190,6 +193,7 @@ class CycleLogger:
         self._reg_cerrado: _RegistroBD | None = None   # ciclo ya cerrado, aún en CICLO
         self.uuid_ciclo: str | None = None
         self._numero_reservado: int | None = None
+        self._numero_provisional: int | None = None   # TMG-01: contador no escribible
         self.sin_registro = False
 
         # Estado interno
@@ -319,13 +323,35 @@ class CycleLogger:
         if self.sin_base_de_datos:
             # sin base (arranque o falla en caliente) no se toca: podría estar
             # bloqueada y este código corre en el tick
-            return self.contador.siguiente(None)
+            return self._siguiente_protegido(None)
         try:
-            maximo_bd = self.db.max_numero_ciclo()
+            # TMG-02: en el tick no se espera la base más de 50 ms
+            maximo_bd = self.db.max_numero_ciclo(espera_s=ESPERA_BD_EN_TICK_S)
         except Exception:
             logger.exception("CycleLogger: no se pudo leer MAX(numero) de la base")
             maximo_bd = None
-        return self.contador.siguiente(maximo_bd)
+        return self._siguiente_protegido(maximo_bd)
+
+    def _siguiente_protegido(self, maximo_bd: int | None) -> int:
+        """TMG-01 (revisión de B9a): si el contador no se puede escribir (tras
+        sus reintentos), el ciclo NO puede quedar sin respaldo, base, ticket ni
+        marca: se usa un número provisional en memoria, mayor que todo lo
+        conocido, y se registra el error. El siguiente ciclo vuelve a intentar
+        el contador persistente."""
+        try:
+            numero = self.contador.siguiente(maximo_bd)
+            self._numero_provisional = None
+            return numero
+        except Exception:
+            try:
+                leido = int(self.contador.ultimo)
+            except Exception:
+                leido = 0
+            numero = max(leido, int(maximo_bd or 0), self._numero_provisional or 0) + 1
+            self._numero_provisional = numero
+            logger.exception("CycleLogger: contador de ciclos no escribible; número "
+                             "provisional %d (revise el acceso a data/ciclo_contador.json)", numero)
+            return numero
 
     def _on_inicio(self):
         self.sin_registro = False
