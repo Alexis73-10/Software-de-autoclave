@@ -562,6 +562,12 @@
     "SENSOR_NO_DISPONIBLE": "A sensor in use has no reading or is not installed",
     "ASIGNACION_SENSORES_INVALIDA": "The program has an invalid sensor assignment"
   },
+  "selector_ciclo": {
+    "titulo": "Select cycle",
+    "ayuda": "Tap to change cycle",
+    "mas_usado": "Most used",
+    "sin_conexion": "No response from the equipment. Try again."
+  },
   "alarmas": {
     "SIS-05": {
       "titulo": "Printer not connected",

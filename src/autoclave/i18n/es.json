@@ -562,6 +562,12 @@
     "SENSOR_NO_DISPONIBLE": "Un sensor en uso no tiene lectura o no está instalado",
     "ASIGNACION_SENSORES_INVALIDA": "El programa tiene una asignación de sensores inválida"
   },
+  "selector_ciclo": {
+    "titulo": "Seleccionar ciclo",
+    "ayuda": "Toque para cambiar de ciclo",
+    "mas_usado": "Más usado",
+    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo."
+  },
   "alarmas": {
     "SIS-05": {
       "titulo": "Impresora no conectada",

@@ -34,6 +34,7 @@ from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
 from autoclave.ui_qml.bridge.comandos_falla import ComandoReconocerFalla
 from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
+from autoclave.ui_qml.bridge.selector_ciclo import SelectorCiclo
 from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
 from autoclave.ui_qml.bridge.puente_instalacion import PuenteInstalacion, requiere_instalacion
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
@@ -164,6 +165,7 @@ def main(argv=None) -> int:
     comandos_puerta = ComandosPuerta(
         puente, DoorCommandService(backend_client=backend, source_door=args.door))
     comando_ciclo = ComandoIniciarCiclo(puente, ui_service)
+    selector_ciclo = SelectorCiclo(backend, door=args.door, ui_service=ui_service)   # B6: cambio de programa en Preciclo
     comando_falla = ComandoReconocerFalla(puente, ui_service)   # T-16
     # E5: Confirmar y llevar a estado seguro; Apagar equipo (solo puerta 1)
     comandos_sistema = ComandosSistema(puente, ui_service, args.door)
@@ -204,6 +206,7 @@ def main(argv=None) -> int:
         "puente": puente,
         "comandosPuerta": comandos_puerta,
         "comandoCiclo": comando_ciclo,
+        "selectorCiclo": selector_ciclo,
         "comandoFalla": comando_falla,
         "comandosSistema": comandos_sistema,
         "infoEquipo": info_equipo,

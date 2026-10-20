@@ -2066,6 +2066,60 @@ def get_programas():
     return {"programas": sorted(salida, key=lambda p: p["numero"])}
 
 
+def _param_programa(cycle, seccion: str, nombre: str):
+    try:
+        return cycle.get_param(seccion, nombre)
+    except Exception:
+        return None
+
+
+@app.get("/programas/seleccionables")
+def get_programas_seleccionables():
+    """Programas que el operador puede elegir en Preciclo (B6, tanda 4), ya
+    ordenados: primero los 3 con más ciclos terminados en el historial (de mayor
+    a menor; el empate lo decide el orden predefinido, por número) marcados
+    `mas_usado`, después el resto por número. Sin historial, o sin base de datos,
+    todo en el orden predefinido y sin marcas. `seleccionable` y `motivo` dicen
+    si hoy se puede cambiar de programa (la misma regla que /cycle/select). Solo
+    lectura, sin sesión (como /cycle/select)."""
+    cap = getattr(context, "cap", None)
+    filas = []
+    for cycle in context.cycle_manager.cycles.values():
+        if getattr(cycle, "number", None) is None or getattr(cycle, "source", "user") != "user":
+            continue
+        if getattr(cycle, "danado", None):
+            continue
+        if _carga_liquida(cycle) and getattr(cap, "has_liquids", None) is False:
+            continue
+        filas.append({
+            "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
+            "temperatura": _param_programa(cycle, "esterilizacion", "temperatura_esterilizacion"),
+            "tiempo": _param_programa(cycle, "esterilizacion", "tiempo_esterilizacion"),
+            "ciclos": 0, "mas_usado": False, "seleccionado": False,
+        })
+    filas.sort(key=lambda f: f["numero"])
+    conteos = {}
+    if getattr(context, "sin_base_de_datos", False) is not True:
+        try:
+            conteos = context.db.conteo_ciclos_por_programa()
+        except Exception:
+            logger.warning("Conteo de ciclos por programa no disponible: orden predefinido")
+    for f in filas:
+        f["ciclos"] = int(conteos.get(f["numero"], 0) or 0)
+    usados = sorted((f for f in filas if f["ciclos"] > 0), key=lambda f: (-f["ciclos"], f["numero"]))[:3]
+    for f in usados:
+        f["mas_usado"] = True
+    filas = usados + [f for f in filas if not f["mas_usado"]]
+    loop = context.control_loop
+    with loop.bloqueo_maquina():
+        activo = getattr(getattr(loop, "cycle", None), "id", None)
+        motivo = loop._motivo_no_cambiar_ciclo()
+    for f in filas:
+        f["seleccionado"] = f["cycle_id"] == activo
+    return {"programas": filas, "seleccionable": motivo is None, "motivo": motivo or "",
+            "orden": "uso" if usados else "predefinido"}
+
+
 def _hojas_seccion(cycle, seccion: str) -> list[tuple[list[str], dict]]:
     """Parámetros (ruta, hoja) de la sección. Descompresión: el modo, la
     espera previa y solo los parámetros del modo activo (Q-3)."""

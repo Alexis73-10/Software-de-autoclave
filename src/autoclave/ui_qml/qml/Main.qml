@@ -21,6 +21,8 @@ Window {
     property QtObject puente: null
     property QtObject comandosPuerta: null
     property QtObject comandoCiclo: null
+    // selectorCiclo: cambio de programa desde Preciclo (B6, tanda 4)
+    property QtObject selectorCiclo: null
     // comandoFalla: RECONOCER FALLA de la pantalla de preciclo (T-16)
     property QtObject comandoFalla: null
     property QtObject infoEquipo: null
@@ -360,6 +362,7 @@ Window {
                 puente: ventana.puente
                 comandosPuerta: ventana.comandosPuerta
                 comandoCiclo: ventana.comandoCiclo
+                selectorCiclo: ventana.selectorCiclo
                 comandoFalla: ventana.comandoFalla
                 infoEquipo: ventana.infoEquipo
                 comandosSistema: ventana.comandosSistema

@@ -351,6 +351,12 @@ class UIServiceBackend:
             logger.warning("list_user_cycles error: %s", e)
             return []
 
+    def refrescar_cache(self) -> None:
+        """Pide un refresco inmediato de /cycle y /global_params (no espera al
+        siguiente sondeo estático). Lo usa el selector de ciclo de Preciclo (B6)
+        tras un POST /cycle/select propio, para ver el nombre nuevo enseguida."""
+        self._force_static.set()
+
     def select_cycle(self, cycle_id: str) -> tuple[bool, str]:
         """Cambia el ciclo activo. Retorna (ok, motivo — vacío si ok).
 

@@ -476,6 +476,17 @@ class DbManager:
                 (int(limite),)).fetchall()
         return [dict(f) for f in filas]
 
+    def conteo_ciclos_por_programa(self) -> dict[int, int]:
+        """{numero de programa: ciclos terminados} desde el historial (B6, tanda 4).
+        Cuenta todo ciclo cerrado (completo, abortado o con fallo); un ciclo aún en
+        curso (sin resultado) o anterior a la columna `numero_programa` no cuenta."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT numero_programa, COUNT(*) FROM ciclos"
+                " WHERE numero_programa IS NOT NULL AND resultado IS NOT NULL"
+                " GROUP BY numero_programa").fetchall()
+        return {int(f[0]): int(f[1]) for f in filas}
+
     def get_auditoria(self, evento: str | None = None, entidad: str | None = None,
                       limite: int = 100) -> list[dict]:
         """Filas de audit_log, la más reciente primero, con `detalle` ya decodificado."""
