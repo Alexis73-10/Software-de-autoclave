@@ -39,6 +39,10 @@ from autoclave.core.runtime.sesion_inactividad import (  # plazo único (B7)
     SESION_INACTIVIDAD_S, SESION_KEEPALIVE_S)
 from autoclave.ui.service_ui.session_manager import SessionManager
 
+# P1 (tanda 5): plazo de cada aviso previo al cierre de sesión. Si no alcanza,
+# el modo prueba lo cierra el backend (vigilante de la sesión dueña, 2 s).
+PLAZO_AVISO_CIERRE_S = 0.5
+
 logger = logging.getLogger(__name__)
 
 PLAZO_S = 5.0                 # plazo total de login, logout y cambio de contraseña
@@ -329,6 +333,9 @@ class SesionVentana(QObject):
         # hilo de trabajo (sin Qt), por eso va con candado propio.
         self._tokens_por_invalidar = []
         self._lock_tokens = threading.Lock()
+        # P1 (tanda 5): avisos que corren ANTES del logout, con el token aún
+        # válido (p. ej. salir del modo prueba de Entradas / Salidas)
+        self._antes_de_cerrar = []
         self._conectado = True             # último estado visto por vigilar()
         self._timer = QTimer(self)
         self._timer.setInterval(intervalo_ms)
@@ -448,14 +455,40 @@ class SesionVentana(QObject):
             self._aviso = aviso
         self.operacion.cancelar()
         self._timer_inactividad.stop()
+        # P1 (revisión SAF-01): sin token válido ya no se puede salir del modo
+        # prueba desde aquí; lo cierra el backend (plazo de inactividad o
+        # vigilante de la sesión dueña). Un aviso viejo no debe dispararse
+        # luego con la sesión de otro usuario.
+        if self._antes_de_cerrar:
+            logger.warning("Sesión cerrada sin token válido: el modo prueba lo cierra el backend")
+            self._antes_de_cerrar.clear()
         if SessionManager.is_authenticated():
             SessionManager.logout()
             logger.info("Sesión cerrada en esta ventana")
             self.sesionChanged.emit()
 
+    def al_cerrar_sesion(self, aviso) -> None:
+        """Registra `aviso()` para que corra antes del próximo logout (P1)."""
+        if aviso not in self._antes_de_cerrar:
+            self._antes_de_cerrar.append(aviso)
+
+    def quitar_al_cerrar_sesion(self, aviso) -> None:
+        if aviso in self._antes_de_cerrar:
+            self._antes_de_cerrar.remove(aviso)
+
+    def _avisar_antes_de_cerrar(self) -> None:
+        """Un aviso que falla no impide el cierre de sesión."""
+        for aviso in list(self._antes_de_cerrar):
+            try:
+                aviso()
+            except Exception:
+                logger.exception("Aviso previo al cierre de sesión falló")
+
     def cerrar_sesion(self, aviso=None) -> None:
         """Cierra la sesión local de inmediato y pide /auth/logout en segundo
         plano; si el backend no responde, solo queda en el log local."""
+        if SessionManager.token():
+            self._avisar_antes_de_cerrar()
         token = SessionManager.token()
         self.cerrar_local(aviso)
         if token:
@@ -488,6 +521,8 @@ class SesionVentana(QObject):
     def cerrar_al_salir(self, plazo_s: float = PLAZO_SALIDA_S) -> None:
         """Al cerrar la aplicación: logout de la sesión y de los tokens
         pendientes, en hilos, esperando como mucho `plazo_s` en total."""
+        if SessionManager.token():
+            self._avisar_antes_de_cerrar()
         self.operacion.cancelar()
         self._timer_inactividad.stop()
         tokens = self._tomar_pendientes()
@@ -540,17 +575,29 @@ class SesionVentana(QObject):
             QTimer.singleShot(0, self, self.sesionInvalida.emit)
         return r
 
-    def _llamar_con_plazo(self, metodo, ruta, cuerpo, token) -> Resultado:
+    def enviar_al_cerrar(self, metodo: str, ruta: str, cuerpo: dict | None = None) -> Resultado:
+        """Escritura de un aviso previo al cierre de sesión (P1, revisión
+        TMG-01/04): plazo corto (PLAZO_AVISO_CIERRE_S) para no retrasar el
+        cierre y, ante un 401, sin cerrar la sesión ni navegar (ya se cierra)."""
+        if self.sinConexion:
+            return Resultado(BACKEND_NO_RESPONDE)
+        token = SessionManager.token()
+        if not token:
+            return Resultado("sesion_invalida")
+        return self._llamar_con_plazo(metodo, ruta, cuerpo, token, plazo_s=PLAZO_AVISO_CIERRE_S)
+
+    def _llamar_con_plazo(self, metodo, ruta, cuerpo, token, plazo_s=None) -> Resultado:
         """Llamada síncrona con plazo TOTAL (SAF-05): la petición va en un
         hilo y se la espera como mucho el plazo; si no responde, se abandona."""
         resultado = []
         peticion = self._peticion(metodo, ruta, cuerpo, token)
         hilo = threading.Thread(daemon=True, name="sesion-escritura",
                                 target=lambda: resultado.append(peticion()))
+        plazo_s = self._plazo_s if plazo_s is None else plazo_s
         hilo.start()
-        hilo.join(self._plazo_s)
+        hilo.join(plazo_s)
         if not resultado:
-            logger.warning("Escritura sin respuesta en %.1f s: %s %s", self._plazo_s, metodo, ruta)
+            logger.warning("Escritura sin respuesta en %.1f s: %s %s", plazo_s, metodo, ruta)
             return Resultado(BACKEND_NO_RESPONDE)
         return resultado[0]
 

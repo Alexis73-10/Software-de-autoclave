@@ -41,6 +41,9 @@ Item {
     }
     Component.onCompleted: { control.cargarCanales(); control.actualizar() }
     Component.onDestruction: cerrarModoPrueba("abandono de la sección")
+    // P1: otra pantalla encima (Menú principal, ciclo, falla) la oculta en la
+    // pila: el modo prueba no sigue sin su ventana a la vista
+    onVisibleChanged: if (!visible) cerrarModoPrueba("abandono de la sección")
 
     // Lectura en vivo: solo corre con la seccion visible (D-ES-12)
     Timer {

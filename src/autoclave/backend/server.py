@@ -1370,7 +1370,7 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
 # desconectada; no impide imprimir ni bloquea nada.
 
 class _ImpresoraConfigBody(BaseModel):
-    habilitada: bool
+    habilitada: StrictBool     # P2: solo el literal JSON true/false (SAF-06)
 
 
 @app.get("/printer/config")
@@ -1390,6 +1390,10 @@ def put_printer_config(body: _ImpresoraConfigBody,
                   entidad, sesion)
     _auditar("impresora_configurada", sesion, entidad=entidad,
              valor_anterior={"habilitada": anterior}, valor_nuevo={"habilitada": body.habilitada})
+    try:
+        context.aplicar_config_impresora()   # el aviso SIS-05 sigue a la bandera
+    except Exception:
+        logger.exception("No se pudo aplicar la configuración de la impresora")
     return {"ok": True, "habilitada": body.habilitada}
 
 
@@ -2536,14 +2540,20 @@ def _nombre_do(canal: int) -> str:
     return next((n for n, i in EstadoAutoclave.map_do.items() if i + 1 == canal), str(canal))
 
 
-def _caducar_momentanea(canal: int, timer: threading.Timer) -> None:
+# TMG-07 / revisión P1 (TMG-03): cada entrada al modo prueba es una generación
+# nueva; un temporizador armado en otra generación (que ya pasó su chequeo de
+# identidad mientras esperaba el candado) no actúa sobre la sesión actual.
+_generacion_prueba = 0
+
+
+def _caducar_momentanea(canal: int, timer: threading.Timer, generacion: int = -1) -> None:
     """Hilo del temporizador: sin renovación a tiempo, apaga la salida."""
     with _lock_vigilancias:
         if _timers_momentaneas.get(canal) is not timer:
             return   # renovada o cancelada mientras tanto
         del _timers_momentaneas[canal]
     with context.control_loop.bloqueo_maquina():
-        if not context.control_loop.test_mode_active:
+        if not context.control_loop.test_mode_active or generacion != _generacion_prueba:
             return
         context.setdo.set_output(canal, False)
         token = _token_modo_prueba
@@ -2560,7 +2570,9 @@ def _armar_momentanea(canal: int) -> bool:
         previo = _timers_momentaneas.pop(canal, None)
         if previo is not None:
             previo.cancel()
-        timer = threading.Timer(CADUCIDAD_MOMENTANEA_S, lambda: _caducar_momentanea(canal, timer))
+        generacion = _generacion_prueba
+        timer = threading.Timer(CADUCIDAD_MOMENTANEA_S,
+                                lambda: _caducar_momentanea(canal, timer, generacion))
         timer.daemon = True
         _timers_momentaneas[canal] = timer
         timer.start()
@@ -2574,14 +2586,14 @@ def _desarmar_momentanea(canal: int) -> None:
         previo.cancel()
 
 
-def _salir_por_inactividad(timer: threading.Timer) -> None:
+def _salir_por_inactividad(timer: threading.Timer, generacion: int = -1) -> None:
     global _timer_inactividad
     with _lock_vigilancias:
         if _timer_inactividad is not timer:
             return
         _timer_inactividad = None
     with context.control_loop.bloqueo_maquina():
-        if not context.control_loop.test_mode_active:
+        if not context.control_loop.test_mode_active or generacion != _generacion_prueba:
             return
         token = _token_modo_prueba
         _salir_modo_prueba()
@@ -2597,7 +2609,9 @@ def _marcar_actividad_prueba() -> None:
     with _lock_vigilancias:
         if _timer_inactividad is not None:
             _timer_inactividad.cancel()
-        timer = threading.Timer(INACTIVIDAD_MODO_PRUEBA_S, lambda: _salir_por_inactividad(timer))
+        generacion = _generacion_prueba
+        timer = threading.Timer(INACTIVIDAD_MODO_PRUEBA_S,
+                                lambda: _salir_por_inactividad(timer, generacion))
         timer.daemon = True
         _timer_inactividad = timer
         timer.start()
@@ -2642,7 +2656,7 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
 
     El ALL_OFF de enter_test_mode corre con _sm_lock tomado (espera el ACK
     hasta 1 s); es aceptable porque el guard excluye CICLO."""
-    global _token_modo_prueba
+    global _token_modo_prueba, _generacion_prueba
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, "/io/test/enter", sesion):
         motivo_config = context.control_loop.bloqueo_configuracion
         if isinstance(motivo_config, str) and motivo_config:
@@ -2657,10 +2671,13 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
                 and _token_modo_prueba not in (None, sesion.token)):
             raise _Rechazo(409, "modo_prueba_otra_sesion",
                            "El modo prueba ya está activo en otra sesión")
+        ya_activo = context.control_loop.test_mode_active
         ok, reason = context.control_loop.enter_test_mode()
         if not ok:
             raise _Rechazo(409, "modo_prueba_rechazado", reason)
         _token_modo_prueba = sesion.token
+        if not ya_activo:     # reentrada de la misma sesión: misma generación
+            _generacion_prueba += 1
         _marcar_actividad_prueba()
     _auditar("modo_prueba_entra", sesion)
     return {"ok": True}
@@ -2668,7 +2685,7 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
 
 # B-ES-8: causas que la UI puede declarar al salir (lista cerrada, §6.5)
 _CAUSAS_SALIDA_UI = frozenset({"salida solicitada", "abandono de la sección",
-                               "inactividad de la interfaz"})
+                               "inactividad de la interfaz", "cierre de sesión"})
 
 
 @app.post("/io/test/exit")
