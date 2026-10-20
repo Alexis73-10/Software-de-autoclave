@@ -56,7 +56,7 @@ def _crear(db, numero, **kw):
 
 def test_v3_crea_indice_unique_y_rechaza_numero_repetido(tmp_path):
     db = DbManager(db_path=tmp_path / "t.db")
-    assert db.get_version_esquema() == 4 and db.indice_numero_unico()   # v4: T10
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION and db.indice_numero_unico()
     _crear(db, 5, uuid="u1", programa_json='{"x": 1}')
     with pytest.raises(sqlite3.IntegrityError):
         _crear(db, 5)
@@ -73,7 +73,7 @@ def test_v3_con_duplicados_no_crea_el_indice(tmp_path):
     db._conn.commit()
     db.close() if hasattr(db, "close") else None
     db2 = DbManager(db_path=ruta)
-    assert db2.get_version_esquema() == 4
+    assert db2.get_version_esquema() == db_manager.ESQUEMA_VERSION
     assert db2.indice_numero_unico() is False          # no destructiva
 
 

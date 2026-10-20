@@ -117,6 +117,22 @@ def resumen_presentable(resumen) -> dict:
     }
 
 
+def mantenimiento_presentable(respuesta) -> dict:
+    """GET /maintenance listo para QML (M1, tanda 3). Sin respuesta, sin dato
+    (reloj anterior a la instalación) o sin intervalos: SIN_DATO, nunca un
+    valor inventado. `vencido` lo traduce la pantalla ("VENCIDO")."""
+    r = respuesta if isinstance(respuesta, dict) else {}
+    valido = r.get("estado") in ("ok", "proximo", "vencido")
+    restantes = r.get("ciclos_restantes")
+    return {
+        "proximo": formatear_fecha(r.get("proximo_fecha")) if valido else SIN_DATO,
+        "vencido": valido and r.get("vencido") is True,
+        "ultimo": formatear_fecha(r.get("ultimo_fecha")) if valido else SIN_DATO,
+        "ciclos_restantes": (formatear_entero(max(0, restantes))
+                             if valido and _entero(restantes) is not None else SIN_DATO),
+    }
+
+
 def lista_presentable(respuesta) -> dict:
     """Respuesta de GET /cycle/list lista para QML; las filas mal formadas se
     descartan. Sin respuesta: lista vacía."""

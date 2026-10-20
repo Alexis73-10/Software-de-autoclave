@@ -36,6 +36,7 @@ from autoclave.core.managers.cycle_manager import Cycle
 import json
 import logging
 import threading
+import time
 
 import yaml
 
@@ -65,6 +66,9 @@ def avisar_entradas_no_monitoreadas(profile) -> None:
     if sin_sonda:
         logger.warning("Sondas de temperatura no vigiladas (perfil de instalación): %s",
                        ", ".join(sin_sonda))
+
+
+_LOCK_MANTENIMIENTO = threading.RLock()
 
 
 class BackendContext:
@@ -273,6 +277,7 @@ class BackendContext:
         # registrado y, si no, uno conservador (líquido, solo la lenta).
         self.control_loop.recuperar_ciclo_interrumpido(self._programa_para_arranque())
         self.control_loop.start()
+        self.iniciar_vigilancia_mantenimiento()
 
     def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
         """Cada handshake completo con la tarjeta de E/S: registro en
@@ -326,6 +331,39 @@ class BackendContext:
         if getattr(self, "_contador_ciclos", None) is None:
             self._contador_ciclos = ContadorCiclos(app_root() / "data" / "ciclo_contador.json")
         return self._contador_ciclos
+
+    @property
+    def mantenimiento(self):
+        """Servicio de próximo mantenimiento (M1, tanda 3). Solo informa:
+        nunca interviene en un ciclo."""
+        with _LOCK_MANTENIMIENTO:     # una sola instancia (hilo de vigilancia y HTTP)
+            if getattr(self, "_mantenimiento", None) is None:
+                from autoclave.core.runtime.servicio_mantenimiento import ServicioMantenimiento
+                self._mantenimiento = ServicioMantenimiento(
+                    app_root() / "data" / "mantenimiento.json",
+                    db=lambda: self.db,
+                    instalado_en=lambda: getattr(self.profile, "created_at", None),
+                    contador_ciclos=self.contador_ciclos,
+                    alarm_manager=self.alarm_manager)
+            return self._mantenimiento
+
+    def iniciar_vigilancia_mantenimiento(self, cada_s: float = 600.0) -> None:
+        """Evalúa el aviso de mantenimiento vencido al arrancar y cada 10 min
+        (hilo daemon; un fallo se registra y no afecta nada más)."""
+        if getattr(self, "_hilo_mantenimiento", None) is not None:
+            return                       # idempotente
+        self.mantenimiento               # instancia antes de lanzar el hilo
+
+        def vigilar():
+            while True:
+                try:
+                    self.mantenimiento.evaluar_alarma()
+                except Exception:
+                    logger.exception("Vigilancia de mantenimiento")
+                time.sleep(cada_s)
+        self._hilo_mantenimiento = threading.Thread(
+            target=vigilar, name="VigilanciaMantenimiento", daemon=True)
+        self._hilo_mantenimiento.start()
 
     @property
     def respaldo_ciclos(self) -> RespaldoCiclos:

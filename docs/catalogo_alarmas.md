@@ -242,6 +242,7 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | `TARJETA_*` en ciclo (`abortar_por_falla_io`) | **COM-03** con origen = id de la tarjeta (`COM-03\|TARJETA_WATCHDOG`) | FALLO_CRITICO, despeje manual; `fase_ciclo = "FALLO_IO"` |
 | (nueva) | SIS-02 Historial no disponible | AVISO |
 | (nueva, T8) | SIS-03 Respaldo del ciclo no disponible | AVISO, no bloquea, despeje manual |
+| (nueva, M1 tanda 3) | SIS-04 Mantenimiento vencido | AVISO (baja prioridad), NO bloquea nunca un ciclo, despeje automático al registrar el mantenimiento. Alias en código: `MANTENIMIENTO_VENCIDO` |
 
 **Integración (tanda 2026-10-14, T1):** la Parte A está unida a `dev-noche`; esta tabla ya describe el código.
 La regla de la tanda "ningún id existente se renombra" se aplicó a los ids que la rama no había migrado:

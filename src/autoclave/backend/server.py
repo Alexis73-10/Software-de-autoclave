@@ -1141,6 +1141,72 @@ def _ciclo_json(fila) -> dict:
     }
 
 
+# ── Mantenimiento (M1, tanda 3) ─────────────────────────────────────────────
+# Solo informa: nunca bloquea ni interviene en un ciclo. La lectura es abierta
+# (la ve el Menú Principal sin sesión); configurar y registrar exigen técnico o
+# ingeniero y quedan en la bitácora.
+
+class _MantenimientoConfigBody(BaseModel):
+    intervalo_dias: int
+    intervalo_ciclos: int
+
+
+class _MantenimientoRegistroBody(BaseModel):
+    tipo: str
+    observaciones: str = ""
+
+
+def _rechazo_mantenimiento(e, entidad: str, sesion) -> None:
+    estado = 422 if e.codigo == "validacion" else 409
+    _rechazar(estado, e.codigo, e.motivo, entidad, sesion)
+
+
+@app.get("/maintenance")
+def get_maintenance():
+    """Próximo vencimiento, último mantenimiento, ciclos restantes y los
+    intervalos configurados (valores por defecto PROVISIONALES: 180 días)."""
+    return context.mantenimiento.resumen()
+
+
+@app.get("/maintenance/records")
+def get_maintenance_records(limite: int = 50,
+                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    return {"registros": context.mantenimiento.historial(max(1, min(limite, 500)))}
+
+
+@app.put("/maintenance/config")
+def put_maintenance_config(body: _MantenimientoConfigBody,
+                           sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime.servicio_mantenimiento import ErrorMantenimiento
+    entidad = "/maintenance/config"
+    anterior = context.mantenimiento.configuracion()
+    try:
+        nueva = context.mantenimiento.guardar_configuracion(body.intervalo_dias,
+                                                            body.intervalo_ciclos)
+    except ErrorMantenimiento as e:
+        _rechazo_mantenimiento(e, entidad, sesion)
+    _auditar("mantenimiento_configurado", sesion, entidad=entidad,
+             valor_anterior=anterior, valor_nuevo=nueva)
+    context.mantenimiento.evaluar_alarma()
+    return {"ok": True, "configuracion": nueva}
+
+
+@app.post("/maintenance/records")
+def post_maintenance_record(body: _MantenimientoRegistroBody,
+                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """"Registrar mantenimiento realizado": desde ese momento la base del
+    cálculo pasa a ser hoy y el contador de ciclos actual."""
+    from autoclave.core.runtime.servicio_mantenimiento import ErrorMantenimiento
+    entidad = "/maintenance/records"
+    try:
+        registro = context.mantenimiento.registrar(sesion.usuario, body.tipo, body.observaciones)
+    except ErrorMantenimiento as e:
+        _rechazo_mantenimiento(e, entidad, sesion)
+    _auditar("mantenimiento_registrado", sesion, entidad=entidad, valor_nuevo=registro,
+             detalle={"observaciones": body.observaciones[:200]})
+    return {"ok": True, "registro": registro}
+
+
 @app.get("/cycle/summary")
 def get_cycle_summary():
     """Resumen de solo lectura para el Resumen del Sistema del Menú Principal

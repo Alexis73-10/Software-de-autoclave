@@ -48,6 +48,7 @@ class ResumenSistema(QObject):
         self._ultima = None          # última respuesta válida (estado interno)
         self._sin_conexion = False
         self._datos = dominio.resumen_presentable(None)
+        self._mantenimiento = dominio.mantenimiento_presentable(None)
         self._respuesta_recibida.connect(self._al_recibir)
 
         self._cargando_grafica = False
@@ -89,12 +90,23 @@ class ResumenSistema(QObject):
             except Exception as e:
                 logger.debug("resumen del sistema no disponible: %s", e)
                 respuesta = None
-            self._respuesta_recibida.emit(respuesta)
+            try:
+                # M1: independiente del resumen (no depende de la base de datos)
+                mantenimiento = self._backend.get("/maintenance")
+            except Exception as e:
+                logger.debug("mantenimiento no disponible: %s", e)
+                mantenimiento = None
+            self._respuesta_recibida.emit((respuesta, mantenimiento))
 
         self._ejecutar(tarea)
 
-    def _al_recibir(self, respuesta) -> None:
+    def _al_recibir(self, datos) -> None:
         self._consultando = False
+        respuesta, mantenimiento = datos
+        presentable = dominio.mantenimiento_presentable(mantenimiento)
+        if presentable != self._mantenimiento:
+            self._mantenimiento = presentable
+            self.datosChanged.emit()
         valida = isinstance(respuesta, dict)
         if valida:
             self._ultima = respuesta
@@ -205,8 +217,20 @@ class ResumenSistema(QObject):
     def fasesGraficaUltimo(self) -> list:
         return self._fases_grafica
 
-    @Property(str, constant=True)
+    @Property(str, notify=datosChanged)
     def proximoMantenimiento(self) -> str:
-        # MP-06b / B-03: no existe fuente de mantenimiento en el sistema
-        return dominio.SIN_DATO
+        """Fecha del próximo mantenimiento (DD/MM/AAAA) o "—" (M1, tanda 3)."""
+        return self._mantenimiento["proximo"]
+
+    @Property(bool, notify=datosChanged)
+    def mantenimientoVencido(self) -> bool:
+        return self._mantenimiento["vencido"]
+
+    @Property(str, notify=datosChanged)
+    def ultimoMantenimiento(self) -> str:
+        return self._mantenimiento["ultimo"]
+
+    @Property(str, notify=datosChanged)
+    def ciclosRestantesMantenimiento(self) -> str:
+        return self._mantenimiento["ciclos_restantes"]
 

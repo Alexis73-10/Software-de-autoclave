@@ -277,7 +277,10 @@ Item {
             tamIcono: 73
             colorAcento: Colores.menuNaranja
             rotulo: I18n.t("menu.proximo_mantenimiento", I18n.lang)
-            valor: raiz.dato(raiz.resumen?.proximoMantenimiento)   // MP-06b: sin fuente
+            // M1 (tanda 3): fecha del próximo mantenimiento; "VENCIDO" si ya pasó
+            valor: (raiz.resumen?.mantenimientoVencido ?? false)
+                   ? I18n.t("menu.vencido", I18n.lang)
+                   : raiz.dato(raiz.resumen?.proximoMantenimiento)
             onPulsada: { raiz.mantenimientoPulsado(); ventanaMantenimiento.abrir() }
         }
         // Abre el listado de los ciclos terminados hoy; tocar uno muestra su gráfica y datos
@@ -388,18 +391,26 @@ Item {
         }
     }
 
-    // Sin fuente de mantenimiento en el sistema (MP-14c, B-03): todo "—"
+    // M1 (tanda 3): vencimiento, último mantenimiento y ciclos restantes
     VentanaFlotante {
         id: ventanaMantenimiento
         objectName: "ventanaMantenimiento"
         escala: raiz.escala
-        altoTarjeta: 380
+        altoTarjeta: 520
         titulo: I18n.t("menu.ventana_mantenimiento", I18n.lang)
         Column {
             width: parent.width
             spacing: raiz.m(28)
-            Campo { width: parent.width; rotulo: I18n.t("menu.ultimo_mantenimiento", I18n.lang); valor: raiz.sinDato }
-            Campo { width: parent.width; rotulo: I18n.t("menu.ciclos_restantes", I18n.lang); valor: raiz.sinDato }
+            Campo {
+                width: parent.width
+                objectName: "campoProximoMantenimiento"
+                rotulo: I18n.t("menu.proximo_vencimiento", I18n.lang)
+                valor: (raiz.resumen?.mantenimientoVencido ?? false)
+                       ? I18n.t("menu.vencido", I18n.lang)
+                       : raiz.dato(raiz.resumen?.proximoMantenimiento)
+            }
+            Campo { width: parent.width; rotulo: I18n.t("menu.ultimo_mantenimiento", I18n.lang); valor: raiz.dato(raiz.resumen?.ultimoMantenimiento) }
+            Campo { width: parent.width; rotulo: I18n.t("menu.ciclos_restantes", I18n.lang); valor: raiz.dato(raiz.resumen?.ciclosRestantesMantenimiento) }
         }
     }
 

@@ -467,7 +467,8 @@ def test_ventana_de_ultimo_ciclo_pide_la_curva_solo_al_abrir(r):
 
 def test_ventana_de_mantenimiento_sin_datos(r):
     assert r["mant_abierta"] is True
-    assert r["textos_mant"].count("—") == 2
+    # M1 (tanda 3): próximo vencimiento, último mantenimiento y ciclos restantes
+    assert r["textos_mant"].count("—") == 3
 
 
 def test_sin_conexion_la_ventana_dice_grafica_no_disponible(rfalla):

@@ -58,8 +58,23 @@ def test_filas_con_perfil_e_historial():
 def test_sin_fuente_en_el_software_se_marca_no_disponible():
     f = _por_clave(filas_equipo(_perfil(), 1, "0.5.0", []))
     assert f["ultimo_mantenimiento"]["disponible"] is False
+    assert f["ciclos_restantes"]["disponible"] is False
     # E6: la versión de la tarjeta ya tiene fuente (/status.tarjeta)
-    assert all(v["disponible"] for k, v in f.items() if k != "ultimo_mantenimiento")
+    assert all(v["disponible"] for k, v in f.items()
+               if k not in ("ultimo_mantenimiento", "ciclos_restantes"))
+
+
+def test_con_fuente_de_mantenimiento_las_filas_muestran_el_dato():
+    """M1 (tanda 3): GET /maintenance da el último mantenimiento y los ciclos restantes."""
+    m = {"estado": "ok", "vencido": False, "proximo_fecha": "2027-04-24",
+         "ultimo_fecha": "2026-10-26", "ciclos_restantes": 120}
+    f = _por_clave(filas_equipo(_perfil(), 1, "0.5.0", [], mantenimiento=m))
+    assert f["ultimo_mantenimiento"] == {"clave": "ultimo_mantenimiento",
+                                         "valor": "26/10/2026", "disponible": True}
+    assert f["ciclos_restantes"]["valor"] == "120"
+    sin_dato = {"estado": "sin_dato"}      # reloj anterior a la instalación
+    f = _por_clave(filas_equipo(_perfil(), 1, "0.5.0", [], mantenimiento=sin_dato))
+    assert f["ultimo_mantenimiento"]["valor"] == "—" and f["ciclos_restantes"]["valor"] == "—"
 
 
 def test_historial_vacio_y_desconocido():

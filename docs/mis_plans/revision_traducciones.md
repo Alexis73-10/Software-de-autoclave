@@ -85,6 +85,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-19 | Tanda 2 S1 | `instalacion.vapor_generator_desc` (texto cambiado) | Instalación | sin revisar |
 | 2026-10-20 | Tanda 3 A1 | `equipo.apagar_camara_no_segura` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-20 | Tanda 3 S4 | `sistema.estado_seguro_detenido_accion`, `sistema.asignar_sonda_principal` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-20 | Tanda 3 M1 | `menu.vencido`, `menu.proximo_vencimiento`, `equipo.ciclos_restantes`, `opciones.mant_*` | Mantenimiento | sin revisar |
 
 ## Registro de revisiones
 

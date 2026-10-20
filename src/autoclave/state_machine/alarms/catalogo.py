@@ -53,7 +53,7 @@ class DefinicionAlarma:
         return self.descripcion.format(**valores)
 
 
-SIS_01, SIS_02, SIS_03 = "SIS-01", "SIS-02", "SIS-03"
+SIS_01, SIS_02, SIS_03, SIS_04 = "SIS-01", "SIS-02", "SIS-03", "SIS-04"
 SUM_01, SUM_02, SUM_03, SUM_04, SUM_05, SUM_06 = (
     "SUM-01", "SUM-02", "SUM-03", "SUM-04", "SUM-05", "SUM-06")
 PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06 = (
@@ -63,6 +63,9 @@ SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
+# M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
+# como OPERANDO_SIN_BD; nunca impide un ciclo)
+MANTENIMIENTO_VENCIDO = SIS_04
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
 # Tarjeta de E/S (E6): los ids se conservan como códigos (no se renombran).
 TARJETA_SIN_TRAMA_VALIDA = "TARJETA_SIN_TRAMA_VALIDA"
@@ -227,6 +230,9 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Base de datos no disponible: los ciclos se registran solo en el respaldo y en "
        "el ticket, sin operador. Opciones, calibración y usuarios no están disponibles.",
        "Llame a servicio técnico para revisar la base de datos."),
+    _d(MANTENIMIENTO_VENCIDO, _AV, False, _A, "Mantenimiento vencido",
+       "{motivo}",
+       "Programe el mantenimiento con servicio técnico. El equipo puede seguir operando."),
     _d(CONFIGURACION_INVALIDA, _AL, True, _M, "Configuración inválida",
        "Configuración inválida: {motivo}",
        "Llame a servicio técnico para corregir la configuración."),
