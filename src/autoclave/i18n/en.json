@@ -118,7 +118,7 @@
     "cambiar_seccion_confirmar": "Discard",
     "secciones": {
       "parametros_ciclo": "Cycle parameters",
-      "parametros_sistema": "System parameters",
+      "parametros_sistema": "Equipment parameters",
       "entradas_salidas": "Inputs / Outputs",
       "mantenimiento": "Maintenance",
       "opciones_avanzadas": "Advanced options",

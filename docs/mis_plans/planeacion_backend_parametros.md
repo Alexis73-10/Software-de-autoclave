@@ -1,4 +1,4 @@
-# Planeación — Backend de parámetros del sistema
+# Planeación — Backend de parámetros del equipo
 
 **Proyecto:** Software de Autoclave (Especifika S.A.S.)
 **Estado:** borrador v1 — depende de `planeacion_backend_autenticacion.md` (tareas T-4 a T-7 antes de la fase 2)
@@ -9,7 +9,7 @@
 
 ## 1. Objetivo
 
-Pasar los parámetros del sistema de un JSON de solo lectura a un almacén editable, validado, auditado y aplicable sin reiniciar, y construir sobre eso la bitácora general, la calibración atmosférica y las entradas mostradas por programa.
+Pasar los parámetros del equipo de un JSON de solo lectura a un almacén editable, validado, auditado y aplicable sin reiniciar, y construir sobre eso la bitácora general, la calibración atmosférica y las entradas mostradas por programa.
 
 ## 2. Estado actual (según el informe de Code)
 

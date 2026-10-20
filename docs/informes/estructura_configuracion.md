@@ -9,7 +9,7 @@
 **descripcion:** dentro estaran las faces del ciclo cada una con sus parametros de configuracion incluyendo global 
 ## Parametros de sistema
 **acceso** admin (solo visualizacion), tecnico, ingeniero
-**descripcion:** visualizacion y configuracion de los parametros del sistema dentro de los cuales estan : 
+**descripcion:** visualizacion y configuracion de los parametros del equipo dentro de los cuales estan : 
 - tiempo agotado de chaqueta
 - tasa de impresion -- general
 - tasa de impresion -- esterilizacion
