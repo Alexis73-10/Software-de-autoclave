@@ -117,96 +117,24 @@ def test_con_paro_de_emergencia_409(io_client):
     assert "Paro" in _rechazo(client, ctx, value=False)
 
 
-def test_encender_con_presion_en_camara_409(io_client):
+# D-ES-15: en modo prueba se permiten todas las salidas; R-02 ya no se aplica.
+
+def test_encender_con_camara_presurizada_y_puerta_abierta_se_acepta(io_client):
     client, ctx = io_client
     ctx.estado.sensores_pres = {"pres_camara": 180.0}
-    assert "presión atmosférica" in _rechazo(client, ctx)
+    ctx.estado.sensores_di = {_DI_CERRADA: 0, _DI_ABIERTA: 1}
+    resp = client.patch("/io/test/output/vapor_camara", json={"value": True})
+    assert resp.status_code == 200, resp.text
+    ctx.setdo.set_output.assert_called_once()
 
 
-def test_encender_con_vacio_en_camara_409(io_client):
-    client, ctx = io_client
-    ctx.estado.sensores_pres = {"pres_camara": 20.0}
-    _rechazo(client, ctx)
-
-
-def test_encender_sin_lectura_de_presion_409(io_client):
+def test_encender_sin_lecturas_ni_configuracion_se_acepta(io_client):
     client, ctx = io_client
     ctx.estado.sensores_pres = {"pres_camara": None}
-    assert "Sin lectura" in _rechazo(client, ctx)
-
-
-def test_encender_sin_configuracion_atmosferica_409(io_client):
-    client, ctx = io_client
-    ctx.config_manager.get.side_effect = lambda *_a, **_k: None
-    _rechazo(client, ctx)
-
-
-# ── Hallazgo A: puertas leídas en vivo, no del estado lógico congelado ──────
-
-def test_puerta_abierta_durante_la_prueba_bloquea_aunque_el_estado_diga_cerrado(io_client):
-    """Escenario del hallazgo A: en modo prueba door.update() está en pausa y
-    el estado lógico sigue en CERRADO, pero la entrada dice que se abrió."""
-    client, ctx = io_client
-    ctx.estado.get_door_state.return_value = DoorState.CERRADO   # congelado
-    ctx.estado.sensores_di = {_DI_CERRADA: 0, _DI_ABIERTA: 1}
-    assert "Puerta 1 no está cerrada" in _rechazo(client, ctx)
-
-
-@pytest.mark.parametrize("entradas,motivo", [
-    ({_DI_CERRADA: 0, _DI_ABIERTA: 0}, "no está cerrada"),     # entre medias
-    ({_DI_CERRADA: 1, _DI_ABIERTA: 1}, "no está cerrada"),     # incoherente
-    ({_DI_CERRADA: None, _DI_ABIERTA: 0}, "Sin lectura"),
-    ({_DI_CERRADA: 1, _DI_ABIERTA: None}, "Sin lectura"),
-    ({_DI_ABIERTA: 0}, "Sin lectura"),                         # entrada ausente
-    ({_DI_CERRADA: 2, _DI_ABIERTA: 0}, "Sin lectura"),         # valor inválido
-])
-def test_encender_exige_cerrada_1_y_abierta_0(io_client, entradas, motivo):
-    client, ctx = io_client
-    ctx.estado.sensores_di = entradas
-    assert motivo in _rechazo(client, ctx)
-
-
-def test_estado_logico_abierto_no_bloquea_si_las_entradas_dicen_cerrada(io_client):
-    """Una puerta cerrada a mano durante la prueba (estado lógico congelado en
-    ABIERTO) se reconoce por sus entradas."""
-    client, ctx = io_client
-    ctx.estado.get_door_state.return_value = DoorState.ABIERTO
-    assert client.patch("/io/test/output/vapor_camara", json={"value": True}).status_code == 200
-
-
-def test_puerta_sin_sensor_de_abierta_usa_solo_cerrada(io_client):
-    client, ctx = io_client
-    ctx.doors = [_puerta(con_abierta=False)]
-    ctx.estado.sensores_di = {_DI_CERRADA: 1}
-    assert client.patch("/io/test/output/vapor_camara", json={"value": True}).status_code == 200
-    ctx.setdo.set_output.reset_mock()
-    ctx.estado.sensores_di = {_DI_CERRADA: 0}
-    _rechazo(client, ctx)
-
-
-def test_segunda_puerta_abierta_bloquea(io_client):
-    client, ctx = io_client
-    p2 = _puerta("Puerta 2")
-    p2.di = {"cerrada": "puerta_cerrada_2", "abierta": "puerta_abierta_2"}
-    ctx.doors = [_puerta(), p2]
-    ctx.estado.sensores_di = {_DI_CERRADA: 1, _DI_ABIERTA: 0,
-                              "puerta_cerrada_2": 0, "puerta_abierta_2": 1}
-    assert "Puerta 2" in _rechazo(client, ctx)
-
-
-def test_encender_sin_puertas_conocidas_409(io_client):
-    client, ctx = io_client
+    ctx.estado.sensores_di = {}
     ctx.doors = []
-    assert "puertas" in _rechazo(client, ctx)
-
-
-def test_puerta_sin_mapa_de_entradas_409(io_client):
-    client, ctx = io_client
-    rara = MagicMock()
-    rara.name = "Puerta 1"
-    rara.di = None
-    ctx.doors = [rara]
-    assert "Sin lectura" in _rechazo(client, ctx)
+    ctx.config_manager.get.side_effect = lambda *_a, **_k: None
+    assert client.patch("/io/test/output/vapor_camara", json={"value": True}).status_code == 200
 
 
 def test_apagar_siempre_permitido_en_modo_prueba(io_client):
@@ -245,14 +173,14 @@ def test_rechazo_409_queda_en_audit_log_fuera_del_lock(entorno):
     ctx.control_loop.bloqueo_maquina.return_value = lock
     lock_tomado = []
     ctx.db.registrar_auditoria.side_effect = lambda *a, **k: lock_tomado.append(lock._is_owned())
-    ctx.estado.sensores_pres = {"pres_camara": 180.0}
+    ctx.estado.get_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")
 
     client.patch("/io/test/output/vapor_camara", json={"value": True})
 
     args, kwargs = ctx.db.registrar_auditoria.call_args
     assert args[0] == "rechazo_409"
     assert kwargs["entidad"] == "/io/test/output/vapor_camara"
-    assert "presión" in kwargs["detalle"]["motivo"]
+    assert "aro" in kwargs["detalle"]["motivo"]
     assert lock_tomado == [False]
 
 
@@ -285,3 +213,84 @@ def test_admin_403():
     resp = client.patch("/io/test/output/vapor_camara", json={"value": False})
     assert resp.status_code == 403
     ctx.setdo.set_output.assert_not_called()
+
+
+# ── D-ES-16 / §6.7: seguro de atrapamiento en modo prueba ───────────────────
+
+_DI_ATRAP = "atrapamiento_puerta_1"
+
+
+def _puerta_avanzada():
+    d = _puerta()
+    d.di = {**d.di, "atrapamiento": _DI_ATRAP}
+    from autoclave.core.runtime.status import EstadoAutoclave as E
+    d.do = {"abrir": E.map_do["abrir_puerta_1"] + 1,
+            "cerrar": E.map_do["cerrar_puerta_1"] + 1}
+    return d
+
+
+def _canal(nombre):
+    from autoclave.core.runtime.status import EstadoAutoclave as E
+    return E.map_do[nombre] + 1
+
+
+def _llamadas(ctx):
+    return [(c.args[0], c.args[1]) for c in ctx.setdo.set_output.call_args_list]
+
+
+@pytest.fixture
+def atrapada(entorno):
+    client, ctx, srv = entorno
+    ctx.doors = [_puerta_avanzada()]
+    ctx.estado.sensores_di = {_DI_CERRADA: 1, _DI_ABIERTA: 0, _DI_ATRAP: 0}  # NC: 0 = atrapada
+    return client, ctx, srv
+
+
+def test_cerrar_con_atrapamiento_activo_abre_en_su_lugar(atrapada):
+    client, ctx, _ = atrapada
+    resp = client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
+    assert resp.status_code == 200, resp.text
+    llamadas = _llamadas(ctx)
+    assert (_canal("cerrar_puerta_1"), True) not in llamadas
+    assert (_canal("cerrar_puerta_1"), False) in llamadas
+    assert (_canal("abrir_puerta_1"), True) in llamadas
+
+
+def test_cerrar_con_atrapamiento_normal_pasa_sin_cambio(atrapada):
+    client, ctx, _ = atrapada
+    ctx.estado.sensores_di[_DI_ATRAP] = 1
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
+    assert _llamadas(ctx) == [(_canal("cerrar_puerta_1"), True)]
+
+
+def test_puerta_sin_sensor_de_atrapamiento_pasa_sin_cambio(entorno):
+    client, ctx, _ = entorno
+    ctx.doors = [_puerta()]
+    ctx.doors[0].do = {"abrir": _canal("abrir_puerta_1"), "cerrar": _canal("cerrar_puerta_1")}
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
+    assert _llamadas(ctx) == [(_canal("cerrar_puerta_1"), True)]
+
+
+def test_inversion_se_audita_una_sola_vez_por_pulsacion(atrapada):
+    client, ctx, _ = atrapada
+    for _ in range(3):
+        client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
+    eventos = [c.args[0] for c in ctx.db.registrar_auditoria.call_args_list]
+    assert eventos.count("atrapamiento_orden_invertida") == 1
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": False})
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
+    eventos = [c.args[0] for c in ctx.db.registrar_auditoria.call_args_list]
+    assert eventos.count("atrapamiento_orden_invertida") == 2
+
+
+def test_liberada_la_senal_el_cierre_no_se_reanuda_hasta_soltar(atrapada):
+    client, ctx, _ = atrapada
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
+    ctx.estado.sensores_di[_DI_ATRAP] = 1          # se libera con el dedo pulsado
+    ctx.setdo.set_output.reset_mock()
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})
+    assert (_canal("cerrar_puerta_1"), True) not in _llamadas(ctx)
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": False})   # suelta
+    ctx.setdo.set_output.reset_mock()
+    client.patch("/io/test/output/cerrar_puerta_1", json={"value": True})    # vuelve a pulsar
+    assert _llamadas(ctx) == [(_canal("cerrar_puerta_1"), True)]

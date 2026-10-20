@@ -74,3 +74,20 @@ def edicion_permitida(estado_maquina: str | None, rol: str | None = None,
     if rol in _EDICION_SIEMPRE:
         return True
     return estado_maquina in ESTADOS_EDICION
+
+
+# Entradas / Salidas (planeacion_opciones_entradas_salidas.md §3, OPC-28). Solo
+# técnico e ingeniero entran a la sección (admin no); la UI refleja las reglas
+# del backend, que es la autoridad.
+_ES_MODO_PRUEBA_ESTADOS = frozenset({"PREPARACION", "PREPARADO", "FALLA"})   # D-ES-07
+
+
+def puede_modo_prueba(rol: str | None, estado_maquina: str | None) -> bool:
+    return rol in _TECNICOS and estado_maquina in _ES_MODO_PRUEBA_ESTADOS
+
+
+def puede_calibrar(rol: str | None, estado_maquina: str | None) -> bool:
+    """Técnico solo fuera de CICLO; ingeniero también en CICLO (aplica de inmediato)."""
+    if rol == "ingeniero":
+        return True
+    return rol == "tecnico" and estado_maquina != "CICLO"

@@ -112,6 +112,7 @@ def write_user_calibration(
     real_low: float,
     shown_high: float,
     real_high: float,
+    nota: str | None = None,
 ) -> None:
     seccion = _SECCION_POR_TIPO[tipo]
 
@@ -136,11 +137,15 @@ def write_user_calibration(
 
     _reemplazar_entrada_sensor(seq, index, gain, offset)
 
-    comentario = (
-        f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- recalibrado {date.today().isoformat()} "
-        f"con 2 puntos contra equipo patron: bajo {shown_low}->{real_low}, "
-        f"alto {shown_high}->{real_high}."
-    )
+    if nota is not None:
+        comentario = (f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- {nota} "
+                      f"{date.today().isoformat()}.")
+    else:
+        comentario = (
+            f"{_MARCADOR_AUTO} Sensor {tipo}[{index}] -- recalibrado {date.today().isoformat()} "
+            f"con 2 puntos contra equipo patron: bajo {shown_low}->{real_low}, "
+            f"alto {shown_high}->{real_high}."
+        )
     seq.yaml_set_comment_before_after_key(index, before=comentario, indent=_COMENTARIO_INDENT)
 
     # A2 (tanda 3): sin UPS, un corte a mitad de la escritura dejaba un YAML

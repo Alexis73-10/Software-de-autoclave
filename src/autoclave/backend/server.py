@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import logging
 import sqlite3
 import sys
+import json
 import os
 import threading
 import time
@@ -26,6 +27,7 @@ from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
+from autoclave.core.runtime import io_names
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
@@ -351,6 +353,8 @@ def _salir_modo_prueba() -> None:
     global _token_modo_prueba
     context.control_loop.exit_test_mode()
     _token_modo_prueba = None
+    _cierres_invertidos.clear()
+    _cancelar_vigilancias_prueba()
 
 
 def _prueba_cancelada_por_paro() -> None:
@@ -361,6 +365,7 @@ def _prueba_cancelada_por_paro() -> None:
         if context.control_loop.test_mode_active:
             return   # ya se volvió a entrar: no es esta cancelación
         token, _token_modo_prueba = _token_modo_prueba, None
+    _cancelar_vigilancias_prueba()
     sesion = tokens.obtener(token, renovar=False) if token else None
     dueno = tokens.quien_fue(token) if sesion is None else None
     _auditar("modo_prueba_sale", sesion, usuario=dueno[0] if dueno else "",
@@ -651,6 +656,14 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
             status_code=422,
             detail="shown_low, real_low, shown_high, real_high son obligatorios y numericos",
         )
+    origen_lectura = body.get("origen_lectura")
+    if "origen_lectura" in body and not (
+            isinstance(origen_lectura, dict) and set(origen_lectura) == {"bajo", "alto"}
+            and all(v in ("capturada", "escrita") for v in origen_lectura.values())):
+        raise HTTPException(
+            status_code=422,
+            detail='origen_lectura debe ser {"bajo": "capturada"|"escrita", "alto": "capturada"|"escrita"}',
+        )
     entidad = f"{tipo}/{sensor}"
 
     # S3a (tanda 2): plausibilidad por tipo de canal (catálogo). Lo imposible
@@ -721,6 +734,8 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
         if nivel is not None:
             detalle["plausibilidad"] = {"nivel": nivel, "motivo": motivo,
                                         "confirmado": confirmado}
+        if origen_lectura is not None:
+            detalle["origen_lectura"] = dict(origen_lectura)
         detalle.update(contexto_ciclo)
         # BD-03 (T8, §7.6): sin registro en audit_log la calibración no queda
         # activa. Se guarda el archivo previo y se restaura si la auditoría falla.
@@ -753,6 +768,80 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                       f"/calibration/{entidad}", sesion)
 
     return {"ok": True, "gain": new_gain, "offset": new_offset}
+
+
+@app.post("/calibration/{tipo}/{sensor}/restaurar")
+def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
+                          sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """B-ES-4 / §7.4: devuelve el sensor a la calibración neutra ("defecto":
+    ganancia 1.0, offset 0.0) o a los valores previos a la última modificación
+    ("ultimo", de valor_anterior en audit_log). Mismas reglas que el PATCH:
+    rol, estado, auditoría obligatoria con reversión del archivo."""
+    index = _resolve_sensor_index(tipo, sensor)
+    destino = body.get("destino")
+    if destino not in ("ultimo", "defecto"):
+        raise HTTPException(status_code=422, detail='destino debe ser "ultimo" o "defecto"')
+    entidad = f"{tipo}/{sensor}"
+    ruta = f"/calibration/{entidad}/restaurar"
+
+    if getattr(context, "sin_base_de_datos", False) is True:
+        _rechazar(503, "sin_base_de_datos", "Base de datos no disponible: calibración no aplicada",
+                  ruta, sesion)
+    with guard_estado(DISTINTO_DE_CICLO, ruta, sesion, excepcion_ingeniero=True):
+        contexto_ciclo = _contexto_ciclo()
+
+    with _lock_archivos:
+        if destino == "defecto":
+            nuevo_gain, nuevo_offset = 1.0, 0.0
+        else:
+            try:
+                filas = context.db.get_auditoria(evento="calibracion_cambio",
+                                                 entidad=entidad, limite=1)
+                previo_json = filas[0]["valor_anterior"] if filas else None
+                anterior = json.loads(previo_json) if isinstance(previo_json, str) else previo_json
+                nuevo_gain, nuevo_offset = float(anterior["gain"]), float(anterior["offset"])
+            except (IndexError, KeyError, TypeError, ValueError):
+                _rechazar(409, "sin_calibracion_previa",
+                          "No hay una calibración anterior que restaurar", ruta, sesion)
+
+        config = load_config(CALIBRATION_PATH)
+        user_list = (config.calibration.user.temperature if tipo == "temperature"
+                     else config.calibration.user.pressure)
+        old_gain, old_offset = user_list[index].gain, user_list[index].offset
+
+        if sesion.rol != ROL_INGENIERO:
+            with context.control_loop.bloqueo_maquina():
+                en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
+            if en_ciclo:
+                raise HTTPException(status_code=409,
+                                    detail="Hay un ciclo en curso: calibración no aplicada")
+        detalle = {"accion": f"restaurar_{destino}"}
+        detalle.update(contexto_ciclo)
+        previo = Path(CALIBRATION_PATH).read_bytes()
+        write_user_calibration(CALIBRATION_PATH, tipo, index, nuevo_gain, nuevo_offset,
+                               0.0, 0.0, 0.0, 0.0, nota=f"restaurada ({destino})")
+        context.units.reload_calibration(CALIBRATION_PATH)
+        try:
+            context.db.registrar_auditoria(
+                "calibracion_cambio", usuario=sesion.usuario, rol=sesion.rol,
+                entidad=entidad,
+                valor_anterior={"gain": old_gain, "offset": old_offset},
+                valor_nuevo={"gain": nuevo_gain, "offset": nuevo_offset},
+                detalle=detalle)
+        except Exception:
+            logger.exception("Restauración %s sin auditoría: se revierte", entidad)
+            archivo = Path(CALIBRATION_PATH)
+            tmp = archivo.with_name(archivo.name + ".restaurar")
+            with open(tmp, "wb") as f:
+                f.write(previo)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, archivo)
+            context.units.reload_calibration(CALIBRATION_PATH)
+            _rechazar(503, "auditoria_no_disponible",
+                      "No se pudo registrar el cambio: calibración no aplicada", ruta, sesion)
+
+    return {"ok": True, "gain": nuevo_gain, "offset": nuevo_offset}
 
 
 def _diagnostico_comunicacion() -> dict | None:
@@ -863,6 +952,24 @@ def _sensores_programa(estado) -> dict:
     }
 
 
+def _cuentas_adc() -> dict:
+    """B-ES-1: cuentas ADC crudas por sensor (clave de EstadoAutoclave).
+    raw_ai: 0-7 temperatura, 8-15 presión. None si no hay datos de la tarjeta."""
+    try:
+        raw = context.units.get_all()["raw_ai"]
+        if not isinstance(raw, (list, tuple)):
+            raw = []
+    except Exception:
+        raw = []
+
+    def cuenta(i):
+        return raw[i] if i < len(raw) else None
+
+    adc = {k: cuenta(i) for k, i in EstadoAutoclave.map_temp.items()}
+    adc.update({k: cuenta(8 + i) for k, i in EstadoAutoclave.map_pres.items()})
+    return adc
+
+
 @app.get("/status", response_model=None)
 def get_status():
     estado = context.estado
@@ -903,6 +1010,7 @@ def get_status():
             "empaque_1": estado.sensores_pres.get("pres_empaque_1"),
             "empaque_2": estado.sensores_pres.get("pres_empaque_2"),
         },
+        "adc": _cuentas_adc(),
         "digital_inputs": dict(estado.sensores_di),
 
         "digital_outputs": dict(estado.salidas_do),
@@ -2401,6 +2509,98 @@ def _save_cycle_json(cycle) -> None:
 
 class _OutputSetBody(BaseModel):
     value: bool
+    momentanea: bool = False
+
+
+# P-ES-3 / P-ES-4 (propuestas pendientes de confirmar): una salida momentánea
+# se apaga sola si no se renueva, y el modo prueba se cierra sin actividad.
+CADUCIDAD_MOMENTANEA_S = 1.5
+INACTIVIDAD_MODO_PRUEBA_S = 90.0
+_timers_momentaneas: dict[int, threading.Timer] = {}
+_timer_inactividad: threading.Timer | None = None
+_lock_vigilancias = threading.Lock()
+
+
+def _cancelar_vigilancias_prueba() -> None:
+    global _timer_inactividad
+    with _lock_vigilancias:
+        for t in _timers_momentaneas.values():
+            t.cancel()
+        _timers_momentaneas.clear()
+        if _timer_inactividad is not None:
+            _timer_inactividad.cancel()
+            _timer_inactividad = None
+
+
+def _nombre_do(canal: int) -> str:
+    return next((n for n, i in EstadoAutoclave.map_do.items() if i + 1 == canal), str(canal))
+
+
+def _caducar_momentanea(canal: int, timer: threading.Timer) -> None:
+    """Hilo del temporizador: sin renovación a tiempo, apaga la salida."""
+    with _lock_vigilancias:
+        if _timers_momentaneas.get(canal) is not timer:
+            return   # renovada o cancelada mientras tanto
+        del _timers_momentaneas[canal]
+    with context.control_loop.bloqueo_maquina():
+        if not context.control_loop.test_mode_active:
+            return
+        context.setdo.set_output(canal, False)
+        token = _token_modo_prueba
+    sesion = tokens.obtener(token, renovar=False) if token else None
+    dueno = tokens.quien_fue(token) if sesion is None else None   # TMG-08
+    _auditar("salida_prueba", sesion, usuario=dueno[0] if dueno else "",
+             entidad=_nombre_do(canal), valor_nuevo=False,
+             detalle={"motivo": "caducó sin renovación"})
+
+
+def _armar_momentanea(canal: int) -> bool:
+    """Arma o renueva la caducidad. Devuelve True si era una renovación."""
+    with _lock_vigilancias:
+        previo = _timers_momentaneas.pop(canal, None)
+        if previo is not None:
+            previo.cancel()
+        timer = threading.Timer(CADUCIDAD_MOMENTANEA_S, lambda: _caducar_momentanea(canal, timer))
+        timer.daemon = True
+        _timers_momentaneas[canal] = timer
+        timer.start()
+    return previo is not None
+
+
+def _desarmar_momentanea(canal: int) -> None:
+    with _lock_vigilancias:
+        previo = _timers_momentaneas.pop(canal, None)
+    if previo is not None:
+        previo.cancel()
+
+
+def _salir_por_inactividad(timer: threading.Timer) -> None:
+    global _timer_inactividad
+    with _lock_vigilancias:
+        if _timer_inactividad is not timer:
+            return
+        _timer_inactividad = None
+    with context.control_loop.bloqueo_maquina():
+        if not context.control_loop.test_mode_active:
+            return
+        token = _token_modo_prueba
+        _salir_modo_prueba()
+    sesion = tokens.obtener(token, renovar=False) if token else None
+    dueno = tokens.quien_fue(token) if sesion is None else None   # TMG-08
+    _auditar("modo_prueba_sale", sesion, usuario=dueno[0] if dueno else "",
+             detalle={"motivo": "sin actividad de la sesión (keepalive)"})
+
+
+def _marcar_actividad_prueba() -> None:
+    """Rearma el plazo de inactividad del modo prueba (cada orden y keepalive)."""
+    global _timer_inactividad
+    with _lock_vigilancias:
+        if _timer_inactividad is not None:
+            _timer_inactividad.cancel()
+        timer = threading.Timer(INACTIVIDAD_MODO_PRUEBA_S, lambda: _salir_por_inactividad(timer))
+        timer.daemon = True
+        _timer_inactividad = timer
+        timer.start()
 
 
 _requiere_rol_prueba = requiere_rol(ROL_TECNICO, ROL_INGENIERO)
@@ -2414,6 +2614,23 @@ def _rechazar_si_sin_datos_vigentes() -> None:
     if cl.desconectado is True or cl.datos_vigentes is False:
         raise _Rechazo(409, "sin_conexion_tarjeta",
                        "Sin conexión con la tarjeta de control o datos no vigentes")
+
+
+@app.get("/io/channels")
+def io_channels(sesion: Sesion = Depends(_requiere_rol_prueba)):
+    """B-ES-2: canales de Entradas / Salidas del equipo (io_enabled) con id
+    físico, clave i18n y si la salida es momentánea (D-ES-02, D-ES-03, D-ES-09)."""
+    salidas = io_names.canales_digitales("DO")
+    for c in salidas:
+        canal = EstadoAutoclave.map_do[c["estado_key"]] + 1
+        # fuente de vapor que el equipo no usa (E1b / S1): se muestra deshabilitada
+        c["bloqueada"] = context.setdo.salida_bloqueada(canal) is True
+    return {
+        "DI": io_names.canales_digitales("DI"),
+        "DO": salidas,
+        "temperature": io_names.sensores("temperature"),
+        "pressure": io_names.sensores("pressure"),
+    }
 
 
 @app.post("/io/test/enter")
@@ -2444,12 +2661,19 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
         if not ok:
             raise _Rechazo(409, "modo_prueba_rechazado", reason)
         _token_modo_prueba = sesion.token
+        _marcar_actividad_prueba()
     _auditar("modo_prueba_entra", sesion)
     return {"ok": True}
 
 
+# B-ES-8: causas que la UI puede declarar al salir (lista cerrada, §6.5)
+_CAUSAS_SALIDA_UI = frozenset({"salida solicitada", "abandono de la sección",
+                               "inactividad de la interfaz"})
+
+
 @app.post("/io/test/exit")
-def io_test_exit(sesion: Sesion = Depends(_requiere_rol_prueba)):
+def io_test_exit(sesion: Sesion = Depends(_requiere_rol_prueba),
+                 body: dict | None = Body(None)):
     """Sale del modo prueba: apaga todas las salidas y reanuda la máquina de
     estados. 409 si no se estaba en modo prueba o si lo pide otra sesión.
     Comprobación y salida bajo _sm_lock: ninguna orden de encendido ya
@@ -2461,65 +2685,38 @@ def io_test_exit(sesion: Sesion = Depends(_requiere_rol_prueba)):
             raise _Rechazo(409, "modo_prueba_no_dueno",
                            "Solo la sesión que activó el modo prueba puede salir de él")
         _salir_modo_prueba()
-    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "salida solicitada"})
+    causa = body.get("motivo") if isinstance(body, dict) else None
+    if causa not in _CAUSAS_SALIDA_UI:
+        causa = "salida solicitada"
+    _auditar("modo_prueba_sale", sesion, detalle={"motivo": causa})
     return {"ok": True}
 
 
-def _es_numero(v) -> bool:
-    return isinstance(v, (int, float)) and not isinstance(v, bool)
+# canales cerrar_puerta_N cuya orden se invirtió y siguen pulsados (P-ES-8)
+_cierres_invertidos: set[int] = set()
 
 
-def _entrada_digital(valor) -> bool | None:
-    """1/True → True, 0/False → False; cualquier otra cosa (None, lectura
-    inválida) → None, que R-02 trata como "sin lectura"."""
-    if isinstance(valor, bool):
-        return valor
-    if isinstance(valor, int) and valor in (0, 1):
-        return valor == 1
-    return None
-
-
-def _motivo_puerta_no_cerrada(door) -> str | None:
-    """Posición de la puerta leída EN VIVO de sus entradas digitales, no del
-    estado lógico: durante el modo prueba door.update() está en pausa y ese
-    estado queda congelado (revisión de la etapa 1, hallazgo A). Cerrada exige
-    cerrada=1 y, si la puerta tiene sensor de abierta, abierta=0."""
-    nombre = getattr(door, "name", None)
-    di = getattr(door, "di", None)
-    if not nombre or not isinstance(di, dict) or "cerrada" not in di:
-        return "Sin lectura del estado de las puertas"
-    entradas = context.estado.sensores_di
-    cerrada = _entrada_digital(entradas.get(di["cerrada"]))
-    abierta = _entrada_digital(entradas.get(di["abierta"])) if "abierta" in di else False
-    if cerrada is None or abierta is None:
-        return f"Sin lectura del estado de {nombre}"
-    if not cerrada or abierta:
-        return f"{nombre} no está cerrada"
-    return None
-
-
-def _motivo_r02() -> str | None:
-    """Condiciones de R-02 para encender una salida en prueba (§5.4): cámara a
-    presión atmosférica (ambas absolutas) y todas las puertas cerradas según
-    sus entradas en vivo. Sin lectura o sin configuración, rechaza. Valores
-    leídos en vivo de la configuración."""
-    pres = context.estado.sensores_pres.get("pres_camara")
-    atm = context.config_manager.get("presion_admosferica")
-    rango = context.config_manager.get("rango_presion_atm")
-    if not _es_numero(pres):
-        return "Sin lectura de presión de cámara"
-    if not (_es_numero(atm) and _es_numero(rango)):
-        return "Configuración de presión atmosférica no disponible"
-    if not (atm - rango <= pres <= atm + rango):
-        return f"Cámara fuera de presión atmosférica ({pres:.0f} kPa)"
-    puertas = list(context.doors or [])
-    if not puertas:
-        return "Sin lectura del estado de las puertas"
-    for door in puertas:
-        motivo = _motivo_puerta_no_cerrada(door)
-        if motivo:
-            return motivo
-    return None
+def _puerta_con_atrapamiento(canal_cerrar: int, encender: bool):
+    """Seguro de atrapamiento en modo prueba (D-ES-16, §6.7). Devuelve
+    (puerta, nueva): la puerta cuya orden de cerrar debe invertirse en abrir y
+    si es la primera inversión de esta pulsación. Una vez invertida, sigue
+    invertida hasta que el usuario suelta (OFF), aunque la señal se libere.
+    Interpreta la entrada semántica (NC: 0 = atrapada), no el bit crudo."""
+    if not encender:
+        _cierres_invertidos.discard(canal_cerrar)
+        return None, False
+    for door in (context.doors or []):
+        do, di = getattr(door, "do", None), getattr(door, "di", None)
+        if not (isinstance(do, dict) and isinstance(di, dict)):
+            continue
+        if do.get("cerrar") != canal_cerrar or "atrapamiento" not in di or "abrir" not in do:
+            continue
+        if canal_cerrar in _cierres_invertidos:
+            return door, False
+        if context.estado.sensores_di.get(di["atrapamiento"]) == 0:
+            _cierres_invertidos.add(canal_cerrar)
+            return door, True
+    return None, False
 
 
 @app.patch("/io/test/output/{name}")
@@ -2530,6 +2727,9 @@ def io_test_set_output(name: str, body: _OutputSetBody,
     if name not in EstadoAutoclave.map_do:
         raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
     entidad = f"/io/test/output/{name}"
+    if body.momentanea and name not in io_names.SALIDAS_MOMENTANEAS:
+        raise HTTPException(status_code=422,
+                            detail=f"'{name}' no es una salida momentánea")
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad, sesion):
         if not context.control_loop.test_mode_active:
             raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
@@ -2544,9 +2744,8 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             if _token_modo_prueba != sesion.token:
                 raise _Rechazo(409, "modo_prueba_no_dueno",
                                "Solo la sesión que activó el modo prueba puede encender salidas")
-            motivo = _motivo_r02()
-            if motivo:
-                raise _Rechazo(409, "modo_prueba_rechazado", motivo)
+            # D-ES-15: en modo prueba se permiten todas las salidas; R-02
+            # (presión atmosférica y puertas cerradas) ya no se exige aquí.
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
@@ -2556,9 +2755,44 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             # 2): con generador interno ni DO1 ni DO2 (el generador se controla solo)
             raise _Rechazo(409, "fuente_vapor_no_instalada",
                            "Esta salida de fuente de vapor no la usa este equipo (vapor_source)")
+        puerta_atrapada, nueva = _puerta_con_atrapamiento(index + 1, body.value)
+        if puerta_atrapada is not None:
+            # D-ES-16: la orden de cerrar con atrapamiento activo se convierte en abrir
+            context.setdo.set_output(index + 1, False)
+            context.setdo.set_output(puerta_atrapada.do["abrir"], True)
+            _desarmar_momentanea(index + 1)
+            if body.momentanea:
+                _armar_momentanea(puerta_atrapada.do["abrir"])
+            _marcar_actividad_prueba()
+            if nueva:
+                _auditar("atrapamiento_orden_invertida", sesion, entidad=name,
+                         detalle={"puerta": getattr(puerta_atrapada, "name", None)})
+            return {"ok": True, "name": name, "value": False, "invertida": True}
         context.setdo.set_output(index + 1, body.value)
-    _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
+        renovacion = False
+        if body.value and body.momentanea:
+            renovacion = _armar_momentanea(index + 1)
+        else:
+            _desarmar_momentanea(index + 1)
+        _marcar_actividad_prueba()
+    # una salida momentánea registra solo el primer y último pulso, no cada renovación
+    if not renovacion:
+        _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
     return {"ok": True, "name": name, "value": body.value}
+
+
+@app.post("/io/test/keepalive")
+def io_test_keepalive(sesion: Sesion = Depends(_requiere_rol_prueba)):
+    """P-ES-4: la sesión dueña avisa que sigue ahí; sin avisos (ni órdenes) el
+    backend sale solo del modo prueba."""
+    with guard_estado(frozenset(), "/io/test/keepalive", sesion):
+        if not context.control_loop.test_mode_active:
+            raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
+        if _token_modo_prueba != sesion.token:
+            raise _Rechazo(409, "modo_prueba_no_dueno",
+                           "Solo la sesión que activó el modo prueba puede mantenerlo")
+        _marcar_actividad_prueba()
+    return {"ok": True}
 
 
 class _SalidaForzadaBody(BaseModel):

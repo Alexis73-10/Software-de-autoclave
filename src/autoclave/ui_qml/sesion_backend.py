@@ -76,6 +76,22 @@ _CLAVES = {
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
     "asignacion_desfasada": "opciones.err_valor_cambio",
+    # Opciones › Entradas / Salidas (planeacion_opciones_entradas_salidas.md):
+    # el texto del backend (`detail`) acompaña a estas claves en pantalla
+    "modo_prueba_rechazado": "io.err_rechazado",
+    "modo_prueba_inactivo": "io.err_rechazado",
+    "modo_prueba_no_dueno": "io.err_rechazado",
+    "modo_prueba_otra_sesion": "io.err_rechazado",
+    "configuracion_invalida": "io.err_rechazado",
+    "sin_conexion_tarjeta": "io.err_rechazado",
+    "paro_emergencia": "io.err_rechazado",
+    "apagado_en_curso": "io.err_rechazado",
+    "fuente_vapor_no_instalada": "io.err_rechazado",
+    "sin_base_de_datos": "io.err_sin_base",
+    "auditoria_no_disponible": "io.err_sin_base",
+    "sin_calibracion_previa": "io.err_sin_previa",
+    "CALIBRACION_REQUIERE_CONFIRMACION": "io.err_confirmacion",
+    "CALIBRACION_IMPLAUSIBLE": "io.err_implausible",
     BACKEND_NO_RESPONDE: "sesion.backend_no_responde",
     ERROR_GENERICO: "sesion.error_generico",
 }
