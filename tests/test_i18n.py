@@ -245,6 +245,9 @@ FAMILIAS = {
     "sesion.": lambda: _sufijos_campos("Pantallas/CambioClave.qml", "etiqueta"),
     "menu.resultado_": _sufijos_resultado_menu,
     "opciones.secciones.": _sufijos_secciones,
+    # M1 (tanda 3): tipos de mantenimiento
+    "opciones.mant_tipo_": lambda: list(__import__(
+        "autoclave.core.runtime.servicio_mantenimiento", fromlist=["TIPOS"]).TIPOS),
     # T12: secciones de un programa (GET /programas) y valores de enumerados
     "opciones.secciones_programa.": lambda: list(__import__(
         "autoclave.backend.server", fromlist=["_SECCIONES_PROGRAMA"])._SECCIONES_PROGRAMA),

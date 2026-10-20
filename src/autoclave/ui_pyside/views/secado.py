@@ -1,6 +1,6 @@
 # src/autoclave/ui_pyside/views/secado.py
 import requests
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.ui_pyside.services.backend_client import BackendClient
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 from qfluentwidgets import (

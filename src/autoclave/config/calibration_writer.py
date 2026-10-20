@@ -15,6 +15,8 @@ from pathlib import Path
 from ruamel.yaml import YAML
 from ruamel.yaml.comments import CommentedMap
 
+from autoclave.utils.archivos import escribir_texto_atomico
+
 _SECCION_POR_TIPO = {"temperature": "temperature", "pressure": "pressure"}
 
 # Estilo de indentacion del archivo real calibration.yaml (verificado empiricamente):
@@ -141,5 +143,8 @@ def write_user_calibration(
     )
     seq.yaml_set_comment_before_after_key(index, before=comentario, indent=_COMENTARIO_INDENT)
 
-    with open(yaml_path, "w", encoding="utf-8") as f:
-        yaml.dump(data, f)
+    # A2 (tanda 3): sin UPS, un corte a mitad de la escritura dejaba un YAML
+    # truncado y el equipo sin arrancar (ARR_CALIBRACION). Atómica + .bak.
+    salida = io.StringIO()
+    yaml.dump(data, salida)
+    escribir_texto_atomico(yaml_path, salida.getvalue(), respaldo=True)

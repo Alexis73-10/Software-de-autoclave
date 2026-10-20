@@ -124,6 +124,10 @@ class EstadoAutoclave:
         # CALENTAMIENTO/ESTABILIZACION/ESTERILIZACION; se limpia al iniciar
         # cada ciclo nuevo (CicloState.reset())
         self.f0_acumulado: float = 0.0
+        # O1 (tanda 3): usuario autenticado que pidió el inicio (POST /cycle/start).
+        # Lo fija el backend junto con START_CICLO y lo toma el CycleLogger al
+        # crear el ciclo. "" = sin sesión.
+        self.operador_inicio: str = ""
         # Avisos del ciclo que van al pie del ticket (SAF-04 de T3)
         self.avisos_ciclo: list = []
 

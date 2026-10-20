@@ -4,8 +4,10 @@
 # - "Confirmar y llevar a estado seguro" (fin de ciclo §15.2): POST
 #   /safe-state/confirm, cualquier operador, sin rol.
 # - "Apagar equipo" (fin de ciclo §16, D-20): POST /system/shutdown, solo
-#   desde la ventana principal (puerta 1). El backend vuelve a validar cámara
-#   segura, estado y ventana; si lo rechaza, `mensaje` lleva el motivo.
+#   desde la ventana principal (puerta 1). Se permite en cualquier estado salvo
+#   ciclo en curso (A1, tanda 3), también con la cámara NO segura: `camaraNoSegura`
+#   deja a la pantalla avisar antes de confirmar. El backend vuelve a validar
+#   estado y ventana; si lo rechaza, `mensaje` lleva el motivo.
 # Las peticiones corren fuera del hilo de la GUI.
 
 import logging
@@ -25,6 +27,9 @@ def _en_hilo(tarea) -> None:
 class ComandosSistema(QObject):
     ocupadoChanged = Signal()
     mensajeChanged = Signal()
+    camaraNoSeguraChanged = Signal()
+    # S4 (CIC-10): el aviso pide abrir la asignación de sondas (OPCIONES)
+    asignarSondaSolicitada = Signal()
     _terminado = Signal(bool, str)   # emitida desde el hilo de trabajo
 
     def __init__(self, puente, ui_service, door: int, parent=None, ejecutar=_en_hilo):
@@ -37,10 +42,17 @@ class ComandosSistema(QObject):
         self._mensaje = ""
         self._apagando = False   # la petición en curso es la de apagar
         self._terminado.connect(self._al_terminar)
+        # el aviso de "NO ABRIR" sigue a la bandera del puente
+        self._puente.seguridadChanged.connect(self.camaraNoSeguraChanged)
 
     @Property(bool, constant=True)
     def ventanaPrincipal(self) -> bool:
         return self._door == VENTANA_PRINCIPAL
+
+    @Property(bool, notify=camaraNoSeguraChanged)
+    def camaraNoSegura(self) -> bool:
+        """Falla cerrada: sin dato del puente cuenta como NO segura."""
+        return getattr(self._puente, "noAbrir", True) is not False
 
     @Property(bool, notify=ocupadoChanged)
     def ocupado(self) -> bool:
@@ -75,6 +87,13 @@ class ComandosSistema(QObject):
         if not self._puente.estadoSeguroRequiereConfirmacion:
             return
         self._lanzar("confirmar_estado_seguro", self._ui.confirmar_estado_seguro)
+
+    @Slot()
+    def asignarSondaPrincipal(self) -> None:
+        """Opción B de CIC-10: la pantalla abre OPCIONES (con su login: solo
+        técnico o ingeniero llegan a la asignación de roles). No cambia nada
+        por sí mismo: el backend verifica la lectura de la sonda elegida."""
+        self.asignarSondaSolicitada.emit()
 
     @Slot()
     def apagarEquipo(self) -> None:

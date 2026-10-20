@@ -28,20 +28,27 @@
 | B-03 | NO ABRIR con la cámara no segura (simulado en seco) | En seco (sin vapor) | §5.2 (T4) |
 | B-04 | Puertas manuales: un sensor de cerrada por puerta | En seco (sin vapor) | tanda 2; T9 |
 | B-05 | Tarjeta desconectada fuera de ciclo | En seco (sin vapor) | §5.10; U4 |
-| B-06 | Apagar equipo | En seco (sin vapor) | §5.8; T7 |
+| B-06 | Apagar equipo (solo pantalla 1; cualquier estado salvo ciclo) | En seco (sin vapor) | §5.8; T7; A1 (tanda 3) |
+| B-07 | Apagar equipo en FALLA, con paro, sin tarjeta y con la cámara no segura | En seco (sin vapor) | A1 (tanda 3); A2 |
 | C-01 | Modo sin base de datos | En seco (sin vapor) | §5.6 (T8); S3 |
 | C-02 | Alarmas de la tarjeta fuera de ciclo | En seco (sin vapor) | §5.10 (T1) |
 | C-03 | Corte de energía fuera de ciclo y arranque | En seco (sin vapor) | §5.1 (T6) |
+| C-04 | Corte de energía abrupto: base y archivos de estado íntegros | En seco (sin vapor) | A2 (tanda 3) |
 | D-01 | Roles de sensor: Principal / Referencias / No en uso | En seco (sin vapor) | §5.5 (T3, T12) |
 | D-02 | Parámetros: técnico edita en PREPARADO, rechazado en ciclo | En seco (sin vapor) | §5.9 (T10, T12) |
 | D-03 | Calibración con límites de plausibilidad | En seco (sin vapor) | S3a |
 | D-04 | Pantallas: navegación, campana y legibilidad | En seco (sin vapor) | §5.11; U1; U2 |
 | D-05 | Cambio de programa: permitido en FALLA, rechazado con algo en curso | En seco (sin vapor) | S2 |
+| D-06 | Próximo mantenimiento: cálculo, registro y aviso | En seco (sin vapor) | M1 (tanda 3) |
+| D-07 | Calibración y Entradas/Salidas desde el ejecutable (engrane) | En seco (sin vapor) | C1 (tanda 3); S3a |
+| D-08 | Programas de usuario persistentes con el ejecutable | En seco (sin vapor) | C2 (tanda 3) |
+| D-09 | Menú Principal sin la tarjeta de secado; CIC-10 indica qué hacer | En seco (sin vapor) | S4; U5 (tanda 3) |
 | E-01 | Instrumental 134 completo | En operación (vapor) | §5.3 |
 | E-02 | Instrumental 121 completo | En operación (vapor) | §5.3; T11 |
 | E-03 | SECADO alcanza vacío con la bomba y las válvulas cerradas | En operación (vapor) | T5 §1.6 |
 | E-04 | Vigilar el corte por calidad de vapor del calentamiento | En operación (vapor) | CLAUDE.md (calentamiento) |
 | E-05 | NO ABRIR en las dos pantallas con la cámara caliente | En operación (vapor) | §5.2 |
+| E-06 | Operador del ciclo en ticket, historial y detalle | En operación (vapor) | O1 (tanda 3) |
 | F-01 | Paro de emergencia durante el ciclo | En operación (vapor) | B-01 en ciclo |
 | F-02 | Pérdida de comunicación durante el ciclo | En operación (vapor) | §5.10 (T1) |
 | F-03 | Corte de energía durante el ciclo | En operación (vapor) | §5.1 (T6) |
@@ -188,16 +195,34 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### B-06 — Apagar equipo
+### B-06 — Apagar equipo (solo pantalla 1; cualquier estado salvo ciclo)
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** §5.8; T7
-- **Objetivo:** El apagado solo está disponible desde la puerta 1 y con la cámara segura.
-- **Precondiciones:** PREPARADO, cámara segura.
+- **Modo:** En seco (sin vapor)  ·  **Origen:** §5.8; T7; A1 (tanda 3)
+- **Objetivo:** El apagado está disponible solo desde la puerta 1 y se permite en cualquier estado salvo ciclo en curso, con aviso si la cámara no es segura.
+- **Precondiciones:** PREPARADO (luego repetir en FALLA). Instalado con el ejecutable, o `AUTOCLAVE_APAGADO_REAL=1`.
 - **Pasos:**
   1. Desde la puerta 2, buscar "Apagar equipo".
-  2. Desde la puerta 1, Información del equipo › Apagar equipo.
-- **Resultado esperado:** Puerta 2: no disponible. Puerta 1: salidas apagadas, base cerrada y Windows se apaga (solo con el ejecutable o `AUTOCLAVE_APAGADO_REAL=1`).
-- **Criterio de aprobado/fallo:** Aprobado si solo apaga desde la puerta 1 y con la cámara segura.
+  2. Desde la puerta 1, Información del equipo › Apagar equipo, cancelar en la confirmación.
+  3. Iniciar un ciclo corto e intentar Apagar equipo.
+  4. Cancelar el ciclo y, ya en FALLA o PREPARADO, Apagar equipo y confirmar.
+- **Resultado esperado:** Puerta 2: no disponible. Puerta 1: pide confirmación; durante el ciclo, rechazado (hay que cancelar antes). Fuera de ciclo: salidas apagadas, bitácora `apagar_equipo` (estado, cámara segura, tarjeta), base cerrada y Windows se apaga.
+- **Criterio de aprobado/fallo:** Aprobado si solo apaga desde la puerta 1, nunca en ciclo, y la bitácora registra el estado y la condición de la cámara.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### B-07 — Apagar equipo en FALLA, con paro, sin tarjeta y con la cámara no segura
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** A1 (tanda 3); A2
+- **Objetivo:** El personal técnico puede dejar el equipo fuera de servicio aunque haya una falla, el paro esté pulsado o no haya tarjeta; el siguiente arranque es normal.
+- **Precondiciones:** Sin ciclo en curso. Probar cada condición por separado: (a) FALLA recuperable (p. ej. USB desconectado); (b) paro de emergencia pulsado; (c) tarjeta desconectada; (d) cámara no segura (si se puede, con la cámara caliente, p. ej. tras E-01).
+- **Pasos:**
+  1. Provocar la condición.
+  2. En la puerta 1, Información del equipo › Apagar equipo.
+  3. Con la cámara no segura, leer el aviso del diálogo y confirmar.
+  4. Tras el apagado, volver a encender el PC y el software.
+- **Resultado esperado:** Con la cámara no segura el diálogo avisa "NO ABRIR… no abra las puertas". En todos los casos el equipo se apaga. Al encender, arranca normal (estado seguro o confirmación si la cámara no es segura) sin intervención técnica.
+- **Criterio de aprobado/fallo:** Aprobado si ninguna condición impide el apagado, no se abre ninguna puerta ni válvula por el apagado y el arranque siguiente es normal.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -244,6 +269,21 @@
   2. Restaurar y arrancar.
 - **Resultado esperado:** ALL_OFF al conectar; si la cámara no es segura, el estado seguro pide confirmación.
 - **Criterio de aprobado/fallo:** Aprobado si ninguna salida se enciende sola tras el corte.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-04 — Corte de energía abrupto: base y archivos de estado íntegros
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** A2 (tanda 3)
+- **Objetivo:** Sin UPS, un corte (incluso mientras se escribe) no daña la base ni los archivos de estado.
+- **Precondiciones:** PREPARADO, con al menos un ciclo en el historial. Copia de seguridad de `data/`.
+- **Pasos:**
+  1. Cortar la energía del PC con el interruptor (sin apagar), durante una calibración o un cambio de parámetro.
+  2. Restaurar y arrancar.
+  3. Revisar Historial, la calibración y `data/` (sin archivos `.tmp` pendientes).
+- **Resultado esperado:** Arranca sin avisos de base corrupta; el historial está completo hasta el último ciclo cerrado; la calibración y los parámetros están íntegros (la versión anterior o la nueva, nunca truncados).
+- **Criterio de aprobado/fallo:** Aprobado si la base abre (sin BD_BLOQUEADA), la calibración se lee y el contador de ciclos sigue consecutivo.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -324,6 +364,69 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### D-06 — Próximo mantenimiento: cálculo, registro y aviso
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** M1 (tanda 3)
+- **Objetivo:** El próximo mantenimiento se calcula desde la instalación, se registra y nunca bloquea un ciclo.
+- **Precondiciones:** Sesión de técnico. Intervalo por defecto PROVISIONAL (180 días): confirmar o cambiarlo con `PUT /maintenance/config`.
+- **Pasos:**
+  1. Ver Menú Principal: tarjeta Próximo mantenimiento, su ventana e Información del equipo.
+  2. OPCIONES › Mantenimiento: Registrar mantenimiento realizado (preventivo).
+  3. Con `intervalo_dias` muy bajo (p. ej. 1) y el reloj adelantado, comprobar "VENCIDO" y el aviso en la campana; iniciar un ciclo.
+  4. Con el reloj anterior a la instalación, abrir la ventana de mantenimiento.
+- **Resultado esperado:** Fecha = instalación + intervalo; tras registrar, la base es hoy. Vencido: aviso SIS-04 en la campana y el ciclo se inicia igual. Reloj anterior a la instalación: "—" (no un valor falso) y el registro se rechaza.
+- **Criterio de aprobado/fallo:** Aprobado si nunca se bloquea un ciclo por el mantenimiento y no se muestra una fecha falsa. Anotar los intervalos definitivos que Cristian apruebe.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-07 — Calibración y Entradas/Salidas desde el ejecutable (engrane)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** C1 (tanda 3); S3a
+- **Objetivo:** El menú de ajustes (PySide) abre con el ejecutable, se autentica con el backend y respeta roles y plausibilidad.
+- **Precondiciones:** Ejecutable instalado. Usuario técnico e ingeniero. Patrón de temperatura.
+- **Pasos:**
+  1. Tocar el engrane; iniciar sesión en el menú de ajustes (técnico).
+  2. Entradas/Salidas › Temperaturas › calibrar con dos puntos normales; luego una corrección de 20 °C; luego una grande confirmable.
+  3. Modo prueba: encender una salida segura; cerrar la ventana con "✕ Salir".
+  4. Iniciar un ciclo e intentar abrir calibración/modo prueba.
+- **Resultado esperado:** Abre sin error (si no abre: revisar `scipy` en el spec). Calibración normal se guarda y audita; la absurda se rechaza con el motivo (no como fallo de conexión); la grande pide confirmación explícita. Al salir, el modo prueba termina. En ciclo, rechazado.
+- **Criterio de aprobado/fallo:** Aprobado si ninguna escritura es posible sin sesión ni en ciclo y los rechazos muestran el motivo real.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-08 — Programas de usuario persistentes con el ejecutable
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** C2 (tanda 3)
+- **Objetivo:** Lo que el técnico edita en los programas de usuario no se pierde al cerrar ni al actualizar.
+- **Precondiciones:** Ejecutable instalado en Archivos de programa. Sesión de técnico.
+- **Pasos:**
+  1. Editar un parámetro de un programa de usuario y cerrar el software.
+  2. Reabrir y comprobar el valor.
+  3. Reemplazar la carpeta del programa por una versión nueva y comprobar de nuevo.
+  4. Dañar a propósito un archivo de usuario (`%ProgramData%\Especifika\Autoclave\programa\autoclave\cycles\user\*.json`) y reiniciar.
+- **Resultado esperado:** El valor editado se conserva tras cerrar y tras actualizar; `factory` es solo lectura. Con el archivo dañado, aviso de arranque y se usa el programa de fábrica (nunca un ciclo inválido).
+- **Criterio de aprobado/fallo:** Aprobado si no se pierde ninguna edición y un programa dañado jamás corre.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-09 — Menú Principal sin la tarjeta de secado; CIC-10 indica qué hacer
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S4; U5 (tanda 3)
+- **Objetivo:** La tarjeta "Tiempo adicional de secado" ya no existe, y un estado seguro detenido indica cómo recuperarlo.
+- **Precondiciones:** Equipo con el estado seguro detenido por el Principal sin lectura (desconectar la sonda Principal tras un ciclo en operación, o simulador).
+- **Pasos:**
+  1. Abrir el Menú Principal y revisar la fila de Reportes e Información (iconos incluidos).
+  2. Con el estado seguro detenido, abrir la campana: leer el aviso y pulsar "Asignar sonda Principal".
+  3. En OPCIONES › Parámetros del ciclo › Sensores, asignar otra sonda con lectura como Principal.
+- **Resultado esperado:** Reportes e Información a mitad de ancho cada una, con iconos. El aviso dice "Revise la sonda Principal o asigne otra…"; NO ABRIR sigue vigente. Con otra sonda con lectura y no más fría que las demás, el protocolo continúa; si es más fría, sigue detenido.
+- **Criterio de aprobado/fallo:** Aprobado si no hay ninguna forma de declarar la cámara segura a mano y el cambio de sonda solo libera con una lectura segura.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque E. Ciclos de sólidos (en operación)
 
 ### E-01 — Instrumental 134 completo
@@ -395,6 +498,21 @@
   2. Intentar abrir la puerta antes de la cámara segura.
 - **Resultado esperado:** NO ABRIR con el motivo en ambas; apertura rechazada hasta cámara segura.
 - **Criterio de aprobado/fallo:** Aprobado si no se abre antes de tiempo en ninguna puerta.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### E-06 — Operador del ciclo en ticket, historial y detalle
+
+- **Modo:** En operación (vapor)  ·  **Origen:** O1 (tanda 3)
+- **Objetivo:** El usuario con sesión que inicia el ciclo queda registrado.
+- **Precondiciones:** Dos ciclos cortos: uno con sesión iniciada en la pantalla (Iniciar sesión) y otro sin sesión.
+- **Pasos:**
+  1. Con sesión, iniciar un ciclo y dejarlo terminar.
+  2. Sin sesión, iniciar otro.
+  3. Revisar el ticket impreso, Último ciclo, Historial y la reimpresión.
+- **Resultado esperado:** El ciclo con sesión muestra `Operador: <usuario>` en el ticket y el operador en el detalle; el otro deja la línea para firmar y "—". Los ciclos antiguos siguen mostrándose.
+- **Criterio de aprobado/fallo:** Aprobado si ambos casos coinciden entre ticket, historial y detalle.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -483,7 +601,7 @@
 - Esta hoja firmada (cada prueba con valor observado, resultado y firma).
 - `installation_profile.json` instalado (copia) y fecha de instalación.
 - Exportación de `audit_log` y del historial de ciclos de la sesión de pruebas (base `data/` o respaldo JSONL de `data/respaldo_ciclos/`).
-- Tickets impresos (o PDF) de cada ciclo E-01, E-02, E-03, F-01, F-02, F-03, G-01.
+- Tickets impresos (o PDF) de cada ciclo E-01, E-02, E-03, E-06, F-01, F-02, F-03, G-01.
 - Gráficas de cada ciclo (captura de la pantalla de ciclo en curso o del Historial).
 - Log del backend (`logs/`) del día de pruebas.
 - Versión del software (commit) y del firmware (Información del sistema) usados.

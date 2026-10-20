@@ -194,6 +194,8 @@ class CycleLogger:
 
         # Estado interno
         self._activo            = False
+        self._operador          = ""      # O1: respaldo/ticket del ciclo en curso
+        self._operador_ticket   = ""      # O1: usuario real (sin la leyenda de sin BD)
         self._ciclo_inicio      = None    # time.time() al iniciar
         # Reloj monotónico del último registro (None = registrar ya). Intervalos
         # y tiempo transcurrido con monotonic: un salto del reloj de pared no
@@ -370,6 +372,16 @@ class CycleLogger:
                 logger.exception("CycleLogger: no se pudo marcar el ciclo en curso")
 
         fecha_inicio = datetime.now().isoformat()
+        # O1 (tanda 3): operador que inició el ciclo; se consume (un ciclo que
+        # arranca por otra vía no hereda el de uno anterior). Sin base de datos
+        # la leyenda del ticket y del respaldo sigue siendo "SIN OPERADOR / SIN BD"
+        operador = str(getattr(self.estado, "operador_inicio", "") or "")
+        try:
+            self.estado.operador_inicio = ""
+        except Exception:
+            pass
+        self._operador_ticket = "" if self.sin_base_de_datos else operador
+        self._operador = "SIN OPERADOR / SIN BD" if self.sin_base_de_datos else operador
         datos_ciclo = dict(
             numero      = numero,
             tipo        = tipo,
@@ -382,6 +394,7 @@ class CycleLogger:
             asignacion_sensores = asignacion,
             numero_programa = numero_programa,
             programa_json = programa_json,
+            operador    = operador,
         )
         # T8 (§7.4): respaldo antes de la base, con los mismos datos. S3d: el
         # fsync sale del tick; va por el mismo hilo FIFO que la base
@@ -389,7 +402,7 @@ class CycleLogger:
         if self.respaldo is not None:
             uuid_ciclo = self.uuid_ciclo
             encabezado = {**datos_ciclo, "fecha_inicio": fecha_inicio,
-                          "operador": "SIN OPERADOR / SIN BD" if self.sin_base_de_datos else ""}
+                          "operador": self._operador}
             self._respaldar(lambda: self.respaldo.encabezado(uuid_ciclo, encabezado))
 
         # T8 (BD-02, §7.3; TMG-01): la base se escribe fuera del tick y un
@@ -428,6 +441,7 @@ class CycleLogger:
                 "tiempo_esterilizacion": t_e,
                 "fecha_inicio":          fecha_inicio,
                 "sin_registro":          self.sin_base_de_datos,
+                "operador":              operador,
             }
             self.printer.enqueue(format_header(meta))
 
@@ -472,6 +486,7 @@ class CycleLogger:
                     resultado, datetime.now().isoformat(),
                     temp_final=self._ultima_temp, motivo=motivo_ticket(codigo, motivo), f0_total=f0_total,
                     avisos=list(getattr(self.estado, "avisos_ciclo", None) or []) or None,
+                    operador=self._operador_ticket or None,
                 ))
 
             logger.info(

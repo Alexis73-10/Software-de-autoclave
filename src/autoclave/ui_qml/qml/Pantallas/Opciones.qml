@@ -229,11 +229,24 @@ Item {
             }
         }
 
+        // Mantenimiento (M1, tanda 3): próximo vencimiento y registro
+        Loader {
+            id: mantenimiento
+            objectName: "cargadorMantenimiento"
+            active: raiz.seccionActiva === "mantenimiento"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesMantenimiento {
+                edicionPermitida: raiz.edicionPermitida
+            }
+        }
+
         // Secciones aún no migradas (U-4); centrado como en la imagen 1c
         Text {
             objectName: "textoProximamente"
             visible: raiz.seccionActiva !== "" && raiz.seccionActiva !== "usuarios"
                      && raiz.seccionActiva !== "parametros_ciclo"
+                     && raiz.seccionActiva !== "mantenimiento"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia

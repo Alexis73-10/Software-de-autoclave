@@ -27,6 +27,7 @@ _PUENTE = """
         property bool paroActivo: false
         property bool estadoSeguroActivo: false
         property bool estadoSeguroRequiereConfirmacion: false
+        property string estadoSeguroBloqueadoMotivo: ""
         property bool modoPrueba: false
         property bool connected: true
         property string estadoTarjeta: "ok"
@@ -36,7 +37,9 @@ _PUENTE = """
         property bool ocupado: false
         property string mensaje: ""
         property int confirmaciones: 0
+        property int asignaciones: 0
         function confirmarEstadoSeguro() { confirmaciones += 1 }
+        function asignarSondaPrincipal() { asignaciones += 1 }
     }
     property alias puente: puenteFalso
     property alias comandos: comandosFalsos
@@ -144,6 +147,15 @@ r["3_fila"] = visible(E, "filaEstadoSeguroEnCurso") and not visible(E, "filaEsta
 r["3_boton_deshabilitado"] = visible(E, "botonConfirmarEstadoSeguro") and not bool(boton.property("habilitado"))
 r["3_indicador"] = visible(E, "indicadorEnCurso") and visible(E, "notaNoAbrirEnCurso")
 r["3_insignia"] = p("avisoEnCurso") and not p("urgente") and not p("parpadeo")
+# S4 (CIC-10): estado seguro detenido: aviso con la acción y botón de asignar sonda
+r["s4_sin_bloqueo_oculto"] = (not visible(E, "avisoEstadoSeguroDetenido")
+                              and not visible(E, "botonAsignarSonda"))
+puente.setProperty("estadoSeguroBloqueadoMotivo", "Sensor Principal sin lectura")
+r["s4_aviso"] = (visible(E, "avisoEstadoSeguroDetenido") and visible(E, "botonAsignarSonda")
+                 and "Sensor Principal sin lectura" in fila(E, "avisoEstadoSeguroDetenido").property("texto")
+                 and "Parámetros del ciclo" in fila(E, "avisoEstadoSeguroDetenido").property("texto"))
+r["s4_sigue_no_abrir"] = visible(E, "filaEstadoSeguroEnCurso") and fila(E, "botonDeclararSegura") is None
+puente.setProperty("estadoSeguroBloqueadoMotivo", "")
 puente.setProperty("estadoSeguroActivo", False)
 
 # sin conexión con el backend: seguridad desconocida, contada, roja fija

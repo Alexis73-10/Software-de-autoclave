@@ -223,6 +223,39 @@ Column {
         font.family: Tipografia.familia
         font.pixelSize: Escala.fuente(20)
     }
+    // S4 (CIC-10, opciones A + B): el estado seguro no puede terminar solo.
+    // Indica qué hacer y abre la asignación de sondas (técnico/ingeniero, con
+    // su login). "NO ABRIR" sigue vigente; no hay forma de declarar la cámara
+    // segura a mano (opción C descartada).
+    readonly property string bloqueoMotivo: puente?.estadoSeguroBloqueadoMotivo ?? ""
+    // el botón solo ayuda si el motivo es el sensor Principal (no el timeout líquido)
+    readonly property bool bloqueoPorSonda: bloqueoMotivo.indexOf("Principal") >= 0
+    Nota {
+        objectName: "avisoEstadoSeguroDetenido"
+        visible: raiz.bloqueoMotivo !== "" && raiz.enCurso && raiz.enGrupo("emergencia")
+        borde: true
+        fondo: Colores.advertenciaFondo
+        tinta: Colores.advertenciaTexto
+        texto: raiz.bloqueoMotivo + (raiz.bloqueoPorSonda
+               ? ". " + I18n.t("sistema.estado_seguro_detenido_accion", I18n.lang) : ".")
+    }
+    Rectangle {
+        objectName: "botonAsignarSonda"
+        visible: raiz.bloqueoPorSonda && raiz.enCurso && raiz.enGrupo("emergencia")
+        width: raiz.width
+        height: Escala.px(80)
+        radius: height / 2
+        color: Colores.accionPrimario
+        Text {
+            anchors.centerIn: parent
+            text: I18n.t("sistema.asignar_sonda_principal", I18n.lang)
+            color: "white"
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: Escala.fuente(24)
+        }
+        MouseArea { anchors.fill: parent; onClicked: raiz.comandos?.asignarSondaPrincipal() }
+    }
     // rechazo del backend (p. ej. sin conexión o estado cambiado)
     Text {
         objectName: "mensajeConfirmar"

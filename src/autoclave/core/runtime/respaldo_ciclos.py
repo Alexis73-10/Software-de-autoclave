@@ -105,7 +105,10 @@ class RespaldoCiclos:
         descartan. None si no hay encabezado."""
         encabezado, lecturas, cierre = None, [], None
         try:
-            texto = Path(ruta).read_text(encoding="utf-8")
+            # A2: un corte de energía puede dejar bytes basura al final (NTFS
+            # rellena con ceros); "replace" evita perder el archivo entero y
+            # la línea dañada se descarta abajo
+            texto = Path(ruta).read_text(encoding="utf-8", errors="replace")
         except Exception:
             logger.exception("RespaldoCiclos: no se pudo leer %s", ruta)
             return None

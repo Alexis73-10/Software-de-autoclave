@@ -166,7 +166,17 @@
     "err_asignacion": "La asignación no cumple las reglas: un Principal y hasta dos Referencias.",
     "err_sensor": "Hay un sensor sin señal o no instalado en la asignación.",
     "err_sin_respuesta": "Sin respuesta del equipo. Se verificó el valor actual; revíselo antes de reintentar.",
-    "err_generico": "No se pudo completar la operación."
+    "err_generico": "No se pudo completar la operación.",
+    "mant_tipo": "Tipo de mantenimiento",
+    "mant_tipo_preventivo": "Preventivo",
+    "mant_tipo_correctivo": "Correctivo",
+    "mant_tipo_calibracion": "Calibración",
+    "mant_tipo_otro": "Otro",
+    "mant_registrar": "Registrar mantenimiento realizado",
+    "mant_confirmar": "Se registrará un mantenimiento {tipo} realizado hoy. ¿Desea continuar?",
+    "mant_sin_dato": "El reloj del sistema es anterior a la instalación: corrija la fecha y hora.",
+    "mant_err_reloj": "El reloj del sistema es anterior a la instalación o al último mantenimiento: corrija la fecha y hora.",
+    "mant_err_validacion": "Datos de mantenimiento no válidos."
   },
   "menu": {
     "titulo": "MENÚ PRINCIPAL",
@@ -176,8 +186,6 @@
     "historial_desc": "Consulte los ciclos\nrealizados",
     "reportes_desc": "Visualice y administre\nreportes de ciclos",
     "informacion_desc": "Información del equipo\ny del sistema",
-    "secado_titulo": "TIEMPO ADICIONAL\nDE SECADO",
-    "secado_desc": "Programa seleccionado",
     "ciclos_totales": "CICLOS TOTALES\nDEL EQUIPO",
     "proximo_mantenimiento": "PRÓXIMO\nMANTENIMIENTO",
     "ciclos_hoy": "CICLOS HOY",
@@ -197,6 +205,8 @@
     "ventana_mantenimiento": "PRÓXIMO MANTENIMIENTO",
     "ultimo_mantenimiento": "Fecha del último mantenimiento",
     "ciclos_restantes": "Ciclos para el próximo mantenimiento",
+    "vencido": "VENCIDO",
+    "proximo_vencimiento": "Próximo vencimiento",
     "ventana_ciclos_hoy": "CICLOS DE HOY",
     "ventana_historial": "HISTORIAL",
     "ciclo_titulo": "CICLO",
@@ -382,6 +392,7 @@
     "ciclos_realizados": "Ciclos realizados",
     "ultimo_ciclo": "Último ciclo",
     "ultimo_mantenimiento": "Último mantenimiento",
+    "ciclos_restantes": "Ciclos restantes para el mantenimiento",
     "version_software": "Versión de software",
     "version_tarjeta": "Versión de tarjeta",
     "id_tarjeta": "ID de tarjeta",
@@ -391,7 +402,8 @@
     "no_disponible": "No disponible",
     "apagar": "Apagar equipo",
     "apagar_pregunta": "El equipo se apagará por completo (incluido el PC). ¿Desea continuar?",
-    "apagar_rechazado": "No se puede apagar: {motivo}"
+    "apagar_rechazado": "No se puede apagar: {motivo}",
+    "apagar_camara_no_segura": "La cámara no está en condición segura (NO ABRIR). El equipo quedará fuera de servicio; no abra las puertas."
   },
   "formulario": {
     "nombre_completo": "Nombre Completo",
@@ -490,6 +502,8 @@
     "paro_suelte": "Suelte el botón de paro para continuar. Hasta entonces no hay acciones disponibles.",
     "confirmar_sin_sesion": "Disponible para cualquier operador, sin iniciar sesión",
     "estado_seguro_en_curso_boton": "En curso…",
+    "estado_seguro_detenido_accion": "Revise la sonda Principal o asigne otra sonda como Principal en OPCIONES › Parámetros del ciclo › Sensores.",
+    "asignar_sonda_principal": "Asignar sonda Principal",
     "no_abrir_hasta_segura": "NO ABRIR hasta que la cámara esté segura",
     "seguridad_desconocida": "Sin conexión con el equipo: no se puede verificar el paro ni la cámara. NO ABRIR.",
     "tarjeta_desconectada": "Tarjeta desconectada: no se puede verificar el paro ni la cámara. NO ABRIR.",

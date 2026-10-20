@@ -219,11 +219,43 @@ def _migracion_v4(conn: sqlite3.Connection) -> None:
             "BEGIN SELECT RAISE(ABORT, 'audit_log es de solo anexar'); END")
 
 
+def _migracion_v5(conn: sqlite3.Connection) -> None:
+    """M1 (tanda 3): registro de mantenimientos realizados. `fecha` es la fecha
+    de calendario (reloj de pared) y `ciclos` el contador persistente de ciclos
+    en ese momento. Solo se anexan filas (la corrección es un registro nuevo)."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS mantenimientos (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            fecha         TEXT NOT NULL,
+            usuario       TEXT NOT NULL DEFAULT '',
+            tipo          TEXT NOT NULL DEFAULT '',
+            observaciones TEXT NOT NULL DEFAULT '',
+            ciclos        INTEGER
+        )""")
+    for accion in ("UPDATE", "DELETE"):
+        conn.execute(
+            f"CREATE TRIGGER IF NOT EXISTS mantenimientos_sin_{accion.lower()} "
+            f"BEFORE {accion} ON mantenimientos "
+            "BEGIN SELECT RAISE(ABORT, 'mantenimientos es de solo anexar'); END")
+
+
+def _migracion_v6(conn: sqlite3.Connection) -> None:
+    """O1 (tanda 3): operador que inició cada ciclo. La columna `operador`
+    existe desde el esquema original, pero nada la llenaba; se garantiza en
+    bases creadas antes de ella y se deja la versión. Los ciclos anteriores
+    conservan '' (la UI muestra "—": sin operador registrado)."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    if "operador" not in columnas:
+        conn.execute("ALTER TABLE ciclos ADD COLUMN operador TEXT DEFAULT ''")
+
+
 _MIGRACIONES = (
     (1, _migracion_v1),
     (2, _migracion_v2),
     (3, _migracion_v3),
     (4, _migracion_v4),
+    (5, _migracion_v5),
+    (6, _migracion_v6),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -296,6 +328,7 @@ class DbManager:
         )
         self._conn.row_factory = sqlite3.Row
         try:
+            self._verificar_integridad()
             self._apply_schema()
             self.seed_admin_if_empty()
         except Exception:
@@ -307,6 +340,17 @@ class DbManager:
     # ------------------------------------------------------------------
     # Schema
     # ------------------------------------------------------------------
+
+    def _verificar_integridad(self):
+        """A2 (tanda 3): sin UPS, un corte puede dejar la base dañada. Se fija
+        `synchronous = FULL` (cada commit se fuerza a disco, también en WAL) y
+        se revisa la integridad al abrir. Si falla se lanza DatabaseError
+        "malformed": el arranque aparta la base y opera sin BD con alarma."""
+        self._conn.execute("PRAGMA synchronous = FULL")
+        resultado = [fila[0] for fila in self._conn.execute("PRAGMA quick_check")]
+        if resultado != ["ok"]:
+            raise sqlite3.DatabaseError(
+                "database disk image is malformed: quick_check: " + "; ".join(map(str, resultado[:3])))
 
     def _apply_schema(self):
         with self._lock:
@@ -404,6 +448,33 @@ class DbManager:
             )
             self._conn.commit()
             return cur.lastrowid
+
+    # ------------------------------------------------------------------
+    # Mantenimientos realizados (M1, tanda 3)
+    # ------------------------------------------------------------------
+
+    def registrar_mantenimiento(self, fecha: str, usuario: str, tipo: str,
+                                observaciones: str, ciclos: int | None) -> int:
+        with self._lock:
+            cur = self._conn.execute(
+                "INSERT INTO mantenimientos (fecha, usuario, tipo, observaciones, ciclos)"
+                " VALUES (?,?,?,?,?)", (fecha, usuario or "", tipo or "", observaciones or "", ciclos))
+            self._conn.commit()
+            return cur.lastrowid
+
+    def ultimo_mantenimiento(self) -> dict | None:
+        """El más reciente por fecha (y por id si coinciden)."""
+        with self._lock:
+            fila = self._conn.execute(
+                "SELECT * FROM mantenimientos ORDER BY fecha DESC, id DESC LIMIT 1").fetchone()
+        return dict(fila) if fila else None
+
+    def listar_mantenimientos(self, limite: int = 50) -> list[dict]:
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT * FROM mantenimientos ORDER BY fecha DESC, id DESC LIMIT ?",
+                (int(limite),)).fetchall()
+        return [dict(f) for f in filas]
 
     def get_auditoria(self, evento: str | None = None, entidad: str | None = None,
                       limite: int = 100) -> list[dict]:

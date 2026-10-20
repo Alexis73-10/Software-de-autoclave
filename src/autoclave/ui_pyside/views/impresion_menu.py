@@ -15,7 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from autoclave.devices.printer.win32_printer import PRINTER_NAME, print_raw
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.ui_pyside.services.backend_client import BackendClient
 
 _PRINT_OPTIONS: list[tuple[str, str, str | None]] = [
     ("📋", "Imprimir Ciclos",  "ciclos"),

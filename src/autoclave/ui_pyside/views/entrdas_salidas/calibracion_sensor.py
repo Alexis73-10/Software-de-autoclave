@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
 )
 
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.ui_pyside.services.backend_client import BackendClient
 from autoclave.ui.service_ui.session_manager import SessionManager
 
 _BACKEND_URL = "http://127.0.0.1:8000"
@@ -238,6 +238,10 @@ class CalibracionSensorView(QWidget):
         el técnico confirmó y se guardó; None si no se guardó (el motivo queda
         en la etiqueta)."""
         estado, codigo, detalle = self._rechazo_http(exc)
+        if estado in (401, 403):
+            self._lbl_info.setText("Sesión vencida o sin permiso para calibrar: "
+                                   "salga e inicie sesión de nuevo (técnico o ingeniero).")
+            return None
         if codigo == "CALIBRACION_IMPLAUSIBLE":
             self._lbl_info.setText(f"Calibración rechazada: {detalle}")
             return None

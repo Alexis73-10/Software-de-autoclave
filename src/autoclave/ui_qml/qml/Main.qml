@@ -96,6 +96,12 @@ Window {
     // obligatorio o va directo a OPCIONES (planeacion_opciones_parametros_ciclo.md,
     // U-5: Inicio conserva la sesión).
     OpcionesController { id: sesionVentana }
+    // S4 (CIC-10): el aviso de estado seguro detenido abre OPCIONES
+    Connections {
+        target: ventana.comandosSistema
+        ignoreUnknownSignals: true
+        function onAsignarSondaSolicitada() { ventana.abrirConfiguracion() }
+    }
     function abrirConfiguracion() {
         // U1 (TMG-02): con el paro real o la confirmación pendiente no se va a
         // una pantalla sin campana (U4: el panel ya no se bloquea; el paro se

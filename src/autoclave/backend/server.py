@@ -774,8 +774,11 @@ def _estado_seguro_status() -> dict:
     confirmación "Confirmar y llevar a estado seguro"."""
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
+    motivo = getattr(es, "bloqueado_motivo", None) if activo else None
     return {"activo": activo,
-            "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True}
+            "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
+            # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
+            "bloqueado_motivo": motivo if isinstance(motivo, str) else None}
 
 
 def _camara_segura_status(estado) -> dict:
@@ -1138,6 +1141,72 @@ def _ciclo_json(fila) -> dict:
     }
 
 
+# ── Mantenimiento (M1, tanda 3) ─────────────────────────────────────────────
+# Solo informa: nunca bloquea ni interviene en un ciclo. La lectura es abierta
+# (la ve el Menú Principal sin sesión); configurar y registrar exigen técnico o
+# ingeniero y quedan en la bitácora.
+
+class _MantenimientoConfigBody(BaseModel):
+    intervalo_dias: int
+    intervalo_ciclos: int
+
+
+class _MantenimientoRegistroBody(BaseModel):
+    tipo: str
+    observaciones: str = ""
+
+
+def _rechazo_mantenimiento(e, entidad: str, sesion) -> None:
+    estado = 422 if e.codigo == "validacion" else 409
+    _rechazar(estado, e.codigo, e.motivo, entidad, sesion)
+
+
+@app.get("/maintenance")
+def get_maintenance():
+    """Próximo vencimiento, último mantenimiento, ciclos restantes y los
+    intervalos configurados (valores por defecto PROVISIONALES: 180 días)."""
+    return context.mantenimiento.resumen()
+
+
+@app.get("/maintenance/records")
+def get_maintenance_records(limite: int = 50,
+                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    return {"registros": context.mantenimiento.historial(max(1, min(limite, 500)))}
+
+
+@app.put("/maintenance/config")
+def put_maintenance_config(body: _MantenimientoConfigBody,
+                           sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime.servicio_mantenimiento import ErrorMantenimiento
+    entidad = "/maintenance/config"
+    anterior = context.mantenimiento.configuracion()
+    try:
+        nueva = context.mantenimiento.guardar_configuracion(body.intervalo_dias,
+                                                            body.intervalo_ciclos)
+    except ErrorMantenimiento as e:
+        _rechazo_mantenimiento(e, entidad, sesion)
+    _auditar("mantenimiento_configurado", sesion, entidad=entidad,
+             valor_anterior=anterior, valor_nuevo=nueva)
+    context.mantenimiento.evaluar_alarma()
+    return {"ok": True, "configuracion": nueva}
+
+
+@app.post("/maintenance/records")
+def post_maintenance_record(body: _MantenimientoRegistroBody,
+                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """"Registrar mantenimiento realizado": desde ese momento la base del
+    cálculo pasa a ser hoy y el contador de ciclos actual."""
+    from autoclave.core.runtime.servicio_mantenimiento import ErrorMantenimiento
+    entidad = "/maintenance/records"
+    try:
+        registro = context.mantenimiento.registrar(sesion.usuario, body.tipo, body.observaciones)
+    except ErrorMantenimiento as e:
+        _rechazo_mantenimiento(e, entidad, sesion)
+    _auditar("mantenimiento_registrado", sesion, entidad=entidad, valor_nuevo=registro,
+             detalle={"observaciones": body.observaciones[:200]})
+    return {"ok": True, "registro": registro}
+
+
 @app.get("/cycle/summary")
 def get_cycle_summary():
     """Resumen de solo lectura para el Resumen del Sistema del Menú Principal
@@ -1337,7 +1406,8 @@ def get_db_estado():
 
 
 @app.post("/cycle/start")
-def start_cycle(body: dict | None = Body(default=None)):
+def start_cycle(body: dict | None = Body(default=None),
+                authorization: str | None = Header(None)):
     """
     Solicita el inicio del ciclo de esterilización.
     Sólo tiene efecto cuando el sistema está en estado PREPARADO y
@@ -1345,7 +1415,12 @@ def start_cycle(body: dict | None = Body(default=None)):
     la transición real.
     Sin base de datos (T8, §7.6) exige {"confirmar_sin_registro": true} en
     cada ciclo: queda sin operador y sin registro en la base (respaldo y ticket).
+    O1 (tanda 3): si la petición trae un token de sesión válido, ese usuario es
+    el operador del ciclo (se guarda en la base, el respaldo y el ticket). El
+    inicio sigue sin exigir sesión: sin token (o con uno vencido) el ciclo queda
+    sin operador identificado; el token no se valida como requisito.
     """
+    sesion_operador = tokens.obtener(_token_de(authorization))
     estado = context.estado
     _rechazar_si_config_invalida("/cycle/start")
     if getattr(context, "sin_base_de_datos", False) is True:
@@ -1369,6 +1444,7 @@ def start_cycle(body: dict | None = Body(default=None)):
     with context.control_loop.bloqueo_maquina():
         rechazo = _validar_inicio(estado)
         if rechazo is None:
+            estado.operador_inicio = sesion_operador.usuario if sesion_operador else ""
             estado.set_flag("START_CICLO", True)
     if rechazo is not None:
         if rechazo[0] is None:
@@ -1474,51 +1550,91 @@ def _apagado_windows_habilitado() -> bool:
 
 def _apagar_windows() -> None:
     import subprocess
-    subprocess.run(["shutdown", "/s", "/t", "0"], check=False)
+    subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30)
+
+
+_TOPE_PASO_APAGADO_S = 8.0
+
+
+def _paso_apagado(descripcion: str, paso, tope: float | None = None) -> None:
+    """Un paso de la secuencia de apagado: un fallo se registra y NO impide
+    los siguientes ni el apagado de Windows (A1, tanda 3). Con `tope`, el paso
+    corre en un hilo auxiliar y, si no termina a tiempo, se sigue sin él."""
+    if tope is None:
+        try:
+            paso()
+        except BaseException:
+            logger.exception("Apagar equipo: error en el paso '%s'", descripcion)
+        return
+
+    def ejecutar():
+        try:
+            paso()
+        except BaseException:
+            logger.exception("Apagar equipo: error en el paso '%s'", descripcion)
+
+    hilo = threading.Thread(target=ejecutar, name="Apagado-" + descripcion[:20], daemon=True)
+    hilo.start()
+    hilo.join(tope)
+    if hilo.is_alive():
+        logger.error("Apagar equipo: el paso '%s' no terminó en %.0f s; se sigue", descripcion, tope)
 
 
 def _secuencia_apagado() -> None:
-    """ALL_OFF y parada del lazo (control_loop.stop: detiene el lazo, ALL_OFF y
-    cierra el puerto serial), historial de alarmas, base de datos y, si está
-    habilitado, apagado de Windows. Corre en un hilo aparte para responder
-    antes de cortar."""
-    try:
-        context.control_loop.stop()
-    except Exception:
-        logger.exception("Apagar equipo: error al detener el lazo de control")
+    """ALL_OFF y parada del lazo (control_loop.stop: detiene el lazo, intenta
+    ALL_OFF y cierra el puerto serial), historial de alarmas, base de datos y,
+    si está habilitado, apagado de Windows. Corre en un hilo aparte para
+    responder antes de cortar. Con degradación segura (A1): sin tarjeta o con
+    un paso fallido se registra y se sigue; el paro y el latido de la tarjeta
+    dejan las salidas en seguro por hardware."""
+    _paso_apagado("detener el lazo de control", context.control_loop.stop, _TOPE_PASO_APAGADO_S)
     historial = getattr(context, "historial_alarmas", None)
     if historial is not None and hasattr(historial, "detener"):
-        try:
-            historial.detener(2.0)
-        except Exception:
-            logger.exception("Apagar equipo: error al detener el historial de alarmas")
+        _paso_apagado("detener el historial de alarmas", lambda: historial.detener(2.0),
+                      _TOPE_PASO_APAGADO_S)
     # S3d: vaciar las colas de escritura del respaldo y de la base ANTES de
     # cerrar la base (con el lazo ya detenido no entran tareas nuevas)
     logger_ciclo = getattr(context, "cycle_logger", None)
     if logger_ciclo is not None and hasattr(logger_ciclo, "detener"):
-        try:
-            logger_ciclo.detener(5.0)
-        except Exception:
-            logger.exception("Apagar equipo: error al vaciar la escritura del ciclo")
-    try:
+        _paso_apagado("vaciar la escritura del ciclo", lambda: logger_ciclo.detener(5.0),
+                      _TOPE_PASO_APAGADO_S)
+
+    def cerrar_base():
         # tras una falla de la base en caliente, context.db es BdNoDisponible
         real = getattr(context, "db_real", None)
         (real if getattr(context, "sin_base_de_datos", False) is True and real is not None
          else context.db).close()
-    except Exception:
-        logger.exception("Apagar equipo: error al cerrar la base de datos")
+    _paso_apagado("cerrar la base de datos", cerrar_base, _TOPE_PASO_APAGADO_S)
     if _apagado_windows_habilitado():
         logger.warning("Apagar equipo: apagando Windows")
-        _apagar_windows()
+        _paso_apagado("apagar Windows", _apagar_windows)
     else:
         logger.warning("Apagar equipo: apagado de Windows omitido (no es el ejecutable)")
 
 
+def _estado_seguro_en_marcha() -> bool:
+    """True si el protocolo de estado seguro está ACTUANDO sobre las válvulas.
+    Pausado por un paro, esperando la confirmación del operador o sin datos de
+    la tarjeta no mueve nada: el equipo ya está quieto y se puede apagar (A1)."""
+    es = context.control_loop.estado_seguro
+    if getattr(es, "activo", False) is not True:
+        return False
+    if context.estado.get_flag("PARO_EMERGENCIA"):
+        return False
+    if getattr(es, "requiere_confirmacion", False) is True:
+        return False
+    return getattr(context.control_loop, "datos_vigentes", False) is True
+
+
 @app.post("/system/shutdown")
 def shutdown_system(body: dict = Body(default={})):
-    """"Apagar equipo" (§16): solo con la cámara segura y fuera de CICLO y del
-    protocolo de estado seguro; solo desde la ventana principal (la UI de la
-    puerta 1 envía ventana="principal"). Confirmación: la de la propia UI."""
+    """"Apagar equipo" / dejar fuera de servicio (§16, A1 de la tanda 3).
+    Permitido en cualquier estado salvo ciclo en curso (o estado seguro
+    actuando) y salvo un apagado ya en marcha: con FALLA, EMERGENCIA, paro,
+    sin tarjeta o con la cámara NO segura también se apaga (sin UPS, el
+    personal técnico puede pedir dejar el equipo fuera de servicio). Solo desde
+    la ventana principal (la UI de la puerta 1 envía ventana="principal").
+    Confirmación: la de la propia UI; la cámara no segura solo se avisa allí."""
     entidad = "/system/shutdown"
     if body.get("ventana") != "principal":
         _rechazar(403, "solo_ventana_principal",
@@ -1527,27 +1643,43 @@ def shutdown_system(body: dict = Body(default={})):
         # TMG-05 de T7: un segundo apagado (doble toque) no lanza otra secuencia
         if getattr(context.control_loop, "apagando", False) is True:
             raise _Rechazo(409, "apagado_en_curso", "El equipo ya se está apagando")
-        # SAF-05 de T7: con el modo prueba se pide salir antes (queda registrado)
-        if context.control_loop.test_mode_active is True:
-            raise _Rechazo(409, "modo_prueba_activo", "No permitido con el modo prueba activo")
-        if getattr(context.control_loop.estado_seguro, "activo", False) is True:
+        if _estado_seguro_en_marcha():
             raise _Rechazo(409, "estado_seguro_activo",
                            "La cámara se está llevando a estado seguro")
-        programas = context.programas_para_seguridad()
-        vigentes = getattr(context.control_loop, "datos_vigentes", False) is True
-        segura, motivo = camara_segura.evaluar(
-            context.estado, context.config_manager, programas,
-            getattr(context, "profile", None), datos_vigentes=vigentes,
-            temp_max_ciclo=context.temp_max_tras_ciclo())
-        if not segura:
-            raise _Rechazo(409, "camara_no_segura", motivo)
+        # A1: solo informativo; ya no condiciona el apagado. Cualquier fallo al
+        # evaluar cuenta como "no segura" (falla cerrada).
+        try:
+            vigentes = getattr(context.control_loop, "datos_vigentes", False) is True
+            segura, _motivo = camara_segura.evaluar(
+                context.estado, context.config_manager, context.programas_para_seguridad(),
+                getattr(context, "profile", None), datos_vigentes=vigentes,
+                temp_max_ciclo=context.temp_max_tras_ciclo())
+            segura = segura is True
+        except Exception:
+            logger.exception("Apagar equipo: no se pudo evaluar la cámara; se asume no segura")
+            segura = False
+        try:
+            paro = bool(context.estado.get_flag("PARO_EMERGENCIA"))
+        except Exception:
+            paro = None
+        tarjeta = getattr(context.control_loop, "desconectado", True) is not True
+        en_modo_prueba = getattr(context.control_loop, "test_mode_active", False) is True
         # TMG-01 / SAF-01 de T7: en el mismo bloque que validó, sin soltar el
         # lock: ningún tick posterior puede pasar a CICLO ni mover salidas
         context.control_loop.iniciar_apagado()
     _auditar("apagar_equipo", entidad=entidad,
-             detalle={"estado": getattr(estado, "name", str(estado))})
-    threading.Thread(target=_secuencia_apagado, name="ApagarEquipo", daemon=False).start()
-    return {"ok": True, "apagado_windows": _apagado_windows_habilitado()}
+             detalle={"estado": getattr(estado, "name", str(estado)),
+                      "motivo": "fuera de servicio solicitado",
+                      "camara_segura": segura, "tarjeta_conectada": tarjeta,
+                      "paro_emergencia": paro, "modo_prueba": en_modo_prueba})
+    try:
+        threading.Thread(target=_secuencia_apagado, name="ApagarEquipo", daemon=False).start()
+    except Exception:
+        # sin hilo nuevo: el lazo ya está detenido, se apaga en línea
+        logger.exception("Apagar equipo: no se pudo lanzar el hilo; se apaga en línea")
+        _secuencia_apagado()
+    return {"ok": True, "apagado_windows": _apagado_windows_habilitado(),
+            "camara_segura": segura}
 
 
 @app.post("/safe-state/confirm")
@@ -2079,6 +2211,7 @@ def put_sensor_roles(body: _SensorRolesBody,
                   extra={"errores": errores})
     esperada = _normalizar_asignacion(body.asignacion_anterior_esperada)
 
+    propagado, motivo_propagacion = False, "sin_copias"
     with _lock_archivos:      # serializa escritores: la asignación no cambia entre pasos
         with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
             anterior = dict(sc.asignacion_de(cycle))
@@ -2105,6 +2238,11 @@ def put_sensor_roles(body: _SensorRolesBody,
             if permitido:
                 cycle.sensores = dict(nueva)
                 cycle.sensores_formato_antiguo = False
+                if not en_ciclo:
+                    # S4: libera un estado seguro detenido por el Principal
+                    # viejo, solo si la sonda nueva es segura (no más fría)
+                    propagado, motivo_propagacion = context.control_loop.aplicar_roles_sensores(
+                        cycle.id, nueva)
         if not permitido:
             _escribir_sensores_json(cycle, anterior)       # revierte el archivo
             _rechazar(409, "estado_no_permitido",
@@ -2113,8 +2251,11 @@ def put_sensor_roles(body: _SensorRolesBody,
     _auditar("ROLES_SENSOR", sesion, entidad=entidad,
              valor_anterior=sc.canonica(anterior), valor_nuevo=sc.canonica(nueva),
              detalle={"programa": cycle.id, "numero": body.programa,
-                      "param": "cycle_temperature_sensors"})
-    return {"ok": True, "asignacion": nueva}
+                      "param": "cycle_temperature_sensors",
+                      "estado_seguro_propagado": propagado,
+                      "motivo_propagacion": motivo_propagacion})
+    return {"ok": True, "asignacion": nueva,
+            "estado_seguro_propagado": propagado}
 
 
 def _save_cycle_json(cycle) -> None:
@@ -2264,6 +2405,8 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             raise _Rechazo(409, "paro_emergencia", _motivo_paro("Paro de emergencia activado"))
         _rechazar_si_sin_datos_vigentes()
         if body.value:
+            if getattr(context.control_loop, "apagando", False) is True:   # A1
+                raise _Rechazo(409, "apagado_en_curso", "El equipo se está apagando")
             # encender solo desde la sesión que está a cargo de la prueba;
             # apagar queda abierto a cualquier sesión de prueba (es lo seguro)
             if _token_modo_prueba != sesion.token:

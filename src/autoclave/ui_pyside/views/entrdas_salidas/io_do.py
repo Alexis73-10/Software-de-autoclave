@@ -13,7 +13,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.ui_pyside.services.backend_client import BackendClient
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.ui_pyside.views.entrdas_salidas._io_base import _format_name
 
@@ -100,8 +100,9 @@ class _DoCard(QFrame):
 
     def _on_click(self) -> None:
         new_val = not self._active
-        self._toggle_cb(self._name, new_val)
-        self.refresh(int(new_val))
+        # C1 (SAF-03): la tarjeta solo cambia si el backend aceptó la orden
+        if self._toggle_cb(self._name, new_val) is not False:
+            self.refresh(int(new_val))
 
 
 class SalidasDigitalesView(QWidget):
@@ -251,8 +252,18 @@ class SalidasDigitalesView(QWidget):
     def _exit_test_mode(self) -> None:
         try:
             self._client.post("/io/test/exit")
-        except Exception:
-            pass
+        except requests.HTTPError as exc:
+            # C1 (SAF-03): solo "ya no estaba en modo prueba" se da por salido;
+            # cualquier otro rechazo (401, 409...) deja el banner y avisa
+            estado, codigo, motivo = self._rechazo(exc)
+            if not (estado == 409 and codigo == "modo_prueba_inactivo"):
+                QMessageBox.warning(self, "No se pudo salir del modo prueba", motivo)
+                return
+        except Exception as exc:
+            QMessageBox.warning(
+                self, "No se pudo salir del modo prueba",
+                f"Sin comunicación con el backend: {exc}. El equipo puede seguir en modo prueba.")
+            return
 
         self._test_mode = False
         self._banner.hide()
@@ -270,11 +281,31 @@ class SalidasDigitalesView(QWidget):
             self._exit_test_mode()
         self._nav("io_menu")
 
-    def _toggle_output(self, name: str, value: bool) -> None:
+    @staticmethod
+    def _rechazo(exc) -> tuple[int | None, str, str]:
+        resp = getattr(exc, "response", None)
+        if resp is None:
+            return None, "", str(exc)
+        try:
+            datos = resp.json()
+        except Exception:
+            datos = {}
+        if resp.status_code in (401, 403):
+            return resp.status_code, str(datos.get("codigo", "")),                 "Sesión vencida o sin permiso: salga e inicie sesión de nuevo (técnico o ingeniero)."
+        return resp.status_code, str(datos.get("codigo", "")), str(datos.get("detail") or exc)
+
+    def _toggle_output(self, name: str, value: bool) -> bool:
+        """True si el backend aceptó la orden. Un rechazo se muestra con su
+        motivo y la tarjeta no cambia (C1, SAF-03)."""
         try:
             self._client.patch(f"/io/test/output/{name}", {"value": value})
-        except Exception:
-            pass
+            return True
+        except requests.HTTPError as exc:
+            QMessageBox.warning(self, "Salida no accionada", self._rechazo(exc)[2])
+        except Exception as exc:
+            QMessageBox.warning(self, "Salida no accionada",
+                                f"Sin comunicación con el backend: {exc}")
+        return False
 
     def _sync_forced_exit(self, reason: str) -> None:
         """El backend canceló el modo prueba por su cuenta (p.ej. paro de

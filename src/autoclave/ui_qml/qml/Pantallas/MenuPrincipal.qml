@@ -212,9 +212,12 @@ Item {
     }
     // Reportes: resumen por periodo (decisión de Cristian, 2026-10-06); el
     // consolidado y las alarmas se agregan después como pestañas
+    // U5 (tanda 3): sin la tarjeta "Tiempo adicional de secado", Reportes e
+    // Información ocupan la fila a mitad de ancho cada una (54..1139 con 19 de
+    // separación, como entre Iniciar sesión e Historial)
     Fila2 {
         objectName: "tarjetaReportes"
-        x: raiz.m(54)
+        x: raiz.m(54); width: raiz.m(533)
         titulo: I18n.t("modulos.reportes", I18n.lang)
         descripcion: I18n.t("menu.reportes_desc", I18n.lang)
         icono: raiz.iconosMono + "reportes.svg"
@@ -224,7 +227,7 @@ Item {
     }
     Fila2 {
         objectName: "tarjetaInformacion"
-        x: raiz.m(422)
+        x: raiz.m(606); width: raiz.m(533)
         // Abre la información del equipo, el mismo panel que el recuadro de modelo
         // y serie de PantallaPreciclo.qml (decisión de Cristian, 2026-10-02)
         titulo: I18n.t("modulos.informacion", I18n.lang)
@@ -238,22 +241,6 @@ Item {
             raiz.infoEquipo?.actualizar()
             panelEquipo.abrir()
         }
-    }
-    // Informativa, sin flecha ni acción. TODO(MP-11): "tiempo adicional de secado"
-    // es un parámetro nuevo por programa que aún no existe; hasta su plan propio
-    // muestra "—" y no lee ningún parámetro.
-    Fila2 {
-        objectName: "tarjetaSecado"
-        x: raiz.m(790)
-        interactiva: false
-        flechaVisible: false
-        titulo: I18n.t("menu.secado_titulo", I18n.lang)
-        descripcion: I18n.t("menu.secado_desc", I18n.lang)
-        valor: raiz.dato(raiz.resumen?.tiempoSecado)
-        icono: raiz.iconosMono + "sensor_tiempo_secado.svg"
-        tamIcono: 76
-        colorAcento: Colores.menuNaranja
-        aroAcento: true
     }
 
     // ======================= resumen del sistema =======================
@@ -290,7 +277,10 @@ Item {
             tamIcono: 73
             colorAcento: Colores.menuNaranja
             rotulo: I18n.t("menu.proximo_mantenimiento", I18n.lang)
-            valor: raiz.dato(raiz.resumen?.proximoMantenimiento)   // MP-06b: sin fuente
+            // M1 (tanda 3): fecha del próximo mantenimiento; "VENCIDO" si ya pasó
+            valor: (raiz.resumen?.mantenimientoVencido ?? false)
+                   ? I18n.t("menu.vencido", I18n.lang)
+                   : raiz.dato(raiz.resumen?.proximoMantenimiento)
             onPulsada: { raiz.mantenimientoPulsado(); ventanaMantenimiento.abrir() }
         }
         // Abre el listado de los ciclos terminados hoy; tocar uno muestra su gráfica y datos
@@ -392,7 +382,6 @@ Item {
             resultadoTexto: raiz.textoResultado
             resultadoDetalle: raiz.resumen?.ultimoResultadoDetalle ?? ""
             colorResultado: raiz.colorResultado
-            // TODO(MP-14b): el operador que inició el ciclo no se guarda (D-24)
             operador: raiz.dato(raiz.resumen?.ultimoOperador)
             datosGrafica: raiz.resumen?.datosGraficaUltimo ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
             fasesGrafica: raiz.resumen?.fasesGraficaUltimo ?? []
@@ -401,18 +390,26 @@ Item {
         }
     }
 
-    // Sin fuente de mantenimiento en el sistema (MP-14c, B-03): todo "—"
+    // M1 (tanda 3): vencimiento, último mantenimiento y ciclos restantes
     VentanaFlotante {
         id: ventanaMantenimiento
         objectName: "ventanaMantenimiento"
         escala: raiz.escala
-        altoTarjeta: 380
+        altoTarjeta: 520
         titulo: I18n.t("menu.ventana_mantenimiento", I18n.lang)
         Column {
             width: parent.width
             spacing: raiz.m(28)
-            Campo { width: parent.width; rotulo: I18n.t("menu.ultimo_mantenimiento", I18n.lang); valor: raiz.sinDato }
-            Campo { width: parent.width; rotulo: I18n.t("menu.ciclos_restantes", I18n.lang); valor: raiz.sinDato }
+            Campo {
+                width: parent.width
+                objectName: "campoProximoMantenimiento"
+                rotulo: I18n.t("menu.proximo_vencimiento", I18n.lang)
+                valor: (raiz.resumen?.mantenimientoVencido ?? false)
+                       ? I18n.t("menu.vencido", I18n.lang)
+                       : raiz.dato(raiz.resumen?.proximoMantenimiento)
+            }
+            Campo { width: parent.width; rotulo: I18n.t("menu.ultimo_mantenimiento", I18n.lang); valor: raiz.dato(raiz.resumen?.ultimoMantenimiento) }
+            Campo { width: parent.width; rotulo: I18n.t("menu.ciclos_restantes", I18n.lang); valor: raiz.dato(raiz.resumen?.ciclosRestantesMantenimiento) }
         }
     }
 
@@ -520,7 +517,6 @@ Item {
                 resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
                 resultadoDetalle: c.resultado_detalle ?? ""
                 colorResultado: raiz.colorDeResultado(c.resultado ?? "")
-                // TODO(MP-14b): el operador que inició el ciclo no se guarda (D-24)
                 operador: raiz.dato(c.operador)
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []
@@ -734,7 +730,6 @@ Item {
                 resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
                 resultadoDetalle: c.resultado_detalle ?? ""
                 colorResultado: raiz.colorDeResultado(c.resultado ?? "")
-                // TODO(MP-14b): el operador que inició el ciclo no se guarda (D-24)
                 operador: raiz.dato(c.operador)
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []

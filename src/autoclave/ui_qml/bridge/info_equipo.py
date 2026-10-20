@@ -20,6 +20,8 @@ from datetime import datetime
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
+from autoclave.ui_qml.domain import resumen_sistema as resumen_dominio
+
 logger = logging.getLogger(__name__)
 
 
@@ -78,10 +80,14 @@ def _filas_tarjeta(tarjeta) -> list[dict]:
     ]
 
 
-def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None) -> list[dict]:
+def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None,
+                 mantenimiento=None) -> list[dict]:
     """historial: None = aún no se pudo consultar; [] = sin ciclos; [fila] = último ciclo.
-    tarjeta: campo `tarjeta` de /status ({version, id, emparejada}) o None."""
+    tarjeta: campo `tarjeta` de /status ({version, id, emparejada}) o None.
+    mantenimiento: GET /maintenance (M1, tanda 3) o None."""
     p = perfil
+    mant = resumen_dominio.mantenimiento_presentable(mantenimiento)
+
     ultimo = historial[0] if historial else None
     if historial is None:
         ciclos = None
@@ -108,7 +114,11 @@ def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None) -> list
         _fila("fecha_instalacion", p.created_at.strftime("%Y-%m-%d") if p else None),
         _fila("ciclos_realizados", ciclos),
         _fila("ultimo_ciclo", ultimo_ciclo),
-        _fila("ultimo_mantenimiento", None, disponible=False),
+        # M1: con fuente (registro + intervalos) las filas dejan de ser "No disponible"
+        _fila("ultimo_mantenimiento", mant["ultimo"] if mantenimiento is not None else None,
+              disponible=mantenimiento is not None),
+        _fila("ciclos_restantes", mant["ciclos_restantes"] if mantenimiento is not None else None,
+              disponible=mantenimiento is not None),
         _fila("version_software", version_sw),
         *_filas_tarjeta(tarjeta),
     ]
@@ -131,6 +141,7 @@ class InfoEquipo(QObject):
         self._ejecutar = ejecutar
         self._historial = None
         self._tarjeta = None
+        self._mantenimiento = None
         self._consultando = False
         self._filas = filas_equipo(perfil, door, version_sw, None)
         self._historial_recibido.connect(self._al_recibir)
@@ -154,20 +165,27 @@ class InfoEquipo(QObject):
             except Exception as e:
                 logger.debug("estado de la tarjeta no disponible: %s", e)
                 tarjeta = None
-            self._historial_recibido.emit((filas, tarjeta))
+            try:
+                mantenimiento = self._backend.get("/maintenance")
+            except Exception as e:
+                logger.debug("mantenimiento no disponible: %s", e)
+                mantenimiento = None
+            self._historial_recibido.emit((filas, tarjeta, mantenimiento))
 
         self._ejecutar(tarea)
 
     def _al_recibir(self, datos) -> None:
         self._consultando = False
-        filas, tarjeta = datos
+        filas, tarjeta, mantenimiento = datos
+        if isinstance(mantenimiento, dict):
+            self._mantenimiento = mantenimiento
         if isinstance(filas, list):
             self._historial = filas
         if isinstance(tarjeta, dict):
             self._tarjeta = tarjeta
         # si falla, se conserva el último dato conocido
         nuevas = filas_equipo(self._perfil, self._door, self._version, self._historial,
-                              self._tarjeta)
+                              self._tarjeta, self._mantenimiento)
         if nuevas != self._filas:
             self._filas = nuevas
             self.filasChanged.emit()

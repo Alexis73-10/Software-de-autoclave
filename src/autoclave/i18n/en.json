@@ -166,7 +166,17 @@
     "err_asignacion": "The assignment does not meet the rules: one Main and up to two References.",
     "err_sensor": "A sensor in the assignment has no signal or is not installed.",
     "err_sin_respuesta": "No response from the equipment. The current value was checked; review it before retrying.",
-    "err_generico": "The operation could not be completed."
+    "err_generico": "The operation could not be completed.",
+    "mant_tipo": "Maintenance type",
+    "mant_tipo_preventivo": "Preventive",
+    "mant_tipo_correctivo": "Corrective",
+    "mant_tipo_calibracion": "Calibration",
+    "mant_tipo_otro": "Other",
+    "mant_registrar": "Record completed maintenance",
+    "mant_confirmar": "A {tipo} maintenance completed today will be recorded. Do you want to continue?",
+    "mant_sin_dato": "The system clock is earlier than the installation date: correct the date and time.",
+    "mant_err_reloj": "The system clock is earlier than the installation or the last maintenance: correct the date and time.",
+    "mant_err_validacion": "Invalid maintenance data."
   },
   "menu": {
     "titulo": "MAIN MENU",
@@ -176,8 +186,6 @@
     "historial_desc": "Review the completed\ncycles",
     "reportes_desc": "View and manage\ncycle reports",
     "informacion_desc": "Equipment and\nsystem information",
-    "secado_titulo": "ADDITIONAL\nDRYING TIME",
-    "secado_desc": "Selected program",
     "ciclos_totales": "TOTAL EQUIPMENT\nCYCLES",
     "proximo_mantenimiento": "NEXT\nMAINTENANCE",
     "ciclos_hoy": "CYCLES TODAY",
@@ -197,6 +205,8 @@
     "ventana_mantenimiento": "NEXT MAINTENANCE",
     "ultimo_mantenimiento": "Date of last maintenance",
     "ciclos_restantes": "Cycles until next maintenance",
+    "vencido": "OVERDUE",
+    "proximo_vencimiento": "Next due date",
     "ventana_ciclos_hoy": "TODAY'S CYCLES",
     "ventana_historial": "HISTORY",
     "ciclo_titulo": "CYCLE",
@@ -382,6 +392,7 @@
     "ciclos_realizados": "Cycles performed",
     "ultimo_ciclo": "Last cycle",
     "ultimo_mantenimiento": "Last maintenance",
+    "ciclos_restantes": "Cycles left before maintenance",
     "version_software": "Software version",
     "version_tarjeta": "Board version",
     "id_tarjeta": "Board ID",
@@ -391,7 +402,8 @@
     "no_disponible": "Not available",
     "apagar": "Shut down equipment",
     "apagar_pregunta": "The equipment will shut down completely (including the PC). Do you want to continue?",
-    "apagar_rechazado": "Cannot shut down: {motivo}"
+    "apagar_rechazado": "Cannot shut down: {motivo}",
+    "apagar_camara_no_segura": "The chamber is not in a safe condition (DO NOT OPEN). The equipment will be taken out of service; do not open the doors."
   },
   "formulario": {
     "nombre_completo": "Full Name",
@@ -490,6 +502,8 @@
     "paro_suelte": "Release the emergency stop button to continue. Until then no actions are available.",
     "confirmar_sin_sesion": "Available to any operator, no login required",
     "estado_seguro_en_curso_boton": "In progress…",
+    "estado_seguro_detenido_accion": "Check the Primary probe or assign another probe as Primary in OPTIONS › Cycle parameters › Sensors.",
+    "asignar_sonda_principal": "Assign Primary probe",
     "no_abrir_hasta_segura": "DO NOT OPEN until the chamber is safe",
     "seguridad_desconocida": "No connection with the equipment: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
     "tarjeta_desconectada": "Board disconnected: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",

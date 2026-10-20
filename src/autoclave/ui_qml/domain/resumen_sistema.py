@@ -93,7 +93,7 @@ def ciclo_presentable(ciclo) -> dict:
         "programa_nombre": nombre if isinstance(nombre, str) and nombre else SIN_DATO,
         "resultado": clave_resultado(u.get("resultado")),
         "resultado_detalle": detalle_resultado(u.get("resultado")),
-        # quién envió el ciclo: hoy no se guarda (CycleLogger no llena ciclos.operador)
+        # quién inició el ciclo (O1, tanda 3); los ciclos anteriores o sin sesión: SIN_DATO
         "operador": operador.strip() if isinstance(operador, str) and operador.strip()
                     else SIN_DATO,
     }
@@ -114,6 +114,22 @@ def resumen_presentable(resumen) -> dict:
         "ultimo_resultado": u["resultado"],
         "ultimo_resultado_detalle": u["resultado_detalle"],
         "ultimo_operador": u["operador"],
+    }
+
+
+def mantenimiento_presentable(respuesta) -> dict:
+    """GET /maintenance listo para QML (M1, tanda 3). Sin respuesta, sin dato
+    (reloj anterior a la instalación) o sin intervalos: SIN_DATO, nunca un
+    valor inventado. `vencido` lo traduce la pantalla ("VENCIDO")."""
+    r = respuesta if isinstance(respuesta, dict) else {}
+    valido = r.get("estado") in ("ok", "proximo", "vencido")
+    restantes = r.get("ciclos_restantes")
+    return {
+        "proximo": formatear_fecha(r.get("proximo_fecha")) if valido else SIN_DATO,
+        "vencido": valido and r.get("vencido") is True,
+        "ultimo": formatear_fecha(r.get("ultimo_fecha")) if valido else SIN_DATO,
+        "ciclos_restantes": (formatear_entero(max(0, restantes))
+                             if valido and _entero(restantes) is not None else SIN_DATO),
     }
 
 

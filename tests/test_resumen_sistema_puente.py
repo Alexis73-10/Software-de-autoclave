@@ -58,7 +58,7 @@ def test_consulta_y_publica_los_datos():
     r = _resumen(backend)
     espia = QSignalSpy(r.datosChanged)
     _consultar(r)
-    backend.get.assert_called_once_with("/cycle/summary")
+    backend.get.assert_any_call("/cycle/summary")   # y /maintenance (M1)
     assert _textos(r) == ("128", "3", "02/10/2026", "14:25", "02", "COMPLETADO")
     assert r.ultimoProgramaNombre == "Instrumental 134"
     assert r.sinConexion is False
@@ -124,15 +124,14 @@ def test_iniciar_consulta_ya_y_arma_el_sondeo_de_10_s():
     assert r.intervaloMs == 10000
     r.iniciar()
     QCoreApplication.processEvents()
-    assert backend.get.call_count == 1 and r.sondeando is True
+    assert backend.get.call_count == 2 and r.sondeando is True   # resumen + mantenimiento (M1)
     r.detener()
     assert r.sondeando is False
 
 
-def test_mantenimiento_y_secado_sin_fuente():
+def test_mantenimiento_sin_fuente():
     r = _resumen(MagicMock())
     assert r.proximoMantenimiento == SD   # MP-06b / B-03: no existe fuente
-    assert r.tiempoSecado == SD           # TODO(MP-11)
 
 
 # ── curva del último ciclo (ventana flotante, D-21) ─────────────────────
@@ -193,9 +192,40 @@ def test_sin_ultimo_ciclo_no_consulta_la_grafica():
     _consultar(r)
     r.cargarGraficaUltimo()
     QCoreApplication.processEvents()
-    assert backend.get.call_count == 1 and r.graficaUltimoDisponible is False
+    assert backend.get.call_count == 2 and r.graficaUltimoDisponible is False
 
 
 def test_operador_del_ultimo_ciclo():
     r, _ = _con_resumen(_GRAFICA)
     assert r.ultimoOperador == SD   # hoy no se guarda (Paso 1 b)
+
+
+# ── M1 (tanda 3): próximo mantenimiento ─────────────────────────────────────
+
+def test_mantenimiento_con_fuente_y_vencido():
+    from autoclave.ui_qml.domain import resumen_sistema as d
+    ok = d.mantenimiento_presentable({"estado": "ok", "vencido": False, "proximo_fecha": "2027-04-24",
+                                      "ultimo_fecha": None, "ciclos_restantes": 40})
+    assert ok == {"proximo": "24/04/2027", "vencido": False, "ultimo": "—", "ciclos_restantes": "40"}
+    v = d.mantenimiento_presentable({"estado": "vencido", "vencido": True, "proximo_fecha": "2027-04-24",
+                                     "ciclos_restantes": -5})
+    assert v["vencido"] is True and v["ciclos_restantes"] == "0"
+
+
+@pytest.mark.parametrize("resp", [None, {}, {"estado": "sin_dato"}, {"estado": "no_aplica"}, "x"])
+def test_mantenimiento_sin_dato_nunca_inventa_valor(resp):
+    from autoclave.ui_qml.domain import resumen_sistema as d
+    assert d.mantenimiento_presentable(resp) == {
+        "proximo": "—", "vencido": False, "ultimo": "—", "ciclos_restantes": "—"}
+
+
+def test_el_puente_publica_el_mantenimiento():
+    backend = MagicMock()
+    backend.get.side_effect = lambda ruta, **k: (
+        {"estado": "vencido", "vencido": True, "proximo_fecha": "2027-04-24",
+         "ultimo_fecha": "2026-10-26", "ciclos_restantes": None} if ruta == "/maintenance"
+        else {"ciclos_totales": 1, "ciclos_hoy": 0, "ultimo_ciclo": None})
+    r = _resumen(backend)
+    r.consultar()
+    assert r.mantenimientoVencido is True and r.proximoMantenimiento == "24/04/2027"
+    assert r.ultimoMantenimiento == "26/10/2026"
