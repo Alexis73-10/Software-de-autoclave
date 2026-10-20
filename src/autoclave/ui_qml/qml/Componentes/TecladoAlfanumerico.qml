@@ -125,9 +125,11 @@ Item {
             y: 2 * (raiz._altoTecla + raiz._sep)
             width: raiz._anchoTecla
             height: raiz._altoTecla
-            texto: I18n.t("teclado.aa", I18n.lang)
+            // un toque: de un solo uso; doble toque: mayúsculas fijas ("AA")
+            texto: ctrl.mayusculasFijas ? I18n.t("teclado.aa", I18n.lang).toUpperCase()
+                                        : I18n.t("teclado.aa", I18n.lang)
             marcada: ctrl.mayusculas          // PROV-02
-            onPulsada: ctrl.alternarMayusculas()
+            onPulsada: ctrl.tocarMayusculas()
         }
         Tecla {
             objectName: "teclaBorrar"

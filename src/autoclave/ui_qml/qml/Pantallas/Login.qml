@@ -47,6 +47,8 @@ Item {
     Connections {
         target: raiz.teclado
         function onAbiertoChanged() { if (!raiz.teclado.abierto) raiz.campoActivo = "" }
+        // Confirmar en el último campo inicia la sesión
+        function onTerminado() { if (raiz.campoActivo !== "") raiz.iniciarSesion() }
     }
     // Orden de los campos: Confirmar en uno pasa al siguiente (PanelTeclado)
     readonly property var campos: [
@@ -85,17 +87,11 @@ Item {
     // el bloqueo es por usuario (como en el backend): otro usuario puede intentar
     readonly property bool puedeIntentar: !sesion.ocupado
         && !(sesion.bloqueado && usuario.trim().toLowerCase() === sesion.usuarioBloqueado)
-    // TODO(corregir más adelante, reporte de Cristian 2026-10-07): lo escrito en el
-    // teclado sin tocar Confirmar se pierde. Si se escribe la contraseña y se toca
-    // directamente INICIAR SESIÓN, el login responde que falta la contraseña: el
-    // texto en edición no llega a `usuario`/`clave`. Debe poder omitirse Confirmar
-    // (tomar teclado.textoEnEdicion del campo activo antes de validar). Revisar
-    // también tocar otro campo con el teclado abierto.
     function iniciarSesion() {
         if (!puedeIntentar)
             return
         if (teclado)
-            teclado.cerrar()   // OJO: el comentario original decía que lo escrito sin Confirmar ya quedaba en el campo; no ocurre (TODO arriba)
+            teclado.cerrar()   // lo escrito ya llegó al campo mientras se tecleaba
         sesion.iniciarSesion(usuario, clave)
         clave = ""
     }
@@ -112,7 +108,7 @@ Item {
 
         TarjetaContenido {
             width: parent.width - Escala.px(48)   // 24 a cada lado
-            height: parent.height - Escala.px(176) - Escala.px(24)  // barra + margen inferior
+            height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201  // deja la barra flotante debajo
             anchors.horizontalCenter: parent.horizontalCenter
 
             contenido: [
@@ -434,21 +430,19 @@ Item {
                     Item { Layout.preferredHeight: Escala.px(24) }  // aire antes del divisor
                 }
             ]
-
-            pie: [
-                // E5 (tanda 2026-10-14): la misma barra inferior del Menú
-                // Principal y de Opciones y la versión real del software.
-                // U2 (tanda 2): Atrás (pantalla anterior) e Inicio (principal).
-                BarraInferiorMenu {
-                    objectName: "barraInferiorLogin"
-                    anchors.centerIn: parent
-                    escala: Math.min(parent.width / 1128, parent.height / 139)
-                    version: I18n.t("app.version", I18n.lang)
-                    inicioActivo: true
-                    onAtrasPulsado: raiz.atrasPulsado()
-                    onInicioPulsado: raiz.inicioPulsado()
-                }
-            ]
         }
+    }
+
+    // Barra inferior flotante, fuera de la tarjeta (misma colocación que Opciones.qml)
+    BarraInferiorMenu {
+        id: barraInferior
+        objectName: "barraInferiorLogin"
+        escala: raiz.width / 1196
+        x: 34 * escala
+        y: raiz.height - 171 * escala
+        version: I18n.t("app.version", I18n.lang)
+        inicioActivo: true
+        onAtrasPulsado: raiz.atrasPulsado()
+        onInicioPulsado: raiz.inicioPulsado()
     }
 }

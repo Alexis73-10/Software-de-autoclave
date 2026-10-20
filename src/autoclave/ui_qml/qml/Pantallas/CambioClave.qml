@@ -53,6 +53,8 @@ Item {
     Connections {
         target: raiz.teclado
         function onAbiertoChanged() { if (!raiz.teclado.abierto) raiz.campoActivo = "" }
+        // Confirmar en el último campo envía el cambio
+        function onTerminado() { if (raiz.campoActivo !== "") raiz.cambiar() }
     }
     readonly property var campos: [
         { nombre: "clave_actual", etiqueta: "clave_actual" },
@@ -189,7 +191,7 @@ Item {
 
         TarjetaContenido {
             width: parent.width - Escala.px(48)
-            height: parent.height - Escala.px(176) - Escala.px(24)
+            height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201
             anchors.horizontalCenter: parent.horizontalCenter
 
             contenido: [
@@ -293,20 +295,21 @@ Item {
                     Item { Layout.preferredHeight: Escala.px(24) }
                 }
             ]
-
-            pie: [
-                BarraInferior {
-                    anchors.fill: parent
-                    version: I18n.t("app.version", I18n.lang)
-                    // U2: Atrás e Inicio abandonan el cambio; los del centro, inactivos
-                    botones: [
-                        { icono: "flecha_atras",  activo: !control.ocupado, accion: function() { raiz.atras() } },
-                        { icono: "historial",     activo: false },
-                        { icono: "mantenimiento", activo: false },
-                        { icono: "casa",          activo: !control.ocupado, accion: function() { raiz.inicio() } }
-                    ]
-                }
-            ]
         }
+    }
+
+    // Barra inferior flotante, fuera de la tarjeta (misma colocación que Opciones.qml)
+    BarraInferiorMenu {
+        id: barraInferior
+        objectName: "barraInferiorCambioClave"
+        escala: raiz.width / 1196
+        x: 34 * escala
+        y: raiz.height - 171 * escala
+        version: I18n.t("app.version", I18n.lang)
+        // Atrás e Inicio abandonan el cambio; inactivos mientras se envía
+        atrasHabilitado: !control.ocupado
+        inicioActivo: !control.ocupado
+        onAtrasPulsado: raiz.atras()
+        onInicioPulsado: raiz.inicio()
     }
 }

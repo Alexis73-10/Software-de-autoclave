@@ -39,10 +39,33 @@ Item {
 
     signal confirmado(var valor)
     signal cancelado()
+    // Confirmar en el último campo de la cadena (no hay `siguiente`): la pantalla
+    // decide qué corresponde (iniciar sesión, guardar...). Se emite con el panel
+    // aún abierto, así la pantalla sabe qué campo estaba activo.
+    signal terminado()
 
     property string _tipo: ""       // "", "numerico" o "alfanumerico"
     property var _alConfirmar: null
     property var _siguiente: null
+    property var _inicialNumerico: null
+    property bool _numericoComprometido: false
+
+    // Lo escrito llega al campo al instante, sin tocar Confirmar. Confirmar solo
+    // pasa al siguiente campo; Ocultar cierra el panel conservando lo escrito.
+    function _comprometerAlfanumerico() {
+        if (_tipo === "alfanumerico" && _alConfirmar)
+            _alConfirmar(alfanumerico.controlador.texto)
+    }
+    function _comprometerNumerico() {
+        const c = numerico.controlador
+        if (_tipo === "numerico" && _alConfirmar && c.valido && c.valor !== null && c.valor !== undefined) {
+            _numericoComprometido = true
+            _alConfirmar(c.valor)
+        }
+    }
+    function ocultar() {
+        cerrar()
+    }
 
     function abrirAlfanumerico(titulo, valorInicial, longitudMaxima, ocultar, alConfirmar, siguiente) {
         _guardarPendiente()
@@ -55,6 +78,8 @@ Item {
     function abrirNumerico(titulo, unidad, valorInicial, minimo, maximo, decimales, alConfirmar, siguiente) {
         _guardarPendiente()
         numerico.abrir(titulo, unidad, valorInicial, minimo, maximo, decimales)
+        _inicialNumerico = valorInicial
+        _numericoComprometido = false
         _alConfirmar = alConfirmar || null
         _siguiente = siguiente || null
         _tipo = "numerico"
@@ -84,17 +109,22 @@ Item {
         if (alConfirmar)
             alConfirmar(valor)
         confirmado(valor)
-        if (siguiente)
+        if (siguiente) {
             siguiente()     // abre el campo siguiente sin cerrar el panel
-        else
+        } else {
+            terminado()
             cerrar()
+        }
     }
     function _cancelar() {
         const alConfirmar = _alConfirmar
         const tipo = _tipo
+        const restaurar = _numericoComprometido
         cerrar()
         if (tipo === "alfanumerico" && alConfirmar)
             alConfirmar("")
+        else if (tipo === "numerico" && alConfirmar && restaurar)
+            alConfirmar(_inicialNumerico)   // el valor se aplicó al escribir: se devuelve
         cancelado()
     }
 
@@ -160,5 +190,39 @@ Item {
         width: implicitWidth; height: implicitHeight
         onConfirmado: texto => raiz._entregar(texto)
         onCancelado: raiz._cancelar()
+    }
+
+    // escritura en vivo
+    Connections {
+        target: alfanumerico.controlador
+        function onTextoChanged() { raiz._comprometerAlfanumerico() }
+    }
+    Connections {
+        target: numerico.controlador
+        function onValorChanged() { raiz._comprometerNumerico() }
+        function onValidoChanged() { raiz._comprometerNumerico() }
+    }
+
+    // Ocultar teclado: solo un ícono, esquina superior derecha del recuadro
+    Item {
+        id: botonOcultar
+        objectName: "teclaOcultarTeclado"
+        width: Escala.px(64); height: width
+        anchors.top: parent.top; anchors.right: parent.right
+        anchors.topMargin: Escala.px(8); anchors.rightMargin: Escala.px(12)
+        Image {
+            anchors.centerIn: parent
+            width: Escala.px(48); height: width
+            source: "../../assets/iconos/color/ocultar_teclado.svg"
+            sourceSize.width: width
+            sourceSize.height: height
+            opacity: zonaOcultar.pressed ? 0.5 : 1
+        }
+        MouseArea {
+            id: zonaOcultar
+            anchors.fill: parent
+            anchors.margins: -Escala.px(8)
+            onClicked: raiz.ocultar()
+        }
     }
 }

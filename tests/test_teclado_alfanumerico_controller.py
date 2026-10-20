@@ -262,3 +262,36 @@ def test_tocar_aa_armada_con_campo_vacio_la_desarma(controller):
     assert controller.mayusculas is False
     _escribir(controller, "x")
     assert controller.texto == "x"
+
+
+# ---- mayúsculas fijas (doble toque en Aa) ----
+
+def test_doble_toque_en_aa_fija_las_mayusculas():
+    reloj = RelojFalso()
+    c = TecladoAlfanumericoController(reloj=reloj)
+    c.abrir("t", "", 0)
+    c.tocarMayusculas()
+    reloj.t += 0.2
+    c.tocarMayusculas()
+    assert c.mayusculasFijas and c.mayusculas
+    for letra in "abc":
+        c.presionarCaracter(letra)
+    assert c.texto == "ABC" and c.mayusculas      # no se desarma tras cada letra
+
+
+def test_toque_lento_en_aa_no_fija_y_toque_suelta_las_fijas():
+    reloj = RelojFalso()
+    c = TecladoAlfanumericoController(reloj=reloj)
+    c.abrir("t", "x", 0)
+    c.tocarMayusculas()
+    reloj.t += 1.0
+    c.tocarMayusculas()
+    assert not c.mayusculasFijas
+    reloj.t += 1.0
+    c.tocarMayusculas()
+    reloj.t += 0.1
+    c.tocarMayusculas()
+    assert c.mayusculasFijas
+    reloj.t += 1.0
+    c.tocarMayusculas()
+    assert not c.mayusculasFijas and not c.mayusculas

@@ -25,12 +25,18 @@ class TecladoAlfanumericoController(QObject):
     confirmado = Signal(str)
     cancelado = Signal()
 
+    # Dos toques a Aa dentro de esta ventana fijan las mayúsculas
+    _VENTANA_DOBLE_TOQUE_S = 0.4
+
     def __init__(self, parent=None, reloj=time.monotonic):
         super().__init__(parent)
+        self._reloj = reloj
         self._texto = ""
         self._titulo = ""
         self._longitud_maxima = 0
         self._mayusculas = True      # TEC-D05: inicia en mayúscula
+        self._fijas = False          # mayúsculas fijas (doble toque en Aa)
+        self._ultimo_toque_aa = None
         self._capa = dominio.CAPA_INICIAL
         self._borrado = PulsacionBorrar(self.borrar, self.limpiar, reloj=reloj, parent=self)
 
@@ -58,6 +64,11 @@ class TecladoAlfanumericoController(QObject):
     def mayusculas(self) -> bool:
         """Aa armada: la siguiente letra sale en mayúscula."""
         return self._mayusculas
+
+    @Property(bool, notify=mayusculasChanged)
+    def mayusculasFijas(self) -> bool:
+        """Bloqueo de mayúsculas: Aa no se desarma tras cada letra."""
+        return self._fijas
 
     @Property(str, notify=capaChanged)
     def capa(self) -> str:
@@ -95,6 +106,8 @@ class TecladoAlfanumericoController(QObject):
         self._longitud_maxima = longitud_maxima
         self.campoChanged.emit()
         self._set_texto(valor_inicial)
+        self._fijas = False
+        self._ultimo_toque_aa = None
         self._set_mayusculas(dominio.aa_al_abrir(valor_inicial))
         self._set_capa(dominio.CAPA_INICIAL)
 
@@ -103,11 +116,32 @@ class TecladoAlfanumericoController(QObject):
         texto, mayusculas = dominio.pulsar_caracter(
             self._texto, caracter, self._mayusculas, self._longitud_maxima)
         self._set_texto(texto)
-        self._set_mayusculas(mayusculas)
+        self._set_mayusculas(mayusculas or self._fijas)
 
     @Slot()
     def alternarMayusculas(self) -> None:
+        """Toque simple en Aa; con mayúsculas fijas lo suelta."""
+        if self._fijas:
+            self._fijas = False
+            self._set_mayusculas(False)
+            self.mayusculasChanged.emit()
+            return
         self._set_mayusculas(dominio.alternar_mayusculas(self._mayusculas))
+
+    @Slot()
+    def tocarMayusculas(self) -> None:
+        """Toque en Aa desde QML: el segundo toque seguido fija las mayúsculas."""
+        ahora = self._reloj()
+        doble = (self._ultimo_toque_aa is not None
+                 and ahora - self._ultimo_toque_aa <= self._VENTANA_DOBLE_TOQUE_S)
+        if doble and not self._fijas:
+            self._ultimo_toque_aa = None
+            self._fijas = True
+            self._set_mayusculas(True)
+            self.mayusculasChanged.emit()
+            return
+        self._ultimo_toque_aa = ahora
+        self.alternarMayusculas()
 
     @Slot(str)
     def cambiarCapa(self, capa: str) -> None:

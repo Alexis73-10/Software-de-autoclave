@@ -171,7 +171,7 @@ def test_tocar_un_campo_abre_el_alfanumerico_al_pie(salida):
 
 def test_el_campo_muestra_lo_que_se_escribe(salida):
     assert salida["campo_mientras_escribe"] == "Ana"
-    assert salida["valor_sin_confirmar"] == ""                      # el valor solo cambia al Confirmar
+    assert salida["valor_sin_confirmar"] == "Ana"                 # el valor llega al campo al escribir, sin Confirmar
 
 
 def test_texto_del_campo_en_color_del_tema(salida):
@@ -187,8 +187,9 @@ def test_confirmar_pasa_al_siguiente_campo(salida):
 
 def test_contrasena_oculta_y_confirmar_en_el_ultimo_cierra(salida):
     assert salida["encabezado_clave"] == "•" * 3
-    assert salida["valor_clave"] == "Xy1"
-    assert salida["clave"] == "Xy1"
+    # Confirmar en el último campo inicia la sesión; el intento limpia la clave
+    assert salida["valor_clave"] == ""
+    assert salida["clave"] == ""
     assert salida["cerrado_tras_ultimo"] is False
     assert salida["campo_activo_tras_ultimo"] == ""
 

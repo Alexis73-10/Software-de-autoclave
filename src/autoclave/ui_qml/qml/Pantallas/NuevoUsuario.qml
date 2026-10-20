@@ -42,6 +42,8 @@ Item {
     Connections {
         target: raiz.teclado
         function onAbiertoChanged() { if (!raiz.teclado.abierto) raiz.campoActivo = "" }
+        // Confirmar en el último campo guarda el usuario
+        function onTerminado() { if (raiz.campoActivo !== "") raiz.pulsarGuardar() }
     }
 
     // ── Campos de texto y teclado ────────────────────────────────────────
@@ -252,7 +254,7 @@ Item {
         id: tarjeta
         x: Escala.px(24); y: Escala.px(176)
         width: parent.width - Escala.px(48)
-        height: parent.height - Escala.px(176) - Escala.px(24)
+        height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201
 
         contenido: [
             Item {
@@ -584,60 +586,19 @@ Item {
                 }
             }
         ]
+    }
 
-        // Barra inferior (D-10): atrás, divisor, centro vacío, divisor, inicio y versión.
-        // U2 (tanda 2): Atrás vuelve a Usuarios como "<"; ya no cierra la sesión.
-        pie: [
-            Item {
-                anchors.fill: parent
-                readonly property string _mono: "../../assets/iconos/mono/"
-                Image {
-                    x: Escala.px(137); anchors.verticalCenter: parent.verticalCenter
-                    width: Escala.px(56); height: Escala.px(56)
-                    objectName: "botonAtrasNuevoUsuario"
-                    source: parent._mono + "flecha_atras.svg"
-                    sourceSize.width: width
-                    sourceSize.height: height
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -Escala.px(24)
-                        onClicked: raiz.pulsarAtras()
-                    }
-                }
-                Rectangle {
-                    x: Escala.px(321); anchors.verticalCenter: parent.verticalCenter
-                    width: 1; height: Escala.px(104)
-                    color: Colores.bordeCampo
-                }
-                Rectangle {
-                    x: Escala.px(807); anchors.verticalCenter: parent.verticalCenter
-                    width: 1; height: Escala.px(104)
-                    color: Colores.bordeCampo
-                }
-                Image {
-                    x: Escala.px(948); anchors.verticalCenter: parent.verticalCenter
-                    width: Escala.px(56); height: Escala.px(56)
-                    source: parent._mono + "casa.svg"
-                    sourceSize.width: width
-                    sourceSize.height: height
-                    MouseArea {
-                        anchors.fill: parent
-                        anchors.margins: -Escala.px(24)
-                        onClicked: raiz.pulsarInicio()
-                    }
-                }
-                Text {
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.margins: Escala.px(16)
-                    text: I18n.t("app.version", I18n.lang)
-                    color: Colores.textoGuia
-                    font.family: Tipografia.familia
-                    font.pixelSize: Escala.fuente(16)
-                    font.weight: Tipografia.pesoMedium
-                }
-            }
-        ]
+    // Barra inferior flotante, fuera de la tarjeta (misma colocación que Opciones.qml)
+    BarraInferiorMenu {
+        id: barraInferior
+        objectName: "barraInferiorNuevoUsuario"
+        escala: raiz.width / 1196
+        x: 34 * escala
+        y: raiz.height - 171 * escala
+        version: I18n.t("app.version", I18n.lang)
+        inicioActivo: true
+        onAtrasPulsado: raiz.pulsarAtras()
+        onInicioPulsado: raiz.pulsarInicio()
     }
 
     // Confirmación de descarte (D-09, P-06): PanelModal provisional. Su botón
