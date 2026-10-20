@@ -118,7 +118,7 @@
     "cambiar_seccion_confirmar": "Discard",
     "secciones": {
       "parametros_ciclo": "Cycle parameters",
-      "parametros_sistema": "System parameters",
+      "parametros_sistema": "Equipment parameters",
       "entradas_salidas": "Inputs / Outputs",
       "mantenimiento": "Maintenance",
       "opciones_avanzadas": "Advanced options",
@@ -174,9 +174,18 @@
     "mant_tipo_otro": "Other",
     "mant_registrar": "Record completed maintenance",
     "mant_confirmar": "A {tipo} maintenance completed today will be recorded. Do you want to continue?",
-    "mant_sin_dato": "The system clock is earlier than the installation date: correct the date and time.",
+    "mant_sin_dato": "The system date is not reliable (earlier than the installation or changed): correct the date and time.",
     "mant_err_reloj": "The system clock is earlier than the installation or the last maintenance: correct the date and time.",
-    "mant_err_validacion": "Invalid maintenance data."
+    "mant_err_reloj_adelantado": "The system clock appears to have been set ahead of its real progress: correct the date and time and restart the program before recording.",
+    "mant_err_validacion": "Invalid maintenance data.",
+    "mant_intervalos": "Maintenance intervals",
+    "mant_intervalo_dias": "By date",
+    "mant_intervalo_ciclos": "By cycles",
+    "mant_unidad_dias": "days",
+    "mant_unidad_ciclos": "cycles",
+    "mant_no_aplica": "Not applicable",
+    "mant_intervalos_ayuda": "Counted from installation or the last maintenance; whichever comes first. 0 = not applicable.",
+    "mant_guardar_intervalos": "Save intervals"
   },
   "menu": {
     "titulo": "MAIN MENU",
@@ -553,7 +562,18 @@
     "SENSOR_NO_DISPONIBLE": "A sensor in use has no reading or is not installed",
     "ASIGNACION_SENSORES_INVALIDA": "The program has an invalid sensor assignment"
   },
+  "selector_ciclo": {
+    "titulo": "Select cycle",
+    "ayuda": "Tap to change cycle",
+    "mas_usado": "Most used",
+    "sin_conexion": "No response from the equipment. Try again."
+  },
   "alarmas": {
+    "SIS-05": {
+      "titulo": "Printer not connected",
+      "descripcion": "Printer not connected. Reports will not be printed; check the cable and the printer.",
+      "accion": "Check the USB cable and that the printer is on. The equipment can keep operating."
+    },
     "COM-01": {
       "titulo": "I/O board disconnected",
       "descripcion": "The control board is not detected.",

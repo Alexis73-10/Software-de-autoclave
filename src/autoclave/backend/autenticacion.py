@@ -6,12 +6,19 @@
 #
 # Los plazos usan time.monotonic(): un ajuste del reloj de pared no debe
 # alargar ni acortar un bloqueo. `emitido` es solo un sello de registro.
+#
+# Caducidad por inactividad (B7, tanda 4): un token sin peticiones autenticadas
+# durante SESION_INACTIVIDAD_S (el mismo plazo que la UI) deja de valer (401).
+# Cada petición autenticada lo renueva. La caducidad solo afecta a las
+# peticiones que exigen sesión: el control del ciclo no depende de ella.
 
 import math
 import secrets
 import threading
 import time
 from dataclasses import dataclass, field
+
+from autoclave.core.runtime.sesion_inactividad import SESION_INACTIVIDAD_S
 
 MAX_INTENTOS = 5
 BLOQUEO_S = 5 * 60
@@ -25,27 +32,64 @@ class Sesion:
     rol: str
     debe_cambiar_clave: bool
     emitido: float = field(default_factory=time.time)
+    actividad: float = 0.0      # monotónico de la última petición autenticada
 
 
 class AlmacenTokens:
     """Token aleatorio → sesión. Una sesión por login (una por ventana QML);
     invalidar un token no toca los demás."""
 
-    def __init__(self):
+    def __init__(self, reloj=time.monotonic, inactividad_s: float = SESION_INACTIVIDAD_S):
         self._sesiones: dict[str, Sesion] = {}
         self._lock = threading.Lock()
+        self._reloj = reloj
+        self._inactividad_s = inactividad_s
+        # token -> (usuario, rol) de los últimos emitidos, también tras caducar o
+        # cerrar sesión: la bitácora del modo prueba huérfano (B8) debe poder
+        # decir a quién se le sacó del modo. Acotado; solo nombres, nunca el token.
+        self._quien: dict[str, tuple[str, str]] = {}
 
     def emitir(self, usuario: str, nombre: str, rol: str, debe_cambiar_clave: bool) -> Sesion:
         sesion = Sesion(secrets.token_urlsafe(32), usuario, nombre, rol, bool(debe_cambiar_clave))
+        sesion.actividad = self._reloj()
         with self._lock:
+            self._purgar_vencidas()
             self._sesiones[sesion.token] = sesion
+            self._quien[sesion.token] = (sesion.usuario, sesion.rol)
+            while len(self._quien) > 256:
+                del self._quien[next(iter(self._quien))]
         return sesion
 
-    def obtener(self, token: str | None) -> Sesion | None:
+    def quien_fue(self, token: str | None) -> tuple[str, str] | None:
+        """(usuario, rol) que tuvo el token, aunque ya no esté vigente; None si
+        no se conoce."""
+        with self._lock:
+            return self._quien.get(token) if token else None
+
+    def _vencida(self, sesion: Sesion) -> bool:
+        return self._reloj() - sesion.actividad >= self._inactividad_s
+
+    def _purgar_vencidas(self) -> None:
+        """Con self._lock tomado."""
+        for token in [t for t, s in self._sesiones.items() if self._vencida(s)]:
+            del self._sesiones[token]
+
+    def obtener(self, token: str | None, renovar: bool = True) -> Sesion | None:
+        """La sesión del token, o None si no existe o caducó por inactividad (se
+        borra). `renovar=True` (petición autenticada) reinicia el plazo;
+        `renovar=False` es una consulta interna que no cuenta como actividad."""
         if not token:
             return None
         with self._lock:
-            return self._sesiones.get(token)
+            sesion = self._sesiones.get(token)
+            if sesion is None:
+                return None
+            if self._vencida(sesion):
+                del self._sesiones[token]
+                return None
+            if renovar:
+                sesion.actividad = self._reloj()
+            return sesion
 
     def invalidar(self, token: str) -> Sesion | None:
         """Quita el token; devuelve la sesión que tenía, o None si no existía."""
@@ -57,6 +101,10 @@ class AlmacenTokens:
             sesion = self._sesiones.get(token)
             if sesion is not None:
                 sesion.debe_cambiar_clave = False
+
+    def existe(self, token: str | None) -> bool:
+        """¿Sigue vigente el token? No cuenta como actividad."""
+        return self.obtener(token, renovar=False) is not None
 
 
 class ControlIntentos:

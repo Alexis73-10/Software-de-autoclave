@@ -46,7 +46,7 @@ Se implementa en **una sola fase** (token y roles incluidos). El software no est
 10. **Registro y bloqueo:** logins fallidos y rechazos 401/403/409 de acciones físicas y de configuración van a `audit_log`. Bloqueo tras 5 intentos fallidos durante 5 min por usuario.
 11. **Simulador:** replica las respuestas 401/403/409 y acepta un token de prueba fijo.
 12. **`tools/generador`** es una aplicación externa y queda fuera de alcance.
-13. **Guard de configuración unificado:** toda escritura de configuración (parámetros del sistema, de ciclo, calibración, sensores y entradas mostradas) se permite en cualquier estado distinto de CICLO.
+13. **Guard de configuración unificado:** toda escritura de configuración (parámetros del equipo, de ciclo, calibración, sensores y entradas mostradas) se permite en cualquier estado distinto de CICLO.
 14. **Excepción del ingeniero:** puede cambiar parámetros de ciclo y calibración también en CICLO (sección 5.8).
 15. **HIBERNACION es la suspensión.** Puertas y modo de prueba se bloquean en HIBERNACION, porque las salidas están apagadas por definición.
 16. **`POST /fault/reset`** no requiere identificación.
@@ -110,7 +110,7 @@ Se implementa en **una sola fase** (token y roles incluidos). El software no est
 | `PATCH /calibration/{tipo}/{sensor}` | ingeniero | distinto de CICLO; en CICLO solo ingeniero (5.8) | usuario del token; se ignora `usuario` del cuerpo; sin `git_autocommit`; auditoría en backend |
 | `PATCH /cycle/parameter` | ingeniero | distinto de CICLO; en CICLO según 5.8 | sin `git_autocommit`; auditoría en backend |
 
-Los endpoints de parámetros del sistema y de sensores y entradas mostradas se definen en `planeacion_backend_parametros.md` con estas mismas reglas.
+Los endpoints de parámetros del equipo y de sensores y entradas mostradas se definen en `planeacion_backend_parametros.md` con estas mismas reglas.
 
 ### 4.5 Modo de prueba (token obligatorio, rol técnico o ingeniero)
 

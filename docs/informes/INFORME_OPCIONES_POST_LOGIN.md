@@ -169,13 +169,13 @@ Lo único reutilizable que ya existe:
 ### B.2 PySide (equivalente funcional existente)
 
 `AdminMenuView` (`ui_pyside/views/admin_menu.py`) [COMMITEADO] es una lista vertical de cinco botones, no una navegación lateral con panel de detalle:
-- `_OPTIONS` (`:14-20`): "Parámetros del ciclo", "Parámetros del sistema", "Entradas / Salidas", "Mantenimiento" y "Opciones avanzadas".
+- `_OPTIONS` (`:14-20`): "Parámetros del ciclo", "Parámetros del equipo", "Entradas / Salidas", "Mantenimiento" y "Opciones avanzadas".
 - `_OPTION_ROUTES` (`:22-25`): solo "Parámetros del ciclo" → `params_ciclo` y "Entradas / Salidas" → `io_menu` tienen destino. Las otras tres muestran `InfoBar` "Esta sección estará disponible próximamente." (`:156-169`).
 - Botón "←" → `home` (`:95-99`) y botón "Cerrar sesión" (`:108-112`).
 
 ### B.3 Estado de cada sección del mockup
 
-1. General: NO IMPLEMENTADO en QML y en PySide. Sus cinco controles se detallan en C. "Parámetros del sistema" de PySide es un stub sin ruta (`admin_menu.py:16`).
+1. General: NO IMPLEMENTADO en QML y en PySide. Sus cinco controles se detallan en C. "Parámetros del equipo" de PySide es un stub sin ruta (`admin_menu.py:16`).
 2. Fecha y hora: NO IMPLEMENTADO. No hay código que ajuste el reloj del sistema. Lo relacionado:
    - visualización del reloj en `BarraSuperior.qml:13-55` y en `Ciclo.qml`;
    - `installation/clock_guard.py:13-17` [COMMITEADO], que solo verifica que el reloj no sea anterior a la fecha de instalación (`ClockTamperedError`).
@@ -321,7 +321,7 @@ Varios afectan la seguridad (C.3 y E.3). La mayoría no declara `min`/`max`.
 - `Login.qml:9-15` (PENDIENTE de textos y autenticación), `:248-249` (sin icono de casilla vacía), `:322` (TODO conectar backend).
 - `BarraInferiorMenu.qml:15` TODO(MP-03) [NUEVO SIN TRACKEAR].
 - `Ciclo.qml:23-24` PENDIENTE PC-04/PC-03; `:71` avatar "destino indefinido (PC-05)"; `:105` colores por promover.
-- `admin_menu.py:16`, `:18` y `:19`: stubs "Parámetros del sistema", "Mantenimiento" y "Opciones avanzadas".
+- `admin_menu.py:16`, `:18` y `:19`: stubs "Parámetros del equipo", "Mantenimiento" y "Opciones avanzadas".
 - `main_window.py:145`: botón DEVELOPER_TOOLS deshabilitado, "Próximamente".
 - `info_equipo.py:11-12`: último mantenimiento y versión de tarjeta sin fuente.
 - QML no alcanzables desde `Main.qml` (huérfanos de producción, solo usados por arneses de prueba):
@@ -378,7 +378,7 @@ Varios afectan la seguridad (C.3 y E.3). La mayoría no declara `min`/`max`.
 
 ### G.2 En el código y no en el mockup
 
-- Menú PySide "ADMINISTRACIÓN" con "Parámetros del ciclo", "Parámetros del sistema", "Entradas / Salidas", "Mantenimiento" y "Opciones avanzadas" (`admin_menu.py:14-20`). Parámetros de ciclo, E/S (entradas digitales, temperaturas, presiones, salidas digitales) y calibración de sensores no aparecen entre las 8 secciones del mockup. El PDF, página 22, los ubica como hermanos de "Opciones generales" bajo "Administrador".
+- Menú PySide "ADMINISTRACIÓN" con "Parámetros del ciclo", "Parámetros del equipo", "Entradas / Salidas", "Mantenimiento" y "Opciones avanzadas" (`admin_menu.py:14-20`). Parámetros de ciclo, E/S (entradas digitales, temperaturas, presiones, salidas digitales) y calibración de sensores no aparecen entre las 8 secciones del mockup. El PDF, página 22, los ubica como hermanos de "Opciones generales" bajo "Administrador".
 - Botón "Cerrar sesión" en la cabecera del menú PySide y botón "✕ Salir" que cierra el proceso.
 - Configuración de correo SMTP (`ciclos.py`, `_email_dialog.py`).
 - Parámetros globales de seguridad y proceso (C.2) que no tienen sección asignada en el mockup.

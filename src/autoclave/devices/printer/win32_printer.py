@@ -4,6 +4,24 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 PRINTER_NAME = "Impresora_Termica"
+
+# B5 (tanda 4): quien quiera saber que una impresión tuvo éxito (para limpiar el
+# aviso "Impresora no conectada") se registra aquí. Un observador que falle no
+# afecta la impresión.
+_observadores_exito: list = []
+
+
+def registrar_observador_exito(callback) -> None:
+    if callback not in _observadores_exito:
+        _observadores_exito.append(callback)
+
+
+def _avisar_exito() -> None:
+    for cb in list(_observadores_exito):
+        try:
+            cb()
+        except Exception:
+            logger.exception("Observador de impresión exitosa")
 _LOGO_PATH = Path(__file__).resolve().parents[2] / "images" / "Logo_Especifika.jpg"
 
 
@@ -31,6 +49,7 @@ def print_startup(text: str, printer_name: str = PRINTER_NAME) -> bool:
             p.image(img, high_density_horizontal=True, high_density_vertical=True)
             p.set(align="left")
         p.text(text)
+        _avisar_exito()
         return True
     except Exception as exc:
         logger.warning("print_startup: error al imprimir: %s", exc)
@@ -61,6 +80,7 @@ def print_raw(text: str, printer_name: str = PRINTER_NAME) -> bool:
             win32print.WritePrinter(handle, text.encode("cp437", errors="replace"))
         finally:
             win32print.EndDocPrinter(handle)
+        _avisar_exito()
         return True
     except Exception as exc:
         logger.warning("print_raw: error al enviar datos: %s", exc)
@@ -107,3 +127,44 @@ def estado_impresora(printer_name: str = PRINTER_NAME) -> str:
     if status & _ESTADO_ERROR:
         return "error"
     return "lista"
+
+
+# B5 (tanda 4): ¿está la impresora presente? Respuestas de `conexion_impresora`.
+CONECTADA = "conectada"
+DESCONECTADA = "desconectada"
+DESCONOCIDA = "desconocida"
+
+
+def conexion_impresora(printer_name: str = PRINTER_NAME) -> str:
+    """CONECTADA, DESCONECTADA o DESCONOCIDA. No imprime nada ni gasta papel:
+    enumera las impresoras de Windows y lee los atributos de la cola. "Sin
+    papel" o "con error" cuentan como conectada (está presente). Si no se pudo
+    consultar (sin win32print, error del servicio de impresión), DESCONOCIDA:
+    quien llama no debe avisar nada."""
+    try:
+        import win32print
+    except ImportError:
+        return DESCONOCIDA
+    try:
+        nombres = {p[2] for p in win32print.EnumPrinters(
+            win32print.PRINTER_ENUM_LOCAL | win32print.PRINTER_ENUM_CONNECTIONS, None, 1)}
+    except Exception as exc:
+        logger.warning("conexion_impresora: no se pudo enumerar impresoras: %s", exc)
+        return DESCONOCIDA
+    if printer_name not in nombres:
+        return DESCONECTADA
+    try:
+        handle = win32print.OpenPrinter(printer_name)
+    except Exception as exc:
+        logger.warning("conexion_impresora: no se pudo abrir '%s': %s", printer_name, exc)
+        return DESCONOCIDA
+    try:
+        info = win32print.GetPrinter(handle, 2)
+    except Exception as exc:
+        logger.warning("conexion_impresora: no se pudo consultar '%s': %s", printer_name, exc)
+        return DESCONOCIDA
+    finally:
+        win32print.ClosePrinter(handle)
+    if info.get("Attributes", 0) & _ATRIBUTO_SIN_CONEXION or info.get("Status", 0) & _ESTADO_DESCONECTADA:
+        return DESCONECTADA
+    return CONECTADA

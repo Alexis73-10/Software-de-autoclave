@@ -278,6 +278,7 @@ class BackendContext:
         self.control_loop.recuperar_ciclo_interrumpido(self._programa_para_arranque())
         self.control_loop.start()
         self.iniciar_vigilancia_mantenimiento()
+        self.iniciar_vigilancia_impresora()
 
     def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
         """Cada handshake completo con la tarjeta de E/S: registro en
@@ -347,12 +348,39 @@ class BackendContext:
                     alarm_manager=self.alarm_manager)
             return self._mantenimiento
 
+    @property
+    def config_impresora(self):
+        """Bandera `habilitada` de la impresora (B5, tanda 4): data/impresora.json."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_config_impresora", None) is None:
+                from autoclave.core.runtime.vigilancia_impresora import ConfigImpresora
+                self._config_impresora = ConfigImpresora(app_root() / "data" / "impresora.json")
+            return self._config_impresora
+
+    def iniciar_vigilancia_impresora(self) -> None:
+        """B5 (tanda 4): verifica una vez, en un hilo con plazo de 5 s, que la
+        impresora esté presente (solo si está habilitada) y avisa sin bloquear.
+        Idempotente; un fallo se registra y no afecta nada más."""
+        if getattr(self, "_vigilancia_impresora", None) is not None:
+            return
+        try:
+            from autoclave.core.runtime.vigilancia_impresora import VigilanciaImpresora
+            self._vigilancia_impresora = VigilanciaImpresora(self.config_impresora,
+                                                             self.alarm_manager)
+            self._vigilancia_impresora.iniciar()
+        except Exception:
+            logger.exception("No se pudo iniciar la verificación de la impresora")
+
     def iniciar_vigilancia_mantenimiento(self, cada_s: float = 600.0) -> None:
         """Evalúa el aviso de mantenimiento vencido al arrancar y cada 10 min
         (hilo daemon; un fallo se registra y no afecta nada más)."""
         if getattr(self, "_hilo_mantenimiento", None) is not None:
             return                       # idempotente
         self.mantenimiento               # instancia antes de lanzar el hilo
+        try:
+            self.mantenimiento.migrar_valores_provisionales()   # B3 (tanda 4)
+        except Exception:
+            logger.exception("Migración de intervalos de mantenimiento")
 
         def vigilar():
             while True:

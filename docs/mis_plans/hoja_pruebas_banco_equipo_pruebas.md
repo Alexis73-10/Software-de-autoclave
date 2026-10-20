@@ -23,6 +23,7 @@
 | A-02 | Arranque con la tarjeta conectada: ALL_OFF | En seco (sin vapor) | §5.1 (T6) |
 | A-03 | Firmware 1.0.0: versión e ID solo en Información del sistema | En seco (sin vapor) | E6; tanda 2 §1 |
 | A-04 | DO1/DO2 nunca se encienden (generador interno) | En seco (sin vapor) | S1 |
+| A-05 | Ejecutable compilado: engrane, ajustes y cierre limpio | En seco (sin vapor) | B2 (tanda 4) |
 | B-01 | Paro de emergencia NC: pulsar, soltar, confirmar | En seco (sin vapor) | §5.2; PF-21; U1 |
 | B-02 | Paro NC: cable cortado = paro | En seco (sin vapor) | PF-21 |
 | B-03 | NO ABRIR con la cámara no segura (simulado en seco) | En seco (sin vapor) | §5.2 (T4) |
@@ -43,6 +44,11 @@
 | D-07 | Calibración y Entradas/Salidas desde el ejecutable (engrane) | En seco (sin vapor) | C1 (tanda 3); S3a |
 | D-08 | Programas de usuario persistentes con el ejecutable | En seco (sin vapor) | C2 (tanda 3) |
 | D-09 | Menú Principal sin la tarjeta de secado; CIC-10 indica qué hacer | En seco (sin vapor) | S4; U5 (tanda 3) |
+| D-10 | Selector de ciclo en Preciclo | En seco (sin vapor) | B6 (tanda 4) |
+| D-11 | Aviso de impresora desconectada al arrancar | En seco (sin vapor) | B5 (tanda 4) |
+| D-12 | Caducidad de la sesión por inactividad (5 min) | En seco (sin vapor) | B7 (tanda 4) |
+| D-13 | Salida forzada del modo prueba huérfano (ingeniero) | En seco (sin vapor) | B8 (tanda 4) |
+| D-14 | Nombre "Parámetros del equipo" | En seco (sin vapor) | B4 (tanda 4) |
 | E-01 | Instrumental 134 completo | En operación (vapor) | §5.3 |
 | E-02 | Instrumental 121 completo | En operación (vapor) | §5.3; T11 |
 | E-03 | SECADO alcanza vacío con la bomba y las válvulas cerradas | En operación (vapor) | T5 §1.6 |
@@ -113,6 +119,23 @@
   3. Revisar el log de arranque.
 - **Resultado esperado:** Ambos rechazados: "Esta salida de fuente de vapor no la usa este equipo". El log dice "salidas deshabilitadas: DO1, DO2".
 - **Criterio de aprobado/fallo:** Aprobado si DO1/DO2 no se activan físicamente en ningún momento.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-05 — Ejecutable compilado: engrane, ajustes y cierre limpio
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** B2 (tanda 4)
+- **Objetivo:** El .exe (con `scipy` ya incluido) abre el menú de ajustes y se cierra sin dejar procesos.
+- **Precondiciones:** `pyinstaller --noconfirm Autoclave.spec` ya ejecutado; `dist\Autoclave\Autoclave.exe` en el equipo.
+- **Pasos:**
+  1. Abrir el engrane: debe aparecer el menú de ajustes (ventana PySide) sin cierre inmediato.
+  2. Iniciar sesión como técnico/ingeniero y abrir Calibración (lee valores; guardar uno normal).
+  3. Entradas/Salidas: ver tarjetas de DI/DO/temperatura/presión con valores.
+  4. Probar un login incorrecto (mensaje, sin sesión) y uno correcto.
+  5. Cerrar el menú y el programa: en el Administrador de tareas no queda `Autoclave.exe` y el puerto 8000 se libera.
+- **Resultado esperado:** Las 5 comprobaciones pasan; si el menú no abre, revisar que `scipy` no esté en `excludes` del spec.
+- **Criterio de aprobado/fallo:** Aprobado si el engrane abre y todo cierra limpio.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -368,14 +391,16 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** M1 (tanda 3)
 - **Objetivo:** El próximo mantenimiento se calcula desde la instalación, se registra y nunca bloquea un ciclo.
-- **Precondiciones:** Sesión de técnico. Intervalo por defecto PROVISIONAL (180 días): confirmar o cambiarlo con `PUT /maintenance/config`.
+- **Precondiciones:** Sesión de técnico. Intervalos por defecto DEFINITIVOS (aprobados 20-oct-2026): 365 días y 1000 ciclos, contados desde la instalación; vence por lo que ocurra primero.
 - **Pasos:**
   1. Ver Menú Principal: tarjeta Próximo mantenimiento, su ventana e Información del equipo.
   2. OPCIONES › Mantenimiento: Registrar mantenimiento realizado (preventivo).
   3. Con `intervalo_dias` muy bajo (p. ej. 1) y el reloj adelantado, comprobar "VENCIDO" y el aviso en la campana; iniciar un ciclo.
   4. Con el reloj anterior a la instalación, abrir la ventana de mantenimiento.
-- **Resultado esperado:** Fecha = instalación + intervalo; tras registrar, la base es hoy. Vencido: aviso SIS-04 en la campana y el ciclo se inicia igual. Reloj anterior a la instalación: "—" (no un valor falso) y el registro se rechaza.
-- **Criterio de aprobado/fallo:** Aprobado si nunca se bloquea un ciclo por el mantenimiento y no se muestra una fecha falsa. Anotar los intervalos definitivos que Cristian apruebe.
+  5. OPCIONES › Mantenimiento › Intervalos: ver 365 días y 1000 ciclos; cambiar los días a 200 con el teclado numérico y Guardar; poner 0 en ciclos (No aplica); comprobar que un valor fuera de rango se rechaza y que un operador (sin sesión técnica) no puede editar.
+  6. Con el programa en marcha, adelantar el reloj de Windows más de un día y reabrir la ventana de mantenimiento.
+- **Resultado esperado:** Fecha = instalación + 365 días (o 1000 ciclos desde la instalación, lo primero). Tras registrar, la base es esa fecha y ese contador. Vencido: aviso SIS-04 en la campana y el ciclo se inicia igual. Reloj anterior a la instalación o adelantado: "—" (no un valor falso) y el registro se rechaza con su motivo. Los intervalos editados quedan auditados.
+- **Criterio de aprobado/fallo:** Aprobado si nunca se bloquea un ciclo por el mantenimiento, no se muestra una fecha falsa y solo técnico/ingeniero editan los intervalos.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -423,6 +448,88 @@
   3. En OPCIONES › Parámetros del ciclo › Sensores, asignar otra sonda con lectura como Principal.
 - **Resultado esperado:** Reportes e Información a mitad de ancho cada una, con iconos. El aviso dice "Revise la sonda Principal o asigne otra…"; NO ABRIR sigue vigente. Con otra sonda con lectura y no más fría que las demás, el protocolo continúa; si es más fría, sigue detenido.
 - **Criterio de aprobado/fallo:** Aprobado si no hay ninguna forma de declarar la cámara segura a mano y el cambio de sonda solo libera con una lectura segura.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-10 — Selector de ciclo en Preciclo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** B6 (tanda 4)
+- **Objetivo:** El operador cambia de programa tocando el recuadro "Programa"; los 3 más usados salen primero.
+- **Precondiciones:** Equipo en PREPARADO, sin ciclo en curso. Historial con ciclos de al menos 2 programas (o equipo sin historial).
+- **Pasos:**
+  1. Con el equipo en reposo, tocar el recuadro "Programa" (debe decir "Toque para cambiar de ciclo").
+  2. Revisar el orden: primero los más usados (marca "Más usado"), después el resto 1-2-3-4.
+  3. Elegir otro programa; comprobar que el número y el nombre cambian y que sigue elegido tras volver al reposo.
+  4. Iniciar un ciclo y tocar el recuadro; con el paro pulsado o un estado seguro pendiente, también.
+  5. Repetir sin historial (base nueva): orden 1-2-3-4 y sin marcas.
+- **Resultado esperado:** La ventana lista número, nombre y temperatura/tiempo; elegir usa el mismo cambio de programa de siempre (queda `PROGRAMA_SELECCIONADO` en `audit_log`, origen `puerta_N`). En ciclo, con paro o estado seguro el recuadro no es tocable. Si el backend rechaza, la ventana muestra el motivo.
+- **Criterio de aprobado/fallo:** Aprobado si no se puede cambiar de programa en ciclo, el orden por uso es correcto y ningún rechazo se muestra como fallo genérico.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-11 — Aviso de impresora desconectada al arrancar
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** B5 (tanda 4)
+- **Objetivo:** Si la impresora está habilitada y desconectada, el equipo avisa sin bloquear nada.
+- **Precondiciones:** Impresora térmica instalada en Windows como `Impresora_Termica`. Sesión de técnico para la bandera (`GET/PUT /printer/config`).
+- **Pasos:**
+  1. Con la impresora conectada, arrancar el software: no debe haber aviso.
+  2. Cerrar el software, desconectar el cable USB de la impresora y arrancar de nuevo.
+  3. Abrir la campana y revisar la bandeja de avisos de Preciclo: aviso "Impresora no conectada" (no en la barra superior).
+  4. Iniciar y terminar un ciclo con la impresora desconectada.
+  5. Conectar la impresora y reimprimir un ciclo del Historial: el aviso desaparece.
+  6. Con `habilitada = false` (`PUT /printer/config`), arrancar sin impresora.
+- **Resultado esperado:** Desconectada y habilitada: aviso de baja prioridad (SIS-05) en la campana y en Preciclo; no impide iniciar ni cerrar el ciclo. Se limpia con una impresión exitosa. Deshabilitada: ni verificación ni aviso. No retrasa el arranque.
+- **Criterio de aprobado/fallo:** Aprobado si el aviso aparece solo con la impresora desconectada y habilitada y nunca bloquea un ciclo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-12 — Caducidad de la sesión por inactividad (5 min)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** B7 (tanda 4)
+- **Objetivo:** Un token sin actividad caduca en el backend con el mismo plazo que la UI, sin afectar al ciclo.
+- **Precondiciones:** Sesión de técnico en OPCIONES. Cronómetro.
+- **Pasos:**
+  1. Iniciar sesión y navegar por OPCIONES sin dejar de tocar la pantalla durante más de 6 min: la sesión debe seguir viva.
+  2. Dejar la pantalla sin tocar 5 min: la UI vuelve al Login/Reposo con "Sesión cerrada por inactividad".
+  3. En el menú del engrane (PySide), iniciar sesión, esperar 6 min sin actuar e intentar guardar un parámetro.
+  4. Con un ciclo en marcha, dejar caducar la sesión y observar el ciclo.
+- **Resultado esperado:** Con uso la sesión no caduca; sin uso, a los 5 min (la UI cierra y el backend rechaza el token con 401). En el engrane el guardado responde "Sesión no válida o vencida". El ciclo en marcha no se interrumpe y "Apagar equipo" sigue permitido sin sesión.
+- **Criterio de aprobado/fallo:** Aprobado si la caducidad nunca afecta al ciclo ni a las salidas y el operador debe volver a iniciar sesión.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-13 — Salida forzada del modo prueba huérfano (ingeniero)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** B8 (tanda 4)
+- **Objetivo:** Si el dueño del modo prueba ya no tiene sesión, un ingeniero puede terminarlo; el técnico no.
+- **Precondiciones:** Un técnico con el modo prueba activo (menú del engrane › Entradas/Salidas). Un ingeniero con sesión. Herramienta para llamar a `POST /io/test/force-exit` (no hay botón aún).
+- **Pasos:**
+  1. Con el técnico aún en sesión, intentar la salida forzada con el ingeniero: debe rechazarse (dueño vigente).
+  2. Dejar caducar la sesión del técnico (5 min) o cerrarla; con una sesión de técnico distinta intentar la salida forzada: 403.
+  3. Con el ingeniero, `POST /io/test/force-exit` con `{"confirmar": true, "motivo": "..."}`.
+  4. Revisar `audit_log` (`modo_prueba_salida_forzada`) y que todas las salidas estén apagadas.
+- **Resultado esperado:** Dueño vigente: 409. Técnico: 403. Ingeniero con dueño vencido y confirmación: el modo prueba termina, salidas en seguro; la bitácora dice quién fuerza, a quién y por qué.
+- **Criterio de aprobado/fallo:** Aprobado si solo el ingeniero puede forzar, solo con el dueño sin sesión, con confirmación y con salidas apagadas.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-14 — Nombre "Parámetros del equipo"
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** B4 (tanda 4)
+- **Objetivo:** El antiguo "Parámetros del sistema" se llama "Parámetros del equipo" en toda la interfaz visible.
+- **Precondiciones:** Sesión de técnico. Probar en español e inglés.
+- **Pasos:**
+  1. OPCIONES: revisar el nombre de la sección en el cajón y el título.
+  2. Menú del engrane (PySide): revisar el elemento del menú.
+  3. Cambiar el idioma a inglés y repetir.
+- **Resultado esperado:** Se lee "Parámetros del equipo" (en inglés "Equipment parameters"); no queda "Parámetros del sistema" en ninguna pantalla.
+- **Criterio de aprobado/fallo:** Aprobado si no aparece el nombre antiguo en ninguna pantalla ni idioma.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

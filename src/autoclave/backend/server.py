@@ -359,7 +359,7 @@ def _prueba_cancelada_por_paro() -> None:
         if context.control_loop.test_mode_active:
             return   # ya se volvió a entrar: no es esta cancelación
         token, _token_modo_prueba = _token_modo_prueba, None
-    sesion = tokens.obtener(token) if token else None
+    sesion = tokens.obtener(token, renovar=False) if token else None
     _auditar("modo_prueba_sale", sesion, detalle={"motivo": "paro de emergencia"})
 
 
@@ -1164,7 +1164,7 @@ def _rechazo_mantenimiento(e, entidad: str, sesion) -> None:
 @app.get("/maintenance")
 def get_maintenance():
     """Próximo vencimiento, último mantenimiento, ciclos restantes y los
-    intervalos configurados (valores por defecto PROVISIONALES: 180 días)."""
+    intervalos configurados (por defecto 365 días y 1000 ciclos)."""
     return context.mantenimiento.resumen()
 
 
@@ -1205,6 +1205,34 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
     _auditar("mantenimiento_registrado", sesion, entidad=entidad, valor_nuevo=registro,
              detalle={"observaciones": body.observaciones[:200]})
     return {"ok": True, "registro": registro}
+
+
+# ── Impresora (B5, tanda 4) ─────────────────────────────────────────────────
+# `habilitada` solo gobierna la verificación de arranque y el aviso de impresora
+# desconectada; no impide imprimir ni bloquea nada.
+
+class _ImpresoraConfigBody(BaseModel):
+    habilitada: bool
+
+
+@app.get("/printer/config")
+def get_printer_config():
+    return {"habilitada": context.config_impresora.habilitada()}
+
+
+@app.put("/printer/config")
+def put_printer_config(body: _ImpresoraConfigBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = "/printer/config"
+    anterior = context.config_impresora.habilitada()
+    try:
+        context.config_impresora.guardar(body.habilitada)
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración",
+                  entidad, sesion)
+    _auditar("impresora_configurada", sesion, entidad=entidad,
+             valor_anterior={"habilitada": anterior}, valor_nuevo={"habilitada": body.habilitada})
+    return {"ok": True, "habilitada": body.habilitada}
 
 
 @app.get("/cycle/summary")
@@ -2038,6 +2066,60 @@ def get_programas():
     return {"programas": sorted(salida, key=lambda p: p["numero"])}
 
 
+def _param_programa(cycle, seccion: str, nombre: str):
+    try:
+        return cycle.get_param(seccion, nombre)
+    except Exception:
+        return None
+
+
+@app.get("/programas/seleccionables")
+def get_programas_seleccionables():
+    """Programas que el operador puede elegir en Preciclo (B6, tanda 4), ya
+    ordenados: primero los 3 con más ciclos terminados en el historial (de mayor
+    a menor; el empate lo decide el orden predefinido, por número) marcados
+    `mas_usado`, después el resto por número. Sin historial, o sin base de datos,
+    todo en el orden predefinido y sin marcas. `seleccionable` y `motivo` dicen
+    si hoy se puede cambiar de programa (la misma regla que /cycle/select). Solo
+    lectura, sin sesión (como /cycle/select)."""
+    cap = getattr(context, "cap", None)
+    filas = []
+    for cycle in context.cycle_manager.cycles.values():
+        if getattr(cycle, "number", None) is None or getattr(cycle, "source", "user") != "user":
+            continue
+        if getattr(cycle, "danado", None):
+            continue
+        if _carga_liquida(cycle) and getattr(cap, "has_liquids", None) is False:
+            continue
+        filas.append({
+            "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
+            "temperatura": _param_programa(cycle, "esterilizacion", "temperatura_esterilizacion"),
+            "tiempo": _param_programa(cycle, "esterilizacion", "tiempo_esterilizacion"),
+            "ciclos": 0, "mas_usado": False, "seleccionado": False,
+        })
+    filas.sort(key=lambda f: f["numero"])
+    conteos = {}
+    if getattr(context, "sin_base_de_datos", False) is not True:
+        try:
+            conteos = context.db.conteo_ciclos_por_programa()
+        except Exception:
+            logger.warning("Conteo de ciclos por programa no disponible: orden predefinido")
+    for f in filas:
+        f["ciclos"] = int(conteos.get(f["numero"], 0) or 0)
+    usados = sorted((f for f in filas if f["ciclos"] > 0), key=lambda f: (-f["ciclos"], f["numero"]))[:3]
+    for f in usados:
+        f["mas_usado"] = True
+    filas = usados + [f for f in filas if not f["mas_usado"]]
+    loop = context.control_loop
+    with loop.bloqueo_maquina():
+        activo = getattr(getattr(loop, "cycle", None), "id", None)
+        motivo = loop._motivo_no_cambiar_ciclo()
+    for f in filas:
+        f["seleccionado"] = f["cycle_id"] == activo
+    return {"programas": filas, "seleccionable": motivo is None, "motivo": motivo or "",
+            "orden": "uso" if usados else "predefinido"}
+
+
 def _hojas_seccion(cycle, seccion: str) -> list[tuple[list[str], dict]]:
     """Parámetros (ruta, hoja) de la sección. Descompresión: el modo, la
     espera previa y solo los parámetros del modo activo (Q-3)."""
@@ -2301,7 +2383,7 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
                            f"Configuración inválida: {motivo_config}")
         _rechazar_si_sin_datos_vigentes()
         # un logout de esta sesión pudo llegar mientras esta petición esperaba
-        if tokens.obtener(sesion.token) is None:
+        if not tokens.existe(sesion.token):
             raise _Rechazo(401, "sesion_invalida", _MOTIVO_SESION_INVALIDA)
         # sin esto, otra sesión le quitaría la propiedad a la que entró
         if (context.control_loop.test_mode_active
@@ -2427,3 +2509,45 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         context.setdo.set_output(index + 1, body.value)
     _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
     return {"ok": True, "name": name, "value": body.value}
+
+
+class _SalidaForzadaBody(BaseModel):
+    confirmar: bool = False
+    motivo: str = ""
+
+
+@app.post("/io/test/force-exit")
+def io_test_force_exit(body: _SalidaForzadaBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+    """B8 (tanda 4): salida forzada del modo prueba HUÉRFANO. Solo el dueño
+    puede dejar el modo prueba; si ese usuario ya no tiene sesión (token vencido
+    por inactividad, cierre de sesión, cambio de turno), un INGENIERO con sesión
+    puede terminarlo con confirmación explícita (`confirmar: true`). El técnico
+    NO puede (403). Con el dueño aún en sesión, 409: debe salir él (o esperar a
+    que su sesión caduque). Misma salida que la normal: todas las salidas a
+    seguro y se reanuda la máquina; un estado seguro en curso sigue su camino.
+    Queda en audit_log quién fuerza, a quién se le sacó y por qué."""
+    entidad = "/io/test/force-exit"
+    if body.confirmar is not True:
+        _rechazar(422, "confirmacion_requerida",
+                  "Confirme explícitamente la salida forzada del modo prueba", entidad, sesion)
+    motivo = (body.motivo or "").strip()[:200] or "modo prueba huérfano"
+    with guard_estado(frozenset(), entidad, sesion):
+        if not context.control_loop.test_mode_active:
+            raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
+        dueno_token = _token_modo_prueba
+        if (dueno_token is not None and dueno_token != sesion.token
+                and tokens.existe(dueno_token)):
+            raise _Rechazo(409, "modo_prueba_dueno_vigente",
+                           "El dueño del modo prueba sigue con sesión: debe salir él")
+        dueno = tokens.quien_fue(dueno_token)
+        estado_seguro = getattr(getattr(context.control_loop, "estado_seguro", None), "activo", False)
+        _salir_modo_prueba()
+    _auditar("modo_prueba_salida_forzada", sesion, entidad=entidad,
+             valor_anterior={"dueno": dueno[0] if dueno else None,
+                             "rol_dueno": dueno[1] if dueno else None},
+             detalle={"motivo": motivo, "forzada_por": sesion.usuario,
+                      "dueno": dueno[0] if dueno else None,
+                      "estado_seguro_activo": estado_seguro is True})
+    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "salida forzada por ingeniero"})
+    return {"ok": True, "dueno": dueno[0] if dueno else None}

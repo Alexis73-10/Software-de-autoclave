@@ -86,6 +86,10 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-20 | Tanda 3 A1 | `equipo.apagar_camara_no_segura` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-20 | Tanda 3 S4 | `sistema.estado_seguro_detenido_accion`, `sistema.asignar_sonda_principal` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-20 | Tanda 3 M1 | `menu.vencido`, `menu.proximo_vencimiento`, `equipo.ciclos_restantes`, `opciones.mant_*` | Mantenimiento | sin revisar |
+| 2026-10-20 | Tanda 4 B3 | `opciones.mant_intervalos`, `mant_intervalo_dias`, `mant_intervalo_ciclos`, `mant_unidad_*`, `mant_no_aplica`, `mant_intervalos_ayuda`, `mant_guardar_intervalos`, `mant_err_reloj_adelantado`; texto cambiado de `mant_sin_dato` | Mantenimiento | sin revisar |
+| 2026-10-20 | Tanda 4 B4 | `opciones.secciones.parametros_sistema` ("Parámetros del equipo" / "Equipment parameters") | Opciones | sin revisar |
+| 2026-10-20 | Tanda 4 B5 | `alarmas.SIS-05.{titulo,descripcion,accion}` (Impresora no conectada / Printer not connected) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-20 | Tanda 4 B6 | `selector_ciclo.*` (titulo, ayuda "Tap to change cycle", mas_usado "Most used", sin_conexion) | Ciclo | sin revisar |
 
 ## Registro de revisiones
 

@@ -34,6 +34,8 @@ Item {
     property QtObject puente: null
     property QtObject comandosPuerta: null
     property QtObject comandoCiclo: null
+    // selectorCiclo: cambio de programa tocando el recuadro "Programa" (B6, tanda 4)
+    property QtObject selectorCiclo: null
     // comandoFalla: botón RECONOCER FALLA (T-16), visible solo en FALLA
     property QtObject comandoFalla: null
     property QtObject infoEquipo: null
@@ -72,6 +74,15 @@ Item {
     property bool cicloOcupado: comandoCiclo?.ocupado ?? false
     // T-16 (§5.9, decisión 22): sin rol, solo con la máquina en FALLA
     readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
+    // B6 (tanda 4): el programa se puede cambiar solo en reposo/preciclo
+    // (PREPARACION o PREPARADO), con datos vigentes, sin paro, modo prueba ni
+    // estado seguro. En ciclo en curso NO es tocable. El backend vuelve a
+    // decidirlo (POST /cycle/select) y su motivo se muestra en la ventana.
+    readonly property bool programaTocable:
+        datosVigentes && selectorCiclo !== null
+        && ((puente?.machineState ?? "") === "PREPARACION" || (puente?.machineState ?? "") === "PREPARADO")
+        && !(puente?.estadoSeguroActivo ?? false) && !(puente?.estadoSeguroRequiereConfirmacion ?? false)
+        && !(puente?.paroActivo ?? false) && !(puente?.modoPrueba ?? false)
     property bool fallaOcupada: comandoFalla?.ocupado ?? false
 
     // Insignia de la campana: alarmas activas más los avisos de seguridad del
@@ -323,6 +334,22 @@ Item {
         color: raiz.datosVigentes ? raiz.paleta.programa : Colores.textoGuia
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
+    }
+
+    // B6 (tanda 4): el recuadro del programa abre el selector de ciclo
+    Texto {
+        objectName: "ayudaCambiarCiclo"
+        visible: raiz.programaTocable
+        cx: 599; bl: 352; tam: 16
+        text: I18n.t("selector_ciclo.ayuda", I18n.lang)
+        color: Colores.textoGuia
+        font.family: Tipografia.familia
+    }
+    MouseArea {
+        objectName: "zonaProgramaTocable"
+        enabled: raiz.programaTocable
+        x: raiz.m(351); y: raiz.m(219); width: raiz.m(488); height: raiz.m(165)
+        onClicked: ventanaSelectorCiclo.abrir()
     }
 
     Rotulo { cx: 1011; text: raiz.textos.estado }
@@ -790,6 +817,95 @@ Item {
         textoConfirmar: I18n.t("ciclo.sin_bd_continuar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         onConfirmado: { cerrar(); raiz.iniciarSinRegistroPulsado() }
+    }
+    // B6 (tanda 4), PROVISIONAL (sin diseño): selector de ciclo. Lista de los
+    // programas habilitados; los 3 más usados primero con la marca "Más usado".
+    VentanaFlotante {
+        id: ventanaSelectorCiclo
+        objectName: "ventanaSelectorCiclo"
+        escala: raiz.m(1)
+        altoTarjeta: 1100
+        titulo: I18n.t("selector_ciclo.titulo", I18n.lang)
+        onMostrada: {
+            raiz.selectorCiclo?.limpiarMensaje()
+            raiz.selectorCiclo?.cargar()
+        }
+        Connections {
+            target: raiz.selectorCiclo
+            function onElegido() { ventanaSelectorCiclo.cerrar() }
+        }
+        Text {
+            id: avisoSelector
+            objectName: "avisoSelectorCiclo"
+            width: parent.width
+            wrapMode: Text.WordWrap
+            visible: text !== ""
+            text: !raiz.selectorCiclo ? ""
+                  : raiz.selectorCiclo.sinConexion ? I18n.t("selector_ciclo.sin_conexion", I18n.lang)
+                  : raiz.selectorCiclo.mensaje
+            color: Colores.peligroTexto
+            font.family: Tipografia.familia
+            font.pixelSize: raiz.fuente(22)
+        }
+        ListView {
+            objectName: "listaSelectorCiclo"
+            anchors.top: avisoSelector.visible ? avisoSelector.bottom : parent.top
+            anchors.topMargin: avisoSelector.visible ? raiz.m(12) : 0
+            anchors.bottom: parent.bottom
+            width: parent.width
+            clip: true
+            spacing: raiz.m(10)
+            model: raiz.selectorCiclo?.programas ?? []
+            delegate: Rectangle {
+                id: fila
+                required property var modelData
+                readonly property bool activa: (raiz.selectorCiclo?.seleccionable ?? false)
+                                               && !(raiz.selectorCiclo?.ocupado ?? false)
+                objectName: "filaCiclo_" + modelData.numero
+                width: ListView.view.width
+                height: raiz.m(124)
+                radius: raiz.m(16)
+                color: modelData.seleccionado ? "#E8F0FE" : Colores.fondoSutil
+                border.width: modelData.seleccionado ? raiz.m(3) : 0
+                border.color: Colores.accionPrimario
+                opacity: activa ? 1.0 : 0.45
+                Text {
+                    x: raiz.m(24); anchors.verticalCenter: parent.verticalCenter
+                    width: raiz.m(80)
+                    text: fila.modelData.numero
+                    color: Colores.textoPrimario
+                    font.family: Tipografia.familia
+                    font.weight: Tipografia.pesoBold
+                    font.pixelSize: raiz.fuente(54)
+                }
+                Column {
+                    x: raiz.m(118); anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - raiz.m(118) - raiz.m(24)
+                    spacing: raiz.m(4)
+                    Text {
+                        width: parent.width; elide: Text.ElideRight
+                        text: fila.modelData.nombre
+                        color: Colores.textoPrimario
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoSemiBold
+                        font.pixelSize: raiz.fuente(30)
+                    }
+                    Text {
+                        width: parent.width; elide: Text.ElideRight
+                        text: fila.modelData.parametros
+                                + (fila.modelData.masUsado ? "   \u2022 " + I18n.t("selector_ciclo.mas_usado", I18n.lang) : "")
+                        color: Colores.textoSecundario
+                        font.family: Tipografia.familia
+                        font.pixelSize: raiz.fuente(22)
+                    }
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: fila.activa
+                    onClicked: raiz.selectorCiclo.elegir(fila.modelData.cycleId)
+                }
+            }
+        }
     }
     PanelEquipo {
         comandosSistema: raiz.comandosSistema

@@ -14,15 +14,18 @@
 # - Vencido es solo informativo: genera un aviso no bloqueante y NUNCA impide
 #   un ciclo.
 #
-# VALORES POR DEFECTO PROVISIONALES (DECISIÓN SIN CONFIRMAR, 2026-10-20): no se
-# encontró ningún intervalo documentado en docs/ ni en Documentacion/; se usan
-# 180 días y sin límite de ciclos hasta que Cristian dé los definitivos.
+# VALORES POR DEFECTO (aprobados por Cristian el 2026-10-20): 365 días y 1000
+# ciclos, contados desde la instalación (o desde el último mantenimiento
+# registrado); vence por lo que ocurra primero.
 
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-INTERVALO_DIAS_DEFECTO = 180
-INTERVALO_CICLOS_DEFECTO = 0
+INTERVALO_DIAS_DEFECTO = 365
+INTERVALO_CICLOS_DEFECTO = 1000
+# valores provisionales de la tanda 3, migrados a los definitivos (B3, tanda 4)
+INTERVALO_DIAS_PROVISIONAL = 180
+INTERVALO_CICLOS_PROVISIONAL = 0
 INTERVALO_DIAS_MAX = 3650
 INTERVALO_CICLOS_MAX = 1_000_000
 
@@ -89,10 +92,12 @@ def _a_fecha(valor) -> date | None:
 
 
 def calcular(instalado_en, intervalo_dias: int, intervalo_ciclos: int, ultimo: dict | None,
-             ciclos_actuales: int | None, hoy: date) -> EstadoMantenimiento:
+             ciclos_actuales: int | None, hoy: date,
+             ciclos_instalacion: int = 0) -> EstadoMantenimiento:
     """`ultimo`: {"fecha", "ciclos", "tipo"} del último mantenimiento registrado
     o None. `ciclos_actuales`: contador persistente de ciclos (None = se
-    desconoce)."""
+    desconoce). `ciclos_instalacion`: valor del contador al instalar (0 en un
+    equipo nuevo); los ciclos cuentan desde ahí hasta el primer mantenimiento."""
     if not intervalo_dias and not intervalo_ciclos:
         return EstadoMantenimiento(NO_APLICA)
     base_fecha = _a_fecha(ultimo.get("fecha")) if ultimo else None
@@ -106,7 +111,7 @@ def calcular(instalado_en, intervalo_dias: int, intervalo_ciclos: int, ultimo: d
     if hoy < base_fecha or (instalado is not None and hoy < instalado):
         return EstadoMantenimiento(SIN_DATO, ultimo_fecha=ultimo_fecha,
                                    ultimo_tipo=(ultimo or {}).get("tipo", ""))
-    ciclos_base = int((ultimo or {}).get("ciclos") or 0) if ultimo else 0
+    ciclos_base = int(ultimo.get("ciclos") or 0) if ultimo else max(0, int(ciclos_instalacion or 0))
 
     proximo, dias = None, None
     if intervalo_dias:

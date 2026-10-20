@@ -89,7 +89,7 @@ Contrapartida: se pierde la herramienta gráfica de Linguist. Se compensa con la
 
 ### 3.1 Almacenamiento y propagación
 
-- Parámetro del sistema `idioma` en la tabla de parámetros del sistema (BD), valores `es` | `en`, defecto `es`. Valor de fábrica en el JSON de fábrica.
+- Parámetro del equipo `idioma` en la tabla de parámetros del equipo (BD), valores `es` | `en`, defecto `es`. Valor de fábrica en el JSON de fábrica.
 - Se aplica **sin reiniciar y sin condición de reposo** (R-04).
 - Cada cambio genera registro en `audit_log` (usuario, fecha/hora, valor anterior y nuevo).
 - Las dos UI, el backend y el subsistema de voz leen el mismo valor. Una UI que aún no refrescó muestra el idioma anterior hasta su siguiente polling.

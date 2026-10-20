@@ -53,7 +53,7 @@ class DefinicionAlarma:
         return self.descripcion.format(**valores)
 
 
-SIS_01, SIS_02, SIS_03, SIS_04 = "SIS-01", "SIS-02", "SIS-03", "SIS-04"
+SIS_01, SIS_02, SIS_03, SIS_04, SIS_05 = "SIS-01", "SIS-02", "SIS-03", "SIS-04", "SIS-05"
 SUM_01, SUM_02, SUM_03, SUM_04, SUM_05, SUM_06 = (
     "SUM-01", "SUM-02", "SUM-03", "SUM-04", "SUM-05", "SUM-06")
 PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06 = (
@@ -66,6 +66,8 @@ CIC_09, CIC_10 = "CIC-09", "CIC-10"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
+# B5 (tanda 4): aviso no bloqueante de impresora desconectada al arrancar
+IMPRESORA_DESCONECTADA = SIS_05
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
 # Tarjeta de E/S (E6): los ids se conservan como códigos (no se renombran).
 TARJETA_SIN_TRAMA_VALIDA = "TARJETA_SIN_TRAMA_VALIDA"
@@ -233,6 +235,9 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(MANTENIMIENTO_VENCIDO, _AV, False, _A, "Mantenimiento vencido",
        "{motivo}",
        "Programe el mantenimiento con servicio técnico. El equipo puede seguir operando."),
+    _d(IMPRESORA_DESCONECTADA, _AV, False, _A, "Impresora no conectada",
+       "Impresora no conectada. Los reportes no se imprimirán; verifique el cable y la impresora.",
+       "Revise el cable USB y que la impresora esté encendida. El equipo puede seguir operando."),
     _d(CONFIGURACION_INVALIDA, _AL, True, _M, "Configuración inválida",
        "Configuración inválida: {motivo}",
        "Llame a servicio técnico para corregir la configuración."),

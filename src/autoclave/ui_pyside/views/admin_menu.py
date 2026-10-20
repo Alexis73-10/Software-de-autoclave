@@ -13,7 +13,7 @@ from qfluentwidgets import InfoBar, InfoBarPosition
 
 _OPTIONS = [
     ("📋", "Parámetros del ciclo"),
-    ("⚙️", "Parámetros del sistema"),
+    ("⚙️", "Parámetros del equipo"),
     ("🔌", "Entradas / Salidas"),
     ("🔧", "Mantenimiento"),
     ("⚡", "Opciones avanzadas"),

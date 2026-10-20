@@ -2,7 +2,7 @@
 
 **Proyecto:** Software de Autoclave (Especifika S.A.S.)
 **Alcance:** estructura, permisos y reglas de la configuración posterior al login (QML puro)
-**Estado:** borrador v4 — la calibración de sensores queda **por definir** (sección 8); parámetros del sistema alineados con el código existente (informe de revisión del 7-oct); backend especificado en `planeacion_backend_autenticacion.md` y `planeacion_backend_parametros.md`
+**Estado:** borrador v4 — la calibración de sensores queda **por definir** (sección 8); parámetros del equipo alineados con el código existente (informe de revisión del 7-oct); backend especificado en `planeacion_backend_autenticacion.md` y `planeacion_backend_parametros.md`
 **Ubicación sugerida en el repo:** `docs\mis_plans\planeacion_opciones.md`
 **Documentos relacionados:** `planeacion_menu_principal.md`, `planeacion_idiomas.md` (pendiente de redactar)
 
@@ -29,7 +29,7 @@
 | Parámetros del ciclo: entradas mostradas | - | E | E |
 | Parámetros del ciclo: fases (incluye "Global") | - | L | E |
 | Parámetros del ciclo: programas (habilitar/deshabilitar, duplicar, borrar personalizados) | - | E | E |
-| Parámetros del sistema | L | E | E |
+| Parámetros del equipo | L | E | E |
 | Entradas y salidas: entradas digitales | - | L | L |
 | Entradas y salidas: salidas digitales y modo de prueba | - | E | E |
 | Entradas y salidas: lectura de sensores de temperatura y presión | - | L | L |
@@ -53,7 +53,7 @@
 - **Fases del ciclo:** una pantalla por fase, incluye la fase "Global". Flujo: programa → fase → parámetros de la fase → ventana de ajuste del parámetro.
 - **Ventana de ajuste:** valor actual, valor por defecto (la tarjeta "Por defecto" es el botón de restaurar), mínimo, máximo, usuario y fecha/hora de la última modificación, campo de nuevo valor (el teclado aparece solo al tocarlo). Los parámetros modificados respecto a fábrica se marcan con asterisco solo en esta pantalla.
 
-### 3.2 Parámetros del sistema
+### 3.2 Parámetros del equipo
 
 Estado actual: existen en `src/autoclave/config/global_params.json` y solo se leen al arrancar (sin escritura, sin auditoría, mín/máx sin aplicar). Esta sección define el objetivo. Las claves de código conservan el español existente y se corrigen las erratas, porque el software no está instalado en ningún equipo y no hay compatibilidad que romper.
 
@@ -212,7 +212,7 @@ Parámetro `tiempo_standby` (hoy en el JSON con defecto 5 min y rango 1–60; la
 | **OPC-05** | Media | En suspensión las salidas están apagadas. Si el sensor crítico detecta sobrepresión, el software no tiene actuadores que accionar. | Definir la acción (ver pendiente P-3). Propuesta: salir de suspensión y presentar la alarma. |
 | **OPC-07** | Alta | Los valores de respaldo del código difieren de los del JSON: banda atmosférica 20 contra 5 kPa, atmosférica 101.3 contra 75 kPa, impresión 180/60 contra 60/30 s, suspensión 5 min. Si falta una clave, el comportamiento cambia sin aviso. Es grave en `rango_presion_atm`, que interviene en la lógica de apertura de puerta. | Eliminar los respaldos en código. Una sola fuente de valores de fábrica, y fallo con alarma si falta una clave. |
 | **OPC-08** | Alta | `timeout_puerta` y el intervalo de impresión usan `time.time()`, lo que incumple la regla de `time.monotonic()` para temporizadores de proceso. | Corregir en la implementación; auditar el resto de temporizadores de proceso. |
-| **OPC-09** | Media | No existe ruta de escritura de parámetros del sistema. El JSON se lee una sola vez, los mín/máx no se validan y no hay auditoría. | Backend de edición nuevo (sección 10). |
+| **OPC-09** | Media | No existe ruta de escritura de parámetros del equipo. El JSON se lee una sola vez, los mín/máx no se validan y no hay auditoría. | Backend de edición nuevo (sección 10). |
 | **OPC-11** | Alta | `ServicioPuertas` copia `presion_atmosferica`, `rango_presion_atm` y `temp_max_apertura` al arrancar. La calibración atmosférica no tendría efecto sobre la apertura de puerta hasta reiniciar. | Lectura en vivo (backend de parámetros, sección 6). |
 | **OPC-12** | Media | `ConfigManager` no tiene lock: carrera entre el hilo de control y el de FastAPI al escribir. | `RLock` y escritura sobre el mismo objeto. |
 | **OPC-13** | Media | Los respaldos `or 101.3` y `or 20.0` convierten un 0 válido en el valor por defecto. | Eliminar los respaldos. |

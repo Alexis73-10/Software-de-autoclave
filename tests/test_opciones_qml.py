@@ -286,7 +286,7 @@ def test_tecnico_entra_a_opciones(estado, bloqueado):
     assert r["seccion_activa"] == "parametros_ciclo"
     assert r["titulo"] == "PARÁMETROS DEL CICLO"
     assert r["elegir_cierra"] is True
-    assert r["titulo_segunda"] == "PARÁMETROS DEL SISTEMA"
+    assert r["titulo_segunda"] == "PARÁMETROS DEL EQUIPO"
     assert r["pide_confirmar"] is True
     assert r["confirmar_cambia"] is True
     # T12: Parámetros del ciclo migrado; el resto sigue en "Próximamente"
@@ -305,7 +305,7 @@ def test_ingeniero_edita_con_ciclo_en_curso():
     _navegacion_comun(r)
     assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad"]   # T-8, R3-5; tanda §1.6
     assert r["aviso_bloqueo"] is False            # Parámetros del ciclo
-    assert r["aviso_bloqueo_segunda"] is False    # Parámetros del sistema
+    assert r["aviso_bloqueo_segunda"] is False    # Parámetros del equipo
 
 
 def test_admin_ve_solo_usuarios_y_conectividad():

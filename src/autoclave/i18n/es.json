@@ -118,7 +118,7 @@
     "cambiar_seccion_confirmar": "Descartar",
     "secciones": {
       "parametros_ciclo": "Parámetros del ciclo",
-      "parametros_sistema": "Parámetros del sistema",
+      "parametros_sistema": "Parámetros del equipo",
       "entradas_salidas": "Entradas / Salidas",
       "mantenimiento": "Mantenimiento",
       "opciones_avanzadas": "Opciones avanzadas",
@@ -174,9 +174,18 @@
     "mant_tipo_otro": "Otro",
     "mant_registrar": "Registrar mantenimiento realizado",
     "mant_confirmar": "Se registrará un mantenimiento {tipo} realizado hoy. ¿Desea continuar?",
-    "mant_sin_dato": "El reloj del sistema es anterior a la instalación: corrija la fecha y hora.",
+    "mant_sin_dato": "La fecha del sistema no es confiable (anterior a la instalación o cambiada): corrija la fecha y hora.",
     "mant_err_reloj": "El reloj del sistema es anterior a la instalación o al último mantenimiento: corrija la fecha y hora.",
-    "mant_err_validacion": "Datos de mantenimiento no válidos."
+    "mant_err_reloj_adelantado": "El reloj del sistema parece adelantado respecto de su avance real: corrija la fecha y hora y reinicie el programa antes de registrar.",
+    "mant_err_validacion": "Datos de mantenimiento no válidos.",
+    "mant_intervalos": "Intervalos de mantenimiento",
+    "mant_intervalo_dias": "Por fecha",
+    "mant_intervalo_ciclos": "Por ciclos",
+    "mant_unidad_dias": "días",
+    "mant_unidad_ciclos": "ciclos",
+    "mant_no_aplica": "No aplica",
+    "mant_intervalos_ayuda": "Se cuentan desde la instalación o desde el último mantenimiento; vence lo que ocurra primero. 0 = no aplica.",
+    "mant_guardar_intervalos": "Guardar intervalos"
   },
   "menu": {
     "titulo": "MENÚ PRINCIPAL",
@@ -553,7 +562,18 @@
     "SENSOR_NO_DISPONIBLE": "Un sensor en uso no tiene lectura o no está instalado",
     "ASIGNACION_SENSORES_INVALIDA": "El programa tiene una asignación de sensores inválida"
   },
+  "selector_ciclo": {
+    "titulo": "Seleccionar ciclo",
+    "ayuda": "Toque para cambiar de ciclo",
+    "mas_usado": "Más usado",
+    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo."
+  },
   "alarmas": {
+    "SIS-05": {
+      "titulo": "Impresora no conectada",
+      "descripcion": "Impresora no conectada. Los reportes no se imprimirán; verifique el cable y la impresora.",
+      "accion": "Revise el cable USB y que la impresora esté encendida. El equipo puede seguir operando."
+    },
     "COM-01": {
       "titulo": "Tarjeta de E/S desconectada",
       "descripcion": "No se detecta la tarjeta de control.",

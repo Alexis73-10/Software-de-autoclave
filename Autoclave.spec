@@ -70,7 +70,12 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['autoclave.simulador', 'pytest', 'scipy', 'matplotlib', 'tkinter',
+    # B2 (tanda 4): 'scipy' ya NO se excluye. qfluentwidgets lo importa al cargar
+    # (image_utils -> scipy.ndimage) y con él excluido el menú de ajustes
+    # (engrane) no abre. Lo que se excluye NO debe ser importado transitivamente
+    # por qfluentwidgets, PySide6, uvicorn/fastapi/pydantic, serial ni win32:
+    # lo vigila tests/test_b2_spec_excludes.py.
+    excludes=['autoclave.simulador', 'pytest', 'matplotlib', 'tkinter',
               'PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.Qt3DCore', 'PySide6.QtQuick3D',
               'PySide6.QtPdf', 'PySide6.QtCharts', 'PySide6.QtGraphs',
