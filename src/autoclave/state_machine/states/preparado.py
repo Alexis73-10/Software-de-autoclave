@@ -2,7 +2,9 @@ from autoclave.state_machine.alarms.catalogo import (
     PRE_01, PRE_02, PRE_03, PRE_04, PRE_06, PUE_01, SEN_01, SIS_01,
     SUM_02, SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
 )
-from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
+from autoclave.state_machine.states.control_banda import (evaluar_banda, ConfirmadorApagado,
+                                                          carga_liquida, aplicar_venteo,
+                                                          cerrar_lenta_propia)
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime.sensores_ciclo import SENSORES as SENSORES_CICLO, vigilar_fuera_de_ciclo
@@ -189,6 +191,7 @@ class preparado_state:
 
         # Sin dato (antes de la primera trama): sin órdenes y no lista (E0-3)
         if not lectura_valida(presion_camara):
+            cerrar_lenta_propia(self, self.set_do)      # T1: lenta propia, cerrada
             return False
 
         min_p = pres_atm - rango
@@ -197,7 +200,7 @@ class preparado_state:
         if min_p <= presion_camara <= max_p:
             if self._confirmador_aire_camara.confirmar(True):
                 self.set_do.aire_admosferico_camara_off()
-            self.set_do.descompresion_rapida_off()
+            aplicar_venteo(self, self.set_do, False, False)
             self.alarm_manager.resolver(PRE_03)
             self.alarm_manager.resolver(PRE_04)
             return True
@@ -205,13 +208,14 @@ class preparado_state:
         if presion_camara < min_p:
             self.set_do.aire_admosferico_camara_on()
             self._confirmador_aire_camara.reset()
-            self.set_do.descompresion_rapida_off()
+            aplicar_venteo(self, self.set_do, False, False)
             self.generar_alarma_temporizada(PRE_03, pres=presion_camara, minimo=min_p)
 
         elif presion_camara > max_p:
             self.set_do.aire_admosferico_camara_off()
             self._confirmador_aire_camara.reset()
-            self.set_do.descompresion_rapida_on()
+            aplicar_venteo(self, self.set_do, True,
+                           carga_liquida(self.programas_seguridad, self.cycle))
             self.generar_alarma_temporizada(PRE_04, pres=presion_camara, maximo=max_p)
 
         return False

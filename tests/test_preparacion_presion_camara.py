@@ -27,7 +27,9 @@ def test_presion_en_banda_ok_sin_pedir_rapida():
     assert ok is True
     assert quiere_rapida is False
     set_do.aire_admosferico_camara_off.assert_called_once()
-    set_do.descompresion_lenta_off.assert_called()
+    # T1 (tanda 5): la lenta ya no se cierra aquí sino en ejecutor(), en la
+    # única decisión de venteo del tick (test_t1_venteo_liquidos.py)
+    set_do.descompresion_lenta_off.assert_not_called()
     set_do.descompresion_rapida_on.assert_not_called()
     set_do.descompresion_rapida_off.assert_not_called()
 

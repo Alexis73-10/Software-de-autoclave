@@ -111,11 +111,22 @@ class preparacion_state:
         drenaje_ok, quiere_rapida_drenaje = self.drenar_camara()
         temp_ok = self.verificar_temperatura_drenaje()
 
+        # T1 (D-19): una sola decisión de venteo por tick; en líquidos, la lenta
+        from autoclave.state_machine.states.control_banda import (
+            aplicar_venteo, carga_liquida, cerrar_lenta_propia)
+        # La lenta reemplaza a la rápida solo ante SOBREPRESIÓN; el drenaje de
+        # agua con la cámara igualada sigue con la rápida (PREGUNTA T1, P-12)
         if quiere_rapida_presion or quiere_rapida_drenaje:
-            self.set_do.descompresion_rapida_on()
+            liquida = bool(quiere_rapida_presion) and carga_liquida(
+                getattr(self, "programas_seguridad", None), self.cycle)
+            aplicar_venteo(self, self.set_do, True, liquida)
         elif quiere_rapida_presion is not None:
-            self.set_do.descompresion_rapida_off()
-        # quiere_rapida_presion None: sin dato de presión, sin orden (E0-3)
+            aplicar_venteo(self, self.set_do, False, False)
+        if presion_ok:
+            self.set_do.descompresion_lenta_off()     # presión igualada (como antes)
+        if quiere_rapida_presion is None:
+            # sin dato de presión, sin orden (E0-3) salvo cerrar la lenta propia
+            cerrar_lenta_propia(self, self.set_do)
 
         return chaqueta_lista and presion_ok and drenaje_ok and temp_ok
     
@@ -262,7 +273,7 @@ class preparacion_state:
                 # Presión igualada
                 if self._confirmador_aire_camara.confirmar(True):
                     self.set_do.aire_admosferico_camara_off()
-                self.set_do.descompresion_lenta_off()
+                # la lenta se cierra en ejecutor(), junto con el drenaje (T1)
                 self.alarm_manager.resolver(PRE_03)
                 self.alarm_manager.resolver(PRE_04)
                 return True, False
