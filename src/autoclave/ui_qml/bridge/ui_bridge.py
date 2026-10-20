@@ -182,7 +182,7 @@ class UiBridge(QObject):
         self._fijar("_door_state",
                     self._ui.get_estado_puerta(self._nombre_puerta) or ESTADO_DESCONOCIDO,
                     self.doorStateChanged)
-        # Misma bandera que _upd_listo de la UI tkinter (la calcula el backend en PREPARADO)
+        # Bandera LISTO_PARA_CICLO (la calcula el backend en PREPARADO)
         self._fijar("_listo", bool(self._ui.get_estado_flag("LISTO_PARA_CICLO")),
                     self.listoParaCicloChanged)
         self._fijar("_estado_equipo", estado_equipo(self._machine_state, self._listo),
