@@ -1,8 +1,7 @@
 # ui_qml/bridge/comandos_puerta.py
 #
 # Botón de puerta de la pantalla de ciclo: abre o cierra la puerta de ESTA
-# ventana (--door N) vía DoorCommandService, igual que _accion_puerta_1 de la
-# UI tkinter. La petición HTTP corre fuera del hilo de la GUI; el resultado
+# ventana (--door N) vía DoorCommandService. La petición HTTP corre fuera del hilo de la GUI; el resultado
 # vuelve por una señal (conexión en cola al hilo de la GUI).
 #
 # La acción la decide UiBridge.doorOpen, la misma regla que pinta el texto del

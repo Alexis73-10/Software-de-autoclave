@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 def _software_version() -> str:
     """Versión real instalada del paquete (misma fuente que el ticket de
-    arranque en main_window.py) — evita que el ticket de ciclo muestre una
+    arranque, devices/printer/arranque_equipo.py) — evita que el ticket de ciclo muestre una
     versión desactualizada o inventada."""
     try:
         return importlib.metadata.version("autoclave")

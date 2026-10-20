@@ -109,7 +109,7 @@ def informe_md(claves, sin_uso, prefijos) -> str:
         "Python de alcance D-02, si empieza por el prefijo de una familia dinámica que aparece en "
         "ese código, o si la lee por su nombre corto un generador de PDF de `ui_qml/exportacion`. "
         "Puede haber claves que el script da por usadas sin que lo estén (p. ej. toda una familia "
-        "dinámica), pero no al revés salvo usos fuera de ese código (vistas PySide, tkinter).",
+        "dinámica), pero no al revés salvo usos fuera de ese código (vistas PySide).",
         "",
         "## Claves sin uso",
         "",

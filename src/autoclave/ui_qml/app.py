@@ -5,7 +5,7 @@
 #
 # Solo se conecta al backend en BACKEND_URL; no lo arranca ni lo apaga. Los
 # únicos comandos que envía son abrir/cerrar la puerta de esta ventana, iniciar
-# ciclo (misma lógica que tkinter) y, desde la pantalla de ciclo en curso,
+# ciclo (con LISTO_PARA_CICLO) y, desde la pantalla de ciclo en curso,
 # cancelar (con confirmación) y confirmar el fin del ciclo; no toca salidas.
 # La sesión de la ventana (login, logout, cambio de contraseña, crear
 # usuarios) va contra /auth/* y /usuarios con su token (sesion_backend, T-8);

@@ -1,11 +1,11 @@
 # ui_qml/bridge/comandos_ciclo.py
 #
-# Botón "INICIAR CICLO" de la pantalla de ciclo. Misma lógica que la UI
-# tkinter (_upd_listo + start_cycle de ui/window/main_window.py):
+# Botón "INICIAR CICLO" de la pantalla de ciclo (la misma lógica que tenía la
+# UI anterior, retirada en R1 de la tanda 2):
 #   - solo se acepta con LISTO_PARA_CICLO activo (en QML, además, el botón
 #     desaparece cuando no lo está);
 #   - envía UIServiceBackend.start_cycle() (POST /cycle/start); si el backend
-#     lo rechaza, solo se registra en el log, igual que tkinter.
+#     lo rechaza, solo se registra en el log.
 # El backend vuelve a validar LISTO_PARA_CICLO (409 si no está listo).
 # La petición HTTP corre fuera del hilo de la GUI.
 
