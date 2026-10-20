@@ -34,6 +34,7 @@ from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
+from autoclave.core.managers.catalogo_parametros import evaluar_calibracion, evaluar_desviacion_acumulada
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
 from autoclave.state_machine.machine.enum_global import GlobalState
@@ -602,6 +603,18 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
         )
     entidad = f"{tipo}/{sensor}"
 
+    # S3a (tanda 2): plausibilidad por tipo de canal (catálogo). Lo imposible
+    # se rechaza; una corrección grande pide confirmación explícita
+    nivel, motivo = evaluar_calibracion(tipo, body, sensor)
+    if nivel == "rechazo":
+        _rechazar(422, "CALIBRACION_IMPLAUSIBLE", f"Calibración no plausible: {motivo}",
+                  f"/calibration/{entidad}", sesion)
+    confirmado = body.get("confirmar_fuera_de_rango") is True
+    if nivel == "aviso" and not confirmado:
+        _rechazar(409, "CALIBRACION_REQUIERE_CONFIRMACION",
+                  f"Calibración fuera del rango habitual: {motivo}",
+                  f"/calibration/{entidad}", sesion)
+
     # Solo comprobación bajo _sm_lock: el guard solo deja pasar en CICLO al
     # ingeniero (el técnico recibe 409), así que la escritura no necesita ser
     # atómica con la comprobación. YAML y recarga van fuera del
@@ -628,6 +641,23 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
+        # S3a (revisión): desviación ACUMULADA de la calibración resultante
+        # respecto de la neutra, y canal con polinomio vigente (la recta nueva
+        # lo reemplaza fuera de los puntos): aviso confirmable o rechazo
+        nivel_acum, motivo_acum = evaluar_desviacion_acumulada(tipo, new_gain, new_offset, sensor)
+        if old_calib.poly and nivel_acum is None:
+            nivel_acum, motivo_acum = "aviso", ("el canal tiene un polinomio de calibración vigente: "
+                                                 "la recta nueva lo reemplaza")
+        if nivel_acum == "rechazo":
+            _rechazar(422, "CALIBRACION_IMPLAUSIBLE", f"Calibración no plausible: {motivo_acum}",
+                      f"/calibration/{entidad}", sesion)
+        if nivel_acum == "aviso" and not confirmado:
+            _rechazar(409, "CALIBRACION_REQUIERE_CONFIRMACION",
+                      f"Calibración fuera del rango habitual: {motivo_acum}",
+                      f"/calibration/{entidad}", sesion)
+        if nivel_acum is not None and nivel is None:
+            nivel, motivo = nivel_acum, motivo_acum
+
         # SAF-03 de T3: si un ciclo arrancó entre la comprobación y este
         # punto, el técnico no puede cambiar la calibración en curso
         if sesion.rol != ROL_INGENIERO:
@@ -638,6 +668,9 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
                               "shown_high": shown_high, "real_high": real_high}}
+        if nivel is not None:
+            detalle["plausibilidad"] = {"nivel": nivel, "motivo": motivo,
+                                        "confirmado": confirmado}
         detalle.update(contexto_ciclo)
         # BD-03 (T8, §7.6): sin registro en audit_log la calibración no queda
         # activa. Se guarda el archivo previo y se restaura si la auditoría falla.

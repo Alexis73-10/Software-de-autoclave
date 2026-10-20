@@ -208,3 +208,128 @@ def errores_programa(parameters: dict) -> list[str]:
         except ValueError as e:
             errores.append(f"{fase}.{'.'.join(path)}: {e}")
     return errores + errores_coherencia(parameters)
+
+
+# ── Plausibilidad de la calibración de dos puntos (S3a, tanda 2) ───────────
+#
+# Pendiente T3 SAF-03 (a): la calibración no tenía límites. Por canal (con
+# valores por tipo como base), sobre los puntos que carga el técnico (lo que
+# mostraba el equipo y el valor del patrón) y sobre la recta resultante:
+#   rango:            los cuatro valores deben caer en el rango físico del canal;
+#   separacion_min:   los dos puntos, en "mostrado" Y en "real", al menos así de separados;
+#   pendiente:        real_span / mostrado_span (ganancia relativa); <= 0 es una
+#                     pendiente invertida y siempre se rechaza. Fuera de
+#                     (pendiente_aviso) pide confirmación; fuera de (pendiente_max), rechazo;
+#   correccion_*:     |real − mostrado| en los dos puntos y en los extremos del
+#                     rango OPERATIVO (donde la recta extrapola): mayor que
+#                     correccion_aviso pide confirmación explícita (queda auditada);
+#                     mayor que correccion_max se rechaza siempre.
+#   desviacion_*:     ACUMULADA (revisión S3a): cada calibración se mide contra lo
+#                     mostrado, que ya lleva la calibración de usuario vigente; para
+#                     que una serie de pasos pequeños no sume una deriva ilimitada,
+#                     se mide también cuánto se aparta la calibración RESULTANTE
+#                     (ganancia/offset) de la neutra (1, 0) en los extremos
+#                     operativos. Las de calibration.yaml (hasta 75 kPa, 6 °C) caben.
+# Valores conservadores, DECISIÓN SIN CONFIRMAR de la tanda 2 (informe S3).
+# Las recalibraciones reales de calibration.yaml (hasta 49 kPa y 1,2 °C en los
+# puntos) caben en aviso o en normal; ninguna se rechaza.
+CALIBRACION_PLAUSIBLE = {
+    "temperature": {"rango": (0.0, 200.0), "operativo": (0.0, 150.0), "separacion_min": 20.0,
+                    "correccion_aviso": 5.0, "correccion_max": 15.0,
+                    "desviacion_aviso": 12.0, "desviacion_max": 25.0,
+                    "pendiente_aviso": (0.95, 1.05), "pendiente_max": (0.8, 1.25), "unidad": "°C"},
+    "pressure":    {"rango": (-10.0, 450.0), "operativo": (0.0, 350.0), "separacion_min": 50.0,
+                    "correccion_aviso": 25.0, "correccion_max": 90.0,
+                    "desviacion_aviso": 90.0, "desviacion_max": 120.0,
+                    "pendiente_aviso": (0.8, 1.25), "pendiente_max": (0.6, 1.7), "unidad": "kPa"},
+}
+
+# Ajustes por canal sobre el tipo. Cámara: estricta. Chaqueta y empaques: más
+# holgados (sus calibraciones de campo corrigen hasta 49 kPa). Drenaje: rango
+# propio. Las ranuras sin sensor (temperature[3] retirada, [5] sin sensor) no
+# tienen nombre en map_temp: nunca llegan aquí.
+CALIBRACION_PLAUSIBLE_CANAL = {
+    ("temperature", "temp_camara"):   {"correccion_aviso": 3.0, "correccion_max": 10.0},
+    ("temperature", "temp_2_camara"): {"correccion_aviso": 3.0, "correccion_max": 10.0},
+    ("temperature", "temp_ref"):      {"correccion_aviso": 3.0, "correccion_max": 10.0},
+    ("temperature", "temp_drenaje"):  {"rango": (0.0, 150.0), "operativo": (0.0, 130.0)},
+    ("pressure", "pres_camara"):      {"correccion_max": 50.0},
+}
+
+
+def evaluar_desviacion_acumulada(tipo: str, ganancia: float, offset: float,
+                                 sensor: str | None = None) -> tuple[str | None, str]:
+    """Nivel (None | "aviso" | "rechazo") y motivo según cuánto se aparta la
+    calibración de usuario resultante (ganancia, offset) de la neutra, en los
+    extremos del rango operativo."""
+    lim = limites_calibracion(tipo, sensor)
+    if lim is None:
+        return "rechazo", f"tipo de canal sin límites de calibración: {tipo!r}"
+    if not (math.isfinite(ganancia) and math.isfinite(offset)):
+        return "rechazo", "calibración resultante no finita"
+    u = lim["unidad"]
+    desvio = max(abs(ganancia * x + offset - x) for x in lim["operativo"])
+    if desvio > lim["desviacion_max"]:
+        return "rechazo", (f"la calibración acumulada se aparta {desvio:.1f} {u} de la neutra, más que "
+                           f"el máximo ({lim['desviacion_max']:g} {u}): revise el sensor")
+    if desvio > lim["desviacion_aviso"]:
+        return "aviso", (f"la calibración acumulada se aparta {desvio:.1f} {u} de la neutra "
+                         f"(aviso > {lim['desviacion_aviso']:g} {u}): confirme que es correcta")
+    return None, ""
+
+
+def limites_calibracion(tipo: str, sensor: str | None = None) -> dict | None:
+    base = CALIBRACION_PLAUSIBLE.get(tipo)
+    if base is None:
+        return None
+    return {**base, **CALIBRACION_PLAUSIBLE_CANAL.get((tipo, sensor), {})}
+
+
+def evaluar_calibracion(tipo: str, puntos: dict, sensor: str | None = None) -> tuple[str | None, str]:
+    """(None, "") si es plausible; ("aviso", motivo) si pide confirmación;
+    ("rechazo", motivo) si no se puede aplicar. `puntos`: shown_low, real_low,
+    shown_high, real_high."""
+    lim = limites_calibracion(tipo, sensor)
+    if lim is None:
+        return "rechazo", f"tipo de canal sin límites de calibración: {tipo!r}"
+    u = lim["unidad"]
+    try:
+        v = {k: float(puntos[k]) for k in ("shown_low", "real_low", "shown_high", "real_high")}
+    except (KeyError, TypeError, ValueError):
+        return "rechazo", "puntos de calibración incompletos o no numéricos"
+    if not all(math.isfinite(x) for x in v.values()):
+        return "rechazo", "puntos de calibración no finitos"
+    bajo, alto = lim["rango"]
+    fuera = [k for k, x in v.items() if not bajo <= x <= alto]
+    if fuera:
+        return "rechazo", (f"valores fuera del rango físico del canal ({bajo:g} a {alto:g} {u}): "
+                           + ", ".join(fuera))
+    span_mostrado = v["shown_high"] - v["shown_low"]
+    span_real = v["real_high"] - v["real_low"]
+    if abs(span_mostrado) < lim["separacion_min"] or abs(span_real) < lim["separacion_min"]:
+        return "rechazo", (f"los dos puntos deben estar separados al menos "
+                           f"{lim['separacion_min']:g} {u}, tanto en lo mostrado como en el patrón")
+    pendiente = span_real / span_mostrado
+    if pendiente <= 0:
+        return "rechazo", "pendiente invertida: el patrón y el equipo deben subir en el mismo sentido"
+    p_min, p_max = lim["pendiente_max"]
+    if not p_min <= pendiente <= p_max:
+        return "rechazo", (f"ganancia relativa {pendiente:.2f} fuera de {p_min:g} a {p_max:g}: "
+                           "revise el sensor o el patrón")
+    # corrección en los dos puntos y en los extremos operativos de la recta
+    op_bajo, op_alto = lim["operativo"]
+    def recta(x):
+        return v["real_low"] + (x - v["shown_low"]) * pendiente
+    correccion = max([abs(v["real_low"] - v["shown_low"]), abs(v["real_high"] - v["shown_high"])]
+                     + [abs(recta(x) - x) for x in (op_bajo, op_alto)])
+    if correccion > lim["correccion_max"]:
+        return "rechazo", (f"corrección de {correccion:.1f} {u}, mayor que la máxima "
+                           f"({lim['correccion_max']:g} {u}): revise el sensor o el patrón")
+    a_min, a_max = lim["pendiente_aviso"]
+    if correccion > lim["correccion_aviso"]:
+        return "aviso", (f"corrección de {correccion:.1f} {u}, mayor que "
+                         f"{lim['correccion_aviso']:g} {u}: confirme que es correcta")
+    if not a_min <= pendiente <= a_max:
+        return "aviso", (f"ganancia relativa {pendiente:.2f} fuera de {a_min:g} a {a_max:g}: "
+                         "confirme que es correcta")
+    return None, ""
