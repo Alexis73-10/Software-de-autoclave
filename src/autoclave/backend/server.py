@@ -359,7 +359,7 @@ def _prueba_cancelada_por_paro() -> None:
         if context.control_loop.test_mode_active:
             return   # ya se volvió a entrar: no es esta cancelación
         token, _token_modo_prueba = _token_modo_prueba, None
-    sesion = tokens.obtener(token) if token else None
+    sesion = tokens.obtener(token, renovar=False) if token else None
     _auditar("modo_prueba_sale", sesion, detalle={"motivo": "paro de emergencia"})
 
 
@@ -2383,7 +2383,7 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
                            f"Configuración inválida: {motivo_config}")
         _rechazar_si_sin_datos_vigentes()
         # un logout de esta sesión pudo llegar mientras esta petición esperaba
-        if tokens.obtener(sesion.token) is None:
+        if not tokens.existe(sesion.token):
             raise _Rechazo(401, "sesion_invalida", _MOTIVO_SESION_INVALIDA)
         # sin esto, otra sesión le quitaría la propiedad a la que entró
         if (context.control_loop.test_mode_active
@@ -2509,3 +2509,45 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         context.setdo.set_output(index + 1, body.value)
     _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
     return {"ok": True, "name": name, "value": body.value}
+
+
+class _SalidaForzadaBody(BaseModel):
+    confirmar: bool = False
+    motivo: str = ""
+
+
+@app.post("/io/test/force-exit")
+def io_test_force_exit(body: _SalidaForzadaBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+    """B8 (tanda 4): salida forzada del modo prueba HUÉRFANO. Solo el dueño
+    puede dejar el modo prueba; si ese usuario ya no tiene sesión (token vencido
+    por inactividad, cierre de sesión, cambio de turno), un INGENIERO con sesión
+    puede terminarlo con confirmación explícita (`confirmar: true`). El técnico
+    NO puede (403). Con el dueño aún en sesión, 409: debe salir él (o esperar a
+    que su sesión caduque). Misma salida que la normal: todas las salidas a
+    seguro y se reanuda la máquina; un estado seguro en curso sigue su camino.
+    Queda en audit_log quién fuerza, a quién se le sacó y por qué."""
+    entidad = "/io/test/force-exit"
+    if body.confirmar is not True:
+        _rechazar(422, "confirmacion_requerida",
+                  "Confirme explícitamente la salida forzada del modo prueba", entidad, sesion)
+    motivo = (body.motivo or "").strip()[:200] or "modo prueba huérfano"
+    with guard_estado(frozenset(), entidad, sesion):
+        if not context.control_loop.test_mode_active:
+            raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
+        dueno_token = _token_modo_prueba
+        if (dueno_token is not None and dueno_token != sesion.token
+                and tokens.existe(dueno_token)):
+            raise _Rechazo(409, "modo_prueba_dueno_vigente",
+                           "El dueño del modo prueba sigue con sesión: debe salir él")
+        dueno = tokens.quien_fue(dueno_token)
+        estado_seguro = getattr(getattr(context.control_loop, "estado_seguro", None), "activo", False)
+        _salir_modo_prueba()
+    _auditar("modo_prueba_salida_forzada", sesion, entidad=entidad,
+             valor_anterior={"dueno": dueno[0] if dueno else None,
+                             "rol_dueno": dueno[1] if dueno else None},
+             detalle={"motivo": motivo, "forzada_por": sesion.usuario,
+                      "dueno": dueno[0] if dueno else None,
+                      "estado_seguro_activo": estado_seguro is True})
+    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "salida forzada por ingeniero"})
+    return {"ok": True, "dueno": dueno[0] if dueno else None}

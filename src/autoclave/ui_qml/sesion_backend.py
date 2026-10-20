@@ -35,6 +35,7 @@ from dataclasses import dataclass, field
 
 from PySide6.QtCore import Property, QEvent, QObject, QTimer, Signal, Slot
 
+from autoclave.core.runtime.sesion_inactividad import SESION_INACTIVIDAD_S  # plazo único (B7)
 from autoclave.ui.service_ui.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,10 @@ logger = logging.getLogger(__name__)
 PLAZO_S = 5.0                 # plazo total de login, logout y cambio de contraseña
 PLAZO_SALIDA_S = 1.0          # logout al cerrar la aplicación: no retrasar el cierre
 SIN_CONEXION_CIERRE_S = 15    # sin conexión continua con token en uso -> cerrar sesión
-SESION_INACTIVIDAD_S = 5 * 60  # sin actividad en esta ventana -> cerrar sesión (SAF-01)
+# SESION_INACTIVIDAD_S (importado arriba): sin actividad en esta ventana -> cerrar sesión (SAF-01).
+# El backend caduca el token con el mismo plazo (B7); mientras el operador usa la
+# ventana se le avisa cada KEEPALIVE_S (GET /auth/sesion) para que no caduque.
+KEEPALIVE_S = 30
 _EVENTOS_ACTIVIDAD = {QEvent.Type.MouseButtonPress, QEvent.Type.TouchBegin,
                       QEvent.Type.KeyPress}
 
@@ -314,6 +318,7 @@ class SesionVentana(QObject):
         self._timer.timeout.connect(self._revisar_conexion)
         self._inactividad_s = inactividad_s
         self._ultima_actividad = reloj()
+        self._ultimo_keepalive = float("-inf")
         # Hay una pantalla con token a la vista (vigilar()). Fuera de ellas los
         # toques no prolongan la sesión (revisión de U2, tanda 2: Atrás/Home ya
         # no la cierran y la preciclo la usa cualquiera). True hasta el primer
@@ -540,6 +545,17 @@ class SesionVentana(QObject):
         token a la vista (OPCIONES, Nuevo usuario, Cambio de clave)."""
         if self._en_uso:
             self._ultima_actividad = self._reloj()
+            self._renovar_en_servidor(self._ultima_actividad)
+
+    def _renovar_en_servidor(self, ahora: float) -> None:
+        """B7: el token del backend caduca tras SESION_INACTIVIDAD_S sin
+        peticiones autenticadas; con la ventana en uso se renueva cada
+        KEEPALIVE_S con GET /auth/sesion (un 401 cierra la sesión, como al
+        reconectar)."""
+        if not SessionManager.token() or ahora - self._ultimo_keepalive < KEEPALIVE_S:
+            return
+        self._ultimo_keepalive = ahora
+        self._validar_sesion()
 
     def eventFilter(self, obj, evento) -> bool:
         if evento.type() in _EVENTOS_ACTIVIDAD:
