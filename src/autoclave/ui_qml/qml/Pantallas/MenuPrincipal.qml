@@ -382,7 +382,6 @@ Item {
             resultadoTexto: raiz.textoResultado
             resultadoDetalle: raiz.resumen?.ultimoResultadoDetalle ?? ""
             colorResultado: raiz.colorResultado
-            // TODO(MP-14b): el operador que inició el ciclo no se guarda (D-24)
             operador: raiz.dato(raiz.resumen?.ultimoOperador)
             datosGrafica: raiz.resumen?.datosGraficaUltimo ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
             fasesGrafica: raiz.resumen?.fasesGraficaUltimo ?? []
@@ -518,7 +517,6 @@ Item {
                 resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
                 resultadoDetalle: c.resultado_detalle ?? ""
                 colorResultado: raiz.colorDeResultado(c.resultado ?? "")
-                // TODO(MP-14b): el operador que inició el ciclo no se guarda (D-24)
                 operador: raiz.dato(c.operador)
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []
@@ -732,7 +730,6 @@ Item {
                 resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
                 resultadoDetalle: c.resultado_detalle ?? ""
                 colorResultado: raiz.colorDeResultado(c.resultado ?? "")
-                // TODO(MP-14b): el operador que inició el ciclo no se guarda (D-24)
                 operador: raiz.dato(c.operador)
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []

@@ -239,12 +239,23 @@ def _migracion_v5(conn: sqlite3.Connection) -> None:
             "BEGIN SELECT RAISE(ABORT, 'mantenimientos es de solo anexar'); END")
 
 
+def _migracion_v6(conn: sqlite3.Connection) -> None:
+    """O1 (tanda 3): operador que inició cada ciclo. La columna `operador`
+    existe desde el esquema original, pero nada la llenaba; se garantiza en
+    bases creadas antes de ella y se deja la versión. Los ciclos anteriores
+    conservan '' (la UI muestra "—": sin operador registrado)."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    if "operador" not in columnas:
+        conn.execute("ALTER TABLE ciclos ADD COLUMN operador TEXT DEFAULT ''")
+
+
 _MIGRACIONES = (
     (1, _migracion_v1),
     (2, _migracion_v2),
     (3, _migracion_v3),
     (4, _migracion_v4),
     (5, _migracion_v5),
+    (6, _migracion_v6),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]

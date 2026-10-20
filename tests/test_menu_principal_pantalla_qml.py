@@ -461,7 +461,7 @@ def test_ventana_de_ultimo_ciclo_pide_la_curva_solo_al_abrir(r):
     tv = r["textos_ventana"]
     assert "12/10/2026  14:25" in tv and "02 · Instrumental 134" in tv and "Fallo" in tv
     assert "FALLO_CALENTAMIENTO" in tv   # el detalle del cierre, bajo el resultado
-    assert "Operador" in tv and tv[tv.index("Operador") + 1] == "—"   # TODO(MP-14b)
+    assert "Operador" in tv and tv[tv.index("Operador") + 1] == "—"   # sin operador registrado: "—"
     assert r["ultimo_cerrada"] is True
 
 
@@ -490,10 +490,11 @@ def test_es_json_trae_las_claves_que_usa_el_menu():
 
 def test_marcadores_todo_pendientes():
     fuente = (_QML / "Pantallas" / "MenuPrincipal.qml").read_text(encoding="utf-8")
-    for marca in ("TODO(MP-14b)", "TODO(MP-06a)"):
+    for marca in ("TODO(MP-06a)",):
         assert marca in fuente
     assert "TODO(MP-03)" not in fuente      # U2 (tanda 2): Salir retirado
     assert "TODO(MP-11)" not in fuente and "tarjetaSecado" not in fuente   # U5 (tanda 3)
+    assert "TODO(MP-14b)" not in fuente                                    # O1 (tanda 3)
 
 
 def test_informacion_abre_el_panel_del_equipo(r):

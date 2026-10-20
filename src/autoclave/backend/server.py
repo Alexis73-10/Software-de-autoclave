@@ -1406,7 +1406,8 @@ def get_db_estado():
 
 
 @app.post("/cycle/start")
-def start_cycle(body: dict | None = Body(default=None)):
+def start_cycle(body: dict | None = Body(default=None),
+                authorization: str | None = Header(None)):
     """
     Solicita el inicio del ciclo de esterilización.
     Sólo tiene efecto cuando el sistema está en estado PREPARADO y
@@ -1414,7 +1415,12 @@ def start_cycle(body: dict | None = Body(default=None)):
     la transición real.
     Sin base de datos (T8, §7.6) exige {"confirmar_sin_registro": true} en
     cada ciclo: queda sin operador y sin registro en la base (respaldo y ticket).
+    O1 (tanda 3): si la petición trae un token de sesión válido, ese usuario es
+    el operador del ciclo (se guarda en la base, el respaldo y el ticket). El
+    inicio sigue sin exigir sesión: sin token (o con uno vencido) el ciclo queda
+    sin operador identificado; el token no se valida como requisito.
     """
+    sesion_operador = tokens.obtener(_token_de(authorization))
     estado = context.estado
     _rechazar_si_config_invalida("/cycle/start")
     if getattr(context, "sin_base_de_datos", False) is True:
@@ -1438,6 +1444,7 @@ def start_cycle(body: dict | None = Body(default=None)):
     with context.control_loop.bloqueo_maquina():
         rechazo = _validar_inicio(estado)
         if rechazo is None:
+            estado.operador_inicio = sesion_operador.usuario if sesion_operador else ""
             estado.set_flag("START_CICLO", True)
     if rechazo is not None:
         if rechazo[0] is None:

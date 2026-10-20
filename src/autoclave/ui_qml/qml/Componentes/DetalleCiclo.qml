@@ -19,7 +19,7 @@ Item {
     property string resultadoTexto: "—"
     property string resultadoDetalle: ""    // cierre tal como se guardó (p. ej. FALLO_CALENTAMIENTO)
     property color colorResultado: Colores.textoPrimario
-    property string operador: "—"           // TODO(MP-14b): no se guarda (D-24)
+    property string operador: "—"           // O1 (tanda 3): usuario que inició el ciclo; "—" si no hubo sesión
     property var datosGrafica: ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
     property var fasesGrafica: []
     property bool graficaDisponible: false

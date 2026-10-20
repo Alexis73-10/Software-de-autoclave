@@ -239,10 +239,15 @@ class UIServiceBackend:
         """Envía POST /cycle/start. Retorna True si tuvo éxito. Sin base de
         datos (T8) el backend exige `confirmar_sin_registro` en cada ciclo."""
         try:
+            # O1 (tanda 3): con sesión abierta en esta ventana, su token identifica al
+            # operador del ciclo; sin sesión el ciclo inicia igual, sin operador
+            from autoclave.ui.service_ui.session_manager import SessionManager
+            token = SessionManager.token()
+            extra = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
             if confirmar_sin_registro:
-                self.backend.post(path="/cycle/start", body={"confirmar_sin_registro": True})
+                self.backend.post(path="/cycle/start", body={"confirmar_sin_registro": True}, **extra)
             else:
-                self.backend.post(path="/cycle/start")
+                self.backend.post(path="/cycle/start", **extra)
             return True
         except Exception as e:
             logger.warning("start_cycle error: %s", e)

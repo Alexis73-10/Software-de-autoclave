@@ -84,7 +84,8 @@ def format_row(lectura: dict) -> str:
 
 
 def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str | None = None,
-                   f0_total: float | None = None, avisos: list | None = None) -> str:
+                   f0_total: float | None = None, avisos: list | None = None,
+                   operador: str | None = None) -> str:
     """Pie del ticket (todo lo posterior a las filas de lecturas)."""
     try:
         hora_fin = datetime.fromisoformat(fecha_fin).strftime("%H:%M:%S")
@@ -105,7 +106,8 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
         lines.append(f"Aviso: {aviso}")
     lines += [
         f"Hora fin: {hora_fin}",
-        "Operador: ____________",
+        # O1 (tanda 3): el operador del ciclo; sin él queda la línea para firmar
+        f"Operador: {operador}" if operador else "Operador: ____________",
         "------------------------",
     ] + [""] * 5  # avance de papel en blanco para poder cortar sin abrir la tapa
     return "\n".join(lines)
@@ -137,5 +139,6 @@ def format_ticket(ciclo, lecturas) -> str:
         ciclo["resultado"], ciclo["fecha_fin"],
         temp_final=temp_final, motivo=motivo_ticket(
             _campo(ciclo, "codigo_fallo"), _campo(ciclo, "motivo_fallo")),
+        operador=_campo(ciclo, "operador") or None,
     ))
     return "\n".join(parts)

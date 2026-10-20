@@ -93,7 +93,7 @@ def ciclo_presentable(ciclo) -> dict:
         "programa_nombre": nombre if isinstance(nombre, str) and nombre else SIN_DATO,
         "resultado": clave_resultado(u.get("resultado")),
         "resultado_detalle": detalle_resultado(u.get("resultado")),
-        # quién envió el ciclo: hoy no se guarda (CycleLogger no llena ciclos.operador)
+        # quién inició el ciclo (O1, tanda 3); los ciclos anteriores o sin sesión: SIN_DATO
         "operador": operador.strip() if isinstance(operador, str) and operador.strip()
                     else SIN_DATO,
     }
