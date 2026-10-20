@@ -25,7 +25,8 @@ class FallaState:
                 logger.warning("FallaState: RESET_FALLA descartado con el paro de emergencia activo")
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
             self.set_do.apagar_por_paro()
-            self.alarm_manager.activar(SIS_01, estado="Falla")
+            if self.estado.get_flag("PARO_REAL"):      # U4: sin datos no es SIS-01
+                self.alarm_manager.activar(SIS_01, estado="Falla")
             self.set_do.buzer_emergencia()
             return False
 

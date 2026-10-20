@@ -7,7 +7,7 @@ from tests.alarmas_helpers import activaciones
 
 def _estado(paro):
     estado = MagicMock()
-    estado.get_flag.side_effect = lambda f: paro if f == "PARO_EMERGENCIA" else False
+    estado.get_flag.side_effect = lambda f: paro if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4: paro real
     return estado
 
 

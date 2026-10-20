@@ -136,9 +136,3 @@ class NuevoUsuarioBridge(QObject):
     def navegar(self, destino: str) -> None:
         self.solicitudNavegar.emit(destino)
 
-    @Slot()
-    def salir(self) -> None:
-        """Salir de la barra inferior = cerrar sesión (con logout) e ir al login (P-01)."""
-        self._sesion.cerrar_sesion()
-        self.actualizarSesion()
-        self.solicitudNavegar.emit("login")

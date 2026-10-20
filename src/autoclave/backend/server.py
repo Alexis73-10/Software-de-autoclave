@@ -34,6 +34,7 @@ from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
+from autoclave.core.managers.catalogo_parametros import evaluar_calibracion, evaluar_desviacion_acumulada
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
 from autoclave.state_machine.machine.enum_global import GlobalState
@@ -190,7 +191,20 @@ def _auditar(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
             detalle=detalle,
         )
     except Exception:
-        logger.exception("No se pudo registrar '%s' en audit_log", evento)
+        if getattr(context, "sin_base_de_datos", False) is True:
+            # T8: sin base no hay bitácora; queda en el log de texto (S2, TMG-05)
+            logger.warning("Sin base de datos: '%s' no queda en audit_log (%s, %s -> %s, %s)",
+                           evento, entidad, valor_anterior, valor_nuevo, detalle)
+        else:
+            logger.exception("No se pudo registrar '%s' en audit_log", evento)
+
+
+def _nombre_estado() -> str:
+    """Estado de la máquina para la bitácora; "" si no se puede leer."""
+    try:
+        return str(getattr(context.estado.get_machine_state(), "name", ""))
+    except Exception:
+        return ""
 
 
 class RechazoApi(Exception):
@@ -589,6 +603,18 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
         )
     entidad = f"{tipo}/{sensor}"
 
+    # S3a (tanda 2): plausibilidad por tipo de canal (catálogo). Lo imposible
+    # se rechaza; una corrección grande pide confirmación explícita
+    nivel, motivo = evaluar_calibracion(tipo, body, sensor)
+    if nivel == "rechazo":
+        _rechazar(422, "CALIBRACION_IMPLAUSIBLE", f"Calibración no plausible: {motivo}",
+                  f"/calibration/{entidad}", sesion)
+    confirmado = body.get("confirmar_fuera_de_rango") is True
+    if nivel == "aviso" and not confirmado:
+        _rechazar(409, "CALIBRACION_REQUIERE_CONFIRMACION",
+                  f"Calibración fuera del rango habitual: {motivo}",
+                  f"/calibration/{entidad}", sesion)
+
     # Solo comprobación bajo _sm_lock: el guard solo deja pasar en CICLO al
     # ingeniero (el técnico recibe 409), así que la escritura no necesita ser
     # atómica con la comprobación. YAML y recarga van fuera del
@@ -615,6 +641,23 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
+        # S3a (revisión): desviación ACUMULADA de la calibración resultante
+        # respecto de la neutra, y canal con polinomio vigente (la recta nueva
+        # lo reemplaza fuera de los puntos): aviso confirmable o rechazo
+        nivel_acum, motivo_acum = evaluar_desviacion_acumulada(tipo, new_gain, new_offset, sensor)
+        if old_calib.poly and nivel_acum is None:
+            nivel_acum, motivo_acum = "aviso", ("el canal tiene un polinomio de calibración vigente: "
+                                                 "la recta nueva lo reemplaza")
+        if nivel_acum == "rechazo":
+            _rechazar(422, "CALIBRACION_IMPLAUSIBLE", f"Calibración no plausible: {motivo_acum}",
+                      f"/calibration/{entidad}", sesion)
+        if nivel_acum == "aviso" and not confirmado:
+            _rechazar(409, "CALIBRACION_REQUIERE_CONFIRMACION",
+                      f"Calibración fuera del rango habitual: {motivo_acum}",
+                      f"/calibration/{entidad}", sesion)
+        if nivel_acum is not None and nivel is None:
+            nivel, motivo = nivel_acum, motivo_acum
+
         # SAF-03 de T3: si un ciclo arrancó entre la comprobación y este
         # punto, el técnico no puede cambiar la calibración en curso
         if sesion.rol != ROL_INGENIERO:
@@ -625,6 +668,9 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
                               "shown_high": shown_high, "real_high": real_high}}
+        if nivel is not None:
+            detalle["plausibilidad"] = {"nivel": nivel, "motivo": motivo,
+                                        "confirmado": confirmado}
         detalle.update(contexto_ciclo)
         # BD-03 (T8, §7.6): sin registro en audit_log la calibración no queda
         # activa. Se guarda el archivo previo y se restaura si la auditoría falla.
@@ -839,6 +885,8 @@ def get_status():
         **_camara_segura_status(estado),
         "estado_seguro":         _estado_seguro_status(),
         "card_connected":        context.serial.is_connected(),
+        # U4 (tanda 2): desconectada / sin_tramas_validas / ok
+        "estado_tarjeta":        _estado_tarjeta(),
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
         "test_mode_active":      context.control_loop.test_mode_active,
@@ -890,27 +938,71 @@ def list_cycles():
     ]
 
 
+# S2 (tanda 2): origen declarado por el cliente (no autenticado) del cambio de
+# programa, para la bitácora. Lista cerrada: un valor desconocido se rechaza.
+ORIGENES_SELECCION = ("puerta_1", "puerta_2", "remoto", "desconocido")
+
+
 class _SelectCycleBody(BaseModel):
     cycle_id: str
+    # Opcional: el endpoint sigue sin sesión (decisión 2 de Cristian)
+    origen: str | None = None
 
 
 @app.post("/cycle/select")
-def select_cycle(body: _SelectCycleBody):
+def select_cycle(body: _SelectCycleBody, request: Request):
+    """Cambia el programa activo. Sin sesión y permitido en FALLA (decisión 2
+    de Cristian, 19-oct: ningún fallo exige técnico). Rechazado con un ciclo
+    en curso en sentido amplio (ControlLoop._motivo_no_cambiar_ciclo), con un
+    programa dañado (RB-04.4) y con un programa de líquidos en un equipo sin
+    esa capacidad (T11). El cambio y todos sus rechazos quedan en audit_log
+    con el origen DECLARADO (no autenticado), el cliente HTTP y el estado (S2).
+    Lectura del programa anterior, cambio en el lazo y en el CycleManager van
+    juntos bajo el lock de la máquina; la bitácora se escribe al soltarlo."""
+    entidad = "/cycle/select"
+    detalle = {"origen": body.origen or "desconocido",
+               "origen_autenticado": False,
+               "cliente": request.client.host if request.client else ""}
     cycle = context.cycle_manager.cycles.get(body.cycle_id)
+    nombre = getattr(cycle, "name", None)
+
+    def rechazar(status: int, codigo: str, motivo: str, anterior=None, estado=""):
+        _auditar("PROGRAMA_SELECCION_RECHAZADA", entidad=entidad,
+                 valor_anterior=anterior, valor_nuevo=body.cycle_id,
+                 detalle={**detalle, "estado": estado or _nombre_estado(),
+                          "codigo": codigo, "motivo": motivo, "programa": nombre})
+        raise RechazoApi(status, codigo, motivo)
+
+    if detalle["origen"] not in ORIGENES_SELECCION:
+        rechazar(422, "origen_invalido",
+                 "Origen desconocido: %r (válidos: %s)"
+                 % (detalle["origen"][:40], ", ".join(ORIGENES_SELECCION)))
     if cycle is None:
-        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
+        rechazar(404, "programa_no_encontrado", f"Ciclo '{body.cycle_id}' no encontrado")
     if getattr(cycle, "source", "user") != "user":
-        raise HTTPException(status_code=422, detail="Solo se pueden seleccionar ciclos de usuario")
+        rechazar(422, "programa_de_fabrica", "Solo se pueden seleccionar ciclos de usuario")
     # RB-04.4 (T10): un programa dañado no es ejecutable
     if getattr(cycle, "danado", None):
-        _rechazar(409, "PROGRAMA_NO_EDITABLE",
-                  f"Programa dañado (fuera del catálogo): {cycle.danado[0]}", "/cycle/select")
+        rechazar(409, "PROGRAMA_NO_EDITABLE",
+                 f"Programa dañado (fuera del catálogo): {cycle.danado[0]}")
+    # T11 (revisión de S2): líquidos solo en equipos con esa capacidad
+    if _carga_liquida(cycle) and getattr(getattr(context, "cap", None), "has_liquids", None) is False:
+        rechazar(409, "carga_liquida_no_disponible",
+                 "Este equipo no admite programas de carga líquida")
 
-    ok, reason = context.control_loop.set_active_cycle(cycle)
+    loop = context.control_loop
+    with loop.bloqueo_maquina():
+        anterior = getattr(getattr(loop, "cycle", None), "id", None)
+        estado = _nombre_estado()
+        ok, reason = loop.set_active_cycle(cycle)
+        if ok:
+            context.cycle_manager.set_default_cycle(body.cycle_id)
+    detalle["estado"] = estado
     if not ok:
-        raise HTTPException(status_code=409, detail=reason)
+        rechazar(409, "cambio_no_permitido", reason, anterior=anterior, estado=estado)
 
-    context.cycle_manager.set_default_cycle(body.cycle_id)
+    _auditar("PROGRAMA_SELECCIONADO", entidad=entidad, valor_anterior=anterior,
+             valor_nuevo=body.cycle_id, detalle={**detalle, "programa": nombre})
     return {"ok": True, "id": cycle.id, "name": cycle.name}
 
 @app.get("/cycle/current/readings")
@@ -1270,35 +1362,42 @@ def start_cycle(body: dict | None = Body(default=None)):
     if getattr(context.control_loop, "apagando", False) is True:
         _rechazar(409, "apagado_en_curso", "El equipo se está apagando", "/cycle/start")
 
+    # S2 (revisión): la validación del programa y START_CICLO van juntas bajo
+    # el lock de la máquina: un /cycle/select concurrente no puede cambiar el
+    # programa entre la validación y el inicio. La bitácora del rechazo se
+    # escribe al soltar el lock.
+    with context.control_loop.bloqueo_maquina():
+        rechazo = _validar_inicio(estado)
+        if rechazo is None:
+            estado.set_flag("START_CICLO", True)
+    if rechazo is not None:
+        if rechazo[0] is None:
+            raise HTTPException(status_code=409, detail=rechazo[1])
+        _rechazar(409, rechazo[0], rechazo[1], "/cycle/start")
+    return {"ok": True, "action": "START_CICLO"}
+
+
+def _validar_inicio(estado) -> tuple | None:
+    """(código, motivo) si el programa seleccionado no puede iniciarse; código
+    None = rechazo sin código (no listo). Llamar bajo bloqueo_maquina()."""
     if not estado.get_flag("LISTO_PARA_CICLO"):
-        raise HTTPException(
-            status_code=409,
-            detail="El sistema no está listo para iniciar un ciclo"
-        )
+        return None, "El sistema no está listo para iniciar un ciclo"
 
     # RB-04.4 (T10): un programa dañado no se inicia
     seleccionado = getattr(context.control_loop, "cycle", None)
     danado = getattr(seleccionado, "danado", None)
     if isinstance(danado, list) and danado:
-        _rechazar(409, "PROGRAMA_NO_EDITABLE",
-                  f"Programa dañado (fuera del catálogo): {danado[0]}", "/cycle/start")
+        return "PROGRAMA_NO_EDITABLE", f"Programa dañado (fuera del catálogo): {danado[0]}"
 
     # T11: un programa de carga líquida solo en equipos con capacidad de líquidos
     if seleccionado is not None and _carga_liquida(seleccionado):
         cap = getattr(context, "cap", None)
         if cap is not None and getattr(cap, "has_liquids", None) is False:
-            _rechazar(409, "carga_liquida_no_disponible",
-                      "Este equipo no admite programas de carga líquida", "/cycle/start")
+            return "carga_liquida_no_disponible", "Este equipo no admite programas de carga líquida"
 
     # RS-06 (tanda §1.1): asignación de sensores válida y todos los sensores
     # en uso del programa seleccionado con lectura
-    rechazo = sc.verificar_inicio(getattr(context.control_loop, "cycle", None),
-                                  getattr(context, "profile", None), estado)
-    if rechazo is not None:
-        _rechazar(409, rechazo[0], rechazo[1], "/cycle/start")
-
-    estado.set_flag("START_CICLO", True)
-    return {"ok": True, "action": "START_CICLO"}
+    return sc.verificar_inicio(seleccionado, getattr(context, "profile", None), estado)
 
 
 @app.post("/cycle/abort")
@@ -1322,6 +1421,22 @@ def abort_cycle():
 
 
 _MOTIVO_PARO = "Paro de emergencia activado: suéltelo antes de reconocer"
+# U4 (tanda 2): el flag PARO_EMERGENCIA también bloquea sin datos de la
+# tarjeta; el código de rechazo se conserva, el texto dice la causa real
+_MOTIVO_SIN_DATOS_TARJETA = ("Sin datos válidos de la tarjeta de control: no se puede "
+                             "verificar el paro de emergencia")
+
+
+def _motivo_paro(texto_paro: str) -> str:
+    if context.estado.get_flag("PARO_REAL"):
+        return texto_paro
+    return _MOTIVO_SIN_DATOS_TARJETA
+
+
+def _estado_tarjeta() -> str:
+    """U4: "desconectada", "sin_tramas_validas" u "ok"; falla cerrada."""
+    valor = getattr(context.control_loop, "estado_tarjeta", None)
+    return valor if valor in ("desconectada", "sin_tramas_validas", "ok") else "desconectada"
 
 
 @app.post("/fault/reset")
@@ -1332,7 +1447,7 @@ def reset_fault():
     entidad = "/fault/reset"
     with guard_estado(frozenset(), entidad) as estado:
         if context.estado.get_flag("PARO_EMERGENCIA"):
-            raise _Rechazo(409, "paro_emergencia", _MOTIVO_PARO)
+            raise _Rechazo(409, "paro_emergencia", _motivo_paro(_MOTIVO_PARO))
         # con el modo prueba la máquina está pausada: el reconocimiento se
         # aplicaría al salir, sin uno posterior a las pruebas (TMG-07)
         if context.control_loop.test_mode_active is True:
@@ -1377,8 +1492,19 @@ def _secuencia_apagado() -> None:
             historial.detener(2.0)
         except Exception:
             logger.exception("Apagar equipo: error al detener el historial de alarmas")
+    # S3d: vaciar las colas de escritura del respaldo y de la base ANTES de
+    # cerrar la base (con el lazo ya detenido no entran tareas nuevas)
+    logger_ciclo = getattr(context, "cycle_logger", None)
+    if logger_ciclo is not None and hasattr(logger_ciclo, "detener"):
+        try:
+            logger_ciclo.detener(5.0)
+        except Exception:
+            logger.exception("Apagar equipo: error al vaciar la escritura del ciclo")
     try:
-        context.db.close()
+        # tras una falla de la base en caliente, context.db es BdNoDisponible
+        real = getattr(context, "db_real", None)
+        (real if getattr(context, "sin_base_de_datos", False) is True and real is not None
+         else context.db).close()
     except Exception:
         logger.exception("Apagar equipo: error al cerrar la base de datos")
     if _apagado_windows_habilitado():
@@ -1431,7 +1557,8 @@ def confirm_safe_state():
     Cualquier operador, sin rol. 409 con el paro activo o si no hace falta."""
     entidad = "/safe-state/confirm"
     if context.estado.get_flag("PARO_EMERGENCIA"):
-        _rechazar(409, "paro_emergencia", "Paro de emergencia activado: suéltelo antes de confirmar",
+        _rechazar(409, "paro_emergencia",
+                  _motivo_paro("Paro de emergencia activado: suéltelo antes de confirmar"),
                   entidad)
     if context.control_loop.confirmar_estado_seguro() is not True:
         _rechazar(409, "sin_confirmacion_pendiente",
@@ -1475,7 +1602,7 @@ def acknowledge_cycle():
                            extra={"estado": getattr(actual, "name", str(actual))})
         # §5.9: con el paro activo no se confirma ni se guarda RESET_FALLA
         if context.estado.get_flag("PARO_EMERGENCIA"):
-            raise _Rechazo(409, "paro_emergencia", _MOTIVO_PARO)
+            raise _Rechazo(409, "paro_emergencia", _motivo_paro(_MOTIVO_PARO))
         # solo con el ciclo ya terminado: una confirmación a mitad de ciclo
         # quedaba guardada y la máquina salía al terminar sin que el operador
         # viera el resultado (TMG-03/SAF-07)
@@ -1507,12 +1634,38 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
     acepta la orden (bloqueo mecánico, no está abierta), 409 con el motivo.
     La comprobación y la orden van bajo _sm_lock para no intercalarse con el
     tick. `sin_actuador`: la puerta no tiene actuador (SimpleDoor) y la orden
-    no mueve nada. `source_door` sigue sin usarse (fuera de alcance)."""
+    no mueve nada.
+
+    `source_door` (S3e, tanda 2): la puerta que controla la pantalla que manda
+    la orden (1 o 2), DECLARADA por el cliente, no autenticada. Cada pantalla
+    opera solo su puerta: otra puerta se rechaza (409 `puerta_ajena`), un valor
+    fuera de rango es inválido (422 `source_door_invalido`) y cada orden,
+    aceptada o rechazada, queda en audit_log con el origen. Ausente (clientes
+    antiguos) se acepta y queda como "desconocido". `door_id` del perfil NO
+    interviene: identifica la ventana principal del PC, no qué puerta opera
+    cada pantalla."""
     entidad = f"/doors/{door_name}/{accion}"
     _rechazar_si_config_invalida(entidad)
     servicio = context.servicio_puertas
     if door_name not in servicio.doors:
         raise HTTPException(status_code=404, detail="Puerta desconocida")
+    origen = "desconocido" if source_door is None else source_door
+
+    def rechazo_origen(status: int, codigo: str, motivo: str):
+        _auditar("puerta_orden_rechazada", entidad=door_name, valor_nuevo=accion,
+                 detalle={"source_door": origen, "codigo": codigo, "motivo": motivo})
+        raise RechazoApi(status, codigo, motivo)
+
+    if source_door is not None:
+        valido = (isinstance(source_door, int) and not isinstance(source_door, bool)
+                  and 1 <= source_door <= len(servicio.doors))
+        if not valido:
+            rechazo_origen(422, "source_door_invalido",
+                           f"source_door inválido: {str(source_door)[:20]!r} "
+                           f"(1 a {len(servicio.doors)})")
+        if door_name != f"Puerta {source_door}":
+            rechazo_origen(409, "puerta_ajena",
+                           f"La pantalla de la puerta {source_door} solo opera su puerta")
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad):
         # con el modo prueba las puertas no se actualizan, y con el enlace
         # caído las lecturas son viejas: la orden quedaría para después sin
@@ -1525,6 +1678,8 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         ok, reason = pedir(door_name)
         if not ok:
             raise _Rechazo(409, "puerta_rechazada", reason or "Orden de puerta no permitida")
+    _auditar("puerta_orden", entidad=door_name, valor_nuevo=accion,
+             detalle={"source_door": origen})
     return {
         "ok": True,
         "door": door_name,
@@ -2106,7 +2261,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         if not context.control_loop.test_mode_active:
             raise _Rechazo(409, "modo_prueba_inactivo", "El modo prueba no está activo")
         if context.estado.get_flag("PARO_EMERGENCIA"):
-            raise _Rechazo(409, "paro_emergencia", "Paro de emergencia activado")
+            raise _Rechazo(409, "paro_emergencia", _motivo_paro("Paro de emergencia activado"))
         _rechazar_si_sin_datos_vigentes()
         if body.value:
             # encender solo desde la sesión que está a cargo de la prueba;
@@ -2122,9 +2277,10 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
         index = EstadoAutoclave.map_do[name]
         if body.value and context.setdo.salida_bloqueada(index + 1) is True:
-            # E1b: salida de una fuente de vapor que el equipo no tiene
+            # E1b: salida de una fuente de vapor que el equipo no tiene; S1 (tanda
+            # 2): con generador interno ni DO1 ni DO2 (el generador se controla solo)
             raise _Rechazo(409, "fuente_vapor_no_instalada",
-                           "La fuente de vapor de esta salida no está instalada")
+                           "Esta salida de fuente de vapor no la usa este equipo (vapor_source)")
         context.setdo.set_output(index + 1, body.value)
     _auditar("salida_prueba", sesion, entidad=name, valor_nuevo=body.value)
     return {"ok": True, "name": name, "value": body.value}

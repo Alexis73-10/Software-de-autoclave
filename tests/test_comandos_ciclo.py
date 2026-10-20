@@ -1,7 +1,7 @@
 # tests/test_comandos_ciclo.py
 #
-# ComandoIniciarCiclo (ui_qml/bridge/comandos_ciclo.py): misma lógica que el
-# "Iniciar ciclo" de tkinter (_upd_listo + start_cycle). UIServiceBackend
+# ComandoIniciarCiclo (ui_qml/bridge/comandos_ciclo.py): solo con
+# LISTO_PARA_CICLO; un rechazo del backend solo se registra. UIServiceBackend
 # simulado; el "hilo" se inyecta.
 
 import os
@@ -73,7 +73,7 @@ def test_segundo_toque_en_curso_se_ignora():
     assert len(ejecutor.tareas) == 1
 
 
-def test_rechazo_solo_se_registra_como_en_tkinter(caplog):
+def test_rechazo_solo_se_registra_en_el_log(caplog):
     ui, ejecutor = _ui(ok=False), _EjecutorManual()
     comando = ComandoIniciarCiclo(_Puente(), ui, ejecutar=ejecutor)
     comando.iniciar()

@@ -53,8 +53,8 @@ _SCRIPT = textwrap.dedent(r"""
                              "rol": rol, "debe_cambiar_clave": False}
             return 401, {"codigo": "credenciales_invalidas"}
         return 200, {"ok": True}
-    sesion_backend.instalar(sesion_backend.SesionVentana(transporte=transporte,
-                                                         ejecutar=lambda t: t()))
+    sesion_ventana = sesion_backend.SesionVentana(transporte=transporte, ejecutar=lambda t: t())
+    sesion_backend.instalar(sesion_ventana)
 
     qapp = QGuiApplication([])
     ui = MagicMock(spec=UIServiceBackend)
@@ -62,7 +62,8 @@ _SCRIPT = textwrap.dedent(r"""
     ui.get_estado_global.return_value = estado
     ui.get_estado_puerta.return_value = "CERRADO"
     ui.get_alarmas.return_value = []
-    ui.get_estado_flag.return_value = True
+    # LISTO_PARA_CICLO activo; sin paro (U1: el paro saca de las pantallas sin campana)
+    ui.get_estado_flag.side_effect = lambda f: f not in ("PARO_EMERGENCIA", "PARO_REAL")  # U4
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}
     ui.get_sensores_pres.return_value = {"pres_camara": 101.3}
@@ -206,10 +207,11 @@ _SCRIPT = textwrap.dedent(r"""
     esperar()
     r["directo_a_opciones"] = visible("Opciones") and not buscar("Login")
 
-    QMetaObject.invokeMethod(buscar("Opciones")[0], "salir")  # Salir: cierra sesión
+    QMetaObject.invokeMethod(buscar("Opciones")[0], "atras")  # U2: Atrás conserva sesión
     esperar()
-    r["salir_regresa"] = len(buscar("Opciones")) == 0 and visible(origen)
-    r["sesion_tras_salir"] = SessionManager.is_authenticated()
+    r["atras_regresa"] = len(buscar("Opciones")) == 0 and visible(origen)
+    r["sesion_tras_atras"] = SessionManager.is_authenticated()
+    sesion_ventana.cerrar_sesion()     # como lo haría la inactividad (SAF-01)
 
     QMetaObject.invokeMethod(buscar(origen)[0], acceso)       # sin sesión: login de nuevo
     esperar()
@@ -270,8 +272,8 @@ def _navegacion_comun(r):
         assert r["dos_lineas"] is True
     assert r["alternar"] is True
     assert r["fondo_bloquea"] is True
-    assert r["salir_regresa"] is True
-    assert r["sesion_tras_salir"] is False
+    assert r["atras_regresa"] is True
+    assert r["sesion_tras_atras"] is True     # U2: Atrás no cierra la sesión
     assert r["login_de_nuevo"] is True
     assert r["ajustes"] == 0          # QML ya no lanza la configuración PySide (U-4)
 

@@ -9,17 +9,24 @@
 #   /cycle/abort       solo en CICLO; congela el ciclo en "CANCELADO"
 #   /cycle/acknowledge solo en CICLO y con el ciclo ya terminado        -> PREPARADO
 # Las alarmas siempre vienen vacías.
+# Historial: un solo ciclo SIMULADO, el mismo que se reproduce, fechado hoy
+# (terminado 10 min antes de levantar el simulador), con su curva, su ticket y el
+# resumen del periodo. Los ciclos corridos en el simulador no se agregan.
 # Sesión y usuarios (T-14): mismo contrato que el backend real, ver
 # autenticacion_simulada.py.
 
 import time
+from datetime import date, datetime, timedelta
+from typing import Literal
 
 from fastapi import Body, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.core.runtime import progreso_ciclo
+from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.simulador.autenticacion_simulada import registrar_autenticacion
+from autoclave.utils import periodos
 
 _PUERTAS = ("Puerta 1", "Puerta 2")
 
@@ -57,10 +64,24 @@ class _Estado:
         return not self.en_ciclo and all(e == "CERRADO" for e in self.puertas.values())
 
 
+def _ciclo_historial(repeticion, cycle_manager, ahora: datetime) -> dict:
+    """El ciclo reproducido como fila del historial (forma de /cycle/list)."""
+    c = repeticion.ciclo
+    programa = cycle_manager.cycles.get(c["tipo_ciclo"])
+    fin = (ahora - timedelta(minutes=10)).replace(microsecond=0)
+    return {"id": c["id"], "numero_ciclo": c["numero_ciclo"],
+            "fecha_inicio": (fin - timedelta(seconds=repeticion.duracion_s)).isoformat(),
+            "fecha_fin": fin.isoformat(), "programa_id": c["tipo_ciclo"],
+            "programa_nombre": c["nombre_ciclo"],
+            "programa_numero": getattr(programa, "number", None),
+            "resultado": "COMPLETADO", "operador": None}
+
+
 def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
-              reloj=time.monotonic) -> FastAPI:
+              reloj=time.monotonic, ahora=datetime.now) -> FastAPI:
     app = FastAPI(title="Autoclave — backend SIMULADO")
     est = _Estado(repeticion, velocidad, reloj)
+    historial = _ciclo_historial(repeticion, cycle_manager, ahora())
     actividad = ActividadUI()
     registrar_autenticacion(app, reloj=reloj)
 
@@ -181,9 +202,72 @@ def crear_app(repeticion, cycle_manager, config: dict, velocidad: float = 10.0,
     def readings():
         return {"ciclo_id": None, "lecturas": []}
 
+    def _del_periodo(periodo: str, fecha: date | None):
+        inicio, fin = periodos.rango(periodo, fecha or ahora().date())
+        dentro = inicio <= date.fromisoformat(historial["fecha_inicio"][:10]) < fin
+        return inicio, fin, [historial] if dentro else []
+
+    def _historial_o_404(ciclo_id: int):
+        if ciclo_id != historial["id"]:
+            raise HTTPException(status_code=404, detail="Ciclo no encontrado")
+
     @app.get("/cycle/history")
     def history(limite: int = 50):
-        return []
+        return [{"id": historial["id"], "numero_ciclo": historial["numero_ciclo"],
+                 "fecha_inicio": historial["fecha_inicio"], "fecha_fin": historial["fecha_fin"],
+                 "nombre_ciclo": historial["programa_nombre"], "resultado": historial["resultado"]}]
+
+    @app.get("/cycle/summary")
+    def cycle_summary():
+        _, _, hoy = _del_periodo("dia", None)
+        return {"ciclos_totales": 1, "ciclos_hoy": len(hoy), "ultimo_ciclo": historial}
+
+    @app.get("/cycle/list")
+    def cycle_list(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: date | None = None,
+                   terminados: bool = False, limite: int = 500):
+        inicio, fin, ciclos = _del_periodo(periodo, fecha)
+        return {"periodo": periodo, "desde": inicio.isoformat(),
+                "hasta": (fin - timedelta(days=1)).isoformat(),
+                "ciclos": ciclos, "truncado": False}
+
+    @app.get("/report/summary")
+    def report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: date | None = None):
+        inicio, fin, ciclos = _del_periodo(periodo, fecha)
+        filas = [{"tipo_ciclo": c["programa_id"], "nombre_ciclo": c["programa_nombre"],
+                  "resultado": c["resultado"], "cantidad": 1} for c in ciclos]
+        numeros = {t: getattr(c, "number", None) for t, c in cycle_manager.cycles.items()}
+        return {"periodo": periodo, "desde": inicio.isoformat(),
+                "hasta": (fin - timedelta(days=1)).isoformat(), "serie": "SIMULADO",
+                "modelo": "SIMULADO", **resumen_periodo.resumir(filas, numeros)}
+
+    @app.get("/cycle/history/{ciclo_id}/graph")
+    def history_graph(ciclo_id: int):
+        _historial_o_404(ciclo_id)
+        lecturas = []
+        for s in range(int(repeticion.duracion_s) + 1):
+            m = repeticion.muestra(s)
+            lecturas.append({"id": s + 1, "t_s": float(s), "fase": m["fase"],
+                             "fase_ui": progreso_ciclo.fase_ui(m["fase"]),
+                             "temp_camara": m["temp_camara"], "temp_ref": m["temp_ref"],
+                             "pres_camara": m["pres_camara"]})
+        return {"ciclo_db_id": ciclo_id, "lecturas": lecturas}
+
+    @app.get("/cycle/history/{ciclo_id}/ticket")
+    def history_ticket(ciclo_id: int):
+        _historial_o_404(ciclo_id)
+        c = repeticion.ciclo
+        ciclo = {"serie": "SIMULADO", "modelo": "SIMULADO", "version_sw": "",
+                 "temp_esterilizacion": None, "tiempo_esterilizacion": None,
+                 "motivo_fallo": None, **c.get("fila", {}),
+                 "id": ciclo_id, "numero_ciclo": c["numero_ciclo"],
+                 "nombre_ciclo": c["nombre_ciclo"], "tipo_ciclo": c["tipo_ciclo"],
+                 "fecha_inicio": historial["fecha_inicio"], "fecha_fin": historial["fecha_fin"],
+                 "resultado": historial["resultado"]}
+        lecturas = [{"fase_codigo": l["codigo"],
+                     "timestamp_rel": "%02d:%02d:%02d" % (l["t_s"] // 3600, l["t_s"] // 60 % 60, l["t_s"] % 60),
+                     "temp_camara": l["temp_camara"], "pres_camara": l["pres_camara"]}
+                    for l in c["lecturas"]]
+        return {"ciclo": ciclo, "lecturas": lecturas}
 
     # Puertas con el contrato del backend (§5.3, T-13 y T-18): 409 con código
     # en CICLO; "sin_actuador" en la respuesta. El simulador no modela

@@ -25,7 +25,7 @@ def _servicio(connected=True, status=None, paro=False):
     ui = MagicMock(spec=UIServiceBackend)
     ui.connected = connected
     ui.get_estado_global.return_value = "PREPARADO"
-    ui.get_estado_flag.side_effect = lambda f: paro if f == "PARO_EMERGENCIA" else None
+    ui.get_estado_flag.side_effect = lambda f: paro if f in ("PARO_EMERGENCIA", "PARO_REAL") else None  # U4: paro real
     ui.get_estado_puerta.return_value = "CERRADO"
     ui.get_alarmas.return_value = []
     ui.get_cycle.return_value = {}

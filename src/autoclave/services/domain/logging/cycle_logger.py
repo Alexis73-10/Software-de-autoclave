@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 def _software_version() -> str:
     """Versión real instalada del paquete (misma fuente que el ticket de
-    arranque en main_window.py) — evita que el ticket de ciclo muestre una
+    arranque, devices/printer/arranque_equipo.py) — evita que el ticket de ciclo muestre una
     versión desactualizada o inventada."""
     try:
         return importlib.metadata.version("autoclave")
@@ -106,11 +106,13 @@ class EscritorBD:
     """TMG-01 de T8: las escrituras del ciclo en SQLite (lock compartido con el
     backend y timeout de 10 s) salen del hilo del lazo. Un hilo propio las
     ejecuta en orden; la cola es acotada y, llena, `__call__` lanza
-    queue.Full (el CycleLogger corta el registro en la base del ciclo)."""
+    queue.Full (el CycleLogger corta el registro en la base del ciclo).
+    `maximo=0`: cola sin límite (el respaldo, S3d: líneas pequeñas y pocas, y
+    nunca debe descartarse ni escribirse en línea)."""
 
-    def __init__(self, maximo: int = 1000):
+    def __init__(self, maximo: int = 1000, nombre: str = "CycleLoggerBD"):
         self._cola: queue.Queue = queue.Queue(maxsize=maximo)
-        self._hilo = threading.Thread(target=self._correr, name="CycleLoggerBD", daemon=True)
+        self._hilo = threading.Thread(target=self._correr, name=nombre, daemon=True)
         self._hilo.start()
 
     def __call__(self, tarea) -> None:
@@ -126,12 +128,16 @@ class EscritorBD:
             except Exception:
                 logger.exception("CycleLogger: error en la escritura en la base")
 
-    def detener(self, timeout: float = 2.0) -> None:
+    def detener(self, timeout: float = 2.0) -> bool:
+        """Vacía la cola (las tareas ya encoladas se ejecutan) y detiene el
+        hilo. True si terminó dentro de `timeout`."""
         try:
             self._cola.put(None, timeout=timeout)
         except queue.Full:
-            return
+            logger.warning("EscritorBD: cola llena al detener; quedan tareas sin escribir")
+            return False
         self._hilo.join(timeout)
+        return not self._hilo.is_alive()
 
 
 def _en_linea(tarea) -> None:
@@ -152,7 +158,7 @@ class CycleLogger:
 
     def __init__(self, db, estado, config, profile, cycle_manager, printer=None,
                  reloj_mono=time.monotonic, contador=None, respaldo=None,
-                 sin_base_de_datos=False, ejecutar_bd=None):
+                 sin_base_de_datos=False, ejecutar_bd=None, ejecutar_respaldo=None):
         self.db            = db
         self.estado        = estado
         self.config        = config
@@ -171,6 +177,15 @@ class CycleLogger:
         # TMG-01 de T8: el backend pasa un EscritorBD (hilo propio); sin él,
         # en línea (pruebas)
         self._ejecutar_bd = ejecutar_bd or _en_linea
+        # S3d: hilo FIFO propio del respaldo, independiente de la base (una base
+        # atascada no retrasa el respaldo); sin él, comparte el de la base
+        self._ejecutar_respaldo_propio = ejecutar_respaldo
+        self._lock_aviso = threading.Lock()
+        self._numero_en_curso: int | None = None
+        # S3c (tanda 2): lo llama (una vez por ciclo, desde el hilo de escritura)
+        # cuando la base falla en caliente; el backend pasa a OPERANDO_SIN_BD
+        self.al_fallar_bd = None
+        self._bd_avisada = False
         self._reg: _RegistroBD | None = None
         self._reg_cerrado: _RegistroBD | None = None   # ciclo ya cerrado, aún en CICLO
         self.uuid_ciclo: str | None = None
@@ -299,6 +314,10 @@ class CycleLogger:
     def _numero_nuevo(self) -> int:
         if self.contador is None:
             return self.db.siguiente_numero_ciclo()
+        if self.sin_base_de_datos:
+            # sin base (arranque o falla en caliente) no se toca: podría estar
+            # bloqueada y este código corre en el tick
+            return self.contador.siguiente(None)
         try:
             maximo_bd = self.db.max_numero_ciclo()
         except Exception:
@@ -311,6 +330,7 @@ class CycleLogger:
         if self._numero_reservado is None:
             self._numero_reservado = self._numero_nuevo()
         numero = self._numero_reservado
+        self._numero_en_curso = numero
         self.uuid_ciclo = str(uuid.uuid4())
 
         # Leer metadatos del ciclo seleccionado
@@ -363,12 +383,14 @@ class CycleLogger:
             numero_programa = numero_programa,
             programa_json = programa_json,
         )
-        # T8 (§7.4): respaldo antes de la base, con los mismos datos
+        # T8 (§7.4): respaldo antes de la base, con los mismos datos. S3d: el
+        # fsync sale del tick; va por el mismo hilo FIFO que la base
+        self._bd_avisada = False
         if self.respaldo is not None:
-            self.respaldo.encabezado(self.uuid_ciclo, {
-                **datos_ciclo, "fecha_inicio": fecha_inicio,
-                "operador": "SIN OPERADOR / SIN BD" if self.sin_base_de_datos else "",
-            })
+            uuid_ciclo = self.uuid_ciclo
+            encabezado = {**datos_ciclo, "fecha_inicio": fecha_inicio,
+                          "operador": "SIN OPERADOR / SIN BD" if self.sin_base_de_datos else ""}
+            self._respaldar(lambda: self.respaldo.encabezado(uuid_ciclo, encabezado))
 
         # T8 (BD-02, §7.3; TMG-01): la base se escribe fuera del tick y un
         # fallo no detiene el ciclo; el registro sigue en el respaldo y el ticket
@@ -438,10 +460,10 @@ class CycleLogger:
                 logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
             # TMG-03 de T8: primero el respaldo, después la base
             if self.respaldo is not None and self.uuid_ciclo:
-                self.respaldo.cierre(self.uuid_ciclo, {
-                    "fecha_fin": datetime.now().isoformat(), "resultado": resultado,
-                    "motivo": motivo, "codigo": codigo, "f0_final": f0_total,
-                })
+                uuid_ciclo = self.uuid_ciclo
+                cierre = {"fecha_fin": datetime.now().isoformat(), "resultado": resultado,
+                          "motivo": motivo, "codigo": codigo, "f0_final": f0_total}
+                self._respaldar(lambda: self.respaldo.cierre(uuid_ciclo, cierre))
             self._bd("cerrar el ciclo", lambda i: self.db.cerrar_ciclo(
                 i, resultado, motivo, codigo, f0_final=f0_total))
 
@@ -462,10 +484,12 @@ class CycleLogger:
         self._ultima_fase_codigo = None
         self._numero_reservado  = None
         if self.contador is not None:
-            try:
-                self.contador.limpiar_en_curso()
-            except Exception:
-                logger.exception("CycleLogger: no se pudo limpiar la marca de ciclo en curso")
+            # S3d: la marca se limpia DESPUÉS del cierre del respaldo (mismo hilo
+            # FIFO) y solo si sigue siendo la de este ciclo: un corte entre la
+            # limpieza y el cierre dejaría un ciclo terminado sin cierre ni marca
+            numero_cerrado = self._numero_en_curso
+            self._numero_en_curso = None
+            self._respaldar(lambda: self._limpiar_marca(numero_cerrado))
 
     # ------------------------------------------------------------------
     # Pantalla de ciclo en curso: tramos de fase y serie de la gráfica
@@ -524,7 +548,11 @@ class CycleLogger:
                 logger.exception("CycleLogger: no se pudo %s en la base; el ciclo sigue "
                                  "en el respaldo y el ticket", que)
                 reg.fallido = True
-                self.sin_registro = True
+                # el flag del logger solo si este es el ciclo vigente (o el recién
+                # cerrado): una tarea tardía del anterior no marca el nuevo
+                if reg is self._reg or reg is self._reg_cerrado:
+                    self.sin_registro = True
+                self._avisar_bd_fallida(str(exc))
                 return
             if crea:
                 reg.id = resultado
@@ -536,6 +564,50 @@ class CycleLogger:
                              "el registro del ciclo en la base")
             reg.fallido = True
             self.sin_registro = True
+            self._avisar_bd_fallida("cola de escritura en la base llena")
+
+    def _limpiar_marca(self, numero) -> None:
+        try:
+            self.contador.limpiar_en_curso(solo_numero=numero)
+        except Exception:
+            logger.exception("CycleLogger: no se pudo limpiar la marca de ciclo en curso")
+
+    @property
+    def _ejecutar_respaldo(self):
+        return self._ejecutar_respaldo_propio or self._ejecutar_bd
+
+    def detener(self, timeout: float = 5.0) -> None:
+        """Apagado ordenado (S3d): vacía las colas de escritura del respaldo y de
+        la base antes de cerrar la base. Llamar con el lazo ya detenido."""
+        for ejecutor in {id(e): e for e in (self._ejecutar_respaldo, self._ejecutar_bd)}.values():
+            detener = getattr(ejecutor, "detener", None)
+            if detener is not None:
+                detener(timeout)
+
+    def _respaldar(self, tarea) -> None:
+        """S3d (tanda 2): el respaldo JSONL (con su flush y fsync) sale del hilo
+        del lazo: va por el mismo ejecutor FIFO que la base, así que se conserva
+        "primero el respaldo, después la base" (TMG-03 de T8). Si la cola está
+        llena se escribe en línea: el respaldo nunca se descarta. Un corte de
+        energía puede perder la última línea todavía en cola; la lectura ya
+        descarta una línea incompleta y el ciclo queda como INTERRUMPIDO."""
+        try:
+            self._ejecutar_respaldo(tarea)
+        except Exception:
+            logger.warning("CycleLogger: cola de escritura llena; el respaldo se escribe en línea")
+            tarea()
+
+    def _avisar_bd_fallida(self, motivo: str) -> None:
+        """S3c: la base falló en caliente. Una sola vez por ciclo y sin romper
+        nada: el ciclo sigue en el respaldo y el ticket."""
+        with self._lock_aviso:
+            if self._bd_avisada or self.al_fallar_bd is None:
+                return
+            self._bd_avisada = True
+        try:
+            self.al_fallar_bd(motivo)
+        except Exception:
+            logger.exception("CycleLogger: error al avisar la falla de la base")
 
     # ------------------------------------------------------------------
     # Tick: evaluar si es momento de registrar
@@ -605,7 +677,8 @@ class CycleLogger:
         )
         # TMG-03 de T8: primero el respaldo, después la base
         if self.respaldo is not None and self.uuid_ciclo:
-            self.respaldo.lectura(self.uuid_ciclo, lectura)
+            uuid_ciclo, copia = self.uuid_ciclo, dict(lectura)
+            self._respaldar(lambda: self.respaldo.lectura(uuid_ciclo, copia))
         self._bd("guardar la lectura", lambda i: self.db.insertar_lectura(ciclo_id=i, **lectura))
         self._ultimo_log = ahora
 

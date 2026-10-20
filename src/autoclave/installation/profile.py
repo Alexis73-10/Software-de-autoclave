@@ -137,9 +137,13 @@ def tarjeta_emparejada(profile, id_tarjeta) -> bool | None:
 # E1b (D-23): fuente de vapor del equipo. La salida de la fuente que el
 # equipo no tiene no se enciende nunca; en mixto quedan las dos. Campo ausente
 # = comportamiento previo (ambas disponibles) para perfiles anteriores a E1b.
+# S1 (tanda 2, decisión 1 de Cristian, 2026-10-19): con generador interno no
+# hay DO1 (vapor_generador) ni DO2 (vapor_caldera): el generador tiene sus
+# propios controles y el software no los enciende ni los lee. Caldera externa
+# y mixto conservan la asignación de E1b (abierta, por definir en campo).
 VAPOR_SOURCES = ("generator", "boiler", "mixed")
 _SALIDAS_VAPOR = {
-    "generator": frozenset({"vapor_generador"}),
+    "generator": frozenset(),
     "boiler":    frozenset({"vapor_caldera"}),
     "mixed":     frozenset({"vapor_generador", "vapor_caldera"}),
 }

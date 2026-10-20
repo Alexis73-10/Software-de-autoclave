@@ -120,7 +120,6 @@ Item {
     function pulsarAtras()    { _abandonar(() => _irA("admin_menu")) }
     function pulsarCancelar() { _abandonar(() => _irA("admin_menu")) }
     function pulsarInicio()   { _abandonar(() => _irA("home")) }
-    function pulsarSalir()    { _abandonar(() => { limpiar(); if (puente) puente.salir() }) }
 
     function pulsarGuardar() {
         if (!puente)
@@ -586,7 +585,8 @@ Item {
             }
         ]
 
-        // Barra inferior (D-10): salir, divisor, centro vacío, divisor, inicio y versión
+        // Barra inferior (D-10): atrás, divisor, centro vacío, divisor, inicio y versión.
+        // U2 (tanda 2): Atrás vuelve a Usuarios como "<"; ya no cierra la sesión.
         pie: [
             Item {
                 anchors.fill: parent
@@ -594,13 +594,14 @@ Item {
                 Image {
                     x: Escala.px(137); anchors.verticalCenter: parent.verticalCenter
                     width: Escala.px(56); height: Escala.px(56)
-                    source: parent._mono + "salir_sesion.svg"
+                    objectName: "botonAtrasNuevoUsuario"
+                    source: parent._mono + "flecha_atras.svg"
                     sourceSize.width: width
                     sourceSize.height: height
                     MouseArea {
                         anchors.fill: parent
                         anchors.margins: -Escala.px(24)
-                        onClicked: raiz.pulsarSalir()
+                        onClicked: raiz.pulsarAtras()
                     }
                 }
                 Rectangle {

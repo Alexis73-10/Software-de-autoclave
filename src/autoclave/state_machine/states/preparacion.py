@@ -57,7 +57,12 @@ class preparacion_state:
         if self.estado.get_flag("PARO_EMERGENCIA"):
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
             self.set_do.apagar_por_paro()
-            self.alarm_manager.activar(SIS_01, estado=_ESTADO)
+            # U4: SIS-01 solo se activa con el paro real; sin datos de la
+            # tarjeta se bloquea igual, con sus propias alarmas (COM-01 / sin
+            # tramas). Un SIS-01 ya activo no se resuelve por perder los datos
+            # (el botón puede seguir pulsado; revisión SAF-03 de U4)
+            if self.estado.get_flag("PARO_REAL"):
+                self.alarm_manager.activar(SIS_01, estado=_ESTADO)
             self.set_do.buzer_emergencia()
             return False
         else:

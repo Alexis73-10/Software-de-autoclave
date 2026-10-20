@@ -39,7 +39,7 @@ Item {
     // ---- acciones: las resuelve quien usa la pantalla (Main.qml) ----
     signal iniciarSesionPulsado()       // abre el login QML (Main.qml)
     signal campanaPulsada()
-    signal salirPulsado()
+    signal atrasPulsado()       // U2: pantalla anterior (no cierra sesión)
     signal inicioPulsado()
     signal historialPulsado()
     signal reportesPulsado()
@@ -106,7 +106,11 @@ Item {
     EncabezadoMenu {
         objectName: "encabezadoMenu"
         escala: raiz.escala
-        conteoAlarmas: raiz.puente?.alarms?.count ?? -1
+        // alarmas más avisos de seguridad del panel (U1 de la tanda 2)
+        conteoAlarmas: raiz.puente ? panelNotificaciones.conteoTotal : -1
+        urgente: panelNotificaciones.urgente
+        enCurso: panelNotificaciones.avisoEnCurso
+        parpadeo: panelNotificaciones.parpadeo
         onCampanaPulsada: { raiz.campanaPulsada(); panelNotificaciones.abrir() }
     }
 
@@ -329,9 +333,8 @@ Item {
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)
-        salirHabilitado: false   // D-12, TODO(MP-03): sin canal de sesión con el login PySide
         inicioActivo: raiz.inicioActivo
-        onSalirPulsado: raiz.salirPulsado()
+        onAtrasPulsado: raiz.atrasPulsado()
         onInicioPulsado: raiz.inicioPulsado()
     }
 
@@ -1007,6 +1010,8 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.puente?.alarms ?? null
+        puente: raiz.puente
+        comandosSistema: raiz.comandosSistema
     }
     PanelEquipo {
         comandosSistema: raiz.comandosSistema

@@ -43,7 +43,7 @@ def test_campo_ausente_es_valido():
 
 
 @pytest.mark.parametrize("fuente,esperado", [
-    ("generator", {"vapor_generador"}),
+    ("generator", set()),          # S1 (tanda 2): sin DO1 ni DO2
     ("boiler", {"vapor_caldera"}),
     ("mixed", {"vapor_generador", "vapor_caldera"}),
     (None, {"vapor_generador", "vapor_caldera"}),
@@ -68,7 +68,7 @@ def test_generador_no_enciende_la_caldera():
     setdo.vapor_caldera_on()
     io.set_output.assert_called_once_with(2, False)   # nunca ON: se fuerza OFF
     setdo.vapor_generador_on()
-    io.set_output.assert_called_with(1, True)
+    io.set_output.assert_called_with(1, False)        # S1: tampoco DO1
 
 
 def test_caldera_no_enciende_el_generador():
@@ -129,6 +129,6 @@ def test_valor_desconocido_falla_cerrado():
 
 
 def test_salida_bloqueada():
-    setdo, _ = _setdo("generator")
-    assert setdo.salida_bloqueada(2) is True
-    assert setdo.salida_bloqueada(1) is False
+    setdo, _ = _setdo("boiler")
+    assert setdo.salida_bloqueada(1) is True
+    assert setdo.salida_bloqueada(2) is False

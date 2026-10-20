@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 
 def cargar_perfil():
     """Perfil de instalación o None. Solo para mostrar datos: no aplica el
-    chequeo de reloj ni lanza el asistente (eso sigue en autoclave/main.py)."""
+    chequeo de reloj ni lanza el asistente (los hacen el backend y el
+    lanzador)."""
     from autoclave.installation import storage
     try:
         return storage.load() if storage.exists() else None

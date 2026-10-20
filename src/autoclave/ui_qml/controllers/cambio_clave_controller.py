@@ -12,7 +12,7 @@
 #
 # Si la sesión se cierra durante el cambio (429 por bloqueo, sin respuesta del
 # equipo, 401), la sesión de la ventana deja el aviso para el login y aquí se
-# emite sesionTerminada: la pantalla vuelve al Login. Abandonar = logout.
+# emite sesionTerminada: la pantalla vuelve al Login. Abandonar (Atrás/Inicio) = logout.
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
@@ -122,7 +122,10 @@ class CambioClaveController(QObject):
 
     @Slot()
     def abandonar(self) -> None:
-        """Salir sin cambiarla: cierra la sesión (el siguiente login vuelve a pedirlo)."""
+        """Atrás/Inicio sin cambiarla: la sesión del cambio obligatorio no
+        llegó a completarse y se descarta con logout (revisión de U2, tanda 2:
+        no es un cierre manual de una sesión abierta, decisión 7). El
+        siguiente acceso vuelve a pedir login y cambio."""
         self._sesion.cerrar_sesion()
 
 

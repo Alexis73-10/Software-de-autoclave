@@ -1,8 +1,14 @@
 import logging
 import os
+import sys
 
 # Crear carpeta de logs si no existe
-LOG_DIR = os.path.join(os.path.dirname(__file__), "../../logs")
+# en el .exe, en su carpeta de datos (dentro del paquete se borraría al cerrar)
+if getattr(sys, "frozen", False):
+    from autoclave.utils.resources import raiz_datos_exe
+    LOG_DIR = os.path.join(raiz_datos_exe(), "logs")
+else:
+    LOG_DIR = os.path.join(os.path.dirname(__file__), "../../logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 # Configurar logging

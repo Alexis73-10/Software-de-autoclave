@@ -71,7 +71,8 @@ _SCRIPT = textwrap.dedent(r"""
     ui.get_estado_global.return_value = "PREPARADO"
     ui.get_estado_puerta.return_value = "CERRADO"
     ui.get_alarmas.return_value = []
-    ui.get_estado_flag.return_value = True
+    # LISTO_PARA_CICLO activo; sin paro (U1: el paro saca de las pantallas sin campana)
+    ui.get_estado_flag.side_effect = lambda f: f not in ("PARO_EMERGENCIA", "PARO_REAL")  # U4
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}
     ui.get_sensores_pres.return_value = {"pres_camara": 101.3}
@@ -205,14 +206,30 @@ _SCRIPT = textwrap.dedent(r"""
     QMetaObject.invokeMethod(buscar("Login")[0], "inicioPulsado")
     esperar()
 
-    # abandonar el cambio -> logout y principal
+    # U2: Atrás en el cambio obligatorio -> pantalla anterior; la sesión
+    # incompleta se descarta con logout (revisión de U2)
     respuestas["cambio"] = (200, {"ok": True})
     entrar("admin", "admin1234")
     antes = rutas().count("/auth/logout")
-    QMetaObject.invokeMethod(buscar("CambioClave")[0], "abandonar")
+    QMetaObject.invokeMethod(buscar("CambioClave")[0], "atras")
     esperar()
-    r["abandonar"] = [pantalla(), SessionManager.is_authenticated(),
-                      rutas().count("/auth/logout") - antes]
+    r["atras_cambio"] = [pantalla(), SessionManager.is_authenticated(),
+                         rutas().count("/auth/logout") - antes]
+
+    # U2: Home en OPCIONES conserva la sesión; sin pantalla con token, los
+    # toques no la prolongan y la inactividad (SAF-01) la cierra con logout
+    entrar("adm1", "clave1234")
+    antes = rutas().count("/auth/logout")
+    QMetaObject.invokeMethod(buscar("Opciones")[0], "inicio")
+    esperar()
+    r["home_conserva"] = [pantalla(), SessionManager.is_authenticated()]
+    sesion._inactividad_s = 1.0
+    for _ in range(3):
+        sesion.registrarActividad()        # alguien usa la preciclo
+        esperar(500)
+    r["inactividad_sin_pantalla"] = [pantalla(), SessionManager.is_authenticated(),
+                                     rutas().count("/auth/logout") - antes]
+    sesion._inactividad_s = 300
 
     # inactividad (SAF-01; plazo reducido): OPCIONES -> principal con logout
     entrar("adm1", "clave1234")
@@ -284,8 +301,13 @@ def test_bloqueo_en_el_cambio_lleva_al_login_con_cuenta_regresiva(r):
     assert r["bloqueo_cambio"] == ["Login", False, "sesion.usuario_bloqueado", "2:00"]
 
 
-def test_abandonar_el_cambio_cierra_con_logout(r):
-    assert r["abandonar"] == ["PantallaPreciclo", False, 1]
+def test_atras_en_el_cambio_obligatorio_descarta_la_sesion(r):
+    assert r["atras_cambio"] == ["PantallaPreciclo", False, 1]
+
+
+def test_home_conserva_la_sesion_y_la_inactividad_la_cierra_aunque_usen_la_preciclo(r):
+    assert r["home_conserva"] == ["PantallaPreciclo", True]
+    assert r["inactividad_sin_pantalla"] == ["PantallaPreciclo", False, 1]
 
 
 def test_inactividad_cierra_la_sesion_y_vuelve_a_la_principal(r):

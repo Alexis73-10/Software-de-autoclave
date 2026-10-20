@@ -8,9 +8,9 @@
 #   terminado       el arranque terminó
 #   falloBloqueante el arranque no puede continuar
 #
-# PROVISIONAL (ARR-03): la secuencia de arranque real (etapas, verificación de
-# sensores, clasificación de fallos) aún no tiene plan, así que este objeto es
-# un SIMULADOR con las etapas de ejemplo de la previsualización
+# La UI usa ProgresoArranqueBackend (abajo), que lee GET /arranque. El
+# SIMULADOR queda solo para pruebas visuales con AUTOCLAVE_INTRO_SIMULACION
+# (antes era la única fuente, ARR-03): es un SIMULADOR con las etapas de ejemplo de la previsualización
 # (docs/diseno/referencias/intro_arranque_preview.mp4). No está conectado al
 # flujo real: no espera ni condiciona nada del backend ni del lanzador.
 #
@@ -21,8 +21,9 @@
 #   sin_progreso    no publica ningún progreso (la intro declara el fallo a los 20 s)
 
 import logging
+import threading
 
-from PySide6.QtCore import Property, QObject, QTimer, Signal
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 logger = logging.getLogger(__name__)
 
@@ -121,3 +122,200 @@ class SimuladorProgresoArranque(QObject):
     proceso = Property(str, _get_proceso, notify=cambiado)
     terminado = Property(bool, _get_terminado, notify=cambiado)
     falloBloqueante = Property(bool, _get_fallo, notify=cambiado)
+
+
+# ── Progreso REAL del backend (GET /arranque) ──────────────────────────────
+#
+# Observación de Cristian (19-oct): la barra del simulador no mostraba lo que
+# pasa de verdad (la tarjeta, el backend). Aquí la intro sigue las etapas que
+# publica el backend (backend/arranque/registro.py, contrato de GET /arranque).
+# Mientras el backend aún no responde, el proceso es "iniciando_servicios".
+# Sin tarjeta, el backend reintenta las E/S para siempre (ARR_SIN_ES a los
+# 15 s); la intro termina igual y la pantalla principal muestra "tarjeta
+# desconectada" (U4). Solo presentación: no condiciona nada del arranque.
+
+_ETAPA_UI = "preparando_interfaz"      # la completa cada UI: no cuenta aquí
+_CODIGO_SIN_ES = "ARR_SIN_ES"
+_SIN_RESPUESTA = {"fraccion": 0.0, "proceso": "iniciando_servicios",
+                  "terminado": False, "fallo": False}
+
+
+def resumir_arranque(instantanea) -> dict:
+    """fraccion/proceso/terminado/fallo a partir de la respuesta de /arranque.
+    None o una respuesta mal formada = el backend aún no responde."""
+    if not isinstance(instantanea, dict):
+        return dict(_SIN_RESPUESTA)
+    etapas = instantanea.get("etapas")
+    if not isinstance(etapas, list) or not etapas:
+        return dict(_SIN_RESPUESTA)
+    try:
+        backend = [e for e in etapas if e["clave"] != _ETAPA_UI]
+        total = sum(float(e["peso"]) for e in backend)
+        hechas = sum(float(e["peso"]) for e in backend if e["estado"] in ("ok", "degradado"))
+        sin_es = any(e["clave"] == "conectando_modulos_es" and e["estado"] == "en_curso"
+                     and e.get("codigo") == _CODIGO_SIN_ES for e in backend)
+    except (KeyError, TypeError, ValueError):
+        return dict(_SIN_RESPUESTA)
+    fallo = instantanea.get("falloBloqueante") is True
+    terminado = not fallo and (instantanea.get("terminado") is True or sin_es)
+    proceso = instantanea.get("etapaActual")
+    return {
+        "fraccion": hechas / total if total > 0 else 0.0,
+        "proceso": proceso if isinstance(proceso, str) else "",
+        "terminado": terminado,
+        "fallo": fallo,
+    }
+
+
+def _etapas_backend(instantanea) -> list:
+    """[(clave, peso, completada)] de las etapas del backend, en orden; [] si
+    la respuesta no sirve."""
+    try:
+        return [(e["clave"], float(e["peso"]), e["estado"] in ("ok", "degradado"))
+                for e in instantanea["etapas"] if e["clave"] != _ETAPA_UI]
+    except (KeyError, TypeError, ValueError):
+        return []
+
+
+class ProgresoArranqueBackend(QObject):
+    """Misma interfaz para QML que SimuladorProgresoArranque. `leer()` devuelve
+    el JSON de /arranque o lanza; con `en_hilo` cada consulta corre fuera del
+    hilo de la GUI y su resultado se aplica en el siguiente tick del timer.
+
+    Repetición visible (19-oct): las etapas de archivos tardan milisegundos y
+    la barra solo se ve desde los 3,5 s de intro, cuando el backend ya va por
+    las E/S. reiniciarVista() (lo llama la intro al mostrar la barra) vuelve a
+    mostrar, una por paso de `permanencia_ms`, las etapas REALES ya cumplidas,
+    sin adelantarse nunca al backend; el fallo bloqueante se muestra en el acto."""
+
+    cambiado = Signal()
+
+    def __init__(self, leer, en_hilo: bool = True, intervalo_ms: int = 300,
+                 permanencia_ms: int = 350, parent=None):
+        super().__init__(parent)
+        self._leer = leer
+        self._en_hilo = en_hilo
+        self._real = dict(_SIN_RESPUESTA)
+        self._etapas: list = []
+        self._vista: int | None = None   # etapas mostradas como cumplidas; None = sin repetición
+        self._publicado = dict(_SIN_RESPUESTA)
+        self._pendiente = None          # resultado del hilo, aún sin aplicar
+        self._en_vuelo = False
+        self._lock = threading.Lock()
+        self._timer = QTimer(self)
+        self._timer.setInterval(intervalo_ms)
+        self._timer.timeout.connect(self.sondear)
+        self._timer_vista = QTimer(self)
+        self._timer_vista.setInterval(permanencia_ms)
+        self._timer_vista.timeout.connect(self.avanzarVista)
+
+    def iniciar(self) -> None:
+        self.sondear()
+        self._timer.start()
+
+    def detener(self) -> None:
+        self._timer.stop()
+        self._timer_vista.stop()
+
+    # ── vista ────────────────────────────────────────────────────────────
+
+    def _cumplidas_reales(self) -> int:
+        n = 0
+        for _, _, completada in self._etapas:
+            if not completada:
+                break
+            n += 1
+        return n
+
+    @Slot()
+    def reiniciarVista(self) -> None:
+        if self._real["fallo"]:
+            return
+        self._vista = 0
+        self._publicar()
+        self._timer_vista.start()
+
+    @Slot()
+    def avanzarVista(self) -> None:
+        if self._vista is None:
+            return
+        if self._vista < self._cumplidas_reales():
+            self._vista += 1
+        self._publicar()
+
+    def _publicar(self) -> None:
+        real = self._real
+        if self._vista is None or real["fallo"] or not self._etapas:
+            nuevo = dict(real)
+        else:
+            cumplidas = self._cumplidas_reales()
+            vista = min(self._vista, cumplidas)
+            total = sum(p for _, p, _ in self._etapas)
+            al_dia = vista >= cumplidas
+            nuevo = {
+                "fraccion": (real["fraccion"] if al_dia else
+                             sum(p for _, p, _ in self._etapas[:vista]) / total if total else 0.0),
+                "proceso": real["proceso"] if al_dia else self._etapas[vista][0],
+                "terminado": real["terminado"] and al_dia,
+                "fallo": False,
+            }
+            if al_dia and (real["terminado"] or vista >= len(self._etapas)):
+                self._timer_vista.stop()
+        if nuevo != self._publicado:
+            self._publicado = nuevo
+            self.cambiado.emit()
+
+    # ── consulta ─────────────────────────────────────────────────────────
+
+    def _consultar(self):
+        try:
+            return self._leer()
+        except Exception as e:     # backend aún no arriba: sin respuesta
+            logger.debug("GET /arranque falló: %s", e)
+            return None
+
+    def _aplicar(self, respuesta) -> None:
+        nuevo = resumir_arranque(respuesta)
+        if nuevo["proceso"] != self._real["proceso"]:
+            logger.info("Arranque: %s", nuevo["proceso"] or "terminado")
+        self._real = nuevo
+        etapas = _etapas_backend(respuesta) if isinstance(respuesta, dict) else []
+        if etapas or respuesta is None:
+            self._etapas = etapas
+        if nuevo["fallo"]:
+            self._vista = None
+            self._timer_vista.stop()
+        self._publicar()
+        if nuevo["terminado"] or nuevo["fallo"]:
+            self._timer.stop()
+
+    def sondear(self) -> None:
+        if self._real["terminado"] or self._real["fallo"]:
+            self._timer.stop()
+            return
+        if not self._en_hilo:
+            self._aplicar(self._consultar())
+            return
+        with self._lock:
+            listo, self._pendiente = self._pendiente, None
+            lanzar = not self._en_vuelo
+            if lanzar:
+                self._en_vuelo = True
+        if listo is not None:
+            self._aplicar(listo[0])
+        if lanzar and not (self._real["terminado"] or self._real["fallo"]):
+            threading.Thread(target=self._hilo, daemon=True, name="progreso-arranque").start()
+        elif lanzar:
+            with self._lock:
+                self._en_vuelo = False
+
+    def _hilo(self) -> None:
+        respuesta = self._consultar()
+        with self._lock:
+            self._pendiente = (respuesta,)
+            self._en_vuelo = False
+
+    fraccion = Property(float, lambda self: self._publicado["fraccion"], notify=cambiado)
+    proceso = Property(str, lambda self: self._publicado["proceso"], notify=cambiado)
+    terminado = Property(bool, lambda self: self._publicado["terminado"], notify=cambiado)
+    falloBloqueante = Property(bool, lambda self: self._publicado["fallo"], notify=cambiado)

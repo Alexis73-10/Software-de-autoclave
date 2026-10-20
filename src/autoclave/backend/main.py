@@ -43,6 +43,21 @@ def arrancar_cuando_escuche(servidor, iniciar, intervalo_s: float = 0.05, dormir
     return True
 
 
+def latido_y_ticket(server, plazo_s: float = 120.0) -> None:
+    """R1 (tanda 2): latido de apagado y ticket de arranque, que antes hacía la
+    ventana principal de la UI anterior. Espera a que el arranque deje el
+    contexto operable (perfil cargado); si no llega, arranca solo el latido."""
+    operable = getattr(server, "_contexto_operable", None)
+    if operable is None or not operable.wait(plazo_s):
+        logger.warning("Arranque no operable en %.0f s: latido sin ticket de arranque", plazo_s)
+    try:
+        from autoclave.devices.printer import arranque_equipo
+        perfil = getattr(server.context, "profile", None) if operable and operable.is_set() else None
+        arranque_equipo.iniciar(perfil)
+    except Exception:
+        logger.exception("No se pudo iniciar el latido / ticket de arranque")
+
+
 def main():
     _configurar_logging_archivo()
     logger.info("Backend iniciado desde: %s", __file__)
@@ -57,6 +72,8 @@ def main():
         port=PUERTO,
         log_level="info",
     ))
+    threading.Thread(target=latido_y_ticket, args=(server,),
+                     name="latido-ticket", daemon=True).start()
     threading.Thread(target=arrancar_cuando_escuche, args=(servidor, server.iniciar_arranque),
                      name="arranque-espera-puerto", daemon=True).start()
     servidor.run()

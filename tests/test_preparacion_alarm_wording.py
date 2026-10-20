@@ -61,7 +61,7 @@ def test_suministro_agua_bomba_activa_sum03():
 def test_paro_activa_y_resuelve_sis01():
     s = _make_state(di={"paro_emergencia": 1})
     # E1-5 (D-16): PREPARACION lee el flag publicado por EmergencyStop
-    s.estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+    s.estado.get_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")  # U4: paro real
     s.run()
     assert ("SIS-01", None, {"estado": "Preparación"}) in activaciones(s.alarm_manager)
     s.estado.sensores_di = {"paro_emergencia": 0, "vapor_suministro": 1, "agua_bomba": 1,

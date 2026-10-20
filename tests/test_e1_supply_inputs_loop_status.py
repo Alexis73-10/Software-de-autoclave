@@ -73,6 +73,7 @@ def test_suministro_electrico_requerido_sin_entrada_activa_el_fallo():
 def test_set_active_cycle_conserva_el_perfil():
     perfil = SimpleNamespace(supply_inputs=_SOLO_AIRE)
     loop, _ = _loop(_FakeEstado(1), perfil)
+    loop.estado.set_flag("PARO_EMERGENCIA", False)   # S2: con paro se rechaza
     with patch("autoclave.services.domain.loop.control_loop.StateMachine") as sm_cls:
         loop.set_active_cycle(MagicMock())
     assert sm_cls.call_args.kwargs["profile"] is perfil

@@ -97,10 +97,11 @@ def _d(codigo, nivel, bloquea, despeje, titulo, descripcion, accion):
 
 DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SIS_01, _FC, True, _A, "Paro de emergencia activado",
-       # E1 (PF-21): paro NC, la entrada en 0 o sin datos también es paro.
-       "Paro de emergencia activo en estado {estado}. Paro = entrada en 0 o sin "
-       "datos de la tarjeta. Si el botón no está pulsado, revisar que el "
-       "cableado sea contacto normalmente cerrado (NC).",
+       # E1 (PF-21): paro NC. U4 (tanda 2): solo con la entrada en 0 leída de
+       # la tarjeta; sin datos, COM-01 o TARJETA_SIN_TRAMA_VALIDA.
+       "Paro de emergencia activo en estado {estado}. La entrada del paro está "
+       "en 0. Si el botón no está pulsado, revisar que el cableado sea contacto "
+       "normalmente cerrado (NC).",
        "Verifique que no haya riesgo y libere el botón de paro."),
     _d(SIS_02, _AV, False, _M, "Historial de alarmas no disponible",
        "No se pudo guardar el historial de alarmas: {error}. Las alarmas siguen "
@@ -209,9 +210,11 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(CIC_10, _AV, False, _A, "Estado seguro detenido",
        "{motivo}. La cámara sigue sin considerarse segura.",
        "No abra la puerta. Llame a servicio técnico."),
-    _d(COM_01, _AL, True, _A, "Sin comunicación con la tarjeta",
-       "No llegan datos válidos de la tarjeta de control.",
-       "Verifique el cable USB y la alimentación de la tarjeta."),
+    # U4 (tanda 2): solo con la tarjeta desconectada (sin puerto o puerto
+    # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
+    _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",
+       "No se detecta la tarjeta de control.",
+       "Conecte la tarjeta (cable USB) y verifique su alimentación."),
     _d(COM_02, _FC, True, _M, "Comunicación perdida durante el ciclo",
        "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase "
        "{fase}. El ciclo se abortó.",

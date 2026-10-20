@@ -62,11 +62,11 @@ def test_paro_detiene_y_exige_confirmacion():
     estado, eventos = _estado(), []
     es, prot = _es(estado, eventos), _protocolo()
     es.iniciar(prot)
-    estado.flags["PARO_EMERGENCIA"] = True
+    estado.flags["PARO_EMERGENCIA"] = estado.flags["PARO_REAL"] = True   # U4: paro real
     es.update()
     prot.update.assert_not_called()
     assert es.confirmar() is False                    # con el paro activo, no
-    estado.flags["PARO_EMERGENCIA"] = False
+    estado.flags["PARO_EMERGENCIA"] = estado.flags["PARO_REAL"] = False
     es.update(); es.update()
     prot.update.assert_not_called()                   # liberado: sin avance automático
     assert es.requiere_confirmacion
@@ -171,6 +171,7 @@ def test_tres_ticks_fallidos_apagan_todas_las_salidas():
 def test_estado_seguro_sobrevive_a_set_active_cycle():
     loop = _loop()
     es = loop.estado_seguro
+    loop.estado.set_flag("PARO_EMERGENCIA", False)     # S2: con paro se rechaza
     with patch("autoclave.services.domain.loop.control_loop.StateMachine") as sm:
         loop.set_active_cycle(MagicMock())
     assert sm.call_args.kwargs["estado_seguro"] is es

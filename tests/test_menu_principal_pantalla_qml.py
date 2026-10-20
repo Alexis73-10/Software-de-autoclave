@@ -489,8 +489,9 @@ def test_es_json_trae_las_claves_que_usa_el_menu():
 
 def test_marcadores_todo_pendientes():
     fuente = (_QML / "Pantallas" / "MenuPrincipal.qml").read_text(encoding="utf-8")
-    for marca in ("TODO(MP-11)", "TODO(MP-14b)", "TODO(MP-03)", "TODO(MP-06a)"):
+    for marca in ("TODO(MP-11)", "TODO(MP-14b)", "TODO(MP-06a)"):
         assert marca in fuente
+    assert "TODO(MP-03)" not in fuente      # U2 (tanda 2): Salir retirado
 
 
 def test_informacion_abre_el_panel_del_equipo(r):

@@ -91,6 +91,8 @@ class BackendContext:
         self.cycle_logger = None
         self.control_loop = None
         self.sin_base_de_datos = False
+        self._lock_sin_bd = threading.Lock()
+        self.db_real = None
 
     # ── 1. verificando_instalacion ───────────────────────────────────────────
 
@@ -233,7 +235,11 @@ class BackendContext:
             sin_base_de_datos = self.sin_base_de_datos,
             # TMG-01 de T8: la base del ciclo se escribe fuera del hilo del lazo
             ejecutar_bd   = EscritorBD(),
+            # S3d: el respaldo (con su fsync) en su propio hilo FIFO, sin límite
+            ejecutar_respaldo = EscritorBD(maximo=0, nombre="CycleLoggerRespaldo"),
         )
+        # S3c (tanda 2): una base que falla en caliente activa OPERANDO_SIN_BD
+        self.cycle_logger.al_fallar_bd = self.bd_fallo_en_caliente
         # Historial persistente de alarmas (spec 2026-10-06 §6). El ciclo en
         # curso se lee al aparecer cada alarma.
         self.historial_alarmas = HistorialAlarmas(
@@ -328,6 +334,33 @@ class BackendContext:
             self._respaldo_ciclos = RespaldoCiclos(app_root() / "data" / "respaldo_ciclos",
                                                    al_fallar=self._respaldo_fallido)
         return self._respaldo_ciclos
+
+    def bd_fallo_en_caliente(self, motivo: str) -> None:
+        """S3c (tanda 2, T8 SAF-03): la base de datos falló con el equipo en
+        marcha. Se pasa al modo sin base como si hubiera arrancado así: alarma
+        no bloqueante OPERANDO_SIN_BD, el siguiente ciclo pide confirmación y
+        lleva la leyenda "SIN OPERADOR / SIN BD", y calibración, parámetros y
+        altas quedan bloqueados. El ciclo en curso NO se detiene: sigue en el
+        respaldo JSONL y en el ticket. Idempotente; lo llama el hilo de
+        escritura de la base."""
+        with self._lock_sin_bd:
+            if self.sin_base_de_datos:
+                return
+            self.sin_base_de_datos = True
+        logger.critical("La base de datos falló en caliente (%s): se opera sin base", motivo)
+        if getattr(self, "cycle_logger", None) is not None:
+            self.cycle_logger.sin_base_de_datos = True
+        # Como si hubiera arrancado sin base: los endpoints que usan context.db
+        # (altas, historial, reportes...) responden 503 en vez de fallar al azar.
+        # La referencia real se conserva para cerrarla al apagar; el logger y el
+        # historial de alarmas mantienen la suya.
+        self.db_real = self.db
+        self.db = BdNoDisponible()
+        self.calibration_audit = BdNoDisponible()
+        try:
+            self.alarm_manager.activar(OPERANDO_SIN_BD)
+        except Exception:
+            logger.exception("No se pudo activar OPERANDO_SIN_BD")
 
     def _respaldo_fallido(self, error: str) -> None:
         """SAF-01 de T8: alarma SIS-03 (aviso, despeje manual)."""

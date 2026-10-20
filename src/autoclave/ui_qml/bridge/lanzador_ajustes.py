@@ -21,7 +21,10 @@ logger = logging.getLogger(__name__)
 
 def comando_ajustes() -> list[str]:
     """En un build congelado sys.executable es el .exe de la UI: se lanza
-    AutoclaveSettings.exe, ubicado junto a él. En desarrollo, el intérprete."""
+    AutoclaveSettings.exe, ubicado junto a él. En desarrollo, el intérprete.
+    Con el .exe único (autoclave/exe_unico.py) es el mismo .exe en el rol ajustes."""
+    if getattr(sys, "frozen", False) and os.environ.get("AUTOCLAVE_EXE_UNICO") == "1":
+        return [sys.executable, "--rol", "ajustes"]
     if getattr(sys, "frozen", False):
         return [os.path.join(os.path.dirname(sys.executable), "AutoclaveSettings.exe")]
     return [sys.executable, "-m", "autoclave.ui_pyside.app"]

@@ -314,6 +314,11 @@ class SesionVentana(QObject):
         self._timer.timeout.connect(self._revisar_conexion)
         self._inactividad_s = inactividad_s
         self._ultima_actividad = reloj()
+        # Hay una pantalla con token a la vista (vigilar()). Fuera de ellas los
+        # toques no prolongan la sesión (revisión de U2, tanda 2: Atrás/Home ya
+        # no la cierran y la preciclo la usa cualquiera). True hasta el primer
+        # vigilar(): comportamiento previo para quien no lo llame.
+        self._en_uso = True
         self._timer_inactividad = QTimer(self)
         self._timer_inactividad.setInterval(intervalo_ms)
         self._timer_inactividad.timeout.connect(self._revisar_inactividad)   # solo con sesión
@@ -531,8 +536,10 @@ class SesionVentana(QObject):
 
     @Slot()
     def registrarActividad(self) -> None:
-        """Toque o tecla en esta ventana."""
-        self._ultima_actividad = self._reloj()
+        """Toque o tecla en esta ventana; solo cuenta con una pantalla con
+        token a la vista (OPCIONES, Nuevo usuario, Cambio de clave)."""
+        if self._en_uso:
+            self._ultima_actividad = self._reloj()
 
     def eventFilter(self, obj, evento) -> bool:
         if evento.type() in _EVENTOS_ACTIVIDAD:
@@ -568,6 +575,10 @@ class SesionVentana(QObject):
         usuario, Cambio de clave)."""
         reconecta = conectado and not self._conectado
         self._conectado = conectado
+        entra = bool(en_uso) and not self._en_uso
+        self._en_uso = bool(en_uso)
+        if entra:
+            self._ultima_actividad = self._reloj()   # llegó a una pantalla con sesión
         if conectado:
             self._reintentar_logouts()
             if self._sin_conexion_desde is not None:

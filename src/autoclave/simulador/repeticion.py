@@ -60,7 +60,7 @@ def cargar_ciclo(db_path, ciclo_id: int | None = None) -> dict:
         con.close()
     return {"id": fila["id"], "numero_ciclo": fila["numero_ciclo"],
             "tipo_ciclo": fila["tipo_ciclo"], "nombre_ciclo": fila["nombre_ciclo"],
-            "lecturas": lecturas}
+            "fila": dict(fila), "lecturas": lecturas}
 
 
 def _interpolar(puntos, t):
@@ -78,6 +78,7 @@ def _interpolar(puntos, t):
 
 class Repeticion:
     def __init__(self, ciclo: dict):
+        self.ciclo = ciclo
         ordenadas = sorted(ciclo["lecturas"], key=lambda l: l["t_s"])
         fin = next((l["t_s"] for l in ordenadas if l["codigo"] == "E"), ordenadas[-1]["t_s"])
         self.duracion_s = fin

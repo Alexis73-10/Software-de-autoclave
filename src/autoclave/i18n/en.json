@@ -54,7 +54,7 @@
     "vapor_titulo": "Select the steam source",
     "error_vapor": "Select the steam source",
     "vapor_generator": "Internal generator",
-    "vapor_generator_desc": "The equipment generates its own steam",
+    "vapor_generator_desc": "The unit generates its own steam; the generator has its own controls (no DO1/DO2 outputs)",
     "vapor_boiler": "External boiler",
     "vapor_boiler_desc": "Connection to the customer's steam supply",
     "vapor_mixed": "Mixed",
@@ -363,7 +363,10 @@
   },
   "notificaciones": {
     "titulo": "NOTIFICATIONS",
-    "alertas_avisos": "Alerts and notices"
+    "alertas_avisos": "Alerts and notices",
+    "grupo_emergencia": "Emergency / Faults",
+    "grupo_alarmas": "Alarms",
+    "grupo_avisos": "Notices"
   },
   "equipo": {
     "titulo": "EQUIPMENT INFORMATION",
@@ -482,7 +485,17 @@
     "paro_no_abrir": "EMERGENCY STOP — DO NOT OPEN",
     "paro_liberado": "Emergency stop released. Check that there is no leak before continuing.",
     "confirmar_estado_seguro": "Confirm and bring to safe state",
-    "estado_seguro_en_curso": "Bringing the chamber to a safe state"
+    "estado_seguro_en_curso": "Bringing the chamber to a safe state",
+    "estado_seguro_pendiente": "Emergency stop released — safe state pending",
+    "paro_suelte": "Release the emergency stop button to continue. Until then no actions are available.",
+    "confirmar_sin_sesion": "Available to any operator, no login required",
+    "estado_seguro_en_curso_boton": "In progress…",
+    "no_abrir_hasta_segura": "DO NOT OPEN until the chamber is safe",
+    "seguridad_desconocida": "No connection with the equipment: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "tarjeta_desconectada": "Board disconnected: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "tarjeta_sin_datos": "The board is not sending valid data: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "tarjeta_desconectada_valores": "Control board disconnected. The values shown are not up to date.",
+    "tarjeta_sin_datos_valores": "The control board is not sending valid data. The values shown are not up to date."
   },
   "sesion": {
     "campos_vacios": "Enter username and password",
@@ -527,6 +540,11 @@
     "ASIGNACION_SENSORES_INVALIDA": "The program has an invalid sensor assignment"
   },
   "alarmas": {
+    "COM-01": {
+      "titulo": "I/O board disconnected",
+      "descripcion": "The control board is not detected.",
+      "accion": "Connect the board (USB cable) and check its power supply."
+    },
     "TARJETA_SIN_TRAMA_VALIDA": {
       "titulo": "The I/O board is not sending valid data",
       "accion": "Check the USB cable and the board power supply. Call technical service."

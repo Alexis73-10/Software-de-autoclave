@@ -46,7 +46,8 @@ _SCRIPT = textwrap.dedent(r"""
     ui.get_estado_global.return_value = estado
     ui.get_estado_puerta.return_value = "CERRADO"
     ui.get_alarmas.return_value = []
-    ui.get_estado_flag.return_value = True
+    # LISTO_PARA_CICLO activo; sin paro (U1: el paro saca de las pantallas sin campana)
+    ui.get_estado_flag.side_effect = lambda f: f not in ("PARO_EMERGENCIA", "PARO_REAL")  # U4
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}
     ui.get_sensores_pres.return_value = {"pres_camara": 101.3}
@@ -103,11 +104,11 @@ _SCRIPT = textwrap.dedent(r"""
     esperar()
     r["ajustes_tras_sesion"] = ajustes.veces
     r["login_abre"] = len(buscar("Login")) == 1 and visible("Login")
-    QMetaObject.invokeMethod(buscar("Login")[0], "inicioPulsado")   # casa del login -> menú
+    QMetaObject.invokeMethod(buscar("Login")[0], "atrasPulsado")    # U2: Atrás del login -> menú
     esperar()
     r["login_regresa_al_menu"] = len(buscar("Login")) == 0 and visible("MenuPrincipal")
 
-    QMetaObject.invokeMethod(menus[0], "inicioPulsado")             # casa -> de vuelta
+    QMetaObject.invokeMethod(buscar("MenuPrincipal")[0], "inicioPulsado")   # casa -> de vuelta
     esperar()
     r["menu_cierra"] = len(buscar("MenuPrincipal")) == 0
     r["origen_regresa"] = visible(origen)

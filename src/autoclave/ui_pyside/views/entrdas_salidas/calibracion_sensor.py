@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QMessageBox,
     QPushButton,
     QVBoxLayout,
     QWidget,
@@ -218,6 +219,49 @@ class CalibracionSensorView(QWidget):
 
     # ── Guardar ──────────────────────────────────────────────────────
 
+    @staticmethod
+    def _rechazo_http(exc) -> tuple[int | None, str, str]:
+        """(estado, código, detalle) de un HTTPError del backend; (None, "", "")
+        si no es una respuesta HTTP (backend caído)."""
+        resp = getattr(exc, "response", None)
+        if resp is None:
+            return None, "", ""
+        try:
+            datos = resp.json()
+        except Exception:
+            datos = {}
+        return resp.status_code, str(datos.get("codigo", "")), str(datos.get("detail", ""))
+
+    def _resolver_rechazo(self, exc, body: dict):
+        """S3a (tanda 2): el backend rechaza una calibración no plausible (422)
+        o pide confirmar una corrección grande (409). Devuelve el resultado si
+        el técnico confirmó y se guardó; None si no se guardó (el motivo queda
+        en la etiqueta)."""
+        estado, codigo, detalle = self._rechazo_http(exc)
+        if codigo == "CALIBRACION_IMPLAUSIBLE":
+            self._lbl_info.setText(f"Calibración rechazada: {detalle}")
+            return None
+        if codigo == "CALIBRACION_REQUIERE_CONFIRMACION":
+            respuesta = QMessageBox.question(
+                self, "Corrección grande",
+                f"{detalle}\n\nEl cambio queda registrado. ¿Guardar de todos modos?")
+            if respuesta != QMessageBox.StandardButton.Yes:
+                self._lbl_info.setText("Calibración no guardada: falta confirmar la corrección grande.")
+                return None
+            try:
+                return self._client.save_calibration(
+                    self._tipo, self._sensor, {**body, "confirmar_fuera_de_rango": True})
+            except Exception as exc2:
+                estado2, codigo2, detalle2 = self._rechazo_http(exc2)
+                self._lbl_info.setText(f"Calibración rechazada: {detalle2}" if detalle2
+                                       else "No se pudo guardar la calibración — inténtalo de nuevo.")
+                return None
+        if estado in (409, 503) and detalle:
+            self._lbl_info.setText(f"No se guardó la calibración: {detalle}")
+            return None
+        self._lbl_info.setText("No se pudo guardar la calibración — inténtalo de nuevo.")
+        return None
+
     def _on_guardar(self) -> None:
         if self._preview_gain is None or self._tipo is None or self._sensor is None:
             return
@@ -237,9 +281,10 @@ class CalibracionSensorView(QWidget):
         }
         try:
             result = self._client.save_calibration(self._tipo, self._sensor, body)
-        except Exception:
-            self._lbl_info.setText("No se pudo guardar la calibración — inténtalo de nuevo.")
-            return
+        except Exception as exc:
+            result = self._resolver_rechazo(exc, body)
+            if result is None:
+                return
 
         self._current_gain = result["gain"]
         self._current_offset = result["offset"]

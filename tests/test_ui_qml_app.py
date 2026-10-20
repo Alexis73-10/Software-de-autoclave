@@ -105,7 +105,8 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     ui.get_alarmas.return_value = [
         {"id": "PARO_EMERGENCIA", "level": "EMERGENCIA", "description": "Paro", "source_state": "PREPARADO"},
         {"id": "CHAQUETA_FRIA", "level": "FALLA", "description": "", "source_state": "PREPARADO"}]
-    ui.get_estado_flag.return_value = True
+    # LISTO_PARA_CICLO activo; sin paro (U1: el paro saca de las pantallas sin campana)
+    ui.get_estado_flag.side_effect = lambda f: f not in ("PARO_EMERGENCIA", "PARO_REAL")  # U4
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}
     ui.get_sensores_pres.return_value = {"pres_camara": 101.3}
@@ -137,7 +138,9 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     login_abre = len(buscar("Login")) == 1
     QMetaObject.invokeMethod(buscar("Login")[0], "inicioPulsado")   # casa -> principal
     QTest.qWait(600)
-    login_regresa = len(buscar("Login")) == 0 and bool(ciclo.property("visible"))
+    # U2: Home recrea la principal (pop(null) + push): se busca de nuevo
+    login_regresa = len(buscar("Login")) == 0 and any(o.property("visible") for o in buscar("PantallaPreciclo"))
+    ciclo = buscar("PantallaPreciclo")[-1]
 
     print(json.dumps({
         "login_abre": login_abre,
@@ -190,6 +193,8 @@ _SCRIPT_DOS_PANTALLAS = textwrap.dedent(r"""
         ui.get_alarmas.return_value = []
         ui.get_inactividad_ui.side_effect = actividad.inactividad_s
         ui.get_config_param.side_effect = lambda n: 5 if n == "tiempo_standby" else None
+        ui.get_estado_flag.return_value = False            # sin paro (U1: el paro despierta)
+        ui.get_campo.side_effect = lambda c, d=None: d     # sin estado seguro en curso
         standby = Standby(ui, Backend(), reloj=reloj, ejecutar=lambda t: t(), iniciar=False)
         engine = QQmlApplicationEngine()
         engine.addImportPath(qml_dir)

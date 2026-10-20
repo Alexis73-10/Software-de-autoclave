@@ -538,6 +538,49 @@ def test_saf01_la_actividad_de_esta_ventana_reinicia_el_conteo():
     assert SessionManager.is_authenticated()
 
 
+def test_saf01_fuera_de_las_pantallas_con_sesion_los_toques_no_la_prolongan():
+    """Revisión de U2 (tanda 2, SAF-01 Alto): tras salir con Atrás/Home la
+    sesión sigue viva, pero los toques en la preciclo o el ciclo en curso (de
+    cualquiera) no la prolongan: vence a los 5 min del último uso con token."""
+    from PySide6.QtCore import QEvent
+
+    class Evento:
+        def __init__(self, tipo):
+            self._tipo = tipo
+
+        def type(self):
+            return self._tipo
+
+    reloj = Reloj()
+    t = Transporte()
+    s = _sesion(t, reloj=reloj)
+    SessionManager.login(USUARIO_OK, token=TOKEN)
+    s.vigilar(True, True)                    # OPCIONES a la vista
+    reloj.t += 100
+    s.eventFilter(None, Evento(QEvent.Type.MouseButtonPress))
+    s.vigilar(True, False)                   # Home: preciclo, sesión abierta
+    for _ in range(4):
+        reloj.t += 70
+        s.eventFilter(None, Evento(QEvent.Type.MouseButtonPress))
+        s._revisar_inactividad()
+    assert SessionManager.is_authenticated()  # 280 s desde el último uso con token
+    reloj.t += 20
+    s._revisar_inactividad()
+    assert not SessionManager.is_authenticated()
+
+
+def test_saf01_volver_a_una_pantalla_con_sesion_cuenta_como_actividad():
+    reloj = Reloj()
+    s = _sesion(Transporte(), reloj=reloj)
+    SessionManager.login(USUARIO_OK, token=TOKEN)
+    s.vigilar(True, False)
+    reloj.t += 299
+    s.vigilar(True, True)                    # el avatar abre OPCIONES
+    reloj.t += 200
+    s._revisar_inactividad()
+    assert SessionManager.is_authenticated()
+
+
 def test_saf01_el_login_reinicia_el_conteo():
     reloj = Reloj()
     t = Transporte({("POST", "/auth/login"): (200, USUARIO_OK)})

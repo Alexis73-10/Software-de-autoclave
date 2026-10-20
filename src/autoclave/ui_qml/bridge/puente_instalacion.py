@@ -2,7 +2,8 @@
 #
 # Puente real del asistente de instalación QML (Pantallas/Instalacion.qml;
 # contrato en planeacion_menu_instalacion_ui.md §5; tanda 2026-10-14 T9,
-# ARR-02 / MIG-07). Reemplaza la lógica de installation/wizard.py (tkinter):
+# ARR-02 / MIG-07). Único asistente de instalación (el anterior se retiró en R1
+# de la tanda 2):
 #
 #   clases                         capacidades por clase (get_capabilities)
 #   validarCodigo(serie, codigo)   código de activación del día (activation.py)

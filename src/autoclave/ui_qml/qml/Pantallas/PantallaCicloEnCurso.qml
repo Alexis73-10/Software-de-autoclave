@@ -39,6 +39,8 @@ Item {
     // ---- datos ----
     // "?." evita TypeError si no hay puente o al destruir la pantalla.
     property bool datosVigentes: puente?.connected ?? false
+    // U4 (tanda 2): estado de la tarjeta de E/S; solo cambia textos y avisos
+    readonly property string estadoTarjeta: puente?.estadoTarjeta ?? "ok"
     property string cicloActivo: puente?.cicloActivo ?? ""
     property string programa: puente?.programa ?? ""
     property string tempEsterilizacion: puente?.tempEsterilizacion ?? ""
@@ -49,7 +51,8 @@ Item {
     property string tempReferencia: datosVigentes ? (puente?.tempReferencia ?? "") : ""
     property string presionCamara: datosVigentes ? (puente?.presionCamara ?? "") : ""
     property var alarmas: puente?.alarms ?? null
-    property int conteoNotificaciones: alarmas?.count ?? 0
+    // alarmas activas más los avisos de seguridad del panel (U1 de la tanda 2)
+    property int conteoNotificaciones: panelNotificaciones.conteoTotal
     property string modelo: infoEquipo?.modelo ?? ""
     property string serie: infoEquipo?.serie ?? ""
     property string version: I18n.t("app.version", I18n.lang)
@@ -65,6 +68,11 @@ Item {
     property real tiempoActualMin: progreso?.tiempoActualMin ?? 0
     property real cursorMin: NaN
     property bool pantallaCompleta: false
+    // U4 (revisión SAF-02): la gráfica a pantalla completa tapa la tarjeta de
+    // seguridad superpuesta y la campana; un aviso crítico la cierra
+    readonly property bool avisoCritico: seguridadCiclo.conteo > 0
+    onAvisoCriticoChanged: if (avisoCritico) pantallaCompleta = false
+    onPantallaCompletaChanged: if (pantallaCompleta && avisoCritico) pantallaCompleta = false
     // "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
     property string resultado: progreso?.resultado ?? ""
     readonly property bool terminado: resultado !== ""
@@ -269,18 +277,16 @@ Item {
             caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
             source: raiz.iconosColor + "campana.svg"
         }
-        Rectangle {
-            visible: raiz.conteoNotificaciones > 0
+        InsigniaCampana {
+            objectName: "insigniaCampana"
             x: raiz.m(922); y: raiz.m(50)
-            width: raiz.m(26); height: raiz.m(25); radius: width / 2
-            color: raiz.paleta.insignia
-            Text {
-                anchors.centerIn: parent
-                text: raiz.conteoNotificaciones
-                color: "white"
-                font.family: Tipografia.familia
-                font.pixelSize: raiz.fuente(17)
-            }
+            width: raiz.m(26); height: raiz.m(25)
+            conteo: raiz.conteoNotificaciones
+            urgente: panelNotificaciones.urgente
+            enCurso: panelNotificaciones.avisoEnCurso
+            parpadeo: panelNotificaciones.parpadeo
+            colorNormal: raiz.paleta.insignia
+            tamFuente: raiz.fuente(17)
         }
         MouseArea {
             x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
@@ -491,8 +497,11 @@ Item {
 
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
         // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
+        // U4: también con la tarjeta desconectada o sin datos (lo dice el texto).
         Rectangle {
-            visible: !raiz.datosVigentes
+            id: marcoSinConexion
+            objectName: "avisoSinConexionCiclo"
+            visible: !raiz.datosVigentes || raiz.estadoTarjeta !== "ok"
             anchors.horizontalCenter: parent.horizontalCenter
             y: raiz.m(170)
             width: raiz.m(960); height: avisoSinConexion.implicitHeight + raiz.m(24)
@@ -503,13 +512,44 @@ Item {
                 id: avisoSinConexion
                 x: raiz.m(20); width: parent.width - raiz.m(40)
                 anchors.verticalCenter: parent.verticalCenter
-                text: I18n.t("sistema.sin_conexion", I18n.lang)
+                text: !raiz.datosVigentes ? I18n.t("sistema.sin_conexion", I18n.lang)
+                    : raiz.estadoTarjeta === "desconectada"
+                      ? I18n.t("sistema.tarjeta_desconectada_valores", I18n.lang)
+                    : I18n.t("sistema.tarjeta_sin_datos_valores", I18n.lang)
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
                 color: Colores.textoSecundario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
                 font.pixelSize: raiz.fuente(24)
+            }
+        }
+
+        // U4 (tanda 2), PROVISIONAL (sin diseño): esta pantalla no tiene tarjeta
+        // de alarmas; las filas críticas (sin conexión, tarjeta desconectada o
+        // sin datos, paro real, estado seguro) se superponen a la gráfica
+        // mientras duren. NO ABRIR (permanente en ciclo) y el modo prueba (no
+        // existe en ciclo) quedan en el panel de la campana. No toma toques
+        // fuera de su botón: no bloquea la navegación.
+        Rectangle {
+            objectName: "tarjetaSeguridadCiclo"
+            visible: seguridadCiclo.conteo > 0
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: marcoSinConexion.visible ? marcoSinConexion.y + marcoSinConexion.height + raiz.m(16)
+                                        : raiz.m(170)
+            width: raiz.m(960)
+            height: seguridadCiclo.implicitHeight + raiz.m(32)
+            radius: raiz.m(10)
+            color: Colores.fondoTarjeta
+            border.width: raiz.m(1.5); border.color: Colores.alarmaAlta
+            SeccionEstadoSeguro {
+                id: seguridadCiclo
+                objectName: "seguridadCiclo"
+                x: raiz.m(20); y: raiz.m(16)
+                width: parent.width - raiz.m(40)
+                grupo: "emergencia"
+                puente: raiz.puente
+                comandos: raiz.comandosSistema
             }
         }
     }
@@ -729,6 +769,8 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: I18n.t("ciclo.sin_alarmas", I18n.lang)
         alarmas: raiz.alarmas
+        puente: raiz.puente
+        comandosSistema: raiz.comandosSistema
     }
     PanelEquipo {
         comandosSistema: raiz.comandosSistema

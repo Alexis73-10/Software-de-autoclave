@@ -29,10 +29,10 @@ dependencies = [ #Lista de dependencias del paquete
 ]
 
 [project.scripts] #Define los puntos de entrada para los scripts ejecutables
-autoclave = "autoclave.app:main"
+autoclave = "autoclave.ui_qml.lanzar:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
 [tool.pytest.ini_options]
-addopts = "--ignore=tests/Interfaz.py --ignore=tests/ventana_emergente.py --ignore=tests/test_flujo_unidades.py --ignore=tests/test_rutas.py --ignore=tests/test_config.py"
+addopts = "--ignore=tests/test_flujo_unidades.py --ignore=tests/test_rutas.py --ignore=tests/test_config.py"

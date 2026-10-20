@@ -304,14 +304,9 @@ def test_navegar_emite_destino(puente):
     assert destinos == ["home"]
 
 
-def test_salir_cierra_sesion_con_logout_y_va_a_login(puente, backend):
-    SessionManager.login(ADMIN)
-    destinos = []
-    puente.solicitudNavegar.connect(destinos.append)
-    puente.salir()
-    assert SessionManager.is_authenticated() is False
-    assert backend.llamadas == [("/auth/logout", None, "tok-admin")]
-    assert destinos == ["login"]
+def test_sin_salir_que_cierre_la_sesion(puente):
+    """U2 (tanda 2, decisión 7): la sesión solo la cierra la inactividad."""
+    assert not hasattr(puente, "salir")
 
 
 def _recolectar():

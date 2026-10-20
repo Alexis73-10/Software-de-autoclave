@@ -50,6 +50,9 @@ Item {
     property string tempReferencia: puente?.tempReferencia ?? ""
     property string presionCamara: puente?.presionCamara ?? ""
     property bool datosVigentes: puente?.connected ?? false
+    // U4 (tanda 2): estado de la tarjeta de E/S ("desconectada",
+    // "sin_tramas_validas" u "ok"); solo cambia textos, no bloquea la pantalla
+    readonly property string estadoTarjeta: puente?.estadoTarjeta ?? "ok"
     property string cicloActivo: puente?.cicloActivo ?? ""   // "cycle_number" del ciclo (01, 02...)
     property string estadoTexto: I18n.t("estados." + (puente?.estadoEquipo ?? "no_preparado"), I18n.lang)
     // Insignia de ESTADO: check verde si el equipo está listo (decisión de
@@ -71,8 +74,9 @@ Item {
     readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
     property bool fallaOcupada: comandoFalla?.ocupado ?? false
 
-    // Insignia de la campana: única categoría de notificaciones por ahora (alertas y avisos)
-    property int conteoNotificaciones: conteoAlarmas
+    // Insignia de la campana: alarmas activas más los avisos de seguridad del
+    // panel (paro, estado seguro, NO ABRIR, modo prueba; U1 de la tanda 2)
+    property int conteoNotificaciones: panelNotificaciones.conteoTotal
     // Perfil de instalación; "—" si no se pudo leer
     property string modelo: (infoEquipo?.modelo ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
     property string serie: (infoEquipo?.serie ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
@@ -87,7 +91,6 @@ Item {
     signal avatarPulsado()        // destino indefinido (PC-05)
     signal campanaPulsada()
     signal ajustesPulsado()
-    signal inicioPulsado()
 
     // Textos de la pantalla (PC-07: siguen sin confirmar por el diseñador).
     readonly property QtObject textos: QtObject {
@@ -249,18 +252,16 @@ Item {
             caja: [888, 64, 51, 57]; tinta: [5.85, 4.0, 42.15, 44.0]
             source: raiz.iconosColor + "campana.svg"   // variante blanca
         }
-        Rectangle {
-            visible: raiz.conteoNotificaciones > 0
+        InsigniaCampana {
+            objectName: "insigniaCampana"
             x: raiz.m(922); y: raiz.m(50)
-            width: raiz.m(26); height: raiz.m(25); radius: width / 2
-            color: raiz.paleta.insignia
-            Text {
-                anchors.centerIn: parent
-                text: raiz.conteoNotificaciones
-                color: "white"
-                font.family: Tipografia.familia
-                font.pixelSize: raiz.fuente(17)
-            }
+            width: raiz.m(26); height: raiz.m(25)
+            conteo: raiz.conteoNotificaciones
+            urgente: panelNotificaciones.urgente
+            enCurso: panelNotificaciones.avisoEnCurso
+            parpadeo: panelNotificaciones.parpadeo
+            colorNormal: raiz.paleta.insignia
+            tamFuente: raiz.fuente(17)
         }
         MouseArea {
             x: raiz.m(870); y: raiz.m(40); width: raiz.m(90); height: raiz.m(95)
@@ -450,7 +451,12 @@ Item {
     // Zona del listado (PC-06): geometría fija, se puebla sin moverla.
     // PROVISIONAL (PC-06, sin diseño de fila): barra de color por prioridad
     // IEC 60601-1-8 (Colores.alarma*) + descripción. Sin conexión, el aviso
-    // sistema.sin_conexion va arriba y la lista (congelada) se atenúa.
+    // sistema.sin_conexion va arriba y la lista (congelada) se atenúa; con la
+    // tarjeta desconectada o sin datos, el aviso lo dice (U4).
+    // U4 (tanda 2): arriba de la lista, las filas de seguridad compartidas con
+    // el panel de la campana (SeccionEstadoSeguro): tarjeta desconectada o sin
+    // datos, paro real, estado seguro pendiente con el botón "Confirmar y
+    // llevar a estado seguro" (sin sesión), en curso, NO ABRIR y modo prueba.
     // PROVISIONAL (sin diseño de toast): el mismo aviso muestra durante 5 s el
     // motivo con que el backend rechazó el último comando de puerta.
     Item {
@@ -460,12 +466,18 @@ Item {
 
         Text {
             id: avisoSinConexion
-            visible: !raiz.datosVigentes || raiz.mensajePuerta !== ""
+            objectName: "avisoSinConexion"
+            visible: !raiz.datosVigentes || raiz.estadoTarjeta !== "ok" || raiz.mensajePuerta !== ""
             width: parent.width
             height: visible ? implicitHeight : 0
             topPadding: raiz.m(12)
             bottomPadding: raiz.m(12)
-            text: !raiz.datosVigentes ? raiz.textos.sinConexion : raiz.mensajePuerta
+            text: !raiz.datosVigentes ? raiz.textos.sinConexion
+                : raiz.estadoTarjeta === "desconectada"
+                  ? I18n.t("sistema.tarjeta_desconectada_valores", I18n.lang)
+                : raiz.estadoTarjeta !== "ok"
+                  ? I18n.t("sistema.tarjeta_sin_datos_valores", I18n.lang)
+                : raiz.mensajePuerta
             wrapMode: Text.WordWrap
             color: Colores.textoSecundario
             font.family: Tipografia.familia
@@ -473,12 +485,25 @@ Item {
             font.pixelSize: raiz.fuente(24)
         }
 
-        ListView {
+        // Fijas arriba, fuera de la lista: no se desplazan con ella
+        // (revisión SAF-04 de U4)
+        SeccionEstadoSeguro {
+            id: seguridadPreciclo
+            objectName: "seguridadPreciclo"
             anchors.top: avisoSinConexion.bottom
+            width: parent.width
+            puente: raiz.puente
+            comandos: raiz.comandosSistema
+            bottomPadding: conteo > 0 ? raiz.m(12) : 0
+        }
+
+        ListView {
+            id: listaAlarmas
+            objectName: "listaAlarmasPreciclo"
+            anchors.top: seguridadPreciclo.bottom
             anchors.bottom: parent.bottom
             width: parent.width
             clip: true
-            opacity: raiz.datosVigentes ? 1.0 : 0.4
             model: raiz.alarmas
             delegate: Item {
                 id: fila
@@ -486,6 +511,9 @@ Item {
                 required property var model
                 width: ListView.view.width
                 height: raiz.m(72)
+                // la lista congelada se atenúa sin conexión; las filas de
+                // seguridad no
+                opacity: raiz.datosVigentes ? 1.0 : 0.4
 
                 Rectangle {
                     x: 0; y: raiz.m(12)
@@ -515,6 +543,7 @@ Item {
     }
     Texto {
         visible: raiz.conteoAlarmas === 0 && raiz.datosVigentes
+                 && seguridadPreciclo.conteo === 0
         cx: 598.5; bl: 1176; tam: 28
         text: raiz.textos.sinAlarmas
         color: raiz.paleta.textoVacio
@@ -711,33 +740,26 @@ Item {
         }
     }
 
-    // Avatar: deshabilitado sin conexión (PROVISIONAL: opacidad 0.4)
+    // Avatar: deshabilitado sin conexión (PROVISIONAL: opacidad 0.4). U2 (tanda
+    // 2): sin Home en esta pantalla (es la principal); el avatar ocupa su lugar,
+    // centrado donde estaba la casa (x 1001 del mockup)
     Item {
+        objectName: "avatarPreciclo"
         anchors.fill: parent
         enabled: raiz.datosVigentes
         opacity: enabled ? 1.0 : 0.4
         Rectangle {
-            x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
+            x: raiz.m(957); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
             color: raiz.paleta.avatarFondo
         }
         Icono {
-            caja: [576, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
+            caja: [983, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
             source: raiz.iconosColor + "usuario.svg"
         }
         MouseArea {
-            x: raiz.m(550); y: raiz.m(1762); width: raiz.m(88); height: width
+            x: raiz.m(940); y: raiz.m(1755); width: raiz.m(122); height: raiz.m(105)
             onClicked: raiz.avatarPulsado()
         }
-    }
-
-    // color/casa.svg trae #333333; el mockup mide #232323 (diferencia menor, se usa el activo)
-    Icono {
-        caja: [957, 1769, 88, 77]; tinta: [4.1, 6.8, 43.9, 41.4]
-        source: raiz.iconosColor + "casa.svg"
-    }
-    MouseArea {
-        x: raiz.m(940); y: raiz.m(1755); width: raiz.m(122); height: raiz.m(105)
-        onClicked: raiz.inicioPulsado()
     }
     Text {
         x: raiz.m(1141) - width
@@ -757,6 +779,8 @@ Item {
         rotuloAlertas: I18n.t("notificaciones.alertas_avisos", I18n.lang)
         textoSinAlarmas: raiz.textos.sinAlarmas
         alarmas: raiz.alarmas
+        puente: raiz.puente
+        comandosSistema: raiz.comandosSistema
     }
     // T8 (§7.6), PROVISIONAL (sin diseño): confirmación explícita por ciclo
     DialogoConfirmacion {

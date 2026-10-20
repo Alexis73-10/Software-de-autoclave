@@ -45,8 +45,8 @@ Window {
     property QtObject sesion: null
     // puenteNuevoUsuario: NuevoUsuarioBridge de OPCIONES › Usuarios
     property QtObject puenteNuevoUsuario: null
-    // progresoArranque: progreso del arranque para la intro (hoy un simulador,
-    // bridge/progreso_arranque.py); versionSoftware: para el pie de la intro.
+    // progresoArranque: progreso del arranque para la intro (etapas reales de
+    // GET /arranque, bridge/progreso_arranque.py); versionSoftware: para el pie de la intro.
     // Sin progresoArranque (pruebas) no se muestra la intro.
     property QtObject progresoArranque: null
     property string versionSoftware: ""
@@ -60,10 +60,15 @@ Window {
     readonly property string estadoMaquina: puente?.machineState ?? "DESCONOCIDO"
     readonly property bool enCiclo: estadoMaquina === "CICLO"
     property bool mostrandoEnCurso: false
-    function destinoPrincipal() { return enCiclo ? enCursoComp : cicloComp }
+    // Sin datos del backend (DESCONOCIDO) se conserva la última principal: no
+    // se pasa a preciclo con un ciclo que puede seguir en marcha (revisión U2,
+    // TMG-04/SAF-03)
+    function _principalEnCurso() { return estadoMaquina === "DESCONOCIDO" ? mostrandoEnCurso : enCiclo }
+    function destinoPrincipal() { return _principalEnCurso() ? enCursoComp : cicloComp }
     function irAPrincipal() {
-        pila.push(destinoPrincipal())
-        mostrandoEnCurso = enCiclo
+        const enCurso = _principalEnCurso()
+        pila.push(enCurso ? enCursoComp : cicloComp)
+        mostrandoEnCurso = enCurso
     }
 
     // Reposo <-> principal lo decide el standby (única transición simultánea):
@@ -92,6 +97,12 @@ Window {
     // U-5: Inicio conserva la sesión).
     OpcionesController { id: sesionVentana }
     function abrirConfiguracion() {
+        // U1 (TMG-02): con el paro real o la confirmación pendiente no se va a
+        // una pantalla sin campana (U4: el panel ya no se bloquea; el paro se
+        // ve en la tarjeta de alarmas de la principal). DECISIÓN SIN
+        // CONFIRMAR U4-3: se conserva este freno en el avatar.
+        if (seguridadUrgente)
+            return
         sesionVentana.refrescar()
         pila.push(!sesionVentana.sesionActiva ? loginComp
                   : sesionVentana.cambioClavePendiente ? cambioClaveComp : opcionesComp)
@@ -124,8 +135,13 @@ Window {
         panelTeclado.cerrar()
         pila.pop(null)
         irAPrincipal()
-        pila.push(loginComp)
+        if (!seguridadUrgente)   // U1: con paro, el login no tapa el panel (TMG-02 de U2)
+            pila.push(loginComp)
     }
+    // Revisión de U2 (TMG-01): una respuesta de login o de cambio de clave que
+    // llega cuando su pantalla ya salió (Atrás, Home, cambio de estado) no
+    // navega: si no, reemplazaría la pantalla principal
+    function esActual(item) { return item !== null && pila.currentItem === item }
     Connections {
         target: ventana.sesion
         // 15 s sin conexión: el cambio obligatorio vuelve al login (token
@@ -155,11 +171,30 @@ Window {
         target: ventana.puenteNuevoUsuario
         function onSolicitudNavegar(destino) {
             if (destino === "admin_menu")
-                pila.pop()                       // "<" y Cancelar: vuelven a Usuarios
+                ventana.atras()                  // "<", Atrás y Cancelar: vuelven a Usuarios
             else
-                ventana.volverAPrincipal()       // Inicio (sesión conservada) o Salir (cerrada)
+                ventana.volverAPrincipal()       // Inicio (sesión conservada)
         }
     }
+
+    // U1 (tanda 2): con el paro o la confirmación de estado seguro pendiente,
+    // una pantalla sin campana (login, cambio de clave, nuevo usuario) vuelve a
+    // la principal, cuya tarjeta de alarmas los muestra con el botón de
+    // confirmar (U4: el panel ya no se abre solo; paroActivo = paro real, la
+    // tarjeta desconectada no fuerza esta vuelta). La sesión no se
+    // toca: solo la cierra la inactividad (SAF-01). No aplica a la pantalla de
+    // reposo (el standby ya despierta con el paro) ni a la intro de arranque.
+    readonly property bool seguridadUrgente: (puente?.paroActivo ?? false)
+                                             || (puente?.estadoSeguroRequiereConfirmacion ?? false)
+    function irAPanelSeguridad() {
+        if (!seguridadUrgente)
+            return
+        panelTeclado.cerrar()   // no tapa el panel (SAF-02)
+        introTerminada = true   // la intro no lo oculta (SAF-03)
+        if (pila.depth > 1 && (pila.currentItem?.sinCampana ?? false))
+            volverAPrincipal()
+    }
+    onSeguridadUrgenteChanged: irAPanelSeguridad()
 
     // Entrada/salida de la pantalla de ciclo en curso. Con estado desconocido
     // (sin datos del backend) no se navega; en el arranque lo resuelve el standby.
@@ -174,7 +209,7 @@ Window {
     onEstadoMaquinaChanged: { aplicarEstadoMaquina(); aplicarSuspension() }
     // UI que arranca (o se reinicia) con la máquina ya en CICLO: directo a la
     // pantalla de ciclo en curso, sin esperar el toque del arranque (plan §9)
-    Component.onCompleted: if (enCiclo && pila.depth === 1) irAPrincipal()
+    Component.onCompleted: { if (enCiclo && pila.depth === 1) irAPrincipal(); irAPanelSeguridad(); vigilarConexion() }
 
     Binding {
         target: Escala
@@ -200,21 +235,16 @@ Window {
             id: pila
             anchors.fill: parent
             initialItem: esperaComp
-            // un teclado abierto no sobrevive a un cambio de pantalla
+            // un teclado abierto no sobrevive a un cambio de pantalla; con el
+            // paro o la confirmación pendiente no se queda en una sin campana (U1)
             onCurrentItemChanged: panelTeclado.cerrar()
         }
 
-        // E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
-        // sobre todas las pantallas (no durante la intro de arranque)
-        AvisosSeguridad {
-            objectName: "avisosSeguridad"
-            anchors.left: parent.left; anchors.right: parent.right
-            anchors.top: parent.top
-            z: 50
-            visible: ventana.introTerminada || !ventana.progresoArranque
-            puente: ventana.puente
-            comandos: ventana.comandosSistema
-        }
+        // U1 (tanda 2): el paro, el estado seguro, NO ABRIR y el modo prueba ya
+        // no van en una franja superior: están en el panel de la campana
+        // (PanelNotificaciones › SeccionEstadoSeguro) y, desde U4, también en
+        // la tarjeta de alarmas de Preciclo y de Ciclo en curso. Ver
+        // irAPanelSeguridad().
 
         // Teclado en pantalla de esta ventana (Paso 5 de planeacion_teclados_qml.md):
         // sobre el StackView, inyectado a las pantallas como `teclado`.
@@ -370,39 +400,55 @@ Window {
             infoEquipo: ventana.infoEquipo
             comandosSistema: ventana.comandosSistema
             inicioActivo: true
-            onInicioPulsado: pila.pop()
+            onAtrasPulsado: ventana.atras()
+            onInicioPulsado: ventana.volverAPrincipal()
             onIniciarSesionPulsado: ventana.abrirConfiguracion()
         }
     }
     Component {
         id: loginComp
         AreaFija {
+            id: areaLogin
             objectName: "areaLogin"
+            readonly property bool sinCampana: true
             Login {
                 anchors.fill: parent
                 teclado: panelTeclado
                 puente: ventana.puente
-                onInicioPulsado: pila.pop()
+                onAtrasPulsado: ventana.atras()
+                onInicioPulsado: ventana.volverAPrincipal()
                 // sesión validada: el login se reemplaza por OPCIONES, o por
                 // CAMBIAR CONTRASEÑA si es obligatorio (T-8)
-                onSesionIniciada: pila.replace(opcionesComp)
-                onCambioClaveRequerido: pila.replace(cambioClaveComp)
+                onSesionIniciada: if (ventana.esActual(areaLogin)) pila.replace(opcionesComp)
+                onCambioClaveRequerido: if (ventana.esActual(areaLogin)) pila.replace(cambioClaveComp)
             }
         }
     }
     // Cambio de contraseña obligatorio (T-8): clave cambiada -> OPCIONES;
     // sesión terminada (bloqueo, sin respuesta, 401) -> Login con su aviso;
-    // abandonar (Salir / Inicio) -> logout y pantalla principal.
+    // Atrás / Inicio (U2) -> pantalla anterior / principal, sin logout.
     Component {
         id: cambioClaveComp
         AreaFija {
+            id: areaCambioClave
+            objectName: "areaCambioClave"
             readonly property bool usaToken: true
+            readonly property bool sinCampana: true
             CambioClave {
                 anchors.fill: parent
                 teclado: panelTeclado
-                onClaveCambiada: { sesionVentana.refrescar(); pila.replace(opcionesComp) }
-                onSesionTerminada: { sesionVentana.refrescar(); pila.replace(loginComp) }
-                onAbandonado: { sesionVentana.refrescar(); ventana.volverAPrincipal() }
+                onClaveCambiada: { sesionVentana.refrescar(); if (ventana.esActual(areaCambioClave)) pila.replace(opcionesComp) }
+                onSesionTerminada: {
+                    sesionVentana.refrescar()
+                    if (!ventana.esActual(areaCambioClave))
+                        return
+                    if (ventana.seguridadUrgente)
+                        ventana.volverAPrincipal()
+                    else
+                        pila.replace(loginComp)
+                }
+                onAtrasPulsado: { sesionVentana.refrescar(); ventana.atras() }
+                onInicioPulsado: { sesionVentana.refrescar(); ventana.volverAPrincipal() }
             }
         }
     }
@@ -411,7 +457,9 @@ Window {
     Component {
         id: nuevoUsuarioComp
         AreaFija {
+            objectName: "areaNuevoUsuario"
             readonly property bool usaToken: true
+            readonly property bool sinCampana: true
             NuevoUsuario {
                 anchors.fill: parent
                 teclado: panelTeclado
@@ -420,13 +468,26 @@ Window {
         }
     }
     function abrirNuevoUsuario() {
+        if (seguridadUrgente)
+            return
         ventana.puenteNuevoUsuario?.actualizarSesion()
         pila.push(nuevoUsuarioComp)
     }
     // OPCIONES (planeacion_opciones_parametros_ciclo.md, Fase 1). Alto flexible.
-    // Inicio sale conservando la sesión; Salir la cierra. Ambos regresan a la
+    // Inicio sale conservando la sesión; Atrás (U2) vuelve a la pantalla
+    // anterior, también sin cerrarla. Inicio regresa a la
     // pantalla principal según el estado (preciclo o ciclo en curso), aunque se
     // haya llegado por el Menú Principal (decisión de Cristian, 2026-10-07).
+    // U2 (tanda 2): Atrás regresa a la pantalla anterior de la pila sin cerrar
+    // la sesión. Nunca deja la pila sin pantalla principal: con solo reposo y
+    // principal debajo, vuelve a la principal que corresponda al estado.
+    function atras() {
+        panelTeclado.cerrar()
+        if (pila.depth > 2)
+            pila.pop()
+        else
+            volverAPrincipal()
+    }
     function volverAPrincipal() {
         pila.pop(null)
         irAPrincipal()
@@ -436,8 +497,9 @@ Window {
         Opciones {
             puente: ventana.puente
             teclado: panelTeclado
+            comandosSistema: ventana.comandosSistema
+            onAtrasPulsado: ventana.atras()
             onInicioPulsado: ventana.volverAPrincipal()
-            onSesionCerrada: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()
         }
     }

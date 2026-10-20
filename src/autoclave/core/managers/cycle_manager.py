@@ -2,6 +2,7 @@
 import copy
 import json
 import os
+import sys
 import logging
 from autoclave.utils.resources import resource_path
 from autoclave.core.runtime.sensores_ciclo import asignacion_por_omision, interpretar_asignacion
@@ -167,7 +168,10 @@ class CycleManager:
                     c.number = None
 
     def _load_from_folder(self, folder_path, source):
-        folder_path = os.path.join(BASE_DIR, folder_path)
+        # en el .exe, resource_path da la copia persistente junto al ejecutable
+        # (los ciclos de usuario se guardan; ver utils/resources.py)
+        folder_path = (resource_path(f"autoclave/{folder_path}") if getattr(sys, "frozen", False)
+                       else os.path.join(BASE_DIR, folder_path))
 
         logger.info(f"📂 Buscando en: {folder_path}")
 

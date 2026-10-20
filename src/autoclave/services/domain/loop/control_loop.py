@@ -2,7 +2,7 @@
 
 import time
 import threading
-from autoclave.state_machine.alarms.catalogo import COM_01
+from autoclave.state_machine.alarms.catalogo import COM_01, TARJETA_SIN_TRAMA_VALIDA
 from autoclave.state_machine.state_machine import StateMachine
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
@@ -39,6 +39,8 @@ _LOG_CADA_EXCEPCIONES = 20
 _TICKS_SEGUROS_OLVIDAR_CICLO = 3
 
 _ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS"}
+# U4: lecturas seguidas con la DI vencida antes de TARJETA_SIN_TRAMA_VALIDA
+_DEBOUNCE_DI_VENCIDA = 3
 
 
 class ControlLoop:
@@ -131,7 +133,22 @@ class ControlLoop:
         self.link_was_connected = True
         self._link_ever_connected = False
         self._desconectado_desde: float | None = None
-        self._com01_arranque_activada = False
+        # U4 (tanda 2): estado de la tarjeta publicado en /status
+        # ("desconectada", "sin_tramas_validas" u "ok"); falla cerrada hasta
+        # el primer tick. COM-01 sigue solo a "desconectada" (desde cuándo y
+        # si está activa); TARJETA_SIN_TRAMA_VALIDA propia por DI vencida con
+        # el enlace hecho (la del handshake la reporta el enlace como evento).
+        self.estado_tarjeta = "desconectada"
+        self._desconectada_desde: float | None = None
+        self._com01_activa = False
+        self._sin_di_activa = False
+        # Ticks seguidos con la DI vencida y el enlace hecho (debounce de 3
+        # lecturas antes de la alarma propia; TMG-03 de U4)
+        self._ticks_di_vencida = 0
+        # Desde cuándo (monotonic) el puerto está presente sin conexión
+        self._sin_conexion_desde: float | None = None
+        # Ya hubo un tick con DI vigente en esta conexión (TMG-04 de U4)
+        self._di_vista_en_conexion = False
         self.paro_emergencia    = EmergencyStop(estado)
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
@@ -359,6 +376,95 @@ class ControlLoop:
             )
         self._puerta_2_no_declarada_cerrada = cerrada
 
+    def _actualizar_estado_tarjeta(self, connected: bool, now: float) -> None:
+        """U4 (tanda 2): distingue tarjeta desconectada (no hay puerto o se
+        perdió) de tarjeta sin tramas válidas (puerto presente: sin handshake,
+        CRC malo, firmware incompatible o DI vencida) y de ok. COM-01 solo con
+        "desconectada"; TARJETA_SIN_TRAMA_VALIDA solo con el puerto presente;
+        al pasar de una a otra se resuelve la anterior. No toca el paro ni las
+        salidas: eso sigue en el flag combinado PARO_EMERGENCIA."""
+        presente = self.link.puerto_presente()
+        if not isinstance(presente, bool):
+            # Enlace que no informa el puerto (dobles de prueba viejos): se
+            # deduce de la conexión; sin conexión = desconectada (falla cerrada)
+            presente = connected
+        if not presente:
+            estado = "desconectada"
+        elif connected and self._di_vigente():
+            estado = "ok"
+        else:
+            estado = "sin_tramas_validas"
+        self.estado_tarjeta = estado
+
+        if estado == "desconectada":
+            self._sin_conexion_desde = None
+            self._ticks_di_vencida = 0
+            if self._desconectada_desde is None:
+                self._desconectada_desde = now
+            # Tras una conexión real, en el flanco; en el arranque (handshake
+            # aún no hecho) solo pasada la tolerancia, para que el arranque
+            # normal no deje COM-01 en el historial.
+            if not self._com01_activa and (
+                    self._link_ever_connected
+                    or now - self._desconectada_desde >= self._TOLERANCIA_DESCONEXION_SEG):
+                try:
+                    self.alarm_manager.activar(COM_01)
+                    self._com01_activa = True
+                except Exception:
+                    logger.exception("ControlLoop: no se pudo activar COM-01")
+            if TARJETA_SIN_TRAMA_VALIDA in self._alarmas_tarjeta or self._sin_di_activa:
+                self._alarmas_tarjeta.discard(TARJETA_SIN_TRAMA_VALIDA)
+                self._sin_di_activa = False
+                self._resolver_alarma(TARJETA_SIN_TRAMA_VALIDA)
+            return
+
+        self._desconectada_desde = None
+        if self._com01_activa:
+            self._com01_activa = False
+            self._resolver_alarma(COM_01)
+
+        # DI vencida con el enlace hecho (la tarjeta manda AI: pero no DI:),
+        # fuera de la ventana de la primera DI de la conexión (paso 2a)
+        primera_di_pendiente = (self.link.edad_ultima_di() is None
+                                and self._conectado_desde is not None
+                                and now - self._conectado_desde < self._VIGENCIA_DI_SEG)
+        di_vencida = connected and estado != "ok" and not primera_di_pendiente
+        self._ticks_di_vencida = self._ticks_di_vencida + 1 if di_vencida else 0
+        # Puerto presente sin conexión (handshake en curso o reintentando tras
+        # el cierre por timeout de datos): pasada la tolerancia, la misma
+        # alarma, sin esperar a que falle el handshake (revisión SAF-07 de U4)
+        if connected:
+            self._sin_conexion_desde = None
+        elif self._sin_conexion_desde is None:
+            self._sin_conexion_desde = now
+        sin_conexion_larga = (not connected
+                              and now - self._sin_conexion_desde >= self._TOLERANCIA_DESCONEXION_SEG)
+        if ((self._ticks_di_vencida >= _DEBOUNCE_DI_VENCIDA or sin_conexion_larga)
+                and not self._sin_di_activa):
+            try:
+                self.alarm_manager.activar(
+                    TARJETA_SIN_TRAMA_VALIDA,
+                    motivo=("No llegan tramas válidas de la tarjeta (puerto presente)."
+                        if sin_conexion_larga else
+                        "La tarjeta no envía la trama de entradas (DI) desde hace "
+                        f"más de {self._VIGENCIA_DI_SEG:g} s."))
+                self._sin_di_activa = True
+            except Exception:
+                logger.exception("ControlLoop: no se pudo activar TARJETA_SIN_TRAMA_VALIDA")
+        elif estado == "ok" and self._sin_di_activa:
+            # Solo al volver a "ok" (TMG-01 de U4): el cierre del puerto por
+            # timeout de datos deja connected=False pero la causa sigue
+            self._sin_di_activa = False
+            # Si el handshake la reportó entretanto, la resuelve él al conectar
+            if TARJETA_SIN_TRAMA_VALIDA not in self._alarmas_tarjeta:
+                self._resolver_alarma(TARJETA_SIN_TRAMA_VALIDA)
+
+    def _resolver_alarma(self, codigo: str) -> None:
+        try:
+            self.alarm_manager.resolver(codigo)
+        except Exception:
+            logger.exception("ControlLoop: no se pudo resolver %s", codigo)
+
     def _procesar_eventos_tarjeta(self) -> None:
         """Reacción a los eventos de la tarjeta de E/S (plan de protocolo
         serial §7, E6). En ciclo, toda falla en operación aborta el ciclo
@@ -379,6 +485,13 @@ class ControlLoop:
                              getattr(ev, "alarm_id", None), exc)
 
     def _procesar_evento_tarjeta(self, ev) -> None:
+        # TMG-02 de U4: un handshake cortado porque se quitó el cable reporta
+        # el paso en que iba (VER, ACK…); la causa real es la desconexión,
+        # que ya da COM-01. No se activa una segunda alarma por lo mismo.
+        if ev.origen == "handshake" and self.link.puerto_presente() is False:
+            logger.warning("ControlLoop: %s descartada, tarjeta desconectada (%s)",
+                           ev.alarm_id, ev.motivo)
+            return
         if ev.origen == "conectada":
             for alarm_id in sorted(self._alarmas_tarjeta):
                 self.alarm_manager.resolver(alarm_id)
@@ -427,12 +540,6 @@ class ControlLoop:
         if not connected:
             if self.link_was_connected:
                 self._desconectado_desde = now
-                # Tras una conexión real, la caída activa COM-01 en el flanco.
-                if self._link_ever_connected:
-                    try:
-                        self.alarm_manager.activar(COM_01)
-                    except Exception:
-                        logger.exception("ControlLoop: no se pudo activar COM-01")
                 # El handshake serial inicial (escaneo de puerto + primer dato)
                 # tarda unos instantes tras el arranque del backend; ese hueco
                 # no es una desconexión real y no debe imprimirse.
@@ -440,16 +547,8 @@ class ControlLoop:
                     self.realtime_printer.enqueue(
                         format_connectivity_ticket("TARJETA", False, datetime.now())
                     )
-            # Mientras el enlace nunca haya conectado (handshake del arranque),
-            # COM-01 espera a que la desconexión continua alcance la
-            # tolerancia: el arranque normal no deja COM-01 en el historial,
-            # pero una tarjeta que nunca responde sí la da (una sola vez).
-            if (not self._link_ever_connected
-                    and not self._com01_arranque_activada
-                    and self._desconectado_desde is not None
-                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG):
-                self._com01_arranque_activada = True
-                self.alarm_manager.activar(COM_01)
+            # COM-01 ya no se decide aquí: solo con la tarjeta desconectada
+            # (U4), en _actualizar_estado_tarjeta().
             # Sin conexión no hay datos frescos de sensores, así que este
             # mismo _tick() va a retornar temprano y state_machine.update()
             # no correrá — si había un ciclo en curso, no se detectaría el
@@ -465,7 +564,6 @@ class ControlLoop:
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
             self._bloqueo_apagado = False   # tras reconectar, volver a apagar
-            self.alarm_manager.resolver(COM_01)
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
                     format_connectivity_ticket("TARJETA", True, datetime.now())
@@ -481,11 +579,19 @@ class ControlLoop:
         elif not connected:
             self._conectado_desde = None
 
+        try:
+            self._actualizar_estado_tarjeta(connected, now)
+        except Exception:
+            # revisión SAF-05 de U4: no impedir que se publique el paro abajo
+            self.estado_tarjeta = "desconectada"
+            logger.exception("ControlLoop: no se pudo evaluar el estado de la tarjeta")
+
         if not connected:
             # Sin enlace no hay datos de las entradas: paro (A-3). La máquina
             # de estados no corre, pero el flag queda publicado para la UI, el
             # backend y el primer tick tras reconectar.
             self.paro_emergencia.update(None)
+            self._di_vista_en_conexion = False
             return
 
         # 1. Publicar estado global
@@ -494,9 +600,19 @@ class ControlLoop:
         # 2. Paro de emergencia → actualiza flag en estado. DI crudo, contacto
         # NC: EmergencyStop interpreta 0 o ausente como paro (D-16).
         # Trama DI vencida (la tarjeta manda AI: pero no DI:) = sin datos (A-3)
-        self.paro_emergencia.update(
-            self.estado.sensores_di.get("paro_emergencia") if self._di_vigente() else None
-        )
+        # TMG-04 de U4: en el primer tick con DI vigente de una conexión, el
+        # valor de Units puede ser todavía el 0 que dejó _connect() (el enlace
+        # fija la edad de la DI antes de notificar a Units). Un 0 en ese tick
+        # cuenta como sin datos (bloquea igual) para no dar un paro real falso.
+        if self.link.edad_ultima_di() is None:
+            self._di_vista_en_conexion = False
+        vigente = self._di_vigente()
+        valor = self.estado.sensores_di.get("paro_emergencia") if vigente else None
+        if vigente and not self._di_vista_en_conexion:
+            self._di_vista_en_conexion = True
+            if valor is not None and not bool(valor):
+                valor = None
+        self.paro_emergencia.update(valor)
         self._avisar_puerta_2_no_declarada()
 
         # 2a. Recién conectado y sin la primera DI: se publica lo anterior para
@@ -723,6 +839,9 @@ class ControlLoop:
                 return False, "No se puede activar el modo prueba durante un ciclo en curso."
 
             if self.estado.get_flag("PARO_EMERGENCIA"):
+                if not self.estado.get_flag("PARO_REAL"):
+                    return False, ("No se puede activar el modo prueba sin datos válidos "
+                                   "de la tarjeta de control.")
                 return False, "No se puede activar el modo prueba con el paro de emergencia activado."
 
             # SAF-03 de T6: no mientras se decide o se lleva la cámara a estado seguro
@@ -748,6 +867,40 @@ class ControlLoop:
     # CAMBIO DE CICLO ACTIVO
     # =========================================================================
 
+    def _motivo_no_cambiar_ciclo(self) -> str | None:
+        """S2 (tanda 2): "en curso" en sentido amplio. Además de CICLO (que
+        incluye la espera de confirmación), el paro, el estado seguro (en curso
+        o pendiente de confirmar), la recuperación pendiente tras un reinicio y
+        un inicio ya pedido (START_CICLO): la StateMachine nueva no debe
+        reemplazar a la que lleva la cámara a estado seguro ni descartar en
+        silencio el inicio validado con el programa anterior. También EMERGENCIA,
+        HIBERNACION, modo prueba, apagado y configuración inválida, como los
+        guards de escritura del backend. Llamar bajo _sm_lock. El chequeo del
+        paro es preventivo: la garantía es el update() de la StateMachine."""
+        estado_maquina = self.estado.get_machine_state()
+        if estado_maquina == GlobalState.CICLO:
+            return "No se puede cambiar de ciclo mientras hay uno en curso."
+        if estado_maquina in (GlobalState.EMERGENCIA, GlobalState.HIBERNACION):
+            return f"No se puede cambiar de ciclo en {estado_maquina.name}."
+        if self.estado.get_flag("PARO_EMERGENCIA"):
+            if self.desconectado:
+                return "No se puede cambiar de ciclo sin conexión con la tarjeta de control."
+            if not self.estado.get_flag("PARO_REAL"):
+                return ("No se puede cambiar de ciclo sin datos válidos de la tarjeta "
+                        "de control.")
+            return "No se puede cambiar de ciclo con el paro de emergencia activado."
+        if self.estado_seguro.activo or self._recuperacion_pendiente is not None:
+            return "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro."
+        if self.estado.get_flag("START_CICLO"):
+            return "No se puede cambiar de ciclo: ya se pidió el inicio de uno."
+        if self._test_mode.is_set():
+            return "No se puede cambiar de ciclo con el modo prueba activo."
+        if self._apagando:
+            return "No se puede cambiar de ciclo: el equipo se está apagando."
+        if self._bloqueo_config is not None:
+            return f"Configuración inválida: {self._bloqueo_config}"
+        return None
+
     def set_active_cycle(self, cycle) -> tuple[bool, str]:
         """Reemplaza el ciclo activo y reconstruye la StateMachine para que el
         cambio se propague a todos los sub-estados y fases. Solo seguro fuera
@@ -760,8 +913,9 @@ class ControlLoop:
         StateMachine nueva (prev_state=None) pisando un ciclo recién
         iniciado."""
         with self._sm_lock:
-            if self.estado.get_machine_state() == GlobalState.CICLO:
-                return False, "No se puede cambiar de ciclo mientras hay uno en curso."
+            motivo = self._motivo_no_cambiar_ciclo()
+            if motivo is not None:
+                return False, motivo
 
             self.cycle = cycle
             self.state_machine = StateMachine(

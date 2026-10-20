@@ -26,6 +26,7 @@ def test_state_machine_usa_el_alarm_manager_del_loop():
 
 def test_cambiar_de_ciclo_conserva_el_mismo_alarm_manager():
     loop, am, _ = _loop()
+    loop.estado.set_flag("PARO_EMERGENCIA", False)   # S2: con paro se rechaza
     ok, _ = loop.set_active_cycle(MagicMock())
     assert ok and loop.state_machine.alarm_manager is am
 

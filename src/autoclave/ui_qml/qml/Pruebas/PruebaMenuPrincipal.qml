@@ -126,7 +126,7 @@ Window {
             infoEquipo: ventana.infoEquipo
 
             onIniciarSesionPulsado: console.log("MenuPrincipal: iniciar sesión")
-            onSalirPulsado: console.log("MenuPrincipal: salir")
+            onAtrasPulsado: console.log("MenuPrincipal: atras")
             onInicioPulsado: console.log("MenuPrincipal: inicio")
             onMantenimientoPulsado: console.log("MenuPrincipal: próximo mantenimiento")
             onUltimoCicloPulsado: console.log("MenuPrincipal: último ciclo")
