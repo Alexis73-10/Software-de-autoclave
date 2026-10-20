@@ -210,8 +210,3 @@ class ResumenSistema(QObject):
         # MP-06b / B-03: no existe fuente de mantenimiento en el sistema
         return dominio.SIN_DATO
 
-    @Property(str, constant=True)
-    def tiempoSecado(self) -> str:
-        # TODO(MP-11): ¿"tiempo adicional de secado" es secado.tiempo_secado o un
-        # parámetro nuevo? Hasta la respuesta no se lee ningún parámetro.
-        return dominio.SIN_DATO

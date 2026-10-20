@@ -129,10 +129,9 @@ def test_iniciar_consulta_ya_y_arma_el_sondeo_de_10_s():
     assert r.sondeando is False
 
 
-def test_mantenimiento_y_secado_sin_fuente():
+def test_mantenimiento_sin_fuente():
     r = _resumen(MagicMock())
     assert r.proximoMantenimiento == SD   # MP-06b / B-03: no existe fuente
-    assert r.tiempoSecado == SD           # TODO(MP-11)
 
 
 # ── curva del último ciclo (ventana flotante, D-21) ─────────────────────

@@ -67,7 +67,6 @@ Window {
         property string ultimoResultadoDetalle: ""
         property string ultimoOperador: _sd
         property string proximoMantenimiento: _sd
-        property string tiempoSecado: _sd
         property bool graficaUltimoDisponible: false
         property var datosGraficaUltimo: ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
         property var fasesGraficaUltimo: []

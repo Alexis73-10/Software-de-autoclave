@@ -161,18 +161,18 @@ _SCRIPT = textwrap.dedent(r"""
 
     r = {"avisos": avisos, "sondeando": resumen.property("sondeando")}
     tarjetas = ["tarjetaIniciarSesion", "tarjetaHistorial", "tarjetaReportes",
-                "tarjetaInformacion", "tarjetaSecado", "resumenCiclosTotales",
+                "tarjetaInformacion", "resumenCiclosTotales",
                 "resumenMantenimiento", "resumenCiclosHoy", "resumenUltimoCiclo"]
     r["habilitadas"] = {n: obj(n).property("enabled") for n in tarjetas}
     r["interactivas"] = {n: obj(n).property("interactiva") for n in
-                         ("tarjetaSecado", "resumenCiclosTotales", "resumenCiclosHoy")}
+                         ("resumenCiclosTotales", "resumenCiclosHoy")}
     r["geo"] = {n: geo(obj(n)) for n in tarjetas + ["barraInferiorMenu", "encabezadoMenu",
                                                      "tituloMenu", "tituloResumen"]}
     r["escena"] = [w.contentItem().width(), w.contentItem().height()]
     r["aviso_visible"] = obj("avisoSinConexion").property("visible")
     r["textos_resumen"] = {n: list(textos(obj(n))) for n in
                            ("resumenCiclosTotales", "resumenCiclosHoy", "resumenUltimoCiclo",
-                            "resumenMantenimiento", "tarjetaSecado")}
+                            "resumenMantenimiento")}
 
     def ventanas_abiertas():
         return sorted(n for n in ("ventanaUltimoCiclo", "ventanaMantenimiento",
@@ -381,12 +381,12 @@ def test_estados_de_las_tarjetas(r):
     assert r["habilitadas"] == {
         "tarjetaIniciarSesion": True, "tarjetaHistorial": True,
         "tarjetaReportes": True,
-        "tarjetaInformacion": True, "tarjetaSecado": True,
+        "tarjetaInformacion": True,
         "resumenCiclosTotales": True, "resumenCiclosHoy": True,
         "resumenMantenimiento": True, "resumenUltimoCiclo": True,
     }
     # informativas: se ven normales (no atenuadas) pero no son botón
-    assert r["interactivas"] == {"tarjetaSecado": False, "resumenCiclosTotales": False,
+    assert r["interactivas"] == {"resumenCiclosTotales": False,
                                  "resumenCiclosHoy": True}
 
 
@@ -398,9 +398,10 @@ def test_tarjetas_en_las_coordenadas_del_v3(r):
     # v3 desplazado (-5, -1) al marco de 1196 x 1917 (informe de Fase 3)
     assert r["geo"]["tarjetaIniciarSesion"] == [54, 499, 716, 320]
     assert r["geo"]["tarjetaHistorial"] == [789, 499, 350, 320]
-    assert r["geo"]["tarjetaReportes"] == [54, 843, 349, 320]
-    assert r["geo"]["tarjetaInformacion"] == [422, 843, 349, 320]
-    assert r["geo"]["tarjetaSecado"] == [790, 843, 349, 320]
+    # U5 (tanda 3): sin la tarjeta de secado, cada una a mitad de ancho
+    assert r["geo"]["tarjetaReportes"] == [54, 843, 533, 320]
+    assert r["geo"]["tarjetaInformacion"] == [606, 843, 533, 320]
+    assert "tarjetaSecado" not in r["geo"]
     assert r["geo"]["resumenCiclosTotales"] == [54, 1295, 230, 330]
     assert r["geo"]["resumenMantenimiento"] == [300, 1295, 293, 330]
     assert r["geo"]["resumenCiclosHoy"] == [609, 1295, 206, 330]
@@ -433,7 +434,6 @@ def test_datos_del_resumen_en_pantalla(r):
     # resultado real de la base (fase con que terminó): se agrupa como Fallo
     assert "02" in t["resumenUltimoCiclo"] and "Fallo" in t["resumenUltimoCiclo"]
     assert "—" in t["resumenMantenimiento"]          # MP-06b: sin fuente
-    assert "—" in t["tarjetaSecado"]                 # TODO(MP-11)
     assert r["aviso_visible"] is False
 
 
@@ -489,9 +489,10 @@ def test_es_json_trae_las_claves_que_usa_el_menu():
 
 def test_marcadores_todo_pendientes():
     fuente = (_QML / "Pantallas" / "MenuPrincipal.qml").read_text(encoding="utf-8")
-    for marca in ("TODO(MP-11)", "TODO(MP-14b)", "TODO(MP-06a)"):
+    for marca in ("TODO(MP-14b)", "TODO(MP-06a)"):
         assert marca in fuente
     assert "TODO(MP-03)" not in fuente      # U2 (tanda 2): Salir retirado
+    assert "TODO(MP-11)" not in fuente and "tarjetaSecado" not in fuente   # U5 (tanda 3)
 
 
 def test_informacion_abre_el_panel_del_equipo(r):

@@ -212,9 +212,12 @@ Item {
     }
     // Reportes: resumen por periodo (decisión de Cristian, 2026-10-06); el
     // consolidado y las alarmas se agregan después como pestañas
+    // U5 (tanda 3): sin la tarjeta "Tiempo adicional de secado", Reportes e
+    // Información ocupan la fila a mitad de ancho cada una (54..1139 con 19 de
+    // separación, como entre Iniciar sesión e Historial)
     Fila2 {
         objectName: "tarjetaReportes"
-        x: raiz.m(54)
+        x: raiz.m(54); width: raiz.m(533)
         titulo: I18n.t("modulos.reportes", I18n.lang)
         descripcion: I18n.t("menu.reportes_desc", I18n.lang)
         icono: raiz.iconosMono + "reportes.svg"
@@ -224,7 +227,7 @@ Item {
     }
     Fila2 {
         objectName: "tarjetaInformacion"
-        x: raiz.m(422)
+        x: raiz.m(606); width: raiz.m(533)
         // Abre la información del equipo, el mismo panel que el recuadro de modelo
         // y serie de PantallaPreciclo.qml (decisión de Cristian, 2026-10-02)
         titulo: I18n.t("modulos.informacion", I18n.lang)
@@ -238,22 +241,6 @@ Item {
             raiz.infoEquipo?.actualizar()
             panelEquipo.abrir()
         }
-    }
-    // Informativa, sin flecha ni acción. TODO(MP-11): "tiempo adicional de secado"
-    // es un parámetro nuevo por programa que aún no existe; hasta su plan propio
-    // muestra "—" y no lee ningún parámetro.
-    Fila2 {
-        objectName: "tarjetaSecado"
-        x: raiz.m(790)
-        interactiva: false
-        flechaVisible: false
-        titulo: I18n.t("menu.secado_titulo", I18n.lang)
-        descripcion: I18n.t("menu.secado_desc", I18n.lang)
-        valor: raiz.dato(raiz.resumen?.tiempoSecado)
-        icono: raiz.iconosMono + "sensor_tiempo_secado.svg"
-        tamIcono: 76
-        colorAcento: Colores.menuNaranja
-        aroAcento: true
     }
 
     // ======================= resumen del sistema =======================
