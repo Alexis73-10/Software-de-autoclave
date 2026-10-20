@@ -60,6 +60,24 @@ class ProtocoloEstadoSeguro:
     def activo(self) -> bool:
         return self._protocolo is not None
 
+    @property
+    def programa(self):
+        """Programa (copia del ciclo) con el que corre el protocolo, o None."""
+        return getattr(self._protocolo, "cycle", None)
+
+    def reemplazar_programa(self, programa) -> None:
+        """S4: el protocolo pasa a usar `programa` (copia con otra asignación
+        de sensores) sin mutar la instantánea del ciclo terminado."""
+        if self._protocolo is not None and programa is not None:
+            self._protocolo.cycle = programa
+
+    @property
+    def bloqueado_motivo(self) -> str | None:
+        """Motivo vigente por el que el protocolo no puede terminar solo
+        (CIC-10), o None. Lo muestra la UI junto al botón de asignar sonda."""
+        motivo = getattr(self._protocolo, "bloqueado_motivo", None)
+        return motivo if isinstance(motivo, str) else None
+
     def _evento(self, evento: str, **detalle) -> None:
         logger.info("Estado seguro: %s %s", evento, detalle or "")
         if self.al_evento is None:

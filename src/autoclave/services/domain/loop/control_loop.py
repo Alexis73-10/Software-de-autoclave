@@ -1,5 +1,6 @@
 # autoclave/services/control_loop.py
 
+import copy
 import time
 import threading
 from autoclave.state_machine.alarms.catalogo import COM_01, TARJETA_SIN_TRAMA_VALIDA
@@ -257,6 +258,59 @@ class ControlLoop:
             self._recuperacion_pendiente = programa
             self._ticks_seguros_recuperacion = 0
             self._programa_ultimo_ciclo = programa
+
+    # S4: tolerancia con que un nuevo Principal puede leer menos que otra sonda
+    _TOLERANCIA_NUEVO_PRINCIPAL_C = 2.0
+
+    def aplicar_roles_sensores(self, programa_id, asignacion: dict) -> tuple[bool, str]:
+        """S4 (tanda 3): el técnico reasignó los roles de sensor de un programa
+        (put_sensor_roles ya verificó que el nuevo Principal tiene lectura).
+        Las copias del programa que siguen rigiendo la seguridad fuera de
+        CICLO (protocolo de estado seguro, último ciclo, recuperación de
+        arranque) conservaban la asignación vieja y un estado seguro detenido
+        por "Principal sin lectura" no se liberaba.
+
+        Seguridad (revisión SAF-01): una sonda nueva más fría que la carga
+        liberaría la cámara con el producto caliente. Por eso solo se acepta si
+        su lectura es válida y no es menor que ninguna otra sonda con lectura
+        menos la tolerancia; si no, las copias conservan la asignación vieja
+        (el estado seguro sigue detenido, NO ABRIR). Las copias se REEMPLAZAN
+        por una copia superficial: la instantánea del ciclo terminado (ticket,
+        reportes) no se muta (SAF-02). Nunca durante CICLO. Devuelve
+        (aplicado, motivo)."""
+        with self._sm_lock:
+            if self.estado.get_machine_state() == GlobalState.CICLO:
+                return False, "ciclo_en_curso"
+            copias = (self.estado_seguro.programa, self._programa_ultimo_ciclo,
+                      self._recuperacion_pendiente)
+            if not any(p is not None and p is not self.cycle
+                       and getattr(p, "id", None) == programa_id for p in copias):
+                return False, "sin_copias"
+            principal = next((k for k, v in asignacion.items() if v == "principal"), None)
+            lecturas = getattr(self.estado, "sensores_temp", {}) or {}
+            nueva = lecturas.get(principal)
+            if not lectura_valida(nueva) or float(nueva) == 0:
+                return False, "principal_sin_lectura"
+            otras = [float(v) for k, v in lecturas.items()
+                     if k != principal and k in ("temp_camara", "temp_2_camara", "temp_ref")
+                     and lectura_valida(v) and float(v) != 0]
+            if otras and float(nueva) < max(otras) - self._TOLERANCIA_NUEVO_PRINCIPAL_C:
+                return False, "principal_mas_frio_que_otra_sonda"
+
+            def reemplazo(programa):
+                if (programa is None or programa is self.cycle
+                        or getattr(programa, "id", None) != programa_id):
+                    return programa
+                nuevo = copy.copy(programa)
+                nuevo.sensores = dict(asignacion)
+                nuevo.sensores_formato_antiguo = False
+                return nuevo
+
+            if self.estado_seguro.programa is not None:
+                self.estado_seguro.reemplazar_programa(reemplazo(self.estado_seguro.programa))
+            self._programa_ultimo_ciclo = reemplazo(self._programa_ultimo_ciclo)
+            self._recuperacion_pendiente = reemplazo(self._recuperacion_pendiente)
+            return True, "aplicado"
 
     def _procesar_recuperacion(self) -> None:
         programa = self._recuperacion_pendiente

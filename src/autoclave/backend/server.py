@@ -774,8 +774,11 @@ def _estado_seguro_status() -> dict:
     confirmación "Confirmar y llevar a estado seguro"."""
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
+    motivo = getattr(es, "bloqueado_motivo", None) if activo else None
     return {"activo": activo,
-            "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True}
+            "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
+            # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
+            "bloqueado_motivo": motivo if isinstance(motivo, str) else None}
 
 
 def _camara_segura_status(estado) -> dict:
@@ -2135,6 +2138,7 @@ def put_sensor_roles(body: _SensorRolesBody,
                   extra={"errores": errores})
     esperada = _normalizar_asignacion(body.asignacion_anterior_esperada)
 
+    propagado, motivo_propagacion = False, "sin_copias"
     with _lock_archivos:      # serializa escritores: la asignación no cambia entre pasos
         with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
             anterior = dict(sc.asignacion_de(cycle))
@@ -2161,6 +2165,11 @@ def put_sensor_roles(body: _SensorRolesBody,
             if permitido:
                 cycle.sensores = dict(nueva)
                 cycle.sensores_formato_antiguo = False
+                if not en_ciclo:
+                    # S4: libera un estado seguro detenido por el Principal
+                    # viejo, solo si la sonda nueva es segura (no más fría)
+                    propagado, motivo_propagacion = context.control_loop.aplicar_roles_sensores(
+                        cycle.id, nueva)
         if not permitido:
             _escribir_sensores_json(cycle, anterior)       # revierte el archivo
             _rechazar(409, "estado_no_permitido",
@@ -2169,8 +2178,11 @@ def put_sensor_roles(body: _SensorRolesBody,
     _auditar("ROLES_SENSOR", sesion, entidad=entidad,
              valor_anterior=sc.canonica(anterior), valor_nuevo=sc.canonica(nueva),
              detalle={"programa": cycle.id, "numero": body.programa,
-                      "param": "cycle_temperature_sensors"})
-    return {"ok": True, "asignacion": nueva}
+                      "param": "cycle_temperature_sensors",
+                      "estado_seguro_propagado": propagado,
+                      "motivo_propagacion": motivo_propagacion})
+    return {"ok": True, "asignacion": nueva,
+            "estado_seguro_propagado": propagado}
 
 
 def _save_cycle_json(cycle) -> None:

@@ -84,6 +84,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-19 | Tanda 2 U1 | `sistema.estado_seguro_pendiente`, `sistema.paro_suelte`, `sistema.confirmar_sin_sesion`, `sistema.estado_seguro_en_curso_boton`, `sistema.no_abrir_hasta_segura`, `sistema.seguridad_desconocida` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-19 | Tanda 2 S1 | `instalacion.vapor_generator_desc` (texto cambiado) | Instalación | sin revisar |
 | 2026-10-20 | Tanda 3 A1 | `equipo.apagar_camara_no_segura` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-20 | Tanda 3 S4 | `sistema.estado_seguro_detenido_accion`, `sistema.asignar_sonda_principal` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 
 ## Registro de revisiones
 

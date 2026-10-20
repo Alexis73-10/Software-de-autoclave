@@ -29,6 +29,7 @@ def entorno(tmp_path):
     ctx.estado.sensores_temp = {"temp_camara": 25.0, "temp_2_camara": None, "temp_ref": 24.0}
     ctx.control_loop.bloqueo_maquina.return_value = threading.Lock()
     ctx.control_loop.test_mode_active = False
+    ctx.control_loop.aplicar_roles_sensores.return_value = (False, "sin_copias")
     ctx.sin_base_de_datos = False
     ctx.profile = SimpleNamespace(equipment_class=EquipmentClass.PISO_LAB,
                                   temperature_probes=None)

@@ -28,6 +28,8 @@ class ComandosSistema(QObject):
     ocupadoChanged = Signal()
     mensajeChanged = Signal()
     camaraNoSeguraChanged = Signal()
+    # S4 (CIC-10): el aviso pide abrir la asignación de sondas (OPCIONES)
+    asignarSondaSolicitada = Signal()
     _terminado = Signal(bool, str)   # emitida desde el hilo de trabajo
 
     def __init__(self, puente, ui_service, door: int, parent=None, ejecutar=_en_hilo):
@@ -85,6 +87,13 @@ class ComandosSistema(QObject):
         if not self._puente.estadoSeguroRequiereConfirmacion:
             return
         self._lanzar("confirmar_estado_seguro", self._ui.confirmar_estado_seguro)
+
+    @Slot()
+    def asignarSondaPrincipal(self) -> None:
+        """Opción B de CIC-10: la pantalla abre OPCIONES (con su login: solo
+        técnico o ingeniero llegan a la asignación de roles). No cambia nada
+        por sí mismo: el backend verifica la lectura de la sonda elegida."""
+        self.asignarSondaSolicitada.emit()
 
     @Slot()
     def apagarEquipo(self) -> None:

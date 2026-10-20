@@ -219,6 +219,8 @@ class UiBridge(QObject):
             "paro": bool(datos.get("paro")),
             "es_activo": es.get("activo") is True,
             "es_confirmar": es.get("requiere_confirmacion") is True,
+            # S4 (CIC-10): el protocolo no puede terminar solo; motivo o ""
+            "es_bloqueado": str(es.get("bloqueado_motivo") or ""),
             # T8: el backend vuelve a exigir la confirmación por ciclo
             "sin_bd": datos.get("sin_bd") is True,
             # U4: falla cerrada, sin dato o valor desconocido = desconectada
@@ -284,6 +286,11 @@ class UiBridge(QObject):
     @Property(bool, notify=seguridadChanged)
     def estadoSeguroRequiereConfirmacion(self) -> bool:
         return self._seguridad["es_confirmar"]
+
+    @Property(str, notify=seguridadChanged)
+    def estadoSeguroBloqueadoMotivo(self) -> str:
+        """S4: motivo de CIC-10 (estado seguro detenido); "" si avanza."""
+        return self._seguridad.get("es_bloqueado", "")
 
     @Property(bool, notify=seguridadChanged)
     def sinBaseDatos(self) -> bool:

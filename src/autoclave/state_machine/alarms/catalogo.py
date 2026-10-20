@@ -209,7 +209,9 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     # SAF-04 de T5: el protocolo de estado seguro no puede terminar solo
     _d(CIC_10, _AV, False, _A, "Estado seguro detenido",
        "{motivo}. La cámara sigue sin considerarse segura.",
-       "No abra la puerta. Llame a servicio técnico."),
+       "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en "
+       "OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, "
+       "llame a servicio técnico."),
     # U4 (tanda 2): solo con la tarjeta desconectada (sin puerto o puerto
     # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
     _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",
