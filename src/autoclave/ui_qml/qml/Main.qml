@@ -45,8 +45,8 @@ Window {
     property QtObject sesion: null
     // puenteNuevoUsuario: NuevoUsuarioBridge de OPCIONES › Usuarios
     property QtObject puenteNuevoUsuario: null
-    // progresoArranque: progreso del arranque para la intro (hoy un simulador,
-    // bridge/progreso_arranque.py); versionSoftware: para el pie de la intro.
+    // progresoArranque: progreso del arranque para la intro (etapas reales de
+    // GET /arranque, bridge/progreso_arranque.py); versionSoftware: para el pie de la intro.
     // Sin progresoArranque (pruebas) no se muestra la intro.
     property QtObject progresoArranque: null
     property string versionSoftware: ""

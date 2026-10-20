@@ -38,7 +38,9 @@ from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
 from autoclave.ui_qml.bridge.puente_instalacion import PuenteInstalacion, requiere_instalacion
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
-from autoclave.ui_qml.bridge.progreso_arranque import SimuladorProgresoArranque, parse_simulacion
+from autoclave.ui_qml.bridge.progreso_arranque import (
+    ProgresoArranqueBackend, SimuladorProgresoArranque, parse_simulacion,
+)
 from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
 from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
 from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
@@ -144,15 +146,19 @@ def main(argv=None) -> int:
     if args.door == 1 and requiere_instalacion():
         return _abrir_instalacion(app, args)
 
-    # Intro de arranque: el progreso corre desde t = 0 en paralelo con todo lo
-    # demás; no espera ni condiciona nada. PROVISIONAL (ARR-03): simulado, sin
-    # conexión con la secuencia de arranque real.
-    progreso_arranque = SimuladorProgresoArranque(
-        **parse_simulacion(os.environ.get("AUTOCLAVE_INTRO_SIMULACION")))
+    backend = BackendClient(url_backend())
+
+    # Intro de arranque: sigue las etapas reales del backend (GET /arranque),
+    # en paralelo con todo lo demás; no espera ni condiciona nada. Con
+    # AUTOCLAVE_INTRO_SIMULACION, el simulador de tiempos fijos (pruebas).
+    simulacion = os.environ.get("AUTOCLAVE_INTRO_SIMULACION")
+    if simulacion:
+        progreso_arranque = SimuladorProgresoArranque(**parse_simulacion(simulacion))
+    else:
+        progreso_arranque = ProgresoArranqueBackend(lambda: backend.get("/arranque"))
     progreso_arranque.iniciar()
     version = version_software()
 
-    backend = BackendClient(url_backend())
     ui_service = UIServiceBackend(backend)
     puente = UiBridge(ui_service, door=args.door)
     comandos_puerta = ComandosPuerta(

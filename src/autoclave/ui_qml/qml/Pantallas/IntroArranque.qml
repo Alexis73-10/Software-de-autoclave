@@ -84,6 +84,10 @@ Item {
         onFinished: raiz.finalizada()
     }
     onEnSalidaChanged: if (enSalida && !animSalida.running) animSalida.start()
+    // Al verse la barra, la fuente real repite las etapas ya cumplidas una a
+    // una (bridge/progreso_arranque.py); el simulador no lo tiene
+    onIntroCompletaChanged: if (introCompleta && typeof progreso?.reiniciarVista === "function")
+                                progreso.reiniciarVista()
 
     Timer {
         id: vigilante
@@ -101,9 +105,28 @@ Item {
     onTerminadoFuenteChanged: _vigilar()
     onFalloBloqueanteChanged: _vigilar()
 
-    Component.onCompleted: {
+    // La animación arranca con el primer cuadro ya dibujado en pantalla, no al
+    // crearse: en el arranque (backend y dos pantallas a la vez) la ventana
+    // tarda en mostrarse y los 3,5 s se consumían sin verse (observación de
+    // Cristian, 19-oct). Respaldo: si no llega ningún cuadro (sin ventana,
+    // pruebas sin pantalla), arranca a los 1,5 s.
+    property bool _iniciada: false
+    function _iniciar() {
+        if (_iniciada)
+            return
+        _iniciada = true
         animIntro.start()
         _vigilar()
+    }
+    Connections {
+        target: raiz.Window.window
+        ignoreUnknownSignals: true
+        function onFrameSwapped() { raiz._iniciar() }
+    }
+    Timer {
+        interval: 1500
+        running: !raiz._iniciada
+        onTriggered: raiz._iniciar()
     }
 
     // No se puede saltar: ningún toque pasa a la pantalla de debajo

@@ -12,7 +12,7 @@
 #
 # Reglas (decisiones de seguridad/usabilidad, no del mockup):
 #   - nunca en standby durante CICLO, FALLA o EMERGENCIA, ni con el paro
-#     activo o el estado seguro en curso o pendiente de confirmar (U1 de la
+#     real activo (U4: no la tarjeta sin datos) o el estado seguro en curso o pendiente de confirmar (U1 de la
 #     tanda 2: esos avisos ya no se dibujan sobre todas las pantallas, sino en
 #     el panel de la campana, que la pantalla de arranque taparía);
 #   - un cambio de estado del equipo o una alarma nueva cuenta como actividad
@@ -23,7 +23,8 @@
 #   - al abrir, la UI arranca siempre en la pantalla de arranque: no cuenta la
 #     actividad que el backend registró antes de que esta UI arrancara (backend
 #     que ya corría), ni los cambios de estado/alarmas de los primeros
-#     GRACIA_ARRANQUE_S segundos (transiciones propias del encendido).
+#     GRACIA_ARRANQUE_S segundos desde que el backend responde (transiciones
+#     propias del encendido).
 # Tiempos con time.monotonic() (CLAUDE.md: timers de proceso nunca con time.time()).
 
 import logging
@@ -82,6 +83,9 @@ class Standby(QObject):
         self._mantener_despierto = mantener_despierto or (lambda: False)
         self._inicio = reloj()
         self._gracia_arranque_s = gracia_arranque_s
+        # Primer instante (monotonic) con respuesta del backend: la gracia del
+        # arranque cuenta desde ahí (backend más lento que la UI, 19-oct)
+        self._inicio_conectado = None
 
         self._activo = True           # la app arranca en la pantalla de arranque
         self._ultima_local = None     # último toque en ESTA pantalla
@@ -135,6 +139,8 @@ class Standby(QObject):
         estado = None
         seguridad = False
         if conectado:
+            if self._inicio_conectado is None:
+                self._inicio_conectado = self._reloj()
             estado = self._ui.get_estado_global()
             seguridad = self._seguridad_pendiente()
             if self._hubo_evento_de_equipo(estado, seguridad) and not self._en_gracia_arranque():
@@ -157,7 +163,8 @@ class Standby(QObject):
             self.activoChanged.emit()
 
     def _en_gracia_arranque(self) -> bool:
-        return self._reloj() - self._inicio < self._gracia_arranque_s
+        inicio = self._inicio if self._inicio_conectado is None else self._inicio_conectado
+        return self._reloj() - inicio < self._gracia_arranque_s
 
     def _inactividad_backend(self):
         """Inactividad común del backend, o None si el último toque es anterior
@@ -168,10 +175,14 @@ class Standby(QObject):
         return inactividad
 
     def _seguridad_pendiente(self) -> bool:
-        """Paro activo, o estado seguro activo o esperando confirmación."""
+        """Paro real activo, o estado seguro activo o esperando confirmación.
+        U4: PARO_EMERGENCIA solo (sin PARO_REAL) es la tarjeta sin datos; con
+        él la pantalla pasaba a la principal mientras la tarjeta conectaba y
+        volvía sola al reposo al conectar (observación del 19-oct). La tarjeta
+        desconectada se ve al tocar y su alarma (COM-01) despierta igual."""
         es = self._ui.get_campo("estado_seguro", {})
         es = es if isinstance(es, dict) else {}
-        return (bool(self._ui.get_estado_flag("PARO_EMERGENCIA"))
+        return (bool(self._ui.get_estado_flag("PARO_REAL"))
                 or es.get("activo") is True or es.get("requiere_confirmacion") is True)
 
     def _hubo_evento_de_equipo(self, estado, seguridad: bool = False) -> bool:

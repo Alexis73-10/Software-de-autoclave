@@ -37,7 +37,7 @@ def _ui(connected=True, estado="PREPARADO", inactividad=None, minutos=5, alarmas
         paro=False, estado_seguro=None):
     ui = MagicMock(spec=UIServiceBackend)
     ui.connected = connected
-    ui.get_estado_flag.side_effect = lambda f: paro if f == "PARO_EMERGENCIA" else False
+    ui.get_estado_flag.side_effect = lambda f: paro if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4: paro real
     ui.get_campo.side_effect = lambda c, d=None: (estado_seguro or {}) if c == "estado_seguro" else d
     ui.get_estado_global.return_value = estado
     ui.get_inactividad_ui.return_value = inactividad
@@ -297,7 +297,7 @@ def test_paro_que_aparece_despierta_ambas_y_avisa_al_backend():
     reloj = _Reloj()
     estado = {"paro": False}
     ui = _ui(estado="PREPARADO", inactividad=None)
-    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f == "PARO_EMERGENCIA" else False
+    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4
     s, backend = _standby(ui, reloj)
     s.evaluar()
     assert s.activo is True
@@ -319,7 +319,7 @@ def test_fin_del_paro_cuenta_como_actividad():
     reloj = _Reloj()
     estado = {"paro": True}
     ui = _ui(estado="PREPARADO", inactividad=None)
-    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f == "PARO_EMERGENCIA" else False
+    ui.get_estado_flag.side_effect = lambda f: estado["paro"] if f in ("PARO_EMERGENCIA", "PARO_REAL") else False  # U4
     s, backend = _standby(ui, reloj)
     s.evaluar()
     reloj.t += 10
@@ -327,4 +327,60 @@ def test_fin_del_paro_cuenta_como_actividad():
     estado["paro"] = False
     s.evaluar()
     backend.post.assert_called_with("/ui/activity")
+    assert s.activo is False
+
+
+# ── 19-oct (observación de Cristian: "cambia de la pantalla de preciclo solo") ──
+
+def test_tarjeta_sin_datos_no_saca_del_standby_ni_lo_hace_oscilar():
+    # U4: PARO_EMERGENCIA solo (sin PARO_REAL) = tarjeta sin datos, no un paro.
+    # Antes: con la tarjeta aún sin conectar el standby se desactivaba (pasaba a
+    # Preciclo) y al conectar se reactivaba solo (volvía al reposo).
+    reloj = _Reloj()
+    flags = {"PARO_EMERGENCIA": True, "PARO_REAL": False}
+    ui = _ui(estado="PREPARACION", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: flags.get(f, False)
+    s, _ = _standby(ui, reloj)
+    cambios = []
+    s.activoChanged.connect(lambda: cambios.append(s.activo))
+    for _ in range(3):
+        s.evaluar()
+        reloj.t += 0.5
+    flags["PARO_EMERGENCIA"] = False          # la tarjeta conecta
+    s.evaluar()
+    reloj.t += 30
+    s.evaluar()
+    assert s.activo is True and cambios == []
+
+
+def test_paro_real_saca_del_standby():
+    reloj = _Reloj()
+    ui = _ui(estado="PREPARADO", inactividad=None)
+    ui.get_estado_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")
+    s, _ = _standby(ui, reloj)
+    s.evaluar()
+    assert s.activo is False
+
+
+def test_gracia_de_arranque_cuenta_desde_que_responde_el_backend():
+    # backend lento: la UI abre mucho antes; los cambios del encendido del
+    # backend no deben despertar la pantalla
+    reloj = _Reloj()
+    ui = _ui(connected=False, estado=None, inactividad=None)
+    s, backend = _standby(ui, reloj)
+    s.evaluar()
+    reloj.t += 30                              # 30 s sin backend
+    s.evaluar()
+    ui.connected = True
+    ui.get_estado_global.return_value = "INICIO"
+    s.evaluar()                                # primera lectura con backend
+    reloj.t += 5
+    ui.get_estado_global.return_value = "PREPARACION"
+    ui.get_alarmas.return_value = [{"id": "COM-01"}]
+    s.evaluar()
+    assert s.activo is True
+    backend.post.assert_not_called()
+    reloj.t += 6                               # pasada la gracia desde la conexión
+    ui.get_estado_global.return_value = "PREPARADO"
+    s.evaluar()
     assert s.activo is False

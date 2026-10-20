@@ -184,7 +184,10 @@ def test_app_abre_el_asistente_solo_en_la_puerta_1_sin_perfil(monkeypatch, door,
     def cortar(*_a, **_k):
         raise _Corte
 
-    monkeypatch.setattr(app_mod, "SimuladorProgresoArranque", cortar)   # flujo normal
+    # flujo normal: con la simulación de intro activa se construye el simulador
+    # (que aquí corta), en vez de ProgresoArranqueBackend que consultaría el backend
+    monkeypatch.setenv("AUTOCLAVE_INTRO_SIMULACION", "normal")
+    monkeypatch.setattr(app_mod, "SimuladorProgresoArranque", cortar)
     if abre:
         assert app_mod.main(["--door", str(door)]) == 7
     else:
