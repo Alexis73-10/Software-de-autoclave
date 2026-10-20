@@ -109,6 +109,11 @@
   "opciones": {
     "titulo": "OPCIONES",
     "proximamente": "Próximamente",
+    "equipo_impresora": "Impresora habilitada",
+    "equipo_impresora_ayuda": "Si está deshabilitada, el equipo no avisa cuando la impresora no está conectada.",
+    "equipo_si": "Sí",
+    "equipo_no": "No",
+    "equipo_err_guardar": "No se pudo guardar la configuración del equipo.",
     "nuevo_usuario": "Nuevo usuario",
     "sin_secciones": "Su perfil no tiene secciones disponibles",
     "edicion_bloqueada": "Edición bloqueada: ciclo en curso",

@@ -371,6 +371,14 @@ class BackendContext:
         except Exception:
             logger.exception("No se pudo iniciar la verificación de la impresora")
 
+    def aplicar_config_impresora(self) -> None:
+        """P2 (tanda 5): la bandera cambió; el aviso se ajusta sin reiniciar."""
+        vig = getattr(self, "_vigilancia_impresora", None)
+        if vig is None:
+            self.iniciar_vigilancia_impresora()
+        else:
+            vig.aplicar_configuracion()
+
     def iniciar_vigilancia_mantenimiento(self, cada_s: float = 600.0) -> None:
         """Evalúa el aviso de mantenimiento vencido al arrancar y cada 10 min
         (hilo daemon; un fallo se registra y no afecta nada más)."""

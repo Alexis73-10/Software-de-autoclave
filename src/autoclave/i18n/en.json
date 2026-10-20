@@ -109,6 +109,11 @@
   "opciones": {
     "titulo": "OPTIONS",
     "proximamente": "Coming soon",
+    "equipo_impresora": "Printer enabled",
+    "equipo_impresora_ayuda": "When disabled, the unit does not warn when the printer is not connected.",
+    "equipo_si": "Yes",
+    "equipo_no": "No",
+    "equipo_err_guardar": "The equipment settings could not be saved.",
     "nuevo_usuario": "New user",
     "sin_secciones": "Your profile has no sections available",
     "edicion_bloqueada": "Editing locked: cycle in progress",
