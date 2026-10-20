@@ -312,13 +312,23 @@ class _ParamEditDialog(QDialog):
 
         # 1. Sincronizar con el backend (memoria en vivo del ControlLoop + persistencia
         #    en disco) — sin esto, el cambio no se aplicaba hasta reiniciar el software.
+        # P3 (tanda 5): ante un 401 pide login y
+        # reintenta con el mismo valor (sin perder lo editado)
+        from autoclave.ui.service_ui.session_manager import SessionManager
+        from autoclave.ui_pyside.services import renovacion_sesion
+        cliente = BackendClient(_BACKEND_URL)
         try:
-            BackendClient(_BACKEND_URL).patch("/cycle/parameter", {
-                "cycle_id": self._cycle.id,
-                "fase":     self._fase,
-                "path":     self._path,
-                "value":    new_val,
-            })
+            guardado = renovacion_sesion.guardar_con_reintento(
+                lambda: cliente.patch("/cycle/parameter", {
+                    "cycle_id": self._cycle.id,
+                    "fase":     self._fase,
+                    "path":     self._path,
+                    "value":    new_val,
+                }),
+                lambda: renovacion_sesion.pedir_credenciales_dialogo(self))
+            if guardado.estado != renovacion_sesion.GUARDADO:
+                QMessageBox.warning(self, "Sesión vencida", renovacion_sesion.mensaje_de(guardado))
+                return
         except requests.HTTPError as e:
             try:
                 detail = e.response.json().get("detail", str(e))

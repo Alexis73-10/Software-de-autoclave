@@ -171,14 +171,24 @@ class SecadoView(QWidget):
             self._aviso("warning", "Sin conexión",
                         "No se pudo leer el programa del backend: nada se guardó.")
             return
+        # P3 (tanda 5): ante un 401 pide login y
+        # reintenta con los mismos valores
+
+        from autoclave.ui_pyside.services import renovacion_sesion
         client = BackendClient(self.BACKEND_URL)
         guardados, rechazados = [], []
         for nombre, valor in self._valores_actuales().items():
             if self._cargados.get(nombre) == valor:
                 continue
             try:
-                client.patch("/cycle/parameter", {"cycle_id": self._cycle_id, "fase": "secado",
-                                                  "path": [nombre], "value": valor})
+                guardado = renovacion_sesion.guardar_con_reintento(
+                    lambda: client.patch("/cycle/parameter", {"cycle_id": self._cycle_id,
+                                                              "fase": "secado",
+                                                              "path": [nombre], "value": valor}),
+                    lambda: renovacion_sesion.pedir_credenciales_dialogo(self))
+                if guardado.estado != renovacion_sesion.GUARDADO:
+                    self._aviso("warning", "Sesión vencida", renovacion_sesion.mensaje_de(guardado))
+                    return
             except requests.HTTPError as e:
                 categoria, motivo = self._motivo_rechazo(e)
                 if categoria == "permiso":

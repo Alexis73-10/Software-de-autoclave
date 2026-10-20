@@ -33,3 +33,15 @@ def _recolectar_en_hilo_principal(request):
     yield
     if _usa_qt(str(request.node.fspath)):
         gc.collect()
+
+
+@pytest.fixture(autouse=True)
+def _sin_dialogo_de_login_modal(monkeypatch):
+    """P3 (tanda 5): un 401 en una vista PySide abre un diálogo modal de login;
+    en las pruebas se cancela (None) para no bloquear la suite. Las pruebas
+    que necesitan otro comportamiento lo vuelven a parchear."""
+    try:
+        from autoclave.ui_pyside.services import renovacion_sesion
+    except Exception:
+        return
+    monkeypatch.setattr(renovacion_sesion, "pedir_credenciales_dialogo", lambda padre: None)

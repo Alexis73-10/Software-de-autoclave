@@ -91,7 +91,16 @@ def test_conflicto_409_muestra_el_motivo():
     assert avisos[-1][0] == "error" and "Estado no permite editar" in avisos[-1][2]
 
 
-@pytest.mark.parametrize("estado", [401, 403])
+def test_401_pide_login_y_cancelado_no_guarda():
+    """P3 (tanda 5): sesión vencida -> diálogo de login; cancelado, no se guarda."""
+    v, avisos = _vista()
+    v._spin_chaqueta.setValue(150)
+    with patch("requests.patch", return_value=_resp(401, {"detail": "x"})):
+        v._save()
+    assert avisos[-1][0] == "warning" and "no se guardó" in avisos[-1][2].lower()
+
+
+@pytest.mark.parametrize("estado", [403])
 def test_sin_permiso_lo_dice_y_no_es_fallo_de_conexion(estado):
     v, avisos = _vista()
     v._spin_chaqueta.setValue(150)
