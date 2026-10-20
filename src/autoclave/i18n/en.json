@@ -599,48 +599,249 @@
     "SIS-05": {
       "titulo": "Printer not connected",
       "descripcion": "Printer not connected. Reports will not be printed; check the cable and the printer.",
-      "accion": "Check the USB cable and that the printer is on. The equipment can keep operating."
+      "accion": "Check the USB cable and that the printer is on. The equipment can keep operating.",
+      "plantilla": "Printer not connected. Reports will not be printed; check the cable and the printer."
     },
     "COM-01": {
       "titulo": "I/O board disconnected",
       "descripcion": "The control board is not detected.",
-      "accion": "Connect the board (USB cable) and check its power supply."
+      "accion": "Connect the board (USB cable) and check its power supply.",
+      "plantilla": "The control board is not detected."
     },
     "TARJETA_SIN_TRAMA_VALIDA": {
       "titulo": "The I/O board is not sending valid data",
-      "accion": "Check the USB cable and the board power supply. Call technical service."
+      "accion": "Check the USB cable and the board power supply. Call technical service.",
+      "plantilla": "{motivo}"
     },
     "TARJETA_VERSION_INCOMPATIBLE": {
       "titulo": "Incompatible I/O board firmware",
-      "accion": "Load firmware 1.0.0 (technical service)."
+      "accion": "Load firmware 1.0.0 (technical service).",
+      "plantilla": "{motivo}"
     },
     "TARJETA_SIN_ACK": {
       "titulo": "The I/O board does not acknowledge commands",
-      "accion": "Call technical service."
+      "accion": "Call technical service.",
+      "plantilla": "{motivo}"
     },
     "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
       "titulo": "The I/O board did not confirm outputs off",
-      "accion": "Call technical service."
+      "accion": "Call technical service.",
+      "plantilla": "{motivo}"
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {
       "titulo": "I/O board outputs not switched off",
-      "accion": "Do not operate the equipment. Call technical service (power stage or expander)."
+      "accion": "Do not operate the equipment. Call technical service (power stage or expander).",
+      "plantilla": "{motivo}"
     },
     "TARJETA_EXPANSOR_FUERA_DE_LINEA": {
       "titulo": "I/O board expander offline",
-      "accion": "Call technical service (I2C bus / expander)."
+      "accion": "Call technical service (I2C bus / expander).",
+      "plantilla": "{motivo}"
     },
     "TARJETA_WATCHDOG": {
       "titulo": "The I/O board switched outputs off due to lost communication",
-      "accion": "Check whether the control computer froze. If it happens again, call technical service."
+      "accion": "Check whether the control computer froze. If it happens again, call technical service.",
+      "plantilla": "{motivo}"
     },
     "TARJETA_REINICIO": {
       "titulo": "The I/O board restarted",
-      "accion": "Check the board power supply. If it happens again, call technical service."
+      "accion": "Check the board power supply. If it happens again, call technical service.",
+      "plantilla": "{motivo}"
     },
     "DISCREPANCIA_SALIDAS": {
       "titulo": "Board outputs do not match the commanded state",
-      "accion": "Call technical service."
+      "accion": "Call technical service.",
+      "plantilla": "{motivo}"
+    },
+    "SIS-01": {
+      "titulo": "Emergency stop activated",
+      "plantilla": "Emergency stop active in state {estado}. The stop input reads 0. If the button is not pressed, check that the wiring is a normally closed (NC) contact.",
+      "accion": "Make sure there is no hazard and release the emergency stop button."
+    },
+    "SIS-02": {
+      "titulo": "Alarm history unavailable",
+      "plantilla": "The alarm history could not be saved: {error}. Alarms still work but are not recorded.",
+      "accion": "Contact technical support."
+    },
+    "SIS-03": {
+      "titulo": "Cycle backup unavailable",
+      "plantilla": "The cycle backup could not be written: {error}. Without database, the cycle is recorded only on the ticket.",
+      "accion": "Contact technical service: check disk space and permissions."
+    },
+    "SUM-01": {
+      "titulo": "Power failure during the cycle",
+      "plantilla": "Power supply was lost in phase {fase}. The cycle was aborted.",
+      "accion": "Check the unit's power supply before restarting."
+    },
+    "SUM-02": {
+      "titulo": "No power supply",
+      "plantilla": "The power supply signal is inactive.",
+      "accion": "Check the unit's power supply."
+    },
+    "SUM-03": {
+      "titulo": "No water for the vacuum pump",
+      "plantilla": "The pump water supply signal is inactive.",
+      "accion": "Open the pump water valve and check the mains pressure."
+    },
+    "SUM-04": {
+      "titulo": "No water for the generator",
+      "plantilla": "The generator water supply signal is inactive.",
+      "accion": "Open the generator water valve and check the mains pressure."
+    },
+    "SUM-05": {
+      "titulo": "No compressed air",
+      "plantilla": "The compressed air supply signal is inactive.",
+      "accion": "Check the compressor and the air valve."
+    },
+    "SUM-06": {
+      "titulo": "No steam supply",
+      "plantilla": "No steam supply in state {estado}. The jacket waits until it returns.",
+      "accion": "Check the generator and the steam valve."
+    },
+    "PRE-01": {
+      "titulo": "Low jacket pressure",
+      "plantilla": "The jacket is at {pres:.0f} kPa, below the minimum of {minimo:.0f} kPa (target {objetivo:.0f} ± {rango:.0f}).",
+      "accion": "Wait for the jacket to reach pressure. If it does not rise, check the steam supply."
+    },
+    "PRE-02": {
+      "titulo": "High jacket pressure",
+      "plantilla": "The jacket is at {pres:.0f} kPa, above the maximum of {maximo:.0f} kPa (target {objetivo:.0f} ± {rango:.0f}).",
+      "accion": "Check the jacket steam valve."
+    },
+    "PRE-03": {
+      "titulo": "Low chamber pressure",
+      "plantilla": "The chamber is at {pres:.0f} kPa, below {minimo:.0f} kPa.",
+      "accion": "Wait for the chamber to equalize with the atmosphere."
+    },
+    "PRE-04": {
+      "titulo": "High chamber pressure",
+      "plantilla": "The chamber is at {pres:.0f} kPa, above {maximo:.0f} kPa.",
+      "accion": "Do not open the door. Wait for the chamber to depressurize."
+    },
+    "PRE-05": {
+      "titulo": "Residual water in the chamber",
+      "plantilla": "The level sensor detects water in the chamber. It is being drained.",
+      "accion": "If it does not clear, check the chamber drain and the steam trap."
+    },
+    "PRE-06": {
+      "titulo": "High drain temperature",
+      "plantilla": "The drain is at {temp:.1f} °C, above the maximum of {maximo:.1f} °C. Cooling was activated.",
+      "accion": "Check the heat exchanger water."
+    },
+    "PUE-01": {
+      "titulo": "Door open",
+      "plantilla": "{puerta} is open. The cycle cannot start.",
+      "accion": "Close the door."
+    },
+    "PUE-02": {
+      "titulo": "Door opened during the cycle",
+      "plantilla": "{puerta} was no longer detected closed in phase {fase}. The cycle was aborted.",
+      "accion": "Check the door-closed sensor and the mechanical latch."
+    },
+    "PUE-03": {
+      "titulo": "Insufficient gasket pressure",
+      "plantilla": "The gasket of {puerta} dropped to {pres:.0f} kPa (minimum {minimo:.0f} kPa) in phase {fase}. The cycle was aborted.",
+      "accion": "Check the compressed air and the gasket condition."
+    },
+    "PUE-04": {
+      "titulo": "Opening in safe mode",
+      "plantilla": "{puerta} is opening without vacuum pump due to an electrical fault.",
+      "accion": "None, the opening continues."
+    },
+    "PUE-05": {
+      "titulo": "Closing in safe mode",
+      "plantilla": "{puerta} is closing without vacuum pump due to an electrical fault.",
+      "accion": "None, the closing continues."
+    },
+    "SEN-01": {
+      "titulo": "Invalid sensor reading",
+      "plantilla": "{sensor} gives an invalid reading ({valor}).",
+      "accion": "Check the sensor connection."
+    },
+    "SEN-02": {
+      "titulo": "Critical sensor without reading",
+      "plantilla": "No reading from: {sensores}, in phase {fase}. The cycle was aborted.",
+      "accion": "Check the sensor connections before restarting."
+    },
+    "SEN-03": {
+      "titulo": "Temperature sensor without signal",
+      "plantilla": "{sensor} gives no reading ({valor}). A program that uses it cannot start.",
+      "accion": "Check the probe connection or set its role to Not in use."
+    },
+    "CIC-01": {
+      "titulo": "Preheating failure",
+      "plantilla": "{motivo}",
+      "accion": "Check the jacket steam supply."
+    },
+    "CIC-02": {
+      "titulo": "Prevacuum failure",
+      "plantilla": "{motivo}",
+      "accion": "Check the vacuum pump and its seal water."
+    },
+    "CIC-03": {
+      "titulo": "Heating failure",
+      "plantilla": "{motivo}",
+      "accion": "Check the steam supply and the generator pressure."
+    },
+    "CIC-04": {
+      "titulo": "Sterilization failure",
+      "plantilla": "{motivo}",
+      "accion": "The load is NOT sterile. Check the steam supply and repeat the cycle."
+    },
+    "CIC-05": {
+      "titulo": "Depressurization failure",
+      "plantilla": "{motivo}",
+      "accion": "Do not open the door until atmospheric pressure is confirmed. Check the exhaust valves."
+    },
+    "CIC-06": {
+      "titulo": "Drying failure",
+      "plantilla": "{motivo}",
+      "accion": "Check the vacuum pump. The load may come out wet."
+    },
+    "CIC-07": {
+      "titulo": "Delayed cooling",
+      "plantilla": "The chamber is still at {temp:.1f} °C (maximum to open {maximo:.1f} °C) after {minutos:.0f} min.",
+      "accion": "Wait. The door will open by itself when cool."
+    },
+    "CIC-08": {
+      "titulo": "Automatic opening denied",
+      "plantilla": "{puerta} could not be opened: {motivo}.",
+      "accion": "Check the door's mechanical lock."
+    },
+    "CIC-09": {
+      "titulo": "Thermal uniformity out of range",
+      "plantilla": "{sensor} is at {temp:.1f} °C, outside the sterilization range ({minimo:.1f}–{maximo:.1f} °C). The cycle is still controlled by the Main sensor.",
+      "accion": "Check the load and the position of the reference probe."
+    },
+    "CIC-10": {
+      "titulo": "Safe state halted",
+      "plantilla": "{motivo}. The chamber is still not considered safe.",
+      "accion": "Do not open the door. Check the Main probe or assign another probe as Main in OPTIONS › Cycle parameters › Sensors (technician or engineer). If it is not resolved, call technical service."
+    },
+    "COM-02": {
+      "titulo": "Communication lost during the cycle",
+      "plantilla": "Communication with the board was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
+      "accion": "Check the USB cable and the board's power supply before restarting."
+    },
+    "OPERANDO_SIN_BD": {
+      "titulo": "Operating without database",
+      "plantilla": "Database not available: cycles are recorded only in the backup and on the ticket, without operator. Options, calibration and users are not available.",
+      "accion": "Call technical service to check the database."
+    },
+    "SIS-04": {
+      "titulo": "Maintenance overdue",
+      "plantilla": "{motivo}",
+      "accion": "Schedule maintenance with technical service. The unit can keep operating."
+    },
+    "CONFIGURACION_INVALIDA": {
+      "titulo": "Invalid configuration",
+      "plantilla": "Invalid configuration: {motivo}",
+      "accion": "Call technical service to correct the configuration."
+    },
+    "COM-03": {
+      "titulo": "I/O board failure during the cycle",
+      "plantilla": "{causa}: {motivo} Phase {fase}. The cycle was aborted.",
+      "accion": "Check the I/O board before restarting. Call technical service."
     }
   },
   "sensores_ciclo": {

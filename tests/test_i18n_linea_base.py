@@ -230,6 +230,10 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
     pares = [(res[i], res[i + 1]) for i in range(0, len(res) - 5, 2)]
     for (caso_ref, ref), (_, nuevo) in pares:
         clave = caso_ref["clave"]
+        if clave.startswith("alarmas.") and clave.endswith(".plantilla"):
+            # I1 (tanda 5): plantilla en formato de Python ({pres:.0f}) que
+            # renderiza el backend (core/runtime/alarmas_i18n.py), no I18n.t
+            continue
         if clave.startswith("opciones.secciones_programa."):
             # T12: tercer nivel nuevo, sin referencia vieja; contra el catálogo
             ref = es["opciones"]["secciones_programa"][clave.split(".")[2]]

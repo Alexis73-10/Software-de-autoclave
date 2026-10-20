@@ -879,7 +879,12 @@ def _alarma_dto(inst) -> dict:
     campos id/level/description/source_state mantienen compatible a la UI
     actual hasta la Parte C."""
     origen = inst.origen or ""
+    from autoclave.core.runtime import alarmas_i18n
     return {
+        # I1 (tanda 5): código + parámetros y los textos en cada idioma; la
+        # descripción en español sigue siendo la registrada (compatibilidad)
+        "valores": alarmas_i18n.valores_json(inst.valores),
+        "textos": alarmas_i18n.por_idioma(inst.definicion, inst.valores or {}),
         "clave": inst.clave,
         "codigo": inst.codigo,
         "nivel": inst.nivel.name,
@@ -1371,6 +1376,33 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
 # ── Impresora (B5, tanda 4) ─────────────────────────────────────────────────
 # `habilitada` solo gobierna la verificación de arranque y el aviso de impresora
 # desconectada; no impide imprimir ni bloquea nada.
+
+# ── Idioma (I1, tanda 5; planeacion_i18n.md §5 F2) ───────────────────────
+# Cualquier rol con sesión, también en ciclo (no afecta al control). R-06
+# sigue vigente: el inglés no se habilita en campo hasta cerrar la voz; el
+# endpoint existe, pero ninguna pantalla de operador ofrece el selector.
+
+class _IdiomaBody(BaseModel):
+    idioma: Literal["es", "en"]
+
+
+@app.get("/language")
+def get_language():
+    return {"idioma": context.config_idioma.leer()}
+
+
+@app.put("/language")
+def put_language(body: _IdiomaBody, sesion: Sesion = Depends(requiere_rol())):
+    entidad = "/language"
+    anterior = context.config_idioma.leer()
+    try:
+        context.config_idioma.guardar(body.idioma)
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar el idioma", entidad, sesion)
+    _auditar("idioma_configurado", sesion, entidad=entidad,
+             valor_anterior={"idioma": anterior}, valor_nuevo={"idioma": body.idioma})
+    return {"ok": True, "idioma": body.idioma}
+
 
 # ── Unidades de presentación (U1, tanda 5; decisión 6 de Cristian) ─────────
 # Solo presentación y entrada de datos: el control, la BD, los JSON y esta API

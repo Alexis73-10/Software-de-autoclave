@@ -358,6 +358,15 @@ class BackendContext:
             return self._config_impresora
 
     @property
+    def config_idioma(self):
+        """I1 (tanda 5): idioma de la interfaz y de las salidas, data/idioma.json."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_config_idioma", None) is None:
+                from autoclave.core.runtime.config_idioma import ConfigIdioma
+                self._config_idioma = ConfigIdioma(app_root() / "data" / "idioma.json")
+            return self._config_idioma
+
+    @property
     def config_unidades(self):
         """U1 (tanda 5): unidades de presentación, data/unidades.json."""
         with _LOCK_MANTENIMIENTO:
