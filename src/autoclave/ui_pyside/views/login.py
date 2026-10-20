@@ -214,8 +214,7 @@ class LoginView(QWidget):
     # ── Lógica de login ───────────────────────────────────────────────
 
     def _do_login(self) -> None:
-        from autoclave.services.domain.logging.db_manager import DbManager
-        from autoclave.ui.service_ui.session_manager import SessionManager
+        from autoclave.ui_pyside.services import auth_backend
 
         username = self._username[1].text().strip()
         password = self._password.text()
@@ -232,19 +231,29 @@ class LoginView(QWidget):
             )
             return
 
-        db   = DbManager()
-        user = db.get_usuario_by_username(username)
-
-        if user is None or user["hash_pw"] != _hash_pw(password):
+        # C1 (tanda 3): se autentica contra el backend (token y rol reales)
+        resultado = auth_backend.iniciar_sesion(username, password)
+        if resultado.estado != auth_backend.OK:
+            mensajes = {
+                auth_backend.CREDENCIALES: ("Acceso denegado", "Usuario o contraseña incorrectos"),
+                auth_backend.BLOQUEADO: ("Usuario bloqueado",
+                                         "Demasiados intentos fallidos; espere %d s" % max(1, resultado.segundos)),
+                auth_backend.SIN_BD: ("Sin base de datos", "Base de datos no disponible: no se puede iniciar sesión"),
+                auth_backend.SIN_CONEXION: ("Sin conexión", "No hay respuesta del equipo (backend)"),
+                auth_backend.CAMBIO_CLAVE: ("Contraseña pendiente",
+                                            "Debe cambiar su contraseña desde la pantalla principal (OPCIONES)"),
+            }
+            titulo, contenido = mensajes.get(resultado.estado, ("Error", "No se pudo iniciar sesión"))
             InfoBar.error(
-                title="Acceso denegado",
-                content="Usuario o contraseña incorrectos",
+                title=titulo,
+                content=contenido,
                 orient=Qt.Orientation.Horizontal,
                 isClosable=True,
                 position=InfoBarPosition.TOP,
                 duration=4000,
                 parent=self,
             )
+            self._password.clear()
             return
 
         # Guardar "recordar usuario"
@@ -256,6 +265,5 @@ class LoginView(QWidget):
             cfg.setValue("login/last_user", "")
             cfg.setValue("login/remember", False)
 
-        SessionManager.login(user)
         self._password.clear()
         self._nav("admin_menu")

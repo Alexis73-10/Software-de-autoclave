@@ -175,6 +175,6 @@ class AdminMenuView(QWidget):
         )
 
     def _do_logout(self) -> None:
-        from autoclave.ui.service_ui.session_manager import SessionManager
-        SessionManager.logout()
+        from autoclave.ui_pyside.services import auth_backend
+        auth_backend.cerrar_sesion()    # invalida el token en el backend y limpia la sesión local
         self._nav("login")

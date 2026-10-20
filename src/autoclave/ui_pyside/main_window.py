@@ -122,10 +122,19 @@ class MainWindowFluent(QMainWindow):
             QPushButton:hover { background: rgba(255,107,107,0.15); }
         """)
         btn_exit.setToolTip("Cerrar menú y volver a pantalla principal")
-        btn_exit.clicked.connect(lambda: QApplication.instance().quit())
+        btn_exit.clicked.connect(self._salir)
         layout.addWidget(btn_exit)
 
         return header
+
+    def _salir(self) -> None:
+        """Cierra el menú: antes invalida el token de esta ventana (C1)."""
+        try:
+            from autoclave.ui_pyside.services import auth_backend
+            auth_backend.cerrar_sesion()
+        except Exception:
+            pass
+        QApplication.instance().quit()
 
     # ── Footer — barra de navegación ─────────────────────────────────
 
@@ -218,4 +227,11 @@ class MainWindowFluent(QMainWindow):
 
     def closeEvent(self, event) -> None:
         self._clock_timer.stop()
+        # C1 (SAF-01): cualquier cierre de la ventana invalida el token (y con él
+        # sale de un modo prueba que esta sesión tuviera), no solo "✕ Salir"
+        try:
+            from autoclave.ui_pyside.services import auth_backend
+            auth_backend.cerrar_sesion()
+        except Exception:
+            pass
         event.accept()

@@ -1,13 +1,10 @@
 # ui_qml/bridge/lanzador_ajustes.py
 #
 # Engrane de la pantalla de ciclo: abre el menú de configuración PySide
-# (autoclave.ui_pyside.app) como subproceso, con el mismo comportamiento que
-# _open_settings de la UI tkinter: se oculta esta ventana mientras el menú está
-# abierto, se ignora un segundo toque, y la ventana vuelve al cerrar el menú.
-#
-# comando_ajustes() / entorno_ajustes() replican _settings_command /
-# _settings_env de ui/window/main_window.py (no se importan de ahí para no
-# arrastrar tkinter a la UI QML).
+# (autoclave.ui_pyside.app) como subproceso: se oculta esta ventana mientras el
+# menú está abierto, se ignora un segundo toque, y la ventana vuelve al cerrar
+# el menú. comando_ajustes() / entorno_ajustes() arman la línea de comandos y
+# el entorno del subproceso.
 
 import logging
 import os
@@ -78,7 +75,7 @@ class LanzadorAjustes(QObject):
         self.abiertoChanged.emit()
 
     def cerrar(self) -> None:
-        """Al salir de la UI: termina el menú si sigue abierto (como on_close en tkinter)."""
+        """Al salir de la UI: termina el menú si sigue abierto (al cerrar la ventana principal)."""
         self._timer.stop()
         if self._proc is not None and self._proc.poll() is None:
             self._proc.terminate()

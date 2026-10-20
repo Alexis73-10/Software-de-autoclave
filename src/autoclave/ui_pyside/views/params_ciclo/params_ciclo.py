@@ -27,7 +27,7 @@ from PySide6.QtWidgets import (
 import requests
 
 from autoclave.services.domain.logging.cycle_params_audit import CycleParamsAuditDB
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.ui_pyside.services.backend_client import BackendClient
 
 _BACKEND_URL = "http://127.0.0.1:8000"
 
