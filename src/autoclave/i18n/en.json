@@ -391,7 +391,8 @@
     "no_disponible": "Not available",
     "apagar": "Shut down equipment",
     "apagar_pregunta": "The equipment will shut down completely (including the PC). Do you want to continue?",
-    "apagar_rechazado": "Cannot shut down: {motivo}"
+    "apagar_rechazado": "Cannot shut down: {motivo}",
+    "apagar_camara_no_segura": "The chamber is not in a safe condition (DO NOT OPEN). The equipment will be taken out of service; do not open the doors."
   },
   "formulario": {
     "nombre_completo": "Full Name",

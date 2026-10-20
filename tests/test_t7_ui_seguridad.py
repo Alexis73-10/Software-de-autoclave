@@ -115,3 +115,27 @@ def test_apagado_aceptado_deja_el_boton_deshabilitado():
     assert c.ocupado is True
     c.apagarEquipo()
     ui.apagar_equipo.assert_called_once()
+
+
+# ── A1 (tanda 3): aviso de cámara no segura y apagado en cualquier estado ──
+
+def test_camara_no_segura_sigue_al_puente():
+    c, _ = _comandos()
+    c._puente.noAbrir = True
+    assert c.camaraNoSegura is True
+    c._puente.noAbrir = False
+    assert c.camaraNoSegura is False
+
+
+def test_camara_no_segura_falla_cerrada_sin_dato():
+    c, _ = _comandos()
+    c._puente.noAbrir = None
+    assert c.camaraNoSegura is True
+
+
+def test_apagar_se_envia_aunque_la_camara_no_sea_segura():
+    c, ui = _comandos()
+    c._puente.noAbrir = True
+    ui.apagar_equipo.return_value = (True, "")
+    c.apagarEquipo()
+    ui.apagar_equipo.assert_called_once_with("principal")

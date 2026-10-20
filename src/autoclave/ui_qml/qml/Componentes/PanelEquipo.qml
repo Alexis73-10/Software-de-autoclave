@@ -68,8 +68,9 @@ PanelModal {
         }
     }
 
-    // PROVISIONAL (sin diseño): Apagar equipo (fin de ciclo §16, D-20). El
-    // backend exige cámara segura y estado distinto de CICLO / estado seguro.
+    // PROVISIONAL (sin diseño): Apagar equipo (fin de ciclo §16, D-20). Desde
+    // A1 (tanda 3) el backend lo permite en cualquier estado salvo ciclo /
+    // estado seguro actuando, también con la cámara NO segura (solo se avisa).
     Column {
         id: zonaApagar
         visible: raiz.puedeApagar
@@ -114,6 +115,10 @@ PanelModal {
         id: confirmarApagar
         objectName: "confirmarApagar"
         mensaje: I18n.t("equipo.apagar_pregunta", I18n.lang)
+                 + ((raiz.comandosSistema?.camaraNoSegura ?? true)
+                    ? "
+
+" + I18n.t("equipo.apagar_camara_no_segura", I18n.lang) : "")
         textoConfirmar: I18n.t("equipo.apagar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: "#B71C1C"

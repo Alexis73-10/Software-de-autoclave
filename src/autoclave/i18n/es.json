@@ -391,7 +391,8 @@
     "no_disponible": "No disponible",
     "apagar": "Apagar equipo",
     "apagar_pregunta": "El equipo se apagará por completo (incluido el PC). ¿Desea continuar?",
-    "apagar_rechazado": "No se puede apagar: {motivo}"
+    "apagar_rechazado": "No se puede apagar: {motivo}",
+    "apagar_camara_no_segura": "La cámara no está en condición segura (NO ABRIR). El equipo quedará fuera de servicio; no abra las puertas."
   },
   "formulario": {
     "nombre_completo": "Nombre Completo",

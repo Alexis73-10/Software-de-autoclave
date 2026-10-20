@@ -763,6 +763,14 @@ class ControlLoop:
             self._apagando = True
             self.estado.set_flag("START_CICLO", False)
             self._running.clear()
+            # A1 (SAF-01): el lazo ya no gobierna las salidas; se apagan desde
+            # ya (mejor esfuerzo, sin tarjeta devuelve False al instante) y no
+            # solo cuando stop() llegue tras la auditoría y el join del hilo
+            try:
+                if self.link:
+                    self.link.all_off()
+            except Exception:
+                logger.exception("Control loop: ALL_OFF al iniciar el apagado falló")
 
     def stop(self):
         # Primero se detiene el lazo y después se apaga (TMG-11 de E6, TMG-02
@@ -779,10 +787,19 @@ class ControlLoop:
         if self.link:
             # TMG-04 de T7: un ALL_OFF sin confirmar se reintenta una vez y se
             # registra; el respaldo final es el watchdog de la tarjeta
-            if not self.link.all_off() and not self.link.all_off():
-                logger.error("Control loop: ALL_OFF sin confirmar al detener; "
-                             "queda el watchdog de la tarjeta")
-            self.link.stop()
+            # A1 (tanda 3): sin tarjeta o con el enlace roto, el ALL_OFF puede
+            # fallar o lanzar; el puerto se cierra igual y el apagado sigue
+            try:
+                if not self.link.all_off() and not self.link.all_off():
+                    logger.error("Control loop: ALL_OFF sin confirmar al detener; "
+                                 "queda el watchdog de la tarjeta")
+            except Exception:
+                logger.exception("Control loop: ALL_OFF falló al detener; "
+                                 "quedan el paro y el watchdog de la tarjeta")
+            try:
+                self.link.stop()
+            except Exception:
+                logger.exception("Control loop: no se pudo cerrar el enlace con la tarjeta")
 
         logger.info("Control loop detenido.")
 
@@ -834,6 +851,9 @@ class ControlLoop:
         with self._sm_lock:
             if self._bloqueo_config is not None:
                 return False, f"Configuración inválida: {self._bloqueo_config}"
+
+            if self._apagando:   # A1 (tanda 3): sin salidas manuales mientras se apaga
+                return False, "No se puede activar el modo prueba: el equipo se está apagando."
 
             if self.estado.get_machine_state() == GlobalState.CICLO:
                 return False, "No se puede activar el modo prueba durante un ciclo en curso."

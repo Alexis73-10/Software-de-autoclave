@@ -38,8 +38,14 @@ def entorno(monkeypatch):
     monkeypatch.setattr(srv, "_apagar_windows", lambda: apagados.append(True))
     monkeypatch.setattr(srv, "_apagado_windows_habilitado", lambda: True)
     hilos = []
-    monkeypatch.setattr(srv.threading, "Thread",
-                        lambda target, **k: SimpleNamespace(start=lambda: hilos.append(target)))
+    real = threading.Thread
+
+    def falso(target, **k):
+        if k.get("name") == "ApagarEquipo":      # los pasos auxiliares corren de verdad
+            return SimpleNamespace(start=lambda: hilos.append(target))
+        return real(target=target, **k)
+
+    monkeypatch.setattr(srv.threading, "Thread", falso)
     return TestClient(srv.app), ctx, srv, apagados, hilos
 
 
@@ -70,24 +76,128 @@ def test_rechaza_en_ciclo(entorno):
     assert _apagar(client).status_code == 409 and hilos == []
 
 
-def test_rechaza_con_camara_no_segura(entorno):
-    client, ctx, _, _, hilos = entorno
+def _flags(ctx, **banderas):
+    ctx.estado.get_flag.side_effect = lambda k: banderas.get(k, False)
+
+
+def _detalle_auditoria(ctx):
+    llamadas = [c for c in ctx.db.registrar_auditoria.call_args_list
+                if c.args and c.args[0] == "apagar_equipo"]
+    assert len(llamadas) == 1
+    return llamadas[0].kwargs["detalle"]
+
+
+def test_apaga_con_camara_no_segura_y_lo_registra(entorno):
+    """A1: la cámara caliente ya no impide dejar el equipo fuera de servicio."""
+    client, ctx, _, apagados, hilos = entorno
     ctx.estado.sensores_temp["temp_camara"] = 95.0
     r = _apagar(client)
-    assert r.status_code == 409 and r.json()["codigo"] == "camara_no_segura"
-    assert hilos == []
+    assert r.status_code == 200 and r.json()["camara_segura"] is False
+    d = _detalle_auditoria(ctx)
+    assert d["camara_segura"] is False and d["motivo"] == "fuera de servicio solicitado"
+    assert d["estado"] == "PREPARADO" and d["tarjeta_conectada"] is True
+    hilos[0]()
+    assert apagados == [True]
 
 
-def test_rechaza_con_estado_seguro_activo(entorno):
+@pytest.mark.parametrize("estado", [GlobalState.FALLA, GlobalState.EMERGENCIA,
+                                    GlobalState.HIBERNACION, GlobalState.PREPARACION,
+                                    GlobalState.PREPARADO])
+def test_apaga_en_cualquier_estado_salvo_ciclo(entorno, estado):
+    client, ctx, _, apagados, hilos = entorno
+    ctx.estado.get_machine_state.return_value = estado
+    assert _apagar(client).status_code == 200
+    assert _detalle_auditoria(ctx)["estado"] == estado.name
+    hilos[0]()
+    assert apagados == [True]
+
+
+def test_apaga_en_falla_con_paro_de_emergencia_y_camara_caliente(entorno):
+    client, ctx, _, apagados, hilos = entorno
+    ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    ctx.estado.sensores_temp["temp_camara"] = 120.0
+    _flags(ctx, PARO_EMERGENCIA=True, PARO_REAL=True)
+    ctx.control_loop.estado_seguro.activo = True          # pausado por el paro
+    assert _apagar(client).status_code == 200
+    d = _detalle_auditoria(ctx)
+    assert d["paro_emergencia"] is True and d["camara_segura"] is False
+    hilos[0]()
+    assert apagados == [True]
+
+
+def test_apaga_sin_tarjeta_y_aunque_falle_todo_lo_demas(entorno):
+    """Sin tarjeta, con el ALL_OFF/stop lanzando y la BD fallando: Windows se apaga igual."""
+    client, ctx, _, apagados, hilos = entorno
+    ctx.control_loop.desconectado = True
+    ctx.control_loop.datos_vigentes = False
+    ctx.control_loop.stop.side_effect = OSError("puerto roto")
+    ctx.historial_alarmas.detener.side_effect = RuntimeError("x")
+    ctx.cycle_logger.detener.side_effect = RuntimeError("x")
+    ctx.db.close.side_effect = RuntimeError("db")
+    assert _apagar(client).status_code == 200
+    assert _detalle_auditoria(ctx)["tarjeta_conectada"] is False
+    hilos[0]()
+    ctx.db.close.assert_called_once()
+    assert apagados == [True]
+
+
+def test_un_fallo_de_la_bitacora_no_impide_el_apagado(entorno):
+    client, ctx, _, apagados, hilos = entorno
+    ctx.db.registrar_auditoria.side_effect = RuntimeError("bd")
+    assert _apagar(client).status_code == 200
+    hilos[0]()
+    assert apagados == [True]
+
+
+def test_camara_que_no_se_puede_evaluar_cuenta_como_no_segura(entorno):
+    client, ctx, _, _, hilos = entorno
+    ctx.programas_para_seguridad.side_effect = RuntimeError("sin programas")
+    r = _apagar(client)
+    assert r.status_code == 200 and r.json()["camara_segura"] is False
+
+
+def test_rechaza_con_estado_seguro_actuando(entorno):
     client, ctx, _, _, hilos = entorno
     ctx.control_loop.estado_seguro.activo = True
-    assert _apagar(client).json()["codigo"] == "estado_seguro_activo"
+    ctx.control_loop.estado_seguro.requiere_confirmacion = False
+    _flags(ctx)
+    r = _apagar(client)
+    assert r.status_code == 409 and r.json()["codigo"] == "estado_seguro_activo"
+    assert hilos == []
+    ctx.control_loop.iniciar_apagado.assert_not_called()
 
 
-def test_rechaza_con_datos_no_vigentes(entorno):
+def test_estado_seguro_esperando_confirmacion_se_puede_apagar(entorno):
+    client, ctx, _, _, hilos = entorno
+    ctx.control_loop.estado_seguro.activo = True
+    ctx.control_loop.estado_seguro.requiere_confirmacion = True
+    _flags(ctx)
+    assert _apagar(client).status_code == 200
+
+
+def test_estado_seguro_sin_datos_de_la_tarjeta_se_puede_apagar(entorno):
+    client, ctx, _, _, hilos = entorno
+    ctx.control_loop.estado_seguro.activo = True
+    ctx.control_loop.estado_seguro.requiere_confirmacion = False
+    ctx.control_loop.datos_vigentes = False
+    ctx.control_loop.desconectado = True
+    _flags(ctx)
+    assert _apagar(client).status_code == 200
+
+
+def test_apaga_con_datos_no_vigentes(entorno):
     client, ctx, _, _, hilos = entorno
     ctx.control_loop.datos_vigentes = False
-    assert _apagar(client).status_code == 409
+    assert _apagar(client).status_code == 200
+
+
+def test_apaga_con_modo_prueba(entorno):
+    """Un técnico reparando suele estar en modo prueba: puede dejarlo fuera de servicio."""
+    client, ctx, _, _, hilos = entorno
+    ctx.control_loop.test_mode_active = True
+    assert _apagar(client).status_code == 200
+    assert _detalle_auditoria(ctx)["modo_prueba"] is True
+    ctx.control_loop.iniciar_apagado.assert_called_once()
 
 
 def test_sin_ejecutable_no_apaga_windows(monkeypatch):
@@ -115,13 +225,6 @@ def test_rechaza_un_segundo_apagado(entorno):
     ctx.control_loop.apagando = True
     r = _apagar(client)
     assert r.json()["codigo"] == "apagado_en_curso" and hilos == []
-    ctx.control_loop.iniciar_apagado.assert_not_called()
-
-
-def test_rechaza_con_modo_prueba(entorno):
-    client, ctx, _, _, hilos = entorno
-    ctx.control_loop.test_mode_active = True
-    assert _apagar(client).json()["codigo"] == "modo_prueba_activo"
     ctx.control_loop.iniciar_apagado.assert_not_called()
 
 
@@ -177,3 +280,85 @@ def test_sin_respuesta_no_es_un_rechazo():
     from autoclave.ui.service_ui.ui_service_backend import APAGADO_INCIERTO
     ok, motivo = _ui_con_error(TimeoutError("timeout")).apagar_equipo("principal")
     assert ok is False and motivo == APAGADO_INCIERTO
+
+
+# ── A1 (tanda 3): robustez de la secuencia y del arranque posterior ────────
+
+def test_control_loop_stop_cierra_el_puerto_aunque_el_all_off_lance():
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+    cl = ControlLoop.__new__(ControlLoop)
+    cl._running = threading.Event()
+    cl.thread = None
+    cl.link = MagicMock()
+    cl.link.all_off.side_effect = OSError("sin tarjeta")
+    cl.stop()
+    cl.link.stop.assert_called_once()
+
+
+def test_control_loop_stop_sigue_si_el_cierre_del_enlace_lanza():
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+    cl = ControlLoop.__new__(ControlLoop)
+    cl._running = threading.Event()
+    cl.thread = None
+    cl.link = MagicMock()
+    cl.link.all_off.return_value = True
+    cl.link.stop.side_effect = OSError("puerto")
+    cl.stop()      # no lanza
+
+
+def test_el_apagado_no_deja_marcas_que_impidan_arrancar(entorno):
+    """El apagado en FALLA no escribe la marca de ciclo en curso ni toca el
+    contador: el arranque siguiente es normal (sin intervención técnica)."""
+    client, ctx, _, _, hilos = entorno
+    ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    assert _apagar(client).status_code == 200
+    hilos[0]()
+    ctx.contador_ciclos.marcar_en_curso.assert_not_called()
+    ctx.contador_ciclos.siguiente.assert_not_called()
+
+
+def test_un_paso_colgado_no_retrasa_el_apagado_de_windows(entorno, monkeypatch):
+    client, ctx, srv, apagados, hilos = entorno
+    monkeypatch.setattr(srv, "_TOPE_PASO_APAGADO_S", 0.2)
+    libera = threading.Event()
+    ctx.db.close.side_effect = lambda: libera.wait(5)
+    assert _apagar(client).status_code == 200
+    hilos[0]()
+    assert apagados == [True]
+    libera.set()
+
+
+def test_iniciar_apagado_manda_all_off_de_inmediato():
+    """SAF-01 de A1: el lazo se detiene y las salidas se apagan sin esperar a stop()."""
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+    cl = ControlLoop.__new__(ControlLoop)
+    cl._sm_lock = threading.RLock()
+    cl._running = threading.Event()
+    cl._apagando = False
+    cl.estado = MagicMock()
+    cl.link = MagicMock()
+    cl.iniciar_apagado()
+    cl.link.all_off.assert_called_once()
+
+
+def test_iniciar_apagado_sobrevive_a_un_all_off_que_lanza():
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+    cl = ControlLoop.__new__(ControlLoop)
+    cl._sm_lock = threading.RLock()
+    cl._running = threading.Event()
+    cl._apagando = False
+    cl.estado = MagicMock()
+    cl.link = MagicMock()
+    cl.link.all_off.side_effect = OSError("sin tarjeta")
+    cl.iniciar_apagado()
+    assert cl.apagando is True
+
+
+def test_no_se_entra_en_modo_prueba_mientras_se_apaga():
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+    cl = ControlLoop.__new__(ControlLoop)
+    cl._sm_lock = threading.RLock()
+    cl._bloqueo_config = None
+    cl._apagando = True
+    ok, motivo = cl.enter_test_mode()
+    assert ok is False and "apagando" in motivo
