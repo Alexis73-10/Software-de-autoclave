@@ -2,7 +2,7 @@ import shutil
 import sys
 from pathlib import Path
 
-from autoclave.utils.resources import resource_path
+from autoclave.utils.resources import raiz_datos_exe, resource_path
 
 
 def app_root() -> Path:
@@ -18,7 +18,8 @@ def app_root() -> Path:
     PyInstaller (temporal en modo onefile), no a una ubicación estable.
     """
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent
+        # instalado en Archivos de programa: %ProgramData%\Especifika\Autoclave
+        return Path(raiz_datos_exe())
     return Path(__file__).resolve().parents[3]
 
 
