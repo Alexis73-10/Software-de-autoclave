@@ -237,6 +237,20 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
             # txRuta parte en el primer punto: no resolvía el tercer nivel;
             # Opciones lo leía directo del objeto.
             ref = es["opciones"]["secciones"][clave.split(".")[2]]
+        elif clave.startswith("io.") and clave.count(".") == 2:
+            # Entradas / Salidas (planeacion_opciones_entradas_salidas.md §9):
+            # io.di|do|ai|ui.<clave>, tres niveles sin referencia vieja.
+            _, grupo, campo = clave.split(".")
+            ref = es["io"][grupo][campo]
+            parametros = caso_ref["a"][1]
+            if parametros:
+                ref = ref.format(**parametros)
+        elif clave.startswith(("parametros_desc.", "descompresion_modos.")):
+            # Descripciones de parámetros y modos de descompresión (Opciones):
+            # catálogo nuevo, sin referencia vieja; 3 o 4 niveles.
+            ref = es
+            for parte in clave.split("."):
+                ref = ref[parte]
         elif clave.startswith("alarmas."):
             # Bloque nuevo (tanda 2026-10-14, P1 de E6): tres niveles, sin
             # referencia vieja. Se compara contra el catálogo.

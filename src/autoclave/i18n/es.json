@@ -114,6 +114,8 @@
     "edicion_bloqueada": "Edición bloqueada: ciclo en curso",
     "salir_pregunta": "Hay cambios sin guardar. ¿Salir y descartarlos?",
     "salir_confirmar": "Salir",
+    "guardar_parametro_pregunta": "Hay cambios sin guardar en este parámetro. ¿Guardarlos?",
+    "descartar_cambios": "Descartar",
     "cambiar_seccion_pregunta": "Hay cambios sin guardar. ¿Cambiar de sección y descartarlos?",
     "cambiar_seccion_confirmar": "Descartar",
     "secciones": {
@@ -626,5 +628,261 @@
     "estado_disponible": "Disponible",
     "estado_sin_senal": "Sin señal",
     "estado_no_instalado": "No instalado"
+  },
+  "io": {
+    "err_rechazado": "El equipo rechazó la orden.",
+    "err_sin_base": "Sin registro de auditoría: no se aplicó el cambio.",
+    "err_sin_previa": "No hay una calibración anterior que restaurar.",
+    "err_confirmacion": "La calibración está fuera del rango habitual y requiere confirmación.",
+    "err_implausible": "La calibración no es plausible y no se puede aplicar.",
+    "di": {
+      "aire_comprimido": "Aire comprimido",
+      "presion_agua": "Presión de agua",
+      "puerta_1_cerrada": "Puerta 1 cerrada",
+      "puerta_1_abierta": "Puerta 1 abierta",
+      "puerta_2_cerrada": "Puerta 2 cerrada",
+      "puerta_2_abierta": "Puerta 2 abierta",
+      "atrapamiento_puerta_1": "Atrapamiento puerta 1",
+      "atrapamiento_puerta_2": "Atrapamiento puerta 2",
+      "agua_bomba": "Agua bomba",
+      "agua_generador": "Agua generador",
+      "paro_emergencia": "Paro de emergencia",
+      "agua_camara": "Agua cámara",
+      "vapor_suministro": "Suministro de vapor"
+    },
+    "do": {
+      "vapor_generador": "Vapor generador",
+      "vapor_chaqueta": "Vapor chaqueta",
+      "vapor_camara": "Vapor cámara",
+      "descompresion_rapida": "Descompresión rápida",
+      "descompresion_chaqueta": "Descompresión chaqueta",
+      "vacio_camara": "Vacío cámara",
+      "desbloqueo_puerta_1": "Desbloqueo puerta 1",
+      "desbloqueo_puerta_2": "Desbloqueo puerta 2",
+      "bloqueo_puerta_1": "Bloqueo puerta 1",
+      "bloqueo_puerta_2": "Bloqueo puerta 2",
+      "aire_atmosferico_camara": "Aire atmosférico cámara",
+      "agua_intercambiador": "Agua intercambiador",
+      "agua_bomba": "Agua bomba",
+      "bomba_vacio": "Bomba de vacío",
+      "abrir_puerta_1": "Abrir puerta 1",
+      "abrir_puerta_2": "Abrir puerta 2",
+      "cerrar_puerta_1": "Cerrar puerta 1",
+      "cerrar_puerta_2": "Cerrar puerta 2"
+    },
+    "ai": {
+      "temp_camara": "Temperatura cámara",
+      "temp_referencia": "Temperatura referencia",
+      "temp_drenaje": "Temperatura drenaje",
+      "pres_camara": "Presión cámara",
+      "pres_chaqueta": "Presión chaqueta",
+      "pres_empaque_1": "Presión empaque 1",
+      "pres_empaque_2": "Presión empaque 2"
+    },
+    "ui": {
+      "titulo": "ENTRADAS / SALIDAS",
+      "seg_entradas": "Entradas",
+      "seg_salidas": "Salidas",
+      "seg_temperatura": "Temperatura",
+      "seg_presion": "Presión",
+      "solo_lectura": "SOLO LECTURA",
+      "n_canales": "{n} CANALES",
+      "activo": "ACTIVO",
+      "inactivo": "INACTIVO",
+      "sin_datos": "Sin datos",
+      "on": "ON",
+      "off": "OFF",
+      "enlace_ok": "Enlace con la tarjeta de E/S: activo · actualiza cada 1 s",
+      "enlace_perdido": "Sin enlace con la tarjeta de E/S",
+      "habilitar_prueba": "Habilitar modo prueba",
+      "salir_prueba": "Salir del modo prueba",
+      "banner_prueba": "MODO PRUEBA ACTIVO",
+      "banner_regla": "Las salidas se apagan al salir de la sección, al cerrar sesión o tras 5 minutos sin actividad.",
+      "dialogo_titulo": "MODO PRUEBA — PRECAUCIÓN",
+      "dialogo_texto": "Se apagarán todas las salidas activas y podrá accionar manualmente cualquier salida SIN verificar la presión de la cámara ni el estado de las puertas. Solo el seguro de atrapamiento sigue activo. Úselo únicamente si conoce el sistema.",
+      "continuar": "Continuar",
+      "activar": "Activar",
+      "apagar": "Apagar",
+      "mantener": "Mantener pulsado",
+      "bloqueada": "No disponible en este equipo",
+      "atrapamiento_aviso": "Con el seguro de atrapamiento activo, la orden de cerrar abre la puerta.",
+      "sin_permiso_prueba": "El modo prueba no está disponible en este estado o con este usuario.",
+      "cerrar_sesion_prueba": "Hay un modo prueba activo: al cerrar sesión se apagarán las salidas.",
+      "adc": "ADC",
+      "ganancia": "Ganancia",
+      "offset": "Offset",
+      "calibrar": "Calibrar",
+      "sin_lectura": "Sin lectura válida: revise el cableado del sensor",
+      "de_fabrica": "De fábrica",
+      "ultima_calibracion": "Última calibración",
+      "cal_titulo": "CALIBRAR · {sensor}",
+      "cal_lectura": "Lectura en vivo",
+      "cal_actual": "Actual",
+      "cal_defecto": "Por defecto",
+      "cal_punto_bajo": "Punto bajo",
+      "cal_punto_alto": "Punto alto",
+      "cal_real": "Valor real de referencia",
+      "cal_equipo": "Lectura del equipo",
+      "cal_capturar": "Capturar",
+      "cal_resultado": "Resultado",
+      "cal_aplicar": "Aplicar calibración",
+      "cal_restaurar_ultimo": "Restaurar último",
+      "cal_restaurar_defecto": "Restaurar por defecto",
+      "cal_confirmar_titulo": "La calibración está fuera del rango habitual. ¿Aplicarla de todos modos?",
+      "cal_confirmar_restaurar": "¿Restaurar la calibración? El cambio queda en la bitácora.",
+      "cal_polinomio": "Este canal tiene un polinomio de calibración vigente: la recta nueva lo reemplaza.",
+      "cal_aplicada": "Calibración aplicada.",
+      "atras_cal": "Volver"
+    }
+  },
+  "parametros_desc": {
+    "globals": {
+      "F0": "Activa el cálculo de letalidad (F0): la esterilización termina solo cuando se cumplen el tiempo y el F0 objetivo.",
+      "F0_objetivo": "Letalidad acumulada mínima que debe alcanzarse para dar por válida la esterilización.",
+      "ciclos_multiples": "Permite encadenar varios ciclos seguidos sin volver al menú entre uno y otro.",
+      "enfriar_chaqueta_secado": "Enfría la chaqueta durante el secado al terminar el ciclo.",
+      "presion_chaqueta": "Presión que se mantiene en la chaqueta antes de iniciar y durante el ciclo.",
+      "rango_presion_chaqueta": "Tolerancia (±) alrededor de la presión de chaqueta; fuera de ella se alerta y no se permite iniciar.",
+      "tipo_carga": "Tipo de carga del ciclo: sólida o líquida. Limita los modos de descompresión permitidos."
+    },
+    "precalentamiento": {
+      "tiempo_precalentamiento": "Tiempo que se sostiene la chaqueta caliente antes de pasar al prevacío.",
+      "presion_precalentamiento": "Presión de chaqueta que se debe alcanzar y sostener durante el precalentamiento.",
+      "timeout_precalentamiento": "Tiempo máximo del precalentamiento; si se excede, el ciclo falla."
+    },
+    "prevacio": {
+      "timeout_bajo": "Tiempo máximo para llegar a la presión baja de un pulso; si se excede, el ciclo falla.",
+      "timeout_alto": "Tiempo máximo para llegar a la presión alta de un pulso; si se excede, el ciclo falla.",
+      "conteo_pulso_a": "Cantidad de repeticiones del pulso A (0 = el pulso no se ejecuta).",
+      "presion_alta_pulso_a": "Presión a la que se sube la cámara con vapor en cada repetición del pulso A.",
+      "tiempo_adicional_alto_a": "Segundos extra que se sostiene la presión alta del pulso A.",
+      "presion_baja_pulso_a": "Presión de vacío a la que se baja la cámara en cada repetición del pulso A.",
+      "tiempo_adicional_bajo_a": "Segundos extra que se sostiene el vacío del pulso A.",
+      "conteo_pulso_b": "Cantidad de repeticiones del pulso B (0 = el pulso no se ejecuta).",
+      "presion_alta_pulso_b": "Presión a la que se sube la cámara con vapor en cada repetición del pulso B.",
+      "tiempo_adicional_alto_b": "Segundos extra que se sostiene la presión alta del pulso B.",
+      "presion_baja_pulso_b": "Presión de vacío a la que se baja la cámara en cada repetición del pulso B.",
+      "tiempo_adicional_bajo_b": "Segundos extra que se sostiene el vacío del pulso B.",
+      "conteo_pulso_c": "Cantidad de repeticiones del pulso C (0 = el pulso no se ejecuta).",
+      "presion_alta_pulso_c": "Presión a la que se sube la cámara con vapor en cada repetición del pulso C.",
+      "tiempo_adicional_alto_c": "Segundos extra que se sostiene la presión alta del pulso C.",
+      "presion_baja_pulso_c": "Presión de vacío a la que se baja la cámara en cada repetición del pulso C.",
+      "tiempo_adicional_bajo_c": "Segundos extra que se sostiene el vacío del pulso C.",
+      "conteo_pulso_d": "Cantidad de repeticiones del pulso D (0 = el pulso no se ejecuta).",
+      "presion_alta_pulso_d": "Presión a la que se sube la cámara con vapor en cada repetición del pulso D.",
+      "tiempo_adicional_alto_d": "Segundos extra que se sostiene la presión alta del pulso D.",
+      "presion_baja_pulso_d": "Presión de vacío a la que se baja la cámara en cada repetición del pulso D.",
+      "tiempo_adicional_bajo_d": "Segundos extra que se sostiene el vacío del pulso D."
+    },
+    "calentamiento": {
+      "temperatura_calentamiento": "Temperatura objetivo al final de la rampa de calentamiento.",
+      "presion_add_calentamiento": "Presión adicional sobre la de saturación que se permite como techo durante la rampa.",
+      "timeout_calentamiento": "Tiempo máximo de la rampa de calentamiento; si se excede, el ciclo falla.",
+      "factor_calentamiento": "Porcentaje de reducción del vapor al acercarse a los objetivos para evitar sobrepaso.",
+      "rango_calentamiento": "Distancia al objetivo desde la cual se reduce el vapor; también define cuánto sobrepaso se tolera.",
+      "tasa_calentamiento": "Velocidad máxima de subida de temperatura permitida.",
+      "tasa_presion": "Velocidad máxima de subida de presión permitida.",
+      "tiempo_estable_preesterilizacion": "Tiempo continuo dentro de rango que se exige antes de pasar a esterilización.",
+      "intervalo_segmentos_calor": "Periodo del ciclo de apertura/cierre del vapor durante el calentamiento.",
+      "escape_lento_on": "Segundos que el escape lento permanece abierto en cada repetición.",
+      "escape_lento_off": "Segundos que el escape lento permanece cerrado (0 = siempre abierto).",
+      "escape_rapido_on": "Segundos que el escape rápido permanece abierto en cada repetición (0 = siempre cerrado).",
+      "escape_rapido_off": "Segundos que el escape rápido permanece cerrado entre aperturas.",
+      "rango_temp_estabilizacion": "Margen de temperatura en el que se considera estable la cámara antes de esterilizar.",
+      "timeout_recuperacion_estabilizacion": "Tiempo máximo para recuperar la estabilidad si se sale de rango."
+    },
+    "estabilizacion": {
+      "tiempo_estabilizacion": "Tiempo que la cámara debe mantenerse estable antes de esterilizar.",
+      "temperatura_estabilizacion": "Temperatura objetivo de la estabilización.",
+      "rango_temperatura_estabilizacion": "Margen de temperatura (±) admitido durante la estabilización.",
+      "rango_presion_estabilizacion": "Margen de presión (±) admitido durante la estabilización.",
+      "timeout_recuperacion": "Tiempo máximo para volver a rango antes de declarar falla."
+    },
+    "esterilizacion": {
+      "escape_lento_on_ester": "Segundos que el escape lento permanece abierto en cada repetición durante la esterilización.",
+      "escape_lento_off_ester": "Segundos que el escape lento permanece cerrado (0 = siempre abierto).",
+      "escape_rapido_on_ester": "Segundos que el escape rápido permanece abierto en cada repetición (0 = siempre cerrado).",
+      "escape_rapido_off_ester": "Segundos que el escape rápido permanece cerrado entre aperturas.",
+      "temperatura_esterilizacion": "Temperatura de referencia que se sostiene durante toda la esterilización.",
+      "tiempo_esterilizacion": "Duración del mantenimiento a la temperatura de esterilización.",
+      "factor_esterilizacion": "Porcentaje del periodo en que el vapor permanece cerrado mientras la presión está dentro de banda.",
+      "presion_add_esterilizacion": "Presión sobre la de saturación a partir de la cual se corta el vapor (techo de control).",
+      "intervalo_segmentos_ester": "Periodo del ciclo de apertura/cierre del vapor durante la esterilización.",
+      "rango_temperatura_ester": "Sobretemperatura máxima admitida; por encima el ciclo falla.",
+      "rango_presion_ester": "Sobrepresión máxima admitida sobre la de saturación; por encima el ciclo falla.",
+      "brecha_segura_temperatura": "Margen sobre la temperatura objetivo para pasar de recuperación a control fino.",
+      "brecha_error_temperatura": "Caída de temperatura bajo el objetivo que se considera falla.",
+      "brecha_error_presion": "Caída de presión bajo la de saturación que se considera falla.",
+      "brecha_segura_presion": "Caída de presión que activa la recuperación; debe ser menor que la de falla."
+    },
+    "secado": {
+      "modo": "Forma de secar la carga: 1, 2 o 3 según el equipo.",
+      "tiempo_secado": "Duración total del secado.",
+      "presion_chaqueta_secado": "Presión de chaqueta que se mantiene durante el secado.",
+      "rango_chaqueta_secado": "Tolerancia (±) de la presión de chaqueta durante el secado.",
+      "presion_baja_secado": "Presión baja de la cámara en cada pulso de vacío del secado.",
+      "presion_alta_secado": "Presión alta de la cámara en cada pulso del secado.",
+      "timeout_pulso": "Tiempo máximo de cada pulso de secado; si se excede, el ciclo falla."
+    },
+    "descompresion": {
+      "modo": "Forma de bajar la presión al final de la esterilización. Ver la descripción del modo elegido.",
+      "tiempo_pre_despresurizacion": "Espera antes de empezar a despresurizar.",
+      "modo_1": {
+        "timeout": "Tiempo máximo del modo 1; si se excede, el ciclo falla."
+      },
+      "modo_2": {
+        "timeout": "Tiempo máximo del modo 2; si se excede, el ciclo falla."
+      },
+      "modo_3": {
+        "presion_cambio": "Presión a la que se pasa del escape lento al rápido.",
+        "timeout": "Tiempo máximo del modo 3; si se excede, el ciclo falla."
+      },
+      "modo_4": {
+        "timeout": "Tiempo máximo del modo 4; si se excede, el ciclo falla.",
+        "presion_camara_enfriamiento": "Presión que se mantiene en la cámara con aire comprimido mientras se enfría.",
+        "temperatura_enfriamiento": "Temperatura bajo la cual la carga se considera enfriada y se despresuriza.",
+        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada pulso.",
+        "tiempo_cierre_chaqueta": "Segundos que el drenaje permanece cerrado entre pulsos (0 = siempre abierto)."
+      },
+      "modo_5": {
+        "timeout": "Tiempo máximo del modo 5; si se excede, el ciclo falla.",
+        "presion_camara_enfriamiento": "Presión que se mantiene en la cámara con aire comprimido mientras se enfría.",
+        "temperatura_enfriamiento": "Temperatura bajo la cual la carga se considera enfriada y se despresuriza.",
+        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada pulso.",
+        "tiempo_cierre_chaqueta": "Segundos que el drenaje permanece cerrado entre pulsos (0 = siempre abierto)."
+      }
+    },
+    "finalizacion": {
+      "tiempo_espera_apertura": "Espera fija tras terminar el ciclo antes de abrir la puerta automáticamente.",
+      "temp_max_apertura": "Temperatura máxima de la cámara para permitir la apertura automática.",
+      "timeout_temperatura": "Tiempo tras el cual se avisa si la cámara no baja a la temperatura de apertura.",
+      "apertura_automatica": "Abre sola la puerta de descarga y confirma el ciclo al terminar con éxito."
+    }
+  },
+  "descompresion_modos": {
+    "0": {
+      "nombre": "Natural",
+      "desc": "Sin escape: la cámara se enfría y baja de presión sola hasta la atmosférica."
+    },
+    "1": {
+      "nombre": "Rápida",
+      "desc": "Abre el escape rápido desde el inicio y baja la presión lo más rápido posible. Para carga sólida."
+    },
+    "2": {
+      "nombre": "Lenta",
+      "desc": "Abre solo el escape lento: la presión baja gradualmente. Para cargas sensibles a cambios bruscos."
+    },
+    "3": {
+      "nombre": "Lenta y rápida",
+      "desc": "Escape lento hasta la presión de cambio y luego escape rápido hasta llegar a la atmosférica."
+    },
+    "4": {
+      "nombre": "Con enfriamiento",
+      "desc": "Enfría con agua en la chaqueta y mantiene presión con aire comprimido hasta bajar de la temperatura de enfriamiento; luego abre el escape rápido. Para cargas líquidas."
+    },
+    "5": {
+      "nombre": "Con enfriamiento y escape lento",
+      "desc": "Como el modo 4, pero con ayuda del escape lento durante el enfriamiento; luego abre el escape rápido."
+    }
   }
 }

@@ -114,6 +114,8 @@
     "edicion_bloqueada": "Editing locked: cycle in progress",
     "salir_pregunta": "There are unsaved changes. Exit and discard them?",
     "salir_confirmar": "Exit",
+    "guardar_parametro_pregunta": "This parameter has unsaved changes. Save them?",
+    "descartar_cambios": "Discard",
     "cambiar_seccion_pregunta": "There are unsaved changes. Change section and discard them?",
     "cambiar_seccion_confirmar": "Discard",
     "secciones": {
@@ -626,5 +628,261 @@
     "estado_disponible": "Available",
     "estado_sin_senal": "No signal",
     "estado_no_instalado": "Not installed"
+  },
+  "io": {
+    "err_rechazado": "The equipment rejected the command.",
+    "err_sin_base": "No audit record: the change was not applied.",
+    "err_sin_previa": "There is no previous calibration to restore.",
+    "err_confirmacion": "The calibration is outside the usual range and needs confirmation.",
+    "err_implausible": "The calibration is not plausible and cannot be applied.",
+    "di": {
+      "aire_comprimido": "Compressed air",
+      "presion_agua": "Water pressure",
+      "puerta_1_cerrada": "Door 1 closed",
+      "puerta_1_abierta": "Door 1 open",
+      "puerta_2_cerrada": "Door 2 closed",
+      "puerta_2_abierta": "Door 2 open",
+      "atrapamiento_puerta_1": "Door 1 entrapment",
+      "atrapamiento_puerta_2": "Door 2 entrapment",
+      "agua_bomba": "Pump water",
+      "agua_generador": "Generator water",
+      "paro_emergencia": "Emergency stop",
+      "agua_camara": "Chamber water",
+      "vapor_suministro": "Steam supply"
+    },
+    "do": {
+      "vapor_generador": "Generator steam",
+      "vapor_chaqueta": "Jacket steam",
+      "vapor_camara": "Chamber steam",
+      "descompresion_rapida": "Fast decompression",
+      "descompresion_chaqueta": "Jacket decompression",
+      "vacio_camara": "Chamber vacuum",
+      "desbloqueo_puerta_1": "Door 1 unlock",
+      "desbloqueo_puerta_2": "Door 2 unlock",
+      "bloqueo_puerta_1": "Door 1 lock",
+      "bloqueo_puerta_2": "Door 2 lock",
+      "aire_atmosferico_camara": "Chamber atmospheric air",
+      "agua_intercambiador": "Heat exchanger water",
+      "agua_bomba": "Pump water",
+      "bomba_vacio": "Vacuum pump",
+      "abrir_puerta_1": "Open door 1",
+      "abrir_puerta_2": "Open door 2",
+      "cerrar_puerta_1": "Close door 1",
+      "cerrar_puerta_2": "Close door 2"
+    },
+    "ai": {
+      "temp_camara": "Chamber temperature",
+      "temp_referencia": "Reference temperature",
+      "temp_drenaje": "Drain temperature",
+      "pres_camara": "Chamber pressure",
+      "pres_chaqueta": "Jacket pressure",
+      "pres_empaque_1": "Gasket pressure 1",
+      "pres_empaque_2": "Gasket pressure 2"
+    },
+    "ui": {
+      "titulo": "INPUTS / OUTPUTS",
+      "seg_entradas": "Inputs",
+      "seg_salidas": "Outputs",
+      "seg_temperatura": "Temperature",
+      "seg_presion": "Pressure",
+      "solo_lectura": "READ ONLY",
+      "n_canales": "{n} CHANNELS",
+      "activo": "ACTIVE",
+      "inactivo": "INACTIVE",
+      "sin_datos": "No data",
+      "on": "ON",
+      "off": "OFF",
+      "enlace_ok": "I/O board link: active · updates every 1 s",
+      "enlace_perdido": "No link with the I/O board",
+      "habilitar_prueba": "Enable test mode",
+      "salir_prueba": "Exit test mode",
+      "banner_prueba": "TEST MODE ACTIVE",
+      "banner_regla": "Outputs turn off when leaving the section, logging out or after 5 minutes without activity.",
+      "dialogo_titulo": "TEST MODE — CAUTION",
+      "dialogo_texto": "All active outputs will be turned off and you will be able to drive any output manually WITHOUT checking chamber pressure or door state. Only the entrapment safeguard stays active. Use it only if you know the system.",
+      "continuar": "Continue",
+      "activar": "Turn on",
+      "apagar": "Turn off",
+      "mantener": "Hold to run",
+      "bloqueada": "Not available on this equipment",
+      "atrapamiento_aviso": "With the entrapment safeguard active, the close command opens the door.",
+      "sin_permiso_prueba": "Test mode is not available in this state or for this user.",
+      "cerrar_sesion_prueba": "Test mode is active: logging out will turn the outputs off.",
+      "adc": "ADC",
+      "ganancia": "Gain",
+      "offset": "Offset",
+      "calibrar": "Calibrate",
+      "sin_lectura": "No valid reading: check the sensor wiring",
+      "de_fabrica": "Factory",
+      "ultima_calibracion": "Last calibration",
+      "cal_titulo": "CALIBRATE · {sensor}",
+      "cal_lectura": "Live reading",
+      "cal_actual": "Current",
+      "cal_defecto": "Default",
+      "cal_punto_bajo": "Low point",
+      "cal_punto_alto": "High point",
+      "cal_real": "Reference (true) value",
+      "cal_equipo": "Equipment reading",
+      "cal_capturar": "Capture",
+      "cal_resultado": "Result",
+      "cal_aplicar": "Apply calibration",
+      "cal_restaurar_ultimo": "Restore last",
+      "cal_restaurar_defecto": "Restore default",
+      "cal_confirmar_titulo": "The calibration is outside the usual range. Apply it anyway?",
+      "cal_confirmar_restaurar": "Restore the calibration? The change is logged.",
+      "cal_polinomio": "This channel has an active calibration polynomial: the new line replaces it.",
+      "cal_aplicada": "Calibration applied.",
+      "atras_cal": "Back"
+    }
+  },
+  "parametros_desc": {
+    "globals": {
+      "F0": "Enables lethality (F0) calculation: sterilization ends only when both the time and the target F0 are met.",
+      "F0_objetivo": "Minimum accumulated lethality required for the sterilization to be valid.",
+      "ciclos_multiples": "Allows chaining several cycles without returning to the menu in between.",
+      "enfriar_chaqueta_secado": "Cools the jacket during drying at the end of the cycle.",
+      "presion_chaqueta": "Pressure held in the jacket before and during the cycle.",
+      "rango_presion_chaqueta": "Tolerance (±) around the jacket pressure; outside it an alert is raised and starting is not allowed.",
+      "tipo_carga": "Load type: solid or liquid. Limits the allowed decompression modes."
+    },
+    "precalentamiento": {
+      "tiempo_precalentamiento": "Time the jacket is held hot before moving on to pre-vacuum.",
+      "presion_precalentamiento": "Jacket pressure to reach and hold during preheating.",
+      "timeout_precalentamiento": "Maximum preheating time; if exceeded, the cycle fails."
+    },
+    "prevacio": {
+      "timeout_bajo": "Maximum time to reach the low pressure of a pulse; if exceeded, the cycle fails.",
+      "timeout_alto": "Maximum time to reach the high pressure of a pulse; if exceeded, the cycle fails.",
+      "conteo_pulso_a": "Number of repetitions of pulse A (0 = pulse is skipped).",
+      "presion_alta_pulso_a": "Pressure the chamber is raised to with steam on each repetition of pulse A.",
+      "tiempo_adicional_alto_a": "Extra seconds the high pressure of pulse A is held.",
+      "presion_baja_pulso_a": "Vacuum pressure the chamber is lowered to on each repetition of pulse A.",
+      "tiempo_adicional_bajo_a": "Extra seconds the vacuum of pulse A is held.",
+      "conteo_pulso_b": "Number of repetitions of pulse B (0 = pulse is skipped).",
+      "presion_alta_pulso_b": "Pressure the chamber is raised to with steam on each repetition of pulse B.",
+      "tiempo_adicional_alto_b": "Extra seconds the high pressure of pulse B is held.",
+      "presion_baja_pulso_b": "Vacuum pressure the chamber is lowered to on each repetition of pulse B.",
+      "tiempo_adicional_bajo_b": "Extra seconds the vacuum of pulse B is held.",
+      "conteo_pulso_c": "Number of repetitions of pulse C (0 = pulse is skipped).",
+      "presion_alta_pulso_c": "Pressure the chamber is raised to with steam on each repetition of pulse C.",
+      "tiempo_adicional_alto_c": "Extra seconds the high pressure of pulse C is held.",
+      "presion_baja_pulso_c": "Vacuum pressure the chamber is lowered to on each repetition of pulse C.",
+      "tiempo_adicional_bajo_c": "Extra seconds the vacuum of pulse C is held.",
+      "conteo_pulso_d": "Number of repetitions of pulse D (0 = pulse is skipped).",
+      "presion_alta_pulso_d": "Pressure the chamber is raised to with steam on each repetition of pulse D.",
+      "tiempo_adicional_alto_d": "Extra seconds the high pressure of pulse D is held.",
+      "presion_baja_pulso_d": "Vacuum pressure the chamber is lowered to on each repetition of pulse D.",
+      "tiempo_adicional_bajo_d": "Extra seconds the vacuum of pulse D is held."
+    },
+    "calentamiento": {
+      "temperatura_calentamiento": "Target temperature at the end of the heating ramp.",
+      "presion_add_calentamiento": "Extra pressure above saturation allowed as a ceiling during the ramp.",
+      "timeout_calentamiento": "Maximum heating ramp time; if exceeded, the cycle fails.",
+      "factor_calentamiento": "Percentage of steam reduction when nearing the targets to avoid overshoot.",
+      "rango_calentamiento": "Distance to the target from which steam is reduced; also sets how much overshoot is tolerated.",
+      "tasa_calentamiento": "Maximum allowed temperature rise rate.",
+      "tasa_presion": "Maximum allowed pressure rise rate.",
+      "tiempo_estable_preesterilizacion": "Continuous time within range required before moving on to sterilization.",
+      "intervalo_segmentos_calor": "Period of the steam open/close cycle during heating.",
+      "escape_lento_on": "Seconds the slow exhaust stays open on each repetition.",
+      "escape_lento_off": "Seconds the slow exhaust stays closed (0 = always open).",
+      "escape_rapido_on": "Seconds the fast exhaust stays open on each repetition (0 = always closed).",
+      "escape_rapido_off": "Seconds the fast exhaust stays closed between openings.",
+      "rango_temp_estabilizacion": "Temperature margin within which the chamber is considered stable before sterilizing.",
+      "timeout_recuperacion_estabilizacion": "Maximum time to regain stability after leaving the range."
+    },
+    "estabilizacion": {
+      "tiempo_estabilizacion": "Time the chamber must stay stable before sterilizing.",
+      "temperatura_estabilizacion": "Target temperature of the stabilization.",
+      "rango_temperatura_estabilizacion": "Temperature margin (±) allowed during stabilization.",
+      "rango_presion_estabilizacion": "Pressure margin (±) allowed during stabilization.",
+      "timeout_recuperacion": "Maximum time to return to range before declaring a failure."
+    },
+    "esterilizacion": {
+      "escape_lento_on_ester": "Seconds the slow exhaust stays open on each repetition during sterilization.",
+      "escape_lento_off_ester": "Seconds the slow exhaust stays closed (0 = always open).",
+      "escape_rapido_on_ester": "Seconds the fast exhaust stays open on each repetition (0 = always closed).",
+      "escape_rapido_off_ester": "Seconds the fast exhaust stays closed between openings.",
+      "temperatura_esterilizacion": "Reference temperature held throughout sterilization.",
+      "tiempo_esterilizacion": "Duration of the hold at sterilization temperature.",
+      "factor_esterilizacion": "Percentage of the period the steam stays closed while pressure is within the band.",
+      "presion_add_esterilizacion": "Pressure above saturation at which steam is cut (control ceiling).",
+      "intervalo_segmentos_ester": "Period of the steam open/close cycle during sterilization.",
+      "rango_temperatura_ester": "Maximum overtemperature allowed; above it the cycle fails.",
+      "rango_presion_ester": "Maximum overpressure above saturation allowed; above it the cycle fails.",
+      "brecha_segura_temperatura": "Margin above the target temperature to switch from recovery to fine control.",
+      "brecha_error_temperatura": "Temperature drop below the target considered a failure.",
+      "brecha_error_presion": "Pressure drop below saturation considered a failure.",
+      "brecha_segura_presion": "Pressure drop that triggers recovery; must be smaller than the failure drop."
+    },
+    "secado": {
+      "modo": "How the load is dried: 1, 2 or 3 depending on the unit.",
+      "tiempo_secado": "Total drying duration.",
+      "presion_chaqueta_secado": "Jacket pressure held during drying.",
+      "rango_chaqueta_secado": "Tolerance (±) of the jacket pressure during drying.",
+      "presion_baja_secado": "Low chamber pressure on each drying vacuum pulse.",
+      "presion_alta_secado": "High chamber pressure on each drying pulse.",
+      "timeout_pulso": "Maximum time of each drying pulse; if exceeded, the cycle fails."
+    },
+    "descompresion": {
+      "modo": "How pressure is released after sterilization. See the description of the chosen mode.",
+      "tiempo_pre_despresurizacion": "Wait before starting to depressurize.",
+      "modo_1": {
+        "timeout": "Maximum time of mode 1; if exceeded, the cycle fails."
+      },
+      "modo_2": {
+        "timeout": "Maximum time of mode 2; if exceeded, the cycle fails."
+      },
+      "modo_3": {
+        "presion_cambio": "Pressure at which the slow exhaust hands over to the fast one.",
+        "timeout": "Maximum time of mode 3; if exceeded, the cycle fails."
+      },
+      "modo_4": {
+        "timeout": "Maximum time of mode 4; if exceeded, the cycle fails.",
+        "presion_camara_enfriamiento": "Pressure held in the chamber with compressed air while cooling.",
+        "temperatura_enfriamiento": "Temperature below which the load is considered cooled and depressurization starts.",
+        "tiempo_apertura_chaqueta": "Seconds the jacket drain stays open on each pulse.",
+        "tiempo_cierre_chaqueta": "Seconds the drain stays closed between pulses (0 = always open)."
+      },
+      "modo_5": {
+        "timeout": "Maximum time of mode 5; if exceeded, the cycle fails.",
+        "presion_camara_enfriamiento": "Pressure held in the chamber with compressed air while cooling.",
+        "temperatura_enfriamiento": "Temperature below which the load is considered cooled and depressurization starts.",
+        "tiempo_apertura_chaqueta": "Seconds the jacket drain stays open on each pulse.",
+        "tiempo_cierre_chaqueta": "Seconds the drain stays closed between pulses (0 = always open)."
+      }
+    },
+    "finalizacion": {
+      "tiempo_espera_apertura": "Fixed wait after the cycle ends before the door opens automatically.",
+      "temp_max_apertura": "Maximum chamber temperature that allows automatic opening.",
+      "timeout_temperatura": "Time after which a warning is raised if the chamber does not cool to the opening temperature.",
+      "apertura_automatica": "Opens the unload door by itself and confirms the cycle after a successful end."
+    }
+  },
+  "descompresion_modos": {
+    "0": {
+      "nombre": "Natural",
+      "desc": "No exhaust: the chamber cools and drops to atmospheric pressure on its own."
+    },
+    "1": {
+      "nombre": "Fast",
+      "desc": "Opens the fast exhaust from the start and drops pressure as quickly as possible. For solid loads."
+    },
+    "2": {
+      "nombre": "Slow",
+      "desc": "Opens only the slow exhaust: pressure drops gradually. For loads sensitive to sudden changes."
+    },
+    "3": {
+      "nombre": "Slow then fast",
+      "desc": "Slow exhaust down to the switch pressure, then fast exhaust until atmospheric."
+    },
+    "4": {
+      "nombre": "With cooling",
+      "desc": "Cools with jacket water and holds pressure with compressed air until below the cooling temperature, then opens the fast exhaust. For liquid loads."
+    },
+    "5": {
+      "nombre": "With cooling and slow exhaust",
+      "desc": "Like mode 4, but assisted by the slow exhaust during cooling, then opens the fast exhaust."
+    }
   }
 }

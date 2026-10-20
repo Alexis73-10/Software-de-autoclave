@@ -223,6 +223,21 @@ def _sufijos_validacion():
     return [getattr(v, n) for n in dir(v) if n.startswith("COD_") and getattr(v, n) != v.COD_EXISTE]
 
 
+def _parametros_de_perfiles():
+    import glob, json as _j
+    salida = set()
+    def rec(n, ruta):
+        if isinstance(n, dict) and "value" in n and not isinstance(n["value"], dict):
+            salida.add(".".join(ruta)); return
+        if isinstance(n, dict):
+            for k, v in n.items():
+                rec(v, ruta + [k])
+    for f in glob.glob(str(RAIZ / "src" / "autoclave" / "cycles" / "*" / "*.json")):
+        for sec, v in _j.load(open(f, encoding="utf-8"))["parameters"].items():
+            rec(v, [sec])
+    return sorted(salida)
+
+
 FAMILIAS = {
     "menu.": _sufijos_menu,
     "reportes.": _sufijos_reportes,
@@ -253,6 +268,10 @@ FAMILIAS = {
         "autoclave.backend.server", fromlist=["_SECCIONES_PROGRAMA"])._SECCIONES_PROGRAMA),
     "opciones.valor_": lambda: list(__import__(
         "autoclave.core.managers.catalogo_parametros", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
+    # Descripción de cada parámetro de los perfiles de ciclo (tarjeta de ajuste)
+    "parametros_desc.": lambda: _parametros_de_perfiles(),
+    # Descompresión: nombre y qué hace cada modo (0 a 5) en Parámetros del ciclo
+    "descompresion_modos.": lambda: [f"{n}.{c}" for n in range(6) for c in ("nombre", "desc")],
     "exportacion.impresora_": _sufijos_impresora,
     "validacion.": _sufijos_validacion,
 }
