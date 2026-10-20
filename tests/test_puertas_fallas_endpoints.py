@@ -53,7 +53,8 @@ def entorno(tmp_path):
 
 
 def _abrir(cliente, puerta="Puerta 1"):
-    return cliente.post(f"/doors/{puerta}/open", json={"source_door": 1})
+    # S3e (tanda 2): cada pantalla opera su puerta; source_door = el número de la puerta
+    return cliente.post(f"/doors/{puerta}/open", json={"source_door": int(puerta[-1])})
 
 
 def _eventos(ctx, evento):

@@ -12,11 +12,12 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_tanda_2.md`. Rama `tanda-2
 | U2 Navegación inferior uniforme | hecha | `1c778c7` | 3386 | `U2_navegacion_inferior.md` |
 | U3 Botón de tiempo de secado | hecha (sin botón que retirar; sin código) | (este commit) | 3386 | `U3_boton_secado.md` |
 | S1 DO1/DO2 | hecha | `5aa6f92` | 3394 | `S1_do1_do2.md` |
-| S2 `/cycle/select` | hecha | (ver git log: S2) | 3413 | `S2_cycle_select.md` |
-| U4 Tarjeta desconectada vs. paro | hecha (insertada antes de S3 por instrucción del 19-oct); revisores sin Altos, Medias corregidas; 3 decisiones sin confirmar (U4-1..3) | (ver git log: U4) | 3498 (árbol con R1 sin commit de la otra sesión; S3a en stash) | `U4_tarjeta_desconectada.md` |
-| S3 Pendientes de seguridad | en curso: S3a (plausibilidad de calibración) implementada SIN COMMIT y **apartada en `git stash`** (`stash@{0}`: "S3a tanda 2: plausibilidad de calibración (sin commit, apartada para U4)"; catalogo_parametros.py, server.py, tests/test_s3_calibracion_plausibilidad.py) para hacer U4 primero. Al retomar: `git stash pop`, suite completa, revisores, informe y commit de S3a; luego S3b–S3f | — | — | — |
-| R1 Retiro de tkinter | pendiente | — | — | — |
-| P1 Hoja de pruebas de banco | hecha (solo documentos) | (ver git log: P1) | — | `P1_hoja_pruebas_banco.md` |
+| S2 `/cycle/select` | hecha | `7b8d44a` | 3413 | `S2_cycle_select.md` |
+| U4 Tarjeta desconectada vs. paro | hecha (otra sesión) | `f6d55e6` | 3498 | `U4_tarjeta_desconectada.md` |
+| S3 Pendientes de seguridad | **a, c, d, e, f hechas; b (CIC-10) propuesta PENDIENTE de decisión** | S3a `32e0b3a`; S3c/d `5cc27ff`; S3e (ver git log) | 3585 | `S3a_calibracion_plausibilidad.md`, `S3_pendientes_c_d_e_f.md`, `S3b_cic10_propuesta.md` |
+| R1 Retiro de tkinter | hecha | `ece51e9` | 3518 (2 fallos ajenos) | `R1_retiro_tkinter.md` |
+| P1 Hoja de pruebas de banco | hecha (solo documentos) | `382e672` | — | `P1_hoja_pruebas_banco.md` |
+| G1 Generador de códigos | hecha | `2ce4e98` | 30 de G1 | `G1_generador_codigos.md` |
 | W1 Estación Windows (opcional) | pendiente | — | — | — |
 
 **Bloqueadas:** ninguna.
