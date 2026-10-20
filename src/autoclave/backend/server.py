@@ -1146,6 +1146,9 @@ def select_cycle(body: _SelectCycleBody, request: Request):
     if getattr(cycle, "danado", None):
         rechazar(409, "PROGRAMA_NO_EDITABLE",
                  f"Programa dañado (fuera del catálogo): {cycle.danado[0]}")
+    # O1 (tanda 5): un programa deshabilitado no se selecciona
+    if getattr(cycle, "habilitado", True) is False:
+        rechazar(409, "programa_deshabilitado", "Programa deshabilitado")
     # T11 (revisión de S2): líquidos solo en equipos con esa capacidad
     if _carga_liquida(cycle) and getattr(getattr(context, "cap", None), "has_liquids", None) is False:
         rechazar(409, "carga_liquida_no_disponible",
@@ -2222,6 +2225,8 @@ def get_programas():
             "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
             "origen": getattr(cycle, "source", ""), "danado": bool(getattr(cycle, "danado", None)),
             "editable": _programa_editable(cycle),
+            "habilitado": getattr(cycle, "habilitado", True) is not False,
+            "personalizado": getattr(cycle, "personalizado", False) is True,
             "secciones": [{"clave": s, "no_se_ejecuta": _no_se_ejecuta(cycle, s)}
                           for s in _SECCIONES_PROGRAMA if s in cycle.parameters],
         })
@@ -2250,6 +2255,8 @@ def get_programas_seleccionables():
         if getattr(cycle, "number", None) is None or getattr(cycle, "source", "user") != "user":
             continue
         if getattr(cycle, "danado", None):
+            continue
+        if getattr(cycle, "habilitado", True) is False:      # O1: deshabilitado
             continue
         if _carga_liquida(cycle) and getattr(cap, "has_liquids", None) is False:
             continue
@@ -2330,7 +2337,10 @@ def get_programa_seccion(numero: int, seccion: str):
     cycle = _programa_por_numero(numero)
     if seccion not in _SECCIONES_PROGRAMA or seccion not in cycle.parameters:
         raise HTTPException(status_code=404, detail=f"Sección '{seccion}' no encontrada")
-    fabrica = getattr(context.cycle_manager, "fabrica", {}).get(numero)
+    # O1 (tanda 5): defecto del hospital (cycles/defecto) o, si no, el de fábrica
+    cm = context.cycle_manager
+    fabrica = (cm.defecto(numero) if callable(getattr(cm, "defecto", None))
+               else getattr(cm, "fabrica", {}).get(numero))
     ultimas = _ultimas_modificaciones(f"{cycle.id}/{seccion}/")
     parametros = []
     for ruta, hoja in _hojas_seccion(cycle, seccion):
@@ -2347,6 +2357,128 @@ def get_programa_seccion(numero: int, seccion: str):
         })
     return {"numero": numero, "cycle_id": cycle.id, "nombre": cycle.name, "seccion": seccion,
             "editable": _programa_editable(cycle), "parametros": parametros}
+
+
+# ── Gestión de programas (O1, tanda 5; planeacion_opciones.md v4 §3.1) ─────
+
+class _HabilitadoBody(BaseModel):
+    habilitado: StrictBool
+
+
+class _DuplicarBody(BaseModel):
+    nombre: str
+
+
+def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, deshacer,
+             confirmar=None):
+    """Técnico fuera de CICLO; ingeniero también en CICLO (como los
+    parámetros). El programa activo nunca se borra ni se deshabilita: la
+    lectura del activo y el cambio van bajo el lock de la máquina (guard_estado),
+    el mismo que /cycle/select. Los archivos son pequeños; la escritura queda
+    dentro del lock a propósito para no abrir esa carrera.
+    RB-03.5 (revisión O1, SAF-01): sin registro en audit_log el cambio no
+    queda aplicado; `deshacer(resultado)` lo revierte."""
+    from autoclave.core.managers import gestion_programas as gp
+    if getattr(context, "sin_base_de_datos", False) is True:
+        _rechazar(503, "BASE_OCUPADA", "Base de datos no disponible: no se aplicó", entidad, sesion)
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
+        activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
+        try:
+            with _lock_archivos:
+                resultado = operar(gp, activo)
+        except gp.ErrorPrograma as e:
+            raise _Rechazo(e.estado_http, e.codigo, e.motivo)
+    anterior, nuevo = auditoria(resultado)
+    try:
+        context.db.registrar_auditoria(evento, usuario=sesion.usuario, rol=sesion.rol,
+                                       entidad=entidad, valor_anterior=anterior,
+                                       valor_nuevo=nuevo, detalle=None)
+    except Exception:
+        logger.exception("%s sin auditoría: se revierte", entidad)
+        with context.control_loop.bloqueo_maquina(), _lock_archivos:
+            deshacer(gp, resultado)
+        _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
+                  entidad, sesion)
+    if confirmar is not None:
+        with _lock_archivos:
+            confirmar(gp, resultado)
+    return resultado
+
+
+@app.put("/programas/{numero}/habilitado")
+def put_programa_habilitado(numero: int, body: _HabilitadoBody,
+                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/programas/{numero}/habilitado"
+    cm = context.cycle_manager
+    anterior, nuevo = _gestion(
+        entidad, sesion,
+        lambda gp, activo: gp.fijar_habilitado(cm, numero, body.habilitado, activo),
+        "programa_habilitado",
+        lambda r: ({"habilitado": r[0]}, {"habilitado": r[1]}),
+        lambda gp, r: gp.deshacer_habilitado(cm, numero, r[0]))
+    return {"ok": True, "numero": numero, "habilitado": nuevo}
+
+
+@app.post("/programas/{numero}/duplicar")
+def post_programa_duplicar(numero: int, body: _DuplicarBody,
+                           sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/programas/{numero}/duplicar"
+    cm = context.cycle_manager
+    nuevo = _gestion(
+        entidad, sesion, lambda gp, activo: gp.duplicar(cm, numero, body.nombre),
+        "programa_duplicado",
+        lambda c: ({"origen": numero}, {"numero": c.number, "cycle_id": c.id, "nombre": c.name}),
+        lambda gp, c: gp.deshacer_duplicado(cm, c))
+    return {"ok": True, "numero": nuevo.number, "cycle_id": nuevo.id, "nombre": nuevo.name}
+
+
+@app.delete("/programas/{numero}")
+def delete_programa(numero: int,
+                    sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/programas/{numero}"
+    cm = context.cycle_manager
+    _gestion(entidad, sesion, lambda gp, activo: gp.borrar(cm, numero, activo),
+             "programa_borrado",
+             lambda c: ({"numero": numero, "cycle_id": c.id, "nombre": c.name}, None),
+             lambda gp, c: gp.deshacer_borrado(cm, c),
+             confirmar=lambda gp, c: gp.confirmar_borrado(c))
+    return {"ok": True, "numero": numero}
+
+
+class _EntradasBody(BaseModel):
+    programa: int
+    entradas: list
+
+
+def _ai_habilitadas() -> list[str]:
+    from autoclave.core.runtime.io_names import leer_io_enabled
+    return leer_io_enabled()["AI"]
+
+
+@app.get("/cycle/display-inputs")
+def get_entradas_mostradas(programa: int):
+    """Entradas mostradas del programa (1 a 3) y las AI habilitadas del equipo."""
+    from autoclave.core.managers import gestion_programas as gp
+    cycle = _programa_por_numero(programa)
+    habilitadas = _ai_habilitadas()
+    return {"programa": programa, "entradas": gp.entradas_de(cycle, habilitadas),
+            "habilitadas": habilitadas, "editable": getattr(cycle, "source", "") == "user"}
+
+
+@app.put("/cycle/display-inputs")
+def put_entradas_mostradas(body: _EntradasBody,
+                           sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/cycle/display-inputs/{body.programa}"
+    cm = context.cycle_manager
+    previas = []
+
+    def operar(gp, activo):
+        previas.append(getattr(gp.programa(cm, body.programa), "entradas_mostradas", None))
+        return gp.fijar_entradas(cm, body.programa, body.entradas, _ai_habilitadas())
+    anterior, nueva = _gestion(entidad, sesion, operar, "entradas_mostradas",
+                               lambda r: (r[0], r[1]),
+                               lambda gp, r: gp.deshacer_entradas(cm, body.programa, previas[0]))
+    return {"ok": True, "entradas": nueva}
 
 
 # ── Sensores del ciclo (tanda 2026-10-14 §1.1; RS-01, RS-02) ───────────────

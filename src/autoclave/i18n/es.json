@@ -109,6 +109,19 @@
   "opciones": {
     "titulo": "OPCIONES",
     "proximamente": "Próximamente",
+    "entradas_titulo": "Entradas mostradas",
+    "entradas_nota": "Elija de 1 a 3 entradas para Preciclo y Ciclo; el número indica el orden.",
+    "gestion_titulo": "Gestión del programa",
+    "habilitar_programa": "Habilitar programa",
+    "deshabilitar_programa": "Deshabilitar programa",
+    "duplicar_programa": "Duplicar",
+    "borrar_programa": "Borrar programa",
+    "borrar_programa_pregunta": "¿Borrar el programa {nombre}? Su número no se volverá a usar.",
+    "nombre_programa": "Nombre del programa nuevo",
+    "programa_deshabilitado": "Programa deshabilitado: no se ofrece en Preciclo.",
+    "err_programa_activo": "Operación no permitida para el programa seleccionado.",
+    "err_programa_deshabilitado": "El programa está deshabilitado.",
+    "err_entradas_cantidad": "Elija de 1 a 3 entradas.",
     "equipo_impresora": "Impresora habilitada",
     "equipo_impresora_ayuda": "Si está deshabilitada, el equipo no avisa cuando la impresora no está conectada.",
     "equipo_si": "Sí",
@@ -180,10 +193,10 @@
     "mant_tipo_calibracion": "Calibración",
     "mant_tipo_otro": "Otro",
     "mant_registrar": "Registrar mantenimiento realizado",
-    "mant_confirmar": "Se registrará un mantenimiento {tipo} realizado hoy. ¿Desea continuar?",
+    "mant_confirmar": "Se registrará un mantenimiento realizado hoy (tipo: {tipo}). ¿Desea continuar?",
     "mant_sin_dato": "La fecha del sistema no es confiable (anterior a la instalación o cambiada): corrija la fecha y hora.",
     "mant_err_reloj": "El reloj del sistema es anterior a la instalación o al último mantenimiento: corrija la fecha y hora.",
-    "mant_err_reloj_adelantado": "El reloj del sistema parece adelantado respecto de su avance real: corrija la fecha y hora y reinicie el programa antes de registrar.",
+    "mant_err_reloj_adelantado": "El reloj del sistema parece adelantado respecto del tiempo real transcurrido: corrija la fecha y hora y reinicie el programa antes de registrar.",
     "mant_err_validacion": "Datos de mantenimiento no válidos.",
     "mant_intervalos": "Intervalos de mantenimiento",
     "mant_intervalo_dias": "Por fecha",
@@ -268,20 +281,20 @@
     "tiempo_restante": "Tiempo restante",
     "tiempos": "Tiempos",
     "grafica_eje_tiempo": "Tiempo (min)",
-    "serie_temp_camara": "Temp Cámara",
-    "serie_temp_ref": "Temp Ref",
+    "serie_temp_camara": "Temp. cámara",
+    "serie_temp_ref": "Temp. ref.",
     "serie_presion": "Presión",
     "cancelar": "CANCELAR CICLO",
     "cancelar_pregunta": "El ciclo en curso se cancelará. ¿Desea continuar?",
-    "cancelar_error": "No se pudo cancelar el ciclo. Verifique la conexión con el controlador e intente de nuevo.",
+    "cancelar_error": "No se pudo cancelar el ciclo. Verifique la conexión con la tarjeta de E/S e intente de nuevo.",
     "confirmar": "CONFIRMAR",
-    "confirmar_error": "No se pudo confirmar el fin del ciclo. Verifique la conexión con el controlador e intente de nuevo.",
+    "confirmar_error": "No se pudo confirmar el fin del ciclo. Verifique la conexión con la tarjeta de E/S e intente de nuevo.",
     "aviso_titulo": "AVISO",
-    "temp_ester": "Temp. Ester.",
-    "tiempo_est": "Tiempo Est.",
-    "tiempo_sec": "Tiempo Sec.",
-    "temp_camara": "Temp cámara",
-    "temp_referencia": "Temp referencia",
+    "temp_ester": "Temp. ester.",
+    "tiempo_est": "Tiempo est.",
+    "tiempo_sec": "Tiempo sec.",
+    "temp_camara": "Temp. cámara",
+    "temp_referencia": "Temp. referencia",
     "presion": "Presión",
     "alarmas_titulo": "ALARMAS Y AVISOS",
     "sin_alarmas": "Sin alarmas ni avisos activos",
@@ -331,17 +344,17 @@
     },
     {
       "clave": "tiempo_est",
-      "etiqueta": "Tiempo Est.",
+      "etiqueta": "Tiempo est.",
       "unidad": "min"
     },
     {
       "clave": "tiempo_sec",
-      "etiqueta": "Tiempo Sec.",
+      "etiqueta": "Tiempo sec.",
       "unidad": "min"
     },
     {
       "clave": "temp_1",
-      "etiqueta": "Temp 1",
+      "etiqueta": "Temp. 1",
       "unidad": "°C"
     },
     {
@@ -422,16 +435,16 @@
     "apagar_camara_no_segura": "La cámara no está en condición segura (NO ABRIR). El equipo quedará fuera de servicio; no abra las puertas."
   },
   "formulario": {
-    "nombre_completo": "Nombre Completo",
-    "nombre_usuario": "Nombre Usuario",
+    "nombre_completo": "Nombre completo",
+    "nombre_usuario": "Nombre de usuario",
     "contrasena": "Contraseña",
-    "confirmar_contrasena": "Confirmar Contraseña",
+    "confirmar_contrasena": "Confirmar contraseña",
     "rol": "Rol",
     "nivel_acceso": "Nivel de acceso",
-    "codigo_id": "Código / ID (Opcional)",
+    "codigo_id": "Código / ID (opcional)",
     "estado": "Estado",
     "activo": "Activo",
-    "recordar_usuario": "Recordar Usuario",
+    "recordar_usuario": "Recordar usuario",
     "olvido_contrasena": "¿Olvidó su contraseña?"
   },
   "exportacion": {
@@ -449,7 +462,7 @@
     "error_autenticacion": "No se pudo enviar el correo: el remitente o la contraseña no son válidos",
     "error_envio": "No se pudo enviar el correo: revise la conexión a internet",
     "asunto": "Ciclos del autoclave {serie}: {ciclos}",
-    "cuerpo": "Adjunto encontrará los ciclos de autoclave seleccionados en formato PDF, con su gráfica y su registro.",
+    "cuerpo": "Se adjuntan los ciclos de autoclave seleccionados en formato PDF, con su gráfica y su registro.",
     "empresa": "Especifika S.A.S. · Autoclave {modelo} · Serie {serie}",
     "titulo": "Ciclo N.º {numero} · {programa}",
     "inicio": "Inicio",
@@ -467,17 +480,17 @@
     "titulo_resumen": "Resumen de ciclos",
     "periodo_resumen": "Del {desde} al {hasta}",
     "asunto_resumen": "Resumen de ciclos del autoclave {serie}: {periodo}",
-    "cuerpo_resumen": "Adjunto encontrará el resumen de ciclos del periodo en formato PDF.",
+    "cuerpo_resumen": "Se adjunta el resumen de ciclos del periodo en formato PDF.",
     "consigna_temp": "Consigna temp.",
     "consigna_pres": "Consigna presión",
     "titulo_consolidado": "Reporte consolidado de ciclos",
     "asunto_consolidado": "Reporte consolidado del autoclave {serie}: {periodo}",
-    "cuerpo_consolidado": "Adjunto encontrará el reporte consolidado del periodo en formato PDF: el resumen, el índice y, para cada ciclo, sus datos, su gráfica con las consignas y su registro.",
+    "cuerpo_consolidado": "Se adjunta el reporte consolidado del periodo en formato PDF: el resumen, el índice y, para cada ciclo, sus datos, su gráfica con las consignas y su registro.",
     "enviado_consolidado": "Se envió el reporte consolidado ({n} ciclos) a {destino}",
     "consolidado_vacio": "No hay ciclos en este periodo",
     "consolidado_demasiados": "El periodo tiene {n} ciclos; elija un periodo más corto (máximo {maximo})",
     "preparando": "Preparando ciclo {i} de {n}…",
-    "generando": "Generando el PDF… {porcentaje}%"
+    "generando": "Generando el PDF… {porcentaje} %"
   },
   "reportes": {
     "titulo": "REPORTES",
@@ -506,16 +519,16 @@
     "sin_ciclos": "No hay ciclos en este periodo"
   },
   "sistema": {
-    "sin_conexion": "Sin conexión con el controlador. Los valores mostrados no están actualizados.",
+    "sin_conexion": "Sin conexión con la tarjeta de E/S. Los valores mostrados no están actualizados.",
     "modo_prueba": "MODO PRUEBA ACTIVO — los ciclos no son válidos para carga estéril",
     "sin_lectura": "—",
     "no_abrir": "NO ABRIR",
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
-    "paro_liberado": "Paro liberado. Verifique que no hay fuga antes de continuar.",
+    "paro_liberado": "Paro liberado. Verifique que no haya fuga antes de continuar.",
     "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
     "estado_seguro_en_curso": "Llevando la cámara a estado seguro",
     "estado_seguro_pendiente": "Paro de emergencia liberado — estado seguro pendiente",
-    "paro_suelte": "Suelte el botón de paro para continuar. Hasta entonces no hay acciones disponibles.",
+    "paro_suelte": "Desenclave el pulsador de paro de emergencia para continuar. Hasta entonces no hay acciones disponibles.",
     "confirmar_sin_sesion": "Disponible para cualquier operador, sin iniciar sesión",
     "estado_seguro_en_curso_boton": "En curso…",
     "estado_seguro_detenido_accion": "Revise la sonda Principal o asigne otra sonda como Principal en OPCIONES › Parámetros del ciclo › Sensores.",
@@ -524,8 +537,8 @@
     "seguridad_desconocida": "Sin conexión con el equipo: no se puede verificar el paro ni la cámara. NO ABRIR.",
     "tarjeta_desconectada": "Tarjeta desconectada: no se puede verificar el paro ni la cámara. NO ABRIR.",
     "tarjeta_sin_datos": "La tarjeta no envía datos válidos: no se puede verificar el paro ni la cámara. NO ABRIR.",
-    "tarjeta_desconectada_valores": "Tarjeta de control desconectada. Los valores mostrados no están actualizados.",
-    "tarjeta_sin_datos_valores": "La tarjeta de control no envía datos válidos. Los valores mostrados no están actualizados."
+    "tarjeta_desconectada_valores": "Tarjeta de E/S desconectada. Los valores mostrados no están actualizados.",
+    "tarjeta_sin_datos_valores": "La tarjeta de E/S no envía datos válidos. Los valores mostrados no están actualizados."
   },
   "sesion": {
     "campos_vacios": "Ingrese usuario y contraseña",
@@ -583,7 +596,7 @@
     },
     "COM-01": {
       "titulo": "Tarjeta de E/S desconectada",
-      "descripcion": "No se detecta la tarjeta de control.",
+      "descripcion": "No se detecta la tarjeta de E/S.",
       "accion": "Conecte la tarjeta (cable USB) y verifique su alimentación."
     },
     "TARJETA_SIN_TRAMA_VALIDA": {
@@ -612,7 +625,7 @@
     },
     "TARJETA_WATCHDOG": {
       "titulo": "La tarjeta de E/S apagó las salidas por falta de comunicación",
-      "accion": "Revise si el equipo de control se congeló. Si se repite, llame a servicio técnico."
+      "accion": "Revise si el software o el PC de control dejó de responder. Si se repite, llame a servicio técnico."
     },
     "TARJETA_REINICIO": {
       "titulo": "La tarjeta de E/S se reinició",
@@ -679,6 +692,7 @@
       "temp_camara": "Temperatura cámara",
       "temp_referencia": "Temperatura referencia",
       "temp_drenaje": "Temperatura drenaje",
+      "temp_drenaje_camara": "Temperatura drenaje de cámara",
       "pres_camara": "Presión cámara",
       "pres_chaqueta": "Presión chaqueta",
       "pres_empaque_1": "Presión empaque 1",
@@ -697,7 +711,7 @@
       "sin_datos": "Sin datos",
       "on": "ON",
       "off": "OFF",
-      "enlace_ok": "Enlace con la tarjeta de E/S: activo · actualiza cada 1 s",
+      "enlace_ok": "Enlace con la tarjeta de E/S: activo · se actualiza cada 1 s",
       "enlace_perdido": "Sin enlace con la tarjeta de E/S",
       "habilitar_prueba": "Habilitar modo prueba",
       "salir_prueba": "Salir del modo prueba",
@@ -742,16 +756,16 @@
   },
   "parametros_desc": {
     "globals": {
-      "F0": "Activa el cálculo de letalidad (F0): la esterilización termina solo cuando se cumplen el tiempo y el F0 objetivo.",
-      "F0_objetivo": "Letalidad acumulada mínima que debe alcanzarse para dar por válida la esterilización.",
+      "F0": "Activa el cálculo de letalidad (F0): la esterilización termina solo cuando se cumplen tanto el tiempo como el F0 objetivo. F0 se expresa en minutos equivalentes a 121,1 °C.",
+      "F0_objetivo": "Letalidad acumulada mínima (F0, en minutos) que debe alcanzarse para dar por válida la esterilización.",
       "ciclos_multiples": "Permite encadenar varios ciclos seguidos sin volver al menú entre uno y otro.",
       "enfriar_chaqueta_secado": "Enfría la chaqueta durante el secado al terminar el ciclo.",
       "presion_chaqueta": "Presión que se mantiene en la chaqueta antes de iniciar y durante el ciclo.",
-      "rango_presion_chaqueta": "Tolerancia (±) alrededor de la presión de chaqueta; fuera de ella se alerta y no se permite iniciar.",
+      "rango_presion_chaqueta": "Tolerancia (±) alrededor de la presión de chaqueta; fuera de ella se genera una alerta y no se permite iniciar.",
       "tipo_carga": "Tipo de carga del ciclo: sólida o líquida. Limita los modos de descompresión permitidos."
     },
     "precalentamiento": {
-      "tiempo_precalentamiento": "Tiempo que se sostiene la chaqueta caliente antes de pasar al prevacío.",
+      "tiempo_precalentamiento": "Tiempo que se sostiene la chaqueta caliente antes de pasar a la fase de vacío.",
       "presion_precalentamiento": "Presión de chaqueta que se debe alcanzar y sostener durante el precalentamiento.",
       "timeout_precalentamiento": "Tiempo máximo del precalentamiento; si se excede, el ciclo falla."
     },
@@ -760,31 +774,31 @@
       "timeout_alto": "Tiempo máximo para llegar a la presión alta de un pulso; si se excede, el ciclo falla.",
       "conteo_pulso_a": "Cantidad de repeticiones del pulso A (0 = el pulso no se ejecuta).",
       "presion_alta_pulso_a": "Presión a la que se sube la cámara con vapor en cada repetición del pulso A.",
-      "tiempo_adicional_alto_a": "Segundos extra que se sostiene la presión alta del pulso A.",
+      "tiempo_adicional_alto_a": "Segundos adicionales durante los que se sostiene la presión alta del pulso A.",
       "presion_baja_pulso_a": "Presión de vacío a la que se baja la cámara en cada repetición del pulso A.",
-      "tiempo_adicional_bajo_a": "Segundos extra que se sostiene el vacío del pulso A.",
+      "tiempo_adicional_bajo_a": "Segundos adicionales durante los que se sostiene el vacío del pulso A.",
       "conteo_pulso_b": "Cantidad de repeticiones del pulso B (0 = el pulso no se ejecuta).",
       "presion_alta_pulso_b": "Presión a la que se sube la cámara con vapor en cada repetición del pulso B.",
-      "tiempo_adicional_alto_b": "Segundos extra que se sostiene la presión alta del pulso B.",
+      "tiempo_adicional_alto_b": "Segundos adicionales durante los que se sostiene la presión alta del pulso B.",
       "presion_baja_pulso_b": "Presión de vacío a la que se baja la cámara en cada repetición del pulso B.",
-      "tiempo_adicional_bajo_b": "Segundos extra que se sostiene el vacío del pulso B.",
+      "tiempo_adicional_bajo_b": "Segundos adicionales durante los que se sostiene el vacío del pulso B.",
       "conteo_pulso_c": "Cantidad de repeticiones del pulso C (0 = el pulso no se ejecuta).",
       "presion_alta_pulso_c": "Presión a la que se sube la cámara con vapor en cada repetición del pulso C.",
-      "tiempo_adicional_alto_c": "Segundos extra que se sostiene la presión alta del pulso C.",
+      "tiempo_adicional_alto_c": "Segundos adicionales durante los que se sostiene la presión alta del pulso C.",
       "presion_baja_pulso_c": "Presión de vacío a la que se baja la cámara en cada repetición del pulso C.",
-      "tiempo_adicional_bajo_c": "Segundos extra que se sostiene el vacío del pulso C.",
+      "tiempo_adicional_bajo_c": "Segundos adicionales durante los que se sostiene el vacío del pulso C.",
       "conteo_pulso_d": "Cantidad de repeticiones del pulso D (0 = el pulso no se ejecuta).",
       "presion_alta_pulso_d": "Presión a la que se sube la cámara con vapor en cada repetición del pulso D.",
-      "tiempo_adicional_alto_d": "Segundos extra que se sostiene la presión alta del pulso D.",
+      "tiempo_adicional_alto_d": "Segundos adicionales durante los que se sostiene la presión alta del pulso D.",
       "presion_baja_pulso_d": "Presión de vacío a la que se baja la cámara en cada repetición del pulso D.",
-      "tiempo_adicional_bajo_d": "Segundos extra que se sostiene el vacío del pulso D."
+      "tiempo_adicional_bajo_d": "Segundos adicionales durante los que se sostiene el vacío del pulso D."
     },
     "calentamiento": {
       "temperatura_calentamiento": "Temperatura objetivo al final de la rampa de calentamiento.",
       "presion_add_calentamiento": "Presión adicional sobre la de saturación que se permite como techo durante la rampa.",
       "timeout_calentamiento": "Tiempo máximo de la rampa de calentamiento; si se excede, el ciclo falla.",
-      "factor_calentamiento": "Porcentaje de reducción del vapor al acercarse a los objetivos para evitar sobrepaso.",
-      "rango_calentamiento": "Distancia al objetivo desde la cual se reduce el vapor; también define cuánto sobrepaso se tolera.",
+      "factor_calentamiento": "Porcentaje de reducción del vapor al acercarse a los objetivos para evitar sobreimpulso.",
+      "rango_calentamiento": "Distancia al objetivo desde la cual se reduce el vapor; también define cuánto sobreimpulso se tolera.",
       "tasa_calentamiento": "Velocidad máxima de subida de temperatura permitida.",
       "tasa_presion": "Velocidad máxima de subida de presión permitida.",
       "tiempo_estable_preesterilizacion": "Tiempo continuo dentro de rango que se exige antes de pasar a esterilización.",
@@ -801,7 +815,7 @@
       "temperatura_estabilizacion": "Temperatura objetivo de la estabilización.",
       "rango_temperatura_estabilizacion": "Margen de temperatura (±) admitido durante la estabilización.",
       "rango_presion_estabilizacion": "Margen de presión (±) admitido durante la estabilización.",
-      "timeout_recuperacion": "Tiempo máximo para volver a rango antes de declarar falla."
+      "timeout_recuperacion": "Tiempo máximo para volver a rango antes de declarar una falla."
     },
     "esterilizacion": {
       "escape_lento_on_ester": "Segundos que el escape lento permanece abierto en cada repetición durante la esterilización.",
@@ -845,14 +859,14 @@
       "modo_4": {
         "timeout": "Tiempo máximo del modo 4; si se excede, el ciclo falla.",
         "presion_camara_enfriamiento": "Presión que se mantiene en la cámara con aire comprimido mientras se enfría.",
-        "temperatura_enfriamiento": "Temperatura bajo la cual la carga se considera enfriada y se despresuriza.",
+        "temperatura_enfriamiento": "Temperatura por debajo de la cual la carga se considera enfriada y se despresuriza.",
         "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada pulso.",
         "tiempo_cierre_chaqueta": "Segundos que el drenaje permanece cerrado entre pulsos (0 = siempre abierto)."
       },
       "modo_5": {
         "timeout": "Tiempo máximo del modo 5; si se excede, el ciclo falla.",
         "presion_camara_enfriamiento": "Presión que se mantiene en la cámara con aire comprimido mientras se enfría.",
-        "temperatura_enfriamiento": "Temperatura bajo la cual la carga se considera enfriada y se despresuriza.",
+        "temperatura_enfriamiento": "Temperatura por debajo de la cual la carga se considera enfriada y se despresuriza.",
         "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada pulso.",
         "tiempo_cierre_chaqueta": "Segundos que el drenaje permanece cerrado entre pulsos (0 = siempre abierto)."
       }
@@ -867,7 +881,7 @@
   "descompresion_modos": {
     "0": {
       "nombre": "Natural",
-      "desc": "Sin escape: la cámara se enfría y baja de presión sola hasta la atmosférica."
+      "desc": "Sin escape: la cámara se enfría y baja de presión por sí sola hasta la presión atmosférica."
     },
     "1": {
       "nombre": "Rápida",

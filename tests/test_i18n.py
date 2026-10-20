@@ -274,6 +274,9 @@ FAMILIAS = {
     "descompresion_modos.": lambda: [f"{n}.{c}" for n in range(6) for c in ("nombre", "desc")],
     "exportacion.impresora_": _sufijos_impresora,
     "validacion.": _sufijos_validacion,
+    # O1 (tanda 5): entradas mostradas = AI habilitadas del equipo activo
+    "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
+                                 fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
 }
 
 def _prefijos_en_codigo():

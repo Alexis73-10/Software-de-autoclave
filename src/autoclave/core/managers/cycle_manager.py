@@ -43,6 +43,11 @@ class Cycle:
         # RB-04.4 / RB-05.5 (T10): errores del catálogo al cargar; un programa
         # dañado no se selecciona, no se inicia ni se edita
         self.danado: list[str] = []
+        # O1 (tanda 5): gestión de programas. Un programa deshabilitado no se
+        # ofrece ni se selecciona; uno personalizado (duplicado en el hospital)
+        # se puede borrar. Los de fábrica nunca.
+        self.habilitado = True
+        self.personalizado = False
 
     def copia(self) -> "Cycle":
         """Copia profunda de los parámetros (T-17, §5.8): el ciclo en curso
@@ -53,6 +58,9 @@ class Cycle:
         # RS-03.4: la asignación de sensores es una instantánea al iniciar
         c.sensores = dict(getattr(self, "sensores", None) or asignacion_por_omision())
         c.sensores_formato_antiguo = getattr(self, "sensores_formato_antiguo", True)
+        c.habilitado = getattr(self, "habilitado", True)
+        c.personalizado = getattr(self, "personalizado", False)
+        c.entradas_mostradas = getattr(self, "entradas_mostradas", None)
         return c
 
     def instantanea(self) -> dict:
@@ -139,6 +147,13 @@ class CycleManager:
         # T12): el valor por defecto de cada parámetro. Los de usuario con el
         # mismo cycle_id reemplazan al de fábrica en `cycles`, no aquí.
         self.fabrica: dict[int, Cycle] = {}
+        # O1 (tanda 5): defectos creados en el hospital (cycles/defecto/), por
+        # número. Mandan sobre el de fábrica; el de un duplicado son los valores
+        # del origen al duplicar.
+        self.defectos: dict[int, Cycle] = {}
+        # raíz de las carpetas de ciclos (None = la del paquete); las pruebas
+        # la apuntan a una copia temporal
+        self.raiz: str | None = None
         # JSON de ciclo que no se pudieron cargar en el último load_all_cycles()
         # (el arranque degrada su etapa con ARR_CICLO_CORRUPTO)
         self.errores_carga: list[str] = []
@@ -146,11 +161,43 @@ class CycleManager:
     def load_all_cycles(self):
         self.cycles.clear()
         self.fabrica.clear()
+        self.defectos.clear()
         self.errores_carga = []
 
         self._load_from_folder("cycles/factory", source="factory")
         self._load_from_folder("cycles/user", source="user")
         self._descartar_numeros_repetidos()
+        self._cargar_defectos()
+
+    def carpeta(self, folder_path: str) -> str:
+        """Ruta absoluta de cycles/<...> (en el .exe, la copia persistente)."""
+        if self.raiz is not None:
+            return os.path.join(self.raiz, folder_path)
+        return (resource_path(f"autoclave/{folder_path}") if getattr(sys, "frozen", False)
+                else os.path.join(BASE_DIR, folder_path))
+
+    def _cargar_defectos(self) -> None:
+        carpeta = self.carpeta("cycles/defecto")
+        if not os.path.isdir(carpeta):
+            return
+        for file in os.listdir(carpeta):
+            if not file.endswith(".json"):
+                continue
+            try:
+                with open(os.path.join(carpeta, file), "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                numero = _numero_de_ciclo(data.get("cycle_number"))
+                if numero is None:
+                    continue
+                self.defectos[numero] = Cycle(data["cycle_id"], data.get("display_name", ""),
+                                              data.get("parameters", {}), numero)
+            except Exception:
+                logger.exception("Defecto %s ilegible: se ignora", file)
+
+    def defecto(self, numero: int):
+        """Perfil por defecto de un número de programa: el del hospital
+        (cycles/defecto) o, si no hay, el de fábrica. None si ninguno."""
+        return self.defectos.get(numero) or self.fabrica.get(numero)
 
     def _descartar_numeros_repetidos(self):
         """Un mismo cycle_number en dos ciclos distintos es un error de
@@ -170,8 +217,7 @@ class CycleManager:
     def _load_from_folder(self, folder_path, source):
         # en el .exe, resource_path da la copia persistente junto al ejecutable
         # (los ciclos de usuario se guardan; ver utils/resources.py)
-        folder_path = (resource_path(f"autoclave/{folder_path}") if getattr(sys, "frozen", False)
-                       else os.path.join(BASE_DIR, folder_path))
+        folder_path = self.carpeta(folder_path)
 
         logger.info(f"📂 Buscando en: {folder_path}")
 
@@ -196,6 +242,11 @@ class CycleManager:
 
                         cycle.source = source
                         cycle._path  = full_path
+                        cycle.habilitado = data.get("habilitado", True) is not False
+                        cycle.personalizado = data.get("personalizado", False) is True
+                        em = data.get("entradas_mostradas")
+                        cycle.entradas_mostradas = (list(em) if isinstance(em, list)
+                                                    and all(isinstance(x, str) for x in em) else None)
                         cycle.sensores, cycle.sensores_formato_antiguo =                             interpretar_asignacion(data.get("cycle_temperature_sensors"))
                         if cycle.sensores_formato_antiguo:
                             logger.warning("Ciclo %s: cycle_temperature_sensors ausente o en "

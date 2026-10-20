@@ -23,7 +23,7 @@ Item {
 
     property QtObject teclado: null
     property bool edicionPermitida: false      // estado y rol (OpcionesController)
-    property string vista: "programa"          // programa | seccion | sensores
+    property string vista: "programa"          // programa | seccion | sensores | entradas
     // Atrás de la barra inferior: sube un nivel dentro de la sección; false si ya
     // está en la lista de programas (la pantalla Opciones entonces sale)
     function retroceder() {
@@ -244,6 +244,61 @@ Item {
                 titulo: I18n.t("opciones.sensores_titulo", I18n.lang)
                 onPulsada: { control.cargarSensores(); raiz._prepararSensores(); raiz.vista = "sensores" }
             }
+            // O1 (tanda 5): entradas mostradas en Preciclo y Ciclo (1 a 3)
+            Fila {
+                objectName: "filaEntradas"
+                titulo: I18n.t("opciones.entradas_titulo", I18n.lang)
+                onPulsada: { control.cargarEntradas(); raiz._entradasSel = control.entradas.slice(); raiz.vista = "entradas" }
+            }
+            // O1 (tanda 5): gestión del programa (técnico e ingeniero)
+            Text {
+                width: parent.width
+                topPadding: Escala.px(24)
+                visible: control.numero > 0 && control.programaEditable
+                text: I18n.t("opciones.gestion_titulo", I18n.lang)
+                color: Colores.textoSecundario
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(24)
+            }
+            Flow {
+                objectName: "gestionPrograma"
+                visible: control.numero > 0 && control.programaEditable
+                width: parent.width
+                spacing: Escala.px(12)
+                BotonFormulario {
+                    objectName: "botonHabilitar"
+                    texto: I18n.t(control.programaHabilitado ? "opciones.deshabilitar_programa"
+                                                             : "opciones.habilitar_programa", I18n.lang)
+                    habilitado: raiz.edicionPermitida
+                    onPulsado: if (habilitado) control.fijarHabilitado(!control.programaHabilitado)
+                }
+                BotonFormulario {
+                    objectName: "botonDuplicar"
+                    texto: I18n.t("opciones.duplicar_programa", I18n.lang)
+                    habilitado: raiz.edicionPermitida && raiz.teclado !== null
+                    onPulsado: if (habilitado) raiz.teclado.abrirAlfanumerico(
+                        I18n.t("opciones.nombre_programa", I18n.lang),
+                        control.nombrePrograma, 40, false,
+                        (v) => { if (String(v).trim() !== "") control.duplicar(String(v)) })
+                }
+                BotonFormulario {
+                    objectName: "botonBorrar"
+                    visible: control.programaPersonalizado
+                    texto: I18n.t("opciones.borrar_programa", I18n.lang)
+                    habilitado: raiz.edicionPermitida
+                    onPulsado: if (habilitado) dialogoBorrar.abrir()
+                }
+            }
+            Text {
+                objectName: "programaDeshabilitado"
+                visible: control.numero > 0 && !control.programaHabilitado
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: I18n.t("opciones.programa_deshabilitado", I18n.lang)
+                color: Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(22)
+            }
         }
     }
 
@@ -432,6 +487,68 @@ Item {
             habilitado: raiz._sensoresModificados && raiz._rolesValidos && control.sensoresEditable && raiz.edicionPermitida
             onPulsado: if (habilitado) control.guardarSensores(raiz._roles)
         }
+    }
+
+    // ======================= vista: entradas mostradas (O1) =======================
+    property var _entradasSel: []
+    function _alternarEntrada(nombre) {
+        const sel = _entradasSel.slice()
+        const i = sel.indexOf(nombre)
+        if (i >= 0) sel.splice(i, 1)
+        else if (sel.length < 3) sel.push(nombre)
+        _entradasSel = sel
+    }
+    Item {
+        objectName: "vistaEntradas"
+        visible: raiz.vista === "entradas"
+        anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+        Column {
+            width: parent.width
+            spacing: Escala.px(6)
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: I18n.t("opciones.entradas_nota", I18n.lang)
+                color: Colores.textoGuia
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(22)
+            }
+            Repeater {
+                model: control.entradasHabilitadas
+                delegate: Fila {
+                    required property var modelData
+                    readonly property int orden: raiz._entradasSel.indexOf(modelData)
+                    objectName: "entrada_" + modelData
+                    chevron: false
+                    titulo: I18n.existe("io.ai." + modelData, I18n.lang) ? I18n.t("io.ai." + modelData, I18n.lang)
+                                                                        : String(modelData)
+                    valor: orden >= 0 ? "✓ " + (orden + 1) : ""
+                    onPulsada: if (control.entradasEditable && raiz.edicionPermitida) raiz._alternarEntrada(modelData)
+                }
+            }
+        }
+        BotonFormulario {
+            objectName: "guardarEntradas"
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+            texto: I18n.t("acciones.guardar", I18n.lang)
+            primario: true
+            habilitado: control.entradasEditable && raiz.edicionPermitida
+                        && raiz._entradasSel.length >= 1 && raiz._entradasSel.length <= 3
+                        && JSON.stringify(raiz._entradasSel) !== JSON.stringify(control.entradas)
+            onPulsado: if (habilitado) control.guardarEntradas(raiz._entradasSel)
+        }
+    }
+
+    DialogoConfirmacion {
+        id: dialogoBorrar
+        objectName: "dialogoBorrarPrograma"
+        mensaje: I18n.t("opciones.borrar_programa_pregunta", I18n.lang, { nombre: control.nombrePrograma })
+        textoConfirmar: I18n.t("opciones.borrar_programa", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        colorConfirmar: Colores.peligroTexto
+        onConfirmado: { cerrar(); control.borrar() }
     }
 
     // ======================= ventana de ajuste (§5.3) =======================
