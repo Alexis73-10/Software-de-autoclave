@@ -43,6 +43,7 @@ _EJEMPLOS = {
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
+    "SIS-05": {},
     "OPERANDO_SIN_BD": {},
     "CONFIGURACION_INVALIDA": {"motivo": "x"},
     **{codigo: {"motivo": "x"} for codigo in CODIGOS_TARJETA},

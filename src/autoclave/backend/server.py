@@ -1207,6 +1207,34 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
     return {"ok": True, "registro": registro}
 
 
+# ── Impresora (B5, tanda 4) ─────────────────────────────────────────────────
+# `habilitada` solo gobierna la verificación de arranque y el aviso de impresora
+# desconectada; no impide imprimir ni bloquea nada.
+
+class _ImpresoraConfigBody(BaseModel):
+    habilitada: bool
+
+
+@app.get("/printer/config")
+def get_printer_config():
+    return {"habilitada": context.config_impresora.habilitada()}
+
+
+@app.put("/printer/config")
+def put_printer_config(body: _ImpresoraConfigBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = "/printer/config"
+    anterior = context.config_impresora.habilitada()
+    try:
+        context.config_impresora.guardar(body.habilitada)
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración",
+                  entidad, sesion)
+    _auditar("impresora_configurada", sesion, entidad=entidad,
+             valor_anterior={"habilitada": anterior}, valor_nuevo={"habilitada": body.habilitada})
+    return {"ok": True, "habilitada": body.habilitada}
+
+
 @app.get("/cycle/summary")
 def get_cycle_summary():
     """Resumen de solo lectura para el Resumen del Sistema del Menú Principal

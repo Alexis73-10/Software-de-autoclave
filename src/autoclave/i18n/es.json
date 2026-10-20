@@ -563,6 +563,11 @@
     "ASIGNACION_SENSORES_INVALIDA": "El programa tiene una asignación de sensores inválida"
   },
   "alarmas": {
+    "SIS-05": {
+      "titulo": "Impresora no conectada",
+      "descripcion": "Impresora no conectada. Los reportes no se imprimirán; verifique el cable y la impresora.",
+      "accion": "Revise el cable USB y que la impresora esté encendida. El equipo puede seguir operando."
+    },
     "COM-01": {
       "titulo": "Tarjeta de E/S desconectada",
       "descripcion": "No se detecta la tarjeta de control.",
