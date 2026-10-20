@@ -237,6 +237,7 @@ Item {
             anchors.fill: parent
             anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
             sourceComponent: OpcionesMantenimiento {
+                teclado: raiz.teclado
                 edicionPermitida: raiz.edicionPermitida
             }
         }

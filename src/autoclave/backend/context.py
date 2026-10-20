@@ -353,6 +353,10 @@ class BackendContext:
         if getattr(self, "_hilo_mantenimiento", None) is not None:
             return                       # idempotente
         self.mantenimiento               # instancia antes de lanzar el hilo
+        try:
+            self.mantenimiento.migrar_valores_provisionales()   # B3 (tanda 4)
+        except Exception:
+            logger.exception("Migración de intervalos de mantenimiento")
 
         def vigilar():
             while True:

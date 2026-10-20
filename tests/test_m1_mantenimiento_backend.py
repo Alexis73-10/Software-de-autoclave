@@ -30,10 +30,10 @@ def servicio(tmp_path):
     return s, db, hoy, alarmas, contador
 
 
-def test_valores_por_defecto_provisionales(servicio):
+def test_valores_por_defecto_definitivos(servicio):
     s, *_ = servicio
-    assert s.configuracion() == {"intervalo_dias": 180, "intervalo_ciclos": 0}
-    assert s.estado().proximo_fecha == date(2027, 4, 24)
+    assert s.configuracion() == {"intervalo_dias": 365, "intervalo_ciclos": 1000}
+    assert s.estado().proximo_fecha == date(2027, 10, 26)
 
 
 def test_configuracion_se_guarda_y_valida(servicio):
@@ -49,23 +49,23 @@ def test_configuracion_se_guarda_y_valida(servicio):
 def test_configuracion_corrupta_vuelve_a_los_valores_por_defecto(servicio, tmp_path):
     s, *_ = servicio
     (tmp_path / "mantenimiento.json").write_text('{"intervalo_dias": ', encoding="utf-8")
-    assert s.configuracion() == {"intervalo_dias": 180, "intervalo_ciclos": 0}
+    assert s.configuracion() == {"intervalo_dias": 365, "intervalo_ciclos": 1000}
     (tmp_path / "mantenimiento.json").write_text(
         json.dumps({"intervalo_dias": "x", "intervalo_ciclos": 0}), encoding="utf-8")
-    assert s.configuracion()["intervalo_dias"] == 180
+    assert s.configuracion()["intervalo_dias"] == 365
 
 
 def test_registrar_cambia_la_base_del_calculo_y_guarda_los_ciclos(servicio):
     s, db, hoy, alarmas, contador = servicio
     for _ in range(7):
         contador.siguiente()
-    hoy["d"] = date(2027, 5, 1)
-    assert s.estado().vencido                      # pasó el 24-abr
+    hoy["d"] = date(2027, 11, 1)
+    assert s.estado().vencido                      # pasó el 26-oct-2027
     r = s.registrar("tec", "preventivo", "cambio de empaques")
-    assert r["fecha"] == "2027-05-01" and r["ciclos"] == 7
+    assert r["fecha"] == "2027-11-01" and r["ciclos"] == 7
     e = s.estado()
-    assert not e.vencido and e.proximo_fecha == date(2027, 10, 28)
-    assert e.ultimo_fecha == date(2027, 5, 1) and e.ultimo_tipo == "preventivo"
+    assert not e.vencido and e.proximo_fecha == date(2028, 10, 31)
+    assert e.ultimo_fecha == date(2027, 11, 1) and e.ultimo_tipo == "preventivo"
     assert db.listar_mantenimientos()[0]["observaciones"] == "cambio de empaques"
 
 
@@ -102,7 +102,7 @@ def test_vencido_activa_el_aviso_y_registrar_lo_resuelve(servicio):
     s, db, hoy, alarmas, _ = servicio
     assert s.evaluar_alarma() is False
     alarmas.activar.assert_not_called()
-    hoy["d"] = date(2027, 5, 1)
+    hoy["d"] = date(2027, 11, 1)
     assert s.evaluar_alarma() is True
     args = alarmas.activar.call_args
     assert args.args[0] == MANTENIMIENTO_VENCIDO and "vencido" in args.kwargs["motivo"].lower()
@@ -119,7 +119,7 @@ def test_sin_base_de_datos_calcula_desde_la_instalacion(tmp_path):
     from autoclave.backend.arranque.sin_bd import BdNoDisponible
     s = ServicioMantenimiento(tmp_path / "m.json", BdNoDisponible(), INST, None, None,
                               hoy=lambda: date(2026, 10, 27))
-    assert s.estado().proximo_fecha == date(2027, 4, 24)
+    assert s.estado().proximo_fecha == date(2027, 10, 26)
 
 
 def test_la_tabla_es_de_solo_anexar(servicio):
@@ -150,7 +150,7 @@ def test_get_es_abierto_y_devuelve_el_resumen(api):
     r = client.get("/maintenance")
     assert r.status_code == 200
     d = r.json()
-    assert d["proximo_fecha"] == "2027-04-24" and d["configuracion"]["intervalo_dias"] == 180
+    assert d["proximo_fecha"] == "2027-10-26" and d["configuracion"]["intervalo_dias"] == 365
 
 
 @pytest.mark.parametrize("metodo, ruta, cuerpo", [

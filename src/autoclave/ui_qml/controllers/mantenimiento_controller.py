@@ -5,7 +5,8 @@
 # mantenimiento realizado". Lee GET /maintenance y escribe POST
 # /maintenance/records con el token de la ventana (técnico/ingeniero). No
 # calcula nada: el backend decide vencimientos y valida (y nunca bloquea un
-# ciclo: esta pantalla solo informa).
+# ciclo: esta pantalla solo informa). Desde la tanda 4 (B3) también edita los
+# intervalos (días y ciclos; 0 = no aplica) con PUT /maintenance/config.
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
@@ -14,9 +15,13 @@ from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 
 TIPOS = ("preventivo", "correctivo", "calibracion", "otro")
+# límites de core/runtime/mantenimiento.py (el backend los vuelve a validar)
+DIAS_MAX = 3650
+CICLOS_MAX = 1_000_000
 
 _MENSAJES = {
     "reloj_invalido": "opciones.mant_err_reloj",
+    "reloj_adelantado": "opciones.mant_err_reloj_adelantado",
     "validacion": "opciones.mant_err_validacion",
     "rol_sin_permiso": "opciones.err_rol",
     "sesion_invalida": "opciones.err_identidad",
@@ -39,6 +44,7 @@ class MantenimientoController(QObject):
         self._datos = dominio.mantenimiento_presentable(None)
         self._estado = ""
         self._mensaje = ""
+        self._intervalos = (-1, -1)     # (días, ciclos); -1 = se desconocen
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
@@ -54,11 +60,22 @@ class MantenimientoController(QObject):
         if r.ok and isinstance(r.datos, dict):
             self._datos = dominio.mantenimiento_presentable(r.datos)
             self._estado = str(r.datos.get("estado") or "")
+            self._intervalos = self._leer_intervalos(r.datos)
         else:
             self._datos = dominio.mantenimiento_presentable(None)
             self._estado = ""
+            self._intervalos = (-1, -1)
             self._fijar_mensaje(mensaje_de(r.causa))
         self.datosChanged.emit()
+
+    @staticmethod
+    def _leer_intervalos(datos: dict) -> tuple[int, int]:
+        cfg = datos.get("configuracion")
+        cfg = cfg if isinstance(cfg, dict) else {}
+
+        def entero(v):
+            return v if isinstance(v, int) and not isinstance(v, bool) and v >= 0 else -1
+        return entero(cfg.get("intervalo_dias")), entero(cfg.get("intervalo_ciclos"))
 
     @Slot(str, result=bool)
     def registrar(self, tipo: str) -> bool:
@@ -74,6 +91,38 @@ class MantenimientoController(QObject):
         self.cargar()
         self._fijar_mensaje(mensaje_de(r.causa))
         return False
+
+    @Slot(int, int, result=bool)
+    def guardarIntervalos(self, dias: int, ciclos: int) -> bool:
+        """Guarda los intervalos (0 = no aplica). True si el backend los aceptó."""
+        if not (0 <= dias <= DIAS_MAX and 0 <= ciclos <= CICLOS_MAX):
+            self._fijar_mensaje(mensaje_de("validacion"))
+            return False
+        r = self._s().enviar("PUT", "/maintenance/config",
+                             {"intervalo_dias": dias, "intervalo_ciclos": ciclos})
+        if r.ok:
+            self._fijar_mensaje("")
+            self.cargar()
+            return True
+        self.cargar()                  # sin respuesta el resultado es incierto: se relee
+        self._fijar_mensaje(mensaje_de(r.causa))
+        return False
+
+    @Property(int, notify=datosChanged)
+    def intervaloDias(self) -> int:
+        return self._intervalos[0]
+
+    @Property(int, notify=datosChanged)
+    def intervaloCiclos(self) -> int:
+        return self._intervalos[1]
+
+    @Property(int, constant=True)
+    def diasMax(self) -> int:
+        return DIAS_MAX
+
+    @Property(int, constant=True)
+    def ciclosMax(self) -> int:
+        return CICLOS_MAX
 
     @Property(str, notify=datosChanged)
     def proximo(self) -> str:

@@ -1164,7 +1164,7 @@ def _rechazo_mantenimiento(e, entidad: str, sesion) -> None:
 @app.get("/maintenance")
 def get_maintenance():
     """Próximo vencimiento, último mantenimiento, ciclos restantes y los
-    intervalos configurados (valores por defecto PROVISIONALES: 180 días)."""
+    intervalos configurados (por defecto 365 días y 1000 ciclos)."""
     return context.mantenimiento.resumen()
 
 
