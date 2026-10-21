@@ -27,6 +27,7 @@ import Autoclave.I18n
 // uso (`usaToken`): la vigilancia de conexión de Main.qml aplica aquí.
 Item {
     id: raiz
+    objectName: "pantallaOpciones"
 
     property QtObject puente: null      // UiBridge: estado de la máquina y campana
     property QtObject comandosSistema: null   // confirmar estado seguro desde la campana (U1)
