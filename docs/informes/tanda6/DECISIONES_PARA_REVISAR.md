@@ -64,3 +64,16 @@ Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
 - SAF-04: ¿un cambio de parámetro en PREPARADO debe reiniciar la ventana de estabilidad?
 - ¿El transductor de empaque y el rango 100–400 kPa son absolutos?
 - Idioma: la segunda ventana QML no lee `GET /language`; ¿se sincroniza en el sondeo?
+
+## O2b (Usuarios)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| O2b-1 | DECISIÓN SIN CONFIRMAR. El técnico VE Usuarios (antes no la veía) con todo deshabilitado y el motivo. | Decisión 1.9 / APROBADO.md: "ve esos controles deshabilitados" | Ocultarle la sección | `_VE_USUARIOS` en `permisos_opciones.py` |
+| O2b-2 | DECISIÓN SIN CONFIRMAR. Migración v9 = `operadores`. Si el otro agente (O2f–O2h) también usa v9, al unir hay que renumerar la suya a v10. | Siguiente libre | — | quitar `_migracion_v9` |
+| O2b-3 | DECISIÓN SIN CONFIRMAR. Reglas sobre el objetivo = `ROLES_CREABLES` (el admin no desactiva ni restablece a un ingeniero). | Misma matriz que crear | Admin gestiona a todos | `_objetivo_gestionable` |
+| O2b-4 | DECISIÓN SIN CONFIRMAR. Restablecer = el gestor escribe una contraseña temporal (no se genera); la propia no se restablece (409). | Sin canal para entregar una generada | Generar e imprimir | — |
+| O2b-5 | DECISIÓN SIN CONFIRMAR. `GET /operadores` sin token (iniciar ciclo no exige sesión). | Coherente con O1 | Exigir sesión | — |
+
+## PREGUNTAS PARA CRISTIAN (O2b)
+- La tabla `operadores` ya existe, pero el inicio de ciclo sigue registrando como operador al usuario con sesión (O1). ¿Se agrega un selector de operador en Preciclo (y se valida en el backend que esté activo, H-06)?
+- H-02: ¿revalidar en cada petición que el usuario siga activo (generación de credenciales en la sesión)?
