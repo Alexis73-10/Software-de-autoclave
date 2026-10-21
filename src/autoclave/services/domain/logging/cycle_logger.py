@@ -81,7 +81,7 @@ _FASES_EN_CURSO: set[str] = {
 _INTERVALO_PARAM: dict[str, str] = {
     "W": "intervalo_impresion",
     "H": "intervalo_impresion",
-    "S": "intervalo_imprecion_esterilizacion",   # nota: typo intencional del JSON
+    "S": "intervalo_impresion_esterilizacion",   # O2a: errata corregida (alias en ConfigManager)
     "E": None,
 }
 

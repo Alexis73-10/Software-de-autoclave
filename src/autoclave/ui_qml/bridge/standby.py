@@ -35,7 +35,7 @@ from PySide6.QtCore import QEvent, Property, QObject, QTimer, Signal, Slot
 
 logger = logging.getLogger(__name__)
 
-MINUTOS_DEFECTO = 5
+MINUTOS_DEFECTO = 10      # O2a: defecto de planeacion_opciones.md v4 §3.2
 GRACIA_ARRANQUE_S = 10.0
 ESTADOS_SIN_STANDBY = {"CICLO", "FALLA"}   # P-8 (tanda 6): EMERGENCIA retirado
 _EVENTOS_ACTIVIDAD = {
@@ -44,8 +44,9 @@ _EVENTOS_ACTIVIDAD = {
 
 
 def minutos_standby(valor) -> float:
-    """tiempo_standby de los parámetros globales; defecto si falta o es inválido."""
-    if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor <= 0:
+    """tiempo_standby de los parámetros globales; defecto si falta o es
+    inválido. 0 = suspensión desactivada (O2a: antes se convertía en 5)."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor != valor or valor < 0:
         return MINUTOS_DEFECTO
     return float(valor)
 
@@ -54,6 +55,8 @@ def debe_estar_en_standby(conectado: bool, inactividad_backend, inactividad_loca
                           minutos: float, estado, seguridad_pendiente: bool = False) -> bool:
     """inactividad_* en segundos; None = sin actividad registrada (infinita).
     seguridad_pendiente: paro activo o estado seguro activo/por confirmar."""
+    if minutos <= 0:                     # 0 = suspensión desactivada
+        return False
     if conectado and (estado in ESTADOS_SIN_STANDBY or seguridad_pendiente):
         return False
     infinito = float("inf")

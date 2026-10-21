@@ -167,6 +167,9 @@ class BackendContext:
                 self.db = DbManager()
                 self.calibration_audit = SensorCalibrationAuditDB()
                 self._numeracion_y_ciclos_interrumpidos()
+                # O2a: valores vigentes de los parámetros del equipo (system_params)
+                if self.config_manager is not None:
+                    self.config_manager.vincular_bd(self.db)
                 return None
             except BdBloqueadaError as e:
                 logger.critical("%s", e)

@@ -195,7 +195,7 @@ def test_migracion_v7_sobre_base_v6(tmp_path):
     conn.commit()
     conn.close()
     db = DbManager(db_path=tmp_path / "t.db")
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 7
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 8   # v8: O2a
 
 
 def test_registrar_fallo_deja_los_valores_en_el_estado():

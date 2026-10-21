@@ -15,7 +15,7 @@ from typing import Literal
 
 from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt
 
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.arranque.registro import RegistroArranque
@@ -1111,7 +1111,106 @@ def registrar_actividad_ui():
 
 @app.get("/global_params")
 def get_global_params():
-    return context.config_manager.get()
+    cm = context.config_manager
+    return cm.instantanea() if hasattr(cm, "instantanea") else cm.get()
+
+
+# ── Parámetros del equipo (O2a, tanda 6; planeacion_opciones.md v4 §3.2) ──
+# Lectura libre (como /global_params). Cambio y restablecimiento: técnico e
+# ingeniero (el admin los ve en solo lectura: 403, decisión 1.5), solo fuera de
+# CICLO para todos (409, también el ingeniero) y aplicados sin reiniciar: el
+# ConfigManager escribe en system_params y en memoria, y cada lector consulta
+# el valor vigente (OPC-11). Auditoría `param_sistema_cambio`.
+# La presión atmosférica de referencia no se cambia por aquí (solo O2f).
+
+class _ParametroSistemaBody(BaseModel):
+    valor: StrictInt | StrictFloat
+
+
+_CODIGO_PARAMETRO = {
+    "no_existe": (404, "Parámetro desconocido"),
+    "solo_lectura": (403, "Este parámetro no se puede modificar"),
+    "tipo_invalido": (422, "Valor inválido para este parámetro"),
+    "fuera_de_rango": (422, "Valor fuera del rango permitido"),
+    "incoherente": (422, "Valor incompatible con la presión atmosférica o el otro parámetro de empaque"),
+    "sin_base_de_datos": (503, "No se pudo guardar el parámetro"),
+}
+
+
+def _parametro_o_404(clave: str) -> dict:
+    from autoclave.core.managers.config_manager import ErrorParametro
+    try:
+        return context.config_manager.describir(clave)
+    except ErrorParametro:
+        raise RechazoApi(404, "no_existe", "Parámetro desconocido")
+
+
+@app.get("/system_params")
+def get_system_params():
+    """Lista para la pantalla: valor vigente, defecto, rango, unidad, clase,
+    submenú y último cambio (usuario y fecha)."""
+    return {"parametros": context.config_manager.describir()}
+
+
+@app.get("/global_params/{clave}")
+def get_global_param(clave: str):
+    return _parametro_o_404(clave)
+
+
+def _cambiar_parametro_sistema(clave: str, sesion: Sesion, valor=None, restablecer=False):
+    from autoclave.core.managers.config_manager import ErrorParametro
+    entidad = f"/global_params/{clave}"
+    p = _parametro_o_404(clave)
+    if p["solo_lectura"]:
+        _rechazar(403, "solo_lectura", _CODIGO_PARAMETRO["solo_lectura"][1], entidad, sesion)
+    error = None
+    # TMG-01: validación y escritura en SQLite FUERA del guard (no detienen el
+    # tick); dentro solo se comprueba el estado y se publica en memoria. Si
+    # mientras tanto arrancó un ciclo: 409 y se deshace la escritura.
+    cm = context.config_manager
+    with cm.lock_cambios:
+        return _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer)
+
+
+def _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer):
+    from autoclave.core.managers.config_manager import ErrorParametro
+    error = None
+    try:
+        if restablecer:
+            anterior, nuevo = cm.restablecer(clave, sesion.usuario, aplicar=False)
+        else:
+            anterior, nuevo = cm.fijar(clave, valor, sesion.usuario, aplicar=False)
+    except ErrorParametro as e:
+        error = e
+    if error is None:
+        try:
+            with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+                cm.aplicar_valor(p["clave"], nuevo, sesion.usuario)
+        except RechazoApi:
+            cm.revertir_bd(p["clave"], anterior)
+            raise
+    if error is not None:
+        status, motivo = _CODIGO_PARAMETRO.get(error.codigo, (422, "Valor inválido"))
+        if status in (401, 403, 409):
+            _rechazar(status, error.codigo, motivo, entidad, sesion)
+        raise RechazoApi(status, error.codigo, motivo,
+                         extra={"min": p["min"], "max": p["max"]} if error.codigo == "fuera_de_rango" else None)
+    _auditar("param_sistema_cambio", sesion, entidad=entidad,
+             valor_anterior={p["clave"]: anterior}, valor_nuevo={p["clave"]: nuevo},
+             detalle={"clave": p["clave"], "accion": "restablecer" if restablecer else "cambio"})
+    return {"ok": True, "parametro": context.config_manager.describir(p["clave"])}
+
+
+@app.patch("/global_params/{clave}")
+def patch_global_param(clave: str, body: _ParametroSistemaBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    return _cambiar_parametro_sistema(clave, sesion, valor=body.valor)
+
+
+@app.post("/global_params/{clave}/reset")
+def reset_global_param(clave: str,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    return _cambiar_parametro_sistema(clave, sesion, restablecer=True)
 
 
 @app.get("/cycle")
@@ -1422,7 +1521,7 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
 # desconectada; no impide imprimir ni bloquea nada.
 
 # ── Idioma (I1, tanda 5; planeacion_i18n.md §5 F2) ───────────────────────
-# Cualquier rol con sesión, también en ciclo (no afecta al control). R-06
+# Admin e ingeniero (decisión 1.9, tanda 6), también en ciclo (no afecta al control). R-06
 # sigue vigente: el inglés no se habilita en campo hasta cerrar la voz; el
 # endpoint existe, pero ninguna pantalla de operador ofrece el selector.
 
@@ -1436,7 +1535,9 @@ def get_language():
 
 
 @app.put("/language")
-def put_language(body: _IdiomaBody, sesion: Sesion = Depends(requiere_rol())):
+def put_language(body: _IdiomaBody,
+                 sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_INGENIERO))):
+    """Decisión 1.9 (tanda 6): admin e ingeniero; también en ciclo."""
     entidad = "/language"
     anterior = context.config_idioma.leer()
     try:
@@ -1474,8 +1575,8 @@ def get_units():
 
 @app.put("/units")
 def put_units(body: _UnidadesBody,
-              sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
-    """Técnico e ingeniero, solo fuera de ciclo (también el ingeniero: un
+              sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+    """Decisión 1.9 (tanda 6): solo el ingeniero, y solo fuera de ciclo (también el ingeniero: un
     cambio de unidades a mitad de ciclo se presta a leer mal un valor)."""
     entidad = "/units"
     with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):

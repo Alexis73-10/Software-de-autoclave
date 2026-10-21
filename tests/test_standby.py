@@ -55,7 +55,7 @@ def _standby(ui, reloj=None, **kw):
 # ── regla pura ────────────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("valor, esperado", [
-    (5, 5.0), (1, 1.0), (2.5, 2.5), (0, MINUTOS_DEFECTO), (-3, MINUTOS_DEFECTO),
+    (5, 5.0), (1, 1.0), (2.5, 2.5), (0, 0.0), (-3, MINUTOS_DEFECTO),
     (None, MINUTOS_DEFECTO), (True, MINUTOS_DEFECTO), ("5", MINUTOS_DEFECTO),
 ])
 def test_minutos_standby(valor, esperado):

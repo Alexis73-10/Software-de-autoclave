@@ -184,8 +184,8 @@ def test_api_lee_por_defecto_con_p_atm(api):
     assert client.get("/units").json() == {"temperatura": "C", "presion": "kPa", "p_atm": ATM}
 
 
-@pytest.mark.parametrize("rol, esperado", [("tecnico", 200), ("ingeniero", 200), ("admin", 403),
-                                           ("operador", 403)])
+@pytest.mark.parametrize("rol, esperado", [("tecnico", 403), ("ingeniero", 200), ("admin", 403),
+                                           ("operador", 403)])   # decisión 1.9 (tanda 6)
 def test_api_permisos_y_auditoria(api, rol, esperado):
     client, srv, ctx, cabecera = api
     r = client.put("/units", headers=cabecera(srv, rol), json={"temperatura": "F", "presion": "psi"})
@@ -200,7 +200,7 @@ def test_api_sin_sesion_401(api):
     assert client.put("/units", json={"temperatura": "F", "presion": "psi"}).status_code == 401
 
 
-@pytest.mark.parametrize("rol", ["tecnico", "ingeniero"])
+@pytest.mark.parametrize("rol", ["ingeniero"])
 def test_api_rechaza_en_ciclo_tambien_al_ingeniero(api, rol):
     from autoclave.state_machine.machine.enum_global import GlobalState
     client, srv, ctx, cabecera = api
@@ -214,7 +214,7 @@ def test_api_rechaza_en_ciclo_tambien_al_ingeniero(api, rol):
                                     {"temperatura": "C", "presion": "atm"}, {"temperatura": "C"}])
 def test_api_valores_invalidos_422(api, cuerpo):
     client, srv, ctx, cabecera = api
-    assert client.put("/units", headers=cabecera(srv, "tecnico"), json=cuerpo).status_code == 422
+    assert client.put("/units", headers=cabecera(srv, "ingeniero"), json=cuerpo).status_code == 422
 
 
 def test_api_sin_p_atm_publica_null(api):

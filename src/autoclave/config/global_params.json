@@ -1,16 +1,15 @@
 {
-    "temp_max": {"value": 134, "type": "int", "unit": "°C", "clase": "absoluto"},
-    "presion_admosferica": {"value":75, "type":"float", "unit":"kPa", "clase": "absoluto"},
-    "rango_presion_atm": {"value":5, "type":"float", "unit":"kPa", "clase": "diferencia"},
-    "temp_max_apertura": {"value":120, "type": "int", "unit": "°C", "clase": "absoluto"},
-    "presion_empaque": {"value": 300, "type": "int", "unit": "kPa", "clase": "absoluto"},
-    "vacio_empaque": {"value": 30, "type": "int", "unit": "kPa", "clase": "absoluto"},
-    "timeout_puerta": {"value": 60, "type": "int", "unit": "seg", "min": 0, "max": 3600},
-    "tipo_puerta": {"value":2, "type":"int", "min":0, "max":10},
-    "temp_segura_drenaje": {"value":70, "type":"int", "unit":"°C", "clase": "absoluto"},
-    "rango_temp_drenaje": {"value":5, "type":"int", "unit":"°C", "clase": "diferencia"},
-    "intervalo_impresion": {"value": 60, "type": "int", "unit": "seg", "min": 0, "max": 3600},
-    "intervalo_imprecion_esterilizacion": {"value": 30, "type": "int", "unit": "seg", "min": 0, "max": 3600},
-    "tiempo_estable_alarma": {"value": 5, "type": "int", "unit": "seg", "min": 0, "max": 3600},
-    "tiempo_standby": {"value": 5, "type": "int", "unit": "min", "min": 1, "max": 60}
-} 
+    "timeout_puerta": {"value": 60, "type": "int", "unit": "seg", "min": 5, "max": 600, "grupo": "puerta"},
+    "temp_max_apertura": {"value": 80, "type": "int", "unit": "°C", "clase": "absoluto", "min": 40, "max": 120, "grupo": "puerta"},
+    "rango_presion_atm": {"value": 5, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 1, "max": 10, "grupo": "puerta"},
+    "intervalo_impresion": {"value": 60, "type": "int", "unit": "seg", "min": 10, "max": 3600, "grupo": "impresion"},
+    "intervalo_impresion_esterilizacion": {"value": 30, "type": "int", "unit": "seg", "min": 10, "max": 3600, "grupo": "impresion"},
+    "temp_segura_drenaje": {"value": 70, "type": "int", "unit": "°C", "clase": "absoluto", "min": 40, "max": 90, "grupo": "drenaje"},
+    "rango_temp_drenaje": {"value": 5, "type": "int", "unit": "°C", "clase": "diferencia", "min": 1, "max": 20, "grupo": "drenaje"},
+    "presion_empaque": {"value": 300, "type": "int", "unit": "kPa", "clase": "absoluto", "min": 100, "max": 400, "grupo": "empaque"},
+    "vacio_empaque": {"value": 30, "type": "int", "unit": "kPa", "clase": "absoluto", "min": 0, "max": 100, "grupo": "empaque"},
+    "timeout_chaqueta": {"value": 60, "type": "int", "unit": "min", "min": 10, "max": 180, "grupo": "chaqueta"},
+    "tiempo_standby": {"value": 10, "type": "int", "unit": "min", "min": 0, "max": 60, "grupo": "sistema"},
+    "tiempo_estable_alarma": {"value": 5, "type": "int", "unit": "seg", "min": 1, "max": 60, "grupo": "sistema"},
+    "presion_atmosferica": {"value": 75, "type": "float", "unit": "kPa", "clase": "absoluto", "min": 50, "max": 110, "grupo": "sistema", "solo_lectura": true}
+}

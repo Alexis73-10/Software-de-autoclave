@@ -259,6 +259,25 @@ def _migracion_v7(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE ciclos ADD COLUMN valores_fallo TEXT DEFAULT ''")
 
 
+def _migracion_v8(conn: sqlite3.Connection) -> None:
+    """O2a (tanda 6; planeacion_opciones.md v4 §3.2): parámetros del equipo.
+    `global_params.json` es la fuente de los valores de fábrica; aquí queda el
+    valor vigente de cada uno, con el defecto, el mínimo y el máximo con que
+    se validó, y quién y cuándo lo cambió por última vez ('' / NULL si nunca).
+    El historial completo de cambios está en audit_log (param_sistema_cambio)."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS system_params (
+            clave      TEXT PRIMARY KEY,
+            valor      TEXT NOT NULL,
+            defecto    TEXT,
+            minimo     REAL,
+            maximo     REAL,
+            usuario    TEXT DEFAULT '',
+            fecha      TEXT
+        )
+    """)
+
+
 def _valores_fallo_json(valores) -> str:
     """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
     if not isinstance(valores, dict) or not valores:
@@ -277,6 +296,7 @@ _MIGRACIONES = (
     (5, _migracion_v5),
     (6, _migracion_v6),
     (7, _migracion_v7),
+    (8, _migracion_v8),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -469,6 +489,39 @@ class DbManager:
             )
             self._conn.commit()
             return cur.lastrowid
+
+    # ------------------------------------------------------------------
+    # Parámetros del equipo (O2a, tanda 6): tabla system_params
+    # ------------------------------------------------------------------
+
+    def listar_parametros_sistema(self) -> dict[str, dict]:
+        """{clave: fila} con `valor` y `defecto` ya decodificados del JSON."""
+        with self._lock:
+            filas = self._conn.execute("SELECT * FROM system_params").fetchall()
+        resultado = {}
+        for f in filas:
+            d = dict(f)
+            try:
+                d["valor"] = json.loads(d["valor"])
+                d["defecto"] = json.loads(d["defecto"]) if d["defecto"] is not None else None
+            except (TypeError, ValueError):
+                continue                       # fila ilegible: se ignora (vale la de fábrica)
+            resultado[d["clave"]] = d
+        return resultado
+
+    def guardar_parametro_sistema(self, clave: str, valor, defecto, minimo, maximo,
+                                  usuario: str = "", fecha: str | None = None) -> None:
+        """Inserta o reemplaza la fila. `fecha` None conserva NULL (sembrado
+        de fábrica, sin cambio de usuario)."""
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO system_params (clave, valor, defecto, minimo, maximo, usuario, fecha)"
+                " VALUES (?,?,?,?,?,?,?) ON CONFLICT(clave) DO UPDATE SET valor=excluded.valor,"
+                " defecto=excluded.defecto, minimo=excluded.minimo, maximo=excluded.maximo,"
+                " usuario=excluded.usuario, fecha=excluded.fecha",
+                (clave, json.dumps(valor), json.dumps(defecto), minimo, maximo,
+                 usuario or "", fecha))
+            self._conn.commit()
 
     # ------------------------------------------------------------------
     # Mantenimientos realizados (M1, tanda 3)
