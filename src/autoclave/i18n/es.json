@@ -178,7 +178,10 @@
       "mantenimiento": "Mantenimiento",
       "opciones_avanzadas": "Opciones avanzadas",
       "usuarios": "Usuarios",
-      "conectividad": "Conectividad"
+      "conectividad": "Conectividad",
+      "fecha_hora": "Fecha y hora",
+      "info_sistema": "Información del sistema",
+      "bitacora": "Bitácora de auditoría"
     },
     "secciones_programa": {
       "precalentamiento": "Precalentamiento",
@@ -1256,5 +1259,14 @@
     "err_operador_existe": "Ya existe un operador con ese nombre.",
     "err_validacion": "Datos inválidos: la contraseña debe tener la longitud mínima y coincidir con la confirmación.",
     "err_no_existe": "El usuario u operador ya no existe."
+  },
+  "fecha_hora": {
+    "rotulo_zona": "Zona horaria",
+    "rotulo_fecha_iso": "Fecha (AAAA-MM-DD)",
+    "rotulo_instalacion": "Fecha de instalación",
+    "rotulo_fuente": "Origen de la hora",
+    "fuente_pc": "Reloj del PC (Windows)",
+    "reloj_anterior": "El reloj del equipo es anterior a la fecha de instalación ({fecha}). Los registros quedarán con fecha errada: llame a servicio para corregir la hora de Windows.",
+    "explicacion": "Solo lectura. La fecha y la hora son las del PC (Windows) y se ajustan desde Windows por personal de servicio. Los temporizadores del ciclo no dependen del reloj."
   }
 }

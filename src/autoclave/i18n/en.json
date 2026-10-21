@@ -178,7 +178,10 @@
       "mantenimiento": "Maintenance",
       "opciones_avanzadas": "Advanced options",
       "usuarios": "Users",
-      "conectividad": "Connectivity"
+      "conectividad": "Connectivity",
+      "fecha_hora": "Date and time",
+      "info_sistema": "System information",
+      "bitacora": "Audit log"
     },
     "secciones_programa": {
       "precalentamiento": "Preheating",
@@ -1256,5 +1259,14 @@
     "err_operador_existe": "An operator with that name already exists.",
     "err_validacion": "Invalid data: the password must have the minimum length and match the confirmation.",
     "err_no_existe": "The user or operator no longer exists."
+  },
+  "fecha_hora": {
+    "rotulo_zona": "Time zone",
+    "rotulo_fecha_iso": "Date (YYYY-MM-DD)",
+    "rotulo_instalacion": "Installation date",
+    "rotulo_fuente": "Time source",
+    "fuente_pc": "PC clock (Windows)",
+    "reloj_anterior": "The unit clock is earlier than the installation date ({fecha}). Records will carry a wrong date: call service to correct the Windows time.",
+    "explicacion": "Read only. Date and time come from the PC (Windows) and are set in Windows by service staff. Cycle timers do not depend on the clock."
   }
 }

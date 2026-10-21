@@ -262,6 +262,15 @@ Item {
             }
         }
 
+        // Fecha y hora (O2c, tanda 6): solo lectura
+        Loader {
+            id: fechaHora
+            objectName: "cargadorFechaHora"
+            active: raiz.seccionActiva === "fecha_hora"
+            anchors.fill: parent
+            sourceComponent: OpcionesFechaHora {}
+        }
+
         // Mantenimiento (M1, tanda 3): próximo vencimiento y registro
         Loader {
             id: mantenimiento
@@ -294,6 +303,7 @@ Item {
                      && raiz.seccionActiva !== "mantenimiento"
                      && raiz.seccionActiva !== "parametros_sistema"
                      && raiz.seccionActiva !== "entradas_salidas"
+                     && raiz.seccionActiva !== "fecha_hora"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia

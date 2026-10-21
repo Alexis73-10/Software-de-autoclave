@@ -739,6 +739,38 @@ def fijar_activo_operador(id_: int, body: _ActivoBody,
     return {"ok": True, "id": id_, "activo": body.activo}
 
 
+# ── Fecha y hora (O2c, tanda 6; decisión 1.10): SOLO LECTURA ──────────────
+# No hay ajuste: el reloj es el de Windows. Se informa la hora, la zona y si
+# el reloj es anterior a la fecha de instalación (M1-01, clock_guard).
+
+def _info_reloj(ahora: datetime | None = None) -> dict:
+    ahora = (ahora or datetime.now()).astimezone()
+    perfil = getattr(context, "profile", None)
+    inst = getattr(perfil, "created_at", None) if perfil is not None else None
+    inst = inst if isinstance(inst, datetime) else None
+    off = ahora.utcoffset()
+    minutos = int(off.total_seconds() // 60) if off is not None else 0
+    signo = "+" if minutos >= 0 else "-"
+    h, m = divmod(abs(minutos), 60)
+    nombre = ahora.tzname() or ""
+    zona = f"UTC{signo}{h:02d}:{m:02d}"
+    if nombre and not nombre.startswith("UTC"):
+        zona += f" ({nombre})"
+    return {
+        "ahora": ahora.isoformat(timespec="seconds"),
+        "zona": zona,
+        "utc_offset_min": minutos,
+        "instalacion": inst.isoformat(timespec="seconds") if inst else None,
+        "reloj_anterior_instalacion": bool(inst and ahora.date() < inst.date()),
+        "ajuste_habilitado": False,
+    }
+
+
+@app.get("/system/time")
+def get_system_time():
+    return _info_reloj()
+
+
 def _resolve_sensor_index(tipo: str, sensor: str) -> int:
     name_map = {"temperature": EstadoAutoclave.map_temp, "pressure": EstadoAutoclave.map_pres}.get(tipo)
     if name_map is None:

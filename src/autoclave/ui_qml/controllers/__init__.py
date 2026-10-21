@@ -17,3 +17,5 @@ from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
 from autoclave.ui_qml.controllers import parametros_equipo_controller  # noqa: F401
 # OPCIONES > Usuarios (O2b, tanda 6).
 from autoclave.ui_qml.controllers import usuarios_controller  # noqa: F401
+# OPCIONES > Fecha y hora (O2c), Información del sistema (O2d), Bitácora (O2e).
+from autoclave.ui_qml.controllers import fecha_hora_controller  # noqa: F401

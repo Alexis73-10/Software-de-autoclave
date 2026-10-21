@@ -29,6 +29,9 @@ _VE_USUARIOS = _GESTION_USUARIOS | {"tecnico"}
 # C1b (tanda 6, decisión 1.5; revierte P2-1 de la tanda 5): el admin VE
 # Parámetros del equipo, en solo lectura.
 _PARAMETROS_EQUIPO = _TECNICOS | {ROL_ADMIN}
+_TODOS = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})
+# Secciones de solo lectura para todos: no muestran el aviso de edición bloqueada
+SECCIONES_LECTURA = frozenset({"fecha_hora"})
 _SOLO_LECTURA_POR_ROL = {"parametros_sistema": frozenset({ROL_ADMIN})}
 
 
@@ -50,6 +53,8 @@ SECCIONES = (
     Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
     Seccion("usuarios",           "usuarios.svg",           _VE_USUARIOS),
     Seccion("conectividad",       "conectividad.svg",       _CONECTIVIDAD),
+    # O2c–O2e (tanda 6): para todos los roles con sesión, solo lectura
+    Seccion("fecha_hora",         "reloj.svg",              _TODOS),
 )
 
 _POR_CLAVE = {s.clave: s for s in SECCIONES}
@@ -78,6 +83,8 @@ _EDICION_SIEMPRE = frozenset({"ingeniero"})
 
 def edicion_permitida(estado_maquina: str | None, rol: str | None = None,
                       seccion: str | None = None) -> bool:
+    if seccion in SECCIONES_LECTURA:
+        return True          # nada que editar: sin aviso de bloqueo
     if rol in _SOLO_LECTURA_POR_ROL.get(seccion, ()):
         return False
     if rol in _EDICION_SIEMPRE:

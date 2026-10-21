@@ -6,6 +6,8 @@
 
 import pytest
 
+from tests.opciones_qml_doble import COMUNES_T6
+
 from autoclave.ui_pyside.services.roles import VALORES_ROL
 from autoclave.ui_qml.domain.permisos_opciones import (
     SECCIONES, edicion_permitida, puede_ver, secciones_visibles,
@@ -13,7 +15,7 @@ from autoclave.ui_qml.domain.permisos_opciones import (
 
 _TECNICAS = ["parametros_ciclo", "parametros_sistema", "entradas_salidas",
              "mantenimiento", "opciones_avanzadas"]
-_ADMIN = ["usuarios", "conectividad"]
+_ADMIN = ["usuarios", "conectividad", *COMUNES_T6]
 
 _ESPERADO = {
     "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura

@@ -124,3 +124,8 @@ def correr(seccion: str, rol: str, get: dict, pasos: list, usuario: str = "yo",
     linea = next((l for l in p.stdout.splitlines() if l.startswith("RESULTADO=")), None)
     assert linea, p.stdout[-3000:] + p.stderr[-3000:]
     return json.loads(linea[len("RESULTADO="):])
+
+
+# Secciones de OPCIONES de solo lectura para todos los roles (O2c–O2e, tanda 6),
+# al final de la navegación; las pruebas de navegación las agregan a lo esperado.
+COMUNES_T6 = ["fecha_hora"]

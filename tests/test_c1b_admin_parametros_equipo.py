@@ -6,13 +6,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from tests.opciones_qml_doble import COMUNES_T6
+
 from autoclave.ui_qml.domain import permisos_opciones as po
 
 
 def test_admin_ve_parametros_del_equipo():
     assert po.puede_ver("parametros_sistema", "admin")
     assert [s.clave for s in po.secciones_visibles("admin")] == [
-        "parametros_sistema", "usuarios", "conectividad"]
+        "parametros_sistema", "usuarios", "conectividad", *COMUNES_T6]
 
 
 @pytest.mark.parametrize("estado", ["PREPARACION", "PREPARADO", "FALLA", "CICLO"])
