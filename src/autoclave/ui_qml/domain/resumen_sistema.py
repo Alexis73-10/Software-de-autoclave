@@ -154,17 +154,35 @@ _MESES = ("Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agost
 _MESES_CORTOS = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
 
 
-def rotulo_periodo(periodo: str, fecha: date) -> str:
+def _lista_catalogo(clave: str, respaldo: tuple, idioma: str | None) -> tuple:
+    """I4 (tanda 6): días y meses del catálogo en el idioma vigente; si falta
+    o no tiene el largo esperado, la lista en español."""
+    try:
+        from autoclave import i18n
+        v = i18n.valor(clave, idioma)
+        if isinstance(v, list) and len(v) == len(respaldo) and all(isinstance(x, str) for x in v):
+            return tuple(v)
+    except Exception:
+        pass
+    return respaldo
+
+
+def rotulo_periodo(periodo: str, fecha: date, idioma: str | None = None) -> str:
     """Rótulo del periodo de calendario de `fecha` entre las flechas del Historial:
-    "Martes 6 oct 2026", "28 sep – 4 oct 2026" o "Octubre 2026"."""
+    "Martes 6 oct 2026", "28 sep – 4 oct 2026" o "Octubre 2026" (en el idioma
+    vigente, I4)."""
+    dias = _lista_catalogo("fecha.dias", _DIAS, idioma)
+    meses = _lista_catalogo("fecha.meses_largos", _MESES, idioma)
+    cortos = _lista_catalogo("fecha.meses", _MESES_CORTOS, idioma)
+
     def corta(d: date) -> str:
-        return f"{d.day} {_MESES_CORTOS[d.month - 1]}"
+        return f"{d.day} {cortos[d.month - 1]}"
 
     inicio, fin = periodos.rango(periodo, fecha)
     if periodo == "dia":
-        return f"{_DIAS[inicio.weekday()]} {corta(inicio)} {inicio.year}"
+        return f"{dias[inicio.weekday()]} {corta(inicio)} {inicio.year}"
     if periodo == "semana":
         ultimo = fin - timedelta(days=1)
         desde = corta(inicio) + (f" {inicio.year}" if inicio.year != ultimo.year else "")
         return f"{desde} – {corta(ultimo)} {ultimo.year}"
-    return f"{_MESES[inicio.month - 1]} {inicio.year}"
+    return f"{meses[inicio.month - 1]} {inicio.year}"

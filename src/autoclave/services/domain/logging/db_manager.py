@@ -249,6 +249,26 @@ def _migracion_v6(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE ciclos ADD COLUMN operador TEXT DEFAULT ''")
 
 
+def _migracion_v7(conn: sqlite3.Connection) -> None:
+    """I4 (tanda 6; planeacion_i18n.md §3.10): parámetros de la alarma del
+    fallo del ciclo, en JSON, para presentar el motivo en cualquier idioma y
+    unidad. `motivo_fallo` (texto en español) y `codigo_fallo` no cambian; los
+    ciclos anteriores quedan con '' (se muestran como antes)."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    if "valores_fallo" not in columnas:
+        conn.execute("ALTER TABLE ciclos ADD COLUMN valores_fallo TEXT DEFAULT ''")
+
+
+def _valores_fallo_json(valores) -> str:
+    """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
+    if not isinstance(valores, dict) or not valores:
+        return ""
+    try:
+        return json.dumps(valores, ensure_ascii=False, allow_nan=False, default=str)
+    except (TypeError, ValueError):
+        return ""
+
+
 _MIGRACIONES = (
     (1, _migracion_v1),
     (2, _migracion_v2),
@@ -256,6 +276,7 @@ _MIGRACIONES = (
     (4, _migracion_v4),
     (5, _migracion_v5),
     (6, _migracion_v6),
+    (7, _migracion_v7),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -607,15 +628,16 @@ class DbManager:
             return cur.lastrowid
 
     def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
-                     codigo_fallo: str | None = None, f0_final: float | None = None):
-        """Registra la hora de fin, el resultado y (si lo hay) el motivo y código
-        del ciclo, y el F0 final si el ciclo tenía F0 activo."""
+                     codigo_fallo: str | None = None, f0_final: float | None = None,
+                     valores_fallo: dict | None = None):
+        """Registra la hora de fin, el resultado y (si lo hay) el motivo, el
+        código y los parámetros del fallo, y el F0 final si el ciclo tenía F0 activo."""
         with self._lock:
             self._conn.execute(
                 "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
-                "f0_final=? WHERE id=?",
+                "f0_final=?, valores_fallo=? WHERE id=?",
                 (datetime.now().isoformat(), resultado, motivo_fallo or "",
-                 codigo_fallo or "", f0_final, ciclo_id),
+                 codigo_fallo or "", f0_final, _valores_fallo_json(valores_fallo), ciclo_id),
             )
             self._conn.commit()
 
@@ -722,10 +744,11 @@ class DbManager:
             if cerrar:
                 self._conn.execute(
                     "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
-                    "f0_final=? WHERE id=?",
+                    "f0_final=?, valores_fallo=? WHERE id=?",
                     (cierre.get("fecha_fin") or datetime.now().isoformat(),
                      cierre.get("resultado") or "DESCONOCIDO", cierre.get("motivo") or "",
-                     cierre.get("codigo") or "", cierre.get("f0_final"), ciclo_id))
+                     cierre.get("codigo") or "", cierre.get("f0_final"),
+                     _valores_fallo_json(cierre.get("valores")), ciclo_id))
             self._conn.commit()
         except Exception:
             self._conn.rollback()

@@ -119,8 +119,10 @@ def test_claves_literales_qml_existen_en_ambos_idiomas():
 
 
 def test_claves_literales_python_existen_en_ambos_idiomas():
+    # I4 (tanda 6): listas de días y meses (se leen con i18n.valor, no son textos)
+    listas = ("fecha.meses", "fecha.dias", "fecha.meses_largos")
     faltan = [(f, c, idioma) for f, c in _literales_py() if not _es_prefijo(c)
-              for idioma, cat in CATALOGOS.items() if not _es_texto(c, cat)]
+              for idioma, cat in CATALOGOS.items() if not _es_texto(c, cat) and c not in listas]
     assert faltan == []
 
 
@@ -275,6 +277,9 @@ FAMILIAS = {
     "exportacion.impresora_": _sufijos_impresora,
     "validacion.": _sufijos_validacion,
     # O1 (tanda 5): entradas mostradas = AI habilitadas del equipo activo
+    # I4 (tanda 6): etiquetas de rol por valor
+    "roles.": lambda: [v for v, _ in __import__("autoclave.ui_pyside.services.roles",
+                                                fromlist=["ROLES"]).ROLES],
     "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
                                  fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
 }

@@ -12,10 +12,29 @@ _MENSAJES = {
     ("BACKEND", False): "BACKEND: SIN RESPUESTA",
     ("BACKEND", True):  "BACKEND: RECONECTADO",
 }
+# I4 (tanda 6): en inglés (cp437, sin tildes); la clave sigue siendo el código
+_MENSAJES_EN = {
+    ("TARJETA", False): "BOARD: DISCONNECTED",
+    ("TARJETA", True):  "BOARD: RECONNECTED",
+    ("BACKEND", False): "BACKEND: NOT RESPONDING",
+    ("BACKEND", True):  "BACKEND: RECONNECTED",
+}
 
 
-def format_connectivity_ticket(subsystem: str, ok: bool, when: datetime) -> str:
-    mensaje = _MENSAJES[(subsystem, ok)]
+def _idioma(idioma: str | None) -> str:
+    if idioma in ("es", "en"):
+        return idioma
+    try:
+        from autoclave.services.domain.logging.ticket_formatter import presentacion_actual
+        return presentacion_actual().idioma
+    except Exception:
+        return "es"
+
+
+def format_connectivity_ticket(subsystem: str, ok: bool, when: datetime,
+                               idioma: str | None = None) -> str:
+    mensajes = _MENSAJES_EN if _idioma(idioma) == "en" else _MENSAJES
+    mensaje = mensajes[(subsystem, ok)]
     lines = [
         " ",
         _DIV,

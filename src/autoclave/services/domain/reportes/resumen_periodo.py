@@ -62,35 +62,63 @@ def _cortar(texto: str) -> str:
     return texto[:_ANCHO]
 
 
+# I4 (tanda 6): rótulos por idioma (cp437: sin tildes en inglés)
+_TXT = {
+    "es": {"titulo": "RESUMEN DE CICLOS", "desde": "Desde", "hasta": "Hasta",
+           "serie": "Num serie", "modelo": "Modelo", "impreso": "Impreso", "hora": "Hora",
+           "completados": "Completados", "fallos": "Fallo", "cancelados": "Cancelados",
+           "sin_cierre": "Sin cierre", "sin_ciclos": "Sin ciclos en el periodo",
+           "por_programa": "POR PROGRAMA", "compl": "Compl.", "cancel": "Cancel.",
+           "causas": "CAUSAS DE FALLO"},
+    "en": {"titulo": "CYCLE SUMMARY", "desde": "From", "hasta": "To",
+           "serie": "Serial No", "modelo": "Model", "impreso": "Printed", "hora": "Time",
+           "completados": "Completed", "fallos": "Failed", "cancelados": "Cancelled",
+           "sin_cierre": "Not closed", "sin_ciclos": "No cycles in the period",
+           "por_programa": "BY PROGRAM", "compl": "Compl.", "cancel": "Cancel.",
+           "causas": "FAILURE CAUSES"},
+}
+
+
+def _idioma(idioma: str | None) -> str:
+    if idioma in _TXT:
+        return idioma
+    try:
+        from autoclave.services.domain.logging.ticket_formatter import presentacion_actual
+        return presentacion_actual().idioma
+    except Exception:
+        return "es"
+
+
 def format_ticket_resumen(resumen: dict, desde: str, hasta: str, serie: str, modelo: str,
-                          ahora: datetime | None = None) -> str:
+                          ahora: datetime | None = None, idioma: str | None = None) -> str:
     """Ticket del resumen; desde/hasta: primer y último día (ISO) del periodo."""
     ahora = ahora or datetime.now()   # sello de impresión (registro), no temporiza nada
+    tx = _TXT[_idioma(idioma)]
     t = resumen["totales"]
     lineas = [
-        " ", _LINEA, "RESUMEN DE CICLOS",
-        f"Desde: {_fecha(desde)}", f"Hasta: {_fecha(hasta)}",
-        _cortar(f"Num serie: {serie}"), _cortar(f"Modelo: {modelo}"),
-        f"Impreso: {ahora.strftime('%d/%m/%Y')}", f"Hora:  {ahora.strftime('%H:%M:%S')}", _LINEA,
+        " ", _LINEA, tx["titulo"],
+        f"{tx['desde']}: {_fecha(desde)}", f"{tx['hasta']}: {_fecha(hasta)}",
+        _cortar(f"{tx['serie']}: {serie}"), _cortar(f"{tx['modelo']}: {modelo}"),
+        f"{tx['impreso']}: {ahora.strftime('%d/%m/%Y')}",
+        f"{tx['hora']}:  {ahora.strftime('%H:%M:%S')}", _LINEA,
         f"Total: {t['total']}",
     ]
-    for rotulo, clave in (("Completados", "completados"), ("Fallo", "fallos"),
-                          ("Cancelados", "cancelados"), ("Sin cierre", "sin_cierre")):
-        lineas.append(f"{rotulo}: {t[clave]} ({_porcentaje(t[clave], t['total'])})")
+    for clave in ("completados", "fallos", "cancelados", "sin_cierre"):
+        lineas.append(_cortar(f"{tx[clave]}: {t[clave]} ({_porcentaje(t[clave], t['total'])})"))
     if not t["total"]:
-        lineas += [_LINEA, "Sin ciclos en el periodo"]
+        lineas += [_LINEA, tx["sin_ciclos"]]
     if resumen["por_programa"]:
-        lineas += [_LINEA, "POR PROGRAMA"]
+        lineas += [_LINEA, tx["por_programa"]]
         for p in resumen["por_programa"]:
             numero = f"{p['programa_numero']:02d} " if p["programa_numero"] else ""
             lineas += [
                 _cortar(numero + p["programa_nombre"]),
-                f"  Total: {p['total']}  Compl.: {p['completados']}"[:_ANCHO],
-                f"  Fallo: {p['fallos']}  Cancel.: {p['cancelados']}"[:_ANCHO],
-                f"  Sin cierre: {p['sin_cierre']}",
+                f"  Total: {p['total']}  {tx['compl']}: {p['completados']}"[:_ANCHO],
+                f"  {tx['fallos']}: {p['fallos']}  {tx['cancel']}: {p['cancelados']}"[:_ANCHO],
+                _cortar(f"  {tx['sin_cierre']}: {p['sin_cierre']}"),
             ]
     if resumen["causas_fallo"]:
-        lineas += [_LINEA, "CAUSAS DE FALLO"]
+        lineas += [_LINEA, tx["causas"]]
         for c in resumen["causas_fallo"]:
             cantidad = f": {c['cantidad']}"
             lineas.append(c["causa"][:_ANCHO - len(cantidad)] + cantidad)

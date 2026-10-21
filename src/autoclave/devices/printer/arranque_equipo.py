@@ -48,8 +48,9 @@ def _imprimir(texto: str) -> bool:
 def imprimir_ticket(perfil, ultimo_apagado, encendido, consultar_estado=_consultar_estado,
                     imprimir=_imprimir, dormir=time.sleep, plazo_s: float = PLAZO_TARJETA_S,
                     version: str | None = None, reloj=time.monotonic) -> None:
-    from autoclave.devices.printer.startup_ticket import format_startup_ticket
-    backend, tarjeta = "FALLO", "FALLO"
+    from autoclave.devices.printer.startup_ticket import FALLO, OK, SIN_DATOS, format_startup_ticket
+    # I18N-18: estados como código; el rótulo se pone al imprimir
+    backend, tarjeta = FALLO, FALLO
     limite = reloj() + plazo_s
     while reloj() < limite:
         try:
@@ -57,16 +58,16 @@ def imprimir_ticket(perfil, ultimo_apagado, encendido, consultar_estado=_consult
         except Exception:
             estado = None
         if estado is None:
-            backend, tarjeta = "FALLO", "FALLO"
+            backend, tarjeta = FALLO, FALLO
         else:
-            backend = "OK"
+            backend = OK
             if estado.get("card_connected"):
-                tarjeta = "OK"
+                tarjeta = OK
                 break
-            tarjeta = "Sin datos"
+            tarjeta = SIN_DATOS
         dormir(_INTERVALO_S)
     texto = format_startup_ticket(perfil, version or _version(), ultimo_apagado, encendido,
-                                  [("Backend", backend), ("Tarjeta", tarjeta)])
+                                  [("backend", backend), ("tarjeta", tarjeta)])
     try:
         ok = imprimir(texto)
     except Exception as exc:

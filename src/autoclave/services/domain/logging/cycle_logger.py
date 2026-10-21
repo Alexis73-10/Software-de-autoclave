@@ -492,6 +492,8 @@ class CycleLogger:
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
             codigo = getattr(self.estado, "codigo_fallo", "") or None
+            valores = getattr(self.estado, "valores_fallo", None)
+            valores = dict(valores) if isinstance(valores, dict) and codigo else {}
             f0_total = None
             try:
                 cycle = self._programa()
@@ -505,10 +507,13 @@ class CycleLogger:
             if self.respaldo is not None and self.uuid_ciclo:
                 uuid_ciclo = self.uuid_ciclo
                 cierre = {"fecha_fin": datetime.now().isoformat(), "resultado": resultado,
-                          "motivo": motivo, "codigo": codigo, "f0_final": f0_total}
+                          "motivo": motivo, "codigo": codigo, "f0_final": f0_total,
+                          "valores": valores}
                 self._respaldar(lambda: self.respaldo.cierre(uuid_ciclo, cierre))
+            # I4: los parámetros solo si los hay (dobles de prueba antiguos)
+            extra = {"valores_fallo": valores} if valores else {}
             self._bd("cerrar el ciclo", lambda i: self.db.cerrar_ciclo(
-                i, resultado, motivo, codigo, f0_final=f0_total))
+                i, resultado, motivo, codigo, f0_final=f0_total, **extra))
 
             if self.printer is not None:
                 self.printer.enqueue(format_footer(

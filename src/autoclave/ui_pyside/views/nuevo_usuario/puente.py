@@ -18,7 +18,7 @@ import logging
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
-from autoclave.ui_pyside.services.roles import ROLES, ROLES_CREABLES
+from autoclave.ui_pyside.services.roles import ROLES, ROLES_CREABLES, etiqueta_rol
 from autoclave.ui.service_ui.session_manager import SessionManager
 from autoclave.ui_pyside.services.validacion_usuario import (
     NOMBRE_MAX, PASSWORD_MAX, PASSWORD_MIN, USUARIO_MAX, campo_pantalla,
@@ -53,7 +53,8 @@ class NuevoUsuarioBridge(QObject):
     def roles(self):
         """Solo los roles que la sesión actual puede crear."""
         creables = ROLES_CREABLES.get(self._rol_actual, frozenset())
-        return [{"valor": v, "etiqueta": e} for v, e in ROLES if v in creables]
+        # I4 (tanda 6): etiqueta de catálogo roles.<valor> en el idioma vigente
+        return [{"valor": v, "etiqueta": etiqueta_rol(v, e)} for v, e in ROLES if v in creables]
 
     @Property(int, constant=True)
     def minLongitudPassword(self) -> int:
