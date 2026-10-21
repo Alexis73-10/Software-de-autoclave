@@ -29,12 +29,15 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 from autoclave import i18n
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
+from autoclave.core.runtime import alarmas_i18n
+from autoclave.services.domain.logging import ticket_formatter
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.ui_qml.domain import reporte_resumen
 from autoclave.ui_qml.domain.consignas import consigna_esterilizacion
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica
 from autoclave.ui_qml.exportacion import config_correo, correo
+from autoclave.ui_qml.exportacion import unidades_pdf
 from autoclave.ui_qml.exportacion.textos import textos_ciclo
 
 # tope de ciclos del consolidado: el adjunto queda lejos del límite de 25 MB de Gmail
@@ -45,6 +48,20 @@ logger = logging.getLogger(__name__)
 
 def _en_hilo(tarea) -> None:
     threading.Thread(target=tarea, daemon=True, name="acciones-ciclos").start()
+
+
+def _presentacion_vigente() -> "ticket_formatter.Presentacion":
+    """I4 (tanda 6): idioma de la UI y unidades del singleton Unidades (que
+    sigue a GET /units). Ante cualquier error, español en °C y kPa."""
+    try:
+        from autoclave.ui_qml.bridge.unidades_qml import instancia
+        p = ticket_formatter.Presentacion(i18n.idioma(), instancia.temperatura,
+                                          instancia.presion, instancia._p_atm)
+        from autoclave.core.runtime import unidades as u
+        u.validar(p.temperatura, p.presion)
+        return p
+    except Exception:
+        return ticket_formatter.Presentacion()
 
 
 def _generar_pdf(*args) -> None:
@@ -78,8 +95,10 @@ class AccionesCiclos(QObject):
     def __init__(self, backend_client, parent=None, cargar_config=config_correo.cargar,
                  ejecutar=_en_hilo, generar_pdf=_generar_pdf, enviar=correo.enviar,
                  generar_pdf_resumen=_generar_pdf_resumen,
-                 generar_pdf_consolidado=_generar_pdf_consolidado):
+                 generar_pdf_consolidado=_generar_pdf_consolidado,
+                 presentacion=_presentacion_vigente):
         super().__init__(parent)
+        self._presentacion = presentacion
         self._backend = backend_client
         self._cargar_config = cargar_config
         self._ejecutar = ejecutar
@@ -350,7 +369,7 @@ class AccionesCiclos(QObject):
                 nombre = f"ciclo_{c['ciclo']['numero_ciclo']:06d}.pdf"
                 ruta = Path(carpeta) / nombre
                 self._generar_pdf(ruta, c["datos"], c["ticket"], c["grafica"], c["fases"],
-                                  textos_ciclo(i18n.catalogo()), c["consigna"])
+                                  self._textos_pdf(c), c["consigna"])
                 pdfs.append((nombre, ruta.read_bytes()))
                 ciclos.append(c["ciclo"])
         return pdfs, ciclos
@@ -365,21 +384,32 @@ class AccionesCiclos(QObject):
             logger.debug("datos del ciclo %s no disponibles: %s", ciclo_id, e)
             raise _ErrorConMensaje(i18n.t("exportacion.error_datos"))
         ciclo = ticket["ciclo"]
+        p = self._presentacion()             # una vez por ciclo: ticket, gráfica y datos iguales
         acumulador = AcumuladorGrafica()
         acumulador.incorporar(grafica)
         datos_grafica = acumulador.datos()
         fases = acumulador.inicios_de_fase(FASES_UI)
         t_fin = datos_grafica["t_min"][-1] if datos_grafica["t_min"] else 0.0
+        consigna = consigna_esterilizacion(ciclo.get("temp_esterilizacion"), fases, t_fin)
         return {
             "ciclo": ciclo,
-            "datos": self._datos_pdf(ciclo),
-            "ticket": format_ticket(ciclo, ticket["lecturas"]),
-            "grafica": datos_grafica,
+            "datos": self._datos_pdf(ciclo, p),
+            "ticket": format_ticket(ciclo, ticket["lecturas"], p),
+            # I4 (tanda 6): gráfica y consigna en las unidades vigentes
+            "grafica": unidades_pdf.grafica(datos_grafica, p.temperatura, p.presion, p.p_atm),
             "fases": fases,
-            "consigna": consigna_esterilizacion(ciclo.get("temp_esterilizacion"), fases, t_fin),
+            "consigna": unidades_pdf.consigna(consigna, p.temperatura, p.presion, p.p_atm),
+            "presentacion": p,
         }
 
-    def _datos_pdf(self, ciclo: dict) -> dict:
+    @staticmethod
+    def _textos_pdf(c: dict) -> dict:
+        """Rótulos del PDF de un ciclo, con los ejes en sus unidades."""
+        p = c.get("presentacion") or ticket_formatter.Presentacion()
+        return unidades_pdf.textos_ejes(textos_ciclo(i18n.catalogo()), p.temperatura, p.presion)
+
+    def _datos_pdf(self, ciclo: dict, p=None) -> dict:
+        p = p or ticket_formatter.Presentacion()
         fila = dominio.ciclo_presentable({
             "id": ciclo.get("id"), "numero_ciclo": ciclo.get("numero_ciclo"),
             "fecha_inicio": ciclo.get("fecha_inicio"), "fecha_fin": ciclo.get("fecha_fin"),
@@ -400,5 +430,15 @@ class AccionesCiclos(QObject):
                 (i18n.t("exportacion.fin"),
                  f"{fin}  {hora_fin}" if fin != dominio.SIN_DATO else dominio.SIN_DATO),
                 (i18n.t("exportacion.resultado"), resultado),
-            ],
+                # I4 (tanda 6): unidades del documento en la cabecera
+                (i18n.t("exportacion.unidades"), unidades_pdf.rotulo_unidades(p.temperatura, p.presion)),
+            ] + self._campo_motivo(ciclo),
         }
+
+    @staticmethod
+    def _campo_motivo(ciclo: dict) -> list:
+        """I4 (tanda 6): el motivo de fallo en el idioma vigente, desde su
+        código y sus parámetros (ciclos.valores_fallo); [] si no hay."""
+        motivo = alarmas_i18n.motivo_fallo(ciclo.get("codigo_fallo"), ciclo.get("valores_fallo"),
+                                           ciclo.get("motivo_fallo"), i18n.idioma())
+        return [(i18n.t("exportacion.motivo"), motivo)] if motivo else []

@@ -15,6 +15,7 @@ from PySide6.QtCore import QBuffer, QIODevice
 from autoclave.ui_qml.exportacion.pdf_ciclo import Documento, dibujar_ciclo
 from autoclave.ui_qml.exportacion.pdf_resumen import dibujar_resumen, tabla
 from autoclave.ui_qml.exportacion.textos import textos_ciclo
+from autoclave.ui_qml.exportacion.unidades_pdf import textos_ejes
 
 _PROPORCIONES_INDICE = [0.12, 0.15, 0.09, 0.28, 0.29, 0.07]
 
@@ -37,7 +38,10 @@ def _dibujar(destino, portada: dict, ciclos: list, textos: dict, paginas: list,
         for i, c in enumerate(ciclos):
             doc.nueva_pagina()
             inicios.append(doc.pagina)
-            dibujar_ciclo(doc, c["datos"], c["ticket"], c["grafica"], c["fases"], t_ciclo,
+            pres = c.get("presentacion")      # I4: ejes en las unidades del ciclo
+            t = (textos_ejes(t_ciclo, pres.temperatura, pres.presion) if pres is not None
+                 else t_ciclo)
+            dibujar_ciclo(doc, c["datos"], c["ticket"], c["grafica"], c["fases"], t,
                           c.get("consigna"))
             avance(i + 1)
     return inicios

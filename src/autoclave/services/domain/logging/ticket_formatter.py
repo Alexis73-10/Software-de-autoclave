@@ -236,8 +236,9 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
     return "\n".join(lines)
 
 
-def format_ticket(ciclo, lecturas) -> str:
-    """Arma el ticket completo de un ciclo guardado (reimpresión)."""
+def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
+    """Arma el ticket completo de un ciclo guardado (reimpresión). `p`: la
+    presentación a usar (el PDF de la UI pasa la suya); None = la vigente."""
     meta = {
         "numero_ciclo":          ciclo["numero_ciclo"],
         "serie":                 ciclo["serie"],
@@ -256,7 +257,7 @@ def format_ticket(ciclo, lecturas) -> str:
         if tc is not None:
             temp_final = tc
 
-    p = presentacion_actual()            # una sola vez: todo el ticket igual
+    p = p or presentacion_actual()       # una sola vez: todo el ticket igual
     parts = [format_header(meta, p)]
     parts += [format_row(r, p) for r in lecturas]
     parts.append(format_footer(
