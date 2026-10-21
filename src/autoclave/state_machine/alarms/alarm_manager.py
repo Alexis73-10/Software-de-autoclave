@@ -3,7 +3,7 @@ import threading
 from collections import deque
 from datetime import datetime
 
-from autoclave.state_machine.alarms.catalogo import CATALOGO, Nivel
+from autoclave.state_machine.alarms.catalogo import CATALOGO, COM_02, COM_03, Nivel
 from autoclave.state_machine.alarms.instancia import (
     EstadoInstancia, EventoAlarma, InstanciaAlarma, clave_de,
 )
@@ -12,6 +12,10 @@ logger = logging.getLogger(__name__)
 
 DETALLE_NO_DISPONIBLE = "Detalle no disponible."
 _MAX_EVENTOS_RECIENTES = 20
+# P-5 (tanda 6): despeje manual. No se resuelven al salir de FALLA
+# (resolver_todas_por_reinicio) sin el reconocimiento explícito del operador;
+# reconocidas fuera de CICLO se resuelven en el acto.
+DESPEJE_POR_RECONOCIMIENTO = frozenset({COM_02, COM_03})
 _LOG_POR_NIVEL = {
     Nivel.INFORMATIVO: logging.INFO,
     Nivel.AVISO: logging.WARNING,
@@ -88,6 +92,7 @@ class AlarmManager:
             return self._instancias.get(clave)
 
     def reconocer(self, clave: str, usuario: str) -> bool:
+        en_ciclo = self._en_ciclo()     # fuera del candado (TMG-08 de T2)
         with self._lock:
             inst = self._instancias.get(clave)
             if inst is None or not inst.nivel.requiere_reconocimiento:
@@ -96,15 +101,31 @@ class AlarmManager:
                 return True
             inst.reconocida_por = usuario
             inst.reconocida_en = self._reloj()
+            despejada = None
             if inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER:
                 del self._instancias[clave]
+            elif inst.codigo in DESPEJE_POR_RECONOCIMIENTO and not en_ciclo:
+                despejada = self._resolver_sin_candado(clave)
         logger.info("Alarma reconocida: %s por %s", clave, usuario)
         self._notificar(EventoAlarma.RECONOCIDA, inst)
+        if despejada is not None:
+            logger.info("Alarma despejada al reconocerla: %s", clave)
+            self._notificar(EventoAlarma.RESUELTA, despejada)
         return True
+
+    def _en_ciclo(self) -> bool:
+        """True si la máquina está en CICLO (sin estado conocido: False)."""
+        try:
+            estado = self.estado.get_machine_state() if self.estado is not None else None
+        except Exception:
+            return True
+        return getattr(estado, "name", None) == "CICLO"
 
     def resolver_todas_por_reinicio(self) -> None:
         with self._lock:
-            resueltas = [self._resolver_sin_candado(c) for c in list(self._instancias)]
+            resueltas = [self._resolver_sin_candado(c) for c, i in list(self._instancias.items())
+                         if not (i.codigo in DESPEJE_POR_RECONOCIMIENTO
+                                 and i.reconocida_por is None)]
         for inst in resueltas:
             if inst is not None:
                 self._notificar(EventoAlarma.RESUELTA, inst)

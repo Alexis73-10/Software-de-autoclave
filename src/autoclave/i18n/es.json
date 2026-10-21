@@ -414,7 +414,8 @@
     "alertas_avisos": "Alertas y avisos",
     "grupo_emergencia": "Emergencia / Fallas",
     "grupo_alarmas": "Alarmas",
-    "grupo_avisos": "Avisos"
+    "grupo_avisos": "Avisos",
+    "despejar": "DESPEJAR"
   },
   "equipo": {
     "titulo": "INFORMACIÓN DEL EQUIPO",

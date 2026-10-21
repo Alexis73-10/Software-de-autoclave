@@ -35,6 +35,12 @@ PanelModal {
 
     // Nivel del catálogo (nombre de /status) → grupo. Desconocido: el más
     // llamativo (como UiBridge.prioridad_de).
+    // P-5 (tanda 6): COM-02 y COM-03 se despejan a mano (catálogo de despeje
+    // por reconocimiento del backend, alarm_manager.DESPEJE_POR_RECONOCIMIENTO)
+    function despejable(id) {
+        const s = String(id || "")
+        return s.startsWith("COM-02") || s.startsWith("COM-03")
+    }
     function grupoDe(nivel) {
         if (nivel === "FALLA") return "alarma"
         if (nivel === "ALERTA" || nivel === "INFORMATIVO") return "aviso"
@@ -145,6 +151,9 @@ PanelModal {
                 idAlarma: model.id
                 descripcion: model.description
                 prioridad: model.priority
+                despejable: raiz.despejable(model.id) && raiz.comandosSistema !== null
+                textoDespejar: I18n.t("notificaciones.despejar", I18n.lang)
+                onDespejarPulsado: raiz.comandosSistema?.despejarAlarma(model.id)
             }
         }
     }

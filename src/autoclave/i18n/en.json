@@ -414,7 +414,8 @@
     "alertas_avisos": "Alerts and notices",
     "grupo_emergencia": "Emergency / Faults",
     "grupo_alarmas": "Alarms",
-    "grupo_avisos": "Notices"
+    "grupo_avisos": "Notices",
+    "despejar": "CLEAR"
   },
   "equipo": {
     "titulo": "EQUIPMENT INFORMATION",

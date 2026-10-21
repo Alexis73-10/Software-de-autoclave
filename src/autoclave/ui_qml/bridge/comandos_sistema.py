@@ -88,6 +88,15 @@ class ComandosSistema(QObject):
             return
         self._lanzar("confirmar_estado_seguro", self._ui.confirmar_estado_seguro)
 
+    @Slot(str)
+    def despejarAlarma(self, clave: str) -> None:
+        """P-5 (tanda 6): despeje manual de COM-02/COM-03 (reconocimiento
+        explícito, cualquier operador). Fuera de CICLO el backend la resuelve;
+        en CICLO solo queda reconocida."""
+        if not clave:
+            return
+        self._lanzar("despejar_alarma", lambda: self._ui.reconocer_alarma(clave, "operador"))
+
     @Slot()
     def asignarSondaPrincipal(self) -> None:
         """Opción B de CIC-10: la pantalla abre OPCIONES (con su login: solo

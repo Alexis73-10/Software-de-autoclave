@@ -285,6 +285,18 @@ class UIServiceBackend:
             logger.warning("confirmar_estado_seguro error: %s", e)
             return False
 
+    def reconocer_alarma(self, clave: str, usuario: str) -> tuple[bool, str]:
+        """POST /alarms/{clave}/acknowledge (P-5, tanda 6: despeje manual de
+        COM-02/COM-03). (ok, motivo del rechazo)."""
+        from urllib.parse import quote
+        try:
+            self.backend.post(path=f"/alarms/{quote(clave, safe='')}/acknowledge",
+                              body={"usuario": usuario})
+            return True, ""
+        except Exception as e:
+            logger.warning("reconocer_alarma error: %s", e)
+            return False, str(e)
+
     def apagar_equipo(self, ventana: str) -> tuple[bool, str]:
         """POST /system/shutdown (fin de ciclo §16). (ok, motivo del rechazo)."""
         try:
