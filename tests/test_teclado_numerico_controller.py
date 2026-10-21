@@ -242,6 +242,41 @@ def test_abrir_reinicia_estado_anterior(controller):
     assert controller.fueraDeRango is False
 
 
+# ── reemplazo al abrir con valor (pedido 2026-10-20) ─────────────────────
+
+def test_primera_tecla_reemplaza_el_valor_abierto(controller):
+    controller.abrir("T", "°C", 121.0, 105.0, 135.0, 1)
+    _escribir(controller, "134")
+    assert controller.texto == "134"
+    assert controller.valor == 134.0
+
+
+def test_punto_y_signo_tambien_reemplazan(controller):
+    controller.abrir("T", "°C", 50.0, -100.0, 400.0, 1)
+    controller.presionarPunto()
+    assert controller.texto == "."
+    controller.abrir("T", "°C", 50.0, -100.0, 400.0, 1)
+    controller.presionarSigno()
+    _escribir(controller, "5")
+    assert controller.texto == "-5"
+
+
+def test_borrar_antes_de_escribir_edita_el_valor_abierto(controller):
+    controller.abrir("T", "°C", 121.0, 0.0, 400.0, 0)
+    controller.borrar()
+    _escribir(controller, "3")
+    assert controller.texto == "123"
+
+
+def test_tecla_inerte_no_consume_el_reemplazo(controller):
+    controller.abrir("T", "°C", 50.0, 0.0, 100.0, 0)
+    controller.presionarPunto()      # sin decimales: inerte
+    controller.presionarSigno()      # sin negativos: inerte
+    assert controller.texto == "50"
+    _escribir(controller, "7")
+    assert controller.texto == "7"
+
+
 # ── confirmar (§7: inválido no entrega y muestra el rango) ──────────────
 
 def test_confirmar_valido_emite_el_valor(controller):
