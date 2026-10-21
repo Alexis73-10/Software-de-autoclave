@@ -57,7 +57,7 @@ def test_seccion_desconocida_no_se_ve():
 # alineado con el guard DISTINTO_DE_CICLO del backend
 @pytest.mark.parametrize("estado,permitida", [
     ("PREPARACION", True), ("PREPARADO", True),
-    ("CICLO", False), ("FALLA", True), ("EMERGENCIA", True),
+    ("CICLO", False), ("FALLA", True), ("EMERGENCIA", False),   # P-8: estado retirado
     ("DESCONOCIDO", False), ("", False), (None, False),
 ])
 def test_edicion_permitida(estado, permitida):

@@ -165,17 +165,14 @@ _token_modo_prueba: str | None = None
 # JSON de ciclos), que se hacen fuera de _sm_lock.
 _lock_archivos = threading.Lock()
 
-# Variantes del guard de estado (§5.5). EMERGENCIA y HIBERNACION hoy no se
-# alcanzan (OPC-25), pero se bloquean igual (decisiones 15 y 20).
+# Variantes del guard de estado (§5.5). P-8 (tanda 6): EMERGENCIA e
+# HIBERNACION se retiraron (inalcanzables); el nombre de la segunda variante se
+# conserva por compatibilidad y hoy equivale a DISTINTO_DE_CICLO.
 DISTINTO_DE_CICLO = frozenset({GlobalState.CICLO})
-DISTINTO_DE_CICLO_E_HIBERNACION = frozenset({
-    GlobalState.CICLO, GlobalState.HIBERNACION, GlobalState.EMERGENCIA,
-})
+DISTINTO_DE_CICLO_E_HIBERNACION = DISTINTO_DE_CICLO
 
 _MOTIVO_ESTADO = {
     GlobalState.CICLO:       "No permitido con un ciclo en curso",
-    GlobalState.HIBERNACION: "No permitido con el equipo en suspensión",
-    GlobalState.EMERGENCIA:  "No permitido en estado de emergencia",
 }
 
 
@@ -2066,7 +2063,7 @@ def acknowledge_cycle():
 def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
     """Abrir o cerrar una puerta (§5.3, T-13 y T-18).
 
-    Guard de estado: 409 en CICLO, HIBERNACION y EMERGENCIA (en PREPARACION,
+    Guard de estado: 409 en CICLO (P-8: sin HIBERNACION ni EMERGENCIA; en PREPARACION,
     PREPARADO y FALLA se permite). Las condiciones físicas las aplica
     ServicioPuertas, fallando cerradas; si las incumple, o si la puerta no
     acepta la orden (bloqueo mecánico, no está abierta), 409 con el motivo.
@@ -2896,7 +2893,7 @@ def io_channels(sesion: Sesion = Depends(_requiere_rol_prueba)):
 def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
     """Activa el modo prueba: pausa la máquina de estados (sin importar la
     fase — PREPARACION, PREPARADO o FALLA) y apaga todas las salidas para
-    permitir control manual. Rechazado en CICLO, HIBERNACION, EMERGENCIA o con
+    permitir control manual. Rechazado en CICLO o con
     el paro de emergencia activo. Recuerda la sesión que entró (§5.4).
 
     El ALL_OFF de enter_test_mode corre con _sm_lock tomado (espera el ACK

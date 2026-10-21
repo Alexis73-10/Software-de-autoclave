@@ -71,8 +71,7 @@ def test_apertura_permitida_con_resultado_real(entorno):
     assert est.puertas["Puerta 1"] == DoorState.ABRIENDO
 
 
-@pytest.mark.parametrize("estado", [GlobalState.CICLO, GlobalState.HIBERNACION,
-                                    GlobalState.EMERGENCIA])
+@pytest.mark.parametrize("estado", [GlobalState.CICLO])   # P-8 (tanda 6)
 def test_puertas_bloqueadas_en_ciclo_hibernacion_y_emergencia(entorno, estado):
     cliente, ctx, est, _ = entorno
     ctx.estado.get_machine_state.return_value = estado

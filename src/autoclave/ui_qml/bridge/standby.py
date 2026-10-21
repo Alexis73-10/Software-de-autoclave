@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 
 MINUTOS_DEFECTO = 5
 GRACIA_ARRANQUE_S = 10.0
-ESTADOS_SIN_STANDBY = {"CICLO", "FALLA", "EMERGENCIA"}
+ESTADOS_SIN_STANDBY = {"CICLO", "FALLA"}   # P-8 (tanda 6): EMERGENCIA retirado
 _EVENTOS_ACTIVIDAD = {
     QEvent.Type.MouseButtonPress, QEvent.Type.TouchBegin, QEvent.Type.KeyPress,
 }

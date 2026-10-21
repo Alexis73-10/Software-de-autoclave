@@ -954,8 +954,6 @@ class ControlLoop:
         estado_maquina = self.estado.get_machine_state()
         if estado_maquina == GlobalState.CICLO:
             return "No se puede cambiar de ciclo mientras hay uno en curso."
-        if estado_maquina in (GlobalState.EMERGENCIA, GlobalState.HIBERNACION):
-            return f"No se puede cambiar de ciclo en {estado_maquina.name}."
         if self.estado.get_flag("PARO_EMERGENCIA"):
             if self.desconectado:
                 return "No se puede cambiar de ciclo sin conexión con la tarjeta de control."

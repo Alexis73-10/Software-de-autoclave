@@ -60,7 +60,7 @@ def secciones_visibles(rol: str | None) -> list[Seccion]:
 # Edición de parámetros (tanda 2026-10-14 §1.6, alineado con el backend:
 # guard DISTINTO_DE_CICLO): técnico en cualquier estado distinto de CICLO. El
 # backend lo impone; la interfaz solo lo refleja.
-ESTADOS_EDICION = frozenset({"PREPARACION", "PREPARADO", "FALLA", "EMERGENCIA", "HIBERNACION"})
+ESTADOS_EDICION = frozenset({"PREPARACION", "PREPARADO", "FALLA"})   # P-8 (tanda 6)
 
 # Excepción (Cristian, 2026-10-07): el ingeniero puede modificar cualquier
 # sección en cualquier estado; técnico, solo en ESTADOS_EDICION.

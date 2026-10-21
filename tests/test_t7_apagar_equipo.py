@@ -100,8 +100,7 @@ def test_apaga_con_camara_no_segura_y_lo_registra(entorno):
     assert apagados == [True]
 
 
-@pytest.mark.parametrize("estado", [GlobalState.FALLA, GlobalState.EMERGENCIA,
-                                    GlobalState.HIBERNACION, GlobalState.PREPARACION,
+@pytest.mark.parametrize("estado", [GlobalState.FALLA, GlobalState.PREPARACION,
                                     GlobalState.PREPARADO])
 def test_apaga_en_cualquier_estado_salvo_ciclo(entorno, estado):
     client, ctx, _, apagados, hilos = entorno

@@ -3,8 +3,6 @@ from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState
 from autoclave.state_machine.states.falla import FallaState
-from autoclave.state_machine.states.emergencia import emergencia_run
-from autoclave.state_machine.states.hibernacion import Hibernacion
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.core.runtime.sensores_ciclo import verificar_inicio
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
@@ -39,7 +37,6 @@ class StateMachine:
         self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager, cap, door_service,
                                       profile)
         self.falla       = FallaState(estado, set_do, self.alarm_manager)
-        self.hibernacion = Hibernacion(estado, set_do, self.alarm_manager)
 
         self.prev_state  = None
 
@@ -213,16 +210,3 @@ class StateMachine:
                 self.estado.fase_ciclo = ""
                 self.estado.set_machine_state(GlobalState.PREPARACION)
 
-        # ==============================================================
-        # EMERGENCIA
-        # ==============================================================
-        elif current_state == GlobalState.EMERGENCIA:
-            logger.debug("Estado actual: EMERGENCIA")
-            emergencia_run()
-
-        # ==============================================================
-        # HIBERNACION
-        # ==============================================================
-        elif current_state == GlobalState.HIBERNACION:
-            logger.debug("Estado actual: HIBERNACION")
-            self.hibernacion.run()

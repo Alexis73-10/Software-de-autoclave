@@ -134,13 +134,6 @@ def test_programa_danado_sigue_rechazado(cliente):
 
 # ── Revisión de S2 ───────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("estado_maquina", [GlobalState.EMERGENCIA, GlobalState.HIBERNACION])
-@patch("autoclave.services.domain.loop.control_loop.StateMachine")
-def test_rechaza_en_emergencia_e_hibernacion(_sm, estado_maquina):
-    loop, _, _ = _loop(estado_maquina)
-    assert loop.set_active_cycle(MagicMock())[0] is False
-
-
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
 def test_rechaza_con_inicio_ya_pedido(_sm):
     """Un /cycle/start validado con el programa anterior no se descarta en

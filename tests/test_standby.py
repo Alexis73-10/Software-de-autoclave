@@ -69,7 +69,7 @@ def test_regla_usa_la_menor_inactividad():
     assert debe_estar_en_standby(True, None, None, 5, "PREPARADO") is True  # nadie ha tocado
 
 
-@pytest.mark.parametrize("estado", ["CICLO", "FALLA", "EMERGENCIA"])
+@pytest.mark.parametrize("estado", ["CICLO", "FALLA"])   # P-8: EMERGENCIA retirado
 def test_nunca_en_standby_con_ciclo_falla_o_emergencia(estado):
     assert debe_estar_en_standby(True, 10_000, 10_000, 5, estado) is False
 

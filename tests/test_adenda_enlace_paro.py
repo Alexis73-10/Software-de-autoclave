@@ -277,9 +277,7 @@ def _estado_paro():
                             fromlist=["x"]).preparado_state(MagicMock(), e, s, MagicMock(), MagicMock()),
     lambda e, s: __import__("autoclave.state_machine.states.falla",
                             fromlist=["x"]).FallaState(e, s, MagicMock()),
-    lambda e, s: __import__("autoclave.state_machine.states.hibernacion",
-                            fromlist=["x"]).Hibernacion(e, s, MagicMock()),
-], ids=["preparacion", "preparado", "falla", "hibernacion"])
+], ids=["preparacion", "preparado", "falla"])   # P-8: HIBERNACION retirado
 def test_estados_con_paro_usan_el_apagado_limitado(construir):
     set_do = MagicMock()
     construir(_estado_paro(), set_do).run()
