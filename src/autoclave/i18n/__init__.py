@@ -33,6 +33,7 @@ def ruta_catalogo(idioma: str) -> str:
 
 
 _lock = threading.Lock()
+_lock_carga = threading.Lock()   # R1 (I4 TMG-03): carga diferida una sola vez
 _catalogos: dict | None = None
 _idioma = IDIOMA_BASE
 _avisadas: set = set()
@@ -57,7 +58,9 @@ def cargar() -> None:
 
 def _todos() -> dict:
     if _catalogos is None:
-        cargar()
+        with _lock_carga:
+            if _catalogos is None:
+                cargar()
     return _catalogos
 
 

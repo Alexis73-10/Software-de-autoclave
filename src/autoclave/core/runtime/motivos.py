@@ -16,6 +16,7 @@
 
 import logging
 import math
+from types import MappingProxyType
 
 from autoclave import i18n
 from autoclave.core.runtime import unidades as u
@@ -29,12 +30,13 @@ class Motivo(str):
     """Texto en español del motivo, con su código y sus parámetros."""
 
     codigo: str
-    valores: dict
+    valores: MappingProxyType
 
     def __new__(cls, codigo: str, texto: str, **valores):
         obj = super().__new__(cls, texto)
         obj.codigo = codigo
-        obj.valores = valores
+        # R1 (I4 TMG-04): solo lectura, para que nadie altere un motivo ya emitido
+        obj.valores = MappingProxyType(dict(valores))
         return obj
 
     def __reduce__(self):              # copy/deepcopy/pickle (revisión I4, SAF-01)

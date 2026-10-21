@@ -291,8 +291,29 @@ class ConfigUnidades:
         from pathlib import Path
         self._ruta = Path(ruta)
         self._lock = threading.Lock()
+        # R1 (I4 SAF-02/TMG-02): /status lo consulta en cada sondeo; solo se
+        # relee el archivo si cambió su firma (mtime, tamaño)
+        self._cache: tuple | None = None   # (firma, dict)
+
+    def _firma(self):
+        try:
+            st = self._ruta.stat()
+            return (st.st_mtime_ns, st.st_size)
+        except OSError:
+            return None
 
     def leer(self) -> dict:
+        firma = self._firma()
+        cache = self._cache
+        if cache is not None and firma is not None and cache[0] == firma:
+            return dict(cache[1])
+        with self._lock:   # revisión R1: un guardar() concurrente no deja firma vieja
+            firma = self._firma()      # antes de leer: un cambio posterior se detecta
+            valor = self._leer_disco()
+            self._cache = (firma, valor) if firma is not None else None
+        return dict(valor)
+
+    def _leer_disco(self) -> dict:
         import json
         try:
             datos = json.loads(self._ruta.read_text(encoding="utf-8"))
@@ -311,4 +332,5 @@ class ConfigUnidades:
         with self._lock:
             escribir_texto_atomico(self._ruta, json.dumps(
                 {"temperatura": temperatura, "presion": presion}))
+            self._cache = None
         return {"temperatura": temperatura, "presion": presion}

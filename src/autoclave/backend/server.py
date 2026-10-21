@@ -1144,7 +1144,7 @@ def list_cycles():
     return [
         {"id": c.id, "name": c.name, "nombres": _nombres_ciclo(c),
          "source": getattr(c, "source", "user")}
-        for c in context.cycle_manager.cycles.values()
+        for c in list(context.cycle_manager.cycles.values())
     ]
 
 
@@ -1595,7 +1595,7 @@ def _resumen_periodo(periodo: str, fecha: date | None) -> dict:
     if fecha is None:
         fecha = date.fromisoformat(_inicio_del_dia()[:10])
     desde, hasta = _rango_del_periodo(periodo, fecha)
-    numeros = {tipo: getattr(c, "number", None) for tipo, c in context.cycle_manager.cycles.items()}
+    numeros = {tipo: getattr(c, "number", None) for tipo, c in list(context.cycle_manager.cycles.items())}
     resumen = resumen_periodo.resumir(context.db.get_conteo_resultados(desde, hasta), numeros)
     perfil = context.profile
     return {
@@ -2375,7 +2375,7 @@ def get_programas():
     """Programas para Opciones (§6): número, nombre, origen, estado y sus
     secciones con la marca "No se ejecuta". Sin lectura de disco en la UI."""
     salida = []
-    for cycle in context.cycle_manager.cycles.values():
+    for cycle in list(context.cycle_manager.cycles.values()):
         if cycle.number is None:
             continue
         salida.append({
@@ -2409,7 +2409,7 @@ def get_programas_seleccionables():
     lectura, sin sesión (como /cycle/select)."""
     cap = getattr(context, "cap", None)
     filas = []
-    for cycle in context.cycle_manager.cycles.values():
+    for cycle in list(context.cycle_manager.cycles.values()):
         if getattr(cycle, "number", None) is None or getattr(cycle, "source", "user") != "user":
             continue
         if getattr(cycle, "danado", None):
@@ -2644,7 +2644,7 @@ def put_entradas_mostradas(body: _EntradasBody,
 # ── Sensores del ciclo (tanda 2026-10-14 §1.1; RS-01, RS-02) ───────────────
 
 def _programa_por_numero(numero: int):
-    for cycle in context.cycle_manager.cycles.values():
+    for cycle in list(context.cycle_manager.cycles.values()):
         if getattr(cycle, "number", None) == numero:
             return cycle
     raise HTTPException(status_code=404, detail=f"Programa {numero} no encontrado")
