@@ -77,3 +77,9 @@ Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
 ## PREGUNTAS PARA CRISTIAN (O2b)
 - La tabla `operadores` ya existe, pero el inicio de ciclo sigue registrando como operador al usuario con sesión (O1). ¿Se agrega un selector de operador en Preciclo (y se valida en el backend que esté activo, H-06)?
 - H-02: ¿revalidar en cada petición que el usuario siga activo (generación de credenciales en la sesión)?
+
+## O2c (Fecha y hora)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| O2c-1 | DECISIÓN SIN CONFIRMAR. La hora mostrada es la del PC donde corre la UI (el mismo del backend en el equipo); el backend aporta zona, instalación y aviso. | Hora fluida sin sondear cada segundo | Tomarla del backend | `fecha_hora_controller.py` |
+| O2c-2 | DECISIÓN SIN CONFIRMAR. La fecha de instalación es `profile.created_at`, la misma que usa `clock_guard`. | Coherencia con M1-01 | Fecha propia de instalación | — |
