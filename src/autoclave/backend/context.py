@@ -279,6 +279,7 @@ class BackendContext:
         self.control_loop.start()
         self.iniciar_vigilancia_mantenimiento()
         self.iniciar_vigilancia_impresora()
+        self.registrar_presentacion_tickets()
 
     def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
         """Cada handshake completo con la tarjeta de E/S: registro en
@@ -357,6 +358,40 @@ class BackendContext:
                 self._config_impresora = ConfigImpresora(app_root() / "data" / "impresora.json")
             return self._config_impresora
 
+    @property
+    def config_idioma(self):
+        """I1 (tanda 5): idioma de la interfaz y de las salidas, data/idioma.json."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_config_idioma", None) is None:
+                from autoclave.core.runtime.config_idioma import ConfigIdioma
+                self._config_idioma = ConfigIdioma(app_root() / "data" / "idioma.json")
+            return self._config_idioma
+
+    @property
+    def config_unidades(self):
+        """U1 (tanda 5): unidades de presentación, data/unidades.json."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_config_unidades", None) is None:
+                from autoclave.core.runtime.unidades import ConfigUnidades
+                self._config_unidades = ConfigUnidades(app_root() / "data" / "unidades.json")
+            return self._config_unidades
+
+    def registrar_presentacion_tickets(self) -> None:
+        """I3 (tanda 5): el ticket usa el idioma y las unidades vigentes al
+        generarlo. P_atm fuera de 50-110 kPa cuenta como ausente."""
+        from autoclave.core.runtime.unidades import p_atm_valida
+        from autoclave.services.domain.logging import ticket_formatter as tf
+
+        def proveedor():
+            unidades = self.config_unidades.leer()
+            try:
+                p_atm = p_atm_valida(self.config_manager.get("presion_admosferica"))
+            except Exception:
+                p_atm = None
+            return tf.Presentacion(self.config_idioma.leer(), unidades["temperatura"],
+                                   unidades["presion"], p_atm)
+        tf.fijar_proveedor(proveedor)
+
     def iniciar_vigilancia_impresora(self) -> None:
         """B5 (tanda 4): verifica una vez, en un hilo con plazo de 5 s, que la
         impresora esté presente (solo si está habilitada) y avisa sin bloquear.
@@ -370,6 +405,14 @@ class BackendContext:
             self._vigilancia_impresora.iniciar()
         except Exception:
             logger.exception("No se pudo iniciar la verificación de la impresora")
+
+    def aplicar_config_impresora(self) -> None:
+        """P2 (tanda 5): la bandera cambió; el aviso se ajusta sin reiniciar."""
+        vig = getattr(self, "_vigilancia_impresora", None)
+        if vig is None:
+            self.iniciar_vigilancia_impresora()
+        else:
+            vig.aplicar_configuracion()
 
     def iniciar_vigilancia_mantenimiento(self, cada_s: float = 600.0) -> None:
         """Evalúa el aviso de mantenimiento vencido al arrancar y cada 10 min

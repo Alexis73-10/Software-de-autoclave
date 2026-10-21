@@ -11,7 +11,7 @@
     "parameters": {
         "globals": {
             "F0": {
-                "value": false,
+                "value": true,
                 "type": "bool"
             },
             "F0_objetivo": {
@@ -55,21 +55,21 @@
         },
         "precalentamiento": {
             "tiempo_precalentamiento": {
-                "value": 0,
+                "value": 1,
                 "type": "int",
                 "unit": "min",
                 "min": 0,
                 "max": 3600
             },
             "presion_precalentamiento": {
-                "value": 350,
+                "value": 310,
                 "type": "int",
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
             },
             "timeout_precalentamiento": {
-                "value": 1,
+                "value": 20,
                 "type": "int",
                 "unit": "min",
                 "min": 0,
@@ -84,7 +84,7 @@
                 "max": 100
             },
             "presion_alta_pulso_a": {
-                "value": 140,
+                "value": 160,
                 "unit": "kPa",
                 "min": 0,
                 "max": 1000
@@ -214,14 +214,14 @@
         },
         "calentamiento": {
             "temperatura_calentamiento": {
-                "value": 134.0,
+                "value": 134.5,
                 "type": "float",
                 "unit": "°C",
                 "min": 100,
                 "max": 140
             },
             "presion_add_calentamiento": {
-                "value": 11.0,
+                "value": 99.0,
                 "type": "float",
                 "unit": "kPa",
                 "min": 0,
@@ -256,7 +256,7 @@
                 "max": 100
             },
             "tasa_presion": {
-                "value": 100.0,
+                "value": 20.0,
                 "type": "float",
                 "unit": "kPa/min",
                 "min": 0,
@@ -277,7 +277,7 @@
                 "max": 30
             },
             "escape_lento_on": {
-                "value": 1,
+                "value": 0,
                 "type": "int",
                 "unit": "seg",
                 "min": 0,
@@ -291,7 +291,7 @@
                 "max": 1000
             },
             "escape_rapido_on": {
-                "value": 0,
+                "value": 1,
                 "type": "int",
                 "unit": "seg",
                 "min": 0,
@@ -386,14 +386,14 @@
                 "max": 1000
             },
             "temperatura_esterilizacion": {
-                "value": 134.0,
+                "value": 134.5,
                 "type": "float",
                 "unit": "°C",
                 "min": 100,
                 "max": 140
             },
             "tiempo_esterilizacion": {
-                "value": 3.5,
+                "value": 3.9,
                 "type": "float",
                 "unit": "min",
                 "min": 0,
@@ -442,7 +442,7 @@
                 "max": 2
             },
             "brecha_error_temperatura": {
-                "value": 0.1,
+                "value": 0.5,
                 "type": "float",
                 "unit": "°C",
                 "min": 0,
@@ -465,7 +465,7 @@
         },
         "secado": {
             "modo": {
-                "value": 1,
+                "value": 3,
                 "type": "int",
                 "unit": "",
                 "min": 1,
@@ -516,7 +516,7 @@
         },
         "descompresion": {
             "modo": {
-                "value": 1,
+                "value": 4,
                 "type": "int",
                 "unit": "",
                 "min": 0,
@@ -647,7 +647,7 @@
                 "max": 3600
             },
             "temp_max_apertura": {
-                "value": 100.0,
+                "value": 80.0,
                 "type": "float",
                 "unit": "°C",
                 "min": 0,

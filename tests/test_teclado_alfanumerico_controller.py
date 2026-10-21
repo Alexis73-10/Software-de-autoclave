@@ -183,8 +183,46 @@ def test_abrir_configura_campo(controller):
     assert controller.titulo == "Nombre del operador"
     assert controller.texto == "Ana"
     assert controller.longitudMaxima == 30
-    assert controller.mayusculas is False    # abre con texto: Aa no se arma
+    assert controller.mayusculas is True     # abre con texto a reemplazar: Aa armada
     assert controller.capa == "letras"
+
+
+# ── reemplazo al abrir con texto (pedido 2026-10-20) ─────────────────────
+
+def test_primera_tecla_reemplaza_el_texto_abierto(controller):
+    controller.abrir("Operador", "Ana", 30)
+    _escribir(controller, "luis")
+    assert controller.texto == "Luis"
+
+
+def test_reemplazo_solo_aplica_a_la_primera_tecla(controller):
+    controller.abrir("Operador", "Ana", 30)
+    _escribir(controller, "l")
+    _escribir(controller, "u")
+    assert controller.texto == "Lu"
+
+
+def test_digito_tambien_reemplaza(controller):
+    controller.abrir("Operador", "Ana", 30)
+    controller.presionarCaracter("7")
+    assert controller.texto == "7"
+
+
+def test_borrar_antes_de_escribir_edita_el_texto_abierto(controller):
+    controller.abrir("Operador", "Ana", 30)
+    controller.borrar()
+    assert controller.texto == "An"
+    assert controller.mayusculas is False
+    _escribir(controller, "x")
+    assert controller.texto == "Anx"
+
+
+def test_caracter_ignorado_no_consume_el_reemplazo(controller):
+    controller.abrir("Operador", "Ana", 30)
+    controller.presionarCaracter("	")
+    assert controller.texto == "Ana"
+    _escribir(controller, "b")
+    assert controller.texto == "B"
 
 
 def test_texto_changed_se_emite_al_presionar_tecla(controller):
@@ -224,6 +262,7 @@ def test_cancelar_emite_cancelado_sin_confirmado_y_descarta(controller):
 
 def test_abrir_vacio_arma_aa_aunque_estuviera_desarmada(controller):
     controller.abrir("Operador", "Ana", 30)
+    controller.alternarMayusculas()
     assert controller.mayusculas is False
     controller.abrir("Operador", "", 30)
     assert controller.mayusculas is True

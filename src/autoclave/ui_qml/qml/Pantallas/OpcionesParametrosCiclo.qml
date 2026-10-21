@@ -4,6 +4,7 @@ import Tema
 import Autoclave.Controllers
 import "../Componentes"
 import Autoclave.I18n
+import Autoclave.Unidades
 
 // OPCIONES › Parámetros del ciclo, Fases 2 a 4 (planeacion_opciones_parametros_ciclo.md
 // rev. 3.1 §5.1 a §5.5; tanda 2026-10-14 T12). PROVISIONAL (sin diseño final):
@@ -23,7 +24,7 @@ Item {
 
     property QtObject teclado: null
     property bool edicionPermitida: false      // estado y rol (OpcionesController)
-    property string vista: "programa"          // programa | seccion | sensores
+    property string vista: "programa"          // programa | seccion | sensores | entradas
     // Atrás de la barra inferior: sube un nivel dentro de la sección; false si ya
     // está en la lista de programas (la pantalla Opciones entonces sale)
     function retroceder() {
@@ -61,6 +62,18 @@ Item {
         // PROVISIONAL: sin etiqueta en el catálogo, la clave legible
         const t = clave.split(".").pop().replace(/_/g, " ")
         return t.charAt(0).toUpperCase() + t.slice(1)
+    }
+    // U1 (tanda 5): un parámetro en °C o kPa se muestra y se teclea en las
+    // unidades elegidas (Unidades); el backend sigue recibiendo °C / kPa abs.
+    function convertible(p) {
+        return p !== null && p !== undefined && p.tipo !== "bool" && p.tipo !== "enum"
+               && Unidades.unidadIngreso(p.unidad || "", p.clave, Unidades.version) !== ""
+    }
+    function textoP(valor, p) {
+        if (convertible(p))
+            return valor === null || valor === undefined ? "—"
+                 : Unidades.parametro(valor, p.unidad || "", p.clave)
+        return texto(valor, p ? p.tipo : "")
     }
     function texto(valor, tipo) {
         if (valor === null || valor === undefined)
@@ -244,6 +257,61 @@ Item {
                 titulo: I18n.t("opciones.sensores_titulo", I18n.lang)
                 onPulsada: { control.cargarSensores(); raiz._prepararSensores(); raiz.vista = "sensores" }
             }
+            // O1 (tanda 5): entradas mostradas en Preciclo y Ciclo (1 a 3)
+            Fila {
+                objectName: "filaEntradas"
+                titulo: I18n.t("opciones.entradas_titulo", I18n.lang)
+                onPulsada: { control.cargarEntradas(); raiz._entradasSel = control.entradas.slice(); raiz.vista = "entradas" }
+            }
+            // O1 (tanda 5): gestión del programa (técnico e ingeniero)
+            Text {
+                width: parent.width
+                topPadding: Escala.px(24)
+                visible: control.numero > 0 && control.programaEditable
+                text: I18n.t("opciones.gestion_titulo", I18n.lang)
+                color: Colores.textoSecundario
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(24)
+            }
+            Flow {
+                objectName: "gestionPrograma"
+                visible: control.numero > 0 && control.programaEditable
+                width: parent.width
+                spacing: Escala.px(12)
+                BotonFormulario {
+                    objectName: "botonHabilitar"
+                    texto: I18n.t(control.programaHabilitado ? "opciones.deshabilitar_programa"
+                                                             : "opciones.habilitar_programa", I18n.lang)
+                    habilitado: raiz.edicionPermitida
+                    onPulsado: if (habilitado) control.fijarHabilitado(!control.programaHabilitado)
+                }
+                BotonFormulario {
+                    objectName: "botonDuplicar"
+                    texto: I18n.t("opciones.duplicar_programa", I18n.lang)
+                    habilitado: raiz.edicionPermitida && raiz.teclado !== null
+                    onPulsado: if (habilitado) raiz.teclado.abrirAlfanumerico(
+                        I18n.t("opciones.nombre_programa", I18n.lang),
+                        control.nombrePrograma, 40, false,
+                        (v) => { if (String(v).trim() !== "") control.duplicar(String(v)) })
+                }
+                BotonFormulario {
+                    objectName: "botonBorrar"
+                    visible: control.programaPersonalizado
+                    texto: I18n.t("opciones.borrar_programa", I18n.lang)
+                    habilitado: raiz.edicionPermitida
+                    onPulsado: if (habilitado) dialogoBorrar.abrir()
+                }
+            }
+            Text {
+                objectName: "programaDeshabilitado"
+                visible: control.numero > 0 && !control.programaHabilitado
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: I18n.t("opciones.programa_deshabilitado", I18n.lang)
+                color: Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(22)
+            }
         }
     }
 
@@ -291,8 +359,9 @@ Item {
                 objectName: "param_" + modelData.clave
                 width: ListView.view.width
                 titulo: raiz.etiqueta(control.seccion, modelData.clave)
-                valor: raiz.texto(modelData.valor, modelData.tipo)
-                detalle: modelData.tipo === "bool" || modelData.tipo === "enum" ? "" : (modelData.unidad || "")
+                valor: Unidades.version >= 0 ? raiz.textoP(modelData.valor, modelData) : ""
+                detalle: modelData.tipo === "bool" || modelData.tipo === "enum" || raiz.convertible(modelData)
+                         ? "" : (modelData.unidad || "")
                 marca: modelData.modificado
                 onPulsada: ajuste.abrir(modelData)
             }
@@ -434,12 +503,93 @@ Item {
         }
     }
 
+    // ======================= vista: entradas mostradas (O1) =======================
+    property var _entradasSel: []
+    function _alternarEntrada(nombre) {
+        const sel = _entradasSel.slice()
+        const i = sel.indexOf(nombre)
+        if (i >= 0) sel.splice(i, 1)
+        else if (sel.length < 3) sel.push(nombre)
+        _entradasSel = sel
+    }
+    Item {
+        objectName: "vistaEntradas"
+        visible: raiz.vista === "entradas"
+        anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+        Column {
+            width: parent.width
+            spacing: Escala.px(6)
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: I18n.t("opciones.entradas_nota", I18n.lang)
+                color: Colores.textoGuia
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(22)
+            }
+            Repeater {
+                model: control.entradasHabilitadas
+                delegate: Fila {
+                    required property var modelData
+                    readonly property int orden: raiz._entradasSel.indexOf(modelData)
+                    objectName: "entrada_" + modelData
+                    chevron: false
+                    titulo: I18n.existe("io.ai." + modelData, I18n.lang) ? I18n.t("io.ai." + modelData, I18n.lang)
+                                                                        : String(modelData)
+                    valor: orden >= 0 ? "✓ " + (orden + 1) : ""
+                    onPulsada: if (control.entradasEditable && raiz.edicionPermitida) raiz._alternarEntrada(modelData)
+                }
+            }
+        }
+        BotonFormulario {
+            objectName: "guardarEntradas"
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+            texto: I18n.t("acciones.guardar", I18n.lang)
+            primario: true
+            habilitado: control.entradasEditable && raiz.edicionPermitida
+                        && raiz._entradasSel.length >= 1 && raiz._entradasSel.length <= 3
+                        && JSON.stringify(raiz._entradasSel) !== JSON.stringify(control.entradas)
+            onPulsado: if (habilitado) control.guardarEntradas(raiz._entradasSel)
+        }
+    }
+
+    DialogoConfirmacion {
+        id: dialogoBorrar
+        objectName: "dialogoBorrarPrograma"
+        mensaje: I18n.t("opciones.borrar_programa_pregunta", I18n.lang, { nombre: control.nombrePrograma })
+        textoConfirmar: I18n.t("opciones.borrar_programa", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        colorConfirmar: Colores.peligroTexto
+        onConfirmado: { cerrar(); control.borrar() }
+    }
+
     // ======================= ventana de ajuste (§5.3) =======================
     Rectangle {
         id: ajuste
         objectName: "ventanaAjuste"
         property var param: null
         property var nuevo: null
+        // U1: unidad de ingreso (psig o inHg en psi si el rango cruza la atmosférica)
+        property string unidadIngreso: ""
+        property string errorIngreso: ""
+        readonly property var ingresosPsi: param && raiz.convertible(param) && Unidades.presion === "psi"
+            ? Unidades.ingresosPsi(param.unidad || "", param.clave, param.min, param.max) : []
+        // revisión U1 (SAF-02): si las unidades cambian con la ventana abierta,
+        // lo tecleado se descarta (se interpretaría en otra unidad)
+        property int versionAlAbrir: -1
+        Connections {
+            target: Unidades
+            function onCambiado() {
+                if (ajuste.visible && ajuste.nuevo !== null && raiz.convertible(ajuste.param)) {
+                    ajuste.nuevo = null
+                    ajuste.errorIngreso = I18n.t("opciones.err_unidades_cambiaron", I18n.lang)
+                }
+                if (ajuste.visible && ajuste.param)
+                    ajuste.unidadIngreso = Unidades.unidadIngreso(ajuste.param.unidad || "", ajuste.param.clave)
+            }
+        }
         readonly property bool editable: control.seccionEditable && raiz.edicionPermitida
         readonly property bool esModo: param !== null && raiz.esModoDescompresion(control.seccion, param.clave)
         readonly property var valorEnEdicion: nuevo !== null ? nuevo : (param ? param.valor : null)
@@ -448,7 +598,34 @@ Item {
             if (cambiado && control.guardar(param.clave, nuevo))
                 cerrar()
         }
-        function abrir(p) { param = p; nuevo = null; visible = true }
+        function abrir(p) {
+            param = p; nuevo = null; errorIngreso = ""
+            unidadIngreso = raiz.convertible(p) ? Unidades.unidadIngreso(p.unidad || "", p.clave) : ""
+            if (ingresosPsi.length > 0 && ingresosPsi.indexOf(unidadIngreso) < 0)
+                unidadIngreso = ingresosPsi[0]
+            visible = true
+        }
+        // valor tecleado en la unidad mostrada -> interna, redondeado y validado
+        function recibir(v) {
+            errorIngreso = ""
+            let interno = Number(v)
+            if (raiz.convertible(param)) {
+                interno = Unidades.aInterna(Number(v), param.unidad || "", param.clave, unidadIngreso)
+                if (interno === null || interno === undefined || isNaN(interno)) {
+                    errorIngreso = I18n.t("opciones.err_conversion", I18n.lang)
+                    return
+                }
+            }
+            interno = param.tipo === "float" ? Math.round(interno * 100) / 100 : Math.round(interno)
+            if ((param.min !== null && param.min !== undefined && interno < param.min)
+                    || (param.max !== null && param.max !== undefined && interno > param.max)) {
+                errorIngreso = I18n.t("opciones.rango_permitido", I18n.lang,
+                                      { min: raiz.textoP(param.min, param), max: raiz.textoP(param.max, param),
+                                        unidad: "" })
+                return
+            }
+            nuevo = interno
+        }
         function cerrar() { visible = false; if (raiz.teclado) raiz.teclado.cerrar() }
         visible: false
         anchors.fill: parent
@@ -482,11 +659,11 @@ Item {
                     spacing: Escala.px(10)
                     Repeater {
                         model: ajuste.param ? [
-                            { clave: "opciones.actual", valor: raiz.texto(ajuste.param.valor, ajuste.param.tipo), toque: false },
-                            { clave: "opciones.por_defecto", valor: raiz.texto(ajuste.param.defecto, ajuste.param.tipo),
+                            { clave: "opciones.actual", valor: raiz.textoP(ajuste.param.valor, ajuste.param), toque: false },
+                            { clave: "opciones.por_defecto", valor: raiz.textoP(ajuste.param.defecto, ajuste.param),
                               toque: ajuste.param.defecto !== null && ajuste.param.defecto !== ajuste.param.valor },
-                            { clave: "opciones.minimo", valor: raiz.texto(ajuste.param.min, ajuste.param.tipo), toque: false },
-                            { clave: "opciones.maximo", valor: raiz.texto(ajuste.param.max, ajuste.param.tipo), toque: false }
+                            { clave: "opciones.minimo", valor: raiz.textoP(ajuste.param.min, ajuste.param), toque: false },
+                            { clave: "opciones.maximo", valor: raiz.textoP(ajuste.param.max, ajuste.param), toque: false }
                         ] : []
                         delegate: Rectangle {
                             id: tarjetaValor
@@ -536,7 +713,8 @@ Item {
                         anchors.fill: parent; anchors.leftMargin: Escala.px(20)
                         verticalAlignment: Text.AlignVCenter
                         text: ajuste.nuevo !== null
-                              ? raiz.texto(ajuste.nuevo, ajuste.param ? ajuste.param.tipo : "") + " " + (ajuste.param ? ajuste.param.unidad : "")
+                              ? (raiz.convertible(ajuste.param) ? raiz.textoP(ajuste.nuevo, ajuste.param)
+                                 : raiz.texto(ajuste.nuevo, ajuste.param ? ajuste.param.tipo : "") + " " + (ajuste.param ? ajuste.param.unidad : ""))
                               : I18n.t("opciones.toque_nuevo_valor", I18n.lang)
                         color: ajuste.nuevo !== null ? Colores.textoPrimario : Colores.textoGuia
                         font.family: Tipografia.familia
@@ -545,14 +723,49 @@ Item {
                     MouseArea {
                         anchors.fill: parent
                         enabled: ajuste.editable && raiz.teclado !== null
-                        onClicked: raiz.teclado.abrirNumerico(
-                            raiz.etiqueta(control.seccion, ajuste.param.clave), ajuste.param.unidad,
-                            ajuste.nuevo !== null ? ajuste.nuevo : ajuste.param.valor,
-                            ajuste.param.min, ajuste.param.max,
-                            ajuste.param.tipo === "float" ? 1 : 0,
-                            (v) => { ajuste.nuevo = ajuste.param.tipo === "float" ? Number(v) : Math.round(Number(v)) })
+                        // U1: con unidades convertidas el teclado no acota (el rango
+                        // se valida en la unidad interna en ajuste.recibir)
+                        onClicked: raiz.convertible(ajuste.param)
+                            ? raiz.teclado.abrirNumerico(
+                                raiz.etiqueta(control.seccion, ajuste.param.clave),
+                                Unidades.simboloIngreso(ajuste.unidadIngreso),
+                                Unidades.aMostrarEn(ajuste.nuevo !== null ? ajuste.nuevo : ajuste.param.valor,
+                                                    ajuste.param.unidad || "", ajuste.param.clave, ajuste.unidadIngreso),
+                                -1e9, 1e9, 2, (v) => ajuste.recibir(v))
+                            : raiz.teclado.abrirNumerico(
+                                raiz.etiqueta(control.seccion, ajuste.param.clave), ajuste.param.unidad,
+                                ajuste.nuevo !== null ? ajuste.nuevo : ajuste.param.valor,
+                                ajuste.param.min, ajuste.param.max,
+                                ajuste.param.tipo === "float" ? 1 : 0,
+                                (v) => { ajuste.nuevo = ajuste.param.tipo === "float" ? Number(v) : Math.round(Number(v)) })
                     }
                 }
+                // U1: psig o inHg cuando el rango cruza la atmosférica (DECISIÓN U1-2)
+                Row {
+                    objectName: "selectorIngresoPsi"
+                    visible: ajuste.ingresosPsi.length > 1
+                    spacing: Escala.px(10)
+                    Repeater {
+                        model: ajuste.ingresosPsi
+                        delegate: BotonFormulario {
+                            required property var modelData
+                            texto: String(modelData)
+                            primario: ajuste.unidadIngreso === modelData
+                            onPulsado: ajuste.unidadIngreso = modelData
+                        }
+                    }
+                }
+                Text {
+                    objectName: "errorIngreso"
+                    visible: ajuste.errorIngreso !== ""
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: ajuste.errorIngreso
+                    color: Colores.peligroTexto
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(22)
+                }
+
                 SelectorSegmentos {
                     objectName: "selectorNuevoValor"
                     visible: ajuste.param !== null && (ajuste.param.tipo === "bool" || ajuste.param.tipo === "enum")

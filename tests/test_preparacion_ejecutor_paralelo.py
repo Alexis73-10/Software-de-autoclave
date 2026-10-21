@@ -105,8 +105,9 @@ def test_valvula_abre_con_funciones_reales_presion_alta_sin_agua_residual():
     estado.sensores_temp = {"temp_drenaje": 20.0}
     set_do = MagicMock()
     cycle = MagicMock()
-    cycle.get_param.side_effect = lambda section, key: {
+    cycle.get_param.side_effect = lambda section, key, **k: {
         "presion_chaqueta": 300.0, "rango_presion_chaqueta": 20.0,
+        "tipo_carga": "solido",       # T1: sólido, venteo por la rápida
     }[key]
     config = MagicMock()
     config.get.side_effect = lambda key: {

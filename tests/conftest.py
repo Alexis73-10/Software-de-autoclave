@@ -33,3 +33,27 @@ def _recolectar_en_hilo_principal(request):
     yield
     if _usa_qt(str(request.node.fspath)):
         gc.collect()
+
+
+@pytest.fixture(autouse=True)
+def _sin_dialogo_de_login_modal(monkeypatch):
+    """P3 (tanda 5): un 401 en una vista PySide abre un diálogo modal de login;
+    en las pruebas se cancela (None) para no bloquear la suite. Las pruebas
+    que necesitan otro comportamiento lo vuelven a parchear."""
+    try:
+        from autoclave.ui_pyside.services import renovacion_sesion
+    except Exception:
+        return
+    monkeypatch.setattr(renovacion_sesion, "pedir_credenciales_dialogo", lambda padre: None)
+
+
+@pytest.fixture(autouse=True)
+def _ticket_sin_proveedor_global():
+    """I3 (tanda 5): el arranque real del backend registra un proveedor global
+    de idioma/unidades para el ticket; no debe filtrarse a otras pruebas."""
+    yield
+    try:
+        from autoclave.services.domain.logging import ticket_formatter
+    except Exception:
+        return
+    ticket_formatter.fijar_proveedor(None)

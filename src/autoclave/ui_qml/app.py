@@ -51,6 +51,8 @@ from autoclave.ui_qml import sesion_backend
 # Registra el singleton de textos I18n en Autoclave.I18n (al importar); lo usan
 # todas las pantallas QML.
 from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401
+# U1 (tanda 5): singleton Unidades en Autoclave.Unidades
+from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
 # Registran los controladores de los teclados en Autoclave.Controllers
 # (qmlRegisterType al importar); los usa PanelTeclado de Main.qml.
 from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401

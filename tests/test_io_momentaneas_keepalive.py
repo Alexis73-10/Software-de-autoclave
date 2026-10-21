@@ -83,3 +83,16 @@ def test_keepalive_de_otra_sesion_409(entorno):
     client, ctx, srv = entorno
     assert client.post("/io/test/keepalive",
                        headers=cabecera(srv, "ingeniero", "otro")).status_code == 409
+
+
+def test_temporizador_de_otra_generacion_no_saca_a_la_sesion_nueva(rapido):
+    """Revisión P1 (TMG-03/TMG-07): un plazo armado antes de una nueva entrada
+    al modo prueba no actúa sobre la sesión que entró después."""
+    client, ctx, srv = rapido
+    client.post("/io/test/keepalive")
+    srv._generacion_prueba += 1          # otra entrada mientras el plazo corría
+    try:
+        time.sleep(0.5)
+        assert not ctx.control_loop.exit_test_mode.called
+    finally:
+        srv._generacion_prueba -= 1

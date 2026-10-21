@@ -879,7 +879,12 @@ def _alarma_dto(inst) -> dict:
     campos id/level/description/source_state mantienen compatible a la UI
     actual hasta la Parte C."""
     origen = inst.origen or ""
+    from autoclave.core.runtime import alarmas_i18n
     return {
+        # I1 (tanda 5): código + parámetros y los textos en cada idioma; la
+        # descripción en español sigue siendo la registrada (compatibilidad)
+        "valores": alarmas_i18n.valores_json(inst.valores),
+        "textos": alarmas_i18n.por_idioma(inst.definicion, inst.valores or {}),
         "clave": inst.clave,
         "codigo": inst.codigo,
         "nivel": inst.nivel.name,
@@ -1146,6 +1151,9 @@ def select_cycle(body: _SelectCycleBody, request: Request):
     if getattr(cycle, "danado", None):
         rechazar(409, "PROGRAMA_NO_EDITABLE",
                  f"Programa dañado (fuera del catálogo): {cycle.danado[0]}")
+    # O1 (tanda 5): un programa deshabilitado no se selecciona
+    if getattr(cycle, "habilitado", True) is False:
+        rechazar(409, "programa_deshabilitado", "Programa deshabilitado")
     # T11 (revisión de S2): líquidos solo en equipos con esa capacidad
     if _carga_liquida(cycle) and getattr(getattr(context, "cap", None), "has_liquids", None) is False:
         rechazar(409, "carga_liquida_no_disponible",
@@ -1369,8 +1377,77 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
 # `habilitada` solo gobierna la verificación de arranque y el aviso de impresora
 # desconectada; no impide imprimir ni bloquea nada.
 
+# ── Idioma (I1, tanda 5; planeacion_i18n.md §5 F2) ───────────────────────
+# Cualquier rol con sesión, también en ciclo (no afecta al control). R-06
+# sigue vigente: el inglés no se habilita en campo hasta cerrar la voz; el
+# endpoint existe, pero ninguna pantalla de operador ofrece el selector.
+
+class _IdiomaBody(BaseModel):
+    idioma: Literal["es", "en"]
+
+
+@app.get("/language")
+def get_language():
+    return {"idioma": context.config_idioma.leer()}
+
+
+@app.put("/language")
+def put_language(body: _IdiomaBody, sesion: Sesion = Depends(requiere_rol())):
+    entidad = "/language"
+    anterior = context.config_idioma.leer()
+    try:
+        context.config_idioma.guardar(body.idioma)
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar el idioma", entidad, sesion)
+    _auditar("idioma_configurado", sesion, entidad=entidad,
+             valor_anterior={"idioma": anterior}, valor_nuevo={"idioma": body.idioma})
+    return {"ok": True, "idioma": body.idioma}
+
+
+# ── Unidades de presentación (U1, tanda 5; decisión 6 de Cristian) ─────────
+# Solo presentación y entrada de datos: el control, la BD, los JSON y esta API
+# siguen en °C y kPa absolutos. P_atm es la calibrada del equipo; sin valor
+# vigente se publica null y la UI no muestra psi.
+
+class _UnidadesBody(BaseModel):
+    temperatura: Literal["C", "F"]
+    presion: Literal["kPa", "bar", "mbar", "psi"]
+
+
+def _p_atm_vigente():
+    try:
+        v = context.config_manager.get("presion_admosferica")
+    except Exception:
+        return None
+    from autoclave.core.runtime.unidades import p_atm_valida
+    return p_atm_valida(v)       # fuera de 50-110 kPa: null (la UI no muestra psi)
+
+
+@app.get("/units")
+def get_units():
+    return {**context.config_unidades.leer(), "p_atm": _p_atm_vigente()}
+
+
+@app.put("/units")
+def put_units(body: _UnidadesBody,
+              sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Técnico e ingeniero, solo fuera de ciclo (también el ingeniero: un
+    cambio de unidades a mitad de ciclo se presta a leer mal un valor)."""
+    entidad = "/units"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        anterior = context.config_unidades.leer()
+    try:
+        nuevo = context.config_unidades.guardar(body.temperatura, body.presion)
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración",
+                  entidad, sesion)
+    _auditar("unidades_configuradas", sesion, entidad=entidad,
+             valor_anterior=anterior, valor_nuevo=nuevo)
+    return {"ok": True, **nuevo}
+
+
 class _ImpresoraConfigBody(BaseModel):
-    habilitada: bool
+    habilitada: StrictBool     # P2: solo el literal JSON true/false (SAF-06)
 
 
 @app.get("/printer/config")
@@ -1390,6 +1467,10 @@ def put_printer_config(body: _ImpresoraConfigBody,
                   entidad, sesion)
     _auditar("impresora_configurada", sesion, entidad=entidad,
              valor_anterior={"habilitada": anterior}, valor_nuevo={"habilitada": body.habilitada})
+    try:
+        context.aplicar_config_impresora()   # el aviso SIS-05 sigue a la bandera
+    except Exception:
+        logger.exception("No se pudo aplicar la configuración de la impresora")
     return {"ok": True, "habilitada": body.habilitada}
 
 
@@ -2218,6 +2299,8 @@ def get_programas():
             "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
             "origen": getattr(cycle, "source", ""), "danado": bool(getattr(cycle, "danado", None)),
             "editable": _programa_editable(cycle),
+            "habilitado": getattr(cycle, "habilitado", True) is not False,
+            "personalizado": getattr(cycle, "personalizado", False) is True,
             "secciones": [{"clave": s, "no_se_ejecuta": _no_se_ejecuta(cycle, s)}
                           for s in _SECCIONES_PROGRAMA if s in cycle.parameters],
         })
@@ -2246,6 +2329,8 @@ def get_programas_seleccionables():
         if getattr(cycle, "number", None) is None or getattr(cycle, "source", "user") != "user":
             continue
         if getattr(cycle, "danado", None):
+            continue
+        if getattr(cycle, "habilitado", True) is False:      # O1: deshabilitado
             continue
         if _carga_liquida(cycle) and getattr(cap, "has_liquids", None) is False:
             continue
@@ -2326,7 +2411,10 @@ def get_programa_seccion(numero: int, seccion: str):
     cycle = _programa_por_numero(numero)
     if seccion not in _SECCIONES_PROGRAMA or seccion not in cycle.parameters:
         raise HTTPException(status_code=404, detail=f"Sección '{seccion}' no encontrada")
-    fabrica = getattr(context.cycle_manager, "fabrica", {}).get(numero)
+    # O1 (tanda 5): defecto del hospital (cycles/defecto) o, si no, el de fábrica
+    cm = context.cycle_manager
+    fabrica = (cm.defecto(numero) if callable(getattr(cm, "defecto", None))
+               else getattr(cm, "fabrica", {}).get(numero))
     ultimas = _ultimas_modificaciones(f"{cycle.id}/{seccion}/")
     parametros = []
     for ruta, hoja in _hojas_seccion(cycle, seccion):
@@ -2343,6 +2431,128 @@ def get_programa_seccion(numero: int, seccion: str):
         })
     return {"numero": numero, "cycle_id": cycle.id, "nombre": cycle.name, "seccion": seccion,
             "editable": _programa_editable(cycle), "parametros": parametros}
+
+
+# ── Gestión de programas (O1, tanda 5; planeacion_opciones.md v4 §3.1) ─────
+
+class _HabilitadoBody(BaseModel):
+    habilitado: StrictBool
+
+
+class _DuplicarBody(BaseModel):
+    nombre: str
+
+
+def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, deshacer,
+             confirmar=None):
+    """Técnico fuera de CICLO; ingeniero también en CICLO (como los
+    parámetros). El programa activo nunca se borra ni se deshabilita: la
+    lectura del activo y el cambio van bajo el lock de la máquina (guard_estado),
+    el mismo que /cycle/select. Los archivos son pequeños; la escritura queda
+    dentro del lock a propósito para no abrir esa carrera.
+    RB-03.5 (revisión O1, SAF-01): sin registro en audit_log el cambio no
+    queda aplicado; `deshacer(resultado)` lo revierte."""
+    from autoclave.core.managers import gestion_programas as gp
+    if getattr(context, "sin_base_de_datos", False) is True:
+        _rechazar(503, "BASE_OCUPADA", "Base de datos no disponible: no se aplicó", entidad, sesion)
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
+        activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
+        try:
+            with _lock_archivos:
+                resultado = operar(gp, activo)
+        except gp.ErrorPrograma as e:
+            raise _Rechazo(e.estado_http, e.codigo, e.motivo)
+    anterior, nuevo = auditoria(resultado)
+    try:
+        context.db.registrar_auditoria(evento, usuario=sesion.usuario, rol=sesion.rol,
+                                       entidad=entidad, valor_anterior=anterior,
+                                       valor_nuevo=nuevo, detalle=None)
+    except Exception:
+        logger.exception("%s sin auditoría: se revierte", entidad)
+        with context.control_loop.bloqueo_maquina(), _lock_archivos:
+            deshacer(gp, resultado)
+        _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
+                  entidad, sesion)
+    if confirmar is not None:
+        with _lock_archivos:
+            confirmar(gp, resultado)
+    return resultado
+
+
+@app.put("/programas/{numero}/habilitado")
+def put_programa_habilitado(numero: int, body: _HabilitadoBody,
+                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/programas/{numero}/habilitado"
+    cm = context.cycle_manager
+    anterior, nuevo = _gestion(
+        entidad, sesion,
+        lambda gp, activo: gp.fijar_habilitado(cm, numero, body.habilitado, activo),
+        "programa_habilitado",
+        lambda r: ({"habilitado": r[0]}, {"habilitado": r[1]}),
+        lambda gp, r: gp.deshacer_habilitado(cm, numero, r[0]))
+    return {"ok": True, "numero": numero, "habilitado": nuevo}
+
+
+@app.post("/programas/{numero}/duplicar")
+def post_programa_duplicar(numero: int, body: _DuplicarBody,
+                           sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/programas/{numero}/duplicar"
+    cm = context.cycle_manager
+    nuevo = _gestion(
+        entidad, sesion, lambda gp, activo: gp.duplicar(cm, numero, body.nombre),
+        "programa_duplicado",
+        lambda c: ({"origen": numero}, {"numero": c.number, "cycle_id": c.id, "nombre": c.name}),
+        lambda gp, c: gp.deshacer_duplicado(cm, c))
+    return {"ok": True, "numero": nuevo.number, "cycle_id": nuevo.id, "nombre": nuevo.name}
+
+
+@app.delete("/programas/{numero}")
+def delete_programa(numero: int,
+                    sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/programas/{numero}"
+    cm = context.cycle_manager
+    _gestion(entidad, sesion, lambda gp, activo: gp.borrar(cm, numero, activo),
+             "programa_borrado",
+             lambda c: ({"numero": numero, "cycle_id": c.id, "nombre": c.name}, None),
+             lambda gp, c: gp.deshacer_borrado(cm, c),
+             confirmar=lambda gp, c: gp.confirmar_borrado(c))
+    return {"ok": True, "numero": numero}
+
+
+class _EntradasBody(BaseModel):
+    programa: int
+    entradas: list
+
+
+def _ai_habilitadas() -> list[str]:
+    from autoclave.core.runtime.io_names import leer_io_enabled
+    return leer_io_enabled()["AI"]
+
+
+@app.get("/cycle/display-inputs")
+def get_entradas_mostradas(programa: int):
+    """Entradas mostradas del programa (1 a 3) y las AI habilitadas del equipo."""
+    from autoclave.core.managers import gestion_programas as gp
+    cycle = _programa_por_numero(programa)
+    habilitadas = _ai_habilitadas()
+    return {"programa": programa, "entradas": gp.entradas_de(cycle, habilitadas),
+            "habilitadas": habilitadas, "editable": getattr(cycle, "source", "") == "user"}
+
+
+@app.put("/cycle/display-inputs")
+def put_entradas_mostradas(body: _EntradasBody,
+                           sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = f"/cycle/display-inputs/{body.programa}"
+    cm = context.cycle_manager
+    previas = []
+
+    def operar(gp, activo):
+        previas.append(getattr(gp.programa(cm, body.programa), "entradas_mostradas", None))
+        return gp.fijar_entradas(cm, body.programa, body.entradas, _ai_habilitadas())
+    anterior, nueva = _gestion(entidad, sesion, operar, "entradas_mostradas",
+                               lambda r: (r[0], r[1]),
+                               lambda gp, r: gp.deshacer_entradas(cm, body.programa, previas[0]))
+    return {"ok": True, "entradas": nueva}
 
 
 # ── Sensores del ciclo (tanda 2026-10-14 §1.1; RS-01, RS-02) ───────────────
@@ -2536,14 +2746,20 @@ def _nombre_do(canal: int) -> str:
     return next((n for n, i in EstadoAutoclave.map_do.items() if i + 1 == canal), str(canal))
 
 
-def _caducar_momentanea(canal: int, timer: threading.Timer) -> None:
+# TMG-07 / revisión P1 (TMG-03): cada entrada al modo prueba es una generación
+# nueva; un temporizador armado en otra generación (que ya pasó su chequeo de
+# identidad mientras esperaba el candado) no actúa sobre la sesión actual.
+_generacion_prueba = 0
+
+
+def _caducar_momentanea(canal: int, timer: threading.Timer, generacion: int = -1) -> None:
     """Hilo del temporizador: sin renovación a tiempo, apaga la salida."""
     with _lock_vigilancias:
         if _timers_momentaneas.get(canal) is not timer:
             return   # renovada o cancelada mientras tanto
         del _timers_momentaneas[canal]
     with context.control_loop.bloqueo_maquina():
-        if not context.control_loop.test_mode_active:
+        if not context.control_loop.test_mode_active or generacion != _generacion_prueba:
             return
         context.setdo.set_output(canal, False)
         token = _token_modo_prueba
@@ -2560,7 +2776,9 @@ def _armar_momentanea(canal: int) -> bool:
         previo = _timers_momentaneas.pop(canal, None)
         if previo is not None:
             previo.cancel()
-        timer = threading.Timer(CADUCIDAD_MOMENTANEA_S, lambda: _caducar_momentanea(canal, timer))
+        generacion = _generacion_prueba
+        timer = threading.Timer(CADUCIDAD_MOMENTANEA_S,
+                                lambda: _caducar_momentanea(canal, timer, generacion))
         timer.daemon = True
         _timers_momentaneas[canal] = timer
         timer.start()
@@ -2574,14 +2792,14 @@ def _desarmar_momentanea(canal: int) -> None:
         previo.cancel()
 
 
-def _salir_por_inactividad(timer: threading.Timer) -> None:
+def _salir_por_inactividad(timer: threading.Timer, generacion: int = -1) -> None:
     global _timer_inactividad
     with _lock_vigilancias:
         if _timer_inactividad is not timer:
             return
         _timer_inactividad = None
     with context.control_loop.bloqueo_maquina():
-        if not context.control_loop.test_mode_active:
+        if not context.control_loop.test_mode_active or generacion != _generacion_prueba:
             return
         token = _token_modo_prueba
         _salir_modo_prueba()
@@ -2597,7 +2815,9 @@ def _marcar_actividad_prueba() -> None:
     with _lock_vigilancias:
         if _timer_inactividad is not None:
             _timer_inactividad.cancel()
-        timer = threading.Timer(INACTIVIDAD_MODO_PRUEBA_S, lambda: _salir_por_inactividad(timer))
+        generacion = _generacion_prueba
+        timer = threading.Timer(INACTIVIDAD_MODO_PRUEBA_S,
+                                lambda: _salir_por_inactividad(timer, generacion))
         timer.daemon = True
         _timer_inactividad = timer
         timer.start()
@@ -2642,7 +2862,7 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
 
     El ALL_OFF de enter_test_mode corre con _sm_lock tomado (espera el ACK
     hasta 1 s); es aceptable porque el guard excluye CICLO."""
-    global _token_modo_prueba
+    global _token_modo_prueba, _generacion_prueba
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, "/io/test/enter", sesion):
         motivo_config = context.control_loop.bloqueo_configuracion
         if isinstance(motivo_config, str) and motivo_config:
@@ -2657,10 +2877,13 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
                 and _token_modo_prueba not in (None, sesion.token)):
             raise _Rechazo(409, "modo_prueba_otra_sesion",
                            "El modo prueba ya está activo en otra sesión")
+        ya_activo = context.control_loop.test_mode_active
         ok, reason = context.control_loop.enter_test_mode()
         if not ok:
             raise _Rechazo(409, "modo_prueba_rechazado", reason)
         _token_modo_prueba = sesion.token
+        if not ya_activo:     # reentrada de la misma sesión: misma generación
+            _generacion_prueba += 1
         _marcar_actividad_prueba()
     _auditar("modo_prueba_entra", sesion)
     return {"ok": True}
@@ -2668,7 +2891,7 @@ def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
 
 # B-ES-8: causas que la UI puede declarar al salir (lista cerrada, §6.5)
 _CAUSAS_SALIDA_UI = frozenset({"salida solicitada", "abandono de la sección",
-                               "inactividad de la interfaz"})
+                               "inactividad de la interfaz", "cierre de sesión"})
 
 
 @app.post("/io/test/exit")

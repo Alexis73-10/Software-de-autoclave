@@ -11,3 +11,7 @@ from autoclave.ui_qml.controllers import mantenimiento_controller  # noqa: F401
 from autoclave.ui_qml.controllers import cambio_clave_controller  # noqa: F401
 # OPCIONES > Entradas / Salidas.
 from autoclave.ui_qml.controllers import entradas_salidas_controller  # noqa: F401
+# U1 (tanda 5): las pantallas que muestran °C/kPa usan el singleton Unidades.
+from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
+# OPCIONES > Parámetros del equipo (P2, tanda 5).
+from autoclave.ui_qml.controllers import parametros_equipo_controller  # noqa: F401

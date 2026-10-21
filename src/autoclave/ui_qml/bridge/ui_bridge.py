@@ -165,6 +165,9 @@ class UiBridge(QObject):
             "temp_camara": dominio.formatear_temp_camara(temp),
             "temp_referencia": dominio.formatear_temp_camara(temp_ref),
             "presion_camara": dominio.formatear_presion(pres),
+            # I2 (tanda 5): símbolos de la unidad de presentación (U1)
+            "presion_unidad": dominio.simbolo_presion(pres),
+            "temp_unidad": dominio.simbolo_temperatura(),
         }
 
     def detener(self) -> None:
@@ -336,3 +339,11 @@ class UiBridge(QObject):
     @Property(str, notify=datosCicloChanged)
     def presionCamara(self) -> str:
         return self._datos_ciclo["presion_camara"]
+
+    @Property(str, notify=datosCicloChanged)
+    def presionUnidad(self) -> str:
+        return self._datos_ciclo["presion_unidad"]
+
+    @Property(str, notify=datosCicloChanged)
+    def tempUnidad(self) -> str:
+        return self._datos_ciclo["temp_unidad"]

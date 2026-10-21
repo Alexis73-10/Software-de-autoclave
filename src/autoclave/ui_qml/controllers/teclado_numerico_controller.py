@@ -10,6 +10,11 @@
 # solo sale por `confirmado` y solo si es válido (TEC-D08). Confirmar con un
 # valor inválido no entrega nada y levanta `fueraDeRango` para mostrar el
 # rango, que se oculta con la siguiente tecla.
+#
+# Reemplazo al abrir (pedido 2026-10-20): si el campo abre con un valor, la
+# primera tecla de dígito, punto o signo empieza un número nuevo en vez de
+# seguir escribiendo al final. Borrar antes de escribir edita el valor
+# existente (quita un carácter).
 
 import time
 
@@ -40,6 +45,7 @@ class TecladoNumericoController(QObject):
         self._valor = None
         self._valido = False
         self._fuera_de_rango = False
+        self._reemplazar = False     # la próxima tecla sobrescribe el valor abierto
         self._borrado = PulsacionBorrar(self.borrar, self.limpiar, reloj=reloj, parent=self)
 
     def _set_texto(self, texto: str) -> None:
@@ -151,12 +157,23 @@ class TecladoNumericoController(QObject):
         self._maximo = maximo
         self._decimales = decimales
         self.campoChanged.emit()
-        self._set_texto(dominio.texto_inicial(valor_inicial, decimales))
+        texto = dominio.texto_inicial(valor_inicial, decimales)
+        self._reemplazar = texto != ""
+        self._set_texto(texto)
         self._reevaluar()
+
+    def _base(self) -> str:
+        """Texto sobre el que actúa una tecla de escritura; consume el reemplazo."""
+        if self._reemplazar:
+            self._reemplazar = False
+            return ""
+        return self._texto
 
     @Slot(str)
     def presionarDigito(self, digito: str) -> None:
-        self._set_texto(dominio.agregar_digito(self._texto, digito, self._decimales))
+        if len(digito) != 1 or digito not in "0123456789":
+            return                   # no es dígito: no consume el reemplazo
+        self._set_texto(dominio.agregar_digito(self._base(), digito, self._decimales))
 
     @Slot(str)
     def presionarTecla(self, tecla: str) -> None:
@@ -170,18 +187,24 @@ class TecladoNumericoController(QObject):
 
     @Slot()
     def presionarPunto(self) -> None:
-        self._set_texto(dominio.agregar_punto(self._texto, self._decimales))
+        if self._decimales <= 0:
+            return                   # punto inerte: no consume el reemplazo
+        self._set_texto(dominio.agregar_punto(self._base(), self._decimales))
 
     @Slot()
     def presionarSigno(self) -> None:
-        self._set_texto(dominio.alternar_signo(self._texto, dominio.permite_negativo(self._minimo)))
+        if not dominio.permite_negativo(self._minimo):
+            return                   # signo inerte: no consume el reemplazo
+        self._set_texto(dominio.alternar_signo(self._base(), True))
 
     @Slot()
     def borrar(self) -> None:
+        self._reemplazar = False     # editar el valor abierto en vez de reemplazarlo
         self._set_texto(dominio.borrar(self._texto))
 
     @Slot()
     def limpiar(self) -> None:
+        self._reemplazar = False
         self._set_texto("")
 
     # Borrar desde QML (TEC-D12): onPressed -> presionarBorrar, onReleased ->
@@ -210,6 +233,7 @@ class TecladoNumericoController(QObject):
     @Slot()
     def cancelar(self) -> None:
         self._borrado.cancelar()
+        self._reemplazar = False
         self._set_texto("")
         self.cancelado.emit()
 

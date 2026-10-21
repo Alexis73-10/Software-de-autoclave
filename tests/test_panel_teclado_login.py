@@ -122,7 +122,8 @@ _SCRIPT = textwrap.dedent(r"""
     r["cerrado_tras_ultimo"] = panel.property("abierto")
     r["campo_activo_tras_ultimo"] = login.property("campoActivo")
 
-    # tocar otro campo sin Confirmar conserva lo escrito
+    # tocar otro campo sin Confirmar conserva lo escrito; la primera tecla
+    # sobrescribe el texto con que abre el campo (pedido 2026-10-20)
     tocar(usuario, esperar=600)
     r["reabre_con_texto"] = valor_encabezado()
     tocar(tecla("b"))
@@ -196,13 +197,13 @@ def test_contrasena_oculta_y_confirmar_en_el_ultimo_cierra(salida):
 
 def test_tocar_otro_campo_conserva_lo_escrito(salida):
     assert salida["reabre_con_texto"] == "Ana"
-    assert salida["usuario_tras_cambiar_de_campo"] == "Anab"
+    assert salida["usuario_tras_cambiar_de_campo"] == "B"
     assert salida["campo_activo_tras_cambiar"] == "clave"
 
 
 def test_cancelar_vacia_el_campo_y_cierra(salida):
     assert salida["clave_tras_cancelar"] == ""
-    assert salida["usuario_tras_cancelar"] == "Anab"
+    assert salida["usuario_tras_cancelar"] == "B"
     assert salida["cerrado_tras_cancelar"] is False
     assert salida["visible_tras_cancelar"] is False
 

@@ -7,6 +7,12 @@
 # Uso desde el panel: abrir(titulo, valorInicial, longitudMaxima) configura
 # el campo, arma Aa si el campo abre vacío y vuelve a la capa de letras. Confirmar entrega el texto
 # tal cual, incluido vacío (TEC-D09); cada pantalla valida su contenido.
+#
+# Reemplazo al abrir (pedido 2026-10-20): si el campo abre con texto, la
+# primera tecla de carácter lo sobrescribe en vez de seguir escribiendo al
+# final, como un "seleccionar todo". Por eso Aa se arma también en ese caso:
+# lo que se escriba empieza un texto nuevo. Borrar antes de escribir edita el
+# texto existente (quita un carácter) y vuelve a desarmar Aa.
 
 import time
 
@@ -38,6 +44,7 @@ class TecladoAlfanumericoController(QObject):
         self._fijas = False          # mayúsculas fijas (doble toque en Aa)
         self._ultimo_toque_aa = None
         self._capa = dominio.CAPA_INICIAL
+        self._reemplazar = False     # la próxima tecla sobrescribe el texto abierto
         self._borrado = PulsacionBorrar(self.borrar, self.limpiar, reloj=reloj, parent=self)
 
     def _set_texto(self, texto: str) -> None:
@@ -108,13 +115,18 @@ class TecladoAlfanumericoController(QObject):
         self._set_texto(valor_inicial)
         self._fijas = False
         self._ultimo_toque_aa = None
-        self._set_mayusculas(dominio.aa_al_abrir(valor_inicial))
+        self._reemplazar = valor_inicial != ""
+        self._set_mayusculas(True)   # vacío o a reemplazar: empieza texto nuevo
         self._set_capa(dominio.CAPA_INICIAL)
 
     @Slot(str)
     def presionarCaracter(self, caracter: str) -> None:
+        base = "" if self._reemplazar else self._texto
         texto, mayusculas = dominio.pulsar_caracter(
-            self._texto, caracter, self._mayusculas, self._longitud_maxima)
+            base, caracter, self._mayusculas, self._longitud_maxima)
+        if texto == base:
+            return                   # tecla ignorada: no consume el reemplazo
+        self._reemplazar = False
         self._set_texto(texto)
         self._set_mayusculas(mayusculas or self._fijas)
 
@@ -150,11 +162,16 @@ class TecladoAlfanumericoController(QObject):
 
     @Slot()
     def borrar(self) -> None:
+        if self._reemplazar:
+            # editar el texto abierto en vez de reemplazarlo
+            self._reemplazar = False
+            self._set_mayusculas(self._fijas)
         self._set_texto(dominio.borrar(self._texto))
         self._set_mayusculas(dominio.aa_tras_borrar(self._texto, self._mayusculas))
 
     @Slot()
     def limpiar(self) -> None:
+        self._reemplazar = False
         self._set_texto("")
         self._set_mayusculas(dominio.aa_tras_borrar(self._texto, self._mayusculas))
 
@@ -179,6 +196,7 @@ class TecladoAlfanumericoController(QObject):
     @Slot()
     def cancelar(self) -> None:
         self._borrado.cancelar()
+        self._reemplazar = False
         self._set_texto("")
         self.cancelado.emit()
 

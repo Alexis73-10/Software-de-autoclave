@@ -122,6 +122,22 @@ class VigilanciaImpresora:
         finally:
             self._verificando = False
 
+    def aplicar_configuracion(self, esperar: bool = False) -> None:
+        """P2 (tanda 5): tras cambiar la bandera. Deshabilitada: retira el
+        aviso de inmediato. Habilitada: vuelve a verificar (en un hilo, salvo
+        `esperar`). Nunca lanza."""
+        try:
+            if not self._config.habilitada():
+                with self._lock:
+                    if self._alarmas is not None and self.aviso_activo:
+                        self._alarmas.resolver(IMPRESORA_DESCONECTADA)
+            elif esperar:
+                self.verificar()
+            else:
+                self.iniciar()
+        except Exception:
+            logger.exception("Aplicar la configuración de la impresora")
+
     def _activar(self, inicio_consulta: float) -> None:
         with self._lock:
             if self._alarmas is None:

@@ -53,6 +53,9 @@ def test_status_publica_instancias_nuevas_con_compatibilidad(status_client):
     mock_ctx.alarm_manager = am
 
     cuerpo = client.get("/status").json()
+    # I1 (tanda 5): campos nuevos de presentación por idioma, aparte
+    for a in cuerpo["alarms"]:
+        assert set(a.pop("textos")) == {"es", "en"} and isinstance(a.pop("valores"), dict)
     assert cuerpo["alarms"] == [{
         "clave": "PUE-01|Puerta 1", "codigo": "PUE-01", "nivel": "AVISO",
         "titulo": "Puerta abierta",

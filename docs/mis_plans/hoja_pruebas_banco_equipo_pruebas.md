@@ -60,6 +60,14 @@
 | F-03 | Corte de energía durante el ciclo | En operación (vapor) | §5.1 (T6) |
 | F-04 | Puerta abierta durante el ciclo = FALLO | En operación (vapor) | tanda 2 §1 |
 | G-01 | Líquidos con la sonda dentro del líquido | En operación (vapor) | §5.4; T11; HAZ-LIQ-01 |
+| B-08 | Modo prueba: termina al cerrar su ventana por cualquier camino | En seco (sin vapor) | P1 (tanda 5) |
+| C-05 | Arranque con cámara no segura: confirmar estado seguro sin técnico | En seco (sin vapor) | T1 (tanda 5), P-10 |
+| D-15 | Interruptor "Impresora habilitada" | En seco (sin vapor) | P2 (tanda 5) |
+| D-16 | Ajustes PySide: renovación del token y reingreso tras sesión vencida | En seco (sin vapor) | P3 (tanda 5) |
+| D-17 | Parámetros del ciclo: defecto, sensores, entradas y gestión de programas | En seco (sin vapor) | O1 (tanda 5) |
+| D-18 | Cambio de unidades: °F y psig/inHg en vacío y en presión | En operación (vapor) | U1 (tanda 5) |
+| D-19 | Recorrido en inglés (solo verificación: R-06 sigue vigente) | En seco (sin vapor) | I1, I2, I3 (tanda 5) |
+| G-02 | Líquidos: tras confirmar un ciclo completado con presión, se ventea por la LENTA | En operación (vapor) | T1-01 (tanda 5, D-19) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -250,6 +258,24 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### B-08 — Modo prueba: termina al cerrar su ventana por cualquier camino
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** P1 (tanda 5)
+- **Objetivo:** Ninguna salida queda encendida al abandonar Entradas/Salidas.
+- **Precondiciones:** PREPARADO, técnico con sesión, cámara fría y a presión atmosférica.
+- **Pasos:**
+  1. Entrar al modo prueba y encender una salida inocua (p. ej. una luz piloto o la bomba sin agua solo 1 s).
+  2. Salir con Atrás: la salida se apaga.
+  3. Repetir saliendo por: otra entrada del cajón, Inicio, el engranaje (Menú principal) y Cerrar sesión.
+  4. Repetir dejando la sesión inactiva hasta que se cierre sola (5 min).
+  5. Repetir cerrando la aplicación (Salir) con la salida encendida.
+  6. Repetir desconectando el cable de red/USB del PC de la UI si es una UI aparte (el backend la apaga a ≤ 90 s).
+- **Resultado esperado:** En todos los caminos la salida se apaga en ≤ 1 s (≤ 2 s por el vigilante si la sesión ya no vale; ≤ 90 s si la UI desaparece). Auditoría `modo_prueba_sale` con el motivo.
+- **Criterio de aprobado/fallo:** Aprobado si en ningún camino la salida sigue encendida más de lo indicado.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque C. Comunicación, energía y base de datos (en seco)
 
 ### C-01 — Modo sin base de datos
@@ -307,6 +333,22 @@
   3. Revisar Historial, la calibración y `data/` (sin archivos `.tmp` pendientes).
 - **Resultado esperado:** Arranca sin avisos de base corrupta; el historial está completo hasta el último ciclo cerrado; la calibración y los parámetros están íntegros (la versión anterior o la nueva, nunca truncados).
 - **Criterio de aprobado/fallo:** Aprobado si la base abre (sin BD_BLOQUEADA), la calibración se lee y el contador de ciclos sigue consecutivo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05 — Arranque con cámara no segura: confirmar estado seguro sin técnico
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T1 (tanda 5), P-10
+- **Objetivo:** Tras un corte con la cámara caliente, el operador lleva el equipo a seguro sin rol técnico.
+- **Precondiciones:** Simular cámara no segura al arrancar (sensor Principal calentado > temp_max_apertura) con un ciclo previo interrumpido en la BD (o cortar la energía en pleno ciclo de prueba en seco).
+- **Pasos:**
+  1. Arrancar el software.
+  2. Observar "NO ABRIR" y el aviso de estado seguro.
+  3. Pulsar el botón que ofrece la UI (debe ser "Confirmar y llevar a estado seguro", no "Reconocer falla").
+  4. Dejar enfriar.
+- **Resultado esperado:** El ciclo previo aparece como INTERRUMPIDO ("la carga NO está estéril"); no se reanuda; el botón correcto funciona sin sesión; al quedar segura vuelve a PREPARACION.
+- **Criterio de aprobado/fallo:** Aprobado si no se reanuda nada, el botón correcto aparece y no se exige técnico.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -534,6 +576,95 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### D-15 — Interruptor "Impresora habilitada"
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** P2 (tanda 5)
+- **Objetivo:** El aviso de impresora desconectada sigue al interruptor sin reiniciar.
+- **Precondiciones:** Técnico con sesión; impresora desconectada.
+- **Pasos:**
+  1. Con el interruptor en Sí: ver el aviso SIS-05 en la campana.
+  2. Poner el interruptor en No (OPCIONES › Parámetros del equipo).
+  3. Volver a Sí.
+  4. Revisar la bitácora.
+- **Resultado esperado:** En No, el aviso desaparece; en Sí, reaparece en ≤ 5 s. Auditoría `impresora_configurada` con el usuario.
+- **Criterio de aprobado/fallo:** Aprobado si el aviso sigue al interruptor y queda auditado.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-16 — Ajustes PySide: renovación del token y reingreso tras sesión vencida
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** P3 (tanda 5)
+- **Objetivo:** Editar en PySide no pierde la sesión mientras se usa y, si venció, permite reingresar sin perder lo editado.
+- **Precondiciones:** Técnico con sesión en el menú de ajustes PySide (engranaje).
+- **Pasos:**
+  1. Trabajar en Calibración tocando la pantalla durante más de 6 min: la sesión sigue.
+  2. Dejar la ventana sin tocar 7 min, editar un parámetro de secado y Guardar.
+  3. En el diálogo, ingresar el MISMO usuario y su contraseña.
+  4. Repetir cancelando el diálogo.
+  5. Repetir ingresando OTRO usuario.
+- **Resultado esperado:** En uso no caduca. Tras inactividad, Guardar pide login; con el mismo usuario guarda el valor editado; cancelado dice "NO se guardó"; otro usuario se rechaza.
+- **Criterio de aprobado/fallo:** Aprobado si nunca se guarda sin sesión válida ni a nombre de otro usuario.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-17 — Parámetros del ciclo: defecto, sensores, entradas y gestión de programas
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O1 (tanda 5)
+- **Objetivo:** El flujo completo de Opciones › Parámetros del ciclo funciona con permisos correctos.
+- **Precondiciones:** Técnico con sesión, PREPARADO.
+- **Pasos:**
+  1. Programa → fase → parámetro: ver actual, por defecto, mín., máx., usuario y fecha del último cambio.
+  2. Cambiar un valor y luego tocar "Por defecto" y Guardar.
+  3. Sensores: intentar dejar 0 o 2 Principales (debe rechazar) y 3 Referencias (debe rechazar).
+  4. Entradas mostradas: elegir 1, 2 y 3 entradas; intentar 0.
+  5. Duplicar un programa con nombre nuevo; intentar duplicar con el mismo nombre de otro (rechazo).
+  6. Deshabilitar el duplicado: ya no aparece en Preciclo. Borrarlo.
+  7. Intentar borrar un programa de fábrica y el programa seleccionado (rechazo).
+  8. Iniciar un ciclo y, como técnico, intentar editar (bloqueado); como ingeniero sí.
+- **Resultado esperado:** Todo lo anterior se comporta como se indica y queda en la bitácora (`param_ciclo_cambio`, `programa_duplicado`, `programa_habilitado`, `programa_borrado`, `entradas_mostradas`). Nota: Preciclo aún muestra las entradas fijas (pendiente).
+- **Criterio de aprobado/fallo:** Aprobado si ningún rechazo falta y la auditoría está completa.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-18 — Cambio de unidades: °F y psig/inHg en vacío y en presión
+
+- **Modo:** En operación (vapor)  ·  **Origen:** U1 (tanda 5)
+- **Objetivo:** La presentación cambia sin alterar el control; psi nunca negativo.
+- **Precondiciones:** Técnico con sesión, fuera de ciclo. Patrón de presión conectado.
+- **Pasos:**
+  1. Opciones › Parámetros del equipo: elegir °F y psig/inHg.
+  2. Ver en las DOS pantallas que Preciclo cambia a °F y psig sin reiniciar.
+  3. Con la cámara en vacío (prevacío de un ciclo o bomba en modo prueba): la presión se muestra en inHg, positiva.
+  4. Con la cámara en presión (esterilización): psig ≈ patrón − P_atm.
+  5. Editar un parámetro de presión de vacío (p. ej. presion_baja_pulso_a) en inHg y verificar que el valor guardado en kPa abs es el esperado (bitácora).
+  6. Intentar cambiar las unidades con un ciclo en curso (rechazo).
+  7. Imprimir el ticket de un ciclo: cabecera "Unidades: F, psig (v=inHg vacio)" y vacíos con sufijo v.
+  8. Volver a °C y kPa.
+- **Resultado esperado:** Valores coherentes con el patrón (tolerancia de calibración); en vacío nunca un psi negativo; el ciclo se comporta igual que en °C/kPa.
+- **Criterio de aprobado/fallo:** Aprobado si ninguna lectura convertida difiere del patrón más de lo tolerado y no hay valores negativos en psi.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-19 — Recorrido en inglés (solo verificación: R-06 sigue vigente)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** I1, I2, I3 (tanda 5)
+- **Objetivo:** Las pantallas, alarmas y el ticket se leen en inglés sin truncados.
+- **Precondiciones:** Ingeniero; idioma cambiado a inglés por `PUT /language` (no hay selector para el operador).
+- **Pasos:**
+  1. Recorrer arranque, login, preciclo, ciclo, Opciones.
+  2. Provocar una alarma (p. ej. puerta abierta).
+  3. Imprimir un ticket.
+  4. Volver a español.
+- **Resultado esperado:** Textos en inglés, sin cortes en 1024 px; la alarma muestra título y descripción en inglés; el ticket dice Date/Status/Operator. Anotar todo texto que siga en español.
+- **Criterio de aprobado/fallo:** Informativo: lista de textos pendientes para la revisión de traducciones (F5).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque E. Ciclos de sólidos (en operación)
 
 ### E-01 — Instrumental 134 completo
@@ -699,6 +830,20 @@
   5. Al terminar, revisar que ningún frasco hirvió o se rompió.
 - **Resultado esperado:** Esterilización con el Principal en 121 °C; enfriamiento con contrapresión (≈250 kPa); despresurización final solo ≤ 80 °C; sin secado; apertura solo ≤ 80 °C.
 - **Criterio de aprobado/fallo:** Aprobado si no hay ebullición/rotura y la secuencia respeta 80 °C. Registrar el aire residual sin prevacío (diferencia T vs P_sat al inicio de la meseta).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### G-02 — Líquidos: tras confirmar un ciclo completado con presión, se ventea por la LENTA
+
+- **Modo:** En operación (vapor)  ·  **Origen:** T1-01 (tanda 5, D-19)
+- **Objetivo:** Con carga líquida, PREPARADO/PREPARACION nunca abren la descompresión rápida por sobrepresión.
+- **Precondiciones:** Ciclo de Líquidos completado y confirmado con la cámara aún sobre la banda atmosférica.
+- **Pasos:**
+  1. Observar las salidas al volver a PREPARADO.
+  2. Esperar a que la presión llegue a la banda.
+- **Resultado esperado:** Abre `descompresion_lenta`, nunca `descompresion_rapida`; al llegar a la banda la lenta se cierra.
+- **Criterio de aprobado/fallo:** Aprobado si la rápida no se abre en ningún momento.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

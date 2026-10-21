@@ -244,6 +244,19 @@ Item {
             }
         }
 
+        // Parámetros del equipo (P2, tanda 5): impresora habilitada
+        Loader {
+            id: parametrosEquipo
+            objectName: "cargadorParametrosEquipo"
+            active: raiz.seccionActiva === "parametros_sistema"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesParametrosEquipo {
+                teclado: raiz.teclado
+                edicionPermitida: raiz.edicionPermitida
+            }
+        }
+
         // Mantenimiento (M1, tanda 3): próximo vencimiento y registro
         Loader {
             id: mantenimiento
@@ -274,6 +287,7 @@ Item {
             visible: raiz.seccionActiva !== "" && raiz.seccionActiva !== "usuarios"
                      && raiz.seccionActiva !== "parametros_ciclo"
                      && raiz.seccionActiva !== "mantenimiento"
+                     && raiz.seccionActiva !== "parametros_sistema"
                      && raiz.seccionActiva !== "entradas_salidas"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)

@@ -299,7 +299,7 @@ Item {
                         anchors.left: atras.right
                         anchors.leftMargin: Escala.px(28)
                         anchors.verticalCenter: atras.verticalCenter
-                        text: "NUEVO USUARIO"   // PLACEHOLDER: es.json no trae el título
+                        text: I18n.t("usuarios.titulo_nuevo", I18n.lang)
                         color: Colores.textoPrimario
                         font.family: Tipografia.familia
                         font.pixelSize: Escala.fuente(Tipografia.tituloPantallaTam)
@@ -327,7 +327,7 @@ Item {
                         x: Escala.px(381); y: Escala.px(184)
                         width: Escala.px(707)
                         etiqueta: I18n.t("formulario.nombre_completo", I18n.lang)
-                        marcador: "Nombres y apellidos"
+                        marcador: I18n.t("usuarios.marcador_nombre", I18n.lang)
                         mensajeError: raiz.error("nombre")
                         nombreObjeto: "campoNombre"
                         nombreError: "errorNombre"
@@ -350,7 +350,7 @@ Item {
                         x: campoNombre.x; y: campoUsuario.y + Escala.px(167)
                         width: campoNombre.width
                         etiqueta: I18n.t("formulario.contrasena", I18n.lang)
-                        marcador: "Ingresar contraseña"
+                        marcador: I18n.t("usuarios.marcador_clave", I18n.lang)
                         conOjo: true
                         visibleTexto: raiz.verClave
                         mensajeError: raiz.error("password")
@@ -403,7 +403,7 @@ Item {
                                 anchors.verticalCenter: parent.verticalCenter
                                 readonly property var _elegido: raiz.puente
                                     ? raiz.puente.roles.find(r => r.valor === raiz.rol) : undefined
-                                text: _elegido ? _elegido.etiqueta : "Seleccione rol"
+                                text: _elegido ? _elegido.etiqueta : I18n.t("usuarios.seleccione_rol", I18n.lang)
                                 color: _elegido ? Colores.textoPrimario : Colores.textoGuia
                                 font.family: Tipografia.familia
                                 font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
@@ -606,7 +606,7 @@ Item {
     PanelModal {
         id: dialogoDescartar
         objectName: "dialogoDescartar"
-        titulo: "¿Descartar datos?"   // PLACEHOLDER: texto no definido por el diseñador
+        titulo: I18n.t("usuarios.descartar_titulo", I18n.lang)
         textoCerrar: "Seguir editando"
         altoTarjeta: Escala.px(560)
 
@@ -627,7 +627,7 @@ Item {
             Text {
                 width: parent.width
                 wrapMode: Text.WordWrap
-                text: "Los datos capturados se perderán."
+                text: I18n.t("usuarios.descartar_mensaje", I18n.lang)
                 color: Colores.textoSecundario
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
@@ -639,7 +639,7 @@ Item {
                 border.color: Colores.peligroTexto; border.width: 2
                 Text {
                     anchors.centerIn: parent
-                    text: "Descartar"
+                    text: I18n.t("acciones.descartar", I18n.lang)
                     color: Colores.peligroTexto
                     font.family: Tipografia.familia
                     font.weight: Tipografia.pesoSemiBold

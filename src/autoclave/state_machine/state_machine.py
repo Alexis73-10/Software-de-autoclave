@@ -31,6 +31,7 @@ class StateMachine:
         self.preparacion = preparacion_state(self.alarm_manager, estado, set_do, cycle, config, profile)
         self.preparado   = preparado_state(self.alarm_manager, estado, set_do, cycle, config, profile)
         self.preparado.programas_seguridad = programas_seguridad
+        self.preparacion.programas_seguridad = programas_seguridad   # T1 (D-19)
         self.preparado.temp_max_ciclo = temp_max_ciclo
         self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager, cap, door_service,
                                       profile)

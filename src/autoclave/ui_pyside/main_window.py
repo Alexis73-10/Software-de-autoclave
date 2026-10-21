@@ -82,6 +82,10 @@ class MainWindowFluent(QMainWindow):
         self._clock_timer.start(1000)
         self._tick_clock()
 
+        # P3 (tanda 5): renueva el token mientras la ventana está en uso (B7)
+        from autoclave.ui_pyside.services import renovacion_sesion
+        renovacion_sesion.instalar_en(self)
+
     # ── Header ────────────────────────────────────────────────────────
 
     def _build_header(self) -> QFrame:

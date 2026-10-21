@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
 from autoclave.ui_pyside.services.backend_client import BackendClient
 from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.ui_pyside.services import renovacion_sesion
 
 _BACKEND_URL = "http://127.0.0.1:8000"
 
@@ -284,11 +285,21 @@ class CalibracionSensorView(QWidget):
             "usuario": usuario,
         }
         try:
-            result = self._client.save_calibration(self._tipo, self._sensor, body)
+            # P3 (tanda 5): ante un 401 pide login y reintenta con los mismos datos
+            guardado = renovacion_sesion.guardar_con_reintento(
+                lambda: self._client.save_calibration(self._tipo, self._sensor, body),
+                lambda: renovacion_sesion.pedir_credenciales_dialogo(self))
         except Exception as exc:
             result = self._resolver_rechazo(exc, body)
             if result is None:
                 return
+        else:
+            if guardado.estado != renovacion_sesion.GUARDADO:
+                self._lbl_info.setText(renovacion_sesion.mensaje_de(guardado))
+                return
+            result = guardado.valor
+            # revisión P3 (SAF-02): el nombre visible es el de la sesión que guardó
+            usuario = (SessionManager.current_user() or {}).get("nombre", usuario)
 
         self._current_gain = result["gain"]
         self._current_offset = result["offset"]

@@ -34,6 +34,10 @@ _MENSAJES = {
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
     "asignacion_desfasada": "opciones.err_valor_cambio",
+    # O1 (tanda 5): gestión de programas
+    "programa_activo": "opciones.err_programa_activo",
+    "programa_deshabilitado": "opciones.err_programa_deshabilitado",
+    "programa_existente": "opciones.err_generico",
     sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta",
 }
 
@@ -47,6 +51,7 @@ class ParametrosCicloController(QObject):
     programaChanged = Signal()
     parametrosChanged = Signal()
     sensoresChanged = Signal()
+    entradasChanged = Signal()
     mensajeChanged = Signal()
 
     def __init__(self, parent=None, sesion=None):
@@ -60,6 +65,9 @@ class ParametrosCicloController(QObject):
         self._sensores: list = []
         self._asignacion: dict = {}
         self._sensores_editable = False
+        self._entradas: list = []
+        self._entradas_habilitadas: list = []
+        self._entradas_editable = False
         self._mensaje = ""
         self._detalle: dict = {}
 
@@ -116,6 +124,87 @@ class ParametrosCicloController(QObject):
     @Property(bool, notify=programaChanged)
     def programaEditable(self) -> bool:
         return bool(self._programa().get("editable"))
+
+    # ── gestión de programas (O1, tanda 5) ───────────────────────────
+
+    @Property(bool, notify=programaChanged)
+    def programaHabilitado(self) -> bool:
+        return self._programa().get("habilitado", True) is not False
+
+    @Property(bool, notify=programaChanged)
+    def programaPersonalizado(self) -> bool:
+        return self._programa().get("personalizado") is True
+
+    def _tras_gestion(self, r, numero_nuevo: int | None = None) -> bool:
+        # sin respuesta el resultado es incierto: se relee la lista siempre
+        self.cargar()
+        if r.ok:
+            self._fijar_mensaje("")
+            if numero_nuevo:
+                self.elegirPrograma(numero_nuevo)
+            return True
+        self._fijar_mensaje(mensaje_de(r.causa))
+        return False
+
+    @Slot(bool, result=bool)
+    def fijarHabilitado(self, habilitado: bool) -> bool:
+        r = self._s().enviar("PUT", f"/programas/{self._numero}/habilitado",
+                             {"habilitado": bool(habilitado)})
+        return self._tras_gestion(r)
+
+    @Slot(str, result=bool)
+    def duplicar(self, nombre: str) -> bool:
+        r = self._s().enviar("POST", f"/programas/{self._numero}/duplicar", {"nombre": nombre})
+        nuevo = r.datos.get("numero") if r.ok and isinstance(r.datos, dict) else None
+        return self._tras_gestion(r, nuevo)
+
+    @Slot(result=bool)
+    def borrar(self) -> bool:
+        r = self._s().enviar("DELETE", f"/programas/{self._numero}")
+        if r.ok:
+            self._numero = 0          # cargar() elige el primero
+        return self._tras_gestion(r)
+
+    # ── entradas mostradas (O1) ──────────────────────────────────────
+
+    @Slot()
+    def cargarEntradas(self) -> None:
+        r = self._s().enviar("GET", f"/cycle/display-inputs?programa={self._numero}")
+        if r.ok and isinstance(r.datos, dict):
+            self._entradas = list(r.datos.get("entradas") or [])
+            self._entradas_habilitadas = list(r.datos.get("habilitadas") or [])
+            self._entradas_editable = bool(r.datos.get("editable"))
+        else:
+            self._entradas, self._entradas_habilitadas, self._entradas_editable = [], [], False
+            self._fijar_mensaje(mensaje_de(r.causa))
+        self.entradasChanged.emit()
+
+    @Property("QVariantList", notify=entradasChanged)
+    def entradas(self) -> list:
+        return self._entradas
+
+    @Property("QVariantList", notify=entradasChanged)
+    def entradasHabilitadas(self) -> list:
+        return self._entradas_habilitadas
+
+    @Property(bool, notify=entradasChanged)
+    def entradasEditable(self) -> bool:
+        return self._entradas_editable
+
+    @Slot("QVariantList", result=bool)
+    def guardarEntradas(self, entradas) -> bool:
+        lista = [str(e) for e in entradas]
+        if not 1 <= len(lista) <= 3:
+            self._fijar_mensaje("opciones.err_entradas_cantidad")
+            return False
+        r = self._s().enviar("PUT", "/cycle/display-inputs",
+                             {"programa": self._numero, "entradas": lista})
+        self.cargarEntradas()
+        if r.ok:
+            self._fijar_mensaje("")
+            return True
+        self._fijar_mensaje(mensaje_de(r.causa))
+        return False
 
     # ── parámetros de una sección ────────────────────────────────────
 

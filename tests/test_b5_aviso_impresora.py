@@ -253,3 +253,49 @@ def test_solo_tecnico_o_ingeniero_edita_la_bandera_y_queda_auditada(tmp_path, ro
         assert any(f["evento"] == "impresora_configurada" for f in db.get_auditoria(limite=10))
     else:
         assert ctx.config_impresora.habilitada() is True
+
+
+# ── P2 (tanda 5): el interruptor aplica de inmediato ───────────────────────
+
+def test_p2_deshabilitar_quita_el_aviso_y_habilitar_verifica(tmp_path):
+    v, alarmas, llamadas = _vig(tmp_path, wp.DESCONECTADA)
+    v.verificar()
+    assert _ids(alarmas) == [IMPRESORA_DESCONECTADA]
+    v._config.guardar(False)
+    v.aplicar_configuracion(esperar=True)
+    assert _ids(alarmas) == []
+    v._config.guardar(True)
+    llamadas.clear()
+    v.aplicar_configuracion(esperar=True)
+    assert llamadas and _ids(alarmas) == [IMPRESORA_DESCONECTADA]
+
+
+def test_p2_el_endpoint_aplica_la_configuracion(tmp_path):
+    from fastapi.testclient import TestClient
+    from autoclave.services.domain.logging.db_manager import DbManager
+    from tests.backend_doble import cabecera, cargar_servidor
+    ctx = MagicMock()
+    ctx.db = DbManager(db_path=tmp_path / "t.db")
+    ctx.config_impresora = ConfigImpresora(tmp_path / "impresora.json")
+    ctx.sin_base_de_datos = False
+    srv, _ = cargar_servidor(ctx)
+    client = TestClient(srv.app)
+    r = client.put("/printer/config", headers=cabecera(srv, "tecnico"), json={"habilitada": False})
+    assert r.status_code == 200
+    ctx.aplicar_config_impresora.assert_called_once_with()
+
+
+@pytest.mark.parametrize("valor", ["false", 0, "true", 1, None])
+def test_p2_la_bandera_solo_acepta_booleanos_json(tmp_path, valor):
+    from fastapi.testclient import TestClient
+    from autoclave.services.domain.logging.db_manager import DbManager
+    from tests.backend_doble import cabecera, cargar_servidor
+    ctx = MagicMock()
+    ctx.db = DbManager(db_path=tmp_path / "t.db")
+    ctx.config_impresora = ConfigImpresora(tmp_path / "impresora.json")
+    ctx.sin_base_de_datos = False
+    srv, _ = cargar_servidor(ctx)
+    r = TestClient(srv.app).put("/printer/config", headers=cabecera(srv, "ingeniero"),
+                                json={"habilitada": valor})
+    assert r.status_code == 422
+    assert ctx.config_impresora.habilitada() is True

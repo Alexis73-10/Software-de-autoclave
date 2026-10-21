@@ -6,6 +6,8 @@
 # de seguridad: el backend es la autoridad (D-ES-07, D-ES-15, D-ES-16) y la UI
 # solo refleja y muestra el motivo de un rechazo.
 
+import logging
+
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
@@ -14,6 +16,7 @@ from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import entradas_salidas as dominio
 from autoclave.ui_qml.domain import permisos_opciones as permisos
 
+logger = logging.getLogger(__name__)
 
 _CLAVE_CORTA_TEMP = {"temp_camara": "camara", "temp_2_camara": "camara_2",
                      "temp_ref": "ref", "temp_drenaje": "drenaje"}
@@ -164,17 +167,40 @@ class EntradasSalidasController(QObject):
             return False
         self._limpiar_mensaje()
         self._modo_prueba = True
+        self._avisar_cierre(True)
         self.modoPruebaChanged.emit()
         return True
 
+    def _al_cerrar_sesion(self) -> None:
+        """Corre antes del logout. Sea cual sea la respuesta, la sesión muere:
+        el estado local queda limpio y, si la salida no se confirmó, la cierra
+        el backend al invalidarse la sesión dueña (SAF-01)."""
+        s = self._s()
+        enviar = getattr(s, "enviar_al_cerrar", s.enviar)
+        if self._modo_prueba:
+            r = enviar("POST", "/io/test/exit", {"motivo": "cierre de sesión"})
+            if not (r.ok or r.causa == "modo_prueba_inactivo"):
+                logger.warning("Salida del modo prueba al cerrar sesión sin confirmar (%s)", r.causa)
+        self._modo_prueba = False
+        self._avisar_cierre(False)
+        self.modoPruebaChanged.emit()
+
+    def _avisar_cierre(self, activo: bool) -> None:
+        """P1: con el modo prueba activo, el cierre de sesión sale primero."""
+        s = self._s()
+        metodo = getattr(s, "al_cerrar_sesion" if activo else "quitar_al_cerrar_sesion", None)
+        if metodo is not None:
+            metodo(self._al_cerrar_sesion)
 
     @Slot(str, result=bool)
     def salirModoPrueba(self, causa: str = "salida solicitada") -> bool:
         if not self._modo_prueba:
             return True
         r = self._s().enviar("POST", "/io/test/exit", {"motivo": causa})
-        if r.ok or r.causa == "modo_prueba_inactivo":
+        # sesion_invalida: el backend ya lo cierra por la sesión dueña (SAF-01)
+        if r.ok or r.causa in ("modo_prueba_inactivo", "sesion_invalida"):
             self._modo_prueba = False
+            self._avisar_cierre(False)
             self.modoPruebaChanged.emit()
             self._limpiar_mensaje()
             return True
