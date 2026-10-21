@@ -1,18 +1,28 @@
-# Tanda 5 — estado
+# Tanda 5: estado final (20-oct-2026)
 
-Rama: `tanda-5` (desde `dev` a563a06). Actualizado: 20-oct-2026.
+Rama `tanda-5`, creada desde `dev` (a563a06) y unida a `dev` con `--no-ff`.
 
 | Etapa | Estado | Commit |
 |---|---|---|
-| E0 | HECHA (en `dev`) | b33b9cf, daabc7c, a5695fe, 8d5ddce, 06b7ef4, 4ccd2d1, a563a06 |
-| R0 | HECHA | (informe en el commit de P1) |
-| P1 ★ | HECHA (safety + timing sin Altos abiertos) | 747e203 |
-| P2 | HECHA | 9681aee |
-| P3 ★ | HECHA (safety sin Altos) | 2030a81 |
-| O1 ★ | EN CURSO | — |
-| T1, U1, I1, I2, I3, O2, H1 | pendientes | — |
-| Z | pendiente | — |
+| E0 | Hecha (en `dev`) | b33b9cf, daabc7c, a5695fe, 8d5ddce, 06b7ef4, 4ccd2d1, a563a06 |
+| R0 | Hecha | informe en 747e203 |
+| P1 ★ | Hecha | 747e203 |
+| P2 | Hecha | 9681aee |
+| P3 ★ | Hecha | 2030a81 |
+| O1 ★ | Hecha | 3f551ed |
+| T1 ★ | Hecha | 2ad78b6 |
+| U1 ★ | Hecha | a78bdee |
+| I1 ★ | Parcial | 2ecb0e3 |
+| I2 | Parcial | 3d5f50b |
+| I3 | Parcial | 5fe777c |
+| O2 | **No hecha** | — |
+| H1 | Hecha | 42e831b |
+| Z | Hecha | ver abajo |
 
-Suite: línea base 4045/1/3; tras P1–P3, 4091/1/3. Una corrida intermedia dio 2 fallos que no se repitieron.
+**Suite:** línea base 4045/1/3. Al cerrar, **4379 pasan, 1 omitida, 3 xfail**. Hubo fallos intermitentes cuando el árbol cambiaba durante una corrida; el último fue una fuga de estado global entre pruebas, ya corregida en `conftest.py`.
 
-**Árbol compartido:** mientras corría la tanda, otra sesión empezó a modificar archivos sin commit (`teclado_*_controller.py`, sus pruebas, `cycles/factory/bowe_dick.json`, `cycles/user/bowe_dick.json`). No se incluyen en los commits de la tanda 5 ni se tocan. Probablemente causaron la variación en el conteo de pruebas y los 2 fallos intermitentes.
+**Revisores en las etapas ★:** se corrigieron todos los Altos (TMG-01 de P1, SAF-01 de O1, T1-01-A de T1). No queda ningún Alto ni Crítico abierto. Los Medios y Bajos pendientes están en cada informe.
+
+**Árbol compartido:** otra sesión tiene cambios sin commit en `teclado_alfanumerico_controller.py`, `teclado_numerico_controller.py`, sus pruebas y los dos `bowe_dick.json`. No se incluyeron. Además, `data/unidades.json` del equipo quedó en **°F / psi**, escrito a las 16:44 fuera de las pruebas (uso manual de la app u otra sesión). **Antes del lunes, volverlo a °C/kPa desde Opciones o borrarlo.**
+
+**Push:** ver la última línea (la agrega el cierre).
