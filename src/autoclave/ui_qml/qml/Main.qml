@@ -112,8 +112,18 @@ Window {
         if (seguridadUrgente)
             return
         sesionVentana.refrescar()
-        pila.push(!sesionVentana.sesionActiva ? loginComp
-                  : sesionVentana.cambioClavePendiente ? cambioClaveComp : opcionesComp)
+        if (!sesionVentana.sesionActiva) pila.push(loginComp)
+        else if (sesionVentana.cambioClavePendiente) pila.push(cambioClaveComp)
+        else irAOpciones(false)
+    }
+    // X1 (tanda 6): una sola OPCIONES por ventana. Si ya hay una en la pila
+    // (OPCIONES -> Menú -> Iniciar sesión), se vuelve a ella en vez de apilar
+    // otra: dos instancias vivas solapaban Entradas/Salidas.
+    function irAOpciones(reemplazar) {
+        const previa = pila.find(function (item) { return item && item.objectName === "pantallaOpciones" })
+        if (previa) pila.pop(previa)
+        else if (reemplazar) pila.replace(opcionesComp)
+        else pila.push(opcionesComp)
     }
     // El standby (equipo desatendido) cierra la sesión, con /auth/logout
     // (decisión 31): quien vuelva debe iniciarla de nuevo (Cristian, 2026-10-07).
@@ -428,7 +438,7 @@ Window {
                 onInicioPulsado: ventana.volverAPrincipal()
                 // sesión validada: el login se reemplaza por OPCIONES, o por
                 // CAMBIAR CONTRASEÑA si es obligatorio (T-8)
-                onSesionIniciada: if (ventana.esActual(areaLogin)) pila.replace(opcionesComp)
+                onSesionIniciada: if (ventana.esActual(areaLogin)) ventana.irAOpciones(true)
                 onCambioClaveRequerido: if (ventana.esActual(areaLogin)) pila.replace(cambioClaveComp)
             }
         }
@@ -446,7 +456,7 @@ Window {
             CambioClave {
                 anchors.fill: parent
                 teclado: panelTeclado
-                onClaveCambiada: { sesionVentana.refrescar(); if (ventana.esActual(areaCambioClave)) pila.replace(opcionesComp) }
+                onClaveCambiada: { sesionVentana.refrescar(); if (ventana.esActual(areaCambioClave)) ventana.irAOpciones(true) }
                 onSesionTerminada: {
                     sesionVentana.refrescar()
                     if (!ventana.esActual(areaCambioClave))
