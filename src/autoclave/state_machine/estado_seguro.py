@@ -72,6 +72,16 @@ class ProtocoloEstadoSeguro:
             self._protocolo.cycle = programa
 
     @property
+    def permite_salir_de_falla(self) -> bool:
+        """P-2 (tanda 6): con el protocolo disparado por la pérdida del
+        Principal, el operador reconoce y FALLA pasa a PREPARACION sin
+        técnico; el protocolo sigue venteando por la lenta allí y el inicio
+        de ciclo queda bloqueado mientras siga activo. No aplica si espera la
+        confirmación tras un paro."""
+        return (self.activo and not self.requiere_confirmacion
+                and getattr(self._protocolo, "solo_lenta", False) is True)
+
+    @property
     def bloqueado_motivo(self) -> str | None:
         """Motivo vigente por el que el protocolo no puede terminar solo
         (CIC-10), o None. Lo muestra la UI junto al botón de asignar sonda."""

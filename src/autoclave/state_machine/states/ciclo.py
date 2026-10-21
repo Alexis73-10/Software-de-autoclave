@@ -603,7 +603,12 @@ class CicloState:
             legibles = [nombre_legible(s) for s in ausentes]
             self._registrar_fallo(SEN_02, origen=fase,
                                   sensores=", ".join(legibles), fase=fase)
-            self._protocolo.ejecutar()
+            # P-2 (tanda 6): con el Principal perdido NO se sigue con la
+            # Referencia: el ciclo falla y se ventea solo por la lenta.
+            if sensor_principal(self.cycle) in ausentes:
+                self._protocolo.ejecutar(solo_lenta=True)
+            else:
+                self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 

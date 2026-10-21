@@ -200,7 +200,11 @@ class StateMachine:
         # ==============================================================
         elif current_state == GlobalState.FALLA:
             logger.debug("Estado actual: FALLA")
-            if self.falla.run(puede_salir=not self.estado_seguro.activo):
+            # P-2 (tanda 6): con el Principal perdido, el reconocimiento lleva a
+            # PREPARACION aunque el estado seguro siga venteando (sin técnico)
+            puede_salir = (not self.estado_seguro.activo
+                           or getattr(self.estado_seguro, "permite_salir_de_falla", False) is True)
+            if self.falla.run(puede_salir=puede_salir):
                 self.alarm_manager.resolver_todas_por_reinicio()
                 self.estado.fase_ciclo = ""
                 self.estado.set_machine_state(GlobalState.PREPARACION)

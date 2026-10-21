@@ -310,7 +310,8 @@
     "modelo": "Modelo: ",
     "serie": "Serie: ",
     "sin_bd_pregunta": "Base de datos no disponible. El ciclo se ejecutará sin operador y sin registro en la base de datos (solo respaldo y ticket). ¿Desea continuar sin registro?",
-    "sin_bd_continuar": "Continuar sin registro"
+    "sin_bd_continuar": "Continuar sin registro",
+    "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio"
   },
   "unidades": {
     "temperatura": "°C",

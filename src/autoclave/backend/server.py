@@ -1720,9 +1720,36 @@ def start_cycle(body: dict | None = Body(default=None),
     return {"ok": True, "action": "START_CICLO"}
 
 
+PRINCIPAL_SIN_LECTURA = "PRINCIPAL_SIN_LECTURA"
+
+
+def _rechazo_principal_sin_lectura(estado) -> tuple | None:
+    """(código, motivo) si el sensor Principal del programa seleccionado está
+    declarado y sin lectura válida; None si lee (o no está declarado: ese
+    caso lo rechaza verificar_inicio con su propio código, igual que un error
+    al evaluar)."""
+    seleccionado = getattr(context.control_loop, "cycle", None)
+    try:
+        principal = sc.sensor_principal(seleccionado)
+        if sc.estado_sensor(getattr(context, "profile", None), estado, principal) != sc.SIN_SENAL:
+            return None
+    except Exception:
+        # sin rechazo propio: verificar_inicio (RS-06) vuelve a exigir lectura
+        logger.exception("/cycle/start: no se pudo evaluar el sensor Principal")
+        return None
+    from autoclave import i18n
+    return PRINCIPAL_SIN_LECTURA, i18n.t("ciclo.principal_sin_lectura")
+
+
 def _validar_inicio(estado) -> tuple | None:
     """(código, motivo) si el programa seleccionado no puede iniciarse; código
     None = rechazo sin código (no listo). Llamar bajo bloqueo_maquina()."""
+    # P-2 (tanda 6): sin lectura válida del Principal del programa no se
+    # inicia; el motivo se da antes que "no está listo" (con el estado seguro
+    # de la pérdida del Principal en curso, el equipo nunca queda listo)
+    principal_sin_lectura = _rechazo_principal_sin_lectura(estado)
+    if principal_sin_lectura is not None:
+        return principal_sin_lectura
     if not estado.get_flag("LISTO_PARA_CICLO"):
         return None, "El sistema no está listo para iniciar un ciclo"
 
