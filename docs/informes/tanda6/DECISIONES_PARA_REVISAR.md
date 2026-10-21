@@ -47,3 +47,20 @@ Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
 - R1-P3: ¿separar `rango_calentamiento` en temperatura y presión? Recomendación: sí.
 - R1-P4: ¿un Principal perdido después de un protocolo ya iniciado pasa a `solo_lenta`? Recomendación: sí.
 - R1-P5: abort durante la tolerancia DI. Recomendación: aceptar la cancelación o, como mínimo, cambiar el texto.
+
+## O2a (Parámetros del equipo)
+| Id | Decisión | Motivo | Alternativa | Commit | Cómo revertir |
+|---|---|---|---|---|---|
+| O2a-1 | DECISIÓN SIN CONFIRMAR. Migración v8 (no v2: ya estaba usada); `system_params` guarda el vigente y `global_params.json` el de fábrica. | v2–v7 ya ocupadas | — | o2a | quitar `_migracion_v8` |
+| O2a-2 | DECISIÓN SIN CONFIRMAR. Los lectores conservan el nombre viejo `presion_admosferica` vía alias en `ConfigManager.get`. | Decenas de pruebas y lectores; cero riesgo | Migrar todos los lectores (SAF-05) | o2a | `ALIAS` |
+| O2a-3 | DECISIÓN SIN CONFIRMAR. Coherencia empaque/atm: `presion_empaque` ≥ atm+20 y ×0,6 > atm; `vacio_empaque` ≤ atm−10 y < presion_empaque (SAF-01). | Evita puerta "sellada" sin estarlo | Otros márgenes | o2a | `MARGEN_*` en `config_manager.py` |
+| O2a-4 | DECISIÓN SIN CONFIRMAR. Sin base de datos rigen los de fábrica y no se puede cambiar nada (503). | Fail-safe | Guardar en archivo | o2a | — |
+| O2a-5 | DECISIÓN SIN CONFIRMAR. La ventana de ajuste es una copia de la de Parámetros del ciclo, no un componente compartido. | No tocar la pantalla de ciclo en la víspera | Extraer `VentanaAjuste.qml` | o2a | — |
+| O2a-6 | Se mantienen los respaldos `or 101.3/120/20` de los lectores (SAF-03). | Lógica de puertas: no definida en §1 | Fail-closed | — | — |
+
+## PREGUNTAS PARA CRISTIAN (O2a)
+- `timeout_chaqueta`: ¿conectarlo en PREPARACION/PREPARADO (`preparado.py` ~l.138) con alarma que bloquee inicio y se despeje al alcanzar la presión?
+- SAF-02: ¿limitar `temp_max_apertura` por debajo de T_sat(P_atm) (~85–90 °C) o reservar >80 °C al ingeniero?
+- SAF-04: ¿un cambio de parámetro en PREPARADO debe reiniciar la ventana de estabilidad?
+- ¿El transductor de empaque y el rango 100–400 kPa son absolutos?
+- Idioma: la segunda ventana QML no lee `GET /language`; ¿se sincroniza en el sondeo?
