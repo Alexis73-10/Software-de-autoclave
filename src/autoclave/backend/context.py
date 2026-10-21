@@ -33,6 +33,7 @@ from autoclave.core.runtime.contador_ciclos import ContadorCiclos
 from autoclave.core.runtime.sensores_ciclo import interpretar_asignacion
 from autoclave.core.managers.cycle_manager import Cycle
 
+import os
 import json
 import logging
 import threading
@@ -360,6 +361,28 @@ class BackendContext:
                 from autoclave.core.runtime.vigilancia_impresora import ConfigImpresora
                 self._config_impresora = ConfigImpresora(app_root() / "data" / "impresora.json")
             return self._config_impresora
+
+    @property
+    def config_correo_equipo(self):
+        """O2g (tanda 6): destinatarios e interruptor del correo, data/correo_equipo.json."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_config_correo_equipo", None) is None:
+                from autoclave.core.runtime.config_correo_equipo import ConfigCorreoEquipo
+                from autoclave.ui_qml.exportacion import config_correo
+                self._config_correo_equipo = ConfigCorreoEquipo(
+                    config_correo.RUTA_EQUIPO,
+                    semilla=lambda: config_correo.cargar(contrasena=lambda r: None,
+                                                         ruta_equipo=os.devnull).destinos)
+            return self._config_correo_equipo
+
+    @property
+    def estado_red(self):
+        """O2g (tanda 6): estado de red en solo lectura (cache de 10 s)."""
+        with _LOCK_MANTENIMIENTO:
+            if getattr(self, "_estado_red", None) is None:
+                from autoclave.core.runtime.estado_red import EstadoRed
+                self._estado_red = EstadoRed()
+            return self._estado_red
 
     @property
     def config_idioma(self):

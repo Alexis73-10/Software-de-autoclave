@@ -1842,6 +1842,120 @@ def print_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_ING
     return {"ok": True, "sensores": len(sensores)}
 
 
+# ── Conectividad (O2g, tanda 6; decisiones 1.4 y 1.9) ───────────────────────
+# Red en SOLO LECTURA (cambiar Wi-Fi o IP no se habilita: DECISIÓN SIN
+# CONFIRMAR). Correo de ciclos: admin, técnico e ingeniero leen; admin e
+# ingeniero cambian destinatarios e interruptor (el técnico, 403) y envían el
+# correo de prueba. La contraseña del relay nunca se devuelve ni se registra:
+# solo `contrasena_configurada`. Cambios con ciclo en curso: 409 (R-01).
+
+_LEEN_CONECTIVIDAD = (ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO)
+_EDITAN_CORREO = (ROL_ADMIN, ROL_INGENIERO)
+
+
+class _CorreoConfigBody(BaseModel):
+    envio_activo: StrictBool
+    destinatarios: list[dict]
+
+
+def _cargar_config_correo():
+    from autoclave.ui_qml.exportacion import config_correo
+    return config_correo.cargar()
+
+
+def _enviar_correo(config, mensaje) -> None:
+    from autoclave.ui_qml.exportacion import correo
+    correo.enviar(config, mensaje)
+
+
+@app.get("/network/status")
+def get_network_status(sesion: Sesion = Depends(requiere_rol(*_LEEN_CONECTIVIDAD))):
+    return context.estado_red.leer()
+
+
+def _correo_dto() -> dict:
+    from autoclave.core.runtime.config_correo_equipo import MAX_DESTINATARIOS
+    equipo = context.config_correo_equipo.leer()
+    try:
+        base = _cargar_config_correo()
+        remitente, servidor, puerto = base.remitente, base.servidor, base.puerto
+        con_clave = bool(base.contrasena)
+    except Exception:
+        logger.exception("No se pudo leer la configuración de correo")
+        remitente, servidor, puerto, con_clave = "", "", None, False
+    return {"envio_activo": equipo["envio_activo"], "destinatarios": equipo["destinatarios"],
+            "personalizado": equipo["personalizado"], "remitente": remitente,
+            "servidor": servidor, "puerto": puerto, "contrasena_configurada": con_clave,
+            "max_destinatarios": MAX_DESTINATARIOS}
+
+
+@app.get("/email/config")
+def get_email_config(sesion: Sesion = Depends(requiere_rol(*_LEEN_CONECTIVIDAD))):
+    return _correo_dto()
+
+
+@app.put("/email/config")
+def put_email_config(body: _CorreoConfigBody,
+                     sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
+    from autoclave.core.runtime.config_correo_equipo import ErrorCorreo
+    entidad = "/email/config"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    anterior = context.config_correo_equipo.leer()
+    try:
+        nuevo = context.config_correo_equipo.guardar(body.envio_activo, body.destinatarios)
+    except ErrorCorreo as e:
+        raise RechazoApi(422, e.codigo, "Destinatarios inválidos", extra={"campo": e.campo})
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración", entidad, sesion)
+    _auditar("correo_configurado", sesion, entidad=entidad,
+             valor_anterior={"envio_activo": anterior["envio_activo"],
+                             "destinatarios": [d["correo"] for d in anterior["destinatarios"]]},
+             valor_nuevo={"envio_activo": nuevo["envio_activo"],
+                          "destinatarios": [d["correo"] for d in nuevo["destinatarios"]]})
+    return _correo_dto()
+
+
+@app.post("/email/test")
+def post_email_test(sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
+    """Correo de prueba a cada destinatario GUARDADO (nunca a uno escrito a mano)."""
+    from autoclave import i18n
+    from autoclave.ui_qml.exportacion.config_correo import correo_valido
+    from email.message import EmailMessage
+    entidad = "/email/test"
+    config = _cargar_config_correo()
+    if not config.envio_activo:
+        raise RechazoApi(409, "envio_desactivado", "El envío de correo está desactivado")
+    destinos = [d["correo"] for d in config.destinos if correo_valido(d.get("correo"))]
+    if not destinos:
+        raise RechazoApi(409, "sin_destinatarios", "No hay destinatarios guardados")
+    if not config.configurado:
+        raise RechazoApi(409, "correo_no_configurado", "Falta remitente, servidor o contraseña")
+    meta = _meta_equipo()
+    enviados, fallidos = 0, []
+    for destino in destinos:
+        m = EmailMessage()
+        m["From"], m["To"] = config.remitente, destino
+        m["Subject"] = i18n.t("conectividad.asunto_prueba", None, serie=meta["serie"] or "-")
+        m.set_content(i18n.t("conectividad.cuerpo_prueba", None, serie=meta["serie"] or "-",
+                             modelo=meta["modelo"] or "-",
+                             fecha=datetime.now().strftime("%Y-%m-%d %H:%M")))
+        try:
+            _enviar_correo(config, m)
+            enviados += 1
+        except Exception as e:
+            # el texto de la excepción no se devuelve ni se audita (podría
+            # contener credenciales del servidor); solo su tipo
+            logger.warning("Correo de prueba a %s fallido (%s)", destino, type(e).__name__)
+            fallidos.append(destino)
+    _auditar("correo_prueba", sesion, entidad=entidad,
+             detalle={"enviados": enviados, "fallidos": fallidos})
+    if not enviados:
+        raise RechazoApi(502, "envio_fallido", "No se pudo enviar el correo de prueba",
+                         extra={"fallidos": fallidos})
+    return {"ok": True, "enviados": enviados, "fallidos": fallidos}
+
+
 @app.get("/cycle/summary")
 def get_cycle_summary():
     """Resumen de solo lectura para el Resumen del Sistema del Menú Principal

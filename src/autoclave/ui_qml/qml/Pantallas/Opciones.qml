@@ -284,6 +284,20 @@ Item {
             }
         }
 
+        // Conectividad (O2g, tanda 6): red en lectura y correo de ciclos
+        Loader {
+            id: conectividad
+            objectName: "cargadorConectividad"
+            active: raiz.seccionActiva === "conectividad"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesConectividad {
+                teclado: raiz.teclado
+                rol: control.rol
+                estadoMaquina: raiz.puente?.machineState ?? ""
+            }
+        }
+
         // Entradas / Salidas (planeacion_opciones_entradas_salidas.md)
         Loader {
             id: entradasSalidas
@@ -303,6 +317,7 @@ Item {
                      && raiz.seccionActiva !== "mantenimiento"
                      && raiz.seccionActiva !== "parametros_sistema"
                      && raiz.seccionActiva !== "entradas_salidas"
+                     && raiz.seccionActiva !== "conectividad"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia

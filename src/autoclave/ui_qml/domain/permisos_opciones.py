@@ -138,6 +138,19 @@ def motivo_idioma(rol: str | None) -> str:
     return "" if rol in _CAMBIA_IDIOMA else "rol"
 
 
+# Conectividad (O2g, decisión 1.9): destinatarios e interruptor de correo y el
+# correo de prueba, admin e ingeniero, fuera de CICLO (R-01); el técnico ve la
+# sección en solo lectura.
+_EDITA_CORREO = frozenset({ROL_ADMIN, ROL_INGENIERO})
+
+
+def motivo_destinatarios(rol: str | None, estado_maquina: str | None) -> str:
+    """"" si puede cambiar; "rol" o "ciclo" si no."""
+    if rol not in _EDITA_CORREO:
+        return "rol"
+    return "ciclo" if estado_maquina == "CICLO" else ""
+
+
 def motivo_unidades(rol: str | None, estado_maquina: str | None) -> str:
     if rol not in _CAMBIA_UNIDADES:
         return "rol"
