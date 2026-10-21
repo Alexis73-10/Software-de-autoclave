@@ -72,7 +72,7 @@ def test_ingresos_psi_con_la_firma_que_usa_el_qml(un):
     from pathlib import Path
     qml = (Path(__file__).resolve().parents[1]
            / "src/autoclave/ui_qml/qml/Pantallas/OpcionesParametrosCiclo.qml").read_text(encoding="utf-8")
-    assert re.search(r"Unidades\.ingresosPsi\(param\.unidad \|\| \"\", param\.clave, param\.min, param\.max\)", qml)
+    assert re.search(r"Unidades\.ingresosPsi\(param\.unidad \|\| \"\", param\.clave, param\.min, param\.max, param\.clase \|\| \"\"\)", qml)
     un.aplicar({"temperatura": "C", "presion": "psi", "p_atm": ATM})
     assert un.ingresosPsi("kPa", "presion_baja_pulso_a", 0, 1000) == ["psig", "inHg"]
     assert un.ingresosPsi("kPa", "presion_baja_secado", 0, 50) == ["inHg"]

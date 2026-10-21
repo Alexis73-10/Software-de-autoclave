@@ -17,7 +17,10 @@
 # - Formato con punto decimal, como el formateador único de la interfaz
 #   (ui_qml/domain/formato_numerico.py, TEC-D14).
 
+import logging
 import math
+
+logger = logging.getLogger(__name__)
 
 TEMPERATURAS = ("C", "F")
 PRESIONES = ("kPa", "bar", "mbar", "psi")
@@ -205,32 +208,76 @@ def simbolo_pres(unidad: str) -> str:
 
 # ── unidad interna de un parámetro (por su "unit" y su nombre) ─────────────
 
-# Parámetros en °C o kPa que son DIFERENCIAS (bandas, márgenes, sumandos), no
-# valores absolutos: se convierten sin desplazamiento. DECISIÓN SIN CONFIRMAR
-# U1-3: clasificación por prefijo del nombre; la lista completa por perfil
-# queda en docs/informes/tanda5/U1_unidades.md para revisión.
+# C1c (tanda 6): cada hoja de presión o temperatura de los JSON (ciclos de
+# fábrica, defecto y usuario; global_params.json) declara su clase explícita:
+#   "absoluto"       valor absoluto (°C; kPa abs): se convierte con desplazamiento;
+#   "diferencia"     banda, margen, sumando o tasa: se escala sin desplazamiento;
+#   "sin_conversion" se muestra en su unidad original (p. ej. rango_calentamiento,
+#                    que calentamiento.py usa a la vez como banda de °C y de kPa).
+# El nombre del parámetro NO decide la clase. Los prefijos de abajo quedan solo
+# como migración para un archivo viejo sin "clase", con una advertencia en el log.
+CLASES = ("absoluto", "diferencia", "sin_conversion")
+
+# Migración (U1-3 de la tanda 5): clasificación por prefijo del nombre.
 _PREFIJOS_DIFERENCIA = ("rango_", "brecha_", "presion_add", "temperatura_add", "delta_",
                         "histeresis", "margen", "diferencia", "banda", "tolerancia",
                         "rango")
+_UNIDADES_TEMP = ("°C", "C")
+_UNIDADES_PRES = ("kPa",)
+_TASAS_TEMP = ("°C/min",)
+_TASAS_PRES = ("kPa/min", "kPa/s")
+_avisados: set = set()
 
 
-def clase_de_unidad(unidad_json: str, nombre: str = "") -> str | None:
-    """'temp', 'dtemp', 'pres', 'dpres' o None (sin conversión). Una tasa
-    (°C/min, kPa/min) es una diferencia por tiempo: se escala como diferencia."""
-    u = (unidad_json or "").replace("�", "°").strip()
+def _unidad_limpia(unidad_json: str) -> str:
+    return (unidad_json or "").replace("�", "°").strip()
+
+
+def requiere_clase(unidad_json: str) -> bool:
+    """True si la hoja tiene unidad de temperatura o presión (debe llevar "clase")."""
+    return _unidad_limpia(unidad_json) in (_UNIDADES_TEMP + _UNIDADES_PRES
+                                           + _TASAS_TEMP + _TASAS_PRES)
+
+
+def clase_por_prefijo(unidad_json: str, nombre: str = "") -> str | None:
+    """Migración: la clase que deducía U1 por el nombre. None si no aplica."""
+    if not requiere_clase(unidad_json):
+        return None
     base = (nombre or "").split(".")[-1].lower()
     if base in SIN_CONVERSION:
+        return "sin_conversion"
+    u = _unidad_limpia(unidad_json)
+    if u in _TASAS_TEMP + _TASAS_PRES or base.startswith(_PREFIJOS_DIFERENCIA):
+        return "diferencia"
+    return "absoluto"
+
+
+def clase_de_unidad(unidad_json: str, nombre: str = "", clase: str | None = None) -> str | None:
+    """'temp', 'dtemp', 'pres', 'dpres' o None (sin conversión), según la
+    "clase" explícita de la hoja. Sin clase (archivo viejo) se usa la
+    migración por prefijo y se registra una advertencia. Una clase desconocida
+    no se convierte (se muestra en la unidad original: lo más seguro)."""
+    u = _unidad_limpia(unidad_json)
+    if not requiere_clase(u):
         return None
-    diferencia = base.startswith(_PREFIJOS_DIFERENCIA)
-    if u in ("°C", "C"):
-        return "dtemp" if diferencia else "temp"
-    if u in ("°C/min",):
-        return "dtemp"
-    if u == "kPa":
-        return "dpres" if diferencia else "pres"
-    if u in ("kPa/min", "kPa/s"):
-        return "dpres"
-    return None
+    if clase in (None, ""):
+        clase = clase_por_prefijo(u, nombre)
+        clave = (nombre or "", u)
+        if clave not in _avisados:
+            _avisados.add(clave)
+            logger.warning("Parámetro %r (%s) sin \"clase\": se deduce %r por el "
+                           "nombre (migración U1)", nombre, u, clase)
+    if clase == "sin_conversion" or clase not in CLASES:
+        if clase not in CLASES and (nombre or "", u, clase) not in _avisados:
+            _avisados.add((nombre or "", u, clase))
+            logger.warning("Parámetro %r: clase %r desconocida; se muestra sin conversión",
+                           nombre, clase)
+        return None
+    temperatura = u in _UNIDADES_TEMP + _TASAS_TEMP
+    tasa = u in _TASAS_TEMP + _TASAS_PRES
+    if clase == "diferencia" or tasa:
+        return "dtemp" if temperatura else "dpres"
+    return "temp" if temperatura else "pres"
 
 
 # ── configuración persistente (data/unidades.json) ──────────────────────────

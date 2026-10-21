@@ -2460,6 +2460,7 @@ def get_programa_seccion(numero: int, seccion: str):
         parametros.append({
             "path": ruta, "clave": ".".join(ruta), "tipo": hoja.get("type") or "int",
             "unidad": (hoja.get("unit") or "").replace("\ufffd", "°"),
+            "clase": hoja.get("clase"),           # C1c (tanda 6): clase explícita de U1
             "valor": valor, "defecto": defecto, "min": minimo, "max": maximo,
             "opciones": hoja.get("options") or [],
             "modificado": defecto is not None and defecto != valor,

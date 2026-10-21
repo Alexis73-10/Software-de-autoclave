@@ -67,12 +67,12 @@ Item {
     // unidades elegidas (Unidades); el backend sigue recibiendo °C / kPa abs.
     function convertible(p) {
         return p !== null && p !== undefined && p.tipo !== "bool" && p.tipo !== "enum"
-               && Unidades.unidadIngreso(p.unidad || "", p.clave, Unidades.version) !== ""
+               && Unidades.unidadIngreso(p.unidad || "", p.clave, p.clase || "", Unidades.version) !== ""
     }
     function textoP(valor, p) {
         if (convertible(p))
             return valor === null || valor === undefined ? "—"
-                 : Unidades.parametro(valor, p.unidad || "", p.clave)
+                 : Unidades.parametro(valor, p.unidad || "", p.clave, p.clase || "")
         return texto(valor, p ? p.tipo : "")
     }
     function texto(valor, tipo) {
@@ -575,7 +575,7 @@ Item {
         property string unidadIngreso: ""
         property string errorIngreso: ""
         readonly property var ingresosPsi: param && raiz.convertible(param) && Unidades.presion === "psi"
-            ? Unidades.ingresosPsi(param.unidad || "", param.clave, param.min, param.max) : []
+            ? Unidades.ingresosPsi(param.unidad || "", param.clave, param.min, param.max, param.clase || "") : []
         // revisión U1 (SAF-02): si las unidades cambian con la ventana abierta,
         // lo tecleado se descarta (se interpretaría en otra unidad)
         property int versionAlAbrir: -1
@@ -587,7 +587,7 @@ Item {
                     ajuste.errorIngreso = I18n.t("opciones.err_unidades_cambiaron", I18n.lang)
                 }
                 if (ajuste.visible && ajuste.param)
-                    ajuste.unidadIngreso = Unidades.unidadIngreso(ajuste.param.unidad || "", ajuste.param.clave)
+                    ajuste.unidadIngreso = Unidades.unidadIngreso(ajuste.param.unidad || "", ajuste.param.clave, ajuste.param.clase || "")
             }
         }
         readonly property bool editable: control.seccionEditable && raiz.edicionPermitida
@@ -600,7 +600,7 @@ Item {
         }
         function abrir(p) {
             param = p; nuevo = null; errorIngreso = ""
-            unidadIngreso = raiz.convertible(p) ? Unidades.unidadIngreso(p.unidad || "", p.clave) : ""
+            unidadIngreso = raiz.convertible(p) ? Unidades.unidadIngreso(p.unidad || "", p.clave, p.clase || "") : ""
             if (ingresosPsi.length > 0 && ingresosPsi.indexOf(unidadIngreso) < 0)
                 unidadIngreso = ingresosPsi[0]
             visible = true
@@ -610,7 +610,7 @@ Item {
             errorIngreso = ""
             let interno = Number(v)
             if (raiz.convertible(param)) {
-                interno = Unidades.aInterna(Number(v), param.unidad || "", param.clave, unidadIngreso)
+                interno = Unidades.aInterna(Number(v), param.unidad || "", param.clave, unidadIngreso, param.clase || "")
                 if (interno === null || interno === undefined || isNaN(interno)) {
                     errorIngreso = I18n.t("opciones.err_conversion", I18n.lang)
                     return
@@ -730,7 +730,8 @@ Item {
                                 raiz.etiqueta(control.seccion, ajuste.param.clave),
                                 Unidades.simboloIngreso(ajuste.unidadIngreso),
                                 Unidades.aMostrarEn(ajuste.nuevo !== null ? ajuste.nuevo : ajuste.param.valor,
-                                                    ajuste.param.unidad || "", ajuste.param.clave, ajuste.unidadIngreso),
+                                                    ajuste.param.unidad || "", ajuste.param.clave, ajuste.unidadIngreso,
+                                                    ajuste.param.clase || ""),
                                 -1e9, 1e9, 2, (v) => ajuste.recibir(v))
                             : raiz.teclado.abrirNumerico(
                                 raiz.etiqueta(control.seccion, ajuste.param.clave), ajuste.param.unidad,
