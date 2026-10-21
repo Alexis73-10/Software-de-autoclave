@@ -33,3 +33,17 @@ Formato: decisión · motivo · alternativa · commit · cómo revertir.
 ## PREGUNTAS PARA CRISTIAN (C1)
 - ¿Los programas duplicados antes de C1c (sin "clase") se reescriben con la clase, o basta con la migración con advertencia?
 - ¿El transductor de empaque mide en absoluto?
+
+## R1 (hallazgos Medios/Bajos pendientes)
+| Id | Decisión | Motivo | Alternativa | Commit | Cómo revertir |
+|---|---|---|---|---|---|
+| R1-1 | DECISIÓN SIN CONFIRMAR. `ConfigUnidades.leer` cachea por (mtime_ns, tamaño); `guardar` invalida | `/status` releía el disco en cada sondeo (I4 SAF-02) | Caché con TTL | ver git log `fix(r1)` | quitar `_cache` en `unidades.py` |
+| R1-2 | Los hallazgos de PySide (P3 SAF-03/04/05, C1 SAF-05) y los Bajos de O1 (SAF-06/07) se dejan abiertos | Riesgo de tocar flujos de guardado la víspera de la instalación | Corregirlos en la tanda 7 | — | — |
+
+## PREGUNTAS PARA CRISTIAN (R1)
+Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
+- R1-P1: ¿auditar el ACK del ALL_OFF al salir del modo prueba (SAF-04 t4)? Recomendación: sí.
+- R1-P2: `mantener_presion_camara` corre 2 veces por tick en PREPARADO (T1-01-C). Recomendación: una sola llamada, con prueba de banco.
+- R1-P3: ¿separar `rango_calentamiento` en temperatura y presión? Recomendación: sí.
+- R1-P4: ¿un Principal perdido después de un protocolo ya iniciado pasa a `solo_lenta`? Recomendación: sí.
+- R1-P5: abort durante la tolerancia DI. Recomendación: aceptar la cancelación o, como mínimo, cambiar el texto.
