@@ -31,6 +31,7 @@ from autoclave.core.runtime import io_names
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime import motivos
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
                                            tarjeta_emparejada)
@@ -940,7 +941,35 @@ def _camara_segura_status(estado) -> dict:
     except Exception as exc:
         logger.exception("/status: no se pudo evaluar camara_segura")
         segura, motivo = False, f"No se pudo evaluar: {exc}"
-    return {"camara_segura": segura, "no_abrir": not segura, "camara_segura_motivo": motivo}
+    campos = _campos_motivo(motivo)
+    return {"camara_segura": segura, "no_abrir": not segura, "camara_segura_motivo": motivo,
+            # I4 (tanda 6): código, parámetros y textos es/en del motivo (o None)
+            "camara_segura_motivo_codigo": campos.get("motivo_codigo"),
+            "camara_segura_motivo_valores": campos.get("motivo_valores"),
+            "camara_segura_motivo_textos": campos.get("motivo_textos")}
+
+
+def _campos_motivo(motivo) -> dict:
+    """Código, parámetros y textos es/en de un motivo con código, en las
+    unidades vigentes; {} si no tiene código o algo falla (nunca lanza)."""
+    try:
+        if not motivos.codigo_de(motivo):
+            return {}
+        from autoclave.core.runtime import unidades as u
+        try:
+            unidades = context.config_unidades.leer()
+            t, p = unidades["temperatura"], unidades["presion"]
+            u.validar(t, p)
+        except Exception:
+            t, p = "C", "kPa"
+        try:
+            p_atm = u.p_atm_valida(_p_atm_vigente())
+        except Exception:
+            p_atm = None
+        return motivos.campos_respuesta(motivo, t, p, p_atm)
+    except Exception:
+        logger.exception("No se pudieron armar los textos del motivo")
+        return {}
 
 
 def _sensores_programa(estado) -> dict:
@@ -1095,15 +1124,26 @@ def get_selected_cycle():
     return {
         "id": cycle.id,
         "name": cycle.name,
+        "nombres": _nombres_ciclo(cycle),
         "number": getattr(cycle, "number", None),
         "parameters": cycle.parameters
     }
 
 
+def _nombres_ciclo(cycle) -> dict:
+    """I4 (tanda 6; D-14): nombre del ciclo en es y en (catálogo para los de
+    fábrica). `name`/`nombre` siguen siendo el display_name."""
+    try:
+        return context.cycle_manager.nombres_de(cycle)
+    except Exception:
+        return {"es": cycle.name, "en": cycle.name}
+
+
 @app.get("/cycles")
 def list_cycles():
     return [
-        {"id": c.id, "name": c.name, "source": getattr(c, "source", "user")}
+        {"id": c.id, "name": c.name, "nombres": _nombres_ciclo(c),
+         "source": getattr(c, "source", "user")}
         for c in context.cycle_manager.cycles.values()
     ]
 
@@ -2101,6 +2141,7 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         if door_name != f"Puerta {source_door}":
             rechazo_origen(409, "puerta_ajena",
                            f"La pantalla de la puerta {source_door} solo opera su puerta")
+    rechazo_puerta = None
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad):
         # con el modo prueba las puertas no se actualizan, y con el enlace
         # caído las lecturas son viejas: la orden quedaría para después sin
@@ -2112,7 +2153,13 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         pedir = servicio.request_open if accion == "open" else servicio.request_close
         ok, reason = pedir(door_name)
         if not ok:
-            raise _Rechazo(409, "puerta_rechazada", reason or "Orden de puerta no permitida")
+            rechazo_puerta = reason or motivos.Motivo("no_permitida", "Orden de puerta no permitida")
+    if rechazo_puerta is not None:
+        # I4 (tanda 6): el motivo viaja también con código, parámetros y textos
+        # es/en (`detail` sigue siendo el español). Se arma con _sm_lock ya
+        # libre: lee la configuración de unidades del disco.
+        _rechazar(409, "puerta_rechazada", rechazo_puerta, entidad,
+                  extra=_campos_motivo(rechazo_puerta))
     _auditar("puerta_orden", entidad=door_name, valor_nuevo=accion,
              detalle={"source_door": origen})
     return {
@@ -2333,6 +2380,7 @@ def get_programas():
             continue
         salida.append({
             "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
+            "nombres": _nombres_ciclo(cycle),
             "origen": getattr(cycle, "source", ""), "danado": bool(getattr(cycle, "danado", None)),
             "editable": _programa_editable(cycle),
             "habilitado": getattr(cycle, "habilitado", True) is not False,
@@ -2372,6 +2420,7 @@ def get_programas_seleccionables():
             continue
         filas.append({
             "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
+            "nombres": _nombres_ciclo(cycle),
             "temperatura": _param_programa(cycle, "esterilizacion", "temperatura_esterilizacion"),
             "tiempo": _param_programa(cycle, "esterilizacion", "tiempo_esterilizacion"),
             "ciclos": 0, "mas_usado": False, "seleccionado": False,

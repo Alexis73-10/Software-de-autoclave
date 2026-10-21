@@ -2,6 +2,7 @@
     "cycle_id": "liquidos",
     "cycle_number": 4,
     "display_name": "Líquidos",
+    "nombre_clave": "ciclos_fabrica.liquidos.nombre",
     "cycle_icon": "BigPackages",
     "cycle_temperature_sensors": {
         "temp_camara": "principal",

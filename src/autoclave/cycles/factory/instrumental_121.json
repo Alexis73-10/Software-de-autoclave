@@ -2,6 +2,7 @@
     "cycle_id": "instrumental_121",
     "cycle_number": 3,
     "display_name": "Instrumental 121°C",
+    "nombre_clave": "ciclos_fabrica.instrumental_121.nombre",
     "cycle_icon": "BigPackages",
     "cycle_temperature_sensors": {
         "temp_camara": "principal",

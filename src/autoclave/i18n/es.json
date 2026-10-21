@@ -320,6 +320,8 @@
     "presion": "kPa"
   },
   "fecha": {
+    "dias": ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"],
+    "meses_largos": ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"],
     "meses": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   },
   "arranque": {
@@ -419,6 +421,16 @@
     "despejar": "DESPEJAR"
   },
   "equipo": {
+    "clase_mesa_n": "Mesa N",
+    "clase_mesa_b": "Mesa B",
+    "clase_mesa_b_lab": "Mesa B laboratorio",
+    "clase_piso": "Piso",
+    "clase_piso_lab": "Piso laboratorio",
+    "tipo_puerta_simple": "Simple",
+    "tipo_puerta_motorized": "Motorizada",
+    "tipo_puerta_locking": "Con bloqueo",
+    "tipo_puerta_motorized_locking": "Motorizada con bloqueo",
+    "tipo_puerta_advanced": "Avanzada (con empaque)",
     "titulo": "INFORMACIÓN DEL EQUIPO",
     "modelo": "Modelo",
     "serie": "Serie",
@@ -459,6 +471,8 @@
     "olvido_contrasena": "¿Olvidó su contraseña?"
   },
   "exportacion": {
+    "unidades": "Unidades",
+    "motivo": "Motivo",
     "impreso": "Se enviaron {n} ciclo(s) a la impresora",
     "imprimir_en_ciclo": "No se puede imprimir mientras hay un ciclo en curso",
     "imprimir_error": "No se pudo imprimir: sin conexión con el equipo",
@@ -1122,6 +1136,53 @@
     "5": {
       "nombre": "Con enfriamiento y escape lento",
       "desc": "Igual que el modo 4, pero con el escape lento abierto durante todo el enfriamiento: libera vapor de la cámara mientras el aire comprimido sostiene la contrapresión. Al cumplirse la temperatura de enfriamiento se cierra el escape lento y se abre el rápido."
+    }
+  },
+  "puerta": {
+    "desconocida": "Puerta desconocida",
+    "paro": "Paro de emergencia activado",
+    "estado_seguro": "Protocolo de estado seguro en curso",
+    "sensor_temp_indeterminado": "No se pudo determinar el sensor de temperatura",
+    "error_evaluacion": "No se pudo evaluar la cámara segura",
+    "otra_puerta_abierta": "{puerta} no está cerrada",
+    "no_permitido_origen": "No permitido desde puerta {puerta}",
+    "ya_cerrada": "La puerta ya está cerrada",
+    "estado_desconocido": "Estado de la puerta desconocido",
+    "falta_config": "Falta configuración: {claves}",
+    "sin_presion_camara": "Sin lectura válida de presión de cámara",
+    "camara_presurizada": "Cámara presurizada ({pres})",
+    "sin_presion_empaque": "Sin lectura válida de presión del empaque",
+    "empaque_presurizado": "Empaque presurizado",
+    "no_acepto": "La puerta no aceptó la orden",
+    "ya_abierta": "La puerta ya está abierta",
+    "en_movimiento": "La puerta está en movimiento ({estado})",
+    "bloqueada": "Puerta bloqueada mecánicamente",
+    "no_abierta": "La puerta no está abierta ({estado})",
+    "sin_datos_vigentes": "Sin conexión con la tarjeta: datos no vigentes",
+    "sin_temp_camara": "Sin lectura válida de temperatura de cámara",
+    "sobrepresion": "Sobrepresión en cámara ({pres})",
+    "vacio": "Cámara en vacío ({pres})",
+    "temp_alta": "Temperatura demasiado alta ({temp})",
+    "no_permitida": "Orden de puerta no permitida",
+    "error_comunicacion": "Error de comunicación"
+  },
+  "roles": {
+    "admin": "Admin",
+    "tecnico": "Técnico",
+    "ingeniero": "Ingeniero"
+  },
+  "ciclos_fabrica": {
+    "bowe_dick": {
+      "nombre": "Bowe & Dick"
+    },
+    "instrumental_121": {
+      "nombre": "Instrumental 121°C"
+    },
+    "134_instrumental": {
+      "nombre": "Instrumental 134°C"
+    },
+    "liquidos": {
+      "nombre": "Líquidos"
     }
   }
 }

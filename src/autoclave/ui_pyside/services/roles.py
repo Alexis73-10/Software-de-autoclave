@@ -22,6 +22,18 @@ ROLES = (
 
 VALORES_ROL = frozenset(valor for valor, _ in ROLES)
 
+
+def etiqueta_rol(valor: str, respaldo: str | None = None, idioma: str | None = None) -> str:
+    """I4 (tanda 6): etiqueta del rol del catálogo (roles.<valor>) en el idioma
+    vigente; si no hay texto, la de ROLES (o el valor)."""
+    respaldo = respaldo or dict(ROLES).get(valor, valor)
+    try:
+        from autoclave import i18n
+        clave = f"roles.{valor}"
+        return i18n.t(clave, idioma) if i18n.existe(clave, idioma) else respaldo
+    except Exception:
+        return respaldo
+
 # Quién crea a quién (decisión 26): ingeniero crea admin, técnico e ingeniero;
 # admin crea admin y técnico; técnico no crea. Lo impone el backend en
 # POST /usuarios; la pantalla solo ofrece los roles permitidos.

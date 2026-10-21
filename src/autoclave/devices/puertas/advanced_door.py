@@ -158,6 +158,7 @@
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.devices.puertas.base_puertas import Door
 from autoclave.state_machine.alarms.catalogo import PUE_04, PUE_05
+from autoclave.core.runtime.motivos import Motivo
 import logging
 import time
 
@@ -584,14 +585,15 @@ class AdvancedDoor(Door):
         """Devuelve (ok, motivo): el resultado real de la orden (T-18)."""
         estado = self.get_state()
         if estado == DoorState.ABIERTO:
-            return False, "La puerta ya está abierta"
+            return False, Motivo("ya_abierta", "La puerta ya está abierta")
         if estado not in self._ABRIR_DESDE:
             logger.warning("Puerta %s: apertura denegada en %s.", self.name, estado.name)
-            return False, f"La puerta está en movimiento ({estado.name})"
+            return False, Motivo("en_movimiento", f"La puerta está en movimiento ({estado.name})",
+                                estado=estado.name)
         if "bloqueo" in self.di:
             if self.estado.sensores_di.get(self.di["bloqueo"]):
                 logger.warning("Puerta %s: bloqueada mecánicamente, apertura denegada.", self.name)
-                return False, "Puerta bloqueada mecánicamente"
+                return False, Motivo("bloqueada", "Puerta bloqueada mecánicamente")
         # arranque limpio: _from_abriendo apaga cerrar/bloquear y fija un plazo nuevo
         self.timer_start = None
         self.set_state(DoorState.ABRIENDO)
@@ -602,4 +604,5 @@ class AdvancedDoor(Door):
         if self.get_state() == DoorState.ABIERTO:
             self.set_state(DoorState.CERRANDO)
             return True, ""
-        return False, f"La puerta no está abierta ({self.get_state().name})"
+        estado = self.get_state().name
+        return False, Motivo("no_abierta", f"La puerta no está abierta ({estado})", estado=estado)

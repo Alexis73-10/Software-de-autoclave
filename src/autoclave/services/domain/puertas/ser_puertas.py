@@ -33,6 +33,7 @@ from .permissions import PERMISSIONS
 from autoclave.state_machine.machine.parametros_globales import ParametrosGlobales
 from autoclave.core.runtime.sensores_ciclo import temp_seguridad
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime.motivos import Motivo
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class Rules:
 _CLAVE_ATM = "presion_admosferica"
 _CLAVE_RANGO = "rango_presion_atm"
 _CLAVE_TEMP_MAX = "temp_max_apertura"
-_MOTIVO_PARO = "Paro de emergencia activado"
+_MOTIVO_PARO = Motivo("paro", "Paro de emergencia activado")
 
 
 def _numero(valor) -> float | None:
@@ -92,7 +93,8 @@ class ServicioPuertas:
 
     def _falta_config(self, *claves) -> str:
         faltan = [c for c in claves if _numero(self.config.get(c)) is None]
-        return f"Falta configuración: {', '.join(faltan)}" if faltan else ""
+        return (Motivo("falta_config", f"Falta configuración: {', '.join(faltan)}",
+                       claves=", ".join(faltan)) if faltan else "")
 
     def _paro_activo(self) -> bool:
         """Con el paro de emergencia activo no se mueve ninguna puerta, ni por
@@ -141,7 +143,7 @@ class ServicioPuertas:
         """Retorna (True, "") si se envió el comando, (False, motivo) si se denegó."""
         if door_name not in self.doors:
             self.logger.error(f"Puerta desconocida: {door_name}")
-            return False, "Puerta desconocida"
+            return False, Motivo("desconocida", "Puerta desconocida")
 
         ok, reason = self._can_open_physical(door_name)
         if not ok:
@@ -159,7 +161,7 @@ class ServicioPuertas:
         """Retorna (True, "") si se envió el comando, (False, motivo) si se denegó."""
         if door_name not in self.doors:
             self.logger.error(f"Puerta desconocida: {door_name}")
-            return False, "Puerta desconocida"
+            return False, Motivo("desconocida", "Puerta desconocida")
 
         ok, reason = self._can_close_physical(door_name)
         if not ok:
@@ -181,7 +183,7 @@ class ServicioPuertas:
             return True, ""
         if isinstance(retorno, tuple):
             return bool(retorno[0]), retorno[1] if len(retorno) > 1 else ""
-        return bool(retorno), "" if retorno else "La puerta no aceptó la orden"
+        return bool(retorno), "" if retorno else Motivo("no_acepto", "La puerta no aceptó la orden")
 
     def get_status(self, door_name=None):
         if door_name is None:
@@ -202,14 +204,16 @@ class ServicioPuertas:
 
     def can_open(self, door_name) -> tuple:
         if not self.can_open_from_context(door_name):
-            msg = f"No permitido desde puerta {self.profile.door_id}"
+            msg = Motivo("no_permitido_origen", f"No permitido desde puerta {self.profile.door_id}",
+                         puerta=self.profile.door_id)
             self.logger.warning("Apertura no permitida: %s", msg)
             return False, msg
         return self._can_open_physical(door_name)
 
     def can_close(self, door_name) -> tuple:
         if not self.can_close_from_context(door_name):
-            msg = f"No permitido desde puerta {self.profile.door_id}"
+            msg = Motivo("no_permitido_origen", f"No permitido desde puerta {self.profile.door_id}",
+                         puerta=self.profile.door_id)
             self.logger.warning("Cierre no permitido: %s", msg)
             return False, msg
         return self._can_close_physical(door_name)
@@ -236,7 +240,7 @@ class ServicioPuertas:
             except Exception:
                 activo = True
             if activo:
-                msg = "Protocolo de estado seguro en curso"
+                msg = Motivo("estado_seguro", "Protocolo de estado seguro en curso")
                 self.logger.warning("No se puede abrir: %s", msg)
                 return False, msg
         # Cámara segura (E2, fin de ciclo §5): misma condición que "NO ABRIR"
@@ -246,7 +250,7 @@ class ServicioPuertas:
             try:
                 programas = self._programas()
             except Exception:
-                msg = "No se pudo determinar el sensor de temperatura"
+                msg = Motivo("sensor_temp_indeterminado", "No se pudo determinar el sensor de temperatura")
                 self.logger.exception("No se puede abrir: %s", msg)
                 return False, msg
         try:
@@ -255,7 +259,7 @@ class ServicioPuertas:
                                                 self.profile, temp_max_ciclo=temp_max_ciclo)
         except Exception:
             # SAF-06 de T4: un error al evaluar no abre ni corta el tick
-            msg = "No se pudo evaluar la cámara segura"
+            msg = Motivo("error_evaluacion", "No se pudo evaluar la cámara segura")
             self.logger.exception("No se puede abrir: %s", msg)
             return False, msg
         if not segura:
@@ -265,7 +269,7 @@ class ServicioPuertas:
         for name in self.doors:
             if name != door_name:
                 if self.estado.get_door_state(name) != DoorState.CERRADO:
-                    msg = f"{name} no está cerrada"
+                    msg = Motivo("otra_puerta_abierta", f"{name} no está cerrada", puerta=name)
                     self.logger.warning("No se puede abrir: %s", msg)
                     return False, msg
 
@@ -281,10 +285,10 @@ class ServicioPuertas:
         state = self.estado.get_door_state(door_name)
 
         if state in (DoorState.CERRADO, DoorState.CERRANDO):
-            return False, "La puerta ya está cerrada"
+            return False, Motivo("ya_cerrada", "La puerta ya está cerrada")
         if state == DoorState.DESCONOCIDO:
             # la posición segura es abierta (decisión 18)
-            msg = "Estado de la puerta desconocido"
+            msg = Motivo("estado_desconocido", "Estado de la puerta desconocido")
             self.logger.warning("No se puede cerrar: %s", msg)
             return False, msg
 
@@ -296,11 +300,11 @@ class ServicioPuertas:
 
         pres = _numero(self.pres)
         if pres is None:
-            msg = "Sin lectura válida de presión de cámara"
+            msg = Motivo("sin_presion_camara", "Sin lectura válida de presión de cámara")
             self.logger.warning("No se puede cerrar: %s", msg)
             return False, msg
         if pres > limite:
-            msg = f"Cámara presurizada ({pres:.0f} kPa)"
+            msg = Motivo("camara_presurizada", f"Cámara presurizada ({pres:.0f} kPa)", pres=pres)
             self.logger.warning("No se puede cerrar: %s", msg)
             return False, msg
 
@@ -308,11 +312,11 @@ class ServicioPuertas:
         if sensor_empaque:
             pres_empaque = _numero(self.estado.sensores_pres.get(sensor_empaque))
             if pres_empaque is None:
-                msg = "Sin lectura válida de presión del empaque"
+                msg = Motivo("sin_presion_empaque", "Sin lectura válida de presión del empaque")
                 self.logger.warning("No se puede cerrar: %s", msg)
                 return False, msg
             if pres_empaque > limite:
-                msg = "Empaque presurizado"
+                msg = Motivo("empaque_presurizado", "Empaque presurizado")
                 self.logger.warning("No se puede cerrar: %s", msg)
                 return False, msg
 

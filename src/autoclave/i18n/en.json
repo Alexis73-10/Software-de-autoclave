@@ -320,6 +320,8 @@
     "presion": "kPa"
   },
   "fecha": {
+    "dias": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "meses_largos": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
     "meses": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
   },
   "arranque": {
@@ -419,6 +421,16 @@
     "despejar": "CLEAR"
   },
   "equipo": {
+    "clase_mesa_n": "Tabletop N",
+    "clase_mesa_b": "Tabletop B",
+    "clase_mesa_b_lab": "Tabletop B laboratory",
+    "clase_piso": "Floor-standing",
+    "clase_piso_lab": "Floor-standing laboratory",
+    "tipo_puerta_simple": "Simple",
+    "tipo_puerta_motorized": "Motorized",
+    "tipo_puerta_locking": "Locking",
+    "tipo_puerta_motorized_locking": "Motorized locking",
+    "tipo_puerta_advanced": "Advanced (with gasket)",
     "titulo": "EQUIPMENT INFORMATION",
     "modelo": "Model",
     "serie": "Serial",
@@ -459,6 +471,8 @@
     "olvido_contrasena": "Forgot your password?"
   },
   "exportacion": {
+    "unidades": "Units",
+    "motivo": "Reason",
     "impreso": "{n} cycle(s) sent to the printer",
     "imprimir_en_ciclo": "Cannot print while a cycle is in progress",
     "imprimir_error": "Could not print: no connection with the equipment",
@@ -1122,6 +1136,53 @@
     "5": {
       "nombre": "With cooling and slow exhaust",
       "desc": "Like mode 4, but assisted by the slow exhaust during cooling, then opens the fast exhaust."
+    }
+  },
+  "puerta": {
+    "desconocida": "Unknown door",
+    "paro": "Emergency stop activated",
+    "estado_seguro": "Safe-state protocol in progress",
+    "sensor_temp_indeterminado": "Could not determine the temperature sensor",
+    "error_evaluacion": "Could not evaluate whether the chamber is safe",
+    "otra_puerta_abierta": "{puerta} is not closed",
+    "no_permitido_origen": "Not allowed from door {puerta}",
+    "ya_cerrada": "The door is already closed",
+    "estado_desconocido": "Door state unknown",
+    "falta_config": "Missing configuration: {claves}",
+    "sin_presion_camara": "No valid chamber pressure reading",
+    "camara_presurizada": "Chamber pressurized ({pres})",
+    "sin_presion_empaque": "No valid gasket pressure reading",
+    "empaque_presurizado": "Gasket pressurized",
+    "no_acepto": "The door did not accept the command",
+    "ya_abierta": "The door is already open",
+    "en_movimiento": "The door is moving ({estado})",
+    "bloqueada": "Door mechanically locked",
+    "no_abierta": "The door is not open ({estado})",
+    "sin_datos_vigentes": "No connection with the control board: data not current",
+    "sin_temp_camara": "No valid chamber temperature reading",
+    "sobrepresion": "Chamber overpressure ({pres})",
+    "vacio": "Chamber under vacuum ({pres})",
+    "temp_alta": "Temperature too high ({temp})",
+    "no_permitida": "Door command not allowed",
+    "error_comunicacion": "Communication error"
+  },
+  "roles": {
+    "admin": "Admin",
+    "tecnico": "Technician",
+    "ingeniero": "Engineer"
+  },
+  "ciclos_fabrica": {
+    "bowe_dick": {
+      "nombre": "Bowie & Dick"
+    },
+    "instrumental_121": {
+      "nombre": "Instruments 121°C"
+    },
+    "134_instrumental": {
+      "nombre": "Instruments 134°C"
+    },
+    "liquidos": {
+      "nombre": "Liquids"
     }
   }
 }

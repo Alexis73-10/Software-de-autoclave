@@ -2,6 +2,7 @@
     "cycle_id":"bowe_dick",
     "cycle_number":1,
     "display_name":"Bowe & Dick",
+    "nombre_clave": "ciclos_fabrica.bowe_dick.nombre",
     "cycle_icon":"BigPackages",
     "cycle_temperature_sensors": {
         "temp_camara": "principal",
