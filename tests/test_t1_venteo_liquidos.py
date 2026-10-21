@@ -114,10 +114,12 @@ def test_una_sola_orden_de_lenta_por_tick_en_preparacion():
     assert not (set_do.descompresion_lenta_on.called and set_do.descompresion_lenta_off.called)
 
 
-def test_drenaje_a_presion_igualada_en_liquidos_sigue_con_la_rapida():
+def test_drenaje_a_presion_igualada_en_liquidos_va_por_la_lenta():
+    # P-12 (tanda 6): reemplaza la prueba anterior ("sigue con la rápida").
+    # Sin temp_max_apertura en la configuración de la prueba: la lenta.
     obj, set_do, pres = _make(preparacion_state, "liquido")
     pres["pres_camara"] = 101.0
     obj.estado.sensores_di["agua_camara"] = 1
     _correr(obj)
-    assert _ultima(set_do, "descompresion_rapida") is True
-    set_do.descompresion_lenta_on.assert_not_called()
+    assert _ultima(set_do, "descompresion_lenta") is True
+    set_do.descompresion_rapida_on.assert_not_called()
