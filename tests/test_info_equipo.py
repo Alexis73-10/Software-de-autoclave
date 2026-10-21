@@ -55,13 +55,11 @@ def test_filas_con_perfil_e_historial():
     assert f["version_software"]["valor"] == "0.5.0"
 
 
-def test_sin_fuente_en_el_software_se_marca_no_disponible():
+def test_ningun_dato_con_fuente_se_marca_no_disponible():
+    # O2d (tanda 6): mantenimiento sin respuesta todavía -> "—" (valor None), no "No disponible"
     f = _por_clave(filas_equipo(_perfil(), 1, "0.5.0", []))
-    assert f["ultimo_mantenimiento"]["disponible"] is False
-    assert f["ciclos_restantes"]["disponible"] is False
-    # E6: la versión de la tarjeta ya tiene fuente (/status.tarjeta)
-    assert all(v["disponible"] for k, v in f.items()
-               if k not in ("ultimo_mantenimiento", "ciclos_restantes"))
+    assert f["ultimo_mantenimiento"]["valor"] is None and f["ciclos_restantes"]["valor"] is None
+    assert all(v["disponible"] for v in f.values())
 
 
 def test_con_fuente_de_mantenimiento_las_filas_muestran_el_dato():

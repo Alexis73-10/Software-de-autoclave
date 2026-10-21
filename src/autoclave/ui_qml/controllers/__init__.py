@@ -19,3 +19,4 @@ from autoclave.ui_qml.controllers import parametros_equipo_controller  # noqa: F
 from autoclave.ui_qml.controllers import usuarios_controller  # noqa: F401
 # OPCIONES > Fecha y hora (O2c), Información del sistema (O2d), Bitácora (O2e).
 from autoclave.ui_qml.controllers import fecha_hora_controller  # noqa: F401
+from autoclave.ui_qml.controllers import info_sistema_controller  # noqa: F401

@@ -271,6 +271,15 @@ Item {
             sourceComponent: OpcionesFechaHora {}
         }
 
+        // Información del sistema (O2d, tanda 6): solo lectura
+        Loader {
+            id: infoSistema
+            objectName: "cargadorInfoSistema"
+            active: raiz.seccionActiva === "info_sistema"
+            anchors.fill: parent
+            sourceComponent: OpcionesInfoSistema {}
+        }
+
         // Mantenimiento (M1, tanda 3): próximo vencimiento y registro
         Loader {
             id: mantenimiento
@@ -304,6 +313,7 @@ Item {
                      && raiz.seccionActiva !== "parametros_sistema"
                      && raiz.seccionActiva !== "entradas_salidas"
                      && raiz.seccionActiva !== "fecha_hora"
+                     && raiz.seccionActiva !== "info_sistema"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia

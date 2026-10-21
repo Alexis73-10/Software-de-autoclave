@@ -293,6 +293,10 @@ FAMILIAS = {
     "parametros_equipo_desc.": lambda: _claves_equipo(),
     # O2c (tanda 6)
     "fecha_hora.rotulo_": lambda: ["zona", "fecha_iso", "instalacion", "fuente"],
+    # O2d (tanda 6)
+    "info_sistema.grupo_": lambda: ["equipo", "software", "uso", "configuracion"],
+    "info_sistema.rotulo_": lambda: list(__import__(
+        "autoclave.ui_qml.controllers.info_sistema_controller", fromlist=["CLAVES_FILA"]).CLAVES_FILA),
     "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
                                  fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
 }

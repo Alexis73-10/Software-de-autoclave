@@ -128,4 +128,4 @@ def correr(seccion: str, rol: str, get: dict, pasos: list, usuario: str = "yo",
 
 # Secciones de OPCIONES de solo lectura para todos los roles (O2c–O2e, tanda 6),
 # al final de la navegación; las pruebas de navegación las agregan a lo esperado.
-COMUNES_T6 = ["fecha_hora"]
+COMUNES_T6 = ["fecha_hora", "info_sistema"]

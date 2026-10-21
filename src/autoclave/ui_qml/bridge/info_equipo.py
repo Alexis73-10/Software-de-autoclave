@@ -126,11 +126,10 @@ def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None,
         _fila("fecha_instalacion", p.created_at.strftime("%Y-%m-%d") if p else None),
         _fila("ciclos_realizados", ciclos),
         _fila("ultimo_ciclo", ultimo_ciclo),
-        # M1: con fuente (registro + intervalos) las filas dejan de ser "No disponible"
-        _fila("ultimo_mantenimiento", mant["ultimo"] if mantenimiento is not None else None,
-              disponible=mantenimiento is not None),
-        _fila("ciclos_restantes", mant["ciclos_restantes"] if mantenimiento is not None else None,
-              disponible=mantenimiento is not None),
+        # M1: la fuente existe (GET /maintenance); O2d (tanda 6): mientras no
+        # llega el dato se muestra "—", ya no "No disponible"
+        _fila("ultimo_mantenimiento", mant["ultimo"] if mantenimiento is not None else None),
+        _fila("ciclos_restantes", mant["ciclos_restantes"] if mantenimiento is not None else None),
         _fila("version_software", version_sw),
         *_filas_tarjeta(tarjeta),
     ]

@@ -31,7 +31,7 @@ _VE_USUARIOS = _GESTION_USUARIOS | {"tecnico"}
 _PARAMETROS_EQUIPO = _TECNICOS | {ROL_ADMIN}
 _TODOS = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})
 # Secciones de solo lectura para todos: no muestran el aviso de edición bloqueada
-SECCIONES_LECTURA = frozenset({"fecha_hora"})
+SECCIONES_LECTURA = frozenset({"fecha_hora", "info_sistema"})
 _SOLO_LECTURA_POR_ROL = {"parametros_sistema": frozenset({ROL_ADMIN})}
 
 
@@ -55,6 +55,7 @@ SECCIONES = (
     Seccion("conectividad",       "conectividad.svg",       _CONECTIVIDAD),
     # O2c–O2e (tanda 6): para todos los roles con sesión, solo lectura
     Seccion("fecha_hora",         "reloj.svg",              _TODOS),
+    Seccion("info_sistema",       "informacion.svg",          _TODOS),
 )
 
 _POR_CLAVE = {s.clave: s for s in SECCIONES}

@@ -771,6 +771,61 @@ def get_system_time():
     return _info_reloj()
 
 
+# ── Información del sistema (O2d, tanda 6; mockup 8): solo lectura ──────────
+# Cada parte se lee por separado: un dato que falla queda en None ("—") sin
+# afectar a los demás.
+
+def _parte(lector):
+    try:
+        return lector()
+    except Exception:
+        logger.debug("Información del sistema: dato no disponible", exc_info=True)
+        return None
+
+
+def _hay_red() -> bool:
+    """True si el PC tiene alguna dirección IPv4 distinta del loopback."""
+    import socket
+    nombre = socket.gethostname()
+    return any(not ip.startswith("127.") for ip in socket.gethostbyname_ex(nombre)[2])
+
+
+def _estado_impresora() -> str:
+    if not context.config_impresora.habilitada():
+        return "deshabilitada"
+    estado = context.realtime_printer.estado()
+    return estado if isinstance(estado, str) and estado else "desconocido"
+
+
+@app.get("/system/info")
+def get_system_info():
+    import importlib.metadata
+    perfil = getattr(context, "profile", None)
+
+    def de_perfil(attr):
+        v = getattr(perfil, attr, None) if perfil is not None else None
+        if isinstance(v, datetime):
+            return v.isoformat(timespec="seconds")
+        return getattr(v, "value", v) if isinstance(v, (str, int, float)) or hasattr(v, "value") else None
+
+    tarjeta = _parte(_tarjeta_status) or {}
+    unidades = _parte(context.config_unidades.leer)
+    red = _parte(_hay_red)
+    return {
+        "equipo": {"modelo": de_perfil("model_id"), "serie": de_perfil("serial_number"),
+                   "instalacion": de_perfil("created_at"), "fuente_vapor": de_perfil("vapor_source")},
+        "software": {"version": _parte(lambda: importlib.metadata.version("autoclave")),
+                     "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
+                     "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None},
+        "uso": {"ciclos": _parte(context.db.max_numero_ciclo),
+                "mantenimiento": _parte(context.mantenimiento.resumen)},
+        "configuracion": {"idioma": _parte(context.config_idioma.leer),
+                          "unidades": unidades if isinstance(unidades, dict) else None,
+                          "impresora": _parte(_estado_impresora),
+                          "red": None if red is None else ("conectada" if red else "sin_red")},
+    }
+
+
 def _resolve_sensor_index(tipo: str, sensor: str) -> int:
     name_map = {"temperature": EstadoAutoclave.map_temp, "pressure": EstadoAutoclave.map_pres}.get(tipo)
     if name_map is None:
