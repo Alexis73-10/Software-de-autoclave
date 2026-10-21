@@ -15,3 +15,5 @@ from autoclave.ui_qml.controllers import entradas_salidas_controller  # noqa: F4
 from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
 # OPCIONES > Parámetros del equipo (P2, tanda 5).
 from autoclave.ui_qml.controllers import parametros_equipo_controller  # noqa: F401
+# OPCIONES > Mantenimiento > Calibración atmosférica e impresiones (O2f, tanda 6).
+from autoclave.ui_qml.controllers import calibracion_atm_controller  # noqa: F401
