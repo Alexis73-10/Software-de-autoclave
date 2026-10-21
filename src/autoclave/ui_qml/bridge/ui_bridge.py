@@ -224,6 +224,8 @@ class UiBridge(QObject):
             "es_confirmar": es.get("requiere_confirmacion") is True,
             # S4 (CIC-10): el protocolo no puede terminar solo; motivo o ""
             "es_bloqueado": str(es.get("bloqueado_motivo") or ""),
+            # P-6 (tanda 6): el CONFIRMAR del ciclo confirma también el estado seguro
+            "es_ack_confirma": es.get("ack_confirma_estado_seguro") is True,
             # T8: el backend vuelve a exigir la confirmación por ciclo
             "sin_bd": datos.get("sin_bd") is True,
             # U4: falla cerrada, sin dato o valor desconocido = desconectada
@@ -294,6 +296,11 @@ class UiBridge(QObject):
     def estadoSeguroBloqueadoMotivo(self) -> str:
         """S4: motivo de CIC-10 (estado seguro detenido); "" si avanza."""
         return self._seguridad.get("es_bloqueado", "")
+
+    @Property(bool, notify=seguridadChanged)
+    def ackConfirmaEstadoSeguro(self) -> bool:
+        """P-6: CONFIRMAR del ciclo = "Confirmar y llevar a estado seguro"."""
+        return self._seguridad.get("es_ack_confirma", False)
 
     @Property(bool, notify=seguridadChanged)
     def sinBaseDatos(self) -> bool:

@@ -311,7 +311,8 @@
     "serie": "Serial: ",
     "sin_bd_pregunta": "Database not available. The cycle will run without an operator and without a database record (backup file and printout only). Do you want to continue without a record?",
     "sin_bd_continuar": "Continue without record",
-    "principal_sin_lectura": "Main probe without reading: call service"
+    "principal_sin_lectura": "Main probe without reading: call service",
+    "confirmar_estado_seguro_texto": "The emergency stop was released. Check that there are no steam or water leaks before continuing. Confirming acknowledges the cycle result and brings the chamber to a safe state."
   },
   "unidades": {
     "temperatura": "°C",

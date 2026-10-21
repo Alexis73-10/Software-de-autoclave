@@ -919,7 +919,14 @@ def _estado_seguro_status() -> dict:
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
     motivo = getattr(es, "bloqueado_motivo", None) if activo else None
+    try:
+        ack_confirma = getattr(context.control_loop.state_machine.ciclo,
+                               "ack_confirma_estado_seguro", False) is True
+    except Exception:
+        ack_confirma = False
     return {"activo": activo,
+            # P-6 (tanda 6): el CONFIRMAR del ciclo también confirma el estado seguro
+            "ack_confirma_estado_seguro": ack_confirma,
             "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
             # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
             "bloqueado_motivo": motivo if isinstance(motivo, str) else None}

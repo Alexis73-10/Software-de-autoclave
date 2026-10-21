@@ -186,6 +186,14 @@ class CicloState:
             len(self._fases), self._fases[0].name
         )
 
+    @property
+    def ack_confirma_estado_seguro(self) -> bool:
+        """P-6 (tanda 6): el reconocimiento del resultado también confirma el
+        estado seguro (§15.2): hubo un paro con el ciclo terminando y ya se
+        soltó. La UI muestra entonces el texto de §15.2 antes de confirmar."""
+        return (self._resultado_pendiente is not None and self._paro_en_espera
+                and not self.estado.get_flag("PARO_EMERGENCIA"))
+
     # ------------------------------------------------------------------
     # Cambios del ingeniero con el ciclo en curso (T-17, §5.8)
     # ------------------------------------------------------------------

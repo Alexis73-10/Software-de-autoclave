@@ -713,7 +713,10 @@ Item {
         MouseArea {
             anchors.fill: parent
             onClicked: {
-                if (raiz.terminado) {
+                if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
+                    // P-6 (tanda 6): §15.2, verificar fugas antes de confirmar
+                    dialogoEstadoSeguro.abrir()
+                } else if (raiz.terminado) {
                     raiz.confirmarPulsado()
                     raiz.comandos?.confirmar()
                 } else {
@@ -784,6 +787,20 @@ Item {
         onConfirmado: {
             raiz.cancelarPulsado()
             raiz.comandos?.cancelar()
+        }
+    }
+
+    // P-6 (tanda 6): tras un paro, CONFIRMAR también lleva la cámara a estado
+    // seguro (fin de ciclo §15.2): se pide verificar que no haya fugas
+    DialogoConfirmacion {
+        id: dialogoEstadoSeguro
+        objectName: "dialogoEstadoSeguro"
+        mensaje: I18n.t("ciclo.confirmar_estado_seguro_texto", I18n.lang)
+        textoConfirmar: I18n.t("sistema.confirmar_estado_seguro", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        onConfirmado: {
+            raiz.confirmarPulsado()
+            raiz.comandos?.confirmar()
         }
     }
 
