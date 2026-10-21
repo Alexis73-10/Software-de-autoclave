@@ -515,7 +515,10 @@ def _ciclo(combinado, real):
     return ciclo, am
 
 
-def test_ciclo_sin_datos_registra_com03_con_el_mismo_protocolo():
+def test_ciclo_sin_datos_registra_com03_con_el_mismo_protocolo(monkeypatch):
+    # P-3 (tanda 6): pasada la tolerancia de la DI vencida (aquí 0 s)
+    from autoclave.state_machine.states import ciclo as modulo_ciclo
+    monkeypatch.setattr(modulo_ciclo, "_TOLERANCIA_DI_VENCIDA_SEG", 0.0)
     ciclo, am = _ciclo(combinado=True, real=False)
     codigos = {i.codigo for i in am.activas()}
     assert SIS_01 not in codigos and COM_03 in codigos

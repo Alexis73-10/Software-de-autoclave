@@ -42,6 +42,18 @@ _DEBOUNCE_LECTURAS_DRENAJE = 3
 # Lecturas seguidas del Principal bajo temperatura_enfriamiento (SAF-01 de T11)
 _DEBOUNCE_ENFRIADA = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
+# P-3 (tanda 6): tolerancia a una trama DI vencida con el enlace activo
+# (PARO_EMERGENCIA sin PARO_REAL) antes de abortar el ciclo. Nunca mayor que
+# el watchdog del firmware (WD_TIMEOUT_MS = 5000 en
+# Hardware/Comunicacion_esclava_ESP32_V3) menos 1 s de margen: 4 s
+# (DECISIÓN SIN CONFIRMAR: la instrucción permite hasta 5 s). Ojo (TMG-01 de
+# T2): ese watchdog mide líneas del PC a la tarjeta; con la DI vencida el PC
+# sigue enviando y el watchdog no actúa. Por eso, durante la tolerancia se
+# cortan el vapor de cámara y de chaqueta (TMG-02 / SAF-01 de T2).
+_TOLERANCIA_DI_VENCIDA_SEG = 4.0
+# Ticks seguidos con DI vigente para reiniciar la tolerancia (TMG-03 de T2:
+# una trama intermitente no puede renovarla indefinidamente)
+_TICKS_DI_VIGENTE_REINICIO = 3
 _TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 _CIC_POR_FASE = {
     "PRECALENTAMIENTO": CIC_01, "PRE_VACIO": CIC_02, "CALENTAMIENTO": CIC_03,
@@ -112,6 +124,8 @@ class CicloState:
         self._apertura_auto_alarmado_denegacion = False
         self._contador_drenaje_alta = 0
         self._contador_drenaje_baja = 0
+        self._di_vencida_desde = None
+        self._ticks_di_vigente = 0
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -159,6 +173,8 @@ class CicloState:
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
         self._paro_en_espera = False
+        self._di_vencida_desde = None
+        self._ticks_di_vigente = 0
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -546,15 +562,39 @@ class CicloState:
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 2. ¿Paro de emergencia? ───────────────────────────────────
-        if self.estado.get_flag("PARO_EMERGENCIA"):
-            logger.error("CicloState: ABORTADO por paro de emergencia")
-            self.estado.fase_ciclo = "EMERGENCIA"
-            if self.estado.get_flag("PARO_REAL"):
+        if not self.estado.get_flag("PARO_EMERGENCIA"):
+            if self._di_vencida_desde is not None:
+                self._ticks_di_vigente += 1
+                if self._ticks_di_vigente >= _TICKS_DI_VIGENTE_REINICIO:
+                    self._di_vencida_desde = None
+                    self._ticks_di_vigente = 0
+        else:
+            self._ticks_di_vigente = 0
+            paro_real = bool(self.estado.get_flag("PARO_REAL"))
+            if not paro_real:
+                # P-3: trama DI vencida con el enlace hecho. Dentro de la
+                # tolerancia no se aborta ni se mueve nada (como una caída
+                # breve del enlace): la fase no corre con entradas viejas.
+                ahora = time.monotonic()
+                if self._di_vencida_desde is None:
+                    self._di_vencida_desde = ahora
+                    logger.warning("CicloState: trama DI vencida; tolerancia de %.0f s",
+                                   _TOLERANCIA_DI_VENCIDA_SEG)
+                if ahora - self._di_vencida_desde < _TOLERANCIA_DI_VENCIDA_SEG:
+                    # sin aporte de energía mientras no hay datos de entradas
+                    self.set_do.vapor_camara_off()
+                    self.set_do.vapor_chaqueta_off()
+                    return CicloResultado.EN_CURSO
+            if paro_real:
+                logger.error("CicloState: ABORTADO por paro de emergencia")
+                self.estado.fase_ciclo = "EMERGENCIA"
                 self._registrar_fallo(SIS_01, estado="Ciclo")
             else:
-                # U4: con el enlace hecho pero la trama DI vencida no se sabe
-                # si hay paro; el protocolo es el mismo (sin válvulas y con
-                # confirmación), pero la causa es la tarjeta, no SIS-01
+                # U4 / P-3: con el enlace hecho pero la trama DI vencida no se
+                # sabe si hay paro; el protocolo es el mismo (sin válvulas y con
+                # confirmación), pero la causa es la comunicación, no SIS-01
+                logger.error("CicloState: ABORTADO por trama DI vencida (fallo de comunicación)")
+                self.estado.fase_ciclo = "FALLO_CONEXION"
                 self._registrar_fallo(COM_03, origen="TARJETA_SIN_TRAMA_VALIDA",
                                       causa="TARJETA_SIN_TRAMA_VALIDA",
                                       motivo="Sin datos vigentes de las entradas de la tarjeta.",
@@ -589,9 +629,12 @@ class CicloState:
         # ── 4. Verificar sensores críticos ────────────────────────────
         # DECISIÓN SIN CONFIRMAR (tanda §1.1): una Referencia caída también
         # dispara SENSOR_AUSENTE → FALLO, igual que el Principal.
+        # SEN-01 de T2: un 0 del sensor de temperatura es "sin señal" (mismo
+        # criterio que estado_sensor y temp_seguridad)
         ausentes = [
             s for s in sensores_en_uso(self.cycle)
             if not lectura_valida(self.estado.sensores_temp.get(s))
+            or self.estado.sensores_temp.get(s) == 0
         ] + [
             s for s in _SENSORES_PRES_CRITICOS
             if not lectura_valida(self.estado.sensores_pres.get(s))

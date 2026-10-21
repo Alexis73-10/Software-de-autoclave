@@ -119,7 +119,8 @@ def _ciclo(flags):
 
 
 def test_paro_en_ciclo_apaga_sin_abrir_valvulas():
-    flags = {"PARO_EMERGENCIA": True}
+    # P-3 (tanda 6): paro real; la DI vencida tiene su tolerancia (test_t2_p3)
+    flags = {"PARO_EMERGENCIA": True, "PARO_REAL": True}
     ciclo, set_do = _ciclo(flags)
     assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
     ciclo._protocolo.ejecutar.assert_called_once_with(abrir_valvulas=False)
@@ -354,7 +355,7 @@ def test_puerta_no_abre_con_estado_seguro_activo():
 
 def test_paro_domina_sobre_la_cancelacion():
     # SAF-05
-    flags = {"PARO_EMERGENCIA": True, "CICLO_CANCELADO": True}
+    flags = {"PARO_EMERGENCIA": True, "PARO_REAL": True, "CICLO_CANCELADO": True}
     ciclo, _ = _ciclo(flags)
     ciclo.run()
     assert ciclo.estado.fase_ciclo == "EMERGENCIA"
