@@ -121,7 +121,8 @@ class ProtocoloFallo:
         T5): lo muestra el estado seguro como alarma. None si avanza."""
         if not self._ejecutado:
             return None
-        if self._solo_lenta and not lectura_valida(self._temp_principal()):
+        temp = self._temp_principal()
+        if self._solo_lenta and (not lectura_valida(temp) or temp == 0):
             return "Sensor Principal sin lectura: el estado seguro no puede confirmar la temperatura"
         if self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento" \
                 and not lectura_valida(self._temp_principal()):

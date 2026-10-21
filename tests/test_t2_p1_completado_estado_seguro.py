@@ -40,7 +40,7 @@ def test_completado_con_camara_caliente_inicia_estado_seguro():
     sm, estado, es = _sm(pres=101.3, temp=110.0)
     sm.update()
     assert estado.get_machine_state() == GlobalState.PREPARADO
-    sm.ciclo._protocolo.ejecutar.assert_called_once_with()
+    sm.ciclo._protocolo.ejecutar.assert_called_once_with(abrir_valvulas=True)
     es.iniciar.assert_called_once_with(sm.ciclo._protocolo)
 
 
@@ -82,3 +82,10 @@ def test_error_al_evaluar_cuenta_como_no_segura():
     sm.programas_seguridad = MagicMock(side_effect=RuntimeError("x"))
     sm.update()
     es.iniciar.assert_called_once()
+
+
+def test_sin_datos_vigentes_no_abre_valvulas():
+    # TMG-07 / SAF-04 de la revisión de T2
+    sm, estado, es = _sm(pres=101.3, temp=110.0)
+    sm.update(datos_vigentes=False)
+    sm.ciclo._protocolo.ejecutar.assert_called_once_with(abrir_valvulas=False)

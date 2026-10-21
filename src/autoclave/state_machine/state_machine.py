@@ -180,7 +180,11 @@ class StateMachine:
                 if not self._camara_segura_tras_ciclo(datos_vigentes):
                     logger.warning("StateMachine: COMPLETADO reconocido con la cámara no segura "
                                    "→ protocolo de estado seguro")
-                    self.ciclo._protocolo.ejecutar()
+                    # TMG-07 / SAF-04 de T2: con paro o sin datos vigentes, sin
+                    # válvulas; el estado seguro las abre al volver los datos
+                    abrir = (datos_vigentes is True
+                             and not self.estado.get_flag("PARO_EMERGENCIA"))
+                    self.ciclo._protocolo.ejecutar(abrir_valvulas=abrir)
                     self.estado_seguro.iniciar(self.ciclo._protocolo)
 
             elif resultado == "FALLO":

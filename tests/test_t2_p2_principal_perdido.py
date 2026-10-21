@@ -170,3 +170,12 @@ def test_start_principal_con_lectura_no_cambia(entorno):  # noqa: F811
     ctx.estado.get_flag.side_effect = lambda f: False
     r = client.post("/cycle/start")
     assert r.status_code == 409 and "PRINCIPAL_SIN_LECTURA" not in r.text
+
+
+def test_principal_en_cero_cuenta_como_perdido():
+    # SEN-01 de la revisión de T2
+    ciclo, estado, _ = _ciclo(_ASIG_REF, {"temp_camara": 0, "temp_ref": 120.0})
+    ciclo._fases[0].update = MagicMock()
+    ciclo.run()
+    assert estado.fase_ciclo == "SENSOR_AUSENTE"
+    ciclo._protocolo.ejecutar.assert_called_once_with(solo_lenta=True)
