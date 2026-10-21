@@ -43,7 +43,7 @@ Sin Críticos ni Altos. Nada de control, alarmas ni puertas importa el módulo.
 - **Medio SAF-02:** si las unidades cambiaban con la ventana de ajuste abierta, lo tecleado se interpretaba en la unidad nueva. **Corregido:** `aInterna` usa la unidad fijada al abrir la ventana, y un cambio de unidades descarta lo tecleado y lo avisa.
 - **Bajo SAF-03:** `rango_calentamiento` se usa como banda de temperatura y también de presión. **Ya no se convierte** (`SIN_CONVERSION`) y se muestra en su unidad original. Queda **PREGUNTA PARA CRISTIAN**: separarlo en dos parámetros.
 - **Bajo SAF-04:** las diferencias pequeñas se veían iguales. Ahora llevan un decimal más en °F y psi (dos en total).
-- **Pregunta 1:** ¿el sensor de chaqueta es absoluto o manométrico? Si es manométrico, `presion_chaqueta` mostrada en psig restaría dos veces la atmósfera. **PREGUNTA PARA CRISTIAN.**
+- ~~Pregunta 1 (chaqueta absoluta o manométrica)~~ **Resuelta** (decisión 1.2 de la tanda 6): el sensor de chaqueta es ABSOLUTO; lo fija `tests/test_c1d_chaqueta_absoluta.py`.
 - **Pregunta 2:** P_atm fuera de 50–110 kPa ahora se trata como ausente (en psi se muestra "—"; el backend devuelve null).
 - **Pregunta 3:** antes de convertir las lecturas en vivo (I2), conviene repetir esta revisión.
 
