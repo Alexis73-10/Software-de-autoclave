@@ -299,6 +299,8 @@ class preparado_state:
             # Sin entrada de suministro eléctrico declarada, no aplica (E1-1)
             not (entrada_requerida(self.profile, "suministro_electrico")
                  and self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")) and
+            # P-4 (tanda 6): ninguna alarma activa con bloquea_inicio
+            not self._alarma_bloquea_inicio() and
             # D-04 (fin de ciclo §5): no se inicia sin cámara segura; al final
             # para no saltar la actualización de las alarmas de las demás
             self.camara_segura()
@@ -309,6 +311,16 @@ class preparado_state:
             return True
 
         return False
+
+    def _alarma_bloquea_inicio(self) -> bool:
+        """P-4 (tanda 6): alguna alarma ACTIVA cuyo catálogo dice
+        bloquea_inicio (p. ej. TARJETA_WATCHDOG fuera de ciclo). Un error al
+        consultar bloquea (falla cerrada)."""
+        try:
+            return self.alarm_manager.has_blocking_alarm() is True
+        except Exception:
+            logger.exception("PREPARADO: no se pudo consultar las alarmas que bloquean el inicio")
+            return True
 
     def camara_segura(self) -> bool:
         programas = [self.cycle]
