@@ -511,6 +511,10 @@ class CicloState:
 
         # ── 0. ¿Pendiente de confirmación y ya confirmado? ────────────
         if self._resultado_pendiente is not None:
+            # P-7 (tanda 6): una cancelación que no llegó a procesarse (el
+            # ciclo terminó por otra causa) no queda puesta
+            if self.estado.get_flag("CICLO_CANCELADO"):
+                self.estado.set_flag("CICLO_CANCELADO", False)
             # TMG-04 (E3): el paro se evalúa también con el resultado pendiente.
             # Paro activo = ALL_OFF continuo; al liberarlo, salidas en 0 y sin
             # avance automático hasta la confirmación (fin de ciclo §15.1-2).

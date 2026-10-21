@@ -1777,16 +1777,21 @@ def abort_cycle():
     Activa la flag CICLO_CANCELADO; el CicloState ejecutará el
     protocolo de fallo en el siguiente tick del control loop.
     """
-    estado = context.estado
-
-    from autoclave.state_machine.machine.enum_global import GlobalState
-    if estado.get_machine_state() != GlobalState.CICLO:
-        raise HTTPException(
-            status_code=409,
-            detail="No hay un ciclo en curso"
-        )
-
-    estado.set_flag("CICLO_CANCELADO", True)
+    # P-7 (tanda 6): 409 con motivo cuando no tendría efecto (resultado ya
+    # pendiente o paro); el indicador no queda puesto
+    entidad = "/cycle/abort"
+    with guard_estado(frozenset(), entidad) as actual:
+        estado = context.estado
+        if actual != GlobalState.CICLO:
+            raise _Rechazo(409, "estado_no_permitido", "No hay un ciclo en curso")
+        if estado.get_flag("PARO_EMERGENCIA") is True:
+            raise _Rechazo(409, "paro_emergencia",
+                           _motivo_paro("Paro de emergencia activado: el ciclo ya se detuvo"))
+        fase = getattr(estado, "fase_ciclo", "")
+        if isinstance(fase, str) and progreso_ciclo.resultado(fase) is not None:
+            raise _Rechazo(409, "resultado_pendiente",
+                           "El ciclo ya terminó: confirme el resultado")
+        estado.set_flag("CICLO_CANCELADO", True)
     return {"ok": True, "action": "CICLO_CANCELADO"}
 
 
