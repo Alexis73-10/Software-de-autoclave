@@ -83,3 +83,10 @@ Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
 |---|---|---|---|---|
 | O2c-1 | DECISIÓN SIN CONFIRMAR. La hora mostrada es la del PC donde corre la UI (el mismo del backend en el equipo); el backend aporta zona, instalación y aviso. | Hora fluida sin sondear cada segundo | Tomarla del backend | `fecha_hora_controller.py` |
 | O2c-2 | DECISIÓN SIN CONFIRMAR. La fecha de instalación es `profile.created_at`, la misma que usa `clock_guard`. | Coherencia con M1-01 | Fecha propia de instalación | — |
+
+## O2d (Información del sistema)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| O2d-1 | DECISIÓN SIN CONFIRMAR. "Ciclos realizados" = mayor `numero_ciclo` de la base. | Mismo dato que el panel del Menú principal | Contador de M1 | `get_system_info` |
+| O2d-2 | DECISIÓN SIN CONFIRMAR. Red = hay IPv4 no loopback (sin probar Internet). El detalle de adaptadores y Wi-Fi es de O2g. | Sin dependencias ni privilegios | Consultar O2g | `_hay_red` |
+| O2d-3 | DECISIÓN SIN CONFIRMAR. `GET /system/info` sin token (no expone secretos; serie y modelo ya están en el ticket). | Todos los roles lo ven | Exigir sesión | — |
