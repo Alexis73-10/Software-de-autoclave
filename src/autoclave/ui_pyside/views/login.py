@@ -171,6 +171,9 @@ class LoginView(QWidget):
         if cfg.value("login/remember", False, type=bool):
             self._username[1].setText(cfg.value("login/last_user", ""))
             self._remember.setChecked(True)
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     # ── Construcción de campos con icono ─────────────────────────────
 

@@ -104,6 +104,9 @@ class SecadoView(QWidget):
         layout.addWidget(btn_save)
 
         layout.addStretch()
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     def _on_modo_changed(self, value: int) -> None:
         self._modo3_widget.setVisible(value == 3)

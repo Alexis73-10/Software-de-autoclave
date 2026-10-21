@@ -136,6 +136,7 @@
     "equipo_err_guardar": "The equipment settings could not be saved.",
     "nuevo_usuario": "New user",
     "sin_secciones": "Your profile has no sections available",
+    "solo_lectura_rol": "Read only: your role can view this section but not change it",
     "edicion_bloqueada": "Editing locked: cycle in progress",
     "salir_pregunta": "There are unsaved changes. Exit and discard them?",
     "salir_confirmar": "Exit",
@@ -575,7 +576,9 @@
     "confirmar_clave_nueva": "Confirm new password",
     "boton_cambiar_clave": "CHANGE PASSWORD",
     "sin_bd": "Database not available: login is not possible. Options, calibration and users are not available. Cycles can be started without an operator from the main menu.",
-    "continuar_sin_operador": "Continue without operator"
+    "continuar_sin_operador": "Continue without operator",
+    "vencida_titulo": "Session expired",
+    "vencida_mensaje": "The session expired. Enter username (technician or engineer) and password."
   },
   "usuarios": {
     "titulo_nuevo": "NEW USER",
