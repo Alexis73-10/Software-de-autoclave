@@ -61,7 +61,7 @@
             "rango_calentamiento": { "value": 2.0, "type": "float", "unit": "kPa", "min": 0, "max": 30 },
             "tasa_calentamiento": { "value": 50.0, "type": "float", "unit": "°C/min", "min": 0, "max": 100 },
             "tasa_presion": { "value": 100.0, "type": "float", "unit": "kPa/min", "min": 0, "max": 300 },
-            "tiempo_estable_preesterilizacion": { "value": 3, "type":"int", "unit": "seg", "min": 0, "max": 180 },
+            "tiempo_estable_preesterilizacion": { "value": 3, "type":"int", "unit": "seg", "min": 0, "max": 1800 },
             "intervalo_segmentos_calor": { "value": 2, "type": "int", "unit": "seg", "min": 0, "max": 30 },
             "escape_lento_on": { "value": 1, "type": "int", "unit": "seg", "min": 0, "max": 1000 },
             "escape_lento_off": { "value": 0, "type": "int", "unit": "seg", "min": 0, "max": 1000 },
