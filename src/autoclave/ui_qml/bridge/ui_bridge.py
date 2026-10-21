@@ -13,6 +13,7 @@ from PySide6.QtCore import (
     Property, QAbstractListModel, QByteArray, QModelIndex, QObject, QTimer, Qt, Signal,
 )
 
+from autoclave.ui_qml.domain import entradas_mostradas
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
 ESTADO_DESCONOCIDO = "DESCONOCIDO"
@@ -134,6 +135,7 @@ class UiBridge(QObject):
     listoParaCicloChanged = Signal()
     datosCicloChanged = Signal()
     seguridadChanged = Signal()
+    entradasChanged = Signal()
 
     def __init__(self, ui_service, door: int, parent=None, intervalo_ms: int = 500, iniciar: bool = True):
         super().__init__(parent)
@@ -146,6 +148,7 @@ class UiBridge(QObject):
         self._listo = False
         self._estado_equipo = estado_equipo(None, False)
         self._datos_ciclo = self._datos(None, None, None, None)
+        self._entradas = self._entradas_de(None, {})
         self._alarms = AlarmListModel(self)
         # E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
         self._seguridad = self._seguridad_de({})
@@ -169,6 +172,18 @@ class UiBridge(QObject):
             "presion_unidad": dominio.simbolo_presion(pres),
             "temp_unidad": dominio.simbolo_temperatura(),
         }
+
+    @staticmethod
+    def _entradas_de(ciclo, sensors) -> dict:
+        """O3 (tanda 6): filas de las entradas mostradas del programa y las
+        series de la gráfica, en la unidad vigente (U1)."""
+        t, p, p_atm = dominio._vigentes()
+        lista = ciclo.get("entradas_mostradas") if isinstance(ciclo, dict) else None
+        no_en_uso = ciclo.get("entradas_no_en_uso") if isinstance(ciclo, dict) else None
+        if not isinstance(no_en_uso, list):
+            no_en_uso = []
+        return {"filas": entradas_mostradas.construir(lista, sensors, no_en_uso, t, p, p_atm),
+                "series": entradas_mostradas.series_grafica(lista, t, p)}
 
     def detener(self) -> None:
         self._timer.stop()
@@ -199,6 +214,11 @@ class UiBridge(QObject):
                             temps.get("temp_ref"),
                             self._ui.get_sensores_pres().get("pres_camara"))
         self._fijar("_datos_ciclo", datos, self.datosCicloChanged)
+        try:
+            sensors = self._ui.get_campo("sensors", {})
+        except Exception:
+            sensors = {}
+        self._fijar("_entradas", self._entradas_de(ciclo, sensors), self.entradasChanged)
         self._fijar("_seguridad", self._seguridad_de({
             "no_abrir": self._ui.get_campo("no_abrir", True),
             "motivo": self._ui.get_campo("camara_segura_motivo", ""),
@@ -346,6 +366,16 @@ class UiBridge(QObject):
     @Property(str, notify=datosCicloChanged)
     def presionCamara(self) -> str:
         return self._datos_ciclo["presion_camara"]
+
+    @Property("QVariantList", notify=entradasChanged)
+    def entradasMostradas(self) -> list:
+        """O3: [{clave, tipo, valor, unidad, enUso}] del programa (1 a 3)."""
+        return self._entradas["filas"]
+
+    @Property("QVariantList", notify=entradasChanged)
+    def seriesGrafica(self) -> list:
+        """O3: [{clave, entrada, color, eje, unidad, registrada}] para GraficaCiclo."""
+        return self._entradas["series"]
 
     @Property(str, notify=datosCicloChanged)
     def presionUnidad(self) -> str:
