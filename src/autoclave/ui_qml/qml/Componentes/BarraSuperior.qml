@@ -1,5 +1,6 @@
 import QtQuick
 import Tema
+import Autoclave.I18n
 
 // Barra superior común a casi todas las pantallas (06_MEDIDAS: 1080x176 en el diseño).
 Rectangle {
@@ -19,7 +20,9 @@ Rectangle {
 
     // Reloj en vivo: formato manual (no Qt.locale) para no depender de que el
     // sistema tenga datos de localización en español instalados.
-    property var _meses: ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
+    // I2 (tanda 5): meses del catálogo, en el idioma vigente
+    readonly property var _meses: I18n.valor("fecha.meses", I18n.lang)
+                                  || ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"]
     property date _ahora: new Date()
     Timer { interval: 1000; running: true; repeat: true; onTriggered: raiz._ahora = new Date() }
 

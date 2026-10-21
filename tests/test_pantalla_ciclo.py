@@ -102,7 +102,8 @@ def test_respuesta_de_ciclo_mal_formada_da_todo_sin_dato():
 # ── GET /status ──────────────────────────────────────────────────────────
 
 def test_lecturas_de_status_extrae_temp_y_presion_de_camara():
-    assert lecturas_de_status(_status()) == {"temp_camara": "085.0", "presion_camara": "100.8"}
+    assert lecturas_de_status(_status()) == {"temp_camara": "085.0", "presion_camara": "100.8",
+                                             "presion_unidad": "kPa", "temp_unidad": "°C"}
 
 
 def test_sensor_de_camara_ausente_se_muestra_sin_dato():
@@ -113,4 +114,18 @@ def test_sensor_de_camara_ausente_se_muestra_sin_dato():
 
 def test_status_mal_formado_da_todo_sin_dato():
     for malo in (None, {}, {"sensors": []}, {"sensors": {"temperature": 5}}):
-        assert set(lecturas_de_status(malo).values()) == {SIN_DATO}
+        datos = lecturas_de_status(malo)
+        assert {datos["temp_camara"], datos["presion_camara"]} == {SIN_DATO}
+
+
+def test_lecturas_en_fahrenheit_y_psig_inhg(monkeypatch):
+    """I2 (tanda 5): las lecturas en vivo siguen a Unidades (U1)."""
+    from autoclave.ui_qml.domain import pantalla_ciclo as pc
+    monkeypatch.setattr(pc, "_vigentes", lambda: ("F", "psi", 74.6))
+    d = lecturas_de_status(_status())
+    assert d["temp_camara"] == "185.0" and d["temp_unidad"] == "°F"
+    assert d["presion_unidad"] == "psig"
+    vacio = lecturas_de_status(_status(pres=40.0))
+    assert vacio["presion_unidad"] == "inHg" and float(vacio["presion_camara"]) > 0
+    monkeypatch.setattr(pc, "_vigentes", lambda: ("C", "psi", None))
+    assert lecturas_de_status(_status())["presion_camara"] == SIN_DATO

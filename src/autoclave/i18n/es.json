@@ -379,6 +379,7 @@
     "fallo": "Fallo"
   },
   "acciones": {
+    "descartar": "Descartar",
     "guardar": "Guardar cambios",
     "guardar_usuario": "Guardar usuario",
     "cancelar": "Cancelar",
@@ -548,6 +549,8 @@
     "tarjeta_sin_datos_valores": "La tarjeta de E/S no envía datos válidos. Los valores mostrados no están actualizados."
   },
   "sesion": {
+    "titulo_login": "LOGIN",
+    "subtitulo_login": "Inicie sesión para continuar",
     "campos_vacios": "Ingrese usuario y contraseña",
     "credenciales_invalidas": "Usuario o contraseña incorrectos",
     "usuario_bloqueado": "Usuario bloqueado por intentos fallidos. Intente de nuevo en {tiempo}",
@@ -572,6 +575,12 @@
     "continuar_sin_operador": "Continuar sin operador"
   },
   "usuarios": {
+    "titulo_nuevo": "NUEVO USUARIO",
+    "marcador_nombre": "Nombres y apellidos",
+    "marcador_clave": "Ingresar contraseña",
+    "seleccione_rol": "Seleccione rol",
+    "descartar_titulo": "¿Descartar datos?",
+    "descartar_mensaje": "Los datos capturados se perderán.",
     "sin_permiso": "Su rol no puede crear usuarios",
     "guardado_error": "No se pudo guardar el usuario",
     "rol_no_creable": "Su rol no puede crear usuarios con ese rol",
@@ -964,152 +973,152 @@
   },
   "parametros_desc": {
     "globals": {
-      "F0": "Activa el cálculo de letalidad (F0): la esterilización termina solo cuando se cumplen tanto el tiempo como el F0 objetivo. F0 se expresa en minutos equivalentes a 121,1 °C.",
-      "F0_objetivo": "Letalidad acumulada mínima (F0, en minutos) que debe alcanzarse para dar por válida la esterilización.",
-      "ciclos_multiples": "Permite encadenar varios ciclos seguidos sin volver al menú entre uno y otro.",
-      "enfriar_chaqueta_secado": "Enfría la chaqueta durante el secado al terminar el ciclo.",
-      "presion_chaqueta": "Presión que se mantiene en la chaqueta antes de iniciar y durante el ciclo.",
-      "rango_presion_chaqueta": "Tolerancia (±) alrededor de la presión de chaqueta; fuera de ella se genera una alerta y no se permite iniciar.",
-      "tipo_carga": "Tipo de carga del ciclo: sólida o líquida. Limita los modos de descompresión permitidos."
+      "F0": "Habilita el cálculo de letalidad F0 (T ref. 121,1 °C, z = 10 °C) con la sonda Principal; acumula durante Calentamiento y Esterilización. Activo, la Esterilización termina solo cuando se cumplen tanto «Tiempo esterilizacion» como «F0 objetivo»; si el F0 no se alcanza en 2 × «Tiempo esterilizacion», el ciclo falla. Solo tiene efecto en equipos de laboratorio.",
+      "F0_objetivo": "F0 mínimo, en minutos equivalentes a 121,1 °C, que debe acumular la sonda Principal para cerrar la Esterilización. Incluye lo acumulado durante el Calentamiento. Solo se evalúa con «F0» activo.",
+      "ciclos_multiples": "Sin efecto en esta versión: ningún módulo del control lee este parámetro. Se conserva por compatibilidad del archivo de programa.",
+      "enfriar_chaqueta_secado": "Sin efecto en esta versión: ningún módulo del control lee este parámetro. Se conserva por compatibilidad del archivo de programa.",
+      "presion_chaqueta": "Consigna de presión absoluta de la chaqueta. En preparación, el vapor de chaqueta abre por debajo de la consigna y el equipo queda listo solo dentro de ± «Rango presion chaqueta». Durante el ciclo se regula por histéresis: abre bajo consigna − rango y cierra sobre consigna + rango. No rige en Secado (usa «Presion chaqueta secado») ni en el enfriamiento de los modos 4 y 5 de descompresión, donde el vapor de chaqueta queda cerrado.",
+      "rango_presion_chaqueta": "Semiancho (±) de la banda alrededor de «Presion chaqueta». En preparación, fuera de la banda se activa la alarma PRE-01 (baja) o PRE-02 (alta) y no se permite iniciar el ciclo. Durante el ciclo define la histéresis del control: el vapor abre bajo consigna − rango y cierra sobre consigna + rango. Mínimo 1 kPa.",
+      "tipo_carga": "Sólido o líquido. Con líquido, el programa solo se acepta si: la descompresión es modo 4 o 5, no hay pulsos de prevacío, «Tiempo secado» = 0, la apertura automática está desactivada y «Presion camara enfriamiento» ≥ Psat(«Temperatura esterilizacion») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento."
     },
     "precalentamiento": {
-      "tiempo_precalentamiento": "Tiempo que se sostiene la chaqueta caliente antes de pasar a la fase de vacío.",
-      "presion_precalentamiento": "Presión de chaqueta que se debe alcanzar y sostener durante el precalentamiento.",
-      "timeout_precalentamiento": "Tiempo máximo del precalentamiento; si se excede, el ciclo falla."
+      "tiempo_precalentamiento": "Tiempo, en minutos, que se sostiene la chaqueta en «Presion precalentamiento» una vez alcanzada. El conteo no se reinicia si la presión cae durante el sostenimiento. Es la primera fase del ciclo. 0 = fase omitida.",
+      "presion_precalentamiento": "Presión absoluta de chaqueta que se debe alcanzar para iniciar el sostenimiento. Durante el sostenimiento el control es todo/nada sin histéresis: vapor de chaqueta abierto por debajo de este valor y cerrado en o por encima de él.",
+      "timeout_precalentamiento": "Tiempo máximo, en minutos, de toda la fase, contado desde su inicio e incluido el sostenimiento. Si vence antes de completarla, el ciclo falla. Debe ser mayor que «Tiempo precalentamiento» más el tiempo que tarda la chaqueta en llegar a la presión."
     },
     "prevacio": {
-      "timeout_bajo": "Tiempo máximo para llegar a la presión baja de un pulso; si se excede, el ciclo falla.",
-      "timeout_alto": "Tiempo máximo para llegar a la presión alta de un pulso; si se excede, el ciclo falla.",
-      "conteo_pulso_a": "Cantidad de repeticiones del pulso A (0 = el pulso no se ejecuta).",
-      "presion_alta_pulso_a": "Presión a la que se sube la cámara con vapor en cada repetición del pulso A.",
-      "tiempo_adicional_alto_a": "Segundos adicionales durante los que se sostiene la presión alta del pulso A.",
-      "presion_baja_pulso_a": "Presión de vacío a la que se baja la cámara en cada repetición del pulso A.",
-      "tiempo_adicional_bajo_a": "Segundos adicionales durante los que se sostiene el vacío del pulso A.",
-      "conteo_pulso_b": "Cantidad de repeticiones del pulso B (0 = el pulso no se ejecuta).",
-      "presion_alta_pulso_b": "Presión a la que se sube la cámara con vapor en cada repetición del pulso B.",
-      "tiempo_adicional_alto_b": "Segundos adicionales durante los que se sostiene la presión alta del pulso B.",
-      "presion_baja_pulso_b": "Presión de vacío a la que se baja la cámara en cada repetición del pulso B.",
-      "tiempo_adicional_bajo_b": "Segundos adicionales durante los que se sostiene el vacío del pulso B.",
-      "conteo_pulso_c": "Cantidad de repeticiones del pulso C (0 = el pulso no se ejecuta).",
-      "presion_alta_pulso_c": "Presión a la que se sube la cámara con vapor en cada repetición del pulso C.",
-      "tiempo_adicional_alto_c": "Segundos adicionales durante los que se sostiene la presión alta del pulso C.",
-      "presion_baja_pulso_c": "Presión de vacío a la que se baja la cámara en cada repetición del pulso C.",
-      "tiempo_adicional_bajo_c": "Segundos adicionales durante los que se sostiene el vacío del pulso C.",
-      "conteo_pulso_d": "Cantidad de repeticiones del pulso D (0 = el pulso no se ejecuta).",
-      "presion_alta_pulso_d": "Presión a la que se sube la cámara con vapor en cada repetición del pulso D.",
-      "tiempo_adicional_alto_d": "Segundos adicionales durante los que se sostiene la presión alta del pulso D.",
-      "presion_baja_pulso_d": "Presión de vacío a la que se baja la cámara en cada repetición del pulso D.",
-      "tiempo_adicional_bajo_d": "Segundos adicionales durante los que se sostiene el vacío del pulso D."
+      "timeout_bajo": "Tiempo máximo, en minutos, para que la cámara baje hasta la presión baja del pulso, contado desde que arrancan la bomba y la válvula de vacío. Se reinicia en cada pulso. Si vence, el ciclo falla.",
+      "timeout_alto": "Tiempo máximo, en minutos, para que la cámara suba hasta la presión alta del pulso, contado desde la apertura del vapor. Se reinicia en cada pulso. Si vence, el ciclo falla.",
+      "conteo_pulso_a": "Número de pulsos tipo A. Los tipos se ejecutan en orden A → B → C → D, cada uno con sus propias presiones y esperas. Cada pulso: (1) si la cámara está sobre P_atm + rango atmosférico, escape rápido hasta bajar a ese valor; (2) bomba y válvula de vacío hasta la presión baja; (3) vapor a cámara con el escape lento abierto hasta la presión alta. 0 = tipo omitido. La fase completa se omite en equipos sin bomba de vacío.",
+      "presion_alta_pulso_a": "Presión absoluta a la que se lleva la cámara inyectando vapor, con el escape lento abierto en paralelo, en cada pulso A. Valores por debajo de la atmosférica (≈101 kPa abs.) producen pulsos subatmosféricos.",
+      "tiempo_adicional_alto_a": "Segundos que el vapor y el escape lento siguen abiertos después de alcanzar la presión alta del pulso A. No hay regulación durante esta espera: la presión puede seguir subiendo. 0 = sin espera.",
+      "presion_baja_pulso_a": "Presión absoluta de vacío que debe alcanzar la cámara en cada pulso A. La bomba y la válvula de vacío trabajan hasta llegar a este valor.",
+      "tiempo_adicional_bajo_a": "Segundos que la bomba y la válvula de vacío siguen funcionando después de alcanzar la presión baja del pulso A, antes de inyectar vapor. 0 = sin espera.",
+      "conteo_pulso_b": "Número de pulsos tipo B; se ejecutan después de los tipos anteriores, con la misma secuencia descrita en «Conteo pulso a». 0 = tipo omitido.",
+      "presion_alta_pulso_b": "Presión absoluta a la que se lleva la cámara inyectando vapor, con el escape lento abierto en paralelo, en cada pulso B. Valores por debajo de la atmosférica (≈101 kPa abs.) producen pulsos subatmosféricos.",
+      "tiempo_adicional_alto_b": "Segundos que el vapor y el escape lento siguen abiertos después de alcanzar la presión alta del pulso B. No hay regulación durante esta espera: la presión puede seguir subiendo. 0 = sin espera.",
+      "presion_baja_pulso_b": "Presión absoluta de vacío que debe alcanzar la cámara en cada pulso B. La bomba y la válvula de vacío trabajan hasta llegar a este valor.",
+      "tiempo_adicional_bajo_b": "Segundos que la bomba y la válvula de vacío siguen funcionando después de alcanzar la presión baja del pulso B, antes de inyectar vapor. 0 = sin espera.",
+      "conteo_pulso_c": "Número de pulsos tipo C; se ejecutan después de los tipos anteriores, con la misma secuencia descrita en «Conteo pulso a». 0 = tipo omitido.",
+      "presion_alta_pulso_c": "Presión absoluta a la que se lleva la cámara inyectando vapor, con el escape lento abierto en paralelo, en cada pulso C. Valores por debajo de la atmosférica (≈101 kPa abs.) producen pulsos subatmosféricos.",
+      "tiempo_adicional_alto_c": "Segundos que el vapor y el escape lento siguen abiertos después de alcanzar la presión alta del pulso C. No hay regulación durante esta espera: la presión puede seguir subiendo. 0 = sin espera.",
+      "presion_baja_pulso_c": "Presión absoluta de vacío que debe alcanzar la cámara en cada pulso C. La bomba y la válvula de vacío trabajan hasta llegar a este valor.",
+      "tiempo_adicional_bajo_c": "Segundos que la bomba y la válvula de vacío siguen funcionando después de alcanzar la presión baja del pulso C, antes de inyectar vapor. 0 = sin espera.",
+      "conteo_pulso_d": "Número de pulsos tipo D; se ejecutan después de los tipos anteriores, con la misma secuencia descrita en «Conteo pulso a». 0 = tipo omitido.",
+      "presion_alta_pulso_d": "Presión absoluta a la que se lleva la cámara inyectando vapor, con el escape lento abierto en paralelo, en cada pulso D. Valores por debajo de la atmosférica (≈101 kPa abs.) producen pulsos subatmosféricos.",
+      "tiempo_adicional_alto_d": "Segundos que el vapor y el escape lento siguen abiertos después de alcanzar la presión alta del pulso D. No hay regulación durante esta espera: la presión puede seguir subiendo. 0 = sin espera.",
+      "presion_baja_pulso_d": "Presión absoluta de vacío que debe alcanzar la cámara en cada pulso D. La bomba y la válvula de vacío trabajan hasta llegar a este valor.",
+      "tiempo_adicional_bajo_d": "Segundos que la bomba y la válvula de vacío siguen funcionando después de alcanzar la presión baja del pulso D, antes de inyectar vapor. 0 = sin espera."
     },
     "calentamiento": {
-      "temperatura_calentamiento": "Temperatura objetivo al final de la rampa de calentamiento.",
-      "presion_add_calentamiento": "Presión adicional sobre la de saturación que se permite como techo durante la rampa.",
-      "timeout_calentamiento": "Tiempo máximo de la rampa de calentamiento; si se excede, el ciclo falla.",
-      "factor_calentamiento": "Porcentaje de reducción del vapor al acercarse a los objetivos para evitar sobreimpulso.",
-      "rango_calentamiento": "Distancia al objetivo desde la cual se reduce el vapor; también define cuánto sobreimpulso se tolera.",
-      "tasa_calentamiento": "Velocidad máxima de subida de temperatura permitida.",
-      "tasa_presion": "Velocidad máxima de subida de presión permitida.",
-      "tiempo_estable_preesterilizacion": "Tiempo continuo dentro de rango que se exige antes de pasar a esterilización.",
-      "intervalo_segmentos_calor": "Periodo del ciclo de apertura/cierre del vapor durante el calentamiento.",
-      "escape_lento_on": "Segundos que el escape lento permanece abierto en cada repetición.",
-      "escape_lento_off": "Segundos que el escape lento permanece cerrado (0 = siempre abierto).",
-      "escape_rapido_on": "Segundos que el escape rápido permanece abierto en cada repetición (0 = siempre cerrado).",
-      "escape_rapido_off": "Segundos que el escape rápido permanece cerrado entre aperturas.",
-      "rango_temp_estabilizacion": "Margen de temperatura en el que se considera estable la cámara antes de esterilizar.",
-      "timeout_recuperacion_estabilizacion": "Tiempo máximo para recuperar la estabilidad si se sale de rango."
+      "temperatura_calentamiento": "Temperatura objetivo (T_obj) de la sonda Principal al final del calentamiento. De ella se deriva la presión objetivo P_obj = Psat(T_obj) + «Presion add calentamiento». La fase pasa a la ventana de estabilidad cuando T ≥ T_obj y P ≥ P_obj. Normalmente igual a «Temperatura esterilizacion».",
+      "presion_add_calentamiento": "Sobrepresión (p_add) sobre Psat(T_obj) que fija P_obj = Psat(T_obj) + p_add. Se usa en tres puntos: (1) techo absoluto: con P ≥ Psat(T_obj) + 2·p_add se corta el vapor; (2) banda de estabilidad: P_obj ≤ P ≤ P_obj + p_add; (3) verificación de vapor saturado: con T ≥ 0,97·T_obj se exige P ≥ Psat(T) + p_add o se corta el vapor.",
+      "timeout_calentamiento": "Tiempo máximo, en minutos, de toda la fase (rampa y ventana de estabilidad), contado desde su inicio. Si vence, el ciclo falla.",
+      "factor_calentamiento": "Reducción, en %, del ciclo de trabajo (duty) del vapor al llegar al objetivo. Dentro de «Rango calentamiento» el duty baja linealmente de 100 % a (100 − factor) % en el objetivo; pasado el objetivo cae a 0 % al superarlo en «Rango calentamiento». 0 = sin reducción antes del objetivo.",
+      "rango_calentamiento": "Distancia al objetivo a partir de la cual empieza la reducción del vapor (ver «Factor calentamiento») y sobrepaso con el que el vapor llega a 0 %. El mismo valor numérico se aplica a temperatura (°C, contra T_obj) y a presión (kPa, contra P_obj); rige la más restrictiva.",
+      "tasa_calentamiento": "Pendiente máxima de subida de la temperatura de la sonda Principal, en °C/min, medida sobre una ventana de 10 s. Si se excede, el duty del vapor se escala por tasa máxima / tasa medida. Solo limita, no genera fallo. 0 = sin límite.",
+      "tasa_presion": "Pendiente máxima de subida de la presión de cámara, en kPa/min, medida sobre una ventana de 10 s. Si se excede, el duty del vapor se escala por tasa máxima / tasa medida. Solo limita, no genera fallo. 0 = sin límite.",
+      "tiempo_estable_preesterilizacion": "Segundos continuos en que deben cumplirse a la vez: T_obj ≤ T Principal ≤ T_obj + «Rango temp estabilizacion»; P_obj ≤ P ≤ P_obj + «Presion add calentamiento»; y todas las Referencias ≥ T_obj. Si alguna condición se pierde, el conteo se reinicia. Al completarse pasa a Esterilización. 0 = pasa en cuanto se cumplen.",
+      "intervalo_segmentos_calor": "Periodo, en segundos, del PWM de la válvula de vapor de cámara: abierta duty × periodo y cerrada el resto. 0 = sin PWM: abierta con duty > 0 y cerrada con duty = 0.",
+      "escape_lento_on": "Segundos que el escape lento permanece abierto en cada ciclo de su temporizador. El temporizador corre durante toda la fase, en paralelo e independiente del control de vapor. 0 = siempre cerrado (si el tiempo cerrado es mayor que 0).",
+      "escape_lento_off": "Segundos que el escape lento permanece cerrado en cada ciclo de su temporizador. 0 = siempre abierto durante toda la fase (prevalece sobre el tiempo abierto).",
+      "escape_rapido_on": "Segundos que el escape rápido permanece abierto en cada ciclo de su temporizador. El temporizador corre durante toda la fase, en paralelo e independiente del control de vapor. 0 = siempre cerrado (si el tiempo cerrado es mayor que 0).",
+      "escape_rapido_off": "Segundos que el escape rápido permanece cerrado en cada ciclo de su temporizador. 0 = siempre abierto durante toda la fase (prevalece sobre el tiempo abierto).",
+      "rango_temp_estabilizacion": "Margen sobre T_obj admitido en la ventana de estabilidad: la sonda Principal debe estar entre T_obj y T_obj + este valor. Solo hacia arriba; por debajo de T_obj la ventana se reinicia. Mínimo 0,1 °C.",
+      "timeout_recuperacion_estabilizacion": "Tiempo máximo, en minutos, para volver a la banda de estabilidad cuando se sale de ella después de haber entrado. Se inicia al salir de la banda y se cancela al volver. Si vence, el ciclo falla."
     },
     "estabilizacion": {
-      "tiempo_estabilizacion": "Tiempo que la cámara debe mantenerse estable antes de esterilizar.",
-      "temperatura_estabilizacion": "Temperatura objetivo de la estabilización.",
-      "rango_temperatura_estabilizacion": "Margen de temperatura (±) admitido durante la estabilización.",
-      "rango_presion_estabilizacion": "Margen de presión (±) admitido durante la estabilización.",
-      "timeout_recuperacion": "Tiempo máximo para volver a rango antes de declarar una falla."
+      "tiempo_estabilizacion": "Sin efecto en esta versión: la estabilización se integró en Calentamiento. El equivalente es «Tiempo estable preesterilizacion».",
+      "temperatura_estabilizacion": "Sin efecto en esta versión: la estabilización se integró en Calentamiento. El equivalente es «Temperatura calentamiento».",
+      "rango_temperatura_estabilizacion": "Sin efecto en esta versión: la estabilización se integró en Calentamiento. El equivalente es «Rango temp estabilizacion».",
+      "rango_presion_estabilizacion": "Sin efecto en esta versión: la estabilización se integró en Calentamiento. La banda de presión la fija «Presion add calentamiento».",
+      "timeout_recuperacion": "Sin efecto en esta versión: la estabilización se integró en Calentamiento. El equivalente es «Timeout recuperacion estabilizacion»."
     },
     "esterilizacion": {
-      "escape_lento_on_ester": "Segundos que el escape lento permanece abierto en cada repetición durante la esterilización.",
-      "escape_lento_off_ester": "Segundos que el escape lento permanece cerrado (0 = siempre abierto).",
-      "escape_rapido_on_ester": "Segundos que el escape rápido permanece abierto en cada repetición (0 = siempre cerrado).",
-      "escape_rapido_off_ester": "Segundos que el escape rápido permanece cerrado entre aperturas.",
-      "temperatura_esterilizacion": "Temperatura de referencia que se sostiene durante toda la esterilización.",
-      "tiempo_esterilizacion": "Duración del mantenimiento a la temperatura de esterilización.",
-      "factor_esterilizacion": "Porcentaje del periodo en que el vapor permanece cerrado mientras la presión está dentro de banda.",
-      "presion_add_esterilizacion": "Presión sobre la de saturación a partir de la cual se corta el vapor (techo de control).",
-      "intervalo_segmentos_ester": "Periodo del ciclo de apertura/cierre del vapor durante la esterilización.",
-      "rango_temperatura_ester": "Sobretemperatura máxima admitida; por encima el ciclo falla.",
-      "rango_presion_ester": "Sobrepresión máxima admitida sobre la de saturación; por encima el ciclo falla.",
-      "brecha_segura_temperatura": "Margen sobre la temperatura objetivo para pasar de recuperación a control fino.",
-      "brecha_error_temperatura": "Caída de temperatura bajo el objetivo que se considera falla.",
-      "brecha_error_presion": "Caída de presión bajo la de saturación que se considera falla.",
-      "brecha_segura_presion": "Caída de presión que activa la recuperación; debe ser menor que la de falla."
+      "escape_lento_on_ester": "Segundos que el escape lento permanece abierto en cada ciclo de su temporizador. El temporizador corre durante toda la fase, en paralelo e independiente del control de vapor. 0 = siempre cerrado (si el tiempo cerrado es mayor que 0).",
+      "escape_lento_off_ester": "Segundos que el escape lento permanece cerrado en cada ciclo de su temporizador. 0 = siempre abierto durante toda la fase (prevalece sobre el tiempo abierto).",
+      "escape_rapido_on_ester": "Segundos que el escape rápido permanece abierto en cada ciclo de su temporizador. El temporizador corre durante toda la fase, en paralelo e independiente del control de vapor. 0 = siempre cerrado (si el tiempo cerrado es mayor que 0).",
+      "escape_rapido_off_ester": "Segundos que el escape rápido permanece cerrado en cada ciclo de su temporizador. 0 = siempre abierto durante toda la fase (prevalece sobre el tiempo abierto).",
+      "temperatura_esterilizacion": "Temperatura de esterilización (T_est) de la sonda Principal. Es la referencia fija de todos los límites de la fase: fallo por temperatura alta o baja, fallo por presión alta o baja (contra Psat(T_est)), umbral de recuperación y techo de control. Las Referencias fuera de [T_est − «Brecha error temperatura», T_est + «Rango temperatura ester»] generan el aviso CIC-09 sin hacer fallar el ciclo.",
+      "tiempo_esterilizacion": "Duración de la meseta, en minutos. El conteo arranca al entrar en la fase y no se pausa ni se reinicia, aunque el control pase a recuperación; la protección queda a cargo de los límites de fallo. Con «F0» activo, además debe alcanzarse «F0 objetivo».",
+      "factor_esterilizacion": "Fracción, en %, del periodo PWM en que la válvula de vapor permanece cerrada mientras la presión está dentro de la banda local Psat(T Principal) −2/+1 kPa. Bajo la banda el vapor abre continuo y sobre ella cierra. Solo actúa fuera de recuperación. 0 = abierta todo el periodo; 100 = cerrada.",
+      "presion_add_esterilizacion": "Techo de control: con P ≥ Psat(T_est) + este valor el vapor se cierra, sin importar la banda local. No aplica en recuperación, donde el vapor abre continuo. Debe ser menor que «Rango presion ester» para que el control actúe antes del fallo.",
+      "intervalo_segmentos_ester": "Periodo, en segundos, del PWM de vapor dentro de la banda local. 0 = vapor abierto continuo dentro de la banda; solo lo cierran el límite superior de la banda y el techo de control.",
+      "rango_temperatura_ester": "Sobretemperatura admitida: si la sonda Principal supera T_est + este valor durante 3 lecturas consecutivas, el ciclo falla. También es el límite superior del aviso de uniformidad de las Referencias.",
+      "rango_presion_ester": "Sobrepresión admitida: si la presión de cámara supera Psat(T_est) + este valor durante 3 lecturas consecutivas, el ciclo falla.",
+      "brecha_segura_temperatura": "Margen sobre T_est que separa la recuperación del control fino. Con T Principal < T_est + este valor (o presión bajo el umbral de «Brecha segura presion») el vapor abre continuo; por encima pasa a PWM. Un valor mayor da más reserva térmica y más sobretemperatura media.",
+      "brecha_error_temperatura": "Caída admitida bajo T_est: si la sonda Principal baja de T_est − este valor durante 3 lecturas consecutivas, el ciclo falla. También es el límite inferior del aviso de uniformidad de las Referencias.",
+      "brecha_error_presion": "Caída admitida bajo Psat(T_est): si la presión de cámara baja de Psat(T_est) − este valor durante 3 lecturas consecutivas, el ciclo falla.",
+      "brecha_segura_presion": "Caída bajo Psat(T_est) que activa la recuperación (vapor abierto continuo) aunque la temperatura esté en rango; compensa la pérdida de presión por el escape lento. Debe ser menor que «Brecha error presion»."
     },
     "secado": {
-      "modo": "Forma de secar la carga: 1, 2 o 3 según el equipo.",
-      "tiempo_secado": "Duración total del secado.",
-      "presion_chaqueta_secado": "Presión de chaqueta que se mantiene durante el secado.",
-      "rango_chaqueta_secado": "Tolerancia (±) de la presión de chaqueta durante el secado.",
-      "presion_baja_secado": "Presión baja de la cámara en cada pulso de vacío del secado.",
-      "presion_alta_secado": "Presión alta de la cámara en cada pulso del secado.",
-      "timeout_pulso": "Tiempo máximo de cada pulso de secado; si se excede, el ciclo falla."
+      "modo": "1 = vacío continuo: bomba y válvula de vacío abiertas todo el tiempo. 2 = vacío continuo con la entrada de aire atmosférico abierta. 3 = pulsos: vacío hasta «Presion baja secado» y entrada de aire hasta «Presion alta secado», alternados hasta completar «Tiempo secado». En los modos 1 y 2 la cámara debe bajar de P_atm − rango atmosférico dentro de «Timeout pulso» y no perder ese vacío (3 lecturas); si no, el ciclo falla.",
+      "tiempo_secado": "Duración total del secado, en minutos, contada desde el inicio de la fase; al vencer, la fase termina con éxito. Se ejecuta después de la descompresión. 0 = fase omitida (obligatorio con carga líquida). Se omite en equipos sin bomba de vacío.",
+      "presion_chaqueta_secado": "Consigna de presión absoluta de la chaqueta durante el Secado; reemplaza a «Presion chaqueta». Control por histéresis: el vapor de chaqueta abre bajo consigna − «Rango chaqueta secado» y cierra sobre consigna + rango.",
+      "rango_chaqueta_secado": "Semiancho (±) de la histéresis del control de chaqueta en Secado, alrededor de «Presion chaqueta secado». No genera alarmas. Mínimo 1 kPa.",
+      "presion_baja_secado": "Solo modo 3: presión absoluta de cámara que cierra la etapa de vacío de cada pulso; la bomba y la válvula de vacío se apagan al alcanzarla.",
+      "presion_alta_secado": "Solo modo 3: presión absoluta de cámara que cierra la etapa de entrada de aire atmosférico de cada pulso.",
+      "timeout_pulso": "En segundos. Modo 3: tiempo máximo de cada etapa (vacío o entrada de aire) para alcanzar su presión. Modos 1 y 2: tiempo máximo para que la cámara baje de P_atm − rango atmosférico. Si vence, el ciclo falla."
     },
     "descompresion": {
-      "modo": "Forma de bajar la presión al final de la esterilización. Ver la descripción del modo elegido.",
-      "tiempo_pre_despresurizacion": "Espera antes de empezar a despresurizar.",
+      "modo": "Estrategia para llevar la cámara desde la presión de esterilización hasta P ≤ P_atm + rango atmosférico (parámetros del equipo). Ver la descripción de cada modo. Con carga líquida solo se admiten los modos 4 y 5. El modo se lee al iniciar la fase. Al terminar, si la cámara queda bajo P_atm − rango, se abre la entrada de aire atmosférico para romper el vacío.",
+      "tiempo_pre_despresurizacion": "Espera, en segundos, con las válvulas de descompresión, el aire comprimido y el agua de chaqueta cerrados, antes de iniciar el modo. El timeout del modo empieza después de esta espera. 0 = sin espera.",
       "modo_1": {
-        "timeout": "Tiempo máximo del modo 1; si se excede, el ciclo falla."
+        "timeout": "Tiempo máximo, en minutos, para llegar a P ≤ P_atm + rango atmosférico con el escape rápido abierto, contado tras la espera previa. Si vence, el ciclo falla."
       },
       "modo_2": {
-        "timeout": "Tiempo máximo del modo 2; si se excede, el ciclo falla."
+        "timeout": "Tiempo máximo, en minutos, para llegar a P ≤ P_atm + rango atmosférico con el escape lento abierto, contado tras la espera previa. Si vence, el ciclo falla."
       },
       "modo_3": {
-        "presion_cambio": "Presión a la que se pasa del escape lento al rápido.",
-        "timeout": "Tiempo máximo del modo 3; si se excede, el ciclo falla."
+        "presion_cambio": "Presión absoluta de cámara a la que se cierra el escape lento y se abre el rápido.",
+        "timeout": "Tiempo máximo, en minutos, de las dos etapas (lenta y rápida) hasta llegar a P ≤ P_atm + rango atmosférico, contado tras la espera previa. Si vence, el ciclo falla."
       },
       "modo_4": {
-        "timeout": "Tiempo máximo del modo 4; si se excede, el ciclo falla.",
-        "presion_camara_enfriamiento": "Presión que se mantiene en la cámara con aire comprimido mientras se enfría.",
-        "temperatura_enfriamiento": "Temperatura por debajo de la cual la carga se considera enfriada y se despresuriza.",
-        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada pulso.",
-        "tiempo_cierre_chaqueta": "Segundos que el drenaje permanece cerrado entre pulsos (0 = siempre abierto)."
+        "timeout": "Tiempo máximo, en minutos, de todo el modo 4 (enfriamiento y despresurización final), contado tras la espera previa. Si vence, el ciclo falla y el registro indica la etapa en la que ocurrió.",
+        "presion_camara_enfriamiento": "Contrapresión absoluta mínima de la cámara durante el enfriamiento: si la presión baja de este valor se abre el aire comprimido. Evita la ebullición de la carga. Con carga líquida debe ser al menos Psat(«Temperatura esterilizacion») + 30 kPa.",
+        "temperatura_enfriamiento": "Temperatura de la sonda Principal que da por enfriada la carga (3 lecturas consecutivas en o por debajo de este valor). Al cumplirse se cierran el aire comprimido y el agua, y se abren el drenaje de chaqueta y el escape rápido hasta la atmosférica.",
+        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada ciclo de su temporizador durante el enfriamiento con agua.",
+        "tiempo_cierre_chaqueta": "Segundos que el drenaje de la chaqueta permanece cerrado entre aperturas durante el enfriamiento. 0 = abierto continuo."
       },
       "modo_5": {
-        "timeout": "Tiempo máximo del modo 5; si se excede, el ciclo falla.",
-        "presion_camara_enfriamiento": "Presión que se mantiene en la cámara con aire comprimido mientras se enfría.",
-        "temperatura_enfriamiento": "Temperatura por debajo de la cual la carga se considera enfriada y se despresuriza.",
-        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada pulso.",
-        "tiempo_cierre_chaqueta": "Segundos que el drenaje permanece cerrado entre pulsos (0 = siempre abierto)."
+        "timeout": "Tiempo máximo, en minutos, de todo el modo 5 (enfriamiento y despresurización final), contado tras la espera previa. Si vence, el ciclo falla y el registro indica la etapa en la que ocurrió.",
+        "presion_camara_enfriamiento": "Contrapresión absoluta mínima de la cámara durante el enfriamiento: si la presión baja de este valor se abre el aire comprimido. Evita la ebullición de la carga. Con carga líquida debe ser al menos Psat(«Temperatura esterilizacion») + 30 kPa.",
+        "temperatura_enfriamiento": "Temperatura de la sonda Principal que da por enfriada la carga (3 lecturas consecutivas en o por debajo de este valor). Al cumplirse se cierran el aire comprimido y el agua, y se abren el drenaje de chaqueta y el escape rápido hasta la atmosférica.",
+        "tiempo_apertura_chaqueta": "Segundos que el drenaje de la chaqueta permanece abierto en cada ciclo de su temporizador durante el enfriamiento con agua.",
+        "tiempo_cierre_chaqueta": "Segundos que el drenaje de la chaqueta permanece cerrado entre aperturas durante el enfriamiento. 0 = abierto continuo."
       }
     },
     "finalizacion": {
-      "tiempo_espera_apertura": "Espera fija tras terminar el ciclo antes de abrir la puerta automáticamente.",
-      "temp_max_apertura": "Temperatura máxima de la cámara para permitir la apertura automática.",
-      "timeout_temperatura": "Tiempo tras el cual se avisa si la cámara no baja a la temperatura de apertura.",
-      "apertura_automatica": "Abre sola la puerta de descarga y confirma el ciclo al terminar con éxito."
+      "tiempo_espera_apertura": "Solo con «Apertura automatica» activa: espera fija, en segundos, desde que el ciclo termina con éxito hasta empezar a evaluar las condiciones de apertura.",
+      "temp_max_apertura": "Temperatura máxima de la sonda Principal para considerar la cámara segura después de este ciclo, junto con P dentro de P_atm ± rango atmosférico. Rige el menor entre este valor y el límite global del equipo. Se aplica a la apertura automática, al indicador NO ABRIR y al bloqueo de apertura de puertas.",
+      "timeout_temperatura": "Solo con apertura automática: minutos, contados después de «Tiempo espera apertura», tras los cuales se activa el aviso CIC-07 si la sonda Principal sigue por encima de la temperatura máxima de apertura. No hace fallar el ciclo; la espera continúa.",
+      "apertura_automatica": "Al terminar con éxito, abre la puerta de descarga (la 2 si existe) y confirma el ciclo cuando la puerta empieza a moverse, una vez cumplida «Tiempo espera apertura» y con la cámara segura. Se ignora si la puerta no tiene actuador. Si la apertura se deniega de forma sostenida se emite CIC-08 y se sigue reintentando. No se admite con carga líquida."
     }
   },
   "descompresion_modos": {
     "0": {
       "nombre": "Natural",
-      "desc": "Sin escape: la cámara se enfría y baja de presión por sí sola hasta la presión atmosférica."
+      "desc": "Todas las válvulas cerradas: la presión baja solo por condensación y pérdidas. Termina al llegar a P_atm + rango atmosférico. No tiene timeout: si la presión no baja, la fase no termina. Al final deja abierto el escape lento como válvula de reposo."
     },
     "1": {
       "nombre": "Rápida",
-      "desc": "Abre el escape rápido desde el inicio y baja la presión lo más rápido posible. Para carga sólida."
+      "desc": "Escape rápido abierto hasta P ≤ P_atm + rango atmosférico. Es la despresurización más brusca. No se admite con carga líquida."
     },
     "2": {
       "nombre": "Lenta",
-      "desc": "Abre solo el escape lento: la presión baja gradualmente. Para cargas sensibles a cambios bruscos."
+      "desc": "Escape lento abierto hasta P ≤ P_atm + rango atmosférico. Despresurización gradual, para cargas sensibles a cambios bruscos de presión. No se admite con carga líquida."
     },
     "3": {
       "nombre": "Lenta y rápida",
-      "desc": "Escape lento hasta la presión de cambio y luego escape rápido hasta llegar a la atmosférica."
+      "desc": "Escape lento hasta «Presion cambio» y luego escape rápido hasta P ≤ P_atm + rango atmosférico. El timeout cubre las dos etapas. No se admite con carga líquida."
     },
     "4": {
       "nombre": "Con enfriamiento",
-      "desc": "Enfría con agua en la chaqueta y mantiene presión con aire comprimido hasta bajar de la temperatura de enfriamiento; luego abre el escape rápido. Para cargas líquidas."
+      "desc": "Para líquidos. Enfriamiento: agua en la chaqueta, drenaje de chaqueta pulsado y aire comprimido que mantiene la cámara en o sobre «Presion camara enfriamiento». Cuando la sonda Principal queda en o por debajo de «Temperatura enfriamiento» (3 lecturas), cierra agua y aire y abre el drenaje de chaqueta y el escape rápido hasta la atmosférica."
     },
     "5": {
       "nombre": "Con enfriamiento y escape lento",
-      "desc": "Como el modo 4, pero con ayuda del escape lento durante el enfriamiento; luego abre el escape rápido."
+      "desc": "Igual que el modo 4, pero con el escape lento abierto durante todo el enfriamiento: libera vapor de la cámara mientras el aire comprimido sostiene la contrapresión. Al cumplirse la temperatura de enfriamiento se cierra el escape lento y se abre el rápido."
     }
   }
 }

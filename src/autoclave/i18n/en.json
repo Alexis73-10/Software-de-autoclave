@@ -379,6 +379,7 @@
     "fallo": "Failed"
   },
   "acciones": {
+    "descartar": "Discard",
     "guardar": "Save changes",
     "guardar_usuario": "Save user",
     "cancelar": "Cancel",
@@ -548,6 +549,8 @@
     "tarjeta_sin_datos_valores": "The control board is not sending valid data. The values shown are not up to date."
   },
   "sesion": {
+    "titulo_login": "LOGIN",
+    "subtitulo_login": "Sign in to continue",
     "campos_vacios": "Enter username and password",
     "credenciales_invalidas": "Incorrect username or password",
     "usuario_bloqueado": "User locked after failed attempts. Try again in {tiempo}",
@@ -572,6 +575,12 @@
     "continuar_sin_operador": "Continue without operator"
   },
   "usuarios": {
+    "titulo_nuevo": "NEW USER",
+    "marcador_nombre": "First and last name",
+    "marcador_clave": "Enter password",
+    "seleccione_rol": "Select role",
+    "descartar_titulo": "Discard data?",
+    "descartar_mensaje": "The entered data will be lost.",
     "sin_permiso": "Your role cannot create users",
     "guardado_error": "The user could not be saved",
     "rol_no_creable": "Your role cannot create users with that role",

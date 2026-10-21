@@ -125,7 +125,7 @@ Item {
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "LOGIN"
+                            text: I18n.t("sesion.titulo_login", I18n.lang)
                             color: Colores.textoPrimario
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(Tipografia.tituloPantallaTam)
@@ -150,7 +150,7 @@ Item {
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "Inicie sesión para continuar"  // PLACEHOLDER
+                            text: I18n.t("sesion.subtitulo_login", I18n.lang)
                             color: Colores.textoSecundario
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
@@ -199,7 +199,7 @@ Item {
                                 anchors.bottom: parent.bottom
                                 anchors.leftMargin: Escala.px(16)
                                 anchors.margins: Escala.px(4)
-                                placeholderText: "Nombre Usuario"
+                                placeholderText: I18n.t("formulario.nombre_usuario", I18n.lang)
                                 font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
                                 background: null
                             }
@@ -263,7 +263,7 @@ Item {
                                 anchors.leftMargin: Escala.px(16)
                                 anchors.rightMargin: Escala.px(16)
                                 anchors.margins: Escala.px(4)
-                                placeholderText: "Contraseña"
+                                placeholderText: I18n.t("formulario.contrasena", I18n.lang)
                                 echoMode: TextInput.Password
                                 font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
                                 background: null
@@ -307,7 +307,7 @@ Item {
 
                             Text {
                                 anchors.verticalCenter: parent.verticalCenter
-                                text: "Recordar Usuario"
+                                text: I18n.t("formulario.recordar_usuario", I18n.lang)
                                 color: Colores.textoPrimario
                                 font.family: Tipografia.familia
                                 font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
@@ -348,7 +348,7 @@ Item {
 
                                 Text {
                                     anchors.verticalCenter: parent.verticalCenter
-                                    text: "INICIAR SESIÓN"
+                                    text: I18n.t("acciones.iniciar_sesion", I18n.lang)
                                     color: "white"
                                     font.family: Tipografia.familia
                                     font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
@@ -382,7 +382,7 @@ Item {
 
                         Text {
                             anchors.horizontalCenter: parent.horizontalCenter
-                            text: "¿Olvidó su contraseña?"
+                            text: I18n.t("formulario.olvido_contrasena", I18n.lang)
                             color: Colores.accionPrimarioTexto
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(22)
