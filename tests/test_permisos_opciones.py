@@ -16,7 +16,7 @@ _TECNICAS = ["parametros_ciclo", "parametros_sistema", "entradas_salidas",
 _ADMIN = ["usuarios", "conectividad"]
 
 _ESPERADO = {
-    "admin":     _ADMIN,
+    "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura
     # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
     "tecnico":   _TECNICAS + ["conectividad"],
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)

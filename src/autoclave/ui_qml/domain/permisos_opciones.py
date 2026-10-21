@@ -23,6 +23,10 @@ from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO
 _TECNICOS = frozenset({"tecnico", "ingeniero"})
 _CONECTIVIDAD = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})
 _GESTION_USUARIOS = frozenset({ROL_ADMIN, ROL_INGENIERO})
+# C1b (tanda 6, decisión 1.5; revierte P2-1 de la tanda 5): el admin VE
+# Parámetros del equipo, en solo lectura.
+_PARAMETROS_EQUIPO = _TECNICOS | {ROL_ADMIN}
+_SOLO_LECTURA_POR_ROL = {"parametros_sistema": frozenset({ROL_ADMIN})}
 
 
 @dataclass(frozen=True)
@@ -37,7 +41,7 @@ class Seccion:
 # entregó el definitivo (Entradas / Salidas, Opciones avanzadas).
 SECCIONES = (
     Seccion("parametros_ciclo",   "reloj.svg",              _TECNICOS),
-    Seccion("parametros_sistema", "engranaje.svg",          _TECNICOS),
+    Seccion("parametros_sistema", "engranaje.svg",          _PARAMETROS_EQUIPO),
     Seccion("entradas_salidas",   "sensor_temperatura.svg", _TECNICOS),
     Seccion("mantenimiento",      "mantenimiento.svg",      _TECNICOS),
     Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
@@ -71,9 +75,30 @@ _EDICION_SIEMPRE = frozenset({"ingeniero"})
 
 def edicion_permitida(estado_maquina: str | None, rol: str | None = None,
                       seccion: str | None = None) -> bool:
+    if rol in _SOLO_LECTURA_POR_ROL.get(seccion, ()):
+        return False
     if rol in _EDICION_SIEMPRE:
         return True
     return estado_maquina in ESTADOS_EDICION
+
+
+def motivo_solo_lectura(estado_maquina: str | None, rol: str | None = None,
+                        seccion: str | None = None) -> str:
+    """"" si se puede editar; "rol" si el rol solo ve la sección (admin en
+    Parámetros del equipo); "estado" si lo impide el estado de la máquina."""
+    if edicion_permitida(estado_maquina, rol, seccion):
+        return ""
+    return "rol" if rol in _SOLO_LECTURA_POR_ROL.get(seccion, ()) else "estado"
+
+
+def seccion_inicial(rol: str | None) -> str:
+    """Sección en la que aterriza el rol: la primera que puede editar por su
+    rol (el admin, en Usuarios); si no hay, la primera visible."""
+    visibles = secciones_visibles(rol)
+    for s in visibles:
+        if rol not in _SOLO_LECTURA_POR_ROL.get(s.clave, ()):
+            return s.clave
+    return visibles[0].clave if visibles else ""
 
 
 # Entradas / Salidas (planeacion_opciones_entradas_salidas.md §3, OPC-28). Solo

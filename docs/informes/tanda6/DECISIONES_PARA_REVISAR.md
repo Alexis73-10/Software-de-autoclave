@@ -17,3 +17,19 @@ Formato: decisión · motivo · alternativa · commit · cómo revertir.
 - ¿Los segundos de tolerancia por DI vencida cuentan como exposición en ESTERILIZACION?
 - ¿DESPEJAR debe exigir el enlace "ok" o una sesión?
 - ¿La marca "no estéril" también para FALLO/CANCELADO/EMERGENCIA?
+
+## C1 (correcciones de la tanda 5)
+| Id | Decisión | Motivo | Alternativa | Commit | Cómo revertir |
+|---|---|---|---|---|---|
+| C1-1 | DECISIÓN SIN CONFIRMAR. El teclado PySide usa el mismo juego de caracteres del QML (TEC-D03): no admite `# $ % & , ;`. | Una sola lógica para los dos teclados | Ampliar el juego solo en PySide | C1a | `SIMBOLOS` en `ui_qml/domain/teclado_alfanumerico.py` |
+| C1-2 | DECISIÓN SIN CONFIRMAR. Aa queda armada con el campo vacío también en el usuario de login, así que la primera letra sale en mayúscula. | TEC-D05, igual que en QML | Desarmar Aa en los campos de usuario | C1a | `aa_al_abrir` / `DialogoCredenciales.activar` |
+| C1-3 | DECISIÓN SIN CONFIRMAR. El teclado se conecta a todo QLineEdit y spinbox de las vistas PySide, incluida la calibración. El valor se valida contra el mín./máx. del spinbox. | "Cualquier lugar que pida texto" | Solo los QLineEdit | C1a | Quitar `conectar_todos(self)` de cada vista |
+| C1-4 | DECISIÓN SIN CONFIRMAR. El admin aterriza en Usuarios aunque Parámetros del equipo esté antes en la lista. | Conserva el comportamiento de la tanda 5 | Aterrizar en la primera sección visible | C1b | `seccion_inicial` en `permisos_opciones.py` |
+| C1-5 | DECISIÓN SIN CONFIRMAR. `vacio_empaque` y `presion_empaque` se clasifican como "absoluto". | `advanced_door.py` los compara directamente con la lectura del sensor de empaque | "diferencia", si el transductor es manométrico | C1c | Cambiar `clase` en `global_params.json` |
+| C1-6 | DECISIÓN SIN CONFIRMAR. `rango_calentamiento` se clasifica como "sin_conversion". | Banda de °C y de kPa a la vez en `calentamiento.py` | Separarlo en dos parámetros (PREGUNTA PARA CRISTIAN, de la tanda 5) | C1c | `clase` en los 8 JSON |
+| C1-7 | DECISIÓN SIN CONFIRMAR. Una clase desconocida no se convierte y se muestra en la unidad original. Sin clase, se usa la migración por prefijo con una advertencia en el log. Los programas viejos no se reescriben. | Lo más seguro y reversible | Reescribir los archivos al cargarlos | C1c | `clase_de_unidad` |
+| C1-8 | DECISIÓN SIN CONFIRMAR. "El catálogo" se interpreta como `catalogo_parametros.py`. No tiene hojas propias: una prueba exige que sus entradas absolutas tengan "clase": "absoluto" en los JSON. | El catálogo solo guarda límites | Agregar la clase al catálogo | C1c | `test_catalogo_absolutos_coinciden...` |
+
+## PREGUNTAS PARA CRISTIAN (C1)
+- ¿Los programas duplicados antes de C1c (sin "clase") se reescriben con la clase, o basta con la migración con advertencia?
+- ¿El transductor de empaque mide en absoluto?

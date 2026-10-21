@@ -311,7 +311,7 @@ def test_ingeniero_edita_con_ciclo_en_curso():
 def test_admin_ve_solo_usuarios_y_conectividad():
     r = _correr("PREPARADO", "admin")
     _navegacion_comun(r)
-    assert r["entradas"] == ["usuarios", "conectividad"]
+    assert r["entradas"] == ["parametros_sistema", "usuarios", "conectividad"]   # C1b
     assert r["seccion_activa"] == "usuarios"     # el admin aterriza en Usuarios
     assert r["titulo"] == "USUARIOS"
     # Usuarios: botón a Nuevo usuario en lugar de "Próximamente" (T-8, R2-5)

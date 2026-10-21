@@ -6,3 +6,4 @@ Rama `tanda-6`, creada desde `dev` (7d825b5) tras E0. Línea base de la suite: 4
 |---|---|---|---|
 | E0 | Hecha | ea22565, a7f6db8, 02323a0, merge 7d825b5 | `merge-base --is-ancestor tanda-5 dev` = OK. Push `origin dev tanda-4 tanda-5`: DENEGADO por el clasificador de permisos de Claude Code (no llegó a git); lo hace Cristian. `data/unidades.json`=°C/kPa, `data/idioma.json`=es (sin commit). |
 | T2 | Hecha | 5de3a1e, a15daa0, 5d7c93b, 5be87a2, 25727f6, 34552db, 5b1afa9, cd7f8d1, P-7, P-6, 563c133 + docs | P-1…P-9 y P-12 aplicados (P-10/P-11 sin cambio). Suite final 4451 passed / 2 skipped / 3 xfailed. Revisores: Altos corregidos, segunda pasada sin Críticos/Altos. Ver `T2_respuestas_T1.md`, `T2_matriz_actualizada.md`, `T2_ensayo_tabla.md`. |
+| C1 | Hecha | ver git log (C1c, C1d, C1a, C1b) | a, b, c y d con pruebas; safety-reviewer en a y c sin Críticos ni Altos; Medios corregidos. Ver `C1_correcciones_t5.md`. |

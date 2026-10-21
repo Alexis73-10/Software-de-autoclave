@@ -47,7 +47,7 @@ def test_refrescar_detecta_la_sesion_nueva_y_notifica():
     SessionManager.login(_usuario("admin"))
     c.refrescar()
     assert c.sesionActiva is True
-    assert [s["clave"] for s in c.secciones] == ["usuarios", "conectividad"]
+    assert [s["clave"] for s in c.secciones] == ["parametros_sistema", "usuarios", "conectividad"]
     assert avisos == [1]
     c.refrescar()   # sin cambios: no vuelve a notificar
     assert avisos == [1]

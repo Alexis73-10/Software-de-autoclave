@@ -74,7 +74,7 @@ Item {
     property string seccionActiva: ""
     function _ajustarSeccion() {
         if (!secciones.some(s => s.clave === seccionActiva))
-            seccionActiva = secciones.length > 0 ? secciones[0].clave : ""
+            seccionActiva = control.seccionInicial   // C1b: el admin aterriza en Usuarios
     }
     onSeccionesChanged: _ajustarSeccion()
     Component.onCompleted: { control.refrescar(); _ajustarSeccion() }
@@ -205,7 +205,9 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: raiz.m(24); anchors.rightMargin: raiz.m(24)
                 verticalAlignment: Text.AlignVCenter
-                text: I18n.t("opciones.edicion_bloqueada", I18n.lang)
+                text: control.motivoSoloLectura === "rol"
+                      ? I18n.t("opciones.solo_lectura_rol", I18n.lang)
+                      : I18n.t("opciones.edicion_bloqueada", I18n.lang)
                 wrapMode: Text.WordWrap
                 color: Colores.advertenciaTexto
                 font.family: Tipografia.familia
