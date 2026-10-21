@@ -36,6 +36,7 @@ from autoclave.services.domain.logging.ticket_formatter import (
     format_header,
     format_row,
     motivo_ticket,
+    presentacion_actual,
 )
 
 logger = logging.getLogger(__name__)
@@ -469,7 +470,9 @@ class CycleLogger:
                 "sin_registro":          self.sin_base_de_datos,
                 "operador":              operador,
             }
-            self.printer.enqueue(format_header(meta))
+            # I3 (tanda 5): idioma y unidades vigentes al iniciar, para todo el ticket
+            self._presentacion = presentacion_actual()
+            self.printer.enqueue(format_header(meta, self._presentacion))
 
         logger.info(
             "CycleLogger: ciclo #%05d iniciado → DB id=%s | %s",
@@ -510,9 +513,12 @@ class CycleLogger:
             if self.printer is not None:
                 self.printer.enqueue(format_footer(
                     resultado, datetime.now().isoformat(),
-                    temp_final=self._ultima_temp, motivo=motivo_ticket(codigo, motivo), f0_total=f0_total,
+                    temp_final=self._ultima_temp,
+                    motivo=motivo_ticket(codigo, motivo, getattr(self, "_presentacion", None)),
+                    f0_total=f0_total,
                     avisos=list(getattr(self.estado, "avisos_ciclo", None) or []) or None,
                     operador=self._operador_ticket or None,
+                    p=getattr(self, "_presentacion", None),
                 ))
 
             logger.info(
@@ -729,7 +735,7 @@ class CycleLogger:
                 "timestamp_rel": timestamp_rel,
                 "temp_camara":   temp,      # columna del ticket = Principal
                 "pres_camara":   pres,
-            }))
+            }, getattr(self, "_presentacion", None)))
 
         logger.debug(
             "LOG [%s] %s  %.1f°C  %.1f kPa  imprimir=%s",

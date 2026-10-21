@@ -279,6 +279,7 @@ class BackendContext:
         self.control_loop.start()
         self.iniciar_vigilancia_mantenimiento()
         self.iniciar_vigilancia_impresora()
+        self.registrar_presentacion_tickets()
 
     def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
         """Cada handshake completo con la tarjeta de E/S: registro en
@@ -374,6 +375,22 @@ class BackendContext:
                 from autoclave.core.runtime.unidades import ConfigUnidades
                 self._config_unidades = ConfigUnidades(app_root() / "data" / "unidades.json")
             return self._config_unidades
+
+    def registrar_presentacion_tickets(self) -> None:
+        """I3 (tanda 5): el ticket usa el idioma y las unidades vigentes al
+        generarlo. P_atm fuera de 50-110 kPa cuenta como ausente."""
+        from autoclave.core.runtime.unidades import p_atm_valida
+        from autoclave.services.domain.logging import ticket_formatter as tf
+
+        def proveedor():
+            unidades = self.config_unidades.leer()
+            try:
+                p_atm = p_atm_valida(self.config_manager.get("presion_admosferica"))
+            except Exception:
+                p_atm = None
+            return tf.Presentacion(self.config_idioma.leer(), unidades["temperatura"],
+                                   unidades["presion"], p_atm)
+        tf.fijar_proveedor(proveedor)
 
     def iniciar_vigilancia_impresora(self) -> None:
         """B5 (tanda 4): verifica una vez, en un hilo con plazo de 5 s, que la
