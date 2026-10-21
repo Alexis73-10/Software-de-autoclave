@@ -139,7 +139,10 @@ _QML = _RAIZ / "src" / "autoclave" / "ui_qml" / "qml"
 def test_preciclo_sin_home_y_con_el_avatar_en_su_lugar():
     texto = (_QML / "Pantallas" / "PantallaPreciclo.qml").read_text(encoding="utf-8")
     assert "casa.svg" not in texto and "inicioPulsado" not in texto
-    assert "x: raiz.m(957); y: raiz.m(1762)" in texto     # avatar donde estaba la casa
+    # B1 (tanda 6): el avatar ocupa la celda derecha de la barra flotante, donde
+    # estaba la casa (x 800..1128 de BarraInferiorMenu), y la barra oculta Inicio
+    assert 'x: raiz.m(800); y: 0; width: raiz.m(1128 - 800)' in texto
+    assert "personalizada: true" in texto
 
 
 @pytest.mark.parametrize("qml", [

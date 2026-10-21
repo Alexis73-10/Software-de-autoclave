@@ -98,7 +98,8 @@ _SCRIPT = textwrap.dedent(r"""
     r["menu_sin_engranaje"] = ventana.findChild(QObject, "zonaEngranaje") is None
     r["resumen_sondeando"] = resumen.property("sondeando")
     r["ciclos_totales"] = resumen.property("ciclosTotales")
-    r["inicio_activo"] = ventana.findChild(QObject, "botonInicio").property("enabled")
+    # B1: Preciclo también tiene una BarraInferiorMenu (personalizada); se busca en la del menú
+    r["inicio_activo"] = ventana.findChild(QObject, "barraInferiorMenu").findChild(QObject, "botonInicio").property("enabled")
 
     QMetaObject.invokeMethod(menus[0], "iniciarSesionPulsado")      # Iniciar sesión -> login QML
     esperar()
