@@ -112,6 +112,8 @@ class EstadoAutoclave:
         # se limpia al iniciar cada ciclo nuevo
         self.motivo_fallo: str = ""
         self.codigo_fallo: str = ""
+        # I4 (tanda 6): parámetros de la alarma del fallo (JSON en la BD)
+        self.valores_fallo: dict = {}
         # True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento
         self.fase_en_sostenimiento: bool = False
         # Progreso del pre-vacío: "A 1/4", "B 2/4", etc. (vacío cuando no aplica)

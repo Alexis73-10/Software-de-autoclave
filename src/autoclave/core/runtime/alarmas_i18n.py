@@ -82,3 +82,30 @@ def valores_json(valores: dict) -> dict:
     except Exception:
         return {}
     return salida
+
+
+def motivo_fallo(codigo, valores, motivo, idioma: str) -> str | None:
+    """I4 (tanda 6; planeacion_i18n.md §3.10): motivo de fallo de un ciclo
+    guardado, en `idioma`, a partir de su código y sus parámetros (dict o el
+    JSON de ciclos.valores_fallo): "CÓDIGO · título: descripción". Sin código
+    del catálogo (ciclos antiguos o de texto libre) devuelve el motivo
+    guardado tal cual. Nunca lanza."""
+    try:
+        from autoclave.state_machine.alarms.catalogo import CATALOGO
+        definicion = CATALOGO.get(codigo or "")
+        if definicion is None:
+            return motivo or None
+        if isinstance(valores, str):
+            import json
+            valores = json.loads(valores) if valores.strip() else {}
+        if not isinstance(valores, dict):
+            valores = {}
+        if not valores and idioma == "es" and motivo:
+            return motivo                  # sin parámetros: el texto registrado
+        t = textos(definicion, valores, idioma)
+        if not valores:
+            return f"{definicion.codigo} · {t['titulo']}"
+        return f"{definicion.codigo} · {t['titulo']}: {t['descripcion']}"
+    except Exception:
+        _avisar_una_vez("motivo_fallo", "No se pudo armar el motivo de fallo de un ciclo")
+        return motivo or None

@@ -31,6 +31,7 @@ from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_mo
 from autoclave.installation.profile import entrada_requerida, numero_puertas, revisa_empaque
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
+from autoclave.core.runtime import alarmas_i18n
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +171,7 @@ class CicloState:
         self._apertura_auto_alarmado_denegacion = False
         self.estado.motivo_fallo  = ""
         self.estado.codigo_fallo  = ""
+        self.estado.valores_fallo = {}
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
         self._paro_en_espera = False
@@ -243,6 +245,14 @@ class CicloState:
         el llamador ejecute el protocolo de fallo a continuación."""
         try:
             inst = self.alarm_manager.activar(codigo, origen, **valores)
+            # I4 (tanda 6): los parámetros por separado, para presentar el
+            # motivo en cualquier idioma y unidad (planeacion_i18n.md §3.10).
+            # Antes que el código (revisión I4, TMG-01): quien lea el código
+            # ya encuentra sus parámetros.
+            try:
+                self.estado.valores_fallo = alarmas_i18n.valores_json(valores)
+            except Exception:
+                self.estado.valores_fallo = {}
             self.estado.motivo_fallo = f"{inst.codigo} · {inst.titulo}: {inst.descripcion}"
             self.estado.codigo_fallo = inst.codigo
         except Exception:
@@ -250,6 +260,7 @@ class CicloState:
             try:
                 self.estado.motivo_fallo = f"{codigo}: no se pudo registrar el detalle de la alarma."
                 self.estado.codigo_fallo = codigo
+                self.estado.valores_fallo = {}
             except Exception:
                 logger.exception("CicloState: no se pudo dejar motivo_fallo de %s", codigo)
 
@@ -267,6 +278,7 @@ class CicloState:
                 logger.error("CicloState: fase %s sin código CIC asociado", nombre_fase)
                 self.estado.motivo_fallo = f"Fallo en la fase {nombre_legible(nombre_fase)}: {motivo}"
                 self.estado.codigo_fallo = ""
+                self.estado.valores_fallo = {}
                 return
             self._registrar_fallo(codigo, origen=nombre_legible(nombre_fase), motivo=motivo)
         except Exception:
