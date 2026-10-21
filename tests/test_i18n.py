@@ -242,6 +242,9 @@ def _parametros_de_perfiles():
 
 FAMILIAS = {
     "menu.": _sufijos_menu,
+    # O3 (tanda 6): entradas mostradas del programa
+    "ciclo.entrada_corta_": lambda: list(__import__(
+        "autoclave.ui_qml.domain.entradas_mostradas", fromlist=["_RUTA_STATUS"])._RUTA_STATUS),
     "reportes.": _sufijos_reportes,
     "instalacion.": _sufijos_instalacion,
     "instalacion.clase_": lambda: [c.value for c in __import__(

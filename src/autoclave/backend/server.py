@@ -1225,8 +1225,32 @@ def get_selected_cycle():
         "name": cycle.name,
         "nombres": _nombres_ciclo(cycle),
         "number": getattr(cycle, "number", None),
-        "parameters": cycle.parameters
+        "parameters": cycle.parameters,
+        **_entradas_mostradas_de(cycle),
     }
+
+
+# Sensor de temperatura del programa (sensores_ciclo) -> nombre de la AI
+_AI_DE_SENSOR = {"temp_camara": "temp_camara", "temp_2_camara": "temp_2_camara",
+                 "temp_ref": "temp_referencia"}
+
+
+def _entradas_mostradas_de(cycle) -> dict:
+    """O3 (tanda 6): entradas mostradas (1 a 3) del programa para Preciclo,
+    Ciclo y gráfica, y las que tienen el sensor "No en uso" en el programa.
+    Solo presentación; ante cualquier error, las de omisión."""
+    from autoclave.core.managers import gestion_programas as gp
+    try:
+        entradas = gp.entradas_de(cycle, _ai_habilitadas())
+    except Exception:
+        entradas = list(gp.ENTRADAS_POR_OMISION)
+    try:
+        asignacion = sc.asignacion_de(cycle)
+        no_en_uso = [_AI_DE_SENSOR[s] for s, rol in asignacion.items()
+                     if rol == sc.NO_EN_USO and s in _AI_DE_SENSOR]
+    except Exception:
+        no_en_uso = []
+    return {"entradas_mostradas": entradas, "entradas_no_en_uso": no_en_uso}
 
 
 def _nombres_ciclo(cycle) -> dict:

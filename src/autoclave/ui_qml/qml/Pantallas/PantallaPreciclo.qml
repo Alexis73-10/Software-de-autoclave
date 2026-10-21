@@ -51,6 +51,12 @@ Item {
     property string tempCamara: puente?.tempCamara ?? ""
     property string tempReferencia: puente?.tempReferencia ?? ""
     property string presionCamara: puente?.presionCamara ?? ""
+    // O3 (tanda 6): entradas mostradas del programa; sin puente, las tres de siempre
+    property var entradas: puente?.entradasMostradas ?? [
+        { clave: "temp_camara", tipo: "temp", valor: tempCamara, unidad: textos.unidadTemp },
+        { clave: "temp_referencia", tipo: "temp", valor: tempReferencia, unidad: textos.unidadTemp },
+        { clave: "pres_camara", tipo: "pres", valor: presionCamara, unidad: textos.unidadPresion },
+    ]
     property bool datosVigentes: puente?.connected ?? false
     // U4 (tanda 2): estado de la tarjeta de E/S ("desconectada",
     // "sin_tramas_validas" u "ok"); solo cambia textos, no bloquea la pantalla
@@ -447,20 +453,37 @@ Item {
     Valor { cx: 504.4; text: raiz.tiempoSecado }
     Unidad { cx: 504.4; text: raiz.textos.unidadTiempo }
 
-    Icono { caja: [625.1, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura_2.svg" }
-    Etiqueta { lx: 672.1; bl: 469; text: raiz.textos.tempCamara }
-    Valor { cx: 692.6; text: raiz.tempCamara }
-    Unidad { cx: 683.6; text: raiz.textos.unidadTemp }
-
-    Icono { caja: [804.3, 448, 20, 33]; tinta: raiz.tintaTermometro; source: raiz.iconosColor + "sensor_temperatura_2.svg" }
-    Etiqueta { lx: 851.3; bl: 469; text: raiz.textos.tempReferencia }
-    Valor { cx: 880.8; text: raiz.tempReferencia }
-    Unidad { cx: 871.8; text: raiz.textos.unidadTemp }
-
-    Icono { caja: [1006.4, 450, 37, 31]; tinta: [5.3, 8.0, 43.7, 40.85]; source: raiz.iconosColor + "sensor_presion.svg" }
-    Etiqueta { lx: 1074.4; bl: 467; text: raiz.textos.presion }
-    Valor { cx: 1068.9; text: raiz.presionCamara }
-    Unidad { cx: 1084.4; text: raiz.textos.unidadPresion }
+    // O3 (tanda 6): las entradas mostradas del programa (1 a 3, UiBridge.entradasMostradas)
+    // en las 3 columnas de la derecha, en la unidad vigente; "—" si no hay lectura o
+    // el sensor está "No en uso" en el programa.
+    Repeater {
+        model: raiz.entradas
+        delegate: Item {
+            id: entrada
+            required property var modelData
+            required property int index
+            readonly property real c0: [598.5, 786.7, 974.8][entrada.index] || 0
+            readonly property bool esPresion: entrada.modelData.tipo === "pres"
+            anchors.fill: parent
+            visible: entrada.index < 3
+            Icono {
+                visible: !entrada.esPresion
+                caja: [entrada.c0 + 26.6, 448, 20, 33]; tinta: [12.25, 4.0, 36.55, 44.0]
+                source: raiz.iconosColor + "sensor_temperatura_2.svg"
+            }
+            Icono {
+                visible: entrada.esPresion
+                caja: [entrada.c0 + 31.6, 450, 37, 31]; tinta: [5.3, 8.0, 43.7, 40.85]
+                source: raiz.iconosColor + "sensor_presion.svg"
+            }
+            Etiqueta {
+                lx: entrada.c0 + (entrada.esPresion ? 99.6 : 73.6); bl: entrada.esPresion ? 467 : 469
+                text: I18n.t("ciclo.entrada_corta_" + entrada.modelData.clave, I18n.lang)
+            }
+            Valor { cx: entrada.c0 + 94.1; text: entrada.modelData.valor }
+            Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
+        }
+    }
 
     // ---- tarjeta de alarmas y avisos ----
     Rectangle {

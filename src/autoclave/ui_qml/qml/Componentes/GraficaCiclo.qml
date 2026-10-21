@@ -46,9 +46,12 @@ Item {
     signal cerrarPulsado()
 
 
-    // Series de la gráfica. Los sensores mostrados serán configurables desde
-    // configuración en el futuro; por ahora esta es la única lista.
-    readonly property var series: [
+    // Series de la gráfica. O3 (tanda 6): la pantalla pasa las entradas mostradas
+    // del programa (UiBridge.seriesGrafica): {clave, entrada, color, eje, unidad,
+    // registrada}. Sin ellas, las tres de siempre.
+    property var seriesEntradas: null
+    readonly property var series: seriesEntradas && seriesEntradas.length ? seriesEntradas : _seriesPorOmision
+    readonly property var _seriesPorOmision: [
         { clave: "temp_camara", texto: I18n.t("ciclo.serie_temp_camara", I18n.lang), color: "#6599FC",
           eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
         { clave: "temp_ref", texto: I18n.t("ciclo.serie_temp_ref", I18n.lang), color: "#9732DA",
@@ -56,6 +59,18 @@ Item {
         { clave: "pres_camara", texto: I18n.t("ciclo.serie_presion", I18n.lang), color: "#00CCB0",
           eje: "derecho", unidad: I18n.t("unidades.presion", I18n.lang) },
     ]
+    onSeriesChanged: filaLeyenda.tam = 21
+    // Texto de la leyenda: el de la serie o el nombre corto de la entrada
+    function textoSerie(s) {
+        if (s.texto) return s.texto
+        const n = I18n.t("ciclo.entrada_corta_" + s.entrada, I18n.lang)
+        return s.registrada === false ? n + " " + I18n.t("ciclo.serie_sin_registro", I18n.lang) : n
+    }
+    function _unidadEje(eje, porDefecto) {
+        for (const s of series) if (s.eje === eje && s.unidad) return s.unidad
+        return porDefecto
+    }
+    function _valor(clave, i) { const a = raiz.datos[clave]; return a ? a[i] : null }
 
     readonly property QtObject paleta: QtObject {
         readonly property color borde: "#E5E5E5"
@@ -163,24 +178,32 @@ Item {
     }
 
     // leyenda
-    Repeater {
-        model: raiz.series
-        delegate: Item {
-            id: leyenda
-            required property var modelData
-            required property int index
-            readonly property var _cx: [98, 327, 509]
-            readonly property var _lx: [125, 354, 540]
-            anchors.fill: parent
-            Rectangle {
-                x: raiz.m(leyenda._cx[leyenda.index] - 10); y: raiz.m(96)
-                width: raiz.m(20); height: width; radius: width / 2
-                color: leyenda.modelData.color
-            }
-            Texto {
-                lx: leyenda._lx[leyenda.index]; bl: 114; tam: 21
-                text: leyenda.modelData.texto
-                color: raiz.paleta.texto
+    // O3: en fila (los nombres de las entradas tienen largo variable); si no
+    // cabe antes del botón Tiempos, se reduce la letra.
+    Row {
+        id: filaLeyenda
+        readonly property real disponible: raiz.m(840 - 88)
+        property real tam: 21
+        x: raiz.m(88); y: raiz.m(92)
+        spacing: raiz.m(28)
+        onImplicitWidthChanged: if (implicitWidth > disponible && tam > 14) tam = tam - 1
+        Repeater {
+            model: raiz.series
+            delegate: Row {
+                id: leyenda
+                required property var modelData
+                spacing: raiz.m(8)
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: raiz.m(20); height: width; radius: width / 2
+                    color: leyenda.modelData.color
+                }
+                Text {
+                    text: raiz.textoSerie(leyenda.modelData)
+                    color: raiz.paleta.texto
+                    font.family: Tipografia.familia
+                    font.pixelSize: raiz.fuente(filaLeyenda.tam)
+                }
             }
         }
     }
@@ -256,12 +279,12 @@ Item {
     // ---- unidades de los ejes ----
     Texto {
         lx: 21; bl: 246; tam: 20
-        text: I18n.t("unidades.temperatura", I18n.lang)
+        text: raiz._unidadEje("izquierdo", I18n.t("unidades.temperatura", I18n.lang))
         color: raiz.paleta.etiquetaEje
     }
     Texto {
         lx: 1075; bl: 245; tam: 20
-        text: I18n.t("unidades.presion", I18n.lang)
+        text: raiz._unidadEje("derecho", I18n.t("unidades.presion", I18n.lang))
         color: raiz.paleta.etiquetaEje
     }
 
@@ -446,7 +469,7 @@ Item {
             delegate: Rectangle {
                 id: punto
                 required property var modelData
-                readonly property var valor: cursor.indice >= 0 ? raiz.datos[punto.modelData.clave][cursor.indice] : null
+                readonly property var valor: cursor.indice >= 0 ? raiz._valor(punto.modelData.clave, cursor.indice) : null
                 visible: punto.valor !== null && punto.valor !== undefined
                 x: cursor.xCursor - width / 2
                 y: (punto.visible ? raiz.yDe(punto.valor, punto.modelData.eje) : 0) - height / 2
@@ -487,7 +510,7 @@ Item {
                     id: filaGlobo
                     required property var modelData
                     required property int index
-                    readonly property var valor: cursor.indice >= 0 ? raiz.datos[filaGlobo.modelData.clave][cursor.indice] : null
+                    readonly property var valor: cursor.indice >= 0 ? raiz._valor(filaGlobo.modelData.clave, cursor.indice) : null
                     readonly property real bl: raiz.m(61 + filaGlobo.index * 29)
                     anchors.fill: parent
                     Rectangle {
@@ -497,7 +520,7 @@ Item {
                     }
                     Text {
                         x: raiz.m(35); y: filaGlobo.bl - baselineOffset
-                        text: filaGlobo.modelData.texto
+                        text: raiz.textoSerie(filaGlobo.modelData)
                         color: raiz.paleta.texto
                         font.family: Tipografia.familia
                         font.pixelSize: raiz.fuente(13)
