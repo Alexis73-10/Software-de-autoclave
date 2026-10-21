@@ -22,6 +22,13 @@ Item {
     // Cerrar sesión en la celda central (solo OPCIONES)
     property bool cerrarSesionVisible: false
 
+    // B1 (tanda 6): Preciclo y Ciclo en curso ponen su propio contenido en las
+    // tres celdas (equipo, sesión, cancelar...). Con `personalizada` se ocultan
+    // Atrás, Inicio y Cerrar sesión; los hijos declarados en la pantalla van a
+    // `contenido`, con coordenadas relativas a la barra.
+    property bool personalizada: false
+    default property alias contenido: capa.data
+
     signal atrasPulsado()
     signal inicioPulsado()
     signal cerrarSesionPulsado()
@@ -52,6 +59,7 @@ Item {
 
     Item {
         objectName: "botonAtras"
+        visible: !raiz.personalizada
         x: 0; y: 0; width: raiz.m(313); height: parent.height
         enabled: raiz.atrasHabilitado
         opacity: enabled ? 1.0 : 0.4   // PROVISIONAL, misma convención que PantallaPreciclo.qml
@@ -68,6 +76,7 @@ Item {
 
     Item {
         objectName: "botonInicio"
+        visible: !raiz.personalizada
         x: raiz.m(800); y: 0; width: raiz.m(1128 - 800); height: parent.height
         enabled: raiz.inicioActivo
         // home_icon.svg (viewBox 1100 x 1080, tinta casi a sangre) centrado en la celda
@@ -84,7 +93,7 @@ Item {
     // Cerrar sesión: celda central, solo si la pantalla lo habilita (OPCIONES)
     Item {
         objectName: "botonCerrarSesion"
-        visible: raiz.cerrarSesionVisible
+        visible: raiz.cerrarSesionVisible && !raiz.personalizada
         x: raiz.m(313); y: 0; width: raiz.m(800 - 313); height: parent.height
         Image {
             anchors.centerIn: parent
@@ -105,4 +114,7 @@ Item {
         font.weight: Tipografia.pesoBold
         font.pixelSize: raiz.fuente(20)
     }
+
+    // contenido propio de la pantalla (B1); encima del fondo y los separadores
+    Item { id: capa; anchors.fill: parent }
 }

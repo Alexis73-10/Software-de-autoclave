@@ -305,8 +305,11 @@ Item {
 
     // ======================= panel principal =======================
     Rectangle {
+        objectName: "tarjetaCicloEnCurso"
+        // B1: termina 10 px sobre la barra flotante (no 30 como en Opciones):
+        // la barra de progreso llega a y 1723 del lienzo y no se reubica (D-19)
         x: raiz.m(19); y: raiz.m(177)
-        width: raiz.m(1159); height: raiz.yb(1900) - y
+        width: raiz.m(1159); height: barraInferior.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
@@ -591,149 +594,163 @@ Item {
         }
     }
 
-    // ======================= barra inferior (= PantallaPreciclo.qml salvo la derecha) =======================
-    Rectangle {
-        x: raiz.m(33); y: raiz.yb(1744); width: raiz.m(1130); height: raiz.m(141)
-        radius: raiz.m(26)
-        color: Colores.fondoTarjeta
-        border.width: raiz.m(2); border.color: raiz.paleta.bordeSuave
-    }
-    Divisor { abajo: true; cx: 347; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
-    Divisor { abajo: true; cx: 834; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
-
-    // Icono de equipo: icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
-    Image {
-        x: raiz.m(71 - 5.5); y: raiz.yb(1763 - 5.5)
-        width: raiz.m(94); height: raiz.m(62)
-        source: raiz.iconosColor + "icono_autoclave.svg"
-        sourceSize.width: width; sourceSize.height: height
-    }
-    component TextoPie: Texto {
-        abajo: true; lx: 70; tam: 17
+    // ======================= barra inferior =======================
+    // B1 (tanda 6, decisión 1.7): la misma BarraInferiorMenu flotante de
+    // Opciones, fuera del panel principal y por debajo de él, con las funciones
+    // de hoy: equipo a la izquierda, iniciar sesión al centro y CANCELAR /
+    // CONFIRMAR a la derecha; versión abajo a la derecha (la de la barra).
+    // Coordenadas de los hijos relativas a la barra (origen en x 34, y 1746).
+    component TextoPieBarra: Text {
+        property real bl: 0
+        x: raiz.m(70 - 34)
+        y: raiz.m(bl - 1746) - baselineOffset
         color: raiz.paleta.textoPie
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoSemiBold
+        font.pixelSize: raiz.fuente(17)
     }
-    TextoPie { bl: 1838; text: raiz.textos.modelo + raiz.sinLectura(raiz.modelo) }
-    TextoPie { bl: 1862; text: raiz.textos.serie + raiz.sinLectura(raiz.serie) }
-    MouseArea {
-        x: raiz.m(33); y: raiz.yb(1744); width: raiz.m(347 - 33); height: raiz.m(141)
-        onClicked: {
-            raiz.equipoPulsado()
-            raiz.infoEquipo?.actualizar()
-            panelEquipo.abrir()
-        }
-    }
+    BarraInferiorMenu {
+        id: barraInferior
+        objectName: "barraInferiorCicloEnCurso"
+        x: raiz.m(34)
+        y: raiz.yb(1746)
+        escala: raiz.m(1)
+        personalizada: true
+        version: raiz.version
 
-    // Avatar: deshabilitado sin conexión (como PantallaPreciclo.qml)
-    Item {
-        anchors.fill: parent
-        enabled: raiz.datosVigentes
-        opacity: enabled ? 1.0 : 0.4
-        Rectangle {
-            x: raiz.m(550); y: raiz.yb(1762); width: raiz.m(88); height: width; radius: width / 2
-            color: raiz.paleta.avatarFondo
-        }
-        Icono {
-            abajo: true
-            caja: [576, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
-            source: raiz.iconosColor + "usuario.svg"
-        }
-        MouseArea {
-            x: raiz.m(550); y: raiz.yb(1762); width: raiz.m(88); height: width
-            onClicked: raiz.avatarPulsado()
-        }
-    }
-
-    // Botón CANCELAR CICLO (mockup: x 846..1081, y 1768..1856). Al terminar el
-    // ciclo el mismo lugar lo ocupa CONFIRMAR (PROVISIONAL: colores de INICIAR
-    // CICLO, ícono de check). Deshabilitado sin conexión y mientras hay un envío
-    // en curso (anti doble toque).
-    Item {
-        id: botonCancelar
-        x: raiz.m(846); y: raiz.yb(1768)
-        width: raiz.m(235); height: raiz.m(88)
-        enabled: raiz.datosVigentes && !raiz.comandoOcupado
-        opacity: enabled ? 1.0 : 0.4
-        Rectangle {
-            anchors.fill: parent
-            radius: raiz.m(14)
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: raiz.terminado ? raiz.paleta.confirmarArriba : raiz.paleta.cancelarArriba }
-                GradientStop { position: 1.0; color: raiz.terminado ? raiz.paleta.confirmarAbajo : raiz.paleta.cancelarAbajo }
-            }
-            layer.enabled: true
-            layer.effect: MultiEffect {
-                shadowEnabled: true
-                shadowColor: "#40000000"
-                shadowVerticalOffset: raiz.m(3)
-                shadowBlur: 0.4
-            }
-        }
-        // detener.svg (blanco): anillo exterior 4..44 de 48 -> 65 px en el mockup
-        Image {
-            visible: !raiz.terminado
-            x: raiz.m(894 - 846) - width / 2
-            y: raiz.m(1812 - 1768) - height / 2
-            width: raiz.m(65 * 48 / 40); height: width
-            source: raiz.iconosColor + "detener.svg"
-            sourceSize.width: width; sourceSize.height: height
-        }
-        // CONFIRMAR: anillo blanco con check (mismo tamaño que el de detener.svg)
-        Rectangle {
-            visible: raiz.terminado
-            x: raiz.m(894 - 846) - width / 2
-            y: raiz.m(1812 - 1768) - height / 2
-            width: raiz.m(65); height: width; radius: width / 2
-            color: "transparent"
-            border.color: "white"; border.width: raiz.m(2)
+        // Celda izquierda: icono de equipo, modelo y serie
+        Item {
+            objectName: "botonEquipoCiclo"
+            x: 0; y: 0; width: raiz.m(313); height: parent.height
+            // icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
             Image {
-                id: checkConfirmar
-                visible: false
-                anchors.centerIn: parent
-                width: raiz.m(48); height: width
-                source: raiz.iconosColor + "confirmar.svg"
+                x: raiz.m(71 - 5.5 - 34); y: raiz.m(1763 - 5.5 - 1746)
+                width: raiz.m(94); height: raiz.m(62)
+                source: raiz.iconosColor + "icono_autoclave.svg"
                 sourceSize.width: width; sourceSize.height: height
             }
-            MultiEffect {
-                anchors.fill: checkConfirmar
-                source: checkConfirmar
-                brightness: 1.0
-            }
-        }
-        Text {
-            x: raiz.m(941 - 846)
-            y: raiz.m(1816 - 1768) - baselineOffset
-            text: raiz.terminado ? I18n.t("ciclo.confirmar", I18n.lang) : raiz.textos.cancelar
-            color: "white"
-            font.family: Tipografia.familia
-            font.weight: Tipografia.pesoMedium
-            font.pixelSize: raiz.fuente(13)
-        }
-        MouseArea {
-            anchors.fill: parent
-            onClicked: {
-                if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
-                    // P-6 (tanda 6): §15.2, verificar fugas antes de confirmar
-                    dialogoEstadoSeguro.abrir()
-                } else if (raiz.terminado) {
-                    raiz.confirmarPulsado()
-                    raiz.comandos?.confirmar()
-                } else {
-                    dialogoCancelar.abrir()
+            TextoPieBarra { bl: 1838; text: raiz.textos.modelo + raiz.sinLectura(raiz.modelo) }
+            TextoPieBarra { bl: 1862; text: raiz.textos.serie + raiz.sinLectura(raiz.serie) }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    raiz.equipoPulsado()
+                    raiz.infoEquipo?.actualizar()
+                    panelEquipo.abrir()
                 }
             }
         }
-    }
 
-    Text {
-        x: raiz.m(1141) - width
-        y: raiz.yb(1867) - baselineOffset
-        text: raiz.version
-        color: raiz.paleta.versionTexto
-        font.family: Tipografia.familia
-        font.weight: Tipografia.pesoBold
-        font.pixelSize: raiz.fuente(20)
+        // Celda central: avatar (iniciar sesión); deshabilitado sin conexión
+        Item {
+            objectName: "avatarCiclo"
+            x: raiz.m(313); y: 0; width: raiz.m(800 - 313); height: parent.height
+            enabled: raiz.datosVigentes
+            opacity: enabled ? 1.0 : 0.4
+            Rectangle {
+                id: fondoAvatar
+                anchors.centerIn: parent
+                width: raiz.m(88); height: width; radius: width / 2
+                color: raiz.paleta.avatarFondo
+            }
+            // usuario.svg (tinta 7.55..40.45 x 4.2..43.95 de 48): 44 de alto
+            Image {
+                readonly property real _e: raiz.m(44) / (43.95 - 4.2)
+                width: 48 * _e; height: width
+                x: fondoAvatar.x + fondoAvatar.width / 2 - (7.55 + 40.45) / 2 * _e
+                y: fondoAvatar.y + fondoAvatar.height / 2 - (4.2 + 43.95) / 2 * _e
+                source: raiz.iconosColor + "usuario.svg"
+                sourceSize.width: width; sourceSize.height: height
+            }
+            MouseArea {
+                anchors.centerIn: parent
+                width: raiz.m(122); height: raiz.m(105)
+                onClicked: raiz.avatarPulsado()
+            }
+        }
+
+        // Botón CANCELAR CICLO (mockup: x 846..1081, y 1768..1856). Al terminar el
+        // ciclo el mismo lugar lo ocupa CONFIRMAR (PROVISIONAL: colores de INICIAR
+        // CICLO, ícono de check). Deshabilitado sin conexión y mientras hay un envío
+        // en curso (anti doble toque).
+        Item {
+            id: botonCancelar
+            objectName: "botonCancelarCiclo"
+            // antes x 846, y 1768 de la pantalla; relativo a la barra (34, 1746)
+            x: raiz.m(846 - 34); y: raiz.m(1768 - 1746)
+            width: raiz.m(235); height: raiz.m(88)
+            enabled: raiz.datosVigentes && !raiz.comandoOcupado
+            opacity: enabled ? 1.0 : 0.4
+            Rectangle {
+                anchors.fill: parent
+                radius: raiz.m(14)
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: raiz.terminado ? raiz.paleta.confirmarArriba : raiz.paleta.cancelarArriba }
+                    GradientStop { position: 1.0; color: raiz.terminado ? raiz.paleta.confirmarAbajo : raiz.paleta.cancelarAbajo }
+                }
+                layer.enabled: true
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: "#40000000"
+                    shadowVerticalOffset: raiz.m(3)
+                    shadowBlur: 0.4
+                }
+            }
+            // detener.svg (blanco): anillo exterior 4..44 de 48 -> 65 px en el mockup
+            Image {
+                visible: !raiz.terminado
+                x: raiz.m(894 - 846) - width / 2
+                y: raiz.m(1812 - 1768) - height / 2
+                width: raiz.m(65 * 48 / 40); height: width
+                source: raiz.iconosColor + "detener.svg"
+                sourceSize.width: width; sourceSize.height: height
+            }
+            // CONFIRMAR: anillo blanco con check (mismo tamaño que el de detener.svg)
+            Rectangle {
+                visible: raiz.terminado
+                x: raiz.m(894 - 846) - width / 2
+                y: raiz.m(1812 - 1768) - height / 2
+                width: raiz.m(65); height: width; radius: width / 2
+                color: "transparent"
+                border.color: "white"; border.width: raiz.m(2)
+                Image {
+                    id: checkConfirmar
+                    visible: false
+                    anchors.centerIn: parent
+                    width: raiz.m(48); height: width
+                    source: raiz.iconosColor + "confirmar.svg"
+                    sourceSize.width: width; sourceSize.height: height
+                }
+                MultiEffect {
+                    anchors.fill: checkConfirmar
+                    source: checkConfirmar
+                    brightness: 1.0
+                }
+            }
+            Text {
+                x: raiz.m(941 - 846)
+                y: raiz.m(1816 - 1768) - baselineOffset
+                text: raiz.terminado ? I18n.t("ciclo.confirmar", I18n.lang) : raiz.textos.cancelar
+                color: "white"
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoMedium
+                font.pixelSize: raiz.fuente(13)
+            }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
+                        // P-6 (tanda 6): §15.2, verificar fugas antes de confirmar
+                        dialogoEstadoSeguro.abrir()
+                    } else if (raiz.terminado) {
+                        raiz.confirmarPulsado()
+                        raiz.comandos?.confirmar()
+                    } else {
+                        dialogoCancelar.abrir()
+                    }
+                }
+            }
+        }
     }
 
     // ======================= gráfica a pantalla completa =======================
@@ -780,6 +797,7 @@ Item {
     // Cancelación: solo confirmación, sin credencial ni rol (plan §10)
     DialogoConfirmacion {
         id: dialogoCancelar
+        objectName: "dialogoCancelarCiclo"
         mensaje: I18n.t("ciclo.cancelar_pregunta", I18n.lang)
         textoConfirmar: I18n.t("acciones.confirmar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)

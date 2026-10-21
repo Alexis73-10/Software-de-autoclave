@@ -102,6 +102,7 @@ Item {
     signal avatarPulsado()        // destino indefinido (PC-05)
     signal campanaPulsada()
     signal ajustesPulsado()
+    signal equipoPulsado()        // B1: celda de equipo de la barra (abre el panel de equipo)
 
     // Textos de la pantalla (PC-07: siguen sin confirmar por el diseñador).
     readonly property QtObject textos: QtObject {
@@ -290,9 +291,13 @@ Item {
     }
 
     // ======================= panel principal =======================
+    // B1: termina sobre la barra flotante. Margen de 10 px (no 30 como en
+    // Opciones) porque los botones ABRIR PUERTA / INICIAR CICLO llegan a y 1725
+    // del lienzo y no se reubican (D-19: no refactorizar el resto).
     Rectangle {
+        objectName: "tarjetaPreciclo"
         x: raiz.m(19); y: raiz.m(177)
-        width: raiz.m(1159); height: raiz.m(1723)
+        width: raiz.m(1159); height: barraInferior.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
@@ -727,68 +732,91 @@ Item {
     }
 
     // ======================= barra inferior =======================
-    Rectangle {
-        x: raiz.m(33); y: raiz.m(1744); width: raiz.m(1130); height: raiz.m(141)
-        radius: raiz.m(26)
-        color: Colores.fondoTarjeta
-        border.width: raiz.m(2); border.color: raiz.paleta.bordeSuave
-    }
-    Divisor { cx: 347; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
-    Divisor { cx: 834; y0: 1763; y1: 1869; color: raiz.paleta.divisorPie }
-
-    // Icono de equipo: icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
-    Image {
-        x: raiz.m(71 - 5.5); y: raiz.m(1763 - 5.5)
-        width: raiz.m(94); height: raiz.m(62)
-        source: raiz.iconosColor + "icono_autoclave.svg"
-        sourceSize.width: width; sourceSize.height: height
-    }
-    component TextoPie: Texto {
-        lx: 70; tam: 17
+    // B1 (tanda 6, decisión 1.7): la misma BarraInferiorMenu flotante de
+    // Opciones, fuera del panel principal y por debajo de él. Conserva las
+    // funciones de hoy: equipo a la izquierda (abre la información del equipo),
+    // versión al centro (mockup aprobado, pantalla 1) e iniciar sesión a la
+    // derecha, en el lugar de Inicio (U2 de la tanda 2). Coordenadas de los
+    // hijos relativas a la barra (lienzo 1128 x 139; origen en x 34, y 1746).
+    // Modelo y serie en la celda de equipo (línea base relativa al lienzo)
+    component TextoPieBarra: Text {
+        property real bl: 0
+        x: raiz.m(70 - 34)
+        y: raiz.m(bl - 1746) - baselineOffset
         color: raiz.paleta.textoPie
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoSemiBold
+        font.pixelSize: raiz.fuente(17)
     }
-    TextoPie { bl: 1838; text: raiz.textos.modelo + raiz.modelo }
-    TextoPie { bl: 1862; text: raiz.textos.serie + raiz.serie }
-    // Tocar el recuadro de equipo (hasta el primer divisor) abre la información del equipo
-    MouseArea {
-        x: raiz.m(33); y: raiz.m(1744); width: raiz.m(347 - 33); height: raiz.m(141)
-        onClicked: {
-            raiz.infoEquipo?.actualizar()
-            panelEquipo.abrir()
-        }
-    }
+    BarraInferiorMenu {
+        id: barraInferior
+        objectName: "barraInferiorPreciclo"
+        x: raiz.m(34)
+        // anclada al borde inferior como en Opciones (171 px del lienzo)
+        y: parent.height - raiz.m(1917 - 1746)
+        escala: raiz.m(1)
+        personalizada: true
+        version: ""
 
-    // Avatar: deshabilitado sin conexión (PROVISIONAL: opacidad 0.4). U2 (tanda
-    // 2): sin Home en esta pantalla (es la principal); el avatar ocupa su lugar,
-    // centrado donde estaba la casa (x 1001 del mockup)
-    Item {
-        objectName: "avatarPreciclo"
-        anchors.fill: parent
-        enabled: raiz.datosVigentes
-        opacity: enabled ? 1.0 : 0.4
-        Rectangle {
-            x: raiz.m(957); y: raiz.m(1762); width: raiz.m(88); height: width; radius: width / 2
-            color: raiz.paleta.avatarFondo
+        // Celda izquierda: icono de equipo, modelo y serie (antes x 33..347)
+        Item {
+            objectName: "botonEquipoPreciclo"
+            x: 0; y: 0; width: raiz.m(313); height: parent.height
+            // icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
+            Image {
+                x: raiz.m(71 - 5.5 - 34); y: raiz.m(1763 - 5.5 - 1746)
+                width: raiz.m(94); height: raiz.m(62)
+                source: raiz.iconosColor + "icono_autoclave.svg"
+                sourceSize.width: width; sourceSize.height: height
+            }
+            TextoPieBarra { bl: 1838; text: raiz.textos.modelo + raiz.modelo }
+            TextoPieBarra { bl: 1862; text: raiz.textos.serie + raiz.serie }
+            MouseArea {
+                anchors.fill: parent
+                onClicked: {
+                    raiz.equipoPulsado()
+                    raiz.infoEquipo?.actualizar()
+                    panelEquipo.abrir()
+                }
+            }
         }
-        Icono {
-            caja: [983, 1784, 36, 44]; tinta: [7.55, 4.2, 40.45, 43.95]
-            source: raiz.iconosColor + "usuario.svg"
+
+        // Celda central: versión
+        Text {
+            objectName: "versionPreciclo"
+            x: raiz.m((313 + 800) / 2) - width / 2
+            y: (parent.height - height) / 2
+            text: raiz.version
+            color: raiz.paleta.versionTexto
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: raiz.fuente(20)
         }
-        MouseArea {
-            x: raiz.m(940); y: raiz.m(1755); width: raiz.m(122); height: raiz.m(105)
-            onClicked: raiz.avatarPulsado()
+
+        // Celda derecha: avatar (iniciar sesión). Deshabilitado sin conexión
+        // (PROVISIONAL: opacidad 0.4)
+        Item {
+            objectName: "avatarPreciclo"
+            x: raiz.m(800); y: 0; width: raiz.m(1128 - 800); height: parent.height
+            enabled: raiz.datosVigentes
+            opacity: enabled ? 1.0 : 0.4
+            Rectangle {
+                id: fondoAvatar
+                anchors.centerIn: parent
+                width: raiz.m(88); height: width; radius: width / 2
+                color: raiz.paleta.avatarFondo
+            }
+            // usuario.svg (tinta 7.55..40.45 x 4.2..43.95 de 48): 44 de alto
+            Image {
+                readonly property real _e: raiz.m(44) / (43.95 - 4.2)
+                width: 48 * _e; height: width
+                x: fondoAvatar.x + fondoAvatar.width / 2 - (7.55 + 40.45) / 2 * _e
+                y: fondoAvatar.y + fondoAvatar.height / 2 - (4.2 + 43.95) / 2 * _e
+                source: raiz.iconosColor + "usuario.svg"
+                sourceSize.width: width; sourceSize.height: height
+            }
+            MouseArea { anchors.fill: parent; onClicked: raiz.avatarPulsado() }
         }
-    }
-    Text {
-        x: raiz.m(1141) - width
-        y: raiz.m(1867) - baselineOffset
-        text: raiz.version
-        color: raiz.paleta.versionTexto
-        font.family: Tipografia.familia
-        font.weight: Tipografia.pesoBold
-        font.pixelSize: raiz.fuente(20)
     }
 
     // ======================= paneles (PROVISIONALES) =======================
