@@ -116,3 +116,29 @@ def puede_calibrar(rol: str | None, estado_maquina: str | None) -> bool:
     if rol == "ingeniero":
         return True
     return rol == "tecnico" and estado_maquina != "CICLO"
+
+
+# Parámetros del equipo (O2a, tanda 6). Refleja el backend: cambiar un
+# parámetro, técnico e ingeniero fuera de CICLO (409 también al ingeniero);
+# idioma, admin e ingeniero, también en ciclo; unidades, solo el ingeniero y
+# fuera de ciclo (decisión 1.9, que prevalece sobre O2a).
+_EDITA_PARAMETROS_EQUIPO = frozenset({"tecnico", ROL_INGENIERO})
+_CAMBIA_IDIOMA = frozenset({ROL_ADMIN, ROL_INGENIERO})
+_CAMBIA_UNIDADES = frozenset({ROL_INGENIERO})
+
+
+def motivo_parametro_equipo(rol: str | None, estado_maquina: str | None) -> str:
+    """"" si puede cambiar; "rol" o "ciclo" si no."""
+    if rol not in _EDITA_PARAMETROS_EQUIPO:
+        return "rol"
+    return "ciclo" if estado_maquina == "CICLO" else ""
+
+
+def motivo_idioma(rol: str | None) -> str:
+    return "" if rol in _CAMBIA_IDIOMA else "rol"
+
+
+def motivo_unidades(rol: str | None, estado_maquina: str | None) -> str:
+    if rol not in _CAMBIA_UNIDADES:
+        return "rol"
+    return "ciclo" if estado_maquina == "CICLO" else ""

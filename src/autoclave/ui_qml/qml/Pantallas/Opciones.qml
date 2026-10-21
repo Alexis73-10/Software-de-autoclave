@@ -34,7 +34,8 @@ Item {
     property QtObject teclado: null     // PanelTeclado de la ventana (T12: ajuste de parámetros)
     // Cambios sin guardar de la sección activa (U-13, U-19): roles de sensor
     // sin guardar en Parámetros del ciclo (T12)
-    property bool cambiosPendientes: parametrosCiclo.item?.cambiosPendientes ?? false
+    property bool cambiosPendientes: (parametrosCiclo.item?.cambiosPendientes ?? false)
+                                     || (parametrosEquipo.item?.cambiosPendientes ?? false)
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
     // U2 (tanda 2): Atrás vuelve a la pantalla anterior conservando la sesión;
@@ -119,6 +120,8 @@ Item {
     function atras() {
         cerrarCajon()
         if (parametrosCiclo.item?.retroceder())
+            return
+        if (parametrosEquipo.item?.retroceder())      // O2a: submenú -> entrada
             return
         if (entradasSalidas.item?.subirNivel())
             return
@@ -247,7 +250,7 @@ Item {
             }
         }
 
-        // Parámetros del equipo (P2, tanda 5): impresora habilitada
+        // Parámetros del equipo (O2a, tanda 6): 7 submenús
         Loader {
             id: parametrosEquipo
             objectName: "cargadorParametrosEquipo"
@@ -257,6 +260,8 @@ Item {
             sourceComponent: OpcionesParametrosEquipo {
                 teclado: raiz.teclado
                 edicionPermitida: raiz.edicionPermitida
+                rol: control.rol                                  // O2a: decisión 1.9
+                estadoMaquina: raiz.puente?.machineState ?? ""
             }
         }
 

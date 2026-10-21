@@ -280,9 +280,23 @@ FAMILIAS = {
     # I4 (tanda 6): etiquetas de rol por valor
     "roles.": lambda: [v for v, _ in __import__("autoclave.ui_pyside.services.roles",
                                                 fromlist=["ROLES"]).ROLES],
+    # O2a (tanda 6): submenús y parámetros del equipo
+    "opciones.equipo_grupos.": lambda: ["puerta", "impresion", "drenaje", "empaque", "chaqueta",
+                                        "sistema", "maquina"],
+    "opciones.equipo_grupos_desc.": lambda: ["puerta", "impresion", "drenaje", "empaque",
+                                             "chaqueta", "sistema", "maquina"],
+    "opciones.equipo_magnitud_": lambda: ["temperatura", "presion"],
+    "parametros_equipo.": lambda: _claves_equipo(),
+    "parametros_equipo_desc.": lambda: _claves_equipo(),
     "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
                                  fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
 }
+
+def _claves_equipo():
+    from autoclave.core.managers.config_manager import ConfigManager
+    c = ConfigManager(); c.load_config()
+    return [p["clave"] for p in c.describir()]
+
 
 def _prefijos_en_codigo():
     patron = re.compile(r'"((?:%s)\.[A-Za-z0-9_.]*)"\s*\+' % "|".join(SECCIONES))
