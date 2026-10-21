@@ -244,7 +244,8 @@ def test_permisos_opciones():
     assert po.puede_ver("conectividad", "tecnico")
     assert po.puede_ver("conectividad", "admin") and po.puede_ver("conectividad", "ingeniero")
     assert po.puede_ver("usuarios", "admin") and po.puede_ver("usuarios", "ingeniero")
-    assert not po.puede_ver("usuarios", "tecnico")
+    assert po.puede_ver("usuarios", "tecnico")      # O2b (1.9): lo ve en solo lectura
+    assert po.motivo_gestion_usuarios("tecnico") == "rol"
     assert po.puede_ver("parametros_ciclo", "tecnico") and not po.puede_ver("parametros_ciclo", "admin")
     # técnico: estado distinto de CICLO (igual que el backend); ingeniero siempre
     assert po.edicion_permitida("FALLA", "tecnico")

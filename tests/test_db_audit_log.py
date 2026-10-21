@@ -16,7 +16,7 @@ def _columnas(db, tabla):
 
 def test_base_nueva_queda_en_v1_con_audit_log(tmp_path):
     db = DbManager(db_path=tmp_path / "t.db")
-    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 8   # v8: O2a (system_params)
+    assert db.get_version_esquema() == db_manager.ESQUEMA_VERSION == 9   # v9: O2b (operadores)
     assert _columnas(db, "audit_log") == {
         "id", "ts", "usuario", "rol", "evento", "entidad",
         "valor_anterior", "valor_nuevo", "detalle"}

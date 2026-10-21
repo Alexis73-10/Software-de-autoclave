@@ -442,6 +442,12 @@ def login(body: _LoginBody):
         valido = False
     else:
         valido = verificar_password(body.clave, fila.get("hash_pw"))
+        if valido:
+            # H-01 de O2b: si durante la verificación (lenta) se desactivó al
+            # usuario o se le restableció la clave, no se emite el token
+            actual = context.db.get_usuario_by_username(usuario)
+            valido = actual is not None and actual.get("hash_pw") == fila.get("hash_pw")
+            fila = actual if valido else fila
 
     if not valido:
         quedo_bloqueado = intentos_login.bloqueado(usuario)
@@ -589,6 +595,148 @@ def crear_usuario(body: _NuevoUsuarioBody,
     _auditar("usuario_creado", sesion, entidad=body.usuario,
              valor_nuevo={"rol": body.rol, "activo": body.activo})
     return {"ok": True, "usuario": body.usuario}
+
+
+# ── Gestión de usuarios y operadores (O2b, tanda 6; decisión 1.9) ────────────
+# Ver: admin, técnico e ingeniero (el técnico, en solo lectura). Modificar:
+# admin e ingeniero, y solo usuarios de un rol que pueden crear
+# (ROLES_CREABLES: el admin no toca a un ingeniero). Nunca se borra un usuario;
+# nadie se desactiva a sí mismo ni deja el equipo sin un ingeniero activo.
+# Desactivar o restablecer la contraseña cierra las sesiones abiertas del usuario.
+
+_LECTURA_USUARIOS = (ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO)
+_GESTION_USUARIOS = (ROL_ADMIN, ROL_INGENIERO)
+OPERADOR_NOMBRE_MAX = 40
+
+
+def _usuario_dto(f: dict) -> dict:
+    return {k: f.get(k) for k in ("nombre", "usuario", "rol", "activo", "debe_cambiar_clave",
+                                  "creado_por", "creado_en", "ultimo_ingreso")}
+
+
+@app.get("/usuarios")
+def listar_usuarios(sesion: Sesion = Depends(requiere_rol(*_LECTURA_USUARIOS))):
+    """Lista sin hashes. `gestionables`: roles que la sesión puede modificar."""
+    return {"usuarios": [_usuario_dto(f) for f in context.db.listar_usuarios()],
+            "gestionables": sorted(ROLES_CREABLES.get(sesion.rol, frozenset()))}
+
+
+def _objetivo_gestionable(usuario: str, sesion: Sesion, entidad: str) -> dict:
+    """404 si no existe; 403 si su rol no lo puede gestionar la sesión."""
+    fila = context.db.get_usuario_cualquiera(usuario)
+    if fila is None:
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    if fila.get("rol") not in ROLES_CREABLES.get(sesion.rol, frozenset()):
+        _rechazar(403, "rol_no_gestionable", "Su rol no puede modificar usuarios con ese rol",
+                  entidad, sesion)
+    return fila
+
+
+def _cerrar_sesiones_de(usuario: str, motivo: str) -> int:
+    cerradas = 0
+    for s in tokens.sesiones_de(usuario):
+        salio = _invalidar_sesion(s)
+        cerradas += 1
+        if salio:
+            _auditar("modo_prueba_sale", s, detalle={"motivo": motivo})
+    return cerradas
+
+
+class _ActivoBody(BaseModel):
+    activo: StrictBool
+
+
+@app.put("/usuarios/{usuario}/activo")
+def fijar_activo_usuario(usuario: str, body: _ActivoBody,
+                         sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    entidad = f"/usuarios/{usuario}/activo"
+    if usuario == sesion.usuario and not body.activo:
+        _rechazar(409, "autodesactivacion", "Nadie puede desactivarse a sí mismo", entidad, sesion)
+    _objetivo_gestionable(usuario, sesion, entidad)
+    resultado = context.db.fijar_activo_usuario(usuario, body.activo, ROL_INGENIERO)
+    if resultado == "no_existe":
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    if resultado == "ultimo_protegido":
+        _rechazar(409, "ultimo_ingeniero", "El equipo no puede quedar sin un ingeniero activo",
+                  entidad, sesion)
+    if resultado == "ok":
+        cerradas = 0 if body.activo else _cerrar_sesiones_de(usuario, "usuario desactivado")
+        _auditar("usuario_reactivado" if body.activo else "usuario_desactivado", sesion,
+                 entidad=usuario, valor_anterior={"activo": not body.activo},
+                 valor_nuevo={"activo": body.activo},
+                 detalle={"sesiones_cerradas": cerradas} if cerradas else None)
+    return {"ok": True, "usuario": usuario, "activo": body.activo}
+
+
+class _RestablecerClaveBody(BaseModel):
+    clave: str
+    confirmacion: str
+
+
+@app.post("/usuarios/{usuario}/restablecer_clave")
+def restablecer_clave(usuario: str, body: _RestablecerClaveBody,
+                      sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    """Contraseña temporal con cambio obligatorio en el siguiente login. La
+    propia se cambia por /auth/change_password (409). 422 {campo, codigo}."""
+    entidad = f"/usuarios/{usuario}/restablecer_clave"
+    if usuario == sesion.usuario:
+        _rechazar(409, "usar_cambio_clave", "Para su propia contraseña use Cambiar contraseña",
+                  entidad, sesion)
+    _objetivo_gestionable(usuario, sesion, entidad)
+    errores = {}
+    for campo, codigo in (("clave", codigo_clave(body.clave)),
+                          ("confirmacion", codigo_confirmacion(body.confirmacion, body.clave))):
+        if codigo:
+            errores[campo] = codigo
+    if errores:
+        _rechazar_validacion(errores)
+    if not context.db.restablecer_password(usuario, hash_password(body.clave)):
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    cerradas = _cerrar_sesiones_de(usuario, "contraseña restablecida")
+    intentos_login.registrar_exito(usuario)       # H-04: la clave temporal sirve de inmediato
+    _auditar("clave_restablecida", sesion, entidad=usuario,
+             detalle={"sesiones_cerradas": cerradas} if cerradas else None)
+    return {"ok": True, "usuario": usuario}
+
+
+@app.get("/operadores")
+def listar_operadores(activos: bool = False):
+    """Operadores (nombre, sin contraseña). Lectura libre: se eligen al iniciar
+    ciclo, que no exige sesión."""
+    return {"operadores": [{k: o[k] for k in ("id", "nombre", "activo")}       # H-05
+                           for o in context.db.listar_operadores(solo_activos=activos)]}
+
+
+class _OperadorBody(BaseModel):
+    nombre: str
+
+
+@app.post("/operadores")
+def crear_operador(body: _OperadorBody,
+                   sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    nombre = " ".join(body.nombre.split())
+    if not nombre:
+        _rechazar_validacion({"nombre": COD_OBLIGATORIO})
+    if len(nombre) > OPERADOR_NOMBRE_MAX:
+        _rechazar_validacion({"nombre": "larga"})
+    id_ = context.db.crear_operador(nombre, sesion.usuario)
+    if id_ is None:
+        _rechazar(409, "operador_existe", "El operador ya existe", "/operadores", sesion)
+    _auditar("operador_creado", sesion, entidad=nombre, valor_nuevo={"activo": True})
+    return {"ok": True, "id": id_, "nombre": nombre}
+
+
+@app.put("/operadores/{id_}/activo")
+def fijar_activo_operador(id_: int, body: _ActivoBody,
+                          sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    anterior = context.db.fijar_activo_operador(id_, body.activo)
+    if anterior is None:
+        raise RechazoApi(404, "no_existe", "El operador no existe")
+    if anterior["activo"] != body.activo:
+        _auditar("operador_reactivado" if body.activo else "operador_desactivado", sesion,
+                 entidad=anterior["nombre"], valor_anterior={"activo": anterior["activo"]},
+                 valor_nuevo={"activo": body.activo})
+    return {"ok": True, "id": id_, "activo": body.activo}
 
 
 def _resolve_sensor_index(tipo: str, sensor: str) -> int:

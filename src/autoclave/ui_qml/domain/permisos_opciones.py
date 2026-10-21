@@ -23,6 +23,9 @@ from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO
 _TECNICOS = frozenset({"tecnico", "ingeniero"})
 _CONECTIVIDAD = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})
 _GESTION_USUARIOS = frozenset({ROL_ADMIN, ROL_INGENIERO})
+# O2b (tanda 6, decisión 1.9): el técnico VE Usuarios con los controles
+# deshabilitados y el motivo; solo admin e ingeniero modifican.
+_VE_USUARIOS = _GESTION_USUARIOS | {"tecnico"}
 # C1b (tanda 6, decisión 1.5; revierte P2-1 de la tanda 5): el admin VE
 # Parámetros del equipo, en solo lectura.
 _PARAMETROS_EQUIPO = _TECNICOS | {ROL_ADMIN}
@@ -45,7 +48,7 @@ SECCIONES = (
     Seccion("entradas_salidas",   "sensor_temperatura.svg", _TECNICOS),
     Seccion("mantenimiento",      "mantenimiento.svg",      _TECNICOS),
     Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
-    Seccion("usuarios",           "usuarios.svg",           _GESTION_USUARIOS),
+    Seccion("usuarios",           "usuarios.svg",           _VE_USUARIOS),
     Seccion("conectividad",       "conectividad.svg",       _CONECTIVIDAD),
 )
 
@@ -142,3 +145,11 @@ def motivo_unidades(rol: str | None, estado_maquina: str | None) -> str:
     if rol not in _CAMBIA_UNIDADES:
         return "rol"
     return "ciclo" if estado_maquina == "CICLO" else ""
+
+
+# Usuarios y operadores (O2b, tanda 6; decisión 1.9): crear, desactivar,
+# restablecer contraseña y agregar operador, admin e ingeniero. El backend
+# impone además ROLES_CREABLES sobre el usuario objetivo (403).
+def motivo_gestion_usuarios(rol: str | None) -> str:
+    """"" si puede modificar; "rol" si no."""
+    return "" if rol in _GESTION_USUARIOS else "rol"

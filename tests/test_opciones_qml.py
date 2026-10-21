@@ -142,7 +142,7 @@ _SCRIPT = textwrap.dedent(r"""
     r["proximamente"] = hijo("textoProximamente").property("visible")
     # T12: Parámetros del ciclo ya migrado (Fases 2 a 4)
     r["parametros_ciclo"] = hijo("cargadorParametrosCiclo").property("active")
-    r["boton_nuevo_usuario"] = hijo("botonNuevoUsuario").property("visible")
+    r["boton_nuevo_usuario"] = hijo("cargadorUsuarios").property("active")   # O2b: pantalla Usuarios
     r["sin_secciones"] = hijo("textoSinSecciones").property("visible")
     r["aviso_bloqueo"] = hijo("avisoEdicionBloqueada").property("visible")
     r["engranaje_visible"] = hijo("engranajeEncabezado").property("visible")
@@ -282,7 +282,7 @@ def _navegacion_comun(r):
 def test_tecnico_entra_a_opciones(estado, bloqueado):
     r = _correr(estado, "tecnico")
     _navegacion_comun(r)
-    assert r["entradas"] == _TECNICAS + ["conectividad"]     # tanda §1.6
+    assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad"]     # tanda §1.6; O2b (1.9)
     assert r["seccion_activa"] == "parametros_ciclo"
     assert r["titulo"] == "PARÁMETROS DEL CICLO"
     assert r["elegir_cierra"] is True

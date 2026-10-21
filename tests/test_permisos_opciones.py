@@ -18,7 +18,8 @@ _ADMIN = ["usuarios", "conectividad"]
 _ESPERADO = {
     "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura
     # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
-    "tecnico":   _TECNICAS + ["conectividad"],
+    # O2b (tanda 6, decisión 1.9): el técnico ve Usuarios con los controles deshabilitados
+    "tecnico":   _TECNICAS + _ADMIN,
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
     "ingeniero": _TECNICAS + _ADMIN,

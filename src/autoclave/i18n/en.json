@@ -1224,5 +1224,37 @@
     "liquidos": {
       "nombre": "Liquids"
     }
+  },
+  "gestion_usuarios": {
+    "pestana_usuarios": "Users",
+    "pestana_operadores": "Operators",
+    "activo": "Active",
+    "desactivado": "Deactivated",
+    "ultimo_ingreso": "Last login",
+    "nunca": "never",
+    "restablecer": "Reset password",
+    "desactivar": "Deactivate",
+    "reactivar": "Reactivate",
+    "nuevo": "+ New user",
+    "agregar_operador": "+ Add operator",
+    "nombre_operador": "Operator name",
+    "sin_operadores": "No operators registered",
+    "clave_temporal": "Temporary password",
+    "clave_confirmar": "Confirm the temporary password",
+    "nota": "Users are never deleted, only deactivated. Nobody can deactivate themselves or leave the unit without an active engineer.",
+    "motivo_rol": "Your role cannot create or modify users or operators (admin and engineer only).",
+    "motivo_propio": "You cannot deactivate yourself; change your own password in Change password.",
+    "motivo_rol_objetivo": "Your role cannot modify users with that role.",
+    "confirmar_desactivar": "Deactivate user {usuario}? Their open sessions will be closed.",
+    "confirmar_reactivar": "Reactivate user {usuario}?",
+    "confirmar_restablecer": "Reset the password of {usuario}? They must change it at their next login.",
+    "err_rol": "Your role is not allowed to do this.",
+    "err_rol_objetivo": "Your role cannot modify users with that role.",
+    "err_propio": "Nobody can deactivate themselves.",
+    "err_propia_clave": "For your own password use Change password.",
+    "err_ultimo_ingeniero": "The unit cannot be left without an active engineer.",
+    "err_operador_existe": "An operator with that name already exists.",
+    "err_validacion": "Invalid data: the password must have the minimum length and match the confirmation.",
+    "err_no_existe": "The user or operator no longer exists."
   }
 }

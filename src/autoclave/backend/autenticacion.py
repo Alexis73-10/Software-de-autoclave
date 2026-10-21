@@ -97,6 +97,13 @@ class AlmacenTokens:
         with self._lock:
             return self._sesiones.pop(token, None)
 
+    def sesiones_de(self, usuario: str) -> list[Sesion]:
+        """Sesiones vigentes de `usuario` (O2b: desactivar o restablecer la
+        contraseña las cierra). No cuenta como actividad."""
+        with self._lock:
+            self._purgar_vencidas()
+            return [s for s in self._sesiones.values() if s.usuario == usuario]
+
     def clave_cambiada(self, token: str) -> None:
         with self._lock:
             sesion = self._sesiones.get(token)

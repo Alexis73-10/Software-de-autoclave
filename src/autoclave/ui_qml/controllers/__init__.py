@@ -15,3 +15,5 @@ from autoclave.ui_qml.controllers import entradas_salidas_controller  # noqa: F4
 from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
 # OPCIONES > Parámetros del equipo (P2, tanda 5).
 from autoclave.ui_qml.controllers import parametros_equipo_controller  # noqa: F401
+# OPCIONES > Usuarios (O2b, tanda 6).
+from autoclave.ui_qml.controllers import usuarios_controller  # noqa: F401

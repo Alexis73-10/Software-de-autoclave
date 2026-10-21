@@ -1224,5 +1224,37 @@
     "liquidos": {
       "nombre": "Líquidos"
     }
+  },
+  "gestion_usuarios": {
+    "pestana_usuarios": "Usuarios",
+    "pestana_operadores": "Operadores",
+    "activo": "Activo",
+    "desactivado": "Desactivado",
+    "ultimo_ingreso": "Último ingreso",
+    "nunca": "nunca",
+    "restablecer": "Restablecer contraseña",
+    "desactivar": "Desactivar",
+    "reactivar": "Reactivar",
+    "nuevo": "+ Nuevo usuario",
+    "agregar_operador": "+ Agregar operador",
+    "nombre_operador": "Nombre del operador",
+    "sin_operadores": "No hay operadores registrados",
+    "clave_temporal": "Contraseña temporal",
+    "clave_confirmar": "Confirme la contraseña temporal",
+    "nota": "No se borran usuarios: se desactivan. Nadie se desactiva a sí mismo ni deja el equipo sin un ingeniero activo.",
+    "motivo_rol": "Su rol no puede crear ni modificar usuarios ni operadores (solo admin e ingeniero).",
+    "motivo_propio": "No puede desactivarse a sí mismo; su contraseña se cambia en Cambiar contraseña.",
+    "motivo_rol_objetivo": "Su rol no puede modificar usuarios con ese rol.",
+    "confirmar_desactivar": "¿Desactivar al usuario {usuario}? Se cerrarán sus sesiones abiertas.",
+    "confirmar_reactivar": "¿Reactivar al usuario {usuario}?",
+    "confirmar_restablecer": "¿Restablecer la contraseña de {usuario}? Deberá cambiarla en su siguiente ingreso.",
+    "err_rol": "Su rol no tiene permiso para esta acción.",
+    "err_rol_objetivo": "Su rol no puede modificar usuarios con ese rol.",
+    "err_propio": "Nadie puede desactivarse a sí mismo.",
+    "err_propia_clave": "Para su propia contraseña use Cambiar contraseña.",
+    "err_ultimo_ingeniero": "El equipo no puede quedar sin un ingeniero activo.",
+    "err_operador_existe": "Ya existe un operador con ese nombre.",
+    "err_validacion": "Datos inválidos: la contraseña debe tener la longitud mínima y coincidir con la confirmación.",
+    "err_no_existe": "El usuario u operador ya no existe."
   }
 }

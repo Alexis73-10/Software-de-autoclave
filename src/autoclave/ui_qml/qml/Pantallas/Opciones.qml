@@ -219,22 +219,19 @@ Item {
             }
         }
 
-        // Usuarios: por ahora solo crear (botón a Nuevo usuario, R2-5)
-        Rectangle {
-            objectName: "botonNuevoUsuario"
-            visible: raiz.seccionActiva === "usuarios"
-            anchors.centerIn: parent
-            width: raiz.m(560); height: raiz.m(96); radius: raiz.m(12)
-            color: Colores.accionPrimario
-            Text {
-                anchors.centerIn: parent
-                text: I18n.t("opciones.nuevo_usuario", I18n.lang)
-                color: "white"
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoSemiBold
-                font.pixelSize: raiz.fuente(32)
+        // Usuarios (O2b, tanda 6): pestañas Usuarios / Operadores; "+ Nuevo
+        // usuario" sigue abriendo la pantalla existente (R2-5)
+        Loader {
+            id: usuarios
+            objectName: "cargadorUsuarios"
+            active: raiz.seccionActiva === "usuarios"
+            anchors.fill: parent
+            sourceComponent: OpcionesUsuarios {
+                teclado: raiz.teclado
+                rol: control.rol
+                usuarioActual: control.usuario
+                onNuevoUsuarioPulsado: raiz.nuevoUsuarioPulsado()
             }
-            MouseArea { anchors.fill: parent; onClicked: raiz.nuevoUsuarioPulsado() }
         }
 
         // Parámetros del ciclo, Fases 2 a 4 (T12): debajo del aviso de bloqueo
