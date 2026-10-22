@@ -13,7 +13,7 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | R8 ★ | Relanzada 16:12 (continúa) | rama `tanda-8-r8` | |
 | V8a | En cola (worktree con commits) | rama `tanda-8-v8a` | ★ solo D8-5.7. |
 | E1 | En cola (worktree con commits) | rama `tanda-8-e1` | ★ solo D8-3.19. |
-| E2 | Unida a `tanda-8` (16:15), suite de integración en curso | 1aab868 (merge) | Informe `tanda8/E2_nombres_familia_modelo.md`. |
+| E2 | Hecha, unida a `tanda-8` | 1aab868 (merge) | Informe `tanda8/E2_nombres_familia_modelo.md`. Suite tras unir **5438 p / 3 s / 3 xf** (`suites/integ_e2.log`, autoclave de `_suites_t8/base`). |
 | M8 | Hecha, unida a `tanda-8` | aaa78ae (merge) | Informe `tanda8/M8_mantenimiento.md`. Suite tras unir 5388 p / 3 s / 3 xf (`suites/integ_m8.log`). |
 | U8 | Hecha, unida a `tanda-8` | 8bcaeb2 (merge) | Suite de la rama 5378 p / 3 s / 3 xf (= 5382 − 7 retiradas + 3 nuevas). Tras unir, `src/` y `tests/` idénticos a la rama (`git diff tanda-8-u8 tanda-8 -- src tests` vacío): misma suite. |
 | L8 | En cola (worktree con commits) | rama `tanda-8-l8` | |
