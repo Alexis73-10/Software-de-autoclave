@@ -178,7 +178,8 @@
       "mantenimiento": "Maintenance",
       "opciones_avanzadas": "Advanced options",
       "usuarios": "Users",
-      "conectividad": "Connectivity"
+      "conectividad": "Connectivity",
+      "respaldo": "Backup"
     },
     "secciones_programa": {
       "precalentamiento": "Preheating",
@@ -1258,6 +1259,36 @@
     "err_desactivado": "Email sending is disabled.",
     "asunto_prueba": "Autoclave {serie}: test email",
     "cuerpo_prueba": "This is a test email from autoclave {modelo}, serial number {serie}, sent on {fecha}. If you receive it, email sending works."
+  },
+  "respaldo": {
+    "usb_detectada": "USB detected: {unidad} ({libre} free)",
+    "usb_no_detectada": "No USB drive detected. Plug it in and tap Refresh.",
+    "actualizar": "Refresh",
+    "exportar_titulo": "Export to USB",
+    "parte_perfil_calibracion": "Profile and calibration",
+    "parte_parametros_programas": "Parameters and programs",
+    "parte_usuarios": "Users (no readable passwords)",
+    "parte_historial": "Cycle history (optional)",
+    "exportar": "Export to USB",
+    "restaurar_titulo": "Backups on the USB",
+    "sin_respaldos": "No backups on the USB.",
+    "detalle": "Serial {serie} · {fecha}",
+    "valido": "Valid",
+    "rechazado": "Rejected",
+    "restaurar": "Restore selected",
+    "nota": "Only backups of this same unit (serial number) are restored. Calibration and parameters are restored; programs, users, history, profile and atmospheric pressure are not changed.",
+    "confirmar": "Restore {archivo}? Calibration and unit parameters will be replaced. This action is logged.",
+    "exportado": "Backup exported to the USB.",
+    "restaurado": "Backup restored.",
+    "restaurado_reinicio": "Backup restored. Restart the software to apply the calibration and programs.",
+    "motivo_otra_serie": "From another unit",
+    "motivo_version": "Incompatible software version",
+    "motivo_formato": "Unknown format",
+    "motivo_invalido": "Damaged or invalid backup",
+    "err_usb": "The USB drive is not detected.",
+    "err_usb_escritura": "Could not write to the USB drive.",
+    "err_sin_partes": "Choose at least one part to export.",
+    "err_invalido": "The backup is damaged or invalid."
   },
   "puerta": {
     "desconocida": "Unknown door",

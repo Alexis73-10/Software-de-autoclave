@@ -298,6 +298,19 @@ Item {
             }
         }
 
+        // Respaldo (O2h, tanda 6): exportar y restaurar por USB
+        Loader {
+            id: respaldo
+            objectName: "cargadorRespaldo"
+            active: raiz.seccionActiva === "respaldo"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesRespaldo {
+                // solo fuera de ciclo, también el ingeniero (el backend responde 409)
+                edicionPermitida: raiz.edicionPermitida && (raiz.puente?.machineState ?? "") !== "CICLO"
+            }
+        }
+
         // Entradas / Salidas (planeacion_opciones_entradas_salidas.md)
         Loader {
             id: entradasSalidas
@@ -318,6 +331,7 @@ Item {
                      && raiz.seccionActiva !== "parametros_sistema"
                      && raiz.seccionActiva !== "entradas_salidas"
                      && raiz.seccionActiva !== "conectividad"
+                     && raiz.seccionActiva !== "respaldo"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia

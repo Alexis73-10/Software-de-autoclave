@@ -178,7 +178,8 @@
       "mantenimiento": "Mantenimiento",
       "opciones_avanzadas": "Opciones avanzadas",
       "usuarios": "Usuarios",
-      "conectividad": "Conectividad"
+      "conectividad": "Conectividad",
+      "respaldo": "Respaldo"
     },
     "secciones_programa": {
       "precalentamiento": "Precalentamiento",
@@ -1258,6 +1259,36 @@
     "err_desactivado": "El envío de correo está desactivado.",
     "asunto_prueba": "Autoclave {serie}: correo de prueba",
     "cuerpo_prueba": "Este es un correo de prueba del autoclave {modelo}, número de serie {serie}, enviado el {fecha}. Si lo recibe, el envío de correo funciona."
+  },
+  "respaldo": {
+    "usb_detectada": "USB detectada: {unidad} ({libre} libres)",
+    "usb_no_detectada": "No se detecta ninguna USB. Conéctela y toque Actualizar.",
+    "actualizar": "Actualizar",
+    "exportar_titulo": "Exportar a USB",
+    "parte_perfil_calibracion": "Perfil y calibración",
+    "parte_parametros_programas": "Parámetros y programas",
+    "parte_usuarios": "Usuarios (sin contraseñas legibles)",
+    "parte_historial": "Historial de ciclos (opcional)",
+    "exportar": "Exportar a USB",
+    "restaurar_titulo": "Respaldos en la USB",
+    "sin_respaldos": "No hay respaldos en la USB.",
+    "detalle": "Serie {serie} · {fecha}",
+    "valido": "Válido",
+    "rechazado": "Rechazado",
+    "restaurar": "Restaurar seleccionado",
+    "nota": "Solo se restauran respaldos de este mismo equipo (número de serie). Se restauran la calibración y los parámetros; los programas, los usuarios, el historial, el perfil y la presión atmosférica no se modifican.",
+    "confirmar": "¿Restaurar {archivo}? Se reemplazarán la calibración y los parámetros del equipo. Esta acción queda registrada.",
+    "exportado": "Respaldo exportado a la USB.",
+    "restaurado": "Respaldo restaurado.",
+    "restaurado_reinicio": "Respaldo restaurado. Reinicie el software para aplicar la calibración y los programas.",
+    "motivo_otra_serie": "De otro equipo",
+    "motivo_version": "Versión de software incompatible",
+    "motivo_formato": "Formato desconocido",
+    "motivo_invalido": "Respaldo dañado o inválido",
+    "err_usb": "No se detecta la USB.",
+    "err_usb_escritura": "No se pudo escribir en la USB.",
+    "err_sin_partes": "Elija al menos una parte para exportar.",
+    "err_invalido": "El respaldo está dañado o no es válido."
   },
   "puerta": {
     "desconocida": "Puerta desconocida",

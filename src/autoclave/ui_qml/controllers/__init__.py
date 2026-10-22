@@ -19,3 +19,5 @@ from autoclave.ui_qml.controllers import parametros_equipo_controller  # noqa: F
 from autoclave.ui_qml.controllers import calibracion_atm_controller  # noqa: F401
 # OPCIONES > Conectividad (O2g, tanda 6).
 from autoclave.ui_qml.controllers import conectividad_controller  # noqa: F401
+# OPCIONES > Respaldo (O2h, tanda 6).
+from autoclave.ui_qml.controllers import respaldo_controller  # noqa: F401

@@ -282,7 +282,7 @@ def _navegacion_comun(r):
 def test_tecnico_entra_a_opciones(estado, bloqueado):
     r = _correr(estado, "tecnico")
     _navegacion_comun(r)
-    assert r["entradas"] == _TECNICAS + ["conectividad"]     # tanda §1.6
+    assert r["entradas"] == _TECNICAS + ["conectividad", "respaldo"]     # tanda §1.6; O2h
     assert r["seccion_activa"] == "parametros_ciclo"
     assert r["titulo"] == "PARÁMETROS DEL CICLO"
     assert r["elegir_cierra"] is True
@@ -303,7 +303,7 @@ def test_ingeniero_edita_con_ciclo_en_curso():
     # Excepción de Cristian (2026-10-07): el ingeniero modifica lo que sea en cualquier momento
     r = _correr("CICLO", "ingeniero")
     _navegacion_comun(r)
-    assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad"]   # T-8, R3-5; tanda §1.6
+    assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad", "respaldo"]   # T-8, R3-5; tanda §1.6; O2h
     assert r["aviso_bloqueo"] is False            # Parámetros del ciclo
     assert r["aviso_bloqueo_segunda"] is False    # Parámetros del equipo
 

@@ -47,6 +47,8 @@ SECCIONES = (
     Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
     Seccion("usuarios",           "usuarios.svg",           _GESTION_USUARIOS),
     Seccion("conectividad",       "conectividad.svg",       _CONECTIVIDAD),
+    # O2h (tanda 6): respaldo y restauración, técnico e ingeniero
+    Seccion("respaldo",           "carpeta.svg",            _TECNICOS),
 )
 
 _POR_CLAVE = {s.clave: s for s in SECCIONES}

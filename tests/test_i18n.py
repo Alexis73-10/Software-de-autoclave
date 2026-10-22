@@ -296,6 +296,10 @@ FAMILIAS = {
         "autoclave.core.runtime.calibracion_atm", fromlist=["CONDICIONES"]).CONDICIONES),
     "calibracion_atm.motivo_": lambda: _motivos_calibracion_atm(),
     "calibracion_atm.res_": lambda: ["ok", "por_confirmar", "abortada", "rechazada"],
+    # O2h (tanda 6): partes del respaldo y motivos de rechazo
+    "respaldo.parte_": lambda: list(__import__(
+        "autoclave.core.runtime.respaldo", fromlist=["PARTES"]).PARTES),
+    "respaldo.motivo_": lambda: ["otra_serie", "version", "formato", "invalido"],
     "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
                                  fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
 }
