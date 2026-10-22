@@ -767,8 +767,10 @@ class ControlLoop:
             self._avisar_cancelacion_prueba()
 
         # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
-        # publicado, así que el orden respecto al paso 5 no importa.
-        self._acumular_f0(now)
+        # publicado, así que el orden respecto al paso 5 no importa. RR-01
+        # (re-revisión Q1): con los mismos datos vigentes que el paso 5.
+        self._acumular_f0(now, vigentes=connected and not self.desconectado
+                          and self._di_vigente())
 
         # 6. Data logger (observa machine_state internamente)
         if self.cycle_logger is not None:
@@ -781,7 +783,7 @@ class ControlLoop:
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
 
-    def _acumular_f0(self, now: float) -> None:
+    def _acumular_f0(self, now: float, vigentes: bool = True) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con
         letalidad real y el ciclo activo tiene globals.F0 activado. El
         timestamp se resetea a None cada vez que alguna condición no se
@@ -798,6 +800,13 @@ class ControlLoop:
             and self.estado.fase_ciclo in _F0_FASES_ACUMULAN
             and bool(self.programa_en_ejecucion().get_param("globals", "F0"))
         )
+        # RR-01 (re-revisión Q1): sin datos vigentes o con la fase pausada por
+        # la tolerancia de DI vencida (T2-a) no se acredita F0: fase_ciclo
+        # sigue en ESTERILIZACION y los ticks llegan a 0,5 s, así que el tope
+        # de 2 intervalos de abajo no lo cubre.
+        if condiciones and (not vigentes or getattr(
+                self.state_machine.ciclo, "tolerancia_di_activa", False) is True):
+            condiciones = False
         if not condiciones:
             self._f0_ultimo_tick = None
             return
