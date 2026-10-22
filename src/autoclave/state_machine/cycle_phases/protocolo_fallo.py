@@ -77,8 +77,39 @@ class ProtocoloFallo:
 
     @property
     def solo_lenta(self) -> bool:
-        """True si el protocolo se disparó por la pérdida del Principal."""
+        """True si el protocolo se disparó por la pérdida del Principal o si
+        el Principal se perdió después, con el protocolo ya en marcha (R1-P4)."""
         return self._solo_lenta
+
+    def _principal_perdido(self) -> bool:
+        """Principal sin lectura: None, no finito o 0 (mismo criterio que P-2
+        en CicloState y que bloqueado_motivo)."""
+        temp = self._temp_principal()
+        return not lectura_valida(temp) or temp == 0
+
+    def pasar_a_solo_lenta(self) -> bool:
+        """R1-P4 (tanda 7, decisión 1.3 de Cristian): el protocolo ya corría
+        por otra causa (fallo de fase, cancelación, puerta, paro...) y después
+        se perdió el Principal. Se aplica el criterio de P-2 sin importar el
+        orden: solo la lenta, sin escalar ni enfriar con contrapresión. Cierra
+        lo que el modo pudo abrir (rápida, chaqueta, contrapresión, agua de
+        chaqueta); la lenta la abre el siguiente paso de update(). Es un
+        enclavamiento: no se revierte aunque el Principal vuelva a leer.
+        Devuelve True si cambió el modo."""
+        if self._solo_lenta:
+            return False
+        logger.error("Protocolo fallo: Principal sin lectura con el protocolo en marcha "
+                     "(modo %s) — se pasa a solo la descompresión lenta", self._modo)
+        self._solo_lenta = True
+        self._sin_escalar = True
+        self._escalado = False
+        self._sub_etapa = None
+        self._t_pulso_chaqueta = None
+        self._chaqueta_abierta = False
+        self.set_do.descompresion_rapida_off()
+        self.set_do.descompresion_chaqueta_off()
+        self._fin_enfriamiento(cerrar_lenta=False)
+        return True
 
     @property
     def ejecutado(self) -> bool:
@@ -342,6 +373,10 @@ class ProtocoloFallo:
             self._salidas_apagadas = self.set_do.reset_all_outputs()
             if self._salidas_apagadas:
                 logger.info("Protocolo fallo: apagado de salidas confirmado tras reintento")
+
+        # R1-P4: Principal perdido con el protocolo ya en marcha por otra causa
+        if not self._solo_lenta and self._principal_perdido():
+            self.pasar_a_solo_lenta()
 
         pres     = self.estado.sensores_pres.get("pres_camara")
         # Principal del programa del ciclo (tanda §1.1)
