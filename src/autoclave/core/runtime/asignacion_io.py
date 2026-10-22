@@ -113,7 +113,7 @@ def etiqueta(tipo: str, puerto: int) -> str:
 
 
 def es_temperatura(funcion: str) -> bool:
-    return nombre_estado(funcion) in _FABRICA_CODIGO["map_temp"]
+    return nombre_estado(base(funcion)) in _FABRICA_CODIGO["map_temp"]
 
 
 def puertos_validos(tipo: str, funcion: str | None = None) -> range:
@@ -141,9 +141,47 @@ def fabrica_codigo() -> dict:
     }
 
 
+# Un mismo nombre puede estar en dos tipos (agua_bomba: DI 09 retorno y DO 18
+# mando). Esos nombres se identifican con el tipo delante ("DI:agua_bomba") en
+# los cambios, el archivo, la API, la bitácora y la UI; los demás conservan su
+# nombre (un archivo ya guardado sigue valiendo).
+def _repetidas() -> frozenset:
+    m = _FABRICA_CODIGO
+    nombres = [canonico(n) for n in m["map_di"]] + [canonico(n) for n in m["map_do"]]         + [canonico(n) for n in (*m["map_temp"], *m["map_pres"])]
+    return frozenset(n for n in nombres if nombres.count(n) > 1)
+
+
+_AMBIGUAS = _repetidas()
+
+
+def clave(tipo: str, funcion: str) -> str:
+    """Identificador único de una función: su nombre, o "TIPO:nombre" si el
+    nombre está en más de un tipo."""
+    return f"{tipo}:{funcion}" if funcion in _AMBIGUAS else funcion
+
+
+def separar(clave_: str) -> tuple[str | None, str]:
+    """(tipo o None, nombre) de una clave de función."""
+    tipo, sep, nombre = str(clave_).partition(":")
+    return (tipo, nombre) if sep and tipo in TIPOS else (None, str(clave_))
+
+
+def base(clave_: str) -> str:
+    """Nombre de la función sin el tipo."""
+    return separar(clave_)[1]
+
+
+def es_critica(clave_: str) -> bool:
+    return base(clave_) in CRITICAS
+
+
+def es_reforzada(clave_: str) -> bool:
+    return base(clave_) in REFORZADAS
+
+
 def funciones() -> dict:
-    """{funcion_canonica: tipo} de todas las funciones conocidas."""
-    return {f: t for t, filas in fabrica_codigo().items() for f in filas}
+    """{clave de función: tipo} de todas las funciones conocidas."""
+    return {clave(t, f): t for t, filas in fabrica_codigo().items() for f in filas}
 
 
 def fabrica_desde_yaml(config_dir: Path) -> dict | None:
@@ -205,42 +243,43 @@ def validar(asignacion: dict) -> list[dict]:
         ocupados: dict[int, str] = {}
         for funcion, puerto in sorted((asignacion.get(tipo) or {}).items()):
             if not _es_entero(puerto) or puerto not in puertos_validos(tipo, funcion):
-                errores.append({"codigo": "puerto_inexistente", "funcion": funcion,
+                errores.append({"codigo": "puerto_inexistente", "funcion": clave(tipo, funcion),
                                 "puerto": puerto, "tipo": tipo})
                 continue
             if puerto in ocupados:
-                errores.append({"codigo": "conflicto", "funcion": funcion, "puerto": puerto,
-                                "tipo": tipo, "ocupado_por": ocupados[puerto]})
+                errores.append({"codigo": "conflicto", "funcion": clave(tipo, funcion), "puerto": puerto,
+                                "tipo": tipo, "ocupado_por": clave(tipo, ocupados[puerto])})
                 continue
             ocupados[puerto] = funcion
     return errores
 
 
 def combinar(base: dict, cambios: dict) -> dict:
-    """base + cambios ({funcion: puerto}, el tipo sale de la función). Lanza
-    ErrorAsignacion si una función no existe."""
+    """base + cambios ({clave de función: puerto}, el tipo sale de la clave).
+    Lanza ErrorAsignacion si una función no existe (o es un nombre repetido
+    en dos tipos sin el tipo delante)."""
     salida = {t: dict(base.get(t) or {}) for t in TIPOS}
-    tipo_de = {f: t for t, filas in salida.items() for f in filas}
+    tipo_de = {clave(t, f): (t, f) for t, filas in salida.items() for f in filas}
     errores = []
     for funcion, puerto in (cambios or {}).items():
-        tipo = tipo_de.get(funcion)
-        if tipo is None:
+        destino = tipo_de.get(funcion)
+        if destino is None:
             errores.append({"codigo": "funcion_desconocida", "funcion": str(funcion), "puerto": puerto})
             continue
-        salida[tipo][funcion] = puerto
+        salida[destino[0]][destino[1]] = puerto
     if errores:
         raise ErrorAsignacion(errores)
     return salida
 
 
 def diferencias(base: dict, otra: dict) -> dict:
-    """{funcion: (tipo, puerto_base, puerto_otra)} donde difieren."""
+    """{clave de función: (tipo, puerto_base, puerto_otra)} donde difieren."""
     salida = {}
     for tipo in TIPOS:
         for funcion, puerto in (otra.get(tipo) or {}).items():
             anterior = (base.get(tipo) or {}).get(funcion)
             if anterior != puerto:
-                salida[funcion] = (tipo, anterior, puerto)
+                salida[clave(tipo, funcion)] = (tipo, anterior, puerto)
     return salida
 
 
@@ -395,8 +434,10 @@ def responde(funcion: str, asignacion: dict, datos: dict) -> bool:
     from autoclave.core.runtime.lectura import lectura_valida
     if not datos or not datos.get("connected"):
         return False
-    tipo = next((t for t in TIPOS if funcion in (asignacion.get(t) or {})), None)
+    tipo, funcion = separar(funcion)
     if tipo is None:
+        tipo = next((t for t in TIPOS if funcion in (asignacion.get(t) or {})), None)
+    if tipo is None or funcion not in (asignacion.get(tipo) or {}):
         return False
     puerto = asignacion[tipo][funcion]
     if tipo == "DI":

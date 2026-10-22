@@ -72,6 +72,7 @@ class _FabricaBody(BaseModel):
 def clave_nombre(funcion: str, tipo: str) -> str:
     """Clave del catálogo con el nombre visible de la función."""
     from autoclave import i18n
+    funcion = aio.base(funcion)
     clave = f"io.{tipo.lower()}.{funcion}"
     return clave if i18n.existe(clave, "es") else f"reasignacion.funcion_{funcion}"
 
@@ -116,14 +117,15 @@ def _guardada() -> tuple[dict, str]:
         return _fabrica(), (e.errores[0].get("codigo") if e.errores else "archivo_invalido")
 
 
-def _habilitadas() -> list[str]:
-    """Funciones a listar: las habilitadas en el equipo (io_enabled) que la
-    asignación conoce; sin io_enabled, todas."""
+def _habilitadas() -> list[tuple[str, str, str]]:
+    """(clave, tipo, nombre) de las funciones a listar: las habilitadas en el
+    equipo (io_enabled) que la asignación conoce; sin io_enabled, todas. Un
+    nombre que está en dos tipos (agua_bomba) da dos filas."""
     todas = aio.funciones()
     io = io_names.leer_io_enabled()
-    nombres = [n for t in ("DI", "DO", "AI") for n in io.get(t, [])]
-    habilitadas = [n for n in dict.fromkeys(nombres) if n in todas]
-    return habilitadas or list(todas)
+    claves = [aio.clave(t, n) for t in aio.TIPOS for n in io.get(t, [])]
+    habilitadas = [c for c in dict.fromkeys(claves) if c in todas]
+    return [(c, todas[c], aio.base(c)) for c in (habilitadas or list(todas))]
 
 
 def _motivo_bloqueo() -> tuple[str, str]:
@@ -227,8 +229,8 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
         srv._auditar(evento, sesion, entidad=funcion,
                      valor_anterior=aio.etiqueta(tipo, anterior) if anterior else None,
                      valor_nuevo=aio.etiqueta(tipo, nuevo),
-                     detalle={"tipo": tipo, "critica": funcion in aio.CRITICAS,
-                              "reforzada": funcion in aio.REFORZADAS})
+                     detalle={"tipo": tipo, "critica": aio.es_critica(funcion),
+                              "reforzada": aio.es_reforzada(funcion)})
     srv._auditar("reinicio_control", sesion, entidad=entidad,
                  detalle={"motivo": evento, "funciones": pendiente, "reinicio": disponible})
     if disponible:
@@ -248,20 +250,18 @@ def registrar(app) -> None:
         memoria = aio.en_memoria()
         fabrica = _fabrica()
         guardada, error = _guardada()
-        tipo_de = {f: t for t in aio.TIPOS for f in memoria.get(t, {})}
         filas = []
-        for funcion in _habilitadas():
-            tipo = tipo_de[funcion]
+        for clave, tipo, nombre in _habilitadas():
             filas.append({
-                "funcion": funcion, "tipo": tipo, "i18n": clave_nombre(funcion, tipo),
-                "puerto_actual": memoria[tipo][funcion], "id_actual": aio.etiqueta(tipo, memoria[tipo][funcion]),
-                "puerto_guardado": guardada[tipo].get(funcion),
-                "puerto_fabrica": fabrica[tipo].get(funcion),
-                "id_fabrica": aio.etiqueta(tipo, fabrica[tipo][funcion]) if fabrica[tipo].get(funcion) else "",
-                "critica": funcion in aio.CRITICAS, "reforzada": funcion in aio.REFORZADAS,
-                "temperatura": tipo == "AI" and aio.es_temperatura(funcion),
+                "funcion": clave, "tipo": tipo, "i18n": clave_nombre(nombre, tipo),
+                "puerto_actual": memoria[tipo][nombre], "id_actual": aio.etiqueta(tipo, memoria[tipo][nombre]),
+                "puerto_guardado": guardada[tipo].get(nombre),
+                "puerto_fabrica": fabrica[tipo].get(nombre),
+                "id_fabrica": aio.etiqueta(tipo, fabrica[tipo][nombre]) if fabrica[tipo].get(nombre) else "",
+                "critica": aio.es_critica(clave), "reforzada": aio.es_reforzada(clave),
+                "temperatura": tipo == "AI" and aio.es_temperatura(nombre),
             })
-        ocupados = {t: {str(p): f for f, p in guardada[t].items()} for t in aio.TIPOS}
+        ocupados = {t: {str(p): aio.clave(t, f) for f, p in guardada[t].items()} for t in aio.TIPOS}
         codigo, _texto = _motivo_bloqueo()
         return {
             "filas": filas,
@@ -296,8 +296,8 @@ def registrar(app) -> None:
         diferencias = aio.diferencias(base, nueva)
         if not diferencias:
             raise srv.RechazoApi(422, "sin_cambios", "No hay cambios que aplicar")
-        criticas = sorted(f for f in diferencias if f in aio.CRITICAS)
-        reforzadas = sorted(f for f in diferencias if f in aio.REFORZADAS)
+        criticas = sorted(f for f in diferencias if aio.es_critica(f))
+        reforzadas = sorted(f for f in diferencias if aio.es_reforzada(f))
         if body.confirmar is not True:
             raise srv.RechazoApi(428, "confirmacion_requerida", "Confirme la reasignación",
                                  extra={"criticas": criticas, "reforzadas": reforzadas})

@@ -184,3 +184,37 @@ def test_criticas_y_reforzadas():
     for f in ("paro_emergencia", "puerta_1_cerrada", "atrapamiento_puerta_2", "bloqueo_puerta_1"):
         assert f in aio.REFORZADAS
     assert "vapor_camara" in aio.CRITICAS and "vapor_camara" not in aio.REFORZADAS
+
+
+# ── nombres repetidos en dos tipos (agua_bomba es DI y DO) ─────────────────
+
+def test_nombre_en_dos_tipos_se_identifica_con_el_tipo():
+    f = aio.fabrica_codigo()
+    assert "agua_bomba" in f["DI"] and "agua_bomba" in f["DO"]
+    todas = aio.funciones()
+    assert todas["DI:agua_bomba"] == "DI" and todas["DO:agua_bomba"] == "DO"
+    assert "agua_bomba" not in todas
+    assert todas["vapor_camara"] == "DO"                     # los únicos conservan su nombre
+    libre_di = next(p for p in aio.PUERTOS_DI if p not in f["DI"].values())
+    nueva = aio.combinar(f, {"DI:agua_bomba": libre_di})
+    assert nueva["DI"]["agua_bomba"] == libre_di and nueva["DO"]["agua_bomba"] == f["DO"]["agua_bomba"]
+    assert aio.diferencias(f, nueva) == {"DI:agua_bomba": ("DI", f["DI"]["agua_bomba"], libre_di)}
+    with pytest.raises(aio.ErrorAsignacion) as e:
+        aio.combinar(f, {"agua_bomba": libre_di})            # ambiguo: se rechaza
+    assert e.value.errores[0]["codigo"] == "funcion_desconocida"
+
+
+def test_conflicto_con_nombre_repetido_lo_identifica_con_el_tipo():
+    f = aio.fabrica_codigo()
+    nueva = aio.combinar(f, {"DO:agua_bomba": f["DO"]["vapor_camara"]})
+    claves = {e["funcion"] for e in aio.validar(nueva)} | {e["ocupado_por"] for e in aio.validar(nueva)}
+    assert claves == {"DO:agua_bomba", "vapor_camara"}
+
+
+def test_responde_con_nombre_repetido():
+    f = aio.fabrica_codigo()
+    datos = {"connected": True, "raw_di": [0] * 48, "raw_do": [0] * 32}
+    assert aio.responde("DI:agua_bomba", f, datos) is True
+    assert aio.responde("DO:agua_bomba", f, {"connected": True, "raw_di": [0] * 48, "raw_do": [0] * 4}) is False
+    assert aio.es_critica("vapor_camara") and not aio.es_critica("DI:agua_bomba")
+    assert aio.es_reforzada("paro_emergencia")

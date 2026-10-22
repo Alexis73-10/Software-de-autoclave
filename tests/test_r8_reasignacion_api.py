@@ -150,7 +150,7 @@ def test_sin_cambios(api):
 
 def test_doble_confirmacion_con_alerta_de_criticidad(api):
     cliente, _srv, ctx, cab, _p = api
-    r = cliente.post("/io/assignment", json={"cambios": {"vapor_camara": 25, "agua_bomba": 26},
+    r = cliente.post("/io/assignment", json={"cambios": {"vapor_camara": 25, "DO:agua_bomba": 26},
                                              "clave": CLAVE}, headers=cab())
     assert r.status_code == 428 and r.json()["codigo"] == "confirmacion_requerida"
     assert r.json()["criticas"] == ["vapor_camara"]
@@ -254,6 +254,23 @@ def test_get_tabla(api):
     assert d["puertos"]["DO"] == list(range(1, 33)) and d["puertos"]["DI"][-1] == 48
     assert d["ocupados"]["DO"]["2"] == "vapor_caldera"     # no habilitada, pero ocupa
     assert d["editable"] is True and d["reinicio_pendiente"] is False
+
+
+def test_nombre_en_dos_tipos_da_dos_filas_y_se_reasigna_solo_el_de_su_tipo(api):
+    """agua_bomba es DI 09 (retorno) y DO 18 (mando): cada una con su fila y su
+    clave con el tipo delante; reasignar la DI no toca la DO."""
+    cliente, _srv, ctx, cab, _p = api
+    d = cliente.get("/io/assignment", headers=cab()).json()
+    filas = {f["funcion"]: f for f in d["filas"]}
+    assert filas["DI:agua_bomba"]["id_actual"] == "DI 09" and filas["DO:agua_bomba"]["id_actual"] == "DO 18"
+    assert d["ocupados"]["DI"]["9"] == "DI:agua_bomba"
+    assert _aplicar(cliente, cab(), {"agua_bomba": 30}).status_code == 422      # ambiguo
+    r = _aplicar(cliente, cab(), {"DI:agua_bomba": 30})
+    assert r.status_code == 200, r.text
+    nueva, _ = aio.vigente(aio.fabrica_codigo(), ctx.archivo_asignacion)
+    assert nueva["DI"]["agua_bomba"] == 30 and nueva["DO"]["agua_bomba"] == 18
+    fila = next(f for f in _auditoria(ctx, "reasignacion_io") if f["entidad"] == "DI:agua_bomba")
+    assert (fila["valor_anterior"], fila["valor_nuevo"]) == ("DI 09", "DI 30")
 
 
 # ── restaurar fábrica ──────────────────────────────────────────────────────
