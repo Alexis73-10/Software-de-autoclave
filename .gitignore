@@ -34,3 +34,7 @@ src/autoclave/cycles/user/*.json.bak
 
 # Entregas compiladas para instalar (tanda 7, K1/K2)
 /entrega/
+
+# Material personal de estudio, fuera del repo desde la tanda 8 (D8-3.27, P6):
+# copia en C:\Users\tecni\Documents\estudio_autoclave\
+/estudio/
