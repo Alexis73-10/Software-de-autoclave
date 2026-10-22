@@ -13,7 +13,7 @@ Rama `tanda-7`, creada desde `dev` (18eb429) tras A0. Sesión principal arrancad
 | M2 | Hecha, unida a `tanda-7` | ceb5f64 (merge) | Suite rama 5042 p; tras unir 5255 p / 2 s / 3 xf. |
 | R6 | Sin objeto | | A0 no encontró etapas de la tanda 6 sin hacer ni ramas sin unir (todas las filas "Hecha", ramas `tanda-6-*` ya contenidas y borradas). Los hallazgos abiertos de O2f (TMG-04/05, SAF-01/02) no son etapas; quedan listados en el índice. |
 | Q1 ★ | Hecha, unida a `tanda-7` | 8a4a63d (merge) | Correcciones de la revisión en 733b19f..88858a0. Re-revisión safety + timing: 0 Altos/Críticos abiertos. SEN-01 (Alto preexistente en dev) queda como PREGUNTA (SP-7). Suite tras unir: 5405 passed / 3 skipped / 3 xfailed (19 min 59 s). |
-| K2 | Pendiente | | |
+| K2 | Hecha (08:10) | etiqueta `inst-2026-10-22-b` (23e76e2) | `entrega/2026-10-22_b/`. Humo: asistente de 8 pasos, sin traceback. Ver `K2_compilacion_b.md`. **Se instala la B.** |
 | D2 | Código hecho (rama `tanda-7-d2`); se une después de K2 | | Suite rama 4997 p / 2 s / 3 xf. |
 | Z | Pendiente | | |
 
@@ -51,3 +51,4 @@ Para seguir:
 - 06:25-06:44: uniones L1→P1→M1→C2→M2→Q1 en la rama de ensayo `tanda-7-integ`; suite en cada punto de unión, todas en verde. `tanda-7` avanzada hasta la unión de M2 (ceb5f64) + ac639f6 (resultados en los informes).
 - Q1 queda fuera hasta cerrar el Alto TMG-01.
 - 08:01: unión de Q1 (con las correcciones de la revisión) en verde: 5405 passed / 3 skipped / 3 xfailed. Una corrida anterior dio 49 F / 40 E por dos pytest simultáneos sobre el mismo worktree (una tarea en segundo plano "cortada" que siguió viva); se descartó y se repitió limpia.
+- 08:01: `tanda-7` unida a `dev` (23e76e2) y etiqueta `inst-2026-10-22-b`. 08:10: K2 hecha.

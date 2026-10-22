@@ -9,7 +9,7 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7 (rama `tanda-7-p1`). La sesión principal la copia a `entrega/` y completa la sección "A frente a B".
+Versión de este documento: P1 de la tanda 7, completada por la sesión principal en K2 (22-oct, 08:10) con la sección "A frente a B". **Se instala la B.**
 
 ---
 
@@ -258,15 +258,24 @@ Si el perfil está **dañado** (ilegible o inválido), el asistente se abre solo
 
 ## A frente a B
 
-<!-- MARCADOR PARA LA SESIÓN PRINCIPAL (K2): completar esta tabla con lo que
-     tiene cada compilación, cuál se recomienda instalar y por qué. -->
+**Instale la B** (`entrega/2026-10-22_b/`). La A queda solo como respaldo (sección 8).
 
 | | Compilación A (`entrega/2026-10-22_a/`) | Compilación B (`entrega/2026-10-22_b/`) |
 |---|---|---|
-| Etiqueta | `inst-2026-10-22-a` | `inst-2026-10-22-b` *(si existe)* |
-| Asistente | 7 pasos, con clases de mesa y campo libre "Modelo" | *(completar: paso Cámara, nombre calculado — si entró M1)* |
-| Correcciones P1 de esta noche | No | *(completar: sí, si P1 quedó unida)* |
-| Recomendada | *(completar)* | *(completar)* |
+| Etiqueta / commit | `inst-2026-10-22-a` (18eb429) | `inst-2026-10-22-b` (23e76e2) |
+| Suite en ese código | 5020 passed, 2 skipped, 3 xfailed | 5405 passed, 3 skipped, 3 xfailed |
+| Asistente | 7 pasos, con clases de Mesa y campo libre "Modelo" | 8 pasos: solo Piso y Piso laboratorio, paso **Cámara** (litros y V/H) y nombre del modelo calculado (`SPK-SAT …`) (M1) |
+| Correcciones de la instalación de hoy (P1) | No | Sí (lista abajo) |
+| Correo a una dirección escrita a mano (C2) | Falla: dice "enviado" y no llega | Corregido: el resultado sale de lo que aceptó el servidor, por destinatario |
+| Mantenimiento E1 (M2) | No | Sí: solo el preventivo reinicia el contador; la calibración deja de contar como mantenimiento |
+| Decisiones 1.3 sobre el ciclo (Q1) | No | Sí, con revisión de seguridad. **No afecta lo de hoy** (no se corren ciclos hasta el lunes) |
+| Lock de dependencias en UTF-8 (L1) | No | Sí (solo documentación del build) |
+| Prueba de humo en el PC de la oficina | Arranca y abre el asistente (7 pasos) | Arranca y abre el asistente (8 pasos), sin traceback |
+| Recomendada | Solo si la B falla al arrancar | **Sí** |
+
+**Por qué la B:** trae las correcciones que estorbaban justo lo de hoy (E/S en modo prueba, calibración de la Referencia, la intro trabada) y el asistente con el modelo calculado que Cristian aprobó. Toda la B pasó la suite completa después de cada unión.
+
+**Verificar en sitio con la B:** el recorrido completo del asistente en la pantalla real (en el PC de la oficina la pantalla es de 1536×864 y el teclado en pantalla queda fuera de la vista, así que la prueba de humo llegó solo al paso 1; el recorrido por los 8 pasos está cubierto por las pruebas QML de M1 y sus capturas en `docs/informes/tanda7/capturas/`).
 
 Correcciones de P1 que **no** están en la A (afectan el trabajo de hoy):
 - salidas momentáneas (puertas, bomba de vacío) que se cortaban a los 1-2 s en modo prueba;
