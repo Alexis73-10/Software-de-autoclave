@@ -194,6 +194,15 @@ class CicloState:
         )
 
     @property
+    def tolerancia_di_activa(self) -> bool:
+        """R1-P5 (tanda 7): la fase está detenida por la tolerancia de DI
+        vencida (sin resultado todavía). /cycle/abort acepta entonces la
+        cancelación: la marca se procesa al volver los datos (paso 1 de run)
+        o, si la tolerancia vence, el ciclo termina en FALLO_CONEXION y P-7
+        la limpia. Leer bajo _sm_lock (guard_estado del backend)."""
+        return self._resultado_pendiente is None and self._pausa_sin_datos_desde is not None
+
+    @property
     def ack_confirma_estado_seguro(self) -> bool:
         """P-6 (tanda 6): el reconocimiento del resultado también confirma el
         estado seguro (§15.2): hubo un paro con el ciclo terminando y ya se

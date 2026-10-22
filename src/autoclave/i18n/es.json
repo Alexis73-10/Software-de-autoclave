@@ -353,6 +353,7 @@
     "serie": "Serie: ",
     "sin_bd_pregunta": "Base de datos no disponible. El ciclo se ejecutará sin operador y sin registro en la base de datos (solo respaldo y ticket). ¿Desea continuar sin registro?",
     "sin_bd_continuar": "Continuar sin registro",
+    "cancelacion_en_espera_datos": "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control. Si no vuelven en unos segundos, el ciclo termina por fallo de comunicación.",
     "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio",
     "confirmar_estado_seguro_texto": "El paro de emergencia se liberó. Verifique que no hay fugas de vapor ni de agua antes de continuar. Al confirmar se reconoce el resultado del ciclo y la cámara se lleva a estado seguro."
   },

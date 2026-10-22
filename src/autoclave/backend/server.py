@@ -2803,15 +2803,42 @@ def abort_cycle():
         estado = context.estado
         if actual != GlobalState.CICLO:
             raise _Rechazo(409, "estado_no_permitido", "No hay un ciclo en curso")
-        if estado.get_flag("PARO_EMERGENCIA") is True:
-            raise _Rechazo(409, "paro_emergencia",
-                           _motivo_paro("Paro de emergencia activado: el ciclo ya se detuvo"))
         fase = getattr(estado, "fase_ciclo", "")
-        if isinstance(fase, str) and progreso_ciclo.resultado(fase) is not None:
+        pendiente = isinstance(fase, str) and progreso_ciclo.resultado(fase) is not None
+        en_espera_datos = False
+        if estado.get_flag("PARO_EMERGENCIA") is True:
+            # R1-P5 (tanda 7): sin datos de las entradas pero dentro de la
+            # tolerancia por DI vencida, la cancelación se acepta y queda en
+            # espera; con el paro real (o fuera de la tolerancia), 409
+            en_espera_datos = (not pendiente and estado.get_flag("PARO_REAL") is not True
+                               and _ciclo_en_tolerancia_di())
+            if not en_espera_datos:
+                raise _Rechazo(409, "paro_emergencia",
+                               _motivo_paro("Paro de emergencia activado: el ciclo ya se detuvo"))
+        if pendiente:
             raise _Rechazo(409, "resultado_pendiente",
                            "El ciclo ya terminó: confirme el resultado")
         estado.set_flag("CICLO_CANCELADO", True)
+    if en_espera_datos:
+        logger.warning("/cycle/abort: cancelación aceptada durante la tolerancia por DI vencida")
+        return {"ok": True, "action": "CICLO_CANCELADO", "pendiente": True,
+                "codigo": "cancelacion_en_espera_datos",
+                "mensaje": _i18n_t("ciclo.cancelacion_en_espera_datos")}
     return {"ok": True, "action": "CICLO_CANCELADO"}
+
+
+def _i18n_t(clave: str) -> str:
+    from autoclave import i18n
+    return i18n.t(clave)
+
+
+def _ciclo_en_tolerancia_di() -> bool:
+    """R1-P5: el ciclo está en la tolerancia por DI vencida. Llamar bajo
+    _sm_lock. Ante cualquier duda, False (se rechaza como antes)."""
+    try:
+        return context.control_loop.state_machine.ciclo.tolerancia_di_activa is True
+    except Exception:
+        return False
 
 
 _MOTIVO_PARO = "Paro de emergencia activado: suéltelo antes de reconocer"
