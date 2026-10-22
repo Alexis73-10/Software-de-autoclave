@@ -40,6 +40,8 @@
 # de temp_max_apertura; con todas las válidas en o por debajo (3 lecturas) se
 # ventea por la lenta. Sin ninguna sonda válida, se espera sellado
 # espera_sellado_sin_sonda_min (parámetro del equipo) y luego la lenta.
+# DECISIÓN SIN CONFIRMAR: el drenaje solo (sin Referencia válida) no autoriza
+# el venteo: su agua de enfriamiento lo mantiene frío (ver _tick_sellado).
 # DECISIÓN SIN CONFIRMAR (la decisión lo autoriza si el código no deja claro
 # cómo mantener la contrapresión): durante la espera sellada TODAS las salidas
 # del protocolo quedan cerradas, sin reponer aire comprimido ni enfriar la
@@ -229,19 +231,24 @@ class ProtocoloFallo:
             temp_max = min(float(temp_max), float(del_ciclo))
         return float(temp_max)
 
-    def _sondas_validas(self) -> list:
-        """Lecturas válidas (finitas y distintas de 0) de las Referencias del
-        programa y del drenaje; el Principal nunca cuenta."""
+    def _sondas_validas(self) -> tuple[list, float | None]:
+        """(Referencias, drenaje): lecturas válidas (finitas y distintas de 0)
+        de las Referencias del programa y del drenaje (None si no lee). El
+        Principal nunca cuenta."""
         principal = sensor_principal(self.cycle)
-        sondas = [s for s in sensores_referencia(self.cycle) if s != principal]
-        if _SONDA_DRENAJE not in sondas and _SONDA_DRENAJE != principal:
-            sondas.append(_SONDA_DRENAJE)
-        lecturas = []
-        for s in sondas:
+        refs = []
+        for s in sensores_referencia(self.cycle):
+            if s == principal or s == _SONDA_DRENAJE:
+                continue
             valor = self.estado.sensores_temp.get(s)
             if lectura_valida(valor) and valor != 0:
-                lecturas.append(float(valor))
-        return lecturas
+                refs.append(float(valor))
+        drenaje = None
+        if principal != _SONDA_DRENAJE:
+            valor = self.estado.sensores_temp.get(_SONDA_DRENAJE)
+            if lectura_valida(valor) and valor != 0:
+                drenaje = float(valor)
+        return refs, drenaje
 
     def _ventear_tras_sellado(self, motivo: str) -> None:
         logger.warning("Protocolo fallo: fin de la espera sellada (%s) — venteo por la lenta",
@@ -262,14 +269,29 @@ class ProtocoloFallo:
         """Un tick de la espera sellada: mantiene todo cerrado y decide si ya
         se puede ventear por la lenta."""
         self._cerrar_todo_sellado()
-        lecturas = self._sondas_validas()
-        if lecturas:
+        refs, drenaje = self._sondas_validas()
+        temp_max = self._temp_max_sellado()
+        validas = refs + ([drenaje] if drenaje is not None else [])
+        if any(t > temp_max for t in validas):
+            # alguna sonda válida caliente: sigue sellada (y no corre la
+            # espera sin sonda: sí hay una sonda que lee)
             self._sin_sonda_desde = None
-            frias = all(t <= self._temp_max_sellado() for t in lecturas)
-            self._lecturas_sondas_frias = self._lecturas_sondas_frias + 1 if frias else 0
+            self._lecturas_sondas_frias = 0
+            return
+        if refs:
+            # todas las válidas en o por debajo de temp_max_apertura
+            self._sin_sonda_desde = None
+            self._lecturas_sondas_frias += 1
             if self._lecturas_sondas_frias >= _DEBOUNCE_LECTURAS:
                 self._ventear_tras_sellado("sondas_frias")
             return
+        # DECISIÓN SIN CONFIRMAR (S2a, ensayo con la planta simulada): el
+        # drenaje solo NO autoriza el venteo. Su agua de enfriamiento lo
+        # mantiene bajo temp_segura_drenaje (70 °C por defecto, menor que
+        # temp_max_apertura, 80 °C) aunque la carga siga caliente, y con la
+        # cámara sellada no circula vapor por él. Caliente, sí mantiene el
+        # sellado (arriba); frío y sin Referencias válidas, rige la espera
+        # sin sonda. PREGUNTA PARA CRISTIAN en el informe S2a.
         self._lecturas_sondas_frias = 0
         ahora = time.monotonic()
         if self._sin_sonda_desde is None:

@@ -190,6 +190,28 @@ def test_drenaje_caliente_mantiene_el_sellado_aunque_la_referencia_este_fria():
     assert prot.sellado is True
 
 
+def test_drenaje_frio_sin_referencia_no_ventea_y_rige_la_espera(reloj):
+    # DECISIÓN SIN CONFIRMAR de S2a: el agua del drenaje lo mantiene frío
+    prot, estado, set_do = _protocolo(4, ref=None, drenaje=40.0)
+    prot.ejecutar()
+    _perder_principal(prot, estado)
+    for _ in range(10):
+        prot.update()
+    assert prot.sellado is True
+    reloj[0] += 30 * 60
+    prot.update()
+    assert prot.sellado is False and prot.motivo_venteo == "espera_sin_sonda"
+
+
+def test_drenaje_caliente_sin_referencia_mantiene_el_sellado_pasada_la_espera(reloj):
+    prot, estado, _ = _protocolo(4, ref=None, drenaje=95.0)
+    prot.ejecutar()
+    _perder_principal(prot, estado)
+    reloj[0] += 240 * 60
+    prot.update()
+    assert prot.sellado is True
+
+
 def test_usa_el_menor_entre_el_global_y_el_del_programa():
     prot, estado, _ = _protocolo(4, ref=75.0)
     params_base = prot.cycle.get_param
