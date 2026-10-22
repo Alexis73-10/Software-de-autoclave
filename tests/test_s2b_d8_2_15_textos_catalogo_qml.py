@@ -260,8 +260,8 @@ Window {
 def test_qml_muestra_los_textos_del_catalogo():
     r = subprocess.run(
         [sys.executable, "-c", _SCRIPT, str(RAIZ_QML), _QML],
-        capture_output=True, text=True, encoding="utf-8",
-        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"}, timeout=60,
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+        env={**os.environ, "QT_QPA_PLATFORM": "offscreen", "PYTHONIOENCODING": "utf-8"}, timeout=60,
     )
     assert r.returncode == 0, r.stderr
     s = json.loads(r.stdout.strip().splitlines()[-1])

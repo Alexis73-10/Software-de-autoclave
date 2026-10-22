@@ -527,6 +527,33 @@ Item {
         onTiemposPulsado: raiz.tiemposPulsado()
         onPantallaCompletaPulsado: { raiz.pantallaCompleta = true; raiz.pantallaCompletaPulsado() }
 
+        // D8-2.16 (tanda 8, Q1-P7), PROVISIONAL (sin diseño): todo ciclo que
+        // no termine COMPLETADO ("exitoso") muestra "CARGA NO ESTÉRIL", igual
+        // que el ticket (T2-c de la tanda 7). Falla cerrada: un resultado
+        // desconocido también. No toma toques: no bloquea la gráfica.
+        Rectangle {
+            objectName: "cargaNoEsteril"
+            visible: raiz.terminado && raiz.resultado !== "exitoso"
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: raiz.m(40)
+            width: raiz.m(960); height: raiz.m(110)
+            radius: raiz.m(10)
+            color: Colores.fondoTarjeta
+            border.width: raiz.m(4); border.color: Colores.alarmaAlta
+            Text {
+                anchors.centerIn: parent
+                width: parent.width - raiz.m(40)
+                horizontalAlignment: Text.AlignHCenter
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: raiz.fuente(20)
+                text: I18n.t("ciclo.carga_no_esteril", I18n.lang)
+                color: Colores.alarmaAlta
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: raiz.fuente(56)
+            }
+        }
+
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
         // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
         // U4: también con la tarjeta desconectada o sin datos (lo dice el texto).
