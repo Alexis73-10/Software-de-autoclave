@@ -76,7 +76,13 @@ def main():
                      name="latido-ticket", daemon=True).start()
     threading.Thread(target=arrancar_cuando_escuche, args=(servidor, server.iniciar_arranque),
                      name="arranque-espera-puerto", daemon=True).start()
+    # R8 (D8-5.12): una reasignación de E/S se aplica reiniciando este proceso
+    from autoclave.backend import reinicio
+    reinicio.registrar(lambda: setattr(servidor, "should_exit", True))
     servidor.run()
+    if reinicio.solicitado():
+        logger.warning("Backend detenido para reiniciarse (código %d)", reinicio.CODIGO_REINICIO)
+        sys.exit(reinicio.CODIGO_REINICIO)
 
 if __name__ == "__main__":
     main()
