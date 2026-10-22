@@ -32,13 +32,16 @@ from autoclave.installation.profile import entrada_requerida, numero_puertas, re
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 from autoclave.core.runtime import alarmas_i18n
+from autoclave.core.runtime import presion_sin_lectura
 
 logger = logging.getLogger(__name__)
 
 # Temperatura: los sensores EN USO del programa (Principal + Referencias),
 # tanda §1.1; un sensor no_en_uso no se vigila (se retira la vigilancia fija
 # de temp_camara, antiguo S-8).
-_SENSORES_PRES_CRITICOS = ["pres_camara"]
+# Presión: S1 (tanda 8, D8-1.4): la cámara siempre y la chaqueta si
+# io_enabled la declara (presion_sin_lectura.canales_vigilados(), fijado en
+# reset()). Sin lectura = el convertidor dio None (transductor sin señal).
 _DEBOUNCE_LECTURAS_DRENAJE = 3
 # Lecturas seguidas del Principal bajo temperatura_enfriamiento (SAF-01 de T11)
 _DEBOUNCE_ENFRIADA = 3
@@ -130,6 +133,8 @@ class CicloState:
         # T2-a (tanda 7): inicio (monotonic) del tramo en curso en que la fase
         # no corre por la tolerancia de DI vencida; None fuera de él
         self._pausa_sin_datos_desde = None
+        # S1 (tanda 8): canales de presión vigilados en el ciclo en curso
+        self._pres_vigilados = [presion_sin_lectura.CAMARA]
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -182,6 +187,11 @@ class CicloState:
         self._di_vencida_desde = None
         self._ticks_di_vigente = 0
         self._pausa_sin_datos_desde = None
+        try:
+            self._pres_vigilados = presion_sin_lectura.canales_vigilados()
+        except Exception:
+            logger.exception("CicloState: no se pudieron leer los canales de presión; se vigilan todos")
+            self._pres_vigilados = [presion_sin_lectura.CAMARA, presion_sin_lectura.CHAQUETA]
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -706,10 +716,24 @@ class CicloState:
             s for s in sensores_en_uso(self.cycle)
             if not lectura_valida(self.estado.sensores_temp.get(s))
             or self.estado.sensores_temp.get(s) == 0
-        ] + [
-            s for s in _SENSORES_PRES_CRITICOS
-            if not lectura_valida(self.estado.sensores_pres.get(s))
         ]
+        # S1 (tanda 8, D8-1.2/1.4): transductor de presión sin lectura (el
+        # convertidor entrega None, nunca 0). FALLO con código propio, vapor
+        # cortado (ALL_OFF) y venteo solo por la lenta: el protocolo no lo
+        # toma como vacío ni abre el aire atmosférico. Tiene prioridad sobre
+        # SEN-02 si también falta una temperatura (queda en el registro).
+        pres_ausentes = presion_sin_lectura.sin_lectura(self.estado, self._pres_vigilados)
+        if pres_ausentes:
+            logger.error("CicloState: SENSOR_AUSENTE — presión sin lectura %s (temperatura: %s)",
+                         pres_ausentes, ausentes or "—")
+            self.estado.fase_ciclo = "SENSOR_AUSENTE"
+            fase = self._fase_actual_legible()
+            canal = pres_ausentes[0]
+            self._registrar_fallo(presion_sin_lectura.CODIGO_EN_CICLO[canal],
+                                  origen=nombre_legible(canal), fase=fase)
+            self._protocolo.ejecutar(solo_lenta=True)
+            self._resultado_pendiente = CicloResultado.FALLO
+            return CicloResultado.ESPERANDO_CONFIRMACION
         if ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
             self.estado.fase_ciclo = "SENSOR_AUSENTE"

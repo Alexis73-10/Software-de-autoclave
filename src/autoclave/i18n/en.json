@@ -368,6 +368,8 @@
     "sin_bd_continuar": "Continue without record",
     "cancelacion_en_espera_datos": "Cancellation accepted: it will be applied when the control board data returns. If it does not return within a few seconds, the cycle ends with a communication failure.",
     "principal_sin_lectura": "Main probe without reading: call service",
+    "presion_camara_sin_lectura": "Chamber pressure sensor without reading: call service",
+    "presion_chaqueta_sin_lectura": "Jacket pressure sensor without reading: call service",
     "confirmar_estado_seguro_texto": "The emergency stop was released. Check that there are no steam or water leaks before continuing. Confirming acknowledges the cycle result and brings the chamber to a safe state."
   },
   "unidades": {
@@ -853,6 +855,26 @@
       "titulo": "Temperature sensor without signal",
       "plantilla": "{sensor} gives no reading ({valor}). A program that uses it cannot start.",
       "accion": "Check the probe connection or set its role to Not in use."
+    },
+    "SEN-04": {
+      "titulo": "Chamber pressure sensor without reading",
+      "plantilla": "The chamber pressure sensor gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
+      "accion": "Do not open the door. Call technical service to check the chamber pressure sensor."
+    },
+    "SEN-05": {
+      "titulo": "Jacket pressure sensor without reading",
+      "plantilla": "The jacket pressure sensor gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
+      "accion": "Do not open the door until the chamber is confirmed safe. Call technical service to check the jacket pressure sensor."
+    },
+    "SEN-06": {
+      "titulo": "Chamber pressure sensor without reading",
+      "plantilla": "Chamber pressure sensor without reading: call service.",
+      "accion": "Do not open the door: without chamber pressure it cannot be confirmed safe. Call technical service."
+    },
+    "SEN-07": {
+      "titulo": "Jacket pressure sensor without reading",
+      "plantilla": "Jacket pressure sensor without reading: call service.",
+      "accion": "Call technical service to check the jacket pressure sensor."
     },
     "CIC-01": {
       "titulo": "Preheating failure",

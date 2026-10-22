@@ -445,7 +445,10 @@ def test_ciclo_sensor_critico_nan_es_sensor_ausente(sensor, grupo):
     ciclo, _, am = _ciclo()
     getattr(ciclo.estado, f"sensores_{grupo}")[sensor] = math.nan
     ciclo.run()
-    assert "SENSOR_AUSENTE" in ids_viejos_activados(am)
+    assert ciclo.estado.fase_ciclo == "SENSOR_AUSENTE"
+    # S1 (tanda 8): la presión de cámara sin lectura tiene código propio (SEN-04)
+    esperado = "SEN-04" if sensor == "pres_camara" else "SENSOR_AUSENTE"
+    assert esperado in ids_viejos_activados(am)
 
 
 def test_ciclo_valvula_reposo_pres_nan_sin_orden():

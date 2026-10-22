@@ -368,6 +368,8 @@
     "sin_bd_continuar": "Continuar sin registro",
     "cancelacion_en_espera_datos": "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control. Si no vuelven en unos segundos, el ciclo termina por fallo de comunicación.",
     "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio",
+    "presion_camara_sin_lectura": "Sensor de presión de cámara sin lectura: llame a servicio",
+    "presion_chaqueta_sin_lectura": "Sensor de presión de chaqueta sin lectura: llame a servicio",
     "confirmar_estado_seguro_texto": "El paro de emergencia se liberó. Verifique que no hay fugas de vapor ni de agua antes de continuar. Al confirmar se reconoce el resultado del ciclo y la cámara se lleva a estado seguro."
   },
   "unidades": {
@@ -853,6 +855,26 @@
       "titulo": "Sensor de temperatura sin señal",
       "plantilla": "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
       "accion": "Verifique la conexión de la sonda o asígnele el rol No en uso."
+    },
+    "SEN-04": {
+      "titulo": "Sensor de presión de cámara sin lectura",
+      "plantilla": "El sensor de presión de cámara no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+      "accion": "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de cámara."
+    },
+    "SEN-05": {
+      "titulo": "Sensor de presión de chaqueta sin lectura",
+      "plantilla": "El sensor de presión de chaqueta no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+      "accion": "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para revisar el sensor de presión de chaqueta."
+    },
+    "SEN-06": {
+      "titulo": "Sensor de presión de cámara sin lectura",
+      "plantilla": "Sensor de presión de cámara sin lectura: llame a servicio.",
+      "accion": "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. Llame a servicio técnico."
+    },
+    "SEN-07": {
+      "titulo": "Sensor de presión de chaqueta sin lectura",
+      "plantilla": "Sensor de presión de chaqueta sin lectura: llame a servicio.",
+      "accion": "Llame a servicio técnico para revisar el sensor de presión de chaqueta."
     },
     "CIC-01": {
       "titulo": "Fallo en precalentamiento",
