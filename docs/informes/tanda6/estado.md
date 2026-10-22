@@ -12,3 +12,4 @@ Rama `tanda-6`, creada desde `dev` (7d825b5) tras E0. Línea base de la suite: 4
 | O2b | Hecha | 9192b36 + docs | Usuarios y operadores (v9), matriz 1.9, pantalla con pestañas. safety-reviewer sin Altos; H-01/03/04/05 corregidos. Suite 4801/2/3. Ver `O2b_usuarios.md`. |
 | O2c | Hecha | ver git log `o2c` | Fecha y hora solo lectura, `GET /system/time`, aviso M1-01, para todos. Suite 4820/2/3. Ver `O2c_fecha_hora.md`. |
 | O2d | Hecha | ver git log `o2d` | Información del sistema, `GET /system/info`, sin "No disponible" en el Menú principal. Suite 4836/2/3. Ver `O2d_info_sistema.md`. |
+| O2e | Hecha | ver git log `o2e` | Bitácora `GET /audit_log` paginada con filtros, valores en unidad vigente, eventos de suspensión. Ver `O2e_bitacora.md`. |

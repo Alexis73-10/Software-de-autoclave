@@ -90,3 +90,14 @@ Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
 | O2d-1 | DECISIÓN SIN CONFIRMAR. "Ciclos realizados" = mayor `numero_ciclo` de la base. | Mismo dato que el panel del Menú principal | Contador de M1 | `get_system_info` |
 | O2d-2 | DECISIÓN SIN CONFIRMAR. Red = hay IPv4 no loopback (sin probar Internet). El detalle de adaptadores y Wi-Fi es de O2g. | Sin dependencias ni privilegios | Consultar O2g | `_hay_red` |
 | O2d-3 | DECISIÓN SIN CONFIRMAR. `GET /system/info` sin token (no expone secretos; serie y modelo ya están en el ticket). | Todos los roles lo ven | Exigir sesión | — |
+
+## O2e (Bitácora)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| O2e-1 | DECISIÓN SIN CONFIRMAR. El backend convierte anterior/nuevo a la unidad vigente (global); la frase la arma la UI en su idioma. | Una sola conversión, misma que U1 | Convertir en la UI | `core/runtime/bitacora.py` |
+| O2e-2 | DECISIÓN SIN CONFIRMAR. Suspensión: cada pantalla avisa al entrar/salir (`POST /ui/standby`, usuario "sistema"); con dos pantallas quedan dos filas. | La suspensión vive en la UI | Agregar en el backend | `registrar_suspension` en `app.py` |
+| O2e-3 | DECISIÓN SIN CONFIRMAR. Filtros Usuario y Tipo rotan con cada toque (sin lista desplegable). | Simple y táctil | Selector modal | `OpcionesBitacora.qml` |
+
+## PREGUNTAS PARA CRISTIAN (O2e)
+- ¿Unificar en el visor las tablas viejas `cycle_params_audit` y `sensor_calibration_audit` (§3.9) o basta `audit_log`?
+- ¿Mostrar la entidad con su nombre traducido (p. ej. "Temperatura segura de apertura") en vez de la clave?
