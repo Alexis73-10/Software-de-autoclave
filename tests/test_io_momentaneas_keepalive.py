@@ -61,7 +61,8 @@ def test_sin_actividad_el_backend_sale_del_modo_prueba(rapido):
     client.post("/io/test/keepalive")
     assert _esperar(lambda: ctx.control_loop.exit_test_mode.called)
     eventos = [(c.args[0], c.kwargs.get("detalle")) for c in ctx.db.registrar_auditoria.call_args_list]
-    assert ("modo_prueba_sale", {"motivo": "sin actividad de la sesión (keepalive)"}) in eventos
+    assert ("modo_prueba_sale", {"motivo": "sin actividad de la sesión (keepalive)",
+                                 "all_off_confirmado": False}) in eventos   # R1-P1
 
 
 def test_keepalive_mantiene_el_modo_prueba(rapido):

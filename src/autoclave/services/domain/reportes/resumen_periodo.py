@@ -92,13 +92,16 @@ def _idioma(idioma: str | None) -> str:
 def format_ticket_resumen(resumen: dict, desde: str, hasta: str, serie: str, modelo: str,
                           ahora: datetime | None = None, idioma: str | None = None) -> str:
     """Ticket del resumen; desde/hasta: primer y último día (ISO) del periodo."""
+    from autoclave.services.domain.logging.ticket_formatter import lineas_rotulo
     ahora = ahora or datetime.now()   # sello de impresión (registro), no temporiza nada
     tx = _TXT[_idioma(idioma)]
     t = resumen["totales"]
     lineas = [
         " ", _LINEA, tx["titulo"],
         f"{tx['desde']}: {_fecha(desde)}", f"{tx['hasta']}: {_fecha(hasta)}",
-        _cortar(f"{tx['serie']}: {serie}"), _cortar(f"{tx['modelo']}: {modelo}"),
+        _cortar(f"{tx['serie']}: {serie}"),
+        # M1: el nombre del modelo no se corta (pasa a la línea siguiente si no cabe)
+        *lineas_rotulo(tx['modelo'], modelo, _ANCHO),
         f"{tx['impreso']}: {ahora.strftime('%d/%m/%Y')}",
         f"{tx['hora']}:  {ahora.strftime('%H:%M:%S')}", _LINEA,
         f"Total: {t['total']}",

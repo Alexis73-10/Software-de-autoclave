@@ -31,3 +31,6 @@ _archivo/
 
 # Copias .bak de los programas de usuario (RB-04.2, T10)
 src/autoclave/cycles/user/*.json.bak
+
+# Entregas compiladas para instalar (tanda 7, K1/K2)
+/entrega/

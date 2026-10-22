@@ -25,7 +25,8 @@
 #                                  Una vez superado el objetivo, ese piso
 #                                  duty_estable se escala hacia 0 a medida
 #                                  que el sobrepaso crece (0 a partir de
-#                                  rango_calentamiento unidades pasado el
+#                                  rango_calentamiento_temp °C /
+#                                  rango_calentamiento_pres kPa pasado el
 #                                  objetivo) — corrige que el controlador
 #                                  siguiera inyectando vapor a duty_estable
 #                                  de forma indefinida muy por encima del
@@ -204,7 +205,13 @@ class CalentamientoFase(BaseFase):
         p_add       =  self.cycle.get_param("calentamiento", "presion_add_calentamiento")        or 0.0
         timeout_seg = (self.cycle.get_param("calentamiento", "timeout_calentamiento")             or 60) * 60
         factor_pct  =  self.cycle.get_param("calentamiento", "factor_calentamiento")              or 0.0
-        rango_cal   =  self.cycle.get_param("calentamiento", "rango_calentamiento")               or 0.0
+        # R1-P3 (tanda 7): banda de temperatura (°C) y de presión (kPa) por
+        # separado. Sin las claves nuevas (Cycle armado sin migrar), la vieja.
+        rango_viejo = self.cycle.get_param("calentamiento", "rango_calentamiento")
+        rango_cal_t = self.cycle.get_param("calentamiento", "rango_calentamiento_temp")
+        rango_cal_p = self.cycle.get_param("calentamiento", "rango_calentamiento_pres")
+        rango_cal_t = (rango_cal_t if rango_cal_t is not None else rango_viejo) or 0.0
+        rango_cal_p = (rango_cal_p if rango_cal_p is not None else rango_viejo) or 0.0
         tasa_t_max  =  self.cycle.get_param("calentamiento", "tasa_calentamiento")                or 0.0
         tasa_p_max  =  self.cycle.get_param("calentamiento", "tasa_presion")                      or 0.0
         tiempo_est  =  self.cycle.get_param("calentamiento", "tiempo_estable_preesterilizacion")  or 0
@@ -286,8 +293,8 @@ class CalentamientoFase(BaseFase):
 
         duty_estable = 1.0 - factor_pct / 100.0
         cercania = min(
-            _duty_por_proximidad(t_obj - temp, rango_cal),
-            _duty_por_proximidad(p_obj - pres, rango_cal),
+            _duty_por_proximidad(t_obj - temp, rango_cal_t),
+            _duty_por_proximidad(p_obj - pres, rango_cal_p),
         )
         # sobrepaso escala duty_estable hacia 0 a medida que temp/pres ya
         # superaron el objetivo -- sin esto, duty_proximidad se queda en
@@ -296,8 +303,8 @@ class CalentamientoFase(BaseFase):
         # (dist >= 0): ahí sobrepaso=1.0 y el comportamiento es idéntico al
         # anterior.
         sobrepaso = min(
-            _duty_por_sobrepaso(t_obj - temp, rango_cal),
-            _duty_por_sobrepaso(p_obj - pres, rango_cal),
+            _duty_por_sobrepaso(t_obj - temp, rango_cal_t),
+            _duty_por_sobrepaso(p_obj - pres, rango_cal_p),
         )
         duty_proximidad = duty_estable * sobrepaso + (1.0 - duty_estable) * cercania
 

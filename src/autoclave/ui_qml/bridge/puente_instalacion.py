@@ -5,8 +5,10 @@
 # ARR-02 / MIG-07). Único asistente de instalación (el anterior se retiró en R1
 # de la tanda 2):
 #
-#   clases                         capacidades por clase (get_capabilities)
+#   clases                         capacidades por clase (get_capabilities);
+#                                  solo piso y piso_lab (M1, AM-3)
 #   validarCodigo(serie, codigo)   código de activación del día (activation.py)
+#   calcularModelo(clase, litros, carga, puertas) -> nombre o "" (vista previa)
 #   instalar(perfil) -> {ok, error}
 #
 # instalar() vuelve a validar todo lo que la pantalla ya validó (la UI no es
@@ -15,6 +17,11 @@
 # obligatoria. Nunca sobrescribe un perfil válido. Un perfil existente pero
 # inválido no se borra: se aparta como installation_profile.json.invalido-<fecha>.
 # Sin diálogo de clave de fabricante (decisión 1.7).
+#
+# M1 (tanda 7, planeacion_asistente_modelo.md): el puente recibe
+# capacidad_litros y tipo_carga y calcula model_id él mismo con
+# installation/modelo.py; ignora cualquier model_id que mande la pantalla
+# (AM-6: no hay texto libre). Una clase de mesa se rechaza con un error i18n.
 
 import logging
 import os
@@ -27,7 +34,10 @@ from autoclave.installation import storage
 from autoclave.installation.activation import validate_installation_code
 from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.clock_guard import ClockTamperedError
+from autoclave import i18n
 from autoclave.installation.equipment import EquipmentClass, get_capabilities
+from autoclave.installation.modelo import (CAPACIDAD_MAX, CAPACIDAD_MIN, TIPOS_CARGA,
+                                           calcular_modelo, clase_instalable)
 from autoclave.installation.profile import (SUPPLY_INPUT_KEYS, InstallationProfile, Role,
                                             normalizar_supply_inputs,
                                             normalizar_temperature_probes)
@@ -42,6 +52,8 @@ def clases_disponibles() -> list[dict]:
     """Capacidades por clase, con los nombres del contrato de la pantalla."""
     salida = []
     for ec in EquipmentClass:
+        if not clase_instalable(ec):        # AM-3: los equipos de mesa no se instalan
+            continue
         cap = get_capabilities(ec)
         salida.append({
             "valor": ec.value,
@@ -87,13 +99,12 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
         raise ValueError("Número de serie vacío")
     if not validar_codigo(serie, str(codigo or "")):
         raise ValueError("Código de activación inválido")
-    modelo = str(datos.get("model_id") or "").strip()
-    if not modelo:
-        raise ValueError("Modelo vacío")
     try:
         clase = EquipmentClass(datos.get("equipment_class"))
     except ValueError:
         raise ValueError("Tipo de equipo inválido") from None
+    if not clase_instalable(clase):
+        raise ValueError(i18n.t("instalacion.error_clase_fuera_alcance"))
     cap = get_capabilities(clase)
     try:
         puertas = _entero(datos, "door_count")
@@ -107,6 +118,17 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
         puerta_pc = 1
     if not 1 <= puerta_pc <= puertas:
         raise ValueError("Puerta de este PC inválida")
+    try:
+        capacidad = _entero(datos, "capacidad_litros")
+    except ValueError:
+        raise ValueError(i18n.t("instalacion.error_capacidad")) from None
+    if not CAPACIDAD_MIN <= capacidad <= CAPACIDAD_MAX:
+        raise ValueError(i18n.t("instalacion.error_capacidad"))
+    carga = datos.get("tipo_carga")
+    if not isinstance(carga, str) or carga not in TIPOS_CARGA:
+        raise ValueError(i18n.t("instalacion.error_tipo_carga"))
+    # El nombre lo calcula el software (AM-6): el model_id de la pantalla se ignora
+    modelo = calcular_modelo(clase, capacidad, carga, puertas)
     if not 0 <= enfriamiento <= cap.cooling_level_max:
         raise ValueError(f"Nivel de enfriamiento fuera de la capacidad del equipo (0 a {cap.cooling_level_max})")
     try:
@@ -142,6 +164,8 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
         supply_inputs=normalizar_supply_inputs(suministros),
         temperature_probes=sondas,
         vapor_source=vapor,
+        capacidad_litros=capacidad,
+        tipo_carga=carga,
     )
 
 
@@ -184,6 +208,17 @@ class PuenteInstalacion(QObject):
         else:
             logger.warning("Código de activación inválido para la serie '%s'", serie.strip().upper())
         return ok
+
+    @Slot(str, "QVariant", str, int, result=str)
+    def calcularModelo(self, clase: str, capacidad, carga: str, puertas: int) -> str:
+        """Vista previa del nombre (paso Cámara). "" si falta o sobra un dato:
+        la pantalla muestra "—". Misma regla que instalar()."""
+        if isinstance(capacidad, float) and capacidad.is_integer():
+            capacidad = int(capacidad)
+        try:
+            return calcular_modelo(clase, capacidad, carga, puertas)
+        except ValueError:
+            return ""
 
     @Slot("QVariantMap", result="QVariantMap")
     def instalar(self, datos) -> dict:

@@ -164,7 +164,10 @@ Item {
 
     component TarjetaSensor: Rectangle {
         id: tarjetaSensor
-        required property var modelData
+        // P1 (tanda 7): datos por índice; el Repeater no recrea la tarjeta en
+        // cada refresco (el toque de Calibrar no se pierde)
+        required property int index
+        property var modelData: ({})
         property string tipo: ""
         objectName: "sensor_" + modelData.name
         width: parent ? parent.width : 0
@@ -185,14 +188,16 @@ Item {
             }
             Text {
                 text: tarjetaSensor.modelData.id + " · " + I18n.t("io.ui.adc", I18n.lang) + " "
-                      + (tarjetaSensor.modelData.adc === null ? "—" : tarjetaSensor.modelData.adc)
+                      + (tarjetaSensor.modelData.adc == null ? "—" : tarjetaSensor.modelData.adc)
                 color: tarjetaSensor.modelData.valido ? Colores.textoGuia : Colores.advertenciaTexto
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(20)
             }
             Text {
                 visible: !tarjetaSensor.modelData.valido
-                text: I18n.t("io.ui.sin_lectura", I18n.lang)
+                // U4 / P1 (tanda 7): sin enlace no es el cableado del sensor
+                text: control.enlace ? I18n.t("io.ui.sin_lectura", I18n.lang)
+                                     : I18n.t("io.ui.enlace_perdido", I18n.lang)
                 color: Colores.advertenciaTexto
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(20)
@@ -417,16 +422,33 @@ Item {
                 spacing: Escala.px(12)
                 readonly property real ancho: (width - spacing) / 2
 
+                // P1 (tanda 7): modelo entero (cantidad) y datos por índice. Con la
+                // lista como modelo, el refresco de 1 s recreaba todas las tarjetas:
+                // la pulsación sostenida perdía su renovación y un toque se perdía
                 Repeater {
-                    model: control.salidas
+                    model: control.salidas.length
                     delegate: TarjetaCanal {
                         id: tarjetaSalida
-                        required property var modelData
+                        required property int index
+                        readonly property var modelData: control.salidas[index] || ({})
                         objectName: "salida_" + modelData.name
                         width: cuadriculaSalidas.ancho
                         nombre: raiz.nombreCanal(modelData.i18n)
                         idFisico: modelData.id + (modelData.bloqueada ? " · " + I18n.t("io.ui.bloqueada", I18n.lang) : "")
                         readonly property bool libre: control.modoPrueba && !modelData.bloqueada
+                        // P1 (tanda 7, SAF-01): salida momentánea fijada al pulsar; la
+                        // renovación y el apagado usan ese nombre aunque cambien los datos
+                        property string pulsada: ""
+                        function soltarMomentanea() {
+                            renovacion.stop()
+                            if (pulsada === "") return
+                            var nombre = pulsada
+                            pulsada = ""
+                            control.accionar(nombre, false, true)
+                        }
+                        // sin modo prueba el backend ya apagó todo: solo se deja de renovar
+                        onLibreChanged: if (!libre) { renovacion.stop(); pulsada = "" }
+                        Component.onDestruction: if (pulsada !== "" && control) control.accionar(pulsada, false, true)
                         Column {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
@@ -462,22 +484,27 @@ Item {
                                 onPresionado: {
                                     raiz.marcarActividad()
                                     if (tarjetaSalida.modelData.momentanea) {
-                                        control.accionar(tarjetaSalida.modelData.name, true, true)
-                                        renovacion.start()
+                                        tarjetaSalida.pulsada = tarjetaSalida.modelData.name
+                                        // rechazada (no dueño, paro, sin modo prueba): no se renueva
+                                        if (control.accionar(tarjetaSalida.pulsada, true, true))
+                                            renovacion.start()
+                                        else
+                                            tarjetaSalida.pulsada = ""
                                     }
                                 }
-                                onSoltado: {
-                                    if (tarjetaSalida.modelData.momentanea) {
-                                        renovacion.stop()
-                                        control.accionar(tarjetaSalida.modelData.name, false, true)
-                                    }
-                                }
+                                onSoltado: tarjetaSalida.soltarMomentanea()
                                 // P-ES-3: reenvia ON cada 500 ms mientras se mantiene pulsado
                                 Timer {
                                     id: renovacion
                                     interval: 500
                                     repeat: true
-                                    onTriggered: control.accionar(tarjetaSalida.modelData.name, true, true)
+                                    onTriggered: {
+                                        if (tarjetaSalida.pulsada === ""
+                                                || !control.accionar(tarjetaSalida.pulsada, true, true)) {
+                                            stop()
+                                            tarjetaSalida.pulsada = ""
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -499,8 +526,11 @@ Item {
                 width: parent.width
                 spacing: Escala.px(12)
                 Repeater {
-                    model: control.temperatura
-                    delegate: TarjetaSensor { tipo: "temperatura" }
+                    model: control.temperatura.length
+                    delegate: TarjetaSensor {
+                        tipo: "temperatura"
+                        modelData: control.temperatura[index] || ({})
+                    }
                 }
             }
         }
@@ -516,8 +546,11 @@ Item {
                 width: parent.width
                 spacing: Escala.px(12)
                 Repeater {
-                    model: control.presion
-                    delegate: TarjetaSensor { tipo: "presion" }
+                    model: control.presion.length
+                    delegate: TarjetaSensor {
+                        tipo: "presion"
+                        modelData: control.presion[index] || ({})
+                    }
                 }
             }
         }

@@ -184,7 +184,11 @@ class ProtocoloEstadoSeguro:
             reanudar = getattr(self._protocolo, "reanudar", None)
             if callable(reanudar):
                 reanudar()
+        solo_lenta_antes = getattr(self._protocolo, "solo_lenta", False) is True
         self._protocolo.update()
+        if not solo_lenta_antes and getattr(self._protocolo, "solo_lenta", False) is True:
+            # R1-P4: el Principal se perdió con el protocolo en marcha
+            self._evento("estado_seguro_solo_lenta", motivo="sensor Principal sin lectura")
         if self.mantener_drenaje is not None:
             try:
                 self.mantener_drenaje()

@@ -67,7 +67,8 @@ _TABS = [
 _CAL_MAIN_KEYS  = {
     "temperatura_calentamiento", "tasa_calentamiento",
     "timeout_calentamiento", "factor_calentamiento",
-    "rango_calentamiento", "tasa_presion", "intervalo_segmentos_calor",
+    "rango_calentamiento_temp", "rango_calentamiento_pres",   # R1-P3 (tanda 7)
+    "tasa_presion", "intervalo_segmentos_calor",
     "escape_lento_on", "escape_lento_off",
     "escape_rapido_on", "escape_rapido_off",
 }
@@ -490,7 +491,12 @@ def _load_factory_params(user_cycle_path: str) -> dict:
     factory_p = user_p.parent.parent / "factory" / user_p.name
     if factory_p.exists():
         with open(factory_p, "r", encoding="utf-8") as f:
-            return json.load(f).get("parameters", {})
+            params = json.load(f).get("parameters", {})
+        # SEN-07b (revisión Q1): mismo formato que el programa del usuario,
+        # que ya pasa por la migración al construir el Cycle (R1-P3)
+        from autoclave.core.managers.cycle_manager import migrar_parametros
+        migrar_parametros(params)
+        return params
     return {}
 
 

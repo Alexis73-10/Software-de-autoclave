@@ -40,7 +40,7 @@ _SCRIPT = textwrap.dedent(r"""
               ("verificando_sensores", 0.2), ("abriendo_base_datos", 0.2)]
     sim = None
     if escenario != "sin_intro":
-        sim = SimuladorProgresoArranque(etapas=etapas, sin_progreso=escenario == "sin_progreso")
+        sim = SimuladorProgresoArranque(etapas=etapas, sin_progreso=escenario.startswith("sin_progreso"))
 
     avisos = []
     engine = QQmlApplicationEngine()
@@ -101,6 +101,31 @@ _SCRIPT = textwrap.dedent(r"""
         r["antes_del_plazo"] = bool(alarma.property("visible"))
         r["alarma"] = esperar(lambda: alarma.property("visible"), 2)
         r["sin_progreso"] = bool(intro.property("sinProgreso"))
+    elif escenario == "sin_progreso_luego_avanza":
+        # P1 (tanda 7): el backend congelado tarda más de 20 s en responder
+        # (primer arranque del .exe) y luego avanza: la intro no queda trabada
+        intro = loader.property("item")
+        intro.setProperty("plazoSinProgresoMs", 400)
+        r["alarma"] = esperar(lambda: alarma.property("visible"), 2)
+        for _ in etapas:
+            sim.avanzar()
+        r["alarma_se_retira"] = esperar(lambda: not alarma.property("visible"), 1)
+        r["termino"] = esperar(lambda: not loader.property("active"), 6)
+    elif escenario == "sin_progreso_retrocede":
+        # un retroceso (backend que deja de responder: fracción 0) no retira el fallo
+        intro = loader.property("item")
+        intro.setProperty("plazoSinProgresoMs", 400)
+        sim.avanzar(); sim.detener()   # 0.25
+        r["alarma"] = esperar(lambda: alarma.property("visible"), 2)
+        sim._completadas = 0
+        sim.cambiado.emit()                             # retrocede a 0
+        QTest.qWait(150)
+        r["sigue_tras_retroceso"] = bool(alarma.property("visible"))
+        sim.avanzar(); sim.detener()   # vuelve a 0.25: no es avance nuevo
+        QTest.qWait(150)
+        r["sigue_sin_avance_nuevo"] = bool(alarma.property("visible"))
+        sim.avanzar(); sim.detener()   # 0.5: avance real
+        r["se_retira"] = esperar(lambda: not alarma.property("visible"), 1)
     print(json.dumps(r))
 """)
 
@@ -150,3 +175,20 @@ def test_sin_progreso_arranque_inyectado_no_hay_intro():
     r = _correr("sin_intro")
     assert r["avisos"] == []
     assert r["intro_activa"] is False
+
+
+def test_sin_progreso_que_luego_avanza_retira_el_fallo_y_termina():
+    r = _correr("sin_progreso_luego_avanza")
+    assert r["avisos"] == []
+    assert r["alarma"] is True
+    assert r["alarma_se_retira"] is True
+    assert r["termino"] is True
+
+
+def test_sin_progreso_un_retroceso_no_retira_el_fallo():
+    r = _correr("sin_progreso_retrocede")
+    assert r["avisos"] == []
+    assert r["alarma"] is True
+    assert r["sigue_tras_retroceso"] is True
+    assert r["sigue_sin_avance_nuevo"] is True
+    assert r["se_retira"] is True

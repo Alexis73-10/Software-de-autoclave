@@ -10,7 +10,8 @@ import threading
 import time
 from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as dt_time   # P1 (tanda 7): `time` es el módulo (time.sleep del vigilante)
 from typing import Literal
 
 from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
@@ -345,14 +346,29 @@ def _contexto_ciclo() -> dict:
     }
 
 
-def _salir_modo_prueba() -> None:
+# R1-P1 (tanda 7): ACK del ALL_OFF de la última salida del modo prueba, para la
+# bitácora. Se escribe bajo _sm_lock en _salir_modo_prueba; quien registra
+# modo_prueba_sale lo lee al soltar el lock (no hay otra salida en medio: para
+# salir de nuevo habría que volver a entrar).
+_ack_salida_prueba: bool | None = None
+
+
+def _salir_modo_prueba() -> bool:
     """Apaga las salidas, reanuda la máquina y olvida la sesión dueña. Llamar
-    con _sm_lock tomado; quien llama registra modo_prueba_sale al soltarlo."""
-    global _token_modo_prueba
-    context.control_loop.exit_test_mode()
+    con _sm_lock tomado; quien llama registra modo_prueba_sale al soltarlo
+    (con `_detalle_salida_prueba`). Devuelve True si la tarjeta confirmó el
+    ALL_OFF (R1-P1)."""
+    global _token_modo_prueba, _ack_salida_prueba
+    _ack_salida_prueba = context.control_loop.exit_test_mode() is True
     _token_modo_prueba = None
     _cierres_invertidos.clear()
     _cancelar_vigilancias_prueba()
+    return _ack_salida_prueba
+
+
+def _detalle_salida_prueba(motivo: str) -> dict:
+    """Detalle de modo_prueba_sale con el ACK del ALL_OFF (R1-P1)."""
+    return {"motivo": motivo, "all_off_confirmado": _ack_salida_prueba is True}
 
 
 def _prueba_cancelada_por_paro() -> None:
@@ -394,7 +410,7 @@ def _revisar_dueno_modo_prueba() -> bool:
     logger.warning("Modo prueba cerrado: la sesión dueña (%s) ya no es válida",
                    dueno[0] if dueno else "?")
     _auditar("modo_prueba_sale", usuario=dueno[0] if dueno else "",
-             detalle={"motivo": "sesión del dueño caducada o cerrada"})
+             detalle=_detalle_salida_prueba("sesión del dueño caducada o cerrada"))
     return True
 
 
@@ -489,7 +505,7 @@ def logout(sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True)
     salio = _invalidar_sesion(sesion)
     _auditar("logout", sesion)
     if salio:
-        _auditar("modo_prueba_sale", sesion, detalle={"motivo": "sesión cerrada"})
+        _auditar("modo_prueba_sale", sesion, detalle=_detalle_salida_prueba("sesión cerrada"))
     return {"ok": True}
 
 
@@ -512,7 +528,7 @@ def _bloquear_por_cambio_clave(sesion: Sesion, entidad: str):
     salio = _invalidar_sesion(sesion)
     _auditar("login_bloqueado", sesion, entidad=entidad, detalle={"origen": "cambio_clave"})
     if salio:
-        _auditar("modo_prueba_sale", sesion, detalle={"motivo": "sesión bloqueada"})
+        _auditar("modo_prueba_sale", sesion, detalle=_detalle_salida_prueba("sesión bloqueada"))
     _rechazar_bloqueado(sesion.usuario)
 
 
@@ -638,7 +654,7 @@ def _cerrar_sesiones_de(usuario: str, motivo: str) -> int:
         salio = _invalidar_sesion(s)
         cerradas += 1
         if salio:
-            _auditar("modo_prueba_sale", s, detalle={"motivo": motivo})
+            _auditar("modo_prueba_sale", s, detalle=_detalle_salida_prueba(motivo))
     return cerradas
 
 
@@ -809,11 +825,16 @@ def get_system_info():
         return getattr(v, "value", v) if isinstance(v, (str, int, float)) or hasattr(v, "value") else None
 
     tarjeta = _parte(_tarjeta_status) or {}
+    capacidad = getattr(perfil, "capacidad_litros", None) if perfil is not None else None
+    carga = getattr(perfil, "tipo_carga", None) if perfil is not None else None
     unidades = _parte(context.config_unidades.leer)
     red = _parte(_hay_red)
     return {
         "equipo": {"modelo": de_perfil("model_id"), "serie": de_perfil("serial_number"),
-                   "instalacion": de_perfil("created_at"), "fuente_vapor": de_perfil("vapor_source")},
+                   "instalacion": de_perfil("created_at"), "fuente_vapor": de_perfil("vapor_source"),
+                   # M1 (tanda 7): None en perfiles anteriores (la pantalla muestra "—")
+                   "capacidad_litros": capacidad if type(capacidad) is int else None,
+                   "tipo_carga": carga if carga in ("V", "H") else None},
         "software": {"version": _parte(lambda: importlib.metadata.version("autoclave")),
                      "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
                      "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None},
@@ -887,6 +908,10 @@ def _resolve_sensor_index(tipo: str, sensor: str) -> int:
 
 @app.get("/calibration/{tipo}/{sensor}")
 def get_calibration(tipo: str, sensor: str):
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
     config = load_config(CALIBRATION_PATH)
     calib = (config.calibration.user.temperature if tipo == "temperature"
@@ -929,6 +954,10 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
     Técnico solo fuera de CICLO; el ingeniero también en CICLO, donde aplica de
     inmediato (§5.8). El usuario sale del token: un `usuario` en el cuerpo se
     ignora."""
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
 
     try:
@@ -1060,6 +1089,10 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
     ganancia 1.0, offset 0.0) o a los valores previos a la última modificación
     ("ultimo", de valor_anterior en audit_log). Mismas reglas que el PATCH:
     rol, estado, auditoría obligatoria con reversión del archivo."""
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
     destino = body.get("destino")
     if destino not in ("ultimo", "defecto"):
@@ -1741,7 +1774,7 @@ def _rango_del_periodo(periodo: str, fecha: date) -> tuple[str, str]:
     (desde, hasta) como medianoche local en el formato de la tabla ciclos; `hasta`
     es exclusivo (medianoche del primer día del periodo siguiente)."""
     inicio, fin = periodos.rango(periodo, fecha)
-    return datetime.combine(inicio, time()).isoformat(), datetime.combine(fin, time()).isoformat()
+    return datetime.combine(inicio, dt_time()).isoformat(), datetime.combine(fin, dt_time()).isoformat()
 
 
 def _ciclo_json(fila) -> dict:
@@ -2149,8 +2182,54 @@ def _cargar_config_correo():
 
 
 def _enviar_correo(config, mensaje) -> None:
+    """C2 (tanda 7): correo.enviar ya no lanza si el relay rechaza a todos
+    (devuelve el resultado por destinatario); aquí eso sigue siendo un fallo."""
+    import smtplib
     from autoclave.ui_qml.exportacion import correo
-    correo.enviar(config, mensaje)
+    r = correo.enviar(config, mensaje)
+    if not isinstance(r, correo.ResultadoEnvio) or r.ninguno_aceptado:
+        raise smtplib.SMTPRecipientsRefused(dict(getattr(r, "rechazados", {}) or {}))
+
+
+# C2 (tanda 7): bitácora de los envíos del Historial y de Reportes. El envío lo
+# hace la UI (ui_qml/bridge/acciones_ciclos.py), que no tiene la base; aquí
+# solo se registra. Sin sesión obligatoria: el Menú Principal envía sin
+# iniciar sesión, y el backend solo escucha en 127.0.0.1 (backend/main.py). Si
+# llega un token válido, se anota el usuario. El cuerpo se valida a mano para
+# que un 422 nunca repita lo recibido (podría traer algo que no debe salir).
+_MAX_DIRECCIONES_REGISTRO = 20
+
+
+class _CorreoEnviadoBody(BaseModel):
+    model_config = {"extra": "forbid"}
+    tipo: Literal["ciclos", "resumen", "consolidado"]
+    destinatarios: list[str] = Field(default_factory=list, max_length=_MAX_DIRECCIONES_REGISTRO)
+    manuales: list[str] = Field(default_factory=list, max_length=_MAX_DIRECCIONES_REGISTRO)
+    ciclos: list[StrictInt] = Field(default_factory=list, max_length=500)
+    aceptados: list[str] = Field(default_factory=list, max_length=_MAX_DIRECCIONES_REGISTRO)
+    rechazados: dict[str, StrictInt] = Field(default_factory=dict,
+                                              max_length=_MAX_DIRECCIONES_REGISTRO)
+    resultado: Literal["enviado", "parcial", "rechazado", "error_conexion",
+                       "error_autenticacion", "sin_confirmacion"]
+
+
+@app.post("/email/sent")
+def post_email_sent(body: dict, authorization: str | None = Header(None)):
+    entidad = "/email/sent"
+    try:
+        datos = _CorreoEnviadoBody.model_validate(body)
+    except Exception:
+        raise RechazoApi(422, "validacion", "Datos inválidos")
+    direcciones = (datos.destinatarios + datos.manuales + datos.aceptados
+                   + list(datos.rechazados))
+    if any(not isinstance(d, str) or len(d) > 254 for d in direcciones):
+        raise RechazoApi(422, "validacion", "Datos inválidos")
+    sesion = tokens.obtener(_token_de(authorization))
+    # valor_nuevo: lo que la pantalla de Bitácora muestra ({nuevo}); el resto, en detalle
+    _auditar("correo_enviado", sesion, entidad=entidad,
+             valor_nuevo={"resultado": datos.resultado, "destinatarios": datos.destinatarios},
+             detalle=datos.model_dump())
+    return {"ok": True}
 
 
 @app.get("/network/status")
@@ -2788,15 +2867,42 @@ def abort_cycle():
         estado = context.estado
         if actual != GlobalState.CICLO:
             raise _Rechazo(409, "estado_no_permitido", "No hay un ciclo en curso")
-        if estado.get_flag("PARO_EMERGENCIA") is True:
-            raise _Rechazo(409, "paro_emergencia",
-                           _motivo_paro("Paro de emergencia activado: el ciclo ya se detuvo"))
         fase = getattr(estado, "fase_ciclo", "")
-        if isinstance(fase, str) and progreso_ciclo.resultado(fase) is not None:
+        pendiente = isinstance(fase, str) and progreso_ciclo.resultado(fase) is not None
+        en_espera_datos = False
+        if estado.get_flag("PARO_EMERGENCIA") is True:
+            # R1-P5 (tanda 7): sin datos de las entradas pero dentro de la
+            # tolerancia por DI vencida, la cancelación se acepta y queda en
+            # espera; con el paro real (o fuera de la tolerancia), 409
+            en_espera_datos = (not pendiente and estado.get_flag("PARO_REAL") is not True
+                               and _ciclo_en_tolerancia_di())
+            if not en_espera_datos:
+                raise _Rechazo(409, "paro_emergencia",
+                               _motivo_paro("Paro de emergencia activado: el ciclo ya se detuvo"))
+        if pendiente:
             raise _Rechazo(409, "resultado_pendiente",
                            "El ciclo ya terminó: confirme el resultado")
         estado.set_flag("CICLO_CANCELADO", True)
+    if en_espera_datos:
+        logger.warning("/cycle/abort: cancelación aceptada durante la tolerancia por DI vencida")
+        return {"ok": True, "action": "CICLO_CANCELADO", "pendiente": True,
+                "codigo": "cancelacion_en_espera_datos",
+                "mensaje": _i18n_t("ciclo.cancelacion_en_espera_datos")}
     return {"ok": True, "action": "CICLO_CANCELADO"}
+
+
+def _i18n_t(clave: str) -> str:
+    from autoclave import i18n
+    return i18n.t(clave)
+
+
+def _ciclo_en_tolerancia_di() -> bool:
+    """R1-P5: el ciclo está en la tolerancia por DI vencida. Llamar bajo
+    _sm_lock. Ante cualquier duda, False (se rechaza como antes)."""
+    try:
+        return context.control_loop.state_machine.ciclo.tolerancia_di_activa is True
+    except Exception:
+        return False
 
 
 _MOTIVO_PARO = "Paro de emergencia activado: suéltelo antes de reconocer"
@@ -2853,7 +2959,14 @@ def _apagado_windows_habilitado() -> bool:
 
 def _apagar_windows() -> None:
     import subprocess
-    subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30)
+    r = subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30,
+                       capture_output=True, errors="replace",
+                       encoding="oem" if sys.platform == "win32" else None,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if r.returncode != 0:
+        # P1 (tanda 7): el lazo ya se detuvo; sin esto no quedaba el motivo
+        logger.error("Apagar equipo: Windows rechazó el apagado (código %s): %s",
+                     r.returncode, (r.stderr or r.stdout or "").strip())
 
 
 _TOPE_PASO_APAGADO_S = 8.0
@@ -3142,7 +3255,13 @@ def acknowledge_alarm(clave: str, body: dict = Body(default={})):
         raise HTTPException(status_code=404, detail="La alarma no está activa")
     if not inst.nivel.requiere_reconocimiento:
         raise HTTPException(status_code=422, detail="Esta alarma no requiere reconocimiento")
+    # T2-b (tanda 7): COM-02/03 solo se despejan con el enlace de vuelta en "ok"
+    if context.alarm_manager.despeje_bloqueado(clave) is True:
+        raise HTTPException(status_code=409, detail=_i18n_t("notificaciones.despejar_sin_enlace"))
     if not context.alarm_manager.reconocer(clave, usuario):
+        if context.alarm_manager.despeje_bloqueado(clave) is True:   # el enlace cayó en medio
+            raise HTTPException(status_code=409,
+                                detail=_i18n_t("notificaciones.despejar_sin_enlace"))
         # Se resolvió y retiró entre obtener() y reconocer().
         raise HTTPException(status_code=404, detail="La alarma no está activa")
     return {"ok": True}
@@ -3852,7 +3971,7 @@ def _salir_por_inactividad(timer: threading.Timer, generacion: int = -1) -> None
     sesion = tokens.obtener(token, renovar=False) if token else None
     dueno = tokens.quien_fue(token) if sesion is None else None   # TMG-08
     _auditar("modo_prueba_sale", sesion, usuario=dueno[0] if dueno else "",
-             detalle={"motivo": "sin actividad de la sesión (keepalive)"})
+             detalle=_detalle_salida_prueba("sin actividad de la sesión (keepalive)"))
 
 
 def _marcar_actividad_prueba() -> None:
@@ -3953,12 +4072,12 @@ def io_test_exit(sesion: Sesion = Depends(_requiere_rol_prueba),
         if _token_modo_prueba != sesion.token:
             raise _Rechazo(409, "modo_prueba_no_dueno",
                            "Solo la sesión que activó el modo prueba puede salir de él")
-        _salir_modo_prueba()
+        confirmado = _salir_modo_prueba()
     causa = body.get("motivo") if isinstance(body, dict) else None
     if causa not in _CAUSAS_SALIDA_UI:
         causa = "salida solicitada"
-    _auditar("modo_prueba_sale", sesion, detalle={"motivo": causa})
-    return {"ok": True}
+    _auditar("modo_prueba_sale", sesion, detalle=_detalle_salida_prueba(causa))
+    return {"ok": True, "all_off_confirmado": confirmado}
 
 
 # canales cerrar_puerta_N cuya orden se invirtió y siguen pulsados (P-ES-8)
@@ -3993,7 +4112,10 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                        sesion: Sesion = Depends(_requiere_rol_prueba)):
     """Acciona una salida en modo prueba. Apagar siempre se permite dentro del
     modo prueba; encender exige además ser la sesión dueña y R-02 (§5.4)."""
-    if name not in EstadoAutoclave.map_do:
+    # P1 (tanda 7): /io/channels da el nombre del YAML; la posición se busca con
+    # la clave de EstadoAutoclave (errata aire_admosferico_camara)
+    clave = io_names.clave_estado(name)
+    if clave not in EstadoAutoclave.map_do:
         raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
     entidad = f"/io/test/output/{name}"
     if body.momentanea and name not in io_names.SALIDAS_MOMENTANEAS:
@@ -4018,7 +4140,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
-        index = EstadoAutoclave.map_do[name]
+        index = EstadoAutoclave.map_do[clave]
         if body.value and context.setdo.salida_bloqueada(index + 1) is True:
             # E1b: salida de una fuente de vapor que el equipo no tiene; S1 (tanda
             # 2): con generador interno ni DO1 ni DO2 (el generador se controla solo)
@@ -4106,5 +4228,6 @@ def io_test_force_exit(body: _SalidaForzadaBody,
              detalle={"motivo": motivo, "forzada_por": sesion.usuario,
                       "dueno": dueno[0] if dueno else None,
                       "estado_seguro_activo": estado_seguro is True})
-    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "salida forzada por ingeniero"})
+    _auditar("modo_prueba_sale", sesion,
+             detalle=_detalle_salida_prueba("salida forzada por ingeniero"))
     return {"ok": True, "dueno": dueno[0] if dueno else None}

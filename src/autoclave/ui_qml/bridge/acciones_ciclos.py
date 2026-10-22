@@ -17,6 +17,13 @@
 # Las gráficas de los PDF llevan las consignas de esterilización (domain/consignas.py).
 # Una acción a la vez (`ocupado`); el resultado llega por accionTerminada(éxito,
 # mensaje) para que la pantalla lo muestre.
+# C2 (tanda 7): `destino` puede traer varias direcciones separadas por coma
+# (las guardadas y/o una escrita a mano). Todas se validan antes de enviar; el
+# mensaje sale de lo que el relay ACEPTÓ por destinatario (nunca "enviado" sin
+# aceptación) y cada intento queda en la bitácora del backend (POST
+# /email/sent) con las direcciones y el resultado, sin la contraseña. Una
+# dirección escrita a mano NO se guarda: los destinatarios guardados siguen
+# siendo de admin e ingeniero (OPCIONES › Conectividad).
 
 import logging
 import smtplib
@@ -42,6 +49,8 @@ from autoclave.ui_qml.exportacion.textos import textos_ciclo
 
 # tope de ciclos del consolidado: el adjunto queda lejos del límite de 25 MB de Gmail
 MAX_CICLOS_CONSOLIDADO = 200
+# C2: todos los guardados (config_correo_equipo.MAX_DESTINATARIOS = 10) más uno a mano
+MAX_DESTINOS_ENVIO = 11
 
 logger = logging.getLogger(__name__)
 
@@ -221,32 +230,31 @@ class AccionesCiclos(QObject):
     @Slot("QVariantList", str)
     def enviarCorreo(self, ids: list, destino: str) -> None:
         ids = [int(i) for i in ids]
-        destino = (destino or "").strip()
         if not ids:
             return
         config = self._config
 
         def tarea():
-            self._validar_envio(config, destino)
+            destinos = self._validar_envio(config, destino)
             pdfs, ciclos = self._pdfs(ids)
             serie = ciclos[0].get("serie") or ""
             numeros = ", ".join(f"{c['numero_ciclo']:06d}" for c in ciclos)
-            self._enviar_mensaje(config, destino,
-                                 i18n.t("exportacion.asunto", serie=serie, ciclos=numeros),
-                                 i18n.t("exportacion.cuerpo"),
-                                 correo.adjunto(pdfs, i18n.t("exportacion.nombre_zip")))
-            return True, i18n.t("exportacion.enviado", n=len(ids), destino=destino)
+            r = self._enviar_mensaje(config, destinos,
+                                     i18n.t("exportacion.asunto", serie=serie, ciclos=numeros),
+                                     i18n.t("exportacion.cuerpo"),
+                                     correo.adjunto(pdfs, i18n.t("exportacion.nombre_zip")),
+                                     tipo="ciclos", ciclos=ids)
+            return self._resultado(r, "exportacion.enviado", n=len(ids))
 
         self._empezar(tarea)
 
     @Slot(str, str, str)
     def enviarResumen(self, periodo: str, fecha: str, destino: str) -> None:
         """PDF del resumen del periodo que contiene `fecha` (ISO), por correo."""
-        destino = (destino or "").strip()
         config = self._config
 
         def tarea():
-            self._validar_envio(config, destino)
+            destinos = self._validar_envio(config, destino)
             try:
                 r = self._backend.get("/report/summary", params={"periodo": periodo, "fecha": fecha})
             except Exception as e:
@@ -267,12 +275,12 @@ class AccionesCiclos(QObject):
                     "resumen": reporte_resumen.presentable(r),
                 }, dict(i18n.valor("reportes")))
                 contenido = ruta.read_bytes()
-            self._enviar_mensaje(config, destino,
-                                 i18n.t("exportacion.asunto_resumen", serie=r.get("serie") or "",
-                                        periodo=texto_periodo),
-                                 i18n.t("exportacion.cuerpo_resumen"),
-                                 (nombre, contenido, "pdf"))
-            return True, i18n.t("exportacion.enviado_resumen", destino=destino)
+            envio = self._enviar_mensaje(config, destinos,
+                                         i18n.t("exportacion.asunto_resumen",
+                                                serie=r.get("serie") or "", periodo=texto_periodo),
+                                         i18n.t("exportacion.cuerpo_resumen"),
+                                         (nombre, contenido, "pdf"), tipo="resumen")
+            return self._resultado(envio, "exportacion.enviado_resumen")
 
         self._empezar(tarea)
 
@@ -280,11 +288,10 @@ class AccionesCiclos(QObject):
     def enviarConsolidado(self, periodo: str, fecha: str, destino: str) -> None:
         """Un solo PDF con el resumen, el índice y las páginas de cada ciclo del
         periodo que contiene `fecha` (ISO), por correo."""
-        destino = (destino or "").strip()
         config = self._config
 
         def tarea():
-            self._validar_envio(config, destino)
+            destinos = self._validar_envio(config, destino)
             try:
                 r = self._backend.get("/report/summary", params={"periodo": periodo, "fecha": fecha})
             except Exception as e:
@@ -335,30 +342,86 @@ class AccionesCiclos(QObject):
                         i18n.t("exportacion.generando", porcentaje=round(100 * f))))
                 contenido = ruta.read_bytes()
             self._avance.emit(i18n.t("menu.enviando"))
-            self._enviar_mensaje(config, destino,
-                                 i18n.t("exportacion.asunto_consolidado", serie=r.get("serie") or "",
-                                        periodo=texto_periodo),
-                                 i18n.t("exportacion.cuerpo_consolidado"),
-                                 (nombre, contenido, "pdf"))
-            return True, i18n.t("exportacion.enviado_consolidado", n=len(ciclos), destino=destino)
+            envio = self._enviar_mensaje(config, destinos,
+                                         i18n.t("exportacion.asunto_consolidado",
+                                                serie=r.get("serie") or "", periodo=texto_periodo),
+                                         i18n.t("exportacion.cuerpo_consolidado"),
+                                         (nombre, contenido, "pdf"), tipo="consolidado")
+            return self._resultado(envio, "exportacion.enviado_consolidado", n=len(ciclos))
 
         self._empezar(tarea)
 
-    def _validar_envio(self, config, destino: str) -> None:
-        if not config_correo.correo_valido(destino):
+    def _validar_envio(self, config, destino) -> list[str]:
+        """Direcciones del envío ("a@x.com,b@y.com" o lista), todas con formato
+        válido; si una no lo tiene, no se envía a ninguna y el aviso la nombra."""
+        destinos = correo.separar_destinos(destino)
+        if not destinos or len(destinos) > MAX_DESTINOS_ENVIO:
             raise _ErrorConMensaje(i18n.t("exportacion.correo_invalido"))
+        invalidas = [d for d in destinos if not config_correo.correo_valido(d)]
+        if invalidas:
+            raise _ErrorConMensaje(i18n.t("correo_c2.direccion_invalida",
+                                          correo=", ".join(invalidas)))
         if not config.configurado:
             raise _ErrorConMensaje(i18n.t("exportacion.correo_no_configurado"))
+        return destinos
 
-    def _enviar_mensaje(self, config, destino: str, asunto: str, cuerpo: str, archivo) -> None:
-        mensaje = correo.armar_mensaje(config.remitente, destino, asunto, cuerpo, archivo)
+    def _enviar_mensaje(self, config, destinos: list, asunto: str, cuerpo: str, archivo,
+                        tipo: str, ciclos=None) -> "correo.ResultadoEnvio":
+        """Envía y devuelve lo que el relay aceptó. Si no aceptó a nadie (o no
+        hubo respuesta que lo confirme) lanza el aviso. Registra el intento."""
+        mensaje = correo.armar_mensaje(config.remitente, destinos, asunto, cuerpo, archivo)
+        registro = {"tipo": tipo, "destinatarios": list(destinos),
+                    "manuales": self._manuales(config, destinos), "ciclos": list(ciclos or []),
+                    "aceptados": [], "rechazados": {}}
         try:
-            self._enviar(config, mensaje)
+            r = self._enviar(config, mensaje)
         except smtplib.SMTPAuthenticationError:
+            self._auditar_envio({**registro, "resultado": "error_autenticacion"})
             raise _ErrorConMensaje(i18n.t("exportacion.error_autenticacion"))
         except (smtplib.SMTPException, OSError) as e:
-            logger.warning("Envío de correo fallido: %s", e)
+            # solo el tipo: el texto de smtplib puede repetir datos de la sesión
+            logger.warning("Envío de correo fallido (%s)", type(e).__name__)
+            self._auditar_envio({**registro, "resultado": "error_conexion"})
             raise _ErrorConMensaje(i18n.t("exportacion.error_envio"))
+        if not isinstance(r, correo.ResultadoEnvio):
+            # sin respuesta por destinatario no hay aceptación que mostrar
+            self._auditar_envio({**registro, "resultado": "sin_confirmacion"})
+            raise _ErrorConMensaje(i18n.t("exportacion.error_envio"))
+        registro.update(aceptados=list(r.aceptados), rechazados=dict(r.rechazados),
+                        resultado="enviado" if r.todos_aceptados
+                        else "rechazado" if r.ninguno_aceptado else "parcial")
+        self._auditar_envio(registro)
+        if r.ninguno_aceptado:
+            raise _ErrorConMensaje(i18n.t("correo_c2.rechazados_todos",
+                                          correos=", ".join(r.rechazados) or ", ".join(destinos)))
+        return r
+
+    @staticmethod
+    def _resultado(r: "correo.ResultadoEnvio", clave: str, **kw) -> tuple[bool, str]:
+        """Mensaje final con las direcciones ACEPTADAS; si el relay rechazó
+        alguna, se dice cuál y el aviso queda como no exitoso."""
+        texto = i18n.t(clave, destino=", ".join(r.aceptados), **kw)
+        if r.rechazados:
+            return False, texto + ". " + i18n.t("correo_c2.rechazados_parcial",
+                                                 correos=", ".join(r.rechazados))
+        return True, texto
+
+    @staticmethod
+    def _manuales(config, destinos: list) -> list:
+        """Las direcciones del envío que no están entre las guardadas."""
+        guardados = {str(d.get("correo", "")).lower() for d in (config.destinos or [])
+                     if isinstance(d, dict)}
+        return [d for d in destinos if d.lower() not in guardados]
+
+    def _auditar_envio(self, registro: dict) -> None:
+        """Bitácora del intento en el backend. Si el backend no responde, el
+        resultado del envío no cambia (queda en el log de texto)."""
+        try:
+            self._backend.post("/email/sent", registro)
+        except Exception as e:
+            logger.warning("Envío de correo sin registro en la bitácora (%s): %s -> %s",
+                           type(e).__name__, registro.get("destinatarios"),
+                           registro.get("resultado"))
 
     def _pdfs(self, ids: list) -> tuple[list, list]:
         """[(nombre, bytes)] de cada ciclo y sus datos, en el orden pedido."""

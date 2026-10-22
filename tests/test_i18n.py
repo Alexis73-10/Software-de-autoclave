@@ -251,6 +251,7 @@ FAMILIAS = {
         "autoclave.installation.equipment", fromlist=["EquipmentClass"]).EquipmentClass],
     "instalacion.puerta_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesTipoPuerta"),
     "instalacion.puerta_pc_": lambda: ["1", "2"],
+    "instalacion.carga_": lambda: list(__import__("autoclave.installation.modelo", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "instalacion.vapor_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesVapor"),
     "instalacion.paso_": _sufijos_instalacion_pasos,
     "instalacion.sum_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesSuministro"),
@@ -266,8 +267,11 @@ FAMILIAS = {
     "menu.resultado_": _sufijos_resultado_menu,
     "opciones.secciones.": _sufijos_secciones,
     # M1 (tanda 3): tipos de mantenimiento
+    # M2 (tanda 7): más los históricos (filas viejas de calibración, MNT-05)
     "opciones.mant_tipo_": lambda: list(__import__(
-        "autoclave.core.runtime.servicio_mantenimiento", fromlist=["TIPOS"]).TIPOS),
+        "autoclave.core.runtime.servicio_mantenimiento", fromlist=["TIPOS"]).TIPOS) + list(
+        __import__("autoclave.core.runtime.mantenimiento",
+                   fromlist=["TIPOS_HISTORICOS"]).TIPOS_HISTORICOS),
     # T12: secciones de un programa (GET /programas) y valores de enumerados
     "opciones.secciones_programa.": lambda: list(__import__(
         "autoclave.backend.server", fromlist=["_SECCIONES_PROGRAMA"])._SECCIONES_PROGRAMA),
@@ -298,6 +302,7 @@ FAMILIAS = {
                                               fromlist=["EVENTOS"]).EVENTOS),
     # O2d (tanda 6)
     "info_sistema.grupo_": lambda: ["equipo", "software", "uso", "configuracion"],
+    "info_sistema.carga_": lambda: list(__import__("autoclave.installation.modelo", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "info_sistema.rotulo_": lambda: list(__import__(
         "autoclave.ui_qml.controllers.info_sistema_controller", fromlist=["CLAVES_FILA"]).CLAVES_FILA),
     # O2f (tanda 6): calibración atmosférica (condiciones, motivos, resultados)

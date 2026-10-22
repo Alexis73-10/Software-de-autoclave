@@ -556,8 +556,21 @@ class DbManager:
             self._conn.commit()
             return cur.lastrowid
 
-    def ultimo_mantenimiento(self) -> dict | None:
-        """El más reciente por fecha (y por id si coinciden)."""
+    def ultimo_mantenimiento(self, tipo: str | None = "preventivo") -> dict | None:
+        """El más reciente del `tipo` dado por fecha (y por id si coinciden).
+        Por defecto solo el preventivo: es el único que reinicia el contador
+        (MNT-01, D-2 de planeacion_mantenimiento.md). `tipo=None` = cualquiera."""
+        if tipo is None:
+            return self.ultimo_registro()
+        with self._lock:
+            fila = self._conn.execute(
+                "SELECT * FROM mantenimientos WHERE tipo = ? ORDER BY fecha DESC, id DESC LIMIT 1",
+                (tipo,)).fetchone()
+        return dict(fila) if fila else None
+
+    def ultimo_registro(self) -> dict | None:
+        """El registro de mantenimiento más reciente de CUALQUIER tipo (fecha,
+        luego id). Lo usa la protección del reloj (MNT-01)."""
         with self._lock:
             fila = self._conn.execute(
                 "SELECT * FROM mantenimientos ORDER BY fecha DESC, id DESC LIMIT 1").fetchone()

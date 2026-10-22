@@ -185,6 +185,10 @@ class InstallationProfile:
     board_id:        str | None = None
     # E1b: generator | boiler | mixed. None = perfil anterior a E1b.
     vapor_source:    str | None = None
+    # M1 (tanda 7): capacidad nominal (L) y tipo de carga ("V"|"H") con los
+    # que se calculó model_id. None = perfil anterior a M1 (capacidad "—").
+    capacidad_litros: int | None = None
+    tipo_carga:      str | None = None
 
 
 _REQUIRED_TYPES: dict[str, type] = {
@@ -203,6 +207,24 @@ _REQUIRED_TYPES: dict[str, type] = {
 
 _VALID_EQUIPMENT_CLASSES = {e.value for e in EquipmentClass}
 _VALID_DOOR_TYPES        = {e.value for e in DoorType}
+
+
+def _errores_modelo(data: dict) -> list[str]:
+    from autoclave.installation.modelo import calcular_modelo
+    tiene_cap, tiene_carga = "capacidad_litros" in data, "tipo_carga" in data
+    if not tiene_cap and not tiene_carga:
+        return []
+    if tiene_cap != tiene_carga:
+        return ["'capacidad_litros' y 'tipo_carga' van juntos: falta uno de los dos"]
+    try:
+        nombre = calcular_modelo(data.get("equipment_class"), data["capacidad_litros"],
+                                 data["tipo_carga"], data.get("door_count"))
+    except ValueError as e:
+        return [f"valor inválido para calcular el modelo: {e}"]
+    if data.get("model_id") != nombre:
+        return [f"'model_id' inconsistente: {data.get('model_id')!r} no es el nombre "
+                f"calculado {nombre!r} (el modelo solo cambia reinstalando el perfil)"]
+    return []
 
 
 def validate_profile_data(data: dict) -> list[str]:
@@ -295,6 +317,12 @@ def validate_profile_data(data: dict) -> list[str]:
             f"valor inválido en 'vapor_source': {data['vapor_source']!r} "
             f"(se espera uno de {list(VAPOR_SOURCES)})"
         )
+
+    # M1 (tanda 7): capacidad_litros y tipo_carga son opcionales (perfiles
+    # anteriores no los tienen), pero van juntos y, si están, model_id debe
+    # ser el nombre calculado (protege contra una edición a mano). Un perfil
+    # nuevo de mesa queda inválido porque calcular_modelo rechaza la clase.
+    errors.extend(_errores_modelo(data))
 
     # Validaciones cruzadas (solo si equipment_class es válido)
     ec_value = data.get("equipment_class")

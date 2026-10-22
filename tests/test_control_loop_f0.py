@@ -42,6 +42,9 @@ def _make_loop(estado=None, cap=None, f0_activo=True):
             cycle_manager=cycle_manager,
             config_manager=MagicMock(),
             cap=cap,
+            # los pasos de estas pruebas son de 60 s: ese es el tick nominal
+            # (un hueco > 2 intervalos no acredita F0, TMG-01 revisión Q1)
+            interval=60.0,
         )
     # el ciclo corre con la copia del programa (T-17); aquí, el mismo doble
     loop.state_machine.ciclo.programa_en_curso = cycle

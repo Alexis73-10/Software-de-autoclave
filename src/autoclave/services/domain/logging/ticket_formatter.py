@@ -54,13 +54,15 @@ _TXT = {
            "sin_bd": "SIN OPERADOR / SIN BD", "unidades": "Unidades", "temp_final": "Temp. final",
            "estado": "Estado", "motivo": "Motivo", "aviso": "Aviso", "hora_fin": "Hora fin",
            "operador": "Operador", "abs": "abs", "vacio": "v=inHg vacio",
-           "no_esteril": "*** CARGA NO ESTÉRIL ***"},
+           "no_esteril": "*** CARGA NO ESTÉRIL ***",
+           "sin_datos": "Sin datos de la tarjeta"},
     "en": {"fecha": "Date", "hora": "Time", "serie": "Serial No", "modelo": "Model",
            "ciclo": "Cycle No.", "temp_ester": "Steril. temp.", "tiempo_ester": "Steril. time",
            "sin_bd": "NO OPERATOR / NO DB", "unidades": "Units", "temp_final": "Final temp.",
            "estado": "Status", "motivo": "Reason", "aviso": "Warning", "hora_fin": "End time",
            "operador": "Operator", "abs": "abs", "vacio": "v=inHg vacuum",
-           "no_esteril": "*** LOAD NOT STERILE ***"},
+           "no_esteril": "*** LOAD NOT STERILE ***",
+           "sin_datos": "No control board data"},
 }
 _MESES_EN = {1: "JAN", 2: "FEB", 3: "MAR", 4: "APR", 5: "MAY", 6: "JUN",
              7: "JUL", 8: "AUG", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"}
@@ -127,6 +129,22 @@ _MESES = {
 }
 
 
+# Ancho del ticket térmico en columnas (el resumen por periodo usa el mismo).
+ANCHO_TICKET = 24
+
+
+def lineas_rotulo(rotulo: str, valor, ancho: int = ANCHO_TICKET) -> list[str]:
+    """"Rótulo: valor" en una línea si cabe; si no, el rótulo solo y el valor
+    debajo, en trozos de `ancho` (M1, tanda 7: "SPK-SAT 2000H2-LAB", 18
+    caracteres, no cabe junto a "Modelo: " en 24 columnas y la impresora lo
+    partía o el resumen lo cortaba)."""
+    valor = "" if valor is None else str(valor)
+    linea = f"{rotulo}: {valor}"
+    if len(linea) <= ancho:
+        return [linea]
+    return [f"{rotulo}:"] + [valor[i:i + ancho] for i in range(0, len(valor), ancho)]
+
+
 def format_header(meta: dict, p: Presentacion | None = None) -> str:
     """Encabezado del ticket (todo lo previo a las filas de lecturas)."""
     p = p or presentacion_actual()
@@ -159,7 +177,7 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
         f"{_t(p, 'fecha')}: {fecha_str}",
         f"{_t(p, 'hora')}:  {hora_inicio}",
         f"{_t(p, 'serie')}: {meta.get('serie', '')}",
-        f"{_t(p, 'modelo')}: {meta.get('modelo', '')}",
+        *lineas_rotulo(_t(p, 'modelo'), meta.get('modelo', '')),
         f"SoftW.: {meta.get('version_sw', '')}",
         f"{_t(p, 'ciclo')}: {numero}",
         meta.get("nombre_ciclo") or "",
@@ -203,8 +221,11 @@ def format_row(lectura: dict, p: Presentacion | None = None) -> str:
 
 def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str | None = None,
                    f0_total: float | None = None, avisos: list | None = None,
-                   operador: str | None = None, p: Presentacion | None = None) -> str:
-    """Pie del ticket (todo lo posterior a las filas de lecturas)."""
+                   operador: str | None = None, p: Presentacion | None = None,
+                   sin_datos_s: float | None = None) -> str:
+    """Pie del ticket (todo lo posterior a las filas de lecturas).
+    `sin_datos_s` (T2-a, tanda 7): segundos del ciclo sin datos de la tarjeta
+    (tolerancia por DI vencida); se anota solo si hubo alguno."""
     p = p or presentacion_actual()
     try:
         hora_fin = datetime.fromisoformat(fecha_fin).strftime("%H:%M:%S")
@@ -219,12 +240,19 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
     ]
     if motivo:
         lines.append(f"{_t(p, 'motivo')}: {motivo}")
-    # P-9 (tanda 6): el ciclo interrumpido (corte o reinicio) se reimprime con
-    # la marca explícita, en el idioma vigente
-    if str(resultado or "").startswith("INTERRUMPIDO"):
+    # T2-c (tanda 7, decisión 1.3 de Cristian; antes P-9 solo INTERRUMPIDO):
+    # todo ciclo que no terminó COMPLETADO (FALLO_*, CANCELADO, EMERGENCIA,
+    # INTERRUMPIDO, SENSOR_AUSENTE...) lleva la marca, en vivo y al
+    # reimprimir. Un resultado vacío o desconocido también (falla segura).
+    # SAF-05 (revisión Q1): igualdad exacta; "COMPLETADO" es el único valor
+    # real (CicloState lo fija en estado.fase_ciclo y CycleLogger cierra con él)
+    if str(resultado or "") != "COMPLETADO":
         lines.append(_t(p, "no_esteril"))
     if f0_total is not None:
         lines.append(f"F0 total: {f0_total:.1f} min")
+    if (isinstance(sin_datos_s, (int, float)) and not isinstance(sin_datos_s, bool)
+            and sin_datos_s > 0):
+        lines.append(f"{_t(p, 'sin_datos')}: {sin_datos_s:.0f} s")
     for aviso in avisos or []:
         lines.append(f"{_t(p, 'aviso')}: {aviso}")
     lines += [

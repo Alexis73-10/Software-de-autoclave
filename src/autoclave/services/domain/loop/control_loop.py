@@ -22,6 +22,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# T2-b (tanda 7): tramas vigentes seguidas para dar el enlace por recuperado
+_TICKS_ENLACE_OK = 3
+
 # Fases del ciclo donde hay letalidad real y corresponde acumular F0.
 # ESTABILIZACION ya no existe como fase.name propia (fusionada dentro de
 # CALENTAMIENTO, ver CLAUDE.md) — se conserva en el conjunto por si una
@@ -141,6 +144,9 @@ class ControlLoop:
         # el enlace hecho (la del handshake la reporta el enlace como evento).
         self.estado_tarjeta = "desconectada"
         self._desconectada_desde: float | None = None
+        # T2-b (tanda 7): ticks seguidos con la tarjeta en "ok" (enlace hecho y
+        # trama DI vigente); DESPEJAR de COM-02/03 exige _TICKS_ENLACE_OK
+        self._ticks_tarjeta_ok = 0
         self._com01_activa = False
         self._sin_di_activa = False
         # Ticks seguidos con la DI vencida y el enlace hecho (debounce de 3
@@ -211,6 +217,9 @@ class ControlLoop:
         y, tras _EXCEPCIONES_PARA_APAGAR seguidos, se apagan todas las salidas
         desde aquí, sin esperar al watchdog de la tarjeta. Log con traza, pero
         limitado (el primero y uno cada _LOG_CADA_EXCEPCIONES)."""
+        # SAF-03 (revisión Q1): un tick que no se completa no cuenta como
+        # enlace "ok" (enlace_confirmado_ok no queda en True con el lazo caído)
+        self._ticks_tarjeta_ok = 0
         self._excepciones_seguidas += 1
         if self._excepciones_seguidas == 1 or self._excepciones_seguidas % _LOG_CADA_EXCEPCIONES == 0:
             logger.exception("ControlLoop: error inesperado en el tick (%d seguidos)",
@@ -430,6 +439,17 @@ class ControlLoop:
             )
         self._puerta_2_no_declarada_cerrada = cerrada
 
+    def _contar_enlace_ok(self) -> None:
+        """T2-b: cuenta los ticks seguidos con estado_tarjeta "ok"."""
+        self._ticks_tarjeta_ok = self._ticks_tarjeta_ok + 1 if self.estado_tarjeta == "ok" else 0
+
+    @property
+    def enlace_confirmado_ok(self) -> bool:
+        """T2-b (tanda 7, decisión 1.3 de Cristian): el enlace volvió a "ok"
+        con _TICKS_ENLACE_OK tramas vigentes seguidas. Lo consulta el
+        DESPEJAR de COM-02/03 (lectura de un int desde el hilo HTTP)."""
+        return self._ticks_tarjeta_ok >= _TICKS_ENLACE_OK
+
     def _actualizar_estado_tarjeta(self, connected: bool, now: float) -> None:
         """U4 (tanda 2): distingue tarjeta desconectada (no hay puerto o se
         perdió) de tarjeta sin tramas válidas (puerto presente: sin handshake,
@@ -639,6 +659,7 @@ class ControlLoop:
             # revisión SAF-05 de U4: no impedir que se publique el paro abajo
             self.estado_tarjeta = "desconectada"
             logger.exception("ControlLoop: no se pudo evaluar el estado de la tarjeta")
+        self._contar_enlace_ok()
 
         if not connected:
             # Sin enlace no hay datos de las entradas: paro (A-3). La máquina
@@ -646,6 +667,8 @@ class ControlLoop:
             # backend y el primer tick tras reconectar.
             self.paro_emergencia.update(None)
             self._di_vista_en_conexion = False
+            # TMG-01 (revisión Q1): el tramo sin datos no acredita F0
+            self._f0_ultimo_tick = None
             return
 
         # 1. Publicar estado global
@@ -675,6 +698,8 @@ class ControlLoop:
         # sigue normal con el paro activo y la máquina de estados lo aplica.
         if (self.link.edad_ultima_di() is None
                 and now - self._conectado_desde < self._VIGENCIA_DI_SEG):
+            # TMG-01 (revisión Q1): sin la primera DI tampoco se acredita F0
+            self._f0_ultimo_tick = None
             return
 
         # 2b. Suministro eléctrico → actualiza flag en estado. Sin la entrada
@@ -742,8 +767,10 @@ class ControlLoop:
             self._avisar_cancelacion_prueba()
 
         # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
-        # publicado, así que el orden respecto al paso 5 no importa.
-        self._acumular_f0(now)
+        # publicado, así que el orden respecto al paso 5 no importa. RR-01
+        # (re-revisión Q1): con los mismos datos vigentes que el paso 5.
+        self._acumular_f0(now, vigentes=connected and not self.desconectado
+                          and self._di_vigente())
 
         # 6. Data logger (observa machine_state internamente)
         if self.cycle_logger is not None:
@@ -756,7 +783,7 @@ class ControlLoop:
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
 
-    def _acumular_f0(self, now: float) -> None:
+    def _acumular_f0(self, now: float, vigentes: bool = True) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con
         letalidad real y el ciclo activo tiene globals.F0 activado. El
         timestamp se resetea a None cada vez que alguna condición no se
@@ -773,6 +800,13 @@ class ControlLoop:
             and self.estado.fase_ciclo in _F0_FASES_ACUMULAN
             and bool(self.programa_en_ejecucion().get_param("globals", "F0"))
         )
+        # RR-01 (re-revisión Q1): sin datos vigentes o con la fase pausada por
+        # la tolerancia de DI vencida (T2-a) no se acredita F0: fase_ciclo
+        # sigue en ESTERILIZACION y los ticks llegan a 0,5 s, así que el tope
+        # de 2 intervalos de abajo no lo cubre.
+        if condiciones and (not vigentes or getattr(
+                self.state_machine.ciclo, "tolerancia_di_activa", False) is True):
+            condiciones = False
         if not condiciones:
             self._f0_ultimo_tick = None
             return
@@ -780,6 +814,11 @@ class ControlLoop:
         ultimo = self._f0_ultimo_tick
         self._f0_ultimo_tick = now
         if ultimo is None:
+            return
+        # TMG-01 (revisión Q1): un hueco de más de 2 intervalos nominales
+        # (enlace caído, tick bloqueado) no se acredita: solo se reinicia el
+        # sello. Contar de menos alarga el ciclo; contar de más no es seguro.
+        if now - ultimo > 2 * self.interval:
             return
 
         # F0 usa solo el sensor Principal del programa en curso (tanda §1.1;
@@ -928,14 +967,22 @@ class ControlLoop:
             self.set_do.reset_all_outputs()
             return True, ""
 
-    def exit_test_mode(self) -> None:
+    def exit_test_mode(self) -> bool:
         """Apaga todas las salidas y reanuda state_machine.update(). Bajo
         _sm_lock y en este orden (apagar, luego reanudar): una orden de
         /io/test/output ya validada no puede llegar después del apagado, y la
-        máquina de estados no corre un tick con salidas de prueba encendidas."""
+        máquina de estados no corre un tick con salidas de prueba encendidas.
+
+        R1-P1 (tanda 7): devuelve True solo si la tarjeta confirmó el ALL_OFF
+        con su ACK (`reset_all_outputs`); quien llama lo anota en la bitácora.
+        Lo que se apaga no cambia."""
         with self._sm_lock:
-            self.set_do.reset_all_outputs()
+            confirmado = self.set_do.reset_all_outputs() is True
             self._test_mode.clear()
+        if not confirmado:
+            logger.warning("Salida del modo prueba: la tarjeta no confirmó el ALL_OFF "
+                           "(quedaron órdenes individuales sin confirmación)")
+        return confirmado
 
     # =========================================================================
     # CAMBIO DE CICLO ACTIVO

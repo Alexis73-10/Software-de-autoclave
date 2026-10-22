@@ -132,6 +132,9 @@ class EstadoAutoclave:
         self.operador_inicio: str = ""
         # Avisos del ciclo que van al pie del ticket (SAF-04 de T3)
         self.avisos_ciclo: list = []
+        # T2-a (tanda 7): segundos del ciclo sin datos de la tarjeta (tolerancia
+        # por DI vencida); pausan la exposición y van al pie del ticket
+        self.sin_datos_tarjeta_s: float = 0.0
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

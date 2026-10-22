@@ -24,7 +24,7 @@ def _datos(**cambios):
     d = {
         "serial_number": "ab-123", "model_id": "AC-500", "equipment_class": "piso",
         "door_count": 2, "door_type": "advanced", "door_id": 2, "cooling_level": 2,
-        "vapor_source": "generator",
+        "vapor_source": "generator", "capacidad_litros": 45, "tipo_carga": "V",   # M1
         "supply_inputs": {"agua_bomba": False},
         "temperature_probes": {"temp_camara": False, "temp_ref": False},
     }
@@ -45,7 +45,9 @@ def perfil_tmp(monkeypatch, tmp_path):
 
 def test_clases_del_contrato():
     clases = pi.clases_disponibles()
-    assert [c["valor"] for c in clases] == [e.value for e in EquipmentClass]
+    # M1 (AM-3): solo las clases de piso se instalan
+    assert [c["valor"] for c in clases] == [e.value for e in EquipmentClass
+                                            if e.value in ("piso", "piso_lab")]
     piso = next(c for c in clases if c["valor"] == "piso")
     assert piso == {"valor": "piso", "vacio": True, "chaqueta": True, "liquidos": False,
                     "puertasMax": 2, "enfriamientoMax": 4}
@@ -61,12 +63,11 @@ def test_construir_perfil():
 
 
 @pytest.mark.parametrize("cambios, motivo", [
-    ({"door_count": 2, "equipment_class": "mesa_b"}, "puertas"),
+    ({"door_count": 3}, "puertas"),
     ({"cooling_level": 5}, "enfriamiento"),
     ({"vapor_source": "interno"}, "vapor"),
     ({"door_type": "corrediza"}, "puerta"),
     ({"equipment_class": "otra"}, "equipo"),
-    ({"model_id": "  "}, "Modelo"),
     ({"serial_number": ""}, "serie"),
     ({"door_count": True}, "door_count"),
 ])
@@ -82,8 +83,7 @@ def test_codigo_invalido_se_revalida():
 
 
 def test_una_puerta_fija_la_puerta_del_pc():
-    p = pi.construir_perfil(_datos(equipment_class="mesa_b", door_count=1, door_id=2,
-                                   cooling_level=0), "X", AHORA, validar_codigo=_ok)
+    p = pi.construir_perfil(_datos(door_count=1, door_id=2), "X", AHORA, validar_codigo=_ok)
     assert p.door_id == 1
 
 
@@ -164,7 +164,7 @@ def test_ventana_de_instalacion_carga_sin_avisos():
                        env={**os.environ, "QT_QPA_PLATFORM": "offscreen"})
     assert r.returncode == 0, r.stderr
     s = json.loads(r.stdout.strip().splitlines()[-1])
-    assert s == {"asistente": True, "clases": 5, "avisos": []}
+    assert s == {"asistente": True, "clases": 2, "avisos": []}       # M1: solo piso
 
 
 @pytest.mark.parametrize("door, requiere, abre", [(1, True, True), (2, True, False),
