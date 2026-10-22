@@ -475,6 +475,9 @@
     "grupo_alarmas": "Alarmas",
     "grupo_avisos": "Avisos",
     "despejar_sin_enlace": "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad.",
+    "despejar_no_activa": "No se puede despejar: la alarma ya no está activa.",
+    "despejar_rechazado": "No se puede despejar: el sistema rechazó la solicitud.",
+    "despejar_sin_respuesta": "No se puede despejar: no hay respuesta del sistema de control. Intente de nuevo.",
     "despejar": "DESPEJAR"
   },
   "equipo": {

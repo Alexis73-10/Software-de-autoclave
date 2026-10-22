@@ -475,6 +475,9 @@
     "grupo_alarmas": "Alarms",
     "grupo_avisos": "Notices",
     "despejar_sin_enlace": "Cannot clear: the link with the control board has not returned to normal yet.",
+    "despejar_no_activa": "Cannot clear: the alarm is no longer active.",
+    "despejar_rechazado": "Cannot clear: the system rejected the request.",
+    "despejar_sin_respuesta": "Cannot clear: no response from the control system. Try again.",
     "despejar": "CLEAR"
   },
   "equipo": {

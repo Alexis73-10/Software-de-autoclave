@@ -18,6 +18,9 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 
 logger = logging.getLogger(__name__)
 
+# D8-2.15: clave del catálogo i18n que la pantalla muestra (la traduce la QML)
+AVISO_CANCELACION_EN_ESPERA = "ciclo.cancelacion_en_espera_datos"
+
 
 def _en_hilo(tarea) -> None:
     threading.Thread(target=tarea, daemon=True, name="comando-ciclo-en-curso").start()
@@ -26,8 +29,9 @@ def _en_hilo(tarea) -> None:
 class ComandosCicloEnCurso(QObject):
     ocupadoChanged = Signal()
     errorChanged = Signal()
+    avisoChanged = Signal()
     terminado = Signal(str, bool)     # (acción, ok)
-    _respuesta = Signal(str, bool)    # emitida desde el hilo de trabajo
+    _respuesta = Signal(str, bool, str)   # (acción, ok, aviso); desde el hilo de trabajo
 
     def __init__(self, puente, ui_service, parent=None, ejecutar=_en_hilo):
         super().__init__(parent)
@@ -36,6 +40,7 @@ class ComandosCicloEnCurso(QObject):
         self._ejecutar = ejecutar
         self._ocupado = False
         self._error = ""
+        self._aviso = ""
         self._respuesta.connect(self._al_responder)
 
     @Slot()
@@ -50,6 +55,10 @@ class ComandosCicloEnCurso(QObject):
     def descartarError(self) -> None:
         self._fijar_error("")
 
+    @Slot()
+    def descartarAviso(self) -> None:
+        self._fijar_aviso("")
+
     def _enviar(self, accion: str, operacion) -> None:
         if self._ocupado:
             return
@@ -58,23 +67,32 @@ class ComandosCicloEnCurso(QObject):
             self._fijar_error(accion)
             return
         self._fijar_error("")
+        self._fijar_aviso("")
         self._fijar_ocupado(True)
         logger.info("Solicitando %s ciclo...", accion)
 
         def tarea():
+            aviso = ""
             try:
-                ok = bool(operacion())
+                r = operacion()
+                ok = bool(r)
+                # D8-2.15 (tanda 8): cancelación aceptada en espera de los
+                # datos de la tarjeta (R1-P5 / D8-2.13) → texto del catálogo
+                if ok and isinstance(r, dict) and r.get("pendiente") is True:
+                    aviso = AVISO_CANCELACION_EN_ESPERA
             except Exception as e:   # abort/acknowledge ya capturan; defensa extra
                 logger.warning("%s ciclo error: %s", accion, e)
                 ok = False
-            self._respuesta.emit(accion, ok)
+            self._respuesta.emit(accion, ok, aviso)
 
         self._ejecutar(tarea)
 
-    def _al_responder(self, accion: str, ok: bool) -> None:
+    def _al_responder(self, accion: str, ok: bool, aviso: str = "") -> None:
         self._fijar_ocupado(False)
         if ok:
-            logger.info("%s ciclo aceptado por el backend", accion)
+            logger.info("%s ciclo aceptado por el backend%s", accion,
+                        " (en espera de los datos de la tarjeta)" if aviso else "")
+            self._fijar_aviso(aviso)
         else:
             logger.warning("Backend no aceptó %s ciclo", accion)
             self._fijar_error(accion)
@@ -84,6 +102,11 @@ class ComandosCicloEnCurso(QObject):
         if valor != self._ocupado:
             self._ocupado = valor
             self.ocupadoChanged.emit()
+
+    def _fijar_aviso(self, valor: str) -> None:
+        if valor != self._aviso:
+            self._aviso = valor
+            self.avisoChanged.emit()
 
     def _fijar_error(self, valor: str) -> None:
         if valor != self._error:
@@ -98,3 +121,8 @@ class ComandosCicloEnCurso(QObject):
     @Property(str, notify=errorChanged)
     def error(self) -> str:
         return self._error
+
+    # D8-2.15: "" o la clave del catálogo del aviso de la última acción aceptada
+    @Property(str, notify=avisoChanged)
+    def aviso(self) -> str:
+        return self._aviso

@@ -85,6 +85,10 @@ Item {
     readonly property bool terminado: resultado !== ""
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
+    // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
+    // aceptada en espera de los datos de la tarjeta ("" = sin aviso)
+    property string avisoCancelacion: comandos?.aviso ?? ""
+    onAvisoCancelacionChanged: if (avisoCancelacion !== "") avisoComando.abrir()
 
     // ProgresoCiclo solo consulta el backend mientras esta pantalla se ve
     Binding {
@@ -856,14 +860,20 @@ Item {
     }
     PanelModal {
         id: avisoComando
+        objectName: "avisoComando"
         altoTarjeta: Escala.px(560)
         titulo: I18n.t("ciclo.aviso_titulo", I18n.lang)
         textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
-        onVisibleChanged: if (!visible) raiz.comandos?.descartarError()
+        onVisibleChanged: if (!visible) {
+            raiz.comandos?.descartarError()
+            if (raiz.comandos?.descartarAviso) raiz.comandos.descartarAviso()
+        }
         Text {
             width: parent.width
             text: raiz.errorComando === "confirmar" ? I18n.t("ciclo.confirmar_error", I18n.lang)
-                                                     : I18n.t("ciclo.cancelar_error", I18n.lang)
+                : raiz.errorComando !== "" ? I18n.t("ciclo.cancelar_error", I18n.lang)
+                : raiz.avisoCancelacion !== "" ? I18n.t(raiz.avisoCancelacion, I18n.lang)
+                : I18n.t("ciclo.cancelar_error", I18n.lang)
             wrapMode: Text.WordWrap
             color: Colores.textoPrimario
             font.family: Tipografia.familia
