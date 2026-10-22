@@ -168,6 +168,12 @@ _token_modo_prueba: str | None = None
 # JSON de ciclos), que se hacen fuera de _sm_lock.
 _lock_archivos = threading.Lock()
 
+# Revisión D8-5.7 (TMG-02): serializa PATCH /cycle/parameter completo (cambio,
+# archivo, bitácora y reversión), para que la reversión de un cambio sin
+# bitácora no pise otro cambio que se intercale. Siempre es el lock más externo
+# (se toma antes que _sm_lock y _lock_archivos, que se toman en secuencia).
+_lock_param_ciclo = threading.Lock()
+
 # Variantes del guard de estado (§5.5). P-8 (tanda 6): EMERGENCIA e
 # HIBERNACION se retiraron (inalcanzables); el nombre de la segunda variante se
 # conserva por compatibilidad y hoy equivale a DISTINTO_DE_CICLO.
@@ -3327,6 +3333,11 @@ def _valor_parametro(cycle, fase: str, path: list[str]):
 @app.patch("/cycle/parameter")
 def update_cycle_parameter(body: _CycleParamValueBody,
                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    with _lock_param_ciclo:
+        return _update_cycle_parameter(body, sesion)
+
+
+def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
     """Actualiza un único parámetro (cualquier sección, incluido el secado) de
     cualquier ciclo cargado y persiste si es 'user'. Valida tipos estrictos y
     el rango efectivo (catálogo ∩ JSON, RB-05; T10) y las reglas entre
@@ -3382,6 +3393,9 @@ def update_cycle_parameter(body: _CycleParamValueBody,
             raise _Rechazo(422, e.codigo, str(e))
         except (TypeError, ValueError) as e:
             raise _Rechazo(422, "VALOR_INVALIDO", str(e))
+        # valores que escribió esta petición: la reversión solo toca los que
+        # siguen así (TMG-02)
+        escritos = [(f, p, _valor_parametro(cycle, f, p)) for f, p, _ in previos]
         cambios_automaticos = [
             {"fase": f, "path": list(p), "clave": ".".join(p), "anterior": a,
              "nuevo": _valor_parametro(cycle, f, p)}
@@ -3429,7 +3443,7 @@ def update_cycle_parameter(body: _CycleParamValueBody,
                          "automatico": True, "causa": entidad})
     except Exception:
         logger.exception("Parámetro %s sin auditoría: se revierte", entidad)
-        _revertir_parametro(cycle, previos, aplica == "en_curso")
+        _revertir_parametro(cycle, previos, aplica == "en_curso", escritos=escritos)
         _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
                   entidad, sesion)
     respuesta = {"ok": True, "value": value, "aplica": aplica}
@@ -3454,16 +3468,30 @@ def _arrastres_tipo_carga(cycle, fase: str, path: list[str], valor) -> list:
     return cycle.arrastres_tipo_carga(valor, modo_solido=modo_solido)
 
 
-def _revertir_parametro(cycle, previos, en_curso: bool) -> None:
+def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None) -> None:
     """Restaura los valores previos (también los vinculados) en el programa,
-    su JSON y, si se había aplicado, la copia del ciclo en curso."""
+    su JSON y, si se había aplicado, la copia del ciclo en curso.
+    `escritos` (TMG-02): valores que escribió la petición; una hoja que ya no
+    tiene ese valor la cambió otro y no se toca (revertirla a ciegas podía
+    dejar, p. ej., carga líquida con modo 1)."""
+    escrito = {(f, tuple(p)): v for f, p, v in (escritos or [])}
     with context.control_loop.bloqueo_maquina():
         for fase, path, valor in previos:
             hoja = cycle._hoja(fase, path)
+            clave = (fase, tuple(path))
+            if hoja is not None and clave in escrito and hoja.get("value") != escrito[clave]:
+                logger.warning("Reversión de %s/%s omitida: el valor cambió después",
+                               fase, ".".join(path))
+                continue
             if hoja is not None:
                 hoja["value"] = valor
             if en_curso:
                 context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor)
+        parametros = getattr(cycle, "parameters", None)
+        errores = catalogo_parametros.errores_coherencia(parametros) if isinstance(parametros, dict) else []
+        if errores:
+            logger.error("Programa %s incoherente tras revertir: %s",
+                         getattr(cycle, "id", "?"), "; ".join(errores))
     if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
         with _lock_archivos:
             _save_cycle_json(cycle)
@@ -3666,13 +3694,16 @@ def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, desha
     from autoclave.core.managers import gestion_programas as gp
     if getattr(context, "sin_base_de_datos", False) is True:
         _rechazar(503, "BASE_OCUPADA", "Base de datos no disponible: no se aplicó", entidad, sesion)
-    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
-        activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
-        try:
-            with _lock_archivos:
+    # Revisión D8-5.7 (TMG-01): orden único de locks, _lock_archivos y luego
+    # _sm_lock, como /cycle/sensor-roles, la calibración y la restauración; al
+    # revés se interbloqueaba con ellos y detenía el tick del control loop.
+    with _lock_archivos:
+        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
+            activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
+            try:
                 resultado = operar(gp, activo)
-        except gp.ErrorPrograma as e:
-            raise _Rechazo(e.estado_http, e.codigo, e.motivo)
+            except gp.ErrorPrograma as e:
+                raise _Rechazo(e.estado_http, e.codigo, e.motivo)
     anterior, nuevo = auditoria(resultado)
     try:
         context.db.registrar_auditoria(evento, usuario=sesion.usuario, rol=sesion.rol,
@@ -3680,7 +3711,7 @@ def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, desha
                                        valor_nuevo=nuevo, detalle=None)
     except Exception:
         logger.exception("%s sin auditoría: se revierte", entidad)
-        with context.control_loop.bloqueo_maquina(), _lock_archivos:
+        with _lock_archivos, context.control_loop.bloqueo_maquina():
             deshacer(gp, resultado)
         _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
                   entidad, sesion)

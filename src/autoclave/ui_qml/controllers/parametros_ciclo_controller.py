@@ -251,6 +251,9 @@ class ParametrosCicloController(QObject):
         cuerpo = {"cycle_id": cycle_id, "fase": self._seccion, "path": p["path"],
                   "value": valor, "valor_anterior_esperado": p["valor"]}
         self._fijar_aviso("")
+        # SAF-05 (revisión D8-5.7): el modo antes del cambio de tipo de carga,
+        # para avisar del cambio automático aunque la respuesta no llegue
+        modo_antes = self._modo_descompresion() if self._es_tipo_carga(p) else None
         r = self._s().enviar("PATCH", "/cycle/parameter", cuerpo)
         if r.ok:
             self._fijar_mensaje("")
@@ -264,6 +267,10 @@ class ParametrosCicloController(QObject):
             ahora = next((x for x in self._parametros if x["clave"] == clave), None)
             if ahora is not None and ahora.get("valor") == valor:
                 self._fijar_mensaje("")
+                modo_despues = self._modo_descompresion() if modo_antes is not None else None
+                if modo_despues is not None and modo_despues != modo_antes:
+                    self._avisar_arrastres([{"fase": "descompresion", "clave": "modo",
+                                             "anterior": modo_antes, "nuevo": modo_despues}], valor)
                 return True
         self._fijar_mensaje(mensaje_de(r.causa), {"valor": r.datos.get("valor_actual")})
         return False
@@ -331,6 +338,20 @@ class ParametrosCicloController(QObject):
             self._aviso = clave
             self._detalle_aviso = dict(detalle or {})
             self.avisoChanged.emit()
+
+    def _es_tipo_carga(self, p: dict) -> bool:
+        return self._seccion == "globals" and list(p.get("path") or []) == ["tipo_carga"]
+
+    def _modo_descompresion(self):
+        """Modo de descompresión vigente del programa (int) o None."""
+        r = self._s().enviar("GET", f"/programas/{self._numero}/seccion/descompresion")
+        if not r.ok or not isinstance(r.datos, dict):
+            return None
+        for x in r.datos.get("parametros") or []:
+            if isinstance(x, dict) and x.get("clave") == "modo":
+                v = x.get("valor")
+                return v if isinstance(v, int) and not isinstance(v, bool) else None
+        return None
 
     def _avisar_arrastres(self, arrastres, valor) -> None:
         """El backend cambió solo el modo de descompresión al cambiar el tipo

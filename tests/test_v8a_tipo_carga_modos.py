@@ -334,3 +334,135 @@ def test_bitacora_presenta_el_cambio_de_parametro_y_el_automatico():
         d = json.loads((RAIZ / "src" / "autoclave" / "i18n" / f"{lang}.json").read_text(encoding="utf-8"))
         assert d["bitacora"]["ev"]["param_ciclo_cambio"]
         assert d["bitacora"]["ev"]["param_ciclo_automatico"]
+
+
+# ── Revisión D8-5.7 (timing-auditor TMG-02): el PATCH se serializa y la
+# reversión no pisa a ciegas un cambio posterior ──────────────────────────
+
+@pytest.fixture
+def servidor(cm):
+    from fastapi.testclient import TestClient
+    from tests.backend_doble import cabecera, cargar_servidor
+    ctx = MagicMock()
+    ctx.cycle_manager = cm
+    ctx.sin_base_de_datos = False
+    ctx.db.get_auditoria.return_value = []
+    srv, _ = cargar_servidor(ctx)
+    return TestClient(srv.app, headers=cabecera(srv, "tecnico")), cm, ctx, srv
+
+
+def test_patch_serializado_hasta_terminar_la_bitacora(servidor):
+    client, cm, ctx, srv = servidor
+    tomado = []
+    ctx.db.registrar_auditoria.side_effect = lambda *a, **k: tomado.append(srv._lock_param_ciclo.locked())
+    assert _patch(client, "liquidos", "globals", ["tipo_carga"], "solido").status_code == 200
+    assert tomado and all(tomado)
+    assert not srv._lock_param_ciclo.locked()
+
+
+def test_reversion_no_pisa_un_cambio_posterior(servidor):
+    """Escenario TMG-02: A cambia el modo 1 -> 2 (sólido); antes de que falle
+    su bitácora, otro cambio deja el programa en líquido con modo 4. La
+    reversión de A no puede devolver el modo a 1 (líquido con modo 1)."""
+    client, cm, ctx, _ = servidor
+    c = cm.cycles["instrumental_121"]
+    _a_liquido_posible(c)
+    assert c.get_param("descompresion", "modo") == 1
+
+    hecho = []
+
+    def registrar(evento, **kw):
+        if evento == "param_ciclo_cambio" and not hecho:
+            hecho.append(True)
+            c.set_param("globals", ["tipo_carga"], "liquido", arrastres=[("descompresion", ["modo"], 4)])
+            raise RuntimeError("BD ocupada")
+    ctx.db.registrar_auditoria.side_effect = registrar
+    r = _patch(client, "instrumental_121", "descompresion", ["modo"], 2)
+    assert r.status_code == 503
+    assert c.get_param("globals", "tipo_carga") == "liquido"
+    assert c.get_param("descompresion", "modo") == 4
+    assert cp.errores_coherencia(c.parameters) == []
+
+
+# ── Revisión D8-5.7 (timing-auditor TMG-01, anterior a D8-5.7): orden único de
+# locks _lock_archivos -> _sm_lock; _gestion lo tenía al revés (interbloqueo
+# con /cycle/sensor-roles, la calibración y la restauración) ─────────────
+
+def _registrar_orden_de_locks(srv, ctx):
+    import contextlib
+    import threading
+    tenidos, violaciones = [], []
+    real = threading.Lock()
+
+    class _Archivos:
+        def __enter__(self):
+            if "sm" in tenidos:
+                violaciones.append("archivos dentro de sm")
+            real.acquire()
+            tenidos.append("archivos")
+
+        def __exit__(self, *a):
+            tenidos.remove("archivos")
+            real.release()
+
+    @contextlib.contextmanager
+    def bloqueo():
+        tenidos.append("sm")
+        try:
+            yield
+        finally:
+            tenidos.remove("sm")
+    srv._lock_archivos = _Archivos()
+    ctx.control_loop.bloqueo_maquina = bloqueo
+    return violaciones
+
+
+def test_gestion_toma_los_locks_en_el_orden_unico(servidor):
+    client, cm, ctx, srv = servidor
+    violaciones = _registrar_orden_de_locks(srv, ctx)
+    r = client.put("/programas/2/habilitado", json={"habilitado": False})
+    assert r.status_code == 200, r.text
+    ctx.db.registrar_auditoria.side_effect = RuntimeError("BD ocupada")     # deshacer
+    r = client.put("/programas/2/habilitado", json={"habilitado": True})
+    assert r.status_code == 503
+    assert violaciones == []
+
+
+# ── Revisión D8-5.7 (SAF-05 / TMG-05): sin respuesta del backend, si el cambio
+# sí se aplicó, la pantalla también avisa del cambio automático del modo ──
+
+def test_sin_respuesta_tambien_avisa_del_cambio_automatico(qt_app):
+    from autoclave.ui_qml.sesion_backend import BACKEND_NO_RESPONDE, Resultado
+    from autoclave.ui_qml.controllers.parametros_ciclo_controller import ParametrosCicloController
+    from tests.test_t12_opciones_parametros import _Sesion
+    programas = {"programas": [{"numero": 4, "cycle_id": "liquidos", "nombre": "Líquidos",
+                                "editable": True, "danado": False,
+                                "secciones": [{"clave": "globals", "no_se_ejecuta": False}]}]}
+
+    def seccion(tipo):
+        return {"editable": True, "parametros": [
+            {"clave": "tipo_carga", "path": ["tipo_carga"], "tipo": "enum", "valor": tipo,
+             "defecto": "liquido", "min": None, "max": None, "unidad": "",
+             "opciones": ["solido", "liquido"], "modos": [], "modificado": False,
+             "ultima_modificacion": None}]}
+
+    def descompresion(modo):
+        return {"editable": True, "parametros": [
+            {"clave": "modo", "path": ["modo"], "tipo": "int", "valor": modo, "defecto": 4,
+             "min": 0, "max": 5, "unidad": "", "opciones": [], "modos": [0, 1, 2, 3, 4, 5],
+             "modificado": False, "ultima_modificacion": None}]}
+    estado = {"tipo": "liquido", "modo": 4}
+
+    def patch(cuerpo):
+        estado.update(tipo="solido", modo=1)          # se aplicó, pero la respuesta no llegó
+        return Resultado(BACKEND_NO_RESPONDE)
+    s = _Sesion({("GET", "/programas"): Resultado("ok", programas, 200),
+                 ("GET", "/programas/4/seccion/globals"): lambda c: Resultado("ok", seccion(estado["tipo"]), 200),
+                 ("GET", "/programas/4/seccion/descompresion"):
+                     lambda c: Resultado("ok", descompresion(estado["modo"]), 200),
+                 ("PATCH", "/cycle/parameter"): patch})
+    c = ParametrosCicloController(sesion=s)
+    c.cargar()
+    c.abrirSeccion("globals")
+    assert c.guardar("tipo_carga", "solido") is True
+    assert c.aviso == "opciones.aviso_modo_solido" and c.detalleAviso["modo"] == 1
