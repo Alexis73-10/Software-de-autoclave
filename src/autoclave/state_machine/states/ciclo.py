@@ -130,6 +130,9 @@ class CicloState:
         # T2-a (tanda 7): inicio (monotonic) del tramo en curso en que la fase
         # no corre por la tolerancia de DI vencida; None fuera de él
         self._pausa_sin_datos_desde = None
+        # D8-2.7 (tanda 8): el tramo en curso empezó por la desconexión total de
+        # la tarjeta (el ControlLoop no corre run()), no por la DI vencida
+        self._pausa_por_desconexion = False
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -182,6 +185,7 @@ class CicloState:
         self._di_vencida_desde = None
         self._ticks_di_vigente = 0
         self._pausa_sin_datos_desde = None
+        self._pausa_por_desconexion = False
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -199,8 +203,35 @@ class CicloState:
         vencida (sin resultado todavía). /cycle/abort acepta entonces la
         cancelación: la marca se procesa al volver los datos (paso 1 de run)
         o, si la tolerancia vence, el ciclo termina en FALLO_CONEXION y P-7
-        la limpia. Leer bajo _sm_lock (guard_estado del backend)."""
+        la limpia. Leer bajo _sm_lock (guard_estado del backend).
+
+        D8-2.7: el tramo de una desconexión total (marcar_sin_datos_tarjeta)
+        no cuenta como tolerancia de DI: R1-P5 no cambia aquí."""
+        return (self._resultado_pendiente is None and self._pausa_sin_datos_desde is not None
+                and not self._pausa_por_desconexion)
+
+    @property
+    def exposicion_en_pausa(self) -> bool:
+        """D8-2.7 (tanda 8): hay un tramo sin datos válidos de la tarjeta en
+        curso (desconexión total, ventana tras reconectar o tolerancia de DI
+        vencida). Esos segundos no cuentan como exposición ni acumulan F0."""
         return self._resultado_pendiente is None and self._pausa_sin_datos_desde is not None
+
+    def marcar_sin_datos_tarjeta(self) -> None:
+        """D8-2.7 (tanda 8, decisión de Cristian; SAF-02 / TMG-02 de la
+        revisión Q1): el ControlLoop llama aquí en cada tick de CICLO en que no
+        corre la máquina de estados por falta de datos (enlace caído antes de
+        COM-02, o recién reconectado sin la primera DI). Abre el tramo sin datos
+        si no hay uno abierto; lo cierra el primer run() con datos
+        (_cerrar_pausa_sin_datos), así que la desconexión, la ventana tras
+        reconectar y una tolerancia de DI que siga a continuación son un solo
+        tramo. Con el resultado pendiente no hay exposición que pausar."""
+        if self._resultado_pendiente is not None or self._pausa_sin_datos_desde is not None:
+            return
+        self._pausa_sin_datos_desde = time.monotonic()
+        self._pausa_por_desconexion = True
+        logger.warning("CicloState: sin datos de la tarjeta (desconexión); la fase %s queda "
+                       "en pausa", self._fase_actual_legible())
 
     @property
     def ack_confirma_estado_seguro(self) -> bool:
@@ -408,6 +439,7 @@ class CicloState:
         if desde is None:
             return
         self._pausa_sin_datos_desde = None
+        self._pausa_por_desconexion = False
         segundos = max(0.0, time.monotonic() - desde)
         previo = getattr(self.estado, "sin_datos_tarjeta_s", 0.0)
         if isinstance(previo, bool) or not isinstance(previo, (int, float)):
@@ -651,6 +683,9 @@ class CicloState:
                     # T2-a: la fase no corre; su exposición queda en pausa
                     if self._pausa_sin_datos_desde is None:
                         self._pausa_sin_datos_desde = ahora
+                    # D8-2.7: si venía de una desconexión, el mismo tramo
+                    # sigue ahora como tolerancia de DI
+                    self._pausa_por_desconexion = False
                     # sin aporte de energía mientras no hay datos de entradas
                     self.set_do.vapor_camara_off()
                     self.set_do.vapor_chaqueta_off()

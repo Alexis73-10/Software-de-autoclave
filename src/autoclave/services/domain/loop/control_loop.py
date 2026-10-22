@@ -669,6 +669,8 @@ class ControlLoop:
             self._di_vista_en_conexion = False
             # TMG-01 (revisión Q1): el tramo sin datos no acredita F0
             self._f0_ultimo_tick = None
+            # D8-2.7: ni cuenta como exposición (desconexión antes de COM-02)
+            self._marcar_ciclo_sin_datos()
             return
 
         # 1. Publicar estado global
@@ -700,6 +702,8 @@ class ControlLoop:
                 and now - self._conectado_desde < self._VIGENCIA_DI_SEG):
             # TMG-01 (revisión Q1): sin la primera DI tampoco se acredita F0
             self._f0_ultimo_tick = None
+            # D8-2.7: la ventana tras reconectar tampoco cuenta como exposición
+            self._marcar_ciclo_sin_datos()
             return
 
         # 2b. Suministro eléctrico → actualiza flag en estado. Sin la entrada
@@ -783,6 +787,21 @@ class ControlLoop:
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
 
+    def _marcar_ciclo_sin_datos(self) -> None:
+        """D8-2.7 (tanda 8): tick de CICLO sin datos de la tarjeta (la máquina
+        de estados no corre). El ciclo abre su tramo sin datos: la exposición
+        de ESTERILIZACION se pausa y se descuenta al volver los datos. Nunca
+        lanza: el tick sin conexión tiene que terminar igual."""
+        try:
+            with self._sm_lock:
+                if self.estado.get_machine_state() != GlobalState.CICLO:
+                    return
+                marcar = getattr(self.state_machine.ciclo, "marcar_sin_datos_tarjeta", None)
+                if callable(marcar):
+                    marcar()
+        except Exception:
+            logger.exception("ControlLoop: no se pudo marcar el tramo sin datos del ciclo")
+
     def _acumular_f0(self, now: float, vigentes: bool = True) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con
         letalidad real y el ciclo activo tiene globals.F0 activado. El
@@ -804,8 +823,12 @@ class ControlLoop:
         # la tolerancia de DI vencida (T2-a) no se acredita F0: fase_ciclo
         # sigue en ESTERILIZACION y los ticks llegan a 0,5 s, así que el tope
         # de 2 intervalos de abajo no lo cubre.
-        if condiciones and (not vigentes or getattr(
-                self.state_machine.ciclo, "tolerancia_di_activa", False) is True):
+        # D8-2.7: tampoco en el tramo de una desconexión total o la ventana
+        # tras reconectar (exposicion_en_pausa)
+        ciclo = self.state_machine.ciclo
+        if condiciones and (not vigentes
+                            or getattr(ciclo, "tolerancia_di_activa", False) is True
+                            or getattr(ciclo, "exposicion_en_pausa", False) is True):
             condiciones = False
         if not condiciones:
             self._f0_ultimo_tick = None
