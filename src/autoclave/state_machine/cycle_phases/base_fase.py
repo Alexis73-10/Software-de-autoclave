@@ -2,6 +2,7 @@
 from __future__ import annotations
 from enum import Enum, auto
 import logging
+import math
 
 from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_referencia
@@ -17,6 +18,12 @@ class FaseResult(Enum):
 
 class BaseFase:
     name: str = "BASE"
+    # D8-2.12 (tanda 8, Q1-P2): atributos (time.monotonic()) de las ventanas
+    # de estabilidad / sostenimiento de la fase. Durante la tolerancia por DI
+    # vencida la fase no corre y esos segundos no cuentan: se corren hacia
+    # adelante. Los timeouts NO van aquí (siguen corriendo: límites de
+    # seguridad).
+    _VENTANAS_ESTABILIDAD: tuple[str, ...] = ()
 
     def __init__(self, estado, set_do, cycle, config, alarm_manager, cap):
         self.estado        = estado
@@ -28,6 +35,21 @@ class BaseFase:
 
     def reset(self):
         pass
+
+    def pausar_ventanas_estabilidad(self, segundos) -> None:
+        """D8-2.12: corre `segundos` las ventanas abiertas de
+        _VENTANAS_ESTABILIDAD (inicio o fin, da igual: ambos se suman). Una
+        ventana sin abrir (None) no se toca; segundos inválidos, nada."""
+        if (isinstance(segundos, bool) or not isinstance(segundos, (int, float))
+                or not math.isfinite(segundos) or segundos <= 0):
+            return
+        for atributo in self._VENTANAS_ESTABILIDAD:
+            valor = getattr(self, atributo, None)
+            if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+                continue
+            setattr(self, atributo, valor + segundos)
+            logger.warning("%s: ventana %s en pausa %.1f s (sin datos de la tarjeta)",
+                           self.name, atributo, segundos)
 
     def update(self) -> FaseResult:
         raise NotImplementedError(f"{self.__class__.__name__} debe implementar update()")

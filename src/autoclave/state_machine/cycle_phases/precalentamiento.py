@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 class PrecalentamientoFase(BaseFase):
 
     name = "PRECALENTAMIENTO"
+    # D8-2.12: sostenimiento de la presión de chaqueta
+    _VENTANAS_ESTABILIDAD = ("_timer_sostenimiento",)
 
     def reset(self):
         self._inicializado        = False

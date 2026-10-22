@@ -18,6 +18,9 @@ _DEBOUNCE_LECTURAS = 3
 
 class SecadoFase(BaseFase):
     name = "SECADO"
+    # D8-2.12 (DECISIÓN SIN CONFIRMAR): la duración del secado tampoco cuenta
+    # los segundos sin datos (fin del conteo, no un timeout)
+    _VENTANAS_ESTABILIDAD = ("_timer_fin",)
 
     def reset(self):
         self._inicializado      = False

@@ -129,6 +129,8 @@ def _duty_por_calidad_vapor(temp, pres, t_obj, p_add):
 class CalentamientoFase(BaseFase):
 
     name = "CALENTAMIENTO"
+    # D8-2.12: ventana continua de ESTABLE_PREESTERILIZACION
+    _VENTANAS_ESTABILIDAD = ("_timer_sostenido_desde",)
 
     def reset(self):
         self._inicializado = False

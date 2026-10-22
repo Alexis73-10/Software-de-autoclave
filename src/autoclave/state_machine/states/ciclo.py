@@ -422,6 +422,14 @@ class CicloState:
                     pausar(segundos)
                 except Exception:
                     logger.exception("CicloState: no se pudo pausar la exposición")
+            # D8-2.12 (tanda 8): también las ventanas de estabilidad de la
+            # fase (los timeouts siguen corriendo)
+            ventanas = getattr(self._fases[self._fase_idx], "pausar_ventanas_estabilidad", None)
+            if callable(ventanas):
+                try:
+                    ventanas(segundos)
+                except Exception:
+                    logger.exception("CicloState: no se pudieron pausar las ventanas de estabilidad")
 
     def _principal_enfriada(self, modo) -> bool:
         """Principal en o por debajo de temperatura_enfriamiento del modo
