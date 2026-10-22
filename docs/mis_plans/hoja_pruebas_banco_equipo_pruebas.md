@@ -102,6 +102,11 @@
 | F-09 | CARGA NO ESTÉRIL en todo ciclo que no termine COMPLETADO | En operación (vapor) | Q1 T2-c (tanda 7) |
 | F-10 | Principal perdido con el protocolo de fallo ya en marcha: pasa a solo la lenta | En operación (vapor) | Q1 R1-P4 (tanda 7) |
 | F-11 | Cancelar durante la tolerancia por DI vencida | En operación (vapor) | Q1 R1-P5 (tanda 7) |
+| F-12 | Desconexión total breve de la tarjeta en esterilización: la exposición se alarga y no suma F0 | En operación (vapor) | S2a D8-2.7 (tanda 8) |
+| F-13 | Cortes repetidos en una esterilización: falla por comunicación inestable (CIC-11) | En operación (vapor) | S2a D8-2.8 (tanda 8) |
+| F-14 | DESPEJAR de COM-02/03 exige tramas DI nuevas, no solo tiempo | En seco (sin vapor) | S2a D8-2.9 (tanda 8) |
+| F-15 | Líquidos: se pierde el Principal en el enfriamiento con contrapresión — cámara sellada | En operación (vapor) | S2a D8-2.10 (tanda 8) |
+| F-16 | Líquidos sin Referencia: espera sellada sin sonda y luego la lenta | En operación (vapor) | S2a D8-2.10 (tanda 8) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -472,6 +477,20 @@
   3. Pulsar DESPEJAR de nuevo, sin iniciar sesión.
 - **Resultado esperado:** Primer intento: rechazado con "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad"; la alarma sigue. Segundo intento: se despeja sin pedir sesión.
 - **Criterio de aprobado/fallo:** Aprobado si no se despeja sin enlace y sí se despeja sin sesión con el enlace ok.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-14 — DESPEJAR de COM-02/03 exige tramas DI nuevas, no solo tiempo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S2a D8-2.9 (tanda 8)
+- **Objetivo:** DESPEJAR se acepta solo tras 3 tramas DI distintas y nuevas con el enlace en "ok".
+- **Precondiciones:** COM-02 activa tras una desconexión en ciclo (o provocada en seco con un ciclo de prueba).
+- **Pasos:**
+  1. Reconectar el USB y pulsar DESPEJAR de inmediato.
+  2. Esperar 2-3 s y volver a pulsar DESPEJAR.
+- **Resultado esperado:** El primer intento se rechaza con el motivo del enlace; tras unas 3 tramas DI (≈1-2 s con el firmware V3) se acepta.
+- **Criterio de aprobado/fallo:** Aprobado si no se despeja antes de que la tarjeta envíe tramas DI nuevas.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1350,6 +1369,64 @@
   3. Repetir dejándolo desconectado más de 4 s.
 - **Resultado esperado:** La cancelación se acepta (sin el rechazo "sin datos de la tarjeta"); al volver los datos el ciclo queda CANCELADO. Si no vuelven a tiempo, termina en FALLO_CONEXION.
 - **Criterio de aprobado/fallo:** Aprobado si en ningún caso el ciclo sigue corriendo después de la cancelación.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-12 — Desconexión total breve de la tarjeta en esterilización: la exposición se alarga y no suma F0
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.7 (tanda 8)
+- **Objetivo:** Los segundos con el USB desconectado (menos de 5 s) y la ventana tras reconectar no cuentan como esterilización ni como F0.
+- **Precondiciones:** Programa con F0 activo (o Instrumental 134) en esterilización; cronometrar desde el inicio de la fase y anotar el F0 en pantalla.
+- **Pasos:**
+  1. Desconectar el USB de la tarjeta unos 3 s y reconectar (antes de que salga COM-02).
+  2. Dejar terminar el ciclo; anotar la duración real de la esterilización y el F0 final.
+  3. Revisar el pie del ticket.
+- **Resultado esperado:** La esterilización dura lo programado más los segundos sin datos (corte + ventana de reconexión, hasta ~2 s más por la vigencia de la última trama); el F0 no sube durante el corte; el pie dice "Sin datos de la tarjeta: n s"; COMPLETADO.
+- **Criterio de aprobado/fallo:** Aprobado si la duración se alarga al menos los segundos del corte y el F0 no aumenta mientras no hay datos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-13 — Cortes repetidos en una esterilización: falla por comunicación inestable (CIC-11)
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.8 (tanda 8)
+- **Objetivo:** Si las pausas por falta de datos suman más de pausa_max_esterilizacion_s (30 s por defecto), el ciclo falla con CIC-11.
+- **Precondiciones:** Instrumental 134 en esterilización; pausa_max_esterilizacion_s = 30 s (OPCIONES › Parámetros del equipo).
+- **Pasos:**
+  1. Desconectar el USB unos 3 s y reconectar; esperar 5 s; repetir hasta sumar más de 30 s de cortes.
+  2. Repetir con cortes muy cortos y seguidos (desconectar/reconectar sin esperar).
+- **Resultado esperado:** Al superar 30 s acumulados el ciclo termina en FALLO con "Comunicación inestable en esterilización" (CIC-11) y el ticket lleva CARGA NO ESTÉRIL; con cortes seguidos (sin que llegue COM-02) también falla al pasar el tope.
+- **Criterio de aprobado/fallo:** Aprobado si nunca termina COMPLETADO con más de 30 s de pausas.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-15 — Líquidos: se pierde el Principal en el enfriamiento con contrapresión — cámara sellada
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.10 (tanda 8)
+- **Objetivo:** No se ventea de inmediato: todo cerrado mientras la Referencia esté caliente; con la Referencia en o bajo temp_max_apertura (3 lecturas), la lenta.
+- **Precondiciones:** Programa Líquidos (modo 4) con la Referencia asignada (OPCIONES › Parámetros del ciclo › Sensores) y en la carga; ciclo en DESCOMPRESION, enfriamiento con contrapresión.
+- **Pasos:**
+  1. Desconectar la sonda Principal.
+  2. Observar las salidas 5-10 min (y la presión de cámara).
+  3. Llevar la Referencia a menos de temp_max_apertura (p. ej. sacarla y meterla en agua fría) y observar.
+- **Resultado esperado:** SENSOR_AUSENTE; cierran aire comprimido, agua de chaqueta, chaqueta, lenta, rápida y vapor; CIC-10 "cámara sellada…"; ninguna válvula abre con la Referencia caliente (salvo alivio por sobrepresión); con la Referencia fría abre solo la lenta; NO ABRIR sigue; FALLA sale sin técnico.
+- **Criterio de aprobado/fallo:** Aprobado si no se ventea con la Referencia caliente y la rápida nunca abre. Anotar cuánto baja la presión sellada (PREGUNTA de contrapresión).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-16 — Líquidos sin Referencia: espera sellada sin sonda y luego la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.10 (tanda 8)
+- **Objetivo:** Sin ninguna Referencia válida (el drenaje solo no cuenta para ventear), la cámara espera sellada espera_sellado_sin_sonda_min y luego ventea por la lenta.
+- **Precondiciones:** Programa Líquidos con la asignación de fábrica (sin Referencia); espera_sellado_sin_sonda_min = 10 min para acortar la prueba.
+- **Pasos:**
+  1. En el enfriamiento con contrapresión, desconectar la sonda Principal.
+  2. Cronometrar hasta que abra la lenta.
+- **Resultado esperado:** Todo cerrado durante 10 min (aunque el drenaje lea frío); a los 10 min abre solo la lenta.
+- **Criterio de aprobado/fallo:** Aprobado si la lenta abre a los 10 min (± 1 tick) y no antes.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
