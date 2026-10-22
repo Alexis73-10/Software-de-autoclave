@@ -216,7 +216,7 @@ def test_reloj_atrasado_respecto_de_la_instalacion(entorno):
     r = s.resumen()
     assert r["proximo_fecha"] is None and r["estado"] == m.SIN_DATO
     with pytest.raises(ErrorMantenimiento) as e:
-        s.registrar("tec", "otro", "")
+        s.registrar("tec", "correctivo", "")
     assert e.value.codigo == "reloj_invalido" and db.listar_mantenimientos() == []
 
 
@@ -227,7 +227,7 @@ def test_reloj_atrasado_respecto_del_ultimo_mantenimiento(entorno):
     reloj.pared -= timedelta(days=5)                     # alguien atrasa el reloj
     assert s.estado().estado == m.SIN_DATO
     with pytest.raises(ErrorMantenimiento) as e:
-        s.registrar("tec", "otro", "")
+        s.registrar("tec", "correctivo", "")
     assert e.value.codigo == "reloj_invalido"
     assert len(db.listar_mantenimientos()) == 1
 
@@ -252,7 +252,7 @@ def test_reloj_corregido_vuelve_a_la_normalidad(entorno):
     assert s.estado().estado == m.SIN_DATO
     reloj.saltar_pared(days=-900)
     assert s.estado().estado == m.OK
-    assert s.registrar("tec", "otro", "")["fecha"] == reloj.hoy().isoformat()
+    assert s.registrar("tec", "correctivo", "")["fecha"] == reloj.hoy().isoformat()
 
 
 def test_el_paso_normal_del_tiempo_no_se_confunde_con_un_ajuste(entorno):
@@ -275,7 +275,7 @@ def test_endpoint_rechaza_con_409_y_codigo_de_reloj_adelantado(entorno):
     srv, _ = cargar_servidor(ctx)
     client = TestClient(srv.app)
     reloj.saltar_pared(days=900)
-    r = client.post("/maintenance/records", headers=cabecera(srv, "tecnico"), json={"tipo": "otro"})
+    r = client.post("/maintenance/records", headers=cabecera(srv, "tecnico"), json={"tipo": "correctivo"})
     assert r.status_code == 409 and r.json()["codigo"] == "reloj_adelantado"
 
 
