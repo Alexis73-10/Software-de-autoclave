@@ -251,3 +251,86 @@ def test_seccion_entrega_los_modos_validos(cliente):
     assert p["tiempo_pre_despresurizacion"]["modos"] == []
     p = {x["clave"]: x for x in client.get("/programas/2/seccion/secado").json()["parametros"]}
     assert p["modo"]["modos"] == [1, 2, 3]
+
+
+# ── Controlador de Parámetros del ciclo (aviso del arrastre y motivos) ─────
+
+@pytest.fixture(scope="module")
+def qt_app():
+    import os
+    import sys
+    os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+    from PySide6.QtCore import QCoreApplication
+    return QCoreApplication.instance() or QCoreApplication(sys.argv)
+
+
+def _control(qt_app, patch_resultado):
+    from autoclave.ui_qml.sesion_backend import Resultado
+    from tests.test_t12_opciones_parametros import _Sesion
+    programas = {"programas": [{"numero": 4, "cycle_id": "liquidos", "nombre": "Líquidos",
+                                "editable": True, "danado": False,
+                                "secciones": [{"clave": "globals", "no_se_ejecuta": False}]}]}
+    seccion = {"editable": True, "parametros": [
+        {"clave": "tipo_carga", "path": ["tipo_carga"], "tipo": "enum", "valor": "liquido",
+         "defecto": "liquido", "min": None, "max": None, "unidad": "", "opciones": ["solido", "liquido"],
+         "modos": [], "modificado": False, "ultima_modificacion": None}]}
+    s = _Sesion({("GET", "/programas"): Resultado("ok", programas, 200),
+                 ("GET", "/programas/4/seccion/globals"): Resultado("ok", seccion, 200),
+                 ("PATCH", "/cycle/parameter"): patch_resultado})
+    from autoclave.ui_qml.controllers.parametros_ciclo_controller import ParametrosCicloController
+    c = ParametrosCicloController(sesion=s)
+    c.cargar()
+    c.abrirSeccion("globals")
+    return c
+
+
+def test_controlador_avisa_del_cambio_automatico_del_modo(qt_app):
+    from autoclave.ui_qml.sesion_backend import Resultado
+    arrastre = [{"fase": "descompresion", "path": ["modo"], "clave": "modo", "anterior": 4, "nuevo": 1}]
+    c = _control(qt_app, Resultado("ok", {"ok": True, "value": "solido", "arrastres": arrastre}, 200))
+    assert c.guardar("tipo_carga", "solido") is True
+    assert c.aviso == "opciones.aviso_modo_solido" and c.detalleAviso["modo"] == 1
+    c.limpiarAviso()
+    assert c.aviso == ""
+
+
+def test_controlador_avisa_al_pasar_a_liquido(qt_app):
+    from autoclave.ui_qml.sesion_backend import Resultado
+    arrastre = [{"fase": "descompresion", "path": ["modo"], "clave": "modo", "anterior": 1, "nuevo": 4}]
+    c = _control(qt_app, Resultado("ok", {"ok": True, "value": "liquido", "arrastres": arrastre}, 200))
+    assert c.guardar("tipo_carga", "liquido") is True
+    assert c.aviso == "opciones.aviso_modo_liquido" and c.detalleAviso["modo"] == 4
+
+
+def test_controlador_sin_arrastre_no_avisa(qt_app):
+    from autoclave.ui_qml.sesion_backend import Resultado
+    c = _control(qt_app, Resultado("ok", {"ok": True, "value": "solido"}, 200))
+    assert c.guardar("tipo_carga", "solido") is True and c.aviso == ""
+
+
+@pytest.mark.parametrize("codigo, clave", [("MODO_NO_PERMITIDO_LIQUIDO", "opciones.err_modo_liquido"),
+                                           ("COHERENCIA_LIQUIDO", "opciones.err_coherencia_liquido")])
+def test_controlador_muestra_el_motivo_del_rechazo(qt_app, codigo, clave):
+    from autoclave.ui_qml.sesion_backend import Resultado
+    c = _control(qt_app, Resultado(codigo, {"codigo": codigo}, 422))
+    assert c.guardar("tipo_carga", "solido") is False
+    assert c.mensaje == clave
+
+
+# ── Bitácora: el cambio del parámetro y el automático, con texto propio ───
+
+def test_bitacora_presenta_el_cambio_de_parametro_y_el_automatico():
+    from autoclave.core.runtime import bitacora
+    manual = bitacora.presentar({"evento": "param_ciclo_cambio", "entidad": "liquidos/globals/tipo_carga",
+                                 "valor_anterior": '"solido"', "valor_nuevo": '"liquido"',
+                                 "detalle": json.dumps({"programa": "liquidos"})}, {}, {})
+    assert manual["clave_texto"] == "bitacora.ev.param_ciclo_cambio"
+    auto = bitacora.presentar({"evento": "param_ciclo_cambio", "entidad": "liquidos/descompresion/modo",
+                               "valor_anterior": "1", "valor_nuevo": "4",
+                               "detalle": json.dumps({"automatico": True,
+                                                      "causa": "liquidos/globals/tipo_carga"})}, {}, {})
+    assert auto["clave_texto"] == "bitacora.ev.param_ciclo_automatico"
+    for lang in ("es", "en"):
+        d = json.loads((RAIZ / "src" / "autoclave" / "i18n" / f"{lang}.json").read_text(encoding="utf-8"))
+        assert d["bitacora"]["ev"]["param_ciclo_cambio"]
+        assert d["bitacora"]["ev"]["param_ciclo_automatico"]

@@ -257,7 +257,13 @@
     "mant_unidad_ciclos": "cycles",
     "mant_no_aplica": "Not applicable",
     "mant_intervalos_ayuda": "Counted from installation or the last maintenance; whichever comes first. 0 = not applicable.",
-    "mant_guardar_intervalos": "Save intervals"
+    "mant_guardar_intervalos": "Save intervals",
+    "err_modo_liquido": "With a liquid load only depressurization modes 4, 5 and 0 are allowed: fast depressurization of hot liquid causes violent boiling.",
+    "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no prevacuum, no drying, no automatic opening and enough cooling counterpressure.",
+    "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
+    "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
+    "aviso_liquido_previo": "With a liquid load only depressurization modes 4, 5 and 0 are allowed. If the current mode is another one, it will change to mode 4 when saved.",
+    "modos_titulo": "Available modes"
   },
   "menu": {
     "titulo": "MAIN MENU",
@@ -1061,7 +1067,7 @@
       "enfriar_chaqueta_secado": "Cools the jacket during drying at the end of the cycle.",
       "presion_chaqueta": "Pressure held in the jacket before and during the cycle.",
       "rango_presion_chaqueta": "Tolerance (±) around the jacket pressure; outside it an alert is raised and starting is not allowed.",
-      "tipo_carga": "Load type: solid or liquid. Limits the allowed decompression modes."
+      "tipo_carga": "Load type: solid or liquid. With a liquid load only depressurization modes 4, 5 and 0 are allowed: switching to liquid changes the mode to 4 (if it was not 4, 5 or 0) and switching back to solid restores the program default mode."
     },
     "precalentamiento": {
       "tiempo_precalentamiento": "Time the jacket is held hot before moving on to pre-vacuum.",
@@ -1500,7 +1506,9 @@
       "suspension_sale": "the screen left standby",
       "rechazo_401": "access rejected (no session) on {entidad}",
       "rechazo_403": "access rejected (not allowed) on {entidad}",
-      "rechazo_409": "action rejected by state on {entidad}"
+      "rechazo_409": "action rejected by state on {entidad}",
+      "param_ciclo_cambio": "changed {entidad}: {anterior} → {nuevo}",
+      "param_ciclo_automatico": "automatic change of {entidad} due to the load type: {anterior} → {nuevo}"
     },
     "tipo": {
       "login_ok": "Login",
@@ -1549,7 +1557,8 @@
       "suspension_sale": "Standby (exit)",
       "rechazo_401": "Rejection 401",
       "rechazo_403": "Rejection 403",
-      "rechazo_409": "Rejection 409"
+      "rechazo_409": "Rejection 409",
+      "param_ciclo_cambio": "Cycle parameters"
     }
   },
   "correo_c2": {

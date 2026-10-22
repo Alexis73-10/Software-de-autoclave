@@ -34,6 +34,9 @@ _MENSAJES = {
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
     "asignacion_desfasada": "opciones.err_valor_cambio",
+    # D8-5.7 (tanda 8): carga líquida
+    "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
+    "COHERENCIA_LIQUIDO": "opciones.err_coherencia_liquido",
     # O1 (tanda 5): gestión de programas
     "programa_activo": "opciones.err_programa_activo",
     "programa_deshabilitado": "opciones.err_programa_deshabilitado",
@@ -53,6 +56,7 @@ class ParametrosCicloController(QObject):
     sensoresChanged = Signal()
     entradasChanged = Signal()
     mensajeChanged = Signal()
+    avisoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None):
         super().__init__(parent)
@@ -70,6 +74,9 @@ class ParametrosCicloController(QObject):
         self._entradas_editable = False
         self._mensaje = ""
         self._detalle: dict = {}
+        # D8-5.7: aviso informativo de un cambio automático (clave + datos)
+        self._aviso = ""
+        self._detalle_aviso: dict = {}
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
@@ -243,9 +250,11 @@ class ParametrosCicloController(QObject):
             valor = int(valor)
         cuerpo = {"cycle_id": cycle_id, "fase": self._seccion, "path": p["path"],
                   "value": valor, "valor_anterior_esperado": p["valor"]}
+        self._fijar_aviso("")
         r = self._s().enviar("PATCH", "/cycle/parameter", cuerpo)
         if r.ok:
             self._fijar_mensaje("")
+            self._avisar_arrastres(r.datos.get("arrastres"), valor)
             self.abrirSeccion(self._seccion)
             self.cargar()            # "No se ejecuta" puede cambiar
             return True
@@ -314,6 +323,39 @@ class ParametrosCicloController(QObject):
     @Slot()
     def limpiarMensaje(self) -> None:
         self._fijar_mensaje("")
+
+    # ── aviso de cambios automáticos (D8-5.7) ────────────────────────
+
+    def _fijar_aviso(self, clave: str, detalle: dict | None = None) -> None:
+        if clave != self._aviso or dict(detalle or {}) != self._detalle_aviso:
+            self._aviso = clave
+            self._detalle_aviso = dict(detalle or {})
+            self.avisoChanged.emit()
+
+    def _avisar_arrastres(self, arrastres, valor) -> None:
+        """El backend cambió solo el modo de descompresión al cambiar el tipo
+        de carga: la pantalla lo avisa con un texto del catálogo."""
+        if not isinstance(arrastres, list):
+            return
+        for a in arrastres:
+            if (isinstance(a, dict) and a.get("fase") == "descompresion"
+                    and a.get("clave") == "modo" and isinstance(a.get("nuevo"), int)):
+                clave = ("opciones.aviso_modo_liquido" if valor == "liquido"
+                         else "opciones.aviso_modo_solido")
+                self._fijar_aviso(clave, {"modo": a["nuevo"], "anterior": a.get("anterior")})
+                return
+
+    @Property(str, notify=avisoChanged)
+    def aviso(self) -> str:
+        return self._aviso
+
+    @Property("QVariantMap", notify=avisoChanged)
+    def detalleAviso(self) -> dict:
+        return self._detalle_aviso
+
+    @Slot()
+    def limpiarAviso(self) -> None:
+        self._fijar_aviso("")
 
 
 qmlRegisterType(ParametrosCicloController, "Autoclave.Controllers", 1, 0,
