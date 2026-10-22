@@ -419,6 +419,16 @@ class ControlLoop:
         backend (órdenes de puerta, revisión de seguridad de la etapa 2)."""
         return self._desconectado_desde is not None
 
+    @property
+    def desconexion_en_tolerancia(self) -> bool:
+        """D8-2.13 (tanda 8, Q1-P4): el enlace está caído y todavía no venció
+        la tolerancia de COM-02 (_TOLERANCIA_DESCONEXION_SEG). /cycle/abort
+        acepta entonces la cancelación en espera, como en R1-P5. Lectura de
+        un float desde el hilo HTTP (bajo _sm_lock en el backend)."""
+        desde = self._desconectado_desde
+        return (desde is not None
+                and time.monotonic() - desde < self._TOLERANCIA_DESCONEXION_SEG)
+
     def _di_vigente(self) -> bool:
         """True si la última trama DI del enlace tiene a lo sumo
         _VIGENCIA_DI_SEG segundos. Un enlace que no informa la edad (o la

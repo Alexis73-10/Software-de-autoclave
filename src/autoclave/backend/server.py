@@ -2873,9 +2873,12 @@ def abort_cycle():
         if estado.get_flag("PARO_EMERGENCIA") is True:
             # R1-P5 (tanda 7): sin datos de las entradas pero dentro de la
             # tolerancia por DI vencida, la cancelación se acepta y queda en
-            # espera; con el paro real (o fuera de la tolerancia), 409
+            # espera; con el paro real (o fuera de la tolerancia), 409.
+            # D8-2.13 (tanda 8): igual con la tarjeta totalmente desconectada
+            # antes de COM-02 (tolerancia de desconexión del ControlLoop)
             en_espera_datos = (not pendiente and estado.get_flag("PARO_REAL") is not True
-                               and _ciclo_en_tolerancia_di())
+                               and (_ciclo_en_tolerancia_di()
+                                    or _desconexion_en_tolerancia()))
             if not en_espera_datos:
                 raise _Rechazo(409, "paro_emergencia",
                                _motivo_paro("Paro de emergencia activado: el ciclo ya se detuvo"))
@@ -2884,7 +2887,8 @@ def abort_cycle():
                            "El ciclo ya terminó: confirme el resultado")
         estado.set_flag("CICLO_CANCELADO", True)
     if en_espera_datos:
-        logger.warning("/cycle/abort: cancelación aceptada durante la tolerancia por DI vencida")
+        logger.warning("/cycle/abort: cancelación aceptada sin datos de la tarjeta "
+                       "(tolerancia por DI vencida o desconexión antes de COM-02)")
         return {"ok": True, "action": "CICLO_CANCELADO", "pendiente": True,
                 "codigo": "cancelacion_en_espera_datos",
                 "mensaje": _i18n_t("ciclo.cancelacion_en_espera_datos")}
@@ -2901,6 +2905,15 @@ def _ciclo_en_tolerancia_di() -> bool:
     _sm_lock. Ante cualquier duda, False (se rechaza como antes)."""
     try:
         return context.control_loop.state_machine.ciclo.tolerancia_di_activa is True
+    except Exception:
+        return False
+
+
+def _desconexion_en_tolerancia() -> bool:
+    """D8-2.13: la tarjeta está desconectada y no venció la tolerancia de
+    COM-02. Llamar bajo _sm_lock. Ante cualquier duda, False."""
+    try:
+        return context.control_loop.desconexion_en_tolerancia is True
     except Exception:
         return False
 
