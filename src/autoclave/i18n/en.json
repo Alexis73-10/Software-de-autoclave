@@ -244,7 +244,7 @@
     "mant_tipo_correctivo": "Corrective",
     "mant_tipo_calibracion": "Calibration (historical)",
     "mant_tipo_otro": "Other",
-    "mant_registrar": "Record completed maintenance",
+    "mant_registrar": "Register",
     "mant_confirmar": "A {tipo} maintenance completed today will be recorded. Do you want to continue?",
     "mant_sin_dato": "The system date is not reliable (earlier than the installation or changed): correct the date and time.",
     "mant_err_reloj": "The system clock is earlier than the installation or the last maintenance: correct the date and time.",

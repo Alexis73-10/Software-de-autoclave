@@ -244,7 +244,7 @@
     "mant_tipo_correctivo": "Correctivo",
     "mant_tipo_calibracion": "Calibración (histórico)",
     "mant_tipo_otro": "Otro",
-    "mant_registrar": "Registrar mantenimiento realizado",
+    "mant_registrar": "Registrar",
     "mant_confirmar": "Se registrará un mantenimiento realizado hoy (tipo: {tipo}). ¿Desea continuar?",
     "mant_sin_dato": "La fecha del sistema no es confiable (anterior a la instalación o cambiada): corrija la fecha y hora.",
     "mant_err_reloj": "El reloj del sistema es anterior a la instalación o al último mantenimiento: corrija la fecha y hora.",
