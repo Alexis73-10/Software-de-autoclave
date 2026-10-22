@@ -17,7 +17,7 @@ import logging
 import time
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import (
-    CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08,
+    CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
     COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SIS_01, SUM_01, SUM_06, nombre_legible,
 )
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
@@ -309,11 +309,19 @@ class CicloState:
             except Exception:
                 logger.exception("CicloState: no se pudo dejar motivo_fallo de %s", codigo)
 
-    def _registrar_fallo_de_fase(self, nombre_fase):
+    def _registrar_fallo_de_fase(self, nombre_fase, fase=None):
         """Registra el CIC-0x de la fase que devolvió FALLO. Nunca lanza: una
         fase fuera de _CIC_POR_FASE deja un motivo de respaldo legible y el
-        llamador igual ejecuta el protocolo de fallo."""
+        llamador igual ejecuta el protocolo de fallo.
+
+        D8-2.8 (tanda 8): si la fase dejó `alarma_fallo` (código propio y sus
+        valores, hoy solo CIC-11 de ESTERILIZACION), se registra esa."""
         try:
+            propia = getattr(fase, "alarma_fallo", None)
+            if (isinstance(propia, tuple) and len(propia) == 2
+                    and propia[0] in (CIC_11,) and isinstance(propia[1], dict)):
+                self._registrar_fallo(propia[0], origen=nombre_legible(nombre_fase), **propia[1])
+                return
             # La fase puede haber dejado ya un motivo específico (p.ej.
             # EsterilizacionFase._fallo() con la lectura exacta que falló);
             # sólo se usa el genérico si no dejó uno más preciso.
@@ -799,7 +807,7 @@ class CicloState:
         elif resultado == FaseResult.FALLO:
             logger.error("CicloState: FALLO en fase %s", fase.name)
             self.estado.fase_ciclo = f"FALLO_{fase.name}"
-            self._registrar_fallo_de_fase(fase.name)
+            self._registrar_fallo_de_fase(fase.name, fase)
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION

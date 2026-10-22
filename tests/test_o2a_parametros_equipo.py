@@ -29,6 +29,8 @@ ESPERADO = {
     "timeout_chaqueta": ("chaqueta", 60, 10, 180),
     "tiempo_standby": ("sistema", 10, 0, 60),
     "tiempo_estable_alarma": ("sistema", 5, 1, 60),
+    # D8-2.8 (tanda 8)
+    "pausa_max_esterilizacion_s": ("sistema", 30, 5, 120),
 }
 
 
@@ -333,7 +335,8 @@ def test_controlador_grupos_y_datos():
     assert [p["clave"] for p in c.delGrupo("puerta")] == ["timeout_puerta", "temp_max_apertura",
                                                          "rango_presion_atm"]
     assert {p["clave"] for p in c.delGrupo("sistema")} == {"tiempo_standby", "tiempo_estable_alarma",
-                                                           "presion_atmosferica"}
+                                                           "presion_atmosferica",
+                                                           "pausa_max_esterilizacion_s"}
     assert c.numeroSerie == "S-1" and c.modelo == "M-1" and c.idioma == "es"
     c.abrirGrupo("puerta")
     assert c.grupo == "puerta" and c.volver() and c.grupo == "" and not c.volver()
