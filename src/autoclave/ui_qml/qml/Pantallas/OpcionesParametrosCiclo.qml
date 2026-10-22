@@ -111,6 +111,15 @@ Item {
                                         : "modos_programa." + s + "_" + n + "_linea"
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
     }
+    // D8-5.9: una línea de descripción por modo (lista con viñetas)
+    function lineaModo(n, seccion) {
+        const k = "modos_programa." + seccion + "_" + n + "_linea"
+        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
+    function introModos(seccion) {
+        const k = "modos_programa." + seccion + "_intro"
+        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
     // valor de un modo en la lista de parámetros: número y nombre
     function textoModo(n, seccion) {
         if (n === null || n === undefined)
@@ -886,7 +895,9 @@ Item {
                 }
                 Text {
                     objectName: "descripcionModo"
-                    visible: ajuste.esModo
+                    // detalle del modo elegido solo en descompresión (en secado
+                    // la línea de la lista ya lo dice todo)
+                    visible: ajuste.esModo && control.seccion === "descompresion"
                     width: parent.width
                     wrapMode: Text.WordWrap
                     text: ajuste.esModo
@@ -896,6 +907,57 @@ Item {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)
                     color: Colores.textoPrimario
+                }
+                // D8-5.9: los modos disponibles como lista, una viñeta por modo
+                // (nombre y una línea); el elegido, resaltado
+                Column {
+                    objectName: "listaModos"
+                    visible: ajuste.esModo
+                    width: parent.width
+                    spacing: Escala.px(6)
+                    Text {
+                        objectName: "introModos"
+                        visible: text !== ""
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: ajuste.esModo ? raiz.introModos(control.seccion) : ""
+                        font.family: Tipografia.familia
+                        font.pixelSize: Escala.fuente(20)
+                        color: Colores.textoGuia
+                    }
+                    Text {
+                        text: I18n.t("opciones.modos_titulo", I18n.lang)
+                        font.family: Tipografia.familia; font.weight: Tipografia.pesoBold
+                        font.pixelSize: Escala.fuente(20)
+                        color: Colores.textoPrimario
+                    }
+                    Repeater {
+                        model: ajuste.modos
+                        delegate: Text {
+                            required property var modelData
+                            objectName: "modo_" + modelData
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            textFormat: Text.StyledText
+                            text: "• <b>" + modelData + " · " + raiz.nombreModo(modelData, control.seccion) + ":</b> "
+                                  + raiz.lineaModo(modelData, control.seccion)
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(20)
+                            color: modelData === selectorModo.actual ? Colores.accionPrimarioTexto : Colores.textoPrimario
+                        }
+                    }
+                    // con carga líquida (el backend no ofrece el modo 1): por qué faltan modos
+                    Text {
+                        objectName: "notaLiquidoModos"
+                        visible: control.seccion === "descompresion" && ajuste.modos.length > 0
+                                 && ajuste.modos.indexOf(1) < 0
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: I18n.t("modos_programa.descompresion_nota_liquido", I18n.lang)
+                        font.family: Tipografia.familia
+                        font.pixelSize: Escala.fuente(20)
+                        color: Colores.advertenciaTexto
+                    }
                 }
                 Text {
                     visible: ajuste.param !== null && !ajuste.esModo && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
@@ -911,7 +973,8 @@ Item {
                 Rectangle { width: parent.width; height: 1; color: Colores.bordeDivisor }
                 Text {
                     objectName: "descripcionAjuste"
-                    visible: text !== ""
+                    // D8-5.9: en un modo, la lista de arriba reemplaza al texto corrido
+                    visible: text !== "" && !ajuste.esModo
                     width: parent.width
                     wrapMode: Text.WordWrap
                     text: ajuste.param ? raiz.descripcion(control.seccion, ajuste.param.clave) : ""

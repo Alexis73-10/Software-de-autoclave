@@ -229,3 +229,34 @@ r["fila"] = hijo("param_modo").property("valor")
     assert res["opciones"] == ["1", "2", "3"]
     assert "Pulsos de vacío y aire" in res["nombre"]
     assert res["fila"].startswith("3") and "Pulsos de vacío y aire" in res["fila"]
+
+
+# ── D8-5.9: la explicación de los modos es una lista, una viñeta por modo ──
+
+def test_explicacion_de_modos_como_lista_con_liquido():
+    res = _correr("""
+abrir("descompresion", "modo")
+r["items"] = [hijo("modo_" + str(n)).property("text") if hijo("modo_" + str(n)) else None for n in (4, 5, 0, 1)]
+r["intro"] = visible("introModos")
+r["nota"] = visible("notaLiquidoModos")
+r["corrido"] = visible("descripcionAjuste")
+""", {"GET /programas/4/seccion/descompresion": [200, {"editable": True, "parametros": [
+          _p("modo", "int", 4, 4, modos=[4, 5, 0], mn=0, mx=5)]}]})
+    i4, i5, i0, i1 = res["items"]
+    assert i1 is None
+    assert "Con enfriamiento" in i4 and "contrapresión" in i4
+    assert "escape lento" in i5 and "Natural" in i0
+    assert all(t.startswith("•") for t in (i4, i5, i0))
+    assert res["intro"] and res["nota"] and not res["corrido"]
+
+
+def test_explicacion_de_modos_de_secado_sin_nota_de_liquido():
+    res = _correr("""
+abrir("secado", "modo")
+r["items"] = [hijo("modo_" + str(n)).property("text") for n in (1, 2, 3)]
+r["nota"] = visible("notaLiquidoModos")
+""", {"GET /programas": [200, _PROGRAMAS_SECADO],
+      "GET /programas/2/seccion/secado": [200, {"editable": True, "parametros": [
+          _p("modo", "int", 1, 1, modos=[1, 2, 3], mn=1, mx=3)]}]})
+    assert "Vacío continuo" in res["items"][0] and "Pulsos" in res["items"][2]
+    assert not res["nota"]
