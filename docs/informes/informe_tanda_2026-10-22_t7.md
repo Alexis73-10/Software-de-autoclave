@@ -79,4 +79,13 @@ Decisiones sin confirmar de todas las etapas: cada informe, y las de la sesión 
 - El predictivo.
 
 ## Push
-(ver abajo, se completa en Z)
+- `git push origin dev tanda-7` (09:36): `18eb429..b33a409  dev -> dev`; `* [new branch]  tanda-7 -> tanda-7`. Salida 0.
+- `git push origin inst-2026-10-22-a inst-2026-10-22-b`: `* [new tag]` las dos. Salida 0.
+- El cierre de Z (este commit) se empuja igual al final; si ese último push fallara, quedaría anotado en `tanda7/estado.md`.
+- D2 empujó además 6 ramas de respaldo (ver `D2_depuracion.md`). Las subramas `tanda-7-*` quedan solo en local (unidas a `dev`).
+- Nada a `main`.
+
+## Limpieza
+- Worktrees de las subramas `tanda-7-*` (todas unidas) y los de trabajo de la sesión principal (`_integ_t7`, `_suites_t7/i_*`, `_build_a`, `_build_ensayo`, `_build_b`): quitados con `git worktree remove` (sin `--force`; antes se borraron sus `data/`, `build/` y `dist/` generados por las pruebas y los builds). Rama de ensayo `tanda-7-integ` borrada con `-d`.
+- Quedan los worktrees ajenos a la tanda 7: `wt_rc`, `anuncios-voz`, `alarmas-parte-a`, `roles-sensor-temperatura` (ver preguntas P8 a P12 de D2).
+- `C:\Users\tecni\Documents\_respaldo_t7\planeacion_mantenimiento.md` (copia idéntica al commit c38e29c) y `C:\tmpx2` (de P1) se pueden borrar a mano.

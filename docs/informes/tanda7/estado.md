@@ -15,7 +15,7 @@ Rama `tanda-7`, creada desde `dev` (18eb429) tras A0. Sesión principal arrancad
 | Q1 ★ | Hecha, unida a `tanda-7` | 8a4a63d (merge) | Correcciones de la revisión en 733b19f..88858a0. Re-revisión safety + timing: 0 Altos/Críticos abiertos. SEN-01 (Alto preexistente en dev) queda como PREGUNTA (SP-7). Suite tras unir: 5405 passed / 3 skipped / 3 xfailed (19 min 59 s). |
 | K2 | Hecha (08:10) | etiqueta `inst-2026-10-22-b` (23e76e2) | `entrega/2026-10-22_b/`. Humo: asistente de 8 pasos, sin traceback. Ver `K2_compilacion_b.md`. **Se instala la B.** |
 | D2 | Hecha, unida a `tanda-7` DESPUÉS de K2 | fbd181c (merge) | Suite tras unir: 5382 passed / 3 skipped / 3 xfailed (= 5405 − 23 pruebas de código retirado). No está en ninguna compilación. |
-| Z | Pendiente | | |
+| Z | Hecha | b33a409 + cierre | Suite final 5382 passed / 3 skipped / 3 xfailed; `tanda-7` unida a `dev` (`merge-base --is-ancestor` OK); push de dev, tanda-7 y etiquetas OK; índice en `docs/informes/informe_tanda_2026-10-22_t7.md`. **Instalar `entrega/2026-10-22_b/`.** |
 
 ## NOTA DE REANUDACIÓN (asistente de Cristian, 22-oct 06:10) — leer antes de seguir
 Qué pasó:
