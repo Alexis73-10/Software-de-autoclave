@@ -83,7 +83,7 @@ Pruebas nuevas, todas sin red. `tests/smtp_falso.py` es un servidor SMTP falso e
 
 Suite completa (con `PYTHONPATH=<worktree>/src`, ver problemas conocidos):
 - antes: línea base de la tanda, 5020 passed / 2 skipped / 3 xfailed;
-- después: RESULTADO_SUITE.
+- después: 5053 passed, 2 skipped, 3 xfailed (18 min 12 s; corrida por la sesión principal el 22-oct, 06:05).
 
 ## 4. DECISIONES SIN CONFIRMAR
 

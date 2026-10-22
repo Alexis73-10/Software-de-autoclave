@@ -59,7 +59,7 @@ Además:
 
 ## Pruebas
 - **Antes:** línea base de la tanda, 5020 passed / 2 skipped / 3 xfailed. Todas las afectadas estaban en verde, pero no cubrían estos casos.
-- **Después (suite completa en la rama):** *ver la respuesta final a la sesión principal* (la suite estaba corriendo cuando escribí este informe).
+- **Después (suite completa en la rama):** 5081 passed, 2 skipped, 3 xfailed (18 min 46 s; corrida por la sesión principal el 22-oct, 06:05).
 - **Aviso para quien corra pruebas en worktrees:** el paquete `autoclave` está instalado en modo editable apuntando a la **carpeta principal**. Sin `PYTHONPATH=<worktree>/src`, pytest prueba el código de la carpeta principal, no el del worktree. Todas las corridas de este informe usaron el `PYTHONPATH` del worktree.
 
 ## Revisores

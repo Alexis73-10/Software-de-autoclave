@@ -33,7 +33,7 @@ Rama: `tanda-7-l1`. No se tocó código del programa.
 ## Pruebas
 
 - Búsqueda en `tests/`, `src/` y `*.spec`: ninguna prueba ni script lee `requirements.lock.txt` ni `lista_soup.md`. No hay pruebas afectadas.
-- Suite completa (`python -m pytest -q -p no:cacheprovider`): RESULTADO_SUITE. Línea base: 5020 passed / 2 skipped / 3 xfailed.
+- Suite completa (`python -m pytest -q -p no:cacheprovider`): 5020 passed, 2 skipped, 3 xfailed (17 min 52 s; corrida por la sesión principal el 22-oct, 06:05). Línea base: 5020 passed / 2 skipped / 3 xfailed.
 
 ## DECISIONES SIN CONFIRMAR
 

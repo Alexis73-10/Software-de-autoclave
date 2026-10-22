@@ -148,4 +148,6 @@ Tanda 7 (noche 21/22-oct-2026). Rama `tanda-7-m1` (desde `e8e42d7`). Spec: `docs
 
 ## Resultado de la suite completa
 
-(Ver abajo; se completa al terminar la corrida.)
+- En la rama `tanda-7-m1`: 5139 passed, 2 skipped, 3 xfailed (18 min 10 s; corrida por la sesión principal el 22-oct, 06:05).
+- Tras unirla a `tanda-7` (L1 + P1 + M1): 5200 passed, 2 skipped, 3 xfailed.
+- Nota de integración: la fila de trazabilidad de M1 se renumeró de REQ-19 a REQ-27, porque Q1 usó REQ-19 a REQ-26.

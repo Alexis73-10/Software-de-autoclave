@@ -41,7 +41,7 @@ Pruebas nuevas en `tests/test_m2_mantenimiento_e1.py`, las de §10.5 y algunas m
 
 Antes de los cambios, las pruebas de MNT-01, 02, 03 y 05 fallaban (TDD). Después, las pruebas afectadas pasan: mantenimiento, i18n e información del equipo, 166 en total.
 
-Suite completa: línea base 5020 passed / 2 skipped / 3 xfailed. Resultado de esta rama: SUITE_RESULTADO.
+Suite completa: línea base 5020 passed / 2 skipped / 3 xfailed. Resultado de esta rama: 5042 passed, 2 skipped, 3 xfailed (18 min 05 s; corrida por la sesión principal el 22-oct, 06:05).
 
 **Ojo, entorno:** `autoclave` está instalado en modo editable apuntando a `src/` de la carpeta **principal** del repositorio. Si se corre `pytest` dentro de un worktree sin `PYTHONPATH=<worktree>/src`, se prueba el código de la carpeta principal y no el del worktree (lo comprobé: las pruebas nuevas fallaban así aunque el código ya estuviera corregido). Esta rama se probó con `PYTHONPATH` apuntando al `src` del worktree. La sesión principal debería tenerlo en cuenta al verificar las ramas de los demás agentes.
 
