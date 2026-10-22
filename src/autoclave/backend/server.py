@@ -826,6 +826,56 @@ def get_system_info():
     }
 
 
+# ── Bitácora de auditoría (O2e, tanda 6): solo lectura ────────────────────
+# La ven admin, técnico e ingeniero; nadie edita ni borra (audit_log es de
+# solo anexar, migración v4). Valores en la unidad vigente.
+
+_POR_PAGINA_MAX = 100
+
+
+@app.get("/audit_log")
+def get_audit_log(pagina: int = 1, por_pagina: int = 20, desde: date | None = None,
+                  hasta: date | None = None, usuario: str | None = None, evento: str | None = None,
+                  sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime import bitacora
+    pagina = max(1, pagina)
+    por_pagina = max(1, min(por_pagina, _POR_PAGINA_MAX))
+    filas, total = context.db.consultar_auditoria(
+        desde=desde.isoformat() if desde else None,
+        hasta=(hasta + timedelta(days=1)).isoformat() if hasta else None,
+        usuario=usuario or None, evento=evento or None,
+        limite=por_pagina, desplazamiento=(pagina - 1) * por_pagina)
+    usuarios, eventos = context.db.valores_auditoria()
+    try:
+        metas = {p["clave"]: p for p in context.config_manager.describir()}
+    except Exception:
+        metas = {}
+    try:
+        unidades = context.config_unidades.leer()
+        unidades = unidades if isinstance(unidades, dict) else {}
+    except Exception:
+        unidades = {}
+    p_atm = _parte(_p_atm_vigente)
+    paginas = max(1, (total + por_pagina - 1) // por_pagina)
+    return {"filas": [bitacora.presentar(f, metas, unidades, p_atm) for f in filas],
+            "total": total, "pagina": pagina, "por_pagina": por_pagina,
+            "paginas": paginas, "usuarios": usuarios, "tipos": eventos}
+
+
+class _SuspensionBody(BaseModel):
+    activa: StrictBool
+    pantalla: str = ""
+
+
+@app.post("/ui/standby")
+def registrar_suspension(body: _SuspensionBody):
+    """O2e: una pantalla QML informa que entró o salió de suspensión (solo
+    bitácora; no cambia nada del equipo)."""
+    _auditar("suspension_entra" if body.activa else "suspension_sale", usuario="sistema",
+             entidad=body.pantalla[:40])
+    return {"ok": True}
+
+
 def _resolve_sensor_index(tipo: str, sensor: str) -> int:
     name_map = {"temperature": EstadoAutoclave.map_temp, "pressure": EstadoAutoclave.map_pres}.get(tipo)
     if name_map is None:

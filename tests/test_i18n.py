@@ -293,6 +293,9 @@ FAMILIAS = {
     "parametros_equipo_desc.": lambda: _claves_equipo(),
     # O2c (tanda 6)
     "fecha_hora.rotulo_": lambda: ["zona", "fecha_iso", "instalacion", "fuente"],
+    # O2e (tanda 6)
+    "bitacora.tipo.": lambda: list(__import__("autoclave.core.runtime.bitacora",
+                                              fromlist=["EVENTOS"]).EVENTOS),
     # O2d (tanda 6)
     "info_sistema.grupo_": lambda: ["equipo", "software", "uso", "configuracion"],
     "info_sistema.rotulo_": lambda: list(__import__(

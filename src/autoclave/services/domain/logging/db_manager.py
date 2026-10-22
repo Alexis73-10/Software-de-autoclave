@@ -604,6 +604,42 @@ class DbManager:
             resultado.append(d)
         return resultado
 
+    def consultar_auditoria(self, desde: str | None = None, hasta: str | None = None,
+                            usuario: str | None = None, evento: str | None = None,
+                            limite: int = 20, desplazamiento: int = 0) -> tuple[list[dict], int]:
+        """O2e: página de audit_log (la más reciente primero) y total con los
+        mismos filtros. `desde`/`hasta` comparan contra `ts` (ISO local)."""
+        condiciones, params = [], []
+        for cond, valor in (("ts >= ?", desde), ("ts < ?", hasta), ("usuario = ?", usuario),
+                            ("evento = ?", evento)):
+            if valor:
+                condiciones.append(cond)
+                params.append(valor)
+        where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
+        with self._lock:
+            total = self._conn.execute(f"SELECT COUNT(*) FROM audit_log {where}", params).fetchone()[0]
+            filas = self._conn.execute(
+                f"SELECT * FROM audit_log {where} ORDER BY id DESC LIMIT ? OFFSET ?",
+                [*params, int(limite), int(desplazamiento)]).fetchall()
+        resultado = []
+        for f in filas:
+            d = dict(f)
+            try:
+                d["detalle"] = json.loads(d["detalle"]) if d["detalle"] else None
+            except (TypeError, ValueError):
+                pass
+            resultado.append(d)
+        return resultado, int(total)
+
+    def valores_auditoria(self) -> tuple[list[str], list[str]]:
+        """Usuarios y eventos distintos de audit_log (para los filtros)."""
+        with self._lock:
+            usuarios = [r[0] for r in self._conn.execute(
+                "SELECT DISTINCT usuario FROM audit_log WHERE usuario <> '' ORDER BY usuario")]
+            eventos = [r[0] for r in self._conn.execute(
+                "SELECT DISTINCT evento FROM audit_log ORDER BY evento")]
+        return usuarios, eventos
+
     # ------------------------------------------------------------------
     # Ciclos
     # ------------------------------------------------------------------

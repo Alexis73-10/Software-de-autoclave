@@ -76,8 +76,10 @@ class Standby(QObject):
     def __init__(self, ui_service, backend_client, parent=None, reloj=time.monotonic,
                  ejecutar=_en_hilo, intervalo_ms: int = 500, iniciar: bool = True,
                  envio_min_s: float = 1.0, mantener_despierto=None,
-                 gracia_arranque_s: float = GRACIA_ARRANQUE_S):
+                 gracia_arranque_s: float = GRACIA_ARRANQUE_S,
+                 registrar_suspension: bool = False):
         super().__init__(parent)
+        self._registrar_suspension = registrar_suspension   # O2e: bitácora en el backend
         self._ui = ui_service
         self._backend = backend_client
         self._reloj = reloj
@@ -163,7 +165,19 @@ class Standby(QObject):
         if activo != self._activo:
             self._activo = activo
             logger.info("Standby %s", "activado" if activo else "desactivado")
+            self._informar_suspension(activo)
             self.activoChanged.emit()
+
+    def _informar_suspension(self, activo: bool) -> None:
+        """O2e: bitácora suspension_entra/_sale en el backend, fuera del hilo
+        de la GUI; un fallo solo queda en el log."""
+        def tarea():
+            try:
+                self._backend.post("/ui/standby", {"activa": bool(activo)})
+            except Exception as e:
+                logger.debug("no se pudo registrar la suspensión: %s", e)
+        if getattr(self, "_registrar_suspension", False) and self._ui.connected:
+            _en_hilo(tarea)
 
     def _en_gracia_arranque(self) -> bool:
         inicio = self._inicio if self._inicio_conectado is None else self._inicio_conectado

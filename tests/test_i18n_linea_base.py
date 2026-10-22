@@ -241,6 +241,12 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
             # txRuta parte en el primer punto: no resolvía el tercer nivel;
             # Opciones lo leía directo del objeto.
             ref = es["opciones"]["secciones"][clave.split(".")[2]]
+        elif clave.startswith(("bitacora.ev.", "bitacora.tipo.")):
+            # O2e (tanda 6): tercer nivel nuevo, sin referencia vieja
+            ref = es["bitacora"][clave.split(".")[1]][clave.split(".")[2]]
+            if caso_ref["a"][1]:
+                ref = ref.format(**{k: caso_ref["a"][1].get(k, "{%s}" % k)
+                                    for k in ("entidad", "anterior", "nuevo", "evento")})
         elif clave.startswith(("opciones.equipo_grupos.", "opciones.equipo_grupos_desc.")):
             # O2a (tanda 6): tercer nivel nuevo, sin referencia vieja
             ref = es["opciones"][clave.split(".")[1]][clave.split(".")[2]]

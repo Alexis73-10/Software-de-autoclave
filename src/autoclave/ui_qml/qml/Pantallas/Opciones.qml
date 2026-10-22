@@ -280,6 +280,15 @@ Item {
             sourceComponent: OpcionesInfoSistema {}
         }
 
+        // Bitácora de auditoría (O2e, tanda 6): solo lectura
+        Loader {
+            id: bitacora
+            objectName: "cargadorBitacora"
+            active: raiz.seccionActiva === "bitacora"
+            anchors.fill: parent
+            sourceComponent: OpcionesBitacora { teclado: raiz.teclado }
+        }
+
         // Mantenimiento (M1, tanda 3): próximo vencimiento y registro
         Loader {
             id: mantenimiento
@@ -314,6 +323,7 @@ Item {
                      && raiz.seccionActiva !== "entradas_salidas"
                      && raiz.seccionActiva !== "fecha_hora"
                      && raiz.seccionActiva !== "info_sistema"
+                     && raiz.seccionActiva !== "bitacora"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia
