@@ -244,6 +244,7 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | (nueva, T8) | SIS-03 Respaldo del ciclo no disponible | AVISO, no bloquea, despeje manual |
 | (nueva, M1 tanda 3) | SIS-04 Mantenimiento vencido | AVISO (baja prioridad), NO bloquea nunca un ciclo, despeje automático al registrar el mantenimiento. Alias en código: `MANTENIMIENTO_VENCIDO` |
 | (nueva, B5 tanda 4) | SIS-05 Impresora no conectada | AVISO (baja prioridad), NO bloquea nunca un ciclo, despeje automático cuando una impresión tiene éxito. Solo se activa al arrancar si la impresora está habilitada (`data/impresora.json`) y Windows la reporta desconectada. Alias en código: `IMPRESORA_DESCONECTADA` |
+| (nueva, R8 tanda 8) | SEN-04 Reasignación de entradas y salidas sin verificar | AVISO, **bloquea el inicio de ciclo**, despeje automático cuando el ingeniero verifica en OPCIONES › Opciones avanzadas la última función reasignada. Además del aviso, una condición en `AlarmManager.condiciones_bloqueo` mantiene bloqueado el inicio aunque la alarma se resuelva al reconocer una FALLA (la vigilancia la reactiva). |
 
 **Integración (tanda 2026-10-14, T1):** la Parte A está unida a `dev-noche`; esta tabla ya describe el código.
 La regla de la tanda "ningún id existente se renombra" se aplicó a los ids que la rama no había migrado:
