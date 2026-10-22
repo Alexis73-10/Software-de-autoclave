@@ -15,7 +15,7 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | E1 | Lanzada 12:20 | rama `tanda-8-e1` | ★ solo D8-3.19. |
 | E2 | Lanzada 12:20 | rama `tanda-8-e2` | |
 | M8 | Lanzada 12:20 | rama `tanda-8-m8` | |
-| U8 | Lanzada 12:20 | rama `tanda-8-u8` | |
+| U8 | Hecha, unida a `tanda-8` | 8bcaeb2 (merge) | Suite de la rama 5378 p / 3 s / 3 xf (= 5382 − 7 retiradas + 3 nuevas). Tras unir, `src/` y `tests/` idénticos a la rama (`git diff tanda-8-u8 tanda-8 -- src tests` vacío): misma suite. |
 | L8 | Lanzada 12:20 | rama `tanda-8-l8` | |
 | D8 | Lanzada 12:20 | rama `tanda-8-d8` | |
 | V8b | Lanzada 12:20 | rama `tanda-8-v8b` | Se une la última. |
