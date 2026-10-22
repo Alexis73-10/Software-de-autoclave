@@ -888,6 +888,10 @@ def _resolve_sensor_index(tipo: str, sensor: str) -> int:
 
 @app.get("/calibration/{tipo}/{sensor}")
 def get_calibration(tipo: str, sensor: str):
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
     config = load_config(CALIBRATION_PATH)
     calib = (config.calibration.user.temperature if tipo == "temperature"
@@ -930,6 +934,10 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
     Técnico solo fuera de CICLO; el ingeniero también en CICLO, donde aplica de
     inmediato (§5.8). El usuario sale del token: un `usuario` en el cuerpo se
     ignora."""
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
 
     try:
@@ -1061,6 +1069,10 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
     ganancia 1.0, offset 0.0) o a los valores previos a la última modificación
     ("ultimo", de valor_anterior en audit_log). Mismas reglas que el PATCH:
     rol, estado, auditoría obligatoria con reversión del archivo."""
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
     destino = body.get("destino")
     if destino not in ("ultimo", "defecto"):

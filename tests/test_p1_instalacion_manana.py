@@ -87,6 +87,73 @@ def test_cada_salida_mostrada_se_acciona(prueba_salidas, nombre, valor):
     assert resp.json()["name"] == nombre
 
 
+# ── Paso 6: la pantalla de calibración pide cada sensor por el nombre de
+# /io/channels (temp_referencia); el backend lo buscaba sin el alias (temp_ref)
+# y respondía 404: la sonda de referencia no se podía calibrar desde la QML.
+
+_CAL_YAML = """
+calibration:
+  user:
+    temperature:
+      - {gain: 1.0, offset: 0.0}
+      - {gain: 1.0, offset: 0.0}
+      - {gain: 1.0, offset: 0.0}
+      - {gain: 1.0, offset: 0.0}
+      - {gain: 1.0, offset: 0.0}
+    pressure:
+      - {gain: 1.0, offset: 0.0}
+      - {gain: 1.0, offset: 0.0}
+      - {gain: 1.0, offset: 0.0}
+      - {gain: 1.0, offset: 0.0}
+"""
+
+
+@pytest.fixture
+def calibracion(tmp_path):
+    ruta = tmp_path / "calibration.yaml"
+    ruta.write_text(_CAL_YAML, encoding="utf-8")
+    ctx = MagicMock()
+    ctx.db.get_auditoria.return_value = []
+    ctx.sin_base_de_datos = False
+    ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
+    srv, _ = cargar_servidor(ctx)
+    srv.CALIBRATION_PATH = ruta
+    return TestClient(srv.app, headers=cabecera(srv, "tecnico")), ctx, ruta
+
+
+def _sensores_mostrados():
+    return ([("temperature", s["name"]) for s in io_names.sensores("temperature")]
+            + [("pressure", s["name"]) for s in io_names.sensores("pressure")])
+
+
+def test_la_referencia_esta_entre_los_sensores_mostrados():
+    assert ("temperature", "temp_referencia") in _sensores_mostrados()
+
+
+@pytest.mark.parametrize("tipo,nombre", _sensores_mostrados())
+def test_cada_sensor_mostrado_se_lee_para_calibrar(calibracion, tipo, nombre):
+    client, _, _ = calibracion
+    assert client.get(f"/calibration/{tipo}/{nombre}").status_code == 200
+
+
+def test_calibrar_referencia_por_su_nombre_mostrado_escribe_su_canal(calibracion):
+    client, ctx, ruta = calibracion
+    r = client.patch("/calibration/temperature/temp_referencia",
+                     json={"shown_low": 30.0, "real_low": 31.0,
+                           "shown_high": 120.0, "real_high": 121.0})
+    assert r.status_code == 200, r.text
+    from autoclave.config import load_config
+    temps = load_config(ruta).calibration.user.temperature
+    canal = EstadoAutoclave.map_temp["temp_ref"]
+    assert temps[canal].offset == pytest.approx(1.0)
+    assert all(t.offset == 0.0 for i, t in enumerate(temps) if i != canal)
+    # la auditoría usa el nombre canónico: el historial es uno solo
+    assert ctx.db.registrar_auditoria.call_args.kwargs["entidad"] == "temperature/temp_ref"
+    r = client.post("/calibration/temperature/temp_referencia/restaurar",
+                    json={"destino": "defecto"})
+    assert r.status_code == 200, r.text
+
+
 # ── Paso 4: primer usuario en una base nueva ────────────────────────────────
 
 def test_base_nueva_ingeniero_semilla_cambia_clave_crea_tecnico_y_entra_a_modo_prueba(tmp_path):
