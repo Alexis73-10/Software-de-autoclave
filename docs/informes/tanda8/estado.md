@@ -6,19 +6,19 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 |---|---|---|---|
 | A0 | Hecha | e1d8f5e, 23704cb | Línea base de la suite (tanda-8 = dev d2f7353 + docs): **5382 passed, 3 skipped, 3 xfailed** (27 min, con 13 subagentes en paralelo). Log `tanda8/suites/base.log`. |
 | H8 | Sin objeto | | La sección "Hallazgos de la instalación del 22-oct" de la instrucción está vacía ("(vacío)"). |
-| S1 ★ | Lanzada 12:20 | rama `tanda-8-s1` | Subagente en worktree `.claude/worktrees/agent-*`. |
-| S2a ★ | Lanzada 12:20 | rama `tanda-8-s2a` | D8-2.6 a 2.10. |
-| S2b ★ | Lanzada 12:20 | rama `tanda-8-s2b` | D8-2.11 a 2.16. |
+| S1 ★ | Relanzada 16:12 (continúa) | rama `tanda-8-s1` | Subagente en worktree `.claude/worktrees/agent-*`. |
+| S2a ★ | Relanzada 16:12 (continúa) | rama `tanda-8-s2a` | D8-2.6 a 2.10. |
+| S2b ★ | Relanzada 16:12 (continúa) | rama `tanda-8-s2b` | D8-2.11 a 2.16. |
 | N8 | Hecha, unida a `tanda-8` | e8718cf (merge) | Suite de integración tras unir: **5393 p / 3 s / 3 xf** (`suites/integ_n8.log`). |
-| R8 ★ | Lanzada 12:20 | rama `tanda-8-r8` | |
-| V8a | Lanzada 12:20 | rama `tanda-8-v8a` | ★ solo D8-5.7. |
-| E1 | Lanzada 12:20 | rama `tanda-8-e1` | ★ solo D8-3.19. |
-| E2 | Lanzada 12:20 | rama `tanda-8-e2` | |
+| R8 ★ | Relanzada 16:12 (continúa) | rama `tanda-8-r8` | |
+| V8a | En cola (worktree con commits) | rama `tanda-8-v8a` | ★ solo D8-5.7. |
+| E1 | En cola (worktree con commits) | rama `tanda-8-e1` | ★ solo D8-3.19. |
+| E2 | Unida a `tanda-8` (16:15), suite de integración en curso | 1aab868 (merge) | Informe `tanda8/E2_nombres_familia_modelo.md`. |
 | M8 | Hecha, unida a `tanda-8` | aaa78ae (merge) | Informe `tanda8/M8_mantenimiento.md`. Suite tras unir 5388 p / 3 s / 3 xf (`suites/integ_m8.log`). |
 | U8 | Hecha, unida a `tanda-8` | 8bcaeb2 (merge) | Suite de la rama 5378 p / 3 s / 3 xf (= 5382 − 7 retiradas + 3 nuevas). Tras unir, `src/` y `tests/` idénticos a la rama (`git diff tanda-8-u8 tanda-8 -- src tests` vacío): misma suite. |
-| L8 | Lanzada 12:20 | rama `tanda-8-l8` | |
-| D8 | Lanzada 12:20 | rama `tanda-8-d8` | |
-| V8b | Lanzada 12:20 | rama `tanda-8-v8b` | Se une la última. |
+| L8 | En cola (worktree con commits) | rama `tanda-8-l8` | |
+| D8 | En cola (worktree con commits) | rama `tanda-8-d8` | |
+| V8b | En cola (worktree con commits) | rama `tanda-8-v8b` | Se une la última. |
 | K8 | Pendiente | | |
 | Z | Pendiente | | |
 
