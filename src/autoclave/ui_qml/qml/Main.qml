@@ -521,7 +521,10 @@ Window {
             onInicioPulsado: ventana.volverAPrincipal()
             onNuevoUsuarioPulsado: ventana.abrirNuevoUsuario()
             onMenuPulsado: pila.push(menuComp)
-            onCerrarSesionPulsado: { sesionVentana.cerrarSesion(); ventana.volverAPrincipal() }
+            // D8-4.2 (tanda 8): cerrar sesión invalida el token (/auth/logout)
+            // y lleva al LOGIN sobre la principal: su Atrás/Home vuelven a
+            // Preciclo o Ciclo; un login correcto sigue el flujo normal
+            onCerrarSesionPulsado: { sesionVentana.cerrarSesion(); ventana.irALogin() }
         }
     }
 }
