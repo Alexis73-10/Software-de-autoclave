@@ -1572,5 +1572,28 @@
     "enviar_a_manual": "Enviar a esta dirección:",
     "aviso_invalida": "La dirección no tiene un formato válido (nombre@dominio.com)",
     "no_se_guarda": "Esta dirección no se agrega a los destinatarios guardados"
+  },
+  "modos_programa": {
+    "secado_intro": "Cómo se seca la carga. En los modos 1 y 2 la cámara debe alcanzar vacío dentro del tiempo límite del pulso y no perderlo; si no, el ciclo falla.",
+    "secado_1_nombre": "Vacío continuo",
+    "secado_1_linea": "Bomba y válvula de vacío abiertas todo el tiempo.",
+    "secado_2_nombre": "Vacío con entrada de aire",
+    "secado_2_linea": "Vacío continuo con la entrada de aire atmosférico abierta.",
+    "secado_3_nombre": "Pulsos de vacío y aire",
+    "secado_3_linea": "Alterna vacío hasta la presión baja y aire hasta la presión alta del secado.",
+    "descompresion_intro": "Cómo se libera la presión de la cámara al terminar la esterilización. El modo se lee al iniciar la fase.",
+    "descompresion_nota_liquido": "Con carga líquida solo se permiten los modos 4, 5 y 0: descomprimir rápido con líquido caliente produce ebullición violenta.",
+    "descompresion_0_nombre": "Natural",
+    "descompresion_0_linea": "Todas las válvulas cerradas: la presión baja sola, sin tiempo límite.",
+    "descompresion_1_nombre": "Rápida",
+    "descompresion_1_linea": "Escape rápido abierto hasta la presión atmosférica.",
+    "descompresion_2_nombre": "Lenta",
+    "descompresion_2_linea": "Escape lento abierto hasta la presión atmosférica.",
+    "descompresion_3_nombre": "Lenta y rápida",
+    "descompresion_3_linea": "Escape lento hasta la presión de cambio y luego el rápido.",
+    "descompresion_4_nombre": "Con enfriamiento",
+    "descompresion_4_linea": "Para líquidos: agua en la chaqueta y aire comprimido como contrapresión hasta enfriar la carga.",
+    "descompresion_5_nombre": "Con enfriamiento y escape lento",
+    "descompresion_5_linea": "Como el modo 4, con el escape lento abierto durante el enfriamiento."
   }
 }

@@ -183,7 +183,7 @@ r["texto"] = control.property("mensaje")
 def test_con_liquido_el_selector_de_modo_solo_ofrece_4_5_y_0():
     res = _correr("""
 abrir("descompresion", "modo")
-sel = hijo("selectorModoDescompresion")
+sel = hijo("selectorModo")
 r["visible"] = sel.isVisible()
 ops = sel.property("opciones")
 ops = ops.toVariant() if hasattr(ops, "toVariant") else ops
@@ -199,3 +199,33 @@ r["minimo"] = visible("valorAjuste_opciones.minimo")
     # el defecto (1) no es un modo permitido con líquido: no se propone
     assert res["defecto_habilitado"] is False
     assert res["minimo"] is False
+
+
+# ── D8-5.8: todo parámetro "modo" se elige de una lista ─────────────────────
+
+_PROGRAMAS_SECADO = {"programas": [{"numero": 2, "cycle_id": "134_instrumental", "nombre": "Instrumental",
+                                    "editable": True, "danado": False, "habilitado": True,
+                                    "secciones": [{"clave": "secado", "no_se_ejecuta": False}]}]}
+
+
+def test_modo_de_secado_se_elige_de_la_lista_de_modos_validos():
+    res = _correr("""
+abrir("secado", "modo")
+sel = hijo("selectorModo")
+ops = sel.property("opciones")
+ops = ops.toVariant() if hasattr(ops, "toVariant") else ops
+r["visible"] = sel.isVisible()
+r["opciones"] = [o["etiqueta"] for o in ops]
+r["teclado"] = visible("campoNuevoValor")
+r["minimo"] = visible("valorAjuste_opciones.minimo")
+r["nombre"] = hijo("descripcionModo").property("text")
+QMetaObject.invokeMethod(hijo("cancelarAjuste"), "pulsado")
+app.processEvents()
+r["fila"] = hijo("param_modo").property("valor")
+""", {"GET /programas": [200, _PROGRAMAS_SECADO],
+      "GET /programas/2/seccion/secado": [200, {"editable": True, "parametros": [
+          _p("modo", "int", 3, 3, modos=[1, 2, 3], mn=1, mx=3)]}]})
+    assert res["visible"] and not res["teclado"] and not res["minimo"]
+    assert res["opciones"] == ["1", "2", "3"]
+    assert "Pulsos de vacío y aire" in res["nombre"]
+    assert res["fila"].startswith("3") and "Pulsos de vacío y aire" in res["fila"]

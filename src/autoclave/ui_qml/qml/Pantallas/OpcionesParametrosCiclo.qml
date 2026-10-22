@@ -92,15 +92,31 @@ Item {
         const k = "parametros_desc." + seccion + "." + clave
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
     }
-    // Parámetro "modo" de Descompresión: se elige entre los modos del catálogo
+    // D8-5.8: un parámetro "modo" (secado, descompresión o cualquiera con
+    // lista de modos del backend) se elige de una lista, no se escribe
     function esModoDescompresion(seccion, clave) { return seccion === "descompresion" && clave === "modo" }
-    function nombreModo(n) {
-        const k = "descompresion_modos." + n + ".nombre"
+    function esModo(seccion, p) {
+        return p !== null && p !== undefined
+               && ((p.modos && p.modos.length > 0) || esModoDescompresion(seccion, p.clave))
+    }
+    function nombreModo(n, seccion) {
+        const s = seccion || "descompresion"
+        const k = s === "descompresion" ? "descompresion_modos." + n + ".nombre"
+                                        : "modos_programa." + s + "_" + n + "_nombre"
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : String(n)
     }
-    function descripcionModo(n) {
-        const k = "descompresion_modos." + n + ".desc"
+    function descripcionModo(n, seccion) {
+        const s = seccion || "descompresion"
+        const k = s === "descompresion" ? "descompresion_modos." + n + ".desc"
+                                        : "modos_programa." + s + "_" + n + "_linea"
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
+    // valor de un modo en la lista de parámetros: número y nombre
+    function textoModo(n, seccion) {
+        if (n === null || n === undefined)
+            return "—"
+        const nombre = nombreModo(n, seccion)
+        return nombre === String(n) ? String(n) : n + " · " + nombre
     }
     // D8-5.7/5.8: modos válidos que entrega el backend (ya filtrados por el
     // tipo de carga: con líquido, 4, 5 y 0); sin lista, del mínimo al máximo
@@ -121,7 +137,7 @@ Item {
         if (control.aviso === "")
             return ""
         const m = control.detalleAviso.modo
-        return I18n.t(control.aviso, I18n.lang, { modo: m, nombre: nombreModo(m) })
+        return I18n.t(control.aviso, I18n.lang, { modo: m, nombre: nombreModo(m, "descompresion") })
     }
     // "2026-10-20T14:05:33" -> "20/10/2026 14:05"
     function fechaHora(ts) {
@@ -414,8 +430,11 @@ Item {
                 objectName: "param_" + modelData.clave
                 width: ListView.view.width
                 titulo: raiz.etiqueta(control.seccion, modelData.clave)
-                valor: Unidades.version >= 0 ? raiz.textoP(modelData.valor, modelData) : ""
-                detalle: modelData.tipo === "bool" || modelData.tipo === "enum" || raiz.convertible(modelData)
+                readonly property bool deModo: raiz.esModo(control.seccion, modelData)
+                valor: Unidades.version < 0 ? ""
+                       : deModo ? raiz.textoModo(modelData.valor, control.seccion)
+                       : raiz.textoP(modelData.valor, modelData)
+                detalle: deModo || modelData.tipo === "bool" || modelData.tipo === "enum" || raiz.convertible(modelData)
                          ? "" : (modelData.unidad || "")
                 marca: modelData.modificado
                 onPulsada: ajuste.abrir(modelData)
@@ -646,7 +665,7 @@ Item {
             }
         }
         readonly property bool editable: control.seccionEditable && raiz.edicionPermitida
-        readonly property bool esModo: param !== null && raiz.esModoDescompresion(control.seccion, param.clave)
+        readonly property bool esModo: param !== null && raiz.esModo(control.seccion, param)
         // D8-5.7: selector (booleano, enumerado o modo) sin mínimo ni máximo
         readonly property bool porLista: param !== null && (esModo || param.tipo === "bool" || param.tipo === "enum")
         readonly property var modos: esModo ? raiz.modosDe(param) : []
@@ -852,10 +871,10 @@ Item {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)
                 }
-                // Modo de descompresión: un botón por modo y qué hace el elegido
+                // Modo (D8-5.8): un botón por modo válido y qué hace el elegido
                 SelectorSegmentos {
                     id: selectorModo
-                    objectName: "selectorModoDescompresion"
+                    objectName: "selectorModo"
                     visible: ajuste.esModo
                     width: parent.width
                     habilitado: ajuste.editable
@@ -871,7 +890,8 @@ Item {
                     width: parent.width
                     wrapMode: Text.WordWrap
                     text: ajuste.esModo
-                          ? "<b>" + raiz.nombreModo(selectorModo.actual) + ".</b> " + raiz.descripcionModo(selectorModo.actual) : ""
+                          ? "<b>" + raiz.nombreModo(selectorModo.actual, control.seccion) + ".</b> "
+                            + raiz.descripcionModo(selectorModo.actual, control.seccion) : ""
                     textFormat: Text.StyledText
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)

@@ -1572,5 +1572,28 @@
     "enviar_a_manual": "Send to this address:",
     "aviso_invalida": "The address is not in a valid format (name@domain.com)",
     "no_se_guarda": "This address is not added to the saved recipients"
+  },
+  "modos_programa": {
+    "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",
+    "secado_1_nombre": "Continuous vacuum",
+    "secado_1_linea": "Vacuum pump and valve open the whole time.",
+    "secado_2_nombre": "Vacuum with air inlet",
+    "secado_2_linea": "Continuous vacuum with the atmospheric air inlet open.",
+    "secado_3_nombre": "Vacuum and air pulses",
+    "secado_3_linea": "Alternates vacuum down to the low pressure and air up to the high drying pressure.",
+    "descompresion_intro": "How chamber pressure is released after sterilization. The mode is read when the phase starts.",
+    "descompresion_nota_liquido": "With a liquid load only modes 4, 5 and 0 are allowed: fast depressurization of hot liquid causes violent boiling.",
+    "descompresion_0_nombre": "Natural",
+    "descompresion_0_linea": "All valves closed: pressure drops on its own, with no time limit.",
+    "descompresion_1_nombre": "Fast",
+    "descompresion_1_linea": "Fast exhaust open until atmospheric pressure.",
+    "descompresion_2_nombre": "Slow",
+    "descompresion_2_linea": "Slow exhaust open until atmospheric pressure.",
+    "descompresion_3_nombre": "Slow then fast",
+    "descompresion_3_linea": "Slow exhaust down to the switch pressure, then the fast one.",
+    "descompresion_4_nombre": "With cooling",
+    "descompresion_4_linea": "For liquids: jacket water and compressed air as counterpressure until the load cools.",
+    "descompresion_5_nombre": "With cooling and slow exhaust",
+    "descompresion_5_linea": "Like mode 4, with the slow exhaust open during cooling."
   }
 }
