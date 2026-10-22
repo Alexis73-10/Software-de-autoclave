@@ -217,6 +217,9 @@ class ControlLoop:
         y, tras _EXCEPCIONES_PARA_APAGAR seguidos, se apagan todas las salidas
         desde aquí, sin esperar al watchdog de la tarjeta. Log con traza, pero
         limitado (el primero y uno cada _LOG_CADA_EXCEPCIONES)."""
+        # SAF-03 (revisión Q1): un tick que no se completa no cuenta como
+        # enlace "ok" (enlace_confirmado_ok no queda en True con el lazo caído)
+        self._ticks_tarjeta_ok = 0
         self._excepciones_seguidas += 1
         if self._excepciones_seguidas == 1 or self._excepciones_seguidas % _LOG_CADA_EXCEPCIONES == 0:
             logger.exception("ControlLoop: error inesperado en el tick (%d seguidos)",
