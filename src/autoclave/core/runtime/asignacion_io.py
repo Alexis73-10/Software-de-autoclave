@@ -30,6 +30,7 @@
 
 import copy
 import json
+import os
 import logging
 import threading
 from datetime import datetime
@@ -254,6 +255,26 @@ def validar(asignacion: dict) -> list[dict]:
     return errores
 
 
+def puertos_sin_calibracion(asignacion: dict, largos: dict) -> list[dict]:
+    """Errores de las entradas analógicas en un puerto sin calibración (SEN-01
+    de la revisión R8): la calibración de fábrica y la de usuario son listas
+    por puerto; un puerto sin entrada en alguna de las dos se leería sin
+    corregir y no se podría calibrar. `largos`: {"temperatura": n, "presion":
+    m}, el menor de los largos de fábrica y de usuario de cada grupo."""
+    errores = []
+    for funcion, puerto in sorted((asignacion.get("AI") or {}).items()):
+        if not _es_entero(puerto):
+            continue
+        if es_temperatura(funcion):
+            indice, largo = puerto - 1, largos.get("temperatura", 0)
+        else:
+            indice, largo = puerto - 1 - _OFFSET_PRES, largos.get("presion", 0)
+        if not 0 <= indice < largo:
+            errores.append({"codigo": "puerto_sin_calibracion", "funcion": clave("AI", funcion),
+                            "puerto": puerto, "tipo": "AI"})
+    return errores
+
+
 def combinar(base: dict, cambios: dict) -> dict:
     """base + cambios ({clave de función: puerto}, el tipo sale de la clave).
     Lanza ErrorAsignacion si una función no existe (o es un nombre repetido
@@ -289,6 +310,8 @@ def texto_error(e: dict) -> str:
     if codigo == "conflicto":
         return (f"{e.get('funcion')} y {e.get('ocupado_por')} en el mismo puerto "
                 f"{etiqueta(e.get('tipo', '?'), e.get('puerto') or 0)}")
+    if codigo == "puerto_sin_calibracion":
+        return f"{e.get('funcion')}: el puerto {e.get('puerto')} no tiene calibración"
     if codigo == "puerto_inexistente":
         return f"puerto inexistente para {e.get('funcion')}: {e.get('puerto')!r}"
     if codigo == "funcion_desconocida":
@@ -397,6 +420,35 @@ class ArchivoAsignacion:
     def guardar_texto(self, texto: str) -> None:
         with self._lock:
             escribir_texto_atomico(self.ruta, texto, respaldo=True)
+
+    def guardar_bytes(self, datos: bytes) -> None:
+        """Vuelve a dejar el contenido exacto de antes (deshacer), aunque no
+        sea UTF-8 válido (un archivo dañado debe seguir dañado)."""
+        with self._lock:
+            self.ruta.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self.ruta.with_name(self.ruta.name + ".tmp")
+            try:
+                with open(tmp, "wb") as f:
+                    f.write(datos)
+                    f.flush()
+                    os.fsync(f.fileno())
+                os.replace(tmp, self.ruta)
+            finally:
+                tmp.unlink(missing_ok=True)
+
+    def quitar_pendiente(self, funciones) -> list[str]:
+        """Quita `funciones` de la verificación pendiente (verificadas por el
+        ingeniero) sin tocar lo demás. Devuelve las que quedan. Lanza
+        ErrorAsignacion/OSError si el archivo no se puede leer o escribir."""
+        with self._lock:
+            datos = self.leer()
+            quitar = set(funciones)
+            quedan = [f for f in datos["verificacion_pendiente"] if f not in quitar]
+            if quedan != datos["verificacion_pendiente"]:
+                datos["verificacion_pendiente"] = quedan
+                escribir_texto_atomico(self.ruta, json.dumps(datos, ensure_ascii=False, indent=2),
+                                       respaldo=True)
+            return quedan
 
     def limpiar_pendiente(self) -> None:
         """Quita la marca de verificación pendiente (tras verificar)."""

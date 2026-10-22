@@ -854,6 +854,11 @@
       "plantilla": "{sensor} gives no reading ({valor}). A program that uses it cannot start.",
       "accion": "Check the probe connection or set its role to Not in use."
     },
+    "SEN-04": {
+      "titulo": "Input and output reassignment not verified",
+      "plantilla": "Functions on a new port not verified: {funciones}. Cycles cannot be started.",
+      "accion": "The engineer must verify each function in OPTIONS › Advanced options."
+    },
     "CIC-01": {
       "titulo": "Preheating failure",
       "plantilla": "{motivo}",

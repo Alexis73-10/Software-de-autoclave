@@ -111,16 +111,49 @@ def _verificar(ctx, datos, plazo_s=10.0):
     return ctx
 
 
-def test_verificacion_ok_registra_y_limpia_la_marca(tmp_path):
+def test_verificacion_automatica_no_da_por_verificada_ni_quita_la_marca(tmp_path):
+    """SAF-02/SEN-03 (revisión R8): la trama trae siempre todos los puertos
+    DI/DO; la comprobación automática solo dice "trama_presente" y la marca
+    pendiente la quita el ingeniero."""
     ctx, ruta = _ctx(tmp_path, {"vapor_camara": 25, "pres_camara": 13}, ["vapor_camara", "pres_camara"])
     _verificar(ctx, _datos())
-    assert ctx.verificacion_asignacion == {"estado": "ok",
-                                           "funciones": {"vapor_camara": "ok", "pres_camara": "ok"}}
+    assert ctx.verificacion_asignacion == {
+        "estado": "trama_presente",
+        "funciones": {"vapor_camara": "trama_presente", "pres_camara": "trama_presente"}}
     eventos = [c.args[0] for c in ctx.db.registrar_auditoria.call_args_list]
     assert eventos == ["reasignacion_io_verificada"] * 2
     entidades = {c.kwargs["entidad"]: c.kwargs["valor_nuevo"] for c in ctx.db.registrar_auditoria.call_args_list}
     assert entidades == {"vapor_camara": "DO 25", "pres_camara": "AI 13"}
-    assert json.loads(ruta.read_text(encoding="utf-8"))["verificacion_pendiente"] == []
+    assert {c.kwargs["detalle"]["resultado"] for c in ctx.db.registrar_auditoria.call_args_list} == {"trama_presente"}
+    assert sorted(json.loads(ruta.read_text(encoding="utf-8"))["verificacion_pendiente"]) ==         ["pres_camara", "vapor_camara"]
+    assert sorted(ctx.asignacion_pendiente) == ["pres_camara", "vapor_camara"]
+
+
+def test_pendiente_bloquea_el_inicio_aunque_se_resuelva_la_alarma(tmp_path):
+    from autoclave.state_machine.alarms.catalogo import SEN_04
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, ["vapor_camara"])
+    inst = ctx.alarm_manager.obtener(SEN_04)
+    assert inst is not None and "vapor_camara (DO 25)" in inst.descripcion
+    assert ctx.alarm_manager.has_blocking_alarm() is True
+    ctx.alarm_manager.resolver_todas_por_reinicio()          # reconocer una FALLA
+    assert ctx.alarm_manager.obtener(SEN_04) is None
+    assert ctx.alarm_manager.has_blocking_alarm() is True   # sigue bloqueado
+    ctx.alarma_asignacion_sin_verificar()                   # la vigilancia la reactiva
+    assert ctx.alarm_manager.obtener(SEN_04) is not None
+    ctx.asignacion_pendiente = []
+    ctx.alarma_asignacion_sin_verificar()
+    assert ctx.alarm_manager.has_blocking_alarm() is False
+
+
+def test_nombre_repetido_en_la_verificacion(tmp_path):
+    """SEN-07 (revisión R8): DI:agua_bomba con su tipo y su puerto en la bitácora."""
+    libre = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
+    ctx, _ = _ctx(tmp_path, {"DI:agua_bomba": libre}, ["DI:agua_bomba"])
+    _verificar(ctx, _datos())
+    c = ctx.db.registrar_auditoria.call_args
+    assert c.kwargs["entidad"] == "DI:agua_bomba"
+    assert c.kwargs["valor_nuevo"] == aio.etiqueta("DI", libre)
+    assert c.kwargs["detalle"]["tipo"] == "DI"
 
 
 def test_verificacion_sin_respuesta_conserva_la_marca(tmp_path):

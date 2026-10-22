@@ -60,6 +60,8 @@ PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06 = (
     "PRE-01", "PRE-02", "PRE-03", "PRE-04", "PRE-05", "PRE-06")
 PUE_01, PUE_02, PUE_03, PUE_04, PUE_05 = "PUE-01", "PUE-02", "PUE-03", "PUE-04", "PUE-05"
 SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
+# R8 (tanda 8, D8-5.12): reasignación de E/S sin verificar por el ingeniero
+SEN_04 = "SEN-04"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
@@ -186,6 +188,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_03, _AV, False, _A, "Sensor de temperatura sin señal",
        "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
        "Verifique la conexión de la sonda o asígnele el rol No en uso."),
+    # R8 (tanda 8; SAF-01/SAF-02 de su revisión): tras reasignar E/S, no se
+    # inicia ningún ciclo hasta que el ingeniero verifique cada función en su
+    # puerto nuevo (las analógicas, además, calibradas después de reasignar).
+    _d(SEN_04, _AV, True, _A, "Reasignación de entradas y salidas sin verificar",
+       "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
+       "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",

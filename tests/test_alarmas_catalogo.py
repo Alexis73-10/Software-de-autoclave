@@ -40,6 +40,7 @@ _EJEMPLOS = {
     "COM-02": {"segundos": 5.0, "fase": "Calentamiento"},
     "COM-03": {"causa": "TARJETA_WATCHDOG", "motivo": "x.", "fase": "Secado"},
     "SEN-03": {"sensor": "Referencia", "valor": None},
+    "SEN-04": {"funciones": "Vapor cámara (DO 25)"},
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},

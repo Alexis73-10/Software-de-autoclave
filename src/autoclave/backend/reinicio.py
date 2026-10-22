@@ -22,6 +22,8 @@ import time
 logger = logging.getLogger(__name__)
 
 CODIGO_REINICIO = 75
+# El lanzador la pone en "1" al backend cuyo código de salida vigila
+VARIABLE_RELANZABLE = "AUTOCLAVE_RELANZABLE"
 
 _lock = threading.Lock()
 _al_reiniciar = None

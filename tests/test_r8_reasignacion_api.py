@@ -45,6 +45,8 @@ def api(tmp_path, monkeypatch):
     ctx.asignacion_fabrica = aio.fabrica_codigo()
     ctx.motivo_asignacion = ""
     ctx.verificacion_asignacion = {"estado": "sin_cambios", "funciones": {}}
+    ctx.asignacion_pendiente = []
+    ctx.asignacion_modificada_en = ""
     pedidos = []
     reinicio.registrar(lambda: pedidos.append("detenido"))
     monkeypatch.setattr(reinicio, "solicitar", lambda motivo, **k: pedidos.append(motivo) or True)
@@ -376,3 +378,166 @@ def test_respaldo_con_asignacion_invalida_se_rechaza_sin_escribir(respaldo):
                                               "confirmar": True}, headers=cab())
     assert r.status_code == 422 and r.json()["codigo"] == "asignacion_io_invalida"
     assert not ctx.archivo_asignacion.existe()
+
+
+# ── revisión R8: SEN-01, verificación por el ingeniero, escritura ──────────
+
+def test_puerto_analogico_sin_calibracion_se_rechaza(api, monkeypatch):
+    """SEN-01: calibration.yaml trae 7 entradas de presión de usuario: AI 16
+    no tiene calibración y no se puede asignar."""
+    from autoclave.backend import server_reasignacion as sr
+    cliente, _srv, ctx, cab, _p = api
+    monkeypatch.setattr(sr, "_largos_calibracion", lambda: {"temperatura": 8, "presion": 7})
+    r = _aplicar(cliente, cab(), {"pres_camara": 16})
+    assert r.status_code == 422 and r.json()["codigo"] == "puerto_sin_calibracion"
+    assert not ctx.archivo_asignacion.existe()
+    assert _aplicar(cliente, cab(), {"pres_camara": 15}).status_code == 200
+
+
+def test_calibracion_real_cubre_los_puertos_ofrecidos_o_se_rechazan(api):
+    """Con la calibración del repositorio, cada puerto analógico de presión o
+    tiene calibración o la validación lo rechaza (nunca se lee sin corregir)."""
+    from autoclave.backend import server_reasignacion as sr
+    largos = sr._largos_calibracion()
+    assert largos["temperatura"] > 0 and largos["presion"] > 0
+    f = aio.fabrica_codigo()
+    for puerto in aio.PUERTOS_AI_PRES:
+        nueva = aio.combinar(f, {"pres_camara": puerto})
+        errores = aio.puertos_sin_calibracion(nueva, largos)
+        con_cal = puerto - 9 < largos["presion"]
+        assert (not any(e["funcion"] == "pres_camara" for e in errores)) == con_cal
+
+
+def _pendiente(ctx, funciones, cambios):
+    ctx.archivo_asignacion.guardar(cambios, "ines", funciones)
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), cambios))
+    ctx.asignacion_pendiente = list(funciones)
+    ctx.asignacion_modificada_en = "2000-01-01T00:00:00"
+    ctx.asignacion_di_cambio = set()
+
+
+def _verificar(cliente, cab, funcion, **extra):
+    return cliente.post("/io/assignment/verify", json={"funcion": funcion, "clave": CLAVE, **extra},
+                        headers=cab)
+
+
+def test_verificar_salida_exige_accionarla_en_modo_prueba_despues_de_reasignar(api):
+    cliente, _srv, ctx, cab, _p = api
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    r = _verificar(cliente, cab(), "vapor_camara")
+    assert r.status_code == 409 and r.json()["codigo"] == "sin_prueba_de_salida"
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["pendientes"] == ["vapor_camara"]
+    assert g["verificacion"]["funciones"]["vapor_camara"]["falta"] == "sin_prueba_de_salida"
+    ctx.db.registrar_auditoria("salida_prueba", usuario="ines", entidad="vapor_camara", valor_nuevo=True)
+    r = _verificar(cliente, cab(), "vapor_camara")
+    assert r.status_code == 200, r.text
+    assert ctx.asignacion_pendiente == [] and r.json()["pendientes"] == []
+    assert aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()["verificacion_pendiente"] == []
+    fila = _auditoria(ctx, "reasignacion_io_verificada")[0]
+    assert fila["usuario"] == "ines" and fila["valor_nuevo"] == "DO 25"
+    assert fila["detalle"]["metodo"] == "ingeniero"
+    ctx.alarma_asignacion_sin_verificar.assert_called()
+
+
+def test_prueba_de_salida_anterior_a_la_reasignacion_no_vale(api):
+    cliente, _srv, ctx, cab, _p = api
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    ctx.db.registrar_auditoria("salida_prueba", usuario="ines", entidad="vapor_camara", valor_nuevo=True)
+    ctx.asignacion_modificada_en = "2999-01-01T00:00:00"
+    assert _verificar(cliente, cab(), "vapor_camara").status_code == 409
+
+
+def test_verificar_entrada_de_seguridad_exige_nombre_y_cambio_observado(api):
+    cliente, _srv, ctx, cab, _p = api
+    libre = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
+    _pendiente(ctx, ["paro_emergencia"], {"paro_emergencia": libre})
+    r = _verificar(cliente, cab(), "paro_emergencia")
+    assert r.status_code == 428 and r.json()["codigo"] == "confirmacion_reforzada"
+    r = _verificar(cliente, cab(), "paro_emergencia", nombre="Paro de emergencia")
+    assert r.status_code == 409 and r.json()["codigo"] == "sin_cambio_observado"
+    ctx.asignacion_di_cambio = {"paro_emergencia"}
+    r = _verificar(cliente, cab(), "paro_emergencia", nombre="Paro de emergencia")
+    assert r.status_code == 200, r.text
+
+
+def test_verificar_analogica_exige_lectura_y_calibracion_posterior(api):
+    cliente, _srv, ctx, cab, _p = api
+    _pendiente(ctx, ["pres_camara"], {"pres_camara": 13})
+    pres = [0.0] * 8
+    ctx.units.get_all.return_value = {"connected": True, "pressure": pres, "temperature": [20.0] * 8}
+    assert _verificar(cliente, cab(), "pres_camara").json()["codigo"] == "sin_lectura"
+    pres[4] = 101.0
+    r = _verificar(cliente, cab(), "pres_camara")
+    assert r.status_code == 409 and r.json()["codigo"] == "calibracion_requerida"
+    ctx.db.registrar_auditoria("calibracion_cambio", usuario="ines", entidad="pressure/pres_camara")
+    assert _verificar(cliente, cab(), "pres_camara").status_code == 200
+
+
+def test_verificar_rechazos(api):
+    cliente, _srv, ctx, cab, _p = api
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    ctx.db.registrar_auditoria("salida_prueba", usuario="ines", entidad="vapor_camara", valor_nuevo=True)
+    assert _verificar(cliente, cab(), "bomba_vacio").json()["codigo"] == "no_pendiente"
+    assert _verificar(cliente, cab("tecnico", "tomas"), "vapor_camara").status_code == 403
+    r = cliente.post("/io/assignment/verify", json={"funcion": "vapor_camara", "clave": "mala"},
+                     headers=cab())
+    assert r.status_code == 403
+    ctx.estado.get_machine_state.return_value = GlobalState.CICLO
+    assert _verificar(cliente, cab(), "vapor_camara").status_code == 409
+    assert ctx.asignacion_pendiente == ["vapor_camara"]
+
+
+def test_lo_pendiente_no_se_pierde_con_otra_reasignacion(api):
+    """SAF-03: lo que seguía sin verificar sigue pendiente tras otra reasignación."""
+    cliente, _srv, ctx, cab, _p = api
+    libre = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
+    _pendiente(ctx, ["paro_emergencia"], {"paro_emergencia": libre})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    assert r.status_code == 200, r.text
+    assert aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()["verificacion_pendiente"] == \
+        ["paro_emergencia", "vapor_camara"]
+
+
+def test_rechazado_con_un_reinicio_en_curso(api, monkeypatch):
+    from autoclave.backend import reinicio
+    cliente, _srv, ctx, cab, _p = api
+    monkeypatch.setattr(reinicio, "solicitado", lambda: True)
+    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    assert r.status_code == 409 and r.json()["codigo"] == "reinicio_en_curso"
+    assert not ctx.archivo_asignacion.existe()
+
+
+def test_restaurar_fabrica_con_bytes_no_utf8(api):
+    """TMG-05: un archivo dañado con bytes que no son UTF-8 no impide la salida."""
+    cliente, _srv, ctx, cab, _p = api
+    ctx.archivo_asignacion.ruta.parent.mkdir(parents=True, exist_ok=True)
+    ctx.archivo_asignacion.ruta.write_bytes(b"\xff\xfe\x00da\xf1ado")
+    r = cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=cab())
+    assert r.status_code == 200, r.text
+
+
+def test_deshacer_ante_cualquier_error_deja_el_archivo_como_estaba(api, monkeypatch):
+    """TMG-07: un error inesperado al volver a comprobar el estado deshace."""
+    cliente, srv, ctx, cab, _p = api
+    ctx.archivo_asignacion.ruta.parent.mkdir(parents=True, exist_ok=True)
+    ctx.archivo_asignacion.ruta.write_bytes(b"\xff previo")
+    llamadas = []
+
+    def falla():
+        llamadas.append(1)
+        if len(llamadas) > 1:
+            raise RuntimeError("inesperado")
+        return False
+    monkeypatch.setattr(srv, "_estado_seguro_en_marcha", falla)
+    with pytest.raises(RuntimeError):
+        cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=cab())
+    assert ctx.archivo_asignacion.ruta.read_bytes() == b"\xff previo"
+
+
+def test_get_lista_todas_las_funciones(api):
+    """SEN-06: las que el equipo no usa también ocupan su puerto y se pueden mover."""
+    cliente, _srv, ctx, cab, _p = api
+    filas = cliente.get("/io/assignment", headers=cab()).json()["filas"]
+    assert {f["funcion"] for f in filas} == set(aio.funciones())
+    assert all(isinstance(f["habilitada"], bool) for f in filas)

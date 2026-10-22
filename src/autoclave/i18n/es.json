@@ -854,6 +854,11 @@
       "plantilla": "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
       "accion": "Verifique la conexión de la sonda o asígnele el rol No en uso."
     },
+    "SEN-04": {
+      "titulo": "Reasignación de entradas y salidas sin verificar",
+      "plantilla": "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
+      "accion": "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."
+    },
     "CIC-01": {
       "titulo": "Fallo en precalentamiento",
       "plantilla": "{motivo}",

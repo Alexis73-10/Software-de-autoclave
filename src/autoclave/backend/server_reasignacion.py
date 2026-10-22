@@ -8,6 +8,8 @@
 #                                verificación tras el último reinicio
 #   POST /io/assignment          aplicar cambios {cambios, clave, confirmar, nombres}
 #   POST /io/assignment/factory  restaurar la asignación de fábrica {clave, confirmar}
+#   POST /io/assignment/verify   el ingeniero da por verificada una función
+#                                reasignada {funcion, clave, nombre}
 #
 # Reglas (el backend es la autoridad, la UI solo las refleja):
 #   - solo el INGENIERO (403 a técnico y admin);
@@ -23,14 +25,23 @@
 #     fallos suman al bloqueo del login, como en el cambio de contraseña);
 #   - se guarda en la carpeta de datos (data/asignacion_io.json), se registra
 #     cada cambio en audit_log (función, puerto anterior, nuevo, usuario) y se
-#     reinicia el backend: la asignación nunca se aplica en caliente.
+#     reinicia el backend: la asignación nunca se aplica en caliente;
+#   - tras el reinicio, cada función reasignada queda "sin verificar" (alarma
+#     SEN-04 y ningún ciclo puede iniciar) hasta que el ingeniero la verifica
+#     con evidencia (revisión R8, SAF-01/SAF-02): una entrada digital, con un
+#     cambio de estado observado en su puerto nuevo; una salida, accionada en
+#     modo prueba después de reasignar; una analógica, con lectura válida y
+#     calibrada después de reasignar. Un puerto analógico sin calibración se
+#     rechaza (SEN-01).
 #
 # Se importa al final de server.py (el nombre empieza por "server" para que
 # tests/backend_doble.py lo recargue junto con server.py).
 
 import json
 import logging
+import threading
 import unicodedata
+from datetime import datetime
 
 from fastapi import Depends
 from pydantic import BaseModel, StrictBool, StrictInt
@@ -53,6 +64,11 @@ srv = sys.modules["autoclave.backend.server"]
 ENTIDAD = "/io/assignment"
 ENTIDAD_FABRICA = "/io/assignment/factory"
 _ESTADOS_PERMITIDOS = frozenset({GlobalState.PREPARACION, GlobalState.PREPARADO})
+ENTIDAD_VERIFICAR = "/io/assignment/verify"
+
+# TMG-01 (revisión R8): una sola escritura del archivo a la vez (dos ingenieros,
+# doble envío, restauración de respaldo); no es _sm_lock (no detiene el tick)
+_lock_escritura = threading.Lock()
 
 
 class _AplicarBody(BaseModel):
@@ -65,6 +81,12 @@ class _AplicarBody(BaseModel):
 class _FabricaBody(BaseModel):
     clave: str = ""
     confirmar: StrictBool = False
+
+
+class _VerificarBody(BaseModel):
+    funcion: str
+    clave: str = ""
+    nombre: str = ""
 
 
 # ── utilidades ─────────────────────────────────────────────────────────────
@@ -117,15 +139,45 @@ def _guardada() -> tuple[dict, str]:
         return _fabrica(), (e.errores[0].get("codigo") if e.errores else "archivo_invalido")
 
 
-def _habilitadas() -> list[tuple[str, str, str]]:
-    """(clave, tipo, nombre) de las funciones a listar: las habilitadas en el
-    equipo (io_enabled) que la asignación conoce; sin io_enabled, todas. Un
+def _verificacion() -> dict:
+    """Estado de la verificación de cada función reasignada en el último
+    arranque: pendiente / trama_presente / sin_respuesta / verificada, con
+    lo que falta para verificarla ("falta")."""
+    v = getattr(_ctx(), "verificacion_asignacion", None)
+    v = v if isinstance(v, dict) else {"estado": "sin_cambios", "funciones": {}}
+    funciones = dict(v.get("funciones") or {})
+    pendientes = [f for f in (getattr(_ctx(), "asignacion_pendiente", None) or []) if isinstance(f, str)]
+    detalle = {}
+    for f in sorted(set(funciones) | set(pendientes)):
+        estado = funciones.get(f, "pendiente")
+        if f in pendientes and estado == "verificada":
+            estado = "pendiente"
+        falta = ""
+        if f in pendientes:
+            try:
+                falta = _evidencia_que_falta(f, aio.funciones().get(f, ""))
+            except Exception:
+                logger.exception("Evidencia de la verificación de %s", f)
+                falta = "error"
+        detalle[f] = {"estado": estado, "falta": falta}
+    return {"estado": v.get("estado", "sin_cambios"), "funciones": detalle}
+
+
+def _listadas() -> list[tuple[str, str, str, bool]]:
+    """(clave, tipo, nombre, habilitada) de TODAS las funciones con puerto
+    (SEN-06 de la revisión R8: una función que este equipo no usa también
+    ocupa su puerto y se puede mover). Primero las habilitadas en el equipo
+    (io_enabled), en su orden; sin io_enabled, todas como habilitadas. Un
     nombre que está en dos tipos (agua_bomba) da dos filas."""
     todas = aio.funciones()
     io = io_names.leer_io_enabled()
     claves = [aio.clave(t, n) for t in aio.TIPOS for n in io.get(t, [])]
     habilitadas = [c for c in dict.fromkeys(claves) if c in todas]
-    return [(c, todas[c], aio.base(c)) for c in (habilitadas or list(todas))]
+    if not habilitadas:
+        return [(c, todas[c], aio.base(c), True) for c in todas]
+    resto = [c for c in todas if c not in habilitadas]
+    return ([(c, todas[c], aio.base(c), True) for c in habilitadas]
+            + [(c, todas[c], aio.base(c), False) for c in resto])
 
 
 def _motivo_bloqueo() -> tuple[str, str]:
@@ -188,6 +240,35 @@ def _orientar(errores: list[dict], cambios: dict) -> list[dict]:
     return salida
 
 
+def _largos_calibracion() -> dict:
+    """Entradas de calibración por grupo analógico (el menor entre fábrica y
+    usuario). Sin poder leerla, 0: ningún puerto analógico nuevo pasa."""
+    try:
+        cal = srv.load_config(srv.CALIBRATION_PATH).calibration
+        return {"temperatura": min(len(cal.factory.temperature), len(cal.user.temperature)),
+                "presion": min(len(cal.factory.pressure), len(cal.user.pressure))}
+    except Exception:
+        logger.exception("No se pudo leer la calibración para validar la asignación de E/S")
+        return {"temperatura": 0, "presion": 0}
+
+
+def _errores_calibracion(nueva: dict, base: dict) -> list[dict]:
+    """SEN-01: puertos analógicos SIN calibración, solo de las funciones que
+    cambian de puerto (las que siguen donde estaban ya funcionan así)."""
+    cambian = aio.diferencias(base, nueva)
+    return [e for e in aio.puertos_sin_calibracion(nueva, _largos_calibracion())
+            if e["funcion"] in cambian]
+
+
+def _pendientes_tras(nueva: dict) -> list[str]:
+    """Funciones que quedarán sin verificar al arrancar con `nueva`: las que
+    cambian respecto de lo que usa este proceso, más las que ya estaban sin
+    verificar (SAF-03 de la revisión R8: lo restaurado de un respaldo y no
+    aplicado aún no se pierde de la verificación)."""
+    ya = [f for f in (getattr(_ctx(), "asignacion_pendiente", None) or []) if isinstance(f, str)]
+    return sorted(set(aio.diferencias(aio.en_memoria(), nueva)) | set(ya))
+
+
 def _rechazo_validacion(errores: list[dict]):
     codigo = errores[0].get("codigo", "asignacion_invalida") if errores else "asignacion_invalida"
     limpios = [{k: v for k, v in e.items() if k in ("codigo", "funcion", "puerto", "tipo", "ocupado_por")}
@@ -201,8 +282,15 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
     lock (si ya no se puede, deshace la escritura), detiene el lazo en ese
     mismo bloque, audita y pide el reinicio."""
     arch = _archivo()
-    previo = arch.ruta.read_text(encoding="utf-8") if arch.ruta.exists() else None
-    pendiente = sorted(diferencias)
+    if reinicio.solicitado():
+        srv._rechazar(409, "reinicio_en_curso", "El control ya se está reiniciando", entidad, sesion)
+    # TMG-05: en bytes (un archivo dañado con bytes no UTF-8 no impide
+    # restaurar la de fábrica, que es justo la salida de ese bloqueo)
+    try:
+        previo = arch.ruta.read_bytes() if arch.ruta.exists() else None
+    except OSError:
+        srv._rechazar(503, "no_se_pudo_guardar", "No se pudo leer la asignación guardada", entidad, sesion)
+    pendiente = _pendientes_tras(nueva)
     try:
         arch.guardar(cambios, sesion.usuario, pendiente)
     except OSError:
@@ -216,12 +304,13 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
             _ctx().control_loop.iniciar_apagado()
     try:
         _comprobar_estado(entidad, sesion, al_pasar=detener_lazo)
-    except srv.RechazoApi:
+    except BaseException:
+        # TMG-07: ante cualquier error, no ante solo un rechazo
         try:
             if previo is None:
                 arch.ruta.unlink(missing_ok=True)
             else:
-                arch.guardar_texto(previo)
+                arch.guardar_bytes(previo)
         except OSError:
             logger.exception("No se pudo deshacer la escritura de la asignación de E/S")
         raise
@@ -240,6 +329,65 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
                         for f, d in sorted(diferencias.items())]}
 
 
+def _modificada_en():
+    texto = str(getattr(_ctx(), "asignacion_modificada_en", "") or "")
+    try:
+        return datetime.fromisoformat(texto)
+    except ValueError:
+        return None
+
+
+def _hubo_evento_despues(evento: str, entidades, condicion=None) -> bool:
+    """True si audit_log tiene `evento` sobre alguna de `entidades` con fecha
+    posterior a la reasignación vigente. Sin base o sin fecha: False (falla
+    cerrada: no se da por verificada)."""
+    desde = _modificada_en()
+    if desde is None:
+        return False
+    for entidad in dict.fromkeys(entidades):
+        try:
+            filas = _ctx().db.get_auditoria(evento=evento, entidad=entidad, limite=50)
+        except Exception:
+            logger.exception("No se pudo leer audit_log para verificar la reasignación")
+            return False
+        for fila in filas if isinstance(filas, list) else []:
+            try:
+                ts = datetime.fromisoformat(str(fila.get("ts")))
+            except ValueError:
+                continue
+            if ts > desde and (condicion is None or condicion(fila)):
+                return True
+    return False
+
+
+def _encendida(fila) -> bool:
+    v = fila.get("valor_nuevo")
+    return v is True or v == 1 or str(v).strip().lower() in ("1", "true")
+
+
+def _evidencia_que_falta(funcion: str, tipo: str) -> str:
+    """"" si hay prueba de que la función responde en su puerto nuevo; si no,
+    el código de lo que falta (SAF-01/SAF-02 de la revisión R8)."""
+    nombre = aio.base(funcion)
+    estado = aio.nombre_estado(nombre)
+    if tipo == "DI":
+        cambios = getattr(_ctx(), "asignacion_di_cambio", None) or set()
+        return "" if funcion in cambios else "sin_cambio_observado"
+    if tipo == "DO":
+        ok = _hubo_evento_despues("salida_prueba", (nombre, estado), _encendida)
+        return "" if ok else "sin_prueba_de_salida"
+    try:
+        datos = _ctx().units.get_all() if getattr(_ctx(), "units", None) is not None else {}
+    except Exception:
+        datos = {}
+    if not aio.responde(funcion, aio.en_memoria(), datos if isinstance(datos, dict) else {}):
+        return "sin_lectura"
+    grupo = "temperature" if aio.es_temperatura(nombre) else "pressure"
+    if not _hubo_evento_despues("calibracion_cambio", (f"{grupo}/{estado}",)):
+        return "calibracion_requerida"
+    return ""
+
+
 # ── endpoints ──────────────────────────────────────────────────────────────
 
 def registrar(app) -> None:
@@ -251,9 +399,10 @@ def registrar(app) -> None:
         fabrica = _fabrica()
         guardada, error = _guardada()
         filas = []
-        for clave, tipo, nombre in _habilitadas():
+        for clave, tipo, nombre, habilitada in _listadas():
             filas.append({
                 "funcion": clave, "tipo": tipo, "i18n": clave_nombre(nombre, tipo),
+                "habilitada": habilitada,
                 "puerto_actual": memoria[tipo][nombre], "id_actual": aio.etiqueta(tipo, memoria[tipo][nombre]),
                 "puerto_guardado": guardada[tipo].get(nombre),
                 "puerto_fabrica": fabrica[tipo].get(nombre),
@@ -272,8 +421,9 @@ def registrar(app) -> None:
             "reinicio_pendiente": not error and guardada != memoria,
             "error_archivo": error,
             "bloqueo": getattr(_ctx(), "motivo_asignacion", "") or "",
-            "verificacion": getattr(_ctx(), "verificacion_asignacion", None)
-                            or {"estado": "sin_cambios", "funciones": {}},
+            "verificacion": _verificacion(),
+            "pendientes": [f for f in (getattr(_ctx(), "asignacion_pendiente", None) or [])
+                           if isinstance(f, str)],
             "editable": codigo == "", "motivo": codigo,
             "reinicio_disponible": reinicio.disponible(),
         }
@@ -288,7 +438,7 @@ def registrar(app) -> None:
             nueva = aio.combinar(base, body.cambios)
         except aio.ErrorAsignacion as e:
             _rechazo_validacion(e.errores)
-        errores = _orientar(aio.validar(nueva), body.cambios)
+        errores = _orientar(aio.validar(nueva) or _errores_calibracion(nueva, base), body.cambios)
         if errores:
             srv._auditar("reasignacion_io_rechazada", sesion, entidad=ENTIDAD,
                          detalle={"cambios": body.cambios, "errores": errores})
@@ -311,7 +461,8 @@ def registrar(app) -> None:
                                  extra={"funciones": sin_nombre})
         _reautenticar(body.clave, sesion, ENTIDAD)
         cambios = aio.cambios_respecto_a(_fabrica(), nueva)
-        return _guardar_y_reiniciar(ENTIDAD, sesion, "reasignacion_io", nueva, cambios, diferencias)
+        with _lock_escritura:
+            return _guardar_y_reiniciar(ENTIDAD, sesion, "reasignacion_io", nueva, cambios, diferencias)
 
     @app.post("/io/assignment/factory")
     def post_io_assignment_factory(body: _FabricaBody, sesion=Depends(requiere_ingeniero)):
@@ -325,8 +476,52 @@ def registrar(app) -> None:
             raise srv.RechazoApi(428, "confirmacion_requerida", "Confirme la restauración",
                                  extra={"funciones": sorted(diferencias)})
         _reautenticar(body.clave, sesion, ENTIDAD_FABRICA)
-        return _guardar_y_reiniciar(ENTIDAD_FABRICA, sesion, "reasignacion_io_fabrica",
-                                    fabrica, {}, diferencias)
+        with _lock_escritura:
+            return _guardar_y_reiniciar(ENTIDAD_FABRICA, sesion, "reasignacion_io_fabrica",
+                                        fabrica, {}, diferencias)
+
+    @app.post("/io/assignment/verify")
+    def post_io_assignment_verify(body: _VerificarBody, sesion=Depends(requiere_ingeniero)):
+        _comprobar_estado(ENTIDAD_VERIFICAR, sesion)
+        funcion = body.funcion
+        pendientes = list(getattr(_ctx(), "asignacion_pendiente", None) or [])
+        if funcion not in pendientes:
+            raise srv.RechazoApi(422, "no_pendiente", "Esa función no está pendiente de verificar")
+        tipo = aio.funciones().get(funcion, "")
+        if aio.es_reforzada(funcion) and not nombre_coincide(funcion, tipo, body.nombre):
+            raise srv.RechazoApi(422 if body.nombre else 428,
+                                 "nombre_no_coincide" if body.nombre else "confirmacion_reforzada",
+                                 "Escriba el nombre de la función para confirmar",
+                                 extra={"funciones": [funcion]})
+        faltan = _evidencia_que_falta(funcion, tipo)
+        if faltan:
+            raise srv.RechazoApi(409, faltan, "Falta la prueba de la función en su puerto nuevo",
+                                 extra={"funcion": funcion, "tipo": tipo})
+        _reautenticar(body.clave, sesion, ENTIDAD_VERIFICAR)
+        with _lock_escritura:
+            try:
+                quedan = _archivo().quitar_pendiente([funcion])
+            except (OSError, aio.ErrorAsignacion):
+                srv._rechazar(503, "no_se_pudo_guardar", "No se pudo guardar la verificación",
+                              ENTIDAD_VERIFICAR, sesion)
+            ctx = _ctx()
+            ctx.asignacion_pendiente = [f for f in pendientes if f in quedan]
+            verif = dict(getattr(ctx, "verificacion_asignacion", None) or {})
+            funciones = dict(verif.get("funciones") or {})
+            funciones[funcion] = "verificada"
+            ctx.verificacion_asignacion = {
+                "estado": "verificada" if not ctx.asignacion_pendiente else verif.get("estado", "pendiente"),
+                "funciones": funciones}
+        nombre = aio.base(funcion)
+        puerto = (aio.en_memoria().get(tipo) or {}).get(nombre)
+        srv._auditar("reasignacion_io_verificada", sesion, entidad=funcion,
+                     valor_nuevo=aio.etiqueta(tipo, puerto) if puerto else None,
+                     detalle={"resultado": "verificada", "tipo": tipo, "metodo": "ingeniero"})
+        try:
+            ctx.alarma_asignacion_sin_verificar()
+        except Exception:
+            logger.exception("No se pudo actualizar la alarma de la reasignación de E/S")
+        return {"ok": True, "pendientes": ctx.asignacion_pendiente}
 
 
 # ── respaldo y restauración (O2h) ──────────────────────────────────────────
@@ -351,7 +546,7 @@ def validar_respaldo(datos: bytes) -> dict:
             or not isinstance(obj.get("cambios"), dict):
         raise aio.ErrorAsignacion([{"codigo": "archivo_invalido", "funcion": "", "puerto": None}])
     nueva = aio.combinar(_fabrica(), obj["cambios"])
-    errores = aio.validar(nueva)
+    errores = aio.validar(nueva) or _errores_calibracion(nueva, aio.en_memoria())
     if errores:
         raise aio.ErrorAsignacion(errores)
     return {str(f): p for f, p in obj["cambios"].items()}
@@ -375,7 +570,8 @@ def restaurar_respaldo(datos: bytes, sesion, entidad: str) -> dict:
     diferencias = aio.diferencias(actual, nueva)
     if not diferencias:
         return {"asignacion_io": False, "asignacion_io_omitida": "sin_cambios"}
-    _archivo().guardar(cambios, sesion.usuario, sorted(diferencias))
+    with _lock_escritura:
+        _archivo().guardar(cambios, sesion.usuario, _pendientes_tras(nueva))
     for funcion, (tipo, anterior, nuevo) in sorted(diferencias.items()):
         srv._auditar("reasignacion_io", sesion, entidad=funcion,
                      valor_anterior=aio.etiqueta(tipo, anterior) if anterior else None,

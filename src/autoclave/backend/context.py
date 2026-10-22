@@ -14,7 +14,7 @@ from autoclave.devices.io.set_io import SetOutput
 from autoclave.hal.measures.units import Units
 from autoclave.services.domain.loop.control_loop import ControlLoop
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.catalogo import CONFIGURACION_INVALIDA, OPERANDO_SIN_BD, SIS_03
+from autoclave.state_machine.alarms.catalogo import CONFIGURACION_INVALIDA, OPERANDO_SIN_BD, SEN_04, SIS_03
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
 from autoclave.core.managers.validacion_config import errores_config_arranque
@@ -164,7 +164,15 @@ class BackendContext:
         self.motivo_asignacion = ""
         self.errores_asignacion = []
         self.asignacion_pendiente = []
+        self.asignacion_modificada_en = ""
         self.verificacion_asignacion = {"estado": "sin_cambios", "funciones": {}}
+        # SAF-01/SAF-02 (revisión R8): mientras quede una función reasignada sin
+        # verificar por el ingeniero, no se inicia ningún ciclo, aunque la
+        # alarma SEN-04 se resuelva con el reconocimiento de una FALLA
+        if not getattr(self, "_bloqueo_asignacion_registrado", False):
+            self.alarm_manager.condiciones_bloqueo.append(
+                lambda: bool(getattr(self, "asignacion_pendiente", None)))
+            self._bloqueo_asignacion_registrado = True
         try:
             self.asignacion_fabrica = aio.fabrica(config_dir)
         except aio.ErrorAsignacion as e:
@@ -186,17 +194,92 @@ class BackendContext:
                            ", ".join(f"{f}={p}" for f, p in sorted(datos["cambios"].items())))
         self.asignacion_pendiente = [f for f in datos["verificacion_pendiente"]
                                      if f in aio.funciones()]
+        self.asignacion_modificada_en = str(datos.get("modificado_en") or "")
         if self.asignacion_pendiente:
             self.verificacion_asignacion = {"estado": "pendiente",
                                             "funciones": {f: "pendiente" for f in self.asignacion_pendiente}}
+            self.alarma_asignacion_sin_verificar()
+
+    def alarma_asignacion_sin_verificar(self) -> None:
+        """Activa (o despeja, si ya no queda ninguna) SEN-04 con las funciones
+        reasignadas sin verificar."""
+        from autoclave.core.runtime import asignacion_io as aio
+        pendientes = list(getattr(self, "asignacion_pendiente", []) or [])
+        if not pendientes:
+            self.alarm_manager.resolver(SEN_04)
+            return
+        memoria = aio.en_memoria()
+        partes = []
+        for f in pendientes:
+            tipo, nombre = aio.separar(f)
+            tipo = tipo or aio.funciones().get(f, "")
+            puerto = (memoria.get(tipo) or {}).get(nombre)
+            partes.append(f"{f} ({aio.etiqueta(tipo, puerto)})" if puerto else f)
+        texto = ", ".join(partes)
+        inst = self.alarm_manager.obtener(SEN_04)
+        activa = inst is not None and getattr(getattr(inst, "estado", None), "name", "") == "ACTIVA"
+        if not activa or (getattr(inst, "valores", None) or {}).get("funciones") != texto:
+            self.alarm_manager.activar(SEN_04, funciones=texto)
+
+    def observar_entradas_reasignadas(self, datos: dict) -> None:
+        """SAF-02 (revisión R8): una entrada digital reasignada solo se puede
+        dar por verificada si se vio cambiar en su puerto nuevo (el operador
+        acciona el paro, abre y cierra la puerta...). Guarda el primer valor
+        visto y marca la función al ver otro distinto."""
+        from autoclave.core.runtime import asignacion_io as aio
+        if not isinstance(datos, dict) or not datos.get("connected"):
+            return
+        raw = datos.get("raw_di") or []
+        vistos = self.__dict__.setdefault("_di_primer_valor", {})
+        cambio = self.__dict__.setdefault("asignacion_di_cambio", set())
+        memoria = aio.en_memoria()
+        for f in list(getattr(self, "asignacion_pendiente", None) or []):
+            if aio.funciones().get(f) != "DI" or f in cambio:
+                continue
+            puerto = memoria["DI"].get(aio.base(f))
+            if not puerto or puerto > len(raw):
+                continue
+            valor = raw[puerto - 1]
+            if f not in vistos:
+                vistos[f] = valor
+            elif valor != vistos[f]:
+                cambio.add(f)
+                logger.info("Reasignación de E/S: %s cambió de estado en su puerto nuevo", f)
+
+    def iniciar_vigilancia_asignacion(self, cada_s: float = 0.5, alarma_cada: int = 10) -> None:
+        """Mientras queden funciones sin verificar: observa los cambios de las
+        entradas digitales reasignadas y vuelve a activar SEN-04 si se
+        resolvió (p. ej. al reconocer una FALLA). El inicio de ciclo ya está
+        bloqueado por la condición registrada en el AlarmManager; la alarma
+        solo mantiene visible el motivo."""
+        if not getattr(self, "asignacion_pendiente", None) or                 getattr(self, "_hilo_alarma_asignacion", None) is not None:
+            return
+
+        def vigilar():
+            vuelta = 0
+            while getattr(self, "asignacion_pendiente", None):
+                try:
+                    if self.units is not None:
+                        self.observar_entradas_reasignadas(self.units.get_all())
+                    if vuelta % alarma_cada == 0:
+                        self.alarma_asignacion_sin_verificar()
+                except Exception:
+                    logger.exception("Vigilancia de la reasignación de E/S")
+                vuelta += 1
+                time.sleep(cada_s)
+        self._hilo_alarma_asignacion = threading.Thread(
+            target=vigilar, name="VigilanciaReasignacionIO", daemon=True)
+        self._hilo_alarma_asignacion.start()
 
     def iniciar_verificacion_asignacion(self, plazo_s: float = 60.0, pausa_s: float = 1.0,
                                         reloj=time.monotonic, dormir=time.sleep) -> None:
-        """Tras reiniciar por una reasignación: verifica en un hilo que cada
-        función cambiada responde en su puerto nuevo (sin accionar nada) y lo
-        registra en audit_log. Si alguna no responde dentro del plazo, la
-        marca de verificación pendiente se conserva (se repite al próximo
-        arranque) y la UI lo muestra. Plazo con time.monotonic()."""
+        """Tras reiniciar por una reasignación: comprueba en un hilo que la
+        tarjeta envía el puerto nuevo de cada función (y, en las analógicas,
+        una lectura válida), sin accionar nada, y lo registra en audit_log
+        como "trama_presente" o "sin_respuesta". NO da la función por
+        verificada (SAF-02/SEN-03 de la revisión R8: en DI/DO la trama siempre
+        trae todos los puertos): la marca pendiente solo la quita el ingeniero
+        (POST /io/assignment/verify). Plazo con time.monotonic()."""
         pendientes = list(getattr(self, "asignacion_pendiente", []) or [])
         if not pendientes or getattr(self, "_hilo_verificacion_io", None) is not None:
             return
@@ -237,22 +320,27 @@ class BackendContext:
     def _registrar_verificacion(self, resultado: dict, asignacion: dict) -> None:
         from autoclave.core.runtime import asignacion_io as aio
         todas_ok = all(resultado.values())
+        previas = (getattr(self, "verificacion_asignacion", None) or {}).get("funciones") or {}
         self.verificacion_asignacion = {
-            "estado": "ok" if todas_ok else "fallida",
-            "funciones": {f: "ok" if ok else "sin_respuesta" for f, ok in resultado.items()}}
-        tipo_de = {f: t for t in aio.TIPOS for f in asignacion.get(t, {})}
+            "estado": "trama_presente" if todas_ok else "fallida",
+            "funciones": {f: ("verificada" if previas.get(f) == "verificada"
+                              else "trama_presente" if ok else "sin_respuesta")
+                          for f, ok in resultado.items()}}
         for funcion, ok in sorted(resultado.items()):
-            tipo = tipo_de.get(funcion, "")
+            tipo, nombre = aio.separar(funcion)
+            tipo = tipo or next((t for t in aio.TIPOS if nombre in asignacion.get(t, {})), "")
+            puerto = (asignacion.get(tipo) or {}).get(nombre)
             try:
                 self.db.registrar_auditoria(
                     "reasignacion_io_verificada", usuario="sistema", entidad=funcion,
-                    valor_nuevo=aio.etiqueta(tipo, asignacion[tipo][funcion]) if tipo else None,
-                    detalle={"resultado": "ok" if ok else "sin_respuesta", "tipo": tipo})
+                    valor_nuevo=aio.etiqueta(tipo, puerto) if puerto else None,
+                    detalle={"resultado": "trama_presente" if ok else "sin_respuesta", "tipo": tipo,
+                             "metodo": "automatico"})
             except Exception:
                 logger.exception("No se pudo registrar la verificación de %s en audit_log", funcion)
         if todas_ok:
-            self.archivo_asignacion.limpiar_pendiente()
-            logger.info("Reasignación de E/S verificada: %s", ", ".join(sorted(resultado)))
+            logger.info("Reasignación de E/S: la tarjeta envía el puerto nuevo de %s; falta la "
+                        "verificación del ingeniero", ", ".join(sorted(resultado)))
         else:
             logger.error("Reasignación de E/S: sin respuesta en %s",
                          ", ".join(f for f, ok in sorted(resultado.items()) if not ok))
@@ -404,6 +492,7 @@ class BackendContext:
         self.control_loop.recuperar_ciclo_interrumpido(self._programa_para_arranque())
         self.control_loop.start()
         self.iniciar_verificacion_asignacion()   # R8: solo tras una reasignación
+        self.iniciar_vigilancia_asignacion()
         self.iniciar_vigilancia_mantenimiento()
         self.iniciar_vigilancia_impresora()
         self.registrar_presentacion_tickets()

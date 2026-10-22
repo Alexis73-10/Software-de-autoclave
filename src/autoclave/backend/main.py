@@ -1,6 +1,7 @@
 # autoclave/backend/main.py
 
 import logging
+import os
 import sys
 import threading
 import time
@@ -76,9 +77,15 @@ def main():
                      name="latido-ticket", daemon=True).start()
     threading.Thread(target=arrancar_cuando_escuche, args=(servidor, server.iniciar_arranque),
                      name="arranque-espera-puerto", daemon=True).start()
-    # R8 (D8-5.12): una reasignación de E/S se aplica reiniciando este proceso
+    # R8 (D8-5.12): una reasignación de E/S se aplica reiniciando este proceso.
+    # Solo si hay quien lo relance (SAF-06/TMG-03 de la revisión R8): el
+    # lanzador del ejecutable único marca así al backend que vigila. Sin esa
+    # marca la reasignación se guarda y rige al próximo arranque.
     from autoclave.backend import reinicio
-    reinicio.registrar(lambda: setattr(servidor, "should_exit", True))
+    if os.environ.get(reinicio.VARIABLE_RELANZABLE) == "1":
+        reinicio.registrar(lambda: setattr(servidor, "should_exit", True))
+    else:
+        logger.info("Sin lanzador que relance el backend: la reasignación de E/S rige al reiniciar a mano")
     servidor.run()
     if reinicio.solicitado():
         logger.warning("Backend detenido para reiniciarse (código %d)", reinicio.CODIGO_REINICIO)
