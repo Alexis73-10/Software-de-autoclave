@@ -39,6 +39,7 @@ from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
+from autoclave.core.managers import catalogo_parametros
 from autoclave.core.managers.catalogo_parametros import evaluar_calibracion, evaluar_desviacion_acumulada
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
@@ -3366,13 +3367,25 @@ def update_cycle_parameter(body: _CycleParamValueBody,
                 and body.valor_anterior_esperado != anterior):
             raise _Rechazo(409, "VALOR_CAMBIO", "El valor cambió desde que se leyó",
                            extra={"valor_actual": anterior})
+        # D8-5.7: el tipo de carga arrastra el modo de descompresión (a líquido,
+        # modo 4; de vuelta a sólido, el defecto sólido del programa o el 1)
+        arrastres = _arrastres_tipo_carga(cycle, body.fase, body.path, body.value)
+        anteriores_arrastre = [_valor_parametro(cycle, f, p) for f, p, _ in arrastres]
         previos = [(f, p, _valor_parametro(cycle, f, p)) for f, p in cycle.vinculados(body.fase, body.path)]
+        previos += [(f, p, a) for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
         try:
-            value = cycle.set_param(body.fase, body.path, body.value)
+            value = (cycle.set_param(body.fase, body.path, body.value, arrastres=arrastres)
+                     if arrastres else cycle.set_param(body.fase, body.path, body.value))
         except KeyError as e:
             raise HTTPException(status_code=422, detail=str(e))
+        except catalogo_parametros.ErrorCoherencia as e:
+            raise _Rechazo(422, e.codigo, str(e))
         except (TypeError, ValueError) as e:
             raise _Rechazo(422, "VALOR_INVALIDO", str(e))
+        cambios_automaticos = [
+            {"fase": f, "path": list(p), "clave": ".".join(p), "anterior": a,
+             "nuevo": _valor_parametro(cycle, f, p)}
+            for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
 
         # Fuera de CICLO, o en otro programa durante CICLO (§5.8, 5b), el
         # cambio solo rige desde el siguiente ciclo que use ese programa. El
@@ -3387,6 +3400,8 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         vinculados = [f"{f}/{'.'.join(p)}" for f, p in cycle.vinculados(body.fase, body.path)[1:]]
         if vinculados:
             detalle["vinculados"] = vinculados
+        if cambios_automaticos:
+            detalle["arrastres"] = [f"{c['fase']}/{c['clave']}" for c in cambios_automaticos]
         if en_ciclo:
             ctx = _contexto_ciclo()
             detalle.update({"ciclo": ctx.get("ciclo"), "fase_en_curso": ctx.get("fase"),
@@ -3398,17 +3413,45 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         with _lock_archivos:
             _save_cycle_json(cycle)
 
-    # RB-03.5 (T10): sin registro en audit_log el cambio no queda aplicado
+    # RB-03.5 (T10): sin registro en audit_log el cambio no queda aplicado.
+    # D8-5.7: cada cambio automático (arrastre) va en su propia fila, marcado
+    # como automático y con su causa; si alguna falla, se revierte todo.
     try:
         context.db.registrar_auditoria(
             "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol, entidad=entidad,
             valor_anterior=anterior, valor_nuevo=value, detalle=detalle)
+        for c in cambios_automaticos:
+            context.db.registrar_auditoria(
+                "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol,
+                entidad=f"{body.cycle_id}/{c['fase']}/{c['clave']}",
+                valor_anterior=c["anterior"], valor_nuevo=c["nuevo"],
+                detalle={"programa": body.cycle_id, "fase": c["fase"], "aplica": "siguiente",
+                         "automatico": True, "causa": entidad})
     except Exception:
         logger.exception("Parámetro %s sin auditoría: se revierte", entidad)
         _revertir_parametro(cycle, previos, aplica == "en_curso")
         _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
                   entidad, sesion)
-    return {"ok": True, "value": value, "aplica": aplica}
+    respuesta = {"ok": True, "value": value, "aplica": aplica}
+    if cambios_automaticos:
+        respuesta["arrastres"] = cambios_automaticos
+    return respuesta
+
+
+def _arrastres_tipo_carga(cycle, fase: str, path: list[str], valor) -> list:
+    """D8-5.7: cambios automáticos del modo de descompresión si se edita el
+    tipo de carga. El defecto sólido es el modo del perfil por defecto del
+    programa (hospital o fábrica) solo si ese perfil es de carga sólida."""
+    if fase != "globals" or list(path) != ["tipo_carga"] or not hasattr(cycle, "arrastres_tipo_carga"):
+        return []
+    modo_solido = None
+    cm = context.cycle_manager
+    numero = getattr(cycle, "number", None)
+    defecto = (cm.defecto(numero) if numero is not None and callable(getattr(cm, "defecto", None))
+               else None)
+    if defecto is not None and defecto.get_param("globals", "tipo_carga", default="solido") == "solido":
+        modo_solido = defecto.get_param("descompresion", "modo")
+    return cycle.arrastres_tipo_carga(valor, modo_solido=modo_solido)
 
 
 def _revertir_parametro(cycle, previos, en_curso: bool) -> None:
@@ -3591,6 +3634,9 @@ def get_programa_seccion(numero: int, seccion: str):
             "clase": hoja.get("clase"),           # C1c (tanda 6): clase explícita de U1
             "valor": valor, "defecto": defecto, "min": minimo, "max": maximo,
             "opciones": hoja.get("options") or [],
+            # D8-5.8: un parámetro "modo" se elige de esta lista (D8-5.7: con
+            # carga líquida la descompresión solo admite 4, 5 y 0)
+            "modos": _cp.modos_validos(cycle.parameters, seccion, ruta),
             "modificado": defecto is not None and defecto != valor,
             "ultima_modificacion": ultimas.get(f"{cycle.id}/{seccion}/{'.'.join(ruta)}"),
         })

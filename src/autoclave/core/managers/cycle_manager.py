@@ -153,31 +153,61 @@ class Cycle:
         node = self._nodo(fase, path)
         return node if isinstance(node, dict) and "value" in node else None
 
-    def set_param(self, fase: str, path: list[str], value):
+    def set_param(self, fase: str, path: list[str], value, arrastres=None):
         """Actualiza el 'value' de un parámetro navegando fase + path, coercionando
         y validando contra el 'type'/'min'/'max' propio del JSON del ciclo.
         Un parámetro vinculado (_VINCULADOS) arrastra a su pareja, validada
-        igual. Devuelve el valor ya coercionado. No muta nada si la validación
-        falla."""
-        if self.parameters.get(fase) is None:
-            raise KeyError(f"El ciclo no tiene la sección '{fase}'")
-        if not isinstance(self._nodo(fase, path[:-1]), dict):
-            raise KeyError(f"Ruta de parámetro inválida: {'.'.join(path)}")
-        if self._hoja(fase, path) is None:
-            raise KeyError(f"El parámetro '{'.'.join(path)}' no existe en '{fase}'")
+        igual. `arrastres` (D8-5.7): cambios automáticos [(fase, path, valor)]
+        que se aplican junto con este, con las mismas validaciones (p. ej. el
+        modo de descompresión al cambiar el tipo de carga). Devuelve el valor
+        ya coercionado. No muta nada si la validación falla; las reglas entre
+        parámetros se informan con catalogo_parametros.ErrorCoherencia
+        (subclase de ValueError)."""
+        for f, p in [(fase, path)] + [(f, p) for f, p, _ in (arrastres or [])]:
+            if self.parameters.get(f) is None:
+                raise KeyError(f"El ciclo no tiene la sección '{f}'")
+            if not isinstance(self._nodo(f, p[:-1]), dict):
+                raise KeyError(f"Ruta de parámetro inválida: {'.'.join(p)}")
+            if self._hoja(f, p) is None:
+                raise KeyError(f"El parámetro '{'.'.join(p)}' no existe en '{f}'")
 
         cambios = [(self._hoja(f, p), catalogo_parametros.coercionar(self._hoja(f, p), f, p, value))
                    for f, p in self.vinculados(fase, path)]
+        cambios += [(self._hoja(f, p), catalogo_parametros.coercionar(self._hoja(f, p), f, p, v))
+                    for f, p, v in (arrastres or [])]
         previos = [(hoja, hoja["value"]) for hoja, _ in cambios]
         for hoja, valor in cambios:
             hoja["value"] = valor
         # Reglas entre parámetros (T10, decisión 1.2): si no se cumplen, nada cambia
         errores = catalogo_parametros.errores_coherencia(self.parameters)
         if errores:
-            for hoja, valor in previos:
+            for hoja, valor in reversed(previos):
                 hoja["value"] = valor
-            raise ValueError("; ".join(errores))
+            raise catalogo_parametros.ErrorCoherencia(errores)
         return cambios[0][1]
+
+    def arrastres_tipo_carga(self, nuevo_tipo, modo_solido=None) -> list:
+        """D8-5.7: cambios automáticos del modo de descompresión al cambiar el
+        tipo de carga a `nuevo_tipo`. A líquido: modo 4 si el actual no es uno
+        de los permitidos con líquido (4, 5, 0). A sólido (desde líquido): el
+        modo por defecto sólido del programa (`modo_solido`, None si no hay)
+        o, sin él, el modo 1 (DECISIÓN SIN CONFIRMAR). [] si no hay cambio."""
+        if self._hoja("descompresion", ["modo"]) is None:
+            return []
+        actual = self.get_param("globals", "tipo_carga", default="solido")
+        modo = self.get_param("descompresion", "modo")
+        destino = None
+        if nuevo_tipo == "liquido" and actual != "liquido":
+            if modo not in catalogo_parametros.MODOS_LIQUIDO:
+                destino = catalogo_parametros.MODO_AL_PASAR_A_LIQUIDO
+        elif nuevo_tipo == "solido" and actual == "liquido":
+            validos = catalogo_parametros.MODOS_PARAMETRO[("descompresion", "modo")]
+            es_entero = isinstance(modo_solido, int) and not isinstance(modo_solido, bool)
+            destino = (modo_solido if es_entero and modo_solido in validos
+                       else catalogo_parametros.MODO_SOLIDO_SIN_DEFECTO)
+        if destino is None or destino == modo:
+            return []
+        return [("descompresion", ["modo"], destino)]
 
     def _nodo(self, fase: str, path: list[str]):
         node = self.parameters.get(fase)

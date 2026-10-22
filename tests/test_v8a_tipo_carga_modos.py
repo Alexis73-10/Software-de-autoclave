@@ -1,0 +1,253 @@
+"""V8a (tanda 8): D8-5.7 (tipo de carga Sólido/Líquido) y D8-5.8 (modos de
+la lista de modos válidos), lado backend.
+
+D8-5.7 (Cristian, 22-oct 12:08):
+  - al pasar a Líquido el modo de descompresión cambia a 4;
+  - con carga líquida solo se permiten los modos 4, 5 y 0, también en el
+    backend: cualquier otro se rechaza con su motivo (ebullición violenta);
+  - al volver a Sólido, el modo vuelve al defecto de ese programa; si el
+    programa no tiene un defecto sólido, modo 1 (DECISIÓN SIN CONFIRMAR);
+  - cada cambio, incluido el automático, queda en la bitácora.
+"""
+
+import json
+import shutil
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import pytest
+
+from autoclave.core.managers import catalogo_parametros as cp
+from autoclave.core.managers.cycle_manager import CycleManager
+
+RAIZ = Path(__file__).resolve().parents[1]
+
+
+# ── Catálogo ────────────────────────────────────────────────────────────────
+
+def _params(tipo, modo):
+    return {"globals": {"tipo_carga": {"value": tipo}},
+            "descompresion": {"modo": {"value": modo},
+                              "modo_4": {"presion_camara_enfriamiento": {"value": 400}},
+                              "modo_5": {"presion_camara_enfriamiento": {"value": 400}}},
+            "esterilizacion": {"temperatura_esterilizacion": {"value": 121.0}}}
+
+
+@pytest.mark.parametrize("modo", [0, 4, 5])
+def test_liquido_admite_4_5_y_0(modo):
+    assert cp.errores_coherencia(_params("liquido", modo)) == []
+
+
+@pytest.mark.parametrize("modo", [1, 2, 3])
+def test_liquido_rechaza_1_2_3_con_su_motivo(modo):
+    errores = cp.errores_coherencia(_params("liquido", modo))
+    assert errores and "ebullición" in errores[0]
+    assert cp.codigo_coherencia(errores) == "MODO_NO_PERMITIDO_LIQUIDO"
+
+
+def test_solido_admite_todos_los_modos():
+    for modo in range(6):
+        assert cp.errores_coherencia(_params("solido", modo)) == []
+
+
+def test_modo_0_liquido_no_exige_contrapresion():
+    p = _params("liquido", 0)
+    p["descompresion"]["modo_4"]["presion_camara_enfriamiento"]["value"] = 1
+    assert cp.errores_coherencia(p) == []
+
+
+def test_modos_validos_por_parametro():
+    assert cp.modos_validos(_params("solido", 1), "descompresion", ["modo"]) == [0, 1, 2, 3, 4, 5]
+    assert cp.modos_validos(_params("liquido", 4), "descompresion", ["modo"]) == [4, 5, 0]
+    assert cp.modos_validos(_params("solido", 1), "secado", ["modo"]) == [1, 2, 3]
+    assert cp.modos_validos(_params("solido", 1), "esterilizacion", ["tiempo_esterilizacion"]) == []
+
+
+# ── Programa: arrastre del modo al cambiar el tipo de carga ───────────────
+
+@pytest.fixture
+def cm(tmp_path):
+    origen = RAIZ / "src" / "autoclave" / "cycles"
+    for sub in ("factory", "user"):
+        shutil.copytree(origen / sub, tmp_path / "cycles" / sub)
+    m = CycleManager()
+    m.raiz = str(tmp_path)
+    m.load_all_cycles()
+    return m
+
+
+def _a_liquido_posible(c):
+    """Deja un programa sólido en condiciones de pasar a líquido (sin prevacío,
+    sin secado, sin apertura automática): lo que exige errores_coherencia."""
+    for p in "abcd":
+        if c._hoja("prevacio", [f"conteo_pulso_{p}"]) is not None:
+            c._hoja("prevacio", [f"conteo_pulso_{p}"])["value"] = 0
+    c._hoja("secado", ["tiempo_secado"])["value"] = 0
+    if c._hoja("finalizacion", ["apertura_automatica"]) is not None:
+        c._hoja("finalizacion", ["apertura_automatica"])["value"] = False
+    for m in ("modo_4", "modo_5"):          # contrapresión >= P_sat(T) + 30 kPa
+        c._hoja("descompresion", [m, "presion_camara_enfriamiento"])["value"] = 300
+
+
+def test_arrastre_a_liquido_y_de_vuelta_a_solido(cm):
+    c = cm.cycles["instrumental_121"]
+    _a_liquido_posible(c)
+    assert c.get_param("descompresion", "modo") == 1
+    arr = c.arrastres_tipo_carga("liquido", modo_solido=1)
+    assert arr == [("descompresion", ["modo"], 4)]
+    c.set_param("globals", ["tipo_carga"], "liquido", arrastres=arr)
+    assert c.get_param("descompresion", "modo") == 4
+    arr = c.arrastres_tipo_carga("solido", modo_solido=1)
+    assert arr == [("descompresion", ["modo"], 1)]
+    c.set_param("globals", ["tipo_carga"], "solido", arrastres=arr)
+    assert c.get_param("descompresion", "modo") == 1
+
+
+def test_sin_defecto_solido_vuelve_al_modo_1(cm):
+    c = cm.cycles["liquidos"]
+    assert c.arrastres_tipo_carga("solido", modo_solido=None) == [("descompresion", ["modo"], 1)]
+
+
+@pytest.mark.parametrize("modo", [0, 5])
+def test_a_liquido_con_modo_ya_permitido_no_lo_cambia(cm, modo):
+    c = cm.cycles["liquidos"]
+    c._hoja("globals", ["tipo_carga"])["value"] = "solido"
+    c._hoja("descompresion", ["modo"])["value"] = modo
+    assert c.arrastres_tipo_carga("liquido", modo_solido=1) == []
+
+
+def test_mismo_tipo_no_arrastra(cm):
+    c = cm.cycles["134_instrumental"]
+    assert c.arrastres_tipo_carga("solido", modo_solido=1) == []
+
+
+def test_set_param_con_arrastre_es_todo_o_nada(cm):
+    """Instrumental 134 tiene prevacío y secado: no puede ser líquido; ni el
+    tipo ni el modo cambian."""
+    c = cm.cycles["134_instrumental"]
+    arr = c.arrastres_tipo_carga("liquido", modo_solido=1)
+    with pytest.raises(cp.ErrorCoherencia) as e:
+        c.set_param("globals", ["tipo_carga"], "liquido", arrastres=arr)
+    assert e.value.codigo == "COHERENCIA_LIQUIDO"
+    assert c.get_param("globals", "tipo_carga") == "solido"
+    assert c.get_param("descompresion", "modo") == 1
+
+
+def test_modo_directo_no_permitido_con_liquido(cm):
+    c = cm.cycles["liquidos"]
+    with pytest.raises(cp.ErrorCoherencia) as e:
+        c.set_param("descompresion", ["modo"], 1)
+    assert e.value.codigo == "MODO_NO_PERMITIDO_LIQUIDO"
+    assert c.get_param("descompresion", "modo") == 4
+    assert c.set_param("descompresion", ["modo"], 0) == 0
+
+
+# ── Endpoint PATCH /cycle/parameter y GET de la sección ───────────────────
+
+@pytest.fixture
+def cliente(cm):
+    from fastapi.testclient import TestClient
+    from tests.backend_doble import cabecera, cargar_servidor
+    ctx = MagicMock()
+    ctx.cycle_manager = cm
+    ctx.sin_base_de_datos = False
+    ctx.db.get_auditoria.return_value = []
+    srv, _ = cargar_servidor(ctx)
+    return TestClient(srv.app, headers=cabecera(srv, "tecnico")), cm, ctx
+
+
+def _auditados(ctx):
+    return [(c.args[0], c.kwargs.get("entidad"), c.kwargs.get("valor_anterior"),
+             c.kwargs.get("valor_nuevo"), c.kwargs.get("detalle") or {})
+            for c in ctx.db.registrar_auditoria.call_args_list]
+
+
+def _patch(client, cycle_id, fase, path, valor):
+    return client.patch("/cycle/parameter", json={"cycle_id": cycle_id, "fase": fase,
+                                                  "path": path, "value": valor})
+
+
+def test_endpoint_liquido_a_solido_y_vuelta_con_bitacora(cliente):
+    client, cm, ctx = cliente
+    r = _patch(client, "liquidos", "globals", ["tipo_carga"], "solido")
+    assert r.status_code == 200, r.text
+    cuerpo = r.json()
+    # Líquidos no tiene defecto sólido: modo 1 (DECISIÓN SIN CONFIRMAR de D8-5.7)
+    assert cuerpo["arrastres"] == [{"fase": "descompresion", "path": ["modo"], "clave": "modo",
+                                    "anterior": 4, "nuevo": 1}]
+    c = cm.cycles["liquidos"]
+    assert c.get_param("descompresion", "modo") == 1
+    persistido = json.loads(Path(c._path).read_text(encoding="utf-8"))
+    assert persistido["parameters"]["descompresion"]["modo"]["value"] == 1
+    aud = [a for a in _auditados(ctx) if a[0] == "param_ciclo_cambio"]
+    assert ("liquidos/globals/tipo_carga", "liquido", "solido") == aud[0][1:4]
+    assert ("liquidos/descompresion/modo", 4, 1) == aud[1][1:4]
+    assert aud[1][4]["automatico"] is True and aud[1][4]["causa"] == "liquidos/globals/tipo_carga"
+
+    ctx.db.registrar_auditoria.reset_mock()
+    r = _patch(client, "liquidos", "globals", ["tipo_carga"], "liquido")
+    assert r.status_code == 200, r.text
+    assert r.json()["arrastres"][0]["nuevo"] == 4 and c.get_param("descompresion", "modo") == 4
+    assert len([a for a in _auditados(ctx) if a[0] == "param_ciclo_cambio"]) == 2
+
+
+def test_endpoint_vuelta_a_solido_usa_el_defecto_del_programa(cliente):
+    client, cm, _ = cliente
+    c = cm.cycles["instrumental_121"]
+    _a_liquido_posible(c)
+    assert _patch(client, "instrumental_121", "globals", ["tipo_carga"], "liquido").status_code == 200
+    assert c.get_param("descompresion", "modo") == 4
+    assert _patch(client, "instrumental_121", "descompresion", ["modo"], 5).status_code == 200
+    r = _patch(client, "instrumental_121", "globals", ["tipo_carga"], "solido")
+    assert r.status_code == 200
+    defecto = cm.defecto(3).get_param("descompresion", "modo")
+    assert c.get_param("descompresion", "modo") == defecto == 1
+
+
+def test_endpoint_rechaza_modo_no_permitido_con_motivo(cliente):
+    client, cm, ctx = cliente
+    r = _patch(client, "liquidos", "descompresion", ["modo"], 1)
+    assert r.status_code == 422
+    assert r.json()["codigo"] == "MODO_NO_PERMITIDO_LIQUIDO"
+    assert "ebullición" in r.json()["detail"]
+    assert cm.cycles["liquidos"].get_param("descompresion", "modo") == 4
+    assert not [a for a in _auditados(ctx) if a[0] == "param_ciclo_cambio"]
+
+
+def test_endpoint_rechaza_pasar_a_liquido_sin_cumplir_el_resto(cliente):
+    client, cm, ctx = cliente
+    r = _patch(client, "134_instrumental", "globals", ["tipo_carga"], "liquido")
+    assert r.status_code == 422 and r.json()["codigo"] == "COHERENCIA_LIQUIDO"
+    c = cm.cycles["134_instrumental"]
+    assert c.get_param("globals", "tipo_carga") == "solido"
+    assert c.get_param("descompresion", "modo") == 1
+
+
+def test_endpoint_sin_bitacora_del_arrastre_revierte_todo(cliente):
+    client, cm, ctx = cliente
+    llamadas = []
+
+    def registrar(evento, **kw):
+        llamadas.append(kw.get("entidad"))
+        if kw.get("entidad") == "liquidos/descompresion/modo":
+            raise RuntimeError("BD ocupada")
+    ctx.db.registrar_auditoria.side_effect = registrar
+    r = _patch(client, "liquidos", "globals", ["tipo_carga"], "solido")
+    assert r.status_code == 503
+    c = cm.cycles["liquidos"]
+    assert c.get_param("globals", "tipo_carga") == "liquido"
+    assert c.get_param("descompresion", "modo") == 4
+    persistido = json.loads(Path(c._path).read_text(encoding="utf-8"))
+    assert persistido["parameters"]["globals"]["tipo_carga"]["value"] == "liquido"
+    assert persistido["parameters"]["descompresion"]["modo"]["value"] == 4
+
+
+def test_seccion_entrega_los_modos_validos(cliente):
+    client, _, _ = cliente
+    p = {x["clave"]: x for x in client.get("/programas/4/seccion/descompresion").json()["parametros"]}
+    assert p["modo"]["modos"] == [4, 5, 0]
+    p = {x["clave"]: x for x in client.get("/programas/2/seccion/descompresion").json()["parametros"]}
+    assert p["modo"]["modos"] == [0, 1, 2, 3, 4, 5]
+    assert p["tiempo_pre_despresurizacion"]["modos"] == []
+    p = {x["clave"]: x for x in client.get("/programas/2/seccion/secado").json()["parametros"]}
+    assert p["modo"]["modos"] == [1, 2, 3]
