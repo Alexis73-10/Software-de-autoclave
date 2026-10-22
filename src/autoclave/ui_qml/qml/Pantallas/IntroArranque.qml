@@ -100,9 +100,17 @@ Item {
         else
             vigilante.restart()
     }
-    onFraccionFuenteChanged: _vigilar()
-    onProcesoFuenteChanged: _vigilar()
-    onTerminadoFuenteChanged: _vigilar()
+    // P1 (tanda 7): el fallo por plazo sin progreso se retira si el progreso
+    // vuelve (backend congelado que tarda > 20 s en responder la primera vez);
+    // antes la intro quedaba trabada hasta reiniciar. El fallo bloqueante que
+    // publica el backend no se toca.
+    function _progresoNuevo() {
+        sinProgreso = false
+        _vigilar()
+    }
+    onFraccionFuenteChanged: _progresoNuevo()
+    onProcesoFuenteChanged: _progresoNuevo()
+    onTerminadoFuenteChanged: _progresoNuevo()
     onFalloBloqueanteChanged: _vigilar()
 
     // La animación arranca con el primer cuadro ya dibujado en pantalla, no al
