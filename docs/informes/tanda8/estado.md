@@ -4,7 +4,7 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
-| A0 | Hecha | e1d8f5e, 23704cb | Línea base de la suite: corriendo en `_suites_t8/base` (log `tanda8/suites/base.log`). |
+| A0 | Hecha | e1d8f5e, 23704cb | Línea base de la suite (tanda-8 = dev d2f7353 + docs): **5382 passed, 3 skipped, 3 xfailed** (27 min, con 13 subagentes en paralelo). Log `tanda8/suites/base.log`. |
 | H8 | Sin objeto | | La sección "Hallazgos de la instalación del 22-oct" de la instrucción está vacía ("(vacío)"). |
 | S1 ★ | Lanzada 12:20 | rama `tanda-8-s1` | Subagente en worktree `.claude/worktrees/agent-*`. |
 | S2a ★ | Lanzada 12:20 | rama `tanda-8-s2a` | D8-2.6 a 2.10. |
