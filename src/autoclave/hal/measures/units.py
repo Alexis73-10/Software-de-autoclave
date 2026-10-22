@@ -44,7 +44,10 @@ class Units:
 
         # aqui se inicializan los datos convertidos
         self._temperature: List[Optional[float]] = [None] * 8
-        self._pressure: List[float] = [0.0] * 8
+        # S1 (tanda 8): sin lectura hasta la primera trama (None, nunca 0)
+        self._pressure: List[Optional[float]] = [None] * 8
+        # Número de la última trama AI convertida (ai_seq de SerialLink)
+        self._ultimo_ai_seq = None
 
         # otros estados
         self._connected: bool = False
@@ -68,7 +71,14 @@ class Units:
 
             # 🧮 Aplicar conversión con calibración
             self._temperature = converters.convert_temperatures(self._raw_ai, self._config)
-            self._pressure = converters.convert_pressures(self._raw_ai, self._config)
+            # S1 (D8-1.1): el debounce del transductor cuenta tramas AI
+            # nuevas; SerialLink también notifica por DI/DO con la misma AI.
+            # Sin ai_seq (dobles de prueba, simulador) cada llamada cuenta.
+            ai_seq = data.get("ai_seq")
+            nueva = ai_seq is None or ai_seq != self._ultimo_ai_seq
+            self._ultimo_ai_seq = ai_seq
+            self._pressure = converters.convert_pressures(self._raw_ai, self._config,
+                                                          nueva_muestra=nueva)
 
     def reload_calibration(self, config_path: str | Path) -> None:
         """Recarga factory+user calibration desde disco sin recrear Units
@@ -99,7 +109,7 @@ class Units:
         with self._lock:
             return self._temperature[index]
 
-    def get_pressure(self, index: int) -> float:
+    def get_pressure(self, index: int) -> Optional[float]:
         with self._lock:
             return self._pressure[index]
 

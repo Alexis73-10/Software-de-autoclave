@@ -127,6 +127,9 @@ class SerialLink:
 
         self.data = {
             "ai": [0] * 16,
+            # S1 (tanda 8): número de trama AI recibida (Units cuenta las
+            # lecturas nuevas para el debounce del transductor sin señal)
+            "ai_seq": 0,
             "di": [0] * 56,
             "do": [0] * 32,
             "port_open": False,
@@ -778,6 +781,7 @@ class SerialLink:
             ai = [_entero_decimal(v, 0, 4095) for v in vals]
             with self.data_lock:
                 self.data["ai"] = ai
+                self.data["ai_seq"] = self.data.get("ai_seq", 0) + 1
 
         elif payload.startswith("DI:"):
             self._bits("di", payload[3:], 56)
