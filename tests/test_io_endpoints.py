@@ -103,8 +103,7 @@ def test_fuera_de_modo_prueba_409(io_client):
     assert "modo prueba" in _rechazo(client, ctx, value=False)
 
 
-@pytest.mark.parametrize("estado", [GlobalState.CICLO, GlobalState.HIBERNACION,
-                                    GlobalState.EMERGENCIA])
+@pytest.mark.parametrize("estado", [GlobalState.CICLO])   # P-8 (tanda 6)
 def test_estados_bloqueados_409_incluso_para_apagar(io_client, estado):
     client, ctx = io_client
     ctx.estado.get_machine_state.return_value = estado

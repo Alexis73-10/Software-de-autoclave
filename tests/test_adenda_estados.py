@@ -291,7 +291,10 @@ def test_sonda_caida_sigue_enfriando_drenaje_caliente(clase):
 def test_preparacion_sonda_caida_sigue_drenando_camara():
     obj, _, set_do = _make(preparacion_state, None, temp_camara=None, agua_camara=1)
     obj.run()
-    set_do.descompresion_rapida_on.assert_called()
+    # P-12 (tanda 6): sin tipo_carga cuenta como líquido y sin Principal no
+    # se sabe si está caliente: sigue drenando, por la lenta
+    set_do.descompresion_lenta_on.assert_called()
+    set_do.descompresion_rapida_on.assert_not_called()
 
 
 # La falla de suministro también lleva a salidas seguras (decisión P4):

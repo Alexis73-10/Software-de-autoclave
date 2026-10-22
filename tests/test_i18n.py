@@ -119,8 +119,10 @@ def test_claves_literales_qml_existen_en_ambos_idiomas():
 
 
 def test_claves_literales_python_existen_en_ambos_idiomas():
+    # I4 (tanda 6): listas de días y meses (se leen con i18n.valor, no son textos)
+    listas = ("fecha.meses", "fecha.dias", "fecha.meses_largos")
     faltan = [(f, c, idioma) for f, c in _literales_py() if not _es_prefijo(c)
-              for idioma, cat in CATALOGOS.items() if not _es_texto(c, cat)]
+              for idioma, cat in CATALOGOS.items() if not _es_texto(c, cat) and c not in listas]
     assert faltan == []
 
 
@@ -240,6 +242,9 @@ def _parametros_de_perfiles():
 
 FAMILIAS = {
     "menu.": _sufijos_menu,
+    # O3 (tanda 6): entradas mostradas del programa
+    "ciclo.entrada_corta_": lambda: list(__import__(
+        "autoclave.ui_qml.domain.entradas_mostradas", fromlist=["_RUTA_STATUS"])._RUTA_STATUS),
     "reportes.": _sufijos_reportes,
     "instalacion.": _sufijos_instalacion,
     "instalacion.clase_": lambda: [c.value for c in __import__(
@@ -275,9 +280,53 @@ FAMILIAS = {
     "exportacion.impresora_": _sufijos_impresora,
     "validacion.": _sufijos_validacion,
     # O1 (tanda 5): entradas mostradas = AI habilitadas del equipo activo
+    # I4 (tanda 6): etiquetas de rol por valor
+    "roles.": lambda: [v for v, _ in __import__("autoclave.ui_pyside.services.roles",
+                                                fromlist=["ROLES"]).ROLES],
+    # O2a (tanda 6): submenús y parámetros del equipo
+    "opciones.equipo_grupos.": lambda: ["puerta", "impresion", "drenaje", "empaque", "chaqueta",
+                                        "sistema", "maquina"],
+    "opciones.equipo_grupos_desc.": lambda: ["puerta", "impresion", "drenaje", "empaque",
+                                             "chaqueta", "sistema", "maquina"],
+    "opciones.equipo_magnitud_": lambda: ["temperatura", "presion"],
+    "parametros_equipo.": lambda: _claves_equipo(),
+    "parametros_equipo_desc.": lambda: _claves_equipo(),
+    # O2c (tanda 6)
+    "fecha_hora.rotulo_": lambda: ["zona", "fecha_iso", "instalacion", "fuente"],
+    # O2e (tanda 6)
+    "bitacora.tipo.": lambda: list(__import__("autoclave.core.runtime.bitacora",
+                                              fromlist=["EVENTOS"]).EVENTOS),
+    # O2d (tanda 6)
+    "info_sistema.grupo_": lambda: ["equipo", "software", "uso", "configuracion"],
+    "info_sistema.rotulo_": lambda: list(__import__(
+        "autoclave.ui_qml.controllers.info_sistema_controller", fromlist=["CLAVES_FILA"]).CLAVES_FILA),
+    # O2f (tanda 6): calibración atmosférica (condiciones, motivos, resultados)
+    "calibracion_atm.cond_": lambda: list(__import__(
+        "autoclave.core.runtime.calibracion_atm", fromlist=["CONDICIONES"]).CONDICIONES),
+    "calibracion_atm.motivo_": lambda: _motivos_calibracion_atm(),
+    "calibracion_atm.res_": lambda: ["ok", "por_confirmar", "abortada", "rechazada"],
+    # O2h (tanda 6): partes del respaldo y motivos de rechazo
+    "respaldo.parte_": lambda: list(__import__(
+        "autoclave.core.runtime.respaldo", fromlist=["PARTES"]).PARTES),
+    "respaldo.motivo_": lambda: ["otra_serie", "version", "formato", "invalido"],
     "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
                                  fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
 }
+
+def _motivos_calibracion_atm():
+    """Todo motivo con el que CalibracionAtm termina (abortada/rechazada)."""
+    from autoclave.core.runtime import calibracion_atm as ca
+    return list(ca.CONDICIONES) + ["cancelada", "muestreo_irregular", "error_interno",
+                                   "fuera_de_rango", "inestable", "descartada",
+                                   "confirmacion_vencida", "incoherente", "estado_no_permitido",
+                                   "sin_base_de_datos", "no_aplicada"]
+
+
+def _claves_equipo():
+    from autoclave.core.managers.config_manager import ConfigManager
+    c = ConfigManager(); c.load_config()
+    return [p["clave"] for p in c.describir()]
+
 
 def _prefijos_en_codigo():
     patron = re.compile(r'"((?:%s)\.[A-Za-z0-9_.]*)"\s*\+' % "|".join(SECCIONES))

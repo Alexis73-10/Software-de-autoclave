@@ -6,6 +6,8 @@
 
 import pytest
 
+from tests.opciones_qml_doble import COMUNES_T6
+
 from autoclave.ui_pyside.services.roles import VALORES_ROL
 from autoclave.ui_qml.domain.permisos_opciones import (
     SECCIONES, edicion_permitida, puede_ver, secciones_visibles,
@@ -13,15 +15,16 @@ from autoclave.ui_qml.domain.permisos_opciones import (
 
 _TECNICAS = ["parametros_ciclo", "parametros_sistema", "entradas_salidas",
              "mantenimiento", "opciones_avanzadas"]
-_ADMIN = ["usuarios", "conectividad"]
+_ADMIN = ["usuarios", "conectividad", *COMUNES_T6]
 
 _ESPERADO = {
-    "admin":     _ADMIN,
+    "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura
     # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
-    "tecnico":   _TECNICAS + ["conectividad"],
+    # O2b (tanda 6, decisión 1.9): el técnico ve Usuarios con los controles deshabilitados
+    "tecnico":   _TECNICAS + _ADMIN + ["respaldo"],   # O2h
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
-    "ingeniero": _TECNICAS + _ADMIN,
+    "ingeniero": _TECNICAS + _ADMIN + ["respaldo"],   # O2h
     "operador":  [],      # defecto de la tabla usuarios, fuera de roles.py
     "":          [],
     None:        [],
@@ -30,7 +33,7 @@ _ESPERADO = {
 
 def test_orden_de_la_navegacion():
     # U-2: las cinco de AdminMenuView._OPTIONS en su orden; al final las de admin
-    assert [s.clave for s in SECCIONES] == _TECNICAS + _ADMIN
+    assert [s.clave for s in SECCIONES] == _TECNICAS + _ADMIN + ["respaldo"]
 
 
 def test_los_roles_de_la_politica_existen():
@@ -57,7 +60,7 @@ def test_seccion_desconocida_no_se_ve():
 # alineado con el guard DISTINTO_DE_CICLO del backend
 @pytest.mark.parametrize("estado,permitida", [
     ("PREPARACION", True), ("PREPARADO", True),
-    ("CICLO", False), ("FALLA", True), ("EMERGENCIA", True),
+    ("CICLO", False), ("FALLA", True), ("EMERGENCIA", False),   # P-8: estado retirado
     ("DESCONOCIDO", False), ("", False), (None, False),
 ])
 def test_edicion_permitida(estado, permitida):

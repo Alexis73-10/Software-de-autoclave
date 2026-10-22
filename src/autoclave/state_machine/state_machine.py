@@ -3,11 +3,10 @@ from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState
 from autoclave.state_machine.states.falla import FallaState
-from autoclave.state_machine.states.emergencia import emergencia_run
-from autoclave.state_machine.states.hibernacion import Hibernacion
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.core.runtime.sensores_ciclo import verificar_inicio
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+from autoclave.core.runtime import camara_segura
 import logging
 
 logger = logging.getLogger(__name__)
@@ -23,6 +22,8 @@ class StateMachine:
         self.cycle         = cycle
         self.config        = config
         self.profile       = profile
+        # Callable -> programas cuyos Principales deciden "cámara segura"
+        self.programas_seguridad = programas_seguridad
 
         # Una sola instancia en todo el backend (spec §5.3): la inyecta el
         # ControlLoop. El AlarmManager propio queda solo para usos aislados.
@@ -36,7 +37,6 @@ class StateMachine:
         self.ciclo       = CicloState(estado, set_do, cycle, config, self.alarm_manager, cap, door_service,
                                       profile)
         self.falla       = FallaState(estado, set_do, self.alarm_manager)
-        self.hibernacion = Hibernacion(estado, set_do, self.alarm_manager)
 
         self.prev_state  = None
 
@@ -75,6 +75,27 @@ class StateMachine:
             # Limpiar flag de inicio para evitar auto-arranques
             self.estado.set_flag("START_CICLO", False)
             logger.info("StateMachine: entrando a PREPARADO")
+
+    def _camara_segura_tras_ciclo(self, datos_vigentes: bool) -> bool:
+        """Cámara segura con el Principal del ciclo terminado y los de los
+        programas de seguridad (el mayor manda) y el menor temp_max_apertura
+        (global o del ciclo). Falla cerrada: cualquier error = no segura."""
+        try:
+            programa = self.ciclo.cycle
+            programas = [programa]
+            if self.programas_seguridad is not None:
+                programas += [p for p in (self.programas_seguridad() or [])
+                              if p is not None and p is not programa]
+            temp_max_ciclo = programa.get_param("finalizacion", "temp_max_apertura", default=None)
+            segura, motivo = camara_segura.evaluar(self.estado, self.config, programas,
+                                                   self.profile, datos_vigentes=datos_vigentes,
+                                                   temp_max_ciclo=temp_max_ciclo)
+            if not segura:
+                logger.info("StateMachine: cámara no segura al reconocer el ciclo: %s", motivo)
+            return segura is True
+        except Exception:
+            logger.exception("StateMachine: no se pudo evaluar la cámara al reconocer el ciclo")
+            return False
 
     # ------------------------------------------------------------------
     # Tick principal
@@ -149,6 +170,19 @@ class StateMachine:
             if resultado == "COMPLETADO":
                 logger.info("StateMachine: ciclo completado → PREPARADO")
                 self.estado.set_machine_state(GlobalState.PREPARADO)
+                # P-1 (tanda 6): tras cualquier fin, "NO ABRIR" y sin ciclo
+                # nuevo hasta la cámara segura. Si al reconocer el COMPLETADO
+                # la cámara no está segura, entra al mismo protocolo de estado
+                # seguro que tras un fallo o una cancelación.
+                if not self._camara_segura_tras_ciclo(datos_vigentes):
+                    logger.warning("StateMachine: COMPLETADO reconocido con la cámara no segura "
+                                   "→ protocolo de estado seguro")
+                    # TMG-07 / SAF-04 de T2: con paro o sin datos vigentes, sin
+                    # válvulas; el estado seguro las abre al volver los datos
+                    abrir = (datos_vigentes is True
+                             and not self.estado.get_flag("PARO_EMERGENCIA"))
+                    self.ciclo._protocolo.ejecutar(abrir_valvulas=abrir)
+                    self.estado_seguro.iniciar(self.ciclo._protocolo)
 
             elif resultado == "FALLO":
                 logger.error("StateMachine: fallo en ciclo → FALLA")
@@ -167,21 +201,12 @@ class StateMachine:
         # ==============================================================
         elif current_state == GlobalState.FALLA:
             logger.debug("Estado actual: FALLA")
-            if self.falla.run(puede_salir=not self.estado_seguro.activo):
+            # P-2 (tanda 6): con el Principal perdido, el reconocimiento lleva a
+            # PREPARACION aunque el estado seguro siga venteando (sin técnico)
+            puede_salir = (not self.estado_seguro.activo
+                           or getattr(self.estado_seguro, "permite_salir_de_falla", False) is True)
+            if self.falla.run(puede_salir=puede_salir):
                 self.alarm_manager.resolver_todas_por_reinicio()
                 self.estado.fase_ciclo = ""
                 self.estado.set_machine_state(GlobalState.PREPARACION)
 
-        # ==============================================================
-        # EMERGENCIA
-        # ==============================================================
-        elif current_state == GlobalState.EMERGENCIA:
-            logger.debug("Estado actual: EMERGENCIA")
-            emergencia_run()
-
-        # ==============================================================
-        # HIBERNACION
-        # ==============================================================
-        elif current_state == GlobalState.HIBERNACION:
-            logger.debug("Estado actual: HIBERNACION")
-            self.hibernacion.run()

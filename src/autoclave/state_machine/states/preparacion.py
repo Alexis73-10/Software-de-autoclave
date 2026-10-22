@@ -114,17 +114,25 @@ class preparacion_state:
         # T1 (D-19): una sola decisión de venteo por tick; en líquidos, la lenta
         from autoclave.state_machine.states.control_banda import (
             aplicar_venteo, carga_liquida, cerrar_lenta_propia)
-        # La lenta reemplaza a la rápida solo ante SOBREPRESIÓN; el drenaje de
-        # agua con la cámara igualada sigue con la rápida (PREGUNTA T1, P-12)
+        # La lenta reemplaza a la rápida ante SOBREPRESIÓN en líquidos y, P-12
+        # (tanda 6), también en el drenaje a presión atmosférica mientras la
+        # carga líquida siga más caliente que temp_max_apertura
+        programas = getattr(self, "programas_seguridad", None)
+        drenaje_por_lenta = False
+        if quiere_rapida_drenaje and not quiere_rapida_presion:
+            drenaje_por_lenta = (carga_liquida(programas, self.cycle)
+                                 and not self._liquido_frio_para_rapida(programas))
+        else:
+            self._lecturas_frio_drenaje = 0
         if quiere_rapida_presion or quiere_rapida_drenaje:
-            liquida = bool(quiere_rapida_presion) and carga_liquida(
-                getattr(self, "programas_seguridad", None), self.cycle)
+            liquida = drenaje_por_lenta or (bool(quiere_rapida_presion) and carga_liquida(
+                programas, self.cycle))
             aplicar_venteo(self, self.set_do, True, liquida)
         elif quiere_rapida_presion is not None:
             aplicar_venteo(self, self.set_do, False, False)
-        if presion_ok:
+        if presion_ok and not drenaje_por_lenta:
             self.set_do.descompresion_lenta_off()     # presión igualada (como antes)
-        if quiere_rapida_presion is None:
+        if quiere_rapida_presion is None and not drenaje_por_lenta:
             # sin dato de presión, sin orden (E0-3) salvo cerrar la lenta propia
             cerrar_lenta_propia(self, self.set_do)
 
@@ -255,6 +263,30 @@ class preparacion_state:
 
             return r.dentro_de_banda
     
+    def _liquido_frio_para_rapida(self, programas) -> bool:
+        """P-12: True si la temperatura del Principal (el mayor de los
+        programas de seguridad) lleva 3 lecturas seguidas en o por debajo de
+        temp_max_apertura (el menor entre el global y los de los programas).
+        Sin lectura o sin configuración: False (sigue la lenta)."""
+        from autoclave.core.runtime.sensores_ciclo import temp_seguridad
+        try:
+            lista = programas() if programas is not None else [self.cycle]
+            lista = [p for p in (lista or []) if p is not None] or [self.cycle]
+            temp = temp_seguridad(self.estado, lista, self.profile)
+            limites = [self.config.get("temp_max_apertura")]
+            for p in lista:
+                limites.append(p.get_param("finalizacion", "temp_max_apertura", default=None))
+            limites = [float(v) for v in limites
+                       if isinstance(v, (int, float)) and not isinstance(v, bool)]
+            frio = (lectura_valida(temp) and bool(limites)
+                    and self.config.get("temp_max_apertura") is not None
+                    and float(temp) <= min(limites))
+        except Exception:
+            logger.exception("PREPARACION: no se pudo evaluar la temperatura del drenaje en líquidos")
+            frio = False
+        self._lecturas_frio_drenaje = getattr(self, "_lecturas_frio_drenaje", 0) + 1 if frio else 0
+        return self._lecturas_frio_drenaje >= 3
+
     def igualar_presion_camara(self):
             """Retorna (ok, quiere_descompresion_rapida). No acciona la
             válvula descompresion_rapida directamente: esa salida es

@@ -15,7 +15,7 @@ from typing import Literal
 
 from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, StrictBool
+from pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt
 
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.arranque.registro import RegistroArranque
@@ -31,6 +31,7 @@ from autoclave.core.runtime import io_names
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime import motivos
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
                                            tarjeta_emparejada)
@@ -165,17 +166,14 @@ _token_modo_prueba: str | None = None
 # JSON de ciclos), que se hacen fuera de _sm_lock.
 _lock_archivos = threading.Lock()
 
-# Variantes del guard de estado (§5.5). EMERGENCIA y HIBERNACION hoy no se
-# alcanzan (OPC-25), pero se bloquean igual (decisiones 15 y 20).
+# Variantes del guard de estado (§5.5). P-8 (tanda 6): EMERGENCIA e
+# HIBERNACION se retiraron (inalcanzables); el nombre de la segunda variante se
+# conserva por compatibilidad y hoy equivale a DISTINTO_DE_CICLO.
 DISTINTO_DE_CICLO = frozenset({GlobalState.CICLO})
-DISTINTO_DE_CICLO_E_HIBERNACION = frozenset({
-    GlobalState.CICLO, GlobalState.HIBERNACION, GlobalState.EMERGENCIA,
-})
+DISTINTO_DE_CICLO_E_HIBERNACION = DISTINTO_DE_CICLO
 
 _MOTIVO_ESTADO = {
     GlobalState.CICLO:       "No permitido con un ciclo en curso",
-    GlobalState.HIBERNACION: "No permitido con el equipo en suspensión",
-    GlobalState.EMERGENCIA:  "No permitido en estado de emergencia",
 }
 
 
@@ -444,6 +442,12 @@ def login(body: _LoginBody):
         valido = False
     else:
         valido = verificar_password(body.clave, fila.get("hash_pw"))
+        if valido:
+            # H-01 de O2b: si durante la verificación (lenta) se desactivó al
+            # usuario o se le restableció la clave, no se emite el token
+            actual = context.db.get_usuario_by_username(usuario)
+            valido = actual is not None and actual.get("hash_pw") == fila.get("hash_pw")
+            fila = actual if valido else fila
 
     if not valido:
         quedo_bloqueado = intentos_login.bloqueado(usuario)
@@ -591,6 +595,285 @@ def crear_usuario(body: _NuevoUsuarioBody,
     _auditar("usuario_creado", sesion, entidad=body.usuario,
              valor_nuevo={"rol": body.rol, "activo": body.activo})
     return {"ok": True, "usuario": body.usuario}
+
+
+# ── Gestión de usuarios y operadores (O2b, tanda 6; decisión 1.9) ────────────
+# Ver: admin, técnico e ingeniero (el técnico, en solo lectura). Modificar:
+# admin e ingeniero, y solo usuarios de un rol que pueden crear
+# (ROLES_CREABLES: el admin no toca a un ingeniero). Nunca se borra un usuario;
+# nadie se desactiva a sí mismo ni deja el equipo sin un ingeniero activo.
+# Desactivar o restablecer la contraseña cierra las sesiones abiertas del usuario.
+
+_LECTURA_USUARIOS = (ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO)
+_GESTION_USUARIOS = (ROL_ADMIN, ROL_INGENIERO)
+OPERADOR_NOMBRE_MAX = 40
+
+
+def _usuario_dto(f: dict) -> dict:
+    return {k: f.get(k) for k in ("nombre", "usuario", "rol", "activo", "debe_cambiar_clave",
+                                  "creado_por", "creado_en", "ultimo_ingreso")}
+
+
+@app.get("/usuarios")
+def listar_usuarios(sesion: Sesion = Depends(requiere_rol(*_LECTURA_USUARIOS))):
+    """Lista sin hashes. `gestionables`: roles que la sesión puede modificar."""
+    return {"usuarios": [_usuario_dto(f) for f in context.db.listar_usuarios()],
+            "gestionables": sorted(ROLES_CREABLES.get(sesion.rol, frozenset()))}
+
+
+def _objetivo_gestionable(usuario: str, sesion: Sesion, entidad: str) -> dict:
+    """404 si no existe; 403 si su rol no lo puede gestionar la sesión."""
+    fila = context.db.get_usuario_cualquiera(usuario)
+    if fila is None:
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    if fila.get("rol") not in ROLES_CREABLES.get(sesion.rol, frozenset()):
+        _rechazar(403, "rol_no_gestionable", "Su rol no puede modificar usuarios con ese rol",
+                  entidad, sesion)
+    return fila
+
+
+def _cerrar_sesiones_de(usuario: str, motivo: str) -> int:
+    cerradas = 0
+    for s in tokens.sesiones_de(usuario):
+        salio = _invalidar_sesion(s)
+        cerradas += 1
+        if salio:
+            _auditar("modo_prueba_sale", s, detalle={"motivo": motivo})
+    return cerradas
+
+
+class _ActivoBody(BaseModel):
+    activo: StrictBool
+
+
+@app.put("/usuarios/{usuario}/activo")
+def fijar_activo_usuario(usuario: str, body: _ActivoBody,
+                         sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    entidad = f"/usuarios/{usuario}/activo"
+    if usuario == sesion.usuario and not body.activo:
+        _rechazar(409, "autodesactivacion", "Nadie puede desactivarse a sí mismo", entidad, sesion)
+    _objetivo_gestionable(usuario, sesion, entidad)
+    resultado = context.db.fijar_activo_usuario(usuario, body.activo, ROL_INGENIERO)
+    if resultado == "no_existe":
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    if resultado == "ultimo_protegido":
+        _rechazar(409, "ultimo_ingeniero", "El equipo no puede quedar sin un ingeniero activo",
+                  entidad, sesion)
+    if resultado == "ok":
+        cerradas = 0 if body.activo else _cerrar_sesiones_de(usuario, "usuario desactivado")
+        _auditar("usuario_reactivado" if body.activo else "usuario_desactivado", sesion,
+                 entidad=usuario, valor_anterior={"activo": not body.activo},
+                 valor_nuevo={"activo": body.activo},
+                 detalle={"sesiones_cerradas": cerradas} if cerradas else None)
+    return {"ok": True, "usuario": usuario, "activo": body.activo}
+
+
+class _RestablecerClaveBody(BaseModel):
+    clave: str
+    confirmacion: str
+
+
+@app.post("/usuarios/{usuario}/restablecer_clave")
+def restablecer_clave(usuario: str, body: _RestablecerClaveBody,
+                      sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    """Contraseña temporal con cambio obligatorio en el siguiente login. La
+    propia se cambia por /auth/change_password (409). 422 {campo, codigo}."""
+    entidad = f"/usuarios/{usuario}/restablecer_clave"
+    if usuario == sesion.usuario:
+        _rechazar(409, "usar_cambio_clave", "Para su propia contraseña use Cambiar contraseña",
+                  entidad, sesion)
+    _objetivo_gestionable(usuario, sesion, entidad)
+    errores = {}
+    for campo, codigo in (("clave", codigo_clave(body.clave)),
+                          ("confirmacion", codigo_confirmacion(body.confirmacion, body.clave))):
+        if codigo:
+            errores[campo] = codigo
+    if errores:
+        _rechazar_validacion(errores)
+    if not context.db.restablecer_password(usuario, hash_password(body.clave)):
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    cerradas = _cerrar_sesiones_de(usuario, "contraseña restablecida")
+    intentos_login.registrar_exito(usuario)       # H-04: la clave temporal sirve de inmediato
+    _auditar("clave_restablecida", sesion, entidad=usuario,
+             detalle={"sesiones_cerradas": cerradas} if cerradas else None)
+    return {"ok": True, "usuario": usuario}
+
+
+@app.get("/operadores")
+def listar_operadores(activos: bool = False):
+    """Operadores (nombre, sin contraseña). Lectura libre: se eligen al iniciar
+    ciclo, que no exige sesión."""
+    return {"operadores": [{k: o[k] for k in ("id", "nombre", "activo")}       # H-05
+                           for o in context.db.listar_operadores(solo_activos=activos)]}
+
+
+class _OperadorBody(BaseModel):
+    nombre: str
+
+
+@app.post("/operadores")
+def crear_operador(body: _OperadorBody,
+                   sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    nombre = " ".join(body.nombre.split())
+    if not nombre:
+        _rechazar_validacion({"nombre": COD_OBLIGATORIO})
+    if len(nombre) > OPERADOR_NOMBRE_MAX:
+        _rechazar_validacion({"nombre": "larga"})
+    id_ = context.db.crear_operador(nombre, sesion.usuario)
+    if id_ is None:
+        _rechazar(409, "operador_existe", "El operador ya existe", "/operadores", sesion)
+    _auditar("operador_creado", sesion, entidad=nombre, valor_nuevo={"activo": True})
+    return {"ok": True, "id": id_, "nombre": nombre}
+
+
+@app.put("/operadores/{id_}/activo")
+def fijar_activo_operador(id_: int, body: _ActivoBody,
+                          sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    anterior = context.db.fijar_activo_operador(id_, body.activo)
+    if anterior is None:
+        raise RechazoApi(404, "no_existe", "El operador no existe")
+    if anterior["activo"] != body.activo:
+        _auditar("operador_reactivado" if body.activo else "operador_desactivado", sesion,
+                 entidad=anterior["nombre"], valor_anterior={"activo": anterior["activo"]},
+                 valor_nuevo={"activo": body.activo})
+    return {"ok": True, "id": id_, "activo": body.activo}
+
+
+# ── Fecha y hora (O2c, tanda 6; decisión 1.10): SOLO LECTURA ──────────────
+# No hay ajuste: el reloj es el de Windows. Se informa la hora, la zona y si
+# el reloj es anterior a la fecha de instalación (M1-01, clock_guard).
+
+def _info_reloj(ahora: datetime | None = None) -> dict:
+    ahora = (ahora or datetime.now()).astimezone()
+    perfil = getattr(context, "profile", None)
+    inst = getattr(perfil, "created_at", None) if perfil is not None else None
+    inst = inst if isinstance(inst, datetime) else None
+    off = ahora.utcoffset()
+    minutos = int(off.total_seconds() // 60) if off is not None else 0
+    signo = "+" if minutos >= 0 else "-"
+    h, m = divmod(abs(minutos), 60)
+    nombre = ahora.tzname() or ""
+    zona = f"UTC{signo}{h:02d}:{m:02d}"
+    if nombre and not nombre.startswith("UTC"):
+        zona += f" ({nombre})"
+    return {
+        "ahora": ahora.isoformat(timespec="seconds"),
+        "zona": zona,
+        "utc_offset_min": minutos,
+        "instalacion": inst.isoformat(timespec="seconds") if inst else None,
+        "reloj_anterior_instalacion": bool(inst and ahora.date() < inst.date()),
+        "ajuste_habilitado": False,
+    }
+
+
+@app.get("/system/time")
+def get_system_time():
+    return _info_reloj()
+
+
+# ── Información del sistema (O2d, tanda 6; mockup 8): solo lectura ──────────
+# Cada parte se lee por separado: un dato que falla queda en None ("—") sin
+# afectar a los demás.
+
+def _parte(lector):
+    try:
+        return lector()
+    except Exception:
+        logger.debug("Información del sistema: dato no disponible", exc_info=True)
+        return None
+
+
+def _hay_red() -> bool:
+    """True si el PC tiene alguna dirección IPv4 distinta del loopback."""
+    import socket
+    nombre = socket.gethostname()
+    return any(not ip.startswith("127.") for ip in socket.gethostbyname_ex(nombre)[2])
+
+
+def _estado_impresora() -> str:
+    if not context.config_impresora.habilitada():
+        return "deshabilitada"
+    estado = context.realtime_printer.estado()
+    return estado if isinstance(estado, str) and estado else "desconocido"
+
+
+@app.get("/system/info")
+def get_system_info():
+    import importlib.metadata
+    perfil = getattr(context, "profile", None)
+
+    def de_perfil(attr):
+        v = getattr(perfil, attr, None) if perfil is not None else None
+        if isinstance(v, datetime):
+            return v.isoformat(timespec="seconds")
+        return getattr(v, "value", v) if isinstance(v, (str, int, float)) or hasattr(v, "value") else None
+
+    tarjeta = _parte(_tarjeta_status) or {}
+    unidades = _parte(context.config_unidades.leer)
+    red = _parte(_hay_red)
+    return {
+        "equipo": {"modelo": de_perfil("model_id"), "serie": de_perfil("serial_number"),
+                   "instalacion": de_perfil("created_at"), "fuente_vapor": de_perfil("vapor_source")},
+        "software": {"version": _parte(lambda: importlib.metadata.version("autoclave")),
+                     "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
+                     "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None},
+        "uso": {"ciclos": _parte(context.db.max_numero_ciclo),
+                "mantenimiento": _parte(context.mantenimiento.resumen)},
+        "configuracion": {"idioma": _parte(context.config_idioma.leer),
+                          "unidades": unidades if isinstance(unidades, dict) else None,
+                          "impresora": _parte(_estado_impresora),
+                          "red": None if red is None else ("conectada" if red else "sin_red")},
+    }
+
+
+# ── Bitácora de auditoría (O2e, tanda 6): solo lectura ────────────────────
+# La ven admin, técnico e ingeniero; nadie edita ni borra (audit_log es de
+# solo anexar, migración v4). Valores en la unidad vigente.
+
+_POR_PAGINA_MAX = 100
+
+
+@app.get("/audit_log")
+def get_audit_log(pagina: int = 1, por_pagina: int = 20, desde: date | None = None,
+                  hasta: date | None = None, usuario: str | None = None, evento: str | None = None,
+                  sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime import bitacora
+    pagina = max(1, pagina)
+    por_pagina = max(1, min(por_pagina, _POR_PAGINA_MAX))
+    filas, total = context.db.consultar_auditoria(
+        desde=desde.isoformat() if desde else None,
+        hasta=(hasta + timedelta(days=1)).isoformat() if hasta else None,
+        usuario=usuario or None, evento=evento or None,
+        limite=por_pagina, desplazamiento=(pagina - 1) * por_pagina)
+    usuarios, eventos = context.db.valores_auditoria()
+    try:
+        metas = {p["clave"]: p for p in context.config_manager.describir()}
+    except Exception:
+        metas = {}
+    try:
+        unidades = context.config_unidades.leer()
+        unidades = unidades if isinstance(unidades, dict) else {}
+    except Exception:
+        unidades = {}
+    p_atm = _parte(_p_atm_vigente)
+    paginas = max(1, (total + por_pagina - 1) // por_pagina)
+    return {"filas": [bitacora.presentar(f, metas, unidades, p_atm) for f in filas],
+            "total": total, "pagina": pagina, "por_pagina": por_pagina,
+            "paginas": paginas, "usuarios": usuarios, "tipos": eventos}
+
+
+class _SuspensionBody(BaseModel):
+    activa: StrictBool
+    pantalla: str = ""
+
+
+@app.post("/ui/standby")
+def registrar_suspension(body: _SuspensionBody):
+    """O2e: una pantalla QML informa que entró o salió de suspensión (solo
+    bitácora; no cambia nada del equipo)."""
+    _auditar("suspension_entra" if body.activa else "suspension_sale", usuario="sistema",
+             entidad=body.pantalla[:40])
+    return {"ok": True}
 
 
 def _resolve_sensor_index(tipo: str, sensor: str) -> int:
@@ -919,7 +1202,14 @@ def _estado_seguro_status() -> dict:
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
     motivo = getattr(es, "bloqueado_motivo", None) if activo else None
+    try:
+        ack_confirma = getattr(context.control_loop.state_machine.ciclo,
+                               "ack_confirma_estado_seguro", False) is True
+    except Exception:
+        ack_confirma = False
     return {"activo": activo,
+            # P-6 (tanda 6): el CONFIRMAR del ciclo también confirma el estado seguro
+            "ack_confirma_estado_seguro": ack_confirma,
             "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
             # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
             "bloqueado_motivo": motivo if isinstance(motivo, str) else None}
@@ -936,7 +1226,35 @@ def _camara_segura_status(estado) -> dict:
     except Exception as exc:
         logger.exception("/status: no se pudo evaluar camara_segura")
         segura, motivo = False, f"No se pudo evaluar: {exc}"
-    return {"camara_segura": segura, "no_abrir": not segura, "camara_segura_motivo": motivo}
+    campos = _campos_motivo(motivo)
+    return {"camara_segura": segura, "no_abrir": not segura, "camara_segura_motivo": motivo,
+            # I4 (tanda 6): código, parámetros y textos es/en del motivo (o None)
+            "camara_segura_motivo_codigo": campos.get("motivo_codigo"),
+            "camara_segura_motivo_valores": campos.get("motivo_valores"),
+            "camara_segura_motivo_textos": campos.get("motivo_textos")}
+
+
+def _campos_motivo(motivo) -> dict:
+    """Código, parámetros y textos es/en de un motivo con código, en las
+    unidades vigentes; {} si no tiene código o algo falla (nunca lanza)."""
+    try:
+        if not motivos.codigo_de(motivo):
+            return {}
+        from autoclave.core.runtime import unidades as u
+        try:
+            unidades = context.config_unidades.leer()
+            t, p = unidades["temperatura"], unidades["presion"]
+            u.validar(t, p)
+        except Exception:
+            t, p = "C", "kPa"
+        try:
+            p_atm = u.p_atm_valida(_p_atm_vigente())
+        except Exception:
+            p_atm = None
+        return motivos.campos_respuesta(motivo, t, p, p_atm)
+    except Exception:
+        logger.exception("No se pudieron armar los textos del motivo")
+        return {}
 
 
 def _sensores_programa(estado) -> dict:
@@ -1056,6 +1374,7 @@ def get_status():
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
         "test_mode_active":      context.control_loop.test_mode_active,
+        "calibracion_atm_en_curso": _calibracion_atm_en_curso(),   # O2f
         "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,
         "sensors": sensors,
@@ -1078,7 +1397,110 @@ def registrar_actividad_ui():
 
 @app.get("/global_params")
 def get_global_params():
-    return context.config_manager.get()
+    cm = context.config_manager
+    return cm.instantanea() if hasattr(cm, "instantanea") else cm.get()
+
+
+# ── Parámetros del equipo (O2a, tanda 6; planeacion_opciones.md v4 §3.2) ──
+# Lectura libre (como /global_params). Cambio y restablecimiento: técnico e
+# ingeniero (el admin los ve en solo lectura: 403, decisión 1.5), solo fuera de
+# CICLO para todos (409, también el ingeniero) y aplicados sin reiniciar: el
+# ConfigManager escribe en system_params y en memoria, y cada lector consulta
+# el valor vigente (OPC-11). Auditoría `param_sistema_cambio`.
+# La presión atmosférica de referencia no se cambia por aquí (solo O2f).
+
+class _ParametroSistemaBody(BaseModel):
+    valor: StrictInt | StrictFloat
+
+
+_CODIGO_PARAMETRO = {
+    "no_existe": (404, "Parámetro desconocido"),
+    "solo_lectura": (403, "Este parámetro no se puede modificar"),
+    "tipo_invalido": (422, "Valor inválido para este parámetro"),
+    "fuera_de_rango": (422, "Valor fuera del rango permitido"),
+    "incoherente": (422, "Valor incompatible con la presión atmosférica o el otro parámetro de empaque"),
+    "sin_base_de_datos": (503, "No se pudo guardar el parámetro"),
+}
+
+
+def _parametro_o_404(clave: str) -> dict:
+    from autoclave.core.managers.config_manager import ErrorParametro
+    try:
+        return context.config_manager.describir(clave)
+    except ErrorParametro:
+        raise RechazoApi(404, "no_existe", "Parámetro desconocido")
+
+
+@app.get("/system_params")
+def get_system_params():
+    """Lista para la pantalla: valor vigente, defecto, rango, unidad, clase,
+    submenú y último cambio (usuario y fecha)."""
+    return {"parametros": context.config_manager.describir()}
+
+
+@app.get("/global_params/{clave}")
+def get_global_param(clave: str):
+    return _parametro_o_404(clave)
+
+
+def _cambiar_parametro_sistema(clave: str, sesion: Sesion, valor=None, restablecer=False):
+    from autoclave.core.managers.config_manager import ErrorParametro
+    entidad = f"/global_params/{clave}"
+    p = _parametro_o_404(clave)
+    if p["solo_lectura"]:
+        _rechazar(403, "solo_lectura", _CODIGO_PARAMETRO["solo_lectura"][1], entidad, sesion)
+    error = None
+    # TMG-01: validación y escritura en SQLite FUERA del guard (no detienen el
+    # tick); dentro solo se comprueba el estado y se publica en memoria. Si
+    # mientras tanto arrancó un ciclo: 409 y se deshace la escritura.
+    if _calibracion_atm_en_curso():         # O2f: la referencia está midiéndose
+        _rechazar(409, "calibracion_en_curso", "Calibración atmosférica en curso", entidad, sesion)
+    cm = context.config_manager
+    with cm.lock_cambios:
+        return _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer)
+
+
+def _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer):
+    from autoclave.core.managers.config_manager import ErrorParametro
+    if _calibracion_atm_en_curso():         # TMG-03 de O2f: de nuevo, bajo lock_cambios
+        _rechazar(409, "calibracion_en_curso", "Calibración atmosférica en curso", entidad, sesion)
+    error = None
+    try:
+        if restablecer:
+            anterior, nuevo = cm.restablecer(clave, sesion.usuario, aplicar=False)
+        else:
+            anterior, nuevo = cm.fijar(clave, valor, sesion.usuario, aplicar=False)
+    except ErrorParametro as e:
+        error = e
+    if error is None:
+        try:
+            with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+                cm.aplicar_valor(p["clave"], nuevo, sesion.usuario)
+        except RechazoApi:
+            cm.revertir_bd(p["clave"], anterior)
+            raise
+    if error is not None:
+        status, motivo = _CODIGO_PARAMETRO.get(error.codigo, (422, "Valor inválido"))
+        if status in (401, 403, 409):
+            _rechazar(status, error.codigo, motivo, entidad, sesion)
+        raise RechazoApi(status, error.codigo, motivo,
+                         extra={"min": p["min"], "max": p["max"]} if error.codigo == "fuera_de_rango" else None)
+    _auditar("param_sistema_cambio", sesion, entidad=entidad,
+             valor_anterior={p["clave"]: anterior}, valor_nuevo={p["clave"]: nuevo},
+             detalle={"clave": p["clave"], "accion": "restablecer" if restablecer else "cambio"})
+    return {"ok": True, "parametro": context.config_manager.describir(p["clave"])}
+
+
+@app.patch("/global_params/{clave}")
+def patch_global_param(clave: str, body: _ParametroSistemaBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    return _cambiar_parametro_sistema(clave, sesion, valor=body.valor)
+
+
+@app.post("/global_params/{clave}/reset")
+def reset_global_param(clave: str,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    return _cambiar_parametro_sistema(clave, sesion, restablecer=True)
 
 
 @app.get("/cycle")
@@ -1091,16 +1513,51 @@ def get_selected_cycle():
     return {
         "id": cycle.id,
         "name": cycle.name,
+        "nombres": _nombres_ciclo(cycle),
         "number": getattr(cycle, "number", None),
-        "parameters": cycle.parameters
+        "parameters": cycle.parameters,
+        **_entradas_mostradas_de(cycle),
     }
+
+
+# Sensor de temperatura del programa (sensores_ciclo) -> nombre de la AI
+_AI_DE_SENSOR = {"temp_camara": "temp_camara", "temp_2_camara": "temp_2_camara",
+                 "temp_ref": "temp_referencia"}
+
+
+def _entradas_mostradas_de(cycle) -> dict:
+    """O3 (tanda 6): entradas mostradas (1 a 3) del programa para Preciclo,
+    Ciclo y gráfica, y las que tienen el sensor "No en uso" en el programa.
+    Solo presentación; ante cualquier error, las de omisión."""
+    from autoclave.core.managers import gestion_programas as gp
+    try:
+        entradas = gp.entradas_de(cycle, _ai_habilitadas())
+    except Exception:
+        entradas = list(gp.ENTRADAS_POR_OMISION)
+    try:
+        asignacion = sc.asignacion_de(cycle)
+        no_en_uso = [_AI_DE_SENSOR[s] for s, rol in asignacion.items()
+                     if rol == sc.NO_EN_USO and s in _AI_DE_SENSOR]
+    except Exception:
+        no_en_uso = []
+    return {"entradas_mostradas": entradas, "entradas_no_en_uso": no_en_uso}
+
+
+def _nombres_ciclo(cycle) -> dict:
+    """I4 (tanda 6; D-14): nombre del ciclo en es y en (catálogo para los de
+    fábrica). `name`/`nombre` siguen siendo el display_name."""
+    try:
+        return context.cycle_manager.nombres_de(cycle)
+    except Exception:
+        return {"es": cycle.name, "en": cycle.name}
 
 
 @app.get("/cycles")
 def list_cycles():
     return [
-        {"id": c.id, "name": c.name, "source": getattr(c, "source", "user")}
-        for c in context.cycle_manager.cycles.values()
+        {"id": c.id, "name": c.name, "nombres": _nombres_ciclo(c),
+         "source": getattr(c, "source", "user")}
+        for c in list(context.cycle_manager.cycles.values())
     ]
 
 
@@ -1378,7 +1835,7 @@ def post_maintenance_record(body: _MantenimientoRegistroBody,
 # desconectada; no impide imprimir ni bloquea nada.
 
 # ── Idioma (I1, tanda 5; planeacion_i18n.md §5 F2) ───────────────────────
-# Cualquier rol con sesión, también en ciclo (no afecta al control). R-06
+# Admin e ingeniero (decisión 1.9, tanda 6), también en ciclo (no afecta al control). R-06
 # sigue vigente: el inglés no se habilita en campo hasta cerrar la voz; el
 # endpoint existe, pero ninguna pantalla de operador ofrece el selector.
 
@@ -1392,7 +1849,9 @@ def get_language():
 
 
 @app.put("/language")
-def put_language(body: _IdiomaBody, sesion: Sesion = Depends(requiere_rol())):
+def put_language(body: _IdiomaBody,
+                 sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_INGENIERO))):
+    """Decisión 1.9 (tanda 6): admin e ingeniero; también en ciclo."""
     entidad = "/language"
     anterior = context.config_idioma.leer()
     try:
@@ -1430,8 +1889,8 @@ def get_units():
 
 @app.put("/units")
 def put_units(body: _UnidadesBody,
-              sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
-    """Técnico e ingeniero, solo fuera de ciclo (también el ingeniero: un
+              sesion: Sesion = Depends(requiere_rol(ROL_INGENIERO))):
+    """Decisión 1.9 (tanda 6): solo el ingeniero, y solo fuera de ciclo (también el ingeniero: un
     cambio de unidades a mitad de ciclo se presta a leer mal un valor)."""
     entidad = "/units"
     with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
@@ -1472,6 +1931,551 @@ def put_printer_config(body: _ImpresoraConfigBody,
     except Exception:
         logger.exception("No se pudo aplicar la configuración de la impresora")
     return {"ok": True, "habilitada": body.habilitada}
+
+
+# ── Calibración atmosférica e impresiones de Mantenimiento (O2f, tanda 6) ──
+# planeacion_opciones.md v4 §5 y planeacion_backend_parametros.md §8. Técnico e
+# ingeniero. La medición corre en su hilo (core/runtime/calibracion_atm.py) y
+# solo lee; la referencia se escribe con la función interna del ConfigManager
+# (permitir_solo_lectura) y se publica en memoria dentro de _sm_lock (sin E/S),
+# igual que un parámetro del equipo (TMG-01 de O2a). Mientras mide, los
+# parámetros del equipo no se cambian (409 calibracion_en_curso).
+
+_calibracion_atm_obj = None
+_calibracion_atm_lock = threading.Lock()
+
+
+def _leer_para_calibracion_atm() -> dict:
+    # TMG-02 de O2f: instantánea coherente bajo _sm_lock (solo memoria)
+    with context.control_loop.bloqueo_maquina():
+        return _leer_para_calibracion_atm_sin_lock()
+
+
+def _leer_para_calibracion_atm_sin_lock() -> dict:
+    estado = context.estado
+    try:
+        maquina = estado.get_machine_state().name
+    except Exception:
+        maquina = ""
+    try:
+        programas = context.programas_para_seguridad()
+        temp = sc.temp_seguridad(estado, programas, getattr(context, "profile", None))
+    except Exception:
+        temp = None
+    return {"estado_maquina": maquina,
+            "puertas": dict(getattr(estado, "estado_puertas", {}) or {}),
+            "temp": temp,
+            "pres": estado.sensores_pres.get("pres_camara"),
+            "datos_vigentes": getattr(context.control_loop, "datos_vigentes", False) is True}
+
+
+def _aplicar_presion_atmosferica(valor: float, usuario: str) -> None:
+    """Escribe la referencia: base fuera del lock de la máquina; memoria
+    dentro, y solo fuera de CICLO. Lanza ErrorParametro si no se puede."""
+    from autoclave.core.managers.config_manager import ErrorParametro
+    cm = context.config_manager
+    with cm.lock_cambios:
+        anterior, nuevo = cm.fijar("presion_atmosferica", valor, usuario,
+                                   permitir_solo_lectura=True, aplicar=False)
+        aplicado = False
+        try:
+            with context.control_loop.bloqueo_maquina():
+                if context.estado.get_machine_state() == GlobalState.CICLO:
+                    raise ErrorParametro("estado_no_permitido")
+                cm.aplicar_valor("presion_atmosferica", nuevo, usuario)
+                aplicado = True
+        finally:
+            if not aplicado:
+                cm.revertir_bd("presion_atmosferica", anterior)
+
+
+def _auditar_calibracion_atm(evento, usuario, rol, anterior, nuevo, detalle) -> None:
+    context.db.registrar_auditoria(
+        evento, usuario=usuario or "", rol=rol or "", entidad="presion_atmosferica",
+        valor_anterior={"presion_atmosferica": anterior},
+        valor_nuevo={"presion_atmosferica": nuevo} if nuevo is not None else None,
+        detalle=detalle)
+
+
+def _auditar_seguro(funcion, *args) -> None:
+    try:
+        funcion(*args)
+    except Exception:
+        logger.exception("No se pudo registrar la calibración atmosférica en audit_log")
+
+
+def _calibracion_atm():
+    global _calibracion_atm_obj
+    with _calibracion_atm_lock:
+        if _calibracion_atm_obj is None:
+            from autoclave.core.runtime.calibracion_atm import CalibracionAtm
+            _calibracion_atm_obj = CalibracionAtm(
+                leer=_leer_para_calibracion_atm,
+                aplicar=_aplicar_presion_atmosferica,
+                auditar=lambda *a: _auditar_seguro(_auditar_calibracion_atm, *a),
+                anterior=lambda: context.config_manager.get("presion_atmosferica"))
+        return _calibracion_atm_obj
+
+
+def _calibracion_atm_en_curso() -> bool:
+    obj = _calibracion_atm_obj
+    return obj is not None and obj.en_curso
+
+
+def _estado_calibracion_atm() -> dict:
+    d = _calibracion_atm().estado()
+    try:
+        ref = context.config_manager.describir("presion_atmosferica")
+        um = ref.get("ultima_modificacion") or {}
+        d["referencia"] = {"valor": ref.get("valor"), "usuario": um.get("usuario"),
+                           "fecha": um.get("fecha")}
+    except Exception:
+        d["referencia"] = {"valor": None, "usuario": None, "fecha": None}
+    return d
+
+
+_MOTIVO_CONDICION_ATM = {
+    "en_curso": "Ya hay una calibración en curso",
+    "puerta_abierta": "La puerta debe estar abierta",
+    "temp_baja": "La cámara debe estar por debajo de 80 °C",
+    "fuera_de_ciclo": "No se puede calibrar con un ciclo en curso",
+    "lecturas_validas": "Sin lectura válida de presión o temperatura de cámara",
+}
+
+
+@app.get("/maintenance/atm-calibration")
+def get_atm_calibration():
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/start")
+def start_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = "/maintenance/atm-calibration/start"
+    with context.config_manager.lock_cambios:      # TMG-03: no se cruza con un PATCH
+        ok, codigo = _calibracion_atm().iniciar(sesion.usuario, sesion.rol)
+    if not ok:
+        _rechazar(409, "calibracion_en_curso" if codigo == "en_curso" else "precondicion",
+                  _MOTIVO_CONDICION_ATM.get(codigo, "No se puede iniciar"), entidad, sesion,
+                  extra={"condicion": codigo})
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/cancel")
+def cancel_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    if not _calibracion_atm().cancelar(sesion.usuario, sesion.rol):
+        raise RechazoApi(409, "sin_calibracion", "No hay calibración en curso")
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/confirm")
+def confirm_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    ok, codigo = _calibracion_atm().confirmar(sesion.usuario, sesion.rol)
+    if not ok:
+        raise RechazoApi(409, codigo or "no_aplicada", "No se pudo aplicar la calibración")
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/discard")
+def discard_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    if not _calibracion_atm().descartar(sesion.usuario, sesion.rol):
+        raise RechazoApi(409, "sin_pendiente", "No hay calibración por confirmar")
+    return _estado_calibracion_atm()
+
+
+def _meta_equipo() -> dict:
+    perfil = getattr(context, "profile", None)
+    serie = getattr(perfil, "serial_number", "")
+    modelo = getattr(perfil, "model_id", "")
+    return {"serie": serie if isinstance(serie, str) else "",
+            "modelo": modelo if isinstance(modelo, str) else ""}
+
+
+@app.post("/printer/test-page")
+def print_test_page(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Página de prueba de la impresora térmica (409 en ciclo; 503 sin impresora)."""
+    from autoclave.services.domain.logging import ticket_mantenimiento as tm
+    _encolar_en_impresora([tm.pagina_prueba(_meta_equipo())])
+    _auditar("impresora_prueba", sesion, entidad="/printer/test-page")
+    return {"ok": True}
+
+
+@app.post("/maintenance/print/calibration")
+def print_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Imprime ganancias y compensaciones (de usuario) de todos los sensores
+    y la presión atmosférica de referencia."""
+    from autoclave.services.domain.logging import ticket_mantenimiento as tm
+    config = load_config(CALIBRATION_PATH)
+    sensores = []
+    for tipo, mapa, lista in (("temperature", EstadoAutoclave.map_temp,
+                               config.calibration.user.temperature),
+                              ("pressure", EstadoAutoclave.map_pres,
+                               config.calibration.user.pressure)):
+        for nombre, i in mapa.items():
+            if i < len(lista):
+                c = lista[i]
+                sensores.append({"tipo": tipo, "sensor": nombre, "gain": c.gain,
+                                 "offset": c.offset, "poly": bool(c.poly)})
+    try:
+        ref = context.config_manager.describir("presion_atmosferica")
+    except Exception:
+        ref = {}
+    texto = tm.ganancias(_meta_equipo(), sensores, ref.get("valor"),
+                         (ref.get("ultima_modificacion") or {}).get("fecha"))
+    _encolar_en_impresora([texto])
+    _auditar("impresion_ganancias", sesion, entidad="/maintenance/print/calibration",
+             detalle={"sensores": len(sensores)})
+    return {"ok": True, "sensores": len(sensores)}
+
+
+# ── Conectividad (O2g, tanda 6; decisiones 1.4 y 1.9) ───────────────────────
+# Red en SOLO LECTURA (cambiar Wi-Fi o IP no se habilita: DECISIÓN SIN
+# CONFIRMAR). Correo de ciclos: admin, técnico e ingeniero leen; admin e
+# ingeniero cambian destinatarios e interruptor (el técnico, 403) y envían el
+# correo de prueba. La contraseña del relay nunca se devuelve ni se registra:
+# solo `contrasena_configurada`. Cambios con ciclo en curso: 409 (R-01).
+
+_LEEN_CONECTIVIDAD = (ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO)
+_EDITAN_CORREO = (ROL_ADMIN, ROL_INGENIERO)
+
+
+class _CorreoConfigBody(BaseModel):
+    envio_activo: StrictBool
+    destinatarios: list[dict]
+
+
+def _cargar_config_correo():
+    from autoclave.ui_qml.exportacion import config_correo
+    return config_correo.cargar()
+
+
+def _enviar_correo(config, mensaje) -> None:
+    from autoclave.ui_qml.exportacion import correo
+    correo.enviar(config, mensaje)
+
+
+@app.get("/network/status")
+def get_network_status(sesion: Sesion = Depends(requiere_rol(*_LEEN_CONECTIVIDAD))):
+    return context.estado_red.leer()
+
+
+def _correo_dto() -> dict:
+    from autoclave.core.runtime.config_correo_equipo import MAX_DESTINATARIOS
+    equipo = context.config_correo_equipo.leer()
+    try:
+        base = _cargar_config_correo()
+        remitente, servidor, puerto = base.remitente, base.servidor, base.puerto
+        con_clave = bool(base.contrasena)
+    except Exception:
+        logger.exception("No se pudo leer la configuración de correo")
+        remitente, servidor, puerto, con_clave = "", "", None, False
+    return {"envio_activo": equipo["envio_activo"], "destinatarios": equipo["destinatarios"],
+            "personalizado": equipo["personalizado"], "remitente": remitente,
+            "servidor": servidor, "puerto": puerto, "contrasena_configurada": con_clave,
+            "max_destinatarios": MAX_DESTINATARIOS}
+
+
+@app.get("/email/config")
+def get_email_config(sesion: Sesion = Depends(requiere_rol(*_LEEN_CONECTIVIDAD))):
+    return _correo_dto()
+
+
+@app.put("/email/config")
+def put_email_config(body: _CorreoConfigBody,
+                     sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
+    from autoclave.core.runtime.config_correo_equipo import ErrorCorreo
+    entidad = "/email/config"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    anterior = context.config_correo_equipo.leer()
+    try:
+        nuevo = context.config_correo_equipo.guardar(body.envio_activo, body.destinatarios)
+    except ErrorCorreo as e:
+        raise RechazoApi(422, e.codigo, "Destinatarios inválidos", extra={"campo": e.campo})
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración", entidad, sesion)
+    _auditar("correo_configurado", sesion, entidad=entidad,
+             valor_anterior={"envio_activo": anterior["envio_activo"],
+                             "destinatarios": [d["correo"] for d in anterior["destinatarios"]]},
+             valor_nuevo={"envio_activo": nuevo["envio_activo"],
+                          "destinatarios": [d["correo"] for d in nuevo["destinatarios"]]})
+    return _correo_dto()
+
+
+@app.post("/email/test")
+def post_email_test(sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
+    """Correo de prueba a cada destinatario GUARDADO (nunca a uno escrito a mano)."""
+    from autoclave import i18n
+    from autoclave.ui_qml.exportacion.config_correo import correo_valido
+    from email.message import EmailMessage
+    entidad = "/email/test"
+    config = _cargar_config_correo()
+    if not config.envio_activo:
+        raise RechazoApi(409, "envio_desactivado", "El envío de correo está desactivado")
+    destinos = [d["correo"] for d in config.destinos if correo_valido(d.get("correo"))]
+    if not destinos:
+        raise RechazoApi(409, "sin_destinatarios", "No hay destinatarios guardados")
+    if not config.configurado:
+        raise RechazoApi(409, "correo_no_configurado", "Falta remitente, servidor o contraseña")
+    meta = _meta_equipo()
+    enviados, fallidos = 0, []
+    for destino in destinos:
+        m = EmailMessage()
+        m["From"], m["To"] = config.remitente, destino
+        m["Subject"] = i18n.t("conectividad.asunto_prueba", None, serie=meta["serie"] or "-")
+        m.set_content(i18n.t("conectividad.cuerpo_prueba", None, serie=meta["serie"] or "-",
+                             modelo=meta["modelo"] or "-",
+                             fecha=datetime.now().strftime("%Y-%m-%d %H:%M")))
+        try:
+            _enviar_correo(config, m)
+            enviados += 1
+        except Exception as e:
+            # el texto de la excepción no se devuelve ni se audita (podría
+            # contener credenciales del servidor); solo su tipo
+            logger.warning("Correo de prueba a %s fallido (%s)", destino, type(e).__name__)
+            fallidos.append(destino)
+    _auditar("correo_prueba", sesion, entidad=entidad,
+             detalle={"enviados": enviados, "fallidos": fallidos})
+    if not enviados:
+        raise RechazoApi(502, "envio_fallido", "No se pudo enviar el correo de prueba",
+                         extra={"fallidos": fallidos})
+    return {"ok": True, "enviados": enviados, "fallidos": fallidos}
+
+
+# ── Respaldo y restauración por USB (O2h, tanda 6) ──────────────────────────
+# Técnico e ingeniero, solo fuera de CICLO (409, también el ingeniero). Ver
+# core/runtime/respaldo.py: manifiesto con hash, sin hashes de contraseña, y un
+# respaldo de OTRO número de serie se rechaza siempre. Restaurar pide
+# `confirmar: true` y no toca usuarios, historial, perfil ni la atmosférica.
+
+class _ExportarBody(BaseModel):
+    unidad: str
+    perfil_calibracion: StrictBool = True
+    parametros_programas: StrictBool = True
+    usuarios: StrictBool = True
+    historial: StrictBool = False
+
+
+class _RestaurarBody(BaseModel):
+    unidad: str
+    archivo: str
+    confirmar: StrictBool = False
+
+
+_lock_respaldo = threading.Lock()
+
+
+def _unidades_usb() -> list[dict]:
+    from autoclave.core.runtime import respaldo as rp
+    return rp.unidades_usb()
+
+
+def _version_sw() -> str:
+    import importlib.metadata
+    try:
+        return importlib.metadata.version("autoclave")
+    except importlib.metadata.PackageNotFoundError:
+        return "0"
+
+
+def _unidad_detectada(unidad: str, entidad: str, sesion) -> str:
+    rutas = {u["ruta"] for u in _unidades_usb()}
+    if unidad not in rutas:
+        raise RechazoApi(404, "usb_no_detectada", "Unidad USB no detectada")
+    return unidad
+
+
+def _carpeta_programas_usuario() -> Path:
+    return Path(context.cycle_manager.carpeta("cycles/user"))
+
+
+def _usuarios_sin_hash() -> list[dict]:
+    db = context.db
+    with getattr(db, "_lock", threading.Lock()):
+        filas = db._conn.execute("SELECT usuario, nombre, rol, activo FROM usuarios").fetchall()
+    return [{"usuario": f[0], "nombre": f[1], "rol": f[2], "activo": bool(f[3])} for f in filas]
+
+
+def _copia_bd() -> bytes:
+    import tempfile
+    db = context.db
+    with tempfile.TemporaryDirectory() as tmp:
+        destino = Path(tmp) / "historial.db"
+        dst = sqlite3.connect(destino)
+        try:
+            with getattr(db, "_lock", threading.Lock()):
+                db._conn.backup(dst)
+        finally:
+            dst.close()
+        return destino.read_bytes()
+
+
+@app.get("/backup/usb")
+def get_backup_usb(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime import respaldo as rp
+    equipo, version = _meta_equipo(), _version_sw()
+    unidades = []
+    for u in _unidades_usb():
+        carpeta = Path(u["ruta"]) / rp.CARPETA
+        respaldos = []
+        try:
+            archivos = sorted(carpeta.glob("respaldo_*.zip"), reverse=True)[:50]
+        except OSError:
+            archivos = []
+        for a in archivos:
+            respaldos.append(rp.resumen(a, equipo, version))
+        unidades.append({**u, "respaldos": respaldos})
+    return {"unidades": unidades, "serie": equipo["serie"], "version_sw": version}
+
+
+@app.post("/backup/export")
+def post_backup_export(body: _ExportarBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime import respaldo as rp
+    from autoclave.utils.archivos import escribir_texto_atomico  # noqa: F401
+    entidad = "/backup/export"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    unidad = _unidad_detectada(body.unidad, entidad, sesion)
+    partes = body.model_dump(exclude={"unidad"})
+    if not any(partes.values()):
+        raise RechazoApi(422, "sin_partes", "Elija qué exportar")
+    equipo = _meta_equipo()
+    contenido = {"perfil.json": json.dumps(equipo, ensure_ascii=False).encode("utf-8")}
+    if body.perfil_calibracion:
+        with _lock_archivos:                         # SAF-05 de O2h
+            contenido["calibracion.yaml"] = Path(CALIBRATION_PATH).read_bytes()
+    if body.parametros_programas:
+        params = {p["clave"]: p["valor"] for p in context.config_manager.describir()}
+        contenido["parametros.json"] = json.dumps(params, ensure_ascii=False).encode("utf-8")
+        for f in sorted(_carpeta_programas_usuario().glob("*.json")):
+            contenido[f"programas/{f.name}"] = f.read_bytes()
+    if body.usuarios:
+        contenido["usuarios.json"] = json.dumps(_usuarios_sin_hash(), ensure_ascii=False).encode("utf-8")
+    if body.historial:
+        contenido["historial.db"] = _copia_bd()
+    with _lock_respaldo:
+        zip_bytes = rp.crear(equipo, partes, contenido, sesion.usuario, _version_sw())
+        carpeta = Path(unidad) / rp.CARPETA
+        nombre = rp.nombre_archivo(equipo["serie"], datetime.now())
+        try:
+            carpeta.mkdir(parents=True, exist_ok=True)
+            temporal = carpeta / (nombre + ".tmp")
+            temporal.write_bytes(zip_bytes)
+            os.replace(temporal, carpeta / nombre)
+        except OSError:
+            _rechazar(503, "usb_no_escribible", "No se pudo escribir en la USB", entidad, sesion)
+    _auditar("respaldo_exportado", sesion, entidad=entidad,
+             detalle={"archivo": nombre, "partes": partes, "bytes": len(zip_bytes)})
+    return {"ok": True, "archivo": nombre, "bytes": len(zip_bytes)}
+
+
+@app.post("/backup/restore")
+def post_backup_restore(body: _RestaurarBody,
+                        sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.managers.config_manager import ErrorParametro
+    from autoclave.core.runtime import respaldo as rp
+    from autoclave.utils.archivos import escribir_texto_atomico
+    entidad = "/backup/restore"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    unidad = _unidad_detectada(body.unidad, entidad, sesion)
+    try:
+        ruta = rp.ruta_respaldo_segura(unidad, body.archivo)
+        m, datos = rp.leer(ruta)
+    except rp.ErrorRespaldo as e:
+        _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "motivo": e.codigo})
+        raise RechazoApi(422, e.codigo, "Respaldo inválido")
+    motivo = rp.validar_para_equipo(m, _meta_equipo(), _version_sw())
+    if motivo:
+        _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "motivo": motivo, "serie_respaldo": m.get("serie")})
+        raise RechazoApi(409, motivo, "El respaldo no corresponde a este equipo",
+                         extra={"serie_respaldo": m.get("serie", "")})
+    if not body.confirmar:
+        raise RechazoApi(428, "confirmacion_requerida", "Confirme la restauración",
+                         extra={"partes": m.get("partes", {})})
+    # validar todo ANTES de escribir nada. SAF-02 de O2h: los programas NO se
+    # restauran (no hay aún un validador común con el editor de parámetros);
+    # quedan en el respaldo como referencia.
+    params = {}
+    if "parametros.json" in datos:
+        try:
+            params = json.loads(datos["parametros.json"].decode("utf-8"))
+        except ValueError:
+            raise RechazoApi(422, "parametros_invalidos", "Respaldo inválido")
+        if not isinstance(params, dict):
+            raise RechazoApi(422, "parametros_invalidos", "Respaldo inválido")
+    calib = datos.get("calibracion.yaml")
+    if calib is not None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            prueba = Path(tmp) / "calibration.yaml"
+            prueba.write_bytes(calib)
+            try:
+                cfg_resp = load_config(prueba)
+            except Exception:
+                raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
+        # SAF-01 de O2h: misma plausibilidad que la calibración manual, canal
+        # por canal; lo dudoso (aviso) también se rechaza: fail-closed
+        for tipo, mapa, lista in (("temperature", EstadoAutoclave.map_temp,
+                                   cfg_resp.calibration.user.temperature),
+                                  ("pressure", EstadoAutoclave.map_pres,
+                                   cfg_resp.calibration.user.pressure)):
+            for sensor, i in mapa.items():
+                if i >= len(lista):
+                    raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
+                c = lista[i]
+                nivel, motivo_c = (("aviso", "polinomio") if c.poly else
+                                   evaluar_desviacion_acumulada(tipo, float(c.gain),
+                                                                float(c.offset), sensor))
+                if nivel is not None:
+                    _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                             detalle={"archivo": body.archivo, "motivo": "calibracion_implausible",
+                                      "sensor": sensor, "detalle": motivo_c})
+                    raise RechazoApi(422, "calibracion_implausible",
+                                     f"Calibración no plausible en {sensor}: {motivo_c}")
+    aplicado = {"calibracion": False, "parametros": [], "parametros_omitidos": [], "programas": []}
+    with _lock_respaldo:
+      try:
+        if calib is not None:
+            with _lock_archivos:
+                with context.control_loop.bloqueo_maquina():     # SAF-03: de nuevo, justo antes
+                    en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
+                if en_ciclo:
+                    _rechazar(409, "estado_no_permitido", "Hay un ciclo en curso", entidad, sesion)
+                escribir_texto_atomico(CALIBRATION_PATH, calib.decode("utf-8"))
+                context.units.reload_calibration(CALIBRATION_PATH)   # SAF-04: sin reiniciar
+            aplicado["calibracion"] = True
+        cm = context.config_manager
+        for clave, valor in params.items():
+            try:
+                p = cm.describir(clave)
+            except ErrorParametro:
+                aplicado["parametros_omitidos"].append(clave)
+                continue
+            if p["solo_lectura"] or p["valor"] == valor:
+                if p["solo_lectura"]:
+                    aplicado["parametros_omitidos"].append(clave)
+                continue
+            with cm.lock_cambios:
+                try:
+                    anterior, nuevo = cm.fijar(clave, valor, sesion.usuario, aplicar=False)
+                except ErrorParametro:
+                    aplicado["parametros_omitidos"].append(clave)
+                    continue
+                try:
+                    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+                        cm.aplicar_valor(clave, nuevo, sesion.usuario)
+                except RechazoApi:
+                    cm.revertir_bd(clave, anterior)
+                    raise
+            aplicado["parametros"].append(clave)
+      finally:
+        # SAF-03: se audita siempre lo que sí se aplicó, también si falla a medias
+        _auditar("respaldo_restaurado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "creado_en": m.get("creado_en"), **aplicado})
+    return {"ok": True, **aplicado, "reinicio_requerido": False}
 
 
 @app.get("/cycle/summary")
@@ -1551,7 +2555,7 @@ def _resumen_periodo(periodo: str, fecha: date | None) -> dict:
     if fecha is None:
         fecha = date.fromisoformat(_inicio_del_dia()[:10])
     desde, hasta = _rango_del_periodo(periodo, fecha)
-    numeros = {tipo: getattr(c, "number", None) for tipo, c in context.cycle_manager.cycles.items()}
+    numeros = {tipo: getattr(c, "number", None) for tipo, c in list(context.cycle_manager.cycles.items())}
     resumen = resumen_periodo.resumir(context.db.get_conteo_resultados(desde, hasta), numeros)
     perfil = context.profile
     return {
@@ -1720,9 +2724,36 @@ def start_cycle(body: dict | None = Body(default=None),
     return {"ok": True, "action": "START_CICLO"}
 
 
+PRINCIPAL_SIN_LECTURA = "PRINCIPAL_SIN_LECTURA"
+
+
+def _rechazo_principal_sin_lectura(estado) -> tuple | None:
+    """(código, motivo) si el sensor Principal del programa seleccionado está
+    declarado y sin lectura válida; None si lee (o no está declarado: ese
+    caso lo rechaza verificar_inicio con su propio código, igual que un error
+    al evaluar)."""
+    seleccionado = getattr(context.control_loop, "cycle", None)
+    try:
+        principal = sc.sensor_principal(seleccionado)
+        if sc.estado_sensor(getattr(context, "profile", None), estado, principal) != sc.SIN_SENAL:
+            return None
+    except Exception:
+        # sin rechazo propio: verificar_inicio (RS-06) vuelve a exigir lectura
+        logger.exception("/cycle/start: no se pudo evaluar el sensor Principal")
+        return None
+    from autoclave import i18n
+    return PRINCIPAL_SIN_LECTURA, i18n.t("ciclo.principal_sin_lectura")
+
+
 def _validar_inicio(estado) -> tuple | None:
     """(código, motivo) si el programa seleccionado no puede iniciarse; código
     None = rechazo sin código (no listo). Llamar bajo bloqueo_maquina()."""
+    # P-2 (tanda 6): sin lectura válida del Principal del programa no se
+    # inicia; el motivo se da antes que "no está listo" (con el estado seguro
+    # de la pérdida del Principal en curso, el equipo nunca queda listo)
+    principal_sin_lectura = _rechazo_principal_sin_lectura(estado)
+    if principal_sin_lectura is not None:
+        return principal_sin_lectura
     if not estado.get_flag("LISTO_PARA_CICLO"):
         return None, "El sistema no está listo para iniciar un ciclo"
 
@@ -1750,16 +2781,21 @@ def abort_cycle():
     Activa la flag CICLO_CANCELADO; el CicloState ejecutará el
     protocolo de fallo en el siguiente tick del control loop.
     """
-    estado = context.estado
-
-    from autoclave.state_machine.machine.enum_global import GlobalState
-    if estado.get_machine_state() != GlobalState.CICLO:
-        raise HTTPException(
-            status_code=409,
-            detail="No hay un ciclo en curso"
-        )
-
-    estado.set_flag("CICLO_CANCELADO", True)
+    # P-7 (tanda 6): 409 con motivo cuando no tendría efecto (resultado ya
+    # pendiente o paro); el indicador no queda puesto
+    entidad = "/cycle/abort"
+    with guard_estado(frozenset(), entidad) as actual:
+        estado = context.estado
+        if actual != GlobalState.CICLO:
+            raise _Rechazo(409, "estado_no_permitido", "No hay un ciclo en curso")
+        if estado.get_flag("PARO_EMERGENCIA") is True:
+            raise _Rechazo(409, "paro_emergencia",
+                           _motivo_paro("Paro de emergencia activado: el ciclo ya se detuvo"))
+        fase = getattr(estado, "fase_ciclo", "")
+        if isinstance(fase, str) and progreso_ciclo.resultado(fase) is not None:
+            raise _Rechazo(409, "resultado_pendiente",
+                           "El ciclo ya terminó: confirme el resultado")
+        estado.set_flag("CICLO_CANCELADO", True)
     return {"ok": True, "action": "CICLO_CANCELADO"}
 
 
@@ -2027,7 +3063,7 @@ def acknowledge_cycle():
 def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
     """Abrir o cerrar una puerta (§5.3, T-13 y T-18).
 
-    Guard de estado: 409 en CICLO, HIBERNACION y EMERGENCIA (en PREPARACION,
+    Guard de estado: 409 en CICLO (P-8: sin HIBERNACION ni EMERGENCIA; en PREPARACION,
     PREPARADO y FALLA se permite). Las condiciones físicas las aplica
     ServicioPuertas, fallando cerradas; si las incumple, o si la puerta no
     acepta la orden (bloqueo mecánico, no está abierta), 409 con el motivo.
@@ -2065,6 +3101,7 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         if door_name != f"Puerta {source_door}":
             rechazo_origen(409, "puerta_ajena",
                            f"La pantalla de la puerta {source_door} solo opera su puerta")
+    rechazo_puerta = None
     with guard_estado(DISTINTO_DE_CICLO_E_HIBERNACION, entidad):
         # con el modo prueba las puertas no se actualizan, y con el enlace
         # caído las lecturas son viejas: la orden quedaría para después sin
@@ -2076,7 +3113,13 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         pedir = servicio.request_open if accion == "open" else servicio.request_close
         ok, reason = pedir(door_name)
         if not ok:
-            raise _Rechazo(409, "puerta_rechazada", reason or "Orden de puerta no permitida")
+            rechazo_puerta = reason or motivos.Motivo("no_permitida", "Orden de puerta no permitida")
+    if rechazo_puerta is not None:
+        # I4 (tanda 6): el motivo viaja también con código, parámetros y textos
+        # es/en (`detail` sigue siendo el español). Se arma con _sm_lock ya
+        # libre: lee la configuración de unidades del disco.
+        _rechazar(409, "puerta_rechazada", rechazo_puerta, entidad,
+                  extra=_campos_motivo(rechazo_puerta))
     _auditar("puerta_orden", entidad=door_name, valor_nuevo=accion,
              detalle={"source_door": origen})
     return {
@@ -2292,11 +3335,12 @@ def get_programas():
     """Programas para Opciones (§6): número, nombre, origen, estado y sus
     secciones con la marca "No se ejecuta". Sin lectura de disco en la UI."""
     salida = []
-    for cycle in context.cycle_manager.cycles.values():
+    for cycle in list(context.cycle_manager.cycles.values()):
         if cycle.number is None:
             continue
         salida.append({
             "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
+            "nombres": _nombres_ciclo(cycle),
             "origen": getattr(cycle, "source", ""), "danado": bool(getattr(cycle, "danado", None)),
             "editable": _programa_editable(cycle),
             "habilitado": getattr(cycle, "habilitado", True) is not False,
@@ -2325,7 +3369,7 @@ def get_programas_seleccionables():
     lectura, sin sesión (como /cycle/select)."""
     cap = getattr(context, "cap", None)
     filas = []
-    for cycle in context.cycle_manager.cycles.values():
+    for cycle in list(context.cycle_manager.cycles.values()):
         if getattr(cycle, "number", None) is None or getattr(cycle, "source", "user") != "user":
             continue
         if getattr(cycle, "danado", None):
@@ -2336,6 +3380,7 @@ def get_programas_seleccionables():
             continue
         filas.append({
             "numero": cycle.number, "cycle_id": cycle.id, "nombre": cycle.name,
+            "nombres": _nombres_ciclo(cycle),
             "temperatura": _param_programa(cycle, "esterilizacion", "temperatura_esterilizacion"),
             "tiempo": _param_programa(cycle, "esterilizacion", "tiempo_esterilizacion"),
             "ciclos": 0, "mas_usado": False, "seleccionado": False,
@@ -2424,6 +3469,7 @@ def get_programa_seccion(numero: int, seccion: str):
         parametros.append({
             "path": ruta, "clave": ".".join(ruta), "tipo": hoja.get("type") or "int",
             "unidad": (hoja.get("unit") or "").replace("\ufffd", "°"),
+            "clase": hoja.get("clase"),           # C1c (tanda 6): clase explícita de U1
             "valor": valor, "defecto": defecto, "min": minimo, "max": maximo,
             "opciones": hoja.get("options") or [],
             "modificado": defecto is not None and defecto != valor,
@@ -2558,7 +3604,7 @@ def put_entradas_mostradas(body: _EntradasBody,
 # ── Sensores del ciclo (tanda 2026-10-14 §1.1; RS-01, RS-02) ───────────────
 
 def _programa_por_numero(numero: int):
-    for cycle in context.cycle_manager.cycles.values():
+    for cycle in list(context.cycle_manager.cycles.values()):
         if getattr(cycle, "number", None) == numero:
             return cycle
     raise HTTPException(status_code=404, detail=f"Programa {numero} no encontrado")
@@ -2857,7 +3903,7 @@ def io_channels(sesion: Sesion = Depends(_requiere_rol_prueba)):
 def io_test_enter(sesion: Sesion = Depends(_requiere_rol_prueba)):
     """Activa el modo prueba: pausa la máquina de estados (sin importar la
     fase — PREPARACION, PREPARADO o FALLA) y apaga todas las salidas para
-    permitir control manual. Rechazado en CICLO, HIBERNACION, EMERGENCIA o con
+    permitir control manual. Rechazado en CICLO o con
     el paro de emergencia activo. Recuerda la sesión que entró (§5.4).
 
     El ALL_OFF de enter_test_mode corre con _sm_lock tomado (espera el ACK

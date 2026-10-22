@@ -436,7 +436,6 @@ def _estado_flags(combinado, real):
 
 def _estados():
     from autoclave.state_machine.states.falla import FallaState
-    from autoclave.state_machine.states.hibernacion import Hibernacion
     from autoclave.state_machine.states.preparacion import preparacion_state
     from autoclave.state_machine.states.preparado import preparado_state
 
@@ -450,11 +449,10 @@ def _estados():
         "preparacion": _prep,
         "preparado": lambda am, e, s: preparado_state(am, e, s, MagicMock(), MagicMock()).run(),
         "falla": lambda am, e, s: FallaState(e, s, am).run(),
-        "hibernacion": lambda am, e, s: Hibernacion(e, s, am).run(),
     }
 
 
-@pytest.mark.parametrize("nombre", ["preparacion", "preparado", "falla", "hibernacion"])
+@pytest.mark.parametrize("nombre", ["preparacion", "preparado", "falla"])
 def test_sin_datos_apaga_salidas_sin_sis01(nombre):
     am, set_do = AlarmManager(), MagicMock()
     _estados()[nombre](am, _estado_flags(combinado=True, real=False), set_do)
@@ -462,7 +460,7 @@ def test_sin_datos_apaga_salidas_sin_sis01(nombre):
     assert SIS_01 not in {i.codigo for i in am.activas()}
 
 
-@pytest.mark.parametrize("nombre", ["preparacion", "preparado", "falla", "hibernacion"])
+@pytest.mark.parametrize("nombre", ["preparacion", "preparado", "falla"])
 def test_paro_real_apaga_salidas_con_sis01(nombre):
     am, set_do = AlarmManager(), MagicMock()
     _estados()[nombre](am, _estado_flags(combinado=True, real=True), set_do)
@@ -472,7 +470,7 @@ def test_paro_real_apaga_salidas_con_sis01(nombre):
 
 # Revisión SAF-03 de U4: perder los datos no resuelve un SIS-01 ya activo (el
 # botón puede seguir pulsado); solo no se activa sin paro real.
-@pytest.mark.parametrize("nombre", ["preparacion", "preparado", "falla", "hibernacion"])
+@pytest.mark.parametrize("nombre", ["preparacion", "preparado", "falla"])
 def test_sis01_no_se_resuelve_por_perder_los_datos(nombre):
     am = AlarmManager()
     _estados()[nombre](am, _estado_flags(combinado=True, real=True), MagicMock())
@@ -515,7 +513,10 @@ def _ciclo(combinado, real):
     return ciclo, am
 
 
-def test_ciclo_sin_datos_registra_com03_con_el_mismo_protocolo():
+def test_ciclo_sin_datos_registra_com03_con_el_mismo_protocolo(monkeypatch):
+    # P-3 (tanda 6): pasada la tolerancia de la DI vencida (aquí 0 s)
+    from autoclave.state_machine.states import ciclo as modulo_ciclo
+    monkeypatch.setattr(modulo_ciclo, "_TOLERANCIA_DI_VENCIDA_SEG", 0.0)
     ciclo, am = _ciclo(combinado=True, real=False)
     codigos = {i.codigo for i in am.activas()}
     assert SIS_01 not in codigos and COM_03 in codigos

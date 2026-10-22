@@ -13,6 +13,7 @@ from PySide6.QtCore import (
     Property, QAbstractListModel, QByteArray, QModelIndex, QObject, QTimer, Qt, Signal,
 )
 
+from autoclave.ui_qml.domain import entradas_mostradas
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
 ESTADO_DESCONOCIDO = "DESCONOCIDO"
@@ -134,6 +135,7 @@ class UiBridge(QObject):
     listoParaCicloChanged = Signal()
     datosCicloChanged = Signal()
     seguridadChanged = Signal()
+    entradasChanged = Signal()
 
     def __init__(self, ui_service, door: int, parent=None, intervalo_ms: int = 500, iniciar: bool = True):
         super().__init__(parent)
@@ -146,6 +148,7 @@ class UiBridge(QObject):
         self._listo = False
         self._estado_equipo = estado_equipo(None, False)
         self._datos_ciclo = self._datos(None, None, None, None)
+        self._entradas = self._entradas_de(None, {})
         self._alarms = AlarmListModel(self)
         # E5 (tanda 2026-10-14): NO ABRIR, paro, estado seguro y modo prueba
         self._seguridad = self._seguridad_de({})
@@ -169,6 +172,18 @@ class UiBridge(QObject):
             "presion_unidad": dominio.simbolo_presion(pres),
             "temp_unidad": dominio.simbolo_temperatura(),
         }
+
+    @staticmethod
+    def _entradas_de(ciclo, sensors) -> dict:
+        """O3 (tanda 6): filas de las entradas mostradas del programa y las
+        series de la gráfica, en la unidad vigente (U1)."""
+        t, p, p_atm = dominio._vigentes()
+        lista = ciclo.get("entradas_mostradas") if isinstance(ciclo, dict) else None
+        no_en_uso = ciclo.get("entradas_no_en_uso") if isinstance(ciclo, dict) else None
+        if not isinstance(no_en_uso, list):
+            no_en_uso = []
+        return {"filas": entradas_mostradas.construir(lista, sensors, no_en_uso, t, p, p_atm),
+                "series": entradas_mostradas.series_grafica(lista, t, p)}
 
     def detener(self) -> None:
         self._timer.stop()
@@ -199,9 +214,15 @@ class UiBridge(QObject):
                             temps.get("temp_ref"),
                             self._ui.get_sensores_pres().get("pres_camara"))
         self._fijar("_datos_ciclo", datos, self.datosCicloChanged)
+        try:
+            sensors = self._ui.get_campo("sensors", {})
+        except Exception:
+            sensors = {}
+        self._fijar("_entradas", self._entradas_de(ciclo, sensors), self.entradasChanged)
         self._fijar("_seguridad", self._seguridad_de({
             "no_abrir": self._ui.get_campo("no_abrir", True),
             "motivo": self._ui.get_campo("camara_segura_motivo", ""),
+            "motivo_textos": self._ui.get_campo("camara_segura_motivo_textos", None),
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
             # U4: solo el paro real; sin datos de la tarjeta va en "tarjeta"
             "paro": self._ui.get_estado_flag("PARO_REAL"),
@@ -218,12 +239,18 @@ class UiBridge(QObject):
         return {
             "no_abrir": datos.get("no_abrir", True) is not False,
             "motivo": str(datos.get("motivo") or ""),
+            # I4 (tanda 6): el mismo motivo en es/en, si el backend lo mandó
+            "motivo_textos": {k: v for k, v in datos["motivo_textos"].items()
+                              if isinstance(k, str) and isinstance(v, str) and v}
+                             if isinstance(datos.get("motivo_textos"), dict) else {},
             "modo_prueba": datos.get("modo_prueba") is True,
             "paro": bool(datos.get("paro")),
             "es_activo": es.get("activo") is True,
             "es_confirmar": es.get("requiere_confirmacion") is True,
             # S4 (CIC-10): el protocolo no puede terminar solo; motivo o ""
             "es_bloqueado": str(es.get("bloqueado_motivo") or ""),
+            # P-6 (tanda 6): el CONFIRMAR del ciclo confirma también el estado seguro
+            "es_ack_confirma": es.get("ack_confirma_estado_seguro") is True,
             # T8: el backend vuelve a exigir la confirmación por ciclo
             "sin_bd": datos.get("sin_bd") is True,
             # U4: falla cerrada, sin dato o valor desconocido = desconectada
@@ -267,7 +294,10 @@ class UiBridge(QObject):
 
     @Property(str, notify=seguridadChanged)
     def noAbrirMotivo(self) -> str:
-        return self._seguridad["motivo"]
+        """Motivo de NO ABRIR en el idioma vigente (I4); sin traducción, el
+        texto en español de siempre."""
+        from autoclave import i18n
+        return self._seguridad["motivo_textos"].get(i18n.idioma()) or self._seguridad["motivo"]
 
     @Property(bool, notify=seguridadChanged)
     def modoPrueba(self) -> bool:
@@ -294,6 +324,11 @@ class UiBridge(QObject):
     def estadoSeguroBloqueadoMotivo(self) -> str:
         """S4: motivo de CIC-10 (estado seguro detenido); "" si avanza."""
         return self._seguridad.get("es_bloqueado", "")
+
+    @Property(bool, notify=seguridadChanged)
+    def ackConfirmaEstadoSeguro(self) -> bool:
+        """P-6: CONFIRMAR del ciclo = "Confirmar y llevar a estado seguro"."""
+        return self._seguridad.get("es_ack_confirma", False)
 
     @Property(bool, notify=seguridadChanged)
     def sinBaseDatos(self) -> bool:
@@ -339,6 +374,16 @@ class UiBridge(QObject):
     @Property(str, notify=datosCicloChanged)
     def presionCamara(self) -> str:
         return self._datos_ciclo["presion_camara"]
+
+    @Property("QVariantList", notify=entradasChanged)
+    def entradasMostradas(self) -> list:
+        """O3: [{clave, tipo, valor, unidad, enUso}] del programa (1 a 3)."""
+        return self._entradas["filas"]
+
+    @Property("QVariantList", notify=entradasChanged)
+    def seriesGrafica(self) -> list:
+        """O3: [{clave, entrada, color, eje, unidad, registrada}] para GraficaCiclo."""
+        return self._entradas["series"]
 
     @Property(str, notify=datosCicloChanged)
     def presionUnidad(self) -> str:

@@ -1,3 +1,4 @@
+import math
 from autoclave.state_machine.alarms.catalogo import (
     PRE_01, PRE_02, PRE_03, PRE_04, PRE_06, PUE_01, SEN_01, SIS_01,
     SUM_02, SUM_03, SUM_04, SUM_05, SUM_06, nombre_legible,
@@ -37,8 +38,6 @@ class preparado_state:
         # (fin de ciclo §15): mientras dure, él maneja la cámara
         self.estado_seguro_activo = None
 
-        # Tiempo requerido para considerar estable
-        self.tiempo_estable = self.config.get("tiempo_estable_alarma")
 
         # Timer de estabilidad
         self.timer_estabilidad = None
@@ -51,6 +50,25 @@ class preparado_state:
     # ==============================
     # RUN PRINCIPAL
     # ==============================
+
+    @property
+    def tiempo_estable(self):
+        """Tiempo requerido para considerar estable; se lee en cada uso para
+        que un cambio en Parámetros del equipo aplique sin reiniciar (OPC-11)."""
+        v = getattr(self, "_tiempo_estable_fijo", None)
+        if v is None:
+            v = self.config.get("tiempo_estable_alarma")
+        try:                                   # TMG-03: sin valor, el de fábrica (5 s)
+            v = float(v)
+        except (TypeError, ValueError):
+            return 5.0
+        return v if math.isfinite(v) and 0 <= v <= 3600 else 5.0
+
+    @tiempo_estable.setter
+    def tiempo_estable(self, valor):
+        """Solo para pruebas: fija un valor en lugar del vigente."""
+        self._tiempo_estable_fijo = valor
+
     def run(self):
         if self.estado.get_flag("PARO_EMERGENCIA"):
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
@@ -299,6 +317,8 @@ class preparado_state:
             # Sin entrada de suministro eléctrico declarada, no aplica (E1-1)
             not (entrada_requerida(self.profile, "suministro_electrico")
                  and self.estado.get_flag("FALLO_SUMINISTRO_ELECTRICO")) and
+            # P-4 (tanda 6): ninguna alarma activa con bloquea_inicio
+            not self._alarma_bloquea_inicio() and
             # D-04 (fin de ciclo §5): no se inicia sin cámara segura; al final
             # para no saltar la actualización de las alarmas de las demás
             self.camara_segura()
@@ -309,6 +329,16 @@ class preparado_state:
             return True
 
         return False
+
+    def _alarma_bloquea_inicio(self) -> bool:
+        """P-4 (tanda 6): alguna alarma ACTIVA cuyo catálogo dice
+        bloquea_inicio (p. ej. TARJETA_WATCHDOG fuera de ciclo). Un error al
+        consultar bloquea (falla cerrada)."""
+        try:
+            return self.alarm_manager.has_blocking_alarm() is True
+        except Exception:
+            logger.exception("PREPARADO: no se pudo consultar las alarmas que bloquean el inicio")
+            return True
 
     def camara_segura(self) -> bool:
         programas = [self.cycle]

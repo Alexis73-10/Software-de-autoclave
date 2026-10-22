@@ -70,6 +70,8 @@ class RenovadorSesion:
         if estado == 401 and SessionManager.token() == token:
             # el token ya no vale: la sesión local se cierra; lo editado sigue
             # en pantalla y el próximo guardado pedirá login (guardar_con_reintento)
+            global _usuario_caducado
+            _usuario_caducado = (SessionManager.current_user() or {}).get("usuario") or None
             SessionManager.logout()
             if self._al_caducar is not None:
                 self._al_caducar()
@@ -77,6 +79,16 @@ class RenovadorSesion:
 
 
 # ── guardado con reintento tras 401 ─────────────────────────────────────────
+
+# Revisión C1a (SAF-01): usuario cuya sesión cerró la renovación por un 401.
+# El reingreso posterior sigue limitado a esa persona (OTRO_USUARIO).
+_usuario_caducado: str | None = None
+
+
+def usuario_para_reingreso() -> str | None:
+    if SessionManager.token():
+        return (SessionManager.current_user() or {}).get("usuario") or None
+    return _usuario_caducado
 
 GUARDADO = "guardado"
 CANCELADO = "cancelado"           # el usuario no volvió a iniciar sesión
@@ -102,7 +114,8 @@ def guardar_con_reintento(guardar, pedir_credenciales, iniciar_sesion=auth_backe
     Otras excepciones se propagan sin cambios. Si había sesión al empezar, el
     reingreso debe ser del mismo usuario (la auditoría y la pantalla no cambian
     de persona en silencio)."""
-    previo = (SessionManager.current_user() or {}).get("usuario") if SessionManager.token() else None
+    global _usuario_caducado
+    previo = usuario_para_reingreso()
     try:
         return ResultadoGuardado(GUARDADO, guardar())
     except Exception as exc:
@@ -116,6 +129,7 @@ def guardar_con_reintento(guardar, pedir_credenciales, iniciar_sesion=auth_backe
     r = iniciar_sesion(*credenciales)
     if r.estado != auth_backend.OK:
         return ResultadoGuardado(LOGIN_FALLIDO, login=r.estado)
+    _usuario_caducado = None
     return ResultadoGuardado(GUARDADO, guardar())
 
 
@@ -164,17 +178,10 @@ def instalar_en(ventana, intervalo_ms: int = 5000, renovador: RenovadorSesion | 
 
 def pedir_credenciales_dialogo(padre):
     """Diálogo de login para reintentar un guardado (P3). (usuario, clave) o
-    None si se cancela. DECISIÓN SIN CONFIRMAR P3-1: QInputDialog del sistema
-    (la UI PySide no tiene teclado propio reutilizable fuera de su LoginView)."""
-    from PySide6.QtWidgets import QInputDialog, QLineEdit
-    usuario_previo = (SessionManager.current_user() or {}).get("usuario", "")
-    usuario, ok = QInputDialog.getText(padre, "Sesión vencida",
-                                       "La sesión venció. Usuario (técnico o ingeniero):",
-                                       QLineEdit.EchoMode.Normal, usuario_previo)
-    if not ok or not usuario.strip():
-        return None
-    clave, ok = QInputDialog.getText(padre, "Sesión vencida", "Contraseña:",
-                                     QLineEdit.EchoMode.Password)
-    if not ok or not clave:
-        return None
-    return usuario.strip(), clave
+    None si se cancela. C1a (tanda 6): teclado en pantalla propio
+    (_teclado_pantalla), el equipo es táctil y sin teclado físico."""
+    from autoclave import i18n
+    from autoclave.ui_pyside.views._teclado_pantalla import pedir_credenciales
+    usuario_previo = usuario_para_reingreso() or ""
+    return pedir_credenciales(padre, i18n.t("sesion.vencida_titulo"),
+                              i18n.t("sesion.vencida_mensaje"), usuario_previo)

@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 INTERVALO_MS = 1000
 
 
+def _en_unidad_vigente(datos: dict) -> dict:
+    """O3 (tanda 6): la gráfica se dibuja en la unidad vigente (U1)."""
+    from autoclave.ui_qml.domain import entradas_mostradas, pantalla_ciclo
+    t, p, _p_atm = pantalla_ciclo._vigentes()
+    return entradas_mostradas.convertir_datos_grafica(datos, t, p)
+
+
 def _en_hilo(tarea) -> None:
     threading.Thread(target=tarea, daemon=True, name="progreso-ciclo").start()
 
@@ -91,7 +98,7 @@ class ProgresoCiclo(QObject):
         cambio = self._acumulador.incorporar(grafica)
         fases = self._acumulador.inicios_de_fase(nuevo["aplicables"])
         if cambio or fases != self._fases_grafica:
-            self._datos = self._acumulador.datos()
+            self._datos = _en_unidad_vigente(self._acumulador.datos())
             self._fases_grafica = fases
             self.graficaChanged.emit()
 

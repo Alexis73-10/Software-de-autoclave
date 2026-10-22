@@ -71,8 +71,7 @@ def test_apertura_permitida_con_resultado_real(entorno):
     assert est.puertas["Puerta 1"] == DoorState.ABRIENDO
 
 
-@pytest.mark.parametrize("estado", [GlobalState.CICLO, GlobalState.HIBERNACION,
-                                    GlobalState.EMERGENCIA])
+@pytest.mark.parametrize("estado", [GlobalState.CICLO])   # P-8 (tanda 6)
 def test_puertas_bloqueadas_en_ciclo_hibernacion_y_emergencia(entorno, estado):
     cliente, ctx, est, _ = entorno
     ctx.estado.get_machine_state.return_value = estado
@@ -97,8 +96,12 @@ def test_sensor_ausente_rechaza_con_409_y_motivo(entorno):
     est.sensores_pres["pres_camara"] = None
     r = _abrir(cliente)
     assert r.status_code == 409
-    assert r.json() == {"detail": "Sin lectura válida de presión de cámara",
-                        "codigo": "puerta_rechazada"}
+    cuerpo = r.json()
+    assert {k: cuerpo[k] for k in ("detail", "codigo")} == {
+        "detail": "Sin lectura válida de presión de cámara", "codigo": "puerta_rechazada"}
+    # I4 (tanda 6): el motivo viaja también con código y textos es/en
+    assert cuerpo["motivo_codigo"] == "sin_presion_camara"
+    assert cuerpo["motivo_textos"]["en"] == "No valid chamber pressure reading"
     assert est.puertas["Puerta 1"] == DoorState.CERRADO
 
 

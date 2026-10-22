@@ -13,6 +13,7 @@
 import math
 
 from autoclave.core.runtime.sensores_ciclo import temp_seguridad
+from autoclave.core.runtime.motivos import Motivo
 
 CLAVE_ATM = "presion_admosferica"      # nombre real de la clave en global_params.json
 CLAVE_RANGO = "rango_presion_atm"
@@ -41,11 +42,12 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
     ciclo, su `finalizacion.temp_max_apertura`; rige el menor con el global
     (SAF-04 de T4), igual que la apertura automática."""
     if not datos_vigentes:
-        return False, "Sin conexión con la tarjeta: datos no vigentes"
+        return False, Motivo("sin_datos_vigentes", "Sin conexión con la tarjeta: datos no vigentes")
     faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO, CLAVE_TEMP_MAX)
               if _numero(config.get(c)) is None]
     if faltan:
-        return False, f"Falta configuración: {', '.join(faltan)}"
+        return False, Motivo("falta_config", f"Falta configuración: {', '.join(faltan)}",
+                             claves=", ".join(faltan))
     atm = _numero(config.get(CLAVE_ATM))
     rango = _numero(config.get(CLAVE_RANGO))
     temp_max = _numero(config.get(CLAVE_TEMP_MAX))
@@ -55,14 +57,14 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
 
     pres = _numero(estado.sensores_pres.get("pres_camara"))
     if pres is None:
-        return False, "Sin lectura válida de presión de cámara"
+        return False, Motivo("sin_presion_camara", "Sin lectura válida de presión de cámara")
     temp = _numero(temp_seguridad(estado, programas, profile))
     if temp is None:
-        return False, "Sin lectura válida de temperatura de cámara"
+        return False, Motivo("sin_temp_camara", "Sin lectura válida de temperatura de cámara")
     if pres > atm + rango:
-        return False, f"Sobrepresión en cámara ({pres:.0f} kPa)"
+        return False, Motivo("sobrepresion", f"Sobrepresión en cámara ({pres:.0f} kPa)", pres=pres)
     if pres < atm - rango:
-        return False, f"Cámara en vacío ({pres:.0f} kPa)"
+        return False, Motivo("vacio", f"Cámara en vacío ({pres:.0f} kPa)", pres=pres)
     if temp > temp_max:
-        return False, f"Temperatura demasiado alta ({temp:.0f} °C)"
+        return False, Motivo("temp_alta", f"Temperatura demasiado alta ({temp:.0f} °C)", temp=temp)
     return True, ""

@@ -119,6 +119,9 @@ class CalibracionSensorView(QWidget):
         root.addWidget(self._btn_guardar)
 
         root.addStretch()
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     # ── Contexto / carga ─────────────────────────────────────────────
 

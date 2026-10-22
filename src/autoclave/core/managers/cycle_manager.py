@@ -61,6 +61,7 @@ class Cycle:
         c.habilitado = getattr(self, "habilitado", True)
         c.personalizado = getattr(self, "personalizado", False)
         c.entradas_mostradas = getattr(self, "entradas_mostradas", None)
+        c.nombre_clave = getattr(self, "nombre_clave", None)
         return c
 
     def instantanea(self) -> dict:
@@ -194,6 +195,31 @@ class CycleManager:
             except Exception:
                 logger.exception("Defecto %s ilegible: se ignora", file)
 
+    def nombre_clave_de(self, cycle) -> str | None:
+        """I4 (tanda 6; D-14, §3.7): clave de catálogo del nombre del ciclo. La
+        propia, o la del ciclo de fábrica con el mismo cycle_id si el nombre no
+        se cambió en el hospital (un nombre propio se muestra igual en ambos
+        idiomas). None si no hay."""
+        propia = getattr(cycle, "nombre_clave", None)
+        if isinstance(propia, str) and propia:
+            return propia
+        for fab in self.fabrica.values():
+            if fab.id == cycle.id and fab.name == cycle.name:
+                clave = getattr(fab, "nombre_clave", None)
+                return clave if isinstance(clave, str) and clave else None
+        return None
+
+    def nombres_de(self, cycle) -> dict:
+        """{"es", "en"}: el nombre del ciclo en cada idioma (sin clave, el
+        display_name en los dos). Nunca lanza."""
+        try:
+            from autoclave import i18n
+            clave = self.nombre_clave_de(cycle)
+            return {idioma: (i18n.t(clave, idioma) if clave and i18n.existe(clave, idioma)
+                             else cycle.name) for idioma in i18n.IDIOMAS}
+        except Exception:
+            return {"es": cycle.name, "en": cycle.name}
+
     def defecto(self, numero: int):
         """Perfil por defecto de un número de programa: el del hospital
         (cycles/defecto) o, si no hay, el de fábrica. None si ninguno."""
@@ -243,6 +269,9 @@ class CycleManager:
                         cycle.source = source
                         cycle._path  = full_path
                         cycle.habilitado = data.get("habilitado", True) is not False
+                        # I4 (tanda 6; D-14): clave de catálogo del nombre (solo fábrica)
+                        clave = data.get("nombre_clave")
+                        cycle.nombre_clave = clave if isinstance(clave, str) and clave else None
                         cycle.personalizado = data.get("personalizado", False) is True
                         em = data.get("entradas_mostradas")
                         cycle.entradas_mostradas = (list(em) if isinstance(em, list)

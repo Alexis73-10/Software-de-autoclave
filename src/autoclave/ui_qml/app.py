@@ -173,7 +173,8 @@ def main(argv=None) -> int:
     comandos_sistema = ComandosSistema(puente, ui_service, args.door)
     info_equipo = InfoEquipo(cargar_perfil(), args.door, backend, version)
     ajustes = LanzadorAjustes()
-    standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto)
+    standby = Standby(ui_service, backend, mantener_despierto=lambda: ajustes.abierto,
+                      registrar_suspension=True)       # O2e: suspension_entra/_sale
     progreso = ProgresoCiclo(backend)
     comandos_en_curso = ComandosCicloEnCurso(puente, ui_service)
     # Resumen del Sistema del Menú Principal: solo lectura; sondea solo mientras el menú está visible

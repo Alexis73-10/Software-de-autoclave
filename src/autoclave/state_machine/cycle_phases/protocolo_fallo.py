@@ -70,6 +70,15 @@ class ProtocoloFallo:
         self._chaqueta_abierta  = False
         self._t_aire_comprimido = None
         self._lecturas_enfriada = 0
+        # P-2 (tanda 6): Principal perdido en ciclo = solo la lenta, sin
+        # escalar ni enfriamiento con contrapresión (no se sigue con la
+        # Referencia)
+        self._solo_lenta        = False
+
+    @property
+    def solo_lenta(self) -> bool:
+        """True si el protocolo se disparó por la pérdida del Principal."""
+        return self._solo_lenta
 
     @property
     def ejecutado(self) -> bool:
@@ -112,6 +121,9 @@ class ProtocoloFallo:
         T5): lo muestra el estado seguro como alarma. None si avanza."""
         if not self._ejecutado:
             return None
+        temp = self._temp_principal()
+        if self._solo_lenta and (not lectura_valida(temp) or temp == 0):
+            return "Sensor Principal sin lectura: el estado seguro no puede confirmar la temperatura"
         if self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento" \
                 and not lectura_valida(self._temp_principal()):
             return "Sensor Principal sin lectura: no se puede confirmar el enfriamiento"
@@ -123,12 +135,20 @@ class ProtocoloFallo:
     # DISPARO — llamar UNA vez al detectar el fallo
     # ------------------------------------------------------------------
 
-    def ejecutar(self, abrir_valvulas: bool = True):
+    def ejecutar(self, abrir_valvulas: bool = True, solo_lenta: bool = False):
         """`abrir_valvulas` False (paro de emergencia, fin de ciclo §15.1):
         solo apaga todo y registra el modo; las válvulas las abre update()
-        cuando el protocolo de estado seguro lo permita."""
+        cuando el protocolo de estado seguro lo permita.
+
+        `solo_lenta` (P-2, tanda 6): el sensor Principal se perdió en ciclo.
+        Se ventea solo por la lenta, sin escalar a la rápida ni enfriar con
+        contrapresión (sin Principal no se puede confirmar la temperatura de
+        la carga), sea cual sea el modo del programa."""
         if self._ejecutado:
             return
+        if solo_lenta:
+            self._solo_lenta = True
+            self._sin_escalar = True
 
         logger.warning("Protocolo de fallo ejecutado — apagando todas las salidas")
 
@@ -145,6 +165,8 @@ class ProtocoloFallo:
         modo = self._modo_efectivo()
         self._sub_etapa = ("lenta" if modo == 3
                            else "enfriamiento" if modo in (4, 5) else None)
+        if self._solo_lenta:
+            self._sub_etapa = None
 
         if not abrir_valvulas:
             if pres is not None and pres > atm + rango:
@@ -192,6 +214,10 @@ class ProtocoloFallo:
         return time.monotonic() + (timeout_min or 60) * 60
 
     def _aplicar_paso_modo(self, pres: float) -> None:
+        if self._solo_lenta:
+            # P-2: solo la lenta (la rápida la cerró el ALL_OFF y nadie la abre)
+            self.set_do.descompresion_lenta_on()
+            return
         if self._escalado:
             self.set_do.descompresion_chaqueta_on()
             self.set_do.descompresion_rapida_on()

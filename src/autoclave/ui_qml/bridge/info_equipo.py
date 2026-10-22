@@ -63,6 +63,18 @@ def _fila(clave, valor, disponible=True) -> dict:
     return {"clave": clave, "valor": None if valor is None else str(valor), "disponible": disponible}
 
 
+def _fila_enum(clave, prefijo, valor) -> dict:
+    """I4 (tanda 6; D-17): el valor crudo del enum y, si existe, la etiqueta de
+    catálogo `equipo.<prefijo><valor>` (la pantalla la muestra en su idioma)."""
+    fila = _fila(clave, None if valor is None else _valor_enum(valor))
+    if valor is not None:
+        from autoclave import i18n
+        candidata = f"{prefijo}{_valor_enum(valor)}"
+        if i18n.existe(f"equipo.{candidata}"):
+            fila["valorClave"] = candidata
+    return fila
+
+
 # FW-D7: emparejada -> clave del texto en la sección "equipo" de es.json
 _TEXTO_EMPAREJAMIENTO = {True: "tarjeta_emparejada", False: "tarjeta_no_emparejada"}
 
@@ -106,19 +118,18 @@ def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None,
         _fila("modelo", p.model_id if p else None),
         _fila("serie", p.serial_number if p else None),
         _fila("id_maquina", p.machine_id if p else None),
-        _fila("clase", _valor_enum(p.equipment_class) if p else None),
+        _fila_enum("clase", "clase_", p.equipment_class if p else None),
         _fila("puertas", p.door_count if p else None),
-        _fila("tipo_puerta", _valor_enum(p.door_type) if p else None),
+        _fila_enum("tipo_puerta", "tipo_puerta_", p.door_type if p else None),
         _fila("puerta_pantalla", door),
         _fila("enfriamiento", p.cooling_level if p else None),
         _fila("fecha_instalacion", p.created_at.strftime("%Y-%m-%d") if p else None),
         _fila("ciclos_realizados", ciclos),
         _fila("ultimo_ciclo", ultimo_ciclo),
-        # M1: con fuente (registro + intervalos) las filas dejan de ser "No disponible"
-        _fila("ultimo_mantenimiento", mant["ultimo"] if mantenimiento is not None else None,
-              disponible=mantenimiento is not None),
-        _fila("ciclos_restantes", mant["ciclos_restantes"] if mantenimiento is not None else None,
-              disponible=mantenimiento is not None),
+        # M1: la fuente existe (GET /maintenance); O2d (tanda 6): mientras no
+        # llega el dato se muestra "—", ya no "No disponible"
+        _fila("ultimo_mantenimiento", mant["ultimo"] if mantenimiento is not None else None),
+        _fila("ciclos_restantes", mant["ciclos_restantes"] if mantenimiento is not None else None),
         _fila("version_software", version_sw),
         *_filas_tarjeta(tarjeta),
     ]

@@ -164,6 +164,9 @@ class _EmailDialog(QDialog):
 
         # Pre-cargar contraseña guardada si existe
         self._load_saved_password(saved_from)
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     # ── Contraseña guardada ───────────────────────────────────────────
 

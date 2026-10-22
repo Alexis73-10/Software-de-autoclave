@@ -6,6 +6,8 @@
 
 import pytest
 
+from tests.opciones_qml_doble import COMUNES_T6
+
 pytest.importorskip("PySide6")
 
 from autoclave.ui.service_ui.session_manager import SessionManager
@@ -36,7 +38,7 @@ def test_identidad_y_secciones_de_un_tecnico():
     assert c.sesionActiva is True
     assert (c.usuario, c.nombre, c.rol) == ("anar", "Ana Ruiz", "tecnico")
     assert [s["clave"] for s in c.secciones][0] == "parametros_ciclo"
-    assert len(c.secciones) == 6      # cinco técnicas + Conectividad (tanda §1.6)
+    assert len(c.secciones) == 7 + len(COMUNES_T6) + 1   # cinco técnicas + Usuarios + Conectividad + O2c–O2e + Respaldo (O2h)
     assert all(s["icono"].endswith(".svg") for s in c.secciones)
 
 
@@ -47,7 +49,7 @@ def test_refrescar_detecta_la_sesion_nueva_y_notifica():
     SessionManager.login(_usuario("admin"))
     c.refrescar()
     assert c.sesionActiva is True
-    assert [s["clave"] for s in c.secciones] == ["usuarios", "conectividad"]
+    assert [s["clave"] for s in c.secciones] == ["parametros_sistema", "usuarios", "conectividad", *COMUNES_T6]
     assert avisos == [1]
     c.refrescar()   # sin cambios: no vuelve a notificar
     assert avisos == [1]

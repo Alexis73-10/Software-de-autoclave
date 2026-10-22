@@ -24,6 +24,13 @@ Item {
     // true cuando la pantalla debe cerrar el modo prueba al abandonarla
     readonly property bool enCalibracion: sensorEnCalibracion !== ""
 
+    // X1 (tanda 6): fondo opaco; ninguna pantalla debajo se ve a traves de esta
+    Rectangle {
+        objectName: "fondoOpacoES"
+        anchors.fill: parent
+        color: Colores.fondoTarjeta
+    }
+
     EntradasSalidasController {
         id: control
         objectName: "entradasSalidasController"
@@ -155,6 +162,74 @@ Item {
         }
     }
 
+    component TarjetaSensor: Rectangle {
+        id: tarjetaSensor
+        required property var modelData
+        property string tipo: ""
+        objectName: "sensor_" + modelData.name
+        width: parent ? parent.width : 0
+        height: Escala.px(190)
+        radius: Escala.px(14)
+        color: Colores.fondoTarjeta
+        border.width: Escala.px(1); border.color: Colores.bordeDivisor
+        Column {
+            anchors.left: parent.left; anchors.leftMargin: Escala.px(24)
+            anchors.verticalCenter: parent.verticalCenter
+            spacing: Escala.px(4)
+            Text {
+                text: raiz.nombreCanal(tarjetaSensor.modelData.i18n)
+                color: Colores.textoPrimario
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoSemiBold
+                font.pixelSize: Escala.fuente(26)
+            }
+            Text {
+                text: tarjetaSensor.modelData.id + " · " + I18n.t("io.ui.adc", I18n.lang) + " "
+                      + (tarjetaSensor.modelData.adc === null ? "—" : tarjetaSensor.modelData.adc)
+                color: tarjetaSensor.modelData.valido ? Colores.textoGuia : Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(20)
+            }
+            Text {
+                visible: !tarjetaSensor.modelData.valido
+                text: I18n.t("io.ui.sin_lectura", I18n.lang)
+                color: Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(20)
+            }
+        }
+        Text {
+            objectName: "valorSensor_" + tarjetaSensor.modelData.name
+            anchors.right: botonCalibrar.left; anchors.rightMargin: Escala.px(24)
+            anchors.verticalCenter: parent.verticalCenter
+            text: tarjetaSensor.modelData.valido
+                  ? tarjetaSensor.modelData.valor.toFixed(1)
+                        + (tarjetaSensor.tipo === "temperatura" ? " °C" : " kPa")
+                  : "---"
+            color: tarjetaSensor.modelData.valido ? Colores.textoPrimario : Colores.advertencia
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: Escala.fuente(54)
+            font.features: { "tnum": 1 }
+        }
+        Boton {
+            id: botonCalibrar
+            objectName: "botonCalibrar_" + tarjetaSensor.modelData.name
+            anchors.right: parent.right; anchors.rightMargin: Escala.px(20)
+            anchors.verticalCenter: parent.verticalCenter
+            width: Escala.px(170); height: Escala.px(72)
+            habilitado: control.puedeCalibrar && tarjetaSensor.modelData.valido
+            texto: I18n.t("io.ui.calibrar", I18n.lang)
+            onPulsado: {
+                if (control.cargarCalibracion(tarjetaSensor.tipo, tarjetaSensor.modelData.name)) {
+                    raiz.segmentoOrigen = tarjetaSensor.tipo
+                    raiz.sensorEnCalibracion = tarjetaSensor.modelData.name
+                }
+            }
+        }
+    }
+
+
     function nombreCanal(clave) { return I18n.t(clave, I18n.lang) }
 
     // ---------------------------------------------------------------- cabecera
@@ -207,19 +282,76 @@ Item {
         width: parent.width
         clip: true
 
-        // ---- Entradas / Salidas: cuadricula de 2 columnas
+        // ---- Entradas / Salidas (X1, tanda 6): una pagina por segmento, cada
+        // una con su propio Repeater sobre un modelo fijo. Antes compartian un
+        // solo Flow con dos Repeater cuyo modelo alternaba entre la lista y [];
+        // ahora una pagina oculta no puede dibujar tarjetas en la otra.
         Flickable {
+            id: paginaEntradas
+            objectName: "paginaEntradas"
             anchors.fill: parent
-            visible: raiz.segmento === "entradas" || raiz.segmento === "salidas"
-            contentHeight: cuadricula.implicitHeight + (cabeceraSalidas.visible ? cabeceraSalidas.height : 0)
+            visible: raiz.segmento === "entradas"
+            contentHeight: cuadriculaEntradas.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
+            clip: true
+
+            Flow {
+                id: cuadriculaEntradas
+                width: parent.width
+                spacing: Escala.px(12)
+                readonly property real ancho: (width - spacing) / 2
+
+                Repeater {
+                    model: control.entradas
+                    delegate: TarjetaCanal {
+                        id: tarjetaEntrada
+                        required property var modelData
+                        objectName: "entrada_" + modelData.name
+                        width: cuadriculaEntradas.ancho
+                        nombre: raiz.nombreCanal(modelData.i18n)
+                        idFisico: modelData.id
+                        Row {
+                            anchors.right: parent.right
+                            anchors.verticalCenter: parent.verticalCenter
+                            spacing: Escala.px(8)
+                            Rectangle {
+                                width: Escala.px(18); height: width; radius: width / 2
+                                anchors.verticalCenter: parent.verticalCenter
+                                color: tarjetaEntrada.modelData.activo === true ? Colores.menuVerde : "transparent"
+                                border.width: Escala.px(2)
+                                border.color: tarjetaEntrada.modelData.activo === true ? Colores.menuVerde : Colores.textoGuia
+                            }
+                            Text {
+                                objectName: "estadoEntrada_" + tarjetaEntrada.modelData.name
+                                text: tarjetaEntrada.modelData.activo === null
+                                      ? I18n.t("io.ui.sin_datos", I18n.lang)
+                                      : tarjetaEntrada.modelData.activo
+                                        ? I18n.t("io.ui.activo", I18n.lang) : I18n.t("io.ui.inactivo", I18n.lang)
+                                color: tarjetaEntrada.modelData.activo === true ? Colores.menuVerdeTexto : Colores.textoSecundario
+                                font.family: Tipografia.familia
+                                font.weight: Tipografia.pesoBold
+                                font.pixelSize: Escala.fuente(22)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Flickable {
+            id: paginaSalidas
+            objectName: "paginaSalidas"
+            anchors.fill: parent
+            visible: raiz.segmento === "salidas"
+            contentHeight: cabeceraSalidas.height + cuadriculaSalidas.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            clip: true
 
             Column {
                 id: cabeceraSalidas
-                visible: raiz.segmento === "salidas"
                 width: parent.width
                 spacing: Escala.px(10)
-                height: visible ? implicitHeight + Escala.px(10) : 0
+                height: implicitHeight + Escala.px(10)
 
                 Rectangle {
                     objectName: "bannerModoPrueba"
@@ -279,54 +411,19 @@ Item {
             }
 
             Flow {
-                id: cuadricula
+                id: cuadriculaSalidas
                 anchors.top: cabeceraSalidas.bottom
                 width: parent.width
                 spacing: Escala.px(12)
                 readonly property real ancho: (width - spacing) / 2
 
                 Repeater {
-                    model: raiz.segmento === "entradas" ? control.entradas : []
-                    delegate: TarjetaCanal {
-                        id: tarjetaEntrada
-                        required property var modelData
-                        objectName: "entrada_" + modelData.name
-                        width: cuadricula.ancho
-                        nombre: raiz.nombreCanal(modelData.i18n)
-                        idFisico: modelData.id
-                        Row {
-                            anchors.right: parent.right
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Escala.px(8)
-                            Rectangle {
-                                width: Escala.px(18); height: width; radius: width / 2
-                                anchors.verticalCenter: parent.verticalCenter
-                                color: tarjetaEntrada.modelData.activo === true ? Colores.menuVerde : "transparent"
-                                border.width: Escala.px(2)
-                                border.color: tarjetaEntrada.modelData.activo === true ? Colores.menuVerde : Colores.textoGuia
-                            }
-                            Text {
-                                objectName: "estadoEntrada_" + tarjetaEntrada.modelData.name
-                                text: tarjetaEntrada.modelData.activo === null
-                                      ? I18n.t("io.ui.sin_datos", I18n.lang)
-                                      : tarjetaEntrada.modelData.activo
-                                        ? I18n.t("io.ui.activo", I18n.lang) : I18n.t("io.ui.inactivo", I18n.lang)
-                                color: tarjetaEntrada.modelData.activo === true ? Colores.menuVerdeTexto : Colores.textoSecundario
-                                font.family: Tipografia.familia
-                                font.weight: Tipografia.pesoBold
-                                font.pixelSize: Escala.fuente(22)
-                            }
-                        }
-                    }
-                }
-
-                Repeater {
-                    model: raiz.segmento === "salidas" ? control.salidas : []
+                    model: control.salidas
                     delegate: TarjetaCanal {
                         id: tarjetaSalida
                         required property var modelData
                         objectName: "salida_" + modelData.name
-                        width: cuadricula.ancho
+                        width: cuadriculaSalidas.ancho
                         nombre: raiz.nombreCanal(modelData.i18n)
                         idFisico: modelData.id + (modelData.bloqueada ? " · " + I18n.t("io.ui.bloqueada", I18n.lang) : "")
                         readonly property bool libre: control.modoPrueba && !modelData.bloqueada
@@ -389,85 +486,38 @@ Item {
             }
         }
 
-        // ---- Temperatura / Presion: una tarjeta por sensor
+        // ---- Temperatura / Presion (X1): una pagina por segmento, modelo fijo
         Flickable {
+            objectName: "paginaTemperatura"
             anchors.fill: parent
-            visible: raiz.segmento === "temperatura" || raiz.segmento === "presion"
-            contentHeight: columnaSensores.implicitHeight
+            visible: raiz.segmento === "temperatura"
+            contentHeight: columnaTemperatura.implicitHeight
             boundsBehavior: Flickable.StopAtBounds
-
+            clip: true
             Column {
-                id: columnaSensores
+                id: columnaTemperatura
                 width: parent.width
                 spacing: Escala.px(12)
                 Repeater {
-                    model: raiz.segmento === "temperatura" ? control.temperatura
-                           : raiz.segmento === "presion" ? control.presion : []
-                    delegate: Rectangle {
-                        id: tarjetaSensor
-                        required property var modelData
-                        objectName: "sensor_" + modelData.name
-                        width: columnaSensores.width
-                        height: Escala.px(190)
-                        radius: Escala.px(14)
-                        color: Colores.fondoTarjeta
-                        border.width: Escala.px(1); border.color: Colores.bordeDivisor
-                        Column {
-                            anchors.left: parent.left; anchors.leftMargin: Escala.px(24)
-                            anchors.verticalCenter: parent.verticalCenter
-                            spacing: Escala.px(4)
-                            Text {
-                                text: raiz.nombreCanal(tarjetaSensor.modelData.i18n)
-                                color: Colores.textoPrimario
-                                font.family: Tipografia.familia
-                                font.weight: Tipografia.pesoSemiBold
-                                font.pixelSize: Escala.fuente(26)
-                            }
-                            Text {
-                                text: tarjetaSensor.modelData.id + " · " + I18n.t("io.ui.adc", I18n.lang) + " "
-                                      + (tarjetaSensor.modelData.adc === null ? "—" : tarjetaSensor.modelData.adc)
-                                color: tarjetaSensor.modelData.valido ? Colores.textoGuia : Colores.advertenciaTexto
-                                font.family: Tipografia.familia
-                                font.pixelSize: Escala.fuente(20)
-                            }
-                            Text {
-                                visible: !tarjetaSensor.modelData.valido
-                                text: I18n.t("io.ui.sin_lectura", I18n.lang)
-                                color: Colores.advertenciaTexto
-                                font.family: Tipografia.familia
-                                font.pixelSize: Escala.fuente(20)
-                            }
-                        }
-                        Text {
-                            objectName: "valorSensor_" + tarjetaSensor.modelData.name
-                            anchors.right: botonCalibrar.left; anchors.rightMargin: Escala.px(24)
-                            anchors.verticalCenter: parent.verticalCenter
-                            text: tarjetaSensor.modelData.valido
-                                  ? tarjetaSensor.modelData.valor.toFixed(1)
-                                        + (raiz.segmento === "temperatura" ? " °C" : " kPa")
-                                  : "---"
-                            color: tarjetaSensor.modelData.valido ? Colores.textoPrimario : Colores.advertencia
-                            font.family: Tipografia.familia
-                            font.weight: Tipografia.pesoBold
-                            font.pixelSize: Escala.fuente(54)
-                            font.features: { "tnum": 1 }
-                        }
-                        Boton {
-                            id: botonCalibrar
-                            objectName: "botonCalibrar_" + tarjetaSensor.modelData.name
-                            anchors.right: parent.right; anchors.rightMargin: Escala.px(20)
-                            anchors.verticalCenter: parent.verticalCenter
-                            width: Escala.px(170); height: Escala.px(72)
-                            habilitado: control.puedeCalibrar && tarjetaSensor.modelData.valido
-                            texto: I18n.t("io.ui.calibrar", I18n.lang)
-                            onPulsado: {
-                                if (control.cargarCalibracion(raiz.segmento, tarjetaSensor.modelData.name)) {
-                                    raiz.segmentoOrigen = raiz.segmento
-                                    raiz.sensorEnCalibracion = tarjetaSensor.modelData.name
-                                }
-                            }
-                        }
-                    }
+                    model: control.temperatura
+                    delegate: TarjetaSensor { tipo: "temperatura" }
+                }
+            }
+        }
+        Flickable {
+            objectName: "paginaPresion"
+            anchors.fill: parent
+            visible: raiz.segmento === "presion"
+            contentHeight: columnaPresion.implicitHeight
+            boundsBehavior: Flickable.StopAtBounds
+            clip: true
+            Column {
+                id: columnaPresion
+                width: parent.width
+                spacing: Escala.px(12)
+                Repeater {
+                    model: control.presion
+                    delegate: TarjetaSensor { tipo: "presion" }
                 }
             }
         }

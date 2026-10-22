@@ -50,8 +50,7 @@ def test_enter_test_mode_rechazado_devuelve_409_con_motivo(io_client):
     assert "paro de emergencia" in resp.json()["detail"]
 
 
-@pytest.mark.parametrize("estado", [GlobalState.CICLO, GlobalState.HIBERNACION,
-                                    GlobalState.EMERGENCIA])
+@pytest.mark.parametrize("estado", [GlobalState.CICLO])   # P-8 (tanda 6)
 def test_enter_bloqueado_en_ciclo_hibernacion_y_emergencia(io_client, estado):
     client, ctx, srv = io_client
     ctx.estado.get_machine_state.return_value = estado

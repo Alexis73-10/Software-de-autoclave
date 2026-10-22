@@ -101,7 +101,8 @@ def _obtener(datos, *ruta):
 
 def parametros_de_ciclo(ciclo) -> dict:
     """Consignas del ciclo seleccionado (respuesta de GET /cycle), ya formateadas."""
-    nombre = _obtener(ciclo, "name")
+    from autoclave.ui_qml.domain.nombres_ciclo import nombre_programa
+    nombre = nombre_programa(_obtener(ciclo, "name"), _obtener(ciclo, "nombres"))  # I4
     params = _obtener(ciclo, "parameters")
     return {
         "programa": nombre.upper() if isinstance(nombre, str) and nombre else SIN_DATO,

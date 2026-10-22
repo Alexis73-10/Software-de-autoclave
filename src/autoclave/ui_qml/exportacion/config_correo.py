@@ -16,12 +16,15 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from autoclave.utils.paths import app_root
 from autoclave.utils.resources import resource_path
 
 logger = logging.getLogger(__name__)
 
 RUTA = Path(resource_path("autoclave/config/correo.json"))
 SERVICIO_KEYRING = "Especifika-Autoclave-Email"   # el mismo de _email_dialog.py
+# O2g (tanda 6): destinatarios e interruptor editables desde OPCIONES › Conectividad
+RUTA_EQUIPO = app_root() / "data" / "correo_equipo.json"
 
 _CORREO = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -41,14 +44,15 @@ class ConfigCorreo:
     servidor: str = ""
     puerto: int = 587
     destinos: list = field(default_factory=list)   # [{"nombre", "correo"}]
-    contrasena: str | None = None
+    contrasena: str | None = field(default=None, repr=False)   # nunca en logs
+    envio_activo: bool = True        # O2g: interruptor de envío del equipo
 
     @property
     def configurado(self) -> bool:
-        return bool(self.remitente and self.servidor and self.contrasena)
+        return bool(self.envio_activo and self.remitente and self.servidor and self.contrasena)
 
 
-def cargar(ruta: Path = RUTA, contrasena=_contrasena_keyring) -> ConfigCorreo:
+def cargar(ruta: Path = RUTA, contrasena=_contrasena_keyring, ruta_equipo=None) -> ConfigCorreo:
     """Lee la configuración; un archivo ausente o dañado deja el correo sin
     configurar (el botón lo dice) en vez de fallar."""
     try:
@@ -73,6 +77,11 @@ def cargar(ruta: Path = RUTA, contrasena=_contrasena_keyring) -> ConfigCorreo:
         puerto=puerto if isinstance(puerto, int) and not isinstance(puerto, bool) else 587,
         destinos=destinos,
     )
+    # O2g: destinatarios guardados del equipo (si existen) e interruptor de envío
+    from autoclave.core.runtime.config_correo_equipo import ConfigCorreoEquipo
+    equipo = ConfigCorreoEquipo(ruta_equipo or RUTA_EQUIPO, semilla=lambda: destinos).leer()
+    config.destinos = equipo["destinatarios"]
+    config.envio_activo = equipo["envio_activo"]
     if config.remitente:
         try:
             config.contrasena = contrasena(config.remitente) or None

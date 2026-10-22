@@ -298,6 +298,9 @@ class _ParamEditDialog(QDialog):
         btns.addSpacing(8)
         btns.addWidget(self._btn_save)
         lay.addLayout(btns)
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     # ── Guardar ──────────────────────────────────────────────────────────
 

@@ -241,6 +241,15 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
             # txRuta parte en el primer punto: no resolvía el tercer nivel;
             # Opciones lo leía directo del objeto.
             ref = es["opciones"]["secciones"][clave.split(".")[2]]
+        elif clave.startswith(("bitacora.ev.", "bitacora.tipo.")):
+            # O2e (tanda 6): tercer nivel nuevo, sin referencia vieja
+            ref = es["bitacora"][clave.split(".")[1]][clave.split(".")[2]]
+            if caso_ref["a"][1]:
+                ref = ref.format(**{k: caso_ref["a"][1].get(k, "{%s}" % k)
+                                    for k in ("entidad", "anterior", "nuevo", "evento")})
+        elif clave.startswith(("opciones.equipo_grupos.", "opciones.equipo_grupos_desc.")):
+            # O2a (tanda 6): tercer nivel nuevo, sin referencia vieja
+            ref = es["opciones"][clave.split(".")[1]][clave.split(".")[2]]
         elif clave.startswith("io.") and clave.count(".") == 2:
             # Entradas / Salidas (planeacion_opciones_entradas_salidas.md §9):
             # io.di|do|ai|ui.<clave>, tres niveles sin referencia vieja.
@@ -249,9 +258,10 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
             parametros = caso_ref["a"][1]
             if parametros:
                 ref = ref.format(**parametros)
-        elif clave.startswith(("parametros_desc.", "descompresion_modos.")):
+        elif clave.startswith(("parametros_desc.", "descompresion_modos.", "ciclos_fabrica.")):
             # Descripciones de parámetros y modos de descompresión (Opciones):
-            # catálogo nuevo, sin referencia vieja; 3 o 4 niveles.
+            # catálogo nuevo, sin referencia vieja; 3 o 4 niveles. I4 (tanda 6):
+            # también ciclos_fabrica.<cycle_id>.nombre.
             ref = es
             for parte in clave.split("."):
                 ref = ref[parte]

@@ -145,7 +145,6 @@ def test_preparacion_sin_paro_por_flag_aunque_el_di_valga_0():
 def test_mensaje_de_alarma_menciona_cableado_nc_en_todos_los_estados():
     from autoclave.state_machine.states.preparado import preparado_state
     from autoclave.state_machine.states.falla import FallaState
-    from autoclave.state_machine.states.hibernacion import Hibernacion
     from autoclave.state_machine.states.ciclo import CicloState
 
     def _estado():
@@ -157,7 +156,6 @@ def test_mensaje_de_alarma_menciona_cableado_nc_en_todos_los_estados():
     for construir in (
         lambda am: preparado_state(am, _estado(), MagicMock(), MagicMock(), MagicMock()).run(),
         lambda am: FallaState(_estado(), MagicMock(), am).run(),
-        lambda am: Hibernacion(_estado(), MagicMock(), am).run(),
     ):
         am = AlarmManager()
         construir(am)

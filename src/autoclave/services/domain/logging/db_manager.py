@@ -249,6 +249,64 @@ def _migracion_v6(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE ciclos ADD COLUMN operador TEXT DEFAULT ''")
 
 
+def _migracion_v7(conn: sqlite3.Connection) -> None:
+    """I4 (tanda 6; planeacion_i18n.md §3.10): parámetros de la alarma del
+    fallo del ciclo, en JSON, para presentar el motivo en cualquier idioma y
+    unidad. `motivo_fallo` (texto en español) y `codigo_fallo` no cambian; los
+    ciclos anteriores quedan con '' (se muestran como antes)."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    if "valores_fallo" not in columnas:
+        conn.execute("ALTER TABLE ciclos ADD COLUMN valores_fallo TEXT DEFAULT ''")
+
+
+def _migracion_v8(conn: sqlite3.Connection) -> None:
+    """O2a (tanda 6; planeacion_opciones.md v4 §3.2): parámetros del equipo.
+    `global_params.json` es la fuente de los valores de fábrica; aquí queda el
+    valor vigente de cada uno, con el defecto, el mínimo y el máximo con que
+    se validó, y quién y cuándo lo cambió por última vez ('' / NULL si nunca).
+    El historial completo de cambios está en audit_log (param_sistema_cambio)."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS system_params (
+            clave      TEXT PRIMARY KEY,
+            valor      TEXT NOT NULL,
+            defecto    TEXT,
+            minimo     REAL,
+            maximo     REAL,
+            usuario    TEXT DEFAULT '',
+            fecha      TEXT
+        )
+    """)
+
+
+def _migracion_v9(conn: sqlite3.Connection) -> None:
+    """O2b (tanda 6; planeacion_opciones.md v4 §3.6): operadores, separados de
+    `usuarios`, identificados por nombre y sin contraseña. Nunca se borran
+    (trazabilidad): se desactivan. El nombre es único sin distinguir
+    mayúsculas (se compara con casefold() en Python, como `usuarios`)."""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS operadores (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            nombre     TEXT UNIQUE NOT NULL,
+            activo     INTEGER NOT NULL DEFAULT 1,
+            creado_por TEXT DEFAULT '',
+            creado_en  TEXT DEFAULT ''
+        )""")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS operadores_sin_delete BEFORE DELETE ON operadores "
+                 "BEGIN SELECT RAISE(ABORT, 'operadores no se borran'); END")
+    conn.execute("CREATE TRIGGER IF NOT EXISTS usuarios_sin_delete BEFORE DELETE ON usuarios "
+                 "BEGIN SELECT RAISE(ABORT, 'usuarios no se borran'); END")
+
+
+def _valores_fallo_json(valores) -> str:
+    """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
+    if not isinstance(valores, dict) or not valores:
+        return ""
+    try:
+        return json.dumps(valores, ensure_ascii=False, allow_nan=False, default=str)
+    except (TypeError, ValueError):
+        return ""
+
+
 _MIGRACIONES = (
     (1, _migracion_v1),
     (2, _migracion_v2),
@@ -256,6 +314,9 @@ _MIGRACIONES = (
     (4, _migracion_v4),
     (5, _migracion_v5),
     (6, _migracion_v6),
+    (7, _migracion_v7),
+    (8, _migracion_v8),
+    (9, _migracion_v9),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -450,6 +511,39 @@ class DbManager:
             return cur.lastrowid
 
     # ------------------------------------------------------------------
+    # Parámetros del equipo (O2a, tanda 6): tabla system_params
+    # ------------------------------------------------------------------
+
+    def listar_parametros_sistema(self) -> dict[str, dict]:
+        """{clave: fila} con `valor` y `defecto` ya decodificados del JSON."""
+        with self._lock:
+            filas = self._conn.execute("SELECT * FROM system_params").fetchall()
+        resultado = {}
+        for f in filas:
+            d = dict(f)
+            try:
+                d["valor"] = json.loads(d["valor"])
+                d["defecto"] = json.loads(d["defecto"]) if d["defecto"] is not None else None
+            except (TypeError, ValueError):
+                continue                       # fila ilegible: se ignora (vale la de fábrica)
+            resultado[d["clave"]] = d
+        return resultado
+
+    def guardar_parametro_sistema(self, clave: str, valor, defecto, minimo, maximo,
+                                  usuario: str = "", fecha: str | None = None) -> None:
+        """Inserta o reemplaza la fila. `fecha` None conserva NULL (sembrado
+        de fábrica, sin cambio de usuario)."""
+        with self._lock:
+            self._conn.execute(
+                "INSERT INTO system_params (clave, valor, defecto, minimo, maximo, usuario, fecha)"
+                " VALUES (?,?,?,?,?,?,?) ON CONFLICT(clave) DO UPDATE SET valor=excluded.valor,"
+                " defecto=excluded.defecto, minimo=excluded.minimo, maximo=excluded.maximo,"
+                " usuario=excluded.usuario, fecha=excluded.fecha",
+                (clave, json.dumps(valor), json.dumps(defecto), minimo, maximo,
+                 usuario or "", fecha))
+            self._conn.commit()
+
+    # ------------------------------------------------------------------
     # Mantenimientos realizados (M1, tanda 3)
     # ------------------------------------------------------------------
 
@@ -509,6 +603,42 @@ class DbManager:
             d["detalle"] = json.loads(d["detalle"]) if d["detalle"] else None
             resultado.append(d)
         return resultado
+
+    def consultar_auditoria(self, desde: str | None = None, hasta: str | None = None,
+                            usuario: str | None = None, evento: str | None = None,
+                            limite: int = 20, desplazamiento: int = 0) -> tuple[list[dict], int]:
+        """O2e: página de audit_log (la más reciente primero) y total con los
+        mismos filtros. `desde`/`hasta` comparan contra `ts` (ISO local)."""
+        condiciones, params = [], []
+        for cond, valor in (("ts >= ?", desde), ("ts < ?", hasta), ("usuario = ?", usuario),
+                            ("evento = ?", evento)):
+            if valor:
+                condiciones.append(cond)
+                params.append(valor)
+        where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
+        with self._lock:
+            total = self._conn.execute(f"SELECT COUNT(*) FROM audit_log {where}", params).fetchone()[0]
+            filas = self._conn.execute(
+                f"SELECT * FROM audit_log {where} ORDER BY id DESC LIMIT ? OFFSET ?",
+                [*params, int(limite), int(desplazamiento)]).fetchall()
+        resultado = []
+        for f in filas:
+            d = dict(f)
+            try:
+                d["detalle"] = json.loads(d["detalle"]) if d["detalle"] else None
+            except (TypeError, ValueError):
+                pass
+            resultado.append(d)
+        return resultado, int(total)
+
+    def valores_auditoria(self) -> tuple[list[str], list[str]]:
+        """Usuarios y eventos distintos de audit_log (para los filtros)."""
+        with self._lock:
+            usuarios = [r[0] for r in self._conn.execute(
+                "SELECT DISTINCT usuario FROM audit_log WHERE usuario <> '' ORDER BY usuario")]
+            eventos = [r[0] for r in self._conn.execute(
+                "SELECT DISTINCT evento FROM audit_log ORDER BY evento")]
+        return usuarios, eventos
 
     # ------------------------------------------------------------------
     # Ciclos
@@ -607,15 +737,16 @@ class DbManager:
             return cur.lastrowid
 
     def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
-                     codigo_fallo: str | None = None, f0_final: float | None = None):
-        """Registra la hora de fin, el resultado y (si lo hay) el motivo y código
-        del ciclo, y el F0 final si el ciclo tenía F0 activo."""
+                     codigo_fallo: str | None = None, f0_final: float | None = None,
+                     valores_fallo: dict | None = None):
+        """Registra la hora de fin, el resultado y (si lo hay) el motivo, el
+        código y los parámetros del fallo, y el F0 final si el ciclo tenía F0 activo."""
         with self._lock:
             self._conn.execute(
                 "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
-                "f0_final=? WHERE id=?",
+                "f0_final=?, valores_fallo=? WHERE id=?",
                 (datetime.now().isoformat(), resultado, motivo_fallo or "",
-                 codigo_fallo or "", f0_final, ciclo_id),
+                 codigo_fallo or "", f0_final, _valores_fallo_json(valores_fallo), ciclo_id),
             )
             self._conn.commit()
 
@@ -722,10 +853,11 @@ class DbManager:
             if cerrar:
                 self._conn.execute(
                     "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
-                    "f0_final=? WHERE id=?",
+                    "f0_final=?, valores_fallo=? WHERE id=?",
                     (cierre.get("fecha_fin") or datetime.now().isoformat(),
                      cierre.get("resultado") or "DESCONOCIDO", cierre.get("motivo") or "",
-                     cierre.get("codigo") or "", cierre.get("f0_final"), ciclo_id))
+                     cierre.get("codigo") or "", cierre.get("f0_final"),
+                     _valores_fallo_json(cierre.get("valores")), ciclo_id))
             self._conn.commit()
         except Exception:
             self._conn.rollback()
@@ -1046,6 +1178,100 @@ class DbManager:
                 (hash_pw, usuario),
             )
             self._conn.commit()
+
+    # ── Gestión de usuarios y operadores (O2b, tanda 6) ─────────────────
+
+    _CAMPOS_USUARIO = "id, nombre, usuario, rol, activo, creado_por, creado_en, debe_cambiar_clave"
+
+    def listar_usuarios(self) -> list[dict]:
+        """Todos los usuarios (activos e inactivos), SIN el hash, con el último
+        ingreso (`login_ok` de audit_log; None si nunca)."""
+        with self._lock:
+            filas = self._conn.execute(
+                f"SELECT {self._CAMPOS_USUARIO} FROM usuarios ORDER BY nombre COLLATE NOCASE, id"
+            ).fetchall()
+            ingresos = dict(self._conn.execute(
+                "SELECT usuario, MAX(ts) FROM audit_log WHERE evento='login_ok' GROUP BY usuario"
+            ).fetchall())
+        resultado = []
+        for f in filas:
+            d = dict(f)
+            d["activo"] = bool(d["activo"])
+            d["debe_cambiar_clave"] = bool(d["debe_cambiar_clave"])
+            d["ultimo_ingreso"] = ingresos.get(d["usuario"])
+            resultado.append(d)
+        return resultado
+
+    def get_usuario_cualquiera(self, usuario: str) -> dict | None:
+        """El usuario (activo o no), SIN el hash; None si no existe."""
+        with self._lock:
+            row = self._conn.execute(
+                f"SELECT {self._CAMPOS_USUARIO} FROM usuarios WHERE usuario=?", (usuario,)
+            ).fetchone()
+        return dict(row) if row else None
+
+    def fijar_activo_usuario(self, usuario: str, activo: bool, rol_protegido: str) -> str:
+        """Activa o desactiva. Comprobación y escritura en el mismo bloque con
+        el candado tomado: desactivar el último `rol_protegido` activo se
+        rechaza. Devuelve "ok", "no_existe", "sin_cambio" o "ultimo_protegido"."""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT rol, activo FROM usuarios WHERE usuario=?", (usuario,)).fetchone()
+            if row is None:
+                return "no_existe"
+            if bool(row["activo"]) == bool(activo):
+                return "sin_cambio"
+            if not activo and row["rol"] == rol_protegido:
+                otros = self._conn.execute(
+                    "SELECT COUNT(*) FROM usuarios WHERE rol=? AND activo=1 AND usuario<>?",
+                    (rol_protegido, usuario)).fetchone()[0]
+                if otros == 0:
+                    return "ultimo_protegido"
+            self._conn.execute("UPDATE usuarios SET activo=? WHERE usuario=?",
+                               (1 if activo else 0, usuario))
+            self._conn.commit()
+            return "ok"
+
+    def restablecer_password(self, usuario: str, hash_pw: str) -> bool:
+        """Nuevo hash y cambio obligatorio en el siguiente login. False si no existe."""
+        with self._lock:
+            cur = self._conn.execute(
+                "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=1 WHERE usuario=?",
+                (hash_pw, usuario))
+            self._conn.commit()
+            return cur.rowcount > 0
+
+    def listar_operadores(self, solo_activos: bool = False) -> list[dict]:
+        where = "WHERE activo=1 " if solo_activos else ""
+        with self._lock:
+            filas = self._conn.execute(
+                f"SELECT * FROM operadores {where}ORDER BY nombre COLLATE NOCASE, id").fetchall()
+        return [{**dict(f), "activo": bool(f["activo"])} for f in filas]
+
+    def crear_operador(self, nombre: str, creado_por: str = "") -> int | None:
+        """Id del nuevo operador; None si ya existe uno con ese nombre (sin
+        distinguir mayúsculas, activo o no)."""
+        buscado = nombre.casefold()
+        with self._lock:
+            nombres = [f[0] for f in self._conn.execute("SELECT nombre FROM operadores")]
+            if any(n.casefold() == buscado for n in nombres):
+                return None
+            cur = self._conn.execute(
+                "INSERT INTO operadores (nombre, activo, creado_por, creado_en) VALUES (?,1,?,?)",
+                (nombre, creado_por or "", datetime.now().isoformat(timespec="seconds")))
+            self._conn.commit()
+            return cur.lastrowid
+
+    def fijar_activo_operador(self, id_: int, activo: bool) -> dict | None:
+        """Fila anterior del operador (None si no existe) y aplica el cambio."""
+        with self._lock:
+            row = self._conn.execute("SELECT * FROM operadores WHERE id=?", (id_,)).fetchone()
+            if row is None:
+                return None
+            self._conn.execute("UPDATE operadores SET activo=? WHERE id=?",
+                               (1 if activo else 0, id_))
+            self._conn.commit()
+        return {**dict(row), "activo": bool(row["activo"])}
 
     def seed_admin_if_empty(self) -> None:
         """Con la tabla vacía crea los usuarios semilla `admin` e `ingeniero`,

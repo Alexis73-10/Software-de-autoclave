@@ -131,10 +131,11 @@ class UnidadesQml(QObject):
         return u.formatear_dpres(_num(valor), self._presion)
 
     @Slot("QVariant", str, str, result=str)
-    def parametro(self, valor, unidad_json: str, nombre: str) -> str:
+    @Slot("QVariant", str, str, str, result=str)
+    def parametro(self, valor, unidad_json: str, nombre: str, clase: str = "") -> str:
         """Valor de un parámetro de ciclo según su clase (absoluto o
         diferencia); sin clase, el número con su unidad original."""
-        clase = u.clase_de_unidad(unidad_json, nombre)
+        clase = u.clase_de_unidad(unidad_json, nombre, clase)
         v = _num(valor)
         if clase == "temp":
             return u.formatear_temp(v, self._temperatura)
@@ -149,9 +150,11 @@ class UnidadesQml(QObject):
     # ── entrada de datos ───────────────────────────────────────────────
 
     @Slot(str, str, result=str)
-    def unidadIngreso(self, unidad_json: str, nombre: str) -> str:
+    @Slot(str, str, str, result=str)
+    @Slot(str, str, str, int, result=str)
+    def unidadIngreso(self, unidad_json: str, nombre: str, clase: str = "", _version=0) -> str:
         """Unidad en la que se teclea el parámetro ('' = la original del JSON)."""
-        clase = u.clase_de_unidad(unidad_json, nombre)
+        clase = u.clase_de_unidad(unidad_json, nombre, clase)
         if clase in ("temp", "dtemp"):
             return self._temperatura
         if clase == "pres":
@@ -161,9 +164,10 @@ class UnidadesQml(QObject):
         return ""
 
     @Slot("QVariant", str, str, result="QVariant")
-    def aMostrar(self, valor, unidad_json: str, nombre: str):
+    @Slot("QVariant", str, str, str, result="QVariant")
+    def aMostrar(self, valor, unidad_json: str, nombre: str, clase: str = ""):
         """Número (sin formato) en la unidad de presentación; None si no se puede."""
-        clase = u.clase_de_unidad(unidad_json, nombre)
+        clase = u.clase_de_unidad(unidad_json, nombre, clase)
         v = _num(valor)
         if v is None or clase is None:
             return v
@@ -176,10 +180,10 @@ class UnidadesQml(QObject):
         return u.dpres_a_mostrar(v, self._presion)[0]
 
     @Slot(str, str, "QVariant", "QVariant", result="QVariantList")
-    @Slot(str, str, "QVariant", "QVariant", int, result="QVariantList")
-    def ingresosPsi(self, unidad_json: str, nombre: str, minimo=None, maximo=None, _version=0):
+    @Slot(str, str, "QVariant", "QVariant", str, result="QVariantList")
+    def ingresosPsi(self, unidad_json: str, nombre: str, minimo=None, maximo=None, clase: str = ""):
         """psig y/o inHg para teclear un parámetro absoluto en psi (U1-2)."""
-        if self._presion != "psi" or u.clase_de_unidad(unidad_json, nombre) != "pres":
+        if self._presion != "psi" or u.clase_de_unidad(unidad_json, nombre, clase) != "pres":
             return []
         return u.unidades_de_ingreso_psi(_num(minimo), _num(maximo), self._p_atm)
 
@@ -188,13 +192,16 @@ class UnidadesQml(QObject):
         return u.SIMBOLOS.get(unidad, unidad)
 
     @Slot("QVariant", str, str, str, result="QVariant")
-    def aMostrarEn(self, valor, unidad_json: str, nombre: str, unidad_ingreso: str):
+    @Slot("QVariant", str, str, str, str, result="QVariant")
+    def aMostrarEn(self, valor, unidad_json: str, nombre: str, unidad_ingreso: str,
+                   clase: str = ""):
         """Número en la unidad de ingreso (psig o inHg aunque el valor esté del
         otro lado de la atmosférica: entonces 0, el teclado lo corrige)."""
         v = _num(valor)
-        clase = u.clase_de_unidad(unidad_json, nombre)
+        clase_hoja = clase
+        clase = u.clase_de_unidad(unidad_json, nombre, clase_hoja)
         if v is None or clase != "pres" or unidad_ingreso not in ("psig", "inHg"):
-            return self.aMostrar(valor, unidad_json, nombre)
+            return self.aMostrar(valor, unidad_json, nombre, clase_hoja)
         if self._p_atm is None:
             return None
         if unidad_ingreso == "psig":
@@ -202,16 +209,19 @@ class UnidadesQml(QObject):
         return max(0.0, (self._p_atm - v) / u.KPA_POR_INHG)
 
     @Slot("QVariant", str, str, str, result="QVariant")
-    def aInterna(self, valor, unidad_json: str, nombre: str, unidad_ingreso: str = ""):
+    @Slot("QVariant", str, str, str, str, result="QVariant")
+    def aInterna(self, valor, unidad_json: str, nombre: str, unidad_ingreso: str = "",
+                 clase: str = ""):
         """Valor tecleado en `unidad_ingreso` (la fijada al abrir la ventana:
         'C'/'F', 'kPa'/'bar'/'mbar', 'psig'/'inHg'/'psi') → unidad interna
         (°C / kPa abs). Revisión U1 (SAF-02): no se usa la unidad vigente, que
         pudo cambiar con la ventana abierta. None si no se puede convertir."""
-        clase = u.clase_de_unidad(unidad_json, nombre)
+        clase_hoja = clase
+        clase = u.clase_de_unidad(unidad_json, nombre, clase_hoja)
         v = _num(valor)
         if v is None or clase is None:
             return v
-        unidad = unidad_ingreso or self.unidadIngreso(unidad_json, nombre)
+        unidad = unidad_ingreso or self.unidadIngreso(unidad_json, nombre, clase_hoja)
         try:
             if clase == "temp":
                 if unidad not in u.TEMPERATURAS:

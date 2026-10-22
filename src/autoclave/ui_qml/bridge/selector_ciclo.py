@@ -19,12 +19,25 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 logger = logging.getLogger(__name__)
 
 
+from autoclave.ui_qml.domain.nombres_ciclo import nombre_programa  # noqa: E402
+
+
 def _en_hilo(tarea) -> None:
     threading.Thread(target=tarea, daemon=True, name="selector-ciclo").start()
 
 
 def _numero(v) -> str:
     return f"{v:g}" if isinstance(v, (int, float)) and not isinstance(v, bool) else "—"
+
+
+def _temp_vigente(v) -> str:
+    """Temperatura del programa en la unidad vigente (U1), "—" sin número."""
+    from autoclave.core.runtime import unidades as u
+    from autoclave.ui_qml.domain.pantalla_ciclo import _vigentes
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return "—"
+    unidad = _vigentes()[0]
+    return f"{round(u.temp_a_mostrar(float(v), unidad), 1):g} {u.simbolo_temp(unidad)}"
 
 
 def fila_presentable(p: dict) -> dict | None:
@@ -34,8 +47,9 @@ def fila_presentable(p: dict) -> dict | None:
     return {
         "cycleId": str(p["cycle_id"]),
         "numero": str(p.get("numero", "")),
-        "nombre": str(p.get("nombre", "")),
-        "parametros": f"{_numero(p.get('temperatura'))} °C · {_numero(p.get('tiempo'))} min",
+        # I4 (tanda 6): nombre en el idioma vigente y temperatura en la unidad vigente
+        "nombre": str(nombre_programa(p.get("nombre", ""), p.get("nombres")) or ""),
+        "parametros": f"{_temp_vigente(p.get('temperatura'))} · {_numero(p.get('tiempo'))} min",
         "masUsado": p.get("mas_usado") is True,
         "seleccionado": p.get("seleccionado") is True,
     }

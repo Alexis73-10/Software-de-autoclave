@@ -103,8 +103,8 @@ def api(tmp_path):
     return TestClient(srv.app), srv, ctx, cabecera
 
 
-@pytest.mark.parametrize("rol", ["operador", "admin", "tecnico", "ingeniero"])
-def test_cualquier_rol_con_sesion_cambia_el_idioma_aun_en_ciclo(api, rol):
+@pytest.mark.parametrize("rol", ["admin", "ingeniero"])   # decisión 1.9 (tanda 6)
+def test_admin_e_ingeniero_cambian_el_idioma_aun_en_ciclo(api, rol):
     client, srv, ctx, cabecera = api
     r = client.put("/language", headers=cabecera(srv, rol), json={"idioma": "en"})
     assert r.status_code == 200
@@ -115,8 +115,10 @@ def test_cualquier_rol_con_sesion_cambia_el_idioma_aun_en_ciclo(api, rol):
 def test_idioma_sin_sesion_o_invalido(api):
     client, srv, ctx, cabecera = api
     assert client.put("/language", json={"idioma": "en"}).status_code == 401
-    assert client.put("/language", headers=cabecera(srv, "tecnico"),
+    assert client.put("/language", headers=cabecera(srv, "ingeniero"),
                       json={"idioma": "fr"}).status_code == 422
+    assert client.put("/language", headers=cabecera(srv, "tecnico"),
+                      json={"idioma": "en"}).status_code == 403   # decisión 1.9
 
 
 def test_status_no_cae_por_textos_rotos(monkeypatch):

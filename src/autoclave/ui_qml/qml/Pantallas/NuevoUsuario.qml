@@ -607,7 +607,7 @@ Item {
         id: dialogoDescartar
         objectName: "dialogoDescartar"
         titulo: I18n.t("usuarios.descartar_titulo", I18n.lang)
-        textoCerrar: "Seguir editando"
+        textoCerrar: I18n.t("usuarios.seguir_editando", I18n.lang)
         altoTarjeta: Escala.px(560)
 
         property var _accion: null

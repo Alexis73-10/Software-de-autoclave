@@ -27,13 +27,15 @@ import Autoclave.I18n
 // uso (`usaToken`): la vigilancia de conexión de Main.qml aplica aquí.
 Item {
     id: raiz
+    objectName: "pantallaOpciones"
 
     property QtObject puente: null      // UiBridge: estado de la máquina y campana
     property QtObject comandosSistema: null   // confirmar estado seguro desde la campana (U1)
     property QtObject teclado: null     // PanelTeclado de la ventana (T12: ajuste de parámetros)
     // Cambios sin guardar de la sección activa (U-13, U-19): roles de sensor
     // sin guardar en Parámetros del ciclo (T12)
-    property bool cambiosPendientes: parametrosCiclo.item?.cambiosPendientes ?? false
+    property bool cambiosPendientes: (parametrosCiclo.item?.cambiosPendientes ?? false)
+                                     || (parametrosEquipo.item?.cambiosPendientes ?? false)
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
     // U2 (tanda 2): Atrás vuelve a la pantalla anterior conservando la sesión;
@@ -44,6 +46,8 @@ Item {
     signal menuPulsado()           // engranaje del encabezado: Menú Principal
 
     readonly property bool usaToken: true
+    // O2f (tanda 6): durante la calibración atmosférica solo Cancelar está activo
+    readonly property bool navegacionBloqueada: mantenimiento.item?.navegacionBloqueada ?? false
 
     // Nombre de la sección en una línea (cajón y título, §5.0)
     function nombreSeccion(clave) {
@@ -73,16 +77,16 @@ Item {
     property string seccionActiva: ""
     function _ajustarSeccion() {
         if (!secciones.some(s => s.clave === seccionActiva))
-            seccionActiva = secciones.length > 0 ? secciones[0].clave : ""
+            seccionActiva = control.seccionInicial   // C1b: el admin aterriza en Usuarios
     }
     onSeccionesChanged: _ajustarSeccion()
     Component.onCompleted: { control.refrescar(); _ajustarSeccion() }
 
     // ---- cajón ----
     property bool cajonAbierto: false
-    function abrirCajon() { cajonAbierto = true }
+    function abrirCajon() { if (!navegacionBloqueada) cajonAbierto = true }
     function cerrarCajon() { cajonAbierto = false }
-    function alternarCajon() { cajonAbierto = !cajonAbierto }
+    function alternarCajon() { if (!navegacionBloqueada) cajonAbierto = !cajonAbierto }
 
     // Elegir una entrada: cierra el cajón y muestra su panel; con cambios sin
     // guardar pide confirmación antes de cambiar (U-19)
@@ -104,6 +108,8 @@ Item {
     property var _salidaPendiente: null
     function _salirCon(senal) {
         cerrarCajon()
+        if (navegacionBloqueada)
+            return
         // salir de OPCIONES cierra el modo prueba de Entradas / Salidas (D-ES-08)
         entradasSalidas.item?.cerrarModoPrueba("abandono de la sección")
         if (cambiosPendientes) {
@@ -118,6 +124,10 @@ Item {
     function atras() {
         cerrarCajon()
         if (parametrosCiclo.item?.retroceder())
+            return
+        if (parametrosEquipo.item?.retroceder())      // O2a: submenú -> entrada
+            return
+        if (mantenimiento.item?.retroceder())         // O2f: calibración -> Mantenimiento
             return
         if (entradasSalidas.item?.subirNivel())
             return
@@ -204,7 +214,9 @@ Item {
                 anchors.fill: parent
                 anchors.leftMargin: raiz.m(24); anchors.rightMargin: raiz.m(24)
                 verticalAlignment: Text.AlignVCenter
-                text: I18n.t("opciones.edicion_bloqueada", I18n.lang)
+                text: control.motivoSoloLectura === "rol"
+                      ? I18n.t("opciones.solo_lectura_rol", I18n.lang)
+                      : I18n.t("opciones.edicion_bloqueada", I18n.lang)
                 wrapMode: Text.WordWrap
                 color: Colores.advertenciaTexto
                 font.family: Tipografia.familia
@@ -213,22 +225,19 @@ Item {
             }
         }
 
-        // Usuarios: por ahora solo crear (botón a Nuevo usuario, R2-5)
-        Rectangle {
-            objectName: "botonNuevoUsuario"
-            visible: raiz.seccionActiva === "usuarios"
-            anchors.centerIn: parent
-            width: raiz.m(560); height: raiz.m(96); radius: raiz.m(12)
-            color: Colores.accionPrimario
-            Text {
-                anchors.centerIn: parent
-                text: I18n.t("opciones.nuevo_usuario", I18n.lang)
-                color: "white"
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoSemiBold
-                font.pixelSize: raiz.fuente(32)
+        // Usuarios (O2b, tanda 6): pestañas Usuarios / Operadores; "+ Nuevo
+        // usuario" sigue abriendo la pantalla existente (R2-5)
+        Loader {
+            id: usuarios
+            objectName: "cargadorUsuarios"
+            active: raiz.seccionActiva === "usuarios"
+            anchors.fill: parent
+            sourceComponent: OpcionesUsuarios {
+                teclado: raiz.teclado
+                rol: control.rol
+                usuarioActual: control.usuario
+                onNuevoUsuarioPulsado: raiz.nuevoUsuarioPulsado()
             }
-            MouseArea { anchors.fill: parent; onClicked: raiz.nuevoUsuarioPulsado() }
         }
 
         // Parámetros del ciclo, Fases 2 a 4 (T12): debajo del aviso de bloqueo
@@ -244,7 +253,7 @@ Item {
             }
         }
 
-        // Parámetros del equipo (P2, tanda 5): impresora habilitada
+        // Parámetros del equipo (O2a, tanda 6): 7 submenús
         Loader {
             id: parametrosEquipo
             objectName: "cargadorParametrosEquipo"
@@ -254,7 +263,36 @@ Item {
             sourceComponent: OpcionesParametrosEquipo {
                 teclado: raiz.teclado
                 edicionPermitida: raiz.edicionPermitida
+                rol: control.rol                                  // O2a: decisión 1.9
+                estadoMaquina: raiz.puente?.machineState ?? ""
             }
+        }
+
+        // Fecha y hora (O2c, tanda 6): solo lectura
+        Loader {
+            id: fechaHora
+            objectName: "cargadorFechaHora"
+            active: raiz.seccionActiva === "fecha_hora"
+            anchors.fill: parent
+            sourceComponent: OpcionesFechaHora {}
+        }
+
+        // Información del sistema (O2d, tanda 6): solo lectura
+        Loader {
+            id: infoSistema
+            objectName: "cargadorInfoSistema"
+            active: raiz.seccionActiva === "info_sistema"
+            anchors.fill: parent
+            sourceComponent: OpcionesInfoSistema {}
+        }
+
+        // Bitácora de auditoría (O2e, tanda 6): solo lectura
+        Loader {
+            id: bitacora
+            objectName: "cargadorBitacora"
+            active: raiz.seccionActiva === "bitacora"
+            anchors.fill: parent
+            sourceComponent: OpcionesBitacora { teclado: raiz.teclado }
         }
 
         // Mantenimiento (M1, tanda 3): próximo vencimiento y registro
@@ -267,6 +305,33 @@ Item {
             sourceComponent: OpcionesMantenimiento {
                 teclado: raiz.teclado
                 edicionPermitida: raiz.edicionPermitida
+            }
+        }
+
+        // Conectividad (O2g, tanda 6): red en lectura y correo de ciclos
+        Loader {
+            id: conectividad
+            objectName: "cargadorConectividad"
+            active: raiz.seccionActiva === "conectividad"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesConectividad {
+                teclado: raiz.teclado
+                rol: control.rol
+                estadoMaquina: raiz.puente?.machineState ?? ""
+            }
+        }
+
+        // Respaldo (O2h, tanda 6): exportar y restaurar por USB
+        Loader {
+            id: respaldo
+            objectName: "cargadorRespaldo"
+            active: raiz.seccionActiva === "respaldo"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesRespaldo {
+                // solo fuera de ciclo, también el ingeniero (el backend responde 409)
+                edicionPermitida: raiz.edicionPermitida && (raiz.puente?.machineState ?? "") !== "CICLO"
             }
         }
 
@@ -289,6 +354,11 @@ Item {
                      && raiz.seccionActiva !== "mantenimiento"
                      && raiz.seccionActiva !== "parametros_sistema"
                      && raiz.seccionActiva !== "entradas_salidas"
+                     && raiz.seccionActiva !== "fecha_hora"
+                     && raiz.seccionActiva !== "info_sistema"
+                     && raiz.seccionActiva !== "bitacora"
+                     && raiz.seccionActiva !== "conectividad"
+                     && raiz.seccionActiva !== "respaldo"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia
@@ -320,8 +390,9 @@ Item {
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)
-        inicioActivo: true
-        cerrarSesionVisible: true
+        inicioActivo: !raiz.navegacionBloqueada
+        atrasHabilitado: !raiz.navegacionBloqueada
+        cerrarSesionVisible: !raiz.navegacionBloqueada
         onAtrasPulsado: raiz.atras()
         onInicioPulsado: raiz.inicio()
         onCerrarSesionPulsado: raiz.cerrarSesion()

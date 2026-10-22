@@ -16,7 +16,9 @@ from PySide6.QtQml import qmlRegisterType
 
 from autoclave.ui.service_ui.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
-from autoclave.ui_qml.domain.permisos_opciones import edicion_permitida, secciones_visibles
+from autoclave.ui_qml.domain.permisos_opciones import (
+    edicion_permitida, motivo_solo_lectura, seccion_inicial, secciones_visibles,
+)
 
 
 class OpcionesController(QObject):
@@ -99,6 +101,15 @@ class OpcionesController(QObject):
     @Property(bool, notify=edicionChanged)
     def edicionPermitida(self) -> bool:
         return edicion_permitida(self._estado, self.rol, self._seccion)
+
+    # C1b: "" | "rol" | "estado" (texto del aviso de solo lectura)
+    @Property(str, notify=edicionChanged)
+    def motivoSoloLectura(self) -> str:
+        return motivo_solo_lectura(self._estado, self.rol, self._seccion)
+
+    @Property(str, notify=sesionChanged)
+    def seccionInicial(self) -> str:
+        return seccion_inicial(self.rol)
 
 
 qmlRegisterType(OpcionesController, "Autoclave.Controllers", 1, 0, "OpcionesController")

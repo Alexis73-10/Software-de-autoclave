@@ -23,6 +23,16 @@ from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO
 _TECNICOS = frozenset({"tecnico", "ingeniero"})
 _CONECTIVIDAD = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})
 _GESTION_USUARIOS = frozenset({ROL_ADMIN, ROL_INGENIERO})
+# O2b (tanda 6, decisión 1.9): el técnico VE Usuarios con los controles
+# deshabilitados y el motivo; solo admin e ingeniero modifican.
+_VE_USUARIOS = _GESTION_USUARIOS | {"tecnico"}
+# C1b (tanda 6, decisión 1.5; revierte P2-1 de la tanda 5): el admin VE
+# Parámetros del equipo, en solo lectura.
+_PARAMETROS_EQUIPO = _TECNICOS | {ROL_ADMIN}
+_TODOS = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})
+# Secciones de solo lectura para todos: no muestran el aviso de edición bloqueada
+SECCIONES_LECTURA = frozenset({"fecha_hora", "info_sistema", "bitacora"})
+_SOLO_LECTURA_POR_ROL = {"parametros_sistema": frozenset({ROL_ADMIN})}
 
 
 @dataclass(frozen=True)
@@ -37,12 +47,18 @@ class Seccion:
 # entregó el definitivo (Entradas / Salidas, Opciones avanzadas).
 SECCIONES = (
     Seccion("parametros_ciclo",   "reloj.svg",              _TECNICOS),
-    Seccion("parametros_sistema", "engranaje.svg",          _TECNICOS),
+    Seccion("parametros_sistema", "engranaje.svg",          _PARAMETROS_EQUIPO),
     Seccion("entradas_salidas",   "sensor_temperatura.svg", _TECNICOS),
     Seccion("mantenimiento",      "mantenimiento.svg",      _TECNICOS),
     Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
-    Seccion("usuarios",           "usuarios.svg",           _GESTION_USUARIOS),
+    Seccion("usuarios",           "usuarios.svg",           _VE_USUARIOS),
     Seccion("conectividad",       "conectividad.svg",       _CONECTIVIDAD),
+    # O2c–O2e (tanda 6): para todos los roles con sesión, solo lectura
+    Seccion("fecha_hora",         "reloj.svg",              _TODOS),
+    Seccion("info_sistema",       "informacion.svg",          _TODOS),
+    Seccion("bitacora",           "historial.svg",          _TODOS),
+    # O2h (tanda 6): respaldo y restauración, técnico e ingeniero
+    Seccion("respaldo",           "carpeta.svg",            _TECNICOS),
 )
 
 _POR_CLAVE = {s.clave: s for s in SECCIONES}
@@ -60,7 +76,7 @@ def secciones_visibles(rol: str | None) -> list[Seccion]:
 # Edición de parámetros (tanda 2026-10-14 §1.6, alineado con el backend:
 # guard DISTINTO_DE_CICLO): técnico en cualquier estado distinto de CICLO. El
 # backend lo impone; la interfaz solo lo refleja.
-ESTADOS_EDICION = frozenset({"PREPARACION", "PREPARADO", "FALLA", "EMERGENCIA", "HIBERNACION"})
+ESTADOS_EDICION = frozenset({"PREPARACION", "PREPARADO", "FALLA"})   # P-8 (tanda 6)
 
 # Excepción (Cristian, 2026-10-07): el ingeniero puede modificar cualquier
 # sección en cualquier estado; técnico, solo en ESTADOS_EDICION.
@@ -71,9 +87,32 @@ _EDICION_SIEMPRE = frozenset({"ingeniero"})
 
 def edicion_permitida(estado_maquina: str | None, rol: str | None = None,
                       seccion: str | None = None) -> bool:
+    if seccion in SECCIONES_LECTURA:
+        return True          # nada que editar: sin aviso de bloqueo
+    if rol in _SOLO_LECTURA_POR_ROL.get(seccion, ()):
+        return False
     if rol in _EDICION_SIEMPRE:
         return True
     return estado_maquina in ESTADOS_EDICION
+
+
+def motivo_solo_lectura(estado_maquina: str | None, rol: str | None = None,
+                        seccion: str | None = None) -> str:
+    """"" si se puede editar; "rol" si el rol solo ve la sección (admin en
+    Parámetros del equipo); "estado" si lo impide el estado de la máquina."""
+    if edicion_permitida(estado_maquina, rol, seccion):
+        return ""
+    return "rol" if rol in _SOLO_LECTURA_POR_ROL.get(seccion, ()) else "estado"
+
+
+def seccion_inicial(rol: str | None) -> str:
+    """Sección en la que aterriza el rol: la primera que puede editar por su
+    rol (el admin, en Usuarios); si no hay, la primera visible."""
+    visibles = secciones_visibles(rol)
+    for s in visibles:
+        if rol not in _SOLO_LECTURA_POR_ROL.get(s.clave, ()):
+            return s.clave
+    return visibles[0].clave if visibles else ""
 
 
 # Entradas / Salidas (planeacion_opciones_entradas_salidas.md §3, OPC-28). Solo
@@ -91,3 +130,50 @@ def puede_calibrar(rol: str | None, estado_maquina: str | None) -> bool:
     if rol == "ingeniero":
         return True
     return rol == "tecnico" and estado_maquina != "CICLO"
+
+
+# Parámetros del equipo (O2a, tanda 6). Refleja el backend: cambiar un
+# parámetro, técnico e ingeniero fuera de CICLO (409 también al ingeniero);
+# idioma, admin e ingeniero, también en ciclo; unidades, solo el ingeniero y
+# fuera de ciclo (decisión 1.9, que prevalece sobre O2a).
+_EDITA_PARAMETROS_EQUIPO = frozenset({"tecnico", ROL_INGENIERO})
+_CAMBIA_IDIOMA = frozenset({ROL_ADMIN, ROL_INGENIERO})
+_CAMBIA_UNIDADES = frozenset({ROL_INGENIERO})
+
+
+def motivo_parametro_equipo(rol: str | None, estado_maquina: str | None) -> str:
+    """"" si puede cambiar; "rol" o "ciclo" si no."""
+    if rol not in _EDITA_PARAMETROS_EQUIPO:
+        return "rol"
+    return "ciclo" if estado_maquina == "CICLO" else ""
+
+
+def motivo_idioma(rol: str | None) -> str:
+    return "" if rol in _CAMBIA_IDIOMA else "rol"
+
+
+# Conectividad (O2g, decisión 1.9): destinatarios e interruptor de correo y el
+# correo de prueba, admin e ingeniero, fuera de CICLO (R-01); el técnico ve la
+# sección en solo lectura.
+_EDITA_CORREO = frozenset({ROL_ADMIN, ROL_INGENIERO})
+
+
+def motivo_destinatarios(rol: str | None, estado_maquina: str | None) -> str:
+    """"" si puede cambiar; "rol" o "ciclo" si no."""
+    if rol not in _EDITA_CORREO:
+        return "rol"
+    return "ciclo" if estado_maquina == "CICLO" else ""
+
+
+def motivo_unidades(rol: str | None, estado_maquina: str | None) -> str:
+    if rol not in _CAMBIA_UNIDADES:
+        return "rol"
+    return "ciclo" if estado_maquina == "CICLO" else ""
+
+
+# Usuarios y operadores (O2b, tanda 6; decisión 1.9): crear, desactivar,
+# restablecer contraseña y agregar operador, admin e ingeniero. El backend
+# impone además ROLES_CREABLES sobre el usuario objetivo (403).
+def motivo_gestion_usuarios(rol: str | None) -> str:
+    """"" si puede modificar; "rol" si no."""
+    return "" if rol in _GESTION_USUARIOS else "rol"
