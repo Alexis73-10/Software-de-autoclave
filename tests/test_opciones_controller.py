@@ -38,7 +38,7 @@ def test_identidad_y_secciones_de_un_tecnico():
     assert c.sesionActiva is True
     assert (c.usuario, c.nombre, c.rol) == ("anar", "Ana Ruiz", "tecnico")
     assert [s["clave"] for s in c.secciones][0] == "parametros_ciclo"
-    assert len(c.secciones) == 7 + len(COMUNES_T6)   # cinco técnicas + Usuarios + Conectividad + O2c–O2e
+    assert len(c.secciones) == 7 + len(COMUNES_T6) + 1   # cinco técnicas + Usuarios + Conectividad + O2c–O2e + Respaldo (O2h)
     assert all(s["icono"].endswith(".svg") for s in c.secciones)
 
 

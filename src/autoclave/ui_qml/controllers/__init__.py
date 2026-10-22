@@ -21,3 +21,9 @@ from autoclave.ui_qml.controllers import usuarios_controller  # noqa: F401
 from autoclave.ui_qml.controllers import fecha_hora_controller  # noqa: F401
 from autoclave.ui_qml.controllers import info_sistema_controller  # noqa: F401
 from autoclave.ui_qml.controllers import bitacora_controller  # noqa: F401
+# OPCIONES > Mantenimiento > Calibración atmosférica e impresiones (O2f, tanda 6).
+from autoclave.ui_qml.controllers import calibracion_atm_controller  # noqa: F401
+# OPCIONES > Conectividad (O2g, tanda 6).
+from autoclave.ui_qml.controllers import conectividad_controller  # noqa: F401
+# OPCIONES > Respaldo (O2h, tanda 6).
+from autoclave.ui_qml.controllers import respaldo_controller  # noqa: F401

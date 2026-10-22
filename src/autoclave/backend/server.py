@@ -1374,6 +1374,7 @@ def get_status():
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
         "test_mode_active":      context.control_loop.test_mode_active,
+        "calibracion_atm_en_curso": _calibracion_atm_en_curso(),   # O2f
         "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,
         "sensors": sensors,
@@ -1452,6 +1453,8 @@ def _cambiar_parametro_sistema(clave: str, sesion: Sesion, valor=None, restablec
     # TMG-01: validación y escritura en SQLite FUERA del guard (no detienen el
     # tick); dentro solo se comprueba el estado y se publica en memoria. Si
     # mientras tanto arrancó un ciclo: 409 y se deshace la escritura.
+    if _calibracion_atm_en_curso():         # O2f: la referencia está midiéndose
+        _rechazar(409, "calibracion_en_curso", "Calibración atmosférica en curso", entidad, sesion)
     cm = context.config_manager
     with cm.lock_cambios:
         return _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer)
@@ -1459,6 +1462,8 @@ def _cambiar_parametro_sistema(clave: str, sesion: Sesion, valor=None, restablec
 
 def _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer):
     from autoclave.core.managers.config_manager import ErrorParametro
+    if _calibracion_atm_en_curso():         # TMG-03 de O2f: de nuevo, bajo lock_cambios
+        _rechazar(409, "calibracion_en_curso", "Calibración atmosférica en curso", entidad, sesion)
     error = None
     try:
         if restablecer:
@@ -1926,6 +1931,551 @@ def put_printer_config(body: _ImpresoraConfigBody,
     except Exception:
         logger.exception("No se pudo aplicar la configuración de la impresora")
     return {"ok": True, "habilitada": body.habilitada}
+
+
+# ── Calibración atmosférica e impresiones de Mantenimiento (O2f, tanda 6) ──
+# planeacion_opciones.md v4 §5 y planeacion_backend_parametros.md §8. Técnico e
+# ingeniero. La medición corre en su hilo (core/runtime/calibracion_atm.py) y
+# solo lee; la referencia se escribe con la función interna del ConfigManager
+# (permitir_solo_lectura) y se publica en memoria dentro de _sm_lock (sin E/S),
+# igual que un parámetro del equipo (TMG-01 de O2a). Mientras mide, los
+# parámetros del equipo no se cambian (409 calibracion_en_curso).
+
+_calibracion_atm_obj = None
+_calibracion_atm_lock = threading.Lock()
+
+
+def _leer_para_calibracion_atm() -> dict:
+    # TMG-02 de O2f: instantánea coherente bajo _sm_lock (solo memoria)
+    with context.control_loop.bloqueo_maquina():
+        return _leer_para_calibracion_atm_sin_lock()
+
+
+def _leer_para_calibracion_atm_sin_lock() -> dict:
+    estado = context.estado
+    try:
+        maquina = estado.get_machine_state().name
+    except Exception:
+        maquina = ""
+    try:
+        programas = context.programas_para_seguridad()
+        temp = sc.temp_seguridad(estado, programas, getattr(context, "profile", None))
+    except Exception:
+        temp = None
+    return {"estado_maquina": maquina,
+            "puertas": dict(getattr(estado, "estado_puertas", {}) or {}),
+            "temp": temp,
+            "pres": estado.sensores_pres.get("pres_camara"),
+            "datos_vigentes": getattr(context.control_loop, "datos_vigentes", False) is True}
+
+
+def _aplicar_presion_atmosferica(valor: float, usuario: str) -> None:
+    """Escribe la referencia: base fuera del lock de la máquina; memoria
+    dentro, y solo fuera de CICLO. Lanza ErrorParametro si no se puede."""
+    from autoclave.core.managers.config_manager import ErrorParametro
+    cm = context.config_manager
+    with cm.lock_cambios:
+        anterior, nuevo = cm.fijar("presion_atmosferica", valor, usuario,
+                                   permitir_solo_lectura=True, aplicar=False)
+        aplicado = False
+        try:
+            with context.control_loop.bloqueo_maquina():
+                if context.estado.get_machine_state() == GlobalState.CICLO:
+                    raise ErrorParametro("estado_no_permitido")
+                cm.aplicar_valor("presion_atmosferica", nuevo, usuario)
+                aplicado = True
+        finally:
+            if not aplicado:
+                cm.revertir_bd("presion_atmosferica", anterior)
+
+
+def _auditar_calibracion_atm(evento, usuario, rol, anterior, nuevo, detalle) -> None:
+    context.db.registrar_auditoria(
+        evento, usuario=usuario or "", rol=rol or "", entidad="presion_atmosferica",
+        valor_anterior={"presion_atmosferica": anterior},
+        valor_nuevo={"presion_atmosferica": nuevo} if nuevo is not None else None,
+        detalle=detalle)
+
+
+def _auditar_seguro(funcion, *args) -> None:
+    try:
+        funcion(*args)
+    except Exception:
+        logger.exception("No se pudo registrar la calibración atmosférica en audit_log")
+
+
+def _calibracion_atm():
+    global _calibracion_atm_obj
+    with _calibracion_atm_lock:
+        if _calibracion_atm_obj is None:
+            from autoclave.core.runtime.calibracion_atm import CalibracionAtm
+            _calibracion_atm_obj = CalibracionAtm(
+                leer=_leer_para_calibracion_atm,
+                aplicar=_aplicar_presion_atmosferica,
+                auditar=lambda *a: _auditar_seguro(_auditar_calibracion_atm, *a),
+                anterior=lambda: context.config_manager.get("presion_atmosferica"))
+        return _calibracion_atm_obj
+
+
+def _calibracion_atm_en_curso() -> bool:
+    obj = _calibracion_atm_obj
+    return obj is not None and obj.en_curso
+
+
+def _estado_calibracion_atm() -> dict:
+    d = _calibracion_atm().estado()
+    try:
+        ref = context.config_manager.describir("presion_atmosferica")
+        um = ref.get("ultima_modificacion") or {}
+        d["referencia"] = {"valor": ref.get("valor"), "usuario": um.get("usuario"),
+                           "fecha": um.get("fecha")}
+    except Exception:
+        d["referencia"] = {"valor": None, "usuario": None, "fecha": None}
+    return d
+
+
+_MOTIVO_CONDICION_ATM = {
+    "en_curso": "Ya hay una calibración en curso",
+    "puerta_abierta": "La puerta debe estar abierta",
+    "temp_baja": "La cámara debe estar por debajo de 80 °C",
+    "fuera_de_ciclo": "No se puede calibrar con un ciclo en curso",
+    "lecturas_validas": "Sin lectura válida de presión o temperatura de cámara",
+}
+
+
+@app.get("/maintenance/atm-calibration")
+def get_atm_calibration():
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/start")
+def start_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    entidad = "/maintenance/atm-calibration/start"
+    with context.config_manager.lock_cambios:      # TMG-03: no se cruza con un PATCH
+        ok, codigo = _calibracion_atm().iniciar(sesion.usuario, sesion.rol)
+    if not ok:
+        _rechazar(409, "calibracion_en_curso" if codigo == "en_curso" else "precondicion",
+                  _MOTIVO_CONDICION_ATM.get(codigo, "No se puede iniciar"), entidad, sesion,
+                  extra={"condicion": codigo})
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/cancel")
+def cancel_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    if not _calibracion_atm().cancelar(sesion.usuario, sesion.rol):
+        raise RechazoApi(409, "sin_calibracion", "No hay calibración en curso")
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/confirm")
+def confirm_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    ok, codigo = _calibracion_atm().confirmar(sesion.usuario, sesion.rol)
+    if not ok:
+        raise RechazoApi(409, codigo or "no_aplicada", "No se pudo aplicar la calibración")
+    return _estado_calibracion_atm()
+
+
+@app.post("/maintenance/atm-calibration/discard")
+def discard_atm_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    if not _calibracion_atm().descartar(sesion.usuario, sesion.rol):
+        raise RechazoApi(409, "sin_pendiente", "No hay calibración por confirmar")
+    return _estado_calibracion_atm()
+
+
+def _meta_equipo() -> dict:
+    perfil = getattr(context, "profile", None)
+    serie = getattr(perfil, "serial_number", "")
+    modelo = getattr(perfil, "model_id", "")
+    return {"serie": serie if isinstance(serie, str) else "",
+            "modelo": modelo if isinstance(modelo, str) else ""}
+
+
+@app.post("/printer/test-page")
+def print_test_page(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Página de prueba de la impresora térmica (409 en ciclo; 503 sin impresora)."""
+    from autoclave.services.domain.logging import ticket_mantenimiento as tm
+    _encolar_en_impresora([tm.pagina_prueba(_meta_equipo())])
+    _auditar("impresora_prueba", sesion, entidad="/printer/test-page")
+    return {"ok": True}
+
+
+@app.post("/maintenance/print/calibration")
+def print_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    """Imprime ganancias y compensaciones (de usuario) de todos los sensores
+    y la presión atmosférica de referencia."""
+    from autoclave.services.domain.logging import ticket_mantenimiento as tm
+    config = load_config(CALIBRATION_PATH)
+    sensores = []
+    for tipo, mapa, lista in (("temperature", EstadoAutoclave.map_temp,
+                               config.calibration.user.temperature),
+                              ("pressure", EstadoAutoclave.map_pres,
+                               config.calibration.user.pressure)):
+        for nombre, i in mapa.items():
+            if i < len(lista):
+                c = lista[i]
+                sensores.append({"tipo": tipo, "sensor": nombre, "gain": c.gain,
+                                 "offset": c.offset, "poly": bool(c.poly)})
+    try:
+        ref = context.config_manager.describir("presion_atmosferica")
+    except Exception:
+        ref = {}
+    texto = tm.ganancias(_meta_equipo(), sensores, ref.get("valor"),
+                         (ref.get("ultima_modificacion") or {}).get("fecha"))
+    _encolar_en_impresora([texto])
+    _auditar("impresion_ganancias", sesion, entidad="/maintenance/print/calibration",
+             detalle={"sensores": len(sensores)})
+    return {"ok": True, "sensores": len(sensores)}
+
+
+# ── Conectividad (O2g, tanda 6; decisiones 1.4 y 1.9) ───────────────────────
+# Red en SOLO LECTURA (cambiar Wi-Fi o IP no se habilita: DECISIÓN SIN
+# CONFIRMAR). Correo de ciclos: admin, técnico e ingeniero leen; admin e
+# ingeniero cambian destinatarios e interruptor (el técnico, 403) y envían el
+# correo de prueba. La contraseña del relay nunca se devuelve ni se registra:
+# solo `contrasena_configurada`. Cambios con ciclo en curso: 409 (R-01).
+
+_LEEN_CONECTIVIDAD = (ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO)
+_EDITAN_CORREO = (ROL_ADMIN, ROL_INGENIERO)
+
+
+class _CorreoConfigBody(BaseModel):
+    envio_activo: StrictBool
+    destinatarios: list[dict]
+
+
+def _cargar_config_correo():
+    from autoclave.ui_qml.exportacion import config_correo
+    return config_correo.cargar()
+
+
+def _enviar_correo(config, mensaje) -> None:
+    from autoclave.ui_qml.exportacion import correo
+    correo.enviar(config, mensaje)
+
+
+@app.get("/network/status")
+def get_network_status(sesion: Sesion = Depends(requiere_rol(*_LEEN_CONECTIVIDAD))):
+    return context.estado_red.leer()
+
+
+def _correo_dto() -> dict:
+    from autoclave.core.runtime.config_correo_equipo import MAX_DESTINATARIOS
+    equipo = context.config_correo_equipo.leer()
+    try:
+        base = _cargar_config_correo()
+        remitente, servidor, puerto = base.remitente, base.servidor, base.puerto
+        con_clave = bool(base.contrasena)
+    except Exception:
+        logger.exception("No se pudo leer la configuración de correo")
+        remitente, servidor, puerto, con_clave = "", "", None, False
+    return {"envio_activo": equipo["envio_activo"], "destinatarios": equipo["destinatarios"],
+            "personalizado": equipo["personalizado"], "remitente": remitente,
+            "servidor": servidor, "puerto": puerto, "contrasena_configurada": con_clave,
+            "max_destinatarios": MAX_DESTINATARIOS}
+
+
+@app.get("/email/config")
+def get_email_config(sesion: Sesion = Depends(requiere_rol(*_LEEN_CONECTIVIDAD))):
+    return _correo_dto()
+
+
+@app.put("/email/config")
+def put_email_config(body: _CorreoConfigBody,
+                     sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
+    from autoclave.core.runtime.config_correo_equipo import ErrorCorreo
+    entidad = "/email/config"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    anterior = context.config_correo_equipo.leer()
+    try:
+        nuevo = context.config_correo_equipo.guardar(body.envio_activo, body.destinatarios)
+    except ErrorCorreo as e:
+        raise RechazoApi(422, e.codigo, "Destinatarios inválidos", extra={"campo": e.campo})
+    except OSError:
+        _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración", entidad, sesion)
+    _auditar("correo_configurado", sesion, entidad=entidad,
+             valor_anterior={"envio_activo": anterior["envio_activo"],
+                             "destinatarios": [d["correo"] for d in anterior["destinatarios"]]},
+             valor_nuevo={"envio_activo": nuevo["envio_activo"],
+                          "destinatarios": [d["correo"] for d in nuevo["destinatarios"]]})
+    return _correo_dto()
+
+
+@app.post("/email/test")
+def post_email_test(sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
+    """Correo de prueba a cada destinatario GUARDADO (nunca a uno escrito a mano)."""
+    from autoclave import i18n
+    from autoclave.ui_qml.exportacion.config_correo import correo_valido
+    from email.message import EmailMessage
+    entidad = "/email/test"
+    config = _cargar_config_correo()
+    if not config.envio_activo:
+        raise RechazoApi(409, "envio_desactivado", "El envío de correo está desactivado")
+    destinos = [d["correo"] for d in config.destinos if correo_valido(d.get("correo"))]
+    if not destinos:
+        raise RechazoApi(409, "sin_destinatarios", "No hay destinatarios guardados")
+    if not config.configurado:
+        raise RechazoApi(409, "correo_no_configurado", "Falta remitente, servidor o contraseña")
+    meta = _meta_equipo()
+    enviados, fallidos = 0, []
+    for destino in destinos:
+        m = EmailMessage()
+        m["From"], m["To"] = config.remitente, destino
+        m["Subject"] = i18n.t("conectividad.asunto_prueba", None, serie=meta["serie"] or "-")
+        m.set_content(i18n.t("conectividad.cuerpo_prueba", None, serie=meta["serie"] or "-",
+                             modelo=meta["modelo"] or "-",
+                             fecha=datetime.now().strftime("%Y-%m-%d %H:%M")))
+        try:
+            _enviar_correo(config, m)
+            enviados += 1
+        except Exception as e:
+            # el texto de la excepción no se devuelve ni se audita (podría
+            # contener credenciales del servidor); solo su tipo
+            logger.warning("Correo de prueba a %s fallido (%s)", destino, type(e).__name__)
+            fallidos.append(destino)
+    _auditar("correo_prueba", sesion, entidad=entidad,
+             detalle={"enviados": enviados, "fallidos": fallidos})
+    if not enviados:
+        raise RechazoApi(502, "envio_fallido", "No se pudo enviar el correo de prueba",
+                         extra={"fallidos": fallidos})
+    return {"ok": True, "enviados": enviados, "fallidos": fallidos}
+
+
+# ── Respaldo y restauración por USB (O2h, tanda 6) ──────────────────────────
+# Técnico e ingeniero, solo fuera de CICLO (409, también el ingeniero). Ver
+# core/runtime/respaldo.py: manifiesto con hash, sin hashes de contraseña, y un
+# respaldo de OTRO número de serie se rechaza siempre. Restaurar pide
+# `confirmar: true` y no toca usuarios, historial, perfil ni la atmosférica.
+
+class _ExportarBody(BaseModel):
+    unidad: str
+    perfil_calibracion: StrictBool = True
+    parametros_programas: StrictBool = True
+    usuarios: StrictBool = True
+    historial: StrictBool = False
+
+
+class _RestaurarBody(BaseModel):
+    unidad: str
+    archivo: str
+    confirmar: StrictBool = False
+
+
+_lock_respaldo = threading.Lock()
+
+
+def _unidades_usb() -> list[dict]:
+    from autoclave.core.runtime import respaldo as rp
+    return rp.unidades_usb()
+
+
+def _version_sw() -> str:
+    import importlib.metadata
+    try:
+        return importlib.metadata.version("autoclave")
+    except importlib.metadata.PackageNotFoundError:
+        return "0"
+
+
+def _unidad_detectada(unidad: str, entidad: str, sesion) -> str:
+    rutas = {u["ruta"] for u in _unidades_usb()}
+    if unidad not in rutas:
+        raise RechazoApi(404, "usb_no_detectada", "Unidad USB no detectada")
+    return unidad
+
+
+def _carpeta_programas_usuario() -> Path:
+    return Path(context.cycle_manager.carpeta("cycles/user"))
+
+
+def _usuarios_sin_hash() -> list[dict]:
+    db = context.db
+    with getattr(db, "_lock", threading.Lock()):
+        filas = db._conn.execute("SELECT usuario, nombre, rol, activo FROM usuarios").fetchall()
+    return [{"usuario": f[0], "nombre": f[1], "rol": f[2], "activo": bool(f[3])} for f in filas]
+
+
+def _copia_bd() -> bytes:
+    import tempfile
+    db = context.db
+    with tempfile.TemporaryDirectory() as tmp:
+        destino = Path(tmp) / "historial.db"
+        dst = sqlite3.connect(destino)
+        try:
+            with getattr(db, "_lock", threading.Lock()):
+                db._conn.backup(dst)
+        finally:
+            dst.close()
+        return destino.read_bytes()
+
+
+@app.get("/backup/usb")
+def get_backup_usb(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime import respaldo as rp
+    equipo, version = _meta_equipo(), _version_sw()
+    unidades = []
+    for u in _unidades_usb():
+        carpeta = Path(u["ruta"]) / rp.CARPETA
+        respaldos = []
+        try:
+            archivos = sorted(carpeta.glob("respaldo_*.zip"), reverse=True)[:50]
+        except OSError:
+            archivos = []
+        for a in archivos:
+            respaldos.append(rp.resumen(a, equipo, version))
+        unidades.append({**u, "respaldos": respaldos})
+    return {"unidades": unidades, "serie": equipo["serie"], "version_sw": version}
+
+
+@app.post("/backup/export")
+def post_backup_export(body: _ExportarBody,
+                       sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.runtime import respaldo as rp
+    from autoclave.utils.archivos import escribir_texto_atomico  # noqa: F401
+    entidad = "/backup/export"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    unidad = _unidad_detectada(body.unidad, entidad, sesion)
+    partes = body.model_dump(exclude={"unidad"})
+    if not any(partes.values()):
+        raise RechazoApi(422, "sin_partes", "Elija qué exportar")
+    equipo = _meta_equipo()
+    contenido = {"perfil.json": json.dumps(equipo, ensure_ascii=False).encode("utf-8")}
+    if body.perfil_calibracion:
+        with _lock_archivos:                         # SAF-05 de O2h
+            contenido["calibracion.yaml"] = Path(CALIBRATION_PATH).read_bytes()
+    if body.parametros_programas:
+        params = {p["clave"]: p["valor"] for p in context.config_manager.describir()}
+        contenido["parametros.json"] = json.dumps(params, ensure_ascii=False).encode("utf-8")
+        for f in sorted(_carpeta_programas_usuario().glob("*.json")):
+            contenido[f"programas/{f.name}"] = f.read_bytes()
+    if body.usuarios:
+        contenido["usuarios.json"] = json.dumps(_usuarios_sin_hash(), ensure_ascii=False).encode("utf-8")
+    if body.historial:
+        contenido["historial.db"] = _copia_bd()
+    with _lock_respaldo:
+        zip_bytes = rp.crear(equipo, partes, contenido, sesion.usuario, _version_sw())
+        carpeta = Path(unidad) / rp.CARPETA
+        nombre = rp.nombre_archivo(equipo["serie"], datetime.now())
+        try:
+            carpeta.mkdir(parents=True, exist_ok=True)
+            temporal = carpeta / (nombre + ".tmp")
+            temporal.write_bytes(zip_bytes)
+            os.replace(temporal, carpeta / nombre)
+        except OSError:
+            _rechazar(503, "usb_no_escribible", "No se pudo escribir en la USB", entidad, sesion)
+    _auditar("respaldo_exportado", sesion, entidad=entidad,
+             detalle={"archivo": nombre, "partes": partes, "bytes": len(zip_bytes)})
+    return {"ok": True, "archivo": nombre, "bytes": len(zip_bytes)}
+
+
+@app.post("/backup/restore")
+def post_backup_restore(body: _RestaurarBody,
+                        sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    from autoclave.core.managers.config_manager import ErrorParametro
+    from autoclave.core.runtime import respaldo as rp
+    from autoclave.utils.archivos import escribir_texto_atomico
+    entidad = "/backup/restore"
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    unidad = _unidad_detectada(body.unidad, entidad, sesion)
+    try:
+        ruta = rp.ruta_respaldo_segura(unidad, body.archivo)
+        m, datos = rp.leer(ruta)
+    except rp.ErrorRespaldo as e:
+        _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "motivo": e.codigo})
+        raise RechazoApi(422, e.codigo, "Respaldo inválido")
+    motivo = rp.validar_para_equipo(m, _meta_equipo(), _version_sw())
+    if motivo:
+        _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "motivo": motivo, "serie_respaldo": m.get("serie")})
+        raise RechazoApi(409, motivo, "El respaldo no corresponde a este equipo",
+                         extra={"serie_respaldo": m.get("serie", "")})
+    if not body.confirmar:
+        raise RechazoApi(428, "confirmacion_requerida", "Confirme la restauración",
+                         extra={"partes": m.get("partes", {})})
+    # validar todo ANTES de escribir nada. SAF-02 de O2h: los programas NO se
+    # restauran (no hay aún un validador común con el editor de parámetros);
+    # quedan en el respaldo como referencia.
+    params = {}
+    if "parametros.json" in datos:
+        try:
+            params = json.loads(datos["parametros.json"].decode("utf-8"))
+        except ValueError:
+            raise RechazoApi(422, "parametros_invalidos", "Respaldo inválido")
+        if not isinstance(params, dict):
+            raise RechazoApi(422, "parametros_invalidos", "Respaldo inválido")
+    calib = datos.get("calibracion.yaml")
+    if calib is not None:
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            prueba = Path(tmp) / "calibration.yaml"
+            prueba.write_bytes(calib)
+            try:
+                cfg_resp = load_config(prueba)
+            except Exception:
+                raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
+        # SAF-01 de O2h: misma plausibilidad que la calibración manual, canal
+        # por canal; lo dudoso (aviso) también se rechaza: fail-closed
+        for tipo, mapa, lista in (("temperature", EstadoAutoclave.map_temp,
+                                   cfg_resp.calibration.user.temperature),
+                                  ("pressure", EstadoAutoclave.map_pres,
+                                   cfg_resp.calibration.user.pressure)):
+            for sensor, i in mapa.items():
+                if i >= len(lista):
+                    raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
+                c = lista[i]
+                nivel, motivo_c = (("aviso", "polinomio") if c.poly else
+                                   evaluar_desviacion_acumulada(tipo, float(c.gain),
+                                                                float(c.offset), sensor))
+                if nivel is not None:
+                    _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                             detalle={"archivo": body.archivo, "motivo": "calibracion_implausible",
+                                      "sensor": sensor, "detalle": motivo_c})
+                    raise RechazoApi(422, "calibracion_implausible",
+                                     f"Calibración no plausible en {sensor}: {motivo_c}")
+    aplicado = {"calibracion": False, "parametros": [], "parametros_omitidos": [], "programas": []}
+    with _lock_respaldo:
+      try:
+        if calib is not None:
+            with _lock_archivos:
+                with context.control_loop.bloqueo_maquina():     # SAF-03: de nuevo, justo antes
+                    en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
+                if en_ciclo:
+                    _rechazar(409, "estado_no_permitido", "Hay un ciclo en curso", entidad, sesion)
+                escribir_texto_atomico(CALIBRATION_PATH, calib.decode("utf-8"))
+                context.units.reload_calibration(CALIBRATION_PATH)   # SAF-04: sin reiniciar
+            aplicado["calibracion"] = True
+        cm = context.config_manager
+        for clave, valor in params.items():
+            try:
+                p = cm.describir(clave)
+            except ErrorParametro:
+                aplicado["parametros_omitidos"].append(clave)
+                continue
+            if p["solo_lectura"] or p["valor"] == valor:
+                if p["solo_lectura"]:
+                    aplicado["parametros_omitidos"].append(clave)
+                continue
+            with cm.lock_cambios:
+                try:
+                    anterior, nuevo = cm.fijar(clave, valor, sesion.usuario, aplicar=False)
+                except ErrorParametro:
+                    aplicado["parametros_omitidos"].append(clave)
+                    continue
+                try:
+                    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+                        cm.aplicar_valor(clave, nuevo, sesion.usuario)
+                except RechazoApi:
+                    cm.revertir_bd(clave, anterior)
+                    raise
+            aplicado["parametros"].append(clave)
+      finally:
+        # SAF-03: se audita siempre lo que sí se aplicó, también si falla a medias
+        _auditar("respaldo_restaurado", sesion, entidad=entidad,
+                 detalle={"archivo": body.archivo, "creado_en": m.get("creado_en"), **aplicado})
+    return {"ok": True, **aplicado, "reinicio_requerido": False}
 
 
 @app.get("/cycle/summary")

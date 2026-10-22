@@ -46,6 +46,8 @@ Item {
     signal menuPulsado()           // engranaje del encabezado: Menú Principal
 
     readonly property bool usaToken: true
+    // O2f (tanda 6): durante la calibración atmosférica solo Cancelar está activo
+    readonly property bool navegacionBloqueada: mantenimiento.item?.navegacionBloqueada ?? false
 
     // Nombre de la sección en una línea (cajón y título, §5.0)
     function nombreSeccion(clave) {
@@ -82,9 +84,9 @@ Item {
 
     // ---- cajón ----
     property bool cajonAbierto: false
-    function abrirCajon() { cajonAbierto = true }
+    function abrirCajon() { if (!navegacionBloqueada) cajonAbierto = true }
     function cerrarCajon() { cajonAbierto = false }
-    function alternarCajon() { cajonAbierto = !cajonAbierto }
+    function alternarCajon() { if (!navegacionBloqueada) cajonAbierto = !cajonAbierto }
 
     // Elegir una entrada: cierra el cajón y muestra su panel; con cambios sin
     // guardar pide confirmación antes de cambiar (U-19)
@@ -106,6 +108,8 @@ Item {
     property var _salidaPendiente: null
     function _salirCon(senal) {
         cerrarCajon()
+        if (navegacionBloqueada)
+            return
         // salir de OPCIONES cierra el modo prueba de Entradas / Salidas (D-ES-08)
         entradasSalidas.item?.cerrarModoPrueba("abandono de la sección")
         if (cambiosPendientes) {
@@ -122,6 +126,8 @@ Item {
         if (parametrosCiclo.item?.retroceder())
             return
         if (parametrosEquipo.item?.retroceder())      // O2a: submenú -> entrada
+            return
+        if (mantenimiento.item?.retroceder())         // O2f: calibración -> Mantenimiento
             return
         if (entradasSalidas.item?.subirNivel())
             return
@@ -302,6 +308,33 @@ Item {
             }
         }
 
+        // Conectividad (O2g, tanda 6): red en lectura y correo de ciclos
+        Loader {
+            id: conectividad
+            objectName: "cargadorConectividad"
+            active: raiz.seccionActiva === "conectividad"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesConectividad {
+                teclado: raiz.teclado
+                rol: control.rol
+                estadoMaquina: raiz.puente?.machineState ?? ""
+            }
+        }
+
+        // Respaldo (O2h, tanda 6): exportar y restaurar por USB
+        Loader {
+            id: respaldo
+            objectName: "cargadorRespaldo"
+            active: raiz.seccionActiva === "respaldo"
+            anchors.fill: parent
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesRespaldo {
+                // solo fuera de ciclo, también el ingeniero (el backend responde 409)
+                edicionPermitida: raiz.edicionPermitida && (raiz.puente?.machineState ?? "") !== "CICLO"
+            }
+        }
+
         // Entradas / Salidas (planeacion_opciones_entradas_salidas.md)
         Loader {
             id: entradasSalidas
@@ -324,6 +357,8 @@ Item {
                      && raiz.seccionActiva !== "fecha_hora"
                      && raiz.seccionActiva !== "info_sistema"
                      && raiz.seccionActiva !== "bitacora"
+                     && raiz.seccionActiva !== "conectividad"
+                     && raiz.seccionActiva !== "respaldo"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia
@@ -355,8 +390,9 @@ Item {
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)
-        inicioActivo: true
-        cerrarSesionVisible: true
+        inicioActivo: !raiz.navegacionBloqueada
+        atrasHabilitado: !raiz.navegacionBloqueada
+        cerrarSesionVisible: !raiz.navegacionBloqueada
         onAtrasPulsado: raiz.atras()
         onInicioPulsado: raiz.inicio()
         onCerrarSesionPulsado: raiz.cerrarSesion()

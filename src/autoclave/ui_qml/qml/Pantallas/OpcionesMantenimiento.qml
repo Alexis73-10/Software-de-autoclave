@@ -32,6 +32,24 @@ Item {
         id: control
         objectName: "mantenimientoController"
     }
+
+    // O2f (tanda 6): subpantalla de calibración atmosférica. Mientras mide,
+    // `navegacionBloqueada` deja activo solo Cancelar (Opciones.qml lo aplica).
+    property string vista: ""          // "" = principal, "calibracion_atm"
+    readonly property bool navegacionBloqueada: vista === "calibracion_atm"
+                                                && (calibracionAtm.item?.bloqueada ?? false)
+    // Atrás: de la calibración vuelve a Mantenimiento (no durante la medición)
+    function retroceder() {
+        if (vista === "")
+            return false
+        if (!navegacionBloqueada)
+            vista = ""
+        return true
+    }
+    CalibracionAtmController {
+        id: impresiones
+        objectName: "impresionesMantenimiento"
+    }
     readonly property alias controlador: control
     Component.onCompleted: control.cargar()
 
@@ -133,10 +151,97 @@ Item {
         MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
     }
 
-    Column {
+    Loader {
+        id: calibracionAtm
+        objectName: "cargadorCalibracionAtm"
+        active: raiz.vista === "calibracion_atm"
+        anchors.fill: parent
+        z: 2
+        sourceComponent: OpcionesCalibracionAtm { edicionPermitida: raiz.edicionPermitida }
+    }
+
+    Flickable {
+        visible: raiz.vista === ""
         anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.bottom: parent.bottom
+        width: parent.width
+        contentHeight: columnaMant.height + Escala.px(24)
+        clip: true
+        interactive: contentHeight > height
+    Column {
+        id: columnaMant
         width: parent.width
         spacing: Escala.px(6)
+
+        // ── O2f (tanda 6): calibración atmosférica e impresiones ────────────
+        Rectangle {
+            objectName: "mensajeImpresionMantenimiento"
+            visible: impresiones.mensaje !== ""
+            width: parent.width
+            height: visible ? textoImpresion.implicitHeight + Escala.px(28) : 0
+            radius: Escala.px(12)
+            color: impresiones.mensaje === "calibracion_atm.impreso" ? Colores.accionFondoTenue
+                                                                     : Colores.peligroFondo
+            Text {
+                id: textoImpresion
+                anchors.fill: parent; anchors.margins: Escala.px(14)
+                verticalAlignment: Text.AlignVCenter
+                wrapMode: Text.WordWrap
+                text: impresiones.mensaje !== "" ? I18n.t(impresiones.mensaje, I18n.lang) : ""
+                color: impresiones.mensaje === "calibracion_atm.impreso" ? Colores.accionPrimarioTexto
+                                                                         : Colores.peligroTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(22)
+            }
+            MouseArea { anchors.fill: parent; onClicked: impresiones.limpiarMensaje() }
+        }
+        Repeater {
+            model: [{ clave: "calibrar", texto: "calibracion_atm.boton_calibrar" },
+                    { clave: "prueba", texto: "calibracion_atm.boton_prueba" },
+                    { clave: "ganancias", texto: "calibracion_atm.boton_ganancias" }]
+            delegate: Rectangle {
+                id: accion
+                required property var modelData
+                objectName: "botonMant_" + modelData.clave
+                readonly property bool habilitado: raiz.edicionPermitida
+                width: columnaMant.width; height: Escala.px(88)
+                radius: Escala.px(12)
+                color: Colores.fondoSutil
+                border.color: Colores.bordeCampo
+                opacity: habilitado ? 1.0 : 0.4
+                Text {
+                    anchors.left: parent.left; anchors.leftMargin: Escala.px(20)
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: parent.width - Escala.px(80)
+                    elide: Text.ElideRight
+                    text: I18n.t(accion.modelData.texto, I18n.lang)
+                    color: Colores.textoPrimario
+                    font.family: Tipografia.familia
+                    font.weight: Tipografia.pesoSemiBold
+                    font.pixelSize: Escala.fuente(28)
+                }
+                Text {
+                    anchors.right: parent.right; anchors.rightMargin: Escala.px(20)
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: ">"
+                    color: Colores.textoGuia
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(30)
+                }
+                MouseArea {
+                    anchors.fill: parent
+                    enabled: accion.habilitado
+                    onClicked: {
+                        if (accion.modelData.clave === "calibrar")
+                            raiz.vista = "calibracion_atm"
+                        else if (accion.modelData.clave === "prueba")
+                            impresiones.imprimirPrueba()
+                        else
+                            impresiones.imprimirGanancias()
+                    }
+                }
+            }
+        }
 
         Dato {
             objectName: "datoProximoVencimiento"
@@ -284,6 +389,7 @@ Item {
                 }
             }
         }
+    }
     }
 
     DialogoConfirmacion {

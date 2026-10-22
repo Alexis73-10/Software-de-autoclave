@@ -21,10 +21,10 @@ _ESPERADO = {
     "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura
     # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
     # O2b (tanda 6, decisión 1.9): el técnico ve Usuarios con los controles deshabilitados
-    "tecnico":   _TECNICAS + _ADMIN,
+    "tecnico":   _TECNICAS + _ADMIN + ["respaldo"],   # O2h
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
-    "ingeniero": _TECNICAS + _ADMIN,
+    "ingeniero": _TECNICAS + _ADMIN + ["respaldo"],   # O2h
     "operador":  [],      # defecto de la tabla usuarios, fuera de roles.py
     "":          [],
     None:        [],
@@ -33,7 +33,7 @@ _ESPERADO = {
 
 def test_orden_de_la_navegacion():
     # U-2: las cinco de AdminMenuView._OPTIONS en su orden; al final las de admin
-    assert [s.clave for s in SECCIONES] == _TECNICAS + _ADMIN
+    assert [s.clave for s in SECCIONES] == _TECNICAS + _ADMIN + ["respaldo"]
 
 
 def test_los_roles_de_la_politica_existen():
