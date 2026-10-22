@@ -466,3 +466,23 @@ def test_sin_respuesta_tambien_avisa_del_cambio_automatico(qt_app):
     c.abrirSeccion("globals")
     assert c.guardar("tipo_carga", "solido") is True
     assert c.aviso == "opciones.aviso_modo_solido" and c.detalleAviso["modo"] == 1
+
+
+def test_fallo_al_escribir_el_json_revierte_sin_bitacora(servidor):
+    """Medio del timing-auditor (re-revisión): si falla la escritura del JSON,
+    el cambio tampoco queda en memoria ni en la bitácora."""
+    client, cm, ctx, srv = servidor
+    llamadas = {"n": 0}
+    real = srv._save_cycle_json
+
+    def guardar(cycle):
+        llamadas["n"] += 1
+        if llamadas["n"] == 1:
+            raise OSError("disco lleno")
+        real(cycle)
+    srv._save_cycle_json = guardar
+    r = _patch(client, "liquidos", "globals", ["tipo_carga"], "solido")
+    assert r.status_code == 503
+    c = cm.cycles["liquidos"]
+    assert c.get_param("globals", "tipo_carga") == "liquido" and c.get_param("descompresion", "modo") == 4
+    assert not [a for a in _auditados(ctx) if a[0] == "param_ciclo_cambio"]

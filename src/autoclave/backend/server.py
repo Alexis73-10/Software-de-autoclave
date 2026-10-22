@@ -3421,16 +3421,17 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
             detalle.update({"ciclo": ctx.get("ciclo"), "fase_en_curso": ctx.get("fase"),
                             "programa_en_curso": ctx.get("programa")})
 
-    # El JSON se escribe fuera de _sm_lock (hallazgo D); el valor en memoria
-    # ya quedó cambiado bajo el lock, atómico con la comprobación de estado.
-    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        with _lock_archivos:
-            _save_cycle_json(cycle)
-
     # RB-03.5 (T10): sin registro en audit_log el cambio no queda aplicado.
     # D8-5.7: cada cambio automático (arrastre) va en su propia fila, marcado
     # como automático y con su causa; si alguna falla, se revierte todo.
+    # Revisión D8-5.7 (Medio del timing-auditor): la escritura del JSON va en el
+    # mismo try; si falla, tampoco queda el cambio en memoria sin bitácora.
     try:
+        # El JSON se escribe fuera de _sm_lock (hallazgo D); el valor en memoria
+        # ya quedó cambiado bajo el lock, atómico con la comprobación de estado.
+        if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+            with _lock_archivos:
+                _save_cycle_json(cycle)
         context.db.registrar_auditoria(
             "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol, entidad=entidad,
             valor_anterior=anterior, valor_nuevo=value, detalle=detalle)
@@ -3493,8 +3494,12 @@ def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None) -> None:
             logger.error("Programa %s incoherente tras revertir: %s",
                          getattr(cycle, "id", "?"), "; ".join(errores))
     if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        with _lock_archivos:
-            _save_cycle_json(cycle)
+        try:
+            with _lock_archivos:
+                _save_cycle_json(cycle)
+        except Exception:
+            logger.exception("Programa %s: no se pudo escribir el JSON al revertir; "
+                             "memoria y archivo difieren", getattr(cycle, "id", "?"))
 
 
 # ── Opciones › Parámetros del ciclo, lectura (T12; opciones §5.1, §5.2, §6) ──
