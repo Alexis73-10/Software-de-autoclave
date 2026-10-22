@@ -6,8 +6,14 @@ import threading
 import time
 from unittest.mock import MagicMock
 
+import pytest
+from fastapi.testclient import TestClient
+
+from autoclave.core.runtime import io_names
+from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.logging.db_manager import DbManager
-from tests.backend_doble import cargar_servidor
+from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.backend_doble import cabecera, cargar_servidor
 
 
 # ── Paso 5 (E/S): el vigilante del dueño del modo prueba no debe morir ──────
@@ -39,3 +45,51 @@ def test_vigilante_del_modo_prueba_sigue_vivo_tras_varias_pasadas(tmp_path, monk
 def test_server_conserva_el_modulo_time():
     import autoclave.backend.server as s
     assert s.time is time
+
+
+# ── Paso 5 (E/S): toda salida que la pantalla muestra se puede accionar ─────
+# /io/channels da el nombre del YAML (aire_atmosferico_camara) pero el PATCH
+# lo buscaba tal cual en EstadoAutoclave.map_do (errata aire_admosferico_camara)
+# y respondía 404: el botón aparecía habilitado y la salida nunca cambiaba.
+
+@pytest.fixture
+def prueba_salidas():
+    ctx = MagicMock()
+    ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
+    ctx.estado.get_flag.return_value = False
+    ctx.estado.sensores_di = {}
+    ctx.doors = []
+    ctx.control_loop.test_mode_active = True
+    ctx.control_loop.apagando = False
+    ctx.setdo.salida_bloqueada.return_value = False
+    srv, _ = cargar_servidor(ctx)
+    cab = cabecera(srv, "tecnico", "tec1")
+    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    return TestClient(srv.app, headers=cab), ctx
+
+
+def _nombres_do_mostrados():
+    return [c["name"] for c in io_names.canales_digitales("DO")]
+
+
+def test_hay_salidas_configuradas_en_el_equipo_activo():
+    assert "aire_atmosferico_camara" in _nombres_do_mostrados()
+
+
+@pytest.mark.parametrize("nombre", _nombres_do_mostrados())
+@pytest.mark.parametrize("valor", [True, False])
+def test_cada_salida_mostrada_se_acciona(prueba_salidas, nombre, valor):
+    client, ctx = prueba_salidas
+    momentanea = valor and nombre in io_names.SALIDAS_MOMENTANEAS
+    cuerpo = {"value": valor, **({"momentanea": True} if momentanea else {})}
+    resp = client.patch(f"/io/test/output/{nombre}", json=cuerpo)
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["name"] == nombre
+
+
+def test_aire_atmosferico_va_al_canal_fisico_de_la_errata(prueba_salidas):
+    client, ctx = prueba_salidas
+    assert client.patch("/io/test/output/aire_atmosferico_camara",
+                        json={"value": True}).status_code == 200
+    canal = EstadoAutoclave.map_do["aire_admosferico_camara"] + 1
+    ctx.setdo.set_output.assert_called_once_with(canal, True)

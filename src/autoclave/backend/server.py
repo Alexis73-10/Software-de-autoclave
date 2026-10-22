@@ -3994,7 +3994,10 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                        sesion: Sesion = Depends(_requiere_rol_prueba)):
     """Acciona una salida en modo prueba. Apagar siempre se permite dentro del
     modo prueba; encender exige además ser la sesión dueña y R-02 (§5.4)."""
-    if name not in EstadoAutoclave.map_do:
+    # P1 (tanda 7): /io/channels da el nombre del YAML; la posición se busca con
+    # la clave de EstadoAutoclave (errata aire_admosferico_camara)
+    clave = io_names.clave_estado(name)
+    if clave not in EstadoAutoclave.map_do:
         raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
     entidad = f"/io/test/output/{name}"
     if body.momentanea and name not in io_names.SALIDAS_MOMENTANEAS:
@@ -4019,7 +4022,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
-        index = EstadoAutoclave.map_do[name]
+        index = EstadoAutoclave.map_do[clave]
         if body.value and context.setdo.salida_bloqueada(index + 1) is True:
             # E1b: salida de una fuente de vapor que el equipo no tiene; S1 (tanda
             # 2): con generador interno ni DO1 ni DO2 (el generador se controla solo)

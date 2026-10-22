@@ -50,8 +50,12 @@ def leer_io_enabled(config_dir: Path | None = None) -> dict[str, list[str]]:
     return {k: [str(n) for n in (io.get(k) or [])] for k in vacio}
 
 
-def _clave_estado(nombre: str) -> str:
+def clave_estado(nombre: str) -> str:
+    """Nombre del YAML (o de /io/channels) -> clave de EstadoAutoclave."""
     return _ALIAS_ESTADO.get(nombre, nombre)
+
+
+_clave_estado = clave_estado
 
 
 def canales_digitales(tipo: str, config_dir: Path | None = None) -> list[dict]:
