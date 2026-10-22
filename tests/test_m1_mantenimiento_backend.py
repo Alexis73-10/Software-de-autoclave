@@ -85,7 +85,7 @@ def test_tipo_y_observaciones_validados(servicio):
     with pytest.raises(ErrorMantenimiento):
         s.registrar("tec", "inventado", "")
     with pytest.raises(ErrorMantenimiento):
-        s.registrar("tec", "otro", "x" * 501)
+        s.registrar("tec", "correctivo", "x" * 501)
 
 
 def test_reloj_anterior_a_la_instalacion_no_registra_ni_calcula(servicio):
@@ -93,7 +93,7 @@ def test_reloj_anterior_a_la_instalacion_no_registra_ni_calcula(servicio):
     hoy["d"] = date(2026, 1, 1)
     assert s.estado().estado == "sin_dato" and s.resumen()["proximo_fecha"] is None
     with pytest.raises(ErrorMantenimiento) as e:
-        s.registrar("tec", "otro", "")
+        s.registrar("tec", "correctivo", "")
     assert e.value.codigo == "reloj_invalido"
     assert db.listar_mantenimientos() == []
 
@@ -125,7 +125,7 @@ def test_sin_base_de_datos_calcula_desde_la_instalacion(tmp_path):
 def test_la_tabla_es_de_solo_anexar(servicio):
     import sqlite3
     s, db, *_ = servicio
-    s.registrar("tec", "otro", "")
+    s.registrar("tec", "correctivo", "")
     with pytest.raises(sqlite3.DatabaseError):
         db._conn.execute("DELETE FROM mantenimientos")
     with pytest.raises(sqlite3.DatabaseError):
@@ -194,7 +194,7 @@ def test_reloj_invalido_devuelve_409(api, servicio):
     client, srv, ctx, s = api
     _, _, hoy, _, _ = servicio
     hoy["d"] = date(2026, 1, 1)
-    r = client.post("/maintenance/records", headers=cabecera(srv, "tecnico"), json={"tipo": "otro"})
+    r = client.post("/maintenance/records", headers=cabecera(srv, "tecnico"), json={"tipo": "correctivo"})
     assert r.status_code == 409 and r.json()["codigo"] == "reloj_invalido"
 
 

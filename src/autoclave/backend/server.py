@@ -1824,9 +1824,13 @@ def get_maintenance():
     return context.mantenimiento.resumen()
 
 
+# MNT-04 (D8-3.25, tanda 8): el admin también consulta el historial (D-9 de
+# planeacion_mantenimiento.md); registrar y configurar siguen siendo de técnico
+# o ingeniero.
 @app.get("/maintenance/records")
 def get_maintenance_records(limite: int = 50,
-                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO,
+                                                                  ROL_ADMIN))):
     return {"registros": context.mantenimiento.historial(max(1, min(limite, 500)))}
 
 

@@ -86,7 +86,7 @@ def test_rechazos_muestran_su_motivo_y_no_cuentan_como_guardado(causa, clave):
 def test_reloj_adelantado_tiene_su_mensaje():
     c, _ = _controlador({("GET", "/maintenance"): Resultado("ok", _OK, 200),
                          ("POST", "/maintenance/records"): Resultado("reloj_adelantado", {}, 409)})
-    assert c.registrar("otro") is False and c.mensaje == "opciones.mant_err_reloj_adelantado"
+    assert c.registrar("correctivo") is False and c.mensaje == "opciones.mant_err_reloj_adelantado"
 
 
 def test_las_claves_nuevas_existen_en_es_y_en():
