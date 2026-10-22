@@ -150,3 +150,27 @@ def test_despejar_sin_confirmacion_a_tiempo():
     ui.backend.post.side_effect = requests.Timeout("lento")
     assert ui.reconocer_alarma("COM-02|X", "operador") == (
         False, "notificaciones.despejar_sin_confirmacion")
+
+
+# ── re-revisión: COM-04 resuelta sin reconocer no cuenta como activa ─────────
+
+def test_com04_resuelta_sin_reconocer_no_registra_otra_confirmacion():
+    loop, _, _ = _make_control_loop()
+    loop.alarm_manager = AlarmManager()
+    loop.alarm_manager.activar(COM_04)
+    loop.alarm_manager.resolver(COM_04)          # RESUELTA_SIN_RECONOCER
+    eventos = []
+    loop.al_evento_seguridad = lambda ev, det: eventos.append(ev)
+    loop._com04_activa = False
+    loop._salidas_confirmadas("handshake")
+    assert eventos == []
+
+
+def test_reabrir_la_ventana_pone_en_cero_lo_pausado():
+    import inspect
+    from autoclave.state_machine.cycle_phases import precalentamiento
+    from autoclave.state_machine.cycle_phases import calentamiento
+    assert "self._ventana_pausada_s = 0.0   # re-revisión S2b: ventana nueva" in inspect.getsource(
+        calentamiento.CalentamientoFase.update)
+    assert "self._ventana_pausada_s = 0.0   # re-revisión S2b: ventana nueva" in inspect.getsource(
+        precalentamiento.PrecalentamientoFase.update)

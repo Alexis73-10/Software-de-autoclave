@@ -999,7 +999,11 @@ class ControlLoop:
             # prueba vuelve a pausar todo y su salida apaga de nuevo)
             self._reintentos_all_off = 0
             # TMG-04 de la revisión S2b (DECISIÓN SIN CONFIRMAR): una orden de
-            # inicio anterior a las pruebas no se aplica al salir
+            # inicio anterior a las pruebas no se aplica al salir (re-revisión
+            # S2b: queda en el log y en la bitácora)
+            if self.estado.get_flag("START_CICLO"):
+                logger.warning("Modo prueba: se descarta una orden de inicio de ciclo pendiente")
+                self._evento_seguridad("inicio_descartado_por_modo_prueba", {})
             self.estado.set_flag("START_CICLO", False)
             self.set_do.buzer.stop()
             if self.set_do.reset_all_outputs() is True:
@@ -1074,9 +1078,12 @@ class ControlLoop:
             self.link.solicitar_handshake()
 
     def _com04_en_gestor(self) -> bool:
+        # re-revisión S2b: solo ACTIVA (una RESUELTA_SIN_RECONOCER no cuenta)
         try:
-            from autoclave.state_machine.alarms.alarm_manager import InstanciaAlarma
-            return isinstance(self.alarm_manager.obtener(COM_04), InstanciaAlarma)
+            from autoclave.state_machine.alarms.instancia import (
+                EstadoInstancia, InstanciaAlarma)
+            inst = self.alarm_manager.obtener(COM_04)
+            return isinstance(inst, InstanciaAlarma) and inst.estado is EstadoInstancia.ACTIVA
         except Exception:
             return False
 

@@ -85,6 +85,7 @@ class PrecalentamientoFase(BaseFase):
             self.set_do.vapor_chaqueta_on()
             if pres >= presion_obj:
                 self._timer_sostenimiento = time.monotonic()
+                self._ventana_pausada_s = 0.0   # re-revisión S2b: ventana nueva
                 self.estado.fase_en_sostenimiento = True
                 logger.info(
                     "Precalentamiento: %.1f kPa alcanzados — sosteniendo %.0fs",

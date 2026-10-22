@@ -410,6 +410,7 @@ class CalentamientoFase(BaseFase):
             self._timer_recuperacion_fin = None
             if self._timer_sostenido_desde is None:
                 self._timer_sostenido_desde = now
+                self._ventana_pausada_s = 0.0   # re-revisión S2b: ventana nueva
             self.estado.fase_en_sostenimiento = True
             if now - self._timer_sostenido_desde >= tiempo_est:
                 logger.info(
