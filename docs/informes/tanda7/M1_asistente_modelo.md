@@ -18,7 +18,7 @@ Tanda 7 (noche 21/22-oct-2026). Rama `tanda-7-m1` (desde `e8e42d7`). Spec: `docs
 | `bfab0be` | Puente: calcula `model_id`, ignora el de la QML, no instala equipos de mesa y ofrece el slot `calcularModelo`; textos `instalacion.*` |
 | `e559950` | `Instalacion.qml`: paso Cámara, retiro del campo Modelo, resumen e indicador; banco offscreen, pruebas y capturas |
 | `fe39fe0` | Lugares donde se muestra: ticket y resumen por periodo sin cortes, `/system/info` y pantalla O2d |
-| (este) | Riesgo HAZ-INS-02, fila REQ-19 de trazabilidad e informe |
+| (este) | Riesgo HAZ-INS-02, fila REQ-27 de trazabilidad e informe |
 
 ## Archivos modificados
 
@@ -50,7 +50,7 @@ Tanda 7 (noche 21/22-oct-2026). Rama `tanda-7-m1` (desde `e8e42d7`). Spec: `docs
   - nuevas: `tests/test_m1_modelo.py`, `tests/test_m1_puente_instalacion.py`, `tests/test_m1_asistente_qml.py` y `tests/test_m1_modelo_documentos.py`;
   - banco nuevo: `tests/m1_asistente_banco.py`;
   - ajustadas: `tests/test_t9_instalacion.py` (clases sin mesa, sin `model_id` en los datos), `tests/test_o2d_info_sistema.py` (dos claves nuevas en `equipo`) y `tests/test_i18n.py` (familias `instalacion.carga_` e `info_sistema.carga_`).
-- Documentos: `docs/riesgos/registro_riesgos.md` (HAZ-INS-02), `docs/riesgos/matriz_trazabilidad.md` (REQ-19) y `docs/mis_plans/revision_traducciones.md` (inglés nuevo "sin revisar").
+- Documentos: `docs/riesgos/registro_riesgos.md` (HAZ-INS-02), `docs/riesgos/matriz_trazabilidad.md` (REQ-27) y `docs/mis_plans/revision_traducciones.md` (inglés nuevo "sin revisar").
 - Capturas: `docs/informes/tanda7/capturas/M1_es_01_activacion.png` … `M1_es_12_listo.png`, 1200×1920, en español. Se regeneran con `python tests/m1_asistente_banco.py es` (con `PYTHONPATH=src`).
 
 ## Herramientas `tools/declarar_*.py` (§3)
@@ -150,4 +150,4 @@ Tanda 7 (noche 21/22-oct-2026). Rama `tanda-7-m1` (desde `e8e42d7`). Spec: `docs
 
 - En la rama `tanda-7-m1`: 5139 passed, 2 skipped, 3 xfailed (18 min 10 s; corrida por la sesión principal el 22-oct, 06:05).
 - Tras unirla a `tanda-7` (L1 + P1 + M1): 5200 passed, 2 skipped, 3 xfailed.
-- Nota de integración: la fila de trazabilidad de M1 se renumeró de REQ-19 a REQ-27, porque Q1 usó REQ-19 a REQ-26.
+- Nota de integración: la fila de trazabilidad de M1 se renumeró de REQ-27 a REQ-27, porque Q1 usó REQ-27 a REQ-26.

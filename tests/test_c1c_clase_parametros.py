@@ -71,14 +71,17 @@ def test_catalogo_absolutos_coinciden_con_la_clase_de_los_json():
                 assert hoja.get("clase") == "absoluto", (ruta.name, fase, ruta_param)
 
 
-def test_rango_calentamiento_es_sin_conversion_en_todos():
+def test_rango_calentamiento_separado_es_diferencia_en_todos():
+    # R1-P3 (tanda 7): antes "rango_calentamiento" sin conversión; ahora dos
+    # parámetros de clase "diferencia" (°C y kPa)
     vistos = 0
     for ruta in _archivos():
         for n, h in _hojas(_parametros(ruta)):
-            if n.split(".")[-1] == "rango_calentamiento":
+            assert n.split(".")[-1] != "rango_calentamiento", ruta.name
+            if n.split(".")[-1] in ("rango_calentamiento_temp", "rango_calentamiento_pres"):
                 vistos += 1
-                assert h["clase"] == "sin_conversion", ruta.name
-    assert vistos >= 8
+                assert h["clase"] == "diferencia", ruta.name
+    assert vistos >= 16
 
 
 # ── el módulo usa la clase, no el nombre ────────────────────────────────────

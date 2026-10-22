@@ -102,9 +102,12 @@ class preparado_state:
             self._salidas_seguras_supervisor()
             return False
 
-        self.ejecutor()
+        # R1-P2 (tanda 7): cada lazo corre una sola vez por tick; la validación
+        # final usa su resultado (antes los volvía a llamar y el debounce del
+        # aire avanzaba de a 2)
+        lazos = self.ejecutor()
 
-        return self.esta_preparado()
+        return self.esta_preparado(lazos)
 
     # ==============================
     # SUPERVISIÓN GENERAL
@@ -124,14 +127,13 @@ class preparado_state:
     # EJECUCIÓN CONTINUA (SIN STEPS)
     # ==============================
     def ejecutor(self, controlar_chaqueta=True):
-
-        #logger.info("Estado PREPARADO: control y supervisión activa")
-
-        # 🔧 CONTROL CONTINUO
-        if controlar_chaqueta:
-            self.mantener_chaqueta()
-        self.mantener_presion_camara()
-        self.mantener_drenaje()
+        """Corre los lazos una vez y devuelve (chaqueta, presión de cámara,
+        drenaje) en banda (R1-P2). Sin control de chaqueta, esta cuenta como
+        no lista."""
+        chaqueta = self.mantener_chaqueta() if controlar_chaqueta else False
+        presion = self.mantener_presion_camara()
+        drenaje = self.mantener_drenaje()
+        return (chaqueta is True, presion is True, drenaje is True)
 
     def _salidas_seguras_supervisor(self):
         """Supervisor falló por un sensor analógico (adenda E0/E1, A-2) o por
@@ -306,13 +308,19 @@ class preparado_state:
     # ==============================
     # VALIDACIÓN FINAL
     # ==============================
-    def esta_preparado(self):
+    def esta_preparado(self, lazos=None):
+        """`lazos`: resultado de ejecutor() en este tick (R1-P2, tanda 7): no
+        se vuelven a correr los lazos, para que los confirmadores de apagado
+        cuenten ticks reales. Sin él (llamada directa, pruebas) se corren una
+        vez aquí."""
+        if lazos is None:
+            lazos = (self.mantener_chaqueta() is True,
+                     self.mantener_presion_camara() is True,
+                     self.mantener_drenaje() is True)
 
         condiciones = (
             self.puertas_cerradas() and
-            self.mantener_chaqueta() and
-            self.mantener_presion_camara() and
-            self.mantener_drenaje() and
+            all(v is True for v in lazos) and
             not self.estado.get_flag("PARO_EMERGENCIA") and
             # Sin entrada de suministro eléctrico declarada, no aplica (E1-1)
             not (entrada_requerida(self.profile, "suministro_electrico")

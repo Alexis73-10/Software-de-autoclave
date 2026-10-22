@@ -479,6 +479,13 @@ class CycleLogger:
             numero, self._ciclo_id, nombre
         )
 
+    def _sin_datos_tarjeta_s(self) -> float | None:
+        """T2-a: segundos del ciclo sin datos de la tarjeta, o None."""
+        valor = getattr(self.estado, "sin_datos_tarjeta_s", None)
+        if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor <= 0:
+            return None
+        return float(valor)
+
     def _on_fin(self, resultado: str):
         # T8: también sin registro en la base (respaldo y ticket siguen)
         if self._activo:
@@ -524,6 +531,7 @@ class CycleLogger:
                     avisos=list(getattr(self.estado, "avisos_ciclo", None) or []) or None,
                     operador=self._operador_ticket or None,
                     p=getattr(self, "_presentacion", None),
+                    sin_datos_s=self._sin_datos_tarjeta_s(),     # T2-a (tanda 7)
                 ))
 
             logger.info(

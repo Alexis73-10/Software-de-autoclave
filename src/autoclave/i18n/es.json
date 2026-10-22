@@ -366,6 +366,7 @@
     "serie": "Serie: ",
     "sin_bd_pregunta": "Base de datos no disponible. El ciclo se ejecutará sin operador y sin registro en la base de datos (solo respaldo y ticket). ¿Desea continuar sin registro?",
     "sin_bd_continuar": "Continuar sin registro",
+    "cancelacion_en_espera_datos": "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control. Si no vuelven en unos segundos, el ciclo termina por fallo de comunicación.",
     "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio",
     "confirmar_estado_seguro_texto": "El paro de emergencia se liberó. Verifique que no hay fugas de vapor ni de agua antes de continuar. Al confirmar se reconoce el resultado del ciclo y la cámara se lleva a estado seguro."
   },
@@ -473,6 +474,7 @@
     "grupo_emergencia": "Emergencia / Fallas",
     "grupo_alarmas": "Alarmas",
     "grupo_avisos": "Avisos",
+    "despejar_sin_enlace": "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad.",
     "despejar": "DESPEJAR"
   },
   "equipo": {
@@ -1089,8 +1091,9 @@
       "temperatura_calentamiento": "Temperatura objetivo (T_obj) de la sonda Principal al final del calentamiento. De ella se deriva la presión objetivo P_obj = Psat(T_obj) + «Presion add calentamiento». La fase pasa a la ventana de estabilidad cuando T ≥ T_obj y P ≥ P_obj. Normalmente igual a «Temperatura esterilizacion».",
       "presion_add_calentamiento": "Sobrepresión (p_add) sobre Psat(T_obj) que fija P_obj = Psat(T_obj) + p_add. Se usa en tres puntos: (1) techo absoluto: con P ≥ Psat(T_obj) + 2·p_add se corta el vapor; (2) banda de estabilidad: P_obj ≤ P ≤ P_obj + p_add; (3) verificación de vapor saturado: con T ≥ 0,97·T_obj se exige P ≥ Psat(T) + p_add o se corta el vapor.",
       "timeout_calentamiento": "Tiempo máximo, en minutos, de toda la fase (rampa y ventana de estabilidad), contado desde su inicio. Si vence, el ciclo falla.",
-      "factor_calentamiento": "Reducción, en %, del ciclo de trabajo (duty) del vapor al llegar al objetivo. Dentro de «Rango calentamiento» el duty baja linealmente de 100 % a (100 − factor) % en el objetivo; pasado el objetivo cae a 0 % al superarlo en «Rango calentamiento». 0 = sin reducción antes del objetivo.",
-      "rango_calentamiento": "Distancia al objetivo a partir de la cual empieza la reducción del vapor (ver «Factor calentamiento») y sobrepaso con el que el vapor llega a 0 %. El mismo valor numérico se aplica a temperatura (°C, contra T_obj) y a presión (kPa, contra P_obj); rige la más restrictiva.",
+      "factor_calentamiento": "Reducción, en %, del ciclo de trabajo (duty) del vapor al llegar al objetivo. Dentro de «Rango calentamiento temp» / «Rango calentamiento pres» el duty baja linealmente de 100 % a (100 − factor) % en el objetivo; pasado el objetivo cae a 0 % al superarlo en ese rango. 0 = sin reducción antes del objetivo.",
+      "rango_calentamiento_temp": "Distancia en temperatura (°C, contra T_obj) a partir de la cual empieza la reducción del vapor (ver «Factor calentamiento») y sobrepaso de temperatura con el que el vapor llega a 0 %. Junto con «Rango calentamiento pres» rige la más restrictiva.",
+      "rango_calentamiento_pres": "Distancia en presión (kPa, contra P_obj) a partir de la cual empieza la reducción del vapor (ver «Factor calentamiento») y sobrepaso de presión con el que el vapor llega a 0 %. Junto con «Rango calentamiento temp» rige la más restrictiva.",
       "tasa_calentamiento": "Pendiente máxima de subida de la temperatura de la sonda Principal, en °C/min, medida sobre una ventana de 10 s. Si se excede, el duty del vapor se escala por tasa máxima / tasa medida. Solo limita, no genera fallo. 0 = sin límite.",
       "tasa_presion": "Pendiente máxima de subida de la presión de cámara, en kPa/min, medida sobre una ventana de 10 s. Si se excede, el duty del vapor se escala por tasa máxima / tasa medida. Solo limita, no genera fallo. 0 = sin límite.",
       "tiempo_estable_preesterilizacion": "Segundos continuos en que deben cumplirse a la vez: T_obj ≤ T Principal ≤ T_obj + «Rango temp estabilizacion»; P_obj ≤ P ≤ P_obj + «Presion add calentamiento»; y todas las Referencias ≥ T_obj. Si alguna condición se pierde, el conteo se reinicia. Al completarse pasa a Esterilización. 0 = pasa en cuanto se cumplen.",

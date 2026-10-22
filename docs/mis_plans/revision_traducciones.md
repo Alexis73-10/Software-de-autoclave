@@ -93,6 +93,9 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-22 | Tanda 7 M1 | `instalacion.paso_camara`, `instalacion.camara_*`, `instalacion.carga_V`, `instalacion.carga_H`, `instalacion.unidad_litros`, `instalacion.litros`, `instalacion.error_capacidad`, `instalacion.error_tipo_carga`, `instalacion.error_clase_fuera_alcance`, `instalacion.resumen_capacidad`, `instalacion.resumen_carga`, `info_sistema.rotulo_capacidad`, `info_sistema.rotulo_tipo_carga`, `info_sistema.carga_V`, `info_sistema.carga_H` (el nombre del modelo `SPK-SAT ...` no se traduce) | Instalación | sin revisar |
 | 2026-10-22 | Tanda 7 C2 | `correo_c2.*` (direccion_invalida, rechazados_todos, rechazados_parcial, solo_manual, manual_y_guardados, todos_guardados, corregir, enviar_a_manual, aviso_invalida, no_se_guarda), `bitacora.ev.correo_enviado`, `bitacora.tipo.correo_enviado` | Correo / bitácora | sin revisar |
 | 2026-10-22 | Tanda 7 M2 | `opciones.mant_tipo_calibracion` (texto cambiado: "Calibración (histórico)" / "Calibration (historical)") | Mantenimiento | sin revisar |
+| 2026-10-22 | Tanda 7 Q1 (R1-P3) | `parametros_desc.calentamiento.rango_calentamiento_temp`, `parametros_desc.calentamiento.rango_calentamiento_pres` (reemplazan a `rango_calentamiento`) | Parámetros del ciclo | sin revisar |
+| 2026-10-22 | Tanda 7 Q1 (R1-P5) | `ciclo.cancelacion_en_espera_datos` | Ciclo — **requiere revisión explícita** | sin revisar |
+| 2026-10-22 | Tanda 7 Q1 (T2-b) | `notificaciones.despejar_sin_enlace` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 
 ## Registro de revisiones
 

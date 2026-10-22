@@ -38,7 +38,9 @@ SIN_DATO = "—"
 # que valores distintos no se vean iguales (revisión U1, SAF-04)
 DECIMALES_DIFERENCIA = {"C": 1, "F": 2, "kPa": 1, "bar": 3, "mbar": 0, "psi": 2}
 # Parámetros que NO se convierten (revisión U1, SAF-03): rango_calentamiento
-# es a la vez banda de temperatura y de presión en calentamiento.py
+# era a la vez banda de temperatura y de presión en calentamiento.py. Desde
+# R1-P3 (tanda 7) se separa en rango_calentamiento_temp/_pres (clase
+# "diferencia"); el nombre viejo queda aquí solo para un archivo sin migrar.
 SIN_CONVERSION = frozenset({"rango_calentamiento"})
 # P_atm admisible (mismo rango que validacion_config.py)
 P_ATM_MIN, P_ATM_MAX = 50.0, 110.0
@@ -212,8 +214,8 @@ def simbolo_pres(unidad: str) -> str:
 # fábrica, defecto y usuario; global_params.json) declara su clase explícita:
 #   "absoluto"       valor absoluto (°C; kPa abs): se convierte con desplazamiento;
 #   "diferencia"     banda, margen, sumando o tasa: se escala sin desplazamiento;
-#   "sin_conversion" se muestra en su unidad original (p. ej. rango_calentamiento,
-#                    que calentamiento.py usa a la vez como banda de °C y de kPa).
+#   "sin_conversion" se muestra en su unidad original (lo usaba
+#                    rango_calentamiento, separado en R1-P3 de la tanda 7).
 # El nombre del parámetro NO decide la clase. Los prefijos de abajo quedan solo
 # como migración para un archivo viejo sin "clase", con una advertencia en el log.
 CLASES = ("absoluto", "diferencia", "sin_conversion")

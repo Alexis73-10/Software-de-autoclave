@@ -84,7 +84,7 @@ def test_exit_test_mode_ok(io_client):
     resp = client.post("/io/test/exit", headers=cab)
 
     assert resp.status_code == 200
-    assert resp.json() == {"ok": True}
+    assert resp.json()["ok"] is True   # + all_off_confirmado (R1-P1)
     ctx.control_loop.exit_test_mode.assert_called_once()
 
 
@@ -221,7 +221,7 @@ def test_exit_registra_la_causa_enviada_por_la_ui(io_client, causa):
     assert client.post("/io/test/exit", headers=cab, json={"motivo": causa}).status_code == 200
     llamada = [c for c in ctx.db.registrar_auditoria.call_args_list
                if c.args[0] == "modo_prueba_sale"][-1]
-    assert llamada.kwargs["detalle"] == {"motivo": causa}
+    assert llamada.kwargs["detalle"]["motivo"] == causa   # + all_off_confirmado (R1-P1)
 
 
 def test_exit_ignora_causa_desconocida(io_client):
@@ -231,7 +231,7 @@ def test_exit_ignora_causa_desconocida(io_client):
     client.post("/io/test/exit", headers=cab, json={"motivo": "<script>"})
     llamada = [c for c in ctx.db.registrar_auditoria.call_args_list
                if c.args[0] == "modo_prueba_sale"][-1]
-    assert llamada.kwargs["detalle"] == {"motivo": "salida solicitada"}
+    assert llamada.kwargs["detalle"]["motivo"] == "salida solicitada"
 
 
 def test_io_channels_marca_salidas_bloqueadas_por_configuracion(io_client):

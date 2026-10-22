@@ -366,6 +366,7 @@
     "serie": "Serial: ",
     "sin_bd_pregunta": "Database not available. The cycle will run without an operator and without a database record (backup file and printout only). Do you want to continue without a record?",
     "sin_bd_continuar": "Continue without record",
+    "cancelacion_en_espera_datos": "Cancellation accepted: it will be applied when the control board data returns. If it does not return within a few seconds, the cycle ends with a communication failure.",
     "principal_sin_lectura": "Main probe without reading: call service",
     "confirmar_estado_seguro_texto": "The emergency stop was released. Check that there are no steam or water leaks before continuing. Confirming acknowledges the cycle result and brings the chamber to a safe state."
   },
@@ -473,6 +474,7 @@
     "grupo_emergencia": "Emergency / Faults",
     "grupo_alarmas": "Alarms",
     "grupo_avisos": "Notices",
+    "despejar_sin_enlace": "Cannot clear: the link with the control board has not returned to normal yet.",
     "despejar": "CLEAR"
   },
   "equipo": {
@@ -1090,7 +1092,8 @@
       "presion_add_calentamiento": "Extra pressure above saturation allowed as a ceiling during the ramp.",
       "timeout_calentamiento": "Maximum heating ramp time; if exceeded, the cycle fails.",
       "factor_calentamiento": "Percentage of steam reduction when nearing the targets to avoid overshoot.",
-      "rango_calentamiento": "Distance to the target from which steam is reduced; also sets how much overshoot is tolerated.",
+      "rango_calentamiento_temp": "Temperature distance to the target from which steam is reduced; also sets how much temperature overshoot is tolerated.",
+      "rango_calentamiento_pres": "Pressure distance to the target from which steam is reduced; also sets how much pressure overshoot is tolerated.",
       "tasa_calentamiento": "Maximum allowed temperature rise rate.",
       "tasa_presion": "Maximum allowed pressure rise rate.",
       "tiempo_estable_preesterilizacion": "Continuous time within range required before moving on to sterilization.",

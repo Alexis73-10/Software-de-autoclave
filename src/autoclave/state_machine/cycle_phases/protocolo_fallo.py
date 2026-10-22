@@ -74,11 +74,53 @@ class ProtocoloFallo:
         # escalar ni enfriamiento con contrapresión (no se sigue con la
         # Referencia)
         self._solo_lenta        = False
+        # SAF-01 / SEN-02 / TMG-07 (revisión Q1): lecturas inválidas seguidas
+        # del Principal con el protocolo en marcha antes de pasar a solo_lenta
+        self._lecturas_principal_perdido = 0
 
     @property
     def solo_lenta(self) -> bool:
-        """True si el protocolo se disparó por la pérdida del Principal."""
+        """True si el protocolo se disparó por la pérdida del Principal o si
+        el Principal se perdió después, con el protocolo ya en marcha (R1-P4)."""
         return self._solo_lenta
+
+    def _principal_perdido(self) -> bool:
+        """Principal sin lectura: None, no finito o 0 (mismo criterio que P-2
+        en CicloState y que bloqueado_motivo)."""
+        temp = self._temp_principal()
+        return not lectura_valida(temp) or temp == 0
+
+    def pasar_a_solo_lenta(self) -> bool:
+        """R1-P4 (tanda 7, decisión 1.3 de Cristian): el protocolo ya corría
+        por otra causa (fallo de fase, cancelación, puerta, paro...) y después
+        se perdió el Principal. Se aplica el criterio de P-2 sin importar el
+        orden: solo la lenta, sin escalar ni enfriar con contrapresión. Cierra
+        lo que el modo pudo abrir (rápida, chaqueta, contrapresión, agua de
+        chaqueta) y abre la lenta en este mismo paso (TMG-06 / SEN-04 de la
+        revisión Q1: antes la abría el siguiente update(), que sin presión
+        retorna sin abrir nada), salvo vacío confirmado; con la presión
+        desconocida la abre igual (mismo criterio que ejecutar()). Es un
+        enclavamiento: no se revierte aunque el Principal vuelva a leer.
+        Devuelve True si cambió el modo."""
+        if self._solo_lenta:
+            return False
+        logger.error("Protocolo fallo: Principal sin lectura con el protocolo en marcha "
+                     "(modo %s) — se pasa a solo la descompresión lenta", self._modo)
+        self._solo_lenta = True
+        self._sin_escalar = True
+        self._escalado = False
+        self._sub_etapa = None
+        self._t_pulso_chaqueta = None
+        self._chaqueta_abierta = False
+        self.set_do.descompresion_rapida_off()
+        self.set_do.descompresion_chaqueta_off()
+        self._fin_enfriamiento(cerrar_lenta=False)
+        pres  = self.estado.sensores_pres.get("pres_camara")
+        atm   = self.config.get("presion_admosferica") or 101.3
+        rango = self.config.get("rango_presion_atm")   or 20.0
+        if pres is None or pres >= atm - rango:
+            self.set_do.descompresion_lenta_on()
+        return True
 
     @property
     def ejecutado(self) -> bool:
@@ -342,6 +384,17 @@ class ProtocoloFallo:
             self._salidas_apagadas = self.set_do.reset_all_outputs()
             if self._salidas_apagadas:
                 logger.info("Protocolo fallo: apagado de salidas confirmado tras reintento")
+
+        # R1-P4: Principal perdido con el protocolo ya en marcha por otra causa.
+        # SAF-01 / SEN-02 / TMG-07 (revisión Q1): con _DEBOUNCE_LECTURAS
+        # lecturas inválidas seguidas; una válida reinicia el contador.
+        if not self._solo_lenta:
+            if self._principal_perdido():
+                self._lecturas_principal_perdido += 1
+            else:
+                self._lecturas_principal_perdido = 0
+            if self._lecturas_principal_perdido >= _DEBOUNCE_LECTURAS:
+                self.pasar_a_solo_lenta()
 
         pres     = self.estado.sensores_pres.get("pres_camara")
         # Principal del programa del ciclo (tanda §1.1)
