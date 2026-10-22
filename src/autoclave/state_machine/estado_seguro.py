@@ -77,7 +77,11 @@ class ProtocoloEstadoSeguro:
         Principal, el operador reconoce y FALLA pasa a PREPARACION sin
         técnico; el protocolo sigue venteando por la lenta allí y el inicio
         de ciclo queda bloqueado mientras siga activo. No aplica si espera la
-        confirmación tras un paro."""
+        confirmación tras un paro.
+
+        D8-2.6 (tanda 8, Cristian): vale igual si se llegó a `solo_lenta` con el
+        protocolo ya en marcha por otra causa (R1-P4). "NO ABRIR" no cambia:
+        sigue hasta que la cámara sea segura (camara_segura, con el Principal)."""
         return (self.activo and not self.requiere_confirmacion
                 and getattr(self._protocolo, "solo_lenta", False) is True)
 
