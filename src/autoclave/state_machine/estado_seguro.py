@@ -189,10 +189,18 @@ class ProtocoloEstadoSeguro:
             if callable(reanudar):
                 reanudar()
         solo_lenta_antes = getattr(self._protocolo, "solo_lenta", False) is True
+        sellado_antes = getattr(self._protocolo, "sellado", False) is True
         self._protocolo.update()
         if not solo_lenta_antes and getattr(self._protocolo, "solo_lenta", False) is True:
             # R1-P4: el Principal se perdió con el protocolo en marcha
             self._evento("estado_seguro_solo_lenta", motivo="sensor Principal sin lectura")
+        sellado = getattr(self._protocolo, "sellado", False) is True
+        if not sellado_antes and sellado:
+            # D8-2.10: líquidos en modos 4/5, cámara sellada sin venteo
+            self._evento("estado_seguro_sellado", motivo="sensor Principal sin lectura")
+        elif sellado_antes and not sellado:
+            self._evento("estado_seguro_venteo_tras_sellado",
+                         motivo=getattr(self._protocolo, "motivo_venteo", None))
         if self.mantener_drenaje is not None:
             try:
                 self.mantener_drenaje()

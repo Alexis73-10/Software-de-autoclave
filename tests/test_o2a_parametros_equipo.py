@@ -31,6 +31,8 @@ ESPERADO = {
     "tiempo_estable_alarma": ("sistema", 5, 1, 60),
     # D8-2.8 (tanda 8)
     "pausa_max_esterilizacion_s": ("sistema", 30, 5, 120),
+    # D8-2.10 (tanda 8)
+    "espera_sellado_sin_sonda_min": ("sistema", 30, 10, 240),
 }
 
 
@@ -336,7 +338,8 @@ def test_controlador_grupos_y_datos():
                                                          "rango_presion_atm"]
     assert {p["clave"] for p in c.delGrupo("sistema")} == {"tiempo_standby", "tiempo_estable_alarma",
                                                            "presion_atmosferica",
-                                                           "pausa_max_esterilizacion_s"}
+                                                           "pausa_max_esterilizacion_s",
+                                                           "espera_sellado_sin_sonda_min"}
     assert c.numeroSerie == "S-1" and c.modelo == "M-1" and c.idioma == "es"
     c.abrirGrupo("puerta")
     assert c.grupo == "puerta" and c.volver() and c.grupo == "" and not c.volver()

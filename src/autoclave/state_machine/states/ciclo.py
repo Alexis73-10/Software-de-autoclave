@@ -278,6 +278,17 @@ class CicloState:
     # Supervisores continuos (llamados en cada tick activo)
     # ------------------------------------------------------------------
 
+    def _fase_en_enfriamiento_con_contrapresion(self) -> bool:
+        """D8-2.10: la fase actual es DESCOMPRESION enfriando con
+        contrapresión (modos 4/5)."""
+        if not (0 <= self._fase_idx < len(self._fases)):
+            return False
+        fase = self._fases[self._fase_idx]
+        try:
+            return getattr(fase, "en_enfriamiento_con_contrapresion", False) is True
+        except Exception:
+            return False
+
     def _fase_actual_legible(self) -> str:
         if self._fase_idx < len(self._fases):
             return nombre_legible(self._fases[self._fase_idx].name)
@@ -770,7 +781,13 @@ class CicloState:
             # P-2 (tanda 6): con el Principal perdido NO se sigue con la
             # Referencia: el ciclo falla y se ventea solo por la lenta.
             if sensor_principal(self.cycle) in ausentes:
-                self._protocolo.ejecutar(solo_lenta=True)
+                if self._fase_en_enfriamiento_con_contrapresion():
+                    # D8-2.10: líquidos en modos 4/5 quedan sellados (lo
+                    # decide el protocolo según el tipo de carga)
+                    self._protocolo.ejecutar(solo_lenta=True,
+                                             en_enfriamiento_contrapresion=True)
+                else:
+                    self._protocolo.ejecutar(solo_lenta=True)
             else:
                 self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
