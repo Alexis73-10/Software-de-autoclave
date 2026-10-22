@@ -2192,7 +2192,10 @@ def post_email_sent(body: dict, authorization: str | None = Header(None)):
     if any(not isinstance(d, str) or len(d) > 254 for d in direcciones):
         raise RechazoApi(422, "validacion", "Datos inválidos")
     sesion = tokens.obtener(_token_de(authorization))
-    _auditar("correo_enviado", sesion, entidad=entidad, detalle=datos.model_dump())
+    # valor_nuevo: lo que la pantalla de Bitácora muestra ({nuevo}); el resto, en detalle
+    _auditar("correo_enviado", sesion, entidad=entidad,
+             valor_nuevo={"resultado": datos.resultado, "destinatarios": datos.destinatarios},
+             detalle=datos.model_dump())
     return {"ok": True}
 
 

@@ -1465,7 +1465,7 @@
       "calibracion_atm_rechazada": "atmospheric calibration rejected",
       "correo_configurado": "configured e-mail recipients: {anterior} → {nuevo}",
       "correo_prueba": "sent a test e-mail",
-      "correo_enviado": "sent an e-mail from History or Reports",
+      "correo_enviado": "sent an e-mail from History or Reports: {nuevo}",
       "impresora_prueba": "printed a test page",
       "impresion_ganancias": "printed the calibration gains",
       "respaldo_exportado": "exported a backup",

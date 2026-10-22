@@ -46,6 +46,10 @@ def test_registra_el_envio_sin_sesion(api):
     assert d["manuales"] == ["juan@gmail.com"] and d["resultado"] == "parcial"
     assert d["aceptados"] == ["juan@gmail.com"] and d["rechazados"] == {"malo@x.com": 550}
     assert d["tipo"] == "ciclos" and d["ciclos"] == [12]
+    # lo que muestra la pantalla de Bitácora ({nuevo}): resultado y direcciones
+    from autoclave.core.runtime import bitacora
+    nuevo = bitacora.presentar(fila, {}, {})["nuevo"]
+    assert "parcial" in nuevo and "juan@gmail.com" in nuevo and "malo@x.com" in nuevo
 
 
 def test_con_sesion_anota_el_usuario(api):

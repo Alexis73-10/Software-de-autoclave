@@ -1465,7 +1465,7 @@
       "calibracion_atm_rechazada": "calibración atmosférica rechazada",
       "correo_configurado": "configuró los destinatarios de correo: {anterior} → {nuevo}",
       "correo_prueba": "envió un correo de prueba",
-      "correo_enviado": "envió un correo desde Historial o Reportes",
+      "correo_enviado": "envió un correo desde Historial o Reportes: {nuevo}",
       "impresora_prueba": "imprimió una página de prueba",
       "impresion_ganancias": "imprimió las ganancias de calibración",
       "respaldo_exportado": "exportó un respaldo",
