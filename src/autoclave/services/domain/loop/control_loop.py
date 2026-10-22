@@ -147,6 +147,9 @@ class ControlLoop:
         # T2-b (tanda 7): ticks seguidos con la tarjeta en "ok" (enlace hecho y
         # trama DI vigente); DESPEJAR de COM-02/03 exige _TICKS_ENLACE_OK
         self._ticks_tarjeta_ok = 0
+        # D8-2.9 (tanda 8, TMG-04): número de secuencia de la última trama DI
+        # contada; solo una trama DISTINTA y nueva suma a _ticks_tarjeta_ok
+        self._ultima_seq_di_contada = None
         self._com01_activa = False
         self._sin_di_activa = False
         # Ticks seguidos con la DI vencida y el enlace hecho (debounce de 3
@@ -220,6 +223,7 @@ class ControlLoop:
         # SAF-03 (revisión Q1): un tick que no se completa no cuenta como
         # enlace "ok" (enlace_confirmado_ok no queda en True con el lazo caído)
         self._ticks_tarjeta_ok = 0
+        self._ultima_seq_di_contada = None
         self._excepciones_seguidas += 1
         if self._excepciones_seguidas == 1 or self._excepciones_seguidas % _LOG_CADA_EXCEPCIONES == 0:
             logger.exception("ControlLoop: error inesperado en el tick (%d seguidos)",
@@ -439,9 +443,45 @@ class ControlLoop:
             )
         self._puerta_2_no_declarada_cerrada = cerrada
 
+    def _secuencia_di(self):
+        """D8-2.9: número de secuencia de la trama DI vigente según el enlace,
+        o None si el enlace no lo informa como entero (dobles de prueba que no
+        lo implementan)."""
+        try:
+            seq = self.link.secuencia_ultima_di()
+        except Exception:
+            return None
+        if isinstance(seq, bool) or not isinstance(seq, int):
+            return None
+        return seq
+
     def _contar_enlace_ok(self) -> None:
-        """T2-b: cuenta los ticks seguidos con estado_tarjeta "ok"."""
-        self._ticks_tarjeta_ok = self._ticks_tarjeta_ok + 1 if self.estado_tarjeta == "ok" else 0
+        """T2-b: cuenta las tramas DI vigentes seguidas con estado_tarjeta
+        "ok". D8-2.9 (tanda 8, TMG-04): solo cuenta una trama DISTINTA y nueva
+        (por su número de secuencia); varios ticks que leen la misma trama
+        cuentan una vez. Publica en `estado.trama_di_nueva` si en este tick
+        llegó una trama nueva y vigente, para la salida de la tolerancia por
+        DI vencida de CicloState.
+
+        DECISIÓN SIN CONFIRMAR: un enlace que no informa la secuencia (solo los
+        dobles de prueba; SerialLink siempre la informa) cuenta cada tick "ok"
+        como trama nueva, igual que antes de D8-2.9."""
+        nueva = False
+        if self.estado_tarjeta == "ok":
+            seq = self._secuencia_di()
+            if seq is None or seq != self._ultima_seq_di_contada:
+                nueva = True
+                self._ticks_tarjeta_ok += 1
+            if seq is not None:
+                self._ultima_seq_di_contada = seq
+        else:
+            # La trama vigente antes de la caída no cuenta como nueva al volver
+            # (su número se conserva: solo una trama posterior suma)
+            self._ticks_tarjeta_ok = 0
+        try:
+            self.estado.trama_di_nueva = nueva
+        except Exception:
+            logger.exception("ControlLoop: no se pudo publicar trama_di_nueva")
 
     @property
     def enlace_confirmado_ok(self) -> bool:

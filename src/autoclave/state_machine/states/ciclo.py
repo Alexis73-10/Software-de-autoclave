@@ -52,8 +52,9 @@ _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
 # sigue enviando y el watchdog no actúa. Por eso, durante la tolerancia se
 # cortan el vapor de cámara y de chaqueta (TMG-02 / SAF-01 de T2).
 _TOLERANCIA_DI_VENCIDA_SEG = 4.0
-# Ticks seguidos con DI vigente para reiniciar la tolerancia (TMG-03 de T2:
-# una trama intermitente no puede renovarla indefinidamente)
+# Tramas DI vigentes, distintas y nuevas, seguidas para reiniciar la
+# tolerancia (TMG-03 de T2: una trama intermitente no puede renovarla
+# indefinidamente; D8-2.9 / TMG-04: tramas, no ticks)
 _TICKS_DI_VIGENTE_REINICIO = 3
 _TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 _CIC_POR_FASE = {
@@ -670,7 +671,13 @@ class CicloState:
 
         # ── 2. ¿Paro de emergencia? ───────────────────────────────────
         if not self.estado.get_flag("PARO_EMERGENCIA"):
-            if self._di_vencida_desde is not None:
+            # D8-2.9 (tanda 8, TMG-04): solo suma una trama DI DISTINTA y
+            # nueva (la publica ControlLoop en estado.trama_di_nueva); varios
+            # ticks que leen la misma trama cuentan una vez. Sin esa
+            # información (None, o un estado que no la publica) se cuenta cada
+            # tick, como antes de D8-2.9.
+            nueva = getattr(self.estado, "trama_di_nueva", None)
+            if self._di_vencida_desde is not None and nueva is not False:
                 self._ticks_di_vigente += 1
                 if self._ticks_di_vigente >= _TICKS_DI_VIGENTE_REINICIO:
                     self._di_vencida_desde = None

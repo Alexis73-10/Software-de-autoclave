@@ -142,6 +142,10 @@ class SerialLink:
         # conexión no ha llegado ninguna. Sin DI vigente, el ControlLoop
         # publica paro de emergencia (adenda E0/E1, A-3; E6 lo reutiliza).
         self._ultima_di_mono: Optional[float] = None
+        # D8-2.9 (tanda 8): número de secuencia de la última trama DI válida.
+        # Crece en cada DI y nunca se reinicia en la vida del proceso, así una
+        # trama de una conexión nueva nunca repite el número de una anterior.
+        self._di_seq = 0
 
         # Diagnóstico de líneas inválidas (CRC, contenido o longitud).
         self._invalidas_total = 0
@@ -350,6 +354,16 @@ class SerialLink:
         if ultima is None:
             return None
         return (time.monotonic() if now is None else now) - ultima
+
+    def secuencia_ultima_di(self) -> Optional[int]:
+        """D8-2.9 (tanda 8): número de secuencia de la última trama DI válida
+        de esta conexión, o None si en ella no ha llegado ninguna. Dos lecturas
+        con el mismo número son la misma trama (TMG-04: 3 tramas distintas,
+        no 3 ticks)."""
+        with self.data_lock:
+            if self._ultima_di_mono is None:
+                return None
+            return self._di_seq
 
     def puerto_presente(self) -> bool:
         """U4 (tanda 2): True si el último escaneo encontró el puerto de la
@@ -926,6 +940,7 @@ class SerialLink:
             self.data[clave] = [1 if b == "1" else 0 for b in bits]
             if clave == "di":
                 self._ultima_di_mono = time.monotonic()
+                self._di_seq += 1
 
     def _notificar(self):
         if self.on_update:
