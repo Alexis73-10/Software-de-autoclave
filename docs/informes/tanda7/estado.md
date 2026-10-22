@@ -14,7 +14,7 @@ Rama `tanda-7`, creada desde `dev` (18eb429) tras A0. Sesión principal arrancad
 | R6 | Sin objeto | | A0 no encontró etapas de la tanda 6 sin hacer ni ramas sin unir (todas las filas "Hecha", ramas `tanda-6-*` ya contenidas y borradas). Los hallazgos abiertos de O2f (TMG-04/05, SAF-01/02) no son etapas; quedan listados en el índice. |
 | Q1 ★ | Hecha, unida a `tanda-7` | 8a4a63d (merge) | Correcciones de la revisión en 733b19f..88858a0. Re-revisión safety + timing: 0 Altos/Críticos abiertos. SEN-01 (Alto preexistente en dev) queda como PREGUNTA (SP-7). Suite tras unir: 5405 passed / 3 skipped / 3 xfailed (19 min 59 s). |
 | K2 | Hecha (08:10) | etiqueta `inst-2026-10-22-b` (23e76e2) | `entrega/2026-10-22_b/`. Humo: asistente de 8 pasos, sin traceback. Ver `K2_compilacion_b.md`. **Se instala la B.** |
-| D2 | Código hecho (rama `tanda-7-d2`); se une después de K2 | | Suite rama 4997 p / 2 s / 3 xf. |
+| D2 | Hecha, unida a `tanda-7` DESPUÉS de K2 | fbd181c (merge) | Suite tras unir: 5382 passed / 3 skipped / 3 xfailed (= 5405 − 23 pruebas de código retirado). No está en ninguna compilación. |
 | Z | Pendiente | | |
 
 ## NOTA DE REANUDACIÓN (asistente de Cristian, 22-oct 06:10) — leer antes de seguir
@@ -35,7 +35,7 @@ Estado real de los subagentes: TODOS terminaron su trabajo de código, con commi
 | C2 | Hecha, unida a `tanda-7` | 0d32135 (merge) | Suite rama 5053 p; tras unir 5233 p / 2 s / 3 xf. Conflicto solo en `revision_traducciones.md` (unión de filas). |
 | M2 | Hecha, unida a `tanda-7` | ceb5f64 (merge) | Suite rama 5042 p; tras unir 5255 p / 2 s / 3 xf. |
 | Q1 | tanda-7-q1 | agent-ab2c9a3b57297a83c | 12 | Q1_preguntas_abiertas.md, Q1_ensayo_tabla.md |
-| D2 | Código hecho (rama `tanda-7-d2`); se une después de K2 | | Suite rama 4997 p / 2 s / 3 xf. |
+| D2 | Hecha, unida a `tanda-7` DESPUÉS de K2 | fbd181c (merge) | Suite tras unir: 5382 passed / 3 skipped / 3 xfailed (= 5405 − 23 pruebas de código retirado). No está en ninguna compilación. |
 
 Para seguir:
 1. NO relances los subagentes desde cero. En cada worktree:
@@ -52,3 +52,5 @@ Para seguir:
 - Q1 queda fuera hasta cerrar el Alto TMG-01.
 - 08:01: unión de Q1 (con las correcciones de la revisión) en verde: 5405 passed / 3 skipped / 3 xfailed. Una corrida anterior dio 49 F / 40 E por dos pytest simultáneos sobre el mismo worktree (una tarea en segundo plano "cortada" que siguió viva); se descartó y se repitió limpia.
 - 08:01: `tanda-7` unida a `dev` (23e76e2) y etiqueta `inst-2026-10-22-b`. 08:10: K2 hecha.
+- 08:30: D2 unida a `tanda-7` (después de K2), suite en verde. 08:50: informe de Q1 cerrado por la sesión principal (e7e21f4) y unido (d747de9).
+- 09:12: suite final sobre d747de9: 1 fallo intermitente (`test_opciones_qml.py::test_ingeniero_edita_con_ciclo_en_curso`, pasa 5/5 aislado). 09:34: repetida, en verde: 5382 passed / 3 skipped / 3 xfailed.
