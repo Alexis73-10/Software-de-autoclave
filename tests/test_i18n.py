@@ -267,8 +267,11 @@ FAMILIAS = {
     "menu.resultado_": _sufijos_resultado_menu,
     "opciones.secciones.": _sufijos_secciones,
     # M1 (tanda 3): tipos de mantenimiento
+    # M2 (tanda 7): más los históricos (filas viejas de calibración, MNT-05)
     "opciones.mant_tipo_": lambda: list(__import__(
-        "autoclave.core.runtime.servicio_mantenimiento", fromlist=["TIPOS"]).TIPOS),
+        "autoclave.core.runtime.servicio_mantenimiento", fromlist=["TIPOS"]).TIPOS) + list(
+        __import__("autoclave.core.runtime.mantenimiento",
+                   fromlist=["TIPOS_HISTORICOS"]).TIPOS_HISTORICOS),
     # T12: secciones de un programa (GET /programas) y valores de enumerados
     "opciones.secciones_programa.": lambda: list(__import__(
         "autoclave.backend.server", fromlist=["_SECCIONES_PROGRAMA"])._SECCIONES_PROGRAMA),

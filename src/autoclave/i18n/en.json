@@ -242,7 +242,7 @@
     "mant_tipo": "Maintenance type",
     "mant_tipo_preventivo": "Preventive",
     "mant_tipo_correctivo": "Corrective",
-    "mant_tipo_calibracion": "Calibration",
+    "mant_tipo_calibracion": "Calibration (historical)",
     "mant_tipo_otro": "Other",
     "mant_registrar": "Record completed maintenance",
     "mant_confirmar": "A {tipo} maintenance completed today will be recorded. Do you want to continue?",

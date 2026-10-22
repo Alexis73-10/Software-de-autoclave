@@ -11,10 +11,12 @@
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
+from autoclave.core.runtime.mantenimiento import TIPOS
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 
-TIPOS = ("preventivo", "correctivo", "calibracion", "otro")
+# TIPOS: definición única en core/runtime/mantenimiento.py (MNT-03; lógica pura,
+# sin E/S: no arrastra el servicio del backend ni la máquina de estados).
 # límites de core/runtime/mantenimiento.py (el backend los vuelve a validar)
 DIAS_MAX = 3650
 CICLOS_MAX = 1_000_000
