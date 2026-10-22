@@ -99,8 +99,124 @@ Item {
             _seccionPendiente = clave
             dialogoCambiarSeccion.abrir()
         } else {
-            seccionActiva = clave
+            _irASeccion(clave)
         }
+    }
+
+    // ---- historial propio de OPCIONES (D8-4.1, tanda 8) ----
+    // Pila de niveles anteriores: {seccion, estado}. Cambiar de sección desde el
+    // cajón apila la sección que se deja con su subnivel (programa, fase,
+    // submenú, pestaña, segmento) y el desplazamiento de sus listas; Atrás, ya
+    // arriba dentro de la sección, la restaura. Pila vacía: Atrás sale de OPCIONES.
+    property var historial: []
+    readonly property int profundidadHistorial: historial.length
+    readonly property int _maxHistorial: 50
+    function _cargadorDe(clave) {
+        const mapa = { usuarios: usuarios, parametros_ciclo: parametrosCiclo,
+                       parametros_sistema: parametrosEquipo, fecha_hora: fechaHora,
+                       info_sistema: infoSistema, bitacora: bitacora,
+                       mantenimiento: mantenimiento, conectividad: conectividad,
+                       respaldo: respaldo, entradas_salidas: entradasSalidas }
+        return mapa[clave] ?? null
+    }
+    // Flickables (y ListView) de la sección, en orden de recorrido
+    function _flickables(it, acc) {
+        if (!it)
+            return acc
+        if (it.contentY !== undefined && it.flickableDirection !== undefined)
+            acc.push(it)
+        const hijos = it.children || []
+        for (let i = 0; i < hijos.length; ++i)
+            _flickables(hijos[i], acc)
+        return acc
+    }
+    // Subniveles simples de las secciones (propiedades QML de la vista)
+    readonly property var _propiedadesSubnivel: ["pestana", "segmento", "segmentoOrigen",
+                                                 "sensorEnCalibracion"]
+    function _capturarEstado(clave) {
+        const item = _cargadorDe(clave)?.item ?? null
+        const e = { props: {}, desplazamientos: [] }
+        if (!item)
+            return e
+        for (const p of _propiedadesSubnivel)
+            if (item[p] !== undefined)
+                e.props[p] = item[p]
+        if (item.vista !== undefined)
+            e.vista = item.vista
+        if (clave === "parametros_ciclo" && item.controlador) {
+            e.programa = item.controlador.numero
+            e.fase = item.controlador.seccion
+        }
+        if (clave === "parametros_sistema" && item.controlador)
+            e.grupo = item.controlador.grupo
+        e.desplazamientos = _flickables(item, []).map(f => ({ nombre: f.objectName, y: f.contentY }))
+        return e
+    }
+    function _restaurarEstado(clave, e) {
+        const item = _cargadorDe(clave)?.item ?? null
+        if (!item || !e)
+            return
+        if (clave === "parametros_ciclo" && item.controlador) {
+            const c = item.controlador
+            if (e.programa > 0)
+                c.elegirPrograma(e.programa)
+            if (e.vista === "seccion" && e.fase) {
+                c.abrirSeccion(e.fase)
+            } else if (e.vista === "sensores") {
+                c.cargarSensores(); item._prepararSensores()
+            } else if (e.vista === "entradas") {
+                c.cargarEntradas(); item._entradasSel = c.entradas.slice()
+            }
+        }
+        if (clave === "parametros_sistema" && item.controlador && e.grupo !== undefined)
+            item.controlador.abrirGrupo(e.grupo)
+        for (const p of _propiedadesSubnivel)
+            if (e.props[p] !== undefined && item[p] !== undefined)
+                item[p] = e.props[p]
+        if (e.vista !== undefined && item.vista !== undefined)
+            item.vista = e.vista
+        // el desplazamiento, cuando las listas ya tienen su contenido
+        _desplazamientoPendiente = { clave: clave, lista: e.desplazamientos }
+        temporizadorDesplazamiento.restart()
+    }
+    property var _desplazamientoPendiente: null
+    Timer {
+        id: temporizadorDesplazamiento
+        interval: 0
+        onTriggered: {
+            const d = raiz._desplazamientoPendiente
+            raiz._desplazamientoPendiente = null
+            const item = d ? (raiz._cargadorDe(d.clave)?.item ?? null) : null
+            if (!item || raiz.seccionActiva !== d.clave)
+                return
+            const actuales = raiz._flickables(item, [])
+            for (let i = 0; i < Math.min(actuales.length, d.lista.length); ++i)
+                if (actuales[i].objectName === d.lista[i].nombre)
+                    actuales[i].contentY = d.lista[i].y
+        }
+    }
+    function _irASeccion(clave) {
+        if (seccionActiva !== "") {
+            const pila = historial.slice()
+            pila.push({ seccion: seccionActiva, estado: _capturarEstado(seccionActiva) })
+            historial = pila.slice(-_maxHistorial)
+        }
+        seccionActiva = clave
+    }
+    // Atrás con pila: vuelve a la sección anterior; false si la pila está vacía
+    function _volverEnHistorial() {
+        while (historial.length > 0) {
+            const pila = historial.slice()
+            const nivel = pila.pop()
+            historial = pila
+            // una sección que ya no es visible para el rol se salta
+            if (!secciones.some(s => s.clave === nivel.seccion))
+                continue
+            seccionActiva = nivel.seccion
+            _restaurarEstado(nivel.seccion, nivel.estado)
+            return true
+        }
+        return false
     }
 
     // ---- salida ----
@@ -119,8 +235,11 @@ Item {
             senal()
         }
     }
-    // Atrás sube un nivel dentro de OPCIONES (sección -> lista de programas);
-    // solo desde el nivel superior sale a la pantalla anterior
+    // Atrás (D8-4.1): primero la sección activa cierra su ventana de ajuste
+    // (preguntando si hay un valor editado) o sube un subnivel (fase -> lista de
+    // programas, submenú -> entrada, calibración -> sección); arriba en la
+    // sección, vuelve al nivel anterior del historial; con la pila vacía sale
+    // a la pantalla desde la que se entró (Main.qml).
     function atras() {
         cerrarCajon()
         if (parametrosCiclo.item?.retroceder())
@@ -130,6 +249,10 @@ Item {
         if (mantenimiento.item?.retroceder())         // O2f: calibración -> Mantenimiento
             return
         if (entradasSalidas.item?.subirNivel())
+            return
+        if (navegacionBloqueada)
+            return
+        if (_volverEnHistorial())
             return
         _salirCon(atrasPulsado)
     }
@@ -536,7 +659,7 @@ Item {
         mensaje: I18n.t("opciones.cambiar_seccion_pregunta", I18n.lang)
         textoConfirmar: I18n.t("opciones.cambiar_seccion_confirmar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
-        onConfirmado: { raiz.seccionActiva = raiz._seccionPendiente; raiz._seccionPendiente = "" }
+        onConfirmado: { const c = raiz._seccionPendiente; raiz._seccionPendiente = ""; raiz._irASeccion(c) }
         onDescartado: raiz._seccionPendiente = ""
     }
 }
