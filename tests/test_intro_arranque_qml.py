@@ -111,6 +111,21 @@ _SCRIPT = textwrap.dedent(r"""
             sim.avanzar()
         r["alarma_se_retira"] = esperar(lambda: not alarma.property("visible"), 1)
         r["termino"] = esperar(lambda: not loader.property("active"), 6)
+    elif escenario == "sin_progreso_retrocede":
+        # un retroceso (backend que deja de responder: fracción 0) no retira el fallo
+        intro = loader.property("item")
+        intro.setProperty("plazoSinProgresoMs", 400)
+        sim.avanzar(); sim.detener()   # 0.25
+        r["alarma"] = esperar(lambda: alarma.property("visible"), 2)
+        sim._completadas = 0
+        sim.cambiado.emit()                             # retrocede a 0
+        QTest.qWait(150)
+        r["sigue_tras_retroceso"] = bool(alarma.property("visible"))
+        sim.avanzar(); sim.detener()   # vuelve a 0.25: no es avance nuevo
+        QTest.qWait(150)
+        r["sigue_sin_avance_nuevo"] = bool(alarma.property("visible"))
+        sim.avanzar(); sim.detener()   # 0.5: avance real
+        r["se_retira"] = esperar(lambda: not alarma.property("visible"), 1)
     print(json.dumps(r))
 """)
 
@@ -168,3 +183,12 @@ def test_sin_progreso_que_luego_avanza_retira_el_fallo_y_termina():
     assert r["alarma"] is True
     assert r["alarma_se_retira"] is True
     assert r["termino"] is True
+
+
+def test_sin_progreso_un_retroceso_no_retira_el_fallo():
+    r = _correr("sin_progreso_retrocede")
+    assert r["avisos"] == []
+    assert r["alarma"] is True
+    assert r["sigue_tras_retroceso"] is True
+    assert r["sigue_sin_avance_nuevo"] is True
+    assert r["se_retira"] is True

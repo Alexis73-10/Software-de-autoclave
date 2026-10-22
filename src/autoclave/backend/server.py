@@ -2867,7 +2867,8 @@ def _apagado_windows_habilitado() -> bool:
 def _apagar_windows() -> None:
     import subprocess
     r = subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30,
-                       capture_output=True, text=True, errors="replace",
+                       capture_output=True, errors="replace",
+                       encoding="oem" if sys.platform == "win32" else None,
                        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if r.returncode != 0:
         # P1 (tanda 7): el lazo ya se detuvo; sin esto no quedaba el motivo

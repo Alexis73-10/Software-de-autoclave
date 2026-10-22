@@ -104,8 +104,14 @@ Item {
     // vuelve (backend congelado que tarda > 20 s en responder la primera vez);
     // antes la intro quedaba trabada hasta reiniciar. El fallo bloqueante que
     // publica el backend no se toca.
+    // Solo cuenta un avance real (fracción mayor que la máxima vista o
+    // terminado): un retroceso (backend que deja de responder) o la repetición
+    // visible de etapas no retiran el fallo (revisión SAF-02 / TMG-01).
+    property real _fraccionMaxima: 0
     function _progresoNuevo() {
-        sinProgreso = false
+        if (terminadoFuente || fraccionFuente > _fraccionMaxima + 1e-6)
+            sinProgreso = false
+        _fraccionMaxima = Math.max(_fraccionMaxima, fraccionFuente)
         _vigilar()
     }
     onFraccionFuenteChanged: _progresoNuevo()

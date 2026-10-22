@@ -92,6 +92,21 @@ for _ in range(3):
     ctl.actualizar()
 QTest.qWait(50)
 t1 = tarjeta()
+# pulsación sostenida a través de refrescos: renueva ON, y al soltar apaga y no renueva más
+from PySide6.QtCore import QMetaObject
+boton = buscar("botonSalida_bomba_vacio")
+patches.clear()
+QMetaObject.invokeMethod(boton, "presionado")
+for _ in range(3):
+    QTest.qWait(400)
+    ctl.actualizar()
+encendidos = sum(1 for c in patches if c.get("value") is True)
+QMetaObject.invokeMethod(boton, "soltado")
+ultimo = dict(patches[-1]) if patches else {}
+n = len(patches)
+QTest.qWait(1200)
+tras_soltar = len(patches) - n
+
 s1 = buscar("sensor_temp_camara")
 v1 = buscar("valorSensor_temp_camara")
 valor_ok = v1.property("text")
@@ -107,7 +122,8 @@ print(json.dumps({"sobrevive": t1 is not None and t1.property("marcaP1") == 1,
                   "sensor_sobrevive": s1 is not None and s1.property("marcaP1") == 1,
                   "valor_sensor": valor_ok,
                   "estado_on": estado_on,
-                  "textos_sensor_desconectada": textos_desconectada}))
+                  "textos_sensor_desconectada": textos_desconectada,
+                  "encendidos": encendidos, "ultimo": ultimo, "tras_soltar": tras_soltar}))
 """
 
 
@@ -137,3 +153,15 @@ def test_sensor_con_tarjeta_desconectada_no_culpa_al_cableado():
     assert es["io"]["ui"]["sin_lectura"] not in textos, textos
     assert es["io"]["ui"]["enlace_perdido"] in textos, textos
     assert not any("undefined" in t for t in textos), textos
+
+
+def test_pulsacion_sostenida_renueva_y_al_soltar_apaga_sin_renovar_mas():
+    qml = RAIZ / "src" / "autoclave" / "ui_qml" / "qml"
+    r = subprocess.run([sys.executable, "-c", _GUION, str(qml)], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", cwd=RAIZ, timeout=90,
+                       env={**os.environ, "QT_QPA_PLATFORM": "offscreen"})
+    assert r.returncode == 0, r.stderr[-2000:]
+    d = json.loads(r.stdout.strip().splitlines()[-1])
+    assert d["encendidos"] >= 3, d          # el primer ON y renovaciones cada 500 ms
+    assert d["ultimo"] == {"value": False}, d
+    assert d["tras_soltar"] == 0, d

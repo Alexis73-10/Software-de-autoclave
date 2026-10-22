@@ -436,6 +436,19 @@ Item {
                         nombre: raiz.nombreCanal(modelData.i18n)
                         idFisico: modelData.id + (modelData.bloqueada ? " · " + I18n.t("io.ui.bloqueada", I18n.lang) : "")
                         readonly property bool libre: control.modoPrueba && !modelData.bloqueada
+                        // P1 (tanda 7, SAF-01): salida momentánea fijada al pulsar; la
+                        // renovación y el apagado usan ese nombre aunque cambien los datos
+                        property string pulsada: ""
+                        function soltarMomentanea() {
+                            renovacion.stop()
+                            if (pulsada === "") return
+                            var nombre = pulsada
+                            pulsada = ""
+                            control.accionar(nombre, false, true)
+                        }
+                        // sin modo prueba el backend ya apagó todo: solo se deja de renovar
+                        onLibreChanged: if (!libre) { renovacion.stop(); pulsada = "" }
+                        Component.onDestruction: if (pulsada !== "" && control) control.accionar(pulsada, false, true)
                         Column {
                             anchors.right: parent.right
                             anchors.verticalCenter: parent.verticalCenter
@@ -471,22 +484,27 @@ Item {
                                 onPresionado: {
                                     raiz.marcarActividad()
                                     if (tarjetaSalida.modelData.momentanea) {
-                                        control.accionar(tarjetaSalida.modelData.name, true, true)
-                                        renovacion.start()
+                                        tarjetaSalida.pulsada = tarjetaSalida.modelData.name
+                                        // rechazada (no dueño, paro, sin modo prueba): no se renueva
+                                        if (control.accionar(tarjetaSalida.pulsada, true, true))
+                                            renovacion.start()
+                                        else
+                                            tarjetaSalida.pulsada = ""
                                     }
                                 }
-                                onSoltado: {
-                                    if (tarjetaSalida.modelData.momentanea) {
-                                        renovacion.stop()
-                                        control.accionar(tarjetaSalida.modelData.name, false, true)
-                                    }
-                                }
+                                onSoltado: tarjetaSalida.soltarMomentanea()
                                 // P-ES-3: reenvia ON cada 500 ms mientras se mantiene pulsado
                                 Timer {
                                     id: renovacion
                                     interval: 500
                                     repeat: true
-                                    onTriggered: control.accionar(tarjetaSalida.modelData.name, true, true)
+                                    onTriggered: {
+                                        if (tarjetaSalida.pulsada === ""
+                                                || !control.accionar(tarjetaSalida.pulsada, true, true)) {
+                                            stop()
+                                            tarjetaSalida.pulsada = ""
+                                        }
+                                    }
                                 }
                             }
                         }
