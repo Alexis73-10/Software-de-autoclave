@@ -22,6 +22,10 @@ from autoclave.utils.archivos import escribir_texto_atomico
 
 NOMBRE_REGISTRO = "installation_profile_cambios.log"
 
+# M1 (tanda 7, AM-6): el nombre del modelo se calcula de estos campos y solo
+# cambia reinstalando el perfil. Ninguna herramienta los escribe.
+CAMPOS_DEL_MODELO = ("model_id", "equipment_class", "door_count", "capacidad_litros", "tipo_carga")
+
 
 class CambioCancelado(Exception):
     """El ingeniero no confirmó el cambio (o no hay terminal para preguntar)."""
@@ -46,6 +50,8 @@ def escribir_campo(perfil: Path, campo: str, valor: dict, herramienta: str,
     """Escribe `campo` = `valor` en el perfil. Lanza ValueError si el perfil
     quedaría inválido y CambioCancelado si no se confirma. Devuelve el valor
     escrito. Con `confirmado=True` no pregunta (opción --si)."""
+    if campo in CAMPOS_DEL_MODELO:
+        raise ValueError(f"'{campo}' define el nombre del modelo: solo cambia reinstalando el perfil")
     data = json.loads(perfil.read_text(encoding="utf-8"))
     antes = data.get(campo)
     data[campo] = valor
