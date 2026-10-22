@@ -510,15 +510,26 @@ class CycleLogger:
                     f0_total = self.estado.f0_acumulado
             except Exception as exc:
                 logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
+            # D8-2.14: las líneas de aviso del pie, también en la base y el
+            # respaldo, para que la reimpresión sea idéntica al ticket en vivo
+            sin_datos_s = self._sin_datos_tarjeta_s()
+            avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
+                      if isinstance(a, str)]
+            avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
+                             if sin_datos_s is not None or avisos else None)
             # TMG-03 de T8: primero el respaldo, después la base
             if self.respaldo is not None and self.uuid_ciclo:
                 uuid_ciclo = self.uuid_ciclo
                 cierre = {"fecha_fin": datetime.now().isoformat(), "resultado": resultado,
                           "motivo": motivo, "codigo": codigo, "f0_final": f0_total,
                           "valores": valores}
+                if avisos_ticket is not None:
+                    cierre["avisos_ticket"] = avisos_ticket
                 self._respaldar(lambda: self.respaldo.cierre(uuid_ciclo, cierre))
             # I4: los parámetros solo si los hay (dobles de prueba antiguos)
             extra = {"valores_fallo": valores} if valores else {}
+            if avisos_ticket is not None:
+                extra["avisos_ticket"] = avisos_ticket
             self._bd("cerrar el ciclo", lambda i: self.db.cerrar_ciclo(
                 i, resultado, motivo, codigo, f0_final=f0_total, **extra))
 
@@ -528,10 +539,10 @@ class CycleLogger:
                     temp_final=self._ultima_temp,
                     motivo=motivo_ticket(codigo, motivo, getattr(self, "_presentacion", None)),
                     f0_total=f0_total,
-                    avisos=list(getattr(self.estado, "avisos_ciclo", None) or []) or None,
+                    avisos=list(avisos) or None,
                     operador=self._operador_ticket or None,
                     p=getattr(self, "_presentacion", None),
-                    sin_datos_s=self._sin_datos_tarjeta_s(),     # T2-a (tanda 7)
+                    sin_datos_s=sin_datos_s,     # T2-a (tanda 7)
                 ))
 
             logger.info(
