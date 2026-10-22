@@ -171,6 +171,8 @@ def test_claves_del_catalogo_existen_en_es_y_en():
     import re
     claves = set(re.findall(r'"(reasignacion\.[a-z_]+)"', qml)) | set(rc._MENSAJES.values())
     claves |= {f"reasignacion.motivo_{m}" for m in rc._MOTIVOS}
+    claves |= {f"reasignacion.falta_{m}" for m in rc._FALTAS}
+    claves |= {f"reasignacion.verif_{e}" for e in rc._ESTADOS_VERIF}
     faltan = [(k, l) for k in sorted(claves) for l in ("es", "en") if not i18n.existe(k, l)]
     assert faltan == []
 
@@ -218,3 +220,35 @@ def test_cableada_en_opciones():
     assert 'objectName: "cargadorReasignacion"' in qml
     assert 'raiz.seccionActiva === "opciones_avanzadas"' in qml
     assert 'raiz.seccionActiva !== "opciones_avanzadas"' in qml     # no muestra "próximamente"
+
+
+_VERIF = {**_DATOS, "pendientes": ["vapor_camara", "paro_emergencia"],
+          "verificacion": {"estado": "trama_presente", "funciones": {
+              "vapor_camara": {"estado": "trama_presente", "falta": "sin_prueba_de_salida"},
+              "paro_emergencia": {"estado": "trama_presente", "falta": ""},
+              "temp_camara": {"estado": "verificada", "falta": ""}}}}
+
+
+def test_verificacion_por_funcion():
+    c, _ = _ctrl(_VERIF)
+    v = {x["funcion"]: x for x in c.verificacion}
+    assert c.cantidadSinVerificar == 2
+    assert v["vapor_camara"]["pendiente"] is True
+    assert v["vapor_camara"]["falta"] == "reasignacion.falta_sin_prueba_de_salida"
+    assert v["paro_emergencia"]["falta"] == "" and v["paro_emergencia"]["reforzada"] is True
+    assert v["temp_camara"]["estado"] == "verificada" and v["temp_camara"]["pendiente"] is False
+
+
+def test_verificar_envia_funcion_clave_y_nombre():
+    c, s = _ctrl(_VERIF, extra={("POST", "/io/assignment/verify"): _ok({"ok": True, "pendientes": []})})
+    assert c.verificar("paro_emergencia", "secreta", "Paro de emergencia") is True
+    assert ("POST", "/io/assignment/verify",
+            {"funcion": "paro_emergencia", "clave": "secreta", "nombre": "Paro de emergencia"}) in s.enviados
+    assert c.mensaje == "reasignacion.verificada_ok"
+
+
+def test_verificar_rechazado_muestra_lo_que_falta():
+    c, _ = _ctrl(_VERIF, extra={("POST", "/io/assignment/verify"):
+                                Resultado("sin_prueba_de_salida", {}, 409)})
+    assert c.verificar("vapor_camara", "secreta", "") is False
+    assert c.mensaje == "reasignacion.falta_sin_prueba_de_salida"

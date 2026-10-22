@@ -34,9 +34,18 @@ _MENSAJES = {
     "estado_no_permitido": "reasignacion.err_estado",
     "rol_sin_permiso": "reasignacion.err_rol",
     "no_se_pudo_guardar": "reasignacion.err_guardar",
+    "puerto_sin_calibracion": "reasignacion.err_puerto_sin_calibracion",
+    "reinicio_en_curso": "reasignacion.err_reinicio_en_curso",
+    "no_pendiente": "reasignacion.err_no_pendiente",
+    "sin_cambio_observado": "reasignacion.falta_sin_cambio_observado",
+    "sin_prueba_de_salida": "reasignacion.falta_sin_prueba_de_salida",
+    "sin_lectura": "reasignacion.falta_sin_lectura",
+    "calibracion_requerida": "reasignacion.falta_calibracion_requerida",
     sesion_backend.BACKEND_NO_RESPONDE: "reasignacion.err_sin_respuesta",
 }
 _MOTIVOS = {"ciclo", "estado", "modo_prueba", "apagando", "estado_seguro"}
+_FALTAS = {"sin_cambio_observado", "sin_prueba_de_salida", "sin_lectura", "calibracion_requerida"}
+_ESTADOS_VERIF = {"pendiente", "trama_presente", "sin_respuesta", "verificada"}
 
 
 def mensaje_de(causa: str) -> str:
@@ -157,19 +166,34 @@ class ReasignacionController(QObject):
 
     @Property("QVariantList", notify=datosChanged)
     def verificacion(self) -> list:
-        """[{funcion, i18n, estado, puerto}] de la verificación tras el último
-        reinicio (estado: ok | sin_respuesta | pendiente)."""
+        """[{funcion, i18n, tipo, estado, falta, puerto, pendiente, reforzada}]
+        de las funciones reasignadas en el último arranque. estado: pendiente |
+        trama_presente | sin_respuesta | verificada. falta: clave del catálogo
+        con lo que falta para que el ingeniero la pueda verificar ("" = nada)."""
         v = self._d.get("verificacion") or {}
         funciones = v.get("funciones") if isinstance(v, dict) else None
         if not isinstance(funciones, dict):
             return []
+        pendientes = set(self._d.get("pendientes") or [])
         por_funcion = {f["funcion"]: f for f in self.filas}
         salida = []
-        for funcion, estado in sorted(funciones.items()):
+        for funcion, dato in sorted(funciones.items()):
+            dato = dato if isinstance(dato, dict) else {"estado": dato}
+            estado = str(dato.get("estado") or "pendiente")
+            falta = str(dato.get("falta") or "")
             fila = por_funcion.get(funcion, {})
             salida.append({"funcion": funcion, "i18n": fila.get("i18n", ""),
-                           "estado": str(estado), "puerto": fila.get("id_actual", "")})
+                           "tipo": fila.get("tipo", ""),
+                           "estado": estado if estado in _ESTADOS_VERIF else "pendiente",
+                           "falta": f"reasignacion.falta_{falta}" if falta in _FALTAS else "",
+                           "puerto": fila.get("id_actual", ""),
+                           "pendiente": funcion in pendientes,
+                           "reforzada": bool(fila.get("reforzada"))})
         return salida
+
+    @Property(int, notify=datosChanged)
+    def cantidadSinVerificar(self) -> int:
+        return len([f for f in (self._d.get("pendientes") or []) if isinstance(f, str)])
 
     # ── cambios pendientes ────────────────────────────────────────────
     def _fila(self, funcion: str) -> dict:
@@ -292,6 +316,20 @@ class ReasignacionController(QObject):
                              {"cambios": dict(self._pendientes), "clave": clave, "confirmar": True,
                               "nombres": dict(self._nombres)})
         return self._tras_envio(r)
+
+    @Slot(str, str, str, result=bool)
+    def verificar(self, funcion: str, clave: str, nombre: str) -> bool:
+        """El ingeniero da por verificada una función reasignada. El backend
+        exige la evidencia (cambio observado, prueba de salida o calibración)."""
+        r = self._s().enviar("POST", "/io/assignment/verify",
+                             {"funcion": funcion, "clave": clave, "nombre": nombre})
+        if r.ok:
+            self._fijar_mensaje("reasignacion.verificada_ok")
+            self.cargar()
+            return True
+        self._fijar_mensaje(mensaje_de(r.causa))
+        self.cargar()
+        return False
 
     @Slot(str, result=bool)
     def restaurarFabrica(self, clave: str) -> bool:

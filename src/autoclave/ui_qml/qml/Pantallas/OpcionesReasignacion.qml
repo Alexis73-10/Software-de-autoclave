@@ -16,6 +16,10 @@ import Autoclave.I18n
 // (interlock de puerta, paro de emergencia, finales de carrera) -> "Se
 // reiniciará el control" -> contraseña. El backend es la autoridad: la UI solo
 // refleja y muestra el motivo de un rechazo.
+// Tras el reinicio, cada función reasignada queda sin verificar (alarma SEN-04,
+// no se inician ciclos) hasta que el ingeniero la verifica aquí, con la prueba
+// que exige el backend (revisión R8: cambio observado en una entrada, salida
+// accionada en modo prueba, analógica calibrada después de reasignar).
 Item {
     id: raiz
     objectName: "opcionesReasignacion"
@@ -43,7 +47,7 @@ Item {
         running: raiz.visible && (control.reiniciando || raiz._verificando)
         onTriggered: control.cargar()
     }
-    readonly property bool _verificando: control.verificacion.some(v => v.estado === "pendiente")
+    readonly property bool _verificando: control.cantidadSinVerificar > 0
 
     function nombre(clave) { return clave ? I18n.t(clave, I18n.lang) : "" }
 
@@ -116,6 +120,8 @@ Item {
                   texto: control.motivo, peligro: false },
                 { visible: control.reinicioPendiente && !control.reiniciando,
                   texto: "reasignacion.reinicio_pendiente", peligro: false },
+                { visible: control.cantidadSinVerificar > 0,
+                  texto: "reasignacion.sin_verificar_aviso", peligro: true },
                 { visible: control.mensaje !== "", texto: control.mensaje,
                   peligro: control.mensaje.indexOf(".err_") >= 0 }
             ]
@@ -142,7 +148,7 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
-                    enabled: banda.index === 3
+                    enabled: banda.index === 4
                     onClicked: control.limpiarMensaje()
                 }
             }
@@ -163,18 +169,55 @@ Item {
             }
             Repeater {
                 model: control.verificacion
-                delegate: Text {
+                delegate: Item {
+                    id: itemVerif
                     required property var modelData
+                    objectName: "verif_" + modelData.funcion
                     width: parent ? parent.width : 0
-                    wrapMode: Text.WordWrap
-                    text: I18n.t(modelData.estado === "ok" ? "reasignacion.verif_ok"
-                                 : modelData.estado === "sin_respuesta" ? "reasignacion.verif_sin_respuesta"
-                                 : "reasignacion.verif_pendiente", I18n.lang,
-                                 { funcion: raiz.nombre(modelData.i18n), puerto: modelData.puerto })
-                    color: modelData.estado === "sin_respuesta" ? Colores.peligroTexto
-                           : modelData.estado === "ok" ? Colores.menuVerdeTexto : Colores.textoSecundario
-                    font.family: Tipografia.familia
-                    font.pixelSize: Escala.fuente(19)
+                    height: Math.max(columnaVerif.implicitHeight, botonVerif.visible ? botonVerif.height : 0)
+                            + Escala.px(6)
+                    Column {
+                        id: columnaVerif
+                        anchors.left: parent.left
+                        anchors.right: botonVerif.visible ? botonVerif.left : parent.right
+                        anchors.rightMargin: Escala.px(12)
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: I18n.t(itemVerif.modelData.estado === "verificada" ? "reasignacion.verif_verificada"
+                                         : itemVerif.modelData.estado === "trama_presente" ? "reasignacion.verif_trama_presente"
+                                         : itemVerif.modelData.estado === "sin_respuesta" ? "reasignacion.verif_sin_respuesta"
+                                         : "reasignacion.verif_pendiente", I18n.lang,
+                                         { funcion: raiz.nombre(itemVerif.modelData.i18n),
+                                           puerto: itemVerif.modelData.puerto })
+                            color: itemVerif.modelData.estado === "sin_respuesta" ? Colores.peligroTexto
+                                   : itemVerif.modelData.estado === "verificada" ? Colores.menuVerdeTexto
+                                   : Colores.textoPrimario
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(19)
+                        }
+                        Text {
+                            width: parent.width
+                            visible: itemVerif.modelData.pendiente && itemVerif.modelData.falta !== ""
+                            wrapMode: Text.WordWrap
+                            text: itemVerif.modelData.falta ? I18n.t(itemVerif.modelData.falta, I18n.lang) : ""
+                            color: Colores.advertenciaTexto
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(17)
+                        }
+                    }
+                    Boton {
+                        id: botonVerif
+                        objectName: "botonVerificar_" + itemVerif.modelData.funcion
+                        visible: itemVerif.modelData.pendiente
+                        anchors.right: parent.right
+                        anchors.verticalCenter: parent.verticalCenter
+                        width: Escala.px(220); height: Escala.px(60)
+                        relleno: Colores.accionPrimario
+                        habilitado: control.editable && itemVerif.modelData.falta === ""
+                        texto: I18n.t("reasignacion.verificar", I18n.lang)
+                        onPulsado: raiz.iniciarVerificacion(itemVerif.modelData)
+                    }
                 }
             }
         }
@@ -265,6 +308,9 @@ Item {
                         Celda {
                             fraccion: 0.38
                             text: raiz.nombre(fila.dato.i18n)
+                                  + (fila.dato.habilitada === false
+                                     ? " · " + I18n.t("reasignacion.sin_uso", I18n.lang) : "")
+                            color: fila.dato.habilitada === false ? Colores.textoSecundario : Colores.textoPrimario
                             font.weight: Tipografia.pesoSemiBold
                         }
                         Celda {
@@ -529,6 +575,40 @@ Item {
         colorConfirmar: Colores.peligroTexto
         onConfirmado: { cerrar(); raiz._pedirClave(clave => control.restaurarFabrica(clave)) }
     }
+    // 5) Verificar una función reasignada: instrucciones de la prueba por tipo,
+    // nombre escrito si es de seguridad y contraseña
+    property var _enVerificacion: ({})
+    function iniciarVerificacion(dato) {
+        _enVerificacion = dato
+        dialogoVerificar.abrir()
+    }
+    DialogoConfirmacion {
+        id: dialogoVerificar
+        objectName: "dialogoVerificarReasignacion"
+        mensaje: I18n.t("reasignacion.verificar_titulo", I18n.lang,
+                        { funcion: raiz.nombre(raiz._enVerificacion.i18n || ""),
+                          puerto: raiz._enVerificacion.puerto || "" }) + "\n\n"
+                 + I18n.t(raiz._enVerificacion.tipo === "DI" ? "reasignacion.verificar_texto_di"
+                          : raiz._enVerificacion.tipo === "DO" ? "reasignacion.verificar_texto_do"
+                          : "reasignacion.verificar_texto_ai", I18n.lang)
+        textoConfirmar: I18n.t("reasignacion.verificar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        colorConfirmar: Colores.peligroTexto
+        onConfirmado: {
+            cerrar()
+            const dato = raiz._enVerificacion
+            if (!raiz.teclado) return
+            const conClave = function (nombreEscrito) {
+                raiz._pedirClave(clave => control.verificar(dato.funcion, clave, nombreEscrito))
+            }
+            if (dato.reforzada)
+                raiz.teclado.abrirAlfanumerico(raiz.nombre(dato.i18n), "", 60, false,
+                                               texto => Qt.callLater(() => conClave(texto)))
+            else
+                conClave("")
+        }
+    }
+
     function _pedirClave(alConfirmar) {
         if (!raiz.teclado) return
         raiz.teclado.abrirAlfanumerico(I18n.t("reasignacion.clave_titulo", I18n.lang, { usuario: control.usuario }),
