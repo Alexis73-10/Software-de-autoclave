@@ -180,4 +180,5 @@ git push origin worktree-anuncios-voz            ->  * [new branch]      worktre
 
 ## Suite completa
 
-(ver resultado al final)
+- En la rama `tanda-7-d2`: 4997 passed, 2 skipped, 3 xfailed (17 min 40 s; corrida por la sesión principal el 22-oct, 06:05). Coincide con lo esperado.
+- Unida a `tanda-7` después de K2 (fbd181c): 5382 passed, 3 skipped, 3 xfailed (20 min 29 s) = 5405 − 23.
