@@ -74,6 +74,9 @@ class ProtocoloFallo:
         # escalar ni enfriamiento con contrapresión (no se sigue con la
         # Referencia)
         self._solo_lenta        = False
+        # SAF-01 / SEN-02 / TMG-07 (revisión Q1): lecturas inválidas seguidas
+        # del Principal con el protocolo en marcha antes de pasar a solo_lenta
+        self._lecturas_principal_perdido = 0
 
     @property
     def solo_lenta(self) -> bool:
@@ -374,9 +377,16 @@ class ProtocoloFallo:
             if self._salidas_apagadas:
                 logger.info("Protocolo fallo: apagado de salidas confirmado tras reintento")
 
-        # R1-P4: Principal perdido con el protocolo ya en marcha por otra causa
-        if not self._solo_lenta and self._principal_perdido():
-            self.pasar_a_solo_lenta()
+        # R1-P4: Principal perdido con el protocolo ya en marcha por otra causa.
+        # SAF-01 / SEN-02 / TMG-07 (revisión Q1): con _DEBOUNCE_LECTURAS
+        # lecturas inválidas seguidas; una válida reinicia el contador.
+        if not self._solo_lenta:
+            if self._principal_perdido():
+                self._lecturas_principal_perdido += 1
+            else:
+                self._lecturas_principal_perdido = 0
+            if self._lecturas_principal_perdido >= _DEBOUNCE_LECTURAS:
+                self.pasar_a_solo_lenta()
 
         pres     = self.estado.sensores_pres.get("pres_camara")
         # Principal del programa del ciclo (tanda §1.1)

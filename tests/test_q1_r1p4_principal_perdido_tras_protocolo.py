@@ -1,14 +1,15 @@
 """Q1 / R1-P4 (tanda 7, decisión 1.3 de Cristian; SAF-05 de T2): si el
 protocolo de fallo ya corrió por otra causa y después se pierde el Principal
 (None o 0), se pasa igual a `solo_lenta`: criterio de P-2 sin importar el
-orden. Vale con el resultado pendiente (CICLO) y en el estado seguro."""
+orden. Desde la revisión Q1 (SAF-01) exige 3 lecturas inválidas seguidas. Vale con el resultado pendiente (CICLO) y en el estado seguro."""
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
-from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
+from autoclave.state_machine.cycle_phases.protocolo_fallo import (
+    _DEBOUNCE_LECTURAS, ProtocoloFallo)
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
@@ -30,6 +31,12 @@ def _protocolo(modo, pres=250.0, temp=130.0, liquido=False):
     return ProtocoloFallo(estado, set_do, cycle, _Config(_CFG)), estado, set_do
 
 
+def _updates_debounce(prot):
+    """SAF-01 de la revisión Q1: el paso exige 3 lecturas inválidas seguidas."""
+    for _ in range(_DEBOUNCE_LECTURAS):
+        prot.update()
+
+
 @pytest.mark.parametrize("perdido", [None, 0, float("nan")])
 def test_modo_4_en_enfriamiento_pasa_a_solo_lenta(perdido):
     prot, estado, set_do = _protocolo(4, pres=150.0)   # bajo presion_camara_enfriamiento (200)
@@ -40,7 +47,7 @@ def test_modo_4_en_enfriamiento_pasa_a_solo_lenta(perdido):
 
     estado.sensores_temp["temp_camara"] = perdido
     set_do.reset_mock()
-    prot.update()
+    _updates_debounce(prot)
 
     assert prot.solo_lenta is True
     set_do.aire_comprimido_camara_off.assert_called()
@@ -48,6 +55,7 @@ def test_modo_4_en_enfriamiento_pasa_a_solo_lenta(perdido):
     set_do.descompresion_chaqueta_off.assert_called()
     set_do.descompresion_rapida_off.assert_called()
     set_do.descompresion_lenta_on.assert_called()
+    set_do.reset_mock()
     for _ in range(5):
         prot.update()
     set_do.aire_comprimido_camara_on.assert_not_called()
@@ -62,11 +70,13 @@ def test_modo_1_con_la_rapida_abierta_pasa_a_la_lenta():
 
     estado.sensores_temp["temp_camara"] = None
     set_do.reset_mock()
-    prot.update()
+    _updates_debounce(prot)
 
     assert prot.solo_lenta is True
     set_do.descompresion_rapida_off.assert_called()
     set_do.descompresion_lenta_on.assert_called()
+    set_do.reset_mock()
+    prot.update()
     set_do.descompresion_rapida_on.assert_not_called()
 
 
@@ -81,8 +91,8 @@ def test_escalado_por_timeout_se_deshace(monkeypatch):
     set_do.descompresion_rapida_on.assert_called()
 
     estado.sensores_temp["temp_camara"] = 0
+    _updates_debounce(prot)
     set_do.reset_mock()
-    prot.update()
     reloj[0] += 10 * 3600
     prot.update()
 
@@ -95,7 +105,7 @@ def test_es_un_enclavamiento_aunque_vuelva_la_lectura():
     prot, estado, set_do = _protocolo(1)
     prot.ejecutar()
     estado.sensores_temp["temp_camara"] = None
-    prot.update()
+    _updates_debounce(prot)
     estado.sensores_temp["temp_camara"] = 130.0
     set_do.reset_mock()
     prot.update()
@@ -117,7 +127,7 @@ def test_sin_presion_igual_pasa_a_solo_lenta():
     prot.ejecutar()
     estado.sensores_pres["pres_camara"] = None
     estado.sensores_temp["temp_camara"] = None
-    prot.update()
+    _updates_debounce(prot)
     assert prot.solo_lenta is True
     set_do.aire_comprimido_camara_off.assert_called()
 
@@ -141,7 +151,8 @@ def test_estado_seguro_pasa_a_solo_lenta_y_lo_registra():
     assert es.permite_salir_de_falla is False
 
     estado.sensores_temp["temp_camara"] = None
-    es.update()
+    for _ in range(_DEBOUNCE_LECTURAS):
+        es.update()
 
     assert prot.solo_lenta is True
     assert ("estado_seguro_solo_lenta", {"motivo": "sensor Principal sin lectura"}) in eventos
@@ -165,5 +176,6 @@ def test_ciclo_con_fallo_pendiente_pasa_a_solo_lenta():
     assert ciclo._protocolo.solo_lenta is False
 
     estado.sensores_temp["temp_camara"] = None
-    ciclo.run()
+    for _ in range(_DEBOUNCE_LECTURAS):
+        ciclo.run()
     assert ciclo._protocolo.solo_lenta is True

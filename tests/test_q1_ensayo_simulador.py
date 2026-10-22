@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from autoclave.state_machine.cycle_phases.protocolo_fallo import _DEBOUNCE_LECTURAS
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.states import ciclo as modulo_ciclo
 from autoclave.state_machine.states.ciclo import CicloResultado
@@ -80,8 +81,9 @@ def _evento_r1p4_cancelacion_y_principal_perdido(a):
         original(estado)
         estado.sensores_temp[principal] = None
     a["planta"].publicar = sin_principal
-    e1._tick(a)                                         # el tick que lo detecta
-    e1._avanzar(a)
+    for _ in range(_DEBOUNCE_LECTURAS):                # los ticks que lo confirman
+        e1._tick(a)                                     # (SAF-01 revisión Q1)
+        e1._avanzar(a)
     rapida = chaqueta = aire = False
     for _ in range(int(1200 / DT)):
         e1._tick(a)
