@@ -8,11 +8,11 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | H8 | Sin objeto | | La sección "Hallazgos de la instalación del 22-oct" de la instrucción está vacía ("(vacío)"). |
 | S1 ★ | Relanzada 16:12 (continúa) | rama `tanda-8-s1` | Subagente en worktree `.claude/worktrees/agent-*`. |
 | S2a ★ | Unida a `tanda-8` (~17:00), suite de integración en curso | rama `tanda-8-s2a` (582a48b) | D8-2.6 a 2.10. Revisores 2 vueltas, 0 Altos/Críticos (condición: válvula de seguridad mecánica, pregunta 4). Informe `tanda8/S2a_transiciones_ciclo.md`. |
-| S2b ★ | Relanzada 16:12 (continúa) | rama `tanda-8-s2b` | D8-2.11 a 2.16. |
+| S2b ★ | Unida a `tanda-8` (22fa108), suite de integración pendiente (después de la de S2a) | rama `tanda-8-s2b` (343260d) | D8-2.11 a 2.16. Revisores 2 vueltas, 0 Altos/Críticos (TMG-01 = D8-2.7, cubierto por S2a vía `marcar_sin_datos_tarjeta` → `_cerrar_pausa_sin_datos`, verificado al unir). Migración BD v10. Banco F-12..15 de S2b renumerado a F-17..20. Informe `tanda8/S2b_transiciones_ciclo.md`. |
 | N8 | Hecha, unida a `tanda-8` | e8718cf (merge) | Suite de integración tras unir: **5393 p / 3 s / 3 xf** (`suites/integ_n8.log`). |
 | R8 ★ | Relanzada 16:12 (continúa) | rama `tanda-8-r8` | |
 | V8a | Relanzada ~17:00 (continúa) | rama `tanda-8-v8a` | ★ solo D8-5.7. |
-| E1 | En cola (worktree con commits) | rama `tanda-8-e1` | ★ solo D8-3.19. |
+| E1 | Relanzada ~17:35 (continúa) | rama `tanda-8-e1` | ★ solo D8-3.19. |
 | E2 | Hecha, unida a `tanda-8` | 1aab868 (merge) | Informe `tanda8/E2_nombres_familia_modelo.md`. Suite tras unir **5438 p / 3 s / 3 xf** (`suites/integ_e2.log`, autoclave de `_suites_t8/base`). |
 | M8 | Hecha, unida a `tanda-8` | aaa78ae (merge) | Informe `tanda8/M8_mantenimiento.md`. Suite tras unir 5388 p / 3 s / 3 xf (`suites/integ_m8.log`). |
 | U8 | Hecha, unida a `tanda-8` | 8bcaeb2 (merge) | Suite de la rama 5378 p / 3 s / 3 xf (= 5382 − 7 retiradas + 3 nuevas). Tras unir, `src/` y `tests/` idénticos a la rama (`git diff tanda-8-u8 tanda-8 -- src tests` vacío): misma suite. |
