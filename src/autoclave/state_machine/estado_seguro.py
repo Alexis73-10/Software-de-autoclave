@@ -77,7 +77,11 @@ class ProtocoloEstadoSeguro:
         Principal, el operador reconoce y FALLA pasa a PREPARACION sin
         técnico; el protocolo sigue venteando por la lenta allí y el inicio
         de ciclo queda bloqueado mientras siga activo. No aplica si espera la
-        confirmación tras un paro."""
+        confirmación tras un paro.
+
+        D8-2.6 (tanda 8, Cristian): vale igual si se llegó a `solo_lenta` con el
+        protocolo ya en marcha por otra causa (R1-P4). "NO ABRIR" no cambia:
+        sigue hasta que la cámara sea segura (camara_segura, con el Principal)."""
         return (self.activo and not self.requiere_confirmacion
                 and getattr(self._protocolo, "solo_lenta", False) is True)
 
@@ -135,7 +139,7 @@ class ProtocoloEstadoSeguro:
             return
         motivo = getattr(self._protocolo, "bloqueado_motivo", None)
         motivo = motivo if isinstance(motivo, str) else None
-        if motivo == self._alarma_bloqueo:
+        if motivo == self._alarma_bloqueo and (motivo is None or self._cic10_activa()):
             return
         try:
             if motivo is None:
@@ -145,6 +149,17 @@ class ProtocoloEstadoSeguro:
             self._alarma_bloqueo = motivo
         except Exception:
             logger.exception("Estado seguro: no se pudo actualizar la alarma de bloqueo")
+
+    def _cic10_activa(self) -> bool:
+        """SAF-03 (revisión S2a): CIC-10 sigue activa en el gestor. Al salir de
+        FALLA sin técnico (P-2 / D8-2.6) el reinicio resuelve todas las alarmas;
+        con el protocolo aún bloqueado (p. ej. cámara sellada, D8-2.10) hay que
+        volver a mostrarla. Ante la duda (gestor sin activas()), True."""
+        try:
+            return any(getattr(i, "codigo", None) == CIC_10
+                       for i in self.alarm_manager.activas())
+        except Exception:
+            return True
 
     def _resolver_alarma_bloqueo(self) -> None:
         if self.alarm_manager is not None and self._alarma_bloqueo is not None:
@@ -185,10 +200,18 @@ class ProtocoloEstadoSeguro:
             if callable(reanudar):
                 reanudar()
         solo_lenta_antes = getattr(self._protocolo, "solo_lenta", False) is True
+        sellado_antes = getattr(self._protocolo, "sellado", False) is True
         self._protocolo.update()
         if not solo_lenta_antes and getattr(self._protocolo, "solo_lenta", False) is True:
             # R1-P4: el Principal se perdió con el protocolo en marcha
             self._evento("estado_seguro_solo_lenta", motivo="sensor Principal sin lectura")
+        sellado = getattr(self._protocolo, "sellado", False) is True
+        if not sellado_antes and sellado:
+            # D8-2.10: líquidos en modos 4/5, cámara sellada sin venteo
+            self._evento("estado_seguro_sellado", motivo="sensor Principal sin lectura")
+        elif sellado_antes and not sellado:
+            self._evento("estado_seguro_venteo_tras_sellado",
+                         motivo=getattr(self._protocolo, "motivo_venteo", None))
         if self.mantener_drenaje is not None:
             try:
                 self.mantener_drenaje()

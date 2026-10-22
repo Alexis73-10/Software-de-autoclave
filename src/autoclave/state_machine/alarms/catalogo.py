@@ -63,6 +63,8 @@ SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
+# D8-2.8 (tanda 8): pausas por falta de datos sobre el tope en esterilización
+CIC_11 = "CIC-11"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -217,6 +219,13 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en "
        "OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, "
        "llame a servicio técnico."),
+    # D8-2.8 (tanda 8): las pausas por falta de datos de la tarjeta (T2-a,
+    # D8-2.7) en una misma exposición superaron pausa_max_esterilizacion_s
+    _d(CIC_11, _AL, True, _M, "Comunicación inestable en esterilización",
+       "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la "
+       "esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
+       "La carga NO está estéril. Revise el cable USB y la alimentación de la tarjeta y "
+       "repita el ciclo. Si se repite, llame a servicio técnico."),
     # U4 (tanda 2): solo con la tarjeta desconectada (sin puerto o puerto
     # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
     _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",

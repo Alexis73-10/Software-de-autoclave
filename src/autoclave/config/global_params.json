@@ -11,5 +11,7 @@
     "timeout_chaqueta": {"value": 60, "type": "int", "unit": "min", "min": 10, "max": 180, "grupo": "chaqueta"},
     "tiempo_standby": {"value": 10, "type": "int", "unit": "min", "min": 0, "max": 60, "grupo": "sistema"},
     "tiempo_estable_alarma": {"value": 5, "type": "int", "unit": "seg", "min": 1, "max": 60, "grupo": "sistema"},
+    "pausa_max_esterilizacion_s": {"value": 30, "type": "int", "unit": "seg", "min": 5, "max": 120, "grupo": "sistema"},
+    "espera_sellado_sin_sonda_min": {"value": 30, "type": "int", "unit": "min", "min": 10, "max": 240, "grupo": "sistema"},
     "presion_atmosferica": {"value": 75, "type": "float", "unit": "kPa", "clase": "absoluto", "min": 50, "max": 110, "grupo": "sistema", "solo_lectura": true}
 }

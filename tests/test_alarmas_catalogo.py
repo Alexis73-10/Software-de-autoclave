@@ -42,6 +42,7 @@ _EJEMPLOS = {
     "SEN-03": {"sensor": "Referencia", "valor": None},
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
+    "CIC-11": {"segundos": 31.0, "maximo": 30},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
     "OPERANDO_SIN_BD": {},
@@ -103,6 +104,8 @@ def test_niveles_migrados_iguales_a_hoy():
         "COM-03": Nivel.FALLO_CRITICO,
         **{codigo: Nivel.ALARMA for codigo in CODIGOS_CONSERVADOS},
         **{f"CIC-0{i}": Nivel.ALARMA for i in range(1, 7)},
+        # D8-2.8 (tanda 8): código nuevo, mismo nivel que el fallo de fase CIC-04
+        "CIC-11": Nivel.ALARMA,
     }
     for codigo, d in CATALOGO.items():
         assert d.nivel is esperado.get(codigo, Nivel.AVISO), codigo

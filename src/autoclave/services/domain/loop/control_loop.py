@@ -147,6 +147,14 @@ class ControlLoop:
         # T2-b (tanda 7): ticks seguidos con la tarjeta en "ok" (enlace hecho y
         # trama DI vigente); DESPEJAR de COM-02/03 exige _TICKS_ENLACE_OK
         self._ticks_tarjeta_ok = 0
+        # D8-2.9 (tanda 8, TMG-04): número de secuencia de la última trama DI
+        # contada; solo una trama DISTINTA y nueva suma a _ticks_tarjeta_ok
+        self._ultima_seq_di_contada = None
+        # TMG-01 (revisión S2a): incrementos de F0 recientes (instante, valor)
+        # para descontar los acreditados después de la última DI válida
+        # cuando se abre un tramo sin datos
+        self._f0_recientes = []
+        self._f0_tramo_descontado = None
         self._com01_activa = False
         self._sin_di_activa = False
         # Ticks seguidos con la DI vencida y el enlace hecho (debounce de 3
@@ -220,6 +228,12 @@ class ControlLoop:
         # SAF-03 (revisión Q1): un tick que no se completa no cuenta como
         # enlace "ok" (enlace_confirmado_ok no queda en True con el lazo caído)
         self._ticks_tarjeta_ok = 0
+        # TMG-05 (revisión S2a): se conserva el número de la última trama
+        # contada (la misma trama tras el fallo no cuenta como nueva)
+        try:
+            self.estado.trama_di_nueva = False
+        except Exception:
+            pass
         self._excepciones_seguidas += 1
         if self._excepciones_seguidas == 1 or self._excepciones_seguidas % _LOG_CADA_EXCEPCIONES == 0:
             logger.exception("ControlLoop: error inesperado en el tick (%d seguidos)",
@@ -439,9 +453,84 @@ class ControlLoop:
             )
         self._puerta_2_no_declarada_cerrada = cerrada
 
+    def _secuencia_di(self):
+        """D8-2.9: número de secuencia de la trama DI vigente según el enlace,
+        o None si el enlace no lo informa como entero (dobles de prueba que no
+        lo implementan)."""
+        try:
+            seq = self.link.secuencia_ultima_di()
+        except Exception:
+            return None
+        if isinstance(seq, bool) or not isinstance(seq, int):
+            return None
+        return seq
+
     def _contar_enlace_ok(self) -> None:
-        """T2-b: cuenta los ticks seguidos con estado_tarjeta "ok"."""
-        self._ticks_tarjeta_ok = self._ticks_tarjeta_ok + 1 if self.estado_tarjeta == "ok" else 0
+        """T2-b: cuenta las tramas DI vigentes seguidas con estado_tarjeta
+        "ok". D8-2.9 (tanda 8, TMG-04): solo cuenta una trama DISTINTA y nueva
+        (por su número de secuencia); varios ticks que leen la misma trama
+        cuentan una vez. Publica en `estado.trama_di_nueva` si en este tick
+        llegó una trama nueva y vigente, para la salida de la tolerancia por
+        DI vencida de CicloState.
+
+        DECISIÓN SIN CONFIRMAR: un enlace que no informa la secuencia (solo los
+        dobles de prueba; SerialLink siempre la informa) cuenta cada tick "ok"
+        como trama nueva, igual que antes de D8-2.9."""
+        nueva = False
+        self._publicar_ultima_di_valida()
+        if self.estado_tarjeta == "ok":
+            seq = self._secuencia_di()
+            if seq is None or seq != self._ultima_seq_di_contada:
+                nueva = True
+                self._ticks_tarjeta_ok += 1
+            if seq is not None:
+                self._ultima_seq_di_contada = seq
+        else:
+            # La trama vigente antes de la caída no cuenta como nueva al volver
+            # (su número se conserva: solo una trama posterior suma)
+            self._ticks_tarjeta_ok = 0
+        try:
+            self.estado.trama_di_nueva = nueva
+        except Exception:
+            logger.exception("ControlLoop: no se pudo publicar trama_di_nueva")
+
+    def _publicar_ultima_di_valida(self) -> None:
+        """TMG-01 (revisión S2a): publica en `estado.ultima_di_valida_mono` el
+        instante (monotonic) de la última trama DI vigente, para que el tramo
+        sin datos del ciclo empiece ahí y no al detectarlo."""
+        try:
+            if self.estado_tarjeta != "ok":
+                return
+            edad = self.link.edad_ultima_di()
+            if isinstance(edad, bool) or not isinstance(edad, (int, float)) or edad < 0:
+                return
+            self.estado.ultima_di_valida_mono = time.monotonic() - float(edad)
+        except Exception:
+            logger.exception("ControlLoop: no se pudo publicar la última DI válida")
+
+    def _descontar_f0_tramo_sin_datos(self) -> None:
+        """TMG-01 (revisión S2a): al abrirse un tramo sin datos del ciclo (con
+        inicio en la última DI válida), resta el F0 acreditado después de ese
+        instante. Una sola vez por tramo."""
+        desde = getattr(self.state_machine.ciclo, "pausa_sin_datos_desde", None)
+        if isinstance(desde, bool) or not isinstance(desde, (int, float)):
+            return
+        if desde == self._f0_tramo_descontado:
+            return
+        self._f0_tramo_descontado = desde
+        # TMG-10 (re-revisión S2a): si el tramo se detecta ya fuera de las
+        # fases que acumulan (la exposición pudo terminar por tiempo o F0
+        # dentro del retroceso), no se descuenta: el registro quedaría por
+        # debajo del F0 con que se dio por cumplida la fase
+        if self.estado.fase_ciclo not in _F0_FASES_ACUMULAN:
+            self._f0_recientes = []
+            return
+        exceso = sum(inc for t, inc in self._f0_recientes if t > desde)
+        self._f0_recientes = [(t, inc) for t, inc in self._f0_recientes if t <= desde]
+        if exceso > 0:
+            self.estado.f0_acumulado = max(0.0, self.estado.f0_acumulado - exceso)
+            logger.warning("ControlLoop: F0 descontado %.4f min (acreditado sin datos válidos)",
+                           exceso)
 
     @property
     def enlace_confirmado_ok(self) -> bool:
@@ -572,12 +661,15 @@ class ControlLoop:
             self._alarmas_tarjeta.clear()
             return
 
-        en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
-        if ev.origen == "operacion" and en_ciclo:
-            # TMG-07: si el ciclo ya terminaba (resultado pendiente), el
-            # aborto no actúa y se sigue la ruta de fuera de ciclo.
-            if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
-                return
+        # TMG-09 (re-revisión S2a): bajo _sm_lock y sin apagado en curso, como
+        # el aborto por desconexión (TMG-04)
+        with self._sm_lock:
+            en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
+            if ev.origen == "operacion" and en_ciclo and not self._apagando:
+                # TMG-07: si el ciclo ya terminaba (resultado pendiente), el
+                # aborto no actúa y se sigue la ruta de fuera de ciclo.
+                if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
+                    return
 
         # La acción de seguridad va antes que la alarma (SAF-01 de T1): un
         # error al registrar no debe impedir el nuevo handshake.
@@ -631,10 +723,15 @@ class ControlLoop:
             # solo una vez agotada la tolerancia: una caída breve (ruido
             # momentáneo en el serial) no debe tirar el ciclo completo.
             if (self._desconectado_desde is not None
-                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG
-                    and self.estado.get_machine_state() == GlobalState.CICLO):
-                self.state_machine.ciclo.abortar_por_desconexion(
-                    segundos=now - self._desconectado_desde)
+                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG):
+                # TMG-04 (revisión S2a): bajo _sm_lock, como el resto de las
+                # mutaciones del ciclo (el backend lee tolerancia_di_activa
+                # con ese lock)
+                with self._sm_lock:
+                    if (not self._apagando
+                            and self.estado.get_machine_state() == GlobalState.CICLO):
+                        self.state_machine.ciclo.abortar_por_desconexion(
+                            segundos=now - self._desconectado_desde)
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
             self._bloqueo_apagado = False   # tras reconectar, volver a apagar
@@ -669,6 +766,9 @@ class ControlLoop:
             self._di_vista_en_conexion = False
             # TMG-01 (revisión Q1): el tramo sin datos no acredita F0
             self._f0_ultimo_tick = None
+            # D8-2.7: ni cuenta como exposición (desconexión antes de COM-02)
+            self._marcar_ciclo_sin_datos()
+            self._descontar_f0_tramo_sin_datos()
             return
 
         # 1. Publicar estado global
@@ -700,6 +800,9 @@ class ControlLoop:
                 and now - self._conectado_desde < self._VIGENCIA_DI_SEG):
             # TMG-01 (revisión Q1): sin la primera DI tampoco se acredita F0
             self._f0_ultimo_tick = None
+            # D8-2.7: la ventana tras reconectar tampoco cuenta como exposición
+            self._marcar_ciclo_sin_datos()
+            self._descontar_f0_tramo_sin_datos()
             return
 
         # 2b. Suministro eléctrico → actualiza flag en estado. Sin la entrada
@@ -783,6 +886,22 @@ class ControlLoop:
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
 
+    def _marcar_ciclo_sin_datos(self) -> None:
+        """D8-2.7 (tanda 8): tick de CICLO sin datos de la tarjeta (la máquina
+        de estados no corre). El ciclo abre su tramo sin datos: la exposición
+        de ESTERILIZACION se pausa y se descuenta al volver los datos. Nunca
+        lanza: el tick sin conexión tiene que terminar igual."""
+        try:
+            with self._sm_lock:
+                # TMG-13 (re-revisión S2a): marcar puede abortar (SAF-05)
+                if self._apagando or self.estado.get_machine_state() != GlobalState.CICLO:
+                    return
+                marcar = getattr(self.state_machine.ciclo, "marcar_sin_datos_tarjeta", None)
+                if callable(marcar):
+                    marcar()
+        except Exception:
+            logger.exception("ControlLoop: no se pudo marcar el tramo sin datos del ciclo")
+
     def _acumular_f0(self, now: float, vigentes: bool = True) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con
         letalidad real y el ciclo activo tiene globals.F0 activado. El
@@ -804,8 +923,13 @@ class ControlLoop:
         # la tolerancia de DI vencida (T2-a) no se acredita F0: fase_ciclo
         # sigue en ESTERILIZACION y los ticks llegan a 0,5 s, así que el tope
         # de 2 intervalos de abajo no lo cubre.
-        if condiciones and (not vigentes or getattr(
-                self.state_machine.ciclo, "tolerancia_di_activa", False) is True):
+        # D8-2.7: tampoco en el tramo de una desconexión total o la ventana
+        # tras reconectar (exposicion_en_pausa)
+        ciclo = self.state_machine.ciclo
+        self._descontar_f0_tramo_sin_datos()
+        if condiciones and (not vigentes
+                            or getattr(ciclo, "tolerancia_di_activa", False) is True
+                            or getattr(ciclo, "exposicion_en_pausa", False) is True):
             condiciones = False
         if not condiciones:
             self._f0_ultimo_tick = None
@@ -828,7 +952,11 @@ class ControlLoop:
             return
 
         dt_min = (now - ultimo) / 60.0
-        self.estado.f0_acumulado += calcular_incremento_f0(t_ref, dt_min)
+        incremento = calcular_incremento_f0(t_ref, dt_min)
+        self.estado.f0_acumulado += incremento
+        # TMG-01 (revisión S2a): se guardan los de los últimos segundos
+        self._f0_recientes.append((now, incremento))
+        self._f0_recientes = [(t, inc) for t, inc in self._f0_recientes if now - t <= 5.0]
 
     # =========================================================================
     # CONTROL DE VIDA
