@@ -116,9 +116,7 @@ PanelModal {
         objectName: "confirmarApagar"
         mensaje: I18n.t("equipo.apagar_pregunta", I18n.lang)
                  + ((raiz.comandosSistema?.camaraNoSegura ?? true)
-                    ? "
-
-" + I18n.t("equipo.apagar_camara_no_segura", I18n.lang) : "")
+                    ? "\n\n" + I18n.t("equipo.apagar_camara_no_segura", I18n.lang) : "")
         textoConfirmar: I18n.t("equipo.apagar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: "#B71C1C"

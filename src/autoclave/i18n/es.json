@@ -641,6 +641,7 @@
     "marcador_clave": "Ingresar contraseña",
     "seleccione_rol": "Seleccione rol",
     "descartar_titulo": "¿Descartar datos?",
+    "seguir_editando": "Seguir editando",
     "descartar_mensaje": "Los datos capturados se perderán.",
     "sin_permiso": "Su rol no puede crear usuarios",
     "guardado_error": "No se pudo guardar el usuario",

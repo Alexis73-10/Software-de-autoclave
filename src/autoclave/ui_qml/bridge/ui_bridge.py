@@ -222,6 +222,7 @@ class UiBridge(QObject):
         self._fijar("_seguridad", self._seguridad_de({
             "no_abrir": self._ui.get_campo("no_abrir", True),
             "motivo": self._ui.get_campo("camara_segura_motivo", ""),
+            "motivo_textos": self._ui.get_campo("camara_segura_motivo_textos", None),
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
             # U4: solo el paro real; sin datos de la tarjeta va en "tarjeta"
             "paro": self._ui.get_estado_flag("PARO_REAL"),
@@ -238,6 +239,10 @@ class UiBridge(QObject):
         return {
             "no_abrir": datos.get("no_abrir", True) is not False,
             "motivo": str(datos.get("motivo") or ""),
+            # I4 (tanda 6): el mismo motivo en es/en, si el backend lo mandó
+            "motivo_textos": {k: v for k, v in datos["motivo_textos"].items()
+                              if isinstance(k, str) and isinstance(v, str) and v}
+                             if isinstance(datos.get("motivo_textos"), dict) else {},
             "modo_prueba": datos.get("modo_prueba") is True,
             "paro": bool(datos.get("paro")),
             "es_activo": es.get("activo") is True,
@@ -289,7 +294,10 @@ class UiBridge(QObject):
 
     @Property(str, notify=seguridadChanged)
     def noAbrirMotivo(self) -> str:
-        return self._seguridad["motivo"]
+        """Motivo de NO ABRIR en el idioma vigente (I4); sin traducción, el
+        texto en español de siempre."""
+        from autoclave import i18n
+        return self._seguridad["motivo_textos"].get(i18n.idioma()) or self._seguridad["motivo"]
 
     @Property(bool, notify=seguridadChanged)
     def modoPrueba(self) -> bool:

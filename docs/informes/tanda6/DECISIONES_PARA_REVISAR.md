@@ -138,3 +138,15 @@ Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
 
 ## Unión O2f–O2h en tanda-6
 - Los eventos nuevos `respaldo_exportado/rechazado/restaurado`, `correo_configurado`, `correo_prueba`, `impresora_prueba` e `impresion_ganancias` se agregaron a `bitacora.EVENTOS` con frase es/en en la unión (lo exigía `test_textos_de_todos_los_eventos`). Revisar redacción.
+
+## I4 (parte QML)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| I4Q-1 | DECISIÓN SIN CONFIRMAR. En el Historial, un nombre guardado que coincide con el de un ciclo de fábrica en español se muestra traducido (también si es un programa de usuario con ese nombre). | La BD guarda solo el texto | Guardar la clave del nombre con el ciclo | `nombres_ciclo.py` |
+| I4Q-2 | DECISIÓN SIN CONFIRMAR. `estadoSeguroBloqueadoMotivo` sigue en español (SAF-01): el QML busca "Principal" en él. | Traducirlo rompería el botón de sondas | Código `bloqueado_motivo_codigo` en el backend | — |
+| I4Q-3 | DECISIÓN SIN CONFIRMAR. `resultado_detalle` del Historial se muestra como código. | Es un código, neutro | Título del catálogo de alarmas | — |
+| I4Q-4 | DECISIÓN SIN CONFIRMAR. El `detail` del rechazo de cambio de programa sigue en español. | El backend no trae código | `RechazoApi` en `/cycle/select` | — |
+
+## PREGUNTAS PARA CRISTIAN (I4 QML)
+- ¿Exponer un código para el motivo de bloqueo del estado seguro (S4), para poder traducirlo sin romper la decisión del botón de sondas?
+- Truncado: la revisión automática cubre el estado vacío de cada pantalla (sin backend); los diálogos y ventanas con datos quedan para el recorrido en inglés de H1. ¿Basta?

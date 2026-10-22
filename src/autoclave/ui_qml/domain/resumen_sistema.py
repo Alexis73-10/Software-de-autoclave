@@ -77,6 +77,9 @@ def detalle_resultado(valor) -> str:
     return valor if clave and valor != clave else ""
 
 
+from autoclave.ui_qml.domain.nombres_ciclo import nombre_programa  # noqa: E402
+
+
 def ciclo_presentable(ciclo) -> dict:
     """Textos de un ciclo (forma de /cycle/summary -> ultimo_ciclo y de cada
     fila de /cycle/list), listos para QML. id = -1 si no es válido."""
@@ -90,7 +93,8 @@ def ciclo_presentable(ciclo) -> dict:
         "fecha": formatear_fecha(u.get("fecha_inicio")),
         "hora": formatear_hora(u.get("fecha_inicio")),
         "programa": formatear_numero_programa(u.get("programa_numero")),
-        "programa_nombre": nombre if isinstance(nombre, str) and nombre else SIN_DATO,
+        # I4 (tanda 6): un ciclo de fábrica sin renombrar se ve en el idioma vigente
+        "programa_nombre": nombre_programa(nombre) if isinstance(nombre, str) and nombre else SIN_DATO,
         "resultado": clave_resultado(u.get("resultado")),
         "resultado_detalle": detalle_resultado(u.get("resultado")),
         # quién inició el ciclo (O1, tanda 3); los ciclos anteriores o sin sesión: SIN_DATO

@@ -11,13 +11,18 @@
 #   readonly property var meses: I18n.valor("fecha.meses", I18n.lang)
 
 import math
+import threading
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 from PySide6.QtQml import QJSValue, QQmlEngine, qmlRegisterSingletonType
 
 from autoclave import i18n
 
 URI = "Autoclave.I18n"
+# I4 (tanda 6): cada ventana sigue el idioma del backend (GET /language), igual
+# que Unidades sigue GET /units: así la segunda pantalla del equipo de dos
+# puertas aplica el idioma vigente al arrancar y al cambiarlo desde la otra.
+INTERVALO_MS = 3000
 
 
 def como_texto_js(v) -> str:
@@ -40,10 +45,62 @@ def como_texto_js(v) -> str:
 
 class I18nQml(QObject):
     langChanged = Signal()
+    _recibido = Signal(object, str)    # desde el hilo de consulta
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, consultar=None, sondear: bool = False):
         super().__init__(parent)
         i18n.al_cambiar_idioma(lambda _idioma: self.langChanged.emit())
+        self._consultar = consultar or self._consultar_backend
+        self._ocupado = False
+        self._recibido.connect(self._aplicar_respuesta)
+        self._timer = QTimer(self)
+        self._timer.setInterval(INTERVALO_MS)
+        self._timer.timeout.connect(self.refrescar)
+        if sondear:
+            self._timer.start()
+
+    # ── seguimiento del backend (I4) ───────────────────────────────────
+
+    @staticmethod
+    def _consultar_backend():
+        from autoclave.ui_qml.sesion_backend import transporte_http
+        estado, datos = transporte_http("GET", "/language", None, None, 1.0)
+        return datos if estado == 200 else None
+
+    @Slot()
+    def refrescar(self) -> None:
+        if self._ocupado:
+            return
+        self._ocupado = True
+        antes = i18n.idioma()
+
+        def trabajo():
+            datos = None
+            try:
+                datos = self._consultar()
+            except Exception:
+                datos = None
+            finally:                      # M-01: siempre libera _ocupado
+                self._recibido.emit(datos, antes)
+        try:
+            threading.Thread(target=trabajo, daemon=True, name="idioma").start()
+        except Exception:                 # SAF-02: el sondeo no queda detenido
+            self._ocupado = False
+
+    def aplicar(self, datos, idioma_al_pedir: str | None = None) -> None:
+        """Aplica una respuesta de GET /language. Sin respuesta o inválida se
+        conserva el idioma vigente. Si el idioma cambió localmente mientras la
+        consulta estaba en vuelo (PUT desde esta ventana), la respuesta vieja se
+        descarta: la siguiente consulta trae el valor nuevo."""
+        self._ocupado = False
+        if idioma_al_pedir is not None and idioma_al_pedir != i18n.idioma():
+            return
+        nuevo = datos.get("idioma") if isinstance(datos, dict) else None
+        if nuevo in i18n.IDIOMAS and nuevo != i18n.idioma():
+            i18n.fijar_idioma(nuevo)
+
+    def _aplicar_respuesta(self, datos, idioma_al_pedir: str) -> None:
+        self.aplicar(datos, idioma_al_pedir)
 
     @Property(str, notify=langChanged)
     def lang(self) -> str:
@@ -80,6 +137,10 @@ instancia = I18nQml()
 
 def _fabrica(_motor):
     QQmlEngine.setObjectOwnership(instancia, QQmlEngine.ObjectOwnership.CppOwnership)
+    # El sondeo arranca la primera vez que un motor QML pide el singleton.
+    if not instancia._timer.isActive():
+        instancia._timer.start()
+        instancia.refrescar()
     return instancia
 
 
