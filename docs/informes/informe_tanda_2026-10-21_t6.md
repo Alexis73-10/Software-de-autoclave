@@ -10,7 +10,7 @@ Estado detallado: `docs/informes/tanda6/estado.md`. Decisiones: `docs/informes/t
 - Suite final: 5020 passed, 2 skipped, 3 xfailed (19 min, 22-oct)
 - Merge `--no-ff tanda-6` en `dev`: `git merge --no-ff tanda-6` en `dev` (ver commit de merge)
 - `git merge-base --is-ancestor tanda-6 dev`: `git merge-base --is-ancestor tanda-6 dev` = OK (exit 0)
-- `git push origin dev tanda-6`: `git push origin dev tanda-6` DENEGADO por el clasificador de permisos de Claude Code (no llegó a git). Lo hace Cristian: `git push origin dev tanda-4 tanda-5 tanda-6`
+- `git push origin dev tanda-6`: `git push origin dev tanda-6` OK (dev ea91725..7a872ce, tanda-6 rama nueva). `git push origin tanda-4 tanda-5` DENEGADO por el clasificador; su contenido ya está en dev. Opcional: Cristian lo empuja a mano
 - Nada a `main`.
 
 ## Etapas
@@ -111,7 +111,7 @@ Estado detallado: `docs/informes/tanda6/estado.md`. Decisiones: `docs/informes/t
 - ¿Se confirma la tolerancia de ±0,5 kPa contra el barómetro (D-30)?
 
 ## Pasos manuales previos al lunes 26-oct
-1. **Push** de `dev`, `tanda-4`, `tanda-5` y `tanda-6` a `origin`: el clasificador de permisos de Claude Code lo bloqueó en E0 (no llegó a git). Resultado de Z: `git push origin dev tanda-6` DENEGADO por el clasificador de permisos de Claude Code (no llegó a git). Lo hace Cristian: `git push origin dev tanda-4 tanda-5 tanda-6`.
+1. **Push** de `dev`, `tanda-4`, `tanda-5` y `tanda-6` a `origin`: el clasificador de permisos de Claude Code lo bloqueó en E0 (no llegó a git). Resultado de Z: `git push origin dev tanda-6` OK (dev ea91725..7a872ce, tanda-6 rama nueva). `git push origin tanda-4 tanda-5` DENEGADO por el clasificador; su contenido ya está en dev. Opcional: Cristian lo empuja a mano.
 2. Revisar `data/unidades.json` (°C/kPa) y `data/idioma.json` (es) en el equipo (no versionados).
 3. Ejecutar W1 en el PC industrial según `tools/estacion/LEEME.md`: primero cada script con `-WhatIf`, luego en orden 01→05; verificar el log en `%ProgramData%\Especifika\Autoclave\estacion\estacion.log`. Ningún script se ejecutó en la tanda.
 4. Verificar en banco la hoja H1 (`docs/mis_plans/hoja_pruebas_banco/`, 26 pruebas nuevas: E-07, F-05…F-07, B-09, B-10, C-06, A-06, D-20…D-36, G-03), en especial T2 (P-1, P-2, P-3, P-12), la calibración atmosférica (D-30/D-31) y el recorrido en inglés (D-34…D-36).
