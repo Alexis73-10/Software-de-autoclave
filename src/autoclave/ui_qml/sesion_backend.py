@@ -91,6 +91,10 @@ _CLAVES = {
     "paro_emergencia": "io.err_rechazado",
     "apagado_en_curso": "io.err_rechazado",
     "fuente_vapor_no_instalada": "io.err_rechazado",
+    # D8-3.19 (tanda 8): texto completo del catálogo, sin el del backend
+    "aire_atmosferico_con_presion": "io.err_aire_con_presion",
+    "aire_atmosferico_sin_presion": "io.err_aire_sin_presion",
+    "aire_atmosferico_sin_referencia": "io.err_aire_sin_referencia",
     "sin_base_de_datos": "io.err_sin_base",
     "auditoria_no_disponible": "io.err_sin_base",
     "sin_calibracion_previa": "io.err_sin_previa",

@@ -947,6 +947,9 @@
     "err_sin_previa": "No hay una calibración anterior que restaurar.",
     "err_confirmacion": "La calibración está fuera del rango habitual y requiere confirmación.",
     "err_implausible": "La calibración no es plausible y no se puede aplicar.",
+    "err_aire_con_presion": "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica.",
+    "err_aire_sin_presion": "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara.",
+    "err_aire_sin_referencia": "No se puede abrir el aire atmosférico: falta la presión atmosférica de referencia del equipo.",
     "di": {
       "aire_comprimido": "Aire comprimido",
       "presion_agua": "Presión de agua",
@@ -1012,7 +1015,7 @@
       "banner_prueba": "MODO PRUEBA ACTIVO",
       "banner_regla": "Las salidas se apagan al salir de la sección, al cerrar sesión o tras 5 minutos sin actividad.",
       "dialogo_titulo": "MODO PRUEBA — PRECAUCIÓN",
-      "dialogo_texto": "Se apagarán todas las salidas activas y podrá accionar manualmente cualquier salida SIN verificar la presión de la cámara ni el estado de las puertas. Solo el seguro de atrapamiento sigue activo. Úselo únicamente si conoce el sistema.",
+      "dialogo_texto": "Se apagarán todas las salidas activas y podrá accionar manualmente cualquier salida SIN verificar la presión de la cámara ni el estado de las puertas. Solo siguen activos el seguro de atrapamiento y el bloqueo del aire atmosférico con la cámara presurizada o sin lectura de presión. Úselo únicamente si conoce el sistema.",
       "continuar": "Continuar",
       "activar": "Activar",
       "apagar": "Apagar",
@@ -1495,6 +1498,8 @@
       "suspension_sale": "la pantalla salió de suspensión",
       "rechazo_401": "acceso rechazado (sin sesión) en {entidad}",
       "rechazo_403": "acceso rechazado (sin permiso) en {entidad}",
+      "aire_atmosferico_cortado_prueba": "el control cerró el aire atmosférico de la cámara en modo prueba",
+      "apagado_windows_rechazado": "Windows no permitió apagar el equipo",
       "rechazo_409": "acción rechazada por el estado en {entidad}"
     },
     "tipo": {
@@ -1544,6 +1549,8 @@
       "suspension_sale": "Suspensión (salida)",
       "rechazo_401": "Rechazo 401",
       "rechazo_403": "Rechazo 403",
+      "aire_atmosferico_cortado_prueba": "Aire atmosférico cerrado",
+      "apagado_windows_rechazado": "Apagado rechazado por Windows",
       "rechazo_409": "Rechazo 409"
     }
   },

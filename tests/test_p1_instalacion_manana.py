@@ -58,6 +58,11 @@ def prueba_salidas():
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     ctx.estado.get_flag.return_value = False
     ctx.estado.sensores_di = {}
+    # D8-3.19 (tanda 8): el aire atmosférico solo se abre con la cámara a
+    # presión atmosférica
+    ctx.estado.sensores_pres = {"pres_camara": 75.0}
+    _atm = {"presion_admosferica": 75.0, "rango_presion_atm": 5.0}
+    ctx.config_manager.get.side_effect = lambda k, d=None: _atm.get(k, d)
     ctx.doors = []
     ctx.control_loop.test_mode_active = True
     ctx.control_loop.apagando = False

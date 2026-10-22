@@ -14,6 +14,8 @@ from autoclave.core.runtime.letalidad import calcular_incremento_f0
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime import aire_atmosferico_prueba
+from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.installation.profile import entrada_requerida, numero_puertas
@@ -164,6 +166,9 @@ class ControlLoop:
         # Modo prueba (bench validation): pausa state_machine.update() sin
         # detener el resto del loop (sensores, puertas, enlace serial).
         self._test_mode = threading.Event()
+        # D8-3.19: el lazo ya cerró el aire atmosférico en este modo prueba y
+        # registró el evento; se rearma cuando la tarjeta lo reporta cerrado
+        self._aire_prueba_cortado = False
 
         # Acumulación de F0 (letalidad): timestamp del último tick que
         # acumuló, para calcular dt_min real (no el interval nominal).
@@ -740,6 +745,12 @@ class ControlLoop:
                     "Modo prueba cancelado automáticamente: paro de emergencia activado."
                 )
 
+            # 2e. D8-3.19 (tanda 8): en modo prueba, el aire atmosférico de la
+            # cámara abierto con la cámara presurizada o sin lectura de presión
+            # se cierra (la orden de abrir ya se rechaza en /io/test/output).
+            aire_cortado = (self._vigilar_aire_atmosferico_prueba()
+                            if self._test_mode.is_set() else None)
+
             # 3. Dispositivos → actúan (pausado durante el modo prueba: las
             # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
             # cada tick mientras están CERRADO, lo que pisaría el control
@@ -765,6 +776,10 @@ class ControlLoop:
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
         if cancelado_por_paro:
             self._avisar_cancelacion_prueba()
+        if aire_cortado:
+            self._evento_seguridad("aire_atmosferico_cortado_prueba", {
+                "motivo": aire_cortado,
+                "pres_camara": self.estado.sensores_pres.get("pres_camara")})
 
         # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
         # publicado, así que el orden respecto al paso 5 no importa. RR-01
@@ -782,6 +797,28 @@ class ControlLoop:
         # pisaría el control manual de esa salida).
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
+
+    def _vigilar_aire_atmosferico_prueba(self) -> str | None:
+        """D8-3.19: con el modo prueba activo y la tarjeta reportando abierto
+        el aire atmosférico de la cámara, lo cierra si la condición de
+        apertura ya no se cumple (presión sobre atm + brecha o sin lectura).
+        El cierre es el lado seguro: inmediato, sin debounce, y se reafirma en
+        cada tick mientras la tarjeta lo siga reportando abierto. Devuelve el
+        código del motivo la primera vez (para registrarlo), o None."""
+        salidas = getattr(self.estado, "salidas_do", None) or {}
+        if not salidas.get(aire_atmosferico_prueba.CLAVE_ESTADO):
+            self._aire_prueba_cortado = False
+            return None
+        permitido, codigo = aire_atmosferico_prueba.evaluar(self.estado, self.config_manager)
+        if permitido:
+            return None
+        self.set_do.set_output(
+            EstadoAutoclave.map_do[aire_atmosferico_prueba.CLAVE_ESTADO] + 1, False)
+        if self._aire_prueba_cortado:
+            return None
+        self._aire_prueba_cortado = True
+        logger.warning("Modo prueba: aire atmosférico de cámara cerrado por el lazo (%s)", codigo)
+        return codigo
 
     def _acumular_f0(self, now: float, vigentes: bool = True) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con

@@ -29,6 +29,7 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import io_names
+from autoclave.core.runtime import aire_atmosferico_prueba
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
@@ -4137,6 +4138,13 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                                "Solo la sesión que activó el modo prueba puede encender salidas")
             # D-ES-15: en modo prueba se permiten todas las salidas; R-02
             # (presión atmosférica y puertas cerradas) ya no se exige aquí.
+            # D8-3.19 (tanda 8): ÚNICA excepción, el aire atmosférico de la
+            # cámara: con presión sobre atm + brecha o sin lectura, no se abre.
+            if aire_atmosferico_prueba.es_salida(name):
+                permitido, codigo = aire_atmosferico_prueba.evaluar(
+                    context.estado, context.config_manager)
+                if not permitido:
+                    raise _Rechazo(409, codigo, aire_atmosferico_prueba.MOTIVOS[codigo])
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
