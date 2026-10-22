@@ -56,7 +56,7 @@ Para revertir cualquiera: `git revert <commit>` del punto.
   - `unidades.SIN_CONVERSION` conserva el nombre viejo para un archivo sin migrar.
   - Alternativa: reescribir los archivos al arrancar.
 - **Q1-D4 (R1-P4, `92c5e46`).**
-  - Sin debounce, igual que P-2: una sola lectura None o 0 basta y queda enclavado aunque el Principal vuelva a leer.
+  - Sin debounce, igual que P-2: una sola lectura None o 0 basta y queda enclavado aunque el Principal vuelva a leer. **Cambiado en la revisión (`43e117b`, SAF-01/SEN-02/TMG-07): con el protocolo en marcha ahora exige 3 lecturas inválidas seguidas. P-2 (disparo por el Principal perdido en ciclo) no cambia.**
   - También aplica al protocolo que P-1 dispara tras el ack de un COMPLETADO con la cámara no segura.
   - Alternativa: 3 lecturas.
 - **Q1-D5 (R1-P5, `d988b95`).**
@@ -101,3 +101,51 @@ B-11, C-07, D-37, E-08, F-08, F-09, F-10 y F-11 de la hoja de pruebas de banco. 
 
 ## Suite completa
 (se completa abajo)
+
+## Revisión de la sesión principal (22-oct)
+
+Revisores: `safety-reviewer` (SAF, Altos/Críticos: 0), `timing-auditor` (TMG) y `sensor-role-auditor` (SEN). Se corrigió solo lo pedido, con la opción más conservadora y reversible. Un commit por hallazgo, cada uno con su prueba escrita antes (falló primero). Para revertir: `git revert <commit>`.
+
+| ID | Severidad | Estado | Detalle |
+|---|---|---|---|
+| SAF-01 | Medio | Corregido, `43e117b` | `solo_lenta` con el protocolo en marcha exige 3 lecturas inválidas seguidas del Principal (`_DEBOUNCE_LECTURAS`); una válida reinicia el contador. Mismo hallazgo que SEN-02 y TMG-07. |
+| SAF-02 | Medio | Pendiente | Pausa T2-a en una desconexión total de menos de 5 s. No se tocó. |
+| SAF-03 | Bajo | Corregido, `59131af` | `_tick_fallido()` pone `_ticks_tarjeta_ok` a 0. Un tick que lanza, antes o después de contar, no deja `enlace_confirmado_ok` en True. |
+| SAF-04 | Bajo | Corregido, `737ef06` | `migrar_parametros()`: si el `rango_calentamiento` viejo no es dict, crea `_temp` y `_pres` con el defecto de fábrica (2,0, `diferencia`, 0-30) y deja una advertencia en el log. Mismo hallazgo que SEN-07a. |
+| SAF-05 | Bajo | Corregido, `f10615f` | El pie del ticket compara con igualdad exacta con "COMPLETADO". Es el único valor real: `CicloState` fija `estado.fase_ciclo = "COMPLETADO"`, `CycleLogger` cierra con él y la base filtra con `='COMPLETADO'`. |
+| TMG-01 | Alto | Corregido, `733b19f` | Los retornos tempranos de `_tick()` (sin conexión y primera DI pendiente) reinician `_f0_ultimo_tick`. `_acumular_f0` no suma un hueco de más de 2 × `interval`: solo reinicia el sello. Cubre también la parte F0 de SEN-03. |
+| TMG-02 | Medio | Pendiente | Pausa T2-a en una desconexión total de menos de 5 s (mismo tema que SAF-02). |
+| TMG-03 | Medio | Pendiente | Fuera del alcance de esta corrección. |
+| TMG-04 | Medio | Pendiente | Fuera del alcance de esta corrección. |
+| TMG-05 | Medio | Pendiente | Fuera del alcance de esta corrección. |
+| TMG-06 | Medio | Corregido, `6932e1c` | `pasar_a_solo_lenta()` abre la lenta en el mismo paso, también con `pres_camara` None, salvo vacío confirmado (`P < atm − rango`). Es el mismo criterio que el caso "presión desconocida" de `ejecutar()`. Mismo hallazgo que SEN-04. |
+| TMG-07 | Medio | Corregido, `43e117b` | Ver SAF-01. |
+| TMG-08 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| TMG-09 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| TMG-10 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| TMG-11 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| TMG-12 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| SEN-01 | Alto | Pendiente (ya estaba en la base) | `convert_pressures` recorta a 0,0 kPa la lectura de un transductor sin señal, y `CicloState` y `ProtocoloFallo` la toman como válida. No lo introdujo Q1. |
+| SEN-02 | Medio | Corregido, `43e117b` | Ver SAF-01. |
+| SEN-03 | Medio | Corregido en la parte F0, `733b19f` | Ver TMG-01. |
+| SEN-04 | Bajo | Corregido, `6932e1c` | Ver TMG-06. |
+| SEN-05 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| SEN-06 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| SEN-07a | Bajo | Corregido, `737ef06` | Ver SAF-04. |
+| SEN-07b | Bajo | Corregido, `f82a8a9` | `_load_factory_params` (PySide `params_ciclo.py`) pasa los parámetros de fábrica por `migrar_parametros()`. |
+| SEN-08 | Bajo | Pendiente | Fuera del alcance de esta corrección. |
+| RR-01 (re-revisión, timing y safety) | Medio/Bajo | Corregido, `88858a0` | `_acumular_f0` seguía sumando F0 durante la tolerancia por DI vencida: la fase estaba pausada, pero `fase_ciclo` seguía en ESTERILIZACION y los ticks de 0,5 s no activaban el tope. Ahora recibe los mismos datos vigentes del paso 5. Sin ellos, o con `tolerancia_di_activa`, reinicia `_f0_ultimo_tick` y no acredita nada. Responde también Q1-P3. |
+| TMG-02 (re-revisión) | Bajo | Pendiente | El tope de dt de TMG-01 está ligado al intervalo nominal y, si se supera, descarta todo el dt en vez de acreditar hasta el tope. |
+| `permite_salir_de_falla` | — | PREGUNTA PARA CRISTIAN | `estado_seguro.py` deja salir de FALLA sin técnico en cuanto el protocolo está en `solo_lenta` (criterio de P-2). No se cambió. ¿Se mantiene esa regla, ahora que `solo_lenta` puede llegar tras el protocolo en marcha (R1-P4)? |
+
+### Notas de las correcciones
+- **TMG-01.** El umbral es 2 × `interval`, 1 s con el lazo de 0,5 s. Si un tick tarda más de 0,5 s (más el `sleep`), ese tramo no suma F0. Ese error va del lado seguro: el F0 queda contado de menos y el ciclo se alarga. `tests/test_control_loop_f0.py` construye el lazo con `interval=60.0` porque sus pasos son de 60 s.
+- **SAF-01.** Se ajustaron `test_q1_r1p4_principal_perdido_tras_protocolo.py` (3 updates por pérdida) y el evento R1-P4 de `test_q1_ensayo_simulador.py` (3 ticks). No se regeneró `Q1_ensayo_tabla.md`: la celda de R1-P4 da el mismo resultado, solo cambian los ticks que tarda en entrar.
+- **RR-01.** Con esto, Q1-P3 (F0 durante la tolerancia) queda resuelto: no se acumula. Si Cristian prefiere otro criterio, se revierte `88858a0`.
+- **SAF-04.** Si el valor viejo es un número suelto, no se copia: se usa el defecto 2,0, como se pidió. La advertencia del log anota el valor descartado.
+
+### Pruebas nuevas (revisión)
+`test_q1rev_f0_corte_enlace.py` (5), `test_q1rev_solo_lenta_debounce.py` (3), `test_q1rev_solo_lenta_abre_lenta.py` (5), `test_q1rev_migracion_rango_no_dict.py` (5), `test_q1rev_params_ciclo_fabrica_migrada.py` (2), `test_q1rev_no_esteril_igualdad_exacta.py` (5), `test_q1rev_enlace_ok_tick_fallido.py` (2) y, de la re-revisión, `test_q1rev_f0_pausa_di.py` (4). Total: 31.
+
+### Suite completa tras la revisión
+Corrida por la sesión principal sobre la unión de esta rama (hasta `88858a0`) con `tanda-7` (commit 8a4a63d), en un worktree limpio: **5405 passed, 3 skipped, 3 xfailed** (19 min 59 s). El subagente no llegó a anotar su propia corrida en la rama (su tarea en segundo plano se cortó).
