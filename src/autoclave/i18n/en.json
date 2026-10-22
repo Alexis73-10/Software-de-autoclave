@@ -928,6 +928,11 @@
       "titulo": "I/O board failure during the cycle",
       "plantilla": "{causa}: {motivo} Phase {fase}. The cycle was aborted.",
       "accion": "Check the I/O board before restarting. Call technical service."
+    },
+    "COM-04": {
+      "titulo": "Outputs not confirmed",
+      "plantilla": "The control board did not confirm that all outputs were switched off when leaving test mode, even after 3 retries. The connection with the board is being restarted.",
+      "accion": "Do not start cycles. If the alarm does not clear by itself, call technical service."
     }
   },
   "sensores_ciclo": {

@@ -928,6 +928,11 @@
       "titulo": "Falla de la tarjeta de E/S durante el ciclo",
       "plantilla": "{causa}: {motivo} Fase {fase}. El ciclo se abortó.",
       "accion": "Verifique la tarjeta de E/S antes de reiniciar. Llame a servicio técnico."
+    },
+    "COM-04": {
+      "titulo": "Salidas sin confirmar",
+      "plantilla": "La tarjeta de control no confirmó el apagado de todas las salidas al salir del modo prueba, ni tras 3 reintentos. Se repite la conexión con la tarjeta.",
+      "accion": "No inicie ciclos. Si la alarma no desaparece sola, llame a servicio técnico."
     }
   },
   "sensores_ciclo": {
