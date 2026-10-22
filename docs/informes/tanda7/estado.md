@@ -16,3 +16,31 @@ Rama `tanda-7`, creada desde `dev` (18eb429) tras A0. Sesión principal arrancad
 | K2 | Pendiente | | |
 | D2 | En curso (subagente, rama `tanda-7-d2`) | | Lanzado 00:36. |
 | Z | Pendiente | | |
+
+## NOTA DE REANUDACIÓN (asistente de Cristian, 22-oct 06:10) — leer antes de seguir
+Qué pasó:
+- A las 01:43 la sesión principal llegó al límite de uso (se restablecía a las 02:50).
+- Los relanzamientos de 01:53 y 02:03 fallaron por el mismo límite.
+- A partir de las 02:03 el lanzador dejó de registrar, y la tanda quedó detenida hasta ahora.
+
+Estado real de los subagentes: TODOS terminaron su trabajo de código, con commits en su rama. Les faltó lo siguiente:
+- Los informes NO están commiteados: están en sus worktrees, en `docs/informes/tanda7/`.
+- El resultado final de la suite NO está anotado: los informes dicen RESULTADO_SUITE o "ver al final".
+
+| Etapa | Rama | Worktree (`.claude/worktrees/`) | Commits | Informe sin commit |
+|---|---|---|---|---|
+| L1 | tanda-7-l1 | agent-a252c72db53b8944d | 1 | L1_lock_soup.md |
+| P1 | tanda-7-p1 | agent-a89312d6f73d480a8 | 12 | P1_preparacion_instalacion.md (informe y LEEME ya commiteados) |
+| M1 | tanda-7-m1 | agent-a31c84146e39065a8 | 6 | M1_asistente_modelo.md + capturas |
+| C2 | tanda-7-c2 | agent-a017e8dfb3f2420ce | 3 | C2_correo_manual.md |
+| M2 | tanda-7-m2 | agent-a5b2f9cd2968b4864 | 4–5 | M2_mantenimiento_e1.md |
+| Q1 | tanda-7-q1 | agent-ab2c9a3b57297a83c | 12 | Q1_preguntas_abiertas.md, Q1_ensayo_tabla.md |
+| D2 | tanda-7-d2 | agent-a0d4bc84447812c0e | 3 | D2_depuracion.md (NO unir antes de K2) |
+
+Para seguir:
+1. NO relances los subagentes desde cero. En cada worktree:
+   - revisa `git status` y commitea en su rama el informe y cualquier cambio pendiente que sea suyo;
+   - corre la suite con `PYTHONPATH=<worktree>/src` (aviso de Q1: el paquete editable apunta al repo principal; verifica con `autoclave.__file__`);
+   - anota el resultado en su informe.
+2. Integra a `tanda-7` una rama a la vez, en el orden de prioridad: L1, P1, M1, C2, M2, Q1. Corre la suite en verde tras cada unión. En Q1, confirma antes que no tenga hallazgos Altos/Críticos abiertos. Si una rama no queda en verde a las 12:30, se queda fuera.
+3. Después: K2 (lista a las 13:45), luego D2, luego Z.
