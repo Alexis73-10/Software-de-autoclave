@@ -7,7 +7,14 @@
 - Los CICLOS empiezan el lunes 26-oct.
 - Esta tanda deja el software listo para esos ciclos y produce una compilación C, para actualizar el equipo antes del lunes.
 
-**Modo: VELOCIDAD, sin ahorrar tokens.** Subagentes EN PARALELO, cada uno en su worktree; los revisores en paralelo. La sesión principal coordina, integra y compila.
+**Modo: RENDIMIENTO DENTRO DEL LÍMITE DE USO** (cambio de Cristian, 22-oct 12:51; reemplaza "velocidad sin ahorrar tokens"). Con 13 subagentes y 13 suites completas a la vez, el límite se agotó en 40 min. Reglas:
+- **Máximo 4 subagentes a la vez.** Los demás esperan en cola, en el orden de prioridad de la regla 8; cuando uno termina, entra el siguiente.
+- **Los subagentes NO corren la suite completa.** Corren solo las pruebas de los módulos que tocan, más las que importan esos módulos (`pytest -q <archivos>` o `-k`).
+- **La suite completa la corre ÚNICAMENTE la sesión principal**, una vez por cada rama que une a `tanda-8`.
+- **Los revisores (`safety-reviewer`, `timing-auditor`, `sensor-role-auditor`) van solo en las etapas ★**, una pasada y una re-revisión si hubo Altos.
+- **Contexto mínimo:** cada subagente lee solo su sección de `decisiones_tanda_8.md` y los archivos de código que va a tocar, no los informes completos de otras tandas.
+
+La sesión principal coordina, integra y compila.
 
 ## 0. Reglas
 Aplican las de la sección 0 de las tandas 6 y 7, con estos cambios:
