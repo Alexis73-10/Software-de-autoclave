@@ -28,10 +28,49 @@ _VINCULADOS = (
 )
 
 
+# R1-P3 (tanda 7, decisión 1.3 de Cristian): `rango_calentamiento` era a la vez
+# banda de temperatura (°C) y de presión (kPa) en calentamiento.py. Se separa en
+# dos parámetros de clase "diferencia" con el mismo defecto. Un programa viejo
+# (archivo, defecto del hospital, .bak o instantánea de recuperación) se migra
+# al construir el Cycle copiando el valor a los dos; el archivo queda migrado la
+# próxima vez que se guarde.
+_RANGO_VIEJO = "rango_calentamiento"
+_RANGOS_NUEVOS = (("rango_calentamiento_temp", "°C"), ("rango_calentamiento_pres", "kPa"))
+
+
+def migrar_parametros(parameters) -> bool:
+    """Migra en el sitio los parámetros de un programa viejo. Devuelve True si
+    cambió algo. Si ya trae los nuevos, el viejo se descarta sin tocarlos."""
+    cal = parameters.get("calentamiento") if isinstance(parameters, dict) else None
+    if not isinstance(cal, dict) or _RANGO_VIEJO not in cal:
+        return False
+    viejo = cal[_RANGO_VIEJO]
+    reemplazo = {}
+    for clave, valor in cal.items():
+        if clave != _RANGO_VIEJO:
+            if clave not in reemplazo:
+                reemplazo[clave] = valor
+            continue
+        for nueva, unidad in _RANGOS_NUEVOS:
+            if nueva in cal:
+                reemplazo[nueva] = cal[nueva]
+            elif isinstance(viejo, dict):
+                hoja = copy.deepcopy(viejo)
+                hoja["unit"] = unidad
+                hoja["clase"] = "diferencia"
+                reemplazo[nueva] = hoja
+    cal.clear()
+    cal.update(reemplazo)
+    logger.warning("Programa con '%s' (formato anterior): migrado a %s y %s",
+                   _RANGO_VIEJO, _RANGOS_NUEVOS[0][0], _RANGOS_NUEVOS[1][0])
+    return True
+
+
 class Cycle:
     def __init__(self, cycle_id: str, name: str, parameters: dict, number: int | None = None):
         self.id = cycle_id
         self.name = name
+        migrar_parametros(parameters)          # R1-P3
         self.parameters = parameters
         # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
         # None si falta, no es entero positivo o está repetido.
@@ -302,6 +341,7 @@ class CycleManager:
             try:
                 with open(bak, "r", encoding="utf-8") as f:
                     respaldo = json.load(f).get("parameters", {})
+                migrar_parametros(respaldo)            # R1-P3
                 if not catalogo_parametros.errores_programa(respaldo):
                     logger.error("Programa %s fuera del catálogo (%s); se usa %s",
                                  cycle.id, "; ".join(errores), os.path.basename(bak))

@@ -255,11 +255,19 @@
                 "min": 0,
                 "max": 100
             },
-            "rango_calentamiento": {
+            "rango_calentamiento_temp": {
+                "value": 2.0,
+                "type": "float",
+                "unit": "°C",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 30
+            },
+            "rango_calentamiento_pres": {
                 "value": 2.0,
                 "type": "float",
                 "unit": "kPa",
-                "clase": "sin_conversion",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 30
             },

@@ -67,7 +67,8 @@ _TABS = [
 _CAL_MAIN_KEYS  = {
     "temperatura_calentamiento", "tasa_calentamiento",
     "timeout_calentamiento", "factor_calentamiento",
-    "rango_calentamiento", "tasa_presion", "intervalo_segmentos_calor",
+    "rango_calentamiento_temp", "rango_calentamiento_pres",   # R1-P3 (tanda 7)
+    "tasa_presion", "intervalo_segmentos_calor",
     "escape_lento_on", "escape_lento_off",
     "escape_rapido_on", "escape_rapido_off",
 }

@@ -90,6 +90,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-20 | Tanda 4 B4 | `opciones.secciones.parametros_sistema` ("Parámetros del equipo" / "Equipment parameters") | Opciones | sin revisar |
 | 2026-10-20 | Tanda 4 B5 | `alarmas.SIS-05.{titulo,descripcion,accion}` (Impresora no conectada / Printer not connected) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-20 | Tanda 4 B6 | `selector_ciclo.*` (titulo, ayuda "Tap to change cycle", mas_usado "Most used", sin_conexion) | Ciclo | sin revisar |
+| 2026-10-22 | Tanda 7 Q1 (R1-P3) | `parametros_desc.calentamiento.rango_calentamiento_temp`, `parametros_desc.calentamiento.rango_calentamiento_pres` (reemplazan a `rango_calentamiento`) | Parámetros del ciclo | sin revisar |
 
 ## Registro de revisiones
 
