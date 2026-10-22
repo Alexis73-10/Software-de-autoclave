@@ -38,7 +38,7 @@ TDD: las 11 pruebas nuevas se escribieron primero; 9 fallaban antes del cambio. 
 
 Pruebas relacionadas (mantenimiento, i18n, información del equipo, menú principal QML, Opciones QML, permisos): 192 + 172 pasan.
 
-**Suite completa:** `5392 passed, 3 skipped, 3 xfailed` en 27 min 08 s, con `autoclave.__file__` = `C:SERS	ECNIDOCUMENTSDIGO_AUTOCLAVE.CLAUDEWORKTREESGENT-A0B940080887B4D88SRCUTOCLAVE__INIT__.PY`. COMPARADO CON LA LíNEA BASE (5382 / 3 / 3): +11 PRUEBAS NUEVAS Y �1 CASO PARAMETRIZADO (`OTRO` EN `TEST_CORRECTIVO_Y_OTRO_NO_RESUELVEN_EL_AVISO`). LOG: `DOCS/INFORMES/TANDA8/SUITES/M8.LOG`.
+**Suite completa:** `5392 passed, 3 skipped, 3 xfailed` en 27 min 08 s, con `autoclave.__file__` = `C:\Users\tecni\Documents\codigo_autoclave\.claude\worktrees\agent-a0b940080887b4d88\src\autoclave\__init__.py`. Comparado con la línea base (5382 / 3 / 3): +11 pruebas nuevas y −1 caso parametrizado (`otro` en `test_correctivo_y_otro_no_resuelven_el_aviso`). Log: `docs/informes/tanda8/suites/m8.log`.
 
 ## DECISIONES SIN CONFIRMAR
 
