@@ -90,6 +90,12 @@ class ProtocoloFallo:
         temp = self._temp_principal()
         return not lectura_valida(temp) or temp == 0
 
+    def _presion_camara_perdida(self) -> bool:
+        """S1 (tanda 8, revisión ★ SAF-02): transductor de presión de cámara
+        sin lectura (el convertidor ya exigió 3 tramas fuera de rango y
+        entrega None, nunca 0). Mismo criterio que el Principal perdido."""
+        return not lectura_valida(self.estado.sensores_pres.get("pres_camara"))
+
     def pasar_a_solo_lenta(self) -> bool:
         """R1-P4 (tanda 7, decisión 1.3 de Cristian): el protocolo ya corría
         por otra causa (fallo de fase, cancelación, puerta, paro...) y después
@@ -104,8 +110,9 @@ class ProtocoloFallo:
         Devuelve True si cambió el modo."""
         if self._solo_lenta:
             return False
-        logger.error("Protocolo fallo: Principal sin lectura con el protocolo en marcha "
-                     "(modo %s) — se pasa a solo la descompresión lenta", self._modo)
+        logger.error("Protocolo fallo: Principal o presión de cámara sin lectura con el "
+                     "protocolo en marcha (modo %s) — se pasa a solo la descompresión lenta",
+                     self._modo)
         self._solo_lenta = True
         self._sin_escalar = True
         self._escalado = False
@@ -118,7 +125,7 @@ class ProtocoloFallo:
         pres  = self.estado.sensores_pres.get("pres_camara")
         atm   = self.config.get("presion_admosferica") or 101.3
         rango = self.config.get("rango_presion_atm")   or 20.0
-        if pres is None or pres >= atm - rango:
+        if not lectura_valida(pres) or pres >= atm - rango:
             self.set_do.descompresion_lenta_on()
         return True
 
@@ -389,7 +396,7 @@ class ProtocoloFallo:
         # SAF-01 / SEN-02 / TMG-07 (revisión Q1): con _DEBOUNCE_LECTURAS
         # lecturas inválidas seguidas; una válida reinicia el contador.
         if not self._solo_lenta:
-            if self._principal_perdido():
+            if self._principal_perdido() or self._presion_camara_perdida():
                 self._lecturas_principal_perdido += 1
             else:
                 self._lecturas_principal_perdido = 0
@@ -405,7 +412,7 @@ class ProtocoloFallo:
 
         enfriando = self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento"
 
-        if pres is None:
+        if not lectura_valida(pres):
             if enfriando:
                 # SAF-02 de T5: sin presión no se inyecta aire comprimido
                 self.set_do.aire_comprimido_camara_off()

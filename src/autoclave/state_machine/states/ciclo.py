@@ -18,7 +18,7 @@ import time
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import (
     CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08,
-    COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SIS_01, SUM_01, SUM_06, nombre_legible,
+    COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, nombre_legible,
 )
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
@@ -324,8 +324,14 @@ class CicloState:
             if not con_empaque:
                 continue
             emp = self.estado.sensores_pres.get(f"pres_empaque_{num}")
-            # Sin lectura válida se omite, como antes con None (A-9)
-            if lectura_valida(emp) and emp < min_empaque:
+            # S1 (tanda 8, revisión ★ SAF-01): el convertidor entrega None con
+            # el lazo abierto (antes 0, que disparaba PUE-03). Omitirlo dejaba
+            # el ciclo sin vigilancia del empaque: FALLO propio (SEN-08) con
+            # venteo solo por la lenta, como la cámara y la chaqueta.
+            if not lectura_valida(emp):
+                return (False, f"FALLO_PUERTA_{num}_EMPAQUE_SIN_LECTURA", SEN_08,
+                        {"puerta": puerta})
+            if emp < min_empaque:
                 return (False, f"FALLO_PUERTA_{num}_EMPAQUE", PUE_03,
                         {"puerta": puerta, "pres": emp, "minimo": min_empaque})
 
@@ -703,7 +709,9 @@ class CicloState:
             self.estado.fase_ciclo = fase_fallo
             self._registrar_fallo(codigo, origen=valores["puerta"],
                                   fase=self._fase_actual_legible(), **valores)
-            self._protocolo.ejecutar()
+            # S1: empaque sin lectura = transductor sin señal, mismo criterio
+            # que SEN-04/05 (solo la lenta)
+            self._protocolo.ejecutar(solo_lenta=(codigo == SEN_08))
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 

@@ -42,6 +42,11 @@ class FactorySensorCalibration(SensorCalibration):
     # sobrecorriente.
     adc_falla_bajo: Optional[int] = Field(None, description="Umbral bajo de falla en cuentas ADC")
     adc_falla_alto: Optional[int] = Field(None, description="Umbral alto de falla en cuentas ADC")
+    # Revisión ★ de S1 (SAF-03): piso calibrado, en kPa (fábrica + usuario,
+    # sin filtrar ni recortar). Una muestra por debajo cuenta como fuera de
+    # rango. None lo desactiva. DECISIÓN SIN CONFIRMAR hasta la prueba de banco.
+    pres_falla_bajo_kpa: Optional[float] = Field(
+        -10.0, description="Piso calibrado de falla del transductor de presión (kPa)")
 
 
 # ---------------------------------------------------------------------

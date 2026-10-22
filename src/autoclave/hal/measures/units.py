@@ -75,8 +75,16 @@ class Units:
             # nuevas; SerialLink también notifica por DI/DO con la misma AI.
             # Sin ai_seq (dobles de prueba, simulador) cada llamada cuenta.
             ai_seq = data.get("ai_seq")
-            nueva = ai_seq is None or ai_seq != self._ultimo_ai_seq
-            self._ultimo_ai_seq = ai_seq
+            # TMG-02 (revisión ★): _notificar() llega desde varios hilos con
+            # un get_state() tomado antes; una trama vieja o repetida
+            # (ai_seq <= la última) no es muestra nueva. Un salto grande hacia
+            # atrás es un contador reiniciado (otro SerialLink con la misma
+            # Units): cuenta como nueva para no congelar la presión.
+            nueva = (ai_seq is None or self._ultimo_ai_seq is None
+                     or ai_seq > self._ultimo_ai_seq
+                     or ai_seq < self._ultimo_ai_seq - 100)
+            if nueva and ai_seq is not None:
+                self._ultimo_ai_seq = ai_seq
             self._pressure = converters.convert_pressures(self._raw_ai, self._config,
                                                           nueva_muestra=nueva)
 

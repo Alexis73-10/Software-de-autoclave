@@ -339,7 +339,9 @@ def test_preparado_drenaje_invalido_reinicia_el_confirmador_de_apagado():
 def _ciclo(temp_drenaje=25.0, pres_chaqueta=300.0, temp_camara=120.0, pres_camara=200.0):
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": temp_camara, "temp_drenaje": temp_drenaje}
-    estado.sensores_pres = {"pres_camara": pres_camara, "pres_chaqueta": pres_chaqueta}
+    estado.sensores_pres = {"pres_camara": pres_camara, "pres_chaqueta": pres_chaqueta,
+                            # S1: empaque sin lectura falla el ciclo (SEN-08)
+                            "pres_empaque_1": 300.0, "pres_empaque_2": 300.0}
     estado.sensores_di = {"vapor_suministro": 1, "puerta_1_cerrada": 1, "puerta_2_cerrada": 1}
     estado.get_flag.return_value = False
     config = MagicMock()

@@ -867,6 +867,11 @@
       "plantilla": "El sensor de presión de chaqueta no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
       "accion": "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para revisar el sensor de presión de chaqueta."
     },
+    "SEN-08": {
+      "titulo": "Sensor de presión de empaque sin lectura",
+      "plantilla": "El sensor de presión de empaque de {puerta} no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+      "accion": "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de empaque."
+    },
     "SEN-06": {
       "titulo": "Sensor de presión de cámara sin lectura",
       "plantilla": "Sensor de presión de cámara sin lectura: llame a servicio.",

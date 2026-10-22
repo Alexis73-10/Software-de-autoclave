@@ -867,6 +867,11 @@
       "plantilla": "The jacket pressure sensor gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
       "accion": "Do not open the door until the chamber is confirmed safe. Call technical service to check the jacket pressure sensor."
     },
+    "SEN-08": {
+      "titulo": "Gasket pressure sensor without reading",
+      "plantilla": "The gasket pressure sensor of {puerta} gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
+      "accion": "Do not open the door. Call technical service to check the gasket pressure sensor."
+    },
     "SEN-06": {
       "titulo": "Chamber pressure sensor without reading",
       "plantilla": "Chamber pressure sensor without reading: call service.",

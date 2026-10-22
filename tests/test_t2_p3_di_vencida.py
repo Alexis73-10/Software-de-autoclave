@@ -44,7 +44,9 @@ def _ciclo(flags):
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": 120.0}
     # S1 (tanda 8): la chaqueta también se vigila en ciclo (io_enabled)
-    estado.sensores_pres = {"pres_camara": 200.0, "pres_chaqueta": 300.0}
+    estado.sensores_pres = {"pres_camara": 200.0, "pres_chaqueta": 300.0,
+                            # S1: empaque sin lectura falla el ciclo (SEN-08)
+                            "pres_empaque_1": 300.0, "pres_empaque_2": 300.0}
     estado.sensores_di = {"puerta_1_cerrada": 1, "puerta_2_cerrada": 1}
     estado.get_flag.side_effect = lambda f: flags.get(f, False)
     estado.motivo_fallo = ""

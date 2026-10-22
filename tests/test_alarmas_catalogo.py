@@ -43,6 +43,7 @@ _EJEMPLOS = {
     "SEN-04": {"fase": "Esterilización"},
     "SEN-05": {"fase": "Calentamiento"},
     "SEN-06": {}, "SEN-07": {},
+    "SEN-08": {"puerta": "Puerta 2", "fase": "Esterilización"},
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
@@ -103,6 +104,7 @@ def test_niveles_migrados_iguales_a_hoy():
         "SEN-02": Nivel.FALLO_CRITICO, "COM-02": Nivel.FALLO_CRITICO,
         # S1 (tanda 8): presión sin lectura en ciclo, mismo nivel que SEN-02
         "SEN-04": Nivel.FALLO_CRITICO, "SEN-05": Nivel.FALLO_CRITICO,
+        "SEN-08": Nivel.FALLO_CRITICO,
         "PUE-02": Nivel.ALARMA, "PUE-03": Nivel.ALARMA, "COM-01": Nivel.ALARMA,
         # E6 decisión 9 y arranque: FALLA fuera de ciclo, EMERGENCIA en ciclo
         "COM-03": Nivel.FALLO_CRITICO,

@@ -16,7 +16,8 @@ def _make_ciclo(monkeypatch, ai=("pres_camara", "pres_chaqueta")):
     monkeypatch.setattr(psl, "_ai_habilitadas", lambda: ai)
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": 130.0}
-    estado.sensores_pres = {"pres_camara": 290.0, "pres_chaqueta": 300.0}
+    estado.sensores_pres = {"pres_camara": 290.0, "pres_chaqueta": 300.0,
+                            "pres_empaque_1": 300.0, "pres_empaque_2": 300.0}
     estado.sensores_di = {"puerta_1_cerrada": 1, "puerta_2_cerrada": 1, "vapor_suministro": 1}
     estado.get_flag.return_value = False
     set_do = MagicMock()
@@ -109,3 +110,100 @@ def test_presion_cero_valida_no_es_sin_lectura(monkeypatch, canal):
     estado.sensores_pres[canal] = 0.0
     ciclo.run()
     assert estado.fase_ciclo != "SENSOR_AUSENTE"
+
+
+# ── Revisión ★ (SAF-01/TMG-01/SEN-01 de S1): empaque sin lectura en ciclo ──
+# El convertidor también entrega None en pres_empaque_n con el lazo abierto;
+# antes daba 0 y disparaba PUE-03. Omitirlo dejaba el ciclo sin vigilancia
+# del empaque.
+
+def _ciclo_con_empaque(monkeypatch, emp1, emp2):
+    from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+    from autoclave.state_machine.states import ciclo as ciclo_mod
+    monkeypatch.setattr(psl, "_ai_habilitadas", lambda: ("pres_camara", "pres_chaqueta"))
+    monkeypatch.setattr(ciclo_mod, "revisa_empaque", lambda _p: True)
+    monkeypatch.setattr(ciclo_mod, "numero_puertas", lambda _p: 2)
+    estado = MagicMock()
+    estado.sensores_temp = {"temp_camara": 130.0}
+    estado.sensores_pres = {"pres_camara": 290.0, "pres_chaqueta": 300.0,
+                            "pres_empaque_1": emp1, "pres_empaque_2": emp2}
+    estado.sensores_di = {"puerta_1_cerrada": 1, "puerta_2_cerrada": 1, "vapor_suministro": 1}
+    estado.get_flag.return_value = False
+    set_do = MagicMock()
+    set_do.reset_all_outputs.return_value = True
+    cycle = MagicMock()
+    cycle.copia.return_value = cycle
+    cycle.get_param.return_value = None
+    config = MagicMock()
+    config.get.return_value = None
+    am = AlarmManager()
+    ciclo = CicloState(estado, set_do, cycle, config, am)
+    ciclo.reset()
+    return ciclo, estado, set_do, am
+
+
+@pytest.mark.parametrize("emp", [None, float("nan")])
+def test_empaque_sin_lectura_en_ciclo_falla_con_sen08_y_solo_lenta(monkeypatch, emp):
+    ciclo, estado, set_do, am = _ciclo_con_empaque(monkeypatch, 300.0, emp)
+    assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
+    assert estado.fase_ciclo == "FALLO_PUERTA_2_EMPAQUE_SIN_LECTURA"
+    [inst] = am.activas()
+    assert (inst.codigo, inst.origen) == ("SEN-08", "Puerta 2")
+    assert ciclo._protocolo.solo_lenta is True
+    set_do.descompresion_rapida_on.assert_not_called()
+    set_do.aire_admosferico_camara_on.assert_not_called()
+
+
+def test_empaque_bajo_con_lectura_sigue_en_pue03(monkeypatch):
+    ciclo, estado, set_do, am = _ciclo_con_empaque(monkeypatch, 300.0, 100.0)
+    ciclo.run()
+    [inst] = am.activas()
+    assert inst.codigo == "PUE-03"
+    assert estado.fase_ciclo == "FALLO_PUERTA_2_EMPAQUE"
+
+
+def test_empaque_sin_lectura_no_se_vigila_si_el_perfil_no_revisa_empaque(monkeypatch):
+    from autoclave.state_machine.states import ciclo as ciclo_mod
+    ciclo, estado, set_do, am = _ciclo_con_empaque(monkeypatch, None, None)
+    monkeypatch.setattr(ciclo_mod, "revisa_empaque", lambda _p: False)
+    assert ciclo._verificar_puertas()[0] is True
+
+
+# ── Revisión ★ (SAF-02): presión de cámara perdida con el protocolo ya en
+# marcha por otra causa: mismo enclavamiento que R1-P4 (solo la lenta). ──
+
+@pytest.mark.parametrize("modo", [1, 4])
+@pytest.mark.parametrize("perdida", [None, float("nan")])
+def test_presion_perdida_con_protocolo_en_marcha_pasa_a_solo_lenta(modo, perdida):
+    from tests.test_q1_r1p4_principal_perdido_tras_protocolo import _protocolo, _updates_debounce
+    prot, estado, set_do = _protocolo(modo, pres=150.0 if modo == 4 else 250.0)
+    prot.ejecutar()                       # otra causa (fallo de fase)
+    prot.update()
+    assert prot.solo_lenta is False
+    estado.sensores_pres["pres_camara"] = perdida
+    set_do.reset_mock()
+    _updates_debounce(prot)
+    assert prot.solo_lenta is True
+    set_do.descompresion_rapida_off.assert_called()
+    set_do.descompresion_chaqueta_off.assert_called()
+    set_do.descompresion_lenta_on.assert_called()     # presión desconocida: abre la lenta
+    set_do.reset_mock()
+    estado.sensores_pres["pres_camara"] = 250.0       # vuelve la lectura: enclavado
+    for _ in range(5):
+        prot.update()
+    assert prot.solo_lenta is True
+    set_do.descompresion_rapida_on.assert_not_called()
+    set_do.aire_admosferico_camara_on.assert_not_called()
+    set_do.aire_comprimido_camara_on.assert_not_called()
+
+
+def test_una_lectura_suelta_de_presion_perdida_no_enclava():
+    from tests.test_q1_r1p4_principal_perdido_tras_protocolo import _protocolo
+    prot, estado, set_do = _protocolo(1)
+    prot.ejecutar()
+    estado.sensores_pres["pres_camara"] = None
+    prot.update()
+    estado.sensores_pres["pres_camara"] = 250.0
+    for _ in range(5):
+        prot.update()
+    assert prot.solo_lenta is False

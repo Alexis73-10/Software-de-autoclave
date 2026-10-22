@@ -7,8 +7,10 @@
 # nunca 0. Este módulo reúne las reglas que usan los estados:
 #   - qué canales de presión se vigilan: la cámara siempre; la chaqueta si
 #     `io_enabled` la declara (si no se puede leer, se vigila: falla cerrada).
-#     El empaque no entra aquí (el equipo de pruebas no tiene ese sensor; su
-#     vigilancia sigue en PUE-03 / SEN-01 según el perfil);
+#     El empaque no entra aquí: en ciclo, un empaque sin lectura en una
+#     puerta con empaque (revisa_empaque) falla con SEN-08 y solo la lenta
+#     (CicloState._verificar_puertas, revisión ★ SAF-01); fuera de ciclo
+#     bloquea el inicio por SEN-01 (PREPARADO / PREPARACION);
 #   - el código de alarma en ciclo (FALLO: SEN-04 / SEN-05) y fuera de ciclo
 #     (bloquea el inicio: SEN-06 / SEN-07);
 #   - el motivo de rechazo del inicio, con texto del catálogo i18n.

@@ -193,3 +193,65 @@ def test_units_solo_cuenta_tramas_ai_nuevas(tmp_path):
     u.update_from_serial({**base, "ai": _raw(0), "ai_seq": 4})
     u.update_from_serial({**base, "ai": _raw(0), "ai_seq": 5})
     assert u.get_pressure(0) is None
+
+
+# ── Revisión ★ de S1 ────────────────────────────────────────────────────────
+
+def _config_real(**extra):
+    """Canal 0 como el equipo de pruebas: fábrica adc_min 5 / adc_max 4050,
+    2-400 kPa; usuario gain 1,364 / offset -75,3 (0 kPa reales ≈ 546 cuentas)."""
+    from autoclave.config.schema import SensorCalibration
+    cfg = AppConfig()
+    cfg.calibration.factory.pressure[0] = FactorySensorCalibration(
+        adc_min=5, adc_max=4050, pres_min=2.0, pres_max=400.0, **extra)
+    cfg.calibration.user.pressure[0] = SensorCalibration(gain=1.364056, offset=-75.348611)
+    return cfg
+
+
+def test_saf03_cuentas_residuales_que_calibran_muy_por_debajo_de_cero_declaran_falla():
+    """SAF-03/SEN-02: con el umbral bajo calculado negativo, un lazo abierto
+    con cuentas residuales (1..~480) calibraba a < -10 kPa y el recorte lo
+    dejaba en 0 kPa válido. Ahora es muestra fuera de rango."""
+    cfg = _config_real()
+    _leer(cfg, 2000, veces=5)
+    assert _leer(cfg, 300, veces=N) is None
+
+
+def test_saf03_vacio_profundo_real_no_declara_falla():
+    cfg = _config_real()
+    _leer(cfg, 2000, veces=5)
+    assert _leer(cfg, 560, veces=N + 5) is not None     # ≈ 2 kPa calibrados
+
+
+def test_saf03_piso_calibrado_configurable_y_desactivable():
+    cfg = _config_real(pres_falla_bajo_kpa=None)
+    _leer(cfg, 2000, veces=5)
+    assert _leer(cfg, 300, veces=N + 2) is not None     # comportamiento previo
+    converters.reiniciar_presiones()
+    cfg = _config_real(pres_falla_bajo_kpa=-50.0)
+    _leer(cfg, 2000, veces=5)
+    assert _leer(cfg, 300, veces=N + 2) is not None     # -32 kPa > -50
+
+
+def test_tmg02_trama_ai_vieja_no_cuenta_aunque_llegue_fuera_de_orden():
+    """TMG-02: Units._notificar() puede llamarse desde varios hilos con un
+    get_state() tomado antes; una trama más vieja no es muestra nueva."""
+    u = Units()
+    u._config = _config()
+    base = {"port_open": True, "data_alive": True}
+    u.update_from_serial({**base, "ai": _raw(2000), "ai_seq": 1})
+    u.update_from_serial({**base, "ai": _raw(0), "ai_seq": 3})
+    u.update_from_serial({**base, "ai": _raw(0), "ai_seq": 2})   # vieja
+    u.update_from_serial({**base, "ai": _raw(0), "ai_seq": 3})   # repetida
+    assert u.get_pressure(0) is not None
+
+
+def test_tmg02_contador_ai_reiniciado_no_congela_la_presion():
+    u = Units()
+    u._config = _config()
+    base = {"port_open": True, "data_alive": True}
+    for seq in range(500, 505):
+        u.update_from_serial({**base, "ai": _raw(2000), "ai_seq": seq})
+    for seq in range(1, 1 + N):                       # contador reiniciado
+        u.update_from_serial({**base, "ai": _raw(0), "ai_seq": seq})
+    assert u.get_pressure(0) is None

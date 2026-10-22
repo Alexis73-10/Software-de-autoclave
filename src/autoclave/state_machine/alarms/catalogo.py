@@ -63,6 +63,8 @@ SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
 # S1 (tanda 8, D8-1): transductor de presión sin lectura. En ciclo, FALLO
 # con código propio; fuera de ciclo, bloquea el inicio ("llame a servicio").
 SEN_04, SEN_05, SEN_06, SEN_07 = "SEN-04", "SEN-05", "SEN-06", "SEN-07"
+# Revisión ★ de S1 (SAF-01): empaque sin lectura en ciclo (puertas con empaque)
+SEN_08 = "SEN-08"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
@@ -200,6 +202,11 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "abortó: vapor cortado y descompresión solo por la válvula lenta.",
        "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para "
        "revisar el sensor de presión de chaqueta."),
+    _d(SEN_08, _FC, True, _M, "Sensor de presión de empaque sin lectura",
+       "El sensor de presión de empaque de {puerta} no entrega lectura en la fase {fase}. "
+       "El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+       "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de "
+       "empaque."),
     # S1 (tanda 8, D8-1.3): fuera de ciclo bloquea el inicio; "NO ABRIR" sigue
     # porque sin presión no se confirma la cámara segura.
     _d(SEN_06, _AV, True, _A, "Sensor de presión de cámara sin lectura",

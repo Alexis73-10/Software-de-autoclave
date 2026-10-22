@@ -281,6 +281,38 @@ def _fuera_de_rango(raw, bajo, alto) -> bool:
     return alto is not None and raw > alto
 
 
+# Piso calibrado (revisión ★ de S1, SAF-03/SEN-02). DECISIÓN SIN CONFIRMAR:
+# con la calibración actual el umbral bajo en cuentas queda < 0 y solo 0
+# cuentas exactas eran falla; la calibración de usuario del canal 0 (gain
+# 1,364, offset -75,3) pone el 0 kPa real en ≈546 cuentas, así que cuentas
+# residuales de un lazo abierto (1..~480) calibraban a presión negativa y el
+# recorte max(0, v) las dejaba en 0 kPa válido. Complemento de la detección
+# en cuentas: si la muestra cruda, calibrada (fábrica + usuario, sin filtrar
+# ni recortar), queda por debajo de `pres_falla_bajo_kpa` (defecto -10 kPa;
+# un transductor absoluto nunca lee presión negativa) cuenta como fuera de
+# rango, con el mismo debounce. None lo desactiva. Se ajusta con la prueba
+# de banco D-38.
+PRES_FALLA_BAJO_KPA = -10.0
+
+
+def _bajo_piso_calibrado(raw, factory_calib, user_calib) -> bool:
+    if factory_calib is None:
+        return False
+    # explícito None = desactivado (por eso no se usa _campo)
+    if isinstance(factory_calib, dict):
+        piso = factory_calib.get("pres_falla_bajo_kpa", PRES_FALLA_BAJO_KPA)
+    else:
+        piso = getattr(factory_calib, "pres_falla_bajo_kpa", PRES_FALLA_BAJO_KPA)
+    if piso is None:
+        return False
+    try:
+        valor = _user_calibrate(_factory_calibrate(raw, factory_calib, 400.0, is_pressure=True),
+                                user_calib)
+    except Exception:
+        return False
+    return valor < float(piso)
+
+
 def presion_en_falla(indice: int) -> bool:
     """True si el canal de presión `indice` tiene la falla declarada."""
     return _det_pres[indice].en_falla
@@ -329,7 +361,8 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig,
 
         # 0. Transductor sin señal, sobre la cuenta cruda (S1, D8-1.1)
         bajo, alto = umbrales_falla_presion(factory_calib)
-        fuera = _fuera_de_rango(raw, bajo, alto)
+        fuera = (_fuera_de_rango(raw, bajo, alto)
+                 or _bajo_piso_calibrado(raw, factory_calib, user_calib))
         estaba_en_falla = det.en_falla
         det.actualizar(fuera)
         if det.en_falla:
