@@ -104,6 +104,15 @@ _SCRIPT = textwrap.dedent(r'''
     # 2. Tipo de equipo: sin selección inicial
     anotar("equipo_inicial")
     obs["claseInicial"] = a.property("clase")
+    def item(nombre, raiz=None):               # delegados de Repeater: por el árbol visual
+        for h in (raiz or ventana.contentItem()).childItems():
+            if h.objectName() == nombre:
+                return h
+            r = item(nombre, h)
+            if r is not None:
+                return r
+        return None
+    obs["titulosClase"] = [item("clase_" + v).property("titulo") for v in obs["clases"]]
     capturar(n, "equipo"); n += 1
     QMetaObject.invokeMethod(a, "elegirClase", Q_ARG("QVariant", cfg.get("clase", "piso_lab")))
     siguiente()
@@ -166,6 +175,8 @@ _SCRIPT = textwrap.dedent(r'''
     anotar("resumen")
     filas = [f["clave"] for f in a.property("filasResumen").toVariant()]
     obs["filasResumen"] = filas
+    obs["resumenEquipo"] = next((f["valor"] for f in a.property("filasResumen").toVariant()
+                                 if f["clave"] == "resumen_equipo"), None)
     capturar(n, "resumen"); n += 1
     QMetaObject.invokeMethod(a, "instalar")
     esperar()
@@ -180,10 +191,12 @@ _SCRIPT = textwrap.dedent(r'''
 ''')
 
 
-def recorrer(idioma: str = "es", capturas: bool = False, **extra) -> dict:
+def recorrer(idioma: str = "es", capturas: bool = False, carpeta=None, **extra) -> dict:
+    """carpeta: dónde guardar las capturas (por defecto, las de la tanda 7)."""
+    carpeta = Path(carpeta) if carpeta else CAPTURAS
     if capturas:
-        CAPTURAS.mkdir(parents=True, exist_ok=True)
-    cfg = {"idioma": idioma, "capturas": str(CAPTURAS) if capturas else "", **extra}
+        carpeta.mkdir(parents=True, exist_ok=True)
+    cfg = {"idioma": idioma, "capturas": str(carpeta) if capturas else "", **extra}
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg)],

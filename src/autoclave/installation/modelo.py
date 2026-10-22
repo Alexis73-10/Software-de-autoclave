@@ -15,6 +15,8 @@
 # ValueError. El nombre es un rótulo informativo (AM-5): no cambia ningún
 # parámetro del equipo.
 
+import re
+
 CLASES_INSTALABLES = ("piso", "piso_lab")
 CAPACIDAD_MIN = 20
 CAPACIDAD_MAX = 2000
@@ -54,3 +56,27 @@ def calcular_modelo(clase, capacidad_litros, tipo_carga, door_count) -> str:
     return (f"SPK-SAT {capacidad_litros}{tipo_carga}"
             + ("2" if door_count == 2 else "")
             + ("-LAB" if valor == "piso_lab" else ""))
+
+
+_PATRON_MODELO = re.compile(r"SPK-SAT ([1-9][0-9]{1,3})([VH])(2?)(-LAB)?")
+
+
+def desglosar_modelo(nombre) -> dict | None:
+    """Inverso de calcular_modelo (E2, tanda 8; D8-3.23): {clase,
+    capacidad_litros, tipo_carga, door_count} de un nombre "SPK-SAT …", o None
+    si el nombre no sigue la regla (modelos anteriores a M1). Solo informativo:
+    lo usa la cabecera del PDF, que recibe el modelo guardado con el ciclo."""
+    if not isinstance(nombre, str):
+        return None
+    m = _PATRON_MODELO.fullmatch(nombre)
+    if m is None:
+        return None
+    datos = {"clase": "piso_lab" if m.group(4) else "piso", "capacidad_litros": int(m.group(1)),
+             "tipo_carga": m.group(2), "door_count": 2 if m.group(3) else 1}
+    try:
+        if calcular_modelo(datos["clase"], datos["capacidad_litros"], datos["tipo_carga"],
+                           datos["door_count"]) != nombre:
+            return None
+    except ValueError:
+        return None
+    return datos

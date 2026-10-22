@@ -257,6 +257,10 @@ FAMILIAS = {
     "instalacion.sum_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesSuministro"),
     "instalacion.sonda_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesSonda"),
     "equipo.": _sufijos_equipo,
+    # E2 (tanda 8): nombre de familia (Información del sistema, ticket de arranque, PDF)
+    "equipo.clase_": lambda: [c.value for c in __import__(
+        "autoclave.installation.equipment", fromlist=["EquipmentClass"]).EquipmentClass],
+    "exportacion.carga_": lambda: list(__import__("autoclave.installation.modelo", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "fases.": lambda: list(__import__("autoclave.core.runtime.progreso_ciclo",
                                       fromlist=["FASES_UI"]).FASES_UI),
     "arranque.": _sufijos_arranque,

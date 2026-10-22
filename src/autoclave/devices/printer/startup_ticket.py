@@ -44,6 +44,20 @@ def _idioma(idioma: str | None) -> str:
         return "es"
 
 
+def _nombre_clase(clase, idioma: str) -> str:
+    """E2 (tanda 8; D8-0): nombre de la familia desde el catálogo i18n
+    ("Hospitalario"/"Laboratorio"); el valor interno solo si no hay texto."""
+    valor = str(getattr(clase, "value", clase))
+    try:
+        from autoclave import i18n
+        clave = f"equipo.clase_{valor}"
+        if i18n.existe(clave, idioma):
+            return i18n.t(clave, idioma)
+    except Exception:
+        pass
+    return valor
+
+
 def _estado(valor) -> str:
     """Código de estado; un valor desconocido cuenta como fallo (falla cerrada)."""
     if valor in ESTADOS:
@@ -61,7 +75,8 @@ def format_startup_ticket(
 ) -> str:
     """status: [(subsistema, código)]; el subsistema "backend"/"tarjeta" se
     traduce, otro se imprime tal cual."""
-    tx = _TXT[_idioma(idioma)]
+    idioma = _idioma(idioma)
+    tx = _TXT[idioma]
     apagado = (
         last_shutdown.strftime("%Y-%m-%d  %H:%M:%S")
         if last_shutdown is not None
@@ -77,7 +92,7 @@ def format_startup_ticket(
         _SEP,
         f"{tx['modelo']:<16}{profile.model_id}",
         f"{tx['serie']:<16}{profile.serial_number}",
-        f"{tx['clase']:<16}{profile.equipment_class.value}",
+        f"{tx['clase']:<16}{_nombre_clase(profile.equipment_class, idioma)}",
         f"{tx['software']:<16}v{version}",
         _DIV,
         f"{tx['encendido']:<16}{startup_time.strftime('%Y-%m-%d  %H:%M:%S')}",

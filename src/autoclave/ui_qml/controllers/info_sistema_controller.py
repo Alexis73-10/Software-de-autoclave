@@ -3,7 +3,8 @@
 # OPCIONES › Información del sistema (O2d, tanda 6; mockup 8 aprobado). Solo
 # lectura, en grupos de clave–valor (GET /system/info):
 #   - Equipo: modelo, capacidad nominal y tipo de carga (M1, tanda 7; "—" en
-#     perfiles anteriores), serie, fecha de instalación, fuente de vapor.
+#     perfiles anteriores), tipo de equipo (E2, tanda 8: Hospitalario o
+#     Laboratorio), serie, fecha de instalación, fuente de vapor.
 #   - Software y tarjeta: versión del software, firmware e ID de la tarjeta.
 #   - Uso y mantenimiento: ciclos realizados, próximo mantenimiento (fecha y
 #     ciclos restantes).
@@ -13,6 +14,7 @@
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
+from autoclave.installation.equipment import EquipmentClass
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 
@@ -21,7 +23,10 @@ _MENSAJES = {sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta"}
 GRUPOS = ("equipo", "software", "uso", "configuracion")
 ESTADOS_IMPRESORA = ("lista", "no_instalada", "desconectada", "sin_papel", "error", "deshabilitada",
                      "desconocido")
-CLAVES_FILA = ("modelo", "capacidad", "tipo_carga", "serie", "fecha_instalacion", "fuente_vapor", "version_software", "firmware",
+# E2 (tanda 8; D8-0): la clase se muestra con su nombre del catálogo
+# (equipo.clase_*: "Hospitalario"/"Laboratorio"), nunca el valor interno
+CLASES_EQUIPO = tuple(c.value for c in EquipmentClass)
+CLAVES_FILA = ("modelo", "capacidad", "tipo_carga", "clase", "serie", "fecha_instalacion", "fuente_vapor", "version_software", "firmware",
                "id_tarjeta", "ciclos_realizados", "proximo_mantenimiento", "ciclos_restantes", "idioma",
                "unidades", "impresora", "red")
 
@@ -48,6 +53,7 @@ def grupos_de(d: dict) -> list[dict]:
     vapor = _txt(eq.get("fuente_vapor"))
     capacidad = eq.get("capacidad_litros")
     carga = eq.get("tipo_carga")
+    clase = eq.get("clase")
     unidades = cfg.get("unidades") if isinstance(cfg.get("unidades"), dict) else {}
     impresora = _txt(cfg.get("impresora"))       # deshabilitada | lista | <otro estado>
     if impresora and impresora not in ESTADOS_IMPRESORA:
@@ -61,6 +67,7 @@ def grupos_de(d: dict) -> list[dict]:
             fila("modelo", eq.get("modelo")),
             fila("capacidad", f"{capacidad} L" if type(capacidad) is int else ""),
             fila("tipo_carga", "", f"info_sistema.carga_{carga}" if carga in ("V", "H") else ""),
+            fila("clase", "", f"equipo.clase_{clase}" if clase in CLASES_EQUIPO else ""),
             fila("serie", eq.get("serie")),
             fila("fecha_instalacion", _txt(eq.get("instalacion"))[:10]),
             fila("fuente_vapor", "", f"info_sistema.vapor_{vapor}" if vapor else ""),
