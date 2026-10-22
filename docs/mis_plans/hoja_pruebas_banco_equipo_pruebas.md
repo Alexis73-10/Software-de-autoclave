@@ -102,6 +102,12 @@
 | F-09 | CARGA NO ESTÉRIL en todo ciclo que no termine COMPLETADO | En operación (vapor) | Q1 T2-c (tanda 7) |
 | F-10 | Principal perdido con el protocolo de fallo ya en marcha: pasa a solo la lenta | En operación (vapor) | Q1 R1-P4 (tanda 7) |
 | F-11 | Cancelar durante la tolerancia por DI vencida | En operación (vapor) | Q1 R1-P5 (tanda 7) |
+| B-12 | Salir del modo prueba sin confirmación del apagado de salidas (COM-04) | En seco (sin vapor) | S2b D8-2.11 (tanda 8) |
+| F-12 | Ventana de estabilidad en pausa durante la tolerancia por DI vencida | En operación (vapor) | S2b D8-2.12 (tanda 8) |
+| F-13 | Cancelar con la tarjeta totalmente desconectada: texto en pantalla | En operación (vapor) | S2b D8-2.13 y D8-2.15 (tanda 8); complementa F-11 |
+| C-08 | Rechazo de DESPEJAR con texto del catálogo | En seco (sin vapor) | S2b D8-2.15 (tanda 8); complementa C-07 |
+| F-14 | Reimpresión idéntica al ticket original (avisos del pie) | En operación (vapor) | S2b D8-2.14 (tanda 8) |
+| F-15 | CARGA NO ESTÉRIL en la pantalla de resultado | En operación (vapor) | S2b D8-2.16 (tanda 8) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -369,6 +375,22 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### B-12 — Salir del modo prueba sin confirmación del apagado de salidas (COM-04)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S2b D8-2.11 (tanda 8)
+- **Objetivo:** Si la tarjeta no confirma el apagado de todas las salidas al salir del modo prueba, se reintenta 3 veces y, si sigue sin confirmar, sale la alarma "Salidas sin confirmar" y no se puede iniciar ciclo.
+- **Precondiciones:** PREPARADO, sesión de técnico, modo prueba activo con una salida segura encendida.
+- **Pasos:**
+  1. Salir del modo prueba con normalidad: anotar en la bitácora el evento de salida con el apagado confirmado.
+  2. Volver a entrar al modo prueba; desconectar el USB de la tarjeta y salir del modo prueba enseguida.
+  3. Observar el panel de notificaciones e intentar iniciar un ciclo.
+  4. Reconectar la tarjeta y esperar a que se complete la conexión.
+- **Resultado esperado:** Paso 1: sin alarma. Paso 3: alarma COM-04 "Salidas sin confirmar"; el inicio de ciclo queda bloqueado. Paso 4: al completarse la conexión (o un apagado confirmado) la alarma se despeja y el inicio vuelve a estar permitido.
+- **Criterio de aprobado/fallo:** Aprobado si con la tarjeta sin confirmar nunca se permite iniciar ciclo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque C. Comunicación, energía y base de datos (en seco)
 
 ### C-01 — Modo sin base de datos
@@ -472,6 +494,21 @@
   3. Pulsar DESPEJAR de nuevo, sin iniciar sesión.
 - **Resultado esperado:** Primer intento: rechazado con "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad"; la alarma sigue. Segundo intento: se despeja sin pedir sesión.
 - **Criterio de aprobado/fallo:** Aprobado si no se despeja sin enlace y sí se despeja sin sesión con el enlace ok.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-08 — Rechazo de DESPEJAR con texto del catálogo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S2b D8-2.15 (tanda 8); complementa C-07
+- **Objetivo:** El rechazo de DESPEJAR se muestra en el panel de notificaciones con texto legible, no con el texto técnico de la petición.
+- **Precondiciones:** Como C-07 (COM-03 activa con la tarjeta desconectada, en PREPARACION).
+- **Pasos:**
+  1. Pulsar DESPEJAR con la tarjeta aún desconectada.
+  2. Cerrar y volver a abrir el panel de notificaciones.
+  3. Cambiar el idioma a inglés y repetir el paso 1.
+- **Resultado esperado:** Bajo el título del panel: "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad." (en inglés: "Cannot clear: ..."). Al cerrar el panel el mensaje desaparece. El panel de Equipo no muestra "apagado rechazado".
+- **Criterio de aprobado/fallo:** Aprobado si nunca aparece un texto del tipo "409 Client Error".
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1350,6 +1387,66 @@
   3. Repetir dejándolo desconectado más de 4 s.
 - **Resultado esperado:** La cancelación se acepta (sin el rechazo "sin datos de la tarjeta"); al volver los datos el ciclo queda CANCELADO. Si no vuelven a tiempo, termina en FALLO_CONEXION.
 - **Criterio de aprobado/fallo:** Aprobado si en ningún caso el ciclo sigue corriendo después de la cancelación.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-12 — Ventana de estabilidad en pausa durante la tolerancia por DI vencida
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.12 (tanda 8)
+- **Objetivo:** Los segundos sin datos de la tarjeta no cuentan en la ventana de estabilidad previa a la esterilización (ni en el hold del prevacío ni en el secado); los tiempos límite de fase sí siguen.
+- **Precondiciones:** Ciclo Instrumental 134 en curso; sesión de técnico para ver el log.
+- **Pasos:**
+  1. Esperar a que el calentamiento llegue al tramo estable (log: ventana de estabilidad abierta).
+  2. Provocar 2-3 s sin datos de la tarjeta (desconectar y reconectar el USB antes de 4 s).
+  3. Dejar terminar el ciclo.
+- **Resultado esperado:** Log: "ventana _timer_sostenido_desde en pausa n s"; sin vapor durante el tramo; el ciclo termina COMPLETADO y el ticket dice "Sin datos de la tarjeta: n s".
+- **Criterio de aprobado/fallo:** Aprobado si la ventana se alarga lo que duró el tramo y el ciclo no se da por estable con segundos sin datos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-13 — Cancelar con la tarjeta totalmente desconectada: texto en pantalla
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.13 y D8-2.15 (tanda 8); complementa F-11
+- **Objetivo:** Con la tarjeta desconectada (antes de COM-02) la cancelación se acepta en espera y la pantalla lo explica con el texto del catálogo.
+- **Precondiciones:** Ciclo en esterilización.
+- **Pasos:**
+  1. Desconectar el USB de la tarjeta y, antes de 5 s, pulsar CANCELAR CICLO y confirmar.
+  2. Leer el aviso de la pantalla y reconectar enseguida.
+  3. Repetir dejándolo desconectado más de 5 s.
+- **Resultado esperado:** Aviso: "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control..." (no un error ni un texto técnico); al volver los datos, CANCELADO. Sin reconectar a tiempo, FALLO_CONEXION.
+- **Criterio de aprobado/fallo:** Aprobado si el aviso sale con ese texto y el ciclo nunca sigue corriendo tras la cancelación.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-14 — Reimpresión idéntica al ticket original (avisos del pie)
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.14 (tanda 8)
+- **Objetivo:** La reimpresión desde el Historial trae las mismas líneas de aviso del pie que el ticket impreso en vivo.
+- **Precondiciones:** Ciclo con un tramo sin datos de la tarjeta (F-12) y, si el equipo tiene sensores de referencia, con un aviso de uniformidad.
+- **Pasos:**
+  1. Guardar el ticket impreso en vivo.
+  2. Reimprimir el mismo ciclo desde el Historial.
+  3. Comparar los pies.
+- **Resultado esperado:** Ambos traen "Sin datos de la tarjeta: n s", los avisos de uniformidad y (si el ciclo tenía F0) "F0 total". Los ciclos anteriores a esta versión se reimprimen como antes.
+- **Criterio de aprobado/fallo:** Aprobado si el pie reimpreso es idéntico al original.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-15 — CARGA NO ESTÉRIL en la pantalla de resultado
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.16 (tanda 8)
+- **Objetivo:** La pantalla de resultado del ciclo marca "CARGA NO ESTÉRIL" en todo ciclo que no termine COMPLETADO.
+- **Precondiciones:** Programa corto de prueba.
+- **Pasos:**
+  1. Terminar un ciclo completo y mirar la pantalla de resultado.
+  2. Cancelar otro ciclo y mirar la pantalla.
+  3. Provocar un fallo (p. ej. desconexión mayor de 5 s) y mirar la pantalla.
+- **Resultado esperado:** Ciclo completo: sin la marca. Cancelado y fallo: recuadro rojo "CARGA NO ESTÉRIL" sobre la gráfica, igual que en el ticket.
+- **Criterio de aprobado/fallo:** Aprobado si la marca aparece exactamente en los ciclos no completados.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
