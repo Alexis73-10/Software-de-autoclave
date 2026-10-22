@@ -87,6 +87,25 @@ def test_cada_salida_mostrada_se_acciona(prueba_salidas, nombre, valor):
     assert resp.json()["name"] == nombre
 
 
+def test_apagar_windows_rechazado_queda_en_el_log(monkeypatch, caplog):
+    """Paso 9: si Windows rechaza `shutdown` (política, permisos) el lazo ya
+    se detuvo; al menos debe quedar el motivo en backend.log."""
+    import subprocess
+    import autoclave.backend.server as s
+    llamadas = []
+
+    def run(cmd, **kw):
+        llamadas.append((cmd, kw))
+        return subprocess.CompletedProcess(cmd, 1190, stdout="", stderr="Acceso denegado")
+
+    monkeypatch.setattr(subprocess, "run", run)
+    with caplog.at_level("ERROR"):
+        s._apagar_windows()
+    assert llamadas[0][0] == ["shutdown", "/s", "/t", "0"]
+    assert any("1190" in r.getMessage() and "Acceso denegado" in r.getMessage()
+               for r in caplog.records)
+
+
 def test_aire_atmosferico_va_al_canal_fisico_de_la_errata(prueba_salidas):
     client, ctx = prueba_salidas
     assert client.patch("/io/test/output/aire_atmosferico_camara",
