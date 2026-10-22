@@ -251,6 +251,7 @@ FAMILIAS = {
         "autoclave.installation.equipment", fromlist=["EquipmentClass"]).EquipmentClass],
     "instalacion.puerta_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesTipoPuerta"),
     "instalacion.puerta_pc_": lambda: ["1", "2"],
+    "instalacion.carga_": lambda: list(__import__("autoclave.installation.modelo", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "instalacion.vapor_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesVapor"),
     "instalacion.paso_": _sufijos_instalacion_pasos,
     "instalacion.sum_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesSuministro"),
@@ -298,6 +299,7 @@ FAMILIAS = {
                                               fromlist=["EVENTOS"]).EVENTOS),
     # O2d (tanda 6)
     "info_sistema.grupo_": lambda: ["equipo", "software", "uso", "configuracion"],
+    "info_sistema.carga_": lambda: list(__import__("autoclave.installation.modelo", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "info_sistema.rotulo_": lambda: list(__import__(
         "autoclave.ui_qml.controllers.info_sistema_controller", fromlist=["CLAVES_FILA"]).CLAVES_FILA),
     # O2f (tanda 6): calibración atmosférica (condiciones, motivos, resultados)

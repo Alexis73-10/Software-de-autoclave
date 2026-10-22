@@ -42,7 +42,8 @@ def test_info_completa(cliente):
     c, ctx = cliente
     d = c.get("/system/info").json()
     assert d["equipo"] == {"modelo": "ACV-150", "serie": "ACV-2026-001",
-                           "instalacion": "2026-10-26T09:00:00", "fuente_vapor": "boiler"}
+                           "instalacion": "2026-10-26T09:00:00", "fuente_vapor": "boiler",
+                           "capacidad_litros": None, "tipo_carga": None}     # M1: MagicMock = sin dato
     assert d["software"]["firmware"] == "1.0.0" and d["software"]["id_tarjeta"] == "ESP32-X"
     assert d["uso"]["ciclos"] == 42 and d["uso"]["mantenimiento"] == {"estado": "ok"}
     assert d["configuracion"]["idioma"] == "en" and d["configuracion"]["impresora"] == "lista"

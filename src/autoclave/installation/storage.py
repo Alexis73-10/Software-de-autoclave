@@ -39,6 +39,8 @@ def load() -> InstallationProfile:
         temperature_probes=normalizar_temperature_probes(data.get("temperature_probes")),
         board_id=data.get("board_id"),
         vapor_source=data.get("vapor_source"),
+        capacidad_litros=data.get("capacidad_litros"),
+        tipo_carga=data.get("tipo_carga"),
     )
 
 
@@ -64,6 +66,9 @@ def save(profile: InstallationProfile):
         **({"board_id": profile.board_id} if profile.board_id else {}),
         # E1b: solo si se eligió (ausente = perfil anterior, ambas salidas)
         **({"vapor_source": profile.vapor_source} if profile.vapor_source else {}),
+        # M1: solo en perfiles nuevos (ausentes = perfil anterior, no se migra)
+        **({"capacidad_litros": profile.capacidad_litros, "tipo_carga": profile.tipo_carga}
+           if profile.capacidad_litros is not None or profile.tipo_carga is not None else {}),
     }, indent=2, ensure_ascii=False)
     # TMG-03 de T9: escritura atómica (temporal + fsync + replace); un corte no
     # deja el perfil truncado
