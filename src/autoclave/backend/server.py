@@ -2423,6 +2423,10 @@ def post_backup_export(body: _ExportarBody,
     if body.perfil_calibracion:
         with _lock_archivos:                         # SAF-05 de O2h
             contenido["calibracion.yaml"] = Path(CALIBRATION_PATH).read_bytes()
+        # R8 (D8-5.12): la asignación de E/S vigente, si difiere de fábrica
+        asignacion = _reasignacion.contenido_respaldo()
+        if asignacion is not None:
+            contenido[_reasignacion.RUTA_EN_RESPALDO] = asignacion
     if body.parametros_programas:
         params = {p["clave"]: p["valor"] for p in context.config_manager.describir()}
         contenido["parametros.json"] = json.dumps(params, ensure_ascii=False).encode("utf-8")
@@ -2514,6 +2518,18 @@ def post_backup_restore(body: _RestaurarBody,
                                       "sensor": sensor, "detalle": motivo_c})
                     raise RechazoApi(422, "calibracion_implausible",
                                      f"Calibración no plausible en {sensor}: {motivo_c}")
+    # R8 (D8-5.12): la asignación de E/S se valida antes de escribir nada; solo
+    # el ingeniero la restaura y rige al reiniciar el control
+    asignacion_io = datos.get(_reasignacion.RUTA_EN_RESPALDO)
+    if asignacion_io is not None and sesion.rol == ROL_INGENIERO:
+        from autoclave.core.runtime import asignacion_io as _aio
+        try:
+            _reasignacion.validar_respaldo(asignacion_io)
+        except _aio.ErrorAsignacion as e:
+            _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                     detalle={"archivo": body.archivo, "motivo": "asignacion_io_invalida",
+                              "errores": e.errores})
+            raise RechazoApi(422, "asignacion_io_invalida", "Respaldo inválido")
     aplicado = {"calibracion": False, "parametros": [], "parametros_omitidos": [], "programas": []}
     with _lock_respaldo:
       try:
@@ -2550,11 +2566,14 @@ def post_backup_restore(body: _RestaurarBody,
                     cm.revertir_bd(clave, anterior)
                     raise
             aplicado["parametros"].append(clave)
+        if asignacion_io is not None:
+            aplicado.update(_reasignacion.restaurar_respaldo(asignacion_io, sesion, entidad))
       finally:
         # SAF-03: se audita siempre lo que sí se aplicó, también si falla a medias
         _auditar("respaldo_restaurado", sesion, entidad=entidad,
                  detalle={"archivo": body.archivo, "creado_en": m.get("creado_en"), **aplicado})
-    return {"ok": True, **aplicado, "reinicio_requerido": False}
+    return {"ok": True, **aplicado,
+            "reinicio_requerido": aplicado.get("asignacion_io") is True}
 
 
 @app.get("/cycle/summary")
@@ -4231,3 +4250,15 @@ def io_test_force_exit(body: _SalidaForzadaBody,
     _auditar("modo_prueba_sale", sesion,
              detalle=_detalle_salida_prueba("salida forzada por ingeniero"))
     return {"ok": True, "dueno": dueno[0] if dueno else None}
+
+
+# ── R8 (tanda 8, D8-5.12): Opciones avanzadas = reasignación de E/S ───────────
+# Sus rutas viven en server_reasignacion.py; se registran aquí, con todo lo de
+# este módulo ya definido (las usa). Con import_module y no con `from
+# autoclave.backend import ...`: este último devuelve el atributo del paquete,
+# que tras recargar server.py (pruebas) seguiría siendo el módulo anterior.
+import importlib as _importlib  # noqa: E402
+
+_reasignacion = _importlib.import_module("autoclave.backend.server_reasignacion")
+
+_reasignacion.registrar(app)
