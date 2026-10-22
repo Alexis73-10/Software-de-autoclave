@@ -461,6 +461,7 @@
     "grupo_emergencia": "Emergencia / Fallas",
     "grupo_alarmas": "Alarmas",
     "grupo_avisos": "Avisos",
+    "despejar_sin_enlace": "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad.",
     "despejar": "DESPEJAR"
   },
   "equipo": {

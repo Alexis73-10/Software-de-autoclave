@@ -3184,7 +3184,13 @@ def acknowledge_alarm(clave: str, body: dict = Body(default={})):
         raise HTTPException(status_code=404, detail="La alarma no está activa")
     if not inst.nivel.requiere_reconocimiento:
         raise HTTPException(status_code=422, detail="Esta alarma no requiere reconocimiento")
+    # T2-b (tanda 7): COM-02/03 solo se despejan con el enlace de vuelta en "ok"
+    if context.alarm_manager.despeje_bloqueado(clave) is True:
+        raise HTTPException(status_code=409, detail=_i18n_t("notificaciones.despejar_sin_enlace"))
     if not context.alarm_manager.reconocer(clave, usuario):
+        if context.alarm_manager.despeje_bloqueado(clave) is True:   # el enlace cayó en medio
+            raise HTTPException(status_code=409,
+                                detail=_i18n_t("notificaciones.despejar_sin_enlace"))
         # Se resolvió y retiró entre obtener() y reconocer().
         raise HTTPException(status_code=404, detail="La alarma no está activa")
     return {"ok": True}

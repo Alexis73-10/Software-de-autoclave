@@ -40,6 +40,10 @@ class AlarmManager:
         self._instancias: dict[str, InstanciaAlarma] = {}
         self._eventos: deque[InstanciaAlarma] = deque(maxlen=_MAX_EVENTOS_RECIENTES)
         self._oyentes = []
+        # T2-b (tanda 7, decisión 1.3 de Cristian): callable -> True si el
+        # enlace con la tarjeta volvió a "ok" (3 tramas vigentes seguidas). Lo
+        # conecta el BackendContext. None = sin la exigencia (dobles de prueba).
+        self.enlace_ok = None
 
     # ------------------------------------------------------------------
     # API nueva
@@ -91,23 +95,55 @@ class AlarmManager:
         with self._lock:
             return self._instancias.get(clave)
 
+    def _enlace_confirmado(self) -> bool:
+        """T2-b: el enlace volvió a "ok". Sin verificador conectado, True
+        (comportamiento anterior); si el verificador falla, False."""
+        if self.enlace_ok is None:
+            return True
+        try:
+            return self.enlace_ok() is True
+        except Exception:
+            logger.exception("No se pudo consultar el estado del enlace con la tarjeta")
+            return False
+
+    def despeje_bloqueado(self, clave: str) -> bool:
+        """T2-b: True si la alarma es de despeje manual (COM-02/COM-03), sigue
+        activa y el enlace no volvió a "ok": DESPEJAR se rechaza."""
+        with self._lock:
+            inst = self._instancias.get(clave)
+            despejable = (inst is not None and inst.codigo in DESPEJE_POR_RECONOCIMIENTO
+                          and inst.estado is not EstadoInstancia.RESUELTA_SIN_RECONOCER)
+        return despejable and not self._enlace_confirmado()
+
     def reconocer(self, clave: str, usuario: str) -> bool:
         en_ciclo = self._en_ciclo()     # fuera del candado (TMG-08 de T2)
+        enlace_ok = self._enlace_confirmado()
         with self._lock:
             inst = self._instancias.get(clave)
             if inst is None or not inst.nivel.requiere_reconocimiento:
                 return False
-            if inst.reconocida_por is not None:
+            despejable = (inst.codigo in DESPEJE_POR_RECONOCIMIENTO
+                          and inst.estado is not EstadoInstancia.RESUELTA_SIN_RECONOCER)
+            # T2-b: COM-02/03 activas solo se reconocen (= despejan) con el
+            # enlace de vuelta en "ok"; no se pide sesión (D-06)
+            if despejable and not enlace_ok:
+                return False
+            ya_reconocida = inst.reconocida_por is not None
+            if ya_reconocida and not (despejable and not en_ciclo):
                 return True
-            inst.reconocida_por = usuario
-            inst.reconocida_en = self._reloj()
+            if not ya_reconocida:
+                inst.reconocida_por = usuario
+                inst.reconocida_en = self._reloj()
             despejada = None
             if inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER:
                 del self._instancias[clave]
-            elif inst.codigo in DESPEJE_POR_RECONOCIMIENTO and not en_ciclo:
+            elif despejable and not en_ciclo:
+                # también una ya reconocida que el reinicio no pudo resolver
+                # porque el enlace había vuelto a caer (T2-b)
                 despejada = self._resolver_sin_candado(clave)
-        logger.info("Alarma reconocida: %s por %s", clave, usuario)
-        self._notificar(EventoAlarma.RECONOCIDA, inst)
+        if not ya_reconocida:
+            logger.info("Alarma reconocida: %s por %s", clave, usuario)
+            self._notificar(EventoAlarma.RECONOCIDA, inst)
         if despejada is not None:
             logger.info("Alarma despejada al reconocerla: %s", clave)
             self._notificar(EventoAlarma.RESUELTA, despejada)
@@ -122,10 +158,12 @@ class AlarmManager:
         return getattr(estado, "name", None) == "CICLO"
 
     def resolver_todas_por_reinicio(self) -> None:
+        # T2-b: COM-02/03 reconocidas se resuelven solo con el enlace en "ok"
+        enlace_ok = self._enlace_confirmado()
         with self._lock:
             resueltas = [self._resolver_sin_candado(c) for c, i in list(self._instancias.items())
                          if not (i.codigo in DESPEJE_POR_RECONOCIMIENTO
-                                 and i.reconocida_por is None)]
+                                 and (i.reconocida_por is None or not enlace_ok))]
         for inst in resueltas:
             if inst is not None:
                 self._notificar(EventoAlarma.RESUELTA, inst)

@@ -461,6 +461,7 @@
     "grupo_emergencia": "Emergency / Faults",
     "grupo_alarmas": "Alarms",
     "grupo_avisos": "Notices",
+    "despejar_sin_enlace": "Cannot clear: the link with the control board has not returned to normal yet.",
     "despejar": "CLEAR"
   },
   "equipo": {

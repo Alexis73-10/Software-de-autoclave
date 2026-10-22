@@ -22,6 +22,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# T2-b (tanda 7): tramas vigentes seguidas para dar el enlace por recuperado
+_TICKS_ENLACE_OK = 3
+
 # Fases del ciclo donde hay letalidad real y corresponde acumular F0.
 # ESTABILIZACION ya no existe como fase.name propia (fusionada dentro de
 # CALENTAMIENTO, ver CLAUDE.md) — se conserva en el conjunto por si una
@@ -141,6 +144,9 @@ class ControlLoop:
         # el enlace hecho (la del handshake la reporta el enlace como evento).
         self.estado_tarjeta = "desconectada"
         self._desconectada_desde: float | None = None
+        # T2-b (tanda 7): ticks seguidos con la tarjeta en "ok" (enlace hecho y
+        # trama DI vigente); DESPEJAR de COM-02/03 exige _TICKS_ENLACE_OK
+        self._ticks_tarjeta_ok = 0
         self._com01_activa = False
         self._sin_di_activa = False
         # Ticks seguidos con la DI vencida y el enlace hecho (debounce de 3
@@ -430,6 +436,17 @@ class ControlLoop:
             )
         self._puerta_2_no_declarada_cerrada = cerrada
 
+    def _contar_enlace_ok(self) -> None:
+        """T2-b: cuenta los ticks seguidos con estado_tarjeta "ok"."""
+        self._ticks_tarjeta_ok = self._ticks_tarjeta_ok + 1 if self.estado_tarjeta == "ok" else 0
+
+    @property
+    def enlace_confirmado_ok(self) -> bool:
+        """T2-b (tanda 7, decisión 1.3 de Cristian): el enlace volvió a "ok"
+        con _TICKS_ENLACE_OK tramas vigentes seguidas. Lo consulta el
+        DESPEJAR de COM-02/03 (lectura de un int desde el hilo HTTP)."""
+        return self._ticks_tarjeta_ok >= _TICKS_ENLACE_OK
+
     def _actualizar_estado_tarjeta(self, connected: bool, now: float) -> None:
         """U4 (tanda 2): distingue tarjeta desconectada (no hay puerto o se
         perdió) de tarjeta sin tramas válidas (puerto presente: sin handshake,
@@ -639,6 +656,7 @@ class ControlLoop:
             # revisión SAF-05 de U4: no impedir que se publique el paro abajo
             self.estado_tarjeta = "desconectada"
             logger.exception("ControlLoop: no se pudo evaluar el estado de la tarjeta")
+        self._contar_enlace_ok()
 
         if not connected:
             # Sin enlace no hay datos de las entradas: paro (A-3). La máquina

@@ -274,6 +274,8 @@ class BackendContext:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
         # Fin de ciclo §15: paro, confirmación y estado seguro en audit_log
         self.control_loop.al_evento_seguridad = self._auditar_evento_seguridad
+        # T2-b (tanda 7): DESPEJAR de COM-02/03 exige el enlace de vuelta en "ok"
+        self.alarm_manager.enlace_ok = self._enlace_confirmado_ok
         # E4 (D-08; SAF-01 de T6): se decide por el estado físico, no por la
         # base. En CADA arranque, con el primer dato vigente, si la cámara no
         # es segura el equipo entra en estado seguro con confirmación. El
@@ -319,6 +321,11 @@ class BackendContext:
             return loop.programa_para_sensores()
         cm = getattr(self, "cycle_manager", None)
         return getattr(cm, "selected_cycle", None)
+
+    def _enlace_confirmado_ok(self) -> bool:
+        """T2-b: el enlace con la tarjeta volvió a "ok" (3 tramas vigentes
+        seguidas). Sin lazo de control, False (falla cerrada)."""
+        return getattr(getattr(self, "control_loop", None), "enlace_confirmado_ok", False) is True
 
     def _auditar_evento_seguridad(self, evento: str, detalle: dict) -> None:
         """Lo llama el tick del ControlLoop: la escritura en SQLite va en un
