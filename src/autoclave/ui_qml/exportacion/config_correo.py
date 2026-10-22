@@ -5,7 +5,7 @@
 # contraseña, por construir): remitente, servidor SMTP y destinos por defecto
 # se leen de config/correo.json; la contraseña de aplicación del remitente, del
 # almacén de credenciales de Windows (keyring), en la misma entrada que usaba
-# el diálogo de correo de PySide (ui_pyside/views/_email_dialog.py).
+# el diálogo de correo de PySide (_EmailDialog en ui_pyside/views/ciclos.py).
 # TODO(configuracion): leer y editar esto desde la pantalla de Configuración.
 #
 # Guardar la contraseña:  python -m autoclave.ui_qml.exportacion.config_correo
@@ -22,7 +22,7 @@ from autoclave.utils.resources import resource_path
 logger = logging.getLogger(__name__)
 
 RUTA = Path(resource_path("autoclave/config/correo.json"))
-SERVICIO_KEYRING = "Especifika-Autoclave-Email"   # el mismo de _email_dialog.py
+SERVICIO_KEYRING = "Especifika-Autoclave-Email"   # el mismo de ui_pyside/views/ciclos.py (_EmailDialog)
 # O2g (tanda 6): destinatarios e interruptor editables desde OPCIONES › Conectividad
 RUTA_EQUIPO = app_root() / "data" / "correo_equipo.json"
 

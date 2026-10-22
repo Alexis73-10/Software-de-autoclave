@@ -116,7 +116,7 @@ def test_conectar_teclado_lineedit_y_spinbox(app, monkeypatch):
     assert ds.value() == 3.5
 
 
-@pytest.mark.parametrize("modulo", ["login", "_email_dialog", "ciclos", "secado",
+@pytest.mark.parametrize("modulo", ["login", "ciclos", "secado",
                                     "params_ciclo/params_ciclo",
                                     "entrdas_salidas/calibracion_sensor"])
 def test_vistas_con_campos_de_texto_conectan_el_teclado(modulo):
