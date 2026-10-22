@@ -127,6 +127,22 @@ _MESES = {
 }
 
 
+# Ancho del ticket térmico en columnas (el resumen por periodo usa el mismo).
+ANCHO_TICKET = 24
+
+
+def lineas_rotulo(rotulo: str, valor, ancho: int = ANCHO_TICKET) -> list[str]:
+    """"Rótulo: valor" en una línea si cabe; si no, el rótulo solo y el valor
+    debajo, en trozos de `ancho` (M1, tanda 7: "SPK-SAT 2000H2-LAB", 18
+    caracteres, no cabe junto a "Modelo: " en 24 columnas y la impresora lo
+    partía o el resumen lo cortaba)."""
+    valor = "" if valor is None else str(valor)
+    linea = f"{rotulo}: {valor}"
+    if len(linea) <= ancho:
+        return [linea]
+    return [f"{rotulo}:"] + [valor[i:i + ancho] for i in range(0, len(valor), ancho)]
+
+
 def format_header(meta: dict, p: Presentacion | None = None) -> str:
     """Encabezado del ticket (todo lo previo a las filas de lecturas)."""
     p = p or presentacion_actual()
@@ -159,7 +175,7 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
         f"{_t(p, 'fecha')}: {fecha_str}",
         f"{_t(p, 'hora')}:  {hora_inicio}",
         f"{_t(p, 'serie')}: {meta.get('serie', '')}",
-        f"{_t(p, 'modelo')}: {meta.get('modelo', '')}",
+        *lineas_rotulo(_t(p, 'modelo'), meta.get('modelo', '')),
         f"SoftW.: {meta.get('version_sw', '')}",
         f"{_t(p, 'ciclo')}: {numero}",
         meta.get("nombre_ciclo") or "",

@@ -299,6 +299,7 @@ FAMILIAS = {
                                               fromlist=["EVENTOS"]).EVENTOS),
     # O2d (tanda 6)
     "info_sistema.grupo_": lambda: ["equipo", "software", "uso", "configuracion"],
+    "info_sistema.carga_": lambda: list(__import__("autoclave.installation.modelo", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "info_sistema.rotulo_": lambda: list(__import__(
         "autoclave.ui_qml.controllers.info_sistema_controller", fromlist=["CLAVES_FILA"]).CLAVES_FILA),
     # O2f (tanda 6): calibración atmosférica (condiciones, motivos, resultados)

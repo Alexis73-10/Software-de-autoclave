@@ -809,11 +809,16 @@ def get_system_info():
         return getattr(v, "value", v) if isinstance(v, (str, int, float)) or hasattr(v, "value") else None
 
     tarjeta = _parte(_tarjeta_status) or {}
+    capacidad = getattr(perfil, "capacidad_litros", None) if perfil is not None else None
+    carga = getattr(perfil, "tipo_carga", None) if perfil is not None else None
     unidades = _parte(context.config_unidades.leer)
     red = _parte(_hay_red)
     return {
         "equipo": {"modelo": de_perfil("model_id"), "serie": de_perfil("serial_number"),
-                   "instalacion": de_perfil("created_at"), "fuente_vapor": de_perfil("vapor_source")},
+                   "instalacion": de_perfil("created_at"), "fuente_vapor": de_perfil("vapor_source"),
+                   # M1 (tanda 7): None en perfiles anteriores (la pantalla muestra "—")
+                   "capacidad_litros": capacidad if type(capacidad) is int else None,
+                   "tipo_carga": carga if carga in ("V", "H") else None},
         "software": {"version": _parte(lambda: importlib.metadata.version("autoclave")),
                      "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
                      "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None},

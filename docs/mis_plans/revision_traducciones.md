@@ -90,6 +90,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-20 | Tanda 4 B4 | `opciones.secciones.parametros_sistema` ("Parámetros del equipo" / "Equipment parameters") | Opciones | sin revisar |
 | 2026-10-20 | Tanda 4 B5 | `alarmas.SIS-05.{titulo,descripcion,accion}` (Impresora no conectada / Printer not connected) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-20 | Tanda 4 B6 | `selector_ciclo.*` (titulo, ayuda "Tap to change cycle", mas_usado "Most used", sin_conexion) | Ciclo | sin revisar |
+| 2026-10-22 | Tanda 7 M1 | `instalacion.paso_camara`, `instalacion.camara_*`, `instalacion.carga_V`, `instalacion.carga_H`, `instalacion.unidad_litros`, `instalacion.litros`, `instalacion.error_capacidad`, `instalacion.error_tipo_carga`, `instalacion.error_clase_fuera_alcance`, `instalacion.resumen_capacidad`, `instalacion.resumen_carga`, `info_sistema.rotulo_capacidad`, `info_sistema.rotulo_tipo_carga`, `info_sistema.carga_V`, `info_sistema.carga_H` (el nombre del modelo `SPK-SAT ...` no se traduce) | Instalación | sin revisar |
 
 ## Registro de revisiones
 
