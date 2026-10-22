@@ -28,7 +28,7 @@ import autoclave.ui_qml.bridge.i18n_qml  # noqa
 import autoclave.ui_qml.controllers  # noqa
 from autoclave.ui_qml import sesion_backend
 
-estado = {"bomba": 0}
+estado = {"bomba": 0, "tarjeta": "ok"}
 patches = []
 
 def transporte(metodo, ruta, cuerpo, token, plazo):
@@ -40,7 +40,8 @@ def transporte(metodo, ruta, cuerpo, token, plazo):
                              "i18n": "io.do.bomba_vacio", "id": "DO 05", "momentanea": True,
                              "bloqueada": False}]}
     if ruta == "/status":
-        return 200, {"estado_tarjeta": "ok", "card_connected": True, "test_mode_active": True,
+        return 200, {"estado_tarjeta": estado["tarjeta"],
+                     "card_connected": estado["tarjeta"] == "ok", "test_mode_active": True,
                      "machine_state": "PREPARADO",
                      "sensors": {"digital_outputs": {"bomba_vacio": estado["bomba"]},
                                  "temperature": {"camara": 25.0 + estado["bomba"]}}}
@@ -93,11 +94,20 @@ QTest.qWait(50)
 t1 = tarjeta()
 s1 = buscar("sensor_temp_camara")
 v1 = buscar("valorSensor_temp_camara")
+valor_ok = v1.property("text")
+estado_on = any(o.property("text") == "ON" for o in t1.findChildren(QObject)
+                if o.property("text") is not None)
+estado["tarjeta"] = "desconectada"
+es.setProperty("segmento", "temperatura")
+ctl.actualizar()
+QTest.qWait(50)
+textos_desconectada = [o.property("text") for o in items(buscar("sensor_temp_camara"))
+                       if o.isVisible() and isinstance(o.property("text"), str)]
 print(json.dumps({"sobrevive": t1 is not None and t1.property("marcaP1") == 1,
                   "sensor_sobrevive": s1 is not None and s1.property("marcaP1") == 1,
-                  "valor_sensor": v1.property("text") if v1 is not None else None,
-                  "estado_on": any(o.property("text") == "ON" for o in t1.findChildren(QObject)
-                                   if o.property("text") is not None)}))
+                  "valor_sensor": valor_ok,
+                  "estado_on": estado_on,
+                  "textos_sensor_desconectada": textos_desconectada}))
 """
 
 
@@ -112,3 +122,18 @@ def test_tarjeta_de_salida_sobrevive_al_refresco_y_muestra_el_estado():
     assert datos["sobrevive"], "el refresco de 1 s recreó la tarjeta (se pierde la pulsación)"
     assert datos["sensor_sobrevive"], "el refresco recreó la tarjeta del sensor"
     assert datos["valor_sensor"].startswith("26.0"), datos["valor_sensor"]
+
+
+def test_sensor_con_tarjeta_desconectada_no_culpa_al_cableado():
+    """U4: sin enlace con la tarjeta, la tarjeta del sensor no debe decir
+    'revise el cableado del sensor' (no es el sensor): dice que no hay enlace."""
+    es = json.loads((RAIZ / "src" / "autoclave" / "i18n" / "es.json").read_text(encoding="utf-8"))
+    qml = RAIZ / "src" / "autoclave" / "ui_qml" / "qml"
+    r = subprocess.run([sys.executable, "-c", _GUION, str(qml)], capture_output=True, text=True,
+                       encoding="utf-8", errors="replace", cwd=RAIZ, timeout=90,
+                       env={**os.environ, "QT_QPA_PLATFORM": "offscreen"})
+    assert r.returncode == 0, r.stderr[-2000:]
+    textos = json.loads(r.stdout.strip().splitlines()[-1])["textos_sensor_desconectada"]
+    assert es["io"]["ui"]["sin_lectura"] not in textos, textos
+    assert es["io"]["ui"]["enlace_perdido"] in textos, textos
+    assert not any("undefined" in t for t in textos), textos

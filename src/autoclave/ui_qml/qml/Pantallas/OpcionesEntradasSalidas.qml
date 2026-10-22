@@ -188,14 +188,16 @@ Item {
             }
             Text {
                 text: tarjetaSensor.modelData.id + " · " + I18n.t("io.ui.adc", I18n.lang) + " "
-                      + (tarjetaSensor.modelData.adc === null ? "—" : tarjetaSensor.modelData.adc)
+                      + (tarjetaSensor.modelData.adc == null ? "—" : tarjetaSensor.modelData.adc)
                 color: tarjetaSensor.modelData.valido ? Colores.textoGuia : Colores.advertenciaTexto
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(20)
             }
             Text {
                 visible: !tarjetaSensor.modelData.valido
-                text: I18n.t("io.ui.sin_lectura", I18n.lang)
+                // U4 / P1 (tanda 7): sin enlace no es el cableado del sensor
+                text: control.enlace ? I18n.t("io.ui.sin_lectura", I18n.lang)
+                                     : I18n.t("io.ui.enlace_perdido", I18n.lang)
                 color: Colores.advertenciaTexto
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(20)
