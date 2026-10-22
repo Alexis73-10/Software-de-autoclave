@@ -1482,6 +1482,7 @@
       "calibracion_atm_rechazada": "atmospheric calibration rejected",
       "correo_configurado": "configured e-mail recipients: {anterior} → {nuevo}",
       "correo_prueba": "sent a test e-mail",
+      "correo_enviado": "sent an e-mail from History or Reports: {nuevo}",
       "impresora_prueba": "printed a test page",
       "impresion_ganancias": "printed the calibration gains",
       "respaldo_exportado": "exported a backup",
@@ -1530,6 +1531,7 @@
       "calibracion_atm_rechazada": "Calibration rejected",
       "correo_configurado": "E-mail",
       "correo_prueba": "E-mail test",
+      "correo_enviado": "E-mail sent",
       "impresora_prueba": "Printer test",
       "impresion_ganancias": "Gains printout",
       "respaldo_exportado": "Backup exported",
@@ -1541,5 +1543,17 @@
       "rechazo_403": "Rejection 403",
       "rechazo_409": "Rejection 409"
     }
+  },
+  "correo_c2": {
+    "direccion_invalida": "Invalid email address: {correo}. Nothing was sent",
+    "rechazados_todos": "The mail server rejected: {correos}. Nothing was sent",
+    "rechazados_parcial": "The mail server rejected: {correos}",
+    "solo_manual": "SEND ONLY TO THIS ADDRESS",
+    "manual_y_guardados": "SEND TO THIS ONE AND THE SAVED ONES",
+    "todos_guardados": "All saved recipients",
+    "corregir": "CORRECT",
+    "enviar_a_manual": "Send to this address:",
+    "aviso_invalida": "The address is not in a valid format (name@domain.com)",
+    "no_se_guarda": "This address is not added to the saved recipients"
   }
 }

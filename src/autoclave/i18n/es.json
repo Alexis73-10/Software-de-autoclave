@@ -1482,6 +1482,7 @@
       "calibracion_atm_rechazada": "calibración atmosférica rechazada",
       "correo_configurado": "configuró los destinatarios de correo: {anterior} → {nuevo}",
       "correo_prueba": "envió un correo de prueba",
+      "correo_enviado": "envió un correo desde Historial o Reportes: {nuevo}",
       "impresora_prueba": "imprimió una página de prueba",
       "impresion_ganancias": "imprimió las ganancias de calibración",
       "respaldo_exportado": "exportó un respaldo",
@@ -1530,6 +1531,7 @@
       "calibracion_atm_rechazada": "Calibración rechazada",
       "correo_configurado": "Correo",
       "correo_prueba": "Prueba de correo",
+      "correo_enviado": "Envío de correo",
       "impresora_prueba": "Prueba de impresora",
       "impresion_ganancias": "Impresión de ganancias",
       "respaldo_exportado": "Respaldo exportado",
@@ -1541,5 +1543,17 @@
       "rechazo_403": "Rechazo 403",
       "rechazo_409": "Rechazo 409"
     }
+  },
+  "correo_c2": {
+    "direccion_invalida": "Dirección de correo no válida: {correo}. No se envió nada",
+    "rechazados_todos": "El servidor de correo rechazó: {correos}. No se envió nada",
+    "rechazados_parcial": "El servidor de correo rechazó: {correos}",
+    "solo_manual": "ENVIAR SOLO A ESTA DIRECCIÓN",
+    "manual_y_guardados": "ENVIAR A ESTA Y A LOS GUARDADOS",
+    "todos_guardados": "Todos los guardados",
+    "corregir": "CORREGIR",
+    "enviar_a_manual": "Enviar a esta dirección:",
+    "aviso_invalida": "La dirección no tiene un formato válido (nombre@dominio.com)",
+    "no_se_guarda": "Esta dirección no se agrega a los destinatarios guardados"
   }
 }
