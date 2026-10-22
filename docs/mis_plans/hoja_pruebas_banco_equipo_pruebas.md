@@ -68,6 +68,32 @@
 | D-18 | Cambio de unidades: °F y psig/inHg en vacío y en presión | En operación (vapor) | U1 (tanda 5) |
 | D-19 | Recorrido en inglés (solo verificación: R-06 sigue vigente) | En seco (sin vapor) | I1, I2, I3 (tanda 5) |
 | G-02 | Líquidos: tras confirmar un ciclo completado con presión, se ventea por la LENTA | En operación (vapor) | T1-01 (tanda 5, D-19) |
+| A-06 | Estados EMERGENCIA e HIBERNACION retirados: suspensión sigue funcionando | En seco (sin vapor) | T2 P-8 (tanda 6) |
+| B-09 | Alarma bloqueante impide iniciar ciclo desde PREPARADO | En seco (sin vapor) | T2 P-4 (tanda 6) |
+| B-10 | Cancelar en estados no permitidos responde 409 con motivo | En seco (sin vapor) | T2 P-7 (tanda 6) |
+| C-06 | COM-02/COM-03 persisten hasta DESPEJAR en el panel de notificaciones | En seco (sin vapor) | T2 P-5 (tanda 6) |
+| D-20 | Ticket de ciclo INTERRUMPIDO dice CARGA NO ESTÉRIL | En seco (sin vapor) | T2 P-9 (tanda 6) |
+| D-21 | PySide: teclado en pantalla y reingreso tras sesión vencida | En seco (sin vapor) | C1a (tanda 6) |
+| D-22 | Admin ve Parámetros del equipo en solo lectura | En seco (sin vapor) | C1b (tanda 6) |
+| D-23 | Unidades: clase de parámetro y chaqueta absoluta en psig | En seco (sin vapor) | C1c, C1d (tanda 6) |
+| D-24 | Entradas mostradas en Preciclo, Ciclo en curso y gráfica | En seco (sin vapor) | O3 (tanda 6) |
+| D-25 | OPCIONES › Parámetros del equipo: rangos, permisos y aplicación sin reiniciar | En seco (sin vapor) | O2a (tanda 6) |
+| D-26 | OPCIONES › Usuarios y operadores | En seco (sin vapor) | O2b (tanda 6) |
+| D-27 | OPCIONES › Fecha y hora en solo lectura | En seco (sin vapor) | O2c (tanda 6) |
+| D-28 | OPCIONES › Información del sistema | En seco (sin vapor) | O2d (tanda 6) |
+| D-29 | OPCIONES › Bitácora de auditoría con filtros | En seco (sin vapor) | O2e (tanda 6) |
+| D-30 | Calibración de presión atmosférica: medición aceptada | En seco (sin vapor) | O2f (tanda 6) |
+| D-31 | Calibración atmosférica: abortos y rechazos | En seco (sin vapor) | O2f (tanda 6) |
+| D-32 | OPCIONES › Conectividad: red, destinatarios y correo de prueba | En seco (sin vapor) | O2g (tanda 6) |
+| D-33 | Respaldo y restauración por USB | En seco (sin vapor) | O2h (tanda 6) |
+| D-34 | Recorrido completo en inglés | En seco (sin vapor) | I4 (tanda 6) |
+| D-35 | PDF de ciclo y consolidado en inglés y en °F/psig | En seco (sin vapor) | I4 (tanda 6) |
+| D-36 | Correo de prueba y de ciclo en inglés | En seco (sin vapor) | I4 (tanda 6); O2g |
+| E-07 | Reconocer un COMPLETADO con la cámara no segura lleva a estado seguro | En operación (vapor) | T2 P-1 (tanda 6) |
+| F-05 | Sonda Principal perdida en ciclo: FALLO con escape solo por la lenta | En operación (vapor) | T2 P-2 (tanda 6) |
+| F-06 | Trama de la tarjeta vencida en ciclo: tolerancia de 4 s | En operación (vapor) | T2 P-3 (tanda 6) |
+| F-07 | Paro con el ciclo terminando: diálogo de estado seguro al CONFIRMAR | En operación (vapor) | T2 P-6 (tanda 6) |
+| G-03 | Líquidos: drenaje a atmosférica por la lenta hasta temp_max_apertura | En operación (vapor) | T2 P-12 (tanda 6) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -144,6 +170,21 @@
   5. Cerrar el menú y el programa: en el Administrador de tareas no queda `Autoclave.exe` y el puerto 8000 se libera.
 - **Resultado esperado:** Las 5 comprobaciones pasan; si el menú no abre, revisar que `scipy` no esté en `excludes` del spec.
 - **Criterio de aprobado/fallo:** Aprobado si el engrane abre y todo cierra limpio.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-06 — Estados EMERGENCIA e HIBERNACION retirados: suspensión sigue funcionando
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T2 P-8 (tanda 6)
+- **Objetivo:** El retiro de estados muertos no rompe arranque, suspensión ni paro.
+- **Precondiciones:** PREPARADO, sin ciclo.
+- **Pasos:**
+  1. Arrancar y llegar a PREPARADO.
+  2. Dejar el equipo inactivo hasta que entre en suspensión; tocar para salir.
+  3. Pulsar el paro de emergencia y liberarlo.
+- **Resultado esperado:** Ningún estado EMERGENCIA/HIBERNACION aparece en pantalla ni en `/status`; la suspensión entra y sale (bitácora `suspension_entra`/`suspension_sale`); el paro se maneja como siempre.
+- **Criterio de aprobado/fallo:** Aprobado si no hay estados desconocidos ni errores en el log.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -276,6 +317,35 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### B-09 — Alarma bloqueante impide iniciar ciclo desde PREPARADO
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T2 P-4 (tanda 6)
+- **Objetivo:** No se inicia un ciclo con alguna alarma bloqueante activa.
+- **Precondiciones:** PREPARADO; provocar una alarma bloqueante (p. ej. desconectar la sonda de drenaje).
+- **Pasos:**
+  1. Intentar iniciar un ciclo.
+  2. Quitar la causa, reconocer la alarma e intentar de nuevo.
+- **Resultado esperado:** Con la alarma activa, el inicio se rechaza; sin ella, inicia.
+- **Criterio de aprobado/fallo:** Aprobado si nunca inicia con alarma bloqueante.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### B-10 — Cancelar en estados no permitidos responde 409 con motivo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T2 P-7 (tanda 6)
+- **Objetivo:** CANCELAR no hace nada indebido con resultado pendiente, con paro o fuera de ciclo.
+- **Precondiciones:** Ciclo de prueba en seco terminado sin confirmar; luego paro de emergencia pulsado.
+- **Pasos:**
+  1. Con el resultado pendiente, pulsar Cancelar (o `POST /cycle/abort`).
+  2. Con el paro pulsado, repetir.
+  3. Fuera de ciclo, repetir.
+- **Resultado esperado:** 409 con `resultado_pendiente`, `paro_emergencia` y `estado_no_permitido` respectivamente; no cambia el estado.
+- **Criterio de aprobado/fallo:** Aprobado si ningún caso cambia el estado ni deja una cancelación colgada.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque C. Comunicación, energía y base de datos (en seco)
 
 ### C-01 — Modo sin base de datos
@@ -349,6 +419,21 @@
   4. Dejar enfriar.
 - **Resultado esperado:** El ciclo previo aparece como INTERRUMPIDO ("la carga NO está estéril"); no se reanuda; el botón correcto funciona sin sesión; al quedar segura vuelve a PREPARACION.
 - **Criterio de aprobado/fallo:** Aprobado si no se reanuda nada, el botón correcto aparece y no se exige técnico.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-06 — COM-02/COM-03 persisten hasta DESPEJAR en el panel de notificaciones
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T2 P-5 (tanda 6)
+- **Objetivo:** Una falla de comunicación no se borra sola al salir de FALLA.
+- **Precondiciones:** Ciclo de prueba en seco; desconectar el USB de la tarjeta para provocar COM-03; reconectar.
+- **Pasos:**
+  1. Confirmar la falla y volver a PREPARACION.
+  2. Abrir la campana: COM-03 sigue.
+  3. Pulsar DESPEJAR en la fila de la alarma.
+- **Resultado esperado:** COM-03 sigue visible hasta DESPEJAR; tras despejar desaparece y queda en bitácora.
+- **Criterio de aprobado/fallo:** Aprobado si no se despeja sola y el botón funciona fuera de ciclo.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -665,6 +750,276 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### D-20 — Ticket de ciclo INTERRUMPIDO dice CARGA NO ESTÉRIL
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T2 P-9 (tanda 6)
+- **Objetivo:** El ticket reimpreso de un ciclo interrumpido advierte que la carga no está estéril.
+- **Precondiciones:** Un ciclo INTERRUMPIDO en el historial (p. ej. el de C-05).
+- **Pasos:**
+  1. Reimprimir el ticket desde Historial en español.
+  2. Cambiar el idioma a inglés y reimprimir.
+- **Resultado esperado:** Aparece "*** CARGA NO ESTÉRIL ***" / "*** LOAD NOT STERILE ***" sin caracteres extraños.
+- **Criterio de aprobado/fallo:** Aprobado si la leyenda aparece legible en ambos idiomas.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-21 — PySide: teclado en pantalla y reingreso tras sesión vencida
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** C1a (tanda 6)
+- **Objetivo:** Sin teclado físico se puede ingresar, editar y reingresar en PySide, siempre con el mismo usuario.
+- **Precondiciones:** Sin teclado físico conectado. Técnico con sesión en el menú PySide.
+- **Pasos:**
+  1. Tocar un campo de texto y uno numérico (secado, calibración): abre el teclado táctil.
+  2. En el numérico con valor 1, teclear 2: debe quedar 2 (no 12); probar un valor fuera de rango.
+  3. Dejar vencer la sesión, editar y Guardar: el diálogo muestra el usuario fijo; ingresar la clave.
+  4. Repetir con la clave vacía (anotar el comportamiento; SAF-05 pendiente).
+- **Resultado esperado:** El teclado abre una sola vez por toque; el rango se valida en vivo; el reingreso guarda a nombre del mismo usuario y no permite cambiarlo.
+- **Criterio de aprobado/fallo:** Aprobado si todo se opera sin teclado físico y nunca se guarda a nombre de otro.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-22 — Admin ve Parámetros del equipo en solo lectura
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** C1b (tanda 6)
+- **Objetivo:** El admin no modifica parámetros del equipo, impresora ni unidades.
+- **Precondiciones:** Sesión de admin.
+- **Pasos:**
+  1. Entrar a OPCIONES (abre en Usuarios) y luego a Parámetros del equipo.
+  2. Intentar editar un valor, la impresora y las unidades.
+- **Resultado esperado:** Controles deshabilitados con el aviso de solo lectura por rol; el backend responde 403 si se intenta.
+- **Criterio de aprobado/fallo:** Aprobado si ningún cambio se guarda.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-23 — Unidades: clase de parámetro y chaqueta absoluta en psig
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** C1c, C1d (tanda 6)
+- **Objetivo:** Los parámetros de ciclo y la chaqueta se muestran y teclean con la conversión correcta.
+- **Precondiciones:** Técnico con sesión, unidades en °F y psig/inHg. Patrón de presión en la chaqueta.
+- **Pasos:**
+  1. Ver en Parámetros del ciclo una temperatura absoluta (134 °C → 273,2 °F) y un rango (3 °C → 5,4 °F).
+  2. Ver `presion_chaqueta` en psig y comparar con (P_abs − P_atm)/6,894757.
+  3. Comparar la lectura viva de chaqueta con el patrón.
+  4. Volver a °C/kPa.
+- **Resultado esperado:** Absolutos con desplazamiento, rangos sin él; chaqueta en psig coherente con el patrón; `rango_calentamiento` sin conversión.
+- **Criterio de aprobado/fallo:** Aprobado si todas las cifras coinciden con el cálculo manual.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-24 — Entradas mostradas en Preciclo, Ciclo en curso y gráfica
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O3 (tanda 6)
+- **Objetivo:** Las 1 a 3 entradas elegidas por programa se ven en las tarjetas y en la gráfica.
+- **Precondiciones:** Técnico con sesión. Programa con 3 entradas elegidas en Parámetros del ciclo (D-17).
+- **Pasos:**
+  1. Ver Preciclo: las 3 columnas muestran las entradas elegidas con su icono y unidad.
+  2. Elegir 1 entrada: las columnas sobrantes quedan vacías.
+  3. Elegir una sonda en "No en uso": muestra "—".
+  4. Cambiar a °F/psi: valores y ejes cambian.
+  5. Iniciar un ciclo de prueba: la gráfica muestra las mismas series con su leyenda.
+- **Resultado esperado:** Las entradas siguen la selección del programa y la unidad vigente; nunca un número sin lectura.
+- **Criterio de aprobado/fallo:** Aprobado si coinciden en las dos pantallas y en la gráfica.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-25 — OPCIONES › Parámetros del equipo: rangos, permisos y aplicación sin reiniciar
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2a (tanda 6)
+- **Objetivo:** Cada parámetro del equipo se edita dentro de su rango, por el rol correcto, y se aplica en vivo.
+- **Precondiciones:** Técnico con sesión, sin ciclo.
+- **Pasos:**
+  1. Ver `temp_max_apertura` = 80 °C y `tiempo_standby` = 10 min por defecto.
+  2. Intentar un valor fuera de rango (rechazo).
+  3. Cambiar `tiempo_standby` a 1 min y comprobar que la suspensión llega en 1 min sin reiniciar.
+  4. Restablecer al defecto.
+  5. Intentar editar `presion_atmosferica` (solo lectura).
+  6. Con un ciclo en curso, intentar editar como ingeniero (bloqueado).
+- **Resultado esperado:** Rangos respetados, efecto inmediato, bitácora `param_sistema_cambio` con valor anterior y nuevo; operador y admin sin edición.
+- **Criterio de aprobado/fallo:** Aprobado si nada fuera de rango o con ciclo se guarda.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-26 — OPCIONES › Usuarios y operadores
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2b (tanda 6)
+- **Objetivo:** Desactivar, reactivar y restablecer claves respeta roles; no se borra a nadie.
+- **Precondiciones:** Sesiones de admin, técnico e ingeniero disponibles.
+- **Pasos:**
+  1. Como técnico: la sección se ve con todo deshabilitado y el motivo.
+  2. Como admin: desactivar un técnico; su sesión abierta se cierra. Reactivarlo.
+  3. Restablecer su clave: al ingresar pide cambiarla.
+  4. Intentar desactivarse a sí mismo y desactivar al único ingeniero (rechazos).
+  5. Agregar un operador, desactivarlo y reactivarlo; verificar la lista de operadores al iniciar ciclo.
+- **Resultado esperado:** Cada acción queda en bitácora (`usuario_desactivado`, `clave_restablecida`, `operador_creado`…); el admin no toca a un ingeniero.
+- **Criterio de aprobado/fallo:** Aprobado si ningún rechazo falta y no hay forma de borrar.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-27 — OPCIONES › Fecha y hora en solo lectura
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2c (tanda 6)
+- **Objetivo:** La pantalla muestra la hora del PC y avisa si el reloj es anterior a la instalación.
+- **Precondiciones:** Cualquier rol con sesión.
+- **Pasos:**
+  1. Abrir Fecha y hora: la hora avanza cada segundo; zona y fecha de instalación visibles.
+  2. Atrasar el reloj de Windows a antes de la instalación y volver a abrir.
+  3. Restaurar la hora.
+- **Resultado esperado:** No hay campos editables; con el reloj atrasado aparece el aviso rojo.
+- **Criterio de aprobado/fallo:** Aprobado si no se puede cambiar nada y el aviso aparece.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-28 — OPCIONES › Información del sistema
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2d (tanda 6)
+- **Objetivo:** Modelo, serie, versiones, ciclos, idioma, unidades, impresora y red se muestran correctos.
+- **Precondiciones:** Cualquier rol con sesión. Tarjeta conectada.
+- **Pasos:**
+  1. Comparar cada dato con el perfil, el firmware real y el número de ciclos.
+  2. Desconectar la impresora y la red: los chips pasan a naranja.
+  3. Desconectar la tarjeta y reabrir: los demás datos siguen.
+- **Resultado esperado:** Datos correctos; un dato que falla muestra "—" sin afectar a los otros.
+- **Criterio de aprobado/fallo:** Aprobado si coinciden con la realidad del equipo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-29 — OPCIONES › Bitácora de auditoría con filtros
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2e (tanda 6)
+- **Objetivo:** La bitácora es legible, filtrable y no editable.
+- **Precondiciones:** Haber hecho D-25 y D-26 en la sesión.
+- **Pasos:**
+  1. Abrir Bitácora: ver los eventos recientes con fecha, usuario en negrita y frase.
+  2. Filtrar por fecha, usuario y tipo; paginar.
+  3. Con °F, ver un cambio de `temp_max_apertura` (80 °C → 176 °F).
+  4. Como operador, intentar abrir la bitácora.
+- **Resultado esperado:** Filtros y paginación correctos; valores en la unidad vigente; no hay acción de editar ni borrar.
+- **Criterio de aprobado/fallo:** Aprobado si cada evento hecho antes aparece con texto propio.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-30 — Calibración de presión atmosférica: medición aceptada
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2f (tanda 6)
+- **Objetivo:** La referencia atmosférica se mide con la cámara abierta y fría y se aplica sin reiniciar.
+- **Precondiciones:** Técnico con sesión, fuera de ciclo, una puerta ABIERTA, Principal < 80 °C. Barómetro de referencia.
+- **Pasos:**
+  1. Iniciar la calibración atmosférica y esperar los 120 s (24 muestras).
+  2. Comparar el promedio con el barómetro (dispersión ≤ 1,5 kPa; valor entre 60 y 105 kPa).
+  3. Si difiere > 5 kPa del anterior o no había anterior, confirmar dentro de 5 min.
+  4. Ver en psig que la cámara abierta marca ≈ 0.
+  5. Imprimir la página de prueba y las ganancias.
+- **Resultado esperado:** Nuevo valor aplicado; bitácora `calibracion_atm_ok` con anterior, nuevo, muestras, promedio y dispersión.
+- **Criterio de aprobado/fallo:** Aprobado si el valor coincide con el barómetro (± 0,5 kPa) y queda auditado.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-31 — Calibración atmosférica: abortos y rechazos
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2f (tanda 6)
+- **Objetivo:** La medición aborta sin cambiar el valor ante cualquier condición perdida.
+- **Precondiciones:** Como D-30.
+- **Pasos:**
+  1. Intentar iniciar con las puertas cerradas (rechazo con motivo).
+  2. Iniciar y cerrar la puerta a mitad: aborta.
+  3. Iniciar y cancelar.
+  4. Dejar vencer una confirmación pendiente (5 min).
+  5. Como admin, intentar iniciar (403).
+  6. Mientras mide, intentar cambiar un parámetro del equipo (bloqueado).
+- **Resultado esperado:** En cada caso se conserva el valor anterior, sin reintento automático; bitácora `calibracion_atm_abortada`/`calibracion_atm_rechazada`.
+- **Criterio de aprobado/fallo:** Aprobado si el valor nunca cambia sin una medición completa y válida.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-32 — OPCIONES › Conectividad: red, destinatarios y correo de prueba
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2g (tanda 6)
+- **Objetivo:** El estado de red es real y el correo de prueba llega solo a destinatarios guardados.
+- **Precondiciones:** Ingeniero o admin con sesión; red con Internet; cuenta de correo configurada.
+- **Pasos:**
+  1. Ver Wi-Fi/SSID, señal e IP; desconectar la red y ver el cambio.
+  2. Agregar un destinatario (nombre y correo con el teclado); intentar uno inválido o duplicado.
+  3. Enviar correo de prueba; revisar la bandeja.
+  4. Apagar el interruptor de envío e intentar de nuevo (rechazo); enviar desde Historial ("correo no configurado").
+  5. Como técnico: todo deshabilitado con el motivo.
+- **Resultado esperado:** Correo recibido por cada destinatario guardado; la contraseña nunca se muestra; bitácora `correo_configurado` y `correo_prueba`.
+- **Criterio de aprobado/fallo:** Aprobado si el correo llega y ninguna contraseña aparece en pantalla ni en el log.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-33 — Respaldo y restauración por USB
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** O2h (tanda 6)
+- **Objetivo:** Un respaldo del mismo equipo se restaura completo; uno ajeno o alterado se rechaza sin tocar nada.
+- **Precondiciones:** Técnico con sesión, fuera de ciclo, memoria USB.
+- **Pasos:**
+  1. Exportar respaldo (con y sin historial); ver el ZIP en `Especifika_respaldos/`.
+  2. Cambiar un parámetro del equipo y uno de calibración; restaurar: vuelven los valores sin reiniciar.
+  3. Editar un byte de un archivo del ZIP e intentar restaurar (rechazo).
+  4. Intentar restaurar un respaldo de otro número de serie (rechazo).
+  5. Con ciclo en curso, intentar exportar (bloqueado).
+- **Resultado esperado:** Restauración completa o nada; bitácora `respaldo_exportado`/`respaldo_restaurado`; el ZIP no contiene contraseñas.
+- **Criterio de aprobado/fallo:** Aprobado si ningún respaldo inválido aplica cambios.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-34 — Recorrido completo en inglés
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** I4 (tanda 6)
+- **Objetivo:** Pantallas, motivos de puerta y fallas se ven en inglés sin cortes.
+- **Precondiciones:** Idioma en inglés (técnico), resolución 1024 px.
+- **Pasos:**
+  1. Recorrer Inicio, Preciclo, Ciclo en curso, Historial, Reportes y cada sección de OPCIONES.
+  2. Intentar abrir una puerta con la cámara no segura: el motivo sale en inglés con las unidades vigentes.
+  3. Ver un ciclo con falla en Historial: el motivo se traduce.
+- **Resultado esperado:** Sin textos en español ni recortados; nombres de ciclo, roles y estados traducidos.
+- **Criterio de aprobado/fallo:** Aprobado si no queda ningún texto de seguridad en español; anotar los demás pendientes.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-35 — PDF de ciclo y consolidado en inglés y en °F/psig
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** I4 (tanda 6)
+- **Objetivo:** El PDF sale en el idioma y las unidades de la UI.
+- **Precondiciones:** Idioma inglés, °F y psig; un ciclo completado y uno con falla en el historial.
+- **Pasos:**
+  1. Exportar el PDF de ambos ciclos y el consolidado.
+  2. Revisar cabecera (Units), motivo traducido y gráfica.
+- **Resultado esperado:** Textos en inglés; Units "°F, psig"; gráfica de presión en psig en un solo eje; motivo de falla con código y título traducidos.
+- **Criterio de aprobado/fallo:** Aprobado si no hay textos en español ni unidades mezcladas (salvo I4-4, documentado).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-36 — Correo de prueba y de ciclo en inglés
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** I4 (tanda 6); O2g
+- **Objetivo:** Asunto y cuerpo del correo siguen el idioma vigente.
+- **Precondiciones:** Como D-32, idioma inglés.
+- **Pasos:**
+  1. Enviar correo de prueba desde Conectividad.
+  2. Enviar un ciclo desde Historial.
+- **Resultado esperado:** Asunto y cuerpo en inglés; el PDF adjunto también.
+- **Criterio de aprobado/fallo:** Aprobado si ambos correos llegan en inglés.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque E. Ciclos de sólidos (en operación)
 
 ### E-01 — Instrumental 134 completo
@@ -755,6 +1110,20 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### E-07 — Reconocer un COMPLETADO con la cámara no segura lleva a estado seguro
+
+- **Modo:** En operación (vapor)  ·  **Origen:** T2 P-1 (tanda 6)
+- **Objetivo:** Confirmar un ciclo completado con la cámara aún en vacío o caliente no deja abrir la puerta.
+- **Precondiciones:** Bowie & Dick terminando con la cámara en vacío (o Principal > temp_max_apertura).
+- **Pasos:**
+  1. Pulsar CONFIRMAR apenas termina.
+  2. Observar fase y salidas.
+- **Resultado esperado:** Se ejecuta el protocolo de fallo y pasa a ESTADO SEGURO; la puerta no abre hasta que la cámara sea segura.
+- **Criterio de aprobado/fallo:** Aprobado si la puerta nunca abre con la cámara no segura.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque F. Fallas durante el ciclo (en operación)
 
 ### F-01 — Paro de emergencia durante el ciclo
@@ -815,6 +1184,49 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### F-05 — Sonda Principal perdida en ciclo: FALLO con escape solo por la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** T2 P-2 (tanda 6)
+- **Objetivo:** Sin Principal, el equipo ventila solo por la lenta y no permite un nuevo ciclo.
+- **Precondiciones:** Ciclo de Instrumental 134 en esterilización.
+- **Pasos:**
+  1. Desconectar la sonda Principal.
+  2. Observar salidas y alarma CIC-10.
+  3. Confirmar la falla e intentar iniciar otro ciclo.
+- **Resultado esperado:** FALLO; solo `descompresion_lenta` abre (sin rápida, chaqueta ni contrapresión); CIC-10 activa mientras no lea; inicio rechazado con "Sonda principal sin lectura: llame a servicio".
+- **Criterio de aprobado/fallo:** Aprobado si la rápida no abre y no inicia otro ciclo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-06 — Trama de la tarjeta vencida en ciclo: tolerancia de 4 s
+
+- **Modo:** En operación (vapor)  ·  **Origen:** T2 P-3 (tanda 6)
+- **Objetivo:** Un corte breve de la tarjeta corta el vapor y uno largo termina en FALLO_CONEXION.
+- **Precondiciones:** Ciclo en calentamiento o esterilización.
+- **Pasos:**
+  1. Desconectar el USB de la tarjeta menos de 4 s y reconectar.
+  2. Repetir dejándolo más de 4 s.
+- **Resultado esperado:** Corte breve: vapor de cámara y chaqueta en OFF durante el corte; el ciclo sigue. Corte largo: `FALLO_CONEXION` + COM-03, sin abrir válvulas.
+- **Criterio de aprobado/fallo:** Aprobado si el vapor nunca sigue sin trama vigente.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-07 — Paro con el ciclo terminando: diálogo de estado seguro al CONFIRMAR
+
+- **Modo:** En operación (vapor)  ·  **Origen:** T2 P-6 (tanda 6)
+- **Objetivo:** El operador ve la advertencia de §15.2 antes de llevar el equipo a estado seguro.
+- **Precondiciones:** Ciclo en descompresión o secado.
+- **Pasos:**
+  1. Pulsar el paro de emergencia y liberarlo.
+  2. Pulsar CONFIRMAR.
+- **Resultado esperado:** Diálogo con el texto de verificar fugas y botón "Confirmar y llevar a estado seguro".
+- **Criterio de aprobado/fallo:** Aprobado si el diálogo aparece y el estado seguro se inicia solo tras aceptarlo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque G. Líquidos (en operación, al final)
 
 ### G-01 — Líquidos con la sonda dentro del líquido
@@ -844,6 +1256,20 @@
   2. Esperar a que la presión llegue a la banda.
 - **Resultado esperado:** Abre `descompresion_lenta`, nunca `descompresion_rapida`; al llegar a la banda la lenta se cierra.
 - **Criterio de aprobado/fallo:** Aprobado si la rápida no se abre en ningún momento.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### G-03 — Líquidos: drenaje a atmosférica por la lenta hasta temp_max_apertura
+
+- **Modo:** En operación (vapor)  ·  **Origen:** T2 P-12 (tanda 6)
+- **Objetivo:** La rápida solo abre con el Principal en o bajo `temp_max_apertura` 3 lecturas seguidas.
+- **Precondiciones:** Ciclo de Líquidos terminado, PREPARACION con presión residual y Principal > 80 °C.
+- **Pasos:**
+  1. Observar las salidas mientras enfría.
+  2. Anotar la temperatura a la que abre la rápida.
+- **Resultado esperado:** Solo la lenta mientras el Principal esté > 80 °C (o sin lectura); la rápida después de 3 lecturas ≤ 80 °C.
+- **Criterio de aprobado/fallo:** Aprobado si la rápida nunca abre por encima de 80 °C.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
