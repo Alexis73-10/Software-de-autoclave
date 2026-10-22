@@ -36,6 +36,9 @@ _VINCULADOS = (
 # próxima vez que se guarde.
 _RANGO_VIEJO = "rango_calentamiento"
 _RANGOS_NUEVOS = (("rango_calentamiento_temp", "°C"), ("rango_calentamiento_pres", "kPa"))
+# SAF-04 / SEN-07a (revisión Q1): defecto de fábrica (mismo que el catálogo de
+# los perfiles) cuando el viejo no es un dict y no se puede copiar
+_RANGO_DEFECTO = {"value": 2.0, "type": "float", "clase": "diferencia", "min": 0, "max": 30}
 
 
 def migrar_parametros(parameters) -> bool:
@@ -59,6 +62,13 @@ def migrar_parametros(parameters) -> bool:
                 hoja["unit"] = unidad
                 hoja["clase"] = "diferencia"
                 reemplazo[nueva] = hoja
+            else:
+                hoja = dict(_RANGO_DEFECTO)
+                hoja["unit"] = unidad
+                reemplazo[nueva] = hoja
+                logger.warning("Programa con '%s' sin formato válido (%r): %s queda con el "
+                               "defecto de fábrica %.1f %s", _RANGO_VIEJO, viejo, nueva,
+                               _RANGO_DEFECTO["value"], unidad)
     cal.clear()
     cal.update(reemplazo)
     logger.warning("Programa con '%s' (formato anterior): migrado a %s y %s",
