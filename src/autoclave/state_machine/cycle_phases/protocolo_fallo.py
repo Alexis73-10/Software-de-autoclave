@@ -96,7 +96,10 @@ class ProtocoloFallo:
         se perdió el Principal. Se aplica el criterio de P-2 sin importar el
         orden: solo la lenta, sin escalar ni enfriar con contrapresión. Cierra
         lo que el modo pudo abrir (rápida, chaqueta, contrapresión, agua de
-        chaqueta); la lenta la abre el siguiente paso de update(). Es un
+        chaqueta) y abre la lenta en este mismo paso (TMG-06 / SEN-04 de la
+        revisión Q1: antes la abría el siguiente update(), que sin presión
+        retorna sin abrir nada), salvo vacío confirmado; con la presión
+        desconocida la abre igual (mismo criterio que ejecutar()). Es un
         enclavamiento: no se revierte aunque el Principal vuelva a leer.
         Devuelve True si cambió el modo."""
         if self._solo_lenta:
@@ -112,6 +115,11 @@ class ProtocoloFallo:
         self.set_do.descompresion_rapida_off()
         self.set_do.descompresion_chaqueta_off()
         self._fin_enfriamiento(cerrar_lenta=False)
+        pres  = self.estado.sensores_pres.get("pres_camara")
+        atm   = self.config.get("presion_admosferica") or 101.3
+        rango = self.config.get("rango_presion_atm")   or 20.0
+        if pres is None or pres >= atm - rango:
+            self.set_do.descompresion_lenta_on()
         return True
 
     @property
