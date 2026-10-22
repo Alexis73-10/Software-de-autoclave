@@ -37,6 +37,7 @@
 # no avanza ni falla — puede quedar bloqueada indefinidamente, sin timeout
 # que lo capture.
 
+import math
 import time
 import logging
 from autoclave.core.runtime.steam import p_saturacion_kpa
@@ -114,6 +115,20 @@ class EsterilizacionFase(BaseFase):
                                                temp=temp, minimo=minimo, maximo=maximo)
                 except Exception:
                     logger.exception("Esterilización: no se pudo registrar CIC-09")
+
+    def pausar_exposicion(self, segundos) -> None:
+        """T2-a (tanda 7, decisión 1.3 de Cristian): los segundos de
+        tolerancia por DI vencida (la fase no corrió, vapor cortado) no cuentan
+        como exposición: el fin del conteo se corre esos segundos. Antes de
+        iniciar el conteo no hay nada que correr. El timeout de F0 no cambia."""
+        if self._timer_fin is None:
+            return
+        if (isinstance(segundos, bool) or not isinstance(segundos, (int, float))
+                or not math.isfinite(segundos) or segundos <= 0):
+            return
+        self._timer_fin += segundos
+        logger.warning("Esterilización: exposición en pausa %.1f s (sin datos de la tarjeta)",
+                       segundos)
 
     def _fallo(self, mensaje: str) -> FaseResult:
         logger.error("Esterilización: FALLO — %s", mensaje)

@@ -54,13 +54,15 @@ _TXT = {
            "sin_bd": "SIN OPERADOR / SIN BD", "unidades": "Unidades", "temp_final": "Temp. final",
            "estado": "Estado", "motivo": "Motivo", "aviso": "Aviso", "hora_fin": "Hora fin",
            "operador": "Operador", "abs": "abs", "vacio": "v=inHg vacio",
-           "no_esteril": "*** CARGA NO ESTÉRIL ***"},
+           "no_esteril": "*** CARGA NO ESTÉRIL ***",
+           "sin_datos": "Sin datos de la tarjeta"},
     "en": {"fecha": "Date", "hora": "Time", "serie": "Serial No", "modelo": "Model",
            "ciclo": "Cycle No.", "temp_ester": "Steril. temp.", "tiempo_ester": "Steril. time",
            "sin_bd": "NO OPERATOR / NO DB", "unidades": "Units", "temp_final": "Final temp.",
            "estado": "Status", "motivo": "Reason", "aviso": "Warning", "hora_fin": "End time",
            "operador": "Operator", "abs": "abs", "vacio": "v=inHg vacuum",
-           "no_esteril": "*** LOAD NOT STERILE ***"},
+           "no_esteril": "*** LOAD NOT STERILE ***",
+           "sin_datos": "No control board data"},
 }
 _MESES_EN = {1: "JAN", 2: "FEB", 3: "MAR", 4: "APR", 5: "MAY", 6: "JUN",
              7: "JUL", 8: "AUG", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"}
@@ -203,8 +205,11 @@ def format_row(lectura: dict, p: Presentacion | None = None) -> str:
 
 def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str | None = None,
                    f0_total: float | None = None, avisos: list | None = None,
-                   operador: str | None = None, p: Presentacion | None = None) -> str:
-    """Pie del ticket (todo lo posterior a las filas de lecturas)."""
+                   operador: str | None = None, p: Presentacion | None = None,
+                   sin_datos_s: float | None = None) -> str:
+    """Pie del ticket (todo lo posterior a las filas de lecturas).
+    `sin_datos_s` (T2-a, tanda 7): segundos del ciclo sin datos de la tarjeta
+    (tolerancia por DI vencida); se anota solo si hubo alguno."""
     p = p or presentacion_actual()
     try:
         hora_fin = datetime.fromisoformat(fecha_fin).strftime("%H:%M:%S")
@@ -225,6 +230,9 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
         lines.append(_t(p, "no_esteril"))
     if f0_total is not None:
         lines.append(f"F0 total: {f0_total:.1f} min")
+    if (isinstance(sin_datos_s, (int, float)) and not isinstance(sin_datos_s, bool)
+            and sin_datos_s > 0):
+        lines.append(f"{_t(p, 'sin_datos')}: {sin_datos_s:.0f} s")
     for aviso in avisos or []:
         lines.append(f"{_t(p, 'aviso')}: {aviso}")
     lines += [

@@ -127,6 +127,9 @@ class CicloState:
         self._contador_drenaje_baja = 0
         self._di_vencida_desde = None
         self._ticks_di_vigente = 0
+        # T2-a (tanda 7): inicio (monotonic) del tramo en curso en que la fase
+        # no corre por la tolerancia de DI vencida; None fuera de él
+        self._pausa_sin_datos_desde = None
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -174,9 +177,11 @@ class CicloState:
         self.estado.valores_fallo = {}
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
+        self.estado.sin_datos_tarjeta_s = 0.0
         self._paro_en_espera = False
         self._di_vencida_desde = None
         self._ticks_di_vigente = 0
+        self._pausa_sin_datos_desde = None
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -384,6 +389,31 @@ class CicloState:
         else:
             self._protocolo.ejecutar()
 
+    def _cerrar_pausa_sin_datos(self) -> None:
+        """T2-a (tanda 7, decisión 1.3 de Cristian): termina el tramo en que la
+        fase no corrió por la tolerancia de DI vencida (volvieron los datos o
+        el ciclo terminó). Los segundos se suman a estado.sin_datos_tarjeta_s
+        (pie del ticket) y la fase en curso los descuenta de su exposición si
+        sabe hacerlo (ESTERILIZACION: pausar_exposicion)."""
+        desde = self._pausa_sin_datos_desde
+        if desde is None:
+            return
+        self._pausa_sin_datos_desde = None
+        segundos = max(0.0, time.monotonic() - desde)
+        previo = getattr(self.estado, "sin_datos_tarjeta_s", 0.0)
+        if isinstance(previo, bool) or not isinstance(previo, (int, float)):
+            previo = 0.0
+        self.estado.sin_datos_tarjeta_s = previo + segundos
+        logger.warning("CicloState: %.1f s sin datos de la tarjeta (fase %s)",
+                       segundos, self._fase_actual_legible())
+        if self._fase_idx < len(self._fases):
+            pausar = getattr(self._fases[self._fase_idx], "pausar_exposicion", None)
+            if callable(pausar):
+                try:
+                    pausar(segundos)
+                except Exception:
+                    logger.exception("CicloState: no se pudo pausar la exposición")
+
     def _principal_enfriada(self, modo) -> bool:
         """Principal en o por debajo de temperatura_enfriamiento del modo
         (líquidos, tanda §1.2). Sin lectura: no enfriada (falla cerrada)."""
@@ -576,6 +606,10 @@ class CicloState:
             self._mantener_drenaje()
             return CicloResultado.ESPERANDO_CONFIRMACION
 
+        # ── 0b. T2-a: volvieron los datos tras la tolerancia por DI vencida
+        if not self.estado.get_flag("PARO_EMERGENCIA"):
+            self._cerrar_pausa_sin_datos()
+
         # ── 1. ¿El usuario canceló? (el paro domina: SAF-05 de T5) ─────
         if self.estado.get_flag("CICLO_CANCELADO") and not self.estado.get_flag("PARO_EMERGENCIA"):
             logger.warning("CicloState: CANCELADO por operador")
@@ -605,10 +639,14 @@ class CicloState:
                     logger.warning("CicloState: trama DI vencida; tolerancia de %.0f s",
                                    _TOLERANCIA_DI_VENCIDA_SEG)
                 if ahora - self._di_vencida_desde < _TOLERANCIA_DI_VENCIDA_SEG:
+                    # T2-a: la fase no corre; su exposición queda en pausa
+                    if self._pausa_sin_datos_desde is None:
+                        self._pausa_sin_datos_desde = ahora
                     # sin aporte de energía mientras no hay datos de entradas
                     self.set_do.vapor_camara_off()
                     self.set_do.vapor_chaqueta_off()
                     return CicloResultado.EN_CURSO
+            self._cerrar_pausa_sin_datos()      # T2-a: el tramo sin datos va al ticket
             if paro_real:
                 logger.error("CicloState: ABORTADO por paro de emergencia")
                 self.estado.fase_ciclo = "EMERGENCIA"
@@ -740,6 +778,7 @@ class CicloState:
         if self._resultado_pendiente is not None:
             return  # ya se estaba abortando/terminando por otra causa
 
+        self._cerrar_pausa_sin_datos()          # T2-a
         logger.error("CicloState: ABORTADO por pérdida de comunicación serial")
         self.estado.fase_ciclo = "FALLO_CONEXION"
         fase = self._fase_actual_legible()
@@ -761,6 +800,7 @@ class CicloState:
         if self._resultado_pendiente is not None:
             return False  # ya se estaba abortando/terminando por otra causa
 
+        self._cerrar_pausa_sin_datos()          # T2-a
         logger.error("CicloState: ABORTADO por falla de la tarjeta de E/S (%s): %s",
                      alarm_id, motivo)
         self.estado.fase_ciclo = "FALLO_IO"
