@@ -71,8 +71,8 @@ Tras las correcciones de la segunda vuelta: 557 passed / 2 skipped (S2a, F0, Con
 6. D8-2.9: un enlace que no informa la secuencia (solo dobles de prueba) cuenta cada tick, como antes.
 7. TMG-01: retroceso máximo del inicio del tramo sin datos de 2 s (vigencia de la DI 1,5 s + un tick).
 8. SAF-05: el corte por tramo abierto solo en ESTERILIZACION (es lo que define D8-2.8) y solo con la exposición ya iniciada.
-10. TMG-10: si el tramo sin datos se detecta ya fuera de las fases que acumulan F0, no se descuenta (la fase ya se dio por cumplida con ese F0).
 9. Textos del motivo de CIC-10 (parámetro `motivo`) en español, como los existentes (no están en el catálogo i18n).
+10. TMG-10: si el tramo sin datos se detecta ya fuera de las fases que acumulan F0, no se descuenta (la fase ya se dio por cumplida con ese F0).
 
 ## 7. PREGUNTAS PARA CRISTIAN
 1. **D8-2.10, contrapresión:** ¿durante la espera sellada se repone aire comprimido hasta `presion_camara_enfriamiento` (solo depende de `pres_camara`) y se sigue con el agua de chaqueta? Hoy todo cerrado: la presión cae al enfriarse el gas. En banco (F-15) anotar cuánto baja.
