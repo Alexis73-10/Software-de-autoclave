@@ -10,7 +10,8 @@ import threading
 import time
 from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as dt_time   # P1 (tanda 7): `time` es el módulo (time.sleep del vigilante)
 from typing import Literal
 
 from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
@@ -887,6 +888,10 @@ def _resolve_sensor_index(tipo: str, sensor: str) -> int:
 
 @app.get("/calibration/{tipo}/{sensor}")
 def get_calibration(tipo: str, sensor: str):
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
     config = load_config(CALIBRATION_PATH)
     calib = (config.calibration.user.temperature if tipo == "temperature"
@@ -929,6 +934,10 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
     Técnico solo fuera de CICLO; el ingeniero también en CICLO, donde aplica de
     inmediato (§5.8). El usuario sale del token: un `usuario` en el cuerpo se
     ignora."""
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
 
     try:
@@ -1060,6 +1069,10 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
     ganancia 1.0, offset 0.0) o a los valores previos a la última modificación
     ("ultimo", de valor_anterior en audit_log). Mismas reglas que el PATCH:
     rol, estado, auditoría obligatoria con reversión del archivo."""
+    # P1 (tanda 7): la pantalla QML pide el sensor con el nombre de /io/channels
+    # (temp_referencia); se usa la clave canónica (temp_ref) para el canal, los
+    # límites por canal y la auditoría
+    sensor = io_names.clave_estado(sensor)
     index = _resolve_sensor_index(tipo, sensor)
     destino = body.get("destino")
     if destino not in ("ultimo", "defecto"):
@@ -1741,7 +1754,7 @@ def _rango_del_periodo(periodo: str, fecha: date) -> tuple[str, str]:
     (desde, hasta) como medianoche local en el formato de la tabla ciclos; `hasta`
     es exclusivo (medianoche del primer día del periodo siguiente)."""
     inicio, fin = periodos.rango(periodo, fecha)
-    return datetime.combine(inicio, time()).isoformat(), datetime.combine(fin, time()).isoformat()
+    return datetime.combine(inicio, dt_time()).isoformat(), datetime.combine(fin, dt_time()).isoformat()
 
 
 def _ciclo_json(fila) -> dict:
@@ -2853,7 +2866,14 @@ def _apagado_windows_habilitado() -> bool:
 
 def _apagar_windows() -> None:
     import subprocess
-    subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30)
+    r = subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30,
+                       capture_output=True, errors="replace",
+                       encoding="oem" if sys.platform == "win32" else None,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    if r.returncode != 0:
+        # P1 (tanda 7): el lazo ya se detuvo; sin esto no quedaba el motivo
+        logger.error("Apagar equipo: Windows rechazó el apagado (código %s): %s",
+                     r.returncode, (r.stderr or r.stdout or "").strip())
 
 
 _TOPE_PASO_APAGADO_S = 8.0
@@ -3993,7 +4013,10 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                        sesion: Sesion = Depends(_requiere_rol_prueba)):
     """Acciona una salida en modo prueba. Apagar siempre se permite dentro del
     modo prueba; encender exige además ser la sesión dueña y R-02 (§5.4)."""
-    if name not in EstadoAutoclave.map_do:
+    # P1 (tanda 7): /io/channels da el nombre del YAML; la posición se busca con
+    # la clave de EstadoAutoclave (errata aire_admosferico_camara)
+    clave = io_names.clave_estado(name)
+    if clave not in EstadoAutoclave.map_do:
         raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
     entidad = f"/io/test/output/{name}"
     if body.momentanea and name not in io_names.SALIDAS_MOMENTANEAS:
@@ -4018,7 +4041,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
-        index = EstadoAutoclave.map_do[name]
+        index = EstadoAutoclave.map_do[clave]
         if body.value and context.setdo.salida_bloqueada(index + 1) is True:
             # E1b: salida de una fuente de vapor que el equipo no tiene; S1 (tanda
             # 2): con generador interno ni DO1 ni DO2 (el generador se controla solo)
