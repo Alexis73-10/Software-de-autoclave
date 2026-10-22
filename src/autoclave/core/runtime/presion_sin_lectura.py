@@ -60,6 +60,29 @@ def sin_lectura(estado, canales) -> list[str]:
     return [c for c in canales if not lectura_valida(estado.sensores_pres.get(c))]
 
 
+def vigilar_fuera_de_ciclo(alarm_manager, estado, canales=None) -> list[str]:
+    """D8-1.3 (PREPARACION / PREPARADO): activa SEN-06 / SEN-07 en los canales
+    vigilados sin lectura y los resuelve en los que leen. Devuelve los canales
+    sin lectura: el llamador no queda listo y no les pone además la alarma
+    genérica de lectura inválida (SEN-01)."""
+    from autoclave.state_machine.alarms.catalogo import nombre_legible
+    if canales is None:
+        try:
+            canales = canales_vigilados()
+        except Exception:
+            logger.exception("Presión sin lectura: canales no evaluables; se vigilan todos")
+            canales = [CAMARA, CHAQUETA]
+    faltan = sin_lectura(estado, canales)
+    for canal in canales:
+        codigo = CODIGO_FUERA_DE_CICLO[canal]
+        legible = nombre_legible(canal)
+        if canal in faltan:
+            alarm_manager.activar(codigo, origen=legible)
+        else:
+            alarm_manager.resolver(codigo, origen=legible)
+    return faltan
+
+
 def rechazo_inicio(estado, canales=None) -> tuple | None:
     """(código, motivo) para /cycle/start si algún canal vigilado no lee."""
     faltan = sin_lectura(estado, canales_vigilados() if canales is None else canales)

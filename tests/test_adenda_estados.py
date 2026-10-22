@@ -411,7 +411,10 @@ def test_preparado_pres_chaqueta_sin_dato_apaga_vapor(valor):
 def test_presion_none_genera_error_ai(clase, sensor):
     obj, am, _ = _make(clase, None, **{sensor: None})
     assert obj.verificar_sensores() is False
-    assert f"ERROR_AI_{sensor.upper()}" in _reportadas(am)
+    # S1 (tanda 8, D8-1.3): sin lectura de presión tiene alarma propia
+    # (SEN-06 cámara, SEN-07 chaqueta; "llame a servicio"), no SEN-01
+    esperado = "SEN-06" if sensor == "pres_camara" else "SEN-07"
+    assert esperado in _reportadas(am)
 
 
 @pytest.mark.parametrize("clase", _ESTADOS)

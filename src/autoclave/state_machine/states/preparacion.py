@@ -6,6 +6,7 @@ from autoclave.state_machine.alarms.catalogo import (
 )
 from autoclave.state_machine.states.control_banda import evaluar_banda, ConfirmadorApagado
 from autoclave.core.runtime.lectura import lectura_valida
+from autoclave.core.runtime import presion_sin_lectura
 from autoclave.core.runtime.sensores_ciclo import SENSORES as SENSORES_CICLO, vigilar_fuera_de_ciclo
 from autoclave.installation.profile import entrada_requerida, sensores_empaque, sonda_instalada
 import logging
@@ -155,9 +156,17 @@ class preparacion_state:
                 "temp_drenaje",
             ]
             ok=True
+            # S1 (tanda 8, D8-1.3): transductor de presión sin lectura con
+            # alarma propia (SEN-06/07, "llame a servicio"), no SEN-01
+            sin_senal = presion_sin_lectura.vigilar_fuera_de_ciclo(self.alarm_manager, self.estado)
+            if sin_senal:
+                ok = False
             for sensor in sensores_presion:
                 pres_value = self.estado.sensores_pres.get(sensor)
                 legible = nombre_legible(sensor)
+                if sensor in sin_senal:
+                    self.alarm_manager.resolver(SEN_01, origen=legible)
+                    continue
                 # Sin dato / no finito = error de sensor, igual que un 0 (A-5)
                 if not lectura_valida(pres_value) or pres_value == 0:
                     self.alarm_manager.activar(SEN_01, origen=legible, sensor=legible,

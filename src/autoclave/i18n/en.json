@@ -370,6 +370,7 @@
     "principal_sin_lectura": "Main probe without reading: call service",
     "presion_camara_sin_lectura": "Chamber pressure sensor without reading: call service",
     "presion_chaqueta_sin_lectura": "Jacket pressure sensor without reading: call service",
+    "presion_no_verificable": "The pressure reading could not be checked: call service",
     "confirmar_estado_seguro_texto": "The emergency stop was released. Check that there are no steam or water leaks before continuing. Confirming acknowledges the cycle result and brings the chamber to a safe state."
   },
   "unidades": {
