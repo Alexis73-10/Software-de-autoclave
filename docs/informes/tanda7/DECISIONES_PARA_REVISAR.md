@@ -1,5 +1,12 @@
 # Tanda 7 — Decisiones para revisar
 
+## Resumen
+- **Instalar `entrega/2026-10-22_b/`** (compilación B). Respaldo: la A.
+- Unidas a `dev`: L1, P1, M1, C2, M2, Q1 (antes de K2) y D2 (después de K2). Suite final en verde.
+- Q1: revisores sin Altos/Críticos abiertos tras las correcciones; SEN-01 (Alto preexistente en `dev`) va como PREGUNTA (SP-7).
+- Las decisiones de cada etapa están en su informe (secciones "DECISIONES SIN CONFIRMAR"); aquí van las de la sesión principal.
+- Preguntas para Cristian y problemas conocidos para mañana: en el índice `docs/informes/informe_tanda_2026-10-22_t7.md`.
+
 Formato: decisión, motivo, alternativa, commit, cómo revertir.
 
 ## Sesión principal (A0, K1)
@@ -46,3 +53,9 @@ Formato: decisión, motivo, alternativa, commit, cómo revertir.
 
 ### SP-9. `docs/mis_plans/planeacion_mantenimiento.md` sin rastrear en la carpeta principal
 - **Decisión:** el archivo sin rastrear era idéntico byte a byte al que commiteó M2 (c38e29c). Se movió a `C:\Users\tecni\Documents\_respaldo_t7\` para poder avanzar `tanda-7`; el contenido queda en git.
+
+### SP-10. Prueba de humo de K2 limitada al paso 1 del asistente
+- **Decisión:** la pantalla del PC de la oficina (1536×864) no muestra el teclado en pantalla ni el botón Siguiente de la interfaz de 1200×1920, y el teclado físico no escribe en esos campos. La prueba adicional (solo Piso / Piso laboratorio y paso Cámara) se comprobó con el código de la etiqueta y las pruebas QML de M1, no en la ventana. Queda "verificar en sitio".
+
+### SP-11. Informe de Q1 cerrado por la sesión principal
+- **Decisión:** el subagente de correcciones de Q1 dejó su informe sin commit (su suite en segundo plano se cortó). La sesión principal lo completó con el resultado de la suite de la unión (que incluye exactamente su código, 88858a0) y lo commiteó (e7e21f4).
