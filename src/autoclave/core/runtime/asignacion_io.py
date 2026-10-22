@@ -387,6 +387,31 @@ def vigente(base: dict, archivo: ArchivoAsignacion) -> tuple[dict, dict]:
     return asignacion, datos
 
 
+def responde(funcion: str, asignacion: dict, datos: dict) -> bool:
+    """True si la función responde en su puerto según una lectura de la
+    tarjeta (`Units.get_all()`): enlace activo y el puerto presente en la
+    trama; en las analógicas, además, una lectura válida (presión absoluta
+    mayor que 0: un lazo abierto se lee 0,0 kPa, SEN-01). Sin accionar nada."""
+    from autoclave.core.runtime.lectura import lectura_valida
+    if not datos or not datos.get("connected"):
+        return False
+    tipo = next((t for t in TIPOS if funcion in (asignacion.get(t) or {})), None)
+    if tipo is None:
+        return False
+    puerto = asignacion[tipo][funcion]
+    if tipo == "DI":
+        return len(datos.get("raw_di") or []) >= puerto
+    if tipo == "DO":
+        return len(datos.get("raw_do") or []) >= puerto
+    if es_temperatura(funcion):
+        lista = datos.get("temperature") or []
+        i = puerto - 1
+        return i < len(lista) and lectura_valida(lista[i])
+    lista = datos.get("pressure") or []
+    i = puerto - 1 - _OFFSET_PRES
+    return i < len(lista) and lectura_valida(lista[i]) and float(lista[i]) > 0
+
+
 def cambios_respecto_a(base: dict, asignacion: dict) -> dict:
     """{funcion: puerto} de lo que difiere de `base` (lo que se guarda)."""
     return {f: d[2] for f, d in diferencias(base, asignacion).items()}

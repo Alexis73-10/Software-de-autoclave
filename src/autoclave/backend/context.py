@@ -98,6 +98,13 @@ class BackendContext:
         self.sin_base_de_datos = False
         self._lock_sin_bd = threading.Lock()
         self.db_real = None
+        # R8: asignación de E/S (cargar_asignacion_io, etapa de configuración)
+        self.archivo_asignacion = None
+        self.asignacion_fabrica = None
+        self.motivo_asignacion = ""
+        self.errores_asignacion = []
+        self.asignacion_pendiente = []
+        self.verificacion_asignacion = {"estado": "sin_cambios", "funciones": {}}
 
     # ── 1. verificando_instalacion ───────────────────────────────────────────
 
@@ -135,11 +142,120 @@ class BackendContext:
         motivo = self._validar_configuracion()
         if motivo:
             raise ErrorArranque(secuencia.CONFIGURACION_INVALIDA, motivo)
+        self.cargar_asignacion_io()
         if self.cycle_manager.errores_carga:
             logger.warning("Ciclos omitidos por JSON corrupto: %s",
                            ", ".join(self.cycle_manager.errores_carga))
             return secuencia.ARR_CICLO_CORRUPTO
         return None
+
+    # ── R8 (tanda 8, D8-5.12): asignación de E/S ─────────────────────────────
+
+    def cargar_asignacion_io(self, archivo=None, config_dir=None) -> None:
+        """Aplica la asignación vigente (fábrica + data/asignacion_io.json) a
+        los mapas de EstadoAutoclave, UNA vez, antes de construir SetOutput,
+        puertas y ControlLoop. Fábrica inválida: fallo bloqueante del
+        arranque. Archivo de la vigente ilegible o inválido: NO se usa la de
+        fábrica en silencio (el puerto dañado volvería a usarse): alarma
+        CONFIGURACION_INVALIDA y equipo bloqueado (construir_control), con la
+        API disponible para que el ingeniero restaure la de fábrica."""
+        from autoclave.core.runtime import asignacion_io as aio
+        self.archivo_asignacion = archivo or aio.ArchivoAsignacion()
+        self.motivo_asignacion = ""
+        self.errores_asignacion = []
+        self.asignacion_pendiente = []
+        self.verificacion_asignacion = {"estado": "sin_cambios", "funciones": {}}
+        try:
+            self.asignacion_fabrica = aio.fabrica(config_dir)
+        except aio.ErrorAsignacion as e:
+            raise ErrorArranque(secuencia.CONFIGURACION_INVALIDA,
+                                f"Asignación de E/S de fábrica inválida: {e}") from e
+        try:
+            asignacion, datos = aio.vigente(self.asignacion_fabrica, self.archivo_asignacion)
+        except aio.ErrorAsignacion as e:
+            self.motivo_asignacion = (f"Asignación de E/S inválida "
+                                      f"({self.archivo_asignacion.ruta.name}): {e}")
+            self.errores_asignacion = e.errores
+            aio.aplicar_en_memoria(self.asignacion_fabrica)   # solo para construir; bloqueado
+            self.alarm_manager.activar(CONFIGURACION_INVALIDA, motivo=self.motivo_asignacion)
+            logger.critical("%s", self.motivo_asignacion)
+            return
+        aio.aplicar_en_memoria(asignacion)
+        if datos["cambios"]:
+            logger.warning("Asignación de E/S distinta de la de fábrica: %s",
+                           ", ".join(f"{f}={p}" for f, p in sorted(datos["cambios"].items())))
+        self.asignacion_pendiente = [f for f in datos["verificacion_pendiente"]
+                                     if f in aio.funciones()]
+        if self.asignacion_pendiente:
+            self.verificacion_asignacion = {"estado": "pendiente",
+                                            "funciones": {f: "pendiente" for f in self.asignacion_pendiente}}
+
+    def iniciar_verificacion_asignacion(self, plazo_s: float = 60.0, pausa_s: float = 1.0,
+                                        reloj=time.monotonic, dormir=time.sleep) -> None:
+        """Tras reiniciar por una reasignación: verifica en un hilo que cada
+        función cambiada responde en su puerto nuevo (sin accionar nada) y lo
+        registra en audit_log. Si alguna no responde dentro del plazo, la
+        marca de verificación pendiente se conserva (se repite al próximo
+        arranque) y la UI lo muestra. Plazo con time.monotonic()."""
+        pendientes = list(getattr(self, "asignacion_pendiente", []) or [])
+        if not pendientes or getattr(self, "_hilo_verificacion_io", None) is not None:
+            return
+
+        def verificar():
+            from autoclave.core.runtime import asignacion_io as aio
+            try:
+                asignacion = aio.en_memoria()
+                fin = reloj() + plazo_s
+                resultado = {f: False for f in pendientes}
+                conectado_desde = None
+                while True:
+                    datos = self.units.get_all() if self.units is not None else {}
+                    if datos.get("connected"):
+                        conectado_desde = conectado_desde if conectado_desde is not None else reloj()
+                        # unas tramas después de conectar (AI/DI/DO cada 500 ms)
+                        if reloj() - conectado_desde >= 2.0:
+                            resultado = {f: aio.responde(f, asignacion, datos) for f in pendientes}
+                            if all(resultado.values()):
+                                break
+                    else:
+                        conectado_desde = None
+                    if reloj() >= fin:
+                        break
+                    dormir(pausa_s)
+                self._registrar_verificacion(resultado, asignacion)
+            except Exception:
+                logger.exception("Verificación de la reasignación de E/S")
+                self.verificacion_asignacion = {"estado": "fallida",
+                                                "funciones": {f: "sin_respuesta" for f in pendientes}}
+
+        self.verificacion_asignacion = {"estado": "en_curso",
+                                        "funciones": {f: "pendiente" for f in pendientes}}
+        self._hilo_verificacion_io = threading.Thread(target=verificar, name="VerificacionReasignacionIO",
+                                                      daemon=True)
+        self._hilo_verificacion_io.start()
+
+    def _registrar_verificacion(self, resultado: dict, asignacion: dict) -> None:
+        from autoclave.core.runtime import asignacion_io as aio
+        todas_ok = all(resultado.values())
+        self.verificacion_asignacion = {
+            "estado": "ok" if todas_ok else "fallida",
+            "funciones": {f: "ok" if ok else "sin_respuesta" for f, ok in resultado.items()}}
+        tipo_de = {f: t for t in aio.TIPOS for f in asignacion.get(t, {})}
+        for funcion, ok in sorted(resultado.items()):
+            tipo = tipo_de.get(funcion, "")
+            try:
+                self.db.registrar_auditoria(
+                    "reasignacion_io_verificada", usuario="sistema", entidad=funcion,
+                    valor_nuevo=aio.etiqueta(tipo, asignacion[tipo][funcion]) if tipo else None,
+                    detalle={"resultado": "ok" if ok else "sin_respuesta", "tipo": tipo})
+            except Exception:
+                logger.exception("No se pudo registrar la verificación de %s en audit_log", funcion)
+        if todas_ok:
+            self.archivo_asignacion.limpiar_pendiente()
+            logger.info("Reasignación de E/S verificada: %s", ", ".join(sorted(resultado)))
+        else:
+            logger.error("Reasignación de E/S: sin respuesta en %s",
+                         ", ".join(f for f, ok in sorted(resultado.items()) if not ok))
 
     # ── 5. verificando_calibracion ───────────────────────────────────────────
 
@@ -272,6 +388,10 @@ class BackendContext:
         )
         if al_cancelar_prueba is not None:
             self.control_loop.al_cancelar_modo_prueba(al_cancelar_prueba)
+        # R8: asignación de E/S vigente ilegible o inválida: bloqueado hasta
+        # restaurar la de fábrica (Opciones avanzadas) y reiniciar
+        if getattr(self, "motivo_asignacion", ""):
+            self.control_loop.bloquear_por_configuracion(self.motivo_asignacion)
         # Fin de ciclo §15: paro, confirmación y estado seguro en audit_log
         self.control_loop.al_evento_seguridad = self._auditar_evento_seguridad
         # T2-b (tanda 7): DESPEJAR de COM-02/03 exige el enlace de vuelta en "ok"
@@ -283,6 +403,7 @@ class BackendContext:
         # registrado y, si no, uno conservador (líquido, solo la lenta).
         self.control_loop.recuperar_ciclo_interrumpido(self._programa_para_arranque())
         self.control_loop.start()
+        self.iniciar_verificacion_asignacion()   # R8: solo tras una reasignación
         self.iniciar_vigilancia_mantenimiento()
         self.iniciar_vigilancia_impresora()
         self.registrar_presentacion_tickets()
