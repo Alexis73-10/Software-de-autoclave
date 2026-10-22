@@ -24,7 +24,7 @@ EVENTOS = (
     "PROGRAMA_SELECCIONADO", "PROGRAMA_SELECCION_RECHAZADA", "ROLES_SENSOR",
     "calibracion_atm_ok", "calibracion_atm_abortada", "calibracion_atm_rechazada",
     "suspension_entra", "suspension_sale",
-    "correo_configurado", "correo_prueba", "impresora_prueba", "impresion_ganancias",
+    "correo_configurado", "correo_prueba", "correo_enviado", "impresora_prueba", "impresion_ganancias",
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "rechazo_401", "rechazo_403", "rechazo_409",
 )

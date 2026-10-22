@@ -40,9 +40,14 @@ def test_enviar_con_starttls_y_login():
     smtp = MagicMock()
     smtp.return_value.__enter__.return_value = sesion
     config = ConfigCorreo("equipo@gmail.com", "smtp.gmail.com", 587, [], "clave")
-    mensaje = MagicMock()
-    correo.enviar(config, mensaje, smtp=smtp)
+    sesion.send_message.return_value = {}
+    mensaje = correo.armar_mensaje("equipo@gmail.com", "mant@x.com", "A", "C",
+                                   ("c.pdf", b"%PDF", "pdf"))
+    r = correo.enviar(config, mensaje, smtp=smtp)
     smtp.assert_called_once_with("smtp.gmail.com", 587, timeout=20)
     sesion.starttls.assert_called_once()
     sesion.login.assert_called_once_with("equipo@gmail.com", "clave")
-    sesion.send_message.assert_called_once_with(mensaje)
+    # C2 (tanda 7): envelope explícito y resultado por destinatario
+    sesion.send_message.assert_called_once_with(mensaje, from_addr="equipo@gmail.com",
+                                                to_addrs=["mant@x.com"])
+    assert r.aceptados == ("mant@x.com",) and r.rechazados == {}

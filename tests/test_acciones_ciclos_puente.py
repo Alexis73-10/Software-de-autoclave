@@ -20,6 +20,7 @@ from PySide6.QtWidgets import QApplication
 
 from autoclave import i18n
 from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
+from autoclave.ui_qml.exportacion import correo
 from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
 
 _DESTINOS = [{"nombre": "Mantenimiento", "correo": "mant@x.com"}]
@@ -56,7 +57,8 @@ def _get(ruta, **k):
 class _Entorno:
     def __init__(self, config=None, post=None, get=_get, enviar=None):
         self.backend = MagicMock()
-        self.backend.post.side_effect = post or (lambda ruta, body: {"ok": True, "impresos": len(body["ids"])})
+        self.backend.post.side_effect = post or (
+            lambda ruta, body: {"ok": True, "impresos": len(body.get("ids", []))})
         self.backend.get.side_effect = get
         self.pdfs = []
         self.enviados = []
@@ -70,8 +72,13 @@ class _Entorno:
 
         self.a = AccionesCiclos(self.backend, cargar_config=lambda: self.config,
                                 ejecutar=lambda t: t(), generar_pdf=generar_pdf,
-                                enviar=enviar or (lambda config, m: self.enviados.append(m)))
+                                enviar=enviar or self._enviar_aceptado)
         self.terminadas = QSignalSpy(self.a.accionTerminada)
+
+    def _enviar_aceptado(self, config, m):
+        # C2 (tanda 7): el relay simulado acepta a todos los destinatarios de To
+        self.enviados.append(m)
+        return correo.ResultadoEnvio(tuple(correo.separar_destinos(m["To"])), {})
 
     def resultado(self):
         QCoreApplication.processEvents()
@@ -193,7 +200,7 @@ def test_destino_invalido_no_envia():
     e = _Entorno()
     e.a.enviarCorreo([12], "sin-arroba")
     exito, mensaje = e.resultado()
-    assert not exito and "no es válido" in mensaje
+    assert not exito and "no válida" in mensaje and "sin-arroba" in mensaje
     assert e.enviados == []
 
 

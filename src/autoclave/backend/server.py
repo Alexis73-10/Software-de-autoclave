@@ -2149,8 +2149,51 @@ def _cargar_config_correo():
 
 
 def _enviar_correo(config, mensaje) -> None:
+    """C2 (tanda 7): correo.enviar ya no lanza si el relay rechaza a todos
+    (devuelve el resultado por destinatario); aquí eso sigue siendo un fallo."""
+    import smtplib
     from autoclave.ui_qml.exportacion import correo
-    correo.enviar(config, mensaje)
+    r = correo.enviar(config, mensaje)
+    if not isinstance(r, correo.ResultadoEnvio) or r.ninguno_aceptado:
+        raise smtplib.SMTPRecipientsRefused(dict(getattr(r, "rechazados", {}) or {}))
+
+
+# C2 (tanda 7): bitácora de los envíos del Historial y de Reportes. El envío lo
+# hace la UI (ui_qml/bridge/acciones_ciclos.py), que no tiene la base; aquí
+# solo se registra. Sin sesión obligatoria: el Menú Principal envía sin
+# iniciar sesión, y el backend solo escucha en 127.0.0.1 (backend/main.py). Si
+# llega un token válido, se anota el usuario. El cuerpo se valida a mano para
+# que un 422 nunca repita lo recibido (podría traer algo que no debe salir).
+_MAX_DIRECCIONES_REGISTRO = 20
+
+
+class _CorreoEnviadoBody(BaseModel):
+    model_config = {"extra": "forbid"}
+    tipo: Literal["ciclos", "resumen", "consolidado"]
+    destinatarios: list[str] = Field(default_factory=list, max_length=_MAX_DIRECCIONES_REGISTRO)
+    manuales: list[str] = Field(default_factory=list, max_length=_MAX_DIRECCIONES_REGISTRO)
+    ciclos: list[StrictInt] = Field(default_factory=list, max_length=500)
+    aceptados: list[str] = Field(default_factory=list, max_length=_MAX_DIRECCIONES_REGISTRO)
+    rechazados: dict[str, StrictInt] = Field(default_factory=dict,
+                                              max_length=_MAX_DIRECCIONES_REGISTRO)
+    resultado: Literal["enviado", "parcial", "rechazado", "error_conexion",
+                       "error_autenticacion", "sin_confirmacion"]
+
+
+@app.post("/email/sent")
+def post_email_sent(body: dict, authorization: str | None = Header(None)):
+    entidad = "/email/sent"
+    try:
+        datos = _CorreoEnviadoBody.model_validate(body)
+    except Exception:
+        raise RechazoApi(422, "validacion", "Datos inválidos")
+    direcciones = (datos.destinatarios + datos.manuales + datos.aceptados
+                   + list(datos.rechazados))
+    if any(not isinstance(d, str) or len(d) > 254 for d in direcciones):
+        raise RechazoApi(422, "validacion", "Datos inválidos")
+    sesion = tokens.obtener(_token_de(authorization))
+    _auditar("correo_enviado", sesion, entidad=entidad, detalle=datos.model_dump())
+    return {"ok": True}
 
 
 @app.get("/network/status")
