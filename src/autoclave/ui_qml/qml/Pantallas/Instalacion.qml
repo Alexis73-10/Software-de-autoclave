@@ -7,9 +7,13 @@ import Autoclave.I18n
 // Asistente de instalación del equipo (reemplaza a installation/wizard.py, tkinter).
 // Se muestra solo cuando falta el perfil de instalación (arranque, etapa 1).
 // Pasos, en el orden del asistente actual: activación (serie + código),
-// tipo de equipo, puertas, enfriamiento (se omite si el equipo no lo admite),
-// fuente de vapor (vapor_source del perfil: generator, boiler o mixed; E1b),
-// datos (modelo, suministros, sondas) y resumen. Al final, pantalla de resultado.
+// tipo de equipo (solo Piso y Piso laboratorio, M1/AM-3), puertas, cámara
+// (capacidad nominal y tipo de carga, con la vista previa del nombre del
+// modelo; M1), enfriamiento (se omite si el equipo no lo admite), fuente de
+// vapor (vapor_source del perfil: generator, boiler o mixed; E1b), datos
+// (suministros, sondas) y resumen. Al final, pantalla de resultado.
+// M1 (tanda 7, planeacion_asistente_modelo.md): el nombre del modelo lo
+// calcula el puente (SPK-SAT <L><V|H>[2][-LAB]); no hay campo libre "Modelo".
 //
 // Solo presenta: la validación del código, las capacidades por clase de equipo
 // y la escritura del perfil viven en el puente Python (`puente`, contrato en
@@ -36,7 +40,8 @@ Item {
     property int puertaPc: 1
     property int nivelEnfriamiento: 0
     property string fuenteVapor: ""
-    property string modelo: ""
+    property int capacidadLitros: 0      // litros; 0 = sin escribir (M1)
+    property string tipoCarga: ""        // "V" | "H"; "" = sin elegir (M1)
     // Falla cerrada, como el asistente actual: todo cableado/instalado por defecto
     property var suministros: ({ agua_bomba: true, agua_generador: true, aire_comprimido: true,
                                  vapor_suministro: true, suministro_electrico: true })
@@ -61,10 +66,34 @@ Item {
     readonly property int maxPuertas: capacidad ? capacidad.puertasMax : 2
     readonly property int maxEnfriamiento: capacidad ? capacidad.enfriamientoMax : 4
 
+    // ── Cámara y nombre del modelo (M1) ──────────────────────────────────
+    readonly property int capacidadMin: 20
+    readonly property int capacidadMax: 2000
+    readonly property bool capacidadValida: capacidadLitros >= capacidadMin && capacidadLitros <= capacidadMax
+    // Mientras se escribe, la vista previa sigue a lo que se lleva escrito
+    readonly property int capacidadEnVivo: {
+        if (campoActivo === "capacidad" && teclado) {
+            const n = parseInt(teclado.textoEnEdicion, 10)
+            return isNaN(n) ? 0 : n
+        }
+        return capacidadLitros
+    }
+    // La regla vive en Python (installation/modelo.py, vía el puente); "" si falta un dato
+    readonly property string modeloCalculado: puente ? puente.calcularModelo(clase, capacidadEnVivo, tipoCarga, numPuertas) : ""
+    function editarCapacidad() {
+        if (!teclado)
+            return
+        teclado.abrirNumerico(I18n.t("instalacion.camara_capacidad", I18n.lang),
+                              I18n.t("instalacion.unidad_litros", I18n.lang),
+                              capacidadLitros > 0 ? capacidadLitros : null, capacidadMin, capacidadMax, 0,
+                              v => { raiz.capacidadLitros = Math.round(v); raiz.errores = ({}) }, null)
+        campoActivo = "capacidad"
+    }
+
     // ── Pasos ────────────────────────────────────────────────────────────
     // Sin clase elegida se cuenta el paso de enfriamiento; al elegirla se omite si no aplica
     readonly property var pasos: {
-        const p = ["activacion", "equipo", "puertas"]
+        const p = ["activacion", "equipo", "puertas", "camara"]
         if (clase === "" || maxEnfriamiento > 0)
             p.push("enfriamiento")
         p.push("vapor", "datos", "resumen")
@@ -82,8 +111,7 @@ Item {
     // ── Campos de texto y teclado ────────────────────────────────────────
     readonly property var campos: ({
         serie:  { titulo: I18n.t("instalacion.serie", I18n.lang),  maximo: 20 },
-        codigo: { titulo: I18n.t("instalacion.codigo", I18n.lang), maximo: 12 },
-        modelo: { titulo: I18n.t("instalacion.modelo", I18n.lang), maximo: 30 }
+        codigo: { titulo: I18n.t("instalacion.codigo", I18n.lang), maximo: 12 }
     })
     function editar(nombre, siguiente) {
         if (!teclado)
@@ -140,9 +168,11 @@ Item {
         } else if (paso === "vapor") {
             if (fuenteVapor === "")
                 e.vapor = I18n.t("instalacion.error_vapor", I18n.lang)
-        } else if (paso === "datos") {
-            if (modelo.trim() === "")
-                e.modelo = I18n.t("instalacion.error_modelo", I18n.lang)
+        } else if (paso === "camara") {
+            if (!capacidadValida)
+                e.capacidad = I18n.t("instalacion.error_capacidad", I18n.lang)
+            if (tipoCarga !== "V" && tipoCarga !== "H")
+                e.tipoCarga = I18n.t("instalacion.error_tipo_carga", I18n.lang)
         }
         errores = e
         return Object.keys(e).length === 0
@@ -167,8 +197,10 @@ Item {
     function perfil() {
         return {
             serial_number: serie.trim().toUpperCase(),
-            model_id: modelo.trim(),
+            // M1: sin model_id; el puente lo calcula de estos datos
             equipment_class: clase,
+            capacidad_litros: capacidadLitros,
+            tipo_carga: tipoCarga,
             door_count: numPuertas,
             door_type: tipoPuerta,
             door_id: puertaPc,
@@ -208,8 +240,10 @@ Item {
         return sin.length > 0 ? sin.join(", ") : I18n.t("instalacion.resumen_ninguna", I18n.lang)
     }
     readonly property var filasResumen: [
+        // M1: el nombre del modelo va arriba y en grande (resumenModelo); aquí, capacidad y carga primero
+        { clave: "resumen_capacidad", valor: capacidadLitros > 0 ? I18n.t("instalacion.litros", I18n.lang, { n: capacidadLitros }) : "" },
+        { clave: "resumen_carga", valor: tipoCarga !== "" ? I18n.t("instalacion.carga_" + tipoCarga, I18n.lang) : "" },
         { clave: "resumen_serie", valor: serie.trim().toUpperCase() },
-        { clave: "resumen_modelo", valor: modelo.trim() },
         { clave: "resumen_equipo", valor: etiquetaClase(clase) },
         { clave: "resumen_puertas", valor: numPuertas + " · " + I18n.t("instalacion.puerta_" + tipoPuerta, I18n.lang) },
         // SAF-01 de T9: el tipo de puerta decide si el software maneja el
@@ -478,7 +512,87 @@ Item {
                     }
                 }
 
-                // ============ 4. Enfriamiento ============
+                // ============ 4. Cámara (M1) ============
+                Item {
+                    objectName: "pasoCamara"
+                    visible: !raiz.terminado && raiz.pasoActual === "camara"
+                    x: lienzo.margen; y: lienzo.yPagina
+                    width: lienzo.ancho; height: lienzo.altoPagina
+
+                    CampoFormulario {
+                        width: parent.width
+                        etiqueta: I18n.t("instalacion.camara_capacidad", I18n.lang)
+                        marcador: I18n.t("instalacion.camara_capacidad_marcador", I18n.lang)
+                        valor: raiz.campoActivo === "capacidad" && raiz.teclado ? raiz.teclado.textoEnEdicion
+                               : (raiz.capacidadLitros > 0 ? "" + raiz.capacidadLitros : "")
+                        activo: raiz.campoActivo === "capacidad"
+                        mensajeError: raiz.errores.capacidad ?? ""
+                        nombreObjeto: "campoCapacidad"
+                        nombreError: "errorCapacidad"
+                        onTocado: raiz.editarCapacidad()
+                    }
+                    Ayuda {
+                        y: Escala.px(136)
+                        width: parent.width
+                        text: I18n.t("instalacion.camara_capacidad_ayuda", I18n.lang)
+                    }
+
+                    Titulo { y: Escala.px(212); width: parent.width; text: I18n.t("instalacion.camara_carga", I18n.lang) }
+                    SelectorSegmentos {
+                        objectName: "selectorCarga"
+                        y: Escala.px(264)
+                        width: parent.width
+                        valor: raiz.tipoCarga === "V" ? 1 : raiz.tipoCarga === "H" ? 2 : 0
+                        opciones: [
+                            { valor: 1, etiqueta: I18n.t("instalacion.carga_V", I18n.lang) },
+                            { valor: 2, etiqueta: I18n.t("instalacion.carga_H", I18n.lang) }
+                        ]
+                        onElegido: n => { raiz.tipoCarga = n === 1 ? "V" : "H"; raiz.errores = ({}) }
+                    }
+                    ErrorTexto {
+                        objectName: "errorTipoCarga"
+                        y: Escala.px(364)
+                        width: parent.width
+                        text: raiz.errores.tipoCarga ?? ""
+                    }
+
+                    // Vista previa del nombre calculado (se actualiza en vivo; "—" si falta un dato)
+                    Rectangle {
+                        y: Escala.px(440)
+                        width: parent.width
+                        height: Escala.px(232)
+                        radius: Escala.px(14)
+                        color: Colores.fondoSutil
+                        border.width: 1; border.color: Colores.bordeDivisor
+                        Text {
+                            x: Escala.px(28); y: Escala.px(28)
+                            text: I18n.t("instalacion.camara_vista_previa", I18n.lang)
+                            color: Colores.textoSecundario
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
+                            font.weight: Tipografia.pesoMedium
+                        }
+                        Text {
+                            objectName: "vistaPreviaModelo"
+                            x: Escala.px(28); y: Escala.px(84)
+                            width: parent.width - Escala.px(56)
+                            text: raiz.modeloCalculado !== "" ? raiz.modeloCalculado : "—"
+                            color: raiz.modeloCalculado !== "" ? Colores.textoPrimario : Colores.textoGuia
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(76)
+                            font.weight: Tipografia.pesoBold
+                            fontSizeMode: Text.HorizontalFit
+                            minimumPixelSize: Escala.fuente(36)
+                        }
+                    }
+                    Ayuda {
+                        y: Escala.px(696)
+                        width: parent.width
+                        text: I18n.t("instalacion.camara_vista_previa_ayuda", I18n.lang)
+                    }
+                }
+
+                // ============ 5. Enfriamiento ============
                 Item {
                     objectName: "pasoEnfriamiento"
                     visible: !raiz.terminado && raiz.pasoActual === "enfriamiento"
@@ -506,7 +620,7 @@ Item {
                     }
                 }
 
-                // ============ 5. Fuente de vapor (NUEVO) ============
+                // ============ 6. Fuente de vapor ============
                 Item {
                     objectName: "pasoVapor"
                     visible: !raiz.terminado && raiz.pasoActual === "vapor"
@@ -540,29 +654,18 @@ Item {
                     }
                 }
 
-                // ============ 6. Datos del equipo ============
+                // ============ 7. Datos del equipo ============
                 Item {
                     objectName: "pasoDatos"
                     visible: !raiz.terminado && raiz.pasoActual === "datos"
                     x: lienzo.margen; y: lienzo.yPagina
                     width: lienzo.ancho; height: lienzo.altoPagina
 
-                    CampoFormulario {
-                        width: parent.width
-                        etiqueta: I18n.t("instalacion.modelo", I18n.lang)
-                        marcador: I18n.t("instalacion.modelo_marcador", I18n.lang)
-                        valor: raiz.textoCampo("modelo")
-                        activo: raiz.campoActivo === "modelo"
-                        mensajeError: raiz.errores.modelo ?? ""
-                        nombreObjeto: "campoModelo"
-                        nombreError: "errorModelo"
-                        onTocado: raiz.editar("modelo")
-                    }
-
-                    Titulo { y: Escala.px(168); width: parent.width; text: I18n.t("instalacion.suministros_titulo", I18n.lang) }
-                    Ayuda { y: Escala.px(212); width: parent.width; text: I18n.t("instalacion.suministros_ayuda", I18n.lang) }
+                    // M1: sin campo libre "Modelo" (el nombre se calcula en el paso Cámara)
+                    Titulo { width: parent.width; text: I18n.t("instalacion.suministros_titulo", I18n.lang) }
+                    Ayuda { y: Escala.px(44); width: parent.width; text: I18n.t("instalacion.suministros_ayuda", I18n.lang) }
                     Column {
-                        y: Escala.px(290)
+                        y: Escala.px(122)
                         width: parent.width
                         Repeater {
                             model: raiz.clavesSuministro
@@ -579,10 +682,10 @@ Item {
                         }
                     }
 
-                    Titulo { y: Escala.px(758); width: parent.width; text: I18n.t("instalacion.sondas_titulo", I18n.lang) }
-                    Ayuda { y: Escala.px(802); width: parent.width; text: I18n.t("instalacion.sondas_ayuda", I18n.lang) }
+                    Titulo { y: Escala.px(590); width: parent.width; text: I18n.t("instalacion.sondas_titulo", I18n.lang) }
+                    Ayuda { y: Escala.px(634); width: parent.width; text: I18n.t("instalacion.sondas_ayuda", I18n.lang) }
                     Column {
-                        y: Escala.px(852)
+                        y: Escala.px(684)
                         width: parent.width
                         Repeater {
                             model: raiz.clavesSonda
@@ -601,7 +704,7 @@ Item {
                     }
                 }
 
-                // ============ 7. Resumen ============
+                // ============ 8. Resumen ============
                 Item {
                     objectName: "pasoResumen"
                     visible: !raiz.terminado && raiz.pasoActual === "resumen"
@@ -610,8 +713,35 @@ Item {
 
                     Titulo { width: parent.width; text: I18n.t("instalacion.resumen_titulo", I18n.lang) }
 
+                    // M1 (INS-03): el nombre del modelo, arriba y en grande
+                    Item {
+                        id: bloqueModelo
+                        y: Escala.px(56)
+                        width: parent.width
+                        height: Escala.px(132)
+                        Text {
+                            text: I18n.t("instalacion.resumen_modelo", I18n.lang)
+                            color: Colores.textoSecundario
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
+                            font.weight: Tipografia.pesoMedium
+                        }
+                        Text {
+                            objectName: "resumenModelo"
+                            y: Escala.px(36)
+                            width: parent.width
+                            text: raiz.modeloCalculado !== "" ? raiz.modeloCalculado : "—"
+                            color: Colores.textoPrimario
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(68)
+                            font.weight: Tipografia.pesoBold
+                            fontSizeMode: Text.HorizontalFit
+                            minimumPixelSize: Escala.fuente(36)
+                        }
+                    }
+
                     Rectangle {
-                        y: Escala.px(60)
+                        y: bloqueModelo.y + bloqueModelo.height + Escala.px(8)
                         width: parent.width
                         height: filas.implicitHeight + Escala.px(16)
                         radius: Escala.px(14)
@@ -628,7 +758,7 @@ Item {
                                     required property var modelData
                                     required property int index
                                     width: parent.width
-                                    height: Math.max(Escala.px(72), valorFila.implicitHeight + Escala.px(28))
+                                    height: Math.max(Escala.px(64), valorFila.implicitHeight + Escala.px(24))
                                     Text {
                                         anchors.verticalCenter: parent.verticalCenter
                                         text: I18n.t("instalacion." + fila.modelData.clave, I18n.lang)

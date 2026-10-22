@@ -251,6 +251,7 @@ FAMILIAS = {
         "autoclave.installation.equipment", fromlist=["EquipmentClass"]).EquipmentClass],
     "instalacion.puerta_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesTipoPuerta"),
     "instalacion.puerta_pc_": lambda: ["1", "2"],
+    "instalacion.carga_": lambda: list(__import__("autoclave.installation.modelo", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     "instalacion.vapor_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesVapor"),
     "instalacion.paso_": _sufijos_instalacion_pasos,
     "instalacion.sum_": lambda: _lista_qml("Pantallas/Instalacion.qml", "clavesSuministro"),
