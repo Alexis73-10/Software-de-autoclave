@@ -664,6 +664,8 @@ class ControlLoop:
             # backend y el primer tick tras reconectar.
             self.paro_emergencia.update(None)
             self._di_vista_en_conexion = False
+            # TMG-01 (revisión Q1): el tramo sin datos no acredita F0
+            self._f0_ultimo_tick = None
             return
 
         # 1. Publicar estado global
@@ -693,6 +695,8 @@ class ControlLoop:
         # sigue normal con el paro activo y la máquina de estados lo aplica.
         if (self.link.edad_ultima_di() is None
                 and now - self._conectado_desde < self._VIGENCIA_DI_SEG):
+            # TMG-01 (revisión Q1): sin la primera DI tampoco se acredita F0
+            self._f0_ultimo_tick = None
             return
 
         # 2b. Suministro eléctrico → actualiza flag en estado. Sin la entrada
@@ -798,6 +802,11 @@ class ControlLoop:
         ultimo = self._f0_ultimo_tick
         self._f0_ultimo_tick = now
         if ultimo is None:
+            return
+        # TMG-01 (revisión Q1): un hueco de más de 2 intervalos nominales
+        # (enlace caído, tick bloqueado) no se acredita: solo se reinicia el
+        # sello. Contar de menos alarga el ciclo; contar de más no es seguro.
+        if now - ultimo > 2 * self.interval:
             return
 
         # F0 usa solo el sensor Principal del programa en curso (tanda §1.1;
