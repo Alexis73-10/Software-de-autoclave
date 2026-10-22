@@ -65,6 +65,8 @@ _DEBOUNCE_LECTURAS = 3
 _ESPERA_SELLADO_DEFECTO_MIN = 30.0
 _ESPERA_SELLADO_RANGO_MIN = (10.0, 240.0)
 _SONDA_DRENAJE = "temp_drenaje"
+# SAF-11 (re-revisión S2a): el alivio por sobrepresión cierra bajo tope - 5 kPa
+_HISTERESIS_ALIVIO_KPA = 5.0
 
 
 class ProtocoloFallo:
@@ -272,27 +274,31 @@ class ProtocoloFallo:
 
     def _alivio_sobrepresion(self) -> bool:
         """SAF-01: True si la lenta debe abrirse como alivio. Abre con 3
-        lecturas seguidas sobre el tope y cierra en cuanto la presión vuelve a
-        él o por debajo. Sin lectura de presión: cerrada (no hay evidencia de
-        sobrepresión; la válvula de seguridad mecánica, si existe, actúa)."""
+        lecturas seguidas sobre el tope y cierra con 3 lecturas seguidas bajo
+        tope - _HISTERESIS_ALIVIO_KPA (SAF-11). Sin lectura de presión: no se
+        abre (no hay evidencia de sobrepresión), pero si ya estaba abierto
+        sigue abierto (SAF-08: una lectura perdida en plena sobrepresión no
+        cierra el alivio)."""
         pres = self.estado.sensores_pres.get("pres_camara")
         if not lectura_valida(pres):
             self._lecturas_sobrepresion = 0
-            self._alivio_abierto = False
-            return False
+            return self._alivio_abierto
         tope = self._tope_presion_sellado()
-        if pres > tope:
-            self._lecturas_sobrepresion += 1
-            if self._lecturas_sobrepresion >= _DEBOUNCE_LECTURAS and not self._alivio_abierto:
+        if not self._alivio_abierto:
+            self._lecturas_sobrepresion = self._lecturas_sobrepresion + 1 if pres > tope else 0
+            if self._lecturas_sobrepresion >= _DEBOUNCE_LECTURAS:
                 logger.error("Protocolo fallo: sobrepresión con la cámara sellada (%.1f kPa > "
                              "%.1f kPa) — alivio por la lenta", pres, tope)
                 self._alivio_abierto = True
+                self._lecturas_sobrepresion = 0
         else:
-            self._lecturas_sobrepresion = 0
-            if self._alivio_abierto:
+            bajo = pres <= tope - _HISTERESIS_ALIVIO_KPA
+            self._lecturas_sobrepresion = self._lecturas_sobrepresion + 1 if bajo else 0
+            if self._lecturas_sobrepresion >= _DEBOUNCE_LECTURAS:
                 logger.warning("Protocolo fallo: presión de nuevo bajo el tope (%.1f kPa) — "
                                "se cierra el alivio", pres)
-            self._alivio_abierto = False
+                self._alivio_abierto = False
+                self._lecturas_sobrepresion = 0
         return self._alivio_abierto
 
     def _sondas_validas(self) -> tuple[list, float | None]:

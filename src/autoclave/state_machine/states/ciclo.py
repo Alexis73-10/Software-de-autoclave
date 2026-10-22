@@ -273,6 +273,9 @@ class CicloState:
         if not (0 <= self._fase_idx < len(self._fases)):
             return
         fase = self._fases[self._fase_idx]
+        # TMG-12 (re-revisión S2a): sin exposición iniciada no hay pausa que topar
+        if getattr(fase, "_timer_fin", None) is None:
+            return
         tope = getattr(fase, "_pausa_max_s", None)
         total = getattr(fase, "pausa_total_s", None)
         if (not callable(tope) or isinstance(total, bool)
@@ -292,8 +295,10 @@ class CicloState:
         self.estado.fase_ciclo = f"FALLO_{fase.name}"
         self._registrar_fallo(CIC_11, origen=nombre_legible(fase.name),
                               segundos=total, maximo=maximo)
-        self._ejecutar_protocolo_respetando_paro()
+        # TMG-12: el resultado antes del protocolo (si este lanza, no se
+        # repite el aborto en el tick siguiente)
         self._resultado_pendiente = CicloResultado.FALLO
+        self._ejecutar_protocolo_respetando_paro()
 
     @property
     def ack_confirma_estado_seguro(self) -> bool:

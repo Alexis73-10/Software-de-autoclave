@@ -518,6 +518,13 @@ class ControlLoop:
         if desde == self._f0_tramo_descontado:
             return
         self._f0_tramo_descontado = desde
+        # TMG-10 (re-revisión S2a): si el tramo se detecta ya fuera de las
+        # fases que acumulan (la exposición pudo terminar por tiempo o F0
+        # dentro del retroceso), no se descuenta: el registro quedaría por
+        # debajo del F0 con que se dio por cumplida la fase
+        if self.estado.fase_ciclo not in _F0_FASES_ACUMULAN:
+            self._f0_recientes = []
+            return
         exceso = sum(inc for t, inc in self._f0_recientes if t > desde)
         self._f0_recientes = [(t, inc) for t, inc in self._f0_recientes if t <= desde]
         if exceso > 0:
@@ -654,12 +661,15 @@ class ControlLoop:
             self._alarmas_tarjeta.clear()
             return
 
-        en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
-        if ev.origen == "operacion" and en_ciclo:
-            # TMG-07: si el ciclo ya terminaba (resultado pendiente), el
-            # aborto no actúa y se sigue la ruta de fuera de ciclo.
-            if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
-                return
+        # TMG-09 (re-revisión S2a): bajo _sm_lock y sin apagado en curso, como
+        # el aborto por desconexión (TMG-04)
+        with self._sm_lock:
+            en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
+            if ev.origen == "operacion" and en_ciclo and not self._apagando:
+                # TMG-07: si el ciclo ya terminaba (resultado pendiente), el
+                # aborto no actúa y se sigue la ruta de fuera de ciclo.
+                if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
+                    return
 
         # La acción de seguridad va antes que la alarma (SAF-01 de T1): un
         # error al registrar no debe impedir el nuevo handshake.
@@ -883,7 +893,8 @@ class ControlLoop:
         lanza: el tick sin conexión tiene que terminar igual."""
         try:
             with self._sm_lock:
-                if self.estado.get_machine_state() != GlobalState.CICLO:
+                # TMG-13 (re-revisión S2a): marcar puede abortar (SAF-05)
+                if self._apagando or self.estado.get_machine_state() != GlobalState.CICLO:
                     return
                 marcar = getattr(self.state_machine.ciclo, "marcar_sin_datos_tarjeta", None)
                 if callable(marcar):

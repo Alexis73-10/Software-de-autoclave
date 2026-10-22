@@ -425,7 +425,24 @@ def test_sobrepresion_sellada_alivia_por_la_lenta(pres, abre):
     prot.update()
     assert set_do.descompresion_lenta_on.called is abre
     assert prot.sellado is True                       # sigue sellada por temperatura
-    estado.sensores_pres["pres_camara"] = tope - 5
+    if not abre:
+        return
+    # SAF-08: perder la lectura con el alivio abierto no lo cierra
+    estado.sensores_pres["pres_camara"] = None
+    set_do.reset_mock()
+    prot.update()
+    set_do.descompresion_lenta_on.assert_called()
+    # SAF-11: bajo el tope pero dentro de la histéresis sigue abierto
+    estado.sensores_pres["pres_camara"] = tope - 1
+    for _ in range(5):
+        prot.update()
+    set_do.reset_mock()
+    prot.update()
+    set_do.descompresion_lenta_on.assert_called()
+    # 3 lecturas bajo tope - 5 kPa: cierra
+    estado.sensores_pres["pres_camara"] = tope - 6
+    for _ in range(_DEBOUNCE_LECTURAS):
+        prot.update()
     set_do.reset_mock()
     prot.update()
     set_do.descompresion_lenta_on.assert_not_called()

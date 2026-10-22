@@ -150,3 +150,32 @@ def test_aborto_por_desconexion_bajo_el_lock():
                                  if hasattr(loop._sm_lock, "locked") else True))
     loop._tick()
     assert visto and all(visto)
+
+
+# ── Re-revisión: TMG-10, TMG-12 ────────────────────────────────────────────
+
+def test_sin_exposicion_iniciada_el_tramo_abierto_no_falla(reloj):
+    ciclo, _, _ = _ciclo({})
+    fase = _en_esterilizacion(ciclo, pausa_total=0.0, maximo=5.0)
+    fase._timer_fin = None
+    ciclo.marcar_sin_datos_tarjeta()
+    reloj[0] += 60.0
+    ciclo.marcar_sin_datos_tarjeta()
+    assert ciclo._resultado_pendiente is None
+
+
+def test_no_descuenta_f0_si_el_tramo_se_detecta_fuera_de_las_fases_de_f0():
+    from tests.test_control_loop_f0 import _make_loop
+    loop, estado, _ = _make_loop()
+    loop.interval = 0.5
+    ciclo = loop.state_machine.ciclo
+    ciclo.tolerancia_di_activa = False
+    ciclo.exposicion_en_pausa = False
+    ciclo.pausa_sin_datos_desde = None
+    for t in (1000.0, 1000.5, 1001.0, 1001.5):
+        loop._acumular_f0(now=t)
+    total = estado.f0_acumulado
+    estado.fase_ciclo = "DESCOMPRESION"                    # la exposición ya terminó
+    ciclo.pausa_sin_datos_desde = 1000.6
+    loop._acumular_f0(now=1002.0)
+    assert estado.f0_acumulado == pytest.approx(total)

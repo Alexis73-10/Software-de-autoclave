@@ -139,6 +139,9 @@ class EstadoAutoclave:
         # vigente, distinta y nueva (lo publica ControlLoop antes de correr la
         # máquina de estados); None = sin información (se cuenta cada tick)
         self.trama_di_nueva = None
+        # TMG-01 (revisión S2a): instante (time.monotonic) de la última trama
+        # DI vigente; el tramo sin datos del ciclo empieza ahí. None = sin dato
+        self.ultima_di_valida_mono = None
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)
