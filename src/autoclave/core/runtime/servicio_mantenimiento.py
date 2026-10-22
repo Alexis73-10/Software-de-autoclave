@@ -127,10 +127,20 @@ class ServicioMantenimiento:
         return fuente() if callable(fuente) else fuente
 
     def _ultimo(self) -> dict | None:
+        """Base del contador: el último PREVENTIVO (MNT-01, D-2). Un correctivo
+        u "otro" nunca reinicia días ni ciclos, ni resuelve el aviso."""
         try:
-            return self._valor(self._db).ultimo_mantenimiento()
+            return self._valor(self._db).ultimo_mantenimiento(tipo="preventivo")
         except Exception:
             logger.debug("Sin base de datos: el último mantenimiento se desconoce")
+            return None
+
+    def _ultimo_registro(self) -> dict | None:
+        """El registro más reciente de cualquier tipo (protección del reloj)."""
+        try:
+            return self._valor(self._db).ultimo_registro()
+        except Exception:
+            logger.debug("Sin base de datos: el último registro se desconoce")
             return None
 
     def _ciclos(self) -> int | None:
@@ -170,7 +180,11 @@ class ServicioMantenimiento:
         sella ninguna fecha ni se afirma un vencimiento (M1-01)."""
         hoy = hoy or self._hoy()
         instalado = m._a_fecha(self._valor(self._instalado_en))
-        ultimo = self._ultimo()
+        # MNT-01 (decisión): aquí se compara contra el último registro de
+        # CUALQUIER tipo, no solo el preventivo. La tabla es de solo anexar:
+        # ningún registro nuevo (de ningún tipo) puede quedar con fecha
+        # anterior al último existente, porque no se podría corregir después.
+        ultimo = self._ultimo_registro()
         previa = m._a_fecha(ultimo.get("fecha")) if ultimo else None
         if (instalado is not None and hoy < instalado) or (previa is not None and hoy < previa):
             return "atrasado"
