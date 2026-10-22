@@ -108,7 +108,7 @@
     "confirmar_si": "Instalar",
     "error_guardar": "Error al guardar: {detalle}",
     "listo_titulo": "Instalación completada",
-    "listo_texto": "El equipo ha sido registrado correctamente. Reinicie el software para continuar.",
+    "listo_texto": "El equipo ha sido registrado correctamente. Pulse Continuar para empezar a usarlo.",
     "resumen_cerrojo": "Cerrojo de puerta",
     "resumen_con_cerrojo": "Controlado por el software",
     "resumen_sin_cerrojo": "NO controlado por el software",
@@ -512,6 +512,7 @@
     "apagar": "Apagar equipo",
     "apagar_pregunta": "El equipo se apagará por completo (incluido el PC). ¿Desea continuar?",
     "apagar_rechazado": "No se puede apagar: {motivo}",
+    "apagado_windows_rechazado": "Windows no permitió apagar el equipo: apáguelo manualmente",
     "apagar_camara_no_segura": "La cámara no está en condición segura (NO ABRIR). El equipo quedará fuera de servicio; no abra las puertas."
   },
   "formulario": {
@@ -963,10 +964,17 @@
       "agua_generador": "Agua generador",
       "paro_emergencia": "Paro de emergencia",
       "agua_camara": "Agua cámara",
-      "vapor_suministro": "Suministro de vapor"
+      "vapor_suministro": "Suministro de vapor",
+      "suministro_electrico": "Suministro eléctrico"
     },
     "do": {
       "vapor_generador": "Vapor generador",
+      "vapor_caldera": "Vapor caldera",
+      "descompresion_lenta": "Descompresión lenta",
+      "aire_comprimido_chaqueta": "Aire comprimido chaqueta",
+      "aire_comprimido_camara": "Aire comprimido cámara",
+      "agua_chaqueta": "Agua chaqueta",
+      "buzer_alarma": "Zumbador de alarma",
       "vapor_chaqueta": "Vapor chaqueta",
       "vapor_camara": "Vapor cámara",
       "descompresion_rapida": "Descompresión rápida",
@@ -987,6 +995,7 @@
     },
     "ai": {
       "temp_camara": "Temperatura cámara",
+      "temp_2_camara": "Temperatura cámara 2",
       "temp_referencia": "Temperatura referencia",
       "temp_drenaje": "Temperatura drenaje",
       "temp_drenaje_camara": "Temperatura drenaje de cámara",

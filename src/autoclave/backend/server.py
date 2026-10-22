@@ -3691,8 +3691,8 @@ class _EntradasBody(BaseModel):
 
 
 def _ai_habilitadas() -> list[str]:
-    from autoclave.core.runtime.io_names import leer_io_enabled
-    return leer_io_enabled()["AI"]
+    # D8-3.17: las AI que declara el perfil de instalación
+    return io_names.leer_io_enabled(profile=getattr(context, "profile", None))["AI"]
 
 
 @app.get("/cycle/display-inputs")
@@ -4005,17 +4005,19 @@ def _rechazar_si_sin_datos_vigentes() -> None:
 @app.get("/io/channels")
 def io_channels(sesion: Sesion = Depends(_requiere_rol_prueba)):
     """B-ES-2: canales de Entradas / Salidas del equipo (io_enabled) con id
-    físico, clave i18n y si la salida es momentánea (D-ES-02, D-ES-03, D-ES-09)."""
-    salidas = io_names.canales_digitales("DO")
+    físico, clave i18n y si la salida es momentánea (D-ES-02, D-ES-03, D-ES-09).
+    D8-3.17: solo los canales que declara el perfil de instalación."""
+    perfil = getattr(context, "profile", None)
+    salidas = io_names.canales_digitales("DO", profile=perfil)
     for c in salidas:
         canal = EstadoAutoclave.map_do[c["estado_key"]] + 1
         # fuente de vapor que el equipo no usa (E1b / S1): se muestra deshabilitada
         c["bloqueada"] = context.setdo.salida_bloqueada(canal) is True
     return {
-        "DI": io_names.canales_digitales("DI"),
+        "DI": io_names.canales_digitales("DI", profile=perfil),
         "DO": salidas,
-        "temperature": io_names.sensores("temperature"),
-        "pressure": io_names.sensores("pressure"),
+        "temperature": io_names.sensores("temperature", profile=perfil),
+        "pressure": io_names.sensores("pressure", profile=perfil),
     }
 
 

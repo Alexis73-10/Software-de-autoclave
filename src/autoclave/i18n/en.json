@@ -108,7 +108,7 @@
     "confirmar_si": "Install",
     "error_guardar": "Save error: {detalle}",
     "listo_titulo": "Installation complete",
-    "listo_texto": "The equipment has been registered successfully. Restart the software to continue.",
+    "listo_texto": "The equipment has been registered successfully. Press Continue to start using it.",
     "resumen_cerrojo": "Door lock",
     "resumen_con_cerrojo": "Controlled by the software",
     "resumen_sin_cerrojo": "NOT controlled by the software",
@@ -512,6 +512,7 @@
     "apagar": "Shut down equipment",
     "apagar_pregunta": "The equipment will shut down completely (including the PC). Do you want to continue?",
     "apagar_rechazado": "Cannot shut down: {motivo}",
+    "apagado_windows_rechazado": "Windows did not allow the equipment to shut down: shut it down manually",
     "apagar_camara_no_segura": "The chamber is not in a safe condition (DO NOT OPEN). The equipment will be taken out of service; do not open the doors."
   },
   "formulario": {
@@ -963,10 +964,17 @@
       "agua_generador": "Generator water",
       "paro_emergencia": "Emergency stop",
       "agua_camara": "Chamber water",
-      "vapor_suministro": "Steam supply"
+      "vapor_suministro": "Steam supply",
+      "suministro_electrico": "Power supply"
     },
     "do": {
       "vapor_generador": "Generator steam",
+      "vapor_caldera": "Boiler steam",
+      "descompresion_lenta": "Slow decompression",
+      "aire_comprimido_chaqueta": "Jacket compressed air",
+      "aire_comprimido_camara": "Chamber compressed air",
+      "agua_chaqueta": "Jacket water",
+      "buzer_alarma": "Alarm buzzer",
       "vapor_chaqueta": "Jacket steam",
       "vapor_camara": "Chamber steam",
       "descompresion_rapida": "Fast decompression",
@@ -987,6 +995,7 @@
     },
     "ai": {
       "temp_camara": "Chamber temperature",
+      "temp_2_camara": "Chamber temperature 2",
       "temp_referencia": "Reference temperature",
       "temp_drenaje": "Drain temperature",
       "temp_drenaje_camara": "Chamber drain temperature",
