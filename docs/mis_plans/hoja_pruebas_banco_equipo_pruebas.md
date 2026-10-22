@@ -94,6 +94,14 @@
 | F-06 | Trama de la tarjeta vencida en ciclo: tolerancia de 4 s | En operación (vapor) | T2 P-3 (tanda 6) |
 | F-07 | Paro con el ciclo terminando: diálogo de estado seguro al CONFIRMAR | En operación (vapor) | T2 P-6 (tanda 6) |
 | G-03 | Líquidos: drenaje a atmosférica por la lenta hasta temp_max_apertura | En operación (vapor) | T2 P-12 (tanda 6) |
+| B-11 | PREPARADO: el aire de cámara cierra a los 3 ticks reales | En seco (sin vapor) | Q1 R1-P2 (tanda 7) |
+| C-07 | DESPEJAR de COM-02/03 solo con el enlace de vuelta en ok | En seco (sin vapor) | Q1 T2-b (tanda 7); complementa C-06 |
+| D-37 | Calentamiento: rango de temperatura y de presión por separado | En seco (sin vapor) | Q1 R1-P3 (tanda 7) |
+| E-08 | Calentamiento con los rangos separados: sin cambio de comportamiento | En operación (vapor) | Q1 R1-P3 (tanda 7) |
+| F-08 | Sin datos de la tarjeta en esterilización: la exposición se alarga | En operación (vapor) | Q1 T2-a (tanda 7) |
+| F-09 | CARGA NO ESTÉRIL en todo ciclo que no termine COMPLETADO | En operación (vapor) | Q1 T2-c (tanda 7) |
+| F-10 | Principal perdido con el protocolo de fallo ya en marcha: pasa a solo la lenta | En operación (vapor) | Q1 R1-P4 (tanda 7) |
+| F-11 | Cancelar durante la tolerancia por DI vencida | En operación (vapor) | Q1 R1-P5 (tanda 7) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -346,6 +354,21 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### B-11 — PREPARADO: el aire de cámara cierra a los 3 ticks reales
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** Q1 R1-P2 (tanda 7)
+- **Objetivo:** El debounce de apagado del aire atmosférico de cámara cuenta ticks reales (antes avanzaba de a 2).
+- **Precondiciones:** PREPARACION/PREPARADO, cámara fría, puertas cerradas; sesión de técnico para ver el log; aire de cámara abierto porque la presión estaba bajo la banda (p. ej. tras un vacío breve en modo prueba y su salida).
+- **Pasos:**
+  1. Dejar que la presión de cámara vuelva a la banda atmosférica (P_atm ± rango).
+  2. Observar el LED/relé de `aire_admosferico_camara` y el log del backend (un tick ≈ 0,5 s).
+  3. Anotar cuántos ticks pasan entre la entrada en banda y el cierre.
+- **Resultado esperado:** El aire cierra 3 ticks (≈ 1,5 s) después de entrar en banda, no a los 2 ticks; la válvula no oscila en el borde.
+- **Criterio de aprobado/fallo:** Aprobado si el cierre ocurre al tercer tick en banda y no hay oscilación.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque C. Comunicación, energía y base de datos (en seco)
 
 ### C-01 — Modo sin base de datos
@@ -434,6 +457,21 @@
   3. Pulsar DESPEJAR en la fila de la alarma.
 - **Resultado esperado:** COM-03 sigue visible hasta DESPEJAR; tras despejar desaparece y queda en bitácora.
 - **Criterio de aprobado/fallo:** Aprobado si no se despeja sola y el botón funciona fuera de ciclo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-07 — DESPEJAR de COM-02/03 solo con el enlace de vuelta en ok
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** Q1 T2-b (tanda 7); complementa C-06
+- **Objetivo:** El operador no puede despejar la alarma de comunicación mientras el enlace no se recupere.
+- **Precondiciones:** Como C-06: ciclo de prueba en seco y COM-03 provocada desconectando el USB de la tarjeta; confirmar la falla y volver a PREPARACION con la tarjeta aún desconectada.
+- **Pasos:**
+  1. Con la tarjeta aún desconectada, pulsar DESPEJAR en el panel de notificaciones.
+  2. Reconectar la tarjeta y esperar ~2 s (3 tramas vigentes).
+  3. Pulsar DESPEJAR de nuevo, sin iniciar sesión.
+- **Resultado esperado:** Primer intento: rechazado con "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad"; la alarma sigue. Segundo intento: se despeja sin pedir sesión.
+- **Criterio de aprobado/fallo:** Aprobado si no se despeja sin enlace y sí se despeja sin sesión con el enlace ok.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1020,6 +1058,21 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### D-37 — Calentamiento: rango de temperatura y de presión por separado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** Q1 R1-P3 (tanda 7)
+- **Objetivo:** `rango_calentamiento` ya no existe; hay `rango_calentamiento_temp` (°C) y `rango_calentamiento_pres` (kPa), ambos con defecto 2,0 y convertidos como banda.
+- **Precondiciones:** Sesión de ingeniero. Copia de un programa de usuario guardado con una versión anterior (con `rango_calentamiento`).
+- **Pasos:**
+  1. Abrir Opciones › Parámetros del ciclo › Calentamiento de cada programa de fábrica.
+  2. Cambiar las unidades a °F y psig y volver a revisar los dos rangos.
+  3. Colocar el programa viejo en `cycles/user/`, reiniciar y abrir sus parámetros.
+- **Resultado esperado:** Se ven «Rango calentamiento temp» (2,0 °C = 3,6 °F) y «Rango calentamiento pres» (2,0 kPa ≈ 0,29 psi) como bandas (sin desplazamiento). El programa viejo se carga con los dos rangos iguales al valor que tenía y no queda dañado.
+- **Criterio de aprobado/fallo:** Aprobado si los dos rangos aparecen, se convierten como banda y la migración copia el valor a los dos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque E. Ciclos de sólidos (en operación)
 
 ### E-01 — Instrumental 134 completo
@@ -1124,6 +1177,20 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### E-08 — Calentamiento con los rangos separados: sin cambio de comportamiento
+
+- **Modo:** En operación (vapor)  ·  **Origen:** Q1 R1-P3 (tanda 7)
+- **Objetivo:** Con los dos rangos en 2,0 (defecto) la rampa se comporta igual que con el `rango_calentamiento` anterior.
+- **Precondiciones:** Instrumental 134 con los rangos de fábrica. Registro de un ciclo previo con la versión anterior, si existe.
+- **Pasos:**
+  1. Correr el ciclo completo.
+  2. Comparar la curva de calentamiento y el sobrepaso con el registro previo.
+- **Resultado esperado:** COMPLETADO; misma forma de rampa y sobrepaso que antes (el duty cae a 0 al pasar 2 °C o 2 kPa sobre el objetivo).
+- **Criterio de aprobado/fallo:** Aprobado si el ciclo completa y no hay sobrepaso mayor que con la versión anterior.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque F. Fallas durante el ciclo (en operación)
 
 ### F-01 — Paro de emergencia durante el ciclo
@@ -1223,6 +1290,66 @@
   2. Pulsar CONFIRMAR.
 - **Resultado esperado:** Diálogo con el texto de verificar fugas y botón "Confirmar y llevar a estado seguro".
 - **Criterio de aprobado/fallo:** Aprobado si el diálogo aparece y el estado seguro se inicia solo tras aceptarlo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-08 — Sin datos de la tarjeta en esterilización: la exposición se alarga
+
+- **Modo:** En operación (vapor)  ·  **Origen:** Q1 T2-a (tanda 7)
+- **Objetivo:** Los segundos de tolerancia por DI vencida no cuentan como exposición y quedan en el ticket.
+- **Precondiciones:** Bowie & Dick o Instrumental 134 en esterilización (cronometrar desde el inicio de la fase).
+- **Pasos:**
+  1. Desconectar el USB de la tarjeta unos 2-3 s (menos de 4 s) y reconectar.
+  2. Dejar terminar el ciclo y anotar la duración real de la esterilización.
+  3. Revisar el pie del ticket.
+- **Resultado esperado:** La esterilización dura el tiempo programado más los segundos sin datos; el vapor estuvo en OFF durante el corte; el pie dice "Sin datos de la tarjeta: n s" y el ciclo queda COMPLETADO (sin marca de no estéril).
+- **Criterio de aprobado/fallo:** Aprobado si la duración se alarga en los segundos del corte (± 1 s) y el ticket los anota.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-09 — CARGA NO ESTÉRIL en todo ciclo que no termine COMPLETADO
+
+- **Modo:** En operación (vapor)  ·  **Origen:** Q1 T2-c (tanda 7)
+- **Objetivo:** El ticket marca la carga como no estéril en FALLO, CANCELADO, paro de emergencia e INTERRUMPIDO.
+- **Precondiciones:** Tickets de F-01 (cancelación), F-02 (paro), F-03 (falla) y del ciclo INTERRUMPIDO de C-05; idioma español y luego inglés.
+- **Pasos:**
+  1. Revisar el pie de cada ticket impreso en vivo.
+  2. Reimprimir cada uno desde Historial, también en inglés.
+  3. Revisar el ticket de un ciclo COMPLETADO.
+- **Resultado esperado:** Todos los no completados llevan "*** CARGA NO ESTÉRIL ***" ("*** LOAD NOT STERILE ***" en inglés), en vivo y al reimprimir; el COMPLETADO no la lleva.
+- **Criterio de aprobado/fallo:** Aprobado si ningún ticket de ciclo no completado sale sin la marca.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-10 — Principal perdido con el protocolo de fallo ya en marcha: pasa a solo la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** Q1 R1-P4 (tanda 7)
+- **Objetivo:** Si se cancela (o falla) y después se pierde la sonda Principal, el escape sigue solo por la lenta.
+- **Precondiciones:** Instrumental 134 en esterilización.
+- **Pasos:**
+  1. Cancelar el ciclo y esperar unos segundos (protocolo de fallo en marcha).
+  2. Desconectar la sonda Principal.
+  3. Observar salidas y CIC-10; confirmar y revisar si pasa a PREPARACION sin técnico.
+- **Resultado esperado:** Al perder la Principal se cierran rápida, chaqueta y contrapresión y queda solo `descompresion_lenta`; CIC-10 activa; el reconocimiento lleva a PREPARACION sin técnico; inicio bloqueado mientras no lea.
+- **Criterio de aprobado/fallo:** Aprobado si la rápida no vuelve a abrir tras perder la Principal.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-11 — Cancelar durante la tolerancia por DI vencida
+
+- **Modo:** En operación (vapor)  ·  **Origen:** Q1 R1-P5 (tanda 7)
+- **Objetivo:** La cancelación pedida mientras la tarjeta no manda entradas se acepta y se aplica al volver los datos.
+- **Precondiciones:** Ciclo en esterilización.
+- **Pasos:**
+  1. Desconectar el USB de la tarjeta y, antes de 4 s, pulsar Cancelar.
+  2. Reconectar enseguida.
+  3. Repetir dejándolo desconectado más de 4 s.
+- **Resultado esperado:** La cancelación se acepta (sin el rechazo "sin datos de la tarjeta"); al volver los datos el ciclo queda CANCELADO. Si no vuelven a tiempo, termina en FALLO_CONEXION.
+- **Criterio de aprobado/fallo:** Aprobado si en ningún caso el ciclo sigue corriendo después de la cancelación.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
