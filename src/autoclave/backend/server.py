@@ -1407,6 +1407,8 @@ def get_status():
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
         "test_mode_active":      context.control_loop.test_mode_active,
+        # D8-2.11 (TMG-03 de la revisión S2b): reintentos del ALL_OFF en curso
+        "salidas_sin_confirmar_pendiente": _salidas_sin_confirmar_pendiente(),
         "calibracion_atm_en_curso": _calibracion_atm_en_curso(),   # O2f
         "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,
@@ -2792,7 +2794,10 @@ def start_cycle(body: dict | None = Body(default=None),
     # programa entre la validación y el inicio. La bitácora del rechazo se
     # escribe al soltar el lock.
     with context.control_loop.bloqueo_maquina():
-        rechazo = _validar_inicio(estado)
+        # TMG-04 / SAF-02 de la revisión S2b (D8-2.11): ni con el modo prueba
+        # activo ni con el ALL_OFF de su salida sin confirmar (la máquina está
+        # pausada: START_CICLO quedaría pendiente y el ciclo arrancaría solo)
+        rechazo = _rechazo_salidas_pendientes() or _validar_inicio(estado)
         if rechazo is None:
             estado.operador_inicio = sesion_operador.usuario if sesion_operador else ""
             estado.set_flag("START_CICLO", True)
@@ -2895,6 +2900,22 @@ def abort_cycle():
     return {"ok": True, "action": "CICLO_CANCELADO"}
 
 
+def _salidas_sin_confirmar_pendiente() -> bool:
+    """D8-2.11: quedan reintentos del ALL_OFF de la salida del modo prueba.
+    Ante cualquier duda, False (el doble de prueba sin el atributo)."""
+    return getattr(context.control_loop, "salidas_sin_confirmar_pendiente", False) is True
+
+
+def _rechazo_salidas_pendientes() -> tuple | None:
+    """TMG-04 de la revisión S2b: (código, motivo) para /cycle/start con el
+    modo prueba activo o con el ALL_OFF de su salida sin confirmar."""
+    if getattr(context.control_loop, "test_mode_active", False) is True:
+        return "modo_prueba_activo", "No permitido con el modo prueba activo"
+    if _salidas_sin_confirmar_pendiente():
+        return "salidas_sin_confirmar", _i18n_t("ciclo.salidas_sin_confirmar_pendiente")
+    return None
+
+
 def _i18n_t(clave: str) -> str:
     from autoclave import i18n
     return i18n.t(clave)
@@ -2950,6 +2971,11 @@ def reset_fault():
         # aplicaría al salir, sin uno posterior a las pruebas (TMG-07)
         if context.control_loop.test_mode_active is True:
             raise _Rechazo(409, "modo_prueba_activo", "No permitido con el modo prueba activo")
+        # SAF-01 de la revisión S2b (D8-2.11): igual mientras se reintenta el
+        # ALL_OFF de la salida del modo prueba (la máquina sigue pausada)
+        if _salidas_sin_confirmar_pendiente():
+            raise _Rechazo(409, "salidas_sin_confirmar",
+                           _i18n_t("ciclo.salidas_sin_confirmar_pendiente"))
         if estado != GlobalState.FALLA:
             raise _Rechazo(409, "estado_no_permitido", "El sistema no está en estado de falla",
                            extra={"estado": getattr(estado, "name", str(estado))})

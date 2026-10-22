@@ -25,6 +25,7 @@ MOTIVOS_DESPEJAR = frozenset({
     "notificaciones.despejar_no_activa",
     "notificaciones.despejar_rechazado",
     "notificaciones.despejar_sin_respuesta",
+    "notificaciones.despejar_sin_confirmacion",
 })
 
 

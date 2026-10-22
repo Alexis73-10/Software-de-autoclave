@@ -83,7 +83,10 @@ class ComandosCicloEnCurso(QObject):
             except Exception as e:   # abort/acknowledge ya capturan; defensa extra
                 logger.warning("%s ciclo error: %s", accion, e)
                 ok = False
-            self._respuesta.emit(accion, ok, aviso)
+            try:
+                self._respuesta.emit(accion, ok, aviso)
+            except RuntimeError:
+                pass   # TMG-10 de la revisión S2b: la ventana se cerró con la petición en curso
 
         self._ejecutar(tarea)
 

@@ -367,6 +367,7 @@
     "sin_bd_pregunta": "Base de datos no disponible. El ciclo se ejecutará sin operador y sin registro en la base de datos (solo respaldo y ticket). ¿Desea continuar sin registro?",
     "sin_bd_continuar": "Continuar sin registro",
     "cancelacion_en_espera_datos": "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control. Si no vuelven en unos segundos, el ciclo termina por fallo de comunicación.",
+    "salidas_sin_confirmar_pendiente": "Se está confirmando el apagado de las salidas tras el modo prueba. Espere unos segundos.",
     "carga_no_esteril": "CARGA NO ESTÉRIL",
     "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio",
     "confirmar_estado_seguro_texto": "El paro de emergencia se liberó. Verifique que no hay fugas de vapor ni de agua antes de continuar. Al confirmar se reconoce el resultado del ciclo y la cámara se lleva a estado seguro."
@@ -479,6 +480,7 @@
     "despejar_no_activa": "No se puede despejar: la alarma ya no está activa.",
     "despejar_rechazado": "No se puede despejar: el sistema rechazó la solicitud.",
     "despejar_sin_respuesta": "No se puede despejar: no hay respuesta del sistema de control. Intente de nuevo.",
+    "despejar_sin_confirmacion": "No se recibió la confirmación a tiempo: revise si la alarma sigue en la lista.",
     "despejar": "DESPEJAR"
   },
   "equipo": {

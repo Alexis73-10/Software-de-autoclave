@@ -29,6 +29,7 @@ class PrecalentamientoFase(BaseFase):
         self._inicializado        = False
         self._timer_timeout_fin   = None
         self._timer_sostenimiento = None
+        self._ventana_pausada_s = 0.0   # TMG-02 de la revisión S2b
         self.estado.fase_en_sostenimiento = False
 
     def _pres_chaqueta(self):
@@ -57,10 +58,18 @@ class PrecalentamientoFase(BaseFase):
 
         # ── 4. Timeout global ────────────────────────────────────────────────
         if time.monotonic() > self._timer_timeout_fin:
-            logger.error(
-                "Precalentamiento: TIMEOUT — no se alcanzó %.1f kPa en %.0f min",
-                presion_obj, timeout_seg / 60
-            )
+            if self._timer_sostenimiento is not None and self.ventana_pausada_s() > 0:
+                # TMG-02 de la revisión S2b: vencido en el sostenimiento
+                # alargado por tramos sin datos (D8-2.12)
+                logger.error(
+                    "Precalentamiento: TIMEOUT (%.0f min) durante el sostenimiento: se "
+                    "alargó %.0f s por tramos sin datos de la tarjeta",
+                    timeout_seg / 60, self.ventana_pausada_s())
+            else:
+                logger.error(
+                    "Precalentamiento: TIMEOUT — no se alcanzó %.1f kPa en %.0f min",
+                    presion_obj, timeout_seg / 60
+                )
             self.set_do.vapor_chaqueta_off()
             self.estado.fase_en_sostenimiento = False
             return FaseResult.FALLO

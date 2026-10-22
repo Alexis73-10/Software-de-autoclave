@@ -77,12 +77,16 @@ Item {
     property bool pantallaCompleta: false
     // U4 (revisión SAF-02): la gráfica a pantalla completa tapa la tarjeta de
     // seguridad superpuesta y la campana; un aviso crítico la cierra
-    readonly property bool avisoCritico: seguridadCiclo.conteo > 0
+    // SAF-04 de la revisión S2b (D8-2.16): "CARGA NO ESTÉRIL" tampoco queda
+    // tapada por la gráfica a pantalla completa
+    readonly property bool avisoCritico: seguridadCiclo.conteo > 0 || cargaNoEsteril
     onAvisoCriticoChanged: if (avisoCritico) pantallaCompleta = false
     onPantallaCompletaChanged: if (pantallaCompleta && avisoCritico) pantallaCompleta = false
     // "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
     property string resultado: progreso?.resultado ?? ""
     readonly property bool terminado: resultado !== ""
+    // D8-2.16: todo ciclo terminado que no fue COMPLETADO (falla segura)
+    readonly property bool cargaNoEsteril: terminado && resultado !== "exitoso"
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
     // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
@@ -533,7 +537,7 @@ Item {
         // desconocido también. No toma toques: no bloquea la gráfica.
         Rectangle {
             objectName: "cargaNoEsteril"
-            visible: raiz.terminado && raiz.resultado !== "exitoso"
+            visible: raiz.cargaNoEsteril
             anchors.horizontalCenter: parent.horizontalCenter
             y: raiz.m(40)
             width: raiz.m(960); height: raiz.m(110)

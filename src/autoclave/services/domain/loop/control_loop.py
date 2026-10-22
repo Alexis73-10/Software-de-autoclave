@@ -48,6 +48,9 @@ _DEBOUNCE_DI_VENCIDA = 3
 # D8-2.11 (tanda 8, Q1-P1): reintentos del ALL_OFF sin confirmar al salir del
 # modo prueba (uno por tick) antes de la alarma COM-04
 _REINTENTOS_ALL_OFF_SALIDA_PRUEBA = 3
+# TMG-03 de la revisión S2b: espera máxima del ACK de cada reintento (bajo
+# _sm_lock); el ALL_OFF normal espera 1 s
+_TIMEOUT_ACK_REINTENTO_ALL_OFF_S = 0.3
 
 
 class ControlLoop:
@@ -995,6 +998,9 @@ class ControlLoop:
             # D8-2.11: entrar cancela los reintentos pendientes (el modo
             # prueba vuelve a pausar todo y su salida apaga de nuevo)
             self._reintentos_all_off = 0
+            # TMG-04 de la revisión S2b (DECISIÓN SIN CONFIRMAR): una orden de
+            # inicio anterior a las pruebas no se aplica al salir
+            self.estado.set_flag("START_CICLO", False)
             self.set_do.buzer.stop()
             if self.set_do.reset_all_outputs() is True:
                 self._salidas_confirmadas("modo_prueba")
@@ -1040,7 +1046,8 @@ class ControlLoop:
         confirmación que la despeja)."""
         n = self._reintento_all_off_n
         try:
-            confirmado = self.set_do.reset_all_outputs() is True
+            confirmado = self.set_do.reset_all_outputs(
+                timeout=_TIMEOUT_ACK_REINTENTO_ALL_OFF_S) is True
         except Exception:
             logger.exception("ControlLoop: el reintento %d del ALL_OFF falló", n)
             confirmado = False
@@ -1066,10 +1073,19 @@ class ControlLoop:
         if self.estado.get_machine_state() != GlobalState.CICLO:
             self.link.solicitar_handshake()
 
+    def _com04_en_gestor(self) -> bool:
+        try:
+            from autoclave.state_machine.alarms.alarm_manager import InstanciaAlarma
+            return isinstance(self.alarm_manager.obtener(COM_04), InstanciaAlarma)
+        except Exception:
+            return False
+
     def _salidas_confirmadas(self, origen: str, registrar: bool = True) -> None:
         """D8-2.11: llegó una confirmación (ALL_OFF con ACK o handshake
         completo): se despeja COM-04 si estaba activa."""
-        if not self._com04_activa:
+        # SAF-01 de la revisión S2b: también si el gestor la tiene activa
+        # aunque la marca local se haya desfasado
+        if not (self._com04_activa or self._com04_en_gestor()):
             return
         self._com04_activa = False
         self._resolver_alarma(COM_04)

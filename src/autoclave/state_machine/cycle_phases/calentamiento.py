@@ -135,6 +135,7 @@ class CalentamientoFase(BaseFase):
     def reset(self):
         self._inicializado = False
         self._timer_timeout_fin = None
+        self._ventana_pausada_s = 0.0   # TMG-02 de la revisión S2b
         self._duty_actual = None
 
         # Tramo ESTABLE_PREESTERILIZACION: ventana continua dentro de banda
@@ -241,6 +242,14 @@ class CalentamientoFase(BaseFase):
 
         # ── 2. Timeout global ────────────────────────────────────────────
         if time.monotonic() > self._timer_timeout_fin:
+            # TMG-02 de la revisión S2b: vencido en el sostenimiento con la
+            # ventana alargada por tramos sin datos (D8-2.12), el motivo no es
+            # "no se alcanzó el objetivo"
+            if self._timer_sostenido_desde is not None and self.ventana_pausada_s() > 0:
+                return self._fallo(
+                    f"Timeout de calentamiento ({timeout_seg / 60:.0f} min) durante el "
+                    f"sostenimiento: la ventana de estabilidad se alargó "
+                    f"{self.ventana_pausada_s():.0f} s por tramos sin datos de la tarjeta")
             return self._fallo(f"Timeout de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
 
         temp = self._temp_principal()

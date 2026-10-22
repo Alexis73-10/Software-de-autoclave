@@ -3,7 +3,7 @@ import threading
 from collections import deque
 from datetime import datetime
 
-from autoclave.state_machine.alarms.catalogo import CATALOGO, COM_02, COM_03, Nivel
+from autoclave.state_machine.alarms.catalogo import CATALOGO, COM_02, COM_03, COM_04, Nivel
 from autoclave.state_machine.alarms.instancia import (
     EstadoInstancia, EventoAlarma, InstanciaAlarma, clave_de,
 )
@@ -16,6 +16,11 @@ _MAX_EVENTOS_RECIENTES = 20
 # (resolver_todas_por_reinicio) sin el reconocimiento explícito del operador;
 # reconocidas fuera de CICLO se resuelven en el acto.
 DESPEJE_POR_RECONOCIMIENTO = frozenset({COM_02, COM_03})
+# D8-2.11 (tanda 8, SAF-01 de la revisión S2b): COM-04 ("Salidas sin
+# confirmar") solo se resuelve con una confirmación de la tarjeta (ALL_OFF con
+# ACK o handshake completo, ControlLoop._salidas_confirmadas); nunca al salir
+# de FALLA por reconocimiento.
+DESPEJE_SOLO_POR_CONFIRMACION = frozenset({COM_04})
 _LOG_POR_NIVEL = {
     Nivel.INFORMATIVO: logging.INFO,
     Nivel.AVISO: logging.WARNING,
@@ -163,7 +168,8 @@ class AlarmManager:
         with self._lock:
             resueltas = [self._resolver_sin_candado(c) for c, i in list(self._instancias.items())
                          if not (i.codigo in DESPEJE_POR_RECONOCIMIENTO
-                                 and (i.reconocida_por is None or not enlace_ok))]
+                                 and (i.reconocida_por is None or not enlace_ok))
+                         and i.codigo not in DESPEJE_SOLO_POR_CONFIRMACION]
         for inst in resueltas:
             if inst is not None:
                 self._notificar(EventoAlarma.RESUELTA, inst)

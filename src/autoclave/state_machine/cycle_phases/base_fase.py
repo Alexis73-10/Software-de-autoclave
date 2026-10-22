@@ -48,8 +48,17 @@ class BaseFase:
             if isinstance(valor, bool) or not isinstance(valor, (int, float)):
                 continue
             setattr(self, atributo, valor + segundos)
+            # TMG-02 de la revisión S2b: para el motivo de un timeout que
+            # vence con la ventana alargada por estas pausas
+            self._ventana_pausada_s = self.ventana_pausada_s() + segundos
             logger.warning("%s: ventana %s en pausa %.1f s (sin datos de la tarjeta)",
                            self.name, atributo, segundos)
+
+    def ventana_pausada_s(self) -> float:
+        """Segundos que pausar_ventanas_estabilidad corrió las ventanas desde
+        el último reset de la fase (las fases lo ponen en 0 en reset())."""
+        valor = getattr(self, "_ventana_pausada_s", 0.0)
+        return float(valor) if isinstance(valor, (int, float)) and not isinstance(valor, bool) else 0.0
 
     def update(self) -> FaseResult:
         raise NotImplementedError(f"{self.__class__.__name__} debe implementar update()")

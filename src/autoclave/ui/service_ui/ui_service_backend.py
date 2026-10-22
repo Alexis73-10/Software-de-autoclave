@@ -307,6 +307,10 @@ class UIServiceBackend:
             return True, ""
         except Exception as e:
             logger.warning("reconocer_alarma error: %s", e)
+            # TMG-10 / SAF-05 de la revisión S2b: sin respuesta a tiempo no se
+            # sabe si el backend la despejó
+            if isinstance(e, requests.Timeout):
+                return False, "notificaciones.despejar_sin_confirmacion"
             estado_http = getattr(getattr(e, "response", None), "status_code", None)
             return False, _MOTIVO_DESPEJAR.get(estado_http, "notificaciones.despejar_rechazado"
                                                if estado_http is not None
