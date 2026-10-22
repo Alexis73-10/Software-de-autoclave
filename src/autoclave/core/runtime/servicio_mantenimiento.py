@@ -24,7 +24,8 @@ logger = logging.getLogger(__name__)
 # MNT-02 (D-5): la calibración se hace solo desde la pantalla Sensores; ya no
 # es un tipo de mantenimiento registrable. Las filas viejas de `calibracion`
 # siguen en la tabla (solo anexar) y se muestran como "histórico" (MNT-05).
-TIPOS = ("preventivo", "correctivo", "otro")
+# Definición única en core/runtime/mantenimiento.py (MNT-03).
+TIPOS = m.TIPOS
 OBSERVACIONES_MAX = 500
 
 

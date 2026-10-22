@@ -21,6 +21,12 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
+# Tipos de mantenimiento registrables (única definición: la usan el servicio y
+# el controlador QML, MNT-03). Solo `preventivo` reinicia el contador (MNT-01,
+# D-2). `calibracion` salió de los tipos (MNT-02, D-5): las filas viejas de la
+# tabla (solo anexar) se muestran como histórico y nunca se ofrecen (MNT-05).
+TIPOS = ("preventivo", "correctivo", "otro")
+
 INTERVALO_DIAS_DEFECTO = 365
 INTERVALO_CICLOS_DEFECTO = 1000
 # valores provisionales de la tanda 3, migrados a los definitivos (B3, tanda 4)

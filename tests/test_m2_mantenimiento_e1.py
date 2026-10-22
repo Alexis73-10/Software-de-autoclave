@@ -194,3 +194,36 @@ def test_post_calibracion_da_422_validacion(entorno):
                     json={"tipo": "calibracion", "observaciones": ""})
     assert r.status_code == 422 and r.json()["codigo"] == "validacion"
     assert db.listar_mantenimientos() == []
+
+
+# ── MNT-03: una sola tupla de tipos ─────────────────────────────────────────
+
+def test_servicio_y_controlador_comparten_la_misma_tupla():
+    pytest.importorskip("PySide6")
+    from autoclave.core.runtime import servicio_mantenimiento as sm
+    from autoclave.ui_qml.controllers import mantenimiento_controller as mc
+    assert mc.TIPOS is m.TIPOS and sm.TIPOS is m.TIPOS
+
+
+def test_el_controlador_no_ofrece_ni_envia_calibracion():
+    pytest.importorskip("PySide6")
+    import sys
+
+    from PySide6.QtCore import QCoreApplication
+    QCoreApplication.instance() or QCoreApplication(sys.argv)
+    from autoclave.ui_qml.controllers.mantenimiento_controller import MantenimientoController
+    sesion = MagicMock()
+    c = MantenimientoController(sesion=sesion)
+    assert c.property("tipos") == ["preventivo", "correctivo", "otro"]
+    assert c.registrar("calibracion") is False
+    sesion.enviar.assert_not_called()
+
+
+def test_el_controlador_no_importa_el_servicio_del_backend():
+    """La constante vive en el módulo de lógica pura (sin E/S ni alarmas):
+    la UI no arrastra el servicio ni la máquina de estados."""
+    import inspect
+
+    from autoclave.ui_qml.controllers import mantenimiento_controller as mc
+    fuente = inspect.getsource(mc)
+    assert "servicio_mantenimiento" not in fuente and "state_machine" not in fuente
