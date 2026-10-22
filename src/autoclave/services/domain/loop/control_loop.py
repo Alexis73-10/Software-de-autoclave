@@ -928,14 +928,22 @@ class ControlLoop:
             self.set_do.reset_all_outputs()
             return True, ""
 
-    def exit_test_mode(self) -> None:
+    def exit_test_mode(self) -> bool:
         """Apaga todas las salidas y reanuda state_machine.update(). Bajo
         _sm_lock y en este orden (apagar, luego reanudar): una orden de
         /io/test/output ya validada no puede llegar después del apagado, y la
-        máquina de estados no corre un tick con salidas de prueba encendidas."""
+        máquina de estados no corre un tick con salidas de prueba encendidas.
+
+        R1-P1 (tanda 7): devuelve True solo si la tarjeta confirmó el ALL_OFF
+        con su ACK (`reset_all_outputs`); quien llama lo anota en la bitácora.
+        Lo que se apaga no cambia."""
         with self._sm_lock:
-            self.set_do.reset_all_outputs()
+            confirmado = self.set_do.reset_all_outputs() is True
             self._test_mode.clear()
+        if not confirmado:
+            logger.warning("Salida del modo prueba: la tarjeta no confirmó el ALL_OFF "
+                           "(quedaron órdenes individuales sin confirmación)")
+        return confirmado
 
     # =========================================================================
     # CAMBIO DE CICLO ACTIVO

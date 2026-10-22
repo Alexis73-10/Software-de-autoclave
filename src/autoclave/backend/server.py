@@ -345,14 +345,29 @@ def _contexto_ciclo() -> dict:
     }
 
 
-def _salir_modo_prueba() -> None:
+# R1-P1 (tanda 7): ACK del ALL_OFF de la última salida del modo prueba, para la
+# bitácora. Se escribe bajo _sm_lock en _salir_modo_prueba; quien registra
+# modo_prueba_sale lo lee al soltar el lock (no hay otra salida en medio: para
+# salir de nuevo habría que volver a entrar).
+_ack_salida_prueba: bool | None = None
+
+
+def _salir_modo_prueba() -> bool:
     """Apaga las salidas, reanuda la máquina y olvida la sesión dueña. Llamar
-    con _sm_lock tomado; quien llama registra modo_prueba_sale al soltarlo."""
-    global _token_modo_prueba
-    context.control_loop.exit_test_mode()
+    con _sm_lock tomado; quien llama registra modo_prueba_sale al soltarlo
+    (con `_detalle_salida_prueba`). Devuelve True si la tarjeta confirmó el
+    ALL_OFF (R1-P1)."""
+    global _token_modo_prueba, _ack_salida_prueba
+    _ack_salida_prueba = context.control_loop.exit_test_mode() is True
     _token_modo_prueba = None
     _cierres_invertidos.clear()
     _cancelar_vigilancias_prueba()
+    return _ack_salida_prueba
+
+
+def _detalle_salida_prueba(motivo: str) -> dict:
+    """Detalle de modo_prueba_sale con el ACK del ALL_OFF (R1-P1)."""
+    return {"motivo": motivo, "all_off_confirmado": _ack_salida_prueba is True}
 
 
 def _prueba_cancelada_por_paro() -> None:
@@ -394,7 +409,7 @@ def _revisar_dueno_modo_prueba() -> bool:
     logger.warning("Modo prueba cerrado: la sesión dueña (%s) ya no es válida",
                    dueno[0] if dueno else "?")
     _auditar("modo_prueba_sale", usuario=dueno[0] if dueno else "",
-             detalle={"motivo": "sesión del dueño caducada o cerrada"})
+             detalle=_detalle_salida_prueba("sesión del dueño caducada o cerrada"))
     return True
 
 
@@ -489,7 +504,7 @@ def logout(sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True)
     salio = _invalidar_sesion(sesion)
     _auditar("logout", sesion)
     if salio:
-        _auditar("modo_prueba_sale", sesion, detalle={"motivo": "sesión cerrada"})
+        _auditar("modo_prueba_sale", sesion, detalle=_detalle_salida_prueba("sesión cerrada"))
     return {"ok": True}
 
 
@@ -512,7 +527,7 @@ def _bloquear_por_cambio_clave(sesion: Sesion, entidad: str):
     salio = _invalidar_sesion(sesion)
     _auditar("login_bloqueado", sesion, entidad=entidad, detalle={"origen": "cambio_clave"})
     if salio:
-        _auditar("modo_prueba_sale", sesion, detalle={"motivo": "sesión bloqueada"})
+        _auditar("modo_prueba_sale", sesion, detalle=_detalle_salida_prueba("sesión bloqueada"))
     _rechazar_bloqueado(sesion.usuario)
 
 
@@ -638,7 +653,7 @@ def _cerrar_sesiones_de(usuario: str, motivo: str) -> int:
         salio = _invalidar_sesion(s)
         cerradas += 1
         if salio:
-            _auditar("modo_prueba_sale", s, detalle={"motivo": motivo})
+            _auditar("modo_prueba_sale", s, detalle=_detalle_salida_prueba(motivo))
     return cerradas
 
 
@@ -3852,7 +3867,7 @@ def _salir_por_inactividad(timer: threading.Timer, generacion: int = -1) -> None
     sesion = tokens.obtener(token, renovar=False) if token else None
     dueno = tokens.quien_fue(token) if sesion is None else None   # TMG-08
     _auditar("modo_prueba_sale", sesion, usuario=dueno[0] if dueno else "",
-             detalle={"motivo": "sin actividad de la sesión (keepalive)"})
+             detalle=_detalle_salida_prueba("sin actividad de la sesión (keepalive)"))
 
 
 def _marcar_actividad_prueba() -> None:
@@ -3953,12 +3968,12 @@ def io_test_exit(sesion: Sesion = Depends(_requiere_rol_prueba),
         if _token_modo_prueba != sesion.token:
             raise _Rechazo(409, "modo_prueba_no_dueno",
                            "Solo la sesión que activó el modo prueba puede salir de él")
-        _salir_modo_prueba()
+        confirmado = _salir_modo_prueba()
     causa = body.get("motivo") if isinstance(body, dict) else None
     if causa not in _CAUSAS_SALIDA_UI:
         causa = "salida solicitada"
-    _auditar("modo_prueba_sale", sesion, detalle={"motivo": causa})
-    return {"ok": True}
+    _auditar("modo_prueba_sale", sesion, detalle=_detalle_salida_prueba(causa))
+    return {"ok": True, "all_off_confirmado": confirmado}
 
 
 # canales cerrar_puerta_N cuya orden se invirtió y siguen pulsados (P-ES-8)
@@ -4106,5 +4121,6 @@ def io_test_force_exit(body: _SalidaForzadaBody,
              detalle={"motivo": motivo, "forzada_por": sesion.usuario,
                       "dueno": dueno[0] if dueno else None,
                       "estado_seguro_activo": estado_seguro is True})
-    _auditar("modo_prueba_sale", sesion, detalle={"motivo": "salida forzada por ingeniero"})
+    _auditar("modo_prueba_sale", sesion,
+             detalle=_detalle_salida_prueba("salida forzada por ingeniero"))
     return {"ok": True, "dueno": dueno[0] if dueno else None}
