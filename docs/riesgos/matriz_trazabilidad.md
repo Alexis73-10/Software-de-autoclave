@@ -22,5 +22,6 @@ Estado: BORRADOR para pasar a xlsx. Los requisitos salen de las specs citadas. L
 | REQ-16 Roles de sensores y alerta de uniformidad CIC-09 | `planeacion_sensores_ciclo.md` | HAZ-SEN-02, HAZ-SEN-03 | `test_t3_sensores_ciclo.py`, `test_t3_endpoints_sensores.py` |
 | REQ-17 ESTERILIZACION: fallas contra t_est fija, debounce de 3 lecturas, F0 opcional | `planeacion_fase_esterilizacion.md`, `planeacion_f0.md` | HAZ-SEN-02 | `test_esterilizacion_fase.py`, `test_control_loop_f0.py`, `test_ciclos_f0_objetivo.py` |
 | REQ-18 Puerta con sensor inválido = abierta | `docs/superpowers/specs/2026-05-25-door-type-from-profile-design.md`, fin de ciclo §10 | HAZ-FC-02, HAZ-FC-03 | `test_servicio_puertas.py`, `test_puertas_fallas_endpoints.py`, `test_e1_puertas_perfil.py` |
+| REQ-19 El nombre del modelo se calcula (SPK-SAT), sin texto libre; solo se instalan equipos de piso; capacidad 20-2000 L | `planeacion_asistente_modelo.md` (tanda 7, M1) | HAZ-INS-02 | `test_m1_modelo.py`, `test_m1_puente_instalacion.py`, `test_m1_asistente_qml.py`, `test_m1_modelo_documentos.py` |
 
 Por completar: los requisitos de las specs de 2026-05 en `docs/superpowers/specs/` (precalentamiento, purga, fases críticas, suministro eléctrico, perfiles de equipo) siguen sin riesgo asignado. También faltan los ids de la hoja de banco por fila y los requisitos de calentamiento, prevacío y secado.
