@@ -164,7 +164,10 @@ Item {
 
     component TarjetaSensor: Rectangle {
         id: tarjetaSensor
-        required property var modelData
+        // P1 (tanda 7): datos por índice; el Repeater no recrea la tarjeta en
+        // cada refresco (el toque de Calibrar no se pierde)
+        required property int index
+        property var modelData: ({})
         property string tipo: ""
         objectName: "sensor_" + modelData.name
         width: parent ? parent.width : 0
@@ -417,11 +420,15 @@ Item {
                 spacing: Escala.px(12)
                 readonly property real ancho: (width - spacing) / 2
 
+                // P1 (tanda 7): modelo entero (cantidad) y datos por índice. Con la
+                // lista como modelo, el refresco de 1 s recreaba todas las tarjetas:
+                // la pulsación sostenida perdía su renovación y un toque se perdía
                 Repeater {
-                    model: control.salidas
+                    model: control.salidas.length
                     delegate: TarjetaCanal {
                         id: tarjetaSalida
-                        required property var modelData
+                        required property int index
+                        readonly property var modelData: control.salidas[index] || ({})
                         objectName: "salida_" + modelData.name
                         width: cuadriculaSalidas.ancho
                         nombre: raiz.nombreCanal(modelData.i18n)
@@ -499,8 +506,11 @@ Item {
                 width: parent.width
                 spacing: Escala.px(12)
                 Repeater {
-                    model: control.temperatura
-                    delegate: TarjetaSensor { tipo: "temperatura" }
+                    model: control.temperatura.length
+                    delegate: TarjetaSensor {
+                        tipo: "temperatura"
+                        modelData: control.temperatura[index] || ({})
+                    }
                 }
             }
         }
@@ -516,8 +526,11 @@ Item {
                 width: parent.width
                 spacing: Escala.px(12)
                 Repeater {
-                    model: control.presion
-                    delegate: TarjetaSensor { tipo: "presion" }
+                    model: control.presion.length
+                    delegate: TarjetaSensor {
+                        tipo: "presion"
+                        modelData: control.presion[index] || ({})
+                    }
                 }
             }
         }
