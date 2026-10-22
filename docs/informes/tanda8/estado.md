@@ -23,3 +23,6 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | Z | Pendiente | | |
 
 Instrucciones comunes de los subagentes: `tanda8/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-8-<id>`; NO relanzarlos desde cero, revisar su rama y su informe.
+
+## Corte por límite de uso (22-oct ~12:50)
+Los subagentes S1, S2a, S2b, V8a, V8b, L8, R8, E2, N8 y E1 se detuvieron por el límite de sesión (se restablece a las 16:00). Su trabajo quedó en sus worktrees `.claude/worktrees/agent-*` (ramas `tanda-8-<id>` o `worktree-agent-*` si no alcanzaron a crearla), en parte sin commit. Al reanudar: NO relanzar desde cero; continuar cada subagente (o, si se perdió, revisar `git status` del worktree, commitear lo suyo y terminar la etapa). U8, M8 y D8 estaban corriendo su suite.
