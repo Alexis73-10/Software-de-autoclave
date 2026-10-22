@@ -1,6 +1,6 @@
 # Tanda 7: estado
 
-Rama `tanda-7`, creada desde `dev` (18eb429) tras A0. Sesión principal arrancada por el lanzador el 22-oct a las 00:12 (hora de Bogotá).
+Rama `tanda-7`, creada desde `dev` (18eb429) tras A0. Sesión principal arrancada por el lanzador el 22-oct a las 00:12 (hora de Bogotá). Línea base de la suite (tanda-7 = dev 18eb429 + docs): **5020 passed, 2 skipped, 3 xfailed** (20 min).
 
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
@@ -10,7 +10,7 @@ Rama `tanda-7`, creada desde `dev` (18eb429) tras A0. Sesión principal arrancad
 | P1 | Pendiente | | |
 | M1 | Pendiente | | |
 | C2 | Pendiente | | |
-| M2 | NO SE HACE | | Decisión 1.4 de la sección 1 (fuente de verdad): "Mantenimiento E1 y formulario del preventivo: NO entran en esta tanda". Contradice la etapa M2 de la sección 2; prevalece la sección 1. |
+| M2 | Pendiente | | Al principio se marcó "NO SE HACE" por la decisión 1.4; Cristian corrigió la instrucción el 22-oct a las 00:30 (E1 SÍ entra, formulario del preventivo NO). Se hace. |
 | R6 | Sin objeto | | A0 no encontró etapas de la tanda 6 sin hacer ni ramas sin unir (todas las filas "Hecha", ramas `tanda-6-*` ya contenidas y borradas). Los hallazgos abiertos de O2f (TMG-04/05, SAF-01/02) no son etapas; quedan listados en el índice. |
 | Q1 ★ | Pendiente | | |
 | K2 | Pendiente | | |

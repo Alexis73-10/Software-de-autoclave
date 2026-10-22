@@ -68,7 +68,7 @@ Aplican las de la sección 0 de las tandas noche, 3, 4, 5 y 6, con estos cambios
    - **T2-a:** los segundos de tolerancia por DI vencida NO cuentan como exposición en ESTERILIZACION. El temporizador de exposición se pausa durante la tolerancia y el ticket anota "Sin datos de la tarjeta: n s".
    - **T2-b:** DESPEJAR de COM-02/03 exige que el enlace haya vuelto a "ok" (3 tramas vigentes seguidas). No exige sesión, porque el operador despeja sin técnico (D-06).
    - **T2-c:** la marca "CARGA NO ESTÉRIL" va en TODO ciclo que no termine COMPLETADO: FALLO, CANCELADO, paro de emergencia e INTERRUMPIDO.
-4. **Mantenimiento E1 y formulario del preventivo: NO entran en esta tanda.**
+4. **Mantenimiento: E1 SÍ entra (etapa M2); el formulario del preventivo NO.** (Corrección del 22-oct, 00:30: la versión anterior de este punto contradecía la etapa M2.)
 5. **Recordatorios para el informe final (no se tocan):**
    - el formulario del preventivo (P-1 a P-10 de `planeacion_mantenimiento.md`);
    - el retiro del código de equipos de mesa;
