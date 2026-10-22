@@ -6,6 +6,14 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+# D8-2.15 (tanda 8): rechazo de DESPEJAR (POST /alarms/{clave}/acknowledge)
+# por código HTTP → clave del catálogo i18n. 409: el enlace con la tarjeta no
+# ha vuelto (T2-b de la tanda 7); 404: la alarma ya no está activa.
+_MOTIVO_DESPEJAR = {
+    409: "notificaciones.despejar_sin_enlace",
+    404: "notificaciones.despejar_no_activa",
+}
+
 # Apagar equipo sin respuesta del backend (TMG-02 de T7): no es un rechazo
 APAGADO_INCIERTO = ("Sin respuesta del controlador: el apagado puede estar en curso. "
                     "Espere antes de volver a intentarlo.")
@@ -253,11 +261,13 @@ class UIServiceBackend:
             logger.warning("start_cycle error: %s", e)
             return False
 
-    def abort_cycle(self) -> bool:
-        """Envía POST /cycle/abort. Retorna True si tuvo éxito."""
+    def abort_cycle(self):
+        """Envía POST /cycle/abort. Si tuvo éxito devuelve la respuesta (dict,
+        siempre verdadera; D8-2.15: `pendiente` = cancelación en espera de los
+        datos de la tarjeta); si no, False."""
         try:
-            self.backend.post(path="/cycle/abort")
-            return True
+            r = self.backend.post(path="/cycle/abort")
+            return r if isinstance(r, dict) and r else {"ok": True}
         except Exception as e:
             logger.warning("abort_cycle error: %s", e)
             return False
@@ -287,7 +297,9 @@ class UIServiceBackend:
 
     def reconocer_alarma(self, clave: str, usuario: str) -> tuple[bool, str]:
         """POST /alarms/{clave}/acknowledge (P-5, tanda 6: despeje manual de
-        COM-02/COM-03). (ok, motivo del rechazo)."""
+        COM-02/COM-03). (ok, motivo del rechazo). D8-2.15 (tanda 8): el motivo
+        es una clave del catálogo i18n (la QML la traduce), nunca el texto de
+        la excepción HTTP."""
         from urllib.parse import quote
         try:
             self.backend.post(path=f"/alarms/{quote(clave, safe='')}/acknowledge",
@@ -295,7 +307,14 @@ class UIServiceBackend:
             return True, ""
         except Exception as e:
             logger.warning("reconocer_alarma error: %s", e)
-            return False, str(e)
+            # TMG-10 / SAF-05 de la revisión S2b: sin respuesta a tiempo no se
+            # sabe si el backend la despejó
+            if isinstance(e, requests.Timeout):
+                return False, "notificaciones.despejar_sin_confirmacion"
+            estado_http = getattr(getattr(e, "response", None), "status_code", None)
+            return False, _MOTIVO_DESPEJAR.get(estado_http, "notificaciones.despejar_rechazado"
+                                               if estado_http is not None
+                                               else "notificaciones.despejar_sin_respuesta")
 
     def apagar_equipo(self, ventana: str) -> tuple[bool, str]:
         """POST /system/shutdown (fin de ciclo §16). (ok, motivo del rechazo)."""

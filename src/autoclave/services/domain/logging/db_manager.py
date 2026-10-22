@@ -297,6 +297,16 @@ def _migracion_v9(conn: sqlite3.Connection) -> None:
                  "BEGIN SELECT RAISE(ABORT, 'usuarios no se borran'); END")
 
 
+def _migracion_v10(conn: sqlite3.Connection) -> None:
+    """D8-2.14 (tanda 8, Q1-P5): líneas de aviso del pie del ticket, en JSON
+    ({"sin_datos_s": segundos, "avisos": [texto, ...]}), para que la
+    reimpresión sea idéntica al ticket impreso en vivo. Los ciclos anteriores
+    quedan con '' (se reimprimen como antes, sin esas líneas)."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(ciclos)")}
+    if "avisos_ticket" not in columnas:
+        conn.execute("ALTER TABLE ciclos ADD COLUMN avisos_ticket TEXT DEFAULT ''")
+
+
 def _valores_fallo_json(valores) -> str:
     """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
     if not isinstance(valores, dict) or not valores:
@@ -317,6 +327,7 @@ _MIGRACIONES = (
     (7, _migracion_v7),
     (8, _migracion_v8),
     (9, _migracion_v9),
+    (10, _migracion_v10),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -751,15 +762,17 @@ class DbManager:
 
     def cerrar_ciclo(self, ciclo_id: int, resultado: str, motivo_fallo: str | None = None,
                      codigo_fallo: str | None = None, f0_final: float | None = None,
-                     valores_fallo: dict | None = None):
+                     valores_fallo: dict | None = None, avisos_ticket: dict | None = None):
         """Registra la hora de fin, el resultado y (si lo hay) el motivo, el
-        código y los parámetros del fallo, y el F0 final si el ciclo tenía F0 activo."""
+        código y los parámetros del fallo, y el F0 final si el ciclo tenía F0 activo.
+        `avisos_ticket` (D8-2.14): líneas de aviso del pie del ticket."""
         with self._lock:
             self._conn.execute(
                 "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
-                "f0_final=?, valores_fallo=? WHERE id=?",
+                "f0_final=?, valores_fallo=?, avisos_ticket=? WHERE id=?",
                 (datetime.now().isoformat(), resultado, motivo_fallo or "",
-                 codigo_fallo or "", f0_final, _valores_fallo_json(valores_fallo), ciclo_id),
+                 codigo_fallo or "", f0_final, _valores_fallo_json(valores_fallo),
+                 _valores_fallo_json(avisos_ticket), ciclo_id),
             )
             self._conn.commit()
 
@@ -785,10 +798,11 @@ class DbManager:
                     fin = (cierre.get("fecha_fin") or datetime.now().isoformat(),
                            cierre.get("resultado") or "DESCONOCIDO",
                            cierre.get("motivo") or "", cierre.get("codigo") or "",
-                           cierre.get("f0_final"))
+                           cierre.get("f0_final"),
+                           _valores_fallo_json(cierre.get("avisos_ticket")))
                 else:
                     fin = (datetime.now().isoformat(), "INTERRUMPIDO",
-                           motivo_interrumpido, "", None)
+                           motivo_interrumpido, "", None, "")
                 cur = self._conn.execute(
                     """
                     INSERT INTO ciclos
@@ -796,8 +810,9 @@ class DbManager:
                          temp_esterilizacion, tiempo_esterilizacion,
                          modelo, serie, version_sw, operador,
                          asignacion_sensores, numero_programa, uuid, programa_json,
-                         fecha_fin, resultado, motivo_fallo, codigo_fallo, f0_final)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                         fecha_fin, resultado, motivo_fallo, codigo_fallo, f0_final,
+                         avisos_ticket)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
                     """,
                     (
                         encabezado.get("numero"),
@@ -866,11 +881,12 @@ class DbManager:
             if cerrar:
                 self._conn.execute(
                     "UPDATE ciclos SET fecha_fin=?, resultado=?, motivo_fallo=?, codigo_fallo=?, "
-                    "f0_final=?, valores_fallo=? WHERE id=?",
+                    "f0_final=?, valores_fallo=?, avisos_ticket=? WHERE id=?",
                     (cierre.get("fecha_fin") or datetime.now().isoformat(),
                      cierre.get("resultado") or "DESCONOCIDO", cierre.get("motivo") or "",
                      cierre.get("codigo") or "", cierre.get("f0_final"),
-                     _valores_fallo_json(cierre.get("valores")), ciclo_id))
+                     _valores_fallo_json(cierre.get("valores")),
+                     _valores_fallo_json(cierre.get("avisos_ticket")), ciclo_id))
             self._conn.commit()
         except Exception:
             self._conn.rollback()

@@ -3,7 +3,7 @@
 import copy
 import time
 import threading
-from autoclave.state_machine.alarms.catalogo import COM_01, TARJETA_SIN_TRAMA_VALIDA
+from autoclave.state_machine.alarms.catalogo import COM_01, COM_04, TARJETA_SIN_TRAMA_VALIDA
 from autoclave.state_machine.state_machine import StateMachine
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
@@ -45,6 +45,12 @@ _TICKS_SEGUROS_OLVIDAR_CICLO = 3
 _ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS"}
 # U4: lecturas seguidas con la DI vencida antes de TARJETA_SIN_TRAMA_VALIDA
 _DEBOUNCE_DI_VENCIDA = 3
+# D8-2.11 (tanda 8, Q1-P1): reintentos del ALL_OFF sin confirmar al salir del
+# modo prueba (uno por tick) antes de la alarma COM-04
+_REINTENTOS_ALL_OFF_SALIDA_PRUEBA = 3
+# TMG-03 de la revisión S2b: espera máxima del ACK de cada reintento (bajo
+# _sm_lock); el ALL_OFF normal espera 1 s
+_TIMEOUT_ACK_REINTENTO_ALL_OFF_S = 0.3
 
 
 class ControlLoop:
@@ -172,6 +178,12 @@ class ControlLoop:
         # Modo prueba (bench validation): pausa state_machine.update() sin
         # detener el resto del loop (sensores, puertas, enlace serial).
         self._test_mode = threading.Event()
+        # D8-2.11 (tanda 8): reintentos pendientes del ALL_OFF de la salida
+        # del modo prueba (la máquina sigue pausada mientras queden) y
+        # número del próximo; COM-04 activa hasta una confirmación.
+        self._reintentos_all_off = 0
+        self._reintento_all_off_n = 0
+        self._com04_activa = False
 
         # Acumulación de F0 (letalidad): timestamp del último tick que
         # acumuló, para calcular dt_min real (no el interval nominal).
@@ -424,6 +436,16 @@ class ControlLoop:
         backend (órdenes de puerta, revisión de seguridad de la etapa 2)."""
         return self._desconectado_desde is not None
 
+    @property
+    def desconexion_en_tolerancia(self) -> bool:
+        """D8-2.13 (tanda 8, Q1-P4): el enlace está caído y todavía no venció
+        la tolerancia de COM-02 (_TOLERANCIA_DESCONEXION_SEG). /cycle/abort
+        acepta entonces la cancelación en espera, como en R1-P5. Lectura de
+        un float desde el hilo HTTP (bajo _sm_lock en el backend)."""
+        desde = self._desconectado_desde
+        return (desde is not None
+                and time.monotonic() - desde < self._TOLERANCIA_DESCONEXION_SEG)
+
     def _di_vigente(self) -> bool:
         """True si la última trama DI del enlace tiene a lo sumo
         _VIGENCIA_DI_SEG segundos. Un enlace que no informa la edad (o la
@@ -659,6 +681,8 @@ class ControlLoop:
             for alarm_id in sorted(self._alarmas_tarjeta):
                 self.alarm_manager.resolver(alarm_id)
             self._alarmas_tarjeta.clear()
+            # D8-2.11: el handshake incluye un ALL_OFF confirmado
+            self._salidas_confirmadas("handshake")
             return
 
         # TMG-09 (re-revisión S2a): bajo _sm_lock y sin apagado en curso, como
@@ -843,11 +867,19 @@ class ControlLoop:
                     "Modo prueba cancelado automáticamente: paro de emergencia activado."
                 )
 
+            # D8-2.11 (tanda 8): reintentos del ALL_OFF de la salida del modo
+            # prueba. Mientras queden, la máquina sigue pausada como en el
+            # modo prueba, salvo con el paro activo (aplica su protocolo).
+            if self._reintentos_all_off > 0 and not self._test_mode.is_set():
+                self._reintentar_all_off()
+            pausada = self._test_mode.is_set() or (
+                self._reintentos_all_off > 0 and not self.estado.get_flag("PARO_EMERGENCIA"))
+
             # 3. Dispositivos → actúan (pausado durante el modo prueba: las
             # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
             # cada tick mientras están CERRADO, lo que pisaría el control
             # manual de esas mismas salidas desde /io/test/output).
-            if not self._test_mode.is_set():
+            if not pausada:
                 for door in self.doors:
                     door.update()
 
@@ -855,7 +887,7 @@ class ControlLoop:
             self.door_service.update()
 
             # 5. Máquina de estados global (pausada durante el modo prueba)
-            if not self._test_mode.is_set():
+            if not pausada:
                 # TMG-03 de T5: el estado seguro solo avanza con datos vigentes
                 # (sin volver a consultar el enlace: se usa la lectura de este tick)
                 vigentes = connected and not self.desconectado and self._di_vigente()
@@ -1091,8 +1123,19 @@ class ControlLoop:
                                "lleva a estado seguro.")
 
             self._test_mode.set()
+            # D8-2.11: entrar cancela los reintentos pendientes (el modo
+            # prueba vuelve a pausar todo y su salida apaga de nuevo)
+            self._reintentos_all_off = 0
+            # TMG-04 de la revisión S2b (DECISIÓN SIN CONFIRMAR): una orden de
+            # inicio anterior a las pruebas no se aplica al salir (re-revisión
+            # S2b: queda en el log y en la bitácora)
+            if self.estado.get_flag("START_CICLO"):
+                logger.warning("Modo prueba: se descarta una orden de inicio de ciclo pendiente")
+                self._evento_seguridad("inicio_descartado_por_modo_prueba", {})
+            self.estado.set_flag("START_CICLO", False)
             self.set_do.buzer.stop()
-            self.set_do.reset_all_outputs()
+            if self.set_do.reset_all_outputs() is True:
+                self._salidas_confirmadas("modo_prueba")
             return True, ""
 
     def exit_test_mode(self) -> bool:
@@ -1107,10 +1150,83 @@ class ControlLoop:
         with self._sm_lock:
             confirmado = self.set_do.reset_all_outputs() is True
             self._test_mode.clear()
+            # D8-2.11 (tanda 8, Q1-P1): sin ACK, la máquina sigue pausada y el
+            # tick reintenta el ALL_OFF hasta 3 veces (ver _reintentar_all_off)
+            if confirmado:
+                self._reintentos_all_off = 0
+                self._salidas_confirmadas("modo_prueba")
+            else:
+                self._reintentos_all_off = _REINTENTOS_ALL_OFF_SALIDA_PRUEBA
+                self._reintento_all_off_n = 1
         if not confirmado:
             logger.warning("Salida del modo prueba: la tarjeta no confirmó el ALL_OFF "
-                           "(quedaron órdenes individuales sin confirmación)")
+                           "(quedaron órdenes individuales sin confirmación); se "
+                           "reintenta %d veces", _REINTENTOS_ALL_OFF_SALIDA_PRUEBA)
         return confirmado
+
+    @property
+    def salidas_sin_confirmar_pendiente(self) -> bool:
+        """D8-2.11: quedan reintentos del ALL_OFF de la salida del modo prueba
+        (la máquina de estados sigue pausada)."""
+        return self._reintentos_all_off > 0
+
+    def _reintentar_all_off(self) -> None:
+        """D8-2.11 (tanda 8, Q1-P1): un reintento por tick, bajo _sm_lock. Si
+        confirma, se reanuda la máquina y se anota en la bitácora. Si se
+        agotan los 3, alarma COM-04 (bloquea el inicio), se reanuda la máquina
+        y, fuera de CICLO, se repite el handshake (su ALL_OFF confirmado es la
+        confirmación que la despeja)."""
+        n = self._reintento_all_off_n
+        try:
+            confirmado = self.set_do.reset_all_outputs(
+                timeout=_TIMEOUT_ACK_REINTENTO_ALL_OFF_S) is True
+        except Exception:
+            logger.exception("ControlLoop: el reintento %d del ALL_OFF falló", n)
+            confirmado = False
+        if confirmado:
+            self._reintentos_all_off = 0
+            logger.info("Salida del modo prueba: ALL_OFF confirmado en el reintento %d", n)
+            self._evento_seguridad("salidas_confirmadas_tras_reintento", {"reintento": n})
+            self._salidas_confirmadas("reintento", registrar=False)
+            return
+        self._reintentos_all_off -= 1
+        self._reintento_all_off_n = n + 1
+        if self._reintentos_all_off > 0:
+            return
+        logger.error("Salida del modo prueba: ALL_OFF sin confirmar tras %d reintentos; "
+                     "alarma COM-04", _REINTENTOS_ALL_OFF_SALIDA_PRUEBA)
+        try:
+            self.alarm_manager.activar(COM_04)
+            self._com04_activa = True
+        except Exception:
+            logger.exception("ControlLoop: no se pudo activar COM-04")
+        self._evento_seguridad("salidas_sin_confirmar",
+                               {"reintentos": _REINTENTOS_ALL_OFF_SALIDA_PRUEBA})
+        if self.estado.get_machine_state() != GlobalState.CICLO:
+            self.link.solicitar_handshake()
+
+    def _com04_en_gestor(self) -> bool:
+        # re-revisión S2b: solo ACTIVA (una RESUELTA_SIN_RECONOCER no cuenta)
+        try:
+            from autoclave.state_machine.alarms.instancia import (
+                EstadoInstancia, InstanciaAlarma)
+            inst = self.alarm_manager.obtener(COM_04)
+            return isinstance(inst, InstanciaAlarma) and inst.estado is EstadoInstancia.ACTIVA
+        except Exception:
+            return False
+
+    def _salidas_confirmadas(self, origen: str, registrar: bool = True) -> None:
+        """D8-2.11: llegó una confirmación (ALL_OFF con ACK o handshake
+        completo): se despeja COM-04 si estaba activa."""
+        # SAF-01 de la revisión S2b: también si el gestor la tiene activa
+        # aunque la marca local se haya desfasado
+        if not (self._com04_activa or self._com04_en_gestor()):
+            return
+        self._com04_activa = False
+        self._resolver_alarma(COM_04)
+        logger.info("COM-04 despejada: salidas confirmadas (%s)", origen)
+        if registrar:
+            self._evento_seguridad("salidas_confirmadas", {"origen": origen})
 
     # =========================================================================
     # CAMBIO DE CICLO ACTIVO

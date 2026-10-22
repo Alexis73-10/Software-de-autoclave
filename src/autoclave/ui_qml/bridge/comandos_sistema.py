@@ -19,6 +19,15 @@ logger = logging.getLogger(__name__)
 
 VENTANA_PRINCIPAL = 1
 
+# D8-2.15 (tanda 8): motivos de rechazo de DESPEJAR (claves del catálogo i18n)
+MOTIVOS_DESPEJAR = frozenset({
+    "notificaciones.despejar_sin_enlace",
+    "notificaciones.despejar_no_activa",
+    "notificaciones.despejar_rechazado",
+    "notificaciones.despejar_sin_respuesta",
+    "notificaciones.despejar_sin_confirmacion",
+})
+
 
 def _en_hilo(tarea) -> None:
     threading.Thread(target=tarea, daemon=True, name="comandos-sistema").start()
@@ -27,10 +36,11 @@ def _en_hilo(tarea) -> None:
 class ComandosSistema(QObject):
     ocupadoChanged = Signal()
     mensajeChanged = Signal()
+    mensajeDespejarChanged = Signal()
     camaraNoSeguraChanged = Signal()
     # S4 (CIC-10): el aviso pide abrir la asignación de sondas (OPCIONES)
     asignarSondaSolicitada = Signal()
-    _terminado = Signal(bool, str)   # emitida desde el hilo de trabajo
+    _terminado = Signal(str, bool, str)   # (petición, ok, motivo); desde el hilo de trabajo
 
     def __init__(self, puente, ui_service, door: int, parent=None, ejecutar=_en_hilo):
         super().__init__(parent)
@@ -40,6 +50,7 @@ class ComandosSistema(QObject):
         self._ejecutar = ejecutar
         self._ocupado = False
         self._mensaje = ""
+        self._mensaje_despejar = ""   # D8-2.15: clave del catálogo del rechazo de DESPEJAR
         self._apagando = False   # la petición en curso es la de apagar
         self._terminado.connect(self._al_terminar)
         # el aviso de "NO ABRIR" sigue a la bandera del puente
@@ -66,7 +77,10 @@ class ComandosSistema(QObject):
         if self._ocupado or not self._puente.connected:
             return
         self._fijar_ocupado(True)
-        self._fijar_mensaje("")
+        if nombre == "despejar_alarma":
+            self._fijar_mensaje_despejar("")
+        else:
+            self._fijar_mensaje("")
 
         def tarea():
             try:
@@ -76,7 +90,7 @@ class ComandosSistema(QObject):
                 logger.warning("%s error: %s", nombre, e)
                 ok, motivo = False, str(e)
             try:
-                self._terminado.emit(ok, motivo)
+                self._terminado.emit(nombre, ok, motivo)
             except RuntimeError:
                 pass   # la ventana se cerró con la petición en curso
 
@@ -111,14 +125,38 @@ class ComandosSistema(QObject):
         self._apagando = True
         self._lanzar("apagar_equipo", lambda: self._ui.apagar_equipo("principal"))
 
-    def _al_terminar(self, ok: bool, motivo: str) -> None:
+    def _al_terminar(self, nombre: str, ok: bool, motivo: str) -> None:
         # TMG-06 de T7: un apagado aceptado deja el botón deshabilitado
         apagado = self._apagando and ok
         self._apagando = False
         if not apagado:
             self._fijar_ocupado(False)
+        if nombre == "despejar_alarma":
+            # D8-2.15 (tanda 8): el rechazo de DESPEJAR va con su propio texto
+            # del catálogo al panel de notificaciones (no al de apagar); un
+            # motivo que no sea una clave conocida sale como el genérico
+            if ok:
+                self._fijar_mensaje_despejar("")
+            else:
+                self._fijar_mensaje_despejar(motivo if motivo in MOTIVOS_DESPEJAR
+                                             else "notificaciones.despejar_rechazado")
+            return
         if not ok:
             self._fijar_mensaje(motivo)
+
+    @Slot()
+    def descartarMensajeDespejar(self) -> None:
+        self._fijar_mensaje_despejar("")
+
+    @Property(str, notify=mensajeDespejarChanged)
+    def mensajeDespejar(self) -> str:
+        """D8-2.15: "" o la clave del catálogo del último rechazo de DESPEJAR."""
+        return self._mensaje_despejar
+
+    def _fijar_mensaje_despejar(self, valor: str) -> None:
+        if self._mensaje_despejar != valor:
+            self._mensaje_despejar = valor
+            self.mensajeDespejarChanged.emit()
 
     def _fijar_ocupado(self, valor: bool) -> None:
         if self._ocupado != valor:

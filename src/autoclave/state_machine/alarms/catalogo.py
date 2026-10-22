@@ -71,6 +71,8 @@ MANTENIMIENTO_VENCIDO = SIS_04
 # B5 (tanda 4): aviso no bloqueante de impresora desconectada al arrancar
 IMPRESORA_DESCONECTADA = SIS_05
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
+# D8-2.11 (tanda 8): ALL_OFF sin confirmar al salir del modo prueba
+COM_04 = "COM-04"
 # Tarjeta de E/S (E6): los ids se conservan como códigos (no se renombran).
 TARJETA_SIN_TRAMA_VALIDA = "TARJETA_SIN_TRAMA_VALIDA"
 TARJETA_VERSION_INCOMPATIBLE = "TARJETA_VERSION_INCOMPATIBLE"
@@ -235,6 +237,13 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase "
        "{fase}. El ciclo se abortó.",
        "Verifique el cable USB y la alimentación de la tarjeta antes de reiniciar."),
+    # D8-2.11 (tanda 8, Q1-P1): la tarjeta no confirmó el ALL_OFF al salir del
+    # modo prueba ni tras 3 reintentos. Bloquea el inicio hasta que llegue una
+    # confirmación (ALL_OFF confirmado o handshake completo, que lo incluye).
+    _d(COM_04, _AL, True, _A, "Salidas sin confirmar",
+       "La tarjeta de control no confirmó el apagado de todas las salidas al salir del "
+       "modo prueba, ni tras 3 reintentos. Se repite la conexión con la tarjeta.",
+       "No inicie ciclos. Si la alarma no desaparece sola, llame a servicio técnico."),
     # T8 (D-03): alerta persistente, no bloqueante. Los ciclos se pueden
     # iniciar con confirmación explícita y quedan en el respaldo y el ticket.
     _d(OPERANDO_SIN_BD, _AL, False, _M, "Operando sin base de datos",

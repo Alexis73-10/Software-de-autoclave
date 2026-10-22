@@ -367,6 +367,8 @@
     "sin_bd_pregunta": "Database not available. The cycle will run without an operator and without a database record (backup file and printout only). Do you want to continue without a record?",
     "sin_bd_continuar": "Continue without record",
     "cancelacion_en_espera_datos": "Cancellation accepted: it will be applied when the control board data returns. If it does not return within a few seconds, the cycle ends with a communication failure.",
+    "salidas_sin_confirmar_pendiente": "Confirming that all outputs are off after test mode. Wait a few seconds.",
+    "carga_no_esteril": "LOAD NOT STERILE",
     "principal_sin_lectura": "Main probe without reading: call service",
     "confirmar_estado_seguro_texto": "The emergency stop was released. Check that there are no steam or water leaks before continuing. Confirming acknowledges the cycle result and brings the chamber to a safe state."
   },
@@ -475,6 +477,10 @@
     "grupo_alarmas": "Alarms",
     "grupo_avisos": "Notices",
     "despejar_sin_enlace": "Cannot clear: the link with the control board has not returned to normal yet.",
+    "despejar_no_activa": "Cannot clear: the alarm is no longer active.",
+    "despejar_rechazado": "Cannot clear: the system rejected the request.",
+    "despejar_sin_respuesta": "Cannot clear: no response from the control system. Try again.",
+    "despejar_sin_confirmacion": "No confirmation was received in time: check whether the alarm is still listed.",
     "despejar": "CLEAR"
   },
   "equipo": {
@@ -936,6 +942,11 @@
       "titulo": "I/O board failure during the cycle",
       "plantilla": "{causa}: {motivo} Phase {fase}. The cycle was aborted.",
       "accion": "Check the I/O board before restarting. Call technical service."
+    },
+    "COM-04": {
+      "titulo": "Outputs not confirmed",
+      "plantilla": "The control board did not confirm that all outputs were switched off when leaving test mode, even after 3 retries. The connection with the board is being restarted.",
+      "accion": "Do not start cycles. If the alarm does not clear by itself, call technical service."
     }
   },
   "sensores_ciclo": {

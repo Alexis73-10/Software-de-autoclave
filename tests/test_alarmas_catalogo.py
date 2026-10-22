@@ -39,6 +39,7 @@ _EJEMPLOS = {
     "COM-01": {},
     "COM-02": {"segundos": 5.0, "fase": "Calentamiento"},
     "COM-03": {"causa": "TARJETA_WATCHDOG", "motivo": "x.", "fase": "Secado"},
+    "COM-04": {},
     "SEN-03": {"sensor": "Referencia", "valor": None},
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
@@ -100,6 +101,8 @@ def test_niveles_migrados_iguales_a_hoy():
         "SIS-01": Nivel.FALLO_CRITICO, "SUM-01": Nivel.FALLO_CRITICO,
         "SEN-02": Nivel.FALLO_CRITICO, "COM-02": Nivel.FALLO_CRITICO,
         "PUE-02": Nivel.ALARMA, "PUE-03": Nivel.ALARMA, "COM-01": Nivel.ALARMA,
+        # D8-2.11 (tanda 8): alarma nueva, FALLA bloqueante como COM-01
+        "COM-04": Nivel.ALARMA,
         # E6 decisión 9 y arranque: FALLA fuera de ciclo, EMERGENCIA en ciclo
         "COM-03": Nivel.FALLO_CRITICO,
         **{codigo: Nivel.ALARMA for codigo in CODIGOS_CONSERVADOS},
