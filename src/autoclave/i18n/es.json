@@ -679,7 +679,12 @@
     "titulo": "Seleccionar ciclo",
     "ayuda": "Toque para cambiar de ciclo",
     "mas_usado": "Más usado",
-    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo."
+    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo.",
+    "motivo_ciclo_en_curso": "No se puede cambiar de ciclo mientras hay uno en curso.",
+    "motivo_paro": "No se puede cambiar de ciclo con el paro de emergencia activado.",
+    "motivo_estado_seguro": "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro.",
+    "motivo_modo_prueba": "No se puede cambiar de ciclo con el modo prueba activo.",
+    "motivo_estado": "No se puede cambiar de ciclo en el estado actual del equipo."
   },
   "alarmas": {
     "SIS-05": {

@@ -80,15 +80,27 @@ Item {
     property bool cicloOcupado: comandoCiclo?.ocupado ?? false
     // T-16 (§5.9, decisión 22): sin rol, solo con la máquina en FALLA
     readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
-    // B6 (tanda 4): el programa se puede cambiar solo en reposo/preciclo
-    // (PREPARACION o PREPARADO), con datos vigentes, sin paro, modo prueba ni
-    // estado seguro. En ciclo en curso NO es tocable. El backend vuelve a
-    // decidirlo (POST /cycle/select) y su motivo se muestra en la ventana.
-    readonly property bool programaTocable:
-        datosVigentes && selectorCiclo !== null
-        && ((puente?.machineState ?? "") === "PREPARACION" || (puente?.machineState ?? "") === "PREPARADO")
-        && !(puente?.estadoSeguroActivo ?? false) && !(puente?.estadoSeguroRequiereConfirmacion ?? false)
-        && !(puente?.paroActivo ?? false) && !(puente?.modoPrueba ?? false)
+    // B6 (tanda 4) y D8-5.1 (tanda 8): el programa se puede cambiar en
+    // PREPARACION, PREPARADO y FALLA (decisión del 19-oct), sin paro, modo
+    // prueba ni estado seguro, AUNQUE no haya datos vigentes de la tarjeta
+    // (Cristian, 22-oct 12:08: elegir un programa no acciona nada). En ciclo
+    // en curso NO. El backend vuelve a decidirlo (POST /cycle/select) y su
+    // motivo se muestra en la ventana.
+    readonly property string motivoNoTocable: {
+        const m = puente?.machineState ?? ""
+        if (m === "CICLO")
+            return "selector_ciclo.motivo_ciclo_en_curso"
+        if (puente?.paroActivo ?? false)
+            return "selector_ciclo.motivo_paro"
+        if ((puente?.estadoSeguroActivo ?? false) || (puente?.estadoSeguroRequiereConfirmacion ?? false))
+            return "selector_ciclo.motivo_estado_seguro"
+        if (puente?.modoPrueba ?? false)
+            return "selector_ciclo.motivo_modo_prueba"
+        if (m !== "PREPARACION" && m !== "PREPARADO" && m !== "FALLA")
+            return "selector_ciclo.motivo_estado"
+        return ""
+    }
+    readonly property bool programaTocable: selectorCiclo !== null && motivoNoTocable === ""
     property bool fallaOcupada: comandoFalla?.ocupado ?? false
 
     // Insignia de la campana: alarmas activas más los avisos de seguridad del
@@ -356,10 +368,19 @@ Item {
         color: Colores.textoGuia
         font.family: Tipografia.familia
     }
+    // D8-5.1: el recuadro "Programa" y el número del ciclo responden SIEMPRE:
+    // si hoy no se puede cambiar, la ventana se abre con el motivo (catálogo)
+    // y la lista inactiva; nunca deja de responder en silencio.
     MouseArea {
         objectName: "zonaProgramaTocable"
-        enabled: raiz.programaTocable
+        enabled: raiz.selectorCiclo !== null
         x: raiz.m(351); y: raiz.m(219); width: raiz.m(488); height: raiz.m(165)
+        onClicked: ventanaSelectorCiclo.abrir()
+    }
+    MouseArea {
+        objectName: "zonaNumeroTocable"
+        enabled: raiz.selectorCiclo !== null
+        x: raiz.m(34); y: raiz.m(219); width: raiz.m(317); height: raiz.m(165)
         onClicked: ventanaSelectorCiclo.abrir()
     }
 
@@ -885,6 +906,7 @@ Item {
             wrapMode: Text.WordWrap
             visible: text !== ""
             text: !raiz.selectorCiclo ? ""
+                  : raiz.motivoNoTocable !== "" ? I18n.t(raiz.motivoNoTocable, I18n.lang)
                   : raiz.selectorCiclo.sinConexion ? I18n.t("selector_ciclo.sin_conexion", I18n.lang)
                   : raiz.selectorCiclo.mensaje
             color: Colores.peligroTexto
@@ -903,7 +925,8 @@ Item {
             delegate: Rectangle {
                 id: fila
                 required property var modelData
-                readonly property bool activa: (raiz.selectorCiclo?.seleccionable ?? false)
+                readonly property bool activa: raiz.programaTocable
+                                               && (raiz.selectorCiclo?.seleccionable ?? false)
                                                && !(raiz.selectorCiclo?.ocupado ?? false)
                 objectName: "filaCiclo_" + modelData.numero
                 width: ListView.view.width

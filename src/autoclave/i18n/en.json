@@ -679,7 +679,12 @@
     "titulo": "Select cycle",
     "ayuda": "Tap to change cycle",
     "mas_usado": "Most used",
-    "sin_conexion": "No response from the equipment. Try again."
+    "sin_conexion": "No response from the equipment. Try again.",
+    "motivo_ciclo_en_curso": "The cycle cannot be changed while one is running.",
+    "motivo_paro": "The cycle cannot be changed while the emergency stop is pressed.",
+    "motivo_estado_seguro": "The cycle cannot be changed while the chamber is being brought to a safe state.",
+    "motivo_modo_prueba": "The cycle cannot be changed while test mode is active.",
+    "motivo_estado": "The cycle cannot be changed in the current equipment state."
   },
   "alarmas": {
     "SIS-05": {

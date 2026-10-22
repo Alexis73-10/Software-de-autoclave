@@ -122,7 +122,7 @@ def test_filas_mal_formadas_se_descartan():
 _GUION = r"""
 import json, sys
 sys.path.insert(0, "src")
-from PySide6.QtCore import QObject, QUrl
+from PySide6.QtCore import QMetaObject, QObject, QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlComponent, QQmlEngine
 import autoclave.ui_qml.bridge.i18n_qml  # noqa
@@ -184,20 +184,31 @@ r = {}
 zona = pre.findChild(QObject, "zonaProgramaTocable")
 ayuda = pre.findChild(QObject, "ayudaCambiarCiclo")
 ventana = pre.findChild(QObject, "ventanaSelectorCiclo")
+numero = pre.findChild(QObject, "zonaNumeroTocable")
+aviso = pre.findChild(QObject, "avisoSelectorCiclo")
 r["tocable_en_preparado"] = bool(pre.property("programaTocable")) and bool(zona.property("enabled")) and bool(ayuda.property("visible"))
+r["numero_tocable"] = numero is not None and bool(numero.property("enabled"))
 r["ventana_cerrada"] = not ventana.property("visible")
-# estados donde NO se puede cambiar
-for nombre, cambios in (("ciclo", {"machineState": "CICLO"}), ("estado_seguro", {"estadoSeguroActivo": True}),
-                        ("confirmar_seguro", {"estadoSeguroRequiereConfirmacion": True}),
-                        ("paro", {"paroActivo": True}), ("prueba", {"modoPrueba": True}),
-                        ("sin_conexion", {"connected": False}), ("falla", {"machineState": "FALLA"})):
+# D8-5.1 (tanda 8): sin datos vigentes y en FALLA SÍ se puede cambiar
+for nombre, cambios in (("sin_conexion", {"connected": False}), ("falla", {"machineState": "FALLA"})):
     previos = {k: pf.property(k) for k in cambios}
     for k, v in cambios.items(): pf.setProperty(k, v)
-    r["bloqueado_" + nombre] = (not pre.property("programaTocable")) and (not zona.property("enabled")) and (not ayuda.property("visible"))
+    r["permitido_" + nombre] = bool(pre.property("programaTocable")) and bool(ayuda.property("visible"))
+    for k, v in previos.items(): pf.setProperty(k, v)
+# estados donde NO se puede cambiar: la zona sigue respondiendo y la ventana
+# muestra el motivo del catálogo (nunca silencio)
+for nombre, cambios in (("ciclo", {"machineState": "CICLO"}), ("estado_seguro", {"estadoSeguroActivo": True}),
+                        ("confirmar_seguro", {"estadoSeguroRequiereConfirmacion": True}),
+                        ("paro", {"paroActivo": True}), ("prueba", {"modoPrueba": True})):
+    previos = {k: pf.property(k) for k in cambios}
+    for k, v in cambios.items(): pf.setProperty(k, v)
+    r["bloqueado_" + nombre] = (not pre.property("programaTocable")) and bool(zona.property("enabled")) and (not ayuda.property("visible"))
+    r["motivo_" + nombre] = pre.property("motivoNoTocable")
+    QMetaObject.invokeMethod(ventana, "abrir")
+    r["aviso_" + nombre] = aviso.property("text") if aviso.property("visible") else ""
+    QMetaObject.invokeMethod(ventana, "cerrar")
     for k, v in previos.items(): pf.setProperty(k, v)
 # abrir carga la lista
-ventana.metaObject()
-from PySide6.QtCore import QMetaObject
 QMetaObject.invokeMethod(ventana, "abrir")
 r["ventana_abierta"] = bool(ventana.property("visible"))
 lista = pre.findChild(QObject, "listaSelectorCiclo")
@@ -238,13 +249,21 @@ def _correr(captura="", sin_historial=False):
     return json.loads(r.stdout.strip().splitlines()[-1])
 
 
-def test_el_recuadro_programa_es_tocable_solo_en_reposo_y_elige_por_el_mismo_endpoint():
+def test_el_recuadro_programa_es_tocable_fuera_de_ciclo_y_elige_por_el_mismo_endpoint():
     d = _correr()
     # el bucle de binding de avisoSinConexion (altura) ya existía; no es del selector
     assert [a for a in d["avisos"] if "Binding loop" not in a] == []
-    assert d["tocable_en_preparado"] and d["ventana_cerrada"]
-    for caso in ("ciclo", "estado_seguro", "confirmar_seguro", "paro", "prueba", "sin_conexion", "falla"):
+    assert d["tocable_en_preparado"] and d["ventana_cerrada"] and d["numero_tocable"]
+    assert d["permitido_sin_conexion"] and d["permitido_falla"]          # D8-5.1
+    import json as _json
+    es = _json.loads((RAIZ / "src" / "autoclave" / "i18n" / "es.json").read_text(encoding="utf-8"))
+    claves = {"ciclo": "motivo_ciclo_en_curso", "estado_seguro": "motivo_estado_seguro",
+              "confirmar_seguro": "motivo_estado_seguro", "paro": "motivo_paro",
+              "prueba": "motivo_modo_prueba"}
+    for caso, clave in claves.items():
         assert d["bloqueado_" + caso], caso
+        assert d["motivo_" + caso] == "selector_ciclo." + clave, caso
+        assert d["aviso_" + caso] == es["selector_ciclo"][clave], caso
     assert d["ventana_abierta"] and d["filas"] == 4
     assert d["post"] == {"cycle_id": "i121", "origen": "puerta_1"}
     assert d["ventana_cerrada_tras_elegir"]
