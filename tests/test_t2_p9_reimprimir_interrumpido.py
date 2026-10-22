@@ -34,9 +34,10 @@ def test_ticket_interrumpido_en_ingles():
     assert "INTERRUPTED" in t and "LOAD NOT STERILE" in t
 
 
-def test_otros_resultados_no_llevan_la_marca():
-    for r in ("COMPLETADO", "CANCELADO", "FALLO_CALENTAMIENTO"):
-        assert "NO ESTÉRIL" not in tf.format_ticket(_fila(r), [])
+def test_completado_no_lleva_la_marca():
+    # T2-c (tanda 7): CANCELADO y FALLO_* ahora también la llevan
+    # (tests/test_q1_t2c_no_esteril_si_no_completado.py)
+    assert "NO ESTÉRIL" not in tf.format_ticket(_fila("COMPLETADO"), [])
 
 
 def test_reimpresion_desde_historial_de_un_interrumpido(cliente, db, estado_maquina):  # noqa: F811

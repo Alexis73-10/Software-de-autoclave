@@ -224,9 +224,11 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
     ]
     if motivo:
         lines.append(f"{_t(p, 'motivo')}: {motivo}")
-    # P-9 (tanda 6): el ciclo interrumpido (corte o reinicio) se reimprime con
-    # la marca explícita, en el idioma vigente
-    if str(resultado or "").startswith("INTERRUMPIDO"):
+    # T2-c (tanda 7, decisión 1.3 de Cristian; antes P-9 solo INTERRUMPIDO):
+    # todo ciclo que no terminó COMPLETADO (FALLO_*, CANCELADO, EMERGENCIA,
+    # INTERRUMPIDO, SENSOR_AUSENTE...) lleva la marca, en vivo y al
+    # reimprimir. Un resultado vacío o desconocido también (falla segura).
+    if not str(resultado or "").startswith("COMPLETADO"):
         lines.append(_t(p, "no_esteril"))
     if f0_total is not None:
         lines.append(f"F0 total: {f0_total:.1f} min")
