@@ -4142,7 +4142,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             # (presión atmosférica y puertas cerradas) ya no se exige aquí.
             # D8-3.19 (tanda 8): ÚNICA excepción, el aire atmosférico de la
             # cámara: con presión sobre atm + brecha o sin lectura, no se abre.
-            if aire_atmosferico_prueba.es_salida(name):
+            if clave == aire_atmosferico_prueba.CLAVE_ESTADO:   # SAF-04: por la clave resuelta
                 permitido, codigo = aire_atmosferico_prueba.evaluar(
                     context.estado, context.config_manager)
                 if not permitido:

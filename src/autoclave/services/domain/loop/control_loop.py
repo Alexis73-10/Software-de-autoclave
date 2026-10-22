@@ -748,7 +748,9 @@ class ControlLoop:
             # 2e. D8-3.19 (tanda 8): en modo prueba, el aire atmosférico de la
             # cámara abierto con la cámara presurizada o sin lectura de presión
             # se cierra (la orden de abrir ya se rechaza en /io/test/output).
-            aire_cortado = (self._vigilar_aire_atmosferico_prueba()
+            aire_cortado = (self._vigilar_aire_atmosferico_prueba(
+                                vigentes=connected and not self.desconectado
+                                and self._di_vigente())
                             if self._test_mode.is_set() else None)
 
             # 3. Dispositivos → actúan (pausado durante el modo prueba: las
@@ -798,23 +800,34 @@ class ControlLoop:
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
 
-    def _vigilar_aire_atmosferico_prueba(self) -> str | None:
-        """D8-3.19: con el modo prueba activo y la tarjeta reportando abierto
-        el aire atmosférico de la cámara, lo cierra si la condición de
-        apertura ya no se cumple (presión sobre atm + brecha o sin lectura).
-        El cierre es el lado seguro: inmediato, sin debounce, y se reafirma en
-        cada tick mientras la tarjeta lo siga reportando abierto. Devuelve el
-        código del motivo la primera vez (para registrarlo), o None."""
-        salidas = getattr(self.estado, "salidas_do", None) or {}
-        if not salidas.get(aire_atmosferico_prueba.CLAVE_ESTADO):
+    def _vigilar_aire_atmosferico_prueba(self, vigentes: bool = True) -> str | None:
+        """D8-3.19: con el modo prueba activo, mientras la condición de
+        apertura del aire atmosférico de la cámara no se cumpla (presión sobre
+        atm + brecha, sin lectura o datos no vigentes), se ordena cerrarlo en
+        cada tick, sin mirar lo que reporta la tarjeta (SAF-02 / TMG-01: la
+        trama DO puede llegar tarde o no llegar). Cerrar es el lado seguro:
+        inmediato, sin debounce, e idempotente. Si la tarjeta lo reportaba
+        abierto, devuelve el código del motivo una vez (para la bitácora);
+        se rearma cuando la tarjeta lo reporta cerrado."""
+        canal = EstadoAutoclave.map_do[aire_atmosferico_prueba.CLAVE_ESTADO] + 1
+        try:
+            salidas = getattr(self.estado, "salidas_do", None) or {}
+            reportada = bool(salidas.get(aire_atmosferico_prueba.CLAVE_ESTADO))
+            if vigentes:
+                permitido, codigo = aire_atmosferico_prueba.evaluar(self.estado,
+                                                                    self.config_manager)
+            else:
+                permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
+        except Exception:
+            # TMG-06: un error aquí no debe abortar el tick; se cierra
+            logger.exception("Modo prueba: no se pudo evaluar el aire atmosférico; se cierra")
+            reportada, permitido, codigo = True, False, aire_atmosferico_prueba.SIN_PRESION
+        if not reportada:
             self._aire_prueba_cortado = False
-            return None
-        permitido, codigo = aire_atmosferico_prueba.evaluar(self.estado, self.config_manager)
         if permitido:
             return None
-        self.set_do.set_output(
-            EstadoAutoclave.map_do[aire_atmosferico_prueba.CLAVE_ESTADO] + 1, False)
-        if self._aire_prueba_cortado:
+        self.set_do.set_output(canal, False)
+        if not reportada or self._aire_prueba_cortado:
             return None
         self._aire_prueba_cortado = True
         logger.warning("Modo prueba: aire atmosférico de cámara cerrado por el lazo (%s)", codigo)

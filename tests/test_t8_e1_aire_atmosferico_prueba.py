@@ -19,7 +19,7 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.backend_doble import cabecera, cargar_servidor
 
-_CONFIG = {"presion_admosferica": 75.0, "rango_presion_atm": 5.0}
+_CONFIG = {"presion_atmosferica": 75.0, "rango_presion_atm": 5.0}
 
 
 def _estado(pres):
@@ -28,7 +28,7 @@ def _estado(pres):
 
 # ── Regla pura ──────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("pres", [75.0, 80.0, 20.0, 0.0])
+@pytest.mark.parametrize("pres", [75.0, 80.0, 20.0, 1.0])
 def test_permitido_en_atmosferica_hasta_el_borde_y_en_vacio(pres):
     assert aap.evaluar(_estado(pres), _CONFIG) == (True, "")
 
@@ -38,13 +38,15 @@ def test_rechazado_con_la_camara_por_encima_de_atm_mas_brecha(pres):
     assert aap.evaluar(_estado(pres), _CONFIG) == (False, aap.CON_PRESION)
 
 
-@pytest.mark.parametrize("pres", [None, float("nan"), "x", True])
+# 0,0 kPa es lo que hoy entrega un lazo de 4-20 mA abierto (recorte de
+# convert_pressures): piso físico de 1 kPa absoluto (revisión SEN-01)
+@pytest.mark.parametrize("pres", [None, float("nan"), "x", True, 0.0, 0.99, -3.0])
 def test_rechazado_sin_lectura_de_presion(pres):
     assert aap.evaluar(_estado(pres), _CONFIG) == (False, aap.SIN_PRESION)
 
 
-@pytest.mark.parametrize("config", [{}, {"presion_admosferica": 75.0},
-                                    {"presion_admosferica": None, "rango_presion_atm": 5.0}])
+@pytest.mark.parametrize("config", [{}, {"presion_atmosferica": 75.0},
+                                    {"presion_atmosferica": None, "rango_presion_atm": 5.0}])
 def test_rechazado_sin_referencia_atmosferica(config):
     assert aap.evaluar(_estado(75.0), config) == (False, aap.SIN_REFERENCIA)
 
@@ -177,10 +179,38 @@ def test_lazo_no_toca_el_aire_en_atmosferica():
     loop.al_evento_seguridad.assert_not_called()
 
 
-def test_lazo_no_actua_si_el_aire_esta_cerrado():
+def test_lazo_reafirma_el_cierre_aunque_la_tarjeta_no_lo_reporte_abierto():
+    """SAF-02 / TMG-01: la trama DO puede llegar tarde o no llegar; mientras
+    la condición sea insegura se ordena cerrar en cada tick (idempotente),
+    pero sin registro en la bitácora si no estaba reportada abierta."""
     loop = _loop(_Estado(150.0, aire_on=False))
     loop._tick()
-    loop.set_do.set_output.assert_not_called()
+    loop.set_do.set_output.assert_any_call(_CANAL, False)
+    loop.al_evento_seguridad.assert_not_called()
+
+
+def test_lazo_cierra_con_datos_no_vigentes():
+    """Sin datos vigentes, la lectura guardada es vieja: se cierra. (En el
+    tick, una DI vencida además activa el paro (A-3), que cancela el modo
+    prueba y apaga todo.)"""
+    loop = _loop(_Estado(75.0, aire_on=True))
+    assert loop._vigilar_aire_atmosferico_prueba(vigentes=False) == aap.SIN_PRESION
+    loop.set_do.set_output.assert_called_once_with(_CANAL, False)
+
+
+def test_tick_con_di_vencida_apaga_todo():
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop._di_vigente = lambda: False
+    loop._tick()
+    loop.set_do.reset_all_outputs.assert_called()
+
+
+def test_lazo_cierra_si_la_evaluacion_falla():
+    """TMG-06: un error al evaluar no aborta el tick; se cierra."""
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop.config_manager.get.side_effect = RuntimeError("config rota")
+    loop._tick()
+    loop.set_do.set_output.assert_any_call(_CANAL, False)
 
 
 def test_lazo_fuera_de_modo_prueba_no_vigila():
