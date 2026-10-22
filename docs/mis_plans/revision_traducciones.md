@@ -90,6 +90,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-20 | Tanda 4 B4 | `opciones.secciones.parametros_sistema` ("Parámetros del equipo" / "Equipment parameters") | Opciones | sin revisar |
 | 2026-10-20 | Tanda 4 B5 | `alarmas.SIS-05.{titulo,descripcion,accion}` (Impresora no conectada / Printer not connected) | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-20 | Tanda 4 B6 | `selector_ciclo.*` (titulo, ayuda "Tap to change cycle", mas_usado "Most used", sin_conexion) | Ciclo | sin revisar |
+| 2026-10-22 | Tanda 7 C2 | `correo_c2.*` (direccion_invalida, rechazados_todos, rechazados_parcial, solo_manual, manual_y_guardados, todos_guardados, corregir, enviar_a_manual, aviso_invalida, no_se_guarda), `bitacora.ev.correo_enviado`, `bitacora.tipo.correo_enviado` | Correo / bitácora | sin revisar |
 
 ## Registro de revisiones
 

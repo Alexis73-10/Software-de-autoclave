@@ -40,6 +40,7 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
     from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
     from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
+    from autoclave.ui_qml.exportacion.correo import ResultadoEnvio
 
     ancho, alto, falla = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3] == "falla"
 
@@ -103,7 +104,9 @@ _SCRIPT = textwrap.dedent(r"""
                               generar_pdf_resumen=lambda ruta, *a: open(ruta, "wb").write(b"%PDF"),
                               generar_pdf_consolidado=lambda ruta, *a, **k: (
                                   open(ruta, "wb").write(b"%PDF"), [])[1],
-                              enviar=lambda c, m: correos.append(m["To"]))
+                              # C2 (tanda 7): el relay simulado acepta al destinatario
+                              enviar=lambda c, m: (correos.append(m["To"]), ResultadoEnvio(
+                                  (m["To"],), {}))[1])
 
     class InfoEquipo(QObject):          # misma interfaz que bridge/info_equipo.py
         filasChanged = Signal()

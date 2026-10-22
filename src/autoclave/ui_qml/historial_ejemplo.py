@@ -141,8 +141,11 @@ def config_correo_ejemplo():
     return config
 
 
-def enviar_ejemplo(config, mensaje) -> None:
-    """No envía nada: deja el correo armado en el registro (arnés sin --backend)."""
+def enviar_ejemplo(config, mensaje):
+    """No envía nada: deja el correo armado en el registro (arnés sin --backend).
+    C2 (tanda 7): devuelve un resultado simulado con todos aceptados."""
+    from autoclave.ui_qml.exportacion import correo
     time.sleep(1.5)
     adjuntos = [a.get_filename() for a in mensaje.iter_attachments()]
     logger.info("EJEMPLO: correo a %s con %s (no se envió)", mensaje["To"], adjuntos)
+    return correo.ResultadoEnvio(tuple(correo.separar_destinos(mensaje["To"])), {})
