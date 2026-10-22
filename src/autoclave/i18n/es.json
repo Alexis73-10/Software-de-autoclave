@@ -229,7 +229,7 @@
     "mant_tipo": "Tipo de mantenimiento",
     "mant_tipo_preventivo": "Preventivo",
     "mant_tipo_correctivo": "Correctivo",
-    "mant_tipo_calibracion": "Calibración",
+    "mant_tipo_calibracion": "Calibración (histórico)",
     "mant_tipo_otro": "Otro",
     "mant_registrar": "Registrar mantenimiento realizado",
     "mant_confirmar": "Se registrará un mantenimiento realizado hoy (tipo: {tipo}). ¿Desea continuar?",

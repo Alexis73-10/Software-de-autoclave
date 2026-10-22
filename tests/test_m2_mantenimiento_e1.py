@@ -227,3 +227,48 @@ def test_el_controlador_no_importa_el_servicio_del_backend():
     from autoclave.ui_qml.controllers import mantenimiento_controller as mc
     fuente = inspect.getsource(mc)
     assert "servicio_mantenimiento" not in fuente and "state_machine" not in fuente
+
+
+# ── MNT-05: filas históricas de calibración ─────────────────────────────────
+
+def _catalogo(idioma):
+    import json
+    from pathlib import Path
+    ruta = Path(m.__file__).resolve().parents[2] / "i18n" / f"{idioma}.json"
+    return json.loads(ruta.read_text(encoding="utf-8"))
+
+
+def test_calibracion_es_tipo_historico_y_no_registrable():
+    assert m.TIPOS_HISTORICOS == ("calibracion",)
+    assert not set(m.TIPOS_HISTORICOS) & set(m.TIPOS)
+
+
+def test_textos_de_calibracion_historica():
+    assert _catalogo("es")["opciones"]["mant_tipo_calibracion"] == "Calibración (histórico)"
+    assert _catalogo("en")["opciones"]["mant_tipo_calibracion"] == "Calibration (historical)"
+
+
+def test_todo_tipo_registrable_o_historico_tiene_texto():
+    for idioma in ("es", "en"):
+        op = _catalogo(idioma)["opciones"]
+        for tipo in m.TIPOS + m.TIPOS_HISTORICOS:
+            assert op.get(f"mant_tipo_{tipo}"), (idioma, tipo)
+
+
+def test_historial_devuelve_la_fila_historica_tal_cual(entorno):
+    """La fila vieja se conserva con su tipo para que la UI la rotule como
+    histórico; el contador la ignora (ver MNT-01)."""
+    s, db, *_ = entorno
+    db.registrar_mantenimiento("2026-10-26", "tec", "calibracion", "", 0)
+    assert [f["tipo"] for f in s.historial()] == ["calibracion"]
+    assert s.estado().ultimo_tipo == ""
+
+
+def test_la_pantalla_no_ofrece_tipos_fijos():
+    """OpcionesMantenimiento.qml arma los chips desde control.tipos (sin
+    calibración) y no tiene un tipo escrito a mano."""
+    from pathlib import Path
+    qml = (Path(m.__file__).resolve().parents[2] / "ui_qml" / "qml" / "Pantallas"
+           / "OpcionesMantenimiento.qml").read_text(encoding="utf-8")
+    assert "model: control.tipos" in qml
+    assert '"calibracion"' not in qml

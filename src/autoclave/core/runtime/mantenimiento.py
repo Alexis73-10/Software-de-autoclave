@@ -26,6 +26,9 @@ from datetime import date, datetime, timedelta
 # D-2). `calibracion` salió de los tipos (MNT-02, D-5): las filas viejas de la
 # tabla (solo anexar) se muestran como histórico y nunca se ofrecen (MNT-05).
 TIPOS = ("preventivo", "correctivo", "otro")
+# Tipos que solo pueden aparecer en filas viejas: se rotulan "(histórico)" con
+# la clave i18n opciones.mant_tipo_<tipo> y nunca se ofrecen (MNT-05).
+TIPOS_HISTORICOS = ("calibracion",)
 
 INTERVALO_DIAS_DEFECTO = 365
 INTERVALO_CICLOS_DEFECTO = 1000
