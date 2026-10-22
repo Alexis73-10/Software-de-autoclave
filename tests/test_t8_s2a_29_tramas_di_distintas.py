@@ -145,7 +145,7 @@ def test_publica_trama_di_nueva_en_el_estado():
     assert estado.trama_di_nueva is False
 
 
-def test_tick_fallido_reinicia_tambien_la_ultima_trama():
+def test_tick_fallido_reinicia_la_cuenta():
     loop, _ = _loop()
     for seq in (1, 2):
         loop.link.secuencia_ultima_di.return_value = seq
@@ -154,6 +154,24 @@ def test_tick_fallido_reinicia_tambien_la_ultima_trama():
     loop.link.secuencia_ultima_di.return_value = 3
     _tick_enlace(loop)
     assert loop.enlace_confirmado_ok is False
+
+
+def test_tras_un_tick_fallido_la_misma_trama_no_cuenta_como_nueva():
+    # TMG-05 (revisión S2a)
+    loop, estado = _loop()
+    loop.link.secuencia_ultima_di.return_value = 1
+    _tick_enlace(loop)
+    loop._tick_fallido()
+    assert estado.trama_di_nueva is False
+    _tick_enlace(loop)                                   # misma trama (1)
+    assert estado.trama_di_nueva is False
+    for seq in (2, 3):
+        loop.link.secuencia_ultima_di.return_value = seq
+        _tick_enlace(loop)
+    assert loop.enlace_confirmado_ok is False             # solo 2 tramas nuevas
+    loop.link.secuencia_ultima_di.return_value = 4
+    _tick_enlace(loop)
+    assert loop.enlace_confirmado_ok is True
 
 
 # ── CicloState: salida de la tolerancia por DI vencida ─────────────────────

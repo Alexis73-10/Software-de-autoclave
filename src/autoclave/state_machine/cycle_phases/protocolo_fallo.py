@@ -53,6 +53,7 @@ import time
 import logging
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_referencia
+from autoclave.core.runtime.steam import p_saturacion_kpa
 
 logger = logging.getLogger(__name__)
 
@@ -104,6 +105,12 @@ class ProtocoloFallo:
         self._lecturas_sondas_frias = 0
         self._sin_sonda_desde = None
         self._motivo_venteo = None
+        # SAF-01 (revisión S2a): alivio por sobrepresión con la cámara sellada
+        self._lecturas_sobrepresion = 0
+        self._alivio_abierto = False
+        # TMG-03 (revisión S2a): lecturas calientes seguidas antes de desarmar
+        # la espera sin sonda
+        self._lecturas_con_sonda = 0
 
     @property
     def sellado(self) -> bool:
@@ -178,12 +185,16 @@ class ProtocoloFallo:
         return (self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento"
                 and self._presurizado_al_disparo and self.es_liquido())
 
-    def _cerrar_todo_sellado(self) -> None:
+    def _cerrar_todo_sellado(self, lenta_alivio: bool = False) -> None:
         """Cámara sellada: vapor cortado y ninguna válvula del protocolo
-        abierta (ni venteo, ni aire, ni agua de chaqueta)."""
+        abierta (ni venteo, ni aire, ni agua de chaqueta). `lenta_alivio`:
+        la lenta queda abierta solo como alivio de sobrepresión (SAF-01)."""
         self.set_do.vapor_camara_off()
         self.set_do.vapor_chaqueta_off()
-        self.set_do.descompresion_lenta_off()
+        if lenta_alivio:
+            self.set_do.descompresion_lenta_on()
+        else:
+            self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_rapida_off()
         self.set_do.descompresion_chaqueta_off()
         self.set_do.aire_comprimido_camara_off()
@@ -203,6 +214,9 @@ class ProtocoloFallo:
         self._lecturas_sondas_frias = 0
         self._sin_sonda_desde = None
         self._motivo_venteo = None
+        self._lecturas_sobrepresion = 0
+        self._alivio_abierto = False
+        self._lecturas_con_sonda = 0
         self._cerrar_todo_sellado()
 
     def _espera_sellado_sin_sonda_s(self) -> float:
@@ -230,6 +244,56 @@ class ProtocoloFallo:
                 and math.isfinite(del_ciclo)):
             temp_max = min(float(temp_max), float(del_ciclo))
         return float(temp_max)
+
+    def _tope_presion_sellado(self) -> float:
+        """SAF-01 (revisión S2a): presión máxima con la cámara sellada. Con el
+        vapor cortado y sin aire, la presión solo debería bajar; si sube, hay
+        aporte (fuga de vapor). Tope = el mayor entre la contrapresión de
+        enfriamiento del modo y P_sat(temperatura_esterilizacion), más
+        rango_presion_ester (umbral de falla de presión alta de
+        ESTERILIZACION). DECISIÓN SIN CONFIRMAR."""
+        modo_key = f"modo_{self._modo_efectivo()}"
+
+        def numero(valor, defecto):
+            if isinstance(valor, bool) or not isinstance(valor, (int, float)) \
+                    or not math.isfinite(valor):
+                return defecto
+            return float(valor)
+        try:
+            p_enfr = numero(self.cycle.get_param("descompresion", modo_key,
+                                                 "presion_camara_enfriamiento", default=200), 200.0)
+            t_est = numero(self.cycle.get_param("esterilizacion", "temperatura_esterilizacion",
+                                                default=121.0), 121.0)
+            rango = numero(self.cycle.get_param("esterilizacion", "rango_presion_ester",
+                                                default=30.0), 30.0)
+        except Exception:
+            p_enfr, t_est, rango = 200.0, 121.0, 30.0
+        return max(p_enfr, p_saturacion_kpa(t_est)) + rango
+
+    def _alivio_sobrepresion(self) -> bool:
+        """SAF-01: True si la lenta debe abrirse como alivio. Abre con 3
+        lecturas seguidas sobre el tope y cierra en cuanto la presión vuelve a
+        él o por debajo. Sin lectura de presión: cerrada (no hay evidencia de
+        sobrepresión; la válvula de seguridad mecánica, si existe, actúa)."""
+        pres = self.estado.sensores_pres.get("pres_camara")
+        if not lectura_valida(pres):
+            self._lecturas_sobrepresion = 0
+            self._alivio_abierto = False
+            return False
+        tope = self._tope_presion_sellado()
+        if pres > tope:
+            self._lecturas_sobrepresion += 1
+            if self._lecturas_sobrepresion >= _DEBOUNCE_LECTURAS and not self._alivio_abierto:
+                logger.error("Protocolo fallo: sobrepresión con la cámara sellada (%.1f kPa > "
+                             "%.1f kPa) — alivio por la lenta", pres, tope)
+                self._alivio_abierto = True
+        else:
+            self._lecturas_sobrepresion = 0
+            if self._alivio_abierto:
+                logger.warning("Protocolo fallo: presión de nuevo bajo el tope (%.1f kPa) — "
+                               "se cierra el alivio", pres)
+            self._alivio_abierto = False
+        return self._alivio_abierto
 
     def _sondas_validas(self) -> tuple[list, float | None]:
         """(Referencias, drenaje): lecturas válidas (finitas y distintas de 0)
@@ -268,22 +332,33 @@ class ProtocoloFallo:
     def _tick_sellado(self) -> None:
         """Un tick de la espera sellada: mantiene todo cerrado y decide si ya
         se puede ventear por la lenta."""
-        self._cerrar_todo_sellado()
+        self._cerrar_todo_sellado(lenta_alivio=self._alivio_sobrepresion())
         refs, drenaje = self._sondas_validas()
         temp_max = self._temp_max_sellado()
         validas = refs + ([drenaje] if drenaje is not None else [])
+        # SAF-02 (revisión S2a): si el Principal vuelve a leer, también veta
+        # el venteo mientras esté caliente (nunca lo autoriza: el
+        # enclavamiento de solo_lenta no se revierte)
+        principal = self._temp_principal()
+        if lectura_valida(principal) and principal != 0:
+            validas.append(float(principal))
         if any(t > temp_max for t in validas):
-            # alguna sonda válida caliente: sigue sellada (y no corre la
-            # espera sin sonda: sí hay una sonda que lee)
-            self._sin_sonda_desde = None
+            # alguna sonda válida caliente: sigue sellada. TMG-03 (revisión
+            # S2a): la espera sin sonda solo se desarma con 3 lecturas
+            # calientes seguidas (una sonda que va y viene no la reinicia)
             self._lecturas_sondas_frias = 0
+            self._lecturas_con_sonda += 1
+            if self._lecturas_con_sonda >= _DEBOUNCE_LECTURAS:
+                self._sin_sonda_desde = None
             return
+        self._lecturas_con_sonda = 0
         if refs:
             # todas las válidas en o por debajo de temp_max_apertura
-            self._sin_sonda_desde = None
             self._lecturas_sondas_frias += 1
             if self._lecturas_sondas_frias >= _DEBOUNCE_LECTURAS:
                 self._ventear_tras_sellado("sondas_frias")
+            elif self._sin_sonda_desde is not None:
+                self._revisar_espera_sin_sonda()
             return
         # DECISIÓN SIN CONFIRMAR (S2a, ensayo con la planta simulada): el
         # drenaje solo NO autoriza el venteo. Su agua de enfriamiento lo
@@ -293,13 +368,16 @@ class ProtocoloFallo:
         # sellado (arriba); frío y sin Referencias válidas, rige la espera
         # sin sonda. PREGUNTA PARA CRISTIAN en el informe S2a.
         self._lecturas_sondas_frias = 0
-        ahora = time.monotonic()
         if self._sin_sonda_desde is None:
-            self._sin_sonda_desde = ahora
+            self._sin_sonda_desde = time.monotonic()
             logger.error("Protocolo fallo: cámara sellada sin ninguna sonda válida — "
                          "espera de %.0f min antes de ventear",
                          self._espera_sellado_sin_sonda_s() / 60)
-        if ahora - self._sin_sonda_desde >= self._espera_sellado_sin_sonda_s():
+        self._revisar_espera_sin_sonda()
+
+    def _revisar_espera_sin_sonda(self) -> None:
+        if (self._sin_sonda_desde is not None
+                and time.monotonic() - self._sin_sonda_desde >= self._espera_sellado_sin_sonda_s()):
             self._ventear_tras_sellado("espera_sin_sonda")
 
     @property
@@ -472,7 +550,7 @@ class ProtocoloFallo:
                     self._fin_enfriamiento()
                     self._sub_etapa = "descompresion"
                 elif (self._presurizado_al_disparo and self.es_liquido()
-                      and not lectura_valida(self._temp_principal())):
+                      and self._principal_perdido()):
                     # D8-2.10: carga líquida con el Principal sin lectura en el
                     # enfriamiento con contrapresión: nunca ventear de
                     # inmediato. Se cierra todo mientras corre el debounce;
@@ -674,6 +752,12 @@ class ProtocoloFallo:
         self._t_pulso_chaqueta = None
         self._chaqueta_abierta = False
         self._t_aire_comprimido = None
+        # TMG-08 (revisión S2a): tras la pausa, las 3 lecturas del sellado
+        # vuelven a contarse seguidas. La espera sin sonda sigue corriendo: la
+        # cámara estuvo igual de sellada (salidas en cero) durante la pausa.
+        self._lecturas_sondas_frias = 0
+        self._lecturas_con_sonda = 0
+        self._lecturas_sobrepresion = 0
         if (self._presurizado_al_disparo and not self._escalado
                 and not self._sin_escalar):
             self._t_timeout_descompresion = self._calcular_timeout()

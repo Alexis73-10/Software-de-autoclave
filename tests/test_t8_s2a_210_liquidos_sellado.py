@@ -48,7 +48,7 @@ def reloj(monkeypatch):
     return t
 
 
-def _protocolo(modo=4, liquido=True, pres=250.0, temp=118.0, ref=118.0,
+def _protocolo(modo=4, liquido=True, pres=220.0, temp=118.0, ref=118.0,
                drenaje=None, config=None):
     estado = SimpleNamespace(
         sensores_pres={"pres_camara": pres},
@@ -257,8 +257,9 @@ def test_si_vuelve_una_sonda_caliente_se_desarma_la_espera(reloj):
     _perder_principal(prot, estado)
     reloj[0] += 29 * 60
     prot.update()
-    estado.sensores_temp["temp_ref"] = 110.0          # vuelve, caliente
-    prot.update()
+    estado.sensores_temp["temp_ref"] = 110.0          # vuelve, caliente (3 lecturas)
+    for _ in range(_DEBOUNCE_LECTURAS):
+        prot.update()
     estado.sensores_temp["temp_ref"] = None           # se vuelve a perder
     reloj[0] += 2 * 60
     prot.update()
@@ -379,3 +380,84 @@ def test_estado_seguro_sellado_permite_salir_de_falla_y_no_es_segura():
         es.update()
     assert prot.sellado is False
     assert any(e == "estado_seguro_venteo_tras_sellado" for e, _ in eventos)
+
+
+# ── Revisión S2a ───────────────────────────────────────────────────────────
+
+def test_sonda_intermitente_no_reinicia_la_espera_para_siempre(reloj):
+    # TMG-03: válida y caliente 1 de cada 3 lecturas
+    prot, estado, _ = _protocolo(4, ref=None)
+    prot.ejecutar()
+    _perder_principal(prot, estado)
+    for i in range(30 * 60 * 2 + 10):                 # 30 min a 0,5 s
+        estado.sensores_temp["temp_ref"] = 110.0 if i % 3 == 0 else None
+        prot.update()
+        reloj[0] += 0.5
+        if not prot.sellado:
+            break
+    assert prot.sellado is False and prot.motivo_venteo == "espera_sin_sonda"
+
+
+def test_principal_que_vuelve_caliente_veta_el_venteo():
+    # SAF-02: vuelve a leer caliente; la Referencia fría no basta
+    prot, estado, _ = _protocolo(4, ref=70.0)
+    prot.ejecutar()
+    _perder_principal(prot, estado)
+    estado.sensores_temp["temp_camara"] = 110.0
+    for _ in range(10):
+        prot.update()
+    assert prot.sellado is True and prot.solo_lenta is True
+
+
+@pytest.mark.parametrize("pres,abre", [(279.0, False), (281.0, True)])
+def test_sobrepresion_sellada_alivia_por_la_lenta(pres, abre):
+    # SAF-01: tope = max(200, P_sat(121)) + 30 con los parámetros de la prueba
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    prot, estado, set_do = _protocolo(4, ref=110.0)
+    tope = max(200.0, p_saturacion_kpa(121.0)) + 30.0
+    prot.ejecutar()
+    _perder_principal(prot, estado)
+    estado.sensores_pres["pres_camara"] = tope + (pres - 280.0)
+    set_do.reset_mock()
+    for _ in range(_DEBOUNCE_LECTURAS - 1):
+        prot.update()
+    set_do.descompresion_lenta_on.assert_not_called()
+    prot.update()
+    assert set_do.descompresion_lenta_on.called is abre
+    assert prot.sellado is True                       # sigue sellada por temperatura
+    estado.sensores_pres["pres_camara"] = tope - 5
+    set_do.reset_mock()
+    prot.update()
+    set_do.descompresion_lenta_on.assert_not_called()
+    set_do.descompresion_lenta_off.assert_called()
+
+
+def test_sin_presion_sellada_no_alivia():
+    prot, estado, set_do = _protocolo(4, ref=110.0)
+    prot.ejecutar()
+    _perder_principal(prot, estado)
+    estado.sensores_pres["pres_camara"] = None
+    set_do.reset_mock()
+    for _ in range(10):
+        prot.update()
+    set_do.descompresion_lenta_on.assert_not_called()
+
+
+def test_cic10_vuelve_si_el_reinicio_la_resolvio():
+    # SAF-03: al salir de FALLA se resuelven todas; con la cámara sellada
+    # CIC-10 tiene que volver a verse
+    from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+    from autoclave.state_machine.alarms.catalogo import CIC_10
+    prot, estado, _ = _protocolo(4, ref=110.0)
+    prot.ejecutar()
+    _perder_principal(prot, estado)
+    estado.get_flag = lambda f: False
+    am = AlarmManager()
+    es = ProtocoloEstadoSeguro(estado, _Config(_CFG), alarm_manager=am)
+    es.iniciar(prot)
+    es.update()
+    assert CIC_10 in [i.codigo for i in am.activas()]
+    for i in list(am.activas()):
+        am.resolver(i.codigo)
+    es.update()
+    assert CIC_10 in [i.codigo for i in am.activas()]

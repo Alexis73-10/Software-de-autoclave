@@ -139,7 +139,7 @@ class ProtocoloEstadoSeguro:
             return
         motivo = getattr(self._protocolo, "bloqueado_motivo", None)
         motivo = motivo if isinstance(motivo, str) else None
-        if motivo == self._alarma_bloqueo:
+        if motivo == self._alarma_bloqueo and (motivo is None or self._cic10_activa()):
             return
         try:
             if motivo is None:
@@ -149,6 +149,17 @@ class ProtocoloEstadoSeguro:
             self._alarma_bloqueo = motivo
         except Exception:
             logger.exception("Estado seguro: no se pudo actualizar la alarma de bloqueo")
+
+    def _cic10_activa(self) -> bool:
+        """SAF-03 (revisión S2a): CIC-10 sigue activa en el gestor. Al salir de
+        FALLA sin técnico (P-2 / D8-2.6) el reinicio resuelve todas las alarmas;
+        con el protocolo aún bloqueado (p. ej. cámara sellada, D8-2.10) hay que
+        volver a mostrarla. Ante la duda (gestor sin activas()), True."""
+        try:
+            return any(getattr(i, "codigo", None) == CIC_10
+                       for i in self.alarm_manager.activas())
+        except Exception:
+            return True
 
     def _resolver_alarma_bloqueo(self) -> None:
         if self.alarm_manager is not None and self._alarma_bloqueo is not None:

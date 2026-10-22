@@ -150,6 +150,11 @@ class ControlLoop:
         # D8-2.9 (tanda 8, TMG-04): número de secuencia de la última trama DI
         # contada; solo una trama DISTINTA y nueva suma a _ticks_tarjeta_ok
         self._ultima_seq_di_contada = None
+        # TMG-01 (revisión S2a): incrementos de F0 recientes (instante, valor)
+        # para descontar los acreditados después de la última DI válida
+        # cuando se abre un tramo sin datos
+        self._f0_recientes = []
+        self._f0_tramo_descontado = None
         self._com01_activa = False
         self._sin_di_activa = False
         # Ticks seguidos con la DI vencida y el enlace hecho (debounce de 3
@@ -223,7 +228,12 @@ class ControlLoop:
         # SAF-03 (revisión Q1): un tick que no se completa no cuenta como
         # enlace "ok" (enlace_confirmado_ok no queda en True con el lazo caído)
         self._ticks_tarjeta_ok = 0
-        self._ultima_seq_di_contada = None
+        # TMG-05 (revisión S2a): se conserva el número de la última trama
+        # contada (la misma trama tras el fallo no cuenta como nueva)
+        try:
+            self.estado.trama_di_nueva = False
+        except Exception:
+            pass
         self._excepciones_seguidas += 1
         if self._excepciones_seguidas == 1 or self._excepciones_seguidas % _LOG_CADA_EXCEPCIONES == 0:
             logger.exception("ControlLoop: error inesperado en el tick (%d seguidos)",
@@ -467,6 +477,7 @@ class ControlLoop:
         dobles de prueba; SerialLink siempre la informa) cuenta cada tick "ok"
         como trama nueva, igual que antes de D8-2.9."""
         nueva = False
+        self._publicar_ultima_di_valida()
         if self.estado_tarjeta == "ok":
             seq = self._secuencia_di()
             if seq is None or seq != self._ultima_seq_di_contada:
@@ -482,6 +493,37 @@ class ControlLoop:
             self.estado.trama_di_nueva = nueva
         except Exception:
             logger.exception("ControlLoop: no se pudo publicar trama_di_nueva")
+
+    def _publicar_ultima_di_valida(self) -> None:
+        """TMG-01 (revisión S2a): publica en `estado.ultima_di_valida_mono` el
+        instante (monotonic) de la última trama DI vigente, para que el tramo
+        sin datos del ciclo empiece ahí y no al detectarlo."""
+        try:
+            if self.estado_tarjeta != "ok":
+                return
+            edad = self.link.edad_ultima_di()
+            if isinstance(edad, bool) or not isinstance(edad, (int, float)) or edad < 0:
+                return
+            self.estado.ultima_di_valida_mono = time.monotonic() - float(edad)
+        except Exception:
+            logger.exception("ControlLoop: no se pudo publicar la última DI válida")
+
+    def _descontar_f0_tramo_sin_datos(self) -> None:
+        """TMG-01 (revisión S2a): al abrirse un tramo sin datos del ciclo (con
+        inicio en la última DI válida), resta el F0 acreditado después de ese
+        instante. Una sola vez por tramo."""
+        desde = getattr(self.state_machine.ciclo, "pausa_sin_datos_desde", None)
+        if isinstance(desde, bool) or not isinstance(desde, (int, float)):
+            return
+        if desde == self._f0_tramo_descontado:
+            return
+        self._f0_tramo_descontado = desde
+        exceso = sum(inc for t, inc in self._f0_recientes if t > desde)
+        self._f0_recientes = [(t, inc) for t, inc in self._f0_recientes if t <= desde]
+        if exceso > 0:
+            self.estado.f0_acumulado = max(0.0, self.estado.f0_acumulado - exceso)
+            logger.warning("ControlLoop: F0 descontado %.4f min (acreditado sin datos válidos)",
+                           exceso)
 
     @property
     def enlace_confirmado_ok(self) -> bool:
@@ -671,10 +713,15 @@ class ControlLoop:
             # solo una vez agotada la tolerancia: una caída breve (ruido
             # momentáneo en el serial) no debe tirar el ciclo completo.
             if (self._desconectado_desde is not None
-                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG
-                    and self.estado.get_machine_state() == GlobalState.CICLO):
-                self.state_machine.ciclo.abortar_por_desconexion(
-                    segundos=now - self._desconectado_desde)
+                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG):
+                # TMG-04 (revisión S2a): bajo _sm_lock, como el resto de las
+                # mutaciones del ciclo (el backend lee tolerancia_di_activa
+                # con ese lock)
+                with self._sm_lock:
+                    if (not self._apagando
+                            and self.estado.get_machine_state() == GlobalState.CICLO):
+                        self.state_machine.ciclo.abortar_por_desconexion(
+                            segundos=now - self._desconectado_desde)
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
             self._bloqueo_apagado = False   # tras reconectar, volver a apagar
@@ -711,6 +758,7 @@ class ControlLoop:
             self._f0_ultimo_tick = None
             # D8-2.7: ni cuenta como exposición (desconexión antes de COM-02)
             self._marcar_ciclo_sin_datos()
+            self._descontar_f0_tramo_sin_datos()
             return
 
         # 1. Publicar estado global
@@ -744,6 +792,7 @@ class ControlLoop:
             self._f0_ultimo_tick = None
             # D8-2.7: la ventana tras reconectar tampoco cuenta como exposición
             self._marcar_ciclo_sin_datos()
+            self._descontar_f0_tramo_sin_datos()
             return
 
         # 2b. Suministro eléctrico → actualiza flag en estado. Sin la entrada
@@ -866,6 +915,7 @@ class ControlLoop:
         # D8-2.7: tampoco en el tramo de una desconexión total o la ventana
         # tras reconectar (exposicion_en_pausa)
         ciclo = self.state_machine.ciclo
+        self._descontar_f0_tramo_sin_datos()
         if condiciones and (not vigentes
                             or getattr(ciclo, "tolerancia_di_activa", False) is True
                             or getattr(ciclo, "exposicion_en_pausa", False) is True):
@@ -891,7 +941,11 @@ class ControlLoop:
             return
 
         dt_min = (now - ultimo) / 60.0
-        self.estado.f0_acumulado += calcular_incremento_f0(t_ref, dt_min)
+        incremento = calcular_incremento_f0(t_ref, dt_min)
+        self.estado.f0_acumulado += incremento
+        # TMG-01 (revisión S2a): se guardan los de los últimos segundos
+        self._f0_recientes.append((now, incremento))
+        self._f0_recientes = [(t, inc) for t, inc in self._f0_recientes if now - t <= 5.0]
 
     # =========================================================================
     # CONTROL DE VIDA

@@ -14,6 +14,7 @@
 #   "CANCELADO"  — usuario abortó → volver a PREPARADO
 
 import logging
+import math
 import time
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import (
@@ -56,6 +57,10 @@ _TOLERANCIA_DI_VENCIDA_SEG = 4.0
 # tolerancia (TMG-03 de T2: una trama intermitente no puede renovarla
 # indefinidamente; D8-2.9 / TMG-04: tramas, no ticks)
 _TICKS_DI_VIGENTE_REINICIO = 3
+# TMG-01 (revisión S2a): el tramo sin datos empieza en la última DI válida
+# (la publica ControlLoop en estado.ultima_di_valida_mono), no al detectarlo;
+# como mucho este retroceso (vigencia de la DI, 1,5 s, más un tick de 0,5 s)
+_RETROCESO_MAX_TRAMO_SEG = 2.0
 _TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 _CIC_POR_FASE = {
     "PRECALENTAMIENTO": CIC_01, "PRE_VACIO": CIC_02, "CALENTAMIENTO": CIC_03,
@@ -227,12 +232,68 @@ class CicloState:
         (_cerrar_pausa_sin_datos), así que la desconexión, la ventana tras
         reconectar y una tolerancia de DI que siga a continuación son un solo
         tramo. Con el resultado pendiente no hay exposición que pausar."""
-        if self._resultado_pendiente is not None or self._pausa_sin_datos_desde is not None:
+        if self._resultado_pendiente is not None:
             return
-        self._pausa_sin_datos_desde = time.monotonic()
+        # TMG-02 (revisión S2a): las tramas DI contadas antes de la caída no
+        # se suman a las de después (3 tramas nuevas SEGUIDAS, D8-2.9)
+        self._ticks_di_vigente = 0
+        if self._pausa_sin_datos_desde is not None:
+            self._revisar_tope_pausa_abierta()
+            return
+        self._pausa_sin_datos_desde = self._inicio_tramo_sin_datos(time.monotonic())
         self._pausa_por_desconexion = True
         logger.warning("CicloState: sin datos de la tarjeta (desconexión); la fase %s queda "
                        "en pausa", self._fase_actual_legible())
+
+    @property
+    def pausa_sin_datos_desde(self):
+        """Instante (monotonic) en que empezó el tramo sin datos en curso, o
+        None. Lo usa ControlLoop para descontar el F0 acreditado desde ahí
+        (TMG-01 de la revisión S2a)."""
+        if self._resultado_pendiente is not None:
+            return None
+        return self._pausa_sin_datos_desde
+
+    def _inicio_tramo_sin_datos(self, ahora: float) -> float:
+        """TMG-01 (revisión S2a): el tramo sin datos empieza en la última DI
+        válida (estado.ultima_di_valida_mono), con un retroceso máximo de
+        _RETROCESO_MAX_TRAMO_SEG; sin ese dato, en `ahora`."""
+        ultima = getattr(self.estado, "ultima_di_valida_mono", None)
+        if (isinstance(ultima, bool) or not isinstance(ultima, (int, float))
+                or not math.isfinite(ultima) or ultima > ahora):
+            return ahora
+        return max(ultima, ahora - _RETROCESO_MAX_TRAMO_SEG)
+
+    def _revisar_tope_pausa_abierta(self) -> None:
+        """SAF-05 (revisión S2a): un enlace que va y viene (menos de 5 s caído,
+        menos de la vigencia de la primera DI conectado) nunca llega a COM-02
+        y run() no corre: el tramo sin datos queda abierto. En ESTERILIZACION,
+        si lo acumulado más el tramo abierto supera pausa_max_esterilizacion_s,
+        el ciclo falla con CIC-11 aquí mismo (D8-2.8), sin esperar a run()."""
+        if not (0 <= self._fase_idx < len(self._fases)):
+            return
+        fase = self._fases[self._fase_idx]
+        tope = getattr(fase, "_pausa_max_s", None)
+        total = getattr(fase, "pausa_total_s", None)
+        if (not callable(tope) or isinstance(total, bool)
+                or not isinstance(total, (int, float))):
+            return
+        abierto = max(0.0, time.monotonic() - self._pausa_sin_datos_desde)
+        try:
+            maximo = float(tope())
+        except Exception:
+            return
+        if total + abierto <= maximo:
+            return
+        self._cerrar_pausa_sin_datos()          # suma el tramo a la fase y al ticket
+        total = getattr(fase, "pausa_total_s", total + abierto)
+        logger.error("CicloState: ABORTADO — %.0f s de pausa sin datos en %s (máximo %.0f s)",
+                     total, fase.name, maximo)
+        self.estado.fase_ciclo = f"FALLO_{fase.name}"
+        self._registrar_fallo(CIC_11, origen=nombre_legible(fase.name),
+                              segundos=total, maximo=maximo)
+        self._ejecutar_protocolo_respetando_paro()
+        self._resultado_pendiente = CicloResultado.FALLO
 
     @property
     def ack_confirma_estado_seguro(self) -> bool:
@@ -702,13 +763,15 @@ class CicloState:
                 # breve del enlace): la fase no corre con entradas viejas.
                 ahora = time.monotonic()
                 if self._di_vencida_desde is None:
-                    self._di_vencida_desde = ahora
+                    # TMG-01 (revisión S2a): la tolerancia también cuenta
+                    # desde la última DI válida
+                    self._di_vencida_desde = self._inicio_tramo_sin_datos(ahora)
                     logger.warning("CicloState: trama DI vencida; tolerancia de %.0f s",
                                    _TOLERANCIA_DI_VENCIDA_SEG)
                 if ahora - self._di_vencida_desde < _TOLERANCIA_DI_VENCIDA_SEG:
                     # T2-a: la fase no corre; su exposición queda en pausa
                     if self._pausa_sin_datos_desde is None:
-                        self._pausa_sin_datos_desde = ahora
+                        self._pausa_sin_datos_desde = self._inicio_tramo_sin_datos(ahora)
                     # D8-2.7: si venía de una desconexión, el mismo tramo
                     # sigue ahora como tolerancia de DI
                     self._pausa_por_desconexion = False
