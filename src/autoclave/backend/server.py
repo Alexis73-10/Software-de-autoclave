@@ -10,7 +10,8 @@ import threading
 import time
 from pathlib import Path
 from contextlib import asynccontextmanager, contextmanager
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timedelta
+from datetime import time as dt_time   # P1 (tanda 7): `time` es el módulo (time.sleep del vigilante)
 from typing import Literal
 
 from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
@@ -1741,7 +1742,7 @@ def _rango_del_periodo(periodo: str, fecha: date) -> tuple[str, str]:
     (desde, hasta) como medianoche local en el formato de la tabla ciclos; `hasta`
     es exclusivo (medianoche del primer día del periodo siguiente)."""
     inicio, fin = periodos.rango(periodo, fecha)
-    return datetime.combine(inicio, time()).isoformat(), datetime.combine(fin, time()).isoformat()
+    return datetime.combine(inicio, dt_time()).isoformat(), datetime.combine(fin, dt_time()).isoformat()
 
 
 def _ciclo_json(fila) -> dict:
