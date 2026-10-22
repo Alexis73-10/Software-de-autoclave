@@ -13,3 +13,6 @@ Rama `tanda-6`, creada desde `dev` (7d825b5) tras E0. Línea base de la suite: 4
 | O2c | Hecha | ver git log `o2c` | Fecha y hora solo lectura, `GET /system/time`, aviso M1-01, para todos. Suite 4820/2/3. Ver `O2c_fecha_hora.md`. |
 | O2d | Hecha | ver git log `o2d` | Información del sistema, `GET /system/info`, sin "No disponible" en el Menú principal. Suite 4836/2/3. Ver `O2d_info_sistema.md`. |
 | O2e | Hecha | ver git log `o2e` | Bitácora `GET /audit_log` paginada con filtros, valores en unidad vigente, eventos de suspensión. Ver `O2e_bitacora.md`. |
+| O2f | Hecha (rama tanda-6-o2fgh, unida) | ver git log `o2f` + merge | Calibración atmosférica (ventana 120 s, confirmación, auditoría `calibracion_atm_*`), página de prueba e impresión de ganancias. timing-auditor y safety-reviewer sin Críticos/Altos; TMG-04/05 y SAF-01/02 abiertos. Ver `O2f_calibracion_atm.md`. |
+| O2g | Hecha (rama tanda-6-o2fgh, unida) | ver git log `o2g` + merge | Conectividad: red en solo lectura (`netsh`), destinatarios de correo editables por admin/ingeniero (técnico 403, 1.9), 409 en ciclo. Ver `O2g_conectividad.md`. |
+| O2h | Hecha (rama tanda-6-o2fgh, unida) | ver git log `o2h` + merge | Respaldo/restauración por USB (serie, hashes, plausibilidad de calibración; programas no se restauran), técnico e ingeniero. safety-reviewer: Altos corregidos. Ver `O2h_respaldo.md`. |

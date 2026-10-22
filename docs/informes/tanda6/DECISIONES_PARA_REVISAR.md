@@ -101,3 +101,40 @@ Detalle y recomendaciones en `R1_hallazgos_pendientes.md`.
 ## PREGUNTAS PARA CRISTIAN (O2e)
 - ¿Unificar en el visor las tablas viejas `cycle_params_audit` y `sensor_calibration_audit` (§3.9) o basta `audit_log`?
 - ¿Mostrar la entidad con su nombre traducido (p. ej. "Temperatura segura de apertura") en vez de la clave?
+
+## O2f (Calibración atmosférica)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| O2f-1 | DECISIÓN SIN CONFIRMAR. TMG-04 abierto: hilo daemon; si el proceso se cierra entre `fijar()` y `aplicar_valor()` queda el valor nuevo sin auditoría. | Ventana mínima | Hilo no daemon con cierre ordenado | `calibracion_atm.py` |
+| O2f-2 | DECISIÓN SIN CONFIRMAR. TMG-05 abierto: GET síncrono en el hilo GUI (igual que TMG-02 de O2a). | Consistencia con O2a | GET asíncrono | `calibracion_atm_controller.py` |
+
+## PREGUNTAS PARA CRISTIAN (O2f)
+- (SAF-01) ¿Referencia fija por sitio (presión esperada o altitud) en el perfil, rechazando o exigiendo ingeniero si la calibración se aleja más de ±5 kPa? Hoy calibraciones sucesivas de ≤5 kPa pueden mover la referencia por todo 60–105 kPa.
+- (SAF-02) ¿`ABIERTO` viene de sensor de posición en todos los tipos de puerta, incluida `SimpleDoor`? ¿Se exige además presión inicial cerca de la referencia vigente?
+- Si arranca un ciclo durante `por_confirmar`, hoy la medición solo se rechaza al confirmar. ¿Descartarla en ese momento?
+
+## O2g (Conectividad)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| O2g-1 | DECISIÓN SIN CONFIRMAR. Wi-Fi/IP en solo lectura (405). Habilitarlo exige servicio elevado, comunicación autenticada, lista blanca, reversión automática y bitácora. | Riesgo de perder soporte remoto (AnyDesk) | Servicio de Windows elevado | — |
+| O2g-2 | DECISIÓN SIN CONFIRMAR. Cambios de correo rechazados con ciclo en curso (R-01), también para el ingeniero. | Coherencia con R-01 | Permitir al ingeniero | `PUT /email/config` |
+| O2g-3 | DECISIÓN SIN CONFIRMAR. Con el interruptor de envío apagado, el Historial no envía. | — | — | `config_correo.py` |
+
+## PREGUNTAS PARA CRISTIAN (O2g)
+- ¿Remitente y servidor SMTP editables desde aquí (ingeniero)? Hoy siguen en `config/correo.json` y la contraseña en el almacén de credenciales de Windows.
+
+## O2h (Respaldo)
+| Id | Decisión | Motivo | Alternativa | Cómo revertir |
+|---|---|---|---|---|
+| O2h-1 | DECISIÓN SIN CONFIRMAR. Los programas no se restauran (SAF-02). | Evitar programas sin validar | Reutilizar el validador de `PATCH /cycle/parameter` | `respaldo.py` |
+| O2h-2 | DECISIÓN SIN CONFIRMAR. No se deshacen los parámetros ya aplicados si uno posterior recibe 409 (SAF-03 parcial). | Queda auditado en `finally` | Restauración transaccional | `respaldo.py` |
+| O2h-3 | DECISIÓN SIN CONFIRMAR. El respaldo no restaura el perfil (USB de recuperación no conectada al arranque). | Se exige la serie del perfil instalado | Modo "sin perfil" en el asistente | — |
+
+## PREGUNTAS PARA CRISTIAN (O2h)
+- ¿Firmar el respaldo (HMAC con clave del equipo)? Hoy el hash detecta daños pero no autentica.
+- ¿Habilitar la restauración de programas reutilizando el validador de `PATCH /cycle/parameter`?
+- ¿Recrear los usuarios del respaldo con contraseña temporal y cambio obligatorio?
+- ¿Restaurar también la presión atmosférica de referencia del mismo equipo?
+
+## Unión O2f–O2h en tanda-6
+- Los eventos nuevos `respaldo_exportado/rechazado/restaurado`, `correo_configurado`, `correo_prueba`, `impresora_prueba` e `impresion_ganancias` se agregaron a `bitacora.EVENTOS` con frase es/en en la unión (lo exigía `test_textos_de_todos_los_eventos`). Revisar redacción.
