@@ -153,9 +153,14 @@ Item {
     }
 
     // ======================= tarjeta blanca =======================
+    // D8-5.10 (tanda 8, decisión 1.7 de la tanda 6): la tarjeta termina sobre
+    // la barra inferior flotante (10 px, como Preciclo) en todas las secciones;
+    // antes la barra quedaba dentro de la tarjeta
     Rectangle {
+        id: tarjetaOpciones
+        objectName: "tarjetaOpciones"
         x: raiz.m(19); y: raiz.m(177)
-        width: raiz.m(1159); height: parent.height - y - raiz.m(17)
+        width: raiz.m(1159); height: barra.y - raiz.m(10) - y
         radius: raiz.m(30)
         color: Colores.fondoTarjeta
     }
@@ -386,7 +391,9 @@ Item {
     BarraInferiorMenu {
         id: barra
         objectName: "barraInferiorOpciones"
-        x: raiz.m(34)
+        // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
+        x: tarjetaOpciones.x
+        width: tarjetaOpciones.width
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)

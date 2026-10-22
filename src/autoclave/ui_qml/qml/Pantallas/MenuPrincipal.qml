@@ -319,7 +319,10 @@ Item {
     // ======================= barra inferior (anclada abajo) =======================
     BarraInferiorMenu {
         objectName: "barraInferiorMenu"
-        x: raiz.m(34)
+        // D8-5.2: el Menú no tiene una tarjeta única; la barra mide lo mismo
+        // que la grilla de tarjetas de encima (x 54 a 1139 del lienzo)
+        x: raiz.m(54)
+        width: raiz.m(1139 - 54)
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
         version: I18n.t("app.version", I18n.lang)

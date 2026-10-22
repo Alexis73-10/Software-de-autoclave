@@ -312,6 +312,7 @@ Item {
 
     // ======================= panel principal =======================
     Rectangle {
+        id: tarjetaPrincipal
         objectName: "tarjetaCicloEnCurso"
         // B1: termina 10 px sobre la barra flotante (no 30 como en Opciones):
         // la barra de progreso llega a y 1723 del lienzo y no se reubica (D-19)
@@ -637,7 +638,9 @@ Item {
     BarraInferiorMenu {
         id: barraInferior
         objectName: "barraInferiorCicloEnCurso"
-        x: raiz.m(34)
+        // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
+        x: tarjetaPrincipal.x
+        width: tarjetaPrincipal.width
         y: raiz.yb(1746)
         escala: raiz.m(1)
         personalizada: true
@@ -646,7 +649,7 @@ Item {
         // Celda izquierda: icono de equipo, modelo y serie
         Item {
             objectName: "botonEquipoCiclo"
-            x: 0; y: 0; width: raiz.m(313); height: parent.height
+            x: 0; y: 0; width: barraInferior.mx(313); height: parent.height
             // icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
             Image {
                 x: raiz.m(71 - 5.5 - 34); y: raiz.m(1763 - 5.5 - 1746)
@@ -669,7 +672,7 @@ Item {
         // Celda central: avatar (iniciar sesión); deshabilitado sin conexión
         Item {
             objectName: "avatarCiclo"
-            x: raiz.m(313); y: 0; width: raiz.m(800 - 313); height: parent.height
+            x: barraInferior.mx(313); y: 0; width: barraInferior.mx(800 - 313); height: parent.height
             enabled: raiz.datosVigentes
             opacity: enabled ? 1.0 : 0.4
             Rectangle {
@@ -702,7 +705,7 @@ Item {
             id: botonCancelar
             objectName: "botonCancelarCiclo"
             // antes x 846, y 1768 de la pantalla; relativo a la barra (34, 1746)
-            x: raiz.m(846 - 34); y: raiz.m(1768 - 1746)
+            x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
             enabled: raiz.datosVigentes && !raiz.comandoOcupado
             opacity: enabled ? 1.0 : 0.4

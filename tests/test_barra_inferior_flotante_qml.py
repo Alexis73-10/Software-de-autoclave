@@ -120,9 +120,11 @@ def test_la_barra_queda_fuera_y_debajo_de_la_tarjeta(resultado):
     assert not r["padre_barra"].startswith(("TarjetaContenido", "QQuickItem"))  # hija de la pantalla
     assert by + bh <= r["ventana_alto"]
     assert 0 <= bx and bx + bw <= r["ventana_ancho"]
-    # misma colocación que Opciones: x = 34, 171 px del borde inferior (lienzo 1196)
-    assert bx == pytest.approx(34 * 1200 / 1196, abs=1)
+    # 171 px del borde inferior (lienzo 1196); D8-5.2 (tanda 8): mismo x y
+    # ancho que la tarjeta de encima
     assert by == pytest.approx(1920 - 171 * 1200 / 1196, abs=1)
+    assert bx == pytest.approx(tx, abs=0.5)
+    assert bw == pytest.approx(tw, abs=0.5)
 
 
 def test_atras_e_inicio_emiten_su_senal(resultado):

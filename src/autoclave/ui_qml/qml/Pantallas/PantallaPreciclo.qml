@@ -313,6 +313,7 @@ Item {
     // Opciones) porque los botones ABRIR PUERTA / INICIAR CICLO llegan a y 1725
     // del lienzo y no se reubican (D-19: no refactorizar el resto).
     Rectangle {
+        id: tarjetaPrincipal
         objectName: "tarjetaPreciclo"
         x: raiz.m(19); y: raiz.m(177)
         width: raiz.m(1159); height: barraInferior.y - raiz.m(10) - y
@@ -795,7 +796,9 @@ Item {
     BarraInferiorMenu {
         id: barraInferior
         objectName: "barraInferiorPreciclo"
-        x: raiz.m(34)
+        // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
+        x: tarjetaPrincipal.x
+        width: tarjetaPrincipal.width
         // anclada al borde inferior como en Opciones (171 px del lienzo)
         y: parent.height - raiz.m(1917 - 1746)
         escala: raiz.m(1)
@@ -805,7 +808,7 @@ Item {
         // Celda izquierda: icono de equipo, modelo y serie (antes x 33..347)
         Item {
             objectName: "botonEquipoPreciclo"
-            x: 0; y: 0; width: raiz.m(313); height: parent.height
+            x: 0; y: 0; width: barraInferior.mx(313); height: parent.height
             // icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
             Image {
                 x: raiz.m(71 - 5.5 - 34); y: raiz.m(1763 - 5.5 - 1746)
@@ -828,7 +831,7 @@ Item {
         // Celda central: versión
         Text {
             objectName: "versionPreciclo"
-            x: raiz.m((313 + 800) / 2) - width / 2
+            x: barraInferior.mx((313 + 800) / 2) - width / 2
             y: (parent.height - height) / 2
             text: raiz.version
             color: raiz.paleta.versionTexto
@@ -841,7 +844,7 @@ Item {
         // (PROVISIONAL: opacidad 0.4)
         Item {
             objectName: "avatarPreciclo"
-            x: raiz.m(800); y: 0; width: raiz.m(1128 - 800); height: parent.height
+            x: barraInferior.mx(800); y: 0; width: barraInferior.mx(1128 - 800); height: parent.height
             enabled: raiz.datosVigentes
             opacity: enabled ? 1.0 : 0.4
             Rectangle {

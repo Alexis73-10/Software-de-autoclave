@@ -35,6 +35,12 @@ Item {
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
+    // D8-5.2 (tanda 8): la barra mide EXACTAMENTE lo mismo que la tarjeta de
+    // contenido de encima (cada pantalla fija x y width con los de su
+    // tarjeta). Las posiciones horizontales del lienzo 1128 se estiran con
+    // `mx`; las alturas y los iconos no cambian.
+    readonly property real fx: width > 0 ? width / m(1128) : 1
+    function mx(v) { return m(v) * fx }
 
     width: m(1128)
     height: m(139)
@@ -50,7 +56,7 @@ Item {
 
     component Divisor: Rectangle {
         property real cx: 0
-        x: raiz.m(cx - 1); y: raiz.m(19)
+        x: raiz.mx(cx) - raiz.m(1); y: raiz.m(19)
         width: raiz.m(2); height: raiz.m(106)
         color: "#BEBEBE"   // divisorPie de PantallaPreciclo.qml
     }
@@ -60,7 +66,7 @@ Item {
     Item {
         objectName: "botonAtras"
         visible: !raiz.personalizada
-        x: 0; y: 0; width: raiz.m(313); height: parent.height
+        x: 0; y: 0; width: raiz.mx(313); height: parent.height
         enabled: raiz.atrasHabilitado
         opacity: enabled ? 1.0 : 0.4   // PROVISIONAL, misma convención que PantallaPreciclo.qml
         // back_icon.svg centrada en la celda, 80 de alto
@@ -77,7 +83,7 @@ Item {
     Item {
         objectName: "botonInicio"
         visible: !raiz.personalizada
-        x: raiz.m(800); y: 0; width: raiz.m(1128 - 800); height: parent.height
+        x: raiz.mx(800); y: 0; width: raiz.mx(1128 - 800); height: parent.height
         enabled: raiz.inicioActivo
         // home_icon.svg (viewBox 1100 x 1080, tinta casi a sangre) centrado en la celda
         Image {
@@ -94,7 +100,7 @@ Item {
     Item {
         objectName: "botonCerrarSesion"
         visible: raiz.cerrarSesionVisible && !raiz.personalizada
-        x: raiz.m(313); y: 0; width: raiz.m(800 - 313); height: parent.height
+        x: raiz.mx(313); y: 0; width: raiz.mx(800 - 313); height: parent.height
         Image {
             anchors.centerIn: parent
             width: raiz.m(70); height: width
@@ -106,7 +112,7 @@ Item {
     }
 
     Text {
-        x: raiz.m(1128 - 22) - width
+        x: raiz.width - raiz.m(22) - width
         y: raiz.m(139 - 18) - baselineOffset
         text: raiz.version
         color: "#8F8F8F"   // versionTexto de PantallaPreciclo.qml

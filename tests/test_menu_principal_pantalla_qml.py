@@ -409,7 +409,8 @@ def test_tarjetas_en_las_coordenadas_del_v3(r):
     assert r["geo"]["resumenMantenimiento"] == [300, 1295, 293, 330]
     assert r["geo"]["resumenCiclosHoy"] == [609, 1295, 206, 330]
     assert r["geo"]["resumenUltimoCiclo"] == [831, 1295, 308, 330]
-    assert r["geo"]["barraInferiorMenu"] == [34, 1746, 1128, 139]
+    # D8-5.2 (tanda 8): la barra mide lo mismo que la grilla de tarjetas (54 a 1139)
+    assert r["geo"]["barraInferiorMenu"] == [54, 1746, 1085, 139]
     assert r["geo"]["encabezadoMenu"][:2] == [0, 0]
 
 
