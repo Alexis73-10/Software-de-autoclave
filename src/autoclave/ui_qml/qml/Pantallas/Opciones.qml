@@ -36,6 +36,7 @@ Item {
     // sin guardar en Parámetros del ciclo (T12)
     property bool cambiosPendientes: (parametrosCiclo.item?.cambiosPendientes ?? false)
                                      || (parametrosEquipo.item?.cambiosPendientes ?? false)
+                                     || (reasignacion.item?.cambiosPendientes ?? false)
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
     // U2 (tanda 2): Atrás vuelve a la pantalla anterior conservando la sesión;
@@ -346,6 +347,18 @@ Item {
             }
         }
 
+        // Opciones avanzadas = reasignación de E/S (R8, tanda 8, D8-5.12): solo el
+        // ingeniero; el backend es la autoridad (rol, ciclo, conflictos, confirmaciones)
+        Loader {
+            id: reasignacion
+            objectName: "cargadorReasignacion"
+            active: raiz.seccionActiva === "opciones_avanzadas"
+            anchors.fill: parent
+            sourceComponent: OpcionesReasignacion {
+                teclado: raiz.teclado
+            }
+        }
+
         // Secciones aún no migradas (U-4); centrado como en la imagen 1c
         Text {
             objectName: "textoProximamente"
@@ -359,6 +372,7 @@ Item {
                      && raiz.seccionActiva !== "bitacora"
                      && raiz.seccionActiva !== "conectividad"
                      && raiz.seccionActiva !== "respaldo"
+                     && raiz.seccionActiva !== "opciones_avanzadas"
             anchors.centerIn: parent
             text: I18n.t("opciones.proximamente", I18n.lang)
             color: Colores.textoGuia
