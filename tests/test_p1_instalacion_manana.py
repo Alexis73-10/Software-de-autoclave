@@ -87,6 +87,52 @@ def test_cada_salida_mostrada_se_acciona(prueba_salidas, nombre, valor):
     assert resp.json()["name"] == nombre
 
 
+# ── Paso 4: primer usuario en una base nueva ────────────────────────────────
+
+def test_base_nueva_ingeniero_semilla_cambia_clave_crea_tecnico_y_entra_a_modo_prueba(tmp_path):
+    """Recorrido del primer ingreso: ingeniero/ingeniero1234 (semilla) exige
+    cambiar la clave; con la clave nueva crea un técnico; el técnico cambia la
+    suya y puede entrar al modo prueba de E/S."""
+    ctx = MagicMock()
+    ctx.db = DbManager(db_path=tmp_path / "nueva.db")
+    ctx.sin_base_de_datos = False
+    ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
+    ctx.control_loop.enter_test_mode.return_value = (True, "")
+    ctx.control_loop.test_mode_active = False
+    srv, _ = cargar_servidor(ctx)
+    c = TestClient(srv.app)
+
+    r = c.post("/auth/login", json={"usuario": "ingeniero", "clave": "ingeniero1234"})
+    assert r.status_code == 200, r.text
+    assert r.json()["debe_cambiar_clave"] is True
+    cab = {"Authorization": f"Bearer {r.json()['token']}"}
+    # con la clave pendiente no puede entrar al modo prueba
+    assert c.post("/io/test/enter", headers=cab).status_code in (401, 403, 409)
+    r = c.post("/auth/change_password", headers=cab,
+               json={"clave_actual": "ingeniero1234", "clave_nueva": "Ingeniero2026",
+                     "confirmacion": "Ingeniero2026"})
+    assert r.status_code == 200, r.text
+
+    r = c.post("/auth/login", json={"usuario": "ingeniero", "clave": "Ingeniero2026"})
+    assert r.status_code == 200 and r.json()["debe_cambiar_clave"] is False
+    cab = {"Authorization": f"Bearer {r.json()['token']}"}
+    r = c.post("/usuarios", headers=cab,
+               json={"nombre": "Cristian", "usuario": "cristian", "clave": "Temporal2026",
+                     "confirmacion": "Temporal2026", "rol": "tecnico"})
+    assert r.status_code == 200, r.text
+
+    r = c.post("/auth/login", json={"usuario": "cristian", "clave": "Temporal2026"})
+    assert r.status_code == 200, r.text
+    cab_t = {"Authorization": f"Bearer {r.json()['token']}"}
+    if r.json()["debe_cambiar_clave"]:
+        assert c.post("/auth/change_password", headers=cab_t,
+                      json={"clave_actual": "Temporal2026", "clave_nueva": "Cristian2026",
+                            "confirmacion": "Cristian2026"}).status_code == 200
+        r = c.post("/auth/login", json={"usuario": "cristian", "clave": "Cristian2026"})
+        cab_t = {"Authorization": f"Bearer {r.json()['token']}"}
+    assert c.post("/io/test/enter", headers=cab_t).status_code == 200
+
+
 def test_apagar_windows_rechazado_queda_en_el_log(monkeypatch, caplog):
     """Paso 9: si Windows rechaza `shutdown` (política, permisos) el lazo ya
     se detuvo; al menos debe quedar el motivo en backend.log."""
