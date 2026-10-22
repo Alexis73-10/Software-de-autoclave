@@ -161,3 +161,36 @@ def test_reloj_atrasado_respecto_de_un_correctivo_sigue_protegido(entorno):
         s.registrar("tec", "preventivo", "")
     assert e.value.codigo == "reloj_invalido"
     assert len(db.listar_mantenimientos()) == 1
+
+
+# ── MNT-02: calibración ya no es un tipo de mantenimiento (D-5) ─────────────
+
+def test_calibracion_no_esta_en_los_tipos():
+    from autoclave.core.runtime import servicio_mantenimiento as sm
+    assert "calibracion" not in sm.TIPOS
+    assert sm.TIPOS == ("preventivo", "correctivo", "otro")
+
+
+def test_el_servicio_rechaza_calibracion(entorno):
+    s, db, *_ = entorno
+    with pytest.raises(ErrorMantenimiento) as e:
+        s.registrar("tec", "calibracion", "")
+    assert e.value.codigo == "validacion"
+    assert db.listar_mantenimientos() == []
+
+
+def test_post_calibracion_da_422_validacion(entorno):
+    from fastapi.testclient import TestClient
+
+    from tests.backend_doble import cabecera, cargar_servidor
+    s, db, *_ = entorno
+    ctx = MagicMock()
+    ctx.db = db
+    ctx.mantenimiento = s
+    ctx.sin_base_de_datos = False
+    srv, _ = cargar_servidor(ctx)
+    client = TestClient(srv.app)
+    r = client.post("/maintenance/records", headers=cabecera(srv, "tecnico"),
+                    json={"tipo": "calibracion", "observaciones": ""})
+    assert r.status_code == 422 and r.json()["codigo"] == "validacion"
+    assert db.listar_mantenimientos() == []

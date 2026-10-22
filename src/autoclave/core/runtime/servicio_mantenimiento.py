@@ -21,7 +21,10 @@ from autoclave.utils.archivos import escribir_texto_atomico
 
 logger = logging.getLogger(__name__)
 
-TIPOS = ("preventivo", "correctivo", "calibracion", "otro")
+# MNT-02 (D-5): la calibración se hace solo desde la pantalla Sensores; ya no
+# es un tipo de mantenimiento registrable. Las filas viejas de `calibracion`
+# siguen en la tabla (solo anexar) y se muestran como "histórico" (MNT-05).
+TIPOS = ("preventivo", "correctivo", "otro")
 OBSERVACIONES_MAX = 500
 
 
