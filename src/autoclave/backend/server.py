@@ -4148,7 +4148,9 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                     permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
                 else:
                     permitido, codigo = aire_atmosferico_prueba.evaluar(
-                        context.estado, context.config_manager)
+                        context.estado, context.config_manager,
+                        senal_presente=aire_atmosferico_prueba.senal_camara(
+                            getattr(context, "units", None)))
                 if not permitido:
                     raise _Rechazo(409, codigo, aire_atmosferico_prueba.MOTIVOS[codigo])
         # map_do es 0-indexado (posición en el bitstream DO), pero

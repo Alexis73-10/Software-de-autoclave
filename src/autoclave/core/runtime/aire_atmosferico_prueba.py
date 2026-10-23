@@ -16,6 +16,12 @@
 # recorta con max(0.0, ...) y un lazo de 4-20 mA abierto se lee 0,0 kPa, que
 # sin el piso pasaría por "cámara en vacío" y permitiría abrir. Ninguna bomba
 # de vacío del equipo llega a 1 kPa absoluto: por debajo, "sin lectura".
+#
+# Señal cruda (tercera revisión, SEN-01 / SEN-03): con la calibración de
+# fábrica (adc_min 5 → 2 kPa) un lazo abierto (ADC 0) se lee ~1,5 kPa, sobre
+# el piso; y la mediana y el filtro tardan 2-3 tramas en bajar. Por eso además
+# se exige `senal_presente is True`: la cuenta ADC cruda del canal de
+# pres_camara por encima de su adc_min (Units.senal_presion_presente).
 
 import math
 
@@ -54,8 +60,22 @@ def _numero(valor) -> float | None:
     return v if math.isfinite(v) else None
 
 
-def evaluar(estado, config) -> tuple[bool, str]:
-    """(permitido, código). Código "" si se permite."""
+def senal_camara(units) -> bool:
+    """True solo si `units` confirma señal cruda en el canal de pres_camara.
+    Cualquier error o respuesta distinta de True: False (falla cerrada)."""
+    from autoclave.core.runtime.status import EstadoAutoclave
+    try:
+        return units.senal_presion_presente(EstadoAutoclave.map_pres["pres_camara"]) is True
+    except Exception:
+        return False
+
+
+def evaluar(estado, config, senal_presente=None) -> tuple[bool, str]:
+    """(permitido, código). Código "" si se permite. `senal_presente`: la
+    cuenta ADC cruda del canal está sobre su adc_min; distinto de True
+    (incluido el valor por defecto) cuenta como "sin lectura"."""
+    if senal_presente is not True:
+        return False, SIN_PRESION
     pres = _numero((getattr(estado, "sensores_pres", None) or {}).get("pres_camara"))
     if pres is None or pres < PISO_LECTURA_KPA:
         return False, SIN_PRESION

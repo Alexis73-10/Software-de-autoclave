@@ -169,6 +169,9 @@ class ControlLoop:
         # D8-3.19: el lazo ya cerró el aire atmosférico en este modo prueba y
         # registró el evento; se rearma cuando la tarjeta lo reporta cerrado
         self._aire_prueba_cortado = False
+        # D8-3.19 (SAF-01/TMG-01 de la 2.ª revisión): último paso 1 completo
+        # (time.monotonic); presion_vigente exige que el estado esté al día
+        self._estado_publicado_mono: float | None = None
 
         # Acumulación de F0 (letalidad): timestamp del último tick que
         # acumuló, para calcular dt_min real (no el interval nominal).
@@ -435,8 +438,12 @@ class ControlLoop:
 
     @property
     def presion_vigente(self) -> bool:
-        """D8-3.19: datos vigentes (enlace + DI) y además trama AI al día; sin
-        ella, pres_camara puede ser una lectura congelada."""
+        """D8-3.19: datos vigentes (enlace + DI), trama AI al día y estado
+        publicado por el paso 1 hace a lo sumo _VIGENCIA_DI_SEG; sin eso,
+        pres_camara puede ser una lectura congelada."""
+        publicado = getattr(self, "_estado_publicado_mono", None)
+        if publicado is None or time.monotonic() - publicado > self._VIGENCIA_DI_SEG:
+            return False      # el tick no publica estado: pres_camara congelada
         return self.datos_vigentes and self._ai_vigente()
 
     @property
@@ -693,6 +700,7 @@ class ControlLoop:
 
         # 1. Publicar estado global
         self.estado.update(self.units.get_all())
+        self._estado_publicado_mono = time.monotonic()
 
         # 2. Paro de emergencia → actualiza flag en estado. DI crudo, contacto
         # NC: EmergencyStop interpreta 0 o ausente como paro (D-16).
@@ -829,8 +837,9 @@ class ControlLoop:
             salidas = getattr(self.estado, "salidas_do", None) or {}
             reportada = bool(salidas.get(aire_atmosferico_prueba.CLAVE_ESTADO))
             if vigentes:
-                permitido, codigo = aire_atmosferico_prueba.evaluar(self.estado,
-                                                                    self.config_manager)
+                permitido, codigo = aire_atmosferico_prueba.evaluar(
+                    self.estado, self.config_manager,
+                    senal_presente=aire_atmosferico_prueba.senal_camara(self.units))
             else:
                 permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
         except Exception:

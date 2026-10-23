@@ -103,6 +103,33 @@ class Units:
         with self._lock:
             return self._pressure[index]
 
+    def senal_presion_presente(self, index: int) -> bool:
+        """D8-3.19 (tanda 8, revisión SEN-01/SEN-03 de E1): True solo si la
+        cuenta ADC CRUDA del canal de presión `index` (la de la última trama,
+        antes de la mediana, la calibración, el filtro y el recorte a 0)
+        está por encima del `adc_min` de fábrica del canal (sin calibración
+        de fábrica: por encima de 0). En el fondo del rango un lazo abierto
+        no se distingue de un vacío absoluto: cuenta como "sin señal".
+        Falla cerrada: índice o datos inválidos dan False. No sustituye la
+        detección NAMUR de D8-1 (rama S1), que va en el convertidor."""
+        try:
+            i = int(index)
+            if isinstance(index, bool) or not 0 <= i < 8:
+                return False
+            with self._lock:
+                raw_ai = list(self._raw_ai)
+                factory = list(self._config.calibration.factory.pressure)
+            raw = raw_ai[8 + i] if 8 + i < len(raw_ai) else None
+            if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+                return False
+            calib = factory[i] if i < len(factory) else None
+            adc_min = getattr(calib, "adc_min", None)
+            piso = adc_min if isinstance(adc_min, (int, float)) and not isinstance(adc_min, bool) else 0
+            return raw > max(piso, 0)
+        except Exception:
+            logger.exception("No se pudo evaluar la señal cruda del canal de presión %s", index)
+            return False
+
     def is_connected(self) -> bool:
         with self._lock:
             return self._connected

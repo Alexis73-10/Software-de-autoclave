@@ -67,6 +67,7 @@ def prueba_salidas():
     ctx.control_loop.test_mode_active = True
     ctx.control_loop.apagando = False
     ctx.control_loop.presion_vigente = True     # trama AI al día
+    ctx.units.senal_presion_presente.return_value = True    # ADC sobre adc_min
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")

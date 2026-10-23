@@ -30,25 +30,25 @@ def _estado(pres):
 
 @pytest.mark.parametrize("pres", [75.0, 80.0, 20.0, 1.0])
 def test_permitido_en_atmosferica_hasta_el_borde_y_en_vacio(pres):
-    assert aap.evaluar(_estado(pres), _CONFIG) == (True, "")
+    assert aap.evaluar(_estado(pres), _CONFIG, senal_presente=True) == (True, "")
 
 
 @pytest.mark.parametrize("pres", [80.1, 120.0, 300.0])
 def test_rechazado_con_la_camara_por_encima_de_atm_mas_brecha(pres):
-    assert aap.evaluar(_estado(pres), _CONFIG) == (False, aap.CON_PRESION)
+    assert aap.evaluar(_estado(pres), _CONFIG, senal_presente=True) == (False, aap.CON_PRESION)
 
 
 # 0,0 kPa es lo que hoy entrega un lazo de 4-20 mA abierto (recorte de
 # convert_pressures): piso físico de 1 kPa absoluto (revisión SEN-01)
 @pytest.mark.parametrize("pres", [None, float("nan"), "x", True, 0.0, 0.99, -3.0])
 def test_rechazado_sin_lectura_de_presion(pres):
-    assert aap.evaluar(_estado(pres), _CONFIG) == (False, aap.SIN_PRESION)
+    assert aap.evaluar(_estado(pres), _CONFIG, senal_presente=True) == (False, aap.SIN_PRESION)
 
 
 @pytest.mark.parametrize("config", [{}, {"presion_atmosferica": 75.0},
                                     {"presion_atmosferica": None, "rango_presion_atm": 5.0}])
 def test_rechazado_sin_referencia_atmosferica(config):
-    assert aap.evaluar(_estado(75.0), config) == (False, aap.SIN_REFERENCIA)
+    assert aap.evaluar(_estado(75.0), config, senal_presente=True) == (False, aap.SIN_REFERENCIA)
 
 
 def test_nombres_de_la_salida():
@@ -71,6 +71,7 @@ def prueba():
     ctx.control_loop.test_mode_active = True
     ctx.control_loop.apagando = False
     ctx.control_loop.presion_vigente = True     # trama AI al día
+    ctx.units.senal_presion_presente.return_value = True    # ADC sobre adc_min
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
@@ -148,6 +149,7 @@ def _loop(estado):
                            cycle_manager=MagicMock(), config_manager=cm)
     loop.link.edad_ultima_di.return_value = 0.0
     loop.link.edad_ultima_ai.return_value = 0.0
+    loop.units.senal_presion_presente.return_value = True
     loop.link.expansor_fuera_de_linea.return_value = False
     loop.link.is_connected.return_value = True
     loop.paro_emergencia.update(1)
@@ -335,3 +337,101 @@ def test_patch_rechazado_con_trama_ai_vencida(prueba, vigente):
     assert r.status_code == 409, r.text
     assert r.json()["codigo"] == aap.SIN_PRESION
     ctx.setdo.set_output.assert_not_called()
+
+
+# ── Señal cruda del transductor (tercera revisión: SEN-01 / SEN-03) ─────────
+# Con la calibración de fábrica (adc_min 5 → 2 kPa) un lazo abierto (ADC 0)
+# se lee ~1,5 kPa, por encima del piso de 1 kPa; y los filtros tardan 2-3
+# tramas en bajar. Se exige además ADC crudo del canal sobre su adc_min.
+
+@pytest.mark.parametrize("senal", [None, False, "si", 1])
+def test_regla_rechaza_sin_senal_cruda_confirmada(senal):
+    assert aap.evaluar(_estado(75.0), _CONFIG, senal_presente=senal) == (False, aap.SIN_PRESION)
+
+
+def test_regla_por_defecto_rechaza():
+    assert aap.evaluar(_estado(75.0), _CONFIG) == (False, aap.SIN_PRESION)
+
+
+def _units(raw_canal, factory=True):
+    from autoclave.hal.measures.units import Units
+    u = Units()
+    if factory:
+        u._config.calibration.factory.pressure[0].adc_min = 5
+    raw = [0] * 16
+    raw[8 + 0] = raw_canal
+    u._raw_ai = raw
+    return u
+
+
+@pytest.mark.parametrize("raw, esperado", [(0, False), (5, False), (6, True), (2000, True)])
+def test_units_senal_presente_sobre_adc_min(raw, esperado):
+    assert _units(raw).senal_presion_presente(0) is esperado
+
+
+def test_units_senal_ausente_con_indice_invalido():
+    assert _units(2000).senal_presion_presente(99) is False
+
+
+def test_units_sin_calibracion_de_fabrica_exige_adc_positivo():
+    from autoclave.hal.measures.units import Units
+    u = Units()
+    u._config.calibration.factory.pressure = []
+    u._raw_ai = [0] * 16
+    assert u.senal_presion_presente(0) is False
+    u._raw_ai[8] = 1
+    assert u.senal_presion_presente(0) is True
+
+
+@pytest.mark.parametrize("senal", [False, None])
+def test_lazo_cierra_sin_senal_cruda(senal):
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop.units.senal_presion_presente.return_value = senal
+    loop._tick()
+    loop.set_do.set_output.assert_any_call(_CANAL, False)
+    assert loop.al_evento_seguridad.call_args.args[1]["motivo"] == aap.SIN_PRESION
+
+
+def test_lazo_cierra_si_units_lanza():
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop.units.senal_presion_presente.side_effect = RuntimeError("x")
+    loop._tick()
+    loop.set_do.set_output.assert_any_call(_CANAL, False)
+
+
+def test_lazo_consulta_el_canal_de_pres_camara():
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop._tick()
+    loop.units.senal_presion_presente.assert_any_call(EstadoAutoclave.map_pres["pres_camara"])
+
+
+@pytest.mark.parametrize("senal", [False, None])
+def test_patch_rechazado_sin_senal_cruda(prueba, senal):
+    client, ctx = prueba
+    ctx.units.senal_presion_presente.return_value = senal
+    r = client.patch("/io/test/output/aire_atmosferico_camara", json={"value": True})
+    assert r.status_code == 409, r.text
+    assert r.json()["codigo"] == aap.SIN_PRESION
+    ctx.setdo.set_output.assert_not_called()
+
+
+def test_patch_rechazado_si_units_lanza(prueba):
+    client, ctx = prueba
+    ctx.units.senal_presion_presente.side_effect = RuntimeError("x")
+    r = client.patch("/io/test/output/aire_atmosferico_camara", json={"value": True})
+    assert r.status_code == 409, r.text
+    ctx.setdo.set_output.assert_not_called()
+
+
+# ── Vigencia del estado publicado (SAF-01 / TMG-01 de la segunda revisión) ──
+# La trama AI puede estar al día mientras el tick no llega a publicar estado
+# (excepción antes del paso 1): presion_vigente exige además que el paso 1
+# haya corrido hace a lo sumo _VIGENCIA_DI_SEG.
+
+def test_presion_vigente_exige_estado_publicado_reciente():
+    loop = _loop(_Estado(75.0, aire_on=False))
+    assert loop.presion_vigente is False          # aún no se publicó estado
+    loop._tick()
+    assert loop.presion_vigente is True
+    loop._estado_publicado_mono -= loop._VIGENCIA_DI_SEG + 0.1
+    assert loop.presion_vigente is False
