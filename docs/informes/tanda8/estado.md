@@ -20,7 +20,7 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | D8 | Hecha, unida a `tanda-8` (0a0dd75, sin conflictos). Suite tras unir (junto con D8-3.18, 3b13992) **6158 p / 7 s / 3 xf / 1 falla** (`suites/integ_d8.log`): la misma de R8, ya corregida en 33e4abc | rama `tanda-8-d8` (2c8be1e) | P5: 5 funciones muertas retiradas con safety-reviewer. P10/P11: worktrees no quitados (piden `--force`, PREGUNTA). Etiquetas `archivo/*` empujadas. |
 | V8b | Hecha, unida a `tanda-8` la última (1f5fa71, sin conflictos; V8b unió antes `tanda-8` en su rama, 5a0de11). Suite final de integración **6201 p / 7 s / 3 xf**, en verde (`suites/integ_v8b_final.log`) | rama `tanda-8-v8b` (5b16e3e) | `Escala.fuenteMinima` 18 → 14 px (DECISIÓN SIN CONFIRMAR). Ticket con abreviaturas por las 32 columnas: PREGUNTA. |
 | K8 | Hecha | `dev` 5a4b0df, etiqueta `inst-2026-10-23-c` | Compilación C en `entrega/2026-10-23_c/` (venv limpio, PowerShell). Calibración neutra verificada (D8-3.18). Prueba de humo: asistente paso 1 de 8, sin errores. Ensayo B → C sobre copia: OK con el reemplazo de 2 archivos de configuración (LEEME 8b). Informe `tanda8/K8_compilacion_c.md`. |
-| Z | Pendiente | | |
+| Z | Hecha | `dev` (ver Push) | Suite final 6201 p / 7 s / 3 xf; `tanda-8` unida a `dev`; compilación C recomendada; índice `docs/informes/informe_tanda_2026-10-23_t8.md`. |
 
 Instrucciones comunes de los subagentes: `tanda8/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-8-<id>`; NO relanzarlos desde cero, revisar su rama y su informe.
 
@@ -69,3 +69,6 @@ No termines el turno con subagentes activos: en modo `-p` el CLI los mata a los 
 - La sesión 02 (21:58) murió con R8, V8a, E1 y L8 activos. V8a y L8 alcanzaron a commitear su informe.
 - La suite de integración de S1 (`suites/integ_s1.log`, en `_suites_t8/base`) sigue corriendo sola.
 - Relanzados 22:15, continuando en sus worktrees: R8, E1, D8 y V8b. La sesión principal une V8a y L8 mientras tanto, y NO termina el turno con subagentes activos.
+
+## Cierre (sesión 22:11)
+- Unidas en esta sesión: V8a, L8, R8 (SEN-09), E1, D8 y V8b. Suite final en verde. `tanda-8` unida a `dev` (5a4b0df). Etiqueta `inst-2026-10-23-c`. K8 y Z hechas.
