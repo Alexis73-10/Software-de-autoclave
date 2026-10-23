@@ -47,7 +47,9 @@ def comandos(monitor_puerta1: int, monitor_puerta2: int) -> list[list[str]]:
 RELANZAMIENTOS_MAX = 3
 ESPERA_RELANZAR_S = 5.0
 # Salida del asistente de instalación al terminar (InstalacionVentana.qml): no
-# es una caída, no se relanza ni se cuenta (TMG-02 de T9)
+# es una caída, no se relanza ni se cuenta (TMG-02 de T9). W10 (D10-4): la
+# pantalla 2 en Reposo de instalación sale con el mismo código al aparecer el
+# perfil, así que tampoco cuenta como caída
 CODIGO_INSTALACION_TERMINADA = 3
 
 
