@@ -594,10 +594,13 @@ Item {
             model: raiz.alarmas
             delegate: Item {
                 id: fila
-                // roles del modelo: id, level, description, source_state, priority
+                // roles del modelo: id, level, description, source_state, priority,
+                // descripciones ({idioma: descripción}, U10b)
                 required property var model
                 width: ListView.view.width
-                height: raiz.m(72)
+                // U10b (D10-1.4): el motivo largo (CIC-10) va completo en varias
+                // líneas; antes se achicaba (HorizontalFit) y aun así se cortaba
+                height: Math.max(raiz.m(72), textoFila.implicitHeight + raiz.m(28))
                 // la lista congelada se atenúa sin conexión; las filas de
                 // seguridad no
                 opacity: raiz.datosVigentes ? 1.0 : 0.4
@@ -611,11 +614,16 @@ Item {
                          : Colores.alarmaAlta
                 }
                 Text {
+                    id: textoFila
+                    objectName: "textoFilaAlarmaPreciclo"
                     x: raiz.m(32)
                     width: fila.width - x
                     anchors.verticalCenter: parent.verticalCenter
-                    text: fila.model.description !== "" ? fila.model.description : fila.model.id
-                    fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+                    // U10b: en el idioma de la interfaz (textos del DTO por
+                    // idioma); sin ellos, la descripción registrada y el id
+                    text: (fila.model.descripciones ?? {})[I18n.lang]
+                          || fila.model.description || fila.model.id
+                    wrapMode: Text.WordWrap
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.pixelSize: raiz.fuente(24)
