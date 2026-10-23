@@ -140,6 +140,14 @@ class ProtocoloFallo:
         self._seq_vacio = None
         # R2-M1: aviso en el log una vez por tramo con la trama AI vencida
         self._aviso_ai_vencida = False
+        # R3-A1 (revisión ★ pasada 3): decisión inicial de ejecutar() que
+        # quedó PENDIENTE por la trama AI vencida ("abrir": la del disparo
+        # normal; "presurizado": solo marcar la presión al disparo, como con
+        # abrir_valvulas=False o la cámara sellada). La toma el primer
+        # update() con la AI vigente.
+        self._decision_pendiente = None
+        # R3-A1: reanudar() ya corrió (el timeout de escalada se arma ahí)
+        self._reanudado = False
 
     @property
     def sellado(self) -> bool:
@@ -550,23 +558,40 @@ class ProtocoloFallo:
 
         if (self._solo_lenta and en_enfriamiento_contrapresion
                 and modo in (4, 5) and self.es_liquido()):
-            if pres is not None and pres > atm + rango:
+            if not self._ai_vigente_tick:
+                self._decision_pendiente = "presurizado"      # R3-A1
+            elif pres is not None and pres > atm + rango:
                 self._presurizado_al_disparo = True
             self._iniciar_sellado()
             self._ejecutado = True
             return
 
-        if not abrir_valvulas or not self._ai_vigente_tick:
+        if not self._ai_vigente_tick:
+            # R3-A1 (revisión ★ pasada 3): sin presión vigente la decisión
+            # inicial (presurizada al disparo, timeout del modo, válvula del
+            # modo, vacío) queda PENDIENTE con todo cerrado; la toma el primer
+            # update() con la trama AI vigente
+            self._decision_pendiente = "abrir" if abrir_valvulas else "presurizado"
+            logger.error("Protocolo fallo: trama AI vencida al disparar — salidas apagadas; "
+                         "la decisión inicial espera datos vigentes")
+            self._ejecutado = True
+            return
+
+        self._decision_inicial(pres, seq_ai, abrir_valvulas)
+        self._ejecutado = True
+
+    def _decision_inicial(self, pres, seq_ai, abrir_valvulas: bool) -> None:
+        """Válvula de seguridad inicial según el estado de la cámara (paso 2
+        de ejecutar(); R3-A1: también, diferida, desde update())."""
+        atm   = self.config.get("presion_admosferica") or 101.3
+        rango = self.config.get("rango_presion_atm")   or 20.0
+        if not abrir_valvulas:
             if pres is not None and pres > atm + rango:
                 # el timeout se arma al abrir válvulas (reanudar), no durante
                 # el paro ni la espera de confirmación (TMG-02 de T5)
                 self._presurizado_al_disparo = True
-            if not self._ai_vigente_tick:
-                logger.error("Protocolo fallo: trama AI vencida al disparar — salidas "
-                             "apagadas, sin válvulas hasta tener datos vigentes")
-            else:
-                logger.warning("Protocolo fallo: paro de emergencia — salidas apagadas, "
-                               "sin válvulas")
+            logger.warning("Protocolo fallo: paro de emergencia — salidas apagadas, "
+                           "sin válvulas")
         elif pres is None:
             # Fin de ciclo §15: presión desconocida → la lenta y sin escalar
             logger.warning("Protocolo fallo: presión desconocida — descompresión lenta sin escalar")
@@ -599,11 +624,48 @@ class ProtocoloFallo:
             )
             self._aplicar_paso_modo(pres)
 
-        self._ejecutado = True
+    def _tomar_decision_pendiente(self, seq_ai) -> bool:
+        """R3-A1: primer update() con la trama AI vigente tras un disparo con
+        la AI vencida. Devuelve True si este update() ya actuó (decisión
+        "abrir": como el disparo normal, el resto queda para el siguiente)."""
+        modo, self._decision_pendiente = self._decision_pendiente, None
+        pres = self._pres_camara()
+        if not lectura_valida(pres):
+            pres = None
+        logger.warning("Protocolo fallo: datos vigentes — se toma la decisión inicial "
+                       "pendiente (%s, presión %s)", modo, pres)
+        if modo == "abrir":
+            self._decision_inicial(pres, seq_ai, True)
+            return True
+        atm   = self.config.get("presion_admosferica") or 101.3
+        rango = self.config.get("rango_presion_atm")   or 20.0
+        if pres is not None and pres > atm + rango:
+            self._presurizado_al_disparo = True
+            # si reanudar() ya corrió, el plazo del modo empieza ahora
+            if (self._reanudado and not self._escalado and not self._sin_escalar
+                    and self._t_timeout_descompresion is None):
+                self._t_timeout_descompresion = self._calcular_timeout()
+        return False
 
     # ------------------------------------------------------------------
     # Estrategia de válvulas según el modo de descompresión del ciclo
     # ------------------------------------------------------------------
+
+    def _referencia_atm_configurada(self) -> bool:
+        """S9, revisión ★ pasada 3 (b): presión atmosférica de referencia y
+        su brecha configuradas (números finitos, positivos). Sin ellas el
+        protocolo sigue usando 101,3 / 20 kPa para el resto, pero NO abre el
+        aire atmosférico: en un sitio de altura (p. ej. 75 kPa) el defecto
+        leería vacío con la cámara a la atmósfera."""
+        for clave in ("presion_admosferica", "rango_presion_atm"):
+            try:
+                v = self.config.get(clave)
+            except Exception:
+                return False
+            if (isinstance(v, bool) or not isinstance(v, (int, float))
+                    or not math.isfinite(v) or v <= 0):
+                return False
+        return True
 
     def _calcular_timeout(self) -> float:
         timeout_key = f"modo_{self._modo_efectivo()}"
@@ -657,7 +719,8 @@ class ProtocoloFallo:
                         # vacío seguidas (contadas en update())
                         self.set_do.descompresion_lenta_off()
                         self.set_do.descompresion_chaqueta_off()
-                        if self._lecturas_vacio >= _DEBOUNCE_LECTURAS:
+                        if (self._lecturas_vacio >= _DEBOUNCE_LECTURAS
+                                and self._referencia_atm_configurada()):
                             self.set_do.aire_admosferico_camara_on()
                     else:
                         self.set_do.aire_admosferico_camara_off()
@@ -755,6 +818,15 @@ class ProtocoloFallo:
         # este update(); con la AI vencida la presión cuenta como perdida
         self._ai_vigente_tick, seq_ai = self._leer_ai()
         self._seguir_presion_perdida(seq_ai)
+        if self._decision_pendiente is not None:
+            if not self._ai_vigente_tick:
+                # R3-A1: decisión inicial pendiente: todo cerrado (el ALL_OFF
+                # del disparo), ninguna válvula nueva
+                self.set_do.aire_comprimido_camara_off()
+                self._t_aire_comprimido = None
+                return
+            if self._tomar_decision_pendiente(seq_ai):
+                return
         if not self._ai_vigente_tick:
             # R2-M1 (revisión ★ pasada 2, DECISIÓN SIN CONFIRMAR de la sesión
             # principal): trama AI vencida = datos NO vigentes, como la DI
@@ -851,7 +923,8 @@ class ProtocoloFallo:
             self.set_do.descompresion_rapida_off()
             self.set_do.descompresion_lenta_off()
             self.set_do.descompresion_chaqueta_off()
-            if self._lecturas_vacio >= _DEBOUNCE_LECTURAS:
+            if (self._lecturas_vacio >= _DEBOUNCE_LECTURAS
+                    and self._referencia_atm_configurada()):
                 self.set_do.aire_admosferico_camara_on()
         else:
             # Rango normal → mantener la válvula de descompresión del modo,
@@ -921,6 +994,7 @@ class ProtocoloFallo:
         self._lecturas_principal_perdido = 0
         self._lecturas_vacio = 0
         self._seq_vacio = None
+        self._reanudado = True
         if tras_modo_prueba:
             self._sin_sonda_desde = None
         self._t_pulso_chaqueta = None

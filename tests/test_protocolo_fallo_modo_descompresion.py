@@ -9,7 +9,11 @@ def _make_protocolo(modo, pres_camara=300.0, presion_cambio=150):
     estado.sensores_pres = {"pres_camara": pres_camara}
     estado.sensores_temp = {"temp_camara": 25.0}
     config = MagicMock()
-    config.get.return_value = None
+    # S9, revisión ★ pasada 3 (b): sin la referencia atmosférica configurada
+    # el protocolo no abre el aire atmosférico; aquí, la de los valores por
+    # defecto que usa el protocolo
+    config.get.side_effect = lambda k, d=None: {"presion_admosferica": 101.3,
+                                                "rango_presion_atm": 20.0}.get(k, d)
     set_do = MagicMock()
     cycle = MagicMock()
 

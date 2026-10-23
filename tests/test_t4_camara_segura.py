@@ -84,6 +84,8 @@ def _cliente(pres=101.3, temp=40.0, vigentes=True):
     ctx.programas_para_seguridad.return_value = []
     ctx.temp_max_tras_ciclo.return_value = None
     ctx.control_loop.datos_vigentes = vigentes
+    # S9, revisión ★ pasada 3 (R3-M1): el NO ABRIR usa la presión vigente
+    ctx.control_loop.presion_vigente = vigentes
     ctx.control_loop.bloqueo_maquina.return_value = threading.Lock()
     srv, _ = cargar_servidor(ctx)
     return TestClient(srv.app)
