@@ -182,17 +182,17 @@ class StateMachine:
                     abrir = (datos_vigentes is True
                              and not self.estado.get_flag("PARO_EMERGENCIA"))
                     self.ciclo._protocolo.ejecutar(abrir_valvulas=abrir)
-                    self.estado_seguro.iniciar(self.ciclo._protocolo)
+                    self.estado_seguro.iniciar(self.ciclo._protocolo, origen="completado")
 
             elif resultado == "FALLO":
                 logger.error("StateMachine: fallo en ciclo → FALLA")
                 self.estado.set_machine_state(GlobalState.FALLA)
-                self.estado_seguro.iniciar(self.ciclo._protocolo)
+                self.estado_seguro.iniciar(self.ciclo._protocolo, origen="fallo")
 
             elif resultado == "CANCELADO":
                 logger.warning("StateMachine: ciclo cancelado → PREPARADO")
                 self.estado.set_machine_state(GlobalState.PREPARADO)
-                self.estado_seguro.iniciar(self.ciclo._protocolo)
+                self.estado_seguro.iniciar(self.ciclo._protocolo, origen="cancelado")
 
             # "EN_CURSO" o "ESPERANDO_CONFIRMACION" → no hacer nada, seguir en CICLO
 

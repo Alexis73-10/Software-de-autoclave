@@ -2,6 +2,7 @@ import time
 import logging
 
 from autoclave.core.runtime import motivos_fase
+from autoclave.core.runtime import vigencia_ai
 from autoclave.state_machine.cycle_phases.base_fase import BaseFase, FaseResult
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo
 from autoclave.core.runtime.lectura import carga_enfriada
@@ -181,7 +182,11 @@ class DescompresionFase(BaseFase):
 
         presion_obj = self.cycle.get_param("descompresion", modo_key, "presion_camara_enfriamiento", default=200)
         p = self._pres_camara()
-        if p is not None and p < presion_obj:
+        # S9 (tanda 9), revisión ★ pasada 2 (R2-A1): con la trama AI vencida
+        # la presión puede estar congelada bajo el objetivo: sin aire
+        # comprimido (sin realimentación habría sobrepresión)
+        ai_vigente, _ = vigencia_ai.leer(self.estado)
+        if ai_vigente and p is not None and p < presion_obj:
             if self._t_aire_comprimido is None or now >= self._t_aire_comprimido:
                 self.set_do.aire_comprimido_camara_on()
                 self._t_aire_comprimido = now + 3.0

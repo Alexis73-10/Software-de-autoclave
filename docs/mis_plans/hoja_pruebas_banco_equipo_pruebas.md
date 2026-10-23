@@ -526,18 +526,132 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### C-05 — Arranque con cámara no segura: confirmar estado seguro sin técnico
+### C-05 — Arranque con cámara no segura: estado seguro automático, sin confirmación
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** T1 (tanda 5), P-10
-- **Objetivo:** Tras un corte con la cámara caliente, el operador lleva el equipo a seguro sin rol técnico.
-- **Precondiciones:** Simular cámara no segura al arrancar (sensor Principal calentado > temp_max_apertura) con un ciclo previo interrumpido en la BD (o cortar la energía en pleno ciclo de prueba en seco).
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T1 (tanda 5), P-10; cambiado por S9 D9-1.1/1.2 (tanda 9: ya no se pide confirmación al arrancar)
+- **Objetivo:** Tras un corte con la cámara caliente, el equipo lleva la cámara a seguro SOLO, sin confirmación ni rol técnico.
+- **Precondiciones:** Simular cámara no segura al arrancar (sensor Principal calentado > temp_max_apertura) con un ciclo previo interrumpido en la BD (o cortar la energía en pleno ciclo de prueba en seco). Sin pulsar el paro en este encendido.
 - **Pasos:**
   1. Arrancar el software.
-  2. Observar "NO ABRIR" y el aviso de estado seguro.
-  3. Pulsar el botón que ofrece la UI (debe ser "Confirmar y llevar a estado seguro", no "Reconocer falla").
+  2. Observar "NO ABRIR" y el aviso de estado seguro en la tarjeta de alarmas de Preciclo y en la campana.
+  3. Verificar que NO aparece el botón "Confirmar y llevar a estado seguro" ni el texto "Paro liberado".
   4. Dejar enfriar.
-- **Resultado esperado:** El ciclo previo aparece como INTERRUMPIDO ("la carga NO está estéril"); no se reanuda; el botón correcto funciona sin sesión; al quedar segura vuelve a PREPARACION.
-- **Criterio de aprobado/fallo:** Aprobado si no se reanuda nada, el botón correcto aparece y no se exige técnico.
+- **Resultado esperado:** El ciclo previo aparece como INTERRUMPIDO ("la carga NO está estéril"); no se reanuda; el aviso dice «Arranque con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia)»; con presión sobre la atmosférica solo abre la lenta (nunca la rápida ni la chaqueta); al quedar segura vuelve a PREPARACION.
+- **Criterio de aprobado/fallo:** Aprobado si no se reanuda nada, no se pide confirmación, no dice "paro liberado" y solo abre la lenta.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05b — Arranque sin sensor de presión de cámara: sin bloqueos (H1, H2, H5, H6, H8)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S9 D9-1.1 a 1.5 (tanda 9)
+- **Objetivo:** Con el transmisor de presión de cámara desconectado (equipo de pruebas sin sensores), el arranque no deja el equipo bloqueado.
+- **Precondiciones:** Lazo del transmisor de presión de cámara desconectado. Paro de emergencia sin pulsar.
+- **Pasos:**
+  1. Arrancar el software.
+  2. Revisar la tarjeta de alarmas de Preciclo y la campana.
+  3. Pulsar el avatar e iniciar sesión como técnico; entrar y salir del modo prueba.
+  4. Cambiar el programa seleccionado.
+  5. Intentar iniciar un ciclo.
+  6. Apagar el equipo desde OPCIONES.
+- **Resultado esperado:** Sin botón de confirmación ni texto «Paro liberado»; alarmas SEN-06 (presión de cámara sin lectura) y CIC-10 «Estado seguro detenido» con el motivo «Sensor de presión de cámara sin lectura: el estado seguro no puede confirmar la presión. Llame a servicio técnico»; NO ABRIR; ninguna válvula del protocolo abierta. El login, el modo prueba, el cambio de programa y el apagado se permiten; el inicio de ciclo queda rechazado. Revisión ★ SAF-01 (tanda 9): en el modo prueba, sin presión de cámara (o con el estado seguro activo) NO se encienden `abrir_puerta_N` ni `desbloqueo_puerta_N` (mensaje «No se puede desbloquear ni abrir la puerta…»), ni `descompresion_rapida`, `descompresion_chaqueta` ni `vapor_camara` mientras el estado seguro siga activo (mensaje «No se puede encender esta salida: la cámara se está llevando a estado seguro»). **En el equipo de pruebas sin sensores esto impide probar la apertura de puertas desde Entradas / Salidas** (ver C-05g).
+- **Criterio de aprobado/fallo:** Aprobado si login, modo prueba, cambio de programa y apagado funcionan y el ciclo no inicia.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05c — Arranque con la cámara en vacío: aire atmosférico, sin confirmación
+
+- **Modo:** En seco (bomba de vacío)  ·  **Origen:** S9 D9-1.1 (tanda 9)
+- **Objetivo:** Al arrancar con la cámara bajo la atmosférica − brecha, el protocolo abre el aire atmosférico (nunca la lenta mientras haya vacío), sin confirmación.
+- **Precondiciones:** Hacer vacío en la cámara en modo prueba (puerta cerrada) y cortar la energía con la cámara en vacío.
+- **Pasos:**
+  1. Arrancar el software.
+  2. Observar las salidas `aire_admosferico_camara`, `descompresion_lenta` y `descompresion_rapida`.
+- **Resultado esperado:** Se abre el aire atmosférico hasta la presión atmosférica; no se pide confirmación; al quedar segura vuelve a PREPARACION.
+- **Criterio de aprobado/fallo:** Aprobado si abre el aire atmosférico sin confirmación y la rápida no abre.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05d — Paro real pulsado y liberado durante el estado seguro del arranque: sí pide confirmación
+
+- **Modo:** En seco  ·  **Origen:** S9 D9-1.2 (tanda 9)
+- **Objetivo:** La confirmación se exige solo tras un paro real visto en este encendido, y entonces sí dice «Paro liberado».
+- **Precondiciones:** Como C-05, con el estado seguro del arranque en curso.
+- **Pasos:**
+  1. Pulsar el paro de emergencia; esperar 5 s; liberarlo.
+  2. Observar la tarjeta de alarmas y las salidas durante 1 minuto sin confirmar.
+  3. Pulsar «Confirmar y llevar a estado seguro» (sin sesión).
+- **Resultado esperado:** Tras liberar: «Paro de emergencia liberado — estado seguro pendiente», aviso «Paro liberado…» y el botón; ninguna salida de proceso se mueve hasta confirmar; al confirmar sigue solo por la lenta.
+- **Criterio de aprobado/fallo:** Aprobado si pide confirmación tras el paro y no antes.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05e — Cambio de programa y modo prueba con el estado seguro en curso
+
+- **Modo:** En seco  ·  **Origen:** S9 D9-1.3 (tanda 9; revierte SAF-03 de T6)
+- **Objetivo:** Con el estado seguro activo se puede cambiar de programa y entrar al modo prueba sin relajar la seguridad.
+- **Precondiciones:** Como C-05 (cámara caliente, estado seguro en curso), con un ciclo interrumpido de un programa con `temp_max_apertura` menor que la del programa al que se cambiará.
+- **Pasos:**
+  1. Cambiar el programa seleccionado a otro con otra sonda Principal o mayor temperatura de apertura.
+  2. Verificar que NO ABRIR sigue y que la puerta no abre aunque la sonda Principal del programa nuevo ya esté fría.
+  3. Entrar al modo prueba (técnico): observar que el protocolo se pausa (todas las salidas en 0).
+  4. En Entradas / Salidas intentar encender `desbloqueo_puerta_1`, `abrir_puerta_1`, `descompresion_rapida`, `descompresion_chaqueta`, `vapor_camara`, `aire_comprimido_camara`, `vapor_generador` y `vapor_caldera` (revisión ★ pasada 2, P-a); encender `descompresion_lenta` y `vapor_chaqueta`. Con el atrapamiento activo (si la puerta lo tiene), intentar `cerrar_puerta_1`.
+  5. Salir del modo prueba: el protocolo se reanuda solo.
+  6. Intentar iniciar un ciclo.
+- **Resultado esperado:** El cambio se acepta; la seguridad sigue usando la sonda y la temperatura de apertura del programa del ciclo interrumpido. En el modo prueba (revisión ★ SAF-01 y P-a, DECISIÓN SIN CONFIRMAR): las ocho salidas del paso 4 se rechazan con su mensaje y, si alguna estaba encendida, el lazo la apaga en el siguiente tick (queda `salida_prueba_cortada` en la bitácora); la lenta y el vapor de chaqueta sí encienden; el cierre con atrapamiento no se convierte en apertura. Tras el modo prueba la lenta vuelve a abrir sola; el ciclo no inicia mientras el estado seguro siga.
+- **Criterio de aprobado/fallo:** Aprobado si la puerta no abre (ni por el programa nuevo ni desde el modo prueba) antes de que la sonda del ciclo interrumpido esté bajo su temperatura de apertura y la presión en la banda atmosférica.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05f — Coherencia puerta-presión (SEN-10)
+
+- **Modo:** En seco  ·  **Origen:** S9 D9-1.6 (tanda 9)
+- **Objetivo:** Con la puerta abierta, una presión de cámara fuera de la banda atmosférica se detecta como incoherencia (calibración, referencia atmosférica o sensor de puerta).
+- **Precondiciones:** Fuera de ciclo, puerta abierta. Presión de referencia (`presion_admosferica`) cambiada a propósito en Parámetros del equipo a un valor alejado de la real más de `rango_presion_atm` (o simular la presión con el calibrador en el lazo).
+- **Pasos:**
+  1. Observar la tarjeta de alarmas durante 5 s.
+  2. Con SEN-10 activa, CERRAR la puerta (sin restaurar la referencia): observar 10 s e intentar iniciar un ciclo.
+  3. Abrir de nuevo la puerta, restaurar la referencia (o el valor del calibrador) y observar.
+  4. Con la referencia mal configurada y la puerta cerrada desde el principio, observar 10 s.
+- **Resultado esperado:** En unas 3 lecturas aparece SEN-10 «Presión de cámara incoherente con la puerta abierta» (ALARMA, bloquea el inicio) con las causas posibles en la acción. Revisión ★ SAF-02 (tanda 9): al cerrar la puerta SEN-10 NO se despeja y el inicio sigue rechazado (con la puerta cerrada no hay referencia atmosférica); solo se despeja sola con 3 lecturas coherentes con la puerta ABIERTA. Con la puerta cerrada desde el principio no aparece. Durante un ciclo nunca aparece. En el modo prueba no se evalúa.
+- **Criterio de aprobado/fallo:** Aprobado si aparece, sigue al cerrar la puerta, se despeja sola con la puerta abierta y coherente, y no aparece con la puerta cerrada desde el principio.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05g — Modo prueba con la cámara no segura: apertura de puertas bloqueada (SAF-01)
+
+- **Modo:** En seco  ·  **Origen:** S9, revisión ★ SAF-01 (tanda 9; DECISIÓN SIN CONFIRMAR, excepción nueva a D-ES-15)
+- **Objetivo:** En el modo prueba no se puede desbloquear ni abrir una puerta con la cámara no segura (presión fuera de la banda atmosférica, temperatura sobre la de apertura o sin lectura), aunque no haya estado seguro en curso.
+- **Precondiciones:** Fuera de ciclo, sin estado seguro activo, cámara segura (presión atmosférica, Principal frío). Puerta con actuador (`AdvancedDoor`).
+- **Pasos:**
+  1. Entrar al modo prueba; encender y apagar `desbloqueo_puerta_1` y `abrir_puerta_1`: deben funcionar.
+  2. Con la puerta cerrada, desconectar el lazo del transmisor de presión de cámara (o subir la presión con el calibrador sobre atm + `rango_presion_atm`).
+  3. Intentar de nuevo `desbloqueo_puerta_1` y `abrir_puerta_1`.
+  4. Si alguna quedó encendida antes del paso 2, observar que el lazo la apaga.
+- **Resultado esperado:** Paso 1 aceptado. Paso 3 rechazado con «No se puede desbloquear ni abrir la puerta: la cámara no es segura…». Paso 4: apagada en el tick siguiente y `salida_prueba_cortada` en la bitácora.
+- **Criterio de aprobado/fallo:** Aprobado si con la cámara no segura ninguna orden de prueba desbloquea ni abre la puerta.
+- **Nota:** en el equipo de pruebas SIN sensores la cámara nunca es segura: la apertura de puertas no se puede probar desde el modo prueba (PREGUNTA PARA CRISTIAN en el informe S9).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-05h — Estado seguro con la trama AI vencida (TMG-02)
+
+- **Modo:** En seco  ·  **Origen:** S9, revisión ★ TMG-02 (tanda 9)
+- **Objetivo:** Si la tarjeta sigue mandando entradas digitales pero deja de mandar las analógicas, el estado seguro no toma la presión congelada como vigente.
+- **Precondiciones:** Estado seguro en curso (C-05). Firmware de pruebas o simulador que permita suspender solo las tramas `AI:`.
+- **Pasos:**
+  1. Suspender las tramas `AI:` durante 10 s; observar la tarjeta de alarmas y las salidas.
+  2. Reanudarlas.
+  3. Repetir el paso 1 con un programa de líquidos en modo 4/5 durante el enfriamiento con contrapresión (estado seguro tras un fallo en DESCOMPRESION, y también con la confirmación del fallo pendiente en CICLO).
+  4. Con la cámara segura y fuera de ciclo, suspender las tramas `AI:` e intentar abrir la puerta.
+- **Resultado esperado:** En menos de 2 s aparece CIC-10 con el motivo de presión de cámara sin lectura; no se abre aire comprimido, aire atmosférico ni ninguna válvula nueva; lo que ya estaba abierto (la lenta) sigue igual; el estado seguro no termina aunque la última presión fuera atmosférica. Revisión ★ pasada 2 (R2-M1): el protocolo NO pasa a «solo la lenta» por esto y una carga líquida sellada con contrapresión no se ventea; al volver las tramas, con 3 tramas válidas se retira el motivo y el protocolo sigue donde estaba. Paso 4 (R2-M3): la puerta no abre (cámara no segura con la presión no vigente) ni por botón ni por apertura automática.
+- **Criterio de aprobado/fallo:** Aprobado si sin tramas AI no termina el estado seguro, no abre nada nuevo, no ventea una carga líquida sellada y la puerta no abre.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

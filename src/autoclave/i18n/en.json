@@ -634,6 +634,10 @@
     "sin_lectura": "—",
     "no_abrir": "DO NOT OPEN",
     "paro_no_abrir": "EMERGENCY STOP — DO NOT OPEN",
+    "estado_seguro_causa_arranque": "Start-up with the chamber not safe: the equipment brings it to a safe state on its own, without confirmation (there was no emergency stop).",
+    "estado_seguro_causa_fallo": "Cycle failure: the equipment is bringing the chamber to a safe state.",
+    "estado_seguro_causa_cancelado": "Cycle cancelled: the equipment is bringing the chamber to a safe state.",
+    "estado_seguro_causa_completado": "Cycle finished with the chamber not safe: the equipment is bringing it to a safe state.",
     "paro_liberado": "Emergency stop released. Check that there is no leak before continuing.",
     "confirmar_estado_seguro": "Confirm and bring to safe state",
     "estado_seguro_en_curso": "Bringing the chamber to a safe state",
@@ -917,6 +921,11 @@
       "plantilla": "Functions on a new port not verified: {funciones}. Cycles cannot be started.",
       "accion": "The engineer must verify each function in OPTIONS › Advanced options."
     },
+    "SEN-10": {
+      "titulo": "Chamber pressure inconsistent with the open door",
+      "plantilla": "The door is open, but the chamber pressure does not match the atmospheric pressure. Cycles cannot be started.",
+      "accion": "Possible causes: chamber pressure sensor calibration, wrong atmospheric reference pressure or door sensor. Call technical service."
+    },
     "CIC-01": {
       "titulo": "Preheating failure",
       "plantilla": "{motivo}",
@@ -1023,6 +1032,8 @@
     "err_aire_con_presion": "The atmospheric air valve cannot be opened: the chamber is pressurized. Wait until the chamber is at atmospheric pressure.",
     "err_aire_sin_presion": "The atmospheric air valve cannot be opened: there is no chamber pressure reading.",
     "err_aire_sin_referencia": "The atmospheric air valve cannot be opened: the equipment reference atmospheric pressure is missing.",
+    "err_puerta_camara_no_segura": "The door cannot be unlocked or opened: the chamber is not safe (pressure, temperature or no reading) or is being brought to a safe state.",
+    "err_salida_estado_seguro": "This output cannot be switched on: the chamber is being brought to a safe state.",
     "di": {
       "aire_comprimido": "Compressed air",
       "presion_agua": "Water pressure",
@@ -1775,6 +1786,7 @@
     }
   },
   "estado_seguro_motivos": {
+    "sin_presion_camara": "Chamber pressure sensor without reading: the safe state cannot confirm the pressure. Call technical service",
     "sonda_temperatura": "Main probe without reading: the safe state cannot confirm the temperature",
     "sonda_enfriamiento": "Main probe without reading: cooling cannot be confirmed",
     "liquido_caliente": "Exhaust time limit reached with a hot liquid load: the fast exhaust is not used",

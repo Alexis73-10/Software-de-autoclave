@@ -190,15 +190,17 @@ r["tocable_en_preparado"] = bool(pre.property("programaTocable")) and bool(zona.
 r["numero_tocable"] = numero is not None and bool(numero.property("enabled"))
 r["ventana_cerrada"] = not ventana.property("visible")
 # D8-5.1 (tanda 8): sin datos vigentes y en FALLA SÍ se puede cambiar
-for nombre, cambios in (("sin_conexion", {"connected": False}), ("falla", {"machineState": "FALLA"})):
+# S9 (tanda 9, D9-1.3): también con el estado seguro activo o la confirmación pendiente
+for nombre, cambios in (("sin_conexion", {"connected": False}), ("falla", {"machineState": "FALLA"}),
+                        ("estado_seguro", {"estadoSeguroActivo": True}),
+                        ("confirmar_seguro", {"estadoSeguroRequiereConfirmacion": True})):
     previos = {k: pf.property(k) for k in cambios}
     for k, v in cambios.items(): pf.setProperty(k, v)
     r["permitido_" + nombre] = bool(pre.property("programaTocable")) and bool(ayuda.property("visible"))
     for k, v in previos.items(): pf.setProperty(k, v)
 # estados donde NO se puede cambiar: la zona sigue respondiendo y la ventana
 # muestra el motivo del catálogo (nunca silencio)
-for nombre, cambios in (("ciclo", {"machineState": "CICLO"}), ("estado_seguro", {"estadoSeguroActivo": True}),
-                        ("confirmar_seguro", {"estadoSeguroRequiereConfirmacion": True}),
+for nombre, cambios in (("ciclo", {"machineState": "CICLO"}),
                         ("paro", {"paroActivo": True}), ("prueba", {"modoPrueba": True})):
     previos = {k: pf.property(k) for k in cambios}
     for k, v in cambios.items(): pf.setProperty(k, v)
@@ -255,10 +257,10 @@ def test_el_recuadro_programa_es_tocable_fuera_de_ciclo_y_elige_por_el_mismo_end
     assert [a for a in d["avisos"] if "Binding loop" not in a] == []
     assert d["tocable_en_preparado"] and d["ventana_cerrada"] and d["numero_tocable"]
     assert d["permitido_sin_conexion"] and d["permitido_falla"]          # D8-5.1
+    assert d["permitido_estado_seguro"] and d["permitido_confirmar_seguro"]  # S9, D9-1.3
     import json as _json
     es = _json.loads((RAIZ / "src" / "autoclave" / "i18n" / "es.json").read_text(encoding="utf-8"))
-    claves = {"ciclo": "motivo_ciclo_en_curso", "estado_seguro": "motivo_estado_seguro",
-              "confirmar_seguro": "motivo_estado_seguro", "paro": "motivo_paro",
+    claves = {"ciclo": "motivo_ciclo_en_curso", "paro": "motivo_paro",
               "prueba": "motivo_modo_prueba"}
     for caso, clave in claves.items():
         assert d["bloqueado_" + caso], caso

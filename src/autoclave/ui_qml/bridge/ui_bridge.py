@@ -24,6 +24,8 @@ ESTADO_DESCONOCIDO = "DESCONOCIDO"
 _PRIORIDAD_POR_NIVEL = {"EMERGENCIA": "alta", "FALLA": "media", "ALERTA": "baja"}
 # Estado de la tarjeta de E/S en /status (U4 de la tanda 2)
 _ESTADOS_TARJETA = ("desconectada", "sin_tramas_validas", "ok")
+# S9 (tanda 9, D9-1.2): causas del estado seguro que la UI sabe mostrar
+_CAUSAS_ESTADO_SEGURO = ("paro_liberado", "arranque", "fallo", "cancelado", "completado")
 
 
 # Estados de puerta que la pantalla presenta como "abierta" (acción disponible:
@@ -248,6 +250,8 @@ class UiBridge(QObject):
             "paro": bool(datos.get("paro")),
             "es_activo": es.get("activo") is True,
             "es_confirmar": es.get("requiere_confirmacion") is True,
+            # S9 (D9-1.2): por qué corre el estado seguro; "" si no se conoce
+            "es_causa": es.get("causa") if es.get("causa") in _CAUSAS_ESTADO_SEGURO else "",
             # S4 (CIC-10): el protocolo no puede terminar solo; motivo o ""
             "es_bloqueado": str(es.get("bloqueado_motivo") or ""),
             # V8b (D8-5.11): el mismo motivo como clave del catálogo ("" si no se
@@ -324,6 +328,12 @@ class UiBridge(QObject):
     @Property(bool, notify=seguridadChanged)
     def estadoSeguroRequiereConfirmacion(self) -> bool:
         return self._seguridad["es_confirmar"]
+
+    @Property(str, notify=seguridadChanged)
+    def estadoSeguroCausa(self) -> str:
+        """S9 (D9-1.2): "paro_liberado", "arranque", "fallo", "cancelado",
+        "completado" o "" (desconocida)."""
+        return self._seguridad.get("es_causa", "")
 
     @Property(str, notify=seguridadChanged)
     def estadoSeguroBloqueadoMotivo(self) -> str:

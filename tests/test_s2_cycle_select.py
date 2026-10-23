@@ -46,25 +46,29 @@ def test_rechaza_con_paro_activo(sm):
 
 @pytest.mark.parametrize("requiere", [True, False])
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
-def test_rechaza_con_estado_seguro_en_curso_o_por_confirmar(sm, requiere):
+def test_acepta_con_estado_seguro_en_curso_o_por_confirmar(sm, requiere):
+    """S9 (tanda 9, D9-1.3, revierte el rechazo anterior): elegir programa no
+    acciona nada; el protocolo y su programa siguen contando para la
+    seguridad (ver tests/test_s9_estado_seguro_arranque.py)."""
     loop, inicial, _ = _loop()
     loop.estado_seguro._protocolo = MagicMock()          # activo
     loop.estado_seguro.requiere_confirmacion = requiere
-    sm.reset_mock()
-    ok, motivo = loop.set_active_cycle(MagicMock())
-    assert ok is False and "estado seguro" in motivo.lower()
-    assert loop.cycle is inicial
-    sm.assert_not_called()
+    nuevo = MagicMock()
+    ok, motivo = loop.set_active_cycle(nuevo)
+    assert ok is True, motivo
+    assert loop.cycle is nuevo
 
 
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
-def test_rechaza_con_recuperacion_pendiente(sm):
+def test_acepta_con_recuperacion_pendiente(sm):
+    """S9 (D9-1.3): también con la recuperación de arranque pendiente."""
     loop, inicial, _ = _loop(GlobalState.PREPARACION)
-    loop._recuperacion_pendiente = MagicMock()
-    sm.reset_mock()
-    ok, _ = loop.set_active_cycle(MagicMock())
-    assert ok is False and loop.cycle is inicial
-    sm.assert_not_called()
+    pendiente = MagicMock()
+    loop._recuperacion_pendiente = pendiente
+    nuevo = MagicMock()
+    ok, _ = loop.set_active_cycle(nuevo)
+    assert ok is True and loop.cycle is nuevo
+    assert loop._recuperacion_pendiente is pendiente
 
 
 # ── Endpoint ─────────────────────────────────────────────────────────────────

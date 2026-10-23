@@ -634,6 +634,10 @@
     "sin_lectura": "—",
     "no_abrir": "NO ABRIR",
     "paro_no_abrir": "PARO DE EMERGENCIA — NO ABRIR",
+    "estado_seguro_causa_arranque": "Arranque con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia).",
+    "estado_seguro_causa_fallo": "Fallo de ciclo: el equipo lleva la cámara a estado seguro.",
+    "estado_seguro_causa_cancelado": "Ciclo cancelado: el equipo lleva la cámara a estado seguro.",
+    "estado_seguro_causa_completado": "Ciclo terminado con la cámara no segura: el equipo la lleva a estado seguro.",
     "paro_liberado": "Paro liberado. Verifique que no haya fuga antes de continuar.",
     "confirmar_estado_seguro": "Confirmar y llevar a estado seguro",
     "estado_seguro_en_curso": "Llevando la cámara a estado seguro",
@@ -917,6 +921,11 @@
       "plantilla": "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
       "accion": "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."
     },
+    "SEN-10": {
+      "titulo": "Presión de cámara incoherente con la puerta abierta",
+      "plantilla": "La puerta está abierta, pero la presión de cámara no corresponde a la presión atmosférica. No se pueden iniciar ciclos.",
+      "accion": "Causas posibles: calibración del sensor de presión de cámara, presión atmosférica de referencia mal configurada o sensor de puerta. Llame a servicio técnico."
+    },
     "CIC-01": {
       "titulo": "Fallo en precalentamiento",
       "plantilla": "{motivo}",
@@ -1023,6 +1032,8 @@
     "err_aire_con_presion": "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica.",
     "err_aire_sin_presion": "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara.",
     "err_aire_sin_referencia": "No se puede abrir el aire atmosférico: falta la presión atmosférica de referencia del equipo.",
+    "err_puerta_camara_no_segura": "No se puede desbloquear ni abrir la puerta: la cámara no es segura (presión, temperatura o sin lectura) o se está llevando a estado seguro.",
+    "err_salida_estado_seguro": "No se puede encender esta salida: la cámara se está llevando a estado seguro.",
     "di": {
       "aire_comprimido": "Aire comprimido",
       "presion_agua": "Presión de agua",
@@ -1775,6 +1786,7 @@
     }
   },
   "estado_seguro_motivos": {
+    "sin_presion_camara": "Sensor de presión de cámara sin lectura: el estado seguro no puede confirmar la presión. Llame a servicio técnico",
     "sonda_temperatura": "Sensor Principal sin lectura: el estado seguro no puede confirmar la temperatura",
     "sonda_enfriamiento": "Sensor Principal sin lectura: no se puede confirmar el enfriamiento",
     "liquido_caliente": "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido",

@@ -67,6 +67,10 @@ SEN_04, SEN_05, SEN_06, SEN_07 = "SEN-04", "SEN-05", "SEN-06", "SEN-07"
 SEN_08 = "SEN-08"
 # R8 (tanda 8, D8-5.12): reasignación de E/S sin verificar por el ingeniero
 SEN_09 = "SEN-09"
+# S9 (tanda 9, D9-1.6): fuera de ciclo, puerta abierta con la presión de cámara
+# fuera de la banda atmosférica (calibración, referencia atmosférica o sensor
+# de puerta)
+SEN_10 = "SEN-10"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
@@ -232,6 +236,14 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_09, _AV, True, _A, "Reasignación de entradas y salidas sin verificar",
        "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
        "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."),
+    # S9 (tanda 9, D9-1.6): coherencia puerta-presión. Solo fuera de ciclo,
+    # 3 lecturas para aparecer y 3 coherentes para despejarse sola. Sin
+    # valores en el texto (las unidades de presión las elige el equipo).
+    _d(SEN_10, _AL, True, _A, "Presión de cámara incoherente con la puerta abierta",
+       "La puerta está abierta, pero la presión de cámara no corresponde a la presión "
+       "atmosférica. No se pueden iniciar ciclos.",
+       "Causas posibles: calibración del sensor de presión de cámara, presión atmosférica de "
+       "referencia mal configurada o sensor de puerta. Llame a servicio técnico."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",

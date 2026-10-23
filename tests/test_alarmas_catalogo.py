@@ -46,6 +46,7 @@ _EJEMPLOS = {
     "SEN-06": {}, "SEN-07": {},
     "SEN-08": {"puerta": "Puerta 2", "fase": "Esterilización"},
     "SEN-09": {"funciones": "Vapor cámara (DO 25)"},
+    "SEN-10": {},          # S9 (tanda 9, D9-1.6): sin valores en el texto
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
     "CIC-11": {"segundos": 31.0, "maximo": 30},
@@ -120,6 +121,8 @@ def test_niveles_migrados_iguales_a_hoy():
         # D9-2 (tanda 9, H3): pasan de AVISO a ALARMA conservando su bloqueo
         "SEN-01": Nivel.ALARMA, "SEN-03": Nivel.ALARMA, "SEN-06": Nivel.ALARMA,
         "SEN-07": Nivel.ALARMA, "CIC-10": Nivel.ALARMA,
+        # S9 (tanda 9, D9-1.6): código nuevo, ALARMA que bloquea el inicio
+        "SEN-10": Nivel.ALARMA,
     }
     for codigo, d in CATALOGO.items():
         assert d.nivel is esperado.get(codigo, Nivel.AVISO), codigo

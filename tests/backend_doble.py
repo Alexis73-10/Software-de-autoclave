@@ -14,6 +14,14 @@ def cargar_servidor(ctx=None):
     """Importa autoclave.backend.server con `ctx` (MagicMock por defecto) como
     contexto. Devuelve (módulo, ctx)."""
     ctx = ctx if ctx is not None else MagicMock()
+    # S9 (revisión ★ pasada 2 R2-B1): /io/test/output falla cerrada si la
+    # evaluación de salidas bloqueadas no es un dict; el doble no bloquea nada
+    # salvo que la prueba lo configure
+    loop = getattr(ctx, "control_loop", None)
+    funcion = getattr(loop, "salidas_prueba_bloqueadas", None)
+    if (isinstance(funcion, MagicMock) and funcion.side_effect is None
+            and not isinstance(funcion.return_value, dict)):
+        funcion.return_value = {}
     for key in list(sys.modules):
         if "autoclave.backend.server" in key:
             del sys.modules[key]

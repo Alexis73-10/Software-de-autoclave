@@ -30,6 +30,7 @@ from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import io_names
 from autoclave.core.runtime import aire_atmosferico_prueba
+from autoclave.core.runtime import salidas_prueba_seguridad
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
@@ -1274,6 +1275,8 @@ def _estado_seguro_status() -> dict:
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
     motivo = getattr(es, "bloqueado_motivo", None) if activo else None
+    # S9 (D9-1.2): paro_liberado / arranque / fallo / cancelado / completado
+    causa = getattr(es, "causa", None) if activo else None
     try:
         ack_confirma = getattr(context.control_loop.state_machine.ciclo,
                                "ack_confirma_estado_seguro", False) is True
@@ -1284,7 +1287,8 @@ def _estado_seguro_status() -> dict:
             "ack_confirma_estado_seguro": ack_confirma,
             "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
             # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
-            "bloqueado_motivo": motivo if isinstance(motivo, str) else None}
+            "bloqueado_motivo": motivo if isinstance(motivo, str) else None,
+            "causa": causa if isinstance(causa, str) else None}
 
 
 def _camara_segura_status(estado) -> dict:
@@ -3228,8 +3232,9 @@ def _estado_seguro_en_marcha() -> bool:
 @app.post("/system/shutdown")
 def shutdown_system(body: dict = Body(default={})):
     """"Apagar equipo" / dejar fuera de servicio (§16, A1 de la tanda 3).
-    Permitido en cualquier estado salvo ciclo en curso (o estado seguro
-    actuando) y salvo un apagado ya en marcha: con FALLA, EMERGENCIA, paro,
+    Permitido en cualquier estado salvo ciclo en curso y salvo un apagado ya
+    en marcha (S9, D9-1.3: también con el estado seguro actuando; el apagado
+    deja todas las salidas en cero): con FALLA, EMERGENCIA, paro,
     sin tarjeta o con la cámara NO segura también se apaga (sin UPS, el
     personal técnico puede pedir dejar el equipo fuera de servicio). Solo desde
     la ventana principal (la UI de la puerta 1 envía ventana="principal").
@@ -3242,9 +3247,10 @@ def shutdown_system(body: dict = Body(default={})):
         # TMG-05 de T7: un segundo apagado (doble toque) no lanza otra secuencia
         if getattr(context.control_loop, "apagando", False) is True:
             raise _Rechazo(409, "apagado_en_curso", "El equipo ya se está apagando")
-        if _estado_seguro_en_marcha():
-            raise _Rechazo(409, "estado_seguro_activo",
-                           "La cámara se está llevando a estado seguro")
+        # S9 (tanda 9, D9-1.3): con el estado seguro activo también se apaga
+        # (antes 409 "estado_seguro_activo"); queda en la bitácora
+        estado_seguro_activo = getattr(getattr(context.control_loop, "estado_seguro", None),
+                                       "activo", False) is True
         # A1: solo informativo; ya no condiciona el apagado. Cualquier fallo al
         # evaluar cuenta como "no segura" (falla cerrada).
         try:
@@ -3270,7 +3276,8 @@ def shutdown_system(body: dict = Body(default={})):
              detalle={"estado": getattr(estado, "name", str(estado)),
                       "motivo": "fuera de servicio solicitado",
                       "camara_segura": segura, "tarjeta_conectada": tarjeta,
-                      "paro_emergencia": paro, "modo_prueba": en_modo_prueba})
+                      "paro_emergencia": paro, "modo_prueba": en_modo_prueba,
+                      "estado_seguro_activo": estado_seguro_activo})
     try:
         threading.Thread(target=_secuencia_apagado, name="ApagarEquipo", daemon=False).start()
     except Exception:
@@ -4491,6 +4498,22 @@ def _puerta_con_atrapamiento(canal_cerrar: int, encender: bool):
     return None, False
 
 
+def _salidas_prueba_bloqueadas() -> dict:
+    """S9, revisión ★ SAF-01: {salida: código} que el modo prueba no puede
+    encender ahora (ControlLoop.salidas_prueba_bloqueadas). Falla cerrada:
+    un error al evaluar o una respuesta que no es dict bloquean todas
+    (revisión ★ pasada 2 R2-B1)."""
+    try:
+        bloqueadas = context.control_loop.salidas_prueba_bloqueadas()
+    except Exception:
+        logger.exception("Modo prueba: no se pudo evaluar las salidas bloqueadas")
+        return salidas_prueba_seguridad.todas()
+    if not isinstance(bloqueadas, dict):
+        logger.error("Modo prueba: evaluación de salidas bloqueadas inválida; se bloquean todas")
+        return salidas_prueba_seguridad.todas()
+    return bloqueadas
+
+
 @app.patch("/io/test/output/{name}")
 def io_test_set_output(name: str, body: _OutputSetBody,
                        sesion: Sesion = Depends(_requiere_rol_prueba)):
@@ -4535,6 +4558,13 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                             leido_mono=getattr(context.control_loop, "estado_leido_mono", None)))
                 if not permitido:
                     raise _Rechazo(409, codigo, aire_atmosferico_prueba.MOTIVOS[codigo])
+            # S9 (tanda 9), revisión ★ SAF-01 (DECISIÓN SIN CONFIRMAR): con el
+            # estado seguro activo, la recuperación pendiente o la cámara no
+            # segura, ni apertura ni desbloqueo de puertas; con el estado
+            # seguro, tampoco rápida, chaqueta ni vapor de cámara
+            codigo = _salidas_prueba_bloqueadas().get(clave)
+            if codigo is not None:
+                raise _Rechazo(409, codigo, salidas_prueba_seguridad.MOTIVOS[codigo])
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
@@ -4546,6 +4576,15 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                            "Esta salida de fuente de vapor no la usa este equipo (vapor_source)")
         puerta_atrapada, nueva = _puerta_con_atrapamiento(index + 1, body.value)
         if puerta_atrapada is not None:
+            # S9, revisión ★ SAF-01: la inversión de D-ES-16 abriría la puerta;
+            # con la apertura bloqueada solo se suelta el cierre
+            canales = {EstadoAutoclave.map_do[k] + 1: c
+                       for k, c in _salidas_prueba_bloqueadas().items()}
+            codigo = canales.get(puerta_atrapada.do["abrir"])
+            if codigo is not None:
+                context.setdo.set_output(index + 1, False)
+                _desarmar_momentanea(index + 1)
+                raise _Rechazo(409, codigo, salidas_prueba_seguridad.MOTIVOS[codigo])
             # D-ES-16: la orden de cerrar con atrapamiento activo se convierte en abrir
             context.setdo.set_output(index + 1, False)
             context.setdo.set_output(puerta_atrapada.do["abrir"], True)

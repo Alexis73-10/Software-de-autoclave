@@ -39,6 +39,11 @@ def test_vacio_real_al_disparo_abre_aire_atmosferico():
     protocolo, set_do, cycle = _make_protocolo(modo=1, pres_camara=50.0)
 
     protocolo.ejecutar()
+    # S9, revisión ★ pasada 2 R2-B3: el disparo es la primera lectura de
+    # vacío; el aire se abre con la tercera (dos update() más)
+    set_do.aire_admosferico_camara_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
 
     set_do.aire_admosferico_camara_on.assert_called_once()
     set_do.descompresion_rapida_on.assert_not_called()
@@ -171,6 +176,11 @@ def test_transicion_a_vacio_real_cierra_valvulas_y_activa_atm():
     set_do.descompresion_rapida_off.assert_called_once()
     set_do.descompresion_lenta_off.assert_called_once()
     set_do.descompresion_chaqueta_off.assert_called_once()
+    # S9, revisión ★ SAF-03: cerrar es inmediato; el aire atmosférico solo
+    # con 3 lecturas de vacío seguidas
+    set_do.aire_admosferico_camara_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
     set_do.aire_admosferico_camara_on.assert_called_once()
 
 

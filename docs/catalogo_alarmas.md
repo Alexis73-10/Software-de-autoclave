@@ -252,6 +252,7 @@ desaparece sin reconocerlas, quedan como "resuelta sin reconocer" (no bloquean e
 | (tanda §1.1) | SEN-03 Sensor de temperatura sin señal | ALARMA (antes AVISO; D9-2, tanda 9), no bloquea el equipo (bloquea al iniciar un programa que lo use), despeje automático |
 | (S1, tanda 8) | SEN-06 / SEN-07 Sensor de presión de cámara / chaqueta sin lectura fuera de ciclo | ALARMA (antes AVISO; D9-2, tanda 9), bloquea el inicio, despeje automático |
 | (T5/S4) | CIC-10 Estado seguro detenido | ALARMA (antes AVISO; D9-2, tanda 9), no bloquea, despeje automático |
+| (nueva, S9 tanda 9) | SEN-10 Presión de cámara incoherente con la puerta abierta | ALARMA, **bloquea el inicio de ciclo**, solo fuera de ciclo: puerta detectada ABIERTA y presión de cámara fuera de [atm − `rango_presion_atm`, atm + `rango_presion_atm`] 3 lecturas seguidas (tramas AI distintas); despeje automático solo con 3 lecturas coherentes con una puerta ABIERTA (al cerrar la puerta SEN-10 se mantiene y sigue bloqueando el inicio; revisión ★ SAF-02). Acción: calibración del sensor de presión, presión atmosférica de referencia o sensor de puerta (D9-1.6). |
 
 **Integración (tanda 2026-10-14, T1):** la Parte A está unida a `dev-noche`; esta tabla ya describe el código.
 La regla de la tanda "ningún id existente se renombra" se aplicó a los ids que la rama no había migrado:

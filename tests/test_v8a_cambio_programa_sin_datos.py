@@ -61,14 +61,16 @@ def test_ciclo_en_curso_sigue_bloqueando_aun_sin_datos(_sm):
 
 
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
-def test_modo_prueba_y_estado_seguro_siguen_bloqueando_sin_datos(_sm):
+def test_modo_prueba_sigue_bloqueando_sin_datos_y_el_estado_seguro_no(_sm):
     loop, inicial, estado = _loop()
     estado.set_flag("PARO_EMERGENCIA", True)
     loop._test_mode.set()
     assert loop.set_active_cycle(MagicMock())[0] is False
     loop._test_mode.clear()
+    # S9 (tanda 9, D9-1.3): el estado seguro ya no bloquea el cambio
     loop.estado_seguro._protocolo = MagicMock()
-    assert loop.set_active_cycle(MagicMock())[0] is False and loop.cycle is inicial
+    nuevo = MagicMock()
+    assert loop.set_active_cycle(nuevo)[0] is True and loop.cycle is nuevo
 
 
 # ── Reproducción con el ControlLoop real (D8-5.1: "con tarjeta simulada y sin
