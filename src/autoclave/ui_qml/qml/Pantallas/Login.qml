@@ -26,6 +26,12 @@ import Autoclave.I18n
 // por Main.qml como `teclado`): tocar un campo abre el alfanumérico, el campo
 // muestra lo que se escribe, Confirmar guarda y pasa al siguiente campo (en
 // el último, cierra). La contraseña va oculta también en el encabezado.
+// D9-12 (H9, tanda 9): "Recordar usuario" recuerda solo el NOMBRE (nunca la
+// contraseña) vía LoginController (archivo local, se escribe al entrar con
+// éxito); al abrir, el campo usuario llega con el nombre recordado y la
+// casilla marcada. "¿Olvidó su contraseña?" muestra/oculta la ayuda: el
+// restablecimiento lo hace un administrador o ingeniero en OPCIONES › Usuarios
+// (no hay recuperación por correo ni otro canal).
 Item {
     id: raiz
 
@@ -84,6 +90,8 @@ Item {
         onSesionIniciada: (usuario, rol) => raiz.sesionIniciada(usuario, rol)
         onCambioClaveRequerido: raiz.cambioClaveRequerido()
     }
+    Component.onCompleted: usuario = sesion.usuarioRecordado
+    property bool ayudaOlvidoVisible: false
     // el bloqueo es por usuario (como en el backend): otro usuario puede intentar
     readonly property bool puedeIntentar: !sesion.ocupado
         && !(sesion.bloqueado && usuario.trim().toLowerCase() === sesion.usuarioBloqueado)
@@ -285,11 +293,12 @@ Item {
                         // desmarcada se ve solo el Rectangle con borde.
                         Row {
                             id: recordarUsuario
+                            objectName: "casillaRecordarUsuario"
                             // Más angosto que los campos (625 vs 756), centrado.
                             // Dentro de un Column (no Layout): width + anchors.
                             width: Escala.px(625)
                             anchors.horizontalCenter: parent.horizontalCenter
-                            property bool marcado: false
+                            readonly property bool marcado: sesion.recordarUsuario
                             spacing: Escala.px(16)
 
                             Rectangle {
@@ -316,7 +325,7 @@ Item {
                                 font.weight: Tipografia.pesoMedium
                             }
 
-                            TapHandler { onTapped: recordarUsuario.marcado = !recordarUsuario.marcado }
+                            TapHandler { onTapped: sesion.fijarRecordarUsuario(!recordarUsuario.marcado) }
                         }
 
                         Rectangle {
@@ -383,11 +392,26 @@ Item {
                         }
 
                         Text {
+                            objectName: "enlaceOlvidoClave"
                             anchors.horizontalCenter: parent.horizontalCenter
                             text: I18n.t("formulario.olvido_contrasena", I18n.lang)
                             color: Colores.accionPrimarioTexto
                             font.family: Tipografia.familia
                             font.pixelSize: Escala.fuente(22)
+                            TapHandler { onTapped: raiz.ayudaOlvidoVisible = !raiz.ayudaOlvidoVisible }
+                        }
+                        // PROVISIONAL (sin diseño): ayuda en línea bajo el enlace
+                        Text {
+                            objectName: "ayudaOlvidoClave"
+                            visible: raiz.ayudaOlvidoVisible
+                            anchors.horizontalCenter: parent.horizontalCenter
+                            width: parent.width
+                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.WordWrap
+                            text: I18n.t("sesion.ayuda_olvido_clave", I18n.lang)
+                            color: Colores.textoSecundario
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(Tipografia.campoEtiquetaTam)
                         }
 
                         // T8 (§7.6), PROVISIONAL (sin diseño): sin base de datos el

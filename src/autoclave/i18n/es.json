@@ -680,7 +680,8 @@
     "sin_bd": "Base de datos no disponible: no se puede iniciar sesión. Opciones, calibración y usuarios no están disponibles. Los ciclos se pueden iniciar sin operador desde el menú principal.",
     "continuar_sin_operador": "Continuar sin operador",
     "vencida_titulo": "Sesión vencida",
-    "vencida_mensaje": "La sesión venció. Ingrese usuario (técnico o ingeniero) y contraseña."
+    "vencida_mensaje": "La sesión venció. Ingrese usuario (técnico o ingeniero) y contraseña.",
+    "ayuda_olvido_clave": "Pida a un administrador o a un ingeniero que restablezca su contraseña en OPCIONES › Usuarios. Recibirá una contraseña temporal que deberá cambiar al ingresar."
   },
   "usuarios": {
     "titulo_nuevo": "NUEVO USUARIO",
