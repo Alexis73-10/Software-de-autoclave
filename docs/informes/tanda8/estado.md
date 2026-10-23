@@ -72,3 +72,8 @@ No termines el turno con subagentes activos: en modo `-p` el CLI los mata a los 
 
 ## Cierre (sesión 22:11)
 - Unidas en esta sesión: V8a, L8, R8 (SEN-09), E1, D8 y V8b. Suite final en verde. `tanda-8` unida a `dev` (5a4b0df). Etiqueta `inst-2026-10-23-c`. K8 y Z hechas.
+
+## Push (cierre Z)
+- `git push origin dev tanda-8`: `d2f7353..0cdb298  dev -> dev`; `* [new branch]  tanda-8 -> tanda-8`. Salida 0.
+- `git push origin inst-2026-10-23-c`: `* [new tag]`. Salida 0.
+- Este último commit de estado se une a `dev` y se empuja igual; si fallara, queda anotado aquí. Las subramas `tanda-8-*` quedan solo en local (unidas). Nada a `main`.
