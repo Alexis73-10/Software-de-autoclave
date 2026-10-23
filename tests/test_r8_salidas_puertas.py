@@ -33,7 +33,7 @@ _FABRICA = {
     "vapor_generador": 1, "vapor_caldera": 2, "vapor_chaqueta": 3, "vapor_camara": 4,
     "descompresion_rapida": 5, "descompresion_lenta": 6, "descompresion_chaqueta": 7,
     "desbloqueo_puerta_1": 9, "desbloqueo_puerta_2": 10, "bloqueo_puerta_1": 11,
-    "bloqueo_puerta_2": 12, "aire_comprimido_chaqueta": 13, "aire_comprimido_camara": 14,
+    "bloqueo_puerta_2": 12, "aire_comprimido_camara": 14,   # DO 13 libre (D11-2)
     "aire_admosferico_camara": 15, "agua_chaqueta": 16, "agua_intercambiador": 17,
     "agua_bomba": 18, "abrir_puerta_1": 20, "abrir_puerta_2": 21, "cerrar_puerta_1": 22,
     "cerrar_puerta_2": 23,

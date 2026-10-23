@@ -256,7 +256,7 @@ Orden sugerido:
 5. **Desconexión de la tarjeta durante el modo prueba:** las salidas no se pueden accionar ("rechazó la orden") y "Salir" sigue funcionando. Salga y vuelva a entrar al reconectar.
 
 **PROBLEMA CONOCIDO — canales que no aparecen en E/S.** La lista sale de `io_enabled` del archivo del equipo (`ACV-2026-001.yaml`). Hoy **no** incluye:
-- en salidas: `descompresion_lenta`, `vapor_caldera`, `aire_comprimido_chaqueta`, `aire_comprimido_camara`, `agua_chaqueta` ni `buzer_alarma`;
+- en salidas: `descompresion_lenta`, `vapor_caldera`, `aire_comprimido_camara`, `agua_chaqueta` ni `buzer_alarma`;
 - en temperatura: la sonda **`temp_2_camara` (Cámara 2)**;
 - en entradas: `suministro_electrico`.
 

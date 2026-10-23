@@ -6,7 +6,7 @@ from autoclave.core.runtime.status import EstadoAutoclave as E
 def test_lee_io_enabled_del_equipo_activo():
     io = io_names.leer_io_enabled()
     # D8-3.17 (tanda 8): el YAML es el máximo físico de la tarjeta
-    assert len(io["DI"]) == 14 and len(io["DO"]) == 24 and len(io["AI"]) == 9
+    assert len(io["DI"]) == 14 and len(io["DO"]) == 23 and len(io["AI"]) == 9
 
 
 def test_canales_di_acv_2026_001():
@@ -21,7 +21,7 @@ def test_canales_di_acv_2026_001():
 
 def test_canales_do_con_alias_de_errata_y_momentaneas():
     canales = {c["name"]: c for c in io_names.canales_digitales("DO")}
-    assert len(canales) == 24
+    assert len(canales) == 23   # D11-2: sin aire_comprimido_chaqueta
     # YAML dice atmosferico; EstadoAutoclave.map_do conserva la errata
     aire = canales["aire_atmosferico_camara"]
     assert aire["estado_key"] == "aire_admosferico_camara"

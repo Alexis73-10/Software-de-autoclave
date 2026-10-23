@@ -60,7 +60,8 @@ class EstadoAutoclave:
         "desbloqueo_puerta_2": 9,
         "bloqueo_puerta_1": 10,
         "bloqueo_puerta_2": 11,
-        "aire_comprimido_chaqueta": 12,
+        # 12 (DO 13): libre. Era aire_comprimido_chaqueta, retirada en la
+        # tanda 11 (D11-2); las demás conservan su número.
         "aire_comprimido_camara": 13,
         "aire_admosferico_camara": 14,
         "agua_chaqueta": 15,
