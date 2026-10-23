@@ -599,11 +599,13 @@ def validar_respaldo(datos: bytes) -> dict:
     if not isinstance(obj, dict) or obj.get("formato") != aio.FORMATO \
             or not isinstance(obj.get("cambios"), dict):
         raise aio.ErrorAsignacion([{"codigo": "archivo_invalido", "funcion": "", "puerto": None}])
-    nueva = aio.combinar(_fabrica(), obj["cambios"])
+    # D11-2: un respaldo de antes con una función retirada se acepta sin ella
+    cambios = aio.quitar_retiradas(obj["cambios"], "respaldo")
+    nueva = aio.combinar(_fabrica(), cambios)
     errores = aio.validar(nueva) or _errores_calibracion(nueva, aio.en_memoria())
     if errores:
         raise aio.ErrorAsignacion(errores)
-    return {str(f): p for f, p in obj["cambios"].items()}
+    return {str(f): p for f, p in cambios.items()}
 
 
 def restaurar_respaldo(datos: bytes, sesion, entidad: str) -> dict:

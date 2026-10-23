@@ -52,7 +52,6 @@ actuators:
     bloqueo_puerta_1: true
     bloqueo_puerta_2: true
     aire_atmosferico_camara: true
-    aire_comprimido_chaqueta: true
     aire_comprimido_camara: true
     agua_intercambiador: true
     agua_chaqueta: true
@@ -111,7 +110,6 @@ io_contract:
         - bloqueo_puerta_1
         - bloqueo_puerta_2
         - aire_atmosferico_camara
-        - aire_comprimido_chaqueta
         - aire_comprimido_camara
         - agua_intercambiador
         - agua_chaqueta

@@ -38,6 +38,7 @@ from pathlib import Path
 
 from ruamel.yaml import YAML
 
+from autoclave.core.runtime.io_names import SALIDAS_RETIRADAS
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.utils.archivos import escribir_texto_atomico
 
@@ -91,6 +92,31 @@ CRITICAS = REFORZADAS | frozenset({
     "abrir_puerta_1", "abrir_puerta_2", "cerrar_puerta_1", "cerrar_puerta_2",
     "suministro_electrico",
 })
+
+
+# D11-2 (tanda 11): funciones retiradas del equipo. Su puerto de fábrica queda
+# libre (no se corre ninguna otra). Un YAML de instancia (`io_ports`), una
+# asignación guardada (data/asignacion_io.json) o un respaldo de antes que aún
+# las traiga se acepta: se ignoran con una advertencia en el log, sin impedir
+# el arranque. Un cambio nuevo por la API sí las rechaza (función desconocida).
+RETIRADAS = SALIDAS_RETIRADAS
+
+
+def es_retirada(clave_: str) -> bool:
+    return base(clave_) in RETIRADAS
+
+
+def quitar_retiradas(cambios: dict, origen: str) -> dict:
+    """`cambios` ({clave de función: puerto}) sin las funciones retiradas,
+    avisando en el log de cada una que se ignora."""
+    salida = {}
+    for funcion, puerto in (cambios or {}).items():
+        if es_retirada(str(funcion)):
+            logger.warning("Asignación de E/S (%s): la función %s fue retirada del equipo "
+                           "(tanda 11, D11-2); se ignora su puerto %r", origen, funcion, puerto)
+            continue
+        salida[funcion] = puerto
+    return salida
 
 
 class ErrorAsignacion(Exception):
@@ -208,7 +234,7 @@ def fabrica_desde_yaml(config_dir: Path) -> dict | None:
         if not isinstance(filas, dict):
             errores.append({"codigo": "fabrica_invalida", "funcion": tipo, "puerto": None})
             continue
-        for funcion, puerto in filas.items():
+        for funcion, puerto in quitar_retiradas(filas, "io_ports del YAML de la instancia").items():
             if funcion not in base[tipo]:
                 errores.append({"codigo": "funcion_desconocida", "funcion": str(funcion),
                                 "puerto": puerto, "tipo": tipo})
@@ -469,7 +495,7 @@ def vigente(base: dict, archivo: ArchivoAsignacion) -> tuple[dict, dict]:
     ErrorAsignacion si el archivo es ilegible o deja la asignación inválida."""
     datos = archivo.leer()
     cambios = {}
-    for funcion, puerto in datos["cambios"].items():
+    for funcion, puerto in quitar_retiradas(datos["cambios"], archivo.ruta.name).items():
         cambios[str(funcion)] = puerto
     asignacion = combinar(base, cambios)
     errores = validar(asignacion)

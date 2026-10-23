@@ -68,7 +68,7 @@ def test_equipo_de_pruebas_salidas():
     # puertas simples: sin motor ni cerrojo
     assert do == ["vapor_chaqueta", "vapor_camara", "descompresion_rapida",
                   "descompresion_lenta", "descompresion_chaqueta", "vacio_camara",
-                  "aire_comprimido_chaqueta", "aire_comprimido_camara",
+                  "aire_comprimido_camara",
                   "aire_atmosferico_camara", "agua_chaqueta", "agua_intercambiador",
                   "agua_bomba", "bomba_vacio", "buzer_alarma"]
 

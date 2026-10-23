@@ -57,7 +57,6 @@ io_enabled:
     - desbloqueo_puerta_2
     - bloqueo_puerta_1
     - bloqueo_puerta_2
-    - aire_comprimido_chaqueta
     - aire_comprimido_camara
     - aire_atmosferico_camara
     - agua_chaqueta
@@ -127,7 +126,6 @@ io_ports:
     desbloqueo_puerta_2: 10
     bloqueo_puerta_1: 11
     bloqueo_puerta_2: 12
-    aire_comprimido_chaqueta: 13
     aire_comprimido_camara: 14
     aire_atmosferico_camara: 15
     agua_chaqueta: 16
