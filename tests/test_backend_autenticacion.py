@@ -411,6 +411,7 @@ def test_ingeniero_en_ciclo_edita_el_programa_en_curso(entorno_config, aplico, a
     client, ctx, srv, _, en_curso = entorno_config
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     ctx.estado.fase_ciclo = "CALENTAMIENTO"
+    ctx.control_loop.fase_pendiente_en_curso.return_value = True
     ctx.control_loop.aplicar_a_ciclo_en_curso.return_value = aplico
     ctx.cycle_logger.ciclo_id_pantalla = 5
     r = _param(client, cabecera(srv, "ingeniero"), cycle_id="en_curso")
@@ -418,7 +419,12 @@ def test_ingeniero_en_ciclo_edita_el_programa_en_curso(entorno_config, aplico, a
     assert en_curso.get_param("secado", "tiempo_secado") == 20.0
     ctx.control_loop.aplicar_a_ciclo_en_curso.assert_called_once_with(
         "secado", ["tiempo_secado"], 20.0)
-    assert _eventos(ctx.db, "param_ciclo_cambio")[0]["detalle"]["aplica"] == aplica
+    # X9 (tanda 9, D9-13.3 TMG-01): la bitácora se registra antes de aplicar,
+    # con lo decidido bajo _sm_lock (fase pendiente); si la fase inició entre
+    # medias, una fila propia lo corrige
+    assert _eventos(ctx.db, "param_ciclo_cambio")[0]["detalle"]["aplica"] == "en_curso"
+    corregido = _eventos(ctx.db, "param_ciclo_no_aplicado_en_curso")
+    assert len(corregido) == (0 if aplico else 1)
 
 
 def test_ingeniero_en_ciclo_otro_programa_no_toca_el_ciclo_en_curso(entorno_config):

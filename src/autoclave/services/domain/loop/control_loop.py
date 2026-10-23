@@ -441,6 +441,15 @@ class ControlLoop:
                 return False
             return self.state_machine.ciclo.aplicar_si_fase_pendiente(seccion, path, valor)
 
+    def fase_pendiente_en_curso(self, seccion: str, path: list[str]) -> bool:
+        """X9 (D9-13.3, TMG-01): True si un cambio de `seccion`/`path` aún
+        podría aplicarse al ciclo en curso. Solo consulta (no aplica), bajo
+        _sm_lock; el backend aplica después de registrar la bitácora."""
+        with self._sm_lock:
+            if self.estado.get_machine_state() != GlobalState.CICLO:
+                return False
+            return self.state_machine.ciclo.fase_pendiente(seccion, path) is True
+
     @property
     def desconectado(self) -> bool:
         """True mientras el enlace con la tarjeta está caído (incluida la

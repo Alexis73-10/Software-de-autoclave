@@ -206,7 +206,8 @@ def test_sin_auditoria_el_cambio_se_revierte(cliente):
     """RB-03.5: memoria y archivo vuelven al valor previo."""
     con_rol, ctx, cycle, ruta = cliente
     previo = cycle.get_param("globals", "presion_chaqueta")
-    ctx.db.registrar_auditoria.side_effect = sqlite3.OperationalError("database is locked")
+    # X9 (tanda 9, D9-13.3 SAF-01): las filas del cambio van en un lote
+    ctx.db.registrar_auditoria_lote.side_effect = sqlite3.OperationalError("database is locked")
     r = _patch(con_rol("ingeniero"), 310)
     assert r.status_code == 503 and r.json()["codigo"] == "BASE_OCUPADA"
     assert cycle.get_param("globals", "presion_chaqueta") == previo
