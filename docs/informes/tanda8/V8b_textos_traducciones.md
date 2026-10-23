@@ -83,7 +83,7 @@ donde esos textos no cumplan, y ahí hay que repasarlos (lo pedirá la sesión p
 ## Resultado de las pruebas
 
 Con `PYTHONPATH=<worktree>/src` (`autoclave.__file__` =
-`...\.claude\worktreesgent-a4e1a61384f94e185\srcutoclave\__init__.py`, comprobado).
+`C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a4e1a61384f94e185/src/autoclave/__init__.py`, comprobado).
 
 Pruebas relevantes, **un proceso de pytest por archivo**: los 72 archivos de prueba que citan
 algún QML tocado, más i18n, truncado (I4 y V8b), alarmas, protocolo de fallo, calentamiento y
