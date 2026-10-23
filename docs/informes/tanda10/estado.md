@@ -8,7 +8,7 @@ Precondición A0: `tanda9/estado.md` tiene `| Z | Hecha |` y `dev` contiene la t
 
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
-| A0 | En curso | | Línea base en `_suites_t10/base` (`tanda-10` e391ffe), `suites/base.log`. |
+| A0 | Hecha | f73acf6 | Línea base en `_suites_t10/base` (`tanda-10` e391ffe): **6633 passed, 10 skipped, 3 xfailed** (34 min, `suites/base.log`). |
 | G10 | Hecha, unida a `tanda-10` (d6bb062). Suite tras unir: pendiente | `tanda-10-g10` (c6c3aed) | 125 passed en el worktree. |
 | T10 | Hecha, unida a `tanda-10` (089dc0c). Suite tras unir: pendiente | `tanda-10-t10` (634dea1) | 1558 passed, 5 skipped en el worktree. Solo texto en `protocolo_fallo.py` (revisado: misma condición y prioridad). |
 | W10 | Hecha, unida a `tanda-10` (cc11aa4). Suite tras unir: pendiente | `tanda-10-w10` (b4fb30c) | 225 passed en el worktree. |
@@ -24,3 +24,4 @@ Instrucciones comunes de los subagentes: `tanda10/brief_subagentes.md`. Si la se
 - 11:0x: lanzados G10, T10, W10 y U10a (4 subagentes). En cola: U10b (después de U10a). La sesión principal NO termina el turno con subagentes activos.
 - G10, W10 y T10 terminadas y unidas a `tanda-10` (d6bb062, cc11aa4, 089dc0c). La suite de integración corre después de la línea base.
 - U10a unida (af5eaf5); textos/i18n/G10/T10 en la carpeta principal: 124 passed. U10b lanzado.
+- Línea base: 6633 passed, 10 skipped, 3 xfailed. Suite de integración de G10+W10+T10+U10a en `_suites_t10/integ` (af5eaf5), una sola corrida para las cuatro uniones (llegaron juntas; DECISIÓN SIN CONFIRMAR A0-3: si hay rojo se aísla la rama).
