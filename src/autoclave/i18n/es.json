@@ -1,6 +1,6 @@
 {
-  "parametros_equipo": {"timeout_puerta": "Tiempo límite de puerta", "temp_max_apertura": "Temperatura segura de apertura", "rango_presion_atm": "Brecha de presión atmosférica (±)", "intervalo_impresion": "Tasa de impresión general", "intervalo_impresion_esterilizacion": "Tasa de impresión en esterilización", "temp_segura_drenaje": "Temperatura segura de drenaje", "rango_temp_drenaje": "Rango de temperatura de drenaje", "presion_empaque": "Presión de empaque", "vacio_empaque": "Vacío de empaque", "timeout_chaqueta": "Tiempo límite de chaqueta", "tiempo_standby": "Suspensión", "tiempo_estable_alarma": "Tiempo de estabilidad para alarma", "presion_atmosferica": "Presión atmosférica de referencia"},
-  "parametros_equipo_desc": {"timeout_puerta": "Tiempo máximo para que la puerta termine de abrir o cerrar.", "temp_max_apertura": "Por encima de esta temperatura de cámara la puerta no se abre.", "rango_presion_atm": "Banda alrededor de la presión atmosférica en la que la cámara se considera a presión atmosférica para abrir la puerta.", "intervalo_impresion": "Cada cuánto se imprime una línea durante el ciclo.", "intervalo_impresion_esterilizacion": "Cada cuánto se imprime una línea durante la esterilización.", "temp_segura_drenaje": "Techo de temperatura del drenaje; por encima se enfría con agua.", "rango_temp_drenaje": "Tolerancia sobre la temperatura segura antes de la alarma.", "presion_empaque": "Presión del empaque de la puerta para considerarla sellada.", "vacio_empaque": "Presión bajo la cual el empaque se considera desinflado.", "timeout_chaqueta": "Tiempo máximo para que la chaqueta alcance su presión. Todavía no lo usa el control.", "tiempo_standby": "Minutos sin actividad antes de la suspensión de pantallas; 0 la desactiva.", "tiempo_estable_alarma": "Tiempo que una condición debe mantenerse antes de activar o despejar la alarma.", "presion_atmosferica": "Presión atmosférica del lugar de instalación."},
+  "parametros_equipo": {"timeout_puerta": "Tiempo límite de puerta", "temp_max_apertura": "Temperatura segura de apertura", "rango_presion_atm": "Brecha de presión atmosférica (±)", "intervalo_impresion": "Tasa de impresión general", "intervalo_impresion_esterilizacion": "Tasa de impresión en esterilización", "temp_segura_drenaje": "Temperatura segura de drenaje", "rango_temp_drenaje": "Rango de temperatura de drenaje", "presion_empaque": "Presión de empaque", "vacio_empaque": "Vacío de empaque", "timeout_chaqueta": "Tiempo límite de chaqueta", "tiempo_standby": "Suspensión", "tiempo_estable_alarma": "Tiempo de estabilidad para alarma", "pausa_max_esterilizacion_s": "Pausa máxima en esterilización", "espera_sellado_sin_sonda_min": "Espera sellada sin sonda", "presion_atmosferica": "Presión atmosférica de referencia"},
+  "parametros_equipo_desc": {"timeout_puerta": "Tiempo máximo para que la puerta termine de abrir o cerrar.", "temp_max_apertura": "Por encima de esta temperatura de cámara la puerta no se abre.", "rango_presion_atm": "Banda alrededor de la presión atmosférica en la que la cámara se considera a presión atmosférica para abrir la puerta.", "intervalo_impresion": "Cada cuánto se imprime una línea durante el ciclo.", "intervalo_impresion_esterilizacion": "Cada cuánto se imprime una línea durante la esterilización.", "temp_segura_drenaje": "Techo de temperatura del drenaje; por encima se enfría con agua.", "rango_temp_drenaje": "Tolerancia sobre la temperatura segura antes de la alarma.", "presion_empaque": "Presión del empaque de la puerta para considerarla sellada.", "vacio_empaque": "Presión bajo la cual el empaque se considera desinflado.", "timeout_chaqueta": "Tiempo máximo para que la chaqueta alcance su presión. Todavía no lo usa el control.", "tiempo_standby": "Minutos sin actividad antes de la suspensión de pantallas; 0 la desactiva.", "tiempo_estable_alarma": "Tiempo que una condición debe mantenerse antes de activar o despejar la alarma.", "pausa_max_esterilizacion_s": "Suma máxima de pausas por falta de datos de la tarjeta en una misma esterilización. Si se supera, el ciclo falla por comunicación inestable.", "espera_sellado_sin_sonda_min": "Carga líquida: si se pierde la sonda Principal durante el enfriamiento y no queda ninguna otra sonda válida, la cámara espera sellada este tiempo antes de ventear por la descompresión lenta.", "presion_atmosferica": "Presión atmosférica del lugar de instalación."},
   "instalacion": {
     "titulo": "INSTALACIÓN DEL EQUIPO",
     "paso_de": "Paso {n} de {total}",
@@ -28,8 +28,8 @@
     "clase_mesa_n": "Mesa Clase N",
     "clase_mesa_b": "Mesa Clase B",
     "clase_mesa_b_lab": "Mesa Clase B Laboratorio",
-    "clase_piso": "Piso",
-    "clase_piso_lab": "Piso Laboratorio",
+    "clase_piso": "Hospitalario",
+    "clase_piso_lab": "Laboratorio",
     "cap_vacio": "Vacío",
     "cap_chaqueta": "Chaqueta",
     "cap_liquidos": "Líquidos",
@@ -74,7 +74,7 @@
     "litros": "{n} L",
     "error_capacidad": "Ingrese una capacidad entera de 20 a 2000 L",
     "error_tipo_carga": "Seleccione el tipo de carga",
-    "error_clase_fuera_alcance": "Este software solo se instala en equipos de piso y de laboratorio de piso",
+    "error_clase_fuera_alcance": "Este software solo se instala en equipos hospitalarios y de laboratorio",
     "resumen_capacidad": "Capacidad nominal",
     "resumen_carga": "Tipo de carga",
     "suministros_titulo": "Entradas de suministro cableadas",
@@ -108,7 +108,7 @@
     "confirmar_si": "Instalar",
     "error_guardar": "Error al guardar: {detalle}",
     "listo_titulo": "Instalación completada",
-    "listo_texto": "El equipo ha sido registrado correctamente. Reinicie el software para continuar.",
+    "listo_texto": "El equipo ha sido registrado correctamente. Pulse Continuar para empezar a usarlo.",
     "resumen_cerrojo": "Cerrojo de puerta",
     "resumen_con_cerrojo": "Controlado por el software",
     "resumen_sin_cerrojo": "NO controlado por el software",
@@ -243,8 +243,8 @@
     "mant_tipo_preventivo": "Preventivo",
     "mant_tipo_correctivo": "Correctivo",
     "mant_tipo_calibracion": "Calibración (histórico)",
-    "mant_tipo_otro": "Otro",
-    "mant_registrar": "Registrar mantenimiento realizado",
+    "mant_tipo_otro": "Otro (histórico)",
+    "mant_registrar": "Registrar",
     "mant_confirmar": "Se registrará un mantenimiento realizado hoy (tipo: {tipo}). ¿Desea continuar?",
     "mant_sin_dato": "La fecha del sistema no es confiable (anterior a la instalación o cambiada): corrija la fecha y hora.",
     "mant_err_reloj": "El reloj del sistema es anterior a la instalación o al último mantenimiento: corrija la fecha y hora.",
@@ -256,8 +256,14 @@
     "mant_unidad_dias": "días",
     "mant_unidad_ciclos": "ciclos",
     "mant_no_aplica": "No aplica",
-    "mant_intervalos_ayuda": "Se cuentan desde la instalación o desde el último mantenimiento; vence lo que ocurra primero. 0 = no aplica.",
-    "mant_guardar_intervalos": "Guardar intervalos"
+    "mant_intervalos_ayuda": "Se cuentan desde la instalación o desde el último preventivo; vence lo que ocurra primero. 0 = no aplica.",
+    "mant_guardar_intervalos": "Guardar intervalos",
+    "err_modo_liquido": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0: descomprimir rápido con líquido caliente produce ebullición violenta.",
+    "err_coherencia_liquido": "No se puede pasar a carga líquida: el programa debe estar sin prevacío, sin secado, sin apertura automática y con contrapresión de enfriamiento suficiente.",
+    "aviso_modo_liquido": "Carga líquida: el modo de descompresión cambió a {modo} ({nombre}).",
+    "aviso_modo_solido": "Carga sólida: el modo de descompresión volvió a {modo} ({nombre}).",
+    "aviso_liquido_previo": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0. Si el modo actual es otro, al guardar cambiará al modo 4.",
+    "modos_titulo": "Modos disponibles"
   },
   "menu": {
     "titulo": "MENÚ PRINCIPAL",
@@ -284,7 +290,7 @@
     "operador": "Operador",
     "grafica_no_disponible": "Gráfica no disponible",
     "ventana_mantenimiento": "PRÓXIMO MANTENIMIENTO",
-    "ultimo_mantenimiento": "Fecha del último mantenimiento",
+    "ultimo_mantenimiento": "Fecha del último preventivo",
     "ciclos_restantes": "Ciclos para el próximo mantenimiento",
     "vencido": "VENCIDO",
     "proximo_vencimiento": "Próximo vencimiento",
@@ -311,7 +317,8 @@
     "otro_correo": "Otro correo…",
     "titulo_otro_correo": "Correo de destino",
     "enviando": "Enviando…",
-    "imprimiendo": "Imprimiendo…"
+    "imprimiendo": "Imprimiendo…",
+    "col_operador": "Operador"
   },
   "modulos": {
     "iniciar_ciclo": "INICIAR CICLO",
@@ -367,7 +374,12 @@
     "sin_bd_pregunta": "Base de datos no disponible. El ciclo se ejecutará sin operador y sin registro en la base de datos (solo respaldo y ticket). ¿Desea continuar sin registro?",
     "sin_bd_continuar": "Continuar sin registro",
     "cancelacion_en_espera_datos": "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control. Si no vuelven en unos segundos, el ciclo termina por fallo de comunicación.",
+    "salidas_sin_confirmar_pendiente": "Se está confirmando el apagado de las salidas tras el modo prueba. Espere unos segundos.",
+    "carga_no_esteril": "CARGA NO ESTÉRIL",
     "principal_sin_lectura": "Sonda principal sin lectura: llame a servicio",
+    "presion_camara_sin_lectura": "Sensor de presión de cámara sin lectura: llame a servicio",
+    "presion_chaqueta_sin_lectura": "Sensor de presión de chaqueta sin lectura: llame a servicio",
+    "presion_no_verificable": "No se pudo verificar la lectura de presión: llame a servicio",
     "confirmar_estado_seguro_texto": "El paro de emergencia se liberó. Verifique que no hay fugas de vapor ni de agua antes de continuar. Al confirmar se reconoce el resultado del ciclo y la cámara se lleva a estado seguro."
   },
   "unidades": {
@@ -475,14 +487,18 @@
     "grupo_alarmas": "Alarmas",
     "grupo_avisos": "Avisos",
     "despejar_sin_enlace": "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad.",
+    "despejar_no_activa": "No se puede despejar: la alarma ya no está activa.",
+    "despejar_rechazado": "No se puede despejar: el sistema rechazó la solicitud.",
+    "despejar_sin_respuesta": "No se puede despejar: no hay respuesta del sistema de control. Intente de nuevo.",
+    "despejar_sin_confirmacion": "No se recibió la confirmación a tiempo: revise si la alarma sigue en la lista.",
     "despejar": "DESPEJAR"
   },
   "equipo": {
     "clase_mesa_n": "Mesa N",
     "clase_mesa_b": "Mesa B",
     "clase_mesa_b_lab": "Mesa B laboratorio",
-    "clase_piso": "Piso",
-    "clase_piso_lab": "Piso laboratorio",
+    "clase_piso": "Hospitalario",
+    "clase_piso_lab": "Laboratorio",
     "tipo_puerta_simple": "Simple",
     "tipo_puerta_motorized": "Motorizada",
     "tipo_puerta_locking": "Con bloqueo",
@@ -500,7 +516,7 @@
     "fecha_instalacion": "Fecha de instalación",
     "ciclos_realizados": "Ciclos realizados",
     "ultimo_ciclo": "Último ciclo",
-    "ultimo_mantenimiento": "Último mantenimiento",
+    "ultimo_mantenimiento": "Último preventivo",
     "ciclos_restantes": "Ciclos restantes para el mantenimiento",
     "version_software": "Versión de software",
     "version_tarjeta": "Versión de tarjeta",
@@ -512,6 +528,7 @@
     "apagar": "Apagar equipo",
     "apagar_pregunta": "El equipo se apagará por completo (incluido el PC). ¿Desea continuar?",
     "apagar_rechazado": "No se puede apagar: {motivo}",
+    "apagado_windows_rechazado": "Windows no permitió apagar el equipo: apáguelo manualmente",
     "apagar_camara_no_segura": "La cámara no está en condición segura (NO ABRIR). El equipo quedará fuera de servicio; no abra las puertas."
   },
   "formulario": {
@@ -546,6 +563,9 @@
     "asunto": "Ciclos del autoclave {serie}: {ciclos}",
     "cuerpo": "Se adjuntan los ciclos de autoclave seleccionados en formato PDF, con su gráfica y su registro.",
     "empresa": "Especifika S.A.S. · Autoclave {modelo} · Serie {serie}",
+    "equipo_pdf": "{clase} · {capacidad} L · {carga}",
+    "carga_V": "Carga vertical",
+    "carga_H": "Carga horizontal",
     "titulo": "Ciclo número {numero} · {programa}",
     "inicio": "Inicio",
     "fin": "Fin",
@@ -598,7 +618,13 @@
     "causa": "Causa",
     "cantidad": "Cantidad",
     "sin_fallos": "Sin fallos en el periodo",
-    "sin_ciclos": "No hay ciclos en este periodo"
+    "sin_ciclos": "No hay ciclos en este periodo",
+    "ciclos_con_fallo": "Ciclos con el fallo {causa}: {n}",
+    "volver_resumen": "Volver al resumen",
+    "pagina": "Página {n} de {total}",
+    "pagina_anterior": "Anterior",
+    "pagina_siguiente": "Siguiente",
+    "sin_ciclos_fallo": "No hay ciclos con este fallo en el periodo"
   },
   "sistema": {
     "sin_conexion": "Sin conexión con la tarjeta de E/S. Los valores mostrados no están actualizados.",
@@ -679,7 +705,12 @@
     "titulo": "Seleccionar ciclo",
     "ayuda": "Toque para cambiar de ciclo",
     "mas_usado": "Más usado",
-    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo."
+    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo.",
+    "motivo_ciclo_en_curso": "No se puede cambiar de ciclo mientras hay uno en curso.",
+    "motivo_paro": "No se puede cambiar de ciclo con el paro de emergencia activado.",
+    "motivo_estado_seguro": "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro.",
+    "motivo_modo_prueba": "No se puede cambiar de ciclo con el modo prueba activo.",
+    "motivo_estado": "No se puede cambiar de ciclo en el estado actual del equipo."
   },
   "alarmas": {
     "SIS-05": {
@@ -854,6 +885,36 @@
       "plantilla": "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
       "accion": "Verifique la conexión de la sonda o asígnele el rol No en uso."
     },
+    "SEN-04": {
+      "titulo": "Sensor de presión de cámara sin lectura",
+      "plantilla": "El sensor de presión de cámara no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+      "accion": "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de cámara."
+    },
+    "SEN-05": {
+      "titulo": "Sensor de presión de chaqueta sin lectura",
+      "plantilla": "El sensor de presión de chaqueta no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+      "accion": "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para revisar el sensor de presión de chaqueta."
+    },
+    "SEN-08": {
+      "titulo": "Sensor de presión de empaque sin lectura",
+      "plantilla": "El sensor de presión de empaque de {puerta} no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+      "accion": "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de empaque."
+    },
+    "SEN-06": {
+      "titulo": "Sensor de presión de cámara sin lectura",
+      "plantilla": "Sensor de presión de cámara sin lectura: llame a servicio.",
+      "accion": "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. Llame a servicio técnico."
+    },
+    "SEN-07": {
+      "titulo": "Sensor de presión de chaqueta sin lectura",
+      "plantilla": "Sensor de presión de chaqueta sin lectura: llame a servicio.",
+      "accion": "Llame a servicio técnico para revisar el sensor de presión de chaqueta."
+    },
+    "SEN-09": {
+      "titulo": "Reasignación de entradas y salidas sin verificar",
+      "plantilla": "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
+      "accion": "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."
+    },
     "CIC-01": {
       "titulo": "Fallo en precalentamiento",
       "plantilla": "{motivo}",
@@ -904,6 +965,11 @@
       "plantilla": "{motivo}. La cámara sigue sin considerarse segura.",
       "accion": "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, llame a servicio técnico."
     },
+    "CIC-11": {
+      "titulo": "Comunicación inestable en esterilización",
+      "plantilla": "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise el cable USB y la alimentación de la tarjeta y repita el ciclo. Si se repite, llame a servicio técnico."
+    },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
       "plantilla": "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase {fase}. El ciclo se abortó.",
@@ -928,6 +994,11 @@
       "titulo": "Falla de la tarjeta de E/S durante el ciclo",
       "plantilla": "{causa}: {motivo} Fase {fase}. El ciclo se abortó.",
       "accion": "Verifique la tarjeta de E/S antes de reiniciar. Llame a servicio técnico."
+    },
+    "COM-04": {
+      "titulo": "Salidas sin confirmar",
+      "plantilla": "La tarjeta de control no confirmó el apagado de todas las salidas al salir del modo prueba, ni tras 3 reintentos. Se repite la conexión con la tarjeta.",
+      "accion": "No inicie ciclos. Si la alarma no desaparece sola, llame a servicio técnico."
     }
   },
   "sensores_ciclo": {
@@ -947,6 +1018,9 @@
     "err_sin_previa": "No hay una calibración anterior que restaurar.",
     "err_confirmacion": "La calibración está fuera del rango habitual y requiere confirmación.",
     "err_implausible": "La calibración no es plausible y no se puede aplicar.",
+    "err_aire_con_presion": "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica.",
+    "err_aire_sin_presion": "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara.",
+    "err_aire_sin_referencia": "No se puede abrir el aire atmosférico: falta la presión atmosférica de referencia del equipo.",
     "di": {
       "aire_comprimido": "Aire comprimido",
       "presion_agua": "Presión de agua",
@@ -960,10 +1034,17 @@
       "agua_generador": "Agua generador",
       "paro_emergencia": "Paro de emergencia",
       "agua_camara": "Agua cámara",
-      "vapor_suministro": "Suministro de vapor"
+      "vapor_suministro": "Suministro de vapor",
+      "suministro_electrico": "Suministro eléctrico"
     },
     "do": {
       "vapor_generador": "Vapor generador",
+      "vapor_caldera": "Vapor caldera",
+      "descompresion_lenta": "Descompresión lenta",
+      "aire_comprimido_chaqueta": "Aire comprimido chaqueta",
+      "aire_comprimido_camara": "Aire comprimido cámara",
+      "agua_chaqueta": "Agua chaqueta",
+      "buzer_alarma": "Zumbador de alarma",
       "vapor_chaqueta": "Vapor chaqueta",
       "vapor_camara": "Vapor cámara",
       "descompresion_rapida": "Descompresión rápida",
@@ -984,6 +1065,7 @@
     },
     "ai": {
       "temp_camara": "Temperatura cámara",
+      "temp_2_camara": "Temperatura cámara 2",
       "temp_referencia": "Temperatura referencia",
       "temp_drenaje": "Temperatura drenaje",
       "temp_drenaje_camara": "Temperatura drenaje de cámara",
@@ -1012,7 +1094,7 @@
       "banner_prueba": "MODO PRUEBA ACTIVO",
       "banner_regla": "Las salidas se apagan al salir de la sección, al cerrar sesión o tras 5 minutos sin actividad.",
       "dialogo_titulo": "MODO PRUEBA — PRECAUCIÓN",
-      "dialogo_texto": "Se apagarán todas las salidas activas y podrá accionar manualmente cualquier salida SIN verificar la presión de la cámara ni el estado de las puertas. Solo el seguro de atrapamiento sigue activo. Úselo únicamente si conoce el sistema.",
+      "dialogo_texto": "Se apagarán todas las salidas activas y podrá accionar manualmente cualquier salida SIN verificar la presión de la cámara ni el estado de las puertas. Solo siguen activos el seguro de atrapamiento y el bloqueo del aire atmosférico con la cámara presurizada o sin lectura de presión. Úselo únicamente si conoce el sistema.",
       "continuar": "Continuar",
       "activar": "Activar",
       "apagar": "Apagar",
@@ -1056,7 +1138,7 @@
       "enfriar_chaqueta_secado": "Sin efecto en esta versión: ningún módulo del control lee este parámetro. Se conserva por compatibilidad del archivo de programa.",
       "presion_chaqueta": "Consigna de presión absoluta de la chaqueta. En preparación, el vapor de chaqueta abre por debajo de la consigna y el equipo queda listo solo dentro de ± «Rango de presión de chaqueta». Durante el ciclo se regula por histéresis: abre bajo consigna − rango y cierra sobre consigna + rango. No rige en Secado (usa «Presión de chaqueta en secado») ni en el enfriamiento de los modos 4 y 5 de descompresión, donde el vapor de chaqueta queda cerrado.",
       "rango_presion_chaqueta": "Semiancho (±) de la banda alrededor de «Presión de chaqueta». En preparación, fuera de la banda se activa la alarma PRE-01 (baja) o PRE-02 (alta) y no se permite iniciar el ciclo. Durante el ciclo define la histéresis del control: el vapor abre bajo consigna − rango y cierra sobre consigna + rango. Mínimo 1 kPa.",
-      "tipo_carga": "Sólido o líquido. Con líquido, el programa solo se acepta si: la descompresión es modo 4 o 5, no hay pulsos de prevacío, «Tiempo de secado» = 0, la apertura automática está desactivada y «Presión de cámara durante el enfriamiento» ≥ Psat(«Temperatura de esterilización») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento."
+      "tipo_carga": "Sólido o líquido. Al pasar a líquido, el modo de descompresión cambia a 4 (si no era 4, 5 o 0) y al volver a sólido regresa al modo por defecto del programa. Con líquido, el programa solo se acepta si: la descompresión es modo 4, 5 o 0, no hay pulsos de prevacío, «Tiempo de secado» = 0, la apertura automática está desactivada y, en los modos 4 y 5, «Presión de cámara durante el enfriamiento» ≥ Psat(«Temperatura de esterilización») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento."
     },
     "precalentamiento": {
       "tiempo_precalentamiento": "Tiempo, en minutos, que se sostiene la chaqueta en «Presión de precalentamiento» una vez alcanzada. El conteo no se reinicia si la presión cae durante el sostenimiento. Es la primera fase del ciclo. 0 = fase omitida.",
@@ -1139,7 +1221,7 @@
       "timeout_pulso": "En segundos. Modo 3: tiempo máximo de cada etapa (vacío o entrada de aire) para alcanzar su presión. Modos 1 y 2: tiempo máximo para que la cámara baje de P_atm − rango atmosférico. Si vence, el ciclo falla."
     },
     "descompresion": {
-      "modo": "Estrategia para llevar la cámara desde la presión de esterilización hasta P ≤ P_atm + rango atmosférico (parámetros del equipo). Ver la descripción de cada modo. Con carga líquida solo se admiten los modos 4 y 5. El modo se lee al iniciar la fase. Al terminar, si la cámara queda bajo P_atm − rango, se abre la entrada de aire atmosférico para romper el vacío.",
+      "modo": "Estrategia para llevar la cámara desde la presión de esterilización hasta P ≤ P_atm + rango atmosférico (parámetros del equipo). Ver la descripción de cada modo. Con carga líquida solo se admiten los modos 4, 5 y 0. El modo se lee al iniciar la fase. Al terminar, si la cámara queda bajo P_atm − rango, se abre la entrada de aire atmosférico para romper el vacío.",
       "tiempo_pre_despresurizacion": "Espera, en segundos, con las válvulas de descompresión, el aire comprimido y el agua de chaqueta cerrados, antes de iniciar el modo. El tiempo límite del modo empieza después de esta espera. 0 = sin espera.",
       "modo_1": {
         "timeout": "Tiempo máximo, en minutos, para llegar a P ≤ P_atm + rango atmosférico con el escape rápido abierto, contado tras la espera previa. Si vence, el ciclo falla."
@@ -1404,6 +1486,7 @@
     "grupo_uso": "Uso y mantenimiento",
     "grupo_configuracion": "Configuración vigente",
     "rotulo_modelo": "Modelo",
+    "rotulo_clase": "Tipo de equipo",
     "rotulo_capacidad": "Capacidad nominal",
     "rotulo_tipo_carga": "Tipo de carga",
     "carga_V": "Vertical (V)",
@@ -1495,7 +1578,16 @@
       "suspension_sale": "la pantalla salió de suspensión",
       "rechazo_401": "acceso rechazado (sin sesión) en {entidad}",
       "rechazo_403": "acceso rechazado (sin permiso) en {entidad}",
-      "rechazo_409": "acción rechazada por el estado en {entidad}"
+      "rechazo_409": "acción rechazada por el estado en {entidad}",
+      "param_ciclo_cambio": "cambió {entidad}: {anterior} → {nuevo}",
+      "param_ciclo_automatico": "cambio automático de {entidad} por el tipo de carga: {anterior} → {nuevo}",
+      "reasignacion_io": "reasignó {entidad}: {anterior} → {nuevo}",
+      "reasignacion_io_fabrica": "restauró el puerto de fábrica de {entidad}: {anterior} → {nuevo}",
+      "reasignacion_io_rechazada": "reasignación de entradas y salidas rechazada",
+      "reasignacion_io_verificada": "verificó {entidad} en su puerto {nuevo}",
+      "reinicio_control": "reinició el control para aplicar la asignación de entradas y salidas",
+      "aire_atmosferico_cortado_prueba": "el control cerró el aire atmosférico de la cámara en modo prueba",
+      "apagado_windows_rechazado": "Windows no permitió apagar el equipo"
     },
     "tipo": {
       "login_ok": "Inicio de sesión",
@@ -1544,7 +1636,15 @@
       "suspension_sale": "Suspensión (salida)",
       "rechazo_401": "Rechazo 401",
       "rechazo_403": "Rechazo 403",
-      "rechazo_409": "Rechazo 409"
+      "rechazo_409": "Rechazo 409",
+      "param_ciclo_cambio": "Parámetros del ciclo",
+      "reasignacion_io": "Reasignación de entradas y salidas",
+      "reasignacion_io_fabrica": "Asignación de fábrica restaurada",
+      "reasignacion_io_rechazada": "Reasignación rechazada",
+      "reasignacion_io_verificada": "Verificación de reasignación",
+      "reinicio_control": "Reinicio del control",
+      "aire_atmosferico_cortado_prueba": "Aire atmosférico cerrado",
+      "apagado_windows_rechazado": "Apagado rechazado por Windows"
     }
   },
   "correo_c2": {
@@ -1688,5 +1788,116 @@
     "sonda_temperatura": "Sensor Principal sin lectura: el estado seguro no puede confirmar la temperatura",
     "sonda_enfriamiento": "Sensor Principal sin lectura: no se puede confirmar el enfriamiento",
     "liquido_caliente": "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido"
+  },
+  "modos_programa": {
+    "secado_intro": "Cómo se seca la carga. En los modos 1 y 2 la cámara debe alcanzar vacío dentro del tiempo límite del pulso y no perderlo; si no, el ciclo falla.",
+    "secado_1_nombre": "Vacío continuo",
+    "secado_1_linea": "Bomba y válvula de vacío abiertas todo el tiempo.",
+    "secado_2_nombre": "Vacío con entrada de aire",
+    "secado_2_linea": "Vacío continuo con la entrada de aire atmosférico abierta.",
+    "secado_3_nombre": "Pulsos de vacío y aire",
+    "secado_3_linea": "Alterna vacío hasta la presión baja y aire hasta la presión alta del secado.",
+    "descompresion_intro": "Cómo se libera la presión de la cámara al terminar la esterilización. El modo se lee al iniciar la fase.",
+    "descompresion_nota_liquido": "Con carga líquida solo se permiten los modos 4, 5 y 0: descomprimir rápido con líquido caliente produce ebullición violenta.",
+    "descompresion_0_nombre": "Natural",
+    "descompresion_0_linea": "Todas las válvulas cerradas: la presión baja sola, sin tiempo límite.",
+    "descompresion_1_nombre": "Rápida",
+    "descompresion_1_linea": "Escape rápido abierto hasta la presión atmosférica.",
+    "descompresion_2_nombre": "Lenta",
+    "descompresion_2_linea": "Escape lento abierto hasta la presión atmosférica.",
+    "descompresion_3_nombre": "Lenta y rápida",
+    "descompresion_3_linea": "Escape lento hasta la presión de cambio y luego el rápido.",
+    "descompresion_4_nombre": "Con enfriamiento",
+    "descompresion_4_linea": "Para líquidos: agua en la chaqueta y aire comprimido como contrapresión hasta enfriar la carga.",
+    "descompresion_5_nombre": "Con enfriamiento y escape lento",
+    "descompresion_5_linea": "Como el modo 4, con el escape lento abierto durante el enfriamiento."
+  },
+  "reasignacion": {
+    "subtitulo": "Reasignación de entradas y salidas",
+    "aviso": "Use esta función solo si un puerto de la tarjeta está dañado. Cada cambio se aplica reiniciando el control y queda en la bitácora.",
+    "col_funcion": "Función",
+    "col_actual": "Puerto actual",
+    "col_nuevo": "Puerto nuevo",
+    "col_tipo": "Tipo",
+    "col_critica": "Crítica",
+    "si": "Sí",
+    "no": "No",
+    "sin_cambio": "Sin cambio",
+    "elegir_puerto": "Puerto nuevo para {funcion}",
+    "puerto_libre": "Libre",
+    "puerto_ocupado": "Ocupado por {funcion}",
+    "puerto_es_actual": "Puerto actual",
+    "puerto_de_fabrica": "De fábrica",
+    "conflicto": "{funcion} y {otra} quedarían en el mismo puerto {puerto}",
+    "aplicar": "Aplicar cambios",
+    "descartar": "Descartar cambios",
+    "restaurar_fabrica": "Restaurar asignación de fábrica",
+    "cerrar": "Cerrar",
+    "alerta_titulo": "ALERTA DE CRITICIDAD",
+    "alerta_texto": "Va a cambiar el puerto de {n} funciones. Una función en el puerto equivocado puede accionar una válvula o una puerta sin control. Revise el cableado antes de continuar.",
+    "alerta_criticas": "Funciones críticas: {lista}",
+    "alerta_analogicas": "Una entrada analógica reasignada usa la calibración de su puerto nuevo: calíbrela antes de usar el equipo.",
+    "continuar": "Continuar",
+    "reforzada_titulo": "CONFIRMACIÓN REFORZADA",
+    "reforzada_texto": "Esta función es de seguridad (interlock de puerta, paro de emergencia o final de carrera). Escriba su nombre exactamente como aparece: {funcion}",
+    "escribir_nombre": "Escribir el nombre",
+    "nombre_escrito": "Escrito: {texto}",
+    "clave_titulo": "Contraseña de {usuario}",
+    "reinicio_titulo": "SE REINICIARÁ EL CONTROL",
+    "reinicio_texto": "Escriba su contraseña para confirmar. Las salidas se apagarán y el control se reiniciará para aplicar la asignación. Después se verificará que cada función responde en su puerto nuevo.",
+    "escribir_clave": "Escribir la contraseña",
+    "clave_escrita": "Contraseña escrita",
+    "confirmar_reinicio": "Reiniciar el control",
+    "restaurar_texto": "Todas las funciones volverán a su puerto de fábrica.",
+    "reiniciando": "Reiniciando el control para aplicar la asignación…",
+    "guardado_sin_reinicio": "Asignación guardada: se aplicará la próxima vez que se inicie el control.",
+    "reinicio_pendiente": "Hay una asignación guardada que aún no se aplica: reinicie el control.",
+    "verif_titulo": "Verificación tras el último reinicio",
+    "bloqueo": "La asignación guardada está dañada: el equipo está bloqueado hasta restaurar la asignación de fábrica.",
+    "motivo_ciclo": "No disponible con un ciclo en curso.",
+    "motivo_estado": "Disponible solo con el equipo en preparación o preparado: resuelva primero la falla.",
+    "motivo_modo_prueba": "Salga primero del modo prueba de salidas.",
+    "motivo_apagando": "El equipo se está apagando.",
+    "motivo_estado_seguro": "Espere a que la cámara llegue a estado seguro.",
+    "err_conflicto": "Dos funciones no pueden quedar en el mismo puerto.",
+    "err_puerto_inexistente": "Ese puerto no existe en la tarjeta para este tipo de función.",
+    "err_funcion_desconocida": "Función desconocida.",
+    "err_sin_cambios": "No hay cambios que aplicar.",
+    "err_clave": "Contraseña incorrecta.",
+    "err_clave_requerida": "Escriba su contraseña para confirmar.",
+    "err_nombre": "El nombre escrito no coincide con el de la función.",
+    "err_bloqueado": "Usuario bloqueado por intentos fallidos: espere 5 minutos.",
+    "err_estado": "No se puede reasignar en el estado actual del equipo.",
+    "err_rol": "Solo el ingeniero puede reasignar entradas y salidas.",
+    "err_guardar": "No se pudo guardar la asignación.",
+    "err_sin_respuesta": "El control no responde.",
+    "err_generico": "No se pudo aplicar la reasignación.",
+    "funcion_vapor_caldera": "Vapor caldera",
+    "funcion_descompresion_lenta": "Descompresión lenta",
+    "funcion_aire_comprimido_chaqueta": "Aire comprimido chaqueta",
+    "funcion_aire_comprimido_camara": "Aire comprimido cámara",
+    "funcion_agua_chaqueta": "Agua chaqueta",
+    "funcion_buzer_alarma": "Zumbador de alarma",
+    "funcion_temp_2_camara": "Temperatura cámara 2",
+    "funcion_suministro_electrico": "Suministro eléctrico",
+    "sin_uso": "sin uso en este equipo",
+    "sin_verificar_aviso": "Hay funciones reasignadas sin verificar: no se pueden iniciar ciclos hasta verificarlas en la lista de abajo.",
+    "verificar": "Verificar",
+    "verificar_titulo": "VERIFICAR {funcion} EN {puerto}",
+    "verificar_texto_di": "Accione la entrada (por ejemplo, abra y cierre la puerta o pulse y suelte el paro) y compruebe en Entradas / Salidas que cambia. El control ya vio el cambio en el puerto nuevo. Confirme solo si lo comprobó.",
+    "verificar_texto_do": "Ya accionó esta salida en modo prueba después de reasignarla. Confirme solo si comprobó que actúa la válvula o el actuador correcto.",
+    "verificar_texto_ai": "La lectura es válida y el sensor se calibró en su puerto nuevo después de reasignarlo. Confirme solo si la lectura coincide con el patrón.",
+    "verificada_ok": "Función verificada.",
+    "verif_pendiente": "{funcion}: sin verificar en {puerto}",
+    "verif_trama_presente": "{funcion}: la tarjeta envía {puerto}; falta la verificación del ingeniero",
+    "verif_sin_respuesta": "{funcion}: no responde en {puerto}",
+    "verif_verificada": "{funcion}: verificada en {puerto}",
+    "falta_sin_cambio_observado": "Falta: accionar la entrada para ver un cambio de estado en el puerto nuevo.",
+    "falta_sin_prueba_de_salida": "Falta: encender esta salida en modo prueba (Entradas / Salidas) después de reasignarla.",
+    "falta_sin_lectura": "Falta: una lectura válida del sensor en el puerto nuevo.",
+    "falta_calibracion_requerida": "Falta: calibrar el sensor en su puerto nuevo (Entradas / Salidas) después de reasignarlo.",
+    "err_puerto_sin_calibracion": "Ese puerto analógico no tiene calibración en este equipo.",
+    "err_reinicio_en_curso": "El control ya se está reiniciando.",
+    "err_no_pendiente": "Esa función no está pendiente de verificar."
   }
 }

@@ -25,6 +25,10 @@ _CLAVE_CORTA_PRES = {"pres_camara": "camara", "pres_chaqueta": "chaqueta",
 _TIPO_API = {"temperatura": "temperature", "presion": "pressure"}
 _SEGMENTO_DE = {v: k for k, v in _TIPO_API.items()}
 
+_CAUSAS_SOLO_CATALOGO = frozenset({"aire_atmosferico_con_presion",
+                                   "aire_atmosferico_sin_presion",
+                                   "aire_atmosferico_sin_referencia"})
+
 # D-ES-08: sin actividad del usuario en la seccion el modo prueba se cierra
 INACTIVIDAD_UI_S = 5 * 60
 
@@ -64,7 +68,10 @@ class EntradasSalidasController(QObject):
     def _fallo(self, r) -> None:
         self._mensaje = mensaje_de(r.causa)
         d = r.datos if isinstance(r.datos, dict) else {}
-        self._detalle = str(d.get("detail") or "")
+        # D8-3.19: estos motivos ya tienen su texto completo en el catálogo; el
+        # del backend (en español) no se agrega
+        self._detalle = ("" if r.causa in _CAUSAS_SOLO_CATALOGO
+                         else str(d.get("detail") or ""))
         self.mensajeChanged.emit()
 
     def _limpiar_mensaje(self) -> None:

@@ -10,8 +10,10 @@ import "Componentes"
 // puente es el real (bridge/puente_instalacion.py): escribe
 // installation_profile.json. Al terminar, el botón del resultado cierra la
 // aplicación con el código 3 (CODIGO_INSTALACION_TERMINADA): el lanzador no la
-// relanza (TMG-02 de T9) y el texto pide reiniciar el software (el backend
-// arrancó sin perfil y debe reiniciarse). Mismo escalado que Main.qml.
+// relanza (TMG-02 de T9). D8-3.22 (tanda 8): el resultado dice "Instalación
+// completada" con el botón Continuar; exe_unico.py sigue entonces con el
+// arranque normal (backend y pantallas) ya con el perfil nuevo. Mismo
+// escalado que Main.qml.
 Window {
     id: ventana
     width: 600; height: 960

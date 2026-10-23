@@ -10,6 +10,7 @@
 # el ciclo, así que vive en el pie — no se puede insertar antes de la tabla
 # en un ticket que ya se imprimió en papel.
 
+import json
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -264,6 +265,33 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
     return "\n".join(lines)
 
 
+def _f0_guardado(valor) -> float | None:
+    """f0_final de la base: solo se guarda si el ciclo tenía F0 activo."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return None
+    return float(valor)
+
+
+def leer_avisos_ticket(texto) -> tuple[float | None, list[str]]:
+    """D8-2.14: (sin_datos_s, avisos) de la columna `avisos_ticket` de un ciclo
+    guardado. Vacía, ausente o dañada: (None, []) — el ticket se reimprime
+    como antes, sin esas líneas. Nunca lanza."""
+    if not isinstance(texto, str) or not texto.strip():
+        return None, []
+    try:
+        datos = json.loads(texto)
+    except (TypeError, ValueError):
+        return None, []
+    if not isinstance(datos, dict):
+        return None, []
+    sin_datos = datos.get("sin_datos_s")
+    if isinstance(sin_datos, bool) or not isinstance(sin_datos, (int, float)):
+        sin_datos = None
+    avisos = datos.get("avisos")
+    avisos = [a for a in avisos if isinstance(a, str)] if isinstance(avisos, list) else []
+    return sin_datos, avisos
+
+
 def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
     """Arma el ticket completo de un ciclo guardado (reimpresión). `p`: la
     presentación a usar (el PDF de la UI pasa la suya); None = la vigente."""
@@ -286,12 +314,17 @@ def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
             temp_final = tc
 
     p = p or presentacion_actual()       # una sola vez: todo el ticket igual
+    # D8-2.14: las líneas de aviso del pie guardadas al cerrar el ciclo
+    sin_datos_s, avisos = leer_avisos_ticket(_campo(ciclo, "avisos_ticket"))
     parts = [format_header(meta, p)]
     parts += [format_row(r, p) for r in lecturas]
     parts.append(format_footer(
         ciclo["resultado"], ciclo["fecha_fin"],
         temp_final=temp_final, motivo=motivo_ticket(
             _campo(ciclo, "codigo_fallo"), _campo(ciclo, "motivo_fallo"), p),
+        f0_total=_f0_guardado(_campo(ciclo, "f0_final")),
+        avisos=avisos or None,
         operador=_campo(ciclo, "operador") or None, p=p,
+        sin_datos_s=sin_datos_s,
     ))
     return "\n".join(parts)

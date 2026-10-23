@@ -35,6 +35,13 @@ class DescompresionFase(BaseFase):
         enfría con agua; su vapor debe quedar apagado (TMG-01 de T11)."""
         return self._sub_etapa in ("enfriamiento", "descompresion")
 
+    @property
+    def en_enfriamiento_con_contrapresion(self) -> bool:
+        """D8-2.10 (tanda 8): modos 4/5 en la sub-etapa de enfriamiento (aire
+        comprimido de contrapresión y agua de chaqueta). CicloState lo pasa al
+        protocolo de fallo si se pierde el Principal."""
+        return self._modo in (4, 5) and self._sub_etapa == "enfriamiento"
+
     def update(self) -> FaseResult:
         if self._etapa is None:
             self._modo = self.cycle.get_param("descompresion", "modo", default=0)

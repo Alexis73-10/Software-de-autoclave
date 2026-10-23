@@ -216,55 +216,66 @@ class AdvancedDoor(Door):
     #ACCIONES (SALIDAS)
     #============================
     
+    def _accionar(self, clave: str, value: bool) -> None:
+        """R8 (SAF-02, 3.ª vuelta): una salida de puerta reasignada sin
+        verificar no la enciende la máquina de la puerta (el modo prueba manda
+        por canal directo y sí puede, para verificarla)."""
+        canal = self.do[clave]
+        if value and canal in getattr(self.set_do, "canales_inhibidos", frozenset()):
+            logger.warning("Puerta: DO%s (%s) reasignada sin verificar; se mantiene apagada",
+                           canal, clave)
+            value = False
+        self.set_do.set_output(canal, value)
+
     #Activa actuador de apertura
     def abrir_on (self):
         if "abrir" in self.do:
-            self.set_do.set_output(self.do["abrir"], True)
+            self._accionar("abrir", True)
         #logger.info("Actuador de apertura activado.")
 
     #Desactiva actuador de apertura
     def abrir_off (self):
         if "abrir" in self.do:
-            self.set_do.set_output(self.do["abrir"], False)
+            self._accionar("abrir", False)
         #logger.info("Actuador de apertura desactivado.")
         
 
     #Activa actuador de cierre
     def cerrar_on (self):
         if "cerrar" in self.do:
-            self.set_do.set_output(self.do["cerrar"], True)
+            self._accionar("cerrar", True)
         #logger.info("Actuador de cierre activado.")
         
     #Desactiva actuador de cierre
     def cerrar_off (self):
         if "cerrar" in self.do:
-            self.set_do.set_output(self.do["cerrar"], False)
+            self._accionar("cerrar", False)
         #logger.info("Actuador de cierre desactivado.")
         
         
     #Bloquea la puerta (Aire comprimido al empaque)
     def bloquear_on(self):
         if "bloquear" in self.do:
-            self.set_do.set_output(self.do["bloquear"], True)
+            self._accionar("bloquear", True)
         #logger.info("Bloqueo de puerta activado.")
         
         
     def bloquear_off(self):
         if "bloquear" in self.do:
-            self.set_do.set_output(self.do["bloquear"], False)
+            self._accionar("bloquear", False)
         #logger.info("Bloqueo de puerta desactivado.")
         
         
     #Desbloquea la puerta (Corta aire comprimido al empaque)
     def desbloquear_on(self):
         if "desbloquear" in self.do:
-            self.set_do.set_output(self.do["desbloquear"], True)
+            self._accionar("desbloquear", True)
         #logger.info("Desbloqueo de puerta activado.")
         
     
     def desbloquear_off(self):
         if "desbloquear" in self.do:
-            self.set_do.set_output(self.do["desbloquear"], False)
+            self._accionar("desbloquear", False)
         #logger.info("Desbloqueo de puerta desactivado.")
         
     #Bomba encendida

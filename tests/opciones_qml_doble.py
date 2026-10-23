@@ -43,6 +43,12 @@ _SCRIPT = textwrap.dedent(r"""
     sesion_backend.ventana = lambda: Falsa()
     for modulo, nombre, valor in cfg.get("parches", []):
         setattr(__import__(modulo, fromlist=[nombre]), nombre, valor)
+    if cfg.get("idioma"):                  # E2 (tanda 8): pantalla en otro idioma
+        from autoclave import i18n
+        import autoclave.ui_qml.bridge.i18n_qml as i18n_qml
+        i18n.cargar()
+        i18n.fijar_idioma(cfg["idioma"])
+        i18n_qml.instancia._consultar = lambda: None
     SessionManager.login({"id": 1, "nombre": "Prueba", "usuario": cfg["usuario"], "rol": cfg["rol"]})
 
     QML = '''
@@ -113,10 +119,16 @@ _SCRIPT = textwrap.dedent(r"""
 
 
 def correr(seccion: str, rol: str, get: dict, pasos: list, usuario: str = "yo",
-           estado: str = "PREPARADO", capturar: bool = False, parches=None) -> dict:
+           estado: str = "PREPARADO", capturar: bool = False, parches=None,
+           idioma: str | None = None, carpeta=None) -> dict:
+    """idioma: "es"/"en" fijo para la pantalla; carpeta: dónde guardar las
+    capturas (por defecto, las de la tanda 6). Ambos agregados en E2 (tanda 8)."""
+    carpeta = Path(carpeta) if carpeta else CAPTURAS
+    if capturar and carpeta != CAPTURAS:
+        carpeta.mkdir(parents=True, exist_ok=True)
     cfg = {"seccion": seccion, "rol": rol, "usuario": usuario, "get": get, "pasos": pasos,
-           "estado": estado, "parches": parches or [],
-           "capturas": str(CAPTURAS) if (capturar or os.environ.get("T6_CAPTURAS")) else ""}
+           "estado": estado, "parches": parches or [], "idioma": idioma,
+           "capturas": str(carpeta) if (capturar or os.environ.get("T6_CAPTURAS")) else ""}
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg, ensure_ascii=False)],

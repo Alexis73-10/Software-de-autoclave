@@ -1,16 +1,20 @@
+from autoclave.core.runtime.asignacion_io import canal_do
 from autoclave.hal.measures.units import Units
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.utils.paths import calibration_path
 from autoclave.devices.puertas.door_type import DoorType
 
-_DOOR_DO_CHANNELS = {
-    1: {"abrir": 20, "cerrar": 22, "desbloquear": 9,  "bloquear": 11},
-    2: {"abrir": 21, "cerrar": 23, "desbloquear": 10, "bloquear": 12},
-}
+def _canales_do_puerta(n: int) -> dict:
+    """Canales físicos de las salidas de la puerta `n` según la asignación de
+    E/S en memoria (R8, D8-5.12). Con la de fábrica: puerta 1 = 20/22/9/11,
+    puerta 2 = 21/23/10/12, como antes."""
+    return {"abrir": canal_do(f"abrir_puerta_{n}"), "cerrar": canal_do(f"cerrar_puerta_{n}"),
+            "desbloquear": canal_do(f"desbloqueo_puerta_{n}"),
+            "bloquear": canal_do(f"bloqueo_puerta_{n}")}
 
 
 def _build_door_cfg(n: int, door_type: DoorType) -> dict:
-    do_ch = _DOOR_DO_CHANNELS[n]
+    do_ch = _canales_do_puerta(n)
     cfg = {
         "name": f"Puerta {n}",
         "type": door_type,

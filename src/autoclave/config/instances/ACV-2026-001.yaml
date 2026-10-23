@@ -14,9 +14,14 @@ configuration:
   cooling:
     enabled: false
 
+# D8-3.17 (tanda 8): máximo físico de la tarjeta. Los canales que se muestran
+# se derivan del perfil de instalación (temperature_probes, supply_inputs,
+# door_count/door_type, vapor_source; core/runtime/io_names.py): un canal que
+# el perfil no declara no aparece. No hace falta editar esta lista por equipo.
 io_enabled:
   AI:
     - temp_camara
+    - temp_2_camara
     - temp_referencia
     - temp_drenaje_camara
     - temp_drenaje
@@ -38,18 +43,24 @@ io_enabled:
     - paro_emergencia
     - agua_camara
     - vapor_suministro
+    - suministro_electrico
   DO:
     - vapor_generador
+    - vapor_caldera
     - vapor_chaqueta
     - vapor_camara
     - descompresion_rapida
+    - descompresion_lenta
     - descompresion_chaqueta
     - vacio_camara
     - desbloqueo_puerta_1
     - desbloqueo_puerta_2
     - bloqueo_puerta_1
     - bloqueo_puerta_2
+    - aire_comprimido_chaqueta
+    - aire_comprimido_camara
     - aire_atmosferico_camara
+    - agua_chaqueta
     - agua_intercambiador
     - agua_bomba
     - bomba_vacio
@@ -57,3 +68,60 @@ io_enabled:
     - abrir_puerta_2
     - cerrar_puerta_1
     - cerrar_puerta_2
+    - buzer_alarma
+
+# R8 (tanda 8, D8-5.12): asignación de FÁBRICA de cada función a su puerto de
+# la tarjeta (numerados desde 1, como en Opciones > Entradas / Salidas). La
+# vigente se guarda aparte, en data/asignacion_io.json de la carpeta de datos
+# (Opciones avanzadas, solo el ingeniero); sin ella rige esta. AI 01-08 son
+# temperatura y AI 09-16 presión. Si esta sección falta, rige la del código.
+io_ports:
+  DI:
+    aire_comprimido: 1
+    presion_agua: 2
+    puerta_1_cerrada: 3
+    puerta_1_abierta: 4
+    puerta_2_cerrada: 5
+    puerta_2_abierta: 6
+    atrapamiento_puerta_1: 7
+    atrapamiento_puerta_2: 8
+    agua_bomba: 9
+    agua_generador: 10
+    paro_emergencia: 11
+    agua_camara: 12
+    vapor_suministro: 13
+    suministro_electrico: 14
+  DO:
+    vapor_generador: 1
+    vapor_caldera: 2
+    vapor_chaqueta: 3
+    vapor_camara: 4
+    descompresion_rapida: 5
+    descompresion_lenta: 6
+    descompresion_chaqueta: 7
+    vacio_camara: 8
+    desbloqueo_puerta_1: 9
+    desbloqueo_puerta_2: 10
+    bloqueo_puerta_1: 11
+    bloqueo_puerta_2: 12
+    aire_comprimido_chaqueta: 13
+    aire_comprimido_camara: 14
+    aire_atmosferico_camara: 15
+    agua_chaqueta: 16
+    agua_intercambiador: 17
+    agua_bomba: 18
+    bomba_vacio: 19
+    abrir_puerta_1: 20
+    abrir_puerta_2: 21
+    cerrar_puerta_1: 22
+    cerrar_puerta_2: 23
+    buzer_alarma: 24
+  AI:
+    temp_camara: 1
+    temp_2_camara: 2
+    temp_referencia: 3
+    temp_drenaje: 5
+    pres_camara: 9
+    pres_chaqueta: 10
+    pres_empaque_1: 11
+    pres_empaque_2: 12

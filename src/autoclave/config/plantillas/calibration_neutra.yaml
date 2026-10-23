@@ -1,0 +1,166 @@
+# D8-3.18 (tanda 8): calibración NEUTRA que viaja en la entrega. Autoclave.spec la
+# empaqueta como autoclave/config/calibration.yaml (en un equipo nuevo se siembra
+# en data/calibration.yaml). La sección factory es idéntica a la de
+# config/calibration.yaml (escala ADC de cada canal); la de usuario queda en
+# ganancia 1.0 y offset 0.0, igual que "Restaurar por defecto": cada sensor se
+# calibra en sitio. tools/verificar_calibracion_neutra.py comprueba el resultado
+# del build y tests/test_t8_k8_calibracion_neutra.py que no se desalineen.
+# temperature[3] (en factory y en user) es la posición del sensor temp_chaqueta,
+# retirado de todos los equipos (T-19). No borrarla: la calibración es posicional
+# y quitarla correría la de temp_drenaje (4). temperature[5] queda sin sensor:
+# temp_drenaje_cam ya no existe y su entrada (4) la ocupa temp_drenaje (2026-10-12).
+name: "Calibracion Sensores PRO"
+sampling_interval_ms: 500
+
+calibration:
+  factory:
+    temperature:
+      - adc_min: 20
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 1.015
+        offset: 6.89
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 0.9893
+        offset: 11.63
+
+      - adc_min: 105
+        adc_max: 3990
+        temp_min: 0
+        temp_max: 200
+        gain: 0.9893
+        offset: 11.63
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 0.9893
+        offset: 11.63
+
+      - adc_min: 95
+        adc_max: 4010
+        temp_min: 0
+        temp_max: 200
+        gain: 0.9893
+        offset: 11.63
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 0.9893
+        offset: 11.63
+
+      - adc_min: 102
+        adc_max: 3995
+        temp_min: 0
+        temp_max: 200
+        gain: 0.9893
+        offset: 11.63
+
+      - adc_min: 100
+        adc_max: 4000
+        temp_min: 0
+        temp_max: 200
+        gain: 0.9893
+        offset: 11.63
+
+
+    pressure:
+      - adc_min: 5
+        adc_max: 4050
+        pres_min: 2
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 50
+        adc_max: 4050
+        pres_min: 0
+        pres_max: 400
+        gain: 1.0
+        offset: 0.0
+
+  user:
+    temperature:
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+    pressure:
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0
+      - gain: 1.0
+        offset: 0.0

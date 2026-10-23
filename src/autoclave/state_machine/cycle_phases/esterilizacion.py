@@ -42,7 +42,7 @@ import time
 import logging
 from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.core.runtime.sensores_ciclo import NOMBRES
-from autoclave.state_machine.alarms.catalogo import CIC_09
+from autoclave.state_machine.alarms.catalogo import CIC_09, CIC_11
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -50,6 +50,10 @@ logger = logging.getLogger(__name__)
 _DEBOUNCE_LECTURAS = 3
 _BANDA_PWM_BAJA = 2.0  # kPa por debajo de P_sat(T_actual) -> vapor ON forzado
 _BANDA_PWM_ALTA = 1.0  # kPa por encima de P_sat(T_actual) -> vapor OFF forzado
+# D8-2.8 (tanda 8): tope de la suma de pausas sin datos de la tarjeta en una
+# exposición (parámetro del equipo pausa_max_esterilizacion_s)
+_PAUSA_MAX_DEFECTO_S = 30.0
+_PAUSA_MAX_RANGO_S = (5.0, 120.0)
 
 
 class EsterilizacionFase(BaseFase):
@@ -80,7 +84,25 @@ class EsterilizacionFase(BaseFase):
         self._t_pulso_rapido = None
         self._rapido_abierto = False
 
+        # D8-2.8: segundos de pausa acumulados en esta exposición y alarma
+        # propia con que CicloState registra el fallo (None = CIC-04)
+        self.pausa_total_s = 0.0
+        self.alarma_fallo = None
+
         self.estado.fase_en_sostenimiento = False
+
+    def _pausa_max_s(self) -> float:
+        """pausa_max_esterilizacion_s del equipo, recortado a 5-120 s; sin un
+        valor numérico válido, 30 s."""
+        try:
+            valor = self.config.get("pausa_max_esterilizacion_s")
+        except Exception:
+            valor = None
+        if (isinstance(valor, bool) or not isinstance(valor, (int, float))
+                or not math.isfinite(valor)):
+            return _PAUSA_MAX_DEFECTO_S
+        bajo, alto = _PAUSA_MAX_RANGO_S
+        return min(max(float(valor), bajo), alto)
 
     def _apagar_salidas(self):
         self.set_do.vapor_camara_off()
@@ -127,6 +149,7 @@ class EsterilizacionFase(BaseFase):
                 or not math.isfinite(segundos) or segundos <= 0):
             return
         self._timer_fin += segundos
+        self.pausa_total_s += segundos
         logger.warning("Esterilización: exposición en pausa %.1f s (sin datos de la tarjeta)",
                        segundos)
 
@@ -237,6 +260,16 @@ class EsterilizacionFase(BaseFase):
             logger.info(
                 "Esterilización: iniciando %.0fs a %.1f°C | P_control_max=%.1f kPa",
                 tiempo_seg, t_est, p_control_max,
+            )
+
+        # ── 1b. D8-2.8: tope de pausas sin datos en esta exposición ─────────
+        # Antes de la lectura de sensores: falla aunque no haya lectura.
+        pausa_max = self._pausa_max_s()
+        if self.pausa_total_s > pausa_max:
+            self.alarma_fallo = (CIC_11, {"segundos": self.pausa_total_s, "maximo": pausa_max})
+            return self._fallo(
+                f"Comunicación inestable: {self.pausa_total_s:.0f} s de pausa sin datos de la "
+                f"tarjeta (máximo {pausa_max:.0f} s)"
             )
 
         temp = self._temp_principal()

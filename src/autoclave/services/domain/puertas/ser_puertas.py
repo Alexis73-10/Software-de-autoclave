@@ -38,10 +38,6 @@ from autoclave.core.runtime.motivos import Motivo
 logger = logging.getLogger(__name__)
 
 
-class Rules:
-    TEMP_MAX_APERTURA = 120.0        # °C
-
-
 # claves de global_params.json ("admosferica" es el nombre real de la clave)
 _CLAVE_ATM = "presion_admosferica"
 _CLAVE_RANGO = "rango_presion_atm"

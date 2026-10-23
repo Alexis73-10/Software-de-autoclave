@@ -97,11 +97,35 @@
 | B-11 | PREPARADO: el aire de cámara cierra a los 3 ticks reales | En seco (sin vapor) | Q1 R1-P2 (tanda 7) |
 | C-07 | DESPEJAR de COM-02/03 solo con el enlace de vuelta en ok | En seco (sin vapor) | Q1 T2-b (tanda 7); complementa C-06 |
 | D-37 | Calentamiento: rango de temperatura y de presión por separado | En seco (sin vapor) | Q1 R1-P3 (tanda 7) |
+| D-R8-01 | Reasignación de E/S: solo ingeniero, fuera de ciclo, conflictos rechazados | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-02 | Reasignar una salida: Vapor cámara de DO 04 a un puerto libre | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-03 | Reasignar el paro de emergencia: confirmación reforzada y cambio observado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-04 | Reasignar una entrada analógica: calibración obligatoria en el puerto nuevo | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-05 | Restaurar fábrica, respaldo y archivo dañado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| E-R8-01 | Ciclo completo con Vapor cámara y Presión cámara reasignados | En operación (vapor) | R8 (tanda 8, D8-5.12) |
 | E-08 | Calentamiento con los rangos separados: sin cambio de comportamiento | En operación (vapor) | Q1 R1-P3 (tanda 7) |
 | F-08 | Sin datos de la tarjeta en esterilización: la exposición se alarga | En operación (vapor) | Q1 T2-a (tanda 7) |
 | F-09 | CARGA NO ESTÉRIL en todo ciclo que no termine COMPLETADO | En operación (vapor) | Q1 T2-c (tanda 7) |
 | F-10 | Principal perdido con el protocolo de fallo ya en marcha: pasa a solo la lenta | En operación (vapor) | Q1 R1-P4 (tanda 7) |
 | F-11 | Cancelar durante la tolerancia por DI vencida | En operación (vapor) | Q1 R1-P5 (tanda 7) |
+| F-12 | Desconexión total breve de la tarjeta en esterilización: la exposición se alarga y no suma F0 | En operación (vapor) | S2a D8-2.7 (tanda 8) |
+| F-13 | Cortes repetidos en una esterilización: falla por comunicación inestable (CIC-11) | En operación (vapor) | S2a D8-2.8 (tanda 8) |
+| F-14 | DESPEJAR de COM-02/03 exige tramas DI nuevas, no solo tiempo | En seco (sin vapor) | S2a D8-2.9 (tanda 8) |
+| F-15 | Líquidos: se pierde el Principal en el enfriamiento con contrapresión — cámara sellada | En operación (vapor) | S2a D8-2.10 (tanda 8) |
+| F-16 | Líquidos sin Referencia: espera sellada sin sonda y luego la lenta | En operación (vapor) | S2a D8-2.10 (tanda 8) |
+| B-12 | Salir del modo prueba sin confirmación del apagado de salidas (COM-04) | En seco (sin vapor) | S2b D8-2.11 (tanda 8) |
+| F-17 | Ventana de estabilidad en pausa durante la tolerancia por DI vencida | En operación (vapor) | S2b D8-2.12 (tanda 8) |
+| F-18 | Cancelar con la tarjeta totalmente desconectada: texto en pantalla | En operación (vapor) | S2b D8-2.13 y D8-2.15 (tanda 8); complementa F-11 |
+| C-08 | Rechazo de DESPEJAR con texto del catálogo | En seco (sin vapor) | S2b D8-2.15 (tanda 8); complementa C-07 |
+| F-19 | Reimpresión idéntica al ticket original (avisos del pie) | En operación (vapor) | S2b D8-2.14 (tanda 8) |
+| F-20 | CARGA NO ESTÉRIL en la pantalla de resultado | En operación (vapor) | S2b D8-2.16 (tanda 8) |
+| D-38 | Transductor de presión sin señal fuera de ciclo: cuentas ADC, «—», alarma propia, inicio bloqueado y NO ABRIR | En seco (sin vapor) | S1 D8-1.1/1.3/1.4 (tanda 8) |
+| F-21 | Transductor de presión de cámara sin señal en ciclo: FALLO SEN-04, solo la lenta | En operación (vapor) | S1 D8-1.2 (tanda 8) |
+| F-22 | Transductor de presión de chaqueta sin señal en ciclo: FALLO SEN-05, solo la lenta | En operación (vapor) | S1 D8-1.2/1.4 (tanda 8) |
+| B-14 | Modo prueba: el aire atmosférico solo abre sin presión en la cámara | En seco (sin vapor) | E1 D8-3.19 (tanda 8) |
+| B-15 | Apagar equipo: Windows rechaza el apagado | En seco (sin vapor) | E1 D8-3.21 (tanda 8) |
+| D-39 | Canales de Entradas/Salidas según el perfil de instalación | En seco (sin vapor) | E1 D8-3.17 (tanda 8) |
+| G-04 | Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión | En seco (sin vapor) | V8a D8-5.7 (tanda 8) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -193,6 +217,21 @@
   3. Pulsar el paro de emergencia y liberarlo.
 - **Resultado esperado:** Ningún estado EMERGENCIA/HIBERNACION aparece en pantalla ni en `/status`; la suspensión entra y sale (bitácora `suspension_entra`/`suspension_sale`); el paro se maneja como siempre.
 - **Criterio de aprobado/fallo:** Aprobado si no hay estados desconocidos ni errores en el log.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-07 — Fin del asistente: "Instalación completada" y Continuar
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.22 (tanda 8)
+- **Objetivo:** El asistente termina con "Instalación completada" y el botón Continuar, sin pedir reiniciar el software.
+- **Precondiciones:** PC sin perfil de instalación (o perfil apartado, sección 7 del LEEME); código del día.
+- **Pasos:**
+  1. Recorrer el asistente hasta Instalar y confirmar.
+  2. Leer el título y el texto del resultado (en español; repetir en inglés si se instala otro equipo).
+  3. Pulsar Continuar.
+- **Resultado esperado:** Título "INSTALACIÓN COMPLETADA", texto "El equipo ha sido registrado correctamente. Pulse Continuar para empezar a usarlo." y botón Continuar; al pulsarlo se cierra el asistente y arrancan el backend y las pantallas normales sin reiniciar a mano.
+- **Criterio de aprobado/fallo:** Aprobado si ningún texto pide reiniciar y el arranque normal sigue solo.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -369,6 +408,56 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### B-12 — Salir del modo prueba sin confirmación del apagado de salidas (COM-04)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S2b D8-2.11 (tanda 8)
+- **Objetivo:** Si la tarjeta no confirma el apagado de todas las salidas al salir del modo prueba, se reintenta 3 veces y, si sigue sin confirmar, sale la alarma "Salidas sin confirmar" y no se puede iniciar ciclo.
+- **Precondiciones:** PREPARADO, sesión de técnico, modo prueba activo con una salida segura encendida.
+- **Pasos:**
+  1. Salir del modo prueba con normalidad: anotar en la bitácora el evento de salida con el apagado confirmado.
+  2. Volver a entrar al modo prueba; desconectar el USB de la tarjeta y salir del modo prueba enseguida.
+  3. Observar el panel de notificaciones e intentar iniciar un ciclo.
+  4. Reconectar la tarjeta y esperar a que se complete la conexión.
+- **Resultado esperado:** Paso 1: sin alarma. Paso 3: alarma COM-04 "Salidas sin confirmar"; el inicio de ciclo queda bloqueado. Paso 4: al completarse la conexión (o un apagado confirmado) la alarma se despeja y el inicio vuelve a estar permitido.
+- **Criterio de aprobado/fallo:** Aprobado si con la tarjeta sin confirmar nunca se permite iniciar ciclo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### B-14 — Modo prueba: el aire atmosférico solo abre sin presión en la cámara
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.19 (tanda 8) ★
+- **Objetivo:** `aire_atmosferico_camara` es la única salida que el modo prueba rechaza: con presión en la cámara, sin lectura de presión o sin presión atmosférica de referencia.
+- **Precondiciones:** Sesión de técnico; modo prueba (Entradas/Salidas); presión atmosférica calibrada; cámara cerrada.
+- **Pasos:**
+  1. Con la cámara a presión atmosférica, encender el aire atmosférico: debe abrir. Apagarlo.
+  2. Hacer un vacío breve con la bomba y la válvula de vacío; encender el aire: debe abrir (rompe el vacío).
+  3. Presurizar la cámara por encima de P_atm + `rango_presion_atm` (aire comprimido o, si no hay, vapor en una prueba en operación); encender el aire: debe rechazarse.
+  4. Con el aire abierto (paso 1), presurizar: el control debe cerrarlo solo; revisar la bitácora.
+  5. Desconectar el conector del transductor de presión de cámara; encender el aire: debe rechazarse.
+  6. Con la cámara presurizada (paso 3), reconectar el transductor e intentar abrir el aire enseguida y durante unos 5 s: debe rechazarse siempre (nunca "sin lectura" seguido de una apertura). Reconectar con la cámara en atmosférica: vuelve a permitirse a los 2-3 s.
+- **Resultado esperado:** Paso 3: "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica." Paso 4: la salida se apaga en menos de 1 s y la bitácora anota "el control cerró el aire atmosférico de la cámara en modo prueba". Paso 5: "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara." Las demás salidas siguen permitidas.
+- **Criterio de aprobado/fallo:** Aprobado si nunca abre con presión ni sin lectura y abre en atmosférica y en vacío.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### B-15 — Apagar equipo: Windows rechaza el apagado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.21 (tanda 8)
+- **Objetivo:** Si Windows no se apaga, la pantalla lo dice y queda en la bitácora.
+- **Precondiciones:** Ejecutable instalado; PREPARADO, sin ciclo. En una consola de Windows (no en la del programa) ejecutar `shutdown /s /t 3000` (deja un apagado programado: el siguiente `shutdown /s` lo rechaza con el código 1190).
+- **Pasos:**
+  1. En la pantalla de la puerta 1, Opciones › Equipo › Apagar equipo y confirmar.
+  2. Esperar unos 5 s y leer el panel.
+  3. En la consola, ejecutar `shutdown /a` para cancelar el apagado programado.
+  4. Volver a abrir el programa y revisar Opciones › Bitácora.
+- **Resultado esperado:** El panel muestra "Windows no permitió apagar el equipo: apáguelo manualmente" y el botón sigue deshabilitado (el software ya se detuvo). En la bitácora: "Apagado rechazado por Windows" con el código 1190.
+- **Criterio de aprobado/fallo:** Aprobado si aparece el aviso y queda el registro. **No olvidar el paso 3**: sin él, el PC se apaga a los 50 minutos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque C. Comunicación, energía y base de datos (en seco)
 
 ### C-01 — Modo sin base de datos
@@ -472,6 +561,35 @@
   3. Pulsar DESPEJAR de nuevo, sin iniciar sesión.
 - **Resultado esperado:** Primer intento: rechazado con "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad"; la alarma sigue. Segundo intento: se despeja sin pedir sesión.
 - **Criterio de aprobado/fallo:** Aprobado si no se despeja sin enlace y sí se despeja sin sesión con el enlace ok.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-14 — DESPEJAR de COM-02/03 exige tramas DI nuevas, no solo tiempo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S2a D8-2.9 (tanda 8)
+- **Objetivo:** DESPEJAR se acepta solo tras 3 tramas DI distintas y nuevas con el enlace en "ok".
+- **Precondiciones:** COM-02 activa tras una desconexión en ciclo (o provocada en seco con un ciclo de prueba).
+- **Pasos:**
+  1. Reconectar el USB y pulsar DESPEJAR de inmediato.
+  2. Esperar 2-3 s y volver a pulsar DESPEJAR.
+- **Resultado esperado:** El primer intento se rechaza con el motivo del enlace; tras unas 3 tramas DI (≈1-2 s con el firmware V3) se acepta.
+- **Criterio de aprobado/fallo:** Aprobado si no se despeja antes de que la tarjeta envíe tramas DI nuevas.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### C-08 — Rechazo de DESPEJAR con texto del catálogo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S2b D8-2.15 (tanda 8); complementa C-07
+- **Objetivo:** El rechazo de DESPEJAR se muestra en el panel de notificaciones con texto legible, no con el texto técnico de la petición.
+- **Precondiciones:** Como C-07 (COM-03 activa con la tarjeta desconectada, en PREPARACION).
+- **Pasos:**
+  1. Pulsar DESPEJAR con la tarjeta aún desconectada.
+  2. Cerrar y volver a abrir el panel de notificaciones.
+  3. Cambiar el idioma a inglés y repetir el paso 1.
+- **Resultado esperado:** Bajo el título del panel: "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad." (en inglés: "Cannot clear: ..."). Al cerrar el panel el mensaje desaparece. El panel de Equipo no muestra "apagado rechazado".
+- **Criterio de aprobado/fallo:** Aprobado si nunca aparece un texto del tipo "409 Client Error".
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1073,6 +1191,124 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### D-38 — Transductor de presión sin señal fuera de ciclo: cuentas ADC, «—», alarma propia, inicio bloqueado y NO ABRIR
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S1 D8-1.1, 1.3 y 1.4 (tanda 8)
+- **Objetivo:** Un lazo 4-20 mA abierto o en corto se detecta sobre la cuenta cruda (NAMUR NE43: < 3,6 mA o > 21 mA), el canal queda «sin lectura» (nunca 0 kPa), el inicio se bloquea con el texto de servicio y «NO ABRIR» se mantiene. Además fija los umbrales con las cuentas reales.
+- **Precondiciones:** Equipo en PREPARADO, cámara a presión atmosférica, sin vapor. Sesión de técnico. Opciones › Entradas/Salidas › Presión abierto (muestra las cuentas ADC).
+- **Pasos:**
+  1. Anotar las cuentas ADC de cámara y de chaqueta a presión atmosférica.
+  2. Desconectar el lazo del transmisor de cámara. Anotar las cuentas (lazo abierto) y observar la pantalla durante unos segundos.
+  3. Pulsar Iniciar ciclo.
+  4. Revisar el indicador de NO ABRIR y la campana de alarmas.
+  5. Reconectar el lazo y esperar unos segundos.
+  6. Si es posible y seguro, cortocircuitar el lazo a la alimentación y anotar las cuentas (sobrecorriente); reconectar.
+  7. Repetir 2 a 5 con el transmisor de chaqueta.
+  8. Solo si el equipo tiene sensor de empaque: con el empaque en vacío (retraído) y presurizado, anotar la presión mostrada y las cuentas; comprobar que en vacío no aparece «sin lectura» (piso calibrado `pres_falla_bajo_kpa` = −10 kPa; la calibración actual del empaque podría leer cerca de −9 kPa con 0 kPa reales).
+- **Resultado esperado:** Con el lazo abierto, tras 3 lecturas la presión se muestra como «—» o «---» (nunca 0,0); alarma «Sensor de presión de cámara sin lectura» (SEN-06; chaqueta SEN-07) con «llame a servicio»; el equipo deja de estar listo; Iniciar se rechaza con «Sensor de presión de cámara sin lectura: llame a servicio»; NO ABRIR sigue activo. Al reconectar, tras 3 lecturas en rango vuelve el valor y la alarma se resuelve. Si la sobrecorriente satura la tarjeta en 4095 cuentas antes de 21 mA, la detección alta queda inactiva: anotarlo.
+- **Criterio de aprobado/fallo:** Aprobado si en ningún momento se muestra o se usa 0 kPa con el lazo abierto, el inicio queda bloqueado con el texto de servicio y NO ABRIR no se apaga. Entregar las cuentas anotadas para fijar `adc_falla_bajo` / `adc_falla_alto` o los márgenes.
+- **Cuentas anotadas:** cámara atm ______ / abierto ______ / corto ______ · chaqueta atm ______ / abierto ______ / corto ______ · empaque vacío ______ kPa / ______ cuentas
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-01 — Reasignación de E/S: solo ingeniero, fuera de ciclo, conflictos rechazados
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Opciones avanzadas solo la ve el ingeniero; no se puede reasignar en ciclo ni con un conflicto o un puerto inexistente.
+- **Precondiciones:** Equipo en PREPARADO. Sesiones de técnico, administrador e ingeniero.
+- **Pasos:**
+  1. Con técnico y con administrador, abrir OPCIONES: no aparece Opciones avanzadas.
+  2. Con ingeniero, abrir Opciones avanzadas y revisar la tabla (función, puerto actual, puerto nuevo, tipo, crítica).
+  3. Elegir para Vapor cámara el puerto de otra función: la pantalla marca el conflicto y no deja aplicar.
+  4. Iniciar un ciclo y volver a Opciones avanzadas.
+- **Resultado esperado:** Tabla completa (también las funciones sin uso en este equipo, marcadas). Conflicto visible y Aplicar deshabilitado. En ciclo: aviso «No disponible con un ciclo en curso» y nada editable.
+- **Criterio de aprobado/fallo:** Aprobado si ningún rol distinto del ingeniero llega a la pantalla y ninguna reasignación se acepta en ciclo ni con conflicto.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-02 — Reasignar una salida: Vapor cámara de DO 04 a un puerto libre
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** La salida reasignada se acciona en su puerto nuevo y el equipo no inicia ciclos hasta que el ingeniero la verifica.
+- **Precondiciones:** Equipo en PREPARADO, cámara a presión atmosférica, válvula de vapor de cámara con alimentación de vapor CERRADA. Mover el cable de la válvula de DO 04 a un DO libre (p. ej. DO 25).
+- **Pasos:**
+  1. En Opciones avanzadas elegir el DO libre para Vapor cámara y Aplicar: alerta de criticidad, «Se reiniciará el control», contraseña.
+  2. Esperar el reinicio del control y volver a iniciar sesión.
+  3. Intentar iniciar un ciclo.
+  4. En Entradas / Salidas, modo prueba: encender Vapor cámara y comprobar que actúa la válvula correcta (y que DO 04 no hace nada).
+  5. En Opciones avanzadas, Verificar Vapor cámara (contraseña).
+  6. Revisar la bitácora.
+- **Resultado esperado:** Tras el reinicio: alarma SEN-09 y el ciclo no inicia. Antes de la prueba de salida el botón Verificar está deshabilitado con «Falta: encender esta salida en modo prueba». Tras verificar, SEN-09 desaparece y el ciclo puede iniciar. Bitácora: reasignacion_io (DO 04 → DO 25, usuario), reinicio_control, reasignacion_io_verificada (método ingeniero).
+- **Criterio de aprobado/fallo:** Aprobado si la válvula solo actúa por el puerto nuevo y no se pudo iniciar ningún ciclo antes de verificar.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-03 — Reasignar el paro de emergencia: confirmación reforzada y cambio observado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Mover una función de seguridad exige escribir su nombre, y solo se verifica si el control vio cambiar la entrada en su puerto nuevo.
+- **Precondiciones:** Equipo en PREPARADO. Mover el cable del paro de emergencia de DI 11 a un DI libre (p. ej. DI 15).
+- **Pasos:**
+  1. Reasignar Paro de emergencia al DI libre: escribir mal el nombre una vez, luego bien.
+  2. Tras el reinicio, intentar Verificar sin accionar el paro.
+  3. Pulsar y soltar el paro; Verificar (nombre y contraseña).
+  4. Pulsar el paro con el equipo en PREPARADO.
+- **Resultado esperado:** Con el nombre mal escrito se rechaza. Sin accionar el paro: «Falta: accionar la entrada». Tras pulsar y soltar, se verifica. Al pulsar el paro: SIS-01 (el paro se lee en su puerto nuevo).
+- **Criterio de aprobado/fallo:** Aprobado si el paro funciona en el puerto nuevo y no se pudo verificar sin accionarlo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-04 — Reasignar una entrada analógica: calibración obligatoria en el puerto nuevo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Una analógica reasignada usa la calibración del puerto nuevo: no se verifica sin calibrarla después de reasignar; un puerto sin calibración se rechaza.
+- **Precondiciones:** Equipo en PREPARADO, puerta abierta, patrón de presión. Mover el transmisor de presión de cámara de AI 09 a AI 13.
+- **Pasos:**
+  1. Intentar reasignar Presión cámara a AI 16.
+  2. Reasignar Presión cámara a AI 13 y reiniciar.
+  3. Intentar Verificar sin calibrar.
+  4. Calibrar Presión cámara en Entradas / Salidas contra el patrón y Verificar.
+- **Resultado esperado:** AI 16: rechazo «Ese puerto analógico no tiene calibración». AI 13 sin calibrar: «Falta: calibrar el sensor en su puerto nuevo». Tras calibrar, la lectura coincide con el patrón (± tolerancia de calibración) y se verifica.
+- **Criterio de aprobado/fallo:** Aprobado si nunca se pudo dejar la presión de cámara verificada sin calibrarla en el puerto nuevo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-05 — Restaurar fábrica, respaldo y archivo dañado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** La asignación vigente se guarda fuera del ejecutable, va en el respaldo y un archivo dañado bloquea el equipo hasta restaurar la de fábrica.
+- **Precondiciones:** Una reasignación aplicada (D-R8-02). Memoria USB.
+- **Pasos:**
+  1. Exportar un respaldo (con calibración) y comprobar que trae asignacion_io.json.
+  2. Restaurar asignación de fábrica (confirmación y contraseña) y volver a mover el cable a DO 04.
+  3. Con el control detenido, dañar a mano data/asignacion_io.json (texto cualquiera) y arrancar.
+  4. Restaurar asignación de fábrica desde la pantalla.
+- **Resultado esperado:** El respaldo incluye la asignación. Tras restaurar fábrica, todo vuelve a su puerto y queda pendiente de verificar lo que cambió. Con el archivo dañado: CONFIGURACION_INVALIDA, sin ciclo; la restauración de fábrica lo resuelve.
+- **Criterio de aprobado/fallo:** Aprobado si un archivo dañado nunca hace que el equipo use la de fábrica en silencio.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-39 — Canales de Entradas/Salidas según el perfil de instalación
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.17 (tanda 8)
+- **Objetivo:** La lista de canales de E/S sale del perfil (sondas, entradas de suministro, puertas, fuente de vapor), sin editar el YAML a mano.
+- **Precondiciones:** Equipo instalado; sesión de técnico. Anotar del resumen del asistente: número y tipo de puertas, fuente de vapor, sondas.
+- **Pasos:**
+  1. Abrir Opciones › Entradas/Salidas y anotar los canales que aparecen.
+  2. Comparar con el perfil: con 1 puerta no deben aparecer los canales de la puerta 2; con generador interno no aparece `vapor_caldera`; sin segunda sonda no aparece `temp_2_camara`.
+  3. Revisar las entradas mostradas en Preciclo.
+- **Resultado esperado:** Solo aparecen los canales que el perfil declara, en las dos pantallas.
+- **Criterio de aprobado/fallo:** Aprobado si no sobra ni falta ningún canal respecto al perfil. **[verificar en sitio]** un equipo actualizado (no reinstalado) conserva su YAML viejo (LEEME 1.4): anotar si faltan canales nuevos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque E. Ciclos de sólidos (en operación)
 
 ### E-01 — Instrumental 134 completo
@@ -1173,6 +1409,20 @@
   2. Observar fase y salidas.
 - **Resultado esperado:** Se ejecuta el protocolo de fallo y pasa a ESTADO SEGURO; la puerta no abre hasta que la cámara sea segura.
 - **Criterio de aprobado/fallo:** Aprobado si la puerta nunca abre con la cámara no segura.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### E-R8-01 — Ciclo completo con Vapor cámara y Presión cámara reasignados
+
+- **Modo:** En operación (vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Con funciones reasignadas y verificadas, el ciclo se comporta igual que con la asignación de fábrica.
+- **Precondiciones:** D-R8-02 y D-R8-04 aprobados y verificados (cables en los puertos nuevos).
+- **Pasos:**
+  1. Correr Instrumental 134 completo.
+  2. Comparar la gráfica y el ticket con un E-02 de fábrica.
+- **Resultado esperado:** Ciclo COMPLETADO; misma forma de la rampa y de la meseta; presión y temperatura coherentes con P_sat.
+- **Criterio de aprobado/fallo:** Aprobado si el ciclo termina COMPLETADO y los registros son equivalentes a los de fábrica.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1354,6 +1604,155 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### F-12 — Desconexión total breve de la tarjeta en esterilización: la exposición se alarga y no suma F0
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.7 (tanda 8)
+- **Objetivo:** Los segundos con el USB desconectado (menos de 5 s) y la ventana tras reconectar no cuentan como esterilización ni como F0.
+- **Precondiciones:** Programa con F0 activo (o Instrumental 134) en esterilización; cronometrar desde el inicio de la fase y anotar el F0 en pantalla.
+- **Pasos:**
+  1. Desconectar el USB de la tarjeta unos 3 s y reconectar (antes de que salga COM-02).
+  2. Dejar terminar el ciclo; anotar la duración real de la esterilización y el F0 final.
+  3. Revisar el pie del ticket.
+- **Resultado esperado:** La esterilización dura lo programado más los segundos sin datos (corte + ventana de reconexión, hasta ~2 s más por la vigencia de la última trama); el F0 no sube durante el corte; el pie dice "Sin datos de la tarjeta: n s"; COMPLETADO.
+- **Criterio de aprobado/fallo:** Aprobado si la duración se alarga al menos los segundos del corte y el F0 no aumenta mientras no hay datos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-13 — Cortes repetidos en una esterilización: falla por comunicación inestable (CIC-11)
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.8 (tanda 8)
+- **Objetivo:** Si las pausas por falta de datos suman más de pausa_max_esterilizacion_s (30 s por defecto), el ciclo falla con CIC-11.
+- **Precondiciones:** Instrumental 134 en esterilización; pausa_max_esterilizacion_s = 30 s (OPCIONES › Parámetros del equipo).
+- **Pasos:**
+  1. Desconectar el USB unos 3 s y reconectar; esperar 5 s; repetir hasta sumar más de 30 s de cortes.
+  2. Repetir con cortes muy cortos y seguidos (desconectar/reconectar sin esperar).
+- **Resultado esperado:** Al superar 30 s acumulados el ciclo termina en FALLO con "Comunicación inestable en esterilización" (CIC-11) y el ticket lleva CARGA NO ESTÉRIL; con cortes seguidos (sin que llegue COM-02) también falla al pasar el tope.
+- **Criterio de aprobado/fallo:** Aprobado si nunca termina COMPLETADO con más de 30 s de pausas.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-15 — Líquidos: se pierde el Principal en el enfriamiento con contrapresión — cámara sellada
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.10 (tanda 8)
+- **Objetivo:** No se ventea de inmediato: todo cerrado mientras la Referencia esté caliente; con la Referencia en o bajo temp_max_apertura (3 lecturas), la lenta.
+- **Precondiciones:** Programa Líquidos (modo 4) con la Referencia asignada (OPCIONES › Parámetros del ciclo › Sensores) y en la carga; ciclo en DESCOMPRESION, enfriamiento con contrapresión.
+- **Pasos:**
+  1. Desconectar la sonda Principal.
+  2. Observar las salidas 5-10 min (y la presión de cámara).
+  3. Llevar la Referencia a menos de temp_max_apertura (p. ej. sacarla y meterla en agua fría) y observar.
+- **Resultado esperado:** SENSOR_AUSENTE; cierran aire comprimido, agua de chaqueta, chaqueta, lenta, rápida y vapor; CIC-10 "cámara sellada…"; ninguna válvula abre con la Referencia caliente (salvo alivio por sobrepresión); con la Referencia fría abre solo la lenta; NO ABRIR sigue; FALLA sale sin técnico.
+- **Criterio de aprobado/fallo:** Aprobado si no se ventea con la Referencia caliente y la rápida nunca abre. Anotar cuánto baja la presión sellada (PREGUNTA de contrapresión).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-16 — Líquidos sin Referencia: espera sellada sin sonda y luego la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.10 (tanda 8)
+- **Objetivo:** Sin ninguna Referencia válida (el drenaje solo no cuenta para ventear), la cámara espera sellada espera_sellado_sin_sonda_min y luego ventea por la lenta.
+- **Precondiciones:** Programa Líquidos con la asignación de fábrica (sin Referencia); espera_sellado_sin_sonda_min = 10 min para acortar la prueba.
+- **Pasos:**
+  1. En el enfriamiento con contrapresión, desconectar la sonda Principal.
+  2. Cronometrar hasta que abra la lenta.
+- **Resultado esperado:** Todo cerrado durante 10 min (aunque el drenaje lea frío); a los 10 min abre solo la lenta.
+- **Criterio de aprobado/fallo:** Aprobado si la lenta abre a los 10 min (± 1 tick) y no antes.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-17 — Ventana de estabilidad en pausa durante la tolerancia por DI vencida
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.12 (tanda 8)
+- **Objetivo:** Los segundos sin datos de la tarjeta no cuentan en la ventana de estabilidad previa a la esterilización (ni en el hold del prevacío ni en el secado); los tiempos límite de fase sí siguen.
+- **Precondiciones:** Ciclo Instrumental 134 en curso; sesión de técnico para ver el log.
+- **Pasos:**
+  1. Esperar a que el calentamiento llegue al tramo estable (log: ventana de estabilidad abierta).
+  2. Provocar 2-3 s sin datos de la tarjeta (desconectar y reconectar el USB antes de 4 s).
+  3. Dejar terminar el ciclo.
+- **Resultado esperado:** Log: "ventana _timer_sostenido_desde en pausa n s"; sin vapor durante el tramo; el ciclo termina COMPLETADO y el ticket dice "Sin datos de la tarjeta: n s".
+- **Criterio de aprobado/fallo:** Aprobado si la ventana se alarga lo que duró el tramo y el ciclo no se da por estable con segundos sin datos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-18 — Cancelar con la tarjeta totalmente desconectada: texto en pantalla
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.13 y D8-2.15 (tanda 8); complementa F-11
+- **Objetivo:** Con la tarjeta desconectada (antes de COM-02) la cancelación se acepta en espera y la pantalla lo explica con el texto del catálogo.
+- **Precondiciones:** Ciclo en esterilización.
+- **Pasos:**
+  1. Desconectar el USB de la tarjeta y, antes de 5 s, pulsar CANCELAR CICLO y confirmar.
+  2. Leer el aviso de la pantalla y reconectar enseguida.
+  3. Repetir dejándolo desconectado más de 5 s.
+- **Resultado esperado:** Aviso: "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control..." (no un error ni un texto técnico); al volver los datos, CANCELADO. Sin reconectar a tiempo, FALLO_CONEXION.
+- **Criterio de aprobado/fallo:** Aprobado si el aviso sale con ese texto y el ciclo nunca sigue corriendo tras la cancelación.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-19 — Reimpresión idéntica al ticket original (avisos del pie)
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.14 (tanda 8)
+- **Objetivo:** La reimpresión desde el Historial trae las mismas líneas de aviso del pie que el ticket impreso en vivo.
+- **Precondiciones:** Ciclo con un tramo sin datos de la tarjeta (F-17) y, si el equipo tiene sensores de referencia, con un aviso de uniformidad.
+- **Pasos:**
+  1. Guardar el ticket impreso en vivo.
+  2. Reimprimir el mismo ciclo desde el Historial.
+  3. Comparar los pies.
+- **Resultado esperado:** Ambos traen "Sin datos de la tarjeta: n s", los avisos de uniformidad y (si el ciclo tenía F0) "F0 total". Los ciclos anteriores a esta versión se reimprimen como antes.
+- **Criterio de aprobado/fallo:** Aprobado si el pie reimpreso es idéntico al original.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-20 — CARGA NO ESTÉRIL en la pantalla de resultado
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S2b D8-2.16 (tanda 8)
+- **Objetivo:** La pantalla de resultado del ciclo marca "CARGA NO ESTÉRIL" en todo ciclo que no termine COMPLETADO.
+- **Precondiciones:** Programa corto de prueba.
+- **Pasos:**
+  1. Terminar un ciclo completo y mirar la pantalla de resultado.
+  2. Cancelar otro ciclo y mirar la pantalla.
+  3. Provocar un fallo (p. ej. desconexión mayor de 5 s) y mirar la pantalla.
+- **Resultado esperado:** Ciclo completo: sin la marca. Cancelado y fallo: recuadro rojo "CARGA NO ESTÉRIL" sobre la gráfica, igual que en el ticket.
+- **Criterio de aprobado/fallo:** Aprobado si la marca aparece exactamente en los ciclos no completados.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-21 — Transductor de presión de cámara sin señal en ciclo: FALLO SEN-04, solo la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S1 D8-1.2 (tanda 8)
+- **Objetivo:** Con ciclo en curso, perder la señal del transmisor de cámara aborta el ciclo con código propio, corta el vapor y ventea solo por la lenta; nunca se toma como vacío ni se abre el aire atmosférico por ese motivo.
+- **Precondiciones:** Instrumental 134 en esterilización (cámara presurizada). Repetición opcional en prevacío (cámara en vacío).
+- **Pasos:**
+  1. Desconectar el lazo del transmisor de presión de cámara.
+  2. Observar salidas (vapor, lenta, rápida, chaqueta, aire atmosférico) y la alarma.
+  3. Reconectar el lazo pasados unos segundos; observar que el ciclo sigue en FALLO.
+  4. Reconocer el resultado y revisar si pasa a PREPARACION sin técnico; intentar iniciar con el lazo desconectado de nuevo.
+- **Resultado esperado:** En unas 3 tramas: FALLO «Sensor de presión de cámara sin lectura» (SEN-04), vapor cortado, solo `descompresion_lenta` abierta; rápida, chaqueta y aire atmosférico cerrados mientras no lea (en prevacío tampoco se abre el aire atmosférico). Al reconectar el FALLO no se revierte. Tras reconocer, PREPARACION sin técnico, NO ABRIR mientras no lea y el inicio rechazado con el texto de servicio.
+- **Criterio de aprobado/fallo:** Aprobado si ni la rápida ni el aire atmosférico abren mientras la presión de cámara no lee.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-22 — Transductor de presión de chaqueta sin señal en ciclo: FALLO SEN-05, solo la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S1 D8-1.2 y 1.4 (tanda 8)
+- **Objetivo:** Mismo comportamiento que F-21 con el transmisor de chaqueta (solo si la chaqueta está habilitada en `io_enabled`).
+- **Precondiciones:** Instrumental 134 en esterilización.
+- **Pasos:**
+  1. Desconectar el lazo del transmisor de presión de chaqueta.
+  2. Observar salidas y alarma.
+  3. Reconectar, reconocer y revisar PREPARACION e inicio.
+- **Resultado esperado:** FALLO «Sensor de presión de chaqueta sin lectura» (SEN-05), vapor de cámara y de chaqueta cortados, solo la lenta; la cámara sigue mostrando su presión. Sin lectura de chaqueta el inicio queda bloqueado (SEN-07).
+- **Criterio de aprobado/fallo:** Aprobado si el ciclo se aborta y la rápida no abre.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque G. Líquidos (en operación, al final)
 
 ### G-01 — Líquidos con la sonda dentro del líquido
@@ -1397,6 +1796,23 @@
   2. Anotar la temperatura a la que abre la rápida.
 - **Resultado esperado:** Solo la lenta mientras el Principal esté > 80 °C (o sin lectura); la rápida después de 3 lecturas ≤ 80 °C.
 - **Criterio de aprobado/fallo:** Aprobado si la rápida nunca abre por encima de 80 °C.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### G-04 — Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión
+
+- **Modo:** En seco  ·  **Origen:** V8a D8-5.7 (tanda 8); HAZ-V8A-01
+- **Objetivo:** Al pasar un programa a carga Líquido, el modo de descompresión pasa a 4 con aviso; con Líquido solo se aceptan los modos 4, 5 y 0; al volver a Sólido se recupera el modo de fábrica del programa (o el 1). Cada cambio queda en la bitácora.
+- **Precondiciones:** Sesión de técnico o ingeniero; sin ciclo en curso; un programa sólido con modo de descompresión 1.
+- **Pasos:**
+  1. Opciones › Parámetros del ciclo › programa › tipo de carga: elegir Líquido.
+  2. Verificar el aviso en pantalla y que el modo de descompresión quedó en 4.
+  3. Con Líquido, intentar elegir el modo 1 (o 2/3).
+  4. Volver a Sólido.
+  5. Revisar la bitácora.
+- **Resultado esperado:** Paso 2: aviso «Carga líquida: el modo de descompresión cambió a 4 (…)». Paso 3: la lista solo ofrece 4, 5 y 0; si se fuerza, el backend rechaza con su motivo (ebullición violenta). Paso 4: modo de fábrica del programa o el 1. Paso 5: una fila por cambio, incluido el automático.
+- **Criterio de aprobado/fallo:** Aprobado si en ningún momento un programa Líquido queda con un modo distinto de 4, 5 o 0.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

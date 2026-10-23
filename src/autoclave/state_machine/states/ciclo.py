@@ -14,11 +14,12 @@
 #   "CANCELADO"  — usuario abortó → volver a PREPARADO
 
 import logging
+import math
 import time
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import (
-    CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08,
-    COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SIS_01, SUM_01, SUM_06, nombre_legible,
+    CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
+    COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, nombre_legible,
 )
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
@@ -32,13 +33,16 @@ from autoclave.installation.profile import entrada_requerida, numero_puertas, re
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 from autoclave.core.runtime import alarmas_i18n
+from autoclave.core.runtime import presion_sin_lectura
 
 logger = logging.getLogger(__name__)
 
 # Temperatura: los sensores EN USO del programa (Principal + Referencias),
 # tanda §1.1; un sensor no_en_uso no se vigila (se retira la vigilancia fija
 # de temp_camara, antiguo S-8).
-_SENSORES_PRES_CRITICOS = ["pres_camara"]
+# Presión: S1 (tanda 8, D8-1.4): la cámara siempre y la chaqueta si
+# io_enabled la declara (presion_sin_lectura.canales_vigilados(), fijado en
+# reset()). Sin lectura = el convertidor dio None (transductor sin señal).
 _DEBOUNCE_LECTURAS_DRENAJE = 3
 # Lecturas seguidas del Principal bajo temperatura_enfriamiento (SAF-01 de T11)
 _DEBOUNCE_ENFRIADA = 3
@@ -52,9 +56,14 @@ _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
 # sigue enviando y el watchdog no actúa. Por eso, durante la tolerancia se
 # cortan el vapor de cámara y de chaqueta (TMG-02 / SAF-01 de T2).
 _TOLERANCIA_DI_VENCIDA_SEG = 4.0
-# Ticks seguidos con DI vigente para reiniciar la tolerancia (TMG-03 de T2:
-# una trama intermitente no puede renovarla indefinidamente)
+# Tramas DI vigentes, distintas y nuevas, seguidas para reiniciar la
+# tolerancia (TMG-03 de T2: una trama intermitente no puede renovarla
+# indefinidamente; D8-2.9 / TMG-04: tramas, no ticks)
 _TICKS_DI_VIGENTE_REINICIO = 3
+# TMG-01 (revisión S2a): el tramo sin datos empieza en la última DI válida
+# (la publica ControlLoop en estado.ultima_di_valida_mono), no al detectarlo;
+# como mucho este retroceso (vigencia de la DI, 1,5 s, más un tick de 0,5 s)
+_RETROCESO_MAX_TRAMO_SEG = 2.0
 _TIMEOUT_APERTURA_DENEGADA_SEG = 60.0
 _CIC_POR_FASE = {
     "PRECALENTAMIENTO": CIC_01, "PRE_VACIO": CIC_02, "CALENTAMIENTO": CIC_03,
@@ -130,6 +139,11 @@ class CicloState:
         # T2-a (tanda 7): inicio (monotonic) del tramo en curso en que la fase
         # no corre por la tolerancia de DI vencida; None fuera de él
         self._pausa_sin_datos_desde = None
+        # D8-2.7 (tanda 8): el tramo en curso empezó por la desconexión total de
+        # la tarjeta (el ControlLoop no corre run()), no por la DI vencida
+        self._pausa_por_desconexion = False
+        # S1 (tanda 8): canales de presión vigilados en el ciclo en curso
+        self._pres_vigilados = [presion_sin_lectura.CAMARA]
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -182,6 +196,12 @@ class CicloState:
         self._di_vencida_desde = None
         self._ticks_di_vigente = 0
         self._pausa_sin_datos_desde = None
+        self._pausa_por_desconexion = False
+        try:
+            self._pres_vigilados = presion_sin_lectura.canales_vigilados()
+        except Exception:
+            logger.exception("CicloState: no se pudieron leer los canales de presión; se vigilan todos")
+            self._pres_vigilados = [presion_sin_lectura.CAMARA, presion_sin_lectura.CHAQUETA]
         self._protocolo.reset()
 
         for fase in self._fases:
@@ -199,8 +219,96 @@ class CicloState:
         vencida (sin resultado todavía). /cycle/abort acepta entonces la
         cancelación: la marca se procesa al volver los datos (paso 1 de run)
         o, si la tolerancia vence, el ciclo termina en FALLO_CONEXION y P-7
-        la limpia. Leer bajo _sm_lock (guard_estado del backend)."""
+        la limpia. Leer bajo _sm_lock (guard_estado del backend).
+
+        D8-2.7: el tramo de una desconexión total (marcar_sin_datos_tarjeta)
+        no cuenta como tolerancia de DI: R1-P5 no cambia aquí."""
+        return (self._resultado_pendiente is None and self._pausa_sin_datos_desde is not None
+                and not self._pausa_por_desconexion)
+
+    @property
+    def exposicion_en_pausa(self) -> bool:
+        """D8-2.7 (tanda 8): hay un tramo sin datos válidos de la tarjeta en
+        curso (desconexión total, ventana tras reconectar o tolerancia de DI
+        vencida). Esos segundos no cuentan como exposición ni acumulan F0."""
         return self._resultado_pendiente is None and self._pausa_sin_datos_desde is not None
+
+    def marcar_sin_datos_tarjeta(self) -> None:
+        """D8-2.7 (tanda 8, decisión de Cristian; SAF-02 / TMG-02 de la
+        revisión Q1): el ControlLoop llama aquí en cada tick de CICLO en que no
+        corre la máquina de estados por falta de datos (enlace caído antes de
+        COM-02, o recién reconectado sin la primera DI). Abre el tramo sin datos
+        si no hay uno abierto; lo cierra el primer run() con datos
+        (_cerrar_pausa_sin_datos), así que la desconexión, la ventana tras
+        reconectar y una tolerancia de DI que siga a continuación son un solo
+        tramo. Con el resultado pendiente no hay exposición que pausar."""
+        if self._resultado_pendiente is not None:
+            return
+        # TMG-02 (revisión S2a): las tramas DI contadas antes de la caída no
+        # se suman a las de después (3 tramas nuevas SEGUIDAS, D8-2.9)
+        self._ticks_di_vigente = 0
+        if self._pausa_sin_datos_desde is not None:
+            self._revisar_tope_pausa_abierta()
+            return
+        self._pausa_sin_datos_desde = self._inicio_tramo_sin_datos(time.monotonic())
+        self._pausa_por_desconexion = True
+        logger.warning("CicloState: sin datos de la tarjeta (desconexión); la fase %s queda "
+                       "en pausa", self._fase_actual_legible())
+
+    @property
+    def pausa_sin_datos_desde(self):
+        """Instante (monotonic) en que empezó el tramo sin datos en curso, o
+        None. Lo usa ControlLoop para descontar el F0 acreditado desde ahí
+        (TMG-01 de la revisión S2a)."""
+        if self._resultado_pendiente is not None:
+            return None
+        return self._pausa_sin_datos_desde
+
+    def _inicio_tramo_sin_datos(self, ahora: float) -> float:
+        """TMG-01 (revisión S2a): el tramo sin datos empieza en la última DI
+        válida (estado.ultima_di_valida_mono), con un retroceso máximo de
+        _RETROCESO_MAX_TRAMO_SEG; sin ese dato, en `ahora`."""
+        ultima = getattr(self.estado, "ultima_di_valida_mono", None)
+        if (isinstance(ultima, bool) or not isinstance(ultima, (int, float))
+                or not math.isfinite(ultima) or ultima > ahora):
+            return ahora
+        return max(ultima, ahora - _RETROCESO_MAX_TRAMO_SEG)
+
+    def _revisar_tope_pausa_abierta(self) -> None:
+        """SAF-05 (revisión S2a): un enlace que va y viene (menos de 5 s caído,
+        menos de la vigencia de la primera DI conectado) nunca llega a COM-02
+        y run() no corre: el tramo sin datos queda abierto. En ESTERILIZACION,
+        si lo acumulado más el tramo abierto supera pausa_max_esterilizacion_s,
+        el ciclo falla con CIC-11 aquí mismo (D8-2.8), sin esperar a run()."""
+        if not (0 <= self._fase_idx < len(self._fases)):
+            return
+        fase = self._fases[self._fase_idx]
+        # TMG-12 (re-revisión S2a): sin exposición iniciada no hay pausa que topar
+        if getattr(fase, "_timer_fin", None) is None:
+            return
+        tope = getattr(fase, "_pausa_max_s", None)
+        total = getattr(fase, "pausa_total_s", None)
+        if (not callable(tope) or isinstance(total, bool)
+                or not isinstance(total, (int, float))):
+            return
+        abierto = max(0.0, time.monotonic() - self._pausa_sin_datos_desde)
+        try:
+            maximo = float(tope())
+        except Exception:
+            return
+        if total + abierto <= maximo:
+            return
+        self._cerrar_pausa_sin_datos()          # suma el tramo a la fase y al ticket
+        total = getattr(fase, "pausa_total_s", total + abierto)
+        logger.error("CicloState: ABORTADO — %.0f s de pausa sin datos en %s (máximo %.0f s)",
+                     total, fase.name, maximo)
+        self.estado.fase_ciclo = f"FALLO_{fase.name}"
+        self._registrar_fallo(CIC_11, origen=nombre_legible(fase.name),
+                              segundos=total, maximo=maximo)
+        # TMG-12: el resultado antes del protocolo (si este lanza, no se
+        # repite el aborto en el tick siguiente)
+        self._resultado_pendiente = CicloResultado.FALLO
+        self._ejecutar_protocolo_respetando_paro()
 
     @property
     def ack_confirma_estado_seguro(self) -> bool:
@@ -246,6 +354,17 @@ class CicloState:
     # Supervisores continuos (llamados en cada tick activo)
     # ------------------------------------------------------------------
 
+    def _fase_en_enfriamiento_con_contrapresion(self) -> bool:
+        """D8-2.10: la fase actual es DESCOMPRESION enfriando con
+        contrapresión (modos 4/5)."""
+        if not (0 <= self._fase_idx < len(self._fases)):
+            return False
+        fase = self._fases[self._fase_idx]
+        try:
+            return getattr(fase, "en_enfriamiento_con_contrapresion", False) is True
+        except Exception:
+            return False
+
     def _fase_actual_legible(self) -> str:
         if self._fase_idx < len(self._fases):
             return nombre_legible(self._fases[self._fase_idx].name)
@@ -278,11 +397,19 @@ class CicloState:
             except Exception:
                 logger.exception("CicloState: no se pudo dejar motivo_fallo de %s", codigo)
 
-    def _registrar_fallo_de_fase(self, nombre_fase):
+    def _registrar_fallo_de_fase(self, nombre_fase, fase=None):
         """Registra el CIC-0x de la fase que devolvió FALLO. Nunca lanza: una
         fase fuera de _CIC_POR_FASE deja un motivo de respaldo legible y el
-        llamador igual ejecuta el protocolo de fallo."""
+        llamador igual ejecuta el protocolo de fallo.
+
+        D8-2.8 (tanda 8): si la fase dejó `alarma_fallo` (código propio y sus
+        valores, hoy solo CIC-11 de ESTERILIZACION), se registra esa."""
         try:
+            propia = getattr(fase, "alarma_fallo", None)
+            if (isinstance(propia, tuple) and len(propia) == 2
+                    and propia[0] in (CIC_11,) and isinstance(propia[1], dict)):
+                self._registrar_fallo(propia[0], origen=nombre_legible(nombre_fase), **propia[1])
+                return
             # La fase puede haber dejado ya un motivo específico (p.ej.
             # EsterilizacionFase._fallo() con la lectura exacta que falló);
             # sólo se usa el genérico si no dejó uno más preciso.
@@ -314,8 +441,14 @@ class CicloState:
             if not con_empaque:
                 continue
             emp = self.estado.sensores_pres.get(f"pres_empaque_{num}")
-            # Sin lectura válida se omite, como antes con None (A-9)
-            if lectura_valida(emp) and emp < min_empaque:
+            # S1 (tanda 8, revisión ★ SAF-01): el convertidor entrega None con
+            # el lazo abierto (antes 0, que disparaba PUE-03). Omitirlo dejaba
+            # el ciclo sin vigilancia del empaque: FALLO propio (SEN-08) con
+            # venteo solo por la lenta, como la cámara y la chaqueta.
+            if not lectura_valida(emp):
+                return (False, f"FALLO_PUERTA_{num}_EMPAQUE_SIN_LECTURA", SEN_08,
+                        {"puerta": puerta})
+            if emp < min_empaque:
                 return (False, f"FALLO_PUERTA_{num}_EMPAQUE", PUE_03,
                         {"puerta": puerta, "pres": emp, "minimo": min_empaque})
 
@@ -408,6 +541,7 @@ class CicloState:
         if desde is None:
             return
         self._pausa_sin_datos_desde = None
+        self._pausa_por_desconexion = False
         segundos = max(0.0, time.monotonic() - desde)
         previo = getattr(self.estado, "sin_datos_tarjeta_s", 0.0)
         if isinstance(previo, bool) or not isinstance(previo, (int, float)):
@@ -422,6 +556,14 @@ class CicloState:
                     pausar(segundos)
                 except Exception:
                     logger.exception("CicloState: no se pudo pausar la exposición")
+            # D8-2.12 (tanda 8): también las ventanas de estabilidad de la
+            # fase (los timeouts siguen corriendo)
+            ventanas = getattr(self._fases[self._fase_idx], "pausar_ventanas_estabilidad", None)
+            if callable(ventanas):
+                try:
+                    ventanas(segundos)
+                except Exception:
+                    logger.exception("CicloState: no se pudieron pausar las ventanas de estabilidad")
 
     def _principal_enfriada(self, modo) -> bool:
         """Principal en o por debajo de temperatura_enfriamiento del modo
@@ -630,7 +772,13 @@ class CicloState:
 
         # ── 2. ¿Paro de emergencia? ───────────────────────────────────
         if not self.estado.get_flag("PARO_EMERGENCIA"):
-            if self._di_vencida_desde is not None:
+            # D8-2.9 (tanda 8, TMG-04): solo suma una trama DI DISTINTA y
+            # nueva (la publica ControlLoop en estado.trama_di_nueva); varios
+            # ticks que leen la misma trama cuentan una vez. Sin esa
+            # información (None, o un estado que no la publica) se cuenta cada
+            # tick, como antes de D8-2.9.
+            nueva = getattr(self.estado, "trama_di_nueva", None)
+            if self._di_vencida_desde is not None and nueva is not False:
                 self._ticks_di_vigente += 1
                 if self._ticks_di_vigente >= _TICKS_DI_VIGENTE_REINICIO:
                     self._di_vencida_desde = None
@@ -644,13 +792,18 @@ class CicloState:
                 # breve del enlace): la fase no corre con entradas viejas.
                 ahora = time.monotonic()
                 if self._di_vencida_desde is None:
-                    self._di_vencida_desde = ahora
+                    # TMG-01 (revisión S2a): la tolerancia también cuenta
+                    # desde la última DI válida
+                    self._di_vencida_desde = self._inicio_tramo_sin_datos(ahora)
                     logger.warning("CicloState: trama DI vencida; tolerancia de %.0f s",
                                    _TOLERANCIA_DI_VENCIDA_SEG)
                 if ahora - self._di_vencida_desde < _TOLERANCIA_DI_VENCIDA_SEG:
                     # T2-a: la fase no corre; su exposición queda en pausa
                     if self._pausa_sin_datos_desde is None:
-                        self._pausa_sin_datos_desde = ahora
+                        self._pausa_sin_datos_desde = self._inicio_tramo_sin_datos(ahora)
+                    # D8-2.7: si venía de una desconexión, el mismo tramo
+                    # sigue ahora como tolerancia de DI
+                    self._pausa_por_desconexion = False
                     # sin aporte de energía mientras no hay datos de entradas
                     self.set_do.vapor_camara_off()
                     self.set_do.vapor_chaqueta_off()
@@ -693,7 +846,9 @@ class CicloState:
             self.estado.fase_ciclo = fase_fallo
             self._registrar_fallo(codigo, origen=valores["puerta"],
                                   fase=self._fase_actual_legible(), **valores)
-            self._protocolo.ejecutar()
+            # S1: empaque sin lectura = transductor sin señal, mismo criterio
+            # que SEN-04/05 (solo la lenta)
+            self._protocolo.ejecutar(solo_lenta=(codigo == SEN_08))
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
@@ -706,10 +861,24 @@ class CicloState:
             s for s in sensores_en_uso(self.cycle)
             if not lectura_valida(self.estado.sensores_temp.get(s))
             or self.estado.sensores_temp.get(s) == 0
-        ] + [
-            s for s in _SENSORES_PRES_CRITICOS
-            if not lectura_valida(self.estado.sensores_pres.get(s))
         ]
+        # S1 (tanda 8, D8-1.2/1.4): transductor de presión sin lectura (el
+        # convertidor entrega None, nunca 0). FALLO con código propio, vapor
+        # cortado (ALL_OFF) y venteo solo por la lenta: el protocolo no lo
+        # toma como vacío ni abre el aire atmosférico. Tiene prioridad sobre
+        # SEN-02 si también falta una temperatura (queda en el registro).
+        pres_ausentes = presion_sin_lectura.sin_lectura(self.estado, self._pres_vigilados)
+        if pres_ausentes:
+            logger.error("CicloState: SENSOR_AUSENTE — presión sin lectura %s (temperatura: %s)",
+                         pres_ausentes, ausentes or "—")
+            self.estado.fase_ciclo = "SENSOR_AUSENTE"
+            fase = self._fase_actual_legible()
+            canal = pres_ausentes[0]
+            self._registrar_fallo(presion_sin_lectura.CODIGO_EN_CICLO[canal],
+                                  origen=nombre_legible(canal), fase=fase)
+            self._protocolo.ejecutar(solo_lenta=True)
+            self._resultado_pendiente = CicloResultado.FALLO
+            return CicloResultado.ESPERANDO_CONFIRMACION
         if ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
             self.estado.fase_ciclo = "SENSOR_AUSENTE"
@@ -720,7 +889,13 @@ class CicloState:
             # P-2 (tanda 6): con el Principal perdido NO se sigue con la
             # Referencia: el ciclo falla y se ventea solo por la lenta.
             if sensor_principal(self.cycle) in ausentes:
-                self._protocolo.ejecutar(solo_lenta=True)
+                if self._fase_en_enfriamiento_con_contrapresion():
+                    # D8-2.10: líquidos en modos 4/5 quedan sellados (lo
+                    # decide el protocolo según el tipo de carga)
+                    self._protocolo.ejecutar(solo_lenta=True,
+                                             en_enfriamiento_contrapresion=True)
+                else:
+                    self._protocolo.ejecutar(solo_lenta=True)
             else:
                 self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
@@ -764,7 +939,7 @@ class CicloState:
         elif resultado == FaseResult.FALLO:
             logger.error("CicloState: FALLO en fase %s", fase.name)
             self.estado.fase_ciclo = f"FALLO_{fase.name}"
-            self._registrar_fallo_de_fase(fase.name)
+            self._registrar_fallo_de_fase(fase.name, fase)
             self._protocolo.ejecutar()
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION

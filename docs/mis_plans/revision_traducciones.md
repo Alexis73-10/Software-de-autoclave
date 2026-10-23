@@ -97,6 +97,7 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-22 | Tanda 7 Q1 (R1-P5) | `ciclo.cancelacion_en_espera_datos` | Ciclo — **requiere revisión explícita** | sin revisar |
 | 2026-10-22 | Tanda 7 Q1 (T2-b) | `notificaciones.despejar_sin_enlace` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
 | 2026-10-22 | Tanda 8 V8b | `parametros.<sección>.<clave>` (95 nombres visibles de los parámetros de programa, sección nueva), `estado_seguro_motivos.{sonda_temperatura,sonda_enfriamiento,liquido_caliente}` (motivos de CIC-10, sección nueva) | Parámetros del ciclo; Alarmas y seguridad — **`estado_seguro_motivos` requiere revisión explícita** | sin revisar |
+| 2026-10-23 | Tanda 8 M8 | `menu.ultimo_mantenimiento` ("Date of last preventive maintenance"), `equipo.ultimo_mantenimiento` ("Last preventive maintenance"), `opciones.mant_intervalos_ayuda`, `opciones.mant_tipo_otro` ("Other (historical)") (textos cambiados) | Mantenimiento | sin revisar |
 
 ## Revisión V8b (tanda 8, 22-oct-2026): abreviaturas, anglicismos y mezcla de idiomas
 

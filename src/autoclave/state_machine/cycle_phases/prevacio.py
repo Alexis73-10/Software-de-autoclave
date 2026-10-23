@@ -54,6 +54,8 @@ _STAGGER_APAGADO_VACIO = 0.15  # segundos
 class PrevacioFase(BaseFase):
 
     name = "PRE_VACIO"
+    # D8-2.12: hold bajo / hold alto de cada pulso
+    _VENTANAS_ESTABILIDAD = ("_hold_inicio",)
 
     def reset(self):
         self._tipo_idx         = 0

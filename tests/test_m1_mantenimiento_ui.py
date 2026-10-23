@@ -72,7 +72,7 @@ def test_registrar_envia_el_tipo_y_recarga():
 def test_registrar_rechazado_muestra_el_motivo():
     c, _ = _controlador({("GET", "/maintenance"): Resultado("ok", _OK, 200),
                          ("POST", "/maintenance/records"): Resultado("reloj_invalido", {}, 409)})
-    assert c.registrar("otro") is False and c.mensaje == "opciones.mant_err_reloj"
+    assert c.registrar("correctivo") is False and c.mensaje == "opciones.mant_err_reloj"
 
 
 def test_tipo_desconocido_no_sale_a_la_red():
