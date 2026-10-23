@@ -1630,6 +1630,23 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### G-04 — Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión
+
+- **Modo:** En seco  ·  **Origen:** V8a D8-5.7 (tanda 8); HAZ-V8A-01
+- **Objetivo:** Al pasar un programa a carga Líquido, el modo de descompresión pasa a 4 con aviso; con Líquido solo se aceptan los modos 4, 5 y 0; al volver a Sólido se recupera el modo de fábrica del programa (o el 1). Cada cambio queda en la bitácora.
+- **Precondiciones:** Sesión de técnico o ingeniero; sin ciclo en curso; un programa sólido con modo de descompresión 1.
+- **Pasos:**
+  1. Opciones › Parámetros del ciclo › programa › tipo de carga: elegir Líquido.
+  2. Verificar el aviso en pantalla y que el modo de descompresión quedó en 4.
+  3. Con Líquido, intentar elegir el modo 1 (o 2/3).
+  4. Volver a Sólido.
+  5. Revisar la bitácora.
+- **Resultado esperado:** Paso 2: aviso «Carga líquida: el modo de descompresión cambió a 4 (…)». Paso 3: la lista solo ofrece 4, 5 y 0; si se fuerza, el backend rechaza con su motivo (ebullición violenta). Paso 4: modo de fábrica del programa o el 1. Paso 5: una fila por cambio, incluido el automático.
+- **Criterio de aprobado/fallo:** Aprobado si en ningún momento un programa Líquido queda con un modo distinto de 4, 5 o 0.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Registros que se deben conservar (expediente IEC 62304)
 
 - Esta hoja firmada (cada prueba con valor observado, resultado y firma).
