@@ -133,7 +133,7 @@ drenaje de cámara, presión; grupo 3: chaqueta, empaque 1, empaque 2. Regenerar
 ## Commits
 
 - `6ac482c` feat(tanda10-u10a): TextoAjustable y sección abrev del catálogo (D10-1.1, D10-1.2)
-- (siguiente) feat(tanda10-u10a): tarjeta de Preciclo y Ciclo con TextoAjustable y prueba D10-1.5,
+- `ac94de4` feat(tanda10-u10a): tarjeta de Preciclo y Ciclo con TextoAjustable y prueba D10-1.5,
   capturas e informe
 
 ## Pruebas
