@@ -1,0 +1,37 @@
+<#
+.SYNOPSIS
+  Tarea "al iniciar sesion" del Setup (autoclave.iss, tarea opcional autoarranque).
+.DESCRIPTION
+  Mismo mecanismo y MISMO NOMBRE de tarea que tools\estacion\03_tarea_autoclave.ps1:
+  accion, disparo (al iniciar sesion, 10 s de retraso), ajustes (3 reintentos,
+  1 minuto, IgnoreNew) y principal (interactivo, nivel limitado). Si despues se
+  ejecuta el script 03, reemplaza esta tarea (mismo nombre): nunca quedan dos
+  arranques.
+  Diferencia unica, decidida el 22-oct: la cuenta no es 'operador' fija sino la
+  que tiene la sesion abierta en la consola al instalar (el Setup corre elevado
+  y $env:USERNAME podria ser el administrador que autorizo el UAC).
+  El Setup lo copia a {tmp} y lo borra al terminar; no queda en la instalacion.
+#>
+param(
+    [Parameter(Mandatory)][string]$Ejecutable,
+    [string]$NombreTarea = 'Especifika Autoclave - Arranque'
+)
+$ErrorActionPreference = 'Stop'
+
+$principalUsuario = (Get-CimInstance Win32_ComputerSystem).UserName
+if (-not $principalUsuario) {
+    Write-Error 'No hay sesion de consola abierta: no se sabe para que cuenta crear la tarea.'
+    exit 2
+}
+
+$accion   = New-ScheduledTaskAction -Execute $Ejecutable -WorkingDirectory (Split-Path -Parent $Ejecutable)
+$disparo  = New-ScheduledTaskTrigger -AtLogOn -User $principalUsuario
+$disparo.Delay = 'PT10S'
+$ajustes  = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
+              -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+              -MultipleInstances IgnoreNew -StartWhenAvailable
+$principal = New-ScheduledTaskPrincipal -UserId $principalUsuario -LogonType Interactive -RunLevel Limited
+
+Register-ScheduledTask -TaskName $NombreTarea -Action $accion -Trigger $disparo -Settings $ajustes `
+    -Principal $principal -Description 'Lanza Autoclave.exe al iniciar sesion (Setup de Autoclave).' -Force | Out-Null
+exit 0
