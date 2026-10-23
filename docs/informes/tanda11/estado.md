@@ -29,3 +29,4 @@ Instrucciones comunes de los subagentes: `tanda11/brief_subagentes.md`. Si la se
 - O11 unida (f6b1edd) con un rojo real arreglado en `tanda-11`. U11 corregida y unida (fe04763); suite lanzada. N11 corregida, se une después de la suite de U11.
 - U11 en verde; N11 unida (d31d44b); suite final en verde (25bbe81: 7218 passed). LEEME con «Cambios respecto a la F» y 8f. DECISIONES_PARA_REVISAR escrito. Siguiente: unir a `dev`, etiqueta G, compilación.
 - 18:00-18:20: `tanda-11` unida a `dev` (8051145), etiqueta G, compilación G (PyInstaller, ISCC), humo, ensayo F → G, SHA-256 y `usb/`. Z: índice, unión final y push.
+- Push hecho: `origin/dev` = 5ad781c, `origin/tanda-11` = 7d181cb, etiqueta `inst-2026-10-23-g` publicada (→ 8051145). Tanda 11 cerrada.
