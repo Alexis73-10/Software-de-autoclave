@@ -10,15 +10,15 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | S2a ★ | Hecha, unida a `tanda-8` (a5acf3b). Suite tras unir: 5568 p / 4 s / 3 xf / 1 falla intermitente (`test_opciones_qml.py::test_tecnico_entra_a_opciones[PREPARADO-False]`, temporización QML ya vista en la tanda 7; aislada 3/3 en verde) (`suites/integ_s2a.log`) | rama `tanda-8-s2a` (582a48b) | D8-2.6 a 2.10. Revisores 2 vueltas, 0 Altos/Críticos (condición: válvula de seguridad mecánica, pregunta 4). Informe `tanda8/S2a_transiciones_ciclo.md`. |
 | S2b ★ | Hecha, unida a `tanda-8` (22fa108). Suite tras unir **5676 p / 5 s / 3 xf** (`suites/integ_s2b.log`) | rama `tanda-8-s2b` (343260d) | D8-2.11 a 2.16. Revisores 2 vueltas, 0 Altos/Críticos (TMG-01 = D8-2.7, cubierto por S2a vía `marcar_sin_datos_tarjeta` → `_cerrar_pausa_sin_datos`, verificado al unir). Migración BD v10. Banco F-12..15 de S2b renumerado a F-17..20. Informe `tanda8/S2b_transiciones_ciclo.md`. |
 | N8 | Hecha, unida a `tanda-8` | e8718cf (merge) | Suite de integración tras unir: **5393 p / 3 s / 3 xf** (`suites/integ_n8.log`). |
-| R8 ★ | Relanzada 16:12 (continúa) | rama `tanda-8-r8` | |
-| V8a | Relanzada ~17:00 (continúa) | rama `tanda-8-v8a` | ★ solo D8-5.7. |
-| E1 | Relanzada ~17:35 (continúa) | rama `tanda-8-e1` | ★ solo D8-3.19. |
+| R8 ★ | Relanzada 22:15 (sesión 22:11), cierra cambios sin commit + informe | rama `tanda-8-r8` (4492a94) | |
+| V8a | Terminada (informe 002af73), por unir | rama `tanda-8-v8a` (002af73) | ★ solo D8-5.7: revisores 0 Altos/Críticos. Faltan banco/riesgos de 5.7 (los agrega la sesión principal al unir). |
+| E1 | Relanzada 22:15, cierra cambios sin commit + informe | rama `tanda-8-e1` (16843df) | ★ solo D8-3.19. |
 | E2 | Hecha, unida a `tanda-8` | 1aab868 (merge) | Informe `tanda8/E2_nombres_familia_modelo.md`. Suite tras unir **5438 p / 3 s / 3 xf** (`suites/integ_e2.log`, autoclave de `_suites_t8/base`). |
 | M8 | Hecha, unida a `tanda-8` | aaa78ae (merge) | Informe `tanda8/M8_mantenimiento.md`. Suite tras unir 5388 p / 3 s / 3 xf (`suites/integ_m8.log`). |
 | U8 | Hecha, unida a `tanda-8` | 8bcaeb2 (merge) | Suite de la rama 5378 p / 3 s / 3 xf (= 5382 − 7 retiradas + 3 nuevas). Tras unir, `src/` y `tests/` idénticos a la rama (`git diff tanda-8-u8 tanda-8 -- src tests` vacío): misma suite. |
-| L8 | En cola (worktree con commits) | rama `tanda-8-l8` | |
-| D8 | En cola (worktree con commits) | rama `tanda-8-d8` | |
-| V8b | En cola (worktree con commits) | rama `tanda-8-v8b` | Se une la última. |
+| L8 | Terminada (informe d539e14), por unir | rama `tanda-8-l8` (d539e14) | |
+| D8 | Relanzada 22:15 (P5, P8-P12, informe) | rama `tanda-8-d8` (d918d5c) | |
+| V8b | Relanzada 22:15 (commitear lo pendiente, seguir barrido) | rama `tanda-8-v8b` (6768e33) | Se une la última (antes, unir tanda-8 en su rama y repasar textos nuevos). |
 | K8 | Pendiente | | |
 | Z | Pendiente | | |
 
@@ -64,3 +64,8 @@ No termines el turno con subagentes activos: en modo `-p` el CLI los mata a los 
 - La sesión 01 de las 21:36 terminó su turno con los subagentes en segundo plano y el CLI los detuvo a los 10 min (lección: no terminar el turno con subagentes activos).
 - S1: informe commiteado (02c8613) y unida (bd5aa6d); 736 pruebas relacionadas en verde; suite completa en curso.
 - Relanzados, continuando en sus worktrees: R8, V8a, E1 y L8. En cola: D8, V8b.
+
+## Reanudación (sesión 22:11)
+- La sesión 02 (21:58) murió con R8, V8a, E1 y L8 activos. V8a y L8 alcanzaron a commitear su informe.
+- La suite de integración de S1 (`suites/integ_s1.log`, en `_suites_t8/base`) sigue corriendo sola.
+- Relanzados 22:15, continuando en sus worktrees: R8, E1, D8 y V8b. La sesión principal une V8a y L8 mientras tanto, y NO termina el turno con subagentes activos.
