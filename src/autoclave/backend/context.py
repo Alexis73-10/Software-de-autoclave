@@ -204,14 +204,25 @@ class BackendContext:
     # haya una analógica reasignada sin verificar (SAF-02 de la re-revisión R8)
     _SALIDAS_ENERGIA = ("vapor_generador", "vapor_caldera", "vapor_chaqueta", "vapor_camara",
                         "aire_comprimido_chaqueta", "aire_comprimido_camara")
+    _SALIDAS_VENTEO = ("descompresion_rapida", "descompresion_lenta", "descompresion_chaqueta",
+                       "aire_admosferico_camara")
 
     def inhibir_salidas_sin_verificar(self) -> None:
         """SAF-02 (re-revisión R8): fuera de ciclo los lazos de PREPARACION y
         PREPARADO accionan salidas solos. Mientras queden funciones sin
         verificar, el control automático no enciende las salidas reasignadas
         sin verificar ni, si hay una analógica sin verificar, las que aportan
-        energía a cámara o chaqueta. El venteo no se inhibe. El modo prueba
-        sí puede encenderlas (para verificarlas)."""
+        energía a cámara o chaqueta. Abrir o cerrar sin verificar inhibe las
+        dos de esa puerta. El venteo y el alivio no se inhiben nunca. El modo
+        prueba sí puede encenderlas (para verificarlas).
+
+        TMG-02 (4.ª vuelta): bajo el mismo lock que SEN-04 y leyendo los
+        pendientes dentro de él, para que dos verificaciones simultáneas no
+        dejen un conjunto viejo como último escrito."""
+        with self.__dict__.setdefault("_lock_alarma_asignacion", threading.Lock()):
+            self._inhibir_salidas_sin_verificar()
+
+    def _inhibir_salidas_sin_verificar(self) -> None:
         from autoclave.core.runtime import asignacion_io as aio
         setdo = getattr(self, "setdo", None)
         if setdo is None:
@@ -221,6 +232,15 @@ class BackendContext:
                      if aio.funciones().get(f) == "DO"}
         if any(aio.funciones().get(f) == "AI" for f in pendientes):
             inhibidas |= set(self._SALIDAS_ENERGIA)
+        # SAF-02 (3.ª vuelta): abrir o cerrar sin verificar detiene todo
+        # movimiento automático de esa puerta (sin cierre sin reapertura)
+        for n in ("1", "2"):
+            if {f"abrir_puerta_{n}", f"cerrar_puerta_{n}"} & inhibidas:
+                inhibidas |= {f"abrir_puerta_{n}", f"cerrar_puerta_{n}"}
+        # SAF-01 (3.ª vuelta): el venteo y el alivio nunca se inhiben, aunque
+        # estén pendientes (el puerto viejo puede estar dañado: sin ellos no
+        # habría venteo automático ni estado seguro)
+        inhibidas -= set(self._SALIDAS_VENTEO)
         setdo.inhibidas = frozenset(inhibidas)
         if inhibidas:
             logger.warning("Reasignación de E/S sin verificar: control automático sin %s",

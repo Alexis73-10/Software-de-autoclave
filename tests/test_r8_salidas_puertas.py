@@ -116,3 +116,20 @@ def test_funcion_inhibida_no_la_enciende_el_control_pero_si_el_modo_prueba():
     io.reset_mock()
     s.set_output(4, True)
     assert _canales(io) == [(4, True)]
+
+
+def test_canales_inhibidos_de_puerta_y_la_puerta_no_los_acciona():
+    """SAF-02 (3.ª vuelta R8): las puertas mandan por canal; una salida de
+    puerta sin verificar tampoco la enciende la máquina de la puerta."""
+    from autoclave.devices.puertas.advanced_door import AdvancedDoor
+    io = MagicMock()
+    s = SetOutput(io, estado=MagicMock())
+    s.inhibidas = frozenset({"cerrar_puerta_1"})
+    assert s.canales_inhibidos == frozenset({aio.canal_do("cerrar_puerta_1")})
+    puerta = AdvancedDoor.__new__(AdvancedDoor)
+    puerta.set_do = s
+    puerta.do = {"abrir": 20, "cerrar": 22, "bloquear": 11, "desbloquear": 9}
+    puerta.cerrar_on()
+    puerta.abrir_on()
+    puerta.cerrar_off()
+    assert _canales(io) == [(22, False), (20, True), (22, False)]

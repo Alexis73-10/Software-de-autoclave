@@ -1081,8 +1081,9 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                       "No se pudo registrar el cambio: calibración no aplicada",
                       f"/calibration/{entidad}", sesion)
 
-    # R8 (revisión): evidencia de calibración EN ESTE ARRANQUE y en el puerto vigente
-    _reasignacion.evidencia_ai(tipo, sensor)
+        # R8 (revisión): evidencia de calibración EN ESTE ARRANQUE y en el
+        # puerto vigente; dentro del lock de archivos (TMG-01, 4.ª vuelta)
+        _reasignacion.evidencia_ai(tipo, sensor)
     return {"ok": True, "gain": new_gain, "offset": new_offset}
 
 
@@ -1139,8 +1140,15 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
             if en_ciclo:
                 raise HTTPException(status_code=409,
                                     detail="Hay un ciclo en curso: calibración no aplicada")
-        detalle = {"accion": f"restaurar_{destino}"}
+        # R8 (3.ª vuelta, SEN): puerto físico también al restaurar
+        detalle = {"accion": f"restaurar_{destino}",
+                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
         detalle.update(contexto_ciclo)
+        # R8 (SEN 3.ª vuelta; TMG-01/SAF-01 4.ª vuelta): restaurar deja de
+        # contar como calibración del puerto nuevo; se anula ANTES de escribir
+        # y dentro del lock de archivos (si la auditoría falla y se revierte,
+        # solo obliga a recalibrar)
+        _reasignacion.anular_evidencia_ai(tipo, sensor)
         previo = Path(CALIBRATION_PATH).read_bytes()
         write_user_calibration(CALIBRATION_PATH, tipo, index, nuevo_gain, nuevo_offset,
                                0.0, 0.0, 0.0, 0.0, nota=f"restaurada ({destino})")
@@ -2547,6 +2555,9 @@ def post_backup_restore(body: _RestaurarBody,
                     en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
                 if en_ciclo:
                     _rechazar(409, "estado_no_permitido", "Hay un ciclo en curso", entidad, sesion)
+                # R8 (4.ª vuelta): la calibración del respaldo reemplaza la
+                # hecha en este arranque; deja de contar como evidencia
+                _reasignacion.anular_evidencias_ai()
                 escribir_texto_atomico(CALIBRATION_PATH, calib.decode("utf-8"))
                 context.units.reload_calibration(CALIBRATION_PATH)   # SAF-04: sin reiniciar
             aplicado["calibracion"] = True

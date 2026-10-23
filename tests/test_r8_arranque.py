@@ -192,3 +192,13 @@ def test_inhibe_salidas_pendientes_y_las_de_energia_con_una_analogica_pendiente(
     ctx.asignacion_pendiente = []
     ctx.inhibir_salidas_sin_verificar()
     assert ctx.setdo.inhibidas == frozenset()
+
+
+def test_no_inhibe_el_venteo_y_una_puerta_pendiente_inhibe_su_movimiento(tmp_path):
+    """SAF-01/SAF-02 (3.ª vuelta R8): el venteo nunca se inhibe (aunque esté
+    pendiente); abrir o cerrar pendiente detiene todo movimiento de esa puerta."""
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, ["vapor_camara"])
+    ctx.setdo = MagicMock()
+    ctx.asignacion_pendiente = ["descompresion_rapida", "aire_atmosferico_camara", "abrir_puerta_1"]
+    ctx.inhibir_salidas_sin_verificar()
+    assert ctx.setdo.inhibidas == frozenset({"abrir_puerta_1", "cerrar_puerta_1"})

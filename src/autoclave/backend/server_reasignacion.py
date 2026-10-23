@@ -368,6 +368,26 @@ def evidencia_ai(grupo: str, sensor_estado: str) -> None:
         logger.exception("Evidencia de la calibración de %s", sensor_estado)
 
 
+def anular_evidencia_ai(grupo: str, sensor_estado: str) -> None:
+    """Gancho de restaurar calibración: la calibración a dos puntos hecha en
+    este arranque ya no rige; hay que volver a calibrar para verificar."""
+    try:
+        _evidencias().pop(aio.clave("AI", aio.canonico(sensor_estado)), None)
+    except Exception:
+        logger.exception("Evidencia de la calibración de %s", sensor_estado)
+
+
+def anular_evidencias_ai() -> None:
+    """Gancho de restaurar un respaldo con calibración: ninguna calibración
+    hecha en este arranque rige ya (4.ª vuelta R8)."""
+    try:
+        ev = _evidencias()
+        for clave_ in [c for c in list(ev) if aio.funciones().get(c) == "AI"]:
+            ev.pop(clave_, None)
+    except Exception:
+        logger.exception("Evidencias de calibración al restaurar un respaldo")
+
+
 def ultimo_es_del_puerto_vigente(grupo: str, sensor_estado: str, fila: dict) -> bool:
     """Para restaurar «último»: True si ese registro de calibración es del
     puerto que la función usa hoy. Un registro sin puerto (anterior a R8)
@@ -516,7 +536,14 @@ def registrar(app) -> None:
             raise srv.RechazoApi(409, faltan, "Falta la prueba de la función en su puerto nuevo",
                                  extra={"funcion": funcion, "tipo": tipo})
         _reautenticar(body.clave, sesion, ENTIDAD_VERIFICAR)
-        with _lock_escritura:
+        # TMG-01/SAF-01 (4.ª vuelta): la evidencia se vuelve a mirar con el
+        # lock de archivos tomado (calibrar y restaurar la cambian bajo él),
+        # así una restauración concurrente no deja pasar evidencia vieja
+        with _lock_escritura, srv._lock_archivos:
+            faltan = _evidencia_que_falta(funcion, tipo)
+            if faltan:
+                srv._rechazar(409, faltan, "Falta la prueba de la función en su puerto nuevo",
+                              ENTIDAD_VERIFICAR, sesion)
             # TMG-10/SAF-03 de la re-revisión: con una asignación guardada que
             # aún no rige (reinicio pendiente o en curso), verificar quitaría la
             # marca de lo que rige en el próximo arranque

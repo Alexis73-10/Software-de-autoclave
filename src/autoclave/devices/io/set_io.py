@@ -36,7 +36,8 @@ class SetOutput:
         # R8 (SAF-02 de la re-revisión): funciones que el control automático
         # no puede encender (reasignadas sin verificar). El modo prueba usa
         # set_output(canal) directo y sí puede, para poder verificarlas.
-        self.inhibidas: frozenset = frozenset()
+        self._inhibidas: frozenset = frozenset()
+        self.canales_inhibidos: frozenset = frozenset()
         # E1b (D-23): canales de vapor de la fuente que el equipo no tiene.
         permitidas = salidas_vapor_permitidas(profile)
         self._canales_bloqueados = {canal_do(nombre) for nombre in _SALIDAS_VAPOR
@@ -47,6 +48,24 @@ class SetOutput:
             logger.info("SetOutput: fuente de vapor '%s'; salidas deshabilitadas: %s",
                         getattr(profile, "vapor_source", None),
                         ", ".join(f"DO{c}" for c in sorted(self._canales_bloqueados)))
+
+    @property
+    def inhibidas(self) -> frozenset:
+        return self._inhibidas
+
+    @inhibidas.setter
+    def inhibidas(self, nombres) -> None:
+        # Las puertas mandan por canal (devices/puertas): se publica también
+        # el conjunto de canales (SAF-02, 3.ª vuelta de la revisión R8).
+        nombres = frozenset(nombres)
+        canales = set()
+        for nombre in nombres:
+            try:
+                canales.add(canal_do(nombre))
+            except Exception:
+                logger.exception("SetOutput: canal de %s", nombre)
+        self.canales_inhibidos = frozenset(canales)
+        self._inhibidas = nombres
 
     def salida_bloqueada(self, index) -> bool:
         """True si el canal es de una fuente de vapor que el equipo no tiene."""

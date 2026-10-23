@@ -586,3 +586,41 @@ def test_get_lista_todas_las_funciones(api):
     filas = cliente.get("/io/assignment", headers=cab()).json()["filas"]
     assert {f["funcion"] for f in filas} == set(aio.funciones())
     assert all(isinstance(f["habilitada"], bool) for f in filas)
+
+
+def test_restaurar_calibracion_anula_la_evidencia_y_guarda_el_puerto(api):
+    """3.ª vuelta R8 (sensores): restaurar deja de contar como calibración del
+    puerto nuevo; el registro de la restauración lleva el puerto."""
+    from autoclave.backend import server_reasignacion as sr
+    _cliente, _srv, ctx, _cab, _p = api
+    _pendiente(ctx, ["pres_camara"], {"pres_camara": 13})
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13}))
+    sr.evidencia_ai("pressure", "pres_camara")
+    assert ctx.asignacion_evidencia == {"pres_camara": 13}
+    sr.anular_evidencia_ai("pressure", "pres_camara")
+    assert ctx.asignacion_evidencia == {}
+    texto = (Path(__file__).resolve().parents[1] / "src/autoclave/backend/server.py").read_text(encoding="utf-8")
+    assert "_reasignacion.anular_evidencia_ai(tipo, sensor)" in texto
+    assert '"accion": f"restaurar_{destino}",\n                   "puerto":' in texto
+
+
+def test_restaurar_respaldo_de_calibracion_anula_toda_evidencia_ai(api):
+    """4.ª vuelta R8: un respaldo con calibración reemplaza las calibraciones de
+    este arranque (las AI); la evidencia de salidas (DO) se conserva. Restaurar
+    anula ANTES de escribir y dentro del lock de archivos; verificar vuelve a
+    mirar la evidencia con ese lock tomado."""
+    from autoclave.backend import server_reasignacion as sr
+    _cliente, _srv, ctx, _cab, _p = api
+    _pendiente(ctx, ["pres_camara", "vapor_camara"], {"pres_camara": 13, "vapor_camara": 25})
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13, "vapor_camara": 25}))
+    sr.evidencia_ai("pressure", "pres_camara")
+    sr.evidencia_do("vapor_camara")
+    sr.anular_evidencias_ai()
+    assert ctx.asignacion_evidencia == {"vapor_camara": 25}
+    raiz = Path(__file__).resolve().parents[1] / "src/autoclave/backend"
+    texto = (raiz / "server.py").read_text(encoding="utf-8")
+    i_anula = texto.index("_reasignacion.anular_evidencia_ai(tipo, sensor)")
+    i_escribe = texto.index('nota=f"restaurada ({destino})"')
+    assert i_anula < i_escribe
+    assert "_reasignacion.anular_evidencias_ai()" in texto
+    assert "with _lock_escritura, srv._lock_archivos:" in (raiz / "server_reasignacion.py").read_text(encoding="utf-8")
