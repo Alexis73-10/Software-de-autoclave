@@ -37,7 +37,13 @@ Correcciones de la revisión ★ pasada 2:
 - `40891e7` fix: la apertura de puertas evalúa la cámara con la presión vigente (R2-M3).
 - `aceac46` fix: modo prueba falla cerrada y sin aire comprimido ni vapor de fuente con estado seguro (R2-B1, P-a).
 - `b391f13` test: pruebas de la revisión 2 y celda `ai_vencida_en_protocolo` en la planta.
-- commit siguiente: pruebas viejas ajustadas (`test_i18n.py`, `test_t2_p2_principal_perdido.py`), hoja de banco, riesgos, tabla de ensayo y este informe.
+- `68ce439` fix: pruebas viejas ajustadas (`test_i18n.py`, `test_t2_p2_principal_perdido.py`); `38c880b` documentos de la pasada 2.
+
+Correcciones de la revisión ★ pasada 3:
+- `b1e51f0` fix: decisión inicial del protocolo pendiente con la AI vencida y sin aire atmosférico sin referencia (R3-A1, (b)).
+- `032c702` fix: NO ABRIR de `/status` con la presión vigente (R3-M1).
+- `76d9c6d` test: pruebas de la revisión 3.
+- commit siguiente: pruebas viejas ajustadas (`test_t4_camara_segura.py` por R3-M1, `test_protocolo_fallo_modo_descompresion.py` por (b)), tabla de ensayo, riesgos, hoja de banco y este informe.
 
 ## 3. Revisión ★ (pasada 1, sesión principal) — estado de cada hallazgo
 
@@ -72,6 +78,16 @@ Ningún hallazgo resultó no real.
 
 Altos/Críticos abiertos: ninguno (pendiente la re-revisión de la sesión principal).
 
+## 3c. Revisión ★ pasada 3 — estado de cada hallazgo
+
+| Hallazgo | Nivel | Verificado contra el código | Estado | Cómo |
+|---|---|---|---|---|
+| R3-A1 (causado por R2-B3) | Alto | Real: con la AI vencida en `ejecutar()` nunca se fijaban `_presurizado_al_disparo` ni el timeout del modo; al volver la AI un líquido en modo 4/5 tomaba la rama "sin contrapresión" (lenta abierta) y un sólido quedaba sin escalada. | **Corregido** (opción preferida por la revisión) | Con la AI vencida, `ejecutar()` deja la decisión inicial PENDIENTE (`_decision_pendiente`: "abrir" o "presurizado"), con todo cerrado (ALL_OFF del disparo; `update()` reafirma el aire comprimido cerrado y no abre nada). El primer `update()` con la AI vigente la toma: con "abrir", el mismo paso 2 del disparo (`_decision_inicial`: presurizada → `_presurizado_al_disparo`, timeout, paso del modo; vacío → primera lectura de vacío; sin presión → lenta sin escalar); con "presurizado" (paro / cámara sellada), solo marca la presión al disparo y, si `reanudar()` ya corrió, arma el timeout. Se quitó la rama muerta de `ejecutar()`. Pruebas: «cancelación con AI vencida, líquido modo 4, presurizada → al volver la AI, contrapresión y lenta cerrada»; «sólido con AI vencida → al volver se arma el timeout»; paro + reanudar; vacío pendiente. |
+| R3-M1 | Medio | Real: `_camara_segura_status` usaba `datos_vigentes` (solo DI). | **Corregido** | Usa `ControlLoop.presion_vigente` (DI + AI + estado publicado); falla cerrada. |
+| (a) | Alto, anterior a S9 | Real según el revisor (no cambiado). | **PREGUNTA** (transición de ciclo no definida) | Ver pregunta 18. |
+| (b) | Medio, anterior a S9 | Real. | **Corregido** (barato, no toca otras transiciones) | `_referencia_atm_configurada()`: sin `presion_admosferica`/`rango_presion_atm` numéricos y positivos el protocolo NO abre el aire atmosférico (sigue usando 101,3/20 kPa para lo demás, sin cambio). |
+| (c) | Bajos | Reales. | **Documentados** | Pregunta 19. |
+
 ## 4. Pruebas
 
 Siempre con `PYTHONPATH=C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a8977a28ac4adbe26/src`; `autoclave.__file__` = `C:\Users\tecni\Documents\codigo_autoclave\.claude\worktrees\agent-a8977a28ac4adbe26\src\autoclave\__init__.py`.
@@ -82,6 +98,7 @@ Siempre con `PYTHONPATH=C:/Users/tecni/Documents/codigo_autoclave/.claude/worktr
 - Módulos tocados y sus importadores (`grep -rl` en `tests/` por protocolo_fallo, estado_seguro, coherencia, control_loop, `/io/test/output`, serial_link, sesion_backend, entradas_salidas_controller, salidas_prueba): 132 archivos, cada uno en su propio proceso pytest: **2732 passed, 7 skipped, 0 failed** tras corregir `tests/test_alarmas_catalogo.py` (2 fallos que venían del S9 original: SEN-10 no estaba en las tablas de niveles y plantillas de la prueba; ahora 141 passed). `test_enviar_comando.py` y `test_serial_directo.py` no tienen pruebas (scripts de hardware, «no tests ran»). Cada archivo en su propio proceso: corridos juntos en un solo pytest, `test_c1_ajustes_pyside_sesion.py` (PySide) termina el proceso con código 127 a mitad de la corrida; solo pasa (20 passed) y también en la base, así que es una interacción de Qt entre archivos, ajena a S9.
 - Pruebas viejas que fallaban YA en `57b2844` (11, afirmaban lo que D9-1 revierte; el S9 original no las actualizó) y ahora siguen a D9-1: `test_s2_cycle_select.py` (2 → aceptan con estado seguro/recuperación), `test_t2_p1_completado_estado_seguro.py` y `test_t5_estado_seguro.py` (`iniciar(..., origen=...)`), `test_t6_arranque_seguro.py` (sin confirmación al arrancar; modo prueba permitido con recuperación y puertas bloqueadas), `test_t7_apagar_equipo.py` (apaga con estado seguro), `test_v8a_cambio_programa_sin_datos.py` (el estado seguro ya no bloquea el cambio), `test_u1_seguridad_navegacion_qml.py` (D9-1.5: el login no se interrumpe), `test_alarmas_catalogo.py` (SEN-10 en las tablas). Además, por las correcciones: `test_protocolo_fallo_modo_descompresion.py` (aire tras 3 lecturas de vacío), `test_t8_e1_aire_atmosferico_prueba.py` (el lazo ahora sí apaga salidas de puerta en modo prueba; la prueba mira solo el canal del aire), dobles de `test_t6`/`test_s9_estado_seguro_arranque.py` con `edad_ultima_ai` (sin edad = AI vencida).
 - **Pasada 2:** `tests/test_s9_revision_2.py` (nuevo, 26 pruebas) primero en rojo (20 fallos), después **26 passed**; `test_s9_revision_1.py` 59 passed (2 ajustadas: lista de salidas con P-a, espera desde la primera DI). Planta simulada con `S9_ESCRIBIR_INFORME=1`: **33 passed** (8 celdas × 4 programas + informe), `ticks_aire_abierto_con_presion=0` en las 32 filas; celda nueva `ai_vencida_en_protocolo`: sin válvulas nuevas, sin terminar el estado seguro y con CIC-10 durante el corte, y termina al volver las tramas. Importadores ampliados (además: ser_puertas, context, backend_doble, descompresion, vigencia_ai): **182 archivos**, cada uno en su propio proceso: 4022 passed, 7 skipped, 3 xfailed y 2 fallos, ambos corregidos después y en verde: `test_i18n.py::test_toda_familia_dinamica_esta_enumerada` (venía del S9 original: la familia `sistema.estado_seguro_causa_` no estaba enumerada; 67 passed) y `test_t2_p2_principal_perdido.py::test_solo_lenta_en_vacio_abre_aire_atmosferico` (R2-B3: aire con la tercera lectura; 18 passed). `test_protocolo_fallo_modo_descompresion.py` ajustada igual (18 passed).
+- **Pasada 3:** `tests/test_s9_revision_3.py` (nuevo, 8 pruebas) primero en rojo (5 fallos), después **8 passed**; con las de las pasadas 1 y 2 y `test_s9_estado_seguro_arranque.py`: 140 passed. Planta simulada con `S9_ESCRIBIR_INFORME=1`: **33 passed**, tabla regenerada (sin celda nueva: el disparo con la AI vencida no ocurre en el arranque, que espera la primera AI; lo cubren las pruebas unitarias). Importadores (los de la pasada 2 más los que nombran `/status`): **186 archivos**, cada uno en su propio proceso: 4125 passed, 7 skipped, 3 xfailed y 4 fallos, todos de pruebas que afirmaban el comportamiento anterior y ya ajustadas (40 passed): `test_t4_camara_segura.py` (2; el doble ahora fija `presion_vigente`, R3-M1) y `test_protocolo_fallo_modo_descompresion.py` (2; el doble de configuración ahora trae la referencia atmosférica, (b)).
 - No se corrió la suite completa (regla 8).
 
 ## 5. DECISIONES SIN CONFIRMAR
@@ -96,6 +113,8 @@ Siempre con `PYTHONPATH=C:/Users/tecni/Documents/codigo_autoclave/.claude/worktr
 8. **P-a (de la sesión principal):** con estado seguro activo o recuperación pendiente se bloquean también `aire_comprimido_camara` y el vapor de generador o caldera (`vapor_generador`, `vapor_caldera`) en modo prueba; `vapor_chaqueta` queda permitida.
 9. R2-A1 en la fase DESCOMPRESION (modos 4/5): sin aire comprimido con la AI vencida (lo demás de la fase sin cambio).
 10. R2-M3: sin ControlLoop construido la presión no es vigente → las puertas no abren por software.
+11. R3-A1: la decisión inicial diferida no cuenta como "disparo" para el plazo del modo: el timeout se arma al tomarla (con "abrir") o al reanudar (con "presurizado"), igual que en el disparo normal; el tiempo con la AI vencida no se descuenta del plazo.
+12. (b): sin la referencia atmosférica configurada el protocolo no abre el aire atmosférico (la cámara en vacío real queda en vacío hasta configurarla; NO ABRIR sigue porque `camara_segura` también exige la configuración).
 
 ## 6. PREGUNTAS PARA CRISTIAN
 
@@ -121,6 +140,10 @@ De la re-revisión (pasada 2):
 15. P-d: SEN-10 vive solo en memoria; un reinicio con la puerta cerrada la borra. ¿Debe persistir?
 16. P-e: periodo real de las tramas AI del ESP32 y retardo de la primera AI tras la conexión (la vigencia es 1,5 s).
 17. Mía: con la AI vencida el CIC-10 usa el texto «Sensor de presión de cámara sin lectura…»; ¿se quiere un texto propio («sin datos analógicos de la tarjeta»)?
+
+De la re-revisión (pasada 3):
+18. (a) Alto anterior a S9 (TMG-02 en CICLO, `control_loop.py`, paso 5 y `_acumular_f0`): en CICLO, `state_machine.update()` y `_acumular_f0()` no exigen la trama AI vigente; con la DI viva y la AI muerta, ESTERILIZACION puede terminar COMPLETADO y el F0 acumula sobre valores congelados. Propuesta del revisor: tratar la AI vencida como la DI vencida (tolerancia P-3 y aborto). No se cambió: es una transición de ciclo no definida en las decisiones. ¿Se aplica?
+19. (c) Bajos: `temp_max_apertura` al cerrar el estado seguro sale solo del programa del protocolo (`estado_seguro.py`, no el menor de todos); S4 `reemplazar_programa` deja fuera el programa original de los programas de seguridad; `_lectura_ai()` se consulta en vivo en el paso 5 (no la toma del inicio del tick). ¿Se corrigen en una etapa aparte?
 
 ## 7. Pendientes
 
