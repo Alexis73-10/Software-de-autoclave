@@ -171,6 +171,11 @@ def test_transicion_a_vacio_real_cierra_valvulas_y_activa_atm():
     set_do.descompresion_rapida_off.assert_called_once()
     set_do.descompresion_lenta_off.assert_called_once()
     set_do.descompresion_chaqueta_off.assert_called_once()
+    # S9, revisión ★ SAF-03: cerrar es inmediato; el aire atmosférico solo
+    # con 3 lecturas de vacío seguidas
+    set_do.aire_admosferico_camara_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
     set_do.aire_admosferico_camara_on.assert_called_once()
 
 
