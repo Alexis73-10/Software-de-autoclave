@@ -15,7 +15,7 @@ Precondición A0: `tanda9/estado.md` tiene `| Z | Hecha |` y `dev` contiene la t
 | U10a | Hecha, unida a `tanda-10` (af5eaf5). Suite tras unir: verde (ver U10b) | `tanda-10-u10a` (c1fbfbc) | 41 pasan en la prueba nueva; 90 en textos/i18n. Pregunta: «Chbr.»/«Gskt.» en inglés. |
 | U10b | Hecha, unida a `tanda-10` (0635da5) | `tanda-10-u10b` (0e87a4b) | 443 passed en el worktree. Incluye el arreglo del rojo de integración (`test_i18n_linea_base`, b61617d). |
 | K10 | Hecha: compilación **F** (`inst-2026-10-23-f` → 4923349, `entrega/2026-10-23_f/`, Setup 1.0.0-f compilado y no ejecutado) | (este commit) | `K10_compilacion_f.md` |
-| Z | Pendiente | | |
+| Z | Hecha | (cierre) | Suite en verde (6993 passed, 0635da5; §2.4: no se repite, después solo documentación). `tanda-10` unida a `dev` (--no-ff), push de `dev`, `tanda-10` e `inst-2026-10-23-f`. Índice: `docs/informes/informe_tanda_2026-10-23_t10.md`. |
 
 Instrucciones comunes de los subagentes: `tanda10/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-10-<id>`; NO relanzarlos desde cero, revisar su rama y su informe y CONTINUAR.
 
