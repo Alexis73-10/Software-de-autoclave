@@ -18,7 +18,7 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | U8 | Hecha, unida a `tanda-8` | 8bcaeb2 (merge) | Suite de la rama 5378 p / 3 s / 3 xf (= 5382 − 7 retiradas + 3 nuevas). Tras unir, `src/` y `tests/` idénticos a la rama (`git diff tanda-8-u8 tanda-8 -- src tests` vacío): misma suite. |
 | L8 | Hecha, unida a `tanda-8` (255f4cd). No toca `src/` ni `tests/`: misma suite que V8a: **5865 p / 6 s / 3 xf** (`suites/integ_v8a_l8.log`) | rama `tanda-8-l8` (d539e14) | |
 | D8 | Hecha, unida a `tanda-8` (0a0dd75, sin conflictos). Suite tras unir (junto con D8-3.18, 3b13992) **6158 p / 7 s / 3 xf / 1 falla** (`suites/integ_d8.log`): la misma de R8, ya corregida en 33e4abc | rama `tanda-8-d8` (2c8be1e) | P5: 5 funciones muertas retiradas con safety-reviewer. P10/P11: worktrees no quitados (piden `--force`, PREGUNTA). Etiquetas `archivo/*` empujadas. |
-| V8b | Hecha, unida a `tanda-8` la última (1f5fa71, sin conflictos; V8b unió antes `tanda-8` en su rama, 5a0de11). Suite final: en curso (`suites/integ_v8b_final.log`) | rama `tanda-8-v8b` (5b16e3e) | `Escala.fuenteMinima` 18 → 14 px (DECISIÓN SIN CONFIRMAR). Ticket con abreviaturas por las 32 columnas: PREGUNTA. |
+| V8b | Hecha, unida a `tanda-8` la última (1f5fa71, sin conflictos; V8b unió antes `tanda-8` en su rama, 5a0de11). Suite final de integración **6201 p / 7 s / 3 xf**, en verde (`suites/integ_v8b_final.log`) | rama `tanda-8-v8b` (5b16e3e) | `Escala.fuenteMinima` 18 → 14 px (DECISIÓN SIN CONFIRMAR). Ticket con abreviaturas por las 32 columnas: PREGUNTA. |
 | K8 | En preparación: D8-3.18 hecha en `tanda-8` (3b13992: plantilla neutra, `.spec` y verificador) | 3b13992 | Sección B → C del LEEME: en preparación. |
 | Z | Pendiente | | |
 
