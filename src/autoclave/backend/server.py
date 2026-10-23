@@ -1283,7 +1283,10 @@ def _estado_seguro_status() -> dict:
 def _camara_segura_status(estado) -> dict:
     try:
         programas = context.programas_para_seguridad()
-        vigentes = getattr(context.control_loop, "datos_vigentes", False) is True
+        # S9, revisión ★ pasada 3 (R3-M1): con la presión al día (DI + AI +
+        # estado publicado); con la trama AI vencida la presión puede estar
+        # congelada. Falla cerrada.
+        vigentes = getattr(context.control_loop, "presion_vigente", False) is True
         segura, motivo = camara_segura.evaluar(estado, context.config_manager, programas,
                                                getattr(context, "profile", None),
                                                datos_vigentes=vigentes,
