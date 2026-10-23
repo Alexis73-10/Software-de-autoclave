@@ -123,8 +123,6 @@ Item {
                   - 33 * (lineCount - 1)) - baselineOffset
         text: raiz.titulo
         wrapMode: Text.WordWrap
-        maximumLineCount: 2
-        elide: Text.ElideRight
         lineHeightMode: Text.FixedHeight
         lineHeight: raiz.m(33)
         color: raiz.colorTitulo
@@ -142,8 +140,6 @@ Item {
         y: raiz.m(raiz._blDescripcion) - baselineOffset
         text: raiz.descripcion
         wrapMode: Text.WordWrap
-        maximumLineCount: 2
-        elide: Text.ElideRight
         lineHeightMode: Text.FixedHeight
         lineHeight: raiz.m(28)
         color: Colores.textoPrimario

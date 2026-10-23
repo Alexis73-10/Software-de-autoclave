@@ -46,7 +46,7 @@ Item {
             anchors.right: raiz.conOjo ? ojo.left : parent.right
             anchors.rightMargin: Escala.px(12)
             anchors.verticalCenter: parent.verticalCenter
-            elide: Text.ElideRight
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: raiz.valor === "" ? raiz.marcador
                 : raiz.oculto ? "●".repeat(raiz.valor.length) : raiz.valor
             color: raiz.valor === "" ? Colores.textoGuia : Colores.textoPrimario

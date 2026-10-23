@@ -57,7 +57,7 @@ Flickable {
                 width: fila.proporciones[index] * fila.width - raiz.m(12)
                 anchors.verticalCenter: parent.verticalCenter
                 horizontalAlignment: index === 0 ? Text.AlignLeft : Text.AlignRight
-                elide: Text.ElideRight
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 text: fila.celdas[index]
                 color: fila.encabezado ? Colores.textoSecundario
                      : (fila.colores[index] ?? Colores.textoPrimario)

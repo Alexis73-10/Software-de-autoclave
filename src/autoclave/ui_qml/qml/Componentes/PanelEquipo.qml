@@ -40,7 +40,7 @@ PanelModal {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width * 0.5
                 text: raiz.textoEquipo(fila.modelData.clave)
-                elide: Text.ElideRight
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 color: Colores.textoSecundario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoMedium
@@ -54,7 +54,7 @@ PanelModal {
                 text: !fila.modelData.disponible ? I18n.t("equipo.no_disponible", I18n.lang)
                     : fila.modelData.valorClave ? raiz.textoEquipo(fila.modelData.valorClave)
                     : (fila.modelData.valor ?? raiz.sinLectura)
-                elide: Text.ElideLeft
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 color: fila.modelData.disponible ? Colores.textoPrimario : Colores.textoGuia
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold

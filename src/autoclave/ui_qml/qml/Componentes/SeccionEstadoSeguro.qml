@@ -228,15 +228,20 @@ Column {
     // su login). "NO ABRIR" sigue vigente; no hay forma de declarar la cámara
     // segura a mano (opción C descartada).
     readonly property string bloqueoMotivo: puente?.estadoSeguroBloqueadoMotivo ?? ""
-    // el botón solo ayuda si el motivo es el sensor Principal (no el timeout líquido)
-    readonly property bool bloqueoPorSonda: bloqueoMotivo.indexOf("Principal") >= 0
+    // V8b (D8-5.11): el motivo en el idioma vigente (catálogo); si el backend
+    // manda uno desconocido, el texto tal cual
+    readonly property string bloqueoClave: puente?.estadoSeguroBloqueadoClave ?? ""
+    readonly property string bloqueoTexto: bloqueoClave !== "" && I18n.existe(bloqueoClave, I18n.lang)
+                                           ? I18n.t(bloqueoClave, I18n.lang) : bloqueoMotivo
+    // el botón solo ayuda si el motivo es el sensor Principal (no el tiempo límite con líquido)
+    readonly property bool bloqueoPorSonda: puente?.estadoSeguroBloqueoPorSonda ?? false
     Nota {
         objectName: "avisoEstadoSeguroDetenido"
         visible: raiz.bloqueoMotivo !== "" && raiz.enCurso && raiz.enGrupo("emergencia")
         borde: true
         fondo: Colores.advertenciaFondo
         tinta: Colores.advertenciaTexto
-        texto: raiz.bloqueoMotivo + (raiz.bloqueoPorSonda
+        texto: raiz.bloqueoTexto + (raiz.bloqueoPorSonda
                ? ". " + I18n.t("sistema.estado_seguro_detenido_accion", I18n.lang) : ".")
     }
     Rectangle {

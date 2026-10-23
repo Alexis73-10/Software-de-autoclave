@@ -71,7 +71,7 @@ Rectangle {
         horizontalAlignment: Text.AlignHCenter
         visible: raiz.texto !== ""
         text: raiz.texto
-        elide: Text.ElideRight
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         color: raiz.colorTexto
         font.family: raiz._estiloTexto.familia
         font.weight: raiz._estiloTexto.peso

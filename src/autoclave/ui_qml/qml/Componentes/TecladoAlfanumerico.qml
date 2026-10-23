@@ -64,7 +64,7 @@ Item {
         Text {
             width: parent.width
             text: ctrl.titulo
-            elide: Text.ElideRight
+            wrapMode: Text.Wrap
             color: Colores.textoSecundario
             font.family: raiz._estilo(TecladoProvisional.encabezadoTituloEstilo).familia
             font.weight: raiz._estilo(TecladoProvisional.encabezadoTituloEstilo).peso
@@ -76,7 +76,7 @@ Item {
             // alto fijo de una línea aunque el texto esté vacío
             height: raiz._estilo(TecladoProvisional.encabezadoValorEstilo).interlineado
             text: raiz.ocultarTexto ? "•".repeat(ctrl.texto.length) : ctrl.texto
-            elide: Text.ElideLeft   // con texto largo se ve lo último que se escribió
+            elide: Text.ElideLeft   // v8b-permitido: eco de lo que el usuario teclea; con texto largo se ve el final
             color: Colores.textoPrimario
             font.family: raiz._estilo(TecladoProvisional.encabezadoValorEstilo).familia
             font.weight: raiz._estilo(TecladoProvisional.encabezadoValorEstilo).peso

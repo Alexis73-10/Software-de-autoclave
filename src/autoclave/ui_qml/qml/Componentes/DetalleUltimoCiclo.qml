@@ -60,7 +60,7 @@ Item {
         Text {
             // no desborda la tarjeta: lo que no cabe se elide
             width: Math.min(implicitWidth, raiz.width - raiz.m(16) - rotuloTexto.width - linea.spacing)
-            elide: Text.ElideRight
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: linea.valor
             color: linea.colorValor
             font.family: Tipografia.familia
