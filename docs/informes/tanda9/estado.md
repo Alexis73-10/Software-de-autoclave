@@ -37,3 +37,6 @@ Instrucciones comunes de los subagentes: `tanda9/brief_subagentes.md`. Si la ses
 - `DECISIONES_PARA_REVISAR.md` escrito. Siguiente: unir `tanda-9` a `dev` y K9.
 - `tanda-9` unida a `dev` (4357217). K9 hecha: build limpio, verificador neutro OK, prueba de humo OK, ensayo B → D OK con el `_internal` real, Setup compilado (no ejecutado), LEEME con 8c sin copias a mano.
 - Después de K9: D9-13.5 (capturas, `tanda-9-cap9`) y D9-12 (`tanda-9-l9`) unidas a `tanda-9` (a1fa592); NO están en la compilación D. Suite final 6633 en verde.
+
+## Push (23-oct, sesión 10)
+- `dev` 1ff5afa..e676a90, `tanda-9` (nueva, e0668f3) y la etiqueta `inst-2026-10-23-d` (→ 4357217) empujadas a `origin`, sin `--force`. Este último registro va en un commit de documentación posterior.
