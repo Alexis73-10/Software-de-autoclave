@@ -591,10 +591,10 @@
   1. Cambiar el programa seleccionado a otro con otra sonda Principal o mayor temperatura de apertura.
   2. Verificar que NO ABRIR sigue y que la puerta no abre aunque la sonda Principal del programa nuevo ya esté fría.
   3. Entrar al modo prueba (técnico): observar que el protocolo se pausa (todas las salidas en 0).
-  4. En Entradas / Salidas intentar encender `desbloqueo_puerta_1`, `abrir_puerta_1`, `descompresion_rapida`, `descompresion_chaqueta` y `vapor_camara`; encender `descompresion_lenta`. Con el atrapamiento activo (si la puerta lo tiene), intentar `cerrar_puerta_1`.
+  4. En Entradas / Salidas intentar encender `desbloqueo_puerta_1`, `abrir_puerta_1`, `descompresion_rapida`, `descompresion_chaqueta`, `vapor_camara`, `aire_comprimido_camara`, `vapor_generador` y `vapor_caldera` (revisión ★ pasada 2, P-a); encender `descompresion_lenta` y `vapor_chaqueta`. Con el atrapamiento activo (si la puerta lo tiene), intentar `cerrar_puerta_1`.
   5. Salir del modo prueba: el protocolo se reanuda solo.
   6. Intentar iniciar un ciclo.
-- **Resultado esperado:** El cambio se acepta; la seguridad sigue usando la sonda y la temperatura de apertura del programa del ciclo interrumpido. En el modo prueba (revisión ★ SAF-01, DECISIÓN SIN CONFIRMAR): las cinco salidas del paso 4 se rechazan con su mensaje y, si alguna estaba encendida, el lazo la apaga en el siguiente tick (queda `salida_prueba_cortada` en la bitácora); la lenta sí enciende; el cierre con atrapamiento no se convierte en apertura. Tras el modo prueba la lenta vuelve a abrir sola; el ciclo no inicia mientras el estado seguro siga.
+- **Resultado esperado:** El cambio se acepta; la seguridad sigue usando la sonda y la temperatura de apertura del programa del ciclo interrumpido. En el modo prueba (revisión ★ SAF-01 y P-a, DECISIÓN SIN CONFIRMAR): las ocho salidas del paso 4 se rechazan con su mensaje y, si alguna estaba encendida, el lazo la apaga en el siguiente tick (queda `salida_prueba_cortada` en la bitácora); la lenta y el vapor de chaqueta sí encienden; el cierre con atrapamiento no se convierte en apertura. Tras el modo prueba la lenta vuelve a abrir sola; el ciclo no inicia mientras el estado seguro siga.
 - **Criterio de aprobado/fallo:** Aprobado si la puerta no abre (ni por el programa nuevo ni desde el modo prueba) antes de que la sonda del ciclo interrumpido esté bajo su temperatura de apertura y la presión en la banda atmosférica.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
@@ -641,8 +641,10 @@
 - **Pasos:**
   1. Suspender las tramas `AI:` durante 10 s; observar la tarjeta de alarmas y las salidas.
   2. Reanudarlas.
-- **Resultado esperado:** En menos de 2 s aparece CIC-10 con el motivo de presión de cámara sin lectura; no se abre aire comprimido ni ninguna válvula nueva; el estado seguro no termina aunque la última presión fuera atmosférica. Al volver las tramas, con 3 tramas válidas se retira el motivo y el protocolo sigue.
-- **Criterio de aprobado/fallo:** Aprobado si sin tramas AI no termina el estado seguro ni abre nada nuevo.
+  3. Repetir el paso 1 con un programa de líquidos en modo 4/5 durante el enfriamiento con contrapresión (estado seguro tras un fallo en DESCOMPRESION, y también con la confirmación del fallo pendiente en CICLO).
+  4. Con la cámara segura y fuera de ciclo, suspender las tramas `AI:` e intentar abrir la puerta.
+- **Resultado esperado:** En menos de 2 s aparece CIC-10 con el motivo de presión de cámara sin lectura; no se abre aire comprimido, aire atmosférico ni ninguna válvula nueva; lo que ya estaba abierto (la lenta) sigue igual; el estado seguro no termina aunque la última presión fuera atmosférica. Revisión ★ pasada 2 (R2-M1): el protocolo NO pasa a «solo la lenta» por esto y una carga líquida sellada con contrapresión no se ventea; al volver las tramas, con 3 tramas válidas se retira el motivo y el protocolo sigue donde estaba. Paso 4 (R2-M3): la puerta no abre (cámara no segura con la presión no vigente) ni por botón ni por apertura automática.
+- **Criterio de aprobado/fallo:** Aprobado si sin tramas AI no termina el estado seguro, no abre nada nuevo, no ventea una carga líquida sellada y la puerta no abre.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
