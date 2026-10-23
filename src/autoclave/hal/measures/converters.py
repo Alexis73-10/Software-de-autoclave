@@ -10,16 +10,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-class MovingAverage:
-    def __init__(self, size: int = 5):
-        self.size = size
-        self.buffer = deque(maxlen=size)
-
-    def update(self, value: float) -> float:
-        self.buffer.append(value)
-        mov= round((sum(self.buffer) / len(self.buffer)),2)
-        return mov
-
 class MedianFilter:
     def __init__(self, size: int = 5):
         self.size = size
