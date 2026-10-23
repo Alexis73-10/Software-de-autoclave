@@ -54,5 +54,9 @@ Informe: `X9_pendientes_t8.md`. Decisiones: abreviaturas solo en el ticket; resu
 ## K9 — Compilación D
 Informe: `K9_compilacion_d.md`. Decisión K9-1: en el equipo de pruebas el LEEME (8c) pide DESMARCAR la casilla «Configurar este PC como estación» hasta validarla en un PC de prueba (en el Setup sigue marcada por defecto, como pide D9-11). Pendiente: `entrega/drivers/` está vacía.
 
+## Después de K9 (no están en la compilación D)
+- **D9-12 (`L9_login_recordar_olvido.md`):** «Recordar usuario» guarda solo el nombre en `data/login_recordado.json` (local y compartido por todos los usuarios del equipo, no en el registro de Windows); «¿Olvidó su contraseña?» muestra un texto que pide a un administrador o ingeniero restablecerla en OPCIONES › Usuarios (sin canal de recuperación nuevo); la ayuda es un texto sin diseño; se recuerda el nombre también cuando hay que cambiar la contraseña al entrar. Preguntas: conservar «Recordar usuario» en un equipo compartido; nombrar al técnico en la ayuda; diseño; borrar el nombre al desactivar al usuario.
+- **D9-13.5 (`CAP9_capturas.md`):** 102 capturas es/en. Muestran que, con la interfaz en inglés, las filas de alarma de Preciclo (CIC-10, SEN-06) salen en español, y que el motivo largo de CIC-10 se corta (no corregido; está en la D).
+
 ## Arrastradas de la tanda 8 (D9-13, no entran en la tanda 9)
 D-38 (cuentas ADC de banco); presión de tara de las válvulas de seguridad mecánicas; preguntas de S1, S2a, S2b, R8 (incluida SAF-04: estado seguro con la asignación de E/S dañada), V8a, E1 y E2; limpieza de worktrees con `--force`. Ver `docs/informes/informe_tanda_2026-10-23_t8.md` y `docs/informes/tanda8/DECISIONES_PARA_REVISAR.md`.
