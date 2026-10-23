@@ -18,3 +18,6 @@ Precondición A0: `tanda8/estado.md` tiene `| Z | Hecha |` y `git merge-base --i
 | Z | Pendiente | | |
 
 Instrucciones comunes de los subagentes: `tanda9/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-9-<id>`; NO relanzarlos desde cero, revisar su rama y su informe y CONTINUAR.
+
+## Sesión 01 (00:10)
+- 00:2x: lanzados S9, B9, E9 y A9 (4 subagentes, worktrees `.claude/worktrees/agent-*`, ramas `tanda-9-<id>`). En cola: P9, C9, X9. La sesión principal NO termina el turno con subagentes activos.
