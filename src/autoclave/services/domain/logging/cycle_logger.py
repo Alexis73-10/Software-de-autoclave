@@ -513,8 +513,10 @@ class CycleLogger:
             # D8-2.14: las líneas de aviso del pie, también en la base y el
             # respaldo, para que la reimpresión sea idéntica al ticket en vivo
             sin_datos_s = self._sin_datos_tarjeta_s()
+            # X9 (D9-13.4): texto o {"clave": ..., parámetros}
             avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
-                      if isinstance(a, str)]
+                      if isinstance(a, str)
+                      or (isinstance(a, dict) and isinstance(a.get("clave"), str))]
             avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
                              if sin_datos_s is not None or avisos else None)
             # TMG-03 de T8: primero el respaldo, después la base

@@ -430,7 +430,16 @@ class CicloState:
                 self.estado.codigo_fallo = ""
                 self.estado.valores_fallo = {}
                 return
-            self._registrar_fallo(codigo, origen=nombre_legible(nombre_fase), motivo=motivo)
+            # X9 (D9-13.4): si la fase dejó un motivo con clave y parámetros
+            # (motivos_fase), viajan con la alarma para presentarlo en el
+            # idioma y las unidades vigentes; el texto en español no cambia
+            try:
+                from autoclave.core.runtime import motivos_fase
+                extra = motivos_fase.a_valores(motivo)
+            except Exception:
+                extra = {}
+            self._registrar_fallo(codigo, origen=nombre_legible(nombre_fase),
+                                  motivo=str(motivo), **extra)
         except Exception:
             logger.exception("CicloState: no se pudo registrar el fallo de la fase %s", nombre_fase)
 

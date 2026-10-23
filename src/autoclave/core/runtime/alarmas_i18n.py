@@ -46,7 +46,13 @@ def clave_motivo_bloqueo(motivo) -> str:
 
 
 def _valores_en_idioma(valores: dict, idioma: str) -> dict:
-    """Los valores de texto conocidos (motivos del estado seguro), en `idioma`."""
+    """Los valores de texto conocidos (motivos del estado seguro), en `idioma`.
+    X9 (tanda 9, D9-13.4): un motivo de fallo de fase guardado con clave y
+    parámetros (motivos_fase) se arma en `idioma` y en las unidades vigentes,
+    también en español."""
+    motivo_fase = _motivo_fase(valores, idioma)
+    if motivo_fase is not None:
+        valores = dict(valores, motivo=motivo_fase)
     if idioma == i18n.IDIOMA_BASE:
         return valores
     salida = dict(valores)
@@ -55,6 +61,22 @@ def _valores_en_idioma(valores: dict, idioma: str) -> dict:
         if clave and i18n.existe(clave, idioma):
             salida[k] = i18n.t(clave, idioma)
     return salida
+
+
+def _motivo_fase(valores: dict, idioma: str) -> str | None:
+    """Texto del motivo de fase de `valores` (None si no lo hay), con las
+    unidades vigentes del equipo (las del ticket); sin ellas, °C y kPa."""
+    if not isinstance(valores, dict) or "motivo_codigo" not in valores:
+        return None
+    from autoclave.core.runtime import motivos_fase
+    temperatura, presion, p_atm = "C", "kPa", None
+    try:
+        from autoclave.services.domain.logging.ticket_formatter import presentacion_actual
+        pres = presentacion_actual()
+        temperatura, presion, p_atm = pres.temperatura, pres.presion, pres.p_atm
+    except Exception:
+        pass
+    return motivos_fase.texto_desde_valores(valores, idioma, temperatura, presion, p_atm)
 
 
 def textos(definicion, valores: dict, idioma: str) -> dict:
