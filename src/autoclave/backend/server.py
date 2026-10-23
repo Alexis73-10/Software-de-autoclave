@@ -210,6 +210,15 @@ def _auditar(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
             logger.exception("No se pudo registrar '%s' en audit_log", evento)
 
 
+def _log_desarrollo(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
+                    **campos) -> None:
+    """D9-6 (tanda 9): eventos que NO van a la bitácora (audit_log) porque no
+    son de seguridad, ni cambios de configuración, ni de sesión; quedan solo
+    en el log de desarrollo."""
+    logger.info("Evento %s (usuario=%s): %s", evento,
+                sesion.usuario if sesion else usuario, campos)
+
+
 def _nombre_estado() -> str:
     """Estado de la máquina para la bitácora; "" si no se puede leer."""
     try:
@@ -241,9 +250,11 @@ def _responder_rechazo(_request: Request, r: RechazoApi):
 def _rechazar(status: int, codigo: str, motivo: str, entidad: str,
               sesion: Sesion | None = None, headers: dict | None = None,
               extra: dict | None = None):
-    """Registra el rechazo (rechazo_401/403/409) y lo lanza como RechazoApi.
-    Escribe en SQLite: nunca llamarla con _sm_lock tomado (usar _Rechazo)."""
-    _auditar(f"rechazo_{status}", sesion, entidad=entidad, detalle={"motivo": motivo})
+    """Registra el rechazo (rechazo_401/403/409) en el log de desarrollo y lo
+    lanza como RechazoApi. D9-6 (tanda 9): ya no va a la bitácora. Dentro de
+    guard_estado se sigue usando _Rechazo (no hace falta escribir con
+    _sm_lock tomado)."""
+    _log_desarrollo(f"rechazo_{status}", sesion, entidad=entidad, codigo=codigo, motivo=motivo)
     raise RechazoApi(status, codigo, motivo, extra=extra, headers=headers)
 
 
@@ -902,10 +913,10 @@ class _SuspensionBody(BaseModel):
 
 @app.post("/ui/standby")
 def registrar_suspension(body: _SuspensionBody):
-    """O2e: una pantalla QML informa que entró o salió de suspensión (solo
-    bitácora; no cambia nada del equipo)."""
-    _auditar("suspension_entra" if body.activa else "suspension_sale", usuario="sistema",
-             entidad=body.pantalla[:40])
+    """O2e: una pantalla QML informa que entró o salió de suspensión (no
+    cambia nada del equipo). D9-6 (tanda 9): solo log de desarrollo."""
+    _log_desarrollo("suspension_entra" if body.activa else "suspension_sale", usuario="sistema",
+                    entidad=body.pantalla[:40])
     return {"ok": True}
 
 
@@ -1653,10 +1664,11 @@ def select_cycle(body: _SelectCycleBody, request: Request):
     nombre = getattr(cycle, "name", None)
 
     def rechazar(status: int, codigo: str, motivo: str, anterior=None, estado=""):
-        _auditar("PROGRAMA_SELECCION_RECHAZADA", entidad=entidad,
-                 valor_anterior=anterior, valor_nuevo=body.cycle_id,
-                 detalle={**detalle, "estado": estado or _nombre_estado(),
-                          "codigo": codigo, "motivo": motivo, "programa": nombre})
+        # D9-6 (tanda 9): solo log de desarrollo
+        _log_desarrollo("PROGRAMA_SELECCION_RECHAZADA", entidad=entidad,
+                        anterior=anterior, nuevo=body.cycle_id,
+                        detalle={**detalle, "estado": estado or _nombre_estado(),
+                                 "codigo": codigo, "motivo": motivo, "programa": nombre})
         raise RechazoApi(status, codigo, motivo)
 
     if detalle["origen"] not in ORIGENES_SELECCION:
@@ -1690,8 +1702,9 @@ def select_cycle(body: _SelectCycleBody, request: Request):
     if not ok:
         rechazar(409, "cambio_no_permitido", reason, anterior=anterior, estado=estado)
 
-    _auditar("PROGRAMA_SELECCIONADO", entidad=entidad, valor_anterior=anterior,
-             valor_nuevo=body.cycle_id, detalle={**detalle, "programa": nombre})
+    # D9-6 (tanda 9): solo log de desarrollo
+    _log_desarrollo("PROGRAMA_SELECCIONADO", entidad=entidad, anterior=anterior,
+                    nuevo=body.cycle_id, detalle={**detalle, "programa": nombre})
     return {"ok": True, "id": cycle.id, "name": cycle.name}
 
 @app.get("/cycle/current/readings")
@@ -2162,7 +2175,7 @@ def print_test_page(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGEN
     """Página de prueba de la impresora térmica (409 en ciclo; 503 sin impresora)."""
     from autoclave.services.domain.logging import ticket_mantenimiento as tm
     _encolar_en_impresora([tm.pagina_prueba(_meta_equipo())])
-    _auditar("impresora_prueba", sesion, entidad="/printer/test-page")
+    _log_desarrollo("impresora_prueba", sesion, entidad="/printer/test-page")   # D9-6
     return {"ok": True}
 
 
@@ -2189,8 +2202,8 @@ def print_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_ING
     texto = tm.ganancias(_meta_equipo(), sensores, ref.get("valor"),
                          (ref.get("ultima_modificacion") or {}).get("fecha"))
     _encolar_en_impresora([texto])
-    _auditar("impresion_ganancias", sesion, entidad="/maintenance/print/calibration",
-             detalle={"sensores": len(sensores)})
+    _log_desarrollo("impresion_ganancias", sesion, entidad="/maintenance/print/calibration",
+                    sensores=len(sensores))   # D9-6
     return {"ok": True, "sensores": len(sensores)}
 
 
@@ -2346,8 +2359,8 @@ def post_email_test(sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
             # contener credenciales del servidor); solo su tipo
             logger.warning("Correo de prueba a %s fallido (%s)", destino, type(e).__name__)
             fallidos.append(destino)
-    _auditar("correo_prueba", sesion, entidad=entidad,
-             detalle={"enviados": enviados, "fallidos": fallidos})
+    _log_desarrollo("correo_prueba", sesion, entidad=entidad,
+                    enviados=enviados, fallidos=fallidos)   # D9-6
     if not enviados:
         raise RechazoApi(502, "envio_fallido", "No se pudo enviar el correo de prueba",
                          extra={"fallidos": fallidos})
@@ -3374,8 +3387,8 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
     origen = "desconocido" if source_door is None else source_door
 
     def rechazo_origen(status: int, codigo: str, motivo: str):
-        _auditar("puerta_orden_rechazada", entidad=door_name, valor_nuevo=accion,
-                 detalle={"source_door": origen, "codigo": codigo, "motivo": motivo})
+        _log_desarrollo("puerta_orden_rechazada", entidad=door_name, accion=accion,
+                        source_door=origen, codigo=codigo, motivo=motivo)   # D9-6
         raise RechazoApi(status, codigo, motivo)
 
     if source_door is not None:
@@ -3407,8 +3420,8 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         # libre: lee la configuración de unidades del disco.
         _rechazar(409, "puerta_rechazada", rechazo_puerta, entidad,
                   extra=_campos_motivo(rechazo_puerta))
-    _auditar("puerta_orden", entidad=door_name, valor_nuevo=accion,
-             detalle={"source_door": origen})
+    _log_desarrollo("puerta_orden", entidad=door_name, accion=accion,
+                    source_door=origen)   # D9-6
     return {
         "ok": True,
         "door": door_name,

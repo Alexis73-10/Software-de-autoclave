@@ -4,6 +4,7 @@
 # registro en audit_log. Base SQLite real en tmp_path; el resto del contexto
 # es un MagicMock.
 
+import logging
 import threading
 from unittest.mock import MagicMock, patch
 
@@ -294,13 +295,15 @@ def test_reinicio_del_backend_invalida_los_tokens(db):
 
 
 @pytest.mark.parametrize("valor", ["", "Bearer", "Bearer ", "Basic abc", "Bearer no-existe"])
-def test_cabecera_invalida_401_y_queda_registrada(entorno, db, valor):
+def test_cabecera_invalida_401_y_queda_registrada(entorno, db, valor, caplog):
     client, _, _ = entorno
-    r = client.post("/io/test/enter", headers={"Authorization": valor})
+    with caplog.at_level(logging.INFO):
+        r = client.post("/io/test/enter", headers={"Authorization": valor})
     assert r.status_code == 401
     assert r.headers.get("www-authenticate") == "Bearer"
-    rechazo = _eventos(db, "rechazo_401")[0]
-    assert rechazo["entidad"] == "/io/test/enter"
+    # D9-6 (tanda 9): el rechazo queda en el log de desarrollo, no en la bitácora
+    assert _eventos(db, "rechazo_401") == []
+    assert "rechazo_401" in caplog.text and "/io/test/enter" in caplog.text
 
 
 # ── Rol (criterios 1 y 2) ─────────────────────────────────────────────────────
@@ -340,7 +343,7 @@ def test_configuracion_403_para_admin_en_cualquier_estado(entorno_config, estado
     assert _param(client, cab).status_code == 403
     assert otro.get_param("secado", "tiempo_secado") == 10.0
     ctx.units.reload_calibration.assert_not_called()
-    assert _eventos(ctx.db, "rechazo_403")
+    assert _eventos(ctx.db, "rechazo_403") == []     # D9-6 (tanda 9): solo log de desarrollo
 
 
 def test_tecnico_calibra_fuera_de_ciclo(entorno_config):
@@ -546,7 +549,7 @@ def test_usuario_repetido_sin_distinguir_mayusculas_409(entorno):
     client, ctx, srv = entorno
     r = client.post("/usuarios", headers=cabecera(srv, "admin"), json=_nuevo(usuario="TEC1"))
     assert r.status_code == 409
-    assert _eventos(ctx.db, "rechazo_409")
+    assert _eventos(ctx.db, "rechazo_409") == []     # D9-6 (tanda 9): solo log de desarrollo
 
 
 def test_usuario_invalido_422_con_errores_por_campo(entorno):
@@ -590,7 +593,7 @@ def test_outputs_reset_409_en_ciclo(entorno):
     assert client.post("/outputs/reset").status_code == 409
     ctx.control_loop.stop.assert_not_called()
     ctx.setdo.reset_all_outputs.assert_not_called()
-    assert _eventos(ctx.db, "rechazo_409")[0]["entidad"] == "/outputs/reset"
+    assert _eventos(ctx.db, "rechazo_409") == []     # D9-6 (tanda 9): solo log de desarrollo
 
 
 @pytest.mark.parametrize("estado", [GlobalState.PREPARACION, GlobalState.PREPARADO,
@@ -704,18 +707,19 @@ def test_apagado_del_backend_detiene_el_loop_y_apaga_salidas(entorno):
 
 
 def test_rechazo_por_estado_se_registra_con_el_lock_libre(entorno):
-    """Hallazgo D: la bitácora del 409 no se escribe con _sm_lock tomado."""
+    """Hallazgo D: el registro del 409 no se hace con _sm_lock tomado. D9-6
+    (tanda 9): ese registro pasó de la bitácora al log de desarrollo."""
     client, ctx, srv = entorno
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     lock = ctx.control_loop.bloqueo_maquina.return_value
-    real = ctx.db.registrar_auditoria
+    real = srv._log_desarrollo
     tomado = []
 
     def registrar(*a, **k):
         tomado.append(lock.locked())
         return real(*a, **k)
 
-    with patch.object(ctx.db, "registrar_auditoria", side_effect=registrar):
+    with patch.object(srv, "_log_desarrollo", side_effect=registrar):
         assert client.post("/outputs/reset").status_code == 409
         assert client.post("/io/test/enter", headers=cabecera(srv, "tecnico")).status_code == 409
     assert tomado == [False, False]

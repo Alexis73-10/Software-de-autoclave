@@ -185,7 +185,8 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(PUE_05, _AV, False, _A, "Cierre en modo seguro",
        "{puerta} se está cerrando sin bomba de vacío por falla eléctrica.",
        "Ninguna, el cierre continúa."),
-    _d(SEN_01, _AV, True, _A, "Lectura inválida de sensor",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_01, _AL, True, _A, "Lectura inválida de sensor",
        "{sensor} entrega una lectura inválida ({valor}).",
        "Verifique la conexión del sensor."),
     _d(SEN_02, _FC, True, _M, "Sensor crítico sin lectura",
@@ -194,7 +195,8 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     # Tanda §1.1: sensor de temperatura del ciclo declarado y sin lectura,
     # fuera de ciclo. No bloquea el equipo; bloquea al INICIAR un programa
     # que lo use (RS-06, SENSOR_NO_DISPONIBLE).
-    _d(SEN_03, _AV, False, _A, "Sensor de temperatura sin señal",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_03, _AL, False, _A, "Sensor de temperatura sin señal",
        "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
        "Verifique la conexión de la sonda o asígnele el rol No en uso."),
     # S1 (tanda 8, D8-1.2): en ciclo, FALLO con el vapor cortado y venteo solo
@@ -215,11 +217,13 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "empaque."),
     # S1 (tanda 8, D8-1.3): fuera de ciclo bloquea el inicio; "NO ABRIR" sigue
     # porque sin presión no se confirma la cámara segura.
-    _d(SEN_06, _AV, True, _A, "Sensor de presión de cámara sin lectura",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_06, _AL, True, _A, "Sensor de presión de cámara sin lectura",
        "Sensor de presión de cámara sin lectura: llame a servicio.",
        "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. "
        "Llame a servicio técnico."),
-    _d(SEN_07, _AV, True, _A, "Sensor de presión de chaqueta sin lectura",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_07, _AL, True, _A, "Sensor de presión de chaqueta sin lectura",
        "Sensor de presión de chaqueta sin lectura: llame a servicio.",
        "Llame a servicio técnico para revisar el sensor de presión de chaqueta."),
     # R8 (tanda 8; SAF-01/SAF-02 de su revisión): tras reasignar E/S, no se
@@ -254,7 +258,8 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "({minimo:.1f}–{maximo:.1f} °C). El ciclo sigue controlado por el sensor Principal.",
        "Revise la carga y la ubicación de la sonda de referencia."),
     # SAF-04 de T5: el protocolo de estado seguro no puede terminar solo
-    _d(CIC_10, _AV, False, _A, "Estado seguro detenido",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(CIC_10, _AL, False, _A, "Estado seguro detenido",
        "{motivo}. La cámara sigue sin considerarse segura.",
        "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en "
        "OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, "

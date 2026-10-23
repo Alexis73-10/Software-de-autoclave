@@ -101,7 +101,7 @@ def test_niveles_reconocimiento_y_compat():
 
 
 def test_niveles_migrados_iguales_a_hoy():
-    # Restricción global: ninguna alarma cambia de nivel.
+    # Niveles del catálogo; los cambios explícitos van comentados (D9-2).
     esperado = {
         "SIS-01": Nivel.FALLO_CRITICO, "SUM-01": Nivel.FALLO_CRITICO,
         "SEN-02": Nivel.FALLO_CRITICO, "COM-02": Nivel.FALLO_CRITICO,
@@ -117,9 +117,27 @@ def test_niveles_migrados_iguales_a_hoy():
         **{f"CIC-0{i}": Nivel.ALARMA for i in range(1, 7)},
         # D8-2.8 (tanda 8): código nuevo, mismo nivel que el fallo de fase CIC-04
         "CIC-11": Nivel.ALARMA,
+        # D9-2 (tanda 9, H3): pasan de AVISO a ALARMA conservando su bloqueo
+        "SEN-01": Nivel.ALARMA, "SEN-03": Nivel.ALARMA, "SEN-06": Nivel.ALARMA,
+        "SEN-07": Nivel.ALARMA, "CIC-10": Nivel.ALARMA,
     }
     for codigo, d in CATALOGO.items():
         assert d.nivel is esperado.get(codigo, Nivel.AVISO), codigo
+
+
+@pytest.mark.parametrize("codigo, bloquea", [
+    ("SEN-01", True), ("SEN-03", False), ("SEN-06", True), ("SEN-07", True),
+    ("CIC-10", False),
+])
+def test_d9_2_alarma_conserva_bloqueo_y_despeje(codigo, bloquea):
+    # D9-2: solo cambia el nivel; el bloqueo de inicio y el despeje automático
+    # (se resuelven solas al volver la lectura) siguen como antes.
+    d = CATALOGO[codigo]
+    assert d.nivel is Nivel.ALARMA
+    assert d.nivel.requiere_reconocimiento
+    assert d.nivel.nombre_compat == "FALLA"
+    assert d.bloquea_inicio is bloquea
+    assert d.despeje is Despeje.AUTOMATICO
 
 
 @pytest.mark.parametrize("clave", [
