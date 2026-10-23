@@ -285,6 +285,9 @@ FAMILIAS = {
         "autoclave.core.managers.catalogo_parametros", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     # Descripción de cada parámetro de los perfiles de ciclo (tarjeta de ajuste)
     "parametros_desc.": lambda: _parametros_de_perfiles(),
+    # V8b (tanda 8, D8-5.4): nombre visible de cada parámetro (sin él, la UI
+    # mostraba la clave: "Presion add ester")
+    "parametros.": lambda: _parametros_de_perfiles(),
     # Descompresión: nombre y qué hace cada modo (0 a 5) en Parámetros del ciclo
     "descompresion_modos.": lambda: [f"{n}.{c}" for n in range(6) for c in ("nombre", "desc")],
     # D8-5.8 / 5.9 (tanda 8): nombre y línea de cada modo válido, e intro por sección

@@ -72,7 +72,10 @@ Item {
             anchors.left: parent.left; anchors.leftMargin: Escala.px(16)
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width * 0.55
-            elide: Text.ElideRight
+            // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
+            height: parent.height; verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
             text: campo.rotulo
             color: Colores.textoSecundario
             font.family: Tipografia.familia

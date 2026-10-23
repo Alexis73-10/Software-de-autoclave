@@ -79,7 +79,6 @@ Item {
         horizontalAlignment: Text.AlignHCenter
         text: raiz.rotulo
         wrapMode: Text.WordWrap
-        maximumLineCount: 2
         lineHeightMode: Text.FixedHeight
         lineHeight: raiz.m(27)
         color: Colores.textoPrimario
@@ -112,7 +111,7 @@ Item {
         width: parent.width - raiz.m(16)
         y: raiz.m(303) - baselineOffset
         horizontalAlignment: Text.AlignHCenter
-        elide: Text.ElideRight
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         text: raiz.subrotulo
         color: Colores.textoPrimario
         font.family: Tipografia.familia

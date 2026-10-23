@@ -180,7 +180,10 @@ Item {
             anchors.left: parent.left; anchors.leftMargin: Escala.px(12)
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width * 0.55
-            elide: Text.ElideRight
+            // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
+            height: parent.height; verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
             text: fila.titulo + (fila.marca ? " *" : "")
             color: Colores.textoPrimario
             font.family: Tipografia.familia
@@ -191,7 +194,10 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignRight
             width: parent.width * 0.4
-            elide: Text.ElideLeft
+            // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
+            height: parent.height; verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
             textFormat: Text.StyledText
             text: "<b>" + fila.valor + "</b>" + (fila.detalle !== "" ? " <font color='#808080'>" + fila.detalle + "</font>" : "")
             color: Colores.textoPrimario

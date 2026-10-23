@@ -605,7 +605,7 @@ Item {
                     width: fila.width - x
                     anchors.verticalCenter: parent.verticalCenter
                     text: fila.model.description !== "" ? fila.model.description : fila.model.id
-                    elide: Text.ElideRight
+                    fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia
                     font.pixelSize: raiz.fuente(24)
@@ -953,7 +953,7 @@ Item {
                     width: parent.width - raiz.m(118) - raiz.m(24)
                     spacing: raiz.m(4)
                     Text {
-                        width: parent.width; elide: Text.ElideRight
+                        width: parent.width; fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                         text: fila.modelData.nombre
                         color: Colores.textoPrimario
                         font.family: Tipografia.familia
@@ -961,7 +961,7 @@ Item {
                         font.pixelSize: raiz.fuente(30)
                     }
                     Text {
-                        width: parent.width; elide: Text.ElideRight
+                        width: parent.width; fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                         text: fila.modelData.parametros
                                 + (fila.modelData.masUsado ? "   \u2022 " + I18n.t("selector_ciclo.mas_usado", I18n.lang) : "")
                         color: Colores.textoSecundario

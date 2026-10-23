@@ -131,7 +131,7 @@ Rectangle {
                         }
                         Text {
                             width: parent.width
-                            elide: Text.ElideRight
+                            wrapMode: Text.WrapAnywhere
                             text: destino.modelData.correo
                             color: Colores.textoSecundario
                             font.family: Tipografia.familia

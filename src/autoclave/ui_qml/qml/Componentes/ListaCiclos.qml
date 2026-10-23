@@ -84,7 +84,7 @@ Item {
         x: raiz._x(columna)
         width: raiz._columnas[columna] * raiz._anchoColumnas - raiz.m(12)
         anchors.verticalCenter: parent.verticalCenter
-        elide: Text.ElideRight
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         font.family: Tipografia.familia
         font.pixelSize: raiz.fuente(24)
         color: Colores.textoPrimario

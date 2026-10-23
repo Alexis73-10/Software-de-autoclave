@@ -247,10 +247,10 @@ class CalentamientoFase(BaseFase):
             # "no se alcanzó el objetivo"
             if self._timer_sostenido_desde is not None and self.ventana_pausada_s() > 0:
                 return self._fallo(
-                    f"Timeout de calentamiento ({timeout_seg / 60:.0f} min) durante el "
+                    f"Tiempo límite de calentamiento ({timeout_seg / 60:.0f} min) durante el "
                     f"sostenimiento: la ventana de estabilidad se alargó "
                     f"{self.ventana_pausada_s():.0f} s por tramos sin datos de la tarjeta")
-            return self._fallo(f"Timeout de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
+            return self._fallo(f"Tiempo límite de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
 
         temp = self._temp_principal()
         pres = self._pres_camara()

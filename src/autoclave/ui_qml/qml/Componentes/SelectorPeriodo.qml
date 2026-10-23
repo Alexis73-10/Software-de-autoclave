@@ -90,7 +90,7 @@ Column {
             anchors.centerIn: parent
             width: parent.width - raiz.m(220)
             horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: raiz.rotulo
             color: Colores.textoPrimario
             font.family: Tipografia.familia

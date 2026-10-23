@@ -313,7 +313,7 @@ Item {
         x: raiz.m(160)
         y: raiz.m(282) - baselineOffset
         width: raiz.m(1140) - x
-        elide: Text.ElideRight
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         text: raiz.seccionActiva !== "" ? raiz.nombreSeccion(raiz.seccionActiva).toUpperCase()
                                         : I18n.t("opciones.titulo", I18n.lang)
         color: Colores.textoPrimario
@@ -632,8 +632,6 @@ Item {
                             width: parent.width - x - raiz.m(12)
                             anchors.verticalCenter: parent.verticalCenter
                             wrapMode: Text.WordWrap
-                            maximumLineCount: 2
-                            elide: Text.ElideRight
                             text: raiz.nombreSeccion(entrada.modelData.clave)
                             color: entrada.activa ? Colores.accionPrimarioTexto : Colores.textoPrimario
                             font.family: Tipografia.familia

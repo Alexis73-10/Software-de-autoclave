@@ -28,6 +28,8 @@ _PUENTE = """
         property bool estadoSeguroActivo: false
         property bool estadoSeguroRequiereConfirmacion: false
         property string estadoSeguroBloqueadoMotivo: ""
+        property string estadoSeguroBloqueadoClave: ""
+        property bool estadoSeguroBloqueoPorSonda: false
         property bool modoPrueba: false
         property bool connected: true
         property string estadoTarjeta: "ok"
@@ -151,11 +153,13 @@ r["3_insignia"] = p("avisoEnCurso") and not p("urgente") and not p("parpadeo")
 r["s4_sin_bloqueo_oculto"] = (not visible(E, "avisoEstadoSeguroDetenido")
                               and not visible(E, "botonAsignarSonda"))
 puente.setProperty("estadoSeguroBloqueadoMotivo", "Sensor Principal sin lectura")
+puente.setProperty("estadoSeguroBloqueoPorSonda", True)   # V8b: lo calcula ui_bridge
 r["s4_aviso"] = (visible(E, "avisoEstadoSeguroDetenido") and visible(E, "botonAsignarSonda")
                  and "Sensor Principal sin lectura" in fila(E, "avisoEstadoSeguroDetenido").property("texto")
                  and "Parámetros del ciclo" in fila(E, "avisoEstadoSeguroDetenido").property("texto"))
 r["s4_sigue_no_abrir"] = visible(E, "filaEstadoSeguroEnCurso") and fila(E, "botonDeclararSegura") is None
 puente.setProperty("estadoSeguroBloqueadoMotivo", "")
+puente.setProperty("estadoSeguroBloqueoPorSonda", False)
 puente.setProperty("estadoSeguroActivo", False)
 
 # sin conexión con el backend: seguridad desconocida, contada, roja fija

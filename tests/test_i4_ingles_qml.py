@@ -222,11 +222,14 @@ def test_i18n_qml_no_sondea_hasta_que_lo_pide_un_motor():
 
 
 def test_bloqueo_por_sonda_sigue_leyendo_el_texto_en_espanol():
-    """SAF-01 (I4 QML): SeccionEstadoSeguro decide el botón de sondas con
-    indexOf("Principal") sobre el motivo de bloqueo; ese motivo NO se traduce
-    hasta que el backend exponga un código."""
+    """SAF-01 (I4 QML): el botón de sondas se decide sobre el motivo de bloqueo
+    EN ESPAÑOL, tal como lo manda el backend. V8b (tanda 8, D8-5.11): la
+    decisión pasó a ui_bridge (es_bloqueado_sonda, calculado sobre el texto
+    crudo) y la UI solo traduce lo que MUESTRA (es_bloqueado_clave); el motivo
+    crudo sigue sin traducirse."""
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     s = UiBridge._seguridad_de({"estado_seguro": {"bloqueado_motivo": "Sonda Principal sin lectura"}})
     assert "Principal" in s["es_bloqueado"]
+    assert s["es_bloqueado_sonda"] is True
     qml = (QML / "Componentes" / "SeccionEstadoSeguro.qml").read_text(encoding="utf-8")
-    assert 'bloqueoMotivo.indexOf("Principal")' in qml
+    assert "puente?.estadoSeguroBloqueoPorSonda" in qml

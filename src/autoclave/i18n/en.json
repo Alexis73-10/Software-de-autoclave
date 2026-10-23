@@ -340,18 +340,18 @@
     "tiempo_restante": "Remaining time",
     "tiempos": "Times",
     "grafica_eje_tiempo": "Time (min)",
-    "entrada_corta_temp_camara": "Chamber temp.",
-    "entrada_corta_temp_2_camara": "Chamber temp. 2",
-    "entrada_corta_temp_referencia": "Reference temp.",
-    "entrada_corta_temp_drenaje": "Drain temp.",
-    "entrada_corta_temp_drenaje_camara": "Chamber drain temp.",
+    "entrada_corta_temp_camara": "Chamber temperature",
+    "entrada_corta_temp_2_camara": "Chamber temperature 2",
+    "entrada_corta_temp_referencia": "Reference temperature",
+    "entrada_corta_temp_drenaje": "Drain temperature",
+    "entrada_corta_temp_drenaje_camara": "Chamber drain temperature",
     "entrada_corta_pres_camara": "Pressure",
-    "entrada_corta_pres_chaqueta": "Jacket pres.",
-    "entrada_corta_pres_empaque_1": "Gasket pres. 1",
-    "entrada_corta_pres_empaque_2": "Gasket pres. 2",
+    "entrada_corta_pres_chaqueta": "Jacket pressure",
+    "entrada_corta_pres_empaque_1": "Gasket pressure 1",
+    "entrada_corta_pres_empaque_2": "Gasket pressure 2",
     "serie_sin_registro": "(not logged)",
-    "serie_temp_camara": "Chamber Temp",
-    "serie_temp_ref": "Ref Temp",
+    "serie_temp_camara": "Chamber temperature",
+    "serie_temp_ref": "Reference temperature",
     "serie_presion": "Pressure",
     "cancelar": "CANCEL CYCLE",
     "cancelar_pregunta": "The cycle in progress will be cancelled. Do you want to continue?",
@@ -359,11 +359,11 @@
     "confirmar": "CONFIRM",
     "confirmar_error": "The end of the cycle could not be confirmed. Check the connection with the controller and try again.",
     "aviso_titulo": "NOTICE",
-    "temp_ester": "Ster. Temp.",
-    "tiempo_est": "Ster. Time",
-    "tiempo_sec": "Dry. Time",
-    "temp_camara": "Chamber temp",
-    "temp_referencia": "Reference temp",
+    "temp_ester": "Sterilization temperature",
+    "tiempo_est": "Sterilization time",
+    "tiempo_sec": "Drying time",
+    "temp_camara": "Chamber temperature",
+    "temp_referencia": "Reference temperature",
     "presion": "Pressure",
     "alarmas_titulo": "ALARMS AND NOTICES",
     "sin_alarmas": "No active alarms or notices",
@@ -423,17 +423,17 @@
     },
     {
       "clave": "tiempo_est",
-      "etiqueta": "Ster. Time",
+      "etiqueta": "Sterilization time",
       "unidad": "min"
     },
     {
       "clave": "tiempo_sec",
-      "etiqueta": "Dry. Time",
+      "etiqueta": "Drying time",
       "unidad": "min"
     },
     {
       "clave": "temp_1",
-      "etiqueta": "Temp 1",
+      "etiqueta": "Temperature 1",
       "unidad": "°C"
     },
     {
@@ -566,7 +566,7 @@
     "equipo_pdf": "{clase} · {capacidad} L · {carga}",
     "carga_V": "Vertical load",
     "carga_H": "Horizontal load",
-    "titulo": "Cycle No. {numero} · {programa}",
+    "titulo": "Cycle number {numero} · {programa}",
     "inicio": "Start",
     "fin": "End",
     "resultado": "Result",
@@ -583,7 +583,7 @@
     "periodo_resumen": "From {desde} to {hasta}",
     "asunto_resumen": "Autoclave {serie} cycle summary: {periodo}",
     "cuerpo_resumen": "Attached is the cycle summary for the period in PDF format.",
-    "consigna_temp": "Temp. setpoint",
+    "consigna_temp": "Temperature setpoint",
     "consigna_pres": "Pressure setpoint",
     "titulo_consolidado": "Consolidated cycle report",
     "asunto_consolidado": "Autoclave {serie} consolidated report: {periodo}",
@@ -610,9 +610,9 @@
     "por_programa": "By program",
     "programa": "Program",
     "col_total": "Total",
-    "col_completados": "Compl.",
+    "col_completados": "Completed",
     "col_fallos": "Failed",
-    "col_cancelados": "Cancel.",
+    "col_cancelados": "Cancelled",
     "col_sin_cierre": "Not closed",
     "causas_fallo": "Failure causes",
     "causa": "Cause",
@@ -1658,6 +1658,137 @@
     "enviar_a_manual": "Send to this address:",
     "aviso_invalida": "The address is not in a valid format (name@domain.com)",
     "no_se_guarda": "This address is not added to the saved recipients"
+  },
+  "parametros": {
+    "globals": {
+      "F0": "F0 calculation",
+      "F0_objetivo": "Target F0",
+      "ciclos_multiples": "Multiple cycles",
+      "enfriar_chaqueta_secado": "Cool the jacket during drying",
+      "presion_chaqueta": "Jacket pressure",
+      "rango_presion_chaqueta": "Jacket pressure range",
+      "tipo_carga": "Load type"
+    },
+    "precalentamiento": {
+      "presion_precalentamiento": "Preheating pressure",
+      "tiempo_precalentamiento": "Preheating time",
+      "timeout_precalentamiento": "Preheating time limit"
+    },
+    "prevacio": {
+      "conteo_pulso_a": "Number of A pulses",
+      "presion_alta_pulso_a": "Pulse A high pressure",
+      "presion_baja_pulso_a": "Pulse A low pressure",
+      "tiempo_adicional_alto_a": "Extra time at high pressure A",
+      "tiempo_adicional_bajo_a": "Extra time at low pressure A",
+      "conteo_pulso_b": "Number of B pulses",
+      "presion_alta_pulso_b": "Pulse B high pressure",
+      "presion_baja_pulso_b": "Pulse B low pressure",
+      "tiempo_adicional_alto_b": "Extra time at high pressure B",
+      "tiempo_adicional_bajo_b": "Extra time at low pressure B",
+      "conteo_pulso_c": "Number of C pulses",
+      "presion_alta_pulso_c": "Pulse C high pressure",
+      "presion_baja_pulso_c": "Pulse C low pressure",
+      "tiempo_adicional_alto_c": "Extra time at high pressure C",
+      "tiempo_adicional_bajo_c": "Extra time at low pressure C",
+      "conteo_pulso_d": "Number of D pulses",
+      "presion_alta_pulso_d": "Pulse D high pressure",
+      "presion_baja_pulso_d": "Pulse D low pressure",
+      "tiempo_adicional_alto_d": "Extra time at high pressure D",
+      "tiempo_adicional_bajo_d": "Extra time at low pressure D",
+      "timeout_alto": "Time limit to reach high pressure",
+      "timeout_bajo": "Time limit to reach low pressure"
+    },
+    "calentamiento": {
+      "escape_lento_on": "Slow exhaust open time",
+      "escape_lento_off": "Slow exhaust closed time",
+      "escape_rapido_on": "Fast exhaust open time",
+      "escape_rapido_off": "Fast exhaust closed time",
+      "factor_calentamiento": "Heating factor",
+      "intervalo_segmentos_calor": "Steam pulse period during heating",
+      "presion_add_calentamiento": "Additional heating pressure",
+      "rango_calentamiento_pres": "Pressure approach range",
+      "rango_calentamiento_temp": "Temperature approach range",
+      "rango_temp_estabilizacion": "Stabilization temperature range",
+      "tasa_calentamiento": "Maximum heating rate",
+      "tasa_presion": "Maximum pressure rise rate",
+      "temperatura_calentamiento": "Heating temperature",
+      "tiempo_estable_preesterilizacion": "Stability time before sterilization",
+      "timeout_calentamiento": "Heating time limit",
+      "timeout_recuperacion_estabilizacion": "Stability recovery time limit"
+    },
+    "estabilizacion": {
+      "rango_presion_estabilizacion": "Stabilization pressure range",
+      "rango_temperatura_estabilizacion": "Stabilization temperature range",
+      "temperatura_estabilizacion": "Stabilization temperature",
+      "tiempo_estabilizacion": "Stabilization time",
+      "timeout_recuperacion": "Recovery time limit"
+    },
+    "esterilizacion": {
+      "brecha_error_presion": "Low pressure failure margin",
+      "brecha_error_temperatura": "Low temperature failure margin",
+      "brecha_segura_presion": "Pressure recovery margin",
+      "brecha_segura_temperatura": "Temperature recovery margin",
+      "escape_lento_on_ester": "Slow exhaust open time",
+      "escape_lento_off_ester": "Slow exhaust closed time",
+      "escape_rapido_on_ester": "Fast exhaust open time",
+      "escape_rapido_off_ester": "Fast exhaust closed time",
+      "factor_esterilizacion": "Sterilization factor",
+      "intervalo_segmentos_ester": "Steam pulse period during sterilization",
+      "presion_add_esterilizacion": "Additional sterilization pressure",
+      "rango_presion_ester": "High pressure failure margin",
+      "rango_temperatura_ester": "High temperature failure margin",
+      "temperatura_esterilizacion": "Sterilization temperature",
+      "tiempo_esterilizacion": "Sterilization time"
+    },
+    "secado": {
+      "modo": "Drying mode",
+      "presion_alta_secado": "Drying high pressure",
+      "presion_baja_secado": "Drying low pressure",
+      "presion_chaqueta_secado": "Jacket pressure during drying",
+      "rango_chaqueta_secado": "Jacket range during drying",
+      "tiempo_secado": "Drying time",
+      "timeout_pulso": "Time limit per pulse"
+    },
+    "descompresion": {
+      "modo": "Exhaust mode",
+      "tiempo_pre_despresurizacion": "Wait before exhaust",
+      "modo_1": {
+        "timeout": "Mode 1 time limit"
+      },
+      "modo_2": {
+        "timeout": "Mode 2 time limit"
+      },
+      "modo_3": {
+        "timeout": "Mode 3 time limit",
+        "presion_cambio": "Switch-to-fast-exhaust pressure"
+      },
+      "modo_4": {
+        "timeout": "Mode 4 time limit",
+        "presion_camara_enfriamiento": "Chamber pressure during cooling",
+        "temperatura_enfriamiento": "Cooling temperature",
+        "tiempo_apertura_chaqueta": "Jacket drain open time",
+        "tiempo_cierre_chaqueta": "Jacket drain closed time"
+      },
+      "modo_5": {
+        "timeout": "Mode 5 time limit",
+        "presion_camara_enfriamiento": "Chamber pressure during cooling",
+        "temperatura_enfriamiento": "Cooling temperature",
+        "tiempo_apertura_chaqueta": "Jacket drain open time",
+        "tiempo_cierre_chaqueta": "Jacket drain closed time"
+      }
+    },
+    "finalizacion": {
+      "apertura_automatica": "Automatic door opening",
+      "temp_max_apertura": "Maximum temperature to open",
+      "tiempo_espera_apertura": "Wait before opening",
+      "timeout_temperatura": "Cooling time limit"
+    }
+  },
+  "estado_seguro_motivos": {
+    "sonda_temperatura": "Main probe without reading: the safe state cannot confirm the temperature",
+    "sonda_enfriamiento": "Main probe without reading: cooling cannot be confirmed",
+    "liquido_caliente": "Exhaust time limit reached with a hot liquid load: the fast exhaust is not used",
+    "sonda_liquido_sellada": "Main probe without reading with a liquid load: chamber sealed until the probes confirm the temperature or the wait expires"
   },
   "modos_programa": {
     "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",

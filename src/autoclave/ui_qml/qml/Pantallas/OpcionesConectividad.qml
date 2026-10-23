@@ -63,7 +63,10 @@ Item {
             anchors.left: parent.left; anchors.leftMargin: Escala.px(12)
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width * 0.45
-            elide: Text.ElideRight
+            // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
+            height: parent.height; verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
             text: dato.rotulo
             color: Colores.textoSecundario
             font.family: Tipografia.familia
@@ -74,7 +77,10 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             width: parent.width * 0.53
             horizontalAlignment: Text.AlignRight
-            elide: Text.ElideLeft
+            // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
+            height: parent.height; verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
             text: dato.valor
             color: Colores.textoPrimario
             font.family: Tipografia.familia
@@ -237,7 +243,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         Text {
                             width: parent.width
-                            elide: Text.ElideRight
+                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                             text: filaDest.modelData.nombre
                             color: Colores.textoPrimario
                             font.family: Tipografia.familia
@@ -246,7 +252,7 @@ Item {
                         }
                         Text {
                             width: parent.width
-                            elide: Text.ElideRight
+                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                             text: filaDest.modelData.correo
                             color: Colores.textoSecundario
                             font.family: Tipografia.familia

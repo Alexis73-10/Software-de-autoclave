@@ -83,7 +83,7 @@ Item {
         property real fraccion: 0.2
         width: (parent ? parent.width : 0) * fraccion
         anchors.verticalCenter: parent ? parent.verticalCenter : undefined
-        elide: Text.ElideRight
+        wrapMode: Text.Wrap   // D8-5.4: sin recorte; la fila (76 px) admite dos líneas
         color: Colores.textoPrimario
         font.family: Tipografia.familia
         font.pixelSize: Escala.fuente(21)
@@ -260,7 +260,7 @@ Item {
                     width: encabezadoTabla.util * modelData.f
                     height: encabezadoTabla.height
                     verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
+                    fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima   // D8-5.4
                     text: I18n.t(modelData.clave, I18n.lang)
                     color: Colores.textoGuia
                     font.family: Tipografia.familia
@@ -459,7 +459,7 @@ Item {
                                     Text {
                                         width: parent.width
                                         horizontalAlignment: Text.AlignHCenter
-                                        elide: Text.ElideRight
+                                        wrapMode: Text.Wrap   // D8-5.4: sin recorte; el botón (96 px) admite dos líneas
                                         text: chip.modelData.actual ? I18n.t("reasignacion.puerto_es_actual", I18n.lang)
                                               : chip.modelData.ocupadoPor !== ""
                                                 ? raiz.nombre(chip.modelData.ocupadoPor)

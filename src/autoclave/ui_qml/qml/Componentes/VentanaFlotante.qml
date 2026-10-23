@@ -65,7 +65,7 @@ Item {
             x: raiz.m(48)
             width: botonCerrar.x - x - raiz.m(24)
             y: raiz.m(78) - baselineOffset
-            elide: Text.ElideRight
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: raiz.titulo
             color: Colores.textoPrimario
             font.family: Tipografia.familia
