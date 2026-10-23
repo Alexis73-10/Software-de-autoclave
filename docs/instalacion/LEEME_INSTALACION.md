@@ -1,4 +1,4 @@
-# LEEME — Instalación en el equipo de pruebas (jueves 22-oct-2026)
+# LEEME — Instalación en el equipo de pruebas (compilación F, 2026-10-23)
 
 Lista de comprobación para Cristian. Hoy solo se hace:
 1. la instalación con el asistente;
@@ -9,7 +9,31 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup).
+Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup).
+
+> **Tanda 10 (2026-10-23): instale la compilación F (`entrega/2026-10-23_f/`, etiqueta `inst-2026-10-23-f`) con `Autoclave_Setup_1.0.0-f.exe`, siguiendo la sección 8e («Actualizar E → F», y D → F si el equipo aún tiene la D), sin copiar archivos a mano.** La F es la E más las correcciones vistas en el equipo el 23-oct (tabla «Cambios respecto a la E»). La letra E ya estaba usada por la compilación de esta mañana, por eso esta se llama F.
+
+> **Compilación E (23-oct): la D falló en el PC de pruebas (ver "Cambios respecto a la D"). Instale la E (`entrega/2026-10-23_e/`, etiqueta `inst-2026-10-23-e`, commit cafb06e) con `Autoclave_Setup_1.0.0-e.exe`: siga la sección 8c con el Setup E en lugar del de la D, y lea la 8d.** El código del programa es el de la D más las 2 correcciones; todo lo dicho de la D vale para la E.
+
+## Cambios respecto a la E
+
+| | Compilación E (`2026-10-23_e`) | Compilación F (`2026-10-23_f`) |
+|---|---|---|
+| Suite en ese código | — (la E es la D, 6606 passed, más 2 correcciones de empaquetado) | **6993 passed, 10 skipped, 3 xfailed (6990 con -n auto + 3 que pasan en serie)** |
+| Código de activación (D10-2) | Rechazaba `FR4QAXQ3043N` (cero) cuando el generador mostraba `FR4QAXQ3O43N` (letra O) | Acepta el código con 0/O, 1/I y 8/B confundidos, sin espacios ni guiones; un código de otro día sigue siendo inválido. El generador muestra los códigos en letra monoespaciada que distingue O de 0 |
+| CIC-10 sin sensor de presión de cámara (D10-3) | La acción pedía revisar la sonda Principal | Motivo y acción dicen que sin el sensor de presión de cámara no se puede llevar la cámara a estado seguro y piden revisar su conexión o llamar a servicio técnico (es y en). **Mismo comportamiento** que la D/E (NO ABRIR, sin bloquear login, modo prueba, cambio de programa ni apagado) |
+| Pantalla 2 durante la instalación (D10-4) | La pantalla 2 iba al menú y mostraba ARR_PERFIL | Muestra Reposo con «Instalación en curso en la pantalla 1» y pasa sola al flujo normal al terminar el asistente. Una sola pantalla: sin cambios |
+| Textos que no caben (D10-1) | Se encogían o se cortaban (tarjeta de Ciclo/Preciclo, alarmas, Reportes, Historial) | Lo que no cabe se abrevia (p. ej. «Temp. ester.», «Pres. chaqueta»); lo que cabe se muestra completo. Las alarmas de Preciclo y la campana salen en el idioma de la interfaz y el motivo largo de CIC-10 se ve completo en varias líneas |
+| Versión del Setup | `1.0.0-e` (`AppVerNum` 1.0.0.5) | `1.0.0-f` (`AppVerNum` 1.0.0.6) |
+
+## Cambios respecto a la D
+
+| | Compilación D (`2026-10-23_d`) | Compilación E (`2026-10-23_e`) |
+|---|---|---|
+| Arranque del backend | **Falla**: `ModuleNotFoundError: No module named 'autoclave.backend.server_reasignacion'`. `server.py` carga ese módulo con `importlib.import_module` y PyInstaller no lo empaquetó | Corregido: el módulo va como *hidden import* en `Autoclave.spec` y `AutoclaveBackend.spec`, verificado en el archivo PYZ del `.exe` y con la prueba de humo |
+| Paso 05 de la estación (plan de energía) | **Falla** en equipos sin el valor `HibernateEnabled` en el registro (lectura con `StrictMode 2.0`) | Corregido: si el valor no existe se respalda como vacío y el paso sigue |
+| Setup sobre una instalación existente | Solo actualizar | Página "Autoclave ya está instalado" (Reparar / Reinstalar / Desinstalar) y bloqueo de versiones más viejas (sección 8d) |
+| Versión del Setup | `1.0.0-d` | `1.0.0-e` (`AppVerNum` 1.0.0.5) |
 
 > **Tanda 9 (23-oct): la C NO se instala. El equipo de pruebas pasa de la B a la compilación D (`entrega/2026-10-23_d/`) con el Setup `Autoclave_Setup_1.0.0-d.exe`: siga la sección 8c («Actualizar B → D»), sin copiar archivos a mano.** En un PC nuevo, la D se instala con el mismo Setup (secciones 1 a 6, usando el Setup en lugar de abrir `Autoclave.exe`).
 
@@ -399,6 +423,44 @@ Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **D** si
 1. Cierre Autoclave.
 2. Abra el `Autoclave.exe` de la B desde la USB, responda Sí a «¿Actualizarlo?» y ciérrelo cuando se abra.
 3. **Reemplace la carpeta completa** `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2 (la D deja la base de datos en la versión 10, que la B no conoce).
+
+## 8d. Instalar con el Setup E (`Autoclave_Setup_1.0.0-e.exe`)
+
+Se usa igual que el de la D (sección 8c): compruebe el Setup con `Get-FileHash .\Autoclave_Setup_1.0.0-e.exe` contra la línea del Setup en `SHA256SUMS.txt`, ejecútelo y acepte el aviso de administrador. Lo nuevo es lo que hace el Setup cuando ya hay un Autoclave instalado **con un Setup** (lo detecta por la clave de desinstalación de Windows; la versión numérica instalada queda anotada en `HKLM\SOFTWARE\Especifika\Autoclave\Instalacion\VersionNum`):
+
+| Instalado en el PC | Qué hace el Setup E |
+|---|---|
+| Nada, o la B (instalada con `Autoclave.exe`, sin Setup) | Instalación normal con el asistente completo |
+| **La D** (instalada con el Setup D) | **Actualiza** con el asistente completo: tareas, y si deja marcada la casilla de la estación, **vuelve a pedir la contraseña de la cuenta de la estación** (inicio de sesión automático). La D no anotaba `VersionNum`, así que el Setup la trata como más vieja por su `DisplayVersion` |
+| **La E** (misma versión) | Página **"Autoclave ya está instalado"**, con tres opciones (abajo) |
+| Una versión más nueva que la E | **Se niega a instalar** con un aviso y no cambia nada: hay que desinstalar primero desde Configuración › Aplicaciones (no se baja de versión) |
+
+La página de mantenimiento **solo aparece al correr el Setup E sobre la E ya instalada**; sobre la D, el Setup E actualiza.
+
+**Página "Autoclave ya está instalado"** (Reparar viene marcada):
+- **Reparar**: vuelve a copiar el programa (borra antes `_internal\`), recrea la tarea de arranque si estaba elegida y vuelve a aplicar los pasos de la estación 04, 05 y 02 que ya estaban aplicados. No muestra las tareas ni la página de la cuenta. **No reaplica el inicio de sesión automático (paso 01)**: queda como estaba, y la tarea de arranque se recrea para la misma cuenta. Un Setup silencioso (`/SILENT`, `/VERYSILENT`) de la misma versión hace Reparar.
+- **Reinstalar**: ejecuta el desinstalador (revierte la configuración de Windows de la estación, borra el programa y la tarea) y espera a que termine (máx. 120 s); después sigue con el asistente completo, como una instalación nueva (vuelve a pedir la contraseña si se marca la estación). Si la desinstalación no termina, no instala.
+- **Desinstalar**: abre el desinstalador normal (con su confirmación) y cierra el Setup.
+- En las tres se conservan los datos de `C:\ProgramData\Especifika\Autoclave` (perfil, calibración, base de datos, usuarios).
+
+La casilla «Configurar este PC como estación del autoclave» sigue **DESMARCADA en el equipo de pruebas** hasta validarla en un PC de prueba (sección 8c, paso 5; lista de `tools/instalador/LEEME.md`, que ahora incluye la verificación de Reparar / Reinstalar / Desinstalar).
+
+## 8e. Actualizar el equipo de pruebas a la F (E → F, o D → F) con el Setup
+
+Es la sección 8c con el Setup F. **Sin pasos de copia a mano.** Se ensayó en el PC de la oficina sobre una copia simulada del equipo (perfil del equipo de pruebas, base de datos con un usuario y un parámetro cambiado, calibración y correo propios) con el código y el `_internal` de la E y luego de la F: `docs/informes/tanda10/K10_compilacion_f.md`.
+
+1. **Cierre Autoclave por completo** (las dos pantallas).
+2. **Respaldo:** copie `C:\ProgramData\Especifika\Autoclave` completa a la USB (por ejemplo, `respaldo_E_2026-10-23`).
+3. Compruebe el Setup: `Get-FileHash .\Autoclave_Setup_1.0.0-f.exe` contra la línea del Setup en `SHA256SUMS.txt`.
+4. Ejecute `Autoclave_Setup_1.0.0-f.exe` y acepte el aviso de administrador. Sobre la E o la D, **actualiza** con el asistente completo (sección 8d). Sobre la F misma aparecería la página «Autoclave ya está instalado».
+5. En «Tareas adicionales», igual que en la 8c: inicio automático **marcada**; «Configurar este PC como estación del autoclave» **DESMARCADA** en el equipo de pruebas hasta validarla en un PC de prueba (DECISIÓN SIN CONFIRMAR K9-1, se mantiene); arranque sin logo desmarcada.
+6. Abra Autoclave y compruebe, además de lo de la 8c paso 7:
+   - Ciclo y Preciclo, en español y en inglés: las etiquetas de la tarjeta de parámetros y sensores se leen completas o abreviadas, sin letra encogida ni cortes;
+   - sin sensor de presión de cámara: CIC-10 dice que sin ese sensor no se puede llevar la cámara a estado seguro (tarjeta de Preciclo y campana), y las filas de alarma salen en el idioma de la interfaz;
+   - el código de activación (si se reinstala el perfil) se acepta aunque se teclee 0 en lugar de O.
+7. La base de datos y la configuración de fábrica no cambian de la E a la F: el primer arranque no hace respaldos nuevos en `programaespaldos_configuracion\` (es lo esperado).
+
+**NO toque** lo mismo que en la 8c. **Volver a la E si la F falla:** cierre Autoclave, ejecute `Autoclave_Setup_1.0.0-e.exe` de la USB (si se niega por ser más vieja, desinstale primero desde Configuración › Aplicaciones; los datos de `ProgramData` se conservan) y, solo si algo de los datos quedó mal, reemplace `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2.
 
 ## A frente a B
 

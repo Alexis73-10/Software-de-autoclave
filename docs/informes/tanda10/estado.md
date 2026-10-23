@@ -14,7 +14,7 @@ Precondición A0: `tanda9/estado.md` tiene `| Z | Hecha |` y `dev` contiene la t
 | W10 | Hecha, unida a `tanda-10` (cc11aa4). Suite tras unir: verde (ver U10b) | `tanda-10-w10` (b4fb30c) | 225 passed en el worktree. |
 | U10a | Hecha, unida a `tanda-10` (af5eaf5). Suite tras unir: verde (ver U10b) | `tanda-10-u10a` (c1fbfbc) | 41 pasan en la prueba nueva; 90 en textos/i18n. Pregunta: «Chbr.»/«Gskt.» en inglés. |
 | U10b | Hecha, unida a `tanda-10` (0635da5) | `tanda-10-u10b` (0e87a4b) | 443 passed en el worktree. Incluye el arreglo del rojo de integración (`test_i18n_linea_base`, b61617d). |
-| K10 | Preparada (entorno `_venv_t8_producto` con PyInstaller 6.20.0, ISCC en `AppData/Local/Programs/Inno Setup 6`; requisitos, `.spec` e instalador sin cambios desde la E; ensayo E → tanda-10 `--desde-src` sin errores salvo «faltan respaldos», esperado porque `src/autoclave/config/` no cambió desde la E). Compila al unir U10b con la suite en verde | | |
+| K10 | Hecha: compilación **F** (`inst-2026-10-23-f` → 4923349, `entrega/2026-10-23_f/`, Setup 1.0.0-f compilado y no ejecutado) | (este commit) | `K10_compilacion_f.md` |
 | Z | Pendiente | | |
 
 Instrucciones comunes de los subagentes: `tanda10/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-10-<id>`; NO relanzarlos desde cero, revisar su rama y su informe y CONTINUAR.
