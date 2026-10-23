@@ -172,6 +172,10 @@ class ControlLoop:
         # D8-3.19 (SAF-01/TMG-01 de la 2.ª revisión): último paso 1 completo
         # (time.monotonic); presion_vigente exige que el estado esté al día
         self._estado_publicado_mono: float | None = None
+        # D8-3.19 (SAF-01/TMG-02, re-revisión E1): instante tomado ANTES de
+        # leer Units en el paso 1; la compuerta del aire atmosférico exige que
+        # sea posterior a la confirmación de la señal de presión
+        self.estado_leido_mono: float | None = None
 
         # Acumulación de F0 (letalidad): timestamp del último tick que
         # acumuló, para calcular dt_min real (no el interval nominal).
@@ -699,8 +703,12 @@ class ControlLoop:
             return
 
         # 1. Publicar estado global
+        # `now` (inicio del tick) es anterior a la lectura de Units: sirve de
+        # instante de lectura (SAF-01/TMG-02) y, por ser más antiguo, deja la
+        # vigencia del estado del lado conservador; sin otra llamada al reloj
         self.estado.update(self.units.get_all())
-        self._estado_publicado_mono = time.monotonic()
+        self.estado_leido_mono = now
+        self._estado_publicado_mono = now
 
         # 2. Paro de emergencia → actualiza flag en estado. DI crudo, contacto
         # NC: EmergencyStop interpreta 0 o ausente como paro (D-16).
@@ -839,7 +847,8 @@ class ControlLoop:
             if vigentes:
                 permitido, codigo = aire_atmosferico_prueba.evaluar(
                     self.estado, self.config_manager,
-                    senal_presente=aire_atmosferico_prueba.senal_camara(self.units))
+                    senal_presente=aire_atmosferico_prueba.senal_camara(
+                        self.units, leido_mono=self.estado_leido_mono))
             else:
                 permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
         except Exception:

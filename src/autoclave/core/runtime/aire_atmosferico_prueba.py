@@ -60,12 +60,18 @@ def _numero(valor) -> float | None:
     return v if math.isfinite(v) else None
 
 
-def senal_camara(units) -> bool:
+def senal_camara(units, leido_mono=None) -> bool:
     """True solo si `units` confirma señal cruda en el canal de pres_camara.
-    Cualquier error o respuesta distinta de True: False (falla cerrada)."""
+    `leido_mono`: instante en que el lazo leyó de Units la presión publicada
+    (SAF-01/TMG-02: debe ser posterior a la confirmación de la señal).
+    Cualquier error o respuesta distinta de True, o sin `leido_mono`: False
+    (falla cerrada)."""
     from autoclave.core.runtime.status import EstadoAutoclave
+    if leido_mono is None:
+        return False
     try:
-        return units.senal_presion_presente(EstadoAutoclave.map_pres["pres_camara"]) is True
+        return units.senal_presion_presente(EstadoAutoclave.map_pres["pres_camara"],
+                                            leido_mono=leido_mono) is True
     except Exception:
         return False
 

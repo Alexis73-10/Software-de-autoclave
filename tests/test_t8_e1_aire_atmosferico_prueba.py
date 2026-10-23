@@ -353,15 +353,40 @@ def test_regla_por_defecto_rechaza():
     assert aap.evaluar(_estado(75.0), _CONFIG) == (False, aap.SIN_PRESION)
 
 
-def _units(raw_canal, factory=True):
+def _trama(u, raw_canal):
+    raw = [0] * 16
+    raw[8 + 0] = raw_canal
+    u.update_from_serial({"ai": raw})
+
+
+def _units(raw_canal, factory=True, tramas=None):
     from autoclave.hal.measures.units import Units
     u = Units()
     if factory:
         u._config.calibration.factory.pressure[0].adc_min = 5
-    raw = [0] * 16
-    raw[8 + 0] = raw_canal
-    u._raw_ai = raw
+    for _ in range(Units.TRAMAS_SENAL_PRESION if tramas is None else tramas):
+        _trama(u, raw_canal)
     return u
+
+
+# Revisión final (SEN-01, media): tras un lazo abierto, la mediana de 5 y el
+# filtro siguen en el valor bajo unas tramas; la señal cruda debe llevar al
+# menos la profundidad de la mediana seguida sobre adc_min.
+
+def test_units_senal_exige_tramas_seguidas_sobre_adc_min():
+    from autoclave.hal.measures.units import Units
+    n = Units.TRAMAS_SENAL_PRESION
+    assert n >= 5                                  # profundidad de la mediana
+    u = _units(2000, tramas=n - 1)
+    assert u.senal_presion_presente(0) is False
+    _trama(u, 2000)
+    assert u.senal_presion_presente(0) is True
+    _trama(u, 0)                                   # lazo abierto: vuelve a cero
+    for _ in range(n - 1):
+        _trama(u, 2000)
+    assert u.senal_presion_presente(0) is False
+    _trama(u, 2000)
+    assert u.senal_presion_presente(0) is True
 
 
 @pytest.mark.parametrize("raw, esperado", [(0, False), (5, False), (6, True), (2000, True)])
@@ -377,9 +402,11 @@ def test_units_sin_calibracion_de_fabrica_exige_adc_positivo():
     from autoclave.hal.measures.units import Units
     u = Units()
     u._config.calibration.factory.pressure = []
-    u._raw_ai = [0] * 16
+    for _ in range(Units.TRAMAS_SENAL_PRESION):
+        _trama(u, 0)
     assert u.senal_presion_presente(0) is False
-    u._raw_ai[8] = 1
+    for _ in range(Units.TRAMAS_SENAL_PRESION):
+        _trama(u, 1)
     assert u.senal_presion_presente(0) is True
 
 
@@ -402,7 +429,8 @@ def test_lazo_cierra_si_units_lanza():
 def test_lazo_consulta_el_canal_de_pres_camara():
     loop = _loop(_Estado(75.0, aire_on=True))
     loop._tick()
-    loop.units.senal_presion_presente.assert_any_call(EstadoAutoclave.map_pres["pres_camara"])
+    loop.units.senal_presion_presente.assert_any_call(
+        EstadoAutoclave.map_pres["pres_camara"], leido_mono=loop.estado_leido_mono)
 
 
 @pytest.mark.parametrize("senal", [False, None])
@@ -435,3 +463,112 @@ def test_presion_vigente_exige_estado_publicado_reciente():
     assert loop.presion_vigente is True
     loop._estado_publicado_mono -= loop._VIGENCIA_DI_SEG + 0.1
     assert loop.presion_vigente is False
+
+
+# ── Re-revisión de E1 (22-oct, SEN-01 Alto / TMG-01 / SAF-01 / SEN-02) ─────
+# El contador cuenta tramas AI NUEVAS (ai_seq de SerialLink, mismo criterio
+# que S1 para la mediana), no las líneas DI/DO/ST que notifican con la misma AI.
+
+def _trama_seq(u, raw_canal, seq, **extra):
+    raw = [0] * 16
+    raw[8 + 0] = raw_canal
+    u.update_from_serial({"ai": raw, "ai_seq": seq, **extra})
+
+
+def _units_seq():
+    from autoclave.hal.measures.units import Units
+    u = Units()
+    u._config.calibration.factory.pressure[0].adc_min = 5
+    return u
+
+
+def test_units_lineas_no_ai_no_suben_el_contador():
+    from autoclave.hal.measures.units import Units
+    u = _units_seq()
+    _trama_seq(u, 2000, 1)
+    for _ in range(4 * Units.TRAMAS_SENAL_PRESION):     # DI, DO, ST... misma AI
+        _trama_seq(u, 2000, 1)
+    assert u.senal_presion_presente(0) is False
+    for seq in range(2, Units.TRAMAS_SENAL_PRESION + 1):
+        _trama_seq(u, 2000, seq)
+    assert u.senal_presion_presente(0) is True
+
+
+def test_units_ai_seq_cero_no_es_trama_real():
+    from autoclave.hal.measures.units import Units
+    u = _units_seq()
+    for _ in range(2 * Units.TRAMAS_SENAL_PRESION):
+        _trama_seq(u, 2000, 0)
+    assert u.senal_presion_presente(0) is False
+
+
+def test_units_desconexion_reinicia_el_contador():
+    from autoclave.hal.measures.units import Units
+    u = _units_seq()
+    n = Units.TRAMAS_SENAL_PRESION
+    for seq in range(1, n + 1):
+        _trama_seq(u, 2000, seq)
+    assert u.senal_presion_presente(0) is True
+    _trama_seq(u, 2000, n, port_open=False)              # _disconnect() notifica
+    assert u.senal_presion_presente(0) is False
+
+
+def test_units_recargar_calibracion_reinicia_el_contador(tmp_path):
+    from autoclave.hal.measures.units import Units
+    u = _units_seq()
+    for seq in range(1, Units.TRAMAS_SENAL_PRESION + 1):
+        _trama_seq(u, 2000, seq)
+    assert u.senal_presion_presente(0) is True
+    with patch("autoclave.hal.measures.units.load_config", return_value=u._config):
+        u.reload_calibration(tmp_path / "x.yaml")
+    assert u.senal_presion_presente(0) is False
+
+
+def test_units_estado_leido_antes_del_umbral_no_vale():
+    """SAF-01/TMG-02: la presión publicada debe haberse leído de Units
+    después de que la señal cumplió las tramas seguidas."""
+    import time
+    from autoclave.hal.measures.units import Units
+    u = _units_seq()
+    leido_antes = time.monotonic()
+    for seq in range(1, Units.TRAMAS_SENAL_PRESION + 1):
+        _trama_seq(u, 2000, seq)
+    assert u.senal_presion_presente(0) is True
+    assert u.senal_presion_presente(0, leido_mono=leido_antes) is False
+    assert u.senal_presion_presente(0, leido_mono=time.monotonic()) is True
+    assert u.senal_presion_presente(0, leido_mono="x") is False
+
+
+def test_senal_camara_pasa_el_instante_de_lectura():
+    units = MagicMock()
+    units.senal_presion_presente.return_value = True
+    assert aap.senal_camara(units, leido_mono=12.5) is True
+    units.senal_presion_presente.assert_called_with(
+        EstadoAutoclave.map_pres["pres_camara"], leido_mono=12.5)
+
+
+def test_lazo_pasa_el_instante_de_lectura_del_estado():
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop._tick()
+    kwargs = loop.units.senal_presion_presente.call_args.kwargs
+    assert kwargs["leido_mono"] == loop.estado_leido_mono
+    assert isinstance(loop.estado_leido_mono, float)
+
+
+def test_serial_link_numera_las_tramas_ai():
+    from autoclave.protocols.serial_link import SerialLink
+    link = SerialLink.__new__(SerialLink)
+    import threading
+    link.data_lock = threading.Lock()
+    link.data = {"ai": [0] * 16, "ai_seq": 0}
+    link._ultima_ai_mono = None
+    link._procesar_payload("AI:" + ",".join(["1"] * 16))
+    link._procesar_payload("AI:" + ",".join(["2"] * 16))
+    assert link.data["ai_seq"] == 2
+
+
+def test_senal_camara_sin_instante_de_lectura_rechaza():
+    units = MagicMock()
+    units.senal_presion_presente.return_value = True
+    assert aap.senal_camara(units) is False
+    assert aap.senal_camara(units, leido_mono=None) is False
