@@ -680,7 +680,8 @@
     "sin_bd": "Database not available: login is not possible. Options, calibration and users are not available. Cycles can be started without an operator from the main menu.",
     "continuar_sin_operador": "Continue without operator",
     "vencida_titulo": "Session expired",
-    "vencida_mensaje": "The session expired. Enter username (technician or engineer) and password."
+    "vencida_mensaje": "The session expired. Enter username (technician or engineer) and password.",
+    "ayuda_olvido_clave": "Ask an administrator or an engineer to reset your password in OPTIONS › Users. You will receive a temporary password that you must change when you sign in."
   },
   "usuarios": {
     "titulo_nuevo": "NEW USER",
