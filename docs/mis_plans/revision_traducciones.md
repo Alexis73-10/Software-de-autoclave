@@ -96,6 +96,104 @@ Cada fila es una traducción nueva al inglés agregada después del borrador de 
 | 2026-10-22 | Tanda 7 Q1 (R1-P3) | `parametros_desc.calentamiento.rango_calentamiento_temp`, `parametros_desc.calentamiento.rango_calentamiento_pres` (reemplazan a `rango_calentamiento`) | Parámetros del ciclo | sin revisar |
 | 2026-10-22 | Tanda 7 Q1 (R1-P5) | `ciclo.cancelacion_en_espera_datos` | Ciclo — **requiere revisión explícita** | sin revisar |
 | 2026-10-22 | Tanda 7 Q1 (T2-b) | `notificaciones.despejar_sin_enlace` | Alarmas y seguridad — **requiere revisión explícita** | sin revisar |
+| 2026-10-22 | Tanda 8 V8b | `parametros.<sección>.<clave>` (95 nombres visibles de los parámetros de programa, sección nueva), `estado_seguro_motivos.{sonda_temperatura,sonda_enfriamiento,liquido_caliente}` (motivos de CIC-10, sección nueva) | Parámetros del ciclo; Alarmas y seguridad — **`estado_seguro_motivos` requiere revisión explícita** | sin revisar |
+
+## Revisión V8b (tanda 8, 22-oct-2026): abreviaturas, anglicismos y mezcla de idiomas
+
+D8-5.4 (ningún texto abreviado ni recortado) y D8-5.5 (sin mezclar idiomas). Las pruebas
+`tests/test_v8b_textos.py` recorren TODO el catálogo con listas de abreviaturas conocidas,
+de anglicismos prohibidos en `es.json` y de palabras en español prohibidas en `en.json`.
+Estado: **sin revisar** (cambios de texto hechos por Claude Code sin Cristian).
+
+Resuelve el término dudoso **T-07** (abreviaturas `Temp. Ester.` / `Tiempo Est.` / `Tiempo Sec.`):
+ahora van completas en ambos idiomas.
+
+Excepciones admitidas (DECISIÓN SIN CONFIRMAR): nombres propios y marcas (SPK-SAT, F0,
+Bowie & Dick, Especifika), unidades, siglas técnicas (USB, PDF, CSV, PWM, SMTP, IP, PC, E/S),
+"software"/"firmware"/"hardware" (sin equivalente de uso común en español) y el nombre de
+cada idioma en su propia lengua ("Español" en `en.json`).
+
+### Textos cambiados
+
+| Idioma | Clave | Antes | Ahora |
+|---|---|---|---|
+| es | `ciclo.entrada_corta_temp_camara` | Temp. cámara | Temperatura de cámara |
+| es | `ciclo.entrada_corta_temp_2_camara` | Temp. cámara 2 | Temperatura de cámara 2 |
+| es | `ciclo.entrada_corta_temp_referencia` | Temp. referencia | Temperatura de referencia |
+| es | `ciclo.entrada_corta_temp_drenaje` | Temp. drenaje | Temperatura de drenaje |
+| es | `ciclo.entrada_corta_temp_drenaje_camara` | Temp. dren. cámara | Temperatura de drenaje de cámara |
+| es | `ciclo.entrada_corta_pres_chaqueta` | Pres. chaqueta | Presión de chaqueta |
+| es | `ciclo.entrada_corta_pres_empaque_1` | Pres. empaque 1 | Presión de empaque 1 |
+| es | `ciclo.entrada_corta_pres_empaque_2` | Pres. empaque 2 | Presión de empaque 2 |
+| es | `ciclo.serie_temp_camara` | Temp. cámara | Temperatura de cámara |
+| es | `ciclo.serie_temp_ref` | Temp. ref. | Temperatura de referencia |
+| es | `ciclo.temp_ester` | Temp. ester. | Temperatura de esterilización |
+| es | `ciclo.tiempo_est` | Tiempo est. | Tiempo de esterilización |
+| es | `ciclo.tiempo_sec` | Tiempo sec. | Tiempo de secado |
+| es | `ciclo.temp_camara` | Temp. cámara | Temperatura de cámara |
+| es | `ciclo.temp_referencia` | Temp. referencia | Temperatura de referencia |
+| es | `sensores[1].etiqueta` | Tiempo est. | Tiempo de esterilización |
+| es | `sensores[2].etiqueta` | Tiempo sec. | Tiempo de secado |
+| es | `sensores[3].etiqueta` | Temp. 1 | Temperatura 1 |
+| es | `exportacion.titulo` | Ciclo N.º {numero} · {programa} | Ciclo número {numero} · {programa} |
+| es | `exportacion.consigna_temp` | Consigna temp. | Consigna de temperatura |
+| es | `exportacion.consigna_pres` | Consigna presión | Consigna de presión |
+| es | `reportes.col_pagina` | Pág. | Página |
+| es | `reportes.col_completados` | Compl. | Completados |
+| es | `reportes.col_cancelados` | Cancel. | Cancelados |
+| es | `sesion.titulo_login` | LOGIN | INICIO DE SESIÓN |
+| es | `io.ui.on` | ON | ENCENDIDA |
+| es | `io.ui.off` | OFF | APAGADA |
+| es | `io.ui.offset` | Offset | Desplazamiento |
+| en | `ciclo.entrada_corta_temp_camara` | Chamber temp. | Chamber temperature |
+| en | `ciclo.entrada_corta_temp_2_camara` | Chamber temp. 2 | Chamber temperature 2 |
+| en | `ciclo.entrada_corta_temp_referencia` | Reference temp. | Reference temperature |
+| en | `ciclo.entrada_corta_temp_drenaje` | Drain temp. | Drain temperature |
+| en | `ciclo.entrada_corta_temp_drenaje_camara` | Chamber drain temp. | Chamber drain temperature |
+| en | `ciclo.entrada_corta_pres_chaqueta` | Jacket pres. | Jacket pressure |
+| en | `ciclo.entrada_corta_pres_empaque_1` | Gasket pres. 1 | Gasket pressure 1 |
+| en | `ciclo.entrada_corta_pres_empaque_2` | Gasket pres. 2 | Gasket pressure 2 |
+| en | `ciclo.serie_temp_camara` | Chamber Temp | Chamber temperature |
+| en | `ciclo.serie_temp_ref` | Ref Temp | Reference temperature |
+| en | `ciclo.temp_ester` | Ster. Temp. | Sterilization temperature |
+| en | `ciclo.tiempo_est` | Ster. Time | Sterilization time |
+| en | `ciclo.tiempo_sec` | Dry. Time | Drying time |
+| en | `ciclo.temp_camara` | Chamber temp | Chamber temperature |
+| en | `ciclo.temp_referencia` | Reference temp | Reference temperature |
+| en | `sensores[1].etiqueta` | Ster. Time | Sterilization time |
+| en | `sensores[2].etiqueta` | Dry. Time | Drying time |
+| en | `sensores[3].etiqueta` | Temp 1 | Temperature 1 |
+| en | `exportacion.titulo` | Cycle No. {numero} · {programa} | Cycle number {numero} · {programa} |
+| en | `exportacion.consigna_temp` | Temp. setpoint | Temperature setpoint |
+| en | `reportes.col_completados` | Compl. | Completed |
+| en | `reportes.col_cancelados` | Cancel. | Cancelled |
+
+### Descripciones de parámetros (`parametros_desc.*`, `descompresion_modos.*`, solo es)
+
+39 descripciones y 3 descripciones de modos de descompresión cambian por lo mismo:
+- las referencias entre comillas «…» citaban la clave del parámetro ("«Presion add calentamiento»",
+  "«Timeout pulso»"); ahora citan el nombre visible nuevo ("«Presión adicional de calentamiento»",
+  "«Tiempo límite por pulso»"). Una prueba exige que toda cita «…» sea un nombre de `parametros.*`;
+- "timeout" → "tiempo límite"; "duty" → "ciclo de trabajo"; "T ref. 121,1" →
+  "temperatura de referencia 121,1"; "kPa abs." → "kPa absolutos".
+
+### Nombres visibles de parámetros (sección nueva `parametros`)
+
+Antes, OPCIONES › Parámetros del ciclo mostraba la clave convertida ("Presion add ester",
+"Escape lento on ester", "Timeout bajo"), en español también con la interfaz en inglés.
+Ahora cada parámetro de los perfiles tiene nombre en es y en (p. ej. `esterilizacion.presion_add_esterilizacion`
+= "Presión adicional de esterilización" / "Additional sterilization pressure";
+`esterilizacion.brecha_segura_presion` = "Margen de recuperación por presión" / "Pressure recovery margin").
+Lista completa en `src/autoclave/i18n/{es,en}.json` → `parametros`. Pendiente de revisión técnica
+de Cristian, en especial los "Margen de falla…" / "Margen de recuperación…" de Esterilización.
+
+### Textos que Python arma fuera del catálogo y que se cambiaron
+
+| Archivo | Antes | Ahora |
+|---|---|---|
+| `state_machine/cycle_phases/calentamiento.py` (motivo de fallo) | Timeout de calentamiento: … | Tiempo límite de calentamiento: … |
+| `state_machine/cycle_phases/descompresion.py` (motivo de fallo) | Timeout de {etapa} del modo {n} | Tiempo límite de {etapa} del modo {n} |
+| `state_machine/cycle_phases/protocolo_fallo.py` (motivo de CIC-10) | Timeout de descompresión con carga líquida caliente: no se usa la rápida | Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido |
 
 ## Registro de revisiones
 
