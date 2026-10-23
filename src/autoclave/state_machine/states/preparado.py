@@ -9,7 +9,9 @@ from autoclave.state_machine.states.control_banda import (evaluar_banda, Confirm
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime import presion_sin_lectura
-from autoclave.core.runtime.sensores_ciclo import SENSORES as SENSORES_CICLO, vigilar_fuera_de_ciclo
+from autoclave.core.runtime.sensores_ciclo import (
+    SENSORES as SENSORES_CICLO, programas_para_sen03, vigilar_en_uso_fuera_de_ciclo,
+)
 from autoclave.installation.profile import (entrada_requerida, numero_puertas, sensores_empaque,
                                             sonda_instalada)
 import logging
@@ -396,10 +398,13 @@ class preparado_state:
             else:
                 self.alarm_manager.resolver(SEN_01, origen=legible)
 
+        # Sensores del ciclo: alerta no bloqueante (tanda §1.1, RS-06), solo
+        # los en uso de los programas vigentes (S11, D11-3)
+        vigilar_en_uso_fuera_de_ciclo(
+            self.alarm_manager, self.profile, self.estado,
+            programas_para_sen03(self.programas_seguridad, self.cycle))
         for sensor, value in self.estado.sensores_temp.items():
-            # Sensores del ciclo: alerta no bloqueante (tanda §1.1, RS-06)
             if sensor in SENSORES_CICLO:
-                vigilar_fuera_de_ciclo(self.alarm_manager, self.profile, sensor, value)
                 continue
             # Canal sin sonda declarado en el perfil: no se vigila (A-2)
             if not sonda_instalada(self.profile, sensor):
