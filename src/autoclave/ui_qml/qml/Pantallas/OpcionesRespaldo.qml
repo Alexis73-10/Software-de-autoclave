@@ -189,7 +189,7 @@ Item {
                         anchors.verticalCenter: parent.verticalCenter
                         Text {
                             width: parent.width
-                            elide: Text.ElideMiddle
+                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                             text: fila.modelData.archivo
                             color: Colores.textoPrimario
                             font.family: Tipografia.familia
@@ -198,7 +198,7 @@ Item {
                         }
                         Text {
                             width: parent.width
-                            elide: Text.ElideRight
+                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                             text: fila.modelData.valido
                                   ? I18n.t("respaldo.detalle", I18n.lang,
                                            { serie: fila.modelData.serie, fecha: String(fila.modelData.fecha).replace("T", " ") })

@@ -109,7 +109,7 @@ Item {
             spacing: Escala.px(4)
             Text {
                 width: parent.width
-                elide: Text.ElideRight
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 text: tarjeta.nombre
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia

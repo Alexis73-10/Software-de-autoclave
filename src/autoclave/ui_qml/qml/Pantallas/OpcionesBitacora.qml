@@ -52,7 +52,7 @@ Item {
                 font.pixelSize: Escala.fuente(19)
             }
             Text {
-                width: parent.width; elide: Text.ElideRight
+                width: parent.width; fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 text: filtro.valor
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
