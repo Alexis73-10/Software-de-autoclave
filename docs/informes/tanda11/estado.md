@@ -6,7 +6,7 @@ Precondición A0: `tanda10/estado.md` tiene `| Z | Hecha |` y `dev` contiene `ta
 
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
-| A0 | Hecha | 1b3ec0d | Línea base en `_suites_t11/base` (c607dc4) con `-n auto`, en curso (`suites/base.log`). |
+| A0 | Hecha | 1b3ec0d | Línea base en `_suites_t11/base` (c607dc4) con `-n auto`: **6990 passed, 3 failed, 10 skipped, 3 xfailed** en 7 min (`suites/base.log`); los 3 (`test_ciclos_print.py::test_print_selected_sin_seleccion_no_imprime`, `test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu`, `test_e6_enlace_handshake.py::test_uptime_que_retrocede_es_reinicio`) pasan en serie (`suites/base_serie.log`): interferencia del paralelo. **Línea base: 6993 passed.** |
 | R11 | En curso (subagente) | `tanda-11-r11` | |
 | E11 | En curso (subagente) | `tanda-11-e11` | |
 | S11 | En curso (subagente) | `tanda-11-s11` | |
