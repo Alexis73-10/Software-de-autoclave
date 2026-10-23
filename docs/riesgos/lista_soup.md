@@ -6,7 +6,7 @@ Cambios de versión respecto a la tabla de L1 (tanda 7): **ninguno**. Las 48 ver
 
 Revisión de uso (L8): se recorrieron con `ast` todos los `import` de terceros de `src/autoclave` (incluidos los que están dentro de funciones). Solo se importan: PySide6, qfluentwidgets, fastapi, uvicorn, pydantic, serial (pyserial), escpos (python-escpos), PIL (pillow), requests, keyring, psutil, ruamel.yaml, yaml (PyYAML) y win32print (pywin32). Con el entorno limpio se importaron sin error los 241 módulos de `src/autoclave`.
 
-Se comprobó además el contenido del ejecutable compilado con el entorno limpio (`Autoclave.spec`, PyInstaller 6.20.0): frente a la compilación B de la tanda 7, ya no entran `tzdata`, `cryptography` (con su `libssl/libcrypto-3-x64.dll` y `_cffi_backend`) ni `websockets`. Ninguno lo importa el programa.
+Se comprobó además el contenido del ejecutable compilado con el entorno limpio (`Autoclave.spec`, PyInstaller 6.20.0): frente a la compilación B de la tanda 7, ya no entran `tzdata`, `cryptography` (con su `libssl/libcrypto-3-x64.dll` y `_cffi_backend`) ni `websockets`. Ninguno lo importa el programa. Condición: compilar desde PowerShell o cmd. Desde Git Bash, PyInstaller toma `libssl-3-x64.dll`/`libcrypto-3-x64.dll` de `C:\Program Files\Git\mingw64in` (las pide el plugin TLS de Qt) y esa OpenSSL no está en esta lista (ver `docs/informes/tanda8/L8_dependencias.md`).
 
 La clase de riesgo es una propuesta según el uso. Las anomalías conocidas quedan por completar: no se revisaron las listas de errores de cada proyecto.
 
