@@ -418,7 +418,8 @@ def test_ingeniero_en_ciclo_edita_el_programa_en_curso(entorno_config, aplico, a
     assert r.status_code == 200 and r.json()["aplica"] == aplica
     assert en_curso.get_param("secado", "tiempo_secado") == 20.0
     ctx.control_loop.aplicar_a_ciclo_en_curso.assert_called_once_with(
-        "secado", ["tiempo_secado"], 20.0)
+        "secado", ["tiempo_secado"], 20.0,
+        copia_esperada=ctx.control_loop.programa_en_ejecucion.return_value)
     # X9 (tanda 9, D9-13.3 TMG-01): la bitácora se registra antes de aplicar,
     # con lo decidido bajo _sm_lock (fase pendiente); si la fase inició entre
     # medias, una fila propia lo corrige

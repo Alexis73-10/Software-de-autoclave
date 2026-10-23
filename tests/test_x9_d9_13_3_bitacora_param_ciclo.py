@@ -136,7 +136,7 @@ def test_tmg01_aplica_al_ciclo_en_curso_despues_de_la_bitacora(servidor):
         orden.append("bitacora")
         return real(filas)
     ctx.db.registrar_auditoria_lote = lote
-    ctx.control_loop.aplicar_a_ciclo_en_curso.side_effect = lambda *a: orden.append("aplica") or True
+    ctx.control_loop.aplicar_a_ciclo_en_curso.side_effect = lambda *a, **k: orden.append("aplica") or True
     r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
     assert r.status_code == 200, r.text
     assert r.json()["aplica"] == "en_curso"
@@ -309,3 +309,70 @@ def test_control_loop_fase_pendiente_solo_en_ciclo():
     loop, _ = _loop(GlobalState.CICLO)
     loop.state_machine.ciclo.fase_pendiente.return_value = True
     assert loop.fase_pendiente_en_curso("secado", ["x"]) is True
+
+
+# ── Revisión ★ (safety SAF-01/03, timing TMG-01/04) ───────────────────────
+
+def test_rev_programa_almacenado_sin_cambio_hasta_la_bitacora(servidor):
+    """Un ciclo que arranca mientras se escribe la bitácora copia el valor
+    anterior (registrado): el programa almacenado no tiene el nuevo hasta
+    que la bitácora queda registrada."""
+    client, cm, ctx, _ = servidor
+    c, previo, nuevo = _secado(cm)
+    visto = []
+    real = ctx.db.registrar_auditoria_lote
+
+    def lote(filas):
+        visto.append(c.get_param("secado", "tiempo_secado"))
+        return real(filas)
+    ctx.db.registrar_auditoria_lote = lote
+    r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
+    assert r.status_code == 200, r.text
+    assert visto == [previo]
+    assert c.get_param("secado", "tiempo_secado") == nuevo
+
+
+def test_rev_sin_bitacora_el_programa_almacenado_nunca_cambia(servidor):
+    client, cm, ctx, _ = servidor
+    c = cm.cycles["liquidos"]
+    ctx.db.registrar_auditoria_lote = MagicMock(side_effect=sqlite3.OperationalError("locked"))
+    r = _patch(client, "liquidos", "globals", ["tipo_carga"], "solido")
+    assert r.status_code == 503
+    assert c.get_param("globals", "tipo_carga") == "liquido"
+    assert c.get_param("descompresion", "modo") == 4
+    disco = json.loads(Path(c._path).read_text(encoding="utf-8"))
+    assert disco["parameters"]["globals"]["tipo_carga"]["value"] == "liquido"
+    assert disco["parameters"]["descompresion"]["modo"]["value"] == 4
+
+
+def test_rev_aplica_solo_a_la_copia_consultada(servidor):
+    client, cm, ctx, _ = servidor
+    c, _, nuevo = _secado(cm)
+    _en_ciclo(ctx, c.id)
+    copia = object()
+    ctx.control_loop.programa_en_ejecucion.return_value = copia
+    r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
+    assert r.status_code == 200
+    _, kw = ctx.control_loop.aplicar_a_ciclo_en_curso.call_args
+    assert kw["copia_esperada"] is copia
+
+
+def test_rev_control_loop_no_aplica_a_otra_copia():
+    from tests.test_t17_copia_programa import _loop
+    loop, _ = _loop(GlobalState.CICLO)
+    loop.state_machine.ciclo.programa_en_curso = object()
+    loop.state_machine.ciclo.aplicar_si_fase_pendiente.return_value = True
+    assert loop.aplicar_a_ciclo_en_curso("secado", ["x"], 1, copia_esperada=object()) is False
+    loop.state_machine.ciclo.aplicar_si_fase_pendiente.assert_not_called()
+    copia = loop.state_machine.ciclo.programa_en_curso
+    assert loop.aplicar_a_ciclo_en_curso("secado", ["x"], 1, copia_esperada=copia) is True
+
+
+def test_rev_lote_no_se_une_a_una_transaccion_ajena(tmp_path):
+    db = DbManager(tmp_path / "a.db")
+    with db._lock:
+        db._conn.execute("INSERT INTO audit_log (ts, usuario, rol, evento, entidad) "
+                         "VALUES ('x', '', '', 'ajena', '')")      # sin commit
+    db.registrar_auditoria_lote([{"evento": "param_ciclo_cambio", "entidad": "e"}])
+    assert db.get_auditoria(evento="ajena") == []
+    assert len(db.get_auditoria(evento="param_ciclo_cambio")) == 1

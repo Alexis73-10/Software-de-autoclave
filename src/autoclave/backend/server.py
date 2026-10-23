@@ -3564,21 +3564,27 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
         anteriores_arrastre = [_valor_parametro(cycle, f, p) for f, p, _ in arrastres]
         previos = [(f, p, _valor_parametro(cycle, f, p)) for f, p in cycle.vinculados(body.fase, body.path)]
         previos += [(f, p, a) for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
+        # X9 (D9-13.3, revisión SAF-01): el cambio se valida y se calcula
+        # sobre una copia; el programa almacenado no recibe ningún valor
+        # hasta que la bitácora quede registrada (un ciclo que arranque en
+        # medio copia el valor anterior, que sí está registrado).
+        propuesta = cycle.copia()
+        if hasattr(cycle, "_path"):
+            propuesta._path = cycle._path
         try:
-            value = (cycle.set_param(body.fase, body.path, body.value, arrastres=arrastres)
-                     if arrastres else cycle.set_param(body.fase, body.path, body.value))
+            value = (propuesta.set_param(body.fase, body.path, body.value, arrastres=arrastres)
+                     if arrastres else propuesta.set_param(body.fase, body.path, body.value))
         except KeyError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except catalogo_parametros.ErrorCoherencia as e:
             raise _Rechazo(422, e.codigo, str(e))
         except (TypeError, ValueError) as e:
             raise _Rechazo(422, "VALOR_INVALIDO", str(e))
-        # valores que escribió esta petición: la reversión solo toca los que
-        # siguen así (TMG-02)
-        escritos = [(f, p, _valor_parametro(cycle, f, p)) for f, p, _ in previos]
+        # valores que escribe esta petición (cambio, vinculados y arrastres)
+        escritos = [(f, p, _valor_parametro(propuesta, f, p)) for f, p, _ in previos]
         cambios_automaticos = [
             {"fase": f, "path": list(p), "clave": ".".join(p), "anterior": a,
-             "nuevo": _valor_parametro(cycle, f, p)}
+             "nuevo": _valor_parametro(propuesta, f, p)}
             for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
 
         # Fuera de CICLO, o en otro programa durante CICLO (§5.8, 5b), el
@@ -3589,9 +3595,13 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
         # se toca después de registrar la bitácora (si la bitácora falla, el
         # ciclo en curso nunca recibió el valor).
         aplica = "siguiente"
+        copia_en_curso = None
         if (en_ciclo and body.cycle_id == programa_en_curso
                 and context.control_loop.fase_pendiente_en_curso(body.fase, body.path) is True):
             aplica = "en_curso"
+            # revisión X9 (TMG-01/SAF-03): la copia concreta consultada; si al
+            # aplicar ya es otra (otro ciclo arrancó entre medias), no se aplica
+            copia_en_curso = context.control_loop.programa_en_ejecucion()
         detalle = {"programa": body.cycle_id, "fase": body.fase, "aplica": aplica}
         # parámetros vinculados que cambiaron con este (SAF-02 de T-17)
         vinculados = [f"{f}/{'.'.join(p)}" for f, p in cycle.vinculados(body.fase, body.path)[1:]]
@@ -3622,44 +3632,54 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
               for c in cambios_automaticos]
     json_escrito = False
     try:
-        # El JSON se escribe fuera de _sm_lock (hallazgo D); el valor en memoria
-        # ya quedó cambiado bajo el lock, atómico con la comprobación de estado.
+        # El JSON (con la propuesta) se escribe fuera de _sm_lock (hallazgo D).
         if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
             with _lock_archivos:
-                _save_cycle_json(cycle)
+                _save_cycle_json(propuesta)
             json_escrito = True
         context.db.registrar_auditoria_lote(filas)
     except Exception:
-        logger.exception("Parámetro %s sin auditoría: se revierte", entidad)
-        # TMG-01: la copia del ciclo en curso todavía no se tocó (en_curso=False)
-        json_ok = _revertir_parametro(cycle, previos, False, escritos=escritos,
-                                      escribir_json=json_escrito)
-        if json_escrito and json_ok is False:
-            # X9 (D9-13.3, SAF-02): doble falla. La memoria volvió al valor
-            # registrado, pero el archivo conserva el no registrado: se marca
-            # para que, al cargarlo, el programa no sea ejecutable hasta que
-            # un guardado correcto lo reescriba desde la memoria.
+        logger.exception("Parámetro %s sin auditoría: no se aplica", entidad)
+        # El programa almacenado y el ciclo en curso no se tocaron; solo el
+        # JSON, si llegó a escribirse, vuelve al programa almacenado.
+        json_ok = _reescribir_json_programa(cycle) if json_escrito else None
+        if json_ok is False:
+            # X9 (D9-13.3, SAF-02): doble falla. La memoria conserva el valor
+            # registrado, pero el archivo quedó con el no registrado: se marca
+            # para que, al recargarlo, el programa no sea ejecutable.
             _marcar_sin_bitacora(cycle, entidad)
         _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
                   entidad, sesion)
+
+    # Registrado: el cambio pasa al programa almacenado, bajo _sm_lock
+    # (atómico respecto del tick que copia el programa al iniciar un ciclo).
+    # _lock_param_ciclo serializa los PATCH: las hojas no cambiaron entre medias.
+    with context.control_loop.bloqueo_maquina():
+        for f, p, v in escritos:
+            hoja = cycle._hoja(f, p)
+            if hoja is not None:
+                hoja["value"] = v
 
     # X9 (D9-13.3, TMG-01): la bitácora ya está; recién ahora la copia del
     # ciclo en curso (bajo _sm_lock, dentro de aplicar_a_ciclo_en_curso). Si
     # la fase inició entre medias, el ciclo sigue con el valor anterior (el
     # registrado como anterior) y una fila propia corrige el `aplica`.
     if aplica == "en_curso" and context.control_loop.aplicar_a_ciclo_en_curso(
-            body.fase, body.path, value) is not True:
+            body.fase, body.path, value, copia_esperada=copia_en_curso) is not True:
         aplica = "siguiente"
-        logger.warning("Parámetro %s: la fase inició antes de aplicarlo al ciclo en curso; "
-                       "rige desde el siguiente ciclo", entidad)
-        try:
-            context.db.registrar_auditoria(
-                "param_ciclo_no_aplicado_en_curso", usuario=sesion.usuario, rol=sesion.rol,
-                entidad=entidad, valor_anterior=anterior, valor_nuevo=value,
-                detalle={"programa": body.cycle_id, "fase": body.fase, "aplica": "siguiente"})
-        except Exception:
-            logger.exception("Parámetro %s: no se pudo registrar que no se aplicó al ciclo "
-                             "en curso (la bitácora dice en_curso)", entidad)
+        logger.warning("Parámetro %s: la fase inició (o el ciclo cambió) antes de aplicarlo "
+                       "al ciclo en curso; rige desde el siguiente ciclo", entidad)
+        for intento in (1, 2):                    # revisión X9 (TMG-03/SAF-06)
+            try:
+                context.db.registrar_auditoria(
+                    "param_ciclo_no_aplicado_en_curso", usuario=sesion.usuario, rol=sesion.rol,
+                    entidad=entidad, valor_anterior=anterior, valor_nuevo=value,
+                    detalle={"programa": body.cycle_id, "fase": body.fase, "aplica": "siguiente"})
+                break
+            except Exception:
+                logger.exception("Parámetro %s: no se pudo registrar que no se aplicó al "
+                                 "ciclo en curso (intento %d; la bitácora dice en_curso)",
+                                 entidad, intento)
     respuesta = {"ok": True, "value": value, "aplica": aplica}
     if cambios_automaticos:
         respuesta["arrastres"] = cambios_automaticos
@@ -3682,16 +3702,12 @@ def _arrastres_tipo_carga(cycle, fase: str, path: list[str], valor) -> list:
     return cycle.arrastres_tipo_carga(valor, modo_solido=modo_solido)
 
 
-def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None,
-                        escribir_json: bool = True) -> bool | None:
+def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None) -> None:
     """Restaura los valores previos (también los vinculados) en el programa,
     su JSON y, si se había aplicado, la copia del ciclo en curso.
     `escritos` (TMG-02): valores que escribió la petición; una hoja que ya no
     tiene ese valor la cambió otro y no se toca (revertirla a ciegas podía
-    dejar, p. ej., carga líquida con modo 1).
-    `escribir_json` False: el JSON no llegó a cambiar (su escritura falló y es
-    atómica), no se reescribe. Devuelve True/False según se pudo reescribir
-    el JSON, o None si no hacía falta (X9, D9-13.3 SAF-02)."""
+    dejar, p. ej., carga líquida con modo 1)."""
     escrito = {(f, tuple(p)): v for f, p, v in (escritos or [])}
     with context.control_loop.bloqueo_maquina():
         for fase, path, valor in previos:
@@ -3714,26 +3730,35 @@ def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None,
         if errores:
             logger.error("Programa %s incoherente tras revertir: %s",
                          getattr(cycle, "id", "?"), "; ".join(errores))
-    if not escribir_json or not (getattr(cycle, "source", "") == "user"
-                                 and hasattr(cycle, "_path")):
-        return None
-    for intento in (1, 2):                        # X9 (SAF-02): un reintento
+    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+        try:
+            with _lock_archivos:
+                _save_cycle_json(cycle)
+        except Exception:
+            logger.exception("Programa %s: no se pudo escribir el JSON al revertir; "
+                             "memoria y archivo difieren", getattr(cycle, "id", "?"))
+
+
+def _reescribir_json_programa(cycle) -> bool:
+    """X9 (D9-13.3, SAF-02): vuelve a escribir el JSON desde el programa
+    almacenado (valores registrados), con un reintento. False si no pudo."""
+    for intento in (1, 2):
         try:
             with _lock_archivos:
                 _save_cycle_json(cycle)
             return True
         except Exception:
-            logger.exception("Programa %s: no se pudo escribir el JSON al revertir "
-                             "(intento %d); memoria y archivo difieren",
-                             getattr(cycle, "id", "?"), intento)
+            logger.exception("Programa %s: no se pudo reescribir el JSON (intento %d); "
+                             "memoria y archivo difieren", getattr(cycle, "id", "?"), intento)
     return False
 
 
 # X9 (tanda 9, D9-13.3 SAF-02): marca junto al JSON de un programa cuyo archivo
 # quedó con un valor sin bitácora (falló la bitácora y luego la reversión del
-# JSON). CycleManager no ejecuta un programa marcado al cargarlo;
-# _save_cycle_json la quita al reescribir el archivo desde la memoria, que
-# conserva los valores registrados.
+# JSON). CycleManager carga un programa marcado como dañado (no se inicia ni
+# se edita). En la misma sesión, el siguiente guardado correcto del programa
+# quita la marca (_save_cycle_json). Tras un reinicio solo la quita un técnico
+# a mano, tras revisar el archivo (PREGUNTA PARA CRISTIAN en el informe X9).
 SUFIJO_SIN_BITACORA = ".sin_bitacora"
 
 

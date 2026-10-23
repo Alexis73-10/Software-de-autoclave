@@ -543,14 +543,22 @@ class DbManager:
                 # las filas se preparan antes de abrir la transacción: un valor
                 # no serializable no llega a tomar el bloqueo de escritura
                 preparadas = [_fila_auditoria(**f) for f in filas]
-                if not self._conn.in_transaction:
-                    self._conn.execute("BEGIN IMMEDIATE")
+                if self._conn.in_transaction:
+                    # revisión X9 (TMG-04/SAF-07): una transacción que otro
+                    # método dejó abierta tras una excepción no se mezcla con
+                    # el lote (su commit confirmaría trabajo ajeno)
+                    logger.warning("audit_log: transacción previa abierta; se deshace antes del lote")
+                    self._conn.rollback()
+                self._conn.execute("BEGIN IMMEDIATE")
                 for fila in preparadas:
                     ids.append(self._conn.execute(_SQL_AUDITORIA, fila).lastrowid)
                 self._conn.commit()
             except BaseException:
-                if self._conn.in_transaction:
-                    self._conn.rollback()
+                try:
+                    if self._conn.in_transaction:
+                        self._conn.rollback()
+                except Exception:
+                    logger.exception("audit_log: no se pudo deshacer el lote")
                 raise
         return ids
 
