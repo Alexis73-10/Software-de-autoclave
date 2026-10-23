@@ -26,6 +26,8 @@ EVENTOS = (
     "falla_reconocida", "ciclo_interrumpido", "apagar_equipo",
     "modo_prueba_entra", "modo_prueba_sale", "modo_prueba_salida_forzada", "salida_prueba",
     "atrapamiento_orden_invertida", "ROLES_SENSOR",
+    # O11 (tanda 11, D11-7.3): entradas quitadas al pasar un sensor a "No en uso"
+    "entradas_mostradas",
     "calibracion_atm_ok", "calibracion_atm_abortada", "calibracion_atm_rechazada",
     "correo_configurado", "correo_enviado",
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
