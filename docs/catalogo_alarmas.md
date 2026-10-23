@@ -103,7 +103,7 @@ Fuente: `states/preparado.py`, `states/preparacion.py`. Separación válvula/ala
 | `SUMINISTRO_AGUA_BOMBA` | ALERTA | sí | sí | PREPARADO, PREPARACION | DI `agua_bomba` = 0. | Restablecer agua a la bomba de vacío. |
 | `SUMINISTRO_AGUA_GENERADOR` | ALERTA | sí | sí | PREPARADO, PREPARACION | DI `agua_generador` = 0. | Restablecer agua al generador. |
 | `SUMINISTRO_AIRE_COMPRIMIDO` | ALERTA | sí | sí | PREPARADO, PREPARACION | DI `aire_comprimido` = 0. | Restablecer aire comprimido. |
-| `ERROR_AI_<SENSOR>` | ALERTA | sí | sí | PREPARADO, PREPARACION | Lectura analógica == 0 (fallo de sensor). `<SENSOR>` = clave en mayúsculas. PREPARACION chequea lista fija: `pres_camara`, `pres_chaqueta`, `pres_empaque_1`, `pres_empaque_2`, `temp_camara`, `temp_2_camara`, `temp_ref`, `temp_chaqueta`, `temp_drenaje_cam`, `temp_drenaje`. PREPARADO recorre todos los configurados. | Revisar cableado/sensor; servicio técnico. |
+| `ERROR_AI_<SENSOR>` | FALLA (SEN-01; ALERTA hasta D9-2, tanda 9) | sí | sí | PREPARADO, PREPARACION | Lectura analógica == 0 (fallo de sensor). `<SENSOR>` = clave en mayúsculas. PREPARACION chequea lista fija: `pres_camara`, `pres_chaqueta`, `pres_empaque_1`, `pres_empaque_2`, `temp_camara`, `temp_2_camara`, `temp_ref`, `temp_chaqueta`, `temp_drenaje_cam`, `temp_drenaje`. PREPARADO recorre todos los configurados. | Revisar cableado/sensor; servicio técnico. |
 
 ## 4. CICLO
 
@@ -215,6 +215,10 @@ chat; `state_machine/alarms/catalogo.py` **aún no existe** en `src/`). Niveles 
 (ALERTA), ALARMA (FALLA), FALLO_CRITICO (EMERGENCIA). Este catálogo describe el código actual; al
 implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 
+**D9-2 (tanda 9):** SEN-01, SEN-03, SEN-06, SEN-07 y CIC-10 pasan de AVISO a ALARMA (FALLA en `/status`)
+conservando su bloqueo y su despeje automático. Al ser ALARMA requieren reconocimiento: si la condición
+desaparece sin reconocerlas, quedan como "resuelta sin reconocer" (no bloquean el inicio) hasta que se reconozcan.
+
 | ID actual | Código Parte A | Nivel nuevo |
 |---|---|---|
 | `PARO_EMERGENCIA` | SIS-01 (desde U4 solo con paro real: entrada leída en 0) | FALLO_CRITICO |
@@ -230,7 +234,7 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | `FALLO_PUERTA_n_ABIERTA` | PUE-02 | ALARMA |
 | `FALLO_PUERTA_n_EMPAQUE` | PUE-03 | ALARMA |
 | `ABRIENDO_MODO_SEGURO_x` / `CERRANDO_MODO_SEGURO_x` | PUE-04 / PUE-05 | AVISO |
-| `ERROR_AI_<SENSOR>` | SEN-01 | AVISO |
+| `ERROR_AI_<SENSOR>` | SEN-01 | ALARMA (antes AVISO; D9-2, tanda 9), bloquea, despeje automático |
 | `SENSOR_AUSENTE` | SEN-02 | FALLO_CRITICO |
 | `FALLO_PRECALENTAMIENTO` / `_PRE_VACIO` / `_CALENTAMIENTO` / `_ESTERILIZACION` / `_DESCOMPRESION` / `_SECADO` | CIC-01 … CIC-06 | ALARMA |
 | `TIMEOUT_APERTURA_AUTOMATICA` / `APERTURA_AUTOMATICA_DENEGADA` | CIC-07 / CIC-08 | AVISO |
@@ -245,6 +249,9 @@ implementarse la Parte A, los ids de la columna izquierda dejan de usarse.
 | (nueva, M1 tanda 3) | SIS-04 Mantenimiento vencido | AVISO (baja prioridad), NO bloquea nunca un ciclo, despeje automático al registrar el mantenimiento. Alias en código: `MANTENIMIENTO_VENCIDO` |
 | (nueva, B5 tanda 4) | SIS-05 Impresora no conectada | AVISO (baja prioridad), NO bloquea nunca un ciclo, despeje automático cuando una impresión tiene éxito. Solo se activa al arrancar si la impresora está habilitada (`data/impresora.json`) y Windows la reporta desconectada. Alias en código: `IMPRESORA_DESCONECTADA` |
 | (nueva, R8 tanda 8) | SEN-09 Reasignación de entradas y salidas sin verificar | AVISO, **bloquea el inicio de ciclo**, despeje automático cuando el ingeniero verifica en OPCIONES › Opciones avanzadas la última función reasignada. Además del aviso, una condición en `AlarmManager.condiciones_bloqueo` mantiene bloqueado el inicio aunque la alarma se resuelva al reconocer una FALLA (la vigilancia la reactiva). |
+| (tanda §1.1) | SEN-03 Sensor de temperatura sin señal | ALARMA (antes AVISO; D9-2, tanda 9), no bloquea el equipo (bloquea al iniciar un programa que lo use), despeje automático |
+| (S1, tanda 8) | SEN-06 / SEN-07 Sensor de presión de cámara / chaqueta sin lectura fuera de ciclo | ALARMA (antes AVISO; D9-2, tanda 9), bloquea el inicio, despeje automático |
+| (T5/S4) | CIC-10 Estado seguro detenido | ALARMA (antes AVISO; D9-2, tanda 9), no bloquea, despeje automático |
 
 **Integración (tanda 2026-10-14, T1):** la Parte A está unida a `dev-noche`; esta tabla ya describe el código.
 La regla de la tanda "ningún id existente se renombra" se aplicó a los ids que la rama no había migrado:
