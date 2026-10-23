@@ -131,6 +131,8 @@
 | D-E9-01 | Sin transductores conectados: la presión se muestra «—», nunca 0 | En seco (sin vapor) | E9; H4 resuelto en S1 D8-1.1 (tanda 8) |
 | D-E9-02 | Carga Líquido: el modo de descompresión no válido muestra su motivo | En seco (sin vapor) | E9; H13 resuelto en D8-5.7/5.8 (tanda 8) |
 | D-E9-03 | Entradas/Salidas solo con los canales del perfil (equipo sin sensores) | En seco (sin vapor) | E9; H16 resuelto en D8-3.17 (tanda 8) |
+| D-X9-01 | Cambio de un parámetro con el ciclo en curso: bitácora antes de aplicar | En operación (o planta simulada) | X9 D9-13.3 (tanda 9); HAZ-X9-01 |
+| D-X9-02 | Interfaz en inglés: ticket, reimpresión y motivo de fallo en inglés | En seco (sin vapor) | X9 D9-13.4 (tanda 9); HAZ-X9-02 |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -1900,6 +1902,38 @@
   2. Comparar con el perfil.
 - **Resultado esperado:** Entradas analógicas: `temp_camara`, `temp_2_camara`, `temp_referencia`, `temp_drenaje`, `pres_camara`, `pres_chaqueta`. Sin `temp_drenaje_camara`, `pres_empaque_1/2` ni `vapor_caldera`. Salidas con `descompresion_lenta` y `buzer_alarma`. (Lista obtenida en el ensayo B → D de E9 con ese perfil.)
 - **Criterio de aprobado/fallo:** Aprobado si no sobra ni falta ningún canal respecto al perfil.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-X9-01 — Cambio de un parámetro con el ciclo en curso: bitácora antes de aplicar
+
+- **Modo:** En operación (o con la planta simulada)  ·  **Origen:** X9 D9-13.3 (tanda 9); HAZ-X9-01
+- **Objetivo:** Un cambio de parámetro hecho por el ingeniero con el ciclo en curso queda primero en la bitácora y solo después llega al ciclo en curso (si su fase no ha iniciado). Si la bitácora no se puede escribir, ni el programa ni el ciclo en curso cambian. El cambio del tipo de carga y su arrastre del modo de descompresión quedan juntos en la bitácora (todo o nada).
+- **Precondiciones:** Sesión de ingeniero; ciclo en curso en CALENTAMIENTO con un programa de usuario.
+- **Pasos:**
+  1. Opciones › Parámetros del ciclo › programa en curso › Secado: cambiar el tiempo de secado.
+  2. Revisar la respuesta en pantalla ("aplica al ciclo en curso") y la bitácora.
+  3. Cambiar un parámetro de Calentamiento (fase ya iniciada).
+  4. Fuera de ciclo, en un programa sólido, pasar el tipo de carga a Líquido y revisar la bitácora.
+- **Resultado esperado:** Paso 2: una fila «cambió …/secado/tiempo_secado» con «aplica: en_curso»; el ticket del ciclo usa el valor nuevo en el secado. Paso 3: rige desde el siguiente ciclo; el ciclo en curso no cambia. Paso 4: dos filas (el cambio y el automático del modo) con la misma hora.
+- **Criterio de aprobado/fallo:** Aprobado si ningún valor llega al ciclo en curso sin su fila en la bitácora y las filas del cambio y del arrastre aparecen siempre juntas.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-X9-02 — Interfaz en inglés: ticket, reimpresión y motivo de fallo en inglés
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** X9 D9-13.4 (tanda 9); HAZ-X9-02
+- **Objetivo:** Con el idioma en inglés, el ticket en vivo, la reimpresión desde el Historial y el motivo de fallo de una fase (alarma, Historial, PDF) salen en inglés y en las unidades vigentes. En español el ticket queda igual que antes.
+- **Precondiciones:** Impresora térmica conectada; un ciclo fallado en el Historial (por ejemplo, cancelado o un FALLO de ensayo); unidades °F y psi en una segunda pasada.
+- **Pasos:**
+  1. Opciones › Idioma: English. Reimprimir desde el Historial el ciclo fallado.
+  2. Abrir el detalle del ciclo y su motivo; generar el PDF.
+  3. Cambiar a °F / psi y repetir el paso 2.
+  4. Volver a Español y reimprimir.
+- **Resultado esperado:** Paso 1: «Status: FAILED (…)» con la fase en inglés, «Reason: CIC-0x - … failure», rótulos en inglés (abreviaturas permitidas solo en el ticket). Paso 2: el motivo en inglés (por ejemplo «High temperature: …»). Paso 3: los valores del motivo en °F / psi. Paso 4: el ticket en español igual que antes.
+- **Criterio de aprobado/fallo:** Aprobado si con la interfaz en inglés no aparece texto en español en el ticket ni en el motivo de fallo de las fases (salvo nombres propios de programas creados en el hospital) y los valores coinciden con los del ciclo.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
