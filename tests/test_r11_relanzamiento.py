@@ -205,6 +205,28 @@ def test_reinicio_completo_cierra_pantallas_y_relanza_despues_del_backend(lanzad
     assert backend.pid in pids and exe_unico.os.getpid() in pids
 
 
+def test_saf04_pantallas_cerradas_a_la_vez_que_el_backend_pide_reiniciar(lanzador):
+    """SAF-04: vigilar_pantallas termina por su cuenta justo cuando el backend
+    sale con el código de software (antes de que el vigilante lo vea): se
+    relanza igual."""
+    lz = lanzador
+    backend = _Proc(pid=777)
+    lz.monkeypatch.setattr(exe_unico.subprocess, "Popen", lambda cmd, **k: backend)
+    lz.monkeypatch.setattr(exe_unico, "_backend_responde", lambda url: False)
+    lz.monkeypatch.setattr(exe_unico, "_apagar_backend", lambda *a: None)
+    # el vigilante no llega a ver el código
+    lz.monkeypatch.setattr(reinicio, "vigilar_reinicios", lambda *a, **k: None)
+    relanzados = []
+    lz.monkeypatch.setattr(exe_unico, "relanzar_software",
+                           lambda argv, pids, **k: relanzados.append(pids) or True)
+
+    def vigilar(cmds, lanzar, **k):
+        backend.codigo = reinicio.CODIGO_REINICIO_SOFTWARE
+    lz.monkeypatch.setattr(doble_pantalla, "vigilar_pantallas", vigilar)
+    assert exe_unico._lanzador(exe_unico._parse_args(["--una-pantalla"])) == 0
+    assert len(relanzados) == 1 and backend.pid in relanzados[0]
+
+
 def test_sin_reinicio_no_se_relanza(lanzador):
     lz = lanzador
     backend = _Proc(pid=777)

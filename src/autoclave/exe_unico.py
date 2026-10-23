@@ -332,7 +332,11 @@ def _lanzador(args) -> int:
             proc = backend["proc"]
         if proc is not None:
             _apagar_backend(BACKEND_URL, proc, logger)
-        if reinicio_software.is_set():
+        # SAF-04 (revisión R11): las pantallas pueden haberse cerrado por su
+        # cuenta justo cuando el backend salió con el código de software,
+        # antes de que el vigilante lo viera: también es un reinicio
+        if reinicio_software.is_set() or (
+                proc is not None and proc.poll() == reinicio.CODIGO_REINICIO_SOFTWARE):
             # guardar → cerrar → relanzar: el backend ya terminó su cierre
             # ordenado; la instancia nueva espera además a este proceso
             argv = getattr(args, "argv_original", None)
