@@ -52,6 +52,14 @@ def _textos(idioma):
             yield clave, re.sub(r"\{[^{}]*\}", " ", valor)
 
 
+def _textos_sin_ticket(idioma):
+    """X9 (tanda 9, D9-13.4, DECISIÓN SIN CONFIRMAR): el ticket térmico
+    (ticket_ciclo.*, ancho fijo) admite abreviaturas; D8-5.4 no le aplica."""
+    for clave, texto in _textos(idioma):
+        if not clave.startswith("ticket_ciclo."):
+            yield clave, texto
+
+
 # ── D8-5.11: paridad de claves ───────────────────────────────────────────
 
 def _claves(idioma):
@@ -92,7 +100,7 @@ def test_catalogo_sin_abreviaturas_conocidas(idioma):
                            re.I)
     sin_punto = re.compile(r"(?<![\w\-_])(%s)(?![\w\-_.])" % "|".join(_ABREVIATURAS_SIN_PUNTO[idioma]),
                            re.I)
-    hallados = [f"{c}: {m.group(0)!r} en {t!r}" for c, t in _textos(idioma)
+    hallados = [f"{c}: {m.group(0)!r} en {t!r}" for c, t in _textos_sin_ticket(idioma)
                 for m in list(con_punto.finditer(t)) + list(sin_punto.finditer(t))
                 + list(_NUMERO_ABREVIADO.finditer(t))]
     assert hallados == [], "\n".join(hallados)
@@ -104,7 +112,8 @@ def test_catalogo_sin_punto_de_abreviatura_en_medio_del_texto(idioma):
     # una abreviatura ("Temp. cámara", "Temp. dren. cámara")
     patron = re.compile(r"(?<![\w.])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{1,7})\.\s+(?=[a-záéíóúüñ])")
     unidades = {"kPa", "bar", "mbar", "psi", "psig", "inHg", "mmHg", "min", "s", "h"}
-    hallados = [f"{c}: {m.group(0)!r} en {t!r}" for c, t in _textos(idioma) for m in patron.finditer(t)
+    hallados = [f"{c}: {m.group(0)!r} en {t!r}" for c, t in _textos_sin_ticket(idioma)
+                for m in patron.finditer(t)
                 if m.group(1) not in unidades]
     assert hallados == [], "\n".join(hallados)
 

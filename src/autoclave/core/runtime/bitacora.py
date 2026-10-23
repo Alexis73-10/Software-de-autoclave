@@ -12,6 +12,11 @@ from autoclave.core.runtime import unidades as u
 
 # Eventos con texto propio en el catálogo (bitacora.ev.<evento>). Uno que no
 # esté aquí se muestra con el texto genérico y su código.
+# D9-6 (tanda 9): la bitácora guarda solo eventos de seguridad, cambios de
+# configuración y sesión. Retirados (quedan solo en el log de desarrollo):
+# rechazo_401/403/409 (todo `_rechazar`), suspension_entra/sale, puerta_orden,
+# puerta_orden_rechazada, PROGRAMA_SELECCIONADO, PROGRAMA_SELECCION_RECHAZADA,
+# correo_prueba, impresora_prueba e impresion_ganancias.
 EVENTOS = (
     "login_ok", "login_fallido", "login_bloqueado", "logout", "cambio_clave",
     "usuario_creado", "usuario_desactivado", "usuario_reactivado", "clave_restablecida",
@@ -20,18 +25,20 @@ EVENTOS = (
     "mantenimiento_registrado", "mantenimiento_configurado",
     "falla_reconocida", "ciclo_interrumpido", "apagar_equipo",
     "modo_prueba_entra", "modo_prueba_sale", "modo_prueba_salida_forzada", "salida_prueba",
-    "puerta_orden", "puerta_orden_rechazada", "atrapamiento_orden_invertida",
-    "PROGRAMA_SELECCIONADO", "PROGRAMA_SELECCION_RECHAZADA", "ROLES_SENSOR",
+    "atrapamiento_orden_invertida", "ROLES_SENSOR",
     "calibracion_atm_ok", "calibracion_atm_abortada", "calibracion_atm_rechazada",
-    "suspension_entra", "suspension_sale",
-    "correo_configurado", "correo_prueba", "correo_enviado", "impresora_prueba", "impresion_ganancias",
+    "correo_configurado", "correo_enviado",
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "aire_atmosferico_cortado_prueba", "apagado_windows_rechazado",
-    "rechazo_401", "rechazo_403", "rechazo_409",
     "param_ciclo_cambio",
+    # X9 (tanda 9, D9-13.3 TMG-01): el cambio registrado como "en_curso" no
+    # llegó al ciclo en curso porque su fase inició antes de aplicarlo
+    "param_ciclo_no_aplicado_en_curso",
     # R8 (tanda 8, D8-5.12): reasignación de E/S
     "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
     "reasignacion_io_verificada", "reinicio_control",
+    # C9 (tanda 9, D9-10): Manejo de ciclos
+    "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
 )
 
 
@@ -89,7 +96,11 @@ def formatear(valor, metas: dict, unidades: dict, p_atm=None) -> str:
     return "" if valor is None else formatear_valor(valor, None, unidades, p_atm)
 
 
-def _clave_texto(evento: str, detalle) -> str:
+def _clave_texto(evento: str, detalle, nuevo=None) -> str:
+    # C9 (tanda 9): deshabilitar un programa tiene su propio texto (el valor
+    # booleano no se muestra crudo)
+    if evento == "programa_habilitado" and isinstance(nuevo, dict) and nuevo.get("habilitado") is False:
+        return "bitacora.ev.programa_deshabilitado"
     # D8-5.7 (tanda 8): el cambio automático del modo de descompresión al
     # cambiar el tipo de carga se distingue del cambio hecho por el usuario
     if (evento == "param_ciclo_cambio" and isinstance(detalle, dict) and detalle.get("automatico") is True
@@ -112,5 +123,5 @@ def presentar(fila: dict, metas: dict, unidades: dict, p_atm=None) -> dict:
         "rol": fila.get("rol") or "", "evento": evento, "entidad": fila.get("entidad") or "",
         "anterior": anterior, "nuevo": nuevo,
         "detalle": detalle if isinstance(detalle, dict) else None,
-        "clave_texto": _clave_texto(evento, detalle),
+        "clave_texto": _clave_texto(evento, detalle, decodificar(fila.get("valor_nuevo"))),
     }

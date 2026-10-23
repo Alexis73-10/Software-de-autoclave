@@ -15,7 +15,8 @@ a = Analysis(
     binaries=[],
     datas=[
         ('src/autoclave/images', 'autoclave/images'),
-        ('src/autoclave/cycles', 'autoclave/cycles'),
+        # D9-7 (tanda 9): solo los programas de fábrica (ver Autoclave.spec)
+        ('src/autoclave/cycles/factory', 'autoclave/cycles/factory'),
         ('src/autoclave/config', 'autoclave/config'),
     ],
     hiddenimports=[
@@ -38,6 +39,16 @@ a = Analysis(
     noarchive=False,
     optimize=0,
 )
+# D9-7 (tanda 9): correo NEUTRO y nada de cycles/ que no sea factory/ (el build
+# se detiene si se cuela algo). Igual que Autoclave.spec.
+_CORREO = 'autoclave/config/correo.json'
+a.datas = [d for d in a.datas if d[0].replace('\\', '/') != _CORREO]
+a.datas.append((_CORREO, 'src/autoclave/config/plantillas/correo_neutro.json', 'DATA'))
+_ciclos_ajenos = [d[0] for d in a.datas
+                  if d[0].replace('\\', '/').startswith('autoclave/cycles/')
+                  and not d[0].replace('\\', '/').startswith('autoclave/cycles/factory/')]
+if _ciclos_ajenos:
+    raise SystemExit(f'D9-7: solo cycles/factory va en la entrega; sobran {_ciclos_ajenos}')
 pyz = PYZ(a.pure)
 
 exe = EXE(

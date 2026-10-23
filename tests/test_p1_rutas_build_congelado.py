@@ -84,14 +84,20 @@ def test_instalado_guarda_todo_en_programdata_y_sobrevive_reinicio_y_actualizaci
 
     # reinicio: mismo programa, se conserva lo guardado
     r = _correr(tmp_path, a, exe)
-    assert r["marca"] and r["glob_editado"]
+    assert r["marca"]
+    # D9-13.1 (tanda 9): global_params.json es de fábrica (los valores vigentes
+    # viven en la BD): un archivo distinto del empaquetado se respalda con fecha
+    # y se reemplaza por el del programa
+    assert not r["glob_editado"]
+    respaldos = list((datos / "programa" / "respaldos_configuracion").glob("*/autoclave/config/global_params.json"))
+    assert len(respaldos) == 1 and respaldos[0].read_text(encoding="utf-8").endswith(" ")
 
     # actualización: build nuevo con otra calibración de fábrica empaquetada
     b = _bundle(tmp_path, "meipass_b")
     (b / "autoclave" / "config" / "calibration.yaml").write_text("# build nuevo\n", encoding="utf-8")
     r = _correr(tmp_path, b, exe)
     assert r["marca"], "la actualización pisó la calibración del sitio"
-    assert r["glob_editado"], "la actualización pisó global_params.json del sitio"
+    assert not r["glob_editado"]
     # nada se escribió junto al ejecutable
     assert not (exe.parent / "data").exists()
     assert not (exe.parent / "installation_profile.json").exists()

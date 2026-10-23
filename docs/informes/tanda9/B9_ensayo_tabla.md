@@ -1,0 +1,10 @@
+| Programa | Celda | Resultado |
+|---|---|---|
+| 1 Bowie & Dick | paro en ESTERILIZACION | fase=ESTERILIZACION; salidas_antes_del_paro=descompresion_lenta; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |
+| 1 Bowie & Dick | paro en PRE_VACIO | fase=PRE_VACIO; salidas_antes_del_paro=descompresion_lenta, vapor_camara; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |
+| 2 Instrumental 134 | paro en ESTERILIZACION | fase=ESTERILIZACION; salidas_antes_del_paro=descompresion_lenta; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |
+| 2 Instrumental 134 | paro en PRE_VACIO | fase=PRE_VACIO; salidas_antes_del_paro=descompresion_lenta, vapor_camara; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |
+| 3 Instrumental 121 | paro en ESTERILIZACION | fase=ESTERILIZACION; salidas_antes_del_paro=descompresion_lenta; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |
+| 3 Instrumental 121 | paro en PRE_VACIO | fase=PRE_VACIO; salidas_antes_del_paro=descompresion_lenta, vapor_camara; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |
+| 4 Líquidos | paro en ESTERILIZACION | fase=ESTERILIZACION; salidas_antes_del_paro=descompresion_lenta; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |
+| 4 Líquidos | paro en PRE_VACIO | fase=CALENTAMIENTO; salidas_antes_del_paro=descompresion_lenta, vapor_camara; resultado=ESPERANDO_CONFIRMACION; ordenes_ON_en_paro=ninguna; salidas_encendidas_tras_120_s=ninguna; orden_aceptada_tras_soltar=True |

@@ -59,7 +59,7 @@ def _numero(valor) -> float | None:
 class ServicioPuertas:
 
     def __init__(self, doors, estado, profile, config, logger=logger, programas=None,
-                 temp_max_ciclo=None, estado_seguro_activo=None):
+                 temp_max_ciclo=None, estado_seguro_activo=None, presion_vigente=None):
         self.config = config
         # Callable -> lista de programas cuyos sensores Principales deciden la
         # temperatura de apertura (tanda §1.1; SAF-01 de T3: el seleccionado y,
@@ -68,6 +68,10 @@ class ServicioPuertas:
         self._temp_max_ciclo = temp_max_ciclo   # callable (SAF-04 de T4)
         # callable: protocolo de estado seguro en curso (SAF-03 de T5)
         self._estado_seguro_activo = estado_seguro_activo
+        # S9 (tanda 9), revisión ★ pasada 2 R2-M3: callable -> bool, presión
+        # de cámara al día (ControlLoop.presion_vigente: DI + AI + estado
+        # publicado). Sin él, como antes; con él, falla cerrada.
+        self._presion_vigente = presion_vigente
         self.doors = {d.name: d for d in doors}
         self.estado = estado
         self.profile = profile
@@ -251,8 +255,11 @@ class ServicioPuertas:
                 return False, msg
         try:
             temp_max_ciclo = self._temp_max_ciclo() if self._temp_max_ciclo is not None else None
+            vigentes = (True if self._presion_vigente is None
+                        else self._presion_vigente() is True)
             segura, msg = camara_segura.evaluar(self.estado, self.config, programas,
-                                                self.profile, temp_max_ciclo=temp_max_ciclo)
+                                                self.profile, datos_vigentes=vigentes,
+                                                temp_max_ciclo=temp_max_ciclo)
         except Exception:
             # SAF-06 de T4: un error al evaluar no abre ni corta el tick
             msg = Motivo("error_evaluacion", "No se pudo evaluar la cámara segura")

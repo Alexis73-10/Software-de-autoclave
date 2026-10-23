@@ -1,6 +1,8 @@
 import time
 import logging
 
+from autoclave.core.runtime import motivos_fase
+from autoclave.core.runtime import vigencia_ai
 from autoclave.state_machine.cycle_phases.base_fase import BaseFase, FaseResult
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo
 from autoclave.core.runtime.lectura import carga_enfriada
@@ -84,13 +86,13 @@ class DescompresionFase(BaseFase):
             # TMG-06 de T11: motivo específico para el ticket y el registro
             t = self._temp_principal()
             p = self._pres_camara()
-            etapa = {"enfriamiento": "enfriamiento", "descompresion": "despresurización final",
-                     "lenta": "descompresión lenta", "rapida": "descompresión rápida"}.get(
-                         self._sub_etapa, "descompresión")
-            self.estado.motivo_fallo = (
-                f"Tiempo límite de {etapa} del modo {self._modo}"
-                + (f" (T={t:.1f} °C" if t is not None else " (T sin lectura")
-                + (f", P={p:.1f} kPa)" if p is not None else ")"))
+            # X9 (D9-13.4): clave + parámetros (sin lectura: "—")
+            etapa = (self._sub_etapa
+                     if self._sub_etapa in ("enfriamiento", "descompresion", "lenta", "rapida")
+                     else "general")
+            self.estado.motivo_fallo = motivos_fase.motivo(
+                "desc_tiempo_limite", clave_etapa=f"motivos_fase.etapa.{etapa}",
+                modo=self._modo, temp=t, pres=p)
             return FaseResult.FALLO
 
         _dispatch = {
@@ -180,7 +182,11 @@ class DescompresionFase(BaseFase):
 
         presion_obj = self.cycle.get_param("descompresion", modo_key, "presion_camara_enfriamiento", default=200)
         p = self._pres_camara()
-        if p is not None and p < presion_obj:
+        # S9 (tanda 9), revisión ★ pasada 2 (R2-A1): con la trama AI vencida
+        # la presión puede estar congelada bajo el objetivo: sin aire
+        # comprimido (sin realimentación habría sobrepresión)
+        ai_vigente, _ = vigencia_ai.leer(self.estado)
+        if ai_vigente and p is not None and p < presion_obj:
             if self._t_aire_comprimido is None or now >= self._t_aire_comprimido:
                 self.set_do.aire_comprimido_camara_on()
                 self._t_aire_comprimido = now + 3.0

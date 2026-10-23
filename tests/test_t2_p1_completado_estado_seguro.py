@@ -41,7 +41,8 @@ def test_completado_con_camara_caliente_inicia_estado_seguro():
     sm.update()
     assert estado.get_machine_state() == GlobalState.PREPARADO
     sm.ciclo._protocolo.ejecutar.assert_called_once_with(abrir_valvulas=True)
-    es.iniciar.assert_called_once_with(sm.ciclo._protocolo)
+    # S9 (D9-1.2): con la causa para la UI
+    es.iniciar.assert_called_once_with(sm.ciclo._protocolo, origen="completado")
 
 
 def test_completado_con_camara_presurizada_inicia_estado_seguro():

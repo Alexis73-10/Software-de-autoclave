@@ -1,6 +1,7 @@
 # state_machine/cycle_phases/secado.py
 import time
 import logging
+from autoclave.core.runtime import motivos_fase
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -95,12 +96,12 @@ class SecadoFase(BaseFase):
             elif self._vacio_alcanzado:
                 self._lecturas_sin_vacio += 1
                 if self._lecturas_sin_vacio >= _DEBOUNCE_LECTURAS:
-                    return self._fallo(f"Secado modo {modo}: se perdió el vacío "
-                                       f"({pres:.0f} kPa ≥ {umbral:.0f} kPa)")
+                    return self._fallo(motivos_fase.motivo(
+                        "sec_vacio_perdido", modo=modo, pres=pres, pres_umbral=umbral))
         if (not self._vacio_alcanzado and self._limite_vacio is not None
                 and time.monotonic() > self._limite_vacio):
-            return self._fallo(f"Secado modo {modo}: sin vacío real (la presión no bajó de "
-                               f"{umbral:.0f} kPa a tiempo); revise la bomba de vacío")
+            return self._fallo(motivos_fase.motivo("sec_sin_vacio", modo=modo,
+                                                   pres_umbral=umbral))
         return None
 
     def _fallo(self, motivo: str) -> FaseResult:
@@ -124,7 +125,7 @@ class SecadoFase(BaseFase):
             return fallo
         if time.monotonic() >= self._timer_fin:
             if not self._vacio_alcanzado:
-                return self._fallo("Secado modo 1: terminó sin alcanzar vacío real")
+                return self._fallo(motivos_fase.motivo("sec_termino_sin_vacio", modo=1))
             self._apagar_todo()
             logger.info("SecadoFase modo 1: COMPLETADO")
             return FaseResult.COMPLETADO
@@ -139,7 +140,7 @@ class SecadoFase(BaseFase):
             return fallo
         if time.monotonic() >= self._timer_fin:
             if not self._vacio_alcanzado:
-                return self._fallo("Secado modo 2: terminó sin alcanzar vacío real")
+                return self._fallo(motivos_fase.motivo("sec_termino_sin_vacio", modo=2))
             self._apagar_todo()
             logger.info("SecadoFase modo 2: COMPLETADO")
             return FaseResult.COMPLETADO
@@ -164,7 +165,7 @@ class SecadoFase(BaseFase):
             self.set_do.vacio_camara_on()
 
             if time.monotonic() > self._timeout_pulso_fin:
-                return self._fallo("Secado modo 3: no se alcanzó la presión baja de vacío a tiempo")
+                return self._fallo(motivos_fase.motivo("sec_modo3_vacio_bajo"))
 
             if pres is not None and pres <= presion_baja:
                 self.set_do.bomba_vacio_off()
@@ -179,7 +180,7 @@ class SecadoFase(BaseFase):
             self.set_do.aire_admosferico_camara_on()
 
             if time.monotonic() > self._timeout_pulso_fin:
-                return self._fallo("Secado modo 3: no se alcanzó la presión alta de aire a tiempo")
+                return self._fallo(motivos_fase.motivo("sec_modo3_aire_alto"))
 
             if pres is not None and pres >= presion_alta:
                 self.set_do.aire_admosferico_camara_off()

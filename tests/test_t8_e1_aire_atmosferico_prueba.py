@@ -179,7 +179,9 @@ def test_lazo_cierra_el_aire_abierto_si_la_camara_deja_de_estar_segura(pres):
 def test_lazo_no_toca_el_aire_en_atmosferica():
     loop = _loop(_Estado(75.0, aire_on=True))
     loop._tick()
-    loop.set_do.set_output.assert_not_called()
+    # S9, revisión ★ SAF-01: el lazo sí apaga apertura/desbloqueo de puertas
+    # (aquí la cámara no es segura: sin temperatura), pero no el aire
+    assert all(c.args[0] != _CANAL for c in loop.set_do.set_output.call_args_list)
     loop.al_evento_seguridad.assert_not_called()
 
 

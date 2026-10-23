@@ -169,7 +169,7 @@ class Standby(QObject):
             self.activoChanged.emit()
 
     def _informar_suspension(self, activo: bool) -> None:
-        """O2e: bitácora suspension_entra/_sale en el backend, fuera del hilo
+        """O2e: suspension_entra/_sale al backend (D9-6: solo su log), fuera del hilo
         de la GUI; un fallo solo queda en el log."""
         def tarea():
             try:

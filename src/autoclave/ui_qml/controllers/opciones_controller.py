@@ -17,7 +17,8 @@ from PySide6.QtQml import qmlRegisterType
 from autoclave.ui.service_ui.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain.permisos_opciones import (
-    edicion_permitida, motivo_solo_lectura, seccion_inicial, secciones_visibles,
+    edicion_permitida, motivo_manejo_ciclos, motivo_solo_lectura, puede_reasignar_io,
+    seccion_inicial, secciones_visibles,
 )
 
 
@@ -110,6 +111,16 @@ class OpcionesController(QObject):
     @Property(str, notify=sesionChanged)
     def seccionInicial(self) -> str:
         return seccion_inicial(self.rol)
+
+    # C9 (tanda 9, D9-10): Opciones avanzadas › Reasignación de E/S, solo el
+    # ingeniero; Manejo de ciclos, técnico e ingeniero y solo fuera de ciclo
+    @Property(bool, notify=sesionChanged)
+    def puedeReasignarIo(self) -> bool:
+        return puede_reasignar_io(self.rol)
+
+    @Property(str, notify=edicionChanged)
+    def motivoManejoCiclos(self) -> str:
+        return motivo_manejo_ciclos(self.rol, self._estado)
 
 
 qmlRegisterType(OpcionesController, "Autoclave.Controllers", 1, 0, "OpcionesController")

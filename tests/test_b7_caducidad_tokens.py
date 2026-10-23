@@ -134,12 +134,16 @@ def test_las_peticiones_autenticadas_mantienen_viva_la_sesion(api):
         assert client.get("/auth/sesion", headers=h).status_code == 200
 
 
-def test_el_401_por_caducidad_se_audita_como_rechazo_de_sesion(api):
+def test_el_401_por_caducidad_queda_como_rechazo_de_sesion_en_el_log(api, caplog):
+    # D9-6 (tanda 9): el rechazo ya no va a la bitácora, solo al log de desarrollo
+    import logging
     client, srv, ctx, reloj = api
     h, _ = _h(srv)
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
-    client.get("/auth/sesion", headers=h)
-    assert ctx.db.registrar_auditoria.called
+    with caplog.at_level(logging.INFO):
+        assert client.get("/auth/sesion", headers=h).status_code == 401
+    assert not ctx.db.registrar_auditoria.called
+    assert "rechazo_401" in caplog.text
 
 
 def test_la_caducidad_no_toca_el_control_del_ciclo_ni_las_rutas_sin_sesion(api):

@@ -191,7 +191,7 @@ def test_409_en_ciclo(api):
     assert r.status_code == 409
 
 
-def test_prueba_va_a_los_guardados_y_audita(api):
+def test_prueba_va_a_los_guardados_sin_bitacora(api):
     client, srv, ctx, cab, enviados = api
     h = cab(srv, "ingeniero")
     client.put("/email/config", json={"envio_activo": True, "destinatarios": [
@@ -200,7 +200,7 @@ def test_prueba_va_a_los_guardados_y_audita(api):
     assert r.status_code == 200 and r.json()["enviados"] == 2
     assert sorted(m["To"] for m in enviados) == ["a@x.co", "b@x.co"]
     assert "SECRETA" not in str(enviados[0])
-    assert ctx.db.get_auditoria(evento="correo_prueba")
+    assert not ctx.db.get_auditoria(evento="correo_prueba")   # D9-6 (tanda 9): solo log
 
 
 def test_prueba_rechazos(api, monkeypatch):

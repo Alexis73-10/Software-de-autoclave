@@ -9,6 +9,10 @@
 # la StateMachine entrega aquí el ProtocoloFallo del ciclo y este módulo lo
 # sigue ejecutando en el estado siguiente hasta que la cámara sea segura:
 #
+#  0. S9 (tanda 9, D9-1.1/1.2): al arrancar con la cámara no segura corre
+#     solo, sin confirmación; la confirmación se exige SOLO tras un paro real
+#     visto en este encendido (paso 1). `causa` distingue paro liberado /
+#     arranque / fin de ciclo para la UI.
 #  1. Paro activo: no hace nada (los estados mandan ALL_OFF continuo); si
 #     es un paro real (PARO_REAL, U4) se marca que hará falta una
 #     confirmación nueva. Sin datos de la tarjeta solo se pausa.
@@ -50,11 +54,22 @@ class ProtocoloEstadoSeguro:
         self._paro_visto = False
         self._pausado = False
         self.requiere_confirmacion = False
+        # S9 (tanda 9, D9-1.2): por qué corre el protocolo ("arranque",
+        # "fallo", "cancelado" o "completado"); la UI lo distingue del paro
+        self.origen = None
         self.alarm_manager = alarm_manager
         # Callable que mantiene el enfriamiento del drenaje mientras el
         # protocolo ventea (SAF-07 de T5). Lo fija la StateMachine.
         self.mantener_drenaje = None
         self._alarma_bloqueo = None
+        # S9 (tanda 9, revisión ★ TMG-02/TMG-03): callable () -> (trama AI
+        # vigente, número de trama). Lo fija el ControlLoop; se entrega al
+        # protocolo. Con la AI vencida no se cuenta ningún tick seguro (la
+        # presión publicada puede estar congelada). None: sin información.
+        self.lectura_ai = None
+        # S9, revisión ★ TMG-04: la pausa actual vino del modo prueba (al
+        # reanudar, la espera sellada sin sonda empieza de nuevo)
+        self._pausa_por_prueba = False
 
     @property
     def activo(self) -> bool:
@@ -101,8 +116,23 @@ class ProtocoloEstadoSeguro:
         except Exception:
             logger.exception("Estado seguro: no se pudo registrar %s", evento)
 
-    def iniciar(self, protocolo, requiere_confirmacion: bool = False) -> None:
-        """Toma el ProtocoloFallo ya ejecutado del ciclo terminado."""
+    @property
+    def causa(self) -> str | None:
+        """S9 (D9-1.2): "paro_liberado" mientras espera la confirmación (solo
+        tras un paro real visto en este encendido); si no, el origen del
+        protocolo ("arranque", "fallo", "cancelado", "completado"). None si
+        no está activo. La UI elige el texto con esto: nunca dice "paro
+        liberado" si no hubo paro."""
+        if not self.activo:
+            return None
+        if self.requiere_confirmacion:
+            return "paro_liberado"
+        return self.origen or "fallo"
+
+    def iniciar(self, protocolo, requiere_confirmacion: bool = False,
+                origen: str = "fallo") -> None:
+        """Toma el ProtocoloFallo ya ejecutado del ciclo terminado (o el del
+        arranque con la cámara no segura, origen "arranque")."""
         if protocolo is None or not getattr(protocolo, "ejecutado", False):
             return
         self._protocolo = protocolo
@@ -112,8 +142,24 @@ class ProtocoloEstadoSeguro:
         # Tras un paro durante el ciclo el protocolo no abrió válvulas: al
         # empezar a actuar se "reanuda" (pulsos y plazo del modo desde cero)
         self._pausado = True
+        self._pausa_por_prueba = False
         self.requiere_confirmacion = requiere_confirmacion
-        self._evento("estado_seguro_iniciado", requiere_confirmacion=requiere_confirmacion)
+        self.origen = origen
+        self._evento("estado_seguro_iniciado", requiere_confirmacion=requiere_confirmacion,
+                     origen=origen)
+
+    def pausar(self, motivo: str) -> None:
+        """S9 (D9-1.3): el modo prueba pausa el protocolo (la máquina de
+        estados no corre y la entrada al modo prueba apaga todo). Al volver a
+        actuar se reanuda como tras un paro: pulsos y plazos desde cero y las
+        3 lecturas seguras se cuentan de nuevo."""
+        if not self.activo:
+            return
+        self._pausado = True
+        self._ticks_seguros = 0
+        if motivo == "modo_prueba":
+            self._pausa_por_prueba = True
+        self._evento("estado_seguro_pausado", motivo=motivo)
 
     def confirmar(self) -> bool:
         """"Confirmar y llevar a estado seguro". False si no aplica (no hay
@@ -169,6 +215,17 @@ class ProtocoloEstadoSeguro:
                 logger.exception("Estado seguro: no se pudo resolver la alarma de bloqueo")
         self._alarma_bloqueo = None
 
+    def _ai_vigente(self) -> bool:
+        """S9 (revisión ★ TMG-02): trama AI vigente según lectura_ai; sin
+        lectura_ai, True (comportamiento anterior); ante un error, False."""
+        if self.lectura_ai is None:
+            return True
+        try:
+            return self.lectura_ai()[0] is True
+        except Exception:
+            logger.exception("Estado seguro: no se pudo leer la vigencia de la trama AI")
+            return False
+
     def update(self, datos_vigentes: bool = True) -> None:
         if not self.activo:
             return
@@ -198,7 +255,14 @@ class ProtocoloEstadoSeguro:
             self._pausado = False
             reanudar = getattr(self._protocolo, "reanudar", None)
             if callable(reanudar):
-                reanudar()
+                if self._pausa_por_prueba:
+                    reanudar(tras_modo_prueba=True)
+                else:
+                    reanudar()
+            self._pausa_por_prueba = False
+        # S9, revisión ★ TMG-02: el protocolo lee la vigencia de la trama AI
+        if self.lectura_ai is not None:
+            self._protocolo.lectura_ai = self.lectura_ai
         solo_lenta_antes = getattr(self._protocolo, "solo_lenta", False) is True
         sellado_antes = getattr(self._protocolo, "sellado", False) is True
         self._protocolo.update()
@@ -229,8 +293,13 @@ class ProtocoloEstadoSeguro:
                 logger.exception("Estado seguro: no se pudieron obtener los programas")
                 self._ticks_seguros = 0
                 return
+        propio = getattr(self._protocolo, "cycle", None)
         if programas is None:
-            programas = [getattr(self._protocolo, "cycle", None)]
+            programas = [propio]
+        elif propio is not None and not any(p is propio for p in programas):
+            # S9 (D9-1.3): con el programa cambiado durante el protocolo, su
+            # Principal sigue contando (nunca solo el seleccionado)
+            programas = list(programas) + [propio]
         temp_max_ciclo = None
         try:
             temp_max_ciclo = self._protocolo.cycle.get_param("finalizacion", "temp_max_apertura")
@@ -238,6 +307,9 @@ class ProtocoloEstadoSeguro:
             pass
         segura, _ = camara_segura.evaluar(self.estado, self.config, programas, self.profile,
                                           temp_max_ciclo=temp_max_ciclo)
+        if segura and not self._ai_vigente():
+            # S9, revisión ★ TMG-02: presión posiblemente congelada
+            segura = False
         self._ticks_seguros = self._ticks_seguros + 1 if segura else 0
         if self._ticks_seguros >= _TICKS_SEGUROS:
             duracion = self._reloj() - self._t_inicio if self._t_inicio is not None else None

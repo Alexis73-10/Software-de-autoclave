@@ -80,7 +80,7 @@ def test_puertas_bloqueadas_en_ciclo_hibernacion_y_emergencia(entorno, estado):
         assert r.status_code == 409
         assert r.json()["codigo"] == "estado_no_permitido"
     assert est.puertas["Puerta 1"] == DoorState.ABIERTO
-    assert _eventos(ctx, "rechazo_409")
+    assert _eventos(ctx, "rechazo_409") == []    # D9-6 (tanda 9): solo log de desarrollo
 
 
 @pytest.mark.parametrize("estado", [GlobalState.PREPARACION, GlobalState.PREPARADO,

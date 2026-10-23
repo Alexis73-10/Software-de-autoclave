@@ -7,8 +7,10 @@ import "../Componentes"
 import Autoclave.I18n
 
 // OPCIONES › Parámetros del equipo (O2a, tanda 6; mockups 3, 4 y 5 aprobados).
-// Entrada: 7 tarjetas de submenú (Puerta, Impresión, Drenaje, Empaque,
-// Chaqueta y Sistema en 2 columnas; Configuración de la máquina a lo ancho).
+// Entrada: tarjetas de submenú en 2 columnas (las entrega el backend según el
+// perfil, D9-3: Puerta, Cámara segura, Impresión, Drenaje, Empaque, Chaqueta y
+// Sistema; sin Puerta ni Empaque con puertas simples) y Configuración de la
+// máquina a lo ancho.
 // Submenú: filas con nombre, rango y defecto, y valor actual con su unidad;
 // cada fila abre la ventana de ajuste (la misma de Parámetros del ciclo).
 // Configuración de la máquina: idioma, temperatura y presión con confirmación
@@ -107,7 +109,7 @@ Item {
         MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
     }
 
-    // ======================= entrada: 7 tarjetas =======================
+    // ======================= entrada: tarjetas de submenú =======================
     component TarjetaGrupo: Rectangle {
         id: tarjeta
         property string grupo: ""
@@ -176,7 +178,9 @@ Item {
                 width: parent.width
                 readonly property real anchoCelda: (width - spacing) / 2
                 Repeater {
-                    model: ["puerta", "impresion", "drenaje", "empaque", "chaqueta", "sistema"]
+                    // D9-3 (tanda 9): la lista la entrega el backend, ya filtrada por el
+                    // perfil (sin Puerta ni Empaque con puertas simples)
+                    model: control.grupos.filter(g => g !== "maquina")
                     delegate: TarjetaGrupo {
                         required property string modelData
                         grupo: modelData
@@ -366,7 +370,8 @@ Item {
             }
 
             Repeater {
-                model: control.grupo !== "" && control.grupo !== "maquina" ? control.delGrupo(control.grupo) : []
+                // D9-4 (tanda 9): propiedad notificable; se reevalúa al guardar
+                model: control.parametrosGrupo
                 delegate: Fila {
                     id: filaParametro
                     required property var modelData

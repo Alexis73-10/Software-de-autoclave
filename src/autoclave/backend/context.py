@@ -487,6 +487,9 @@ class BackendContext:
             programas=self.programas_para_seguridad,
             temp_max_ciclo=self.temp_max_tras_ciclo,
             estado_seguro_activo=self.estado_seguro_activo,
+            # S9, revisión ★ pasada 2 R2-M3: la apertura evalúa la cámara con
+            # la presión al día (sin ControlLoop todavía: no vigente)
+            presion_vigente=self.presion_vigente,
         )
 
         # Data logger (SQLite) + impresión en tiempo real
@@ -691,6 +694,13 @@ class BackendContext:
                                    unidades["presion"], p_atm)
         tf.fijar_proveedor(proveedor)
 
+        # X9 (tanda 9, D9-13.4): nombre de un programa de fábrica en el ticket
+        def resolutor_nombre(cycle_id, nombre):
+            from types import SimpleNamespace
+            return self.cycle_manager.nombre_clave_de(
+                SimpleNamespace(id=cycle_id, name=nombre, nombre_clave=None))
+        tf.fijar_resolutor_nombre(resolutor_nombre)
+
     def iniciar_vigilancia_impresora(self) -> None:
         """B5 (tanda 4): verifica una vez, en un hilo con plazo de 5 s, que la
         impresora esté presente (solo si está habilitada) y avisa sin bloquear.
@@ -883,6 +893,12 @@ class BackendContext:
         cm = getattr(self, "cycle_manager", None)
         seleccionado = getattr(cm, "selected_cycle", None)
         return [seleccionado] if seleccionado is not None else []
+
+    def presion_vigente(self) -> bool:
+        """S9 (revisión ★ pasada 2 R2-M3): presión de cámara al día según el
+        ControlLoop; False antes de construirlo (falla cerrada)."""
+        loop = getattr(self, "control_loop", None)
+        return loop is not None and loop.presion_vigente is True
 
     def estado_seguro_activo(self) -> bool:
         loop = getattr(self, "control_loop", None)

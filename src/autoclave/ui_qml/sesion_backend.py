@@ -77,6 +77,7 @@ _CLAVES = {
     "programa_de_fabrica": "opciones.err_no_editable",
     "BASE_OCUPADA": "opciones.err_base_ocupada",
     "f0_no_disponible": "opciones.err_f0",
+    "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
     "asignacion_desfasada": "opciones.err_valor_cambio",
@@ -98,6 +99,9 @@ _CLAVES = {
     "aire_atmosferico_con_presion": "io.err_aire_con_presion",
     "aire_atmosferico_sin_presion": "io.err_aire_sin_presion",
     "aire_atmosferico_sin_referencia": "io.err_aire_sin_referencia",
+    # S9 (tanda 9, revisión ★ SAF-01): salidas bloqueadas en modo prueba
+    "salida_prueba_camara_no_segura": "io.err_puerta_camara_no_segura",
+    "salida_prueba_estado_seguro": "io.err_salida_estado_seguro",
     "sin_base_de_datos": "io.err_sin_base",
     "auditoria_no_disponible": "io.err_sin_base",
     "sin_calibracion_previa": "io.err_sin_previa",

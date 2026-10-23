@@ -81,19 +81,18 @@ Item {
     // T-16 (§5.9, decisión 22): sin rol, solo con la máquina en FALLA
     readonly property bool enFalla: (puente?.machineState ?? "") === "FALLA"
     // B6 (tanda 4) y D8-5.1 (tanda 8): el programa se puede cambiar en
-    // PREPARACION, PREPARADO y FALLA (decisión del 19-oct), sin paro, modo
-    // prueba ni estado seguro, AUNQUE no haya datos vigentes de la tarjeta
-    // (Cristian, 22-oct 12:08: elegir un programa no acciona nada). En ciclo
-    // en curso NO. El backend vuelve a decidirlo (POST /cycle/select) y su
-    // motivo se muestra en la ventana.
+    // PREPARACION, PREPARADO y FALLA (decisión del 19-oct), sin paro ni modo
+    // prueba, AUNQUE no haya datos vigentes de la tarjeta (Cristian, 22-oct
+    // 12:08: elegir un programa no acciona nada). S9 (tanda 9, D9-1.3): también
+    // con el estado seguro activo (la seguridad sigue usando el programa del
+    // protocolo). En ciclo en curso NO. El backend vuelve a decidirlo (POST
+    // /cycle/select) y su motivo se muestra en la ventana.
     readonly property string motivoNoTocable: {
         const m = puente?.machineState ?? ""
         if (m === "CICLO")
             return "selector_ciclo.motivo_ciclo_en_curso"
         if (puente?.paroActivo ?? false)
             return "selector_ciclo.motivo_paro"
-        if ((puente?.estadoSeguroActivo ?? false) || (puente?.estadoSeguroRequiereConfirmacion ?? false))
-            return "selector_ciclo.motivo_estado_seguro"
         if (puente?.modoPrueba ?? false)
             return "selector_ciclo.motivo_modo_prueba"
         if (m !== "PREPARACION" && m !== "PREPARADO" && m !== "FALLA")

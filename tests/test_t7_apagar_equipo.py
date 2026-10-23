@@ -155,15 +155,15 @@ def test_camara_que_no_se_puede_evaluar_cuenta_como_no_segura(entorno):
     assert r.status_code == 200 and r.json()["camara_segura"] is False
 
 
-def test_rechaza_con_estado_seguro_actuando(entorno):
+def test_apaga_con_estado_seguro_actuando(entorno):
+    """S9 (tanda 9, D9-1.3): con el estado seguro actuando también se apaga
+    (antes 409 estado_seguro_activo); queda en la bitácora."""
     client, ctx, _, _, hilos = entorno
     ctx.control_loop.estado_seguro.activo = True
     ctx.control_loop.estado_seguro.requiere_confirmacion = False
     _flags(ctx)
     r = _apagar(client)
-    assert r.status_code == 409 and r.json()["codigo"] == "estado_seguro_activo"
-    assert hilos == []
-    ctx.control_loop.iniciar_apagado.assert_not_called()
+    assert r.status_code == 200, r.text
 
 
 def test_estado_seguro_esperando_confirmacion_se_puede_apagar(entorno):

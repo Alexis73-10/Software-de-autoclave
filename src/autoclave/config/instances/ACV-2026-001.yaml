@@ -70,6 +70,29 @@ io_enabled:
     - cerrar_puerta_2
     - buzer_alarma
 
+# D9-5 (tanda 9): tipo de contacto de cada entrada digital del máximo físico.
+# nc: true = contacto normalmente cerrado (1 = inactiva; 0 o circuito abierto =
+# activa). Opciones > Entradas / Salidas muestra de las NC el estado
+# interpretado y el nivel crudo al lado. Son NC el paro de emergencia y el
+# seguro de atrapamiento de cada puerta (este solo aparece si el perfil tiene
+# puertas con atrapamiento). Solo presentación: la lógica del paro y del
+# atrapamiento ya trata esas entradas como NC en el código.
+di_contacto:
+  aire_comprimido: {nc: false}
+  presion_agua: {nc: false}
+  puerta_1_cerrada: {nc: false}
+  puerta_1_abierta: {nc: false}
+  puerta_2_cerrada: {nc: false}
+  puerta_2_abierta: {nc: false}
+  atrapamiento_puerta_1: {nc: true}
+  atrapamiento_puerta_2: {nc: true}
+  agua_bomba: {nc: false}
+  agua_generador: {nc: false}
+  paro_emergencia: {nc: true}
+  agua_camara: {nc: false}
+  vapor_suministro: {nc: false}
+  suministro_electrico: {nc: false}
+
 # R8 (tanda 8, D8-5.12): asignación de FÁBRICA de cada función a su puerto de
 # la tarjeta (numerados desde 1, como en Opciones > Entradas / Salidas). La
 # vigente se guarda aparte, en data/asignacion_io.json de la carpeta de datos

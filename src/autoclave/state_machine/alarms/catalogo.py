@@ -67,6 +67,10 @@ SEN_04, SEN_05, SEN_06, SEN_07 = "SEN-04", "SEN-05", "SEN-06", "SEN-07"
 SEN_08 = "SEN-08"
 # R8 (tanda 8, D8-5.12): reasignación de E/S sin verificar por el ingeniero
 SEN_09 = "SEN-09"
+# S9 (tanda 9, D9-1.6): fuera de ciclo, puerta abierta con la presión de cámara
+# fuera de la banda atmosférica (calibración, referencia atmosférica o sensor
+# de puerta)
+SEN_10 = "SEN-10"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
@@ -185,7 +189,8 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(PUE_05, _AV, False, _A, "Cierre en modo seguro",
        "{puerta} se está cerrando sin bomba de vacío por falla eléctrica.",
        "Ninguna, el cierre continúa."),
-    _d(SEN_01, _AV, True, _A, "Lectura inválida de sensor",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_01, _AL, True, _A, "Lectura inválida de sensor",
        "{sensor} entrega una lectura inválida ({valor}).",
        "Verifique la conexión del sensor."),
     _d(SEN_02, _FC, True, _M, "Sensor crítico sin lectura",
@@ -194,7 +199,8 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     # Tanda §1.1: sensor de temperatura del ciclo declarado y sin lectura,
     # fuera de ciclo. No bloquea el equipo; bloquea al INICIAR un programa
     # que lo use (RS-06, SENSOR_NO_DISPONIBLE).
-    _d(SEN_03, _AV, False, _A, "Sensor de temperatura sin señal",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_03, _AL, False, _A, "Sensor de temperatura sin señal",
        "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
        "Verifique la conexión de la sonda o asígnele el rol No en uso."),
     # S1 (tanda 8, D8-1.2): en ciclo, FALLO con el vapor cortado y venteo solo
@@ -215,11 +221,13 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "empaque."),
     # S1 (tanda 8, D8-1.3): fuera de ciclo bloquea el inicio; "NO ABRIR" sigue
     # porque sin presión no se confirma la cámara segura.
-    _d(SEN_06, _AV, True, _A, "Sensor de presión de cámara sin lectura",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_06, _AL, True, _A, "Sensor de presión de cámara sin lectura",
        "Sensor de presión de cámara sin lectura: llame a servicio.",
        "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. "
        "Llame a servicio técnico."),
-    _d(SEN_07, _AV, True, _A, "Sensor de presión de chaqueta sin lectura",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(SEN_07, _AL, True, _A, "Sensor de presión de chaqueta sin lectura",
        "Sensor de presión de chaqueta sin lectura: llame a servicio.",
        "Llame a servicio técnico para revisar el sensor de presión de chaqueta."),
     # R8 (tanda 8; SAF-01/SAF-02 de su revisión): tras reasignar E/S, no se
@@ -228,6 +236,14 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_09, _AV, True, _A, "Reasignación de entradas y salidas sin verificar",
        "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
        "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."),
+    # S9 (tanda 9, D9-1.6): coherencia puerta-presión. Solo fuera de ciclo,
+    # 3 lecturas para aparecer y 3 coherentes para despejarse sola. Sin
+    # valores en el texto (las unidades de presión las elige el equipo).
+    _d(SEN_10, _AL, True, _A, "Presión de cámara incoherente con la puerta abierta",
+       "La puerta está abierta, pero la presión de cámara no corresponde a la presión "
+       "atmosférica. No se pueden iniciar ciclos.",
+       "Causas posibles: calibración del sensor de presión de cámara, presión atmosférica de "
+       "referencia mal configurada o sensor de puerta. Llame a servicio técnico."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",
@@ -254,7 +270,8 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "({minimo:.1f}–{maximo:.1f} °C). El ciclo sigue controlado por el sensor Principal.",
        "Revise la carga y la ubicación de la sonda de referencia."),
     # SAF-04 de T5: el protocolo de estado seguro no puede terminar solo
-    _d(CIC_10, _AV, False, _A, "Estado seguro detenido",
+    # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
+    _d(CIC_10, _AL, False, _A, "Estado seguro detenido",
        "{motivo}. La cámara sigue sin considerarse segura.",
        "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en "
        "OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, "

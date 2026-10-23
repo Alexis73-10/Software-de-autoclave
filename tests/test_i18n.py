@@ -244,6 +244,11 @@ def _parametros_de_perfiles():
 
 FAMILIAS = {
     "menu.": _sufijos_menu,
+    # S9 (tanda 9, D9-1.2): causa del estado seguro en SeccionEstadoSeguro.qml
+    # ("paro_liberado" no usa esta familia: tiene su propio texto)
+    "sistema.estado_seguro_causa_": lambda: [c for c in __import__(
+        "autoclave.ui_qml.bridge.ui_bridge", fromlist=["_CAUSAS_ESTADO_SEGURO"]
+    )._CAUSAS_ESTADO_SEGURO if c != "paro_liberado"],
     # O3 (tanda 6): entradas mostradas del programa
     "ciclo.entrada_corta_": lambda: list(__import__(
         "autoclave.ui_qml.domain.entradas_mostradas", fromlist=["_RUTA_STATUS"])._RUTA_STATUS),
@@ -299,9 +304,9 @@ FAMILIAS = {
     "roles.": lambda: [v for v, _ in __import__("autoclave.ui_pyside.services.roles",
                                                 fromlist=["ROLES"]).ROLES],
     # O2a (tanda 6): submenús y parámetros del equipo
-    "opciones.equipo_grupos.": lambda: ["puerta", "impresion", "drenaje", "empaque", "chaqueta",
+    "opciones.equipo_grupos.": lambda: ["puerta", "camara_segura", "impresion", "drenaje", "empaque", "chaqueta",
                                         "sistema", "maquina"],
-    "opciones.equipo_grupos_desc.": lambda: ["puerta", "impresion", "drenaje", "empaque",
+    "opciones.equipo_grupos_desc.": lambda: ["puerta", "camara_segura", "impresion", "drenaje", "empaque",
                                              "chaqueta", "sistema", "maquina"],
     "opciones.equipo_magnitud_": lambda: ["temperatura", "presion"],
     "parametros_equipo.": lambda: _claves_equipo(),

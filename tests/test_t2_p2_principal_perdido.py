@@ -90,6 +90,10 @@ def test_solo_lenta_en_vacio_abre_aire_atmosferico():
     prot, estado, set_do = _protocolo(1, pres=40.0)
     prot.ejecutar(solo_lenta=True)
     prot.update()
+    # S9, revisión ★ SAF-03 / R2-B3: el aire con 3 lecturas de vacío (el
+    # disparo cuenta como la primera)
+    set_do.aire_admosferico_camara_on.assert_not_called()
+    prot.update()
     set_do.aire_admosferico_camara_on.assert_called()
     set_do.descompresion_rapida_on.assert_not_called()
 

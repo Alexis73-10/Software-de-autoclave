@@ -337,6 +337,21 @@ Item {
                                 font.weight: Tipografia.pesoBold
                                 font.pixelSize: Escala.fuente(22)
                             }
+                            // D9-5 (tanda 9): de una entrada NC el estado de arriba
+                            // es el interpretado; aquí, en pequeño, el nivel crudo
+                            Text {
+                                objectName: "nivelCrudo_" + tarjetaEntrada.modelData.name
+                                visible: tarjetaEntrada.modelData.nc === true
+                                         && tarjetaEntrada.modelData.nivel !== null
+                                         && tarjetaEntrada.modelData.nivel !== undefined
+                                anchors.verticalCenter: parent.verticalCenter
+                                text: visible ? I18n.t("io.ui.nivel_crudo", I18n.lang,
+                                                       { nivel: tarjetaEntrada.modelData.nivel ? "1" : "0" })
+                                              : ""
+                                color: Colores.textoGuia
+                                font.family: Tipografia.familia
+                                font.pixelSize: Escala.fuente(16)
+                            }
                         }
                     }
                 }

@@ -63,6 +63,9 @@ DATOS_VERIF = _datos(verificacion={"estado": "trama_presente", "funciones": {
 rutas["GET /io/assignment"] = (200, _datos())
 _i18n.fijar_idioma(IDIOMA); esperar(100)
 raiz.setProperty("seccionActiva", "opciones_avanzadas"); esperar(400)
+# C9 (tanda 9, D9-10): Opciones avanzadas abre en Manejo de ciclos; el
+# ingeniero elige la parte de reasignación
+buscar("opcionesAvanzadas").setProperty("segmento", "reasignacion"); esperar(400)
 p = buscar("opcionesReasignacion")
 ctrl = p.findChild(QObject, "reasignacionController")
 salida["pantalla"] = p is not None

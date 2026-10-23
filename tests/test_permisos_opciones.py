@@ -21,8 +21,9 @@ _ESPERADO = {
     "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura
     # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
     # O2b (tanda 6, decisión 1.9): el técnico ve Usuarios con los controles deshabilitados
-    # R8 (tanda 8, D8-5.12): Opciones avanzadas, solo el ingeniero
-    "tecnico":   [s for s in _TECNICAS if s != "opciones_avanzadas"] + _ADMIN + ["respaldo"],
+    # C9 (tanda 9, D9-10): Opciones avanzadas para técnico e ingeniero (Manejo
+    # de ciclos); la reasignación de E/S, solo el ingeniero (puede_reasignar_io)
+    "tecnico":   _TECNICAS + _ADMIN + ["respaldo"],
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
     "ingeniero": _TECNICAS + _ADMIN + ["respaldo"],   # O2h
@@ -81,3 +82,26 @@ def test_edicion_permitida(estado, permitida):
 ])
 def test_edicion_permitida_por_rol(estado, rol, seccion, permitida):
     assert edicion_permitida(estado, rol, seccion) is permitida
+
+
+# C9 (tanda 9, D9-10): dentro de Opciones avanzadas, Manejo de ciclos para
+# técnico e ingeniero y la reasignación de E/S solo para el ingeniero
+@pytest.mark.parametrize("rol,manejo,reasignar", [
+    ("tecnico", True, False), ("ingeniero", True, True), ("admin", False, False),
+    ("operador", False, False), ("", False, False), (None, False, False)])
+def test_subsecciones_de_opciones_avanzadas(rol, manejo, reasignar):
+    from autoclave.ui_qml.domain.permisos_opciones import puede_manejar_ciclos, puede_reasignar_io
+    assert puede_manejar_ciclos(rol) is manejo
+    assert puede_reasignar_io(rol) is reasignar
+
+
+@pytest.mark.parametrize("estado,esperado", [("PREPARACION", True), ("PREPARADO", True),
+                                             ("FALLA", True), ("CICLO", False), ("", False)])
+@pytest.mark.parametrize("rol", ["tecnico", "ingeniero"])
+def test_manejo_de_ciclos_solo_fuera_de_ciclo(rol, estado, esperado):
+    # el ingeniero tampoco en CICLO (a diferencia de los parámetros)
+    from autoclave.ui_qml.domain.permisos_opciones import motivo_manejo_ciclos
+    assert (motivo_manejo_ciclos(rol, estado) == "") is esperado
+    if estado == "CICLO":
+        assert motivo_manejo_ciclos(rol, estado) == "ciclo"
+    assert motivo_manejo_ciclos("admin", "PREPARADO") == "rol"

@@ -349,44 +349,17 @@ Item {
                 titulo: I18n.t("opciones.entradas_titulo", I18n.lang)
                 onPulsada: { control.cargarEntradas(); raiz._entradasSel = control.entradas.slice(); raiz.vista = "entradas" }
             }
-            // O1 (tanda 5): gestión del programa (técnico e ingeniero)
+            // C9 (tanda 9, D9-10): crear, duplicar, habilitar y borrar
+            // programas se movieron a Opciones avanzadas › Manejo de ciclos
             Text {
+                objectName: "gestionMovida"
                 width: parent.width
                 topPadding: Escala.px(24)
-                visible: control.numero > 0 && control.programaEditable
-                text: I18n.t("opciones.gestion_titulo", I18n.lang)
+                wrapMode: Text.WordWrap
+                text: I18n.t("opciones.gestion_movida", I18n.lang)
                 color: Colores.textoSecundario
                 font.family: Tipografia.familia
-                font.pixelSize: Escala.fuente(24)
-            }
-            Flow {
-                objectName: "gestionPrograma"
-                visible: control.numero > 0 && control.programaEditable
-                width: parent.width
-                spacing: Escala.px(12)
-                BotonFormulario {
-                    objectName: "botonHabilitar"
-                    texto: I18n.t(control.programaHabilitado ? "opciones.deshabilitar_programa"
-                                                             : "opciones.habilitar_programa", I18n.lang)
-                    habilitado: raiz.edicionPermitida
-                    onPulsado: if (habilitado) control.fijarHabilitado(!control.programaHabilitado)
-                }
-                BotonFormulario {
-                    objectName: "botonDuplicar"
-                    texto: I18n.t("opciones.duplicar_programa", I18n.lang)
-                    habilitado: raiz.edicionPermitida && raiz.teclado !== null
-                    onPulsado: if (habilitado) raiz.teclado.abrirAlfanumerico(
-                        I18n.t("opciones.nombre_programa", I18n.lang),
-                        control.nombrePrograma, 40, false,
-                        (v) => { if (String(v).trim() !== "") control.duplicar(String(v)) })
-                }
-                BotonFormulario {
-                    objectName: "botonBorrar"
-                    visible: control.programaPersonalizado
-                    texto: I18n.t("opciones.borrar_programa", I18n.lang)
-                    habilitado: raiz.edicionPermitida
-                    onPulsado: if (habilitado) dialogoBorrar.abrir()
-                }
+                font.pixelSize: Escala.fuente(22)
             }
             Text {
                 objectName: "programaDeshabilitado"
@@ -642,16 +615,6 @@ Item {
                         && JSON.stringify(raiz._entradasSel) !== JSON.stringify(control.entradas)
             onPulsado: if (habilitado) control.guardarEntradas(raiz._entradasSel)
         }
-    }
-
-    DialogoConfirmacion {
-        id: dialogoBorrar
-        objectName: "dialogoBorrarPrograma"
-        mensaje: I18n.t("opciones.borrar_programa_pregunta", I18n.lang, { nombre: control.nombrePrograma })
-        textoConfirmar: I18n.t("opciones.borrar_programa", I18n.lang)
-        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
-        colorConfirmar: Colores.peligroTexto
-        onConfirmado: { cerrar(); control.borrar() }
     }
 
     // ======================= ventana de ajuste (§5.3) =======================

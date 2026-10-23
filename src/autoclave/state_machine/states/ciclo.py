@@ -322,14 +322,11 @@ class CicloState:
     # Cambios del ingeniero con el ciclo en curso (T-17, §5.8)
     # ------------------------------------------------------------------
 
-    def aplicar_si_fase_pendiente(self, seccion: str, path: list[str], valor) -> bool:
-        """Aplica a la copia del ciclo en curso un cambio ya guardado en el
-        programa almacenado, solo si la fase de esa sección aún no ha
-        iniciado. Devuelve True si aplicó al ciclo en curso; False si rige
-        desde el siguiente (fase iniciada o terminada, sección global, ciclo
-        ya terminado o sin copia). Llamar con _sm_lock tomado: así la fase no
-        puede avanzar durante la decisión (si inicia en el mismo instante, el
-        tick que la inicia ya corrió y cuenta como iniciada)."""
+    def fase_pendiente(self, seccion: str, path: list[str]) -> bool:
+        """True si un cambio de `seccion`/`path` todavía podría aplicarse a la
+        copia del ciclo en curso (su fase y las de sus vinculados no han
+        iniciado). No modifica nada. X9 (D9-13.3, TMG-01): el backend lo
+        consulta bajo _sm_lock para registrar la bitácora ANTES de aplicar."""
         if self.programa_en_curso is None or self._resultado_pendiente is not None:
             return False
         # un parámetro vinculado (p. ej. temperatura de calentamiento y de
@@ -340,6 +337,18 @@ class CicloState:
             fase = _SECCION_A_FASE.get(sec)
             if fase not in nombres or nombres.index(fase) <= self._fase_idx:
                 return False
+        return True
+
+    def aplicar_si_fase_pendiente(self, seccion: str, path: list[str], valor) -> bool:
+        """Aplica a la copia del ciclo en curso un cambio ya guardado en el
+        programa almacenado, solo si la fase de esa sección aún no ha
+        iniciado. Devuelve True si aplicó al ciclo en curso; False si rige
+        desde el siguiente (fase iniciada o terminada, sección global, ciclo
+        ya terminado o sin copia). Llamar con _sm_lock tomado: así la fase no
+        puede avanzar durante la decisión (si inicia en el mismo instante, el
+        tick que la inicia ya corrió y cuenta como iniciada)."""
+        if not self.fase_pendiente(seccion, path):
+            return False
         try:
             self.programa_en_curso.set_param(seccion, path, valor)
         except (KeyError, TypeError, ValueError) as exc:
@@ -421,7 +430,16 @@ class CicloState:
                 self.estado.codigo_fallo = ""
                 self.estado.valores_fallo = {}
                 return
-            self._registrar_fallo(codigo, origen=nombre_legible(nombre_fase), motivo=motivo)
+            # X9 (D9-13.4): si la fase dejó un motivo con clave y parámetros
+            # (motivos_fase), viajan con la alarma para presentarlo en el
+            # idioma y las unidades vigentes; el texto en español no cambia
+            try:
+                from autoclave.core.runtime import motivos_fase
+                extra = motivos_fase.a_valores(motivo)
+            except Exception:
+                extra = {}
+            self._registrar_fallo(codigo, origen=nombre_legible(nombre_fase),
+                                  motivo=str(motivo), **extra)
         except Exception:
             logger.exception("CicloState: no se pudo registrar el fallo de la fase %s", nombre_fase)
 

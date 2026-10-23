@@ -30,6 +30,7 @@ from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import io_names
 from autoclave.core.runtime import aire_atmosferico_prueba
+from autoclave.core.runtime import salidas_prueba_seguridad
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
@@ -210,6 +211,15 @@ def _auditar(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
             logger.exception("No se pudo registrar '%s' en audit_log", evento)
 
 
+def _log_desarrollo(evento: str, sesion: Sesion | None = None, *, usuario: str = "",
+                    **campos) -> None:
+    """D9-6 (tanda 9): eventos que NO van a la bitácora (audit_log) porque no
+    son de seguridad, ni cambios de configuración, ni de sesión; quedan solo
+    en el log de desarrollo."""
+    logger.info("Evento %s (usuario=%s): %s", evento,
+                sesion.usuario if sesion else usuario, campos)
+
+
 def _nombre_estado() -> str:
     """Estado de la máquina para la bitácora; "" si no se puede leer."""
     try:
@@ -241,9 +251,11 @@ def _responder_rechazo(_request: Request, r: RechazoApi):
 def _rechazar(status: int, codigo: str, motivo: str, entidad: str,
               sesion: Sesion | None = None, headers: dict | None = None,
               extra: dict | None = None):
-    """Registra el rechazo (rechazo_401/403/409) y lo lanza como RechazoApi.
-    Escribe en SQLite: nunca llamarla con _sm_lock tomado (usar _Rechazo)."""
-    _auditar(f"rechazo_{status}", sesion, entidad=entidad, detalle={"motivo": motivo})
+    """Registra el rechazo (rechazo_401/403/409) en el log de desarrollo y lo
+    lanza como RechazoApi. D9-6 (tanda 9): ya no va a la bitácora. Dentro de
+    guard_estado se sigue usando _Rechazo (no hace falta escribir con
+    _sm_lock tomado)."""
+    _log_desarrollo(f"rechazo_{status}", sesion, entidad=entidad, codigo=codigo, motivo=motivo)
     raise RechazoApi(status, codigo, motivo, extra=extra, headers=headers)
 
 
@@ -902,10 +914,10 @@ class _SuspensionBody(BaseModel):
 
 @app.post("/ui/standby")
 def registrar_suspension(body: _SuspensionBody):
-    """O2e: una pantalla QML informa que entró o salió de suspensión (solo
-    bitácora; no cambia nada del equipo)."""
-    _auditar("suspension_entra" if body.activa else "suspension_sale", usuario="sistema",
-             entidad=body.pantalla[:40])
+    """O2e: una pantalla QML informa que entró o salió de suspensión (no
+    cambia nada del equipo). D9-6 (tanda 9): solo log de desarrollo."""
+    _log_desarrollo("suspension_entra" if body.activa else "suspension_sale", usuario="sistema",
+                    entidad=body.pantalla[:40])
     return {"ok": True}
 
 
@@ -1263,6 +1275,8 @@ def _estado_seguro_status() -> dict:
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
     motivo = getattr(es, "bloqueado_motivo", None) if activo else None
+    # S9 (D9-1.2): paro_liberado / arranque / fallo / cancelado / completado
+    causa = getattr(es, "causa", None) if activo else None
     try:
         ack_confirma = getattr(context.control_loop.state_machine.ciclo,
                                "ack_confirma_estado_seguro", False) is True
@@ -1273,13 +1287,17 @@ def _estado_seguro_status() -> dict:
             "ack_confirma_estado_seguro": ack_confirma,
             "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
             # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
-            "bloqueado_motivo": motivo if isinstance(motivo, str) else None}
+            "bloqueado_motivo": motivo if isinstance(motivo, str) else None,
+            "causa": causa if isinstance(causa, str) else None}
 
 
 def _camara_segura_status(estado) -> dict:
     try:
         programas = context.programas_para_seguridad()
-        vigentes = getattr(context.control_loop, "datos_vigentes", False) is True
+        # S9, revisión ★ pasada 3 (R3-M1): con la presión al día (DI + AI +
+        # estado publicado); con la trama AI vencida la presión puede estar
+        # congelada. Falla cerrada.
+        vigentes = getattr(context.control_loop, "presion_vigente", False) is True
         segura, motivo = camara_segura.evaluar(estado, context.config_manager, programas,
                                                getattr(context, "profile", None),
                                                datos_vigentes=vigentes,
@@ -1497,8 +1515,14 @@ def _parametro_o_404(clave: str) -> dict:
 @app.get("/system_params")
 def get_system_params():
     """Lista para la pantalla: valor vigente, defecto, rango, unidad, clase,
-    submenú y último cambio (usuario y fecha)."""
-    return {"parametros": context.config_manager.describir()}
+    submenú y último cambio (usuario y fecha). D9-3 (tanda 9): `grupos` son
+    los submenús que se muestran según el perfil (sin Puerta ni Empaque en un
+    equipo de puertas simples), y solo van los parámetros de esos submenús."""
+    from autoclave.core.managers.config_manager import grupos_visibles
+    from autoclave.installation.profile import puertas_simples
+    grupos = grupos_visibles(puertas_simples(getattr(context, "profile", None)))
+    parametros = [p for p in context.config_manager.describir() if p.get("grupo") in grupos]
+    return {"parametros": parametros, "grupos": grupos}
 
 
 @app.get("/global_params/{clave}")
@@ -1653,10 +1677,11 @@ def select_cycle(body: _SelectCycleBody, request: Request):
     nombre = getattr(cycle, "name", None)
 
     def rechazar(status: int, codigo: str, motivo: str, anterior=None, estado=""):
-        _auditar("PROGRAMA_SELECCION_RECHAZADA", entidad=entidad,
-                 valor_anterior=anterior, valor_nuevo=body.cycle_id,
-                 detalle={**detalle, "estado": estado or _nombre_estado(),
-                          "codigo": codigo, "motivo": motivo, "programa": nombre})
+        # D9-6 (tanda 9): solo log de desarrollo
+        _log_desarrollo("PROGRAMA_SELECCION_RECHAZADA", entidad=entidad,
+                        anterior=anterior, nuevo=body.cycle_id,
+                        detalle={**detalle, "estado": estado or _nombre_estado(),
+                                 "codigo": codigo, "motivo": motivo, "programa": nombre})
         raise RechazoApi(status, codigo, motivo)
 
     if detalle["origen"] not in ORIGENES_SELECCION:
@@ -1690,8 +1715,9 @@ def select_cycle(body: _SelectCycleBody, request: Request):
     if not ok:
         rechazar(409, "cambio_no_permitido", reason, anterior=anterior, estado=estado)
 
-    _auditar("PROGRAMA_SELECCIONADO", entidad=entidad, valor_anterior=anterior,
-             valor_nuevo=body.cycle_id, detalle={**detalle, "programa": nombre})
+    # D9-6 (tanda 9): solo log de desarrollo
+    _log_desarrollo("PROGRAMA_SELECCIONADO", entidad=entidad, anterior=anterior,
+                    nuevo=body.cycle_id, detalle={**detalle, "programa": nombre})
     return {"ok": True, "id": cycle.id, "name": cycle.name}
 
 @app.get("/cycle/current/readings")
@@ -2162,7 +2188,7 @@ def print_test_page(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGEN
     """Página de prueba de la impresora térmica (409 en ciclo; 503 sin impresora)."""
     from autoclave.services.domain.logging import ticket_mantenimiento as tm
     _encolar_en_impresora([tm.pagina_prueba(_meta_equipo())])
-    _auditar("impresora_prueba", sesion, entidad="/printer/test-page")
+    _log_desarrollo("impresora_prueba", sesion, entidad="/printer/test-page")   # D9-6
     return {"ok": True}
 
 
@@ -2189,8 +2215,8 @@ def print_calibration(sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_ING
     texto = tm.ganancias(_meta_equipo(), sensores, ref.get("valor"),
                          (ref.get("ultima_modificacion") or {}).get("fecha"))
     _encolar_en_impresora([texto])
-    _auditar("impresion_ganancias", sesion, entidad="/maintenance/print/calibration",
-             detalle={"sensores": len(sensores)})
+    _log_desarrollo("impresion_ganancias", sesion, entidad="/maintenance/print/calibration",
+                    sensores=len(sensores))   # D9-6
     return {"ok": True, "sensores": len(sensores)}
 
 
@@ -2346,8 +2372,8 @@ def post_email_test(sesion: Sesion = Depends(requiere_rol(*_EDITAN_CORREO))):
             # contener credenciales del servidor); solo su tipo
             logger.warning("Correo de prueba a %s fallido (%s)", destino, type(e).__name__)
             fallidos.append(destino)
-    _auditar("correo_prueba", sesion, entidad=entidad,
-             detalle={"enviados": enviados, "fallidos": fallidos})
+    _log_desarrollo("correo_prueba", sesion, entidad=entidad,
+                    enviados=enviados, fallidos=fallidos)   # D9-6
     if not enviados:
         raise RechazoApi(502, "envio_fallido", "No se pudo enviar el correo de prueba",
                          extra={"fallidos": fallidos})
@@ -3209,8 +3235,9 @@ def _estado_seguro_en_marcha() -> bool:
 @app.post("/system/shutdown")
 def shutdown_system(body: dict = Body(default={})):
     """"Apagar equipo" / dejar fuera de servicio (§16, A1 de la tanda 3).
-    Permitido en cualquier estado salvo ciclo en curso (o estado seguro
-    actuando) y salvo un apagado ya en marcha: con FALLA, EMERGENCIA, paro,
+    Permitido en cualquier estado salvo ciclo en curso y salvo un apagado ya
+    en marcha (S9, D9-1.3: también con el estado seguro actuando; el apagado
+    deja todas las salidas en cero): con FALLA, EMERGENCIA, paro,
     sin tarjeta o con la cámara NO segura también se apaga (sin UPS, el
     personal técnico puede pedir dejar el equipo fuera de servicio). Solo desde
     la ventana principal (la UI de la puerta 1 envía ventana="principal").
@@ -3223,9 +3250,10 @@ def shutdown_system(body: dict = Body(default={})):
         # TMG-05 de T7: un segundo apagado (doble toque) no lanza otra secuencia
         if getattr(context.control_loop, "apagando", False) is True:
             raise _Rechazo(409, "apagado_en_curso", "El equipo ya se está apagando")
-        if _estado_seguro_en_marcha():
-            raise _Rechazo(409, "estado_seguro_activo",
-                           "La cámara se está llevando a estado seguro")
+        # S9 (tanda 9, D9-1.3): con el estado seguro activo también se apaga
+        # (antes 409 "estado_seguro_activo"); queda en la bitácora
+        estado_seguro_activo = getattr(getattr(context.control_loop, "estado_seguro", None),
+                                       "activo", False) is True
         # A1: solo informativo; ya no condiciona el apagado. Cualquier fallo al
         # evaluar cuenta como "no segura" (falla cerrada).
         try:
@@ -3251,7 +3279,8 @@ def shutdown_system(body: dict = Body(default={})):
              detalle={"estado": getattr(estado, "name", str(estado)),
                       "motivo": "fuera de servicio solicitado",
                       "camara_segura": segura, "tarjeta_conectada": tarjeta,
-                      "paro_emergencia": paro, "modo_prueba": en_modo_prueba})
+                      "paro_emergencia": paro, "modo_prueba": en_modo_prueba,
+                      "estado_seguro_activo": estado_seguro_activo})
     try:
         threading.Thread(target=_secuencia_apagado, name="ApagarEquipo", daemon=False).start()
     except Exception:
@@ -3374,8 +3403,8 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
     origen = "desconocido" if source_door is None else source_door
 
     def rechazo_origen(status: int, codigo: str, motivo: str):
-        _auditar("puerta_orden_rechazada", entidad=door_name, valor_nuevo=accion,
-                 detalle={"source_door": origen, "codigo": codigo, "motivo": motivo})
+        _log_desarrollo("puerta_orden_rechazada", entidad=door_name, accion=accion,
+                        source_door=origen, codigo=codigo, motivo=motivo)   # D9-6
         raise RechazoApi(status, codigo, motivo)
 
     if source_door is not None:
@@ -3407,8 +3436,8 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         # libre: lee la configuración de unidades del disco.
         _rechazar(409, "puerta_rechazada", rechazo_puerta, entidad,
                   extra=_campos_motivo(rechazo_puerta))
-    _auditar("puerta_orden", entidad=door_name, valor_nuevo=accion,
-             detalle={"source_door": origen})
+    _log_desarrollo("puerta_orden", entidad=door_name, accion=accion,
+                    source_door=origen)   # D9-6
     return {
         "ok": True,
         "door": door_name,
@@ -3535,6 +3564,13 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
             and not sc.f0_disponible(getattr(context, "profile", None))):
         _rechazar(422, "f0_no_disponible",
                   "F0 solo está disponible en equipos de laboratorio", entidad, sesion)
+    # D9-3 (tanda 9): un equipo de puertas simples no abre solo la puerta (no
+    # hay actuador); no se ofrece y el backend rechaza activarla
+    if (body.fase == "finalizacion" and body.path == ["apertura_automatica"]
+            and bool(body.value) and _puertas_simples()):
+        _rechazar(422, "apertura_automatica_no_disponible",
+                  "Apertura automática no disponible: el equipo tiene puertas simples",
+                  entidad, sesion)
     with guard_estado(DISTINTO_DE_CICLO, "/cycle/parameter", sesion,
                       excepcion_ingeniero=True) as estado:
         en_ciclo = estado == GlobalState.CICLO
@@ -3551,31 +3587,47 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
         anteriores_arrastre = [_valor_parametro(cycle, f, p) for f, p, _ in arrastres]
         previos = [(f, p, _valor_parametro(cycle, f, p)) for f, p in cycle.vinculados(body.fase, body.path)]
         previos += [(f, p, a) for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
+        # X9 (D9-13.3, revisión SAF-01): el cambio se valida y se calcula
+        # sobre una copia; el programa almacenado no recibe ningún valor
+        # hasta que la bitácora quede registrada (un ciclo que arranque en
+        # medio copia el valor anterior, que sí está registrado).
+        propuesta = cycle.copia()
+        if hasattr(cycle, "_path"):
+            propuesta._path = cycle._path
+        # re-revisión X9 (SAF-02): escribir la propuesta no quita la marca
+        # de valor sin bitácora (se quita tras registrar la bitácora)
+        propuesta._propuesta_sin_registrar = True
         try:
-            value = (cycle.set_param(body.fase, body.path, body.value, arrastres=arrastres)
-                     if arrastres else cycle.set_param(body.fase, body.path, body.value))
+            value = (propuesta.set_param(body.fase, body.path, body.value, arrastres=arrastres)
+                     if arrastres else propuesta.set_param(body.fase, body.path, body.value))
         except KeyError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except catalogo_parametros.ErrorCoherencia as e:
             raise _Rechazo(422, e.codigo, str(e))
         except (TypeError, ValueError) as e:
             raise _Rechazo(422, "VALOR_INVALIDO", str(e))
-        # valores que escribió esta petición: la reversión solo toca los que
-        # siguen así (TMG-02)
-        escritos = [(f, p, _valor_parametro(cycle, f, p)) for f, p, _ in previos]
+        # valores que escribe esta petición (cambio, vinculados y arrastres)
+        escritos = [(f, p, _valor_parametro(propuesta, f, p)) for f, p, _ in previos]
         cambios_automaticos = [
             {"fase": f, "path": list(p), "clave": ".".join(p), "anterior": a,
-             "nuevo": _valor_parametro(cycle, f, p)}
+             "nuevo": _valor_parametro(propuesta, f, p)}
             for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
 
         # Fuera de CICLO, o en otro programa durante CICLO (§5.8, 5b), el
         # cambio solo rige desde el siguiente ciclo que use ese programa. El
         # ciclo en curso corre con una copia: solo una fase pendiente de su
-        # programa recibe el cambio, decidido aquí bajo _sm_lock (§5.8, 4).
+        # programa recibe el cambio (§5.8, 4). X9 (D9-13.3, TMG-01): aquí,
+        # bajo _sm_lock, solo se CONSULTA si la fase sigue pendiente; la copia
+        # se toca después de registrar la bitácora (si la bitácora falla, el
+        # ciclo en curso nunca recibió el valor).
         aplica = "siguiente"
-        if en_ciclo and body.cycle_id == programa_en_curso:
-            if context.control_loop.aplicar_a_ciclo_en_curso(body.fase, body.path, value):
-                aplica = "en_curso"
+        copia_en_curso = None
+        if (en_ciclo and body.cycle_id == programa_en_curso
+                and context.control_loop.fase_pendiente_en_curso(body.fase, body.path) is True):
+            aplica = "en_curso"
+            # revisión X9 (TMG-01/SAF-03): la copia concreta consultada; si al
+            # aplicar ya es otra (otro ciclo arrancó entre medias), no se aplica
+            copia_en_curso = context.control_loop.programa_en_ejecucion()
         detalle = {"programa": body.cycle_id, "fase": body.fase, "aplica": aplica}
         # parámetros vinculados que cambiaron con este (SAF-02 de T-17)
         vinculados = [f"{f}/{'.'.join(p)}" for f, p in cycle.vinculados(body.fase, body.path)[1:]]
@@ -3590,30 +3642,72 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
 
     # RB-03.5 (T10): sin registro en audit_log el cambio no queda aplicado.
     # D8-5.7: cada cambio automático (arrastre) va en su propia fila, marcado
-    # como automático y con su causa; si alguna falla, se revierte todo.
+    # como automático y con su causa. X9 (D9-13.3, SAF-01): el cambio y sus
+    # arrastres van en UNA transacción (registrar_auditoria_lote): todas las
+    # filas o ninguna; si falla, se revierte todo.
     # Revisión D8-5.7 (Medio del timing-auditor): la escritura del JSON va en el
     # mismo try; si falla, tampoco queda el cambio en memoria sin bitácora.
+    filas = [{"evento": "param_ciclo_cambio", "usuario": sesion.usuario, "rol": sesion.rol,
+              "entidad": entidad, "valor_anterior": anterior, "valor_nuevo": value,
+              "detalle": detalle}]
+    filas += [{"evento": "param_ciclo_cambio", "usuario": sesion.usuario, "rol": sesion.rol,
+               "entidad": f"{body.cycle_id}/{c['fase']}/{c['clave']}",
+               "valor_anterior": c["anterior"], "valor_nuevo": c["nuevo"],
+               "detalle": {"programa": body.cycle_id, "fase": c["fase"], "aplica": "siguiente",
+                           "automatico": True, "causa": entidad}}
+              for c in cambios_automaticos]
+    json_escrito = False
     try:
-        # El JSON se escribe fuera de _sm_lock (hallazgo D); el valor en memoria
-        # ya quedó cambiado bajo el lock, atómico con la comprobación de estado.
+        # El JSON (con la propuesta) se escribe fuera de _sm_lock (hallazgo D).
         if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
             with _lock_archivos:
-                _save_cycle_json(cycle)
-        context.db.registrar_auditoria(
-            "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol, entidad=entidad,
-            valor_anterior=anterior, valor_nuevo=value, detalle=detalle)
-        for c in cambios_automaticos:
-            context.db.registrar_auditoria(
-                "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol,
-                entidad=f"{body.cycle_id}/{c['fase']}/{c['clave']}",
-                valor_anterior=c["anterior"], valor_nuevo=c["nuevo"],
-                detalle={"programa": body.cycle_id, "fase": c["fase"], "aplica": "siguiente",
-                         "automatico": True, "causa": entidad})
+                _save_cycle_json(propuesta)
+            json_escrito = True
+        context.db.registrar_auditoria_lote(filas)
     except Exception:
-        logger.exception("Parámetro %s sin auditoría: se revierte", entidad)
-        _revertir_parametro(cycle, previos, aplica == "en_curso", escritos=escritos)
+        logger.exception("Parámetro %s sin auditoría: no se aplica", entidad)
+        # El programa almacenado y el ciclo en curso no se tocaron; solo el
+        # JSON, si llegó a escribirse, vuelve al programa almacenado.
+        json_ok = _reescribir_json_programa(cycle) if json_escrito else None
+        if json_ok is False:
+            # X9 (D9-13.3, SAF-02): doble falla. La memoria conserva el valor
+            # registrado, pero el archivo quedó con el no registrado: se marca
+            # para que, al recargarlo, el programa no sea ejecutable.
+            _marcar_sin_bitacora(cycle, entidad)
         _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
                   entidad, sesion)
+
+    # Registrado: el cambio pasa al programa almacenado, bajo _sm_lock
+    # (atómico respecto del tick que copia el programa al iniciar un ciclo).
+    # _lock_param_ciclo serializa los PATCH: las hojas no cambiaron entre medias.
+    with context.control_loop.bloqueo_maquina():
+        for f, p, v in escritos:
+            hoja = cycle._hoja(f, p)
+            if hoja is not None:
+                hoja["value"] = v
+    if json_escrito:
+        _quitar_marca_sin_bitacora(cycle)   # archivo = memoria = bitácora
+
+    # X9 (D9-13.3, TMG-01): la bitácora ya está; recién ahora la copia del
+    # ciclo en curso (bajo _sm_lock, dentro de aplicar_a_ciclo_en_curso). Si
+    # la fase inició entre medias, el ciclo sigue con el valor anterior (el
+    # registrado como anterior) y una fila propia corrige el `aplica`.
+    if aplica == "en_curso" and context.control_loop.aplicar_a_ciclo_en_curso(
+            body.fase, body.path, value, copia_esperada=copia_en_curso) is not True:
+        aplica = "siguiente"
+        logger.warning("Parámetro %s: la fase inició (o el ciclo cambió) antes de aplicarlo "
+                       "al ciclo en curso; rige desde el siguiente ciclo", entidad)
+        for intento in (1, 2):                    # revisión X9 (TMG-03/SAF-06)
+            try:
+                context.db.registrar_auditoria(
+                    "param_ciclo_no_aplicado_en_curso", usuario=sesion.usuario, rol=sesion.rol,
+                    entidad=entidad, valor_anterior=anterior, valor_nuevo=value,
+                    detalle={"programa": body.cycle_id, "fase": body.fase, "aplica": "siguiente"})
+                break
+            except Exception:
+                logger.exception("Parámetro %s: no se pudo registrar que no se aplicó al "
+                                 "ciclo en curso (intento %d; la bitácora dice en_curso)",
+                                 entidad, intento)
     respuesta = {"ok": True, "value": value, "aplica": aplica}
     if cambios_automaticos:
         respuesta["arrastres"] = cambios_automaticos
@@ -3636,41 +3730,59 @@ def _arrastres_tipo_carga(cycle, fase: str, path: list[str], valor) -> list:
     return cycle.arrastres_tipo_carga(valor, modo_solido=modo_solido)
 
 
-def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None) -> None:
-    """Restaura los valores previos (también los vinculados) en el programa,
-    su JSON y, si se había aplicado, la copia del ciclo en curso.
-    `escritos` (TMG-02): valores que escribió la petición; una hoja que ya no
-    tiene ese valor la cambió otro y no se toca (revertirla a ciegas podía
-    dejar, p. ej., carga líquida con modo 1)."""
-    escrito = {(f, tuple(p)): v for f, p, v in (escritos or [])}
-    with context.control_loop.bloqueo_maquina():
-        for fase, path, valor in previos:
-            hoja = cycle._hoja(fase, path)
-            clave = (fase, tuple(path))
-            if hoja is not None and clave in escrito and hoja.get("value") != escrito[clave]:
-                logger.warning("Reversión de %s/%s omitida: el valor cambió después",
-                               fase, ".".join(path))
-                continue
-            if hoja is not None:
-                hoja["value"] = valor
-            if en_curso and not context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor):
-                # re-revisión D8-5.7 (timing, Medio): la fase ya empezó y la
-                # copia del ciclo en curso conserva el valor sin bitácora
-                logger.error("Reversión de %s/%s no aplicada al ciclo en curso (la fase ya "
-                             "inició): el ciclo sigue con el valor no registrado",
-                             fase, ".".join(path))
-        parametros = getattr(cycle, "parameters", None)
-        errores = catalogo_parametros.errores_coherencia(parametros) if isinstance(parametros, dict) else []
-        if errores:
-            logger.error("Programa %s incoherente tras revertir: %s",
-                         getattr(cycle, "id", "?"), "; ".join(errores))
-    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+def _reescribir_json_programa(cycle) -> bool:
+    """X9 (D9-13.3, SAF-02): vuelve a escribir el JSON desde el programa
+    almacenado (valores registrados), con un reintento. False si no pudo.
+    Sin `.bak` (re-revisión SAF-01): el archivo que se reemplaza tiene la
+    propuesta sin registrar y no debe quedar como respaldo."""
+    def cambiar(data):
+        data["parameters"] = cycle.parameters
+    for intento in (1, 2):
         try:
             with _lock_archivos:
-                _save_cycle_json(cycle)
+                _escribir_json_programa(cycle, cambiar, con_respaldo=False)
+            _quitar_marca_sin_bitacora(cycle)
+            return True
         except Exception:
-            logger.exception("Programa %s: no se pudo escribir el JSON al revertir; "
-                             "memoria y archivo difieren", getattr(cycle, "id", "?"))
+            logger.exception("Programa %s: no se pudo reescribir el JSON (intento %d); "
+                             "memoria y archivo difieren", getattr(cycle, "id", "?"), intento)
+    return False
+
+
+# X9 (tanda 9, D9-13.3 SAF-02): marca junto al JSON de un programa cuyo archivo
+# quedó con un valor sin bitácora (falló la bitácora y luego la reversión del
+# JSON). CycleManager carga un programa marcado como dañado (no se inicia ni
+# se edita). En la misma sesión, el siguiente guardado correcto del programa
+# quita la marca (_save_cycle_json). Tras un reinicio solo la quita un técnico
+# a mano, tras revisar el archivo (PREGUNTA PARA CRISTIAN en el informe X9).
+SUFIJO_SIN_BITACORA = ".sin_bitacora"
+
+
+def _marcar_sin_bitacora(cycle, entidad: str) -> None:
+    ruta = str(cycle._path) + SUFIJO_SIN_BITACORA
+    logger.critical("Programa %s: el archivo quedó con %s sin bitácora (falló la bitácora y "
+                    "la reversión del JSON); al recargarlo no será ejecutable hasta que un "
+                    "guardado correcto lo reescriba", getattr(cycle, "id", "?"), entidad)
+    try:
+        with _lock_archivos:
+            with open(ruta, "w", encoding="utf-8") as f:
+                f.write(entidad + "\n")
+    except Exception:
+        logger.exception("Programa %s: tampoco se pudo escribir la marca %s",
+                         getattr(cycle, "id", "?"), ruta)
+
+
+def _quitar_marca_sin_bitacora(cycle) -> None:
+    import os as _os
+    marca = str(getattr(cycle, "_path", "")) + SUFIJO_SIN_BITACORA
+    if not getattr(cycle, "_path", None) or not _os.path.exists(marca):
+        return
+    try:
+        _os.remove(marca)
+        logger.warning("Programa %s: reescrito desde los valores registrados; se quita %s",
+                       getattr(cycle, "id", "?"), _os.path.basename(marca))
+    except OSError:
+        logger.exception("Programa %s: no se pudo quitar %s", getattr(cycle, "id", "?"), marca)
 
 
 # ── Opciones › Parámetros del ciclo, lectura (T12; opciones §5.1, §5.2, §6) ──
@@ -3774,6 +3886,16 @@ def get_programas_seleccionables():
             "orden": "uso" if usados else "predefinido"}
 
 
+# D9-3 (tanda 9): en un equipo de puertas simples, Finalización no muestra la
+# apertura automática ni su espera (temp_max_apertura sigue visible)
+_FINALIZACION_SOLO_PUERTA_AUTOMATICA = frozenset({"tiempo_espera_apertura", "apertura_automatica"})
+
+
+def _puertas_simples() -> bool:
+    from autoclave.installation.profile import puertas_simples
+    return puertas_simples(getattr(context, "profile", None))
+
+
 def _hojas_seccion(cycle, seccion: str) -> list[tuple[list[str], dict]]:
     """Parámetros (ruta, hoja) de la sección. Descompresión: el modo, la
     espera previa y solo los parámetros del modo activo (Q-3)."""
@@ -3789,6 +3911,8 @@ def _hojas_seccion(cycle, seccion: str) -> list[tuple[list[str], dict]]:
                 recorrer(sub, ruta + [clave])
 
     recorrer(nodo, [])
+    if seccion == "finalizacion" and _puertas_simples():
+        salida = [(r, h) for r, h in salida if r[-1] not in _FINALIZACION_SOLO_PUERTA_AUTOMATICA]
     if seccion == "descompresion":
         modo = cycle.get_param("descompresion", "modo")
         activo = f"modo_{modo}"
@@ -3856,12 +3980,17 @@ class _HabilitadoBody(BaseModel):
 
 class _DuplicarBody(BaseModel):
     nombre: str
+    # C9 (tanda 9, D9-10): "Crear" en Manejo de ciclos = duplicar con nombre
+    # nuevo; solo cambia el evento de la bitácora (programa_creado)
+    crear: StrictBool = False
 
 
 def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, deshacer,
-             confirmar=None):
+             confirmar=None, excepcion_ingeniero: bool = True):
     """Técnico fuera de CICLO; ingeniero también en CICLO (como los
-    parámetros). El programa activo nunca se borra ni se deshabilita: la
+    parámetros) salvo `excepcion_ingeniero=False` (C9, tanda 9, D9-10:
+    crear, duplicar, habilitar y borrar programas solo fuera de ciclo, para
+    todos los roles). El programa activo nunca se borra ni se deshabilita: la
     lectura del activo y el cambio van bajo el lock de la máquina (guard_estado),
     el mismo que /cycle/select. Los archivos son pequeños; la escritura queda
     dentro del lock a propósito para no abrir esa carrera.
@@ -3874,7 +4003,8 @@ def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, desha
     # _sm_lock, como /cycle/sensor-roles, la calibración y la restauración; al
     # revés se interbloqueaba con ellos y detenía el tick del control loop.
     with _lock_archivos:
-        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
+        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion,
+                          excepcion_ingeniero=excepcion_ingeniero):
             activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
             try:
                 resultado = operar(gp, activo)
@@ -3907,7 +4037,8 @@ def put_programa_habilitado(numero: int, body: _HabilitadoBody,
         lambda gp, activo: gp.fijar_habilitado(cm, numero, body.habilitado, activo),
         "programa_habilitado",
         lambda r: ({"habilitado": r[0]}, {"habilitado": r[1]}),
-        lambda gp, r: gp.deshacer_habilitado(cm, numero, r[0]))
+        lambda gp, r: gp.deshacer_habilitado(cm, numero, r[0]),
+        excepcion_ingeniero=False)                     # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": numero, "habilitado": nuevo}
 
 
@@ -3918,9 +4049,10 @@ def post_programa_duplicar(numero: int, body: _DuplicarBody,
     cm = context.cycle_manager
     nuevo = _gestion(
         entidad, sesion, lambda gp, activo: gp.duplicar(cm, numero, body.nombre),
-        "programa_duplicado",
+        "programa_creado" if body.crear else "programa_duplicado",
         lambda c: ({"origen": numero}, {"numero": c.number, "cycle_id": c.id, "nombre": c.name}),
-        lambda gp, c: gp.deshacer_duplicado(cm, c))
+        lambda gp, c: gp.deshacer_duplicado(cm, c),
+        excepcion_ingeniero=False)                     # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": nuevo.number, "cycle_id": nuevo.id, "nombre": nuevo.name}
 
 
@@ -3933,7 +4065,8 @@ def delete_programa(numero: int,
              "programa_borrado",
              lambda c: ({"numero": numero, "cycle_id": c.id, "nombre": c.name}, None),
              lambda gp, c: gp.deshacer_borrado(cm, c),
-             confirmar=lambda gp, c: gp.confirmar_borrado(c))
+             confirmar=lambda gp, c: gp.confirmar_borrado(c),
+             excepcion_ingeniero=False)                # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": numero}
 
 
@@ -4024,7 +4157,7 @@ def _normalizar_asignacion(asignacion: dict) -> dict:
     return {**{s: sc.NO_EN_USO for s in sc.SENSORES}, **asignacion}
 
 
-def _escribir_json_programa(cycle, cambiar) -> None:
+def _escribir_json_programa(cycle, cambiar, con_respaldo: bool = True) -> None:
     """Lee el JSON del programa, aplica `cambiar(data)` y lo escribe de forma
     atómica (.tmp + fsync + os.replace): un corte a mitad de la escritura no
     deja el programa truncado (TMG-02 de T3). Si falla, borra el .tmp."""
@@ -4039,7 +4172,8 @@ def _escribir_json_programa(cycle, cambiar) -> None:
         data = _json.load(f)
     cambiar(data)
     # RB-04.2 (T10): la versión anterior queda como <nombre>.json.bak
-    _shutil.copy2(path, path.with_name(path.name + ".bak"))
+    if con_respaldo:
+        _shutil.copy2(path, path.with_name(path.name + ".bak"))
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         with open(tmp, "w", encoding="utf-8") as f:
@@ -4131,6 +4265,11 @@ def _save_cycle_json(cycle) -> None:
     def cambiar(data):
         data["parameters"] = cycle.parameters
     _escribir_json_programa(cycle, cambiar)
+    # X9 (D9-13.3, SAF-02): el archivo ya refleja el programa almacenado
+    # (valores registrados): la marca de valor sin bitácora deja de aplicar.
+    # La propuesta de un PATCH aún no registrada no la quita.
+    if not getattr(cycle, "_propuesta_sin_registrar", False):
+        _quitar_marca_sin_bitacora(cycle)
 
 
 # Direct hardware access — bypasses control_loop, for bench validation only
@@ -4362,6 +4501,22 @@ def _puerta_con_atrapamiento(canal_cerrar: int, encender: bool):
     return None, False
 
 
+def _salidas_prueba_bloqueadas() -> dict:
+    """S9, revisión ★ SAF-01: {salida: código} que el modo prueba no puede
+    encender ahora (ControlLoop.salidas_prueba_bloqueadas). Falla cerrada:
+    un error al evaluar o una respuesta que no es dict bloquean todas
+    (revisión ★ pasada 2 R2-B1)."""
+    try:
+        bloqueadas = context.control_loop.salidas_prueba_bloqueadas()
+    except Exception:
+        logger.exception("Modo prueba: no se pudo evaluar las salidas bloqueadas")
+        return salidas_prueba_seguridad.todas()
+    if not isinstance(bloqueadas, dict):
+        logger.error("Modo prueba: evaluación de salidas bloqueadas inválida; se bloquean todas")
+        return salidas_prueba_seguridad.todas()
+    return bloqueadas
+
+
 @app.patch("/io/test/output/{name}")
 def io_test_set_output(name: str, body: _OutputSetBody,
                        sesion: Sesion = Depends(_requiere_rol_prueba)):
@@ -4406,6 +4561,13 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                             leido_mono=getattr(context.control_loop, "estado_leido_mono", None)))
                 if not permitido:
                     raise _Rechazo(409, codigo, aire_atmosferico_prueba.MOTIVOS[codigo])
+            # S9 (tanda 9), revisión ★ SAF-01 (DECISIÓN SIN CONFIRMAR): con el
+            # estado seguro activo, la recuperación pendiente o la cámara no
+            # segura, ni apertura ni desbloqueo de puertas; con el estado
+            # seguro, tampoco rápida, chaqueta ni vapor de cámara
+            codigo = _salidas_prueba_bloqueadas().get(clave)
+            if codigo is not None:
+                raise _Rechazo(409, codigo, salidas_prueba_seguridad.MOTIVOS[codigo])
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
@@ -4417,6 +4579,15 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                            "Esta salida de fuente de vapor no la usa este equipo (vapor_source)")
         puerta_atrapada, nueva = _puerta_con_atrapamiento(index + 1, body.value)
         if puerta_atrapada is not None:
+            # S9, revisión ★ SAF-01: la inversión de D-ES-16 abriría la puerta;
+            # con la apertura bloqueada solo se suelta el cierre
+            canales = {EstadoAutoclave.map_do[k] + 1: c
+                       for k, c in _salidas_prueba_bloqueadas().items()}
+            codigo = canales.get(puerta_atrapada.do["abrir"])
+            if codigo is not None:
+                context.setdo.set_output(index + 1, False)
+                _desarmar_momentanea(index + 1)
+                raise _Rechazo(409, codigo, salidas_prueba_seguridad.MOTIVOS[codigo])
             # D-ES-16: la orden de cerrar con atrapamiento activo se convierte en abrir
             context.setdo.set_output(index + 1, False)
             context.setdo.set_output(puerta_atrapada.do["abrir"], True)

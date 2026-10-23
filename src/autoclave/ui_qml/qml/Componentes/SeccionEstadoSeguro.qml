@@ -163,6 +163,17 @@ Column {
         idAlarma: "ESTADO_SEGURO"
         descripcion: I18n.t("sistema.estado_seguro_en_curso", I18n.lang)
     }
+    // S9 (tanda 9, D9-1.2): por qué corre (arranque con la cámara no segura,
+    // fallo, cancelación o fin de ciclo). Nunca dice "paro liberado": ese
+    // texto solo sale con la confirmación pendiente (estado 2).
+    readonly property string causa: puente?.estadoSeguroCausa ?? ""
+    readonly property string claveCausa: causa !== "" && causa !== "paro_liberado"
+                                         ? "sistema.estado_seguro_causa_" + causa : ""
+    Nota {
+        objectName: "avisoCausaEstadoSeguro"
+        visible: raiz.enCurso && raiz.claveCausa !== "" && raiz.enGrupo("emergencia")
+        texto: raiz.claveCausa !== "" ? I18n.t(raiz.claveCausa, I18n.lang) : ""
+    }
 
     // Botón de los estados 2 y 3: azul y habilitado solo con la confirmación
     // pendiente y sin petición en vuelo

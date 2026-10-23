@@ -11,6 +11,7 @@
 # en un ticket que ya se imprimió en papel.
 
 import json
+import re
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -49,30 +50,62 @@ def presentacion_actual() -> Presentacion:
         return _POR_DEFECTO
 
 
-_TXT = {
-    "es": {"fecha": "Fecha", "hora": "Hora", "serie": "Num serie", "modelo": "Modelo",
-           "ciclo": "Ciclo No.", "temp_ester": "Temp. Ester.", "tiempo_ester": "Tiempo Ester.",
-           "sin_bd": "SIN OPERADOR / SIN BD", "unidades": "Unidades", "temp_final": "Temp. final",
-           "estado": "Estado", "motivo": "Motivo", "aviso": "Aviso", "hora_fin": "Hora fin",
-           "operador": "Operador", "abs": "abs", "vacio": "v=inHg vacio",
-           "no_esteril": "*** CARGA NO ESTÉRIL ***",
-           "sin_datos": "Sin datos de la tarjeta"},
-    "en": {"fecha": "Date", "hora": "Time", "serie": "Serial No", "modelo": "Model",
-           "ciclo": "Cycle No.", "temp_ester": "Steril. temp.", "tiempo_ester": "Steril. time",
-           "sin_bd": "NO OPERATOR / NO DB", "unidades": "Units", "temp_final": "Final temp.",
-           "estado": "Status", "motivo": "Reason", "aviso": "Warning", "hora_fin": "End time",
-           "operador": "Operator", "abs": "abs", "vacio": "v=inHg vacuum",
-           "no_esteril": "*** LOAD NOT STERILE ***",
-           "sin_datos": "No control board data"},
-}
+# X9 (tanda 9, D9-13.4): los rótulos del ticket viven en el catálogo
+# (i18n/<idioma>.json → ticket_ciclo.*). Ticket de ancho fijo: se permiten
+# abreviaturas solo aquí (DECISIÓN SIN CONFIRMAR de D9-13.4).
+_SECCION = "ticket_ciclo."
 _MESES_EN = {1: "JAN", 2: "FEB", 3: "MAR", 4: "APR", 5: "MAY", 6: "JUN",
              7: "JUL", 8: "AUG", 9: "SEP", 10: "OCT", 11: "NOV", 12: "DEC"}
-_RESULTADOS_EN = {"COMPLETADO": "COMPLETED", "CANCELADO": "CANCELLED", "INTERRUMPIDO": "INTERRUPTED",
-                  "EMERGENCIA": "EMERGENCY", "FALLO": "FAILED"}
+_RESULTADOS = ("COMPLETADO", "CANCELADO", "INTERRUMPIDO", "EMERGENCIA", "FALLO",
+               "SENSOR_AUSENTE")
 
 
-def _t(p: Presentacion, clave: str) -> str:
-    return _TXT.get(p.idioma, _TXT["es"])[clave]
+def _t(p: Presentacion, clave: str, **params) -> str:
+    from autoclave import i18n
+    return i18n.t(_SECCION + clave, p.idioma, **params)
+
+
+# X9 (D9-13.4): nombre de un programa de fábrica en el idioma vigente.
+# (cycle_id, nombre guardado) -> clave del catálogo o None; lo fija el backend.
+_resolutor_nombre = None
+
+
+def fijar_resolutor_nombre(resolutor) -> None:
+    global _resolutor_nombre
+    _resolutor_nombre = resolutor
+
+
+def nombre_ciclo(meta: dict, p: Presentacion) -> str:
+    """El nombre guardado; si es el de un programa de fábrica sin cambiar,
+    el del catálogo en el idioma del ticket (D-14). Nunca lanza."""
+    nombre = meta.get("nombre_ciclo") or ""
+    try:
+        if _resolutor_nombre is not None:
+            from autoclave import i18n
+            clave = _resolutor_nombre(meta.get("tipo_ciclo") or "", nombre)
+            if clave and i18n.existe(clave, p.idioma):
+                return i18n.t(clave, p.idioma)
+    except Exception:
+        pass
+    return nombre
+
+
+def aviso_ticket(aviso, p: Presentacion) -> str:
+    """Una línea de aviso del pie: texto (ciclos anteriores) o, desde X9,
+    {"clave": ..., parámetros} armado en el idioma y la unidad del ticket
+    (temperatura en °C guardada; el ticket es cp437, sin "°")."""
+    if isinstance(aviso, str):
+        return aviso
+    try:
+        from autoclave import i18n
+        params = {k: v for k, v in aviso.items() if k != "clave"}
+        if "temp" in params:
+            v = params["temp"]
+            params["temp"] = (f"{_temp(float(v), p):.1f} {_simbolo_t(p)}"
+                              if isinstance(v, (int, float)) and not isinstance(v, bool) else "---")
+        return i18n.t(str(aviso["clave"]), p.idioma, **params)
+    except Exception:
+        return str(aviso)
 
 
 def _simbolo_t(p: Presentacion) -> str:
@@ -88,13 +121,30 @@ def _temp(v, p: Presentacion) -> float:
 
 
 def resultado_ticket(resultado: str | None, p: Presentacion | None = None) -> str:
+    """Resultado en el idioma del ticket. En español, el código tal cual (como
+    siempre). X9 (D9-13.4): FALLO_<FASE> en inglés traduce también la fase."""
     p = p or presentacion_actual()
     r = resultado or ""
-    if p.idioma != "en":
+    if p.idioma == "es":
         return r
-    for clave, valor in _RESULTADOS_EN.items():
-        if r.startswith(clave):
-            return valor + r[len(clave):]
+    try:
+        from autoclave import i18n
+        if r in _RESULTADOS:
+            return _t(p, f"resultado.{r}")
+        for clave in _RESULTADOS:
+            if r.startswith(clave + "_"):
+                fase = r[len(clave) + 1:]
+                params = {}
+                # FALLO_PUERTA_<n>_<causa> (CicloState._verificar_puertas)
+                m = re.fullmatch(r"PUERTA_(\d+)_([A-Z_]+)", fase)
+                if m:
+                    fase, params = f"PUERTA_{m.group(2)}", {"n": m.group(1)}
+                if i18n.existe(f"{_SECCION}fase.{fase}", p.idioma):
+                    return _t(p, "resultado_fase", resultado=_t(p, f"resultado.{clave}"),
+                              fase=_t(p, f"fase.{fase}", **params))
+                return _t(p, f"resultado.{clave}") + r[len(clave):]
+    except Exception:
+        pass
     return r
 
 
@@ -179,9 +229,9 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
         f"{_t(p, 'hora')}:  {hora_inicio}",
         f"{_t(p, 'serie')}: {meta.get('serie', '')}",
         *lineas_rotulo(_t(p, 'modelo'), meta.get('modelo', '')),
-        f"SoftW.: {meta.get('version_sw', '')}",
+        f"{_t(p, 'software')}: {meta.get('version_sw', '')}",
         f"{_t(p, 'ciclo')}: {numero}",
-        meta.get("nombre_ciclo") or "",
+        nombre_ciclo(meta, p),
         f"({meta.get('tipo_ciclo') or ''})",
         f"{_t(p, 'temp_ester')}: {temp_e} {st}",
         f"{_t(p, 'tiempo_ester')}: {tiempo_e} min",
@@ -250,12 +300,12 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
     if str(resultado or "") != "COMPLETADO":
         lines.append(_t(p, "no_esteril"))
     if f0_total is not None:
-        lines.append(f"F0 total: {f0_total:.1f} min")
+        lines.append(f"{_t(p, 'f0_total')}: {f0_total:.1f} min")
     if (isinstance(sin_datos_s, (int, float)) and not isinstance(sin_datos_s, bool)
             and sin_datos_s > 0):
         lines.append(f"{_t(p, 'sin_datos')}: {sin_datos_s:.0f} s")
     for aviso in avisos or []:
-        lines.append(f"{_t(p, 'aviso')}: {aviso}")
+        lines.append(f"{_t(p, 'aviso')}: {aviso_ticket(aviso, p)}")
     lines += [
         f"{_t(p, 'hora_fin')}: {hora_fin}",
         # O1 (tanda 3): el operador del ciclo; sin él queda la línea para firmar
@@ -272,7 +322,7 @@ def _f0_guardado(valor) -> float | None:
     return float(valor)
 
 
-def leer_avisos_ticket(texto) -> tuple[float | None, list[str]]:
+def leer_avisos_ticket(texto) -> tuple[float | None, list]:
     """D8-2.14: (sin_datos_s, avisos) de la columna `avisos_ticket` de un ciclo
     guardado. Vacía, ausente o dañada: (None, []) — el ticket se reimprime
     como antes, sin esas líneas. Nunca lanza."""
@@ -288,7 +338,10 @@ def leer_avisos_ticket(texto) -> tuple[float | None, list[str]]:
     if isinstance(sin_datos, bool) or not isinstance(sin_datos, (int, float)):
         sin_datos = None
     avisos = datos.get("avisos")
-    avisos = [a for a in avisos if isinstance(a, str)] if isinstance(avisos, list) else []
+    # X9 (D9-13.4): también avisos con clave + parámetros
+    avisos = ([a for a in avisos if isinstance(a, str)
+               or (isinstance(a, dict) and isinstance(a.get("clave"), str))]
+              if isinstance(avisos, list) else [])
     return sin_datos, avisos
 
 

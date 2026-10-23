@@ -157,9 +157,14 @@ def cliente(cm):
 
 
 def _auditados(ctx):
-    return [(c.args[0], c.kwargs.get("entidad"), c.kwargs.get("valor_anterior"),
-             c.kwargs.get("valor_nuevo"), c.kwargs.get("detalle") or {})
-            for c in ctx.db.registrar_auditoria.call_args_list]
+    # X9 (tanda 9, D9-13.3 SAF-01): el cambio y su arrastre van en un lote
+    sueltas = [(c.args[0], c.kwargs.get("entidad"), c.kwargs.get("valor_anterior"),
+                c.kwargs.get("valor_nuevo"), c.kwargs.get("detalle") or {})
+               for c in ctx.db.registrar_auditoria.call_args_list]
+    lote = [(f["evento"], f.get("entidad"), f.get("valor_anterior"), f.get("valor_nuevo"),
+             f.get("detalle") or {})
+            for c in ctx.db.registrar_auditoria_lote.call_args_list for f in c.args[0]]
+    return sueltas + lote
 
 
 def _patch(client, cycle_id, fase, path, valor):
@@ -185,6 +190,7 @@ def test_endpoint_liquido_a_solido_y_vuelta_con_bitacora(cliente):
     assert aud[1][4]["automatico"] is True and aud[1][4]["causa"] == "liquidos/globals/tipo_carga"
 
     ctx.db.registrar_auditoria.reset_mock()
+    ctx.db.registrar_auditoria_lote.reset_mock()
     r = _patch(client, "liquidos", "globals", ["tipo_carga"], "liquido")
     assert r.status_code == 200, r.text
     assert r.json()["arrastres"][0]["nuevo"] == 4 and c.get_param("descompresion", "modo") == 4
@@ -227,11 +233,11 @@ def test_endpoint_sin_bitacora_del_arrastre_revierte_todo(cliente):
     client, cm, ctx = cliente
     llamadas = []
 
-    def registrar(evento, **kw):
-        llamadas.append(kw.get("entidad"))
-        if kw.get("entidad") == "liquidos/descompresion/modo":
+    def registrar(filas):
+        llamadas.extend(f.get("entidad") for f in filas)
+        if any(f.get("entidad") == "liquidos/descompresion/modo" for f in filas):
             raise RuntimeError("BD ocupada")
-    ctx.db.registrar_auditoria.side_effect = registrar
+    ctx.db.registrar_auditoria_lote.side_effect = registrar
     r = _patch(client, "liquidos", "globals", ["tipo_carga"], "solido")
     assert r.status_code == 503
     c = cm.cycles["liquidos"]
@@ -354,7 +360,7 @@ def servidor(cm):
 def test_patch_serializado_hasta_terminar_la_bitacora(servidor):
     client, cm, ctx, srv = servidor
     tomado = []
-    ctx.db.registrar_auditoria.side_effect = lambda *a, **k: tomado.append(srv._lock_param_ciclo.locked())
+    ctx.db.registrar_auditoria_lote.side_effect = lambda *a, **k: tomado.append(srv._lock_param_ciclo.locked())
     assert _patch(client, "liquidos", "globals", ["tipo_carga"], "solido").status_code == 200
     assert tomado and all(tomado)
     assert not srv._lock_param_ciclo.locked()
@@ -371,12 +377,12 @@ def test_reversion_no_pisa_un_cambio_posterior(servidor):
 
     hecho = []
 
-    def registrar(evento, **kw):
-        if evento == "param_ciclo_cambio" and not hecho:
+    def registrar(filas):
+        if filas and filas[0]["evento"] == "param_ciclo_cambio" and not hecho:
             hecho.append(True)
             c.set_param("globals", ["tipo_carga"], "liquido", arrastres=[("descompresion", ["modo"], 4)])
             raise RuntimeError("BD ocupada")
-    ctx.db.registrar_auditoria.side_effect = registrar
+    ctx.db.registrar_auditoria_lote.side_effect = registrar
     r = _patch(client, "instrumental_121", "descompresion", ["modo"], 2)
     assert r.status_code == 503
     assert c.get_param("globals", "tipo_carga") == "liquido"
@@ -488,17 +494,6 @@ def test_fallo_al_escribir_el_json_revierte_sin_bitacora(servidor):
     assert not [a for a in _auditados(ctx) if a[0] == "param_ciclo_cambio"]
 
 
-# ── Re-revisión D8-5.7 (timing-auditor, Medio): si la fase ya empezó, la
-# reversión no alcanza a la copia del ciclo en curso; eso no puede quedar en
-# silencio (el ciclo corre con un valor sin bitácora) ─────────────────────
-
-def test_reversion_que_no_alcanza_al_ciclo_en_curso_queda_como_error(servidor, caplog):
-    import logging
-    _, cm, ctx, srv = servidor
-    c = cm.cycles["instrumental_121"]
-    previo = c.get_param("descompresion", "modo")
-    ctx.control_loop.aplicar_a_ciclo_en_curso.return_value = False   # la fase ya inició
-    with caplog.at_level(logging.ERROR):
-        srv._revertir_parametro(c, [("descompresion", ["modo"], previo)], en_curso=True)
-    assert any(r.levelno >= logging.ERROR and "ciclo en curso" in r.getMessage()
-               for r in caplog.records)
+# X9 (tanda 9, D9-13.3 TMG-01): la prueba de la reversión que no alcanzaba al
+# ciclo en curso se retiró: el ciclo en curso solo recibe el cambio después de
+# registrar la bitácora (ver tests/test_x9_d9_13_3_bitacora_param_ciclo.py).

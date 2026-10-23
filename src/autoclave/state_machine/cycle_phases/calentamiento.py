@@ -65,6 +65,7 @@ import time
 import logging
 from collections import deque
 from autoclave.core.runtime.steam import p_saturacion_kpa
+from autoclave.core.runtime import motivos_fase
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -246,11 +247,12 @@ class CalentamientoFase(BaseFase):
             # ventana alargada por tramos sin datos (D8-2.12), el motivo no es
             # "no se alcanzó el objetivo"
             if self._timer_sostenido_desde is not None and self.ventana_pausada_s() > 0:
-                return self._fallo(
-                    f"Tiempo límite de calentamiento ({timeout_seg / 60:.0f} min) durante el "
-                    f"sostenimiento: la ventana de estabilidad se alargó "
-                    f"{self.ventana_pausada_s():.0f} s por tramos sin datos de la tarjeta")
-            return self._fallo(f"Tiempo límite de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
+                # X9 (D9-13.4): motivo con clave + parámetros (idioma vigente)
+                return self._fallo(motivos_fase.motivo(
+                    "cal_tiempo_limite_sostenimiento", minutos=f"{timeout_seg / 60:.0f}",
+                    segundos=f"{self.ventana_pausada_s():.0f}"))
+            return self._fallo(motivos_fase.motivo(
+                "cal_tiempo_limite", minutos=f"{timeout_seg / 60:.0f}"))
 
         temp = self._temp_principal()
         pres = self._pres_camara()
@@ -426,8 +428,7 @@ class CalentamientoFase(BaseFase):
                 self._timer_recuperacion_fin = now + timeout_rec_seg
                 logger.warning("Calentamiento: condición fuera de rango en sostenimiento — recuperando")
             if now > self._timer_recuperacion_fin:
-                return self._fallo(
-                    f"No se logró sostener condición estable en {timeout_rec_seg / 60:.0f} min"
-                )
+                return self._fallo(motivos_fase.motivo(
+                    "cal_no_sostuvo", minutos=f"{timeout_rec_seg / 60:.0f}"))
 
         return FaseResult.EN_CURSO
