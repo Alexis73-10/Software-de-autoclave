@@ -7,8 +7,8 @@ Precondición A0: `tanda8/estado.md` tiene `| Z | Hecha |` y `git merge-base --i
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
 | A0 | Hecha | 090a8bf | Línea base de la suite en `_suites_t9/base` (`dev` 1ff5afa): **6201 passed, 7 skipped, 3 xfailed** (24 min, `suites/base.log`). |
-| S9 ★ | Pasada 1 corregida (8505017). Pasada 2: 1 Alto (AI vencida en el protocolo de CICLO) y 3 Medios; subagente corrigiendo (`_suites_t9/s9_revision_2.md`). Unión ensayada: 3 conflictos de documentación/pruebas, de conservar ambos lados | `tanda-9-s9` (57b2844) | La sesión 01 se cortó por límite de uso con S9 sin informe. Revisores ★ lanzados desde la sesión principal. |
-| B9 ★ | Terminada en su rama, espera a que se una S9 | `tanda-9-b9` (581710a) | Causa: `AdvancedDoor.update()` reenvía `cerrar_on`/`bloquear_on` durante el paro (firmware y reenvío descartados). 2 Altos de revisión que son decisión de Cristian (D9-9 los pide así o son preexistentes): ver informe. |
+| S9 ★ | Hecha, unida a `tanda-9` (3044b7f y ce8fa3a). Suite: **6575 passed, 8 skipped, 3 xfailed** (`suites/integ_s9_r3.log`) | `tanda-9-s9` (4e4e9e9) | Revisión ★ en 4 pasadas (safety, timing, sensor-role): sin Altos/Críticos propios abiertos. Alto anterior (CICLO con AI vencida) como PREGUNTA 18. |
+| B9 ★ | Hecha, unida a `tanda-9` (82da39d). Suite: **6606 passed, 10 skipped, 3 xfailed** (`suites/integ_b9.log`) | `tanda-9-b9` (581710a) | 2 Altos aceptados por el revisor como decisión de Cristian (D9-9) o anteriores: ver informe y DECISIONES_PARA_REVISAR. |
 | E9 | Hecha, unida a `tanda-9` (bafc067). Suite tras unir: **6236 passed, 7 skipped, 3 xfailed** (`suites/integ_e9.log`) | `tanda-9-e9` (59db092) | Refresco de config de fábrica lo hace el programa al arrancar (E9-2, DECISIÓN SIN CONFIRMAR). Absorbe la rama `instalador-setup`. |
 | A9 | Hecha, unida a `tanda-9` (98c9897). Suite tras unir: **6251 passed, 7 skipped, 3 xfailed** (`suites/integ_a9.log`) | `tanda-9-a9` (4b69be7) | Informe sin commitear al corte: la sesión 10 corrió la pasada final (435 passed) y lo commiteó. |
 | P9 | Hecha, unida a `tanda-9` (92417ce). Suite tras unir: **6284 passed, 7 skipped, 3 xfailed** (`suites/integ_p9.log`) | `tanda-9-p9` (8ec67c6) | |
@@ -33,3 +33,5 @@ Instrucciones comunes de los subagentes: `tanda9/brief_subagentes.md`. Si la ses
 - Unida X9 (8ee6bf7), suite 6391 en verde. S9 pasada 1 corregida; pasada 2 con 1 Alto devuelta al subagente.
 - S9 unida a `tanda-9` (3044b7f) tras la pasada 2; suite **6567 passed, 8 skipped, 3 xfailed** (`suites/integ_s9.log`). Pasada 3: R2 cerrados; 1 Alto nuevo (R3-A1, decisión inicial del protocolo con AI vencida) devuelto al subagente; Alto anterior a S9 (CICLO con AI vencida) va como PREGUNTA. `sensor-role-auditor`: 0 Altos. Se volverá a unir `tanda-9-s9` con la corrección.
 - Unión de B9 ensayada sobre S9: conflictos de conservar ambos lados (control_loop.py, hoja de banco, riesgos).
+- S9 (revisión 3) y B9 unidas; suite 6606 en verde. Los 10 skipped: 3 nuevos son pruebas que solo escriben informes (variables `B9_ESCRIBIR_REGISTRO`/`S9_ESCRIBIR_INFORME`).
+- `DECISIONES_PARA_REVISAR.md` escrito. Siguiente: unir `tanda-9` a `dev` y K9.
