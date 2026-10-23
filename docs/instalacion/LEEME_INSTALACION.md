@@ -9,7 +9,27 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7, completada por la sesión principal en K2 (22-oct, 08:10) con la sección "A frente a B". **Se instala la B.**
+Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", y en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C".
+
+> **Tanda 8 (23-oct): el equipo de pruebas ya tiene la B. Para pasarlo a la compilación C (`entrega/2026-10-23_c/`), siga la sección 8b, no la 1.2.** En un PC nuevo, la C se instala igual que la B (secciones 1 a 6).
+
+## B frente a C
+
+**Instale la C** (`entrega/2026-10-23_c/`, etiqueta `inst-2026-10-23-c`, `dev` 5a4b0df) antes de los ciclos del lunes 26-oct. La B queda de respaldo (vuelta atrás en la sección 8b).
+
+| | Compilación B (`2026-10-22_b`) | Compilación C (`2026-10-23_c`) |
+|---|---|---|
+| Suite en ese código | 5405 passed, 3 skipped, 3 xfailed | **6201 passed, 7 skipped, 3 xfailed** |
+| Transductor de presión sin señal (SEN-01, D8-1) | Lee 0,0 kPa como lectura válida | Detecta el lazo abierto o en corto: «—», FALLO propio en ciclo con venteo solo por la lenta, inicio bloqueado y «NO ABRIR» |
+| Transiciones del ciclo (D8-2.6 a 2.16) | Preguntas abiertas de la tanda 7 | Pausa de la exposición sin datos, tope de pausas (CIC-11), 3 tramas DI distintas, líquidos sellados al perder el Principal, ALL_OFF con reintentos, reimpresión idéntica, «CARGA NO ESTÉRIL» en la pantalla de resultado |
+| Canales de E/S | Del YAML (había que agregar a mano Cámara 2, `descompresion_lenta`…) | Del perfil de instalación (D8-3.17) |
+| Aire atmosférico en modo prueba | Se abre con la cámara presurizada | Rechazado con presión en la cámara o sin lectura (D8-3.19) |
+| Calibración que viaja con el programa | Valores del banco | **Neutra** (D8-3.18), verificada en el build |
+| Interfaz | — | Hospitalario/Laboratorio, Atrás con historial en Opciones, Cerrar sesión lleva a Login, tipo de carga Sólido/Líquido, modos en lista, sin abreviaturas ni mezcla de idiomas, Reportes por tipo de fallo |
+| Opciones avanzadas | Técnico e ingeniero | Solo ingeniero: reasignación de E/S |
+| Mantenimiento | «Último mantenimiento» | «Último preventivo»; sin tipo «Otro»; historial para el administrador |
+| Dependencias | Entorno completo del PC (2942 archivos) | Entorno limpio solo del producto (2297 archivos; D8-3.26) |
+| Prueba de humo en el PC de la oficina | Asistente, paso 1 de 8 | Asistente, paso 1 de 8, sin errores en los registros |
 
 ---
 
