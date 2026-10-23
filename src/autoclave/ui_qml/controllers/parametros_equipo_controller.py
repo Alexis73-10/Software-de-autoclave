@@ -34,6 +34,9 @@ _MENSAJES = {
     "no_existe": "opciones.err_generico",
     "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
     "estado_no_permitido_unidades": "opciones.equipo_err_unidades_ciclo",
+    # R11 (tanda 11, D11-1): reinicio del software al cambiar la impresora
+    "reinicio_no_disponible": "opciones.equipo_err_reinicio_no_disponible",
+    "apagado_en_curso": "opciones.equipo_err_reinicio_en_curso",
     sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta",
 }
 
@@ -56,6 +59,7 @@ class ParametrosEquipoController(QObject):
     grupoChanged = Signal()
     permisosChanged = Signal()
     parametrosGrupoChanged = Signal()
+    reiniciandoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None, perfil=None):
         super().__init__(parent)
@@ -72,6 +76,7 @@ class ParametrosEquipoController(QObject):
         self._estado = ""
         self._serie = ""
         self._modelo = ""
+        self._reiniciando = False       # R11: el backend aceptó reiniciar el software
 
     def _s(self):
         return self._sesion or sesion_backend.ventana()
@@ -220,6 +225,27 @@ class ParametrosEquipoController(QObject):
     def fijarImpresora(self, habilitada: bool) -> bool:
         return self._resultado(self._s().enviar("PUT", "/printer/config",
                                                 {"habilitada": bool(habilitada)}))
+
+    @Slot(bool, result=bool)
+    def fijarImpresoraYReiniciar(self, habilitada: bool) -> bool:
+        """R11 (D11-1): la pantalla ya confirmó "Se reiniciará el software". El
+        backend guarda la bandera con auditoría y reinicia; mientras tanto la
+        pantalla muestra el aviso de reinicio (sin releer: el backend se está
+        cerrando). Rechazado: motivo y se relee, como cualquier cambio."""
+        r = self._s().enviar("PUT", "/printer/config",
+                             {"habilitada": bool(habilitada), "reiniciar": True})
+        if r.ok and isinstance(r.datos, dict) and r.datos.get("reiniciando") is True:
+            self._impresora = bool(habilitada)
+            self._fijar_mensaje("")
+            self._reiniciando = True
+            self.datosChanged.emit()
+            self.reiniciandoChanged.emit()
+            return True
+        return self._resultado(r)
+
+    @Property(bool, notify=reiniciandoChanged)
+    def reiniciando(self) -> bool:
+        return self._reiniciando
 
     # ── Configuración de la máquina ──────────────────────────────────────
     @Property(str, notify=datosChanged)
