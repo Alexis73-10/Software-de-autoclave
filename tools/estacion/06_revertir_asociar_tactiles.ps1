@@ -11,6 +11,11 @@
   - si la clave no existia antes y queda vacia, se borra.
   Solo escribe en esa clave (un respaldo alterado no puede tocar otra). Sin
   respaldo no borra nada (no sabe que asociaciones eran previas).
+  OJO: "creada por el paso" = no estaba antes de la PRIMERA ejecucion del
+  paso 6. Tambien se borran las asociaciones rehechas despues a mano (Panel
+  de control) o con otro tactil: tras desinstalar hay que volver a asociar.
+  Cada valor se revierte por separado; si alguno falla, el respaldo se
+  conserva y el script termina con error (el desinstalador lo avisa).
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param()
@@ -33,6 +38,24 @@ if ($null -ne $resp['DigimonAntes']) {
 }
 $tiposValidos = @('String', 'ExpandString', 'DWord', 'QWord', 'MultiString', 'Binary')
 
+function ConvertTo-ValorRegistro($Valor, [string]$Tipo) {
+    <# El JSON devuelve los arreglos como object[] y los numeros como int/long:
+       se convierten al tipo que espera SetValue (la coma evita que PowerShell
+       desarme el arreglo al devolverlo). #>
+    switch ($Tipo) {
+        'MultiString' { return , ([string[]]@($Valor)) }
+        'Binary'      { return , ([byte[]]@($Valor)) }
+        'DWord' {
+            $n = [long]$Valor
+            if ($n -gt [int]::MaxValue) { $n -= 4294967296 }   # REG_DWORD sin signo guardado como positivo
+            return [int]$n
+        }
+        'QWord'       { return [long]$Valor }
+        default       { return [string]$Valor }
+    }
+}
+$errores = 0
+
 $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64')
 try {
     $clave = $base.OpenSubKey($RutaDigimon, $true)
@@ -41,22 +64,29 @@ try {
     } else {
         try {
             foreach ($nombre in @($clave.GetValueNames())) {
-                $actual = $clave.GetValue($nombre, $null, 'DoNotExpandEnvironmentNames')
-                if (-not $antes.ContainsKey($nombre)) {
-                    if ($PSCmdlet.ShouldProcess("$RutaDigimon|$nombre", 'Borrar asociacion creada por el paso 6')) {
-                        $clave.DeleteValue($nombre, $false)
-                        Write-Log "Borrada asociacion creada por el paso 6: $nombre."
+                # cada valor por separado: uno que falle no deja sin revertir a los demas
+                try {
+                    $actual = $clave.GetValue($nombre, $null, 'DoNotExpandEnvironmentNames')
+                    if (-not $antes.ContainsKey($nombre)) {
+                        if ($PSCmdlet.ShouldProcess("$RutaDigimon|$nombre", 'Borrar asociacion creada por el paso 6')) {
+                            $clave.DeleteValue($nombre, $false)
+                            Write-Log "Borrada asociacion creada por el paso 6: $nombre."
+                        }
+                        continue
                     }
-                    continue
-                }
-                $previo = $antes[$nombre]
-                if ("$actual" -ne "$($previo.Valor)") {
-                    $tipo = "$($previo.Tipo)"
-                    if ($tiposValidos -notcontains $tipo) { $tipo = 'String' }
-                    if ($PSCmdlet.ShouldProcess("$RutaDigimon|$nombre", 'Restaurar asociacion anterior')) {
-                        $clave.SetValue($nombre, $previo.Valor, [Microsoft.Win32.RegistryValueKind]$tipo)
-                        Write-Log "Restaurada asociacion anterior: $nombre."
+                    $previo = $antes[$nombre]
+                    if ("$actual" -ne "$($previo.Valor)") {
+                        $tipo = "$($previo.Tipo)"
+                        if ($tiposValidos -notcontains $tipo) { $tipo = 'String' }
+                        if ($PSCmdlet.ShouldProcess("$RutaDigimon|$nombre", 'Restaurar asociacion anterior')) {
+                            $clave.SetValue($nombre, (ConvertTo-ValorRegistro $previo.Valor $tipo),
+                                [Microsoft.Win32.RegistryValueKind]$tipo)
+                            Write-Log "Restaurada asociacion anterior: $nombre."
+                        }
                     }
+                } catch {
+                    $errores++
+                    Write-Log "No se pudo revertir ${nombre}: $($_.Exception.Message)" 'ERROR'
                 }
             }
             $quedan = $clave.ValueCount + $clave.SubKeyCount
@@ -70,6 +100,10 @@ try {
     }
 } finally { $base.Close() }
 
+if ($errores -gt 0) {
+    # el respaldo se conserva para volver a intentarlo; el puente devuelve 1 y el desinstalador avisa
+    throw "No se pudieron revertir $errores asociaciones (detalle arriba en el log)."
+}
 if (-not $WhatIfPreference) {
     foreach ($k in 'DigimonAntes', 'DigimonExistia') { $resp.Remove($k) }
     if ($resp.Count -eq 0) { Remove-Item -LiteralPath (Get-RutaRespaldo $Paso) -Force -ErrorAction SilentlyContinue }

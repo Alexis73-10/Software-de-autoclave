@@ -99,7 +99,15 @@ if (-not $resp.ContainsKey('DigimonAntes')) {
 
 if ($PSCmdlet.ShouldProcess($herramienta, 'Abrir la asociacion de pantallas tactiles')) {
     Write-Log "Abriendo $herramienta (espera maxima $MinutosEspera min)."
-    $proceso = Start-Process -FilePath $herramienta -PassThru
+    $proceso = Start-Process -FilePath $herramienta -PassThru -WindowStyle Normal
+    # al frente, si Windows lo permite (el asistente del Setup puede taparla)
+    try {
+        [void]$proceso.WaitForInputIdle(5000)
+        Add-Type -AssemblyName Microsoft.VisualBasic
+        [Microsoft.VisualBasic.Interaction]::AppActivate($proceso.Id)
+    } catch {
+        Write-Log "No se pudo traer la herramienta al frente: $($_.Exception.Message)" 'WARN'
+    }
     if (-not $proceso.WaitForExit($MinutosEspera * 60 * 1000)) {
         Write-Log "La herramienta no se cerro en $MinutosEspera min: se cierra." 'WARN'
         try { $proceso.Kill() } catch { Write-Log "No se pudo cerrar la herramienta: $($_.Exception.Message)" 'WARN' }

@@ -34,21 +34,32 @@ Subagente N11, rama `tanda-11-n11` (desde `tanda-11`, e6886df). 23-oct-2026, sin
 - la segunda empieza con "SEGUNDA CONFIRMACIÓN" y dice que se borran los ciclos registrados, los usuarios, el perfil de instalación y la calibración, y dónde queda el respaldo;
 - un No deja al técnico en la página.
 
-**Respaldo y borrado** (`EjecutarLimpia`, llamado desde `PrepareToInstall`, es decir, al pulsar Instalar). Si la función devuelve un texto, Inno muestra el mensaje en la página "Preparando la instalación" y no instala. Pasos:
-1. **Autoclave abierto** (WMI, `Win32_Process` `Autoclave.exe`): se detiene sin tocar nada.
-2. No existe la carpeta de datos: no hay nada que hacer y sigue.
-3. **Respaldo:**
-   - crea `%ProgramData%\Especifika\Autoclave_respaldos\` y lo protege con `icacls /inheritance:r`: solo Administradores y SYSTEM (`ProtegerRespaldos`; ver N11-3);
-   - copia recursiva (`CopiarArbol`) a `AAAAMMDD-HHMMSS\`, con sufijo `_2`, `_3`… si ya existe;
-   - falla ante cualquier error de copia o ante un enlace o unión dentro de los datos.
-4. **Verificación:** mismo número de archivos y de bytes en el original y en la copia (`ContarArbol`).
-5. **Si 3 o 4 fallan: no se borra nada** y se detiene con `LimpiaRespaldoFallo`, que avisa que la copia puede estar incompleta.
-6. **Borrado** del contenido de la carpeta de datos, **salvo `estacion\`** (N11-1). Comprueba que cada entrada desapareció. Si no, se detiene con `LimpiaBorradoFallo`, que da la ruta del respaldo.
-7. Sigue la instalación normal: tareas y cuenta, como una nueva. El `[Dirs]` vuelve a dar Modificar a Usuarios. Sin perfil, el primer arranque abre el menú de instalación (D11-4.3, comportamiento que ya existía).
+**Respaldo y borrado** (`EjecutarLimpia`, llamado desde `PrepareToInstall`, es decir, al pulsar Instalar; versión corregida tras la revisión de seguridad, ver abajo). Si la función devuelve un texto, Inno muestra el mensaje en la página "Preparando la instalación" y no instala. Cualquier fallo antes del paso 6 deja los datos intactos.
+1. **Nunca sin asistente** (`WizardSilent` → `LimpiaSilenciosa`). La **ruta de datos** debe ser `X:\…\Especifika\Autoclave` y no contener `..` (`RutaDatosValida`).
+2. **Autoclave abierto** (WMI `Win32_Process`: `Autoclave.exe`, y por si acaso `AutoclaveBackend.exe` y `AutoclaveSettings.exe`): se detiene. **Si WMI falla, cuenta como abierto** (`LimpiaSinComprobar`).
+3. Si no existe la carpeta de datos, no hay nada que hacer y sigue.
+4. **Sin enlaces:**
+   - si `Especifika\`, `Autoclave\` o `Autoclave_respaldos\` son un punto de reanálisis, se detiene (`LimpiaEnlace`);
+   - ni la carpeta de respaldo ni la `_borrar` pueden quedar dentro de los datos (`EstaDentro`).
+5. **Respaldo:**
+   - crea `Autoclave_respaldos\`, comprueba de nuevo que no sea un enlace y la protege (`ProtegerRespaldos`): `icacls /setowner Administradores`, y después `/inheritance:r` con solo Administradores y SYSTEM;
+   - copia recursiva (`CopiarArbol`) a `AAAAMMDD-HHMMSS\` (sufijo `_2`… si ya existe ella o su `_borrar`). Falla ante cualquier error de copia, ante una carpeta que no se puede listar o ante un enlace;
+   - la carpeta recién creada tampoco puede ser un enlace.
+6. **Verificación:**
+   - `ContarArbol` cuenta tres veces: el original antes, la copia y el original después;
+   - los tres conteos deben coincidir en archivos y bytes;
+   - una carpeta que no se puede listar, o un enlace, cuenta como falla.
+7. **Si 5 o 6 fallan: no se mueve ni se borra nada** (`LimpiaRespaldoFallo`, que avisa que la copia puede estar incompleta).
+8. **Vaciado atómico** (`VaciarDatos`):
+   - **un solo renombrado** de `Autoclave\` entera, perfil incluido, a `Autoclave_respaldos\AAAAMMDD-HHMMSS_borrar\` (misma unidad). O se mueve todo o nada; si algo dentro está abierto, Windows rechaza el renombrado (`LimpiaMoverFallo`, nada movido);
+   - luego se crea `Autoclave\` vacía y se devuelve `estacion\` (N11-1);
+   - si una de esas dos falla, **se deshace el renombrado** y se detiene. Si deshacer también falla, `LimpiaDeshacerFallo` dice dónde quedaron los datos.
+9. **Borrado** de `_borrar` (`BorrarArbol`, sin seguir enlaces: de un enlace o unión se borra solo el enlace; quita el atributo de solo lectura si hace falta). Lo que no se pueda borrar solo se anota en el log: la carpeta de datos ya está limpia y los restos están en la carpeta protegida.
+10. Sigue la instalación normal: tareas y cuenta, como una nueva. El `[Dirs]` vuelve a dar Modificar a Usuarios a `Autoclave\`. Sin perfil, el primer arranque abre el menú de instalación (D11-4.3, comportamiento que ya existía).
 
-**Más nueva instalada:** sin cambios. Se niega.
+**Más nueva instalada:** se sigue negando. Si falta `VersionNum` (instalaciones a–d), ahora se convierte `DisplayVersion` (`1.0.0-d` → `1.0.0.4`) y se compara. Si no tiene esa forma, también se niega (`VersionDesconocida`; SAF-06).
 
-**Silencioso:** `/SILENT` y `/VERYSILENT` nunca hacen limpia, porque no hay página ni `NextButtonClick`. Con la misma versión hacen Reparar; con una más vieja, Actualizar.
+**Silencioso** (corregido, SAF-05): Inno **sí llama a `NextButtonClick`** en `/SILENT` y `/VERYSILENT`, con la opción por defecto. Aun así, una elección de limpia sin asistente se rechaza en `NextButtonClick` (queda Actualizar o Reparar) y otra vez en `EjecutarLimpia`. Con la misma versión hace Reparar; con una más vieja, Actualizar.
 
 ### Revisión de la lógica Pascal (tabla de casos)
 
@@ -58,23 +69,42 @@ Subagente N11, rama `tanda-11-n11` (desde `tanda-11`, e6886df). 23-oct-2026, sin
 |---|---|---|---|---|---|---|
 | Sin instalación | `ModoNuevo` (no hay clave de desinstalación) | ninguna | Nuevo | `''` | AplicarEstacion y tarea | sin cambio |
 | Versión vieja, Actualizar (defecto) | `ModoActualizar` | Actualizar/Limpia | Actualizar | `''` | AplicarEstacion y tarea | conservados |
-| Versión vieja, Limpia, dos Sí | `ModoActualizar` | Actualizar/Limpia | `ModoLimpia` | `EjecutarLimpia` | AplicarEstacion y tarea, más log de la ruta del respaldo | respaldados y borrados (salvo `estacion\`) |
+| Versión vieja sin `VersionNum` (a–d) | `DisplayVersion` → número y comparación | según resultado | — | — | — | según resultado |
+| Versión con `DisplayVersion` desconocida y sin `VersionNum` | `Result := False` y aviso `VersionDesconocida` | — | — | — | — | sin cambio |
+| Versión vieja, Limpia, dos Sí | `ModoActualizar` | Actualizar/Limpia | `ModoLimpia` | `EjecutarLimpia` | AplicarEstacion y tarea, más log de la ruta del respaldo | respaldados; vacía salvo `estacion\` |
 | Versión vieja, Limpia, un No | `ModoActualizar` | se queda en la página | — | — | — | conservados |
 | Misma versión, Reparar (defecto) | `ModoMantenimiento` | Reparar/Limpia/Desinstalar | `ModoReparar` | `''` | RepararEstacion (sin 01 ni 06) | conservados |
-| Misma versión, Limpia | `ModoMantenimiento` | ídem | `ModoLimpia` | `EjecutarLimpia` | AplicarEstacion completa | respaldados y borrados |
+| Misma versión, Limpia | `ModoMantenimiento` | ídem | `ModoLimpia` | `EjecutarLimpia` | AplicarEstacion completa | respaldados; vacía salvo `estacion\` |
 | Misma versión, Desinstalar | `ModoMantenimiento` | ídem | — | — | el Setup se cierra y abre el desinstalador | conservados |
-| Misma versión, silencioso | `ModoMantenimiento` | sin página | Mantenimiento | `''` | RepararEstacion | conservados |
+| Silencioso (cualquier versión) | igual | `NextButtonClick` con la opción por defecto; la limpia se rechaza | Reparar o Actualizar | `''` (y `LimpiaSilenciosa` si llegara `ModoLimpia`) | normal | conservados |
 | Versión más nueva | `Result := False` y aviso `VersionMasNueva` | — | — | — | — | sin cambio |
 | Limpia con Autoclave abierto | — | — | `ModoLimpia` | `LimpiaProgramaAbierto`: no instala | — | **sin cambio** |
-| **Respaldo fallido** (sin espacio, archivo ilegible, enlace, ACL) | — | — | `ModoLimpia` | `LimpiaRespaldoFallo`: no instala | — | **sin cambio**; copia parcial en `Autoclave_respaldos\…` |
-| Respaldo que no coincide (archivos o bytes) | — | — | `ModoLimpia` | `LimpiaRespaldoFallo` | — | **sin cambio** |
-| Borrado incompleto (archivo bloqueado) | — | — | `ModoLimpia` | `LimpiaBorradoFallo`: no instala | — | parcialmente borrados; respaldo completo verificado |
+| Limpia con WMI fallido | — | — | `ModoLimpia` | `LimpiaSinComprobar`: no instala | — | **sin cambio** |
+| Ruta de datos rara o enlace o unión en el camino | — | — | `ModoLimpia` | `LimpiaRutaInvalida` / `LimpiaEnlace`: no instala | — | **sin cambio** |
+| **Respaldo fallido** (sin espacio, archivo ilegible, carpeta no listable, enlace dentro, `icacls`) | — | — | `ModoLimpia` | `LimpiaRespaldoFallo`: no instala | — | **sin cambio**; copia parcial en `Autoclave_respaldos\…` |
+| Respaldo que no coincide (archivos o bytes, antes o después) | — | — | `ModoLimpia` | `LimpiaRespaldoFallo` | — | **sin cambio** |
+| Renombrado rechazado (archivo abierto) | — | — | `ModoLimpia` | `LimpiaMoverFallo`: no instala | — | **sin cambio** (no se movió nada) |
+| Falla al crear `Autoclave\` o devolver `estacion\` | — | — | `ModoLimpia` | se deshace y `LimpiaMoverFallo` (o `LimpiaDeshacerFallo` si no se pudo deshacer) | — | sin cambio (o apartados enteros en `_borrar`, con aviso) |
+| Restos al borrar `_borrar` | — | — | `ModoLimpia` | `''` (solo log) | normal | limpia; restos en la carpeta protegida |
 | Limpia, Atrás y Actualizar o Reparar | — | se vuelve a elegir | Actualizar o Reparar | `''` | normal | conservados |
 
 Notas de la revisión:
-- El borrado está en una sola llamada (`BorrarContenidoDatos`), que solo se alcanza con el respaldo hecho y verificado (la prueba lo comprueba por orden de texto).
+- Nada se mueve ni se borra antes del respaldo hecho y verificado. Lo primero que cambia en los datos es un renombrado atómico de la carpeta entera; la prueba lo comprueba por orden de texto.
 - En `EjecutarLimpia` los pasos del respaldo van en `if` separados para no depender de la evaluación en cortocircuito de Pascal Script. `ShouldSkipPage` y `NextButtonClick` usan el mismo patrón `(Pagina <> nil) and (PageID = Pagina.ID)` que ya tenía el `.iss` instalado en la F.
 - Un error en `PrepareToInstall` deja al técnico en "Preparando la instalación". Si vuelve a intentar (Atrás, Instalar), se hace un respaldo nuevo con otra fecha; el anterior no se toca.
+
+### Qué queda tras un corte de energía en cada punto (SAF-01)
+
+| Corte durante… | Carpeta de datos | Al arrancar Autoclave | Recuperación |
+|---|---|---|---|
+| comprobaciones o respaldo (pasos 1 a 7) | intacta | normal, como antes | ninguna. Puede quedar un respaldo parcial: borrarlo a mano |
+| el renombrado (paso 8) | intacta o apartada entera (NTFS: el renombrado es atómico) | normal, o sin perfil | si se apartó: ver la fila siguiente |
+| entre el renombrado y la carpeta vacía | no existe; todo en `…_borrar\` | sin perfil: menú de instalación (crea la carpeta) | `estacion\` está en `_borrar`: devolverla a mano (el desinstalador la necesita); el respaldo completo está al lado |
+| entre la carpeta vacía y la devolución de `estacion\` | vacía | sin perfil: menú de instalación | igual que la fila anterior |
+| el borrado de `_borrar` (paso 9) | limpia, con `estacion\` | sin perfil: menú de instalación | borrar a mano lo que quede de `_borrar` |
+| después de `PrepareToInstall`, antes de terminar el Setup | limpia | según lo que alcanzó a instalar Inno | volver a ejecutar el Setup |
+
+En ningún punto queda una mezcla de base de datos borrada con perfil o calibración presentes: todo se aparta con un solo renombrado.
 
 ## D11-5. Asociación de los táctiles
 
@@ -110,10 +140,10 @@ Notas de la revisión:
   - la primera compilación avisó de que `FileCopy` está renombrada: se cambió a `CopyFile`;
   - el `.exe` (85 MB) se **borró** y no es entregable. La versión `1.0.0-n11` / `1.0.0.7` era solo para compilar; K11 pasa la suya.
 - **Parser de PowerShell:** 0 errores en los 15 `.ps1` de `tools/estacion` y `tools/instalador`, incluidos los dos nuevos. PSScriptAnalyzer no está instalado y no se instaló (regla 3).
-- **Pruebas:** `tests/test_t11_n11_instalador_limpia_tactiles.py`, 16 pruebas nuevas, todas estáticas (prohibido ejecutar `.ps1`). Cubren:
+- **Pruebas:** `tests/test_t11_n11_instalador_limpia_tactiles.py`, 16 pruebas nuevas en la primera entrega (24 tras la revisión de seguridad), todas estáticas (prohibido ejecutar `.ps1`). Cubren:
   - las dos páginas y sus opciones; Reinstalar ya no existe;
   - la doble confirmación con No por defecto y el texto de la segunda en es y en;
-  - el orden "programa abierto → proteger → respaldar → verificar → borrar" y que hay una sola llamada que borra;
+  - el orden "programa abierto → proteger → respaldar → verificar → apartar → borrar" (revisión: ver abajo);
   - la carpeta de respaldo con fecha y protegida; se conserva `estacion\`; se rechazan los enlaces;
   - la versión más nueva se sigue negando; el modo silencioso nunca hace limpia;
   - la subtarea marcada y solo con 2 monitores;
@@ -146,6 +176,31 @@ Bloque nuevo "Bloque N11" antes de "Registros…" y 5 filas en el resumen, despu
 
 También se actualizó `tools/instalador/LEEME.md`: tabla de opciones, la limpia paso a paso, cómo restaurar un respaldo, la sección de los táctiles y la lista de verificación (Reinstalar → casos A-N11).
 
+## Revisión de seguridad (coordinador, sin bloqueantes)
+
+| Hallazgo | Qué se hizo |
+|---|---|
+| **SAF-01 (ALTA)** El borrado no era atómico ni dejaba marca: un archivo bloqueado o un corte podía dejar la base borrada con la calibración y el perfil intactos | El borrado entrada por entrada se reemplazó por `VaciarDatos`: **un solo renombrado** de `Autoclave\` entera (perfil incluido) a `Autoclave_respaldos\<fecha>_borrar\` (misma unidad, atómico). Después se crea `Autoclave\` vacía y vuelve `estacion\`. Si algo falla, se deshace el renombrado y se detiene sin borrar. El borrado de lo apartado viene después y no condiciona nada. Tabla "Qué queda tras un corte" arriba. Se eligió esto en vez de "renombrar primero el perfil" porque deja el perfil, la base y la calibración siempre juntos. |
+| **SAF-02 (ALTA)** No se comprobaban enlaces o uniones en `Especifika\`, `Autoclave\`, `Autoclave_respaldos\` ni en la carpeta nueva; `DelTree` podía seguir enlaces | `EsEnlace` (`GetFileAttributesW` y `FILE_ATTRIBUTE_REPARSE_POINT`) sobre el padre, los datos y la raíz de respaldos (antes y después de crearla) y sobre cada carpeta de respaldo creada. `RutaDatosValida`: unidad `X:\`, sin `..` y terminada en `\Especifika\Autoclave`. `EstaDentro` impide que el respaldo o `_borrar` queden dentro de los datos. `ProtegerRespaldos` primero fija el dueño en Administradores (`/setowner`), porque un usuario estándar pudo crear la carpeta y ser su dueño, y luego quita la herencia. `DelTree` ya no se usa: `BorrarArbol` borra solo el enlace (`RemoveDir`/`DeleteFile`), sin entrar. Cualquier falla detiene antes de copiar o mover. |
+| **SAF-03 (MEDIA)** Si WMI fallaba, se suponía "cerrado" | `EstadoAutoclave` devuelve 2 ante una excepción, que cuenta como abierto (`LimpiaSinComprobar`). Nombres de proceso: todas las funciones del exe único (backend, pantallas, asistente, reposo) se relanzan como `Autoclave.exe` (`exe_unico._cmd_propio`); la entrega F solo trae `Autoclave.exe`. Por si quedara una instalación vieja, también se buscan `AutoclaveBackend.exe` y `AutoclaveSettings.exe` (nombres de los `.spec` separados). |
+| **SAF-04** `FindFirst` falso en una carpeta existente o un `FindNext` con error no eran falla | `CopiarArbol` y `ContarArbol` (ahora devuelve `Boolean`) tratan un `FindFirst` falso como falla: una carpeta que existe siempre lista `.`. `FindNext` de Inno no distingue "fin" de "error"; por eso el original se cuenta antes y después de copiar, y los dos conteos deben ser iguales a la copia. Un corte de la lista a medias da conteos distintos. **Limitación aceptada:** dos cortes idénticos en el mismo punto no se detectarían. |
+| **SAF-05** El informe decía que Inno no llama a `NextButtonClick` en silencioso | Corregido el texto (sí lo llama). `NextButtonClick` ignora la limpia si `WizardSilent` y `EjecutarLimpia` la rechaza otra vez (`LimpiaSilenciosa`). |
+| **SAF-06** Sin `VersionNum` y con `DisplayVersion` distinta se suponía "más vieja" y se podía bajar de versión | `VersionNumDesdeTexto` (`1.0.0-d` → `1.0.0.4`) y comparación normal. Si no tiene esa forma: se niega (`VersionDesconocida`). |
+| **SAF-07** El revertir también borra asociaciones rehechas después del paso | Documentado en `tools/estacion/LEEME.md` y en la cabecera de `06_revertir_asociar_tactiles.ps1`: tras desinstalar hay que volver a asociar. |
+| **SAF-08** En el revertir, un valor que fallaba cortaba todo, y `Binary`/`MultiString` volvían del JSON como `object[]` | `try` por valor: cuenta los errores y sigue con los demás. `ConvertTo-ValorRegistro` convierte a `[string[]]`, `[byte[]]`, `[int]` (DWORD sin signo > 2³¹ → negativo de 32 bits) y `[long]`. Con algún error, conserva el respaldo y termina con excepción (el puente devuelve 1 y el desinstalador avisa). |
+| Nota menor: texto durante el paso 06 y herramienta al frente | `WizardForm.StatusLabel` muestra "Asociación de pantallas táctiles: toque cada pantalla cuando se le indique..." (es/en). El script espera `WaitForInputIdle` y llama a `AppActivate` con el PID (con `try`; Windows puede negar el primer plano y entonces queda un WARN en el log). |
+
+Pruebas nuevas de la revisión (en el mismo archivo): `test_saf01_…`, `test_saf02_…`, `test_saf03_…`, `test_saf04_…`, `test_saf05_…`, `test_saf06_…`, `test_saf08_…` y `test_saf07_y_texto_de_progreso_del_paso_06`. La prueba del borrado se reescribió para el nuevo orden: copia → vaciado → borrado, tres conteos y sin `DelTree`.
+
+Resultado tras la revisión:
+
+```
+tests/test_t11_n11_instalador_limpia_tactiles.py tests/test_t9_e9_setup_estacion.py
+35 passed in 1.18s
+ISCC (misma orden que arriba): SALIDA=0, "Successful compile", sin Warning ni Hint; .exe borrado
+Parser de PowerShell: 15 archivos, 0 errores
+```
+
 ## DECISIONES SIN CONFIRMAR
 
 - **N11-1:** la instalación limpia **no borra `estacion\`**. Esa carpeta guarda los valores de Windows anteriores a la estación (`respaldo_01..06`, BCD, plan de energía), que el desinstalador necesita para revertirla. Si se borrara, el siguiente "Aplicar" tomaría como original lo ya cambiado y la desinstalación nunca devolvería Windows a su estado previo. Va completa en el respaldo. Todo lo demás de `%ProgramData%\Especifika\Autoclave` se borra.
@@ -157,7 +212,9 @@ También se actualizó `tools/instalador/LEEME.md`: tabla de opciones, la limpia
 - **N11-7:** el conteo de asociaciones es el **número de valores de la clave Digimon**. Entradas viejas de un táctil desconectado también cuentan, así que un 2 no garantiza que los dos táctiles actuales estén bien. Por eso la hoja de banco pide tocar cada pantalla.
 - **N11-8:** el aviso de menos de 2 asociaciones es un `MsgBox` informativo al final de la instalación, antes de la página Finalizar, y no un texto añadido a esa página (podría quedar cortado).
 - **N11-9:** la espera máxima de la herramienta es de **10 min**. Pasado ese tiempo, el script la cierra y sigue.
-- **N11-10:** el respaldo se verifica por **número de archivos y bytes**, no por hash. Los respaldos no se borran solos.
+- **N11-10:** el respaldo se verifica por **número de archivos y bytes** (el original contado antes y después), no por hash. Los respaldos no se borran solos.
+- **N11-11 (revisión):** la carpeta apartada `…_borrar` vive dentro de `Autoclave_respaldos\` (protegida y en la misma unidad). Si su borrado deja restos, la instalación sigue y solo se anota en el log de Inno.
+- **N11-12 (revisión):** con `DisplayVersion` desconocida y sin `VersionNum`, el Setup se niega a instalar (antes suponía "más vieja").
 
 ## PREGUNTAS PARA CRISTIAN
 
@@ -169,7 +226,7 @@ También se actualizó `tools/instalador/LEEME.md`: tabla de opciones, la limpia
 ## Pendientes
 
 - Probar A-N11-01 a A-N11-05 en el PC de prueba (Cristian) antes de usar la limpia o el paso 06 en el equipo del autoclave.
-- No se lanzó ningún revisor (etapa no ★). La limpia borra datos de pacientes y ciclos. Si la sesión principal lo considera, conviene un `safety-reviewer` del diff de `tools/instalador/autoclave.iss` (funciones `EjecutarLimpia`, `CopiarArbol`, `BorrarContenidoDatos`).
+- No se lanzó ningún revisor (etapa no ★). La revisión de seguridad del coordinador se atendió (sección "Revisión de seguridad").
 - K11: compilar con `/DAppVer` y `/DAppVerNum` de la G, como en K10. Los valores por defecto del `.iss` siguen en la D.
 
 ## Puntos de choque tocados

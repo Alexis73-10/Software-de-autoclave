@@ -66,7 +66,7 @@ En orden inverso (6 → 1), como administrador, también con `-WhatIf` primero:
 - Cada inverso usa el `respaldo_<paso>.json`: si un valor no existía antes, lo borra; si existía, le devuelve su valor.
 - `01_revertir…` solo borra la cuenta con `-EliminarCuenta` y solo si la creó el paso 1; el perfil de `C:\Users` queda.
 - `05_revertir…` reimporta el plan original con un GUID nuevo; el plan modificado queda en la lista (`powercfg /list`, borrar con `powercfg /delete`).
-- `06_revertir…` borra solo las asociaciones táctil-monitor que creó el paso 6 y devuelve su dato a las que cambió (según `respaldo_06_asociar_tactiles.json`); las que ya había antes quedan. Sin ese respaldo no borra nada.
+- `06_revertir…` borra solo las asociaciones táctil-monitor que creó el paso 6 y devuelve su dato a las que cambió (según `respaldo_06_asociar_tactiles.json`); las que ya había antes quedan. Sin ese respaldo no borra nada. **Ojo:** "creada por el paso" quiere decir "que no estaba antes de la primera vez que corrió el paso 6", así que también borra las asociaciones rehechas después (a mano desde el Panel de control, al cambiar un táctil o al repetir el paso). Tras desinstalar o revertir, hay que volver a asociar las pantallas. Si un valor no se puede revertir, el script termina con error y conserva el respaldo para reintentarlo.
 - Si el arranque falla tras el paso 2: desde el entorno de recuperación, `bcdedit /import %ProgramData%\Especifika\Autoclave\estacion\bcd_respaldo.bcd`.
 
 ## Lo que no cubren los scripts

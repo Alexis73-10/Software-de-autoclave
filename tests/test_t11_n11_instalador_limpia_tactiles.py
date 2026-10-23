@@ -82,29 +82,100 @@ def test_borrado_solo_en_preparar_instalacion_despues_del_respaldo():
     assert "Modo = ModoLimpia" in pti and "EjecutarLimpia" in pti
     limpia = _funcion("EjecutarLimpia")
     i_respaldo = limpia.index("CopiarArbol(")
-    i_borrado = limpia.index("BorrarContenidoDatos(")
-    assert i_respaldo < i_borrado
-    # si el respaldo falla (copia o verificación) se sale con mensaje antes de borrar
-    tramo = limpia[i_respaldo:i_borrado]
+    i_vaciado = limpia.index("VaciarDatos(")
+    i_borrado = limpia.index("BorrarArbol(")
+    assert i_respaldo < i_vaciado < i_borrado
+    # si el respaldo falla (copia o verificación) se sale con mensaje antes de mover nada
+    tramo = limpia[i_respaldo:i_vaciado]
     assert "LimpiaRespaldoFallo" in tramo and "exit" in tramo
-    assert "ContarArbol(" in tramo                     # verifica la copia (archivos y bytes)
+    # verificación: original antes y después, iguales a la copia (archivos y bytes)
+    assert limpia.count("ContarArbol(") == 3
+    assert "(ArchivosAntes = ArchivosCopia) and (ArchivosDespues = ArchivosCopia)" in limpia
+    # si el vaciado no salió, no se borra nada
+    assert "Result := VaciarDatos(Datos, CarpetaBorrar);\n  if Result <> '' then\n    exit;" in limpia
     # con el programa abierto no se toca nada
-    assert limpia.index("AutoclaveEnEjecucion") < i_respaldo
+    assert limpia.index("EstadoAutoclave") < i_respaldo
     # el respaldo (con estacion\ y la base de usuarios) no queda legible por Usuarios
     assert limpia.index("ProtegerRespaldos") < i_respaldo
     proteger = _funcion("ProtegerRespaldos")
+    assert "/setowner *S-1-5-32-544" in proteger
     assert "/inheritance:r" in proteger and "*S-1-5-32-544" in proteger and "*S-1-5-18" in proteger
     assert "Users" not in proteger and "S-1-5-32-545" not in proteger
-    # la única llamada que borra datos es esa
-    assert CODIGO.count("BorrarContenidoDatos(") == 2   # definición + llamada
+    # las únicas llamadas que borran: BorrarArbol (definición, recursión, llamada) y DelTree en ninguna parte
+    assert CODIGO.count("BorrarArbol(") == 3
+    assert "DelTree(" not in CODIGO
+
+
+def test_saf01_vaciado_atomico_con_un_solo_renombrado_y_deshacer():
+    vaciar = _funcion("VaciarDatos")
+    # primero se aparta TODA la carpeta (perfil incluido) con un solo renombrado
+    assert vaciar.index("RenameFile(Datos, CarpetaBorrar)") < vaciar.index("CreateDir(Datos)")
+    # vuelve solo estacion\
+    assert "RenameFile(CarpetaBorrar + '\\estacion', Datos + '\\estacion')" in vaciar
+    # si algo falla, se deshace (los datos vuelven) y se informa
+    assert "RenameFile(CarpetaBorrar, Datos)" in vaciar
+    assert "LimpiaMoverFallo" in vaciar and "LimpiaDeshacerFallo" in vaciar
+    # la carpeta apartada vive en la raíz protegida de respaldos
+    assert "CarpetaBorrar := CarpetaRespaldo + '_borrar';" in _funcion("EjecutarLimpia")
+
+
+def test_saf02_enlaces_y_ruta_de_datos():
+    limpia = _funcion("EjecutarLimpia")
+    i_respaldo = limpia.index("CopiarArbol(")
+    for llamada in ("EsEnlace(ExtractFileDir(Datos))", "EsEnlace(Datos)", "EsEnlace(RaizRespaldos)",
+                    "RutaDatosValida(Datos)", "EstaDentro(CarpetaRespaldo, Datos)",
+                    "EstaDentro(CarpetaBorrar, Datos)"):
+        assert limpia.index(llamada) < i_respaldo, llamada
+    assert "LimpiaEnlace" in limpia and "LimpiaRutaInvalida" in limpia
+    assert "'\\Especifika\\Autoclave'" in _funcion("RutaDatosValida")
+    assert "FILE_ATTRIBUTE_REPARSE_POINT" in _funcion("EsEnlace")
+    # la carpeta de respaldo recién creada no puede ser un enlace
+    assert "CreateDir(Destino) and not EsEnlace(Destino)" in _funcion("CopiarArbol")
+    # el borrado no sigue enlaces: del enlace se borra solo el enlace
+    borrar = _funcion("BorrarArbol")
+    assert "FILE_ATTRIBUTE_REPARSE_POINT" in borrar
+    assert borrar.index("FILE_ATTRIBUTE_REPARSE_POINT") < borrar.index("BorrarArbol(Ruta)")
+
+
+def test_saf03_wmi_fallido_cuenta_como_abierto():
+    estado = _funcion("EstadoAutoclave")
+    assert "Result := 2;" in estado.split("except")[1]
+    for nombre in ("Autoclave.exe", "AutoclaveBackend.exe", "AutoclaveSettings.exe"):
+        assert f"''{nombre}''" in estado
+    limpia = _funcion("EjecutarLimpia")
+    assert "LimpiaSinComprobar" in limpia and "LimpiaProgramaAbierto" in limpia
+
+
+def test_saf04_carpeta_que_no_se_lista_es_falla():
+    copiar = _funcion("CopiarArbol")
+    assert "if not FindFirst(Origen + '\\*', Busqueda) then" in copiar
+    contar = _funcion("ContarArbol")
+    assert contar.startswith("function ContarArbol") and ": Boolean;" in contar.splitlines()[0]
+    assert "Result := FindFirst(Carpeta + '\\*', Busqueda);" in contar
+
+
+def test_saf05_silencioso_rechaza_la_limpia():
+    nbc = _funcion("NextButtonClick")
+    bloque = nbc[nbc.index("if Indice = IndiceLimpia then"):nbc.index("else if Indice = IndiceDesinstalar")]
+    assert bloque.index("if WizardSilent then") < bloque.index("Modo := ModoLimpia")
+    limpia = _funcion("EjecutarLimpia")
+    assert limpia.index("if WizardSilent then") < limpia.index("CopiarArbol(")
+
+
+def test_saf06_sin_versionnum_compara_displayversion_o_se_niega():
+    ini = _funcion("InitializeSetup")
+    assert "VersionNumDesdeTexto(VersionInstalada)" in ini
+    assert "CustomMessage('VersionDesconocida')" in ini
+    assert "Comparacion := -1" not in ini
+    conv = _funcion("VersionNumDesdeTexto")
+    assert "Ord(Letra[1]) - Ord('a') + 1" in conv
 
 
 def test_carpeta_de_respaldo_fuera_de_la_que_se_borra_y_con_fecha():
     assert "{commonappdata}\\Especifika\\Autoclave_respaldos" in CODIGO
     assert "'yyyymmdd-hhnnss'" in CODIGO
-    borrar = _funcion("BorrarContenidoDatos")
-    # no borra la carpeta de la estación (respaldos de los pasos de Windows)
-    assert "'estacion'" in borrar
+    # no borra la carpeta de la estación (respaldos de los pasos de Windows): vuelve a su lugar
+    assert "\\estacion" in _funcion("VaciarDatos")
     # nunca sigue enlaces: un punto de reanálisis cancela antes de copiar/borrar
     assert "FILE_ATTRIBUTE_REPARSE_POINT" in _funcion("CopiarArbol")
 
@@ -185,6 +256,25 @@ def test_revertir_06_solo_toca_la_clave_digimon_y_lo_creado():
     assert rutas == {"SOFTWARE\\Microsoft\\Wisp\\Pen\\Digimon"}, rutas
 
 
+def test_saf08_revertir_valor_por_valor_y_tipos():
+    s = _ps(REVERTIR06)
+    assert "function ConvertTo-ValorRegistro" in s
+    assert "[string[]]" in s and "[byte[]]" in s
+    assert "ConvertTo-ValorRegistro $previo.Valor $tipo" in s
+    bucle = s[s.index("foreach ($nombre in @($clave.GetValueNames()))"):]
+    assert bucle.index("try {") < bucle.index("DeleteValue") < bucle.index("} catch {")
+    # con errores conserva el respaldo y falla (el desinstalador avisa)
+    assert s.index("if ($errores -gt 0)") < s.index("$resp.Remove($k)")
+
+
+def test_saf07_y_texto_de_progreso_del_paso_06():
+    leeme = (ESTACION / "LEEME.md").read_text(encoding="utf-8")
+    assert "también borra las asociaciones rehechas después" in leeme
+    ae = _funcion("AplicarEstacion")
+    assert ae.index("CustomMessage('TactilesTocar')") < ae.index("EjecutarPaso('06'")
+    assert "AppActivate" in _ps(PASO06)
+
+
 def test_leeme_estacion_paso_06_y_puertos_usb():
     leeme = (ESTACION / "LEEME.md").read_text(encoding="utf-8")
     assert PASO06 in leeme and REVERTIR06 in leeme
@@ -194,8 +284,9 @@ def test_leeme_estacion_paso_06_y_puertos_usb():
 def test_mensajes_nuevos_en_los_dos_idiomas():
     for clave in ("ActTitulo", "ActSubtitulo", "ActExplicacion", "ActActualizar", "OpcionLimpia",
                   "LimpiaConfirmar1", "LimpiaConfirmar2", "LimpiaProgramaAbierto",
-                  "LimpiaRespaldoFallo", "LimpiaBorradoFallo", "TareaTactiles", "Paso06",
-                  "TactilesRepetir"):
+                  "LimpiaRespaldoFallo", "LimpiaMoverFallo", "LimpiaDeshacerFallo", "LimpiaEnlace",
+                  "LimpiaRutaInvalida", "LimpiaSinComprobar", "LimpiaSilenciosa",
+                  "VersionDesconocida", "TareaTactiles", "Paso06", "TactilesRepetir", "TactilesTocar"):
         _mensaje("es", clave)
         _mensaje("en", clave)
 
