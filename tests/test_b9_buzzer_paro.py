@@ -129,7 +129,7 @@ def _puerta(a):
         di={"abierta": "puerta_1_abierta", "cerrada": "puerta_1_cerrada"},
         do={"cerrar": EstadoAutoclave.map_do["cerrar_puerta_1"] + 1,
             "bloquear": EstadoAutoclave.map_do["bloqueo_puerta_1"] + 1},
-        ai={"empaque": "pres_empaque_1"},
+        ai={"presion_empaque": "pres_empaque_1"},
         estado=estado, setdo=a["set_do"],
         config={"presion_empaque": 300, "timeout_puerta": 60, "vacio_empaque": 30,
                 "presion_admosferica": 74.5, "rango_presion_atm": 20},
@@ -209,8 +209,9 @@ def test_con_el_paro_ninguna_salida_salvo_el_buzzer_se_enciende(
     tras, malos = _encendidos_tras_paro(a, t_paro)
     REGISTROS[f"{nombre_estado}, puerta avanzada={con_puerta}"] = [
         (round(t - t_paro, 2), o, e) for t, o, e in a["registro"]]
-    # primera orden tras el paro: ALL_OFF
+    # primera orden tras el paro: ALL_OFF, y uno solo en ese tick (TMG-01)
     assert tras[0][1] == "ALL_OFF", tras[:3]
+    assert [o for t, o, _ in tras if t == t_paro].count("ALL_OFF") == 1, tras[:6]
     assert not malos, malos[:10]
     # el buzzer sí suena
     assert any(o == f"SET DO{BUZZER} ON" for _, o, _ in tras)
@@ -411,6 +412,46 @@ def test_sin_datos_en_ciclo_no_cambia_la_tolerancia_de_di():
     assert io.ordenes == [(_canal("descompresion_lenta"), True)]
 
 
+def test_sin_datos_en_ciclo_tras_el_aborto_bloquea(monkeypatch):
+    # SAF-03 de la revisión: vencida la tolerancia, el ciclo aborta y llama a
+    # apagar_por_paro en cada tick (estado global sigue en CICLO): mientras
+    # lo pida, nada se enciende
+    from autoclave.state_machine.machine.enum_global import GlobalState
+    reloj = [100.0]
+    monkeypatch.setattr(set_io.time, "monotonic", lambda: reloj[0])
+    s, io, estado = _set_do(paro=True, maquina=GlobalState.CICLO)
+    s.set_output(_canal("cerrar_puerta_1"), True)            # tolerancia: pasa
+    assert io.ordenes[-1] == (_canal("cerrar_puerta_1"), True)
+    for _ in range(6):                                       # abortado: 3 s de ticks
+        s.apagar_por_paro()
+        s.set_output(_canal("cerrar_puerta_1"), True)
+        assert io.ordenes[-1] == (_canal("cerrar_puerta_1"), False)
+        reloj[0] += 0.5
+    # la máquina deja de pedirlo (paro nuevo en tolerancia): vuelve a pasar
+    reloj[0] += 3.1
+    s.set_output(_canal("cerrar_puerta_1"), True)
+    assert io.ordenes[-1] == (_canal("cerrar_puerta_1"), True)
+
+
+def test_tras_all_off_confirmado_no_se_repite_por_un_do_viejo(monkeypatch):
+    # SAF-04/TMG-01 de la revisión: en el tick del flanco, el DO publicado
+    # antes del ALL_OFF inmediato no provoca un segundo ALL_OFF
+    reloj = [100.0]
+    monkeypatch.setattr(set_io.time, "monotonic", lambda: reloj[0])
+    s, io, estado = _set_do(paro_real=True)
+    estado.salidas_do["vapor_camara"] = 1          # DO viejo, previo al ALL_OFF
+    assert s.apagar_por_paro(inmediato=True) is True
+    assert s.apagar_por_paro() is None
+    reloj[0] += 0.7                                # ya llegó un DO nuevo
+    assert s.apagar_por_paro() is True             # y sigue mostrando una salida
+    # sin ACK no hay gracia: se repite en el tick siguiente
+    io.all_off_ok = False
+    reloj[0] += 1.0
+    assert s.apagar_por_paro() is False
+    reloj[0] += 0.1
+    assert s.apagar_por_paro() is False
+
+
 def test_paro_real_en_ciclo_bloquea():
     from autoclave.state_machine.machine.enum_global import GlobalState
     s, io, _ = _set_do(paro_real=True, maquina=GlobalState.CICLO)
@@ -481,3 +522,15 @@ def test_control_loop_all_off_inmediato_en_el_flanco_del_paro():
     estado.sensores_di["paro_emergencia"] = 0       # se vuelve a pulsar
     loop._tick()
     assert loop.set_do.apagar_por_paro.call_count == 2
+
+
+def test_control_loop_all_off_del_flanco_bajo_el_lock_de_la_maquina():
+    # TMG-02 de la revisión: no se intercala con el ALL_OFF de entrar/salir
+    # del modo prueba (bajo _sm_lock en el hilo del backend)
+    loop, estado = _loop_paro()
+    tomado = []
+    loop.set_do.apagar_por_paro.side_effect = (
+        lambda **_: tomado.append(loop._sm_lock._is_owned()))
+    estado.sensores_di["paro_emergencia"] = 0
+    loop._tick()
+    assert tomado == [True]

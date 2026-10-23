@@ -16,6 +16,14 @@ _INTERVALO_ALL_OFF_PARO_SEG = 1.0
 # Salidas que no cuentan como "encendidas" para repetir el ALL_OFF del paro:
 # el buzzer suena a propósito durante el paro.
 _SALIDAS_IGNORADAS_PARO = frozenset({"buzer_alarma"})
+# D9-9 (revisión B9, SAF-04/TMG-01): tras un ALL_OFF del paro confirmado, el
+# DO reportado se ignora este tiempo: el DO anterior al ALL_OFF no provoca
+# otro ALL_OFF en el MISMO tick (flanco + estado). Menor que el intervalo del
+# lazo (0,5 s): desde el tick siguiente rige A-7 como antes.
+_GRACIA_DO_TRAS_ALL_OFF_SEG = 0.25
+# D9-9 (revisión B9, SAF-03): en CICLO, el paro sin datos bloquea encendidos
+# mientras la máquina siga pidiendo apagar_por_paro (cada tick, ~0,5 s).
+_VIGENCIA_PEDIDO_PARO_SEG = 3.0
 # Salidas de fuente de vapor (su canal físico sale de la asignación de E/S).
 _SALIDAS_VAPOR = ("vapor_generador", "vapor_caldera")
 # Canales que el apagado individual (sin ACK del ALL_OFF) apaga siempre,
@@ -36,6 +44,10 @@ class SetOutput:
         self._ultimo_all_off_paro: float | None = None
         # D9-9: canales ya avisados en el log durante este paro (sin spam por tick)
         self._avisadas_paro: set = set()
+        # D9-9: último pedido de apagar_por_paro (monotonic) y último ALL_OFF
+        # del paro confirmado con ACK (monotonic)
+        self._ultimo_pedido_paro: float | None = None
+        self._all_off_paro_confirmado: float | None = None
         # R8 (SAF-02 de la re-revisión): funciones que el control automático
         # no puede encender (reasignadas sin verificar). El modo prueba usa
         # set_output(canal) directo y sí puede, para poder verificarlas.
@@ -96,9 +108,11 @@ class SetOutput:
     def _paro_bloquea(self, index) -> bool:
         """D9-9: True si el paro impide encender el canal `index`. Paro real
         (PARO_REAL) en cualquier estado; sin datos de la tarjeta
-        (PARO_EMERGENCIA sin PARO_REAL) solo fuera de CICLO, donde los estados
-        ya mandan ALL_OFF: en CICLO la tolerancia de DI vencida (P-3) no se
-        toca. El buzzer nunca se bloquea. Solo cuenta un flag que sea True de
+        (PARO_EMERGENCIA sin PARO_REAL) fuera de CICLO, donde los estados ya
+        mandan ALL_OFF, y en CICLO solo si la máquina pidió apagar_por_paro
+        hace poco (ciclo ya abortado esperando confirmación, SAF-03 de la
+        revisión B9): durante la tolerancia de DI vencida (P-3) no se toca
+        nada. El buzzer nunca se bloquea. Solo cuenta un flag que sea True de
         verdad (un estado de prueba simulado no bloquea nada)."""
         get_flag = getattr(self.estado, "get_flag", None)
         if get_flag is None:
@@ -116,9 +130,13 @@ class SetOutput:
         if paro_real:
             return True
         try:
-            return self.estado.get_machine_state() != GlobalState.CICLO
+            if self.estado.get_machine_state() != GlobalState.CICLO:
+                return True
         except Exception:
             return True
+        pedido = self._ultimo_pedido_paro
+        return (pedido is not None
+                and time.monotonic() - pedido <= _VIGENCIA_PEDIDO_PARO_SEG)
 
     def _salida(self, nombre: str, value: bool) -> None:
         """Orden a la salida de la función `nombre` en su canal asignado."""
@@ -304,14 +322,21 @@ class SetOutput:
         None. Evita esperar el ACK (hasta 1 s, bajo el lock del lazo) en cada
         tick y que el ALL_OFF corte el patrón del buzzer (TMG-09).
         `inmediato` (D9-9, flanco del paro en ControlLoop): ALL_OFF con ACK
-        sin mirar el intervalo."""
+        sin mirar el intervalo. Tras un ALL_OFF confirmado, el DO reportado
+        no cuenta durante _GRACIA_DO_TRAS_ALL_OFF_SEG (todavía puede ser el
+        anterior al ALL_OFF)."""
         ahora = time.monotonic()
+        self._ultimo_pedido_paro = ahora
         vencido = (inmediato or self._ultimo_all_off_paro is None
                    or ahora - self._ultimo_all_off_paro >= _INTERVALO_ALL_OFF_PARO_SEG)
-        if not (vencido or self._hay_salida_encendida()):
+        en_gracia = (self._all_off_paro_confirmado is not None
+                     and ahora - self._all_off_paro_confirmado < _GRACIA_DO_TRAS_ALL_OFF_SEG)
+        if not (vencido or (not en_gracia and self._hay_salida_encendida())):
             return None
         self._ultimo_all_off_paro = ahora
-        return self.reset_all_outputs()
+        ok = self.reset_all_outputs()
+        self._all_off_paro_confirmado = ahora if ok is True else None
+        return ok
 
     def _hay_salida_encendida(self) -> bool:
         """Según el último DO reportado por la tarjeta. Sin dato = encendida."""

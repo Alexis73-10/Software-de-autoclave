@@ -12,7 +12,6 @@
 | 0.0 | ALL_OFF | — |
 | 0.0 | SET DO22 OFF | — |
 | 0.0 | SET DO11 OFF | — |
-| 0.0 | ALL_OFF | — |
 | 0.0 | SET DO24 ON | DO24 |
 | 0.5 | SET DO22 OFF | DO24 |
 | 0.5 | SET DO11 OFF | DO24 |
@@ -131,7 +130,6 @@
 | 0.0 | ALL_OFF | — |
 | 0.0 | SET DO22 OFF | — |
 | 0.0 | SET DO11 OFF | — |
-| 0.0 | ALL_OFF | — |
 | 0.0 | SET DO24 ON | DO24 |
 | 0.5 | SET DO22 OFF | DO24 |
 | 0.5 | SET DO11 OFF | DO24 |
@@ -250,7 +248,6 @@
 | 0.0 | ALL_OFF | — |
 | 0.0 | SET DO22 OFF | — |
 | 0.0 | SET DO11 OFF | — |
-| 0.0 | ALL_OFF | — |
 | 0.0 | SET DO24 ON | DO24 |
 | 0.5 | SET DO22 OFF | DO24 |
 | 0.5 | SET DO11 OFF | DO24 |
@@ -367,7 +364,6 @@
 | 0.0 | SET DO14 ON | DO3, DO6, DO14, DO17 |
 | 0.0 | --- PARO PULSADO --- | — |
 | 0.0 | ALL_OFF | — |
-| 0.0 | ALL_OFF | — |
 | 0.0 | SET DO24 ON | DO24 |
 | 0.5 | SET DO24 ON | DO24 |
 | 1.0 | ALL_OFF | — |
@@ -426,7 +422,6 @@
 | 0.0 | SET DO14 ON | DO3, DO6, DO14, DO17 |
 | 0.0 | --- PARO PULSADO --- | — |
 | 0.0 | ALL_OFF | — |
-| 0.0 | ALL_OFF | — |
 | 0.0 | SET DO24 ON | DO24 |
 | 0.5 | SET DO24 ON | DO24 |
 | 1.0 | ALL_OFF | — |
@@ -484,7 +479,6 @@
 | 0.0 | SET DO17 ON | DO3, DO6, DO17 |
 | 0.0 | SET DO14 ON | DO3, DO6, DO14, DO17 |
 | 0.0 | --- PARO PULSADO --- | — |
-| 0.0 | ALL_OFF | — |
 | 0.0 | ALL_OFF | — |
 | 0.0 | SET DO24 ON | DO24 |
 | 0.5 | SET DO24 ON | DO24 |

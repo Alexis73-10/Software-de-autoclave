@@ -973,8 +973,10 @@ class ControlLoop:
     def _all_off_en_flanco_de_paro(self) -> None:
         """D9-9 (tanda 9): en el tick en que aparece el paro real, ALL_OFF con
         ACK de inmediato, antes de puertas y máquina de estados y sea cual sea
-        el estado (sin esperar el intervalo de apagar_por_paro). Nunca lanza:
-        el tick tiene que seguir hasta la máquina de estados."""
+        el estado (sin esperar el intervalo de apagar_por_paro). Bajo _sm_lock,
+        como los ALL_OFF de entrar/salir del modo prueba, para que dos ALL_OFF
+        no compartan la espera del ACK (TMG-02 de la revisión B9). Nunca
+        lanza: el tick tiene que seguir hasta la máquina de estados."""
         paro_real = self.estado.get_flag("PARO_REAL") is True
         flanco = paro_real and not self._paro_real_previo
         self._paro_real_previo = paro_real
@@ -982,7 +984,9 @@ class ControlLoop:
             return
         logger.warning("ControlLoop: paro de emergencia detectado; ALL_OFF inmediato")
         try:
-            if self.set_do.apagar_por_paro(inmediato=True) is False:
+            with self._sm_lock:
+                confirmado = self.set_do.apagar_por_paro(inmediato=True)
+            if confirmado is False:
                 logger.error("ControlLoop: la tarjeta no confirmó el ALL_OFF del paro "
                              "(quedaron órdenes individuales; se repite en el tick)")
         except Exception:
