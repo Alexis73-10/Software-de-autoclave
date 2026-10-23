@@ -487,6 +487,9 @@ class BackendContext:
             programas=self.programas_para_seguridad,
             temp_max_ciclo=self.temp_max_tras_ciclo,
             estado_seguro_activo=self.estado_seguro_activo,
+            # S9, revisión ★ pasada 2 R2-M3: la apertura evalúa la cámara con
+            # la presión al día (sin ControlLoop todavía: no vigente)
+            presion_vigente=self.presion_vigente,
         )
 
         # Data logger (SQLite) + impresión en tiempo real
@@ -883,6 +886,12 @@ class BackendContext:
         cm = getattr(self, "cycle_manager", None)
         seleccionado = getattr(cm, "selected_cycle", None)
         return [seleccionado] if seleccionado is not None else []
+
+    def presion_vigente(self) -> bool:
+        """S9 (revisión ★ pasada 2 R2-M3): presión de cámara al día según el
+        ControlLoop; False antes de construirlo (falla cerrada)."""
+        loop = getattr(self, "control_loop", None)
+        return loop is not None and loop.presion_vigente is True
 
     def estado_seguro_activo(self) -> bool:
         loop = getattr(self, "control_loop", None)
