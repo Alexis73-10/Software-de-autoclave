@@ -31,3 +31,5 @@ Instrucciones comunes de los subagentes: `tanda9/brief_subagentes.md`. Si la ses
 - Revisión ★ de S9: SAF-01 Crítico, SAF-02/TMG-01 y TMG-02 Altos, más Medios; subagente de corrección lanzado en el mismo worktree.
 - Unidas P9 (92417ce) y C9 (a6d44d0). X9 terminada (b611d79).
 - Unida X9 (8ee6bf7), suite 6391 en verde. S9 pasada 1 corregida; pasada 2 con 1 Alto devuelta al subagente.
+- S9 unida a `tanda-9` (3044b7f) tras la pasada 2; suite **6567 passed, 8 skipped, 3 xfailed** (`suites/integ_s9.log`). Pasada 3: R2 cerrados; 1 Alto nuevo (R3-A1, decisión inicial del protocolo con AI vencida) devuelto al subagente; Alto anterior a S9 (CICLO con AI vencida) va como PREGUNTA. `sensor-role-auditor`: 0 Altos. Se volverá a unir `tanda-9-s9` con la corrección.
+- Unión de B9 ensayada sobre S9: conflictos de conservar ambos lados (control_loop.py, hoja de banco, riesgos).
