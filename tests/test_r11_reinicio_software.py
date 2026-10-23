@@ -250,3 +250,113 @@ def test_el_evento_tiene_texto_en_la_bitacora():
     for lang in ("es", "en"):
         d = json.loads((raiz / f"{lang}.json").read_text(encoding="utf-8"))
         assert d["bitacora"]["ev"]["software_reiniciado"]
+
+
+# ── Revisión de seguridad (SAF-01..03) ─────────────────────────────────────
+
+def _estado_seguro(ctx, activo=True, requiere_confirmacion=False, paro=False):
+    ctx.control_loop.estado_seguro.activo = activo
+    ctx.control_loop.estado_seguro.requiere_confirmacion = requiere_confirmacion
+    ctx.control_loop.datos_vigentes = True
+    ctx.estado.get_flag.side_effect = lambda k: paro if k == "PARO_EMERGENCIA" else False
+
+
+@pytest.mark.parametrize("preparar, codigo", [
+    # SAF-01: el protocolo de estado seguro actuando sobre las válvulas
+    (lambda c: _estado_seguro(c), "estado_seguro_activo"),
+    # confirmación pendiente tras un paro real (D9-1.2): se perdería al reiniciar
+    (lambda c: _estado_seguro(c, requiere_confirmacion=True), "confirmacion_pendiente"),
+    # estado seguro pausado por el paro: todavía no terminó
+    (lambda c: _estado_seguro(c, paro=True), "estado_seguro_activo"),
+    # modo prueba activo o con el ALL_OFF de su salida sin confirmar
+    (lambda c: setattr(c.control_loop, "test_mode_active", True), "modo_prueba_activo"),
+    (lambda c: setattr(c.control_loop, "salidas_sin_confirmar_pendiente", True),
+     "modo_prueba_activo"),
+])
+def test_saf01_rechaza_con_estado_seguro_confirmacion_o_modo_prueba(entorno, preparar, codigo):
+    e = entorno
+    e.ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    preparar(e.ctx)
+    r = _put(e)
+    assert r.status_code == 409 and r.json()["codigo"] == codigo
+    assert e.config.habilitada() is True and e.hilos == []
+    e.ctx.control_loop.iniciar_apagado.assert_not_called()
+    assert _auditorias(e, "software_reiniciado") == []
+
+
+def test_saf01_falla_con_el_estado_seguro_terminado_si_se_permite(entorno):
+    e = entorno
+    e.ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    _estado_seguro(e.ctx, activo=False)
+    assert _put(e).status_code == 200
+
+
+def test_saf01_se_vuelve_a_comprobar_bajo_el_lock_y_deshace(entorno):
+    """El estado seguro se activa entre el guardado y el bloqueo: 409 y la
+    bandera vuelve a su valor."""
+    e = entorno
+    previo = e.ctx.config_impresora.guardar
+
+    def guardar(valor):
+        previo(valor)
+        if valor is False:
+            _estado_seguro(e.ctx)
+    e.ctx.config_impresora.guardar = guardar
+    r = _put(e)
+    assert r.status_code == 409 and r.json()["codigo"] == "estado_seguro_activo"
+    assert e.config.habilitada() is True and e.hilos == []
+
+
+def test_saf02_dos_solicitudes_simultaneas_no_dejan_archivo_y_bitacora_en_desacuerdo(entorno):
+    """La segunda espera a que la primera termine lectura-guardado-bloqueo y
+    se rechaza (apagando) sin tocar el archivo."""
+    e = entorno
+    escrito, soltar = threading.Event(), threading.Event()
+    previo = e.ctx.config_impresora.guardar
+
+    def guardar(valor):
+        previo(valor)
+        if valor is False and not escrito.is_set():
+            escrito.set()
+            soltar.wait(5)                   # la primera queda entre guardar y bloquear
+    e.ctx.config_impresora.guardar = guardar
+
+    def iniciar_apagado():
+        e.orden.append("iniciar_apagado")
+        e.ctx.control_loop.apagando = True
+    e.ctx.control_loop.iniciar_apagado.side_effect = iniciar_apagado
+    resultados = {}
+    primera = threading.Thread(target=lambda: resultados.setdefault("a", _put(e, False)))
+    primera.start()
+    assert escrito.wait(5)
+    segunda = threading.Thread(target=lambda: resultados.setdefault("b", _put(e, True)))
+    segunda.start()
+    segunda.join(0.5)
+    assert segunda.is_alive()                # espera al cerrojo del reinicio
+    soltar.set()
+    primera.join(5)
+    segunda.join(5)
+    assert resultados["a"].status_code == 200
+    assert resultados["b"].status_code == 409
+    assert e.config.habilitada() is False    # lo que escribió y auditó la primera
+    nuevos = [c.kwargs["valor_nuevo"] for c in _auditorias(e, "impresora_configurada")]
+    assert nuevos == [{"habilitada": False}]
+
+
+def test_saf03_si_no_se_puede_deshacer_queda_auditado(entorno):
+    e = entorno
+    previo = e.ctx.config_impresora.guardar
+    estados = iter([GlobalState.PREPARADO, GlobalState.CICLO])
+    e.ctx.estado.get_machine_state.side_effect = lambda: next(estados, GlobalState.CICLO)
+
+    def guardar(valor):
+        if valor is True:                    # la reversión falla
+            raise OSError("disco lleno")
+        return previo(valor)
+    e.ctx.config_impresora.guardar = guardar
+    r = _put(e)
+    assert r.status_code == 409
+    assert e.config.habilitada() is False and e.hilos == []
+    [llamada] = _auditorias(e, "impresora_configurada")
+    assert llamada.kwargs["valor_nuevo"] == {"habilitada": False}
+    assert llamada.kwargs["detalle"]["reversion_fallida"] is True

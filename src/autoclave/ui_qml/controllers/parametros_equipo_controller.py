@@ -37,6 +37,10 @@ _MENSAJES = {
     # R11 (tanda 11, D11-1): reinicio del software al cambiar la impresora
     "reinicio_no_disponible": "opciones.equipo_err_reinicio_no_disponible",
     "apagado_en_curso": "opciones.equipo_err_reinicio_en_curso",
+    # SAF-01 de la revisión de R11
+    "estado_seguro_activo": "opciones.equipo_err_reinicio_estado_seguro",
+    "confirmacion_pendiente": "opciones.equipo_err_reinicio_confirmacion",
+    "modo_prueba_activo": "opciones.equipo_err_reinicio_modo_prueba",
     sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta",
 }
 

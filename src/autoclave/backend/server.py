@@ -2023,6 +2023,11 @@ def get_printer_config():
 def put_printer_config(body: _ImpresoraConfigBody,
                        sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
     entidad = "/printer/config"
+    with _reinicio_lock:   # SAF-02: leer-guardar-bloquear sin intercalarse
+        return _put_printer_config(body, sesion, entidad)
+
+
+def _put_printer_config(body: _ImpresoraConfigBody, sesion: Sesion, entidad: str) -> dict:
     # R11 (D11-1.3): rechazado en CICLO, como el resto de Parámetros del equipo
     with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
         pass
@@ -2038,8 +2043,17 @@ def put_printer_config(body: _ImpresoraConfigBody,
     if body.reiniciar:
         # guardar → cerrar → relanzar: si al volver a comprobar bajo el lock ya
         # no se puede (p. ej. empezó un ciclo), se devuelve la bandera (como R8)
-        estado = bloquear_para_reinicio(
-            entidad, sesion, deshacer=lambda: context.config_impresora.guardar(anterior))
+        def deshacer():
+            try:
+                context.config_impresora.guardar(anterior)
+            except Exception:
+                # SAF-03: el cambio quedó escrito sin reinicio; que conste
+                logger.exception("Reinicio rechazado y no se pudo devolver la bandera de impresora")
+                _auditar("impresora_configurada", sesion, entidad=entidad,
+                         valor_anterior={"habilitada": anterior},
+                         valor_nuevo={"habilitada": body.habilitada},
+                         detalle={"reinicio": "rechazado", "reversion_fallida": True})
+        estado = bloquear_para_reinicio(entidad, sesion, deshacer=deshacer)
     _auditar("impresora_configurada", sesion, entidad=entidad,
              valor_anterior={"habilitada": anterior}, valor_nuevo={"habilitada": body.habilitada})
     if body.reiniciar:
@@ -3344,13 +3358,39 @@ def shutdown_estado():
 # Rechazado en CICLO; permitido en PREPARACION, PREPARADO y FALLA (y en los
 # demás estados distintos de CICLO, igual que "Apagar equipo").
 
+# SAF-02 (revisión R11): lectura, guardado y bloqueo de una solicitud con
+# reinicio no se intercalan con otra (orden de cerrojos: este, luego _sm_lock)
+_reinicio_lock = threading.Lock()
+
+
+def _motivo_no_reiniciable() -> tuple[str, str] | None:
+    """SAF-01 (revisión R11), criterio de R8 (_motivo_bloqueo) ampliado: no
+    se reinicia con el protocolo de estado seguro sin terminar (actuando,
+    pausado por el paro o esperando la confirmación de D9-1.2, que se perdería
+    al reiniciar) ni en modo prueba o con el ALL_OFF de su salida sin
+    confirmar. Llamar con _sm_lock tomado para una decisión firme."""
+    loop = context.control_loop
+    if getattr(loop, "test_mode_active", False) is True or _salidas_sin_confirmar_pendiente():
+        return "modo_prueba_activo", "Salga primero del modo prueba de salidas"
+    es = getattr(loop, "estado_seguro", None)
+    if getattr(es, "activo", False) is True:
+        if getattr(es, "requiere_confirmacion", False) is True:
+            return "confirmacion_pendiente", "Confirme primero el estado seguro"
+        return "estado_seguro_activo", "La cámara se está llevando a estado seguro"
+    return None
+
+
 def comprobar_reinicio_disponible(entidad: str, sesion: Sesion | None = None) -> None:
-    """409 si ya se está apagando o reiniciando; 503 si nadie relanzaría el
-    software (backend sin el lanzador del ejecutable único, p. ej. arrancado
-    a mano). Para rechazar ANTES de cambiar nada."""
+    """409 si ya se está apagando o reiniciando, o si _motivo_no_reiniciable;
+    503 si nadie relanzaría el software (backend sin el lanzador del
+    ejecutable único, p. ej. arrancado a mano). Para rechazar ANTES de cambiar
+    nada (bloquear_para_reinicio lo repite bajo el lock)."""
     if getattr(context.control_loop, "apagando", False) is True or reinicio.solicitado():
         _rechazar(409, "apagado_en_curso", "El equipo ya se está apagando o reiniciando",
                   entidad, sesion)
+    motivo = _motivo_no_reiniciable()
+    if motivo is not None:
+        _rechazar(409, motivo[0], motivo[1], entidad, sesion)
     if not reinicio.disponible():
         _rechazar(503, "reinicio_no_disponible",
                   "Sin lanzador que vuelva a abrir el software: no se puede reiniciar desde aquí",
@@ -3369,6 +3409,9 @@ def bloquear_para_reinicio(entidad: str, sesion: Sesion | None = None, deshacer=
             if getattr(context.control_loop, "apagando", False) is True:
                 raise _Rechazo(409, "apagado_en_curso",
                                "El equipo ya se está apagando o reiniciando")
+            motivo = _motivo_no_reiniciable()
+            if motivo is not None:
+                raise _Rechazo(409, motivo[0], motivo[1])
             context.control_loop.iniciar_apagado()
         return estado
     except BaseException:

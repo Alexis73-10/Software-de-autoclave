@@ -66,6 +66,10 @@ def test_confirmado_envia_reiniciar_y_queda_reiniciando_sin_releer():
     ("estado_no_permitido", "opciones.equipo_err_ciclo"),
     ("reinicio_no_disponible", "opciones.equipo_err_reinicio_no_disponible"),
     ("apagado_en_curso", "opciones.equipo_err_reinicio_en_curso"),
+    # SAF-01 de la revisión
+    ("estado_seguro_activo", "opciones.equipo_err_reinicio_estado_seguro"),
+    ("confirmacion_pendiente", "opciones.equipo_err_reinicio_confirmacion"),
+    ("modo_prueba_activo", "opciones.equipo_err_reinicio_modo_prueba"),
 ])
 def test_rechazado_muestra_el_motivo_relee_y_no_reinicia(causa, clave):
     s = SesionReinicio(put=Resultado(causa))
@@ -81,7 +85,8 @@ def test_textos_en_es_y_en():
         d = json.loads((_RAIZ / f"src/autoclave/i18n/{lang}.json").read_text(encoding="utf-8"))
         for clave in ("equipo_reinicio_pregunta", "equipo_reinicio_aviso", "equipo_reiniciar",
                       "equipo_reiniciando", "equipo_err_reinicio_no_disponible",
-                      "equipo_err_reinicio_en_curso"):
+                      "equipo_err_reinicio_en_curso", "equipo_err_reinicio_estado_seguro",
+                      "equipo_err_reinicio_confirmacion", "equipo_err_reinicio_modo_prueba"):
             assert d["opciones"][clave], (lang, clave)
     es = json.loads((_RAIZ / "src/autoclave/i18n/es.json").read_text(encoding="utf-8"))
     assert es["opciones"]["equipo_reinicio_pregunta"] == \
