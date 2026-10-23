@@ -197,6 +197,21 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### A-07 — Fin del asistente: "Instalación completada" y Continuar
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.22 (tanda 8)
+- **Objetivo:** El asistente termina con "Instalación completada" y el botón Continuar, sin pedir reiniciar el software.
+- **Precondiciones:** PC sin perfil de instalación (o perfil apartado, sección 7 del LEEME); código del día.
+- **Pasos:**
+  1. Recorrer el asistente hasta Instalar y confirmar.
+  2. Leer el título y el texto del resultado (en español; repetir en inglés si se instala otro equipo).
+  3. Pulsar Continuar.
+- **Resultado esperado:** Título "INSTALACIÓN COMPLETADA", texto "El equipo ha sido registrado correctamente. Pulse Continuar para empezar a usarlo." y botón Continuar; al pulsarlo se cierra el asistente y arrancan el backend y las pantallas normales sin reiniciar a mano.
+- **Criterio de aprobado/fallo:** Aprobado si ningún texto pide reiniciar y el arranque normal sigue solo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque B. Seguridad en seco: paro, puertas, NO ABRIR, alarmas
 
 ### B-01 — Paro de emergencia NC: pulsar, soltar, confirmar
@@ -365,6 +380,40 @@
   3. Anotar cuántos ticks pasan entre la entrada en banda y el cierre.
 - **Resultado esperado:** El aire cierra 3 ticks (≈ 1,5 s) después de entrar en banda, no a los 2 ticks; la válvula no oscila en el borde.
 - **Criterio de aprobado/fallo:** Aprobado si el cierre ocurre al tercer tick en banda y no hay oscilación.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### B-12 — Modo prueba: el aire atmosférico solo abre sin presión en la cámara
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.19 (tanda 8) ★
+- **Objetivo:** `aire_atmosferico_camara` es la única salida que el modo prueba rechaza: con presión en la cámara, sin lectura de presión o sin presión atmosférica de referencia.
+- **Precondiciones:** Sesión de técnico; modo prueba (Entradas/Salidas); presión atmosférica calibrada; cámara cerrada.
+- **Pasos:**
+  1. Con la cámara a presión atmosférica, encender el aire atmosférico: debe abrir. Apagarlo.
+  2. Hacer un vacío breve con la bomba y la válvula de vacío; encender el aire: debe abrir (rompe el vacío).
+  3. Presurizar la cámara por encima de P_atm + `rango_presion_atm` (aire comprimido o, si no hay, vapor en una prueba en operación); encender el aire: debe rechazarse.
+  4. Con el aire abierto (paso 1), presurizar: el control debe cerrarlo solo; revisar la bitácora.
+  5. Desconectar el conector del transductor de presión de cámara; encender el aire: debe rechazarse.
+  6. Con la cámara presurizada (paso 3), reconectar el transductor e intentar abrir el aire enseguida y durante unos 5 s: debe rechazarse siempre (nunca "sin lectura" seguido de una apertura). Reconectar con la cámara en atmosférica: vuelve a permitirse a los 2-3 s.
+- **Resultado esperado:** Paso 3: "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica." Paso 4: la salida se apaga en menos de 1 s y la bitácora anota "el control cerró el aire atmosférico de la cámara en modo prueba". Paso 5: "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara." Las demás salidas siguen permitidas.
+- **Criterio de aprobado/fallo:** Aprobado si nunca abre con presión ni sin lectura y abre en atmosférica y en vacío.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### B-13 — Apagar equipo: Windows rechaza el apagado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.21 (tanda 8)
+- **Objetivo:** Si Windows no se apaga, la pantalla lo dice y queda en la bitácora.
+- **Precondiciones:** Ejecutable instalado; PREPARADO, sin ciclo. En una consola de Windows (no en la del programa) ejecutar `shutdown /s /t 3000` (deja un apagado programado: el siguiente `shutdown /s` lo rechaza con el código 1190).
+- **Pasos:**
+  1. En la pantalla de la puerta 1, Opciones › Equipo › Apagar equipo y confirmar.
+  2. Esperar unos 5 s y leer el panel.
+  3. En la consola, ejecutar `shutdown /a` para cancelar el apagado programado.
+  4. Volver a abrir el programa y revisar Opciones › Bitácora.
+- **Resultado esperado:** El panel muestra "Windows no permitió apagar el equipo: apáguelo manualmente" y el botón sigue deshabilitado (el software ya se detuvo). En la bitácora: "Apagado rechazado por Windows" con el código 1190.
+- **Criterio de aprobado/fallo:** Aprobado si aparece el aviso y queda el registro. **No olvidar el paso 3**: sin él, el PC se apaga a los 50 minutos.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1069,6 +1118,21 @@
   3. Colocar el programa viejo en `cycles/user/`, reiniciar y abrir sus parámetros.
 - **Resultado esperado:** Se ven «Rango calentamiento temp» (2,0 °C = 3,6 °F) y «Rango calentamiento pres» (2,0 kPa ≈ 0,29 psi) como bandas (sin desplazamiento). El programa viejo se carga con los dos rangos iguales al valor que tenía y no queda dañado.
 - **Criterio de aprobado/fallo:** Aprobado si los dos rangos aparecen, se convierten como banda y la migración copia el valor a los dos.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-38 — Canales de Entradas/Salidas según el perfil de instalación
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.17 (tanda 8)
+- **Objetivo:** La lista de canales de E/S sale del perfil (sondas, entradas de suministro, puertas, fuente de vapor), sin editar el YAML a mano.
+- **Precondiciones:** Equipo instalado; sesión de técnico. Anotar del resumen del asistente: número y tipo de puertas, fuente de vapor, sondas.
+- **Pasos:**
+  1. Abrir Opciones › Entradas/Salidas y anotar los canales que aparecen.
+  2. Comparar con el perfil: con 1 puerta no deben aparecer los canales de la puerta 2; con generador interno no aparece `vapor_caldera`; sin segunda sonda no aparece `temp_2_camara`.
+  3. Revisar las entradas mostradas en Preciclo.
+- **Resultado esperado:** Solo aparecen los canales que el perfil declara, en las dos pantallas.
+- **Criterio de aprobado/fallo:** Aprobado si no sobra ni falta ningún canal respecto al perfil. **[verificar en sitio]** un equipo actualizado (no reinstalado) conserva su YAML viejo (LEEME 1.4): anotar si faltan canales nuevos.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
