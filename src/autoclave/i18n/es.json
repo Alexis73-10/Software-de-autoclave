@@ -1819,6 +1819,21 @@
       "general": "descompresión"
     }
   },
+  "abrev": {
+    "ciclo": {
+      "temp_ester": "Temp. ester.",
+      "tiempo_est": "Tiempo ester.",
+      "tiempo_sec": "Tiempo secado",
+      "entrada_corta_temp_camara": "Temp. cámara",
+      "entrada_corta_temp_2_camara": "Temp. cámara 2",
+      "entrada_corta_temp_referencia": "Temp. referencia",
+      "entrada_corta_temp_drenaje": "Temp. drenaje",
+      "entrada_corta_temp_drenaje_camara": "Temp. dren. cám.",
+      "entrada_corta_pres_chaqueta": "Pres. chaq.",
+      "entrada_corta_pres_empaque_1": "Pres. emp. 1",
+      "entrada_corta_pres_empaque_2": "Pres. emp. 2"
+    }
+  },
   "ticket_ciclo": {
     "fecha": "Fecha",
     "hora": "Hora",
