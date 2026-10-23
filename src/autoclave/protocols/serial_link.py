@@ -142,6 +142,10 @@ class SerialLink:
         # conexión no ha llegado ninguna. Sin DI vigente, el ControlLoop
         # publica paro de emergencia (adenda E0/E1, A-3; E6 lo reutiliza).
         self._ultima_di_mono: Optional[float] = None
+        # Ídem para la trama AI (D8-3.19, revisión SAF-01/TMG-01/SEN-01 de
+        # E1): la presión llega en la AI; con DI al día y AI caída o
+        # malformada, la presión publicada queda congelada.
+        self._ultima_ai_mono: Optional[float] = None
 
         # Diagnóstico de líneas inválidas (CRC, contenido o longitud).
         self._invalidas_total = 0
@@ -265,6 +269,7 @@ class SerialLink:
                 # hasta la primera trama DI de esta conexión (A-3)
                 self.data["di"] = [0] * 56
                 self._ultima_di_mono = None
+                self._ultima_ai_mono = None
                 self._ultima_valida_mono = time.monotonic()
                 self._invalidas_consecutivas = 0
                 # Conexión nueva = handshake nuevo antes de aceptar órdenes
@@ -326,6 +331,7 @@ class SerialLink:
             self.data["port_open"] = False
             self.data["data_alive"] = False
             self._ultima_di_mono = None
+            self._ultima_ai_mono = None
             self._handshake_ok = False
             self._handshake_pendiente = False
             self._proximo_handshake = None
@@ -347,6 +353,15 @@ class SerialLink:
         si en esta conexión no ha llegado ninguna."""
         with self.data_lock:
             ultima = self._ultima_di_mono
+        if ultima is None:
+            return None
+        return (time.monotonic() if now is None else now) - ultima
+
+    def edad_ultima_ai(self, now: Optional[float] = None) -> Optional[float]:
+        """Segundos (time.monotonic) desde la última trama AI válida, o None
+        si en esta conexión no ha llegado ninguna."""
+        with self.data_lock:
+            ultima = self._ultima_ai_mono
         if ultima is None:
             return None
         return (time.monotonic() if now is None else now) - ultima
@@ -778,6 +793,7 @@ class SerialLink:
             ai = [_entero_decimal(v, 0, 4095) for v in vals]
             with self.data_lock:
                 self.data["ai"] = ai
+                self._ultima_ai_mono = time.monotonic()
 
         elif payload.startswith("DI:"):
             self._bits("di", payload[3:], 56)

@@ -424,6 +424,21 @@ class ControlLoop:
             return False
         return edad <= self._VIGENCIA_DI_SEG
 
+    def _ai_vigente(self) -> bool:
+        """True si la última trama AI (presiones y temperaturas) tiene a lo
+        sumo _VIGENCIA_DI_SEG segundos. Mismo criterio de falla cerrada que
+        _di_vigente. Solo lo usa el aire atmosférico en modo prueba (D8-3.19)."""
+        edad = getattr(self.link, "edad_ultima_ai", lambda: None)()
+        if isinstance(edad, bool) or not isinstance(edad, (int, float)):
+            return False
+        return edad <= self._VIGENCIA_DI_SEG
+
+    @property
+    def presion_vigente(self) -> bool:
+        """D8-3.19: datos vigentes (enlace + DI) y además trama AI al día; sin
+        ella, pres_camara puede ser una lectura congelada."""
+        return self.datos_vigentes and self._ai_vigente()
+
     @property
     def datos_vigentes(self) -> bool:
         """True si hay enlace y la trama DI está vigente (A-8: el modo prueba
@@ -750,7 +765,7 @@ class ControlLoop:
             # se cierra (la orden de abrir ya se rechaza en /io/test/output).
             aire_cortado = (self._vigilar_aire_atmosferico_prueba(
                                 vigentes=connected and not self.desconectado
-                                and self._di_vigente())
+                                and self._di_vigente() and self._ai_vigente())
                             if self._test_mode.is_set() else None)
 
             # 3. Dispositivos → actúan (pausado durante el modo prueba: las

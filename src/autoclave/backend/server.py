@@ -4143,8 +4143,12 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             # D8-3.19 (tanda 8): ÚNICA excepción, el aire atmosférico de la
             # cámara: con presión sobre atm + brecha o sin lectura, no se abre.
             if clave == aire_atmosferico_prueba.CLAVE_ESTADO:   # SAF-04: por la clave resuelta
-                permitido, codigo = aire_atmosferico_prueba.evaluar(
-                    context.estado, context.config_manager)
+                # presión con la trama AI al día (revisión SAF-01/TMG-01/SEN-01)
+                if getattr(context.control_loop, "presion_vigente", False) is not True:
+                    permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
+                else:
+                    permitido, codigo = aire_atmosferico_prueba.evaluar(
+                        context.estado, context.config_manager)
                 if not permitido:
                     raise _Rechazo(409, codigo, aire_atmosferico_prueba.MOTIVOS[codigo])
         # map_do es 0-indexado (posición en el bitstream DO), pero

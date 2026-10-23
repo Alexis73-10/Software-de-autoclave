@@ -66,6 +66,7 @@ def prueba_salidas():
     ctx.doors = []
     ctx.control_loop.test_mode_active = True
     ctx.control_loop.apagando = False
+    ctx.control_loop.presion_vigente = True     # trama AI al día
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")

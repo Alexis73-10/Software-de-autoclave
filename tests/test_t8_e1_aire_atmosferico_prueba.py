@@ -70,6 +70,7 @@ def prueba():
     ctx.doors = []
     ctx.control_loop.test_mode_active = True
     ctx.control_loop.apagando = False
+    ctx.control_loop.presion_vigente = True     # trama AI al día
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
@@ -146,6 +147,7 @@ def _loop(estado):
                            link=MagicMock(), set_do=MagicMock(), alarm_manager=MagicMock(),
                            cycle_manager=MagicMock(), config_manager=cm)
     loop.link.edad_ultima_di.return_value = 0.0
+    loop.link.edad_ultima_ai.return_value = 0.0
     loop.link.expansor_fuera_de_linea.return_value = False
     loop.link.is_connected.return_value = True
     loop.paro_emergencia.update(1)
@@ -254,3 +256,82 @@ def test_controlador_no_agrega_el_texto_del_backend_a_estos_motivos():
     c._fallo(Resultado(aap.CON_PRESION, {"detail": "texto del backend en español"}, 409))
     assert c.mensaje == "io.err_aire_con_presion"
     assert c.detalle == ""
+
+
+# ── Vigencia de la trama AI (segunda revisión: SAF-01 / TMG-01 / SEN-01) ────
+# La presión llega en la trama AI; si solo la DI está al día, pres_camara
+# puede estar congelada (AI caída o malformada, o reconexión con la AI de la
+# conexión anterior). Para el aire atmosférico se exige además AI vigente.
+
+from autoclave.protocols.serial_link import SerialLink
+from autoclave.protocols.serial_link_config import SerialLinkConfig
+from tests.serial_doble import AI_OK, PuertoDoble, linea
+
+
+def _link_real():
+    link = SerialLink(config=SerialLinkConfig())
+    link._rx_buf = bytearray()
+    link.serial = PuertoDoble()
+    link.data["port_open"] = True
+    return link
+
+
+def test_enlace_sin_trama_ai_la_edad_es_none():
+    link = _link_real()
+    link._alimentar(linea("DI:" + "1" * 56))
+    assert link.edad_ultima_ai() is None
+
+
+def test_enlace_trama_ai_fija_su_sello():
+    link = _link_real()
+    with patch("autoclave.protocols.serial_link.time.monotonic", return_value=100.0):
+        link._alimentar(linea(AI_OK))
+    assert link.edad_ultima_ai(now=101.0) == pytest.approx(1.0)
+
+
+def test_enlace_ai_malformada_no_renueva_el_sello():
+    link = _link_real()
+    link._alimentar(linea("AI:1,2,3"))
+    assert link.edad_ultima_ai() is None
+
+
+def test_enlace_disconnect_borra_el_sello_ai():
+    link = _link_real()
+    link._alimentar(linea(AI_OK))
+    link._disconnect()
+    assert link.edad_ultima_ai() is None
+
+
+def test_enlace_connect_borra_el_sello_ai():
+    link = SerialLink(config=SerialLinkConfig())
+    link._scan_ports = lambda: "COM4"
+    link._ultima_ai_mono = 50.0
+    with patch("autoclave.protocols.serial_link.serial.Serial", return_value=MagicMock()):
+        assert link._connect() is True
+    assert link.edad_ultima_ai() is None
+
+
+@pytest.mark.parametrize("edad", [None, 5.0, "x", True])
+def test_lazo_cierra_con_trama_ai_vencida(edad):
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop.link.edad_ultima_ai.return_value = edad
+    loop._tick()
+    loop.set_do.set_output.assert_any_call(_CANAL, False)
+    assert loop.al_evento_seguridad.call_args.args[1]["motivo"] == aap.SIN_PRESION
+
+
+def test_lazo_no_cierra_con_trama_ai_vigente():
+    loop = _loop(_Estado(75.0, aire_on=True))
+    loop.link.edad_ultima_ai.return_value = 0.2
+    loop._tick()
+    loop.al_evento_seguridad.assert_not_called()
+
+
+@pytest.mark.parametrize("vigente", [False, None])
+def test_patch_rechazado_con_trama_ai_vencida(prueba, vigente):
+    client, ctx = prueba
+    ctx.control_loop.presion_vigente = vigente
+    r = client.patch("/io/test/output/aire_atmosferico_camara", json={"value": True})
+    assert r.status_code == 409, r.text
+    assert r.json()["codigo"] == aap.SIN_PRESION
+    ctx.setdo.set_output.assert_not_called()
