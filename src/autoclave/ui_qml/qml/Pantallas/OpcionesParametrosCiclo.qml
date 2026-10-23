@@ -42,7 +42,10 @@ Item {
         return true
     }
     // cambios sin guardar (roles de sensor): OPCIONES confirma antes de salir
-    readonly property bool cambiosPendientes: (vista === "sensores" && _sensoresModificados) || ajuste.cambiado
+    // O11: también las entradas mostradas elegidas por fila y sin guardar
+    readonly property bool cambiosPendientes: (vista === "sensores" && _sensoresModificados)
+                                              || (vista === "entradas" && _entradasModificadas)
+                                              || ajuste.cambiado
 
     ParametrosCicloController {
         id: control
@@ -347,7 +350,7 @@ Item {
             Fila {
                 objectName: "filaEntradas"
                 titulo: I18n.t("opciones.entradas_titulo", I18n.lang)
-                onPulsada: { control.cargarEntradas(); raiz._entradasSel = control.entradas.slice(); raiz.vista = "entradas" }
+                onPulsada: { control.cargarEntradas(); raiz._prepararEntradas(); raiz.vista = "entradas" }
             }
             // C9 (tanda 9, D9-10): crear, duplicar, habilitar y borrar
             // programas se movieron a Opciones avanzadas › Manejo de ciclos
@@ -558,6 +561,8 @@ Item {
             objectName: "guardarSensores"
             anchors.bottom: parent.bottom
             anchors.right: parent.right
+            // O11: sin ancho (BotonFormulario no tiene implícito) quedaba en 0 y no se veía
+            width: Escala.px(320)
             texto: I18n.t("acciones.guardar", I18n.lang)
             primario: true
             habilitado: raiz._sensoresModificados && raiz._rolesValidos && control.sensoresEditable && raiz.edicionPermitida
@@ -566,54 +571,117 @@ Item {
     }
 
     // ======================= vista: entradas mostradas (O1) =======================
-    property var _entradasSel: []
-    function _alternarEntrada(nombre) {
-        const sel = _entradasSel.slice()
-        const i = sel.indexOf(nombre)
-        if (i >= 0) sel.splice(i, 1)
-        else if (sel.length < 3) sel.push(nombre)
-        _entradasSel = sel
+    // O11 (tanda 11, D11-7.2): tres filas "Entrada 1:", "Entrada 2:" y
+    // "Entrada 3:", cada una con su desplegable. La 1 es obligatoria; la 2 y la
+    // 3 admiten "Ninguna" (""); una entrada elegida en una fila no aparece en
+    // las otras (ParametrosCicloController.opcionesFila). El selector solo
+    // ofrece las disponibles (sin sensores No en uso, D11-7.1).
+    property var _filasSel: ["", "", ""]
+    property int _filaAbierta: -1
+    readonly property bool _entradasModificadas: JSON.stringify(_filasSel) !== JSON.stringify(control.filasEntradas)
+    readonly property bool _entradasEditables: control.entradasEditable && edicionPermitida
+    function _prepararEntradas() {
+        _filasSel = control.filasEntradas.slice()
+        _filaAbierta = -1
+    }
+    function _nombreEntrada(nombre) {
+        if (nombre === "")
+            return I18n.t("opciones.entrada_ninguna", I18n.lang)
+        return I18n.existe("io.ai." + nombre, I18n.lang) ? I18n.t("io.ai." + nombre, I18n.lang) : String(nombre)
+    }
+    function _elegirEntrada(fila, nombre) {
+        const f = _filasSel.slice()
+        f[fila] = nombre
+        _filasSel = f
+        _filaAbierta = -1
+    }
+    Connections {
+        target: control
+        function onEntradasChanged() { raiz._prepararEntradas() }
     }
     Item {
         objectName: "vistaEntradas"
         visible: raiz.vista === "entradas"
         anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
-        Column {
-            width: parent.width
-            spacing: Escala.px(6)
-            Text {
+        Flickable {
+            anchors.top: parent.top; anchors.left: parent.left; anchors.right: parent.right
+            anchors.bottom: guardarEntradas.top; anchors.bottomMargin: Escala.px(12)
+            contentHeight: columnaEntradas.height
+            clip: true
+            Column {
+                id: columnaEntradas
                 width: parent.width
-                wrapMode: Text.WordWrap
-                text: I18n.t("opciones.entradas_nota", I18n.lang)
-                color: Colores.textoGuia
-                font.family: Tipografia.familia
-                font.pixelSize: Escala.fuente(22)
-            }
-            Repeater {
-                model: control.entradasHabilitadas
-                delegate: Fila {
-                    required property var modelData
-                    readonly property int orden: raiz._entradasSel.indexOf(modelData)
-                    objectName: "entrada_" + modelData
-                    chevron: false
-                    titulo: I18n.existe("io.ai." + modelData, I18n.lang) ? I18n.t("io.ai." + modelData, I18n.lang)
-                                                                        : String(modelData)
-                    valor: orden >= 0 ? "✓ " + (orden + 1) : ""
-                    onPulsada: if (control.entradasEditable && raiz.edicionPermitida) raiz._alternarEntrada(modelData)
+                spacing: Escala.px(6)
+                Text {
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: I18n.t("opciones.entradas_nota", I18n.lang)
+                    color: Colores.textoGuia
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(22)
+                }
+                Repeater {
+                    model: 3
+                    delegate: Column {
+                        id: filaEntrada
+                        required property int index
+                        readonly property bool abierta: raiz._filaAbierta === index
+                        width: parent.width
+                        Fila {
+                            objectName: "filaEntrada_" + (filaEntrada.index + 1)
+                            titulo: I18n.t("opciones.entrada_fila", I18n.lang, { n: filaEntrada.index + 1 })
+                            valor: raiz._nombreEntrada(raiz._filasSel[filaEntrada.index] ?? "")
+                            chevron: raiz._entradasEditables
+                            onPulsada: if (raiz._entradasEditables)
+                                           raiz._filaAbierta = filaEntrada.abierta ? -1 : filaEntrada.index
+                        }
+                        // desplegable de la fila: "Ninguna" (filas 2 y 3) y las disponibles
+                        Rectangle {
+                            objectName: "opcionesEntrada_" + (filaEntrada.index + 1)
+                            visible: filaEntrada.abierta
+                            width: parent.width
+                            height: visible ? listaOpciones.height + Escala.px(12) : 0
+                            radius: Escala.px(12)
+                            color: Colores.fondoSutil
+                            Column {
+                                id: listaOpciones
+                                y: Escala.px(6)
+                                width: parent.width
+                                Repeater {
+                                    model: filaEntrada.abierta
+                                           ? (filaEntrada.index > 0 ? [""] : []).concat(
+                                                 control.opcionesFila(filaEntrada.index, raiz._filasSel))
+                                           : []
+                                    delegate: Fila {
+                                        required property var modelData
+                                        objectName: "opcionEntrada_" + modelData
+                                        chevron: false
+                                        titulo: raiz._nombreEntrada(modelData)
+                                        // la elegida, resaltada (la fuente no trae "✓")
+                                        color: (raiz._filasSel[filaEntrada.index] ?? "") === modelData
+                                               ? Colores.accionFondoTenue : "transparent"
+                                        onPulsada: raiz._elegirEntrada(filaEntrada.index, modelData)
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
         BotonFormulario {
+            id: guardarEntradas
             objectName: "guardarEntradas"
             anchors.bottom: parent.bottom
             anchors.right: parent.right
+            // O11: sin ancho (BotonFormulario no tiene implícito) quedaba en 0 y no se veía
+            width: Escala.px(320)
             texto: I18n.t("acciones.guardar", I18n.lang)
             primario: true
-            habilitado: control.entradasEditable && raiz.edicionPermitida
-                        && raiz._entradasSel.length >= 1 && raiz._entradasSel.length <= 3
-                        && JSON.stringify(raiz._entradasSel) !== JSON.stringify(control.entradas)
-            onPulsado: if (habilitado) control.guardarEntradas(raiz._entradasSel)
+            habilitado: raiz._entradasEditables && (raiz._filasSel[0] ?? "") !== ""
+                        && raiz._entradasModificadas
+            onPulsado: if (habilitado) control.guardarFilas(raiz._filasSel)
         }
     }
 

@@ -4,8 +4,9 @@
 # `entradas_mostradas` del JSON del programa, 1 a 3) en Preciclo, Ciclo en curso
 # y la gráfica. Solo presentación: no lee hardware ni toca la lógica de ciclo.
 #
-# Frontera de confianza: una entrada desconocida, "No en uso" en el programa o
-# sin lectura se muestra como "—" y nunca rompe la pantalla.
+# Frontera de confianza: una entrada desconocida o sin lectura se muestra como
+# "—" y nunca rompe la pantalla. O11 (tanda 11, D11-7.1): una entrada cuyo
+# sensor está "No en uso" en el programa ya no se muestra (antes, fila con "—").
 
 import math
 
@@ -14,8 +15,10 @@ from autoclave.core.runtime import unidades as u
 SIN_LECTURA = u.SIN_DATO     # "—"
 MAX_ENTRADAS = 3
 
-# Las tres de siempre (gestion_programas.ENTRADAS_POR_OMISION)
-POR_OMISION = ("temp_camara", "temp_referencia", "pres_camara")
+# Sin /cycle todavía. O11 (D11-7.4): la omisión de la asignación de fábrica
+# (Principal = Cámara 1, resto No en uso): Cámara 1 y presión de cámara.
+# DECISIÓN SIN CONFIRMAR: antes eran las tres de siempre, con la Referencia.
+POR_OMISION = ("temp_camara", "pres_camara")
 
 # Nombre de la AI (io_enabled) -> (tipo, ruta en sensors de GET /status)
 _RUTA_STATUS = {
@@ -54,6 +57,15 @@ def normalizar(lista) -> list[str]:
     return vistas[:MAX_ENTRADAS] or list(POR_OMISION)
 
 
+def visibles(lista, no_en_uso=()) -> list[str]:
+    """O11 (D11-7.1): las entradas a mostrar, sin las de un sensor No en uso
+    en el programa; si no queda ninguna, la omisión sin las No en uso (y, en
+    último caso, la presión de cámara)."""
+    no = set(no_en_uso or ())
+    quedan = [e for e in normalizar(lista) if e not in no]
+    return quedan or [e for e in POR_OMISION if e not in no] or ["pres_camara"]
+
+
 def _numero(v):
     if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
         return None
@@ -90,15 +102,15 @@ def _formatear(tipo: str, valor, t_unidad: str, p_unidad: str, p_atm) -> tuple[s
 def construir(lista, sensors, no_en_uso=(), t_unidad: str = "C", p_unidad: str = "kPa",
               p_atm=None) -> list[dict]:
     """Filas para QML: {clave, tipo, valor, unidad, enUso}. `no_en_uso`: entradas
-    cuyo sensor está "No en uso" en el programa (se muestran como "—")."""
+    cuyo sensor está "No en uso" en el programa: O11 (D11-7.1) no se muestran
+    (enUso queda siempre True; se conserva por compatibilidad con QML)."""
     filas = []
-    for clave in normalizar(lista):
+    for clave in visibles(lista, no_en_uso):
         tipo = tipo_de(clave)
-        en_uso = clave not in set(no_en_uso or ())
-        valor = _lectura(sensors, clave) if en_uso else None
+        valor = _lectura(sensors, clave)
         texto, simbolo = _formatear(tipo, valor, t_unidad, p_unidad, p_atm)
         filas.append({"clave": clave, "tipo": tipo, "valor": texto, "unidad": simbolo,
-                      "enUso": en_uso})
+                      "enUso": True})
     return filas
 
 
@@ -120,14 +132,15 @@ def pres_grafica(kpa_abs, p_unidad: str):
     return u.pres_a_mostrar(v, p_unidad)[0]
 
 
-def series_grafica(lista, t_unidad: str = "C", p_unidad: str = "kPa") -> list[dict]:
+def series_grafica(lista, t_unidad: str = "C", p_unidad: str = "kPa",
+                   no_en_uso=()) -> list[dict]:
     """Series de GraficaCiclo para las entradas elegidas: {clave (serie de
     datos), entrada, color, eje, unidad, registrada}. Una entrada que el backend
     no registra en la gráfica queda en la leyenda con registrada=False y sin
     trazo (DECISIÓN SIN CONFIRMAR: hoy solo se registran temp_camara,
-    temp_referencia y pres_camara)."""
+    temp_referencia y pres_camara). O11 (D11-7.1): sin las No en uso."""
     series = []
-    for i, clave in enumerate(normalizar(lista)):
+    for i, clave in enumerate(visibles(lista, no_en_uso)):
         tipo = tipo_de(clave)
         series.append({
             "clave": SERIE_GRAFICA.get(clave, clave),
