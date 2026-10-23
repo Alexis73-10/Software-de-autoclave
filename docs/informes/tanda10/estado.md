@@ -31,3 +31,4 @@ Instrucciones comunes de los subagentes: `tanda10/brief_subagentes.md`. Si la se
 - La suite de integración `_suites_t10/integ` de la sesión anterior siguió corriendo (huérfana) y escribe en `suites/integ_g10_w10_t10_u10a.log`; no se repite (§2.2): la cubre la suite tras unir U10b.
 - U10b: el subagente anterior dejó cambios sin commit y capturas en `tmp_u10b/`; se lanzó un subagente que continúa desde ahí.
 - K10 preparada (ver fila). Ensayo previo en `C:\Users\tecni\Documents\_t10_k10_tmp`.
+- 12:0x: la suite de integración huérfana terminó (af5eaf5, 33 min, `suites/integ_g10_w10_t10_u10a.log`): **1 failed, 6727 passed, 10 skipped, 3 xfailed**. Rojo real de U10a: `test_i18n_linea_base.py::test_qml_i18n_igual_a_referencia_para_toda_clave` no conoce las claves `abrev.*` (3 niveles). Se pidió al subagente de U10b el arreglo en su rama (exentar `abrev.` como `ticket_ciclo.`); se comprueba en la suite tras unir U10b.
