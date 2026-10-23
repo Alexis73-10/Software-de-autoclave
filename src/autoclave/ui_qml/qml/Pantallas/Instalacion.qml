@@ -859,6 +859,7 @@ Item {
                         }
                     }
                     Text {
+                        objectName: "textoListo"
                         anchors.top: sello.bottom
                         anchors.topMargin: Escala.px(48)
                         width: parent.width
