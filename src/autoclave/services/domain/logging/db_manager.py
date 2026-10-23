@@ -517,19 +517,22 @@ class DbManager:
                                         detalle: dict | None = None) -> None:
         """D8-3.21 (tanda 8): una fila de audit_log después de close() (la
         secuencia de apagado ya cerró la base cuando Windows rechaza el
-        apagado). Abre y cierra su propia conexión."""
-        with self._lock:
-            con = sqlite3.connect(str(self._path), timeout=10.0)
-            try:
-                con.execute(
-                    _SQL_AUDITORIA,
-                    (datetime.now().isoformat(timespec="seconds"), "", "", evento,
-                     entidad or "", None, None,
-                     json.dumps(detalle, ensure_ascii=False) if detalle else None),
-                )
-                con.commit()
-            finally:
-                con.close()
+        apagado). Abre y cierra su propia conexión, sin tomar `self._lock`
+        (SAF-05/TMG-03 de la revisión final: un cierre colgado con el lock no
+        la bloquea; SQLite serializa las dos conexiones) y sin crear el
+        archivo si no existe (`mode=rw`)."""
+        uri = Path(self._path).resolve().as_uri() + "?mode=rw"
+        con = sqlite3.connect(uri, uri=True, timeout=10.0)
+        try:
+            con.execute(
+                _SQL_AUDITORIA,
+                (datetime.now().isoformat(timespec="seconds"), "", "", evento,
+                 entidad or "", None, None,
+                 json.dumps(detalle, ensure_ascii=False) if detalle else None),
+            )
+            con.commit()
+        finally:
+            con.close()
 
     # ------------------------------------------------------------------
     # Parámetros del equipo (O2a, tanda 6): tabla system_params

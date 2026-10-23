@@ -15,6 +15,8 @@ import threading
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
+from autoclave.ui.service_ui.ui_service_backend import APAGADO_INCIERTO
+
 logger = logging.getLogger(__name__)
 
 VENTANA_PRINCIPAL = 1
@@ -129,10 +131,13 @@ class ComandosSistema(QObject):
     def _al_terminar(self, ok: bool, motivo: str) -> None:
         # TMG-06 de T7: un apagado aceptado deja el botón deshabilitado
         apagado = self._apagando and ok
+        # TMG-02 (revisión final de E1): sin respuesta el backend pudo
+        # aceptarlo; se vigila igual (solo un rechazo explícito se muestra)
+        incierto = self._apagando and not ok and motivo == APAGADO_INCIERTO
         self._apagando = False
-        if apagado:
+        if apagado or incierto:
             self._vigilancia_apagado.start()   # D8-3.21
-        else:
+        if not apagado:
             self._fijar_ocupado(False)
         if not ok:
             self._fijar_mensaje(motivo)

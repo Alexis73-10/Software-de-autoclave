@@ -196,3 +196,50 @@ def test_panel_equipo_usa_el_texto_del_catalogo():
     es = json.loads((_RAIZ / "src/autoclave/i18n/es.json").read_text(encoding="utf-8"))
     assert es["equipo"]["apagado_windows_rechazado"] == (
         "Windows no permitió apagar el equipo: apáguelo manualmente")
+
+
+def test_registrar_auditoria_tras_cierre_no_espera_el_lock_de_la_base(tmp_path):
+    """SAF-05 (revisión final): si el paso "cerrar la base" quedó colgado con
+    el lock tomado, el registro del rechazo no se bloquea (usa su conexión)."""
+    from autoclave.services.domain.logging.db_manager import DbManager
+    ruta = tmp_path / "b.db"
+    db = DbManager(ruta)
+    db.close()
+    db._lock.acquire()
+    try:
+        hilo = threading.Thread(target=db.registrar_auditoria_tras_cierre,
+                                args=("apagado_windows_rechazado",), daemon=True)
+        hilo.start()
+        hilo.join(5.0)
+        assert not hilo.is_alive()
+    finally:
+        db._lock.release()
+    con = sqlite3.connect(str(ruta))
+    n = con.execute("SELECT COUNT(*) FROM audit_log WHERE evento='apagado_windows_rechazado'").fetchone()[0]
+    con.close()
+    assert n == 1
+
+
+def test_puente_apagado_incierto_tambien_vigila(qt_app):
+    """TMG-02 (revisión final): sin respuesta al POST el backend puede haberlo
+    aceptado; se vigila igual para poder mostrar un rechazo de Windows."""
+    from autoclave.ui.service_ui.ui_service_backend import APAGADO_INCIERTO
+    c, ui = _comandos({"apagando": True, "windows_rechazado": True})
+    ui.apagar_equipo.return_value = (False, APAGADO_INCIERTO)
+    c.apagarEquipo()
+    assert c.mensaje == APAGADO_INCIERTO
+    assert c._vigilancia_apagado.isActive()
+    c._consultarApagado()
+    assert c.apagadoRechazado is True
+
+
+def test_registrar_auditoria_tras_cierre_no_crea_una_base_nueva(tmp_path):
+    """TMG-03 (revisión final): sin el archivo no se crea una base vacía."""
+    from autoclave.services.domain.logging.db_manager import DbManager
+    ruta = tmp_path / "c.db"
+    db = DbManager(ruta)
+    db.close()
+    ruta.unlink()
+    with pytest.raises(sqlite3.OperationalError):
+        db.registrar_auditoria_tras_cierre("apagado_windows_rechazado")
+    assert not ruta.exists()
