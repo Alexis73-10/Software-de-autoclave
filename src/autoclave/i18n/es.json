@@ -158,6 +158,7 @@
     "equipo_err_unidades_ciclo": "Las unidades solo se cambian fuera de ciclo.",
     "entradas_titulo": "Entradas mostradas",
     "entradas_nota": "Elija de 1 a 3 entradas para Preciclo y Ciclo; el número indica el orden.",
+    "gestion_movida": "Para crear, duplicar, habilitar, deshabilitar o borrar programas: Opciones avanzadas › Manejo de ciclos.",
     "gestion_titulo": "Gestión del programa",
     "habilitar_programa": "Habilitar programa",
     "deshabilitar_programa": "Deshabilitar programa",
@@ -1587,7 +1588,12 @@
       "reasignacion_io_verificada": "verificó {entidad} en su puerto {nuevo}",
       "reinicio_control": "reinició el control para aplicar la asignación de entradas y salidas",
       "aire_atmosferico_cortado_prueba": "el control cerró el aire atmosférico de la cámara en modo prueba",
-      "apagado_windows_rechazado": "Windows no permitió apagar el equipo"
+      "apagado_windows_rechazado": "Windows no permitió apagar el equipo",
+      "programa_creado": "creó el programa {nuevo} a partir del programa {anterior}",
+      "programa_duplicado": "duplicó el programa {anterior}: {nuevo}",
+      "programa_habilitado": "habilitó el programa ({entidad})",
+      "programa_deshabilitado": "deshabilitó el programa ({entidad})",
+      "programa_borrado": "borró el programa {anterior}"
     },
     "tipo": {
       "login_ok": "Inicio de sesión",
@@ -1644,7 +1650,11 @@
       "reasignacion_io_verificada": "Verificación de reasignación",
       "reinicio_control": "Reinicio del control",
       "aire_atmosferico_cortado_prueba": "Aire atmosférico cerrado",
-      "apagado_windows_rechazado": "Apagado rechazado por Windows"
+      "apagado_windows_rechazado": "Apagado rechazado por Windows",
+      "programa_creado": "Programa creado",
+      "programa_duplicado": "Programa duplicado",
+      "programa_habilitado": "Programa habilitado o deshabilitado",
+      "programa_borrado": "Programa borrado"
     }
   },
   "correo_c2": {
@@ -1812,6 +1822,43 @@
     "descompresion_4_linea": "Para líquidos: agua en la chaqueta y aire comprimido como contrapresión hasta enfriar la carga.",
     "descompresion_5_nombre": "Con enfriamiento y escape lento",
     "descompresion_5_linea": "Como el modo 4, con el escape lento abierto durante el enfriamiento."
+  },
+  "manejo_ciclos": {
+    "segmento_manejo": "Manejo de ciclos",
+    "segmento_reasignacion": "Reasignación de entradas y salidas",
+    "explicacion": "Cree un programa nuevo a partir de uno existente, duplique, habilite o deshabilite programas y borre los personalizados. Los programas de fábrica no se borran.",
+    "crear": "Crear programa",
+    "crear_titulo": "Crear programa",
+    "crear_explicacion": "Elija el programa base: el programa nuevo copia todos sus parámetros. Después escriba el nombre.",
+    "nombre_nuevo": "Nombre del programa nuevo",
+    "duplicar": "Duplicar",
+    "habilitar": "Habilitar",
+    "deshabilitar": "Deshabilitar",
+    "borrar": "Borrar",
+    "personalizado": "Personalizado",
+    "de_fabrica": "De fábrica",
+    "habilitado": "Habilitado",
+    "deshabilitado": "Deshabilitado: no se ofrece en Preciclo",
+    "danado": "Dañado",
+    "borrar_pregunta": "¿Borrar el programa {nombre}? Su número no se volverá a usar.",
+    "en_ciclo": "No disponible con un ciclo en curso: espere a que termine.",
+    "sin_programas": "No hay programas.",
+    "ok_creado": "Programa {nombre} creado con el número {numero}.",
+    "ok_habilitado": "Programa {nombre} habilitado.",
+    "ok_deshabilitado": "Programa {nombre} deshabilitado.",
+    "ok_borrado": "Programa {nombre} borrado.",
+    "err_generico": "No se pudo completar la operación.",
+    "err_estado": "No permitido con un ciclo en curso.",
+    "err_rol": "Su usuario no tiene permiso para manejar programas.",
+    "err_identidad": "La sesión no es válida: vuelva a iniciar sesión.",
+    "err_nombre_invalido": "Nombre no válido: escriba de 1 a 40 caracteres, sin saltos de línea.",
+    "err_nombre_repetido": "Ya existe un programa con ese nombre.",
+    "err_programa_activo": "No se puede deshabilitar ni borrar el programa seleccionado.",
+    "err_de_fabrica": "Los programas de fábrica no se borran.",
+    "err_no_duplicable": "Este programa no se puede duplicar: está dañado o fuera del catálogo.",
+    "err_no_encontrado": "El programa ya no existe; se recargó la lista.",
+    "err_base_ocupada": "Base de datos no disponible: el cambio no se aplicó.",
+    "err_sin_respuesta": "El control no respondió; se recargó la lista para ver el resultado."
   },
   "reasignacion": {
     "subtitulo": "Reasignación de entradas y salidas",

@@ -158,6 +158,7 @@
     "equipo_err_unidades_ciclo": "Units can only be changed outside a cycle.",
     "entradas_titulo": "Displayed inputs",
     "entradas_nota": "Choose 1 to 3 inputs for Pre-cycle and Cycle; the number shows the order.",
+    "gestion_movida": "To create, duplicate, enable, disable or delete programs: Advanced options › Cycle management.",
     "gestion_titulo": "Program management",
     "habilitar_programa": "Enable program",
     "deshabilitar_programa": "Disable program",
@@ -1587,7 +1588,12 @@
       "reasignacion_io_verificada": "checked {entidad} on its port {nuevo}",
       "reinicio_control": "restarted the control to apply the input and output assignment",
       "aire_atmosferico_cortado_prueba": "the control closed the chamber atmospheric air in test mode",
-      "apagado_windows_rechazado": "Windows did not allow the equipment to shut down"
+      "apagado_windows_rechazado": "Windows did not allow the equipment to shut down",
+      "programa_creado": "created program {nuevo} from program {anterior}",
+      "programa_duplicado": "duplicated program {anterior}: {nuevo}",
+      "programa_habilitado": "enabled the program ({entidad})",
+      "programa_deshabilitado": "disabled the program ({entidad})",
+      "programa_borrado": "deleted program {anterior}"
     },
     "tipo": {
       "login_ok": "Login",
@@ -1644,7 +1650,11 @@
       "reasignacion_io_verificada": "Reassignment check",
       "reinicio_control": "Control restart",
       "aire_atmosferico_cortado_prueba": "Atmospheric air closed",
-      "apagado_windows_rechazado": "Shutdown rejected by Windows"
+      "apagado_windows_rechazado": "Shutdown rejected by Windows",
+      "programa_creado": "Program created",
+      "programa_duplicado": "Program duplicated",
+      "programa_habilitado": "Program enabled or disabled",
+      "programa_borrado": "Program deleted"
     }
   },
   "correo_c2": {
@@ -1812,6 +1822,43 @@
     "descompresion_4_linea": "For liquids: jacket water and compressed air as counterpressure until the load cools.",
     "descompresion_5_nombre": "With cooling and slow exhaust",
     "descompresion_5_linea": "Like mode 4, with the slow exhaust open during cooling."
+  },
+  "manejo_ciclos": {
+    "segmento_manejo": "Cycle management",
+    "segmento_reasignacion": "Input and output reassignment",
+    "explicacion": "Create a new program from an existing one, duplicate, enable or disable programs and delete custom ones. Factory programs cannot be deleted.",
+    "crear": "Create program",
+    "crear_titulo": "Create program",
+    "crear_explicacion": "Choose the base program: the new program copies all its parameters. Then type the name.",
+    "nombre_nuevo": "Name of the new program",
+    "duplicar": "Duplicate",
+    "habilitar": "Enable",
+    "deshabilitar": "Disable",
+    "borrar": "Delete",
+    "personalizado": "Custom",
+    "de_fabrica": "Factory",
+    "habilitado": "Enabled",
+    "deshabilitado": "Disabled: not offered in Pre-cycle",
+    "danado": "Damaged",
+    "borrar_pregunta": "Delete program {nombre}? Its number will not be used again.",
+    "en_ciclo": "Not available while a cycle is running: wait until it ends.",
+    "sin_programas": "There are no programs.",
+    "ok_creado": "Program {nombre} created with number {numero}.",
+    "ok_habilitado": "Program {nombre} enabled.",
+    "ok_deshabilitado": "Program {nombre} disabled.",
+    "ok_borrado": "Program {nombre} deleted.",
+    "err_generico": "The operation could not be completed.",
+    "err_estado": "Not allowed while a cycle is running.",
+    "err_rol": "Your user is not allowed to manage programs.",
+    "err_identidad": "The session is not valid: log in again.",
+    "err_nombre_invalido": "Invalid name: type 1 to 40 characters, without line breaks.",
+    "err_nombre_repetido": "A program with that name already exists.",
+    "err_programa_activo": "The selected program cannot be disabled or deleted.",
+    "err_de_fabrica": "Factory programs cannot be deleted.",
+    "err_no_duplicable": "This program cannot be duplicated: it is damaged or outside the catalog.",
+    "err_no_encontrado": "The program no longer exists; the list was reloaded.",
+    "err_base_ocupada": "Database not available: the change was not applied.",
+    "err_sin_respuesta": "The control did not respond; the list was reloaded to show the result."
   },
   "reasignacion": {
     "subtitulo": "Input and output reassignment",
