@@ -179,7 +179,7 @@ def test_enviar_un_ciclo_con_su_pdf_y_grafica():
     assert pdf["fases"] == [{"clave": "vacio", "inicioMin": 0.0}]
     # la curva de ejemplo no llega a esterilizar: sin consigna
     assert pdf["consigna"] is None
-    assert pdf["textos"]["consignas"]["temp"] == "Consigna temp."
+    assert pdf["textos"]["consignas"]["temp"] == "Consigna de temperatura"
     campos = dict(pdf["datos"]["campos"])
     assert "Fallo" in campos["Resultado"]                   # texto del resultado (FALLO_SECADO)
     m = e.enviados[0]

@@ -13,6 +13,7 @@ from PySide6.QtCore import (
     Property, QAbstractListModel, QByteArray, QModelIndex, QObject, QTimer, Qt, Signal,
 )
 
+from autoclave.core.runtime.alarmas_i18n import clave_motivo_bloqueo
 from autoclave.ui_qml.domain import entradas_mostradas
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
@@ -249,6 +250,10 @@ class UiBridge(QObject):
             "es_confirmar": es.get("requiere_confirmacion") is True,
             # S4 (CIC-10): el protocolo no puede terminar solo; motivo o ""
             "es_bloqueado": str(es.get("bloqueado_motivo") or ""),
+            # V8b (D8-5.11): el mismo motivo como clave del catálogo ("" si no se
+            # conoce: la UI muestra el texto tal cual) y si lo causa la sonda Principal
+            "es_bloqueado_clave": clave_motivo_bloqueo(es.get("bloqueado_motivo")),
+            "es_bloqueado_sonda": "Principal" in str(es.get("bloqueado_motivo") or ""),
             # P-6 (tanda 6): el CONFIRMAR del ciclo confirma también el estado seguro
             "es_ack_confirma": es.get("ack_confirma_estado_seguro") is True,
             # T8: el backend vuelve a exigir la confirmación por ciclo
@@ -324,6 +329,16 @@ class UiBridge(QObject):
     def estadoSeguroBloqueadoMotivo(self) -> str:
         """S4: motivo de CIC-10 (estado seguro detenido); "" si avanza."""
         return self._seguridad.get("es_bloqueado", "")
+
+    @Property(str, notify=seguridadChanged)
+    def estadoSeguroBloqueadoClave(self) -> str:
+        """V8b: clave del catálogo del motivo de CIC-10 ("" si no se conoce)."""
+        return self._seguridad.get("es_bloqueado_clave", "")
+
+    @Property(bool, notify=seguridadChanged)
+    def estadoSeguroBloqueoPorSonda(self) -> bool:
+        """V8b: el estado seguro está detenido por la sonda Principal."""
+        return self._seguridad.get("es_bloqueado_sonda", False)
 
     @Property(bool, notify=seguridadChanged)
     def ackConfirmaEstadoSeguro(self) -> bool:

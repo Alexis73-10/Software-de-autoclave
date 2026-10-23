@@ -414,4 +414,4 @@ def test_t11_timeout_deja_motivo_especifico():
     fase.update()
     fase._t_timeout = _time.monotonic() - 1
     assert fase.update() == FaseResult.FALLO
-    assert "Timeout de enfriamiento del modo 4" in estado.motivo_fallo
+    assert "Tiempo límite de enfriamiento del modo 4" in estado.motivo_fallo

@@ -81,7 +81,7 @@ class DescompresionFase(BaseFase):
                      "lenta": "descompresión lenta", "rapida": "descompresión rápida"}.get(
                          self._sub_etapa, "descompresión")
             self.estado.motivo_fallo = (
-                f"Timeout de {etapa} del modo {self._modo}"
+                f"Tiempo límite de {etapa} del modo {self._modo}"
                 + (f" (T={t:.1f} °C" if t is not None else " (T sin lectura")
                 + (f", P={p:.1f} kPa)" if p is not None else ")"))
             return FaseResult.FALLO

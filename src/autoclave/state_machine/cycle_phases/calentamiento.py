@@ -239,7 +239,7 @@ class CalentamientoFase(BaseFase):
 
         # ── 2. Timeout global ────────────────────────────────────────────
         if time.monotonic() > self._timer_timeout_fin:
-            return self._fallo(f"Timeout de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
+            return self._fallo(f"Tiempo límite de calentamiento: no se alcanzó el objetivo en {timeout_seg / 60:.0f} min")
 
         temp = self._temp_principal()
         pres = self._pres_camara()

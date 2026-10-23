@@ -170,7 +170,7 @@ class ProtocoloFallo:
                 and not lectura_valida(self._temp_principal()):
             return "Sensor Principal sin lectura: no se puede confirmar el enfriamiento"
         if self._aviso_no_escala:
-            return "Timeout de descompresión con carga líquida caliente: no se usa la rápida"
+            return "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido"
         return None
 
     # ------------------------------------------------------------------
