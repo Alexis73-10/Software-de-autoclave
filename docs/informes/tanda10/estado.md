@@ -9,11 +9,11 @@ Precondición A0: `tanda9/estado.md` tiene `| Z | Hecha |` y `dev` contiene la t
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
 | A0 | Hecha | f73acf6 | Línea base en `_suites_t10/base` (`tanda-10` e391ffe): **6633 passed, 10 skipped, 3 xfailed** (34 min, `suites/base.log`). |
-| G10 | Hecha, unida a `tanda-10` (d6bb062). Suite tras unir: pendiente | `tanda-10-g10` (c6c3aed) | 125 passed en el worktree. |
-| T10 | Hecha, unida a `tanda-10` (089dc0c). Suite tras unir: pendiente | `tanda-10-t10` (634dea1) | 1558 passed, 5 skipped en el worktree. Solo texto en `protocolo_fallo.py` (revisado: misma condición y prioridad). |
-| W10 | Hecha, unida a `tanda-10` (cc11aa4). Suite tras unir: pendiente | `tanda-10-w10` (b4fb30c) | 225 passed en el worktree. |
-| U10a | Hecha, unida a `tanda-10` (af5eaf5). Suite tras unir: pendiente | `tanda-10-u10a` (c1fbfbc) | 41 pasan en la prueba nueva; 90 en textos/i18n. Pregunta: «Chbr.»/«Gskt.» en inglés. |
-| U10b | En curso (subagente nuevo desde las 11:38 que CONTINÚA el trabajo sin commit del anterior en el mismo worktree `agent-a26b3309f9ff1210b`) | | |
+| G10 | Hecha, unida a `tanda-10` (d6bb062). Suite tras unir: verde (ver U10b) | `tanda-10-g10` (c6c3aed) | 125 passed en el worktree. |
+| T10 | Hecha, unida a `tanda-10` (089dc0c). Suite tras unir: verde (ver U10b) | `tanda-10-t10` (634dea1) | 1558 passed, 5 skipped en el worktree. Solo texto en `protocolo_fallo.py` (revisado: misma condición y prioridad). |
+| W10 | Hecha, unida a `tanda-10` (cc11aa4). Suite tras unir: verde (ver U10b) | `tanda-10-w10` (b4fb30c) | 225 passed en el worktree. |
+| U10a | Hecha, unida a `tanda-10` (af5eaf5). Suite tras unir: verde (ver U10b) | `tanda-10-u10a` (c1fbfbc) | 41 pasan en la prueba nueva; 90 en textos/i18n. Pregunta: «Chbr.»/«Gskt.» en inglés. |
+| U10b | Hecha, unida a `tanda-10` (0635da5) | `tanda-10-u10b` (0e87a4b) | 443 passed en el worktree. Incluye el arreglo del rojo de integración (`test_i18n_linea_base`, b61617d). |
 | K10 | Preparada (entorno `_venv_t8_producto` con PyInstaller 6.20.0, ISCC en `AppData/Local/Programs/Inno Setup 6`; requisitos, `.spec` e instalador sin cambios desde la E; ensayo E → tanda-10 `--desde-src` sin errores salvo «faltan respaldos», esperado porque `src/autoclave/config/` no cambió desde la E). Compila al unir U10b con la suite en verde | | |
 | Z | Pendiente | | |
 
@@ -32,3 +32,4 @@ Instrucciones comunes de los subagentes: `tanda10/brief_subagentes.md`. Si la se
 - U10b: el subagente anterior dejó cambios sin commit y capturas en `tmp_u10b/`; se lanzó un subagente que continúa desde ahí.
 - K10 preparada (ver fila). Ensayo previo en `C:\Users\tecni\Documents\_t10_k10_tmp`.
 - 12:0x: la suite de integración huérfana terminó (af5eaf5, 33 min, `suites/integ_g10_w10_t10_u10a.log`): **1 failed, 6727 passed, 10 skipped, 3 xfailed**. Rojo real de U10a: `test_i18n_linea_base.py::test_qml_i18n_igual_a_referencia_para_toda_clave` no conoce las claves `abrev.*` (3 niveles). Se pidió al subagente de U10b el arreglo en su rama (exentar `abrev.` como `ticket_ciclo.`); se comprueba en la suite tras unir U10b.
+- 12:12: suite completa tras unir U10b en `_suites_t10/integ` (0635da5) con `-n auto`: **6990 passed, 3 failed, 10 skipped, 3 xfailed en 6 min** (`suites/integ_u10b.log`). Los 3 (`test_ciclos_print.py` ×2, `test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu`) pasan en serie (`suites/integ_u10b_serie.log`, 3 passed): interferencia del paralelo, no rojo. **Suite en verde: 6993 passed.** Vale para K10 y Z (§2.4).
