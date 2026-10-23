@@ -135,6 +135,11 @@
 | D-E9-03 | Entradas/Salidas solo con los canales del perfil (equipo sin sensores) | En seco (sin vapor) | E9; H16 resuelto en D8-3.17 (tanda 8) |
 | D-X9-01 | Cambio de un parámetro con el ciclo en curso: bitácora antes de aplicar | En operación (o planta simulada) | X9 D9-13.3 (tanda 9); HAZ-X9-01 |
 | D-X9-02 | Interfaz en inglés: ticket, reimpresión y motivo de fallo en inglés | En seco (sin vapor) | X9 D9-13.4 (tanda 9); HAZ-X9-02 |
+| A-N11-01 | Setup sobre una versión anterior: Actualizar conserva los datos | En seco (sin vapor) | N11 D11-4 (tanda 11) |
+| A-N11-02 | Instalación limpia: doble confirmación, respaldo completo y menú de instalación | En seco (sin vapor) | N11 D11-4 (tanda 11) |
+| A-N11-03 | Instalación limpia rechazada: confirmación en No y Autoclave abierto no borran nada | En seco (sin vapor) | N11 D11-4 (tanda 11) |
+| A-N11-04 | Asociación de los 2 táctiles con sus pantallas desde el Setup | En seco (sin vapor) | N11 D11-5 (tanda 11) |
+| A-N11-05 | Reinicio del PC: la asociación de los táctiles se conserva; el desinstalador la revierte | En seco (sin vapor) | N11 D11-5 (tanda 11) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -2001,6 +2006,99 @@
   4. Volver a Español y reimprimir.
 - **Resultado esperado:** Paso 1: «Status: FAILED (…)» con la fase en inglés, «Reason: CIC-0x - … failure», rótulos en inglés (abreviaturas permitidas solo en el ticket). Paso 2: el motivo en inglés (por ejemplo «High temperature: …»). Paso 3: los valores del motivo en °F / psi. Paso 4: el ticket en español igual que antes.
 - **Criterio de aprobado/fallo:** Aprobado si con la interfaz en inglés no aparece texto en español en el ticket ni en el motivo de fallo de las fases (salvo nombres propios de programas creados en el hospital) y los valores coinciden con los del ciclo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque N11. Instalador: Actualizar o Instalación limpia y táctiles (tanda 11, en seco)
+
+Todas en el **PC de prueba** (no en el equipo del autoclave hasta aprobarlas), con el Setup de la compilación G (o la que traiga la tanda 11) y, para A-N11-01 a A-N11-03, con la F ya instalada y con datos (perfil, un usuario creado, al menos un ciclo o ensayo en el Historial). Anotar antes la versión instalada (Información del sistema).
+
+### A-N11-01 — Setup sobre una versión anterior: Actualizar conserva los datos
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** N11 D11-4 (tanda 11)
+- **Objetivo:** Con una versión más vieja instalada, el Setup muestra la página "Actualizar Autoclave" con "Actualizar (conserva los datos)" marcada por defecto y la actualización conserva todos los datos, igual que antes.
+- **Precondiciones:** F instalada con datos. Autoclave cerrado. Copia de `C:\ProgramData\Especifika\Autoclave` en una USB.
+- **Pasos:**
+  1. Ejecutar el Setup nuevo (doble clic).
+  2. Revisar la página "Actualizar Autoclave": versión instalada y la de este instalador, dos opciones y cuál viene marcada.
+  3. Dejar "Actualizar" y seguir con el asistente hasta terminar.
+  4. Abrir Autoclave y revisar perfil, usuarios, Historial y calibración.
+  5. Revisar que no se creó `C:\ProgramData\Especifika\Autoclave_respaldos\`.
+- **Resultado esperado:** Paso 2: "Actualizar (conserva los datos)" marcada; "Instalación limpia" sin marcar. Pasos 3 y 4: ninguna confirmación de borrado; todo igual que antes de actualizar. Paso 5: no existe (o no cambió).
+- **Criterio de aprobado/fallo:** Aprobado si la actualización por defecto no pide confirmar ningún borrado y no se pierde ni cambia ningún dato.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-N11-02 — Instalación limpia: doble confirmación, respaldo completo y menú de instalación
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** N11 D11-4 (tanda 11)
+- **Objetivo:** La instalación limpia pide dos confirmaciones (la segunda nombra los ciclos registrados y los usuarios), respalda toda la carpeta de datos antes de borrarla y deja el equipo como recién instalado: al abrir Autoclave aparece el menú de instalación.
+- **Precondiciones:** Una versión instalada con datos (puede ser la misma del Setup: en ese caso la página es "Autoclave ya está instalado"). Autoclave cerrado. Anotar el número de archivos y el tamaño de `C:\ProgramData\Especifika\Autoclave` (clic derecho › Propiedades).
+- **Pasos:**
+  1. Ejecutar el Setup. En la página de opciones elegir "Instalación limpia" y pulsar Siguiente.
+  2. Leer la primera confirmación y responder Sí. Leer la segunda y responder Sí.
+  3. Completar las tareas y la cuenta y pulsar Instalar.
+  4. Revisar `C:\ProgramData\Especifika\Autoclave_respaldos\`: una carpeta `AAAAMMDD-HHMMSS` con la fecha y la hora de la instalación. Comparar su número de archivos y su tamaño con lo anotado.
+  5. Con la cuenta del operador (sin privilegios), intentar abrir esa carpeta.
+  6. Revisar `C:\ProgramData\Especifika\Autoclave`: solo debe quedar `estacion\` (si la estación estaba configurada) y lo que cree el programa al abrirse.
+  7. Abrir Autoclave.
+  8. (Opcional) Restaurar: cerrar Autoclave y copiar como administrador el contenido del respaldo a `C:\ProgramData\Especifika\Autoclave`; abrir Autoclave.
+- **Resultado esperado:** Paso 2: las dos confirmaciones tienen "No" como botón por defecto; la segunda dice que se borran los ciclos registrados y los usuarios. Paso 4: mismo número de archivos y mismo tamaño. Paso 5: acceso denegado (solo administradores). Paso 6: el perfil, la base, la calibración y los usuarios ya no están. Paso 7: se abre el menú de instalación del equipo (no hay perfil) y los usuarios son los iniciales. Paso 8: vuelven el perfil, los usuarios y el Historial.
+- **Criterio de aprobado/fallo:** Aprobado si nada se borra sin las dos confirmaciones, el respaldo está completo y protegido, y el primer arranque abre el menú de instalación.
+- **Carpeta del respaldo:** ______________________ · **Archivos / tamaño original:** ________ · **Respaldo:** ________
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-N11-03 — Instalación limpia rechazada: confirmación en No y Autoclave abierto no borran nada
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** N11 D11-4 (tanda 11)
+- **Objetivo:** Si el técnico no confirma, o si Autoclave está abierto al instalar, no se borra nada. Un fallo del respaldo se comporta igual que el caso de Autoclave abierto: el Setup se detiene sin borrar (ese fallo no se provoca en el banco; está revisado en el código, informe N11).
+- **Precondiciones:** Versión instalada con datos.
+- **Pasos:**
+  1. Setup › "Instalación limpia" › Siguiente › responder **No** en la primera confirmación. Repetir y responder Sí en la primera y **No** en la segunda.
+  2. Elegir "Instalación limpia", confirmar las dos veces y pulsar **Atrás** hasta la página de opciones; elegir la otra opción (Actualizar o Reparar) y terminar.
+  3. Abrir Autoclave y dejarlo abierto. Ejecutar el Setup, elegir "Instalación limpia", confirmar las dos veces y pulsar Instalar.
+- **Resultado esperado:** Paso 1: el Setup se queda en la página de opciones; los datos siguen. Paso 2: instala como Actualizar o Reparar y los datos siguen; no hay respaldo nuevo. Paso 3: el Setup se detiene con el aviso "Autoclave está abierto… No se borró nada" y no instala; los datos siguen y no hay respaldo nuevo.
+- **Criterio de aprobado/fallo:** Aprobado si en ninguno de los tres pasos desaparece un dato.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-N11-04 — Asociación de los 2 táctiles con sus pantallas desde el Setup
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** N11 D11-5 (tanda 11)
+- **Objetivo:** Con dos monitores táctiles conectados, el Setup ofrece (marcada) la asociación de los táctiles, abre la herramienta de Windows y, tras tocar cada pantalla, cada toque responde en su propia pantalla.
+- **Precondiciones:** PC de prueba con los 2 paneles táctiles conectados (video y USB). Antes, comprobar el problema: tocar la pantalla 2 y ver si el cursor aparece en la 1. Si se puede, probar también una vez con un solo monitor conectado.
+- **Pasos:**
+  1. Ejecutar el Setup. En "Tareas adicionales" revisar la subcasilla "Asociar cada pantalla táctil con su monitor" debajo de "Configurar este PC como estación del autoclave".
+  2. Instalar. Cuando aparezca el mensaje de Windows en una pantalla, tocar esa pantalla; luego tocar la otra cuando muestre el mensaje.
+  3. Al terminar el Setup, revisar si aparece el aviso "Repita la asociación de pantallas táctiles".
+  4. Revisar `C:\ProgramData\Especifika\Autoclave\estacion\estacion.log`: línea `Asociaciones tactiles en HKLM\SOFTWARE\Microsoft\Wisp\Pen\Digimon: N`.
+  5. Tocar botones de Autoclave en cada pantalla.
+  6. Marcar los puertos USB de cada táctil y anotarlos.
+  7. (Con un solo monitor) La subcasilla no aparece.
+- **Resultado esperado:** Paso 1: subcasilla marcada. Paso 3: sin aviso si se tocaron las dos. Paso 4: N = 2 (o más). Paso 5: cada toque responde en la pantalla tocada. Paso 7: no aparece la subcasilla.
+- **Criterio de aprobado/fallo:** Aprobado si tras la asociación cada táctil responde en su pantalla. Si el aviso aparece con las dos pantallas tocadas, anotar el N del log y avisar a Code.
+- **Puertos USB:** pantalla 1 ______________ · pantalla 2 ______________
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-N11-05 — Reinicio del PC: la asociación de los táctiles se conserva; el desinstalador la revierte
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** N11 D11-5 (tanda 11)
+- **Objetivo:** La asociación sobrevive al reinicio y a Reparar; cambiar un táctil de puerto USB la deshace; el desinstalador borra solo las asociaciones que creó el paso.
+- **Precondiciones:** A-N11-04 aprobada.
+- **Pasos:**
+  1. Reiniciar el PC (Apagar equipo desde Autoclave o reinicio de Windows). Tocar cada pantalla.
+  2. Ejecutar el Setup de la misma versión › Reparar. Comprobar que no abre la herramienta de los táctiles. Tocar cada pantalla.
+  3. Pasar el cable USB de un táctil a otro puerto, tocar cada pantalla y devolverlo a su puerto marcado.
+  4. Desinstalar Autoclave. Revisar en `estacion.log` las líneas `Borrada asociacion creada por el paso 6`. Tocar cada pantalla.
+- **Resultado esperado:** Paso 1: cada toque en su pantalla. Paso 2: sin herramienta; la asociación sigue. Paso 3: con el cable en otro puerto el toque puede ir a la otra pantalla; al devolverlo, vuelve a estar bien. Paso 4: las asociaciones del paso se borran (los toques pueden volver a ir a la pantalla equivocada, como antes de instalar).
+- **Criterio de aprobado/fallo:** Aprobado si la asociación se conserva tras el reinicio y Reparar, y el desinstalador la revierte sin error.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

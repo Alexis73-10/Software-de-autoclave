@@ -31,7 +31,7 @@ Se generó una sola vez el 2026-10-22. **No se cambia nunca.** Gracias a él, Wi
 - Instala `Autoclave.exe` y `_internal\` juntos en `C:\Program Files\Especifika\Autoclave` (64 bits). La carpeta no se puede elegir: el programa solo guarda sus datos en `C:\ProgramData\Especifika\Autoclave` cuando corre bajo `%ProgramFiles%` (`utils/resources.raiz_datos_exe`). Además, solo se reconoce como instalado en esa ruta exacta (`instalador_exe.esta_instalado_aqui`); en otra, vuelve a ofrecer instalarse.
 - Al actualizar, borra antes `_internal\` de la instalación, para no mezclar archivos de dos compilaciones.
 - Crea accesos directos "Autoclave" en el menú Inicio y en el Escritorio común.
-- `C:\ProgramData\Especifika\Autoclave`: crea la carpeta si falta y da permiso de Modificar a Usuarios (también si ya existía), para que el programa escriba sus datos con una cuenta sin privilegios. **Nunca** copia, sobrescribe ni borra archivos ahí (perfil, calibración, base de datos, usuarios). El desinstalador no la toca y avisa que los datos se conservan.
+- `C:\ProgramData\Especifika\Autoclave`: crea la carpeta si falta y da permiso de Modificar a Usuarios (también si ya existía), para que el programa escriba sus datos con una cuenta sin privilegios. **Nunca** copia, sobrescribe ni borra archivos ahí (perfil, calibración, base de datos, usuarios), **salvo la Instalación limpia** (ver abajo), que se elige a mano, con doble confirmación y respaldo previo. El desinstalador no la toca y avisa que los datos se conservan.
 - Al actualizar, **no hace falta copiar nada a mano**: al arrancar, la versión nueva del programa refresca sola sus archivos de configuración de fábrica (`instances\*.yaml` y `global_params.json` de `ProgramData\...\programa\autoclave\config\`), con copia de respaldo con fecha en `ProgramData\...\programa\respaldos_configuracion\<fecha>\` (D9-13.1). Nunca toca la calibración del equipo, el correo, la asignación de E/S vigente, el perfil, la base de datos ni los programas de usuario.
 - No incluye `GeneradorCodigos.exe`, el perfil de instalación ni `data/`.
 - Pide administrador. El asistente está en español, con inglés disponible.
@@ -42,6 +42,7 @@ Se generó una sola vez el 2026-10-22. **No se cambia nunca.** Gracias a él, Wi
 |---|---|---|
 | Iniciar Autoclave automáticamente al iniciar sesión en Windows | marcada | Tarea programada `Especifika Autoclave - Arranque` (mismo nombre y mecanismo que `tools/estacion/03_tarea_autoclave.ps1`; si después se ejecuta ese script, la reemplaza y nunca quedan dos arranques). Es de la cuenta del inicio automático si se marca la estación; si no, de la cuenta con la sesión abierta. El desinstalador la borra. |
 | Configurar este PC como estación del autoclave | **marcada** | Pasos 01, 04 y 05 de `tools/estacion/` (D9-11): inicio de sesión automático con la cuenta que instala (no se crea ninguna cuenta), sin notificaciones, Windows Update solo avisa y se difiere (no se desactiva), sin gestos de borde, sin suspensión ni hibernación y botón de encendido sin acción. Pide usuario y contraseña en la página siguiente. Al terminar, el Setup pide reiniciar. |
+| ↳ Asociar cada pantalla táctil con su monitor | marcada (solo con 2 o más monitores) | Paso 06 (tanda 11, D11-5): abre `MultiDigitizer.exe` para tocar cada pantalla una vez. Ver "Pantallas táctiles" abajo. |
 | Arranque sin logo de Windows y sin pantalla de bloqueo | **desmarcada** | Paso 02: `bcdedit /set {current} bootux disabled` (con copia previa del BCD), sin pantalla de bloqueo ni contraseña al reanudar. |
 
 Detalles de la estación:
@@ -49,24 +50,46 @@ Detalles de la estación:
 - La contraseña pasa al script por una variable de entorno del proceso, nunca por la línea de comandos, y queda en el registro de Windows (`Winlogon\DefaultPassword`), como exige el inicio automático (riesgo aceptado en el plan de la estación, §3.1). El log nunca la muestra.
 - Los scripts se instalan en `C:\Program Files\Especifika\Autoclave\estacion\` (solo administradores pueden cambiarlos) y los ejecuta `estacion_setup.ps1` sin interacción. El log y los respaldos de los valores originales quedan en `C:\ProgramData\Especifika\Autoclave\estacion\`, carpeta que los scripts restringen a Administradores y SYSTEM (la de datos tiene Modificar para Usuarios).
 - Si un paso falla, el Setup lo avisa al final con la lista de pasos y la ruta del log; Autoclave queda instalado igual.
-- El Setup anota en `HKLM\SOFTWARE\Especifika\Autoclave\Estacion` los pasos que aplicó. **El desinstalador revierte solo esos**, en orden inverso (05, 04, 02, 01), con los scripts de reversión, y borra esa clave. Si una reversión falla, lo avisa: entonces hay que correr a mano, como administrador, el script `0X_revertir_...ps1` de `tools/estacion/` (desde la USB o el repositorio, porque el desinstalador ya borró la copia instalada).
+- El Setup anota en `HKLM\SOFTWARE\Especifika\Autoclave\Estacion` los pasos que aplicó. **El desinstalador revierte solo esos**, en orden inverso (06, 05, 04, 02, 01), con los scripts de reversión, y borra esa clave. Si una reversión falla, lo avisa: entonces hay que correr a mano, como administrador, el script `0X_revertir_...ps1` de `tools/estacion/` (desde la USB o el repositorio, porque el desinstalador ya borró la copia instalada).
 - Si en una actualización se desmarca la casilla de la estación, no se revierte nada (eso lo hace el desinstalador o los scripts de reversión). Si se deja marcada, vuelve a pedir la contraseña y vuelve a aplicar los pasos (los scripts son idempotentes).
 
-## Setup sobre una instalación existente (Reparar / Reinstalar / Desinstalar)
+## Setup sobre una instalación existente (Actualizar / Reparar / Instalación limpia / Desinstalar)
 
 El Setup compara su versión (`AppVerNum`) con la instalada, que anota en `HKLM\SOFTWARE\Especifika\Autoclave\Instalacion\VersionNum` (la borra el desinstalador). Las instalaciones 1.0.0-a a 1.0.0-d no tienen ese valor: se comparan por `DisplayVersion`. Si es la misma, se tratan como iguales; si es distinta, como más viejas.
 
 | Instalada | Qué hace el Setup |
 |---|---|
 | Ninguna | Instalación normal. |
-| Más vieja | Actualiza con el asistente normal (como antes). |
-| **La misma** | Página "Autoclave ya está instalado" con tres opciones (abajo). |
+| Más vieja | Página "Actualizar Autoclave": **Actualizar (conserva los datos)**, marcada por defecto (el flujo de siempre), o **Instalación limpia** (tanda 11, D11-4). |
+| **La misma** | Página "Autoclave ya está instalado": **Reparar** (por defecto), **Instalación limpia** o **Desinstalar**. La antigua opción "Reinstalar" ya no existe. |
 | Más nueva | Se niega a instalar y pide desinstalar primero (no se baja de versión). |
 
-- **Reparar** (por defecto): vuelve a copiar el programa y los scripts (borra antes `_internal\`). Recrea la tarea de arranque si estaba elegida y vuelve a aplicar los pasos 04, 05 y 02 que estaban anotados en `...\Estacion`, incluidos los que fallaron, porque se anotan antes de aplicarse. No muestra las tareas ni la página de la cuenta, y **no reaplica el paso 01** (pediría la contraseña): el inicio automático queda como estaba y la tarea se recrea para esa cuenta (`Winlogon\DefaultUserName`). Un Setup silencioso (`/SILENT`, `/VERYSILENT`) de la misma versión hace Reparar.
-- **Reinstalar**: ejecuta el desinstalador (`/SILENT`: revierte la estación, borra el programa y la tarea) y espera a que termine (máx. 120 s). Después sigue con el asistente completo, como una instalación nueva. Si la desinstalación no termina, no instala.
+- **Actualizar** (versión más vieja): el asistente normal. Conserva los datos de `C:\ProgramData\Especifika\Autoclave`.
+- **Reparar** (misma versión): vuelve a copiar el programa y los scripts (borra antes `_internal\`). Recrea la tarea de arranque si estaba elegida y vuelve a aplicar los pasos 04, 05 y 02 que estaban anotados en `...\Estacion`, incluidos los que fallaron, porque se anotan antes de aplicarse. No muestra las tareas ni la página de la cuenta, y **no reaplica los pasos 01 ni 06** (el 01 pediría la contraseña; el 06 abre la herramienta de los táctiles): el inicio automático y la asociación de los táctiles quedan como estaban, y la tarea se recrea para la cuenta del inicio automático (`Winlogon\DefaultUserName`). Un Setup silencioso (`/SILENT`, `/VERYSILENT`) de la misma versión hace Reparar; uno de una versión más nueva hace Actualizar. **Un Setup silencioso nunca hace una instalación limpia.**
 - **Desinstalar**: abre el desinstalador normal (con su confirmación) y cierra el Setup.
-- En las tres se conservan los datos de `C:\ProgramData\Especifika\Autoclave`.
+- **Instalación limpia** (versión más vieja o la misma):
+  1. Al pulsar Siguiente pide **dos confirmaciones**, las dos con "No" por defecto. La segunda dice que se borran los ciclos registrados, los usuarios, el perfil de instalación y la calibración.
+  2. No se borra nada hasta pulsar **Instalar**. Hasta entonces, Atrás y otra opción la deshace.
+  3. Al instalar, si Autoclave está abierto, se detiene sin tocar nada ("ciérrelo y vuelva a ejecutar este instalador").
+  4. **Respaldo completo** de `C:\ProgramData\Especifika\Autoclave` en `C:\ProgramData\Especifika\Autoclave_respaldos\AAAAMMDD-HHMMSS\` (fuera de la carpeta que se borra). La carpeta `Autoclave_respaldos` queda solo para Administradores y SYSTEM, porque el respaldo incluye la base con los usuarios y la carpeta `estacion\`. El Setup verifica el respaldo (mismo número de archivos y de bytes que el original).
+  5. **Si el respaldo falla o no coincide, no se borra nada** y el Setup se detiene sin instalar (avisa que la carpeta de respaldo puede estar incompleta).
+  6. Con el respaldo verificado, aparta **de una sola vez** (un renombrado, que o mueve todo o no mueve nada) la carpeta de datos entera a `Autoclave_respaldos\AAAAMMDD-HHMMSS_borrar\`. Con eso se va todo: perfil de instalación, calibración, base de datos, usuarios, programas de usuario, configuración, tickets y logs. Luego crea la carpeta de datos vacía y le devuelve solo `estacion\`, que tiene los valores de Windows anteriores a la estación y que necesita el desinstalador para revertirla. Al final borra la carpeta `_borrar`.
+     - Si el renombrado falla (por ejemplo, porque algún archivo está abierto), no se movió nada: el Setup se detiene sin instalar.
+     - Si falla la creación de la carpeta vacía o la devolución de `estacion\`, deshace el renombrado y se detiene.
+     - Antes de respaldar, se detiene si la carpeta de datos, `Especifika\` o `Autoclave_respaldos\` es un enlace o una unión de Windows, si la ruta no es `X:\…\Especifika\Autoclave` o si no puede comprobar que Autoclave esté cerrado.
+     - Si queda algo en `_borrar`, solo se anota en el log de Inno: la carpeta de datos ya está limpia y lo que queda está en la carpeta protegida.
+  7. Sigue con el asistente completo (tareas y cuenta, como una instalación nueva).
+  8. Al abrir Autoclave no hay perfil: se abre el menú de instalación del equipo.
+  - Para recuperar los datos: con Autoclave cerrado, copiar como administrador el contenido de la carpeta del respaldo a `C:\ProgramData\Especifika\Autoclave`.
+  - Los respaldos no se borran solos (ni el desinstalador los toca). Borrar a mano los que ya no hagan falta.
+
+## Pantallas táctiles (paso 06, D11-5)
+
+- Subcasilla de la estación **"Asociar cada pantalla táctil con su monitor"**, marcada por defecto. **Solo aparece si el PC tiene 2 o más monitores** conectados al ejecutar el Setup.
+- Al instalar, abre la herramienta de Windows `MultiDigitizer.exe` (Configuración de Tablet PC › Configurar › Entrada táctil). Pide tocar la pantalla que muestra el mensaje y pasar a la siguiente (Enter salta una pantalla). Si nadie la cierra en 10 minutos, el Setup la cierra y sigue.
+- Al terminar, cuenta las asociaciones de `HKLM\SOFTWARE\Microsoft\Wisp\Pen\Digimon` y las escribe en `estacion.log`. Si quedan menos de 2, avisa al final: "Repita la asociación de pantallas táctiles". La instalación no falla.
+- El desinstalador borra las asociaciones que creó el paso (y devuelve su valor a las que cambió).
+- **Windows guarda la asociación por puerto USB: marcar los puertos de cada táctil.** Cambiar un cable de puerto la deshace (ver `tools/estacion/LEEME.md`).
 
 ## Lista de verificación en el PC de prueba (D9-11)
 
@@ -98,9 +121,9 @@ Reiniciar:
 - [ ] Probar con la cuenta del operador (sin privilegios), si existe: Autoclave guarda datos (por ejemplo, entrar al asistente y avanzar un paso) sin error de permisos.
 
 Mantenimiento (Setup de la misma versión sobre la instalación ya hecha):
-- [ ] Aparece la página "Autoclave ya está instalado" con Reparar marcado.
+- [ ] Aparece la página "Autoclave ya está instalado" con Reparar marcado y las opciones Instalación limpia y Desinstalar (no hay "Reinstalar").
 - [ ] Reparar: no pide tareas ni contraseña; `estacion.log` muestra `Setup: Aplicar paso 04/05 ... terminado` (y 02 si estaba); el inicio automático sigue igual; la tarea de arranque existe.
-- [ ] Reinstalar: aparece el desinstalador, termina, y el Setup sigue con la página de tareas y la de la cuenta. Al final, `...\Estacion` tiene de nuevo `Paso01/04/05`.
+- [ ] Instalación limpia: casos A-N11-02 y A-N11-03 de la hoja de pruebas de banco (`docs/mis_plans/hoja_pruebas_banco_equipo_pruebas.md`).
 - [ ] Desinstalar: se abre el desinstalador (pide confirmación) y el Setup se cierra sin preguntar.
 - [ ] Setup de una versión **más vieja** que la instalada: se niega y no cambia nada.
 
