@@ -126,6 +126,11 @@
 | B-15 | Apagar equipo: Windows rechaza el apagado | En seco (sin vapor) | E1 D8-3.21 (tanda 8) |
 | D-39 | Canales de Entradas/Salidas según el perfil de instalación | En seco (sin vapor) | E1 D8-3.17 (tanda 8) |
 | G-04 | Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión | En seco (sin vapor) | V8a D8-5.7 (tanda 8) |
+| A-E9-01 | Instalación limpia de la D: modo de descompresión 5 en los 4 programas y entrega sin datos del banco | En seco (sin vapor) | E9 D9-8 (H14) y D9-7 (H17) (tanda 9) |
+| A-E9-02 | Actualización B → D con el Setup, sin copiar archivos a mano | En seco (sin vapor) | E9 D9-13.1 (tanda 9) |
+| D-E9-01 | Sin transductores conectados: la presión se muestra «—», nunca 0 | En seco (sin vapor) | E9; H4 resuelto en S1 D8-1.1 (tanda 8) |
+| D-E9-02 | Carga Líquido: el modo de descompresión no válido muestra su motivo | En seco (sin vapor) | E9; H13 resuelto en D8-5.7/5.8 (tanda 8) |
+| D-E9-03 | Entradas/Salidas solo con los canales del perfil (equipo sin sensores) | En seco (sin vapor) | E9; H16 resuelto en D8-3.17 (tanda 8) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -1304,7 +1309,7 @@
   2. Comparar con el perfil: con 1 puerta no deben aparecer los canales de la puerta 2; con generador interno no aparece `vapor_caldera`; sin segunda sonda no aparece `temp_2_camara`.
   3. Revisar las entradas mostradas en Preciclo.
 - **Resultado esperado:** Solo aparecen los canales que el perfil declara, en las dos pantallas.
-- **Criterio de aprobado/fallo:** Aprobado si no sobra ni falta ningún canal respecto al perfil. **[verificar en sitio]** un equipo actualizado (no reinstalado) conserva su YAML viejo (LEEME 1.4): anotar si faltan canales nuevos.
+- **Criterio de aprobado/fallo:** Aprobado si no sobra ni falta ningún canal respecto al perfil. Desde la tanda 9 (D9-13.1) un equipo actualizado refresca solo su YAML de fábrica, con respaldo: ver A-E9-02.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1813,6 +1818,88 @@
   5. Revisar la bitácora.
 - **Resultado esperado:** Paso 2: aviso «Carga líquida: el modo de descompresión cambió a 4 (…)». Paso 3: la lista solo ofrece 4, 5 y 0; si se fuerza, el backend rechaza con su motivo (ebullición violenta). Paso 4: modo de fábrica del programa o el 1. Paso 5: una fila por cambio, incluido el automático.
 - **Criterio de aprobado/fallo:** Aprobado si en ningún momento un programa Líquido queda con un modo distinto de 4, 5 o 0.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque E9. Entrega, actualización y verificaciones de la tanda 9 (en seco)
+
+### A-E9-01 — Instalación limpia de la D: modo de descompresión 5 en los 4 programas y entrega sin datos del banco
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E9 D9-8 (H14) y D9-7 (H17) (tanda 9)
+- **Objetivo:** En la B, la primera instalación solo ofrecía hasta el modo 4 de descompresión (después, en configuración, sí dejaba el 5). En la D la lista de Parámetros del ciclo ofrece 0 a 5 (con carga Líquido: 4, 5 y 0) desde la primera instalación. Además, la entrega no trae datos del banco: correo sin remitente ni destinatarios y programas iguales a los de fábrica.
+- **Precondiciones:** PC de prueba o equipo SIN instalación previa (sin `C:\ProgramData\Especifika\Autoclave`, o apartada y respaldada). Setup de la D (`Autoclave_Setup_1.0.0-d.exe`). Sesión de técnico o ingeniero. Sin ciclo en curso.
+- **Pasos:**
+  1. Instalar con el Setup y completar el asistente de instalación del equipo.
+  2. Opciones › Parámetros del ciclo › Instrumental 134 › Descompresión › modo: abrir la lista y anotar los modos ofrecidos.
+  3. Elegir el modo 5, guardar, salir y volver a entrar: el valor sigue en 5. Devolverlo a su valor original.
+  4. Repetir 2 y 3 con Instrumental 121, Bowie-Dick y Líquidos (en Líquidos la lista ofrece 4, 5 y 0).
+  5. Anotar el modo de descompresión con el que viene cada programa (instalación limpia: el de fábrica; el Bowie-Dick NO debe venir en 4).
+  6. Opciones › Conectividad: revisar los destinatarios del correo.
+- **Resultado esperado:** Pasos 2 y 4: la lista ofrece el 5 en los 4 programas desde la primera instalación. Paso 3: el 5 se guarda y queda en la bitácora. Paso 5: los 4 programas con los valores de fábrica. Paso 6: sin destinatarios precargados y el correo sin configurar (no aparece ninguna dirección de Especifika).
+- **Criterio de aprobado/fallo:** Aprobado si el modo 5 se puede elegir y guardar en los 4 programas tras una instalación limpia y no aparece ningún dato del banco. **Si solo se ofrece hasta el 4: tomar captura de la lista y del programa, anotar la versión (Información del sistema) y avisar a Code (D9-8 pide investigarlo).**
+- **Modos ofrecidos:** 134 ______ · 121 ______ · Bowie-Dick ______ · Líquidos ______
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### A-E9-02 — Actualización B → D con el Setup, sin copiar archivos a mano
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E9 D9-13.1 (tanda 9)
+- **Objetivo:** Al instalar la D encima de la B, la D refresca sola sus archivos de configuración de fábrica (`instances\*.yaml` y `global_params.json`), con respaldo con fecha, y aparecen la Cámara 2 y la descompresión lenta sin ningún paso manual. Nada del sitio cambia.
+- **Precondiciones:** Equipo de pruebas con la B instalada y su perfil (2 puertas, cámara 1 y 2, referencia y drenaje). Anotar antes: destinatarios del correo, un valor de Parámetros del equipo cambiado en el sitio (por ejemplo, `temp_max_apertura`), el modo de descompresión del Bowie-Dick y un ajuste de calibración. Software cerrado. Respaldo de `C:\ProgramData\Especifika\Autoclave` en una USB.
+- **Pasos:**
+  1. Ejecutar el Setup de la D (doble clic) sobre la B. No copiar ningún archivo a mano.
+  2. Abrir Autoclave (o reiniciar si el Setup lo pide).
+  3. Opciones › Entradas/Salidas: buscar Cámara 2 (`temp_2_camara`) y Descompresión lenta (`descompresion_lenta`).
+  4. Revisar en `C:\ProgramData\Especifika\Autoclave\programa\respaldos_configuracion\` la carpeta con fecha y hora de la actualización.
+  5. Comparar con lo anotado en las precondiciones.
+- **Resultado esperado:** Paso 3: los dos canales aparecen. Paso 4: una carpeta `AAAA-MM-DD_HHMMSS` con `autoclave\config\global_params.json` e `instances\ACV-2026-001.yaml` de la B (nada más). Paso 5: perfil, usuarios, correo, Parámetros del equipo, calibración y programas de usuario iguales a los de la B. **Ojo:** el Bowie-Dick conserva el modo que tenía en la B (los programas de usuario de un equipo ya instalado no se tocan; D9-7 solo cambia lo que trae una instalación nueva).
+- **Criterio de aprobado/fallo:** Aprobado si los dos canales aparecen sin pasos manuales y no cambió ningún dato del sitio.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-E9-01 — Sin transductores conectados: la presión se muestra «—», nunca 0
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E9; H4 resuelto en S1 D8-1.1 (tanda 8). Complementa D-38 (que mide las cuentas ADC).
+- **Objetivo:** Con el equipo de pruebas sin sensores conectados (como en el hallazgo H4), la presión de cámara y de chaqueta nunca se muestra ni se usa como 0 kPa.
+- **Precondiciones:** Tarjeta conectada, transductores de presión desconectados. Sesión de técnico.
+- **Pasos:**
+  1. Arrancar el software y esperar unos segundos.
+  2. Revisar la presión de cámara y de chaqueta en el Menú principal, en Preciclo y en Opciones › Entradas/Salidas, en las dos pantallas.
+  3. Cambiar las unidades a psig y repetir el paso 2; volver a kPa.
+- **Resultado esperado:** En todos los lugares «—» (o «---»), nunca 0,0 ni un número; alarma de sensor de presión sin lectura con «llame a servicio».
+- **Criterio de aprobado/fallo:** Aprobado si en ninguna pantalla ni unidad aparece un valor numérico de presión sin transductor.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-E9-02 — Carga Líquido: el modo de descompresión no válido muestra su motivo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E9; H13 resuelto en D8-5.7 y D8-5.8 (tanda 8). Complementa G-04.
+- **Objetivo:** Con carga Líquido, el modo de descompresión se elige de una lista con los modos válidos y su descripción, y un modo no válido se rechaza mostrando por qué (no un error genérico).
+- **Precondiciones:** Sesión de técnico o ingeniero; sin ciclo en curso; programa Líquidos.
+- **Pasos:**
+  1. Opciones › Parámetros del ciclo › Líquidos › Descompresión › modo: abrir la lista.
+  2. Comprobar que cada modo trae su descripción y que solo se ofrecen 4, 5 y 0.
+  3. Si la pantalla permite intentar otro modo (por ejemplo, desde un programa sólido cambiando el tipo de carga), anotar el texto del rechazo.
+- **Resultado esperado:** Lista con descripción; un modo no válido con Líquido se rechaza con su motivo (riesgo de ebullición violenta), en el idioma vigente.
+- **Criterio de aprobado/fallo:** Aprobado si nunca aparece un rechazo sin motivo ni un modo distinto de 4, 5 o 0 con carga Líquido.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-E9-03 — Entradas/Salidas solo con los canales del perfil (equipo sin sensores)
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E9; H16 resuelto en D8-3.17 (tanda 8). Complementa D-39.
+- **Objetivo:** En el equipo de pruebas, Opciones › Entradas/Salidas muestra solo los canales que declara el perfil de instalación, aunque no haya sensores conectados.
+- **Precondiciones:** Equipo instalado con el perfil del equipo de pruebas (2 puertas simples, cámara 1 y 2, referencia y drenaje, solo aire comprimido, generador). Sesión de técnico.
+- **Pasos:**
+  1. Abrir Opciones › Entradas/Salidas y anotar las entradas analógicas, las digitales y las salidas.
+  2. Comparar con el perfil.
+- **Resultado esperado:** Entradas analógicas: `temp_camara`, `temp_2_camara`, `temp_referencia`, `temp_drenaje`, `pres_camara`, `pres_chaqueta`. Sin `temp_drenaje_camara`, `pres_empaque_1/2` ni `vapor_caldera`. Salidas con `descompresion_lenta` y `buzer_alarma`. (Lista obtenida en el ensayo B → D de E9 con ese perfil.)
+- **Criterio de aprobado/fallo:** Aprobado si no sobra ni falta ningún canal respecto al perfil.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
