@@ -30,6 +30,7 @@ _VE_USUARIOS = _GESTION_USUARIOS | {"tecnico"}
 # Parámetros del equipo, en solo lectura.
 _PARAMETROS_EQUIPO = _TECNICOS | {ROL_ADMIN}
 _TODOS = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})
+_SOLO_INGENIERO = frozenset({ROL_INGENIERO})
 # Secciones de solo lectura para todos: no muestran el aviso de edición bloqueada
 SECCIONES_LECTURA = frozenset({"fecha_hora", "info_sistema", "bitacora"})
 _SOLO_LECTURA_POR_ROL = {"parametros_sistema": frozenset({ROL_ADMIN})}
@@ -50,7 +51,9 @@ SECCIONES = (
     Seccion("parametros_sistema", "engranaje.svg",          _PARAMETROS_EQUIPO),
     Seccion("entradas_salidas",   "sensor_temperatura.svg", _TECNICOS),
     Seccion("mantenimiento",      "mantenimiento.svg",      _TECNICOS),
-    Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
+    # R8 (tanda 8, D8-5.12; planeacion_opciones.md v4 §3.5): solo el ingeniero.
+    # Antes técnico e ingeniero. DECISIÓN SIN CONFIRMAR
+    Seccion("opciones_avanzadas", "programas.svg",          _SOLO_INGENIERO),
     Seccion("usuarios",           "usuarios.svg",           _VE_USUARIOS),
     Seccion("conectividad",       "conectividad.svg",       _CONECTIVIDAD),
     # O2c–O2e (tanda 6): para todos los roles con sesión, solo lectura

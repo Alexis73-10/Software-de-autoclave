@@ -65,6 +65,8 @@ SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
 SEN_04, SEN_05, SEN_06, SEN_07 = "SEN-04", "SEN-05", "SEN-06", "SEN-07"
 # Revisión ★ de S1 (SAF-01): empaque sin lectura en ciclo (puertas con empaque)
 SEN_08 = "SEN-08"
+# R8 (tanda 8, D8-5.12): reasignación de E/S sin verificar por el ingeniero
+SEN_09 = "SEN-09"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
@@ -220,6 +222,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_07, _AV, True, _A, "Sensor de presión de chaqueta sin lectura",
        "Sensor de presión de chaqueta sin lectura: llame a servicio.",
        "Llame a servicio técnico para revisar el sensor de presión de chaqueta."),
+    # R8 (tanda 8; SAF-01/SAF-02 de su revisión): tras reasignar E/S, no se
+    # inicia ningún ciclo hasta que el ingeniero verifique cada función en su
+    # puerto nuevo (las analógicas, además, calibradas después de reasignar).
+    _d(SEN_09, _AV, True, _A, "Reasignación de entradas y salidas sin verificar",
+       "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
+       "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",

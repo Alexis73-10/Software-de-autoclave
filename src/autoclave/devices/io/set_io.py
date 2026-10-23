@@ -1,6 +1,8 @@
 # src/autoclave/devices/io/set_io.py
 from autoclave.devices.pump.pump import VacuumPump
 from autoclave.installation.profile import salidas_vapor_permitidas
+from autoclave.core.runtime.asignacion_io import canal_do
+from autoclave.core.runtime.status import EstadoAutoclave
 import autoclave.devices.buzer.buzer as buzer
 import logging
 import time
@@ -13,20 +15,32 @@ _INTERVALO_ALL_OFF_PARO_SEG = 1.0
 # Salidas que no cuentan como "encendidas" para repetir el ALL_OFF del paro:
 # el buzzer suena a propósito durante el paro.
 _SALIDAS_IGNORADAS_PARO = frozenset({"buzer_alarma"})
-# Canales físicos (1-indexados) de las salidas de fuente de vapor.
-_CANALES_VAPOR = {"vapor_generador": 1, "vapor_caldera": 2}
+# Salidas de fuente de vapor (su canal físico sale de la asignación de E/S).
+_SALIDAS_VAPOR = ("vapor_generador", "vapor_caldera")
+# Canales que el apagado individual (sin ACK del ALL_OFF) apaga siempre,
+# además de los de la asignación vigente (R8: una salida reasignada a DO 25-32).
+_CANALES_APAGADO_BASE = range(1, 25)
 
 
 class SetOutput:
+    """Órdenes de salida por nombre de función. El canal físico (1-indexado)
+    sale de EstadoAutoclave.map_do, que el backend fija una sola vez al
+    arrancar con la asignación vigente (R8, D8-5.12; core/runtime/asignacion_io)."""
+
     def __init__(self, io, estado, profile=None):
         self.io = io
         self.estado = estado
         self.vacump = VacuumPump(estado, profile=profile)
         self.buzer = buzer.BuzzerPlayer(self.buzer_on, self.buzer_off)
         self._ultimo_all_off_paro: float | None = None
+        # R8 (SAF-02 de la re-revisión): funciones que el control automático
+        # no puede encender (reasignadas sin verificar). El modo prueba usa
+        # set_output(canal) directo y sí puede, para poder verificarlas.
+        self._inhibidas: frozenset = frozenset()
+        self.canales_inhibidos: frozenset = frozenset()
         # E1b (D-23): canales de vapor de la fuente que el equipo no tiene.
         permitidas = salidas_vapor_permitidas(profile)
-        self._canales_bloqueados = {canal for nombre, canal in _CANALES_VAPOR.items()
+        self._canales_bloqueados = {canal_do(nombre) for nombre in _SALIDAS_VAPOR
                                     if nombre not in permitidas}
         if self._canales_bloqueados:
             # S1 (tanda 2): que quede constancia al arrancar (p. ej. generador
@@ -34,6 +48,24 @@ class SetOutput:
             logger.info("SetOutput: fuente de vapor '%s'; salidas deshabilitadas: %s",
                         getattr(profile, "vapor_source", None),
                         ", ".join(f"DO{c}" for c in sorted(self._canales_bloqueados)))
+
+    @property
+    def inhibidas(self) -> frozenset:
+        return self._inhibidas
+
+    @inhibidas.setter
+    def inhibidas(self, nombres) -> None:
+        # Las puertas mandan por canal (devices/puertas): se publica también
+        # el conjunto de canales (SAF-02, 3.ª vuelta de la revisión R8).
+        nombres = frozenset(nombres)
+        canales = set()
+        for nombre in nombres:
+            try:
+                canales.add(canal_do(nombre))
+            except Exception:
+                logger.exception("SetOutput: canal de %s", nombre)
+        self.canales_inhibidos = frozenset(canales)
+        self._inhibidas = nombres
 
     def salida_bloqueada(self, index) -> bool:
         """True si el canal es de una fuente de vapor que el equipo no tiene."""
@@ -47,157 +79,164 @@ class SetOutput:
                            "no tiene (vapor_source); se mantiene apagada", index)
             value = False
         self.io.set_output(index, value)
-        
+
+    def _salida(self, nombre: str, value: bool) -> None:
+        """Orden a la salida de la función `nombre` en su canal asignado."""
+        if value and nombre in self.inhibidas:
+            logger.warning("SetOutput: %s está reasignada sin verificar; se mantiene apagada", nombre)
+            value = False
+        self.set_output(canal_do(nombre), value)
+
     def vapor_generador_on(self):
-        self.set_output(1, True)
+        self._salida("vapor_generador", True)
         
     def vapor_generador_off(self):
-        self.set_output(1, False)
+        self._salida("vapor_generador", False)
         
     def vapor_caldera_on(self):
-        self.set_output(2, True)
+        self._salida("vapor_caldera", True)
         
     def vapor_caldera_off(self):
-        self.set_output(2, False)
+        self._salida("vapor_caldera", False)
         
     def vapor_chaqueta_on(self):
-        self.set_output(3, True)
+        self._salida("vapor_chaqueta", True)
         
     def vapor_chaqueta_off(self):
-        self.set_output(3, False)
+        self._salida("vapor_chaqueta", False)
         
     def vapor_camara_on(self):
-        self.set_output(4, True)
+        self._salida("vapor_camara", True)
         
     def vapor_camara_off(self):
-        self.set_output(4, False)
+        self._salida("vapor_camara", False)
         
     def descompresion_rapida_on(self):
-        self.set_output(5, True)
+        self._salida("descompresion_rapida", True)
         
     def descompresion_rapida_off(self):
-        self.set_output(5, False)
+        self._salida("descompresion_rapida", False)
         
     def descompresion_lenta_on(self):
-        self.set_output(6, True)
+        self._salida("descompresion_lenta", True)
         
     def descompresion_lenta_off(self):
-        self.set_output(6, False)
+        self._salida("descompresion_lenta", False)
         
     def descompresion_chaqueta_on(self):
-        self.set_output(7, True)
+        self._salida("descompresion_chaqueta", True)
         
     def descompresion_chaqueta_off(self):
-        self.set_output(7, False)
+        self._salida("descompresion_chaqueta", False)
         
     def vacio_camara_on(self):
         self.agua_intercambiador_on()
-        self.set_output(8, True)
+        self._salida("vacio_camara", True)
         
     def vacio_camara_off(self):
-        self.set_output(8, False)
+        self._salida("vacio_camara", False)
         self.agua_intercambiador_off()
         
     def desbloqueo_puerta_1_on(self):
-        self.set_output(9, True)
+        self._salida("desbloqueo_puerta_1", True)
         
     def desbloqueo_puerta_1_off(self):
-        self.set_output(9, False)
+        self._salida("desbloqueo_puerta_1", False)
         
     def desbloqueo_puerta_2_on(self):
-        self.set_output(10, True)
+        self._salida("desbloqueo_puerta_2", True)
         
     def desbloqueo_puerta_2_off(self):
-        self.set_output(10, False)
+        self._salida("desbloqueo_puerta_2", False)
         
     def bloqueo_puerta_1_on(self):
-        self.set_output(11, True)
+        self._salida("bloqueo_puerta_1", True)
         
     def bloqueo_puerta_1_off(self):
-        self.set_output(11, False)
+        self._salida("bloqueo_puerta_1", False)
         
     def bloqueo_puerta_2_on(self):
-        self.set_output(12, True)
+        self._salida("bloqueo_puerta_2", True)
         
     def bloqueo_puerta_2_off(self):
-        self.set_output(12, False)
+        self._salida("bloqueo_puerta_2", False)
         
     def aire_comprimido_chaqueta_on(self):
-        self.set_output(13, True)
+        self._salida("aire_comprimido_chaqueta", True)
         
     def aire_comprimido_chaqueta_off(self):
-        self.set_output(13, False)
+        self._salida("aire_comprimido_chaqueta", False)
         
     def aire_comprimido_camara_on(self):
-        self.set_output(14, True)
+        self._salida("aire_comprimido_camara", True)
         
     def aire_comprimido_camara_off(self):
-        self.set_output(14, False)
+        self._salida("aire_comprimido_camara", False)
         
     def aire_admosferico_camara_on(self):
-        self.set_output(15, True)
+        self._salida("aire_admosferico_camara", True)
         
     def aire_admosferico_camara_off(self):
-        self.set_output(15, False)
+        self._salida("aire_admosferico_camara", False)
         
     def agua_chaqueta_on(self):
-        self.set_output(16, True)
+        self._salida("agua_chaqueta", True)
         
     def agua_chaqueta_off(self):
-        self.set_output(16, False)
+        self._salida("agua_chaqueta", False)
         
     def agua_intercambiador_on(self):
-        self.set_output(17, True)
+        self._salida("agua_intercambiador", True)
         
     def agua_intercambiador_off(self):
-        self.set_output(17, False)
+        self._salida("agua_intercambiador", False)
         
     def agua_bomba_on(self):
-        self.set_output(18, True)
+        self._salida("agua_bomba", True)
         
     def agua_bomba_off(self):
-        self.set_output(18, False)
+        self._salida("agua_bomba", False)
         
     def bomba_vacio_on(self):
         if self.vacump.puede_activar():
             self.agua_bomba_on()
-            self.set_output(19, True)
+            self._salida("bomba_vacio", True)
             logger.info("Bomba de vacio enviada.")
             
             
     def bomba_vacio_off(self):
-        self.set_output(19, False)
+        self._salida("bomba_vacio", False)
         self.agua_bomba_off()
             
     def abrir_puerta_1_on(self):
-        self.set_output(20, True)
+        self._salida("abrir_puerta_1", True)
         
     def abrir_puerta_1_off(self):
-        self.set_output(20, False)
+        self._salida("abrir_puerta_1", False)
         
     def abrir_puerta_2_on(self):
-        self.set_output(21, True)
+        self._salida("abrir_puerta_2", True)
         
     def abrir_puerta_2_off(self):
-        self.set_output(21, False)
+        self._salida("abrir_puerta_2", False)
         
     def cerrar_puerta_1_on(self):
-        self.set_output(22, True)
+        self._salida("cerrar_puerta_1", True)
         
     def cerrar_puerta_1_off(self):
-        self.set_output(22, False)
+        self._salida("cerrar_puerta_1", False)
         
     def cerrar_puerta_2_on(self):
-        self.set_output(23, True)
+        self._salida("cerrar_puerta_2", True)
         
     def cerrar_puerta_2_off(self):
-        self.set_output(23, False)
+        self._salida("cerrar_puerta_2", False)
         
     def buzer_on(self):
-        self.set_output(24, True)
+        self._salida("buzer_alarma", True)
         
     def buzer_off(self):
-        self.set_output(24, False)
+        self._salida("buzer_alarma", False)
         
     def buzer_emergencia(self):
         self.buzer.play(buzer.BEEP_EMERGENCY)
@@ -213,7 +252,8 @@ class SetOutput:
         la del enlace)."""
         ok = self.io.all_off() if timeout is None else self.io.all_off(timeout=timeout)
         if not ok:
-            for channel in range(1, 25):
+            for channel in sorted(set(_CANALES_APAGADO_BASE)
+                                  | {i + 1 for i in EstadoAutoclave.map_do.values()}):
                 self.io.set_output(channel, False)
         return ok
 

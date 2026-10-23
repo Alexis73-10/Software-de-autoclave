@@ -49,6 +49,10 @@ class AlarmManager:
         # enlace con la tarjeta volvió a "ok" (3 tramas vigentes seguidas). Lo
         # conecta el BackendContext. None = sin la exigencia (dobles de prueba).
         self.enlace_ok = None
+        # R8 (tanda 8): condiciones que bloquean el inicio de ciclo aunque su
+        # alarma visible se haya resuelto (p. ej. por el reconocimiento de una
+        # FALLA): callables -> True si bloquean. Un error bloquea.
+        self.condiciones_bloqueo: list = []
 
     # ------------------------------------------------------------------
     # API nueva
@@ -232,8 +236,17 @@ class AlarmManager:
 
     def has_blocking_alarm(self) -> bool:
         with self._lock:
-            return any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
-                       for i in self._instancias.values())
+            if any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
+                   for i in self._instancias.values()):
+                return True
+        for condicion in list(self.condiciones_bloqueo):
+            try:
+                if condicion() is not False:
+                    return True
+            except Exception:
+                logger.exception("Condición de bloqueo de inicio")
+                return True
+        return False
 
     def has_active_alarms(self) -> bool:
         return self._activas_nuevas()

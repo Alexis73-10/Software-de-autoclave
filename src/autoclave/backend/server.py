@@ -1053,7 +1053,9 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                 raise HTTPException(status_code=409,
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
-                              "shown_high": shown_high, "real_high": real_high}}
+                              "shown_high": shown_high, "real_high": real_high},
+                   # R8: puerto físico calibrado (la calibración es por puerto)
+                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
         if nivel is not None:
             detalle["plausibilidad"] = {"nivel": nivel, "motivo": motivo,
                                         "confirmado": confirmado}
@@ -1090,6 +1092,9 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                       "No se pudo registrar el cambio: calibración no aplicada",
                       f"/calibration/{entidad}", sesion)
 
+        # R8 (revisión): evidencia de calibración EN ESTE ARRANQUE y en el
+        # puerto vigente; dentro del lock de archivos (TMG-01, 4.ª vuelta)
+        _reasignacion.evidencia_ai(tipo, sensor)
     return {"ok": True, "gain": new_gain, "offset": new_offset}
 
 
@@ -1124,6 +1129,10 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
             try:
                 filas = context.db.get_auditoria(evento="calibracion_cambio",
                                                  entidad=entidad, limite=1)
+                # R8 (SEN-02 de la re-revisión): tras reasignar, el último
+                # cambio puede ser del puerto viejo; no se copia al nuevo
+                if filas and not _reasignacion.ultimo_es_del_puerto_vigente(tipo, sensor, filas[0]):
+                    filas = []
                 previo_json = filas[0]["valor_anterior"] if filas else None
                 anterior = json.loads(previo_json) if isinstance(previo_json, str) else previo_json
                 nuevo_gain, nuevo_offset = float(anterior["gain"]), float(anterior["offset"])
@@ -1142,8 +1151,15 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
             if en_ciclo:
                 raise HTTPException(status_code=409,
                                     detail="Hay un ciclo en curso: calibración no aplicada")
-        detalle = {"accion": f"restaurar_{destino}"}
+        # R8 (3.ª vuelta, SEN): puerto físico también al restaurar
+        detalle = {"accion": f"restaurar_{destino}",
+                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
         detalle.update(contexto_ciclo)
+        # R8 (SEN 3.ª vuelta; TMG-01/SAF-01 4.ª vuelta): restaurar deja de
+        # contar como calibración del puerto nuevo; se anula ANTES de escribir
+        # y dentro del lock de archivos (si la auditoría falla y se revierte,
+        # solo obliga a recalibrar)
+        _reasignacion.anular_evidencia_ai(tipo, sensor)
         previo = Path(CALIBRATION_PATH).read_bytes()
         write_user_calibration(CALIBRATION_PATH, tipo, index, nuevo_gain, nuevo_offset,
                                0.0, 0.0, 0.0, 0.0, nota=f"restaurada ({destino})")
@@ -2440,6 +2456,10 @@ def post_backup_export(body: _ExportarBody,
     if body.perfil_calibracion:
         with _lock_archivos:                         # SAF-05 de O2h
             contenido["calibracion.yaml"] = Path(CALIBRATION_PATH).read_bytes()
+        # R8 (D8-5.12): la asignación de E/S vigente, si difiere de fábrica
+        asignacion = _reasignacion.contenido_respaldo()
+        if asignacion is not None:
+            contenido[_reasignacion.RUTA_EN_RESPALDO] = asignacion
     if body.parametros_programas:
         params = {p["clave"]: p["valor"] for p in context.config_manager.describir()}
         contenido["parametros.json"] = json.dumps(params, ensure_ascii=False).encode("utf-8")
@@ -2531,6 +2551,18 @@ def post_backup_restore(body: _RestaurarBody,
                                       "sensor": sensor, "detalle": motivo_c})
                     raise RechazoApi(422, "calibracion_implausible",
                                      f"Calibración no plausible en {sensor}: {motivo_c}")
+    # R8 (D8-5.12): la asignación de E/S se valida antes de escribir nada; solo
+    # el ingeniero la restaura y rige al reiniciar el control
+    asignacion_io = datos.get(_reasignacion.RUTA_EN_RESPALDO)
+    if asignacion_io is not None and sesion.rol == ROL_INGENIERO:
+        from autoclave.core.runtime import asignacion_io as _aio
+        try:
+            _reasignacion.validar_respaldo(asignacion_io)
+        except _aio.ErrorAsignacion as e:
+            _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                     detalle={"archivo": body.archivo, "motivo": "asignacion_io_invalida",
+                              "errores": e.errores})
+            raise RechazoApi(422, "asignacion_io_invalida", "Respaldo inválido")
     aplicado = {"calibracion": False, "parametros": [], "parametros_omitidos": [], "programas": []}
     with _lock_respaldo:
       try:
@@ -2540,6 +2572,9 @@ def post_backup_restore(body: _RestaurarBody,
                     en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
                 if en_ciclo:
                     _rechazar(409, "estado_no_permitido", "Hay un ciclo en curso", entidad, sesion)
+                # R8 (4.ª vuelta): la calibración del respaldo reemplaza la
+                # hecha en este arranque; deja de contar como evidencia
+                _reasignacion.anular_evidencias_ai()
                 escribir_texto_atomico(CALIBRATION_PATH, calib.decode("utf-8"))
                 context.units.reload_calibration(CALIBRATION_PATH)   # SAF-04: sin reiniciar
             aplicado["calibracion"] = True
@@ -2567,11 +2602,14 @@ def post_backup_restore(body: _RestaurarBody,
                     cm.revertir_bd(clave, anterior)
                     raise
             aplicado["parametros"].append(clave)
+        if asignacion_io is not None:
+            aplicado.update(_reasignacion.restaurar_respaldo(asignacion_io, sesion, entidad))
       finally:
         # SAF-03: se audita siempre lo que sí se aplicó, también si falla a medias
         _auditar("respaldo_restaurado", sesion, entidad=entidad,
                  detalle={"archivo": body.archivo, "creado_en": m.get("creado_en"), **aplicado})
-    return {"ok": True, **aplicado, "reinicio_requerido": False}
+    return {"ok": True, **aplicado,
+            "reinicio_requerido": aplicado.get("asignacion_io") is True}
 
 
 @app.get("/cycle/summary")
@@ -4336,6 +4374,9 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                          detalle={"puerta": getattr(puerta_atrapada, "name", None)})
             return {"ok": True, "name": name, "value": False, "invertida": True}
         context.setdo.set_output(index + 1, body.value)
+        if body.value:
+            # R8 (revisión): evidencia de la salida accionada EN ESTE ARRANQUE
+            _reasignacion.evidencia_do(clave)
         renovacion = False
         if body.value and body.momentanea:
             renovacion = _armar_momentanea(index + 1)
@@ -4407,3 +4448,15 @@ def io_test_force_exit(body: _SalidaForzadaBody,
     _auditar("modo_prueba_sale", sesion,
              detalle=_detalle_salida_prueba("salida forzada por ingeniero"))
     return {"ok": True, "dueno": dueno[0] if dueno else None}
+
+
+# ── R8 (tanda 8, D8-5.12): Opciones avanzadas = reasignación de E/S ───────────
+# Sus rutas viven en server_reasignacion.py; se registran aquí, con todo lo de
+# este módulo ya definido (las usa). Con import_module y no con `from
+# autoclave.backend import ...`: este último devuelve el atributo del paquete,
+# que tras recargar server.py (pruebas) seguiría siendo el módulo anterior.
+import importlib as _importlib  # noqa: E402
+
+_reasignacion = _importlib.import_module("autoclave.backend.server_reasignacion")
+
+_reasignacion.registrar(app)

@@ -28,6 +28,9 @@ EVENTOS = (
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "rechazo_401", "rechazo_403", "rechazo_409",
     "param_ciclo_cambio",
+    # R8 (tanda 8, D8-5.12): reasignación de E/S
+    "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
+    "reasignacion_io_verificada", "reinicio_control",
 )
 
 

@@ -97,6 +97,12 @@
 | B-11 | PREPARADO: el aire de cámara cierra a los 3 ticks reales | En seco (sin vapor) | Q1 R1-P2 (tanda 7) |
 | C-07 | DESPEJAR de COM-02/03 solo con el enlace de vuelta en ok | En seco (sin vapor) | Q1 T2-b (tanda 7); complementa C-06 |
 | D-37 | Calentamiento: rango de temperatura y de presión por separado | En seco (sin vapor) | Q1 R1-P3 (tanda 7) |
+| D-R8-01 | Reasignación de E/S: solo ingeniero, fuera de ciclo, conflictos rechazados | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-02 | Reasignar una salida: Vapor cámara de DO 04 a un puerto libre | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-03 | Reasignar el paro de emergencia: confirmación reforzada y cambio observado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-04 | Reasignar una entrada analógica: calibración obligatoria en el puerto nuevo | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-R8-05 | Restaurar fábrica, respaldo y archivo dañado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| E-R8-01 | Ciclo completo con Vapor cámara y Presión cámara reasignados | En operación (vapor) | R8 (tanda 8, D8-5.12) |
 | E-08 | Calentamiento con los rangos separados: sin cambio de comportamiento | En operación (vapor) | Q1 R1-P3 (tanda 7) |
 | F-08 | Sin datos de la tarjeta en esterilización: la exposición se alarga | En operación (vapor) | Q1 T2-a (tanda 7) |
 | F-09 | CARGA NO ESTÉRIL en todo ciclo que no termine COMPLETADO | En operación (vapor) | Q1 T2-c (tanda 7) |
@@ -1153,6 +1159,88 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### D-R8-01 — Reasignación de E/S: solo ingeniero, fuera de ciclo, conflictos rechazados
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Opciones avanzadas solo la ve el ingeniero; no se puede reasignar en ciclo ni con un conflicto o un puerto inexistente.
+- **Precondiciones:** Equipo en PREPARADO. Sesiones de técnico, administrador e ingeniero.
+- **Pasos:**
+  1. Con técnico y con administrador, abrir OPCIONES: no aparece Opciones avanzadas.
+  2. Con ingeniero, abrir Opciones avanzadas y revisar la tabla (función, puerto actual, puerto nuevo, tipo, crítica).
+  3. Elegir para Vapor cámara el puerto de otra función: la pantalla marca el conflicto y no deja aplicar.
+  4. Iniciar un ciclo y volver a Opciones avanzadas.
+- **Resultado esperado:** Tabla completa (también las funciones sin uso en este equipo, marcadas). Conflicto visible y Aplicar deshabilitado. En ciclo: aviso «No disponible con un ciclo en curso» y nada editable.
+- **Criterio de aprobado/fallo:** Aprobado si ningún rol distinto del ingeniero llega a la pantalla y ninguna reasignación se acepta en ciclo ni con conflicto.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-02 — Reasignar una salida: Vapor cámara de DO 04 a un puerto libre
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** La salida reasignada se acciona en su puerto nuevo y el equipo no inicia ciclos hasta que el ingeniero la verifica.
+- **Precondiciones:** Equipo en PREPARADO, cámara a presión atmosférica, válvula de vapor de cámara con alimentación de vapor CERRADA. Mover el cable de la válvula de DO 04 a un DO libre (p. ej. DO 25).
+- **Pasos:**
+  1. En Opciones avanzadas elegir el DO libre para Vapor cámara y Aplicar: alerta de criticidad, «Se reiniciará el control», contraseña.
+  2. Esperar el reinicio del control y volver a iniciar sesión.
+  3. Intentar iniciar un ciclo.
+  4. En Entradas / Salidas, modo prueba: encender Vapor cámara y comprobar que actúa la válvula correcta (y que DO 04 no hace nada).
+  5. En Opciones avanzadas, Verificar Vapor cámara (contraseña).
+  6. Revisar la bitácora.
+- **Resultado esperado:** Tras el reinicio: alarma SEN-09 y el ciclo no inicia. Antes de la prueba de salida el botón Verificar está deshabilitado con «Falta: encender esta salida en modo prueba». Tras verificar, SEN-09 desaparece y el ciclo puede iniciar. Bitácora: reasignacion_io (DO 04 → DO 25, usuario), reinicio_control, reasignacion_io_verificada (método ingeniero).
+- **Criterio de aprobado/fallo:** Aprobado si la válvula solo actúa por el puerto nuevo y no se pudo iniciar ningún ciclo antes de verificar.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-03 — Reasignar el paro de emergencia: confirmación reforzada y cambio observado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Mover una función de seguridad exige escribir su nombre, y solo se verifica si el control vio cambiar la entrada en su puerto nuevo.
+- **Precondiciones:** Equipo en PREPARADO. Mover el cable del paro de emergencia de DI 11 a un DI libre (p. ej. DI 15).
+- **Pasos:**
+  1. Reasignar Paro de emergencia al DI libre: escribir mal el nombre una vez, luego bien.
+  2. Tras el reinicio, intentar Verificar sin accionar el paro.
+  3. Pulsar y soltar el paro; Verificar (nombre y contraseña).
+  4. Pulsar el paro con el equipo en PREPARADO.
+- **Resultado esperado:** Con el nombre mal escrito se rechaza. Sin accionar el paro: «Falta: accionar la entrada». Tras pulsar y soltar, se verifica. Al pulsar el paro: SIS-01 (el paro se lee en su puerto nuevo).
+- **Criterio de aprobado/fallo:** Aprobado si el paro funciona en el puerto nuevo y no se pudo verificar sin accionarlo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-04 — Reasignar una entrada analógica: calibración obligatoria en el puerto nuevo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Una analógica reasignada usa la calibración del puerto nuevo: no se verifica sin calibrarla después de reasignar; un puerto sin calibración se rechaza.
+- **Precondiciones:** Equipo en PREPARADO, puerta abierta, patrón de presión. Mover el transmisor de presión de cámara de AI 09 a AI 13.
+- **Pasos:**
+  1. Intentar reasignar Presión cámara a AI 16.
+  2. Reasignar Presión cámara a AI 13 y reiniciar.
+  3. Intentar Verificar sin calibrar.
+  4. Calibrar Presión cámara en Entradas / Salidas contra el patrón y Verificar.
+- **Resultado esperado:** AI 16: rechazo «Ese puerto analógico no tiene calibración». AI 13 sin calibrar: «Falta: calibrar el sensor en su puerto nuevo». Tras calibrar, la lectura coincide con el patrón (± tolerancia de calibración) y se verifica.
+- **Criterio de aprobado/fallo:** Aprobado si nunca se pudo dejar la presión de cámara verificada sin calibrarla en el puerto nuevo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-R8-05 — Restaurar fábrica, respaldo y archivo dañado
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** La asignación vigente se guarda fuera del ejecutable, va en el respaldo y un archivo dañado bloquea el equipo hasta restaurar la de fábrica.
+- **Precondiciones:** Una reasignación aplicada (D-R8-02). Memoria USB.
+- **Pasos:**
+  1. Exportar un respaldo (con calibración) y comprobar que trae asignacion_io.json.
+  2. Restaurar asignación de fábrica (confirmación y contraseña) y volver a mover el cable a DO 04.
+  3. Con el control detenido, dañar a mano data/asignacion_io.json (texto cualquiera) y arrancar.
+  4. Restaurar asignación de fábrica desde la pantalla.
+- **Resultado esperado:** El respaldo incluye la asignación. Tras restaurar fábrica, todo vuelve a su puerto y queda pendiente de verificar lo que cambió. Con el archivo dañado: CONFIGURACION_INVALIDA, sin ciclo; la restauración de fábrica lo resuelve.
+- **Criterio de aprobado/fallo:** Aprobado si un archivo dañado nunca hace que el equipo use la de fábrica en silencio.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque E. Ciclos de sólidos (en operación)
 
 ### E-01 — Instrumental 134 completo
@@ -1253,6 +1341,20 @@
   2. Observar fase y salidas.
 - **Resultado esperado:** Se ejecuta el protocolo de fallo y pasa a ESTADO SEGURO; la puerta no abre hasta que la cámara sea segura.
 - **Criterio de aprobado/fallo:** Aprobado si la puerta nunca abre con la cámara no segura.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### E-R8-01 — Ciclo completo con Vapor cámara y Presión cámara reasignados
+
+- **Modo:** En operación (vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
+- **Objetivo:** Con funciones reasignadas y verificadas, el ciclo se comporta igual que con la asignación de fábrica.
+- **Precondiciones:** D-R8-02 y D-R8-04 aprobados y verificados (cables en los puertos nuevos).
+- **Pasos:**
+  1. Correr Instrumental 134 completo.
+  2. Comparar la gráfica y el ticket con un E-02 de fábrica.
+- **Resultado esperado:** Ciclo COMPLETADO; misma forma de la rampa y de la meseta; presión y temperatura coherentes con P_sat.
+- **Criterio de aprobado/fallo:** Aprobado si el ciclo termina COMPLETADO y los registros son equivalentes a los de fábrica.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

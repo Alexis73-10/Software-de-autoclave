@@ -21,7 +21,8 @@ _ESPERADO = {
     "admin":     ["parametros_sistema"] + _ADMIN,   # C1b (tanda 6): solo lectura
     # Conectividad también para técnico e ingeniero (tanda 2026-10-14 §1.6)
     # O2b (tanda 6, decisión 1.9): el técnico ve Usuarios con los controles deshabilitados
-    "tecnico":   _TECNICAS + _ADMIN + ["respaldo"],   # O2h
+    # R8 (tanda 8, D8-5.12): Opciones avanzadas, solo el ingeniero
+    "tecnico":   [s for s in _TECNICAS if s != "opciones_avanzadas"] + _ADMIN + ["respaldo"],
     "biomedico": [],      # rol eliminado (planeacion_backend_autenticacion.md, decisión 25)
     # Usuarios también para el ingeniero (Cristian, 2026-10-08; T-8, R3-5)
     "ingeniero": _TECNICAS + _ADMIN + ["respaldo"],   # O2h

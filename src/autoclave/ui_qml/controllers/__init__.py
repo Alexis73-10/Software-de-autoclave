@@ -27,3 +27,5 @@ from autoclave.ui_qml.controllers import calibracion_atm_controller  # noqa: F40
 from autoclave.ui_qml.controllers import conectividad_controller  # noqa: F401
 # OPCIONES > Respaldo (O2h, tanda 6).
 from autoclave.ui_qml.controllers import respaldo_controller  # noqa: F401
+# OPCIONES > Opciones avanzadas = reasignación de E/S (R8, tanda 8).
+from autoclave.ui_qml.controllers import reasignacion_controller  # noqa: F401

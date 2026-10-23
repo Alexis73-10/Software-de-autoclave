@@ -45,6 +45,7 @@ _EJEMPLOS = {
     "SEN-05": {"fase": "Calentamiento"},
     "SEN-06": {}, "SEN-07": {},
     "SEN-08": {"puerta": "Puerta 2", "fase": "Esterilización"},
+    "SEN-09": {"funciones": "Vapor cámara (DO 25)"},
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
     "CIC-11": {"segundos": 31.0, "maximo": 30},
