@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 from datetime import time as dt_time   # P1 (tanda 7): `time` es el módulo (time.sleep del vigilante)
 from typing import Literal
 
-from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
+from fastapi import Depends, HTTPException, FastAPI, Body, Header, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt
 
@@ -2660,6 +2660,38 @@ def get_report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: 
     `fecha` (por defecto hoy): totales por resultado, por programa y causas de
     fallo (services/domain/reportes/resumen_periodo.py). Solo lectura."""
     return _resumen_periodo(periodo, fecha)
+
+
+@app.get("/report/failures")
+def get_report_failures(causa: str = Query(min_length=1),
+                        periodo: Literal["dia", "semana", "mes"] = "dia",
+                        fecha: date | None = None,
+                        pagina: int = Query(1, ge=1),
+                        por_pagina: int = Query(20, ge=1, le=100)):
+    """D8-5.6: ciclos del periodo (por fecha de inicio, como /report/summary)
+    que cerraron con el fallo `causa` (una de sus causas_fallo), más recientes
+    primero y paginados; una página fuera de rango da la última. Cada ciclo con
+    la forma de /cycle/list, para abrir su detalle como desde el Historial.
+    Solo lectura."""
+    if fecha is None:
+        fecha = date.fromisoformat(_inicio_del_dia()[:10])
+    desde, hasta = _rango_del_periodo(periodo, fecha)
+    _, total = context.db.get_ciclos_con_resultado(desde, hasta, causa, 1, 0)
+    paginas = max(1, -(-total // por_pagina))
+    pagina = min(pagina, paginas)
+    filas, total = context.db.get_ciclos_con_resultado(
+        desde, hasta, causa, por_pagina, (pagina - 1) * por_pagina)
+    return {
+        "periodo":    periodo,
+        "desde":      desde[:10],
+        "hasta":      (date.fromisoformat(hasta[:10]) - timedelta(days=1)).isoformat(),
+        "causa":      causa,
+        "total":      total,
+        "pagina":     pagina,
+        "paginas":    paginas,
+        "por_pagina": por_pagina,
+        "ciclos":     [_ciclo_json(f) for f in filas],
+    }
 
 
 class _ImprimirResumenBody(BaseModel):

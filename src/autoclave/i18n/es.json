@@ -317,7 +317,8 @@
     "otro_correo": "Otro correo…",
     "titulo_otro_correo": "Correo de destino",
     "enviando": "Enviando…",
-    "imprimiendo": "Imprimiendo…"
+    "imprimiendo": "Imprimiendo…",
+    "col_operador": "Operador"
   },
   "modulos": {
     "iniciar_ciclo": "INICIAR CICLO",
@@ -604,7 +605,13 @@
     "causa": "Causa",
     "cantidad": "Cantidad",
     "sin_fallos": "Sin fallos en el periodo",
-    "sin_ciclos": "No hay ciclos en este periodo"
+    "sin_ciclos": "No hay ciclos en este periodo",
+    "ciclos_con_fallo": "Ciclos con el fallo {causa}: {n}",
+    "volver_resumen": "Volver al resumen",
+    "pagina": "Página {n} de {total}",
+    "pagina_anterior": "Anterior",
+    "pagina_siguiente": "Siguiente",
+    "sin_ciclos_fallo": "No hay ciclos con este fallo en el periodo"
   },
   "sistema": {
     "sin_conexion": "Sin conexión con la tarjeta de E/S. Los valores mostrados no están actualizados.",

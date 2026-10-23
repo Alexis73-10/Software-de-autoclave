@@ -317,7 +317,8 @@
     "otro_correo": "Other email…",
     "titulo_otro_correo": "Destination email",
     "enviando": "Sending…",
-    "imprimiendo": "Printing…"
+    "imprimiendo": "Printing…",
+    "col_operador": "Operator"
   },
   "modulos": {
     "iniciar_ciclo": "START CYCLE",
@@ -604,7 +605,13 @@
     "causa": "Cause",
     "cantidad": "Count",
     "sin_fallos": "No failures in the period",
-    "sin_ciclos": "No cycles in this period"
+    "sin_ciclos": "No cycles in this period",
+    "ciclos_con_fallo": "Cycles with the failure {causa}: {n}",
+    "volver_resumen": "Back to summary",
+    "pagina": "Page {n} of {total}",
+    "pagina_anterior": "Previous",
+    "pagina_siguiente": "Next",
+    "sin_ciclos_fallo": "No cycles with this failure in the period"
   },
   "sistema": {
     "sin_conexion": "No connection with the controller. The values shown are not up to date.",

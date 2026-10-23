@@ -77,6 +77,10 @@ _SCRIPT = textwrap.dedent(r"""
             return {**LISTA, "periodo": params["periodo"]}
         if ruta == "/report/summary":
             return {**RESUMEN_PERIODO, "periodo": params["periodo"]}
+        if ruta == "/report/failures":     # D8-5.6 (tanda 8)
+            return {"periodo": params["periodo"], "causa": params["causa"], "total": 1,
+                    "pagina": 1, "paginas": 1, "por_pagina": 20,
+                    "ciclos": [{**fila(90, "FALLO_SECADO"), "operador": "Ana Pérez"}]}
         if ruta.endswith("/ticket"):
             i = int(ruta.split("/")[3])
             return {"ciclo": {**fila(i, "COMPLETADO"), "nombre_ciclo": "Instrumental 134",
@@ -308,6 +312,29 @@ _SCRIPT = textwrap.dedent(r"""
         r["rep_selector"] = item(vr, "selectorDestinoReportes").property("visible")
         tocar(item(item(vr, "selectorDestinoReportes"), "destino_Mantenimiento"))
         r["rep_correos"] = list(correos)
+        # D8-5.6: tocar una causa de fallo despliega sus ciclos; tocar uno abre su detalle
+        tocar(item(vr, "causa_FALLO_SECADO"))
+        listado = item(vr, "listadoFallo")
+        lista_f = item(vr, "listaFallo")
+        r["fal_pedido"] = [p for p in pedidos if p == "/report/failures"][-1:]
+        r["fal_vista"] = [listado.isVisible(), vr.findChild(QObject, "resumenPeriodo").isVisible(),
+                          item(vr, "botonImprimirResumen").isVisible(),
+                          item(vr, "paginacionFallo").isVisible()]
+        r["fal_titulo"] = item(vr, "tituloFallo").property("text")
+        r["fal_textos"] = list(textos(lista_f))
+        graficas_antes = len([p for p in pedidos if p.startswith("/cycle/history/")])
+        vista_f = lista_f.findChild(QObject, "vistaListaCiclos")
+        tocar(vista_f, QPointF(vista_f.width() / 2, lista_f.property("altoFila") * 0.5))
+        r["fal_ciclo"] = [vr.property("titulo"), listado.isVisible(),
+                          vr.findChild(QObject, "detalleCicloFallo").isVisible()]
+        r["fal_grafica"] = [p for p in pedidos if p.startswith("/cycle/history/")][graficas_antes:]
+        tocar(item(vr, "botonImprimirCicloFallo"))
+        r["fal_impreso"] = list(impresos[-1])
+        tocar(item(vr, "botonVolverFallo"))
+        r["fal_volvio"] = [listado.isVisible(), vr.property("titulo")]
+        tocar(item(vr, "botonVolverResumen"))
+        r["fal_resumen"] = [listado.isVisible(), vr.findChild(QObject, "resumenPeriodo").isVisible(),
+                            reporte.property("causaFallo")]
         # pestaña Consolidado: mismo periodo, solo correo
         tocar(item(vr, "pestana_consolidado"))
         r["con_visible"] = [vr.findChild(QObject, "consolidado").isVisible(),
@@ -585,6 +612,19 @@ def test_reportes_sin_conexion(rfalla):
     assert rfalla["rep_abierta"] is True
     assert rfalla["rep_aviso_falla"] == "Sin conexión con el equipo"
     assert rfalla["rep_botones_falla"] == [False, False]
+
+
+def test_reportes_ciclos_de_un_fallo(r):
+    # D8-5.6 (tanda 8): causa -> listado (operador en vez de resultado) -> detalle con imprimir
+    assert r["fal_pedido"] == ["/report/failures"]
+    assert r["fal_vista"] == [True, False, False, False]          # una sola página: sin paginación
+    assert r["fal_titulo"] == "Ciclos con el fallo FALLO_SECADO: 1"
+    assert "Operador" in r["fal_textos"] and "Ana Pérez" in r["fal_textos"] and "90" in r["fal_textos"]
+    assert r["fal_ciclo"] == ["CICLO 90", False, True]
+    assert r["fal_grafica"] == ["/cycle/history/90/graph"]
+    assert r["fal_impreso"] == ["/cycle/history/print", {"ids": [90]}]
+    assert r["fal_volvio"] == [True, "REPORTES"]
+    assert r["fal_resumen"] == [False, True, ""]
 
 
 def test_reportes_consolidado(r):
