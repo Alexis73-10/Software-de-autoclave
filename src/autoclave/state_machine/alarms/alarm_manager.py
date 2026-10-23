@@ -218,12 +218,6 @@ class AlarmManager:
     def has_emergency(self) -> bool:
         return self._activas_nuevas(Nivel.FALLO_CRITICO)
 
-    def has_failure(self) -> bool:
-        return self._activas_nuevas(Nivel.ALARMA)
-
-    def has_alert(self) -> bool:
-        return self._activas_nuevas(Nivel.AVISO)
-
     def has_blocking_alarm(self) -> bool:
         with self._lock:
             return any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
