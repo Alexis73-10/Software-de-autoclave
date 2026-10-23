@@ -11,14 +11,19 @@
 # - apertura y desbloqueo de puertas: NO se encienden mientras el estado
 #   seguro esté activo, haya una recuperación de arranque pendiente o la
 #   cámara no sea segura (o no haya dato para saberlo);
-# - descompresión rápida, descompresión de chaqueta y vapor de cámara: NO se
-#   encienden mientras el estado seguro esté activo o haya una recuperación
-#   de arranque pendiente.
+# - descompresión rápida, descompresión de chaqueta, vapor de cámara y
+#   (revisión ★ pasada 2, P-a) aire comprimido de cámara y vapor de
+#   generador o caldera: NO se encienden mientras el estado seguro esté
+#   activo o haya una recuperación de arranque pendiente.
 # La descompresión lenta (el venteo seguro) y el bloqueo de puerta (cerrar el
 # cerrojo) no se tocan. Pura: no toca salidas.
 
 SALIDAS_PUERTA = ("abrir_puerta_1", "abrir_puerta_2", "desbloqueo_puerta_1", "desbloqueo_puerta_2")
-SALIDAS_VAPOR = ("descompresion_rapida", "descompresion_chaqueta", "vapor_camara")
+SALIDAS_VAPOR = ("descompresion_rapida", "descompresion_chaqueta", "vapor_camara",
+                 # revisión ★ pasada 2, P-a (DECISIÓN SIN CONFIRMAR): pueden
+                 # presurizar o calentar la cámara; vapor_chaqueta no entra a
+                 # la cámara y sigue permitida (PREGUNTA PARA CRISTIAN)
+                 "aire_comprimido_camara", "vapor_generador", "vapor_caldera")
 
 # Códigos de rechazo (catálogo: io.err_*, vía sesion_backend)
 CAMARA_NO_SEGURA = "salida_prueba_camara_no_segura"

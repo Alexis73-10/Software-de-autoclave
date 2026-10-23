@@ -4372,14 +4372,17 @@ def _puerta_con_atrapamiento(canal_cerrar: int, encender: bool):
 def _salidas_prueba_bloqueadas() -> dict:
     """S9, revisión ★ SAF-01: {salida: código} que el modo prueba no puede
     encender ahora (ControlLoop.salidas_prueba_bloqueadas). Falla cerrada:
-    un error al evaluar bloquea todas; una respuesta que no es dict (dobles
-    de prueba) no bloquea nada."""
+    un error al evaluar o una respuesta que no es dict bloquean todas
+    (revisión ★ pasada 2 R2-B1)."""
     try:
         bloqueadas = context.control_loop.salidas_prueba_bloqueadas()
     except Exception:
         logger.exception("Modo prueba: no se pudo evaluar las salidas bloqueadas")
         return salidas_prueba_seguridad.todas()
-    return bloqueadas if isinstance(bloqueadas, dict) else {}
+    if not isinstance(bloqueadas, dict):
+        logger.error("Modo prueba: evaluación de salidas bloqueadas inválida; se bloquean todas")
+        return salidas_prueba_seguridad.todas()
+    return bloqueadas
 
 
 @app.patch("/io/test/output/{name}")
