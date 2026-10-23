@@ -414,6 +414,7 @@ def _pendiente(ctx, funciones, cambios):
     ctx.asignacion_pendiente = list(funciones)
     ctx.asignacion_modificada_en = "2000-01-01T00:00:00"
     ctx.asignacion_di_cambio = set()
+    ctx.asignacion_evidencia = {}
 
 
 def _verificar(cliente, cab, funcion, **extra):
@@ -429,7 +430,11 @@ def test_verificar_salida_exige_accionarla_en_modo_prueba_despues_de_reasignar(a
     g = cliente.get("/io/assignment", headers=cab()).json()
     assert g["pendientes"] == ["vapor_camara"]
     assert g["verificacion"]["funciones"]["vapor_camara"]["falta"] == "sin_prueba_de_salida"
+    # una prueba registrada en la bitácora (p. ej. de antes del reinicio) no cuenta
     ctx.db.registrar_auditoria("salida_prueba", usuario="ines", entidad="vapor_camara", valor_nuevo=True)
+    assert _verificar(cliente, cab(), "vapor_camara").status_code == 409
+    from autoclave.backend import server_reasignacion as sr
+    sr.evidencia_do("vapor_camara")          # gancho de /io/test/output en este arranque
     r = _verificar(cliente, cab(), "vapor_camara")
     assert r.status_code == 200, r.text
     assert ctx.asignacion_pendiente == [] and r.json()["pendientes"] == []
@@ -440,12 +445,48 @@ def test_verificar_salida_exige_accionarla_en_modo_prueba_despues_de_reasignar(a
     ctx.alarma_asignacion_sin_verificar.assert_called()
 
 
-def test_prueba_de_salida_anterior_a_la_reasignacion_no_vale(api):
+def test_evidencia_de_una_funcion_no_pendiente_no_se_guarda(api):
+    from autoclave.backend import server_reasignacion as sr
     cliente, _srv, ctx, cab, _p = api
     _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
-    ctx.db.registrar_auditoria("salida_prueba", usuario="ines", entidad="vapor_camara", valor_nuevo=True)
-    ctx.asignacion_modificada_en = "2999-01-01T00:00:00"
-    assert _verificar(cliente, cab(), "vapor_camara").status_code == 409
+    sr.evidencia_do("bomba_vacio")
+    sr.evidencia_ai("pressure", "pres_camara")
+    assert ctx.asignacion_evidencia == {}
+    sr.evidencia_do("vapor_camara")
+    assert ctx.asignacion_evidencia == {"vapor_camara": 25}
+
+
+def test_verificar_rechazado_con_una_asignacion_guardada_que_aun_no_rige(api):
+    """TMG-10/SAF-03 de la re-revisión: verificar no puede quitar la marca de
+    lo que regirá en el próximo arranque."""
+    from autoclave.backend import server_reasignacion as sr
+    cliente, _srv, ctx, cab, _p = api
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    sr.evidencia_do("vapor_camara")
+    ctx.archivo_asignacion.guardar({"vapor_camara": 26}, "ines", ["vapor_camara"])
+    r = _verificar(cliente, cab(), "vapor_camara")
+    assert r.status_code == 409 and r.json()["codigo"] == "reinicio_pendiente"
+    assert aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()["verificacion_pendiente"] == ["vapor_camara"]
+
+
+def test_ganchos_en_server():
+    """El modo prueba y el PATCH de calibración registran la evidencia; restaurar
+    «último» se filtra por puerto."""
+    texto = (Path(__file__).resolve().parents[1] / "src/autoclave/backend/server.py").read_text(encoding="utf-8")
+    assert "_reasignacion.evidencia_do(clave)" in texto
+    assert "_reasignacion.evidencia_ai(tipo, sensor)" in texto
+    assert "_reasignacion.ultimo_es_del_puerto_vigente(tipo, sensor, filas[0])" in texto
+
+
+def test_ultimo_registro_de_calibracion_por_puerto(api):
+    from autoclave.backend import server_reasignacion as sr
+    _cliente, _srv, ctx, _cab, _p = api
+    assert sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {"puerto": 9}})
+    assert sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": None})
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13}))
+    assert not sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {"puerto": 9}})
+    assert not sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {}})
+    assert sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {"puerto": 13}})
 
 
 def test_verificar_entrada_de_seguridad_exige_nombre_y_cambio_observado(api):
@@ -471,13 +512,17 @@ def test_verificar_analogica_exige_lectura_y_calibracion_posterior(api):
     r = _verificar(cliente, cab(), "pres_camara")
     assert r.status_code == 409 and r.json()["codigo"] == "calibracion_requerida"
     ctx.db.registrar_auditoria("calibracion_cambio", usuario="ines", entidad="pressure/pres_camara")
+    assert _verificar(cliente, cab(), "pres_camara").status_code == 409   # de otro arranque
+    from autoclave.backend import server_reasignacion as sr
+    sr.evidencia_ai("pressure", "pres_camara")
     assert _verificar(cliente, cab(), "pres_camara").status_code == 200
 
 
 def test_verificar_rechazos(api):
     cliente, _srv, ctx, cab, _p = api
+    from autoclave.backend import server_reasignacion as sr
     _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
-    ctx.db.registrar_auditoria("salida_prueba", usuario="ines", entidad="vapor_camara", valor_nuevo=True)
+    sr.evidencia_do("vapor_camara")
     assert _verificar(cliente, cab(), "bomba_vacio").json()["codigo"] == "no_pendiente"
     assert _verificar(cliente, cab("tecnico", "tomas"), "vapor_camara").status_code == 403
     r = cliente.post("/io/assignment/verify", json={"funcion": "vapor_camara", "clave": "mala"},

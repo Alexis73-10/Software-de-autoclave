@@ -1042,7 +1042,9 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                 raise HTTPException(status_code=409,
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
-                              "shown_high": shown_high, "real_high": real_high}}
+                              "shown_high": shown_high, "real_high": real_high},
+                   # R8: puerto físico calibrado (la calibración es por puerto)
+                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
         if nivel is not None:
             detalle["plausibilidad"] = {"nivel": nivel, "motivo": motivo,
                                         "confirmado": confirmado}
@@ -1079,6 +1081,8 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                       "No se pudo registrar el cambio: calibración no aplicada",
                       f"/calibration/{entidad}", sesion)
 
+    # R8 (revisión): evidencia de calibración EN ESTE ARRANQUE y en el puerto vigente
+    _reasignacion.evidencia_ai(tipo, sensor)
     return {"ok": True, "gain": new_gain, "offset": new_offset}
 
 
@@ -1113,6 +1117,10 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
             try:
                 filas = context.db.get_auditoria(evento="calibracion_cambio",
                                                  entidad=entidad, limite=1)
+                # R8 (SEN-02 de la re-revisión): tras reasignar, el último
+                # cambio puede ser del puerto viejo; no se copia al nuevo
+                if filas and not _reasignacion.ultimo_es_del_puerto_vigente(tipo, sensor, filas[0]):
+                    filas = []
                 previo_json = filas[0]["valor_anterior"] if filas else None
                 anterior = json.loads(previo_json) if isinstance(previo_json, str) else previo_json
                 nuevo_gain, nuevo_offset = float(anterior["gain"]), float(anterior["offset"])
@@ -4179,6 +4187,9 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                          detalle={"puerta": getattr(puerta_atrapada, "name", None)})
             return {"ok": True, "name": name, "value": False, "invertida": True}
         context.setdo.set_output(index + 1, body.value)
+        if body.value:
+            # R8 (revisión): evidencia de la salida accionada EN ESTE ARRANQUE
+            _reasignacion.evidencia_do(clave)
         renovacion = False
         if body.value and body.momentanea:
             renovacion = _armar_momentanea(index + 1)

@@ -178,3 +178,17 @@ def test_sin_pendientes_no_verifica(tmp_path):
     ctx.iniciar_verificacion_asignacion()
     assert getattr(ctx, "_hilo_verificacion_io", None) is None
     assert ctx.verificacion_asignacion["estado"] == "sin_cambios"
+
+
+def test_inhibe_salidas_pendientes_y_las_de_energia_con_una_analogica_pendiente(tmp_path):
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, ["vapor_camara"])
+    ctx.setdo = MagicMock()
+    ctx.inhibir_salidas_sin_verificar()
+    assert ctx.setdo.inhibidas == frozenset({"vapor_camara"})
+    ctx.asignacion_pendiente = ["vapor_camara", "pres_camara"]
+    ctx.inhibir_salidas_sin_verificar()
+    assert {"vapor_camara", "vapor_chaqueta", "aire_comprimido_camara"} <= ctx.setdo.inhibidas
+    assert "descompresion_lenta" not in ctx.setdo.inhibidas
+    ctx.asignacion_pendiente = []
+    ctx.inhibir_salidas_sin_verificar()
+    assert ctx.setdo.inhibidas == frozenset()

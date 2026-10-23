@@ -200,9 +200,40 @@ class BackendContext:
                                             "funciones": {f: "pendiente" for f in self.asignacion_pendiente}}
             self.alarma_asignacion_sin_verificar()
 
+    # Salidas que aportan energía (vapor, aire comprimido): inhibidas mientras
+    # haya una analógica reasignada sin verificar (SAF-02 de la re-revisión R8)
+    _SALIDAS_ENERGIA = ("vapor_generador", "vapor_caldera", "vapor_chaqueta", "vapor_camara",
+                        "aire_comprimido_chaqueta", "aire_comprimido_camara")
+
+    def inhibir_salidas_sin_verificar(self) -> None:
+        """SAF-02 (re-revisión R8): fuera de ciclo los lazos de PREPARACION y
+        PREPARADO accionan salidas solos. Mientras queden funciones sin
+        verificar, el control automático no enciende las salidas reasignadas
+        sin verificar ni, si hay una analógica sin verificar, las que aportan
+        energía a cámara o chaqueta. El venteo no se inhibe. El modo prueba
+        sí puede encenderlas (para verificarlas)."""
+        from autoclave.core.runtime import asignacion_io as aio
+        setdo = getattr(self, "setdo", None)
+        if setdo is None:
+            return
+        pendientes = list(getattr(self, "asignacion_pendiente", []) or [])
+        inhibidas = {aio.nombre_estado(aio.base(f)) for f in pendientes
+                     if aio.funciones().get(f) == "DO"}
+        if any(aio.funciones().get(f) == "AI" for f in pendientes):
+            inhibidas |= set(self._SALIDAS_ENERGIA)
+        setdo.inhibidas = frozenset(inhibidas)
+        if inhibidas:
+            logger.warning("Reasignación de E/S sin verificar: control automático sin %s",
+                           ", ".join(sorted(inhibidas)))
+
     def alarma_asignacion_sin_verificar(self) -> None:
         """Activa (o despeja, si ya no queda ninguna) SEN-04 con las funciones
-        reasignadas sin verificar."""
+        reasignadas sin verificar. Bajo un lock propio y leyendo los
+        pendientes dentro de él (TMG-12 de la re-revisión R8)."""
+        with self.__dict__.setdefault("_lock_alarma_asignacion", threading.Lock()):
+            self._alarma_asignacion_sin_verificar()
+
+    def _alarma_asignacion_sin_verificar(self) -> None:
         from autoclave.core.runtime import asignacion_io as aio
         pendientes = list(getattr(self, "asignacion_pendiente", []) or [])
         if not pendientes:
@@ -267,6 +298,10 @@ class BackendContext:
                     logger.exception("Vigilancia de la reasignación de E/S")
                 vuelta += 1
                 time.sleep(cada_s)
+            try:
+                self.alarma_asignacion_sin_verificar()     # la despeja (TMG-12)
+            except Exception:
+                logger.exception("Vigilancia de la reasignación de E/S")
         self._hilo_alarma_asignacion = threading.Thread(
             target=vigilar, name="VigilanciaReasignacionIO", daemon=True)
         self._hilo_alarma_asignacion.start()
@@ -407,6 +442,7 @@ class BackendContext:
         para no perder un paro que llegue en el primer tick."""
         self.serial = build_serial(self.units, al_conectar=self._al_conectar_tarjeta)
         self.setdo = SetOutput(self.serial, self.estado, profile=self.profile)
+        self.inhibir_salidas_sin_verificar()     # R8: SAF-02 de la re-revisión
 
         self.doors = [
             create_door(

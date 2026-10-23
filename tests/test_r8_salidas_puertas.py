@@ -102,3 +102,17 @@ def test_puertas_con_fabrica_igual_que_antes():
     p1, p2 = build_doors_cfg(perfil)
     assert p1["do"] == {"abrir": 20, "cerrar": 22, "desbloquear": 9, "bloquear": 11}
     assert p2["do"] == {"abrir": 21, "cerrar": 23, "desbloquear": 10, "bloquear": 12}
+
+
+def test_funcion_inhibida_no_la_enciende_el_control_pero_si_el_modo_prueba():
+    """SAF-02 de la re-revisión R8: una salida reasignada sin verificar no la
+    enciende el control automático; el modo prueba (set_output directo) sí."""
+    io = MagicMock()
+    s = SetOutput(io, estado=MagicMock())
+    s.inhibidas = frozenset({"vapor_camara"})
+    s.vapor_camara_on()
+    s.descompresion_lenta_on()
+    assert _canales(io) == [(4, False), (aio.canal_do("descompresion_lenta"), True)]
+    io.reset_mock()
+    s.set_output(4, True)
+    assert _canales(io) == [(4, True)]

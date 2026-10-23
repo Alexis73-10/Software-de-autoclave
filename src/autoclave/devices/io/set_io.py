@@ -33,6 +33,10 @@ class SetOutput:
         self.vacump = VacuumPump(estado, profile=profile)
         self.buzer = buzer.BuzzerPlayer(self.buzer_on, self.buzer_off)
         self._ultimo_all_off_paro: float | None = None
+        # R8 (SAF-02 de la re-revisión): funciones que el control automático
+        # no puede encender (reasignadas sin verificar). El modo prueba usa
+        # set_output(canal) directo y sí puede, para poder verificarlas.
+        self.inhibidas: frozenset = frozenset()
         # E1b (D-23): canales de vapor de la fuente que el equipo no tiene.
         permitidas = salidas_vapor_permitidas(profile)
         self._canales_bloqueados = {canal_do(nombre) for nombre in _SALIDAS_VAPOR
@@ -59,6 +63,9 @@ class SetOutput:
 
     def _salida(self, nombre: str, value: bool) -> None:
         """Orden a la salida de la función `nombre` en su canal asignado."""
+        if value and nombre in self.inhibidas:
+            logger.warning("SetOutput: %s está reasignada sin verificar; se mantiene apagada", nombre)
+            value = False
         self.set_output(canal_do(nombre), value)
 
     def vapor_generador_on(self):

@@ -41,7 +41,6 @@ import json
 import logging
 import threading
 import unicodedata
-from datetime import datetime
 
 from fastapi import Depends
 from pydantic import BaseModel, StrictBool, StrictInt
@@ -329,61 +328,80 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
                         for f, d in sorted(diferencias.items())]}
 
 
-def _modificada_en():
-    texto = str(getattr(_ctx(), "asignacion_modificada_en", "") or "")
-    try:
-        return datetime.fromisoformat(texto)
-    except ValueError:
-        return None
-
-
-def _hubo_evento_despues(evento: str, entidades, condicion=None) -> bool:
-    """True si audit_log tiene `evento` sobre alguna de `entidades` con fecha
-    posterior a la reasignación vigente. Sin base o sin fecha: False (falla
-    cerrada: no se da por verificada)."""
-    desde = _modificada_en()
-    if desde is None:
-        return False
-    for entidad in dict.fromkeys(entidades):
+def _evidencias() -> dict:
+    """{clave de función: puerto} probadas EN ESTE ARRANQUE (en memoria, no en
+    la bitácora: SAF-01/TMG-11 de la re-revisión; una prueba hecha antes de
+    que la asignación entrara en vigor no cuenta, y no depende del reloj)."""
+    ctx = _ctx()
+    ev = getattr(ctx, "asignacion_evidencia", None)
+    if not isinstance(ev, dict):
+        ev = {}
         try:
-            filas = _ctx().db.get_auditoria(evento=evento, entidad=entidad, limite=50)
+            ctx.asignacion_evidencia = ev
         except Exception:
-            logger.exception("No se pudo leer audit_log para verificar la reasignación")
-            return False
-        for fila in filas if isinstance(filas, list) else []:
-            try:
-                ts = datetime.fromisoformat(str(fila.get("ts")))
-            except ValueError:
-                continue
-            if ts > desde and (condicion is None or condicion(fila)):
-                return True
-    return False
+            pass
+    return ev
 
 
-def _encendida(fila) -> bool:
-    v = fila.get("valor_nuevo")
-    return v is True or v == 1 or str(v).strip().lower() in ("1", "true")
+def _registrar_evidencia(clave: str, tipo: str) -> None:
+    pendientes = getattr(_ctx(), "asignacion_pendiente", None) or []
+    if clave not in pendientes:
+        return
+    puerto = (aio.en_memoria().get(tipo) or {}).get(aio.base(clave))
+    if puerto:
+        _evidencias()[clave] = puerto
+
+
+def evidencia_do(nombre_estado: str) -> None:
+    """Gancho de /io/test/output: la salida se encendió en modo prueba."""
+    try:
+        _registrar_evidencia(aio.clave("DO", aio.canonico(nombre_estado)), "DO")
+    except Exception:
+        logger.exception("Evidencia de la salida %s", nombre_estado)
+
+
+def evidencia_ai(grupo: str, sensor_estado: str) -> None:
+    """Gancho de PATCH /calibration: el sensor se calibró (dos puntos)."""
+    try:
+        _registrar_evidencia(aio.clave("AI", aio.canonico(sensor_estado)), "AI")
+    except Exception:
+        logger.exception("Evidencia de la calibración de %s", sensor_estado)
+
+
+def ultimo_es_del_puerto_vigente(grupo: str, sensor_estado: str, fila: dict) -> bool:
+    """Para restaurar «último»: True si ese registro de calibración es del
+    puerto que la función usa hoy. Un registro sin puerto (anterior a R8)
+    solo vale si la función sigue en su puerto de fábrica."""
+    try:
+        nombre = aio.canonico(sensor_estado)
+        actual = aio.en_memoria()["AI"].get(nombre)
+        detalle = fila.get("detalle") if isinstance(fila, dict) else None
+        puerto = detalle.get("puerto") if isinstance(detalle, dict) else None
+        if puerto is not None:
+            return puerto == actual
+        return actual == _fabrica()["AI"].get(nombre)
+    except Exception:
+        logger.exception("Último registro de calibración de %s", sensor_estado)
+        return False
 
 
 def _evidencia_que_falta(funcion: str, tipo: str) -> str:
     """"" si hay prueba de que la función responde en su puerto nuevo; si no,
     el código de lo que falta (SAF-01/SAF-02 de la revisión R8)."""
     nombre = aio.base(funcion)
-    estado = aio.nombre_estado(nombre)
+    puerto = (aio.en_memoria().get(tipo) or {}).get(nombre)
     if tipo == "DI":
         cambios = getattr(_ctx(), "asignacion_di_cambio", None) or set()
         return "" if funcion in cambios else "sin_cambio_observado"
     if tipo == "DO":
-        ok = _hubo_evento_despues("salida_prueba", (nombre, estado), _encendida)
-        return "" if ok else "sin_prueba_de_salida"
+        return "" if puerto and _evidencias().get(funcion) == puerto else "sin_prueba_de_salida"
     try:
         datos = _ctx().units.get_all() if getattr(_ctx(), "units", None) is not None else {}
     except Exception:
         datos = {}
     if not aio.responde(funcion, aio.en_memoria(), datos if isinstance(datos, dict) else {}):
         return "sin_lectura"
-    grupo = "temperature" if aio.es_temperatura(nombre) else "pressure"
-    if not _hubo_evento_despues("calibracion_cambio", (f"{grupo}/{estado}",)):
+    if not puerto or _evidencias().get(funcion) != puerto:
         return "calibracion_requerida"
     return ""
 
@@ -499,6 +517,14 @@ def registrar(app) -> None:
                                  extra={"funcion": funcion, "tipo": tipo})
         _reautenticar(body.clave, sesion, ENTIDAD_VERIFICAR)
         with _lock_escritura:
+            # TMG-10/SAF-03 de la re-revisión: con una asignación guardada que
+            # aún no rige (reinicio pendiente o en curso), verificar quitaría la
+            # marca de lo que rige en el próximo arranque
+            guardada, error = _guardada()
+            if reinicio.solicitado() or error or guardada != aio.en_memoria():
+                srv._rechazar(409, "reinicio_pendiente",
+                              "Hay una asignación guardada que aún no rige: reinicie el control",
+                              ENTIDAD_VERIFICAR, sesion)
             try:
                 quedan = _archivo().quitar_pendiente([funcion])
             except (OSError, aio.ErrorAsignacion):
@@ -519,6 +545,7 @@ def registrar(app) -> None:
                      detalle={"resultado": "verificada", "tipo": tipo, "metodo": "ingeniero"})
         try:
             ctx.alarma_asignacion_sin_verificar()
+            ctx.inhibir_salidas_sin_verificar()
         except Exception:
             logger.exception("No se pudo actualizar la alarma de la reasignación de E/S")
         return {"ok": True, "pendientes": ctx.asignacion_pendiente}
