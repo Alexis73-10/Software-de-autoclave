@@ -193,6 +193,9 @@ from tests.alarmas_helpers import codigos_activados, codigos_resueltos  # noqa: 
 @pytest.mark.parametrize("valor", [None, float("nan"), 0])
 def test_sensor_del_ciclo_sin_lectura_alerta_sin_bloquear(clase, sensor, valor):
     obj, am, set_do = _make(clase, None, **{sensor: valor})
+    # S11 (D11-3): SEN-03 solo vigila los sensores en uso; el programa usa los tres
+    obj.cycle.sensores = {"temp_camara": "principal", "temp_2_camara": "referencia",
+                          "temp_ref": "referencia"}
     assert obj.verificar_sensores() is True          # no bloquea el paso a listo
     assert "SEN-03" in codigos_activados(am)
     assert "SEN-01" not in codigos_activados(am)

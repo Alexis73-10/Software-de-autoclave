@@ -214,6 +214,56 @@ def vigilar_fuera_de_ciclo(alarm_manager, profile, sensor: str, valor) -> None:
         alarm_manager.resolver(SEN_03, origen=legible)
 
 
+# ── S11 (tanda 11, D11-3): SEN-03 solo para los sensores en uso ─────────────
+
+def sensores_vigilados_fuera_de_ciclo(programas) -> set:
+    """Sensores del ciclo que SEN-03 vigila en PREPARACION/PREPARADO: unión
+    de Principal + Referencias de `programas` (programas_seguridad(): el
+    seleccionado y las copias que aún cuentan para la seguridad). Sin
+    programas, la regla del Principal sin programa (asignación de fábrica).
+    Con una asignación inválida se vigila de más: los sensores marcados
+    principal/referencia en ella más el de fábrica (falla segura; ese
+    programa no puede iniciar, verificar_inicio lo bloquea)."""
+    lista = [p for p in (programas or []) if p is not None] or [None]
+    vigilados = set()
+    for p in lista:
+        vigilados.update(sensores_en_uso(p))
+        asignacion = asignacion_de(p)
+        if errores_asignacion(asignacion):
+            vigilados.add(SENSOR_POR_OMISION)
+            if isinstance(asignacion, dict):
+                vigilados.update(s for s, rol in asignacion.items()
+                                 if s in SENSORES and rol in (PRINCIPAL, REFERENCIA))
+    return vigilados
+
+
+def programas_para_sen03(programas_seguridad, cycle):
+    """Programas cuyos sensores en uso vigila SEN-03. Sin proveedor, el
+    programa del estado. None si el proveedor falla: el llamador vigila los
+    tres sensores (comportamiento anterior a S11, falla segura)."""
+    if programas_seguridad is None:
+        return [cycle]
+    try:
+        return list(programas_seguridad() or [])
+    except Exception:
+        logger.exception("SEN-03: no se pudieron obtener los programas; se vigilan todos")
+        return None
+
+
+def vigilar_en_uso_fuera_de_ciclo(alarm_manager, profile, estado, programas) -> None:
+    """D11-3: vigila (vigilar_fuera_de_ciclo) los sensores en uso de
+    `programas`; los demás no se vigilan y su SEN-03, si estaba activa, se
+    resuelve. `programas=None` vigila los tres (falla segura)."""
+    from autoclave.state_machine.alarms.catalogo import SEN_03, nombre_legible
+    vigilados = set(SENSORES) if programas is None else sensores_vigilados_fuera_de_ciclo(programas)
+    for sensor in SENSORES:
+        if sensor in vigilados:
+            vigilar_fuera_de_ciclo(alarm_manager, profile, sensor,
+                                   estado.sensores_temp.get(sensor))
+        else:
+            alarm_manager.resolver(SEN_03, origen=nombre_legible(sensor))
+
+
 def canonica(asignacion: dict) -> str:
     """JSON canónico (claves ordenadas) para auditoría y registro del ciclo."""
     return json.dumps(asignacion, sort_keys=True, ensure_ascii=False)
