@@ -116,6 +116,54 @@ pantalla sola, sin backend ni iconos, así que algunas subpantallas de Opciones 
 vacías (p. ej. Parámetros del ciclo muestra solo su lista); sirven para revisar textos, no el
 aspecto final. Faltan capturas con datos reales (pendiente).
 
+## Unión con tanda-8 (segunda parte, 23-oct-2026)
+
+Por orden de la sesión principal: `git merge --no-ff tanda-8` (punta 359d6ef, con S1, S2a,
+S2b, N8, E2, M8, U8, V8a, L8, R8, E1, D8 y D8-3.18) en `tanda-8-v8b` → commit 5a0de11. Sin
+rebase, push ni otras ramas.
+
+Conflictos y cómo se resolvieron:
+- `es.json` / `en.json`: unión de claves sin reformatear (el archivo tiene formato mixto, así
+  que se resolvió por bloques de texto, no volcando el JSON). Se verificó hoja por hoja contra
+  una unión de tres vías (base / V8b / tanda-8): todas las claves coinciden con lo esperado.
+  Única clave cambiada en los dos lados: `parametros_desc.globals.tipo_carga` → se conserva el
+  contenido de tanda-8 (D8-5.7: paso automático a modo 4, modos 4, 5 y 0) con las citas «…»
+  pasadas a los nombres visibles de V8b. Las secciones nuevas de ambos lados (`parametros`,
+  `estado_seguro_motivos` de V8b; `modos_programa`, `reasignacion` de tanda-8) quedan juntas.
+- `calentamiento.py`: se conserva la lógica de S2b (TMG-02, motivo distinto si vence en el
+  sostenimiento con la ventana alargada); sus dos textos dicen "Tiempo límite" en vez de
+  "Timeout". Solo textos.
+- `revision_traducciones.md`: se conservan las filas de ambos lados.
+- El resto (QML y Python) se unió sin conflicto.
+
+Repaso de los textos nuevos con las pruebas genéricas (commit siguiente a la unión):
+- R8, `OpcionesReasignacion.qml`: tres `elide` quitados (celdas de la tabla y texto del botón
+  de puerto: dos líneas; encabezado de columna: letra que se reduce). "DI"/"DO"/"AI" se
+  agregan a los literales permitidos (código de tipo de puerto que se compara con el backend).
+- S2: motivo nuevo de CIC-10 "Sensor Principal sin lectura con carga líquida: cámara sellada…"
+  → clave nueva `estado_seguro_motivos.sonda_liquido_sellada` (es/en) y su prefijo en
+  `alarmas_i18n._MOTIVOS_BLOQUEO`, para que se muestre traducido. Fila nueva en
+  `revision_traducciones.md` (requiere revisión explícita).
+- E1, V8a, M8, N8, S1, el resto de S2 y la sección `reasignacion`: pasan las pruebas de
+  abreviaturas, idiomas, elide, literales y paridad es/en sin cambios.
+
+Pruebas tras la unión (un proceso por archivo, `PYTHONPATH` del worktree): 75 archivos —
+`test_v8b_*`, `test_i18n*`, `test_r8_*`, `test_v8a_*`, `test_t8_e1_*`, truncado I4, Opciones,
+menú, alarmas, protocolo de fallo, calentamiento, descompresión, `test_s1*`, `test_s2*`,
+`test_m8*`, `test_n8*` y los que citan `OpcionesReasignacion`, `SeccionEstadoSeguro` o
+`alarmas_i18n` — **1615 passed, 0 failed** (`docs/informes/tanda8/suites/v8b_union.log`).
+Suite completa: no corrida.
+
+Pendientes y decisiones de la unión:
+- DECISIÓN SIN CONFIRMAR: "interlock" en `reasignacion.reforzada_texto` (es) se deja, porque
+  es el término de D8-5.12; si Cristian prefiere "enclavamiento", es un cambio de una línea.
+- El ticket impreso (`services/domain/logging/ticket_formatter.py`) mantiene su tabla propia
+  con abreviaturas ("Temp. Ester.", "Ciclo No.", "Temp. final") por el ancho de 32 columnas
+  de la impresora térmica; no es catálogo ni pantalla y no se tocó. PREGUNTA PARA CRISTIAN:
+  ¿D8-5.4 aplica también al ticket?
+- No se regeneraron las capturas tras la unión (la pantalla de reasignación no está en el
+  banco de I4).
+
 ## DECISIONES SIN CONFIRMAR
 
 1. Excepciones a D8-5.5 en `es.json`: "software", "firmware", "hardware" (sin equivalente de
