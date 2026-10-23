@@ -6,11 +6,11 @@ Precondición A0: `tanda10/estado.md` tiene `| Z | Hecha |` y `dev` contiene `ta
 
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
-| A0 | Hecha | (este commit) | Línea base en `_suites_t11/base` (c607dc4) con `-n auto`, en curso (`suites/base.log`). |
-| R11 | Pendiente | | |
-| E11 | Pendiente | | |
-| S11 | Pendiente | | |
-| U11 | Pendiente | | |
+| A0 | Hecha | 1b3ec0d | Línea base en `_suites_t11/base` (c607dc4) con `-n auto`, en curso (`suites/base.log`). |
+| R11 | En curso (subagente) | `tanda-11-r11` | |
+| E11 | En curso (subagente) | `tanda-11-e11` | |
+| S11 | En curso (subagente) | `tanda-11-s11` | |
+| U11 | En curso (subagente) | `tanda-11-u11` | |
 | N11 | Pendiente | | |
 | O11 | Pendiente | | |
 | K11 | Pendiente | | |
@@ -19,4 +19,5 @@ Precondición A0: `tanda10/estado.md` tiene `| Z | Hecha |` y `dev` contiene `ta
 Instrucciones comunes de los subagentes: `tanda11/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-11-<id>`; NO relanzarlos desde cero, revisar su rama y su informe y CONTINUAR.
 
 ## Sesión 01 (16:58)
-- A0: rama creada, línea base lanzada.
+- A0: rama creada (1b3ec0d), línea base lanzada.
+- Lanzados R11, E11, S11 y U11 (4 subagentes, cada uno en su worktree). En cola: N11 y O11 (en ese orden, al liberarse un cupo). La sesión principal NO termina el turno con subagentes activos.
