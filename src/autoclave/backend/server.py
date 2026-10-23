@@ -650,12 +650,17 @@ def _usuario_dto(f: dict) -> dict:
                                   "cuenta_sistema", "creado_por", "creado_en", "ultimo_ingreso")}
 
 
-def _rechazar_cuenta_sistema(fila: dict, accion: str, entidad: str, sesion: Sesion):
+def _rechazar_cuenta_sistema(fila: dict, accion: str, entidad: str, sesion: Sesion,
+                             campos: list[str] | None = None):
     """U11 (D11-6.2/6.3): las cuentas del sistema (marca `cuenta_sistema` en la
     BD, no el texto del usuario) no se desactivan, borran, cambian de rol ni
-    renombran. 409 y el intento queda en la bitácora."""
+    renombran. 409 y el intento queda en la bitácora (con los campos pedidos
+    si vino de PATCH, SAF-04)."""
+    detalle = {"accion": accion}
+    if campos:
+        detalle["campos"] = campos
     _auditar("cuenta_sistema_rechazada", sesion, entidad=fila.get("usuario") or "",
-             detalle={"accion": accion})
+             detalle=detalle)
     _rechazar(409, "cuenta_sistema",
               "Cuenta del sistema: no se puede desactivar, borrar, cambiar de rol ni renombrar",
               entidad, sesion)
@@ -785,10 +790,13 @@ def borrar_usuario(usuario: str, sesion: Sesion = Depends(requiere_rol(*_GESTION
 def modificar_usuario(usuario: str, body: _ModificarUsuarioBody,
                       sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
     entidad = f"/usuarios/{usuario}"
+    campos = sorted(k for k, v in body.model_dump().items() if v is not None)
+    if not campos:                                     # SAF-04: cuerpo vacío
+        _rechazar_validacion({"cuerpo": COD_OBLIGATORIO})
     fila = _objetivo_existente(usuario)
     if fila.get("cuenta_sistema"):
         accion = "cambiar_rol" if body.rol is not None else "renombrar"
-        _rechazar_cuenta_sistema(fila, accion, entidad, sesion)
+        _rechazar_cuenta_sistema(fila, accion, entidad, sesion, campos=campos)
     _rechazar(409, "modificacion_no_disponible",
               "El nombre, el usuario y el rol no se modifican", entidad, sesion)
 
