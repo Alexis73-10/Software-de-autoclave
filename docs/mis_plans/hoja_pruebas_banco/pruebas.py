@@ -556,10 +556,30 @@ PRUEBAS = [
          pasos=["Como técnico: la sección se ve con todo deshabilitado y el motivo.",
                 "Como admin: desactivar un técnico; su sesión abierta se cierra. Reactivarlo.",
                 "Restablecer su clave: al ingresar pide cambiarla.",
-                "Intentar desactivarse a sí mismo y desactivar al único ingeniero (rechazos).",
+                "Intentar desactivarse a sí mismo (rechazo). (Desde U11 la cuenta `Ingeniero` no se desactiva, así que "
+                "en banco nunca queda un único ingeniero que desactivar; esa regla la cubre la prueba automática.)",
                 "Agregar un operador, desactivarlo y reactivarlo; verificar la lista de operadores al iniciar ciclo."],
          esperado="Cada acción queda en bitácora (`usuario_desactivado`, `clave_restablecida`, `operador_creado`…); el admin no toca a un ingeniero.",
          criterio="Aprobado si ningún rechazo falta y no hay forma de borrar."),
+    dict(id="D-26b", bloque="D", modo="seco", origen="U11 (tanda 11, D11-6)",
+         titulo="Cuentas del sistema Admin e Ingeniero",
+         objetivo="Las cuentas `Admin` e `Ingeniero` entran sin distinguir mayúsculas, no se pueden desactivar "
+                  "y, al actualizar, `admin`/`ingeniero` pasan a `Admin`/`Ingeniero` con su contraseña.",
+         pre="Equipo actualizado desde la compilación F (BD con `admin` e `ingeniero`) y, aparte, una instalación limpia. "
+             "Sesión de ingeniero.",
+         pasos=["Instalación limpia: ingresar como `Ingeniero` / `ingeniero1234` y como `Admin` / `admin1234` "
+                "(los dos piden cambiar la contraseña).",
+                "Ingresar escribiendo el usuario en minúsculas (`admin`) y en mayúsculas (`ADMIN`): entra a la misma cuenta `Admin`.",
+                "Equipo actualizado: ingresar con la contraseña que tenía `admin` antes de actualizar; la lista de "
+                "OPCIONES › Usuarios muestra `Admin` e `Ingeniero` y la bitácora tiene dos filas «Cuenta renombrada».",
+                "OPCIONES › Usuarios: seleccionar `Admin` y luego `Ingeniero`: «Desactivar» deshabilitado con el aviso "
+                "de cuenta del sistema; «Restablecer contraseña» habilitado.",
+                "Restablecer la contraseña de `Admin` desde el ingeniero: al ingresar pide cambiarla.",
+                "Nuevo usuario con el nombre `ADMIN` o `ingeniero`: se rechaza (ya existe)."],
+         esperado="Las dos cuentas entran con cualquier capitalización del usuario; no se pueden desactivar desde la "
+                  "pantalla; su contraseña se cambia y restablece; al actualizar conservan la contraseña.",
+         criterio="Aprobado si ninguna de las dos cuentas se puede desactivar, el ingreso no depende de las "
+                  "mayúsculas del usuario y la actualización no pide contraseñas nuevas."),
     dict(id="D-27", bloque="D", modo="seco", origen="O2c (tanda 6)",
          titulo="OPCIONES › Fecha y hora en solo lectura",
          objetivo="La pantalla muestra la hora del PC y avisa si el reloj es anterior a la instalación.",
@@ -870,7 +890,7 @@ PRUEBAS = [
     dict(id="B-13", bloque="B", modo="seco", origen="B9 D9-9 (tanda 9); HAZ-B9-01",
          titulo="Paro de emergencia: con el buzzer sonando no se enciende ninguna otra salida",
          objetivo="Con el paro pulsado solo conmuta el buzzer (DO24); ninguna salida que estuviera activa al pulsar el paro se enciende, ni un instante, cuando el buzzer reinicia su patrón. Fuera del paro, el buzzer no altera las demás salidas.",
-         pre="Anotar el tipo de puerta del perfil (Información del sistema o `installation_profile.json`: simple o avanzada) y la versión de firmware (debe ser 1.0.0). PREPARACION o PREPARADO. Mirar los LED de la tarjeta de salidas (o un multímetro en las bornas). Lista de salidas a observar: DO3 vapor de chaqueta, DO4 vapor de cámara, DO5 descompresión rápida, DO6 descompresión lenta, DO7 descompresión de chaqueta, DO8 vacío de cámara, DO9/DO10 desbloqueo de puerta 1/2, DO11/DO12 bloqueo de puerta 1/2, DO13/DO14 aire comprimido de chaqueta/cámara, DO15 aire atmosférico de cámara, DO16 agua de chaqueta, DO17 agua del intercambiador, DO18 agua de la bomba, DO19 bomba de vacío, DO20/DO21 abrir puerta 1/2, DO22/DO23 cerrar puerta 1/2, y DO24 buzzer (canal según la asignación de E/S vigente).",
+         pre="Anotar el tipo de puerta del perfil (Información del sistema o `installation_profile.json`: simple o avanzada) y la versión de firmware (debe ser 1.0.0). PREPARACION o PREPARADO. Mirar los LED de la tarjeta de salidas (o un multímetro en las bornas). Lista de salidas a observar: DO3 vapor de chaqueta, DO4 vapor de cámara, DO5 descompresión rápida, DO6 descompresión lenta, DO7 descompresión de chaqueta, DO8 vacío de cámara, DO9/DO10 desbloqueo de puerta 1/2, DO11/DO12 bloqueo de puerta 1/2, DO13 libre (sin función desde la tanda 11; debe seguir siempre apagada), DO14 aire comprimido de cámara, DO15 aire atmosférico de cámara, DO16 agua de chaqueta, DO17 agua del intercambiador, DO18 agua de la bomba, DO19 bomba de vacío, DO20/DO21 abrir puerta 1/2, DO22/DO23 cerrar puerta 1/2, y DO24 buzzer (canal según la asignación de E/S vigente).",
          pasos=["Con el modo prueba (técnico), encender 3 o 4 salidas seguras de la lista (p. ej. DO6, DO15, DO17) y salir del modo prueba; o dejar que el estado encienda las suyas (con el perfil de puertas avanzadas, la puerta cerrada mantiene DO22 y, con empaque bajo, DO11). Anotar cuáles quedan encendidas.",
                 "Pulsar el paro y mantenerlo 30 s. Observar cada salida de la lista durante al menos 5 repeticiones del patrón del buzzer.",
                 "En el log del backend (`logs/`), buscar \"paro de emergencia detectado; ALL_OFF inmediato\" y, si aparecen, las líneas \"DOn no se enciende con el paro de emergencia activo\" (indican qué función intentó encender y fue bloqueada).",

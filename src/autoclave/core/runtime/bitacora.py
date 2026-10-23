@@ -26,6 +26,8 @@ EVENTOS = (
     "falla_reconocida", "ciclo_interrumpido", "apagar_equipo",
     "modo_prueba_entra", "modo_prueba_sale", "modo_prueba_salida_forzada", "salida_prueba",
     "atrapamiento_orden_invertida", "ROLES_SENSOR",
+    # O11 (tanda 11, D11-7.3): entradas quitadas al pasar un sensor a "No en uso"
+    "entradas_mostradas",
     "calibracion_atm_ok", "calibracion_atm_abortada", "calibracion_atm_rechazada",
     "correo_configurado", "correo_enviado",
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
@@ -37,8 +39,12 @@ EVENTOS = (
     # R8 (tanda 8, D8-5.12): reasignación de E/S
     "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
     "reasignacion_io_verificada", "reinicio_control",
+    # R11 (tanda 11, D11-1): reinicio del software (p. ej. al cambiar la impresora)
+    "software_reiniciado",
     # C9 (tanda 9, D9-10): Manejo de ciclos
     "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
+    # U11 (tanda 11, D11-6): cuentas del sistema Admin e Ingeniero
+    "usuario_renombrado", "cuenta_sistema_rechazada",
 )
 
 

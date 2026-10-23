@@ -219,4 +219,4 @@ def test_bloqueo_con_cuenta_regresiva(salida):
 def test_semilla_admin_pide_cambio_de_clave(salida):
     a = salida["admin"]
     assert a["senales"] == [["cambio"]]
-    assert a["sesion"] == "admin"
+    assert a["sesion"] == "Admin"   # U11: se escribe "admin", la cuenta es Admin

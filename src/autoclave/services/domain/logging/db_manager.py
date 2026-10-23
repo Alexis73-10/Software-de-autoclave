@@ -23,6 +23,7 @@ import logging
 import threading
 from datetime import datetime
 from pathlib import Path
+from autoclave.core.runtime.nombre_usuario import normalizar_usuario
 from autoclave.utils.paths import app_root
 
 logger = logging.getLogger(__name__)
@@ -135,14 +136,21 @@ CREATE INDEX IF NOT EXISTS idx_alarmas_aparecida ON alarmas_historial(aparecida)
 # debe_cambiar_clave. El hash PBKDF2 va precalculado con una sal fija: la
 # contraseña semilla es pública y se cambia en el primer login, así que la sal
 # fija no expone nada y evita 600 000 iteraciones en cada base nueva.
+# U11 (tanda 11, D11-6): se llaman `Admin` e `Ingeniero` (usuario y nombre) y
+# nacen con la marca `cuenta_sistema`. Las contraseñas iniciales no cambian.
 _USUARIOS_SEMILLA = (
-    ("Administrador", "admin", "admin",          # contraseña: admin1234
+    ("Admin", "Admin", "admin",                  # contraseña: admin1234
      "pbkdf2$600000$244c45ae5ee701d94ead2bfad6339db3$"
      "5abbc82ab1c70a268623cc8f2c774a1733f3851d9a30f9a3fcd835f3afc5a190"),
-    ("Ingeniero", "ingeniero", "ingeniero",      # contraseña: ingeniero1234
+    ("Ingeniero", "Ingeniero", "ingeniero",      # contraseña: ingeniero1234
      "pbkdf2$600000$dd26db607bc796ade9d097563e47d0e1$"
      "f8fa605e93fc5e4e035c60d0e07b23a96ca6390830855f36c14cb03a2d609019"),
 )
+
+# U11: usuario de la semilla anterior a la tanda 11 -> (usuario, nombre) nuevos
+# y el rol que debe tener la fila para reconocerla como semilla (SAF-03).
+_RENOMBRES_SEMILLA = (("admin", "Admin", "Admin", "admin"),
+                      ("ingeniero", "Ingeniero", "Ingeniero", "ingeniero"))
 
 
 # ── Migraciones numeradas (PRAGMA user_version) ─────────────────────────────
@@ -307,6 +315,87 @@ def _migracion_v10(conn: sqlite3.Connection) -> None:
         conn.execute("ALTER TABLE ciclos ADD COLUMN avisos_ticket TEXT DEFAULT ''")
 
 
+def _marcar_cuentas_sistema(conn: sqlite3.Connection) -> None:
+    """U11 (D11-6.5): `admin`->`Admin` e `ingeniero`->`Ingeniero` solo en las
+    filas semilla (creado_por='semilla'), con la marca `cuenta_sistema`.
+    Conserva id, contraseña, debe_cambiar_clave, activo y rol; no toca la
+    auditoría ni los ciclos (quedan con el nombre anterior) y agrega una fila
+    `usuario_renombrado` por cuenta renombrada. Idempotente: una fila ya
+    renombrada y marcada no cambia. Si otro usuario choca sin distinguir
+    mayúsculas con el nombre nuevo, la semilla no se renombra (queda en el log
+    para decisión de Cristian) pero sí se marca: la protección va por la marca,
+    no por el texto. SAF-03: la fila debe tener además el rol de la semilla
+    (`admin` / `ingeniero`); si no lo tiene, no se renombra ni se marca y queda
+    en el log (pregunta para Cristian).
+    Nota: una futura migración que renombre una cuenta ya marcada tendrá que
+    soltar y volver a crear el trigger usuarios_cuenta_sistema_protegida."""
+    filas = [dict(f) for f in conn.execute(
+        "SELECT id, usuario, nombre, rol, creado_por, cuenta_sistema FROM usuarios")]
+    for viejo, nuevo, nombre_nuevo, rol in _RENOMBRES_SEMILLA:
+        semillas = [f for f in filas if f["creado_por"] == "semilla"
+                    and normalizar_usuario(f["usuario"]) == normalizar_usuario(viejo)]
+        if len(semillas) != 1:
+            if semillas:
+                logger.error("Migración v11: %d filas semilla para '%s' (%s); no se tocan",
+                             len(semillas), viejo, [f["usuario"] for f in semillas])
+            continue
+        semilla = semillas[0]
+        if semilla["rol"] != rol:
+            logger.warning("Migración v11: la fila semilla '%s' tiene el rol '%s' (se esperaba "
+                           "'%s'); no se renombra ni se marca (pregunta para Cristian)",
+                           semilla["usuario"], semilla["rol"], rol)
+            continue
+        choques = [f["usuario"] for f in filas
+                   if f["id"] != semilla["id"]
+                   and normalizar_usuario(f["usuario"]) == normalizar_usuario(nuevo)]
+        if choques:
+            logger.warning("Migración v11: la cuenta semilla '%s' no se renombra a '%s' porque "
+                           "choca sin distinguir mayúsculas con %s (pregunta para Cristian)",
+                           semilla["usuario"], nuevo, choques)
+        elif (semilla["usuario"], semilla["nombre"]) != (nuevo, nombre_nuevo):
+            conn.execute("UPDATE usuarios SET usuario=?, nombre=? WHERE id=?",
+                         (nuevo, nombre_nuevo, semilla["id"]))
+            conn.execute(_SQL_AUDITORIA, _fila_auditoria(
+                "usuario_renombrado", usuario="sistema", entidad=nuevo,
+                valor_anterior={"usuario": semilla["usuario"], "nombre": semilla["nombre"]},
+                valor_nuevo={"usuario": nuevo, "nombre": nombre_nuevo},
+                detalle={"origen": "migracion_v11"}))
+            logger.info("Migración v11: '%s' renombrada a '%s'", semilla["usuario"], nuevo)
+        if not semilla["cuenta_sistema"]:
+            conn.execute("UPDATE usuarios SET cuenta_sistema=1 WHERE id=?", (semilla["id"],))
+
+
+def _migracion_v11(conn: sqlite3.Connection) -> None:
+    """U11 (tanda 11, D11-6): cuentas del sistema. Columna `cuenta_sistema`
+    (marca persistente), renombre de las semillas y triggers que protegen las
+    filas marcadas: no cambian de id, usuario, nombre, rol ni creado_por, no se
+    desactivan y la marca no se pone ni se quita después (borrar ya lo prohíbe
+    la v9; INSERT/UPDATE OR REPLACE también, porque DbManager activa
+    `recursive_triggers` en su conexión, SAF-02). Sí se cambian la contraseña
+    y debe_cambiar_clave. Los triggers se crean después del renombre."""
+    columnas = {f[1] for f in conn.execute("PRAGMA table_info(usuarios)")}
+    if "cuenta_sistema" not in columnas:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN cuenta_sistema INTEGER NOT NULL DEFAULT 0")
+    _marcar_cuentas_sistema(conn)
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS usuarios_cuenta_sistema_protegida "
+        "BEFORE UPDATE ON usuarios WHEN OLD.cuenta_sistema = 1 AND ("
+        " NEW.id IS NOT OLD.id OR NEW.creado_por IS NOT OLD.creado_por"
+        " OR NEW.usuario IS NOT OLD.usuario OR NEW.nombre IS NOT OLD.nombre"
+        " OR NEW.rol IS NOT OLD.rol OR (OLD.activo = 1 AND NEW.activo IS NOT 1)) "
+        "BEGIN SELECT RAISE(ABORT, 'cuenta del sistema protegida'); END")
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS usuarios_marca_sistema_inmutable "
+        "BEFORE UPDATE OF cuenta_sistema ON usuarios "
+        "WHEN NEW.cuenta_sistema IS NOT OLD.cuenta_sistema "
+        "BEGIN SELECT RAISE(ABORT, 'la marca de cuenta del sistema no cambia'); END")
+    conn.execute(
+        "CREATE TRIGGER IF NOT EXISTS usuarios_marca_sistema_solo_semilla "
+        "BEFORE INSERT ON usuarios "
+        "WHEN NEW.cuenta_sistema IS NOT 0 AND NEW.creado_por IS NOT 'semilla' "
+        "BEGIN SELECT RAISE(ABORT, 'solo las semillas son cuentas del sistema'); END")
+
+
 def _valores_fallo_json(valores) -> str:
     """'' sin parámetros; JSON (sin NaN) si los hay. Nunca lanza."""
     if not isinstance(valores, dict) or not valores:
@@ -328,6 +417,7 @@ _MIGRACIONES = (
     (8, _migracion_v8),
     (9, _migracion_v9),
     (10, _migracion_v10),
+    (11, _migracion_v11),
 )
 
 ESQUEMA_VERSION = _MIGRACIONES[-1][0]
@@ -417,6 +507,10 @@ class DbManager:
             timeout=10.0,              # espera un bloqueo de otro proceso (TMG-03 de T3)
         )
         self._conn.row_factory = sqlite3.Row
+        # SAF-02 (U11): con recursive_triggers, el borrado implícito de
+        # INSERT/UPDATE OR REPLACE dispara los triggers DELETE (usuarios_sin_delete,
+        # audit_log_sin_delete, ...); sin él, REPLACE borraría una fila protegida
+        self._conn.execute("PRAGMA recursive_triggers = ON")
         try:
             self._verificar_integridad()
             self._apply_schema()
@@ -1247,9 +1341,15 @@ class DbManager:
         creado_por: str = "",
         codigo_creacion: str = "",
     ) -> int:
-        """Inserta un usuario. Deja propagar sqlite3.IntegrityError si
-        `usuario` ya existe (UNIQUE, incluidos inactivos)."""
+        """Inserta un usuario. Lanza sqlite3.IntegrityError si `usuario` ya
+        existe sin distinguir mayúsculas (incluidos inactivos; U11, D11-6.4).
+        La comprobación va con el candado tomado, en el mismo bloque que el
+        INSERT, para que dos altas en paralelo no la pasen ambas."""
+        buscado = normalizar_usuario(usuario)
         with self._lock:
+            if any(normalizar_usuario(f[0]) == buscado
+                   for f in self._conn.execute("SELECT usuario FROM usuarios")):
+                raise sqlite3.IntegrityError(f"usuario ya existe: {usuario!r}")
             cur = self._conn.execute(
                 "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo,"
                 " creado_por, creado_en, codigo_creacion)"
@@ -1262,20 +1362,27 @@ class DbManager:
 
     def existe_usuario(self, usuario: str) -> bool:
         """True si ya hay un usuario con ese nombre, activo o inactivo, sin
-        distinguir mayúsculas. Se compara en Python con casefold() porque
-        LOWER/NOCASE de SQLite solo pliegan ASCII (no la Ñ ni acentos)."""
-        buscado = usuario.casefold()
+        distinguir mayúsculas. Se compara en Python con normalizar_usuario
+        (NFKC + casefold; SAF-01 de U11) porque LOWER/NOCASE de SQLite solo
+        pliegan ASCII (no la Ñ ni acentos ni las formas de ancho completo)."""
+        buscado = normalizar_usuario(usuario)
         with self._lock:
             filas = self._conn.execute("SELECT usuario FROM usuarios").fetchall()
-        return any(f["usuario"].casefold() == buscado for f in filas)
+        return any(normalizar_usuario(f["usuario"]) == buscado for f in filas)
 
     def get_usuario_by_username(self, usuario: str) -> dict | None:
+        """Usuario ACTIVO para iniciar sesión, sin distinguir mayúsculas (U11,
+        D11-6.4; normalizar_usuario, como existe_usuario). Si en una base
+        antigua dos usuarios difieren solo en mayúsculas, decide la
+        coincidencia exacta; sin ella no se elige ninguno (None). Un candidato
+        inactivo cuenta para esa decisión pero nunca se devuelve."""
+        buscado = normalizar_usuario(usuario)
         with self._lock:
-            row = self._conn.execute(
-                "SELECT * FROM usuarios WHERE usuario=? AND activo=1",
-                (usuario,),
-            ).fetchone()
-        return dict(row) if row else None
+            filas = [dict(f) for f in self._conn.execute("SELECT * FROM usuarios")]
+        candidatos = [f for f in filas if normalizar_usuario(f["usuario"]) == buscado]
+        exacto = [f for f in candidatos if f["usuario"] == usuario]
+        elegido = exacto[0] if exacto else (candidatos[0] if len(candidatos) == 1 else None)
+        return elegido if elegido is not None and elegido["activo"] == 1 else None
 
     def actualizar_password(self, usuario: str, hash_pw: str) -> None:
         """Guarda el nuevo hash y baja la bandera debe_cambiar_clave."""
@@ -1288,24 +1395,32 @@ class DbManager:
 
     # ── Gestión de usuarios y operadores (O2b, tanda 6) ─────────────────
 
-    _CAMPOS_USUARIO = "id, nombre, usuario, rol, activo, creado_por, creado_en, debe_cambiar_clave"
+    _CAMPOS_USUARIO = ("id, nombre, usuario, rol, activo, creado_por, creado_en,"
+                       " debe_cambiar_clave, cuenta_sistema")
 
     def listar_usuarios(self) -> list[dict]:
         """Todos los usuarios (activos e inactivos), SIN el hash, con el último
-        ingreso (`login_ok` de audit_log; None si nunca)."""
+        ingreso (`login_ok` de audit_log; None si nunca). El ingreso se busca
+        sin distinguir mayúsculas (normalizar_usuario), para que Admin e
+        Ingeniero encuentren los ingresos registrados como admin/ingeniero
+        antes del renombre de U11, sin reescribir la auditoría."""
         with self._lock:
             filas = self._conn.execute(
                 f"SELECT {self._CAMPOS_USUARIO} FROM usuarios ORDER BY nombre COLLATE NOCASE, id"
             ).fetchall()
-            ingresos = dict(self._conn.execute(
-                "SELECT usuario, MAX(ts) FROM audit_log WHERE evento='login_ok' GROUP BY usuario"
-            ).fetchall())
+            ingresos: dict[str, str] = {}
+            for u, ts in self._conn.execute(
+                    "SELECT usuario, MAX(ts) FROM audit_log WHERE evento='login_ok' GROUP BY usuario"):
+                clave = normalizar_usuario(u)
+                if ts and (clave not in ingresos or ts > ingresos[clave]):
+                    ingresos[clave] = ts
         resultado = []
         for f in filas:
             d = dict(f)
             d["activo"] = bool(d["activo"])
             d["debe_cambiar_clave"] = bool(d["debe_cambiar_clave"])
-            d["ultimo_ingreso"] = ingresos.get(d["usuario"])
+            d["cuenta_sistema"] = bool(d["cuenta_sistema"])
+            d["ultimo_ingreso"] = ingresos.get(normalizar_usuario(d["usuario"]))
             resultado.append(d)
         return resultado
 
@@ -1320,12 +1435,16 @@ class DbManager:
     def fijar_activo_usuario(self, usuario: str, activo: bool, rol_protegido: str) -> str:
         """Activa o desactiva. Comprobación y escritura en el mismo bloque con
         el candado tomado: desactivar el último `rol_protegido` activo se
-        rechaza. Devuelve "ok", "no_existe", "sin_cambio" o "ultimo_protegido"."""
+        rechaza. Una cuenta del sistema (U11) no se desactiva. Devuelve "ok",
+        "no_existe", "cuenta_sistema", "sin_cambio" o "ultimo_protegido"."""
         with self._lock:
             row = self._conn.execute(
-                "SELECT rol, activo FROM usuarios WHERE usuario=?", (usuario,)).fetchone()
+                "SELECT rol, activo, cuenta_sistema FROM usuarios WHERE usuario=?",
+                (usuario,)).fetchone()
             if row is None:
                 return "no_existe"
+            if not activo and row["cuenta_sistema"]:
+                return "cuenta_sistema"
             if bool(row["activo"]) == bool(activo):
                 return "sin_cambio"
             if not activo and row["rol"] == rol_protegido:
@@ -1381,8 +1500,9 @@ class DbManager:
         return {**dict(row), "activo": bool(row["activo"])}
 
     def seed_admin_if_empty(self) -> None:
-        """Con la tabla vacía crea los usuarios semilla `admin` e `ingeniero`,
-        ambos obligados a cambiar la contraseña en el primer login."""
+        """Con la tabla vacía crea las cuentas del sistema `Admin` e
+        `Ingeniero` (U11), marcadas y obligadas a cambiar la contraseña en el
+        primer login."""
         with self._lock:
             count = self._conn.execute(
                 "SELECT COUNT(*) FROM usuarios"
@@ -1391,8 +1511,8 @@ class DbManager:
                 for nombre, usuario, rol, hash_pw in _USUARIOS_SEMILLA:
                     self._conn.execute(
                         "INSERT INTO usuarios (nombre, usuario, hash_pw, rol, activo,"
-                        " creado_por, creado_en, debe_cambiar_clave)"
-                        " VALUES (?,?,?,?,1,'semilla',?,1)",
+                        " creado_por, creado_en, debe_cambiar_clave, cuenta_sistema)"
+                        " VALUES (?,?,?,?,1,'semilla',?,1,1)",
                         (nombre, usuario, hash_pw, rol, datetime.now().isoformat()),
                     )
                 self._conn.commit()

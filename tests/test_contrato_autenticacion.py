@@ -19,12 +19,12 @@ CLAVE = "clave1234"
 BLOQUEADO = "Usuario bloqueado por intentos fallidos; espere 5 minutos"
 CREDENCIALES = "Usuario o contraseña incorrectos"
 
-# papel -> (usuario, clave). "pendiente" es la semilla admin con cambio obligatorio.
+# papel -> (usuario, clave). "pendiente" es la semilla Admin con cambio obligatorio.
 _USUARIOS = {
     "tecnico": ("tec1", CLAVE),
     "admin": ("adm1", CLAVE),
     "ingeniero": ("ing1", CLAVE),
-    "pendiente": ("admin", "admin1234"),
+    "pendiente": ("Admin", "admin1234"),   # U11: cuenta del sistema Admin
     "bloqueo": ("bloq1", CLAVE),
 }
 
@@ -161,7 +161,7 @@ def test_get_auth_sesion_devuelve_usuario_y_rol(cliente):
     assert r.status_code == 200 and r.json() == {"usuario": "ing1", "rol": "ingeniero"}
     # también con el cambio de contraseña pendiente
     r = cliente.get("/auth/sesion", headers=_auth(_token(cliente, "pendiente")))
-    assert r.status_code == 200 and r.json() == {"usuario": "admin", "rol": "admin"}
+    assert r.status_code == 200 and r.json() == {"usuario": "Admin", "rol": "admin"}   # U11
 
 
 def test_dos_sesiones_simultaneas_y_cierre_en_una(cliente):

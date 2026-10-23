@@ -214,7 +214,7 @@ def lanzador(monkeypatch):
     monkeypatch.setattr(backend_guard, "write_backend_pid", lambda pid: None)
     monkeypatch.setattr(puente_instalacion, "requiere_instalacion", lambda: perfil["falta"])
 
-    def vigilar(cmds, lanzar, barra=None):
+    def vigilar(cmds, lanzar, barra=None, detener=None):
         # en la vigilancia ya no debe quedar viva la pantalla 2 de Reposo
         lz.reposo_vivo_al_vigilar = [p for c, p in zip(lanzados, procs)
                                      if "--door" in c and c[c.index("--door") + 1] == "2"

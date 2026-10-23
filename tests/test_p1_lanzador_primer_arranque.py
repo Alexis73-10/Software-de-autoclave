@@ -38,7 +38,7 @@ def lanzador(monkeypatch, tmp_path):
     monkeypatch.setattr(backend_guard, "write_backend_pid", lambda pid: None)
     monkeypatch.setattr(puente_instalacion, "requiere_instalacion", lambda: perfil["falta"])
     monkeypatch.setattr(doble_pantalla, "vigilar_pantallas",
-                        lambda cmds, lanzar, barra=None: pantallas.extend(cmds))
+                        lambda cmds, lanzar, barra=None, detener=None: pantallas.extend(cmds))
     return SimpleNamespace(lanzados=lanzados, pantallas=pantallas, perfil=perfil,
                            monkeypatch=monkeypatch)
 

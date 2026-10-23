@@ -131,9 +131,20 @@ def test_no_deja_sin_ingeniero_activo(api):
     client, srv, ctx, cab = api
     h = _h(srv, cab, "ingeniero")                      # ines_ing
     otros = [u["usuario"] for u in ctx.db.listar_usuarios()
-             if u["rol"] == "ingeniero" and u["usuario"] != "ines_ing"]   # ivan y la semilla, si hay
+             if u["rol"] == "ingeniero" and u["usuario"] != "ines_ing"
+             and not u["cuenta_sistema"]]              # ivan
     for u in otros:
         assert client.put(f"/usuarios/{u}/activo", json={"activo": False}, headers=h).status_code == 200
+    # U11 (D11-6): la cuenta del sistema Ingeniero no se desactiva (409). Para
+    # probar la regla del último ingeniero activo se apaga aquí sin pasar por los
+    # triggers (como en una BD antigua con la semilla inactiva; la versión con
+    # una BD migrada está en test_u11_cuentas_sistema.py)
+    r = client.put("/usuarios/Ingeniero/activo", json={"activo": False}, headers=h)
+    assert r.status_code == 409 and r.json()["codigo"] == "cuenta_sistema"
+    with ctx.db._lock:
+        ctx.db._conn.execute("DROP TRIGGER usuarios_cuenta_sistema_protegida")
+        ctx.db._conn.execute("UPDATE usuarios SET activo=0 WHERE usuario='Ingeniero'")
+        ctx.db._conn.commit()
     # ines sería la última; otro ingeniero (sesión de ivan, ya inactivo) no cuenta
     db = ctx.db
     assert db.fijar_activo_usuario("ines_ing", False, "ingeniero") == "ultimo_protegido"

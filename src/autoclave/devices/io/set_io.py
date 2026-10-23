@@ -215,12 +215,6 @@ class SetOutput:
     def bloqueo_puerta_2_off(self):
         self._salida("bloqueo_puerta_2", False)
         
-    def aire_comprimido_chaqueta_on(self):
-        self._salida("aire_comprimido_chaqueta", True)
-        
-    def aire_comprimido_chaqueta_off(self):
-        self._salida("aire_comprimido_chaqueta", False)
-        
     def aire_comprimido_camara_on(self):
         self._salida("aire_comprimido_camara", True)
         

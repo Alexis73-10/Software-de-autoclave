@@ -25,6 +25,10 @@ _ALIAS_ESTADO = {
     "temp_referencia": "temp_ref",
 }
 
+# D11-2 (tanda 11): salidas retiradas del equipo. Su canal físico queda libre
+# (no se corre ninguna otra salida ni cambia la trama con la ESP32).
+SALIDAS_RETIRADAS = frozenset({"aire_comprimido_chaqueta"})
+
 # D-ES-09: salidas de movimiento de puerta y bomba de vacío se mantienen pulsadas
 SALIDAS_MOMENTANEAS = frozenset({
     "abrir_puerta_1", "abrir_puerta_2", "cerrar_puerta_1", "cerrar_puerta_2",
@@ -173,6 +177,12 @@ def canales_digitales(tipo: str, config_dir: Path | None = None, profile=None) -
     salida = []
     for nombre in leer_io_enabled(config_dir, profile)[tipo]:
         clave = _clave_estado(nombre)
+        if tipo == "DO" and nombre in SALIDAS_RETIRADAS:
+            # D11-2: YAML de instancia de antes (un equipo instalado conserva
+            # su copia); se acepta y se ignora
+            logger.warning("Salida %s retirada del equipo (tanda 11, D11-2): se ignora "
+                           "en io_enabled", nombre)
+            continue
         if clave not in mapa:
             logger.warning("Canal %s %s sin posición en EstadoAutoclave: se omite", tipo, nombre)
             continue

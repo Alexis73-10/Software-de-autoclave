@@ -1,4 +1,4 @@
-# LEEME — Instalación en el equipo de pruebas (compilación F, 2026-10-23)
+# LEEME — Instalación en el equipo de pruebas (compilación G, 2026-10-23)
 
 Lista de comprobación para Cristian. Hoy solo se hace:
 1. la instalación con el asistente;
@@ -9,11 +9,27 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup).
+Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup), y en K11 de la tanda 11 (23-oct) con "Cambios respecto a la F" y la sección 8f (F → G con el Setup, página «Actualizar / Instalación limpia»).
+
+> **Tanda 11 (2026-10-23): instale la compilación G (`entrega/2026-10-23_g/`, etiqueta `inst-2026-10-23-g`) con `Autoclave_Setup_1.0.0-g.exe`, siguiendo la sección 8f («Actualizar F → G»: en la página nueva deje marcada «Actualizar (conserva los datos)»), sin copiar archivos a mano.** La G es la F más los ajustes pedidos el 23-oct tras usar la F (tabla «Cambios respecto a la F»). Las cuentas `admin`/`ingeniero` pasan solas a `Admin`/`Ingeniero` con la misma contraseña.
 
 > **Tanda 10 (2026-10-23): instale la compilación F (`entrega/2026-10-23_f/`, etiqueta `inst-2026-10-23-f`) con `Autoclave_Setup_1.0.0-f.exe`, siguiendo la sección 8e («Actualizar E → F», y D → F si el equipo aún tiene la D), sin copiar archivos a mano.** La F es la E más las correcciones vistas en el equipo el 23-oct (tabla «Cambios respecto a la E»). La letra E ya estaba usada por la compilación de esta mañana, por eso esta se llama F.
 
 > **Compilación E (23-oct): la D falló en el PC de pruebas (ver "Cambios respecto a la D"). Instale la E (`entrega/2026-10-23_e/`, etiqueta `inst-2026-10-23-e`, commit cafb06e) con `Autoclave_Setup_1.0.0-e.exe`: siga la sección 8c con el Setup E en lugar del de la D, y lea la 8d.** El código del programa es el de la D más las 2 correcciones; todo lo dicho de la D vale para la E.
+
+## Cambios respecto a la F
+
+| | Compilación F (`2026-10-23_f`) | Compilación G (`2026-10-23_g`) |
+|---|---|---|
+| Suite en ese código | 6993 passed, 10 skipped, 3 xfailed | **7218 passed, 10 skipped, 3 xfailed (7216 con -n auto + 2 que pasan en serie)** |
+| Impresora en Parámetros del equipo (D11-1) | El cambio se guardaba pero no se aplicaba hasta reiniciar a mano | Al habilitarla o deshabilitarla pide confirmar («Se reiniciará el software para aplicar el cambio»); con Cancelar no se guarda nada. Al confirmar guarda, cierra el software de forma ordenada (todas las salidas apagadas, sin apagar Windows) y lo vuelve a abrir solo. Rechazado en CICLO, con el estado seguro actuando o con una confirmación pendiente. Si no vuelve a abrir en 1 minuto: apagar y encender el equipo |
+| Salida `aire_comprimido_chaqueta` (D11-2) | Aparecía en Entradas/Salidas (DO 13) | Retirada por completo. **DO 13 queda libre** y siempre en 0; las demás salidas conservan su número, la trama con la tarjeta y el firmware no cambian. `aire_comprimido_camara` (DO 14) sin cambios |
+| SEN-03 en Preciclo (D11-3) | Saltaba para cualquier sonda de temperatura sin señal, aunque el programa no la usara | Solo para las sondas **en uso** (Principal y Referencias) de los programas vigentes; una sonda «No en uso» desconectada no da aviso. El bloqueo de inicio (RS-06) no cambia |
+| Setup sobre una instalación existente (D11-4) | Reparar / Reinstalar / Desinstalar | Con versión igual o más vieja: **Actualizar (conserva los datos)**, marcada, o **Instalación limpia** (borra perfil, calibración, base de datos y usuarios, con doble confirmación y respaldo previo en `C:\ProgramData\Especifika\Autoclave_respaldos\<fecha>\`). Con la misma versión, además Reparar y Desinstalar. Con una versión más nueva se sigue negando |
+| Táctiles con dos pantallas (D11-5) | Sin asociación táctil↔pantalla | Paso 06 de la estación: abre la herramienta de Windows para tocar cada pantalla (solo con la casilla de estación marcada y 2 o más monitores; **en el equipo de pruebas la casilla sigue desmarcada**) |
+| Cuentas iniciales (D11-6) | `admin` / `ingeniero` | **`Admin` / `Ingeniero`** (misma contraseña), protegidas: no se pueden desactivar, borrar, cambiar de rol ni renombrar. El usuario no distingue mayúsculas al iniciar sesión |
+| Entradas mostradas (D11-7) | Lista de casillas; Preciclo y Ciclo mostraban «—» para sondas «No en uso» | Opciones › Parámetros del ciclo: filas «Entrada 1/2/3» con desplegable (la 1 obligatoria, 2 y 3 admiten «Ninguna»). Una sonda «No en uso» en el programa no se ofrece ni se muestra en Preciclo, Ciclo ni la gráfica |
+| Versión del Setup | `1.0.0-f` (`AppVerNum` 1.0.0.6) | `1.0.0-g` (`AppVerNum` 1.0.0.7) |
 
 ## Cambios respecto a la E
 
@@ -215,18 +231,22 @@ Al confirmar, aparece **"Instalación completada"**. Pulse **Continuar**. El tex
 
 ## 5. Primer usuario
 
-La base nueva trae dos usuarios semilla. Los dos exigen cambiar la contraseña en el primer ingreso (8 a 64 caracteres, distinta de la actual):
+La base nueva trae dos cuentas del sistema. Las dos exigen cambiar la contraseña en el primer ingreso (8 a 64 caracteres, distinta de la actual):
 
 | Usuario | Contraseña inicial | Rol |
 |---|---|---|
-| `ingeniero` | `ingeniero1234` | ingeniero |
-| `admin` | `admin1234` | administrador |
+| `Ingeniero` | `ingeniero1234` | ingeniero |
+| `Admin` | `admin1234` | administrador |
 
-1. Toque el avatar e ingrese como **`ingeniero` / `ingeniero1234`**. **No use `admin`:** el administrador no ve Entradas/Salidas, calibración ni Mantenimiento.
+El usuario **no distingue mayúsculas**: `Ingeniero`, `ingeniero` o `INGENIERO` entran a la misma cuenta (la contraseña sí las distingue). Al actualizar desde una versión anterior, las cuentas `admin` e `ingeniero` pasan solas a `Admin` e `Ingeniero` y conservan su contraseña.
+
+Estas dos cuentas **no se pueden desactivar, borrar, cambiar de rol ni renombrar**; su contraseña sí se cambia o se restablece.
+
+1. Toque el avatar e ingrese como **`Ingeniero` / `ingeniero1234`**. **No use `Admin`:** el administrador no ve Entradas/Salidas, calibración ni Mantenimiento.
 2. El sistema lleva a **cambiar la contraseña**. Anote la nueva en un lugar seguro.
-3. En OPCIONES › Usuarios › Nuevo usuario, cree su usuario **técnico** (o ingeniero). Comprobado con prueba: ingeniero semilla → cambio de clave → crea técnico → el técnico entra al modo prueba.
+3. En OPCIONES › Usuarios › Nuevo usuario, cree su usuario **técnico** (o ingeniero). Comprobado con prueba: Ingeniero → cambio de clave → crea técnico → el técnico entra al modo prueba. No se acepta un usuario que solo difiera en mayúsculas de uno existente.
 4. Cinco intentos fallidos bloquean ese usuario 5 minutos.
-5. Cambie también la contraseña de `admin` antes de entregar el equipo.
+5. Cambie también la contraseña de `Admin` antes de entregar el equipo.
 
 ## 6. Orden de verificación
 
@@ -256,7 +276,7 @@ Orden sugerido:
 5. **Desconexión de la tarjeta durante el modo prueba:** las salidas no se pueden accionar ("rechazó la orden") y "Salir" sigue funcionando. Salga y vuelva a entrar al reconectar.
 
 **PROBLEMA CONOCIDO — canales que no aparecen en E/S.** La lista sale de `io_enabled` del archivo del equipo (`ACV-2026-001.yaml`). Hoy **no** incluye:
-- en salidas: `descompresion_lenta`, `vapor_caldera`, `aire_comprimido_chaqueta`, `aire_comprimido_camara`, `agua_chaqueta` ni `buzer_alarma`;
+- en salidas: `descompresion_lenta`, `vapor_caldera`, `aire_comprimido_camara`, `agua_chaqueta` ni `buzer_alarma`;
 - en temperatura: la sonda **`temp_2_camara` (Cámara 2)**;
 - en entradas: `suministro_electrico`.
 
@@ -458,9 +478,30 @@ Es la sección 8c con el Setup F. **Sin pasos de copia a mano.** Se ensayó en e
    - Ciclo y Preciclo, en español y en inglés: las etiquetas de la tarjeta de parámetros y sensores se leen completas o abreviadas, sin letra encogida ni cortes;
    - sin sensor de presión de cámara: CIC-10 dice que sin ese sensor no se puede llevar la cámara a estado seguro (tarjeta de Preciclo y campana), y las filas de alarma salen en el idioma de la interfaz;
    - el código de activación (si se reinstala el perfil) se acepta aunque se teclee 0 en lugar de O.
-7. La base de datos y la configuración de fábrica no cambian de la E a la F: el primer arranque no hace respaldos nuevos en `programaespaldos_configuracion\` (es lo esperado).
+7. La base de datos y la configuración de fábrica no cambian de la E a la F: el primer arranque no hace respaldos nuevos en `programa
+espaldos_configuracion\` (es lo esperado).
 
 **NO toque** lo mismo que en la 8c. **Volver a la E si la F falla:** cierre Autoclave, ejecute `Autoclave_Setup_1.0.0-e.exe` de la USB (si se niega por ser más vieja, desinstale primero desde Configuración › Aplicaciones; los datos de `ProgramData` se conservan) y, solo si algo de los datos quedó mal, reemplace `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2.
+
+## 8f. Actualizar el equipo de pruebas a la G (F → G) con el Setup
+
+Es la sección 8e con el Setup G. **Sin pasos de copia a mano.** Se ensayó en el PC de la oficina sobre una copia simulada del equipo (perfil del equipo de pruebas, base de datos de la F con `admin`/`ingeniero` y un usuario propio, un parámetro cambiado, calibración y correo propios) con el código y el `_internal` de la F y luego de la G: `docs/informes/tanda11/K11_compilacion_g.md`.
+
+1. **Cierre Autoclave por completo** (las dos pantallas).
+2. **Respaldo:** copie `C:\ProgramData\Especifika\Autoclave` completa a la USB (por ejemplo, `respaldo_F_2026-10-23`). La G migra la base de datos (versión 10 → 11, cuentas del sistema).
+3. Compruebe el Setup: `Get-FileHash .\Autoclave_Setup_1.0.0-g.exe` contra la línea del Setup en `SHA256SUMS.txt`.
+4. Ejecute `Autoclave_Setup_1.0.0-g.exe` y acepte el aviso de administrador. Sobre la F aparece la página nueva con **«Actualizar (conserva los datos)»** marcada: **déjela así**. **NO elija «Instalación limpia»** en el equipo de pruebas: borra el perfil, la calibración, los ciclos registrados y los usuarios (se prueba antes en un PC de prueba, casos A-N11 de la hoja de banco).
+5. En «Tareas adicionales», igual que en la 8e: inicio automático **marcada**; «Configurar este PC como estación del autoclave» **DESMARCADA** (K9-1 se mantiene; por eso el paso 06 de asociación de táctiles no corre en el equipo de pruebas); arranque sin logo desmarcada.
+6. Abra Autoclave y compruebe, además de lo de la 8c paso 7:
+   - inicio de sesión con **`Ingeniero`** (o `ingeniero`) y la contraseña que ya tenía en la F; en OPCIONES › Usuarios, `Admin` e `Ingeniero` sin la acción Desactivar;
+   - OPCIONES › Entradas / Salidas: sin «aire comprimido de chaqueta»; DO 13 libre;
+   - OPCIONES › Parámetros del ciclo: las filas «Entrada 1/2/3»; Preciclo y Ciclo sin filas «—»;
+   - con una sonda «No en uso» desconectada (p. ej. la Referencia en un programa de fábrica), Preciclo no muestra SEN-03;
+   - en PREPARADO, habilitar o deshabilitar la impresora: confirmar, el software se cierra y vuelve a abrir solo en menos de 1 minuto con el cambio aplicado.
+7. El primer arranque respalda el YAML de la instancia (`programa
+espaldos_configuracion\<fecha>utoclave\config\instances\ACV-2026-001.yaml`) porque la G le quita `aire_comprimido_chaqueta`: es lo esperado.
+
+**NO toque** lo mismo que en la 8c. **Volver a la F si la G falla:** cierre Autoclave, desinstale desde Configuración › Aplicaciones (el Setup F se niega sobre la G por ser más vieja; los datos de `ProgramData` se conservan), ejecute `Autoclave_Setup_1.0.0-f.exe` y **reemplace `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2** (la base ya migrada a la versión 11, con `Admin`/`Ingeniero`, no se ensayó con la F: vuelva siempre al respaldo).
 
 ## A frente a B
 

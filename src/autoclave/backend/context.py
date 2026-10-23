@@ -202,8 +202,9 @@ class BackendContext:
 
     # Salidas que aportan energía (vapor, aire comprimido): inhibidas mientras
     # haya una analógica reasignada sin verificar (SAF-02 de la re-revisión R8)
+    # (aire_comprimido_chaqueta retirada en la tanda 11, D11-2)
     _SALIDAS_ENERGIA = ("vapor_generador", "vapor_caldera", "vapor_chaqueta", "vapor_camara",
-                        "aire_comprimido_chaqueta", "aire_comprimido_camara")
+                        "aire_comprimido_camara")
     _SALIDAS_VENTEO = ("descompresion_rapida", "descompresion_lenta", "descompresion_chaqueta",
                        "aire_admosferico_camara")
 

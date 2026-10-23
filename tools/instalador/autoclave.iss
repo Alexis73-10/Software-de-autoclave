@@ -14,7 +14,9 @@
 ;     instalado en esa ruta exacta (instalador_exe.esta_instalado_aqui); en
 ;     Program Files (x86) volvería a ofrecer instalarse;
 ;   - Autoclave.exe y _internal\ siempre juntos, con la estructura de la entrega;
-;   - NUNCA copia, sobrescribe ni borra archivos en %ProgramData%\Especifika\.
+;   - NUNCA copia, sobrescribe ni borra archivos en %ProgramData%\Especifika\,
+;     salvo la "Instalación limpia" (D11-4, tanda 11), elegida a mano con doble
+;     confirmación y con respaldo completo previo en Autoclave_respaldos\.
 ;     Solo crea la carpeta de datos si falta y le da Modificar a Usuarios (igual
 ;     que instalador_exe.instalar; decidido con Cristian el 22-oct), porque el
 ;     programa corre sin administrador. El desinstalador no la toca. (Al
@@ -28,6 +30,21 @@
 ; scripts se instalan en {app}\estacion (los necesita el desinstalador, que
 ; revierte lo que el Setup aplicó). VALIDAR PRIMERO EN UN PC DE PRUEBA: lista de
 ; verificación en tools/instalador/LEEME.md.
+;
+; N11 (tanda 11):
+;   - D11-4: con una versión instalada igual o más vieja, página de opciones:
+;     más vieja = Actualizar (por defecto) / Instalación limpia; misma = Reparar
+;     (por defecto) / Instalación limpia / Desinstalar (la limpia ocupa el lugar de la antigua opción de reinstalar).
+;     La limpia se confirma dos veces en la página y se hace en
+;     PrepareToInstall: respaldo completo y verificado de la carpeta de datos en
+;     {commonappdata}\Especifika\Autoclave_respaldos\AAAAMMDD-HHMMSS\ y, solo si
+;     el respaldo salió bien, la carpeta de datos se aparta entera con un solo
+;     renombrado (atómico) y se borra; vuelve solo estacion\. Si algo falla,
+;     el Setup se detiene sin instalar. Más nueva: se sigue negando.
+;   - D11-5: subtarea "estacion\tactiles" (marcada, solo con 2 o más monitores):
+;     paso 06 de tools\estacion (MultiDigitizer.exe); al terminar cuenta las
+;     asociaciones de HKLM\SOFTWARE\Microsoft\Wisp\Pen\Digimon y, si quedan
+;     menos de 2, avisa al final sin fallar. El desinstalador lo revierte.
 
 ; Carpeta de la entrega que contiene Autoclave\ (se puede pasar con /DEntrega=...)
 #ifndef Entrega
@@ -51,7 +68,8 @@
 ; Pasos de la estación aplicados por el Setup (los lee el desinstalador)
 #define ClaveEstacion "SOFTWARE\Especifika\Autoclave\Estacion"
 ; Versión numérica instalada (AppVerNum): la compara el Setup para elegir entre
-; mantenimiento (misma), actualizar (más nueva) o negarse (más vieja)
+; mantenimiento (misma), actualizar (la instalada es más vieja) o negarse (la
+; instalada es más nueva)
 #define ClaveInstalacion "SOFTWARE\Especifika\Autoclave\Instalacion"
 ; Mismo GUID que AppId, sin la llave escapada: clave de desinstalación de Inno
 #define AppGuid "{81C9DAB1-5CF8-4AD2-A7BE-15053E6ED43F}"
@@ -143,28 +161,68 @@ es.Paso04=notificaciones, Windows Update y gestos de borde (paso 04)
 en.Paso04=notifications, Windows Update and edge gestures (step 04)
 es.Paso05=plan de energía (paso 05)
 en.Paso05=power plan (step 05)
+es.Paso06=asociación de las pantallas táctiles (paso 06)
+en.Paso06=touch screen association (step 06)
+es.TareaTactiles=Asociar cada pantalla táctil con su monitor (pide tocar cada pantalla una vez)
+en.TareaTactiles=Associate each touch screen with its monitor (asks to touch each screen once)
+es.TactilesRepetir=Repita la asociación de pantallas táctiles: quedaron %1 asociaciones y se necesitan 2.%n%nAutoclave quedó instalado. Para repetirla: Panel de control > Configuración de Tablet PC > Configurar, o ejecute como administrador tools\estacion\06_asociar_tactiles.ps1.
+en.TactilesRepetir=Repeat the touch screen association: %1 associations were made and 2 are needed.%n%nAutoclave was installed. To repeat it: Control Panel > Tablet PC Settings > Setup, or run tools\estacion\06_asociar_tactiles.ps1 as administrator.
 es.MantTitulo=Autoclave ya está instalado
 en.MantTitulo=Autoclave is already installed
 es.MantSubtitulo=Está instalada la versión %1. Elija qué hacer.
 en.MantSubtitulo=Version %1 is installed. Choose what to do.
-es.MantExplicacion=En las tres opciones se conservan los datos (perfil de instalación, calibración, base de datos, usuarios).
-en.MantExplicacion=The data (installation profile, calibration, database, users) are kept with all three options.
-es.MantReparar=Reparar: vuelve a copiar el programa, recrea la tarea de arranque y vuelve a aplicar la configuración de la estación que ya estaba aplicada (no cambia el inicio de sesión automático)
-en.MantReparar=Repair: copies the program again, recreates the start task and re-applies the station settings already applied (automatic sign-in is not changed)
-es.MantReinstalar=Reinstalar: desinstala (restaura la configuración de Windows) e instala de nuevo con el asistente completo
-en.MantReinstalar=Reinstall: uninstalls (restores the Windows settings) and installs again with the full wizard
+es.MantExplicacion=Reparar y Desinstalar conservan los datos (perfil de instalación, calibración, base de datos, usuarios). La instalación limpia los borra, con un respaldo completo previo.
+en.MantExplicacion=Repair and Uninstall keep the data (installation profile, calibration, database, users). The clean installation deletes them, after a full backup.
+es.MantReparar=Reparar (conserva los datos): vuelve a copiar el programa, recrea la tarea de arranque y vuelve a aplicar la configuración de la estación que ya estaba aplicada (no cambia el inicio de sesión automático)
+en.MantReparar=Repair (keeps the data): copies the program again, recreates the start task and re-applies the station settings already applied (automatic sign-in is not changed)
 es.MantDesinstalar=Desinstalar: abre el desinstalador y cierra este asistente
 en.MantDesinstalar=Uninstall: opens the uninstaller and closes this wizard
 es.MantSinDesinstalador=No se encontró el desinstalador de la versión instalada:%n%1
 en.MantSinDesinstalador=The uninstaller of the installed version was not found:%n%1
-es.MantDesinstalarFallo=La desinstalación no terminó (código %1): no se instalará de nuevo.%n%nDetalle de la estación en:%n%2
-en.MantDesinstalarFallo=The uninstallation did not finish (code %1): it will not be installed again.%n%nStation details in:%n%2
+es.ActTitulo=Actualizar Autoclave
+en.ActTitulo=Update Autoclave
+es.ActSubtitulo=Está instalada la versión %1. Este instalador es la versión %2. Elija cómo instalar.
+en.ActSubtitulo=Version %1 is installed. This installer is version %2. Choose how to install.
+es.ActExplicacion=Actualizar conserva los datos (perfil de instalación, calibración, base de datos, usuarios). La instalación limpia los borra, con un respaldo completo previo.
+en.ActExplicacion=Update keeps the data (installation profile, calibration, database, users). The clean installation deletes them, after a full backup.
+es.ActActualizar=Actualizar (conserva los datos)
+en.ActActualizar=Update (keeps the data)
+es.OpcionLimpia=Instalación limpia: borra todos los datos del equipo (perfil de instalación, calibración, base de datos con los ciclos registrados, usuarios) después de respaldarlos. Al abrir Autoclave se pide de nuevo la instalación del equipo.
+en.OpcionLimpia=Clean installation: deletes all the data of the equipment (installation profile, calibration, database with the recorded cycles, users) after backing them up. When Autoclave is opened, the equipment installation is requested again.
+es.LimpiaConfirmar1=La instalación limpia borra los datos de:%n%1%n%nAntes se hace un respaldo completo. ¿Desea continuar?
+en.LimpiaConfirmar1=The clean installation deletes the data in:%n%1%n%nA full backup is made first. Do you want to continue?
+es.LimpiaConfirmar2=SEGUNDA CONFIRMACIÓN%n%nSe borrarán los ciclos registrados, los usuarios, el perfil de instalación y la calibración del equipo. Solo quedará el respaldo en:%n%2%n%n¿Borrar los datos de %1?
+en.LimpiaConfirmar2=SECOND CONFIRMATION%n%nThe recorded cycles, the users, the installation profile and the calibration of the equipment will be deleted. Only the backup will remain, in:%n%2%n%nDelete the data in %1?
+es.LimpiaProgramaAbierto=Autoclave está abierto. Ciérrelo (Apagar equipo o cerrar sus ventanas) y vuelva a ejecutar este instalador. No se borró nada.
+en.LimpiaProgramaAbierto=Autoclave is open. Close it (Shut down equipment or close its windows) and run this installer again. Nothing was deleted.
+es.LimpiaRespaldoFallo=No se pudo hacer el respaldo completo de los datos en:%n%1%n%nNo se borró nada y no se instaló. La carpeta de respaldo puede estar incompleta: no la use para restaurar.
+en.LimpiaRespaldoFallo=The full backup of the data could not be made in:%n%1%n%nNothing was deleted and nothing was installed. The backup folder may be incomplete: do not use it to restore.
+es.LimpiaSilenciosa=La instalación limpia no se puede hacer sin el asistente. No se borró nada.
+en.LimpiaSilenciosa=The clean installation cannot be done without the wizard. Nothing was deleted.
+es.LimpiaRutaInvalida=La carpeta de datos no tiene la forma esperada:%n%1%n%nNo se borró nada y no se instaló.
+en.LimpiaRutaInvalida=The data folder does not have the expected form:%n%1%n%nNothing was deleted and nothing was installed.
+es.LimpiaSinComprobar=No se pudo comprobar si Autoclave está abierto. Ciérrelo, reinicie el PC si hace falta y vuelva a ejecutar este instalador. No se borró nada.
+en.LimpiaSinComprobar=It could not be checked whether Autoclave is open. Close it, restart the PC if needed and run this installer again. Nothing was deleted.
+es.LimpiaEnlace=La carpeta de datos, su carpeta superior o la de respaldos es un enlace o una unión de Windows:%n%1%n%nPor seguridad no se borró nada y no se instaló. Llame a servicio técnico.
+en.LimpiaEnlace=The data folder, its parent folder or the backup folder is a Windows link or junction:%n%1%n%nFor safety nothing was deleted and nothing was installed. Call technical service.
+es.LimpiaMoverFallo=No se pudieron apartar los datos (algún archivo está abierto). No se borró nada y no se instaló. Cierre los programas que usen la carpeta de datos y vuelva a ejecutar este instalador.
+en.LimpiaMoverFallo=The data could not be moved aside (a file is open). Nothing was deleted and nothing was installed. Close the programs using the data folder and run this installer again.
+es.LimpiaDeshacerFallo=Los datos quedaron apartados en:%n%1%ny no se pudieron devolver a:%n%2%n%nNo se borró nada y no se instaló. Llame a servicio técnico: para recuperarlos, mueva esa carpeta de vuelta (como administrador).
+en.LimpiaDeshacerFallo=The data were moved aside to:%n%1%nand could not be moved back to:%n%2%n%nNothing was deleted and nothing was installed. Call technical service: to recover them, move that folder back (as administrator).
+es.VersionDesconocida=No se pudo saber qué versión está instalada (%1). Para instalar esta versión (%2), desinstale primero Autoclave desde Configuración > Aplicaciones.
+en.VersionDesconocida=The installed version (%1) could not be determined. To install this version (%2), first uninstall Autoclave from Settings > Apps.
+es.TactilesTocar=Asociación de pantallas táctiles: toque cada pantalla cuando se le indique...
+en.TactilesTocar=Touch screen association: touch each screen when asked...
+es.LimpiaHecha=Instalación limpia: respaldo completo de los datos anteriores en:%n%1
+en.LimpiaHecha=Clean installation: full backup of the previous data in:%n%1
 es.VersionMasNueva=Está instalada la versión %1, más nueva que la de este instalador (%2).%n%nPara instalar esta versión, desinstale primero Autoclave desde Configuración > Aplicaciones.
 en.VersionMasNueva=Version %1 is installed, newer than this installer (%2).%n%nTo install this version, first uninstall Autoclave from Settings > Apps.
 
 [Tasks]
 Name: "autoarranque"; Description: "{cm:TareaAutoarranque}"
 Name: "estacion"; Description: "{cm:TareaEstacion}"
+; D11-5: subtarea de la estación, marcada; solo aparece con 2 o más monitores
+Name: "estacion\tactiles"; Description: "{cm:TareaTactiles}"; Check: HayDosMonitores
 Name: "sinlogo"; Description: "{cm:TareaSinLogo}"; Flags: unchecked
 
 [InstallDelete]
@@ -199,6 +257,8 @@ Source: "..\estacion\04_notificaciones_actualizaciones_gestos.ps1"; DestDir: "{a
 Source: "..\estacion\04_revertir_notificaciones_actualizaciones_gestos.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\05_plan_energia.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\05_revertir_plan_energia.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
+Source: "..\estacion\06_asociar_tactiles.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
+Source: "..\estacion\06_revertir_asociar_tactiles.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Autoclave"; Filename: "{app}\Autoclave.exe"; WorkingDir: "{app}"
@@ -211,24 +271,52 @@ Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""{#NombreTarea}"" /F";
 const
   VarClave = 'AUTOCLAVE_CLAVE_AUTOLOGON';
   ClaveDesinstalar = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#AppGuid}_is1';
-  // Modo del Setup, fijado en InitializeSetup y por la página de mantenimiento
-  ModoNuevo = 0;          // no hay instalación (o se acaba de desinstalar: Reinstalar)
-  ModoActualizar = 1;     // instalada una versión más vieja: flujo normal
+  // Modo del Setup, fijado en InitializeSetup y por la página de opciones
+  ModoNuevo = 0;          // no hay instalación
+  ModoActualizar = 1;     // instalada una versión más vieja (silencioso = Actualizar)
   ModoMantenimiento = 2;  // misma versión, todavía sin elegir (silencioso = Reparar)
   ModoReparar = 3;
+  ModoLimpia = 4;         // D11-4: respaldo + borrado de datos + asistente completo
+  ClaveDigimon = 'SOFTWARE\Microsoft\Wisp\Pen\Digimon';
+  SM_CMONITORS = 80;
+  // FILE_ATTRIBUTE_REPARSE_POINT y FILE_ATTRIBUTE_DIRECTORY ya los define Inno
 
 var
   PaginaCuenta: TInputQueryWizardPage;
-  PaginaMantenimiento: TInputOptionWizardPage;
+  // D11-4: opciones con versión igual (Reparar/Limpia/Desinstalar) o más vieja (Actualizar/Limpia)
+  PaginaOpciones: TInputOptionWizardPage;
+  IndiceLimpia, IndiceDesinstalar: Integer;
   ReiniciarAlFinal: Boolean;
-  Modo: Integer;
+  Modo, ModoBase: Integer;
   VersionInstalada: String;
   CerrarSinConfirmar: Boolean;
+  CarpetaRespaldo: String;
+  // D11-5: -1 = no se corrió el paso 06
+  AsociacionesTactiles: Integer;
 
 // La contraseña del inicio automático pasa al script por el entorno del
 // proceso (lo hereda powershell.exe), nunca por la línea de comandos.
 function SetEnvironmentVariable(lpName: String; lpValue: String): BOOL;
   external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+
+function GetSystemMetrics(nIndex: Integer): Integer;
+  external 'GetSystemMetrics@user32.dll stdcall';
+
+// D11-5: la subtarea de los táctiles solo existe con 2 o más monitores
+function HayDosMonitores: Boolean;
+begin
+  Result := GetSystemMetrics(SM_CMONITORS) >= 2;
+end;
+
+// Asociaciones táctil-monitor que guarda Windows (un valor por táctil)
+function ContarAsociacionesTactiles: Integer;
+var
+  Nombres: TArrayOfString;
+begin
+  Result := 0;
+  if RegGetValueNames(HKLM64, ClaveDigimon, Nombres) then
+    Result := GetArrayLength(Nombres);
+end;
 
 function ArchivoLogEstacion: String;
 begin
@@ -278,7 +366,7 @@ begin
     Dominio := GetComputerNameString;
 end;
 
-// ── Mantenimiento: Reparar / Reinstalar / Desinstalar ─────────────────────────
+// ── Página de opciones: Reparar / Actualizar / Instalación limpia / Desinstalar
 
 // Primer número de Texto (separado por '.') y lo quita de Texto
 function SegmentoVersion(var Texto: String): Integer;
@@ -315,6 +403,27 @@ begin
   end;
 end;
 
+// AppVer ('1.0.0-d') -> AppVerNum ('1.0.0.4'): la letra es el último número
+// (a = 1, b = 2, ...). '' si no tiene esa forma.
+function VersionNumDesdeTexto(Texto: String): String;
+var
+  P: Integer;
+  Base, Letra: String;
+begin
+  Result := '';
+  Texto := Lowercase(Trim(Texto));
+  P := Pos('-', Texto);
+  if P = 0 then
+    exit;
+  Base := Copy(Texto, 1, P - 1);
+  Letra := Copy(Texto, P + 1, Length(Texto));
+  if (Length(Letra) <> 1) or (Letra < 'a') or (Letra > 'z') then
+    exit;
+  if (Base = '') or (Pos('..', Base) > 0) then
+    exit;
+  Result := Base + '.' + IntToStr(Ord(Letra[1]) - Ord('a') + 1);
+end;
+
 function InitializeSetup: Boolean;
 var
   VersionNum: String;
@@ -322,16 +431,24 @@ var
 begin
   Result := True;
   Modo := ModoNuevo;
+  ModoBase := ModoNuevo;
+  AsociacionesTactiles := -1;
   VersionInstalada := '';
   if not RegQueryStringValue(HKLM64, ClaveDesinstalar, 'DisplayVersion', VersionInstalada) then
     exit;
-  if RegQueryStringValue(HKLM64, '{#ClaveInstalacion}', 'VersionNum', VersionNum) then
-    Comparacion := CompararVersiones(VersionNum, '{#AppVerNum}')
-  else if VersionInstalada = '{#AppVer}' then
-    Comparacion := 0
-  else
-    // instalaciones anteriores a este registro (1.0.0-a .. 1.0.0-d): más viejas
-    Comparacion := -1;
+  if not RegQueryStringValue(HKLM64, '{#ClaveInstalacion}', 'VersionNum', VersionNum) then
+    // instalaciones anteriores a este registro (1.0.0-a .. 1.0.0-d): se
+    // compara su DisplayVersion; si no tiene la forma conocida, se niega
+    // (nunca se baja de versión a ciegas)
+    VersionNum := VersionNumDesdeTexto(VersionInstalada);
+  if VersionNum = '' then
+  begin
+    SuppressibleMsgBox(FmtMessage(CustomMessage('VersionDesconocida'), [VersionInstalada,
+      '{#AppVer}']), mbError, MB_OK, IDOK);
+    Result := False;
+    exit;
+  end;
+  Comparacion := CompararVersiones(VersionNum, '{#AppVerNum}');
   if Comparacion < 0 then
     Modo := ModoActualizar
   else if Comparacion = 0 then
@@ -343,6 +460,7 @@ begin
       '{#AppVer}']), mbError, MB_OK, IDOK);
     Result := False;
   end;
+  ModoBase := Modo;
 end;
 
 function RutaDesinstalador: String;
@@ -358,32 +476,405 @@ begin
     MsgBox(FmtMessage(CustomMessage('MantSinDesinstalador'), ['-']), mbError, MB_OK);
 end;
 
-// Reinstalar: desinstalación completa (incluye revertir la estación) y espera.
-// unins000.exe se relanza desde %TEMP%: además de esperar el proceso, se espera
-// a que desaparezca su clave (máx. 120 s) antes de dar por terminado.
-function DesinstalarParaReinstalar: Boolean;
+// ── Instalación limpia (D11-4) ────────────────────────────────────────────────
+//
+// Orden (EjecutarLimpia, desde PrepareToInstall; cualquier fallo antes del
+// paso 6 deja los datos intactos y detiene el Setup sin instalar):
+//   1. nunca sin asistente; ruta de datos con la forma esperada;
+//   2. Autoclave cerrado (si no se puede comprobar, se trata como abierto);
+//   3. ningún enlace/unión en Especifika\, Autoclave\ ni Autoclave_respaldos\;
+//   4. Autoclave_respaldos\ con dueño Administradores y solo Administradores
+//      y SYSTEM (contiene la base de usuarios y estacion\);
+//   5. copia completa a Autoclave_respaldos\AAAAMMDD-HHMMSS\ y verificación
+//      (archivos y bytes del original antes y después, iguales a la copia);
+//   6. UN solo renombrado de Autoclave\ entera a
+//      Autoclave_respaldos\AAAAMMDD-HHMMSS_borrar\ (misma unidad): atómico,
+//      o se mueve todo (perfil incluido) o nada. Falla si hay algo abierto;
+//   7. se crea Autoclave\ vacía y se devuelve estacion\ (si falla, se deshace
+//      el renombrado y se detiene);
+//   8. se borra la carpeta _borrar (sin seguir enlaces). Si algo queda, solo
+//      se anota: la carpeta de datos ya está limpia y lo que queda está en la
+//      carpeta protegida.
+// Tras un corte de energía, ver la tabla del informe N11 (§ Revisión de seguridad).
+
+function GetFileAttributes(lpFileName: String): Cardinal;
+  external 'GetFileAttributesW@kernel32.dll stdcall';
+function SetFileAttributes(lpFileName: String; dwFileAttributes: Cardinal): BOOL;
+  external 'SetFileAttributesW@kernel32.dll stdcall';
+
+function CarpetaDatos: String;
+begin
+  Result := ExpandConstant('{commonappdata}\Especifika\Autoclave');
+end;
+
+// Fuera de la carpeta que se borra
+function RaizRespaldos: String;
+begin
+  Result := ExpandConstant('{commonappdata}\Especifika\Autoclave_respaldos');
+end;
+
+// ¿La ruta existe y es un punto de reanálisis (enlace simbólico o unión)?
+function EsEnlace(Ruta: String): Boolean;
 var
-  Desinstalador: String;
-  Codigo, I: Integer;
+  Atributos: Cardinal;
+begin
+  Atributos := GetFileAttributes(Ruta);
+  Result := (Atributos <> $FFFFFFFF) and ((Atributos and FILE_ATTRIBUTE_REPARSE_POINT) <> 0);
+end;
+
+// X:\...\Especifika\Autoclave, sin '..'
+function RutaDatosValida(Datos: String): Boolean;
+var
+  Unidad: String;
 begin
   Result := False;
-  Desinstalador := RutaDesinstalador;
-  if Desinstalador = '' then
+  if Length(Datos) < 24 then
     exit;
-  Codigo := -1;
-  // /SILENT: sin la pregunta "¿desea desinstalar?", pero con sus avisos visibles
-  Exec(Desinstalador, '/SILENT /NORESTART', '', SW_SHOW, ewWaitUntilTerminated, Codigo);
-  for I := 1 to 240 do
-  begin
-    if not RegKeyExists(HKLM64, ClaveDesinstalar) then
-      break;
-    Sleep(500);
-  end;
-  Result := not RegKeyExists(HKLM64, ClaveDesinstalar);
-  Log(Format('Mantenimiento: desinstalación para reinstalar -> código %d, terminada=%d', [Codigo, Ord(Result)]));
+  Unidad := Uppercase(Copy(Datos, 1, 1));
+  if (Unidad < 'A') or (Unidad > 'Z') or (Copy(Datos, 2, 2) <> ':\') then
+    exit;
+  if Pos('..', Datos) > 0 then
+    exit;
+  Result := CompareText(Copy(Datos, Length(Datos) - 20, 21), '\Especifika\Autoclave') = 0;
+end;
+
+// ¿Ruta está dentro de Carpeta (o es ella)?
+function EstaDentro(Ruta, Carpeta: String): Boolean;
+begin
+  Result := (CompareText(Ruta, Carpeta) = 0) or
+    (Pos(Uppercase(AddBackslash(Carpeta)), Uppercase(Ruta)) = 1);
+end;
+
+// Dueño Administradores y solo Administradores y SYSTEM, sin herencia de
+// ProgramData (que da lectura a Usuarios; un usuario estándar puede haber
+// creado la carpeta antes y ser su dueño). Los archivos copiados heredan.
+function ProtegerRespaldos: Boolean;
+var
+  Codigo: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\icacls.exe'), '"' + RaizRespaldos +
+    '" /setowner *S-1-5-32-544 /C /Q', '', SW_HIDE, ewWaitUntilTerminated, Codigo) and (Codigo = 0);
+  Log(Format('Instalación limpia: icacls /setowner sobre %s -> código %d', [RaizRespaldos, Codigo]));
   if not Result then
-    MsgBox(FmtMessage(CustomMessage('MantDesinstalarFallo'), [IntToStr(Codigo), ArchivoLogEstacion]),
-      mbError, MB_OK);
+    exit;
+  Result := Exec(ExpandConstant('{sys}\icacls.exe'), '"' + RaizRespaldos +
+    '" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F /C /Q',
+    '', SW_HIDE, ewWaitUntilTerminated, Codigo) and (Codigo = 0);
+  Log(Format('Instalación limpia: icacls /inheritance:r sobre %s -> código %d', [RaizRespaldos, Codigo]));
+end;
+
+// Autoclave_respaldos\AAAAMMDD-HHMMSS (con sufijo si ya existe, también su _borrar)
+function NuevaCarpetaRespaldo: String;
+var
+  Base: String;
+  I: Integer;
+begin
+  Base := RaizRespaldos + '\' + GetDateTimeString('yyyymmdd-hhnnss', '-', ':');
+  Result := Base;
+  I := 2;
+  while DirExists(Result) or FileExists(Result) or DirExists(Result + '_borrar') or
+      FileExists(Result + '_borrar') do
+  begin
+    Result := Base + '_' + IntToStr(I);
+    I := I + 1;
+  end;
+end;
+
+// 0 = cerrado, 1 = abierto, 2 = no se pudo comprobar (se trata como abierto).
+// Todas las funciones del exe único (backend, pantallas, asistente) corren
+// como Autoclave.exe (exe_unico._cmd_propio); los otros dos nombres son los de
+// los .spec separados, por si alguno quedara en el PC.
+function EstadoAutoclave: Integer;
+var
+  Localizador, Servicio, Resultado: Variant;
+begin
+  Result := 2;
+  try
+    Localizador := CreateOleObject('WbemScripting.SWbemLocator');
+    Servicio := Localizador.ConnectServer('.', 'root\CIMV2');
+    Resultado := Servicio.ExecQuery('SELECT ProcessId FROM Win32_Process WHERE ' +
+      'Name = ''Autoclave.exe'' OR Name = ''AutoclaveBackend.exe'' OR Name = ''AutoclaveSettings.exe''');
+    if Resultado.Count > 0 then
+      Result := 1
+    else
+      Result := 0;
+  except
+    Log('Instalación limpia: no se pudo consultar WMI por Autoclave.exe: ' + GetExceptionMessage);
+    Result := 2;
+  end;
+end;
+
+// Copia recursiva de Origen en Destino (que no debe existir). False ante
+// cualquier error, una carpeta que no se puede listar o un enlace/unión
+// (nunca se siguen enlaces fuera de la carpeta de datos).
+function CopiarArbol(Origen, Destino: String): Boolean;
+var
+  Busqueda: TFindRec;
+  Hay: Boolean;
+begin
+  Result := CreateDir(Destino) and not EsEnlace(Destino);
+  if not Result then
+  begin
+    Log('Instalación limpia: no se pudo crear ' + Destino);
+    exit;
+  end;
+  // una carpeta que existe siempre lista al menos '.': False = error
+  if not FindFirst(Origen + '\*', Busqueda) then
+  begin
+    Log('Instalación limpia: no se pudo listar ' + Origen);
+    Result := False;
+    exit;
+  end;
+  try
+    Hay := True;
+    while Hay and Result do
+    begin
+      if (Busqueda.Name <> '.') and (Busqueda.Name <> '..') then
+      begin
+        if (Busqueda.Attributes and FILE_ATTRIBUTE_REPARSE_POINT) <> 0 then
+        begin
+          Log('Instalación limpia: enlace no admitido en los datos: ' + Origen + '\' + Busqueda.Name);
+          Result := False;
+        end else if (Busqueda.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+          Result := CopiarArbol(Origen + '\' + Busqueda.Name, Destino + '\' + Busqueda.Name)
+        else
+        begin
+          Result := CopyFile(Origen + '\' + Busqueda.Name, Destino + '\' + Busqueda.Name, True);
+          if not Result then
+            Log('Instalación limpia: no se pudo copiar ' + Origen + '\' + Busqueda.Name);
+        end;
+      end;
+      if Result then
+        Hay := FindNext(Busqueda);
+    end;
+  finally
+    FindClose(Busqueda);
+  end;
+end;
+
+// Suma archivos y bytes de un árbol. False si una carpeta no se puede listar
+// o hay un enlace. (FindNext no distingue "fin" de "error": un error a mitad
+// de una lista se detecta porque los dos conteos del original y el de la
+// copia deben coincidir.)
+function ContarArbol(Carpeta: String; var Archivos: Integer; var Bytes: Extended): Boolean;
+var
+  Busqueda: TFindRec;
+  Hay: Boolean;
+begin
+  Result := FindFirst(Carpeta + '\*', Busqueda);
+  if not Result then
+  begin
+    Log('Instalación limpia: no se pudo listar ' + Carpeta);
+    exit;
+  end;
+  try
+    Hay := True;
+    while Hay and Result do
+    begin
+      if (Busqueda.Name <> '.') and (Busqueda.Name <> '..') then
+      begin
+        if (Busqueda.Attributes and FILE_ATTRIBUTE_REPARSE_POINT) <> 0 then
+          Result := False
+        else if (Busqueda.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+          Result := ContarArbol(Carpeta + '\' + Busqueda.Name, Archivos, Bytes)
+        else
+        begin
+          Archivos := Archivos + 1;
+          Bytes := Bytes + Busqueda.SizeHigh * 4294967296.0 + Busqueda.SizeLow;
+        end;
+      end;
+      if Result then
+        Hay := FindNext(Busqueda);
+    end;
+  finally
+    FindClose(Busqueda);
+  end;
+end;
+
+// Borra un árbol SIN seguir enlaces: de un enlace/unión se borra solo el
+// enlace (RemoveDir/DeleteFile), nunca su destino. True si no quedó nada.
+function BorrarArbol(Carpeta: String): Boolean;
+var
+  Busqueda: TFindRec;
+  Hay: Boolean;
+  Ruta: String;
+begin
+  if FindFirst(Carpeta + '\*', Busqueda) then
+  try
+    Hay := True;
+    while Hay do
+    begin
+      if (Busqueda.Name <> '.') and (Busqueda.Name <> '..') then
+      begin
+        Ruta := Carpeta + '\' + Busqueda.Name;
+        if (Busqueda.Attributes and FILE_ATTRIBUTE_REPARSE_POINT) <> 0 then
+        begin
+          if (Busqueda.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+            RemoveDir(Ruta)
+          else
+            DeleteFile(Ruta);
+        end else if (Busqueda.Attributes and FILE_ATTRIBUTE_DIRECTORY) <> 0 then
+          BorrarArbol(Ruta)
+        else if not DeleteFile(Ruta) then
+        begin
+          // solo lectura: se quita el atributo y se reintenta
+          SetFileAttributes(Ruta, FILE_ATTRIBUTE_NORMAL);
+          DeleteFile(Ruta);
+        end;
+      end;
+      Hay := FindNext(Busqueda);
+    end;
+  finally
+    FindClose(Busqueda);
+  end;
+  RemoveDir(Carpeta);
+  Result := not DirExists(Carpeta);
+  if not Result then
+    Log('Instalación limpia: no se pudo borrar todo ' + Carpeta);
+end;
+
+// Pasos 6 y 7: la carpeta de datos pasa entera, de una vez, a CarpetaBorrar;
+// se crea vacía y vuelve estacion\. '' = bien; si no, el mensaje (los datos
+// quedan donde estaban, o se informa dónde quedaron si deshacer falla).
+function VaciarDatos(Datos, CarpetaBorrar: String): String;
+begin
+  Result := '';
+  if not RenameFile(Datos, CarpetaBorrar) then
+  begin
+    Log('Instalación limpia: no se pudo mover ' + Datos + ' (¿algo abierto?): no se borró nada.');
+    Result := CustomMessage('LimpiaMoverFallo');
+    exit;
+  end;
+  Log('Instalación limpia: ' + Datos + ' movida a ' + CarpetaBorrar);
+  if CreateDir(Datos) then
+  begin
+    if not DirExists(CarpetaBorrar + '\estacion') then
+      exit;
+    if RenameFile(CarpetaBorrar + '\estacion', Datos + '\estacion') then
+      exit;
+    Log('Instalación limpia: no se pudo devolver estacion\: se deshace.');
+    RemoveDir(Datos);
+  end else
+    Log('Instalación limpia: no se pudo crear ' + Datos + ' vacía: se deshace.');
+  // deshacer: los datos vuelven a su lugar, sin borrar nada
+  if RenameFile(CarpetaBorrar, Datos) then
+    Result := CustomMessage('LimpiaMoverFallo')
+  else
+    Result := FmtMessage(CustomMessage('LimpiaDeshacerFallo'), [CarpetaBorrar, Datos]);
+end;
+
+// Se llama desde PrepareToInstall: '' = bien; si no, el mensaje con el que el
+// Setup se detiene sin instalar.
+function EjecutarLimpia: String;
+var
+  Datos, CarpetaBorrar: String;
+  ArchivosAntes, ArchivosCopia, ArchivosDespues: Integer;
+  BytesAntes, BytesCopia, BytesDespues: Extended;
+  Correcto: Boolean;
+begin
+  Result := '';
+  Datos := CarpetaDatos;
+  // 1. Nunca sin asistente (las dos confirmaciones son del técnico)
+  if WizardSilent then
+  begin
+    Result := CustomMessage('LimpiaSilenciosa');
+    exit;
+  end;
+  if not RutaDatosValida(Datos) then
+  begin
+    Result := FmtMessage(CustomMessage('LimpiaRutaInvalida'), [Datos]);
+    exit;
+  end;
+  // 2. Con el programa abierto (o sin poder comprobarlo) no se toca nada
+  case EstadoAutoclave of
+    1: begin
+         Result := CustomMessage('LimpiaProgramaAbierto');
+         exit;
+       end;
+    2: begin
+         Result := CustomMessage('LimpiaSinComprobar');
+         exit;
+       end;
+  end;
+  if not DirExists(Datos) then
+  begin
+    Log('Instalación limpia: no existe ' + Datos + ': nada que respaldar ni borrar.');
+    exit;
+  end;
+  // 3. Sin enlaces en el camino
+  if EsEnlace(ExtractFileDir(Datos)) or EsEnlace(Datos) or EsEnlace(RaizRespaldos) then
+  begin
+    Result := FmtMessage(CustomMessage('LimpiaEnlace'), [Datos]);
+    exit;
+  end;
+  // 4. y 5. Respaldo completo, protegido y verificado (pasos separados: no
+  // depender de la evaluación en cortocircuito)
+  CarpetaRespaldo := '';
+  Correcto := ForceDirectories(RaizRespaldos);
+  if Correcto then
+    Correcto := not EsEnlace(RaizRespaldos);
+  if Correcto then
+    Correcto := ProtegerRespaldos;
+  if Correcto then
+  begin
+    CarpetaRespaldo := NuevaCarpetaRespaldo;
+    CarpetaBorrar := CarpetaRespaldo + '_borrar';
+    Correcto := not EstaDentro(CarpetaRespaldo, Datos) and not EstaDentro(CarpetaBorrar, Datos);
+  end;
+  ArchivosAntes := 0;
+  ArchivosCopia := 0;
+  ArchivosDespues := 0;
+  BytesAntes := 0;
+  BytesCopia := 0;
+  BytesDespues := 0;
+  if Correcto then
+    Correcto := ContarArbol(Datos, ArchivosAntes, BytesAntes);
+  if Correcto then
+    Correcto := CopiarArbol(Datos, CarpetaRespaldo);
+  if Correcto then
+    Correcto := ContarArbol(CarpetaRespaldo, ArchivosCopia, BytesCopia);
+  if Correcto then
+    Correcto := ContarArbol(Datos, ArchivosDespues, BytesDespues);
+  // ISCC toma como sección una línea que empieza con '[': no partir antes del arreglo
+  Log(Format('Instalación limpia: respaldo en %s (%d archivos; original %d antes y %d después)', [
+    CarpetaRespaldo, ArchivosCopia, ArchivosAntes, ArchivosDespues]));
+  if Correcto then
+    Correcto := (ArchivosAntes = ArchivosCopia) and (ArchivosDespues = ArchivosCopia) and
+      (BytesAntes = BytesCopia) and (BytesDespues = BytesCopia);
+  if not Correcto then
+  begin
+    Log('Instalación limpia: respaldo fallido o distinto del original: no se borra nada.');
+    Result := FmtMessage(CustomMessage('LimpiaRespaldoFallo'), [CarpetaRespaldo]);
+    exit;
+  end;
+  // 6. y 7. Vaciado atómico (o deshecho)
+  Result := VaciarDatos(Datos, CarpetaBorrar);
+  if Result <> '' then
+    exit;
+  // 8. Borrado de lo movido (no es condición: los datos ya están limpios)
+  if not BorrarArbol(CarpetaBorrar) then
+    Log('Instalación limpia: quedan restos en ' + CarpetaBorrar + ' (carpeta protegida): borrarlos a mano.');
+  Log('Instalación limpia: datos borrados de ' + Datos + ' (se conserva estacion\).');
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  Result := '';
+  if Modo = ModoLimpia then
+    Result := EjecutarLimpia;
+end;
+
+// Dos confirmaciones, las dos con "No" por defecto
+function ConfirmarLimpia: Boolean;
+begin
+  Result := False;
+  if MsgBox(FmtMessage(CustomMessage('LimpiaConfirmar1'), [CarpetaDatos]), mbConfirmation,
+      MB_YESNO or MB_DEFBUTTON2) <> IDYES then
+    exit;
+  if MsgBox(FmtMessage(CustomMessage('LimpiaConfirmar2'), [CarpetaDatos, RaizRespaldos + '\AAAAMMDD-HHMMSS']),
+      mbConfirmation, MB_YESNO or MB_DEFBUTTON2) <> IDYES then
+    exit;
+  Result := True;
 end;
 
 // Desinstalar: abre el desinstalador normal (con su confirmación) y cierra el Setup
@@ -408,15 +899,28 @@ end;
 
 procedure InitializeWizard;
 begin
+  IndiceLimpia := -1;
+  IndiceDesinstalar := -1;
   if Modo = ModoMantenimiento then
   begin
-    PaginaMantenimiento := CreateInputOptionPage(wpWelcome, CustomMessage('MantTitulo'),
+    PaginaOpciones := CreateInputOptionPage(wpWelcome, CustomMessage('MantTitulo'),
       FmtMessage(CustomMessage('MantSubtitulo'), [VersionInstalada]),
       CustomMessage('MantExplicacion'), True, False);
-    PaginaMantenimiento.Add(CustomMessage('MantReparar'));
-    PaginaMantenimiento.Add(CustomMessage('MantReinstalar'));
-    PaginaMantenimiento.Add(CustomMessage('MantDesinstalar'));
-    PaginaMantenimiento.Values[0] := True;
+    PaginaOpciones.Add(CustomMessage('MantReparar'));
+    PaginaOpciones.Add(CustomMessage('OpcionLimpia'));
+    PaginaOpciones.Add(CustomMessage('MantDesinstalar'));
+    IndiceLimpia := 1;
+    IndiceDesinstalar := 2;
+    PaginaOpciones.Values[0] := True;
+  end else if Modo = ModoActualizar then
+  begin
+    PaginaOpciones := CreateInputOptionPage(wpWelcome, CustomMessage('ActTitulo'),
+      FmtMessage(CustomMessage('ActSubtitulo'), [VersionInstalada, '{#AppVer}']),
+      CustomMessage('ActExplicacion'), True, False);
+    PaginaOpciones.Add(CustomMessage('ActActualizar'));
+    PaginaOpciones.Add(CustomMessage('OpcionLimpia'));
+    IndiceLimpia := 1;
+    PaginaOpciones.Values[0] := True;
   end;
   PaginaCuenta := CreateInputQueryPage(wpSelectTasks, CustomMessage('CuentaTitulo'),
     CustomMessage('CuentaSubtitulo'), CustomMessage('CuentaExplicacion'));
@@ -428,9 +932,9 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  // tras Reinstalar ya no hay instalación: no se vuelve a la página de mantenimiento
-  if (PaginaMantenimiento <> nil) and (PageID = PaginaMantenimiento.ID) then
-    Result := (Modo = ModoNuevo)
+  // la página de opciones nunca se salta: hasta "Instalar" nada está hecho
+  if (PaginaOpciones <> nil) and (PageID = PaginaOpciones.ID) then
+    Result := False
   // Reparar usa las tareas anteriores (UsePreviousTasks) y no reaplica el paso 01
   else if (Modo = ModoReparar) and ((PageID = wpSelectTasks) or
       ((PaginaCuenta <> nil) and (PageID = PaginaCuenta.ID))) then
@@ -441,21 +945,33 @@ begin
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
+var
+  Indice: Integer;
 begin
   Result := True;
-  if (PaginaMantenimiento <> nil) and (CurPageID = PaginaMantenimiento.ID) then
+  if (PaginaOpciones <> nil) and (CurPageID = PaginaOpciones.ID) then
   begin
-    case PaginaMantenimiento.SelectedValueIndex of
-      0: Modo := ModoReparar;
-      1: begin
-           Result := DesinstalarParaReinstalar;
-           if Result then
-             Modo := ModoNuevo;
-         end;
-      2: begin
-           Result := False;
-           AbrirDesinstalador;
-         end;
+    // se vuelve a decidir cada vez (Atrás y otra opción deshace la anterior)
+    Modo := ModoBase;
+    if ModoBase = ModoMantenimiento then
+      Modo := ModoReparar;
+    Indice := PaginaOpciones.SelectedValueIndex;
+    if Indice = IndiceLimpia then
+    begin
+      // Inno también llama a NextButtonClick sin asistente (/SILENT): ahí la
+      // limpia nunca se acepta (queda Actualizar o Reparar)
+      if WizardSilent then
+        Log('Instalación limpia rechazada: instalación sin asistente.')
+      else
+      begin
+        Result := ConfirmarLimpia;
+        if Result then
+          Modo := ModoLimpia;
+      end;
+    end else if Indice = IndiceDesinstalar then
+    begin
+      Result := False;
+      AbrirDesinstalador;
     end;
     exit;
   end;
@@ -523,6 +1039,22 @@ begin
     if not EjecutarPaso('05', 'Aplicar', '') then
       Fallas := Fallas + '- ' + CustomMessage('Paso05') + #13#10;
     ReiniciarAlFinal := True;
+    // D11-5: abre MultiDigitizer.exe (interactivo): nunca sin asistente
+    if WizardIsTaskSelected('estacion\tactiles') then
+    begin
+      if WizardSilent then
+        Log('Estación: paso 06 omitido (instalación sin asistente).')
+      else
+      begin
+        MarcarPaso('06');
+        WizardForm.StatusLabel.Caption := CustomMessage('TactilesTocar');
+        if not EjecutarPaso('06', 'Aplicar', '') then
+          Fallas := Fallas + '- ' + CustomMessage('Paso06') + #13#10;
+        WizardForm.StatusLabel.Caption := CustomMessage('AplicandoEstacion');
+        AsociacionesTactiles := ContarAsociacionesTactiles;
+        Log(Format('Estación: asociaciones táctiles en Digimon = %d', [AsociacionesTactiles]));
+      end;
+    end;
   end;
   if WizardIsTaskSelected('sinlogo') then
   begin
@@ -590,6 +1122,9 @@ begin
   ReaplicarPaso('04', 'Paso04', Fallas);
   ReaplicarPaso('05', 'Paso05', Fallas);
   ReaplicarPaso('02', 'Paso02', Fallas);
+  // El paso 06 tampoco se reaplica: abre una herramienta que pide tocar las
+  // pantallas (y un Setup silencioso quedaría esperando). La asociación ya
+  // hecha se conserva; para repetirla: tools\estacion\06_asociar_tactiles.ps1.
   if Fallas <> '' then
     SuppressibleMsgBox(FmtMessage(CustomMessage('EstacionFallo'), [Fallas, ArchivoLogEstacion]),
       mbError, MB_OK, IDOK);
@@ -611,10 +1146,16 @@ begin
       RepararEstacion;
       exit;
     end;
+    if Modo = ModoLimpia then
+      Log(FmtMessage(CustomMessage('LimpiaHecha'), [CarpetaRespaldo]));
     if WizardIsTaskSelected('estacion') or WizardIsTaskSelected('sinlogo') then
       AplicarEstacion(Usuario, Dominio);
     if WizardIsTaskSelected('autoarranque') then
       CrearTareaArranque(Usuario, Dominio);
+    // D11-5: aviso al final, sin fallar la instalación
+    if (AsociacionesTactiles >= 0) and (AsociacionesTactiles < 2) then
+      SuppressibleMsgBox(FmtMessage(CustomMessage('TactilesRepetir'), [IntToStr(AsociacionesTactiles)]),
+        mbInformation, MB_OK, IDOK);
   end;
 end;
 
@@ -643,6 +1184,7 @@ begin
   if not RegKeyExists(HKLM64, '{#ClaveEstacion}') then
     exit;
   UninstallProgressForm.StatusLabel.Caption := CustomMessage('RevirtiendoEstacion');
+  EjecutarReversion('06', 'Paso06', Fallas);
   EjecutarReversion('05', 'Paso05', Fallas);
   EjecutarReversion('04', 'Paso04', Fallas);
   EjecutarReversion('02', 'Paso02', Fallas);

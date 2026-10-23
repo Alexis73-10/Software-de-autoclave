@@ -34,6 +34,8 @@ _MENSAJES = {
     "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
+    # O11 (tanda 11, D11-7.1): entrada de un sensor No en uso en el programa
+    "SENSOR_NO_EN_USO": "opciones.err_sensor_no_en_uso",
     "asignacion_desfasada": "opciones.err_valor_cambio",
     # D8-5.7 (tanda 8): carga líquida
     "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
@@ -48,6 +50,37 @@ _MENSAJES = {
 
 def mensaje_de(causa: str) -> str:
     return _MENSAJES.get(causa, "opciones.err_generico")
+
+
+# ── selector por fila de las entradas mostradas (O11, tanda 11, D11-7.2) ──
+# Tres filas: la 1 obligatoria, la 2 y la 3 admiten "Ninguna" (""). Una
+# entrada elegida en una fila no se ofrece en las otras.
+FILAS_ENTRADAS = 3
+
+
+def filas_de(entradas) -> list[str]:
+    """Las entradas guardadas repartidas en las 3 filas ("" = Ninguna)."""
+    lista = [str(e) for e in (entradas or []) if e][:FILAS_ENTRADAS]
+    return lista + [""] * (FILAS_ENTRADAS - len(lista))
+
+
+def opciones_fila(disponibles, filas, fila: int) -> list[str]:
+    """Entradas que ofrece el desplegable de la fila `fila` (0 a 2): las
+    disponibles menos las elegidas en las otras filas ("Ninguna" lo agrega
+    la pantalla en las filas 2 y 3)."""
+    otras = {str(e) for i, e in enumerate(filas or []) if i != fila and e}
+    return [e for e in (disponibles or []) if e not in otras]
+
+
+def entradas_de_filas(filas) -> tuple[list[str], str]:
+    """(entradas a guardar en orden, clave de error o "")."""
+    filas = [str(e or "") for e in (filas or [])][:FILAS_ENTRADAS]
+    if not filas or not filas[0]:
+        return [], "opciones.err_entrada_1_obligatoria"
+    lista = [e for e in filas if e]
+    if len(set(lista)) != len(lista):
+        return [], "opciones.err_entradas_repetidas"
+    return lista, ""
 
 
 class ParametrosCicloController(QObject):
@@ -72,6 +105,7 @@ class ParametrosCicloController(QObject):
         self._sensores_editable = False
         self._entradas: list = []
         self._entradas_habilitadas: list = []
+        self._entradas_disponibles: list = []
         self._entradas_editable = False
         self._mensaje = ""
         self._detalle: dict = {}
@@ -154,9 +188,15 @@ class ParametrosCicloController(QObject):
         if r.ok and isinstance(r.datos, dict):
             self._entradas = list(r.datos.get("entradas") or [])
             self._entradas_habilitadas = list(r.datos.get("habilitadas") or [])
+            # O11 (D11-7.1): el selector no ofrece un sensor No en uso; un
+            # backend sin "disponibles" (anterior a O11): las habilitadas
+            disp = r.datos.get("disponibles")
+            self._entradas_disponibles = list(disp if isinstance(disp, list)
+                                              else self._entradas_habilitadas)
             self._entradas_editable = bool(r.datos.get("editable"))
         else:
             self._entradas, self._entradas_habilitadas, self._entradas_editable = [], [], False
+            self._entradas_disponibles = []
             self._fijar_mensaje(mensaje_de(r.causa))
         self.entradasChanged.emit()
 
@@ -171,6 +211,30 @@ class ParametrosCicloController(QObject):
     @Property(bool, notify=entradasChanged)
     def entradasEditable(self) -> bool:
         return self._entradas_editable
+
+    @Property("QVariantList", notify=entradasChanged)
+    def entradasDisponibles(self) -> list:
+        """O11: las que ofrece el selector (sin los sensores No en uso)."""
+        return self._entradas_disponibles
+
+    @Property("QVariantList", notify=entradasChanged)
+    def filasEntradas(self) -> list:
+        """O11: la selección guardada en las 3 filas ("" = Ninguna)."""
+        return filas_de(self._entradas)
+
+    @Slot(int, "QVariantList", result="QVariantList")
+    def opcionesFila(self, fila: int, filas) -> list:
+        return opciones_fila(self._entradas_disponibles, list(filas or []), int(fila))
+
+    @Slot("QVariantList", result=bool)
+    def guardarFilas(self, filas) -> bool:
+        """O11 (D11-7.2): Entrada 1 obligatoria, sin repetir; guarda con el
+        mismo PUT (1 a 3, auditoría en el backend)."""
+        lista, error = entradas_de_filas(list(filas or []))
+        if error:
+            self._fijar_mensaje(error)
+            return False
+        return self.guardarEntradas(lista)
 
     @Slot("QVariantList", result=bool)
     def guardarEntradas(self, entradas) -> bool:

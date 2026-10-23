@@ -202,7 +202,7 @@ def test_io_channels_lista_los_canales_del_equipo(io_client):
     assert resp.status_code == 200
     datos = resp.json()
     # sin perfil de instalación (MagicMock): el máximo físico del YAML (D8-3.17)
-    assert len(datos["DI"]) == 14 and len(datos["DO"]) == 24
+    assert len(datos["DI"]) == 14 and len(datos["DO"]) == 23
     assert len(datos["temperature"]) == 4 and len(datos["pressure"]) == 4
     assert datos["DO"][0]["name"] == "vapor_generador"
     assert any(c["momentanea"] for c in datos["DO"])

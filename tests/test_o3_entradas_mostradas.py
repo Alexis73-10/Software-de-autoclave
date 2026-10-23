@@ -45,9 +45,10 @@ def test_sin_lectura_o_desconocida_es_guion(clave):
     assert fila["valor"] == "—"
 
 
-def test_no_en_uso_es_guion_aunque_haya_lectura():
-    fila = em.construir(["temp_referencia"], SENSORS, no_en_uso=["temp_referencia"])[0]
-    assert fila["valor"] == "—" and fila["enUso"] is False
+def test_no_en_uso_no_se_muestra():
+    # O11 (tanda 11, D11-7.1): antes era una fila con "—"; ahora no aparece
+    filas = em.construir(["temp_referencia", "pres_camara"], SENSORS, no_en_uso=["temp_referencia"])
+    assert [f["clave"] for f in filas] == ["pres_camara"] and filas[0]["enUso"] is True
 
 
 def test_sensors_mal_formado_no_rompe():
@@ -96,8 +97,9 @@ def test_get_cycle_expone_entradas_y_no_en_uso(api, monkeypatch):
                         lambda: ["temp_camara", "temp_referencia", "pres_camara", "pres_chaqueta"])
     ctx.cycle_manager.selected_cycle = gp.programa(ctx.cycle_manager, 2)
     d = client.get("/cycle").json()
-    assert d["entradas_mostradas"] == ["temp_camara", "temp_referencia", "pres_camara"]
-    # de fábrica: Referencia "No en uso" -> la pantalla muestra "—"
+    # O11 (tanda 11, D11-7.4): de fábrica la Referencia está "No en uso" y
+    # ya no entra en la omisión
+    assert d["entradas_mostradas"] == ["temp_camara", "pres_camara"]
     assert "temp_referencia" in d["entradas_no_en_uso"]
     assert client.put("/cycle/display-inputs", headers=cabecera(srv, "tecnico"),
                       json={"programa": 2, "entradas": ["pres_chaqueta", "temp_camara"]}).status_code == 200
@@ -111,7 +113,8 @@ def test_get_cycle_sin_io_enabled_no_rompe(api, monkeypatch):
         raise OSError("x")
     monkeypatch.setattr(srv, "_ai_habilitadas", falla)
     ctx.cycle_manager.selected_cycle = gp.programa(ctx.cycle_manager, 2)
-    assert client.get("/cycle").json()["entradas_mostradas"] == list(gp.ENTRADAS_POR_OMISION)
+    # O11: la omisión del programa (de fábrica: Cámara 1 y presión)
+    assert client.get("/cycle").json()["entradas_mostradas"] == ["temp_camara", "pres_camara"]
 
 
 # ── puente QML ─────────────────────────────────────────────────────────────
@@ -145,7 +148,8 @@ def test_ui_bridge_publica_entradas_del_programa_y_cambian():
     ui.get_cycle.return_value = {"name": "B", "entradas_mostradas": ["temp_referencia", "temp_drenaje"],
                                  "entradas_no_en_uso": ["temp_referencia"]}
     b.refrescar()
-    assert [f["valor"] for f in b.entradasMostradas] == ["—", "—"]
-    ui.get_cycle.return_value = {}          # sin /cycle todavía: las tres de siempre
+    # O11: la Referencia No en uso no aparece; temp_drenaje sin lectura sigue con "—"
+    assert [(f["clave"], f["valor"]) for f in b.entradasMostradas] == [("temp_drenaje", "—")]
+    ui.get_cycle.return_value = {}          # sin /cycle todavía: la omisión de fábrica
     b.refrescar()
     assert [f["clave"] for f in b.entradasMostradas] == list(em.POR_OMISION)
