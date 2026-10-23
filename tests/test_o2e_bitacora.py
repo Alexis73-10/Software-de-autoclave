@@ -103,11 +103,13 @@ def test_formateo_puro():
     assert bitacora.presentar({"evento": "raro"}, {}, uf)["clave_texto"] == "bitacora.ev_generico"
 
 
-def test_suspension_queda_en_bitacora(api):
+def test_suspension_no_queda_en_bitacora(api):
+    # D9-6 (tanda 9): la suspensión pasó al log de desarrollo
     client, srv, ctx, cab = api
     assert client.post("/ui/standby", json={"activa": True, "pantalla": "puerta1"}).status_code == 200
     assert client.post("/ui/standby", json={"activa": False}).status_code == 200
-    assert ctx.db.get_auditoria(evento="suspension_entra") and ctx.db.get_auditoria(evento="suspension_sale")
+    assert not ctx.db.get_auditoria(evento="suspension_entra")
+    assert not ctx.db.get_auditoria(evento="suspension_sale")
     assert client.post("/ui/standby", json={"activa": "si"}).status_code == 422
 
 

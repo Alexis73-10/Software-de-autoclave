@@ -2,8 +2,9 @@
 FALLA es lo deseado (ningún fallo exige técnico) y se conserva. Pero el cambio
 se rechaza con un ciclo EN CURSO en sentido amplio: CICLO, estado seguro en
 curso o pendiente de confirmar, recuperación pendiente tras un reinicio y paro
-activo. Un programa dañado sigue rechazado (RB-04.4) y cada cambio queda en la
-bitácora (audit_log) con el origen."""
+activo. Un programa dañado sigue rechazado (RB-04.4) y cada cambio queda
+registrado con el origen. D9-6 (tanda 9): ese registro pasó de la bitácora
+(audit_log) al log de desarrollo (`_log_desarrollo`)."""
 
 import importlib
 import sys
@@ -90,38 +91,51 @@ def cliente():
 
 
 def _auditorias(ctx, evento):
+    """D9-6: la selección ya no va a audit_log; esto debe quedar vacío."""
     return [c for c in ctx.db.registrar_auditoria.call_args_list if c.args[0] == evento]
 
 
-def test_cambio_sin_sesion_en_falla_queda_en_la_bitacora_con_el_origen(cliente):
+@pytest.fixture
+def log_dev(cliente):
+    with patch.object(sys.modules["autoclave.backend.server"], "_log_desarrollo") as m:
+        yield m
+
+
+def _registros(log_dev, evento):
+    return [c for c in log_dev.call_args_list if c.args[0] == evento]
+
+
+def test_cambio_sin_sesion_en_falla_queda_en_el_log_con_el_origen(cliente, log_dev):
     client, ctx = cliente
     r = client.post("/cycle/select", json={"cycle_id": "instrumental_121", "origen": "puerta_1"})
     assert r.status_code == 200
-    (llamada,) = _auditorias(ctx, "PROGRAMA_SELECCIONADO")
+    assert _auditorias(ctx, "PROGRAMA_SELECCIONADO") == []    # D9-6: fuera de la bitácora
+    (llamada,) = _registros(log_dev, "PROGRAMA_SELECCIONADO")
     kw = llamada.kwargs
-    assert kw["valor_anterior"] == "instrumental_134"
-    assert kw["valor_nuevo"] == "instrumental_121"
-    assert kw["usuario"] == ""                              # sin sesión
+    assert kw["anterior"] == "instrumental_134"
+    assert kw["nuevo"] == "instrumental_121"
+    assert llamada.args == ("PROGRAMA_SELECCIONADO",)     # sin sesión
     assert kw["detalle"]["origen"] == "puerta_1"
     assert kw["detalle"]["estado"] == "FALLA"
     assert kw["detalle"]["cliente"]                         # dirección del cliente HTTP
 
 
-def test_sin_origen_declarado_queda_como_desconocido(cliente):
+def test_sin_origen_declarado_queda_como_desconocido(cliente, log_dev):
     client, ctx = cliente
     assert client.post("/cycle/select", json={"cycle_id": "instrumental_121"}).status_code == 200
-    (llamada,) = _auditorias(ctx, "PROGRAMA_SELECCIONADO")
+    (llamada,) = _registros(log_dev, "PROGRAMA_SELECCIONADO")
     assert llamada.kwargs["detalle"]["origen"] == "desconocido"
 
 
-def test_rechazo_del_control_loop_no_cambia_ni_audita_el_cambio(cliente):
+def test_rechazo_del_control_loop_no_cambia_ni_audita_el_cambio(cliente, log_dev):
     client, ctx = cliente
     ctx.control_loop.set_active_cycle.return_value = (False, "estado seguro en curso")
     r = client.post("/cycle/select", json={"cycle_id": "instrumental_121", "origen": "puerta_2"})
     assert r.status_code == 409
     ctx.cycle_manager.set_default_cycle.assert_not_called()
-    assert _auditorias(ctx, "PROGRAMA_SELECCIONADO") == []
-    (rechazo,) = _auditorias(ctx, "PROGRAMA_SELECCION_RECHAZADA")
+    assert _registros(log_dev, "PROGRAMA_SELECCIONADO") == []
+    assert _auditorias(ctx, "PROGRAMA_SELECCION_RECHAZADA") == []
+    (rechazo,) = _registros(log_dev, "PROGRAMA_SELECCION_RECHAZADA")
     assert rechazo.kwargs["detalle"]["origen"] == "puerta_2"
 
 
@@ -159,21 +173,23 @@ def test_rechaza_con_modo_prueba(_sm):
     assert loop.set_active_cycle(MagicMock())[0] is False
 
 
-def test_origen_desconocido_se_rechaza_y_se_audita(cliente):
+def test_origen_desconocido_se_rechaza_y_queda_en_el_log(cliente, log_dev):
     client, ctx = cliente
     r = client.post("/cycle/select", json={"cycle_id": "instrumental_121", "origen": "hacker"})
     assert r.status_code == 422 and r.json()["codigo"] == "origen_invalido"
     ctx.control_loop.set_active_cycle.assert_not_called()
-    assert len(_auditorias(ctx, "PROGRAMA_SELECCION_RECHAZADA")) == 1
+    assert _auditorias(ctx, "PROGRAMA_SELECCION_RECHAZADA") == []
+    assert len(_registros(log_dev, "PROGRAMA_SELECCION_RECHAZADA")) == 1
 
 
 @pytest.mark.parametrize("cycle_id, codigo", [("no_existe", "programa_no_encontrado"),
                                               ("roto", "PROGRAMA_NO_EDITABLE")])
-def test_todos_los_rechazos_quedan_en_la_bitacora_con_el_origen(cliente, cycle_id, codigo):
+def test_todos_los_rechazos_quedan_en_el_log_con_el_origen(cliente, log_dev, cycle_id, codigo):
     client, ctx = cliente
     r = client.post("/cycle/select", json={"cycle_id": cycle_id, "origen": "puerta_2"})
     assert r.json()["codigo"] == codigo
-    (rechazo,) = _auditorias(ctx, "PROGRAMA_SELECCION_RECHAZADA")
+    assert _auditorias(ctx, "PROGRAMA_SELECCION_RECHAZADA") == []
+    (rechazo,) = _registros(log_dev, "PROGRAMA_SELECCION_RECHAZADA")
     assert rechazo.kwargs["detalle"]["origen"] == "puerta_2"
     assert rechazo.kwargs["detalle"]["origen_autenticado"] is False
 

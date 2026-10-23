@@ -12,6 +12,11 @@ from autoclave.core.runtime import unidades as u
 
 # Eventos con texto propio en el catálogo (bitacora.ev.<evento>). Uno que no
 # esté aquí se muestra con el texto genérico y su código.
+# D9-6 (tanda 9): la bitácora guarda solo eventos de seguridad, cambios de
+# configuración y sesión. Retirados (quedan solo en el log de desarrollo):
+# rechazo_401/403/409 (todo `_rechazar`), suspension_entra/sale, puerta_orden,
+# puerta_orden_rechazada, PROGRAMA_SELECCIONADO, PROGRAMA_SELECCION_RECHAZADA,
+# correo_prueba, impresora_prueba e impresion_ganancias.
 EVENTOS = (
     "login_ok", "login_fallido", "login_bloqueado", "logout", "cambio_clave",
     "usuario_creado", "usuario_desactivado", "usuario_reactivado", "clave_restablecida",
@@ -20,14 +25,11 @@ EVENTOS = (
     "mantenimiento_registrado", "mantenimiento_configurado",
     "falla_reconocida", "ciclo_interrumpido", "apagar_equipo",
     "modo_prueba_entra", "modo_prueba_sale", "modo_prueba_salida_forzada", "salida_prueba",
-    "puerta_orden", "puerta_orden_rechazada", "atrapamiento_orden_invertida",
-    "PROGRAMA_SELECCIONADO", "PROGRAMA_SELECCION_RECHAZADA", "ROLES_SENSOR",
+    "atrapamiento_orden_invertida", "ROLES_SENSOR",
     "calibracion_atm_ok", "calibracion_atm_abortada", "calibracion_atm_rechazada",
-    "suspension_entra", "suspension_sale",
-    "correo_configurado", "correo_prueba", "correo_enviado", "impresora_prueba", "impresion_ganancias",
+    "correo_configurado", "correo_enviado",
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "aire_atmosferico_cortado_prueba", "apagado_windows_rechazado",
-    "rechazo_401", "rechazo_403", "rechazo_409",
     "param_ciclo_cambio",
     # R8 (tanda 8, D8-5.12): reasignación de E/S
     "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",

@@ -403,7 +403,7 @@ def test_impresiones_matriz(api, ruta, evento, rol):
         assert r.status_code == 200
         texto = ctx.realtime_printer.enqueue.call_args[0][0]
         texto.encode("cp437")
-        assert ctx.db.get_auditoria(evento=evento)
+        assert not ctx.db.get_auditoria(evento=evento)   # D9-6 (tanda 9): solo log de desarrollo
     else:
         assert r.status_code == 403 and not ctx.realtime_printer.enqueue.called
 

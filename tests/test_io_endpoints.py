@@ -165,21 +165,26 @@ def test_sin_dueno_nadie_enciende(entorno):
 
 # ── Hallazgo D: el rechazo se registra con el lock libre ────────────────────
 
-def test_rechazo_409_queda_en_audit_log_fuera_del_lock(entorno):
+def test_rechazo_409_queda_en_el_log_fuera_del_lock(entorno):
+    # D9-6 (tanda 9): el rechazo ya no va a audit_log, solo al log de desarrollo
+    import sys
     import threading
+    from unittest.mock import patch
     client, ctx, _ = entorno
     lock = threading.RLock()
     ctx.control_loop.bloqueo_maquina.return_value = lock
     lock_tomado = []
-    ctx.db.registrar_auditoria.side_effect = lambda *a, **k: lock_tomado.append(lock._is_owned())
     ctx.estado.get_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")
+    srv = sys.modules["autoclave.backend.server"]
+    with patch.object(srv, "_log_desarrollo",
+                      side_effect=lambda *a, **k: lock_tomado.append(lock._is_owned())) as log:
+        client.patch("/io/test/output/vapor_camara", json={"value": True})
 
-    client.patch("/io/test/output/vapor_camara", json={"value": True})
-
-    args, kwargs = ctx.db.registrar_auditoria.call_args
+    ctx.db.registrar_auditoria.assert_not_called()
+    args, kwargs = log.call_args
     assert args[0] == "rechazo_409"
     assert kwargs["entidad"] == "/io/test/output/vapor_camara"
-    assert "aro" in kwargs["detalle"]["motivo"]
+    assert "aro" in kwargs["motivo"]
     assert lock_tomado == [False]
 
 
