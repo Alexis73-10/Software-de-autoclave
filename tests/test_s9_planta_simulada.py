@@ -21,6 +21,11 @@ Celdas por programa (el programa es el del "ciclo interrumpido"):
   técnico entra a modo prueba: apertura/desbloqueo de puertas, rápida,
   chaqueta y vapor bloqueados y forzados a cero por el lazo; al salir el
   protocolo sigue hasta la cámara segura.
+- ai_vencida_en_protocolo (revisión ★ pasada 2, R2-M1): arranque
+  presurizado; a mitad del venteo la tarjeta deja de mandar tramas AI (la
+  presión publicada queda congelada en la banda atmosférica): no se abre
+  nada nuevo, no pasa a cámara segura ni termina; al volver las tramas
+  sigue hasta la cámara segura.
 - arranque_vacio_con_fuga (revisión ★ SAF-03): arranque en vacío (aire
   atmosférico abierto) y después la presión sube sobre atm + brecha: el aire
   se cierra en el mismo tick.
@@ -91,7 +96,8 @@ def _equipo(programa, monkeypatch, programas_fabrica):
                        config_manager=config, cap=get_capabilities(EquipmentClass.PISO_LAB))
     estado.set_machine_state(GlobalState.PREPARACION)
     return dict(reloj=reloj, estado=estado, tarjeta=tarjeta, config=config, planta=planta,
-                alarmas=alarmas, loop=loop, programa=programa, publicar=planta.publicar)
+                alarmas=alarmas, loop=loop, programa=programa, publicar=planta.publicar,
+                link=link)
 
 
 def _caliente_a_presion(planta):
@@ -272,6 +278,36 @@ def _modo_prueba_en_protocolo(a, **_):
                     encendidas_tras_un_tick=encendidas or ["ninguna"])
 
 
+def _ai_vencida_en_protocolo(a, **_):
+    _caliente_a_presion(a["planta"])
+    _arrancar(a)
+    loop = a["loop"]
+    for _ in range(30):
+        _tick(a)
+    original = a["publicar"]
+    congelada = {"P": t11.P_ATM}
+
+    def publicar(estado):
+        original(estado)
+        estado.sensores_pres["pres_camara"] = congelada["P"]      # Units congelada
+    a["publicar"] = publicar
+    a["link"].edad_ultima_ai.return_value = 10.0                  # sin tramas AI
+    antes = {k for k in DE_PROCESO if a["tarjeta"].on(k)}
+    nuevas, termino = set(), False
+    for _ in range(40):
+        _tick(a)
+        nuevas |= {k for k in DE_PROCESO if a["tarjeta"].on(k)} - antes
+        termino |= not loop.estado_seguro.activo
+    motivo = loop.estado_seguro.bloqueado_motivo
+    solo_lenta = getattr(loop.estado_seguro._protocolo, "solo_lenta", None)
+    a["publicar"] = original
+    a["link"].edad_ultima_ai.return_value = 0.1
+    visto = _seguir(a)
+    return _resumen(visto, nuevas_con_ai_vencida=sorted(nuevas) or ["ninguna"],
+                    termino_con_ai_vencida=termino, motivo_con_ai_vencida=motivo or "—",
+                    solo_lenta_con_ai_vencida=solo_lenta)
+
+
 def _arranque_vacio_con_fuga(a, **_):
     _en_vacio(a["planta"])
     _arrancar(a)
@@ -294,6 +330,7 @@ _CELDAS = {"arranque_presurizado": _arranque_presurizado, "arranque_vacio": _arr
            "paro_real_en_arranque": _paro_real_en_arranque,
            "cambio_programa_en_protocolo": _cambio_programa_en_protocolo,
            "modo_prueba_en_protocolo": _modo_prueba_en_protocolo,
+           "ai_vencida_en_protocolo": _ai_vencida_en_protocolo,
            "arranque_vacio_con_fuga": _arranque_vacio_con_fuga}
 
 
@@ -309,7 +346,7 @@ def test_ensayo_s9(programas, monkeypatch, numero, celda):  # noqa: F811
     assert r["listo_durante_el_protocolo"] is False, r
     assert r["ticks_aire_abierto_con_presion"] == 0, r        # SAF-03, por tick
     if celda in ("arranque_presurizado", "paro_real_en_arranque", "cambio_programa_en_protocolo",
-                 "modo_prueba_en_protocolo"):
+                 "modo_prueba_en_protocolo", "ai_vencida_en_protocolo"):
         assert "descompresion_lenta" in r["salidas_abiertas"], r
         assert not set(r["salidas_abiertas"]) & set(VALVULAS_PROHIBIDAS_LENTA), r
         assert r["lenta_en_vacio"] is False, r      # al enfriarse en vacío: aire atmosférico
@@ -334,6 +371,10 @@ def test_ensayo_s9(programas, monkeypatch, numero, celda):  # noqa: F811
         assert {"abrir_puerta_1", "desbloqueo_puerta_1", "vapor_camara",
                 "descompresion_rapida"} <= set(r["bloqueadas_en_prueba"]), r
         assert r["encendidas_tras_un_tick"] == ["ninguna"], r
+    if celda == "ai_vencida_en_protocolo":
+        assert r["nuevas_con_ai_vencida"] == ["ninguna"], r
+        assert r["termino_con_ai_vencida"] is False, r
+        assert r["motivo_con_ai_vencida"].startswith("Sensor de presión de cámara"), r
     if celda == "arranque_vacio_con_fuga":
         assert r["fuga_aplicada"] is True, r
         assert "aire_admosferico_camara" in r["salidas_abiertas"], r

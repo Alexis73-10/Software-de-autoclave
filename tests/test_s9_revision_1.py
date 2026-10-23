@@ -67,7 +67,10 @@ def test_salidas_de_puerta_y_vapor():
     assert set(sps.SALIDAS_PUERTA) == {"abrir_puerta_1", "abrir_puerta_2",
                                        "desbloqueo_puerta_1", "desbloqueo_puerta_2"}
     assert set(sps.SALIDAS_VAPOR) == {"descompresion_rapida", "descompresion_chaqueta",
-                                      "vapor_camara"}
+                                      "vapor_camara",
+                                      # revisión ★ pasada 2, P-a
+                                      "aire_comprimido_camara", "vapor_generador",
+                                      "vapor_caldera"}
     for k in (*sps.SALIDAS_PUERTA, *sps.SALIDAS_VAPOR):
         assert k in EstadoAutoclave.map_do
     # la lenta y el bloqueo (cerrar el cerrojo) nunca se bloquean
@@ -442,7 +445,7 @@ def test_recuperacion_espera_la_primera_ai_de_la_conexion():
     loop.estado.sensores_pres["pres_camara"] = None
     loop.recuperar_ciclo_interrumpido(_programa())
     loop.link.edad_ultima_ai.return_value = None
-    loop._conectado_desde = __import__("time").monotonic()
+    loop._primera_di_mono = __import__("time").monotonic()   # R2-B2: desde la primera DI
     loop._procesar_recuperacion()
     assert not loop.estado_seguro.activo and loop._recuperacion_pendiente is not None
 
@@ -452,7 +455,7 @@ def test_recuperacion_sin_ai_pasada_la_vigencia_arranca_el_protocolo():
     loop.estado.sensores_pres["pres_camara"] = None
     loop.recuperar_ciclo_interrumpido(_programa())
     loop.link.edad_ultima_ai.return_value = None
-    loop._conectado_desde = __import__("time").monotonic() - 10.0
+    loop._primera_di_mono = __import__("time").monotonic() - 10.0
     loop._procesar_recuperacion()
     assert loop.estado_seguro.activo
 
