@@ -116,6 +116,12 @@ class ProtocoloFallo:
         # S1 (revisión ★ SAF-03): causa del paso a solo_lenta con el protocolo
         # en marcha, para el registro del estado seguro
         self.motivo_solo_lenta = "sensor Principal sin lectura"
+        # S9 (tanda 9, D9-1.4): presión de cámara sin lectura confirmada con
+        # 3 lecturas (y de vuelta con 3 válidas): el estado seguro queda
+        # detenido (CIC-10) sin abrir nada nuevo
+        self._lecturas_presion_perdida = 0
+        self._lecturas_presion_vuelta = 0
+        self._presion_perdida = False
 
     @property
     def sellado(self) -> bool:
@@ -442,6 +448,11 @@ class ProtocoloFallo:
         if not self._ejecutado:
             return None
         temp = self._temp_principal()
+        if self._presion_perdida:
+            # S9 (D9-1.4): sin presión de cámara no se puede confirmar la
+            # cámara segura; primero que el Principal (sin presión, nada termina)
+            return ("Sensor de presión de cámara sin lectura: el estado seguro no puede "
+                    "confirmar la presión. Llame a servicio técnico")
         if self._sellado:
             return ("Sensor Principal sin lectura con carga líquida: cámara sellada hasta que "
                     "las sondas confirmen la temperatura o venza la espera")
@@ -688,6 +699,8 @@ class ProtocoloFallo:
             if self._salidas_apagadas:
                 logger.info("Protocolo fallo: apagado de salidas confirmado tras reintento")
 
+        self._seguir_presion_perdida()
+
         # R1-P4: Principal perdido con el protocolo ya en marcha por otra causa.
         # SAF-01 / SEN-02 / TMG-07 (revisión Q1): con _DEBOUNCE_LECTURAS
         # lecturas inválidas seguidas; una válida reinicia el contador.
@@ -768,6 +781,22 @@ class ProtocoloFallo:
                 )
                 self.set_do.buzer_fallo()
                 self._buzzer_emitido = True
+
+    def _seguir_presion_perdida(self) -> None:
+        """S9 (D9-1.4): debounce de 3 lecturas en los dos sentidos del
+        "estado seguro detenido" por la presión de cámara sin lectura. Solo
+        informa (bloqueado_motivo → CIC-10); las válvulas siguen su regla de
+        siempre (sin presión, update() no abre nada nuevo)."""
+        if self._presion_camara_perdida():
+            self._lecturas_presion_vuelta = 0
+            self._lecturas_presion_perdida += 1
+            if self._lecturas_presion_perdida >= _DEBOUNCE_LECTURAS:
+                self._presion_perdida = True
+        else:
+            self._lecturas_presion_perdida = 0
+            self._lecturas_presion_vuelta += 1
+            if self._lecturas_presion_vuelta >= _DEBOUNCE_LECTURAS:
+                self._presion_perdida = False
 
     def reanudar(self) -> None:
         """El protocolo vuelve a actuar tras una pausa (paro o confirmación

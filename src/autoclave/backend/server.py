@@ -1263,6 +1263,8 @@ def _estado_seguro_status() -> dict:
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
     motivo = getattr(es, "bloqueado_motivo", None) if activo else None
+    # S9 (D9-1.2): paro_liberado / arranque / fallo / cancelado / completado
+    causa = getattr(es, "causa", None) if activo else None
     try:
         ack_confirma = getattr(context.control_loop.state_machine.ciclo,
                                "ack_confirma_estado_seguro", False) is True
@@ -1273,7 +1275,8 @@ def _estado_seguro_status() -> dict:
             "ack_confirma_estado_seguro": ack_confirma,
             "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
             # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
-            "bloqueado_motivo": motivo if isinstance(motivo, str) else None}
+            "bloqueado_motivo": motivo if isinstance(motivo, str) else None,
+            "causa": causa if isinstance(causa, str) else None}
 
 
 def _camara_segura_status(estado) -> dict:
@@ -3209,8 +3212,9 @@ def _estado_seguro_en_marcha() -> bool:
 @app.post("/system/shutdown")
 def shutdown_system(body: dict = Body(default={})):
     """"Apagar equipo" / dejar fuera de servicio (§16, A1 de la tanda 3).
-    Permitido en cualquier estado salvo ciclo en curso (o estado seguro
-    actuando) y salvo un apagado ya en marcha: con FALLA, EMERGENCIA, paro,
+    Permitido en cualquier estado salvo ciclo en curso y salvo un apagado ya
+    en marcha (S9, D9-1.3: también con el estado seguro actuando; el apagado
+    deja todas las salidas en cero): con FALLA, EMERGENCIA, paro,
     sin tarjeta o con la cámara NO segura también se apaga (sin UPS, el
     personal técnico puede pedir dejar el equipo fuera de servicio). Solo desde
     la ventana principal (la UI de la puerta 1 envía ventana="principal").
@@ -3223,9 +3227,10 @@ def shutdown_system(body: dict = Body(default={})):
         # TMG-05 de T7: un segundo apagado (doble toque) no lanza otra secuencia
         if getattr(context.control_loop, "apagando", False) is True:
             raise _Rechazo(409, "apagado_en_curso", "El equipo ya se está apagando")
-        if _estado_seguro_en_marcha():
-            raise _Rechazo(409, "estado_seguro_activo",
-                           "La cámara se está llevando a estado seguro")
+        # S9 (tanda 9, D9-1.3): con el estado seguro activo también se apaga
+        # (antes 409 "estado_seguro_activo"); queda en la bitácora
+        estado_seguro_activo = getattr(getattr(context.control_loop, "estado_seguro", None),
+                                       "activo", False) is True
         # A1: solo informativo; ya no condiciona el apagado. Cualquier fallo al
         # evaluar cuenta como "no segura" (falla cerrada).
         try:
@@ -3251,7 +3256,8 @@ def shutdown_system(body: dict = Body(default={})):
              detalle={"estado": getattr(estado, "name", str(estado)),
                       "motivo": "fuera de servicio solicitado",
                       "camara_segura": segura, "tarjeta_conectada": tarjeta,
-                      "paro_emergencia": paro, "modo_prueba": en_modo_prueba})
+                      "paro_emergencia": paro, "modo_prueba": en_modo_prueba,
+                      "estado_seguro_activo": estado_seguro_activo})
     try:
         threading.Thread(target=_secuencia_apagado, name="ApagarEquipo", daemon=False).start()
     except Exception:

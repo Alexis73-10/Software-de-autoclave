@@ -15,6 +15,7 @@ from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime import aire_atmosferico_prueba
+from autoclave.core.runtime.coherencia_puerta_presion import VigilanciaCoherenciaPuertaPresion
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
@@ -173,6 +174,10 @@ class ControlLoop:
         # Ya hubo un tick con DI vigente en esta conexión (TMG-04 de U4)
         self._di_vista_en_conexion = False
         self.paro_emergencia    = EmergencyStop(estado)
+        # S9 (tanda 9, D9-1.6): puerta abierta con la presión de cámara fuera
+        # de la banda atmosférica, fuera de ciclo (SEN-10)
+        self.coherencia_puerta_presion = VigilanciaCoherenciaPuertaPresion(
+            alarm_manager, config_manager)
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
         self.thread: threading.Thread | None = None
@@ -294,7 +299,15 @@ class ControlLoop:
         último ciclo, también el de ese ciclo (se toma el máximo)."""
         if self.estado.get_machine_state() == GlobalState.CICLO:
             return [self.programa_en_ejecucion()]
-        return [p for p in (self.cycle, self._programa_ultimo_ciclo) if p is not None]
+        # S9 (tanda 9, D9-1.3): con el programa cambiado durante el estado
+        # seguro o la recuperación de arranque, sus copias siguen contando
+        # aunque ya no sean el seleccionado ni el último ciclo
+        programas = []
+        for p in (self.cycle, self._programa_ultimo_ciclo, self.estado_seguro.programa,
+                  self._recuperacion_pendiente):
+            if p is not None and not any(p is q for q in programas):
+                programas.append(p)
+        return programas
 
     def recuperar_ciclo_interrumpido(self, programa) -> None:
         """E4 (D-08, SAF-08 de T5): tras un reinicio con un ciclo sin cerrar,
@@ -379,10 +392,15 @@ class ControlLoop:
             return
         self._ticks_seguros_recuperacion = 0
         logger.error("ControlLoop: arranque con la cámara no segura (%s) — "
-                     "estado seguro con confirmación", motivo)
+                     "estado seguro automático, solo la lenta", motivo)
+        # S9 (tanda 9, D9-1.1, revierte en parte E4/D-08): corre SOLO, sin
+        # confirmación (D9-1.2: solo tras un paro real de este encendido) y
+        # solo con la lenta (con vacío, aire atmosférico; sin presión no abre
+        # nada y queda detenido con CIC-10, D9-1.4)
         protocolo = ProtocoloFallo(self.estado, self.set_do, programa, self.config_manager)
-        protocolo.ejecutar(abrir_valvulas=False)
-        self.estado_seguro.iniciar(protocolo, requiere_confirmacion=True)
+        protocolo.ejecutar(abrir_valvulas=False, solo_lenta=True)
+        protocolo.motivo_solo_lenta = "arranque con la cámara no segura"
+        self.estado_seguro.iniciar(protocolo, origen="arranque")
         if self.estado_seguro.activo:
             self._recuperacion_pendiente = None     # entregada (si no, se reintenta)
         self._evento_seguridad("arranque_camara_no_segura",
@@ -400,14 +418,23 @@ class ControlLoop:
 
     def temp_max_tras_ciclo(self):
         """`finalizacion.temp_max_apertura` del último ciclo mientras su
-        Principal siga contando para la seguridad (SAF-04 de T4); si no, None."""
-        programa = self._programa_ultimo_ciclo
-        if programa is None or self.estado.get_machine_state() == GlobalState.CICLO:
+        Principal siga contando para la seguridad (SAF-04 de T4); si no, None.
+        S9 (D9-1.3): también la del programa del protocolo de estado seguro y
+        la de la recuperación de arranque; rige la menor."""
+        if self.estado.get_machine_state() == GlobalState.CICLO:
             return None
-        try:
-            return programa.get_param("finalizacion", "temp_max_apertura")
-        except Exception:
-            return None
+        valores = []
+        for programa in (self._programa_ultimo_ciclo, self.estado_seguro.programa,
+                         self._recuperacion_pendiente):
+            if programa is None:
+                continue
+            try:
+                v = programa.get_param("finalizacion", "temp_max_apertura")
+            except Exception:
+                continue
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                valores.append(v)
+        return min(valores) if valores else None
 
     def _seguir_programa_ultimo_ciclo(self, vigentes: bool = True) -> None:
         if self.estado.get_machine_state() == GlobalState.CICLO:
@@ -470,7 +497,8 @@ class ControlLoop:
     def _ai_vigente(self) -> bool:
         """True si la última trama AI (presiones y temperaturas) tiene a lo
         sumo _VIGENCIA_DI_SEG segundos. Mismo criterio de falla cerrada que
-        _di_vigente. Solo lo usa el aire atmosférico en modo prueba (D8-3.19)."""
+        _di_vigente. Lo usan el aire atmosférico en modo prueba (D8-3.19) y la
+        coherencia puerta-presión (S9, D9-1.6)."""
         edad = getattr(self.link, "edad_ultima_ai", lambda: None)()
         if isinstance(edad, bool) or not isinstance(edad, (int, float)):
             return False
@@ -940,6 +968,13 @@ class ControlLoop:
                 self.state_machine.update(datos_vigentes=vigentes)
             self._seguir_programa_ultimo_ciclo(
                 vigentes=connected and not self.desconectado and self._di_vigente())
+            # S9 (D9-1.6): coherencia puerta-presión, fuera de ciclo y sin
+            # modo prueba (las puertas no se actualizan en pausa)
+            if not pausada:
+                self.coherencia_puerta_presion.update(
+                    self.estado,
+                    vigentes=connected and not self.desconectado and self._di_vigente()
+                    and self._ai_vigente())
 
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
         if cancelado_por_paro:
@@ -1200,12 +1235,12 @@ class ControlLoop:
                                    "de la tarjeta de control.")
                 return False, "No se puede activar el modo prueba con el paro de emergencia activado."
 
-            # SAF-03 de T6: no mientras se decide o se lleva la cámara a estado seguro
-            if self.estado_seguro.activo or self._recuperacion_pendiente is not None:
-                return False, ("No se puede activar el modo prueba mientras la cámara se "
-                               "lleva a estado seguro.")
-
+            # S9 (tanda 9, D9-1.3, revierte SAF-03 de T6): permitido con el
+            # estado seguro activo o la recuperación pendiente. El protocolo
+            # se pausa (la máquina de estados no corre) y se reanuda al salir,
+            # tras el ALL_OFF de siempre.
             self._test_mode.set()
+            self.estado_seguro.pausar("modo_prueba")
             # D8-2.11: entrar cancela los reintentos pendientes (el modo
             # prueba vuelve a pausar todo y su salida apaga de nuevo)
             self._reintentos_all_off = 0
@@ -1335,8 +1370,11 @@ class ControlLoop:
         # leído (PARO_REAL) bloquea.
         if self.estado.get_flag("PARO_EMERGENCIA") and self.estado.get_flag("PARO_REAL"):
             return "No se puede cambiar de ciclo con el paro de emergencia activado."
-        if self.estado_seguro.activo or self._recuperacion_pendiente is not None:
-            return "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro."
+        # S9 (tanda 9, D9-1.3): con el estado seguro activo o la recuperación
+        # pendiente SÍ se cambia: elegir no acciona nada, el protocolo y sus
+        # copias del programa sobreviven a set_active_cycle y siguen contando
+        # para la seguridad (programas_para_seguridad, temp_max_tras_ciclo);
+        # el inicio sigue bloqueado mientras el protocolo esté activo.
         if self.estado.get_flag("START_CICLO"):
             return "No se puede cambiar de ciclo: ya se pidió el inicio de uno."
         if self._test_mode.is_set():

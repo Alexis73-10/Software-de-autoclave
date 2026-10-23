@@ -9,6 +9,10 @@
 # la StateMachine entrega aquí el ProtocoloFallo del ciclo y este módulo lo
 # sigue ejecutando en el estado siguiente hasta que la cámara sea segura:
 #
+#  0. S9 (tanda 9, D9-1.1/1.2): al arrancar con la cámara no segura corre
+#     solo, sin confirmación; la confirmación se exige SOLO tras un paro real
+#     visto en este encendido (paso 1). `causa` distingue paro liberado /
+#     arranque / fin de ciclo para la UI.
 #  1. Paro activo: no hace nada (los estados mandan ALL_OFF continuo); si
 #     es un paro real (PARO_REAL, U4) se marca que hará falta una
 #     confirmación nueva. Sin datos de la tarjeta solo se pausa.
@@ -50,6 +54,9 @@ class ProtocoloEstadoSeguro:
         self._paro_visto = False
         self._pausado = False
         self.requiere_confirmacion = False
+        # S9 (tanda 9, D9-1.2): por qué corre el protocolo ("arranque",
+        # "fallo", "cancelado" o "completado"); la UI lo distingue del paro
+        self.origen = None
         self.alarm_manager = alarm_manager
         # Callable que mantiene el enfriamiento del drenaje mientras el
         # protocolo ventea (SAF-07 de T5). Lo fija la StateMachine.
@@ -101,8 +108,23 @@ class ProtocoloEstadoSeguro:
         except Exception:
             logger.exception("Estado seguro: no se pudo registrar %s", evento)
 
-    def iniciar(self, protocolo, requiere_confirmacion: bool = False) -> None:
-        """Toma el ProtocoloFallo ya ejecutado del ciclo terminado."""
+    @property
+    def causa(self) -> str | None:
+        """S9 (D9-1.2): "paro_liberado" mientras espera la confirmación (solo
+        tras un paro real visto en este encendido); si no, el origen del
+        protocolo ("arranque", "fallo", "cancelado", "completado"). None si
+        no está activo. La UI elige el texto con esto: nunca dice "paro
+        liberado" si no hubo paro."""
+        if not self.activo:
+            return None
+        if self.requiere_confirmacion:
+            return "paro_liberado"
+        return self.origen or "fallo"
+
+    def iniciar(self, protocolo, requiere_confirmacion: bool = False,
+                origen: str = "fallo") -> None:
+        """Toma el ProtocoloFallo ya ejecutado del ciclo terminado (o el del
+        arranque con la cámara no segura, origen "arranque")."""
         if protocolo is None or not getattr(protocolo, "ejecutado", False):
             return
         self._protocolo = protocolo
@@ -113,7 +135,20 @@ class ProtocoloEstadoSeguro:
         # empezar a actuar se "reanuda" (pulsos y plazo del modo desde cero)
         self._pausado = True
         self.requiere_confirmacion = requiere_confirmacion
-        self._evento("estado_seguro_iniciado", requiere_confirmacion=requiere_confirmacion)
+        self.origen = origen
+        self._evento("estado_seguro_iniciado", requiere_confirmacion=requiere_confirmacion,
+                     origen=origen)
+
+    def pausar(self, motivo: str) -> None:
+        """S9 (D9-1.3): el modo prueba pausa el protocolo (la máquina de
+        estados no corre y la entrada al modo prueba apaga todo). Al volver a
+        actuar se reanuda como tras un paro: pulsos y plazos desde cero y las
+        3 lecturas seguras se cuentan de nuevo."""
+        if not self.activo:
+            return
+        self._pausado = True
+        self._ticks_seguros = 0
+        self._evento("estado_seguro_pausado", motivo=motivo)
 
     def confirmar(self) -> bool:
         """"Confirmar y llevar a estado seguro". False si no aplica (no hay
@@ -229,8 +264,13 @@ class ProtocoloEstadoSeguro:
                 logger.exception("Estado seguro: no se pudieron obtener los programas")
                 self._ticks_seguros = 0
                 return
+        propio = getattr(self._protocolo, "cycle", None)
         if programas is None:
-            programas = [getattr(self._protocolo, "cycle", None)]
+            programas = [propio]
+        elif propio is not None and not any(p is propio for p in programas):
+            # S9 (D9-1.3): con el programa cambiado durante el protocolo, su
+            # Principal sigue contando (nunca solo el seleccionado)
+            programas = list(programas) + [propio]
         temp_max_ciclo = None
         try:
             temp_max_ciclo = self._protocolo.cycle.get_param("finalizacion", "temp_max_apertura")
