@@ -1,0 +1,106 @@
+# S9 ★ — Estado seguro al arrancar y bloqueos (tanda 9, D9-1)
+
+Rama `tanda-9-s9` (worktree `.claude/worktrees/agent-a8977a28ac4adbe26`). El S9 original se cortó por el límite de uso con el código, las pruebas y los documentos ya en commits, pero sin informe. Esta continuación aplicó las correcciones de la revisión ★ pasada 1 (`C:/Users/tecni/Documents/_suites_t9/s9_revision_1.md`), actualizó las pruebas viejas que todavía afirmaban el comportamiento que D9-1 revierte y escribió este informe.
+
+Fuente de verdad: `docs/mis_plans/decisiones_tanda_9.md` §"Causa común" y §D9-1; etapa S9 de `docs/mis_plans/instruccion_claude_code_tanda_9.md`.
+
+## 1. Qué se hizo, por punto D9
+
+| Punto | Qué se hizo | Dónde |
+|---|---|---|
+| D9-1.1 | Al arrancar con la cámara no segura el protocolo corre solo, sin confirmación, con el programa conservador (`_programa_para_arranque`) y en `solo_lenta`: con presión sobre atm + brecha solo la lenta (nunca rápida, chaqueta ni contrapresión, cualquier modo y carga); con vacío bajo atm − brecha, aire atmosférico (rama existente de `ProtocoloFallo`, ahora con 3 lecturas, ver SAF-03); sin presión no abre nada. NO ABRIR sigue hasta la cámara segura. | `control_loop.py` (`_procesar_recuperacion`), `protocolo_fallo.py` |
+| D9-1.2 | La confirmación se exige solo tras un paro real (`PARO_REAL`) visto con el protocolo en marcha. `ProtocoloEstadoSeguro.origen`/`causa` ("paro_liberado", "arranque", "fallo", "cancelado", "completado") publicada en `/status` → `UiBridge.estadoSeguroCausa` → texto en `SeccionEstadoSeguro.qml`; "paro liberado" solo con la confirmación pendiente. | `estado_seguro.py`, `state_machine.py`, `server.py`, `ui_bridge.py`, `SeccionEstadoSeguro.qml`, i18n |
+| D9-1.3 | Con el estado seguro activo o la recuperación pendiente se permiten modo prueba (el protocolo se pausa con `pausar("modo_prueba")` y se reanuda tras el ALL_OFF de salida), apagado (sin el 409 `estado_seguro_activo`; queda `estado_seguro_activo` en la bitácora) y cambio de programa (backend y `PantallaPreciclo.qml`). El inicio sigue bloqueado. `programas_para_seguridad` incluye el programa del protocolo y el de la recuperación; `temp_max_tras_ciclo` toma la menor; `ProtocoloEstadoSeguro` añade su propio programa. Revisión ★ SAF-01: el modo prueba ya no puede abrir puertas ni encender vapor en ese estado (ver §3). | `control_loop.py`, `estado_seguro.py`, `server.py`, `PantallaPreciclo.qml` |
+| D9-1.4 | Presión de cámara sin lectura (3 lecturas, en los dos sentidos) → `bloqueado_motivo` «Sensor de presión de cámara sin lectura…» → CIC-10 (clave i18n `estado_seguro_motivos.sin_presion_camara`) además de SEN-06; NO ABRIR; sin bloquear lo de D9-1.3. Revisión ★: cuenta tramas AI distintas y la trama AI vencida cuenta como presión perdida. | `protocolo_fallo.py`, `alarmas_i18n.py`, i18n |
+| D9-1.5 | Login siempre permitido, también con paro o confirmación pendiente: se quitó la vuelta forzada del login/cambio de clave en `Main.qml`; la confirmación sigue en la tarjeta de Preciclo y en la campana. | `Main.qml` |
+| D9-1.6 | Coherencia puerta-presión: alarma nueva **SEN-10** (ALARMA, bloquea el inicio) «Presión de cámara incoherente con la puerta abierta», con las 3 causas posibles en la acción; solo fuera de ciclo y fuera del modo prueba; 3 lecturas para aparecer y 3 coherentes (con la puerta ABIERTA, revisión ★ SAF-02) para despejarse. | `core/runtime/coherencia_puerta_presion.py` (nuevo), `catalogo.py`, i18n, `control_loop.py` |
+| Riesgos / banco | HAZ-S9-01 a 05; hoja de banco C-05, C-05b a C-05h. | `docs/riesgos/registro_riesgos.md`, `docs/mis_plans/hoja_pruebas_banco_equipo_pruebas.md` |
+
+## 2. Commits
+
+S9 original:
+- `a21329e` feat: estado seguro de arranque sin confirmación, bloqueos D9-1.3, CIC-10 sin presión y SEN-10.
+- `3171551` feat: QML — login siempre permitido, causa del estado seguro, programa cambiable.
+- `f10d5c3` test: celdas de arranque con la planta simulada en los 4 programas.
+- `57b2844` docs: hoja de banco C-05 a C-05f, riesgos HAZ-S9-01 a 04 y SEN-10 en el catálogo.
+
+Correcciones de la revisión ★ (esta continuación):
+- `49ef046` fix: AI vencida = presión perdida, debounce por trama, aire atmosférico cerrado con presión (TMG-02/03/04/05, SAF-03).
+- `ba18b89` fix: SEN-10 no se despeja al cerrar la puerta y cuenta tramas AI (SAF-02/TMG-01/TMG-03).
+- `9e19ab1` fix: modo prueba sin apertura de puertas ni vapor con estado seguro o cámara no segura (SAF-01) — incluye el cableado de `control_loop.py` de TMG-02/03/05/06.
+- `5d10ad8` test: pruebas de la revisión 1, celdas SAF-01/SAF-03 en la planta y pruebas viejas al comportamiento D9-1.
+- `0f74541` docs: hoja de banco C-05b/e/f/g/h, HAZ-S9-03/04/05, catálogo SEN-10 y tabla de ensayo regenerada.
+- `test(tanda9-s9)` SEN-10 en las tablas de `test_alarmas_catalogo.py` y este informe (commit siguiente).
+
+## 3. Revisión ★ (pasada 1, sesión principal) — estado de cada hallazgo
+
+| Hallazgo | Nivel | Verificado contra el código | Estado | Cómo |
+|---|---|---|---|---|
+| SAF-01 | Crítico | Real: con D9-1.3 el modo prueba se permite con el estado seguro y `/io/test/output` no comprobaba nada para puertas/vapor; las puertas no se actualizan en pausa. | **Corregido** (DECISIÓN SIN CONFIRMAR de la sesión principal) | `core/runtime/salidas_prueba_seguridad.py` (regla pura); `ControlLoop.salidas_prueba_bloqueadas()` (estado seguro, recuperación, `camara_segura.evaluar` con los programas de seguridad, el menor `temp_max_apertura` y `presion_vigente`; error = todas); `/io/test/output` rechaza encender `abrir_puerta_N`/`desbloqueo_puerta_N` (código `salida_prueba_camara_no_segura`) y `descompresion_rapida`/`descompresion_chaqueta`/`vapor_camara` (`salida_prueba_estado_seguro`); también la inversión de D-ES-16 (cierre con atrapamiento → apertura) se rechaza y solo suelta el cierre; el lazo las apaga en cada tick del modo prueba y anota `salida_prueba_cortada` una vez por salida reportada encendida. Textos i18n es/en `io.err_puerta_camara_no_segura`, `io.err_salida_estado_seguro`. |
+| SAF-02 / TMG-01 | Alto | Real: `_evaluar` devolvía False (coherente) con todas las puertas cerradas. | **Corregido** | Puerta cerrada = None (no evaluable): conteo a cero y SEN-10 confirmada se mantiene y se reafirma; solo la despejan 3 lecturas coherentes con una puerta abierta. Prueba «SEN-10 activa → cerrar puerta → sigue activa y bloquea inicio». Catálogo, C-05f y HAZ-S9-04 actualizados. |
+| TMG-02 | Alto | Real: «sin presión» era solo None; con DI vigente y AI vencida, Units conserva la última presión. | **Corregido** | `ControlLoop._lectura_ai()` → `ProtocoloEstadoSeguro.lectura_ai` → `ProtocoloFallo.lectura_ai`. Con AI vencida: `_pres_camara()` = None (no abre aire comprimido ni nada nuevo; `_alivio_sobrepresion`, `pasar_a_solo_lenta` y `_ventear_tras_sellado` también la usan), presión perdida de inmediato (CIC-10), el estado seguro no cuenta ticks seguros, la recuperación de arranque no la da por segura y `_seguir_programa_ultimo_ciclo` no cuenta. |
+| SAF-03 | Medio | Real: en la rama P > atm + brecha con `_presurizado_al_disparo` (y `solo_lenta`) el aire atmosférico no se cerraba; la rama de vacío abría el aire con una sola lectura. | **Corregido** | Aire cerrado siempre con P > atm + brecha; vacío: descompresiones cerradas en el acto (lado seguro) y aire solo con 3 lecturas seguidas (también en la sub-rama de enfriamiento sin contrapresión). Planta simulada: verificación POR TICK (aire abierto con P publicada > atm + brecha = falla) en todas las celdas, más la celda `arranque_vacio_con_fuga`. |
+| TMG-03 | Medio | Real: los debounces nuevos contaban ticks. | **Corregido** | `SerialLink.secuencia_ultima_ai()` (nuevo); coherencia y `_seguir_presion_perdida` cuentan solo tramas AI distintas; contadores a cero con tick no evaluable, sin datos vigentes o en pausa. Enlace que no informa el número (dobles de prueba): cada tick cuenta (mismo criterio que D8-2.9). |
+| TMG-04 | Medio | Real: `_sin_sonda_desde` seguía corriendo durante el modo prueba. | **Corregido** | `pausar("modo_prueba")` marca la pausa; al reanudar, `reanudar(tras_modo_prueba=True)` reinicia la espera sellada sin sonda (tras un paro sigue corriendo, como antes). |
+| TMG-05 | Bajo | Real. | **Corregido** | `reanudar()` pone a cero `_lecturas_enfriada`, `_lecturas_presion_perdida/_vuelta`, `_lecturas_principal_perdido` y `_lecturas_vacio`; `enter_test_mode()` pone a cero `_ticks_seguros_recuperacion`. |
+| TMG-06 | Bajo | Real. | **Corregido** | `coherencia_puerta_presion.update()` en try/except con `logger.exception` y reinicio del conteo. |
+| TMG-07 | Bajo | Real (cosmético). | **Documentado, sin corregir** (por instrucción) | `_estado_seguro_status()` lee sin `_sm_lock`; los eventos de bitácora van en hilos daemon sin orden garantizado. |
+
+Ningún hallazgo resultó no real. Altos/Críticos abiertos: ninguno (pendiente la re-revisión de la sesión principal).
+
+## 4. Pruebas
+
+Siempre con `PYTHONPATH=C:/Users/tecni/Documents/codigo_autoclave/.claude/worktrees/agent-a8977a28ac4adbe26/src`; `autoclave.__file__` = `C:\Users\tecni\Documents\codigo_autoclave\.claude\worktrees\agent-a8977a28ac4adbe26\src\autoclave\__init__.py`.
+
+- `tests/test_s9_revision_1.py` (nuevo, 59 pruebas): primero en rojo (ImportError del módulo nuevo y luego 10 fallos de backend/i18n), después **59 passed**.
+- `tests/test_s9_planta_simulada.py`: **28 passed, 1 skipped** (7 celdas × 4 programas; la omitida es la escritura del informe). Con `S9_ESCRIBIR_INFORME=1`: **29 passed**; tabla regenerada en `docs/informes/tanda9/S9_ensayo_tabla.md`, `ticks_aire_abierto_con_presion=0` en las 28 filas.
+- `tests/test_s9_estado_seguro_arranque.py` 47 passed; `tests/test_s9_login_y_causa_qml.py` 5 passed.
+- Módulos tocados y sus importadores (`grep -rl` en `tests/` por protocolo_fallo, estado_seguro, coherencia, control_loop, `/io/test/output`, serial_link, sesion_backend, entradas_salidas_controller, salidas_prueba): 132 archivos, cada uno en su propio proceso pytest: **2732 passed, 7 skipped, 0 failed** tras corregir `tests/test_alarmas_catalogo.py` (2 fallos que venían del S9 original: SEN-10 no estaba en las tablas de niveles y plantillas de la prueba; ahora 141 passed). `test_enviar_comando.py` y `test_serial_directo.py` no tienen pruebas (scripts de hardware, «no tests ran»). Cada archivo en su propio proceso: corridos juntos en un solo pytest, `test_c1_ajustes_pyside_sesion.py` (PySide) termina el proceso con código 127 a mitad de la corrida; solo pasa (20 passed) y también en la base, así que es una interacción de Qt entre archivos, ajena a S9.
+- Pruebas viejas que fallaban YA en `57b2844` (11, afirmaban lo que D9-1 revierte; el S9 original no las actualizó) y ahora siguen a D9-1: `test_s2_cycle_select.py` (2 → aceptan con estado seguro/recuperación), `test_t2_p1_completado_estado_seguro.py` y `test_t5_estado_seguro.py` (`iniciar(..., origen=...)`), `test_t6_arranque_seguro.py` (sin confirmación al arrancar; modo prueba permitido con recuperación y puertas bloqueadas), `test_t7_apagar_equipo.py` (apaga con estado seguro), `test_v8a_cambio_programa_sin_datos.py` (el estado seguro ya no bloquea el cambio), `test_u1_seguridad_navegacion_qml.py` (D9-1.5: el login no se interrumpe), `test_alarmas_catalogo.py` (SEN-10 en las tablas). Además, por las correcciones: `test_protocolo_fallo_modo_descompresion.py` (aire tras 3 lecturas de vacío), `test_t8_e1_aire_atmosferico_prueba.py` (el lazo ahora sí apaga salidas de puerta en modo prueba; la prueba mira solo el canal del aire), dobles de `test_t6`/`test_s9_estado_seguro_arranque.py` con `edad_ultima_ai` (sin edad = AI vencida).
+- No se corrió la suite completa (regla 8).
+
+## 5. DECISIONES SIN CONFIRMAR
+
+1. **SAF-01 (de la sesión principal, tal como está en la revisión):** en modo prueba, mientras el estado seguro esté activo, haya recuperación de arranque pendiente, o `camara_segura.evaluar` dé NO segura (o sin dato): `/io/test/output` RECHAZA encender `abrir_puerta_N`, `desbloqueo_puerta_N` (todas las salidas de apertura/desbloqueo de puertas) y, con estado seguro activo o recuperación pendiente, también `descompresion_rapida`, `descompresion_chaqueta` y `vapor_camara`. Además el lazo las fuerza a cero en cada tick en esas condiciones. Detalles míos dentro de esa decisión: la cámara se evalúa con `presion_vigente` (DI + AI + estado publicado); un error al evaluar bloquea todas; la inversión de D-ES-16 hacia `abrir_puerta_N` también se rechaza; `bloqueo_puerta_N` y `cerrar_puerta_N` no se tocan. Consecuencia: **en el equipo de pruebas sin sensores la apertura de puertas desde Entradas / Salidas queda bloqueada siempre** (cámara sin presión = no segura).
+2. TMG-02: la trama AI vencida (> 1,5 s, `_VIGENCIA_DI_SEG`) se trata igual que el transductor sin lectura: CIC-10 de inmediato (la vigencia ya es un filtro temporal) y, fuera del arranque, el paso irreversible a `solo_lenta` de R1-P4 tras 3 ticks (abre la lenta con la presión desconocida, criterio D8-1.2 ya vigente).
+3. Pregunta 7 de la revisión: la recuperación de arranque espera la primera trama AI de la conexión hasta 1,5 s antes de decidir (antes, si la primera DI llegaba antes que la primera AI, `pres_camara` era None y arrancaba el protocolo por "sin presión"). Pasado ese plazo sin AI, decide como sin presión (D9-1.4).
+4. SAF-03: en la rama de vacío las descompresiones se cierran en el acto y solo la apertura del aire espera 3 lecturas (si se esperaba también para cerrar, la lenta quedaba abierta en vacío 2 ticks; la planta lo detectó).
+5. SEN-10 confirmada se reafirma también mientras la coherencia no es evaluable (puerta cerrada, sin datos), para que un reconocimiento de FALLA no la borre con la causa sin verificar.
+6. (S9 original) Arranque sin presión y con la cámara a presión real: no se ventea a ciegas (HAZ-S9-02).
+
+## 6. PREGUNTAS PARA CRISTIAN
+
+De los revisores:
+1. ¿Hay bloqueo físico de puerta por presión independiente del software?
+2. ¿La toma de aire atmosférico tiene antirretorno?
+3. D9-1.2: solo se cuenta un paro visto con el protocolo ya activo; un paro pulsado y liberado antes, en el mismo encendido, no exige confirmación en un fallo posterior. ¿Es la lectura buscada?
+4. Apagado con el estado seguro activo: ¿en qué estado quedan bloqueo y empaque de puerta sin energía?
+5. Líquido en modo 4/5 arrancando presurizado se ventea por la lenta sin contrapresión (HAZ-S9-01). ¿Validado para recipientes sellados?
+6. ¿Cuál es el periodo real de las tramas AI/DI del ESP32? (de él depende que 1,5 s sin AI sea un fallo real y no un hueco normal).
+7. ¿La primera AI tras la primera DI deja `pres_camara` None unos ticks? Verificado en el código: sí (Units arranca con presión None hasta la primera trama AI). Corregido con la espera de la primera AI (decisión 3); confirmar en banco que no aparece CIC-10 en cada encendido.
+8. D9-1.4 "se detiene": ¿la lenta o el aire ya abiertos quedan abiertos (actual) o se cierran?
+9. ¿Modo prueba con la cámara sellada (D8-2.10)?
+
+Mías:
+10. SAF-01 en el banco sin sensores: ¿se acepta no poder probar `abrir_puerta`/`desbloqueo_puerta` desde Entradas / Salidas, o se quiere una excepción explícita (p. ej. solo con perfil de banco o con confirmación de ingeniero)?
+11. ¿Las salidas de vacío (`vacio_camara`, `bomba_vacio`) y `agua_chaqueta` también deben bloquearse en modo prueba con el estado seguro activo? Hoy no (la decisión no las nombra).
+
+## 7. Pendientes
+
+- Re-revisión ★ (safety, timing) de la sesión principal sobre este diff (no se lanzaron revisores aquí, por instrucción).
+- Banco: C-05 a C-05h (C-05g y C-05h nuevos; C-05h necesita poder suspender solo las tramas `AI:`).
+- La tabla índice al inicio de la hoja de banco (fila C-05) no lista los casos C-05b a C-05h.
+- TMG-07 sin corregir (cosmético).
+
+## 8. Puntos de choque
+
+- **Alarma nueva:** SEN-10 (creada por el S9 original; ninguna nueva en las correcciones). Si choca al unir, renumerar en `catalogo.py`, i18n (`alarmas.SEN-10`), `docs/catalogo_alarmas.md`, `registro_riesgos.md`, hoja de banco C-05f y las pruebas S9.
+- **i18n** (`es.json`/`en.json`): `sistema.estado_seguro_causa_*`, `alarmas.SEN-10`, `estado_seguro_motivos.sin_presion_camara`, `io.err_puerta_camara_no_segura`, `io.err_salida_estado_seguro`.
+- **`control_loop.py`:** recuperación de arranque, `programas_para_seguridad`, `temp_max_tras_ciclo`, `enter_test_mode`, `set_active_cycle`, coherencia en `_tick`, `salidas_prueba_bloqueadas`/`_vigilar_salidas_prueba_seguridad`, `_lectura_ai`/`_secuencia_ai`. B9 también toca este archivo (unir S9 primero).
+- **`set_io.py`:** no tocado.
+- **`server.py`:** `/status` (`causa`), `/system/shutdown`, `/io/test/output`.
+- **`serial_link.py`:** `secuencia_ultima_ai()` nuevo.
+- **Bitácora (A9, D9-6):** eventos nuevos `estado_seguro_pausado`, `salida_prueba_cortada`; `estado_seguro_iniciado` lleva `origen`. Revisar contra la lista de "solo lo necesario" de A9.
+- **QML compartidos:** `Main.qml`, `SeccionEstadoSeguro.qml`, `PantallaPreciclo.qml`.
+- `ui_qml/sesion_backend.py` y `entradas_salidas_controller.py` (códigos de rechazo nuevos).
+- `db_manager.py`: no tocado (sin migración).
