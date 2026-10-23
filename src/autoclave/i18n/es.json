@@ -1486,7 +1486,9 @@
     "err_ultimo_ingeniero": "El equipo no puede quedar sin un ingeniero activo.",
     "err_operador_existe": "Ya existe un operador con ese nombre.",
     "err_validacion": "Datos inválidos: la contraseña debe tener la longitud mínima y coincidir con la confirmación.",
-    "err_no_existe": "El usuario u operador ya no existe."
+    "err_no_existe": "El usuario u operador ya no existe.",
+    "motivo_cuenta_sistema": "Cuenta del sistema: no se puede desactivar, borrar, cambiar de rol ni renombrar. Su contraseña sí se puede restablecer.",
+    "err_cuenta_sistema": "Las cuentas del sistema no se pueden desactivar, borrar, cambiar de rol ni renombrar."
   },
   "fecha_hora": {
     "rotulo_zona": "Zona horaria",
@@ -1598,7 +1600,9 @@
       "programa_duplicado": "duplicó el programa {anterior}: {nuevo}",
       "programa_habilitado": "habilitó el programa ({entidad})",
       "programa_deshabilitado": "deshabilitó el programa ({entidad})",
-      "programa_borrado": "borró el programa {anterior}"
+      "programa_borrado": "borró el programa {anterior}",
+      "usuario_renombrado": "renombró la cuenta {anterior} → {nuevo}",
+      "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)"
     },
     "tipo": {
       "login_ok": "Inicio de sesión",
@@ -1648,7 +1652,9 @@
       "programa_creado": "Programa creado",
       "programa_duplicado": "Programa duplicado",
       "programa_habilitado": "Programa habilitado o deshabilitado",
-      "programa_borrado": "Programa borrado"
+      "programa_borrado": "Programa borrado",
+      "usuario_renombrado": "Cuenta renombrada",
+      "cuenta_sistema_rechazada": "Cuenta del sistema protegida"
     }
   },
   "correo_c2": {

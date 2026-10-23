@@ -7,6 +7,10 @@
 # agregar (POST /operadores) y desactivar / reactivar (PUT /operadores/{id}/activo).
 # Nuevo usuario abre la pantalla existente (Opciones.nuevoUsuarioPulsado).
 #
+# U11 (tanda 11, D11-6): las cuentas del sistema (Admin, Ingeniero; marca
+# `cuenta_sistema` del backend) no se pueden desactivar: la pantalla deshabilita
+# ese botón y explica el motivo; restablecer su contraseña sigue disponible.
+#
 # Permisos (domain/permisos_opciones, decisión 1.9): admin e ingeniero
 # modifican; el técnico ve todo deshabilitado con el motivo. La pantalla solo
 # los refleja; el backend es la autoridad (403/409).
@@ -25,6 +29,7 @@ _MENSAJES = {
     "autodesactivacion": "gestion_usuarios.err_propio",
     "usar_cambio_clave": "gestion_usuarios.err_propia_clave",
     "ultimo_ingeniero": "gestion_usuarios.err_ultimo_ingeniero",
+    "cuenta_sistema": "gestion_usuarios.err_cuenta_sistema",
     "operador_existe": "gestion_usuarios.err_operador_existe",
     "validacion": "gestion_usuarios.err_validacion",
     "no_existe": "gestion_usuarios.err_no_existe",
@@ -118,6 +123,7 @@ class UsuariosController(QObject):
     def usuarios(self) -> list:
         return [{"usuario": u.get("usuario") or "", "nombre": u.get("nombre") or "",
                  "rol": u.get("rol") or "", "activo": bool(u.get("activo")),
+                 "cuentaSistema": u.get("cuenta_sistema") is True,
                  "ultimoIngreso": (u.get("ultimo_ingreso") or "")[:16].replace("T", " ")}
                 for u in self._usuarios]
 

@@ -1486,7 +1486,9 @@
     "err_ultimo_ingeniero": "The unit cannot be left without an active engineer.",
     "err_operador_existe": "An operator with that name already exists.",
     "err_validacion": "Invalid data: the password must have the minimum length and match the confirmation.",
-    "err_no_existe": "The user or operator no longer exists."
+    "err_no_existe": "The user or operator no longer exists.",
+    "motivo_cuenta_sistema": "System account: it cannot be deactivated, deleted, renamed or have its role changed. Its password can be reset.",
+    "err_cuenta_sistema": "System accounts cannot be deactivated, deleted, renamed or have their role changed."
   },
   "fecha_hora": {
     "rotulo_zona": "Time zone",
@@ -1598,7 +1600,9 @@
       "programa_duplicado": "duplicated program {anterior}: {nuevo}",
       "programa_habilitado": "enabled the program ({entidad})",
       "programa_deshabilitado": "disabled the program ({entidad})",
-      "programa_borrado": "deleted program {anterior}"
+      "programa_borrado": "deleted program {anterior}",
+      "usuario_renombrado": "renamed the account {anterior} → {nuevo}",
+      "cuenta_sistema_rechazada": "tried to modify the system account {entidad} (rejected)"
     },
     "tipo": {
       "login_ok": "Login",
@@ -1648,7 +1652,9 @@
       "programa_creado": "Program created",
       "programa_duplicado": "Program duplicated",
       "programa_habilitado": "Program enabled or disabled",
-      "programa_borrado": "Program deleted"
+      "programa_borrado": "Program deleted",
+      "usuario_renombrado": "Account renamed",
+      "cuenta_sistema_rechazada": "Protected system account"
     }
   },
   "correo_c2": {

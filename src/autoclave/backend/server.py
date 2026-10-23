@@ -647,7 +647,18 @@ OPERADOR_NOMBRE_MAX = 40
 
 def _usuario_dto(f: dict) -> dict:
     return {k: f.get(k) for k in ("nombre", "usuario", "rol", "activo", "debe_cambiar_clave",
-                                  "creado_por", "creado_en", "ultimo_ingreso")}
+                                  "cuenta_sistema", "creado_por", "creado_en", "ultimo_ingreso")}
+
+
+def _rechazar_cuenta_sistema(fila: dict, accion: str, entidad: str, sesion: Sesion):
+    """U11 (D11-6.2/6.3): las cuentas del sistema (marca `cuenta_sistema` en la
+    BD, no el texto del usuario) no se desactivan, borran, cambian de rol ni
+    renombran. 409 y el intento queda en la bitácora."""
+    _auditar("cuenta_sistema_rechazada", sesion, entidad=fila.get("usuario") or "",
+             detalle={"accion": accion})
+    _rechazar(409, "cuenta_sistema",
+              "Cuenta del sistema: no se puede desactivar, borrar, cambiar de rol ni renombrar",
+              entidad, sesion)
 
 
 @app.get("/usuarios")
@@ -688,10 +699,15 @@ def fijar_activo_usuario(usuario: str, body: _ActivoBody,
     entidad = f"/usuarios/{usuario}/activo"
     if usuario == sesion.usuario and not body.activo:
         _rechazar(409, "autodesactivacion", "Nadie puede desactivarse a sí mismo", entidad, sesion)
+    fila = context.db.get_usuario_cualquiera(usuario)
+    if fila is not None and fila.get("cuenta_sistema") and not body.activo:
+        _rechazar_cuenta_sistema(fila, "desactivar", entidad, sesion)
     _objetivo_gestionable(usuario, sesion, entidad)
     resultado = context.db.fijar_activo_usuario(usuario, body.activo, ROL_INGENIERO)
     if resultado == "no_existe":
         raise RechazoApi(404, "no_existe", "El usuario no existe")
+    if resultado == "cuenta_sistema":
+        _rechazar_cuenta_sistema(fila or {"usuario": usuario}, "desactivar", entidad, sesion)
     if resultado == "ultimo_protegido":
         _rechazar(409, "ultimo_ingeniero", "El equipo no puede quedar sin un ingeniero activo",
                   entidad, sesion)
@@ -733,6 +749,48 @@ def restablecer_clave(usuario: str, body: _RestablecerClaveBody,
     _auditar("clave_restablecida", sesion, entidad=usuario,
              detalle={"sesiones_cerradas": cerradas} if cerradas else None)
     return {"ok": True, "usuario": usuario}
+
+
+# U11 (tanda 11, D11-6.3): borrar, cambiar el rol y renombrar no existen como
+# operación para ningún usuario (nunca se borra; nombre, usuario y rol no se
+# editan desde O2b). Estas dos rutas solo dan un rechazo explícito: 409
+# `cuenta_sistema` (auditado) para Admin e Ingeniero y 409 genérico para el
+# resto. No modifican nada en ningún caso.
+
+class _ModificarUsuarioBody(BaseModel):
+    model_config = {"extra": "forbid"}
+    nombre: str | None = None
+    usuario: str | None = None
+    rol: str | None = None
+
+
+def _objetivo_existente(usuario: str) -> dict:
+    fila = context.db.get_usuario_cualquiera(usuario)
+    if fila is None:
+        raise RechazoApi(404, "no_existe", "El usuario no existe")
+    return fila
+
+
+@app.delete("/usuarios/{usuario}")
+def borrar_usuario(usuario: str, sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    entidad = f"/usuarios/{usuario}"
+    fila = _objetivo_existente(usuario)
+    if fila.get("cuenta_sistema"):
+        _rechazar_cuenta_sistema(fila, "borrar", entidad, sesion)
+    _rechazar(409, "usuario_no_se_borra", "Los usuarios no se borran; se desactivan",
+              entidad, sesion)
+
+
+@app.patch("/usuarios/{usuario}")
+def modificar_usuario(usuario: str, body: _ModificarUsuarioBody,
+                      sesion: Sesion = Depends(requiere_rol(*_GESTION_USUARIOS))):
+    entidad = f"/usuarios/{usuario}"
+    fila = _objetivo_existente(usuario)
+    if fila.get("cuenta_sistema"):
+        accion = "cambiar_rol" if body.rol is not None else "renombrar"
+        _rechazar_cuenta_sistema(fila, accion, entidad, sesion)
+    _rechazar(409, "modificacion_no_disponible",
+              "El nombre, el usuario y el rol no se modifican", entidad, sesion)
 
 
 @app.get("/operadores")
