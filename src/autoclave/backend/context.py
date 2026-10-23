@@ -691,6 +691,13 @@ class BackendContext:
                                    unidades["presion"], p_atm)
         tf.fijar_proveedor(proveedor)
 
+        # X9 (tanda 9, D9-13.4): nombre de un programa de fábrica en el ticket
+        def resolutor_nombre(cycle_id, nombre):
+            from types import SimpleNamespace
+            return self.cycle_manager.nombre_clave_de(
+                SimpleNamespace(id=cycle_id, name=nombre, nombre_clave=None))
+        tf.fijar_resolutor_nombre(resolutor_nombre)
+
     def iniciar_vigilancia_impresora(self) -> None:
         """B5 (tanda 4): verifica una vez, en un hilo con plazo de 5 s, que la
         impresora esté presente (solo si está habilitada) y avisa sin bloquear.

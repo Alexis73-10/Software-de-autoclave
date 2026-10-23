@@ -31,6 +31,9 @@ EVENTOS = (
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "aire_atmosferico_cortado_prueba", "apagado_windows_rechazado",
     "param_ciclo_cambio",
+    # X9 (tanda 9, D9-13.3 TMG-01): el cambio registrado como "en_curso" no
+    # llegó al ciclo en curso porque su fase inició antes de aplicarlo
+    "param_ciclo_no_aplicado_en_curso",
     # R8 (tanda 8, D8-5.12): reasignación de E/S
     "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
     "reasignacion_io_verificada", "reinicio_control",

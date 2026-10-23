@@ -376,6 +376,20 @@ _SQL_AUDITORIA = ("INSERT INTO audit_log (ts, usuario, rol, evento, entidad,"
                   " valor_anterior, valor_nuevo, detalle) VALUES (?,?,?,?,?,?,?,?)")
 
 
+def _fila_auditoria(evento: str, usuario: str = "", rol: str = "", entidad: str = "",
+                    valor_anterior=None, valor_nuevo=None, detalle: dict | None = None) -> tuple:
+    """Parámetros de _SQL_AUDITORIA: anterior/nuevo como texto (JSON si no
+    son str) y `detalle` como JSON."""
+    def texto(v):
+        if v is None or isinstance(v, str):
+            return v
+        return json.dumps(v, ensure_ascii=False)
+
+    return (datetime.now().isoformat(timespec="seconds"), usuario or "", rol or "",
+            evento, entidad or "", texto(valor_anterior), texto(valor_nuevo),
+            json.dumps(detalle, ensure_ascii=False) if detalle else None)
+
+
 class DbManager:
     """
     Singleton de acceso a la base de datos SQLite.
@@ -509,20 +523,44 @@ class DbManager:
     ) -> int:
         """Inserta una fila en audit_log. Los valores anterior y nuevo se
         guardan como texto (JSON si no son str); `detalle`, como JSON."""
-        def texto(v):
-            if v is None or isinstance(v, str):
-                return v
-            return json.dumps(v, ensure_ascii=False)
-
+        fila = _fila_auditoria(evento, usuario, rol, entidad, valor_anterior, valor_nuevo, detalle)
         with self._lock:
-            cur = self._conn.execute(
-                _SQL_AUDITORIA,
-                (datetime.now().isoformat(timespec="seconds"), usuario or "", rol or "",
-                 evento, entidad or "", texto(valor_anterior), texto(valor_nuevo),
-                 json.dumps(detalle, ensure_ascii=False) if detalle else None),
-            )
+            cur = self._conn.execute(_SQL_AUDITORIA, fila)
             self._conn.commit()
             return cur.lastrowid
+
+    def registrar_auditoria_lote(self, filas: list[dict]) -> list[int]:
+        """X9 (tanda 9, D9-13.3 SAF-01): varias filas de audit_log en UNA
+        transacción, todas o ninguna (p. ej. el cambio de un parámetro y su
+        arrastre automático). Cada fila es un dict con los argumentos de
+        `registrar_auditoria`. Si cualquiera falla (valor no serializable,
+        error de SQLite), se deshace todo y se relanza la excepción."""
+        if not filas:
+            return []
+        ids: list[int] = []
+        with self._lock:
+            try:
+                # las filas se preparan antes de abrir la transacción: un valor
+                # no serializable no llega a tomar el bloqueo de escritura
+                preparadas = [_fila_auditoria(**f) for f in filas]
+                if self._conn.in_transaction:
+                    # revisión X9 (TMG-04/SAF-07): una transacción que otro
+                    # método dejó abierta tras una excepción no se mezcla con
+                    # el lote (su commit confirmaría trabajo ajeno)
+                    logger.warning("audit_log: transacción previa abierta; se deshace antes del lote")
+                    self._conn.rollback()
+                self._conn.execute("BEGIN IMMEDIATE")
+                for fila in preparadas:
+                    ids.append(self._conn.execute(_SQL_AUDITORIA, fila).lastrowid)
+                self._conn.commit()
+            except BaseException:
+                try:
+                    if self._conn.in_transaction:
+                        self._conn.rollback()
+                except Exception:
+                    logger.exception("audit_log: no se pudo deshacer el lote")
+                raise
+        return ids
 
     def registrar_auditoria_tras_cierre(self, evento: str, entidad: str = "",
                                         detalle: dict | None = None) -> None:

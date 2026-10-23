@@ -468,4 +468,7 @@ def test_cic09_anota_aviso_del_ciclo():
     estado.avisos_ciclo = []
     for _ in range(4):
         fase.update()
-    assert estado.avisos_ciclo and "Referencia" in estado.avisos_ciclo[0]
+    # X9 (tanda 9, D9-13.4): el aviso va con clave + parámetros; el ticket lo arma
+    from autoclave.services.domain.logging import ticket_formatter as tf
+    assert estado.avisos_ciclo and estado.avisos_ciclo[0]["clave"] == "ticket_ciclo.aviso_uniformidad"
+    assert "Referencia" in tf.aviso_ticket(estado.avisos_ciclo[0], tf.Presentacion("es", "C", "kPa"))

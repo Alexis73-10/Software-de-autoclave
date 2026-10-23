@@ -43,6 +43,7 @@ import logging
 from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.core.runtime.sensores_ciclo import NOMBRES
 from autoclave.state_machine.alarms.catalogo import CIC_09, CIC_11
+from autoclave.core.runtime import motivos_fase
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -127,8 +128,11 @@ class EsterilizacionFase(BaseFase):
                 try:
                     avisos = getattr(self.estado, "avisos_ciclo", None)
                     if isinstance(avisos, list):
-                        avisos.append(f"Uniformidad termica fuera de rango: "
-                                      f"{NOMBRES.get(sensor, sensor)} {temp:.1f} C")
+                        # X9 (D9-13.4): clave + parámetros; el ticket lo arma
+                        # en el idioma y la unidad vigentes
+                        avisos.append({"clave": "ticket_ciclo.aviso_uniformidad",
+                                       "sensor": NOMBRES.get(sensor, sensor),
+                                       "temp": round(float(temp), 1)})
                 except Exception:
                     logger.exception("Esterilización: no se pudo anotar el aviso de uniformidad")
                 try:
@@ -267,10 +271,9 @@ class EsterilizacionFase(BaseFase):
         pausa_max = self._pausa_max_s()
         if self.pausa_total_s > pausa_max:
             self.alarma_fallo = (CIC_11, {"segundos": self.pausa_total_s, "maximo": pausa_max})
-            return self._fallo(
-                f"Comunicación inestable: {self.pausa_total_s:.0f} s de pausa sin datos de la "
-                f"tarjeta (máximo {pausa_max:.0f} s)"
-            )
+            return self._fallo(motivos_fase.motivo(
+                "est_comunicacion", segundos=f"{self.pausa_total_s:.0f}",
+                maximo=f"{pausa_max:.0f}"))
 
         temp = self._temp_principal()
         pres = self._pres_camara()
@@ -285,36 +288,32 @@ class EsterilizacionFase(BaseFase):
         else:
             self._contador_temp_alta = 0
         if self._contador_temp_alta >= _DEBOUNCE_LECTURAS:
-            return self._fallo(
-                f"Temperatura alta: {temp:.1f}°C > {t_est + rango_temp:.1f}°C"
-            )
+            return self._fallo(motivos_fase.motivo(
+                "est_temp_alta", temp=temp, temp_limite=t_est + rango_temp))
 
         if temp < t_est - brecha_err_t:
             self._contador_temp_baja += 1
         else:
             self._contador_temp_baja = 0
         if self._contador_temp_baja >= _DEBOUNCE_LECTURAS:
-            return self._fallo(
-                f"Temperatura baja: {temp:.1f}°C < {t_est - brecha_err_t:.1f}°C"
-            )
+            return self._fallo(motivos_fase.motivo(
+                "est_temp_baja", temp=temp, temp_limite=t_est - brecha_err_t))
 
         if pres > p_sat_est + rango_pres:
             self._contador_pres_alta += 1
         else:
             self._contador_pres_alta = 0
         if self._contador_pres_alta >= _DEBOUNCE_LECTURAS:
-            return self._fallo(
-                f"Presión alta: {pres:.1f} kPa > {p_sat_est + rango_pres:.1f} kPa"
-            )
+            return self._fallo(motivos_fase.motivo(
+                "est_pres_alta", pres=pres, pres_limite=p_sat_est + rango_pres))
 
         if pres < p_sat_est - brecha_err_p:
             self._contador_pres_baja += 1
         else:
             self._contador_pres_baja = 0
         if self._contador_pres_baja >= _DEBOUNCE_LECTURAS:
-            return self._fallo(
-                f"Presión baja: {pres:.1f} kPa < {p_sat_est - brecha_err_p:.1f} kPa"
-            )
+            return self._fallo(motivos_fase.motivo(
+                "est_pres_baja", pres=pres, pres_limite=p_sat_est - brecha_err_p))
 
         # ── 2b. Referencias (tanda §1.1 b): fuera de rango NO falla; alerta
         # de uniformidad térmica no bloqueante. El control y el conteo siguen
@@ -374,9 +373,8 @@ class EsterilizacionFase(BaseFase):
             return FaseResult.COMPLETADO
 
         if now >= self._timer_timeout_max:
-            return self._fallo(
-                f"ESTERILIZACION_TIMEOUT_F0: F0 no alcanzado tras {2 * tiempo_seg / 60:.0f} min "
-                f"(F0={self.estado.f0_acumulado:.2f}/{f0_objetivo:.1f} min)"
-            )
+            return self._fallo(motivos_fase.motivo(
+                "est_timeout_f0", minutos=f"{2 * tiempo_seg / 60:.0f}",
+                f0=f"{self.estado.f0_acumulado:.2f}", f0_objetivo=f"{f0_objetivo:.1f}"))
 
         return FaseResult.EN_CURSO

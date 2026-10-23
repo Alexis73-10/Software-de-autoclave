@@ -432,14 +432,30 @@ class ControlLoop:
             self._programa_ultimo_ciclo = None
             self._ticks_seguros_tras_ciclo = 0
 
-    def aplicar_a_ciclo_en_curso(self, seccion: str, path: list[str], valor) -> bool:
+    def aplicar_a_ciclo_en_curso(self, seccion: str, path: list[str], valor,
+                                 copia_esperada=None) -> bool:
         """§5.8: aplica al ciclo en curso un cambio ya guardado en el programa
         almacenado, solo si su fase no ha iniciado. Bajo _sm_lock (RLock: el
-        guard del backend ya lo tiene)."""
+        guard del backend ya lo tiene). `copia_esperada` (X9, D9-13.3): la
+        copia consultada antes de registrar la bitácora; si el ciclo en curso
+        ya corre con otra (terminó y arrancó otro), no se aplica."""
         with self._sm_lock:
             if self.estado.get_machine_state() != GlobalState.CICLO:
                 return False
+            if (copia_esperada is not None
+                    and getattr(self.state_machine.ciclo, "programa_en_curso", None)
+                    is not copia_esperada):
+                return False
             return self.state_machine.ciclo.aplicar_si_fase_pendiente(seccion, path, valor)
+
+    def fase_pendiente_en_curso(self, seccion: str, path: list[str]) -> bool:
+        """X9 (D9-13.3, TMG-01): True si un cambio de `seccion`/`path` aún
+        podría aplicarse al ciclo en curso. Solo consulta (no aplica), bajo
+        _sm_lock; el backend aplica después de registrar la bitácora."""
+        with self._sm_lock:
+            if self.estado.get_machine_state() != GlobalState.CICLO:
+                return False
+            return self.state_machine.ciclo.fase_pendiente(seccion, path) is True
 
     @property
     def desconectado(self) -> bool:

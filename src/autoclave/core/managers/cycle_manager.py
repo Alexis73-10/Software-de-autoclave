@@ -364,6 +364,7 @@ class CycleManager:
                         # RB-05.5 (T10): valores fuera del catálogo → se intenta
                         # el .bak; si tampoco vale, el programa queda dañado
                         self._validar_al_cargar(cycle, full_path)
+                        self._marca_sin_bitacora(cycle, full_path)
                         self.cycles[cycle.id] = cycle
                         if source == "factory" and cycle.number is not None:
                             self.fabrica[cycle.number] = cycle.copia()
@@ -371,6 +372,26 @@ class CycleManager:
                 except Exception as e:
                     print(f"⚠️ Error cargando {file}: {e}")
                     self.errores_carga.append(full_path)
+
+    def _marca_sin_bitacora(self, cycle, full_path: str) -> None:
+        """X9 (tanda 9, D9-13.3 SAF-02): `<programa>.json.sin_bitacora` indica
+        que el archivo quedó con un valor que no está en la bitácora (falló
+        la bitácora y luego la reversión del JSON). El programa no es
+        ejecutable hasta que un guardado correcto lo reescriba (el backend
+        quita la marca). DECISIÓN SIN CONFIRMAR: no se intenta adivinar el
+        valor registrado (el .bak también pudo pisarse en la reversión)."""
+        marca = full_path + ".sin_bitacora"
+        if not os.path.exists(marca):
+            return
+        try:
+            with open(marca, "r", encoding="utf-8") as f:
+                entidad = f.read().strip()
+        except OSError:
+            entidad = ""
+        motivo = ("cambio sin registro en la bitácora"
+                  + (f" ({entidad})" if entidad else "") + ": requiere revisión de un técnico")
+        logger.error("Programa %s DAÑADO, no ejecutable: %s", cycle.id, motivo)
+        cycle.danado = [motivo] + list(getattr(cycle, "danado", None) or [])
 
     def _validar_al_cargar(self, cycle, full_path: str) -> None:
         errores = catalogo_parametros.errores_programa(cycle.parameters)
