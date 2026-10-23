@@ -319,6 +319,16 @@ class UIServiceBackend:
             logger.warning("apagar_equipo rechazado: %s", motivo or e)
             return False, motivo or str(e)
 
+    def estado_apagado(self) -> dict | None:
+        """GET /system/shutdown/estado (D8-3.21). None sin respuesta (el
+        backend ya se detuvo o Windows se está apagando)."""
+        try:
+            r = self.backend.get(path="/system/shutdown/estado")
+            return r if isinstance(r, dict) else None
+        except Exception as e:
+            logger.debug("estado_apagado sin respuesta: %s", e)
+            return None
+
     def reset_fault(self) -> bool:
         """Envía POST /fault/reset para salir del estado FALLA. Retorna True si tuvo éxito."""
         try:

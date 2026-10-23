@@ -13,11 +13,13 @@
 import logging
 import threading
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
 logger = logging.getLogger(__name__)
 
 VENTANA_PRINCIPAL = 1
+# D8-3.21: tras un apagado aceptado se consulta si Windows lo rechazó
+PERIODO_VIGILANCIA_APAGADO_MS = 2000
 
 
 def _en_hilo(tarea) -> None:
@@ -28,9 +30,11 @@ class ComandosSistema(QObject):
     ocupadoChanged = Signal()
     mensajeChanged = Signal()
     camaraNoSeguraChanged = Signal()
+    apagadoRechazadoChanged = Signal()
     # S4 (CIC-10): el aviso pide abrir la asignación de sondas (OPCIONES)
     asignarSondaSolicitada = Signal()
     _terminado = Signal(bool, str)   # emitida desde el hilo de trabajo
+    _estadoApagadoLeido = Signal(object)   # emitida desde el hilo de trabajo
 
     def __init__(self, puente, ui_service, door: int, parent=None, ejecutar=_en_hilo):
         super().__init__(parent)
@@ -42,6 +46,13 @@ class ComandosSistema(QObject):
         self._mensaje = ""
         self._apagando = False   # la petición en curso es la de apagar
         self._terminado.connect(self._al_terminar)
+        # D8-3.21: Windows rechazó el apagado ("apáguelo manualmente")
+        self._apagado_rechazado = False
+        self._consultando_apagado = False
+        self._vigilancia_apagado = QTimer(self)
+        self._vigilancia_apagado.setInterval(PERIODO_VIGILANCIA_APAGADO_MS)
+        self._vigilancia_apagado.timeout.connect(self._consultarApagado)
+        self._estadoApagadoLeido.connect(self._al_leer_estado_apagado)
         # el aviso de "NO ABRIR" sigue a la bandera del puente
         self._puente.seguridadChanged.connect(self.camaraNoSeguraChanged)
 
@@ -53,6 +64,10 @@ class ComandosSistema(QObject):
     def camaraNoSegura(self) -> bool:
         """Falla cerrada: sin dato del puente cuenta como NO segura."""
         return getattr(self._puente, "noAbrir", True) is not False
+
+    @Property(bool, notify=apagadoRechazadoChanged)
+    def apagadoRechazado(self) -> bool:
+        return self._apagado_rechazado
 
     @Property(bool, notify=ocupadoChanged)
     def ocupado(self) -> bool:
@@ -115,10 +130,42 @@ class ComandosSistema(QObject):
         # TMG-06 de T7: un apagado aceptado deja el botón deshabilitado
         apagado = self._apagando and ok
         self._apagando = False
-        if not apagado:
+        if apagado:
+            self._vigilancia_apagado.start()   # D8-3.21
+        else:
             self._fijar_ocupado(False)
         if not ok:
             self._fijar_mensaje(motivo)
+
+    @Slot()
+    def _consultarApagado(self) -> None:
+        """D8-3.21: pregunta al backend (fuera del hilo de la GUI) si Windows
+        rechazó el apagado. Solo un `True` explícito lo da por rechazado."""
+        if self._consultando_apagado:
+            return
+        self._consultando_apagado = True
+
+        def tarea():
+            try:
+                estado = self._ui.estado_apagado()
+            except Exception as e:
+                logger.debug("estado_apagado error: %s", e)
+                estado = None
+            try:
+                self._estadoApagadoLeido.emit(estado)
+            except RuntimeError:
+                pass
+
+        self._ejecutar(tarea)
+
+    def _al_leer_estado_apagado(self, estado) -> None:
+        self._consultando_apagado = False
+        if not isinstance(estado, dict) or estado.get("windows_rechazado") is not True:
+            return
+        self._vigilancia_apagado.stop()
+        if not self._apagado_rechazado:
+            self._apagado_rechazado = True
+            self.apagadoRechazadoChanged.emit()
 
     def _fijar_ocupado(self, valor: bool) -> None:
         if self._ocupado != valor:

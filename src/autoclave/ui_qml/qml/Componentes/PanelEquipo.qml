@@ -77,6 +77,19 @@ PanelModal {
         anchors.left: parent.left; anchors.right: parent.right
         anchors.bottom: parent.bottom
         spacing: Escala.px(8)
+        // D8-3.21: Windows rechazó el apagado; el software ya se detuvo
+        Text {
+            objectName: "mensajeApagadoRechazado"
+            width: parent.width
+            visible: raiz.comandosSistema?.apagadoRechazado ?? false
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            text: I18n.t("equipo.apagado_windows_rechazado", I18n.lang)
+            color: Colores.advertenciaTexto
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: Escala.fuente(20)
+        }
         Text {
             objectName: "mensajeApagar"
             width: parent.width

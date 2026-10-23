@@ -361,6 +361,10 @@ def apartar_base_corrupta(db_path: Path = DB_DEFAULT, ahora: datetime | None = N
     return destino
 
 
+_SQL_AUDITORIA = ("INSERT INTO audit_log (ts, usuario, rol, evento, entidad,"
+                  " valor_anterior, valor_nuevo, detalle) VALUES (?,?,?,?,?,?,?,?)")
+
+
 class DbManager:
     """
     Singleton de acceso a la base de datos SQLite.
@@ -501,14 +505,31 @@ class DbManager:
 
         with self._lock:
             cur = self._conn.execute(
-                "INSERT INTO audit_log (ts, usuario, rol, evento, entidad,"
-                " valor_anterior, valor_nuevo, detalle) VALUES (?,?,?,?,?,?,?,?)",
+                _SQL_AUDITORIA,
                 (datetime.now().isoformat(timespec="seconds"), usuario or "", rol or "",
                  evento, entidad or "", texto(valor_anterior), texto(valor_nuevo),
                  json.dumps(detalle, ensure_ascii=False) if detalle else None),
             )
             self._conn.commit()
             return cur.lastrowid
+
+    def registrar_auditoria_tras_cierre(self, evento: str, entidad: str = "",
+                                        detalle: dict | None = None) -> None:
+        """D8-3.21 (tanda 8): una fila de audit_log después de close() (la
+        secuencia de apagado ya cerró la base cuando Windows rechaza el
+        apagado). Abre y cierra su propia conexión."""
+        with self._lock:
+            con = sqlite3.connect(str(self._path), timeout=10.0)
+            try:
+                con.execute(
+                    _SQL_AUDITORIA,
+                    (datetime.now().isoformat(timespec="seconds"), "", "", evento,
+                     entidad or "", None, None,
+                     json.dumps(detalle, ensure_ascii=False) if detalle else None),
+                )
+                con.commit()
+            finally:
+                con.close()
 
     # ------------------------------------------------------------------
     # Parámetros del equipo (O2a, tanda 6): tabla system_params

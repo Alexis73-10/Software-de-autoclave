@@ -2958,16 +2958,44 @@ def _apagado_windows_habilitado() -> bool:
     return bool(getattr(sys, "frozen", False)) or os.environ.get("AUTOCLAVE_APAGADO_REAL") == "1"
 
 
+# D8-3.21 (tanda 8): Windows rechazó el apagado. La pantalla lo consulta en
+# GET /system/shutdown/estado y muestra "apáguelo manualmente" (catálogo).
+_apagado_lock = threading.Lock()
+_apagado_windows_rechazado = False
+
+
+def _registrar_apagado_rechazado(detalle: dict) -> None:
+    """Marca el rechazo para la pantalla y lo deja en la bitácora. La base ya
+    se cerró en la secuencia: se escribe con una conexión propia."""
+    global _apagado_windows_rechazado
+    with _apagado_lock:
+        _apagado_windows_rechazado = True
+    logger.error("Apagar equipo: Windows rechazó el apagado: %s", detalle)
+    real = getattr(context, "db_real", None)
+    db = (real if getattr(context, "sin_base_de_datos", False) is True and real is not None
+          else context.db)
+    try:
+        db.registrar_auditoria_tras_cierre(
+            "apagado_windows_rechazado", entidad="/system/shutdown", detalle=detalle)
+    except Exception:
+        logger.exception("No se pudo registrar 'apagado_windows_rechazado' en audit_log")
+
+
 def _apagar_windows() -> None:
     import subprocess
-    r = subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30,
-                       capture_output=True, errors="replace",
-                       encoding="oem" if sys.platform == "win32" else None,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:
+        r = subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30,
+                           capture_output=True, errors="replace",
+                           encoding="oem" if sys.platform == "win32" else None,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except Exception as e:
+        # sin shutdown.exe, sin permiso o colgado: tampoco se apagó
+        _registrar_apagado_rechazado({"error": f"{type(e).__name__}: {e}"})
+        return
     if r.returncode != 0:
         # P1 (tanda 7): el lazo ya se detuvo; sin esto no quedaba el motivo
-        logger.error("Apagar equipo: Windows rechazó el apagado (código %s): %s",
-                     r.returncode, (r.stderr or r.stdout or "").strip())
+        _registrar_apagado_rechazado({"codigo": r.returncode,
+                                      "mensaje": (r.stderr or r.stdout or "").strip()[:500]})
 
 
 _TOPE_PASO_APAGADO_S = 8.0
@@ -3097,6 +3125,16 @@ def shutdown_system(body: dict = Body(default={})):
         _secuencia_apagado()
     return {"ok": True, "apagado_windows": _apagado_windows_habilitado(),
             "camara_segura": segura}
+
+
+@app.get("/system/shutdown/estado")
+def shutdown_estado():
+    """D8-3.21: estado del apagado para la pantalla (sin sesión, como el
+    propio apagado). `windows_rechazado`: Windows no permitió apagar."""
+    with _apagado_lock:
+        rechazado = _apagado_windows_rechazado
+    return {"apagando": getattr(context.control_loop, "apagando", False) is True,
+            "windows_rechazado": rechazado}
 
 
 @app.post("/safe-state/confirm")
