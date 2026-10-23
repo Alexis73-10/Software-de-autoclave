@@ -21,6 +21,8 @@ a = Analysis(
     ],
     hiddenimports=[
         'autoclave.backend.server',
+        # server.py la carga con importlib.import_module (R8): PyInstaller no la ve.
+        'autoclave.backend.server_reasignacion',
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',

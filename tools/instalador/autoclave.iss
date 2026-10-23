@@ -50,6 +50,11 @@
 #define NombreTarea "Especifika Autoclave - Arranque"
 ; Pasos de la estación aplicados por el Setup (los lee el desinstalador)
 #define ClaveEstacion "SOFTWARE\Especifika\Autoclave\Estacion"
+; Versión numérica instalada (AppVerNum): la compara el Setup para elegir entre
+; mantenimiento (misma), actualizar (más nueva) o negarse (más vieja)
+#define ClaveInstalacion "SOFTWARE\Especifika\Autoclave\Instalacion"
+; Mismo GUID que AppId, sin la llave escapada: clave de desinstalación de Inno
+#define AppGuid "{81C9DAB1-5CF8-4AD2-A7BE-15053E6ED43F}"
 
 [Setup]
 ; AppId FIJO, generado una vez el 2026-10-22. NO CAMBIAR: es lo que hace que el
@@ -138,6 +143,24 @@ es.Paso04=notificaciones, Windows Update y gestos de borde (paso 04)
 en.Paso04=notifications, Windows Update and edge gestures (step 04)
 es.Paso05=plan de energía (paso 05)
 en.Paso05=power plan (step 05)
+es.MantTitulo=Autoclave ya está instalado
+en.MantTitulo=Autoclave is already installed
+es.MantSubtitulo=Está instalada la versión %1. Elija qué hacer.
+en.MantSubtitulo=Version %1 is installed. Choose what to do.
+es.MantExplicacion=En las tres opciones se conservan los datos (perfil de instalación, calibración, base de datos, usuarios).
+en.MantExplicacion=The data (installation profile, calibration, database, users) are kept with all three options.
+es.MantReparar=Reparar: vuelve a copiar el programa, recrea la tarea de arranque y vuelve a aplicar la configuración de la estación que ya estaba aplicada (no cambia el inicio de sesión automático)
+en.MantReparar=Repair: copies the program again, recreates the start task and re-applies the station settings already applied (automatic sign-in is not changed)
+es.MantReinstalar=Reinstalar: desinstala (restaura la configuración de Windows) e instala de nuevo con el asistente completo
+en.MantReinstalar=Reinstall: uninstalls (restores the Windows settings) and installs again with the full wizard
+es.MantDesinstalar=Desinstalar: abre el desinstalador y cierra este asistente
+en.MantDesinstalar=Uninstall: opens the uninstaller and closes this wizard
+es.MantSinDesinstalador=No se encontró el desinstalador de la versión instalada:%n%1
+en.MantSinDesinstalador=The uninstaller of the installed version was not found:%n%1
+es.MantDesinstalarFallo=La desinstalación no terminó (código %1): no se instalará de nuevo.%n%nDetalle de la estación en:%n%2
+en.MantDesinstalarFallo=The uninstallation did not finish (code %1): it will not be installed again.%n%nStation details in:%n%2
+es.VersionMasNueva=Está instalada la versión %1, más nueva que la de este instalador (%2).%n%nPara instalar esta versión, desinstale primero Autoclave desde Configuración > Aplicaciones.
+en.VersionMasNueva=Version %1 is installed, newer than this installer (%2).%n%nTo install this version, first uninstall Autoclave from Settings > Apps.
 
 [Tasks]
 Name: "autoarranque"; Description: "{cm:TareaAutoarranque}"
@@ -155,6 +178,9 @@ Type: filesandordirs; Name: "{app}\_internal"
 ; permiso aunque la carpeta ya exista; la subcarpeta estacion\ la protegen los
 ; propios scripts (solo Administradores y SYSTEM, tools/estacion/_comun.ps1).
 Name: "{commonappdata}\Especifika\Autoclave"; Permissions: users-modify; Flags: uninsneveruninstall
+
+[Registry]
+Root: HKLM64; Subkey: "{#ClaveInstalacion}"; ValueType: string; ValueName: "VersionNum"; ValueData: "{#AppVerNum}"; Flags: uninsdeletekey
 
 [Files]
 Source: "{#Programa}\Autoclave.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -184,10 +210,20 @@ Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /TN ""{#NombreTarea}"" /F";
 [Code]
 const
   VarClave = 'AUTOCLAVE_CLAVE_AUTOLOGON';
+  ClaveDesinstalar = 'SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{#AppGuid}_is1';
+  // Modo del Setup, fijado en InitializeSetup y por la página de mantenimiento
+  ModoNuevo = 0;          // no hay instalación (o se acaba de desinstalar: Reinstalar)
+  ModoActualizar = 1;     // instalada una versión más vieja: flujo normal
+  ModoMantenimiento = 2;  // misma versión, todavía sin elegir (silencioso = Reparar)
+  ModoReparar = 3;
 
 var
   PaginaCuenta: TInputQueryWizardPage;
+  PaginaMantenimiento: TInputOptionWizardPage;
   ReiniciarAlFinal: Boolean;
+  Modo: Integer;
+  VersionInstalada: String;
+  CerrarSinConfirmar: Boolean;
 
 // La contraseña del inicio automático pasa al script por el entorno del
 // proceso (lo hereda powershell.exe), nunca por la línea de comandos.
@@ -242,8 +278,146 @@ begin
     Dominio := GetComputerNameString;
 end;
 
+// ── Mantenimiento: Reparar / Reinstalar / Desinstalar ─────────────────────────
+
+// Primer número de Texto (separado por '.') y lo quita de Texto
+function SegmentoVersion(var Texto: String): Integer;
+var
+  P: Integer;
+begin
+  P := Pos('.', Texto);
+  if P = 0 then
+  begin
+    Result := StrToIntDef(Texto, 0);
+    Texto := '';
+  end else
+  begin
+    Result := StrToIntDef(Copy(Texto, 1, P - 1), 0);
+    Delete(Texto, 1, P);
+  end;
+end;
+
+// < 0 si A es más vieja que B, 0 si iguales, > 0 si más nueva (formato AppVerNum)
+function CompararVersiones(A, B: String): Integer;
+var
+  I, NA, NB: Integer;
+begin
+  Result := 0;
+  for I := 1 to 4 do
+  begin
+    NA := SegmentoVersion(A);
+    NB := SegmentoVersion(B);
+    if NA <> NB then
+    begin
+      Result := NA - NB;
+      exit;
+    end;
+  end;
+end;
+
+function InitializeSetup: Boolean;
+var
+  VersionNum: String;
+  Comparacion: Integer;
+begin
+  Result := True;
+  Modo := ModoNuevo;
+  VersionInstalada := '';
+  if not RegQueryStringValue(HKLM64, ClaveDesinstalar, 'DisplayVersion', VersionInstalada) then
+    exit;
+  if RegQueryStringValue(HKLM64, '{#ClaveInstalacion}', 'VersionNum', VersionNum) then
+    Comparacion := CompararVersiones(VersionNum, '{#AppVerNum}')
+  else if VersionInstalada = '{#AppVer}' then
+    Comparacion := 0
+  else
+    // instalaciones anteriores a este registro (1.0.0-a .. 1.0.0-d): más viejas
+    Comparacion := -1;
+  if Comparacion < 0 then
+    Modo := ModoActualizar
+  else if Comparacion = 0 then
+    Modo := ModoMantenimiento
+  else
+  begin
+    // ISCC toma como sección una línea que empieza con '[': no partir antes del arreglo
+    SuppressibleMsgBox(FmtMessage(CustomMessage('VersionMasNueva'), [VersionInstalada,
+      '{#AppVer}']), mbError, MB_OK, IDOK);
+    Result := False;
+  end;
+end;
+
+function RutaDesinstalador: String;
+begin
+  Result := '';
+  if RegQueryStringValue(HKLM64, ClaveDesinstalar, 'UninstallString', Result) then
+    Result := RemoveQuotes(Result);
+  if (Result <> '') and not FileExists(Result) then
+  begin
+    MsgBox(FmtMessage(CustomMessage('MantSinDesinstalador'), [Result]), mbError, MB_OK);
+    Result := '';
+  end else if Result = '' then
+    MsgBox(FmtMessage(CustomMessage('MantSinDesinstalador'), ['-']), mbError, MB_OK);
+end;
+
+// Reinstalar: desinstalación completa (incluye revertir la estación) y espera.
+// unins000.exe se relanza desde %TEMP%: además de esperar el proceso, se espera
+// a que desaparezca su clave (máx. 120 s) antes de dar por terminado.
+function DesinstalarParaReinstalar: Boolean;
+var
+  Desinstalador: String;
+  Codigo, I: Integer;
+begin
+  Result := False;
+  Desinstalador := RutaDesinstalador;
+  if Desinstalador = '' then
+    exit;
+  Codigo := -1;
+  // /SILENT: sin la pregunta "¿desea desinstalar?", pero con sus avisos visibles
+  Exec(Desinstalador, '/SILENT /NORESTART', '', SW_SHOW, ewWaitUntilTerminated, Codigo);
+  for I := 1 to 240 do
+  begin
+    if not RegKeyExists(HKLM64, ClaveDesinstalar) then
+      break;
+    Sleep(500);
+  end;
+  Result := not RegKeyExists(HKLM64, ClaveDesinstalar);
+  Log(Format('Mantenimiento: desinstalación para reinstalar -> código %d, terminada=%d', [Codigo, Ord(Result)]));
+  if not Result then
+    MsgBox(FmtMessage(CustomMessage('MantDesinstalarFallo'), [IntToStr(Codigo), ArchivoLogEstacion]),
+      mbError, MB_OK);
+end;
+
+// Desinstalar: abre el desinstalador normal (con su confirmación) y cierra el Setup
+procedure AbrirDesinstalador;
+var
+  Desinstalador: String;
+  Codigo: Integer;
+begin
+  Desinstalador := RutaDesinstalador;
+  if Desinstalador = '' then
+    exit;
+  Exec(Desinstalador, '', '', SW_SHOW, ewNoWait, Codigo);
+  CerrarSinConfirmar := True;
+  WizardForm.Close;
+end;
+
+procedure CancelButtonClick(CurPageID: Integer; var Cancel, Confirm: Boolean);
+begin
+  if CerrarSinConfirmar then
+    Confirm := False;
+end;
+
 procedure InitializeWizard;
 begin
+  if Modo = ModoMantenimiento then
+  begin
+    PaginaMantenimiento := CreateInputOptionPage(wpWelcome, CustomMessage('MantTitulo'),
+      FmtMessage(CustomMessage('MantSubtitulo'), [VersionInstalada]),
+      CustomMessage('MantExplicacion'), True, False);
+    PaginaMantenimiento.Add(CustomMessage('MantReparar'));
+    PaginaMantenimiento.Add(CustomMessage('MantReinstalar'));
+    PaginaMantenimiento.Add(CustomMessage('MantDesinstalar'));
+    PaginaMantenimiento.Values[0] := True;
+  end;
   PaginaCuenta := CreateInputQueryPage(wpSelectTasks, CustomMessage('CuentaTitulo'),
     CustomMessage('CuentaSubtitulo'), CustomMessage('CuentaExplicacion'));
   PaginaCuenta.Add(CustomMessage('CuentaUsuario'), False);
@@ -254,13 +428,37 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PaginaCuenta <> nil) and (PageID = PaginaCuenta.ID) and
-    not WizardIsTaskSelected('estacion');
+  // tras Reinstalar ya no hay instalación: no se vuelve a la página de mantenimiento
+  if (PaginaMantenimiento <> nil) and (PageID = PaginaMantenimiento.ID) then
+    Result := (Modo = ModoNuevo)
+  // Reparar usa las tareas anteriores (UsePreviousTasks) y no reaplica el paso 01
+  else if (Modo = ModoReparar) and ((PageID = wpSelectTasks) or
+      ((PaginaCuenta <> nil) and (PageID = PaginaCuenta.ID))) then
+    Result := True
+  else
+    Result := (PaginaCuenta <> nil) and (PageID = PaginaCuenta.ID) and
+      not WizardIsTaskSelected('estacion');
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 begin
   Result := True;
+  if (PaginaMantenimiento <> nil) and (CurPageID = PaginaMantenimiento.ID) then
+  begin
+    case PaginaMantenimiento.SelectedValueIndex of
+      0: Modo := ModoReparar;
+      1: begin
+           Result := DesinstalarParaReinstalar;
+           if Result then
+             Modo := ModoNuevo;
+         end;
+      2: begin
+           Result := False;
+           AbrirDesinstalador;
+         end;
+    end;
+    exit;
+  end;
   if (PaginaCuenta <> nil) and (CurPageID = PaginaCuenta.ID) then
   begin
     if Trim(PaginaCuenta.Values[0]) = '' then
@@ -358,6 +556,47 @@ begin
       mbError, MB_OK, IDOK);
 end;
 
+// Reparar: vuelve a aplicar solo los pasos ya marcados en {#ClaveEstacion}
+// (incluye los que fallaron: se marcan antes de aplicarse). Son idempotentes.
+procedure ReaplicarPaso(Paso, Nombre: String; var Fallas: String);
+begin
+  if RegValueExists(HKLM64, '{#ClaveEstacion}', 'Paso' + Paso) then
+  begin
+    ReiniciarAlFinal := True;
+    if not EjecutarPaso(Paso, 'Aplicar', '') then
+      Fallas := Fallas + '- ' + CustomMessage(Nombre) + #13#10;
+  end;
+end;
+
+procedure RepararEstacion;
+var
+  Fallas, Usuario, Dominio: String;
+begin
+  Fallas := '';
+  Usuario := '';
+  Dominio := '';
+  WizardForm.StatusLabel.Caption := CustomMessage('AplicandoEstacion');
+  // El paso 01 no se reaplica (pide la contraseña): queda como estaba y la
+  // tarea de arranque se recrea para la misma cuenta del inicio automático.
+  if RegValueExists(HKLM64, '{#ClaveEstacion}', 'Paso01') then
+  begin
+    RegQueryStringValue(HKLM64, 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon',
+      'DefaultUserName', Usuario);
+    RegQueryStringValue(HKLM64, 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon',
+      'DefaultDomainName', Dominio);
+    if (Dominio = '') or (Dominio = '.') then
+      Dominio := GetComputerNameString;
+  end;
+  ReaplicarPaso('04', 'Paso04', Fallas);
+  ReaplicarPaso('05', 'Paso05', Fallas);
+  ReaplicarPaso('02', 'Paso02', Fallas);
+  if Fallas <> '' then
+    SuppressibleMsgBox(FmtMessage(CustomMessage('EstacionFallo'), [Fallas, ArchivoLogEstacion]),
+      mbError, MB_OK, IDOK);
+  if WizardIsTaskSelected('autoarranque') then
+    CrearTareaArranque(Usuario, Dominio);
+end;
+
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Usuario, Dominio: String;
@@ -366,6 +605,12 @@ begin
   begin
     Usuario := '';
     Dominio := '';
+    // ModoMantenimiento sin elegir = instalación silenciosa de la misma versión
+    if (Modo = ModoReparar) or (Modo = ModoMantenimiento) then
+    begin
+      RepararEstacion;
+      exit;
+    end;
     if WizardIsTaskSelected('estacion') or WizardIsTaskSelected('sinlogo') then
       AplicarEstacion(Usuario, Dominio);
     if WizardIsTaskSelected('autoarranque') then
@@ -416,6 +661,11 @@ begin
   if CurUninstallStep = usUninstall then
     RevertirEstacion;
   if CurUninstallStep = usPostUninstall then
+  begin
+    // {#ClaveInstalacion} la borra Inno (uninsdeletekey); quedan los padres vacíos
+    RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika\Autoclave');
+    RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika');
     SuppressibleMsgBox(FmtMessage(CustomMessage('DatosConservados'), [ExpandConstant(
       '{commonappdata}\Especifika\Autoclave')]), mbInformation, MB_OK, IDOK);
+  end;
 end;

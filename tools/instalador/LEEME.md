@@ -52,6 +52,22 @@ Detalles de la estación:
 - El Setup anota en `HKLM\SOFTWARE\Especifika\Autoclave\Estacion` los pasos que aplicó. **El desinstalador revierte solo esos**, en orden inverso (05, 04, 02, 01), con los scripts de reversión, y borra esa clave. Si una reversión falla, lo avisa: entonces hay que correr a mano, como administrador, el script `0X_revertir_...ps1` de `tools/estacion/` (desde la USB o el repositorio, porque el desinstalador ya borró la copia instalada).
 - Si en una actualización se desmarca la casilla de la estación, no se revierte nada (eso lo hace el desinstalador o los scripts de reversión). Si se deja marcada, vuelve a pedir la contraseña y vuelve a aplicar los pasos (los scripts son idempotentes).
 
+## Setup sobre una instalación existente (Reparar / Reinstalar / Desinstalar)
+
+El Setup compara su versión (`AppVerNum`) con la instalada, que anota en `HKLM\SOFTWARE\Especifika\Autoclave\Instalacion\VersionNum` (la borra el desinstalador). Las instalaciones 1.0.0-a a 1.0.0-d no tienen ese valor: se comparan por `DisplayVersion`. Si es la misma, se tratan como iguales; si es distinta, como más viejas.
+
+| Instalada | Qué hace el Setup |
+|---|---|
+| Ninguna | Instalación normal. |
+| Más vieja | Actualiza con el asistente normal (como antes). |
+| **La misma** | Página "Autoclave ya está instalado" con tres opciones (abajo). |
+| Más nueva | Se niega a instalar y pide desinstalar primero (no se baja de versión). |
+
+- **Reparar** (por defecto): vuelve a copiar el programa y los scripts (borra antes `_internal\`). Recrea la tarea de arranque si estaba elegida y vuelve a aplicar los pasos 04, 05 y 02 que estaban anotados en `...\Estacion`, incluidos los que fallaron, porque se anotan antes de aplicarse. No muestra las tareas ni la página de la cuenta, y **no reaplica el paso 01** (pediría la contraseña): el inicio automático queda como estaba y la tarea se recrea para esa cuenta (`Winlogon\DefaultUserName`). Un Setup silencioso (`/SILENT`, `/VERYSILENT`) de la misma versión hace Reparar.
+- **Reinstalar**: ejecuta el desinstalador (`/SILENT`: revierte la estación, borra el programa y la tarea) y espera a que termine (máx. 120 s). Después sigue con el asistente completo, como una instalación nueva. Si la desinstalación no termina, no instala.
+- **Desinstalar**: abre el desinstalador normal (con su confirmación) y cierra el Setup.
+- En las tres se conservan los datos de `C:\ProgramData\Especifika\Autoclave`.
+
 ## Lista de verificación en el PC de prueba (D9-11)
 
 **Antes de usarlo en el equipo del autoclave.** En un PC de prueba con Windows 10/11 de 64 bits, preferiblemente una máquina virtual con instantánea, sin datos importantes. Anotar la edición de Windows: ________
@@ -80,6 +96,13 @@ Reiniciar:
 - [ ] Con la casilla del logo desmarcada, el arranque sigue mostrando el logo de Windows (no se aplicó el paso 02).
 - [ ] (Opcional, segunda pasada con la casilla del logo marcada, sobre la instantánea limpia) el arranque no muestra el logo ni la pantalla de bloqueo.
 - [ ] Probar con la cuenta del operador (sin privilegios), si existe: Autoclave guarda datos (por ejemplo, entrar al asistente y avanzar un paso) sin error de permisos.
+
+Mantenimiento (Setup de la misma versión sobre la instalación ya hecha):
+- [ ] Aparece la página "Autoclave ya está instalado" con Reparar marcado.
+- [ ] Reparar: no pide tareas ni contraseña; `estacion.log` muestra `Setup: Aplicar paso 04/05 ... terminado` (y 02 si estaba); el inicio automático sigue igual; la tarea de arranque existe.
+- [ ] Reinstalar: aparece el desinstalador, termina, y el Setup sigue con la página de tareas y la de la cuenta. Al final, `...\Estacion` tiene de nuevo `Paso01/04/05`.
+- [ ] Desinstalar: se abre el desinstalador (pide confirmación) y el Setup se cierra sin preguntar.
+- [ ] Setup de una versión **más vieja** que la instalada: se niega y no cambia nada.
 
 Desinstalar (Configuración › Aplicaciones › Autoclave Especifika › Desinstalar):
 - [ ] Muestra "Restaurando la configuración de Windows..." y termina sin mensaje de error; avisa que los datos se conservan.

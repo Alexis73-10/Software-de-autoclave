@@ -22,7 +22,10 @@ $resp = Read-Respaldo $Paso
 if (-not $resp.ContainsKey('PlanActivo')) {
     $linea = (& powercfg.exe /getactivescheme) -join ' '
     $guid = [regex]::Match($linea, '[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}').Value
-    $hib  = (Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' -Name HibernateEnabled -ErrorAction SilentlyContinue).HibernateEnabled
+    # StrictMode 2.0: leer .HibernateEnabled sobre $null lanza excepcion. En
+    # equipos sin hibernacion el valor no existe: se respalda como $null.
+    $itemHib = Get-ItemProperty -LiteralPath 'HKLM:\SYSTEM\CurrentControlSet\Control\Power' -Name HibernateEnabled -ErrorAction SilentlyContinue
+    $hib  = if ($null -ne $itemHib) { $itemHib.HibernateEnabled } else { $null }
     $pow  = Join-Path $script:DirEstacion 'plan_energia_respaldo.pow'
     if ($PSCmdlet.ShouldProcess($pow, "Exportar plan activo $guid")) {
         & powercfg.exe /export $pow $guid | Out-Null
