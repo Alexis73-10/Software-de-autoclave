@@ -433,6 +433,26 @@ def test_sin_datos_en_ciclo_tras_el_aborto_bloquea(monkeypatch):
     assert io.ordenes[-1] == (_canal("cerrar_puerta_1"), True)
 
 
+def test_sin_datos_en_ciclo_el_tick_del_aborto_ya_bloquea(monkeypatch):
+    # TMG-02 de la re-revisión: el tick del aborto llama a reset_all_outputs
+    # (protocolo), no a apagar_por_paro; ya cuenta como pedido
+    from autoclave.state_machine.machine.enum_global import GlobalState
+    reloj = [100.0]
+    monkeypatch.setattr(set_io.time, "monotonic", lambda: reloj[0])
+    s, io, estado = _set_do(paro=True, maquina=GlobalState.CICLO)
+    s.reset_all_outputs()
+    reloj[0] += 0.5
+    s.set_output(_canal("bloqueo_puerta_1"), True)
+    assert io.ordenes[-1] == (_canal("bloqueo_puerta_1"), False)
+    # sin paro, reset_all_outputs no marca nada
+    estado.set_flag("PARO_EMERGENCIA", False)
+    s.set_output(_canal("bloqueo_puerta_1"), True)
+    s.reset_all_outputs()
+    estado.set_flag("PARO_EMERGENCIA", True)
+    s.set_output(_canal("bloqueo_puerta_1"), True)
+    assert io.ordenes[-1] == (_canal("bloqueo_puerta_1"), True)
+
+
 def test_tras_all_off_confirmado_no_se_repite_por_un_do_viejo(monkeypatch):
     # SAF-04/TMG-01 de la revisión: en el tick del flanco, el DO publicado
     # antes del ALL_OFF inmediato no provoca un segundo ALL_OFF
