@@ -39,7 +39,9 @@ Item {
     readonly property string unidad: segmento === "temperatura" ? "°C" : "kPa"
     readonly property bool puntosCompletos: !isNaN(realBajo) && !isNaN(lecturaBaja)
                                             && !isNaN(realAlto) && !isNaN(lecturaAlta)
-    readonly property var resultado: puntosCompletos
+    // D9-4 (tanda 9): calcular() usa la calibración vigente del controlador;
+    // leer `calibracion` antes hace que el resultado se recalcule al guardarla
+    readonly property var resultado: controlador.calibracion !== null && puntosCompletos
         ? controlador.calcular(lecturaBaja, realBajo, lecturaAlta, realAlto) : ({ valido: false })
     readonly property var cal: controlador.calibracion
     readonly property bool puedeAplicar: controlador.puedeCalibrar && resultado.valido === true

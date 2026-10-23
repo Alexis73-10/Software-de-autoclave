@@ -59,6 +59,14 @@ def revisa_empaque(profile) -> bool:
     return getattr(profile, "door_type", None) != DoorType.SIMPLE
 
 
+def puertas_simples(profile) -> bool:
+    """D9-3 (tanda 9): True si el equipo tiene puertas simples (sin actuador,
+    sin empaque): se ocultan la apertura automática, su espera y los grupos
+    Puerta y Empaque de Parámetros del equipo. Sin perfil, False (se muestra
+    todo, como antes)."""
+    return getattr(profile, "door_type", None) == DoorType.SIMPLE
+
+
 def sensores_empaque(profile) -> list[str]:
     """Sensores de empaque que se revisan: uno por puerta declarada, o
     ninguno si el tipo de puerta no tiene empaque."""

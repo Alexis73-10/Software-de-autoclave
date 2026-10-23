@@ -13,10 +13,13 @@
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
+from autoclave.core.managers.config_manager import GRUPOS as _GRUPOS_PARAMETROS
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import permisos_opciones as permisos
 
-GRUPOS = ("puerta", "impresion", "drenaje", "empaque", "chaqueta", "sistema", "maquina")
+# Todos los submenús posibles; los que se muestran los entrega el backend ya
+# filtrados por el perfil (D9-3, tanda 9). "maquina" va siempre, al final.
+GRUPOS = (*_GRUPOS_PARAMETROS, "maquina")
 
 _MENSAJES = {
     "rol_sin_permiso": "opciones.err_rol",
@@ -29,6 +32,7 @@ _MENSAJES = {
     "incoherente": "opciones.equipo_err_empaque",
     "solo_lectura": "opciones.equipo_err_solo_lectura",
     "no_existe": "opciones.err_generico",
+    "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
     "estado_no_permitido_unidades": "opciones.equipo_err_unidades_ciclo",
     sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta",
 }
@@ -51,6 +55,7 @@ class ParametrosEquipoController(QObject):
     mensajeChanged = Signal()
     grupoChanged = Signal()
     permisosChanged = Signal()
+    parametrosGrupoChanged = Signal()
 
     def __init__(self, parent=None, sesion=None, perfil=None):
         super().__init__(parent)
@@ -60,6 +65,7 @@ class ParametrosEquipoController(QObject):
         self._unidades = {"temperatura": "", "presion": ""}   # U1; "" = se desconoce
         self._idioma = ""
         self._parametros = []
+        self._grupos = list(GRUPOS)     # visibles (backend), con "maquina" al final
         self._grupo = ""                # "" = pantalla de entrada (7 tarjetas)
         self._mensaje = ""
         self._rol = ""
@@ -114,6 +120,13 @@ class ParametrosEquipoController(QObject):
         lista = r.datos.get("parametros") if r.ok and isinstance(r.datos, dict) else None
         if isinstance(lista, list):
             self._parametros = [p for p in lista if isinstance(p, dict)]
+            grupos = r.datos.get("grupos")
+            # sin la lista (backend anterior a D9-3), todos los submenús
+            self._grupos = ([g for g in GRUPOS if g in grupos and g != "maquina"] + ["maquina"]
+                            if isinstance(grupos, list) else list(GRUPOS))
+            if self._grupo and self._grupo not in self._grupos:
+                self._grupo = ""
+                self.grupoChanged.emit()
         else:
             self._fijar_mensaje(mensaje_de(r.causa))
         r = self._s().enviar("GET", "/printer/config")
@@ -129,22 +142,25 @@ class ParametrosEquipoController(QObject):
         self._serie = str(getattr(p, "serial_number", "") or "") if p else ""
         self._modelo = str(getattr(p, "model_id", "") or "") if p else ""
         self.datosChanged.emit()
+        self.parametrosGrupoChanged.emit()
 
     # ── navegación entre submenús ────────────────────────────────────────
     @Property(str, notify=grupoChanged)
     def grupo(self) -> str:
         return self._grupo
 
-    @Property("QVariantList", constant=True)
+    @Property("QVariantList", notify=datosChanged)
     def grupos(self) -> list:
-        return list(GRUPOS)
+        """Submenús que se muestran (D9-3), con "maquina" al final."""
+        return list(self._grupos)
 
     @Slot(str)
     def abrirGrupo(self, g: str) -> None:
-        g = g if g in GRUPOS else ""
+        g = g if g in self._grupos else ""
         if g != self._grupo:
             self._grupo = g
             self.grupoChanged.emit()
+            self.parametrosGrupoChanged.emit()
 
     @Slot(result=bool)
     def volver(self) -> bool:
@@ -157,6 +173,16 @@ class ParametrosEquipoController(QObject):
     @Property("QVariantList", notify=datosChanged)
     def parametros(self) -> list:
         return list(self._parametros)
+
+    @Property("QVariantList", notify=parametrosGrupoChanged)
+    def parametrosGrupo(self) -> list:
+        """D9-4 (tanda 9): parámetros del submenú abierto como propiedad
+        notificable; la lista de la pantalla se reevalúa al guardar (cargar()
+        la avisa) y al cambiar de submenú. Antes era `delGrupo(grupo)`, una
+        llamada que QML no volvía a evaluar con datosChanged."""
+        if not self._grupo or self._grupo == "maquina":
+            return []
+        return self.delGrupo(self._grupo)
 
     @Slot(str, result="QVariantList")
     def delGrupo(self, g: str) -> list:

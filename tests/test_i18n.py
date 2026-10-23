@@ -299,9 +299,9 @@ FAMILIAS = {
     "roles.": lambda: [v for v, _ in __import__("autoclave.ui_pyside.services.roles",
                                                 fromlist=["ROLES"]).ROLES],
     # O2a (tanda 6): submenús y parámetros del equipo
-    "opciones.equipo_grupos.": lambda: ["puerta", "impresion", "drenaje", "empaque", "chaqueta",
+    "opciones.equipo_grupos.": lambda: ["puerta", "camara_segura", "impresion", "drenaje", "empaque", "chaqueta",
                                         "sistema", "maquina"],
-    "opciones.equipo_grupos_desc.": lambda: ["puerta", "impresion", "drenaje", "empaque",
+    "opciones.equipo_grupos_desc.": lambda: ["puerta", "camara_segura", "impresion", "drenaje", "empaque",
                                              "chaqueta", "sistema", "maquina"],
     "opciones.equipo_magnitud_": lambda: ["temperatura", "presion"],
     "parametros_equipo.": lambda: _claves_equipo(),

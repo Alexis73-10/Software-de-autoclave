@@ -1497,8 +1497,14 @@ def _parametro_o_404(clave: str) -> dict:
 @app.get("/system_params")
 def get_system_params():
     """Lista para la pantalla: valor vigente, defecto, rango, unidad, clase,
-    submenú y último cambio (usuario y fecha)."""
-    return {"parametros": context.config_manager.describir()}
+    submenú y último cambio (usuario y fecha). D9-3 (tanda 9): `grupos` son
+    los submenús que se muestran según el perfil (sin Puerta ni Empaque en un
+    equipo de puertas simples), y solo van los parámetros de esos submenús."""
+    from autoclave.core.managers.config_manager import grupos_visibles
+    from autoclave.installation.profile import puertas_simples
+    grupos = grupos_visibles(puertas_simples(getattr(context, "profile", None)))
+    parametros = [p for p in context.config_manager.describir() if p.get("grupo") in grupos]
+    return {"parametros": parametros, "grupos": grupos}
 
 
 @app.get("/global_params/{clave}")
@@ -3535,6 +3541,13 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
             and not sc.f0_disponible(getattr(context, "profile", None))):
         _rechazar(422, "f0_no_disponible",
                   "F0 solo está disponible en equipos de laboratorio", entidad, sesion)
+    # D9-3 (tanda 9): un equipo de puertas simples no abre solo la puerta (no
+    # hay actuador); no se ofrece y el backend rechaza activarla
+    if (body.fase == "finalizacion" and body.path == ["apertura_automatica"]
+            and bool(body.value) and _puertas_simples()):
+        _rechazar(422, "apertura_automatica_no_disponible",
+                  "Apertura automática no disponible: el equipo tiene puertas simples",
+                  entidad, sesion)
     with guard_estado(DISTINTO_DE_CICLO, "/cycle/parameter", sesion,
                       excepcion_ingeniero=True) as estado:
         en_ciclo = estado == GlobalState.CICLO
@@ -3774,6 +3787,16 @@ def get_programas_seleccionables():
             "orden": "uso" if usados else "predefinido"}
 
 
+# D9-3 (tanda 9): en un equipo de puertas simples, Finalización no muestra la
+# apertura automática ni su espera (temp_max_apertura sigue visible)
+_FINALIZACION_SOLO_PUERTA_AUTOMATICA = frozenset({"tiempo_espera_apertura", "apertura_automatica"})
+
+
+def _puertas_simples() -> bool:
+    from autoclave.installation.profile import puertas_simples
+    return puertas_simples(getattr(context, "profile", None))
+
+
 def _hojas_seccion(cycle, seccion: str) -> list[tuple[list[str], dict]]:
     """Parámetros (ruta, hoja) de la sección. Descompresión: el modo, la
     espera previa y solo los parámetros del modo activo (Q-3)."""
@@ -3789,6 +3812,8 @@ def _hojas_seccion(cycle, seccion: str) -> list[tuple[list[str], dict]]:
                 recorrer(sub, ruta + [clave])
 
     recorrer(nodo, [])
+    if seccion == "finalizacion" and _puertas_simples():
+        salida = [(r, h) for r, h in salida if r[-1] not in _FINALIZACION_SOLO_PUERTA_AUTOMATICA]
     if seccion == "descompresion":
         modo = cycle.get_param("descompresion", "modo")
         activo = f"modo_{modo}"

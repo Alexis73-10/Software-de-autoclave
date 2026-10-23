@@ -18,8 +18,9 @@ FABRICA = json.loads((RAIZ / "config" / "global_params.json").read_text(encoding
 # planeacion_opciones.md v4 §3.2 y O2a de la instrucción de la tanda 6
 ESPERADO = {
     "timeout_puerta": ("puerta", 60, 5, 600),
-    "temp_max_apertura": ("puerta", 80, 40, 120),
-    "rango_presion_atm": ("puerta", 5, 1, 10),
+    # D9-3 (tanda 9): pasan del grupo Puerta al grupo Cámara segura
+    "temp_max_apertura": ("camara_segura", 80, 40, 120),
+    "rango_presion_atm": ("camara_segura", 5, 1, 10),
     "intervalo_impresion": ("impresion", 60, 10, 3600),
     "intervalo_impresion_esterilizacion": ("impresion", 30, 10, 3600),
     "temp_segura_drenaje": ("drenaje", 70, 40, 90),
@@ -333,9 +334,12 @@ def _ctrl_ui(sesion=None):
 
 def test_controlador_grupos_y_datos():
     c, _ = _ctrl_ui()
-    assert c.grupos == ["puerta", "impresion", "drenaje", "empaque", "chaqueta", "sistema", "maquina"]
-    assert [p["clave"] for p in c.delGrupo("puerta")] == ["timeout_puerta", "temp_max_apertura",
-                                                         "rango_presion_atm"]
+    # D9-3 (tanda 9): grupo Cámara segura; sin `grupos` en la respuesta, todos
+    assert c.grupos == ["puerta", "camara_segura", "impresion", "drenaje", "empaque", "chaqueta",
+                        "sistema", "maquina"]
+    assert [p["clave"] for p in c.delGrupo("puerta")] == ["timeout_puerta"]
+    assert [p["clave"] for p in c.delGrupo("camara_segura")] == ["temp_max_apertura",
+                                                                "rango_presion_atm"]
     assert {p["clave"] for p in c.delGrupo("sistema")} == {"tiempo_standby", "tiempo_estable_alarma",
                                                            "presion_atmosferica",
                                                            "pausa_max_esterilizacion_s",
@@ -423,7 +427,7 @@ def buscar(item, nombre):
             return r
     return None
 r = {"tarjetas": sum(1 for g in ctrl.property("grupos") if buscar(p, "tarjeta_" + g) is not None)}
-ctrl.abrirGrupo("puerta"); app.processEvents()
+ctrl.abrirGrupo("camara_segura"); app.processEvents()
 fila = buscar(p, "paramEquipo_temp_max_apertura")
 r["fila"] = fila is not None and fila.property("valor")
 r["chevron"] = fila.property("chevron")
@@ -450,7 +454,7 @@ def test_pantalla_por_rol(rol, chevron, idioma, unidades):
                        cwd=raiz, timeout=90, env={**os.environ, "QT_QPA_PLATFORM": "offscreen"})
     assert r.returncode == 0, r.stderr[-2000:]
     d = json.loads(r.stdout.strip().splitlines()[-1])
-    assert d["tarjetas"] == 7 and d["fila"] and d["serie"]
+    assert d["tarjetas"] == 8 and d["fila"] and d["serie"]      # D9-3: + Cámara segura
     assert (d["chevron"], d["idioma"], d["unidades"]) == (chevron, idioma, unidades)
     assert d["avisos"] == []
 
