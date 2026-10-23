@@ -51,5 +51,8 @@ Informe: `E9_entrega_setup.md`. Decisiones: E9-1 en la primera instalación los 
 ## X9 ★ — Pendientes de la tanda 8 (D9-13.3, D9-13.4)
 Informe: `X9_pendientes_t8.md`. Decisiones: abreviaturas solo en el ticket; resultado en inglés como «FAILED (STERILIZATION)»; motivos viejos no se migran; prefijo `ESTERILIZACION_TIMEOUT_F0:` conservado en español; programa con marca «sin bitácora» se carga como dañado; cambio que llega con la fase ya iniciada rige desde el siguiente ciclo. Preguntas: ancho del ticket (la decisión dice 32 columnas, el código usa 24) (1); acción en la aplicación para quitar la marca «sin bitácora» (2); corte de energía entre JSON y bitácora (3, Medio anterior); alarma ante la doble falla (4, Medio).
 
+## K9 — Compilación D
+Informe: `K9_compilacion_d.md`. Decisión K9-1: en el equipo de pruebas el LEEME (8c) pide DESMARCAR la casilla «Configurar este PC como estación» hasta validarla en un PC de prueba (en el Setup sigue marcada por defecto, como pide D9-11). Pendiente: `entrega/drivers/` está vacía.
+
 ## Arrastradas de la tanda 8 (D9-13, no entran en la tanda 9)
 D-38 (cuentas ADC de banco); presión de tara de las válvulas de seguridad mecánicas; preguntas de S1, S2a, S2b, R8 (incluida SAF-04: estado seguro con la asignación de E/S dañada), V8a, E1 y E2; limpieza de worktrees con `--force`. Ver `docs/informes/informe_tanda_2026-10-23_t8.md` y `docs/informes/tanda8/DECISIONES_PARA_REVISAR.md`.

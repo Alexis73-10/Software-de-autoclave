@@ -9,7 +9,29 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", y en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C".
+Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup).
+
+> **Tanda 9 (23-oct): la C NO se instala. El equipo de pruebas pasa de la B a la compilación D (`entrega/2026-10-23_d/`) con el Setup `Autoclave_Setup_1.0.0-d.exe`: siga la sección 8c («Actualizar B → D»), sin copiar archivos a mano.** En un PC nuevo, la D se instala con el mismo Setup (secciones 1 a 6, usando el Setup en lugar de abrir `Autoclave.exe`).
+
+## B frente a D
+
+**Instale la D** (`entrega/2026-10-23_d/`, etiqueta `inst-2026-10-23-d`, `dev` 4357217) antes de los ciclos del lunes 26-oct. La D incluye todo lo de la C (tabla «B frente a C», más abajo) y además:
+
+| | Compilación B (`2026-10-22_b`) | Compilación D (`2026-10-23_d`) |
+|---|---|---|
+| Suite en ese código | 5405 passed, 3 skipped, 3 xfailed | **6606 passed, 10 skipped, 3 xfailed** |
+| Arranque con la cámara no segura (D9-1) | Pide «Confirmar y llevar a estado seguro» con el texto «paro liberado» aunque no hubo paro; sin presión de cámara bloquea modo prueba, cambio de programa y apagado, y saca del inicio de sesión | El estado seguro corre solo, sin confirmación (solo la lenta con presión; aire atmosférico con vacío). La confirmación se pide solo tras un paro real. Sin presión de cámara: CIC-10 + SEN-06 y NO ABRIR, sin bloquear inicio de sesión, modo prueba, cambio de programa ni apagado |
+| Puerta abierta con presión fuera de la atmosférica (D9-1.6) | — | Alarma nueva SEN-10, bloquea el inicio de ciclo |
+| Modo prueba con el estado seguro activo o la cámara no segura | — | **No deja abrir ni desbloquear puertas** desde Entradas/Salidas (ni rápida, chaqueta, vapor de cámara, aire comprimido de cámara ni vapor de generador o caldera con el estado seguro). En el equipo sin sensores la cámara nunca es segura: las puertas no se accionan desde Entradas/Salidas |
+| Paro de emergencia y zumbador (D9-9) | Se encienden un instante salidas activas al pulsar el paro | ALL_OFF inmediato con ACK; con el paro, el PC no ordena encender nada salvo el zumbador (caso de banco B-13) |
+| Niveles de alarma (D9-2) | SEN-01/03/06/07 y CIC-10 como aviso | Como alarma (requieren reconocimiento) |
+| Bitácora (D9-6) | Rechazos, suspensión, órdenes de puerta, selección de programa, pruebas de correo e impresora | Solo seguridad, configuración y sesión |
+| Puertas simples (D9-3) | Muestra apertura automática y grupos Puerta y Empaque | Los oculta; grupo nuevo «Cámara segura» |
+| Entradas NC (D9-5) | Nivel crudo | Estado interpretado (paro y atrapamiento) y nivel crudo al lado |
+| Manejo de ciclos (D9-10) | En Parámetros del ciclo | En Opciones avanzadas (técnico e ingeniero) |
+| Ticket y motivos de fallo en inglés (D9-13.4) | En español | En el idioma vigente |
+| Actualización | (C: copia a mano de 2 archivos) | **Sin copias a mano** (D9-13.1): el programa refresca sus archivos de fábrica con respaldo |
+| Entrega | Correo y programas de usuario del banco | Correo neutro y solo programas de fábrica (D9-7) |
 
 > **Tanda 8 (23-oct): el equipo de pruebas ya tiene la B. Para pasarlo a la compilación C (`entrega/2026-10-23_c/`), siga la sección 8b, no la 1.2.** En un PC nuevo, la C se instala igual que la B (secciones 1 a 6).
 
@@ -297,6 +319,8 @@ Si el perfil está **dañado** (ilegible o inválido), el asistente se abre solo
 
 ## 8b. Actualizar un equipo ya instalado (B → C)
 
+> **La C no se instala (tanda 9). Para la D use la sección 8c, sin copias a mano.** Esta sección queda como referencia.
+
 Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **C** (`entrega/2026-10-23_c/`) sin perder nada. Se comprobó en el PC de la oficina con una copia simulada del equipo instalado: perfil del equipo de pruebas, base de datos de la B con un usuario y un parámetro cambiado, y calibración propia. El detalle está en `docs/informes/tanda8/K8_compilacion_c.md`.
 
 **Qué hace el programa al actualizar** (leído en `instalador_exe.py`, `utils/resources.py` y `utils/paths.py`):
@@ -340,6 +364,41 @@ Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **C** (`
 1. Cierre Autoclave.
 2. Abra el `Autoclave.exe` de la B, responda Sí a "¿Actualizarlo?" y ciérrelo cuando se abra.
 3. **Reemplace la carpeta completa** `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2. Es necesario porque la C deja la base de datos en la versión 10, que la B no conoce.
+
+## 8c. Actualizar el equipo de pruebas de la B a la D (con el Setup)
+
+Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **D** sin perder nada y **sin copiar archivos a mano**. La C no se instala. Se ensayó en el PC de la oficina con una copia simulada del equipo (perfil del equipo de pruebas, base de datos de la B con un usuario y un parámetro cambiado, calibración y correo propios) y el `_internal` real de la D: `docs/informes/tanda9/K9_compilacion_d.md`.
+
+**Qué hace la D al actualizar:**
+- el Setup reemplaza solo `C:\Program Files\Especifika\Autoclave` (borra antes `_internal\`);
+- en `C:\ProgramData\Especifika\Autoclave` el Setup no copia ni borra nada; solo da permiso de Modificar a Usuarios;
+- en el primer arranque, el programa refresca solo sus archivos de configuración **de fábrica** (`programa\autoclave\config\instances\*.yaml` y `global_params.json`), con copia de respaldo con fecha en `programa\respaldos_configuracion\<fecha>\`, y los programas de fábrica (`cycles\factory\`). Así aparecen Cámara 2, `descompresion_lenta` y los parámetros nuevos del equipo;
+- la base de datos se actualiza sola a la versión 10.
+
+**Orden:**
+1. **Cierre Autoclave por completo** (las dos pantallas). En el Administrador de tareas no debe quedar ningún `Autoclave.exe`. Si queda abierto, el Setup ofrece cerrarlo.
+2. **Respaldo:** copie la carpeta completa `C:\ProgramData\Especifika\Autoclave` a la USB (por ejemplo, `respaldo_B_2026-10-23`). Es la vuelta atrás.
+3. Compruebe el Setup con `SHA256SUMS.txt` de la USB (PowerShell: `Get-FileHash .\Autoclave_Setup_1.0.0-d.exe` y comparar con la línea del Setup).
+4. Ejecute `Autoclave_Setup_1.0.0-d.exe` y acepte el aviso de administrador.
+5. En «Tareas adicionales»:
+   - «Iniciar Autoclave automáticamente al iniciar sesión en Windows»: **marcada**;
+   - «Configurar este PC como estación del autoclave»: **DESMÁRQUELA** en el equipo de pruebas hasta haber hecho la lista de verificación de `tools/instalador/LEEME.md` en un PC de prueba (D9-11: se valida primero en un PC de prueba). Viene marcada por defecto;
+   - «Arranque sin logo de Windows…»: desmarcada.
+6. Termine el Setup. Abra Autoclave con el acceso directo.
+7. Compruebe:
+   - Información del sistema: versión y número de serie;
+   - que los usuarios entran;
+   - Parámetros del equipo: los valores de antes, los dos nuevos (pausa máxima en esterilización 30 s, espera sellada sin sonda 30 min) y el grupo «Cámara segura»;
+   - Entradas/Salidas: Cámara 2 y `descompresion_lenta` visibles; el paro y el atrapamiento muestran el estado interpretado;
+   - sin sensores de presión: tarjeta de alarmas con SEN-06 y CIC-10 («Estado seguro detenido»), **sin** botón de confirmación ni «paro liberado»; el inicio de sesión, el modo prueba, el cambio de programa y el apagado funcionan (casos C-05 a C-05h de la hoja de banco).
+8. **Programas de usuario:** la actualización no toca `programa\autoclave\cycles\user\`, así que el equipo conserva los programas de la B, que traían valores del banco (el Bowie & Dick con modo 4 y 134,5 °C, entre otros). Revíselos en Parámetros del ciclo antes de los ciclos del lunes (PREGUNTA E9-P1).
+
+**NO toque** (se conservan solos): `installation_profile.json` (perfil), `data\calibration.yaml` (calibración del equipo), `data\autoclave.db` (usuarios, historial, bitácora, parámetros), `data\asignacion_io.json` (asignación de E/S vigente), `programa\autoclave\cycles\user\` y `cycles\defecto\`, y en `programa\autoclave\config\`: `correo.json`, `serial_link.json`, `calibration.yaml` y `active_instances.yaml`. No hace falta copiar nada desde `Program Files`.
+
+**Volver a la B si la D falla:**
+1. Cierre Autoclave.
+2. Abra el `Autoclave.exe` de la B desde la USB, responda Sí a «¿Actualizarlo?» y ciérrelo cuando se abra.
+3. **Reemplace la carpeta completa** `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2 (la D deja la base de datos en la versión 10, que la B no conoce).
 
 ## A frente a B
 

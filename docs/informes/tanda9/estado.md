@@ -14,7 +14,7 @@ Precondición A0: `tanda8/estado.md` tiene `| Z | Hecha |` y `git merge-base --i
 | P9 | Hecha, unida a `tanda-9` (92417ce). Suite tras unir: **6284 passed, 7 skipped, 3 xfailed** (`suites/integ_p9.log`) | `tanda-9-p9` (8ec67c6) | |
 | C9 | Hecha, unida a `tanda-9` (a6d44d0). Suite tras unir: **6337 passed, 7 skipped, 3 xfailed** (`suites/integ_c9.log`) | `tanda-9-c9` (de24991) | |
 | X9 (★ D9-13.3) | Hecha, unida a `tanda-9` (8ee6bf7). Suite tras unir: **6391 passed, 7 skipped, 3 xfailed** (`suites/integ_x9.log`) | `tanda-9-x9` (b611d79) | Revisores: 0 Altos/Críticos; 3 Medios como preguntas. |
-| K9 | Pendiente | | |
+| K9 | Hecha: compilación D en `entrega/2026-10-23_d/` (etiqueta `inst-2026-10-23-d` → `dev` 4357217), Setup `Autoclave_Setup_1.0.0-d.exe` (SHA-256 29829caf…df49), `usb/` armada | | `K9_compilacion_d.md` |
 | Z | Pendiente | | |
 
 Instrucciones comunes de los subagentes: `tanda9/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-9-<id>`; NO relanzarlos desde cero, revisar su rama y su informe y CONTINUAR.
@@ -35,3 +35,4 @@ Instrucciones comunes de los subagentes: `tanda9/brief_subagentes.md`. Si la ses
 - Unión de B9 ensayada sobre S9: conflictos de conservar ambos lados (control_loop.py, hoja de banco, riesgos).
 - S9 (revisión 3) y B9 unidas; suite 6606 en verde. Los 10 skipped: 3 nuevos son pruebas que solo escriben informes (variables `B9_ESCRIBIR_REGISTRO`/`S9_ESCRIBIR_INFORME`).
 - `DECISIONES_PARA_REVISAR.md` escrito. Siguiente: unir `tanda-9` a `dev` y K9.
+- `tanda-9` unida a `dev` (4357217). K9 hecha: build limpio, verificador neutro OK, prueba de humo OK, ensayo B → D OK con el `_internal` real, Setup compilado (no ejecutado), LEEME con 8c sin copias a mano.
