@@ -1030,6 +1030,8 @@
     "err_aire_con_presion": "The atmospheric air valve cannot be opened: the chamber is pressurized. Wait until the chamber is at atmospheric pressure.",
     "err_aire_sin_presion": "The atmospheric air valve cannot be opened: there is no chamber pressure reading.",
     "err_aire_sin_referencia": "The atmospheric air valve cannot be opened: the equipment reference atmospheric pressure is missing.",
+    "err_puerta_camara_no_segura": "The door cannot be unlocked or opened: the chamber is not safe (pressure, temperature or no reading) or is being brought to a safe state.",
+    "err_salida_estado_seguro": "This output cannot be switched on: the chamber is being brought to a safe state.",
     "di": {
       "aire_comprimido": "Compressed air",
       "presion_agua": "Water pressure",

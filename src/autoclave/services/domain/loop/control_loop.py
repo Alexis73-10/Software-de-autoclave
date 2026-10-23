@@ -15,6 +15,7 @@ from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime import aire_atmosferico_prueba
+from autoclave.core.runtime import salidas_prueba_seguridad
 from autoclave.core.runtime.coherencia_puerta_presion import VigilanciaCoherenciaPuertaPresion
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
@@ -129,6 +130,9 @@ class ControlLoop:
             estado, config_manager, profile=profile,
             programas_seguridad=self.programas_para_seguridad,
             al_evento=self._evento_seguridad, alarm_manager=alarm_manager)
+        # S9, revisión ★ TMG-02/TMG-03: vigencia y número de la trama AI, para
+        # que el protocolo no tome una presión congelada por una vigente
+        self.estado_seguro.lectura_ai = self._lectura_ai
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
@@ -194,6 +198,9 @@ class ControlLoop:
         # D8-3.19: el lazo ya cerró el aire atmosférico en este modo prueba y
         # registró el evento; se rearma cuando la tarjeta lo reporta cerrado
         self._aire_prueba_cortado = False
+        # S9, revisión ★ SAF-01: salidas de puerta/vapor cortadas por el lazo
+        # en modo prueba (registro una vez por salida mientras siga reportada)
+        self._salidas_prueba_cortadas: set[str] = set()
         # D8-3.19 (SAF-01/TMG-01 de la 2.ª revisión): último paso 1 completo
         # (time.monotonic); presion_vigente exige que el estado esté al día
         self._estado_publicado_mono: float | None = None
@@ -380,9 +387,20 @@ class ControlLoop:
             logger.warning("ControlLoop: recuperación de arranque descartada (CICLO)")
             self._recuperacion_pendiente = None
             return
+        ai_vigente = self._ai_vigente()
+        if not ai_vigente and self._esperando_primera_ai():
+            # S9, revisión ★ (pregunta 7): la primera DI puede llegar antes
+            # que la primera AI (pres_camara todavía None). No se decide con
+            # eso: se espera la AI hasta _VIGENCIA_DI_SEG desde la conexión.
+            self._ticks_seguros_recuperacion = 0
+            return
         segura, motivo = camara_segura.evaluar(self.estado, self.config_manager,
                                                self.programas_para_seguridad(), self.profile,
                                                temp_max_ciclo=self.temp_max_tras_ciclo())
+        if segura and not ai_vigente:
+            # S9, revisión ★ TMG-02: con la trama AI vencida la presión
+            # publicada puede estar congelada: nunca cuenta como segura
+            segura, motivo = False, "Sin lectura válida de presión de cámara (trama AI vencida)"
         if segura:
             # SAF-02 de T6: 3 ticks seguros seguidos antes de descartar
             self._ticks_seguros_recuperacion += 1
@@ -503,6 +521,83 @@ class ControlLoop:
         if isinstance(edad, bool) or not isinstance(edad, (int, float)):
             return False
         return edad <= self._VIGENCIA_DI_SEG
+
+    def _esperando_primera_ai(self) -> bool:
+        """S9 (revisión ★, pregunta 7): en esta conexión todavía no llegó
+        ninguna trama AI y no pasó _VIGENCIA_DI_SEG desde que se conectó."""
+        try:
+            edad = self.link.edad_ultima_ai()
+        except Exception:
+            return False
+        desde = self._conectado_desde
+        return (edad is None and desde is not None
+                and time.monotonic() - desde < self._VIGENCIA_DI_SEG)
+
+    def _secuencia_ai(self):
+        """S9 (revisión ★ TMG-03): número de la última trama AI según el
+        enlace, o None si no lo informa como entero (dobles de prueba: cada
+        tick cuenta, como en D8-2.9)."""
+        try:
+            seq = self.link.secuencia_ultima_ai()
+        except Exception:
+            return None
+        if isinstance(seq, bool) or not isinstance(seq, int):
+            return None
+        return seq
+
+    def _lectura_ai(self) -> tuple[bool, int | None]:
+        """S9 (revisión ★ TMG-02/TMG-03): (trama AI vigente, su número). Lo
+        usan el estado seguro y su protocolo. Falla cerrada: ante un error,
+        (False, None)."""
+        try:
+            return self._ai_vigente() is True, self._secuencia_ai()
+        except Exception:
+            logger.exception("ControlLoop: no se pudo leer la vigencia de la trama AI")
+            return False, None
+
+    def salidas_prueba_bloqueadas(self) -> dict[str, str]:
+        """S9 (revisión ★ SAF-01, DECISIÓN SIN CONFIRMAR): {salida: código}
+        de las salidas que el modo prueba no puede encender ahora (ver
+        core/runtime/salidas_prueba_seguridad.py). La cámara se evalúa con los
+        programas de seguridad, el menor temp_max_apertura y la presión al
+        día (presion_vigente); sin eso, no segura. Cualquier error: todas.
+        Bajo _sm_lock (reentrante: el backend ya lo tiene en guard_estado)."""
+        try:
+            with self._sm_lock:
+                es_activo = self.estado_seguro.activo is True
+                recuperacion = self._recuperacion_pendiente is not None
+                segura, _ = camara_segura.evaluar(
+                    self.estado, self.config_manager, self.programas_para_seguridad(),
+                    self.profile, datos_vigentes=self.presion_vigente is True,
+                    temp_max_ciclo=self.temp_max_tras_ciclo())
+                return salidas_prueba_seguridad.bloqueadas(es_activo, recuperacion,
+                                                           segura is True)
+        except Exception:
+            logger.exception("Modo prueba: no se pudo evaluar las salidas bloqueadas; "
+                             "se bloquean todas")
+            return salidas_prueba_seguridad.todas()
+
+    def _vigilar_salidas_prueba_seguridad(self) -> list[tuple[str, str]]:
+        """S9 (revisión ★ SAF-01): en modo prueba, cada tick se ordena apagar
+        las salidas bloqueadas (como el aire atmosférico, D8-3.19: la trama DO
+        puede llegar tarde). Devuelve las (salida, código) que la tarjeta
+        reportaba encendidas, una vez por salida, para la bitácora."""
+        bloqueadas = self.salidas_prueba_bloqueadas()
+        salidas = getattr(self.estado, "salidas_do", None) or {}
+        nuevas = []
+        for clave, codigo in bloqueadas.items():
+            try:
+                self.set_do.set_output(EstadoAutoclave.map_do[clave] + 1, False)
+            except Exception:
+                logger.exception("Modo prueba: no se pudo apagar %s", clave)
+            if not salidas.get(clave):
+                self._salidas_prueba_cortadas.discard(clave)
+            elif clave not in self._salidas_prueba_cortadas:
+                self._salidas_prueba_cortadas.add(clave)
+                logger.warning("Modo prueba: %s apagada por el lazo (%s)", clave, codigo)
+                nuevas.append((clave, codigo))
+        self._salidas_prueba_cortadas &= set(bloqueadas)
+        return nuevas
 
     @property
     def presion_vigente(self) -> bool:
@@ -946,6 +1041,10 @@ class ControlLoop:
                                 vigentes=connected and not self.desconectado
                                 and self._di_vigente() and self._ai_vigente())
                             if self._test_mode.is_set() else None)
+            # S9, revisión ★ SAF-01: apertura/desbloqueo de puertas (y con el
+            # estado seguro, rápida, chaqueta y vapor) apagados en modo prueba
+            salidas_cortadas = (self._vigilar_salidas_prueba_seguridad()
+                                if self._test_mode.is_set() else [])
 
             # 3. Dispositivos → actúan (pausado durante el modo prueba: las
             # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
@@ -966,19 +1065,36 @@ class ControlLoop:
                 if vigentes and self._recuperacion_pendiente is not None:
                     self._procesar_recuperacion()
                 self.state_machine.update(datos_vigentes=vigentes)
+            # S9, revisión ★ TMG-02: con la trama AI vencida no se cuenta
+            # ningún tick como seguro (presión posiblemente congelada)
             self._seguir_programa_ultimo_ciclo(
-                vigentes=connected and not self.desconectado and self._di_vigente())
+                vigentes=connected and not self.desconectado and self._di_vigente()
+                and self._ai_vigente())
             # S9 (D9-1.6): coherencia puerta-presión, fuera de ciclo y sin
-            # modo prueba (las puertas no se actualizan en pausa)
-            if not pausada:
-                self.coherencia_puerta_presion.update(
-                    self.estado,
-                    vigentes=connected and not self.desconectado and self._di_vigente()
-                    and self._ai_vigente())
+            # modo prueba (las puertas no se actualizan en pausa: el conteo
+            # vuelve a cero, revisión ★ TMG-03). TMG-06: un error aquí no
+            # aborta el tick.
+            try:
+                if not pausada:
+                    self.coherencia_puerta_presion.update(
+                        self.estado,
+                        vigentes=connected and not self.desconectado and self._di_vigente()
+                        and self._ai_vigente(),
+                        seq_ai=self._secuencia_ai())
+                else:
+                    self.coherencia_puerta_presion.reiniciar_conteo()
+            except Exception:
+                logger.exception("ControlLoop: error en la coherencia puerta-presión")
+                try:
+                    self.coherencia_puerta_presion.reiniciar_conteo()
+                except Exception:
+                    logger.exception("ControlLoop: no se pudo reiniciar la coherencia")
 
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
         if cancelado_por_paro:
             self._avisar_cancelacion_prueba()
+        for salida, codigo in salidas_cortadas:
+            self._evento_seguridad("salida_prueba_cortada", {"salida": salida, "motivo": codigo})
         if aire_cortado:
             self._evento_seguridad("aire_atmosferico_cortado_prueba", {
                 "motivo": aire_cortado,
@@ -1241,6 +1357,10 @@ class ControlLoop:
             # tras el ALL_OFF de siempre.
             self._test_mode.set()
             self.estado_seguro.pausar("modo_prueba")
+            # S9, revisión ★ TMG-05: la recuperación de arranque vuelve a
+            # contar sus 3 ticks seguros desde cero al salir
+            self._ticks_seguros_recuperacion = 0
+            self._salidas_prueba_cortadas.clear()
             # D8-2.11: entrar cancela los reintentos pendientes (el modo
             # prueba vuelve a pausar todo y su salida apaga de nuevo)
             self._reintentos_all_off = 0

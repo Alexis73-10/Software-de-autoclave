@@ -1030,6 +1030,8 @@
     "err_aire_con_presion": "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica.",
     "err_aire_sin_presion": "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara.",
     "err_aire_sin_referencia": "No se puede abrir el aire atmosférico: falta la presión atmosférica de referencia del equipo.",
+    "err_puerta_camara_no_segura": "No se puede desbloquear ni abrir la puerta: la cámara no es segura (presión, temperatura o sin lectura) o se está llevando a estado seguro.",
+    "err_salida_estado_seguro": "No se puede encender esta salida: la cámara se está llevando a estado seguro.",
     "di": {
       "aire_comprimido": "Aire comprimido",
       "presion_agua": "Presión de agua",

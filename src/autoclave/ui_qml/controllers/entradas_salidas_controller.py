@@ -27,7 +27,10 @@ _SEGMENTO_DE = {v: k for k, v in _TIPO_API.items()}
 
 _CAUSAS_SOLO_CATALOGO = frozenset({"aire_atmosferico_con_presion",
                                    "aire_atmosferico_sin_presion",
-                                   "aire_atmosferico_sin_referencia"})
+                                   "aire_atmosferico_sin_referencia",
+                                   # S9 (revisión ★ SAF-01)
+                                   "salida_prueba_camara_no_segura",
+                                   "salida_prueba_estado_seguro"})
 
 # D-ES-08: sin actividad del usuario en la seccion el modo prueba se cierra
 INACTIVIDAD_UI_S = 5 * 60
