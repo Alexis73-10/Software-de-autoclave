@@ -52,3 +52,7 @@ Al reanudar, retoma primero las etapas con commits (S1, S2a, S2b, N8, R8, V8a, E
 - Cortados a mitad (trabajo guardado en sus worktrees, CONTINUAR, no relanzar de cero): R8 (actualizaba el registro de riesgos tras la 2.ª vuelta de revisores), V8a (editando pantallas para D8-5.2/5.10), E1 (implementando en serial_link/control_loop/server, probablemente D8-3.21).
 - S1: tenía las correcciones de la revisión y re-revisiones con 0 Altos/Críticos; faltaba cerrar su informe (revisar `git log`/`git status` del worktree).
 - En cola: L8, D8, V8b (V8b se une la última). Después K8 y Z.
+
+## Reanudación (sesión 21:36, tras el límite de 17:45 a 21:00)
+- Se relanzan, CONTINUANDO en sus worktrees, S1 (falta commitear correcciones y su informe), R8 (cambios sin commit + informe), V8a (falta el informe; D8-5.6 por confirmar) y E1 (cambios sin commit en serial_link/control_loop/server; faltan D8-3.21, 3.22, 3.20 e informe).
+- En cola: L8 (1 commit, falta informe), D8 (2 commits, falta el resto de D8-3.27 e informe), V8b (cambios sin commit; se une la última).
