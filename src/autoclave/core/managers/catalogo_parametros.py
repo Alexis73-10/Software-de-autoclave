@@ -89,7 +89,53 @@ CERO_VALIDO = frozenset({
 })
 
 TIPOS_CARGA = ("solido", "liquido")
-MODOS_LIQUIDO = (4, 5)
+# D8-5.7 (tanda 8, Cristian 22-oct 12:08): con carga líquida solo los modos de
+# descompresión 4, 5 y 0 (en ese orden en la UI): descomprimir rápido con
+# líquido caliente produce ebullición violenta. El 0 (natural) no abre ninguna
+# válvula hasta llegar a la atmosférica y al final deja la lenta (líquidos).
+MODOS_LIQUIDO = (4, 5, 0)
+# Modos con enfriamiento y contrapresión (exigen la contrapresión mínima)
+MODOS_CONTRAPRESION = (4, 5)
+# Modo al que pasa la descompresión al elegir carga líquida (D8-5.7)
+MODO_AL_PASAR_A_LIQUIDO = 4
+# Al volver a sólido sin defecto sólido del programa (DECISIÓN SIN CONFIRMAR de D8-5.7)
+MODO_SOLIDO_SIN_DEFECTO = 1
+# D8-5.8: parámetros "modo" de los programas y sus valores válidos (se eligen
+# de una lista, no se escriben). Orden de presentación.
+MODOS_PARAMETRO = {
+    ("secado", "modo"): (1, 2, 3),
+    ("descompresion", "modo"): (0, 1, 2, 3, 4, 5),
+}
+
+MOTIVO_MODO_LIQUIDO = ("Carga líquida: solo se permiten los modos de descompresión 4, 5 y 0 "
+                       "(descomprimir rápido con líquido caliente produce ebullición violenta)")
+
+
+class ErrorCoherencia(ValueError):
+    """Reglas entre parámetros incumplidas. `codigo`: MODO_NO_PERMITIDO_LIQUIDO
+    si el problema es el modo de descompresión con carga líquida;
+    COHERENCIA_LIQUIDO para el resto de las reglas de carga líquida."""
+
+    def __init__(self, errores: list[str]):
+        super().__init__("; ".join(errores))
+        self.errores = list(errores)
+        self.codigo = codigo_coherencia(errores)
+
+
+def codigo_coherencia(errores: list[str]) -> str:
+    return "MODO_NO_PERMITIDO_LIQUIDO" if MOTIVO_MODO_LIQUIDO in errores else "COHERENCIA_LIQUIDO"
+
+
+def modos_validos(parameters: dict, fase: str, path) -> list[int]:
+    """Valores válidos de un parámetro "modo" (D8-5.8), ya filtrados por el
+    tipo de carga del programa (D8-5.7); [] si no es un parámetro de modo."""
+    ruta = ".".join(path) if not isinstance(path, str) else path
+    modos = MODOS_PARAMETRO.get((fase, ruta))
+    if modos is None:
+        return []
+    if fase == "descompresion" and _valor(parameters, "globals", "tipo_carga", defecto="solido") == "liquido":
+        return list(MODOS_LIQUIDO)
+    return list(modos)
 # Contrapresión mínima sobre P_sat(temperatura de esterilización) para carga
 # líquida (SAF-05 de T11): bajo ella la carga hierve al empezar a enfriar
 MARGEN_CONTRAPRESION_LIQUIDO = 30.0   # kPa
@@ -171,7 +217,7 @@ def _valor(parameters: dict, *ruta, defecto=None):
 
 def errores_coherencia(parameters: dict) -> list[str]:
     """Reglas entre parámetros para carga líquida (decisión 1.2; SAF-05 y
-    SAF-06 de T11): descompresión modo 4 o 5; sin prevacío ni secado (vacío
+    SAF-06 de T11; D8-5.7): descompresión modo 4, 5 o 0; sin prevacío ni secado (vacío
     sobre líquido caliente); sin apertura automática; contrapresión de
     enfriamiento de al menos P_sat(temperatura de esterilización) + 30 kPa."""
     if _valor(parameters, "globals", "tipo_carga", defecto="solido") != "liquido":
@@ -179,14 +225,14 @@ def errores_coherencia(parameters: dict) -> list[str]:
     errores = []
     modo = _valor(parameters, "descompresion", "modo")
     if modo not in MODOS_LIQUIDO:
-        errores.append("Carga líquida: la descompresión debe ser modo 4 o 5")
+        errores.append(MOTIVO_MODO_LIQUIDO)
     if any(_valor(parameters, "prevacio", f"conteo_pulso_{p}", defecto=0) for p in _PULSOS):
         errores.append("Carga líquida: sin pulsos de prevacío")
     if _valor(parameters, "secado", "tiempo_secado", defecto=0):
         errores.append("Carga líquida: sin secado (tiempo_secado = 0)")
     if _valor(parameters, "finalizacion", "apertura_automatica", defecto=False) is True:
         errores.append("Carga líquida: sin apertura automática")
-    if modo in MODOS_LIQUIDO:
+    if modo in MODOS_CONTRAPRESION:
         from autoclave.core.runtime.steam import p_saturacion_kpa
         t_est = _valor(parameters, "esterilizacion", "temperatura_esterilizacion")
         p_enfr = _valor(parameters, "descompresion", f"modo_{modo}", "presion_camara_enfriamiento")

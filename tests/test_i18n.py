@@ -152,7 +152,9 @@ def _segundos_qml(rel, patron):
 
 
 def _sufijos_menu():
-    columnas = re.search(r'model: \[("col_\w+"(?:, "col_\w+")*)\]', _qml("Componentes/ListaCiclos.qml"))
+    # columnas de la lista (D8-5.6: la última puede ser col_operador o col_resultado)
+    columnas = re.search(r'model: \[("col_\w+"(?:,\s*(?:raiz\.\w+ \? )?"col_\w+"(?: : "col_\w+")?)*)\]',
+                         _qml("Componentes/ListaCiclos.qml"))
     filtros = _segundos_qml("Componentes/SelectorPeriodo.qml", r"model: \[\[.*\]\]")
     return re.findall(r'"(\w+)"', columnas.group(1)) + filtros
 
@@ -285,6 +287,8 @@ FAMILIAS = {
     "parametros_desc.": lambda: _parametros_de_perfiles(),
     # Descompresión: nombre y qué hace cada modo (0 a 5) en Parámetros del ciclo
     "descompresion_modos.": lambda: [f"{n}.{c}" for n in range(6) for c in ("nombre", "desc")],
+    # D8-5.8 / 5.9 (tanda 8): nombre y línea de cada modo válido, e intro por sección
+    "modos_programa.": lambda: _claves_modos_programa(),
     "exportacion.impresora_": _sufijos_impresora,
     "validacion.": _sufijos_validacion,
     # O1 (tanda 5): entradas mostradas = AI habilitadas del equipo activo
@@ -321,6 +325,15 @@ FAMILIAS = {
     "io.ai.": lambda: __import__("autoclave.core.runtime.io_names",
                                  fromlist=["leer_io_enabled"]).leer_io_enabled()["AI"],
 }
+
+def _claves_modos_programa():
+    from autoclave.core.managers.catalogo_parametros import MODOS_PARAMETRO
+    claves = []
+    for (seccion, _), modos in MODOS_PARAMETRO.items():
+        claves.append(f"{seccion}_intro")
+        claves += [f"{seccion}_{n}_{c}" for n in modos for c in ("nombre", "linea")]
+    return claves
+
 
 def _motivos_calibracion_atm():
     """Todo motivo con el que CalibracionAtm termina (abortada/rechazada)."""

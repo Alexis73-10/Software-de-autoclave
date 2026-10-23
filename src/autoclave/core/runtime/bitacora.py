@@ -27,6 +27,7 @@ EVENTOS = (
     "correo_configurado", "correo_prueba", "correo_enviado", "impresora_prueba", "impresion_ganancias",
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "rechazo_401", "rechazo_403", "rechazo_409",
+    "param_ciclo_cambio",
 )
 
 
@@ -84,6 +85,15 @@ def formatear(valor, metas: dict, unidades: dict, p_atm=None) -> str:
     return "" if valor is None else formatear_valor(valor, None, unidades, p_atm)
 
 
+def _clave_texto(evento: str, detalle) -> str:
+    # D8-5.7 (tanda 8): el cambio automático del modo de descompresión al
+    # cambiar el tipo de carga se distingue del cambio hecho por el usuario
+    if (evento == "param_ciclo_cambio" and isinstance(detalle, dict) and detalle.get("automatico") is True
+            and str(detalle.get("causa") or "").endswith("/globals/tipo_carga")):
+        return "bitacora.ev.param_ciclo_automatico"
+    return f"bitacora.ev.{evento}" if evento in EVENTOS else "bitacora.ev_generico"
+
+
 def presentar(fila: dict, metas: dict, unidades: dict, p_atm=None) -> dict:
     """Fila de la API: los campos de audit_log más `anterior`/`nuevo` ya en la
     unidad vigente y `clave_texto` (catálogo) con sus parámetros."""
@@ -98,5 +108,5 @@ def presentar(fila: dict, metas: dict, unidades: dict, p_atm=None) -> dict:
         "rol": fila.get("rol") or "", "evento": evento, "entidad": fila.get("entidad") or "",
         "anterior": anterior, "nuevo": nuevo,
         "detalle": detalle if isinstance(detalle, dict) else None,
-        "clave_texto": f"bitacora.ev.{evento}" if evento in EVENTOS else "bitacora.ev_generico",
+        "clave_texto": _clave_texto(evento, detalle),
     }

@@ -244,7 +244,7 @@
     "mant_tipo_correctivo": "Correctivo",
     "mant_tipo_calibracion": "Calibración (histórico)",
     "mant_tipo_otro": "Otro (histórico)",
-    "mant_registrar": "Registrar mantenimiento realizado",
+    "mant_registrar": "Registrar",
     "mant_confirmar": "Se registrará un mantenimiento realizado hoy (tipo: {tipo}). ¿Desea continuar?",
     "mant_sin_dato": "La fecha del sistema no es confiable (anterior a la instalación o cambiada): corrija la fecha y hora.",
     "mant_err_reloj": "El reloj del sistema es anterior a la instalación o al último mantenimiento: corrija la fecha y hora.",
@@ -257,7 +257,13 @@
     "mant_unidad_ciclos": "ciclos",
     "mant_no_aplica": "No aplica",
     "mant_intervalos_ayuda": "Se cuentan desde la instalación o desde el último preventivo; vence lo que ocurra primero. 0 = no aplica.",
-    "mant_guardar_intervalos": "Guardar intervalos"
+    "mant_guardar_intervalos": "Guardar intervalos",
+    "err_modo_liquido": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0: descomprimir rápido con líquido caliente produce ebullición violenta.",
+    "err_coherencia_liquido": "No se puede pasar a carga líquida: el programa debe estar sin prevacío, sin secado, sin apertura automática y con contrapresión de enfriamiento suficiente.",
+    "aviso_modo_liquido": "Carga líquida: el modo de descompresión cambió a {modo} ({nombre}).",
+    "aviso_modo_solido": "Carga sólida: el modo de descompresión volvió a {modo} ({nombre}).",
+    "aviso_liquido_previo": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0. Si el modo actual es otro, al guardar cambiará al modo 4.",
+    "modos_titulo": "Modos disponibles"
   },
   "menu": {
     "titulo": "MENÚ PRINCIPAL",
@@ -311,7 +317,8 @@
     "otro_correo": "Otro correo…",
     "titulo_otro_correo": "Correo de destino",
     "enviando": "Enviando…",
-    "imprimiendo": "Imprimiendo…"
+    "imprimiendo": "Imprimiendo…",
+    "col_operador": "Operador"
   },
   "modulos": {
     "iniciar_ciclo": "INICIAR CICLO",
@@ -610,7 +617,13 @@
     "causa": "Causa",
     "cantidad": "Cantidad",
     "sin_fallos": "Sin fallos en el periodo",
-    "sin_ciclos": "No hay ciclos en este periodo"
+    "sin_ciclos": "No hay ciclos en este periodo",
+    "ciclos_con_fallo": "Ciclos con el fallo {causa}: {n}",
+    "volver_resumen": "Volver al resumen",
+    "pagina": "Página {n} de {total}",
+    "pagina_anterior": "Anterior",
+    "pagina_siguiente": "Siguiente",
+    "sin_ciclos_fallo": "No hay ciclos con este fallo en el periodo"
   },
   "sistema": {
     "sin_conexion": "Sin conexión con la tarjeta de E/S. Los valores mostrados no están actualizados.",
@@ -691,7 +704,12 @@
     "titulo": "Seleccionar ciclo",
     "ayuda": "Toque para cambiar de ciclo",
     "mas_usado": "Más usado",
-    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo."
+    "sin_conexion": "Sin respuesta del equipo. Intente de nuevo.",
+    "motivo_ciclo_en_curso": "No se puede cambiar de ciclo mientras hay uno en curso.",
+    "motivo_paro": "No se puede cambiar de ciclo con el paro de emergencia activado.",
+    "motivo_estado_seguro": "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro.",
+    "motivo_modo_prueba": "No se puede cambiar de ciclo con el modo prueba activo.",
+    "motivo_estado": "No se puede cambiar de ciclo en el estado actual del equipo."
   },
   "alarmas": {
     "SIS-05": {
@@ -1103,7 +1121,7 @@
       "enfriar_chaqueta_secado": "Sin efecto en esta versión: ningún módulo del control lee este parámetro. Se conserva por compatibilidad del archivo de programa.",
       "presion_chaqueta": "Consigna de presión absoluta de la chaqueta. En preparación, el vapor de chaqueta abre por debajo de la consigna y el equipo queda listo solo dentro de ± «Rango presion chaqueta». Durante el ciclo se regula por histéresis: abre bajo consigna − rango y cierra sobre consigna + rango. No rige en Secado (usa «Presion chaqueta secado») ni en el enfriamiento de los modos 4 y 5 de descompresión, donde el vapor de chaqueta queda cerrado.",
       "rango_presion_chaqueta": "Semiancho (±) de la banda alrededor de «Presion chaqueta». En preparación, fuera de la banda se activa la alarma PRE-01 (baja) o PRE-02 (alta) y no se permite iniciar el ciclo. Durante el ciclo define la histéresis del control: el vapor abre bajo consigna − rango y cierra sobre consigna + rango. Mínimo 1 kPa.",
-      "tipo_carga": "Sólido o líquido. Con líquido, el programa solo se acepta si: la descompresión es modo 4 o 5, no hay pulsos de prevacío, «Tiempo secado» = 0, la apertura automática está desactivada y «Presion camara enfriamiento» ≥ Psat(«Temperatura esterilizacion») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento."
+      "tipo_carga": "Sólido o líquido. Al pasar a líquido, el modo de descompresión cambia a 4 (si no era 4, 5 o 0) y al volver a sólido regresa al modo por defecto del programa. Con líquido, el programa solo se acepta si: la descompresión es modo 4, 5 o 0, no hay pulsos de prevacío, «Tiempo secado» = 0, la apertura automática está desactivada y, en los modos 4 y 5, «Presion camara enfriamiento» ≥ Psat(«Temperatura esterilizacion») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento."
     },
     "precalentamiento": {
       "tiempo_precalentamiento": "Tiempo, en minutos, que se sostiene la chaqueta en «Presion precalentamiento» una vez alcanzada. El conteo no se reinicia si la presión cae durante el sostenimiento. Es la primera fase del ciclo. 0 = fase omitida.",
@@ -1186,7 +1204,7 @@
       "timeout_pulso": "En segundos. Modo 3: tiempo máximo de cada etapa (vacío o entrada de aire) para alcanzar su presión. Modos 1 y 2: tiempo máximo para que la cámara baje de P_atm − rango atmosférico. Si vence, el ciclo falla."
     },
     "descompresion": {
-      "modo": "Estrategia para llevar la cámara desde la presión de esterilización hasta P ≤ P_atm + rango atmosférico (parámetros del equipo). Ver la descripción de cada modo. Con carga líquida solo se admiten los modos 4 y 5. El modo se lee al iniciar la fase. Al terminar, si la cámara queda bajo P_atm − rango, se abre la entrada de aire atmosférico para romper el vacío.",
+      "modo": "Estrategia para llevar la cámara desde la presión de esterilización hasta P ≤ P_atm + rango atmosférico (parámetros del equipo). Ver la descripción de cada modo. Con carga líquida solo se admiten los modos 4, 5 y 0. El modo se lee al iniciar la fase. Al terminar, si la cámara queda bajo P_atm − rango, se abre la entrada de aire atmosférico para romper el vacío.",
       "tiempo_pre_despresurizacion": "Espera, en segundos, con las válvulas de descompresión, el aire comprimido y el agua de chaqueta cerrados, antes de iniciar el modo. El timeout del modo empieza después de esta espera. 0 = sin espera.",
       "modo_1": {
         "timeout": "Tiempo máximo, en minutos, para llegar a P ≤ P_atm + rango atmosférico con el escape rápido abierto, contado tras la espera previa. Si vence, el ciclo falla."
@@ -1543,7 +1561,9 @@
       "suspension_sale": "la pantalla salió de suspensión",
       "rechazo_401": "acceso rechazado (sin sesión) en {entidad}",
       "rechazo_403": "acceso rechazado (sin permiso) en {entidad}",
-      "rechazo_409": "acción rechazada por el estado en {entidad}"
+      "rechazo_409": "acción rechazada por el estado en {entidad}",
+      "param_ciclo_cambio": "cambió {entidad}: {anterior} → {nuevo}",
+      "param_ciclo_automatico": "cambio automático de {entidad} por el tipo de carga: {anterior} → {nuevo}"
     },
     "tipo": {
       "login_ok": "Inicio de sesión",
@@ -1592,7 +1612,8 @@
       "suspension_sale": "Suspensión (salida)",
       "rechazo_401": "Rechazo 401",
       "rechazo_403": "Rechazo 403",
-      "rechazo_409": "Rechazo 409"
+      "rechazo_409": "Rechazo 409",
+      "param_ciclo_cambio": "Parámetros del ciclo"
     }
   },
   "correo_c2": {
@@ -1606,5 +1627,28 @@
     "enviar_a_manual": "Enviar a esta dirección:",
     "aviso_invalida": "La dirección no tiene un formato válido (nombre@dominio.com)",
     "no_se_guarda": "Esta dirección no se agrega a los destinatarios guardados"
+  },
+  "modos_programa": {
+    "secado_intro": "Cómo se seca la carga. En los modos 1 y 2 la cámara debe alcanzar vacío dentro del tiempo límite del pulso y no perderlo; si no, el ciclo falla.",
+    "secado_1_nombre": "Vacío continuo",
+    "secado_1_linea": "Bomba y válvula de vacío abiertas todo el tiempo.",
+    "secado_2_nombre": "Vacío con entrada de aire",
+    "secado_2_linea": "Vacío continuo con la entrada de aire atmosférico abierta.",
+    "secado_3_nombre": "Pulsos de vacío y aire",
+    "secado_3_linea": "Alterna vacío hasta la presión baja y aire hasta la presión alta del secado.",
+    "descompresion_intro": "Cómo se libera la presión de la cámara al terminar la esterilización. El modo se lee al iniciar la fase.",
+    "descompresion_nota_liquido": "Con carga líquida solo se permiten los modos 4, 5 y 0: descomprimir rápido con líquido caliente produce ebullición violenta.",
+    "descompresion_0_nombre": "Natural",
+    "descompresion_0_linea": "Todas las válvulas cerradas: la presión baja sola, sin tiempo límite.",
+    "descompresion_1_nombre": "Rápida",
+    "descompresion_1_linea": "Escape rápido abierto hasta la presión atmosférica.",
+    "descompresion_2_nombre": "Lenta",
+    "descompresion_2_linea": "Escape lento abierto hasta la presión atmosférica.",
+    "descompresion_3_nombre": "Lenta y rápida",
+    "descompresion_3_linea": "Escape lento hasta la presión de cambio y luego el rápido.",
+    "descompresion_4_nombre": "Con enfriamiento",
+    "descompresion_4_linea": "Para líquidos: agua en la chaqueta y aire comprimido como contrapresión hasta enfriar la carga.",
+    "descompresion_5_nombre": "Con enfriamiento y escape lento",
+    "descompresion_5_linea": "Como el modo 4, con el escape lento abierto durante el enfriamiento."
   }
 }

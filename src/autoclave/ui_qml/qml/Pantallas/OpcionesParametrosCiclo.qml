@@ -92,15 +92,61 @@ Item {
         const k = "parametros_desc." + seccion + "." + clave
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
     }
-    // Parámetro "modo" de Descompresión: se elige entre los modos del catálogo
+    // D8-5.8: un parámetro "modo" (secado, descompresión o cualquiera con
+    // lista de modos del backend) se elige de una lista, no se escribe
     function esModoDescompresion(seccion, clave) { return seccion === "descompresion" && clave === "modo" }
-    function nombreModo(n) {
-        const k = "descompresion_modos." + n + ".nombre"
+    function esModo(seccion, p) {
+        return p !== null && p !== undefined
+               && ((p.modos && p.modos.length > 0) || esModoDescompresion(seccion, p.clave))
+    }
+    function nombreModo(n, seccion) {
+        const s = seccion || "descompresion"
+        const k = s === "descompresion" ? "descompresion_modos." + n + ".nombre"
+                                        : "modos_programa." + s + "_" + n + "_nombre"
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : String(n)
     }
-    function descripcionModo(n) {
-        const k = "descompresion_modos." + n + ".desc"
+    function descripcionModo(n, seccion) {
+        const s = seccion || "descompresion"
+        const k = s === "descompresion" ? "descompresion_modos." + n + ".desc"
+                                        : "modos_programa." + s + "_" + n + "_linea"
         return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
+    // D8-5.9: una línea de descripción por modo (lista con viñetas)
+    function lineaModo(n, seccion) {
+        const k = "modos_programa." + seccion + "_" + n + "_linea"
+        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
+    function introModos(seccion) {
+        const k = "modos_programa." + seccion + "_intro"
+        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : ""
+    }
+    // valor de un modo en la lista de parámetros: número y nombre
+    function textoModo(n, seccion) {
+        if (n === null || n === undefined)
+            return "—"
+        const nombre = nombreModo(n, seccion)
+        return nombre === String(n) ? String(n) : n + " · " + nombre
+    }
+    // D8-5.7/5.8: modos válidos que entrega el backend (ya filtrados por el
+    // tipo de carga: con líquido, 4, 5 y 0); sin lista, del mínimo al máximo
+    function modosDe(p) {
+        if (!p)
+            return []
+        if (p.modos && p.modos.length > 0)
+            return p.modos
+        const o = []
+        const mn = p.min !== null && p.min !== undefined ? p.min : 0
+        const mx = p.max !== null && p.max !== undefined ? p.max : 5
+        for (let n = mn; n <= mx; n++)
+            o.push(n)
+        return o
+    }
+    // D8-5.7: aviso de un cambio automático (texto del catálogo con el modo)
+    function textoAviso() {
+        if (control.aviso === "")
+            return ""
+        const m = control.detalleAviso.modo
+        return I18n.t(control.aviso, I18n.lang, { modo: m, nombre: nombreModo(m, "descompresion") })
     }
     // "2026-10-20T14:05:33" -> "20/10/2026 14:05"
     function fechaHora(ts) {
@@ -190,11 +236,45 @@ Item {
         MouseArea { anchors.fill: parent; onClicked: control.limpiarMensaje() }
     }
 
+    // D8-5.7: aviso informativo de un cambio automático (p. ej. el modo de
+    // descompresión al cambiar el tipo de carga); se cierra con su botón
+    Rectangle {
+        id: bandaAviso
+        objectName: "avisoParametros"
+        visible: control.aviso !== ""
+        anchors.top: bandaError.bottom
+        anchors.topMargin: visible ? Escala.px(8) : 0
+        width: parent.width
+        height: visible ? Math.max(Escala.px(72), textoAviso.implicitHeight + Escala.px(32)) : 0
+        radius: Escala.px(12)
+        color: Colores.advertenciaFondo
+        Text {
+            id: textoAviso
+            objectName: "textoAvisoParametros"
+            anchors.left: parent.left; anchors.right: cerrarAviso.left
+            anchors.margins: Escala.px(16)
+            anchors.verticalCenter: parent.verticalCenter
+            wrapMode: Text.WordWrap
+            text: raiz.textoAviso()
+            color: Colores.advertenciaTexto
+            font.family: Tipografia.familia
+            font.pixelSize: Escala.fuente(22)
+        }
+        BotonFormulario {
+            id: cerrarAviso
+            objectName: "cerrarAvisoParametros"
+            anchors.right: parent.right; anchors.rightMargin: Escala.px(12)
+            anchors.verticalCenter: parent.verticalCenter
+            texto: I18n.t("acciones.cerrar", I18n.lang)
+            onPulsado: control.limpiarAviso()
+        }
+    }
+
     // ======================= vista: programa (§5.1) =======================
     Flickable {
         objectName: "vistaPrograma"
         visible: raiz.vista === "programa"
-        anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         contentHeight: columnaPrograma.height
         clip: true
@@ -319,7 +399,7 @@ Item {
     Item {
         objectName: "vistaSeccion"
         visible: raiz.vista === "seccion"
-        anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         Row {
             id: encabezadoSeccion
@@ -359,8 +439,11 @@ Item {
                 objectName: "param_" + modelData.clave
                 width: ListView.view.width
                 titulo: raiz.etiqueta(control.seccion, modelData.clave)
-                valor: Unidades.version >= 0 ? raiz.textoP(modelData.valor, modelData) : ""
-                detalle: modelData.tipo === "bool" || modelData.tipo === "enum" || raiz.convertible(modelData)
+                readonly property bool deModo: raiz.esModo(control.seccion, modelData)
+                valor: Unidades.version < 0 ? ""
+                       : deModo ? raiz.textoModo(modelData.valor, control.seccion)
+                       : raiz.textoP(modelData.valor, modelData)
+                detalle: deModo || modelData.tipo === "bool" || modelData.tipo === "enum" || raiz.convertible(modelData)
                          ? "" : (modelData.unidad || "")
                 marca: modelData.modificado
                 onPulsada: ajuste.abrir(modelData)
@@ -399,7 +482,7 @@ Item {
     Item {
         objectName: "vistaSensores"
         visible: raiz.vista === "sensores"
-        anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         Row {
             id: encabezadoSensores
@@ -515,7 +598,7 @@ Item {
     Item {
         objectName: "vistaEntradas"
         visible: raiz.vista === "entradas"
-        anchors.top: bandaError.bottom; anchors.topMargin: Escala.px(8)
+        anchors.top: bandaAviso.bottom; anchors.topMargin: Escala.px(8)
         anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
         Column {
             width: parent.width
@@ -591,7 +674,14 @@ Item {
             }
         }
         readonly property bool editable: control.seccionEditable && raiz.edicionPermitida
-        readonly property bool esModo: param !== null && raiz.esModoDescompresion(control.seccion, param.clave)
+        readonly property bool esModo: param !== null && raiz.esModo(control.seccion, param)
+        // D8-5.7: selector (booleano, enumerado o modo) sin mínimo ni máximo
+        readonly property bool porLista: param !== null && (esModo || param.tipo === "bool" || param.tipo === "enum")
+        readonly property var modos: esModo ? raiz.modosDe(param) : []
+        // "Por defecto" solo si el defecto es un valor permitido (con carga
+        // líquida, el defecto sólido de un modo no lo es)
+        readonly property bool defectoValido: param !== null && param.defecto !== null && param.defecto !== undefined
+                                              && (!esModo || modos.indexOf(param.defecto) >= 0)
         readonly property var valorEnEdicion: nuevo !== null ? nuevo : (param ? param.valor : null)
         readonly property bool cambiado: visible && nuevo !== null && param !== null && nuevo !== param.valor
         function guardar() {
@@ -661,13 +751,14 @@ Item {
                         model: ajuste.param ? [
                             { clave: "opciones.actual", valor: raiz.textoP(ajuste.param.valor, ajuste.param), toque: false },
                             { clave: "opciones.por_defecto", valor: raiz.textoP(ajuste.param.defecto, ajuste.param),
-                              toque: ajuste.param.defecto !== null && ajuste.param.defecto !== ajuste.param.valor },
+                              toque: ajuste.defectoValido && ajuste.param.defecto !== ajuste.param.valor },
                             { clave: "opciones.minimo", valor: raiz.textoP(ajuste.param.min, ajuste.param), toque: false },
                             { clave: "opciones.maximo", valor: raiz.textoP(ajuste.param.max, ajuste.param), toque: false }
-                        ] : []
+                        ].filter(t => !ajuste.porLista || (t.clave !== "opciones.minimo" && t.clave !== "opciones.maximo")) : []
                         delegate: Rectangle {
                             id: tarjetaValor
                             required property var modelData
+                            objectName: "valorAjuste_" + modelData.clave
                             width: (columnaAjuste.width - Escala.px(30)) / 4
                             height: Escala.px(110)
                             radius: Escala.px(12)
@@ -777,36 +868,96 @@ Item {
                     opciones: valores.map((v, i) => ({ valor: i, etiqueta: raiz.texto(v, ajuste.param.tipo) }))
                     onElegido: (i) => ajuste.nuevo = valores[i]
                 }
-                // Modo de descompresión: un botón por modo y qué hace el elegido
+                // D8-5.7: al elegir carga líquida, la regla de los modos antes de guardar
+                Text {
+                    objectName: "avisoLiquidoPrevio"
+                    visible: ajuste.param !== null && ajuste.param.clave === "tipo_carga"
+                             && ajuste.valorEnEdicion === "liquido" && ajuste.param.valor !== "liquido"
+                    width: parent.width
+                    wrapMode: Text.WordWrap
+                    text: I18n.t("opciones.aviso_liquido_previo", I18n.lang)
+                    color: Colores.advertenciaTexto
+                    font.family: Tipografia.familia
+                    font.pixelSize: Escala.fuente(22)
+                }
+                // Modo (D8-5.8): un botón por modo válido y qué hace el elegido
                 SelectorSegmentos {
                     id: selectorModo
-                    objectName: "selectorModoDescompresion"
+                    objectName: "selectorModo"
                     visible: ajuste.esModo
                     width: parent.width
                     habilitado: ajuste.editable
-                    readonly property int minimo: ajuste.param && ajuste.param.min !== null ? ajuste.param.min : 0
-                    readonly property int maximo: ajuste.param && ajuste.param.max !== null ? ajuste.param.max : 5
-                    readonly property int actual: ajuste.nuevo !== null ? ajuste.nuevo : (ajuste.param ? ajuste.param.valor : minimo)
-                    valor: actual - minimo
-                    opciones: {
-                        const o = []
-                        for (let n = minimo; n <= maximo; n++)
-                            o.push({ valor: n - minimo, etiqueta: String(n) })
-                        return o
-                    }
-                    onElegido: (i) => ajuste.nuevo = minimo + i
+                    // D8-5.7/5.8: solo los modos válidos (con carga líquida, 4, 5 y 0)
+                    readonly property int actual: !ajuste.esModo ? -1 : ajuste.nuevo !== null ? ajuste.nuevo : (ajuste.param ? ajuste.param.valor : -1)
+                    valor: actual
+                    opciones: ajuste.modos.map(n => ({ valor: n, etiqueta: String(n) }))
+                    onElegido: (n) => ajuste.nuevo = n
                 }
                 Text {
                     objectName: "descripcionModo"
-                    visible: ajuste.esModo
+                    // detalle del modo elegido solo en descompresión (en secado
+                    // la línea de la lista ya lo dice todo)
+                    visible: ajuste.esModo && control.seccion === "descompresion"
                     width: parent.width
                     wrapMode: Text.WordWrap
                     text: ajuste.esModo
-                          ? "<b>" + raiz.nombreModo(selectorModo.actual) + ".</b> " + raiz.descripcionModo(selectorModo.actual) : ""
+                          ? "<b>" + raiz.nombreModo(selectorModo.actual, control.seccion) + ".</b> "
+                            + raiz.descripcionModo(selectorModo.actual, control.seccion) : ""
                     textFormat: Text.StyledText
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(22)
                     color: Colores.textoPrimario
+                }
+                // D8-5.9: los modos disponibles como lista, una viñeta por modo
+                // (nombre y una línea); el elegido, resaltado
+                Column {
+                    objectName: "listaModos"
+                    visible: ajuste.esModo
+                    width: parent.width
+                    spacing: Escala.px(6)
+                    Text {
+                        objectName: "introModos"
+                        visible: text !== ""
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: ajuste.esModo ? raiz.introModos(control.seccion) : ""
+                        font.family: Tipografia.familia
+                        font.pixelSize: Escala.fuente(20)
+                        color: Colores.textoGuia
+                    }
+                    Text {
+                        text: I18n.t("opciones.modos_titulo", I18n.lang)
+                        font.family: Tipografia.familia; font.weight: Tipografia.pesoBold
+                        font.pixelSize: Escala.fuente(20)
+                        color: Colores.textoPrimario
+                    }
+                    Repeater {
+                        model: ajuste.modos
+                        delegate: Text {
+                            required property var modelData
+                            objectName: "modo_" + modelData
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            textFormat: Text.StyledText
+                            text: "• <b>" + modelData + " · " + raiz.nombreModo(modelData, control.seccion) + ":</b> "
+                                  + raiz.lineaModo(modelData, control.seccion)
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(20)
+                            color: modelData === selectorModo.actual ? Colores.accionPrimarioTexto : Colores.textoPrimario
+                        }
+                    }
+                    // con carga líquida (el backend no ofrece el modo 1): por qué faltan modos
+                    Text {
+                        objectName: "notaLiquidoModos"
+                        visible: control.seccion === "descompresion" && ajuste.modos.length > 0
+                                 && ajuste.modos.indexOf(1) < 0
+                        width: parent.width
+                        wrapMode: Text.WordWrap
+                        text: I18n.t("modos_programa.descompresion_nota_liquido", I18n.lang)
+                        font.family: Tipografia.familia
+                        font.pixelSize: Escala.fuente(20)
+                        color: Colores.advertenciaTexto
+                    }
                 }
                 Text {
                     visible: ajuste.param !== null && !ajuste.esModo && ajuste.param.tipo !== "bool" && ajuste.param.tipo !== "enum"
@@ -822,7 +973,8 @@ Item {
                 Rectangle { width: parent.width; height: 1; color: Colores.bordeDivisor }
                 Text {
                     objectName: "descripcionAjuste"
-                    visible: text !== ""
+                    // D8-5.9: en un modo, la lista de arriba reemplaza al texto corrido
+                    visible: text !== "" && !ajuste.esModo
                     width: parent.width
                     wrapMode: Text.WordWrap
                     text: ajuste.param ? raiz.descripcion(control.seccion, ajuste.param.clave) : ""
@@ -869,8 +1021,7 @@ Item {
                 objectName: "defectoAjuste"
                 width: parent.anchoBoton
                 texto: I18n.t("opciones.por_defecto", I18n.lang)
-                habilitado: ajuste.editable && ajuste.param !== null && ajuste.param.defecto !== null
-                            && ajuste.param.defecto !== undefined && ajuste.valorEnEdicion !== ajuste.param.defecto
+                habilitado: ajuste.editable && ajuste.defectoValido && ajuste.valorEnEdicion !== ajuste.param.defecto
                 onPulsado: ajuste.nuevo = ajuste.param.defecto
             }
             BotonFormulario {

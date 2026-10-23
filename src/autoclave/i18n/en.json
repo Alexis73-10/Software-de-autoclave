@@ -244,7 +244,7 @@
     "mant_tipo_correctivo": "Corrective",
     "mant_tipo_calibracion": "Calibration (historical)",
     "mant_tipo_otro": "Other (historical)",
-    "mant_registrar": "Record completed maintenance",
+    "mant_registrar": "Register",
     "mant_confirmar": "A {tipo} maintenance completed today will be recorded. Do you want to continue?",
     "mant_sin_dato": "The system date is not reliable (earlier than the installation or changed): correct the date and time.",
     "mant_err_reloj": "The system clock is earlier than the installation or the last maintenance: correct the date and time.",
@@ -257,7 +257,13 @@
     "mant_unidad_ciclos": "cycles",
     "mant_no_aplica": "Not applicable",
     "mant_intervalos_ayuda": "Counted from installation or the last preventive maintenance; whichever comes first. 0 = not applicable.",
-    "mant_guardar_intervalos": "Save intervals"
+    "mant_guardar_intervalos": "Save intervals",
+    "err_modo_liquido": "With a liquid load only depressurization modes 4, 5 and 0 are allowed: fast depressurization of hot liquid causes violent boiling.",
+    "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no prevacuum, no drying, no automatic opening and enough cooling counterpressure.",
+    "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
+    "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
+    "aviso_liquido_previo": "With a liquid load only depressurization modes 4, 5 and 0 are allowed. If the current mode is another one, it will change to mode 4 when saved.",
+    "modos_titulo": "Available modes"
   },
   "menu": {
     "titulo": "MAIN MENU",
@@ -311,7 +317,8 @@
     "otro_correo": "Other email…",
     "titulo_otro_correo": "Destination email",
     "enviando": "Sending…",
-    "imprimiendo": "Printing…"
+    "imprimiendo": "Printing…",
+    "col_operador": "Operator"
   },
   "modulos": {
     "iniciar_ciclo": "START CYCLE",
@@ -610,7 +617,13 @@
     "causa": "Cause",
     "cantidad": "Count",
     "sin_fallos": "No failures in the period",
-    "sin_ciclos": "No cycles in this period"
+    "sin_ciclos": "No cycles in this period",
+    "ciclos_con_fallo": "Cycles with the failure {causa}: {n}",
+    "volver_resumen": "Back to summary",
+    "pagina": "Page {n} of {total}",
+    "pagina_anterior": "Previous",
+    "pagina_siguiente": "Next",
+    "sin_ciclos_fallo": "No cycles with this failure in the period"
   },
   "sistema": {
     "sin_conexion": "No connection with the controller. The values shown are not up to date.",
@@ -691,7 +704,12 @@
     "titulo": "Select cycle",
     "ayuda": "Tap to change cycle",
     "mas_usado": "Most used",
-    "sin_conexion": "No response from the equipment. Try again."
+    "sin_conexion": "No response from the equipment. Try again.",
+    "motivo_ciclo_en_curso": "The cycle cannot be changed while one is running.",
+    "motivo_paro": "The cycle cannot be changed while the emergency stop is pressed.",
+    "motivo_estado_seguro": "The cycle cannot be changed while the chamber is being brought to a safe state.",
+    "motivo_modo_prueba": "The cycle cannot be changed while test mode is active.",
+    "motivo_estado": "The cycle cannot be changed in the current equipment state."
   },
   "alarmas": {
     "SIS-05": {
@@ -1103,7 +1121,7 @@
       "enfriar_chaqueta_secado": "Cools the jacket during drying at the end of the cycle.",
       "presion_chaqueta": "Pressure held in the jacket before and during the cycle.",
       "rango_presion_chaqueta": "Tolerance (±) around the jacket pressure; outside it an alert is raised and starting is not allowed.",
-      "tipo_carga": "Load type: solid or liquid. Limits the allowed decompression modes."
+      "tipo_carga": "Load type: solid or liquid. With a liquid load only depressurization modes 4, 5 and 0 are allowed: switching to liquid changes the mode to 4 (if it was not 4, 5 or 0) and switching back to solid restores the program default mode."
     },
     "precalentamiento": {
       "tiempo_precalentamiento": "Time the jacket is held hot before moving on to pre-vacuum.",
@@ -1543,7 +1561,9 @@
       "suspension_sale": "the screen left standby",
       "rechazo_401": "access rejected (no session) on {entidad}",
       "rechazo_403": "access rejected (not allowed) on {entidad}",
-      "rechazo_409": "action rejected by state on {entidad}"
+      "rechazo_409": "action rejected by state on {entidad}",
+      "param_ciclo_cambio": "changed {entidad}: {anterior} → {nuevo}",
+      "param_ciclo_automatico": "automatic change of {entidad} due to the load type: {anterior} → {nuevo}"
     },
     "tipo": {
       "login_ok": "Login",
@@ -1592,7 +1612,8 @@
       "suspension_sale": "Standby (exit)",
       "rechazo_401": "Rejection 401",
       "rechazo_403": "Rejection 403",
-      "rechazo_409": "Rejection 409"
+      "rechazo_409": "Rejection 409",
+      "param_ciclo_cambio": "Cycle parameters"
     }
   },
   "correo_c2": {
@@ -1606,5 +1627,28 @@
     "enviar_a_manual": "Send to this address:",
     "aviso_invalida": "The address is not in a valid format (name@domain.com)",
     "no_se_guarda": "This address is not added to the saved recipients"
+  },
+  "modos_programa": {
+    "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",
+    "secado_1_nombre": "Continuous vacuum",
+    "secado_1_linea": "Vacuum pump and valve open the whole time.",
+    "secado_2_nombre": "Vacuum with air inlet",
+    "secado_2_linea": "Continuous vacuum with the atmospheric air inlet open.",
+    "secado_3_nombre": "Vacuum and air pulses",
+    "secado_3_linea": "Alternates vacuum down to the low pressure and air up to the high drying pressure.",
+    "descompresion_intro": "How chamber pressure is released after sterilization. The mode is read when the phase starts.",
+    "descompresion_nota_liquido": "With a liquid load only modes 4, 5 and 0 are allowed: fast depressurization of hot liquid causes violent boiling.",
+    "descompresion_0_nombre": "Natural",
+    "descompresion_0_linea": "All valves closed: pressure drops on its own, with no time limit.",
+    "descompresion_1_nombre": "Fast",
+    "descompresion_1_linea": "Fast exhaust open until atmospheric pressure.",
+    "descompresion_2_nombre": "Slow",
+    "descompresion_2_linea": "Slow exhaust open until atmospheric pressure.",
+    "descompresion_3_nombre": "Slow then fast",
+    "descompresion_3_linea": "Slow exhaust down to the switch pressure, then the fast one.",
+    "descompresion_4_nombre": "With cooling",
+    "descompresion_4_linea": "For liquids: jacket water and compressed air as counterpressure until the load cools.",
+    "descompresion_5_nombre": "With cooling and slow exhaust",
+    "descompresion_5_linea": "Like mode 4, with the slow exhaust open during cooling."
   }
 }

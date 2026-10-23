@@ -1245,12 +1245,12 @@ class ControlLoop:
         estado_maquina = self.estado.get_machine_state()
         if estado_maquina == GlobalState.CICLO:
             return "No se puede cambiar de ciclo mientras hay uno en curso."
-        if self.estado.get_flag("PARO_EMERGENCIA"):
-            if self.desconectado:
-                return "No se puede cambiar de ciclo sin conexión con la tarjeta de control."
-            if not self.estado.get_flag("PARO_REAL"):
-                return ("No se puede cambiar de ciclo sin datos válidos de la tarjeta "
-                        "de control.")
+        # D8-5.1 (tanda 8, Cristian 22-oct 12:08): sin tarjeta o sin datos
+        # vigentes (PARO_EMERGENCIA sin PARO_REAL, U4) el programa SÍ se puede
+        # cambiar: elegirlo no acciona nada y el inicio del ciclo sigue
+        # exigiendo datos, sensores y todas sus condiciones. Solo el paro
+        # leído (PARO_REAL) bloquea.
+        if self.estado.get_flag("PARO_EMERGENCIA") and self.estado.get_flag("PARO_REAL"):
             return "No se puede cambiar de ciclo con el paro de emergencia activado."
         if self.estado_seguro.activo or self._recuperacion_pendiente is not None:
             return "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro."

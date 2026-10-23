@@ -80,6 +80,9 @@ _CLAVES = {
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
     "asignacion_desfasada": "opciones.err_valor_cambio",
+    # D8-5.7 (tanda 8): reglas de carga líquida
+    "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
+    "COHERENCIA_LIQUIDO": "opciones.err_coherencia_liquido",
     # Opciones › Entradas / Salidas (planeacion_opciones_entradas_salidas.md):
     # el texto del backend (`detail`) acompaña a estas claves en pantalla
     "modo_prueba_rechazado": "io.err_rechazado",

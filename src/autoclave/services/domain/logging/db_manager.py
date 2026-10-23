@@ -963,6 +963,22 @@ class DbManager:
                 (desde, hasta),
             ).fetchall()
 
+    def get_ciclos_con_resultado(self, desde: str, hasta: str, resultado: str,
+                                 limite: int, desplazamiento: int) -> tuple[list, int]:
+        """D8-5.6: ciclos iniciados en [desde, hasta) (mismo criterio que
+        get_conteo_resultados) que cerraron con `resultado`, más recientes
+        primero, una página (limite / desplazamiento); y cuántos son en total.
+        Solo lectura (Reportes: ciclos de un tipo de fallo)."""
+        filtro = " FROM ciclos WHERE fecha_inicio >= ? AND fecha_inicio < ? AND resultado = ?"
+        params = (desde, hasta, resultado)
+        with self._lock:
+            total = self._conn.execute("SELECT COUNT(*)" + filtro, params).fetchone()[0]
+            filas = self._conn.execute(
+                "SELECT *" + filtro + " ORDER BY id DESC LIMIT ? OFFSET ?",
+                (*params, limite, desplazamiento),
+            ).fetchall()
+        return filas, total
+
     # ------------------------------------------------------------------
     # Lecturas
     # ------------------------------------------------------------------

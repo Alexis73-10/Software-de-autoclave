@@ -14,7 +14,7 @@ from datetime import date, datetime, timedelta
 from datetime import time as dt_time   # P1 (tanda 7): `time` es el módulo (time.sleep del vigilante)
 from typing import Literal
 
-from fastapi import Depends, HTTPException, FastAPI, Body, Header, Request
+from fastapi import Depends, HTTPException, FastAPI, Body, Header, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt
 
@@ -39,6 +39,7 @@ from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.services.domain.reportes import resumen_periodo
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
+from autoclave.core.managers import catalogo_parametros
 from autoclave.core.managers.catalogo_parametros import evaluar_calibracion, evaluar_desviacion_acumulada
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
@@ -166,6 +167,12 @@ _token_modo_prueba: str | None = None
 # Serializa las escrituras de archivos de configuración (YAML de calibración,
 # JSON de ciclos), que se hacen fuera de _sm_lock.
 _lock_archivos = threading.Lock()
+
+# Revisión D8-5.7 (TMG-02): serializa PATCH /cycle/parameter completo (cambio,
+# archivo, bitácora y reversión), para que la reversión de un cambio sin
+# bitácora no pise otro cambio que se intercale. Siempre es el lock más externo
+# (se toma antes que _sm_lock y _lock_archivos, que se toman en secuencia).
+_lock_param_ciclo = threading.Lock()
 
 # Variantes del guard de estado (§5.5). P-8 (tanda 6): EMERGENCIA e
 # HIBERNACION se retiraron (inalcanzables); el nombre de la segunda variante se
@@ -2665,6 +2672,38 @@ def get_report_summary(periodo: Literal["dia", "semana", "mes"] = "dia", fecha: 
     return _resumen_periodo(periodo, fecha)
 
 
+@app.get("/report/failures")
+def get_report_failures(causa: str = Query(min_length=1),
+                        periodo: Literal["dia", "semana", "mes"] = "dia",
+                        fecha: date | None = None,
+                        pagina: int = Query(1, ge=1),
+                        por_pagina: int = Query(20, ge=1, le=100)):
+    """D8-5.6: ciclos del periodo (por fecha de inicio, como /report/summary)
+    que cerraron con el fallo `causa` (una de sus causas_fallo), más recientes
+    primero y paginados; una página fuera de rango da la última. Cada ciclo con
+    la forma de /cycle/list, para abrir su detalle como desde el Historial.
+    Solo lectura."""
+    if fecha is None:
+        fecha = date.fromisoformat(_inicio_del_dia()[:10])
+    desde, hasta = _rango_del_periodo(periodo, fecha)
+    _, total = context.db.get_ciclos_con_resultado(desde, hasta, causa, 1, 0)
+    paginas = max(1, -(-total // por_pagina))
+    pagina = min(pagina, paginas)
+    filas, total = context.db.get_ciclos_con_resultado(
+        desde, hasta, causa, por_pagina, (pagina - 1) * por_pagina)
+    return {
+        "periodo":    periodo,
+        "desde":      desde[:10],
+        "hasta":      (date.fromisoformat(hasta[:10]) - timedelta(days=1)).isoformat(),
+        "causa":      causa,
+        "total":      total,
+        "pagina":     pagina,
+        "paginas":    paginas,
+        "por_pagina": por_pagina,
+        "ciclos":     [_ciclo_json(f) for f in filas],
+    }
+
+
 class _ImprimirResumenBody(BaseModel):
     periodo: Literal["dia", "semana", "mes"] = "dia"
     fecha: date | None = None
@@ -3384,6 +3423,11 @@ def _valor_parametro(cycle, fase: str, path: list[str]):
 @app.patch("/cycle/parameter")
 def update_cycle_parameter(body: _CycleParamValueBody,
                            sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
+    with _lock_param_ciclo:
+        return _update_cycle_parameter(body, sesion)
+
+
+def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
     """Actualiza un único parámetro (cualquier sección, incluido el secado) de
     cualquier ciclo cargado y persiste si es 'user'. Valida tipos estrictos y
     el rango efectivo (catálogo ∩ JSON, RB-05; T10) y las reglas entre
@@ -3424,13 +3468,28 @@ def update_cycle_parameter(body: _CycleParamValueBody,
                 and body.valor_anterior_esperado != anterior):
             raise _Rechazo(409, "VALOR_CAMBIO", "El valor cambió desde que se leyó",
                            extra={"valor_actual": anterior})
+        # D8-5.7: el tipo de carga arrastra el modo de descompresión (a líquido,
+        # modo 4; de vuelta a sólido, el defecto sólido del programa o el 1)
+        arrastres = _arrastres_tipo_carga(cycle, body.fase, body.path, body.value)
+        anteriores_arrastre = [_valor_parametro(cycle, f, p) for f, p, _ in arrastres]
         previos = [(f, p, _valor_parametro(cycle, f, p)) for f, p in cycle.vinculados(body.fase, body.path)]
+        previos += [(f, p, a) for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
         try:
-            value = cycle.set_param(body.fase, body.path, body.value)
+            value = (cycle.set_param(body.fase, body.path, body.value, arrastres=arrastres)
+                     if arrastres else cycle.set_param(body.fase, body.path, body.value))
         except KeyError as e:
             raise HTTPException(status_code=422, detail=str(e))
+        except catalogo_parametros.ErrorCoherencia as e:
+            raise _Rechazo(422, e.codigo, str(e))
         except (TypeError, ValueError) as e:
             raise _Rechazo(422, "VALOR_INVALIDO", str(e))
+        # valores que escribió esta petición: la reversión solo toca los que
+        # siguen así (TMG-02)
+        escritos = [(f, p, _valor_parametro(cycle, f, p)) for f, p, _ in previos]
+        cambios_automaticos = [
+            {"fase": f, "path": list(p), "clave": ".".join(p), "anterior": a,
+             "nuevo": _valor_parametro(cycle, f, p)}
+            for (f, p, _), a in zip(arrastres, anteriores_arrastre)]
 
         # Fuera de CICLO, o en otro programa durante CICLO (§5.8, 5b), el
         # cambio solo rige desde el siguiente ciclo que use ese programa. El
@@ -3445,43 +3504,96 @@ def update_cycle_parameter(body: _CycleParamValueBody,
         vinculados = [f"{f}/{'.'.join(p)}" for f, p in cycle.vinculados(body.fase, body.path)[1:]]
         if vinculados:
             detalle["vinculados"] = vinculados
+        if cambios_automaticos:
+            detalle["arrastres"] = [f"{c['fase']}/{c['clave']}" for c in cambios_automaticos]
         if en_ciclo:
             ctx = _contexto_ciclo()
             detalle.update({"ciclo": ctx.get("ciclo"), "fase_en_curso": ctx.get("fase"),
                             "programa_en_curso": ctx.get("programa")})
 
-    # El JSON se escribe fuera de _sm_lock (hallazgo D); el valor en memoria
-    # ya quedó cambiado bajo el lock, atómico con la comprobación de estado.
-    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        with _lock_archivos:
-            _save_cycle_json(cycle)
-
-    # RB-03.5 (T10): sin registro en audit_log el cambio no queda aplicado
+    # RB-03.5 (T10): sin registro en audit_log el cambio no queda aplicado.
+    # D8-5.7: cada cambio automático (arrastre) va en su propia fila, marcado
+    # como automático y con su causa; si alguna falla, se revierte todo.
+    # Revisión D8-5.7 (Medio del timing-auditor): la escritura del JSON va en el
+    # mismo try; si falla, tampoco queda el cambio en memoria sin bitácora.
     try:
+        # El JSON se escribe fuera de _sm_lock (hallazgo D); el valor en memoria
+        # ya quedó cambiado bajo el lock, atómico con la comprobación de estado.
+        if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
+            with _lock_archivos:
+                _save_cycle_json(cycle)
         context.db.registrar_auditoria(
             "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol, entidad=entidad,
             valor_anterior=anterior, valor_nuevo=value, detalle=detalle)
+        for c in cambios_automaticos:
+            context.db.registrar_auditoria(
+                "param_ciclo_cambio", usuario=sesion.usuario, rol=sesion.rol,
+                entidad=f"{body.cycle_id}/{c['fase']}/{c['clave']}",
+                valor_anterior=c["anterior"], valor_nuevo=c["nuevo"],
+                detalle={"programa": body.cycle_id, "fase": c["fase"], "aplica": "siguiente",
+                         "automatico": True, "causa": entidad})
     except Exception:
         logger.exception("Parámetro %s sin auditoría: se revierte", entidad)
-        _revertir_parametro(cycle, previos, aplica == "en_curso")
+        _revertir_parametro(cycle, previos, aplica == "en_curso", escritos=escritos)
         _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
                   entidad, sesion)
-    return {"ok": True, "value": value, "aplica": aplica}
+    respuesta = {"ok": True, "value": value, "aplica": aplica}
+    if cambios_automaticos:
+        respuesta["arrastres"] = cambios_automaticos
+    return respuesta
 
 
-def _revertir_parametro(cycle, previos, en_curso: bool) -> None:
+def _arrastres_tipo_carga(cycle, fase: str, path: list[str], valor) -> list:
+    """D8-5.7: cambios automáticos del modo de descompresión si se edita el
+    tipo de carga. El defecto sólido es el modo del perfil por defecto del
+    programa (hospital o fábrica) solo si ese perfil es de carga sólida."""
+    if fase != "globals" or list(path) != ["tipo_carga"] or not hasattr(cycle, "arrastres_tipo_carga"):
+        return []
+    modo_solido = None
+    cm = context.cycle_manager
+    numero = getattr(cycle, "number", None)
+    defecto = (cm.defecto(numero) if numero is not None and callable(getattr(cm, "defecto", None))
+               else None)
+    if defecto is not None and defecto.get_param("globals", "tipo_carga", default="solido") == "solido":
+        modo_solido = defecto.get_param("descompresion", "modo")
+    return cycle.arrastres_tipo_carga(valor, modo_solido=modo_solido)
+
+
+def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None) -> None:
     """Restaura los valores previos (también los vinculados) en el programa,
-    su JSON y, si se había aplicado, la copia del ciclo en curso."""
+    su JSON y, si se había aplicado, la copia del ciclo en curso.
+    `escritos` (TMG-02): valores que escribió la petición; una hoja que ya no
+    tiene ese valor la cambió otro y no se toca (revertirla a ciegas podía
+    dejar, p. ej., carga líquida con modo 1)."""
+    escrito = {(f, tuple(p)): v for f, p, v in (escritos or [])}
     with context.control_loop.bloqueo_maquina():
         for fase, path, valor in previos:
             hoja = cycle._hoja(fase, path)
+            clave = (fase, tuple(path))
+            if hoja is not None and clave in escrito and hoja.get("value") != escrito[clave]:
+                logger.warning("Reversión de %s/%s omitida: el valor cambió después",
+                               fase, ".".join(path))
+                continue
             if hoja is not None:
                 hoja["value"] = valor
-            if en_curso:
-                context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor)
+            if en_curso and not context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor):
+                # re-revisión D8-5.7 (timing, Medio): la fase ya empezó y la
+                # copia del ciclo en curso conserva el valor sin bitácora
+                logger.error("Reversión de %s/%s no aplicada al ciclo en curso (la fase ya "
+                             "inició): el ciclo sigue con el valor no registrado",
+                             fase, ".".join(path))
+        parametros = getattr(cycle, "parameters", None)
+        errores = catalogo_parametros.errores_coherencia(parametros) if isinstance(parametros, dict) else []
+        if errores:
+            logger.error("Programa %s incoherente tras revertir: %s",
+                         getattr(cycle, "id", "?"), "; ".join(errores))
     if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        with _lock_archivos:
-            _save_cycle_json(cycle)
+        try:
+            with _lock_archivos:
+                _save_cycle_json(cycle)
+        except Exception:
+            logger.exception("Programa %s: no se pudo escribir el JSON al revertir; "
+                             "memoria y archivo difieren", getattr(cycle, "id", "?"))
 
 
 # ── Opciones › Parámetros del ciclo, lectura (T12; opciones §5.1, §5.2, §6) ──
@@ -3649,6 +3761,9 @@ def get_programa_seccion(numero: int, seccion: str):
             "clase": hoja.get("clase"),           # C1c (tanda 6): clase explícita de U1
             "valor": valor, "defecto": defecto, "min": minimo, "max": maximo,
             "opciones": hoja.get("options") or [],
+            # D8-5.8: un parámetro "modo" se elige de esta lista (D8-5.7: con
+            # carga líquida la descompresión solo admite 4, 5 y 0)
+            "modos": _cp.modos_validos(cycle.parameters, seccion, ruta),
             "modificado": defecto is not None and defecto != valor,
             "ultima_modificacion": ultimas.get(f"{cycle.id}/{seccion}/{'.'.join(ruta)}"),
         })
@@ -3678,13 +3793,16 @@ def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, desha
     from autoclave.core.managers import gestion_programas as gp
     if getattr(context, "sin_base_de_datos", False) is True:
         _rechazar(503, "BASE_OCUPADA", "Base de datos no disponible: no se aplicó", entidad, sesion)
-    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
-        activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
-        try:
-            with _lock_archivos:
+    # Revisión D8-5.7 (TMG-01): orden único de locks, _lock_archivos y luego
+    # _sm_lock, como /cycle/sensor-roles, la calibración y la restauración; al
+    # revés se interbloqueaba con ellos y detenía el tick del control loop.
+    with _lock_archivos:
+        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
+            activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
+            try:
                 resultado = operar(gp, activo)
-        except gp.ErrorPrograma as e:
-            raise _Rechazo(e.estado_http, e.codigo, e.motivo)
+            except gp.ErrorPrograma as e:
+                raise _Rechazo(e.estado_http, e.codigo, e.motivo)
     anterior, nuevo = auditoria(resultado)
     try:
         context.db.registrar_auditoria(evento, usuario=sesion.usuario, rol=sesion.rol,
@@ -3692,7 +3810,7 @@ def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, desha
                                        valor_nuevo=nuevo, detalle=None)
     except Exception:
         logger.exception("%s sin auditoría: se revierte", entidad)
-        with context.control_loop.bloqueo_maquina(), _lock_archivos:
+        with _lock_archivos, context.control_loop.bloqueo_maquina():
             deshacer(gp, resultado)
         _rechazar(503, "BASE_OCUPADA", "No se pudo registrar el cambio: no se aplicó",
                   entidad, sesion)

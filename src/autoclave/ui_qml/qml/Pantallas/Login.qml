@@ -107,6 +107,8 @@ Item {
         BarraSuperior {}   // transparente
 
         TarjetaContenido {
+            id: tarjetaContenido
+            objectName: "tarjetaLogin"
             width: parent.width - Escala.px(48)   // 24 a cada lado
             height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201  // deja la barra flotante debajo
             anchors.horizontalCenter: parent.horizontalCenter
@@ -438,7 +440,9 @@ Item {
         id: barraInferior
         objectName: "barraInferiorLogin"
         escala: raiz.width / 1196
-        x: 34 * escala
+        // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
+        x: tarjetaContenido.x
+        width: tarjetaContenido.width
         y: raiz.height - 171 * escala
         version: I18n.t("app.version", I18n.lang)
         inicioActivo: true

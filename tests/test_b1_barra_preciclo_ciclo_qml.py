@@ -174,10 +174,11 @@ def test_la_barra_no_es_hija_de_la_tarjeta_y_queda_debajo(resultado):
     assert r["padre_barra_es_pantalla"]
     assert by >= ty + th
     assert by + bh <= 1920 and 0 <= bx and bx + bw <= 1200
-    # misma colocación que Opciones: x = 34, 171 px del borde inferior (lienzo 1196)
-    assert bx == pytest.approx(34 * 1200 / 1196, abs=1)
+    # 171 px del borde inferior (lienzo 1196); D8-5.2 (tanda 8): mismo x y
+    # ancho que la tarjeta de encima
     assert by == pytest.approx(1920 - 171 * 1200 / 1196, abs=1)
-    assert bw == pytest.approx(1128 * 1200 / 1196, abs=1)
+    assert bx == pytest.approx(tx, abs=0.5)
+    assert bw == pytest.approx(tw, abs=0.5)
 
 
 def test_cada_boton_esta_en_la_barra_y_emite_su_senal(resultado):
