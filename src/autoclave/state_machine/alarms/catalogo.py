@@ -355,6 +355,14 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
 
 CATALOGO: dict[str, DefinicionAlarma] = {d.codigo: d for d in DEFINICIONES}
 
+# T10 (tanda 10, D10-3): acción de CIC-10 cuando la causa es la presión de
+# cámara sin lectura (D9-1.4). La de la definición (sonda Principal) sigue
+# siendo la de las demás causas. La elige alarmas_i18n.accion() por el motivo.
+CIC_10_ACCION_SIN_PRESION = (
+    "No abra la puerta. Sin el sensor de presión de cámara no se puede llevar la cámara a "
+    "estado seguro. Revise la conexión del sensor de presión de cámara o llame a servicio "
+    "técnico.")
+
 NOMBRES_LEGIBLES: dict[str, str] = {
     # Sensores
     # Sensores del ciclo: solo ubicación física (tanda §1.1)

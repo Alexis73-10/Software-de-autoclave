@@ -36,7 +36,8 @@ RAIZ = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(RAIZ))
 sys.path.insert(0, str(RAIZ / "src"))
 
-DESTINO = RAIZ / "docs" / "informes" / "tanda9" / "capturas" / "banco"
+# T10 (tanda 10): CAP_DESTINO cambia la carpeta (p. ej. capturas de otra tanda)
+DESTINO = Path(os.environ.get("CAP_DESTINO") or RAIZ / "docs" / "informes" / "tanda9" / "capturas" / "banco")
 IDIOMAS = ("es", "en")
 
 
@@ -119,9 +120,10 @@ _SCRIPT_PRECICLO = textwrap.dedent(r"""
     puente_nu = NuevoUsuarioBridge(sesion=sesion)
 
     # Motivo literal que arma ProtocoloFallo (S9, D9-1.4) con la presión de
-    # cámara sin lectura y el estado seguro activo
-    MOTIVO = ("Sensor de presión de cámara sin lectura: el estado seguro no puede "
-              "confirmar la presión. Llame a servicio técnico")
+    # cámara sin lectura y el estado seguro activo (texto de T10, D10-3)
+    MOTIVO = ("Sensor de presión de cámara sin lectura: sin el sensor de presión de "
+              "cámara no se puede llevar la cámara a estado seguro. Revise la conexión "
+              "del sensor de presión de cámara o llame a servicio técnico")
 
     def alarma(codigo, valores):
         # mismo DTO que server._alarma_dto: "description" es la descripción
@@ -190,6 +192,8 @@ _SCRIPT_PRECICLO = textwrap.dedent(r"""
     alarmas[:] = [alarma("CIC-10", {"motivo": MOTIVO}), alarma("SEN-06", {})]
     refrescar()
     r["2_alarmas"] = puente.alarms.rowCount()
+    r["2_descripciones"] = [f["description"] for f in puente.alarms.filas()]
+    r["2_aviso_estado_seguro"] = visibles("avisoEstadoSeguroDetenido")
     capturar("2_cic10_sen06_sin_presion")
 
     # 3. confirmación pendiente tras un paro real ya liberado (D9-1.2)

@@ -496,8 +496,10 @@ class ProtocoloFallo:
         if self._presion_perdida:
             # S9 (D9-1.4): sin presión de cámara no se puede confirmar la
             # cámara segura; primero que el Principal (sin presión, nada termina)
-            return ("Sensor de presión de cámara sin lectura: el estado seguro no puede "
-                    "confirmar la presión. Llame a servicio técnico")
+            # T10 (tanda 10, D10-3): solo el texto; misma condición y prioridad
+            return ("Sensor de presión de cámara sin lectura: sin el sensor de presión de "
+                    "cámara no se puede llevar la cámara a estado seguro. Revise la conexión "
+                    "del sensor de presión de cámara o llame a servicio técnico")
         if self._sellado:
             return ("Sensor Principal sin lectura con carga líquida: cámara sellada hasta que "
                     "las sondas confirmen la temperatura o venza la espera")

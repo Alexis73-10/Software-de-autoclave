@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 # tanda 8 ("Timeout de ..."), por si quedan en un registro.
 _MOTIVOS_BLOQUEO = (
     # S9 (tanda 9, D9-1.4): presión de cámara sin lectura con el estado seguro activo
-    ("Sensor de presión de cámara sin lectura: el estado seguro",
-     "estado_seguro_motivos.sin_presion_camara"),
+    # (T10, tanda 10: el texto cambió; el prefijo cubre el de la tanda 9)
+    ("Sensor de presión de cámara sin lectura:", "estado_seguro_motivos.sin_presion_camara"),
     # S2 (tanda 8): carga líquida sellada sin sonda Principal
     ("Sensor Principal sin lectura con carga líquida: cámara sellada",
      "estado_seguro_motivos.sonda_liquido_sellada"),
@@ -46,6 +46,31 @@ def clave_motivo_bloqueo(motivo) -> str:
         if motivo.startswith(prefijo):
             return clave
     return ""
+
+
+# T10 (tanda 10, D10-3): acción según la causa. (código, clave del motivo) →
+# campo de i18n alarmas.<código>.<campo> y su texto en español (catálogo).
+_ACCIONES_POR_MOTIVO = {
+    ("CIC-10", "estado_seguro_motivos.sin_presion_camara"): "accion_sin_presion",
+}
+
+
+def _campo_accion(definicion, valores) -> str | None:
+    """Campo de la acción variante por la causa, o None (la del catálogo)."""
+    try:
+        motivo = (valores or {}).get("motivo")
+        return _ACCIONES_POR_MOTIVO.get((definicion.codigo, clave_motivo_bloqueo(motivo)))
+    except Exception:
+        return None
+
+
+def accion(definicion, valores) -> str:
+    """Acción en español de la alarma para estos valores: la del catálogo,
+    salvo la variante por causa (T10: CIC-10 sin presión de cámara)."""
+    if _campo_accion(definicion, valores) == "accion_sin_presion":
+        from autoclave.state_machine.alarms.catalogo import CIC_10_ACCION_SIN_PRESION
+        return CIC_10_ACCION_SIN_PRESION
+    return definicion.accion
 
 
 def _valores_en_idioma(valores: dict, idioma: str) -> dict:
@@ -85,7 +110,7 @@ def _motivo_fase(valores: dict, idioma: str) -> str | None:
 def textos(definicion, valores: dict, idioma: str) -> dict:
     """{"titulo", "descripcion", "accion"} de la alarma en `idioma`."""
     codigo = definicion.codigo
-    base = {"titulo": definicion.titulo, "accion": definicion.accion}
+    base = {"titulo": definicion.titulo, "accion": accion(definicion, valores)}
     try:
         base["descripcion"] = definicion.renderizar(valores)
     except Exception:
@@ -100,9 +125,12 @@ def textos(definicion, valores: dict, idioma: str) -> dict:
     if not isinstance(entrada, dict):
         return base
     salida = dict(base)
-    for campo in ("titulo", "accion"):
-        if isinstance(entrada.get(campo), str):
-            salida[campo] = entrada[campo]
+    # T10: con una acción variante por la causa, solo esa (o la del catálogo
+    # en español); nunca la acción de otra causa
+    campo_accion = _campo_accion(definicion, valores) or "accion"
+    for campo, origen in (("titulo", "titulo"), ("accion", campo_accion)):
+        if isinstance(entrada.get(origen), str):
+            salida[campo] = entrada[origen]
     plantilla = entrada.get("plantilla")
     if isinstance(plantilla, str):
         try:
