@@ -43,6 +43,8 @@ EVENTOS = (
     "software_reiniciado",
     # C9 (tanda 9, D9-10): Manejo de ciclos
     "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
+    # U11 (tanda 11, D11-6): cuentas del sistema Admin e Ingeniero
+    "usuario_renombrado", "cuenta_sistema_rechazada",
 )
 
 

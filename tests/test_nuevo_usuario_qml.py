@@ -228,7 +228,7 @@ def test_errores_no_escriben_ni_navegan(resultado):
     assert e["campos"] == ["confirmacion", "password", "rol", "usuario"]
     assert e["destino"] == []
     assert e["enviados"] == 0
-    assert e["texto_usuario"] == "Sin espacios, de 3 a 30 caracteres"
+    assert e["texto_usuario"] == "Solo letras, números y . _ -, de 3 a 30 caracteres"   # U11 SAF-01
     assert e["teclado_en"] == "usuario"   # se enfoca el primero con error
 
 

@@ -19,6 +19,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 
+from autoclave.core.runtime.nombre_usuario import normalizar_usuario
 from autoclave.core.runtime.sesion_inactividad import PLAZO_TOKEN_BACKEND_S
 
 MAX_INTENTOS = 5
@@ -136,7 +137,9 @@ class ControlIntentos:
 
     @staticmethod
     def _clave(usuario: str) -> str:
-        return usuario.casefold()
+        # SAF-01 de U11: la misma normalización que la búsqueda del inicio de
+        # sesión (NFKC + casefold), para que "ＡDMIN" no tenga un contador aparte
+        return normalizar_usuario(usuario)
 
     def _bloqueado(self, clave: str) -> bool:
         """Con self._lock tomado. Un bloqueo vencido se borra con su contador."""

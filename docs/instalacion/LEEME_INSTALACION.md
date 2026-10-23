@@ -215,18 +215,22 @@ Al confirmar, aparece **"Instalación completada"**. Pulse **Continuar**. El tex
 
 ## 5. Primer usuario
 
-La base nueva trae dos usuarios semilla. Los dos exigen cambiar la contraseña en el primer ingreso (8 a 64 caracteres, distinta de la actual):
+La base nueva trae dos cuentas del sistema. Las dos exigen cambiar la contraseña en el primer ingreso (8 a 64 caracteres, distinta de la actual):
 
 | Usuario | Contraseña inicial | Rol |
 |---|---|---|
-| `ingeniero` | `ingeniero1234` | ingeniero |
-| `admin` | `admin1234` | administrador |
+| `Ingeniero` | `ingeniero1234` | ingeniero |
+| `Admin` | `admin1234` | administrador |
 
-1. Toque el avatar e ingrese como **`ingeniero` / `ingeniero1234`**. **No use `admin`:** el administrador no ve Entradas/Salidas, calibración ni Mantenimiento.
+El usuario **no distingue mayúsculas**: `Ingeniero`, `ingeniero` o `INGENIERO` entran a la misma cuenta (la contraseña sí las distingue). Al actualizar desde una versión anterior, las cuentas `admin` e `ingeniero` pasan solas a `Admin` e `Ingeniero` y conservan su contraseña.
+
+Estas dos cuentas **no se pueden desactivar, borrar, cambiar de rol ni renombrar**; su contraseña sí se cambia o se restablece.
+
+1. Toque el avatar e ingrese como **`Ingeniero` / `ingeniero1234`**. **No use `Admin`:** el administrador no ve Entradas/Salidas, calibración ni Mantenimiento.
 2. El sistema lleva a **cambiar la contraseña**. Anote la nueva en un lugar seguro.
-3. En OPCIONES › Usuarios › Nuevo usuario, cree su usuario **técnico** (o ingeniero). Comprobado con prueba: ingeniero semilla → cambio de clave → crea técnico → el técnico entra al modo prueba.
+3. En OPCIONES › Usuarios › Nuevo usuario, cree su usuario **técnico** (o ingeniero). Comprobado con prueba: Ingeniero → cambio de clave → crea técnico → el técnico entra al modo prueba. No se acepta un usuario que solo difiera en mayúsculas de uno existente.
 4. Cinco intentos fallidos bloquean ese usuario 5 minutos.
-5. Cambie también la contraseña de `admin` antes de entregar el equipo.
+5. Cambie también la contraseña de `Admin` antes de entregar el equipo.
 
 ## 6. Orden de verificación
 

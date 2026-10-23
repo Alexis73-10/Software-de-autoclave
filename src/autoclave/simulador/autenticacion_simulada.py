@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from autoclave.backend.autenticacion import ControlIntentos
+from autoclave.core.runtime.nombre_usuario import normalizar_usuario
 from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO, ROLES_CREABLES
 from autoclave.ui_pyside.services.validacion_usuario import (
     COD_IGUAL_ACTUAL, COD_OBLIGATORIO, USUARIO_EXISTE, codigo_clave, codigo_confirmacion,
@@ -37,8 +38,9 @@ USUARIOS_SEMBRADOS = {
     "tec1":      ("Técnico Simulado", "tecnico", "clave1234", False),
     "adm1":      ("Admin Simulado", "admin", "clave1234", False),
     "ing1":      ("Ingeniero Simulado", "ingeniero", "clave1234", False),
-    "admin":     ("Administrador", "admin", "admin1234", True),
-    "ingeniero": ("Ingeniero", "ingeniero", "ingeniero1234", True),
+    # U11 (tanda 11, D11-6): las cuentas del sistema se llaman Admin e Ingeniero
+    "Admin":     ("Admin", "admin", "admin1234", True),
+    "Ingeniero": ("Ingeniero", "ingeniero", "ingeniero1234", True),
     "bloq1":     ("Usuario de bloqueo", "tecnico", "clave1234", False),
 }
 
@@ -113,8 +115,17 @@ def registrar_autenticacion(app: FastAPI, reloj=time.monotonic) -> None:
         raise _Rechazo(422, "validacion", "Datos inválidos", extra={
             "errores": [{"campo": c, "codigo": cod} for c, cod in errores.items()]})
 
+    def _canonico(usuario: str) -> str:
+        """Sin distinguir mayúsculas, como la BD del backend (U11): manda la
+        coincidencia exacta; si no la hay, la única que coincide."""
+        if usuario in usuarios:
+            return usuario
+        buscado = normalizar_usuario(usuario)          # NFKC + casefold (SAF-01)
+        candidatos = [u for u in usuarios if normalizar_usuario(u) == buscado]
+        return candidatos[0] if len(candidatos) == 1 else usuario
+
     def _clave_valida(usuario: str, clave: str) -> bool:
-        u = usuarios.get(usuario)   # búsqueda exacta, como la BD del backend
+        u = usuarios.get(usuario)
         return (u is not None and u.activo
                 and hmac.compare_digest(u.clave.encode(), clave.encode()))
 
@@ -142,6 +153,7 @@ def registrar_autenticacion(app: FastAPI, reloj=time.monotonic) -> None:
         usuario = body.usuario.strip()
         if not intentos.reservar_intento(usuario):
             _bloqueado(usuario)
+        usuario = _canonico(usuario)
         if not _clave_valida(usuario, body.clave):
             if intentos.bloqueado(usuario):
                 _bloqueado(usuario)
@@ -201,7 +213,7 @@ def registrar_autenticacion(app: FastAPI, reloj=time.monotonic) -> None:
             _validacion(errores)
         if body.rol not in ROLES_CREABLES.get(sesion.rol, frozenset()):
             raise _Rechazo(403, "rol_no_creable", "Su rol no puede crear usuarios con ese rol")
-        if any(u.casefold() == body.usuario.casefold() for u in usuarios):
+        if any(normalizar_usuario(u) == normalizar_usuario(body.usuario) for u in usuarios):
             raise _Rechazo(409, "usuario_existe", USUARIO_EXISTE)
         usuarios[body.usuario] = _Usuario(body.nombre.strip(), body.rol, body.clave, False,
                                           activo=body.activo)

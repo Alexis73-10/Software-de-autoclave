@@ -7,6 +7,7 @@
 # consulta quien llama, vía `existe_usuario`. El Código/ID de creación (D-12)
 # ya no se exige: se eliminó de la pantalla.
 
+from autoclave.core.runtime.nombre_usuario import es_reservado, formato_valido
 from autoclave.ui_pyside.services.roles import VALORES_ROL
 
 NOMBRE_MAX = 50
@@ -18,6 +19,7 @@ PASSWORD_MIN, PASSWORD_MAX = 8, 64
 COD_OBLIGATORIO = "obligatorio"
 COD_FORMATO = "formato"          # solo usuario
 COD_EXISTE = "existe"            # solo usuario, validación local con existe_usuario
+COD_RESERVADO = "reservado"      # solo usuario: `sistema` y `semilla` (U11, SAF-01)
 COD_CORTA = "corta"
 COD_LARGA = "larga"
 COD_NO_COINCIDEN = "no_coinciden"   # solo confirmacion
@@ -64,8 +66,10 @@ def codigos_nuevo_usuario(nombre: str, usuario: str, clave: str, confirmacion: s
     if not usuario:
         errores["usuario"] = COD_OBLIGATORIO
     elif (not USUARIO_MIN <= len(usuario) <= USUARIO_MAX
-          or any(c.isspace() for c in usuario)):
+          or not formato_valido(usuario)):          # SAF-01 de U11: latinas, dígitos y . _ -
         errores["usuario"] = COD_FORMATO
+    elif es_reservado(usuario):
+        errores["usuario"] = COD_RESERVADO
     elif existe_usuario(usuario):
         errores["usuario"] = COD_EXISTE
 

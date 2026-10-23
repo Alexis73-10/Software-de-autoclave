@@ -273,6 +273,17 @@ Item {
                 font.family: Tipografia.familia
                 font.pixelSize: Escala.fuente(21)
             }
+            // U11 (tanda 11, D11-6): cuenta del sistema (Admin, Ingeniero)
+            Text {
+                objectName: "motivoCuentaSistema"
+                visible: raiz.filaSeleccionada !== null && raiz.filaSeleccionada.cuentaSistema === true
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: I18n.t("gestion_usuarios.motivo_cuenta_sistema", I18n.lang)
+                color: Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(21)
+            }
             Row {
                 width: parent.width
                 spacing: Escala.px(12)
@@ -292,7 +303,11 @@ Item {
                     texto: raiz.filaSeleccionada && !raiz.filaSeleccionada.activo
                            ? I18n.t("gestion_usuarios.reactivar", I18n.lang)
                            : I18n.t("gestion_usuarios.desactivar", I18n.lang)
+                    // una cuenta del sistema no se desactiva (sí se reactiva si una base
+                    // antigua la trajo inactiva)
                     habilitado: raiz.filaSeleccionada !== null && raiz.motivoSeleccionado === ""
+                                && !(raiz.filaSeleccionada.cuentaSistema === true
+                                     && raiz.filaSeleccionada.activo)
                     onPulsado: confirmarActivo.abrir()
                 }
             }

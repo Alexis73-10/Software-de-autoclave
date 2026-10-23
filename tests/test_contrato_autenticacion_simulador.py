@@ -33,7 +33,7 @@ def test_usuarios_de_prueba_sembrados_en_el_simulador():
     for papel, (usuario, clave) in contrato._USUARIOS.items():
         assert usuario in USUARIOS_SEMBRADOS, papel
         assert USUARIOS_SEMBRADOS[usuario][2] == clave, papel
-    assert USUARIOS_SEMBRADOS["admin"][3] is True        # clave pendiente
+    assert USUARIOS_SEMBRADOS["Admin"][3] is True        # clave pendiente
     assert USUARIOS_SEMBRADOS["bloq1"][3] is False
 
 
