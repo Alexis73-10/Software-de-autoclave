@@ -338,8 +338,9 @@ begin
     Modo := ModoMantenimiento
   else
   begin
-    SuppressibleMsgBox(FmtMessage(CustomMessage('VersionMasNueva'),
-      [VersionInstalada, '{#AppVer}']), mbError, MB_OK, IDOK);
+    // ISCC toma como sección una línea que empieza con '[': no partir antes del arreglo
+    SuppressibleMsgBox(FmtMessage(CustomMessage('VersionMasNueva'), [VersionInstalada,
+      '{#AppVer}']), mbError, MB_OK, IDOK);
     Result := False;
   end;
 end;
