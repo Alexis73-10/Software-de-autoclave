@@ -1787,7 +1787,8 @@
   "estado_seguro_motivos": {
     "sonda_temperatura": "Sensor Principal sin lectura: el estado seguro no puede confirmar la temperatura",
     "sonda_enfriamiento": "Sensor Principal sin lectura: no se puede confirmar el enfriamiento",
-    "liquido_caliente": "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido"
+    "liquido_caliente": "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido",
+    "sonda_liquido_sellada": "Sensor Principal sin lectura con carga líquida: cámara sellada hasta que las sondas confirmen la temperatura o venza la espera"
   },
   "modos_programa": {
     "secado_intro": "Cómo se seca la carga. En los modos 1 y 2 la cámara debe alcanzar vacío dentro del tiempo límite del pulso y no perderlo; si no, el ciclo falla.",

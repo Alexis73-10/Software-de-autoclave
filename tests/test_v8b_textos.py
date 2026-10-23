@@ -196,6 +196,8 @@ _LITERALES_PERMITIDOS = {
     # estados y resultados que se comparan con lo que manda el backend
     "DESCONOCIDO", "FALLA", "CICLO", "PREPARADO", "PREPARACION", "HIBERNACION", "ARRANQUE",
     "FALLO", "COMPLETADO", "CANCELADO", "INFORMATIVO", "ALERTA", "Pantallas", "Componentes",
+    # tipo de puerto de la reasignación (R8), que se compara con el del backend
+    "DI", "DO", "AI",
     # motivos de salida del modo prueba de E/S: van a la bitácora, no a la pantalla
     "abandono de la sección", "inactividad de la interfaz", "salida solicitada",
     # fuentes y formatos

@@ -24,6 +24,9 @@ logger = logging.getLogger(__name__)
 # estado_seguro_motivos.<clave>. Se aceptan también los textos anteriores a la
 # tanda 8 ("Timeout de ..."), por si quedan en un registro.
 _MOTIVOS_BLOQUEO = (
+    # S2 (tanda 8): carga líquida sellada sin sonda Principal
+    ("Sensor Principal sin lectura con carga líquida: cámara sellada",
+     "estado_seguro_motivos.sonda_liquido_sellada"),
     ("Sensor Principal sin lectura: el estado seguro", "estado_seguro_motivos.sonda_temperatura"),
     ("Sensor Principal sin lectura: no se puede confirmar el enfriamiento",
      "estado_seguro_motivos.sonda_enfriamiento"),

@@ -1787,7 +1787,8 @@
   "estado_seguro_motivos": {
     "sonda_temperatura": "Main probe without reading: the safe state cannot confirm the temperature",
     "sonda_enfriamiento": "Main probe without reading: cooling cannot be confirmed",
-    "liquido_caliente": "Exhaust time limit reached with a hot liquid load: the fast exhaust is not used"
+    "liquido_caliente": "Exhaust time limit reached with a hot liquid load: the fast exhaust is not used",
+    "sonda_liquido_sellada": "Main probe without reading with a liquid load: chamber sealed until the probes confirm the temperature or the wait expires"
   },
   "modos_programa": {
     "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",
