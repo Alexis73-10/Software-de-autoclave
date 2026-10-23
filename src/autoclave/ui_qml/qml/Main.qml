@@ -105,12 +105,11 @@ Window {
         function onAsignarSondaSolicitada() { ventana.abrirConfiguracion() }
     }
     function abrirConfiguracion() {
-        // U1 (TMG-02): con el paro real o la confirmación pendiente no se va a
-        // una pantalla sin campana (U4: el panel ya no se bloquea; el paro se
-        // ve en la tarjeta de alarmas de la principal). DECISIÓN SIN
-        // CONFIRMAR U4-3: se conserva este freno en el avatar.
-        if (seguridadUrgente)
-            return
+        // S9 (tanda 9, D9-1.5): el login se permite siempre, también con el
+        // paro activo o la confirmación pendiente (puede hacer falta una
+        // corrección antes de liberar el paro). Antes (U1/U4-3) el avatar no
+        // hacía nada en ese caso. La confirmación sigue en la tarjeta de
+        // alarmas de Preciclo y en la campana.
         sesionVentana.refrescar()
         if (!sesionVentana.sesionActiva) pila.push(loginComp)
         else if (sesionVentana.cambioClavePendiente) pila.push(cambioClaveComp)
@@ -153,8 +152,7 @@ Window {
         panelTeclado.cerrar()
         pila.pop(null)
         irAPrincipal()
-        if (!seguridadUrgente)   // U1: con paro, el login no tapa el panel (TMG-02 de U2)
-            pila.push(loginComp)
+        pila.push(loginComp)     // S9 (D9-1.5): también con paro o confirmación pendiente
     }
     // Revisión de U2 (TMG-01): una respuesta de login o de cambio de clave que
     // llega cuando su pantalla ya salió (Atrás, Home, cambio de estado) no
@@ -196,7 +194,8 @@ Window {
     }
 
     // U1 (tanda 2): con el paro o la confirmación de estado seguro pendiente,
-    // una pantalla sin campana (login, cambio de clave, nuevo usuario) vuelve a
+    // una pantalla sin campana (S9, D9-1.5: hoy solo Nuevo usuario; el login
+    // y el cambio de clave ya no se interrumpen) vuelve a
     // la principal, cuya tarjeta de alarmas los muestra con el botón de
     // confirmar (U4: el panel ya no se abre solo; paroActivo = paro real, la
     // tarjeta desconectada no fuerza esta vuelta). La sesión no se
@@ -207,8 +206,13 @@ Window {
     function irAPanelSeguridad() {
         if (!seguridadUrgente)
             return
-        panelTeclado.cerrar()   // no tapa el panel (SAF-02)
         introTerminada = true   // la intro no lo oculta (SAF-03)
+        // S9 (tanda 9, D9-1.5): se quita la vuelta forzada del login (y del
+        // cambio de clave al que lleva): quien está iniciando sesión sigue ahí
+        const actual = pila.currentItem?.objectName ?? ""
+        if (actual === "areaLogin" || actual === "areaCambioClave")
+            return
+        panelTeclado.cerrar()   // no tapa el panel (SAF-02)
         if (pila.depth > 1 && (pila.currentItem?.sinCampana ?? false))
             volverAPrincipal()
     }
@@ -461,10 +465,7 @@ Window {
                     sesionVentana.refrescar()
                     if (!ventana.esActual(areaCambioClave))
                         return
-                    if (ventana.seguridadUrgente)
-                        ventana.volverAPrincipal()
-                    else
-                        pila.replace(loginComp)
+                    pila.replace(loginComp)     // S9 (D9-1.5): también con paro
                 }
                 onAtrasPulsado: { sesionVentana.refrescar(); ventana.atras() }
                 onInicioPulsado: { sesionVentana.refrescar(); ventana.volverAPrincipal() }
