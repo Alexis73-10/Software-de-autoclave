@@ -364,8 +364,8 @@ Item {
                 }
                 MouseArea {
                     anchors.fill: parent
-                    enabled: filaImpresora.habilitado
-                    onClicked: control.fijarImpresora(!control.impresoraHabilitada)
+                    enabled: filaImpresora.habilitado && !control.reiniciando
+                    onClicked: raiz.pedirCambioImpresora(!control.impresoraHabilitada)
                 }
             }
 
@@ -394,6 +394,22 @@ Item {
                 }
             }
         }
+    }
+
+    // ===== Impresora habilitada: confirmación y reinicio del software (R11) =====
+    // D11-1: con Cancelar no se guarda nada; al confirmar, el backend guarda la
+    // bandera con auditoría y reinicia el software (rechazado en CICLO).
+    property var _impresoraPendiente: null     // true/false a fijar, o null
+    function pedirCambioImpresora(valor) {
+        _impresoraPendiente = valor
+        dialogoReinicioImpresora.abrir()
+    }
+    function confirmarCambioImpresora() {
+        const v = _impresoraPendiente
+        _impresoraPendiente = null
+        if (v === null || v === undefined)
+            return
+        control.fijarImpresoraYReiniciar(v)
     }
 
     // ======================= Configuración de la máquina =======================
@@ -573,6 +589,53 @@ Item {
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         onConfirmado: raiz.aplicarCambio()
         onDescartado: raiz._cambioPendiente = null
+    }
+
+    DialogoConfirmacion {
+        id: dialogoReinicioImpresora
+        objectName: "dialogoReinicioImpresora"
+        mensaje: I18n.t("opciones.equipo_reinicio_pregunta", I18n.lang) + "\n\n"
+                 + I18n.t("opciones.equipo_reinicio_aviso", I18n.lang)
+        textoConfirmar: I18n.t("opciones.equipo_reiniciar", I18n.lang)
+        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
+        onConfirmado: raiz.confirmarCambioImpresora()
+        onDescartado: raiz._impresoraPendiente = null
+    }
+
+    // R11 (D11-1.5): el backend aceptó; el aviso queda hasta que el lanzador
+    // cierre esta pantalla. Bloquea los toques mientras tanto.
+    Rectangle {
+        id: avisoReinicio
+        objectName: "avisoReinicioSoftware"
+        visible: control.reiniciando
+        anchors.fill: parent
+        z: 200
+        color: "#CC000000"
+        MouseArea { anchors.fill: parent }
+        Column {
+            anchors.centerIn: parent
+            width: parent.width - Escala.px(160)
+            spacing: Escala.px(24)
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: I18n.t("opciones.equipo_reiniciando", I18n.lang)
+                color: "white"
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: Escala.fuente(36)
+            }
+            Text {
+                width: parent.width
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: I18n.t("opciones.equipo_reinicio_aviso", I18n.lang)
+                color: "white"
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(26)
+            }
+        }
     }
 
     // ======================= ventana de ajuste (igual a Parámetros del ciclo) =======================

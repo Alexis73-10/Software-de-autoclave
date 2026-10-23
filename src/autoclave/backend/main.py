@@ -88,8 +88,10 @@ def main():
         logger.info("Sin lanzador que relance el backend: la reasignación de E/S rige al reiniciar a mano")
     servidor.run()
     if reinicio.solicitado():
-        logger.warning("Backend detenido para reiniciarse (código %d)", reinicio.CODIGO_REINICIO)
-        sys.exit(reinicio.CODIGO_REINICIO)
+        # R11: CODIGO_REINICIO (solo el backend) o CODIGO_REINICIO_SOFTWARE (todo)
+        codigo = reinicio.codigo_salida()
+        logger.warning("Backend detenido para reiniciarse (código %d)", codigo)
+        sys.exit(codigo)
 
 if __name__ == "__main__":
     main()
