@@ -188,7 +188,9 @@ class ProtocoloEstadoSeguro:
         self._protocolo.update()
         if not solo_lenta_antes and getattr(self._protocolo, "solo_lenta", False) is True:
             # R1-P4: el Principal se perdió con el protocolo en marcha
-            self._evento("estado_seguro_solo_lenta", motivo="sensor Principal sin lectura")
+            motivo = getattr(self._protocolo, "motivo_solo_lenta", None)
+            self._evento("estado_seguro_solo_lenta",
+                         motivo=motivo if isinstance(motivo, str) else "sensor Principal sin lectura")
         if self.mantener_drenaje is not None:
             try:
                 self.mantener_drenaje()

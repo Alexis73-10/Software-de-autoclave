@@ -77,6 +77,9 @@ class ProtocoloFallo:
         # SAF-01 / SEN-02 / TMG-07 (revisión Q1): lecturas inválidas seguidas
         # del Principal con el protocolo en marcha antes de pasar a solo_lenta
         self._lecturas_principal_perdido = 0
+        # S1 (revisión ★ SAF-03): causa del paso a solo_lenta con el protocolo
+        # en marcha, para el registro del estado seguro
+        self.motivo_solo_lenta = "sensor Principal sin lectura"
 
     @property
     def solo_lenta(self) -> bool:
@@ -401,6 +404,11 @@ class ProtocoloFallo:
             else:
                 self._lecturas_principal_perdido = 0
             if self._lecturas_principal_perdido >= _DEBOUNCE_LECTURAS:
+                if self._presion_camara_perdida() and not self._principal_perdido():
+                    self.motivo_solo_lenta = "sensor de presión de cámara sin lectura"
+                elif self._presion_camara_perdida():
+                    self.motivo_solo_lenta = ("sensor Principal y sensor de presión de "
+                                              "cámara sin lectura")
                 self.pasar_a_solo_lenta()
 
         pres     = self.estado.sensores_pres.get("pres_camara")

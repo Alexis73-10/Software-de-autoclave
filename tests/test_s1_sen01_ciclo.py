@@ -207,3 +207,15 @@ def test_una_lectura_suelta_de_presion_perdida_no_enclava():
     for _ in range(5):
         prot.update()
     assert prot.solo_lenta is False
+
+
+def test_motivo_solo_lenta_registra_la_presion_como_causa():
+    from tests.test_q1_r1p4_principal_perdido_tras_protocolo import _protocolo, _updates_debounce
+    prot, estado, _ = _protocolo(1)
+    prot.ejecutar()
+    assert prot.motivo_solo_lenta == "sensor Principal sin lectura"
+    estado.sensores_pres["pres_camara"] = None
+    _updates_debounce(prot)
+    assert prot.motivo_solo_lenta == "sensor de presión de cámara sin lectura"
+    prot.reset()
+    assert prot.motivo_solo_lenta == "sensor Principal sin lectura"
