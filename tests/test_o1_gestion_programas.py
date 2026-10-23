@@ -195,7 +195,8 @@ _HAB = ["temp_camara", "temp_referencia", "pres_camara", "pres_chaqueta"]
 
 def test_entradas_por_omision_y_cardinalidad(cm):
     c = gp.programa(cm, 2)
-    assert gp.entradas_de(c, _HAB) == ["temp_camara", "temp_referencia", "pres_camara"]
+    # O11 (tanda 11, D11-7.4): de fábrica la Referencia está No en uso
+    assert gp.entradas_de(c, _HAB) == ["temp_camara", "pres_camara"]
     for malas in ([], ["temp_camara"] * 2, _HAB, "temp_camara", [1]):
         with pytest.raises(gp.ErrorPrograma):
             gp.fijar_entradas(cm, 2, malas, _HAB)
@@ -211,7 +212,7 @@ def test_api_entradas_mostradas(api, monkeypatch):
     client, srv, ctx, cabecera = api
     monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
     assert client.get("/cycle/display-inputs?programa=2").json()["entradas"] == [
-        "temp_camara", "temp_referencia", "pres_camara"]
+        "temp_camara", "pres_camara"]                     # O11: sin la Referencia No en uso
     r = client.put("/cycle/display-inputs", headers=cabecera(srv, "tecnico"),
                    json={"programa": 2, "entradas": ["temp_camara", "pres_chaqueta"]})
     assert r.status_code == 200, r.text
@@ -277,5 +278,5 @@ def test_auditoria_fallida_revierte_habilitado_y_entradas(api, monkeypatch):
     assert client.put("/cycle/display-inputs", headers=h,
                       json={"programa": 1, "entradas": ["pres_chaqueta"]}).status_code == 503
     assert gp.entradas_de(gp.programa(ctx.cycle_manager, 1), _HAB) == [
-        "temp_camara", "temp_referencia", "pres_camara"]
+        "temp_camara", "pres_camara"]                     # O11: omisión sin No en uso
     assert "entradas_mostradas" not in json.loads(Path(c1._path).read_text(encoding="utf-8"))

@@ -1608,26 +1608,24 @@ def get_selected_cycle():
     }
 
 
-# Sensor de temperatura del programa (sensores_ciclo) -> nombre de la AI
-_AI_DE_SENSOR = {"temp_camara": "temp_camara", "temp_2_camara": "temp_2_camara",
-                 "temp_ref": "temp_referencia"}
-
-
 def _entradas_mostradas_de(cycle) -> dict:
     """O3 (tanda 6): entradas mostradas (1 a 3) del programa para Preciclo,
     Ciclo y gráfica, y las que tienen el sensor "No en uso" en el programa.
-    Solo presentación; ante cualquier error, las de omisión."""
+    O11 (tanda 11, D11-7): la lista ya viene sin los No en uso (también la de
+    un JSON viejo o de un programa de fábrica). Solo presentación; ante
+    cualquier error, la omisión del programa."""
     from autoclave.core.managers import gestion_programas as gp
+    try:
+        no_en_uso = gp.entradas_no_en_uso(cycle)
+    except Exception:
+        no_en_uso = []
     try:
         entradas = gp.entradas_de(cycle, _ai_habilitadas())
     except Exception:
-        entradas = list(gp.ENTRADAS_POR_OMISION)
-    try:
-        asignacion = sc.asignacion_de(cycle)
-        no_en_uso = [_AI_DE_SENSOR[s] for s, rol in asignacion.items()
-                     if rol == sc.NO_EN_USO and s in _AI_DE_SENSOR]
-    except Exception:
-        no_en_uso = []
+        try:
+            entradas = gp.entradas_por_omision(cycle)
+        except Exception:
+            entradas = [e for e in gp.ENTRADAS_POR_OMISION if e not in no_en_uso]
     return {"entradas_mostradas": entradas, "entradas_no_en_uso": no_en_uso}
 
 
@@ -4083,12 +4081,16 @@ def _ai_habilitadas() -> list[str]:
 
 @app.get("/cycle/display-inputs")
 def get_entradas_mostradas(programa: int):
-    """Entradas mostradas del programa (1 a 3) y las AI habilitadas del equipo."""
+    """Entradas mostradas del programa (1 a 3), las AI habilitadas del equipo y
+    las que ofrece el selector (O11, D11-7.1: sin los sensores No en uso)."""
     from autoclave.core.managers import gestion_programas as gp
     cycle = _programa_por_numero(programa)
     habilitadas = _ai_habilitadas()
     return {"programa": programa, "entradas": gp.entradas_de(cycle, habilitadas),
-            "habilitadas": habilitadas, "editable": getattr(cycle, "source", "") == "user"}
+            "habilitadas": habilitadas,
+            "disponibles": gp.entradas_disponibles(cycle, habilitadas),
+            "no_en_uso": gp.entradas_no_en_uso(cycle),
+            "editable": getattr(cycle, "source", "") == "user"}
 
 
 @app.put("/cycle/display-inputs")
@@ -4187,10 +4189,20 @@ def _escribir_json_programa(cycle, cambiar, con_respaldo: bool = True) -> None:
             tmp.unlink(missing_ok=True)
 
 
-def _escribir_sensores_json(cycle, asignacion: dict) -> None:
-    """Campo cycle_temperature_sensors del JSON (RS-02)."""
+_SIN_CAMBIO = object()
+
+
+def _escribir_sensores_json(cycle, asignacion: dict, entradas=_SIN_CAMBIO) -> None:
+    """Campo cycle_temperature_sensors del JSON (RS-02). O11 (D11-7.3): con
+    `entradas`, también entradas_mostradas en la misma escritura atómica
+    (None la quita)."""
     def cambiar(data):
         data["cycle_temperature_sensors"] = {s: asignacion[s] for s in sc.SENSORES}
+        if entradas is not _SIN_CAMBIO:
+            if entradas is None:
+                data.pop("entradas_mostradas", None)
+            else:
+                data["entradas_mostradas"] = list(entradas)
     _escribir_json_programa(cycle, cambiar)
 
 
@@ -4228,9 +4240,18 @@ def put_sensor_roles(body: _SensorRolesBody,
                 raise _Rechazo(422, sc.SENSOR_NO_DISPONIBLE,
                                f"Sensores sin lectura o no instalados: {faltan}",
                                extra={"sensores": faltan})
+        # O11 (D11-7.3): un sensor que pasa a No en uso sale de las entradas
+        # mostradas del programa en la misma escritura (vacía -> el Principal)
+        from autoclave.core.managers import gestion_programas as gp
+        entradas_previas = getattr(cycle, "entradas_mostradas", None)
+        entradas_nuevas = gp.entradas_tras_cambio_de_rol(entradas_previas, nueva)
+        con_entradas = entradas_nuevas is not None
         # archivo fuera de _sm_lock (no detener el tick); si falla, nada cambió
         try:
-            _escribir_sensores_json(cycle, nueva)
+            if con_entradas:
+                _escribir_sensores_json(cycle, nueva, entradas_nuevas)
+            else:
+                _escribir_sensores_json(cycle, nueva)
         except OSError as exc:
             raise HTTPException(status_code=500, detail=f"No se pudo guardar el programa: {exc}")
         with context.control_loop.bloqueo_maquina():
@@ -4241,13 +4262,18 @@ def put_sensor_roles(body: _SensorRolesBody,
             if permitido:
                 cycle.sensores = dict(nueva)
                 cycle.sensores_formato_antiguo = False
+                if con_entradas:
+                    cycle.entradas_mostradas = list(entradas_nuevas)
                 if not en_ciclo:
                     # S4: libera un estado seguro detenido por el Principal
                     # viejo, solo si la sonda nueva es segura (no más fría)
                     propagado, motivo_propagacion = context.control_loop.aplicar_roles_sensores(
                         cycle.id, nueva)
         if not permitido:
-            _escribir_sensores_json(cycle, anterior)       # revierte el archivo
+            if con_entradas:                               # revierte el archivo
+                _escribir_sensores_json(cycle, anterior, entradas_previas)
+            else:
+                _escribir_sensores_json(cycle, anterior)
             _rechazar(409, "estado_no_permitido",
                       "Hay un ciclo en curso: no se aplicó el cambio", entidad, sesion)
 
@@ -4256,7 +4282,14 @@ def put_sensor_roles(body: _SensorRolesBody,
              detalle={"programa": cycle.id, "numero": body.programa,
                       "param": "cycle_temperature_sensors",
                       "estado_seguro_propagado": propagado,
-                      "motivo_propagacion": motivo_propagacion})
+                      "motivo_propagacion": motivo_propagacion,
+                      **({"entradas_mostradas": entradas_nuevas} if con_entradas else {})})
+    if con_entradas:
+        # mismo evento y entidad que PUT /cycle/display-inputs
+        _auditar("entradas_mostradas", sesion, entidad=f"/cycle/display-inputs/{body.programa}",
+                 valor_anterior=list(entradas_previas), valor_nuevo=list(entradas_nuevas),
+                 detalle={"motivo": "sensor_no_en_uso", "programa": cycle.id,
+                          "numero": body.programa})
     return {"ok": True, "asignacion": nueva,
             "estado_seguro_propagado": propagado}
 
