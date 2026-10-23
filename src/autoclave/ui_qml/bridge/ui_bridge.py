@@ -203,7 +203,7 @@ class UiBridge(QObject):
         if not isinstance(no_en_uso, list):
             no_en_uso = []
         return {"filas": entradas_mostradas.construir(lista, sensors, no_en_uso, t, p, p_atm),
-                "series": entradas_mostradas.series_grafica(lista, t, p)}
+                "series": entradas_mostradas.series_grafica(lista, t, p, no_en_uso)}
 
     def detener(self) -> None:
         self._timer.stop()
