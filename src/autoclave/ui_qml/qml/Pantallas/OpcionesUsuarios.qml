@@ -40,8 +40,12 @@ Item {
             if (l[i].usuario === raiz.seleccionado) return l[i]
         return null
     }
-    readonly property string motivoSeleccionado: raiz.seleccionado !== ""
-                                                 && control.usuarios.length >= 0
+    // D9-4 (tanda 9): motivoSobre() es una llamada; se leen antes `usuarios` y
+    // `motivo` para que el enlace se reevalúe al recargar la lista y al
+    // cambiar el rol o el usuario de la sesión (permisosChanged)
+    readonly property string motivoSeleccionado: control.usuarios.length >= 0
+                                                 && control.motivo !== null
+                                                 && raiz.seleccionado !== ""
                                                  ? control.motivoSobre(raiz.seleccionado) : control.motivo
     function etiquetaRol(r) {
         const k = "roles." + r

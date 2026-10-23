@@ -31,6 +31,7 @@ _MENSAJES = {
     "programa_de_fabrica": "opciones.err_no_editable",
     "BASE_OCUPADA": "opciones.err_base_ocupada",
     "f0_no_disponible": "opciones.err_f0",
+    "apertura_automatica_no_disponible": "opciones.err_apertura_puertas_simples",
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
     "asignacion_desfasada": "opciones.err_valor_cambio",

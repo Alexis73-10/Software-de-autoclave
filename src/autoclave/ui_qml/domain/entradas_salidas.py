@@ -4,7 +4,9 @@
 # forma a GET /status y GET /io/channels para QML. Sin datos vigentes de la
 # tarjeta nunca se inventa un 0 (D-ES-04): el valor queda en None y la pantalla
 # muestra "Sin datos". La UI no interpreta el significado de una entrada
-# (ES-11): muestra el nivel crudo.
+# (ES-11): muestra el nivel crudo. Excepción D9-5 (tanda 9): de una entrada de
+# contacto NC (`nc` del canal) se muestra el estado interpretado (1 = inactiva,
+# 0 = activa) y el nivel crudo al lado.
 
 from autoclave.hal.measures.calibration_tools import fit_two_point, invert_user_calibration
 
@@ -25,12 +27,24 @@ def _nivel(valor):
     return (valor == 1) if isinstance(valor, int) and valor in (0, 1) else None
 
 
+def _activa(nivel, nc: bool):
+    """Estado que se muestra: el nivel crudo, o su inverso si el contacto es
+    NC. Sin lectura (None) sigue sin datos: nunca se inventa (D-ES-04)."""
+    if nivel is None:
+        return None
+    return (not nivel) if nc else nivel
+
+
 def presentar_entradas(canales, status) -> list[dict]:
     vivo = enlace_ok(status)
     crudas = _sensores(status).get("digital_inputs") or {}
-    return [{"name": c["name"], "i18n": c["i18n"], "id": c["id"],
-             "activo": _nivel(crudas.get(c["estado_key"])) if vivo else None}
-            for c in canales]
+    salida = []
+    for c in canales:
+        nivel = _nivel(crudas.get(c["estado_key"])) if vivo else None
+        nc = c.get("nc") is True
+        salida.append({"name": c["name"], "i18n": c["i18n"], "id": c["id"],
+                       "nc": nc, "nivel": nivel, "activo": _activa(nivel, nc)})
+    return salida
 
 
 def presentar_salidas(canales, status) -> list[dict]:

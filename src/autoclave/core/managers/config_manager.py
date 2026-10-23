@@ -40,7 +40,18 @@ MARGEN_EMPAQUE_SOBRE_ATM = 20.0     # presion_empaque >= atm + 20
 MARGEN_VACIO_BAJO_ATM = 10.0        # vacio_empaque <= atm - 10
 FACTOR_CHEQUEO_CICLO = 0.6          # ciclo.py: falla si empaque < presion_empaque*0.6
 
-GRUPOS = ("puerta", "impresion", "drenaje", "empaque", "chaqueta", "sistema")
+# D9-3 (tanda 9): "camara_segura" (temp_max_apertura y rango_presion_atm, antes
+# en "puerta") se muestra en todo equipo; "puerta" y "empaque" no aplican a
+# un equipo de puertas simples.
+GRUPOS = ("puerta", "camara_segura", "impresion", "drenaje", "empaque", "chaqueta", "sistema")
+_GRUPOS_SIN_PUERTAS_SIMPLES = frozenset({"puerta", "empaque"})
+
+
+def grupos_visibles(puertas_simples: bool) -> list[str]:
+    """Submenús de Parámetros del equipo que se muestran, en su orden."""
+    if not puertas_simples:
+        return list(GRUPOS)
+    return [g for g in GRUPOS if g not in _GRUPOS_SIN_PUERTAS_SIMPLES]
 
 
 class ErrorParametro(Exception):

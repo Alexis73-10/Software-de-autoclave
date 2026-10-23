@@ -1,7 +1,7 @@
 {
     "timeout_puerta": {"value": 60, "type": "int", "unit": "seg", "min": 5, "max": 600, "grupo": "puerta"},
-    "temp_max_apertura": {"value": 80, "type": "int", "unit": "°C", "clase": "absoluto", "min": 40, "max": 120, "grupo": "puerta"},
-    "rango_presion_atm": {"value": 5, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 1, "max": 10, "grupo": "puerta"},
+    "temp_max_apertura": {"value": 80, "type": "int", "unit": "°C", "clase": "absoluto", "min": 40, "max": 120, "grupo": "camara_segura"},
+    "rango_presion_atm": {"value": 5, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 1, "max": 10, "grupo": "camara_segura"},
     "intervalo_impresion": {"value": 60, "type": "int", "unit": "seg", "min": 10, "max": 3600, "grupo": "impresion"},
     "intervalo_impresion_esterilizacion": {"value": 30, "type": "int", "unit": "seg", "min": 10, "max": 3600, "grupo": "impresion"},
     "temp_segura_drenaje": {"value": 70, "type": "int", "unit": "°C", "clase": "absoluto", "min": 40, "max": 90, "grupo": "drenaje"},
