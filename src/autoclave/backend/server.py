@@ -18,6 +18,7 @@ from fastapi import Depends, HTTPException, FastAPI, Body, Header, Query, Reques
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt
 
+from autoclave.backend import reinicio
 from autoclave.backend.actividad_ui import ActividadUI
 from autoclave.backend.arranque.registro import RegistroArranque
 from autoclave.backend.arranque.secuencia import ejecutar_arranque
@@ -64,6 +65,11 @@ async def _ciclo_de_vida(_app):
     # por aquí; por eso la UI no termina el backend con un ciclo en curso
     # (revisión de la etapa 1 de autenticación, hallazgo B).
     _detener_arranque.set()
+    if _cierre_ordenado_hecho.is_set():
+        # R11: reiniciar_software ya corrió el cierre ordenado (lazo detenido,
+        # ALL_OFF, puerto y base cerrados); otro stop() solo dejaría errores
+        logger.info("Backend detenido tras el cierre ordenado del reinicio del software")
+        return
     control_loop = getattr(context, "control_loop", None)
     if control_loop is None:
         # el arranque no llegó a construirlo: no hay loop ni orden a la tarjeta
@@ -77,6 +83,9 @@ async def _ciclo_de_vida(_app):
 
 
 app = FastAPI(title="Autoclave Backend", lifespan=_ciclo_de_vida)
+
+# R11: el cierre ordenado del reinicio del software ya se hizo (ver lifespan)
+_cierre_ordenado_hecho = threading.Event()
 
 # Sin E/S: cada parte se construye en su etapa de arranque (iniciar_arranque),
 # así el puerto 8000 responde desde t = 0 (fase B, ARR-01 / BAR-01).
@@ -2001,6 +2010,8 @@ def put_units(body: _UnidadesBody,
 
 class _ImpresoraConfigBody(BaseModel):
     habilitada: StrictBool     # P2: solo el literal JSON true/false (SAF-06)
+    # R11 (D11-1): la pantalla QML pide reiniciar el software para aplicarla
+    reiniciar: StrictBool = False
 
 
 @app.get("/printer/config")
@@ -2012,19 +2023,35 @@ def get_printer_config():
 def put_printer_config(body: _ImpresoraConfigBody,
                        sesion: Sesion = Depends(requiere_rol(ROL_TECNICO, ROL_INGENIERO))):
     entidad = "/printer/config"
+    # R11 (D11-1.3): rechazado en CICLO, como el resto de Parámetros del equipo
+    with guard_estado(DISTINTO_DE_CICLO, entidad, sesion):
+        pass
+    if body.reiniciar:
+        comprobar_reinicio_disponible(entidad, sesion)   # nada se guarda si no se puede
     anterior = context.config_impresora.habilitada()
     try:
         context.config_impresora.guardar(body.habilitada)
     except OSError:
         _rechazar(503, "ARCHIVO_NO_ESCRIBIBLE", "No se pudo guardar la configuración",
                   entidad, sesion)
+    estado = None
+    if body.reiniciar:
+        # guardar → cerrar → relanzar: si al volver a comprobar bajo el lock ya
+        # no se puede (p. ej. empezó un ciclo), se devuelve la bandera (como R8)
+        estado = bloquear_para_reinicio(
+            entidad, sesion, deshacer=lambda: context.config_impresora.guardar(anterior))
     _auditar("impresora_configurada", sesion, entidad=entidad,
              valor_anterior={"habilitada": anterior}, valor_nuevo={"habilitada": body.habilitada})
+    if body.reiniciar:
+        # la bandera rige al volver a abrir: no se aplica en pleno cierre
+        lanzar_reinicio("impresora_configurada", estado, sesion, entidad,
+                        detalle={"habilitada": body.habilitada})
+        return {"ok": True, "habilitada": body.habilitada, "reiniciando": True}
     try:
         context.aplicar_config_impresora()   # el aviso SIS-05 sigue a la bandera
     except Exception:
         logger.exception("No se pudo aplicar la configuración de la impresora")
-    return {"ok": True, "habilitada": body.habilitada}
+    return {"ok": True, "habilitada": body.habilitada, "reiniciando": False}
 
 
 # ── Calibración atmosférica e impresiones de Mantenimiento (O2f, tanda 6) ──
@@ -3187,13 +3214,16 @@ def _paso_apagado(descripcion: str, paso, tope: float | None = None) -> None:
         logger.error("Apagar equipo: el paso '%s' no terminó en %.0f s; se sigue", descripcion, tope)
 
 
-def _secuencia_apagado() -> None:
+def _secuencia_apagado(apagar_windows: bool = True) -> None:
     """ALL_OFF y parada del lazo (control_loop.stop: detiene el lazo, intenta
     ALL_OFF y cierra el puerto serial), historial de alarmas, base de datos y,
     si está habilitado, apagado de Windows. Corre en un hilo aparte para
     responder antes de cortar. Con degradación segura (A1): sin tarjeta o con
     un paso fallido se registra y se sigue; el paro y el latido de la tarjeta
-    dejan las salidas en seguro por hardware."""
+    dejan las salidas en seguro por hardware.
+
+    R11 (D11-1.2): `reiniciar_software` usa esta misma secuencia con
+    `apagar_windows=False`; los pasos de cierre no cambian."""
     _paso_apagado("detener el lazo de control", context.control_loop.stop, _TOPE_PASO_APAGADO_S)
     historial = getattr(context, "historial_alarmas", None)
     if historial is not None and hasattr(historial, "detener"):
@@ -3212,7 +3242,9 @@ def _secuencia_apagado() -> None:
         (real if getattr(context, "sin_base_de_datos", False) is True and real is not None
          else context.db).close()
     _paso_apagado("cerrar la base de datos", cerrar_base, _TOPE_PASO_APAGADO_S)
-    if _apagado_windows_habilitado():
+    if not apagar_windows:
+        logger.warning("Reinicio del software: cierre ordenado hecho, sin apagar Windows")
+    elif _apagado_windows_habilitado():
         logger.warning("Apagar equipo: apagando Windows")
         _paso_apagado("apagar Windows", _apagar_windows)
     else:
@@ -3300,6 +3332,84 @@ def shutdown_estado():
         rechazado = _apagado_windows_rechazado
     return {"apagando": getattr(context.control_loop, "apagando", False) is True,
             "windows_rechazado": rechazado}
+
+
+# ── Reiniciar el software (R11, tanda 11, D11-1) ───────────────────────────
+# Mecanismo reutilizable: el cierre ordenado de "Apagar equipo" (ALL_OFF y
+# parada del lazo, historial, escritura del ciclo, base de datos) SIN apagar
+# Windows; luego el backend termina con CODIGO_REINICIO_SOFTWARE y el lanzador
+# del ejecutable único cierra las pantallas y vuelve a abrir Autoclave.exe (una
+# sola instancia: la nueva espera a que este proceso y el lanzador terminen y
+# el puerto quede libre, ver exe_unico.esperar_instancia_anterior).
+# Rechazado en CICLO; permitido en PREPARACION, PREPARADO y FALLA (y en los
+# demás estados distintos de CICLO, igual que "Apagar equipo").
+
+def comprobar_reinicio_disponible(entidad: str, sesion: Sesion | None = None) -> None:
+    """409 si ya se está apagando o reiniciando; 503 si nadie relanzaría el
+    software (backend sin el lanzador del ejecutable único, p. ej. arrancado
+    a mano). Para rechazar ANTES de cambiar nada."""
+    if getattr(context.control_loop, "apagando", False) is True or reinicio.solicitado():
+        _rechazar(409, "apagado_en_curso", "El equipo ya se está apagando o reiniciando",
+                  entidad, sesion)
+    if not reinicio.disponible():
+        _rechazar(503, "reinicio_no_disponible",
+                  "Sin lanzador que vuelva a abrir el software: no se puede reiniciar desde aquí",
+                  entidad, sesion)
+
+
+def bloquear_para_reinicio(entidad: str, sesion: Sesion | None = None, deshacer=None):
+    """Vuelve a comprobar el estado bajo _sm_lock y, en ese mismo bloque,
+    detiene el lazo y apaga las salidas (iniciar_apagado, como "Apagar
+    equipo": ningún tick posterior puede pasar a CICLO). Ante un rechazo o
+    error llama a `deshacer` (p. ej. devolver la bandera ya guardada) y lo
+    propaga. Devuelve el estado observado."""
+    try:
+        comprobar_reinicio_disponible(entidad, sesion)
+        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion) as estado:
+            if getattr(context.control_loop, "apagando", False) is True:
+                raise _Rechazo(409, "apagado_en_curso",
+                               "El equipo ya se está apagando o reiniciando")
+            context.control_loop.iniciar_apagado()
+        return estado
+    except BaseException:
+        if deshacer is not None:
+            try:
+                deshacer()
+            except Exception:
+                logger.exception("Reinicio del software: no se pudo deshacer el cambio previo")
+        raise
+
+
+def _secuencia_reinicio(motivo: str) -> None:
+    _secuencia_apagado(apagar_windows=False)
+    _cierre_ordenado_hecho.set()
+    if not reinicio.solicitar(f"reinicio del software: {motivo}", retraso_s=0.5,
+                              codigo=reinicio.CODIGO_REINICIO_SOFTWARE):
+        # disponible() se comprobó antes; aquí solo si se perdió el registro
+        logger.error("Reinicio del software: no se pudo detener el backend para relanzarlo")
+
+
+def lanzar_reinicio(motivo: str, estado, sesion: Sesion | None = None,
+                    entidad: str = "", detalle: dict | None = None) -> None:
+    """Audita `software_reiniciado` (con la base aún abierta) y lanza el
+    cierre ordenado en su hilo (la respuesta HTTP sale antes de cortar)."""
+    _auditar("software_reiniciado", sesion, entidad=entidad,
+             detalle={"motivo": motivo, "estado": getattr(estado, "name", str(estado)),
+                      **(detalle or {})})
+    try:
+        threading.Thread(target=_secuencia_reinicio, args=(motivo,), name="ReiniciarSoftware",
+                         daemon=False).start()
+    except Exception:
+        logger.exception("Reinicio del software: no se pudo lanzar el hilo; se cierra en línea")
+        _secuencia_reinicio(motivo)
+
+
+def reiniciar_software(motivo: str, sesion: Sesion | None = None, *, entidad: str = "",
+                       detalle: dict | None = None, deshacer=None) -> None:
+    """Reinicia el software (D11-1.4). Lanza HTTPException (409/503) si no se
+    puede; en ese caso no cambia nada (y llama a `deshacer`)."""
+    estado = bloquear_para_reinicio(entidad, sesion, deshacer)
+    lanzar_reinicio(motivo, estado, sesion, entidad, detalle)
 
 
 @app.post("/safe-state/confirm")
