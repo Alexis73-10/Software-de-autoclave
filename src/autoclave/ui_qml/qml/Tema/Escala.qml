@@ -21,6 +21,7 @@ QtObject {
     // pixelSize exige entero; redondear evita que Qt trunque y el texto quede chico
     function fuente(valor) { return Math.max(1, Math.round(valor * factor)) }
     // D8-5.4 (tanda 8, V8b): ningún texto se recorta; si no cabe, la letra puede
-    // bajar (fontSizeMode) hasta este mínimo legible (18 px de diseño)
-    readonly property int fuenteMinima: Math.max(1, Math.round(18 * factor))
+    // bajar (fontSizeMode) hasta este mínimo legible (14 px de diseño: los textos
+    // del equipo van de 17 a 24 px, así que con 18 casi ninguno podía reducirse)
+    readonly property int fuenteMinima: Math.max(1, Math.round(14 * factor))
 }
