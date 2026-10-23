@@ -155,7 +155,10 @@ PanelModal {
                 visible: g.expandido && enGrupo
                 width: g.width
                 idAlarma: model.id
-                descripcion: model.description
+                // U10b (D10-1.4): en el idioma de la interfaz y completa en
+                // varias líneas (antes: español y recortada con elide)
+                descripcion: (model.descripciones ?? {})[I18n.lang] || model.description
+                multilinea: true
                 prioridad: model.priority
                 despejable: raiz.despejable(model.id) && raiz.comandosSistema !== null
                 textoDespejar: I18n.t("notificaciones.despejar", I18n.lang)

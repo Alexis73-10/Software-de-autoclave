@@ -57,6 +57,19 @@ def _texto(valor) -> str:
     return "" if valor is None else str(valor)
 
 
+def _descripciones(textos) -> dict:
+    """U10b (tanda 10, D10-1.4): {idioma: descripción} desde `textos` del DTO
+    de /status (alarmas_i18n.por_idioma). Solo textos no vacíos; cualquier
+    otra forma se ignora (la pantalla usa entonces `description`)."""
+    salida = {}
+    if isinstance(textos, dict):
+        for idioma, t in textos.items():
+            d = t.get("descripcion") if isinstance(t, dict) else None
+            if isinstance(idioma, str) and isinstance(d, str) and d != "":
+                salida[idioma] = d
+    return salida
+
+
 def _normalizar_alarmas(alarmas) -> list[dict]:
     """Frontera de confianza: filas mal formadas se descartan, campos ausentes quedan en ""."""
     filas = []
@@ -70,18 +83,21 @@ def _normalizar_alarmas(alarmas) -> list[dict]:
             "description": _texto(a.get("description")),
             "source_state": _texto(a.get("source_state")),
             "priority": prioridad_de(nivel),
+            "descripciones": _descripciones(a.get("textos")),
         })
     return filas
 
 
 class AlarmListModel(QAbstractListModel):
-    """Alarmas activas. Roles: id, level, description, source_state, priority."""
+    """Alarmas activas. Roles: id, level, description, source_state, priority
+    y descripciones ({idioma: descripción}, U10b)."""
 
     IdRole = Qt.ItemDataRole.UserRole + 1
     LevelRole = Qt.ItemDataRole.UserRole + 2
     DescriptionRole = Qt.ItemDataRole.UserRole + 3
     SourceStateRole = Qt.ItemDataRole.UserRole + 4
     PriorityRole = Qt.ItemDataRole.UserRole + 5
+    DescripcionesRole = Qt.ItemDataRole.UserRole + 6
 
     _CLAVES = {
         IdRole: "id",
@@ -89,6 +105,7 @@ class AlarmListModel(QAbstractListModel):
         DescriptionRole: "description",
         SourceStateRole: "source_state",
         PriorityRole: "priority",
+        DescripcionesRole: "descripciones",
     }
 
     countChanged = Signal()

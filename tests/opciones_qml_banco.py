@@ -56,13 +56,13 @@ _SCRIPT = textwrap.dedent(r'''
     import Tema
     import "Pantallas"
     Window {
-        width: 1200; height: 1920; visible: true
-        Binding { target: Escala; property: "factor"; value: 1 }
+        width: %d; height: %d; visible: true
+        Binding { target: Escala; property: "factor"; value: %f }
         QtObject { id: puenteFalso; objectName: "puente"; property string machineState: "%s"
                    property bool connected: true }
         Opciones { objectName: "opciones"; anchors.fill: parent; puente: puenteFalso }
     }
-    """ % cfg["estado"]
+    """ % (cfg["ancho"], cfg["alto"], cfg["ancho"] / 1200.0, cfg["estado"])
     ruta = f"{QML_DIR}/_prueba_opciones_doble_{os.getpid()}.qml"
     open(ruta, "w", encoding="utf-8").write(QML)
     try:
@@ -94,7 +94,27 @@ _SCRIPT = textwrap.dedent(r'''
     def esperar(ms=200):
         QTest.qWait(ms)
 
+    # U10b (tanda 10, D10-1.5): con `revisar`, cada capturar() revisa además
+    # los textos de la ventana (tests/textos_caben_qml.FUNCION_REVISAR) y deja
+    # el resultado en salida["revisiones"][archivo]
+    revisor = None
+    if cfg.get("funcion"):
+        from PySide6.QtCore import QMetaObject, QUrl as _QUrl, Q_ARG, Q_RETURN_ARG
+        from PySide6.QtQml import QQmlComponent
+        _c = QQmlComponent(engine)
+        _c.setData(chr(10).join(["import QtQuick", "QtObject {", cfg["funcion"], "}", ""]).encode("utf-8"),
+                   _QUrl.fromLocalFile(QML_DIR + "/_revisor_textos.qml"))
+        revisor = _c.create()
+
+    def revisar_textos(nombre, desde=None):
+        esperar(250)
+        r = json.loads(QMetaObject.invokeMethod(revisor, "revisarDesde", Q_RETURN_ARG("QVariant"),
+                                                Q_ARG("QVariant", desde or w.contentItem())))
+        salida.setdefault("revisiones", {})[nombre] = r
+
     def capturar(archivo):
+        if revisor is not None:
+            revisar_textos(archivo)
         if cfg.get("capturas"):
             esperar(250)
             w.grabWindow().save(os.path.join(cfg["capturas"], archivo))
@@ -121,12 +141,18 @@ _SCRIPT = textwrap.dedent(r'''
 
 
 def correr(rol: str, pasos: str, rutas: dict | None = None, estado: str = "PREPARADO",
-           capturas: bool = False, dir_capturas: Path | None = None) -> dict:
+           capturas: bool = False, dir_capturas: Path | None = None,
+           ancho: int = 1200, alto: int = 1920, revisar: bool = False) -> dict:
+    """U10b: `ancho`/`alto` (Escala.factor = ancho/1200) y `revisar` (cada
+    capturar() revisa los textos; ver tests/textos_caben_qml.py)."""
     destino = Path(dir_capturas or CAPTURAS)
     if capturas:
         destino.mkdir(parents=True, exist_ok=True)
     cfg = {"rol": rol, "estado": estado, "rutas": rutas or {}, "pasos": textwrap.dedent(pasos),
-           "capturas": str(destino) if capturas else ""}
+           "capturas": str(destino) if capturas else "", "ancho": ancho, "alto": alto}
+    if revisar:
+        from tests.textos_caben_qml import FUNCION_REVISAR
+        cfg["funcion"] = FUNCION_REVISAR
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg)],

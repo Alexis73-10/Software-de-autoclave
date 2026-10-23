@@ -43,7 +43,10 @@ Item {
     // a la derecha de la casilla si es marcable
     readonly property real _anchoCasilla: marcable ? m(84) : 0
     readonly property real _anchoColumnas: width - _anchoCasilla
-    readonly property var _columnas: [0.13, 0.22, 0.14, 0.27, 0.24 - (seleccionable ? 0.05 : 0)]
+    // U10b (D10-1.4): Fecha y Hora ceden ancho que les sobraba al Programa
+    // (antes 0.22 / 0.14 / 0.27), para que el nombre «NN · Programa» quepa
+    // completo sin achicarse con el marcado del Historial.
+    readonly property var _columnas: [0.13, 0.19, 0.12, 0.32, 0.24 - (seleccionable ? 0.05 : 0)]
     function _x(i) {
         let x = 0
         for (let k = 0; k < i; k++) x += _columnas[k]
