@@ -15,6 +15,7 @@ Eres Claude Code en el repositorio del Software de Autoclave (Especifika). Crist
    - máximo 4 subagentes a la vez, cada uno en su worktree; el resto en cola, por prioridad;
    - cada subagente corre SOLO las pruebas relevantes (con `PYTHONPATH=<worktree>/src`) y commitea su informe en su rama; la suite completa la corre solo la sesión principal al unir;
    - la sesión principal integra una rama a la vez, con la suite en verde, y luego compila (K8) y cierra (Z).
+   - **NO termines tu turno mientras haya subagentes activos.** Corres en modo `-p`: al terminar el turno, el CLI mata los subagentes a los 10 min. Lanza los subagentes en primer plano (sin segundo plano) o, si van en segundo plano, espera activamente a que terminen; al terminar uno, únelo con la suite y lanza el siguiente de la cola. Termina el turno solo cuando la cola esté vacía y Z esté hecha, o cuando se agote el límite de uso.
 4. **Reglas:**
    - nunca `main`, `--force` ni `git add -A`;
    - no commitees `data/`, `.claude/`, `*.db`, `installation_profile.json*`, `dist/`, `build/` ni `entrega/`;

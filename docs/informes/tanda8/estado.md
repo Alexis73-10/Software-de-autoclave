@@ -6,7 +6,7 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 |---|---|---|---|
 | A0 | Hecha | e1d8f5e, 23704cb | Línea base de la suite (tanda-8 = dev d2f7353 + docs): **5382 passed, 3 skipped, 3 xfailed** (27 min, con 13 subagentes en paralelo). Log `tanda8/suites/base.log`. |
 | H8 | Sin objeto | | La sección "Hallazgos de la instalación del 22-oct" de la instrucción está vacía ("(vacío)"). |
-| S1 ★ | Relanzada 16:12 (continúa) | rama `tanda-8-s1` | Subagente en worktree `.claude/worktrees/agent-*`. |
+| S1 ★ | Hecha, unida a `tanda-8` (bd5aa6d). Suite tras unir: en curso (`suites/integ_s1.log`) | rama `tanda-8-s1` (02c8613) | D8-1. Informe commiteado por la sesión principal (estaba sin commit). Conflictos con S2a: sellado D8-2.10 solo con presión leyendo (DECISIÓN SIN CONFIRMAR, HAZ-S1-05); banco F-12/13 de S1 → F-21/22. |
 | S2a ★ | Hecha, unida a `tanda-8` (a5acf3b). Suite tras unir: 5568 p / 4 s / 3 xf / 1 falla intermitente (`test_opciones_qml.py::test_tecnico_entra_a_opciones[PREPARADO-False]`, temporización QML ya vista en la tanda 7; aislada 3/3 en verde) (`suites/integ_s2a.log`) | rama `tanda-8-s2a` (582a48b) | D8-2.6 a 2.10. Revisores 2 vueltas, 0 Altos/Críticos (condición: válvula de seguridad mecánica, pregunta 4). Informe `tanda8/S2a_transiciones_ciclo.md`. |
 | S2b ★ | Hecha, unida a `tanda-8` (22fa108). Suite tras unir **5676 p / 5 s / 3 xf** (`suites/integ_s2b.log`) | rama `tanda-8-s2b` (343260d) | D8-2.11 a 2.16. Revisores 2 vueltas, 0 Altos/Críticos (TMG-01 = D8-2.7, cubierto por S2a vía `marcar_sin_datos_tarjeta` → `_cerrar_pausa_sin_datos`, verificado al unir). Migración BD v10. Banco F-12..15 de S2b renumerado a F-17..20. Informe `tanda8/S2b_transiciones_ciclo.md`. |
 | N8 | Hecha, unida a `tanda-8` | e8718cf (merge) | Suite de integración tras unir: **5393 p / 3 s / 3 xf** (`suites/integ_n8.log`). |
@@ -56,3 +56,11 @@ Al reanudar, retoma primero las etapas con commits (S1, S2a, S2b, N8, R8, V8a, E
 ## Reanudación (sesión 21:36, tras el límite de 17:45 a 21:00)
 - Se relanzan, CONTINUANDO en sus worktrees, S1 (falta commitear correcciones y su informe), R8 (cambios sin commit + informe), V8a (falta el informe; D8-5.6 por confirmar) y E1 (cambios sin commit en serial_link/control_loop/server; faltan D8-3.21, 3.22, 3.20 e informe).
 - En cola: L8 (1 commit, falta informe), D8 (2 commits, falta el resto de D8-3.27 e informe), V8b (cambios sin commit; se une la última).
+
+## REGLA NUEVA (Cristian, 22-oct 22:00)
+No termines el turno con subagentes activos: en modo `-p` el CLI los mata a los 10 min (pasó a las 21:48). Espera a que terminen, une y lanza el siguiente. Ver regla 3 del prompt.
+
+## Reanudación (sesión 02, 21:58)
+- La sesión 01 de las 21:36 terminó su turno con los subagentes en segundo plano y el CLI los detuvo a los 10 min (lección: no terminar el turno con subagentes activos).
+- S1: informe commiteado (02c8613) y unida (bd5aa6d); 736 pruebas relacionadas en verde; suite completa en curso.
+- Relanzados, continuando en sus worktrees: R8, V8a, E1 y L8. En cola: D8, V8b.
