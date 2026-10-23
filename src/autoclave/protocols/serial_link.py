@@ -384,6 +384,15 @@ class SerialLink:
                 return None
             return self.data.get("ai_seq")
 
+    def estado_ultima_ai(self) -> tuple[Optional[float], Optional[int]]:
+        """S9 (tanda 9, revisión ★ pasada 2 R2-B4): (edad en segundos, ai_seq)
+        de la última trama AI válida de esta conexión, en UNA sola toma de
+        data_lock; (None, None) si no ha llegado ninguna."""
+        with self.data_lock:
+            if self._ultima_ai_mono is None:
+                return None, None
+            return time.monotonic() - self._ultima_ai_mono, self.data.get("ai_seq")
+
     def edad_ultima_ai(self, now: Optional[float] = None) -> Optional[float]:
         """Segundos (time.monotonic) desde la última trama AI válida, o None
         si en esta conexión no ha llegado ninguna."""

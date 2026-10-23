@@ -54,6 +54,7 @@ import logging
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_referencia
 from autoclave.core.runtime.steam import p_saturacion_kpa
+from autoclave.core.runtime import vigencia_ai
 
 logger = logging.getLogger(__name__)
 
@@ -78,9 +79,10 @@ class ProtocoloFallo:
         self.config  = config
         # S9 (tanda 9, revisión ★ TMG-02/TMG-03): callable () -> (trama AI
         # vigente, número de trama) que fija el estado seguro (ControlLoop).
-        # None: sin información (dobles de prueba, protocolo dentro de
-        # CICLO): la presión publicada se toma como vigente y cada update()
-        # cuenta como una lectura.
+        # None: se usa el proveedor común del estado (estado.lectura_ai, que
+        # publica el ControlLoop; revisión ★ pasada 2 R2-A1: así también el
+        # protocolo del ciclo en CicloState); sin ninguno, la presión
+        # publicada se toma como vigente y cada update() cuenta.
         self.lectura_ai = None
         self.reset()
 
@@ -133,8 +135,11 @@ class ProtocoloFallo:
         # S9, revisión ★ TMG-02: la trama AI de este update() está vigente
         self._ai_vigente_tick = True
         # S9, revisión ★ SAF-03: lecturas de vacío seguidas antes de abrir el
-        # aire atmosférico
+        # aire atmosférico (R2-M2: tramas AI distintas)
         self._lecturas_vacio = 0
+        self._seq_vacio = None
+        # R2-M1: aviso en el log una vez por tramo con la trama AI vencida
+        self._aviso_ai_vencida = False
 
     @property
     def sellado(self) -> bool:
@@ -162,18 +167,10 @@ class ProtocoloFallo:
         return not lectura_valida(temp) or temp == 0
 
     def _leer_ai(self) -> tuple[bool, int | None]:
-        """S9 (revisión ★ TMG-02/TMG-03): (trama AI vigente, su número).
-        Sin lectura_ai: (True, None). Ante un error: (False, None)."""
-        if self.lectura_ai is None:
-            return True, None
-        try:
-            vigente, seq = self.lectura_ai()
-        except Exception:
-            logger.exception("Protocolo fallo: no se pudo leer la vigencia de la trama AI")
-            return False, None
-        if isinstance(seq, bool) or not isinstance(seq, int):
-            seq = None
-        return vigente is True, seq
+        """S9 (revisión ★ TMG-02/TMG-03): (trama AI vigente, su número). Usa
+        lectura_ai o, sin ella, el proveedor común del estado (R2-A1). Sin
+        ninguno: (True, None). Ante un error: (False, None)."""
+        return vigencia_ai.leer(self.estado, self.lectura_ai)
 
     def _pres_camara(self):
         """Presión de cámara publicada; None si la trama AI de este update()
@@ -187,8 +184,12 @@ class ProtocoloFallo:
         """S1 (tanda 8, revisión ★ SAF-02): transductor de presión de cámara
         sin lectura (el convertidor ya exigió 3 tramas fuera de rango y
         entrega None, nunca 0). Mismo criterio que el Principal perdido.
-        S9 (revisión ★ TMG-02): también con la trama AI vencida."""
-        return not lectura_valida(self._pres_camara())
+        S9, revisión ★ pasada 2 (R2-M1): SOLO con la trama AI vigente (el
+        transductor manda tramas sin lectura válida). La AI vencida son datos
+        no vigentes, no un transductor perdido: no enclava solo_lenta."""
+        if not self._ai_vigente_tick:
+            return False
+        return not lectura_valida(self.estado.sensores_pres.get("pres_camara"))
 
     def pasar_a_solo_lenta(self) -> bool:
         """R1-P4 (tanda 7, decisión 1.3 de Cristian): el protocolo ya corría
@@ -532,8 +533,11 @@ class ProtocoloFallo:
         # confirmarse — se reintenta en update() hasta que se confirme).
         self._salidas_apagadas = self.set_do.reset_all_outputs()
 
-        # 2. Válvula de seguridad inicial según estado de la cámara
-        pres  = self.estado.sensores_pres.get("pres_camara")
+        # 2. Válvula de seguridad inicial según estado de la cámara. R2-B3
+        # (revisión ★ pasada 2): con la presión vigente; con la trama AI
+        # vencida no se abre nada (datos no vigentes, R2-M1)
+        self._ai_vigente_tick, seq_ai = self._leer_ai()
+        pres  = self._pres_camara()
         atm   = self.config.get("presion_admosferica") or 101.3
         rango = self.config.get("rango_presion_atm")   or 20.0
 
@@ -552,12 +556,17 @@ class ProtocoloFallo:
             self._ejecutado = True
             return
 
-        if not abrir_valvulas:
+        if not abrir_valvulas or not self._ai_vigente_tick:
             if pres is not None and pres > atm + rango:
                 # el timeout se arma al abrir válvulas (reanudar), no durante
                 # el paro ni la espera de confirmación (TMG-02 de T5)
                 self._presurizado_al_disparo = True
-            logger.warning("Protocolo fallo: paro de emergencia — salidas apagadas, sin válvulas")
+            if not self._ai_vigente_tick:
+                logger.error("Protocolo fallo: trama AI vencida al disparar — salidas "
+                             "apagadas, sin válvulas hasta tener datos vigentes")
+            else:
+                logger.warning("Protocolo fallo: paro de emergencia — salidas apagadas, "
+                               "sin válvulas")
         elif pres is None:
             # Fin de ciclo §15: presión desconocida → la lenta y sin escalar
             logger.warning("Protocolo fallo: presión desconocida — descompresión lenta sin escalar")
@@ -572,11 +581,15 @@ class ProtocoloFallo:
             )
             self._aplicar_paso_modo(pres)
         elif pres < atm - rango:
-            # Vacío real → aire atmosférico, ninguna válvula de descompresión
+            # Vacío real → aire atmosférico, ninguna válvula de descompresión.
+            # R2-B3: esta es la primera lectura de vacío; update() abre el
+            # aire con la tercera (SAF-03)
             logger.warning(
-                "Protocolo fallo: cámara en vacío (%.1f kPa) → aire atmosférico", pres
+                "Protocolo fallo: cámara en vacío (%.1f kPa) → aire atmosférico tras 3 lecturas",
+                pres
             )
-            self.set_do.aire_admosferico_camara_on()
+            self._lecturas_vacio = 1
+            self._seq_vacio = seq_ai
         else:
             # Rango normal, sin presión que evacuar → deja la válvula
             # de descompresión del modo configurado
@@ -742,11 +755,26 @@ class ProtocoloFallo:
         # este update(); con la AI vencida la presión cuenta como perdida
         self._ai_vigente_tick, seq_ai = self._leer_ai()
         self._seguir_presion_perdida(seq_ai)
+        if not self._ai_vigente_tick:
+            # R2-M1 (revisión ★ pasada 2, DECISIÓN SIN CONFIRMAR de la sesión
+            # principal): trama AI vencida = datos NO vigentes, como la DI
+            # vencida. Presión y temperaturas pueden estar congeladas: no se
+            # abre nada nuevo (ni aire comprimido ni aire atmosférico), lo ya
+            # abierto se mantiene, no cuenta para el Principal perdido ni para
+            # pasar a solo_lenta. CIC-10 por bloqueado_motivo (fuera de
+            # ciclo); aquí, el log.
+            if not self._aviso_ai_vencida:
+                self._aviso_ai_vencida = True
+                logger.error("Protocolo fallo: trama AI vencida — sin abrir válvulas nuevas "
+                             "hasta tener datos vigentes")
+        else:
+            self._aviso_ai_vencida = False
 
         # R1-P4: Principal perdido con el protocolo ya en marcha por otra causa.
         # SAF-01 / SEN-02 / TMG-07 (revisión Q1): con _DEBOUNCE_LECTURAS
         # lecturas inválidas seguidas; una válida reinicia el contador.
-        if not self._solo_lenta:
+        # R2-M1: con la trama AI vencida no se cuenta.
+        if not self._solo_lenta and self._ai_vigente_tick:
             if self._principal_perdido() or self._presion_camara_perdida():
                 self._lecturas_principal_perdido += 1
             else:
@@ -762,6 +790,11 @@ class ProtocoloFallo:
         if self._sellado:
             # D8-2.10: espera sellada; nada se abre (ni con la presión
             # desconocida) hasta que las sondas o la espera lo permitan
+            if not self._ai_vigente_tick:
+                # R2-M1: con temperaturas congeladas no se decide el venteo;
+                # todo sigue cerrado (el alivio, como estaba)
+                self._cerrar_todo_sellado(lenta_alivio=self._alivio_abierto)
+                return
             self._tick_sellado()
             if self._sellado:
                 return
@@ -777,15 +810,19 @@ class ProtocoloFallo:
 
         if not lectura_valida(pres):
             self._lecturas_vacio = 0
-            if enfriando:
+            self._seq_vacio = None
+            if enfriando or not self._ai_vigente_tick:
                 # SAF-02 de T5: sin presión no se inyecta aire comprimido
                 self.set_do.aire_comprimido_camara_off()
                 self._t_aire_comprimido = None
             return
 
         # S9, revisión ★ SAF-03: lecturas de vacío seguidas (3 antes de abrir
-        # el aire atmosférico; una fuera del vacío reinicia el conteo)
-        self._lecturas_vacio = self._lecturas_vacio + 1 if pres < atm - rango else 0
+        # el aire atmosférico; una fuera del vacío reinicia el conteo).
+        # R2-M2: cuenta tramas AI distintas (la misma trama, una vez)
+        if seq_ai is None or seq_ai != self._seq_vacio:
+            self._seq_vacio = seq_ai
+            self._lecturas_vacio = self._lecturas_vacio + 1 if pres < atm - rango else 0
 
         # ── Gestión dinámica de presión ───────────────────────────────
         if enfriando:
@@ -839,13 +876,13 @@ class ProtocoloFallo:
     def _seguir_presion_perdida(self, seq_ai: int | None = None) -> None:
         """S9 (D9-1.4): debounce de 3 lecturas en los dos sentidos del
         "estado seguro detenido" por la presión de cámara sin lectura. Solo
-        informa (bloqueado_motivo → CIC-10); las válvulas siguen su regla de
-        siempre (sin presión, update() no abre nada nuevo).
+        informa (bloqueado_motivo → CIC-10 + NO ABRIR); las válvulas siguen
+        su regla de siempre (sin presión, update() no abre nada nuevo).
 
         Revisión ★: TMG-03, cuenta tramas AI distintas (seq_ai; None = cada
-        llamada cuenta). TMG-02, la trama AI vencida ya es un filtro temporal
-        (_VIGENCIA_DI_SEG sin tramas): la presión queda perdida de inmediato
-        (no llegan tramas nuevas que contar)."""
+        llamada cuenta). TMG-02 / R2-M1, la trama AI vencida (ya es un filtro
+        temporal: _VIGENCIA_DI_SEG sin tramas) también deja el motivo de
+        inmediato, solo informativo: no enclava solo_lenta."""
         if not self._ai_vigente_tick:
             self._lecturas_presion_vuelta = 0
             self._lecturas_presion_perdida = _DEBOUNCE_LECTURAS
@@ -883,6 +920,7 @@ class ProtocoloFallo:
         self._seq_presion = None
         self._lecturas_principal_perdido = 0
         self._lecturas_vacio = 0
+        self._seq_vacio = None
         if tras_modo_prueba:
             self._sin_sonda_desde = None
         self._t_pulso_chaqueta = None

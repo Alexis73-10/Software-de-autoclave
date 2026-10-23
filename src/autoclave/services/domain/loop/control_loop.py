@@ -133,6 +133,12 @@ class ControlLoop:
         # S9, revisión ★ TMG-02/TMG-03: vigencia y número de la trama AI, para
         # que el protocolo no tome una presión congelada por una vigente
         self.estado_seguro.lectura_ai = self._lectura_ai
+        # R2-A1 (revisión ★ pasada 2): proveedor común en el estado, para el
+        # protocolo de fallo del ciclo (CicloState) y la fase DESCOMPRESION
+        # (core/runtime/vigencia_ai.py)
+        self.estado.lectura_ai = self._lectura_ai
+        # R2-B2: instante (monotónico) de la primera DI vigente de la conexión
+        self._primera_di_mono: float | None = None
 
         self.state_machine     = StateMachine(
             io=self.link, estado=self.estado, set_do=set_do,
@@ -524,12 +530,13 @@ class ControlLoop:
 
     def _esperando_primera_ai(self) -> bool:
         """S9 (revisión ★, pregunta 7): en esta conexión todavía no llegó
-        ninguna trama AI y no pasó _VIGENCIA_DI_SEG desde que se conectó."""
+        ninguna trama AI y no pasó _VIGENCIA_DI_SEG desde la primera DI
+        vigente (R2-B2: no desde la conexión; el handshake puede tardar)."""
         try:
             edad = self.link.edad_ultima_ai()
         except Exception:
             return False
-        desde = self._conectado_desde
+        desde = getattr(self, "_primera_di_mono", None)
         return (edad is None and desde is not None
                 and time.monotonic() - desde < self._VIGENCIA_DI_SEG)
 
@@ -550,6 +557,16 @@ class ControlLoop:
         usan el estado seguro y su protocolo. Falla cerrada: ante un error,
         (False, None)."""
         try:
+            # R2-B4: edad y número en una sola toma del enlace
+            par = self.link.estado_ultima_ai()
+            if isinstance(par, tuple) and len(par) == 2:
+                edad, seq = par
+                vigente = (not isinstance(edad, bool) and isinstance(edad, (int, float))
+                           and edad <= self._VIGENCIA_DI_SEG)
+                if isinstance(seq, bool) or not isinstance(seq, int):
+                    seq = None
+                return vigente, seq if vigente else None
+            # enlace que no la implementa (dobles de prueba): dos tomas
             return self._ai_vigente() is True, self._secuencia_ai()
         except Exception:
             logger.exception("ControlLoop: no se pudo leer la vigencia de la trama AI")
@@ -966,10 +983,12 @@ class ControlLoop:
         # cuenta como sin datos (bloquea igual) para no dar un paro real falso.
         if self.link.edad_ultima_di() is None:
             self._di_vista_en_conexion = False
+            self._primera_di_mono = None
         vigente = self._di_vigente()
         valor = self.estado.sensores_di.get("paro_emergencia") if vigente else None
         if vigente and not self._di_vista_en_conexion:
             self._di_vista_en_conexion = True
+            self._primera_di_mono = now        # R2-B2
             if valor is not None and not bool(valor):
                 valor = None
         self.paro_emergencia.update(valor)
