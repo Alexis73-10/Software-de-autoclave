@@ -51,9 +51,10 @@ SECCIONES = (
     Seccion("parametros_sistema", "engranaje.svg",          _PARAMETROS_EQUIPO),
     Seccion("entradas_salidas",   "sensor_temperatura.svg", _TECNICOS),
     Seccion("mantenimiento",      "mantenimiento.svg",      _TECNICOS),
-    # R8 (tanda 8, D8-5.12; planeacion_opciones.md v4 §3.5): solo el ingeniero.
-    # Antes técnico e ingeniero. DECISIÓN SIN CONFIRMAR
-    Seccion("opciones_avanzadas", "programas.svg",          _SOLO_INGENIERO),
+    # C9 (tanda 9, D9-10): técnico e ingeniero (Manejo de ciclos); dentro, la
+    # reasignación de E/S sigue solo para el ingeniero (puede_reasignar_io).
+    # En la tanda 8 (R8) la sección entera era solo del ingeniero.
+    Seccion("opciones_avanzadas", "programas.svg",          _TECNICOS),
     Seccion("usuarios",           "usuarios.svg",           _VE_USUARIOS),
     Seccion("conectividad",       "conectividad.svg",       _CONECTIVIDAD),
     # O2c–O2e (tanda 6): para todos los roles con sesión, solo lectura
@@ -172,6 +173,28 @@ def motivo_unidades(rol: str | None, estado_maquina: str | None) -> str:
     if rol not in _CAMBIA_UNIDADES:
         return "rol"
     return "ciclo" if estado_maquina == "CICLO" else ""
+
+
+# Opciones avanzadas (C9, tanda 9, D9-10; R8 de la tanda 8). El backend es la
+# autoridad: reasignación con requiere_rol(ingeniero); gestión de programas con
+# requiere_rol(técnico, ingeniero) y 409 en CICLO, también para el ingeniero.
+def puede_reasignar_io(rol: str | None) -> bool:
+    return rol in _SOLO_INGENIERO
+
+
+def puede_manejar_ciclos(rol: str | None) -> bool:
+    return rol in _TECNICOS
+
+
+def motivo_manejo_ciclos(rol: str | None, estado_maquina: str | None) -> str:
+    """"" si puede crear, duplicar, habilitar o borrar programas; "rol",
+    "ciclo" (ciclo en curso) o "estado" (estado desconocido) si no. Solo fuera
+    de ciclo, sin la excepción del ingeniero."""
+    if not puede_manejar_ciclos(rol):
+        return "rol"
+    if estado_maquina in ESTADOS_EDICION:
+        return ""
+    return "ciclo" if estado_maquina == "CICLO" else "estado"
 
 
 # Usuarios y operadores (O2b, tanda 6; decisión 1.9): crear, desactivar,

@@ -58,21 +58,8 @@ def test_propiedades_de_gestion():
     assert not c.programaHabilitado and c.programaPersonalizado
 
 
-def test_habilitar_duplicar_borrar_llaman_al_backend():
-    c, s = _ctrl()
-    assert c.fijarHabilitado(False)
-    assert ("PUT", "/programas/2/habilitado", {"habilitado": False}) in s.enviados
-    assert c.duplicar("Nuevo")
-    assert ("POST", "/programas/2/duplicar", {"nombre": "Nuevo"}) in s.enviados
-    c.elegirPrograma(5)
-    assert c.borrar()
-    assert ("DELETE", "/programas/5", None) in s.enviados
-
-
-def test_rechazo_de_gestion_muestra_el_motivo():
-    c, _ = _ctrl({("DELETE", "/programas/2"): Resultado("programa_activo", {}, 409)})
-    assert not c.borrar()
-    assert c.mensaje == "opciones.err_programa_activo"
+# C9 (tanda 9, D9-10): habilitar, duplicar y borrar se movieron a Opciones
+# avanzadas › Manejo de ciclos (tests/test_c9_manejo_ciclos_ui.py)
 
 
 def test_entradas_mostradas_carga_y_valida_cantidad():
@@ -109,8 +96,8 @@ Item { width: 800; height: 1200; OpcionesParametrosCiclo { anchors.fill: parent;
           QUrl.fromLocalFile(qml_dir + "/prueba_o1.qml"))
 raiz = c.create()
 assert raiz is not None, c.errorString()
-for nombre in ("filaEntradas", "gestionPrograma", "botonHabilitar", "botonDuplicar",
-               "botonBorrar", "vistaEntradas", "guardarEntradas", "dialogoBorrarPrograma"):
+for nombre in ("filaEntradas", "vistaEntradas", "guardarEntradas", "programaDeshabilitado",
+               "gestionMovida"):
     assert raiz.findChild(QObject, nombre) is not None, nombre
 print(json.dumps({"avisos": [a for a in avisos if "sesion" not in a.lower()]}))
 """

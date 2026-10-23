@@ -36,7 +36,7 @@ Item {
     // sin guardar en Parámetros del ciclo (T12)
     property bool cambiosPendientes: (parametrosCiclo.item?.cambiosPendientes ?? false)
                                      || (parametrosEquipo.item?.cambiosPendientes ?? false)
-                                     || (reasignacion.item?.cambiosPendientes ?? false)
+                                     || (avanzadas.item?.cambiosPendientes ?? false)
 
     signal inicioPulsado()     // salir de OPCIONES conservando la sesión (U-5)
     // U2 (tanda 2): Atrás vuelve a la pantalla anterior conservando la sesión;
@@ -117,7 +117,8 @@ Item {
                        parametros_sistema: parametrosEquipo, fecha_hora: fechaHora,
                        info_sistema: infoSistema, bitacora: bitacora,
                        mantenimiento: mantenimiento, conectividad: conectividad,
-                       respaldo: respaldo, entradas_salidas: entradasSalidas }
+                       respaldo: respaldo, entradas_salidas: entradasSalidas,
+                       opciones_avanzadas: avanzadas }
         return mapa[clave] ?? null
     }
     // Flickables (y ListView) de la sección, en orden de recorrido
@@ -475,15 +476,19 @@ Item {
             }
         }
 
-        // Opciones avanzadas = reasignación de E/S (R8, tanda 8, D8-5.12): solo el
-        // ingeniero; el backend es la autoridad (rol, ciclo, conflictos, confirmaciones)
+        // Opciones avanzadas (C9, tanda 9, D9-10): Manejo de ciclos para técnico
+        // e ingeniero y, solo para el ingeniero, la reasignación de E/S (R8,
+        // tanda 8, D8-5.12). El backend es la autoridad (rol, ciclo, confirmaciones)
         Loader {
-            id: reasignacion
-            objectName: "cargadorReasignacion"
+            id: avanzadas
+            objectName: "cargadorOpcionesAvanzadas"
             active: raiz.seccionActiva === "opciones_avanzadas"
             anchors.fill: parent
-            sourceComponent: OpcionesReasignacion {
+            anchors.topMargin: raiz.edicionPermitida ? 0 : raiz.m(84)
+            sourceComponent: OpcionesAvanzadas {
                 teclado: raiz.teclado
+                puedeReasignar: control.puedeReasignarIo
+                motivoManejo: control.motivoManejoCiclos
             }
         }
 

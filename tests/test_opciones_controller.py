@@ -38,9 +38,11 @@ def test_identidad_y_secciones_de_un_tecnico():
     assert c.sesionActiva is True
     assert (c.usuario, c.nombre, c.rol) == ("anar", "Ana Ruiz", "tecnico")
     assert [s["clave"] for s in c.secciones][0] == "parametros_ciclo"
-    # D8-5.12 (tanda 8, R8): Opciones avanzadas queda solo para el ingeniero
-    assert len(c.secciones) == 6 + len(COMUNES_T6) + 1   # cuatro técnicas + Usuarios + Conectividad + O2c–O2e + Respaldo (O2h)
-    assert "opciones_avanzadas" not in [s["clave"] for s in c.secciones]
+    # C9 (tanda 9, D9-10): Opciones avanzadas vuelve al técnico (Manejo de
+    # ciclos); la reasignación de E/S sigue solo para el ingeniero
+    assert len(c.secciones) == 7 + len(COMUNES_T6) + 1   # cinco técnicas + Usuarios + Conectividad + O2c–O2e + Respaldo (O2h)
+    assert "opciones_avanzadas" in [s["clave"] for s in c.secciones]
+    assert c.puedeReasignarIo is False
     assert all(s["icono"].endswith(".svg") for s in c.secciones)
 
 

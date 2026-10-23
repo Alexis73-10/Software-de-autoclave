@@ -29,3 +29,5 @@ from autoclave.ui_qml.controllers import conectividad_controller  # noqa: F401
 from autoclave.ui_qml.controllers import respaldo_controller  # noqa: F401
 # OPCIONES > Opciones avanzadas = reasignación de E/S (R8, tanda 8).
 from autoclave.ui_qml.controllers import reasignacion_controller  # noqa: F401
+# OPCIONES > Opciones avanzadas > Manejo de ciclos (C9, tanda 9, D9-10).
+from autoclave.ui_qml.controllers import manejo_ciclos_controller  # noqa: F401
