@@ -249,6 +249,9 @@ FAMILIAS = {
     "sistema.estado_seguro_causa_": lambda: [c for c in __import__(
         "autoclave.ui_qml.bridge.ui_bridge", fromlist=["_CAUSAS_ESTADO_SEGURO"]
     )._CAUSAS_ESTADO_SEGURO if c != "paro_liberado"],
+    # U10a (tanda 10, D10-1.2): TextoAjustable.qml busca "abrev.<clave>" con
+    # I18n.existe (la abreviatura es optativa); las que hay existen en ambos idiomas
+    "abrev.": lambda: [c for c, _ in _hojas(ES["abrev"])],
     # O3 (tanda 6): entradas mostradas del programa
     "ciclo.entrada_corta_": lambda: list(__import__(
         "autoclave.ui_qml.domain.entradas_mostradas", fromlist=["_RUTA_STATUS"])._RUTA_STATUS),
