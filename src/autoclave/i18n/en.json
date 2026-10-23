@@ -975,7 +975,8 @@
     "CIC-10": {
       "titulo": "Safe state halted",
       "plantilla": "{motivo}. The chamber is still not considered safe.",
-      "accion": "Do not open the door. Check the Main probe or assign another probe as Main in OPTIONS › Cycle parameters › Sensors (technician or engineer). If it is not resolved, call technical service."
+      "accion": "Do not open the door. Check the Main probe or assign another probe as Main in OPTIONS › Cycle parameters › Sensors (technician or engineer). If it is not resolved, call technical service.",
+      "accion_sin_presion": "Do not open the door. Without the chamber pressure sensor the chamber cannot be brought to a safe state. Check the chamber pressure sensor connection or call technical service."
     },
     "CIC-11": {
       "titulo": "Unstable communication during sterilization",
@@ -1787,7 +1788,7 @@
     }
   },
   "estado_seguro_motivos": {
-    "sin_presion_camara": "Chamber pressure sensor without reading: the safe state cannot confirm the pressure. Call technical service",
+    "sin_presion_camara": "Chamber pressure sensor without reading: without the chamber pressure sensor the chamber cannot be brought to a safe state. Check the chamber pressure sensor connection or call technical service",
     "sonda_temperatura": "Main probe without reading: the safe state cannot confirm the temperature",
     "sonda_enfriamiento": "Main probe without reading: cooling cannot be confirmed",
     "liquido_caliente": "Exhaust time limit reached with a hot liquid load: the fast exhaust is not used",

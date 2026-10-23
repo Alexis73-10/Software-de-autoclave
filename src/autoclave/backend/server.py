@@ -1246,7 +1246,8 @@ def _alarma_dto(inst) -> dict:
         "nivel": inst.nivel.name,
         "titulo": inst.titulo,
         "descripcion": inst.descripcion,
-        "accion": inst.definicion.accion,
+        # T10 (D10-3): la acción según la causa (CIC-10 sin presión de cámara)
+        "accion": alarmas_i18n.accion(inst.definicion, inst.valores or {}),
         "origen": origen,
         "aparecida": _hora_iso(inst.aparecida),
         "estado": inst.estado.value,
