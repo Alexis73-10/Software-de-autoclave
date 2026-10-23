@@ -121,9 +121,12 @@ _SCRIPT = textwrap.dedent(r'''
 
 
 def correr(rol: str, pasos: str, rutas: dict | None = None, estado: str = "PREPARADO",
-           capturas: bool = False) -> dict:
+           capturas: bool = False, dir_capturas: Path | None = None) -> dict:
+    destino = Path(dir_capturas or CAPTURAS)
+    if capturas:
+        destino.mkdir(parents=True, exist_ok=True)
     cfg = {"rol": rol, "estado": estado, "rutas": rutas or {}, "pasos": textwrap.dedent(pasos),
-           "capturas": str(CAPTURAS) if capturas else ""}
+           "capturas": str(destino) if capturas else ""}
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg)],

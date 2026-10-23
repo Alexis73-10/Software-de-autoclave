@@ -339,7 +339,9 @@ def test_preparado_drenaje_invalido_reinicia_el_confirmador_de_apagado():
 def _ciclo(temp_drenaje=25.0, pres_chaqueta=300.0, temp_camara=120.0, pres_camara=200.0):
     estado = MagicMock()
     estado.sensores_temp = {"temp_camara": temp_camara, "temp_drenaje": temp_drenaje}
-    estado.sensores_pres = {"pres_camara": pres_camara, "pres_chaqueta": pres_chaqueta}
+    estado.sensores_pres = {"pres_camara": pres_camara, "pres_chaqueta": pres_chaqueta,
+                            # S1: empaque sin lectura falla el ciclo (SEN-08)
+                            "pres_empaque_1": 300.0, "pres_empaque_2": 300.0}
     estado.sensores_di = {"vapor_suministro": 1, "puerta_1_cerrada": 1, "puerta_2_cerrada": 1}
     estado.get_flag.return_value = False
     config = MagicMock()
@@ -411,7 +413,10 @@ def test_preparado_pres_chaqueta_sin_dato_apaga_vapor(valor):
 def test_presion_none_genera_error_ai(clase, sensor):
     obj, am, _ = _make(clase, None, **{sensor: None})
     assert obj.verificar_sensores() is False
-    assert f"ERROR_AI_{sensor.upper()}" in _reportadas(am)
+    # S1 (tanda 8, D8-1.3): sin lectura de presión tiene alarma propia
+    # (SEN-06 cámara, SEN-07 chaqueta; "llame a servicio"), no SEN-01
+    esperado = "SEN-06" if sensor == "pres_camara" else "SEN-07"
+    assert esperado in _reportadas(am)
 
 
 @pytest.mark.parametrize("clase", _ESTADOS)
@@ -445,7 +450,10 @@ def test_ciclo_sensor_critico_nan_es_sensor_ausente(sensor, grupo):
     ciclo, _, am = _ciclo()
     getattr(ciclo.estado, f"sensores_{grupo}")[sensor] = math.nan
     ciclo.run()
-    assert "SENSOR_AUSENTE" in ids_viejos_activados(am)
+    assert ciclo.estado.fase_ciclo == "SENSOR_AUSENTE"
+    # S1 (tanda 8): la presión de cámara sin lectura tiene código propio (SEN-04)
+    esperado = "SEN-04" if sensor == "pres_camara" else "SENSOR_AUSENTE"
+    assert esperado in ids_viejos_activados(am)
 
 
 def test_ciclo_valvula_reposo_pres_nan_sin_orden():

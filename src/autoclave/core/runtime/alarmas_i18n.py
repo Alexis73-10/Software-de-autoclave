@@ -18,6 +18,45 @@ from autoclave import i18n
 logger = logging.getLogger(__name__)
 
 
+# V8b (tanda 8, D8-5.11): motivos en español que arma el protocolo de fallo
+# (protocolo_fallo.bloqueado_motivo) y que llegan a la UI y a CIC-10 como
+# texto. Se reconocen por su comienzo y se presentan con el catálogo
+# estado_seguro_motivos.<clave>. Se aceptan también los textos anteriores a la
+# tanda 8 ("Timeout de ..."), por si quedan en un registro.
+_MOTIVOS_BLOQUEO = (
+    # S2 (tanda 8): carga líquida sellada sin sonda Principal
+    ("Sensor Principal sin lectura con carga líquida: cámara sellada",
+     "estado_seguro_motivos.sonda_liquido_sellada"),
+    ("Sensor Principal sin lectura: el estado seguro", "estado_seguro_motivos.sonda_temperatura"),
+    ("Sensor Principal sin lectura: no se puede confirmar el enfriamiento",
+     "estado_seguro_motivos.sonda_enfriamiento"),
+    ("Tiempo límite de descompresión con carga líquida", "estado_seguro_motivos.liquido_caliente"),
+    ("Timeout de descompresión con carga líquida", "estado_seguro_motivos.liquido_caliente"),
+)
+
+
+def clave_motivo_bloqueo(motivo) -> str:
+    """Clave del catálogo para un motivo de estado seguro detenido; "" si no se conoce."""
+    if not isinstance(motivo, str):
+        return ""
+    for prefijo, clave in _MOTIVOS_BLOQUEO:
+        if motivo.startswith(prefijo):
+            return clave
+    return ""
+
+
+def _valores_en_idioma(valores: dict, idioma: str) -> dict:
+    """Los valores de texto conocidos (motivos del estado seguro), en `idioma`."""
+    if idioma == i18n.IDIOMA_BASE:
+        return valores
+    salida = dict(valores)
+    for k, v in valores.items():
+        clave = clave_motivo_bloqueo(v)
+        if clave and i18n.existe(clave, idioma):
+            salida[k] = i18n.t(clave, idioma)
+    return salida
+
+
 def textos(definicion, valores: dict, idioma: str) -> dict:
     """{"titulo", "descripcion", "accion"} de la alarma en `idioma`."""
     codigo = definicion.codigo
@@ -42,7 +81,7 @@ def textos(definicion, valores: dict, idioma: str) -> dict:
     plantilla = entrada.get("plantilla")
     if isinstance(plantilla, str):
         try:
-            salida["descripcion"] = plantilla.format(**valores)
+            salida["descripcion"] = plantilla.format(**_valores_en_idioma(valores, idioma))
         except Exception:
             _avisar_una_vez(f"{codigo}:{idioma}", "Alarma %s: plantilla %s incompleta; se usa el español",
                             codigo, idioma)

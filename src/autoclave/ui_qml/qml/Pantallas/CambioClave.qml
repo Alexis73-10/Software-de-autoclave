@@ -190,6 +190,8 @@ Item {
         BarraSuperior {}   // transparente
 
         TarjetaContenido {
+            id: tarjetaContenido
+            objectName: "tarjetaCambioClave"
             width: parent.width - Escala.px(48)
             height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201
             anchors.horizontalCenter: parent.horizontalCenter
@@ -303,7 +305,9 @@ Item {
         id: barraInferior
         objectName: "barraInferiorCambioClave"
         escala: raiz.width / 1196
-        x: 34 * escala
+        // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
+        x: tarjetaContenido.x
+        width: tarjetaContenido.width
         y: raiz.height - 171 * escala
         version: I18n.t("app.version", I18n.lang)
         // Atrás e Inicio abandonan el cambio; inactivos mientras se envía

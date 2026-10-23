@@ -3,7 +3,7 @@
 import copy
 import time
 import threading
-from autoclave.state_machine.alarms.catalogo import COM_01, TARJETA_SIN_TRAMA_VALIDA
+from autoclave.state_machine.alarms.catalogo import COM_01, COM_04, TARJETA_SIN_TRAMA_VALIDA
 from autoclave.state_machine.state_machine import StateMachine
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
@@ -14,6 +14,8 @@ from autoclave.core.runtime.letalidad import calcular_incremento_f0
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime import aire_atmosferico_prueba
+from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.installation.profile import entrada_requerida, numero_puertas
@@ -45,6 +47,12 @@ _TICKS_SEGUROS_OLVIDAR_CICLO = 3
 _ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS"}
 # U4: lecturas seguidas con la DI vencida antes de TARJETA_SIN_TRAMA_VALIDA
 _DEBOUNCE_DI_VENCIDA = 3
+# D8-2.11 (tanda 8, Q1-P1): reintentos del ALL_OFF sin confirmar al salir del
+# modo prueba (uno por tick) antes de la alarma COM-04
+_REINTENTOS_ALL_OFF_SALIDA_PRUEBA = 3
+# TMG-03 de la revisión S2b: espera máxima del ACK de cada reintento (bajo
+# _sm_lock); el ALL_OFF normal espera 1 s
+_TIMEOUT_ACK_REINTENTO_ALL_OFF_S = 0.3
 
 
 class ControlLoop:
@@ -147,6 +155,14 @@ class ControlLoop:
         # T2-b (tanda 7): ticks seguidos con la tarjeta en "ok" (enlace hecho y
         # trama DI vigente); DESPEJAR de COM-02/03 exige _TICKS_ENLACE_OK
         self._ticks_tarjeta_ok = 0
+        # D8-2.9 (tanda 8, TMG-04): número de secuencia de la última trama DI
+        # contada; solo una trama DISTINTA y nueva suma a _ticks_tarjeta_ok
+        self._ultima_seq_di_contada = None
+        # TMG-01 (revisión S2a): incrementos de F0 recientes (instante, valor)
+        # para descontar los acreditados después de la última DI válida
+        # cuando se abre un tramo sin datos
+        self._f0_recientes = []
+        self._f0_tramo_descontado = None
         self._com01_activa = False
         self._sin_di_activa = False
         # Ticks seguidos con la DI vencida y el enlace hecho (debounce de 3
@@ -164,6 +180,22 @@ class ControlLoop:
         # Modo prueba (bench validation): pausa state_machine.update() sin
         # detener el resto del loop (sensores, puertas, enlace serial).
         self._test_mode = threading.Event()
+        # D8-2.11 (tanda 8): reintentos pendientes del ALL_OFF de la salida
+        # del modo prueba (la máquina sigue pausada mientras queden) y
+        # número del próximo; COM-04 activa hasta una confirmación.
+        self._reintentos_all_off = 0
+        self._reintento_all_off_n = 0
+        self._com04_activa = False
+        # D8-3.19: el lazo ya cerró el aire atmosférico en este modo prueba y
+        # registró el evento; se rearma cuando la tarjeta lo reporta cerrado
+        self._aire_prueba_cortado = False
+        # D8-3.19 (SAF-01/TMG-01 de la 2.ª revisión): último paso 1 completo
+        # (time.monotonic); presion_vigente exige que el estado esté al día
+        self._estado_publicado_mono: float | None = None
+        # D8-3.19 (SAF-01/TMG-02, re-revisión E1): instante tomado ANTES de
+        # leer Units en el paso 1; la compuerta del aire atmosférico exige que
+        # sea posterior a la confirmación de la señal de presión
+        self.estado_leido_mono: float | None = None
 
         # Acumulación de F0 (letalidad): timestamp del último tick que
         # acumuló, para calcular dt_min real (no el interval nominal).
@@ -220,6 +252,12 @@ class ControlLoop:
         # SAF-03 (revisión Q1): un tick que no se completa no cuenta como
         # enlace "ok" (enlace_confirmado_ok no queda en True con el lazo caído)
         self._ticks_tarjeta_ok = 0
+        # TMG-05 (revisión S2a): se conserva el número de la última trama
+        # contada (la misma trama tras el fallo no cuenta como nueva)
+        try:
+            self.estado.trama_di_nueva = False
+        except Exception:
+            pass
         self._excepciones_seguidas += 1
         if self._excepciones_seguidas == 1 or self._excepciones_seguidas % _LOG_CADA_EXCEPCIONES == 0:
             logger.exception("ControlLoop: error inesperado en el tick (%d seguidos)",
@@ -410,6 +448,16 @@ class ControlLoop:
         backend (órdenes de puerta, revisión de seguridad de la etapa 2)."""
         return self._desconectado_desde is not None
 
+    @property
+    def desconexion_en_tolerancia(self) -> bool:
+        """D8-2.13 (tanda 8, Q1-P4): el enlace está caído y todavía no venció
+        la tolerancia de COM-02 (_TOLERANCIA_DESCONEXION_SEG). /cycle/abort
+        acepta entonces la cancelación en espera, como en R1-P5. Lectura de
+        un float desde el hilo HTTP (bajo _sm_lock en el backend)."""
+        desde = self._desconectado_desde
+        return (desde is not None
+                and time.monotonic() - desde < self._TOLERANCIA_DESCONEXION_SEG)
+
     def _di_vigente(self) -> bool:
         """True si la última trama DI del enlace tiene a lo sumo
         _VIGENCIA_DI_SEG segundos. Un enlace que no informa la edad (o la
@@ -418,6 +466,25 @@ class ControlLoop:
         if isinstance(edad, bool) or not isinstance(edad, (int, float)):
             return False
         return edad <= self._VIGENCIA_DI_SEG
+
+    def _ai_vigente(self) -> bool:
+        """True si la última trama AI (presiones y temperaturas) tiene a lo
+        sumo _VIGENCIA_DI_SEG segundos. Mismo criterio de falla cerrada que
+        _di_vigente. Solo lo usa el aire atmosférico en modo prueba (D8-3.19)."""
+        edad = getattr(self.link, "edad_ultima_ai", lambda: None)()
+        if isinstance(edad, bool) or not isinstance(edad, (int, float)):
+            return False
+        return edad <= self._VIGENCIA_DI_SEG
+
+    @property
+    def presion_vigente(self) -> bool:
+        """D8-3.19: datos vigentes (enlace + DI), trama AI al día y estado
+        publicado por el paso 1 hace a lo sumo _VIGENCIA_DI_SEG; sin eso,
+        pres_camara puede ser una lectura congelada."""
+        publicado = getattr(self, "_estado_publicado_mono", None)
+        if publicado is None or time.monotonic() - publicado > self._VIGENCIA_DI_SEG:
+            return False      # el tick no publica estado: pres_camara congelada
+        return self.datos_vigentes and self._ai_vigente()
 
     @property
     def datos_vigentes(self) -> bool:
@@ -439,9 +506,84 @@ class ControlLoop:
             )
         self._puerta_2_no_declarada_cerrada = cerrada
 
+    def _secuencia_di(self):
+        """D8-2.9: número de secuencia de la trama DI vigente según el enlace,
+        o None si el enlace no lo informa como entero (dobles de prueba que no
+        lo implementan)."""
+        try:
+            seq = self.link.secuencia_ultima_di()
+        except Exception:
+            return None
+        if isinstance(seq, bool) or not isinstance(seq, int):
+            return None
+        return seq
+
     def _contar_enlace_ok(self) -> None:
-        """T2-b: cuenta los ticks seguidos con estado_tarjeta "ok"."""
-        self._ticks_tarjeta_ok = self._ticks_tarjeta_ok + 1 if self.estado_tarjeta == "ok" else 0
+        """T2-b: cuenta las tramas DI vigentes seguidas con estado_tarjeta
+        "ok". D8-2.9 (tanda 8, TMG-04): solo cuenta una trama DISTINTA y nueva
+        (por su número de secuencia); varios ticks que leen la misma trama
+        cuentan una vez. Publica en `estado.trama_di_nueva` si en este tick
+        llegó una trama nueva y vigente, para la salida de la tolerancia por
+        DI vencida de CicloState.
+
+        DECISIÓN SIN CONFIRMAR: un enlace que no informa la secuencia (solo los
+        dobles de prueba; SerialLink siempre la informa) cuenta cada tick "ok"
+        como trama nueva, igual que antes de D8-2.9."""
+        nueva = False
+        self._publicar_ultima_di_valida()
+        if self.estado_tarjeta == "ok":
+            seq = self._secuencia_di()
+            if seq is None or seq != self._ultima_seq_di_contada:
+                nueva = True
+                self._ticks_tarjeta_ok += 1
+            if seq is not None:
+                self._ultima_seq_di_contada = seq
+        else:
+            # La trama vigente antes de la caída no cuenta como nueva al volver
+            # (su número se conserva: solo una trama posterior suma)
+            self._ticks_tarjeta_ok = 0
+        try:
+            self.estado.trama_di_nueva = nueva
+        except Exception:
+            logger.exception("ControlLoop: no se pudo publicar trama_di_nueva")
+
+    def _publicar_ultima_di_valida(self) -> None:
+        """TMG-01 (revisión S2a): publica en `estado.ultima_di_valida_mono` el
+        instante (monotonic) de la última trama DI vigente, para que el tramo
+        sin datos del ciclo empiece ahí y no al detectarlo."""
+        try:
+            if self.estado_tarjeta != "ok":
+                return
+            edad = self.link.edad_ultima_di()
+            if isinstance(edad, bool) or not isinstance(edad, (int, float)) or edad < 0:
+                return
+            self.estado.ultima_di_valida_mono = time.monotonic() - float(edad)
+        except Exception:
+            logger.exception("ControlLoop: no se pudo publicar la última DI válida")
+
+    def _descontar_f0_tramo_sin_datos(self) -> None:
+        """TMG-01 (revisión S2a): al abrirse un tramo sin datos del ciclo (con
+        inicio en la última DI válida), resta el F0 acreditado después de ese
+        instante. Una sola vez por tramo."""
+        desde = getattr(self.state_machine.ciclo, "pausa_sin_datos_desde", None)
+        if isinstance(desde, bool) or not isinstance(desde, (int, float)):
+            return
+        if desde == self._f0_tramo_descontado:
+            return
+        self._f0_tramo_descontado = desde
+        # TMG-10 (re-revisión S2a): si el tramo se detecta ya fuera de las
+        # fases que acumulan (la exposición pudo terminar por tiempo o F0
+        # dentro del retroceso), no se descuenta: el registro quedaría por
+        # debajo del F0 con que se dio por cumplida la fase
+        if self.estado.fase_ciclo not in _F0_FASES_ACUMULAN:
+            self._f0_recientes = []
+            return
+        exceso = sum(inc for t, inc in self._f0_recientes if t > desde)
+        self._f0_recientes = [(t, inc) for t, inc in self._f0_recientes if t <= desde]
+        if exceso > 0:
+            self.estado.f0_acumulado = max(0.0, self.estado.f0_acumulado - exceso)
+            logger.warning("ControlLoop: F0 descontado %.4f min (acreditado sin datos válidos)",
+                           exceso)
 
     @property
     def enlace_confirmado_ok(self) -> bool:
@@ -570,14 +712,19 @@ class ControlLoop:
             for alarm_id in sorted(self._alarmas_tarjeta):
                 self.alarm_manager.resolver(alarm_id)
             self._alarmas_tarjeta.clear()
+            # D8-2.11: el handshake incluye un ALL_OFF confirmado
+            self._salidas_confirmadas("handshake")
             return
 
-        en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
-        if ev.origen == "operacion" and en_ciclo:
-            # TMG-07: si el ciclo ya terminaba (resultado pendiente), el
-            # aborto no actúa y se sigue la ruta de fuera de ciclo.
-            if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
-                return
+        # TMG-09 (re-revisión S2a): bajo _sm_lock y sin apagado en curso, como
+        # el aborto por desconexión (TMG-04)
+        with self._sm_lock:
+            en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
+            if ev.origen == "operacion" and en_ciclo and not self._apagando:
+                # TMG-07: si el ciclo ya terminaba (resultado pendiente), el
+                # aborto no actúa y se sigue la ruta de fuera de ciclo.
+                if self.state_machine.ciclo.abortar_por_falla_io(ev.alarm_id, ev.motivo):
+                    return
 
         # La acción de seguridad va antes que la alarma (SAF-01 de T1): un
         # error al registrar no debe impedir el nuevo handshake.
@@ -631,10 +778,15 @@ class ControlLoop:
             # solo una vez agotada la tolerancia: una caída breve (ruido
             # momentáneo en el serial) no debe tirar el ciclo completo.
             if (self._desconectado_desde is not None
-                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG
-                    and self.estado.get_machine_state() == GlobalState.CICLO):
-                self.state_machine.ciclo.abortar_por_desconexion(
-                    segundos=now - self._desconectado_desde)
+                    and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG):
+                # TMG-04 (revisión S2a): bajo _sm_lock, como el resto de las
+                # mutaciones del ciclo (el backend lee tolerancia_di_activa
+                # con ese lock)
+                with self._sm_lock:
+                    if (not self._apagando
+                            and self.estado.get_machine_state() == GlobalState.CICLO):
+                        self.state_machine.ciclo.abortar_por_desconexion(
+                            segundos=now - self._desconectado_desde)
         elif connected and not self.link_was_connected:
             self._desconectado_desde = None
             self._bloqueo_apagado = False   # tras reconectar, volver a apagar
@@ -669,10 +821,18 @@ class ControlLoop:
             self._di_vista_en_conexion = False
             # TMG-01 (revisión Q1): el tramo sin datos no acredita F0
             self._f0_ultimo_tick = None
+            # D8-2.7: ni cuenta como exposición (desconexión antes de COM-02)
+            self._marcar_ciclo_sin_datos()
+            self._descontar_f0_tramo_sin_datos()
             return
 
         # 1. Publicar estado global
+        # `now` (inicio del tick) es anterior a la lectura de Units: sirve de
+        # instante de lectura (SAF-01/TMG-02) y, por ser más antiguo, deja la
+        # vigencia del estado del lado conservador; sin otra llamada al reloj
         self.estado.update(self.units.get_all())
+        self.estado_leido_mono = now
+        self._estado_publicado_mono = now
 
         # 2. Paro de emergencia → actualiza flag en estado. DI crudo, contacto
         # NC: EmergencyStop interpreta 0 o ausente como paro (D-16).
@@ -700,6 +860,9 @@ class ControlLoop:
                 and now - self._conectado_desde < self._VIGENCIA_DI_SEG):
             # TMG-01 (revisión Q1): sin la primera DI tampoco se acredita F0
             self._f0_ultimo_tick = None
+            # D8-2.7: la ventana tras reconectar tampoco cuenta como exposición
+            self._marcar_ciclo_sin_datos()
+            self._descontar_f0_tramo_sin_datos()
             return
 
         # 2b. Suministro eléctrico → actualiza flag en estado. Sin la entrada
@@ -740,11 +903,27 @@ class ControlLoop:
                     "Modo prueba cancelado automáticamente: paro de emergencia activado."
                 )
 
+            # D8-2.11 (tanda 8): reintentos del ALL_OFF de la salida del modo
+            # prueba. Mientras queden, la máquina sigue pausada como en el
+            # modo prueba, salvo con el paro activo (aplica su protocolo).
+            if self._reintentos_all_off > 0 and not self._test_mode.is_set():
+                self._reintentar_all_off()
+            pausada = self._test_mode.is_set() or (
+                self._reintentos_all_off > 0 and not self.estado.get_flag("PARO_EMERGENCIA"))
+
+            # 2e. D8-3.19 (tanda 8): en modo prueba, el aire atmosférico de la
+            # cámara abierto con la cámara presurizada o sin lectura de presión
+            # se cierra (la orden de abrir ya se rechaza en /io/test/output).
+            aire_cortado = (self._vigilar_aire_atmosferico_prueba(
+                                vigentes=connected and not self.desconectado
+                                and self._di_vigente() and self._ai_vigente())
+                            if self._test_mode.is_set() else None)
+
             # 3. Dispositivos → actúan (pausado durante el modo prueba: las
             # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
             # cada tick mientras están CERRADO, lo que pisaría el control
             # manual de esas mismas salidas desde /io/test/output).
-            if not self._test_mode.is_set():
+            if not pausada:
                 for door in self.doors:
                     door.update()
 
@@ -752,7 +931,7 @@ class ControlLoop:
             self.door_service.update()
 
             # 5. Máquina de estados global (pausada durante el modo prueba)
-            if not self._test_mode.is_set():
+            if not pausada:
                 # TMG-03 de T5: el estado seguro solo avanza con datos vigentes
                 # (sin volver a consultar el enlace: se usa la lectura de este tick)
                 vigentes = connected and not self.desconectado and self._di_vigente()
@@ -765,6 +944,10 @@ class ControlLoop:
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
         if cancelado_por_paro:
             self._avisar_cancelacion_prueba()
+        if aire_cortado:
+            self._evento_seguridad("aire_atmosferico_cortado_prueba", {
+                "motivo": aire_cortado,
+                "pres_camara": self.estado.sensores_pres.get("pres_camara")})
 
         # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
         # publicado, así que el orden respecto al paso 5 no importa. RR-01
@@ -782,6 +965,57 @@ class ControlLoop:
         # pisaría el control manual de esa salida).
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
+
+    def _marcar_ciclo_sin_datos(self) -> None:
+        """D8-2.7 (tanda 8): tick de CICLO sin datos de la tarjeta (la máquina
+        de estados no corre). El ciclo abre su tramo sin datos: la exposición
+        de ESTERILIZACION se pausa y se descuenta al volver los datos. Nunca
+        lanza: el tick sin conexión tiene que terminar igual."""
+        try:
+            with self._sm_lock:
+                # TMG-13 (re-revisión S2a): marcar puede abortar (SAF-05)
+                if self._apagando or self.estado.get_machine_state() != GlobalState.CICLO:
+                    return
+                marcar = getattr(self.state_machine.ciclo, "marcar_sin_datos_tarjeta", None)
+                if callable(marcar):
+                    marcar()
+        except Exception:
+            logger.exception("ControlLoop: no se pudo marcar el tramo sin datos del ciclo")
+
+    def _vigilar_aire_atmosferico_prueba(self, vigentes: bool = True) -> str | None:
+        """D8-3.19: con el modo prueba activo, mientras la condición de
+        apertura del aire atmosférico de la cámara no se cumpla (presión sobre
+        atm + brecha, sin lectura o datos no vigentes), se ordena cerrarlo en
+        cada tick, sin mirar lo que reporta la tarjeta (SAF-02 / TMG-01: la
+        trama DO puede llegar tarde o no llegar). Cerrar es el lado seguro:
+        inmediato, sin debounce, e idempotente. Si la tarjeta lo reportaba
+        abierto, devuelve el código del motivo una vez (para la bitácora);
+        se rearma cuando la tarjeta lo reporta cerrado."""
+        canal = EstadoAutoclave.map_do[aire_atmosferico_prueba.CLAVE_ESTADO] + 1
+        try:
+            salidas = getattr(self.estado, "salidas_do", None) or {}
+            reportada = bool(salidas.get(aire_atmosferico_prueba.CLAVE_ESTADO))
+            if vigentes:
+                permitido, codigo = aire_atmosferico_prueba.evaluar(
+                    self.estado, self.config_manager,
+                    senal_presente=aire_atmosferico_prueba.senal_camara(
+                        self.units, leido_mono=self.estado_leido_mono))
+            else:
+                permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
+        except Exception:
+            # TMG-06: un error aquí no debe abortar el tick; se cierra
+            logger.exception("Modo prueba: no se pudo evaluar el aire atmosférico; se cierra")
+            reportada, permitido, codigo = True, False, aire_atmosferico_prueba.SIN_PRESION
+        if not reportada:
+            self._aire_prueba_cortado = False
+        if permitido:
+            return None
+        self.set_do.set_output(canal, False)
+        if not reportada or self._aire_prueba_cortado:
+            return None
+        self._aire_prueba_cortado = True
+        logger.warning("Modo prueba: aire atmosférico de cámara cerrado por el lazo (%s)", codigo)
+        return codigo
 
     def _acumular_f0(self, now: float, vigentes: bool = True) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con
@@ -804,8 +1038,13 @@ class ControlLoop:
         # la tolerancia de DI vencida (T2-a) no se acredita F0: fase_ciclo
         # sigue en ESTERILIZACION y los ticks llegan a 0,5 s, así que el tope
         # de 2 intervalos de abajo no lo cubre.
-        if condiciones and (not vigentes or getattr(
-                self.state_machine.ciclo, "tolerancia_di_activa", False) is True):
+        # D8-2.7: tampoco en el tramo de una desconexión total o la ventana
+        # tras reconectar (exposicion_en_pausa)
+        ciclo = self.state_machine.ciclo
+        self._descontar_f0_tramo_sin_datos()
+        if condiciones and (not vigentes
+                            or getattr(ciclo, "tolerancia_di_activa", False) is True
+                            or getattr(ciclo, "exposicion_en_pausa", False) is True):
             condiciones = False
         if not condiciones:
             self._f0_ultimo_tick = None
@@ -828,7 +1067,11 @@ class ControlLoop:
             return
 
         dt_min = (now - ultimo) / 60.0
-        self.estado.f0_acumulado += calcular_incremento_f0(t_ref, dt_min)
+        incremento = calcular_incremento_f0(t_ref, dt_min)
+        self.estado.f0_acumulado += incremento
+        # TMG-01 (revisión S2a): se guardan los de los últimos segundos
+        self._f0_recientes.append((now, incremento))
+        self._f0_recientes = [(t, inc) for t, inc in self._f0_recientes if now - t <= 5.0]
 
     # =========================================================================
     # CONTROL DE VIDA
@@ -963,8 +1206,19 @@ class ControlLoop:
                                "lleva a estado seguro.")
 
             self._test_mode.set()
+            # D8-2.11: entrar cancela los reintentos pendientes (el modo
+            # prueba vuelve a pausar todo y su salida apaga de nuevo)
+            self._reintentos_all_off = 0
+            # TMG-04 de la revisión S2b (DECISIÓN SIN CONFIRMAR): una orden de
+            # inicio anterior a las pruebas no se aplica al salir (re-revisión
+            # S2b: queda en el log y en la bitácora)
+            if self.estado.get_flag("START_CICLO"):
+                logger.warning("Modo prueba: se descarta una orden de inicio de ciclo pendiente")
+                self._evento_seguridad("inicio_descartado_por_modo_prueba", {})
+            self.estado.set_flag("START_CICLO", False)
             self.set_do.buzer.stop()
-            self.set_do.reset_all_outputs()
+            if self.set_do.reset_all_outputs() is True:
+                self._salidas_confirmadas("modo_prueba")
             return True, ""
 
     def exit_test_mode(self) -> bool:
@@ -979,10 +1233,83 @@ class ControlLoop:
         with self._sm_lock:
             confirmado = self.set_do.reset_all_outputs() is True
             self._test_mode.clear()
+            # D8-2.11 (tanda 8, Q1-P1): sin ACK, la máquina sigue pausada y el
+            # tick reintenta el ALL_OFF hasta 3 veces (ver _reintentar_all_off)
+            if confirmado:
+                self._reintentos_all_off = 0
+                self._salidas_confirmadas("modo_prueba")
+            else:
+                self._reintentos_all_off = _REINTENTOS_ALL_OFF_SALIDA_PRUEBA
+                self._reintento_all_off_n = 1
         if not confirmado:
             logger.warning("Salida del modo prueba: la tarjeta no confirmó el ALL_OFF "
-                           "(quedaron órdenes individuales sin confirmación)")
+                           "(quedaron órdenes individuales sin confirmación); se "
+                           "reintenta %d veces", _REINTENTOS_ALL_OFF_SALIDA_PRUEBA)
         return confirmado
+
+    @property
+    def salidas_sin_confirmar_pendiente(self) -> bool:
+        """D8-2.11: quedan reintentos del ALL_OFF de la salida del modo prueba
+        (la máquina de estados sigue pausada)."""
+        return self._reintentos_all_off > 0
+
+    def _reintentar_all_off(self) -> None:
+        """D8-2.11 (tanda 8, Q1-P1): un reintento por tick, bajo _sm_lock. Si
+        confirma, se reanuda la máquina y se anota en la bitácora. Si se
+        agotan los 3, alarma COM-04 (bloquea el inicio), se reanuda la máquina
+        y, fuera de CICLO, se repite el handshake (su ALL_OFF confirmado es la
+        confirmación que la despeja)."""
+        n = self._reintento_all_off_n
+        try:
+            confirmado = self.set_do.reset_all_outputs(
+                timeout=_TIMEOUT_ACK_REINTENTO_ALL_OFF_S) is True
+        except Exception:
+            logger.exception("ControlLoop: el reintento %d del ALL_OFF falló", n)
+            confirmado = False
+        if confirmado:
+            self._reintentos_all_off = 0
+            logger.info("Salida del modo prueba: ALL_OFF confirmado en el reintento %d", n)
+            self._evento_seguridad("salidas_confirmadas_tras_reintento", {"reintento": n})
+            self._salidas_confirmadas("reintento", registrar=False)
+            return
+        self._reintentos_all_off -= 1
+        self._reintento_all_off_n = n + 1
+        if self._reintentos_all_off > 0:
+            return
+        logger.error("Salida del modo prueba: ALL_OFF sin confirmar tras %d reintentos; "
+                     "alarma COM-04", _REINTENTOS_ALL_OFF_SALIDA_PRUEBA)
+        try:
+            self.alarm_manager.activar(COM_04)
+            self._com04_activa = True
+        except Exception:
+            logger.exception("ControlLoop: no se pudo activar COM-04")
+        self._evento_seguridad("salidas_sin_confirmar",
+                               {"reintentos": _REINTENTOS_ALL_OFF_SALIDA_PRUEBA})
+        if self.estado.get_machine_state() != GlobalState.CICLO:
+            self.link.solicitar_handshake()
+
+    def _com04_en_gestor(self) -> bool:
+        # re-revisión S2b: solo ACTIVA (una RESUELTA_SIN_RECONOCER no cuenta)
+        try:
+            from autoclave.state_machine.alarms.instancia import (
+                EstadoInstancia, InstanciaAlarma)
+            inst = self.alarm_manager.obtener(COM_04)
+            return isinstance(inst, InstanciaAlarma) and inst.estado is EstadoInstancia.ACTIVA
+        except Exception:
+            return False
+
+    def _salidas_confirmadas(self, origen: str, registrar: bool = True) -> None:
+        """D8-2.11: llegó una confirmación (ALL_OFF con ACK o handshake
+        completo): se despeja COM-04 si estaba activa."""
+        # SAF-01 de la revisión S2b: también si el gestor la tiene activa
+        # aunque la marca local se haya desfasado
+        if not (self._com04_activa or self._com04_en_gestor()):
+            return
+        self._com04_activa = False
+        self._resolver_alarma(COM_04)
+        logger.info("COM-04 despejada: salidas confirmadas (%s)", origen)
+        if registrar:
+            self._evento_seguridad("salidas_confirmadas", {"origen": origen})
 
     # =========================================================================
     # CAMBIO DE CICLO ACTIVO
@@ -1001,12 +1328,12 @@ class ControlLoop:
         estado_maquina = self.estado.get_machine_state()
         if estado_maquina == GlobalState.CICLO:
             return "No se puede cambiar de ciclo mientras hay uno en curso."
-        if self.estado.get_flag("PARO_EMERGENCIA"):
-            if self.desconectado:
-                return "No se puede cambiar de ciclo sin conexión con la tarjeta de control."
-            if not self.estado.get_flag("PARO_REAL"):
-                return ("No se puede cambiar de ciclo sin datos válidos de la tarjeta "
-                        "de control.")
+        # D8-5.1 (tanda 8, Cristian 22-oct 12:08): sin tarjeta o sin datos
+        # vigentes (PARO_EMERGENCIA sin PARO_REAL, U4) el programa SÍ se puede
+        # cambiar: elegirlo no acciona nada y el inicio del ciclo sigue
+        # exigiendo datos, sensores y todas sus condiciones. Solo el paro
+        # leído (PARO_REAL) bloquea.
+        if self.estado.get_flag("PARO_EMERGENCIA") and self.estado.get_flag("PARO_REAL"):
             return "No se puede cambiar de ciclo con el paro de emergencia activado."
         if self.estado_seguro.activo or self._recuperacion_pendiente is not None:
             return "No se puede cambiar de ciclo mientras la cámara se lleva a estado seguro."

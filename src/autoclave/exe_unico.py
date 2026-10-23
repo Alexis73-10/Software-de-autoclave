@@ -133,17 +133,44 @@ def _lanzador(args) -> int:
             return 1
         logger.info("Instalación completada: arranque normal")
 
-    backend = None
+    import threading
+    from autoclave.backend import reinicio
+
+    backend = {"proc": None}
+    # R8: solo el backend que este lanzador vigila sabe reiniciarse (SAF-06)
+    entorno_backend = {**entorno, reinicio.VARIABLE_RELANZABLE: "1"}
+    fin_vigilancia = threading.Event()
+    lock_lanzar = threading.Lock()
+
+    def lanzar_backend():
+        # TMG-04 (revisión R8): no relanzar si las pantallas ya se cerraron
+        # (el finally apagaría el proceso viejo y quedaría uno huérfano)
+        with lock_lanzar:
+            if backend["proc"] is not None and fin_vigilancia.is_set():
+                logger.warning("Pantallas cerradas: no se relanza el backend")
+                return
+            proc = subprocess.Popen(_cmd_propio("--rol", "backend"), cwd=cwd, env=entorno_backend)
+            backend_guard.write_backend_pid(proc.pid)
+            backend["proc"] = proc
+            logger.info("Backend lanzado (PID %d)", proc.pid)
+
     if _backend_responde(BACKEND_URL):
         logger.warning("Ya hay un backend en %s: se usa ese y no se arranca otro", BACKEND_URL)
     else:
         backend_guard.cleanup_stale_backend()
-        backend = subprocess.Popen(_cmd_propio("--rol", "backend"), cwd=cwd, env=entorno)
-        backend_guard.write_backend_pid(backend.pid)
-        logger.info("Backend lanzado (PID %d)", backend.pid)
+        lanzar_backend()
         # Las pantallas se abren ya, sin esperar al backend: su intro muestra
         # las etapas reales de GET /arranque (antes se esperaba hasta 60 s y
         # la intro aparecía con el arranque ya hecho; observación del 19-oct).
+
+    # R8 (D8-5.12): el backend se reinicia para aplicar una reasignación de E/S
+    hilo_vigilancia = None
+    if backend["proc"] is not None:
+        hilo_vigilancia = threading.Thread(target=reinicio.vigilar_reinicios,
+                                           args=(lambda: backend["proc"], lanzar_backend, fin_vigilancia),
+                                           kwargs={"log": logger}, name="vigilancia-reinicio-backend",
+                                           daemon=True)
+        hilo_vigilancia.start()
 
     pantallas = [(1, args.monitor_puerta1)] if args.una_pantalla else \
         [(1, args.monitor_puerta1), (2, args.monitor_puerta2)]
@@ -152,8 +179,14 @@ def _lanzador(args) -> int:
         vigilar_pantallas(cmds, lambda cmd: subprocess.Popen(cmd, cwd=cwd, env=entorno),
                           barra=barra_tareas)
     finally:
-        if backend is not None:
-            _apagar_backend(BACKEND_URL, backend, logger)
+        with lock_lanzar:
+            fin_vigilancia.set()
+        if hilo_vigilancia is not None:
+            hilo_vigilancia.join(5)
+        with lock_lanzar:
+            proc = backend["proc"]
+        if proc is not None:
+            _apagar_backend(BACKEND_URL, proc, logger)
     return 0
 
 

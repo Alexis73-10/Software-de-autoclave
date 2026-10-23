@@ -74,11 +74,30 @@ Para correr en sitio sin copiar a Archivos de programa, cree un acceso directo a
 ### 1.5 Una pantalla o dos
 El acceso directo abre **las dos pantallas**: puerta 1 en el monitor 0 y puerta 2 en el monitor 1. Si el PC del equipo tiene **un solo monitor**, la ventana de la puerta 2 se abre a pantalla completa encima de la de la puerta 1.
 
-Rodeo: cree un acceso directo con el argumento `--una-pantalla`:
+El programa **no detecta** cuántos monitores hay (decisión D8-3.20 de la tanda 8): en un PC con un solo monitor hay que usar el argumento `--una-pantalla`, que abre solo la pantalla de la puerta 1 (con el backend, como siempre).
 
-```
-"C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla
-```
+Acceso directo de ejemplo (un solo monitor):
+
+1. Clic derecho en el escritorio > **Nuevo** > **Acceso directo**.
+2. En "Escriba la ubicación del elemento" pegue, **con las comillas**:
+   ```
+   "C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla
+   ```
+3. **Siguiente**; nombre: `Autoclave (una pantalla)`; **Finalizar**.
+4. Use ese acceso directo en lugar del normal (puede borrar el otro para no confundirse). Para arrancar solo al encender el PC, copie el acceso directo a la carpeta que abre `Win + R` > `shell:startup`.
+
+Variantes del mismo destino:
+
+| Caso | Destino del acceso directo |
+|---|---|
+| Un monitor, programa instalado | `"C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla` |
+| Un monitor, modo portátil (1.3) | `"<carpeta>\Autoclave.exe" --portable --una-pantalla` |
+| Un monitor que Windows no numera 0 | `"C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla --monitor-puerta1 1` |
+
+Notas:
+- Con `--una-pantalla` no se abre la pantalla de la puerta 2. En un equipo de dos puertas, la puerta 2 queda sin pantalla en este PC.
+- Si hay dos monitores y las ventanas salen cambiadas, use `--monitor-puerta1 1 --monitor-puerta2 0` en el acceso directo normal (sin `--una-pantalla`).
+- El asistente de instalación (sección 3) siempre se abre solo en la pantalla de la puerta 1; el argumento no cambia nada ahí.
 
 **[verificar en sitio]** cuántos monitores tiene el PC y cuál es el 0.
 
@@ -255,6 +274,52 @@ Si el perfil está **dañado** (ilegible o inválido), el asistente se abre solo
    - Un perfil hecho con la B (con capacidad y tipo de carga) se lee en la A sin problema, porque la A ignora los campos que no conoce.
    - Si la B migró la base de datos a una versión más nueva, la A la abre sin bajarla de versión. **[verificar en sitio]** que la A arranque bien después de la B.
 4. Si la A no arranca con esos datos, reinstale el perfil (sección 7) antes de tocar la base.
+
+## 8b. Actualizar un equipo ya instalado (B → C)
+
+Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **C** (`entrega/2026-10-23_c/`) sin perder nada. Se comprobó en el PC de la oficina con una copia simulada del equipo instalado: perfil del equipo de pruebas, base de datos de la B con un usuario y un parámetro cambiado, y calibración propia. El detalle está en `docs/informes/tanda8/K8_compilacion_c.md`.
+
+**Qué hace el programa al actualizar** (leído en `instalador_exe.py`, `utils/resources.py` y `utils/paths.py`):
+- reemplaza solo `C:\Program Files\Especifika\Autoclave` (`Autoclave.exe` y `_internal\`);
+- en `C:\ProgramData\Especifika\Autoclave` no borra ni reemplaza nada, salvo los programas de **fábrica** (`programa\autoclave\cycles\factory\`), que siempre se refrescan;
+- los archivos de configuración que ya existen en `programa\autoclave\config\` **no se reemplazan**. Por eso hay dos que se copian a mano (paso 6).
+
+**Orden, con el software cerrado:**
+1. **Cierre Autoclave por completo** (las dos pantallas). En el Administrador de tareas no debe quedar ningún `Autoclave.exe`.
+2. **Respaldo:** copie la carpeta completa `C:\ProgramData\Especifika\Autoclave` a la USB (por ejemplo, `respaldo_B_2026-10-23`). Es la vuelta atrás.
+3. Compruebe la copia de la C con `SHA256SUMS.txt` (sección 1.1).
+4. Abra `Autoclave\Autoclave.exe` de la C desde la USB. Pregunta "Ya hay un Autoclave instalado en este PC. ¿Actualizarlo con esta versión?": responda **Sí** y acepte el aviso de administrador.
+5. Al terminar, el programa se abre solo. **Ciérrelo otra vez por completo** (paso 1).
+6. **Reemplace estos dos archivos** de `C:\ProgramData\Especifika\Autoclave\programa\autoclave\config\` por los de la C, que están en `C:\Program Files\Especifika\Autoclave\_internal\autoclave\config\`:
+
+| Archivo | Por qué hay que reemplazarlo |
+|---|---|
+| `instances\ACV-2026-001.yaml` | En la C es la lista de **todos** los canales físicos, y el perfil decide cuáles se muestran (D8-3.17). Con el archivo de la B **no aparecen** Cámara 2, `descompresion_lenta`, el aire comprimido de chaqueta y de cámara, el agua de chaqueta ni el zumbador. Si el 22-oct se agregaron canales a mano (sección 6.1), el archivo de la C ya los trae: no hay que volver a editarlo. |
+| `global_params.json` | Trae dos parámetros del equipo nuevos: pausa máxima en esterilización (30 s) y espera sellada sin sonda (30 min). Reemplazarlo es seguro: los valores vigentes de los parámetros del equipo se guardan en la base de datos, no en este archivo, y se conservan. |
+
+7. Abra Autoclave con el acceso directo. En el primer arranque, la base de datos se actualiza sola a la versión 10.
+8. Compruebe:
+   - Información del sistema: versión y número de serie;
+   - que los usuarios entran;
+   - Parámetros del equipo: los valores de antes y los dos nuevos;
+   - Entradas/Salidas: Cámara 2 y `descompresion_lenta` visibles.
+
+**NO toque** (se conservan solos):
+
+| Ruta en `C:\ProgramData\Especifika\Autoclave` | Contenido |
+|---|---|
+| `installation_profile.json` | Perfil de instalación (bloqueado) |
+| `data\calibration.yaml` | **Calibración del equipo.** La C trae una calibración neutra (D8-3.18), pero solo se usa en un equipo nuevo: la del equipo no se reemplaza |
+| `data\autoclave.db` | Usuarios, historial, bitácora, parámetros del equipo, presión atmosférica calibrada y mantenimiento |
+| `programa\autoclave\cycles\user\` | Programas de ciclo del usuario |
+| `programa\autoclave\config\serial_link.json` | Puerto de la tarjeta |
+| `programa\autoclave\config\correo.json` | Correo (la contraseña está en el almacén de credenciales de Windows) |
+| `programa\autoclave\config\active_instances.yaml`, `calibration.yaml` y `models\` | Sin cambios entre la B y la C |
+
+**Volver a la B si la C falla:**
+1. Cierre Autoclave.
+2. Abra el `Autoclave.exe` de la B, responda Sí a "¿Actualizarlo?" y ciérrelo cuando se abra.
+3. **Reemplace la carpeta completa** `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2. Es necesario porque la C deja la base de datos en la versión 10, que la B no conoce.
 
 ## A frente a B
 

@@ -40,7 +40,7 @@ PanelModal {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width * 0.5
                 text: raiz.textoEquipo(fila.modelData.clave)
-                elide: Text.ElideRight
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 color: Colores.textoSecundario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoMedium
@@ -54,7 +54,7 @@ PanelModal {
                 text: !fila.modelData.disponible ? I18n.t("equipo.no_disponible", I18n.lang)
                     : fila.modelData.valorClave ? raiz.textoEquipo(fila.modelData.valorClave)
                     : (fila.modelData.valor ?? raiz.sinLectura)
-                elide: Text.ElideLeft
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 color: fila.modelData.disponible ? Colores.textoPrimario : Colores.textoGuia
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
@@ -77,6 +77,19 @@ PanelModal {
         anchors.left: parent.left; anchors.right: parent.right
         anchors.bottom: parent.bottom
         spacing: Escala.px(8)
+        // D8-3.21: Windows rechazó el apagado; el software ya se detuvo
+        Text {
+            objectName: "mensajeApagadoRechazado"
+            width: parent.width
+            visible: raiz.comandosSistema?.apagadoRechazado ?? false
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            text: I18n.t("equipo.apagado_windows_rechazado", I18n.lang)
+            color: Colores.advertenciaTexto
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: Escala.fuente(20)
+        }
         Text {
             objectName: "mensajeApagar"
             width: parent.width

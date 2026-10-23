@@ -37,6 +37,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from autoclave import i18n
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
 from autoclave.core.runtime import alarmas_i18n
+from autoclave.installation.modelo import desglosar_modelo
 from autoclave.services.domain.logging import ticket_formatter
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from autoclave.ui_qml.domain import reporte_resumen
@@ -53,6 +54,22 @@ MAX_CICLOS_CONSOLIDADO = 200
 MAX_DESTINOS_ENVIO = 11
 
 logger = logging.getLogger(__name__)
+
+
+def texto_empresa(modelo, serie, idioma: str | None = None) -> str:
+    """Línea de empresa de la cabecera del PDF. E2 (tanda 8; D8-0 y D8-3.23):
+    si el modelo sigue la regla "SPK-SAT …", se agregan la familia
+    ("Hospitalario"/"Laboratorio"), la capacidad y el tipo de carga, deducidos
+    del nombre guardado; un modelo anterior queda como antes."""
+    texto = i18n.t("exportacion.empresa", idioma, modelo=modelo or "", serie=serie or "")
+    datos = desglosar_modelo(modelo)
+    if datos is None:
+        return texto
+    return texto + " · " + i18n.t(
+        "exportacion.equipo_pdf", idioma,
+        clase=i18n.t("equipo.clase_" + datos["clase"], idioma),
+        capacidad=datos["capacidad_litros"],
+        carga=i18n.t("exportacion.carga_" + datos["tipo_carga"], idioma))
 
 
 def _en_hilo(tarea) -> None:
@@ -268,8 +285,7 @@ class AccionesCiclos(QObject):
             with tempfile.TemporaryDirectory() as carpeta:
                 ruta = Path(carpeta) / nombre
                 self._generar_pdf_resumen(ruta, {
-                    "empresa": i18n.t("exportacion.empresa", modelo=r.get("modelo") or "",
-                                      serie=r.get("serie") or ""),
+                    "empresa": texto_empresa(r.get("modelo"), r.get("serie")),
                     "titulo": i18n.t("exportacion.titulo_resumen"),
                     "periodo": texto_periodo,
                     "resumen": reporte_resumen.presentable(r),
@@ -327,8 +343,7 @@ class AccionesCiclos(QObject):
                                    desde=dominio.formatear_fecha(desde),
                                    hasta=dominio.formatear_fecha(hasta))
             portada = {
-                "empresa": i18n.t("exportacion.empresa", modelo=r.get("modelo") or "",
-                                  serie=r.get("serie") or ""),
+                "empresa": texto_empresa(r.get("modelo"), r.get("serie")),
                 "titulo": i18n.t("exportacion.titulo_consolidado"),
                 "periodo": texto_periodo,
                 "resumen": reporte_resumen.presentable(r),
@@ -484,8 +499,7 @@ class AccionesCiclos(QObject):
         fin = dominio.formatear_fecha(ciclo.get("fecha_fin"))
         hora_fin = dominio.formatear_hora(ciclo.get("fecha_fin"))
         return {
-            "empresa": i18n.t("exportacion.empresa", modelo=ciclo.get("modelo") or "",
-                              serie=ciclo.get("serie") or ""),
+            "empresa": texto_empresa(ciclo.get("modelo"), ciclo.get("serie")),
             "titulo": i18n.t("exportacion.titulo", numero=f"{ciclo['numero_ciclo']:06d}",
                              programa=ciclo.get("nombre_ciclo") or dominio.SIN_DATO),
             "campos": [

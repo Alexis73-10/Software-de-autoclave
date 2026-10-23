@@ -252,6 +252,7 @@ Item {
 
     TarjetaContenido {
         id: tarjeta
+        objectName: "tarjetaNuevoUsuario"
         x: Escala.px(24); y: Escala.px(176)
         width: parent.width - Escala.px(48)
         height: raiz.height - Escala.px(176) - raiz.width / 1196 * 201
@@ -593,7 +594,9 @@ Item {
         id: barraInferior
         objectName: "barraInferiorNuevoUsuario"
         escala: raiz.width / 1196
-        x: 34 * escala
+        // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
+        x: tarjeta.x
+        width: tarjeta.width
         y: raiz.height - 171 * escala
         version: I18n.t("app.version", I18n.lang)
         inicioActivo: true

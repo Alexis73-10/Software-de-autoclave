@@ -3,8 +3,12 @@
 Una sola fuente: la lista de canales habilitados sale de `io_enabled` del
 equipo activo (`config/instances/<activa>.yaml`); este módulo la cruza con las
 posiciones de `EstadoAutoclave` para dar id físico, clave i18n y tipo de salida.
+
+D8-3.17 (tanda 8): el YAML es el máximo físico; con el perfil de instalación,
+solo quedan los canales que el perfil declara (`filtrar_por_perfil`).
 """
 import logging
+import re
 from pathlib import Path
 
 from ruamel.yaml import YAML
@@ -34,8 +38,14 @@ def _config_dir() -> Path:
     return Path(resource_path("autoclave/config"))
 
 
-def leer_io_enabled(config_dir: Path | None = None) -> dict[str, list[str]]:
-    """`io_enabled` del equipo activo; vacío si falta el archivo."""
+def leer_io_enabled(config_dir: Path | None = None, profile=None) -> dict[str, list[str]]:
+    """`io_enabled` del equipo activo; vacío si falta el archivo. Con un
+    perfil de instalación, solo los canales que el perfil declara."""
+    io = _leer_yaml(config_dir)
+    return filtrar_por_perfil(io, profile)
+
+
+def _leer_yaml(config_dir: Path | None) -> dict[str, list[str]]:
     base = Path(config_dir) if config_dir is not None else _config_dir()
     vacio = {"DI": [], "DO": [], "AI": []}
     try:
@@ -50,6 +60,74 @@ def leer_io_enabled(config_dir: Path | None = None) -> dict[str, list[str]]:
     return {k: [str(n) for n in (io.get(k) or [])] for k in vacio}
 
 
+# Canales que dependen de la puerta: nombre -> (número de puerta, función).
+# La función es la clave de la configuración de la puerta (factory.py).
+_RE_PUERTA_DI = re.compile(r"^(?:puerta_(\d)_(abierta|cerrada)|(atrapamiento)_puerta_(\d))$")
+_RE_PUERTA_DO = re.compile(r"^(abrir|cerrar|bloqueo|desbloqueo)_puerta_(\d)$")
+_FUNCION_DO = {"abrir": "abrir", "cerrar": "cerrar", "bloqueo": "bloquear",
+               "desbloqueo": "desbloquear"}
+_SALIDAS_FUENTE_VAPOR = frozenset({"vapor_generador", "vapor_caldera"})
+
+
+def _canales_de_puertas(profile) -> tuple[set[str], set[str]]:
+    """(DI, DO) que leen o accionan las puertas del perfil, con la misma
+    configuración con la que se construyen (devices/factory)."""
+    from autoclave.devices.factory.factory import build_doors_cfg
+    di, do = set(), set()
+    for n, cfg in enumerate(build_doors_cfg(profile), start=1):
+        di.update(str(v) for v in (cfg.get("di") or {}).values())
+        for funcion in (cfg.get("do") or {}):
+            for prefijo, clave in _FUNCION_DO.items():
+                if clave == funcion:
+                    do.add(f"{prefijo}_puerta_{n}")
+    return di, do
+
+
+def filtrar_por_perfil(io: dict[str, list[str]], profile) -> dict[str, list[str]]:
+    """D8-3.17: deja solo los canales que el perfil declara. Fuentes:
+    `temperature_probes` (sondas), `supply_inputs` (entradas de suministro),
+    `door_count`/`door_type` (entradas y salidas de puerta, sensores de
+    empaque) y `vapor_source` (salidas de la fuente de vapor). Los canales
+    que el perfil no gobierna (vapor de cámara, escapes, paro...) quedan.
+    Sin un perfil de instalación cargado, el YAML completo (máximo físico)."""
+    from autoclave.installation.profile import (
+        InstallationProfile, SUPPLY_INPUT_KEYS, TEMPERATURE_PROBE_KEYS, entrada_requerida,
+        salidas_vapor_permitidas, sensores_empaque, sonda_instalada)
+    if not isinstance(profile, InstallationProfile):
+        return {k: list(v) for k, v in io.items()}
+    di_puertas, do_puertas = _canales_de_puertas(profile)
+    empaques = set(sensores_empaque(profile))
+    vapor = salidas_vapor_permitidas(profile)
+
+    def ai_ok(nombre: str) -> bool:
+        clave = clave_estado(nombre)
+        if clave.startswith("temp_"):
+            # una sonda que el perfil no declara (p. ej. temp_drenaje_camara,
+            # sin posición en la trama) no aparece
+            return clave in TEMPERATURE_PROBE_KEYS and sonda_instalada(profile, clave)
+        if clave.startswith("pres_empaque_"):
+            return clave in empaques
+        return True
+
+    def di_ok(nombre: str) -> bool:
+        if nombre in SUPPLY_INPUT_KEYS:
+            return entrada_requerida(profile, nombre)
+        if _RE_PUERTA_DI.match(nombre):
+            return nombre in di_puertas
+        return True
+
+    def do_ok(nombre: str) -> bool:
+        if nombre in _SALIDAS_FUENTE_VAPOR:
+            return nombre in vapor
+        if _RE_PUERTA_DO.match(nombre):
+            return nombre in do_puertas
+        return True
+
+    return {"AI": [n for n in io.get("AI", []) if ai_ok(n)],
+            "DI": [n for n in io.get("DI", []) if di_ok(n)],
+            "DO": [n for n in io.get("DO", []) if do_ok(n)]}
+
+
 def clave_estado(nombre: str) -> str:
     """Nombre del YAML (o de /io/channels) -> clave de EstadoAutoclave."""
     return _ALIAS_ESTADO.get(nombre, nombre)
@@ -58,12 +136,12 @@ def clave_estado(nombre: str) -> str:
 _clave_estado = clave_estado
 
 
-def canales_digitales(tipo: str, config_dir: Path | None = None) -> list[dict]:
+def canales_digitales(tipo: str, config_dir: Path | None = None, profile=None) -> list[dict]:
     """Canales DI o DO habilitados, en el orden de `io_enabled`. Los que no
     existen en EstadoAutoclave se omiten (no hay posición que leer)."""
     mapa = EstadoAutoclave.map_di if tipo == "DI" else EstadoAutoclave.map_do
     salida = []
-    for nombre in leer_io_enabled(config_dir)[tipo]:
+    for nombre in leer_io_enabled(config_dir, profile)[tipo]:
         clave = _clave_estado(nombre)
         if clave not in mapa:
             logger.warning("Canal %s %s sin posición en EstadoAutoclave: se omite", tipo, nombre)
@@ -80,12 +158,12 @@ def canales_digitales(tipo: str, config_dir: Path | None = None) -> list[dict]:
     return salida
 
 
-def sensores(tipo: str, config_dir: Path | None = None) -> list[dict]:
+def sensores(tipo: str, config_dir: Path | None = None, profile=None) -> list[dict]:
     """Sensores analógicos habilitados de `temperature` o `pressure`."""
     es_temp = tipo == "temperature"
     mapa = EstadoAutoclave.map_temp if es_temp else EstadoAutoclave.map_pres
     salida = []
-    for nombre in leer_io_enabled(config_dir)["AI"]:
+    for nombre in leer_io_enabled(config_dir, profile)["AI"]:
         clave = _clave_estado(nombre)
         if clave not in mapa:
             continue

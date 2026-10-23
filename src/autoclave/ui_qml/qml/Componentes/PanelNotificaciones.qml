@@ -31,7 +31,13 @@ PanelModal {
     // Encima de los demás modales de la pantalla (SAF-02 de U1)
     z: 200
 
-    onVisibleChanged: if (!visible) { grupoAlarmas.expandido = false; grupoAvisos.expandido = false }
+    onVisibleChanged: if (!visible) {
+        grupoAlarmas.expandido = false; grupoAvisos.expandido = false
+        // D8-2.15: el rechazo de DESPEJAR se olvida al cerrar el panel
+        if (raiz.comandosSistema?.descartarMensajeDespejar) raiz.comandosSistema.descartarMensajeDespejar()
+    }
+    // D8-2.15 (tanda 8): clave del catálogo del último rechazo de DESPEJAR
+    readonly property string mensajeDespejar: comandosSistema?.mensajeDespejar ?? ""
 
     // Nivel del catálogo (nombre de /status) → grupo. Desconocido: el más
     // llamativo (como UiBridge.prioridad_de).
@@ -168,6 +174,20 @@ PanelModal {
             id: columna
             width: parent.width
             spacing: 0
+
+            // D8-2.15 (tanda 8): motivo del rechazo de DESPEJAR, con el texto
+            // del catálogo (antes: el texto de la excepción HTTP)
+            Text {
+                objectName: "mensajeDespejar"
+                width: parent.width
+                visible: raiz.mensajeDespejar !== ""
+                bottomPadding: Escala.px(16)
+                text: raiz.mensajeDespejar !== "" ? I18n.t(raiz.mensajeDespejar, I18n.lang) : ""
+                wrapMode: Text.WordWrap
+                color: Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(22)
+            }
 
             Grupo {
                 id: grupoEmergencia

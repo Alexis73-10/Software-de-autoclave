@@ -58,9 +58,16 @@ def prueba_salidas():
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     ctx.estado.get_flag.return_value = False
     ctx.estado.sensores_di = {}
+    # D8-3.19 (tanda 8): el aire atmosférico solo se abre con la cámara a
+    # presión atmosférica
+    ctx.estado.sensores_pres = {"pres_camara": 75.0}
+    _atm = {"presion_atmosferica": 75.0, "rango_presion_atm": 5.0}
+    ctx.config_manager.get.side_effect = lambda k, d=None: _atm.get(k, d)
     ctx.doors = []
     ctx.control_loop.test_mode_active = True
     ctx.control_loop.apagando = False
+    ctx.control_loop.presion_vigente = True     # trama AI al día
+    ctx.units.senal_presion_presente.return_value = True    # ADC sobre adc_min
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")

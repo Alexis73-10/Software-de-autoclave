@@ -774,8 +774,6 @@ Item {
                                         width: parent.width * 0.6
                                         horizontalAlignment: Text.AlignRight
                                         wrapMode: Text.WordWrap
-                                        maximumLineCount: 3
-                                        elide: Text.ElideRight
                                         text: fila.modelData.valor
                                         color: Colores.textoPrimario
                                         font.family: Tipografia.familia
@@ -859,6 +857,7 @@ Item {
                         }
                     }
                     Text {
+                        objectName: "textoListo"
                         anchors.top: sello.bottom
                         anchors.topMargin: Escala.px(48)
                         width: parent.width

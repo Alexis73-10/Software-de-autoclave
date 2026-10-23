@@ -80,6 +80,9 @@ _CLAVES = {
     "ASIGNACION_INVALIDA": "opciones.err_asignacion",
     "SENSOR_NO_DISPONIBLE": "opciones.err_sensor",
     "asignacion_desfasada": "opciones.err_valor_cambio",
+    # D8-5.7 (tanda 8): reglas de carga líquida
+    "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
+    "COHERENCIA_LIQUIDO": "opciones.err_coherencia_liquido",
     # Opciones › Entradas / Salidas (planeacion_opciones_entradas_salidas.md):
     # el texto del backend (`detail`) acompaña a estas claves en pantalla
     "modo_prueba_rechazado": "io.err_rechazado",
@@ -91,6 +94,10 @@ _CLAVES = {
     "paro_emergencia": "io.err_rechazado",
     "apagado_en_curso": "io.err_rechazado",
     "fuente_vapor_no_instalada": "io.err_rechazado",
+    # D8-3.19 (tanda 8): texto completo del catálogo, sin el del backend
+    "aire_atmosferico_con_presion": "io.err_aire_con_presion",
+    "aire_atmosferico_sin_presion": "io.err_aire_sin_presion",
+    "aire_atmosferico_sin_referencia": "io.err_aire_sin_referencia",
     "sin_base_de_datos": "io.err_sin_base",
     "auditoria_no_disponible": "io.err_sin_base",
     "sin_calibracion_previa": "io.err_sin_previa",

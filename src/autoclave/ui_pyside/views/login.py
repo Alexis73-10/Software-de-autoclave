@@ -1,5 +1,3 @@
-import hashlib
-
 from PySide6.QtCore import QSettings, QSize, Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
@@ -14,10 +12,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from qfluentwidgets import InfoBar, InfoBarPosition
-
-
-def _hash_pw(pw: str) -> str:
-    return hashlib.sha256(pw.encode("utf-8")).hexdigest()
 
 
 _CARD_STYLE = """

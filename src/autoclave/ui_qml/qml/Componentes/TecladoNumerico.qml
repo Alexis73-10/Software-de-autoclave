@@ -62,7 +62,7 @@ Item {
         Text {
             width: parent.width
             text: ctrl.titulo
-            elide: Text.ElideRight
+            wrapMode: Text.Wrap
             color: Colores.textoSecundario
             font.family: raiz._estilo(TecladoProvisional.encabezadoTituloEstilo).familia
             font.weight: raiz._estilo(TecladoProvisional.encabezadoTituloEstilo).peso

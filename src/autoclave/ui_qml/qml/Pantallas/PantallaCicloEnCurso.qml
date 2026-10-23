@@ -77,14 +77,22 @@ Item {
     property bool pantallaCompleta: false
     // U4 (revisión SAF-02): la gráfica a pantalla completa tapa la tarjeta de
     // seguridad superpuesta y la campana; un aviso crítico la cierra
-    readonly property bool avisoCritico: seguridadCiclo.conteo > 0
+    // SAF-04 de la revisión S2b (D8-2.16): "CARGA NO ESTÉRIL" tampoco queda
+    // tapada por la gráfica a pantalla completa
+    readonly property bool avisoCritico: seguridadCiclo.conteo > 0 || cargaNoEsteril
     onAvisoCriticoChanged: if (avisoCritico) pantallaCompleta = false
     onPantallaCompletaChanged: if (pantallaCompleta && avisoCritico) pantallaCompleta = false
     // "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
     property string resultado: progreso?.resultado ?? ""
     readonly property bool terminado: resultado !== ""
+    // D8-2.16: todo ciclo terminado que no fue COMPLETADO (falla segura)
+    readonly property bool cargaNoEsteril: terminado && resultado !== "exitoso"
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
+    // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
+    // aceptada en espera de los datos de la tarjeta ("" = sin aviso)
+    property string avisoCancelacion: comandos?.aviso ?? ""
+    onAvisoCancelacionChanged: if (avisoCancelacion !== "") avisoComando.abrir()
 
     // ProgresoCiclo solo consulta el backend mientras esta pantalla se ve
     Binding {
@@ -312,6 +320,7 @@ Item {
 
     // ======================= panel principal =======================
     Rectangle {
+        id: tarjetaPrincipal
         objectName: "tarjetaCicloEnCurso"
         // B1: termina 10 px sobre la barra flotante (no 30 como en Opciones):
         // la barra de progreso llega a y 1723 del lienzo y no se reubica (D-19)
@@ -523,6 +532,33 @@ Item {
         onTiemposPulsado: raiz.tiemposPulsado()
         onPantallaCompletaPulsado: { raiz.pantallaCompleta = true; raiz.pantallaCompletaPulsado() }
 
+        // D8-2.16 (tanda 8, Q1-P7), PROVISIONAL (sin diseño): todo ciclo que
+        // no termine COMPLETADO ("exitoso") muestra "CARGA NO ESTÉRIL", igual
+        // que el ticket (T2-c de la tanda 7). Falla cerrada: un resultado
+        // desconocido también. No toma toques: no bloquea la gráfica.
+        Rectangle {
+            objectName: "cargaNoEsteril"
+            visible: raiz.cargaNoEsteril
+            anchors.horizontalCenter: parent.horizontalCenter
+            y: raiz.m(40)
+            width: raiz.m(960); height: raiz.m(110)
+            radius: raiz.m(10)
+            color: Colores.fondoTarjeta
+            border.width: raiz.m(4); border.color: Colores.alarmaAlta
+            Text {
+                anchors.centerIn: parent
+                width: parent.width - raiz.m(40)
+                horizontalAlignment: Text.AlignHCenter
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: raiz.fuente(20)
+                text: I18n.t("ciclo.carga_no_esteril", I18n.lang)
+                color: Colores.alarmaAlta
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: raiz.fuente(56)
+            }
+        }
+
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
         // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
         // U4: también con la tarjeta desconectada o sin datos (lo dice el texto).
@@ -637,7 +673,9 @@ Item {
     BarraInferiorMenu {
         id: barraInferior
         objectName: "barraInferiorCicloEnCurso"
-        x: raiz.m(34)
+        // D8-5.2: mismo x y ancho que la tarjeta de contenido de encima
+        x: tarjetaPrincipal.x
+        width: tarjetaPrincipal.width
         y: raiz.yb(1746)
         escala: raiz.m(1)
         personalizada: true
@@ -646,7 +684,7 @@ Item {
         // Celda izquierda: icono de equipo, modelo y serie
         Item {
             objectName: "botonEquipoCiclo"
-            x: 0; y: 0; width: raiz.m(313); height: parent.height
+            x: 0; y: 0; width: barraInferior.mx(313); height: parent.height
             // icono_autoclave.svg (viewBox 94 x 62, tinta en 5.5..85.5 x 5.5..56.5)
             Image {
                 x: raiz.m(71 - 5.5 - 34); y: raiz.m(1763 - 5.5 - 1746)
@@ -669,7 +707,7 @@ Item {
         // Celda central: avatar (iniciar sesión); deshabilitado sin conexión
         Item {
             objectName: "avatarCiclo"
-            x: raiz.m(313); y: 0; width: raiz.m(800 - 313); height: parent.height
+            x: barraInferior.mx(313); y: 0; width: barraInferior.mx(800 - 313); height: parent.height
             enabled: raiz.datosVigentes
             opacity: enabled ? 1.0 : 0.4
             Rectangle {
@@ -702,7 +740,7 @@ Item {
             id: botonCancelar
             objectName: "botonCancelarCiclo"
             // antes x 846, y 1768 de la pantalla; relativo a la barra (34, 1746)
-            x: raiz.m(846 - 34); y: raiz.m(1768 - 1746)
+            x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
             enabled: raiz.datosVigentes && !raiz.comandoOcupado
             opacity: enabled ? 1.0 : 0.4
@@ -856,14 +894,20 @@ Item {
     }
     PanelModal {
         id: avisoComando
+        objectName: "avisoComando"
         altoTarjeta: Escala.px(560)
         titulo: I18n.t("ciclo.aviso_titulo", I18n.lang)
         textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
-        onVisibleChanged: if (!visible) raiz.comandos?.descartarError()
+        onVisibleChanged: if (!visible) {
+            raiz.comandos?.descartarError()
+            if (raiz.comandos?.descartarAviso) raiz.comandos.descartarAviso()
+        }
         Text {
             width: parent.width
             text: raiz.errorComando === "confirmar" ? I18n.t("ciclo.confirmar_error", I18n.lang)
-                                                     : I18n.t("ciclo.cancelar_error", I18n.lang)
+                : raiz.errorComando !== "" ? I18n.t("ciclo.cancelar_error", I18n.lang)
+                : raiz.avisoCancelacion !== "" ? I18n.t(raiz.avisoCancelacion, I18n.lang)
+                : I18n.t("ciclo.cancelar_error", I18n.lang)
             wrapMode: Text.WordWrap
             color: Colores.textoPrimario
             font.family: Tipografia.familia

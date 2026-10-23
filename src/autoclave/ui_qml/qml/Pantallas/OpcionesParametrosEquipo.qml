@@ -209,7 +209,7 @@ Item {
             width: parent.width * 0.6
             Text {
                 width: parent.width
-                elide: Text.ElideRight
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 text: fila.titulo
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
@@ -230,7 +230,10 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             horizontalAlignment: Text.AlignRight
             width: parent.width * 0.36
-            elide: Text.ElideLeft
+            // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
+            height: parent.height; verticalAlignment: Text.AlignVCenter
+            wrapMode: Text.Wrap
+            fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
             text: fila.valor
             color: Colores.textoPrimario
             font.family: Tipografia.familia
@@ -306,7 +309,7 @@ Item {
                     anchors.verticalCenter: parent.verticalCenter
                     Text {
                         width: parent.width
-                        elide: Text.ElideRight
+                        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                         text: I18n.t("opciones.equipo_impresora", I18n.lang)
                         color: Colores.textoPrimario
                         font.family: Tipografia.familia

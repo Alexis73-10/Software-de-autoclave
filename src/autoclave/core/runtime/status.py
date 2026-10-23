@@ -135,6 +135,13 @@ class EstadoAutoclave:
         # T2-a (tanda 7): segundos del ciclo sin datos de la tarjeta (tolerancia
         # por DI vencida); pausan la exposición y van al pie del ticket
         self.sin_datos_tarjeta_s: float = 0.0
+        # D8-2.9 (tanda 8): True si en el tick actual llegó una trama DI
+        # vigente, distinta y nueva (lo publica ControlLoop antes de correr la
+        # máquina de estados); None = sin información (se cuenta cada tick)
+        self.trama_di_nueva = None
+        # TMG-01 (revisión S2a): instante (time.monotonic) de la última trama
+        # DI vigente; el tramo sin datos del ciclo empieza ahí. None = sin dato
+        self.ultima_di_valida_mono = None
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

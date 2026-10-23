@@ -12,6 +12,8 @@ import Autoclave.I18n
 // Con `marcable` (Historial) cada fila lleva a la izquierda una casilla para
 // marcarla (imprimir / enviar) y el encabezado una para marcar todas; la casilla
 // emite marcaAlternada / todasAlternadas, el resto de la fila sigue abriéndola.
+// Con `conOperador` (Reportes, ciclos de un tipo de fallo, D8-5.6) la última
+// columna muestra el operador en vez del resultado (todos tienen el mismo).
 // Medidas en px del mockup escaladas con `escala` (convención m(), D-18).
 // DISEÑO PROVISIONAL: el mockup v3 no tiene estas ventanas.
 Item {
@@ -21,6 +23,7 @@ Item {
     property var ciclos: []
     property bool seleccionable: false
     property bool marcable: false
+    property bool conOperador: false
     property var marcados: []           // ids marcados (los guarda bridge/ciclos_historial.py)
     property bool todasMarcadas: false
     // Texto y color del resultado a partir de su clave (los resuelve la pantalla)
@@ -81,7 +84,7 @@ Item {
         x: raiz._x(columna)
         width: raiz._columnas[columna] * raiz._anchoColumnas - raiz.m(12)
         anchors.verticalCenter: parent.verticalCenter
-        elide: Text.ElideRight
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         font.family: Tipografia.familia
         font.pixelSize: raiz.fuente(24)
         color: Colores.textoPrimario
@@ -97,7 +100,8 @@ Item {
             onAlternada: raiz.todasAlternadas(!raiz.todasMarcadas)
         }
         Repeater {
-            model: ["col_ciclo", "col_fecha", "col_hora", "col_programa", "col_resultado"]
+            model: ["col_ciclo", "col_fecha", "col_hora", "col_programa",
+                    raiz.conOperador ? "col_operador" : "col_resultado"]
             Celda {
                 required property string modelData
                 required property int index
@@ -147,9 +151,11 @@ Item {
             }
             Celda {
                 columna: 4
-                text: raiz.textoResultado(fila.modelData.resultado)
-                color: raiz.colorResultado(fila.modelData.resultado)
-                font.weight: Tipografia.pesoBold
+                text: raiz.conOperador ? fila.modelData.operador
+                                       : raiz.textoResultado(fila.modelData.resultado)
+                color: raiz.conOperador ? Colores.textoPrimario
+                                        : raiz.colorResultado(fila.modelData.resultado)
+                font.weight: raiz.conOperador ? Tipografia.pesoRegular : Tipografia.pesoBold
             }
             // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]: 22 de alto
             Image {

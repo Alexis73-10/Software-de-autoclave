@@ -1,6 +1,6 @@
 {
-  "parametros_equipo": {"timeout_puerta": "Door time limit", "temp_max_apertura": "Safe opening temperature", "rango_presion_atm": "Atmospheric pressure band (±)", "intervalo_impresion": "General printing rate", "intervalo_impresion_esterilizacion": "Printing rate in sterilization", "temp_segura_drenaje": "Safe drain temperature", "rango_temp_drenaje": "Drain temperature range", "presion_empaque": "Gasket pressure", "vacio_empaque": "Gasket vacuum", "timeout_chaqueta": "Jacket time limit", "tiempo_standby": "Standby", "tiempo_estable_alarma": "Alarm stability time", "presion_atmosferica": "Reference atmospheric pressure"},
-  "parametros_equipo_desc": {"timeout_puerta": "Maximum time for the door to finish opening or closing.", "temp_max_apertura": "Above this chamber temperature the door does not open.", "rango_presion_atm": "Band around atmospheric pressure in which the chamber is considered at atmospheric pressure to open the door.", "intervalo_impresion": "How often a line is printed during the cycle.", "intervalo_impresion_esterilizacion": "How often a line is printed during sterilization.", "temp_segura_drenaje": "Drain temperature ceiling; above it, water cooling turns on.", "rango_temp_drenaje": "Tolerance over the safe temperature before the alarm.", "presion_empaque": "Door gasket pressure to consider it sealed.", "vacio_empaque": "Pressure below which the gasket is considered deflated.", "timeout_chaqueta": "Maximum time for the jacket to reach its pressure. Not yet used by the control.", "tiempo_standby": "Minutes without activity before the screens go to standby; 0 disables it.", "tiempo_estable_alarma": "Time a condition must hold before the alarm is raised or cleared.", "presion_atmosferica": "Atmospheric pressure at the installation site."},
+  "parametros_equipo": {"timeout_puerta": "Door time limit", "temp_max_apertura": "Safe opening temperature", "rango_presion_atm": "Atmospheric pressure band (±)", "intervalo_impresion": "General printing rate", "intervalo_impresion_esterilizacion": "Printing rate in sterilization", "temp_segura_drenaje": "Safe drain temperature", "rango_temp_drenaje": "Drain temperature range", "presion_empaque": "Gasket pressure", "vacio_empaque": "Gasket vacuum", "timeout_chaqueta": "Jacket time limit", "tiempo_standby": "Standby", "tiempo_estable_alarma": "Alarm stability time", "pausa_max_esterilizacion_s": "Maximum pause in sterilization", "espera_sellado_sin_sonda_min": "Sealed wait without probe", "presion_atmosferica": "Reference atmospheric pressure"},
+  "parametros_equipo_desc": {"timeout_puerta": "Maximum time for the door to finish opening or closing.", "temp_max_apertura": "Above this chamber temperature the door does not open.", "rango_presion_atm": "Band around atmospheric pressure in which the chamber is considered at atmospheric pressure to open the door.", "intervalo_impresion": "How often a line is printed during the cycle.", "intervalo_impresion_esterilizacion": "How often a line is printed during sterilization.", "temp_segura_drenaje": "Drain temperature ceiling; above it, water cooling turns on.", "rango_temp_drenaje": "Tolerance over the safe temperature before the alarm.", "presion_empaque": "Door gasket pressure to consider it sealed.", "vacio_empaque": "Pressure below which the gasket is considered deflated.", "timeout_chaqueta": "Maximum time for the jacket to reach its pressure. Not yet used by the control.", "tiempo_standby": "Minutes without activity before the screens go to standby; 0 disables it.", "tiempo_estable_alarma": "Time a condition must hold before the alarm is raised or cleared.", "pausa_max_esterilizacion_s": "Maximum total of pauses caused by missing control board data in one sterilization. If exceeded, the cycle fails due to unstable communication.", "espera_sellado_sin_sonda_min": "Liquid load: if the Main probe is lost during cooling and no other valid probe remains, the chamber waits sealed for this time before venting through the slow exhaust.", "presion_atmosferica": "Atmospheric pressure at the installation site."},
   "instalacion": {
     "titulo": "EQUIPMENT INSTALLATION",
     "paso_de": "Step {n} of {total}",
@@ -28,8 +28,8 @@
     "clase_mesa_n": "Tabletop Class N",
     "clase_mesa_b": "Tabletop Class B",
     "clase_mesa_b_lab": "Tabletop Class B Laboratory",
-    "clase_piso": "Floor-standing",
-    "clase_piso_lab": "Floor-standing Laboratory",
+    "clase_piso": "Hospital",
+    "clase_piso_lab": "Laboratory",
     "cap_vacio": "Vacuum",
     "cap_chaqueta": "Jacket",
     "cap_liquidos": "Liquids",
@@ -74,7 +74,7 @@
     "litros": "{n} L",
     "error_capacidad": "Enter a whole-number capacity from 20 to 2000 L",
     "error_tipo_carga": "Select the load type",
-    "error_clase_fuera_alcance": "This software can only be installed on floor and laboratory floor units",
+    "error_clase_fuera_alcance": "This software can only be installed on hospital and laboratory units",
     "resumen_capacidad": "Nominal capacity",
     "resumen_carga": "Load type",
     "suministros_titulo": "Wired supply inputs",
@@ -108,7 +108,7 @@
     "confirmar_si": "Install",
     "error_guardar": "Save error: {detalle}",
     "listo_titulo": "Installation complete",
-    "listo_texto": "The equipment has been registered successfully. Restart the software to continue.",
+    "listo_texto": "The equipment has been registered successfully. Press Continue to start using it.",
     "resumen_cerrojo": "Door lock",
     "resumen_con_cerrojo": "Controlled by the software",
     "resumen_sin_cerrojo": "NOT controlled by the software",
@@ -243,8 +243,8 @@
     "mant_tipo_preventivo": "Preventive",
     "mant_tipo_correctivo": "Corrective",
     "mant_tipo_calibracion": "Calibration (historical)",
-    "mant_tipo_otro": "Other",
-    "mant_registrar": "Record completed maintenance",
+    "mant_tipo_otro": "Other (historical)",
+    "mant_registrar": "Register",
     "mant_confirmar": "A {tipo} maintenance completed today will be recorded. Do you want to continue?",
     "mant_sin_dato": "The system date is not reliable (earlier than the installation or changed): correct the date and time.",
     "mant_err_reloj": "The system clock is earlier than the installation or the last maintenance: correct the date and time.",
@@ -256,8 +256,14 @@
     "mant_unidad_dias": "days",
     "mant_unidad_ciclos": "cycles",
     "mant_no_aplica": "Not applicable",
-    "mant_intervalos_ayuda": "Counted from installation or the last maintenance; whichever comes first. 0 = not applicable.",
-    "mant_guardar_intervalos": "Save intervals"
+    "mant_intervalos_ayuda": "Counted from installation or the last preventive maintenance; whichever comes first. 0 = not applicable.",
+    "mant_guardar_intervalos": "Save intervals",
+    "err_modo_liquido": "With a liquid load only depressurization modes 4, 5 and 0 are allowed: fast depressurization of hot liquid causes violent boiling.",
+    "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no prevacuum, no drying, no automatic opening and enough cooling counterpressure.",
+    "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
+    "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
+    "aviso_liquido_previo": "With a liquid load only depressurization modes 4, 5 and 0 are allowed. If the current mode is another one, it will change to mode 4 when saved.",
+    "modos_titulo": "Available modes"
   },
   "menu": {
     "titulo": "MAIN MENU",
@@ -284,7 +290,7 @@
     "operador": "Operator",
     "grafica_no_disponible": "Chart not available",
     "ventana_mantenimiento": "NEXT MAINTENANCE",
-    "ultimo_mantenimiento": "Date of last maintenance",
+    "ultimo_mantenimiento": "Date of last preventive maintenance",
     "ciclos_restantes": "Cycles until next maintenance",
     "vencido": "OVERDUE",
     "proximo_vencimiento": "Next due date",
@@ -311,7 +317,8 @@
     "otro_correo": "Other email…",
     "titulo_otro_correo": "Destination email",
     "enviando": "Sending…",
-    "imprimiendo": "Printing…"
+    "imprimiendo": "Printing…",
+    "col_operador": "Operator"
   },
   "modulos": {
     "iniciar_ciclo": "START CYCLE",
@@ -333,18 +340,18 @@
     "tiempo_restante": "Remaining time",
     "tiempos": "Times",
     "grafica_eje_tiempo": "Time (min)",
-    "entrada_corta_temp_camara": "Chamber temp.",
-    "entrada_corta_temp_2_camara": "Chamber temp. 2",
-    "entrada_corta_temp_referencia": "Reference temp.",
-    "entrada_corta_temp_drenaje": "Drain temp.",
-    "entrada_corta_temp_drenaje_camara": "Chamber drain temp.",
+    "entrada_corta_temp_camara": "Chamber temperature",
+    "entrada_corta_temp_2_camara": "Chamber temperature 2",
+    "entrada_corta_temp_referencia": "Reference temperature",
+    "entrada_corta_temp_drenaje": "Drain temperature",
+    "entrada_corta_temp_drenaje_camara": "Chamber drain temperature",
     "entrada_corta_pres_camara": "Pressure",
-    "entrada_corta_pres_chaqueta": "Jacket pres.",
-    "entrada_corta_pres_empaque_1": "Gasket pres. 1",
-    "entrada_corta_pres_empaque_2": "Gasket pres. 2",
+    "entrada_corta_pres_chaqueta": "Jacket pressure",
+    "entrada_corta_pres_empaque_1": "Gasket pressure 1",
+    "entrada_corta_pres_empaque_2": "Gasket pressure 2",
     "serie_sin_registro": "(not logged)",
-    "serie_temp_camara": "Chamber Temp",
-    "serie_temp_ref": "Ref Temp",
+    "serie_temp_camara": "Chamber temperature",
+    "serie_temp_ref": "Reference temperature",
     "serie_presion": "Pressure",
     "cancelar": "CANCEL CYCLE",
     "cancelar_pregunta": "The cycle in progress will be cancelled. Do you want to continue?",
@@ -352,11 +359,11 @@
     "confirmar": "CONFIRM",
     "confirmar_error": "The end of the cycle could not be confirmed. Check the connection with the controller and try again.",
     "aviso_titulo": "NOTICE",
-    "temp_ester": "Ster. Temp.",
-    "tiempo_est": "Ster. Time",
-    "tiempo_sec": "Dry. Time",
-    "temp_camara": "Chamber temp",
-    "temp_referencia": "Reference temp",
+    "temp_ester": "Sterilization temperature",
+    "tiempo_est": "Sterilization time",
+    "tiempo_sec": "Drying time",
+    "temp_camara": "Chamber temperature",
+    "temp_referencia": "Reference temperature",
     "presion": "Pressure",
     "alarmas_titulo": "ALARMS AND NOTICES",
     "sin_alarmas": "No active alarms or notices",
@@ -367,7 +374,12 @@
     "sin_bd_pregunta": "Database not available. The cycle will run without an operator and without a database record (backup file and printout only). Do you want to continue without a record?",
     "sin_bd_continuar": "Continue without record",
     "cancelacion_en_espera_datos": "Cancellation accepted: it will be applied when the control board data returns. If it does not return within a few seconds, the cycle ends with a communication failure.",
+    "salidas_sin_confirmar_pendiente": "Confirming that all outputs are off after test mode. Wait a few seconds.",
+    "carga_no_esteril": "LOAD NOT STERILE",
     "principal_sin_lectura": "Main probe without reading: call service",
+    "presion_camara_sin_lectura": "Chamber pressure sensor without reading: call service",
+    "presion_chaqueta_sin_lectura": "Jacket pressure sensor without reading: call service",
+    "presion_no_verificable": "The pressure reading could not be checked: call service",
     "confirmar_estado_seguro_texto": "The emergency stop was released. Check that there are no steam or water leaks before continuing. Confirming acknowledges the cycle result and brings the chamber to a safe state."
   },
   "unidades": {
@@ -411,17 +423,17 @@
     },
     {
       "clave": "tiempo_est",
-      "etiqueta": "Ster. Time",
+      "etiqueta": "Sterilization time",
       "unidad": "min"
     },
     {
       "clave": "tiempo_sec",
-      "etiqueta": "Dry. Time",
+      "etiqueta": "Drying time",
       "unidad": "min"
     },
     {
       "clave": "temp_1",
-      "etiqueta": "Temp 1",
+      "etiqueta": "Temperature 1",
       "unidad": "°C"
     },
     {
@@ -475,14 +487,18 @@
     "grupo_alarmas": "Alarms",
     "grupo_avisos": "Notices",
     "despejar_sin_enlace": "Cannot clear: the link with the control board has not returned to normal yet.",
+    "despejar_no_activa": "Cannot clear: the alarm is no longer active.",
+    "despejar_rechazado": "Cannot clear: the system rejected the request.",
+    "despejar_sin_respuesta": "Cannot clear: no response from the control system. Try again.",
+    "despejar_sin_confirmacion": "No confirmation was received in time: check whether the alarm is still listed.",
     "despejar": "CLEAR"
   },
   "equipo": {
     "clase_mesa_n": "Tabletop N",
     "clase_mesa_b": "Tabletop B",
     "clase_mesa_b_lab": "Tabletop B laboratory",
-    "clase_piso": "Floor-standing",
-    "clase_piso_lab": "Floor-standing laboratory",
+    "clase_piso": "Hospital",
+    "clase_piso_lab": "Laboratory",
     "tipo_puerta_simple": "Simple",
     "tipo_puerta_motorized": "Motorized",
     "tipo_puerta_locking": "Locking",
@@ -500,7 +516,7 @@
     "fecha_instalacion": "Installation date",
     "ciclos_realizados": "Cycles performed",
     "ultimo_ciclo": "Last cycle",
-    "ultimo_mantenimiento": "Last maintenance",
+    "ultimo_mantenimiento": "Last preventive maintenance",
     "ciclos_restantes": "Cycles left before maintenance",
     "version_software": "Software version",
     "version_tarjeta": "Board version",
@@ -512,6 +528,7 @@
     "apagar": "Shut down equipment",
     "apagar_pregunta": "The equipment will shut down completely (including the PC). Do you want to continue?",
     "apagar_rechazado": "Cannot shut down: {motivo}",
+    "apagado_windows_rechazado": "Windows did not allow the equipment to shut down: shut it down manually",
     "apagar_camara_no_segura": "The chamber is not in a safe condition (DO NOT OPEN). The equipment will be taken out of service; do not open the doors."
   },
   "formulario": {
@@ -546,7 +563,10 @@
     "asunto": "Autoclave {serie} cycles: {ciclos}",
     "cuerpo": "Attached are the selected autoclave cycles in PDF format, with their chart and their record.",
     "empresa": "Especifika S.A.S. · Autoclave {modelo} · Serial {serie}",
-    "titulo": "Cycle No. {numero} · {programa}",
+    "equipo_pdf": "{clase} · {capacidad} L · {carga}",
+    "carga_V": "Vertical load",
+    "carga_H": "Horizontal load",
+    "titulo": "Cycle number {numero} · {programa}",
     "inicio": "Start",
     "fin": "End",
     "resultado": "Result",
@@ -563,7 +583,7 @@
     "periodo_resumen": "From {desde} to {hasta}",
     "asunto_resumen": "Autoclave {serie} cycle summary: {periodo}",
     "cuerpo_resumen": "Attached is the cycle summary for the period in PDF format.",
-    "consigna_temp": "Temp. setpoint",
+    "consigna_temp": "Temperature setpoint",
     "consigna_pres": "Pressure setpoint",
     "titulo_consolidado": "Consolidated cycle report",
     "asunto_consolidado": "Autoclave {serie} consolidated report: {periodo}",
@@ -590,15 +610,21 @@
     "por_programa": "By program",
     "programa": "Program",
     "col_total": "Total",
-    "col_completados": "Compl.",
+    "col_completados": "Completed",
     "col_fallos": "Failed",
-    "col_cancelados": "Cancel.",
+    "col_cancelados": "Cancelled",
     "col_sin_cierre": "Not closed",
     "causas_fallo": "Failure causes",
     "causa": "Cause",
     "cantidad": "Count",
     "sin_fallos": "No failures in the period",
-    "sin_ciclos": "No cycles in this period"
+    "sin_ciclos": "No cycles in this period",
+    "ciclos_con_fallo": "Cycles with the failure {causa}: {n}",
+    "volver_resumen": "Back to summary",
+    "pagina": "Page {n} of {total}",
+    "pagina_anterior": "Previous",
+    "pagina_siguiente": "Next",
+    "sin_ciclos_fallo": "No cycles with this failure in the period"
   },
   "sistema": {
     "sin_conexion": "No connection with the controller. The values shown are not up to date.",
@@ -679,7 +705,12 @@
     "titulo": "Select cycle",
     "ayuda": "Tap to change cycle",
     "mas_usado": "Most used",
-    "sin_conexion": "No response from the equipment. Try again."
+    "sin_conexion": "No response from the equipment. Try again.",
+    "motivo_ciclo_en_curso": "The cycle cannot be changed while one is running.",
+    "motivo_paro": "The cycle cannot be changed while the emergency stop is pressed.",
+    "motivo_estado_seguro": "The cycle cannot be changed while the chamber is being brought to a safe state.",
+    "motivo_modo_prueba": "The cycle cannot be changed while test mode is active.",
+    "motivo_estado": "The cycle cannot be changed in the current equipment state."
   },
   "alarmas": {
     "SIS-05": {
@@ -854,6 +885,36 @@
       "plantilla": "{sensor} gives no reading ({valor}). A program that uses it cannot start.",
       "accion": "Check the probe connection or set its role to Not in use."
     },
+    "SEN-04": {
+      "titulo": "Chamber pressure sensor without reading",
+      "plantilla": "The chamber pressure sensor gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
+      "accion": "Do not open the door. Call technical service to check the chamber pressure sensor."
+    },
+    "SEN-05": {
+      "titulo": "Jacket pressure sensor without reading",
+      "plantilla": "The jacket pressure sensor gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
+      "accion": "Do not open the door until the chamber is confirmed safe. Call technical service to check the jacket pressure sensor."
+    },
+    "SEN-08": {
+      "titulo": "Gasket pressure sensor without reading",
+      "plantilla": "The gasket pressure sensor of {puerta} gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
+      "accion": "Do not open the door. Call technical service to check the gasket pressure sensor."
+    },
+    "SEN-06": {
+      "titulo": "Chamber pressure sensor without reading",
+      "plantilla": "Chamber pressure sensor without reading: call service.",
+      "accion": "Do not open the door: without chamber pressure it cannot be confirmed safe. Call technical service."
+    },
+    "SEN-07": {
+      "titulo": "Jacket pressure sensor without reading",
+      "plantilla": "Jacket pressure sensor without reading: call service.",
+      "accion": "Call technical service to check the jacket pressure sensor."
+    },
+    "SEN-09": {
+      "titulo": "Input and output reassignment not verified",
+      "plantilla": "Functions on a new port not verified: {funciones}. Cycles cannot be started.",
+      "accion": "The engineer must verify each function in OPTIONS › Advanced options."
+    },
     "CIC-01": {
       "titulo": "Preheating failure",
       "plantilla": "{motivo}",
@@ -904,6 +965,11 @@
       "plantilla": "{motivo}. The chamber is still not considered safe.",
       "accion": "Do not open the door. Check the Main probe or assign another probe as Main in OPTIONS › Cycle parameters › Sensors (technician or engineer). If it is not resolved, call technical service."
     },
+    "CIC-11": {
+      "titulo": "Unstable communication during sterilization",
+      "plantilla": "The pauses caused by missing control board data added up to {segundos:.0f} s during sterilization (maximum {maximo:.0f} s). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the USB cable and the board's power supply and repeat the cycle. If it happens again, call technical service."
+    },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
       "plantilla": "Communication with the board was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
@@ -928,6 +994,11 @@
       "titulo": "I/O board failure during the cycle",
       "plantilla": "{causa}: {motivo} Phase {fase}. The cycle was aborted.",
       "accion": "Check the I/O board before restarting. Call technical service."
+    },
+    "COM-04": {
+      "titulo": "Outputs not confirmed",
+      "plantilla": "The control board did not confirm that all outputs were switched off when leaving test mode, even after 3 retries. The connection with the board is being restarted.",
+      "accion": "Do not start cycles. If the alarm does not clear by itself, call technical service."
     }
   },
   "sensores_ciclo": {
@@ -947,6 +1018,9 @@
     "err_sin_previa": "There is no previous calibration to restore.",
     "err_confirmacion": "The calibration is outside the usual range and needs confirmation.",
     "err_implausible": "The calibration is not plausible and cannot be applied.",
+    "err_aire_con_presion": "The atmospheric air valve cannot be opened: the chamber is pressurized. Wait until the chamber is at atmospheric pressure.",
+    "err_aire_sin_presion": "The atmospheric air valve cannot be opened: there is no chamber pressure reading.",
+    "err_aire_sin_referencia": "The atmospheric air valve cannot be opened: the equipment reference atmospheric pressure is missing.",
     "di": {
       "aire_comprimido": "Compressed air",
       "presion_agua": "Water pressure",
@@ -960,10 +1034,17 @@
       "agua_generador": "Generator water",
       "paro_emergencia": "Emergency stop",
       "agua_camara": "Chamber water",
-      "vapor_suministro": "Steam supply"
+      "vapor_suministro": "Steam supply",
+      "suministro_electrico": "Power supply"
     },
     "do": {
       "vapor_generador": "Generator steam",
+      "vapor_caldera": "Boiler steam",
+      "descompresion_lenta": "Slow decompression",
+      "aire_comprimido_chaqueta": "Jacket compressed air",
+      "aire_comprimido_camara": "Chamber compressed air",
+      "agua_chaqueta": "Jacket water",
+      "buzer_alarma": "Alarm buzzer",
       "vapor_chaqueta": "Jacket steam",
       "vapor_camara": "Chamber steam",
       "descompresion_rapida": "Fast decompression",
@@ -984,6 +1065,7 @@
     },
     "ai": {
       "temp_camara": "Chamber temperature",
+      "temp_2_camara": "Chamber temperature 2",
       "temp_referencia": "Reference temperature",
       "temp_drenaje": "Drain temperature",
       "temp_drenaje_camara": "Chamber drain temperature",
@@ -1012,7 +1094,7 @@
       "banner_prueba": "TEST MODE ACTIVE",
       "banner_regla": "Outputs turn off when leaving the section, logging out or after 5 minutes without activity.",
       "dialogo_titulo": "TEST MODE — CAUTION",
-      "dialogo_texto": "All active outputs will be turned off and you will be able to drive any output manually WITHOUT checking chamber pressure or door state. Only the entrapment safeguard stays active. Use it only if you know the system.",
+      "dialogo_texto": "All active outputs will be turned off and you will be able to drive any output manually WITHOUT checking chamber pressure or door state. Only the entrapment safeguard and the atmospheric air lock (pressurized chamber or no pressure reading) stay active. Use it only if you know the system.",
       "continuar": "Continue",
       "activar": "Turn on",
       "apagar": "Turn off",
@@ -1056,7 +1138,7 @@
       "enfriar_chaqueta_secado": "Cools the jacket during drying at the end of the cycle.",
       "presion_chaqueta": "Pressure held in the jacket before and during the cycle.",
       "rango_presion_chaqueta": "Tolerance (±) around the jacket pressure; outside it an alert is raised and starting is not allowed.",
-      "tipo_carga": "Load type: solid or liquid. Limits the allowed decompression modes."
+      "tipo_carga": "Load type: solid or liquid. With a liquid load only depressurization modes 4, 5 and 0 are allowed: switching to liquid changes the mode to 4 (if it was not 4, 5 or 0) and switching back to solid restores the program default mode."
     },
     "precalentamiento": {
       "tiempo_precalentamiento": "Time the jacket is held hot before moving on to pre-vacuum.",
@@ -1404,6 +1486,7 @@
     "grupo_uso": "Use and maintenance",
     "grupo_configuracion": "Current settings",
     "rotulo_modelo": "Model",
+    "rotulo_clase": "Equipment type",
     "rotulo_capacidad": "Nominal capacity",
     "rotulo_tipo_carga": "Load type",
     "carga_V": "Vertical (V)",
@@ -1495,7 +1578,16 @@
       "suspension_sale": "the screen left standby",
       "rechazo_401": "access rejected (no session) on {entidad}",
       "rechazo_403": "access rejected (not allowed) on {entidad}",
-      "rechazo_409": "action rejected by state on {entidad}"
+      "rechazo_409": "action rejected by state on {entidad}",
+      "param_ciclo_cambio": "changed {entidad}: {anterior} → {nuevo}",
+      "param_ciclo_automatico": "automatic change of {entidad} due to the load type: {anterior} → {nuevo}",
+      "reasignacion_io": "reassigned {entidad}: {anterior} → {nuevo}",
+      "reasignacion_io_fabrica": "restored the factory port of {entidad}: {anterior} → {nuevo}",
+      "reasignacion_io_rechazada": "input and output reassignment rejected",
+      "reasignacion_io_verificada": "checked {entidad} on its port {nuevo}",
+      "reinicio_control": "restarted the control to apply the input and output assignment",
+      "aire_atmosferico_cortado_prueba": "the control closed the chamber atmospheric air in test mode",
+      "apagado_windows_rechazado": "Windows did not allow the equipment to shut down"
     },
     "tipo": {
       "login_ok": "Login",
@@ -1544,7 +1636,15 @@
       "suspension_sale": "Standby (exit)",
       "rechazo_401": "Rejection 401",
       "rechazo_403": "Rejection 403",
-      "rechazo_409": "Rejection 409"
+      "rechazo_409": "Rejection 409",
+      "param_ciclo_cambio": "Cycle parameters",
+      "reasignacion_io": "Input and output reassignment",
+      "reasignacion_io_fabrica": "Factory assignment restored",
+      "reasignacion_io_rechazada": "Reassignment rejected",
+      "reasignacion_io_verificada": "Reassignment check",
+      "reinicio_control": "Control restart",
+      "aire_atmosferico_cortado_prueba": "Atmospheric air closed",
+      "apagado_windows_rechazado": "Shutdown rejected by Windows"
     }
   },
   "correo_c2": {
@@ -1558,5 +1658,247 @@
     "enviar_a_manual": "Send to this address:",
     "aviso_invalida": "The address is not in a valid format (name@domain.com)",
     "no_se_guarda": "This address is not added to the saved recipients"
+  },
+  "parametros": {
+    "globals": {
+      "F0": "F0 calculation",
+      "F0_objetivo": "Target F0",
+      "ciclos_multiples": "Multiple cycles",
+      "enfriar_chaqueta_secado": "Cool the jacket during drying",
+      "presion_chaqueta": "Jacket pressure",
+      "rango_presion_chaqueta": "Jacket pressure range",
+      "tipo_carga": "Load type"
+    },
+    "precalentamiento": {
+      "presion_precalentamiento": "Preheating pressure",
+      "tiempo_precalentamiento": "Preheating time",
+      "timeout_precalentamiento": "Preheating time limit"
+    },
+    "prevacio": {
+      "conteo_pulso_a": "Number of A pulses",
+      "presion_alta_pulso_a": "Pulse A high pressure",
+      "presion_baja_pulso_a": "Pulse A low pressure",
+      "tiempo_adicional_alto_a": "Extra time at high pressure A",
+      "tiempo_adicional_bajo_a": "Extra time at low pressure A",
+      "conteo_pulso_b": "Number of B pulses",
+      "presion_alta_pulso_b": "Pulse B high pressure",
+      "presion_baja_pulso_b": "Pulse B low pressure",
+      "tiempo_adicional_alto_b": "Extra time at high pressure B",
+      "tiempo_adicional_bajo_b": "Extra time at low pressure B",
+      "conteo_pulso_c": "Number of C pulses",
+      "presion_alta_pulso_c": "Pulse C high pressure",
+      "presion_baja_pulso_c": "Pulse C low pressure",
+      "tiempo_adicional_alto_c": "Extra time at high pressure C",
+      "tiempo_adicional_bajo_c": "Extra time at low pressure C",
+      "conteo_pulso_d": "Number of D pulses",
+      "presion_alta_pulso_d": "Pulse D high pressure",
+      "presion_baja_pulso_d": "Pulse D low pressure",
+      "tiempo_adicional_alto_d": "Extra time at high pressure D",
+      "tiempo_adicional_bajo_d": "Extra time at low pressure D",
+      "timeout_alto": "Time limit to reach high pressure",
+      "timeout_bajo": "Time limit to reach low pressure"
+    },
+    "calentamiento": {
+      "escape_lento_on": "Slow exhaust open time",
+      "escape_lento_off": "Slow exhaust closed time",
+      "escape_rapido_on": "Fast exhaust open time",
+      "escape_rapido_off": "Fast exhaust closed time",
+      "factor_calentamiento": "Heating factor",
+      "intervalo_segmentos_calor": "Steam pulse period during heating",
+      "presion_add_calentamiento": "Additional heating pressure",
+      "rango_calentamiento_pres": "Pressure approach range",
+      "rango_calentamiento_temp": "Temperature approach range",
+      "rango_temp_estabilizacion": "Stabilization temperature range",
+      "tasa_calentamiento": "Maximum heating rate",
+      "tasa_presion": "Maximum pressure rise rate",
+      "temperatura_calentamiento": "Heating temperature",
+      "tiempo_estable_preesterilizacion": "Stability time before sterilization",
+      "timeout_calentamiento": "Heating time limit",
+      "timeout_recuperacion_estabilizacion": "Stability recovery time limit"
+    },
+    "estabilizacion": {
+      "rango_presion_estabilizacion": "Stabilization pressure range",
+      "rango_temperatura_estabilizacion": "Stabilization temperature range",
+      "temperatura_estabilizacion": "Stabilization temperature",
+      "tiempo_estabilizacion": "Stabilization time",
+      "timeout_recuperacion": "Recovery time limit"
+    },
+    "esterilizacion": {
+      "brecha_error_presion": "Low pressure failure margin",
+      "brecha_error_temperatura": "Low temperature failure margin",
+      "brecha_segura_presion": "Pressure recovery margin",
+      "brecha_segura_temperatura": "Temperature recovery margin",
+      "escape_lento_on_ester": "Slow exhaust open time",
+      "escape_lento_off_ester": "Slow exhaust closed time",
+      "escape_rapido_on_ester": "Fast exhaust open time",
+      "escape_rapido_off_ester": "Fast exhaust closed time",
+      "factor_esterilizacion": "Sterilization factor",
+      "intervalo_segmentos_ester": "Steam pulse period during sterilization",
+      "presion_add_esterilizacion": "Additional sterilization pressure",
+      "rango_presion_ester": "High pressure failure margin",
+      "rango_temperatura_ester": "High temperature failure margin",
+      "temperatura_esterilizacion": "Sterilization temperature",
+      "tiempo_esterilizacion": "Sterilization time"
+    },
+    "secado": {
+      "modo": "Drying mode",
+      "presion_alta_secado": "Drying high pressure",
+      "presion_baja_secado": "Drying low pressure",
+      "presion_chaqueta_secado": "Jacket pressure during drying",
+      "rango_chaqueta_secado": "Jacket range during drying",
+      "tiempo_secado": "Drying time",
+      "timeout_pulso": "Time limit per pulse"
+    },
+    "descompresion": {
+      "modo": "Exhaust mode",
+      "tiempo_pre_despresurizacion": "Wait before exhaust",
+      "modo_1": {
+        "timeout": "Mode 1 time limit"
+      },
+      "modo_2": {
+        "timeout": "Mode 2 time limit"
+      },
+      "modo_3": {
+        "timeout": "Mode 3 time limit",
+        "presion_cambio": "Switch-to-fast-exhaust pressure"
+      },
+      "modo_4": {
+        "timeout": "Mode 4 time limit",
+        "presion_camara_enfriamiento": "Chamber pressure during cooling",
+        "temperatura_enfriamiento": "Cooling temperature",
+        "tiempo_apertura_chaqueta": "Jacket drain open time",
+        "tiempo_cierre_chaqueta": "Jacket drain closed time"
+      },
+      "modo_5": {
+        "timeout": "Mode 5 time limit",
+        "presion_camara_enfriamiento": "Chamber pressure during cooling",
+        "temperatura_enfriamiento": "Cooling temperature",
+        "tiempo_apertura_chaqueta": "Jacket drain open time",
+        "tiempo_cierre_chaqueta": "Jacket drain closed time"
+      }
+    },
+    "finalizacion": {
+      "apertura_automatica": "Automatic door opening",
+      "temp_max_apertura": "Maximum temperature to open",
+      "tiempo_espera_apertura": "Wait before opening",
+      "timeout_temperatura": "Cooling time limit"
+    }
+  },
+  "estado_seguro_motivos": {
+    "sonda_temperatura": "Main probe without reading: the safe state cannot confirm the temperature",
+    "sonda_enfriamiento": "Main probe without reading: cooling cannot be confirmed",
+    "liquido_caliente": "Exhaust time limit reached with a hot liquid load: the fast exhaust is not used",
+    "sonda_liquido_sellada": "Main probe without reading with a liquid load: chamber sealed until the probes confirm the temperature or the wait expires"
+  },
+  "modos_programa": {
+    "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",
+    "secado_1_nombre": "Continuous vacuum",
+    "secado_1_linea": "Vacuum pump and valve open the whole time.",
+    "secado_2_nombre": "Vacuum with air inlet",
+    "secado_2_linea": "Continuous vacuum with the atmospheric air inlet open.",
+    "secado_3_nombre": "Vacuum and air pulses",
+    "secado_3_linea": "Alternates vacuum down to the low pressure and air up to the high drying pressure.",
+    "descompresion_intro": "How chamber pressure is released after sterilization. The mode is read when the phase starts.",
+    "descompresion_nota_liquido": "With a liquid load only modes 4, 5 and 0 are allowed: fast depressurization of hot liquid causes violent boiling.",
+    "descompresion_0_nombre": "Natural",
+    "descompresion_0_linea": "All valves closed: pressure drops on its own, with no time limit.",
+    "descompresion_1_nombre": "Fast",
+    "descompresion_1_linea": "Fast exhaust open until atmospheric pressure.",
+    "descompresion_2_nombre": "Slow",
+    "descompresion_2_linea": "Slow exhaust open until atmospheric pressure.",
+    "descompresion_3_nombre": "Slow then fast",
+    "descompresion_3_linea": "Slow exhaust down to the switch pressure, then the fast one.",
+    "descompresion_4_nombre": "With cooling",
+    "descompresion_4_linea": "For liquids: jacket water and compressed air as counterpressure until the load cools.",
+    "descompresion_5_nombre": "With cooling and slow exhaust",
+    "descompresion_5_linea": "Like mode 4, with the slow exhaust open during cooling."
+  },
+  "reasignacion": {
+    "subtitulo": "Input and output reassignment",
+    "aviso": "Use this function only if a board port is damaged. Each change is applied by restarting the control and is recorded in the audit log.",
+    "col_funcion": "Function",
+    "col_actual": "Current port",
+    "col_nuevo": "New port",
+    "col_tipo": "Type",
+    "col_critica": "Critical",
+    "si": "Yes",
+    "no": "No",
+    "sin_cambio": "No change",
+    "elegir_puerto": "New port for {funcion}",
+    "puerto_libre": "Free",
+    "puerto_ocupado": "Used by {funcion}",
+    "puerto_es_actual": "Current port",
+    "puerto_de_fabrica": "Factory port",
+    "conflicto": "{funcion} and {otra} would share port {puerto}",
+    "aplicar": "Apply changes",
+    "descartar": "Discard changes",
+    "restaurar_fabrica": "Restore factory assignment",
+    "cerrar": "Close",
+    "alerta_titulo": "CRITICALITY ALERT",
+    "alerta_texto": "You are about to change the port of {n} functions. A function on the wrong port can operate a valve or a door without control. Check the wiring before continuing.",
+    "alerta_criticas": "Critical functions: {lista}",
+    "alerta_analogicas": "A reassigned analog input uses the calibration of its new port: calibrate it before using the equipment.",
+    "continuar": "Continue",
+    "reforzada_titulo": "REINFORCED CONFIRMATION",
+    "reforzada_texto": "This is a safety function (door interlock, emergency stop or limit switch). Type its name exactly as shown: {funcion}",
+    "escribir_nombre": "Type the name",
+    "nombre_escrito": "Typed: {texto}",
+    "clave_titulo": "Password of {usuario}",
+    "reinicio_titulo": "THE CONTROL WILL RESTART",
+    "reinicio_texto": "Type your password to confirm. The outputs will be switched off and the control will restart to apply the assignment. Then each function will be checked on its new port.",
+    "escribir_clave": "Type the password",
+    "clave_escrita": "Password typed",
+    "confirmar_reinicio": "Restart the control",
+    "restaurar_texto": "All functions will return to their factory port.",
+    "reiniciando": "Restarting the control to apply the assignment…",
+    "guardado_sin_reinicio": "Assignment saved: it will be applied the next time the control starts.",
+    "reinicio_pendiente": "A saved assignment is not applied yet: restart the control.",
+    "verif_titulo": "Check after the last restart",
+    "bloqueo": "The saved assignment is damaged: the equipment is locked until the factory assignment is restored.",
+    "motivo_ciclo": "Not available while a cycle is running.",
+    "motivo_estado": "Available only with the equipment in preparation or ready: clear the fault first.",
+    "motivo_modo_prueba": "Leave the output test mode first.",
+    "motivo_apagando": "The equipment is shutting down.",
+    "motivo_estado_seguro": "Wait until the chamber reaches the safe state.",
+    "err_conflicto": "Two functions cannot share the same port.",
+    "err_puerto_inexistente": "That port does not exist on the board for this type of function.",
+    "err_funcion_desconocida": "Unknown function.",
+    "err_sin_cambios": "There are no changes to apply.",
+    "err_clave": "Wrong password.",
+    "err_clave_requerida": "Type your password to confirm.",
+    "err_nombre": "The typed name does not match the function name.",
+    "err_bloqueado": "User locked after failed attempts: wait 5 minutes.",
+    "err_estado": "Reassignment is not possible in the current equipment state.",
+    "err_rol": "Only the engineer can reassign inputs and outputs.",
+    "err_guardar": "The assignment could not be saved.",
+    "err_sin_respuesta": "The control does not respond.",
+    "err_generico": "The reassignment could not be applied.",
+    "funcion_vapor_caldera": "Boiler steam",
+    "funcion_descompresion_lenta": "Slow decompression",
+    "funcion_aire_comprimido_chaqueta": "Jacket compressed air",
+    "funcion_aire_comprimido_camara": "Chamber compressed air",
+    "funcion_agua_chaqueta": "Jacket water",
+    "funcion_buzer_alarma": "Alarm buzzer",
+    "funcion_temp_2_camara": "Chamber temperature 2",
+    "funcion_suministro_electrico": "Power supply",
+    "sin_uso": "not used on this unit",
+    "sin_verificar_aviso": "Some reassigned functions are not verified: cycles cannot be started until they are verified in the list below.",
+    "verificar": "Verify",
+    "verificar_titulo": "VERIFY {funcion} ON {puerto}",
+    "verificar_texto_di": "Operate the input (for example, open and close the door or press and release the stop) and check in Inputs / Outputs that it changes. The control already saw the change on the new port. Confirm only if you checked it.",
+    "verificar_texto_do": "You already turned this output on in test mode after reassigning it. Confirm only if you checked that the right valve or actuator operates.",
+    "verificar_texto_ai": "The reading is valid and the sensor was calibrated on its new port after reassigning it. Confirm only if the reading matches the reference.",
+    "verificada_ok": "Function verified.",
+    "verif_pendiente": "{funcion}: not verified on {puerto}",
+    "verif_trama_presente": "{funcion}: the board sends {puerto}; the engineer must still verify it",
+    "verif_sin_respuesta": "{funcion}: no response on {puerto}",
+    "verif_verificada": "{funcion}: verified on {puerto}",
+    "falta_sin_cambio_observado": "Missing: operate the input to see a state change on the new port.",
+    "falta_sin_prueba_de_salida": "Missing: turn this output on in test mode (Inputs / Outputs) after reassigning it.",
+    "falta_sin_lectura": "Missing: a valid sensor reading on the new port.",
+    "falta_calibracion_requerida": "Missing: calibrate the sensor on its new port (Inputs / Outputs) after reassigning it.",
+    "err_puerto_sin_calibracion": "That analog port has no calibration on this unit.",
+    "err_reinicio_en_curso": "The control is already restarting.",
+    "err_no_pendiente": "That function is not waiting for verification."
   }
 }

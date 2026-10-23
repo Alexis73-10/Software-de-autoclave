@@ -53,7 +53,7 @@ Item {
         Text {
             width: parent.width
             text: raiz.titulo
-            elide: Text.ElideRight
+            wrapMode: Text.Wrap
             color: raiz.seleccionada ? Colores.accionPrimarioTexto : Colores.textoPrimario
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(28)

@@ -164,8 +164,9 @@ _SCRIPT = textwrap.dedent(r"""
         alto_una = fila.property("height")
         texto.setProperty("text", "Nombre de sección muy largo que no cabe en una sola línea del cajón")
         QTest.qWait(50)
-        # dos líneas y el texto cabe en la fila (crece solo si hace falta)
-        r["dos_lineas"] = (texto.property("lineCount") == 2
+        # dos líneas (o más: V8b, D8-5.4, nada se recorta) y el texto cabe en la
+        # fila (crece solo si hace falta)
+        r["dos_lineas"] = (texto.property("lineCount") >= 2
                            and fila.property("height") >= alto_una
                            and texto.property("contentHeight") <= fila.property("height"))
     r["hamburguesa_abre"] = op.property("cajonAbierto") and hijo("fondoCajon").property("visible")
@@ -284,7 +285,8 @@ def _navegacion_comun(r):
 def test_tecnico_entra_a_opciones(estado, bloqueado):
     r = _correr(estado, "tecnico")
     _navegacion_comun(r)
-    assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad", *COMUNES_T6, "respaldo"]     # tanda §1.6; O2b (1.9); O2h
+    # R8 (tanda 8, D8-5.12): Opciones avanzadas, solo el ingeniero
+    assert r["entradas"] == [s for s in _TECNICAS if s != "opciones_avanzadas"]         + ["usuarios", "conectividad", *COMUNES_T6, "respaldo"]     # tanda §1.6; O2b (1.9); O2h
     assert r["seccion_activa"] == "parametros_ciclo"
     assert r["titulo"] == "PARÁMETROS DEL CICLO"
     assert r["elegir_cierra"] is True

@@ -46,7 +46,7 @@ Item {
         }
         Text {
             width: parent.width
-            elide: Text.ElideRight
+            wrapMode: Text.Wrap
             text: parent.valor
             color: parent.colorValor
             font.family: Tipografia.familia
@@ -56,7 +56,7 @@ Item {
         Text {
             visible: text !== ""
             width: parent.width
-            elide: Text.ElideRight
+            wrapMode: Text.Wrap
             text: parent.detalle
             color: Colores.textoSecundario
             font.family: Tipografia.familia

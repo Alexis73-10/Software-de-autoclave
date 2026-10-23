@@ -7,6 +7,8 @@ import Autoclave.I18n
 // resultado con su porcentaje y una barra de proporciones, la tabla por
 // programa y las causas de fallo. Solo presentación: recibe `datos` ya
 // formateado (ui_qml/domain/reporte_resumen.py). Se desplaza si no cabe.
+// D8-5.6: cada causa de fallo se toca (flecha a la derecha) y emite
+// causaElegida para desplegar los ciclos con ese fallo.
 // Medidas en px del mockup escaladas con `escala` (convención m(), D-18).
 // DISEÑO PROVISIONAL: sin diseño del diseñador.
 Flickable {
@@ -14,6 +16,8 @@ Flickable {
 
     property real escala: 1
     property var datos: ({ total: "0", totales: [], por_programa: [], causas: [] })
+
+    signal causaElegida(string causa)
 
     function m(v) { return v * escala }
     function fuente(v) { return Math.max(1, Math.round(m(v))) }
@@ -57,7 +61,7 @@ Flickable {
                 width: fila.proporciones[index] * fila.width - raiz.m(12)
                 anchors.verticalCenter: parent.verticalCenter
                 horizontalAlignment: index === 0 ? Text.AlignLeft : Text.AlignRight
-                elide: Text.ElideRight
+                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                 text: fila.celdas[index]
                 color: fila.encabezado ? Colores.textoSecundario
                      : (fila.colores[index] ?? Colores.textoPrimario)
@@ -208,16 +212,38 @@ Flickable {
             width: parent.width
             FilaTabla {
                 encabezado: true
-                proporciones: [0.8, 0.2]
+                proporciones: [0.75, 0.2]
                 celdas: [I18n.t("reportes.causa", I18n.lang), I18n.t("reportes.cantidad", I18n.lang)]
             }
             Repeater {
                 model: raiz.datos.causas
                 FilaTabla {
+                    id: filaCausa
                     required property var modelData
-                    proporciones: [0.8, 0.2]
+                    objectName: "causa_" + modelData.causa
+                    proporciones: [0.75, 0.2]
                     celdas: [modelData.causa, modelData.cantidad]
                     colores: [Colores.textoPrimario, Colores.peligroTexto]
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#000000"
+                        opacity: zonaCausa.pressed ? 0.06 : 0.0
+                    }
+                    // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]: 22 de alto
+                    Image {
+                        readonly property real _k: raiz.m(22) / (43.8 - 4.3)
+                        width: 48 * _k; height: width
+                        x: parent.width - raiz.m(8) - 35.2 * _k
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "../../assets/iconos/mono/chevron_derecha.svg"
+                        sourceSize.width: width
+                        sourceSize.height: height
+                    }
+                    MouseArea {
+                        id: zonaCausa
+                        anchors.fill: parent
+                        onClicked: raiz.causaElegida(filaCausa.modelData.causa)
+                    }
                 }
             }
         }

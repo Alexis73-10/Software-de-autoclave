@@ -85,6 +85,12 @@ a = Analysis(
 )
 a.binaries = [b for b in a.binaries if not _sobra(b[0])]
 a.datas = [d for d in a.datas if not _sobra(d[0])]
+# D8-3.18 (tanda 8): la entrega lleva la calibración NEUTRA, no la del banco
+# (config/calibration.yaml del repositorio). Se reemplaza la empaquetada por la
+# plantilla; K8 lo comprueba con tools/verificar_calibracion_neutra.py.
+_CALIB = 'autoclave/config/calibration.yaml'
+a.datas = [d for d in a.datas if d[0].replace('\\', '/') != _CALIB]
+a.datas.append((_CALIB, 'src/autoclave/config/plantillas/calibration_neutra.yaml', 'DATA'))
 pyz = PYZ(a.pure)
 
 exe = EXE(

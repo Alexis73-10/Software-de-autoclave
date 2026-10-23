@@ -159,7 +159,7 @@ def test_carga_sin_avisos(resultado):
 def test_muestra_las_entradas_del_programa_con_su_unidad(resultado):
     _, r = resultado
     a = r["pasos"][0]
-    for texto in ("Temp. cámara", "Pres. chaqueta", "Temp. drenaje", "121.0", "250.0", "kPa"):
+    for texto in ("Temperatura de cámara", "Presión de chaqueta", "Temperatura de drenaje", "121.0", "250.0", "kPa"):
         assert texto in a, texto
     assert "—" in a
 
@@ -167,10 +167,10 @@ def test_muestra_las_entradas_del_programa_con_su_unidad(resultado):
 def test_al_cambiar_de_programa_cambian(resultado):
     _, r = resultado
     b = r["pasos"][1]
-    for texto in ("Presión", "Temp. referencia", "2.05", "bar", "°F"):
+    for texto in ("Presión", "Temperatura de referencia", "2.05", "bar", "°F"):
         assert texto in b, texto
-    assert "Pres. chaqueta" not in b and "250.0" not in b
-    assert "Temp. drenaje" not in " ".join(b)
+    assert "Presión de chaqueta" not in b and "250.0" not in b
+    assert "Temperatura de drenaje" not in " ".join(b)
 
 
 def test_lista_vacia_no_rompe(resultado):
@@ -181,7 +181,7 @@ def test_lista_vacia_no_rompe(resultado):
 def test_grafica_leyenda_y_unidad():
     _, r = None, _correr("PantallaCicloEnCurso", PASOS["PantallaCicloEnCurso"][:2])
     a, b = r["pasos"]
-    assert "Pres. chaqueta (sin registro)" in a
-    assert "Temp. drenaje (sin registro)" in a
+    assert "Presión de chaqueta (sin registro)" in a
+    assert "Temperatura de drenaje (sin registro)" in a
     # unidad de los ejes = la de las series
     assert b.count("bar") >= 2 and b.count("°F") >= 2

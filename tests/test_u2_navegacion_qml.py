@@ -141,7 +141,7 @@ def test_preciclo_sin_home_y_con_el_avatar_en_su_lugar():
     assert "casa.svg" not in texto and "inicioPulsado" not in texto
     # B1 (tanda 6): el avatar ocupa la celda derecha de la barra flotante, donde
     # estaba la casa (x 800..1128 de BarraInferiorMenu), y la barra oculta Inicio
-    assert 'x: raiz.m(800); y: 0; width: raiz.m(1128 - 800)' in texto
+    assert 'x: barraInferior.mx(800); y: 0; width: barraInferior.mx(1128 - 800)' in texto
     assert "personalizada: true" in texto
 
 

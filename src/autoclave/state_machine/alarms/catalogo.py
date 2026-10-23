@@ -60,15 +60,26 @@ PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06 = (
     "PRE-01", "PRE-02", "PRE-03", "PRE-04", "PRE-05", "PRE-06")
 PUE_01, PUE_02, PUE_03, PUE_04, PUE_05 = "PUE-01", "PUE-02", "PUE-03", "PUE-04", "PUE-05"
 SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
+# S1 (tanda 8, D8-1): transductor de presión sin lectura. En ciclo, FALLO
+# con código propio; fuera de ciclo, bloquea el inicio ("llame a servicio").
+SEN_04, SEN_05, SEN_06, SEN_07 = "SEN-04", "SEN-05", "SEN-06", "SEN-07"
+# Revisión ★ de S1 (SAF-01): empaque sin lectura en ciclo (puertas con empaque)
+SEN_08 = "SEN-08"
+# R8 (tanda 8, D8-5.12): reasignación de E/S sin verificar por el ingeniero
+SEN_09 = "SEN-09"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
+# D8-2.8 (tanda 8): pausas por falta de datos sobre el tope en esterilización
+CIC_11 = "CIC-11"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
 # B5 (tanda 4): aviso no bloqueante de impresora desconectada al arrancar
 IMPRESORA_DESCONECTADA = SIS_05
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
+# D8-2.11 (tanda 8): ALL_OFF sin confirmar al salir del modo prueba
+COM_04 = "COM-04"
 # Tarjeta de E/S (E6): los ids se conservan como códigos (no se renombran).
 TARJETA_SIN_TRAMA_VALIDA = "TARJETA_SIN_TRAMA_VALIDA"
 TARJETA_VERSION_INCOMPATIBLE = "TARJETA_VERSION_INCOMPATIBLE"
@@ -186,6 +197,37 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_03, _AV, False, _A, "Sensor de temperatura sin señal",
        "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
        "Verifique la conexión de la sonda o asígnele el rol No en uso."),
+    # S1 (tanda 8, D8-1.2): en ciclo, FALLO con el vapor cortado y venteo solo
+    # por la lenta; nunca se toma como vacío.
+    _d(SEN_04, _FC, True, _M, "Sensor de presión de cámara sin lectura",
+       "El sensor de presión de cámara no entrega lectura en la fase {fase}. El ciclo se "
+       "abortó: vapor cortado y descompresión solo por la válvula lenta.",
+       "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de cámara."),
+    _d(SEN_05, _FC, True, _M, "Sensor de presión de chaqueta sin lectura",
+       "El sensor de presión de chaqueta no entrega lectura en la fase {fase}. El ciclo se "
+       "abortó: vapor cortado y descompresión solo por la válvula lenta.",
+       "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para "
+       "revisar el sensor de presión de chaqueta."),
+    _d(SEN_08, _FC, True, _M, "Sensor de presión de empaque sin lectura",
+       "El sensor de presión de empaque de {puerta} no entrega lectura en la fase {fase}. "
+       "El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+       "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de "
+       "empaque."),
+    # S1 (tanda 8, D8-1.3): fuera de ciclo bloquea el inicio; "NO ABRIR" sigue
+    # porque sin presión no se confirma la cámara segura.
+    _d(SEN_06, _AV, True, _A, "Sensor de presión de cámara sin lectura",
+       "Sensor de presión de cámara sin lectura: llame a servicio.",
+       "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. "
+       "Llame a servicio técnico."),
+    _d(SEN_07, _AV, True, _A, "Sensor de presión de chaqueta sin lectura",
+       "Sensor de presión de chaqueta sin lectura: llame a servicio.",
+       "Llame a servicio técnico para revisar el sensor de presión de chaqueta."),
+    # R8 (tanda 8; SAF-01/SAF-02 de su revisión): tras reasignar E/S, no se
+    # inicia ningún ciclo hasta que el ingeniero verifique cada función en su
+    # puerto nuevo (las analógicas, además, calibradas después de reasignar).
+    _d(SEN_09, _AV, True, _A, "Reasignación de entradas y salidas sin verificar",
+       "Funciones en un puerto nuevo sin verificar: {funciones}. No se pueden iniciar ciclos.",
+       "El ingeniero debe verificar cada función en OPCIONES › Opciones avanzadas."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",
@@ -217,6 +259,13 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en "
        "OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, "
        "llame a servicio técnico."),
+    # D8-2.8 (tanda 8): las pausas por falta de datos de la tarjeta (T2-a,
+    # D8-2.7) en una misma exposición superaron pausa_max_esterilizacion_s
+    _d(CIC_11, _AL, True, _M, "Comunicación inestable en esterilización",
+       "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la "
+       "esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
+       "La carga NO está estéril. Revise el cable USB y la alimentación de la tarjeta y "
+       "repita el ciclo. Si se repite, llame a servicio técnico."),
     # U4 (tanda 2): solo con la tarjeta desconectada (sin puerto o puerto
     # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
     _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",
@@ -226,6 +275,13 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase "
        "{fase}. El ciclo se abortó.",
        "Verifique el cable USB y la alimentación de la tarjeta antes de reiniciar."),
+    # D8-2.11 (tanda 8, Q1-P1): la tarjeta no confirmó el ALL_OFF al salir del
+    # modo prueba ni tras 3 reintentos. Bloquea el inicio hasta que llegue una
+    # confirmación (ALL_OFF confirmado o handshake completo, que lo incluye).
+    _d(COM_04, _AL, True, _A, "Salidas sin confirmar",
+       "La tarjeta de control no confirmó el apagado de todas las salidas al salir del "
+       "modo prueba, ni tras 3 reintentos. Se repite la conexión con la tarjeta.",
+       "No inicie ciclos. Si la alarma no desaparece sola, llame a servicio técnico."),
     # T8 (D-03): alerta persistente, no bloqueante. Los ciclos se pueden
     # iniciar con confirmación explícita y quedan en el respaldo y el ticket.
     _d(OPERANDO_SIN_BD, _AL, False, _M, "Operando sin base de datos",

@@ -3,7 +3,7 @@ import threading
 from collections import deque
 from datetime import datetime
 
-from autoclave.state_machine.alarms.catalogo import CATALOGO, COM_02, COM_03, Nivel
+from autoclave.state_machine.alarms.catalogo import CATALOGO, COM_02, COM_03, COM_04, Nivel
 from autoclave.state_machine.alarms.instancia import (
     EstadoInstancia, EventoAlarma, InstanciaAlarma, clave_de,
 )
@@ -16,6 +16,11 @@ _MAX_EVENTOS_RECIENTES = 20
 # (resolver_todas_por_reinicio) sin el reconocimiento explícito del operador;
 # reconocidas fuera de CICLO se resuelven en el acto.
 DESPEJE_POR_RECONOCIMIENTO = frozenset({COM_02, COM_03})
+# D8-2.11 (tanda 8, SAF-01 de la revisión S2b): COM-04 ("Salidas sin
+# confirmar") solo se resuelve con una confirmación de la tarjeta (ALL_OFF con
+# ACK o handshake completo, ControlLoop._salidas_confirmadas); nunca al salir
+# de FALLA por reconocimiento.
+DESPEJE_SOLO_POR_CONFIRMACION = frozenset({COM_04})
 _LOG_POR_NIVEL = {
     Nivel.INFORMATIVO: logging.INFO,
     Nivel.AVISO: logging.WARNING,
@@ -44,6 +49,10 @@ class AlarmManager:
         # enlace con la tarjeta volvió a "ok" (3 tramas vigentes seguidas). Lo
         # conecta el BackendContext. None = sin la exigencia (dobles de prueba).
         self.enlace_ok = None
+        # R8 (tanda 8): condiciones que bloquean el inicio de ciclo aunque su
+        # alarma visible se haya resuelto (p. ej. por el reconocimiento de una
+        # FALLA): callables -> True si bloquean. Un error bloquea.
+        self.condiciones_bloqueo: list = []
 
     # ------------------------------------------------------------------
     # API nueva
@@ -163,7 +172,8 @@ class AlarmManager:
         with self._lock:
             resueltas = [self._resolver_sin_candado(c) for c, i in list(self._instancias.items())
                          if not (i.codigo in DESPEJE_POR_RECONOCIMIENTO
-                                 and (i.reconocida_por is None or not enlace_ok))]
+                                 and (i.reconocida_por is None or not enlace_ok))
+                         and i.codigo not in DESPEJE_SOLO_POR_CONFIRMACION]
         for inst in resueltas:
             if inst is not None:
                 self._notificar(EventoAlarma.RESUELTA, inst)
@@ -218,16 +228,19 @@ class AlarmManager:
     def has_emergency(self) -> bool:
         return self._activas_nuevas(Nivel.FALLO_CRITICO)
 
-    def has_failure(self) -> bool:
-        return self._activas_nuevas(Nivel.ALARMA)
-
-    def has_alert(self) -> bool:
-        return self._activas_nuevas(Nivel.AVISO)
-
     def has_blocking_alarm(self) -> bool:
         with self._lock:
-            return any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
-                       for i in self._instancias.values())
+            if any(i.estado is EstadoInstancia.ACTIVA and i.definicion.bloquea_inicio
+                   for i in self._instancias.values()):
+                return True
+        for condicion in list(self.condiciones_bloqueo):
+            try:
+                if condicion() is not False:
+                    return True
+            except Exception:
+                logger.exception("Condición de bloqueo de inicio")
+                return True
+        return False
 
     def has_active_alarms(self) -> bool:
         return self._activas_nuevas()

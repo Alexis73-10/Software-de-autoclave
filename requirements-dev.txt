@@ -1,0 +1,19 @@
+# requirements-dev.txt - herramientas de desarrollo, prueba y compilacion (D8-3.26, tanda 8, L8).
+# NO son dependencias del producto (esas estan en requirements.lock.txt). Instalar encima del lock:
+#   python -m pip install -r requirements.lock.txt -r requirements-dev.txt
+# Las versiones son las del entorno con el que se compilo y probo la tanda 7.
+-r requirements.lock.txt
+
+# Pruebas (tests/). httpx lo necesita fastapi.testclient.TestClient.
+pytest==9.0.3
+httpx==0.28.1
+
+# Compilacion del ejecutable (Autoclave.spec y demas .spec). El bootloader de PyInstaller
+# va dentro del .exe: figura tambien en la lista SOUP (docs/riesgos/lista_soup.md).
+pyinstaller==6.20.0
+pyinstaller-hooks-contrib==2026.5
+
+# Generador de codigos (tools/generador, GeneradorCodigos.spec): sus formularios usan fastapi.Form,
+# que exige python-multipart. No es del producto (src/autoclave no lo importa) pero sin el el
+# generador no arranca y tests/test_g1_generador.py falla. Agregado en la verificacion de L8.
+python-multipart==0.0.29

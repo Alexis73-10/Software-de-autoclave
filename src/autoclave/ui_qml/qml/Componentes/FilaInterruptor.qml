@@ -26,7 +26,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: raiz.detalle !== "" ? -Escala.px(11) : 0
         text: raiz.etiqueta
-        elide: Text.ElideRight
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         color: Colores.textoPrimario
         font.family: Tipografia.familia
         font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
@@ -41,7 +41,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         anchors.verticalCenterOffset: Escala.px(22)
         text: raiz.detalle
-        elide: Text.ElideRight
+        fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
         color: Colores.textoSecundario
         font.family: Tipografia.familia
         font.pixelSize: Escala.fuente(21)

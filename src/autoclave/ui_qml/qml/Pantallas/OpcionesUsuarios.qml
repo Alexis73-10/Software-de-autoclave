@@ -84,7 +84,7 @@ Item {
             anchors.centerIn: parent
             width: parent.width - Escala.px(16)
             horizontalAlignment: Text.AlignHCenter
-            elide: Text.ElideRight
+            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
             text: boton.texto
             color: boton.secundario ? Colores.textoPrimario : "white"
             font.family: Tipografia.familia
@@ -223,7 +223,7 @@ Item {
                     anchors.right: chipU.left; anchors.rightMargin: Escala.px(12)
                     anchors.verticalCenter: parent.verticalCenter
                     Text {
-                        width: parent.width; elide: Text.ElideRight
+                        width: parent.width; fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                         text: filaU.modelData.nombre + "  ·  " + filaU.modelData.usuario
                         color: Colores.textoPrimario
                         font.family: Tipografia.familia
@@ -231,7 +231,7 @@ Item {
                         font.pixelSize: Escala.fuente(26)
                     }
                     Text {
-                        width: parent.width; elide: Text.ElideRight
+                        width: parent.width; fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
                         text: raiz.etiquetaRol(filaU.modelData.rol) + "  ·  "
                               + I18n.t("gestion_usuarios.ultimo_ingreso", I18n.lang) + ": "
                               + (filaU.modelData.ultimoIngreso !== "" ? filaU.modelData.ultimoIngreso
@@ -329,7 +329,10 @@ Item {
                     anchors.left: parent.left; anchors.leftMargin: Escala.px(20)
                     anchors.right: chipO.left; anchors.rightMargin: Escala.px(12)
                     anchors.verticalCenter: parent.verticalCenter
-                    elide: Text.ElideRight
+                    // D8-5.4: sin recorte; dos líneas o letra menor dentro de la fila
+                    height: parent.height; verticalAlignment: Text.AlignVCenter
+                    wrapMode: Text.Wrap
+                    fontSizeMode: Text.Fit; minimumPixelSize: Escala.fuenteMinima
                     text: filaO.modelData.nombre
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia

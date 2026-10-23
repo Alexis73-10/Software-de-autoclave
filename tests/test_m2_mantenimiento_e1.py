@@ -86,7 +86,7 @@ def test_preventivo_luego_correctivo_la_base_sigue_siendo_el_preventivo(entorno)
     assert e.ciclos_restantes == 70
 
 
-@pytest.mark.parametrize("tipo", ["correctivo", "otro"])
+@pytest.mark.parametrize("tipo", ["correctivo"])  # `otro` salió (P-3, tanda 8)
 def test_correctivo_y_otro_no_resuelven_el_aviso(entorno, tipo):
     s, db, hoy, alarmas, _ = entorno
     hoy["d"] = date(2027, 11, 1)                     # vencido por fecha
@@ -127,7 +127,8 @@ def test_sin_preventivo_la_base_es_la_instalacion_aunque_haya_correctivos(entorn
     _ciclos(contador, 5)
     hoy["d"] = date(2027, 5, 1)
     s.registrar("tec", "correctivo", "")
-    s.registrar("tec", "otro", "")
+    # fila histórica de `otro` (P-3, tanda 8: ya no se registra)
+    db.registrar_mantenimiento("2027-05-01", "tec", "otro", "", 5)
     e = s.estado()
     assert e.proximo_fecha == date(2026, 10, 26) + timedelta(days=365)
     assert e.ultimo_fecha is None and e.ultimo_tipo == ""
@@ -168,7 +169,7 @@ def test_reloj_atrasado_respecto_de_un_correctivo_sigue_protegido(entorno):
 def test_calibracion_no_esta_en_los_tipos():
     from autoclave.core.runtime import servicio_mantenimiento as sm
     assert "calibracion" not in sm.TIPOS
-    assert sm.TIPOS == ("preventivo", "correctivo", "otro")
+    assert sm.TIPOS == ("preventivo", "correctivo")  # sin `otro` (P-3, tanda 8)
 
 
 def test_el_servicio_rechaza_calibracion(entorno):
@@ -214,7 +215,7 @@ def test_el_controlador_no_ofrece_ni_envia_calibracion():
     from autoclave.ui_qml.controllers.mantenimiento_controller import MantenimientoController
     sesion = MagicMock()
     c = MantenimientoController(sesion=sesion)
-    assert c.property("tipos") == ["preventivo", "correctivo", "otro"]
+    assert c.property("tipos") == ["preventivo", "correctivo"]
     assert c.registrar("calibracion") is False
     sesion.enviar.assert_not_called()
 
@@ -239,7 +240,7 @@ def _catalogo(idioma):
 
 
 def test_calibracion_es_tipo_historico_y_no_registrable():
-    assert m.TIPOS_HISTORICOS == ("calibracion",)
+    assert m.TIPOS_HISTORICOS == ("calibracion", "otro")  # `otro`: P-3, tanda 8
     assert not set(m.TIPOS_HISTORICOS) & set(m.TIPOS)
 
 
