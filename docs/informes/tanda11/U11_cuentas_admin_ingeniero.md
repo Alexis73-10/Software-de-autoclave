@@ -132,7 +132,7 @@
 
 ## Pendientes y notas
 
-1. **«Último ingreso» de Admin/Ingeniero tras migrar.** `listar_usuarios` cruza con `audit_log.usuario` exacto, así que los ingresos anteriores, registrados como `admin`, no cuentan para `Admin`. La pantalla mostrará «nunca» hasta el siguiente ingreso. Es cosmético; no se cambió para no mezclar historiales.
+1. ~~«Último ingreso» de Admin/Ingeniero tras migrar~~: resuelto en la revisión de seguridad (ver abajo, «Opcional»).
 2. **Hoja de banco: el `.md` está desincronizado del generador.** El `.md` tiene unas 300 líneas editadas a mano (tanda 10) que `generar.py` borraría al regenerar. Por eso el `.md` se editó a mano (D-26 y D-26b más la fila del índice) y solo el `.html` se regeneró. Alguien debería pasar esas ediciones a `pruebas.py`.
 3. **Documentos que nombran `admin`/`ingeniero` y no se tocaron:**
    - informes históricos (`docs/informes/**`, `docs/handoff`, `docs/superpowers`);
@@ -140,9 +140,47 @@
    - el usuario `admin` del **Generador** (LEEME, línea del paso 2 de la sección del generador), que es otra aplicación con su propia BD, fuera de D11-6.
 4. **Ensayo F → G** (instrucción, sección de entrega) sobre una copia de la BD real de la F: lo hace la etapa K11. La migración ya se probó sobre una BD v10 construida con el código anterior.
 
+## Revisión de seguridad
+
+Revisión de la sesión principal, sin hallazgos bloqueantes. Cada hallazgo se corrigió en esta misma rama y con TDD: primero las pruebas de `tests/test_u11_revision_seguridad.py`, en rojo (34 fallos), y luego el código. Commits `acd666e` y `56ee963`.
+
+| Hallazgo | Qué se hizo |
+|---|---|
+| **SAF-01** `casefold()` no normaliza Unicode: se podían crear `Αdmin` (alfa griega), `Ａdmin` (ancho completo) o `Admin` + U+200B, que imitan a las cuentas del sistema. | Ver detalle debajo de la tabla. |
+| **SAF-02** `INSERT/UPDATE OR REPLACE` borraría la fila de Admin sin disparar `usuarios_sin_delete`. | `DbManager.__init__` activa `PRAGMA recursive_triggers = ON` en su conexión. Las pruebas de `db_manager`/auditoría siguen verdes: ningún código usa REPLACE, y el `ON CONFLICT DO UPDATE` de `system_params` no tiene triggers. El trigger `usuarios_cuenta_sistema_protegida` cubre también `id` y `creado_por`. Probado con `INSERT OR REPLACE` por id, `REPLACE INTO` con el usuario `Admin`, `UPDATE OR REPLACE` que choca con `Admin`, `UPDATE id` y `UPDATE creado_por`: los 5 rechazados y la fila intacta. Límite documentado en el docstring de la v11: otra conexión a la BD sin ese PRAGMA (herramienta externa) no queda cubierta frente a REPLACE. |
+| **SAF-03** La semilla se identificaba solo por `creado_por='semilla'` y el nombre. | La migración exige además el rol (`admin` para Admin, `ingeniero` para Ingeniero). Si no coincide, no renombra ni marca la fila y deja un WARNING en el log (PREGUNTA 3). En el choque de nombres se mantiene la marca (protege). Anotado en el docstring de `_marcar_cuentas_sistema`: una futura migración que renombre una cuenta ya marcada tendrá que soltar y volver a crear `usuarios_cuenta_sistema_protegida`. |
+| **SAF-04** `PATCH /usuarios/{u}` no registraba qué se pidió y aceptaba un cuerpo vacío. | Cuerpo vacío o con todos los campos en null: 422 (`{"campo": "cuerpo", "codigo": "obligatorio"}`), antes de buscar el usuario y sin auditar. En el 409 de las cuentas del sistema, `detalle.campos` lleva la lista ordenada de campos pedidos. |
+| **Opcional** «Último ingreso» de Admin/Ingeniero tras migrar. | Era trivial y se hizo. `listar_usuarios` agrupa los `login_ok` por nombre normalizado y toma el más reciente, así que Admin encuentra los ingresos registrados como `admin`, sin reescribir la auditoría. Efecto aceptado: en una BD antigua con dos usuarios que solo difieren en mayúsculas, ambos muestran el ingreso más reciente de los dos. |
+
+**Detalle de SAF-01:**
+- **Módulo nuevo** `core/runtime/nombre_usuario.py`, con la normalización compartida:
+  - `normalizar_usuario` = NFKC y después casefold;
+  - `formato_valido`: letras latinas por nombre Unicode `LATIN …` (con tildes y ñ), dígitos ASCII y `._-`;
+  - `es_reservado`: `sistema` y `semilla`.
+- **Dónde se usa:**
+  - unicidad: `existe_usuario` y `crear_usuario` (BD);
+  - búsqueda del inicio de sesión: `get_usuario_by_username`;
+  - contador de bloqueo: `ControlIntentos._clave`;
+  - simulador: login y alta;
+  - comparaciones de la migración.
+- **Validación al crear:** `codigos_nuevo_usuario` (`validacion_usuario.py`) rechaza con `formato` los caracteres de formato (Cf), de control (Cc), los de otros alfabetos, los de ancho completo y los espacios, y con `reservado` los nombres `sistema`/`semilla`. Es la única fuente de reglas: la usan el backend (`POST /usuarios`), el simulador y el puente de la UI (Nuevo usuario), así que la regla queda en los tres sin duplicarla.
+- **Textos:** `validacion.formato` pasa a «Solo letras, números y . _ -, de {min} a {max} caracteres» (en: «Letters, digits and . _ - only, …»). Se agrega `validacion.reservado` en es y en.
+- **Verificación previa:** antes de cambiar la regla, un barrido de los nombres de usuario de `tests/` y de las semillas no encontró ninguno válido que quede fuera; solo `a b`, que ya era un caso de rechazo.
+- **Usuarios existentes:** uno con un nombre que ya no sería válido sigue entrando, porque solo se valida al crear (probado con `José Pérez` en una BD antigua).
+- **Pruebas:** las 6 imitaciones se rechazan en la validación, en la API (422) y en el simulador. `ＡDMIN` comparte el contador de bloqueo y la cuenta con `admin`.
+
+**Pruebas tras la revisión** (`autoclave.__file__` = el del worktree):
+- `test_u11_revision_seguridad.py` + `test_u11_cuentas_sistema.py`: `85 passed`.
+- Los 83 archivos relacionados de antes + `test_u11_revision_seguridad.py`: `2512 passed, 3 xfailed`.
+- Los otros 17 archivos que importan `DbManager`, la validación, el contador o el simulador: `263 passed, 2 skipped`.
+- Ajustada `test_nuevo_usuario_qml.py::test_errores_no_escriben_ni_navegan`, por el texto nuevo de `validacion.formato`.
+
+**PREGUNTA PARA CRISTIAN 3 (SAF-03):** si una fila semilla `admin`/`ingeniero` tiene un rol distinto del esperado, la migración no la toca: queda sin renombrar y sin protección, con un WARNING en el log. ¿Qué hacer en ese caso?
+
 ## Puntos de choque tocados
 
-- `src/autoclave/i18n/es.json` y `en.json`: `gestion_usuarios.motivo_cuenta_sistema`, `gestion_usuarios.err_cuenta_sistema`, `bitacora.ev/tipo.usuario_renombrado`, `bitacora.ev/tipo.cuenta_sistema_rechazada`.
+- `src/autoclave/i18n/es.json` y `en.json`: `gestion_usuarios.motivo_cuenta_sistema`, `gestion_usuarios.err_cuenta_sistema`, `bitacora.ev/tipo.usuario_renombrado`, `bitacora.ev/tipo.cuenta_sistema_rechazada`; en la revisión de seguridad, `validacion.reservado` y el texto nuevo de `validacion.formato`.
+- `src/autoclave/ui_pyside/services/validacion_usuario.py` (regla de alta compartida por el backend, el simulador y la UI) y `src/autoclave/backend/autenticacion.py` (`ControlIntentos._clave`).
 - `src/autoclave/backend/server.py`: DTO, `_rechazar_cuenta_sistema`, `PUT activo`, rutas `DELETE`/`PATCH` nuevas.
 - `src/autoclave/ui_qml/qml/Pantallas/OpcionesUsuarios.qml`.
 - `docs/instalacion/LEEME_INSTALACION.md` §5.
