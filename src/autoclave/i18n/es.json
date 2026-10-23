@@ -1832,6 +1832,10 @@
       "entrada_corta_pres_chaqueta": "Pres. chaq.",
       "entrada_corta_pres_empaque_1": "Pres. emp. 1",
       "entrada_corta_pres_empaque_2": "Pres. emp. 2"
+    },
+    "reportes": {
+      "col_completados": "Complet.",
+      "col_cancelados": "Canc."
     }
   },
   "ticket_ciclo": {

@@ -39,19 +39,26 @@ Flickable {
         font.pixelSize: raiz.fuente(28)
     }
     // Fila de tabla: celdas [texto] con proporción de ancho; la primera a la
-    // izquierda y el resto a la derecha
+    // izquierda y el resto a la derecha.
+    // U10b (D10-1.4): el encabezado da `claves` (en vez de `celdas`) y cada
+    // celda es un TextoAjustable: completo si cabe en su columna, abreviado
+    // (abrev.<clave>) si no. Las filas de datos siguen con `celdas`.
     component FilaTabla: Item {
         id: fila
         property var celdas: []
+        property var claves: []
         property var proporciones: []
         property var colores: []
         property bool encabezado: false
         width: parent.width
         height: raiz.m(encabezado ? 56 : 68)
         Repeater {
-            model: fila.celdas.length
-            Text {
+            model: fila.claves.length > 0 ? fila.claves.length : fila.celdas.length
+            TextoAjustable {
                 required property int index
+                clave: fila.claves[index] ?? ""
+                textoCompleto: clave !== "" ? I18n.t(clave, I18n.lang) : String(fila.celdas[index] ?? "")
+                anchoDisponible: width
                 readonly property real _x: {
                     let x = 0
                     for (let k = 0; k < index; k++) x += fila.proporciones[k]
@@ -61,8 +68,9 @@ Flickable {
                 width: fila.proporciones[index] * fila.width - raiz.m(12)
                 anchors.verticalCenter: parent.verticalCenter
                 horizontalAlignment: index === 0 ? Text.AlignLeft : Text.AlignRight
-                fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
-                text: fila.celdas[index]
+                // los datos (nombres de programa) no se abrevian: se achican si no caben
+                fontSizeMode: clave !== "" ? Text.FixedSize : Text.HorizontalFit
+                minimumPixelSize: Escala.fuenteMinima
                 color: fila.encabezado ? Colores.textoSecundario
                      : (fila.colores[index] ?? Colores.textoPrimario)
                 font.family: Tipografia.familia
@@ -176,12 +184,8 @@ Flickable {
             FilaTabla {
                 encabezado: true
                 proporciones: parent._prop
-                celdas: [I18n.t("reportes.programa", I18n.lang),
-                         I18n.t("reportes.col_total", I18n.lang),
-                         I18n.t("reportes.col_completados", I18n.lang),
-                         I18n.t("reportes.col_fallos", I18n.lang),
-                         I18n.t("reportes.col_cancelados", I18n.lang),
-                         I18n.t("reportes.col_sin_cierre", I18n.lang)]
+                claves: ["reportes.programa", "reportes.col_total", "reportes.col_completados",
+                         "reportes.col_fallos", "reportes.col_cancelados", "reportes.col_sin_cierre"]
             }
             Repeater {
                 model: raiz.datos.por_programa
@@ -213,7 +217,7 @@ Flickable {
             FilaTabla {
                 encabezado: true
                 proporciones: [0.75, 0.2]
-                celdas: [I18n.t("reportes.causa", I18n.lang), I18n.t("reportes.cantidad", I18n.lang)]
+                claves: ["reportes.causa", "reportes.cantidad"]
             }
             Repeater {
                 model: raiz.datos.causas
