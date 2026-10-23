@@ -35,7 +35,8 @@ dev = [
   "pytest",
   "httpx",
   "pyinstaller",
-  "pyinstaller-hooks-contrib"
+  "pyinstaller-hooks-contrib",
+  "python-multipart"
 ]
 
 [project.scripts] #Define los puntos de entrada para los scripts ejecutables

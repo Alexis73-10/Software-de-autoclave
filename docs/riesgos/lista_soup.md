@@ -46,15 +46,17 @@ La clase de riesgo es una propuesta según el uso. Las anomalías conocidas qued
 | altgraph / pefile / packaging | 0.17.5 / 2024.8.26 / 25.0 | dev | Dependencias de PyInstaller durante la compilación |
 | pytest (+ pluggy, iniconfig, pygments) | 9.0.3 | dev | Pruebas |
 | httpx (+ httpcore) | 0.28.1 (1.0.9) | dev | Lo necesita `fastapi.testclient` en las pruebas; el programa usa `requests` |
+| python-multipart | 0.0.29 | dev | Formularios (`fastapi.Form`) del generador de códigos (`tools/generador`, `GeneradorCodigos.spec`). Va dentro de `GeneradorCodigos.exe`, que se queda en el PC de Especifika y NO se instala en el equipo del cliente |
 
 ## Retirados de la lista (L8, D8-3.26)
+
+`python-multipart` estuvo en esta tabla en el commit 66993dd; se pasó a herramientas (arriba) porque el generador de códigos lo necesita (verificación de L8).
 
 No los importa `src/autoclave` y ya no entran en el ejecutable compilado con el entorno limpio. Estaban en la tabla de L1 porque el lock anterior era el entorno completo de la máquina de compilación:
 
 | Paquete | Versión anterior | Motivo |
 |---|---|---|
 | SQLAlchemy | 2.0.44 | El registro usa `sqlite3` de la biblioteca estándar. Quitado también de `pyproject.toml` |
-| python-multipart | 0.0.29 | La API no recibe formularios |
 | httpx | 0.28.1 | Pasa a herramienta de prueba (ver arriba) |
 | cryptography | 48.0.0 | No se importa; con el entorno anterior entraba en el `.exe` |
 | pandas | 2.3.3 | No se importa |

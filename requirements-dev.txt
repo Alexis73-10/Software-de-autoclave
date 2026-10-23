@@ -12,3 +12,8 @@ httpx==0.28.1
 # va dentro del .exe: figura tambien en la lista SOUP (docs/riesgos/lista_soup.md).
 pyinstaller==6.20.0
 pyinstaller-hooks-contrib==2026.5
+
+# Generador de codigos (tools/generador, GeneradorCodigos.spec): sus formularios usan fastapi.Form,
+# que exige python-multipart. No es del producto (src/autoclave no lo importa) pero sin el el
+# generador no arranca y tests/test_g1_generador.py falla. Agregado en la verificacion de L8.
+python-multipart==0.0.29
