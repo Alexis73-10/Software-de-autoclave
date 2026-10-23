@@ -14,6 +14,8 @@ from autoclave.core.runtime.letalidad import calcular_incremento_f0
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime import aire_atmosferico_prueba
+from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.installation.profile import entrada_requerida, numero_puertas
@@ -184,6 +186,16 @@ class ControlLoop:
         self._reintentos_all_off = 0
         self._reintento_all_off_n = 0
         self._com04_activa = False
+        # D8-3.19: el lazo ya cerró el aire atmosférico en este modo prueba y
+        # registró el evento; se rearma cuando la tarjeta lo reporta cerrado
+        self._aire_prueba_cortado = False
+        # D8-3.19 (SAF-01/TMG-01 de la 2.ª revisión): último paso 1 completo
+        # (time.monotonic); presion_vigente exige que el estado esté al día
+        self._estado_publicado_mono: float | None = None
+        # D8-3.19 (SAF-01/TMG-02, re-revisión E1): instante tomado ANTES de
+        # leer Units en el paso 1; la compuerta del aire atmosférico exige que
+        # sea posterior a la confirmación de la señal de presión
+        self.estado_leido_mono: float | None = None
 
         # Acumulación de F0 (letalidad): timestamp del último tick que
         # acumuló, para calcular dt_min real (no el interval nominal).
@@ -454,6 +466,25 @@ class ControlLoop:
         if isinstance(edad, bool) or not isinstance(edad, (int, float)):
             return False
         return edad <= self._VIGENCIA_DI_SEG
+
+    def _ai_vigente(self) -> bool:
+        """True si la última trama AI (presiones y temperaturas) tiene a lo
+        sumo _VIGENCIA_DI_SEG segundos. Mismo criterio de falla cerrada que
+        _di_vigente. Solo lo usa el aire atmosférico en modo prueba (D8-3.19)."""
+        edad = getattr(self.link, "edad_ultima_ai", lambda: None)()
+        if isinstance(edad, bool) or not isinstance(edad, (int, float)):
+            return False
+        return edad <= self._VIGENCIA_DI_SEG
+
+    @property
+    def presion_vigente(self) -> bool:
+        """D8-3.19: datos vigentes (enlace + DI), trama AI al día y estado
+        publicado por el paso 1 hace a lo sumo _VIGENCIA_DI_SEG; sin eso,
+        pres_camara puede ser una lectura congelada."""
+        publicado = getattr(self, "_estado_publicado_mono", None)
+        if publicado is None or time.monotonic() - publicado > self._VIGENCIA_DI_SEG:
+            return False      # el tick no publica estado: pres_camara congelada
+        return self.datos_vigentes and self._ai_vigente()
 
     @property
     def datos_vigentes(self) -> bool:
@@ -796,7 +827,12 @@ class ControlLoop:
             return
 
         # 1. Publicar estado global
+        # `now` (inicio del tick) es anterior a la lectura de Units: sirve de
+        # instante de lectura (SAF-01/TMG-02) y, por ser más antiguo, deja la
+        # vigencia del estado del lado conservador; sin otra llamada al reloj
         self.estado.update(self.units.get_all())
+        self.estado_leido_mono = now
+        self._estado_publicado_mono = now
 
         # 2. Paro de emergencia → actualiza flag en estado. DI crudo, contacto
         # NC: EmergencyStop interpreta 0 o ausente como paro (D-16).
@@ -875,6 +911,14 @@ class ControlLoop:
             pausada = self._test_mode.is_set() or (
                 self._reintentos_all_off > 0 and not self.estado.get_flag("PARO_EMERGENCIA"))
 
+            # 2e. D8-3.19 (tanda 8): en modo prueba, el aire atmosférico de la
+            # cámara abierto con la cámara presurizada o sin lectura de presión
+            # se cierra (la orden de abrir ya se rechaza en /io/test/output).
+            aire_cortado = (self._vigilar_aire_atmosferico_prueba(
+                                vigentes=connected and not self.desconectado
+                                and self._di_vigente() and self._ai_vigente())
+                            if self._test_mode.is_set() else None)
+
             # 3. Dispositivos → actúan (pausado durante el modo prueba: las
             # puertas re-asertan sus propias salidas, p.ej. cerrar_on() en
             # cada tick mientras están CERRADO, lo que pisaría el control
@@ -900,6 +944,10 @@ class ControlLoop:
         # Fuera del lock: quien escucha registra en la bitácora (SQLite)
         if cancelado_por_paro:
             self._avisar_cancelacion_prueba()
+        if aire_cortado:
+            self._evento_seguridad("aire_atmosferico_cortado_prueba", {
+                "motivo": aire_cortado,
+                "pres_camara": self.estado.sensores_pres.get("pres_camara")})
 
         # 5b. Acumulación de F0 (letalidad) — solo lee estado.fase_ciclo, ya
         # publicado, así que el orden respecto al paso 5 no importa. RR-01
@@ -933,6 +981,41 @@ class ControlLoop:
                     marcar()
         except Exception:
             logger.exception("ControlLoop: no se pudo marcar el tramo sin datos del ciclo")
+
+    def _vigilar_aire_atmosferico_prueba(self, vigentes: bool = True) -> str | None:
+        """D8-3.19: con el modo prueba activo, mientras la condición de
+        apertura del aire atmosférico de la cámara no se cumpla (presión sobre
+        atm + brecha, sin lectura o datos no vigentes), se ordena cerrarlo en
+        cada tick, sin mirar lo que reporta la tarjeta (SAF-02 / TMG-01: la
+        trama DO puede llegar tarde o no llegar). Cerrar es el lado seguro:
+        inmediato, sin debounce, e idempotente. Si la tarjeta lo reportaba
+        abierto, devuelve el código del motivo una vez (para la bitácora);
+        se rearma cuando la tarjeta lo reporta cerrado."""
+        canal = EstadoAutoclave.map_do[aire_atmosferico_prueba.CLAVE_ESTADO] + 1
+        try:
+            salidas = getattr(self.estado, "salidas_do", None) or {}
+            reportada = bool(salidas.get(aire_atmosferico_prueba.CLAVE_ESTADO))
+            if vigentes:
+                permitido, codigo = aire_atmosferico_prueba.evaluar(
+                    self.estado, self.config_manager,
+                    senal_presente=aire_atmosferico_prueba.senal_camara(
+                        self.units, leido_mono=self.estado_leido_mono))
+            else:
+                permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
+        except Exception:
+            # TMG-06: un error aquí no debe abortar el tick; se cierra
+            logger.exception("Modo prueba: no se pudo evaluar el aire atmosférico; se cierra")
+            reportada, permitido, codigo = True, False, aire_atmosferico_prueba.SIN_PRESION
+        if not reportada:
+            self._aire_prueba_cortado = False
+        if permitido:
+            return None
+        self.set_do.set_output(canal, False)
+        if not reportada or self._aire_prueba_cortado:
+            return None
+        self._aire_prueba_cortado = True
+        logger.warning("Modo prueba: aire atmosférico de cámara cerrado por el lazo (%s)", codigo)
+        return codigo
 
     def _acumular_f0(self, now: float, vigentes: bool = True) -> None:
         """Acumula letalidad (F0) mientras el ciclo está en una fase con

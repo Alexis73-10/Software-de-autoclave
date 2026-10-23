@@ -29,6 +29,7 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.catalogo import Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import io_names
+from autoclave.core.runtime import aire_atmosferico_prueba
 from autoclave.core.runtime import progreso_ciclo
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
@@ -3092,16 +3093,44 @@ def _apagado_windows_habilitado() -> bool:
     return bool(getattr(sys, "frozen", False)) or os.environ.get("AUTOCLAVE_APAGADO_REAL") == "1"
 
 
+# D8-3.21 (tanda 8): Windows rechazó el apagado. La pantalla lo consulta en
+# GET /system/shutdown/estado y muestra "apáguelo manualmente" (catálogo).
+_apagado_lock = threading.Lock()
+_apagado_windows_rechazado = False
+
+
+def _registrar_apagado_rechazado(detalle: dict) -> None:
+    """Marca el rechazo para la pantalla y lo deja en la bitácora. La base ya
+    se cerró en la secuencia: se escribe con una conexión propia."""
+    global _apagado_windows_rechazado
+    with _apagado_lock:
+        _apagado_windows_rechazado = True
+    logger.error("Apagar equipo: Windows rechazó el apagado: %s", detalle)
+    real = getattr(context, "db_real", None)
+    db = (real if getattr(context, "sin_base_de_datos", False) is True and real is not None
+          else context.db)
+    try:
+        db.registrar_auditoria_tras_cierre(
+            "apagado_windows_rechazado", entidad="/system/shutdown", detalle=detalle)
+    except Exception:
+        logger.exception("No se pudo registrar 'apagado_windows_rechazado' en audit_log")
+
+
 def _apagar_windows() -> None:
     import subprocess
-    r = subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30,
-                       capture_output=True, errors="replace",
-                       encoding="oem" if sys.platform == "win32" else None,
-                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    try:
+        r = subprocess.run(["shutdown", "/s", "/t", "0"], check=False, timeout=30,
+                           capture_output=True, errors="replace",
+                           encoding="oem" if sys.platform == "win32" else None,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except Exception as e:
+        # sin shutdown.exe, sin permiso o colgado: tampoco se apagó
+        _registrar_apagado_rechazado({"error": f"{type(e).__name__}: {e}"})
+        return
     if r.returncode != 0:
         # P1 (tanda 7): el lazo ya se detuvo; sin esto no quedaba el motivo
-        logger.error("Apagar equipo: Windows rechazó el apagado (código %s): %s",
-                     r.returncode, (r.stderr or r.stdout or "").strip())
+        _registrar_apagado_rechazado({"codigo": r.returncode,
+                                      "mensaje": (r.stderr or r.stdout or "").strip()[:500]})
 
 
 _TOPE_PASO_APAGADO_S = 8.0
@@ -3231,6 +3260,16 @@ def shutdown_system(body: dict = Body(default={})):
         _secuencia_apagado()
     return {"ok": True, "apagado_windows": _apagado_windows_habilitado(),
             "camara_segura": segura}
+
+
+@app.get("/system/shutdown/estado")
+def shutdown_estado():
+    """D8-3.21: estado del apagado para la pantalla (sin sesión, como el
+    propio apagado). `windows_rechazado`: Windows no permitió apagar."""
+    with _apagado_lock:
+        rechazado = _apagado_windows_rechazado
+    return {"apagando": getattr(context.control_loop, "apagando", False) is True,
+            "windows_rechazado": rechazado}
 
 
 @app.post("/safe-state/confirm")
@@ -3904,8 +3943,8 @@ class _EntradasBody(BaseModel):
 
 
 def _ai_habilitadas() -> list[str]:
-    from autoclave.core.runtime.io_names import leer_io_enabled
-    return leer_io_enabled()["AI"]
+    # D8-3.17: las AI que declara el perfil de instalación
+    return io_names.leer_io_enabled(profile=getattr(context, "profile", None))["AI"]
 
 
 @app.get("/cycle/display-inputs")
@@ -4218,17 +4257,19 @@ def _rechazar_si_sin_datos_vigentes() -> None:
 @app.get("/io/channels")
 def io_channels(sesion: Sesion = Depends(_requiere_rol_prueba)):
     """B-ES-2: canales de Entradas / Salidas del equipo (io_enabled) con id
-    físico, clave i18n y si la salida es momentánea (D-ES-02, D-ES-03, D-ES-09)."""
-    salidas = io_names.canales_digitales("DO")
+    físico, clave i18n y si la salida es momentánea (D-ES-02, D-ES-03, D-ES-09).
+    D8-3.17: solo los canales que declara el perfil de instalación."""
+    perfil = getattr(context, "profile", None)
+    salidas = io_names.canales_digitales("DO", profile=perfil)
     for c in salidas:
         canal = EstadoAutoclave.map_do[c["estado_key"]] + 1
         # fuente de vapor que el equipo no usa (E1b / S1): se muestra deshabilitada
         c["bloqueada"] = context.setdo.salida_bloqueada(canal) is True
     return {
-        "DI": io_names.canales_digitales("DI"),
+        "DI": io_names.canales_digitales("DI", profile=perfil),
         "DO": salidas,
-        "temperature": io_names.sensores("temperature"),
-        "pressure": io_names.sensores("pressure"),
+        "temperature": io_names.sensores("temperature", profile=perfil),
+        "pressure": io_names.sensores("pressure", profile=perfil),
     }
 
 
@@ -4351,6 +4392,20 @@ def io_test_set_output(name: str, body: _OutputSetBody,
                                "Solo la sesión que activó el modo prueba puede encender salidas")
             # D-ES-15: en modo prueba se permiten todas las salidas; R-02
             # (presión atmosférica y puertas cerradas) ya no se exige aquí.
+            # D8-3.19 (tanda 8): ÚNICA excepción, el aire atmosférico de la
+            # cámara: con presión sobre atm + brecha o sin lectura, no se abre.
+            if clave == aire_atmosferico_prueba.CLAVE_ESTADO:   # SAF-04: por la clave resuelta
+                # presión con la trama AI al día (revisión SAF-01/TMG-01/SEN-01)
+                if getattr(context.control_loop, "presion_vigente", False) is not True:
+                    permitido, codigo = False, aire_atmosferico_prueba.SIN_PRESION
+                else:
+                    permitido, codigo = aire_atmosferico_prueba.evaluar(
+                        context.estado, context.config_manager,
+                        senal_presente=aire_atmosferico_prueba.senal_camara(
+                            getattr(context, "units", None),
+                            leido_mono=getattr(context.control_loop, "estado_leido_mono", None)))
+                if not permitido:
+                    raise _Rechazo(409, codigo, aire_atmosferico_prueba.MOTIVOS[codigo])
         # map_do es 0-indexado (posición en el bitstream DO), pero
         # serial_link.set_output() espera el número de canal DO físico
         # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.

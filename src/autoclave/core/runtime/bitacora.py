@@ -26,6 +26,7 @@ EVENTOS = (
     "suspension_entra", "suspension_sale",
     "correo_configurado", "correo_prueba", "correo_enviado", "impresora_prueba", "impresion_ganancias",
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
+    "aire_atmosferico_cortado_prueba", "apagado_windows_rechazado",
     "rechazo_401", "rechazo_403", "rechazo_409",
     "param_ciclo_cambio",
     # R8 (tanda 8, D8-5.12): reasignación de E/S

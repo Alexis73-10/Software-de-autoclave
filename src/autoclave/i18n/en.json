@@ -108,7 +108,7 @@
     "confirmar_si": "Install",
     "error_guardar": "Save error: {detalle}",
     "listo_titulo": "Installation complete",
-    "listo_texto": "The equipment has been registered successfully. Restart the software to continue.",
+    "listo_texto": "The equipment has been registered successfully. Press Continue to start using it.",
     "resumen_cerrojo": "Door lock",
     "resumen_con_cerrojo": "Controlled by the software",
     "resumen_sin_cerrojo": "NOT controlled by the software",
@@ -528,6 +528,7 @@
     "apagar": "Shut down equipment",
     "apagar_pregunta": "The equipment will shut down completely (including the PC). Do you want to continue?",
     "apagar_rechazado": "Cannot shut down: {motivo}",
+    "apagado_windows_rechazado": "Windows did not allow the equipment to shut down: shut it down manually",
     "apagar_camara_no_segura": "The chamber is not in a safe condition (DO NOT OPEN). The equipment will be taken out of service; do not open the doors."
   },
   "formulario": {
@@ -1017,6 +1018,9 @@
     "err_sin_previa": "There is no previous calibration to restore.",
     "err_confirmacion": "The calibration is outside the usual range and needs confirmation.",
     "err_implausible": "The calibration is not plausible and cannot be applied.",
+    "err_aire_con_presion": "The atmospheric air valve cannot be opened: the chamber is pressurized. Wait until the chamber is at atmospheric pressure.",
+    "err_aire_sin_presion": "The atmospheric air valve cannot be opened: there is no chamber pressure reading.",
+    "err_aire_sin_referencia": "The atmospheric air valve cannot be opened: the equipment reference atmospheric pressure is missing.",
     "di": {
       "aire_comprimido": "Compressed air",
       "presion_agua": "Water pressure",
@@ -1030,10 +1034,17 @@
       "agua_generador": "Generator water",
       "paro_emergencia": "Emergency stop",
       "agua_camara": "Chamber water",
-      "vapor_suministro": "Steam supply"
+      "vapor_suministro": "Steam supply",
+      "suministro_electrico": "Power supply"
     },
     "do": {
       "vapor_generador": "Generator steam",
+      "vapor_caldera": "Boiler steam",
+      "descompresion_lenta": "Slow decompression",
+      "aire_comprimido_chaqueta": "Jacket compressed air",
+      "aire_comprimido_camara": "Chamber compressed air",
+      "agua_chaqueta": "Jacket water",
+      "buzer_alarma": "Alarm buzzer",
       "vapor_chaqueta": "Jacket steam",
       "vapor_camara": "Chamber steam",
       "descompresion_rapida": "Fast decompression",
@@ -1054,6 +1065,7 @@
     },
     "ai": {
       "temp_camara": "Chamber temperature",
+      "temp_2_camara": "Chamber temperature 2",
       "temp_referencia": "Reference temperature",
       "temp_drenaje": "Drain temperature",
       "temp_drenaje_camara": "Chamber drain temperature",
@@ -1082,7 +1094,7 @@
       "banner_prueba": "TEST MODE ACTIVE",
       "banner_regla": "Outputs turn off when leaving the section, logging out or after 5 minutes without activity.",
       "dialogo_titulo": "TEST MODE — CAUTION",
-      "dialogo_texto": "All active outputs will be turned off and you will be able to drive any output manually WITHOUT checking chamber pressure or door state. Only the entrapment safeguard stays active. Use it only if you know the system.",
+      "dialogo_texto": "All active outputs will be turned off and you will be able to drive any output manually WITHOUT checking chamber pressure or door state. Only the entrapment safeguard and the atmospheric air lock (pressurized chamber or no pressure reading) stay active. Use it only if you know the system.",
       "continuar": "Continue",
       "activar": "Turn on",
       "apagar": "Turn off",
@@ -1573,7 +1585,9 @@
       "reasignacion_io_fabrica": "restored the factory port of {entidad}: {anterior} → {nuevo}",
       "reasignacion_io_rechazada": "input and output reassignment rejected",
       "reasignacion_io_verificada": "checked {entidad} on its port {nuevo}",
-      "reinicio_control": "restarted the control to apply the input and output assignment"
+      "reinicio_control": "restarted the control to apply the input and output assignment",
+      "aire_atmosferico_cortado_prueba": "the control closed the chamber atmospheric air in test mode",
+      "apagado_windows_rechazado": "Windows did not allow the equipment to shut down"
     },
     "tipo": {
       "login_ok": "Login",
@@ -1628,7 +1642,9 @@
       "reasignacion_io_fabrica": "Factory assignment restored",
       "reasignacion_io_rechazada": "Reassignment rejected",
       "reasignacion_io_verificada": "Reassignment check",
-      "reinicio_control": "Control restart"
+      "reinicio_control": "Control restart",
+      "aire_atmosferico_cortado_prueba": "Atmospheric air closed",
+      "apagado_windows_rechazado": "Shutdown rejected by Windows"
     }
   },
   "correo_c2": {

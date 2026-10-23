@@ -108,7 +108,7 @@
     "confirmar_si": "Instalar",
     "error_guardar": "Error al guardar: {detalle}",
     "listo_titulo": "Instalación completada",
-    "listo_texto": "El equipo ha sido registrado correctamente. Reinicie el software para continuar.",
+    "listo_texto": "El equipo ha sido registrado correctamente. Pulse Continuar para empezar a usarlo.",
     "resumen_cerrojo": "Cerrojo de puerta",
     "resumen_con_cerrojo": "Controlado por el software",
     "resumen_sin_cerrojo": "NO controlado por el software",
@@ -528,6 +528,7 @@
     "apagar": "Apagar equipo",
     "apagar_pregunta": "El equipo se apagará por completo (incluido el PC). ¿Desea continuar?",
     "apagar_rechazado": "No se puede apagar: {motivo}",
+    "apagado_windows_rechazado": "Windows no permitió apagar el equipo: apáguelo manualmente",
     "apagar_camara_no_segura": "La cámara no está en condición segura (NO ABRIR). El equipo quedará fuera de servicio; no abra las puertas."
   },
   "formulario": {
@@ -1017,6 +1018,9 @@
     "err_sin_previa": "No hay una calibración anterior que restaurar.",
     "err_confirmacion": "La calibración está fuera del rango habitual y requiere confirmación.",
     "err_implausible": "La calibración no es plausible y no se puede aplicar.",
+    "err_aire_con_presion": "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica.",
+    "err_aire_sin_presion": "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara.",
+    "err_aire_sin_referencia": "No se puede abrir el aire atmosférico: falta la presión atmosférica de referencia del equipo.",
     "di": {
       "aire_comprimido": "Aire comprimido",
       "presion_agua": "Presión de agua",
@@ -1030,10 +1034,17 @@
       "agua_generador": "Agua generador",
       "paro_emergencia": "Paro de emergencia",
       "agua_camara": "Agua cámara",
-      "vapor_suministro": "Suministro de vapor"
+      "vapor_suministro": "Suministro de vapor",
+      "suministro_electrico": "Suministro eléctrico"
     },
     "do": {
       "vapor_generador": "Vapor generador",
+      "vapor_caldera": "Vapor caldera",
+      "descompresion_lenta": "Descompresión lenta",
+      "aire_comprimido_chaqueta": "Aire comprimido chaqueta",
+      "aire_comprimido_camara": "Aire comprimido cámara",
+      "agua_chaqueta": "Agua chaqueta",
+      "buzer_alarma": "Zumbador de alarma",
       "vapor_chaqueta": "Vapor chaqueta",
       "vapor_camara": "Vapor cámara",
       "descompresion_rapida": "Descompresión rápida",
@@ -1054,6 +1065,7 @@
     },
     "ai": {
       "temp_camara": "Temperatura cámara",
+      "temp_2_camara": "Temperatura cámara 2",
       "temp_referencia": "Temperatura referencia",
       "temp_drenaje": "Temperatura drenaje",
       "temp_drenaje_camara": "Temperatura drenaje de cámara",
@@ -1082,7 +1094,7 @@
       "banner_prueba": "MODO PRUEBA ACTIVO",
       "banner_regla": "Las salidas se apagan al salir de la sección, al cerrar sesión o tras 5 minutos sin actividad.",
       "dialogo_titulo": "MODO PRUEBA — PRECAUCIÓN",
-      "dialogo_texto": "Se apagarán todas las salidas activas y podrá accionar manualmente cualquier salida SIN verificar la presión de la cámara ni el estado de las puertas. Solo el seguro de atrapamiento sigue activo. Úselo únicamente si conoce el sistema.",
+      "dialogo_texto": "Se apagarán todas las salidas activas y podrá accionar manualmente cualquier salida SIN verificar la presión de la cámara ni el estado de las puertas. Solo siguen activos el seguro de atrapamiento y el bloqueo del aire atmosférico con la cámara presurizada o sin lectura de presión. Úselo únicamente si conoce el sistema.",
       "continuar": "Continuar",
       "activar": "Activar",
       "apagar": "Apagar",
@@ -1573,7 +1585,9 @@
       "reasignacion_io_fabrica": "restauró el puerto de fábrica de {entidad}: {anterior} → {nuevo}",
       "reasignacion_io_rechazada": "reasignación de entradas y salidas rechazada",
       "reasignacion_io_verificada": "verificó {entidad} en su puerto {nuevo}",
-      "reinicio_control": "reinició el control para aplicar la asignación de entradas y salidas"
+      "reinicio_control": "reinició el control para aplicar la asignación de entradas y salidas",
+      "aire_atmosferico_cortado_prueba": "el control cerró el aire atmosférico de la cámara en modo prueba",
+      "apagado_windows_rechazado": "Windows no permitió apagar el equipo"
     },
     "tipo": {
       "login_ok": "Inicio de sesión",
@@ -1628,7 +1642,9 @@
       "reasignacion_io_fabrica": "Asignación de fábrica restaurada",
       "reasignacion_io_rechazada": "Reasignación rechazada",
       "reasignacion_io_verificada": "Verificación de reasignación",
-      "reinicio_control": "Reinicio del control"
+      "reinicio_control": "Reinicio del control",
+      "aire_atmosferico_cortado_prueba": "Aire atmosférico cerrado",
+      "apagado_windows_rechazado": "Apagado rechazado por Windows"
     }
   },
   "correo_c2": {
