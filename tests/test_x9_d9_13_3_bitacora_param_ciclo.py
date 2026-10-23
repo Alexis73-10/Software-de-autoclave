@@ -229,11 +229,11 @@ def _doble_falla(servidor):
     real = srv._escribir_json_programa
     llamadas = {"n": 0}
 
-    def escribir(cycle, cambiar):
+    def escribir(cycle, cambiar, **kw):
         llamadas["n"] += 1
         if llamadas["n"] >= 2:                      # la reversión del JSON falla
             raise OSError("disco lleno")
-        real(cycle, cambiar)
+        real(cycle, cambiar, **kw)
     srv._escribir_json_programa = escribir
     r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
     srv._escribir_json_programa = real
@@ -277,7 +277,7 @@ def test_saf02_falla_solo_el_json_no_marca(servidor):
     c, previo, nuevo = _secado(cm)
     real = srv._escribir_json_programa
 
-    def escribir(cycle, cambiar):
+    def escribir(cycle, cambiar, **kw):
         raise OSError("disco lleno")
     srv._escribir_json_programa = escribir
     r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
@@ -376,3 +376,32 @@ def test_rev_lote_no_se_une_a_una_transaccion_ajena(tmp_path):
     db.registrar_auditoria_lote([{"evento": "param_ciclo_cambio", "entidad": "e"}])
     assert db.get_auditoria(evento="ajena") == []
     assert len(db.get_auditoria(evento="param_ciclo_cambio")) == 1
+
+
+def test_rev2_sin_bitacora_el_bak_no_guarda_la_propuesta(servidor):
+    """Re-revisión ★ (SAF-01 Bajo): al reescribir el JSON tras fallar la
+    bitácora no se genera un .bak con el valor sin registrar."""
+    client, cm, ctx, _ = servidor
+    c, previo, nuevo = _secado(cm)
+    ctx.db.registrar_auditoria_lote = MagicMock(side_effect=sqlite3.OperationalError("locked"))
+    assert _patch(client, c.id, "secado", ["tiempo_secado"], nuevo).status_code == 503
+    bak = Path(c._path + ".bak")
+    if bak.exists():
+        datos = json.loads(bak.read_text(encoding="utf-8"))
+        assert datos["parameters"]["secado"]["tiempo_secado"]["value"] == previo
+
+
+def test_rev2_escribir_la_propuesta_no_quita_la_marca(servidor):
+    client, cm, ctx, srv = servidor
+    c, _, nuevo = _secado(cm)
+    marca = Path(c._path + ".sin_bitacora")
+    marca.write_text("x\n", encoding="utf-8")
+    vista = []
+    real = ctx.db.registrar_auditoria_lote
+
+    def lote(filas):
+        vista.append(marca.exists())
+        return real(filas)
+    ctx.db.registrar_auditoria_lote = lote
+    assert _patch(client, c.id, "secado", ["tiempo_secado"], nuevo).status_code == 200
+    assert vista == [True] and not marca.exists()

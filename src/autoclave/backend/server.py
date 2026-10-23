@@ -3571,6 +3571,9 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
         propuesta = cycle.copia()
         if hasattr(cycle, "_path"):
             propuesta._path = cycle._path
+        # re-revisión X9 (SAF-02): escribir la propuesta no quita la marca
+        # de valor sin bitácora (se quita tras registrar la bitácora)
+        propuesta._propuesta_sin_registrar = True
         try:
             value = (propuesta.set_param(body.fase, body.path, body.value, arrastres=arrastres)
                      if arrastres else propuesta.set_param(body.fase, body.path, body.value))
@@ -3659,6 +3662,8 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
             hoja = cycle._hoja(f, p)
             if hoja is not None:
                 hoja["value"] = v
+    if json_escrito:
+        _quitar_marca_sin_bitacora(cycle)   # archivo = memoria = bitácora
 
     # X9 (D9-13.3, TMG-01): la bitácora ya está; recién ahora la copia del
     # ciclo en curso (bajo _sm_lock, dentro de aplicar_a_ciclo_en_curso). Si
@@ -3702,50 +3707,18 @@ def _arrastres_tipo_carga(cycle, fase: str, path: list[str], valor) -> list:
     return cycle.arrastres_tipo_carga(valor, modo_solido=modo_solido)
 
 
-def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None) -> None:
-    """Restaura los valores previos (también los vinculados) en el programa,
-    su JSON y, si se había aplicado, la copia del ciclo en curso.
-    `escritos` (TMG-02): valores que escribió la petición; una hoja que ya no
-    tiene ese valor la cambió otro y no se toca (revertirla a ciegas podía
-    dejar, p. ej., carga líquida con modo 1)."""
-    escrito = {(f, tuple(p)): v for f, p, v in (escritos or [])}
-    with context.control_loop.bloqueo_maquina():
-        for fase, path, valor in previos:
-            hoja = cycle._hoja(fase, path)
-            clave = (fase, tuple(path))
-            if hoja is not None and clave in escrito and hoja.get("value") != escrito[clave]:
-                logger.warning("Reversión de %s/%s omitida: el valor cambió después",
-                               fase, ".".join(path))
-                continue
-            if hoja is not None:
-                hoja["value"] = valor
-            if en_curso and not context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor):
-                # re-revisión D8-5.7 (timing, Medio): la fase ya empezó y la
-                # copia del ciclo en curso conserva el valor sin bitácora
-                logger.error("Reversión de %s/%s no aplicada al ciclo en curso (la fase ya "
-                             "inició): el ciclo sigue con el valor no registrado",
-                             fase, ".".join(path))
-        parametros = getattr(cycle, "parameters", None)
-        errores = catalogo_parametros.errores_coherencia(parametros) if isinstance(parametros, dict) else []
-        if errores:
-            logger.error("Programa %s incoherente tras revertir: %s",
-                         getattr(cycle, "id", "?"), "; ".join(errores))
-    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        try:
-            with _lock_archivos:
-                _save_cycle_json(cycle)
-        except Exception:
-            logger.exception("Programa %s: no se pudo escribir el JSON al revertir; "
-                             "memoria y archivo difieren", getattr(cycle, "id", "?"))
-
-
 def _reescribir_json_programa(cycle) -> bool:
     """X9 (D9-13.3, SAF-02): vuelve a escribir el JSON desde el programa
-    almacenado (valores registrados), con un reintento. False si no pudo."""
+    almacenado (valores registrados), con un reintento. False si no pudo.
+    Sin `.bak` (re-revisión SAF-01): el archivo que se reemplaza tiene la
+    propuesta sin registrar y no debe quedar como respaldo."""
+    def cambiar(data):
+        data["parameters"] = cycle.parameters
     for intento in (1, 2):
         try:
             with _lock_archivos:
-                _save_cycle_json(cycle)
+                _escribir_json_programa(cycle, cambiar, con_respaldo=False)
+            _quitar_marca_sin_bitacora(cycle)
             return True
         except Exception:
             logger.exception("Programa %s: no se pudo reescribir el JSON (intento %d); "
@@ -3774,6 +3747,19 @@ def _marcar_sin_bitacora(cycle, entidad: str) -> None:
     except Exception:
         logger.exception("Programa %s: tampoco se pudo escribir la marca %s",
                          getattr(cycle, "id", "?"), ruta)
+
+
+def _quitar_marca_sin_bitacora(cycle) -> None:
+    import os as _os
+    marca = str(getattr(cycle, "_path", "")) + SUFIJO_SIN_BITACORA
+    if not getattr(cycle, "_path", None) or not _os.path.exists(marca):
+        return
+    try:
+        _os.remove(marca)
+        logger.warning("Programa %s: reescrito desde los valores registrados; se quita %s",
+                       getattr(cycle, "id", "?"), _os.path.basename(marca))
+    except OSError:
+        logger.exception("Programa %s: no se pudo quitar %s", getattr(cycle, "id", "?"), marca)
 
 
 # ── Opciones › Parámetros del ciclo, lectura (T12; opciones §5.1, §5.2, §6) ──
@@ -4127,7 +4113,7 @@ def _normalizar_asignacion(asignacion: dict) -> dict:
     return {**{s: sc.NO_EN_USO for s in sc.SENSORES}, **asignacion}
 
 
-def _escribir_json_programa(cycle, cambiar) -> None:
+def _escribir_json_programa(cycle, cambiar, con_respaldo: bool = True) -> None:
     """Lee el JSON del programa, aplica `cambiar(data)` y lo escribe de forma
     atómica (.tmp + fsync + os.replace): un corte a mitad de la escritura no
     deja el programa truncado (TMG-02 de T3). Si falla, borra el .tmp."""
@@ -4142,7 +4128,8 @@ def _escribir_json_programa(cycle, cambiar) -> None:
         data = _json.load(f)
     cambiar(data)
     # RB-04.2 (T10): la versión anterior queda como <nombre>.json.bak
-    _shutil.copy2(path, path.with_name(path.name + ".bak"))
+    if con_respaldo:
+        _shutil.copy2(path, path.with_name(path.name + ".bak"))
     tmp = path.with_suffix(path.suffix + ".tmp")
     try:
         with open(tmp, "w", encoding="utf-8") as f:
@@ -4234,17 +4221,11 @@ def _save_cycle_json(cycle) -> None:
     def cambiar(data):
         data["parameters"] = cycle.parameters
     _escribir_json_programa(cycle, cambiar)
-    # X9 (D9-13.3, SAF-02): el archivo ya refleja la memoria (valores
-    # registrados): la marca de valor sin bitácora deja de aplicar
-    import os as _os
-    marca = str(cycle._path) + SUFIJO_SIN_BITACORA
-    if _os.path.exists(marca):
-        try:
-            _os.remove(marca)
-            logger.warning("Programa %s: reescrito desde la memoria; se quita %s",
-                           getattr(cycle, "id", "?"), _os.path.basename(marca))
-        except OSError:
-            logger.exception("Programa %s: no se pudo quitar %s", getattr(cycle, "id", "?"), marca)
+    # X9 (D9-13.3, SAF-02): el archivo ya refleja el programa almacenado
+    # (valores registrados): la marca de valor sin bitácora deja de aplicar.
+    # La propuesta de un PATCH aún no registrada no la quita.
+    if not getattr(cycle, "_propuesta_sin_registrar", False):
+        _quitar_marca_sin_bitacora(cycle)
 
 
 # Direct hardware access — bypasses control_loop, for bench validation only
