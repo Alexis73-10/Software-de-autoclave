@@ -10,6 +10,15 @@
 # sensor de puerta. Alarma SEN-10 (ALARMA, bloquea el inicio de ciclo),
 # despeje automático con 3 lecturas coherentes seguidas.
 #
+# Revisión ★ (SAF-02 / TMG-01): con todas las puertas cerradas la coherencia
+# NO es evaluable (no hay referencia atmosférica): no cuenta en ningún
+# sentido. Antes contaba como coherente y SEN-10 se despejaba sola al cerrar
+# la puerta, sin bloquear nunca un inicio. Ahora solo se despeja con 3
+# lecturas coherentes con una puerta ABIERTA.
+# Revisión ★ (TMG-03): las 3 lecturas son 3 tramas AI distintas (seq_ai,
+# precedente D8-2.9); un tick no evaluable, sin datos vigentes o en pausa
+# (modo prueba) pone los contadores a cero.
+#
 # - Solo presión: la temperatura con la puerta abierta no se evalúa.
 # - En CICLO no actúa (los contadores vuelven a cero).
 # - Sin presión de cámara (la cubre SEN-06), sin configuración o sin datos
@@ -48,17 +57,19 @@ class VigilanciaCoherenciaPuertaPresion:
         self._incoherentes = 0
         self._coherentes = 0
         self.activa = False
+        self._ultima_seq = None
 
-    def _reiniciar_conteo(self) -> None:
+    def reiniciar_conteo(self) -> None:
         self._incoherentes = 0
         self._coherentes = 0
+        self._ultima_seq = None
 
     def _evaluar(self, estado) -> bool | None:
         """True incoherente, False coherente, None no evaluable."""
         puertas = getattr(estado, "estado_puertas", None) or {}
         abierta = any(v == DoorState.ABIERTO for v in puertas.values())
         if not abierta:
-            return False
+            return None          # SAF-02: puerta cerrada = no evaluable
         pres = _numero(estado.sensores_pres.get("pres_camara"))
         atm = _numero(self.config.get("presion_admosferica"))
         brecha = _numero(self.config.get("rango_presion_atm"))
@@ -66,15 +77,28 @@ class VigilanciaCoherenciaPuertaPresion:
             return None
         return not (atm - brecha <= pres <= atm + brecha)
 
-    def update(self, estado, vigentes: bool = True) -> None:
+    def update(self, estado, vigentes: bool = True, seq_ai: int | None = None) -> None:
+        """`seq_ai`: número de la trama AI de esta lectura; la misma trama
+        cuenta una sola vez. None (enlace que no lo informa): cada llamada
+        cuenta."""
         if estado.get_machine_state() == GlobalState.CICLO:
-            self._reiniciar_conteo()
+            self.reiniciar_conteo()
             return
-        if not vigentes:
-            return
-        incoherente = self._evaluar(estado)
+        incoherente = self._evaluar(estado) if vigentes else None
         if incoherente is None:
+            # no evaluable (puerta cerrada, sin presión, sin configuración o
+            # sin datos vigentes): el conteo vuelve a cero y una SEN-10 ya
+            # confirmada se mantiene (y se reafirma si un reconocimiento la
+            # resolvió): solo la despejan 3 lecturas coherentes con la puerta
+            # abierta (SAF-02)
+            self.reiniciar_conteo()
+            if self.activa:
+                self.alarm_manager.activar(SEN_10)
             return
+        if seq_ai is not None:
+            if seq_ai == self._ultima_seq:
+                return               # misma trama AI: ya contada
+            self._ultima_seq = seq_ai
         if incoherente:
             self._coherentes = 0
             self._incoherentes += 1
