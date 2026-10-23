@@ -53,15 +53,33 @@ ESPERA_RELANZAR_S = 5.0
 CODIGO_INSTALACION_TERMINADA = 3
 
 
+def _cerrar_todas(pantallas, espera_s: float = 5.0) -> None:
+    """R11: termina las pantallas vivas y espera a que cierren (o las mata)."""
+    for p in pantallas:
+        proc = p["proc"]
+        if proc is None or proc.poll() is not None:
+            continue
+        try:
+            proc.terminate()
+            proc.wait(timeout=espera_s)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        except Exception:
+            logger.exception("No se pudo cerrar la pantalla: %s", " ".join(p["cmd"][1:]))
+
+
 def vigilar_pantallas(cmds, lanzar, relanzamientos=RELANZAMIENTOS_MAX,
                       espera_s=ESPERA_RELANZAR_S, reloj=time.monotonic,
-                      dormir=time.sleep, periodo_s=0.5, barra=None) -> None:
+                      dormir=time.sleep, periodo_s=0.5, barra=None, detener=None) -> None:
     """D-04: lanza cada pantalla y, si una se cierra, la relanza hasta
     `relanzamientos` veces, `espera_s` después de cada cierre. Termina cuando
     todas están cerradas y sin relanzamientos. Ctrl+C cierra todas.
 
     `barra` (barra_tareas, o None para no tocarla) se oculta en cada vuelta
-    mientras haya pantallas y se vuelve a mostrar al terminar."""
+    mientras haya pantallas y se vuelve a mostrar al terminar.
+
+    `detener` (threading.Event, R11): al activarse cierra todas las pantallas
+    sin relanzarlas y termina (reinicio del software)."""
     def _lanzar(cmd):
         # TMG-08 de T8: un fallo al lanzar cuenta como cierre, no mata al vigilante
         try:
@@ -76,6 +94,10 @@ def vigilar_pantallas(cmds, lanzar, relanzamientos=RELANZAMIENTOS_MAX,
         pantallas.append({"cmd": cmd, "proc": _lanzar(cmd), "usados": 0, "cerrada_en": None})
     try:
         while True:
+            if detener is not None and detener.is_set():
+                logger.warning("Reinicio del software: se cierran las pantallas")
+                _cerrar_todas(pantallas)
+                return
             if barra is not None:
                 barra.ocultar()
             vivas = False

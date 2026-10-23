@@ -11,6 +11,9 @@
 #   Autoclave.exe --rol ajustes         menú de configuración PySide (el engrane)
 #   Autoclave.exe --rol instalar        copia a Archivos de programa (elevado, ver instalador_exe.py)
 #   Autoclave.exe --portable            corre desde donde esté, sin ofrecer instalar
+#   Autoclave.exe --esperar-pid P ...   (R11) antes de arrancar espera a que esos
+#                                       procesos terminen y el puerto del backend
+#                                       quede libre (relanzamiento tras reiniciar_software)
 #
 # Abierto desde fuera de %ProgramFiles%\Especifika\Autoclave (p. ej. una USB)
 # ofrece instalarse ahí y abre la copia instalada; no escribe nada en la USB.
@@ -24,13 +27,23 @@
 # en curso (409) el backend NO se detiene hasta que el ciclo termine, para no
 # matarlo con las salidas encendidas (mismo criterio que on_close de main.py).
 # Los logs quedan en data/ de la carpeta de datos.
+#
+# R11 (tanda 11, D11-1): cuando el backend termina con
+# CODIGO_REINICIO_SOFTWARE (reiniciar_software, p. ej. al cambiar la
+# impresora; ya hizo el cierre ordenado de "Apagar equipo" sin apagar
+# Windows), el lanzador cierra las pantallas y, ya terminado el backend, vuelve
+# a abrir el mismo comando con --esperar-pid (el suyo y el del backend): una
+# sola instancia. Si el relanzamiento falla queda en lanzador.log; la pantalla
+# ya avisó al operador que apague y encienda el equipo si no vuelve a abrir.
 
 import argparse
 import logging
 import os
+import socket
 import subprocess
 import sys
 import time
+from urllib.parse import urlparse
 
 
 def _sin_consola() -> None:
@@ -60,7 +73,10 @@ def _parse_args(argv=None):
     parser.add_argument("--portable", action="store_true")
     parser.add_argument("--monitor-puerta1", type=int, default=0)
     parser.add_argument("--monitor-puerta2", type=int, default=1)
-    return parser.parse_args(argv)
+    parser.add_argument("--esperar-pid", type=int, action="append", default=None)
+    args = parser.parse_args(argv)
+    args.esperar_pid = list(args.esperar_pid or [])
+    return args
 
 
 def _cmd_propio(*args: str) -> list[str]:
@@ -101,6 +117,100 @@ def _apagar_backend(url: str, proc, logger) -> None:
     logger.info("Backend detenido")
 
 
+# ── R11: relanzamiento con una sola instancia ──────────────────────────────
+
+TOPE_ESPERA_INSTANCIA_S = 60.0
+
+
+def _pid_vivo(pid: int) -> bool:
+    try:
+        import psutil
+        if not psutil.pid_exists(pid):
+            return False
+        return psutil.Process(pid).status() != psutil.STATUS_ZOMBIE
+    except Exception:
+        return False   # sin psutil o proceso ya ido: decide el puerto
+
+
+def _puerto_backend_ocupado() -> bool:
+    """True si algo escucha en el puerto del backend (127.0.0.1:8000)."""
+    from autoclave.ui_qml.app import BACKEND_URL
+    url = urlparse(BACKEND_URL)
+    try:
+        with socket.create_connection((url.hostname or "127.0.0.1", url.port or 8000),
+                                      timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+def esperar_instancia_anterior(pids, tope_s: float = TOPE_ESPERA_INSTANCIA_S, pid_vivo=None,
+                               puerto_ocupado=None, reloj=time.monotonic, dormir=None,
+                               pausa_s: float = 0.25, log=None) -> bool:
+    """Espera a que terminen los procesos `pids` (lanzador y backend
+    anteriores) y a que el puerto del backend quede libre. False si vence el
+    tope: queda en el log y se sigue; el lanzador usa entonces el backend que
+    responda y no arranca otro (nunca dos backends escuchando)."""
+    pid_vivo = pid_vivo or _pid_vivo
+    puerto_ocupado = puerto_ocupado or _puerto_backend_ocupado
+    dormir = dormir or time.sleep
+    log = log or logging.getLogger("autoclave.exe_unico")
+    pendientes = [p for p in pids if p]
+    limite = reloj() + tope_s
+    while True:
+        pendientes = [p for p in pendientes if pid_vivo(p)]
+        if not pendientes and not puerto_ocupado():
+            log.info("Instancia anterior terminada y puerto del backend libre")
+            return True
+        if reloj() >= limite:
+            log.error("La instancia anterior no terminó en %.0f s (procesos vivos: %s); se sigue: "
+                      "si hay un backend escuchando se usa ese y no se arranca otro",
+                      tope_s, pendientes or "ninguno")
+            return False
+        dormir(pausa_s)
+
+
+def _sin_esperar_pid(argv) -> list[str]:
+    salida, saltar = [], False
+    for a in argv:
+        if saltar:
+            saltar = False
+        elif a == "--esperar-pid":
+            saltar = True
+        elif not a.startswith("--esperar-pid="):
+            salida.append(a)
+    return salida
+
+
+def relanzar_software(argv, pids, popen=None, log=None) -> bool:
+    """Vuelve a abrir el mismo comando con que arrancó este lanzador (el .exe
+    congelado, o `python -m autoclave.exe_unico` en desarrollo), desligado de
+    este proceso y con --esperar-pid para que la instancia nueva espere a que
+    esta y su backend hayan terminado. False si no se pudo (queda en el log)."""
+    popen = popen or subprocess.Popen
+    log = log or logging.getLogger("autoclave.exe_unico")
+    extra = []
+    for pid in pids:
+        if pid:
+            extra += ["--esperar-pid", str(pid)]
+    cmd = _cmd_propio(*_sin_esperar_pid(argv), *extra)
+    entorno = {**os.environ, "PYINSTALLER_RESET_ENVIRONMENT": "1"}
+    entorno.pop("_MEIPASS2", None)
+    entorno.pop("AUTOCLAVE_EXE_UNICO", None)
+    banderas = 0
+    if sys.platform == "win32":
+        banderas = (getattr(subprocess, "DETACHED_PROCESS", 0)
+                    | getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0))
+    try:
+        popen(cmd, cwd=os.getcwd(), env=entorno, creationflags=banderas, close_fds=True)
+    except Exception:
+        log.exception("Reinicio del software: no se pudo volver a abrir Autoclave (%s). "
+                      "Si no vuelve a abrir, apague y encienda el equipo", " ".join(cmd))
+        return False
+    log.warning("Reinicio del software: Autoclave relanzado: %s", " ".join(cmd))
+    return True
+
+
 def _cerrar_reposo_instalacion(proc, logger) -> None:
     """W10: cierra la pantalla 2 de Reposo de instalación (no tiene backend ni
     salidas: solo muestra logo, reloj y aviso)."""
@@ -118,6 +228,9 @@ def _lanzador(args) -> int:
     _log_a_archivo("lanzador.log")
     logger = logging.getLogger("autoclave.exe_unico")
     logger.info("Lanzador iniciado")   # mide el arranque del propio ejecutable
+    if args.esperar_pid:
+        # R11: relanzado tras reiniciar_software; una sola instancia
+        esperar_instancia_anterior(args.esperar_pid, log=logger)
 
     from autoclave.installation import backend_guard
     from autoclave.ui_qml import barra_tareas
@@ -169,6 +282,8 @@ def _lanzador(args) -> int:
     entorno_backend = {**entorno, reinicio.VARIABLE_RELANZABLE: "1"}
     fin_vigilancia = threading.Event()
     lock_lanzar = threading.Lock()
+    # R11: el backend terminó con CODIGO_REINICIO_SOFTWARE
+    reinicio_software = threading.Event()
 
     def lanzar_backend():
         # TMG-04 (revisión R8): no relanzar si las pantallas ya se cerraron
@@ -196,7 +311,9 @@ def _lanzador(args) -> int:
     if backend["proc"] is not None:
         hilo_vigilancia = threading.Thread(target=reinicio.vigilar_reinicios,
                                            args=(lambda: backend["proc"], lanzar_backend, fin_vigilancia),
-                                           kwargs={"log": logger}, name="vigilancia-reinicio-backend",
+                                           kwargs={"log": logger,
+                                                   "al_reiniciar_software": reinicio_software.set},
+                                           name="vigilancia-reinicio-backend",
                                            daemon=True)
         hilo_vigilancia.start()
 
@@ -205,7 +322,7 @@ def _lanzador(args) -> int:
     cmds = [_cmd_propio("--rol", "ui", "--door", str(p), "--screen", str(m)) for p, m in pantallas]
     try:
         vigilar_pantallas(cmds, lambda cmd: subprocess.Popen(cmd, cwd=cwd, env=entorno),
-                          barra=barra_tareas)
+                          barra=barra_tareas, detener=reinicio_software)
     finally:
         with lock_lanzar:
             fin_vigilancia.set()
@@ -215,12 +332,19 @@ def _lanzador(args) -> int:
             proc = backend["proc"]
         if proc is not None:
             _apagar_backend(BACKEND_URL, proc, logger)
+        if reinicio_software.is_set():
+            # guardar → cerrar → relanzar: el backend ya terminó su cierre
+            # ordenado; la instancia nueva espera además a este proceso
+            argv = getattr(args, "argv_original", None)
+            relanzar_software(sys.argv[1:] if argv is None else argv,
+                              [os.getpid(), getattr(proc, "pid", None)], log=logger)
     return 0
 
 
 def main(argv=None) -> int:
     _sin_consola()
     args = _parse_args(argv)
+    args.argv_original = list(sys.argv[1:] if argv is None else argv)   # R11
     if args.rol == "backend":
         from autoclave.backend.main import main as backend_main
         backend_main()   # escribe su propio data/backend.log en el .exe
