@@ -11,12 +11,12 @@ Rama `tanda-8`, creada desde `dev` (d2f7353) en A0. Sesión principal arrancada 
 | S2b ★ | Hecha, unida a `tanda-8` (22fa108). Suite tras unir **5676 p / 5 s / 3 xf** (`suites/integ_s2b.log`) | rama `tanda-8-s2b` (343260d) | D8-2.11 a 2.16. Revisores 2 vueltas, 0 Altos/Críticos (TMG-01 = D8-2.7, cubierto por S2a vía `marcar_sin_datos_tarjeta` → `_cerrar_pausa_sin_datos`, verificado al unir). Migración BD v10. Banco F-12..15 de S2b renumerado a F-17..20. Informe `tanda8/S2b_transiciones_ciclo.md`. |
 | N8 | Hecha, unida a `tanda-8` | e8718cf (merge) | Suite de integración tras unir: **5393 p / 3 s / 3 xf** (`suites/integ_n8.log`). |
 | R8 ★ | Relanzada 22:15 (sesión 22:11), cierra cambios sin commit + informe | rama `tanda-8-r8` (4492a94) | |
-| V8a | Terminada (informe 002af73), por unir | rama `tanda-8-v8a` (002af73) | ★ solo D8-5.7: revisores 0 Altos/Críticos. Faltan banco/riesgos de 5.7 (los agrega la sesión principal al unir). |
+| V8a | Hecha, unida a `tanda-8` (1369057; i18n por unión de claves). Suite tras unir V8a+L8: en curso (`suites/integ_v8a_l8.log`) | rama `tanda-8-v8a` (002af73) | ★ solo D8-5.7: revisores 0 Altos/Críticos. Banco G-04 y riesgo HAZ-V8A-01 agregados por la sesión principal (fc66e25). D8-5.7 no toca transiciones: sin celdas de planta simulada. |
 | E1 | Relanzada 22:15, cierra cambios sin commit + informe | rama `tanda-8-e1` (16843df) | ★ solo D8-3.19. |
 | E2 | Hecha, unida a `tanda-8` | 1aab868 (merge) | Informe `tanda8/E2_nombres_familia_modelo.md`. Suite tras unir **5438 p / 3 s / 3 xf** (`suites/integ_e2.log`, autoclave de `_suites_t8/base`). |
 | M8 | Hecha, unida a `tanda-8` | aaa78ae (merge) | Informe `tanda8/M8_mantenimiento.md`. Suite tras unir 5388 p / 3 s / 3 xf (`suites/integ_m8.log`). |
 | U8 | Hecha, unida a `tanda-8` | 8bcaeb2 (merge) | Suite de la rama 5378 p / 3 s / 3 xf (= 5382 − 7 retiradas + 3 nuevas). Tras unir, `src/` y `tests/` idénticos a la rama (`git diff tanda-8-u8 tanda-8 -- src tests` vacío): misma suite. |
-| L8 | Terminada (informe d539e14), por unir | rama `tanda-8-l8` (d539e14) | |
+| L8 | Hecha, unida a `tanda-8` (255f4cd). No toca `src/` ni `tests/`: misma suite que V8a (`suites/integ_v8a_l8.log`) | rama `tanda-8-l8` (d539e14) | |
 | D8 | Relanzada 22:15 (P5, P8-P12, informe) | rama `tanda-8-d8` (d918d5c) | |
 | V8b | Relanzada 22:15 (commitear lo pendiente, seguir barrido) | rama `tanda-8-v8b` (6768e33) | Se une la última (antes, unir tanda-8 en su rama y repasar textos nuevos). |
 | K8 | Pendiente | | |
