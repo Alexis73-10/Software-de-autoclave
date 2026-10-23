@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -48,6 +48,7 @@ from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
 from autoclave.ui_qml.bridge.standby import Standby
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
 from autoclave.ui_qml import sesion_backend
+from autoclave.ui_qml.doble_pantalla import CODIGO_INSTALACION_TERMINADA
 # Registra el singleton de textos I18n en Autoclave.I18n (al importar); lo usan
 # todas las pantallas QML.
 from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401
@@ -133,6 +134,50 @@ def _abrir_instalacion(app: QGuiApplication, args) -> int:
     return app.exec()
 
 
+# W10 (D10-4): cada cuánto la pantalla 2 en Reposo de instalación mira si ya hay perfil
+REVISAR_FIN_INSTALACION_MS = 2000
+
+
+def reposo_sale_solo(entorno=os.environ) -> bool:
+    """Bajo el ejecutable único el lanzador cierra la pantalla 2 de Reposo al
+    terminar el asistente y la vuelve a abrir con el flujo normal; así no queda
+    el monitor vacío mientras la pantalla 1 muestra «Instalación completada».
+    Lanzada por doble_pantalla (desarrollo), sale sola al aparecer el perfil."""
+    return entorno.get("AUTOCLAVE_EXE_UNICO") != "1"
+
+
+def revisar_fin_instalacion(requiere, salir) -> None:
+    """Con perfil válido, sale con CODIGO_INSTALACION_TERMINADA (igual que el
+    asistente de la pantalla 1): el lanzador no lo cuenta como caída."""
+    if not requiere():
+        salir(CODIGO_INSTALACION_TERMINADA)
+
+
+def _abrir_reposo_instalacion(app: QGuiApplication, args) -> int:
+    """W10 (D10-4.1): pantalla 2 mientras la 1 está en el asistente. Solo logo,
+    reloj y el aviso; no responde al toque ni usa el backend."""
+    engine = QQmlApplicationEngine()
+    engine.addImportPath(QML_DIR)
+    engine.load(QUrl.fromLocalFile(f"{QML_DIR}/ReposoInstalacionVentana.qml"))
+    if not engine.rootObjects():
+        logger.error("No se pudo cargar %s/ReposoInstalacionVentana.qml", QML_DIR)
+        return 1
+    ventana = engine.rootObjects()[0]
+    pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
+    ventana.setScreen(pantalla)
+    ventana.setGeometry(pantalla.geometry())
+    ventana.showFullScreen()   # sin requestActivate: el foco es del asistente (pantalla 1)
+    temporizador = None
+    if reposo_sale_solo():
+        temporizador = QTimer()
+        temporizador.setInterval(REVISAR_FIN_INSTALACION_MS)
+        temporizador.timeout.connect(lambda: revisar_fin_instalacion(requiere_instalacion, app.exit))
+        temporizador.start()
+    logger.warning("Sin perfil de instalación: la puerta %d muestra el Reposo de instalación",
+                   args.door)
+    return app.exec()
+
+
 def main(argv=None) -> int:
     logging.basicConfig(level=logging.INFO)
     args = parse_args(argv)
@@ -144,10 +189,13 @@ def main(argv=None) -> int:
     _cargar_fuentes()
 
     # T9 (ARR-02 / MIG-07): sin perfil de instalación (o inválido), la ventana
-    # principal abre el asistente en lugar del menú; la puerta 2 sigue al
-    # menú, donde el arranque informa ARR_PERFIL
-    if args.door == 1 and requiere_instalacion():
-        return _abrir_instalacion(app, args)
+    # principal abre el asistente en lugar del menú. W10 (D10-4.1): la puerta 2
+    # muestra entretanto el Reposo con el aviso «Instalación en curso en la
+    # pantalla 1» (antes seguía al menú, donde el arranque informaba ARR_PERFIL)
+    if requiere_instalacion():
+        if args.door == 1:
+            return _abrir_instalacion(app, args)
+        return _abrir_reposo_instalacion(app, args)
 
     backend = BackendClient(url_backend())
 

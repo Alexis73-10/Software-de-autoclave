@@ -167,8 +167,11 @@ def test_ventana_de_instalacion_carga_sin_avisos():
     assert s == {"asistente": True, "clases": 2, "avisos": []}       # M1: solo piso
 
 
-@pytest.mark.parametrize("door, requiere, abre", [(1, True, True), (2, True, False),
-                                                   (1, False, False)])
+# W10 (D10-4.1): la puerta 2 sin perfil ya no sigue al menú: abre el Reposo de
+# instalación (lo prueba test_w10_pantalla2_instalacion.py); aquí se comprueba
+# que tampoco abre el asistente
+@pytest.mark.parametrize("door, requiere, abre", [(1, True, True), (1, False, False),
+                                                   (2, False, False)])
 def test_app_abre_el_asistente_solo_en_la_puerta_1_sin_perfil(monkeypatch, door, requiere, abre):
     from unittest.mock import MagicMock
     from autoclave.ui_qml import app as app_mod
@@ -177,6 +180,7 @@ def test_app_abre_el_asistente_solo_en_la_puerta_1_sin_perfil(monkeypatch, door,
     monkeypatch.setattr(app_mod, "requiere_instalacion", lambda: requiere)
     abiertos = []
     monkeypatch.setattr(app_mod, "_abrir_instalacion", lambda a, args: abiertos.append(1) or 7)
+    monkeypatch.setattr(app_mod, "_abrir_reposo_instalacion", lambda a, args: 8)
 
     class _Corte(Exception):
         pass
