@@ -13,19 +13,30 @@ authors = [ #Lista de autores del paquete
   { name = "Cristian Cubides"}
 ]
 
-dependencies = [ #Lista de dependencias del paquete
+dependencies = [ #Lista de dependencias del paquete (solo las que importa src/autoclave; versiones exactas en requirements.lock.txt)
   "pyserial",
-  "tk",
   "pillow",
   "PyYAML",
   "ruamel.yaml",
-  "SQLAlchemy",
   "pydantic",
   "PySide6",
   "PySide6-Fluent-Widgets[full]",
-  "pyqtgraph",
   "keyring",
-  "pywin32"
+  "pywin32",
+  "fastapi",
+  "uvicorn",
+  "requests",
+  "psutil",
+  "python-escpos"
+]
+
+[project.optional-dependencies] #Herramientas de prueba y compilación (no van en el producto; ver requirements-dev.txt)
+dev = [
+  "pytest",
+  "httpx",
+  "pyinstaller",
+  "pyinstaller-hooks-contrib",
+  "python-multipart"
 ]
 
 [project.scripts] #Define los puntos de entrada para los scripts ejecutables
