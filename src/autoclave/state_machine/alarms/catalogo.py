@@ -60,6 +60,11 @@ PRE_01, PRE_02, PRE_03, PRE_04, PRE_05, PRE_06 = (
     "PRE-01", "PRE-02", "PRE-03", "PRE-04", "PRE-05", "PRE-06")
 PUE_01, PUE_02, PUE_03, PUE_04, PUE_05 = "PUE-01", "PUE-02", "PUE-03", "PUE-04", "PUE-05"
 SEN_01, SEN_02, SEN_03 = "SEN-01", "SEN-02", "SEN-03"
+# S1 (tanda 8, D8-1): transductor de presión sin lectura. En ciclo, FALLO
+# con código propio; fuera de ciclo, bloquea el inicio ("llame a servicio").
+SEN_04, SEN_05, SEN_06, SEN_07 = "SEN-04", "SEN-05", "SEN-06", "SEN-07"
+# Revisión ★ de S1 (SAF-01): empaque sin lectura en ciclo (puertas con empaque)
+SEN_08 = "SEN-08"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
@@ -190,6 +195,31 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_03, _AV, False, _A, "Sensor de temperatura sin señal",
        "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
        "Verifique la conexión de la sonda o asígnele el rol No en uso."),
+    # S1 (tanda 8, D8-1.2): en ciclo, FALLO con el vapor cortado y venteo solo
+    # por la lenta; nunca se toma como vacío.
+    _d(SEN_04, _FC, True, _M, "Sensor de presión de cámara sin lectura",
+       "El sensor de presión de cámara no entrega lectura en la fase {fase}. El ciclo se "
+       "abortó: vapor cortado y descompresión solo por la válvula lenta.",
+       "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de cámara."),
+    _d(SEN_05, _FC, True, _M, "Sensor de presión de chaqueta sin lectura",
+       "El sensor de presión de chaqueta no entrega lectura en la fase {fase}. El ciclo se "
+       "abortó: vapor cortado y descompresión solo por la válvula lenta.",
+       "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para "
+       "revisar el sensor de presión de chaqueta."),
+    _d(SEN_08, _FC, True, _M, "Sensor de presión de empaque sin lectura",
+       "El sensor de presión de empaque de {puerta} no entrega lectura en la fase {fase}. "
+       "El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
+       "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de "
+       "empaque."),
+    # S1 (tanda 8, D8-1.3): fuera de ciclo bloquea el inicio; "NO ABRIR" sigue
+    # porque sin presión no se confirma la cámara segura.
+    _d(SEN_06, _AV, True, _A, "Sensor de presión de cámara sin lectura",
+       "Sensor de presión de cámara sin lectura: llame a servicio.",
+       "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. "
+       "Llame a servicio técnico."),
+    _d(SEN_07, _AV, True, _A, "Sensor de presión de chaqueta sin lectura",
+       "Sensor de presión de chaqueta sin lectura: llame a servicio.",
+       "Llame a servicio técnico para revisar el sensor de presión de chaqueta."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",

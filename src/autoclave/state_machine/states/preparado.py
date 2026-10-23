@@ -8,6 +8,7 @@ from autoclave.state_machine.states.control_banda import (evaluar_banda, Confirm
                                                           cerrar_lenta_propia)
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime import camara_segura
+from autoclave.core.runtime import presion_sin_lectura
 from autoclave.core.runtime.sensores_ciclo import SENSORES as SENSORES_CICLO, vigilar_fuera_de_ciclo
 from autoclave.installation.profile import (entrada_requerida, numero_puertas, sensores_empaque,
                                             sonda_instalada)
@@ -374,11 +375,19 @@ class preparado_state:
         ok = True
         # Empaque solo de las puertas declaradas y si el tipo lo tiene (E1-2)
         empaque = set(sensores_empaque(self.profile))
+        # S1 (tanda 8, D8-1.3): transductor de presión sin lectura con alarma
+        # propia (SEN-06/07, "llame a servicio"), no SEN-01
+        sin_senal = presion_sin_lectura.vigilar_fuera_de_ciclo(self.alarm_manager, self.estado)
+        if sin_senal:
+            ok = False
 
         for sensor, value in self.estado.sensores_pres.items():
             if sensor.startswith("pres_empaque_") and sensor not in empaque:
                 continue
             legible = nombre_legible(sensor)
+            if sensor in sin_senal:
+                self.alarm_manager.resolver(SEN_01, origen=legible)
+                continue
             # Sin dato / no finito = error de sensor, igual que un 0 (A-5)
             if not lectura_valida(value) or value == 0:
                 self.alarm_manager.activar(SEN_01, origen=legible, sensor=legible,

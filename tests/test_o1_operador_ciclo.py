@@ -26,7 +26,9 @@ def api(monkeypatch):
     ctx.control_loop.cycle.danado = []
     ctx.control_loop.cycle.get_param.side_effect = lambda *a, default=None: default
     ctx.estado = SimpleNamespace(
-        get_flag=lambda f: True, set_flag=MagicMock(), operador_inicio="")
+        get_flag=lambda f: True, set_flag=MagicMock(), operador_inicio="",
+        # S1 (tanda 8, D8-1.3): sin lectura de presión el inicio se rechaza
+        sensores_pres={"pres_camara": 101.0, "pres_chaqueta": 300.0})
     ctx.cap.has_liquids = True
     srv, _ = cargar_servidor(ctx)
     monkeypatch.setattr(srv.sc, "verificar_inicio", lambda *a: None)

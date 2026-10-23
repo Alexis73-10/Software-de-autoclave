@@ -44,7 +44,10 @@ class Units:
 
         # aqui se inicializan los datos convertidos
         self._temperature: List[Optional[float]] = [None] * 8
-        self._pressure: List[float] = [0.0] * 8
+        # S1 (tanda 8): sin lectura hasta la primera trama (None, nunca 0)
+        self._pressure: List[Optional[float]] = [None] * 8
+        # Número de la última trama AI convertida (ai_seq de SerialLink)
+        self._ultimo_ai_seq = None
 
         # otros estados
         self._connected: bool = False
@@ -68,7 +71,24 @@ class Units:
 
             # 🧮 Aplicar conversión con calibración
             self._temperature = converters.convert_temperatures(self._raw_ai, self._config)
-            self._pressure = converters.convert_pressures(self._raw_ai, self._config)
+            # S1 (D8-1.1): el debounce del transductor cuenta tramas AI
+            # nuevas; SerialLink también notifica por DI/DO con la misma AI.
+            # Sin ai_seq (dobles de prueba, simulador) cada llamada cuenta.
+            ai_seq = data.get("ai_seq")
+            # TMG-02 (revisión ★): _notificar() llega desde varios hilos con
+            # un get_state() tomado antes; una trama vieja o repetida
+            # (ai_seq <= la última) no es muestra nueva. Un salto grande hacia
+            # atrás es un contador reiniciado (otro SerialLink con la misma
+            # Units): cuenta como nueva para no congelar la presión.
+            # TMG-02 (re-revisión): ai_seq 0 es el estado inicial de
+            # SerialLink (ai en ceros), nunca una trama AI real.
+            nueva = (ai_seq != 0 and (ai_seq is None or self._ultimo_ai_seq is None
+                     or ai_seq > self._ultimo_ai_seq
+                     or ai_seq < self._ultimo_ai_seq - 100))
+            if nueva and ai_seq is not None:
+                self._ultimo_ai_seq = ai_seq
+            self._pressure = converters.convert_pressures(self._raw_ai, self._config,
+                                                          nueva_muestra=nueva)
 
     def reload_calibration(self, config_path: str | Path) -> None:
         """Recarga factory+user calibration desde disco sin recrear Units
@@ -99,7 +119,7 @@ class Units:
         with self._lock:
             return self._temperature[index]
 
-    def get_pressure(self, index: int) -> float:
+    def get_pressure(self, index: int) -> Optional[float]:
         with self._lock:
             return self._pressure[index]
 

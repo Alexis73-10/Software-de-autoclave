@@ -6,6 +6,9 @@ from typing import List, Dict, Optional
 from autoclave.config.schema import CalibrationConfig
 from collections import deque
 import statistics
+import logging
+
+logger = logging.getLogger(__name__)
 
 class MovingAverage:
     def __init__(self, size: int = 5):
@@ -192,10 +195,147 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
 
 
 # ==============================
+# PRESIÓN — transductor sin señal (S1, tanda 8, D8-1.1)
+# ==============================
+# Los transmisores de presión son de 4-20 mA. Un lazo abierto (o en corto) da
+# cuentas fuera del rango de medida; antes se calibraba y se recortaba con
+# max(0.0, v) y el ciclo lo tomaba como 0 kPa válido (SEN-01 de la tanda 7).
+# Ahora se decide sobre la cuenta CRUDA, antes de filtrar, calibrar y recortar:
+#   umbral bajo = adc_min - margen_falla_bajo * (adc_max - adc_min)   (3,6 mA)
+#   umbral alto = adc_max + margen_falla_alto * (adc_max - adc_min)   (21 mA)
+# con adc_min = 4 mA y adc_max = 20 mA de la calibración de fábrica del canal.
+# - Umbral alto >= 4095: la tarjeta satura antes de 21 mA y la detección alta
+#   queda inactiva (decisión D8-1.1).
+# - Umbral bajo <= 0: la tarjeta satura en 0 antes de 3,6 mA. DECISIÓN SIN
+#   CONFIRMAR (informe S1): se usa el piso de saturación, 0 cuentas = falla
+#   (mismo criterio que la temperatura, raw == 0). Sin esto la detección baja
+#   quedaría inactiva con la calibración actual (adc_min 5) y el lazo abierto
+#   seguiría leyéndose como 0 kPa.
+# - adc_falla_bajo / adc_falla_alto (opcionales) reemplazan los calculados.
+# Hacen falta DEBOUNCE_LECTURAS_PRESION lecturas seguidas fuera para declarar
+# la falla y otras tantas dentro para levantarla. En falla el canal entrega
+# None ("sin lectura"), nunca 0.
+
+ADC_MAXIMO = 4095
+DEBOUNCE_LECTURAS_PRESION = 3
+
+
+class _DetectorLazo:
+    """Debounce de la falla de un canal de presión."""
+
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.en_falla = False
+        self.seguidas = 0           # lecturas seguidas en contra del estado actual
+        self.ultimo: Optional[float] = None   # último valor entregado
+
+    def actualizar(self, fuera: bool) -> None:
+        if fuera != self.en_falla:
+            self.seguidas += 1
+            if self.seguidas >= DEBOUNCE_LECTURAS_PRESION:
+                self.en_falla = fuera
+                self.seguidas = 0
+        else:
+            self.seguidas = 0
+
+
+_det_pres: List[_DetectorLazo] = [_DetectorLazo() for _ in range(8)]
+
+
+def _campo(calib, nombre, defecto=None):
+    if calib is None:
+        return defecto
+    if isinstance(calib, dict):
+        valor = calib.get(nombre, defecto)
+    else:
+        valor = getattr(calib, nombre, defecto)
+    return defecto if valor is None else valor
+
+
+def umbrales_falla_presion(calib) -> tuple:
+    """(bajo, alto) en cuentas ADC; None = esa detección queda inactiva. Un
+    bajo <= 0 significa piso de saturación (0 cuentas = falla)."""
+    adc_min = _campo(calib, "adc_min")
+    adc_max = _campo(calib, "adc_max")
+    if adc_min is None or adc_max is None or adc_max <= adc_min:
+        return None, None
+    span = adc_max - adc_min
+    bajo = _campo(calib, "adc_falla_bajo")
+    if bajo is None:
+        bajo = adc_min - float(_campo(calib, "margen_falla_bajo", 0.025)) * span
+    alto = _campo(calib, "adc_falla_alto")
+    if alto is None:
+        alto = adc_max + float(_campo(calib, "margen_falla_alto", 0.0625)) * span
+        if alto >= ADC_MAXIMO:
+            alto = None     # la tarjeta satura antes de 21 mA
+    return bajo, alto
+
+
+def _fuera_de_rango(raw, bajo, alto) -> bool:
+    if bajo is None and alto is None:
+        return False
+    if bajo is not None and (raw < bajo or (bajo <= 0 and raw <= 0)):
+        return True
+    return alto is not None and raw > alto
+
+
+# Piso calibrado (revisión ★ de S1, SAF-03/SEN-02). DECISIÓN SIN CONFIRMAR:
+# con la calibración actual el umbral bajo en cuentas queda < 0 y solo 0
+# cuentas exactas eran falla; la calibración de usuario del canal 0 (gain
+# 1,364, offset -75,3) pone el 0 kPa real en ≈546 cuentas, así que cuentas
+# residuales de un lazo abierto (1..~480) calibraban a presión negativa y el
+# recorte max(0, v) las dejaba en 0 kPa válido. Complemento de la detección
+# en cuentas: si la muestra cruda, calibrada (fábrica + usuario, sin filtrar
+# ni recortar), queda por debajo de `pres_falla_bajo_kpa` (defecto -10 kPa;
+# un transductor absoluto nunca lee presión negativa) cuenta como fuera de
+# rango, con el mismo debounce. None lo desactiva. Se ajusta con la prueba
+# de banco D-38.
+PRES_FALLA_BAJO_KPA = -10.0
+
+
+def _bajo_piso_calibrado(raw, factory_calib, user_calib) -> bool:
+    if factory_calib is None:
+        return False
+    # explícito None = desactivado (por eso no se usa _campo)
+    if isinstance(factory_calib, dict):
+        piso = factory_calib.get("pres_falla_bajo_kpa", PRES_FALLA_BAJO_KPA)
+    else:
+        piso = getattr(factory_calib, "pres_falla_bajo_kpa", PRES_FALLA_BAJO_KPA)
+    if piso is None:
+        return False
+    try:
+        valor = _user_calibrate(_factory_calibrate(raw, factory_calib, 400.0, is_pressure=True),
+                                user_calib)
+    except Exception:
+        return False
+    return valor < float(piso)
+
+
+def presion_en_falla(indice: int) -> bool:
+    """True si el canal de presión `indice` tiene la falla declarada."""
+    return _det_pres[indice].en_falla
+
+
+def reiniciar_presiones() -> None:
+    """Estado inicial de los canales de presión (pruebas y recarga)."""
+    for i in range(8):
+        _det_pres[i].reset()
+        _ma_pres[i].buffer.clear()
+        _oe_pres[i].reset()
+
+
+# ==============================
 # PRESIÓN
 # ==============================
 
-def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig) -> List[float]:
+def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig,
+                      nueva_muestra: bool = True) -> List[Optional[float]]:
+    """Presiones en kPa por canal; None = sin lectura (S1, D8-1.1).
+    `nueva_muestra` False: la trama AI es la misma de la llamada anterior
+    (Units también notifica por tramas DI/DO); no avanza el debounce ni los
+    filtros y repite el último valor de cada canal."""
 
     if isinstance(config, dict):
         factory_list = config.get("calibration", {}).get("factory", {}).get("pressure", [])
@@ -211,11 +351,39 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig) -> Li
         raw_index = 8 + i
         raw = raw_ai[raw_index] if raw_index < len(raw_ai) else 0
 
-        # 1. Pre-filtro: mediana ligera sobre valores crudos
-        smoothed_raw = _ma_pres[i].update(raw)
-
         factory_calib = factory_list[i] if i < len(factory_list) else None
         user_calib    = user_list[i]    if i < len(user_list)    else None
+        det = _det_pres[i]
+
+        if not nueva_muestra:
+            press.append(det.ultimo)
+            continue
+
+        # 0. Transductor sin señal, sobre la cuenta cruda (S1, D8-1.1)
+        bajo, alto = umbrales_falla_presion(factory_calib)
+        fuera = (_fuera_de_rango(raw, bajo, alto)
+                 or _bajo_piso_calibrado(raw, factory_calib, user_calib))
+        estaba_en_falla = det.en_falla
+        det.actualizar(fuera)
+        if det.en_falla:
+            if not estaba_en_falla:
+                logger.error("Presión canal %d: transductor sin señal (cuentas %s, umbrales %s/%s)",
+                             i, raw, bajo, alto)
+            _ma_pres[i].buffer.clear()
+            _oe_pres[i].reset()
+            det.ultimo = None
+            press.append(None)
+            continue
+        if estaba_en_falla:
+            logger.warning("Presión canal %d: transductor de vuelta en rango (cuentas %s)", i, raw)
+        if fuera:
+            # fuera de rango sin falla declarada todavía: la muestra no entra
+            # al filtro; se repite el último valor (None si no hay)
+            press.append(det.ultimo)
+            continue
+
+        # 1. Pre-filtro: mediana ligera sobre valores crudos
+        smoothed_raw = _ma_pres[i].update(raw)
 
         # 2. Calibración → valor en kPa
         value = _factory_calibrate(smoothed_raw, factory_calib, 400.0, is_pressure=True)
@@ -227,6 +395,7 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig) -> Li
         # 4. Clamp: la presión nunca es negativa
         value = max(0.0, value)
 
-        press.append(round(value, 1))
+        det.ultimo = round(value, 1)
+        press.append(det.ultimo)
 
     return press

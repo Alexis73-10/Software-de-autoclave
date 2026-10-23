@@ -2846,6 +2846,17 @@ def _validar_inicio(estado) -> tuple | None:
     principal_sin_lectura = _rechazo_principal_sin_lectura(estado)
     if principal_sin_lectura is not None:
         return principal_sin_lectura
+    # S1 (tanda 8, D8-1.3): transductor de presión (cámara, o chaqueta si
+    # io_enabled la declara) sin lectura: "llame a servicio", también antes
+    # que "no está listo". Falla cerrada: un error al evaluar no inicia.
+    try:
+        from autoclave.core.runtime import presion_sin_lectura
+        presion = presion_sin_lectura.rechazo_inicio(estado)
+    except Exception:
+        logger.exception("/cycle/start: no se pudo evaluar la presión sin lectura")
+        presion = ("PRESION_NO_VERIFICABLE", _i18n_t("ciclo.presion_no_verificable"))
+    if presion is not None:
+        return presion
     if not estado.get_flag("LISTO_PARA_CICLO"):
         return None, "El sistema no está listo para iniciar un ciclo"
 

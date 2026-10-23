@@ -113,6 +113,9 @@
 | C-08 | Rechazo de DESPEJAR con texto del catálogo | En seco (sin vapor) | S2b D8-2.15 (tanda 8); complementa C-07 |
 | F-19 | Reimpresión idéntica al ticket original (avisos del pie) | En operación (vapor) | S2b D8-2.14 (tanda 8) |
 | F-20 | CARGA NO ESTÉRIL en la pantalla de resultado | En operación (vapor) | S2b D8-2.16 (tanda 8) |
+| D-38 | Transductor de presión sin señal fuera de ciclo: cuentas ADC, «—», alarma propia, inicio bloqueado y NO ABRIR | En seco (sin vapor) | S1 D8-1.1/1.3/1.4 (tanda 8) |
+| F-21 | Transductor de presión de cámara sin señal en ciclo: FALLO SEN-04, solo la lenta | En operación (vapor) | S1 D8-1.2 (tanda 8) |
+| F-22 | Transductor de presión de chaqueta sin señal en ciclo: FALLO SEN-05, solo la lenta | En operación (vapor) | S1 D8-1.2/1.4 (tanda 8) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -1129,6 +1132,27 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+### D-38 — Transductor de presión sin señal fuera de ciclo: cuentas ADC, «—», alarma propia, inicio bloqueado y NO ABRIR
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** S1 D8-1.1, 1.3 y 1.4 (tanda 8)
+- **Objetivo:** Un lazo 4-20 mA abierto o en corto se detecta sobre la cuenta cruda (NAMUR NE43: < 3,6 mA o > 21 mA), el canal queda «sin lectura» (nunca 0 kPa), el inicio se bloquea con el texto de servicio y «NO ABRIR» se mantiene. Además fija los umbrales con las cuentas reales.
+- **Precondiciones:** Equipo en PREPARADO, cámara a presión atmosférica, sin vapor. Sesión de técnico. Opciones › Entradas/Salidas › Presión abierto (muestra las cuentas ADC).
+- **Pasos:**
+  1. Anotar las cuentas ADC de cámara y de chaqueta a presión atmosférica.
+  2. Desconectar el lazo del transmisor de cámara. Anotar las cuentas (lazo abierto) y observar la pantalla durante unos segundos.
+  3. Pulsar Iniciar ciclo.
+  4. Revisar el indicador de NO ABRIR y la campana de alarmas.
+  5. Reconectar el lazo y esperar unos segundos.
+  6. Si es posible y seguro, cortocircuitar el lazo a la alimentación y anotar las cuentas (sobrecorriente); reconectar.
+  7. Repetir 2 a 5 con el transmisor de chaqueta.
+  8. Solo si el equipo tiene sensor de empaque: con el empaque en vacío (retraído) y presurizado, anotar la presión mostrada y las cuentas; comprobar que en vacío no aparece «sin lectura» (piso calibrado `pres_falla_bajo_kpa` = −10 kPa; la calibración actual del empaque podría leer cerca de −9 kPa con 0 kPa reales).
+- **Resultado esperado:** Con el lazo abierto, tras 3 lecturas la presión se muestra como «—» o «---» (nunca 0,0); alarma «Sensor de presión de cámara sin lectura» (SEN-06; chaqueta SEN-07) con «llame a servicio»; el equipo deja de estar listo; Iniciar se rechaza con «Sensor de presión de cámara sin lectura: llame a servicio»; NO ABRIR sigue activo. Al reconectar, tras 3 lecturas en rango vuelve el valor y la alarma se resuelve. Si la sobrecorriente satura la tarjeta en 4095 cuentas antes de 21 mA, la detección alta queda inactiva: anotarlo.
+- **Criterio de aprobado/fallo:** Aprobado si en ningún momento se muestra o se usa 0 kPa con el lazo abierto, el inicio queda bloqueado con el texto de servicio y NO ABRIR no se apaga. Entregar las cuentas anotadas para fijar `adc_falla_bajo` / `adc_falla_alto` o los márgenes.
+- **Cuentas anotadas:** cámara atm ______ / abierto ______ / corto ______ · chaqueta atm ______ / abierto ______ / corto ______ · empaque vacío ______ kPa / ______ cuentas
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Bloque E. Ciclos de sólidos (en operación)
 
 ### E-01 — Instrumental 134 completo
@@ -1524,6 +1548,37 @@
   3. Provocar un fallo (p. ej. desconexión mayor de 5 s) y mirar la pantalla.
 - **Resultado esperado:** Ciclo completo: sin la marca. Cancelado y fallo: recuadro rojo "CARGA NO ESTÉRIL" sobre la gráfica, igual que en el ticket.
 - **Criterio de aprobado/fallo:** Aprobado si la marca aparece exactamente en los ciclos no completados.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-21 — Transductor de presión de cámara sin señal en ciclo: FALLO SEN-04, solo la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S1 D8-1.2 (tanda 8)
+- **Objetivo:** Con ciclo en curso, perder la señal del transmisor de cámara aborta el ciclo con código propio, corta el vapor y ventea solo por la lenta; nunca se toma como vacío ni se abre el aire atmosférico por ese motivo.
+- **Precondiciones:** Instrumental 134 en esterilización (cámara presurizada). Repetición opcional en prevacío (cámara en vacío).
+- **Pasos:**
+  1. Desconectar el lazo del transmisor de presión de cámara.
+  2. Observar salidas (vapor, lenta, rápida, chaqueta, aire atmosférico) y la alarma.
+  3. Reconectar el lazo pasados unos segundos; observar que el ciclo sigue en FALLO.
+  4. Reconocer el resultado y revisar si pasa a PREPARACION sin técnico; intentar iniciar con el lazo desconectado de nuevo.
+- **Resultado esperado:** En unas 3 tramas: FALLO «Sensor de presión de cámara sin lectura» (SEN-04), vapor cortado, solo `descompresion_lenta` abierta; rápida, chaqueta y aire atmosférico cerrados mientras no lea (en prevacío tampoco se abre el aire atmosférico). Al reconectar el FALLO no se revierte. Tras reconocer, PREPARACION sin técnico, NO ABRIR mientras no lea y el inicio rechazado con el texto de servicio.
+- **Criterio de aprobado/fallo:** Aprobado si ni la rápida ni el aire atmosférico abren mientras la presión de cámara no lee.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### F-22 — Transductor de presión de chaqueta sin señal en ciclo: FALLO SEN-05, solo la lenta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** S1 D8-1.2 y 1.4 (tanda 8)
+- **Objetivo:** Mismo comportamiento que F-21 con el transmisor de chaqueta (solo si la chaqueta está habilitada en `io_enabled`).
+- **Precondiciones:** Instrumental 134 en esterilización.
+- **Pasos:**
+  1. Desconectar el lazo del transmisor de presión de chaqueta.
+  2. Observar salidas y alarma.
+  3. Reconectar, reconocer y revisar PREPARACION e inicio.
+- **Resultado esperado:** FALLO «Sensor de presión de chaqueta sin lectura» (SEN-05), vapor de cámara y de chaqueta cortados, solo la lenta; la cámara sigue mostrando su presión. Sin lectura de chaqueta el inicio queda bloqueado (SEN-07).
+- **Criterio de aprobado/fallo:** Aprobado si el ciclo se aborta y la rápida no abre.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
