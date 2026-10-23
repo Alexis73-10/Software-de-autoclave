@@ -114,18 +114,12 @@
 | F-15 | Líquidos: se pierde el Principal en el enfriamiento con contrapresión — cámara sellada | En operación (vapor) | S2a D8-2.10 (tanda 8) |
 | F-16 | Líquidos sin Referencia: espera sellada sin sonda y luego la lenta | En operación (vapor) | S2a D8-2.10 (tanda 8) |
 | B-12 | Salir del modo prueba sin confirmación del apagado de salidas (COM-04) | En seco (sin vapor) | S2b D8-2.11 (tanda 8) |
+| B-13 | Paro de emergencia: con el buzzer sonando no se enciende ninguna otra salida | En seco (sin vapor) | B9 D9-9 (tanda 9); HAZ-B9-01 |
 | F-17 | Ventana de estabilidad en pausa durante la tolerancia por DI vencida | En operación (vapor) | S2b D8-2.12 (tanda 8) |
 | F-18 | Cancelar con la tarjeta totalmente desconectada: texto en pantalla | En operación (vapor) | S2b D8-2.13 y D8-2.15 (tanda 8); complementa F-11 |
 | C-08 | Rechazo de DESPEJAR con texto del catálogo | En seco (sin vapor) | S2b D8-2.15 (tanda 8); complementa C-07 |
 | F-19 | Reimpresión idéntica al ticket original (avisos del pie) | En operación (vapor) | S2b D8-2.14 (tanda 8) |
 | F-20 | CARGA NO ESTÉRIL en la pantalla de resultado | En operación (vapor) | S2b D8-2.16 (tanda 8) |
-| D-38 | Transductor de presión sin señal fuera de ciclo: cuentas ADC, «—», alarma propia, inicio bloqueado y NO ABRIR | En seco (sin vapor) | S1 D8-1.1/1.3/1.4 (tanda 8) |
-| F-21 | Transductor de presión de cámara sin señal en ciclo: FALLO SEN-04, solo la lenta | En operación (vapor) | S1 D8-1.2 (tanda 8) |
-| F-22 | Transductor de presión de chaqueta sin señal en ciclo: FALLO SEN-05, solo la lenta | En operación (vapor) | S1 D8-1.2/1.4 (tanda 8) |
-| B-14 | Modo prueba: el aire atmosférico solo abre sin presión en la cámara | En seco (sin vapor) | E1 D8-3.19 (tanda 8) |
-| B-15 | Apagar equipo: Windows rechaza el apagado | En seco (sin vapor) | E1 D8-3.21 (tanda 8) |
-| D-39 | Canales de Entradas/Salidas según el perfil de instalación | En seco (sin vapor) | E1 D8-3.17 (tanda 8) |
-| G-04 | Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión | En seco (sin vapor) | V8a D8-5.7 (tanda 8) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -217,21 +211,6 @@
   3. Pulsar el paro de emergencia y liberarlo.
 - **Resultado esperado:** Ningún estado EMERGENCIA/HIBERNACION aparece en pantalla ni en `/status`; la suspensión entra y sale (bitácora `suspension_entra`/`suspension_sale`); el paro se maneja como siempre.
 - **Criterio de aprobado/fallo:** Aprobado si no hay estados desconocidos ni errores en el log.
-- **Valor observado:** ______________________________________________
-- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
-- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
-
-### A-07 — Fin del asistente: "Instalación completada" y Continuar
-
-- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.22 (tanda 8)
-- **Objetivo:** El asistente termina con "Instalación completada" y el botón Continuar, sin pedir reiniciar el software.
-- **Precondiciones:** PC sin perfil de instalación (o perfil apartado, sección 7 del LEEME); código del día.
-- **Pasos:**
-  1. Recorrer el asistente hasta Instalar y confirmar.
-  2. Leer el título y el texto del resultado (en español; repetir en inglés si se instala otro equipo).
-  3. Pulsar Continuar.
-- **Resultado esperado:** Título "INSTALACIÓN COMPLETADA", texto "El equipo ha sido registrado correctamente. Pulse Continuar para empezar a usarlo." y botón Continuar; al pulsarlo se cierra el asistente y arrancan el backend y las pantallas normales sin reiniciar a mano.
-- **Criterio de aprobado/fallo:** Aprobado si ningún texto pide reiniciar y el arranque normal sigue solo.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -424,36 +403,18 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### B-14 — Modo prueba: el aire atmosférico solo abre sin presión en la cámara
+### B-13 — Paro de emergencia: con el buzzer sonando no se enciende ninguna otra salida
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.19 (tanda 8) ★
-- **Objetivo:** `aire_atmosferico_camara` es la única salida que el modo prueba rechaza: con presión en la cámara, sin lectura de presión o sin presión atmosférica de referencia.
-- **Precondiciones:** Sesión de técnico; modo prueba (Entradas/Salidas); presión atmosférica calibrada; cámara cerrada.
+- **Modo:** En seco (sin vapor)  ·  **Origen:** B9 D9-9 (tanda 9); HAZ-B9-01
+- **Objetivo:** Con el paro pulsado solo conmuta el buzzer (DO24); ninguna salida que estuviera activa al pulsar el paro se enciende, ni un instante, cuando el buzzer reinicia su patrón. Fuera del paro, el buzzer no altera las demás salidas.
+- **Precondiciones:** Anotar el tipo de puerta del perfil (Información del sistema o `installation_profile.json`: simple o avanzada) y la versión de firmware (debe ser 1.0.0). PREPARACION o PREPARADO. Mirar los LED de la tarjeta de salidas (o un multímetro en las bornas). Lista de salidas a observar: DO3 vapor de chaqueta, DO4 vapor de cámara, DO5 descompresión rápida, DO6 descompresión lenta, DO7 descompresión de chaqueta, DO8 vacío de cámara, DO9/DO10 desbloqueo de puerta 1/2, DO11/DO12 bloqueo de puerta 1/2, DO13/DO14 aire comprimido de chaqueta/cámara, DO15 aire atmosférico de cámara, DO16 agua de chaqueta, DO17 agua del intercambiador, DO18 agua de la bomba, DO19 bomba de vacío, DO20/DO21 abrir puerta 1/2, DO22/DO23 cerrar puerta 1/2, y DO24 buzzer (canal según la asignación de E/S vigente).
 - **Pasos:**
-  1. Con la cámara a presión atmosférica, encender el aire atmosférico: debe abrir. Apagarlo.
-  2. Hacer un vacío breve con la bomba y la válvula de vacío; encender el aire: debe abrir (rompe el vacío).
-  3. Presurizar la cámara por encima de P_atm + `rango_presion_atm` (aire comprimido o, si no hay, vapor en una prueba en operación); encender el aire: debe rechazarse.
-  4. Con el aire abierto (paso 1), presurizar: el control debe cerrarlo solo; revisar la bitácora.
-  5. Desconectar el conector del transductor de presión de cámara; encender el aire: debe rechazarse.
-  6. Con la cámara presurizada (paso 3), reconectar el transductor e intentar abrir el aire enseguida y durante unos 5 s: debe rechazarse siempre (nunca "sin lectura" seguido de una apertura). Reconectar con la cámara en atmosférica: vuelve a permitirse a los 2-3 s.
-- **Resultado esperado:** Paso 3: "No se puede abrir el aire atmosférico: la cámara tiene presión. Espere a que la cámara esté a presión atmosférica." Paso 4: la salida se apaga en menos de 1 s y la bitácora anota "el control cerró el aire atmosférico de la cámara en modo prueba". Paso 5: "No se puede abrir el aire atmosférico: no hay lectura de la presión de la cámara." Las demás salidas siguen permitidas.
-- **Criterio de aprobado/fallo:** Aprobado si nunca abre con presión ni sin lectura y abre en atmosférica y en vacío.
-- **Valor observado:** ______________________________________________
-- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
-- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
-
-### B-15 — Apagar equipo: Windows rechaza el apagado
-
-- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.21 (tanda 8)
-- **Objetivo:** Si Windows no se apaga, la pantalla lo dice y queda en la bitácora.
-- **Precondiciones:** Ejecutable instalado; PREPARADO, sin ciclo. En una consola de Windows (no en la del programa) ejecutar `shutdown /s /t 3000` (deja un apagado programado: el siguiente `shutdown /s` lo rechaza con el código 1190).
-- **Pasos:**
-  1. En la pantalla de la puerta 1, Opciones › Equipo › Apagar equipo y confirmar.
-  2. Esperar unos 5 s y leer el panel.
-  3. En la consola, ejecutar `shutdown /a` para cancelar el apagado programado.
-  4. Volver a abrir el programa y revisar Opciones › Bitácora.
-- **Resultado esperado:** El panel muestra "Windows no permitió apagar el equipo: apáguelo manualmente" y el botón sigue deshabilitado (el software ya se detuvo). En la bitácora: "Apagado rechazado por Windows" con el código 1190.
-- **Criterio de aprobado/fallo:** Aprobado si aparece el aviso y queda el registro. **No olvidar el paso 3**: sin él, el PC se apaga a los 50 minutos.
+  1. Con el modo prueba (técnico), encender 3 o 4 salidas seguras de la lista (p. ej. DO6, DO15, DO17) y salir del modo prueba; o dejar que el estado encienda las suyas (con el perfil de puertas avanzadas, la puerta cerrada mantiene DO22 y, con empaque bajo, DO11). Anotar cuáles quedan encendidas.
+  2. Pulsar el paro y mantenerlo 30 s. Observar cada salida de la lista durante al menos 5 repeticiones del patrón del buzzer.
+  3. En el log del backend (`logs/`), buscar "paro de emergencia detectado; ALL_OFF inmediato" y, si aparecen, las líneas "DOn no se enciende con el paro de emergencia activo" (indican qué función intentó encender y fue bloqueada).
+  4. Soltar el paro y confirmar. Provocar una alarma no bloqueante con buzzer (o el pitido de fin de ciclo) con alguna salida encendida y observar que esa salida no cambia mientras suena el buzzer.
+- **Resultado esperado:** Paso 2: al pulsar, todas las salidas se apagan de inmediato; durante el paro solo parpadea DO24; ninguna otra salida de la lista se enciende ni un instante. Paso 3: la línea del ALL_OFF inmediato aparece una vez por pulsación. Paso 4: el buzzer conmuta solo su canal.
+- **Criterio de aprobado/fallo:** Aprobado si en el paso 2 ninguna salida distinta del buzzer se enciende. Si alguna se enciende: anotar cuál, el tipo de puerta y la versión de firmware, y guardar el log (si el log NO muestra órdenes de encendido para ese canal, la causa está en la tarjeta o el cableado, no en el PC: ver B9_buzzer_paro.md).
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1191,27 +1152,6 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### D-38 — Transductor de presión sin señal fuera de ciclo: cuentas ADC, «—», alarma propia, inicio bloqueado y NO ABRIR
-
-- **Modo:** En seco (sin vapor)  ·  **Origen:** S1 D8-1.1, 1.3 y 1.4 (tanda 8)
-- **Objetivo:** Un lazo 4-20 mA abierto o en corto se detecta sobre la cuenta cruda (NAMUR NE43: < 3,6 mA o > 21 mA), el canal queda «sin lectura» (nunca 0 kPa), el inicio se bloquea con el texto de servicio y «NO ABRIR» se mantiene. Además fija los umbrales con las cuentas reales.
-- **Precondiciones:** Equipo en PREPARADO, cámara a presión atmosférica, sin vapor. Sesión de técnico. Opciones › Entradas/Salidas › Presión abierto (muestra las cuentas ADC).
-- **Pasos:**
-  1. Anotar las cuentas ADC de cámara y de chaqueta a presión atmosférica.
-  2. Desconectar el lazo del transmisor de cámara. Anotar las cuentas (lazo abierto) y observar la pantalla durante unos segundos.
-  3. Pulsar Iniciar ciclo.
-  4. Revisar el indicador de NO ABRIR y la campana de alarmas.
-  5. Reconectar el lazo y esperar unos segundos.
-  6. Si es posible y seguro, cortocircuitar el lazo a la alimentación y anotar las cuentas (sobrecorriente); reconectar.
-  7. Repetir 2 a 5 con el transmisor de chaqueta.
-  8. Solo si el equipo tiene sensor de empaque: con el empaque en vacío (retraído) y presurizado, anotar la presión mostrada y las cuentas; comprobar que en vacío no aparece «sin lectura» (piso calibrado `pres_falla_bajo_kpa` = −10 kPa; la calibración actual del empaque podría leer cerca de −9 kPa con 0 kPa reales).
-- **Resultado esperado:** Con el lazo abierto, tras 3 lecturas la presión se muestra como «—» o «---» (nunca 0,0); alarma «Sensor de presión de cámara sin lectura» (SEN-06; chaqueta SEN-07) con «llame a servicio»; el equipo deja de estar listo; Iniciar se rechaza con «Sensor de presión de cámara sin lectura: llame a servicio»; NO ABRIR sigue activo. Al reconectar, tras 3 lecturas en rango vuelve el valor y la alarma se resuelve. Si la sobrecorriente satura la tarjeta en 4095 cuentas antes de 21 mA, la detección alta queda inactiva: anotarlo.
-- **Criterio de aprobado/fallo:** Aprobado si en ningún momento se muestra o se usa 0 kPa con el lazo abierto, el inicio queda bloqueado con el texto de servicio y NO ABRIR no se apaga. Entregar las cuentas anotadas para fijar `adc_falla_bajo` / `adc_falla_alto` o los márgenes.
-- **Cuentas anotadas:** cámara atm ______ / abierto ______ / corto ______ · chaqueta atm ______ / abierto ______ / corto ______ · empaque vacío ______ kPa / ______ cuentas
-- **Valor observado:** ______________________________________________
-- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
-- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
-
 ### D-R8-01 — Reasignación de E/S: solo ingeniero, fuera de ciclo, conflictos rechazados
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** R8 (tanda 8, D8-5.12)
@@ -1240,7 +1180,7 @@
   4. En Entradas / Salidas, modo prueba: encender Vapor cámara y comprobar que actúa la válvula correcta (y que DO 04 no hace nada).
   5. En Opciones avanzadas, Verificar Vapor cámara (contraseña).
   6. Revisar la bitácora.
-- **Resultado esperado:** Tras el reinicio: alarma SEN-09 y el ciclo no inicia. Antes de la prueba de salida el botón Verificar está deshabilitado con «Falta: encender esta salida en modo prueba». Tras verificar, SEN-09 desaparece y el ciclo puede iniciar. Bitácora: reasignacion_io (DO 04 → DO 25, usuario), reinicio_control, reasignacion_io_verificada (método ingeniero).
+- **Resultado esperado:** Tras el reinicio: alarma SEN-04 y el ciclo no inicia. Antes de la prueba de salida el botón Verificar está deshabilitado con «Falta: encender esta salida en modo prueba». Tras verificar, SEN-04 desaparece y el ciclo puede iniciar. Bitácora: reasignacion_io (DO 04 → DO 25, usuario), reinicio_control, reasignacion_io_verificada (método ingeniero).
 - **Criterio de aprobado/fallo:** Aprobado si la válvula solo actúa por el puerto nuevo y no se pudo iniciar ningún ciclo antes de verificar.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
@@ -1290,21 +1230,6 @@
   4. Restaurar asignación de fábrica desde la pantalla.
 - **Resultado esperado:** El respaldo incluye la asignación. Tras restaurar fábrica, todo vuelve a su puerto y queda pendiente de verificar lo que cambió. Con el archivo dañado: CONFIGURACION_INVALIDA, sin ciclo; la restauración de fábrica lo resuelve.
 - **Criterio de aprobado/fallo:** Aprobado si un archivo dañado nunca hace que el equipo use la de fábrica en silencio.
-- **Valor observado:** ______________________________________________
-- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
-- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
-
-### D-39 — Canales de Entradas/Salidas según el perfil de instalación
-
-- **Modo:** En seco (sin vapor)  ·  **Origen:** E1 D8-3.17 (tanda 8)
-- **Objetivo:** La lista de canales de E/S sale del perfil (sondas, entradas de suministro, puertas, fuente de vapor), sin editar el YAML a mano.
-- **Precondiciones:** Equipo instalado; sesión de técnico. Anotar del resumen del asistente: número y tipo de puertas, fuente de vapor, sondas.
-- **Pasos:**
-  1. Abrir Opciones › Entradas/Salidas y anotar los canales que aparecen.
-  2. Comparar con el perfil: con 1 puerta no deben aparecer los canales de la puerta 2; con generador interno no aparece `vapor_caldera`; sin segunda sonda no aparece `temp_2_camara`.
-  3. Revisar las entradas mostradas en Preciclo.
-- **Resultado esperado:** Solo aparecen los canales que el perfil declara, en las dos pantallas.
-- **Criterio de aprobado/fallo:** Aprobado si no sobra ni falta ningún canal respecto al perfil. **[verificar en sitio]** un equipo actualizado (no reinstalado) conserva su YAML viejo (LEEME 1.4): anotar si faltan canales nuevos.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -1722,37 +1647,6 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### F-21 — Transductor de presión de cámara sin señal en ciclo: FALLO SEN-04, solo la lenta
-
-- **Modo:** En operación (vapor)  ·  **Origen:** S1 D8-1.2 (tanda 8)
-- **Objetivo:** Con ciclo en curso, perder la señal del transmisor de cámara aborta el ciclo con código propio, corta el vapor y ventea solo por la lenta; nunca se toma como vacío ni se abre el aire atmosférico por ese motivo.
-- **Precondiciones:** Instrumental 134 en esterilización (cámara presurizada). Repetición opcional en prevacío (cámara en vacío).
-- **Pasos:**
-  1. Desconectar el lazo del transmisor de presión de cámara.
-  2. Observar salidas (vapor, lenta, rápida, chaqueta, aire atmosférico) y la alarma.
-  3. Reconectar el lazo pasados unos segundos; observar que el ciclo sigue en FALLO.
-  4. Reconocer el resultado y revisar si pasa a PREPARACION sin técnico; intentar iniciar con el lazo desconectado de nuevo.
-- **Resultado esperado:** En unas 3 tramas: FALLO «Sensor de presión de cámara sin lectura» (SEN-04), vapor cortado, solo `descompresion_lenta` abierta; rápida, chaqueta y aire atmosférico cerrados mientras no lea (en prevacío tampoco se abre el aire atmosférico). Al reconectar el FALLO no se revierte. Tras reconocer, PREPARACION sin técnico, NO ABRIR mientras no lea y el inicio rechazado con el texto de servicio.
-- **Criterio de aprobado/fallo:** Aprobado si ni la rápida ni el aire atmosférico abren mientras la presión de cámara no lee.
-- **Valor observado:** ______________________________________________
-- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
-- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
-
-### F-22 — Transductor de presión de chaqueta sin señal en ciclo: FALLO SEN-05, solo la lenta
-
-- **Modo:** En operación (vapor)  ·  **Origen:** S1 D8-1.2 y 1.4 (tanda 8)
-- **Objetivo:** Mismo comportamiento que F-21 con el transmisor de chaqueta (solo si la chaqueta está habilitada en `io_enabled`).
-- **Precondiciones:** Instrumental 134 en esterilización.
-- **Pasos:**
-  1. Desconectar el lazo del transmisor de presión de chaqueta.
-  2. Observar salidas y alarma.
-  3. Reconectar, reconocer y revisar PREPARACION e inicio.
-- **Resultado esperado:** FALLO «Sensor de presión de chaqueta sin lectura» (SEN-05), vapor de cámara y de chaqueta cortados, solo la lenta; la cámara sigue mostrando su presión. Sin lectura de chaqueta el inicio queda bloqueado (SEN-07).
-- **Criterio de aprobado/fallo:** Aprobado si el ciclo se aborta y la rápida no abre.
-- **Valor observado:** ______________________________________________
-- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
-- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
-
 ## Bloque G. Líquidos (en operación, al final)
 
 ### G-01 — Líquidos con la sonda dentro del líquido
@@ -1796,23 +1690,6 @@
   2. Anotar la temperatura a la que abre la rápida.
 - **Resultado esperado:** Solo la lenta mientras el Principal esté > 80 °C (o sin lectura); la rápida después de 3 lecturas ≤ 80 °C.
 - **Criterio de aprobado/fallo:** Aprobado si la rápida nunca abre por encima de 80 °C.
-- **Valor observado:** ______________________________________________
-- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
-- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
-
-### G-04 — Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión
-
-- **Modo:** En seco  ·  **Origen:** V8a D8-5.7 (tanda 8); HAZ-V8A-01
-- **Objetivo:** Al pasar un programa a carga Líquido, el modo de descompresión pasa a 4 con aviso; con Líquido solo se aceptan los modos 4, 5 y 0; al volver a Sólido se recupera el modo de fábrica del programa (o el 1). Cada cambio queda en la bitácora.
-- **Precondiciones:** Sesión de técnico o ingeniero; sin ciclo en curso; un programa sólido con modo de descompresión 1.
-- **Pasos:**
-  1. Opciones › Parámetros del ciclo › programa › tipo de carga: elegir Líquido.
-  2. Verificar el aviso en pantalla y que el modo de descompresión quedó en 4.
-  3. Con Líquido, intentar elegir el modo 1 (o 2/3).
-  4. Volver a Sólido.
-  5. Revisar la bitácora.
-- **Resultado esperado:** Paso 2: aviso «Carga líquida: el modo de descompresión cambió a 4 (…)». Paso 3: la lista solo ofrece 4, 5 y 0; si se fuerza, el backend rechaza con su motivo (ebullición violenta). Paso 4: modo de fábrica del programa o el 1. Paso 5: una fila por cambio, incluido el automático.
-- **Criterio de aprobado/fallo:** Aprobado si en ningún momento un programa Líquido queda con un modo distinto de 4, 5 o 0.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
