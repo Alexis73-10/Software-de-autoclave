@@ -164,8 +164,9 @@ _SCRIPT = textwrap.dedent(r"""
         alto_una = fila.property("height")
         texto.setProperty("text", "Nombre de sección muy largo que no cabe en una sola línea del cajón")
         QTest.qWait(50)
-        # dos líneas y el texto cabe en la fila (crece solo si hace falta)
-        r["dos_lineas"] = (texto.property("lineCount") == 2
+        # dos líneas (o más: V8b, D8-5.4, nada se recorta) y el texto cabe en la
+        # fila (crece solo si hace falta)
+        r["dos_lineas"] = (texto.property("lineCount") >= 2
                            and fila.property("height") >= alto_una
                            and texto.property("contentHeight") <= fila.property("height"))
     r["hamburguesa_abre"] = op.property("cajonAbierto") and hijo("fondoCajon").property("visible")
