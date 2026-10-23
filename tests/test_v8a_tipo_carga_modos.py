@@ -486,3 +486,19 @@ def test_fallo_al_escribir_el_json_revierte_sin_bitacora(servidor):
     c = cm.cycles["liquidos"]
     assert c.get_param("globals", "tipo_carga") == "liquido" and c.get_param("descompresion", "modo") == 4
     assert not [a for a in _auditados(ctx) if a[0] == "param_ciclo_cambio"]
+
+
+# ── Re-revisión D8-5.7 (timing-auditor, Medio): si la fase ya empezó, la
+# reversión no alcanza a la copia del ciclo en curso; eso no puede quedar en
+# silencio (el ciclo corre con un valor sin bitácora) ─────────────────────
+
+def test_reversion_que_no_alcanza_al_ciclo_en_curso_queda_como_error(servidor, caplog):
+    import logging
+    _, cm, ctx, srv = servidor
+    c = cm.cycles["instrumental_121"]
+    previo = c.get_param("descompresion", "modo")
+    ctx.control_loop.aplicar_a_ciclo_en_curso.return_value = False   # la fase ya inició
+    with caplog.at_level(logging.ERROR):
+        srv._revertir_parametro(c, [("descompresion", ["modo"], previo)], en_curso=True)
+    assert any(r.levelno >= logging.ERROR and "ciclo en curso" in r.getMessage()
+               for r in caplog.records)

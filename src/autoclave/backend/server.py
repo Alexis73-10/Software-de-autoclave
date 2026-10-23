@@ -3518,8 +3518,12 @@ def _revertir_parametro(cycle, previos, en_curso: bool, escritos=None) -> None:
                 continue
             if hoja is not None:
                 hoja["value"] = valor
-            if en_curso:
-                context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor)
+            if en_curso and not context.control_loop.aplicar_a_ciclo_en_curso(fase, path, valor):
+                # re-revisión D8-5.7 (timing, Medio): la fase ya empezó y la
+                # copia del ciclo en curso conserva el valor sin bitácora
+                logger.error("Reversión de %s/%s no aplicada al ciclo en curso (la fase ya "
+                             "inició): el ciclo sigue con el valor no registrado",
+                             fase, ".".join(path))
         parametros = getattr(cycle, "parameters", None)
         errores = catalogo_parametros.errores_coherencia(parametros) if isinstance(parametros, dict) else []
         if errores:
