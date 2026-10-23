@@ -14,11 +14,14 @@
 #>
 param(
     [Parameter(Mandatory)][string]$Ejecutable,
-    [string]$NombreTarea = 'Especifika Autoclave - Arranque'
+    [string]$NombreTarea = 'Especifika Autoclave - Arranque',
+    # E9 (tanda 9): con "Configurar este PC como estacion", la cuenta del inicio
+    # automatico (DOMINIO\usuario), para que la tarea sea de esa misma cuenta
+    [string]$Usuario
 )
 $ErrorActionPreference = 'Stop'
 
-$principalUsuario = (Get-CimInstance Win32_ComputerSystem).UserName
+$principalUsuario = if ($Usuario) { $Usuario } else { (Get-CimInstance Win32_ComputerSystem).UserName }
 if (-not $principalUsuario) {
     Write-Error 'No hay sesion de consola abierta: no se sabe para que cuenta crear la tarea.'
     exit 2

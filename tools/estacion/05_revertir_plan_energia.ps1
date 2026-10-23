@@ -18,6 +18,10 @@ if (-not $resp.ContainsKey('ArchivoPow')) {
     Write-Log 'Sin respaldo del plan de energia: nada que reimportar.' 'WARN'
 } else {
     $pow = $resp['ArchivoPow']
+    # E9 (tanda 9): solo el .pow que guardo el paso 5 en la carpeta protegida
+    if ([IO.Path]::GetFullPath($pow) -ne [IO.Path]::GetFullPath((Join-Path $script:DirEstacion 'plan_energia_respaldo.pow'))) {
+        throw "Ruta de respaldo del plan inesperada ($pow): no se importa."
+    }
     if (-not (Test-Path -LiteralPath $pow)) { throw "No se encuentra $pow." }
     if ($PSCmdlet.ShouldProcess($pow, 'Importar y activar plan original')) {
         $salida = (& powercfg.exe /import $pow) -join ' '

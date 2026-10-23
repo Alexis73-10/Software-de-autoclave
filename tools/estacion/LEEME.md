@@ -33,6 +33,14 @@ cd C:\ruta\tools\estacion
 
 `_comun.ps1` no se ejecuta: lo cargan los demás (log, respaldo y restauración de valores).
 
+## Desde el Setup (tanda 9, D9-11)
+
+El Setup de Inno (`tools/instalador/`) aplica los pasos 01, 04 y 05 con la casilla "Configurar este PC como estación del autoclave" y el 02 con la casilla "Arranque sin logo", sin interacción, a través de `tools/instalador/estacion_setup.ps1`; el desinstalador ejecuta los inversos de los pasos aplicados. Para eso:
+- `01_cuenta_autologon.ps1` acepta `-Dominio` (por defecto el nombre del equipo), `-NoCrearCuenta` (falla sin cambiar nada si la cuenta local no existe) y `-ContrasenaDesdeEntorno` (toma la contraseña de la variable `AUTOCLAVE_CLAVE_AUTOLOGON` del proceso y la borra). Sin esos parámetros se comporta como antes (pide la contraseña). `AutoAdminLogon` se activa al final, después de usuario, dominio y contraseña.
+- La carpeta `%ProgramData%\Especifika\Autoclave\estacion\` queda solo para Administradores y SYSTEM (dueño Administradores, sin herencia), porque la carpeta de datos tiene Modificar para Usuarios y los inversos corren como administrador con lo que diga `respaldo_<paso>.json`. Se aplica también al simular con `-WhatIf`.
+- Los inversos solo restauran los valores de registro de la lista `ValoresGestionados` de `_comun.ps1` (un respaldo alterado no puede escribir otra clave), y `05_revertir…` solo importa el `.pow` de esa carpeta. Un paso nuevo que escriba otro valor debe agregarlo a esa lista (`tests/test_t9_e9_setup_estacion.py` lo comprueba).
+- El log muestra `DefaultPassword` como `********`.
+
 ## Log y respaldos
 
 - Log de todas las ejecuciones (también las simuladas): `%ProgramData%\Especifika\Autoclave\estacion\estacion.log`.
