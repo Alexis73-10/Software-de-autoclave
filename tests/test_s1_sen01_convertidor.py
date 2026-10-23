@@ -255,3 +255,17 @@ def test_tmg02_contador_ai_reiniciado_no_congela_la_presion():
     for seq in range(1, 1 + N):                       # contador reiniciado
         u.update_from_serial({**base, "ai": _raw(0), "ai_seq": seq})
     assert u.get_pressure(0) is None
+
+
+def test_tmg02_estado_inicial_ai_seq_0_no_cuenta_como_muestra():
+    u = Units()
+    u._config = _config()
+    base = {"port_open": True, "data_alive": True}
+    u.update_from_serial({**base, "ai": _raw(2000), "ai_seq": 1})
+    converters.reiniciar_presiones()
+    u._ultimo_ai_seq = None
+    u.update_from_serial({**base, "ai": [0] * 16, "ai_seq": 0})     # foto inicial
+    for seq in range(2, 2 + N - 1):
+        u.update_from_serial({**base, "ai": _raw(0), "ai_seq": seq})
+    assert u.get_pressure(0) is None or converters.presion_en_falla(0) is False
+    assert converters.presion_en_falla(0) is False

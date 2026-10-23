@@ -80,9 +80,11 @@ class Units:
             # (ai_seq <= la última) no es muestra nueva. Un salto grande hacia
             # atrás es un contador reiniciado (otro SerialLink con la misma
             # Units): cuenta como nueva para no congelar la presión.
-            nueva = (ai_seq is None or self._ultimo_ai_seq is None
+            # TMG-02 (re-revisión): ai_seq 0 es el estado inicial de
+            # SerialLink (ai en ceros), nunca una trama AI real.
+            nueva = (ai_seq != 0 and (ai_seq is None or self._ultimo_ai_seq is None
                      or ai_seq > self._ultimo_ai_seq
-                     or ai_seq < self._ultimo_ai_seq - 100)
+                     or ai_seq < self._ultimo_ai_seq - 100))
             if nueva and ai_seq is not None:
                 self._ultimo_ai_seq = ai_seq
             self._pressure = converters.convert_pressures(self._raw_ai, self._config,
