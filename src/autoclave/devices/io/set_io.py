@@ -3,6 +3,7 @@ from autoclave.devices.pump.pump import VacuumPump
 from autoclave.installation.profile import salidas_vapor_permitidas
 from autoclave.core.runtime.asignacion_io import canal_do
 from autoclave.core.runtime.status import EstadoAutoclave
+from autoclave.state_machine.machine.enum_global import GlobalState
 import autoclave.devices.buzer.buzer as buzer
 import logging
 import time
@@ -33,6 +34,8 @@ class SetOutput:
         self.vacump = VacuumPump(estado, profile=profile)
         self.buzer = buzer.BuzzerPlayer(self.buzer_on, self.buzer_off)
         self._ultimo_all_off_paro: float | None = None
+        # D9-9: canales ya avisados en el log durante este paro (sin spam por tick)
+        self._avisadas_paro: set = set()
         # R8 (SAF-02 de la re-revisión): funciones que el control automático
         # no puede encender (reasignadas sin verificar). El modo prueba usa
         # set_output(canal) directo y sí puede, para poder verificarlas.
@@ -72,13 +75,50 @@ class SetOutput:
         return index in self._canales_bloqueados
 
     def set_output(self, index, value):
-        # Todo encendido pasa por aquí (lazo, fases, /io/test/output): la
-        # fuente de vapor ausente nunca se enciende; se reafirma OFF.
+        # Todo encendido pasa por aquí (lazo, fases, puertas, /io/test/output):
+        # la fuente de vapor ausente nunca se enciende; se reafirma OFF.
         if value and index in self._canales_bloqueados:
             logger.warning("SetOutput: DO%d es de una fuente de vapor que el equipo "
                            "no tiene (vapor_source); se mantiene apagada", index)
             value = False
+        # D9-9 (tanda 9): con el paro activo solo el buzzer puede encenderse.
+        # Las puertas re-afirman sus salidas en cada tick (cerrar_on en
+        # CERRADO, bloquear_on con empaque bajo) y las encendían entre dos
+        # ALL_OFF del paro, al mismo tiempo que el buzzer. Se reafirma OFF.
+        if value and self._paro_bloquea(index):
+            if index not in self._avisadas_paro:
+                self._avisadas_paro.add(index)
+                logger.warning("SetOutput: DO%d no se enciende con el paro de "
+                               "emergencia activo; se mantiene apagada", index)
+            value = False
         self.io.set_output(index, value)
+
+    def _paro_bloquea(self, index) -> bool:
+        """D9-9: True si el paro impide encender el canal `index`. Paro real
+        (PARO_REAL) en cualquier estado; sin datos de la tarjeta
+        (PARO_EMERGENCIA sin PARO_REAL) solo fuera de CICLO, donde los estados
+        ya mandan ALL_OFF: en CICLO la tolerancia de DI vencida (P-3) no se
+        toca. El buzzer nunca se bloquea. Solo cuenta un flag que sea True de
+        verdad (un estado de prueba simulado no bloquea nada)."""
+        get_flag = getattr(self.estado, "get_flag", None)
+        if get_flag is None:
+            return False
+        paro_real = get_flag("PARO_REAL") is True
+        paro = paro_real or get_flag("PARO_EMERGENCIA") is True
+        if not paro:
+            self._avisadas_paro.clear()
+            return False
+        try:
+            if index == canal_do("buzer_alarma"):
+                return False
+        except Exception:
+            logger.exception("SetOutput: canal del buzzer")
+        if paro_real:
+            return True
+        try:
+            return self.estado.get_machine_state() != GlobalState.CICLO
+        except Exception:
+            return True
 
     def _salida(self, nombre: str, value: bool) -> None:
         """Orden a la salida de la función `nombre` en su canal asignado."""
@@ -257,14 +297,16 @@ class SetOutput:
                 self.io.set_output(channel, False)
         return ok
 
-    def apagar_por_paro(self) -> bool | None:
+    def apagar_por_paro(self, inmediato: bool = False) -> bool | None:
         """Apagado repetido mientras dura el paro de emergencia. Envía ALL_OFF
         si pasó _INTERVALO_ALL_OFF_PARO_SEG desde el último o si el último DO
         reportado tiene una salida encendida; si no, no hace nada y devuelve
         None. Evita esperar el ACK (hasta 1 s, bajo el lock del lazo) en cada
-        tick y que el ALL_OFF corte el patrón del buzzer (TMG-09)."""
+        tick y que el ALL_OFF corte el patrón del buzzer (TMG-09).
+        `inmediato` (D9-9, flanco del paro en ControlLoop): ALL_OFF con ACK
+        sin mirar el intervalo."""
         ahora = time.monotonic()
-        vencido = (self._ultimo_all_off_paro is None
+        vencido = (inmediato or self._ultimo_all_off_paro is None
                    or ahora - self._ultimo_all_off_paro >= _INTERVALO_ALL_OFF_PARO_SEG)
         if not (vencido or self._hay_salida_encendida()):
             return None

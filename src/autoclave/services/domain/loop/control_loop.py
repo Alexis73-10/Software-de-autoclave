@@ -173,6 +173,8 @@ class ControlLoop:
         # Ya hubo un tick con DI vigente en esta conexión (TMG-04 de U4)
         self._di_vista_en_conexion = False
         self.paro_emergencia    = EmergencyStop(estado)
+        # D9-9 (tanda 9): PARO_REAL del tick anterior, para el ALL_OFF inmediato
+        self._paro_real_previo = False
         self.suministro_electrico = SuministroElectrico(estado, set_do)
 
         self.thread: threading.Thread | None = None
@@ -818,6 +820,7 @@ class ControlLoop:
             # de estados no corre, pero el flag queda publicado para la UI, el
             # backend y el primer tick tras reconectar.
             self.paro_emergencia.update(None)
+            self._paro_real_previo = False      # D9-9: al volver, flanco nuevo
             self._di_vista_en_conexion = False
             # TMG-01 (revisión Q1): el tramo sin datos no acredita F0
             self._f0_ultimo_tick = None
@@ -850,6 +853,7 @@ class ControlLoop:
             if valor is not None and not bool(valor):
                 valor = None
         self.paro_emergencia.update(valor)
+        self._all_off_en_flanco_de_paro()
         self._avisar_puerta_2_no_declarada()
 
         # 2a. Recién conectado y sin la primera DI: se publica lo anterior para
@@ -965,6 +969,24 @@ class ControlLoop:
         # pisaría el control manual de esa salida).
         if not self._test_mode.is_set():
             self.set_do.buzer.update()
+
+    def _all_off_en_flanco_de_paro(self) -> None:
+        """D9-9 (tanda 9): en el tick en que aparece el paro real, ALL_OFF con
+        ACK de inmediato, antes de puertas y máquina de estados y sea cual sea
+        el estado (sin esperar el intervalo de apagar_por_paro). Nunca lanza:
+        el tick tiene que seguir hasta la máquina de estados."""
+        paro_real = self.estado.get_flag("PARO_REAL") is True
+        flanco = paro_real and not self._paro_real_previo
+        self._paro_real_previo = paro_real
+        if not flanco:
+            return
+        logger.warning("ControlLoop: paro de emergencia detectado; ALL_OFF inmediato")
+        try:
+            if self.set_do.apagar_por_paro(inmediato=True) is False:
+                logger.error("ControlLoop: la tarjeta no confirmó el ALL_OFF del paro "
+                             "(quedaron órdenes individuales; se repite en el tick)")
+        except Exception:
+            logger.exception("ControlLoop: no se pudo enviar el ALL_OFF del paro")
 
     def _marcar_ciclo_sin_datos(self) -> None:
         """D8-2.7 (tanda 8): tick de CICLO sin datos de la tarjeta (la máquina
