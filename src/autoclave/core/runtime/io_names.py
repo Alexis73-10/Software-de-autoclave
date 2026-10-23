@@ -60,6 +60,35 @@ def _leer_yaml(config_dir: Path | None) -> dict[str, list[str]]:
     return {k: [str(n) for n in (io.get(k) or [])] for k in vacio}
 
 
+# D9-5 (tanda 9): entradas de contacto normalmente cerrado (NC) si el YAML de
+# la instancia no trae la sección `di_contacto`. Coincide con la lógica fija del
+# código: paro de emergencia (devices/paro_emergencia) y seguro de
+# atrapamiento de cada puerta (AdvancedDoor).
+NC_POR_OMISION = frozenset({"paro_emergencia", "atrapamiento_puerta_1", "atrapamiento_puerta_2"})
+
+
+def leer_nc(config_dir: Path | None = None) -> dict[str, bool]:
+    """Entrada digital -> True si su contacto es NC, para cada DI del máximo
+    físico (`io_enabled`). Toma `di_contacto.<entrada>.nc` del YAML de la
+    instancia; una entrada sin declarar (o sin la sección) usa
+    NC_POR_OMISION. Solo presentación (Opciones > Entradas / Salidas)."""
+    declarados = {}
+    base = Path(config_dir) if config_dir is not None else _config_dir()
+    try:
+        yaml = YAML(typ="safe")
+        activa = yaml.load((base / "active_instances.yaml").read_text(encoding="utf-8"))
+        datos = yaml.load((base / "instances" / f"{activa['active_instance']}.yaml")
+                          .read_text(encoding="utf-8"))
+        seccion = datos.get("di_contacto") or {}
+        for nombre, valor in seccion.items():
+            nc = valor.get("nc") if isinstance(valor, dict) else None
+            if isinstance(nc, bool):
+                declarados[str(nombre)] = nc
+    except (OSError, KeyError, TypeError, AttributeError):
+        logger.warning("No se pudo leer di_contacto del equipo activo: rige la del código")
+    return {n: declarados.get(n, n in NC_POR_OMISION) for n in _leer_yaml(config_dir)["DI"]}
+
+
 # Canales que dependen de la puerta: nombre -> (número de puerta, función).
 # La función es la clave de la configuración de la puerta (factory.py).
 _RE_PUERTA_DI = re.compile(r"^(?:puerta_(\d)_(abierta|cerrada)|(atrapamiento)_puerta_(\d))$")
@@ -140,6 +169,7 @@ def canales_digitales(tipo: str, config_dir: Path | None = None, profile=None) -
     """Canales DI o DO habilitados, en el orden de `io_enabled`. Los que no
     existen en EstadoAutoclave se omiten (no hay posición que leer)."""
     mapa = EstadoAutoclave.map_di if tipo == "DI" else EstadoAutoclave.map_do
+    nc = leer_nc(config_dir) if tipo == "DI" else {}
     salida = []
     for nombre in leer_io_enabled(config_dir, profile)[tipo]:
         clave = _clave_estado(nombre)
@@ -154,6 +184,8 @@ def canales_digitales(tipo: str, config_dir: Path | None = None, profile=None) -
         }
         if tipo == "DO":
             canal["momentanea"] = nombre in SALIDAS_MOMENTANEAS
+        else:
+            canal["nc"] = nc.get(nombre, nombre in NC_POR_OMISION)
         salida.append(canal)
     return salida
 
