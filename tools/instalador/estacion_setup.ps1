@@ -19,7 +19,7 @@
     desde el Setup).
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('01', '02', '04', '05')][string]$Paso,
+    [Parameter(Mandatory)][ValidateSet('01', '02', '04', '05', '06')][string]$Paso,
     [Parameter(Mandatory)][ValidateSet('Aplicar', 'Revertir')][string]$Accion,
     [string]$Usuario,
     [string]$Dominio
@@ -32,6 +32,7 @@ $scripts = @{
     '02' = @('02_arranque_silencioso.ps1', '02_revertir_arranque_silencioso.ps1')
     '04' = @('04_notificaciones_actualizaciones_gestos.ps1', '04_revertir_notificaciones_actualizaciones_gestos.ps1')
     '05' = @('05_plan_energia.ps1', '05_revertir_plan_energia.ps1')
+    '06' = @('06_asociar_tactiles.ps1', '06_revertir_asociar_tactiles.ps1')
 }
 $indice = if ($Accion -eq 'Aplicar') { 0 } else { 1 }
 $ruta = Join-Path $PSScriptRoot $scripts[$Paso][$indice]
