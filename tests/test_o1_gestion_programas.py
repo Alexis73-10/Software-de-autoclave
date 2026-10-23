@@ -149,13 +149,15 @@ def test_api_sin_sesion_o_admin_rechaza(api):
                        json={"nombre": "x"}).status_code == 403
 
 
-def test_api_tecnico_no_en_ciclo_ingeniero_si(api):
+def test_api_en_ciclo_ni_tecnico_ni_ingeniero(api):
+    # C9 (tanda 9, D9-10): Manejo de ciclos solo fuera de ciclo; antes el
+    # ingeniero podía duplicar en CICLO
     client, srv, ctx, cabecera = api
     _estado(ctx, "CICLO")
     assert client.post("/programas/1/duplicar", headers=cabecera(srv, "tecnico"),
                        json={"nombre": "x"}).status_code == 409
     assert client.post("/programas/1/duplicar", headers=cabecera(srv, "ingeniero"),
-                       json={"nombre": "x"}).status_code == 200
+                       json={"nombre": "x"}).status_code == 409
 
 
 def test_api_no_borra_de_fabrica_ni_el_activo(api):

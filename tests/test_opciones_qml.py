@@ -285,8 +285,8 @@ def _navegacion_comun(r):
 def test_tecnico_entra_a_opciones(estado, bloqueado):
     r = _correr(estado, "tecnico")
     _navegacion_comun(r)
-    # R8 (tanda 8, D8-5.12): Opciones avanzadas, solo el ingeniero
-    assert r["entradas"] == [s for s in _TECNICAS if s != "opciones_avanzadas"]         + ["usuarios", "conectividad", *COMUNES_T6, "respaldo"]     # tanda §1.6; O2b (1.9); O2h
+    # C9 (tanda 9, D9-10): Opciones avanzadas (Manejo de ciclos) también para el técnico
+    assert r["entradas"] == _TECNICAS + ["usuarios", "conectividad", *COMUNES_T6, "respaldo"]     # tanda §1.6; O2b (1.9); O2h
     assert r["seccion_activa"] == "parametros_ciclo"
     assert r["titulo"] == "PARÁMETROS DEL CICLO"
     assert r["elegir_cierra"] is True

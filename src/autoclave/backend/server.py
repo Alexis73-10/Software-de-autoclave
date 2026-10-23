@@ -3894,12 +3894,17 @@ class _HabilitadoBody(BaseModel):
 
 class _DuplicarBody(BaseModel):
     nombre: str
+    # C9 (tanda 9, D9-10): "Crear" en Manejo de ciclos = duplicar con nombre
+    # nuevo; solo cambia el evento de la bitácora (programa_creado)
+    crear: StrictBool = False
 
 
 def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, deshacer,
-             confirmar=None):
+             confirmar=None, excepcion_ingeniero: bool = True):
     """Técnico fuera de CICLO; ingeniero también en CICLO (como los
-    parámetros). El programa activo nunca se borra ni se deshabilita: la
+    parámetros) salvo `excepcion_ingeniero=False` (C9, tanda 9, D9-10:
+    crear, duplicar, habilitar y borrar programas solo fuera de ciclo, para
+    todos los roles). El programa activo nunca se borra ni se deshabilita: la
     lectura del activo y el cambio van bajo el lock de la máquina (guard_estado),
     el mismo que /cycle/select. Los archivos son pequeños; la escritura queda
     dentro del lock a propósito para no abrir esa carrera.
@@ -3912,7 +3917,8 @@ def _gestion(entidad: str, sesion: Sesion, operar, evento: str, auditoria, desha
     # _sm_lock, como /cycle/sensor-roles, la calibración y la restauración; al
     # revés se interbloqueaba con ellos y detenía el tick del control loop.
     with _lock_archivos:
-        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion, excepcion_ingeniero=True):
+        with guard_estado(DISTINTO_DE_CICLO, entidad, sesion,
+                          excepcion_ingeniero=excepcion_ingeniero):
             activo = getattr(getattr(context.control_loop, "cycle", None), "id", None)
             try:
                 resultado = operar(gp, activo)
@@ -3945,7 +3951,8 @@ def put_programa_habilitado(numero: int, body: _HabilitadoBody,
         lambda gp, activo: gp.fijar_habilitado(cm, numero, body.habilitado, activo),
         "programa_habilitado",
         lambda r: ({"habilitado": r[0]}, {"habilitado": r[1]}),
-        lambda gp, r: gp.deshacer_habilitado(cm, numero, r[0]))
+        lambda gp, r: gp.deshacer_habilitado(cm, numero, r[0]),
+        excepcion_ingeniero=False)                     # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": numero, "habilitado": nuevo}
 
 
@@ -3956,9 +3963,10 @@ def post_programa_duplicar(numero: int, body: _DuplicarBody,
     cm = context.cycle_manager
     nuevo = _gestion(
         entidad, sesion, lambda gp, activo: gp.duplicar(cm, numero, body.nombre),
-        "programa_duplicado",
+        "programa_creado" if body.crear else "programa_duplicado",
         lambda c: ({"origen": numero}, {"numero": c.number, "cycle_id": c.id, "nombre": c.name}),
-        lambda gp, c: gp.deshacer_duplicado(cm, c))
+        lambda gp, c: gp.deshacer_duplicado(cm, c),
+        excepcion_ingeniero=False)                     # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": nuevo.number, "cycle_id": nuevo.id, "nombre": nuevo.name}
 
 
@@ -3971,7 +3979,8 @@ def delete_programa(numero: int,
              "programa_borrado",
              lambda c: ({"numero": numero, "cycle_id": c.id, "nombre": c.name}, None),
              lambda gp, c: gp.deshacer_borrado(cm, c),
-             confirmar=lambda gp, c: gp.confirmar_borrado(c))
+             confirmar=lambda gp, c: gp.confirmar_borrado(c),
+             excepcion_ingeniero=False)                # C9 (D9-10): solo fuera de ciclo
     return {"ok": True, "numero": numero}
 
 

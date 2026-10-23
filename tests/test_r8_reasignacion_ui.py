@@ -217,7 +217,12 @@ def test_pantalla_carga_sin_avisos():
 
 def test_cableada_en_opciones():
     qml = (RAIZ / "src/autoclave/ui_qml/qml/Pantallas/Opciones.qml").read_text(encoding="utf-8")
-    assert 'objectName: "cargadorReasignacion"' in qml
+    # C9 (tanda 9, D9-10): la reasignación vive dentro del contenedor de
+    # Opciones avanzadas, solo para el ingeniero
+    avanzadas = (RAIZ / "src/autoclave/ui_qml/qml/Pantallas/OpcionesAvanzadas.qml").read_text(encoding="utf-8")
+    assert 'objectName: "cargadorReasignacion"' in avanzadas
+    assert "active: raiz.puedeReasignar &&" in avanzadas
+    assert "puedeReasignar: control.puedeReasignarIo" in qml
     assert 'raiz.seccionActiva === "opciones_avanzadas"' in qml
     assert 'raiz.seccionActiva !== "opciones_avanzadas"' in qml     # no muestra "próximamente"
 

@@ -34,6 +34,8 @@ EVENTOS = (
     # R8 (tanda 8, D8-5.12): reasignación de E/S
     "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
     "reasignacion_io_verificada", "reinicio_control",
+    # C9 (tanda 9, D9-10): Manejo de ciclos
+    "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
 )
 
 
@@ -91,7 +93,11 @@ def formatear(valor, metas: dict, unidades: dict, p_atm=None) -> str:
     return "" if valor is None else formatear_valor(valor, None, unidades, p_atm)
 
 
-def _clave_texto(evento: str, detalle) -> str:
+def _clave_texto(evento: str, detalle, nuevo=None) -> str:
+    # C9 (tanda 9): deshabilitar un programa tiene su propio texto (el valor
+    # booleano no se muestra crudo)
+    if evento == "programa_habilitado" and isinstance(nuevo, dict) and nuevo.get("habilitado") is False:
+        return "bitacora.ev.programa_deshabilitado"
     # D8-5.7 (tanda 8): el cambio automático del modo de descompresión al
     # cambiar el tipo de carga se distingue del cambio hecho por el usuario
     if (evento == "param_ciclo_cambio" and isinstance(detalle, dict) and detalle.get("automatico") is True
@@ -114,5 +120,5 @@ def presentar(fila: dict, metas: dict, unidades: dict, p_atm=None) -> dict:
         "rol": fila.get("rol") or "", "evento": evento, "entidad": fila.get("entidad") or "",
         "anterior": anterior, "nuevo": nuevo,
         "detalle": detalle if isinstance(detalle, dict) else None,
-        "clave_texto": _clave_texto(evento, detalle),
+        "clave_texto": _clave_texto(evento, detalle, decodificar(fila.get("valor_nuevo"))),
     }

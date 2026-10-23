@@ -133,7 +133,10 @@ class ParametrosCicloController(QObject):
     def programaEditable(self) -> bool:
         return bool(self._programa().get("editable"))
 
-    # ── gestión de programas (O1, tanda 5) ───────────────────────────
+    # ── estado del programa (O1, tanda 5) ────────────────────────────
+    # C9 (tanda 9, D9-10): habilitar, duplicar y borrar se movieron a Opciones
+    # avanzadas › Manejo de ciclos (manejo_ciclos_controller.py); aquí solo se
+    # informa el estado.
 
     @Property(bool, notify=programaChanged)
     def programaHabilitado(self) -> bool:
@@ -142,36 +145,6 @@ class ParametrosCicloController(QObject):
     @Property(bool, notify=programaChanged)
     def programaPersonalizado(self) -> bool:
         return self._programa().get("personalizado") is True
-
-    def _tras_gestion(self, r, numero_nuevo: int | None = None) -> bool:
-        # sin respuesta el resultado es incierto: se relee la lista siempre
-        self.cargar()
-        if r.ok:
-            self._fijar_mensaje("")
-            if numero_nuevo:
-                self.elegirPrograma(numero_nuevo)
-            return True
-        self._fijar_mensaje(mensaje_de(r.causa))
-        return False
-
-    @Slot(bool, result=bool)
-    def fijarHabilitado(self, habilitado: bool) -> bool:
-        r = self._s().enviar("PUT", f"/programas/{self._numero}/habilitado",
-                             {"habilitado": bool(habilitado)})
-        return self._tras_gestion(r)
-
-    @Slot(str, result=bool)
-    def duplicar(self, nombre: str) -> bool:
-        r = self._s().enviar("POST", f"/programas/{self._numero}/duplicar", {"nombre": nombre})
-        nuevo = r.datos.get("numero") if r.ok and isinstance(r.datos, dict) else None
-        return self._tras_gestion(r, nuevo)
-
-    @Slot(result=bool)
-    def borrar(self) -> bool:
-        r = self._s().enviar("DELETE", f"/programas/{self._numero}")
-        if r.ok:
-            self._numero = 0          # cargar() elige el primero
-        return self._tras_gestion(r)
 
     # ── entradas mostradas (O1) ──────────────────────────────────────
 
