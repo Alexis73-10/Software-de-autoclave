@@ -275,6 +275,52 @@ Si el perfil está **dañado** (ilegible o inválido), el asistente se abre solo
    - Si la B migró la base de datos a una versión más nueva, la A la abre sin bajarla de versión. **[verificar en sitio]** que la A arranque bien después de la B.
 4. Si la A no arranca con esos datos, reinstale el perfil (sección 7) antes de tocar la base.
 
+## 8b. Actualizar un equipo ya instalado (B → C)
+
+Para pasar el equipo de pruebas, instalado el 22-oct con la **B**, a la **C** (`entrega/2026-10-23_c/`) sin perder nada. Se comprobó en el PC de la oficina con una copia simulada del equipo instalado: perfil del equipo de pruebas, base de datos de la B con un usuario y un parámetro cambiado, y calibración propia. El detalle está en `docs/informes/tanda8/K8_compilacion_c.md`.
+
+**Qué hace el programa al actualizar** (leído en `instalador_exe.py`, `utils/resources.py` y `utils/paths.py`):
+- reemplaza solo `C:\Program Files\Especifika\Autoclave` (`Autoclave.exe` y `_internal\`);
+- en `C:\ProgramData\Especifika\Autoclave` no borra ni reemplaza nada, salvo los programas de **fábrica** (`programa\autoclave\cycles\factory\`), que siempre se refrescan;
+- los archivos de configuración que ya existen en `programa\autoclave\config\` **no se reemplazan**. Por eso hay dos que se copian a mano (paso 6).
+
+**Orden, con el software cerrado:**
+1. **Cierre Autoclave por completo** (las dos pantallas). En el Administrador de tareas no debe quedar ningún `Autoclave.exe`.
+2. **Respaldo:** copie la carpeta completa `C:\ProgramData\Especifika\Autoclave` a la USB (por ejemplo, `respaldo_B_2026-10-23`). Es la vuelta atrás.
+3. Compruebe la copia de la C con `SHA256SUMS.txt` (sección 1.1).
+4. Abra `Autoclave\Autoclave.exe` de la C desde la USB. Pregunta "Ya hay un Autoclave instalado en este PC. ¿Actualizarlo con esta versión?": responda **Sí** y acepte el aviso de administrador.
+5. Al terminar, el programa se abre solo. **Ciérrelo otra vez por completo** (paso 1).
+6. **Reemplace estos dos archivos** de `C:\ProgramData\Especifika\Autoclave\programa\autoclave\config\` por los de la C, que están en `C:\Program Files\Especifika\Autoclave\_internal\autoclave\config\`:
+
+| Archivo | Por qué hay que reemplazarlo |
+|---|---|
+| `instances\ACV-2026-001.yaml` | En la C es la lista de **todos** los canales físicos, y el perfil decide cuáles se muestran (D8-3.17). Con el archivo de la B **no aparecen** Cámara 2, `descompresion_lenta`, el aire comprimido de chaqueta y de cámara, el agua de chaqueta ni el zumbador. Si el 22-oct se agregaron canales a mano (sección 6.1), el archivo de la C ya los trae: no hay que volver a editarlo. |
+| `global_params.json` | Trae dos parámetros del equipo nuevos: pausa máxima en esterilización (30 s) y espera sellada sin sonda (30 min). Reemplazarlo es seguro: los valores vigentes de los parámetros del equipo se guardan en la base de datos, no en este archivo, y se conservan. |
+
+7. Abra Autoclave con el acceso directo. En el primer arranque, la base de datos se actualiza sola a la versión 10.
+8. Compruebe:
+   - Información del sistema: versión y número de serie;
+   - que los usuarios entran;
+   - Parámetros del equipo: los valores de antes y los dos nuevos;
+   - Entradas/Salidas: Cámara 2 y `descompresion_lenta` visibles.
+
+**NO toque** (se conservan solos):
+
+| Ruta en `C:\ProgramData\Especifika\Autoclave` | Contenido |
+|---|---|
+| `installation_profile.json` | Perfil de instalación (bloqueado) |
+| `data\calibration.yaml` | **Calibración del equipo.** La C trae una calibración neutra (D8-3.18), pero solo se usa en un equipo nuevo: la del equipo no se reemplaza |
+| `data\autoclave.db` | Usuarios, historial, bitácora, parámetros del equipo, presión atmosférica calibrada y mantenimiento |
+| `programa\autoclave\cycles\user\` | Programas de ciclo del usuario |
+| `programa\autoclave\config\serial_link.json` | Puerto de la tarjeta |
+| `programa\autoclave\config\correo.json` | Correo (la contraseña está en el almacén de credenciales de Windows) |
+| `programa\autoclave\config\active_instances.yaml`, `calibration.yaml` y `models\` | Sin cambios entre la B y la C |
+
+**Volver a la B si la C falla:**
+1. Cierre Autoclave.
+2. Abra el `Autoclave.exe` de la B, responda Sí a "¿Actualizarlo?" y ciérrelo cuando se abra.
+3. **Reemplace la carpeta completa** `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2. Es necesario porque la C deja la base de datos en la versión 10, que la B no conoce.
+
 ## A frente a B
 
 **Instale la B** (`entrega/2026-10-22_b/`). La A queda solo como respaldo (sección 8).
