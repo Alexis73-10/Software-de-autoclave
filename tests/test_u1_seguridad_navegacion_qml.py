@@ -142,8 +142,12 @@ def test_paro_y_confirmacion_quedan_a_la_vista_en_preciclo():
         "panel_cerrado_sin_paro": True,
         "login": "Login",
         "tarjeta_desconectada_no_mueve": ["Login", False],
-        "paro_vuelve": ["PantallaPreciclo", False, True],
-        "avatar_con_paro": "PantallaPreciclo",
-        "confirmar_a_la_vista": ["PantallaPreciclo", False, True],
+        # S9 (tanda 9, D9-1.5): el login ya no se interrumpe con el paro ni
+        # con la confirmación pendiente (antes volvía a Preciclo); la
+        # confirmación sigue en la tarjeta de Preciclo y en la campana
+        # (tests/test_s9_login_y_causa_qml.py)
+        "paro_vuelve": ["Login", False, False],
+        "avatar_con_paro": "Login",
+        "confirmar_a_la_vista": ["Login", False, False],
         "login_sin_aviso": "Login",
     }

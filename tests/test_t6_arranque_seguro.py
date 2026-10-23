@@ -143,6 +143,9 @@ def _loop():
                            estado=EstadoAutoclave(), link=MagicMock(), set_do=MagicMock(),
                            alarm_manager=MagicMock(), cycle_manager=cm, config_manager=config)
     loop.cycle = None
+    # S9, revisión ★ TMG-02: la recuperación y el estado seguro exigen la
+    # trama AI vigente (un doble sin edad cuenta como AI vencida)
+    loop.link.edad_ultima_ai.return_value = 0.1
     return loop
 
 
@@ -162,7 +165,10 @@ def test_ciclo_interrumpido_con_camara_caliente_arranca_en_estado_seguro():
     assert prog in loop.programas_para_seguridad()
     loop._procesar_recuperacion()
     assert loop.estado_seguro.activo
-    assert loop.estado_seguro.requiere_confirmacion       # nunca se reanuda solo
+    # S9 (tanda 9, D9-1.1/1.2, revierte E4/D-08): corre solo, sin
+    # confirmación (no hubo paro en este encendido), solo por la lenta
+    assert loop.estado_seguro.requiere_confirmacion is False
+    assert loop.estado_seguro.causa == "arranque"
     loop.set_do.descompresion_rapida_on.assert_not_called()
 
 
@@ -263,14 +269,16 @@ def test_recuperacion_espera_tres_ticks_seguros():
     assert loop._recuperacion_pendiente is None and not loop.estado_seguro.activo
 
 
-def test_modo_prueba_rechazado_con_recuperacion_pendiente():
-    # SAF-03
+def test_modo_prueba_permitido_con_recuperacion_pendiente():
+    # S9 (tanda 9, D9-1.3, revierte SAF-03 de T6); las salidas peligrosas
+    # siguen bloqueadas en el modo prueba (revisión ★ SAF-01)
     loop = _loop()
     loop.estado.set_machine_state(GlobalState.PREPARADO)
     loop.estado.set_flag("PARO_EMERGENCIA", False)
     loop.recuperar_ciclo_interrumpido(_programa_liquido())
     ok, motivo = loop.enter_test_mode()
-    assert ok is False and "estado seguro" in motivo
+    assert ok is True, motivo
+    assert "abrir_puerta_1" in loop.salidas_prueba_bloqueadas()
 
 
 def test_programa_para_arranque_sin_datos_es_conservador():

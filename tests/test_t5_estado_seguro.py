@@ -255,7 +255,8 @@ def test_fallo_y_cancelacion_inician_el_estado_seguro(resultado, destino):
     sm.ciclo.run = MagicMock(return_value=resultado)
     sm.update()
     assert estado.get_machine_state() == destino
-    es.iniciar.assert_called_once_with(sm.ciclo._protocolo)
+    # S9 (D9-1.2): con la causa para la UI ("fallo" / "cancelado")
+    es.iniciar.assert_called_once_with(sm.ciclo._protocolo, origen=resultado.lower())
 
 
 def test_preparado_no_ventea_ni_habilita_con_estado_seguro_activo():

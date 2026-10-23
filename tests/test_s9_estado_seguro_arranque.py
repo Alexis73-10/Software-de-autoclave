@@ -55,6 +55,9 @@ def _loop(alarmas=None):
                            config_manager=_Config(_CFG))
     loop.cycle = None
     loop.set_do.reset_all_outputs.return_value = True
+    # revisión ★ TMG-02: la recuperación y el estado seguro exigen la trama
+    # AI vigente (un doble sin edad cuenta como AI vencida)
+    loop.link.edad_ultima_ai.return_value = 0.1
     loop.estado.set_machine_state(GlobalState.PREPARACION)
     loop.estado.set_flag("PARO_EMERGENCIA", False)     # EmergencyStop arranca en paro
     return loop
