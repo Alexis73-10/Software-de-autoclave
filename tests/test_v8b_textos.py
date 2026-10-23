@@ -80,8 +80,10 @@ _ABREVIATURAS = {
 # Palabras sueltas que solo aparecen como abreviatura (p. ej. "Presion add").
 _ABREVIATURAS_SIN_PUNTO = {
     "es": ["add", "info", "config", "param", "params", "temp", "pres", "ester", "est"],
-    "en": ["add", "info", "config", "param", "params", "temp", "pres", "ster"],
+    "en": ["info", "config", "param", "params", "temp", "pres", "ster"],   # "Add" es verbo en inglés
 }
+# "N.º", "Nº", "No. 5": número abreviado
+_NUMERO_ABREVIADO = re.compile(r"(?<!\w)(N\.?\s?º|No\.\s*\d)")
 
 
 @pytest.mark.parametrize("idioma", IDIOMAS)
@@ -91,7 +93,8 @@ def test_catalogo_sin_abreviaturas_conocidas(idioma):
     sin_punto = re.compile(r"(?<![\w\-_])(%s)(?![\w\-_.])" % "|".join(_ABREVIATURAS_SIN_PUNTO[idioma]),
                            re.I)
     hallados = [f"{c}: {m.group(0)!r} en {t!r}" for c, t in _textos(idioma)
-                for m in list(con_punto.finditer(t)) + list(sin_punto.finditer(t))]
+                for m in list(con_punto.finditer(t)) + list(sin_punto.finditer(t))
+                + list(_NUMERO_ABREVIADO.finditer(t))]
     assert hallados == [], "\n".join(hallados)
 
 
@@ -100,7 +103,9 @@ def test_catalogo_sin_punto_de_abreviatura_en_medio_del_texto(idioma):
     # una palabra corta con punto seguida de minúscula no es fin de frase: es
     # una abreviatura ("Temp. cámara", "Temp. dren. cámara")
     patron = re.compile(r"(?<![\w.])([A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{1,7})\.\s+(?=[a-záéíóúüñ])")
-    hallados = [f"{c}: {m.group(0)!r} en {t!r}" for c, t in _textos(idioma) for m in patron.finditer(t)]
+    unidades = {"kPa", "bar", "mbar", "psi", "psig", "inHg", "mmHg", "min", "s", "h"}
+    hallados = [f"{c}: {m.group(0)!r} en {t!r}" for c, t in _textos(idioma) for m in patron.finditer(t)
+                if m.group(1) not in unidades]
     assert hallados == [], "\n".join(hallados)
 
 
@@ -199,6 +204,9 @@ _LITERALES_PERMITIDOS = {
     "Español", "English",
     # D-06 / ARR-02: eslogan de marca
     "Tecnología para esterilizar.", "Ingeniería para responder.",
+    # pie del arranque "<modelo>  ·  Software v<versión>" (planeacion_animacion_arranque.md):
+    # notación de versión, igual en es y en (DECISIÓN SIN CONFIRMAR, informe V8b)
+    "Software v",
 }
 _CADENA = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
@@ -329,3 +337,52 @@ def test_descripciones_citan_nombres_visibles_de_parametros():
     citados = {m for _, t in _textos("es") for m in re.findall(r"«([^»]+)»", t)}
     sin_nombre = sorted(c for c in citados if c not in nombres and c not in {"F0"})
     assert sin_nombre == []
+
+
+# ── D8-5.11: motivos del estado seguro detenido (CIC-10) en el idioma vigente ─
+
+def test_motivos_de_estado_seguro_tienen_clave_en_ambos_idiomas():
+    from autoclave.core.runtime import alarmas_i18n as ai
+    for prefijo, clave in ai._MOTIVOS_BLOQUEO:
+        for idioma in IDIOMAS:
+            assert _texto(CATALOGOS[idioma], clave), (clave, idioma)
+        if not prefijo.startswith("Timeout"):           # textos de antes de la tanda 8
+            assert _texto(CATALOGOS["es"], clave).startswith(prefijo), clave
+
+
+def test_todo_motivo_del_protocolo_de_fallo_se_reconoce():
+    from autoclave.core.runtime.alarmas_i18n import clave_motivo_bloqueo
+    ruta = SRC / "state_machine" / "cycle_phases" / "protocolo_fallo.py"
+    arbol = ast.parse(ruta.read_text(encoding="utf-8"))
+    funcion = next(n for n in ast.walk(arbol)
+                   if isinstance(n, ast.FunctionDef) and n.name == "bloqueado_motivo")
+    motivos = [n.value.value for n in ast.walk(funcion)
+               if isinstance(n, ast.Return) and isinstance(n.value, ast.Constant)
+               and isinstance(n.value.value, str)]
+    assert len(motivos) >= 3
+    assert [m for m in motivos if not clave_motivo_bloqueo(m)] == []
+
+
+def test_cic10_en_ingles_no_mezcla_el_motivo_en_espanol():
+    from autoclave.core.runtime.alarmas_i18n import textos
+    from autoclave.state_machine.alarms.catalogo import CATALOGO
+    motivo = CATALOGOS["es"]["estado_seguro_motivos"]["sonda_temperatura"]
+    en = textos(CATALOGO["CIC-10"], {"motivo": motivo}, "en")["descripcion"]
+    es = textos(CATALOGO["CIC-10"], {"motivo": motivo}, "es")["descripcion"]
+    assert CATALOGOS["en"]["estado_seguro_motivos"]["sonda_temperatura"] in en and "Sensor" not in en
+    assert motivo in es
+
+
+def test_ui_bridge_entrega_clave_y_causa_del_bloqueo():
+    from autoclave.ui_qml.bridge.ui_bridge import UiBridge
+    motivo = CATALOGOS["es"]["estado_seguro_motivos"]["sonda_enfriamiento"]
+    d = UiBridge._seguridad_de({"estado_seguro": {"activo": True, "bloqueado_motivo": motivo}})
+    assert d["es_bloqueado"] == motivo
+    assert d["es_bloqueado_clave"] == "estado_seguro_motivos.sonda_enfriamiento"
+    assert d["es_bloqueado_sonda"] is True
+    liquido = CATALOGOS["es"]["estado_seguro_motivos"]["liquido_caliente"]
+    d = UiBridge._seguridad_de({"estado_seguro": {"activo": True, "bloqueado_motivo": liquido}})
+    assert d["es_bloqueado_clave"] == "estado_seguro_motivos.liquido_caliente"
+    assert d["es_bloqueado_sonda"] is False
+    d = UiBridge._seguridad_de({"estado_seguro": {"activo": True, "bloqueado_motivo": "otro"}})
+    assert d["es_bloqueado_clave"] == "" and d["es_bloqueado_sonda"] is False

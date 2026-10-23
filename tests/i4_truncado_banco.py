@@ -122,8 +122,10 @@ _SCRIPT = textwrap.dedent(r'''
 ''')
 
 
-def revisar(pantalla: str, idioma: str, captura: bool = False) -> dict:
-    archivo = str(CAPTURAS / f"I4_{idioma}_{pantalla}.png") if captura else ""
+def revisar(pantalla: str, idioma: str, captura: bool = False, carpeta: Path | None = None,
+            prefijo: str = "I4") -> dict:
+    # V8b (tanda 8): carpeta y prefijo de la captura configurables
+    archivo = str((carpeta or CAPTURAS) / f"{prefijo}_{idioma}_{pantalla}.png") if captura else ""
     cfg = {"pantalla": pantalla, "idioma": idioma, "ancho": ANCHO, "alto": ALTO, "captura": archivo}
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}

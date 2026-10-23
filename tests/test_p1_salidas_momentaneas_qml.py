@@ -110,7 +110,7 @@ tras_soltar = len(patches) - n
 s1 = buscar("sensor_temp_camara")
 v1 = buscar("valorSensor_temp_camara")
 valor_ok = v1.property("text")
-estado_on = any(o.property("text") == "ON" for o in t1.findChildren(QObject)
+estado_on = any(o.property("text") == "ENCENDIDA" for o in t1.findChildren(QObject)
                 if o.property("text") is not None)
 estado["tarjeta"] = "desconectada"
 es.setProperty("segmento", "temperatura")

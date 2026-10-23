@@ -258,7 +258,8 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
             parametros = caso_ref["a"][1]
             if parametros:
                 ref = ref.format(**parametros)
-        elif clave.startswith(("parametros_desc.", "descompresion_modos.", "ciclos_fabrica.")):
+        elif clave.startswith(("parametros_desc.", "parametros.", "descompresion_modos.", "ciclos_fabrica.")):
+            # V8b (tanda 8): también parametros.<sección>.<clave> (nombre visible)
             # Descripciones de parámetros y modos de descompresión (Opciones):
             # catálogo nuevo, sin referencia vieja; 3 o 4 niveles. I4 (tanda 6):
             # también ciclos_fabrica.<cycle_id>.nombre.
