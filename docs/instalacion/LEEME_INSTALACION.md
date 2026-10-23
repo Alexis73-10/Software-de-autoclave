@@ -74,11 +74,30 @@ Para correr en sitio sin copiar a Archivos de programa, cree un acceso directo a
 ### 1.5 Una pantalla o dos
 El acceso directo abre **las dos pantallas**: puerta 1 en el monitor 0 y puerta 2 en el monitor 1. Si el PC del equipo tiene **un solo monitor**, la ventana de la puerta 2 se abre a pantalla completa encima de la de la puerta 1.
 
-Rodeo: cree un acceso directo con el argumento `--una-pantalla`:
+El programa **no detecta** cuántos monitores hay (decisión D8-3.20 de la tanda 8): en un PC con un solo monitor hay que usar el argumento `--una-pantalla`, que abre solo la pantalla de la puerta 1 (con el backend, como siempre).
 
-```
-"C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla
-```
+Acceso directo de ejemplo (un solo monitor):
+
+1. Clic derecho en el escritorio > **Nuevo** > **Acceso directo**.
+2. En "Escriba la ubicación del elemento" pegue, **con las comillas**:
+   ```
+   "C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla
+   ```
+3. **Siguiente**; nombre: `Autoclave (una pantalla)`; **Finalizar**.
+4. Use ese acceso directo en lugar del normal (puede borrar el otro para no confundirse). Para arrancar solo al encender el PC, copie el acceso directo a la carpeta que abre `Win + R` > `shell:startup`.
+
+Variantes del mismo destino:
+
+| Caso | Destino del acceso directo |
+|---|---|
+| Un monitor, programa instalado | `"C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla` |
+| Un monitor, modo portátil (1.3) | `"<carpeta>\Autoclave.exe" --portable --una-pantalla` |
+| Un monitor que Windows no numera 0 | `"C:\Program Files\Especifika\Autoclave\Autoclave.exe" --una-pantalla --monitor-puerta1 1` |
+
+Notas:
+- Con `--una-pantalla` no se abre la pantalla de la puerta 2. En un equipo de dos puertas, la puerta 2 queda sin pantalla en este PC.
+- Si hay dos monitores y las ventanas salen cambiadas, use `--monitor-puerta1 1 --monitor-puerta2 0` en el acceso directo normal (sin `--una-pantalla`).
+- El asistente de instalación (sección 3) siempre se abre solo en la pantalla de la puerta 1; el argumento no cambia nada ahí.
 
 **[verificar en sitio]** cuántos monitores tiene el PC y cuál es el 0.
 
