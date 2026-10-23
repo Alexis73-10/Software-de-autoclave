@@ -159,7 +159,9 @@ def test_carga_sin_avisos(resultado):
 def test_muestra_las_entradas_del_programa_con_su_unidad(resultado):
     _, r = resultado
     a = r["pasos"][0]
-    for texto in ("Temperatura de cámara", "Presión de chaqueta", "Temperatura de drenaje", "121.0", "250.0", "kPa"):
+    # U10a (tanda 10, D10-1.3): a 1200 px las etiquetas largas de la tarjeta no
+    # caben en su columna y salen abreviadas (abrev.ciclo.entrada_corta_*)
+    for texto in ("Temp. cámara", "Pres. chaq.", "Temp. drenaje", "121.0", "250.0", "kPa"):
         assert texto in a, texto
     assert "—" in a
 
@@ -167,10 +169,10 @@ def test_muestra_las_entradas_del_programa_con_su_unidad(resultado):
 def test_al_cambiar_de_programa_cambian(resultado):
     _, r = resultado
     b = r["pasos"][1]
-    for texto in ("Presión", "Temperatura de referencia", "2.05", "bar", "°F"):
+    for texto in ("Presión", "Temp. referencia", "2.05", "bar", "°F"):
         assert texto in b, texto
-    assert "Presión de chaqueta" not in b and "250.0" not in b
-    assert "Temperatura de drenaje" not in " ".join(b)
+    assert "Pres. chaq." not in b and "250.0" not in b
+    assert "Temperatura de drenaje" not in " ".join(b) and "Temp. drenaje" not in b
 
 
 def test_lista_vacia_no_rompe(resultado):
