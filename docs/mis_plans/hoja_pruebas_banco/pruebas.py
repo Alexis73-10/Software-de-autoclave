@@ -556,10 +556,30 @@ PRUEBAS = [
          pasos=["Como técnico: la sección se ve con todo deshabilitado y el motivo.",
                 "Como admin: desactivar un técnico; su sesión abierta se cierra. Reactivarlo.",
                 "Restablecer su clave: al ingresar pide cambiarla.",
-                "Intentar desactivarse a sí mismo y desactivar al único ingeniero (rechazos).",
+                "Intentar desactivarse a sí mismo (rechazo). (Desde U11 la cuenta `Ingeniero` no se desactiva, así que "
+                "en banco nunca queda un único ingeniero que desactivar; esa regla la cubre la prueba automática.)",
                 "Agregar un operador, desactivarlo y reactivarlo; verificar la lista de operadores al iniciar ciclo."],
          esperado="Cada acción queda en bitácora (`usuario_desactivado`, `clave_restablecida`, `operador_creado`…); el admin no toca a un ingeniero.",
          criterio="Aprobado si ningún rechazo falta y no hay forma de borrar."),
+    dict(id="D-26b", bloque="D", modo="seco", origen="U11 (tanda 11, D11-6)",
+         titulo="Cuentas del sistema Admin e Ingeniero",
+         objetivo="Las cuentas `Admin` e `Ingeniero` entran sin distinguir mayúsculas, no se pueden desactivar "
+                  "y, al actualizar, `admin`/`ingeniero` pasan a `Admin`/`Ingeniero` con su contraseña.",
+         pre="Equipo actualizado desde la compilación F (BD con `admin` e `ingeniero`) y, aparte, una instalación limpia. "
+             "Sesión de ingeniero.",
+         pasos=["Instalación limpia: ingresar como `Ingeniero` / `ingeniero1234` y como `Admin` / `admin1234` "
+                "(los dos piden cambiar la contraseña).",
+                "Ingresar escribiendo el usuario en minúsculas (`admin`) y en mayúsculas (`ADMIN`): entra a la misma cuenta `Admin`.",
+                "Equipo actualizado: ingresar con la contraseña que tenía `admin` antes de actualizar; la lista de "
+                "OPCIONES › Usuarios muestra `Admin` e `Ingeniero` y la bitácora tiene dos filas «Cuenta renombrada».",
+                "OPCIONES › Usuarios: seleccionar `Admin` y luego `Ingeniero`: «Desactivar» deshabilitado con el aviso "
+                "de cuenta del sistema; «Restablecer contraseña» habilitado.",
+                "Restablecer la contraseña de `Admin` desde el ingeniero: al ingresar pide cambiarla.",
+                "Nuevo usuario con el nombre `ADMIN` o `ingeniero`: se rechaza (ya existe)."],
+         esperado="Las dos cuentas entran con cualquier capitalización del usuario; no se pueden desactivar desde la "
+                  "pantalla; su contraseña se cambia y restablece; al actualizar conservan la contraseña.",
+         criterio="Aprobado si ninguna de las dos cuentas se puede desactivar, el ingreso no depende de las "
+                  "mayúsculas del usuario y la actualización no pide contraseñas nuevas."),
     dict(id="D-27", bloque="D", modo="seco", origen="O2c (tanda 6)",
          titulo="OPCIONES › Fecha y hora en solo lectura",
          objetivo="La pantalla muestra la hora del PC y avisa si el reloj es anterior a la instalación.",

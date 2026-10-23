@@ -79,6 +79,7 @@
 | D-24 | Entradas mostradas en Preciclo, Ciclo en curso y gráfica | En seco (sin vapor) | O3 (tanda 6) |
 | D-25 | OPCIONES › Parámetros del equipo: rangos, permisos y aplicación sin reiniciar | En seco (sin vapor) | O2a (tanda 6) |
 | D-26 | OPCIONES › Usuarios y operadores | En seco (sin vapor) | O2b (tanda 6) |
+| D-26b | Cuentas del sistema Admin e Ingeniero | En seco (sin vapor) | U11 (tanda 11, D11-6) |
 | D-27 | OPCIONES › Fecha y hora en solo lectura | En seco (sin vapor) | O2c (tanda 6) |
 | D-28 | OPCIONES › Información del sistema | En seco (sin vapor) | O2d (tanda 6) |
 | D-29 | OPCIONES › Bitácora de auditoría con filtros | En seco (sin vapor) | O2e (tanda 6) |
@@ -1117,10 +1118,28 @@
   1. Como técnico: la sección se ve con todo deshabilitado y el motivo.
   2. Como admin: desactivar un técnico; su sesión abierta se cierra. Reactivarlo.
   3. Restablecer su clave: al ingresar pide cambiarla.
-  4. Intentar desactivarse a sí mismo y desactivar al único ingeniero (rechazos).
+  4. Intentar desactivarse a sí mismo (rechazo). (Desde U11 la cuenta `Ingeniero` no se desactiva, así que en banco nunca queda un único ingeniero que desactivar; esa regla la cubre la prueba automática.)
   5. Agregar un operador, desactivarlo y reactivarlo; verificar la lista de operadores al iniciar ciclo.
 - **Resultado esperado:** Cada acción queda en bitácora (`usuario_desactivado`, `clave_restablecida`, `operador_creado`…); el admin no toca a un ingeniero.
 - **Criterio de aprobado/fallo:** Aprobado si ningún rechazo falta y no hay forma de borrar.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### D-26b — Cuentas del sistema Admin e Ingeniero
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** U11 (tanda 11, D11-6)
+- **Objetivo:** Las cuentas `Admin` e `Ingeniero` entran sin distinguir mayúsculas, no se pueden desactivar y, al actualizar, `admin`/`ingeniero` pasan a `Admin`/`Ingeniero` con su contraseña.
+- **Precondiciones:** Equipo actualizado desde la compilación F (BD con `admin` e `ingeniero`) y, aparte, una instalación limpia. Sesión de ingeniero.
+- **Pasos:**
+  1. Instalación limpia: ingresar como `Ingeniero` / `ingeniero1234` y como `Admin` / `admin1234` (los dos piden cambiar la contraseña).
+  2. Ingresar escribiendo el usuario en minúsculas (`admin`) y en mayúsculas (`ADMIN`): entra a la misma cuenta `Admin`.
+  3. Equipo actualizado: ingresar con la contraseña que tenía `admin` antes de actualizar; la lista de OPCIONES › Usuarios muestra `Admin` e `Ingeniero` y la bitácora tiene dos filas «Cuenta renombrada».
+  4. OPCIONES › Usuarios: seleccionar `Admin` y luego `Ingeniero`: «Desactivar» deshabilitado con el aviso de cuenta del sistema; «Restablecer contraseña» habilitado.
+  5. Restablecer la contraseña de `Admin` desde el ingeniero: al ingresar pide cambiarla.
+  6. Nuevo usuario con el nombre `ADMIN` o `ingeniero`: se rechaza (ya existe).
+- **Resultado esperado:** Las dos cuentas entran con cualquier capitalización del usuario; no se pueden desactivar desde la pantalla; su contraseña se cambia y restablece; al actualizar conservan la contraseña.
+- **Criterio de aprobado/fallo:** Aprobado si ninguna de las dos cuentas se puede desactivar, el ingreso no depende de las mayúsculas del usuario y la actualización no pide contraseñas nuevas.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
