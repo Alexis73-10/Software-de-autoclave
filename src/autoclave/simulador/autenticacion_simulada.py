@@ -25,6 +25,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from autoclave.backend.autenticacion import ControlIntentos
+from autoclave.core.runtime.nombre_usuario import normalizar_usuario
 from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO, ROLES_CREABLES
 from autoclave.ui_pyside.services.validacion_usuario import (
     COD_IGUAL_ACTUAL, COD_OBLIGATORIO, USUARIO_EXISTE, codigo_clave, codigo_confirmacion,
@@ -119,7 +120,8 @@ def registrar_autenticacion(app: FastAPI, reloj=time.monotonic) -> None:
         coincidencia exacta; si no la hay, la única que coincide."""
         if usuario in usuarios:
             return usuario
-        candidatos = [u for u in usuarios if u.casefold() == usuario.casefold()]
+        buscado = normalizar_usuario(usuario)          # NFKC + casefold (SAF-01)
+        candidatos = [u for u in usuarios if normalizar_usuario(u) == buscado]
         return candidatos[0] if len(candidatos) == 1 else usuario
 
     def _clave_valida(usuario: str, clave: str) -> bool:
@@ -211,7 +213,7 @@ def registrar_autenticacion(app: FastAPI, reloj=time.monotonic) -> None:
             _validacion(errores)
         if body.rol not in ROLES_CREABLES.get(sesion.rol, frozenset()):
             raise _Rechazo(403, "rol_no_creable", "Su rol no puede crear usuarios con ese rol")
-        if any(u.casefold() == body.usuario.casefold() for u in usuarios):
+        if any(normalizar_usuario(u) == normalizar_usuario(body.usuario) for u in usuarios):
             raise _Rechazo(409, "usuario_existe", USUARIO_EXISTE)
         usuarios[body.usuario] = _Usuario(body.nombre.strip(), body.rol, body.clave, False,
                                           activo=body.activo)

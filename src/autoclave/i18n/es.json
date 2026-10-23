@@ -699,7 +699,8 @@
   },
   "validacion": {
     "obligatorio": "Campo obligatorio",
-    "formato": "Sin espacios, de {min} a {max} caracteres",
+    "formato": "Solo letras, números y . _ -, de {min} a {max} caracteres",
+    "reservado": "Ese nombre está reservado por el sistema",
     "corta": "Mínimo {min} caracteres",
     "larga": "Máximo {max} caracteres",
     "no_coinciden": "Las contraseñas no coinciden",

@@ -699,7 +699,8 @@
   },
   "validacion": {
     "obligatorio": "Required field",
-    "formato": "No spaces, {min} to {max} characters",
+    "formato": "Letters, digits and . _ - only, {min} to {max} characters",
+    "reservado": "That name is reserved by the system",
     "corta": "Minimum {min} characters",
     "larga": "Maximum {max} characters",
     "no_coinciden": "The passwords do not match",
