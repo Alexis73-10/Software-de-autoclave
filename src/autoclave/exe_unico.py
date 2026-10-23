@@ -101,6 +101,19 @@ def _apagar_backend(url: str, proc, logger) -> None:
     logger.info("Backend detenido")
 
 
+def _cerrar_reposo_instalacion(proc, logger) -> None:
+    """W10: cierra la pantalla 2 de Reposo de instalación (no tiene backend ni
+    salidas: solo muestra logo, reloj y aviso)."""
+    if proc is None or proc.poll() is not None:
+        return
+    proc.terminate()
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+    logger.info("Pantalla 2 de Reposo de instalación cerrada")
+
+
 def _lanzador(args) -> int:
     _log_a_archivo("lanzador.log")
     logger = logging.getLogger("autoclave.exe_unico")
@@ -122,12 +135,27 @@ def _lanzador(args) -> int:
     # Sin perfil de instalación (PC nuevo): primero solo el asistente, sin
     # backend (no lo necesita). Al terminarlo (código 3) se sigue con el
     # arranque normal ya con el perfil nuevo, sin reiniciar a mano.
+    # W10 (D10-4): con dos pantallas, la puerta 2 muestra entretanto el Reposo
+    # con el aviso de instalación en curso; al terminar el asistente se cierra
+    # y se vuelve a abrir con el flujo normal junto a la puerta 1 (fuera de la
+    # vigilancia de caídas, así que no cuenta como relanzamiento).
     if requiere_instalacion():
         logger.warning("Sin perfil de instalación: se abre el asistente")
         asistente = subprocess.Popen(
             _cmd_propio("--rol", "ui", "--door", "1", "--screen", str(args.monitor_puerta1)),
             cwd=cwd, env=entorno)
-        codigo = asistente.wait()
+        reposo = None
+        if not args.una_pantalla:
+            try:
+                reposo = subprocess.Popen(
+                    _cmd_propio("--rol", "ui", "--door", "2", "--screen", str(args.monitor_puerta2)),
+                    cwd=cwd, env=entorno)
+            except Exception:
+                logger.exception("No se pudo abrir la pantalla 2 en Reposo de instalación")
+        try:
+            codigo = asistente.wait()
+        finally:
+            _cerrar_reposo_instalacion(reposo, logger)
         if codigo != CODIGO_INSTALACION_TERMINADA or requiere_instalacion():
             logger.error("Asistente cerrado sin completar la instalación (código %s)", codigo)
             return 1

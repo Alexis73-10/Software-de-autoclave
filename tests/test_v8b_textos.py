@@ -52,11 +52,20 @@ def _textos(idioma):
             yield clave, re.sub(r"\{[^{}]*\}", " ", valor)
 
 
+# Claves exentas de la regla de abreviaturas (D8-5.4):
+#   - X9 (tanda 9, D9-13.4, DECISIÓN SIN CONFIRMAR): el ticket térmico
+#     (ticket_ciclo.*, ancho fijo);
+#   - U10a (tanda 10, D10-1.2): la sección `abrev`, donde viven SOLO las
+#     abreviaturas de pantalla. Cada `abrev.<X>` es la abreviatura del texto
+#     completo `<X>` (misma ruta) y solo se muestra con TextoAjustable.qml cuando
+#     el completo no cabe (D10-1.1).
+_PREFIJOS_CON_ABREVIATURAS = ("ticket_ciclo.", "abrev.")
+
+
 def _textos_sin_ticket(idioma):
-    """X9 (tanda 9, D9-13.4, DECISIÓN SIN CONFIRMAR): el ticket térmico
-    (ticket_ciclo.*, ancho fijo) admite abreviaturas; D8-5.4 no le aplica."""
+    """Textos sujetos a D8-5.4: todos menos el ticket y las abreviaturas."""
     for clave, texto in _textos(idioma):
-        if not clave.startswith("ticket_ciclo."):
+        if not clave.startswith(_PREFIJOS_CON_ABREVIATURAS):
             yield clave, texto
 
 
@@ -116,6 +125,34 @@ def test_catalogo_sin_punto_de_abreviatura_en_medio_del_texto(idioma):
                 for m in patron.finditer(t)
                 if m.group(1) not in unidades]
     assert hallados == [], "\n".join(hallados)
+
+
+# ── D10-1.2: toda abreviatura tiene su texto completo ────────────────────
+
+def _abreviaturas(idioma):
+    return [(c, t) for c, t in _hojas(CATALOGOS[idioma]) if c.startswith("abrev.")]
+
+
+@pytest.mark.parametrize("idioma", IDIOMAS)
+def test_toda_abreviatura_tiene_su_texto_completo(idioma):
+    malos = []
+    for clave, abreviado in _abreviaturas(idioma):
+        completo = _texto(CATALOGOS[idioma], clave[len("abrev."):])
+        if not isinstance(abreviado, str) or not abreviado.strip():
+            malos.append(f"{clave}: abreviatura vacía o no es texto")
+        elif not completo:
+            malos.append(f"{clave}: falta el texto completo {clave[len('abrev.'):]!r}")
+        elif len(abreviado) > len(completo):
+            malos.append(f"{clave}: {abreviado!r} es más largo que {completo!r}")
+    assert malos == [], "\n".join(malos)
+
+
+def test_las_abreviaturas_usan_una_sola_convencion():
+    # solo la sección abrev.*: ninguna clave "<algo>_abrev" ni "abrev" anidada en otra sección
+    otras = [c for i in IDIOMAS for c, _ in _hojas(CATALOGOS[i])
+             if not c.startswith("abrev.") and re.search(r"(^|[._])abrev([._]|$)", c)]
+    assert otras == []
+    assert _abreviaturas("es"), "la sección abrev existe"
 
 
 # ── D8-5.5: sin mezclar idiomas ──────────────────────────────────────────

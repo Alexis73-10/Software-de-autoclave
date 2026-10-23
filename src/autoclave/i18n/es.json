@@ -2,6 +2,7 @@
   "parametros_equipo": {"timeout_puerta": "Tiempo límite de puerta", "temp_max_apertura": "Temperatura segura de apertura", "rango_presion_atm": "Brecha de presión atmosférica (±)", "intervalo_impresion": "Tasa de impresión general", "intervalo_impresion_esterilizacion": "Tasa de impresión en esterilización", "temp_segura_drenaje": "Temperatura segura de drenaje", "rango_temp_drenaje": "Rango de temperatura de drenaje", "presion_empaque": "Presión de empaque", "vacio_empaque": "Vacío de empaque", "timeout_chaqueta": "Tiempo límite de chaqueta", "tiempo_standby": "Suspensión", "tiempo_estable_alarma": "Tiempo de estabilidad para alarma", "pausa_max_esterilizacion_s": "Pausa máxima en esterilización", "espera_sellado_sin_sonda_min": "Espera sellada sin sonda", "presion_atmosferica": "Presión atmosférica de referencia"},
   "parametros_equipo_desc": {"timeout_puerta": "Tiempo máximo para que la puerta termine de abrir o cerrar.", "temp_max_apertura": "Por encima de esta temperatura de cámara la puerta no se abre.", "rango_presion_atm": "Banda alrededor de la presión atmosférica en la que la cámara se considera a presión atmosférica para abrir la puerta.", "intervalo_impresion": "Cada cuánto se imprime una línea durante el ciclo.", "intervalo_impresion_esterilizacion": "Cada cuánto se imprime una línea durante la esterilización.", "temp_segura_drenaje": "Techo de temperatura del drenaje; por encima se enfría con agua.", "rango_temp_drenaje": "Tolerancia sobre la temperatura segura antes de la alarma.", "presion_empaque": "Presión del empaque de la puerta para considerarla sellada.", "vacio_empaque": "Presión bajo la cual el empaque se considera desinflado.", "timeout_chaqueta": "Tiempo máximo para que la chaqueta alcance su presión. Todavía no lo usa el control.", "tiempo_standby": "Minutos sin actividad antes de la suspensión de pantallas; 0 la desactiva.", "tiempo_estable_alarma": "Tiempo que una condición debe mantenerse antes de activar o despejar la alarma.", "pausa_max_esterilizacion_s": "Suma máxima de pausas por falta de datos de la tarjeta en una misma esterilización. Si se supera, el ciclo falla por comunicación inestable.", "espera_sellado_sin_sonda_min": "Carga líquida: si se pierde la sonda Principal durante el enfriamiento y no queda ninguna otra sonda válida, la cámara espera sellada este tiempo antes de ventear por la descompresión lenta.", "presion_atmosferica": "Presión atmosférica del lugar de instalación."},
   "instalacion": {
+    "aviso_pantalla2": "Instalación en curso en la pantalla 1",
     "titulo": "INSTALACIÓN DEL EQUIPO",
     "paso_de": "Paso {n} de {total}",
     "paso_activacion": "Activación",
@@ -975,7 +976,8 @@
     "CIC-10": {
       "titulo": "Estado seguro detenido",
       "plantilla": "{motivo}. La cámara sigue sin considerarse segura.",
-      "accion": "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, llame a servicio técnico."
+      "accion": "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, llame a servicio técnico.",
+      "accion_sin_presion": "No abra la puerta. Sin el sensor de presión de cámara no se puede llevar la cámara a estado seguro. Revise la conexión del sensor de presión de cámara o llame a servicio técnico."
     },
     "CIC-11": {
       "titulo": "Comunicación inestable en esterilización",
@@ -1787,7 +1789,7 @@
     }
   },
   "estado_seguro_motivos": {
-    "sin_presion_camara": "Sensor de presión de cámara sin lectura: el estado seguro no puede confirmar la presión. Llame a servicio técnico",
+    "sin_presion_camara": "Sensor de presión de cámara sin lectura: sin el sensor de presión de cámara no se puede llevar la cámara a estado seguro. Revise la conexión del sensor de presión de cámara o llame a servicio técnico",
     "sonda_temperatura": "Sensor Principal sin lectura: el estado seguro no puede confirmar la temperatura",
     "sonda_enfriamiento": "Sensor Principal sin lectura: no se puede confirmar el enfriamiento",
     "liquido_caliente": "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido",
@@ -1815,6 +1817,25 @@
       "lenta": "descompresión lenta",
       "rapida": "descompresión rápida",
       "general": "descompresión"
+    }
+  },
+  "abrev": {
+    "ciclo": {
+      "temp_ester": "Temp. ester.",
+      "tiempo_est": "Tiempo ester.",
+      "tiempo_sec": "Tiempo secado",
+      "entrada_corta_temp_camara": "Temp. cámara",
+      "entrada_corta_temp_2_camara": "Temp. cámara 2",
+      "entrada_corta_temp_referencia": "Temp. referencia",
+      "entrada_corta_temp_drenaje": "Temp. drenaje",
+      "entrada_corta_temp_drenaje_camara": "Temp. dren. cám.",
+      "entrada_corta_pres_chaqueta": "Pres. chaq.",
+      "entrada_corta_pres_empaque_1": "Pres. emp. 1",
+      "entrada_corta_pres_empaque_2": "Pres. emp. 2"
+    },
+    "reportes": {
+      "col_completados": "Complet.",
+      "col_cancelados": "Canc."
     }
   },
   "ticket_ciclo": {

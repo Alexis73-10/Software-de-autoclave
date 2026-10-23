@@ -193,6 +193,7 @@ def test_modelo_de_alarmas_expone_los_roles_pedidos():
     assert _filas(puente.alarms) == [{
         "id": "CHAQUETA_FRIA", "level": "FALLA", "description": "Chaqueta fría",
         "source_state": "PREPARADO", "priority": "media",
+        "descripciones": {},  # U10b: rol nuevo ({idioma: descripción}); sin textos en el DTO
     }]
 
 
@@ -227,7 +228,7 @@ def test_alarmas_mal_formadas_se_descartan_o_completan():
     modelo = AlarmListModel()
     modelo.establecer([None, "texto", {"id": "X"}])
     assert _filas(modelo) == [{"id": "X", "level": "", "description": "",
-                               "source_state": "", "priority": "alta"}]
+                               "source_state": "", "priority": "alta", "descripciones": {}}]
     assert modelo.establecer("no es lista") is True
     assert modelo.count == 0
 

@@ -18,11 +18,14 @@ class _Proc:
         self._codigo = codigo
         self.pid = pid
 
-    def wait(self):
+    def wait(self, timeout=None):
         return self._codigo
 
     def poll(self):
         return None
+
+    def terminate(self):   # W10: la pantalla 2 de Reposo se cierra al terminar el asistente
+        pass
 
 
 @pytest.fixture
@@ -58,14 +61,15 @@ def _roles(lz):
 def test_sin_perfil_abre_el_asistente_y_al_terminar_sigue_con_backend_y_pantallas(lanzador):
     _popen_con(lanzador, doble_pantalla.CODIGO_INSTALACION_TERMINADA, instala=True)
     assert exe_unico._lanzador(exe_unico._parse_args([])) == 0
-    assert _roles(lanzador) == ["ui", "backend"]       # asistente primero, sin backend
+    # asistente (puerta 1) y Reposo de instalación (puerta 2, W10) primero, sin backend
+    assert _roles(lanzador) == ["ui", "ui", "backend"]
     assert len(lanzador.pantallas) == 2                 # puerta 1 y puerta 2
 
 
 def test_asistente_cerrado_sin_instalar_no_arranca_nada(lanzador):
     _popen_con(lanzador, 0, instala=False)
     assert exe_unico._lanzador(exe_unico._parse_args([])) == 1
-    assert _roles(lanzador) == ["ui"]
+    assert _roles(lanzador) == ["ui", "ui"]             # asistente y Reposo (W10), sin backend
     assert lanzador.pantallas == []
 
 

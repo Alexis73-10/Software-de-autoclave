@@ -258,9 +258,11 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
             parametros = caso_ref["a"][1]
             if parametros:
                 ref = ref.format(**parametros)
-        elif clave.startswith(("motivos_fase.", "ticket_ciclo.")):
+        elif clave.startswith(("motivos_fase.", "ticket_ciclo.", "abrev.")):
             # X9 (tanda 9, D9-13.4): catálogo nuevo, sin referencia vieja; 2 o 3
             # niveles, con placeholders "{nombre}"
+            # U10b (tanda 10, D10-1.2): también la sección abrev.<ruta completa>
+            # (3 o más niveles), que txRuta de referencia no resuelve
             ref = es
             for parte in clave.split("."):
                 ref = ref[parte]

@@ -51,7 +51,7 @@ button.chico{width:auto;margin:0;padding:6px 10px;font-size:.85rem}
 .nota{font-size:.82rem;color:#666;margin-top:10px}
 .result{margin-top:22px;padding:18px;background:#eaf6f0;border-radius:6px}
 .chip-label{font-size:.75rem;color:#888;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 2px}
-.code{font-family:monospace;font-size:1.25rem;letter-spacing:.12em;color:#2c3e50;font-weight:bold}
+.code{font-family:Consolas,"Cascadia Mono",monospace;font-size:1.25rem;letter-spacing:.12em;color:#2c3e50;font-weight:bold}
 .date-note{font-size:.8rem;color:#888;margin-top:8px}
 .menu{margin-top:20px;display:flex;justify-content:space-between;font-size:.85rem}
 .menu a{color:#888;text-decoration:none} .menu a:hover{color:#555}

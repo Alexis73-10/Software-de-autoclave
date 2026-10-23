@@ -428,8 +428,18 @@ Item {
     }
 
     // ======================= tarjeta de parámetros (= PantallaPreciclo.qml, +151) =======================
-    component Etiqueta: Texto {
-        tam: 12
+    // U10a (tanda 10, D10-1.3): la etiqueta muestra su texto completo si cabe entre
+    // su borde izquierdo (lx) y el divisor derecho de su columna (limite), menos un
+    // margen; si no, la abreviatura abrev.<clave> (TextoAjustable, D10-1.1).
+    readonly property real margenEtiqueta: 4
+    component Etiqueta: TextoAjustable {
+        property real lx: 0
+        property real bl: 0
+        property real limite: 0
+        x: raiz.m(lx)
+        y: raiz.m(bl) - baselineOffset
+        anchoDisponible: raiz.m(limite - lx - raiz.margenEtiqueta)
+        font.pixelSize: raiz.fuente(12)
         color: raiz.paleta.etiqueta
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoSemiBold
@@ -466,12 +476,12 @@ Item {
         Divisor { cx: 974.8; y0: 452; y1: 606; color: raiz.paleta.divisorParam }
 
         Icono { caja: [59.1, 448, 20, 33]; tinta: [12.25, 4.0, 36.55, 44.0]; source: raiz.iconosColor + "sensor_temperatura.svg" }
-        Etiqueta { lx: 115.1; bl: 469; text: raiz.textos.tempEster }
+        Etiqueta { lx: 115.1; bl: 469; limite: 222.2; clave: "ciclo.temp_ester" }
         Valor { cx: 128.1; text: raiz.sinLectura(raiz.tempEsterilizacion) }
         Unidad { cx: 127.6; text: raiz.textos.unidadTemp }
 
         Icono { caja: [246.7, 447, 35, 35]; tinta: [5.9, 5.9, 42.1, 42.1]; source: raiz.iconosColor + "sensor_tiempo.svg" }
-        Etiqueta { lx: 309.7; bl: 467; text: raiz.textos.tiempoEst }
+        Etiqueta { lx: 309.7; bl: 467; limite: 410.3; clave: "ciclo.tiempo_est" }
         Valor { cx: 316.2; text: raiz.sinLectura(raiz.tiempoEsterilizacion) }
         Unidad { cx: 322.7; text: raiz.textos.unidadTiempo }
 
@@ -480,7 +490,7 @@ Item {
             source: raiz.iconosColor + "sensor_tiempo_secado.svg"
             color: raiz.paleta.iconoGris
         }
-        Etiqueta { lx: 493.4; bl: 467; text: raiz.textos.tiempoSec }
+        Etiqueta { lx: 493.4; bl: 467; limite: 598.5; clave: "ciclo.tiempo_sec" }
         Valor { cx: 504.4; text: raiz.sinLectura(raiz.tiempoSecado) }
         Unidad { cx: 504.4; text: raiz.textos.unidadTiempo }
 
@@ -509,7 +519,8 @@ Item {
                 }
                 Etiqueta {
                     lx: entrada.c0 + (entrada.esPresion ? 99.6 : 73.6); bl: entrada.esPresion ? 467 : 469
-                    text: I18n.t("ciclo.entrada_corta_" + entrada.modelData.clave, I18n.lang)
+                    limite: entrada.c0 + 188.2
+                    clave: "ciclo.entrada_corta_" + entrada.modelData.clave
                 }
                 Valor { cx: entrada.c0 + 94.1; text: raiz.datosVigentes ? entrada.modelData.valor : "—" }
                 Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
