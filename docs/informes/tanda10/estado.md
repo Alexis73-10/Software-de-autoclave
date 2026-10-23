@@ -13,8 +13,8 @@ Precondición A0: `tanda9/estado.md` tiene `| Z | Hecha |` y `dev` contiene la t
 | T10 | Hecha, unida a `tanda-10` (089dc0c). Suite tras unir: pendiente | `tanda-10-t10` (634dea1) | 1558 passed, 5 skipped en el worktree. Solo texto en `protocolo_fallo.py` (revisado: misma condición y prioridad). |
 | W10 | Hecha, unida a `tanda-10` (cc11aa4). Suite tras unir: pendiente | `tanda-10-w10` (b4fb30c) | 225 passed en el worktree. |
 | U10a | Hecha, unida a `tanda-10` (af5eaf5). Suite tras unir: pendiente | `tanda-10-u10a` (c1fbfbc) | 41 pasan en la prueba nueva; 90 en textos/i18n. Pregunta: «Chbr.»/«Gskt.» en inglés. |
-| U10b | En curso (subagente, rama `tanda-10-u10b`, desde af5eaf5) | | |
-| K10 | Pendiente | | |
+| U10b | En curso (subagente nuevo desde las 11:38 que CONTINÚA el trabajo sin commit del anterior en el mismo worktree `agent-a26b3309f9ff1210b`) | | |
+| K10 | Preparada (entorno `_venv_t8_producto` con PyInstaller 6.20.0, ISCC en `AppData/Local/Programs/Inno Setup 6`; requisitos, `.spec` e instalador sin cambios desde la E; ensayo E → tanda-10 `--desde-src` sin errores salvo «faltan respaldos», esperado porque `src/autoclave/config/` no cambió desde la E). Compila al unir U10b con la suite en verde | | |
 | Z | Pendiente | | |
 
 Instrucciones comunes de los subagentes: `tanda10/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-10-<id>`; NO relanzarlos desde cero, revisar su rama y su informe y CONTINUAR.
@@ -25,3 +25,9 @@ Instrucciones comunes de los subagentes: `tanda10/brief_subagentes.md`. Si la se
 - G10, W10 y T10 terminadas y unidas a `tanda-10` (d6bb062, cc11aa4, 089dc0c). La suite de integración corre después de la línea base.
 - U10a unida (af5eaf5); textos/i18n/G10/T10 en la carpeta principal: 124 passed. U10b lanzado.
 - Línea base: 6633 passed, 10 skipped, 3 xfailed. Suite de integración de G10+W10+T10+U10a en `_suites_t10/integ` (af5eaf5), una sola corrida para las cuatro uniones (llegaron juntas; DECISIÓN SIN CONFIRMAR A0-3: si hay rojo se aísla la rama).
+
+## Sesión 01 bis (11:34, relanzada para acelerar, §2 de la instrucción)
+- `pytest-xdist` 3.8.0 instalado en el Python del proyecto (no se agrega a `requirements-dev.txt`).
+- La suite de integración `_suites_t10/integ` de la sesión anterior siguió corriendo (huérfana) y escribe en `suites/integ_g10_w10_t10_u10a.log`; no se repite (§2.2): la cubre la suite tras unir U10b.
+- U10b: el subagente anterior dejó cambios sin commit y capturas en `tmp_u10b/`; se lanzó un subagente que continúa desde ahí.
+- K10 preparada (ver fila). Ensayo previo en `C:\Users\tecni\Documents\_t10_k10_tmp`.

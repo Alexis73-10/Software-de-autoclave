@@ -14,4 +14,6 @@ Eres Claude Code en el repositorio del Software de Autoclave (Especifika). Crist
 6. Ante ambigüedad, lo más seguro y reversible como "DECISIÓN SIN CONFIRMAR". Si algo termina tocando la lógica de estado seguro, ciclo o puertas, no lo cambies: "PREGUNTA PARA CRISTIAN".
 7. Al terminar, la fila `| Z | Hecha | ... |` en `estado.md` y la primera línea del índice dice si se instala la compilación E.
 
+Lee y aplica la sección 2 (ACELERACIÓN) de la instrucción antes de seguir.
+
 Empieza por A0 (o reanuda).
