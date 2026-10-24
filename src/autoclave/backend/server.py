@@ -1858,11 +1858,17 @@ def get_current_cycle_progress():
             referencias[fase_ui] = referencias.get(fase_ui, 0.0) + duracion
 
     fase_ciclo = getattr(context.estado, "fase_ciclo", "") or ""
+    # C-13.7 (tanda 12): restante de exposición que publica ESTERILIZACION
+    # (refleja el reinicio del conteo tras una excursión de Referencia)
+    restante_exp = getattr(context.estado, "exposicion_restante_s", None)
+    if not isinstance(restante_exp, (int, float)) or isinstance(restante_exp, bool):
+        restante_exp = None
     return {
         "activo": True,
         "ciclo_db_id": ciclo_id,
         "fase_ciclo": fase_ciclo,
-        **progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido, referencias),
+        **progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido, referencias,
+                                        restante_exp),
     }
 
 
