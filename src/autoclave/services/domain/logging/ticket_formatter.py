@@ -99,10 +99,11 @@ def aviso_ticket(aviso, p: Presentacion) -> str:
     try:
         from autoclave import i18n
         params = {k: v for k, v in aviso.items() if k != "clave"}
-        if "temp" in params:
-            v = params["temp"]
-            params["temp"] = (f"{_temp(float(v), p):.1f} {_simbolo_t(p)}"
-                              if isinstance(v, (int, float)) and not isinstance(v, bool) else "---")
+        # E12 (tanda 12, C-13.5): toda temperatura (temp, temp_min, temp_max)
+        for k in [k for k in params if k == "temp" or k.startswith("temp_")]:
+            v = params[k]
+            params[k] = (f"{_temp(float(v), p):.1f} {_simbolo_t(p)}"
+                         if isinstance(v, (int, float)) and not isinstance(v, bool) else "---")
         return i18n.t(str(aviso["clave"]), p.idioma, **params)
     except Exception:
         return str(aviso)

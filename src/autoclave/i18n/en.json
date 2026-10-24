@@ -279,6 +279,11 @@
     "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no prevacuum, no drying, no automatic opening and enough cooling counterpressure.",
     "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
     "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
+    "err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief (385 kPa). The additional pressure must be lower than {valor} kPa.",
+    "err_limite_consigna_chaqueta": "Cannot save: the calculated jacket setpoint is {valor} kPa and, with the ±10 kPa band, it reaches the jacket relief (385 kPa).",
+    "err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief (385 kPa). The jacket pressure must be lower than {valor} kPa.",
+    "aviso_techo_sobre_suministro": "Saved with a warning: the chamber pressure ceiling is above the supply (350 kPa). The chamber will not reach it and the chamber steam valve will stay open in that stage.",
+    "aviso_chaqueta_abierta": "Saved with a warning: the requested jacket pressure is above the supply (350 kPa). The jacket steam valve will stay open without reaching the setpoint.",
     "aviso_liquido_previo": "With a liquid load only depressurization modes 4, 5 and 0 are allowed. If the current mode is another one, it will change to mode 4 when saved.",
     "modos_titulo": "Available modes"
   },
@@ -943,6 +948,11 @@
       "plantilla": "The door is open, but the chamber pressure does not match the atmospheric pressure. Cycles cannot be started.",
       "accion": "Possible causes: chamber pressure sensor calibration, wrong atmospheric reference pressure or door sensor. Call technical service."
     },
+    "SEN-11": {
+      "titulo": "Reference sensor without reading",
+      "plantilla": "No reading from {sensor} in the {fase} phase. The cycle continues with the probes that read and is marked NONCONFORMING: reference point not verified.",
+      "accion": "Check the reference probe connection. Validate the load according to your procedure before releasing it."
+    },
     "CIC-01": {
       "titulo": "Preheating failure",
       "plantilla": "{motivo}",
@@ -999,6 +1009,21 @@
       "plantilla": "The pauses caused by missing control board data added up to {segundos:.0f} s during sterilization (maximum {maximo:.0f} s). The cycle was aborted.",
       "accion": "The load is NOT sterile. Check the USB cable and the board's power supply and repeat the cycle. If it happens again, call technical service."
     },
+    "CIC-12": {
+      "titulo": "Air or non-condensable gases in the chamber",
+      "plantilla": "The chamber pressure corresponds to a saturation temperature of {tsat:.1f} °C, {dt:.1f} K above the Main sensor ({temp:.1f} °C). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check air removal (prevacuum, Bowie & Dick test and chamber leaks) and repeat the cycle."
+    },
+    "CIC-13": {
+      "titulo": "Superheated steam or probe failure",
+      "plantilla": "The Main sensor reads {temp:.1f} °C, {dt:.1f} K above the saturation temperature of the chamber pressure ({tsat:.1f} °C). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the Main probe and the chamber pressure sensor (calibration) and the supply steam, and repeat the cycle."
+    },
+    "CIC-14": {
+      "titulo": "Reference out of band during sterilization",
+      "plantilla": "{sensor} stayed outside the sterilization band for more than {minutos} min. The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the load, its position and the reference probe, and repeat the cycle."
+    },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
       "plantilla": "Communication with the board was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
@@ -1013,6 +1038,11 @@
       "titulo": "Maintenance overdue",
       "plantilla": "{motivo}",
       "accion": "Schedule maintenance with technical service. The unit can keep operating."
+    },
+    "SIS-06": {
+      "titulo": "Program corrected on loading",
+      "plantilla": "Program {programa} had {parametro} = {anterior} kPa, above the allowed maximum; it was changed to {nuevo} kPa.",
+      "accion": "A technician or engineer must review the program in Options › Cycle parameters. The unit can keep operating."
     },
     "CONFIGURACION_INVALIDA": {
       "titulo": "Invalid configuration",
@@ -1167,8 +1197,10 @@
       "F0_objetivo": "Minimum accumulated lethality required for the sterilization to be valid.",
       "ciclos_multiples": "Allows chaining several cycles without returning to the menu in between.",
       "enfriar_chaqueta_secado": "Cools the jacket during drying at the end of the cycle.",
-      "presion_chaqueta": "Pressure held in the jacket before and during the cycle.",
-      "rango_presion_chaqueta": "Tolerance (±) around the jacket pressure; outside it an alert is raised and starting is not allowed.",
+      "presion_chaqueta": "Jacket pressure held during preparation. It does not apply during the cycle: the jacket follows the setpoint calculated from the jacket temperature and flow margins, with a ±10 kPa band. If this pressure plus the range reaches 385 kPa (relief) the program is rejected; above 350 kPa (supply) it is saved with a warning.",
+      "rango_presion_chaqueta": "Tolerance (±) around the jacket pressure in preparation; outside it an alert is raised and starting is not allowed. Not used during the cycle (fixed ±10 kPa band around the calculated setpoint).",
+      "delta_temp_chaqueta": "During the cycle, the jacket pressure setpoint is the larger of Psat(sterilization temperature + this value) and the chamber control ceiling, Psat(sterilization temperature) + sterilization additional pressure, plus the jacket flow margin. Jacket steam opens below setpoint − 10 kPa and closes above setpoint + 10 kPa. If setpoint + 10 kPa reaches 385 kPa (jacket relief) the program is rejected; above 350 kPa (supply) it is saved with a warning: the jacket steam valve stays open during the cycle.",
+      "margen_flujo_chaqueta": "Pressure the jacket is held above the chamber control ceiling so that steam flows into the chamber. See the jacket temperature margin for the full setpoint calculation.",
       "tipo_carga": "Load type: solid or liquid. With a liquid load only depressurization modes 4, 5 and 0 are allowed: switching to liquid changes the mode to 4 (if it was not 4, 5 or 0) and switching back to solid restores the program default mode."
     },
     "precalentamiento": {
@@ -1240,7 +1272,8 @@
       "brecha_segura_temperatura": "Margin above the target temperature to switch from recovery to fine control.",
       "brecha_error_temperatura": "Temperature drop below the target considered a failure.",
       "brecha_error_presion": "Pressure drop below saturation considered a failure.",
-      "brecha_segura_presion": "Pressure drop that triggers recovery; must be smaller than the failure drop."
+      "brecha_segura_presion": "Pressure drop that triggers recovery; must be smaller than the failure drop.",
+      "timeout_excursion_referencia": "Maximum time, in minutes, a Reference probe may stay outside its band during sterilization. While it is outside, the exposure count stops and restarts from zero when it returns; if it does not return within this time, the cycle fails."
     },
     "secado": {
       "modo": "How the load is dried: 1, 2 or 3 depending on the unit.",
@@ -1695,6 +1728,8 @@
       "enfriar_chaqueta_secado": "Cool the jacket during drying",
       "presion_chaqueta": "Jacket pressure",
       "rango_presion_chaqueta": "Jacket pressure range",
+      "delta_temp_chaqueta": "Jacket temperature margin",
+      "margen_flujo_chaqueta": "Jacket flow margin",
       "tipo_carga": "Load type"
     },
     "precalentamiento": {
@@ -1755,6 +1790,7 @@
       "brecha_error_presion": "Low pressure failure margin",
       "brecha_error_temperatura": "Low temperature failure margin",
       "brecha_segura_presion": "Pressure recovery margin",
+      "timeout_excursion_referencia": "Reference excursion time limit",
       "brecha_segura_temperatura": "Temperature recovery margin",
       "escape_lento_on_ester": "Slow exhaust open time",
       "escape_lento_off_ester": "Slow exhaust closed time",
@@ -1829,6 +1865,9 @@
     "est_pres_alta": "High pressure: {pres} > {pres_limite}",
     "est_pres_baja": "Low pressure: {pres} < {pres_limite}",
     "est_timeout_f0": "F0 time limit: F0 not reached after {minutos} min (F0={f0}/{f0_objetivo} min)",
+    "est_aire": "Air or non-condensable gases: Tsat(P) {temp_sat} exceeds the Main sensor {temp} by {dt} K",
+    "est_sobrecalentado": "Superheated steam or probe failure: Main sensor {temp} exceeds Tsat(P) {temp_sat} by {dt} K",
+    "est_excursion_referencia": "{sensor} out of band for more than {minutos} min",
     "desc_tiempo_limite": "{etapa} time limit in mode {modo} (T={temp}, P={pres})",
     "sec_vacio_perdido": "Drying mode {modo}: vacuum lost ({pres} ≥ {pres_umbral})",
     "sec_sin_vacio": "Drying mode {modo}: no real vacuum (the pressure did not drop below {pres_umbral} in time); check the vacuum pump",
@@ -1908,7 +1947,10 @@
       "PUERTA_EMPAQUE": "DOOR {n} GASKET",
       "PUERTA_EMPAQUE_SIN_LECTURA": "DOOR {n} GASKET NO READING"
     },
-    "aviso_uniformidad": "Thermal uniformity out of range: {sensor} {temp}"
+    "aviso_uniformidad": "Thermal uniformity out of range: {sensor} {temp}",
+    "aviso_excursion": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}",
+    "aviso_excursion_alta": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}, maximum {temp_max}",
+    "no_conforme_referencia": "NONCONFORMING: reference point not verified ({sensor})"
   },
   "modos_programa": {
     "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",

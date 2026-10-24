@@ -14,7 +14,8 @@ from autoclave.devices.io.set_io import SetOutput
 from autoclave.hal.measures.units import Units
 from autoclave.services.domain.loop.control_loop import ControlLoop
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.catalogo import CONFIGURACION_INVALIDA, OPERANDO_SIN_BD, SEN_09, SIS_03
+from autoclave.state_machine.alarms.catalogo import (CONFIGURACION_INVALIDA, MIGRACION_CORRECTIVA,
+                                                    OPERANDO_SIN_BD, SEN_09, SIS_03)
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
 from autoclave.core.managers.validacion_config import errores_config_arranque
@@ -139,6 +140,7 @@ class BackendContext:
         except Exception as e:
             raise ErrorArranque(secuencia.ARR_CICLO_DEFECTO, str(e)) from e
 
+        self._avisar_migraciones_correctivas()
         motivo = self._validar_configuracion()
         if motivo:
             raise ErrorArranque(secuencia.CONFIGURACION_INVALIDA, motivo)
@@ -148,6 +150,70 @@ class BackendContext:
                            ", ".join(self.cycle_manager.errores_carga))
             return secuencia.ARR_CICLO_CORRUPTO
         return None
+
+    # ── J12 (tanda 12, C-04.4): migración correctiva de programas ────────────
+
+    def _avisar_migraciones_correctivas(self) -> None:
+        """Aviso no bloqueante SIS-06 por cada parámetro que la carga corrigió
+        (bandeja de Preciclo y campana, vía las alarmas activas). Nunca lanza:
+        no debe romper el arranque."""
+        try:
+            for cycle, m in self.cycle_manager.migraciones_correctivas():
+                if getattr(cycle, "danado", None):
+                    continue        # V12 (SAF-07c): un programa dañado no se avisa
+                self.alarm_manager.activar(
+                    MIGRACION_CORRECTIVA, origen=f"{cycle.id}/{m['fase']}.{m['parametro']}",
+                    programa=cycle.name, parametro=m["parametro"],
+                    anterior=f"{m['anterior']:g}", nuevo=f"{m['nuevo']:g}")
+        except Exception:
+            logger.exception("No se pudo activar el aviso de migración correctiva")
+
+    def auditar_migraciones_correctivas(self) -> None:
+        """Con la base abierta: una fila de auditoría de parámetros por cada
+        corrección (programa, parámetro, valor anterior y nuevo, origen
+        "migración tanda 12"). Registrada la bitácora, el JSON de un programa
+        de usuario se reescribe con el valor migrado (archivo = memoria =
+        bitácora; la versión anterior queda en .bak), para no repetir la
+        migración en cada arranque. DECISIÓN SIN CONFIRMAR (J12). Si la
+        bitácora falla, el archivo no se toca (se repite en el siguiente
+        arranque). Nunca lanza."""
+        from autoclave.core.managers import catalogo_parametros as cp
+        from autoclave.core.managers.cycle_manager import escribir_parametros
+        por_programa: dict = {}
+        try:
+            for cycle, m in self.cycle_manager.migraciones_correctivas():
+                if getattr(cycle, "danado", None):
+                    continue        # V12 (SAF-07c): ni se audita ni se reescribe
+                por_programa.setdefault(cycle.id, (cycle, []))[1].append(m)
+        except Exception:
+            logger.exception("No se pudieron leer las migraciones correctivas")
+            return
+        for cycle, correcciones in por_programa.values():
+            filas = [{"evento": "param_ciclo_cambio", "usuario": "sistema", "rol": "",
+                      "entidad": f"{cycle.id}/{m['fase']}/{m['parametro']}",
+                      "valor_anterior": m["anterior"], "valor_nuevo": m["nuevo"],
+                      "detalle": {"programa": cycle.id, "fase": m["fase"], "aplica": "siguiente",
+                                  "automatico": True, "origen": m.get("origen", cp.ORIGEN_MIGRACION_T12),
+                                  "causa": "migracion_correctiva"}}
+                     for m in correcciones]
+            try:
+                self.db.registrar_auditoria_lote(filas)
+            except Exception:
+                logger.exception("Programa %s: migración correctiva sin auditoría; el archivo "
+                                 "no se reescribe", cycle.id)
+                continue
+            # V12 (SAF-07a/b): auditada la corrección, se vacía la lista para
+            # que un reintento de abrir_base_datos no duplique las filas ni
+            # reescriba de nuevo el archivo (pisaría el .bak con el original)
+            cycle.migraciones_correctivas = []
+            if getattr(cycle, "source", None) == "user" and getattr(cycle, "_path", None):
+                try:
+                    escribir_parametros(cycle)
+                    logger.warning("Programa %s: archivo reescrito con la migración correctiva",
+                                   cycle.id)
+                except Exception:
+                    logger.exception("Programa %s: no se pudo reescribir el archivo migrado",
+                                     cycle.id)
 
     # ── R8 (tanda 8, D8-5.12): asignación de E/S ─────────────────────────────
 
@@ -428,6 +494,8 @@ class BackendContext:
                 self.db = DbManager()
                 self.calibration_audit = SensorCalibrationAuditDB()
                 self._numeracion_y_ciclos_interrumpidos()
+                if self.cycle_manager is not None:
+                    self.auditar_migraciones_correctivas()     # C-04.4 (tanda 12)
                 # O2a: valores vigentes de los parámetros del equipo (system_params)
                 if self.config_manager is not None:
                     self.config_manager.vincular_bd(self.db)

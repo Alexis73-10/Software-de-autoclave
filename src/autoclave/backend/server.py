@@ -1858,11 +1858,17 @@ def get_current_cycle_progress():
             referencias[fase_ui] = referencias.get(fase_ui, 0.0) + duracion
 
     fase_ciclo = getattr(context.estado, "fase_ciclo", "") or ""
+    # C-13.7 (tanda 12): restante de exposición que publica ESTERILIZACION
+    # (refleja el reinicio del conteo tras una excursión de Referencia)
+    restante_exp = getattr(context.estado, "exposicion_restante_s", None)
+    if not isinstance(restante_exp, (int, float)) or isinstance(restante_exp, bool):
+        restante_exp = None
     return {
         "activo": True,
         "ciclo_db_id": ciclo_id,
         "fase_ciclo": fase_ciclo,
-        **progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido, referencias),
+        **progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido, referencias,
+                                        restante_exp),
     }
 
 
@@ -3821,9 +3827,14 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
         except KeyError as e:
             raise HTTPException(status_code=422, detail=str(e))
         except catalogo_parametros.ErrorCoherencia as e:
-            raise _Rechazo(422, e.codigo, str(e))
+            # tanda 12 (C-04.3, C-05.5, C-05.9): el máximo admisible o la
+            # consigna calculada van en `valor` para el mensaje de la pantalla
+            raise _Rechazo(422, e.codigo, str(e),
+                           extra={"valor": e.valor} if getattr(e, "valor", None) is not None else None)
         except (TypeError, ValueError) as e:
             raise _Rechazo(422, "VALOR_INVALIDO", str(e))
+        # tanda 12: advertencias no bloqueantes que dependen de este parámetro
+        advertencias = _advertencias_parametro(propuesta, body.fase, body.path)
         # valores que escribe esta petición (cambio, vinculados y arrastres)
         escritos = [(f, p, _valor_parametro(propuesta, f, p)) for f, p, _ in previos]
         cambios_automaticos = [
@@ -3929,7 +3940,23 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
     respuesta = {"ok": True, "value": value, "aplica": aplica}
     if cambios_automaticos:
         respuesta["arrastres"] = cambios_automaticos
+    if advertencias:
+        respuesta["advertencias"] = advertencias
+        logger.warning("Parámetro %s guardado con advertencia: %s", entidad,
+                       "; ".join(a["mensaje"] for a in advertencias))
     return respuesta
+
+
+def _advertencias_parametro(cycle, fase: str, path: list[str]) -> list[dict]:
+    """Tanda 12 (C-04.3, C-05.5, C-05.9): advertencias no bloqueantes del
+    programa que dependen del parámetro editado. Nunca lanza."""
+    try:
+        return [{"clave": c, "mensaje": m}
+                for c, m in catalogo_parametros.advertencias_programa(cycle.parameters, fase, path)]
+    except Exception:
+        logger.exception("No se pudieron evaluar las advertencias del parámetro %s/%s",
+                         fase, ".".join(path))
+        return []
 
 
 def _arrastres_tipo_carga(cycle, fase: str, path: list[str], valor) -> list:

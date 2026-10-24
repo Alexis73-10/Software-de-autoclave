@@ -45,6 +45,22 @@
                 "min": 0,
                 "max": 100
             },
+            "delta_temp_chaqueta": {
+                "value": 1.5,
+                "type": "float",
+                "unit": "°C",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 5
+            },
+            "margen_flujo_chaqueta": {
+                "value": 15.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 40
+            },
             "tipo_carga": {
                 "value": "liquido",
                 "type": "enum",
@@ -427,7 +443,7 @@
                 "max": 100
             },
             "brecha_segura_temperatura": {
-                "value": 0.3,
+                "value": 1.0,
                 "type": "float",
                 "unit": "°C",
                 "clase": "diferencia",
@@ -457,6 +473,13 @@
                 "clase": "diferencia",
                 "min": 0,
                 "max": 20
+            },
+            "timeout_excursion_referencia": {
+                "value": 5,
+                "type": "int",
+                "unit": "min",
+                "min": 1,
+                "max": 30
             }
         },
         "secado": {

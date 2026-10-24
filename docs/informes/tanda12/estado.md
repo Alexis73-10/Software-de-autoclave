@@ -1,0 +1,30 @@
+# Tanda 12: estado
+
+Rama `tanda-12`, creada desde `dev` (8bda767, contiene `tanda-11` cerrada) en A0. Sesión principal arrancada por el lanzador el 24-oct a las 17:30 (hora de Bogotá).
+
+Precondición A0: `tanda11/estado.md` tiene `| Z | Hecha |` y `dev` contiene `tanda-11`: cumplida.
+
+| Etapa | Estado | Commit | Nota |
+|---|---|---|---|
+| A0 | Hecha | c462114 | `t_saturacion_c` + prueba (106 passed con `test_steam.py`). Línea base en `_suites_t12/base` (8bda767) con `-n auto`: **7216 passed, 2 failed, 10 skipped, 3 xfailed** en 8 min (`suites/base.log`); los 2 (`test_ciclos_print.py::test_print_selected_sin_seleccion_no_imprime`, `test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu`) pasan en serie (`suites/base_serie.log`). **Línea base: 7218 passed.** |
+| E12 | Hecha, unida a `tanda-12` (sin conflictos) + C-13.7 en `server.py` (e6ff9d2) | `tanda-12-e12` (330cf8b) | 62 pruebas nuevas; 204 módulos dependientes en verde tras ajustar 6 archivos de prueba. Histéresis del techo `_HIST_TECHO_KPA = 2.0` (DECISIÓN SIN CONFIRMAR). Al unir: pasar `exposicion_restante_s` a `armar_progreso` en `backend/server.py` (C-13.7). |
+| J12 | Hecha, unida a `tanda-12` en dos partes: 962d873 (hasta 8354776) y 4e36a27 (brecha 1.0 + informe, después de E12) | `tanda-12-j12` (6345bd6) | Subagente lanzado. Código preasignado SIS-06 (excepción: agrega una entrada a `alarms/catalogo.py` e i18n; DECISIÓN SIN CONFIRMAR de la sesión principal). |
+| P12 | Hecha, unida a `tanda-12` (d8e33f2) | `tanda-12-p12` (1073fcc) | 1793 passed, 10 skipped en 85 archivos dependientes; tras el último cambio, 279 passed. Preguntas: Referencia 0,1–0,2 K más fría que el Principal → FALLO `cal_no_sostuvo`; ventana en el borde Psat − 2. |
+| V12 | Hecha (41920a5) | `V12_revision_seguridad.md` | Sin bloqueantes. Corregidos con prueba SAF-01 (no completar con falla del Principal en conteo), SAF-03, SAF-06, SAF-07, SAF-08. SAF-02 (NO CONFORME no visible en pantalla) queda como PREGUNTA. |
+| L12 | Hecha, unida a `tanda-12` (3220e66) | `tanda-12-l12` (2d64c0b) | Solo documentos. Hallazgo: en 134 °C la salida de RECUPERACION (C-08.2, 135,3 °C) supera la Tsat del techo (≈135,0 °C) → reenviado a E12 con histéresis en el techo (DECISIÓN SIN CONFIRMAR). SEN-12 propuesto para la sonda de vapor (solo en la especificación). |
+
+Instrucciones comunes de los subagentes: `tanda12/brief_subagentes.md`. Si la sesión se corta: los subagentes trabajan en `.claude/worktrees/agent-*` (ver `git worktree list`), cada uno en su rama `tanda-12-<id>`; NO relanzarlos desde cero, revisar su rama y su informe y CONTINUAR.
+
+## Sesión 01 (17:30)
+- A0: rama `tanda-12` creada, línea base lanzada.
+- A0 hecha (2632566 docs, c462114 feat). Lanzados E12, J12, P12 y L12 (4 subagentes, cada uno en su worktree).
+- Línea base terminada: 7218 passed (7216 + 2 en serie).
+- L12 terminada (2d64c0b). Su hallazgo de C-08 vs techo se envió a E12.
+- P12 terminada (1073fcc), espera la unión de J12.
+- E12 terminada (330cf8b). Falta J12.
+- J12 terminada. Uniones: J12 (parcial, 962d873) → P12 → E12 → C-13.7 en `server.py` → resto de J12 → L12 (3220e66), sin conflictos. Pruebas `test_t12_*`: 284 passed. Suites de integración por unión en `_suites_t12/integ` (en curso). V12 lanzado sobre `git diff dev...tanda-12 -- src`.
+- Suite tras unir J12 parcial (962d873): 7378 passed, 5 failed + 17 errores (QML/impresión, un proceso caído por carga); los 22 pasan en serie → **7400 passed**, verde (`suites/integ_j12a*.log`). Suite de P12 (d8e33f2) lanzada.
+- Guion `tools/ensayo_actualizacion_g_h.py` (6b110ed), probado desde fuente: B&D 99 → 9 con auditoría, SIS-06 y `.bak`; chaqueta 350/25 intacta. Los programas de usuario del equipo conservan `brecha_segura_temperatura` 0.3 (pregunta 2 de J12).
+- V12 hecha; correcciones en 41920a5.
+- Suites de integración: P12 (d8e33f2) 7420 + 3 en serie = **7423 passed**; E12 + C-13.7 (e6ff9d2) 7508 + 3 en serie = **7511 passed**, verdes (`suites/integ_p12*`, `integ_e12*`). CLAUDE.md (bcf0c6b), hoja de banco ajustada (ed374b7), DECISIONES_PARA_REVISAR (151599e). Suite final sobre 151599e en curso.
+- Suite final sobre 151599e (todo unido + V12): 7522 passed, 9 failed (impresión/calibración QML, interferencia del paralelo) que pasan en serie → **7531 passed, 10 skipped, 3 xfailed**, verde (`suites/integ_final*.log`). Siguiente: unir a `dev`, etiqueta H, K12.

@@ -21,6 +21,9 @@ from autoclave.state_machine.alarms.catalogo import (
     CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
     COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, nombre_legible,
 )
+# E12 (tanda 12): alarmas propias de ESTERILIZACION (C-03, C-13) y Referencia
+# sin lectura (C-13.7b)
+from autoclave.state_machine.alarms.catalogo import CIC_12, CIC_13, CIC_14, SEN_11
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
 from autoclave.state_machine.cycle_phases.prevacio import PrevacioFase
@@ -34,6 +37,8 @@ from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.core.runtime import presion_sin_lectura
+from autoclave.core.runtime.steam import t_saturacion_c
+from autoclave.core.managers import catalogo_parametros
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +49,8 @@ logger = logging.getLogger(__name__)
 # io_enabled la declara (presion_sin_lectura.canales_vigilados(), fijado en
 # reset()). Sin lectura = el convertidor dio None (transductor sin señal).
 _DEBOUNCE_LECTURAS_DRENAJE = 3
+# C-05.4 (tanda 12): banda fija de la consigna de chaqueta en CICLO, kPa
+_BANDA_CHAQUETA_KPA = catalogo_parametros.BANDA_CHAQUETA_KPA
 # Lecturas seguidas del Principal bajo temperatura_enfriamiento (SAF-01 de T11)
 _DEBOUNCE_ENFRIADA = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
@@ -70,6 +77,8 @@ _CIC_POR_FASE = {
     "ESTERILIZACION": CIC_04, "DESCOMPRESION": CIC_05, "SECADO": CIC_06,
 }
 _MOTIVO_NO_REGISTRADO = "La fase terminó en fallo; el motivo detallado aún no se registra."
+# D8-2.8 / E12 (tanda 12): códigos que una fase puede dejar en `alarma_fallo`
+_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14)
 
 # Sección del JSON del programa -> fase del pipeline que la usa (§5.8).
 # `estabilizacion` va con CALENTAMIENTO (fusionadas). Las secciones que no están aquí (`globals`, `finalizacion` o
@@ -128,6 +137,7 @@ class CicloState:
         # None = comportamiento previo (todo requerido, 2 puertas con empaque).
         self.profile       = profile
         self._apertura_auto_t_inicio = None
+        self._no_conforme = False   # V12 (SAF-06): bandera propia de NO CONFORME
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
         self._apertura_auto_denegada_desde = None
@@ -182,6 +192,7 @@ class CicloState:
         self._contador_drenaje_baja = 0
         self._lecturas_enfriada_reposo = 0
         self._apertura_auto_t_inicio = None
+        self._no_conforme = False   # V12 (SAF-06): bandera propia de NO CONFORME
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
         self._apertura_auto_denegada_desde = None
@@ -203,6 +214,7 @@ class CicloState:
             logger.exception("CicloState: no se pudieron leer los canales de presión; se vigilan todos")
             self._pres_vigilados = [presion_sin_lectura.CAMARA, presion_sin_lectura.CHAQUETA]
         self._protocolo.reset()
+        self._registrar_consigna_chaqueta()        # C-05.8 (tanda 12)
 
         for fase in self._fases:
             fase.reset()
@@ -412,11 +424,12 @@ class CicloState:
         llamador igual ejecuta el protocolo de fallo.
 
         D8-2.8 (tanda 8): si la fase dejó `alarma_fallo` (código propio y sus
-        valores, hoy solo CIC-11 de ESTERILIZACION), se registra esa."""
+        valores: CIC-11 y, desde la tanda 12, CIC-12/13/14 de ESTERILIZACION),
+        se registra esa."""
         try:
             propia = getattr(fase, "alarma_fallo", None)
             if (isinstance(propia, tuple) and len(propia) == 2
-                    and propia[0] in (CIC_11,) and isinstance(propia[1], dict)):
+                    and propia[0] in _ALARMAS_PROPIAS_FASE and isinstance(propia[1], dict)):
                 self._registrar_fallo(propia[0], origen=nombre_legible(nombre_fase), **propia[1])
                 return
             # La fase puede haber dejado ya un motivo específico (p.ej.
@@ -498,16 +511,57 @@ class CicloState:
         elif vigilar_vapor:
             self.alarm_manager.resolver(SUM_06)
 
-        press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
-                    self.config.get("presion_chaqueta") or 320
-        rango     = self.cycle.get_param("globals", "rango_presion_chaqueta") or \
-                    self.config.get("rango_presion_chaqueta") or 50
+        # C-05 (tanda 12): en CICLO la chaqueta sigue la consigna calculada del
+        # programa, con banda fija ±_BANDA_CHAQUETA_KPA. presion_chaqueta /
+        # rango_presion_chaqueta solo rigen PREPARACION/PREPARADO (C-05.8) y,
+        # aquí, un programa sin los datos de la consigna (DECISIÓN SIN
+        # CONFIRMAR de J12: comportamiento anterior a la tanda 12).
+        consigna = self._consigna_chaqueta()
+        if consigna is not None:
+            bajo, alto = consigna - _BANDA_CHAQUETA_KPA, consigna + _BANDA_CHAQUETA_KPA
+        else:
+            press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
+                        self.config.get("presion_chaqueta") or 320
+            rango     = self.cycle.get_param("globals", "rango_presion_chaqueta") or \
+                        self.config.get("rango_presion_chaqueta") or 50
+            bajo, alto = press_obj - rango, press_obj + rango
 
-        if pres < press_obj - rango:
+        if pres < bajo:
             self.set_do.vapor_chaqueta_on()
-        elif pres > press_obj + rango:
+        elif pres > alto:
             self.set_do.vapor_chaqueta_off()
         # Dentro del rango: no cambiar estado
+
+    def _consigna_chaqueta(self):
+        """C-05.1/2 (tanda 12): consigna de chaqueta del programa en curso, kPa
+        abs; None si al programa le faltan T_est o presion_add_esterilizacion.
+        Se calcula en cada tick: un cambio aplicado a una fase pendiente del
+        ciclo en curso (T-17) la actualiza."""
+        try:
+            return catalogo_parametros.consigna_chaqueta(
+                self.cycle.get_param("esterilizacion", "temperatura_esterilizacion"),
+                self.cycle.get_param("esterilizacion", "presion_add_esterilizacion"),
+                self.cycle.get_param("globals", "delta_temp_chaqueta"),
+                self.cycle.get_param("globals", "margen_flujo_chaqueta"))
+        except Exception:
+            logger.exception("CicloState: no se pudo calcular la consigna de chaqueta")
+            return None
+
+    def _registrar_consigna_chaqueta(self) -> None:
+        """C-05.8 / C-04.3 / C-05.5 (tanda 12): al iniciar el ciclo, deja en el
+        log la consigna de chaqueta y las advertencias no bloqueantes del
+        programa (techo de cámara o consigna sobre el suministro)."""
+        consigna = self._consigna_chaqueta()
+        if consigna is None:
+            logger.warning("CicloState: programa sin datos para la consigna de chaqueta; en CICLO "
+                           "la chaqueta usa presion_chaqueta ± rango_presion_chaqueta")
+        else:
+            logger.info("CicloState: consigna de chaqueta %.1f kPa (≈ %.1f °C), banda ±%.0f kPa",
+                        consigna, t_saturacion_c(consigna), _BANDA_CHAQUETA_KPA)
+        parametros = getattr(self.cycle, "parameters", None)
+        if isinstance(parametros, dict):
+            for _clave, mensaje in catalogo_parametros.advertencias_programa(parametros):
+                logger.warning("CicloState: advertencia del programa: %s", mensaje)
 
     def _mantener_drenaje(self):
         """Mantiene la temperatura de drenaje durante todo el ciclo, incluyendo
@@ -619,6 +673,56 @@ class CicloState:
             abrir_valvula_modo(self.set_do, modo, liquido=liquido,
                                enfriada=self._principal_enfriada(modo))
 
+    # ------------------------------------------------------------------
+    # C-13.7b (tanda 12): Referencia sin lectura → ciclo NO CONFORME
+    # ------------------------------------------------------------------
+
+    _CLAVE_NO_CONFORME = "ticket_ciclo.no_conforme_referencia"
+
+    def _avisos_no_conforme(self) -> list:
+        avisos = getattr(self.estado, "avisos_ciclo", None)
+        if not isinstance(avisos, list):
+            return []
+        return [a for a in avisos if isinstance(a, dict) and a.get("clave") == self._CLAVE_NO_CONFORME]
+
+    @property
+    def no_conforme(self) -> bool:
+        """El ciclo en curso (o recién terminado) quedó NO CONFORME: punto de
+        referencia sin verificar. Se deriva de estado.avisos_ciclo (que
+        reset() vacía al iniciar cada ciclo), así que la marca queda aunque
+        la Referencia vuelva a leer, y va al ticket y al registro del ciclo
+        (CycleLogger guarda los avisos en avisos_ticket de la base y del
+        respaldo)."""
+        return self._no_conforme or bool(self._avisos_no_conforme())
+
+    def _marcar_referencias_sin_lectura(self, ausentes) -> None:
+        """Una vez por ciclo y sensor: SEN-11 (no bloqueante) y línea NO
+        CONFORME en el ticket. El ciclo continúa con las sondas que leen."""
+        ya = {a.get("sensor") for a in self._avisos_no_conforme()}
+        for s in ausentes:
+            nombre = nombre_legible(s)
+            if nombre in ya:
+                continue
+            ya.add(nombre)
+            fase = self._fase_actual_legible()
+            logger.error("CicloState: Referencia %s sin lectura en %s; el ciclo sigue y queda "
+                         "NO CONFORME (punto de referencia sin verificar)", s, fase)
+            # V12 (SAF-06): la bandera va antes del ticket y de la alarma, así
+            # un fallo al anotar no deja abrir la puerta sola
+            self._no_conforme = True
+            try:
+                avisos = getattr(self.estado, "avisos_ciclo", None)
+                if not isinstance(avisos, list):
+                    avisos = []
+                    self.estado.avisos_ciclo = avisos
+                avisos.append({"clave": self._CLAVE_NO_CONFORME, "sensor": nombre})
+            except Exception:
+                logger.exception("CicloState: no se pudo anotar el ciclo NO CONFORME")
+            try:
+                self.alarm_manager.activar(SEN_11, origen=s, sensor=nombre, fase=fase)
+            except Exception:
+                logger.exception("CicloState: no se pudo registrar SEN-11")
+
     def _mantener_apertura_automatica(self):
         """Si finalizacion.apertura_automatica está activo, abre la puerta de
         descarga y confirma el ciclo sin esperar al operador. Solo se llama
@@ -636,6 +740,10 @@ class CicloState:
         if self.door_service is None:
             return
         if not self.cycle.get_param("finalizacion", "apertura_automatica", default=False):
+            return
+        # C-13.7b (DSC confirmada como DSC en las decisiones de la tanda 12):
+        # un ciclo NO CONFORME pasa al flujo manual de confirmación
+        if self.no_conforme:
             return
 
         # Puerta sin actuador (manual): no hay nada que abrir. Se ignora el
@@ -871,8 +979,11 @@ class CicloState:
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 4. Verificar sensores críticos ────────────────────────────
-        # DECISIÓN SIN CONFIRMAR (tanda §1.1): una Referencia caída también
-        # dispara SENSOR_AUSENTE → FALLO, igual que el Principal.
+        # C-13.7b (tanda 12, opción B confirmada 24-oct; reemplaza la DECISIÓN
+        # SIN CONFIRMAR de la tanda §1.1): el Principal sin lectura falla
+        # (SEN-02); una Referencia sin lectura NO aborta: SEN-11 no bloqueante
+        # y el ciclo queda NO CONFORME (ticket y registro), sin apertura
+        # automática. Corre antes de fase.update() (C-10.1).
         # SEN-01 de T2: un 0 del sensor de temperatura es "sin señal" (mismo
         # criterio que estado_sensor y temp_seguridad)
         ausentes = [
@@ -897,7 +1008,10 @@ class CicloState:
             self._protocolo.ejecutar(solo_lenta=True)
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
-        if ausentes:
+        principal_ausente = sensor_principal(self.cycle) in ausentes
+        if ausentes and not principal_ausente:
+            self._marcar_referencias_sin_lectura(ausentes)
+        elif ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
             self.estado.fase_ciclo = "SENSOR_AUSENTE"
             fase = self._fase_actual_legible()
@@ -906,16 +1020,13 @@ class CicloState:
                                   sensores=", ".join(legibles), fase=fase)
             # P-2 (tanda 6): con el Principal perdido NO se sigue con la
             # Referencia: el ciclo falla y se ventea solo por la lenta.
-            if sensor_principal(self.cycle) in ausentes:
-                if self._fase_en_enfriamiento_con_contrapresion():
-                    # D8-2.10: líquidos en modos 4/5 quedan sellados (lo
-                    # decide el protocolo según el tipo de carga)
-                    self._protocolo.ejecutar(solo_lenta=True,
-                                             en_enfriamiento_contrapresion=True)
-                else:
-                    self._protocolo.ejecutar(solo_lenta=True)
+            if self._fase_en_enfriamiento_con_contrapresion():
+                # D8-2.10: líquidos en modos 4/5 quedan sellados (lo
+                # decide el protocolo según el tipo de carga)
+                self._protocolo.ejecutar(solo_lenta=True,
+                                         en_enfriamiento_contrapresion=True)
             else:
-                self._protocolo.ejecutar()
+                self._protocolo.ejecutar(solo_lenta=True)
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 

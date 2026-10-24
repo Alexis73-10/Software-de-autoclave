@@ -80,24 +80,45 @@ def restante_fase(e: float, d_ref: float) -> float:
     return _EXTENSION_S - ((e - d_ref) % _EXTENSION_S)
 
 
-def tiempo_restante(aplicables, fase_activa, e_activa: float, referencias) -> float | None:
+def _segundos_validos(valor) -> bool:
+    return (isinstance(valor, (int, float)) and not isinstance(valor, bool)
+            and valor == valor and valor not in (float("inf"), float("-inf")) and valor >= 0)
+
+
+def tiempo_restante(aplicables, fase_activa, e_activa: float, referencias,
+                    restante_activa: float | None = None) -> float | None:
     """Restante total en segundos, o None si no se puede estimar (sin referencia
-    para la fase activa o alguna siguiente, o fase activa fuera de las aplicables)."""
-    if not referencias or fase_activa not in aplicables:
+    para la fase activa o alguna siguiente, o fase activa fuera de las aplicables).
+
+    `restante_activa` (E12, tanda 12, C-13.7): restante real de la fase
+    activa cuando la fase lo conoce (esterilización: conteo de exposición,
+    que una excursión de Referencia detiene y reinicia); entonces la fase
+    activa no necesita referencia."""
+    if fase_activa not in aplicables:
         return None
     pendientes = aplicables[aplicables.index(fase_activa):]
-    if any(f not in referencias for f in pendientes):
+    usa_propio = _segundos_validos(restante_activa)
+    necesarias = pendientes[1:] if usa_propio else pendientes
+    if (not referencias and necesarias) or any(f not in (referencias or {}) for f in necesarias):
         return None
+    if usa_propio:
+        total = float(restante_activa)
+        total += sum(referencias[f] for f in pendientes[1:])
+        return total
     total = restante_fase(e_activa, referencias[fase_activa])
     total += sum(referencias[f] for f in pendientes[1:])
     return total
 
 
-def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, referencias) -> dict:
+def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, referencias,
+                   restante_exposicion_s: float | None = None) -> dict:
     """Cuerpo de GET /cycle/current/progress.
 
     filas_fases: registros de ciclo_fases del ciclo actual (fase backend,
     inicio_s, fin_s, duracion_s; fin_s None = fase en curso).
+    restante_exposicion_s (E12, tanda 12, C-13.7): estado.exposicion_restante_s
+    que publica ESTERILIZACION; con la esterilización activa reemplaza la
+    estimación por historial de esa fase.
     """
     activa = fase_ui(fase_ciclo)
     duraciones: dict[str, float] = {}
@@ -124,7 +145,8 @@ def armar_progreso(aplicables, filas_fases, fase_ciclo, transcurrido_s: float, r
             fases.append({"fase": f, "estado": "pendiente", "duracion_s": None})
 
     if activa is not None:
-        restante = tiempo_restante(aplicables, activa, e_activa, referencias)
+        propio = restante_exposicion_s if activa == "esterilizacion" else None
+        restante = tiempo_restante(aplicables, activa, e_activa, referencias, propio)
     elif fase_ciclo == "COMPLETADO":
         restante = 0.0
     else:
