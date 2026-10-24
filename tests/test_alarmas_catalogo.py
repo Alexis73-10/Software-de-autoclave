@@ -52,6 +52,9 @@ _EJEMPLOS = {
     "CIC-11": {"segundos": 31.0, "maximo": 30},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
+    # J12 (tanda 12, C-04.4): migración correctiva de un programa
+    "SIS-06": {"programa": "Bowie & Dick", "parametro": "presion_add_calentamiento",
+               "anterior": "99", "nuevo": "9"},
     "OPERANDO_SIN_BD": {},
     "CONFIGURACION_INVALIDA": {"motivo": "x"},
     **{codigo: {"motivo": "x"} for codigo in CODIGOS_TARJETA},

@@ -279,6 +279,11 @@
     "err_coherencia_liquido": "No se puede pasar a carga líquida: el programa debe estar sin prevacío, sin secado, sin apertura automática y con contrapresión de enfriamiento suficiente.",
     "aviso_modo_liquido": "Carga líquida: el modo de descompresión cambió a {modo} ({nombre}).",
     "aviso_modo_solido": "Carga sólida: el modo de descompresión volvió a {modo} ({nombre}).",
+    "err_limite_presion_camara": "No se puede guardar: el techo de presión de cámara llegaría al alivio de cámara (385 kPa). La presión adicional debe ser menor que {valor} kPa.",
+    "err_limite_consigna_chaqueta": "No se puede guardar: la consigna calculada de chaqueta es {valor} kPa y, con la banda de ±10 kPa, llega al alivio de chaqueta (385 kPa).",
+    "err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta (385 kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
+    "aviso_techo_sobre_suministro": "Guardado con advertencia: el techo de presión de cámara supera el suministro (350 kPa). La cámara no lo alcanzará y la válvula de vapor de cámara quedará abierta en ese tramo.",
+    "aviso_chaqueta_abierta": "Guardado con advertencia: la presión de chaqueta pedida supera el suministro (350 kPa). La válvula de vapor de chaqueta quedará abierta sin llegar a la consigna.",
     "aviso_liquido_previo": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0. Si el modo actual es otro, al guardar cambiará al modo 4.",
     "modos_titulo": "Modos disponibles"
   },
@@ -1014,6 +1019,11 @@
       "plantilla": "{motivo}",
       "accion": "Programe el mantenimiento con servicio técnico. El equipo puede seguir operando."
     },
+    "SIS-06": {
+      "titulo": "Programa corregido al cargarlo",
+      "plantilla": "El programa {programa} tenía {parametro} = {anterior} kPa, sobre el máximo permitido; se cambió a {nuevo} kPa.",
+      "accion": "Un técnico o ingeniero debe revisar el programa en Opciones › Parámetros del ciclo. El equipo puede seguir operando."
+    },
     "CONFIGURACION_INVALIDA": {
       "titulo": "Configuración inválida",
       "plantilla": "Configuración inválida: {motivo}",
@@ -1167,8 +1177,10 @@
       "F0_objetivo": "F0 mínimo, en minutos equivalentes a 121,1 °C, que debe acumular la sonda Principal para cerrar la Esterilización. Incluye lo acumulado durante el Calentamiento. Solo se evalúa con «F0» activo.",
       "ciclos_multiples": "Sin efecto en esta versión: ningún módulo del control lee este parámetro. Se conserva por compatibilidad del archivo de programa.",
       "enfriar_chaqueta_secado": "Sin efecto en esta versión: ningún módulo del control lee este parámetro. Se conserva por compatibilidad del archivo de programa.",
-      "presion_chaqueta": "Consigna de presión absoluta de la chaqueta. En preparación, el vapor de chaqueta abre por debajo de la consigna y el equipo queda listo solo dentro de ± «Rango de presión de chaqueta». Durante el ciclo se regula por histéresis: abre bajo consigna − rango y cierra sobre consigna + rango. No rige en Secado (usa «Presión de chaqueta en secado») ni en el enfriamiento de los modos 4 y 5 de descompresión, donde el vapor de chaqueta queda cerrado.",
-      "rango_presion_chaqueta": "Semiancho (±) de la banda alrededor de «Presión de chaqueta». En preparación, fuera de la banda se activa la alarma PRE-01 (baja) o PRE-02 (alta) y no se permite iniciar el ciclo. Durante el ciclo define la histéresis del control: el vapor abre bajo consigna − rango y cierra sobre consigna + rango. Mínimo 1 kPa.",
+      "presion_chaqueta": "Consigna de presión absoluta de la chaqueta en preparación: el vapor de chaqueta abre por debajo de la consigna y el equipo queda listo solo dentro de ± «Rango de presión de chaqueta». Durante el ciclo no rige: la chaqueta sigue la consigna calculada con «Margen de temperatura de chaqueta» y «Margen de flujo de chaqueta», con banda de ±10 kPa. Tampoco rige en Secado (usa «Presión de chaqueta en secado») ni en el enfriamiento de los modos 4 y 5 de descompresión, donde el vapor de chaqueta queda cerrado. Si esta presión + «Rango de presión de chaqueta» llega a 385 kPa (alivio) el programa se rechaza; sobre 350 kPa (suministro) se guarda con advertencia.",
+      "rango_presion_chaqueta": "Semiancho (±) de la banda alrededor de «Presión de chaqueta» en preparación: fuera de la banda se activa la alarma PRE-01 (baja) o PRE-02 (alta) y no se permite iniciar el ciclo. No rige durante el ciclo, donde la banda es fija de ±10 kPa alrededor de la consigna calculada. Mínimo 1 kPa.",
+      "delta_temp_chaqueta": "Durante el ciclo, la consigna de presión de chaqueta es la mayor entre Psat(«Temperatura de esterilización» + este valor) y el techo de control de cámara, Psat(«Temperatura de esterilización») + «Presión adicional de esterilización», más «Margen de flujo de chaqueta». El vapor de chaqueta abre bajo consigna − 10 kPa y cierra sobre consigna + 10 kPa. Si consigna + 10 kPa llega a 385 kPa (alivio de chaqueta) el programa se rechaza; sobre 350 kPa (suministro) se guarda con advertencia: la válvula de vapor de chaqueta queda abierta durante el ciclo.",
+      "margen_flujo_chaqueta": "Presión que la chaqueta se mantiene por encima del techo de control de cámara, Psat(«Temperatura de esterilización») + «Presión adicional de esterilización», para que el vapor fluya hacia la cámara. El cálculo completo de la consigna está en «Margen de temperatura de chaqueta».",
       "tipo_carga": "Sólido o líquido. Al pasar a líquido, el modo de descompresión cambia a 4 (si no era 4, 5 o 0) y al volver a sólido regresa al modo por defecto del programa. Con líquido, el programa solo se acepta si: la descompresión es modo 4, 5 o 0, no hay pulsos de prevacío, «Tiempo de secado» = 0, la apertura automática está desactivada y, en los modos 4 y 5, «Presión de cámara durante el enfriamiento» ≥ Psat(«Temperatura de esterilización») + 30 kPa. Además, al terminar o ante un fallo, el escape rápido solo abre cuando la sonda Principal está en o por debajo de la temperatura de enfriamiento; antes se usa el escape lento."
     },
     "precalentamiento": {
@@ -1240,7 +1252,8 @@
       "brecha_segura_temperatura": "Margen sobre T_est que separa la recuperación del control fino. Con T Principal < T_est + este valor (o presión bajo el umbral de «Margen de recuperación por presión») el vapor abre continuo; por encima pasa a PWM. Un valor mayor da más reserva térmica y más sobretemperatura media.",
       "brecha_error_temperatura": "Caída admitida bajo T_est: si la sonda Principal baja de T_est − este valor durante 3 lecturas consecutivas, el ciclo falla. También es el límite inferior del aviso de uniformidad de las Referencias.",
       "brecha_error_presion": "Caída admitida bajo Psat(T_est): si la presión de cámara baja de Psat(T_est) − este valor durante 3 lecturas consecutivas, el ciclo falla.",
-      "brecha_segura_presion": "Caída bajo Psat(T_est) que activa la recuperación (vapor abierto continuo) aunque la temperatura esté en rango; compensa la pérdida de presión por el escape lento. Debe ser menor que «Margen de falla por presión baja»."
+      "brecha_segura_presion": "Caída bajo Psat(T_est) que activa la recuperación (vapor abierto continuo) aunque la temperatura esté en rango; compensa la pérdida de presión por el escape lento. Debe ser menor que «Margen de falla por presión baja».",
+      "timeout_excursion_referencia": "Tiempo máximo, en minutos, que una sonda de Referencia puede estar fuera de su banda durante la esterilización. Mientras está fuera, el conteo de exposición se detiene y, al volver, se reinicia desde cero; si no vuelve en este tiempo, el ciclo falla."
     },
     "secado": {
       "modo": "1 = vacío continuo: bomba y válvula de vacío abiertas todo el tiempo. 2 = vacío continuo con la entrada de aire atmosférico abierta. 3 = pulsos: vacío hasta «Presión baja de secado» y entrada de aire hasta «Presión alta de secado», alternados hasta completar «Tiempo de secado». En los modos 1 y 2 la cámara debe bajar de P_atm − rango atmosférico dentro de «Tiempo límite por pulso» y no perder ese vacío (3 lecturas); si no, el ciclo falla.",
@@ -1695,6 +1708,8 @@
       "enfriar_chaqueta_secado": "Enfriar la chaqueta en el secado",
       "presion_chaqueta": "Presión de chaqueta",
       "rango_presion_chaqueta": "Rango de presión de chaqueta",
+      "delta_temp_chaqueta": "Margen de temperatura de chaqueta",
+      "margen_flujo_chaqueta": "Margen de flujo de chaqueta",
       "tipo_carga": "Tipo de carga"
     },
     "precalentamiento": {
@@ -1755,6 +1770,7 @@
       "brecha_error_presion": "Margen de falla por presión baja",
       "brecha_error_temperatura": "Margen de falla por temperatura baja",
       "brecha_segura_presion": "Margen de recuperación por presión",
+      "timeout_excursion_referencia": "Tiempo límite de excursión de Referencia",
       "brecha_segura_temperatura": "Margen de recuperación por temperatura",
       "escape_lento_on_ester": "Tiempo abierto del escape lento",
       "escape_lento_off_ester": "Tiempo cerrado del escape lento",

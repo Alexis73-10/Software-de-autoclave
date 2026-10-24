@@ -41,9 +41,62 @@ _RANGOS_NUEVOS = (("rango_calentamiento_temp", "°C"), ("rango_calentamiento_pre
 _RANGO_DEFECTO = {"value": 2.0, "type": "float", "clase": "diferencia", "min": 0, "max": 30}
 
 
-def migrar_parametros(parameters) -> bool:
+# Tanda 12: claves nuevas con su defecto (C-05.3 y C-13.4). Un programa sin
+# ellas las recibe al cargar (sin aviso: no cambia ningún valor existente).
+_CLAVES_NUEVAS_T12 = (
+    ("globals", "delta_temp_chaqueta",
+     {"value": catalogo_parametros.DELTA_TEMP_CHAQUETA_DEFECTO, "type": "float", "unit": "°C",
+      "clase": "diferencia", "min": 0, "max": 5}),
+    ("globals", "margen_flujo_chaqueta",
+     {"value": catalogo_parametros.MARGEN_FLUJO_CHAQUETA_DEFECTO, "type": "float", "unit": "kPa",
+      "clase": "diferencia", "min": 0, "max": 40}),
+    ("esterilizacion", "timeout_excursion_referencia",
+     {"value": catalogo_parametros.TIMEOUT_EXCURSION_REFERENCIA_DEFECTO, "type": "int",
+      "unit": "min", "min": 1, "max": 30}),
+)
+# C-04.4 (tanda 12): migración CORRECTIVA. Un presion_add_* sobre el máximo
+# del catálogo (30 kPa; el B&D de usuario traía 99) baja a 9 kPa. Queda en
+# `correcciones` para que el backend la registre en la auditoría de
+# parámetros y active el aviso SIS-06 (no basta el log).
+_PRESION_ADD = (("calentamiento", "presion_add_calentamiento"),
+                ("esterilizacion", "presion_add_esterilizacion"))
+
+
+def migrar_parametros(parameters, correcciones: list | None = None) -> bool:
     """Migra en el sitio los parámetros de un programa viejo. Devuelve True si
-    cambió algo. Si ya trae los nuevos, el viejo se descarta sin tocarlos."""
+    cambió algo. `correcciones` (opcional) recibe un dict por cada migración
+    correctiva (C-04.4): fase, parametro, anterior, nuevo y origen."""
+    cambio = _migrar_rango_calentamiento(parameters)
+    if not isinstance(parameters, dict):
+        return cambio
+    for fase, clave, hoja in _CLAVES_NUEVAS_T12:
+        seccion = parameters.get(fase)
+        if isinstance(seccion, dict) and clave not in seccion:
+            seccion[clave] = copy.deepcopy(hoja)
+            cambio = True
+    for fase, clave in _PRESION_ADD:
+        hoja = parameters.get(fase, {}).get(clave) if isinstance(parameters.get(fase), dict) else None
+        if not isinstance(hoja, dict):
+            continue
+        valor = hoja.get("value")
+        if (isinstance(valor, (int, float)) and not isinstance(valor, bool)
+                and valor > catalogo_parametros.PRESION_ADD_MAX):
+            nuevo = catalogo_parametros.PRESION_ADD_MIGRADA
+            hoja["value"] = nuevo
+            cambio = True
+            logger.warning("Programa con %s.%s = %r sobre el máximo (%d kPa): migrado a %g kPa (%s)",
+                           fase, clave, valor, catalogo_parametros.PRESION_ADD_MAX, nuevo,
+                           catalogo_parametros.ORIGEN_MIGRACION_T12)
+            if correcciones is not None:
+                correcciones.append({"fase": fase, "parametro": clave, "anterior": valor,
+                                     "nuevo": nuevo,
+                                     "origen": catalogo_parametros.ORIGEN_MIGRACION_T12})
+    return cambio
+
+
+def _migrar_rango_calentamiento(parameters) -> bool:
+    """R1-P3: rango_calentamiento → rango_calentamiento_temp/_pres. Si ya
+    trae los nuevos, el viejo se descarta sin tocarlos."""
     cal = parameters.get("calentamiento") if isinstance(parameters, dict) else None
     if not isinstance(cal, dict) or _RANGO_VIEJO not in cal:
         return False
@@ -76,11 +129,36 @@ def migrar_parametros(parameters) -> bool:
     return True
 
 
+def escribir_parametros(cycle) -> None:
+    """Tanda 12 (C-04.4): reescribe `parameters` en el JSON del programa
+    (`cycle._path`) de forma atómica (.tmp + fsync + os.replace), dejando la
+    versión anterior como <nombre>.json.bak (mismo esquema que el guardado
+    del backend). Lanza la excepción si falla; borra el .tmp."""
+    import shutil
+    ruta = cycle._path
+    with open(ruta, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    data["parameters"] = cycle.parameters
+    shutil.copy2(ruta, ruta + ".bak")
+    tmp = ruta + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4, ensure_ascii=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, ruta)
+    finally:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+
+
 class Cycle:
     def __init__(self, cycle_id: str, name: str, parameters: dict, number: int | None = None):
         self.id = cycle_id
         self.name = name
-        migrar_parametros(parameters)          # R1-P3
+        # R1-P3 y tanda 12 (C-04.4: migración correctiva, ver migrar_parametros)
+        self.migraciones_correctivas: list[dict] = []
+        migrar_parametros(parameters, self.migraciones_correctivas)
         self.parameters = parameters
         # Indicativo del ciclo ("cycle_number" del JSON), único entre ciclos.
         # None si falta, no es entero positivo o está repetido.
@@ -181,10 +259,16 @@ class Cycle:
         # Reglas entre parámetros (T10, decisión 1.2): si no se cumplen, nada cambia
         errores = catalogo_parametros.errores_coherencia(self.parameters)
         if errores:
+            limite = catalogo_parametros.valor_limite(self.parameters)
             for hoja, valor in reversed(previos):
                 hoja["value"] = valor
-            raise catalogo_parametros.ErrorCoherencia(errores)
+            raise catalogo_parametros.ErrorCoherencia(errores, valor=limite)
         return cambios[0][1]
+
+    def advertencias(self, fase: str | None = None, path=None) -> list[tuple[str, str]]:
+        """Advertencias no bloqueantes del programa (tanda 12, C-04.3 / C-05.5 /
+        C-05.9): [(clave, mensaje)]; con fase/path, solo las de ese parámetro."""
+        return catalogo_parametros.advertencias_programa(self.parameters, fase, path)
 
     def arrastres_tipo_carga(self, nuevo_tipo, modo_solido=None) -> list:
         """D8-5.7: cambios automáticos del modo de descompresión al cambiar el
@@ -402,17 +486,24 @@ class CycleManager:
             try:
                 with open(bak, "r", encoding="utf-8") as f:
                     respaldo = json.load(f).get("parameters", {})
-                migrar_parametros(respaldo)            # R1-P3
+                correcciones: list[dict] = []
+                migrar_parametros(respaldo, correcciones)    # R1-P3 y C-04.4
                 if not catalogo_parametros.errores_programa(respaldo):
                     logger.error("Programa %s fuera del catálogo (%s); se usa %s",
                                  cycle.id, "; ".join(errores), os.path.basename(bak))
                     cycle.parameters = respaldo
+                    cycle.migraciones_correctivas = correcciones
                     return
             except Exception:
                 logger.exception("Programa %s: %s ilegible", cycle.id, os.path.basename(bak))
         logger.error("Programa %s DAÑADO, no ejecutable: %s", cycle.id, "; ".join(errores))
         cycle.danado = errores
         self.errores_carga.append(full_path)
+
+    def migraciones_correctivas(self) -> list[tuple["Cycle", dict]]:
+        """C-04.4 (tanda 12): [(programa, corrección)] de la última carga."""
+        return [(c, m) for c in self.cycles.values()
+                for m in (getattr(c, "migraciones_correctivas", None) or [])]
 
     def set_default_cycle(self, cycle_id: str):
         if cycle_id in self.cycles:

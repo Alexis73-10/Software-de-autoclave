@@ -40,11 +40,22 @@ _MENSAJES = {
     # D8-5.7 (tanda 8): carga líquida
     "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
     "COHERENCIA_LIQUIDO": "opciones.err_coherencia_liquido",
+    # J12 (tanda 12): límites físicos de presión (alivio de cámara/chaqueta)
+    "LIMITE_PRESION_CAMARA": "opciones.err_limite_presion_camara",
+    "LIMITE_CONSIGNA_CHAQUETA": "opciones.err_limite_consigna_chaqueta",
+    "LIMITE_PRESION_CHAQUETA": "opciones.err_limite_presion_chaqueta",
     # O1 (tanda 5): gestión de programas
     "programa_activo": "opciones.err_programa_activo",
     "programa_deshabilitado": "opciones.err_programa_deshabilitado",
     "programa_existente": "opciones.err_generico",
     sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta",
+}
+
+
+# Tanda 12: claves de advertencia que devuelve PATCH /cycle/parameter
+_ADVERTENCIAS = {
+    "aviso_techo_sobre_suministro": "opciones.aviso_techo_sobre_suministro",
+    "aviso_chaqueta_abierta": "opciones.aviso_chaqueta_abierta",
 }
 
 
@@ -296,6 +307,7 @@ class ParametrosCicloController(QObject):
         if r.ok:
             self._fijar_mensaje("")
             self._avisar_arrastres(r.datos.get("arrastres"), valor)
+            self._avisar_advertencias(r.datos.get("advertencias"))
             self.abrirSeccion(self._seccion)
             self.cargar()            # "No se ejecuta" puede cambiar
             return True
@@ -310,7 +322,10 @@ class ParametrosCicloController(QObject):
                     self._avisar_arrastres([{"fase": "descompresion", "clave": "modo",
                                              "anterior": modo_antes, "nuevo": modo_despues}], valor)
                 return True
-        self._fijar_mensaje(mensaje_de(r.causa), {"valor": r.datos.get("valor_actual")})
+        # tanda 12: los límites físicos traen el máximo admisible en `valor`
+        detalle = (r.datos.get("valor_actual") if "valor_actual" in r.datos
+                   else r.datos.get("valor"))
+        self._fijar_mensaje(mensaje_de(r.causa), {"valor": detalle})
         return False
 
     # ── sensores (pantalla 4) ────────────────────────────────────────
@@ -402,6 +417,17 @@ class ParametrosCicloController(QObject):
                 clave = ("opciones.aviso_modo_liquido" if valor == "liquido"
                          else "opciones.aviso_modo_solido")
                 self._fijar_aviso(clave, {"modo": a["nuevo"], "anterior": a.get("anterior")})
+                return
+
+    def _avisar_advertencias(self, advertencias) -> None:
+        """Tanda 12 (C-04.3, C-05.5, C-05.9): guardado con una advertencia no
+        bloqueante (techo o chaqueta sobre el suministro): texto del catálogo."""
+        if not isinstance(advertencias, list):
+            return
+        for a in advertencias:
+            clave = a.get("clave") if isinstance(a, dict) else None
+            if isinstance(clave, str) and clave in _ADVERTENCIAS:
+                self._fijar_aviso(_ADVERTENCIAS[clave])
                 return
 
     @Property(str, notify=avisoChanged)
