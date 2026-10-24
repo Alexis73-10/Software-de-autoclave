@@ -84,6 +84,10 @@ _CLAVES = {
     # D8-5.7 (tanda 8): reglas de carga líquida
     "MODO_NO_PERMITIDO_LIQUIDO": "opciones.err_modo_liquido",
     "COHERENCIA_LIQUIDO": "opciones.err_coherencia_liquido",
+    # J12 (tanda 12): límites físicos de presión
+    "LIMITE_PRESION_CAMARA": "opciones.err_limite_presion_camara",
+    "LIMITE_CONSIGNA_CHAQUETA": "opciones.err_limite_consigna_chaqueta",
+    "LIMITE_PRESION_CHAQUETA": "opciones.err_limite_presion_chaqueta",
     # Opciones › Entradas / Salidas (planeacion_opciones_entradas_salidas.md):
     # el texto del backend (`detail`) acompaña a estas claves en pantalla
     "modo_prueba_rechazado": "io.err_rechazado",

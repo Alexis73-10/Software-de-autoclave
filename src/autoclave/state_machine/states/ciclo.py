@@ -34,6 +34,8 @@ from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.core.runtime import presion_sin_lectura
+from autoclave.core.runtime.steam import t_saturacion_c
+from autoclave.core.managers import catalogo_parametros
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,8 @@ logger = logging.getLogger(__name__)
 # io_enabled la declara (presion_sin_lectura.canales_vigilados(), fijado en
 # reset()). Sin lectura = el convertidor dio None (transductor sin señal).
 _DEBOUNCE_LECTURAS_DRENAJE = 3
+# C-05.4 (tanda 12): banda fija de la consigna de chaqueta en CICLO, kPa
+_BANDA_CHAQUETA_KPA = catalogo_parametros.BANDA_CHAQUETA_KPA
 # Lecturas seguidas del Principal bajo temperatura_enfriamiento (SAF-01 de T11)
 _DEBOUNCE_ENFRIADA = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
@@ -203,6 +207,7 @@ class CicloState:
             logger.exception("CicloState: no se pudieron leer los canales de presión; se vigilan todos")
             self._pres_vigilados = [presion_sin_lectura.CAMARA, presion_sin_lectura.CHAQUETA]
         self._protocolo.reset()
+        self._registrar_consigna_chaqueta()        # C-05.8 (tanda 12)
 
         for fase in self._fases:
             fase.reset()
@@ -498,16 +503,57 @@ class CicloState:
         elif vigilar_vapor:
             self.alarm_manager.resolver(SUM_06)
 
-        press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
-                    self.config.get("presion_chaqueta") or 320
-        rango     = self.cycle.get_param("globals", "rango_presion_chaqueta") or \
-                    self.config.get("rango_presion_chaqueta") or 50
+        # C-05 (tanda 12): en CICLO la chaqueta sigue la consigna calculada del
+        # programa, con banda fija ±_BANDA_CHAQUETA_KPA. presion_chaqueta /
+        # rango_presion_chaqueta solo rigen PREPARACION/PREPARADO (C-05.8) y,
+        # aquí, un programa sin los datos de la consigna (DECISIÓN SIN
+        # CONFIRMAR de J12: comportamiento anterior a la tanda 12).
+        consigna = self._consigna_chaqueta()
+        if consigna is not None:
+            bajo, alto = consigna - _BANDA_CHAQUETA_KPA, consigna + _BANDA_CHAQUETA_KPA
+        else:
+            press_obj = self.cycle.get_param("globals", "presion_chaqueta") or \
+                        self.config.get("presion_chaqueta") or 320
+            rango     = self.cycle.get_param("globals", "rango_presion_chaqueta") or \
+                        self.config.get("rango_presion_chaqueta") or 50
+            bajo, alto = press_obj - rango, press_obj + rango
 
-        if pres < press_obj - rango:
+        if pres < bajo:
             self.set_do.vapor_chaqueta_on()
-        elif pres > press_obj + rango:
+        elif pres > alto:
             self.set_do.vapor_chaqueta_off()
         # Dentro del rango: no cambiar estado
+
+    def _consigna_chaqueta(self):
+        """C-05.1/2 (tanda 12): consigna de chaqueta del programa en curso, kPa
+        abs; None si al programa le faltan T_est o presion_add_esterilizacion.
+        Se calcula en cada tick: un cambio aplicado a una fase pendiente del
+        ciclo en curso (T-17) la actualiza."""
+        try:
+            return catalogo_parametros.consigna_chaqueta(
+                self.cycle.get_param("esterilizacion", "temperatura_esterilizacion"),
+                self.cycle.get_param("esterilizacion", "presion_add_esterilizacion"),
+                self.cycle.get_param("globals", "delta_temp_chaqueta"),
+                self.cycle.get_param("globals", "margen_flujo_chaqueta"))
+        except Exception:
+            logger.exception("CicloState: no se pudo calcular la consigna de chaqueta")
+            return None
+
+    def _registrar_consigna_chaqueta(self) -> None:
+        """C-05.8 / C-04.3 / C-05.5 (tanda 12): al iniciar el ciclo, deja en el
+        log la consigna de chaqueta y las advertencias no bloqueantes del
+        programa (techo de cámara o consigna sobre el suministro)."""
+        consigna = self._consigna_chaqueta()
+        if consigna is None:
+            logger.warning("CicloState: programa sin datos para la consigna de chaqueta; en CICLO "
+                           "la chaqueta usa presion_chaqueta ± rango_presion_chaqueta")
+        else:
+            logger.info("CicloState: consigna de chaqueta %.1f kPa (≈ %.1f °C), banda ±%.0f kPa",
+                        consigna, t_saturacion_c(consigna), _BANDA_CHAQUETA_KPA)
+        parametros = getattr(self.cycle, "parameters", None)
+        if isinstance(parametros, dict):
+            for _clave, mensaje in catalogo_parametros.advertencias_programa(parametros):
+                logger.warning("CicloState: advertencia del programa: %s", mensaje)
 
     def _mantener_drenaje(self):
         """Mantiene la temperatura de drenaje durante todo el ciclo, incluyendo

@@ -81,6 +81,10 @@ CIC_11 = "CIC-11"
 MANTENIMIENTO_VENCIDO = SIS_04
 # B5 (tanda 4): aviso no bloqueante de impresora desconectada al arrancar
 IMPRESORA_DESCONECTADA = SIS_05
+# J12 (tanda 12, C-04.4): aviso no bloqueante de migración correctiva de un
+# programa al cargarlo (p. ej. presion_add_* > 30 kPa bajado a 9)
+SIS_06 = "SIS-06"
+MIGRACION_CORRECTIVA = SIS_06
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
 # D8-2.11 (tanda 8): ALL_OFF sin confirmar al salir del modo prueba
 COM_04 = "COM-04"
@@ -311,6 +315,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(IMPRESORA_DESCONECTADA, _AV, False, _A, "Impresora no conectada",
        "Impresora no conectada. Los reportes no se imprimirán; verifique el cable y la impresora.",
        "Revise el cable USB y que la impresora esté encendida. El equipo puede seguir operando."),
+    # J12 (tanda 12, C-04.4): un origen por programa y parámetro migrado
+    _d(MIGRACION_CORRECTIVA, _AV, False, _M, "Programa corregido al cargarlo",
+       "El programa {programa} tenía {parametro} = {anterior} kPa, sobre el máximo permitido; "
+       "se cambió a {nuevo} kPa.",
+       "Un técnico o ingeniero debe revisar el programa en Opciones › Parámetros del ciclo. "
+       "El equipo puede seguir operando."),
     _d(CONFIGURACION_INVALIDA, _AL, True, _M, "Configuración inválida",
        "Configuración inválida: {motivo}",
        "Llame a servicio técnico para corregir la configuración."),
