@@ -1,4 +1,4 @@
-# LEEME — Instalación en el equipo de pruebas (compilación G, 2026-10-23)
+# LEEME — Instalación en el equipo de pruebas (compilación H, 2026-10-24)
 
 Lista de comprobación para Cristian. Hoy solo se hace:
 1. la instalación con el asistente;
@@ -9,13 +9,31 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup), y en K11 de la tanda 11 (23-oct) con "Cambios respecto a la F" y la sección 8f (F → G con el Setup, página «Actualizar / Instalación limpia»).
+Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup), y en K11 de la tanda 11 (23-oct) con "Cambios respecto a la F" y la sección 8f (F → G con el Setup, página «Actualizar / Instalación limpia»), y en K12 de la tanda 12 (24-oct) con "Cambios respecto a la G" y la sección 8g (G → H con el Setup).
+
+> **Tanda 12 (2026-10-24): instale la compilación H (`entrega/2026-10-24_h/`, etiqueta `inst-2026-10-24-h`) con `Autoclave_Setup_1.0.0-h.exe`, siguiendo la sección 8g («Actualizar G → H»: deje marcada «Actualizar (conserva los datos)»), antes de los ciclos del lunes 26-oct.** La H es la G más las correcciones de proceso de CALENTAMIENTO, ESTERILIZACION y chaqueta pedidas el 24-oct (C-01 a C-13, tabla «Cambios respecto a la G»). Lo que hay que observar el lunes está en el bloque T12 de la hoja de banco.
 
 > **Tanda 11 (2026-10-23): instale la compilación G (`entrega/2026-10-23_g/`, etiqueta `inst-2026-10-23-g`) con `Autoclave_Setup_1.0.0-g.exe`, siguiendo la sección 8f («Actualizar F → G»: en la página nueva deje marcada «Actualizar (conserva los datos)»), sin copiar archivos a mano.** La G es la F más los ajustes pedidos el 23-oct tras usar la F (tabla «Cambios respecto a la F»). Las cuentas `admin`/`ingeniero` pasan solas a `Admin`/`Ingeniero` con la misma contraseña.
 
 > **Tanda 10 (2026-10-23): instale la compilación F (`entrega/2026-10-23_f/`, etiqueta `inst-2026-10-23-f`) con `Autoclave_Setup_1.0.0-f.exe`, siguiendo la sección 8e («Actualizar E → F», y D → F si el equipo aún tiene la D), sin copiar archivos a mano.** La F es la E más las correcciones vistas en el equipo el 23-oct (tabla «Cambios respecto a la E»). La letra E ya estaba usada por la compilación de esta mañana, por eso esta se llama F.
 
 > **Compilación E (23-oct): la D falló en el PC de pruebas (ver "Cambios respecto a la D"). Instale la E (`entrega/2026-10-23_e/`, etiqueta `inst-2026-10-23-e`, commit cafb06e) con `Autoclave_Setup_1.0.0-e.exe`: siga la sección 8c con el Setup E en lugar del de la D, y lea la 8d.** El código del programa es el de la D más las 2 correcciones; todo lo dicho de la D vale para la E.
+
+## Cambios respecto a la G
+
+| | Compilación G (`2026-10-23_g`) | Compilación H (`2026-10-24_h`) |
+|---|---|---|
+| Suite en ese código | 7218 passed, 10 skipped, 3 xfailed | **7531 passed, 10 skipped, 3 xfailed (7522 con -n auto + 9 que pasan en serie)** |
+| CALENTAMIENTO (C-01, C-02, C-09) | El objetivo de presión sumaba `presion_add_calentamiento`; techo en 2×`presion_add`; corte por calidad de vapor en el 97 % de la temperatura | `presion_add_calentamiento` es solo techo: entra a sostener con `T ≥ T_obj` y `P ≥ Psat(T_obj) − 2 kPa`; techo `Psat(T_obj) + presion_add`; con sólidos exige que la presión corresponda a vapor saturado (`|Tsat(P) − T| ≤ 1 K`); corte por calidad de vapor desde `T_obj − 3 K` |
+| ESTERILIZACION: fallas (C-07, C-03) | 3 lecturas seguidas | **5 s continuos**. Nuevas, solo con sólidos: CIC-12 (aire o gases no condensables, `Tsat(P) − T > 2 K`) y CIC-13 (vapor sobrecalentado o falla de la sonda, `< −2 K`) |
+| ESTERILIZACION: control (C-08) | RECUPERACION ↔ PWM podía conmutar en cada lectura; en RECUPERACION, sin techo | Salida de RECUPERACION con histéresis (+0,3 K y +1 kPa); en RECUPERACION el vapor se corta en el techo y no vuelve a abrir hasta bajar 2 kPa |
+| Referencias en la exposición (C-13) | Una Referencia fuera de rango solo daba aviso (CIC-09); una Referencia sin lectura abortaba el ciclo | Fuera de banda más de 5 s: el conteo se detiene y al volver **reinicia desde cero** (F0 no); sin volver en `timeout_excursion_referencia` (5 min) → FALLO CIC-14; cada excursión en el ticket. **Sin lectura:** el ciclo sigue, aviso SEN-11 y ticket y registro con «NO CONFORME: punto de referencia sin verificar»; sin apertura automática |
+| Sin lectura del Principal o de la presión (C-10) | FALLO SEN-02 / SEN-04 | Igual; además, la fase no cuenta ese tiempo como exposición y corta el vapor |
+| Chaqueta en CICLO (C-05) | `presion_chaqueta ± rango_presion_chaqueta` | Consigna calculada del programa: `max(Psat(T_est + 1,5), Psat(T_est) + presion_add_esterilizacion + 15)`, banda ±10 kPa (134 °C/9 → ≈ 326,3 kPa). En PREPARADO sigue `presion_chaqueta` |
+| Validación de programas (C-04, C-05.9) | `presion_add_*` hasta 100 | Máximo 30 kPa; se rechaza un programa con techo de cámara, consigna de chaqueta + 10 o `presion_chaqueta + rango` ≥ 385 kPa (alivio); por encima de 350 kPa (suministro) solo advertencia |
+| Bowie & Dick de usuario (C-04.4) | `presion_add_calentamiento` 99 | Al abrir la H baja **a 9**, con fila en la bitácora de auditoría (origen «migración tanda 12»), aviso no bloqueante **SIS-06** en Preciclo y en la campana, y el archivo anterior en `bowe_dick.json.bak` |
+| `brecha_segura_temperatura` (C-07.1) | 0,3 | 1,0 en los programas nuevos y de fábrica. **Los programas de usuario del equipo conservan 0,3** (ver 8g y hoja de banco T12) |
+| Versión del Setup | `1.0.0-g` (`AppVerNum` 1.0.0.7) | `1.0.0-h` (`AppVerNum` 1.0.0.8) |
 
 ## Cambios respecto a la F
 
@@ -502,6 +520,22 @@ Es la sección 8e con el Setup G. **Sin pasos de copia a mano.** Se ensayó en e
 espaldos_configuracion\<fecha>utoclave\config\instances\ACV-2026-001.yaml`) porque la G le quita `aire_comprimido_chaqueta`: es lo esperado.
 
 **NO toque** lo mismo que en la 8c. **Volver a la F si la G falla:** cierre Autoclave, desinstale desde Configuración › Aplicaciones (el Setup F se niega sobre la G por ser más vieja; los datos de `ProgramData` se conservan), ejecute `Autoclave_Setup_1.0.0-f.exe` y **reemplace `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2** (la base ya migrada a la versión 11, con `Admin`/`Ingeniero`, no se ensayó con la F: vuelva siempre al respaldo).
+
+## 8g. Actualizar el equipo de pruebas a la H (G → H) con el Setup
+
+Es la sección 8f con el Setup H. **No hay pasos de copia a mano.** Se ensayó en el PC de la oficina sobre una copia simulada del equipo (perfil del equipo de pruebas, base de datos y programas de usuario de la G con el Bowie & Dick en 99, un usuario propio, un parámetro cambiado, calibración y correo propios), primero con el código y el `_internal` de la G y luego con los de la H: `docs/informes/tanda12/K12_compilacion_h.md`.
+
+1. **Cierre Autoclave por completo** (las dos pantallas).
+2. **Respaldo:** copie `C:\ProgramData\Especifika\Autoclave` completa a la USB (por ejemplo, `respaldo_G_2026-10-24`). La H reescribe el programa de usuario Bowie & Dick (el anterior queda en `.bak`).
+3. Compruebe el Setup: `Get-FileHash .\Autoclave_Setup_1.0.0-h.exe` contra la línea del Setup en `SHA256SUMS.txt`.
+4. Ejecute `Autoclave_Setup_1.0.0-h.exe`. Deje marcada **«Actualizar (conserva los datos)»** y **no elija «Instalación limpia»**. Las tareas adicionales van igual que en la 8f (la casilla de estación queda DESMARCADA).
+5. Abra Autoclave y compruebe, además de lo de la 8f paso 6:
+   - en Preciclo y en la campana aparece el aviso **SIS-06** del Bowie & Dick (de 99 a 9 kPa), que no bloquea el inicio. En OPCIONES › Parámetros del ciclo › Bowie & Dick › Calentamiento, `presion_add_calentamiento` vale 9. En la bitácora de auditoría aparece la fila con el origen «migración tanda 12» (caso A-T12-01 de la hoja de banco);
+   - la chaqueta 350/25 de los programas de usuario se conserva;
+   - **anote `brecha_segura_temperatura`** (Esterilización) de los programas de usuario: sigue en 0,3, porque la actualización no toca ajustes de usuario válidos. Si quiere probar el 1,0 de C-07.1, cámbielo a mano (técnico o ingeniero) y lea antes la observación del techo en E-T12-03.
+6. Para los ciclos del lunes, siga el bloque T12 de la hoja de banco (`docs/mis_plans/hoja_pruebas_banco_equipo_pruebas.md`), con el log del backend del día a mano.
+
+**NO toque** lo mismo que en la 8c. **Volver a la G si la H falla:** cierre Autoclave, desinstale desde Configuración › Aplicaciones (el Setup G se niega sobre la H porque es más viejo; los datos de `ProgramData` se conservan), ejecute `Autoclave_Setup_1.0.0-g.exe` y **reemplace `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2**. La G no conoce las claves nuevas de los programas: no se ensayó con un programa reescrito por la H, así que vuelva siempre al respaldo.
 
 ## A frente a B
 
