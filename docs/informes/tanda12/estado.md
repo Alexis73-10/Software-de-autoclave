@@ -27,3 +27,4 @@ Instrucciones comunes de los subagentes: `tanda12/brief_subagentes.md`. Si la se
 - Guion `tools/ensayo_actualizacion_g_h.py` (6b110ed), probado desde fuente: B&D 99 → 9 con auditoría, SIS-06 y `.bak`; chaqueta 350/25 intacta. Los programas de usuario del equipo conservan `brecha_segura_temperatura` 0.3 (pregunta 2 de J12).
 - V12 hecha; correcciones en 41920a5.
 - Suites de integración: P12 (d8e33f2) 7420 + 3 en serie = **7423 passed**; E12 + C-13.7 (e6ff9d2) 7508 + 3 en serie = **7511 passed**, verdes (`suites/integ_p12*`, `integ_e12*`). CLAUDE.md (bcf0c6b), hoja de banco ajustada (ed374b7), DECISIONES_PARA_REVISAR (151599e). Suite final sobre 151599e en curso.
+- Suite final sobre 151599e (todo unido + V12): 7522 passed, 9 failed (impresión/calibración QML, interferencia del paralelo) que pasan en serie → **7531 passed, 10 skipped, 3 xfailed**, verde (`suites/integ_final*.log`). Siguiente: unir a `dev`, etiqueta H, K12.
