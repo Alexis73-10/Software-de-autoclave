@@ -22,3 +22,5 @@ Instrucciones comunes de los subagentes: `tanda12/brief_subagentes.md`. Si la se
 - P12 terminada (1073fcc), espera la unión de J12.
 - E12 terminada (330cf8b). Falta J12.
 - J12 terminada. Uniones: J12 (parcial, 962d873) → P12 → E12 → C-13.7 en `server.py` → resto de J12 → L12 (3220e66), sin conflictos. Pruebas `test_t12_*`: 284 passed. Suites de integración por unión en `_suites_t12/integ` (en curso). V12 lanzado sobre `git diff dev...tanda-12 -- src`.
+- Suite tras unir J12 parcial (962d873): 7378 passed, 5 failed + 17 errores (QML/impresión, un proceso caído por carga); los 22 pasan en serie → **7400 passed**, verde (`suites/integ_j12a*.log`). Suite de P12 (d8e33f2) lanzada.
+- Guion `tools/ensayo_actualizacion_g_h.py` (6b110ed), probado desde fuente: B&D 99 → 9 con auditoría, SIS-06 y `.bak`; chaqueta 350/25 intacta. Los programas de usuario del equipo conservan `brecha_segura_temperatura` 0.3 (pregunta 2 de J12).
