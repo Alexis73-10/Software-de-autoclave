@@ -81,3 +81,12 @@ def test_solido_explicito_exige_coherencia():
     estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.2)
     fase.update()
     assert fase._timer_sostenido_desde is None
+
+
+def test_tipo_carga_nulo_se_trata_como_solido():
+    # falla segura (DECISIÓN SIN CONFIRMAR del informe P12)
+    fase, estado = _fase(tipo_carga="")
+    estado.sensores_temp["temp_camara"] = 134.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(135.2)
+    fase.update()
+    assert fase._timer_sostenido_desde is None

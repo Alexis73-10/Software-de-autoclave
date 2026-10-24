@@ -443,8 +443,10 @@ class CalentamientoFase(BaseFase):
         # banda (reinicia la ventana y arma el timeout de recuperación). Con
         # líquidos el Principal es la sonda del líquido, que va minutos
         # detrás del vapor: no se exige (queda para el lazo de presión, C-11).
+        # Falla segura: cualquier valor que no sea "liquido" (incluido un
+        # tipo_carga ausente o nulo) se trata como sólido y exige coherencia.
         exige_coherencia = self.cycle.get_param(
-            "globals", "tipo_carga", default="solido") == "solido"
+            "globals", "tipo_carga", default="solido") != "liquido"
         if exige_coherencia:
             dif_tp = _diferencia_coherencia_tp(temp, pres)
             coherente = dif_tp is not None and abs(dif_tp) <= _COHERENCIA_TP_K
