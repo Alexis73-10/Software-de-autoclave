@@ -9,9 +9,9 @@ El ciclo de esterilización se ejecuta como una secuencia de "fases", cada una e
 Convenciones compartidas por las fases:
 - Parámetros del ciclo se leen con `self.cycle.get_param(seccion, nombre)`, definidos en los perfiles JSON de `src/autoclave/cycles/{factory,user}/*.json` bajo `parameters.<seccion>`.
 - Lecturas de sensores vía `self._temp_camara()` / `self._pres_camara()` (pueden ser `None` — hay que contemplarlo).
-- `p_saturacion_kpa(T)` (`autoclave.core.runtime.steam`) da la presión de saturación de vapor para una temperatura en °C.
+- `p_saturacion_kpa(T)` (`autoclave.core.runtime.steam`) da la presión de saturación de vapor para una temperatura en °C; `t_saturacion_c(P)` (tanda 12) es su inversa exacta (misma ecuación de Antoine, sin recortar fuera de 99–145 °C; `P<=0` o no finita → `ValueError`). Presión siempre en kPa absolutos; Psat/Tsat solo con este módulo.
 - Temporizador de dos estados (abre `t_on` seg, cierra `t_off` seg, repite; `t_off<=0` → enclavada abierta, `t_on<=0` → enclavada cerrada) es el patrón estándar para escapes (`descompresion_lenta`/`descompresion_rapida`) y para PWM de vapor. Ver `_tick_dos_estados` en `calentamiento.py`/`esterilizacion.py`.
-- Condiciones de falla usan debounce de 3 lecturas consecutivas (constante `_DEBOUNCE_LECTURAS`) antes de disparar `FaseResult.FALLO`.
+- Condiciones de falla usan debounce antes de disparar `FaseResult.FALLO`. Desde la tanda 12 (C-07.2) ESTERILIZACION usa **debounce por tiempo**: la condición debe sostenerse `_DEBOUNCE_FALLA_S = 5.0` s continuos (monotonic, `_sostenida()`; una lectura dentro de rango reinicia el conteo), y la fase no completa mientras haya una falla en conteo (V12, SAF-01). Las demás fases siguen con 3 lecturas consecutivas (`_DEBOUNCE_LECTURAS`).
 - Al entrar en `FALLO`, se apagan todas las salidas de la fase y se registra `self.estado.motivo_fallo`.
 - Todo temporizador de proceso (timers de fase, timeouts, debounce, hold) usa `time.monotonic()`, nunca `time.time()` — un salto del reloj de pared (ajuste manual, NTP futuro) no debe alterar la duración medida. `time.time()`/`datetime.now()` quedan reservados para sellos de tiempo de registros/auditoría (ver §11.3 de `docs/mis_plans/planeacion_ui_dual_pantalla.md`). Estos timers son atributos en memoria por instancia de fase, no persisten entre reinicios.
 
@@ -24,7 +24,8 @@ PRECALENTAMIENTO → PREVACIO → CALENTAMIENTO → ESTERILIZACION → DESCOMPRE
 Fases y su estado de diseño:
 - `precalentamiento.py` — sostiene presión de chaqueta.
 - `prevacio.py` — pulsos de vacío/vapor (hasta 4 tipos configurables).
-- `calentamiento.py` — **rediseñado**: RAMPA (control continuo de `vapor_camara` vía duty cycle — el mínimo entre tres términos: un límite de pendiente `tasa_calentamiento`/`tasa_presion`, una aproximación lineal a `factor_calentamiento` a medida que `temp`/`pres` se acercan a los objetivos fijos, y un corte si la temperatura supera el 97% del objetivo sin que la presión corresponda a vapor saturado — más un techo independiente de presión como resguardo — ver `docs/superpowers/specs/2026-08-05-control-continuo-rampa-calentamiento-design.md`) → ESTABLE_PREESTERILIZACION. ESTABLE_PREESTERILIZACION exige una ventana continua de estabilidad (con reinicio ante overshoot) antes de entregar control a ESTERILIZACION — fusiona lo que antes era la fase separada `EstabilizacionFase` (ver `docs/superpowers/specs/2026-08-04-fusion-calentamiento-estabilizacion-design.md`). El término de proximidad tiene un piso `duty_estable` (`1 - factor_calentamiento/100`) que antes se sostenía indefinidamente en cuanto `temp`/`pres` superaban el objetivo, sin importar cuánto — bug real (ciclo 79, 2026-08-06): con `t_obj=134.0` y la cámara ya en 136.7°C, el duty seguía en 0.5 en vez de ir a 0, y el control se veía "sosteniendo" una temperatura muy por encima del setpoint con pulsos de vapor. Corregido escalando ese piso hacia 0 a medida que el sobrepaso crece, llegando a 0 a partir de `rango_calentamiento_temp` °C (temperatura) / `rango_calentamiento_pres` kPa (presión) pasado el objetivo (función `_duty_por_sobrepaso`). Esos dos parámetros (clase "diferencia", defecto 2.0) reemplazan desde la tanda 7 (R1-P3) al antiguo `rango_calentamiento`, que se usaba a la vez como banda de °C y de kPa; un programa viejo se migra al cargarlo (`migrar_parametros` en `cycle_manager.py`, copia el valor a los dos).
+- `calentamiento.py` — **rediseñado**: RAMPA (control continuo de `vapor_camara` vía duty cycle — el mínimo entre tres términos: un límite de pendiente `tasa_calentamiento`/`tasa_presion`, una aproximación lineal a `factor_calentamiento` a medida que `temp`/`pres` se acercan a los objetivos fijos, y un corte si la temperatura supera `T_obj - 3 K` (`_MARGEN_CALIDAD_VAPOR_K`, tanda 12 C-09; antes el 97 % del objetivo) sin que la presión llegue a `Psat(T) - 2 kPa` (sin `presion_add`) — más un techo independiente de presión `Psat(T_obj) + presion_add_calentamiento` (tanda 12 C-01; antes 2×`presion_add`) como resguardo — ver `docs/superpowers/specs/2026-08-05-control-continuo-rampa-calentamiento-design.md`) → ESTABLE_PREESTERILIZACION. ESTABLE_PREESTERILIZACION exige una ventana continua de estabilidad (con reinicio ante overshoot) antes de entregar control a ESTERILIZACION — fusiona lo que antes era la fase separada `EstabilizacionFase` (ver `docs/superpowers/specs/2026-08-04-fusion-calentamiento-estabilizacion-design.md`). El término de proximidad tiene un piso `duty_estable` (`1 - factor_calentamiento/100`) que antes se sostenía indefinidamente en cuanto `temp`/`pres` superaban el objetivo, sin importar cuánto — bug real (ciclo 79, 2026-08-06): con `t_obj=134.0` y la cámara ya en 136.7°C, el duty seguía en 0.5 en vez de ir a 0, y el control se veía "sosteniendo" una temperatura muy por encima del setpoint con pulsos de vapor. Corregido escalando ese piso hacia 0 a medida que el sobrepaso crece, llegando a 0 a partir de `rango_calentamiento_temp` °C (temperatura) / `rango_calentamiento_pres` kPa (presión) pasado el objetivo (función `_duty_por_sobrepaso`). Esos dos parámetros (clase "diferencia", defecto 2.0) reemplazan desde la tanda 7 (R1-P3) al antiguo `rango_calentamiento`, que se usaba a la vez como banda de °C y de kPa; un programa viejo se migra al cargarlo (`migrar_parametros` en `cycle_manager.py`, copia el valor a los dos).
+  Tanda 12 (24-oct): `presion_add_calentamiento` es **solo techo** (C-01): el objetivo de presión es `p_obj = Psat(T_obj)`; entrada a ESTABLE_PREESTERILIZACION con `T >= T_obj` y `P >= p_obj - 2` (`_TOLERANCIA_PSAT_KPA`); banda de sostenimiento `T_obj <= T <= T_obj + rango_temp_estabilizacion` y `p_obj - 2 <= P <= Psat(T_obj) + presion_add`. Con carga sólida (`globals.tipo_carga != "liquido"`) la banda exige además coherencia T–P `|Tsat(P) - T_principal| <= 1.0 K` (`_COHERENCIA_TP_K`, C-02): fuera de coherencia reinicia la ventana y arma el timeout de recuperación. En la ventana, una Referencia sin lectura (None, no finita o 0) no bloquea (C-13.7b; CicloState marca el ciclo NO CONFORME); las que leen deben estar en consigna.
 - `esterilizacion.py` — **rediseñado**, ver detalle abajo.
 - `descompresion.py`, `secado.py`, `valvula_reposo.py`, `protocolo_fallo.py` — sin cambios recientes.
 
@@ -52,6 +53,14 @@ Ver spec: `docs/superpowers/specs/2026-08-06-control-banda-objetivo-alarma-gate-
 
 ---
 
+## CHAQUETA EN CICLO — consigna acoplada al programa (tanda 12, 24-oct)
+
+`CicloState._mantener_chaqueta` (C-05) ya no usa `globals.presion_chaqueta`/`rango_presion_chaqueta` durante el CICLO (esos dos siguen rigiendo PREPARACION/PREPARADO vía `control_banda.py`, sin cambios). Consigna = `max(Psat(T_est + delta_temp_chaqueta), Psat(T_est) + presion_add_esterilizacion + margen_flujo_chaqueta)` (`catalogo_parametros.consigna_chaqueta`; `globals.delta_temp_chaqueta` 1.5 K, 0–5; `globals.margen_flujo_chaqueta` 15 kPa, 0–40). Banda fija ±10 kPa (`_BANDA_CHAQUETA_KPA`): ON si `P < consigna - 10`, OFF si `P > consigna + 10`, sin cambio dentro. Ejemplo: 134 °C/9 → ≈326.3 kPa. Se conserva: secado excluido, enfriamiento modos 4/5 → OFF, sin dato → OFF, SUM-06. La consigna y las advertencias del programa se registran en el log al iniciar el ciclo.
+
+Límites físicos (constantes en `catalogo_parametros.py`, una sola fuente; deuda DEU-01: deberían venir del perfil o de Parámetros del equipo): fondo de escala 400, suministro 350 (40 psig + 74.6 kPa de atmósfera en Bogotá), alivio de cámara y de chaqueta 385 kPa abs. Al guardar y al cargar (`errores_coherencia`/`errores_programa`): se **rechaza** `Psat(T)+presion_add >= 385` (calentamiento y esterilización), `consigna + 10 >= 385` y `presion_chaqueta + rango_presion_chaqueta >= 385`; por encima de 350 solo **advertencia** no bloqueante (la válvula quedará abierta en ese tramo). `presion_add_*` máximo 30 kPa. Migración correctiva (C-04.4): un programa instalado con `presion_add_* > 30` baja a 9 al cargar, con fila de auditoría `param_ciclo_cambio` (origen "migración tanda 12"), aviso no bloqueante SIS-06 (bandeja de Preciclo y campana) y el JSON de usuario reescrito con `.bak`.
+
+---
+
 ## APERTURA AUTOMÁTICA DE PUERTA AL FINALIZAR EL CICLO (2026-08-06)
 
 La sección `finalizacion` de cada perfil JSON de ciclo trae 4 parámetros (`tiempo_espera_apertura`, `temp_max_apertura`, `timeout_temperatura`, `apertura_automatica`) implementados en `CicloState._mantener_apertura_automatica()`. Cuando el ciclo termina en `COMPLETADO` y `apertura_automatica=true`, el equipo abre solo la puerta de descarga (`"Puerta 2"` si existe, si no `"Puerta 1"`) y confirma el ciclo (`CICLO_CONFIRMADO`) sin esperar al operador, en vez del flujo manual normal (botón CONFIRMAR + apertura manual). No aplica a `FALLO`/`CANCELADO`/emergencia.
@@ -71,13 +80,13 @@ Ver plan completo en `docs/mis_plans/planeacion_fase_esterilizacion.md`. Reempla
 ### Objetivo
 Sostener la cámara en vapor saturado a `temperatura_esterilizacion` durante `tiempo_esterilizacion` minutos — la fase que efectivamente esteriliza. No hay tramo de aproximación: viene de CALENTAMIENTO ya en condición de vapor saturado.
 
-### Máquina de estados interna (bidireccional, sin chattering-guard)
+### Máquina de estados interna (bidireccional; desde la tanda 12 con histéresis de salida, ver "Cambios de la tanda 12")
 
 ```
 RECUPERACION            T < temperatura_esterilizacion + brecha_segura_temperatura
                         O P < P_sat(temperatura_esterilizacion) - brecha_segura_presion
   vapor_camara ON continuo (sin techo de control)
-       ↕ (evaluado en cada tick, sin guardia anti-chattering — a diferencia de CALENTAMIENTO)
+       ↕ (evaluado en cada tick, entrada inmediata; salida con histéresis desde la tanda 12 (C-08))
 PWM_ACTIVO               T >= temperatura_esterilizacion + brecha_segura_temperatura
                         Y P >= P_sat(temperatura_esterilizacion) - brecha_segura_presion
   vapor_camara en PWM dentro de banda fija [P_sat(T_actual)-2, P_sat(T_actual)+1] kPa:
@@ -96,7 +105,7 @@ Debe cumplirse `brecha_segura_presion < brecha_error_presion` (no `>`, a diferen
 En paralelo, desde el primer tick e independientes entre sí:
 - `descompresion_lenta` / `descompresion_rapida` — temporizador de dos estados estándar (`escape_lento_on_ester`/`off_ester`, `escape_rapido_on_ester`/`off_ester`).
 - Timer de finalización: fijado en inicialización (`t_inicio + tiempo_esterilizacion*60`), corre sin pausa ni reinicio, **única** condición de éxito (no depende de temperatura/presión ni del tramo activo).
-- Chequeo de fallas, con debounce de 3 lecturas, **siempre contra `temperatura_esterilizacion` fija** (nunca `T_actual`):
+- Chequeo de fallas, con debounce de 5 s continuos (tanda 12, C-07.2; antes 3 lecturas), **siempre contra `temperatura_esterilizacion` fija** (nunca `T_actual`):
   - Temp alta: `T > t_est + rango_temperatura_ester`
   - Temp baja: `T < t_est - brecha_error_temperatura`
   - Pres alta: `P > P_sat(t_est) + rango_presion_ester`
@@ -115,18 +124,26 @@ En paralelo, desde el primer tick e independientes entre sí:
 | `intervalo_segmentos_ester` | seg | 3 | Periodo del ciclo PWM |
 | `rango_temperatura_ester` | °C | 3 | Umbral de falla temp alta |
 | `rango_presion_ester` | kPa | 30 | Umbral de falla pres alta |
-| `brecha_segura_temperatura` | °C | 0.3 | Umbral bidireccional RECUPERACION↔PWM_ACTIVO (temperatura) |
+| `brecha_segura_temperatura` | °C | 1.0 (tanda 12, C-07.1; antes 0.3) | Umbral de entrada a RECUPERACION (temperatura); la salida suma `_HIST_RECUP_TEMP_K` = 0.3 |
 | `brecha_segura_presion` | kPa | 1.5 | Umbral bidireccional RECUPERACION↔PWM_ACTIVO (presión) — debe ser MENOR que `brecha_error_presion` (ver texto arriba, al revés que temperatura) |
 | `brecha_error_temperatura` | °C | 0.1 | Umbral de falla temp baja |
 | `brecha_error_presion` | kPa | 2 | Umbral de falla pres baja |
+| `timeout_excursion_referencia` | min | 5 (int, 1–30) | Tanda 12 (C-13.4): tiempo máximo de una excursión de Referencia sin volver a la banda → FALLO CIC-14 |
 
 Eliminados (semántica antigua, sin tolerancia inferior): `temperatura_add_esterilizacion`, `temperatura_error_esterilizacion`, `rango_presion_esterilizacion`, `presion_error_esterilizacion`. El parámetro `Compruebe RTC` del Excel se descarta explícitamente, no forma parte del código.
 
 ### UI
 La pestaña "Esterilización" de `params_ciclo.py` (PySide6) no filtra claves (`filter_keys=None`) — renderiza automáticamente todo lo que exista en `parameters.esterilizacion` del JSON, así que agregar/quitar parámetros ahí no requiere tocar el código de la UI.
 
-### Riesgo aceptado (decisión explícita)
-No hay timeout de fase. Si un sensor de temperatura o presión queda en `None`, la fase devuelve `EN_CURSO` indefinidamente — no avanza ni falla, incluso si el timer de finalización ya venció. Mitigación (si se requiere) quedaría a nivel de `CicloState` o watchdog de sensor, fuera del alcance de esta fase.
+### Sin medición válida (tanda 12, C-10 — reemplaza el antiguo "riesgo aceptado")
+CicloState §4 (vigilancia SENSOR_AUSENTE) corre antes de `fase.update()` en el mismo tick: Principal sin lectura → FALLO SEN-02; presión sin lectura → su código propio (SEN-04), sin que ESTERILIZACION cuente ese tick. Defensa propia de la fase: con `temp` o `pres` en `None`, `vapor_camara` OFF (V12, SAF-03) y, al volver la lectura, el fin de exposición se corre el tramo sin datos (sin sumar a `pausa_total_s` de CIC-11).
+
+### Cambios de la tanda 12 (24-oct) en ESTERILIZACION
+Ver `docs/mis_plans/decisiones_tanda_12.md` e informes `docs/informes/tanda12/E12_esterilizacion.md` y `V12_revision_seguridad.md`.
+- **C-08 histéresis**: entrada a RECUPERACION igual que antes (inmediata); salida a PWM_ACTIVO solo con `T >= t_est + brecha_segura_temperatura + 0.3` (`_HIST_RECUP_TEMP_K`) **y** `P >= P_sat(t_est) - brecha_segura_presion + 1.0` (`_HIST_RECUP_PRES_KPA`). En RECUPERACION también rige el techo `P_control_max` (C-08.3), con histéresis de 2 kPa (`_HIST_TECHO_KPA`, DECISIÓN SIN CONFIRMAR): OFF al llegar al techo y OFF hasta `P < P_control_max - 2`. Ojo: a 134 °C con `presion_add_esterilizacion` 9–11, `Tsat(P_control_max)` ≈ 135.0–135.2 °C < 135.3 °C, así que en vapor saturado la fase queda en RECUPERACION pegada al techo y nunca pasa a PWM (pregunta abierta para Cristian).
+- **C-03 saturación (solo sólidos)**: `dT = Tsat(P) - T_principal`; `dT > +2 K` 5 s → FALLO CIC-12 (aire / no condensables); `dT < -2 K` 5 s → FALLO CIC-13 (vapor sobrecalentado o falla de la sonda). `_UMBRAL_SATURACION_K = 2.0`.
+- **C-13 Referencias**: banda `[t_est - brecha_error_temperatura, t_est + rango_temperatura_ester]` por Referencia con lectura; excursión confirmada a los 5 s → exposición detenida; al volver, el conteo se reinicia desde cero (`_timer_fin = now + tiempo`); F0 no se reinicia ni cambia su timeout 2×tiempo. Sin retorno en `timeout_excursion_referencia` → FALLO CIC-14. No se completa con una Referencia fuera de banda aunque la excursión no esté confirmada. Cada excursión va al ticket (`ticket_ciclo.aviso_excursion[_alta]`: sensor, duración, mínima/máxima). CIC-09 sigue una vez por sensor. La fase publica `estado.exposicion_restante_s`, que usa `GET /cycle/current/progress`.
+- **C-13.7b Referencia sin lectura**: el ciclo continúa; CicloState activa SEN-11 (aviso no bloqueante, despeje manual) y marca el ciclo **NO CONFORME** (bandera `_no_conforme` + línea `ticket_ciclo.no_conforme_referencia` en `estado.avisos_ciclo`, que llega al ticket y al registro aunque la Referencia vuelva a leer). Un ciclo NO CONFORME no usa apertura automática. La marca hoy no se ve en la pantalla final (V12 SAF-02, pregunta abierta). Principal o presión sin lectura → FALLO como antes.
 
 ### Pendiente compartido con CALENTAMIENTO
 Sensor de líquido secundario (`temp_camara_2`/`has_liquid_sensor`) para configuraciones de dos puertas — aplazado en ambas fases hasta un levantamiento aparte.
