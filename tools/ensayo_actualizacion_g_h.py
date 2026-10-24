@@ -41,12 +41,12 @@ from autoclave.backend.context import BackendContext
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 am = AlarmManager()
 ns = SimpleNamespace(cycle_manager=ciclos, db=db, alarm_manager=am)
+migr = [{"programa": c.id, **m} for c, m in ciclos.migraciones_correctivas()]   # antes de auditar (V12 SAF-07 la vacía)
 BackendContext._avisar_migraciones_correctivas(ns)
 BackendContext.auditar_migraciones_correctivas(ns)
 avisos = sorted(str(k) for k in am._instancias)
 aud = [dict(zip(("entidad", "valor_anterior", "valor_nuevo", "detalle"), r)) for r in db._conn.execute(
     "SELECT entidad, valor_anterior, valor_nuevo, detalle FROM audit_log WHERE evento='param_ciclo_cambio'")]
-migr = [{"programa": c.id, **m} for c, m in ciclos.migraciones_correctivas()]
 danados = {c.id: c.danado for c in ciclos.cycles.values() if getattr(c, "danado", None)}
 def _p(cid, sec, nom):
     c = ciclos.cycles.get(cid)
