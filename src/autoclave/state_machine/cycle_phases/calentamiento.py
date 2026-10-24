@@ -3,8 +3,10 @@
 # FASE 4 — CALENTAMIENTO
 #
 # Eleva la cámara desde la salida de PRE_VACIO hasta el punto de vapor
-# saturado del setpoint de esterilización (temperatura_calentamiento +
-# presion_add_calentamiento) y sostiene esa condición durante una ventana
+# saturado del setpoint (t_obj = temperatura_calentamiento, p_obj =
+# Psat(t_obj); desde la tanda 12, C-01, presion_add_calentamiento ya NO se
+# suma al objetivo: es solo el techo, Psat(t_obj) + presion_add_calentamiento)
+# y sostiene esa condición durante una ventana
 # continua de tiempo_estable_preesterilizacion segundos antes de entregar
 # control a ESTERILIZACION. Dos tramos internos, sin retroceso entre ellos:
 #   RAMPA (control continuo)  vapor_camara con un duty cycle (0 a 1)
@@ -33,20 +35,28 @@
 #                                  objetivo (ciclo 79, 2026-08-06: 136.7°C
 #                                  con t_obj=134.0°C)
 #                                duty_calidad_vapor   corta a 0 si temp ya
-#                                  cruzó el tope del 97% de t_obj pero la
-#                                  presión no corresponde a vapor saturado
-#                                  a esa temperatura real
-#                              Un techo independiente (P >= p_obj + presion_
-#                              add_calentamiento) fuerza duty=0 sin importar
+#                                  cruzó t_obj - 3 K (_MARGEN_CALIDAD_VAPOR_K,
+#                                  tanda 12 C-09; antes 97 % de t_obj) pero
+#                                  P < Psat(temp) - 2 kPa (_TOLERANCIA_PSAT_KPA,
+#                                  sin presion_add: C-01.5)
+#                              Un techo independiente (P >= Psat(t_obj) +
+#                              presion_add_calentamiento; hasta la tanda 11
+#                              era 2 x presion_add) fuerza duty=0 sin importar
 #                              el resto. El duty resultante se traduce a PWM
 #                              sobre intervalo_segmentos_calor. Ver docs/
 #                              superpowers/specs/2026-08-05-control-continuo-
 #                              rampa-calentamiento-design.md
-#   ESTABLE_PREESTERILIZACION entra al cruzar temp>=t_obj y pres>=p_obj; exige
-#                              una ventana CONTINUA de tiempo_estable_preesterilizacion
-#                              segundos dentro de banda (|T-t_obj|<=rango_temp_estabilizacion
-#                              Y |P-p_obj|<=presion_add_calentamiento) — el conteo
-#                              se reinicia si sale de banda, así se espera a que
+#   ESTABLE_PREESTERILIZACION entra al cruzar temp>=t_obj y pres>=p_obj-2 kPa
+#                              (C-01.2); exige una ventana CONTINUA de
+#                              tiempo_estable_preesterilizacion segundos dentro
+#                              de banda (C-01.3): t_obj <= T <= t_obj +
+#                              rango_temp_estabilizacion Y Psat(t_obj)-2 <= P <=
+#                              Psat(t_obj)+presion_add_calentamiento; con carga
+#                              sólida además coherencia T-P |Tsat(P)-T| <= 1 K
+#                              (C-02, _COHERENCIA_TP_K; no aplica a líquidos);
+#                              y cada Referencia CON lectura >= t_obj (una
+#                              Referencia sin lectura no bloquea: C-13.7b) — el
+#                              conteo se reinicia si sale de banda, así se espera a que
 #                              la inercia térmica se disipe antes de completar.
 #                              Timeout de recuperación dedicado
 #                              (timeout_recuperacion_estabilizacion) si nunca
@@ -64,7 +74,7 @@
 import time
 import logging
 from collections import deque
-from autoclave.core.runtime.steam import p_saturacion_kpa
+from autoclave.core.runtime.steam import p_saturacion_kpa, t_saturacion_c
 from autoclave.core.runtime import motivos_fase
 from .base_fase import BaseFase, FaseResult
 
@@ -80,7 +90,17 @@ logger = logging.getLogger(__name__)
 # extrapolación, dando una tasa que refleja el ritmo real sostenido.
 _VENTANA_PENDIENTE_SEG = 10
 
-_FACTOR_TOPE_TEMPERATURA = 0.97
+# Tanda 12, C-01.6: tolerancia (kPa) bajo Psat para entrar al sostenimiento,
+# para la banda de sostenimiento y para duty_calidad_vapor.
+_TOLERANCIA_PSAT_KPA = 2.0
+
+# Tanda 12, C-09: el tope de calidad de vapor arranca a esta distancia (K)
+# bajo t_obj (antes: 97 % de t_obj, que a 121 °C quedaba en 117.37 °C).
+_MARGEN_CALIDAD_VAPOR_K = 3.0
+
+# Tanda 12, C-02: coherencia temperatura-presión exigida en la banda de
+# sostenimiento (solo carga sólida): |Tsat(P) - T_principal| <= este valor.
+_COHERENCIA_TP_K = 1.0
 
 
 def _duty_por_tasa(tasa_actual, tasa_max):
@@ -115,16 +135,25 @@ def _duty_por_sobrepaso(dist, margen):
     return max(0.0, min(1.0 + dist / margen, 1.0))
 
 
-def _duty_por_calidad_vapor(temp, pres, t_obj, p_add):
-    """Corte binario (0 o 1): una vez que temp cruza el 97% de t_obj, exige
-    que la presion ya corresponda a la temperatura real (P_sat(temp) +
-    p_add) -- evita inyectar cuando el sensor de temperatura corre por
-    delante de vapor no saturado."""
-    temp_cap = _FACTOR_TOPE_TEMPERATURA * t_obj
-    if temp < temp_cap:
+def _duty_por_calidad_vapor(temp, pres, t_obj):
+    """Corte binario (0 o 1): una vez que temp cruza t_obj -
+    _MARGEN_CALIDAD_VAPOR_K (C-09), exige que la presion ya corresponda a
+    la temperatura real (P_sat(temp) - _TOLERANCIA_PSAT_KPA, sin sumar
+    presion_add: C-01.5) -- evita inyectar cuando el sensor de temperatura
+    corre por delante de vapor no saturado."""
+    if temp < t_obj - _MARGEN_CALIDAD_VAPOR_K:
         return 1.0
-    p_min_para_temp = p_saturacion_kpa(temp) + p_add
+    p_min_para_temp = p_saturacion_kpa(temp) - _TOLERANCIA_PSAT_KPA
     return 1.0 if pres >= p_min_para_temp else 0.0
+
+
+def _diferencia_coherencia_tp(temp, pres):
+    """Tsat(pres) - temp en K (C-02); None si la presión no permite
+    calcular Tsat (p <= 0 o no finita): se trata como incoherente."""
+    try:
+        return t_saturacion_c(pres) - temp
+    except ValueError:
+        return None
 
 
 class CalentamientoFase(BaseFase):
@@ -143,6 +172,7 @@ class CalentamientoFase(BaseFase):
         self._en_sostenimiento = False
         self._timer_sostenido_desde = None
         self._timer_recuperacion_fin = None
+        self._coherente_previo = True   # C-02: log solo al perder coherencia
 
         # Pendiente sobre ventana (tasa_calentamiento / tasa_presion) —
         # alimenta duty_tasa en el paso 4 (control continuo de vapor_camara).
@@ -227,7 +257,10 @@ class CalentamientoFase(BaseFase):
         rango_temp_estab =  self.cycle.get_param("calentamiento", "rango_temp_estabilizacion")           or 1.0
         timeout_rec_seg  = (self.cycle.get_param("calentamiento", "timeout_recuperacion_estabilizacion")  or 5) * 60
 
-        p_obj = p_saturacion_kpa(t_obj) + p_add
+        # Tanda 12, C-01: presion_add_calentamiento es solo techo. El
+        # objetivo de presión es la saturación a t_obj, sin sumarle nada.
+        p_obj = p_saturacion_kpa(t_obj)
+        p_techo = p_obj + p_add
 
         # ── 1. Inicialización ────────────────────────────────────────────
         if not self._inicializado:
@@ -290,8 +323,8 @@ class CalentamientoFase(BaseFase):
         # duty_estable a medida que temp/pres se acercan a los objetivos
         # fijos t_obj/p_obj (nunca contra P_sat(temp_actual)), y
         # duty_calidad_vapor corta a 0 si la temperatura ya cruzo el tope
-        # del 97% pero la presion no corresponde a vapor saturado a esa
-        # temperatura -- salvo que la fase ya este en ESTABLE_PREESTERILIZACION
+        # (t_obj - 3 K, C-09) pero la presion no corresponde a vapor saturado
+        # a esa temperatura (P < Psat(T) - 2 kPa, C-01.5) -- salvo que la fase ya este en ESTABLE_PREESTERILIZACION
         # (self._en_sostenimiento), donde ese chequeo no aplica: la
         # seguridad de esa banda ya la maneja el paso 7 con su propio
         # timeout de recuperacion, y aplicar duty_calidad_vapor ahi forzaba
@@ -324,11 +357,12 @@ class CalentamientoFase(BaseFase):
         if self._en_sostenimiento:
             duty_calidad_vapor = 1.0
         else:
-            duty_calidad_vapor = _duty_por_calidad_vapor(temp, pres, t_obj, p_add)
+            duty_calidad_vapor = _duty_por_calidad_vapor(temp, pres, t_obj)
 
         duty = min(duty_tasa, duty_proximidad, duty_calidad_vapor)
 
-        p_techo = p_obj + p_add
+        # C-01.4: techo en Psat(t_obj) + presion_add (antes p_obj + p_add con
+        # p_obj ya sumado, es decir 2 x presion_add)
         if pres >= p_techo:
             duty = 0.0
 
@@ -391,21 +425,50 @@ class CalentamientoFase(BaseFase):
         # respecto a los objetivos fijos (t_obj, p_obj) — el conteo se
         # reinicia si sale de banda, así se espera a que la inercia térmica
         # se disipe antes de entregar control a ESTERILIZACION.
+        p_min_banda = p_obj - _TOLERANCIA_PSAT_KPA
         if not self._en_sostenimiento:
-            if temp >= t_obj and pres >= p_obj:
+            # C-01.2: entra con T >= t_obj y P >= Psat(t_obj) - 2 kPa
+            if temp >= t_obj and pres >= p_min_banda:
                 self._en_sostenimiento = True
                 logger.info("Calentamiento: condición alcanzada — entra a ESTABLE_PREESTERILIZACION")
             else:
                 return FaseResult.EN_CURSO
 
-        dentro_rango = t_obj <= temp <= t_obj + rango_temp_estab and p_obj <= pres <= p_obj + p_add
-        # Tanda §1.1 (a): todas las sondas en uso deben estar en la consigna
+        # C-01.3: t_obj <= T <= t_obj + rango_temp_estabilizacion y
+        # Psat(t_obj) - 2 <= P <= Psat(t_obj) + presion_add (el techo)
+        dentro_rango = (t_obj <= temp <= t_obj + rango_temp_estab
+                        and p_min_banda <= pres <= p_techo)
+
+        # C-02 (solo sólidos): coherencia T-P. Fuera de coherencia = fuera de
+        # banda (reinicia la ventana y arma el timeout de recuperación). Con
+        # líquidos el Principal es la sonda del líquido, que va minutos
+        # detrás del vapor: no se exige (queda para el lazo de presión, C-11).
+        # Falla segura: cualquier valor que no sea "liquido" (incluido un
+        # tipo_carga ausente o nulo) se trata como sólido y exige coherencia.
+        exige_coherencia = self.cycle.get_param(
+            "globals", "tipo_carga", default="solido") != "liquido"
+        if exige_coherencia:
+            dif_tp = _diferencia_coherencia_tp(temp, pres)
+            coherente = dif_tp is not None and abs(dif_tp) <= _COHERENCIA_TP_K
+            if not coherente and self._coherente_previo:
+                logger.warning(
+                    "Calentamiento: sin coherencia T-P en sostenimiento — "
+                    "Tsat(P)=%s°C T=%.1f°C diferencia=%s K (máx %.1f K)",
+                    "?" if dif_tp is None else f"{temp + dif_tp:.2f}", temp,
+                    "?" if dif_tp is None else f"{dif_tp:+.2f}", _COHERENCIA_TP_K,
+                )
+            self._coherente_previo = coherente
+            dentro_rango = dentro_rango and coherente
+
+        # Tanda §1.1 (a): las sondas en uso deben estar en la consigna
         # durante la ventana. Las Referencias no se comparan con el Principal
         # ni entre sí: solo contra la consigna (cota inferior; pueden ir más
-        # frías que el Principal, nunca se les exige un techo). Una lectura
-        # None la detiene antes la vigilancia SENSOR_AUSENTE de CicloState.
-        refs_en_consigna = all(t is not None and t >= t_obj
-                               for t in self._temps_referencia().values())
+        # frías que el Principal, nunca se les exige un techo). Tanda 12,
+        # C-13.7b (opción B): una Referencia sin lectura NO bloquea la ventana
+        # (el ciclo sigue y CicloState la marca NO CONFORME); las que sí leen
+        # deben estar en consigna.
+        refs_en_consigna = all(t >= t_obj for t in self._temps_referencia().values()
+                               if t is not None)
         dentro_rango = dentro_rango and refs_en_consigna
 
         if dentro_rango:

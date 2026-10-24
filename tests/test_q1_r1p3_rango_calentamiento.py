@@ -154,7 +154,7 @@ def _fase(rango_temp, rango_pres, temp, pres, viejo=None):
     return fase
 
 
-P_OBJ = p_saturacion_kpa(134.0) + 11.0
+P_OBJ = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
 
 
 def test_rango_de_presion_actua_sobre_la_presion():

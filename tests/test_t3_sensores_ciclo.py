@@ -313,7 +313,7 @@ def _calentamiento_con_referencia(t_ref):
     fase.update()
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_temp["temp_ref"] = t_ref
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     fase.update()
     return fase, estado
 
@@ -336,7 +336,7 @@ def test_principal_temp_2_camara_controla_el_calentamiento():
     fase.update()
     estado.sensores_temp["temp_camara"] = 20.0          # no en uso: no cuenta
     estado.sensores_temp["temp_2_camara"] = 134.0
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.0) + 11.0
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     fase.update()
     assert fase._en_sostenimiento is True
 
