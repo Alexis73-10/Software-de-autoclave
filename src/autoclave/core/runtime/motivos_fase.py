@@ -40,6 +40,8 @@ CODIGOS = (
     "cal_tiempo_limite", "cal_tiempo_limite_sostenimiento", "cal_no_sostuvo",
     "est_comunicacion", "est_temp_alta", "est_temp_baja", "est_pres_alta", "est_pres_baja",
     "est_timeout_f0",
+    # E12 (tanda 12): C-03 (saturación, solo sólidos) y C-13.4 (Referencia)
+    "est_aire", "est_sobrecalentado", "est_excursion_referencia",
     "desc_tiempo_limite",
     "sec_vacio_perdido", "sec_sin_vacio", "sec_termino_sin_vacio",
     "sec_modo3_vacio_bajo", "sec_modo3_aire_alto",

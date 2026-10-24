@@ -50,6 +50,11 @@ _EJEMPLOS = {
     "CIC-09": {"sensor": "Referencia", "temp": 119.0, "minimo": 120.9, "maximo": 124.0},
     "CIC-10": {"motivo": "Sensor Principal sin lectura"},
     "CIC-11": {"segundos": 31.0, "maximo": 30},
+    # E12 (tanda 12): C-03, C-13.4 y C-13.7b
+    "CIC-12": {"tsat": 137.0, "temp": 134.5, "dt": 2.5},
+    "CIC-13": {"tsat": 134.0, "temp": 136.5, "dt": 2.5},
+    "CIC-14": {"sensor": "Referencia", "minutos": "5"},
+    "SEN-11": {"sensor": "Referencia", "fase": "Esterilización"},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
     # J12 (tanda 12, C-04.4): migración correctiva de un programa
@@ -121,6 +126,9 @@ def test_niveles_migrados_iguales_a_hoy():
         **{f"CIC-0{i}": Nivel.ALARMA for i in range(1, 7)},
         # D8-2.8 (tanda 8): código nuevo, mismo nivel que el fallo de fase CIC-04
         "CIC-11": Nivel.ALARMA,
+        # E12 (tanda 12): fallos propios de esterilización, mismo nivel que CIC-11
+        # (SEN-11, Referencia sin lectura, es AVISO no bloqueante: el defecto)
+        "CIC-12": Nivel.ALARMA, "CIC-13": Nivel.ALARMA, "CIC-14": Nivel.ALARMA,
         # D9-2 (tanda 9, H3): pasan de AVISO a ALARMA conservando su bloqueo
         "SEN-01": Nivel.ALARMA, "SEN-03": Nivel.ALARMA, "SEN-06": Nivel.ALARMA,
         "SEN-07": Nivel.ALARMA, "CIC-10": Nivel.ALARMA,

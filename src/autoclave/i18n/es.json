@@ -948,6 +948,11 @@
       "plantilla": "La puerta está abierta, pero la presión de cámara no corresponde a la presión atmosférica. No se pueden iniciar ciclos.",
       "accion": "Causas posibles: calibración del sensor de presión de cámara, presión atmosférica de referencia mal configurada o sensor de puerta. Llame a servicio técnico."
     },
+    "SEN-11": {
+      "titulo": "Sensor de referencia sin lectura",
+      "plantilla": "Sin lectura de {sensor} en la fase {fase}. El ciclo sigue con las sondas que leen y queda NO CONFORME: punto de referencia sin verificar.",
+      "accion": "Revise la conexión de la sonda de referencia. Valide la carga según su procedimiento antes de liberarla."
+    },
     "CIC-01": {
       "titulo": "Fallo en precalentamiento",
       "plantilla": "{motivo}",
@@ -1003,6 +1008,21 @@
       "titulo": "Comunicación inestable en esterilización",
       "plantilla": "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
       "accion": "La carga NO está estéril. Revise el cable USB y la alimentación de la tarjeta y repita el ciclo. Si se repite, llame a servicio técnico."
+    },
+    "CIC-12": {
+      "titulo": "Aire o gases no condensables en la cámara",
+      "plantilla": "La presión de cámara corresponde a {tsat:.1f} °C de saturación, {dt:.1f} K por encima del sensor Principal ({temp:.1f} °C). El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise la eliminación de aire (prevacío, prueba de Bowie & Dick y fugas de la cámara) y repita el ciclo."
+    },
+    "CIC-13": {
+      "titulo": "Vapor sobrecalentado o falla de la sonda",
+      "plantilla": "El sensor Principal marca {temp:.1f} °C, {dt:.1f} K por encima de la saturación de la presión de cámara ({tsat:.1f} °C). El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise la sonda Principal y el sensor de presión de cámara (calibración) y el vapor de alimentación, y repita el ciclo."
+    },
+    "CIC-14": {
+      "titulo": "Referencia fuera de banda en esterilización",
+      "plantilla": "{sensor} siguió fuera de la banda de esterilización por más de {minutos} min. El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y repita el ciclo."
     },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
@@ -1845,6 +1865,9 @@
     "est_pres_alta": "Presión alta: {pres} > {pres_limite}",
     "est_pres_baja": "Presión baja: {pres} < {pres_limite}",
     "est_timeout_f0": "ESTERILIZACION_TIMEOUT_F0: F0 no alcanzado tras {minutos} min (F0={f0}/{f0_objetivo} min)",
+    "est_aire": "Aire o gases no condensables: Tsat(P) {temp_sat} supera en {dt} K al Principal {temp}",
+    "est_sobrecalentado": "Vapor sobrecalentado o falla de la sonda: Principal {temp} supera en {dt} K a Tsat(P) {temp_sat}",
+    "est_excursion_referencia": "{sensor} fuera de banda por más de {minutos} min",
     "desc_tiempo_limite": "Tiempo límite de {etapa} del modo {modo} (T={temp}, P={pres})",
     "sec_vacio_perdido": "Secado modo {modo}: se perdió el vacío ({pres} ≥ {pres_umbral})",
     "sec_sin_vacio": "Secado modo {modo}: sin vacío real (la presión no bajó de {pres_umbral} a tiempo); revise la bomba de vacío",
@@ -1924,7 +1947,10 @@
       "PUERTA_EMPAQUE": "PUERTA_{n}_EMPAQUE",
       "PUERTA_EMPAQUE_SIN_LECTURA": "PUERTA_{n}_EMPAQUE_SIN_LECTURA"
     },
-    "aviso_uniformidad": "Uniformidad termica fuera de rango: {sensor} {temp}"
+    "aviso_uniformidad": "Uniformidad termica fuera de rango: {sensor} {temp}",
+    "aviso_excursion": "Excursión de {sensor}: {duracion} s fuera de banda, mínima {temp_min}",
+    "aviso_excursion_alta": "Excursión de {sensor}: {duracion} s fuera de banda, mínima {temp_min}, máxima {temp_max}",
+    "no_conforme_referencia": "NO CONFORME: punto de referencia sin verificar ({sensor})"
   },
   "modos_programa": {
     "secado_intro": "Cómo se seca la carga. En los modos 1 y 2 la cámara debe alcanzar vacío dentro del tiempo límite del pulso y no perderlo; si no, el ciclo falla.",

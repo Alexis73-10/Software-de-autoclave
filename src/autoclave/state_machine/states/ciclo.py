@@ -21,6 +21,9 @@ from autoclave.state_machine.alarms.catalogo import (
     CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
     COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, nombre_legible,
 )
+# E12 (tanda 12): alarmas propias de ESTERILIZACION (C-03, C-13) y Referencia
+# sin lectura (C-13.7b)
+from autoclave.state_machine.alarms.catalogo import CIC_12, CIC_13, CIC_14, SEN_11
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
 from autoclave.state_machine.cycle_phases.prevacio import PrevacioFase
@@ -74,6 +77,8 @@ _CIC_POR_FASE = {
     "ESTERILIZACION": CIC_04, "DESCOMPRESION": CIC_05, "SECADO": CIC_06,
 }
 _MOTIVO_NO_REGISTRADO = "La fase terminó en fallo; el motivo detallado aún no se registra."
+# D8-2.8 / E12 (tanda 12): códigos que una fase puede dejar en `alarma_fallo`
+_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14)
 
 # Sección del JSON del programa -> fase del pipeline que la usa (§5.8).
 # `estabilizacion` va con CALENTAMIENTO (fusionadas). Las secciones que no están aquí (`globals`, `finalizacion` o
@@ -417,11 +422,12 @@ class CicloState:
         llamador igual ejecuta el protocolo de fallo.
 
         D8-2.8 (tanda 8): si la fase dejó `alarma_fallo` (código propio y sus
-        valores, hoy solo CIC-11 de ESTERILIZACION), se registra esa."""
+        valores: CIC-11 y, desde la tanda 12, CIC-12/13/14 de ESTERILIZACION),
+        se registra esa."""
         try:
             propia = getattr(fase, "alarma_fallo", None)
             if (isinstance(propia, tuple) and len(propia) == 2
-                    and propia[0] in (CIC_11,) and isinstance(propia[1], dict)):
+                    and propia[0] in _ALARMAS_PROPIAS_FASE and isinstance(propia[1], dict)):
                 self._registrar_fallo(propia[0], origen=nombre_legible(nombre_fase), **propia[1])
                 return
             # La fase puede haber dejado ya un motivo específico (p.ej.
@@ -665,6 +671,53 @@ class CicloState:
             abrir_valvula_modo(self.set_do, modo, liquido=liquido,
                                enfriada=self._principal_enfriada(modo))
 
+    # ------------------------------------------------------------------
+    # C-13.7b (tanda 12): Referencia sin lectura → ciclo NO CONFORME
+    # ------------------------------------------------------------------
+
+    _CLAVE_NO_CONFORME = "ticket_ciclo.no_conforme_referencia"
+
+    def _avisos_no_conforme(self) -> list:
+        avisos = getattr(self.estado, "avisos_ciclo", None)
+        if not isinstance(avisos, list):
+            return []
+        return [a for a in avisos if isinstance(a, dict) and a.get("clave") == self._CLAVE_NO_CONFORME]
+
+    @property
+    def no_conforme(self) -> bool:
+        """El ciclo en curso (o recién terminado) quedó NO CONFORME: punto de
+        referencia sin verificar. Se deriva de estado.avisos_ciclo (que
+        reset() vacía al iniciar cada ciclo), así que la marca queda aunque
+        la Referencia vuelva a leer, y va al ticket y al registro del ciclo
+        (CycleLogger guarda los avisos en avisos_ticket de la base y del
+        respaldo)."""
+        return bool(self._avisos_no_conforme())
+
+    def _marcar_referencias_sin_lectura(self, ausentes) -> None:
+        """Una vez por ciclo y sensor: SEN-11 (no bloqueante) y línea NO
+        CONFORME en el ticket. El ciclo continúa con las sondas que leen."""
+        ya = {a.get("sensor") for a in self._avisos_no_conforme()}
+        for s in ausentes:
+            nombre = nombre_legible(s)
+            if nombre in ya:
+                continue
+            ya.add(nombre)
+            fase = self._fase_actual_legible()
+            logger.error("CicloState: Referencia %s sin lectura en %s; el ciclo sigue y queda "
+                         "NO CONFORME (punto de referencia sin verificar)", s, fase)
+            try:
+                avisos = getattr(self.estado, "avisos_ciclo", None)
+                if not isinstance(avisos, list):
+                    avisos = []
+                    self.estado.avisos_ciclo = avisos
+                avisos.append({"clave": self._CLAVE_NO_CONFORME, "sensor": nombre})
+            except Exception:
+                logger.exception("CicloState: no se pudo anotar el ciclo NO CONFORME")
+            try:
+                self.alarm_manager.activar(SEN_11, origen=s, sensor=nombre, fase=fase)
+            except Exception:
+                logger.exception("CicloState: no se pudo registrar SEN-11")
+
     def _mantener_apertura_automatica(self):
         """Si finalizacion.apertura_automatica está activo, abre la puerta de
         descarga y confirma el ciclo sin esperar al operador. Solo se llama
@@ -682,6 +735,10 @@ class CicloState:
         if self.door_service is None:
             return
         if not self.cycle.get_param("finalizacion", "apertura_automatica", default=False):
+            return
+        # C-13.7b (DSC confirmada como DSC en las decisiones de la tanda 12):
+        # un ciclo NO CONFORME pasa al flujo manual de confirmación
+        if self.no_conforme:
             return
 
         # Puerta sin actuador (manual): no hay nada que abrir. Se ignora el
@@ -917,8 +974,11 @@ class CicloState:
             return CicloResultado.ESPERANDO_CONFIRMACION
 
         # ── 4. Verificar sensores críticos ────────────────────────────
-        # DECISIÓN SIN CONFIRMAR (tanda §1.1): una Referencia caída también
-        # dispara SENSOR_AUSENTE → FALLO, igual que el Principal.
+        # C-13.7b (tanda 12, opción B confirmada 24-oct; reemplaza la DECISIÓN
+        # SIN CONFIRMAR de la tanda §1.1): el Principal sin lectura falla
+        # (SEN-02); una Referencia sin lectura NO aborta: SEN-11 no bloqueante
+        # y el ciclo queda NO CONFORME (ticket y registro), sin apertura
+        # automática. Corre antes de fase.update() (C-10.1).
         # SEN-01 de T2: un 0 del sensor de temperatura es "sin señal" (mismo
         # criterio que estado_sensor y temp_seguridad)
         ausentes = [
@@ -943,7 +1003,10 @@ class CicloState:
             self._protocolo.ejecutar(solo_lenta=True)
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
-        if ausentes:
+        principal_ausente = sensor_principal(self.cycle) in ausentes
+        if ausentes and not principal_ausente:
+            self._marcar_referencias_sin_lectura(ausentes)
+        elif ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)
             self.estado.fase_ciclo = "SENSOR_AUSENTE"
             fase = self._fase_actual_legible()
@@ -952,16 +1015,13 @@ class CicloState:
                                   sensores=", ".join(legibles), fase=fase)
             # P-2 (tanda 6): con el Principal perdido NO se sigue con la
             # Referencia: el ciclo falla y se ventea solo por la lenta.
-            if sensor_principal(self.cycle) in ausentes:
-                if self._fase_en_enfriamiento_con_contrapresion():
-                    # D8-2.10: líquidos en modos 4/5 quedan sellados (lo
-                    # decide el protocolo según el tipo de carga)
-                    self._protocolo.ejecutar(solo_lenta=True,
-                                             en_enfriamiento_contrapresion=True)
-                else:
-                    self._protocolo.ejecutar(solo_lenta=True)
+            if self._fase_en_enfriamiento_con_contrapresion():
+                # D8-2.10: líquidos en modos 4/5 quedan sellados (lo
+                # decide el protocolo según el tipo de carga)
+                self._protocolo.ejecutar(solo_lenta=True,
+                                         en_enfriamiento_contrapresion=True)
             else:
-                self._protocolo.ejecutar()
+                self._protocolo.ejecutar(solo_lenta=True)
             self._resultado_pendiente = CicloResultado.FALLO
             return CicloResultado.ESPERANDO_CONFIRMACION
 
