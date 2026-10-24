@@ -71,3 +71,12 @@ def test_etiquetas_i18n_de_los_parametros_nuevos():
         for idioma in ("es", "en"):
             assert i18n.existe("parametros." + clave, idioma)
             assert i18n.existe("parametros_desc." + clave, idioma)
+
+
+@pytest.mark.parametrize("ruta", PROGRAMAS, ids=lambda r: "/".join(Path(r).parts[-2:]))
+def test_c_07_1_brecha_segura_temperatura_1(ruta):
+    """C-07.1: el control apunta a T_est + 1 K, dentro de la banda de +3 K.
+    OJO al unir: sin el techo en RECUPERACION de E12 (C-08.3) los ensayos de
+    simulador fallan por presión alta (ver informe J12)."""
+    p = json.loads(Path(ruta).read_text(encoding="utf-8"))["parameters"]
+    assert p["esterilizacion"]["brecha_segura_temperatura"]["value"] == 1.0
