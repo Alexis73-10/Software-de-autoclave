@@ -6,7 +6,7 @@ Precondición A0: `tanda11/estado.md` tiene `| Z | Hecha |` y `dev` contiene `ta
 
 | Etapa | Estado | Commit | Nota |
 |---|---|---|---|
-| A0 | Hecha | c462114 | `t_saturacion_c` + prueba (106 passed con `test_steam.py`). Línea base en `_suites_t12/base` (8bda767) con `-n auto` lanzada (`suites/base.log`). |
+| A0 | Hecha | c462114 | `t_saturacion_c` + prueba (106 passed con `test_steam.py`). Línea base en `_suites_t12/base` (8bda767) con `-n auto`: **7216 passed, 2 failed, 10 skipped, 3 xfailed** en 8 min (`suites/base.log`); los 2 (`test_ciclos_print.py::test_print_selected_sin_seleccion_no_imprime`, `test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu`) pasan en serie (`suites/base_serie.log`). **Línea base: 7218 passed.** |
 | E12 | En curso | `tanda-12-e12` | Subagente lanzado. Códigos preasignados: CIC-12, CIC-13, CIC-14, SEN-11. |
 | J12 | En curso | `tanda-12-j12` | Subagente lanzado. Código preasignado SIS-06 (excepción: agrega una entrada a `alarms/catalogo.py` e i18n; DECISIÓN SIN CONFIRMAR de la sesión principal). |
 | P12 | En curso | `tanda-12-p12` | Subagente lanzado. |
@@ -17,3 +17,4 @@ Instrucciones comunes de los subagentes: `tanda12/brief_subagentes.md`. Si la se
 ## Sesión 01 (17:30)
 - A0: rama `tanda-12` creada, línea base lanzada.
 - A0 hecha (2632566 docs, c462114 feat). Lanzados E12, J12, P12 y L12 (4 subagentes, cada uno en su worktree).
+- Línea base terminada: 7218 passed (7216 + 2 en serie).
