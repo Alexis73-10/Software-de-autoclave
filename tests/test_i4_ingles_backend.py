@@ -36,7 +36,9 @@ def _campos(texto):
 
 def _valores(d):
     ejemplo = {"pres": 210.0, "minimo": 100.0, "maximo": 200.0, "objetivo": 150.0, "rango": 10.0,
-               "temp": 90.5, "minutos": 12.0, "segundos": 5.0}
+               "temp": 90.5, "minutos": 12.0, "segundos": 5.0,
+               # E12 (tanda 12): CIC-12/CIC-13 (saturación, K y °C con decimales)
+               "tsat": 137.0, "dt": 2.5}
     return {c: ejemplo.get(c, "X") for c in d.campos()}
 
 

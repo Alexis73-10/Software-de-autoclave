@@ -276,12 +276,16 @@ def test_principal_sin_lectura_falla_antes_de_la_fase():
     assert [i.codigo for i in am.activas()] == ["SEN-02"]
 
 
-def test_referencia_sin_lectura_tambien_falla():
-    # DECISIÓN SIN CONFIRMAR de la tanda: Referencia caída = mismo FALLO
-    ciclo, estado, _ = _ciclo(_ASIG_REF, {"temp_camara": 100.0, "temp_ref": None})
-    ciclo._fases[0].update = MagicMock()
+def test_referencia_sin_lectura_no_falla_y_queda_no_conforme():
+    # Tanda 12, C-13.7b (opción B confirmada 24-oct; reemplaza la DECISIÓN SIN
+    # CONFIRMAR de la tanda §1.1, que fallaba): el ciclo sigue NO CONFORME
+    ciclo, estado, am = _ciclo(_ASIG_REF, {"temp_camara": 100.0, "temp_ref": None})
+    estado.avisos_ciclo = []
+    ciclo._fases[0].update = MagicMock(return_value=None)
     ciclo.run()
-    assert estado.fase_ciclo == "SENSOR_AUSENTE"
+    assert estado.fase_ciclo != "SENSOR_AUSENTE"
+    assert "SEN-11" in [i.codigo for i in am.activas()]
+    assert ciclo.no_conforme is True
 
 
 # ── Fases: control con el Principal y referencias ───────────────────────────
@@ -350,9 +354,14 @@ def _esterilizacion_con_referencia(t_ref):
     return fase, estado
 
 
-def test_referencia_fuera_de_rango_alerta_una_vez_y_no_falla():
+def test_referencia_fuera_de_rango_alerta_una_vez_y_no_falla(monkeypatch):
+    # Tanda 12 (C-13.2): la excursión se confirma tras 5 s continuos
+    reloj = test_._reloj(monkeypatch)
     fase, estado = _esterilizacion_con_referencia(115.0)
-    resultados = [fase.update() for _ in range(5)]
+    resultados = []
+    for _ in range(5):
+        resultados.append(fase.update())
+        reloj.t += 2.0
     assert FaseResult.FALLO not in resultados
     llamadas = [c for c in fase.alarm_manager.activar.call_args_list if c.args[0] == "CIC-09"]
     assert len(llamadas) == 1
@@ -466,12 +475,19 @@ def test_ticket_lleva_el_aviso_de_uniformidad():
     assert "Aviso: Uniformidad termica fuera de rango: Referencia 115.0 C" in texto
 
 
-def test_cic09_anota_aviso_del_ciclo():
+def test_cic09_anota_aviso_del_ciclo(monkeypatch):
+    # Tanda 12 (C-13.5): la línea del ticket es la de la excursión (sensor,
+    # duración, mínima), que reemplaza al aviso único de uniformidad; se
+    # anota al volver la Referencia a la banda (o al fallar la fase)
+    reloj = test_._reloj(monkeypatch)
     fase, estado = _esterilizacion_con_referencia(115.0)
     estado.avisos_ciclo = []
     for _ in range(4):
         fase.update()
+        reloj.t += 2.0
+    estado.sensores_temp["temp_ref"] = 121.5
+    fase.update()
     # X9 (tanda 9, D9-13.4): el aviso va con clave + parámetros; el ticket lo arma
     from autoclave.services.domain.logging import ticket_formatter as tf
-    assert estado.avisos_ciclo and estado.avisos_ciclo[0]["clave"] == "ticket_ciclo.aviso_uniformidad"
+    assert estado.avisos_ciclo and estado.avisos_ciclo[0]["clave"] == "ticket_ciclo.aviso_excursion"
     assert "Referencia" in tf.aviso_ticket(estado.avisos_ciclo[0], tf.Presentacion("es", "C", "kPa"))
