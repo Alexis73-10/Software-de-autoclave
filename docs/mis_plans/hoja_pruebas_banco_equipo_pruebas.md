@@ -2114,6 +2114,8 @@ Todas en el **PC de prueba** (no en el equipo del autoclave hasta aprobarlas), c
 
 Con la compilación **H** instalada encima de la G (Actualizar, conserva los datos). Orden: A-T12-01 en seco; luego E-T12-04 (Bowie & Dick, primer ciclo del día con la cámara vacía), E-T12-01 a E-T12-03 durante un **Instrumental 134 de usuario** (134 °C, `presion_add_esterilizacion` 9, 7 min) y, solo con esos aprobados, F-T12-01 y F-T12-02. Tener a mano el log del backend (`logs/`) del día: casi todo lo que se pide anotar sale de sus líneas. Valores calculados con la ecuación de `steam.py`: `Psat(134) = 302,3 kPa`, `Psat(134,5) = 306,7 kPa`, `Psat(121) = 204,3 kPa`. Presiones siempre en kPa absolutos.
 
+**Importante (sesión principal, al unir):** la actualización conserva los programas de usuario de la G y solo migra lo que falta o lo inválido. Por eso, en el equipo, `brecha_segura_temperatura` de los programas de usuario **sigue en 0,3** (el 1,0 de C-07.1 solo llega a los programas nuevos o de fábrica). Antes del primer ciclo, anotar el valor en Opciones › Parámetros del ciclo › Esterilización. Si se quiere probar C-07.1, cambiarlo a mano a 1,0 en la copia de prueba. Con 1,0 rige la observación del techo de E-T12-03.
+
 Programas de usuario de la H: Instrumental 134 → techo de cámara en esterilización 311,3 kPa y consigna de chaqueta ≈ 326,3 kPa; Bowie & Dick (134,5 °C / 9) → techo 315,7 kPa y consigna ≈ 330,7 kPa; Instrumental 121 (121 °C / 9) → techo 213,3 kPa y consigna ≈ 228,3 kPa.
 
 ### A-T12-01 — Tras instalar la H: Bowie & Dick migrado de 99 a 9 con aviso SIS-06 en Preciclo y campana
@@ -2173,14 +2175,14 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
 ### E-T12-03 — Esterilización sin conmutación rápida RECUPERACION ↔ PWM
 
 - **Modo:** En operación (vapor)  ·  **Origen:** E12 C-07/C-08 (tanda 12)
-- **Objetivo:** Con `brecha_segura_temperatura` 1,0 K, la fase entra a RECUPERACION si `T < 135,0` o `P < 300,8 kPa`, y vuelve a PWM solo con `T ≥ 135,3` **y** `P ≥ 301,8 kPa` (histéresis). En RECUPERACION el vapor también se corta en el techo `P_control_max = 311,3 kPa`. Las fallas (temp/pres alta/baja y saturación) exigen 5 s continuos, no 3 lecturas.
+- **Objetivo:** La fase entra a RECUPERACION si `T < 134 + brecha` o `P < 300,8 kPa`, y vuelve a PWM solo con `T ≥ 134 + brecha + 0,3` **y** `P ≥ 301,8 kPa` (histéresis). Con la brecha de 0,3 que conservan los programas de usuario: entrada bajo 134,3 °C y salida desde 134,6 °C. Con 1,0: entrada bajo 135,0 °C y salida desde 135,3 °C. En RECUPERACION el vapor también se corta en el techo `P_control_max = 311,3 kPa` y no vuelve a abrir hasta bajar de 309,3 kPa (histéresis de 2 kPa agregada al unir, DECISIÓN SIN CONFIRMAR). Las fallas (temp/pres alta/baja y saturación) exigen 5 s continuos, no 3 lecturas.
 - **Precondiciones:** Mismo ciclo (Instrumental 134 de usuario, 7 min de meseta).
 - **Pasos:**
   1. Durante la meseta, registrar cada 15 s T, P y el estado de Vapor cámara (pantalla, o LED de la salida en la tarjeta); en el log buscar los cambios RECUPERACION ↔ PWM_ACTIVO si se registran.
   2. Durante 1 minuto en la mitad de la meseta, contar cuántas veces cambia Vapor cámara (abre o cierra).
   3. Anotar la presión máxima de cámara en la meseta.
   4. Revisar que ninguna falla dispare por un pico de una sola lectura.
-- **Resultado esperado:** Sin alternancia RECUPERACION ↔ PWM en cada tick; P máxima ≤ 311,3 kPa + inercia; meseta completa sin FALLO. **Ojo (observación de L12):** con 134 °C y `presion_add` 9, la temperatura de saturación del techo es `Tsat(311,3) = 135,0 °C`, menor que el umbral de salida (135,3 °C): con vapor saturado lo esperable es que la fase quede **toda la meseta en RECUPERACION** y que la válvula se regule en el techo de 311,3 kPa. Eso no es conmutación RECUPERACION ↔ PWM, pero la válvula de vapor puede abrir y cerrar muy seguido en el techo (sin histéresis allí).
+- **Resultado esperado:** Sin alternancia RECUPERACION ↔ PWM en cada tick; P máxima ≤ 311,3 kPa + inercia; meseta completa sin FALLO. **Ojo (observación de L12):** con 134 °C y `presion_add` 9, la temperatura de saturación del techo es `Tsat(311,3) = 135,0 °C`, menor que el umbral de salida (135,3 °C): con vapor saturado lo esperable es que la fase quede **toda la meseta en RECUPERACION** y que la válvula se regule en el techo de 311,3 kPa. Eso no es conmutación RECUPERACION ↔ PWM: la válvula se regula en el techo, entre 309,3 y 311,3 kPa. Con la brecha de 0,3 este caso no aplica (134,6 °C < 135,0 °C) y la meseta debe correr en PWM.
 - **Criterio de aprobado/fallo:** Aprobado si no hay conmutación rápida RECUPERACION ↔ PWM y la meseta completa. Si Vapor cámara cambia más de ~20 veces por minuto (en el techo o en la banda), anotar la cuenta, la presión y el tramo y **avisar a Code** (pregunta abierta de L12 sobre el techo).
 - **Cambios de Vapor cámara en 1 min:** ________ · **Tramo (log):** ________ · **P máx. meseta:** ________ kPa
 - **Valor observado:** ______________________________________________
