@@ -169,6 +169,20 @@ def _evento_d8210(a, con_referencia=False):
     if con_referencia:
         a["ciclo"].cycle.sensores = {"temp_camara": "principal", "temp_2_camara": "no_en_uso",
                                      "temp_ref": "referencia"}
+        # Tanda 12 (C-01): con p_obj = Psat(T_obj) el Principal se estabiliza
+        # justo sobre T_obj; la planta publica temp_ref = T - 0.2 y esa
+        # Referencia nunca llegaría a la consigna (FALLO cal_no_sostuvo antes
+        # de DESCOMPRESION, que es lo que este evento ensaya). Físicamente el
+        # Principal está en la zona más fría de la cámara: la Referencia va
+        # 0.2 K por encima.
+        original = a["planta"].publicar
+
+        def publicar(estado):
+            original(estado)
+            t = estado.sensores_temp.get("temp_camara")
+            if t is not None:
+                estado.sensores_temp["temp_ref"] = t + 0.2
+        a["planta"].publicar = publicar
     e1._hasta_fase(a, "DESCOMPRESION", extra_s=2)
     enfriando = a["ciclo"]._fase_en_enfriamiento_con_contrapresion()
     principal = modulo_ciclo.sensor_principal(a["ciclo"].cycle)

@@ -95,7 +95,7 @@ def test_duty_baja_por_presion_cercana_al_objetivo_aunque_lejos_de_p_sat_temp():
     interfiera en este caso."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 110.0  # P_sat(110) ~ 146 kPa, muy lejos de p_obj
     estado.sensores_pres["pres_camara"] = p_obj - 1.0  # a 1 kPa del objetivo, dentro de rango=2.0
     result = fase.update()
@@ -113,7 +113,7 @@ def test_calidad_vapor_fuerza_cero_si_temp_supera_el_tope_y_presion_no_correspon
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()  # inicializar
     estado.sensores_temp["temp_camara"] = 134.0
-    estado.sensores_pres["pres_camara"] = 50.0  # muy por debajo de lo que P_sat(134)+11 exige
+    estado.sensores_pres["pres_camara"] = 50.0  # muy por debajo de lo que P_sat(134)-2 exige (tanda 12 C-01.5)
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._duty_actual == 0.0
@@ -122,8 +122,9 @@ def test_calidad_vapor_fuerza_cero_si_temp_supera_el_tope_y_presion_no_correspon
 def test_calidad_vapor_no_restringe_por_debajo_del_tope_de_97_por_ciento():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()  # inicializar
-    estado.sensores_temp["temp_camara"] = 129.0  # < 0.97*134 = 129.98
-    estado.sensores_pres["pres_camara"] = 50.0  # lejos de P_sat(129)+11, pero el tope no se activo aun
+    # tanda 12 C-09: el tope es t_obj - 3 K = 131.0 (antes 0.97*134 = 129.98)
+    estado.sensores_temp["temp_camara"] = 129.0
+    estado.sensores_pres["pres_camara"] = 50.0  # lejos de P_sat(129)-2, pero el tope no se activo aun
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._duty_actual == 1.0  # ni proximidad ni calidad_vapor restringen todavia
@@ -132,7 +133,7 @@ def test_calidad_vapor_no_restringe_por_debajo_del_tope_de_97_por_ciento():
 def test_duty_estable_igual_al_factor_configurado_en_el_objetivo():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=70.0)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()
@@ -146,7 +147,7 @@ def test_duty_estable_cero_si_factor_es_cien():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=100.0,
                                        tiempo_estable=999)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     set_do.reset_mock()
@@ -164,7 +165,7 @@ def test_duty_interpola_linealmente_dentro_de_la_banda_de_proximidad():
     duty_proximidad."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 100.0  # dist_t grande -> prox_t=1.0 (clamped)
     estado.sensores_pres["pres_camara"] = p_obj - 1.0  # dist_p=1.0, margen=2.0 -> prox_p=0.5
     result = fase.update()
@@ -176,7 +177,7 @@ def test_duty_interpola_linealmente_dentro_de_la_banda_de_proximidad():
 def test_techo_independiente_fuerza_duty_cero_sin_importar_el_resto():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj + 20.0  # supera el techo (p_obj + presion_add)
     set_do.reset_mock()
@@ -200,7 +201,7 @@ def test_duty_tasa_restringe_incluso_cerca_del_objetivo():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0,
                                        tasa_calentamiento=200.0, tasa_presion=10.0)
     fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 100.0
     estado.sensores_pres["pres_camara"] = p_obj - 3.0
     fase.update()  # duty_proximidad ya en duty_estable=1.0 (factor=0), sin tasa aun
@@ -235,9 +236,9 @@ def test_duty_calidad_vapor_no_restringe_dentro_de_sostenimiento():
     fase.update()  # inicializar
     fase._en_sostenimiento = True
 
-    p_obj = p_saturacion_kpa(134.0) + 11.0
-    p_min_para_temp = p_saturacion_kpa(134.5) + 11.0
-    assert p_obj < p_min_para_temp  # confirma que el escenario ejercita el caso: sin la
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
+    p_min_para_temp = p_saturacion_kpa(134.5) - 2.0  # tanda 12 C-01.5
+    assert p_obj + 1.7 < p_min_para_temp  # confirma que el escenario ejercita el caso: sin la
     # correccion, duty_calidad_vapor evaluaria 0.0 aqui
 
     estado.sensores_temp["temp_camara"] = 134.5  # dentro de t_obj + rango_temp_estabilizacion (1.0)
@@ -262,7 +263,7 @@ def test_duty_baja_a_cero_lejos_por_encima_del_objetivo_dentro_de_sostenimiento(
     fase.update()  # inicializar
     fase._en_sostenimiento = True
 
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     p_techo = p_obj + 11.0
     estado.sensores_temp["temp_camara"] = 136.7  # 2.7°C sobre t_obj, > rango_calentamiento=2.0
     estado.sensores_pres["pres_camara"] = p_obj + 1.7  # por debajo del techo (p_techo)
@@ -281,7 +282,7 @@ def test_intervalo_cero_con_duty_cero_apaga_vapor_directo():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0,
                                        intervalo=0)
     fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj + 20.0  # supera el techo -> duty=0.0
     set_do.reset_mock()
@@ -304,7 +305,7 @@ def test_intervalo_cero_con_duty_uno_enciende_vapor_directo():
 def test_log_observabilidad_edge_triggered_en_transicion_a_duty_cero(caplog):
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0)
     fase.update()  # inicializar, duty=1.0 (lejos del objetivo)
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj + 20.0  # supera el techo -> duty=0.0
 
@@ -349,7 +350,7 @@ def test_pwm_pulso_on_luego_off_por_tiempo():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=50.0, intervalo=2,
                                        tiempo_estable=999)
     fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     set_do.reset_mock()
@@ -372,7 +373,7 @@ def test_pwm_factor_cero_permanece_encendido():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, rango=2.0, factor=0.0, intervalo=2,
                                        tiempo_estable=999)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()
@@ -442,7 +443,7 @@ def test_escapes_no_bloquean_a_vapor_camara():
 def test_completa_sin_sostenimiento_cuando_tiempo_estable_es_cero():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=0)
     fase.update()  # inicializar
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     result = fase.update()
@@ -456,7 +457,9 @@ def test_no_completa_si_falta_presion_aunque_temp_llegue():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=0)
     fase.update()
     estado.sensores_temp["temp_camara"] = 134.0
-    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.0)  # sin el add
+    # tanda 12 C-01.2: el objetivo es Psat(t_obj) con 2 kPa de tolerancia
+    # (antes Psat + presion_add); bajo esa tolerancia no entra ni completa
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(134.0) - 2.1
     result = fase.update()
     assert result == FaseResult.EN_CURSO
 
@@ -464,7 +467,7 @@ def test_no_completa_si_falta_presion_aunque_temp_llegue():
 def test_sostenimiento_arma_timer_y_no_completa_de_inmediato():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     result = fase.update()
@@ -477,7 +480,7 @@ def test_sostenimiento_arma_timer_y_no_completa_de_inmediato():
 def test_sostenimiento_completa_tras_transcurrir_el_tiempo():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
@@ -495,7 +498,7 @@ def test_sostenimiento_se_reinicia_si_presion_excede_la_banda_superior():
     CALENTAMIENTO entregaba a ESTERILIZACION con presión alta)."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
@@ -526,7 +529,7 @@ def test_sostenimiento_no_completa_si_temp_cae_por_debajo_del_objetivo():
     casi de inmediato."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
@@ -545,7 +548,7 @@ def test_sostenimiento_no_completa_si_presion_cae_por_debajo_del_objetivo():
     banda en valor absoluto."""
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer
@@ -562,7 +565,7 @@ def test_sostenimiento_timer_recuperacion_se_cancela_al_recuperar():
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5,
                                        timeout_recuperacion_estabilizacion=2)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # arma el timer de sostenimiento
@@ -580,7 +583,7 @@ def test_sostenimiento_fallo_si_nunca_converge_dentro_del_timeout_recuperacion()
     fase, estado, set_do = _make_fase(t_obj=134.0, presion_add=11.0, tiempo_estable=5,
                                        timeout_recuperacion_estabilizacion=1)
     fase.update()
-    p_obj = p_saturacion_kpa(134.0) + 11.0
+    p_obj = p_saturacion_kpa(134.0)  # tanda 12 C-01: sin presion_add
     estado.sensores_temp["temp_camara"] = 134.0
     estado.sensores_pres["pres_camara"] = p_obj
     fase.update()  # entra al tramo y arma timer de sostenimiento
@@ -706,17 +709,19 @@ def test_duty_por_sobrepaso_margen_cero_es_un_escalon():
     assert _duty_por_sobrepaso(dist=-1.0, margen=0.0) == 0.0
 
 
-def test_duty_por_calidad_vapor_sin_restriccion_bajo_el_tope_del_97_por_ciento():
-    # t_obj=134 -> tope = 129.98; temp=129.0 esta debajo, sin importar la presion
-    assert _duty_por_calidad_vapor(temp=129.0, pres=0.0, t_obj=134.0, p_add=11.0) == 1.0
+def test_duty_por_calidad_vapor_sin_restriccion_bajo_el_tope():
+    # tanda 12 C-09: t_obj=134 -> tope = 131.0 (antes 0.97*134 = 129.98);
+    # temp=130.5 esta debajo, sin importar la presion
+    assert _duty_por_calidad_vapor(temp=130.5, pres=0.0, t_obj=134.0) == 1.0
 
 
 def test_duty_por_calidad_vapor_cero_si_supera_el_tope_y_presion_no_corresponde():
-    # temp=130 >= tope (129.98); presion muy por debajo de P_sat(130)+11
-    assert _duty_por_calidad_vapor(temp=130.0, pres=1.0, t_obj=134.0, p_add=11.0) == 0.0
+    # temp=131 >= tope (131.0); presion muy por debajo de P_sat(131)-2
+    assert _duty_por_calidad_vapor(temp=131.0, pres=1.0, t_obj=134.0) == 0.0
 
 
 def test_duty_por_calidad_vapor_uno_si_presion_ya_corresponde_a_la_temperatura():
-    temp = 130.0
-    p_min = p_saturacion_kpa(temp) + 11.0
-    assert _duty_por_calidad_vapor(temp=temp, pres=p_min, t_obj=134.0, p_add=11.0) == 1.0
+    # tanda 12 C-01.5: exige P_sat(temp) - 2 kPa, sin presion_add
+    temp = 131.0
+    p_min = p_saturacion_kpa(temp) - 2.0
+    assert _duty_por_calidad_vapor(temp=temp, pres=p_min, t_obj=134.0) == 1.0
