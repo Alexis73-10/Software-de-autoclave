@@ -21,6 +21,9 @@ from autoclave.state_machine.alarms.catalogo import (
     CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
     COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, nombre_legible,
 )
+# E12 (tanda 12): alarmas propias de ESTERILIZACION (C-03, C-13) y Referencia
+# sin lectura (C-13.7b)
+from autoclave.state_machine.alarms.catalogo import CIC_12, CIC_13, CIC_14, SEN_11
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
 from autoclave.state_machine.cycle_phases.prevacio import PrevacioFase
@@ -70,6 +73,8 @@ _CIC_POR_FASE = {
     "ESTERILIZACION": CIC_04, "DESCOMPRESION": CIC_05, "SECADO": CIC_06,
 }
 _MOTIVO_NO_REGISTRADO = "La fase terminó en fallo; el motivo detallado aún no se registra."
+# D8-2.8 / E12 (tanda 12): códigos que una fase puede dejar en `alarma_fallo`
+_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14)
 
 # Sección del JSON del programa -> fase del pipeline que la usa (§5.8).
 # `estabilizacion` va con CALENTAMIENTO (fusionadas). Las secciones que no están aquí (`globals`, `finalizacion` o
@@ -412,11 +417,12 @@ class CicloState:
         llamador igual ejecuta el protocolo de fallo.
 
         D8-2.8 (tanda 8): si la fase dejó `alarma_fallo` (código propio y sus
-        valores, hoy solo CIC-11 de ESTERILIZACION), se registra esa."""
+        valores: CIC-11 y, desde la tanda 12, CIC-12/13/14 de ESTERILIZACION),
+        se registra esa."""
         try:
             propia = getattr(fase, "alarma_fallo", None)
             if (isinstance(propia, tuple) and len(propia) == 2
-                    and propia[0] in (CIC_11,) and isinstance(propia[1], dict)):
+                    and propia[0] in _ALARMAS_PROPIAS_FASE and isinstance(propia[1], dict)):
                 self._registrar_fallo(propia[0], origen=nombre_legible(nombre_fase), **propia[1])
                 return
             # La fase puede haber dejado ya un motivo específico (p.ej.

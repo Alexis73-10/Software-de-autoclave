@@ -6,6 +6,22 @@ from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.core.runtime.steam import p_saturacion_kpa
 
 
+class _Reloj:
+    """Reloj monotonic simulado (tanda 12, C-07.2: debounce por tiempo)."""
+
+    def __init__(self, t=1000.0):
+        self.t = t
+
+    def __call__(self):
+        return self.t
+
+
+def _reloj(monkeypatch):
+    reloj = _Reloj()
+    monkeypatch.setattr(time, "monotonic", reloj)
+    return reloj
+
+
 def _make_fase(t_est=134.0, tiempo_min=3.5, factor=70.0, presion_add=11.0,
                intervalo=3, rango_temp=3.0, rango_pres=30.0,
                brecha_seg=0.3, brecha_seg_p=1.5, brecha_err_t=0.1, brecha_err_p=2.0,
@@ -131,18 +147,23 @@ def test_presion_baja_dispara_recuperacion_aunque_temperatura_este_alta():
 
 
 def test_presion_dentro_del_margen_no_dispara_recuperacion_por_presion():
+    # Tanda 12 (C-08.2): la salida de RECUPERACION tiene histéresis (+1 kPa),
+    # así que primero se entra a PWM_ACTIVO y luego la presión baja al margen.
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=1.5)
     fase.update()
     p_sat_est = p_saturacion_kpa(134.0)
     temp = 135.0
     estado.sensores_temp["temp_camara"] = temp
+    estado.sensores_pres["pres_camara"] = p_saturacion_kpa(temp)
+    fase.update()
+    assert fase._en_recuperacion is False
     estado.sensores_pres["pres_camara"] = p_sat_est - 1.4  # dentro del margen
     result = fase.update()
     assert result == FaseResult.EN_CURSO
     assert fase._en_recuperacion is False
 
 
-def test_brecha_segura_presion_dispara_antes_de_completar_el_debounce_de_fallo():
+def test_brecha_segura_presion_dispara_antes_de_completar_el_debounce_de_fallo(monkeypatch):
     """Regresión del bug encontrado el 2026-08-06: con brecha_segura_presion
     (6.0) > brecha_error_presion (2.0), una presión sostenida dentro del
     'hueco' entre ambos umbrales (ej. 3 kPa bajo el setpoint) nunca activaba
@@ -153,12 +174,14 @@ def test_brecha_segura_presion_dispara_antes_de_completar_el_debounce_de_fallo()
     dispararse desde el primer tick, antes de que el debounce de 3 lecturas
     alcance a completar el FALLO."""
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_seg=0.3, brecha_seg_p=1.5, brecha_err_p=2.0)
+    reloj = _reloj(monkeypatch)
     fase.update()  # inicializa
     p_sat_est = p_saturacion_kpa(134.0)
     estado.sensores_temp["temp_camara"] = 134.5  # temperatura OK, no dispara por temperatura
     estado.sensores_pres["pres_camara"] = p_sat_est - 3.0  # dentro del hueco 1.5-6.0 del bug viejo
 
     for _ in range(3):
+        reloj.t += 2.5  # tanda 12: 3 lecturas en 5 s continuos
         result = fase.update()
 
     assert fase._en_recuperacion is True
@@ -339,11 +362,13 @@ def test_temp_alta_no_falla_con_1_o_2_lecturas_excesivas():
         assert result == FaseResult.EN_CURSO
 
 
-def test_temp_alta_falla_al_tercer_exceso_consecutivo():
+def test_temp_alta_falla_sostenida_5_s(monkeypatch):
     fase, estado, set_do = _make_fase(t_est=134.0, rango_temp=3.0)
+    reloj = _reloj(monkeypatch)
     fase.update()
     result = FaseResult.EN_CURSO
     for _ in range(3):
+        reloj.t += 2.5  # tanda 12: 3 lecturas en 5 s continuos
         estado.sensores_temp["temp_camara"] = 137.5
         result = fase.update()
     assert result == FaseResult.FALLO
@@ -355,11 +380,13 @@ def test_temp_alta_falla_al_tercer_exceso_consecutivo():
 
 # ── FALLO: temperatura baja (debounce 3, referencia fija) ───────────────────
 
-def test_temp_baja_falla_al_tercer_exceso_consecutivo():
+def test_temp_baja_falla_sostenida_5_s(monkeypatch):
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_err_t=0.1)
+    reloj = _reloj(monkeypatch)
     fase.update()
     result = FaseResult.EN_CURSO
     for _ in range(3):
+        reloj.t += 2.5  # tanda 12: 3 lecturas en 5 s continuos
         estado.sensores_temp["temp_camara"] = 133.8  # < 134 - 0.1
         result = fase.update()
     assert result == FaseResult.FALLO
@@ -377,12 +404,14 @@ def test_temp_baja_no_falla_con_2_lecturas():
 
 # ── FALLO: presión alta (debounce 3, referencia P_sat(t_est) fija) ──────────
 
-def test_pres_alta_falla_al_tercer_exceso_consecutivo():
+def test_pres_alta_falla_sostenida_5_s(monkeypatch):
     fase, estado, set_do = _make_fase(t_est=134.0, rango_pres=30.0)
+    reloj = _reloj(monkeypatch)
     fase.update()
     p_sat_est = p_saturacion_kpa(134.0)
     result = FaseResult.EN_CURSO
     for _ in range(3):
+        reloj.t += 2.5  # tanda 12: 3 lecturas en 5 s continuos
         estado.sensores_pres["pres_camara"] = p_sat_est + 31.0
         result = fase.update()
     assert result == FaseResult.FALLO
@@ -393,29 +422,33 @@ def test_pres_alta_falla_al_tercer_exceso_consecutivo():
 # Corrige el bug ESTERILIZACION_PRES_BAJA: la referencia es P_sat(t_est) fija,
 # nunca P_sat(T_actual).
 
-def test_pres_baja_falla_al_tercer_exceso_consecutivo():
+def test_pres_baja_falla_sostenida_5_s(monkeypatch):
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_err_p=2.0)
+    reloj = _reloj(monkeypatch)
     fase.update()
     p_sat_est = p_saturacion_kpa(134.0)
     result = FaseResult.EN_CURSO
     for _ in range(3):
+        reloj.t += 2.5  # tanda 12: 3 lecturas en 5 s continuos
         estado.sensores_pres["pres_camara"] = p_sat_est - 2.1
         result = fase.update()
     assert result == FaseResult.FALLO
     set_do.vapor_camara_off.assert_called()
 
 
-def test_pres_baja_usa_referencia_fija_no_temperatura_actual():
+def test_pres_baja_usa_referencia_fija_no_temperatura_actual(monkeypatch):
     """Regresión directa del bug documentado: si la referencia fuera
     P_sat(T_actual) en vez de P_sat(temperatura_esterilizacion), una subida
     de temperatura real podría enmascarar una presión realmente baja frente
     al setpoint. Aquí T_actual sube pero la presión sigue evaluada contra
     P_sat(t_est) fija."""
     fase, estado, set_do = _make_fase(t_est=134.0, brecha_err_p=2.0, rango_temp=10.0)
+    reloj = _reloj(monkeypatch)
     fase.update()
     p_sat_est = p_saturacion_kpa(134.0)
     result = FaseResult.EN_CURSO
     for _ in range(3):
+        reloj.t += 2.5  # tanda 12: 3 lecturas en 5 s continuos
         estado.sensores_temp["temp_camara"] = 138.0  # sube T_actual (P_sat(138) > P_sat(134))
         estado.sensores_pres["pres_camara"] = p_sat_est - 2.1  # baja frente a la referencia fija
         result = fase.update()

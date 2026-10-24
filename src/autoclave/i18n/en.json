@@ -943,6 +943,11 @@
       "plantilla": "The door is open, but the chamber pressure does not match the atmospheric pressure. Cycles cannot be started.",
       "accion": "Possible causes: chamber pressure sensor calibration, wrong atmospheric reference pressure or door sensor. Call technical service."
     },
+    "SEN-11": {
+      "titulo": "Reference sensor without reading",
+      "plantilla": "No reading from {sensor} in the {fase} phase. The cycle continues with the probes that read and is marked NONCONFORMING: reference point not verified.",
+      "accion": "Check the reference probe connection. Validate the load according to your procedure before releasing it."
+    },
     "CIC-01": {
       "titulo": "Preheating failure",
       "plantilla": "{motivo}",
@@ -998,6 +1003,21 @@
       "titulo": "Unstable communication during sterilization",
       "plantilla": "The pauses caused by missing control board data added up to {segundos:.0f} s during sterilization (maximum {maximo:.0f} s). The cycle was aborted.",
       "accion": "The load is NOT sterile. Check the USB cable and the board's power supply and repeat the cycle. If it happens again, call technical service."
+    },
+    "CIC-12": {
+      "titulo": "Air or non-condensable gases in the chamber",
+      "plantilla": "The chamber pressure corresponds to a saturation temperature of {tsat:.1f} °C, {dt:.1f} K above the Main sensor ({temp:.1f} °C). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check air removal (prevacuum, Bowie & Dick test and chamber leaks) and repeat the cycle."
+    },
+    "CIC-13": {
+      "titulo": "Superheated steam or probe failure",
+      "plantilla": "The Main sensor reads {temp:.1f} °C, {dt:.1f} K above the saturation temperature of the chamber pressure ({tsat:.1f} °C). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the Main probe and the chamber pressure sensor (calibration) and the supply steam, and repeat the cycle."
+    },
+    "CIC-14": {
+      "titulo": "Reference out of band during sterilization",
+      "plantilla": "{sensor} stayed outside the sterilization band for more than {minutos} min. The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the load, its position and the reference probe, and repeat the cycle."
     },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
@@ -1829,6 +1849,9 @@
     "est_pres_alta": "High pressure: {pres} > {pres_limite}",
     "est_pres_baja": "Low pressure: {pres} < {pres_limite}",
     "est_timeout_f0": "F0 time limit: F0 not reached after {minutos} min (F0={f0}/{f0_objetivo} min)",
+    "est_aire": "Air or non-condensable gases: Tsat(P) {temp_sat} exceeds the Main sensor {temp} by {dt} K",
+    "est_sobrecalentado": "Superheated steam or probe failure: Main sensor {temp} exceeds Tsat(P) {temp_sat} by {dt} K",
+    "est_excursion_referencia": "{sensor} out of band for more than {minutos} min",
     "desc_tiempo_limite": "{etapa} time limit in mode {modo} (T={temp}, P={pres})",
     "sec_vacio_perdido": "Drying mode {modo}: vacuum lost ({pres} ≥ {pres_umbral})",
     "sec_sin_vacio": "Drying mode {modo}: no real vacuum (the pressure did not drop below {pres_umbral} in time); check the vacuum pump",
@@ -1908,7 +1931,10 @@
       "PUERTA_EMPAQUE": "DOOR {n} GASKET",
       "PUERTA_EMPAQUE_SIN_LECTURA": "DOOR {n} GASKET NO READING"
     },
-    "aviso_uniformidad": "Thermal uniformity out of range: {sensor} {temp}"
+    "aviso_uniformidad": "Thermal uniformity out of range: {sensor} {temp}",
+    "aviso_excursion": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}",
+    "aviso_excursion_alta": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}, maximum {temp_max}",
+    "no_conforme_referencia": "NONCONFORMING: reference point not verified ({sensor})"
   },
   "modos_programa": {
     "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",

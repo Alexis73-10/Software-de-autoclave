@@ -71,11 +71,17 @@ SEN_09 = "SEN-09"
 # fuera de la banda atmosférica (calibración, referencia atmosférica o sensor
 # de puerta)
 SEN_10 = "SEN-10"
+# E12 (tanda 12, C-13.7b): Referencia sin lectura en ciclo; no bloqueante, el
+# ciclo sigue con las sondas que leen y queda NO CONFORME
+SEN_11 = "SEN-11"
 CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08 = (
     "CIC-01", "CIC-02", "CIC-03", "CIC-04", "CIC-05", "CIC-06", "CIC-07", "CIC-08")
 CIC_09, CIC_10 = "CIC-09", "CIC-10"
 # D8-2.8 (tanda 8): pausas por falta de datos sobre el tope en esterilización
 CIC_11 = "CIC-11"
+# E12 (tanda 12): fallos propios de ESTERILIZACION, mismo mecanismo que CIC-11
+# C-03: saturación (solo sólidos); C-13.4: Referencia sin retorno a la banda
+CIC_12, CIC_13, CIC_14 = "CIC-12", "CIC-13", "CIC-14"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -244,6 +250,13 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "atmosférica. No se pueden iniciar ciclos.",
        "Causas posibles: calibración del sensor de presión de cámara, presión atmosférica de "
        "referencia mal configurada o sensor de puerta. Llame a servicio técnico."),
+    # E12 (tanda 12, C-13.7b): Referencia sin lectura durante el ciclo. No
+    # aborta: el ciclo sigue con las sondas que leen y queda NO CONFORME.
+    _d(SEN_11, _AV, False, _M, "Sensor de referencia sin lectura",
+       "Sin lectura de {sensor} en la fase {fase}. El ciclo sigue con las sondas que leen y "
+       "queda NO CONFORME: punto de referencia sin verificar.",
+       "Revise la conexión de la sonda de referencia. Valide la carga según su procedimiento "
+       "antes de liberarla."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
        "Revise el suministro de vapor de la chaqueta."),
     _d(CIC_02, _AL, True, _M, "Fallo en prevacío", "{motivo}",
@@ -283,6 +296,25 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
        "La carga NO está estéril. Revise el cable USB y la alimentación de la tarjeta y "
        "repita el ciclo. Si se repite, llame a servicio técnico."),
+    # E12 (tanda 12, C-03): Tsat(P) - T_principal fuera de ±2 K durante 5 s
+    # continuos en la exposición (solo carga sólida)
+    _d(CIC_12, _AL, True, _M, "Aire o gases no condensables en la cámara",
+       "La presión de cámara corresponde a {tsat:.1f} °C de saturación, {dt:.1f} K por encima "
+       "del sensor Principal ({temp:.1f} °C). El ciclo se abortó.",
+       "La carga NO está estéril. Revise la eliminación de aire (prevacío, prueba de Bowie & "
+       "Dick y fugas de la cámara) y repita el ciclo."),
+    _d(CIC_13, _AL, True, _M, "Vapor sobrecalentado o falla de la sonda",
+       "El sensor Principal marca {temp:.1f} °C, {dt:.1f} K por encima de la saturación de la "
+       "presión de cámara ({tsat:.1f} °C). El ciclo se abortó.",
+       "La carga NO está estéril. Revise la sonda Principal y el sensor de presión de cámara "
+       "(calibración) y el vapor de alimentación, y repita el ciclo."),
+    # E12 (tanda 12, C-13.4): Referencia fuera de banda sin volver en
+    # timeout_excursion_referencia
+    _d(CIC_14, _AL, True, _M, "Referencia fuera de banda en esterilización",
+       "{sensor} siguió fuera de la banda de esterilización por más de {minutos} min. El ciclo "
+       "se abortó.",
+       "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y "
+       "repita el ciclo."),
     # U4 (tanda 2): solo con la tarjeta desconectada (sin puerto o puerto
     # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
     _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",
