@@ -137,6 +137,7 @@ class CicloState:
         # None = comportamiento previo (todo requerido, 2 puertas con empaque).
         self.profile       = profile
         self._apertura_auto_t_inicio = None
+        self._no_conforme = False   # V12 (SAF-06): bandera propia de NO CONFORME
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
         self._apertura_auto_denegada_desde = None
@@ -191,6 +192,7 @@ class CicloState:
         self._contador_drenaje_baja = 0
         self._lecturas_enfriada_reposo = 0
         self._apertura_auto_t_inicio = None
+        self._no_conforme = False   # V12 (SAF-06): bandera propia de NO CONFORME
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
         self._apertura_auto_denegada_desde = None
@@ -691,7 +693,7 @@ class CicloState:
         la Referencia vuelva a leer, y va al ticket y al registro del ciclo
         (CycleLogger guarda los avisos en avisos_ticket de la base y del
         respaldo)."""
-        return bool(self._avisos_no_conforme())
+        return self._no_conforme or bool(self._avisos_no_conforme())
 
     def _marcar_referencias_sin_lectura(self, ausentes) -> None:
         """Una vez por ciclo y sensor: SEN-11 (no bloqueante) y línea NO
@@ -705,6 +707,9 @@ class CicloState:
             fase = self._fase_actual_legible()
             logger.error("CicloState: Referencia %s sin lectura en %s; el ciclo sigue y queda "
                          "NO CONFORME (punto de referencia sin verificar)", s, fase)
+            # V12 (SAF-06): la bandera va antes del ticket y de la alarma, así
+            # un fallo al anotar no deja abrir la puerta sola
+            self._no_conforme = True
             try:
                 avisos = getattr(self.estado, "avisos_ciclo", None)
                 if not isinstance(avisos, list):

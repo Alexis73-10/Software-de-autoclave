@@ -71,6 +71,7 @@
 # OFF, no hay aborto automático por esta vía (riesgo aceptado, ver
 # docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md).
 
+import math
 import time
 import logging
 from collections import deque
@@ -467,8 +468,10 @@ class CalentamientoFase(BaseFase):
         # C-13.7b (opción B): una Referencia sin lectura NO bloquea la ventana
         # (el ciclo sigue y CicloState la marca NO CONFORME); las que sí leen
         # deben estar en consigna.
+        # V12 (SAF-08): "sin lectura" es None, no finito o 0 (sin señal,
+        # SEN-01), el mismo criterio de ESTERILIZACION y de CicloState.
         refs_en_consigna = all(t >= t_obj for t in self._temps_referencia().values()
-                               if t is not None)
+                               if t is not None and math.isfinite(t) and t != 0)
         dentro_rango = dentro_rango and refs_en_consigna
 
         if dentro_rango:

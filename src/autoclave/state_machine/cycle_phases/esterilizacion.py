@@ -480,6 +480,8 @@ class EsterilizacionFase(BaseFase):
                 self._sin_lectura_desde = now
                 logger.warning("Esterilización: sin lectura del Principal o de la presión; "
                                "el conteo de exposición no avanza")
+            # V12 (SAF-03): sin medición no se controla a ciegas
+            self.set_do.vapor_camara_off()
             return FaseResult.EN_CURSO
         self._correr_por_sin_lectura(now)
 
@@ -576,8 +578,11 @@ class EsterilizacionFase(BaseFase):
         # seguridad (2x tiempo_esterilizacion, sin cambios por los reinicios
         # de C-13) cubre el caso en que F0 nunca llega. Con una Referencia
         # fuera de banda (aunque la excursión no esté confirmada todavía) no
-        # se termina: se espera a confirmarla o a que vuelva.
-        tiempo_cumplido = now >= self._timer_fin and not self._ref_fuera
+        # se termina: se espera a confirmarla o a que vuelva. V12 (SAF-01):
+        # tampoco con una falla del Principal en conteo (debounce de 5 s sin
+        # confirmar): se espera a que se confirme (FALLO) o se despeje.
+        tiempo_cumplido = (now >= self._timer_fin and not self._ref_fuera
+                           and not self._falla_desde)
 
         if not f0_activo:
             if tiempo_cumplido:

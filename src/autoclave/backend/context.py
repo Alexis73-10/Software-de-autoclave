@@ -159,6 +159,8 @@ class BackendContext:
         no debe romper el arranque."""
         try:
             for cycle, m in self.cycle_manager.migraciones_correctivas():
+                if getattr(cycle, "danado", None):
+                    continue        # V12 (SAF-07c): un programa dañado no se avisa
                 self.alarm_manager.activar(
                     MIGRACION_CORRECTIVA, origen=f"{cycle.id}/{m['fase']}.{m['parametro']}",
                     programa=cycle.name, parametro=m["parametro"],
@@ -180,6 +182,8 @@ class BackendContext:
         por_programa: dict = {}
         try:
             for cycle, m in self.cycle_manager.migraciones_correctivas():
+                if getattr(cycle, "danado", None):
+                    continue        # V12 (SAF-07c): ni se audita ni se reescribe
                 por_programa.setdefault(cycle.id, (cycle, []))[1].append(m)
         except Exception:
             logger.exception("No se pudieron leer las migraciones correctivas")
@@ -198,6 +202,10 @@ class BackendContext:
                 logger.exception("Programa %s: migración correctiva sin auditoría; el archivo "
                                  "no se reescribe", cycle.id)
                 continue
+            # V12 (SAF-07a/b): auditada la corrección, se vacía la lista para
+            # que un reintento de abrir_base_datos no duplique las filas ni
+            # reescriba de nuevo el archivo (pisaría el .bak con el original)
+            cycle.migraciones_correctivas = []
             if getattr(cycle, "source", None) == "user" and getattr(cycle, "_path", None):
                 try:
                     escribir_parametros(cycle)
