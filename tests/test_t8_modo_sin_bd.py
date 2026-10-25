@@ -267,7 +267,7 @@ def test_calibracion_sin_auditoria_se_revierte(tmp_path):
     ctx = MagicMock()
     ctx.db.registrar_auditoria.side_effect = sqlite3.OperationalError("disk I/O error")
     srv, _ = cargar_servidor(ctx)
-    fijar_en_backend("CALIBRATION_PATH", yaml_path)
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
     r = client.patch("/calibration/pressure/pres_camara", json={
         "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0})
@@ -394,7 +394,7 @@ def test_saf05_calibracion_sin_bd_no_toca_el_archivo(tmp_path):
     ctx = MagicMock()
     ctx.sin_base_de_datos = True
     srv, _ = cargar_servidor(ctx)
-    fijar_en_backend("CALIBRATION_PATH", yaml_path)
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
     r = client.patch("/calibration/pressure/pres_camara", json={
         "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0})

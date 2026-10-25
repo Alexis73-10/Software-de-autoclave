@@ -235,9 +235,9 @@ def _doble_falla(servidor):
         if llamadas["n"] >= 2:                      # la reversión del JSON falla
             raise OSError("disco lleno")
         real(cycle, cambiar, **kw)
-    fijar_en_backend("_escribir_json_programa", escribir)
+    fijar_en_backend("_escribir_json_programa", escribir)
     r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
-    fijar_en_backend("_escribir_json_programa", real)
+    fijar_en_backend("_escribir_json_programa", real)
     return r, c, previo, nuevo
 
 
@@ -280,9 +280,9 @@ def test_saf02_falla_solo_el_json_no_marca(servidor):
 
     def escribir(cycle, cambiar, **kw):
         raise OSError("disco lleno")
-    fijar_en_backend("_escribir_json_programa", escribir)
+    fijar_en_backend("_escribir_json_programa", escribir)
     r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
-    fijar_en_backend("_escribir_json_programa", real)
+    fijar_en_backend("_escribir_json_programa", real)
     assert r.status_code == 503
     assert c.get_param("secado", "tiempo_secado") == previo
     assert _filas(ctx) == []

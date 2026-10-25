@@ -419,7 +419,7 @@ def _registrar_orden_de_locks(srv, ctx):
             yield
         finally:
             tenidos.remove("sm")
-    fijar_en_backend("_lock_archivos", _Archivos())
+    fijar_en_backend("_lock_archivos", _Archivos())
     ctx.control_loop.bloqueo_maquina = bloqueo
     return violaciones
 

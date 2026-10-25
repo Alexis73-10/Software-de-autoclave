@@ -84,7 +84,7 @@ def cliente(tmp_path):
     ctx.db.get_auditoria.return_value = []
     ctx.sin_base_de_datos = False
     srv, _ = cargar_servidor(ctx)
-    fijar_en_backend("CALIBRATION_PATH", yaml_path)
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     from fastapi.testclient import TestClient
     return TestClient(srv.app, headers=cabecera(srv, "ingeniero")), ctx, yaml_path
 
@@ -242,7 +242,7 @@ def test_canal_con_polinomio_pide_confirmar(tmp_path):
     ctx.db.get_auditoria.return_value = []
     ctx.sin_base_de_datos = False
     srv, _ = cargar_servidor(ctx)
-    fijar_en_backend("CALIBRATION_PATH", yaml_path)
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
     r = client.patch("/calibration/temperature/temp_camara", json=_p(30.0, 30.0, 130.0, 131.0))
     assert r.status_code == 409 and "polinomio" in r.json()["detail"]

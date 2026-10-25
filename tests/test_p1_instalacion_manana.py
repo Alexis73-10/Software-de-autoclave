@@ -124,7 +124,7 @@ def calibracion(tmp_path):
     ctx.sin_base_de_datos = False
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     srv, _ = cargar_servidor(ctx)
-    fijar_en_backend("CALIBRATION_PATH", ruta)
+    fijar_en_backend("CALIBRATION_PATH", ruta)
     return TestClient(srv.app, headers=cabecera(srv, "tecnico")), ctx, ruta
 
 

@@ -31,7 +31,7 @@ def api(tmp_path):
     ctx.control_loop.estado_seguro = SimpleNamespace(activo=False)
     srv, _ = cargar_servidor(ctx)
     reloj = Reloj()
-    fijar_en_backend("tokens", AlmacenTokens(reloj=reloj))
+    fijar_en_backend("tokens", AlmacenTokens(reloj=reloj))
     dueno = modulo_backend("dependencias").tokens.emitir("tec_dueno", "Dueño", "tecnico", False)
     modulo_backend("rutas.io")._token_modo_prueba = dueno.token
     return TestClient(srv.app), srv, ctx, db, reloj, dueno
