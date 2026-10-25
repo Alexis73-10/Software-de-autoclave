@@ -22,31 +22,34 @@ SERIE = "SN128745"
 DIA = date(2026, 10, 23)
 
 
-# --- caso real del equipo de pruebas (23-oct-2026) ---
+# --- caso del equipo de pruebas (23-oct-2026): el código tecleado con cero en
+# vez de O. LIC-01 (licencia L0): el código real salía del secreto antiguo; aquí
+# se usa el que da el secreto de PRUEBA (tests/conftest.py) para la misma serie
+# y día, que también lleva letras O. ---
 
 def test_generador_produce_el_codigo_del_caso_real():
-    assert generate_installation_code(SERIE, DIA) == "FR4QAXQ3O43N"
+    assert generate_installation_code(SERIE, DIA) == "UOZ3P26VOUE5"
 
 
 @pytest.mark.parametrize("tecleado", [
-    "FR4QAXQ3O43N",       # tal cual (letra O)
-    "FR4QAXQ3043N",       # con cero en vez de O: el caso rechazado en campo
-    "fr4qaxq3043n",       # minúsculas
-    "  FR4Q AXQ3 043N  ",  # espacios
-    "FR4Q-AXQ3-043N",     # guiones
-    "fr4q - axq3-o43n",   # mezcla
+    "UOZ3P26VOUE5",       # tal cual (letra O)
+    "U0Z3P26V0UE5",       # con cero en vez de O: el caso rechazado en campo
+    "u0z3p26v0ue5",       # minúsculas
+    "  U0Z3 P26V 0UE5  ",  # espacios
+    "U0Z3-P26V-0UE5",     # guiones
+    "u0z3 - p26v-oue5",   # mezcla
 ])
 def test_caso_real_valido(tecleado):
     assert validate_installation_code(SERIE, tecleado, DIA) is True
 
 
 def test_caso_real_otro_dia_sigue_invalido():
-    assert validate_installation_code(SERIE, "FR4QAXQ3043N", date(2026, 10, 22)) is False
-    assert validate_installation_code(SERIE, "FR4QAXQ3043N", date(2026, 10, 24)) is False
+    assert validate_installation_code(SERIE, "U0Z3P26V0UE5", date(2026, 10, 22)) is False
+    assert validate_installation_code(SERIE, "U0Z3P26V0UE5", date(2026, 10, 24)) is False
 
 
 def test_caso_real_otra_serie_sigue_invalido():
-    assert validate_installation_code("SN128746", "FR4QAXQ3043N", DIA) is False
+    assert validate_installation_code("SN128746", "U0Z3P26V0UE5", DIA) is False
 
 
 # --- normalización ---
@@ -75,7 +78,7 @@ def test_clave_fabrica_normalizada():
 
 
 def test_codigos_no_intercambiables_tras_normalizar():
-    assert validate_factory_key(SERIE, "FR4QAXQ3043N", DIA) is False
+    assert validate_factory_key(SERIE, "U0Z3P26V0UE5", DIA) is False
     assert validate_installation_code(SERIE, generate_factory_key(SERIE, DIA), DIA) is False
 
 
@@ -84,11 +87,11 @@ def test_codigos_no_intercambiables_tras_normalizar():
 def test_asistente_acepta_el_caso_real_con_cero():
     validar = lambda serie, codigo: validate_installation_code(serie, codigo, DIA)  # noqa: E731
     puente = PuenteInstalacion(validar_codigo=validar)
-    assert puente.validarCodigo("sn128745", "FR4QAXQ3043N") is True
-    assert puente.validarCodigo("SN128745", "FR4Q-AXQ3-043N") is True
+    assert puente.validarCodigo("sn128745", "U0Z3P26V0UE5") is True
+    assert puente.validarCodigo("SN128745", "U0Z3-P26V-0UE5") is True
     puente_otro_dia = PuenteInstalacion(
         validar_codigo=lambda s, c: validate_installation_code(s, c, date(2026, 10, 22)))
-    assert puente_otro_dia.validarCodigo("SN128745", "FR4QAXQ3043N") is False
+    assert puente_otro_dia.validarCodigo("SN128745", "U0Z3P26V0UE5") is False
 
 
 def test_asistente_usa_por_defecto_la_validacion_comun():

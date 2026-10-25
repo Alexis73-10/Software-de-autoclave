@@ -25,6 +25,8 @@ _AQUI = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _AQUI)
 sys.path.insert(0, os.path.join(_AQUI, "..", "..", "src"))
 from autoclave.installation.activation import generate_installation_code, generate_factory_key  # noqa: E402
+from autoclave.installation import activation  # noqa: E402
+from autoclave.installation import secretos as _secretos  # noqa: E402
 from autoclave.backend.contrasenas import hash_password  # noqa: E402
 
 import db as generador_db  # noqa: E402
@@ -78,10 +80,43 @@ def _pagina(titulo: str, cuerpo: str) -> HTMLResponse:
                         f"<body><div class='card'>{cuerpo}</div></body></html>")
 
 
+def motivo_sin_secretos() -> str:
+    """LIC-01 (licencia L0): texto del motivo por el que el generador no
+    arranca, o "" si hay secretos de activación."""
+    if activation.secretos_disponibles():
+        return ""
+    return (f"No se encontró un archivo de secretos de activación válido en "
+            f"{_secretos.ruta_archivo_secretos()} (o en la variable de entorno "
+            f"{_secretos.VARIABLE_ENTORNO}). Ejecute tools\\secretos\\generar_secretos.py "
+            f"o copie el archivo de secretos vigente y reinicie el generador.")
+
+
+def app_sin_secretos(motivo: str) -> FastAPI:
+    """Sin secretos el generador no arranca: toda ruta muestra el motivo."""
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.get("/salud")
+    async def salud():
+        return JSONResponse({"app": IDENTIDAD, "sin_secretos": True})
+
+    @app.api_route("/{ruta:path}", methods=["GET", "POST"])
+    async def todo(ruta: str = ""):
+        r = _pagina("Generador — Sin secretos",
+                    f"<h1>Generador de Códigos</h1><p class='error'>El generador no arrancó.</p>"
+                    f"<p>{html.escape(motivo)}</p>")
+        r.status_code = 503
+        return r
+    return app
+
+
 def create_app(datos: Path, conf: dict, sesiones: seg.Sesiones | None = None,
                iteraciones: int | None = None) -> FastAPI:
     """App del generador sobre la carpeta de datos `datos` (la base ya debe
-    apuntar a datos/generador.db e inicializada). `iteraciones` solo en pruebas."""
+    apuntar a datos/generador.db e inicializada). `iteraciones` solo en pruebas.
+    Sin secretos de activación devuelve app_sin_secretos (LIC-01)."""
+    motivo = motivo_sin_secretos()
+    if motivo:
+        return app_sin_secretos(motivo)
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     sesiones = sesiones or seg.Sesiones(conf["inactividad_min"] * 60, conf["intentos_max"],
                                         conf["bloqueo_min"] * 60)
@@ -269,6 +304,8 @@ def create_app(datos: Path, conf: dict, sesiones: seg.Sesiones | None = None,
   <button type="submit">Crear (con contraseña temporal)</button>
 </form>
 <p class="nota">La contraseña temporal se muestra una sola vez; el usuario debe cambiarla al ingresar.</p>
+<p class="nota">Huella del secreto de instalación: <code>{html.escape(activation.huella_instalacion() or "-")}</code>
+(debe coincidir con la que mostró la compilación del autoclave).</p>
 {menu(u)}<p class='nota'><a href='/generar'>Volver al generador</a></p>""")
 
     def _aviso_clave(usuario: str, clave: str) -> str:

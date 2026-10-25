@@ -9,6 +9,8 @@
 #   5. si el puerto ya lo usa otra instancia del generador, solo abre el
 #      navegador y termina; si lo usa otro programa, avisa y termina;
 #   6. arranca el servidor y abre el navegador en http://localhost:<puerto>.
+#      Sin archivo de secretos de activación (LIC-01) el generador no arranca:
+#      lo dice en el log/consola y el servidor solo sirve la página del motivo.
 # Opciones: --sin-navegador (tarea programada al iniciar Windows).
 
 import argparse
@@ -101,7 +103,13 @@ def main(argv=None) -> int:
                                          int(conf["retencion_respaldos"]))
 
     import uvicorn
-    from app import create_app, ip_local
+    from app import create_app, ip_local, motivo_sin_secretos
+    motivo = motivo_sin_secretos()
+    if motivo:
+        # LIC-01: no arranca; el servidor solo muestra el motivo en la página
+        logger.error("El generador no arranca: %s", motivo)
+        if sys.stderr:
+            print(f"El generador no arranca: {motivo}", file=sys.stderr)
     app = create_app(datos, conf)
     logger.info("Generador en http://localhost:%d (red local: http://%s:%d); datos en %s",
                 puerto, ip_local(), puerto, datos)

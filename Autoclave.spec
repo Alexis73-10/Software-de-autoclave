@@ -107,6 +107,14 @@ _ciclos_ajenos = [d[0] for d in a.datas
                   and not d[0].replace('\\', '/').startswith('autoclave/cycles/factory/')]
 if _ciclos_ajenos:
     raise SystemExit(f'D9-7: solo cycles/factory va en la entrega; sobran {_ciclos_ajenos}')
+# LIC-01 (licencia L0): secretos de activación desde el archivo fuera del
+# repositorio (installation/secretos.py), como config/activacion_secretos.json.
+# Sin archivo válido la compilación se detiene.
+import os
+import sys as _sys
+_sys.path.insert(0, os.path.join(SPECPATH, 'src'))
+from autoclave.installation.secretos import entrada_compilacion
+a.datas.append(entrada_compilacion())
 pyz = PYZ(a.pure)
 
 exe = EXE(
