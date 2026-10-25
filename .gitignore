@@ -45,3 +45,6 @@ src/autoclave/cycles/user/*.json.bak
 # repositorio; por si alguien lo copia aquí dentro
 especifika_secretos/
 activacion.json
+
+# ORG-05 (tanda 15): los .log de las tandas no se versionan (quedan en disco)
+docs/informes/**/*.log

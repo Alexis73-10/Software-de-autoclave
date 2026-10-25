@@ -1,7 +1,0 @@
-archivos 2301; bytes 321079543
-971d75385c61d8ec896b919e1d67d8e05904928b426060e6b874e121da431961 *Autoclave_Setup_1.0.0-i.exe
-7ed2c81ad95aa40682ab48c69f77e434cf1bf99b3079b81101c20eb2b6ec8c29 *Autoclave_2026-10-24_i.zip
-9e47eb1bbbafec9fdea163208dc56dd3bf79b4842f34f0ba45f72537ae8e0b33 *GeneradorCodigos.exe
-d34eae177b13348f76a93f08480c3140ce877d7ab8aa2b66d6d960646d5f1149 *Autoclave/Autoclave.exe
-manifiesto 65d1749f790eaae133a9a422a439b71a46cc4c31311c102fe29a6863fad59f6d
-usb: ['Autoclave_Setup_1.0.0-i.exe', 'LEEME_INSTALACION.md', 'SHA256SUMS.txt', 'drivers'] drivers: []
