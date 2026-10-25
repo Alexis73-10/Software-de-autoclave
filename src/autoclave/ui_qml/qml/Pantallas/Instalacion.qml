@@ -11,7 +11,9 @@ import Autoclave.I18n
 // (capacidad nominal y tipo de carga, con la vista previa del nombre del
 // modelo; M1), enfriamiento (se omite si el equipo no lo admite), fuente de
 // vapor (vapor_source del perfil: generator, boiler o mixed; E1b), datos
-// (suministros, sondas) y resumen. Al final, pantalla de resultado.
+// (suministros, sondas), contraseñas de Admin e Ingeniero (LIC-02, obligatorio
+// también en reinstalación; las reglas viven en el puente) y resumen. Al
+// final, pantalla de resultado.
 // M1 (tanda 7, planeacion_asistente_modelo.md): el nombre del modelo lo
 // calcula el puente (SPK-SAT <L><V|H>[2][-LAB]); no hay campo libre "Modelo".
 //
@@ -46,6 +48,13 @@ Item {
     property var suministros: ({ agua_bomba: true, agua_generador: true, aire_comprimido: true,
                                  vapor_suministro: true, suministro_electrico: true })
     property var sondas: ({ temp_camara: true, temp_2_camara: true, temp_ref: true, temp_drenaje: true })
+    // LIC-02: contraseñas de las cuentas del sistema (se guardan al instalar)
+    property string clave_admin: ""
+    property string confirmacion_admin: ""
+    property string clave_ingeniero: ""
+    property string confirmacion_ingeniero: ""
+    readonly property var camposContrasena: ["clave_admin", "confirmacion_admin",
+                                             "clave_ingeniero", "confirmacion_ingeniero"]
 
     readonly property var clavesSuministro: ["agua_bomba", "agua_generador", "aire_comprimido",
                                              "vapor_suministro", "suministro_electrico"]
@@ -96,7 +105,7 @@ Item {
         const p = ["activacion", "equipo", "puertas", "camara"]
         if (clase === "" || maxEnfriamiento > 0)
             p.push("enfriamiento")
-        p.push("vapor", "datos", "resumen")
+        p.push("vapor", "datos", "contrasenas", "resumen")
         return p
     }
     property int indice: 0
@@ -111,13 +120,18 @@ Item {
     // ── Campos de texto y teclado ────────────────────────────────────────
     readonly property var campos: ({
         serie:  { titulo: I18n.t("instalacion.serie", I18n.lang),  maximo: 20 },
-        codigo: { titulo: I18n.t("instalacion.codigo", I18n.lang), maximo: 12 }
+        codigo: { titulo: I18n.t("instalacion.codigo", I18n.lang), maximo: 12 },
+        // LIC-02: 64 = PASSWORD_MAX del backend (validacion_usuario.py)
+        clave_admin: { titulo: I18n.t("instalacion.clave_admin", I18n.lang), maximo: 64, oculto: true },
+        confirmacion_admin: { titulo: I18n.t("instalacion.confirmacion_admin", I18n.lang), maximo: 64, oculto: true },
+        clave_ingeniero: { titulo: I18n.t("instalacion.clave_ingeniero", I18n.lang), maximo: 64, oculto: true },
+        confirmacion_ingeniero: { titulo: I18n.t("instalacion.confirmacion_ingeniero", I18n.lang), maximo: 64, oculto: true }
     })
     function editar(nombre, siguiente) {
         if (!teclado)
             return
         const campo = campos[nombre]
-        teclado.abrirAlfanumerico(campo.titulo, raiz[nombre], campo.maximo, false,
+        teclado.abrirAlfanumerico(campo.titulo, raiz[nombre], campo.maximo, campo.oculto === true,
                                   texto => raiz[nombre] = texto,
                                   siguiente ? () => raiz.editar(siguiente) : null)
         campoActivo = nombre
@@ -173,6 +187,16 @@ Item {
                 e.capacidad = I18n.t("instalacion.error_capacidad", I18n.lang)
             if (tipoCarga !== "V" && tipoCarga !== "H")
                 e.tipoCarga = I18n.t("instalacion.error_tipo_carga", I18n.lang)
+        } else if (paso === "contrasenas") {
+            // LIC-02: sin puente no se avanza (falla cerrada)
+            if (!puente) {
+                e.clave_admin = I18n.t("instalacion.error_contrasenas", I18n.lang)
+            } else {
+                const r = puente.validarContrasenas(clave_admin, confirmacion_admin,
+                                                    clave_ingeniero, confirmacion_ingeniero)
+                for (const campo in r)
+                    e[campo] = I18n.t(r[campo].clave, I18n.lang, r[campo].valores)
+            }
         }
         errores = e
         return Object.keys(e).length === 0
@@ -207,7 +231,10 @@ Item {
             cooling_level: nivelEnfriamiento,
             vapor_source: fuenteVapor,           // E1b: generator | boiler | mixed
             supply_inputs: suministros,
-            temperature_probes: sondas
+            temperature_probes: sondas,
+            // LIC-02: el puente las vuelve a validar y las guarda antes del perfil
+            contrasenas: { clave_admin: clave_admin, confirmacion_admin: confirmacion_admin,
+                           clave_ingeniero: clave_ingeniero, confirmacion_ingeniero: confirmacion_ingeniero }
         }
     }
     // Tipos de puerta con cerrojo controlado por el software (devices/factory/factory.py)
@@ -258,7 +285,8 @@ Item {
               : I18n.t("instalacion.resumen_nivel", I18n.lang, { n: nivelEnfriamiento }) },
         { clave: "resumen_vapor", valor: I18n.t("instalacion.vapor_" + fuenteVapor, I18n.lang) },
         { clave: "resumen_sin_vigilar", valor: _lista(clavesSuministro, "suministros", "sum_") },
-        { clave: "resumen_sin_sonda", valor: _lista(clavesSonda, "sondas", "sonda_") }
+        { clave: "resumen_sin_sonda", valor: _lista(clavesSonda, "sondas", "sonda_") },
+        { clave: "resumen_contrasenas", valor: I18n.t("instalacion.resumen_contrasenas_fijadas", I18n.lang) }
     ].filter(f => f.valor !== "")
 
     // ── Presentación ─────────────────────────────────────────────────────
@@ -704,7 +732,37 @@ Item {
                     }
                 }
 
-                // ============ 8. Resumen ============
+                // ============ 8. Contraseñas (LIC-02) ============
+                Item {
+                    objectName: "pasoContrasenas"
+                    visible: !raiz.terminado && raiz.pasoActual === "contrasenas"
+                    x: lienzo.margen; y: lienzo.yPagina
+                    width: lienzo.ancho; height: lienzo.altoPagina
+
+                    Titulo { width: parent.width; text: I18n.t("instalacion.contrasenas_titulo", I18n.lang) }
+                    Ayuda { y: Escala.px(44); width: parent.width; text: I18n.t("instalacion.contrasenas_ayuda", I18n.lang) }
+                    Repeater {
+                        model: raiz.camposContrasena
+                        delegate: CampoFormulario {
+                            required property string modelData
+                            required property int index
+                            y: Escala.px(150) + index * Escala.px(167)
+                            width: parent.width
+                            etiqueta: I18n.t("instalacion." + modelData, I18n.lang)
+                            marcador: I18n.t("instalacion.clave_marcador", I18n.lang)
+                            valor: raiz.textoCampo(modelData)
+                            oculto: true
+                            activo: raiz.campoActivo === modelData
+                            mensajeError: raiz.errores[modelData] ?? ""
+                            nombreObjeto: "campo_" + modelData
+                            nombreError: "error_" + modelData
+                            onTocado: raiz.editar(modelData, index < raiz.camposContrasena.length - 1
+                                                  ? raiz.camposContrasena[index + 1] : "")
+                        }
+                    }
+                }
+
+                // ============ 9. Resumen ============
                 Item {
                     objectName: "pasoResumen"
                     visible: !raiz.terminado && raiz.pasoActual === "resumen"

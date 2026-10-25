@@ -45,6 +45,8 @@ EVENTOS = (
     "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
     # U11 (tanda 11, D11-6): cuentas del sistema Admin e Ingeniero
     "usuario_renombrado", "cuenta_sistema_rechazada",
+    # LIC-02 (licencia L0): contraseña de Admin/Ingeniero fijada en el asistente
+    "contrasena_fijada_instalacion",
 )
 
 

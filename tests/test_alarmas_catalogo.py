@@ -60,6 +60,8 @@ _EJEMPLOS = {
     # J12 (tanda 12, C-04.4): migración correctiva de un programa
     "SIS-06": {"programa": "Bowie & Dick", "parametro": "presion_add_calentamiento",
                "anterior": "99", "nuevo": "9"},
+    # LIC-02 (licencia L0): contraseña de fábrica vigente
+    "SIS-07": {"cuentas": "Admin, Ingeniero"},
     "OPERANDO_SIN_BD": {},
     "CONFIGURACION_INVALIDA": {"motivo": "x"},
     **{codigo: {"motivo": "x"} for codigo in CODIGOS_TARJETA},

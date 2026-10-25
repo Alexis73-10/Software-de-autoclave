@@ -116,7 +116,19 @@
     "resumen_empaque": "Gasket sensor",
     "resumen_con_empaque": "Monitored",
     "resumen_sin_empaque": "NOT monitored",
-    "confirmar_sin_cerrojo": "The selected door type does NOT control the door lock. Confirm that the equipment has no lock before installing. The profile will be locked."
+    "confirmar_sin_cerrojo": "The selected door type does NOT control the door lock. Confirm that the equipment has no lock before installing. The profile will be locked.",
+    "paso_contrasenas": "Passwords",
+    "contrasenas_titulo": "System account passwords",
+    "contrasenas_ayuda": "Set the Admin and Engineer passwords. They cannot be the factory passwords and must be different from each other. Keep them in a safe place: they are not shown again.",
+    "clave_admin": "Admin password",
+    "confirmacion_admin": "Confirm the Admin password",
+    "clave_ingeniero": "Engineer password",
+    "confirmacion_ingeniero": "Confirm the Engineer password",
+    "clave_marcador": "Tap to type",
+    "error_contrasenas": "Check the Admin and Engineer passwords",
+    "error_guardar_contrasenas": "The passwords could not be saved: {detalle}",
+    "resumen_contrasenas": "Admin and Engineer passwords",
+    "resumen_contrasenas_fijadas": "Set (saved when installing)"
   },
   "app": {
     "nombre": "e-specifika",
@@ -725,6 +737,8 @@
     "no_coinciden": "The passwords do not match",
     "rol_invalido": "Select a role",
     "igual_actual": "The new password must be different from the current one",
+    "semilla": "The factory password cannot be used",
+    "iguales": "Must be different from the Admin password",
     "ASIGNACION_INVALIDA": "The sensor assignment is not valid",
     "SENSOR_NO_DISPONIBLE": "A sensor in use has no reading or is not installed",
     "ASIGNACION_SENSORES_INVALIDA": "The program has an invalid sensor assignment"
@@ -1043,6 +1057,11 @@
       "titulo": "Program corrected on loading",
       "plantilla": "Program {programa} had {parametro} = {anterior} kPa, above the allowed maximum; it was changed to {nuevo} kPa.",
       "accion": "A technician or engineer must review the program in Options › Cycle parameters. The unit can keep operating."
+    },
+    "SIS-07": {
+      "titulo": "Factory password still in use",
+      "plantilla": "The {cuentas} account still has the factory password, which is public.",
+      "accion": "Log in with that account and change the password, or reset it in Options › Users. The equipment can keep operating."
     },
     "CONFIGURACION_INVALIDA": {
       "titulo": "Invalid configuration",
@@ -1607,6 +1626,7 @@
       "usuario_desactivado": "deactivated user {entidad}",
       "usuario_reactivado": "reactivated user {entidad}",
       "clave_restablecida": "reset the password of {entidad}",
+      "contrasena_fijada_instalacion": "set the password of {entidad} during installation",
       "operador_creado": "added operator {entidad}",
       "operador_desactivado": "deactivated operator {entidad}",
       "operador_reactivado": "reactivated operator {entidad}",
@@ -1663,6 +1683,7 @@
       "usuario_desactivado": "User deactivated",
       "usuario_reactivado": "User reactivated",
       "clave_restablecida": "Password reset",
+      "contrasena_fijada_instalacion": "Password set during installation",
       "operador_creado": "Operator added",
       "operador_desactivado": "Operator deactivated",
       "operador_reactivado": "Operator reactivated",

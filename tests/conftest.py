@@ -57,3 +57,21 @@ def _ticket_sin_proveedor_global():
     except Exception:
         return
     ticket_formatter.fijar_proveedor(None)
+
+
+# LIC-01 (licencia L0): secretos de activación de PRUEBA, fijos. Las pruebas
+# nunca leen el archivo de secretos real: ESPECIFIKA_SECRETOS apunta a una ruta
+# inexistente. Las que necesitan otro caso (sin secretos, archivo propio)
+# llaman a activation.configurar_secretos() o cambian la variable.
+SECRETO_PRUEBA_INSTALACION = bytes(range(32))
+SECRETO_PRUEBA_FABRICA = bytes(range(32, 64))
+_RUTA_SECRETOS_INEXISTENTE = str(Path(__file__).parent / "_sin_archivo_de_secretos" / "activacion.json")
+
+
+@pytest.fixture(autouse=True)
+def _secretos_de_prueba(monkeypatch):
+    from autoclave.installation import activation
+    monkeypatch.setenv("ESPECIFIKA_SECRETOS", _RUTA_SECRETOS_INEXISTENTE)
+    activation.configurar_secretos(SECRETO_PRUEBA_INSTALACION, SECRETO_PRUEBA_FABRICA)
+    yield
+    activation.configurar_secretos()

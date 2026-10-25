@@ -129,11 +129,17 @@ def test_slot_vista_previa():
 def test_puente_instalar_mesa_devuelve_error(perfil_tmp):
     from PySide6.QtCore import QCoreApplication
     QCoreApplication.instance() or QCoreApplication(sys.argv)
-    puente = pi.PuenteInstalacion(validar_codigo=_ok)
+    # LIC-02 (licencia L0): contraseñas obligatorias, guardadas en una base temporal
+    from autoclave.services.domain.logging.db_manager import DbManager
+    puente = pi.PuenteInstalacion(validar_codigo=_ok,
+                                  abrir_bd=lambda: DbManager(perfil_tmp.parent / "autoclave.db"),
+                                  es_semilla=lambda c: False)
+    claves = {"clave_admin": "admin-nueva-1", "confirmacion_admin": "admin-nueva-1",
+              "clave_ingeniero": "inge-nueva-1", "confirmacion_ingeniero": "inge-nueva-1"}
     assert puente.validarCodigo("ab-123", "X") is True
     r = puente.instalar(_datos(equipment_class="mesa_b", door_count=1, cooling_level=0))
     assert r == {"ok": False, "error": i18n.t("instalacion.error_clase_fuera_alcance")}
     assert not perfil_tmp.exists()
-    r = puente.instalar(_datos(model_id="OTRO"))
+    r = puente.instalar(_datos(model_id="OTRO", contrasenas=claves))
     assert r["ok"] is True
     assert json.loads(perfil_tmp.read_text(encoding="utf-8"))["model_id"] == "SPK-SAT 45V2-LAB"

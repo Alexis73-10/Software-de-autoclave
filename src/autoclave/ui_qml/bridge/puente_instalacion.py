@@ -9,7 +9,8 @@
 #                                  solo piso y piso_lab (M1, AM-3)
 #   validarCodigo(serie, codigo)   código de activación del día (activation.py)
 #   calcularModelo(clase, litros, carga, puertas) -> nombre o "" (vista previa)
-#   instalar(perfil) -> {ok, error}
+#   validarContrasenas(admin, conf_admin, ingeniero, conf_ingeniero) -> {campo: error_ui}
+#   instalar(perfil) -> {ok, error}   (perfil.contrasenas: las 4 de arriba)
 #
 # instalar() vuelve a validar todo lo que la pantalla ya validó (la UI no es
 # la barrera): código del día, clase, puertas y enfriamiento dentro de la
@@ -17,6 +18,13 @@
 # obligatoria. Nunca sobrescribe un perfil válido. Un perfil existente pero
 # inválido no se borra: se aparta como installation_profile.json.invalido-<fecha>.
 # Sin diálogo de clave de fabricante (decisión 1.7).
+#
+# LIC-02 (licencia L0): paso obligatorio de contraseñas de Admin e Ingeniero,
+# también en reinstalación. Reglas de contraseña nueva del backend
+# (validacion_usuario), distintas de las semilla y entre sí. instalar() las
+# guarda en la base (hash, debe_cambiar_clave=0, auditoría) ANTES de escribir
+# el perfil: si el guardado falla, el asistente no termina. El asistente
+# corre sin backend (exe_unico), así que escribe la base directamente.
 #
 # M1 (tanda 7, planeacion_asistente_modelo.md): el puente recibe
 # capacidad_litros y tipo_carga y calcula model_id él mismo con
@@ -41,11 +49,21 @@ from autoclave.installation.modelo import (CAPACIDAD_MAX, CAPACIDAD_MIN, TIPOS_C
 from autoclave.installation.profile import (SUPPLY_INPUT_KEYS, InstallationProfile, Role,
                                             normalizar_supply_inputs,
                                             normalizar_temperature_probes)
+from autoclave.backend.contrasenas import hash_password
+from autoclave.services.domain.logging.db_manager import es_clave_semilla
+from autoclave.ui_pyside.services.validacion_usuario import (codigo_clave, codigo_confirmacion,
+                                                            error_ui)
 
 logger = logging.getLogger(__name__)
 
 FUENTES_VAPOR = ("generator", "boiler", "mixed")
 SONDA_OBLIGATORIA = "temp_camara"
+
+# LIC-02: campos del paso de contraseñas (mismos nombres en la pantalla)
+CAMPOS_CONTRASENAS = ("clave_admin", "confirmacion_admin",
+                      "clave_ingeniero", "confirmacion_ingeniero")
+COD_SEMILLA = "semilla"      # es la contraseña de fábrica de alguna de las dos cuentas
+COD_IGUALES = "iguales"      # la de Ingeniero es igual a la de Admin
 
 
 def clases_disponibles() -> list[dict]:
@@ -169,15 +187,60 @@ def construir_perfil(datos: dict, codigo: str, ahora: datetime | None = None,
     )
 
 
+def errores_contrasenas(claves: dict, es_semilla=es_clave_semilla) -> dict[str, str]:
+    """LIC-02: {campo: código} del paso de contraseñas; vacío si es válido.
+    Reglas de contraseña nueva del backend (obligatoria, longitud,
+    confirmación), más: ninguna es la contraseña semilla de alguna de las dos
+    cuentas, y la de Ingeniero es distinta de la de Admin."""
+    claves = {c: str((claves or {}).get(c) or "") for c in CAMPOS_CONTRASENAS}
+    admin, ingeniero = claves["clave_admin"], claves["clave_ingeniero"]
+    errores = {}
+    for campo, clave in (("clave_admin", admin), ("clave_ingeniero", ingeniero)):
+        codigo = codigo_clave(clave)
+        if codigo is None and campo == "clave_ingeniero" and clave == admin:
+            codigo = COD_IGUALES
+        if codigo is None and es_semilla(clave):
+            codigo = COD_SEMILLA
+        if codigo:
+            errores[campo] = codigo
+    for campo, clave in (("confirmacion_admin", admin), ("confirmacion_ingeniero", ingeniero)):
+        codigo = codigo_confirmacion(claves[campo], clave)
+        if codigo:
+            errores[campo] = codigo
+    return errores
+
+
+def _abrir_bd():
+    from autoclave.services.domain.logging.db_manager import DbManager
+    return DbManager()
+
+
+def fijar_contrasenas(claves: dict, abrir_bd=_abrir_bd) -> list[str]:
+    """LIC-02: guarda el hash de las dos contraseñas (ya validadas), baja
+    debe_cambiar_clave y audita, en una sola transacción. Lanza si falla."""
+    hashes = {"admin": hash_password(claves["clave_admin"]),
+              "ingeniero": hash_password(claves["clave_ingeniero"])}
+    db = abrir_bd()
+    try:
+        return db.fijar_claves_instalacion(hashes)
+    finally:
+        db.close()
+
+
+def _hay_perfil_valido() -> bool:
+    if not storage.exists():
+        return False
+    try:
+        return get_installation_profile() is not None
+    except ClockTamperedError:
+        return True       # el perfil existe y es legible: no se toca
+
+
 def escribir_perfil(perfil: InstallationProfile, ahora: datetime | None = None) -> None:
     """Escribe el perfil. Nunca sobrescribe uno válido; uno inválido se
     aparta con fecha (no se borra)."""
     if storage.exists():
-        try:
-            valido = get_installation_profile() is not None
-        except ClockTamperedError:
-            valido = True       # el perfil existe y es legible: no se toca
-        if valido:
+        if _hay_perfil_valido():
             raise RuntimeError("El equipo ya tiene un perfil de instalación válido")
         sello = (ahora or datetime.now()).strftime("%Y%m%d-%H%M%S")
         destino = storage.INSTALLATION_FILE.with_name(
@@ -190,9 +253,12 @@ def escribir_perfil(perfil: InstallationProfile, ahora: datetime | None = None) 
 class PuenteInstalacion(QObject):
     instalado = Signal()
 
-    def __init__(self, parent=None, validar_codigo=validate_installation_code):
+    def __init__(self, parent=None, validar_codigo=validate_installation_code,
+                 abrir_bd=_abrir_bd, es_semilla=es_clave_semilla):
         super().__init__(parent)
         self._validar_codigo = validar_codigo
+        self._abrir_bd = abrir_bd
+        self._es_semilla = es_semilla
         self._clases = clases_disponibles()
         self._codigo = ""
 
@@ -220,15 +286,39 @@ class PuenteInstalacion(QObject):
         except ValueError:
             return ""
 
+    @Slot(str, str, str, str, result="QVariantMap")
+    def validarContrasenas(self, clave_admin: str, confirmacion_admin: str,
+                           clave_ingeniero: str, confirmacion_ingeniero: str) -> dict:
+        """LIC-02: {campo: {clave, valores}} (error_ui) para pintar cada campo;
+        vacío si todo es válido. Nunca registra las contraseñas."""
+        errores = errores_contrasenas(
+            {"clave_admin": clave_admin, "confirmacion_admin": confirmacion_admin,
+             "clave_ingeniero": clave_ingeniero, "confirmacion_ingeniero": confirmacion_ingeniero},
+            es_semilla=self._es_semilla)
+        return {campo: error_ui("clave", codigo) for campo, codigo in errores.items()}
+
     @Slot("QVariantMap", result="QVariantMap")
     def instalar(self, datos) -> dict:
+        datos = dict(datos or {})
+        claves = datos.pop("contrasenas", None)
+        claves = dict(claves) if hasattr(claves, "keys") else {}
         try:
-            perfil = construir_perfil(dict(datos or {}), self._codigo,
-                                      validar_codigo=self._validar_codigo)
+            perfil = construir_perfil(datos, self._codigo, validar_codigo=self._validar_codigo)
+            if errores_contrasenas(claves, es_semilla=self._es_semilla):
+                raise ValueError(i18n.t("instalacion.error_contrasenas"))
+            if _hay_perfil_valido():
+                raise RuntimeError("El equipo ya tiene un perfil de instalación válido")
+            # LIC-02: primero las contraseñas; sin ellas no hay perfil
+            usuarios = fijar_contrasenas(claves, abrir_bd=self._abrir_bd)
+            logger.info("Contraseñas fijadas en la instalación: %s", ", ".join(usuarios))
             escribir_perfil(perfil)
         except (ValueError, RuntimeError, OSError) as e:
             logger.error("Instalación rechazada: %s", e)
             return {"ok": False, "error": str(e)}
+        except Exception as e:
+            # p. ej. sqlite3.Error o BdBloqueadaError al guardar las contraseñas
+            logger.exception("Instalación rechazada: no se pudieron guardar las contraseñas")
+            return {"ok": False, "error": i18n.t("instalacion.error_guardar_contrasenas", detalle=str(e))}
         logger.info("Instalación completada para la serie '%s'", perfil.serial_number)
         self.instalado.emit()
         return {"ok": True, "error": ""}

@@ -70,6 +70,27 @@ def _descripciones(textos) -> dict:
     return salida
 
 
+def _rol_sesion() -> str | None:
+    from autoclave.ui.service_ui.session_manager import SessionManager
+    return SessionManager.current_role()
+
+
+def visibles_para_rol(alarmas, rol: str | None):
+    """LIC-02 (licencia L0): quita las alarmas que solo ven ciertos roles
+    (`roles_visibles` del DTO, p. ej. SIS-07 para técnico e ingeniero) si el
+    rol de la sesión de esta pantalla no está entre ellos; sin sesión, no se
+    muestran. Bandeja de Preciclo y campana usan este mismo modelo."""
+    if not isinstance(alarmas, list):
+        return alarmas
+    salida = []
+    for a in alarmas:
+        roles = a.get("roles_visibles") if isinstance(a, dict) else None
+        if isinstance(roles, list) and roles and rol not in roles:
+            continue
+        salida.append(a)
+    return salida
+
+
 def _normalizar_alarmas(alarmas) -> list[dict]:
     """Frontera de confianza: filas mal formadas se descartan, campos ausentes quedan en ""."""
     filas = []
@@ -225,7 +246,7 @@ class UiBridge(QObject):
                     self.listoParaCicloChanged)
         self._fijar("_estado_equipo", estado_equipo(self._machine_state, self._listo),
                     self.estadoEquipoChanged)
-        self._alarms.establecer(self._ui.get_alarmas())
+        self._alarms.establecer(visibles_para_rol(self._ui.get_alarmas(), _rol_sesion()))
 
         ciclo = self._ui.get_cycle() or None   # {} = aún no se recibió /cycle
         temps = self._ui.get_sensores_temp()

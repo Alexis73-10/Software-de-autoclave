@@ -40,3 +40,8 @@ src/autoclave/cycles/user/*.json.bak
 # Material personal de estudio, fuera del repo desde la tanda 8 (D8-3.27, P6):
 # copia en C:\Users\tecni\Documents\estudio_autoclave\
 /estudio/
+
+# LIC-01 (licencia L0): el archivo de secretos de activación vive fuera del
+# repositorio; por si alguien lo copia aquí dentro
+especifika_secretos/
+activacion.json
