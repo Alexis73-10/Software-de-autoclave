@@ -1,0 +1,42 @@
+.FF........                                                              [100%]
+================================== FAILURES ===================================
+_______________________ test_carga_el_archivo_del_repo ________________________
+
+    def test_carga_el_archivo_del_repo():
+        c = cc.cargar(contrasena=lambda remitente: None)
+>       assert [d["nombre"] for d in c.destinos] == ["Administrativo", "Mantenimiento"]
+E       AssertionError: assert [] == ['Administrat...antenimiento']
+E         
+E         Right contains 2 more items, first extra item: 'Administrativo'
+E         Use -v to get more diff
+
+tests\test_config_correo.py:24: AssertionError
+______________________ test_descarta_destinos_invalidos _______________________
+
+tmp_path = WindowsPath('C:/Users/tecni/AppData/Local/Temp/pytest-of-tecni/pytest-2071/test_descarta_destinos_invalid0')
+
+    def test_descarta_destinos_invalidos(tmp_path):
+        ruta = _archivo(tmp_path, destinos=[
+            {"nombre": "Bien", "correo": "a@b.co"}, {"nombre": "Sin arroba", "correo": "ab.co"},
+            {"correo": "c@d.co"}, "texto"])
+>       assert cc.cargar(ruta, contrasena=lambda r: "x").destinos == [{"nombre": "Bien", "correo": "a@b.co"}]
+E       AssertionError: assert [] == [{'correo': '...bre': 'Bien'}]
+E         
+E         Right contains one more item: {'correo': 'a@b.co', 'nombre': 'Bien'}
+E         Use -v to get more diff
+
+tests\test_config_correo.py:61: AssertionError
+============================== warnings summary ===============================
+tests/test_calibracion_sensor_view.py::test_sin_sesion_bloquea_formulario
+  C:\Users\tecni\AppData\Local\Programs\Python\Python314\Lib\site-packages\qfluentwidgets\common\image_utils.py:11: DeprecationWarning: Please import `gaussian_filter` from the `scipy.ndimage` namespace; the `scipy.ndimage.filters` namespace is deprecated and will be removed in SciPy 2.0.0.
+    from scipy.ndimage.filters import gaussian_filter
+
+tests/test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu
+  C:\Users\tecni\Documents\codigo_autoclave\tests\test_home_view.py:28: DeprecationWarning: Function: 'QMouseEvent.QMouseEvent(QEvent.Type type, const QPointF &localPos, Qt.MouseButton button, QFlags<Qt.MouseButton> buttons, QFlags<Qt.KeyboardModifier> modifiers, const QPointingDevice *device)' is marked as deprecated, please check the documentation for more information.
+    event = QMouseEvent(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_config_correo.py::test_carga_el_archivo_del_repo - Assertio...
+FAILED tests/test_config_correo.py::test_descarta_destinos_invalidos - Assert...
+2 failed, 9 passed, 2 warnings in 10.15s
