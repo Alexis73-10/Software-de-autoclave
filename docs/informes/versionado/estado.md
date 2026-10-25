@@ -11,11 +11,13 @@ Instrucción: `docs/mis_plans/instruccion_claude_code_versionado.md`. Rama `vers
 | 4 | Script `tools/entrega/compilar_entrega.py` (§2) | Hecho | d55950a |
 | 5 | Pruebas `tests/test_ver_*.py` (§3) | Hecho | c67cfb5, 37379b9 (aislar test_config_correo) |
 | 6 | Documentación: HISTORIAL, LEEME, CLAUDE.md | Hecho | d55950a (HISTORIAL), 4dc24f7 |
-| 7 | Informe `VER_informe.md` | Pendiente | |
-| 8 | Unir `versionado` a `dev` con la suite en verde | Pendiente | |
-| 9 | `CERRADO.txt` | Pendiente | |
+| 7 | Informe `VER_informe.md` | Hecho | este commit |
+| 8 | Unir `versionado` a `dev` con la suite en verde | Hecho (suite 7909 passed, 0 rojas) | merge «Merge versionado en dev» (hash en CERRADO.txt) |
+| 9 | `CERRADO.txt` | Hecho tras el merge (no versionado) | — |
 
 ## Notas para reanudar
 - Suite de la base (dev b7560e6, `python -m pytest tests -n auto`): 7830 passed, 6 failed, 10 skipped, 3 xfailed; en serie pasan 4 de las 6; quedan las 2 de `test_config_correo` (dependen de `data/correo_equipo.json` del PC). Total 7834 passed.
 - Verificación §1: el `.exe` de la I no trae `autoclave-*.dist-info` (tampoco está instalado en `_venv_t8_producto`): `importlib.metadata.version("autoclave")` lanza PackageNotFoundError.
 - Compilación de verificación real (dae4d0f, `_venv_t8_producto`): `dist/Autoclave/Autoclave.exe --escribir-version` -> `1.0.0-alpha.1.dev+gdae4d0f.sucio` (evidencia en `suites/version_exe_verificacion.json`).
+- Ensayo de punta a punta del script en un clon desechable (alpha.901, ya borrado): salida 0; defecto CRLF en las sumas corregido en b3be082; reversión real comprobada.
+- Suite final en `versionado`: 7901 passed + 8 en serie = 7909 passed, 0 rojas.
