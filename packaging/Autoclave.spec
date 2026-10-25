@@ -70,7 +70,7 @@ a = Analysis(
     hiddenimports=[
         'autoclave.backend.main',
         'autoclave.backend.server',
-        # server.py la carga con importlib.import_module (R8): PyInstaller no la ve.
+        # rutas/_comun.py la carga con importlib.import_module (R8): PyInstaller no la ve.
         'autoclave.backend.server_reasignacion',
         'autoclave.ui_qml.app',
         'autoclave.ui_pyside.app',

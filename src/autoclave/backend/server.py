@@ -131,9 +131,11 @@ def _estado_seguro_en_marcha() -> bool:
     return getattr(context.control_loop, "datos_vigentes", False) is True
 
 
-# ORG-12: mismo orden relativo de las rutas que antes de partir este archivo
-# (cada área entra en el orden de su primera ruta; dentro de cada router, el
-# orden original). tests/test_t15_rutas_equivalentes.py lo comprueba.
+# ORG-12: cada área entra en el orden de su primera ruta y, dentro de cada
+# router, en el orden original. El orden global cambia (también el de `paths`
+# en /openapi.json), pero ninguna URL coincide con dos rutas del mismo método,
+# así que cada petición la atiende la misma ruta que antes;
+# tests/test_t15_rutas_equivalentes.py lo comprueba.
 app.include_router(sistema.router)
 app.include_router(usuarios.router)
 app.include_router(rutas_io.router)
