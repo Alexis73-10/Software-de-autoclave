@@ -22,7 +22,6 @@
 
 import time
 import logging
-import importlib.metadata
 import json
 import queue
 import threading
@@ -46,13 +45,11 @@ ESPERA_BD_EN_TICK_S = 0.05
 
 
 def _software_version() -> str:
-    """Versión real instalada del paquete (misma fuente que el ticket de
-    arranque, devices/printer/arranque_equipo.py) — evita que el ticket de ciclo muestre una
-    versión desactualizada o inventada."""
-    try:
-        return importlib.metadata.version("autoclave")
-    except importlib.metadata.PackageNotFoundError:
-        return "?"
+    """Versión con el commit de la compilación (VER-03/VER-05: misma fuente que
+    el ticket de arranque, autoclave._version). Antes salía de los metadatos del
+    paquete, que el .exe no trae: el registro de ciclo quedaba con "?"."""
+    from autoclave._version import version_completa
+    return version_completa()
 
 # Fases internas → código del ticket
 _FASE_A_CODIGO: dict[str, str] = {

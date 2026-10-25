@@ -5,7 +5,7 @@
 #
 # Fuentes:
 #   - perfil de instalación (installation_profile.json, vía installation.storage)
-#   - versión del software (metadatos del paquete, igual que el ticket de arranque)
+#   - versión del software (autoclave._version, igual que el ticket de arranque; VER-03)
 #   - ciclos realizados / último ciclo: GET /cycle/history?limite=1, consultado
 #     fuera del hilo de la GUI al abrir el panel
 #   - versión, ID y emparejamiento de la tarjeta de E/S: GET /status (campo
@@ -13,7 +13,6 @@
 # Sin fuente en el código (se muestra como "No disponible"): fecha del último
 # mantenimiento.
 
-import importlib.metadata
 import logging
 import threading
 from datetime import datetime
@@ -38,10 +37,9 @@ def cargar_perfil():
 
 
 def version_software() -> str | None:
-    try:
-        return importlib.metadata.version("autoclave")
-    except importlib.metadata.PackageNotFoundError:
-        return None
+    # VER-03/VER-05: fuente única, con el commit de la compilación
+    from autoclave._version import version_completa
+    return version_completa()
 
 
 def _valor_enum(v):

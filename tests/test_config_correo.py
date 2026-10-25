@@ -10,6 +10,14 @@ import pytest
 from autoclave.ui_qml.exportacion import config_correo as cc
 
 
+@pytest.fixture(autouse=True)
+def _sin_correo_del_sitio(tmp_path, monkeypatch):
+    # Etapa VER: data/correo_equipo.json del PC de desarrollo (sin versionar) no
+    # debe cambiar el resultado; antes estas pruebas fallaban en el PC del banco
+    # y la verificación previa de compilar_entrega.py bloquearía toda entrega
+    monkeypatch.setattr(cc, "RUTA_EQUIPO", tmp_path / "correo_equipo.json")
+
+
 def _archivo(tmp_path, **datos):
     base = {"remitente": "equipo@gmail.com", "servidor_smtp": "smtp.gmail.com", "puerto": 587,
             "destinos": [{"nombre": "Mantenimiento", "correo": "mant@x.com"}]}

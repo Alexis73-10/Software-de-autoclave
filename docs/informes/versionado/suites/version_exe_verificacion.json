@@ -1,0 +1,13 @@
+{
+  "version_semver": "1.0.0-alpha.0",
+  "version_pep440": "1.0.0a0",
+  "mostrada": "1.0.0-alpha.1.dev+gdae4d0f.sucio",
+  "completa": "1.0.0-alpha.1.dev+gdae4d0f.sucio",
+  "compilacion": {
+    "commit": "dae4d0f",
+    "etiqueta": null,
+    "fecha_utc": "2026-10-25T08:08:02Z",
+    "sucio": true
+  },
+  "congelado": true
+}

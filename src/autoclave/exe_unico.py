@@ -62,6 +62,23 @@ def _log_a_archivo(nombre: str) -> None:
     handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
     logging.getLogger().addHandler(handler)
     logging.getLogger().setLevel(logging.INFO)
+    # VER-05: la primera línea de cada log dice qué compilación corre
+    from autoclave._version import version_completa
+    logging.getLogger("autoclave.exe_unico").info("Autoclave %s (%s)", version_completa(), nombre)
+
+
+def escribir_version(ruta: str) -> int:
+    """VER-04 (§2.2 paso 5 de la etapa VER): escribe la versión en `ruta` (JSON) y
+    sale, sin abrir el puerto serial, el backend ni ninguna ventana. Lo usa
+    tools/entrega/compilar_entrega.py para comprobar el .exe compilado."""
+    import json
+    from autoclave import _version
+    datos = {"version_semver": _version.VERSION_SEMVER, "version_pep440": _version.__version__,
+             "mostrada": _version.version_mostrada(), "completa": _version.version_completa(),
+             "compilacion": _version._info_compilacion(), "congelado": bool(getattr(sys, "frozen", False))}
+    with open(ruta, "w", encoding="utf-8") as f:
+        json.dump(datos, f, ensure_ascii=False, indent=2)
+    return 0
 
 
 def _parse_args(argv=None):
@@ -74,6 +91,7 @@ def _parse_args(argv=None):
     parser.add_argument("--monitor-puerta1", type=int, default=0)
     parser.add_argument("--monitor-puerta2", type=int, default=1)
     parser.add_argument("--esperar-pid", type=int, action="append", default=None)
+    parser.add_argument("--escribir-version", metavar="RUTA", default=None)   # VER-04
     args = parser.parse_args(argv)
     args.esperar_pid = list(args.esperar_pid or [])
     return args
@@ -349,6 +367,8 @@ def main(argv=None) -> int:
     _sin_consola()
     args = _parse_args(argv)
     args.argv_original = list(sys.argv[1:] if argv is None else argv)   # R11
+    if args.escribir_version:
+        return escribir_version(args.escribir_version)
     if args.rol == "backend":
         from autoclave.backend.main import main as backend_main
         backend_main()   # escribe su propio data/backend.log en el .exe

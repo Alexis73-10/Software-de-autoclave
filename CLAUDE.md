@@ -11,6 +11,12 @@ Guía de contexto para trabajar en este repositorio (software de control de auto
 - `tests/helpers/` (dobles y ayudantes importados por las pruebas; `backend_doble` trae `modulo_backend`/`fijar_en_backend`/`parchear_en_backend` para parchear el backend partido) y `tests/banco/` (bancos y capturas que no son pruebas automáticas). Convención en `tests/README.md`; marcador `req(id)` registrado en `pyproject.toml`.
 - `tests/test_arquitectura_capas.py` impide que backend, auth, cliente, simulador, core, services, state_machine, protocols, devices o hal importen la UI; `tests/test_t15_rutas_equivalentes.py` fija rutas y OpenAPI contra `docs/informes/tanda15/base/`.
 - `docs/README.md`: qué va en cada carpeta de `docs/` (`arquitectura/`, `referencia/`, `diseno/`, `mis_plans/`, `superpowers/`, `informes/tandaNN/`...).
+- Versión (etapa VER, 25-oct): fuente única `src/autoclave/_version.py` (`VERSION_SEMVER` = `1.0.0-alpha.N` de la última entrega, `__version__` en PEP 440, que lee `pyproject.toml`); nadie más escribe la versión ni usa `importlib.metadata` para ella (`tests/test_ver_version.py`). Lo mostrado sale de `version_completa()`. Los 3 `.spec` del autoclave generan `src/autoclave/_build_info.py` (no versionado) con `tools/entrega/info_compilacion.py`. Las entregas se hacen solo con `python tools/entrega/compilar_entrega.py` desde `dev` limpio (N = mayor etiqueta `v1.0.0-alpha.K` + 1; etapa K de las tandas: unir la rama a `dev` y correrlo); historial en `docs/versiones/HISTORIAL_VERSIONES.md`.
+
+## Herramientas
+
+- Trabajos sin supervisión: Cristian los lanza con `powershell -ExecutionPolicy Bypass -File tools\tandas\lanzar_prompt.ps1 -Nombre <nombre>` (prompt en `docs/mis_plans/prompt_claude_code_<nombre>.md`; logs en `docs/informes/<nombre>/lanzador.log` y `sesion_NN_*.log`), que relanza la sesión cuando se restablece el límite de uso. Por eso el trabajo lleva `docs/informes/<nombre>/estado.md` (paso → Hecho/Pendiente, último commit) al día después de cada commit y, al reanudar, sigue desde el primer paso pendiente.
+- **Convención `CERRADO.txt`:** el último acto de un trabajo así es escribir `docs/informes/<nombre>/CERRADO.txt` (fecha, commit del merge, resultado de la suite); sin ese archivo el lanzador vuelve a lanzar la sesión. Si el trabajo se detiene por un bloqueo que necesita a Cristian, se escribe igual, con `BLOQUEADO:` y el motivo en la primera línea.
 
 ## Máquina de estados del ciclo
 

@@ -101,7 +101,7 @@ def _estado_impresora() -> str:
 
 @router.get("/system/info")
 def get_system_info():
-    import importlib.metadata
+    from autoclave._version import version_completa   # VER-03/VER-05
     perfil = getattr(context, "profile", None)
 
     def de_perfil(attr):
@@ -125,7 +125,7 @@ def get_system_info():
                    "tipo_carga": carga if carga in ("V", "H") else None,
                    # E2 (tanda 8; D8-0): valor interno; la pantalla lo traduce
                    "clase": clase if isinstance(clase, str) else None},
-        "software": {"version": _parte(lambda: importlib.metadata.version("autoclave")),
+        "software": {"version": _parte(version_completa),
                      "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
                      "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None},
         "uso": {"ciclos": _parte(context.db.max_numero_ciclo),

@@ -617,3 +617,20 @@ Correcciones de P1 que **no** están en la A (afectan el trabajo de hoy):
 - `ajustes.log`
 
 Si algo falla, lleve copia de esa carpeta (sin `autoclave.db` si no hace falta).
+
+Desde la etapa VER, la primera línea de cada uno de esos logs dice qué versión corre (`Autoclave 1.0.0-alpha.N (<commit>)`).
+
+## 10. Para quien compila: entregas `1.0.0-alpha.N` (etapa VER)
+Desde la etapa VER (25-oct-2026) las entregas ya no se nombran por letra: la que sigue a la I es la **`1.0.0-alpha.1`**. Todo lo hace un solo comando, desde `dev` y con el árbol limpio:
+
+```
+python tools\entrega\compilar_entrega.py            (agregar --con-generador si la entrega lleva GeneradorCodigos.exe)
+```
+
+- **Antes:** estar en `dev` (con la rama de la tanda ya unida), sin cambios versionados y sin archivos sin versionar en `src/`, `packaging/`, `tools/instalador/` ni `Hardware/` (p. ej. los `.bak` de `src/autoclave/config/` o `i18n/`: moverlos fuera). Se necesitan el archivo de secretos de L0, el entorno de compilación (`..\_venv_t8_producto` o `AUTOCLAVE_PYTHON_COMPILACION`, o `--python-compilacion`) e Inno Setup 6 (`%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe`, o `--iscc`).
+- **Qué hace:** corre la suite (las rojas de la corrida en paralelo se repiten en serie), calcula N (mayor etiqueta `v1.0.0-alpha.K` + 1), hace el commit `chore(ver): 1.0.0-alpha.N` (con la entrada de `docs/versiones/HISTORIAL_VERSIONES.md`), compila, verifica que la entrega sea neutra y que el `.exe` reporte `1.0.0-alpha.N`, genera `Autoclave_Setup_1.0.0-alpha.N.exe` y deja todo en `entrega\v1.0.0-alpha.N_<fecha>\` (con `usb\` listo para copiar). Al final crea la etiqueta anotada `v1.0.0-alpha.N`.
+- **Si algo falla** (sale con 1): el commit se deshace, no queda etiqueta y N no se gasta; la carpeta incompleta queda como `...fallida-<hora>`. Si sale con 2, no se tocó nada: leer las líneas `BLOQUEA:`.
+- **No hace push:** al final imprime `git push origin dev v1.0.0-alpha.N`, que se ejecuta a mano.
+- El Setup compara `AppVerNum` = `1.0.0.<etapa × 1000 + N>` (alpha.1 = 1.0.0.1001, mayor que el 1.0.0.9 de la I): la alpha.1 actualiza una I instalada.
+- **Compilaciones de verificación** (PyInstaller a mano, sin el script): no gastan N y se ven como `1.0.0-alpha.(N+1).dev+g<commit>` (con `.sucio` si había cambios sin commit), así que no se confunden con una entrega. Desde fuente se ve `1.0.0-alpha.N+fuente`.
+- Dónde se ve la versión: Información del sistema, ticket de arranque, registro y ticket de cada ciclo, respaldos, `GET /system/info` y la primera línea de cada log. El firmware conserva su propia numeración.

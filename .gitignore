@@ -48,3 +48,6 @@ activacion.json
 
 # ORG-05 (tanda 15): los .log de las tandas no se versionan (quedan en disco)
 docs/informes/**/*.log
+
+# VER-04 (etapa VER): identificación de la compilación, la generan los .spec
+/src/autoclave/_build_info.py
