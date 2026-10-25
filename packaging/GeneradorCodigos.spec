@@ -13,7 +13,7 @@
 #     pyinstaller packaging\GeneradorCodigos.spec
 # Resultado: dist\GeneradorCodigos.exe. LIC-01 (licencia L0): el ejecutable NO
 # lleva los secretos de activación; los lee en el PC donde corre del archivo
-# %USERPROFILE%\Documents\especifika_secretosctivacion.json (o
+# %USERPROFILE%\Documents\especifika_secretos\activacion.json (o
 # ESPECIFIKA_SECRETOS). Sin ese archivo el generador no arranca. Aun así, no
 # copiarlo a ningún PC de cliente.
 

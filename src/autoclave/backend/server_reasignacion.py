@@ -35,7 +35,7 @@
 #     rechaza (SEN-01).
 #
 # Se importa al final de server.py (el nombre empieza por "server" para que
-# tests/backend_doble.py lo recargue junto con server.py).
+# tests/helpers/backend_doble.py lo recargue junto con server.py).
 
 import json
 import logging

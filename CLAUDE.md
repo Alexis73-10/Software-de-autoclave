@@ -2,6 +2,16 @@
 
 Guía de contexto para trabajar en este repositorio (software de control de autoclave, Especifika S.A.S.).
 
+## Estructura del repositorio (tanda 15, reorganización sin cambio funcional)
+
+- `src/autoclave/auth/`: roles (`roles.py`) y validación de usuario (`validacion_usuario.py`), sin dependencias de interfaz; los usan el backend, el simulador y las UI.
+- `src/autoclave/cliente/`: cliente HTTP del backend para las interfaces (`backend_client.py`, `session_manager.py`, `ui_service_backend.py`; antes `ui/service_ui/`).
+- `src/autoclave/backend/`: `server.py` (solo `app`, ciclo de vida, compuerta de arranque, manejadores y registro de routers; punto de entrada `autoclave.backend.server:app`), `dependencias.py` (contexto, tokens, auditoría, `requiere_rol`, `guard_estado`) y `rutas/<área>.py`, un `APIRouter` por área, más `rutas/_comun.py` para lo compartido. `rutas/*` nunca importa `server`; `server_reasignacion.py` sigue leyendo sus nombres como `srv.<nombre>`. El estado del modo prueba vive en `rutas/io.py`.
+- `packaging/`: los 4 `.spec` de PyInstaller; se compilan desde la raíz: `pyinstaller --noconfirm packaging\Autoclave.spec`.
+- `tests/helpers/` (dobles y ayudantes importados por las pruebas; `backend_doble` trae `modulo_backend`/`fijar_en_backend`/`parchear_en_backend` para parchear el backend partido) y `tests/banco/` (bancos y capturas que no son pruebas automáticas). Convención en `tests/README.md`; marcador `req(id)` registrado en `pyproject.toml`.
+- `tests/test_arquitectura_capas.py` impide que backend, auth, cliente, simulador, core, services, state_machine, protocols, devices o hal importen la UI; `tests/test_t15_rutas_equivalentes.py` fija rutas y OpenAPI contra `docs/informes/tanda15/base/`.
+- `docs/README.md`: qué va en cada carpeta de `docs/` (`arquitectura/`, `referencia/`, `diseno/`, `mis_plans/`, `superpowers/`, `informes/tandaNN/`...).
+
 ## Máquina de estados del ciclo
 
 El ciclo de esterilización se ejecuta como una secuencia de "fases", cada una en su propio módulo bajo `src/autoclave/state_machine/cycle_phases/`. Todas heredan de `BaseFase` (`base_fase.py`) y devuelven un `FaseResult` (`EN_CURSO` / `COMPLETADO` / `FALLO`) desde `update()`, llamado una vez por tick del loop de control.

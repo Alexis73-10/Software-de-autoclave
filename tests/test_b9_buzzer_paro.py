@@ -4,7 +4,7 @@ Evidencia de banco (Cristian): con el paro activo, cada vez que el buzzer
 reinicia su patrón se encienden un instante las salidas que estaban activas al
 pulsar el paro.
 
-Banco simulado: SerialLink real (con el doble de puerto de tests/serial_doble)
+Banco simulado: SerialLink real (con el doble de puerto de tests/helpers/serial_doble)
 conectado a un doble del firmware V3 que reproduce el .ino línea a línea en lo
 que importa aquí (registro sombra estadoOut1/estadoOut2, SET DOn, ALL_OFF,
 publicación de DO cada 500 ms), SetOutput real, BuzzerPlayer real y los

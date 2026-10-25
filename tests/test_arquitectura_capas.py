@@ -8,7 +8,7 @@ Lee el código con ``ast`` (no importa ningún módulo):
   ``autoclave.ui_qml``;
 - ``auth/`` no importa PySide6.
 
-Cuenta también los imports diferidos (dentro de funciones).
+Cuenta también los imports diferidos (dentro de funciones) y los relativos.
 
 Excepción conocida (DECISIÓN SIN CONFIRMAR, tanda 15): el backend importa de
 forma diferida ``autoclave.ui_qml.exportacion.config_correo`` y ``.correo``
@@ -38,15 +38,29 @@ _EXCEPCIONES = {
 }
 
 
-def _modulos_importados(archivo: Path) -> list[tuple[int, str]]:
+def _paquete(archivo: Path) -> list[str]:
+    partes = ["autoclave", *archivo.relative_to(_SRC).with_suffix("").parts]
+    return partes if archivo.name == "__init__.py" else partes[:-1]
+
+
+def _modulos_importados(archivo: Path, paquete: list[str] | None = None) -> list[tuple[int, str]]:
+    """Módulos importados, con los imports relativos resueltos (V15-U-01)."""
     arbol = ast.parse(archivo.read_text(encoding="utf-8"), filename=str(archivo))
     mods = []
     for nodo in ast.walk(arbol):
         if isinstance(nodo, ast.Import):
             mods.extend((nodo.lineno, a.name) for a in nodo.names)
-        elif isinstance(nodo, ast.ImportFrom) and nodo.module and nodo.level == 0:
-            mods.append((nodo.lineno, nodo.module))
-            mods.extend((nodo.lineno, f"{nodo.module}.{a.name}") for a in nodo.names)
+        elif isinstance(nodo, ast.ImportFrom):
+            if nodo.level:
+                base = paquete if paquete is not None else _paquete(archivo)
+                base = base[:len(base) - (nodo.level - 1)]
+                modulo = ".".join(base + ([nodo.module] if nodo.module else []))
+            else:
+                modulo = nodo.module
+            if not modulo:
+                continue
+            mods.append((nodo.lineno, modulo))
+            mods.extend((nodo.lineno, f"{modulo}.{a.name}") for a in nodo.names)
     return mods
 
 
@@ -77,3 +91,13 @@ def test_auth_existe_y_no_importa_pyside6():
                    for a in archivos for linea, mod in _modulos_importados(a)
                    if _es_de(mod, "PySide6")]
     assert not violaciones, "\n".join(violaciones)
+
+
+def test_resuelve_imports_relativos(tmp_path):
+    """El detector ve también los imports relativos (V15-U-01)."""
+    archivo = _SRC / "backend" / "rutas" / "io.py"
+    assert any(m == "autoclave.backend.dependencias" for _, m in _modulos_importados(archivo))
+    falso = tmp_path / "falso.py"
+    falso.write_text("from ...ui_qml import app\nfrom . import _comun\n", encoding="utf-8")
+    mods = [m for _, m in _modulos_importados(falso, ["autoclave", "backend", "rutas"])]
+    assert "autoclave.ui_qml.app" in mods and "autoclave.backend.rutas._comun" in mods

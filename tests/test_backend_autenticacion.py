@@ -318,8 +318,7 @@ def entorno_config(entorno, tmp_path):
     yaml_path.write_text(
         "calibration:\n  user:\n    temperature:\n      - gain: 1.0\n        offset: 0.0\n"
         "    pressure:\n      - gain: 1.3466\n        offset: -67.11\n", encoding="utf-8")
-    fijar_en_backend("CALIBRATION_PATH", yaml_path
-)
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     params = {"secado": {"tiempo_secado": {"value": 10.0, "type": "float", "min": 0, "max": 120}}}
     otro = Cycle(cycle_id="otro", name="Otro", parameters={
         "secado": {"tiempo_secado": {"value": 10.0, "type": "float", "min": 0, "max": 120}}})

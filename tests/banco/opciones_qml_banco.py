@@ -95,7 +95,7 @@ _SCRIPT = textwrap.dedent(r'''
         QTest.qWait(ms)
 
     # U10b (tanda 10, D10-1.5): con `revisar`, cada capturar() revisa además
-    # los textos de la ventana (tests/textos_caben_qml.FUNCION_REVISAR) y deja
+    # los textos de la ventana (tests/helpers/textos_caben_qml.FUNCION_REVISAR) y deja
     # el resultado en salida["revisiones"][archivo]
     revisor = None
     if cfg.get("funcion"):
