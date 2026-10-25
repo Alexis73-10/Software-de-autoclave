@@ -47,12 +47,12 @@ def test_constantes_de_limites_fisicos():
 
 def test_consigna_134_con_9():
     c = cp.consigna_chaqueta(134.0, 9.0, 1.5, 15.0)
-    assert c == pytest.approx(326.3, abs=0.2)
+    assert c == pytest.approx(328.2, abs=0.2)   # tanda 13 (IF97); antes 326.3
     assert c == pytest.approx(p_saturacion_kpa(134.0) + 9.0 + 15.0)
 
 
 def test_consigna_121_con_11():
-    assert cp.consigna_chaqueta(121.0, 11.0, 1.5, 15.0) == pytest.approx(230.3, abs=0.2)
+    assert cp.consigna_chaqueta(121.0, 11.0, 1.5, 15.0) == pytest.approx(231.0, abs=0.2)   # tanda 13 (IF97); antes 230.3
 
 
 def test_consigna_toma_el_delta_de_temperatura_si_es_mayor():
@@ -83,20 +83,20 @@ def _ciclo(pres, vapor=1, params=None):
 
 
 def test_on_bajo_consigna_menos_10():
-    ciclo, set_do, _ = _ciclo(326.3 - 10.5)
+    ciclo, set_do, _ = _ciclo(328.2 - 10.5)
     ciclo._mantener_chaqueta()
     set_do.vapor_chaqueta_on.assert_called_once()
     set_do.vapor_chaqueta_off.assert_not_called()
 
 
 def test_off_sobre_consigna_mas_10():
-    ciclo, set_do, _ = _ciclo(326.3 + 10.5)
+    ciclo, set_do, _ = _ciclo(328.2 + 10.5)
     ciclo._mantener_chaqueta()
     set_do.vapor_chaqueta_off.assert_called_once()
     set_do.vapor_chaqueta_on.assert_not_called()
 
 
-@pytest.mark.parametrize("pres", [326.3 - 9.5, 300.0 + 26.3, 326.3 + 9.5])
+@pytest.mark.parametrize("pres", [328.2 - 9.5, 300.0 + 28.2, 328.2 + 9.5])
 def test_sin_cambio_dentro_de_la_banda(pres):
     ciclo, set_do, _ = _ciclo(pres)
     ciclo._mantener_chaqueta()
@@ -106,7 +106,7 @@ def test_sin_cambio_dentro_de_la_banda(pres):
 
 def test_en_ciclo_no_rige_presion_chaqueta():
     # presion_chaqueta 300 ± 50 abriría a 249 y cerraría a 351; con la
-    # consigna 326.3 ± 10, a 340 kPa el vapor se cierra
+    # consigna 328.2 ± 10, a 340 kPa el vapor se cierra
     ciclo, set_do, _ = _ciclo(340.0)
     ciclo._mantener_chaqueta()
     set_do.vapor_chaqueta_off.assert_called_once()
@@ -165,7 +165,7 @@ def test_la_consigna_se_registra_en_el_log_al_iniciar(caplog):
     with caplog.at_level(logging.INFO, logger="autoclave.state_machine.states.ciclo"):
         ciclo.reset()
     texto = caplog.text
-    assert "consigna de chaqueta 326.3 kPa" in texto
+    assert "consigna de chaqueta 328.2 kPa" in texto
     # la advertencia no bloqueante del programa (C-05.9) también queda en el log
     assert "advertencia del programa" in texto and "375" in texto
 
@@ -186,7 +186,7 @@ def test_preparado_sigue_usando_presion_chaqueta():
     p = preparado_state(MagicMock(), estado, set_do, cycle, config)
     p.mantener_chaqueta()
     # 340 < presion_chaqueta (350): la válvula abre en PREPARADO (en CICLO,
-    # con la consigna 326.3 ± 10, se cerraría)
+    # con la consigna 328.2 ± 10, se cerraría)
     set_do.vapor_chaqueta_on.assert_called()
 
 
@@ -205,16 +205,17 @@ def test_consigna_mas_10_igual_o_sobre_385_se_rechaza():
 
 
 def test_consigna_justo_bajo_el_alivio_se_guarda_con_advertencia():
-    # T_est 139 → consigna ≈ 374.95; +10 = 384.95 < 385: se acepta con advertencia
+    # T_est 138.7 → consigna ≈ 374.40; +10 = 384.40 < 385: se acepta con advertencia
+    # (tanda 13, IF97: antes 139 → 384.95; con IF97, 139 da 387.39 y se rechaza)
     c = Cycle("p", "P", _params(), 2)
-    c.set_param("esterilizacion", ["temperatura_esterilizacion"], 139.0)
-    assert c.get_param("esterilizacion", "temperatura_esterilizacion") == 139.0
+    c.set_param("esterilizacion", ["temperatura_esterilizacion"], 138.7)
+    assert c.get_param("esterilizacion", "temperatura_esterilizacion") == 138.7
     assert cp.ADVERTENCIA_CHAQUETA_ABIERTA in [a for a, _ in c.advertencias(
         "esterilizacion", ["temperatura_esterilizacion"])]
 
 
 def test_consigna_mas_10_entre_350_y_385_se_guarda_con_advertencia():
-    # margen 30: consigna = 313.3 + 30 = 343.3; +10 = 353.3 (sobre el suministro)
+    # margen 30: consigna = 315.2 + 30 = 345.2; +10 = 355.2 (sobre el suministro)
     c = Cycle("p", "P", _params(), 2)
     c.set_param("globals", ["margen_flujo_chaqueta"], 30.0)
     assert c.get_param("globals", "margen_flujo_chaqueta") == 30.0

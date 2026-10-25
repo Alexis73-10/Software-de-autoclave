@@ -277,15 +277,17 @@ def _valor(parameters: dict, *ruta, defecto=None):
 def consigna_chaqueta(t_est, presion_add_est, delta=None, margen=None) -> float | None:
     """C-05.1/2 (tanda 12): consigna de presión de chaqueta en CICLO, kPa abs.
     consigna = max(Psat(T_est + delta), Psat(T_est) + presion_add_est + margen).
-    None si T_est o presion_add_est no son numéricos; delta/margen ausentes o
-    no numéricos toman su valor por defecto (1.5 °C / 15 kPa)."""
+    None si T_est o presion_add_est no son numéricos o si T_est queda fuera
+    del rango de la tabla de vapor (tanda 13); delta/margen ausentes o no
+    numéricos toman su valor por defecto (1.5 °C / 15 kPa)."""
     if not (_num(t_est) and _num(presion_add_est)):
         return None
     delta = delta if _num(delta) else DELTA_TEMP_CHAQUETA_DEFECTO
     margen = margen if _num(margen) else MARGEN_FLUJO_CHAQUETA_DEFECTO
-    from autoclave.core.runtime.steam import p_saturacion_kpa
-    techo_camara = p_saturacion_kpa(t_est) + presion_add_est
-    return max(p_saturacion_kpa(t_est + delta), techo_camara + margen)
+    psat_est, psat_delta = _psat(t_est), _psat(t_est + delta)
+    if psat_est is None or psat_delta is None:
+        return None
+    return max(psat_delta, psat_est + presion_add_est + margen)
 
 
 def consigna_chaqueta_programa(parameters: dict) -> float | None:
@@ -299,6 +301,17 @@ def consigna_chaqueta_programa(parameters: dict) -> float | None:
 
 def _num(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def _psat(t):
+    """Psat(t) en kPa, o None si t queda fuera del rango de IAPWS-IF97
+    (tanda 13: p_saturacion_kpa lanza ValueError). Un programa con esa
+    temperatura ya lo rechaza el catálogo; aquí no se evalúa la regla."""
+    from autoclave.core.runtime.steam import p_saturacion_kpa
+    try:
+        return p_saturacion_kpa(t)
+    except ValueError:
+        return None
 
 
 _RUTAS_CONSIGNA = (("esterilizacion", "temperatura_esterilizacion"),
@@ -317,14 +330,15 @@ def _evaluar_limites(parameters: dict) -> tuple[list, list]:
       > 350 → advertencia (vapor_chaqueta abierta durante el ciclo).
     - C-05.9: presion_chaqueta + rango_presion_chaqueta: misma regla.
     Valores ausentes o no numéricos no se evalúan (los marca el catálogo)."""
-    from autoclave.core.runtime.steam import p_saturacion_kpa
     rechazos, advertencias = [], []
     for fase, clave_t, clave_add in _TECHOS_CAMARA:
         t = _valor(parameters, fase, clave_t)
         add = _valor(parameters, fase, clave_add)
         if not (_num(t) and _num(add)):
             continue
-        psat = p_saturacion_kpa(t)
+        psat = _psat(t)
+        if psat is None:
+            continue
         techo = psat + add
         if techo >= PRESION_ALIVIO_CAMARA:
             maximo = PRESION_ALIVIO_CAMARA - psat
@@ -417,11 +431,11 @@ def errores_coherencia(parameters: dict) -> list[str]:
     if _valor(parameters, "finalizacion", "apertura_automatica", defecto=False) is True:
         errores.append("Carga líquida: sin apertura automática")
     if modo in MODOS_CONTRAPRESION:
-        from autoclave.core.runtime.steam import p_saturacion_kpa
         t_est = _valor(parameters, "esterilizacion", "temperatura_esterilizacion")
         p_enfr = _valor(parameters, "descompresion", f"modo_{modo}", "presion_camara_enfriamiento")
-        if isinstance(t_est, (int, float)) and isinstance(p_enfr, (int, float)):
-            minimo = p_saturacion_kpa(t_est) + MARGEN_CONTRAPRESION_LIQUIDO
+        psat = _psat(t_est) if _num(t_est) else None
+        if psat is not None and isinstance(p_enfr, (int, float)):
+            minimo = psat + MARGEN_CONTRAPRESION_LIQUIDO
             if p_enfr < minimo:
                 errores.append(f"Carga líquida: la contrapresión de enfriamiento debe ser al "
                                f"menos {minimo:.0f} kPa (P_sat + {MARGEN_CONTRAPRESION_LIQUIDO:.0f})")

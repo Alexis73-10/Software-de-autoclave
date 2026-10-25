@@ -64,11 +64,11 @@ def test_bd_original_de_usuario_migra_al_cargar(tmp_path):
 
 
 def test_bd_original_sin_migracion_queda_rechazado():
-    """134.5 °C + 99 = 405.7 kPa: sin la migración, el programa es inválido
+    """134.5 °C + 99 = 407.7 kPa (IAPWS-IF97, tanda 13; antes 405.7): sin la migración, el programa es inválido
     (catálogo > 30 y techo de cámara sobre el alivio)."""
     p = _datos("user/bowe_dick.json")["parameters"]
     p["calentamiento"]["presion_add_calentamiento"]["value"] = 99.0
-    assert p_saturacion_kpa(134.5) + 99 == pytest.approx(405.7, abs=0.1)
+    assert p_saturacion_kpa(134.5) + 99 == pytest.approx(407.7, abs=0.1)
     errores = cp.errores_programa(p)
     assert any("presion_add_calentamiento" in e and "máximo 30" in e for e in errores)
     assert any(e.startswith("Límite de presión de cámara") for e in errores)
