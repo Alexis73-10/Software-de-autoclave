@@ -158,9 +158,9 @@ calibration:
     pressure:
       # Sensor 0 — recalibrado 2026-07-22 con 2 puntos contra equipo patron:
       # bajo 12->9.54 kPa, alto 322->300 kPa.
-      # [calibracion-auto] Sensor pressure[0] -- recalibrado 2026-10-25 con 2 puntos contra equipo patron: bajo 12.0->9.54, alto 322.0->300.0.
-      - gain: 1.122034
-        offset: -66.775117
+      # [calibracion-auto] Sensor pressure[0] -- recalibrado 2026-08-04 con 2 puntos contra equipo patron: bajo 20.0->20.0, alto 307.0->318.0.
+      - gain: 1.364056
+        offset: -75.348611
 
       # Sensor 1 (pres_chaqueta) — reseteado a neutro 2026-07-23: el valor
       # anterior (gain=1.3466, offset=-67.11) era el dato de ejemplo de
