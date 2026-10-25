@@ -217,3 +217,15 @@ def test_historial_entrada_debajo_de_la_marca():
     assert dos.index("## 1.0.0-alpha.2") < dos.index("## 1.0.0-alpha.1")
     with pytest.raises(ValueError):
         ce.agregar_al_historial("# sin marca\n", "## x\n")
+
+
+def test_sumas_con_lf_para_sha256sum(tmp_path):
+    ce._escribir_lf(tmp_path / "SHA256SUMS.txt", "abc *x.exe\ndef *y.zip\n")
+    assert b"\r" not in (tmp_path / "SHA256SUMS.txt").read_bytes()
+
+
+def test_entrada_y_mensaje_sin_commits_dicen_ninguno():
+    assert "  - (ninguno)" in ce.entrada_historial("1.0.0-alpha.2", "2026-10-26", "1a2b3c4", "1.0.0.1002",
+                                                   "v1.0.0-alpha.1", [])
+    ctx = ce.Contexto(RAIZ, "1.0.0-alpha.2", "1.0.0.1002", "2026-10-26", "python", "iscc", commit="1" * 40)
+    assert "- (ninguno)" in ce.mensaje_etiqueta(ctx, [])

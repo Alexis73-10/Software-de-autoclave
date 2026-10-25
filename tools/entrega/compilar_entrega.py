@@ -97,9 +97,9 @@ def entrada_historial(semver: str, fecha: str, base: str, num: str, anterior: st
               f"- AppVerNum: `{num}`",
               f"- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en "
               f"`entrega/v{semver}_{fecha}/SHA256SUMS.txt` (solo existen después de compilar)",
-              f"- Commits desde `{anterior}`:" if anterior else "- Commits: (sin entrega anterior)", ""]
+              f"- Commits desde `{anterior}`:" if anterior else "- Commits: (sin entrega anterior)"]
     lineas += [f"  - {c}" for c in commits] or ["  - (ninguno)"]
-    return "\n".join(lineas) + "\n"
+    return "\n".join(lineas) + "\n\n"
 
 
 MARCA_ENTRADAS = "<!-- entradas:"
@@ -264,6 +264,11 @@ def paso_setup(ctx: Contexto) -> None:
         raise FalloPaso(f"ISCC no dejó Autoclave_Setup_{ctx.semver}.exe")
 
 
+def _escribir_lf(ruta: Path, texto: str) -> None:
+    # con LF, como las sumas de la I: `sha256sum -c` no lee líneas con CRLF
+    ruta.write_text(texto, encoding="utf-8", newline="\n")
+
+
 def _manifiesto(carpeta: Path) -> list[str]:
     base = carpeta.parent
     return [f"{sha256(f)} *{f.relative_to(base).as_posix()}"
@@ -282,7 +287,7 @@ def paso_carpeta(ctx: Contexto) -> None:
         if z.testzip() is not None:
             raise FalloPaso(f"{zip_nombre} dañado")
     manifiesto = _manifiesto(c / "Autoclave")
-    (c / "MANIFIESTO_CARPETA_Autoclave.sha256").write_text("\n".join(manifiesto) + "\n", encoding="utf-8")
+    _escribir_lf(c / "MANIFIESTO_CARPETA_Autoclave.sha256", "\n".join(manifiesto) + "\n")
     freeze = _correr([ctx.python_compilacion, "-m", "pip", "freeze"], ctx.raiz).stdout
     pyver = _correr([ctx.python_compilacion, "--version"], ctx.raiz).stdout.strip()
     (c / "entorno_build.txt").write_text(
@@ -294,12 +299,11 @@ def paso_carpeta(ctx: Contexto) -> None:
         archivos.append("GeneradorCodigos.exe")
     archivos.append("Autoclave/Autoclave.exe")
     ctx.sumas = {a: sha256(c / a) for a in archivos}
-    (c / "SHA256SUMS.txt").write_text("".join(f"{h} *{a}\n" for a, h in ctx.sumas.items()),
-                                      encoding="utf-8")
+    _escribir_lf(c / "SHA256SUMS.txt", "".join(f"{h} *{a}\n" for a, h in ctx.sumas.items()))
     usb = c / "usb"
     usb.mkdir()
     shutil.copy2(c / setup, usb / setup)
-    (usb / "SHA256SUMS.txt").write_text(f"{ctx.sumas[setup]} *{setup}\n", encoding="utf-8")
+    _escribir_lf(usb / "SHA256SUMS.txt", f"{ctx.sumas[setup]} *{setup}\n")
     shutil.copy2(c / "LEEME_INSTALACION.md", usb / "LEEME_INSTALACION.md")
     drivers = ctx.raiz / "entrega" / "drivers"
     if drivers.is_dir():
@@ -321,7 +325,7 @@ def mensaje_etiqueta(ctx: Contexto, commits: list[str]) -> str:
     lineas = [f"Autoclave {ctx.semver}", "",
               f"Fecha: {ctx.fecha}", f"Commit: {ctx.commit}", f"AppVerNum: {ctx.num}", ""]
     lineas += [f"SHA-256 {a}: {h}" for a, h in ctx.sumas.items()]
-    lineas += ["", "Commits desde la entrega anterior:"] + [f"- {c}" for c in commits]
+    lineas += ["", "Commits desde la entrega anterior:"] + ([f"- {c}" for c in commits] or ["- (ninguno)"])
     return "\n".join(lineas) + "\n"
 
 
