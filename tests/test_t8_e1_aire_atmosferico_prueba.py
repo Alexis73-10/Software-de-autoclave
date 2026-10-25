@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from autoclave.core.runtime import aire_atmosferico_prueba as aap
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
 
 _CONFIG = {"presion_atmosferica": 75.0, "rango_presion_atm": 5.0}
 
@@ -75,7 +75,7 @@ def prueba():
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
-    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
     return TestClient(srv.app, headers=cab), ctx
 
 

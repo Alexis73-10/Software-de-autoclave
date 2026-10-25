@@ -18,6 +18,7 @@ from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO, CONTRASENA_SEMILLA, ROLES_VISIBLES
 from autoclave.ui_qml.bridge import puente_instalacion as pi
+from tests.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 # Las contraseñas semilla son públicas (ya están en otras pruebas); aquí solo
@@ -246,7 +247,7 @@ def test_dto_lleva_los_roles_visibles():
     from autoclave.backend import server
     am = AlarmManager()
     inst = am.activar(CONTRASENA_SEMILLA, cuentas="Admin")
-    assert server._alarma_dto(inst)["roles_visibles"] == ["ingeniero", "tecnico"]
+    assert modulo_backend("rutas.sistema")._alarma_dto(inst)["roles_visibles"] == ["ingeniero", "tecnico"]
 
 
 @pytest.mark.parametrize("rol, visible", [

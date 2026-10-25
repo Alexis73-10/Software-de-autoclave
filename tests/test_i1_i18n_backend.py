@@ -10,6 +10,7 @@ import pytest
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.core.runtime.config_idioma import ConfigIdioma
 from autoclave.state_machine.alarms.catalogo import CATALOGO
+from tests.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -66,7 +67,7 @@ def test_el_dto_de_status_lleva_codigo_valores_y_textos():
     from autoclave.state_machine.alarms.alarm_manager import AlarmManager
     am = AlarmManager()
     am.activar("PRE-04", pres=250.0, maximo=120.0)
-    dto = server._alarma_dto(am.activas()[0])
+    dto = modulo_backend("rutas.sistema")._alarma_dto(am.activas()[0])
     assert dto["codigo"] == "PRE-04" and dto["valores"] == {"pres": 250.0, "maximo": 120.0}
     assert dto["textos"]["en"]["titulo"] == "High chamber pressure"
     assert "cámara" in dto["description"].lower()          # compatibilidad: español

@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.services.domain.logging.db_manager import DbManager
+from tests.backend_doble import parche_en_backend
 
 _HOY = "2026-10-02T00:00:00"
 
@@ -41,12 +42,12 @@ def cliente(db):
     ctx.db = db
     ctx.cycle_manager.cycles = {"instrumental_134": SimpleNamespace(number=2)}
     for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
+        if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
     with patch("autoclave.backend.context.BackendContext", return_value=ctx):
         srv = importlib.import_module("autoclave.backend.server")
     from fastapi.testclient import TestClient
-    with patch.object(srv, "_inicio_del_dia", return_value=_HOY):
+    with parche_en_backend("_inicio_del_dia", MagicMock(return_value=_HOY)):
         yield TestClient(srv.app)
 
 

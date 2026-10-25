@@ -15,6 +15,7 @@ import pytest
 
 from autoclave.core.runtime import bitacora
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.backend_doble import fuente_backend
 
 RAIZ = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 
@@ -77,8 +78,8 @@ def test_eventos_conservados_siguen_en_el_catalogo():
 
 
 def test_el_backend_no_audita_los_retirados():
-    fuente = "".join((RAIZ / "backend" / n).read_text(encoding="utf-8")
-                     for n in ("server.py", "server_reasignacion.py"))
+    fuente = fuente_backend() + (RAIZ / "backend" / "server_reasignacion.py").read_text(
+        encoding="utf-8")
     auditados = set(re.findall(r'_auditar\(\s*"([A-Za-z_]+)"', fuente))
     assert auditados & set(RETIRADOS) == set()
     assert '_auditar(f"rechazo_' not in fuente

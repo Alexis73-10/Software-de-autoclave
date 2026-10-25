@@ -39,7 +39,7 @@ def entorno(tmp_path):
     ctx.cycle_logger.transcurrido_s.return_value = None
 
     for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
+        if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
     with patch("autoclave.backend.context.BackendContext", return_value=ctx):
         srv = importlib.import_module("autoclave.backend.server")

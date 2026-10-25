@@ -31,7 +31,7 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_s9_estado_seguro_arranque import _CFG, _Config, _abiertas, _programa
 from tests.test_s9_revision_1 import _loop_vivo
 
@@ -279,7 +279,7 @@ def prueba():
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
-    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
     return TestClient(srv.app, headers=cab), ctx
 
 

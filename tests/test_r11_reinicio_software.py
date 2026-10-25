@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend import reinicio
 from autoclave.core.runtime.vigilancia_impresora import ConfigImpresora
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
 
 
 @pytest.fixture
@@ -47,8 +47,8 @@ def entorno(monkeypatch, tmp_path):
     srv, _ = cargar_servidor(ctx)
 
     apagados = []
-    monkeypatch.setattr(srv, "_apagar_windows", lambda: apagados.append(True))
-    monkeypatch.setattr(srv, "_apagado_windows_habilitado", lambda: True)
+    monkeypatch.setattr(modulo_backend("rutas.apagado"), "_apagar_windows", lambda: apagados.append(True))
+    monkeypatch.setattr(modulo_backend("rutas.apagado"), "_apagado_windows_habilitado", lambda: True)
     hilos = []
     real = threading.Thread
 

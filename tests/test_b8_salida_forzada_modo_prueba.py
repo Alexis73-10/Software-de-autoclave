@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend.autenticacion import AlmacenTokens
 from autoclave.core.runtime.sesion_inactividad import PLAZO_TOKEN_BACKEND_S
 from autoclave.services.domain.logging.db_manager import DbManager
-from tests.backend_doble import cargar_servidor
+from tests.backend_doble import cargar_servidor, fijar_en_backend, modulo_backend
 
 
 class Reloj:
@@ -31,21 +31,21 @@ def api(tmp_path):
     ctx.control_loop.estado_seguro = SimpleNamespace(activo=False)
     srv, _ = cargar_servidor(ctx)
     reloj = Reloj()
-    srv.tokens = AlmacenTokens(reloj=reloj)
-    dueno = srv.tokens.emitir("tec_dueno", "Dueño", "tecnico", False)
-    srv._token_modo_prueba = dueno.token
+    fijar_en_backend("tokens", AlmacenTokens(reloj=reloj))
+    dueno = modulo_backend("dependencias").tokens.emitir("tec_dueno", "Dueño", "tecnico", False)
+    modulo_backend("rutas.io")._token_modo_prueba = dueno.token
     return TestClient(srv.app), srv, ctx, db, reloj, dueno
 
 
 def _h(srv, rol, usuario=None):
-    s = srv.tokens.emitir(usuario or f"u_{rol}", rol, rol, False)
+    s = modulo_backend("dependencias").tokens.emitir(usuario or f"u_{rol}", rol, rol, False)
     return {"Authorization": f"Bearer {s.token}"}
 
 
 def _huerfano(srv, reloj, dueno):
     """El dueño deja de tener sesión: caduca por inactividad."""
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
-    assert srv.tokens.existe(dueno.token) is False
+    assert modulo_backend("dependencias").tokens.existe(dueno.token) is False
 
 
 def _forzar(client, headers, **cuerpo):
@@ -58,7 +58,7 @@ def test_dueno_vencido_el_ingeniero_fuerza_la_salida(api):
     r = _forzar(client, _h(srv, "ingeniero", "ing1"), motivo="el técnico se fue")
     assert r.status_code == 200 and r.json() == {"ok": True, "dueno": "tec_dueno"}
     ctx.control_loop.exit_test_mode.assert_called_once()        # salidas a seguro y reanuda
-    assert srv._token_modo_prueba is None
+    assert modulo_backend("rutas.io")._token_modo_prueba is None
 
 
 def test_queda_auditado_quien_fuerza_a_quien_y_por_que(api):
@@ -78,12 +78,12 @@ def test_dueno_vigente_no_se_puede_forzar(api):
     r = _forzar(client, _h(srv, "ingeniero"))
     assert r.status_code == 409 and r.json()["codigo"] == "modo_prueba_dueno_vigente"
     ctx.control_loop.exit_test_mode.assert_not_called()
-    assert srv._token_modo_prueba == dueno.token
+    assert modulo_backend("rutas.io")._token_modo_prueba == dueno.token
 
 
 def test_dueno_que_cerro_sesion_cuenta_como_huerfano(api):
     client, srv, ctx, db, reloj, dueno = api
-    srv.tokens.invalidar(dueno.token)
+    modulo_backend("dependencias").tokens.invalidar(dueno.token)
     assert _forzar(client, _h(srv, "ingeniero")).status_code == 200
 
 
@@ -135,8 +135,8 @@ def test_con_estado_seguro_activo_la_salida_no_lo_cancela_y_queda_en_la_bitacora
 
 def test_el_propio_dueno_vigente_tambien_puede_salir_por_esta_ruta_si_es_ingeniero(api):
     client, srv, ctx, db, reloj, dueno = api
-    ing = srv.tokens.emitir("ing_dueno", "Ing", "ingeniero", False)
-    srv._token_modo_prueba = ing.token
+    ing = modulo_backend("dependencias").tokens.emitir("ing_dueno", "Ing", "ingeniero", False)
+    modulo_backend("rutas.io")._token_modo_prueba = ing.token
     r = client.post("/io/test/force-exit", headers={"Authorization": f"Bearer {ing.token}"},
                     json={"confirmar": True})
     assert r.status_code == 200
@@ -152,8 +152,8 @@ def test_la_ruta_normal_de_salida_sigue_exigiendo_al_dueno(api):
 def test_quien_fue_recuerda_al_dueno_tras_caducar_sin_guardar_el_token_en_claro_en_la_bitacora(api):
     client, srv, ctx, db, reloj, dueno = api
     _huerfano(srv, reloj, dueno)
-    assert srv.tokens.quien_fue(dueno.token) == ("tec_dueno", "tecnico")
-    assert srv.tokens.quien_fue("desconocido") is None and srv.tokens.quien_fue(None) is None
+    assert modulo_backend("dependencias").tokens.quien_fue(dueno.token) == ("tec_dueno", "tecnico")
+    assert modulo_backend("dependencias").tokens.quien_fue("desconocido") is None and modulo_backend("dependencias").tokens.quien_fue(None) is None
     _forzar(client, _h(srv, "ingeniero"))
     for f in db.get_auditoria(limite=50):
         assert dueno.token not in str(f)

@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.backend.arranque.sin_bd import BdNoDisponible
-from tests.backend_doble import cargar_servidor
+from tests.backend_doble import cargar_servidor, modulo_backend
 
 
 @pytest.fixture
@@ -110,7 +110,7 @@ def test_sin_bd_con_confirmacion_inicia(servidor, monkeypatch):
     ctx.control_loop.bloqueo_configuracion = None
     ctx.control_loop.apagando = False
     ctx.estado.get_flag.return_value = True
-    monkeypatch.setattr(srv.sc, "verificar_inicio", lambda *a: None)
+    monkeypatch.setattr(modulo_backend("rutas.ciclo").sc, "verificar_inicio", lambda *a: None)
     ctx.respaldo_ciclos.probar_escritura.return_value = "disco lleno"
     r = client.post("/cycle/start", json={"confirmar_sin_registro": True})
     assert r.status_code == 503 and r.json()["codigo"] == "respaldo_no_disponible"
@@ -151,7 +151,7 @@ def test_iniciar_arranque_lanza_un_solo_hilo(servidor, monkeypatch):
 def test_importar_server_no_construye_hardware():
     from autoclave.backend import context as ctx_mod
     for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
+        if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
     prohibidos = {n: MagicMock(side_effect=AssertionError(n))
                   for n in ("build_serial", "DbManager", "SensorCalibrationAuditDB",

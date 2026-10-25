@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.backend.actividad_ui import ActividadUI
+from tests.backend_doble import modulo_backend
 
 
 class _Reloj:
@@ -45,7 +46,7 @@ def test_reloj_que_retrocede_no_da_negativos():
 @pytest.fixture
 def servidor():
     for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
+        if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
     with patch("autoclave.backend.context.BackendContext", return_value=MagicMock()):
         srv = importlib.import_module("autoclave.backend.server")
@@ -55,9 +56,9 @@ def servidor():
 
 def test_post_ui_activity_reinicia_la_inactividad(servidor):
     client, srv = servidor
-    assert srv.actividad_ui.inactividad_s() is None
+    assert modulo_backend("dependencias").actividad_ui.inactividad_s() is None
     resp = client.post("/ui/activity")
     assert resp.status_code == 200
     assert resp.json() == {"ok": True}
-    assert srv.actividad_ui.inactividad_s() is not None
-    assert srv.actividad_ui.inactividad_s() < 5
+    assert modulo_backend("dependencias").actividad_ui.inactividad_s() is not None
+    assert modulo_backend("dependencias").actividad_ui.inactividad_s() < 5

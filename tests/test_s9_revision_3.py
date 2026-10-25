@@ -14,6 +14,7 @@ from unittest.mock import MagicMock
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from tests.test_s9_estado_seguro_arranque import _CFG, _Config, _abiertas, _programa
+from tests.backend_doble import modulo_backend
 
 
 def _protocolo(pres=250.0, temp=120.0, modo=2, tipo="solido", ai=(False, None), cfg=None):
@@ -130,6 +131,6 @@ def test_status_no_abrir_usa_presion_vigente():
     ctx.control_loop.datos_vigentes = True
     ctx.control_loop.presion_vigente = False          # AI vencida
     srv, _ = cargar_servidor(ctx)
-    assert srv._camara_segura_status(estado)["no_abrir"] is True
+    assert modulo_backend("rutas.sistema")._camara_segura_status(estado)["no_abrir"] is True
     ctx.control_loop.presion_vigente = True
-    assert srv._camara_segura_status(estado)["no_abrir"] is False
+    assert modulo_backend("rutas.sistema")._camara_segura_status(estado)["no_abrir"] is False

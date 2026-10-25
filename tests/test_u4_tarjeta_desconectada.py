@@ -24,6 +24,7 @@ from autoclave.state_machine.alarms.catalogo import (
 )
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from tests.serial_doble import PuertoDoble
+from tests.backend_doble import modulo_backend
 
 
 # ---------------------------------------------------------------------------
@@ -630,7 +631,7 @@ def test_confirmar_con_paro_real_dice_paro():
 ])
 def test_status_publica_el_estado_de_la_tarjeta(valor, esperado):
     _, srv, _ = _cliente({}, estado_tarjeta=valor)
-    assert srv._estado_tarjeta() == esperado
+    assert modulo_backend("rutas.sistema")._estado_tarjeta() == esperado
 
 
 def test_puerto_presente_sin_conexion_da_sin_trama_pasada_la_tolerancia():

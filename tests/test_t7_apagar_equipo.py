@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cargar_servidor
+from tests.backend_doble import cargar_servidor, modulo_backend
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
 
@@ -35,8 +35,8 @@ def entorno(monkeypatch):
     ctx.control_loop.bloqueo_maquina.return_value = threading.Lock()
     srv, _ = cargar_servidor(ctx)
     apagados = []
-    monkeypatch.setattr(srv, "_apagar_windows", lambda: apagados.append(True))
-    monkeypatch.setattr(srv, "_apagado_windows_habilitado", lambda: True)
+    monkeypatch.setattr(modulo_backend("rutas.apagado"), "_apagar_windows", lambda: apagados.append(True))
+    monkeypatch.setattr(modulo_backend("rutas.apagado"), "_apagado_windows_habilitado", lambda: True)
     hilos = []
     real = threading.Thread
 
@@ -202,8 +202,8 @@ def test_apaga_con_modo_prueba(entorno):
 def test_sin_ejecutable_no_apaga_windows(monkeypatch):
     import autoclave.backend.server as srv_mod
     monkeypatch.delenv("AUTOCLAVE_APAGADO_REAL", raising=False)
-    monkeypatch.setattr(srv_mod.sys, "frozen", False, raising=False)
-    assert srv_mod._apagado_windows_habilitado() is False
+    monkeypatch.setattr(modulo_backend("rutas.apagado").sys, "frozen", False, raising=False)
+    assert modulo_backend("rutas.apagado")._apagado_windows_habilitado() is False
 
 
 # ── Correcciones de los revisores de T7 ────────────────────────────────────
@@ -318,7 +318,7 @@ def test_el_apagado_no_deja_marcas_que_impidan_arrancar(entorno):
 
 def test_un_paso_colgado_no_retrasa_el_apagado_de_windows(entorno, monkeypatch):
     client, ctx, srv, apagados, hilos = entorno
-    monkeypatch.setattr(srv, "_TOPE_PASO_APAGADO_S", 0.2)
+    monkeypatch.setattr(modulo_backend("rutas.apagado"), "_TOPE_PASO_APAGADO_S", 0.2)
     libera = threading.Event()
     ctx.db.close.side_effect = lambda: libera.wait(5)
     assert _apagar(client).status_code == 200

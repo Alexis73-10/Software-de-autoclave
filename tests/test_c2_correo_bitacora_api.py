@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.runtime.config_correo_equipo import ConfigCorreoEquipo
+from tests.backend_doble import modulo_backend
 
 
 @pytest.fixture
@@ -90,6 +91,6 @@ def test_correo_de_prueba_no_cuenta_un_rechazo_total(api, monkeypatch):
     monkeypatch.setattr(correo, "enviar", lambda config, m: correo.ResultadoEnvio(
         (), {"a@x.co": 550}))
     with pytest.raises(Exception):
-        srv._enviar_correo(MagicMock(), MagicMock())
+        modulo_backend("rutas.reportes")._enviar_correo(MagicMock(), MagicMock())
     monkeypatch.setattr(correo, "enviar", lambda config, m: correo.ResultadoEnvio(("a@x.co",), {}))
-    srv._enviar_correo(MagicMock(), MagicMock())
+    modulo_backend("rutas.reportes")._enviar_correo(MagicMock(), MagicMock())

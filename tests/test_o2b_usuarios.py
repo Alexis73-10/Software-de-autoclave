@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.backend.contrasenas import hash_password
+from tests.backend_doble import parchear_en_backend
 
 
 @pytest.fixture
@@ -392,7 +393,7 @@ def test_login_no_emite_si_cambio_la_clave_durante_la_verificacion(api, monkeypa
         ok = original(clave, h)
         ctx.db.restablecer_password("tomas_tec", hash_password("otra_clave9"))
         return ok
-    monkeypatch.setattr(srv, "verificar_password", lenta)
+    parchear_en_backend(monkeypatch, "verificar_password", lenta)
     assert client.post("/auth/login", json={"usuario": "tomas_tec", "clave": "clave1234"}).status_code == 401
 
 

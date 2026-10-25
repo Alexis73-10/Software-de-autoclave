@@ -14,6 +14,7 @@ import pytest
 
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.state_machine.alarms.catalogo import CATALOGO, CIC_10
+from tests.backend_doble import modulo_backend
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 CATALOGOS = {l: json.loads((SRC / "i18n" / f"{l}.json").read_text(encoding="utf-8"))
@@ -127,7 +128,7 @@ def _dto(motivo):
     from autoclave.state_machine.alarms.alarm_manager import AlarmManager
     am = AlarmManager()
     am.activar(CIC_10, motivo=motivo)
-    return server._alarma_dto(am.activas()[0])
+    return modulo_backend("rutas.sistema")._alarma_dto(am.activas()[0])
 
 
 def test_status_sin_presion_lleva_la_accion_y_el_motivo_nuevos():

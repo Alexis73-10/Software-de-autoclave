@@ -13,6 +13,7 @@ from autoclave.devices.printer import win32_printer as wp
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import (
     CATALOGO, IMPRESORA_DESCONECTADA, Nivel)
+from tests.backend_doble import modulo_backend
 
 
 @pytest.fixture(autouse=True)
@@ -136,7 +137,7 @@ def test_habilitada_y_desconectada_avisa_en_status_y_no_bloquea(tmp_path):
     assert d.nivel is Nivel.AVISO and d.bloquea_inicio is False
     assert alarmas.has_blocking_alarm() is False
     from autoclave.backend import server
-    dto = server._alarma_dto(alarmas.activas()[0])
+    dto = modulo_backend("rutas.sistema")._alarma_dto(alarmas.activas()[0])
     assert dto["level"] == "ALERTA" and "no conectada" in dto["description"].lower()
 
 

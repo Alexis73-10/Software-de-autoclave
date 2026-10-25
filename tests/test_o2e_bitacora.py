@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.runtime import bitacora
+from tests.backend_doble import fuente_backend
 
 RAIZ = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 
@@ -133,7 +134,7 @@ def test_textos_de_todos_los_eventos():
         for e in bitacora.EVENTOS:
             assert b["ev"][e] and b["tipo"][e], (lang, e)
     # todo evento literal que el backend audita tiene texto propio
-    fuente = (RAIZ / "backend" / "server.py").read_text(encoding="utf-8")
+    fuente = fuente_backend()
     usados = set(re.findall(r'_auditar\(\s*"([A-Za-z_]+)"', fuente))
     assert usados - set(bitacora.EVENTOS) == set()
 

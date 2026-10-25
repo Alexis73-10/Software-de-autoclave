@@ -12,7 +12,7 @@ import pytest
 
 from autoclave.core.managers import gestion_programas as gp
 from autoclave.ui_qml.domain import entradas_mostradas as em
-from tests.backend_doble import cabecera
+from tests.backend_doble import cabecera, parchear_en_backend
 from tests.test_o1_gestion_programas import api, cm  # noqa: F401  (fixtures)
 from tests.test_t3_endpoints_sensores import _CON_REF, _FABRICA, _put, entorno  # noqa: F401
 
@@ -63,7 +63,7 @@ def test_json_viejo_con_no_en_uso_se_filtra_al_presentar():
 
 def test_get_cycle_filtra_un_json_viejo(api, monkeypatch):
     client, srv, ctx, _ = api
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     c = gp.programa(ctx.cycle_manager, 2)
     c.entradas_mostradas = ["temp_referencia", "pres_chaqueta"]
     ctx.cycle_manager.selected_cycle = c
@@ -74,7 +74,7 @@ def test_get_cycle_filtra_un_json_viejo(api, monkeypatch):
 
 def test_programa_de_fabrica_tambien_se_filtra(api, monkeypatch):
     client, srv, ctx, _ = api
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     fabrica = ctx.cycle_manager.fabrica[2]
     fabrica.entradas_mostradas = ["temp_referencia", "pres_camara"]
     ctx.cycle_manager.selected_cycle = fabrica
@@ -85,7 +85,7 @@ def test_programa_de_fabrica_tambien_se_filtra(api, monkeypatch):
 
 def test_disponibles_sin_no_en_uso(api, monkeypatch):
     client, srv, ctx, _ = api
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     d = client.get("/cycle/display-inputs?programa=2").json()
     assert d["entradas"] == ["temp_camara", "pres_camara"]
     assert d["disponibles"] == ["temp_camara", "pres_camara", "pres_chaqueta"]
@@ -94,7 +94,7 @@ def test_disponibles_sin_no_en_uso(api, monkeypatch):
 
 def test_put_rechaza_sensor_no_en_uso_422(api, monkeypatch):
     client, srv, ctx, _ = api
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     c = gp.programa(ctx.cycle_manager, 2)
     antes = Path(c._path).read_text(encoding="utf-8")
     r = client.put("/cycle/display-inputs", headers=cabecera(srv, "tecnico"),
@@ -108,7 +108,7 @@ def test_put_rechaza_sensor_no_en_uso_422(api, monkeypatch):
 
 def test_put_acepta_sensor_en_uso(api, monkeypatch):
     client, srv, ctx, _ = api
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     gp.programa(ctx.cycle_manager, 2).sensores = dict(_CON_REF)
     r = client.put("/cycle/display-inputs", headers=cabecera(srv, "tecnico"),
                    json={"programa": 2, "entradas": ["temp_referencia", "pres_camara"]})

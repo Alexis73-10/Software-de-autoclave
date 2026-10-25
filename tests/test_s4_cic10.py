@@ -10,6 +10,7 @@ from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.services.domain.loop.control_loop import ControlLoop
+from tests.backend_doble import modulo_backend
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
 _PARAMS = {("descompresion", "modo"): 4, ("descompresion", "modo_4", "timeout"): 60,
@@ -136,7 +137,7 @@ def test_el_status_expone_el_motivo_del_bloqueo():
     es.update()
     ctx.control_loop.estado_seguro = es
     srv, _ = cargar_servidor(ctx)
-    d = srv._estado_seguro_status()
+    d = modulo_backend("rutas.sistema")._estado_seguro_status()
     assert d["activo"] is True and "Principal sin lectura" in d["bloqueado_motivo"]
 
 

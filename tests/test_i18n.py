@@ -287,8 +287,10 @@ FAMILIAS = {
         __import__("autoclave.core.runtime.mantenimiento",
                    fromlist=["TIPOS_HISTORICOS"]).TIPOS_HISTORICOS),
     # T12: secciones de un programa (GET /programas) y valores de enumerados
-    "opciones.secciones_programa.": lambda: list(__import__(
-        "autoclave.backend.server", fromlist=["_SECCIONES_PROGRAMA"])._SECCIONES_PROGRAMA),
+    # ORG-12: el backend se carga por server.py; la lista vive en rutas/programas.py
+    "opciones.secciones_programa.": lambda: __import__("autoclave.backend.server") and list(
+        __import__("autoclave.backend.rutas.programas",
+                   fromlist=["_SECCIONES_PROGRAMA"])._SECCIONES_PROGRAMA),
     "opciones.valor_": lambda: list(__import__(
         "autoclave.core.managers.catalogo_parametros", fromlist=["TIPOS_CARGA"]).TIPOS_CARGA),
     # Descripción de cada parámetro de los perfiles de ciclo (tarjeta de ajuste)

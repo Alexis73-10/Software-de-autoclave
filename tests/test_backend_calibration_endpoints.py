@@ -2,7 +2,7 @@ import textwrap
 import pytest
 from unittest.mock import MagicMock
 
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, fijar_en_backend
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def calib_client(tmp_path):
     mock_ctx.db.get_auditoria.return_value = []   # sin cambios en audit_log
     srv, _ = cargar_servidor(mock_ctx)
 
-    srv.CALIBRATION_PATH = yaml_path
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
 
     from fastapi.testclient import TestClient
     # solo ingeniero calibra (planeacion_backend_autenticacion.md, decisión 25)

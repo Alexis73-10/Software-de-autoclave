@@ -15,6 +15,7 @@ from autoclave.services.domain.logging.cycle_logger import CycleLogger
 from autoclave.services.domain.logging.ticket_formatter import format_header
 from autoclave.state_machine.alarms.catalogo import DEFINICIONES, OPERANDO_SIN_BD
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.backend_doble import fijar_en_backend
 
 UUID = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
@@ -266,7 +267,7 @@ def test_calibracion_sin_auditoria_se_revierte(tmp_path):
     ctx = MagicMock()
     ctx.db.registrar_auditoria.side_effect = sqlite3.OperationalError("disk I/O error")
     srv, _ = cargar_servidor(ctx)
-    srv.CALIBRATION_PATH = yaml_path
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
     r = client.patch("/calibration/pressure/pres_camara", json={
         "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0})
@@ -393,7 +394,7 @@ def test_saf05_calibracion_sin_bd_no_toca_el_archivo(tmp_path):
     ctx = MagicMock()
     ctx.sin_base_de_datos = True
     srv, _ = cargar_servidor(ctx)
-    srv.CALIBRATION_PATH = yaml_path
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
     r = client.patch("/calibration/pressure/pres_camara", json={
         "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0})

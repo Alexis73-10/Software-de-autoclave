@@ -15,6 +15,7 @@ from autoclave.backend.context import BackendContext
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO, MIGRACION_CORRECTIVA, SIS_06, Nivel
+from tests.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 CICLOS = RAIZ / "src" / "autoclave" / "cycles"
@@ -115,7 +116,7 @@ def test_backend_expone_el_aviso_en_status_es_y_en(tmp_path):
     _instalar(tmp_path)
     ctx = _contexto(tmp_path)
     ctx._avisar_migraciones_correctivas()
-    dto = server._alarma_dto(ctx.alarm_manager.activas()[0])
+    dto = modulo_backend("rutas.sistema")._alarma_dto(ctx.alarm_manager.activas()[0])
     assert dto["codigo"] == SIS_06 and dto["level"] == "ALERTA"
     assert dto["requiere_reconocimiento"] is False
     es, en = dto["textos"]["es"], dto["textos"]["en"]
@@ -135,7 +136,7 @@ def test_la_campana_y_preciclo_lo_listan(tmp_path):
     ctx = _contexto(tmp_path)
     ctx._avisar_migraciones_correctivas()
     modelo = AlarmListModel()
-    modelo.establecer([server._alarma_dto(i) for i in ctx.alarm_manager.activas()])
+    modelo.establecer([modulo_backend("rutas.sistema")._alarma_dto(i) for i in ctx.alarm_manager.activas()])
     filas = modelo.filas()
     assert modelo.count == 1 and filas[0]["level"] == "ALERTA"
     assert filas[0]["id"].startswith(SIS_06)

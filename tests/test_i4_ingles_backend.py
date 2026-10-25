@@ -19,6 +19,7 @@ from autoclave.core.runtime import alarmas_i18n, camara_segura, motivos
 from autoclave.core.runtime.motivos import Motivo
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO
+from tests.backend_doble import archivos_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 SRC = RAIZ / "src" / "autoclave"
@@ -67,7 +68,7 @@ def test_cada_motivo_de_puerta_tiene_texto_es_en_con_mismos_campos(codigo):
 def test_los_codigos_usados_en_el_codigo_estan_declarados():
     usados = set()
     for ruta in (SRC / "services/domain/puertas/ser_puertas.py", SRC / "core/runtime/camara_segura.py",
-                 SRC / "devices/puertas/advanced_door.py", SRC / "backend/server.py"):
+                 SRC / "devices/puertas/advanced_door.py", *archivos_backend()):
         usados |= set(re.findall(r'Motivo\(\s*"([a-z_]+)"', ruta.read_text(encoding="utf-8")))
     assert usados and usados <= set(motivos.CODIGOS)
     assert set(motivos.CODIGOS) <= usados

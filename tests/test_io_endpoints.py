@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, modulo_backend, parche_en_backend
 
 _DI_CERRADA, _DI_ABIERTA = "puerta_cerrada_1", "puerta_abierta_1"
 
@@ -37,7 +37,7 @@ def entorno():
     ctx.control_loop.test_mode_active = True
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
-    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
 
     from fastapi.testclient import TestClient
     return TestClient(srv.app, headers=cab), ctx, srv
@@ -159,7 +159,7 @@ def test_otra_sesion_no_puede_encender_pero_si_apagar(entorno):
 
 def test_sin_dueno_nadie_enciende(entorno):
     client, ctx, srv = entorno
-    srv._token_modo_prueba = None
+    modulo_backend("rutas.io")._token_modo_prueba = None
     _rechazo(client, ctx)
 
 
@@ -175,9 +175,8 @@ def test_rechazo_409_queda_en_el_log_fuera_del_lock(entorno):
     ctx.control_loop.bloqueo_maquina.return_value = lock
     lock_tomado = []
     ctx.estado.get_flag.side_effect = lambda f: f in ("PARO_EMERGENCIA", "PARO_REAL")
-    srv = sys.modules["autoclave.backend.server"]
-    with patch.object(srv, "_log_desarrollo",
-                      side_effect=lambda *a, **k: lock_tomado.append(lock._is_owned())) as log:
+    with parche_en_backend("_log_desarrollo",
+                           MagicMock(side_effect=lambda *a, **k: lock_tomado.append(lock._is_owned()))) as log:
         client.patch("/io/test/output/vapor_camara", json={"value": True})
 
     ctx.db.registrar_auditoria.assert_not_called()

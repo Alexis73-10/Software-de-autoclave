@@ -10,6 +10,7 @@ import pytest
 
 from autoclave.core.managers import gestion_programas as gp
 from autoclave.core.managers.cycle_manager import CycleManager
+from tests.backend_doble import parchear_en_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 CICLOS = RAIZ / "src" / "autoclave" / "cycles"
@@ -210,7 +211,7 @@ def test_entradas_por_omision_y_cardinalidad(cm):
 
 def test_api_entradas_mostradas(api, monkeypatch):
     client, srv, ctx, cabecera = api
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     assert client.get("/cycle/display-inputs?programa=2").json()["entradas"] == [
         "temp_camara", "pres_camara"]                     # O11: sin la Referencia No en uso
     r = client.put("/cycle/display-inputs", headers=cabecera(srv, "tecnico"),
@@ -269,7 +270,7 @@ def test_borrado_confirmado_elimina_los_apartados(api):
 def test_auditoria_fallida_revierte_habilitado_y_entradas(api, monkeypatch):
     client, srv, ctx, cabecera = api
     h = cabecera(srv, "tecnico")
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: list(_HAB))
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     _sin_auditoria(ctx, monkeypatch)
     assert client.put("/programas/1/habilitado", headers=h, json={"habilitado": False}).status_code == 503
     c1 = gp.programa(ctx.cycle_manager, 1)

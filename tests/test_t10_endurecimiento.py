@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.managers import catalogo_parametros as cp
+from tests.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 PROGRAMAS = sorted(glob.glob(str(RAIZ / "src" / "autoclave" / "cycles" / "*" / "*.json")))
@@ -281,7 +282,7 @@ def test_t11_liquidos_solo_en_equipos_con_liquidos(monkeypatch):
     ctx.estado.get_flag.return_value = True
     ctx.cap.has_liquids = False
     srv, _ = cargar_servidor(ctx)
-    monkeypatch.setattr(srv.sc, "verificar_inicio", lambda *a: None)
+    monkeypatch.setattr(modulo_backend("rutas.ciclo").sc, "verificar_inicio", lambda *a: None)
     client = TestClient(srv.app)
     r = client.post("/cycle/start")
     assert r.status_code == 409 and r.json()["codigo"] == "carga_liquida_no_disponible"

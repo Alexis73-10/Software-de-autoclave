@@ -5,6 +5,7 @@ import time
 import pytest
 
 from tests.test_io_endpoints import entorno, io_client, _canal, _llamadas  # noqa: F401
+from tests.backend_doble import modulo_backend
 
 
 def _esperar(cond, limite=2.0):
@@ -19,10 +20,10 @@ def _esperar(cond, limite=2.0):
 @pytest.fixture
 def rapido(entorno):
     client, ctx, srv = entorno
-    srv.CADUCIDAD_MOMENTANEA_S = 0.15
-    srv.INACTIVIDAD_MODO_PRUEBA_S = 0.3
+    modulo_backend("rutas.io").CADUCIDAD_MOMENTANEA_S = 0.15
+    modulo_backend("rutas.io").INACTIVIDAD_MODO_PRUEBA_S = 0.3
     yield client, ctx, srv
-    srv._cancelar_vigilancias_prueba()
+    modulo_backend("rutas.io")._cancelar_vigilancias_prueba()
 
 
 def test_momentanea_sin_renovacion_se_apaga_sola(rapido):
@@ -91,9 +92,9 @@ def test_temporizador_de_otra_generacion_no_saca_a_la_sesion_nueva(rapido):
     al modo prueba no actúa sobre la sesión que entró después."""
     client, ctx, srv = rapido
     client.post("/io/test/keepalive")
-    srv._generacion_prueba += 1          # otra entrada mientras el plazo corría
+    modulo_backend("rutas.io")._generacion_prueba += 1          # otra entrada mientras el plazo corría
     try:
         time.sleep(0.5)
         assert not ctx.control_loop.exit_test_mode.called
     finally:
-        srv._generacion_prueba -= 1
+        modulo_backend("rutas.io")._generacion_prueba -= 1

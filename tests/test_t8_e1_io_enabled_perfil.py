@@ -14,7 +14,7 @@ from autoclave.devices.puertas.door_type import DoorType
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.installation.profile import InstallationProfile, Role
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
 
 
 def _perfil(**cambios) -> InstallationProfile:
@@ -149,5 +149,5 @@ def test_io_channels_usa_el_perfil(servidor):
 
 def test_entradas_habilitadas_usan_el_perfil(servidor):
     _, srv = servidor
-    assert srv._ai_habilitadas() == ["temp_camara", "temp_2_camara", "temp_referencia",
+    assert modulo_backend("rutas._comun")._ai_habilitadas() == ["temp_camara", "temp_2_camara", "temp_referencia",
                                      "temp_drenaje", "pres_camara", "pres_chaqueta"]

@@ -11,6 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.runtime import respaldo as rp
+from tests.backend_doble import modulo_backend, parchear_en_backend
 
 EQUIPO = {"serie": "ACV-2026-001", "modelo": "M-1"}
 
@@ -112,9 +113,9 @@ def api(tmp_path, monkeypatch):
     from autoclave.utils.paths import calibration_path
     calib.write_bytes(Path(calibration_path()).read_bytes())
     srv, _ = cargar_servidor(ctx)
-    monkeypatch.setattr(srv, "CALIBRATION_PATH", calib)
-    monkeypatch.setattr(srv, "_unidades_usb", lambda: [{"ruta": str(usb), "libre_bytes": 8e9}])
-    monkeypatch.setattr(srv, "_version_sw", lambda: "1.2.0")
+    parchear_en_backend(monkeypatch, "CALIBRATION_PATH", calib)
+    monkeypatch.setattr(modulo_backend("rutas.respaldo"), "_unidades_usb", lambda: [{"ruta": str(usb), "libre_bytes": 8e9}])
+    monkeypatch.setattr(modulo_backend("rutas.respaldo"), "_version_sw", lambda: "1.2.0")
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     yield TestClient(srv.app), srv, ctx, cabecera, usb, programas, calib
     ctx.db.close()

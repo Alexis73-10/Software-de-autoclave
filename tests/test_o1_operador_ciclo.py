@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from autoclave.services.domain.logging import db_manager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.ticket_formatter import format_footer, format_ticket
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_t8_modo_sin_bd import _correr_ciclo, _logger
 
 
@@ -31,7 +31,7 @@ def api(monkeypatch):
         sensores_pres={"pres_camara": 101.0, "pres_chaqueta": 300.0})
     ctx.cap.has_liquids = True
     srv, _ = cargar_servidor(ctx)
-    monkeypatch.setattr(srv.sc, "verificar_inicio", lambda *a: None)
+    monkeypatch.setattr(modulo_backend("rutas.ciclo").sc, "verificar_inicio", lambda *a: None)
     return TestClient(srv.app), ctx, srv
 
 

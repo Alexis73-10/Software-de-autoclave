@@ -25,6 +25,7 @@ from autoclave.state_machine.alarms.catalogo import CATALOGO, CIC_10, Nivel, SEN
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.backend_doble import modulo_backend
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 5.0, "temp_max_apertura": 80.0}
 
@@ -522,6 +523,6 @@ def test_status_publica_la_causa_y_sin_confirmacion():
     _arrancar(loop, pres=250.0)
     ctx.control_loop.estado_seguro = loop.estado_seguro
     srv, _ = cargar_servidor(ctx)
-    d = srv._estado_seguro_status()
+    d = modulo_backend("rutas.sistema")._estado_seguro_status()
     assert d["activo"] is True and d["causa"] == "arranque"
     assert d["requiere_confirmacion"] is False

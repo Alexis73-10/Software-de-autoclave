@@ -8,6 +8,7 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from tests.backend_doble import modulo_backend
 
 
 @pytest.fixture
@@ -22,18 +23,18 @@ def test_info_reloj_y_aviso_m1_01(srv_ctx):
     srv, ctx = srv_ctx
     tz = timezone(timedelta(hours=-5))
     ctx.profile.created_at = datetime(2026, 10, 26, 9, 0)
-    r = srv._info_reloj(datetime(2026, 10, 21, 8, 0, tzinfo=tz))
+    r = modulo_backend("rutas.sistema")._info_reloj(datetime(2026, 10, 21, 8, 0, tzinfo=tz))
     assert r["zona"].startswith("UTC-05:00") and r["utc_offset_min"] == -300
     assert r["instalacion"].startswith("2026-10-26") and r["reloj_anterior_instalacion"] is True
     assert r["ajuste_habilitado"] is False
-    r = srv._info_reloj(datetime(2026, 10, 27, 8, 0, tzinfo=tz))
+    r = modulo_backend("rutas.sistema")._info_reloj(datetime(2026, 10, 27, 8, 0, tzinfo=tz))
     assert r["reloj_anterior_instalacion"] is False
 
 
 def test_sin_perfil_no_avisa(srv_ctx):
     srv, ctx = srv_ctx
     ctx.profile = None
-    r = srv._info_reloj()
+    r = modulo_backend("rutas.sistema")._info_reloj()
     assert r["instalacion"] is None and r["reloj_anterior_instalacion"] is False
 
 

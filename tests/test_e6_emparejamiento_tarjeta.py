@@ -142,7 +142,7 @@ def test_herramienta_mostrar_sin_registrar(tmp_path, herramienta, capsys):
 def status_client():
     ctx = MagicMock()
     for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
+        if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
     with patch("autoclave.backend.context.BackendContext", return_value=ctx):
         srv = importlib.import_module("autoclave.backend.server")

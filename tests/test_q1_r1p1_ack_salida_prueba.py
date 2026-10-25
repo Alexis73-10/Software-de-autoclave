@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_control_loop_test_mode import _make_control_loop
 
 
@@ -77,7 +77,7 @@ def test_salida_forzada_anota_el_ack(io_client):
     client, ctx, srv = io_client
     _entrar(client, ctx, cabecera(srv, "tecnico", "tec1"))
     ctx.control_loop.exit_test_mode.return_value = True
-    srv.tokens.invalidar(next(iter(srv.tokens.sesiones_de("tec1"))).token)
+    modulo_backend("dependencias").tokens.invalidar(next(iter(modulo_backend("dependencias").tokens.sesiones_de("tec1"))).token)
 
     resp = client.post("/io/test/force-exit", headers=cabecera(srv, "ingeniero", "ing1"),
                        json={"confirmar": True, "motivo": "huérfano"})
