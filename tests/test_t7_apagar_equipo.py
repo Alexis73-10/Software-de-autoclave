@@ -258,7 +258,7 @@ class _Respuesta:
 
 
 def _ui_con_error(error):
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     ui.backend.post.side_effect = error
@@ -276,7 +276,7 @@ def test_motivo_del_rechazo_sale_de_detail():
 
 def test_sin_respuesta_no_es_un_rechazo():
     """TMG-02: un timeout no se presenta como rechazo."""
-    from autoclave.ui.service_ui.ui_service_backend import APAGADO_INCIERTO
+    from autoclave.cliente.ui_service_backend import APAGADO_INCIERTO
     ok, motivo = _ui_con_error(TimeoutError("timeout")).apagar_equipo("principal")
     assert ok is False and motivo == APAGADO_INCIERTO
 

@@ -41,7 +41,7 @@ _SCRIPT = textwrap.dedent(r'''
     from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from autoclave.ui_qml import sesion_backend
     from autoclave.ui_qml.bridge import i18n_qml
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
 
     cfg = json.loads(sys.argv[1])
     i18n.cargar()

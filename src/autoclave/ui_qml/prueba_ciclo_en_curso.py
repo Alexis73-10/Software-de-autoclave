@@ -44,8 +44,8 @@ def main(argv=None) -> int:
     propiedades = {}
     archivo = "PruebaCicloEnCurso.qml"
     if args.backend:
-        from autoclave.ui.service_ui.backend_client import BackendClient
-        from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+        from autoclave.cliente.backend_client import BackendClient
+        from autoclave.cliente.ui_service_backend import UIServiceBackend
         from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
         from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
         from autoclave.ui_qml.bridge.ui_bridge import UiBridge

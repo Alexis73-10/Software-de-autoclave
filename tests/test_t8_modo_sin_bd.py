@@ -284,7 +284,7 @@ def test_puente_y_comando_sin_registro():
     pytest.importorskip("PySide6")
     from PySide6.QtCore import QCoreApplication
     QCoreApplication.instance() or QCoreApplication(sys.argv)
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
 
@@ -318,7 +318,7 @@ def test_puente_y_comando_sin_registro():
 
 
 def test_start_cycle_envia_la_confirmacion():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     assert ui.start_cycle(confirmar_sin_registro=True) is True

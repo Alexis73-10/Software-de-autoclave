@@ -318,7 +318,7 @@ class _ParamEditDialog(QDialog):
         #    en disco) — sin esto, el cambio no se aplicaba hasta reiniciar el software.
         # P3 (tanda 5): ante un 401 pide login y
         # reintenta con el mismo valor (sin perder lo editado)
-        from autoclave.ui.service_ui.session_manager import SessionManager
+        from autoclave.cliente.session_manager import SessionManager
         from autoclave.ui_pyside.services import renovacion_sesion
         cliente = BackendClient(_BACKEND_URL)
         try:
@@ -356,7 +356,7 @@ class _ParamEditDialog(QDialog):
 
         # 3. Registrar auditoría
         try:
-            from autoclave.ui.service_ui.session_manager import SessionManager
+            from autoclave.cliente.session_manager import SessionManager
             user = (
                 SessionManager.current_user().get("nombre", "Desconocido")
                 if SessionManager.is_authenticated()

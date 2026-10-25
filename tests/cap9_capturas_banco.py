@@ -96,7 +96,7 @@ _SCRIPT_PRECICLO = textwrap.dedent(r"""
     from autoclave import i18n
     from autoclave.core.runtime import alarmas_i18n
     from autoclave.state_machine.alarms.catalogo import CATALOGO
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from autoclave.ui_qml.bridge import i18n_qml
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge

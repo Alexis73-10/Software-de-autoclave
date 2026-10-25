@@ -12,7 +12,7 @@ from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QApplication
 
 from autoclave.auth.roles import ROLES
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_pyside.views.nuevo_usuario.puente import NuevoUsuarioBridge
 from autoclave.ui_qml.sesion_backend import SesionVentana
 

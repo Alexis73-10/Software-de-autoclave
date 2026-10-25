@@ -143,8 +143,8 @@ def test_ciclo_antiguo_sin_operador_se_muestra_como_sin_dato():
 # ── UI: el inicio de ciclo envía el token de la ventana ─────────────────────
 
 def test_el_cliente_de_la_ui_envia_el_token_al_iniciar_ciclo():
-    from autoclave.ui.service_ui.session_manager import SessionManager
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.session_manager import SessionManager
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     SessionManager.logout()

@@ -100,7 +100,7 @@ def test_comandos_sistema_despejar_alarma_envia_el_reconocimiento():
 
 def test_cliente_codifica_la_clave_en_la_ruta():
     from unittest.mock import MagicMock
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     assert ui.reconocer_alarma("COM-03|X", "operador") == (True, "")

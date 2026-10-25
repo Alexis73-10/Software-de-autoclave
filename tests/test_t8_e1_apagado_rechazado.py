@@ -120,7 +120,7 @@ def test_registrar_auditoria_tras_cierre_escribe_con_la_base_cerrada(tmp_path):
 # ── servicio de la UI y puente QML ─────────────────────────────────────────
 
 def test_ui_service_estado_apagado():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     ui.backend.get.return_value = {"apagando": True, "windows_rechazado": True}
@@ -130,7 +130,7 @@ def test_ui_service_estado_apagado():
 
 
 def test_ui_service_estado_apagado_sin_respuesta_es_none():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     ui.backend.get.side_effect = ConnectionError("apagado")
@@ -223,7 +223,7 @@ def test_registrar_auditoria_tras_cierre_no_espera_el_lock_de_la_base(tmp_path):
 def test_puente_apagado_incierto_tambien_vigila(qt_app):
     """TMG-02 (revisión final): sin respuesta al POST el backend puede haberlo
     aceptado; se vigila igual para poder mostrar un rechazo de Windows."""
-    from autoclave.ui.service_ui.ui_service_backend import APAGADO_INCIERTO
+    from autoclave.cliente.ui_service_backend import APAGADO_INCIERTO
     c, ui = _comandos({"apagando": True, "windows_rechazado": True})
     ui.apagar_equipo.return_value = (False, APAGADO_INCIERTO)
     c.apagarEquipo()

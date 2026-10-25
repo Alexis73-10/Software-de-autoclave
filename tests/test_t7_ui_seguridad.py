@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 pytest.importorskip("PySide6")
 from PySide6.QtCore import QCoreApplication
 
-from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+from autoclave.cliente.ui_service_backend import UIServiceBackend
 from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge
 

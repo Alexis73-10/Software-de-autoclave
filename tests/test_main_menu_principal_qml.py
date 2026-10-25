@@ -32,7 +32,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.app import QML_DIR
     from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge

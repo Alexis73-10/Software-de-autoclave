@@ -249,7 +249,7 @@ class UIServiceBackend:
         try:
             # O1 (tanda 3): con sesión abierta en esta ventana, su token identifica al
             # operador del ciclo; sin sesión el ciclo inicia igual, sin operador
-            from autoclave.ui.service_ui.session_manager import SessionManager
+            from autoclave.cliente.session_manager import SessionManager
             token = SessionManager.token()
             extra = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
             if confirmar_sin_registro:

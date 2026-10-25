@@ -286,7 +286,7 @@ def test_tras_elegir_se_refresca_el_cache_de_ciclo():
 
 
 def test_refrescar_cache_pide_el_sondeo_estatico():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend(_Backend())
     assert not ui._force_static.is_set()
     ui.refrescar_cache()

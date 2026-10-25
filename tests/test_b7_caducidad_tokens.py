@@ -182,7 +182,7 @@ def _ui(respuestas=None):
     import sys
     from PySide6.QtCore import QCoreApplication
     QCoreApplication.instance() or QCoreApplication(sys.argv)
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     from autoclave.ui_qml import sesion_backend as sb
     llamadas = []
 

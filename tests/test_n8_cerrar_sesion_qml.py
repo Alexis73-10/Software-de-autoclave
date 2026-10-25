@@ -31,11 +31,11 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import login_controller, teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     from autoclave.ui_qml import sesion_backend
 
     estado, capturas = sys.argv[1], sys.argv[2]

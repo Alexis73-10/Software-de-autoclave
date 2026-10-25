@@ -37,7 +37,7 @@ from PySide6.QtCore import Property, QEvent, QObject, QTimer, Signal, Slot
 
 from autoclave.core.runtime.sesion_inactividad import (  # plazo único (B7)
     SESION_INACTIVIDAD_S, SESION_KEEPALIVE_S)
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 
 # P1 (tanda 5): plazo de cada aviso previo al cierre de sesión. Si no alcanza,
 # el modo prueba lo cierra el backend (vigilante de la sesión dueña, 2 s).

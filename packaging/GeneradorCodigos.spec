@@ -54,7 +54,7 @@ a = Analysis(
     runtime_hooks=[],
     # nada del software del autoclave más allá de activation y contrasenas
     excludes=['PySide6', 'tkinter', 'autoclave.backend.server', 'autoclave.ui',
-              'autoclave.ui_qml', 'autoclave.ui_pyside'],
+              'autoclave.ui_qml', 'autoclave.ui_pyside', 'autoclave.cliente'],
     noarchive=False,
     optimize=0,
 )

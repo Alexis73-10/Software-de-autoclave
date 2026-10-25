@@ -66,8 +66,8 @@ def main(argv=None) -> int:
         propiedades.update({"ventanaInicial": args.ventana or "",
                             "sinConexionEjemplo": args.sin_conexion})
         if args.backend:
-            from autoclave.ui.service_ui.backend_client import BackendClient
-            from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+            from autoclave.cliente.backend_client import BackendClient
+            from autoclave.cliente.ui_service_backend import UIServiceBackend
             from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
             from autoclave.ui_qml.bridge.ciclos_historial import CiclosHistorial
             from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen

@@ -169,7 +169,7 @@ _SCRIPT = textwrap.dedent(r'''
     # pantallas que consultan al servicio al cargarse (Opciones y sus secciones).
     if cfg.get("sesion"):
         from autoclave.ui_qml import sesion_backend
-        from autoclave.ui.service_ui.session_manager import SessionManager
+        from autoclave.cliente.session_manager import SessionManager
 
         class Sesion:
             sinConexion = False
@@ -296,7 +296,7 @@ _SCRIPT_MAIN = textwrap.dedent(r'''
     from autoclave import i18n
     from autoclave.core.runtime import alarmas_i18n
     from autoclave.state_machine.alarms.catalogo import CATALOGO
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml import app as _app  # noqa: F401
     from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from autoclave.ui_qml.bridge import i18n_qml

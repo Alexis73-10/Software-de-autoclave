@@ -54,7 +54,7 @@ app = QGuiApplication([])
 sesion = sesion_backend.SesionVentana(transporte=transporte, ejecutar=lambda t: t(),
                                       cierre_s=30, intervalo_ms=50)
 sesion_backend.instalar(sesion)
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 SessionManager.login({"usuario": "tec1", "nombre": "Tec", "rol": "tecnico",
                       "debe_cambiar_clave": False}, token="t")
 e = QQmlEngine(); e.addImportPath(qml_dir)
