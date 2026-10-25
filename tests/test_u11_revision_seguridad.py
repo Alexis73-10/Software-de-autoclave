@@ -27,7 +27,7 @@ IMITACIONES = ["Αdmin",          # alfa griega
 
 
 def _codigos(usuario):
-    from autoclave.ui_pyside.services.validacion_usuario import codigos_nuevo_usuario
+    from autoclave.auth.validacion_usuario import codigos_nuevo_usuario
     return codigos_nuevo_usuario("N", usuario, "clave1234", "clave1234", "tecnico", lambda _u: False)
 
 

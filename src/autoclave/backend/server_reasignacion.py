@@ -51,7 +51,7 @@ from autoclave.backend import reinicio
 from autoclave.core.runtime import asignacion_io as aio
 from autoclave.core.runtime import io_names
 from autoclave.state_machine.machine.enum_global import GlobalState
-from autoclave.ui_pyside.services.roles import ROL_INGENIERO
+from autoclave.auth.roles import ROL_INGENIERO
 
 logger = logging.getLogger(__name__)
 

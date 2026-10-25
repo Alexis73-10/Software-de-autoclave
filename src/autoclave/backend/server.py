@@ -47,8 +47,8 @@ from autoclave.core.managers.catalogo_parametros import evaluar_calibracion, eva
 from autoclave.config.calibration_writer import write_user_calibration
 from autoclave.config import load_config
 from autoclave.state_machine.machine.enum_global import GlobalState
-from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO, ROLES_CREABLES
-from autoclave.ui_pyside.services.validacion_usuario import (
+from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO, ROLES_CREABLES
+from autoclave.auth.validacion_usuario import (
     COD_IGUAL_ACTUAL, COD_OBLIGATORIO, USUARIO_EXISTE, codigo_clave, codigo_confirmacion,
     codigos_nuevo_usuario,
 )

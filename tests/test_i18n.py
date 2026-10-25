@@ -37,8 +37,8 @@ PY_ALCANCE = sorted(
     [p for p in (SRC / "ui_qml").rglob("*.py")]
     + [SRC / "ui_pyside" / "views" / "nuevo_usuario" / "puente.py",
        SRC / "ui_pyside" / "views" / "nuevo_usuario" / "vista.py",
-       SRC / "ui_pyside" / "services" / "roles.py",
-       SRC / "ui_pyside" / "services" / "validacion_usuario.py"])
+       SRC / "auth" / "roles.py",
+       SRC / "auth" / "validacion_usuario.py"])
 QML_ARCHIVOS = sorted(QML.rglob("*.qml"))
 
 
@@ -223,7 +223,7 @@ def _sufijos_impresora():
 
 
 def _sufijos_validacion():
-    from autoclave.ui_pyside.services import validacion_usuario as v
+    from autoclave.auth import validacion_usuario as v
     return [getattr(v, n) for n in dir(v) if n.startswith("COD_") and getattr(v, n) != v.COD_EXISTE]
 
 
@@ -304,7 +304,7 @@ FAMILIAS = {
     "validacion.": _sufijos_validacion,
     # O1 (tanda 5): entradas mostradas = AI habilitadas del equipo activo
     # I4 (tanda 6): etiquetas de rol por valor
-    "roles.": lambda: [v for v, _ in __import__("autoclave.ui_pyside.services.roles",
+    "roles.": lambda: [v for v, _ in __import__("autoclave.auth.roles",
                                                 fromlist=["ROLES"]).ROLES],
     # O2a (tanda 6): submenús y parámetros del equipo
     "opciones.equipo_grupos.": lambda: ["puerta", "camara_segura", "impresion", "drenaje", "empaque", "chaqueta",

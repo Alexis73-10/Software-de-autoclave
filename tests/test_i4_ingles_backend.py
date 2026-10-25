@@ -236,7 +236,7 @@ def test_nombres_de_resuelve_por_cycle_id_si_no_se_renombro():
 
 
 def test_etiqueta_de_rol_por_catalogo():
-    from autoclave.ui_pyside.services.roles import ROLES, etiqueta_rol
+    from autoclave.auth.roles import ROLES, etiqueta_rol
     for valor, _ in ROLES:
         assert i18n.existe(f"roles.{valor}", "en")
     assert etiqueta_rol("tecnico", idioma="en") == "Technician"

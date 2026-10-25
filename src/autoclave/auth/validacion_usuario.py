@@ -8,7 +8,7 @@
 # ya no se exige: se eliminó de la pantalla.
 
 from autoclave.core.runtime.nombre_usuario import es_reservado, formato_valido
-from autoclave.ui_pyside.services.roles import VALORES_ROL
+from autoclave.auth.roles import VALORES_ROL
 
 NOMBRE_MAX = 50
 USUARIO_MIN, USUARIO_MAX = 3, 30

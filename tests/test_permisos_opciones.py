@@ -8,7 +8,7 @@ import pytest
 
 from tests.opciones_qml_doble import COMUNES_T6
 
-from autoclave.ui_pyside.services.roles import VALORES_ROL
+from autoclave.auth.roles import VALORES_ROL
 from autoclave.ui_qml.domain.permisos_opciones import (
     SECCIONES, edicion_permitida, puede_ver, secciones_visibles,
 )

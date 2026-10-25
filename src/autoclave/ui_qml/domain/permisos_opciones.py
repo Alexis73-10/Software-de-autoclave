@@ -18,7 +18,7 @@
 
 from dataclasses import dataclass
 
-from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO
+from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO
 
 _TECNICOS = frozenset({"tecnico", "ingeniero"})
 _CONECTIVIDAD = frozenset({ROL_ADMIN, "tecnico", ROL_INGENIERO})

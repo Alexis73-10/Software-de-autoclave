@@ -26,8 +26,8 @@ from pydantic import BaseModel
 
 from autoclave.backend.autenticacion import ControlIntentos
 from autoclave.core.runtime.nombre_usuario import normalizar_usuario
-from autoclave.ui_pyside.services.roles import ROL_ADMIN, ROL_INGENIERO, ROLES_CREABLES
-from autoclave.ui_pyside.services.validacion_usuario import (
+from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROLES_CREABLES
+from autoclave.auth.validacion_usuario import (
     COD_IGUAL_ACTUAL, COD_OBLIGATORIO, USUARIO_EXISTE, codigo_clave, codigo_confirmacion,
     codigos_nuevo_usuario,
 )
