@@ -1,4 +1,4 @@
-# LEEME — Instalación en el equipo de pruebas (compilación H, 2026-10-24)
+# LEEME — Instalación en el equipo de pruebas (compilación I, 2026-10-24)
 
 Lista de comprobación para Cristian. Hoy solo se hace:
 1. la instalación con el asistente;
@@ -9,9 +9,11 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup), y en K11 de la tanda 11 (23-oct) con "Cambios respecto a la F" y la sección 8f (F → G con el Setup, página «Actualizar / Instalación limpia»), y en K12 de la tanda 12 (24-oct) con "Cambios respecto a la G" y la sección 8g (G → H con el Setup).
+Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup), y en K11 de la tanda 11 (23-oct) con "Cambios respecto a la F" y la sección 8f (F → G con el Setup, página «Actualizar / Instalación limpia»), y en K12 de la tanda 12 (24-oct) con "Cambios respecto a la G" y la sección 8g (G → H con el Setup), y en K13 de la tanda 13 (24-oct) con "Cambios respecto a la H" y la sección 8h (H → I y G → I con el Setup).
 
-> **Licencia L0 (24-oct, para la compilación siguiente a la H; la H no cambia).**
+> **Tanda 13 (2026-10-24, noche): instale la compilación I (`entrega/2026-10-24_i/`, etiqueta `inst-2026-10-24-i`) con `Autoclave_Setup_1.0.0-i.exe` EN LUGAR DE LA H, siguiendo la sección 8h (H → I, o G → I si el equipo sigue en la G; deje marcada «Actualizar (conserva los datos)»), antes de los ciclos del lunes 26-oct.** La I es la H más VAP-01: la presión de saturación del vapor pasa a las tablas IAPWS-IF97 (304,2 kPa a 134 °C; la H calculaba 302,3, unos 2 kPa de menos), y además trae la Licencia L0 de abajo. Tabla «Cambios respecto a la H». Las cifras del bloque T12 de la hoja de banco ya están recalculadas para la I.
+
+> **Licencia L0 (24-oct, incluida desde la compilación I; la H no la tiene).**
 > - **Secretos de activación rotados.** Los secretos con que se generaban el código de instalación y la clave de fábrica estaban en el código, y el repositorio fue público: se consideran **comprometidos** y quedan en el historial de git (no se reescribe). A partir de la siguiente compilación salen de un archivo fuera del repositorio (`%USERPROFILE%\Documents\especifika_secretos\activacion.json`), que Cristian crea con `python tools\secretos\generar_secretos.py`. **Los códigos del generador anterior dejan de servir**: el autoclave y `GeneradorCodigos.exe` se compilan con el mismo archivo nuevo, y sin él ninguno de los dos se compila o arranca. La huella de 8 caracteres que muestra la compilación debe coincidir con la de la página **Usuarios** del generador.
 > - **Contraseñas en el asistente.** El asistente trae un paso nuevo, **Contraseñas** (antes del resumen, también al reinstalar): se fijan las de `Admin` e `Ingeniero`, cada una con confirmación, distintas de las de fábrica y entre sí. Con eso ya no piden cambio en el primer ingreso y la sección 5 deja de aplicar a un equipo instalado así.
 > - **Equipo ya instalado** que conserve una contraseña de fábrica: aviso no bloqueante **SIS-07** en la bandeja de Preciclo y la campana, visible solo con sesión de técnico o ingeniero. Se quita solo al cambiar la contraseña.
@@ -24,6 +26,17 @@ Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) c
 > **Tanda 10 (2026-10-23): instale la compilación F (`entrega/2026-10-23_f/`, etiqueta `inst-2026-10-23-f`) con `Autoclave_Setup_1.0.0-f.exe`, siguiendo la sección 8e («Actualizar E → F», y D → F si el equipo aún tiene la D), sin copiar archivos a mano.** La F es la E más las correcciones vistas en el equipo el 23-oct (tabla «Cambios respecto a la E»). La letra E ya estaba usada por la compilación de esta mañana, por eso esta se llama F.
 
 > **Compilación E (23-oct): la D falló en el PC de pruebas (ver "Cambios respecto a la D"). Instale la E (`entrega/2026-10-23_e/`, etiqueta `inst-2026-10-23-e`, commit cafb06e) con `Autoclave_Setup_1.0.0-e.exe`: siga la sección 8c con el Setup E en lugar del de la D, y lea la 8d.** El código del programa es el de la D más las 2 correcciones; todo lo dicho de la D vale para la E.
+
+## Cambios respecto a la H
+
+| | Compilación H (`2026-10-24_h`) | Compilación I (`2026-10-24_i`) |
+|---|---|---|
+| Suite en ese código | 7531 passed, 10 skipped, 3 xfailed | **7817 passed, 10 skipped, 3 xfailed** (7808 con -n auto + 9 que pasan en serie; 2 rojas ajenas del PC de desarrollo, `test_config_correo`, igual que en L0) |
+| Presión de saturación (VAP-01, tanda 13) | Ecuación de Antoine: `Psat(121) = 204,3`, `Psat(134) = 302,3`, `Psat(140) = 359,0` kPa (≈ 2 kPa de menos en la zona de trabajo) | **IAPWS-IF97, región 4** (la tabla de vapor de referencia): `Psat(121) = 205,0`, `Psat(134) = 304,2`, `Psat(134,5) = 308,7`, `Psat(140) = 361,5` kPa |
+| Lo que cambia por eso (a 134 °C, `presion_add` 9) | Falla por presión baja de esterilización bajo 300,3 kPa; techo 311,3 kPa; consigna de chaqueta ≈ 326,3 kPa; entrada a sostener con P ≥ 300,3 kPa | Falla por presión baja bajo **302,2 kPa**; techo **313,2 kPa**; consigna de chaqueta **≈ 328,2 kPa**; entrada a sostener con P ≥ **302,2 kPa**. Igual corren ≈ +2 kPa las bandas de PWM, la coherencia T–P, la detección de aire (CIC-12/13), las validaciones 350/385 kPa, la contrapresión de líquidos y la consigna de presión de la gráfica del PDF (304,2 kPa a 134 °C). F0 no cambia |
+| Programas | — | Sin cambios: sus parámetros son temperaturas y diferencias. Los de fábrica, los de usuario del repositorio y los del equipo (G y G → H) se validan con la tabla nueva sin errores |
+| Licencia L0 | No | Sí: secretos de activación rotados, paso **Contraseñas** en el asistente y aviso **SIS-07** si una cuenta conserva la contraseña de fábrica (aviso de L0 arriba) |
+| Versión del Setup | `1.0.0-h` (`AppVerNum` 1.0.0.8) | `1.0.0-i` (`AppVerNum` 1.0.0.9) |
 
 ## Cambios respecto a la G
 
@@ -542,6 +555,23 @@ Es la sección 8f con el Setup H. **No hay pasos de copia a mano.** Se ensayó e
 6. Para los ciclos del lunes, siga el bloque T12 de la hoja de banco (`docs/mis_plans/hoja_pruebas_banco_equipo_pruebas.md`), con el log del backend del día a mano.
 
 **NO toque** lo mismo que en la 8c. **Volver a la G si la H falla:** cierre Autoclave, desinstale desde Configuración › Aplicaciones (el Setup G se niega sobre la H porque es más viejo; los datos de `ProgramData` se conservan), ejecute `Autoclave_Setup_1.0.0-g.exe` y **reemplace `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2**. La G no conoce las claves nuevas de los programas: no se ensayó con un programa reescrito por la H, así que vuelva siempre al respaldo.
+
+## 8h. Actualizar el equipo de pruebas a la I (H → I, o G → I) con el Setup
+
+Es la sección 8g con el Setup I. **No hay pasos de copia a mano.** Se ensayaron los dos caminos en el PC de la oficina sobre una copia simulada del equipo (perfil, base de datos y programas de usuario de la G con el Bowie & Dick en 99, un usuario propio, un parámetro cambiado, calibración y correo propios): G → H → I y G → I, con el código y el `_internal` reales de cada compilación (`docs/informes/tanda13/K13_compilacion_i.md`).
+
+1. **Cierre Autoclave por completo** (las dos pantallas).
+2. **Respaldo:** copie `C:\ProgramData\Especifika\Autoclave` completa a la USB (por ejemplo, `respaldo_H_2026-10-26` o `respaldo_G_2026-10-26`).
+3. Compruebe el Setup: `Get-FileHash .\Autoclave_Setup_1.0.0-i.exe` contra la línea del Setup en `SHA256SUMS.txt`.
+4. Ejecute `Autoclave_Setup_1.0.0-i.exe`. Deje marcada **«Actualizar (conserva los datos)»** y **no elija «Instalación limpia»**. Las tareas adicionales van igual que en la 8f (la casilla de estación queda DESMARCADA).
+5. Abra Autoclave y compruebe, además de lo de la 8f paso 6:
+   - **desde la H:** ningún programa de usuario aparece dañado; el Bowie & Dick sigue en `presion_add_calentamiento` 9 y **no** aparece un aviso SIS-06 nuevo (la migración ya la hizo la H);
+   - **desde la G:** lo mismo que en la 8g paso 5 (SIS-06 del Bowie & Dick de 99 a 9, fila de auditoría «migración tanda 12», `.bak`);
+   - en los dos casos: la chaqueta 350/25 de los programas de usuario se conserva y `brecha_segura_temperatura` sigue en 0,3 (anótela, como en la 8g);
+   - si alguna cuenta (`Admin`, `Ingeniero`) conserva la contraseña de fábrica, aparece el aviso **SIS-07** (no bloquea; se quita al cambiar la contraseña). Es de L0, no de VAP-01.
+6. En el primer ciclo, compruebe en el log del backend: «consigna de chaqueta 328.2 kPa» para el Instrumental 134 de usuario (con la H decía 326.3). Siga el bloque T12 de la hoja de banco, que ya trae las cifras de la I.
+
+**NO toque** lo mismo que en la 8c. **Volver a la H si la I falla:** cierre Autoclave, desinstale desde Configuración › Aplicaciones (el Setup H se niega sobre la I porque es más viejo; los datos de `ProgramData` se conservan), ejecute `Autoclave_Setup_1.0.0-h.exe` y **reemplace `C:\ProgramData\Especifika\Autoclave` por el respaldo del paso 2**. La I no cambia el formato de los programas ni de la base de datos respecto de la H, pero vuelva siempre al respaldo.
 
 ## A frente a B
 
