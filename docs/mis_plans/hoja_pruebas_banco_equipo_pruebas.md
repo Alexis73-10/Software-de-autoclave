@@ -214,7 +214,7 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** B2 (tanda 4)
 - **Objetivo:** El .exe (con `scipy` ya incluido) abre el menú de ajustes y se cierra sin dejar procesos.
-- **Precondiciones:** `pyinstaller --noconfirm Autoclave.spec` ya ejecutado; `dist\Autoclave\Autoclave.exe` en el equipo.
+- **Precondiciones:** `pyinstaller --noconfirm packaging\Autoclave.spec` (desde la raíz) ya ejecutado; `dist\Autoclave\Autoclave.exe` en el equipo.
 - **Pasos:**
   1. Abrir el engrane: debe aparecer el menú de ajustes (ventana PySide) sin cierre inmediato.
   2. Iniciar sesión como técnico/ingeniero y abrir Calibración (lee valores; guardar uno normal).

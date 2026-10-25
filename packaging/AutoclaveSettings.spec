@@ -1,15 +1,30 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+# ORG-07 (tanda 15): el .spec vive en packaging/; las rutas del repositorio
+# (script, pathex, datas, sys.path) son relativas a RAIZ. Se compila desde
+# la raíz:  pyinstaller --noconfirm packaging\AutoclaveSettings.spec
+import os
+RAIZ = os.path.abspath(os.path.join(SPECPATH, '..'))
+
+
+def _r(ruta):
+    return os.path.join(RAIZ, ruta)
+
+
+def _rel(datas):
+    # (origen relativo a RAIZ, destino); un origen absoluto queda igual
+    return [(_r(origen), destino) for origen, destino in datas]
+
 a = Analysis(
-    ['src\\autoclave\\ui_pyside\\app.py'],
-    pathex=['src'],
+    [_r('src\\autoclave\\ui_pyside\\app.py')],
+    pathex=[_r('src')],
     binaries=[],
-    datas=[
+    datas=_rel([
         ('src/autoclave/images', 'autoclave/images'),
         # D9-7 (tanda 9): solo los programas de fábrica (ver Autoclave.spec)
         ('src/autoclave/cycles/factory', 'autoclave/cycles/factory'),
         ('src/autoclave/config', 'autoclave/config'),
-    ],
+    ]),
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -22,7 +37,7 @@ a = Analysis(
 # se detiene si se cuela algo). Igual que Autoclave.spec.
 _CORREO = 'autoclave/config/correo.json'
 a.datas = [d for d in a.datas if d[0].replace('\\', '/') != _CORREO]
-a.datas.append((_CORREO, 'src/autoclave/config/plantillas/correo_neutro.json', 'DATA'))
+a.datas.append((_CORREO, _r('src/autoclave/config/plantillas/correo_neutro.json'), 'DATA'))
 _ciclos_ajenos = [d[0] for d in a.datas
                   if d[0].replace('\\', '/').startswith('autoclave/cycles/')
                   and not d[0].replace('\\', '/').startswith('autoclave/cycles/factory/')]

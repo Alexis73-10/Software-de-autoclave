@@ -40,14 +40,14 @@ def test_plantilla_correo_se_lee_como_sin_configurar(tmp_path):
 
 def test_specs_solo_empaquetan_cycles_factory():
     for nombre in SPECS:
-        spec = (RAIZ / nombre).read_text(encoding="utf-8")
+        spec = (RAIZ / "packaging" / nombre).read_text(encoding="utf-8")
         assert "('src/autoclave/cycles/factory', 'autoclave/cycles/factory')" in spec, nombre
         assert "('src/autoclave/cycles', 'autoclave/cycles')" not in spec, nombre
 
 
 def test_specs_empaquetan_el_correo_neutro_y_vigilan_ciclos():
     for nombre in SPECS:
-        spec = (RAIZ / nombre).read_text(encoding="utf-8")
+        spec = (RAIZ / "packaging" / nombre).read_text(encoding="utf-8")
         assert "plantillas/correo_neutro.json" in spec, nombre
         # el propio build falla si se cuela algo de cycles/ que no sea factory
         assert "autoclave/cycles/factory/" in spec and "SystemExit" in spec, nombre

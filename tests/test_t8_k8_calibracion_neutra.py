@@ -46,7 +46,7 @@ def test_plantilla_valida_con_el_esquema():
 
 
 def test_spec_empaqueta_la_plantilla():
-    spec = (RAIZ / "Autoclave.spec").read_text(encoding="utf-8")
+    spec = (RAIZ / "packaging" / "Autoclave.spec").read_text(encoding="utf-8")
     assert "plantillas/calibration_neutra.yaml" in spec
 
 

@@ -2,7 +2,7 @@
 #
 # Autoclave en una carpeta (onedir): backend + las dos pantallas QML + menú de
 # ajustes. Entrada: src/autoclave/exe_unico.py (se relanza a sí mismo con --rol).
-#   pyinstaller --noconfirm Autoclave.spec   ->  dist/Autoclave/Autoclave.exe (+ _internal/)
+#   pyinstaller --noconfirm packaging\Autoclave.spec   ->  dist/Autoclave/Autoclave.exe (+ _internal/)
 #
 # 19-oct: antes era onefile; el .exe de 250 MB tardaba ~10 s en descomprimirse
 # en cada apertura antes de mostrar nada. En carpeta no hay descompresión. Se
@@ -18,6 +18,21 @@
 # PrintSupport). El hook de PySide6 arrastra todos los plugins QML; QtWebEngine
 # solo eran 83 MB. opengl32sw.dll se conserva: es el OpenGL por software si el
 # PC industrial no tiene controlador de vídeo.
+# ORG-07 (tanda 15): el .spec vive en packaging/; las rutas del repositorio
+# (script, pathex, datas, sys.path) son relativas a RAIZ. Se compila desde
+# la raíz:  pyinstaller --noconfirm packaging\Autoclave.spec
+import os
+RAIZ = os.path.abspath(os.path.join(SPECPATH, '..'))
+
+
+def _r(ruta):
+    return os.path.join(RAIZ, ruta)
+
+
+def _rel(datas):
+    # (origen relativo a RAIZ, destino); un origen absoluto queda igual
+    return [(_r(origen), destino) for origen, destino in datas]
+
 _QT_SOBRANTES = (
     'webengine', 'webview', 'webchannel', 'quick3d', 'qt63d', 'qt3d', '/qml/qt3d',
     'virtualkeyboard', 'qt6pdf', 'qtpdf', '/qml/qtquick/pdf', 'graphs', 'charts',
@@ -36,10 +51,10 @@ def _sobra(destino):
 
 
 a = Analysis(
-    ['src\\autoclave\\exe_unico.py'],
-    pathex=['src'],
+    [_r('src\\autoclave\\exe_unico.py')],
+    pathex=[_r('src')],
     binaries=[],
-    datas=[
+    datas=_rel([
         ('src/autoclave/images', 'autoclave/images'),
         # D9-7 (tanda 9): solo los programas de fábrica. cycles/user y
         # cycles/defecto son del banco; en la primera instalación los programas
@@ -51,7 +66,7 @@ a = Analysis(
         ('src/autoclave/ui_qml/assets', 'autoclave/ui_qml/assets'),
         # capabilities.json de python-escpos (sin él no imprime ningún ticket)
         *collect_data_files('escpos'),
-    ],
+    ]),
     hiddenimports=[
         'autoclave.backend.main',
         'autoclave.backend.server',
@@ -95,13 +110,13 @@ a.datas = [d for d in a.datas if not _sobra(d[0])]
 # plantilla; K8 lo comprueba con tools/verificar_calibracion_neutra.py.
 _CALIB = 'autoclave/config/calibration.yaml'
 a.datas = [d for d in a.datas if d[0].replace('\\', '/') != _CALIB]
-a.datas.append((_CALIB, 'src/autoclave/config/plantillas/calibration_neutra.yaml', 'DATA'))
+a.datas.append((_CALIB, _r('src/autoclave/config/plantillas/calibration_neutra.yaml'), 'DATA'))
 # D9-7 (tanda 9): correo NEUTRO (sin remitente ni destinatarios) y, de cycles/,
 # nada que no sea factory/. El build se detiene si se cuela algo; después,
 # K9 lo comprueba en la carpeta compilada con tools/verificar_entrega_neutra.py.
 _CORREO = 'autoclave/config/correo.json'
 a.datas = [d for d in a.datas if d[0].replace('\\', '/') != _CORREO]
-a.datas.append((_CORREO, 'src/autoclave/config/plantillas/correo_neutro.json', 'DATA'))
+a.datas.append((_CORREO, _r('src/autoclave/config/plantillas/correo_neutro.json'), 'DATA'))
 _ciclos_ajenos = [d[0] for d in a.datas
                   if d[0].replace('\\', '/').startswith('autoclave/cycles/')
                   and not d[0].replace('\\', '/').startswith('autoclave/cycles/factory/')]
@@ -112,7 +127,7 @@ if _ciclos_ajenos:
 # Sin archivo válido la compilación se detiene.
 import os
 import sys as _sys
-_sys.path.insert(0, os.path.join(SPECPATH, 'src'))
+_sys.path.insert(0, _r('src'))
 from autoclave.installation.secretos import entrada_compilacion
 a.datas.append(entrada_compilacion())
 pyz = PYZ(a.pure)

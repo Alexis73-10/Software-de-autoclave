@@ -9,16 +9,31 @@
 # ui/ui_pyside/ui_qml (Tk, PySide6, QML) que el backend nunca importa y que
 # hace el build extremadamente lento.
 
+# ORG-07 (tanda 15): el .spec vive en packaging/; las rutas del repositorio
+# (script, pathex, datas, sys.path) son relativas a RAIZ. Se compila desde
+# la raíz:  pyinstaller --noconfirm packaging\AutoclaveBackend.spec
+import os
+RAIZ = os.path.abspath(os.path.join(SPECPATH, '..'))
+
+
+def _r(ruta):
+    return os.path.join(RAIZ, ruta)
+
+
+def _rel(datas):
+    # (origen relativo a RAIZ, destino); un origen absoluto queda igual
+    return [(_r(origen), destino) for origen, destino in datas]
+
 a = Analysis(
-    ['src\\autoclave\\backend\\main.py'],
-    pathex=['src'],
+    [_r('src\\autoclave\\backend\\main.py')],
+    pathex=[_r('src')],
     binaries=[],
-    datas=[
+    datas=_rel([
         ('src/autoclave/images', 'autoclave/images'),
         # D9-7 (tanda 9): solo los programas de fábrica (ver Autoclave.spec)
         ('src/autoclave/cycles/factory', 'autoclave/cycles/factory'),
         ('src/autoclave/config', 'autoclave/config'),
-    ],
+    ]),
     hiddenimports=[
         'autoclave.backend.server',
         # server.py la carga con importlib.import_module (R8): PyInstaller no la ve.
@@ -45,7 +60,7 @@ a = Analysis(
 # se detiene si se cuela algo). Igual que Autoclave.spec.
 _CORREO = 'autoclave/config/correo.json'
 a.datas = [d for d in a.datas if d[0].replace('\\', '/') != _CORREO]
-a.datas.append((_CORREO, 'src/autoclave/config/plantillas/correo_neutro.json', 'DATA'))
+a.datas.append((_CORREO, _r('src/autoclave/config/plantillas/correo_neutro.json'), 'DATA'))
 _ciclos_ajenos = [d[0] for d in a.datas
                   if d[0].replace('\\', '/').startswith('autoclave/cycles/')
                   and not d[0].replace('\\', '/').startswith('autoclave/cycles/factory/')]
@@ -56,7 +71,7 @@ if _ciclos_ajenos:
 # Sin archivo válido la compilación se detiene.
 import os
 import sys as _sys
-_sys.path.insert(0, os.path.join(SPECPATH, 'src'))
+_sys.path.insert(0, _r('src'))
 from autoclave.installation.secretos import entrada_compilacion
 a.datas.append(entrada_compilacion())
 pyz = PYZ(a.pure)
