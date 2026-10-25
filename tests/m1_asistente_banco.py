@@ -48,10 +48,22 @@ _SCRIPT = textwrap.dedent(r'''
     class Puente(PuenteInstalacion):
         pass
 
-    puente = Puente(validar_codigo=lambda s, c: True)
+    # LIC-02 (licencia L0): las contraseñas van a una base falsa (no a la del banco)
+    claves_fijadas = []
+
+    class BdFalsa:
+        def fijar_claves_instalacion(self, hashes):
+            claves_fijadas.append(sorted(hashes))
+            return ["Admin", "Ingeniero"]
+
+        def close(self):
+            pass
+
+    puente = Puente(validar_codigo=lambda s, c: True, abrir_bd=BdFalsa, es_semilla=lambda c: False)
     # instalar() no escribe el perfil del equipo: se captura lo que mandaría la QML
     import autoclave.ui_qml.bridge.puente_instalacion as pi
     pi.escribir_perfil = lambda perfil, ahora=None: instalados.append(perfil)
+    pi._hay_perfil_valido = lambda: False
 
     comp = QQmlComponent(engine, QUrl.fromLocalFile(QML_DIR + "/InstalacionVentana.qml"))
     ventana = comp.createWithInitialProperties({"puenteInstalacion": puente})
@@ -171,7 +183,16 @@ _SCRIPT = textwrap.dedent(r'''
     anotar("datos")
     capturar(n, "datos"); n += 1
     siguiente()
-    # 8. Resumen
+    # 8. Contraseñas (LIC-02): sin ellas Siguiente no avanza
+    siguiente()
+    anotar("contrasenas_vacias")
+    obs["erroresContrasenas"] = sorted(a.property("errores").toVariant())
+    for campo, valor in (("clave_admin", "admin-nueva-1"), ("confirmacion_admin", "admin-nueva-1"),
+                         ("clave_ingeniero", "inge-nueva-1"), ("confirmacion_ingeniero", "inge-nueva-1")):
+        a.setProperty(campo, valor)
+    capturar(n, "contrasenas"); n += 1
+    siguiente()
+    # 9. Resumen
     anotar("resumen")
     filas = [f["clave"] for f in a.property("filasResumen").toVariant()]
     obs["filasResumen"] = filas
@@ -184,6 +205,7 @@ _SCRIPT = textwrap.dedent(r'''
                          "tipo_carga": p.tipo_carga, "equipment_class": p.equipment_class.value}
                         for p in instalados]
     obs["terminado"] = a.property("terminado")
+    obs["clavesFijadas"] = claves_fijadas
     capturar(n, "listo")
     obs["avisos"] = avisos[:20]
     obs["capturas"] = capturas

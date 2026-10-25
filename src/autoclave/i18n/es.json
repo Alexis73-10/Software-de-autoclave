@@ -116,7 +116,19 @@
     "resumen_empaque": "Sensor de empaque",
     "resumen_con_empaque": "Vigilado",
     "resumen_sin_empaque": "NO vigilado",
-    "confirmar_sin_cerrojo": "El tipo de puerta elegido NO controla el cerrojo de la puerta. Confirme que el equipo no tiene cerrojo antes de instalar. El perfil quedará bloqueado."
+    "confirmar_sin_cerrojo": "El tipo de puerta elegido NO controla el cerrojo de la puerta. Confirme que el equipo no tiene cerrojo antes de instalar. El perfil quedará bloqueado.",
+    "paso_contrasenas": "Contraseñas",
+    "contrasenas_titulo": "Contraseñas de las cuentas del sistema",
+    "contrasenas_ayuda": "Fije la contraseña de Admin y la de Ingeniero. No pueden ser las de fábrica y deben ser distintas entre sí. Guárdelas en un lugar seguro: no se muestran de nuevo.",
+    "clave_admin": "Contraseña de Admin",
+    "confirmacion_admin": "Confirme la contraseña de Admin",
+    "clave_ingeniero": "Contraseña de Ingeniero",
+    "confirmacion_ingeniero": "Confirme la contraseña de Ingeniero",
+    "clave_marcador": "Toque para escribir",
+    "error_contrasenas": "Revise las contraseñas de Admin e Ingeniero",
+    "error_guardar_contrasenas": "No se pudieron guardar las contraseñas: {detalle}",
+    "resumen_contrasenas": "Contraseñas de Admin e Ingeniero",
+    "resumen_contrasenas_fijadas": "Fijadas (se guardan al instalar)"
   },
   "app": {
     "nombre": "e-specifika",
@@ -725,6 +737,8 @@
     "no_coinciden": "Las contraseñas no coinciden",
     "rol_invalido": "Seleccione un rol",
     "igual_actual": "La nueva contraseña debe ser distinta de la actual",
+    "semilla": "No puede usar la contraseña de fábrica",
+    "iguales": "Debe ser distinta de la contraseña de Admin",
     "ASIGNACION_INVALIDA": "La asignación de sensores no es válida",
     "SENSOR_NO_DISPONIBLE": "Un sensor en uso no tiene lectura o no está instalado",
     "ASIGNACION_SENSORES_INVALIDA": "El programa tiene una asignación de sensores inválida"
@@ -1043,6 +1057,11 @@
       "titulo": "Programa corregido al cargarlo",
       "plantilla": "El programa {programa} tenía {parametro} = {anterior} kPa, sobre el máximo permitido; se cambió a {nuevo} kPa.",
       "accion": "Un técnico o ingeniero debe revisar el programa en Opciones › Parámetros del ciclo. El equipo puede seguir operando."
+    },
+    "SIS-07": {
+      "titulo": "Contraseña de fábrica vigente",
+      "plantilla": "La cuenta {cuentas} conserva la contraseña de fábrica, que es pública.",
+      "accion": "Inicie sesión con esa cuenta y cambie la contraseña, o restablézcala en Opciones › Usuarios. El equipo puede seguir operando."
     },
     "CONFIGURACION_INVALIDA": {
       "titulo": "Configuración inválida",
@@ -1607,6 +1626,7 @@
       "usuario_desactivado": "desactivó al usuario {entidad}",
       "usuario_reactivado": "reactivó al usuario {entidad}",
       "clave_restablecida": "restableció la contraseña de {entidad}",
+      "contrasena_fijada_instalacion": "fijó en la instalación la contraseña de {entidad}",
       "operador_creado": "agregó el operador {entidad}",
       "operador_desactivado": "desactivó al operador {entidad}",
       "operador_reactivado": "reactivó al operador {entidad}",
@@ -1663,6 +1683,7 @@
       "usuario_desactivado": "Usuario desactivado",
       "usuario_reactivado": "Usuario reactivado",
       "clave_restablecida": "Contraseña restablecida",
+      "contrasena_fijada_instalacion": "Contraseña fijada en la instalación",
       "operador_creado": "Operador agregado",
       "operador_desactivado": "Operador desactivado",
       "operador_reactivado": "Operador reactivado",

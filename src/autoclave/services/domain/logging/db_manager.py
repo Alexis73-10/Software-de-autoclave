@@ -138,14 +138,28 @@ CREATE INDEX IF NOT EXISTS idx_alarmas_aparecida ON alarmas_historial(aparecida)
 # fija no expone nada y evita 600 000 iteraciones en cada base nueva.
 # U11 (tanda 11, D11-6): se llaman `Admin` e `Ingeniero` (usuario y nombre) y
 # nacen con la marca `cuenta_sistema`. Las contraseñas iniciales no cambian.
+# LIC-02 (licencia L0): el asistente de instalación obliga a fijar las dos
+# (fijar_claves_instalacion); en un equipo ya instalado que conserve una,
+# el backend activa el aviso SIS-07 (cuentas_con_clave_semilla).
 _USUARIOS_SEMILLA = (
-    ("Admin", "Admin", "admin",                  # contraseña: admin1234
+    ("Admin", "Admin", "admin",
      "pbkdf2$600000$244c45ae5ee701d94ead2bfad6339db3$"
      "5abbc82ab1c70a268623cc8f2c774a1733f3851d9a30f9a3fcd835f3afc5a190"),
-    ("Ingeniero", "Ingeniero", "ingeniero",      # contraseña: ingeniero1234
+    ("Ingeniero", "Ingeniero", "ingeniero",
      "pbkdf2$600000$dd26db607bc796ade9d097563e47d0e1$"
      "f8fa605e93fc5e4e035c60d0e07b23a96ca6390830855f36c14cb03a2d609019"),
 )
+
+_HASHES_SEMILLA = frozenset(h for *_, h in _USUARIOS_SEMILLA)
+
+
+def es_clave_semilla(clave: str) -> bool:
+    """LIC-02: True si `clave` es la contraseña semilla de cualquiera de las
+    dos cuentas del sistema (se verifica contra los hashes; la contraseña en
+    claro no está en el código)."""
+    from autoclave.backend.contrasenas import verificar_password
+    return any(verificar_password(clave, h) for h in sorted(_HASHES_SEMILLA))
+
 
 # U11: usuario de la semilla anterior a la tanda 11 -> (usuario, nombre) nuevos
 # y el rol que debe tener la fila para reconocerla como semilla (SAF-03).
@@ -1383,6 +1397,51 @@ class DbManager:
         exacto = [f for f in candidatos if f["usuario"] == usuario]
         elegido = exacto[0] if exacto else (candidatos[0] if len(candidatos) == 1 else None)
         return elegido if elegido is not None and elegido["activo"] == 1 else None
+
+    def cuentas_con_clave_semilla(self) -> list[str]:
+        """LIC-02: cuentas del sistema activas que conservan el hash semilla
+        (nunca se cambió la contraseña). Para el aviso SIS-07."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT usuario, hash_pw FROM usuarios WHERE cuenta_sistema=1"
+                " AND creado_por='semilla' AND activo=1 ORDER BY id").fetchall()
+        return [f["usuario"] for f in filas if f["hash_pw"] in _HASHES_SEMILLA]
+
+    def fijar_claves_instalacion(self, hashes_por_rol: dict[str, str]) -> list[str]:
+        """LIC-02: el asistente de instalación fija la contraseña de las
+        cuentas del sistema ({rol: hash}, roles admin e ingeniero), baja
+        debe_cambiar_clave y registra `contrasena_fijada_instalacion` (sin la
+        contraseña), todo en una transacción: o quedan todas o ninguna. Cada
+        rol debe tener exactamente una cuenta del sistema; si no, RuntimeError.
+        Devuelve los usuarios actualizados."""
+        ahora = datetime.now().isoformat(timespec="seconds")
+        usuarios = []
+        with self._lock:
+            try:
+                if self._conn.in_transaction:
+                    self._conn.rollback()
+                self._conn.execute("BEGIN IMMEDIATE")
+                for rol, hash_pw in hashes_por_rol.items():
+                    filas = self._conn.execute(
+                        "SELECT id, usuario FROM usuarios WHERE cuenta_sistema=1"
+                        " AND creado_por='semilla' AND rol=?", (rol,)).fetchall()
+                    if len(filas) != 1:
+                        raise RuntimeError(f"Se esperaba una cuenta del sistema con rol "
+                                           f"'{rol}' y hay {len(filas)}")
+                    self._conn.execute(
+                        "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=0 WHERE id=?",
+                        (hash_pw, filas[0]["id"]))
+                    self._conn.execute(_SQL_AUDITORIA, _fila_auditoria(
+                        "contrasena_fijada_instalacion", "sistema", "", filas[0]["usuario"],
+                        None, None, {"rol": rol, "origen": "asistente de instalación",
+                                     "fecha": ahora}))
+                    usuarios.append(filas[0]["usuario"])
+                self._conn.commit()
+            except BaseException:
+                if self._conn.in_transaction:
+                    self._conn.rollback()
+                raise
+        return usuarios
 
     def actualizar_password(self, usuario: str, hash_pw: str) -> None:
         """Guarda el nuevo hash y baja la bandera debe_cambiar_clave."""

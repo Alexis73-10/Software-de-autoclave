@@ -63,6 +63,7 @@ def test_status_publica_instancias_nuevas_con_compatibilidad(status_client):
         "accion": "Cierre la puerta.", "origen": "Puerta 1",
         "aparecida": "2026-10-07T09:30:00", "estado": "ACTIVA",
         "requiere_reconocimiento": False, "reconocida_por": None,
+        "roles_visibles": [],       # LIC-02 (licencia L0): la ven todos
         "id": "PUE-01|Puerta 1", "level": "ALERTA",
         "description": "Puerta 1 está abierta. El ciclo no puede iniciar.",
         "source_state": "Puerta 1",

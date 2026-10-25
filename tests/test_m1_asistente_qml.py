@@ -30,8 +30,9 @@ def test_tipo_de_equipo_solo_piso_y_sin_seleccion(obs):
 
 def test_indicador_renumerado_con_el_paso_camara(obs):
     p = _paso(obs, "camara_vacia")
-    assert p["paso"] == "camara" and p["indice"] == 3 and p["total"] == 8
-    assert p["subtitulo"].startswith("Paso 4 de 8") and "Cámara" in p["subtitulo"]
+    # LIC-02 (licencia L0): +1 por el paso Contraseñas
+    assert p["paso"] == "camara" and p["indice"] == 3 and p["total"] == 9
+    assert p["subtitulo"].startswith("Paso 4 de 9") and "Cámara" in p["subtitulo"]
 
 
 def test_camara_bloquea_siguiente_sin_datos(obs):
@@ -70,3 +71,13 @@ def test_instalar_manda_capacidad_y_carga_y_el_puente_calcula(obs):
     assert obs["instalado"] == [{"model_id": "SPK-SAT 2000H2-LAB", "capacidad_litros": 2000,
                                  "tipo_carga": "H", "equipment_class": "piso_lab"}]
     assert obs["terminado"] is True
+
+
+def test_l0_contrasenas_obligatorias_antes_del_resumen(obs):
+    """LIC-02 (licencia L0): sin contraseñas no se pasa al resumen; con ellas,
+    instalar las fija (admin e ingeniero) y termina."""
+    p = _paso(obs, "contrasenas_vacias")
+    assert p["paso"] == "contrasenas"
+    assert obs["erroresContrasenas"] == ["clave_admin", "clave_ingeniero", "confirmacion_admin",
+                                         "confirmacion_ingeniero"]
+    assert obs["clavesFijadas"] == [["admin", "ingeniero"]] and obs["terminado"] is True

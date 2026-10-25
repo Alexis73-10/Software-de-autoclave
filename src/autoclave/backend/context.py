@@ -14,7 +14,8 @@ from autoclave.devices.io.set_io import SetOutput
 from autoclave.hal.measures.units import Units
 from autoclave.services.domain.loop.control_loop import ControlLoop
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.catalogo import (CONFIGURACION_INVALIDA, MIGRACION_CORRECTIVA,
+from autoclave.state_machine.alarms.catalogo import (CONFIGURACION_INVALIDA, CONTRASENA_SEMILLA,
+                                                    MIGRACION_CORRECTIVA,
                                                     OPERANDO_SIN_BD, SEN_09, SIS_03)
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.core.managers.config_manager import ConfigManager
@@ -167,6 +168,27 @@ class BackendContext:
                     anterior=f"{m['anterior']:g}", nuevo=f"{m['nuevo']:g}")
         except Exception:
             logger.exception("No se pudo activar el aviso de migración correctiva")
+
+    # ── LIC-02 (licencia L0): contraseña de fábrica vigente ──────────────────
+
+    def revisar_contrasenas_semilla(self) -> None:
+        """Aviso no bloqueante SIS-07 si Admin o Ingeniero conservan la
+        contraseña semilla (equipos instalados antes de que el asistente
+        obligara a fijarlas; no se fuerza nada). Se despeja solo cuando ya no
+        queda ninguna. Nunca lanza: no debe romper el arranque ni un cambio
+        de contraseña."""
+        try:
+            cuentas = self.db.cuentas_con_clave_semilla()
+        except Exception:
+            logger.exception("No se pudo revisar si quedan contraseñas de fábrica")
+            return
+        try:
+            if cuentas:
+                self.alarm_manager.activar(CONTRASENA_SEMILLA, cuentas=", ".join(cuentas))
+            else:
+                self.alarm_manager.resolver(CONTRASENA_SEMILLA)
+        except Exception:
+            logger.exception("No se pudo actualizar el aviso de contraseña de fábrica")
 
     def auditar_migraciones_correctivas(self) -> None:
         """Con la base abierta: una fila de auditoría de parámetros por cada
@@ -496,6 +518,7 @@ class BackendContext:
                 self._numeracion_y_ciclos_interrumpidos()
                 if self.cycle_manager is not None:
                     self.auditar_migraciones_correctivas()     # C-04.4 (tanda 12)
+                self.revisar_contrasenas_semilla()             # LIC-02 (licencia L0)
                 # O2a: valores vigentes de los parámetros del equipo (system_params)
                 if self.config_manager is not None:
                     self.config_manager.vincular_bd(self.db)

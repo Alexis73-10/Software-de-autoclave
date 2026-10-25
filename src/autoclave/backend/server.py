@@ -27,7 +27,7 @@ from autoclave.backend.autenticacion import AlmacenTokens, ControlIntentos, Sesi
 from autoclave.backend.contrasenas import hash_password, simular_verificacion, verificar_password
 from autoclave.backend.context import BackendContext
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.state_machine.alarms.catalogo import Nivel
+from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES, Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import io_names
 from autoclave.core.runtime import aire_atmosferico_prueba
@@ -561,6 +561,14 @@ def _bloquear_por_cambio_clave(sesion: Sesion, entidad: str):
     _rechazar_bloqueado(sesion.usuario)
 
 
+def _revisar_contrasenas_semilla() -> None:
+    """LIC-02: el aviso SIS-07 se despeja en cuanto Admin e Ingeniero ya no
+    tienen la contraseña de fábrica."""
+    revisar = getattr(context, "revisar_contrasenas_semilla", None)
+    if callable(revisar):
+        revisar()
+
+
 @app.post("/auth/change_password")
 def change_password(body: _CambioClaveBody,
                     sesion: Sesion = Depends(requiere_rol(permitir_cambio_pendiente=True))):
@@ -598,6 +606,7 @@ def change_password(body: _CambioClaveBody,
     context.db.actualizar_password(sesion.usuario, hash_password(body.clave_nueva))
     tokens.clave_cambiada(sesion.token)
     _auditar("cambio_clave", sesion)
+    _revisar_contrasenas_semilla()
     return {"ok": True}
 
 
@@ -762,6 +771,7 @@ def restablecer_clave(usuario: str, body: _RestablecerClaveBody,
     intentos_login.registrar_exito(usuario)       # H-04: la clave temporal sirve de inmediato
     _auditar("clave_restablecida", sesion, entidad=usuario,
              detalle={"sesiones_cerradas": cerradas} if cerradas else None)
+    _revisar_contrasenas_semilla()
     return {"ok": True, "usuario": usuario}
 
 
@@ -1328,6 +1338,8 @@ def _alarma_dto(inst) -> dict:
         "estado": inst.estado.value,
         "requiere_reconocimiento": inst.nivel.requiere_reconocimiento,
         "reconocida_por": inst.reconocida_por,
+        # LIC-02 (licencia L0): [] = la ven todos; si no, solo esos roles
+        "roles_visibles": sorted(ROLES_VISIBLES.get(inst.codigo, ())),
         "id": inst.clave,
         "level": inst.nivel.nombre_compat,
         "description": inst.descripcion,

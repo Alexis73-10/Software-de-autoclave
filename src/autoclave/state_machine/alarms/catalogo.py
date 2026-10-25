@@ -91,6 +91,11 @@ IMPRESORA_DESCONECTADA = SIS_05
 # programa al cargarlo (p. ej. presion_add_* > 30 kPa bajado a 9)
 SIS_06 = "SIS-06"
 MIGRACION_CORRECTIVA = SIS_06
+# LIC-02 (licencia L0): aviso no bloqueante en un equipo ya instalado cuya
+# cuenta Admin o Ingeniero conserva la contraseña de fábrica (solo lo ven
+# técnico e ingeniero, ROLES_VISIBLES)
+SIS_07 = "SIS-07"
+CONTRASENA_SEMILLA = SIS_07
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
 # D8-2.11 (tanda 8): ALL_OFF sin confirmar al salir del modo prueba
 COM_04 = "COM-04"
@@ -118,6 +123,13 @@ CODIGOS_TARJETA = (
 CODIGOS_CONSERVADOS = CODIGOS_TARJETA + (OPERANDO_SIN_BD, CONFIGURACION_INVALIDA)
 
 _A, _M = Despeje.AUTOMATICO, Despeje.MANUAL
+
+# LIC-02: alarmas que solo ven ciertos roles en la bandeja y la campana (la
+# pantalla filtra por el rol de la sesión; sin sesión no se muestran). Las
+# demás las ve todo el mundo.
+ROLES_VISIBLES: dict[str, frozenset[str]] = {
+    SIS_07: frozenset({"tecnico", "ingeniero"}),
+}
 _AV, _AL, _FC = Nivel.AVISO, Nivel.ALARMA, Nivel.FALLO_CRITICO
 
 
@@ -353,6 +365,11 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "se cambió a {nuevo} kPa.",
        "Un técnico o ingeniero debe revisar el programa en Opciones › Parámetros del ciclo. "
        "El equipo puede seguir operando."),
+    # LIC-02 (licencia L0): despeje automático al cambiar la contraseña
+    _d(CONTRASENA_SEMILLA, _AV, False, _A, "Contraseña de fábrica vigente",
+       "La cuenta {cuentas} conserva la contraseña de fábrica, que es pública.",
+       "Inicie sesión con esa cuenta y cambie la contraseña, o restablézcala en Opciones › "
+       "Usuarios. El equipo puede seguir operando."),
     _d(CONFIGURACION_INVALIDA, _AL, True, _M, "Configuración inválida",
        "Configuración inválida: {motivo}",
        "Llame a servicio técnico para corregir la configuración."),

@@ -118,17 +118,24 @@ def test_puente_instala_con_el_codigo_validado(perfil_tmp, qtbot=None):
     from PySide6.QtCore import QCoreApplication
     QCoreApplication.instance() or QCoreApplication(sys.argv)
     codigos = []
-    puente = pi.PuenteInstalacion(validar_codigo=lambda s, c: codigos.append((s, c)) or c == "BUENO")
+    # LIC-02 (licencia L0): el asistente exige las contraseñas y las guarda en
+    # una base temporal (la prueba de esas reglas está en test_l0_contrasenas_instalacion.py)
+    from autoclave.services.domain.logging.db_manager import DbManager
+    puente = pi.PuenteInstalacion(validar_codigo=lambda s, c: codigos.append((s, c)) or c == "BUENO",
+                                  abrir_bd=lambda: DbManager(perfil_tmp.parent / "autoclave.db"),
+                                  es_semilla=lambda c: False)
+    claves = {"clave_admin": "admin-nueva-1", "confirmacion_admin": "admin-nueva-1",
+              "clave_ingeniero": "inge-nueva-1", "confirmacion_ingeniero": "inge-nueva-1"}
     assert puente.validarCodigo("ab-123", "MALO") is False
-    assert puente.instalar(_datos())["ok"] is False      # sin código válido
+    assert puente.instalar(_datos(contrasenas=claves))["ok"] is False      # sin código válido
     assert not perfil_tmp.exists()
     assert puente.validarCodigo("ab-123", "BUENO") is True
     instalados = []
     puente.instalado.connect(lambda: instalados.append(1))
-    r = puente.instalar(_datos())
+    r = puente.instalar(_datos(contrasenas=claves))
     assert r == {"ok": True, "error": ""} and instalados == [1]
     assert perfil_tmp.exists()
-    assert puente.instalar(_datos())["ok"] is False      # ya instalado
+    assert puente.instalar(_datos(contrasenas=claves))["ok"] is False      # ya instalado
 
 
 _SCRIPT = r"""
