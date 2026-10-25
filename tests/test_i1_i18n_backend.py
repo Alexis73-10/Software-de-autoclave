@@ -10,7 +10,7 @@ import pytest
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.core.runtime.config_idioma import ConfigIdioma
 from autoclave.state_machine.alarms.catalogo import CATALOGO
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -96,7 +96,7 @@ def api(tmp_path):
     from fastapi.testclient import TestClient
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.config_idioma = ConfigIdioma(tmp_path / "idioma.json")

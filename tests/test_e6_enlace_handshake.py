@@ -11,7 +11,7 @@ import pytest
 
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.protocols.serial_link_config import SerialLinkConfig
-from tests.serial_doble import (
+from tests.helpers.serial_doble import (
     AI_OK, DI_OK, ID_TARJETA, PuertoDoble, TarjetaSimulada, esperar, linea, st,
 )
 

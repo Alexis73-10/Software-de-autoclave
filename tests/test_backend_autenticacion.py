@@ -16,7 +16,7 @@ from autoclave.backend.autenticacion import ControlIntentos
 from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, fijar_en_backend, modulo_backend, parche_en_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, fijar_en_backend, modulo_backend, parche_en_backend
 
 
 def _h(clave):

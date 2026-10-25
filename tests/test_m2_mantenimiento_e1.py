@@ -183,7 +183,7 @@ def test_el_servicio_rechaza_calibracion(entorno):
 def test_post_calibracion_da_422_validacion(entorno):
     from fastapi.testclient import TestClient
 
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     s, db, *_ = entorno
     ctx = MagicMock()
     ctx.db = db

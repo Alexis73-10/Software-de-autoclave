@@ -17,8 +17,8 @@ import pytest
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.protocols.serial_link_config import SerialLinkConfig
-from tests.serial_doble import AI_OK, PuertoDoble, linea
-from tests.backend_doble import modulo_backend
+from tests.helpers.serial_doble import AI_OK, PuertoDoble, linea
+from tests.helpers.backend_doble import modulo_backend
 
 
 # ---------------------------------------------------------------------------
@@ -308,7 +308,7 @@ def test_buzzer_usa_reloj_monotonico():
 def entorno_prueba():
     from autoclave.devices.puertas.enum_doors import DoorState
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     ctx.estado.get_flag.return_value = False

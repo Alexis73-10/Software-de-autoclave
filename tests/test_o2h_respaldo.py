@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.runtime import respaldo as rp
-from tests.backend_doble import modulo_backend, parchear_en_backend
+from tests.helpers.backend_doble import modulo_backend, parchear_en_backend
 
 EQUIPO = {"serie": "ACV-2026-001", "modelo": "M-1"}
 
@@ -96,7 +96,7 @@ def api(tmp_path, monkeypatch):
     from autoclave.core.managers.config_manager import ConfigManager
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.db.crear_usuario("Ana", "ana", "HASH-SECRETO-xyz", "tecnico") if hasattr(ctx.db, "crear_usuario") else None
@@ -273,7 +273,7 @@ capturar("O2h_3_restaurado.png")
 
 def test_pantalla_respaldo():
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_banco import correr, quieren_capturas
+    from tests.banco.opciones_qml_banco import correr, quieren_capturas
     d = correr("tecnico", PASOS, RUTAS, capturas=quieren_capturas())
     assert d["avisos"] == []
     assert d["usb"] == "E:\\" and d["restaurar_antes"] is False

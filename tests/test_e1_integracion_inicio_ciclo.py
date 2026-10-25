@@ -29,7 +29,7 @@ def _estado_listo():
     return estado
 
 
-from tests.alarmas_helpers import ids_viejos_activos
+from tests.helpers.alarmas_helpers import ids_viejos_activos
 
 
 def _maquina(estado, perfil):

@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend.autenticacion import AlmacenTokens
 from autoclave.core.runtime.sesion_inactividad import PLAZO_TOKEN_BACKEND_S
 from autoclave.services.domain.logging.db_manager import DbManager
-from tests.backend_doble import cargar_servidor, fijar_en_backend, modulo_backend
+from tests.helpers.backend_doble import cargar_servidor, fijar_en_backend, modulo_backend
 
 
 class Reloj:

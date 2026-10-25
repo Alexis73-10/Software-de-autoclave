@@ -14,7 +14,7 @@ import pytest
 
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.state_machine.alarms.catalogo import CATALOGO, CIC_10
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 CATALOGOS = {l: json.loads((SRC / "i18n" / f"{l}.json").read_text(encoding="utf-8"))

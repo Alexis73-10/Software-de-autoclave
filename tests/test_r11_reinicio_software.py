@@ -20,7 +20,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend import reinicio
 from autoclave.core.runtime.vigilancia_impresora import ConfigImpresora
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 
 
 @pytest.fixture

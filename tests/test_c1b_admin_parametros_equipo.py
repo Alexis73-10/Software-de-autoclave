@@ -6,7 +6,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from tests.opciones_qml_doble import COMUNES_T6
+from tests.helpers.opciones_qml_doble import COMUNES_T6
 
 from autoclave.ui_qml.domain import permisos_opciones as po
 
@@ -61,7 +61,7 @@ def test_qml_muestra_motivo_del_controlador():
                                          ("/units", {"temperatura": "C", "presion": "kPa"})])
 def test_backend_rechaza_al_admin(ruta, cuerpo):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     srv, _ = cargar_servidor(MagicMock())
     r = TestClient(srv.app).put(ruta, json=cuerpo, headers=cabecera(srv, "admin"))
     assert r.status_code == 403

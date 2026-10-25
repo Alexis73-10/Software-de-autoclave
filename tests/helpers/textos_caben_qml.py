@@ -1,4 +1,4 @@
-# tests/textos_caben_qml.py
+# tests/helpers/textos_caben_qml.py
 #
 # U10a (tanda 10, D10-1.5): revisión GENÉRICA de que los textos visibles caben
 # en su cuadro. No es una prueba (pytest no recoge este módulo): la usan
@@ -41,7 +41,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 
 # Resoluciones de las pantallas del equipo: la del banco I4/CAP9 (1024 px de
 # ancho, la pantalla real más angosta) y el lienzo de diseño 1200x1920.
@@ -165,7 +165,7 @@ _SCRIPT = textwrap.dedent(r'''
     i18n.fijar_idioma(cfg["idioma"])
     i18n_qml.instancia._consultar = lambda: None        # sin backend: no cambia el idioma
 
-    # U10b: doble de la sesión HTTP (como tests/i4_truncado_banco.py) para las
+    # U10b: doble de la sesión HTTP (como tests/banco/i4_truncado_banco.py) para las
     # pantallas que consultan al servicio al cargarse (Opciones y sus secciones).
     if cfg.get("sesion"):
         from autoclave.ui_qml import sesion_backend
@@ -274,7 +274,7 @@ def revisar(pantalla: str, idioma: str, ancho: int = 1024, alto: int = 1638,
 #
 # Para los textos que solo aparecen con datos del servicio (tarjeta de alarmas
 # de Preciclo, panel de la campana): mismo andamiaje que la parte «preciclo»
-# de tests/cap9_capturas_banco.py (UiBridge real sobre un UIServiceBackend
+# de tests/banco/cap9_capturas_banco.py (UiBridge real sobre un UIServiceBackend
 # simulado, alarmas armadas con el catálogo real igual que server._alarma_dto).
 #
 # Cada paso de `pasos` es un dict con, opcionalmente:

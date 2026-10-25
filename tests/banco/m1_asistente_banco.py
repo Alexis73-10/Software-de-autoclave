@@ -1,4 +1,4 @@
-# tests/m1_asistente_banco.py
+# tests/banco/m1_asistente_banco.py
 #
 # M1 (tanda 7): recorre el asistente de instalación QML (InstalacionVentana.qml
 # con el puente real y un validador de código que acepta todo) offscreen, a
@@ -6,7 +6,7 @@
 # actual, textos de error, vista previa del nombre, resumen) y, si se pide,
 # guarda una captura por paso en docs/informes/tanda7/capturas/M1_<n>_<paso>.png.
 #
-# Uso: python tests/m1_asistente_banco.py [es|en]   (genera las capturas)
+# Uso: python tests/banco/m1_asistente_banco.py [es|en]   (genera las capturas)
 # Lo usa tests/test_m1_asistente_qml.py (sin capturas).
 
 import json
@@ -16,7 +16,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 CAPTURAS = RAIZ / "docs" / "informes" / "tanda7" / "capturas"
 
 _SCRIPT = textwrap.dedent(r'''

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.alarms.catalogo import SUM_02
-from tests.alarmas_helpers import codigos_activados
+from tests.helpers.alarmas_helpers import codigos_activados
 
 
 def _make_preparado(suministro_electrico=1, fallo_suministro=False):

@@ -17,7 +17,7 @@ Contrato esperado (hoy NO se cumple):
 
 import pytest
 
-from tests.backend_doble import cabecera
+from tests.helpers.backend_doble import cabecera
 from tests.test_puertas_fallas_endpoints import entorno, _eventos  # noqa: F401
 
 DIFERIDO = pytest.mark.xfail(
@@ -30,7 +30,7 @@ DIFERIDO = pytest.mark.xfail(
 @pytest.mark.parametrize("rol", ["tecnico", "ingeniero"])
 def test_el_rol_de_servicio_puede_operar_la_otra_puerta(entorno, rol):
     cliente, ctx, est, _ = entorno
-    from tests.backend_doble import cargar_servidor  # noqa: F401
+    from tests.helpers.backend_doble import cargar_servidor  # noqa: F401
     import autoclave.backend.server as srv
     r = cliente.post("/doors/Puerta 2/open", json={"source_door": 1},
                      headers=cabecera(srv, rol))

@@ -1,4 +1,4 @@
-# tests/opciones_qml_doble.py
+# tests/helpers/opciones_qml_doble.py
 #
 # Arnés offscreen para las pantallas de OPCIONES de la tanda 6 (O2b–O2e):
 # carga Pantallas/Opciones.qml en una ventana de 1200x1920 con una sesión del
@@ -13,7 +13,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 CAPTURAS = RAIZ / "docs" / "informes" / "tanda6" / "capturas"
 
 _SCRIPT = textwrap.dedent(r"""

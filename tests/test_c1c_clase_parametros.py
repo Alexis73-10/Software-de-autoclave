@@ -138,7 +138,7 @@ def test_endpoint_seccion_devuelve_la_clase():
     from unittest.mock import MagicMock
     from fastapi.testclient import TestClient
     from autoclave.core.managers.cycle_manager import CycleManager
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     cm = CycleManager()
     cm.load_all_cycles()
     ctx = MagicMock()

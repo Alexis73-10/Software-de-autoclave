@@ -2,7 +2,7 @@
 #
 # U10b (tanda 10, D10-1.4 y D10-1.5 extendida): barrido de TODAS las pantallas
 # QML, en es y en, en las resoluciones del equipo, con la revisión genérica de
-# tests/textos_caben_qml.py (que U10b amplía con «recortado», «encogido» y
+# tests/helpers/textos_caben_qml.py (que U10b amplía con «recortado», «encogido» y
 # «desborda_alto»):
 #
 #   1. cada pantalla cargada sola (con el doble de la sesión HTTP para las de
@@ -19,7 +19,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from tests.textos_caben_qml import RESOLUCIONES, revisar, revisar_main  # noqa: E402
+from tests.helpers.textos_caben_qml import RESOLUCIONES, revisar, revisar_main  # noqa: E402
 
 IDIOMAS = ("es", "en")
 
@@ -64,7 +64,7 @@ def test_pantalla_carga_sin_avisos_nuevos(pantalla):
 # ── Preciclo con alarmas reales (Main.qml completo) ────────────────────────
 
 # Motivo literal que arma ProtocoloFallo con la presión de cámara sin lectura
-# y el estado seguro activo (T10, D10-3), igual que tests/cap9_capturas_banco.py
+# y el estado seguro activo (T10, D10-3), igual que tests/banco/cap9_capturas_banco.py
 MOTIVO = ("Sensor de presión de cámara sin lectura: sin el sensor de presión de "
           "cámara no se puede llevar la cámara a estado seguro. Revise la conexión "
           "del sensor de presión de cámara o llame a servicio técnico")
@@ -120,7 +120,7 @@ def test_motivo_completo_y_en_el_idioma_de_la_interfaz(preciclo_alarmas):
 
 # ── Menú Principal con datos de ejemplo y sus ventanas (Historial, Reportes…) ─
 
-from tests.textos_caben_qml import VENTANAS_MENU, revisar_menu  # noqa: E402
+from tests.helpers.textos_caben_qml import VENTANAS_MENU, revisar_menu  # noqa: E402
 
 
 @pytest.fixture(scope="module", params=[(i, r) for i in IDIOMAS for r in RESOLUCIONES],
@@ -151,7 +151,7 @@ def test_menu_abreviado_solo_si_el_completo_no_cabe(menu):
 # ── Opciones con datos (banco de CAP9): cada sección, Reasignación y Manejo ─
 # de ciclos con sus diálogos, con la revisión de textos en cada captura.
 
-from tests import opciones_qml_banco as banco  # noqa: E402
+from tests.banco import opciones_qml_banco as banco  # noqa: E402
 from tests import test_c9_manejo_ciclos_banco_qml as c9  # noqa: E402
 from tests.test_r8_reasignacion_banco_qml import PASOS as PASOS_R8  # noqa: E402
 

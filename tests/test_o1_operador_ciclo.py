@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from autoclave.services.domain.logging import db_manager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.ticket_formatter import format_footer, format_ticket
-from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_t8_modo_sin_bd import _correr_ciclo, _logger
 
 

@@ -1,7 +1,7 @@
 # tests/test_c9_manejo_ciclos_banco_qml.py
 #
 # C9 (tanda 9, D9-10): OPCIONES › Opciones avanzadas › Manejo de ciclos con el
-# backend doble (tests/opciones_qml_banco.py), en español y en inglés:
+# backend doble (tests/banco/opciones_qml_banco.py), en español y en inglés:
 #   - técnico fuera de ciclo: ve Opciones avanzadas solo con Manejo de ciclos
 #     (sin la reasignación de E/S); crear, borrar (solo personalizados) y el
 #     resultado;
@@ -15,7 +15,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from tests import opciones_qml_banco as banco  # noqa: E402
+from tests.banco import opciones_qml_banco as banco  # noqa: E402
 
 CAPTURAS = banco.RAIZ / "docs" / "informes" / "tanda9" / "capturas" / "c9"
 

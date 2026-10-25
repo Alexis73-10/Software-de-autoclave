@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.backend.arranque.sin_bd import BdNoDisponible
-from tests.backend_doble import cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cargar_servidor, modulo_backend
 
 
 @pytest.fixture

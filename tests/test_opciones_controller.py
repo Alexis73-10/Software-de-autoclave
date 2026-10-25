@@ -6,7 +6,7 @@
 
 import pytest
 
-from tests.opciones_qml_doble import COMUNES_T6
+from tests.helpers.opciones_qml_doble import COMUNES_T6
 
 pytest.importorskip("PySide6")
 

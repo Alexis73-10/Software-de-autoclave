@@ -2,14 +2,14 @@
 test_i4_truncado_qml.py) también en español, a 1024 px de ancho: ninguna
 pantalla recorta (elide) ni desborda un texto visible.
 
-Capturas de todas las pantallas en es y en: `python tests/v8b_capturas.py`
+Capturas de todas las pantallas en es y en: `python tests/banco/v8b_capturas.py`
 (las guarda en docs/informes/tanda8/capturas/v8b/)."""
 
 import pytest
 
 pytest.importorskip("PySide6")
 
-from tests.i4_truncado_banco import PANTALLAS, revisar  # noqa: E402
+from tests.banco.i4_truncado_banco import PANTALLAS, revisar  # noqa: E402
 
 
 @pytest.mark.parametrize("pantalla", PANTALLAS)

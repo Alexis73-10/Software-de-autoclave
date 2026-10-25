@@ -5,7 +5,7 @@
 # otra) se muestra en la pantalla real (Menú Principal, Historial y Reportes)
 # como aviso de ERROR (fondo y texto rojos de Colores.peligro*) y nombra la
 # dirección rechazada. Usa el puente AccionesCiclos real, el smtplib real y el
-# SMTP falso local (tests/smtp_falso.py), sin red. En subproceso para tener un
+# SMTP falso local (tests/helpers/smtp_falso.py), sin red. En subproceso para tener un
 # QGuiApplication propio. El paso de confirmación de la dirección escrita a
 # mano lo cubre tests/test_c2_selector_correo_manual_qml.py.
 
@@ -39,7 +39,7 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.bridge.resumen_sistema import ResumenSistema
     from autoclave.ui_qml.exportacion import correo
     from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
-    from tests.smtp_falso import SMTPSinTLS, SmtpFalso
+    from tests.helpers.smtp_falso import SMTPSinTLS, SmtpFalso
 
     def fila(i):
         return {"id": i, "numero_ciclo": i, "fecha_inicio": "2026-10-12T08:00:00",

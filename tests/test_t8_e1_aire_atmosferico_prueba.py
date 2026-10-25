@@ -17,7 +17,7 @@ from fastapi.testclient import TestClient
 from autoclave.core.runtime import aire_atmosferico_prueba as aap
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 
 _CONFIG = {"presion_atmosferica": 75.0, "rango_presion_atm": 5.0}
 
@@ -269,7 +269,7 @@ def test_controlador_no_agrega_el_texto_del_backend_a_estos_motivos():
 
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.protocols.serial_link_config import SerialLinkConfig
-from tests.serial_doble import AI_OK, PuertoDoble, linea
+from tests.helpers.serial_doble import AI_OK, PuertoDoble, linea
 
 
 def _link_real():

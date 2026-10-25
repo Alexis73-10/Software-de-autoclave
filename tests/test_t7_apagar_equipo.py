@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cargar_servidor, modulo_backend
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
 

@@ -25,7 +25,7 @@ from autoclave.state_machine.alarms.catalogo import CATALOGO, CIC_10, Nivel, SEN
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 5.0, "temp_max_apertura": 80.0}
 
@@ -517,7 +517,7 @@ def test_textos_de_causa_en_los_dos_idiomas(causa):
 
 
 def test_status_publica_la_causa_y_sin_confirmacion():
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     loop = _loop()
     _arrancar(loop, pres=250.0)

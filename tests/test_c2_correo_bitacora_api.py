@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.runtime.config_correo_equipo import ConfigCorreoEquipo
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def api(tmp_path):
     from fastapi.testclient import TestClient
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.sin_base_de_datos = False

@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend import contrasenas
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cargar_servidor
+from tests.helpers.backend_doble import cargar_servidor
 
 CLAVE = "clave1234"
 BLOQUEADO = "Usuario bloqueado por intentos fallidos; espere 5 minutos"

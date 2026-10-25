@@ -5,7 +5,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_control_loop_test_mode import _make_control_loop
 
 

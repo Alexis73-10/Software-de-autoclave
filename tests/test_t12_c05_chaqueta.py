@@ -21,7 +21,7 @@ from autoclave.core.runtime.steam import p_saturacion_kpa
 from autoclave.state_machine.alarms.catalogo import SUM_06
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
 from autoclave.state_machine.states.ciclo import CicloState
-from tests.alarmas_helpers import ultima_activacion
+from tests.helpers.alarmas_helpers import ultima_activacion
 
 RAIZ = Path(__file__).resolve().parents[1]
 CICLOS = RAIZ / "src" / "autoclave" / "cycles"

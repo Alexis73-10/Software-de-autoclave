@@ -1,4 +1,4 @@
-# tests/i4_truncado_banco.py
+# tests/banco/i4_truncado_banco.py
 #
 # I4 (tanda 6): revisión de truncado en una pantalla de 1024 px de ancho
 # (1024x1638, proporción 5:8 del lienzo; Escala.factor = 1024/1200). Cada
@@ -15,7 +15,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 CAPTURAS = RAIZ / "docs" / "informes" / "tanda6" / "capturas"
 ANCHO, ALTO = 1024, 1638
 

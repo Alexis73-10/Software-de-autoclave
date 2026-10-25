@@ -47,3 +47,4 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 addopts = "--ignore=tests/test_flujo_unidades.py --ignore=tests/test_rutas.py --ignore=tests/test_config.py"
+markers = ["req(id): requisito trazado (IEC 62304 7.3.3)"]

@@ -5,7 +5,7 @@
 # P_control_max también corta el vapor.
 
 from autoclave.state_machine.cycle_phases import esterilizacion as est
-from tests import t12_e12_apoyo as ap
+from tests.helpers import t12_e12_apoyo as ap
 
 T_EST = 134.0
 BRECHA = 1.0          # brecha_segura_temperatura de la tanda 12 (C-07.1)

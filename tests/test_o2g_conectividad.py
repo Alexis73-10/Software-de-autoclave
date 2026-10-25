@@ -11,7 +11,7 @@ import pytest
 
 from autoclave.core.runtime import estado_red as er
 from autoclave.core.runtime.config_correo_equipo import ConfigCorreoEquipo, ErrorCorreo, normalizar
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 NETSH_ES = """
 Hay 1 interfaz en el sistema:
@@ -111,7 +111,7 @@ def api(tmp_path, monkeypatch):
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
     from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.sin_base_de_datos = False
@@ -279,7 +279,7 @@ if salida["editable"]:
 @pytest.mark.parametrize("rol,editable", [("admin", True), ("ingeniero", True), ("tecnico", False)])
 def test_pantalla_por_rol(rol, editable):
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_banco import correr, quieren_capturas
+    from tests.banco.opciones_qml_banco import correr, quieren_capturas
     d = correr(rol, PASOS, RUTAS, capturas=quieren_capturas() and rol != "ingeniero")
     assert d["avisos"] == []
     assert d["editable"] is editable and d["dest"] == 2

@@ -1,4 +1,4 @@
-# tests/cap9_capturas_banco.py
+# tests/banco/cap9_capturas_banco.py
 #
 # CAP9 (tanda 9, D9-13.5): banco de capturas de la interfaz QML con el código
 # final de la tanda 9, en español y en inglés. Reúne los mecanismos que ya
@@ -21,7 +21,7 @@
 #
 # Uso (sin argumentos corre todas las partes):
 #
-#     PYTHONPATH=<worktree>/src python tests/cap9_capturas_banco.py [parte ...]
+#     PYTHONPATH=<worktree>/src python tests/banco/cap9_capturas_banco.py [parte ...]
 #
 # No es una prueba de pytest (no empieza por test_).
 
@@ -32,7 +32,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
 sys.path.insert(0, str(RAIZ / "src"))
 
@@ -42,7 +42,7 @@ IDIOMAS = ("es", "en")
 
 
 def _pantallas() -> int:
-    from tests.i4_truncado_banco import PANTALLAS, revisar
+    from tests.banco.i4_truncado_banco import PANTALLAS, revisar
     resumen = {}
     for idioma in IDIOMAS:
         for nombre in PANTALLAS:
@@ -55,7 +55,7 @@ def _pantallas() -> int:
 
 
 def _reasignacion() -> int:
-    from tests import opciones_qml_banco as banco
+    from tests.banco import opciones_qml_banco as banco
     from tests.test_r8_reasignacion_banco_qml import PASOS
     for idioma in IDIOMAS:
         r = banco.correr("ingeniero", f"IDIOMA = {idioma!r}\n" + PASOS, capturas=True,
@@ -65,7 +65,7 @@ def _reasignacion() -> int:
 
 
 def _manejo() -> int:
-    from tests import opciones_qml_banco as banco
+    from tests.banco import opciones_qml_banco as banco
     from tests import test_c9_manejo_ciclos_banco_qml as c9
     for idioma in IDIOMAS:
         pasos = [("tecnico", c9.PASOS_TECNICO, "PREPARADO", ""),
@@ -80,7 +80,7 @@ def _manejo() -> int:
 
 
 def _p9() -> int:
-    from tests import p9_capturas_banco as p9
+    from tests.banco import p9_capturas_banco as p9
     p9.DESTINO = DESTINO
     return p9.main()
 

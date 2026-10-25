@@ -14,7 +14,7 @@ from autoclave.core.managers.validacion_config import errores_config_arranque
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import Despeje, Nivel
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor
 from tests.test_control_loop_test_mode import _make_control_loop, _run_one_tick
 
 

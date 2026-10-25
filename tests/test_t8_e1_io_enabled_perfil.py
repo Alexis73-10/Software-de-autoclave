@@ -14,7 +14,7 @@ from autoclave.devices.puertas.door_type import DoorType
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.installation.profile import InstallationProfile, Role
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 
 
 def _perfil(**cambios) -> InstallationProfile:

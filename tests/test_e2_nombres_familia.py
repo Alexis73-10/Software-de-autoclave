@@ -110,7 +110,7 @@ def test_ticket_de_ciclo_solo_nombre_del_modelo():
 
 def test_info_sistema_backend_entrega_la_clase():
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     ctx.profile.model_id = "SPK-SAT 45V2-LAB"
     ctx.profile.equipment_class = EquipmentClass.PISO_LAB
@@ -227,7 +227,7 @@ CAPTURAR = bool(os.environ.get("E2_CAPTURAS"))
 @pytest.mark.parametrize("idioma", ["es", "en"])
 def test_asistente_muestra_hospitalario_y_laboratorio(idioma):
     pytest.importorskip("PySide6")
-    from tests.m1_asistente_banco import recorrer
+    from tests.banco.m1_asistente_banco import recorrer
     obs = recorrer(idioma, capturas=CAPTURAR, carpeta=CARPETA_CAPTURAS)
     assert obs["avisos"] == []
     assert obs["clases"] == ["piso", "piso_lab"]                       # valores internos
@@ -255,7 +255,7 @@ INFO_E2 = {
 ])
 def test_info_sistema_pantalla_muestra_la_familia(idioma, esperados):
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     r = correr("info_sistema", "admin", {"/system/info": INFO_E2}, idioma=idioma,
                capturar=CAPTURAR, carpeta=CARPETA_CAPTURAS,
                pasos=[{"captura": f"E2_{idioma}_info_sistema.png"}])

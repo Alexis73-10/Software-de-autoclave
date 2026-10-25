@@ -15,7 +15,7 @@ import pytest
 from autoclave.core.managers.catalogo_parametros import (
     CALIBRACION_PLAUSIBLE, evaluar_calibracion,
 )
-from tests.backend_doble import cabecera, cargar_servidor, fijar_en_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, fijar_en_backend
 
 
 def _p(sl, rl, sh, rh):

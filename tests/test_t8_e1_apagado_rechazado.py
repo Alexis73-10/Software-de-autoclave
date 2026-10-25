@@ -17,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cargar_servidor, modulo_backend
 
 _RAIZ = Path(__file__).resolve().parents[1]
 

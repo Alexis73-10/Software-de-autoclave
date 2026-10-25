@@ -19,7 +19,7 @@ RAIZ = Path(__file__).resolve().parents[1]
 @pytest.fixture
 def cliente():
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     cm = CycleManager()
     cm.load_all_cycles()
     ctx = MagicMock()

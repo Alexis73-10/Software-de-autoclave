@@ -33,7 +33,7 @@ from autoclave.protocols.serial_link_config import SerialLinkConfig
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.falla import FallaState
-from tests.serial_doble import PuertoDoble, linea
+from tests.helpers.serial_doble import PuertoDoble, linea
 
 TICK = 0.5          # ControlLoop.interval de producción
 BUZZER = EstadoAutoclave.map_do["buzer_alarma"] + 1

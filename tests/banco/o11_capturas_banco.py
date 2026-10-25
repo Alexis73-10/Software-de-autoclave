@@ -1,19 +1,19 @@
-# tests/o11_capturas_banco.py
+# tests/banco/o11_capturas_banco.py
 #
 # O11 (tanda 11, D11-7): capturas antes/después de Opciones › Parámetros del
 # ciclo › Entradas mostradas, Preciclo y Ciclo en curso, en es y en. No lo
-# recoge pytest. Reutiliza el banco CAP9: tests/opciones_qml_banco.py para
+# recoge pytest. Reutiliza el banco CAP9: tests/banco/opciones_qml_banco.py para
 # Opciones; para Preciclo y Ciclo carga la pantalla sola con un UiBridge real
 # sobre un UIServiceBackend simulado (como la parte "preciclo" de
-# tests/cap9_capturas_banco.py).
+# tests/banco/cap9_capturas_banco.py).
 #
 # Caso: programa con la asignación de fábrica (Principal = Cámara 1, resto No
 # en uso) y un JSON viejo con entradas_mostradas = [temp_camara,
 # temp_referencia, pres_camara]. Antes: la fila de Referencia sale con "—".
 # Después: el backend ya filtra la lista y la pantalla tampoco muestra la fila.
 #
-#   PYTHONPATH=<worktree>/src python -X utf8 tests/o11_capturas_banco.py antes
-#   PYTHONPATH=<worktree>/src python -X utf8 tests/o11_capturas_banco.py despues
+#   PYTHONPATH=<worktree>/src python -X utf8 tests/banco/o11_capturas_banco.py antes
+#   PYTHONPATH=<worktree>/src python -X utf8 tests/banco/o11_capturas_banco.py despues
 
 import json
 import os
@@ -22,7 +22,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(RAIZ))
 DESTINO = RAIZ / "docs" / "informes" / "tanda11" / "capturas" / "o11"
 IDIOMAS = ("es", "en")
@@ -137,7 +137,7 @@ _PROGRAMAS = {"programas": [
 
 
 def _opciones(momento: str) -> int:
-    from tests import opciones_qml_banco as banco
+    from tests.banco import opciones_qml_banco as banco
     habilitadas = ["temp_camara", "temp_2_camara", "temp_referencia", "pres_camara", "pres_chaqueta"]
     entradas = {"programa": 2, "entradas": _ciclo_de(momento)["entradas_mostradas"],
                 "habilitadas": habilitadas, "editable": True}

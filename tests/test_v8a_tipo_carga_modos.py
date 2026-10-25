@@ -19,7 +19,7 @@ import pytest
 
 from autoclave.core.managers import catalogo_parametros as cp
 from autoclave.core.managers.cycle_manager import CycleManager
-from tests.backend_doble import fijar_en_backend, modulo_backend
+from tests.helpers.backend_doble import fijar_en_backend, modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -148,7 +148,7 @@ def test_modo_directo_no_permitido_con_liquido(cm):
 @pytest.fixture
 def cliente(cm):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.cycle_manager = cm
     ctx.sin_base_de_datos = False
@@ -349,7 +349,7 @@ def test_bitacora_presenta_el_cambio_de_parametro_y_el_automatico():
 @pytest.fixture
 def servidor(cm):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.cycle_manager = cm
     ctx.sin_base_de_datos = False

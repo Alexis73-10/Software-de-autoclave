@@ -19,7 +19,7 @@ from autoclave.core.runtime import alarmas_i18n, camara_segura, motivos
 from autoclave.core.runtime.motivos import Motivo
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO
-from tests.backend_doble import archivos_backend
+from tests.helpers.backend_doble import archivos_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 SRC = RAIZ / "src" / "autoclave"

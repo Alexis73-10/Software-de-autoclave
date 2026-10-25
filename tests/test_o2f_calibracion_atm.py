@@ -11,7 +11,7 @@ import pytest
 
 from autoclave.core.runtime import calibracion_atm as ca
 from autoclave.devices.puertas.enum_doors import DoorState
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 
 class Reloj:
@@ -278,7 +278,7 @@ def api(tmp_path):
     from autoclave.core.managers.config_manager import ConfigManager
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     c = ConfigManager(); c.load_config(); c.vincular_bd(ctx.db)

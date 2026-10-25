@@ -15,7 +15,7 @@ from autoclave.services.domain.logging.cycle_logger import CycleLogger
 from autoclave.services.domain.logging.ticket_formatter import format_header
 from autoclave.state_machine.alarms.catalogo import DEFINICIONES, OPERANDO_SIN_BD
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import fijar_en_backend
+from tests.helpers.backend_doble import fijar_en_backend
 
 UUID = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
@@ -251,7 +251,7 @@ def test_ticket_sin_registro():
 
 def test_calibracion_sin_auditoria_se_revierte(tmp_path):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     yaml_path = tmp_path / "calibration.yaml"
     original = textwrap.dedent("""
         calibration:
@@ -388,7 +388,7 @@ def test_saf01_alarma_sis03_desde_el_contexto():
 
 def test_saf05_calibracion_sin_bd_no_toca_el_archivo(tmp_path):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     yaml_path = tmp_path / "calibration.yaml"
     yaml_path.write_text("calibration: {}" + chr(10), encoding="utf-8")
     ctx = MagicMock()

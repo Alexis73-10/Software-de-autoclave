@@ -15,7 +15,7 @@ import pytest
 from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.test_control_loop_set_active_cycle import _FakeEstado, _make_control_loop
-from tests.backend_doble import parche_en_backend
+from tests.helpers.backend_doble import parche_en_backend
 
 
 # ── ControlLoop.set_active_cycle ─────────────────────────────────────────────

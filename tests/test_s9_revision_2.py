@@ -31,7 +31,7 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_s9_estado_seguro_arranque import _CFG, _Config, _abiertas, _programa
 from tests.test_s9_revision_1 import _loop_vivo
 

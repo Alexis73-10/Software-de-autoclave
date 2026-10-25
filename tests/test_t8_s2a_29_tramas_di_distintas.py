@@ -13,7 +13,7 @@ from autoclave.protocols.serial_link import SerialLink
 from autoclave.protocols.serial_link_config import SerialLinkConfig
 from autoclave.state_machine.states import ciclo as modulo_ciclo
 from autoclave.state_machine.states.ciclo import CicloResultado
-from tests.serial_doble import AI_OK, PuertoDoble, linea
+from tests.helpers.serial_doble import AI_OK, PuertoDoble, linea
 from tests.test_t2_p3_di_vencida import _ciclo
 
 DI = "DI:" + "1" * 56

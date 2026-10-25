@@ -5,7 +5,7 @@ import time
 import pytest
 
 from tests.test_io_endpoints import entorno, io_client, _canal, _llamadas  # noqa: F401
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 
 def _esperar(cond, limite=2.0):
@@ -81,7 +81,7 @@ def test_keepalive_fuera_de_modo_prueba_409(entorno):
 
 
 def test_keepalive_de_otra_sesion_409(entorno):
-    from tests.backend_doble import cabecera
+    from tests.helpers.backend_doble import cabecera
     client, ctx, srv = entorno
     assert client.post("/io/test/keepalive",
                        headers=cabecera(srv, "ingeniero", "otro")).status_code == 409

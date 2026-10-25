@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.services.domain.logging.db_manager import DbManager
-from tests.backend_doble import modulo_backend, parche_en_backend
+from tests.helpers.backend_doble import modulo_backend, parche_en_backend
 
 _HOY = "2026-10-02T00:00:00"
 

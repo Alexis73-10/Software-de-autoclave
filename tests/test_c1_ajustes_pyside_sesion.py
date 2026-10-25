@@ -149,7 +149,7 @@ def test_calibracion_sin_sesion_o_sin_permiso_lo_dice(estado):
 
 def test_el_backend_rechaza_calibracion_y_salidas_sin_token():
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     srv, _ = cargar_servidor(ctx)
     c = TestClient(srv.app)

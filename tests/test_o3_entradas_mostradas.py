@@ -89,7 +89,7 @@ def test_textos_i18n_es_en():
 
 from tests.test_o1_gestion_programas import api, cm  # noqa: E402,F401  (fixtures)
 from autoclave.core.managers import gestion_programas as gp  # noqa: E402
-from tests.backend_doble import parchear_en_backend
+from tests.helpers.backend_doble import parchear_en_backend
 
 
 def test_get_cycle_expone_entradas_y_no_en_uso(api, monkeypatch):

@@ -1,4 +1,4 @@
-# tests/t12_e12_apoyo.py
+# tests/helpers/t12_e12_apoyo.py
 #
 # Apoyo de las pruebas de la etapa E12 (tanda 12, ESTERILIZACION): fase con
 # reloj monotonic simulado y parámetros nuevos (tipo de carga, timeout de

@@ -1,4 +1,4 @@
-# tests/backend_doble.py
+# tests/helpers/backend_doble.py
 #
 # Utilidades para probar backend/server.py sin hardware: lo importa de nuevo
 # con un BackendContext falso (cada importación trae su propio almacén de
@@ -93,7 +93,7 @@ def parche_en_backend(nombre: str, nuevo):
 def archivos_backend() -> list:
     """ORG-12: los archivos en que se partió server.py (server.py,
     dependencias.py y rutas/*.py), para las pruebas que leen el código."""
-    raiz = Path(__file__).resolve().parents[1] / "src" / "autoclave" / "backend"
+    raiz = Path(__file__).resolve().parents[2] / "src" / "autoclave" / "backend"
     return [raiz / "server.py", raiz / "dependencias.py", *sorted((raiz / "rutas").glob("*.py"))]
 
 

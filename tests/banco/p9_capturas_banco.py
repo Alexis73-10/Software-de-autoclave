@@ -1,10 +1,10 @@
-# tests/p9_capturas_banco.py
+# tests/banco/p9_capturas_banco.py
 #
 # P9 (tanda 9): capturas de Parámetros del ciclo › Finalización, Parámetros
 # del equipo (entrada y "Cámara segura") y Entradas / Salidas, para un perfil
 # de puertas simples y uno de puertas automáticas, en es y en.
 #
-#   PYTHONPATH=<worktree>/src python tests/p9_capturas_banco.py
+#   PYTHONPATH=<worktree>/src python tests/banco/p9_capturas_banco.py
 #
 # Los datos de las pantallas salen de los mismos módulos que usa el backend
 # (ConfigManager + grupos_visibles, catálogo del programa de fábrica filtrado
@@ -19,7 +19,7 @@ import textwrap
 from datetime import datetime
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 DESTINO = RAIZ / "docs" / "informes" / "tanda9" / "capturas" / "p9"
 
 _SCRIPT = textwrap.dedent(r'''

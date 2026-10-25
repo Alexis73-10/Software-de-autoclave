@@ -266,7 +266,7 @@ def test_el_paso_normal_del_tiempo_no_se_confunde_con_un_ajuste(entorno):
 
 def test_endpoint_rechaza_con_409_y_codigo_de_reloj_adelantado(entorno):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     s, db, reloj, contador, alarmas, _ = entorno
     ctx = MagicMock()
     ctx.db = db
@@ -282,7 +282,7 @@ def test_endpoint_rechaza_con_409_y_codigo_de_reloj_adelantado(entorno):
 @pytest.mark.parametrize("rol, esperado", [("operador", 403), ("tecnico", 200), ("ingeniero", 200)])
 def test_solo_tecnico_o_ingeniero_edita_los_intervalos(entorno, rol, esperado):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     s, db, reloj, contador, alarmas, _ = entorno
     ctx = MagicMock()
     ctx.db = db

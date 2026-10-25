@@ -7,7 +7,7 @@
 
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import CATALOGO
-from tests import t12_e12_apoyo as ap
+from tests.helpers import t12_e12_apoyo as ap
 
 T_EST = 134.0
 

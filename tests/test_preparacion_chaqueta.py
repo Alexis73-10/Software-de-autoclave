@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.alarms.catalogo import PRE_01, SUM_06, CATALOGO
-from tests.alarmas_helpers import codigos_activados, ultima_activacion
+from tests.helpers.alarmas_helpers import codigos_activados, ultima_activacion
 
 
 def _make_preparacion(vapor=1, presion_chaqueta=300.0):

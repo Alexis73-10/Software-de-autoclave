@@ -14,7 +14,7 @@ from autoclave.devices.puertas.simple_door import SimpleDoor
 from autoclave.services.domain.puertas.ser_puertas import ServicioPuertas
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.states.falla import FallaState
-from tests.backend_doble import cargar_servidor, modulo_backend
+from tests.helpers.backend_doble import cargar_servidor, modulo_backend
 from tests.test_servicio_puertas import CONFIG, Estado, _avanzada
 
 

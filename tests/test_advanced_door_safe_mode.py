@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.alarms.catalogo import CATALOGO, PUE_04, PUE_05
-from tests.alarmas_helpers import activaciones
+from tests.helpers.alarmas_helpers import activaciones
 
 
 def _make_door(fallo_suministro=False):

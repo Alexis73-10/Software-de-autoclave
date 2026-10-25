@@ -23,8 +23,8 @@ from autoclave.state_machine.alarms.catalogo import (
     CATALOGO, COM_01, COM_03, SIS_01, TARJETA_SIN_TRAMA_VALIDA,
 )
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-from tests.serial_doble import PuertoDoble
-from tests.backend_doble import modulo_backend
+from tests.helpers.serial_doble import PuertoDoble
+from tests.helpers.backend_doble import modulo_backend
 
 
 # ---------------------------------------------------------------------------
@@ -600,7 +600,7 @@ def _cliente(flags, estado_tarjeta="ok"):
     import threading
     from fastapi.testclient import TestClient
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     ctx.estado.get_flag.side_effect = lambda f: flags.get(f, False)
     ctx.estado.get_machine_state.return_value = GlobalState.FALLA

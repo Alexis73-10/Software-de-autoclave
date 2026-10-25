@@ -18,7 +18,7 @@ from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO, CONTRASENA_SEMILLA, ROLES_VISIBLES
 from autoclave.ui_qml.bridge import puente_instalacion as pi
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 # Las contraseñas semilla son públicas (ya están en otras pruebas); aquí solo

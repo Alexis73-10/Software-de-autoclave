@@ -71,7 +71,7 @@ import threading                                                    # noqa: E402
 from unittest.mock import MagicMock                                 # noqa: E402
 from fastapi.testclient import TestClient                           # noqa: E402
 from autoclave.state_machine.machine.enum_global import GlobalState  # noqa: E402
-from tests.backend_doble import cargar_servidor                     # noqa: E402
+from tests.helpers.backend_doble import cargar_servidor                     # noqa: E402
 
 
 def _cliente(pres=101.3, temp=40.0, vigentes=True):

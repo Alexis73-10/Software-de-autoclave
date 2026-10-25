@@ -6,7 +6,7 @@ import time
 from pathlib import Path
 
 import pytest
-from tests.backend_doble import fuente_backend
+from tests.helpers.backend_doble import fuente_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 

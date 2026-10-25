@@ -1,6 +1,6 @@
 # tests/test_ciclo_sensores.py
 from unittest.mock import MagicMock, patch
-from tests.alarmas_helpers import ultima_activacion
+from tests.helpers.alarmas_helpers import ultima_activacion
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 
 

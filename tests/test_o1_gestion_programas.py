@@ -10,7 +10,7 @@ import pytest
 
 from autoclave.core.managers import gestion_programas as gp
 from autoclave.core.managers.cycle_manager import CycleManager
-from tests.backend_doble import parchear_en_backend
+from tests.helpers.backend_doble import parchear_en_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 CICLOS = RAIZ / "src" / "autoclave" / "cycles"
@@ -110,7 +110,7 @@ def api(cm, tmp_path):
     from fastapi.testclient import TestClient
     from autoclave.state_machine.machine.enum_global import GlobalState
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.cycle_manager = cm
     ctx.db = DbManager(db_path=tmp_path / "t.db")

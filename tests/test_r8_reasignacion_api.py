@@ -14,7 +14,7 @@ import pytest
 
 from autoclave.core.runtime import asignacion_io as aio
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import modulo_backend, parchear_en_backend, fuente_backend
+from tests.helpers.backend_doble import modulo_backend, parchear_en_backend, fuente_backend
 
 CLAVE = "Ingeniero-2026"
 
@@ -31,7 +31,7 @@ def api(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     from autoclave.backend import reinicio
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.sin_base_de_datos = False

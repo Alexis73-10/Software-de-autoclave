@@ -10,7 +10,7 @@ from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.services.domain.loop.control_loop import ControlLoop
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 _CFG = {"presion_admosferica": 101.3, "rango_presion_atm": 10.0, "temp_max_apertura": 80.0}
 _PARAMS = {("descompresion", "modo"): 4, ("descompresion", "modo_4", "timeout"): 60,
@@ -131,7 +131,7 @@ def test_otro_programa_no_se_modifica():
 
 
 def test_el_status_expone_el_motivo_del_bloqueo():
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     estado, programa, es, cl = _montar()
     es.update()

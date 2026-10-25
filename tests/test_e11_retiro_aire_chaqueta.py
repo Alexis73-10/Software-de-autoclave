@@ -82,7 +82,7 @@ def test_no_esta_en_los_canales_de_entradas_salidas():
 def test_io_channels_no_la_lista():
     from fastapi.testclient import TestClient
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     ctx.setdo.salida_bloqueada.return_value = False
@@ -197,7 +197,7 @@ def test_arranque_con_yaml_y_asignacion_antiguos_no_bloquea(tmp_path, caplog):
 
 
 def test_respaldo_antiguo_se_acepta_sin_la_retirada(caplog):
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     cargar_servidor(MagicMock())
     from autoclave.backend import server_reasignacion as sr
     datos = json.dumps({"formato": aio.FORMATO, "cambios": {RETIRADA: 25, "vapor_camara": 26}})

@@ -13,7 +13,7 @@ from autoclave.devices.printer import win32_printer as wp
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import (
     CATALOGO, IMPRESORA_DESCONECTADA, Nivel)
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 
 @pytest.fixture(autouse=True)
@@ -237,7 +237,7 @@ def test_el_servicio_no_toca_el_control_del_ciclo():
 def test_solo_tecnico_o_ingeniero_edita_la_bandera_y_queda_auditada(tmp_path, rol, esperado):
     from fastapi.testclient import TestClient
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     db = DbManager(db_path=tmp_path / "t.db")
     ctx = MagicMock()
     ctx.db = db
@@ -274,7 +274,7 @@ def test_p2_deshabilitar_quita_el_aviso_y_habilitar_verifica(tmp_path):
 def test_p2_el_endpoint_aplica_la_configuracion(tmp_path):
     from fastapi.testclient import TestClient
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.config_impresora = ConfigImpresora(tmp_path / "impresora.json")
@@ -290,7 +290,7 @@ def test_p2_el_endpoint_aplica_la_configuracion(tmp_path):
 def test_p2_la_bandera_solo_acepta_booleanos_json(tmp_path, valor):
     from fastapi.testclient import TestClient
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.config_impresora = ConfigImpresora(tmp_path / "impresora.json")

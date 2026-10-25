@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.runtime import bitacora
-from tests.backend_doble import fuente_backend
+from tests.helpers.backend_doble import fuente_backend
 
 RAIZ = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 
@@ -24,7 +24,7 @@ def api(tmp_path):
     from autoclave.core.managers.config_manager import ConfigManager
     from autoclave.core.runtime.unidades import ConfigUnidades
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     c = ConfigManager()
@@ -185,7 +185,7 @@ FILAS = [
 
 def test_pantalla():
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     datos = {"filas": FILAS, "total": 27, "pagina": 1, "paginas": 3, "usuarios": ["ana_admin"],
              "tipos": ["login_ok"]}
     r = correr("bitacora", "tecnico", {"/audit_log": datos},

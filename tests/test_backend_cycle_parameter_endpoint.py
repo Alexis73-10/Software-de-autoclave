@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from autoclave.core.managers.cycle_manager import Cycle
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor
 
 
 def _make_cycle(tmp_path, source="user"):

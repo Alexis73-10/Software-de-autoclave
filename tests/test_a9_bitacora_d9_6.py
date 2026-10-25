@@ -15,7 +15,7 @@ import pytest
 
 from autoclave.core.runtime import bitacora
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import fuente_backend
+from tests.helpers.backend_doble import fuente_backend
 
 RAIZ = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 
@@ -48,7 +48,7 @@ def api(tmp_path):
     from autoclave.core.managers.config_manager import ConfigManager
     from autoclave.core.runtime.unidades import ConfigUnidades
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     c = ConfigManager()

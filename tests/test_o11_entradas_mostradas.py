@@ -12,7 +12,7 @@ import pytest
 
 from autoclave.core.managers import gestion_programas as gp
 from autoclave.ui_qml.domain import entradas_mostradas as em
-from tests.backend_doble import cabecera, parchear_en_backend
+from tests.helpers.backend_doble import cabecera, parchear_en_backend
 from tests.test_o1_gestion_programas import api, cm  # noqa: F401  (fixtures)
 from tests.test_t3_endpoints_sensores import _CON_REF, _FABRICA, _put, entorno  # noqa: F401
 

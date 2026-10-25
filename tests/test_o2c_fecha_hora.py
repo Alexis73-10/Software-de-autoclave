@@ -8,12 +8,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 
 @pytest.fixture
 def srv_ctx():
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     srv, _ = cargar_servidor(ctx)
     return srv, ctx
@@ -79,7 +79,7 @@ def test_controlador_aviso_local():
 @pytest.mark.parametrize("rol,anterior", [("admin", False), ("tecnico", True)])
 def test_pantalla(rol, anterior):
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     datos = {"zona": "UTC-05:00 (Hora est. Pacífico SA)", "reloj_anterior_instalacion": anterior,
              "instalacion": "2026-10-26T09:00:00" if anterior else "2026-10-01T09:00:00"}
     r = correr("fecha_hora", rol, {"/system/time": datos},

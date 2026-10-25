@@ -1,4 +1,4 @@
-# tests/opciones_qml_banco.py
+# tests/banco/opciones_qml_banco.py
 #
 # Banco para probar secciones de OPCIONES en QML sin backend (O2f, O2g, O2h;
 # tanda 6). Corre en un subproceso offscreen: abre Opciones.qml en una ventana
@@ -16,7 +16,7 @@ import sys
 import textwrap
 from pathlib import Path
 
-RAIZ = Path(__file__).resolve().parents[1]
+RAIZ = Path(__file__).resolve().parents[2]
 CAPTURAS = RAIZ / "docs" / "informes" / "tanda6" / "capturas"
 
 _SCRIPT = textwrap.dedent(r'''
@@ -144,14 +144,14 @@ def correr(rol: str, pasos: str, rutas: dict | None = None, estado: str = "PREPA
            capturas: bool = False, dir_capturas: Path | None = None,
            ancho: int = 1200, alto: int = 1920, revisar: bool = False) -> dict:
     """U10b: `ancho`/`alto` (Escala.factor = ancho/1200) y `revisar` (cada
-    capturar() revisa los textos; ver tests/textos_caben_qml.py)."""
+    capturar() revisa los textos; ver tests/helpers/textos_caben_qml.py)."""
     destino = Path(dir_capturas or CAPTURAS)
     if capturas:
         destino.mkdir(parents=True, exist_ok=True)
     cfg = {"rol": rol, "estado": estado, "rutas": rutas or {}, "pasos": textwrap.dedent(pasos),
            "capturas": str(destino) if capturas else "", "ancho": ancho, "alto": alto}
     if revisar:
-        from tests.textos_caben_qml import FUNCION_REVISAR
+        from tests.helpers.textos_caben_qml import FUNCION_REVISAR
         cfg["funcion"] = FUNCION_REVISAR
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}

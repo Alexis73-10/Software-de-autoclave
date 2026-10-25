@@ -279,7 +279,7 @@ def test_busqueda_ambigua_no_elige(tmp_path, monkeypatch):
 def _cliente(db):
     from fastapi.testclient import TestClient
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = db
     ctx.sin_base_de_datos = False
@@ -463,7 +463,7 @@ def test_controlador_expone_cuenta_sistema_y_mapea_error():
 
 def test_pantalla_deshabilita_desactivar_cuenta_sistema():
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     leer = [("botonRestablecerClave", "habilitado"), ("botonActivoUsuario", "habilitado"),
             ("motivoCuentaSistema", "visible")]
     r = correr("usuarios", "ingeniero", {"/usuarios": USUARIOS_UI, "/operadores": {"operadores": []}},

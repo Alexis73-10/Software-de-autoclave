@@ -13,7 +13,7 @@ from autoclave.core.runtime import io_names
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, fijar_en_backend, modulo_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, fijar_en_backend, modulo_backend
 
 
 # ── Paso 5 (E/S): el vigilante del dueño del modo prueba no debe morir ──────

@@ -6,14 +6,14 @@
 # (TextoAjustable) cabe en su columna: completa si cabe, abreviada si no.
 # Las 9 entradas posibles (ciclo.entrada_corta_*) se recorren en 3 pasos de 3.
 #
-# La revisión es genérica (tests/textos_caben_qml.py): U10b agrega aquí, o en
+# La revisión es genérica (tests/helpers/textos_caben_qml.py): U10b agrega aquí, o en
 # su propia prueba, los casos del resto de las pantallas.
 
 import pytest
 
 pytest.importorskip("PySide6")
 
-from tests.textos_caben_qml import RESOLUCIONES, revisar  # noqa: E402
+from tests.helpers.textos_caben_qml import RESOLUCIONES, revisar  # noqa: E402
 
 PANTALLAS = ("PantallaPreciclo", "PantallaCicloEnCurso")
 IDIOMAS = ("es", "en")
@@ -128,7 +128,7 @@ def test_componente_completo_si_cabe_abreviado_si_no_y_desborda_detectable():
     import os
     import subprocess
     import sys
-    from tests.textos_caben_qml import RAIZ
+    from tests.helpers.textos_caben_qml import RAIZ
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT_COMPONENTE], capture_output=True,

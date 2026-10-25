@@ -13,7 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.managers import catalogo_parametros as cp
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 PROGRAMAS = sorted(glob.glob(str(RAIZ / "src" / "autoclave" / "cycles" / "*" / "*.json")))
@@ -161,7 +161,7 @@ def test_programa_fuera_de_catalogo_queda_danado(tmp_path, monkeypatch):
 def cliente(tmp_path):
     from fastapi.testclient import TestClient
     from autoclave.core.managers.cycle_manager import Cycle
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     datos = json.loads(Path(PROGRAMAS[0]).read_text(encoding="utf-8"))
     ruta = tmp_path / "prog.json"
     ruta.write_text(json.dumps(datos), encoding="utf-8")
@@ -271,7 +271,7 @@ def test_audit_log_es_de_solo_anexar(tmp_path):
 
 def test_t11_liquidos_solo_en_equipos_con_liquidos(monkeypatch):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     ctx.sin_base_de_datos = False
     ctx.control_loop.bloqueo_configuracion = None

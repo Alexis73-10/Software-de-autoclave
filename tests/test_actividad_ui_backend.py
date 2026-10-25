@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.backend.actividad_ui import ActividadUI
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 
 class _Reloj:

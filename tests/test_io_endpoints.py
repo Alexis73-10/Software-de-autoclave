@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor, modulo_backend, parche_en_backend
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend, parche_en_backend
 
 _DI_CERRADA, _DI_ABIERTA = "puerta_cerrada_1", "puerta_abierta_1"
 

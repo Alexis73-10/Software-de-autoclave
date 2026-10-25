@@ -15,7 +15,7 @@ from autoclave.backend.context import BackendContext
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO, MIGRACION_CORRECTIVA, SIS_06, Nivel
-from tests.backend_doble import modulo_backend
+from tests.helpers.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 CICLOS = RAIZ / "src" / "autoclave" / "cycles"

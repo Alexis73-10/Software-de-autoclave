@@ -28,8 +28,8 @@ from autoclave.protocols.serial_link import SerialLink
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cargar_servidor
-from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
+from tests.helpers.backend_doble import cargar_servidor
+from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
 class _EnlaceSinTarjeta(SerialLink):

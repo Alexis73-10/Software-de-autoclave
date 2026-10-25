@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from tests.alarmas_helpers import codigos_activados
+from tests.helpers.alarmas_helpers import codigos_activados
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 
 

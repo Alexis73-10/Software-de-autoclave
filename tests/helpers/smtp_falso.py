@@ -1,4 +1,4 @@
-# tests/smtp_falso.py
+# tests/helpers/smtp_falso.py
 #
 # C2 (tanda 7): servidor SMTP falso LOCAL (127.0.0.1, puerto libre) para
 # probar el envío de correo con el smtplib real, sin red. Habla lo mínimo de

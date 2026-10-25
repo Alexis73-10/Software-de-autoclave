@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from tests.opciones_qml_banco import correr, quieren_capturas  # noqa: E402
+from tests.banco.opciones_qml_banco import correr, quieren_capturas  # noqa: E402
 
 CONDS = {"puerta_abierta": True, "temp_baja": True, "fuera_de_ciclo": True, "lecturas_validas": True}
 CRIT = {"promedio_min": 60, "promedio_max": 105, "dispersion_max": 1.5, "diferencia_confirmar": 5,

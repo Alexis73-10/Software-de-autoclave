@@ -23,7 +23,7 @@ import pytest
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import fijar_en_backend, modulo_backend
+from tests.helpers.backend_doble import fijar_en_backend, modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -92,7 +92,7 @@ def cm(tmp_path):
 @pytest.fixture
 def servidor(cm, tmp_path):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.cycle_manager = cm
     ctx.sin_base_de_datos = False
