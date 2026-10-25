@@ -7,6 +7,14 @@ import os
 RAIZ = os.path.abspath(os.path.join(SPECPATH, '..'))
 
 
+# VER-04 (etapa VER): toda compilación lleva src/autoclave/_build_info.py
+# (commit, etiqueta de entrega, fecha UTC, árbol sucio); lo lee autoclave._version.
+import sys as _sys_ver
+_sys_ver.path.insert(0, os.path.join(RAIZ, 'tools', 'entrega'))
+from info_compilacion import generar_build_info
+generar_build_info(RAIZ)
+
+
 def _r(ruta):
     return os.path.join(RAIZ, ruta)
 
@@ -25,7 +33,7 @@ a = Analysis(
         ('src/autoclave/cycles/factory', 'autoclave/cycles/factory'),
         ('src/autoclave/config', 'autoclave/config'),
     ]),
-    hiddenimports=[],
+    hiddenimports=['autoclave._build_info'],   # VER-04
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
