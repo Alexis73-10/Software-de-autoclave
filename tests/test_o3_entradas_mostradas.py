@@ -89,11 +89,12 @@ def test_textos_i18n_es_en():
 
 from tests.test_o1_gestion_programas import api, cm  # noqa: E402,F401  (fixtures)
 from autoclave.core.managers import gestion_programas as gp  # noqa: E402
+from tests.helpers.backend_doble import parchear_en_backend
 
 
 def test_get_cycle_expone_entradas_y_no_en_uso(api, monkeypatch):
     client, srv, ctx, cabecera = api
-    monkeypatch.setattr(srv, "_ai_habilitadas",
+    parchear_en_backend(monkeypatch, "_ai_habilitadas",
                         lambda: ["temp_camara", "temp_referencia", "pres_camara", "pres_chaqueta"])
     ctx.cycle_manager.selected_cycle = gp.programa(ctx.cycle_manager, 2)
     d = client.get("/cycle").json()
@@ -111,7 +112,7 @@ def test_get_cycle_sin_io_enabled_no_rompe(api, monkeypatch):
 
     def falla():
         raise OSError("x")
-    monkeypatch.setattr(srv, "_ai_habilitadas", falla)
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", falla)
     ctx.cycle_manager.selected_cycle = gp.programa(ctx.cycle_manager, 2)
     # O11: la omisión del programa (de fábrica: Cámara 1 y presión)
     assert client.get("/cycle").json()["entradas_mostradas"] == ["temp_camara", "pres_camara"]
@@ -126,7 +127,7 @@ def test_ui_bridge_publica_entradas_del_programa_y_cambian():
     os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
     pytest.importorskip("PySide6")
     from PySide6.QtCore import QCoreApplication
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     QCoreApplication.instance() or QCoreApplication(sys.argv)
     ui = MagicMock(spec=UIServiceBackend)

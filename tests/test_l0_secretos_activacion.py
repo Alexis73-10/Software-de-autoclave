@@ -171,13 +171,13 @@ def test_compilacion_empaqueta_el_archivo_sin_imprimir_el_secreto(monkeypatch, t
 
 @pytest.mark.parametrize("spec", ["Autoclave.spec", "AutoclaveBackend.spec"])
 def test_specs_del_autoclave_empaquetan_los_secretos(spec):
-    texto = (RAIZ / spec).read_text(encoding="utf-8")
+    texto = (RAIZ / "packaging" / spec).read_text(encoding="utf-8")
     assert "a.datas.append(entrada_compilacion())" in texto
     assert texto.index("entrada_compilacion()") < texto.index("pyz = PYZ(a.pure)")
 
 
 def test_spec_del_generador_no_empaqueta_secretos():
-    texto = (RAIZ / "GeneradorCodigos.spec").read_text(encoding="utf-8")
+    texto = (RAIZ / "packaging" / "GeneradorCodigos.spec").read_text(encoding="utf-8")
     assert "entrada_compilacion" not in texto and "activacion_secretos" not in texto
     assert "datas=[]" in texto
 

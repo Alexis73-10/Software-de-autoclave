@@ -13,7 +13,7 @@ from autoclave.core.runtime import io_names
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor, fijar_en_backend, modulo_backend
 
 
 # ── Paso 5 (E/S): el vigilante del dueño del modo prueba no debe morir ──────
@@ -35,8 +35,8 @@ def test_vigilante_del_modo_prueba_sigue_vivo_tras_varias_pasadas(tmp_path, monk
             listo.set()
         return False
 
-    monkeypatch.setattr(srv, "_revisar_dueno_modo_prueba", revisar)
-    hilo = threading.Thread(target=srv._vigilar_dueno_modo_prueba, args=(0.01,), daemon=True)
+    monkeypatch.setattr(modulo_backend("rutas.io"), "_revisar_dueno_modo_prueba", revisar)
+    hilo = threading.Thread(target=modulo_backend("rutas.io")._vigilar_dueno_modo_prueba, args=(0.01,), daemon=True)
     hilo.start()
     assert listo.wait(3.0), f"el vigilante se detuvo tras {len(pasadas)} pasada(s)"
     assert hilo.is_alive()
@@ -44,7 +44,7 @@ def test_vigilante_del_modo_prueba_sigue_vivo_tras_varias_pasadas(tmp_path, monk
 
 def test_server_conserva_el_modulo_time():
     import autoclave.backend.server as s
-    assert s.time is time
+    assert modulo_backend("rutas.io").time is time
 
 
 # ── Paso 5 (E/S): toda salida que la pantalla muestra se puede accionar ─────
@@ -71,7 +71,7 @@ def prueba_salidas():
     ctx.setdo.salida_bloqueada.return_value = False
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
-    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
     return TestClient(srv.app, headers=cab), ctx
 
 
@@ -124,7 +124,7 @@ def calibracion(tmp_path):
     ctx.sin_base_de_datos = False
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     srv, _ = cargar_servidor(ctx)
-    srv.CALIBRATION_PATH = ruta
+    fijar_en_backend("CALIBRATION_PATH", ruta)
     return TestClient(srv.app, headers=cabecera(srv, "tecnico")), ctx, ruta
 
 
@@ -220,7 +220,7 @@ def test_apagar_windows_rechazado_queda_en_el_log(monkeypatch, caplog):
 
     monkeypatch.setattr(subprocess, "run", run)
     with caplog.at_level("ERROR"):
-        s._apagar_windows()
+        modulo_backend("rutas.apagado")._apagar_windows()
     assert llamadas[0][0] == ["shutdown", "/s", "/t", "0"]
     assert any("1190" in r.getMessage() and "Acceso denegado" in r.getMessage()
                for r in caplog.records)

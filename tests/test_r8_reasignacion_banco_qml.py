@@ -1,7 +1,7 @@
 # tests/test_r8_reasignacion_banco_qml.py
 #
 # R8 (tanda 8, D8-5.12): Opciones avanzadas = reasignación de E/S dentro de
-# OPCIONES, con el backend doble (tests/opciones_qml_banco.py). Recorre la tabla,
+# OPCIONES, con el backend doble (tests/banco/opciones_qml_banco.py). Recorre la tabla,
 # los cambios, el selector de puerto, la alerta de criticidad, la confirmación
 # reforzada, "Se reiniciará el control", un conflicto, el bloqueo en ciclo y la
 # verificación tras reiniciar, en español y en inglés. Con R8_CAPTURAS=1 guarda
@@ -13,7 +13,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from tests import opciones_qml_banco as banco  # noqa: E402
+from tests.banco import opciones_qml_banco as banco  # noqa: E402
 from autoclave import i18n  # noqa: E402
 from autoclave.core.runtime import asignacion_io as aio  # noqa: E402
 

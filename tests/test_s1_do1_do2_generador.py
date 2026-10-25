@@ -14,6 +14,7 @@ import pytest
 
 from autoclave.devices.io.set_io import SetOutput
 from autoclave.installation.profile import salidas_vapor_permitidas
+from tests.helpers.backend_doble import modulo_backend
 
 _SRC = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 
@@ -66,7 +67,7 @@ def test_modo_prueba_rechaza_encender_do1_con_generador():
     from autoclave.devices.puertas.enum_doors import DoorState
     from autoclave.state_machine.machine.enum_global import GlobalState
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     from tests.test_io_endpoints import _DI_ABIERTA, _DI_CERRADA, _puerta
 
     ctx = MagicMock()
@@ -83,7 +84,7 @@ def test_modo_prueba_rechaza_encender_do1_con_generador():
     ctx.setdo = SetOutput(io, ctx.estado, profile=SimpleNamespace(vapor_source="generator"))
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
-    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
     client = TestClient(srv.app, headers=cab)
     for nombre in ("vapor_generador", "vapor_caldera"):
         r = client.patch(f"/io/test/output/{nombre}", json={"value": True})

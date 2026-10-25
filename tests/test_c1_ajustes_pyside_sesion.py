@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_pyside.services import auth_backend
 
 
@@ -53,7 +53,7 @@ def test_sin_sesion_no_envia_cabecera():
 
 
 def test_cliente_base_sin_proveedor_no_cambia_el_comportamiento():
-    from autoclave.ui.service_ui.backend_client import BackendClient
+    from autoclave.cliente.backend_client import BackendClient
     SessionManager.login({"nombre": "T", "usuario": "t", "rol": "tecnico"}, "TOK")
     r = MagicMock()
     r.json.return_value = {}
@@ -66,7 +66,7 @@ def test_todas_las_vistas_pyside_usan_el_cliente_con_token():
     import pathlib
     raiz = pathlib.Path(__file__).resolve().parents[1] / "src" / "autoclave" / "ui_pyside" / "views"
     for ruta in raiz.rglob("*.py"):
-        assert "from autoclave.ui.service_ui.backend_client import BackendClient" not in \
+        assert "from autoclave.cliente.backend_client import BackendClient" not in \
             ruta.read_text(encoding="utf-8"), ruta
 
 
@@ -149,7 +149,7 @@ def test_calibracion_sin_sesion_o_sin_permiso_lo_dice(estado):
 
 def test_el_backend_rechaza_calibracion_y_salidas_sin_token():
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     srv, _ = cargar_servidor(ctx)
     c = TestClient(srv.app)

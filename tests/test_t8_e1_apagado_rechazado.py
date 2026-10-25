@@ -17,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cargar_servidor
+from tests.helpers.backend_doble import cargar_servidor, modulo_backend
 
 _RAIZ = Path(__file__).resolve().parents[1]
 
@@ -56,7 +56,7 @@ def test_codigo_distinto_de_cero_es_rechazo_y_va_a_la_bitacora(servidor):
     srv, ctx, llamadas, run_falso = servidor
     ctx.control_loop.apagando = True
     run_falso(_r(1190, "Ya hay un apagado programado"))
-    srv._apagar_windows()
+    modulo_backend("rutas.apagado")._apagar_windows()
     assert llamadas and llamadas[0][0] == "shutdown"
     r = TestClient(srv.app).get("/system/shutdown/estado").json()
     assert r == {"apagando": True, "windows_rechazado": True}
@@ -71,7 +71,7 @@ def test_codigo_distinto_de_cero_es_rechazo_y_va_a_la_bitacora(servidor):
 def test_excepcion_al_lanzar_el_apagado_es_rechazo(servidor, error):
     srv, ctx, _, run_falso = servidor
     run_falso(error)
-    srv._apagar_windows()      # no lanza
+    modulo_backend("rutas.apagado")._apagar_windows()      # no lanza
     assert TestClient(srv.app).get("/system/shutdown/estado").json()["windows_rechazado"] is True
     ctx.db.registrar_auditoria_tras_cierre.assert_called_once()
 
@@ -79,7 +79,7 @@ def test_excepcion_al_lanzar_el_apagado_es_rechazo(servidor, error):
 def test_apagado_aceptado_no_es_rechazo(servidor):
     srv, ctx, _, run_falso = servidor
     run_falso(_r(0))
-    srv._apagar_windows()
+    modulo_backend("rutas.apagado")._apagar_windows()
     assert TestClient(srv.app).get("/system/shutdown/estado").json()["windows_rechazado"] is False
     ctx.db.registrar_auditoria_tras_cierre.assert_not_called()
 
@@ -88,7 +88,7 @@ def test_sin_base_usa_la_base_real(servidor):
     srv, ctx, _, run_falso = servidor
     ctx.sin_base_de_datos = True
     run_falso(_r(5))
-    srv._apagar_windows()
+    modulo_backend("rutas.apagado")._apagar_windows()
     ctx.db_real.registrar_auditoria_tras_cierre.assert_called_once()
 
 
@@ -96,7 +96,7 @@ def test_fallo_de_la_bitacora_no_impide_el_aviso(servidor):
     srv, ctx, _, run_falso = servidor
     ctx.db.registrar_auditoria_tras_cierre.side_effect = sqlite3.OperationalError("bloqueada")
     run_falso(_r(5))
-    srv._apagar_windows()
+    modulo_backend("rutas.apagado")._apagar_windows()
     assert TestClient(srv.app).get("/system/shutdown/estado").json()["windows_rechazado"] is True
 
 
@@ -120,7 +120,7 @@ def test_registrar_auditoria_tras_cierre_escribe_con_la_base_cerrada(tmp_path):
 # ── servicio de la UI y puente QML ─────────────────────────────────────────
 
 def test_ui_service_estado_apagado():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     ui.backend.get.return_value = {"apagando": True, "windows_rechazado": True}
@@ -130,7 +130,7 @@ def test_ui_service_estado_apagado():
 
 
 def test_ui_service_estado_apagado_sin_respuesta_es_none():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     ui.backend.get.side_effect = ConnectionError("apagado")
@@ -223,7 +223,7 @@ def test_registrar_auditoria_tras_cierre_no_espera_el_lock_de_la_base(tmp_path):
 def test_puente_apagado_incierto_tambien_vigila(qt_app):
     """TMG-02 (revisión final): sin respuesta al POST el backend puede haberlo
     aceptado; se vigila igual para poder mostrar un rechazo de Windows."""
-    from autoclave.ui.service_ui.ui_service_backend import APAGADO_INCIERTO
+    from autoclave.cliente.ui_service_backend import APAGADO_INCIERTO
     c, ui = _comandos({"apagando": True, "windows_rechazado": True})
     ui.apagar_equipo.return_value = (False, APAGADO_INCIERTO)
     c.apagarEquipo()

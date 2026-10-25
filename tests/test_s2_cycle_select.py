@@ -15,6 +15,7 @@ import pytest
 from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.test_control_loop_set_active_cycle import _FakeEstado, _make_control_loop
+from tests.helpers.backend_doble import parche_en_backend
 
 
 # ── ControlLoop.set_active_cycle ─────────────────────────────────────────────
@@ -86,7 +87,7 @@ def cliente():
     ctx.control_loop.cycle.id = "instrumental_134"
     ctx.estado.get_machine_state.return_value = GlobalState.FALLA
     for k in list(sys.modules):
-        if "autoclave.backend.server" in k:
+        if "autoclave.backend.server" in k or k.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[k]
     with patch("autoclave.backend.context.BackendContext", return_value=ctx):
         srv = importlib.import_module("autoclave.backend.server")
@@ -101,7 +102,7 @@ def _auditorias(ctx, evento):
 
 @pytest.fixture
 def log_dev(cliente):
-    with patch.object(sys.modules["autoclave.backend.server"], "_log_desarrollo") as m:
+    with parche_en_backend("_log_desarrollo", MagicMock()) as m:
         yield m
 
 

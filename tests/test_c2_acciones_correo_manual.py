@@ -1,7 +1,7 @@
 # tests/test_c2_acciones_correo_manual.py
 #
 # C2 (tanda 7): AccionesCiclos con el smtplib real contra el SMTP falso local
-# (tests/smtp_falso.py). Guardadas, manual, mixtas, dirección inválida,
+# (tests/helpers/smtp_falso.py). Guardadas, manual, mixtas, dirección inválida,
 # rechazo parcial del relay y relay caído. El mensaje sale de lo que el relay
 # ACEPTÓ; la dirección escrita a mano no se agrega a los guardados; cada
 # intento queda en la bitácora (POST /email/sent) sin la contraseña.
@@ -22,7 +22,7 @@ from PySide6.QtWidgets import QApplication
 from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos
 from autoclave.ui_qml.exportacion import correo
 from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
-from tests.smtp_falso import SMTPSinTLS, SmtpFalso
+from tests.helpers.smtp_falso import SMTPSinTLS, SmtpFalso
 
 _GUARDADOS = [{"nombre": "Mantenimiento", "correo": "mant@x.com"},
               {"nombre": "Calidad", "correo": "cal@x.com"}]

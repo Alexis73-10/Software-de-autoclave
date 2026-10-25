@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 import requests
 
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 

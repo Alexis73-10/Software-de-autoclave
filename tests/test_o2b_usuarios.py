@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.backend.contrasenas import hash_password
+from tests.helpers.backend_doble import parchear_en_backend
 
 
 @pytest.fixture
@@ -20,7 +21,7 @@ def api(tmp_path):
     from fastapi.testclient import TestClient
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.sin_base_de_datos = False
@@ -359,7 +360,7 @@ _LEER = [("botonRestablecerClave", "habilitado"), ("botonActivoUsuario", "habili
                                                ("tecnico", "tomas_tec", False)])
 def test_pantalla_por_rol(rol, yo, habilitado):
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     r = correr("usuarios", rol, {"/usuarios": USUARIOS_UI, "/operadores": OPERADORES_UI}, usuario=yo,
                pasos=[{"leer": _LEER, "captura": f"O2b_1_usuarios_{rol}.png" if rol != "ingeniero" else ""},
                       {"fijar": [("opcionesUsuarios", "seleccionado", "luis_tec")], "leer": _LEER,
@@ -392,7 +393,7 @@ def test_login_no_emite_si_cambio_la_clave_durante_la_verificacion(api, monkeypa
         ok = original(clave, h)
         ctx.db.restablecer_password("tomas_tec", hash_password("otra_clave9"))
         return ok
-    monkeypatch.setattr(srv, "verificar_password", lenta)
+    parchear_en_backend(monkeypatch, "verificar_password", lenta)
     assert client.post("/auth/login", json={"usuario": "tomas_tec", "clave": "clave1234"}).status_code == 401
 
 

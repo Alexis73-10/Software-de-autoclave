@@ -1,7 +1,7 @@
 # tests/test_c2_correo_destinatarios.py
 #
 # C2 (tanda 7): envío con el smtplib REAL contra un SMTP falso local
-# (tests/smtp_falso.py, sin red). El resultado sale de lo que el relay aceptó
+# (tests/helpers/smtp_falso.py, sin red). El resultado sale de lo que el relay aceptó
 # por destinatario: smtplib no lanza excepción si al menos uno se acepta
 # (devuelve el dict de rechazados), y eso no puede leerse como "enviado".
 
@@ -11,7 +11,7 @@ import pytest
 
 from autoclave.ui_qml.exportacion import correo
 from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
-from tests.smtp_falso import SMTPSinTLS, SmtpFalso
+from tests.helpers.smtp_falso import SMTPSinTLS, SmtpFalso
 
 _ADJ = ("ciclo_000012.pdf", b"%PDF-1", "pdf")
 

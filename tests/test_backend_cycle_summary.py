@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.services.domain.logging.db_manager import DbManager
+from tests.helpers.backend_doble import modulo_backend, parche_en_backend
 
 _HOY = "2026-10-02T00:00:00"
 
@@ -78,12 +79,12 @@ def cliente(db):
         "sin_numero": SimpleNamespace(number=None),
     }
     for key in list(sys.modules):
-        if "autoclave.backend.server" in key:
+        if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
     with patch("autoclave.backend.context.BackendContext", return_value=ctx):
         srv = importlib.import_module("autoclave.backend.server")
     from fastapi.testclient import TestClient
-    with patch.object(srv, "_inicio_del_dia", return_value=_HOY):
+    with parche_en_backend("_inicio_del_dia", MagicMock(return_value=_HOY)):
         yield TestClient(srv.app)
 
 
@@ -128,10 +129,10 @@ def test_endpoint_programa_sin_numero(cliente, db):
 def test_inicio_del_dia_es_medianoche_local_en_formato_de_la_tabla():
     with patch("autoclave.backend.context.BackendContext", return_value=MagicMock()):
         for key in list(sys.modules):
-            if "autoclave.backend.server" in key:
+            if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
                 del sys.modules[key]
         srv = importlib.import_module("autoclave.backend.server")
-    valor = srv._inicio_del_dia()
+    valor = modulo_backend("rutas._comun")._inicio_del_dia()
     assert valor.endswith("T00:00:00") and len(valor) == 19
 
 
@@ -207,7 +208,7 @@ def test_ciclos_desde_con_tope_excluye_el_periodo_siguiente(db):
 def _servidor():
     with patch("autoclave.backend.context.BackendContext", return_value=MagicMock()):
         for key in list(sys.modules):
-            if "autoclave.backend.server" in key:
+            if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
                 del sys.modules[key]
         return importlib.import_module("autoclave.backend.server")
 
@@ -225,7 +226,8 @@ def _servidor():
 ])
 def test_rango_del_periodo_de_calendario(periodo, fecha, desde, hasta):
     from datetime import date
-    assert _servidor()._rango_del_periodo(periodo, date(*fecha)) == (desde, hasta)
+    _servidor()   # ORG-12: carga el backend; la función vive en rutas/_comun.py
+    assert modulo_backend("rutas._comun")._rango_del_periodo(periodo, date(*fecha)) == (desde, hasta)
 
 
 def test_endpoint_lista_dia(cliente, db):

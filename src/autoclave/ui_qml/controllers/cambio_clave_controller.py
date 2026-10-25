@@ -17,7 +17,7 @@
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
-from autoclave.ui_pyside.services.validacion_usuario import (
+from autoclave.auth.validacion_usuario import (
     COD_IGUAL_ACTUAL, COD_OBLIGATORIO, PASSWORD_MAX, codigo_clave, codigo_confirmacion,
     error_ui,
 )

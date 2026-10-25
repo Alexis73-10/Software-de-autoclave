@@ -26,7 +26,7 @@ from autoclave.devices.puertas.door_type import DoorType
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.ciclo import CicloState
-from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
+from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 _VALIDO = {
     "machine_id": "ACV-2026-SN001", "model_id": "MX-500", "serial_number": "SN001",

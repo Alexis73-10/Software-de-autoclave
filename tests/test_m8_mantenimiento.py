@@ -18,7 +18,7 @@ from autoclave.core.runtime.contador_ciclos import ContadorCiclos
 from autoclave.core.runtime.servicio_mantenimiento import (
     TIPOS as TIPOS_SERVICIO, ErrorMantenimiento, ServicioMantenimiento)
 from autoclave.services.domain.logging.db_manager import DbManager
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor
 
 INST = datetime(2026, 10, 26, 9, 0)
 

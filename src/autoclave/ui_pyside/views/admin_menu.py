@@ -153,7 +153,7 @@ class AdminMenuView(QWidget):
     def showEvent(self, event) -> None:
         super().showEvent(event)
         try:
-            from autoclave.ui.service_ui.session_manager import SessionManager
+            from autoclave.cliente.session_manager import SessionManager
             if SessionManager.is_authenticated():
                 self._lbl_user.setText(SessionManager.current_user()["nombre"])
         except Exception:

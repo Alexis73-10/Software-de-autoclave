@@ -51,7 +51,7 @@ from autoclave.installation.profile import (SUPPLY_INPUT_KEYS, InstallationProfi
                                             normalizar_temperature_probes)
 from autoclave.backend.contrasenas import hash_password
 from autoclave.services.domain.logging.db_manager import es_clave_semilla
-from autoclave.ui_pyside.services.validacion_usuario import (codigo_clave, codigo_confirmacion,
+from autoclave.auth.validacion_usuario import (codigo_clave, codigo_confirmacion,
                                                             error_ui)
 
 logger = logging.getLogger(__name__)

@@ -14,7 +14,7 @@ from autoclave.core.runtime.servicio_mantenimiento import (
     ErrorMantenimiento, ServicioMantenimiento)
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.alarms.catalogo import CATALOGO, MANTENIMIENTO_VENCIDO
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor
 
 INST = datetime(2026, 10, 26, 9, 0)
 

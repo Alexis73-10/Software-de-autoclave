@@ -17,7 +17,8 @@ import pytest
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.protocols.serial_link_config import SerialLinkConfig
-from tests.serial_doble import AI_OK, PuertoDoble, linea
+from tests.helpers.serial_doble import AI_OK, PuertoDoble, linea
+from tests.helpers.backend_doble import modulo_backend
 
 
 # ---------------------------------------------------------------------------
@@ -307,7 +308,7 @@ def test_buzzer_usa_reloj_monotonico():
 def entorno_prueba():
     from autoclave.devices.puertas.enum_doors import DoorState
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     ctx.estado.get_flag.return_value = False
@@ -327,7 +328,7 @@ def entorno_prueba():
     ctx.control_loop.enter_test_mode.return_value = (True, "")
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
-    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
     from fastapi.testclient import TestClient
     return TestClient(srv.app, headers=cab), ctx, srv
 
@@ -336,7 +337,7 @@ def entorno_prueba():
 def test_enter_rechazado_sin_enlace_o_con_datos_viejos(entorno_prueba, desconectado, vigentes):
     client, ctx, srv = entorno_prueba
     ctx.control_loop.test_mode_active = False
-    srv._token_modo_prueba = None
+    modulo_backend("rutas.io")._token_modo_prueba = None
     ctx.control_loop.desconectado = desconectado
     ctx.control_loop.datos_vigentes = vigentes
     resp = client.post("/io/test/enter")
@@ -348,7 +349,7 @@ def test_enter_rechazado_sin_enlace_o_con_datos_viejos(entorno_prueba, desconect
 def test_enter_con_enlace_vigente_entra(entorno_prueba):
     client, ctx, srv = entorno_prueba
     ctx.control_loop.test_mode_active = False
-    srv._token_modo_prueba = None
+    modulo_backend("rutas.io")._token_modo_prueba = None
     assert client.post("/io/test/enter").status_code == 200
     ctx.control_loop.enter_test_mode.assert_called_once()
 

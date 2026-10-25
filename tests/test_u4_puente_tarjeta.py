@@ -7,7 +7,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend  # noqa: E402
+from autoclave.cliente.ui_service_backend import UIServiceBackend  # noqa: E402
 from autoclave.ui_qml.bridge.ui_bridge import UiBridge  # noqa: E402
 
 

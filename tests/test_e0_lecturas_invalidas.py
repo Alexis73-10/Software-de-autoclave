@@ -11,7 +11,7 @@ import pytest
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
-from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
+from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 _TEMPS = ["temp_camara", "temp_2_camara", "temp_ref", "temp_drenaje"]
 # Tanda 2026-10-14 §1.1: los sensores del ciclo (Cámara 1, Cámara 2,

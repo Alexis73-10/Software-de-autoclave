@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend.autenticacion import AlmacenTokens
 from autoclave.core.runtime.sesion_inactividad import (
     PLAZO_TOKEN_BACKEND_S, SESION_INACTIVIDAD_S, SESION_KEEPALIVE_S)
-from tests.backend_doble import cargar_servidor
+from tests.helpers.backend_doble import cargar_servidor, fijar_en_backend, modulo_backend
 
 
 class Reloj:
@@ -108,12 +108,12 @@ def api():
     ctx.sin_base_de_datos = False
     srv, _ = cargar_servidor(ctx)
     reloj = Reloj()
-    srv.tokens = AlmacenTokens(reloj=reloj)
+    fijar_en_backend("tokens", AlmacenTokens(reloj=reloj))
     return TestClient(srv.app), srv, ctx, reloj
 
 
 def _h(srv, rol="tecnico"):
-    s = srv.tokens.emitir(f"u_{rol}", rol, rol, False)
+    s = modulo_backend("dependencias").tokens.emitir(f"u_{rol}", rol, rol, False)
     return {"Authorization": f"Bearer {s.token}"}, s
 
 
@@ -173,7 +173,7 @@ def test_el_modo_prueba_se_entera_de_que_el_dueno_ya_no_tiene_sesion(api):
     client, srv, ctx, reloj = api
     _, s = _h(srv, "tecnico")
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
-    assert srv.tokens.existe(s.token) is False
+    assert modulo_backend("dependencias").tokens.existe(s.token) is False
 
 
 # ── UI: la ventana mantiene viva la sesión del backend mientras se usa ──────
@@ -182,7 +182,7 @@ def _ui(respuestas=None):
     import sys
     from PySide6.QtCore import QCoreApplication
     QCoreApplication.instance() or QCoreApplication(sys.argv)
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     from autoclave.ui_qml import sesion_backend as sb
     llamadas = []
 

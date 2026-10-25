@@ -6,13 +6,14 @@ import time
 from pathlib import Path
 
 import pytest
+from tests.helpers.backend_doble import fuente_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 
 
 # ── O1 SAF-05: server.py no itera cycle_manager.cycles sin copia ────────────
 def test_server_itera_copia_de_cycles():
-    texto = (RAIZ / "src/autoclave/backend/server.py").read_text(encoding="utf-8")
+    texto = fuente_backend()
     sin_copia = [m.group(0) for m in re.finditer(r"(?<!list\()context\.cycle_manager\.cycles\.(values|items)\(\)", texto)]
     assert sin_copia == [], sin_copia
 

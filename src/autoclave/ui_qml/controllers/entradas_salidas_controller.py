@@ -11,7 +11,7 @@ import logging
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from PySide6.QtQml import qmlRegisterType
 
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_qml import sesion_backend
 from autoclave.ui_qml.domain import entradas_salidas as dominio
 from autoclave.ui_qml.domain import permisos_opciones as permisos

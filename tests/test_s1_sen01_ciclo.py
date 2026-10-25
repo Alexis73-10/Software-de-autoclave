@@ -9,7 +9,7 @@ import pytest
 
 from autoclave.core.runtime import presion_sin_lectura as psl
 from autoclave.state_machine.states.ciclo import CicloResultado, CicloState
-from tests.alarmas_helpers import ultima_activacion
+from tests.helpers.alarmas_helpers import ultima_activacion
 
 
 def _make_ciclo(monkeypatch, ai=("pres_camara", "pres_chaqueta")):

@@ -1,11 +1,11 @@
 """M1 (tanda 7): asistente de instalación QML con el paso Cámara, offscreen
 (planeacion_asistente_modelo.md §4 y §6). Recorre la ventana real con el
-puente real (tests/m1_asistente_banco.py)."""
+puente real (tests/banco/m1_asistente_banco.py)."""
 
 import pytest
 
 pytest.importorskip("PySide6")
-from tests.m1_asistente_banco import recorrer  # noqa: E402
+from tests.banco.m1_asistente_banco import recorrer  # noqa: E402
 
 GUION = "—"
 

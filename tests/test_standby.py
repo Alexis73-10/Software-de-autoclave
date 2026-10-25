@@ -14,7 +14,7 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import QCoreApplication, QEvent
 from PySide6.QtTest import QSignalSpy
 
-from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+from autoclave.cliente.ui_service_backend import UIServiceBackend
 from autoclave.ui_qml.bridge.standby import (
     MINUTOS_DEFECTO, Standby, debe_estar_en_standby, minutos_standby,
 )

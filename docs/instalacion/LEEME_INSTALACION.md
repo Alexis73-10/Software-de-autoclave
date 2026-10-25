@@ -83,7 +83,7 @@ Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) c
 
 | | Compilación D (`2026-10-23_d`) | Compilación E (`2026-10-23_e`) |
 |---|---|---|
-| Arranque del backend | **Falla**: `ModuleNotFoundError: No module named 'autoclave.backend.server_reasignacion'`. `server.py` carga ese módulo con `importlib.import_module` y PyInstaller no lo empaquetó | Corregido: el módulo va como *hidden import* en `Autoclave.spec` y `AutoclaveBackend.spec`, verificado en el archivo PYZ del `.exe` y con la prueba de humo |
+| Arranque del backend | **Falla**: `ModuleNotFoundError: No module named 'autoclave.backend.server_reasignacion'`. `server.py` carga ese módulo con `importlib.import_module` y PyInstaller no lo empaquetó | Corregido: el módulo va como *hidden import* en `packaging/Autoclave.spec` y `packaging/AutoclaveBackend.spec`, verificado en el archivo PYZ del `.exe` y con la prueba de humo |
 | Paso 05 de la estación (plan de energía) | **Falla** en equipos sin el valor `HibernateEnabled` en el registro (lectura con `StrictMode 2.0`) | Corregido: si el valor no existe se respalda como vacío y el paso sigue |
 | Setup sobre una instalación existente | Solo actualizar | Página "Autoclave ya está instalado" (Reparar / Reinstalar / Desinstalar) y bloqueo de versiones más viejas (sección 8d) |
 | Versión del Setup | `1.0.0-d` | `1.0.0-e` (`AppVerNum` 1.0.0.5) |

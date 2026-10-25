@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import MagicMock
 
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor
 
 
 @pytest.fixture
@@ -196,7 +196,7 @@ def test_status_adc_sin_datos_es_none_y_no_rompe(io_client):
 
 def test_io_channels_lista_los_canales_del_equipo(io_client):
     client, _, srv = io_client
-    from tests.backend_doble import cabecera
+    from tests.helpers.backend_doble import cabecera
     resp = client.get("/io/channels", headers=cabecera(srv, "tecnico"))
 
     assert resp.status_code == 200
@@ -210,7 +210,7 @@ def test_io_channels_lista_los_canales_del_equipo(io_client):
 
 def test_io_channels_admin_403(io_client):
     client, _, srv = io_client
-    from tests.backend_doble import cabecera
+    from tests.helpers.backend_doble import cabecera
     assert client.get("/io/channels", headers=cabecera(srv, "admin")).status_code == 403
 
 
@@ -237,7 +237,7 @@ def test_exit_ignora_causa_desconocida(io_client):
 
 def test_io_channels_marca_salidas_bloqueadas_por_configuracion(io_client):
     client, ctx, srv = io_client
-    from tests.backend_doble import cabecera
+    from tests.helpers.backend_doble import cabecera
     from autoclave.core.runtime.status import EstadoAutoclave as E
     ctx.setdo.salida_bloqueada.side_effect = lambda ch: ch == E.map_do["vapor_generador"] + 1
     do = client.get("/io/channels", headers=cabecera(srv, "tecnico")).json()["DO"]

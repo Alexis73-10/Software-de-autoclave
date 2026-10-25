@@ -28,7 +28,7 @@ _SCRIPT = textwrap.dedent(r"""
     QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.Software)
     qapp = QApplication([])
 
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     from autoclave.ui_pyside.views.nuevo_usuario.vista import NuevoUsuarioView
 
     from autoclave.ui_qml.sesion_backend import SesionVentana

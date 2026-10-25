@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 from autoclave.state_machine.states.falla import FallaState
-from tests.alarmas_helpers import activaciones
+from tests.helpers.alarmas_helpers import activaciones
 
 
 def _estado(paro):

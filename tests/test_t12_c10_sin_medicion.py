@@ -11,7 +11,7 @@ from unittest.mock import MagicMock
 
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.cycle_phases.esterilizacion import EsterilizacionFase
-from tests import t12_e12_apoyo as ap
+from tests.helpers import t12_e12_apoyo as ap
 from tests.test_t3_sensores_ciclo import _ciclo
 
 _ASIG = {"temp_camara": "principal", "temp_2_camara": "no_en_uso", "temp_ref": "no_en_uso"}

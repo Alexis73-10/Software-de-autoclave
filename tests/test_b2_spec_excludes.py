@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 RAIZ = pathlib.Path(__file__).resolve().parents[1]
-SPEC = RAIZ / "Autoclave.spec"
+SPEC = RAIZ / "packaging" / "Autoclave.spec"
 
 # Módulos que el ejecutable necesita en tiempo de ejecución (medidos importando
 # autoclave.ui_pyside.main_window, backend.server, ui_qml.app y exe_unico).

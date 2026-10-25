@@ -1,5 +1,5 @@
 from unittest.mock import MagicMock
-from tests.alarmas_helpers import ultima_activacion, codigos_resueltos, ids_viejos_activados
+from tests.helpers.alarmas_helpers import ultima_activacion, codigos_resueltos, ids_viejos_activados
 from autoclave.state_machine.alarms.catalogo import PRE_06
 from autoclave.state_machine.states.ciclo import CicloState
 

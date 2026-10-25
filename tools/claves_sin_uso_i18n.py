@@ -30,8 +30,8 @@ PY_ALCANCE = sorted(
     list((SRC / "ui_qml").rglob("*.py"))
     + [SRC / "ui_pyside" / "views" / "nuevo_usuario" / "puente.py",
        SRC / "ui_pyside" / "views" / "nuevo_usuario" / "vista.py",
-       SRC / "ui_pyside" / "services" / "roles.py",
-       SRC / "ui_pyside" / "services" / "validacion_usuario.py"])
+       SRC / "auth" / "roles.py",
+       SRC / "auth" / "validacion_usuario.py"])
 QML_ARCHIVOS = sorted((SRC / "ui_qml" / "qml").rglob("*.qml"))
 PDF = sorted((SRC / "ui_qml" / "exportacion").glob("*.py"))
 

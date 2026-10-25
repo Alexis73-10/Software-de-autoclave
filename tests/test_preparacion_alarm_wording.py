@@ -4,7 +4,7 @@ from autoclave.state_machine.alarms.catalogo import (
     PRE_01, PRE_06, SEN_01, SIS_01, SUM_03,
 )
 from autoclave.state_machine.states.preparacion import preparacion_state
-from tests.alarmas_helpers import activaciones, codigos_activados, codigos_resueltos
+from tests.helpers.alarmas_helpers import activaciones, codigos_activados, codigos_resueltos
 
 
 def _make_state(sensores_pres=None, sensores_temp=None, di=None):

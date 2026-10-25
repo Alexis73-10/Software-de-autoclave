@@ -185,7 +185,7 @@ def test_json_canonico_ordena_claves():
 # ── PREPARACION / PREPARADO: alerta no bloqueante (tanda §1.1) ──────────────
 
 from tests.test_adenda_estados import _make, _ESTADOS          # noqa: E402
-from tests.alarmas_helpers import codigos_activados, codigos_resueltos  # noqa: E402
+from tests.helpers.alarmas_helpers import codigos_activados, codigos_resueltos  # noqa: E402
 
 
 @pytest.mark.parametrize("clase", _ESTADOS)

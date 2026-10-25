@@ -173,7 +173,7 @@ def test_techo_bajo_el_suministro_sin_advertencia():
 @pytest.fixture
 def cliente(tmp_path):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     c = _cycle_alto("solido")
     ruta = tmp_path / "prog.json"
     ruta.write_text(json.dumps({"cycle_id": "prog", "parameters": c.parameters}), encoding="utf-8")

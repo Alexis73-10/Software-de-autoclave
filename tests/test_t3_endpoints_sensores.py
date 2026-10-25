@@ -13,7 +13,7 @@ from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor
 
 _FABRICA = {"temp_camara": "principal", "temp_2_camara": "no_en_uso", "temp_ref": "no_en_uso"}
 _CON_REF = {"temp_camara": "principal", "temp_2_camara": "no_en_uso", "temp_ref": "referencia"}

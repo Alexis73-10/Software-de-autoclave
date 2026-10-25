@@ -2,7 +2,7 @@ import textwrap
 import pytest
 from unittest.mock import MagicMock
 
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor, fijar_en_backend
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def calib_client(tmp_path):
     mock_ctx.db.get_auditoria.return_value = []   # sin cambios en audit_log
     srv, _ = cargar_servidor(mock_ctx)
 
-    srv.CALIBRATION_PATH = yaml_path
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
 
     from fastapi.testclient import TestClient
     # solo ingeniero calibra (planeacion_backend_autenticacion.md, decisión 25)
@@ -216,7 +216,7 @@ def test_restaurar_ingeniero_permitido_en_ciclo(calib_client):
 
 def test_restaurar_tecnico_en_ciclo_409(calib_client):
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera
+    from tests.helpers.backend_doble import cabecera
     client, ctx, _ = calib_client
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     srv = __import__("autoclave.backend.server", fromlist=["x"])

@@ -144,7 +144,7 @@ def test_reset_pone_en_cero_lo_pausado():
 # ── TMG-10 / SAF-05: timeout del DESPEJAR ────────────────────────────────────
 
 def test_despejar_sin_confirmacion_a_tiempo():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     ui.backend.post.side_effect = requests.Timeout("lento")

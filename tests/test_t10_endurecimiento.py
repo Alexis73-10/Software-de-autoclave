@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.managers import catalogo_parametros as cp
+from tests.helpers.backend_doble import modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 PROGRAMAS = sorted(glob.glob(str(RAIZ / "src" / "autoclave" / "cycles" / "*" / "*.json")))
@@ -160,7 +161,7 @@ def test_programa_fuera_de_catalogo_queda_danado(tmp_path, monkeypatch):
 def cliente(tmp_path):
     from fastapi.testclient import TestClient
     from autoclave.core.managers.cycle_manager import Cycle
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     datos = json.loads(Path(PROGRAMAS[0]).read_text(encoding="utf-8"))
     ruta = tmp_path / "prog.json"
     ruta.write_text(json.dumps(datos), encoding="utf-8")
@@ -270,7 +271,7 @@ def test_audit_log_es_de_solo_anexar(tmp_path):
 
 def test_t11_liquidos_solo_en_equipos_con_liquidos(monkeypatch):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     ctx.sin_base_de_datos = False
     ctx.control_loop.bloqueo_configuracion = None
@@ -281,7 +282,7 @@ def test_t11_liquidos_solo_en_equipos_con_liquidos(monkeypatch):
     ctx.estado.get_flag.return_value = True
     ctx.cap.has_liquids = False
     srv, _ = cargar_servidor(ctx)
-    monkeypatch.setattr(srv.sc, "verificar_inicio", lambda *a: None)
+    monkeypatch.setattr(modulo_backend("rutas.ciclo").sc, "verificar_inicio", lambda *a: None)
     client = TestClient(srv.app)
     r = client.post("/cycle/start")
     assert r.status_code == 409 and r.json()["codigo"] == "carga_liquida_no_disponible"

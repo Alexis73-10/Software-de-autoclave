@@ -57,7 +57,7 @@ PRUEBAS = [
     dict(id="A-05", bloque="A", modo="seco", origen="B2 (tanda 4)",
          titulo="Ejecutable compilado: engrane, ajustes y cierre limpio",
          objetivo="El .exe (con `scipy` ya incluido) abre el menú de ajustes y se cierra sin dejar procesos.",
-         pre="`pyinstaller --noconfirm Autoclave.spec` ya ejecutado; `dist\\Autoclave\\Autoclave.exe` en el equipo.",
+         pre="`pyinstaller --noconfirm packaging\\Autoclave.spec` (desde la raíz) ya ejecutado; `dist\\Autoclave\\Autoclave.exe` en el equipo.",
          pasos=["Abrir el engrane: debe aparecer el menú de ajustes (ventana PySide) sin cierre inmediato.",
                 "Iniciar sesión como técnico/ingeniero y abrir Calibración (lee valores; guardar uno normal).",
                 "Entradas/Salidas: ver tarjetas de DI/DO/temperatura/presión con valores.",

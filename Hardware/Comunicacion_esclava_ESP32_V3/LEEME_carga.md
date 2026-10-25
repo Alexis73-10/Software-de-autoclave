@@ -1,7 +1,7 @@
 # Carga del firmware 1.0.0 (Comunicacion_esclava_ESP32_V3)
 
 Procedimiento de `docs/mis_plans/planeacion_firmware_1_5.md` §8. Lo hace Cristian. El firmware V2
-(`Hardware/Comunocacion_esclava_ESP32_V2/`) queda en el repositorio como retorno.
+(`Hardware/Comunicacion_esclava_ESP32_V2/`) queda en el repositorio como retorno.
 
 ## Requisitos
 
@@ -63,6 +63,6 @@ python -c "from autoclave.protocols.crc16 import agregar_crc; print(agregar_crc(
 
 ## Volver a V2
 
-Cargar `Hardware/Comunocacion_esclava_ESP32_V2/Comunicacion_esclava_ESP32_V2/Comunicacion_esclava_ESP32_V2.ino`.
+Cargar `Hardware/Comunicacion_esclava_ESP32_V2/Comunicacion_esclava_ESP32_V2/Comunicacion_esclava_ESP32_V2.ino`.
 Ojo: con V2 el software actual del PC **no funciona** (rechaza las tramas sin CRC y muestra
 `TARJETA_VERSION_INCOMPATIBLE`). V2 solo sirve como retorno junto con un software anterior.

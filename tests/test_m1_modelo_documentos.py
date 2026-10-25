@@ -107,7 +107,7 @@ def test_info_sistema_perfil_anterior_muestra_guion():
 @pytest.fixture
 def cliente():
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     ctx.profile.model_id, ctx.profile.serial_number = "SPK-SAT 45V2-LAB", "SN-0001"
     ctx.profile.created_at = datetime(2026, 10, 22, 9, 0)

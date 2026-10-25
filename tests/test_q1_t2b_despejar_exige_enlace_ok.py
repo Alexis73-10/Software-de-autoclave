@@ -10,7 +10,7 @@ import pytest
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import CIC_03, COM_02, COM_03
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cargar_servidor
+from tests.helpers.backend_doble import cargar_servidor
 
 
 def _am(estado_maquina=GlobalState.PREPARACION, enlace=False):

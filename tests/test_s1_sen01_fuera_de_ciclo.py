@@ -15,7 +15,7 @@ from autoclave.state_machine.alarms.catalogo import nombre_legible
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.ui_qml.domain import pantalla_ciclo
-from tests.alarmas_helpers import activaciones, codigos_activados, codigos_resueltos
+from tests.helpers.alarmas_helpers import activaciones, codigos_activados, codigos_resueltos
 from tests.test_adenda_estados import _make
 from tests.test_t3_endpoints_sensores import entorno  # noqa: F401  (fixture)
 

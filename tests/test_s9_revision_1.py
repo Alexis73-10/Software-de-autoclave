@@ -31,7 +31,7 @@ from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
 from tests.test_s9_estado_seguro_arranque import (
     _CFG, _Config, _abiertas, _arrancar, _coherencia, _estado_puerta, _loop, _programa,
     _sen10, _tick_es)
@@ -194,7 +194,7 @@ def prueba():
         estado_seguro_activo=True, recuperacion_pendiente=False, camara_segura=False)
     srv, _ = cargar_servidor(ctx)
     cab = cabecera(srv, "tecnico", "tec1")
-    srv._token_modo_prueba = cab["Authorization"].split()[1]
+    modulo_backend("rutas.io")._token_modo_prueba = cab["Authorization"].split()[1]
     return TestClient(srv.app, headers=cab), ctx
 
 

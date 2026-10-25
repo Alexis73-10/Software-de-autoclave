@@ -6,6 +6,7 @@ import importlib.util
 from pathlib import Path
 
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.helpers.backend_doble import archivos_backend
 
 _RAIZ = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 
@@ -20,7 +21,7 @@ def test_modulos_de_los_estados_retirados_no_existen():
 
 
 def test_la_suspension_no_usa_hibernacion():
-    for ruta in (_RAIZ / "ui_qml" / "bridge" / "standby.py", _RAIZ / "backend" / "server.py",
+    for ruta in (_RAIZ / "ui_qml" / "bridge" / "standby.py", *archivos_backend(),
                  _RAIZ / "services" / "domain" / "loop" / "control_loop.py"):
         assert "GlobalState.HIBERNACION" not in ruta.read_text(encoding="utf-8"), ruta
 

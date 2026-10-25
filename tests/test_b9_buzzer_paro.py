@@ -4,7 +4,7 @@ Evidencia de banco (Cristian): con el paro activo, cada vez que el buzzer
 reinicia su patrón se encienden un instante las salidas que estaban activas al
 pulsar el paro.
 
-Banco simulado: SerialLink real (con el doble de puerto de tests/serial_doble)
+Banco simulado: SerialLink real (con el doble de puerto de tests/helpers/serial_doble)
 conectado a un doble del firmware V3 que reproduce el .ino línea a línea en lo
 que importa aquí (registro sombra estadoOut1/estadoOut2, SET DOn, ALL_OFF,
 publicación de DO cada 500 ms), SetOutput real, BuzzerPlayer real y los
@@ -33,7 +33,7 @@ from autoclave.protocols.serial_link_config import SerialLinkConfig
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.falla import FallaState
-from tests.serial_doble import PuertoDoble, linea
+from tests.helpers.serial_doble import PuertoDoble, linea
 
 TICK = 0.5          # ControlLoop.interval de producción
 BUZZER = EstadoAutoclave.map_do["buzer_alarma"] + 1

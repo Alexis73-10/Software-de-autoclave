@@ -3,7 +3,7 @@
 import pytest
 import requests
 
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_pyside.services import auth_backend
 from autoclave.ui_pyside.services import renovacion_sesion as rs
 

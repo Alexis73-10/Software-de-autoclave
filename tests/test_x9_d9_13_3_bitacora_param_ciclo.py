@@ -23,6 +23,7 @@ import pytest
 from autoclave.core.managers.cycle_manager import CycleManager
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.helpers.backend_doble import fijar_en_backend, modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -91,7 +92,7 @@ def cm(tmp_path):
 @pytest.fixture
 def servidor(cm, tmp_path):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.cycle_manager = cm
     ctx.sin_base_de_datos = False
@@ -226,7 +227,7 @@ def _doble_falla(servidor):
     client, cm, ctx, srv = servidor
     c, previo, nuevo = _secado(cm)
     ctx.db.registrar_auditoria_lote = MagicMock(side_effect=sqlite3.OperationalError("locked"))
-    real = srv._escribir_json_programa
+    real = modulo_backend("rutas._comun")._escribir_json_programa
     llamadas = {"n": 0}
 
     def escribir(cycle, cambiar, **kw):
@@ -234,9 +235,9 @@ def _doble_falla(servidor):
         if llamadas["n"] >= 2:                      # la reversión del JSON falla
             raise OSError("disco lleno")
         real(cycle, cambiar, **kw)
-    srv._escribir_json_programa = escribir
+    fijar_en_backend("_escribir_json_programa", escribir)
     r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
-    srv._escribir_json_programa = real
+    fijar_en_backend("_escribir_json_programa", real)
     return r, c, previo, nuevo
 
 
@@ -275,13 +276,13 @@ def test_saf02_falla_solo_el_json_no_marca(servidor):
     archivo no cambió (escritura atómica): no hay nada sin registrar."""
     client, cm, ctx, srv = servidor
     c, previo, nuevo = _secado(cm)
-    real = srv._escribir_json_programa
+    real = modulo_backend("rutas._comun")._escribir_json_programa
 
     def escribir(cycle, cambiar, **kw):
         raise OSError("disco lleno")
-    srv._escribir_json_programa = escribir
+    fijar_en_backend("_escribir_json_programa", escribir)
     r = _patch(client, c.id, "secado", ["tiempo_secado"], nuevo)
-    srv._escribir_json_programa = real
+    fijar_en_backend("_escribir_json_programa", real)
     assert r.status_code == 503
     assert c.get_param("secado", "tiempo_secado") == previo
     assert _filas(ctx) == []

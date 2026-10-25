@@ -8,7 +8,7 @@
 #   confirmación si hay un valor editado sin guardar).
 # - Con la pila vacía, Atrás sale de OPCIONES (atrasPulsado: Main.qml vuelve a
 #   la pantalla desde la que se entró). Home sigue saliendo de todo.
-# Banco offscreen con backend doble (tests/opciones_qml_banco.py). Con
+# Banco offscreen con backend doble (tests/banco/opciones_qml_banco.py). Con
 # TANDA8_CAPTURAS=1 guarda docs/informes/tanda8/capturas/n8/N8_*.png.
 
 import os
@@ -17,7 +17,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from tests.opciones_qml_banco import RAIZ, correr  # noqa: E402
+from tests.banco.opciones_qml_banco import RAIZ, correr  # noqa: E402
 
 CAPTURAS_N8 = RAIZ / "docs" / "informes" / "tanda8" / "capturas" / "n8"
 

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from autoclave.core.runtime import progreso_ciclo as pc
 from autoclave.services.domain.logging import ticket_formatter as tf
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
-from tests import t12_e12_apoyo as ap
+from tests.helpers import t12_e12_apoyo as ap
 
 T_EST = 121.0          # banda de la Referencia: [120.9, 124.0]
 DENTRO = 121.5

@@ -11,6 +11,7 @@ import pytest
 
 from autoclave.core.runtime import calibracion_atm as ca
 from autoclave.devices.puertas.enum_doors import DoorState
+from tests.helpers.backend_doble import modulo_backend
 
 
 class Reloj:
@@ -277,7 +278,7 @@ def api(tmp_path):
     from autoclave.core.managers.config_manager import ConfigManager
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     c = ConfigManager(); c.load_config(); c.vincular_bd(ctx.db)
@@ -293,7 +294,7 @@ def api(tmp_path):
     srv, _ = cargar_servidor(ctx)
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     yield TestClient(srv.app), srv, ctx, cabecera
-    obj = srv._calibracion_atm_obj
+    obj = modulo_backend("rutas.mantenimiento")._calibracion_atm_obj
     if obj is not None:
         obj.cancelar()
     ctx.db.close()
@@ -360,7 +361,7 @@ def test_aplicacion_real_escribe_referencia(api):
     referencia (sin pasar por la API de parámetros) y audita."""
     client, srv, ctx, cab = api
     reloj = Reloj()
-    cal = srv._calibracion_atm()
+    cal = modulo_backend("rutas.mantenimiento")._calibracion_atm()
     cal._reloj = reloj
     ctx.estado.sensores_pres = {"pres_camara": 74.2}
     assert cal.iniciar("usuario_tecnico", "tecnico", hilo=False)[0]
@@ -381,7 +382,7 @@ def test_aplicacion_en_ciclo_se_revierte(api):
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     from autoclave.core.managers.config_manager import ErrorParametro
     with pytest.raises(ErrorParametro):
-        srv._aplicar_presion_atmosferica(74.0, "x")
+        modulo_backend("rutas.mantenimiento")._aplicar_presion_atmosferica(74.0, "x")
     assert ctx.config_manager.get("presion_atmosferica") == 75
     assert ctx.db.listar_parametros_sistema()["presion_atmosferica"]["valor"] == 75
 

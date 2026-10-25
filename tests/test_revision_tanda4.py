@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend.autenticacion import AlmacenTokens
 from autoclave.core.runtime.sesion_inactividad import PLAZO_TOKEN_BACKEND_S
 from autoclave.services.domain.logging.db_manager import DbManager
-from tests.backend_doble import cargar_servidor
+from tests.helpers.backend_doble import cargar_servidor, fijar_en_backend, modulo_backend
 
 
 class Reloj:
@@ -35,44 +35,44 @@ def srv_prueba(tmp_path):
     ctx.control_loop.bloqueo_maquina.return_value = threading.RLock()
     srv, _ = cargar_servidor(ctx)
     reloj = Reloj()
-    srv.tokens = AlmacenTokens(reloj=reloj)
-    dueno = srv.tokens.emitir("tec_dueno", "Dueño", "tecnico", False)
-    srv._token_modo_prueba = dueno.token
+    fijar_en_backend("tokens", AlmacenTokens(reloj=reloj))
+    dueno = modulo_backend("dependencias").tokens.emitir("tec_dueno", "Dueño", "tecnico", False)
+    modulo_backend("rutas.io")._token_modo_prueba = dueno.token
     return srv, ctx, db, reloj, dueno
 
 
 def test_dueno_vigente_el_vigilante_no_hace_nada(srv_prueba):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S - 1
-    assert srv._revisar_dueno_modo_prueba() is False
+    assert modulo_backend("rutas.io")._revisar_dueno_modo_prueba() is False
     ctx.control_loop.exit_test_mode.assert_not_called()
-    assert srv._token_modo_prueba == dueno.token
+    assert modulo_backend("rutas.io")._token_modo_prueba == dueno.token
 
 
 def test_dueno_caducado_el_vigilante_apaga_todo_y_lo_registra(srv_prueba):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
-    assert srv._revisar_dueno_modo_prueba() is True
+    assert modulo_backend("rutas.io")._revisar_dueno_modo_prueba() is True
     ctx.control_loop.exit_test_mode.assert_called_once()        # ALL_OFF y se reanuda
-    assert srv._token_modo_prueba is None
+    assert modulo_backend("rutas.io")._token_modo_prueba is None
     f = db.get_auditoria(evento="modo_prueba_sale")[0]
     assert f["usuario"] == "tec_dueno" and "caducada" in f["detalle"]["motivo"]
 
 
 def test_dueno_que_cerro_sesion_sin_salir_tambien_se_cierra(srv_prueba):
     srv, ctx, db, reloj, dueno = srv_prueba
-    srv.tokens.invalidar(dueno.token)
-    assert srv._revisar_dueno_modo_prueba() is True
+    modulo_backend("dependencias").tokens.invalidar(dueno.token)
+    assert modulo_backend("rutas.io")._revisar_dueno_modo_prueba() is True
 
 
 def test_sin_modo_prueba_o_sin_dueno_no_hace_nada(srv_prueba):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
     ctx.control_loop.test_mode_active = False
-    assert srv._revisar_dueno_modo_prueba() is False
-    srv._token_modo_prueba = None
+    assert modulo_backend("rutas.io")._revisar_dueno_modo_prueba() is False
+    modulo_backend("rutas.io")._token_modo_prueba = None
     ctx.control_loop.test_mode_active = True
-    assert srv._revisar_dueno_modo_prueba() is False
+    assert modulo_backend("rutas.io")._revisar_dueno_modo_prueba() is False
     ctx.control_loop.exit_test_mode.assert_not_called()
 
 
@@ -80,17 +80,17 @@ def test_el_vigilante_se_lanza_con_el_arranque(srv_prueba, monkeypatch):
     srv, *_ = srv_prueba
     lanzados = []
     monkeypatch.setattr(srv, "ejecutar_arranque", lambda *a, **k: None)
-    monkeypatch.setattr(srv, "_vigilar_dueno_modo_prueba", lambda *a, **k: lanzados.append(1))
+    monkeypatch.setattr(modulo_backend("rutas.io"), "_vigilar_dueno_modo_prueba", lambda *a, **k: lanzados.append(1))
     srv._hilo_arranque = None
-    srv._hilo_vigilancia_dueno = None
+    modulo_backend("rutas.io")._hilo_vigilancia_dueno = None
     srv.iniciar_arranque()
-    srv._hilo_vigilancia_dueno.join(2)
+    modulo_backend("rutas.io")._hilo_vigilancia_dueno.join(2)
     assert lanzados == [1]
 
 
 def test_el_vigilante_usa_un_plazo_monotonico_menor_que_la_sesion():
     import autoclave.backend.server as s
-    assert s.VIGILANCIA_DUENO_PRUEBA_S <= 5.0
+    assert modulo_backend("rutas.io").VIGILANCIA_DUENO_PRUEBA_S <= 5.0
 
 
 def test_tmg08_el_paro_registra_al_dueno_aunque_su_sesion_haya_caducado(srv_prueba):
@@ -111,7 +111,7 @@ def _cliente(srv):
 def test_saf03_el_tecnico_dueno_puede_forzar_su_propio_modo_prueba(srv_prueba):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1                       # su token caducó
-    nuevo = srv.tokens.emitir("tec_dueno", "Dueño", "tecnico", False)   # vuelve a entrar
+    nuevo = modulo_backend("dependencias").tokens.emitir("tec_dueno", "Dueño", "tecnico", False)   # vuelve a entrar
     r = _cliente(srv).post("/io/test/force-exit", json={"confirmar": True},
                            headers={"Authorization": f"Bearer {nuevo.token}"})
     assert r.status_code == 200 and r.json()["dueno"] == "tec_dueno"
@@ -120,7 +120,7 @@ def test_saf03_el_tecnico_dueno_puede_forzar_su_propio_modo_prueba(srv_prueba):
 def test_saf03_otro_tecnico_sigue_sin_poder(srv_prueba):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
-    otro = srv.tokens.emitir("tec_otro", "Otro", "tecnico", False)
+    otro = modulo_backend("dependencias").tokens.emitir("tec_otro", "Otro", "tecnico", False)
     r = _cliente(srv).post("/io/test/force-exit", json={"confirmar": True},
                            headers={"Authorization": f"Bearer {otro.token}"})
     assert r.status_code == 403 and r.json()["codigo"] == "rol_sin_permiso"
@@ -131,7 +131,7 @@ def test_saf03_otro_tecnico_sigue_sin_poder(srv_prueba):
 def test_saf06_la_confirmacion_exige_el_literal_true(srv_prueba, valor):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
-    ing = srv.tokens.emitir("ing", "Ing", "ingeniero", False)
+    ing = modulo_backend("dependencias").tokens.emitir("ing", "Ing", "ingeniero", False)
     r = _cliente(srv).post("/io/test/force-exit", json={"confirmar": valor},
                            headers={"Authorization": f"Bearer {ing.token}"})
     assert r.status_code == 422

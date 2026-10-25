@@ -16,7 +16,7 @@ from autoclave.backend.autenticacion import ControlIntentos
 from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cabecera, cargar_servidor, fijar_en_backend, modulo_backend, parche_en_backend
 
 
 def _h(clave):
@@ -318,7 +318,7 @@ def entorno_config(entorno, tmp_path):
     yaml_path.write_text(
         "calibration:\n  user:\n    temperature:\n      - gain: 1.0\n        offset: 0.0\n"
         "    pressure:\n      - gain: 1.3466\n        offset: -67.11\n", encoding="utf-8")
-    srv.CALIBRATION_PATH = yaml_path
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     params = {"secado": {"tiempo_secado": {"value": 10.0, "type": "float", "min": 0, "max": 120}}}
     otro = Cycle(cycle_id="otro", name="Otro", parameters={
         "secado": {"tiempo_secado": {"value": 10.0, "type": "float", "min": 0, "max": 120}}})
@@ -499,7 +499,7 @@ def test_parametro_cambia_en_memoria_con_lock_y_guarda_json_sin_lock(entorno_con
     lock = ctx.control_loop.bloqueo_maquina.return_value
     otro.source, otro._path = "user", "no_se_usa.json"
     guardado = []
-    with patch.object(srv, "_save_cycle_json",
+    with patch.object(modulo_backend("rutas.parametros_ciclo"), "_save_cycle_json",
                       side_effect=lambda c: guardado.append((lock.locked(),
                                                              c.get_param("secado", "tiempo_secado")))):
         assert _param(client, cabecera(srv, "ingeniero")).status_code == 200
@@ -653,11 +653,11 @@ def test_enter_revalida_el_token_dentro_del_lock(entorno):
     cab = cabecera(srv, "tecnico")
     token = cab["Authorization"].split()[1]
     ctx.control_loop.bloqueo_maquina.return_value = _LockQueInvalida(
-        lambda: srv.tokens.invalidar(token))
+        lambda: modulo_backend("dependencias").tokens.invalidar(token))
     r = client.post("/io/test/enter", headers=cab)
     assert r.status_code == 401
     ctx.control_loop.enter_test_mode.assert_not_called()
-    assert srv._token_modo_prueba is None
+    assert modulo_backend("rutas.io")._token_modo_prueba is None
 
 
 def test_logout_sale_del_modo_prueba_con_el_lock_tomado(entorno):
@@ -671,7 +671,7 @@ def test_logout_sale_del_modo_prueba_con_el_lock_tomado(entorno):
     ctx.control_loop.exit_test_mode.side_effect = lambda: tomado.append(lock.locked())
     assert client.post("/auth/logout", headers=cab).status_code == 200
     assert tomado == [True]
-    assert srv._token_modo_prueba is None
+    assert modulo_backend("rutas.io")._token_modo_prueba is None
     motivos = [f["detalle"]["motivo"] for f in _eventos(ctx.db, "modo_prueba_sale")]
     assert motivos == ["sesión cerrada"]
 
@@ -686,7 +686,7 @@ def test_cancelacion_por_paro_olvida_al_dueno_y_queda_en_la_bitacora(entorno):
     ctx.control_loop.test_mode_active = False   # el loop ya lo canceló
     aviso()
 
-    assert srv._token_modo_prueba is None
+    assert modulo_backend("rutas.io")._token_modo_prueba is None
     fila = _eventos(ctx.db, "modo_prueba_sale")[0]
     assert fila["usuario"] == "tec1"
     assert fila["detalle"] == {"motivo": "paro de emergencia"}
@@ -697,10 +697,10 @@ def test_cancelacion_por_paro_olvida_al_dueno_y_queda_en_la_bitacora(entorno):
 def test_aviso_de_paro_tardio_no_toca_un_modo_prueba_nuevo(entorno):
     client, ctx, srv = entorno
     aviso = srv._prueba_cancelada_por_paro   # lo registra el arranque (construir_control)
-    srv._token_modo_prueba = "otro"
+    modulo_backend("rutas.io")._token_modo_prueba = "otro"
     ctx.control_loop.test_mode_active = True
     aviso()
-    assert srv._token_modo_prueba == "otro"
+    assert modulo_backend("rutas.io")._token_modo_prueba == "otro"
     assert _eventos(ctx.db, "modo_prueba_sale") == []
 
 
@@ -719,14 +719,14 @@ def test_rechazo_por_estado_se_registra_con_el_lock_libre(entorno):
     client, ctx, srv = entorno
     ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     lock = ctx.control_loop.bloqueo_maquina.return_value
-    real = srv._log_desarrollo
+    real = modulo_backend("dependencias")._log_desarrollo
     tomado = []
 
     def registrar(*a, **k):
         tomado.append(lock.locked())
         return real(*a, **k)
 
-    with patch.object(srv, "_log_desarrollo", side_effect=registrar):
+    with parche_en_backend("_log_desarrollo", MagicMock(side_effect=registrar)):
         assert client.post("/outputs/reset").status_code == 409
         assert client.post("/io/test/enter", headers=cabecera(srv, "tecnico")).status_code == 409
     assert tomado == [False, False]

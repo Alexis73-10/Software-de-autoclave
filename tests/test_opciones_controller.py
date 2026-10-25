@@ -6,11 +6,11 @@
 
 import pytest
 
-from tests.opciones_qml_doble import COMUNES_T6
+from tests.helpers.opciones_qml_doble import COMUNES_T6
 
 pytest.importorskip("PySide6")
 
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 from autoclave.ui_qml.controllers.opciones_controller import OpcionesController
 
 

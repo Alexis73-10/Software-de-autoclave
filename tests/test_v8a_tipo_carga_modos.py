@@ -19,6 +19,7 @@ import pytest
 
 from autoclave.core.managers import catalogo_parametros as cp
 from autoclave.core.managers.cycle_manager import CycleManager
+from tests.helpers.backend_doble import fijar_en_backend, modulo_backend
 
 RAIZ = Path(__file__).resolve().parents[1]
 
@@ -147,7 +148,7 @@ def test_modo_directo_no_permitido_con_liquido(cm):
 @pytest.fixture
 def cliente(cm):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.cycle_manager = cm
     ctx.sin_base_de_datos = False
@@ -348,7 +349,7 @@ def test_bitacora_presenta_el_cambio_de_parametro_y_el_automatico():
 @pytest.fixture
 def servidor(cm):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.cycle_manager = cm
     ctx.sin_base_de_datos = False
@@ -360,10 +361,10 @@ def servidor(cm):
 def test_patch_serializado_hasta_terminar_la_bitacora(servidor):
     client, cm, ctx, srv = servidor
     tomado = []
-    ctx.db.registrar_auditoria_lote.side_effect = lambda *a, **k: tomado.append(srv._lock_param_ciclo.locked())
+    ctx.db.registrar_auditoria_lote.side_effect = lambda *a, **k: tomado.append(modulo_backend("dependencias")._lock_param_ciclo.locked())
     assert _patch(client, "liquidos", "globals", ["tipo_carga"], "solido").status_code == 200
     assert tomado and all(tomado)
-    assert not srv._lock_param_ciclo.locked()
+    assert not modulo_backend("dependencias")._lock_param_ciclo.locked()
 
 
 def test_reversion_no_pisa_un_cambio_posterior(servidor):
@@ -418,7 +419,7 @@ def _registrar_orden_de_locks(srv, ctx):
             yield
         finally:
             tenidos.remove("sm")
-    srv._lock_archivos = _Archivos()
+    fijar_en_backend("_lock_archivos", _Archivos())
     ctx.control_loop.bloqueo_maquina = bloqueo
     return violaciones
 
@@ -479,14 +480,14 @@ def test_fallo_al_escribir_el_json_revierte_sin_bitacora(servidor):
     el cambio tampoco queda en memoria ni en la bitácora."""
     client, cm, ctx, srv = servidor
     llamadas = {"n": 0}
-    real = srv._save_cycle_json
+    real = modulo_backend("rutas.parametros_ciclo")._save_cycle_json
 
     def guardar(cycle):
         llamadas["n"] += 1
         if llamadas["n"] == 1:
             raise OSError("disco lleno")
         real(cycle)
-    srv._save_cycle_json = guardar
+    modulo_backend("rutas.parametros_ciclo")._save_cycle_json = guardar
     r = _patch(client, "liquidos", "globals", ["tipo_carga"], "solido")
     assert r.status_code == 503
     c = cm.cycles["liquidos"]

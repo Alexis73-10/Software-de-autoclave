@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import requests
 
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.session_manager import SessionManager
 
 
 @pytest.fixture(autouse=True)
@@ -141,7 +141,7 @@ def test_barrido_toda_ruta_http_de_ui_pyside_existe_en_el_backend():
              for r in app.routes if hasattr(r, "methods") for m in r.methods]
     patron = re.compile(r"\.(get|post|patch|put|delete)\(\s*f?[\"'](/[^\"']*)[\"']")
     faltan = []
-    for carpeta in (raiz / "ui_pyside", raiz / "ui" / "service_ui"):
+    for carpeta in (raiz / "ui_pyside", raiz / "cliente"):
         for py in carpeta.rglob("*.py"):
             for metodo, ruta in patron.findall(py.read_text(encoding="utf-8")):
                 ruta = re.sub(r"\{[^}]+\}", "x", ruta)

@@ -16,7 +16,7 @@ from autoclave.backend.arranque.secuencia import ErrorArranque, ejecutar_arranqu
 from autoclave.backend.arranque.sin_bd import BdNoDisponible, BdNoDisponibleError
 from autoclave.backend.context import BackendContext
 from autoclave.installation.clock_guard import ClockTamperedError
-from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
+from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
 # ── secuencia con un contexto falso ──────────────────────────────────────────

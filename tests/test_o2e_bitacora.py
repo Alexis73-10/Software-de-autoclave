@@ -13,6 +13,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from autoclave.core.runtime import bitacora
+from tests.helpers.backend_doble import fuente_backend
 
 RAIZ = Path(__file__).resolve().parents[1] / "src" / "autoclave"
 
@@ -23,7 +24,7 @@ def api(tmp_path):
     from autoclave.core.managers.config_manager import ConfigManager
     from autoclave.core.runtime.unidades import ConfigUnidades
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     c = ConfigManager()
@@ -133,7 +134,7 @@ def test_textos_de_todos_los_eventos():
         for e in bitacora.EVENTOS:
             assert b["ev"][e] and b["tipo"][e], (lang, e)
     # todo evento literal que el backend audita tiene texto propio
-    fuente = (RAIZ / "backend" / "server.py").read_text(encoding="utf-8")
+    fuente = fuente_backend()
     usados = set(re.findall(r'_auditar\(\s*"([A-Za-z_]+)"', fuente))
     assert usados - set(bitacora.EVENTOS) == set()
 
@@ -184,7 +185,7 @@ FILAS = [
 
 def test_pantalla():
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     datos = {"filas": FILAS, "total": 27, "pagina": 1, "paginas": 3, "usuarios": ["ana_admin"],
              "tipos": ["login_ok"]}
     r = correr("bitacora", "tecnico", {"/audit_log": datos},

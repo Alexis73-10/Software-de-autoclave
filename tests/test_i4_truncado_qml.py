@@ -1,6 +1,6 @@
 """I4 (tanda 6): en inglés, a 1024 px de ancho, ninguna pantalla QML trunca ni
 desborda un texto visible. Con TANDA6_CAPTURAS=1 guarda también las capturas
-I4_en_*.png (las es/en completas: `python tests/i4_truncado_banco.py`)."""
+I4_en_*.png (las es/en completas: `python tests/banco/i4_truncado_banco.py`)."""
 
 import os
 
@@ -8,7 +8,7 @@ import pytest
 
 pytest.importorskip("PySide6")
 
-from tests.i4_truncado_banco import PANTALLAS, revisar  # noqa: E402
+from tests.banco.i4_truncado_banco import PANTALLAS, revisar  # noqa: E402
 
 
 @pytest.mark.parametrize("pantalla", PANTALLAS)

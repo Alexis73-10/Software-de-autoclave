@@ -15,7 +15,7 @@ import threading
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
-from autoclave.ui.service_ui.ui_service_backend import APAGADO_INCIERTO
+from autoclave.cliente.ui_service_backend import APAGADO_INCIERTO
 
 logger = logging.getLogger(__name__)
 

@@ -34,8 +34,12 @@
 #     calibrada después de reasignar. Un puerto analógico sin calibración se
 #     rechaza (SEN-01).
 #
-# Se importa al final de server.py (el nombre empieza por "server" para que
-# tests/backend_doble.py lo recargue junto con server.py).
+# Lo carga rutas/_comun.py mientras se importa server.py (ORG-12, tanda 15) y
+# sus rutas se registran al final de server.py con registrar(app). El nombre
+# empieza por "server" para que tests/helpers/backend_doble.py lo recargue
+# junto con server.py. Solo lee srv.<nombre> al atender peticiones y dentro
+# de registrar(): no debe leer srv a nivel de módulo (server.py aún no está
+# completo cuando se importa).
 
 import json
 import logging
@@ -51,11 +55,11 @@ from autoclave.backend import reinicio
 from autoclave.core.runtime import asignacion_io as aio
 from autoclave.core.runtime import io_names
 from autoclave.state_machine.machine.enum_global import GlobalState
-from autoclave.ui_pyside.services.roles import ROL_INGENIERO
+from autoclave.auth.roles import ROL_INGENIERO
 
 logger = logging.getLogger(__name__)
 
-# El server.py que está importando este módulo (se importa al final de él).
+# El server.py que está importando este módulo (a medio cargar: ver arriba).
 # Por sys.modules y no con `from autoclave.backend import server`: tras recargar
 # server.py (pruebas), el atributo del paquete seguiría apuntando al anterior.
 srv = sys.modules["autoclave.backend.server"]

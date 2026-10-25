@@ -70,7 +70,7 @@ def entorno(tmp_path):
     from autoclave.core.managers.cycle_manager import Cycle
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     db = DbManager(db_path=tmp_path / "t.db")
     ctx = MagicMock()
     ctx.db = db
@@ -96,7 +96,7 @@ def entorno(tmp_path):
 
 
 def _apertura(client, srv, valor=True):
-    from tests.backend_doble import cabecera
+    from tests.helpers.backend_doble import cabecera
     return client.patch("/cycle/parameter", headers=cabecera(srv, "ingeniero"),
                         json={"cycle_id": "p", "fase": "finalizacion",
                               "path": ["apertura_automatica"], "value": valor})

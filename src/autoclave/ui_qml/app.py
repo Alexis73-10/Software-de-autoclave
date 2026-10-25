@@ -24,8 +24,8 @@ from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
 from autoclave import i18n
-from autoclave.ui.service_ui.backend_client import BackendClient
-from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+from autoclave.cliente.backend_client import BackendClient
+from autoclave.cliente.ui_service_backend import UIServiceBackend
 from autoclave.services.domain.puertas.door_command_service import DoorCommandService
 from autoclave.ui_pyside.views.nuevo_usuario.puente import NuevoUsuarioBridge
 from autoclave.ui_qml.bridge.acciones_ciclos import AccionesCiclos

@@ -30,7 +30,7 @@ def _app():
 
 def _ventana(respuestas=None):
     _app()
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     from autoclave.ui_qml import sesion_backend as sb
     llamadas = []
 

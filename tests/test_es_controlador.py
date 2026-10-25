@@ -172,7 +172,7 @@ def test_restaurar_envia_destino():
 
 
 def test_permisos_siguen_rol_y_estado(monkeypatch):
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     c, _ = _con_datos()
     monkeypatch.setattr(SessionManager, "current_user", staticmethod(lambda: {"rol": "tecnico"}))
     assert c.puedeProbar is True and c.puedeCalibrar is True

@@ -22,7 +22,7 @@ INFO = {
 @pytest.fixture
 def cliente():
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     ctx.profile.model_id, ctx.profile.serial_number = "ACV-150", "ACV-2026-001"
     ctx.profile.created_at = datetime(2026, 10, 26, 9, 0)
@@ -82,7 +82,7 @@ def test_visible_para_todos(rol):
 
 def test_pantalla():
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     r = correr("info_sistema", "admin", {"/system/info": INFO},
                pasos=[{"leer": [("avisoEdicionBloqueada", "visible")], "captura": "O2d_1_info_sistema.png"}])
     assert r["avisos"] == []

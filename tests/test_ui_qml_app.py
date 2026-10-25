@@ -91,7 +91,7 @@ _SCRIPT_CARGA = textwrap.dedent(r"""
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
     from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401  (PanelTeclado)
 
@@ -168,7 +168,7 @@ _SCRIPT_DOS_PANTALLAS = textwrap.dedent(r"""
     from PySide6.QtQuick import QQuickWindow  # noqa: F401
     from PySide6.QtTest import QTest
     from autoclave.backend.actividad_ui import ActividadUI
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.standby import Standby
     from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401  (PanelTeclado)
 

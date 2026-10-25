@@ -33,7 +33,7 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml import app as _app  # noqa: F401  registra los controladores
     from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
     from autoclave.ui_qml import sesion_backend
-    from autoclave.ui.service_ui.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     from tests.test_contrato_autenticacion import _backend_real
 
     backend = _backend_real(pathlib.Path(tempfile.mkdtemp()))

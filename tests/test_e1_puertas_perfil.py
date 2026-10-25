@@ -14,7 +14,7 @@ from autoclave.installation.profile import numero_puertas, revisa_empaque
 from autoclave.state_machine.states.ciclo import CicloState, CicloResultado
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
-from tests.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
+from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
 def _perfil(door_count=2, door_type=DoorType.SIMPLE):

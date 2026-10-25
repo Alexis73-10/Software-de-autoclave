@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.alarms.catalogo import PRE_03, PRE_04
-from tests.alarmas_helpers import codigos_activados
+from tests.helpers.alarmas_helpers import codigos_activados
 
 
 def _make_preparacion(pres_camara, presion_admosferica=1013.0, rango=5.0):

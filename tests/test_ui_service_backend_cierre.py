@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import requests
 
-from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+from autoclave.cliente.ui_service_backend import UIServiceBackend
 
 
 def _make_service(backend):

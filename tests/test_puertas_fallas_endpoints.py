@@ -14,7 +14,7 @@ from autoclave.devices.puertas.simple_door import SimpleDoor
 from autoclave.services.domain.puertas.ser_puertas import ServicioPuertas
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.states.falla import FallaState
-from tests.backend_doble import cargar_servidor
+from tests.helpers.backend_doble import cargar_servidor, modulo_backend
 from tests.test_servicio_puertas import CONFIG, Estado, _avanzada
 
 
@@ -220,9 +220,9 @@ def test_status_sin_temperatura_de_chaqueta(entorno):
 def test_calibracion_por_nombre_sin_chaqueta_y_sin_correr_indices(entorno):
     _, _, _, _ = entorno
     from autoclave.backend import server
-    assert server._resolve_sensor_index("temperature", "temp_drenaje") == 4
+    assert modulo_backend("rutas.io")._resolve_sensor_index("temperature", "temp_drenaje") == 4
     with pytest.raises(Exception) as e:
-        server._resolve_sensor_index("temperature", "temp_chaqueta")
+        modulo_backend("rutas.io")._resolve_sensor_index("temperature", "temp_chaqueta")
     assert getattr(e.value, "status_code", None) == 404
 
 

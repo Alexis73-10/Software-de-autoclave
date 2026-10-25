@@ -180,7 +180,7 @@ def test_estado_seguro_sobrevive_a_set_active_cycle():
 
 # ── Endpoints ───────────────────────────────────────────────────────────────
 
-from tests.backend_doble import cargar_servidor                     # noqa: E402
+from tests.helpers.backend_doble import cargar_servidor                     # noqa: E402
 
 
 def _cliente(paro=False, confirmado=True):

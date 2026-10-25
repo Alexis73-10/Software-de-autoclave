@@ -14,7 +14,7 @@ from autoclave.protocols.serial_link import SerialLink
 from autoclave.protocols.serial_link_config import (
     SerialLinkConfig, cargar_config, config_desde_dict,
 )
-from tests.serial_doble import AI_OK, DI_OK, DO_OK, PuertoDoble, esperar, linea
+from tests.helpers.serial_doble import AI_OK, DI_OK, DO_OK, PuertoDoble, esperar, linea
 
 
 def _link(**cfg):

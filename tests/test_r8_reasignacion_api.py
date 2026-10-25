@@ -14,6 +14,7 @@ import pytest
 
 from autoclave.core.runtime import asignacion_io as aio
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.helpers.backend_doble import modulo_backend, parchear_en_backend, fuente_backend
 
 CLAVE = "Ingeniero-2026"
 
@@ -30,13 +31,13 @@ def api(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
     from autoclave.backend import reinicio
     from autoclave.services.domain.logging.db_manager import DbManager
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.sin_base_de_datos = False
     srv, _ = cargar_servidor(ctx)
-    ctx.db.crear_usuario("Inés", "ines", srv.hash_password(CLAVE), "ingeniero")
-    ctx.db.crear_usuario("Tomás", "tomas", srv.hash_password(CLAVE), "tecnico")
+    ctx.db.crear_usuario("Inés", "ines", modulo_backend("rutas.usuarios").hash_password(CLAVE), "ingeniero")
+    ctx.db.crear_usuario("Tomás", "tomas", modulo_backend("rutas.usuarios").hash_password(CLAVE), "tecnico")
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     ctx.control_loop.test_mode_active = False
     ctx.control_loop.apagando = False
@@ -325,9 +326,9 @@ def respaldo(api, tmp_path, monkeypatch):
     usb = tmp_path / "usb"; usb.mkdir()
     calib = tmp_path / "calibration.yaml"
     calib.write_bytes(Path(calibration_path()).read_bytes())
-    monkeypatch.setattr(srv, "CALIBRATION_PATH", calib)
-    monkeypatch.setattr(srv, "_unidades_usb", lambda: [{"ruta": str(usb), "libre_bytes": 8e9}])
-    monkeypatch.setattr(srv, "_version_sw", lambda: "1.2.0")
+    parchear_en_backend(monkeypatch, "CALIBRATION_PATH", calib)
+    monkeypatch.setattr(modulo_backend("rutas.respaldo"), "_unidades_usb", lambda: [{"ruta": str(usb), "libre_bytes": 8e9}])
+    monkeypatch.setattr(modulo_backend("rutas.respaldo"), "_version_sw", lambda: "1.2.0")
     return cliente, srv, ctx, cab, usb
 
 
@@ -472,7 +473,7 @@ def test_verificar_rechazado_con_una_asignacion_guardada_que_aun_no_rige(api):
 def test_ganchos_en_server():
     """El modo prueba y el PATCH de calibración registran la evidencia; restaurar
     «último» se filtra por puerto."""
-    texto = (Path(__file__).resolve().parents[1] / "src/autoclave/backend/server.py").read_text(encoding="utf-8")
+    texto = fuente_backend()
     assert "_reasignacion.evidencia_do(clave)" in texto
     assert "_reasignacion.evidencia_ai(tipo, sensor)" in texto
     assert "_reasignacion.ultimo_es_del_puerto_vigente(tipo, sensor, filas[0])" in texto
@@ -599,7 +600,7 @@ def test_restaurar_calibracion_anula_la_evidencia_y_guarda_el_puerto(api):
     assert ctx.asignacion_evidencia == {"pres_camara": 13}
     sr.anular_evidencia_ai("pressure", "pres_camara")
     assert ctx.asignacion_evidencia == {}
-    texto = (Path(__file__).resolve().parents[1] / "src/autoclave/backend/server.py").read_text(encoding="utf-8")
+    texto = fuente_backend()
     assert "_reasignacion.anular_evidencia_ai(tipo, sensor)" in texto
     assert '"accion": f"restaurar_{destino}",\n                   "puerto":' in texto
 
@@ -618,7 +619,7 @@ def test_restaurar_respaldo_de_calibracion_anula_toda_evidencia_ai(api):
     sr.anular_evidencias_ai()
     assert ctx.asignacion_evidencia == {"vapor_camara": 25}
     raiz = Path(__file__).resolve().parents[1] / "src/autoclave/backend"
-    texto = (raiz / "server.py").read_text(encoding="utf-8")
+    texto = fuente_backend()
     i_anula = texto.index("_reasignacion.anular_evidencia_ai(tipo, sensor)")
     i_escribe = texto.index('nota=f"restaurada ({destino})"')
     assert i_anula < i_escribe

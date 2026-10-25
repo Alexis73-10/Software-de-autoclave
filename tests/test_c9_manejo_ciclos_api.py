@@ -6,6 +6,7 @@ ingeniero (antes el ingeniero podía en CICLO); nunca se borra uno de fábrica."
 import pytest
 
 from tests.test_o1_gestion_programas import api, cm, _estado  # noqa: F401  (fixtures)
+from tests.helpers.backend_doble import parchear_en_backend
 
 
 def _eventos(ctx):
@@ -81,7 +82,7 @@ def test_las_entradas_mostradas_conservan_la_excepcion_del_ingeniero(api, monkey
     # D9-10 solo cambia crear/duplicar/habilitar/borrar; las entradas mostradas
     # (Parámetros del ciclo) siguen como antes: el ingeniero también en CICLO
     client, srv, ctx, cabecera = api
-    monkeypatch.setattr(srv, "_ai_habilitadas", lambda: ["temp_camara", "pres_camara"])
+    parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: ["temp_camara", "pres_camara"])
     _estado(ctx, "CICLO")
     r = client.put("/cycle/display-inputs", headers=cabecera(srv, "ingeniero"),
                    json={"programa": 1, "entradas": ["temp_camara"]})

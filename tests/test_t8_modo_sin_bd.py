@@ -15,6 +15,7 @@ from autoclave.services.domain.logging.cycle_logger import CycleLogger
 from autoclave.services.domain.logging.ticket_formatter import format_header
 from autoclave.state_machine.alarms.catalogo import DEFINICIONES, OPERANDO_SIN_BD
 from autoclave.state_machine.machine.enum_global import GlobalState
+from tests.helpers.backend_doble import fijar_en_backend
 
 UUID = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
@@ -250,7 +251,7 @@ def test_ticket_sin_registro():
 
 def test_calibracion_sin_auditoria_se_revierte(tmp_path):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     yaml_path = tmp_path / "calibration.yaml"
     original = textwrap.dedent("""
         calibration:
@@ -266,7 +267,7 @@ def test_calibracion_sin_auditoria_se_revierte(tmp_path):
     ctx = MagicMock()
     ctx.db.registrar_auditoria.side_effect = sqlite3.OperationalError("disk I/O error")
     srv, _ = cargar_servidor(ctx)
-    srv.CALIBRATION_PATH = yaml_path
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
     r = client.patch("/calibration/pressure/pres_camara", json={
         "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0})
@@ -284,7 +285,7 @@ def test_puente_y_comando_sin_registro():
     pytest.importorskip("PySide6")
     from PySide6.QtCore import QCoreApplication
     QCoreApplication.instance() or QCoreApplication(sys.argv)
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.comandos_ciclo import ComandoIniciarCiclo
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
 
@@ -318,7 +319,7 @@ def test_puente_y_comando_sin_registro():
 
 
 def test_start_cycle_envia_la_confirmacion():
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     ui = UIServiceBackend.__new__(UIServiceBackend)
     ui.backend = MagicMock()
     assert ui.start_cycle(confirmar_sin_registro=True) is True
@@ -387,13 +388,13 @@ def test_saf01_alarma_sis03_desde_el_contexto():
 
 def test_saf05_calibracion_sin_bd_no_toca_el_archivo(tmp_path):
     from fastapi.testclient import TestClient
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     yaml_path = tmp_path / "calibration.yaml"
     yaml_path.write_text("calibration: {}" + chr(10), encoding="utf-8")
     ctx = MagicMock()
     ctx.sin_base_de_datos = True
     srv, _ = cargar_servidor(ctx)
-    srv.CALIBRATION_PATH = yaml_path
+    fijar_en_backend("CALIBRATION_PATH", yaml_path)
     client = TestClient(srv.app, headers=cabecera(srv, "ingeniero"))
     r = client.patch("/calibration/pressure/pres_camara", json={
         "shown_low": 12.0, "real_low": 9.54, "shown_high": 322.0, "real_high": 300.0})

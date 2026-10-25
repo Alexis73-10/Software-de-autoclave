@@ -8,11 +8,12 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock
 
 import pytest
+from tests.helpers.backend_doble import modulo_backend
 
 
 @pytest.fixture
 def srv_ctx():
-    from tests.backend_doble import cargar_servidor
+    from tests.helpers.backend_doble import cargar_servidor
     ctx = MagicMock()
     srv, _ = cargar_servidor(ctx)
     return srv, ctx
@@ -22,18 +23,18 @@ def test_info_reloj_y_aviso_m1_01(srv_ctx):
     srv, ctx = srv_ctx
     tz = timezone(timedelta(hours=-5))
     ctx.profile.created_at = datetime(2026, 10, 26, 9, 0)
-    r = srv._info_reloj(datetime(2026, 10, 21, 8, 0, tzinfo=tz))
+    r = modulo_backend("rutas.sistema")._info_reloj(datetime(2026, 10, 21, 8, 0, tzinfo=tz))
     assert r["zona"].startswith("UTC-05:00") and r["utc_offset_min"] == -300
     assert r["instalacion"].startswith("2026-10-26") and r["reloj_anterior_instalacion"] is True
     assert r["ajuste_habilitado"] is False
-    r = srv._info_reloj(datetime(2026, 10, 27, 8, 0, tzinfo=tz))
+    r = modulo_backend("rutas.sistema")._info_reloj(datetime(2026, 10, 27, 8, 0, tzinfo=tz))
     assert r["reloj_anterior_instalacion"] is False
 
 
 def test_sin_perfil_no_avisa(srv_ctx):
     srv, ctx = srv_ctx
     ctx.profile = None
-    r = srv._info_reloj()
+    r = modulo_backend("rutas.sistema")._info_reloj()
     assert r["instalacion"] is None and r["reloj_anterior_instalacion"] is False
 
 
@@ -78,7 +79,7 @@ def test_controlador_aviso_local():
 @pytest.mark.parametrize("rol,anterior", [("admin", False), ("tecnico", True)])
 def test_pantalla(rol, anterior):
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_doble import correr
+    from tests.helpers.opciones_qml_doble import correr
     datos = {"zona": "UTC-05:00 (Hora est. Pacífico SA)", "reloj_anterior_instalacion": anterior,
              "instalacion": "2026-10-26T09:00:00" if anterior else "2026-10-01T09:00:00"}
     r = correr("fecha_hora", rol, {"/system/time": datos},

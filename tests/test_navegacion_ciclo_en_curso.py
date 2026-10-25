@@ -24,7 +24,7 @@ _SCRIPT = textwrap.dedent(r"""
     from PySide6.QtQml import QQmlApplicationEngine
     from autoclave.ui_qml.bridge import i18n_qml  # noqa: F401  (singleton I18n)
     from PySide6.QtTest import QTest
-    from autoclave.ui.service_ui.ui_service_backend import UIServiceBackend
+    from autoclave.cliente.ui_service_backend import UIServiceBackend
     from autoclave.ui_qml.bridge.ui_bridge import UiBridge
     from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401
 

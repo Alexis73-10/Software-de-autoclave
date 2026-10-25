@@ -3,8 +3,8 @@
 # backend exige token y rol en calibración, modo prueba y salidas; sin token
 # esas operaciones responden 401 y no se ejecutan.
 
-from autoclave.ui.service_ui.backend_client import BackendClient as _BackendClientBase
-from autoclave.ui.service_ui.session_manager import SessionManager
+from autoclave.cliente.backend_client import BackendClient as _BackendClientBase
+from autoclave.cliente.session_manager import SessionManager
 
 
 class BackendClient(_BackendClientBase):

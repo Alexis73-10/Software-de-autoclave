@@ -11,6 +11,7 @@ import pytest
 
 from autoclave.core.runtime import estado_red as er
 from autoclave.core.runtime.config_correo_equipo import ConfigCorreoEquipo, ErrorCorreo, normalizar
+from tests.helpers.backend_doble import modulo_backend
 
 NETSH_ES = """
 Hay 1 interfaz en el sistema:
@@ -110,7 +111,7 @@ def api(tmp_path, monkeypatch):
     from autoclave.services.domain.logging.db_manager import DbManager
     from autoclave.state_machine.machine.enum_global import GlobalState
     from autoclave.ui_qml.exportacion.config_correo import ConfigCorreo
-    from tests.backend_doble import cabecera, cargar_servidor
+    from tests.helpers.backend_doble import cabecera, cargar_servidor
     ctx = MagicMock()
     ctx.db = DbManager(db_path=tmp_path / "t.db")
     ctx.sin_base_de_datos = False
@@ -120,11 +121,11 @@ def api(tmp_path, monkeypatch):
     srv, _ = cargar_servidor(ctx)
     ctx.estado.get_machine_state.return_value = GlobalState.PREPARADO
     enviados = []
-    monkeypatch.setattr(srv, "_cargar_config_correo", lambda: ConfigCorreo(
+    monkeypatch.setattr(modulo_backend("rutas.reportes"), "_cargar_config_correo", lambda: ConfigCorreo(
         remitente="r@x.co", servidor="smtp.x.co", puerto=587,
         destinos=ctx.config_correo_equipo.leer()["destinatarios"], contrasena="SECRETA-123",
         envio_activo=ctx.config_correo_equipo.leer()["envio_activo"]))
-    monkeypatch.setattr(srv, "_enviar_correo", lambda config, mensaje: enviados.append(mensaje))
+    monkeypatch.setattr(modulo_backend("rutas.reportes"), "_enviar_correo", lambda config, mensaje: enviados.append(mensaje))
     yield TestClient(srv.app), srv, ctx, cabecera, enviados
     ctx.db.close()
 
@@ -217,7 +218,7 @@ def test_prueba_rechazos(api, monkeypatch):
 
     def falla(config, mensaje):
         raise OSError("SECRETA-123 conexión rechazada")
-    monkeypatch.setattr(srv, "_enviar_correo", falla)
+    monkeypatch.setattr(modulo_backend("rutas.reportes"), "_enviar_correo", falla)
     r = client.post("/email/test", headers=h)
     assert r.status_code == 502 and r.json()["codigo"] == "envio_fallido"
     assert "SECRETA" not in r.text
@@ -278,7 +279,7 @@ if salida["editable"]:
 @pytest.mark.parametrize("rol,editable", [("admin", True), ("ingeniero", True), ("tecnico", False)])
 def test_pantalla_por_rol(rol, editable):
     pytest.importorskip("PySide6")
-    from tests.opciones_qml_banco import correr, quieren_capturas
+    from tests.banco.opciones_qml_banco import correr, quieren_capturas
     d = correr(rol, PASOS, RUTAS, capturas=quieren_capturas() and rol != "ingeniero")
     assert d["avisos"] == []
     assert d["editable"] is editable and d["dest"] == 2
