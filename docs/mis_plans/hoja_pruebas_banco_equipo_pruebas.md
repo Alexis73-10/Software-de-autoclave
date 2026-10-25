@@ -141,7 +141,7 @@
 | A-N11-04 | Asociación de los 2 táctiles con sus pantallas desde el Setup | En seco (sin vapor) | N11 D11-5 (tanda 11) |
 | A-N11-05 | Reinicio del PC: la asociación de los táctiles se conserva; el desinstalador la revierte | En seco (sin vapor) | N11 D11-5 (tanda 11) |
 | A-T12-01 | Tras instalar la H: Bowie & Dick migrado de 99 a 9 con aviso SIS-06 en Preciclo y campana | En seco (sin vapor) | J12 C-04.2/C-04.4 (tanda 12) |
-| E-T12-01 | Chaqueta en ciclo: consigna calculada (134 °C / 9 → ≈ 326,3 kPa, banda ±10) vs presión real | En operación (vapor) | J12 C-05 (tanda 12) |
+| E-T12-01 | Chaqueta en ciclo: consigna calculada (134 °C / 9 → ≈ 328,2 kPa, banda ±10) vs presión real | En operación (vapor) | J12 C-05 (tanda 12) |
 | E-T12-02 | Entrada a ESTABLE_PREESTERILIZACION con la presión de saturación, sin aire | En operación (vapor) | P12 C-01/C-02 (tanda 12) |
 | E-T12-03 | Esterilización sin conmutación rápida RECUPERACION ↔ PWM | En operación (vapor) | E12 C-07/C-08 (tanda 12) |
 | E-T12-04 | Bowie & Dick de usuario con `presion_add` 9 | En operación (vapor) | J12 C-04.1 (tanda 12) |
@@ -2112,16 +2112,16 @@ Todas en el **PC de prueba** (no en el equipo del autoclave hasta aprobarlas), c
 
 ## Bloque T12. Tanda 12: calentamiento, esterilización y chaqueta (lunes 26-oct)
 
-Con la compilación **H** instalada encima de la G (Actualizar, conserva los datos). Orden: A-T12-01 en seco; luego E-T12-04 (Bowie & Dick, primer ciclo del día con la cámara vacía), E-T12-01 a E-T12-03 durante un **Instrumental 134 de usuario** (134 °C, `presion_add_esterilizacion` 9, 7 min) y, solo con esos aprobados, F-T12-01 y F-T12-02. Tener a mano el log del backend (`logs/`) del día: casi todo lo que se pide anotar sale de sus líneas. Valores calculados con la ecuación de `steam.py`: `Psat(134) = 302,3 kPa`, `Psat(134,5) = 306,7 kPa`, `Psat(121) = 204,3 kPa`. Presiones siempre en kPa absolutos.
+Con la compilación **H** instalada encima de la G (Actualizar, conserva los datos). Orden: A-T12-01 en seco; luego E-T12-04 (Bowie & Dick, primer ciclo del día con la cámara vacía), E-T12-01 a E-T12-03 durante un **Instrumental 134 de usuario** (134 °C, `presion_add_esterilizacion` 9, 7 min) y, solo con esos aprobados, F-T12-01 y F-T12-02. Tener a mano el log del backend (`logs/`) del día: casi todo lo que se pide anotar sale de sus líneas. Valores calculados con `steam.py`, que desde la tanda 13 usa IAPWS-IF97 (compilación I): `Psat(134) = 304,2 kPa`, `Psat(134,5) = 308,7 kPa`, `Psat(121) = 205,0 kPa`. Con la H (fórmula anterior) las cifras eran ≈ 2 kPa menores. Presiones siempre en kPa absolutos.
 
 **Importante (sesión principal, al unir):** la actualización conserva los programas de usuario de la G y solo migra lo que falta o lo inválido. Por eso, en el equipo, `brecha_segura_temperatura` de los programas de usuario **sigue en 0,3** (el 1,0 de C-07.1 solo llega a los programas nuevos o de fábrica). Antes del primer ciclo, anotar el valor en Opciones › Parámetros del ciclo › Esterilización. Si se quiere probar C-07.1, cambiarlo a mano a 1,0 en la copia de prueba. Con 1,0 rige la observación del techo de E-T12-03.
 
-Programas de usuario de la H: Instrumental 134 → techo de cámara en esterilización 311,3 kPa y consigna de chaqueta ≈ 326,3 kPa; Bowie & Dick (134,5 °C / 9) → techo 315,7 kPa y consigna ≈ 330,7 kPa; Instrumental 121 (121 °C / 9) → techo 213,3 kPa y consigna ≈ 228,3 kPa.
+Programas de usuario de la H: Instrumental 134 → techo de cámara en esterilización 313,2 kPa y consigna de chaqueta ≈ 328,2 kPa; Bowie & Dick (134,5 °C / 9) → techo 317,7 kPa y consigna ≈ 332,7 kPa; Instrumental 121 (121 °C / 9) → techo 214,0 kPa y consigna ≈ 229,0 kPa.
 
 ### A-T12-01 — Tras instalar la H: Bowie & Dick migrado de 99 a 9 con aviso SIS-06 en Preciclo y campana
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** J12 C-04.2/C-04.4 (tanda 12)
-- **Objetivo:** El Bowie & Dick de usuario de la G traía `presion_add_calentamiento` 99 (techo 405,7 kPa, por encima del alivio de 385). Al cargarlo, la H lo baja a 9, lo deja en la bitácora de auditoría y muestra un aviso no bloqueante (SIS-06, programa corregido por migración) en la bandeja de Preciclo y en la campana. La chaqueta 350/25 de los programas de usuario se conserva (válida, con advertencia).
+- **Objetivo:** El Bowie & Dick de usuario de la G traía `presion_add_calentamiento` 99 (techo 407,7 kPa, por encima del alivio de 385). Al cargarlo, la H lo baja a 9, lo deja en la bitácora de auditoría y muestra un aviso no bloqueante (SIS-06, programa corregido por migración) en la bandeja de Preciclo y en la campana. La chaqueta 350/25 de los programas de usuario se conserva (válida, con advertencia).
 - **Precondiciones:** G instalada con sus programas de usuario sin tocar. Anotar antes, en Opciones › Parámetros del ciclo › Bowie & Dick: `presion_add_calentamiento` (debe ser 99), `presion_add_esterilizacion`, `presion_chaqueta` / `rango_presion_chaqueta` (350 / 25). Sesión de técnico o ingeniero.
 - **Pasos:**
   1. Instalar la H con el Setup (Actualizar) y abrir Autoclave.
@@ -2137,10 +2137,10 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### E-T12-01 — Chaqueta en ciclo: consigna calculada (134 °C / 9 → ≈ 326,3 kPa, banda ±10) vs presión real
+### E-T12-01 — Chaqueta en ciclo: consigna calculada (134 °C / 9 → ≈ 328,2 kPa, banda ±10) vs presión real
 
 - **Modo:** En operación (vapor)  ·  **Origen:** J12 C-05 (tanda 12)
-- **Objetivo:** En CICLO la chaqueta deja de usar `presion_chaqueta` y sigue la consigna calculada `max(Psat(T_est + 1,5), Psat(T_est) + presion_add_esterilizacion + 15)`. Para Instrumental 134 de usuario: `max(Psat(135,5) = 315,7; 302,3 + 9 + 15 = 326,3)` = **326,3 kPa** (≈ 136,6 °C). `vapor_chaqueta` enciende bajo 316,3 kPa y apaga sobre 336,3 kPa; dentro, no cambia. En PREPARADO/PREPARACION sigue rigiendo `presion_chaqueta` 350 ± 25.
+- **Objetivo:** En CICLO la chaqueta deja de usar `presion_chaqueta` y sigue la consigna calculada `max(Psat(T_est + 1,5), Psat(T_est) + presion_add_esterilizacion + 15)`. Para Instrumental 134 de usuario: `max(Psat(135,5) = 317,8; 304,2 + 9 + 15 = 328,2)` = **328,2 kPa** (≈ 136,6 °C). `vapor_chaqueta` enciende bajo 318,2 kPa y apaga sobre 338,2 kPa; dentro, no cambia. En PREPARADO/PREPARACION sigue rigiendo `presion_chaqueta` 350 ± 25.
 - **Precondiciones:** Instrumental 134 de usuario; suministro de vapor regulado (≈ 40 psig, ≈ 350 kPa abs); log del backend accesible.
 - **Pasos:**
   1. En PREPARADO anotar la presión de chaqueta (debe rondar 350 kPa, la válvula de chaqueta queda casi siempre abierta: el objetivo coincide con el suministro).
@@ -2148,7 +2148,7 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
   3. Durante CALENTAMIENTO y ESTERILIZACION registrar cada minuto la presión de chaqueta y el estado de Vapor chaqueta (pantalla o LED de la tarjeta).
   4. Anotar la presión mínima y máxima de chaqueta en la meseta y las presiones a las que la válvula enciende y apaga.
   5. En SECADO y en el enfriamiento comprobar que el control de chaqueta es el de antes (secado excluido).
-- **Resultado esperado:** Paso 2: consigna 326,3 ± 0,2 kPa en el log. Paso 3: al entrar a CICLO desde ~350 kPa la válvula queda cerrada hasta bajar de 316,3 kPa; luego enciende bajo 316,3 y apaga sobre 336,3; la presión de chaqueta queda en 316–336 kPa (con la inercia puede pasar unos kPa). Nunca sobre 385. Paso 5: sin cambios respecto a la G.
+- **Resultado esperado:** Paso 2: consigna 328,2 ± 0,2 kPa en el log. Paso 3: al entrar a CICLO desde ~350 kPa la válvula queda cerrada hasta bajar de 318,2 kPa; luego enciende bajo 318,2 y apaga sobre 338,2; la presión de chaqueta queda en 318–338 kPa (con la inercia puede pasar unos kPa). Nunca sobre 385. Paso 5: sin cambios respecto a la G.
 - **Criterio de aprobado/fallo:** Aprobado si la consigna del log coincide con la calculada y los encendidos/apagados ocurren en los bordes de la banda ±10. Si la presión real de chaqueta no llega a 316 kPa con la válvula abierta, anotar la presión de suministro (caso válvula siempre abierta, C-05.5).
 - **Consigna en el log:** ________ kPa · **Chaqueta mín / máx en meseta:** ________ / ________ kPa · **ON a / OFF a:** ________ / ________ kPa
 - **Valor observado:** ______________________________________________
@@ -2158,14 +2158,14 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
 ### E-T12-02 — Entrada a ESTABLE_PREESTERILIZACION con la presión de saturación, sin aire
 
 - **Modo:** En operación (vapor)  ·  **Origen:** P12 C-01/C-02 (tanda 12)
-- **Objetivo:** `presion_add_calentamiento` ya es solo techo: la fase entra a sostener con `T ≥ 134,0 °C` y `P ≥ Psat(134) − 2 = 300,3 kPa` (antes exigía `Psat + presion_add`, 313,3 kPa con 11). Además, con sólidos, la ventana exige coherencia `|Tsat(P) − T| ≤ 1,0 K`: presión de vapor saturado sin aire. Techo de calentamiento: `Psat(134) + 11 = 313,3 kPa` (no 2 × 11). Corte por calidad de vapor desde 131,0 °C (T_obj − 3 K, antes 97 %).
+- **Objetivo:** `presion_add_calentamiento` ya es solo techo: la fase entra a sostener con `T ≥ 134,0 °C` y `P ≥ Psat(134) − 2 = 302,2 kPa` (antes exigía `Psat + presion_add`, 315,2 kPa con 11). Además, con sólidos, la ventana exige coherencia `|Tsat(P) − T| ≤ 1,0 K`: presión de vapor saturado sin aire. Techo de calentamiento: `Psat(134) + 11 = 315,2 kPa` (no 2 × 11). Corte por calidad de vapor desde 131,0 °C (T_obj − 3 K, antes 97 %).
 - **Precondiciones:** Mismo ciclo que E-T12-01 (Instrumental 134 de usuario, sólido, con prevacío).
 - **Pasos:**
   1. Registrar temperatura del Principal y presión de cámara cada 15 s desde 128 °C hasta el paso a ESTERILIZACION.
   2. Buscar en el log la línea de entrada a ESTABLE_PREESTERILIZACION y las de coherencia (Tsat(P), T y diferencia). Anotar T y P en la entrada.
   3. Anotar si hubo reinicios de la ventana o el timeout de recuperación, y su motivo (fuera de banda o coherencia).
   4. Calcular, para el momento de la entrada, `Tsat(P) − T`.
-- **Resultado esperado:** Entrada con T ≈ 134,0–134,5 °C y P ≈ 300–307 kPa (no ≈ 313); diferencia `Tsat(P) − T` dentro de ±1 K durante la ventana (3 s); la presión nunca pasa de 313,3 kPa en el calentamiento; el paso a ESTERILIZACION sin reinicios repetidos.
+- **Resultado esperado:** Entrada con T ≈ 134,0–134,5 °C y P ≈ 302–309 kPa (no ≈ 315); diferencia `Tsat(P) − T` dentro de ±1 K durante la ventana (3 s); la presión nunca pasa de 315,2 kPa en el calentamiento; el paso a ESTERILIZACION sin reinicios repetidos.
 - **Criterio de aprobado/fallo:** Aprobado si entra con la presión de saturación (no con la de antes) y la diferencia T–P queda dentro de 1 K. Si la diferencia es positiva y mayor de 1 K de forma sostenida (presión de más para la temperatura), anotarlo: indica aire residual (revisar prevacío) y es justo lo que C-02 debe impedir.
 - **T / P en la entrada:** ________ °C / ________ kPa · **Tsat(P) − T:** ________ K · **Reinicios de ventana:** ________
 - **Valor observado:** ______________________________________________
@@ -2175,14 +2175,14 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
 ### E-T12-03 — Esterilización sin conmutación rápida RECUPERACION ↔ PWM
 
 - **Modo:** En operación (vapor)  ·  **Origen:** E12 C-07/C-08 (tanda 12)
-- **Objetivo:** La fase entra a RECUPERACION si `T < 134 + brecha` o `P < 300,8 kPa`, y vuelve a PWM solo con `T ≥ 134 + brecha + 0,3` **y** `P ≥ 301,8 kPa` (histéresis). Con la brecha de 0,3 que conservan los programas de usuario: entrada bajo 134,3 °C y salida desde 134,6 °C. Con 1,0: entrada bajo 135,0 °C y salida desde 135,3 °C. En RECUPERACION el vapor también se corta en el techo `P_control_max = 311,3 kPa` y no vuelve a abrir hasta bajar de 309,3 kPa (histéresis de 2 kPa agregada al unir, DECISIÓN SIN CONFIRMAR). Las fallas (temp/pres alta/baja y saturación) exigen 5 s continuos, no 3 lecturas.
+- **Objetivo:** La fase entra a RECUPERACION si `T < 134 + brecha` o `P < 302,7 kPa`, y vuelve a PWM solo con `T ≥ 134 + brecha + 0,3` **y** `P ≥ 303,7 kPa` (histéresis). Con la brecha de 0,3 que conservan los programas de usuario: entrada bajo 134,3 °C y salida desde 134,6 °C. Con 1,0: entrada bajo 135,0 °C y salida desde 135,3 °C. En RECUPERACION el vapor también se corta en el techo `P_control_max = 313,2 kPa` y no vuelve a abrir hasta bajar de 311,2 kPa (histéresis de 2 kPa agregada al unir, DECISIÓN SIN CONFIRMAR). Las fallas (temp/pres alta/baja y saturación) exigen 5 s continuos, no 3 lecturas.
 - **Precondiciones:** Mismo ciclo (Instrumental 134 de usuario, 7 min de meseta).
 - **Pasos:**
   1. Durante la meseta, registrar cada 15 s T, P y el estado de Vapor cámara (pantalla, o LED de la salida en la tarjeta); en el log buscar los cambios RECUPERACION ↔ PWM_ACTIVO si se registran.
   2. Durante 1 minuto en la mitad de la meseta, contar cuántas veces cambia Vapor cámara (abre o cierra).
   3. Anotar la presión máxima de cámara en la meseta.
   4. Revisar que ninguna falla dispare por un pico de una sola lectura.
-- **Resultado esperado:** Sin alternancia RECUPERACION ↔ PWM en cada tick; P máxima ≤ 311,3 kPa + inercia; meseta completa sin FALLO. **Ojo (observación de L12):** con 134 °C y `presion_add` 9, la temperatura de saturación del techo es `Tsat(311,3) = 135,0 °C`, menor que el umbral de salida (135,3 °C): con vapor saturado lo esperable es que la fase quede **toda la meseta en RECUPERACION** y que la válvula se regule en el techo de 311,3 kPa. Eso no es conmutación RECUPERACION ↔ PWM: la válvula se regula en el techo, entre 309,3 y 311,3 kPa. Con la brecha de 0,3 este caso no aplica (134,6 °C < 135,0 °C) y la meseta debe correr en PWM.
+- **Resultado esperado:** Sin alternancia RECUPERACION ↔ PWM en cada tick; P máxima ≤ 313,2 kPa + inercia; meseta completa sin FALLO. **Ojo (observación de L12):** con 134 °C y `presion_add` 9, la temperatura de saturación del techo es `Tsat(313,2) = 135,0 °C`, menor que el umbral de salida (135,3 °C): con vapor saturado lo esperable es que la fase quede **toda la meseta en RECUPERACION** y que la válvula se regule en el techo de 313,2 kPa. Eso no es conmutación RECUPERACION ↔ PWM: la válvula se regula en el techo, entre 311,2 y 313,2 kPa. Con la brecha de 0,3 este caso no aplica (134,6 °C < 135,0 °C) y la meseta debe correr en PWM.
 - **Criterio de aprobado/fallo:** Aprobado si no hay conmutación rápida RECUPERACION ↔ PWM y la meseta completa. Si Vapor cámara cambia más de ~20 veces por minuto (en el techo o en la banda), anotar la cuenta, la presión y el tramo y **avisar a Code** (pregunta abierta de L12 sobre el techo).
 - **Cambios de Vapor cámara en 1 min:** ________ · **Tramo (log):** ________ · **P máx. meseta:** ________ kPa
 - **Valor observado:** ______________________________________________
@@ -2192,14 +2192,14 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
 ### E-T12-04 — Bowie & Dick de usuario con `presion_add` 9
 
 - **Modo:** En operación (vapor)  ·  **Origen:** J12 C-04.1 (tanda 12)
-- **Objetivo:** El Bowie & Dick de usuario (134,5 °C / 3,9 min, F0 activo) ya migrado a `presion_add_calentamiento` 9 completa el ciclo: techo de calentamiento `Psat(134,5) + 9 = 315,7 kPa`, entrada a sostener con `P ≥ 304,7 kPa`, chaqueta ≈ 330,7 kPa. Con 99 el techo era 405,7 kPa (sobre el alivio).
+- **Objetivo:** El Bowie & Dick de usuario (134,5 °C / 3,9 min, F0 activo) ya migrado a `presion_add_calentamiento` 9 completa el ciclo: techo de calentamiento `Psat(134,5) + 9 = 317,7 kPa`, entrada a sostener con `P ≥ 306,7 kPa`, chaqueta ≈ 332,7 kPa. Con 99 el techo era 407,7 kPa (sobre el alivio).
 - **Precondiciones:** A-T12-01 aprobada. Cámara vacía con el paquete de prueba Bowie & Dick (hoja indicadora) en el punto habitual, primer ciclo del día tras el calentamiento de chaqueta.
 - **Pasos:**
   1. Seleccionar Bowie & Dick de usuario y comprobar en Parámetros del ciclo que `presion_add_calentamiento` es 9.
   2. Iniciar y registrar T y P en la entrada a ESTABLE_PREESTERILIZACION y la presión máxima en calentamiento y meseta.
   3. Anotar F0 total del ticket.
   4. Al terminar, revisar la hoja indicadora.
-- **Resultado esperado:** Ciclo COMPLETADO; presión de cámara ≤ 315,7 kPa (+ inercia) en todo el ciclo; entrada con P ≈ 305–309 kPa; F0 total en el ticket; hoja con viraje uniforme (sin zona clara en el centro).
+- **Resultado esperado:** Ciclo COMPLETADO; presión de cámara ≤ 317,7 kPa (+ inercia) en todo el ciclo; entrada con P ≈ 307–311 kPa; F0 total en el ticket; hoja con viraje uniforme (sin zona clara en el centro).
 - **Criterio de aprobado/fallo:** Aprobado si completa sin FALLO, sin pasar el techo y con la hoja uniforme. Una hoja no uniforme indica aire: no liberar el equipo y anotar la diferencia `Tsat(P) − T` del log.
 - **P máx. calentamiento / meseta:** ________ / ________ kPa · **F0 total:** ________ min · **Hoja:** ☐ uniforme ☐ no uniforme
 - **Valor observado:** ______________________________________________
