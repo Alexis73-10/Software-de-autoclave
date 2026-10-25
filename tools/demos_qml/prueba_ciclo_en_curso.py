@@ -1,4 +1,4 @@
-# ui_qml/prueba_ciclo_en_curso.py
+# tools/demos_qml/prueba_ciclo_en_curso.py (antes ui_qml/prueba_ciclo_en_curso.py; ORG-10, tanda 15)
 #
 # PRUEBA (Fase 2 de planeacion_pantalla_ciclo_en_curso.md): abre
 # qml/Pruebas/PruebaCicloEnCurso.qml, la pantalla de ciclo en curso con datos de
@@ -6,15 +6,21 @@
 # pantalla con datos reales del backend (solo lectura, sin comandos). No forma
 # parte de la app ni de la navegación de producción.
 #
-#   python -m autoclave.ui_qml.prueba_ciclo_en_curso                    (600x960, 5:8)
-#   python -m autoclave.ui_qml.prueba_ciclo_en_curso --ancho 540        (540x960, 9:16)
-#   python -m autoclave.ui_qml.prueba_ciclo_en_curso --completa [--screen 1]
-#   python -m autoclave.ui_qml.prueba_ciclo_en_curso --ancho 1200 --alto 1920 --captura salida.png
-#   python -m autoclave.ui_qml.prueba_ciclo_en_curso --backend          (backend en BACKEND_URL
+#   python tools/demos_qml/prueba_ciclo_en_curso.py                    (600x960, 5:8)
+#   python tools/demos_qml/prueba_ciclo_en_curso.py --ancho 540        (540x960, 9:16)
+#   python tools/demos_qml/prueba_ciclo_en_curso.py --completa [--screen 1]
+#   python tools/demos_qml/prueba_ciclo_en_curso.py --ancho 1200 --alto 1920 --captura salida.png
+#   python tools/demos_qml/prueba_ciclo_en_curso.py --backend          (backend en BACKEND_URL
 #                                                                        o AUTOCLAVE_BACKEND_URL)
 
 import argparse
 import sys
+from pathlib import Path
+
+# ORG-10 (tanda 15): demo fuera del paquete; el paquete autoclave se toma
+# de src/; se lanza desde la raíz del repositorio, como antes con -m (QML_DIR
+# sigue resolviendo src/autoclave/ui_qml/qml)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication

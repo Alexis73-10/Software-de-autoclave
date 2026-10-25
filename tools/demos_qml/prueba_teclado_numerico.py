@@ -1,4 +1,4 @@
-# ui_qml/prueba_teclado_numerico.py
+# tools/demos_qml/prueba_teclado_numerico.py (antes ui_qml/prueba_teclado_numerico.py; ORG-10, tanda 15)
 #
 # PRUEBA DESECHABLE (planeacion_teclados_qml.md, Pasos 3 y 4): abre
 # qml/Pruebas/PruebaTecladoNumerico.qml, el teclado numérico anclado al pie
@@ -7,13 +7,19 @@
 # parte de la app ni de la navegación de producción; no se conecta al
 # backend. Borrar al terminar.
 #
-#   python -m autoclave.ui_qml.prueba_teclado_numerico              (ventana 600x960)
-#   python -m autoclave.ui_qml.prueba_teclado_numerico --completa   (pantalla completa)
-#   python -m autoclave.ui_qml.prueba_teclado_numerico --completa --screen 1
-#   python -m autoclave.ui_qml.prueba_teclado_numerico --alfanumerico [--completa ...]
+#   python tools/demos_qml/prueba_teclado_numerico.py              (ventana 600x960)
+#   python tools/demos_qml/prueba_teclado_numerico.py --completa   (pantalla completa)
+#   python tools/demos_qml/prueba_teclado_numerico.py --completa --screen 1
+#   python tools/demos_qml/prueba_teclado_numerico.py --alfanumerico [--completa ...]
 
 import argparse
 import sys
+from pathlib import Path
+
+# ORG-10 (tanda 15): demo fuera del paquete; el paquete autoclave se toma
+# de src/; se lanza desde la raíz del repositorio, como antes con -m (QML_DIR
+# sigue resolviendo src/autoclave/ui_qml/qml)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QGuiApplication

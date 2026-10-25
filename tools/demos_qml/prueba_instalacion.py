@@ -1,15 +1,21 @@
-# ui_qml/prueba_instalacion.py
+# tools/demos_qml/prueba_instalacion.py (antes ui_qml/prueba_instalacion.py; ORG-10, tanda 15)
 #
 # PRUEBA DESECHABLE (planeacion_menu_instalacion_ui.md): abre
 # qml/Pruebas/PruebaInstalacion.qml, el asistente de instalación con un puente
 # de EJEMPLO (no escribe installation_profile.json ni se conecta al backend).
 # Código de activación aceptado por el puente de ejemplo: ABCDEFGHIJKL.
 #
-#   python -m autoclave.ui_qml.prueba_instalacion              (ventana 600x960)
-#   python -m autoclave.ui_qml.prueba_instalacion --completa [--screen 1]
+#   python tools/demos_qml/prueba_instalacion.py              (ventana 600x960)
+#   python tools/demos_qml/prueba_instalacion.py --completa [--screen 1]
 
 import argparse
 import sys
+from pathlib import Path
+
+# ORG-10 (tanda 15): demo fuera del paquete; el paquete autoclave se toma
+# de src/; se lanza desde la raíz del repositorio, como antes con -m (QML_DIR
+# sigue resolviendo src/autoclave/ui_qml/qml)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from PySide6.QtCore import QUrl
 from PySide6.QtGui import QGuiApplication 

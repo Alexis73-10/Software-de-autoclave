@@ -1,20 +1,20 @@
-# ui_qml/prueba_menu_principal.py
+# tools/demos_qml/prueba_menu_principal.py (antes ui_qml/prueba_menu_principal.py; ORG-10, tanda 15)
 #
 # PRUEBA (planeacion_menu_principal_ui_qml.md): abre la galería de componentes
 # del Menú Principal (qml/Pruebas/GaleriaMenuPrincipal.qml, Fase 1) o la pantalla
 # completa en su arnés (qml/Pruebas/PruebaMenuPrincipal.qml, Fase 3). No forma
 # parte de la app ni de la navegación de producción (Fase 4 diferida).
 #
-#   python -m autoclave.ui_qml.prueba_menu_principal                       galería (600x960)
-#   python -m autoclave.ui_qml.prueba_menu_principal --pantalla            pantalla, datos de ejemplo
-#   python -m autoclave.ui_qml.prueba_menu_principal --pantalla --backend  datos reales del backend
+#   python tools/demos_qml/prueba_menu_principal.py                       galería (600x960)
+#   python tools/demos_qml/prueba_menu_principal.py --pantalla            pantalla, datos de ejemplo
+#   python tools/demos_qml/prueba_menu_principal.py --pantalla --backend  datos reales del backend
 #
 # Con --backend, Imprimir y Enviar por correo del Historial son REALES (impresora
 # térmica del backend y correo con config/correo.json). Sin él, el Historial usa
 # un backend simulado (historial_ejemplo.py): no imprime ni envía nada.
-#   python -m autoclave.ui_qml.prueba_menu_principal --pantalla --ventana ultimo_ciclo
-#   python -m autoclave.ui_qml.prueba_menu_principal --pantalla --sin-conexion
-#   python -m autoclave.ui_qml.prueba_menu_principal --pantalla --ancho 1196 --alto 1917 --captura menu.png
+#   python tools/demos_qml/prueba_menu_principal.py --pantalla --ventana ultimo_ciclo
+#   python tools/demos_qml/prueba_menu_principal.py --pantalla --sin-conexion
+#   python tools/demos_qml/prueba_menu_principal.py --pantalla --ancho 1196 --alto 1917 --captura menu.png
 #
 # Captura: ventana sin marco (Windows no la recorta al monitor, a diferencia de
 # una con marco) del tamaño pedido, reducida a ese tamaño lógico si el monitor
@@ -24,6 +24,12 @@
 
 import argparse
 import sys
+from pathlib import Path
+
+# ORG-10 (tanda 15): demo fuera del paquete; el paquete autoclave se toma
+# de src/; se lanza desde la raíz del repositorio, como antes con -m (QML_DIR
+# sigue resolviendo src/autoclave/ui_qml/qml)
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
 from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QGuiApplication
