@@ -56,11 +56,9 @@ def _unidades_usb() -> list[dict]:
 
 
 def _version_sw() -> str:
-    import importlib.metadata
-    try:
-        return importlib.metadata.version("autoclave")
-    except importlib.metadata.PackageNotFoundError:
-        return "0"
+    # VER-03/VER-05: fuente única, con el commit de la compilación
+    from autoclave._version import version_completa
+    return version_completa()
 
 
 def _unidad_detectada(unidad: str, entidad: str, sesion) -> str:

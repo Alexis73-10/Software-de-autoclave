@@ -27,11 +27,9 @@ _INTERVALO_S = 0.5
 
 
 def _version() -> str:
-    try:
-        import importlib.metadata
-        return importlib.metadata.version("autoclave")
-    except Exception:
-        return "?"
+    # VER-03/VER-05: fuente única, con el commit de la compilación
+    from autoclave._version import version_completa
+    return version_completa()
 
 
 def _consultar_estado() -> dict | None:

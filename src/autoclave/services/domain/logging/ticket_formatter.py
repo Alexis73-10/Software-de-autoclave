@@ -197,6 +197,25 @@ def lineas_rotulo(rotulo: str, valor, ancho: int = ANCHO_TICKET) -> list[str]:
     return [f"{rotulo}:"] + [valor[i:i + ancho] for i in range(0, len(valor), ancho)]
 
 
+def lineas_version(rotulo: str, valor, ancho: int = ANCHO_TICKET) -> list[str]:
+    """Como `lineas_rotulo`, pero una versión larga (VER-05: "1.0.0-alpha.2.dev+g1a2b3c4",
+    "1.0.0-alpha.1 (1a2b3c4)") se parte antes del "+" o del " (" en lugar de a
+    ciegas en la columna `ancho`."""
+    valor = "" if valor is None else str(valor)
+    if len(f"{rotulo}: {valor}") <= ancho:
+        return [f"{rotulo}: {valor}"]
+    if len(valor) <= ancho:
+        return [f"{rotulo}:", valor]
+    for sep in (" (", "+"):
+        i = valor.find(sep)
+        if i > 0:
+            trozos = [valor[:i], valor[i:].strip()]
+            break
+    else:
+        trozos = [valor]
+    return [f"{rotulo}:"] + [t[j:j + ancho] for t in trozos for j in range(0, len(t), ancho)]
+
+
 def format_header(meta: dict, p: Presentacion | None = None) -> str:
     """Encabezado del ticket (todo lo previo a las filas de lecturas)."""
     p = p or presentacion_actual()
@@ -230,7 +249,7 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
         f"{_t(p, 'hora')}:  {hora_inicio}",
         f"{_t(p, 'serie')}: {meta.get('serie', '')}",
         *lineas_rotulo(_t(p, 'modelo'), meta.get('modelo', '')),
-        f"{_t(p, 'software')}: {meta.get('version_sw', '')}",
+        *lineas_version(_t(p, 'software'), meta.get('version_sw', '')),
         f"{_t(p, 'ciclo')}: {numero}",
         nombre_ciclo(meta, p),
         f"({meta.get('tipo_ciclo') or ''})",

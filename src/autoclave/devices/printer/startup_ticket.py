@@ -65,6 +65,16 @@ def _estado(valor) -> str:
     return _LEGADO.get(valor, FALLO)
 
 
+def _lineas_software(rotulo: str, version: str) -> list[str]:
+    """VER-05: la versión de una compilación de verificación
+    ("1.0.0-alpha.2.dev+g1a2b3c4.sucio") puede no caber junto al rótulo: va
+    entonces en la línea siguiente, sin cortarse."""
+    linea = f"{rotulo:<16}v{version}"
+    if len(linea) <= _W:
+        return [linea]
+    return [rotulo, f"  v{version}"[:_W]]
+
+
 def format_startup_ticket(
     profile: InstallationProfile,
     version: str,
@@ -93,7 +103,7 @@ def format_startup_ticket(
         f"{tx['modelo']:<16}{profile.model_id}",
         f"{tx['serie']:<16}{profile.serial_number}",
         f"{tx['clase']:<16}{_nombre_clase(profile.equipment_class, idioma)}",
-        f"{tx['software']:<16}v{version}",
+        *_lineas_software(tx['software'], version),
         _DIV,
         f"{tx['encendido']:<16}{startup_time.strftime('%Y-%m-%d  %H:%M:%S')}",
         f"{tx['apagado']:<16}{apagado}",

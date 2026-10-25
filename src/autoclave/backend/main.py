@@ -61,7 +61,8 @@ def latido_y_ticket(server, plazo_s: float = 120.0) -> None:
 
 def main():
     _configurar_logging_archivo()
-    logger.info("Backend iniciado desde: %s", __file__)
+    from autoclave._version import version_completa
+    logger.info("Autoclave %s: backend iniciado desde %s", version_completa(), __file__)   # VER-05
     from autoclave.backend import server
 
     server.preparar_arranque()   # 503 en todo salvo /arranque hasta tener el control
