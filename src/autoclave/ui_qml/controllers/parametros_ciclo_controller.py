@@ -44,6 +44,9 @@ _MENSAJES = {
     "LIMITE_PRESION_CAMARA": "opciones.err_limite_presion_camara",
     "LIMITE_CONSIGNA_CHAQUETA": "opciones.err_limite_consigna_chaqueta",
     "LIMITE_PRESION_CHAQUETA": "opciones.err_limite_presion_chaqueta",
+    # Tanda 16: P1 (D-14.1) y PRG-01 (D-PRG-1)
+    "COHERENCIA_RECUPERACION": "opciones.err_coherencia_recuperacion",
+    "ROL_SONDA_NO_ACTIVA": "opciones.err_rol_sonda_no_activa",
     # O1 (tanda 5): gestión de programas
     "programa_activo": "opciones.err_programa_activo",
     "programa_deshabilitado": "opciones.err_programa_deshabilitado",
@@ -325,7 +328,10 @@ class ParametrosCicloController(QObject):
         # tanda 12: los límites físicos traen el máximo admisible en `valor`
         detalle = (r.datos.get("valor_actual") if "valor_actual" in r.datos
                    else r.datos.get("valor"))
-        self._fijar_mensaje(mensaje_de(r.causa), {"valor": detalle})
+        # DEU-01 (tanda 16): alivios y suministro vigentes del equipo
+        limites = {k: r.datos.get(k) for k in ("alivio_camara", "alivio_chaqueta", "suministro")
+                   if r.datos.get(k) is not None}
+        self._fijar_mensaje(mensaje_de(r.causa), {"valor": detalle, **limites})
         return False
 
     # ── sensores (pantalla 4) ────────────────────────────────────────

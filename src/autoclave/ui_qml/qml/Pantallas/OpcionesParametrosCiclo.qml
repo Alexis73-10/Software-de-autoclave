@@ -164,8 +164,12 @@ Item {
     function mensajeError() {
         if (control.mensaje === "")
             return ""
+        // DEU-01 (tanda 16): alivios y suministro vigentes del equipo
         return I18n.t(control.mensaje, I18n.lang,
-                      { valor: control.detalleMensaje.valor ?? "—" })
+                      { valor: control.detalleMensaje.valor ?? "—",
+                        alivio_camara: control.detalleMensaje.alivio_camara ?? "—",
+                        alivio_chaqueta: control.detalleMensaje.alivio_chaqueta ?? "—",
+                        suministro: control.detalleMensaje.suministro ?? "—" })
     }
 
     component Fila: Rectangle {

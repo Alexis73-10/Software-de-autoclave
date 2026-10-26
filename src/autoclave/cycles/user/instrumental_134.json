@@ -256,6 +256,14 @@
                 "min": 0,
                 "max": 100
             },
+            "histeresis_cierre_camara": {
+                "value": 3.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 1,
+                "max": 10
+            },
             "timeout_calentamiento": {
                 "value": 60,
                 "type": "int",
@@ -452,12 +460,20 @@
                 "max": 100
             },
             "presion_add_esterilizacion": {
-                "value": 9.0,
+                "value": 15.0,
                 "type": "float",
                 "unit": "kPa",
                 "clase": "diferencia",
                 "min": 0,
                 "max": 100
+            },
+            "histeresis_cierre_camara": {
+                "value": 3.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 1,
+                "max": 10
             },
             "intervalo_segmentos_ester": {
                 "value": 2,
@@ -520,6 +536,12 @@
                 "unit": "min",
                 "min": 1,
                 "max": 30
+            },
+            "max_reinicios_exposicion": {
+                "value": 3,
+                "type": "int",
+                "min": 0,
+                "max": 10
             }
         },
         "secado": {

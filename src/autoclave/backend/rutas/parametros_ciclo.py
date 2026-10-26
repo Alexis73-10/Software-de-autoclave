@@ -129,8 +129,12 @@ def _update_cycle_parameter(body: _CycleParamValueBody, sesion: Sesion):
         except catalogo_parametros.ErrorCoherencia as e:
             # tanda 12 (C-04.3, C-05.5, C-05.9): el máximo admisible o la
             # consigna calculada van en `valor` para el mensaje de la pantalla
-            raise _Rechazo(422, e.codigo, str(e),
-                           extra={"valor": e.valor} if getattr(e, "valor", None) is not None else None)
+            # DEU-01 (tanda 16): con los límites vigentes del equipo, para que
+            # el texto de la pantalla no diga 385 si el equipo tiene otro alivio
+            extra = dict(catalogo_parametros.limites_para_mensaje())
+            if getattr(e, "valor", None) is not None:
+                extra["valor"] = e.valor
+            raise _Rechazo(422, e.codigo, str(e), extra=extra)
         except (TypeError, ValueError) as e:
             raise _Rechazo(422, "VALOR_INVALIDO", str(e))
         # tanda 12: advertencias no bloqueantes que dependen de este parámetro
