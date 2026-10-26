@@ -528,6 +528,8 @@ Item {
                     lx: entrada.c0 + (entrada.esPresion ? 99.6 : 73.6); bl: entrada.esPresion ? 467 : 469
                     limite: entrada.c0 + 188.2
                     clave: "ciclo.entrada_corta_" + entrada.modelData.clave
+                    // Tanda 17 (SON-01): sonda instalada con rol No en uso
+                    sufijo: entrada.modelData.monitoreo === true ? " " + I18n.t("ciclo.monitoreo", I18n.lang) : ""
                 }
                 Valor { cx: entrada.c0 + 94.1; text: raiz.datosVigentes ? entrada.modelData.valor : "—" }
                 Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }

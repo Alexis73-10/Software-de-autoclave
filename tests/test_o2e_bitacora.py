@@ -165,7 +165,9 @@ def test_controlador_filtros_y_paginas():
     c.siguienteUsuario()
     assert c.usuario == "ana" and "usuario=ana" in rutas[-1]
     c.siguienteTipo()
-    assert "evento=login_ok" in rutas[-1]
+    # Tanda 17 (BIT-05, decisión de Cristian): el filtro Tipo es por categoría
+    # (`categoria`), ya no por evento
+    assert "categoria=seguridad" in rutas[-1] and "evento=" not in rutas[-1]
     assert not c.fijarDesde("21/10") and c.mensaje == "bitacora.err_fecha"
     assert c.fijarDesde("2026-10-01") and "desde=2026-10-01" in rutas[-1]
     c.paginaSiguiente()

@@ -14,9 +14,19 @@ Item {
     property bool despejable: false
     property string textoDespejar: ""
     signal despejarPulsado()
+    // Tanda 17 (ALM-01): fila que abre la ventana de detalle al tocarla
+    // (VentanaDetalleAlarma); muestra solo el nombre con el color de nivel
+    property bool tocable: false
+    signal pulsada()
 
     height: multilinea ? Math.max(Escala.px(72), texto.implicitHeight + Escala.px(28)) : Escala.px(72)
 
+    MouseArea {
+        objectName: "areaFilaAlarma"
+        anchors.fill: parent
+        enabled: raiz.tocable
+        onClicked: raiz.pulsada()
+    }
     Rectangle {
         x: 0; y: Escala.px(12)
         width: Escala.px(12); height: raiz.height - Escala.px(24)

@@ -141,93 +141,116 @@ Item {
         }
     }
 
-    // ------------------------------------------------------------ lista
-    ListView {
-        id: lista
-        objectName: "listaManejoCiclos"
+    // ------------------------------------------------------------ programa elegido
+    // Tanda 17 (PRC-01, DECISIÓN SIN CONFIRMAR: uniformidad con Parámetros del
+    // ciclo): el programa sobre el que actúan duplicar / habilitar / borrar se
+    // elige con el mismo selector desplegable (lista vertical desplazable);
+    // antes, una lista de tarjetas con los botones en cada una. La tarjeta y
+    // sus botones conservan los objectName por número (programaManejo_N,
+    // estadoPrograma_N, botonDuplicar_N, botonHabilitar_N, botonBorrar_N).
+    property int elegido: 0
+    readonly property var programaElegido: {
+        const lista = control.programas
+        for (let i = 0; i < lista.length; i++)
+            if (lista[i].numero === raiz.elegido)
+                return lista[i]
+        return lista.length > 0 ? lista[0] : null
+    }
+    function elegirPrograma(numero) { elegido = numero }
+
+    SelectorPrograma {
+        id: selector
+        objectName: "selectorProgramaManejo"
         anchors.top: cabecera.bottom; anchors.topMargin: Escala.px(20)
-        anchors.left: parent.left; anchors.right: parent.right; anchors.bottom: parent.bottom
+        anchors.left: parent.left; anchors.right: parent.right
+        z: abierto ? 10 : 0
+        programas: control.programas
+        numero: raiz.programaElegido ? raiz.programaElegido.numero : 0
+        onProgramaElegido: (n) => raiz.elegirPrograma(n)
+    }
+
+    Text {
+        objectName: "sinProgramasManejo"
+        visible: control.programas.length === 0
+        anchors.top: selector.bottom; anchors.topMargin: Escala.px(40)
+        anchors.horizontalCenter: parent.horizontalCenter
+        text: raiz.texto("manejo_ciclos.sin_programas")
+        color: Colores.textoGuia
+        font.family: Tipografia.familia
+        font.pixelSize: Escala.fuente(24)
+    }
+
+    Rectangle {
+        id: tarjeta
+        readonly property var modelData: raiz.programaElegido ?? ({})
+        visible: raiz.programaElegido !== null
+        objectName: "programaManejo_" + (modelData.numero ?? 0)
+        anchors.top: selector.bottom; anchors.topMargin: Escala.px(20)
+        anchors.left: parent.left; anchors.right: parent.right
+        height: columna.implicitHeight + Escala.px(36)
+        // como la ListView anterior: su contenido no se mezcla con lo que se
+        // superpone (panel Crear) en la revisión de textos (U10b)
         clip: true
-        spacing: Escala.px(14)
-        model: control.programas
-        boundsBehavior: Flickable.StopAtBounds
+        radius: Escala.px(14)
+        color: Colores.fondoTarjeta
+        border.width: Escala.px(2)
+        border.color: Colores.bordeCampo
 
-        Text {
-            visible: lista.count === 0
-            anchors.centerIn: parent
-            text: raiz.texto("manejo_ciclos.sin_programas")
-            color: Colores.textoGuia
-            font.family: Tipografia.familia
-            font.pixelSize: Escala.fuente(24)
-        }
+        Column {
+            id: columna
+            x: Escala.px(22); y: Escala.px(18)
+            width: parent.width - Escala.px(44)
+            spacing: Escala.px(10)
 
-        delegate: Rectangle {
-            id: tarjeta
-            required property var modelData
-            objectName: "programaManejo_" + modelData.numero
-            width: ListView.view.width
-            height: columna.implicitHeight + Escala.px(36)
-            radius: Escala.px(14)
-            color: Colores.fondoTarjeta
-            border.width: Escala.px(2)
-            border.color: Colores.bordeCampo
-
-            Column {
-                id: columna
-                x: Escala.px(22); y: Escala.px(18)
-                width: parent.width - Escala.px(44)
-                spacing: Escala.px(10)
-
-                Text {
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: raiz.numero2(tarjeta.modelData.numero) + " · " + tarjeta.modelData.nombre
-                    color: Colores.textoPrimario
-                    font.family: Tipografia.familia
-                    font.weight: Tipografia.pesoBold
-                    font.pixelSize: Escala.fuente(26)
+            Text {
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: raiz.numero2(tarjeta.modelData.numero ?? 0) + " · " + (tarjeta.modelData.nombre ?? "")
+                color: Colores.textoPrimario
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: Escala.fuente(26)
+            }
+            Text {
+                objectName: "estadoPrograma_" + (tarjeta.modelData.numero ?? 0)
+                width: parent.width
+                wrapMode: Text.WordWrap
+                text: raiz.texto(tarjeta.modelData.personalizado ? "manejo_ciclos.personalizado"
+                                                                 : "manejo_ciclos.de_fabrica")
+                      + " · " + raiz.texto(tarjeta.modelData.habilitado ? "manejo_ciclos.habilitado"
+                                                                       : "manejo_ciclos.deshabilitado")
+                      + (tarjeta.modelData.danado ? " · " + raiz.texto("manejo_ciclos.danado") : "")
+                color: tarjeta.modelData.habilitado ? Colores.textoSecundario : Colores.advertenciaTexto
+                font.family: Tipografia.familia
+                font.pixelSize: Escala.fuente(20)
+            }
+            Flow {
+                width: parent.width
+                spacing: Escala.px(12)
+                BotonFormulario {
+                    objectName: "botonDuplicar_" + (tarjeta.modelData.numero ?? 0)
+                    width: Escala.px(250)
+                    texto: raiz.texto("manejo_ciclos.duplicar")
+                    habilitado: raiz.puedeOperar && tarjeta.modelData.duplicable === true
+                    onPulsado: if (habilitado) raiz.pedirDuplicar(tarjeta.modelData.numero)
                 }
-                Text {
-                    objectName: "estadoPrograma_" + tarjeta.modelData.numero
-                    width: parent.width
-                    wrapMode: Text.WordWrap
-                    text: raiz.texto(tarjeta.modelData.personalizado ? "manejo_ciclos.personalizado"
-                                                                     : "manejo_ciclos.de_fabrica")
-                          + " · " + raiz.texto(tarjeta.modelData.habilitado ? "manejo_ciclos.habilitado"
-                                                                           : "manejo_ciclos.deshabilitado")
-                          + (tarjeta.modelData.danado ? " · " + raiz.texto("manejo_ciclos.danado") : "")
-                    color: tarjeta.modelData.habilitado ? Colores.textoSecundario : Colores.advertenciaTexto
-                    font.family: Tipografia.familia
-                    font.pixelSize: Escala.fuente(20)
+                BotonFormulario {
+                    objectName: "botonHabilitar_" + (tarjeta.modelData.numero ?? 0)
+                    width: Escala.px(250)
+                    texto: raiz.texto(tarjeta.modelData.habilitado ? "manejo_ciclos.deshabilitar"
+                                                                   : "manejo_ciclos.habilitar")
+                    habilitado: raiz.puedeOperar
+                    onPulsado: if (habilitado) control.fijarHabilitado(tarjeta.modelData.numero,
+                                                                        !tarjeta.modelData.habilitado)
                 }
-                Flow {
-                    width: parent.width
-                    spacing: Escala.px(12)
-                    BotonFormulario {
-                        objectName: "botonDuplicar_" + tarjeta.modelData.numero
-                        width: Escala.px(250)
-                        texto: raiz.texto("manejo_ciclos.duplicar")
-                        habilitado: raiz.puedeOperar && tarjeta.modelData.duplicable
-                        onPulsado: if (habilitado) raiz.pedirDuplicar(tarjeta.modelData.numero)
-                    }
-                    BotonFormulario {
-                        objectName: "botonHabilitar_" + tarjeta.modelData.numero
-                        width: Escala.px(250)
-                        texto: raiz.texto(tarjeta.modelData.habilitado ? "manejo_ciclos.deshabilitar"
-                                                                       : "manejo_ciclos.habilitar")
-                        habilitado: raiz.puedeOperar
-                        onPulsado: if (habilitado) control.fijarHabilitado(tarjeta.modelData.numero,
-                                                                            !tarjeta.modelData.habilitado)
-                    }
-                    BotonFormulario {
-                        objectName: "botonBorrar_" + tarjeta.modelData.numero
-                        visible: tarjeta.modelData.borrable      // nunca los de fábrica
-                        width: Escala.px(250)
-                        texto: raiz.texto("manejo_ciclos.borrar")
-                        habilitado: raiz.puedeOperar
-                        onPulsado: if (habilitado) raiz.pedirBorrar(tarjeta.modelData.numero,
-                                                                     tarjeta.modelData.nombre)
-                    }
+                BotonFormulario {
+                    objectName: "botonBorrar_" + (tarjeta.modelData.numero ?? 0)
+                    visible: tarjeta.modelData.borrable === true      // nunca los de fábrica
+                    width: Escala.px(250)
+                    texto: raiz.texto("manejo_ciclos.borrar")
+                    habilitado: raiz.puedeOperar
+                    onPulsado: if (habilitado) raiz.pedirBorrar(tarjeta.modelData.numero,
+                                                                 tarjeta.modelData.nombre)
                 }
             }
         }
@@ -270,33 +293,39 @@ Item {
                     font.family: Tipografia.familia
                     font.pixelSize: Escala.fuente(21)
                 }
-                Flow {
+                // Tanda 17 (PRC-01): lista vertical desplazable (antes, Flow de chips)
+                ListView {
+                    id: listaBases
                     objectName: "basesCrear"
                     width: parent.width
-                    spacing: Escala.px(12)
-                    Repeater {
-                        model: control.bases
-                        delegate: Rectangle {
-                            id: chip
-                            required property var modelData
-                            objectName: "base_" + modelData.numero
-                            width: textoChip.implicitWidth + Escala.px(44)
-                            height: Escala.px(80)
-                            radius: Escala.px(40)
-                            color: Colores.fondoSutil
-                            border.width: Escala.px(1)
-                            border.color: Colores.bordeCampo
-                            Text {
-                                id: textoChip
-                                anchors.centerIn: parent
-                                text: raiz.numero2(chip.modelData.numero) + " · " + chip.modelData.nombre
-                                color: Colores.textoPrimario
-                                font.family: Tipografia.familia
-                                font.weight: Tipografia.pesoSemiBold
-                                font.pixelSize: Escala.fuente(23)
-                            }
-                            MouseArea { anchors.fill: parent; onClicked: raiz.elegirBase(chip.modelData.numero) }
+                    height: Math.min(control.bases.length * Escala.px(96), Escala.px(900))
+                    clip: true
+                    boundsBehavior: Flickable.StopAtBounds
+                    model: control.bases
+                    delegate: Rectangle {
+                        id: chip
+                        required property var modelData
+                        objectName: "base_" + modelData.numero
+                        width: ListView.view.width
+                        height: Escala.px(96)
+                        color: "transparent"
+                        Text {
+                            anchors.left: parent.left; anchors.leftMargin: Escala.px(18)
+                            anchors.right: parent.right; anchors.rightMargin: Escala.px(18)
+                            anchors.verticalCenter: parent.verticalCenter
+                            wrapMode: Text.WordWrap
+                            text: raiz.numero2(chip.modelData.numero) + " · " + chip.modelData.nombre
+                            color: Colores.textoPrimario
+                            font.family: Tipografia.familia
+                            font.weight: Tipografia.pesoSemiBold
+                            font.pixelSize: Escala.fuente(25)
                         }
+                        Rectangle {
+                            anchors.bottom: parent.bottom
+                            width: parent.width; height: Escala.px(1)
+                            color: Colores.bordeDivisor
+                        }
+                        MouseArea { anchors.fill: parent; onClicked: raiz.elegirBase(chip.modelData.numero) }
                     }
                 }
                 BotonFormulario {

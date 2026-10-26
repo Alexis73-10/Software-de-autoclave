@@ -49,7 +49,11 @@ salida["entradas"] = [s["clave"] for s in raiz.property("secciones")]
 salida["selector"] = buscar("selectorOpcionesAvanzadas").isVisible()
 salida["reasignacion"] = buscar("opcionesReasignacion") is not None
 salida["filas"] = len(ctrl.property("programas"))
+# Tanda 17 (PRC-01, decisión de Cristian): el programa se elige con el
+# selector desplegable y la tarjeta muestra solo el elegido
+m.elegirPrograma(5); esperar()
 salida["borrar_5"] = buscar("botonBorrar_5", m).isVisible()
+m.elegirPrograma(1); esperar()
 salida["borrar_1"] = buscar("botonBorrar_1", m).isVisible()
 salida["crear_hab"] = buscar("botonCrearPrograma", m).property("habilitado")
 capturar(f"C9_{IDIOMA}_1_tecnico_lista.png")
@@ -76,7 +80,10 @@ raiz.setProperty("seccionActiva", "opciones_avanzadas"); esperar(400)
 m = buscar("opcionesManejoCiclos")
 salida["aviso"] = buscar("avisoEnCicloManejo", m).isVisible()
 salida["crear_hab"] = buscar("botonCrearPrograma", m).property("habilitado")
+# Tanda 17 (PRC-01, decisión de Cristian): la tarjeta muestra solo el elegido
+m.elegirPrograma(1); esperar()
 salida["dup_hab"] = buscar("botonDuplicar_1", m).property("habilitado")
+m.elegirPrograma(5); esperar()
 salida["hab_hab"] = buscar("botonHabilitar_5", m).property("habilitado")
 salida["borrar_hab"] = buscar("botonBorrar_5", m).property("habilitado")
 m.abrirCrear(); m.pedirBorrar(5, "x"); esperar()
