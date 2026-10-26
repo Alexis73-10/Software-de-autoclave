@@ -54,7 +54,12 @@
 #                              Psat(t_obj)+presion_add_calentamiento; con carga
 #                              sólida además coherencia T-P |Tsat(P)-T| <= 1 K
 #                              (C-02, _COHERENCIA_TP_K; no aplica a líquidos);
-#                              y cada Referencia CON lectura >= t_obj (una
+#                              y cada Referencia CON lectura >= t_obj -
+#                              brecha_error_temperatura (de la sección
+#                              esterilizacion; P3 / D-14.3, tanda 16: el mismo
+#                              límite inferior que la banda de Referencia de
+#                              ESTERILIZACION; sin valor numérico válido, 0,
+#                              es decir >= t_obj) (una
 #                              Referencia sin lectura no bloquea: C-13.7b) — el
 #                              conteo se reinicia si sale de banda, así se espera a que
 #                              la inercia térmica se disipe antes de completar.
@@ -70,6 +75,25 @@
 # aproximación) — no producen FALLO; si vapor_camara no responde al comando
 # OFF, no hay aborto automático por esta vía (riesgo aceptado, ver
 # docs/superpowers/specs/2026-08-03-tasa-solo-control-calentamiento-design.md).
+#
+# Tanda 16, VCH (docs/mis_plans/planeacion_control_vapor_chaqueta.md), solo
+# en modo chaqueta (estado.modo_vapor == "chaqueta", lo fija CicloState al
+# iniciar el ciclo; el modo se registra en el log al iniciar la fase):
+#   - la lógica de decisión de arriba no cambia; el duty se aplica a
+#     vapor_chaqueta en vez de a vapor_camara (VCH §4.2);
+#   - vapor_camara se abre al inicializar la fase y se ordena ON en cada tick
+#     mientras no haya aislamiento (D3, §4.3);
+#   - aislamiento VCH-AIS (§4.4, estado.aislamiento_camara, compartido con
+#     ESTERILIZACION): P >= p_techo -> vapor_camara y vapor_chaqueta OFF
+#     forzadas; sale con P <= p_techo - histeresis_cierre_camara sostenida
+#     3 s. Aislamiento más largo que timeout_aislamiento_camara -> FALLO
+#     CIC-15; max_aislamientos_camara en la ventana móvil -> FALLO CIC-16;
+#   - sin lectura del Principal o de la presión: vapor_chaqueta OFF;
+#   - estado.inhibir_vapor_chaqueta (corte D-CHQ de CICLO) True: nunca se
+#     enciende vapor_chaqueta;
+#   - COMPLETADO no cierra vapor_camara (ESTERILIZACION la mantiene
+#     abierta); FALLO cierra las dos.
+# En modo cámara (equipos de mesa) el comportamiento es el de antes.
 
 import math
 import time
@@ -77,6 +101,10 @@ import logging
 from collections import deque
 from autoclave.core.runtime.steam import p_saturacion_kpa, t_saturacion_c
 from autoclave.core.runtime import motivos_fase
+from autoclave.core.managers import limites_equipo as le
+from autoclave.installation.profile import MODO_CHAQUETA
+from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, nombre_legible
+from .aislamiento_camara import AislamientoCamara
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
@@ -102,6 +130,15 @@ _MARGEN_CALIDAD_VAPOR_K = 3.0
 # Tanda 12, C-02: coherencia temperatura-presión exigida en la banda de
 # sostenimiento (solo carga sólida): |Tsat(P) - T_principal| <= este valor.
 _COHERENCIA_TP_K = 1.0
+
+# Tanda 16, VCH §5: histeresis_cierre_camara (kPa), defecto y rango.
+_HISTERESIS_CIERRE_DEFECTO = 3.0
+_HISTERESIS_CIERRE_RANGO = (1.0, 10.0)
+
+
+def _numero_finito(valor) -> bool:
+    return (isinstance(valor, (int, float)) and not isinstance(valor, bool)
+            and math.isfinite(valor))
 
 
 def _duty_por_tasa(tasa_actual, tasa_max):
@@ -189,10 +226,108 @@ class CalentamientoFase(BaseFase):
         self._t_pulso_rapido = None
         self._rapido_abierto = False
 
+        # Tanda 16, VCH: modo fijado al inicializar (None = aún sin fijar)
+        self._modo_chaqueta = None
+        self._aislado_previo = False
+        # Mecanismo de CIC-11 de ESTERILIZACION: CicloState registra
+        # `alarma_fallo` (CIC-15/16 del aislamiento)
+        self.alarma_fallo = None
+
         self.estado.fase_en_sostenimiento = False
 
-    def _apagar_salidas(self):
-        self.set_do.vapor_camara_off()
+    # ------------------------------------------------------------------
+    # Tanda 16, VCH: modo de vapor y aislamiento de cámara
+    # ------------------------------------------------------------------
+
+    def _modo_chaqueta_estado(self) -> bool:
+        return getattr(self.estado, "modo_vapor", None) == MODO_CHAQUETA
+
+    @property
+    def controla_vapor_chaqueta(self) -> bool:
+        """VCH §4.7: True solo en modo chaqueta (CICLO no toca entonces
+        vapor_chaqueta, salvo SUM-06 y el corte D-CHQ)."""
+        if self._modo_chaqueta is not None:
+            return self._modo_chaqueta
+        return self._modo_chaqueta_estado()
+
+    def _chaqueta_inhibida(self) -> bool:
+        return getattr(self.estado, "inhibir_vapor_chaqueta", False) is True
+
+    def _aislamiento(self) -> AislamientoCamara:
+        ais = getattr(self.estado, "aislamiento_camara", None)
+        if not isinstance(ais, AislamientoCamara):
+            ais = AislamientoCamara()
+            self.estado.aislamiento_camara = ais
+        return ais
+
+    def _histeresis_cierre(self) -> float:
+        """histeresis_cierre_camara (kPa) recortada a 1-10; sin un valor
+        numérico finito, 3."""
+        valor = self.cycle.get_param("calentamiento", "histeresis_cierre_camara",
+                                     default=_HISTERESIS_CIERRE_DEFECTO)
+        if not _numero_finito(valor):
+            return _HISTERESIS_CIERRE_DEFECTO
+        lo, hi = _HISTERESIS_CIERRE_RANGO
+        return min(max(float(valor), lo), hi)
+
+    def _brecha_error_temperatura(self) -> float:
+        """P3 / D-14.3: brecha_error_temperatura de la sección esterilizacion,
+        límite inferior de las Referencias en la ventana. Sin un valor
+        numérico finito >= 0 vale 0 (el criterio anterior, T_ref >= t_obj):
+        DECISIÓN SIN CONFIRMAR."""
+        valor = self.cycle.get_param("esterilizacion", "brecha_error_temperatura")
+        if not _numero_finito(valor) or valor < 0:
+            return 0.0
+        return float(valor)
+
+    def _vigilar_aislamiento(self, pres, p_techo, now):
+        """VCH-AIS (§4.4/§4.5), solo modo chaqueta. Devuelve (aislado,
+        FaseResult.FALLO o None)."""
+        ais = self._aislamiento()
+        histeresis = self._histeresis_cierre()
+        aislado = ais.actualizar(pres, p_techo, histeresis, now)
+        if aislado and not self._aislado_previo:
+            logger.warning(
+                "Calentamiento: AISLAMIENTO de cámara por sobrepresión — P=%s kPa >= techo "
+                "%.1f kPa (vapor_camara y vapor_chaqueta OFF)",
+                "?" if pres is None else f"{pres:.1f}", p_techo)
+        elif not aislado and self._aislado_previo:
+            logger.info(
+                "Calentamiento: fin del aislamiento de cámara — P=%s kPa <= %.1f kPa "
+                "sostenida (reabre vapor_camara)",
+                "?" if pres is None else f"{pres:.1f}", p_techo - histeresis)
+        self._aislado_previo = aislado
+
+        timeout_s = le.timeout_aislamiento_camara_s(self.config)
+        if ais.sostenido(now, timeout_s):
+            minutos = f"{timeout_s / 60:.0f}"
+            return aislado, self._fallo_propio(
+                CIC_15, {"minutos": minutos, "fase": nombre_legible(self.name),
+                         "maximo": p_techo},
+                motivos_fase.motivo("ais_sostenida", minutos=minutos,
+                                    pres_techo=f"{p_techo:.1f} kPa"))
+        maximo = le.max_aislamientos_camara(self.config)
+        ventana_s = le.ventana_aislamientos_camara_s(self.config)
+        if ais.recurrente(now, maximo, ventana_s):
+            cantidad = ais.entradas_en_ventana(now, ventana_s)
+            minutos = f"{ventana_s / 60:.0f}"
+            return aislado, self._fallo_propio(
+                CIC_16, {"cantidad": cantidad, "minutos": minutos,
+                         "fase": nombre_legible(self.name)},
+                motivos_fase.motivo("ais_recurrente", cantidad=cantidad, minutos=minutos))
+        return aislado, None
+
+    def _apagar_salidas(self, completado: bool = False):
+        # VCH §4.3: en modo chaqueta el COMPLETADO no cierra vapor_camara
+        # (ESTERILIZACION la mantiene abierta); vapor_chaqueta sí queda OFF
+        # (ESTERILIZACION la retoma). En FALLO se cierran las dos. En modo
+        # cámara, como antes (vapor_chaqueta la maneja CICLO).
+        if self._modo_chaqueta:
+            self.set_do.vapor_chaqueta_off()
+            if not completado:
+                self.set_do.vapor_camara_off()
+        else:
+            self.set_do.vapor_camara_off()
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_rapida_off()
         self.estado.fase_en_sostenimiento = False
@@ -202,6 +337,12 @@ class CalentamientoFase(BaseFase):
         self._apagar_salidas()
         self.estado.motivo_fallo = mensaje
         return FaseResult.FALLO
+
+    def _fallo_propio(self, codigo_alarma, valores: dict, motivo) -> FaseResult:
+        """Mecanismo de CIC-11 de ESTERILIZACION: CicloState registra
+        `alarma_fallo`."""
+        self.alarma_fallo = (codigo_alarma, valores)
+        return self._fallo(motivo)
 
     def _tick_dos_estados(self, timer_attr, abierto_attr, t_on, t_off, on_fn, off_fn, now):
         """Temporizador de dos estados: abierto t_on seg, cerrado t_off seg, repite.
@@ -267,12 +408,23 @@ class CalentamientoFase(BaseFase):
         if not self._inicializado:
             temp_inicial = self._temp_principal()
             if temp_inicial is None:
+                if self._modo_chaqueta_estado():
+                    # VCH: CICLO ya no maneja la chaqueta (controla_vapor_chaqueta);
+                    # sin lectura del Principal no se inyecta por ella
+                    self.set_do.vapor_chaqueta_off()
                 return FaseResult.EN_CURSO
             self._timer_timeout_fin = time.monotonic() + timeout_seg
             self._inicializado = True
+            # VCH-SEL (§4.1): el modo queda fijo para toda la fase
+            self._modo_chaqueta = self._modo_chaqueta_estado()
             logger.info(
                 "Calentamiento: iniciando desde %.1f°C | objetivo %.1f°C / %.1f kPa | timeout %.0fs",
                 temp_inicial, t_obj, p_obj, timeout_seg,
+            )
+            logger.info(
+                "Calentamiento: modo de vapor %s (válvula actuadora %s)",
+                "chaqueta" if self._modo_chaqueta else "cámara",
+                "vapor_chaqueta" if self._modo_chaqueta else "vapor_camara",
             )
 
         # ── 2. Timeout global ────────────────────────────────────────────
@@ -290,7 +442,24 @@ class CalentamientoFase(BaseFase):
 
         temp = self._temp_principal()
         pres = self._pres_camara()
+
+        # ── VCH (solo modo chaqueta): aislamiento y válvula de cámara ─────
+        aislado = False
+        if self._modo_chaqueta:
+            aislado, fallo = self._vigilar_aislamiento(pres, p_techo, time.monotonic())
+            if fallo is not None:
+                return fallo
+            if aislado:
+                self.set_do.vapor_camara_off()
+                self.set_do.vapor_chaqueta_off()
+            else:
+                # D3 / §4.3: abierta desde el inicio de la fase
+                self.set_do.vapor_camara_on()
+
         if temp is None or pres is None:
+            if self._modo_chaqueta:
+                # VCH: sin lectura no se inyecta por la chaqueta
+                self.set_do.vapor_chaqueta_off()
             return FaseResult.EN_CURSO
 
         now = time.monotonic()
@@ -390,6 +559,14 @@ class CalentamientoFase(BaseFase):
                 duty, temp, pres,
             )
 
+        # VCH §4.2: en modo chaqueta el mismo PWM se calcula sin actuar
+        # (funciones nulas) y su estado se aplica a vapor_chaqueta en cada
+        # tick, forzado a OFF con aislamiento o con el corte de CICLO.
+        if self._modo_chaqueta:
+            on_fn = off_fn = lambda: None
+        else:
+            on_fn, off_fn = self.set_do.vapor_camara_on, self.set_do.vapor_camara_off
+
         if intervalo <= 0:
             # intervalo<=0 haria que _tick_dos_estados caiga en su rama
             # "enclavada abierta" (t_off<=0) sin importar duty -- los
@@ -397,10 +574,10 @@ class CalentamientoFase(BaseFase):
             # parametro de ciclo mal configurado (la UI permite
             # intervalo_segmentos_calor=0). Aplicar duty directo.
             if duty > 0.0:
-                self.set_do.vapor_camara_on()
+                on_fn()
                 self._pwm_abierto = True
             else:
-                self.set_do.vapor_camara_off()
+                off_fn()
                 self._pwm_abierto = False
             self._t_pulso_pwm = None
         else:
@@ -408,8 +585,14 @@ class CalentamientoFase(BaseFase):
             t_off_pwm = intervalo - t_on_pwm
             self._tick_dos_estados(
                 "_t_pulso_pwm", "_pwm_abierto", t_on_pwm, t_off_pwm,
-                self.set_do.vapor_camara_on, self.set_do.vapor_camara_off, now,
+                on_fn, off_fn, now,
             )
+
+        if self._modo_chaqueta:
+            if self._pwm_abierto and not aislado and not self._chaqueta_inhibida():
+                self.set_do.vapor_chaqueta_on()
+            else:
+                self.set_do.vapor_chaqueta_off()
 
         # ── 6. Control de escapes (paralelo e independiente) ───────────────
         self._tick_dos_estados(
@@ -470,7 +653,11 @@ class CalentamientoFase(BaseFase):
         # deben estar en consigna.
         # V12 (SAF-08): "sin lectura" es None, no finito o 0 (sin señal,
         # SEN-01), el mismo criterio de ESTERILIZACION y de CicloState.
-        refs_en_consigna = all(t >= t_obj for t in self._temps_referencia().values()
+        # P3 / D-14.3 (tanda 16): límite inferior t_obj -
+        # brecha_error_temperatura (sección esterilizacion), el mismo de la
+        # banda de Referencia en ESTERILIZACION.
+        t_min_ref = t_obj - self._brecha_error_temperatura()
+        refs_en_consigna = all(t >= t_min_ref for t in self._temps_referencia().values()
                                if t is not None and math.isfinite(t) and t != 0)
         dentro_rango = dentro_rango and refs_en_consigna
 
@@ -485,7 +672,7 @@ class CalentamientoFase(BaseFase):
                     "Calentamiento: COMPLETADO tras sostenimiento continuo de %.0fs — %.1f°C / %.1f kPa",
                     tiempo_est, temp, pres,
                 )
-                self._apagar_salidas()
+                self._apagar_salidas(completado=True)
                 return FaseResult.COMPLETADO
         else:
             self._timer_sostenido_desde = None
