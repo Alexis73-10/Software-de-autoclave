@@ -32,7 +32,7 @@ Se generó una sola vez el 2026-10-22. **No se cambia nunca.** Gracias a él, Wi
 
 ### Página "Unidad de instalación" (INS-02)
 
-- Lista **solo discos fijos** (`GetDriveType = DRIVE_FIXED`: quedan fuera USB, removibles, CD y unidades de red), con etiqueta, sistema de archivos y espacio libre.
+- Lista **solo discos fijos** (`GetDriveType = DRIVE_FIXED`: quedan fuera USB, removibles, CD y unidades de red), con etiqueta, sistema de archivos y espacio libre. R1: tampoco los discos "fijos" en bus **USB, SD o MMC** (un disco USB externo suele decir fijo): el Setup lo pregunta con `Get-Partition`/`Get-Disk` (`BusType`, solo lectura). Si esa consulta falla, no excluye ninguno pero **preselecciona siempre la unidad del sistema** (sin asistente nunca elige así un disco USB; DECISIÓN SIN CONFIRMAR).
 - Preselección: el primer disco fijo distinto de `%SystemDrive%` que sea NTFS/ReFS y tenga espacio; si no hay, el del sistema.
 - Exige **NTFS o ReFS** (las ACL de abajo) y un mínimo libre de **tamaño del programa + 2 GB**. El tamaño lo calcula el preprocesador al compilar, recorriendo `Autoclave\` de la entrega (la compilación lo muestra: `INS-02: tamaño del programa = N MB`; la I medía ≈ 308 MB, mínimo ≈ 2,4 GB). Se valida en la página y otra vez antes de instalar (también sin asistente).
 - Disposición única, en cualquier unidad (incluso `C:`):
@@ -42,7 +42,9 @@ Se generó una sola vez el 2026-10-22. **No se cambia nunca.** Gracias a él, Wi
   - `X:\Especifika`, `X:\Especifika\Autoclave` y `programa`: Administradores (S-1-5-32-544) y SYSTEM (S-1-5-18) control total, Usuarios (S-1-5-32-545) lectura y ejecución. En `programa` también el dueño y la ACL heredada de todo lo de adentro (`/T`, `/reset`);
   - `datos`: lo mismo, con Usuarios **Modificar** (el programa corre sin administrador);
   - `datos\estacion`: solo Administradores y SYSTEM (lo hacen los scripts, `tools/estacion/_comun.ps1`).
-  - Si icacls devuelve error, el Setup **se detiene sin instalar** (falla cerrada). También se detiene si alguna de esas carpetas es un enlace o una unión, o si en una instalación nueva `programa` ya existe con archivos (podría tener una DLL plantada).
+  - R1 (revisión V17-s1-01): `/inheritance:r /grant:r` no quita las entradas **explícitas** de otros (p. ej. un `Todos:F` que dejara un usuario estándar que creó antes `D:\Especifika`). Por eso, después de icacls, el Setup **reemplaza la DACL entera** (SDDL protegida, solo los SID esperados) y la **verifica leyéndola** (protegida, dueño Administradores y exactamente Administradores/SYSTEM/Usuarios con sus permisos; en `datos\estacion` y `Autoclave_respaldos`, solo Administradores y SYSTEM). Igual hace `_comun.ps1` con `datos\estacion`.
+  - Si icacls o la verificación fallan, el Setup **se detiene sin instalar** (falla cerrada). También se detiene si alguna de esas carpetas es un enlace o una unión, o si en una instalación nueva `programa` ya existe con archivos (podría tener una DLL plantada; se comprueba **después** de protegerla, para que nadie agregue nada entre medio).
+  - `datos\estacion` la crea el Setup ya protegida. En una instalación nueva, una `estacion\` que ya exista con algo dentro no la creó este Setup: se protege y se **aparta** con su contenido a `datos\estacion_anterior_AAAAMMDD-HHMMSS` (no se borra nada) y se crea vacía; si no se puede apartar, el Setup se detiene. Al actualizar o reparar se conserva.
 - Registro: `HKLM\SOFTWARE\Especifika\Autoclave` (vista 64 bits), valores `RutaPrograma` y `RutaDatos` (los borra el desinstalador; las subclaves `Instalacion` y `Estacion` siguen igual). Con ellos el programa resuelve su carpeta de datos (`utils/resources.raiz_datos_exe`) y se reconoce como instalado (`instalador_exe.esta_instalado_aqui`), y `tools/estacion/_comun.ps1` ubica `datos\estacion`. Inno escribe `[Registry]` antes de `ssPostInstall`, donde corren los pasos de la estación.
 - **Actualizar o reparar** una instalación así: la página muestra solo la unidad anotada en `RutaPrograma`, sin poder cambiarla.
 - **Disposición anterior** (programa en Archivos de programa: compilación I o anterior, alpha.1, o una copia de `Autoclave.exe --rol instalar`): el Setup **se detiene** al abrirse y pide desinstalarla primero. Lo detecta por la clave de desinstalación de Inno sin `RutaPrograma` (o con otra carpeta en `Inno Setup: App Path`/`InstallLocation`) o por un `Autoclave.exe` en `C:\Program Files\Especifika\Autoclave`. **Sin migración de datos**: los anteriores quedan en `C:\ProgramData\Especifika\Autoclave`.
@@ -77,7 +79,12 @@ Detalles de la estación:
 - La contraseña pasa al script por una variable de entorno del proceso, nunca por la línea de comandos, y queda en el registro de Windows (`Winlogon\DefaultPassword`), como exige el inicio automático (riesgo aceptado en el plan de la estación, §3.1). El log nunca la muestra.
 - Los scripts se instalan en `X:\Especifika\Autoclave\programa\estacion\` (solo administradores pueden cambiarlos) y los ejecuta `estacion_setup.ps1` sin interacción. El log y los respaldos de los valores originales quedan en `X:\Especifika\Autoclave\datos\estacion\` (`RutaDatos\estacion`, que `_comun.ps1` lee del registro; sin la clave, `%ProgramData%\Especifika\Autoclave\estacion\`), carpeta que los scripts restringen a Administradores y SYSTEM (la de datos tiene Modificar para Usuarios).
 - Si un paso falla, el Setup lo avisa al final con la lista de pasos y la ruta del log; Autoclave queda instalado igual.
-- El Setup anota en `HKLM\SOFTWARE\Especifika\Autoclave\Estacion` los pasos que aplicó. **El desinstalador revierte solo esos**, en orden inverso (06, 05, 04, 02, 01), con los scripts de reversión, y borra esa clave. Si una reversión falla, lo avisa: entonces hay que correr a mano, como administrador, el script `0X_revertir_...ps1` de `tools/estacion/` (desde la USB o el repositorio, porque el desinstalador ya borró la copia instalada).
+- El Setup anota en `HKLM\SOFTWARE\Especifika\Autoclave\Estacion` los pasos que aplicó. **El desinstalador revierte solo esos**, en orden inverso (06, 05, 04, 02, 01), con los scripts de reversión, y borra esa clave. Si una reversión falla, lo avisa (con la carpeta de los respaldos, `datos\estacion`) y **conserva** esa clave y los valores `RutaDatos`/`RutaPrograma` (R1, V17-s1-05), para que los scripts encuentren los respaldos: hay que correr a mano, como administrador, el script `0X_revertir_...ps1` de `tools/estacion/` (desde la USB o el repositorio, porque el desinstalador ya borró la copia instalada). Si la clave ya no está, se le indica la carpeta a los scripts con la variable de entorno `AUTOCLAVE_RUTA_DATOS` (manda sobre el registro):
+
+  ```powershell
+  $env:AUTOCLAVE_RUTA_DATOS = 'D:\Especifika\Autoclave\datos'
+  .\05_revertir_plan_energia.ps1
+  ```
 - Si en una actualización se desmarca la casilla de la estación, no se revierte nada (eso lo hace el desinstalador o los scripts de reversión). Si se deja marcada, vuelve a pedir la contraseña y vuelve a aplicar los pasos (los scripts son idempotentes).
 
 ## Setup sobre una instalación existente (Actualizar / Reparar / Instalación limpia / Desinstalar)
@@ -178,6 +185,13 @@ Tanda 17 (INS-01, INS-02), además:
 - [ ] **Zona en silencioso:** `Autoclave_Setup_<v>.exe /VERYSILENT /ZONA="SA Pacific Standard Time" /LOG=C:\setup.log` deja esa zona (`tzutil /g`); con `/ZONA=NoExiste` se detiene sin instalar (ver el log).
 - [ ] **Instalación limpia** (casos A-N11-02/03): el respaldo queda en `D:\Especifika\Autoclave_respaldos\<fecha>\`, solo Administradores y SYSTEM; `datos\` queda vacía salvo `estacion\` y con `Usuarios:(M)` de nuevo.
 - [ ] **Desinstalación:** revierte la estación (log en `D:\Especifika\Autoclave\datos\estacion\estacion.log`), borra `RutaPrograma`/`RutaDatos` y conserva `datos\`.
+
+R1 (revisión de la tanda 17), además:
+- [ ] **Carpeta creada antes por un usuario estándar:** con un usuario estándar, crear `D:\Especifika` (y dentro `Autoclave\programa`) y darle `Todos` control total (`icacls D:\Especifika /grant *S-1-1-0:(OI)(CI)F`). Instalar en D: como administrador. `icacls D:\Especifika` (y `Autoclave`, `programa`, `datos`, `datos\estacion`) no debe mostrar `Todos` ni el usuario; dueño Administradores. Si `programa` tenía archivos, el Setup se detiene ("La carpeta del programa ya existe...").
+- [ ] **Disco USB externo que Windows muestra como fijo:** conectarlo antes de abrir el Setup: **no aparece** en la página de unidad ni queda preseleccionado; el log del Setup tiene `INS-02: unidad X: bus USB` y `fija pero en bus USB/SD/MMC: no se ofrece`.
+- [ ] **Reversión fallida al desinstalar:** (en una instantánea) borrar a mano `D:\Especifika\Autoclave\programa\estacion\05_revertir_plan_energia.ps1` antes de desinstalar: el desinstalador avisa con la carpeta `datos\estacion`, y después `reg query HKLM\SOFTWARE\Especifika\Autoclave` sigue teniendo `RutaDatos`, `RutaPrograma` y la subclave `Estacion`.
+- [ ] **`estacion\` preexistente** en una instalación nueva sobre una carpeta `datos` conservada: queda apartada como `datos\estacion_anterior_<fecha>` y la nueva `estacion\` solo para Administradores y SYSTEM.
+- [ ] **Autoclave.exe desde una USB** en un equipo instalado con el Setup: solo avisa que se actualiza con el Setup y no crea nada en `C:\Program Files\Especifika`.
 
 Resultado: ☐ apto para el equipo del autoclave ☐ no apto (anotar qué falló y adjuntar `estacion.log`). Fecha y firma: ________
 

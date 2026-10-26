@@ -49,7 +49,21 @@ function Get-RutaDatosRegistro {
     }
 }
 
-$script:RutaDatos = Get-RutaDatosRegistro
+function Test-RutaDatos($Ruta) {
+    return (($Ruta -is [string]) -and ($Ruta -match '^[A-Za-z]:\\') -and ($Ruta -notmatch '\.\.'))
+}
+
+# R1 (V17-s1-05): la variable de entorno AUTOCLAVE_RUTA_DATOS (ruta absoluta
+# X:\...\datos), si esta puesta, manda sobre el registro: sirve para revertir a
+# mano cuando la clave ya no esta (p. ej. tras desinstalar):
+#   $env:AUTOCLAVE_RUTA_DATOS = 'D:\Especifika\Autoclave\datos'
+# Orden: AUTOCLAVE_RUTA_DATOS > RutaDatos del registro > %ProgramData%.
+$script:RutaDatos = $null
+if (Test-RutaDatos $env:AUTOCLAVE_RUTA_DATOS) {
+    $script:RutaDatos = $env:AUTOCLAVE_RUTA_DATOS.TrimEnd('\')
+} else {
+    $script:RutaDatos = Get-RutaDatosRegistro
+}
 if ($script:RutaDatos) {
     $script:DirEstacion = Join-Path $script:RutaDatos 'estacion'
 } else {
@@ -93,15 +107,44 @@ $script:NombresSecretos = @('DefaultPassword')
 function Protect-DirEstacion {
     <# Solo Administradores (S-1-5-32-544) y SYSTEM (S-1-5-18), dueno
        Administradores, sin herencia de la carpeta de datos (Modificar a Usuarios).
-       Los archivos de adentro vuelven a heredar de la carpeta ya protegida. #>
+       Los archivos de adentro vuelven a heredar de la carpeta ya protegida.
+       R1 (V17-s1-01): /inheritance:r /grant:r no quita entradas EXPLICITAS de
+       otros SID (p. ej. Todos:F de quien creo antes la carpeta). Por eso la
+       DACL se reemplaza entera (SDDL protegida, solo la seccion de acceso) y
+       despues se VERIFICA: protegida, dueno Administradores y exactamente esas
+       dos entradas. Si no, lanza (falla cerrada). #>
     if ($script:EstacionProtegida) { return }
-    & icacls.exe $script:DirEstacion /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
-    & icacls.exe $script:DirEstacion /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /C /Q | Out-Null
+    & icacls.exe $script:DirEstacion /setowner '*S-1-5-32-544' /T /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "icacls no pudo fijar el dueno de $($script:DirEstacion) (codigo $LASTEXITCODE)." }
+    & icacls.exe $script:DirEstacion /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /Q | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "icacls no pudo proteger $($script:DirEstacion) (codigo $LASTEXITCODE)." }
+    $sd = New-Object System.Security.AccessControl.DirectorySecurity
+    $sd.SetSecurityDescriptorSddlForm('D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)', [System.Security.AccessControl.AccessControlSections]::Access)
+    (Get-Item -LiteralPath $script:DirEstacion -Force).SetAccessControl($sd)
     if (Get-ChildItem -LiteralPath $script:DirEstacion -Force -ErrorAction SilentlyContinue) {
-        & icacls.exe (Join-Path $script:DirEstacion '*') /reset /T /C /Q | Out-Null
+        & icacls.exe (Join-Path $script:DirEstacion '*') /reset /T /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "icacls no pudo restablecer el contenido de $($script:DirEstacion) (codigo $LASTEXITCODE)." }
     }
+    Assert-DirEstacionProtegida
     $script:EstacionProtegida = $true
+}
+
+function Assert-DirEstacionProtegida {
+    <# Lee la ACL de la carpeta de la estacion y lanza si no es exactamente:
+       protegida, dueno Administradores, Administradores y SYSTEM control total
+       (OI)(CI), sin ninguna otra entrada. #>
+    $sid = [System.Security.Principal.SecurityIdentifier]
+    $acl = Get-Acl -LiteralPath $script:DirEstacion
+    $dueno = $acl.GetOwner($sid).Value
+    $reglas = @($acl.GetAccessRules($true, $true, $sid) | ForEach-Object {
+        '{0}:{1}:{2}:{3}:{4}:{5}' -f $_.IdentityReference.Value, [int]$_.FileSystemRights,
+            [int]$_.AccessControlType, [int]$_.InheritanceFlags, [int]$_.PropagationFlags, $_.IsInherited
+    } | Sort-Object)
+    $esperadas = @(@('S-1-5-32-544:2032127:0:3:0:False', 'S-1-5-18:2032127:0:3:0:False') | Sort-Object)
+    if ((-not $acl.AreAccessRulesProtected) -or ($dueno -ne 'S-1-5-32-544') -or
+        (($reglas -join '|') -ne ($esperadas -join '|'))) {
+        throw "La ACL de $($script:DirEstacion) no es la esperada (dueno $dueno; $($reglas -join ' | '))."
+    }
 }
 
 function Initialize-Estacion {
