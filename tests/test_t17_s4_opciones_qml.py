@@ -55,6 +55,8 @@ class Sesion:
         enviados.append([metodo, ruta, cuerpo])
         base = ruta.split("?")[0]
         estado, datos = cfg["rutas"].get(metodo + " " + base, [200, {}])
+        if estado >= 400:                  # R4: error del backend (p. ej. 500)
+            return Resultado("error_generico", datos, estado)
         return Resultado("ok", datos, estado)
 
 sesion_backend.instalar(Sesion())
@@ -262,28 +264,47 @@ def test_controlador_presion_y_avisos_de_corte():
 
 
 @pytest.mark.req("MPR-01")
-@pytest.mark.parametrize("pres", [250.0, None])
-def test_cabecera_del_modo_prueba_muestra_la_presion(pres):
+@pytest.mark.parametrize("caso", ["kpa", "psi", "sin_lectura", "status_500"])
+def test_cabecera_del_modo_prueba_muestra_la_presion(caso):
+    # R4 (V17-s4-06): también en psi (con p_atm: psig) y con GET /status 500 («—»)
     pasos = r"""
+if CASO == "psi":
+    unidades_qml.instancia.aplicar({"temperatura": "C", "presion": "psi", "p_atm": 74.6})
 c = vista.findChild(QObject, "entradasSalidasController")
 vista.setProperty("segmento", "salidas")
 c.actualizar()
 QTest.qWait(80)
+if CASO == "status_500":
+    cfg["rutas"]["GET /status"] = [500, {"detail": "error"}]
+    c.actualizar()
+    QTest.qWait(80)
 r["banner"] = hijo("bannerModoPrueba").isVisible()
 r["presion"] = hijo("valorPresionModoPrueba").property("text")
 r["aviso"] = hijo("avisoCorte_0") is not None and hijo("avisoCorte_0").isVisible()
 r["textos"] = textos(hijo("bannerModoPrueba").parentItem())
 """
+    pres = None if caso == "sin_lectura" else 250.0
     qml = _ventana('OpcionesEntradasSalidas { objectName: "vista"; anchors.fill: parent }')
-    rutas = {"GET /status": [200, _status(pres, [{"causa": "puerta", "salida": "vapor_camara"}])],
+    avisos = [{"n": 1, "salida": "vapor_camara", "codigo": "salida_prueba_puerta_abierta",
+               "aviso": "io.ui.aviso_vapor_cortado_puerta"}]
+    rutas = {"GET /status": [200, _status(pres, avisos)],
              "GET /io/channels": [200, {"DI": [], "DO": [], "temperature": [], "pressure": []}]}
-    r = _correr(qml, pasos, rutas)
+    r = _correr(qml, f"CASO = {caso!r}\n" + pasos, rutas)
     assert r["avisos"] == [], r["avisos"]
     from autoclave import i18n
     from autoclave.core.runtime import unidades as u
     i18n.cargar()
+    esperado = {"kpa": u.formatear_pres(250.0, "kPa"),
+                "psi": u.formatear_pres(250.0, "psi", 74.6),
+                "sin_lectura": "—", "status_500": "—"}[caso]
+    assert r["presion"] == esperado
+    if caso == "psi":
+        assert "psig" in r["presion"]
+    if caso == "status_500":
+        # sin respuesta no se inventa la presión ni los avisos
+        assert r["aviso"] is False
+        return
     assert r["banner"] is True
-    assert r["presion"] == (u.formatear_pres(250.0, "kPa") if pres is not None else "—")
     assert i18n.t("io.ui.presion_camara", "es") in r["textos"]
     assert r["aviso"] is True
     assert any(i18n.t("io.ui.aviso_vapor_cortado_puerta", "es") in t for t in r["textos"])
@@ -342,6 +363,7 @@ r["filtro_hasta"] = hijo("filtroHasta") is not None
 tocar(hijo("filtroHasta"))
 r["cal_abierto"] = cal.property("abierta")
 r["cal_sobre_ventana"] = hijo("capaCalendario").parentItem() == ventana.contentItem()
+r["hasta_sin_fecha"] = hijo("botonSinFechaCalendario").isVisible()   # R4 (V17-s4-04)
 mes0 = hijo("nombreMesCalendario").property("text")
 tocar(hijo("mesAnterior"))
 r["mes_cambia"] = hijo("nombreMesCalendario").property("text") != mes0
@@ -383,6 +405,8 @@ r["categoria"] = c.property("categoria")
     assert r["desde_tras_cancelar"] == ""
     assert r["desde"] == anterior[:8] + "03"
     assert r["desde_sin"] == ""
+    # R4 (V17-s4-04): «Sin fecha» solo se ofrece en Desde
+    assert r["hasta_sin_fecha"] is False
     assert r["hasta_hoy"] == hoy.isoformat()
     assert r["usuario"] == "tomas" and r["categoria"] == "usuarios_sesion"
     rutas = [e[1] for e in r["enviados"]]
@@ -390,3 +414,22 @@ r["categoria"] = c.property("categoria")
     from autoclave import i18n
     i18n.cargar()
     assert i18n.t("bitacora.categoria.usuarios_sesion", "es") in " ".join(r["categorias_vistas"])
+
+
+@pytest.mark.req("BIT-05")
+def test_cargar_refresca_hoy_al_cambiar_el_dia(monkeypatch):
+    """R4 (V17-s4-04): con la pantalla abierta pasada la medianoche, cargar()
+    actualiza `hoy` y el Hasta por omisión (y avisa a QML)."""
+    from PySide6.QtCore import QCoreApplication
+    QCoreApplication.instance() or QCoreApplication(sys.argv)
+    from autoclave.ui_qml.controllers import bitacora_controller as bc
+    s = _S()
+    monkeypatch.setattr(bc.BitacoraController, "_hoy", staticmethod(lambda: "2026-10-26"))
+    c = bc.BitacoraController(sesion=s)
+    c.cargar()
+    avisos = []
+    c.filtrosChanged.connect(lambda: avisos.append(1))
+    monkeypatch.setattr(bc.BitacoraController, "_hoy", staticmethod(lambda: "2026-10-27"))
+    c.cargar()
+    assert avisos and c.hoy == "2026-10-27" and c.hasta == "2026-10-27"
+    assert "hasta=2026-10-27" in s.rutas[-1]
