@@ -62,6 +62,9 @@ class ProtocoloEstadoSeguro:
         # protocolo ventea (SAF-07 de T5). Lo fija la StateMachine.
         self.mantener_drenaje = None
         self._alarma_bloqueo = None
+        # Tanda 17 (ESG-01): episodio de "detenido por presión de cámara sin
+        # lectura" ya escrito en el log de desarrollo (una vez por episodio)
+        self._presion_perdida_en_log = False
         # S9 (tanda 9, revisión ★ TMG-02/TMG-03): callable () -> (trama AI
         # vigente, número de trama). Lo fija el ControlLoop; se entrega al
         # protocolo. Con la AI vencida no se cuenta ningún tick seguro (la
@@ -106,6 +109,14 @@ class ProtocoloEstadoSeguro:
         (CIC-10), o None. Lo muestra la UI junto al botón de asignar sonda."""
         motivo = getattr(self._protocolo, "bloqueado_motivo", None)
         return motivo if isinstance(motivo, str) else None
+
+    @property
+    def detenido_sin_presion(self) -> bool:
+        """Tanda 17 (ESG-01): el protocolo activo está detenido porque la
+        presión de cámara no tiene lectura (sin CIC-10; la UI puede mostrarlo
+        en la sección del estado seguro)."""
+        return (self.activo is True
+                and getattr(self._protocolo, "presion_perdida", False) is True)
 
     def _evento(self, evento: str, **detalle) -> None:
         logger.info("Estado seguro: %s %s", evento, detalle or "")
@@ -180,10 +191,27 @@ class ProtocoloEstadoSeguro:
 
     def _actualizar_alarma_bloqueo(self) -> None:
         """SAF-04 de T5: si el protocolo no puede terminar solo, alarma visible
-        (CIC-10) con el motivo; se resuelve cuando vuelve a avanzar."""
+        (CIC-10) con el motivo; se resuelve cuando vuelve a avanzar.
+
+        Tanda 17 (ESG-01, decisión de Cristian): si no avanza porque la
+        presión de cámara no tiene lectura, NO se activa CIC-10 (y se resuelve
+        si estaba activa): solo se ve la alarma del sensor (SEN-04 y presión
+        baja/alta si existe). El motivo va al log de desarrollo una vez por
+        episodio. El protocolo sigue detenido sin abrir nada nuevo y "NO
+        ABRIR" y el bloqueo del inicio de ciclo se mantienen (camara_segura
+        falla cerrada sin presión). CIC-10 se conserva para los demás motivos."""
+        presion_perdida = getattr(self._protocolo, "presion_perdida", False) is True
+        if presion_perdida and not self._presion_perdida_en_log:
+            self._presion_perdida_en_log = True
+            logger.warning("Estado seguro detenido: presión de cámara sin lectura; sin el "
+                           "sensor de presión no se lleva la cámara a estado seguro "
+                           "(ESG-01: sin CIC-10, solo la alarma del sensor)")
+        elif not presion_perdida and self._presion_perdida_en_log:
+            self._presion_perdida_en_log = False
+            logger.info("Estado seguro: la presión de cámara volvió a tener lectura")
         if self.alarm_manager is None:
             return
-        motivo = getattr(self._protocolo, "bloqueado_motivo", None)
+        motivo = None if presion_perdida else getattr(self._protocolo, "bloqueado_motivo", None)
         motivo = motivo if isinstance(motivo, str) else None
         if motivo == self._alarma_bloqueo and (motivo is None or self._cic10_activa()):
             return

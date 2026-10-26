@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import logging
 from datetime import date, datetime, timedelta
 from typing import Literal
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 from pydantic import BaseModel, StrictBool, StrictFloat, StrictInt
 from autoclave.backend.autenticacion import Sesion
 from autoclave.core.runtime.status import EstadoAutoclave
@@ -147,16 +147,31 @@ _POR_PAGINA_MAX = 100
 @router.get("/audit_log")
 def get_audit_log(pagina: int = 1, por_pagina: int = 20, desde: date | None = None,
                   hasta: date | None = None, usuario: str | None = None, evento: str | None = None,
+                  categoria: str | None = None,
                   sesion: Sesion = Depends(requiere_rol(ROL_ADMIN, ROL_TECNICO, ROL_INGENIERO))):
+    # Página de la bitácora. Filtros: `desde`/`hasta` (fecha, hasta inclusivo),
+    # `usuario`, `evento` y, desde la tanda 17 (BIT-05), `categoria` (una de
+    # bitacora.CATEGORIAS; sin ella, todas; una desconocida da 422). Devuelve
+    # también `usuarios`, `tipos` y `categorias`.
     from autoclave.core.runtime import bitacora
     pagina = max(1, pagina)
     por_pagina = max(1, min(por_pagina, _POR_PAGINA_MAX))
+    usuarios, eventos = context.db.valores_auditoria()
+    eventos_categoria = None
+    if categoria:
+        if categoria not in bitacora.CATEGORIAS:
+            raise HTTPException(status_code=422, detail=f"Categoría desconocida: {categoria}")
+        # los clasificados en la categoría más los presentes en la bitácora
+        # que categoria_de asigna a ella (un evento sin clasificar va a «sistema»)
+        eventos_categoria = sorted(set(bitacora.eventos_de_categoria(categoria))
+                                   | {ev for ev in eventos
+                                      if bitacora.categoria_de(ev) == categoria})
     filas, total = context.db.consultar_auditoria(
         desde=desde.isoformat() if desde else None,
         hasta=(hasta + timedelta(days=1)).isoformat() if hasta else None,
         usuario=usuario or None, evento=evento or None,
-        limite=por_pagina, desplazamiento=(pagina - 1) * por_pagina)
-    usuarios, eventos = context.db.valores_auditoria()
+        limite=por_pagina, desplazamiento=(pagina - 1) * por_pagina,
+        eventos=eventos_categoria)
     try:
         metas = {p["clave"]: p for p in context.config_manager.describir()}
     except Exception:
@@ -170,7 +185,8 @@ def get_audit_log(pagina: int = 1, por_pagina: int = 20, desde: date | None = No
     paginas = max(1, (total + por_pagina - 1) // por_pagina)
     return {"filas": [bitacora.presentar(f, metas, unidades, p_atm) for f in filas],
             "total": total, "pagina": pagina, "por_pagina": por_pagina,
-            "paginas": paginas, "usuarios": usuarios, "tipos": eventos}
+            "paginas": paginas, "usuarios": usuarios, "tipos": eventos,
+            "categorias": list(bitacora.CATEGORIAS)}
 
 
 class _SuspensionBody(BaseModel):
@@ -259,6 +275,18 @@ def _evento_dto(inst) -> dict:
     }
 
 
+def _avisos_corte_prueba() -> list:
+    """Tanda 17 (ESG-02): avisos del lazo en el modo prueba (lista vacía fuera
+    de él o ante cualquier error: solo presentación)."""
+    try:
+        if context.control_loop.test_mode_active is not True:
+            return []
+        avisos = context.control_loop.avisos_corte_prueba
+        return [a for a in avisos if isinstance(a, dict)] if isinstance(avisos, list) else []
+    except Exception:
+        return []
+
+
 def _estado_seguro_status() -> dict:
     """Protocolo de estado seguro (fin de ciclo §15): activo y si espera la
     confirmación "Confirmar y llevar a estado seguro"."""
@@ -278,6 +306,9 @@ def _estado_seguro_status() -> dict:
             "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
             # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
             "bloqueado_motivo": motivo if isinstance(motivo, str) else None,
+            # Tanda 17 (ESG-01): detenido por la presión de cámara sin lectura
+            # (sin CIC-10: solo la alarma del sensor)
+            "detenido_sin_presion": activo and getattr(es, "detenido_sin_presion", False) is True,
             "causa": causa if isinstance(causa, str) else None}
 
 
@@ -423,6 +454,9 @@ def get_status():
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
         "test_mode_active":      context.control_loop.test_mode_active,
+        # Tanda 17 (ESG-02): salidas que el lazo apagó en el modo prueba en curso
+        # ({n, salida, codigo, aviso}: aviso = clave i18n de Entradas / Salidas)
+        "avisos_corte_prueba":   _avisos_corte_prueba(),
         # D8-2.11 (TMG-03 de la revisión S2b): reintentos del ALL_OFF en curso
         "salidas_sin_confirmar_pendiente": _salidas_sin_confirmar_pendiente(),
         "calibracion_atm_en_curso": _calibracion_atm_en_curso(),   # O2f

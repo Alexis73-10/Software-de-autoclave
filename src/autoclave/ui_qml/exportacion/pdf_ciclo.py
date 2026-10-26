@@ -29,7 +29,19 @@ _ALTO_GRAFICA_MM = 95
 # clave de la serie, eje ("izq" °C / "der" kPa), color (GraficaCiclo.qml)
 _SERIES = (("temp_camara", "izq", "#6599FC"),
            ("temp_ref", "izq", "#9732DA"),
-           ("pres_camara", "der", "#00CCB0"))
+           ("pres_camara", "der", "#00CCB0"),
+           # Tanda 17 (SON-01): la sonda de Cámara 2 instalada (en uso o de
+           # monitoreo); solo se dibuja, con su leyenda, si tiene lecturas
+           ("temp_2_camara", "izq", "#E8890C"))
+# series que solo aparecen (trazo y leyenda) si el ciclo tiene lecturas de ellas
+_SERIES_OPCIONALES = frozenset({"temp_2_camara"})
+
+
+def _series_visibles(grafica: dict) -> tuple:
+    """_SERIES sin las opcionales que no tienen ninguna lectura."""
+    return tuple(serie for serie in _SERIES
+                 if serie[0] not in _SERIES_OPCIONALES
+                 or any(v is not None for v in (grafica.get(serie[0]) or [])))
 # consignas de esterilización: mismo color de la serie que acompañan, más oscuro
 _CONSIGNA = {"temp": QColor("#2F5FC4"), "pres": QColor("#00806E")}
 _TINTA = QColor("#1A1A1A")
@@ -169,7 +181,8 @@ def _grafica(l: _Lienzo, marco: QRectF, grafica: dict, fases: list, textos: dict
         return
 
     def valores(eje):
-        return [v for clave, e, _ in _SERIES if e == eje for v in grafica.get(clave) or []
+        return [v for clave, e, _ in _series_visibles(grafica) if e == eje
+                for v in grafica.get(clave) or []
                 if v is not None]
     izq, der = valores("izq"), valores("der")
     if consigna:   # que las consignas queden dentro de la escala
@@ -232,7 +245,7 @@ def _grafica(l: _Lienzo, marco: QRectF, grafica: dict, fases: list, textos: dict
     # series (un valor ausente corta la línea)
     p.save()
     p.setClipRect(area.adjusted(0, -_mm(1), 0, _mm(1)))
-    for clave, eje, color in _SERIES:
+    for clave, eje, color in _series_visibles(grafica):
         esc = y_izq if eje == "izq" else y_der
         camino, abierto = QPainterPath(), False
         for tm, v in zip(t, grafica.get(clave) or []):
@@ -258,10 +271,12 @@ def _grafica(l: _Lienzo, marco: QRectF, grafica: dict, fases: list, textos: dict
     p.restore()
 
 
-def _leyenda(l: _Lienzo, x: float, y: float, textos: dict, con_consigna: bool) -> None:
+def _leyenda(l: _Lienzo, x: float, y: float, textos: dict, con_consigna: bool,
+             grafica: dict | None = None) -> None:
     fm = l.fuente(8)
+    series = _series_visibles(grafica) if grafica is not None else _SERIES
     entradas = [(textos.get("series", {}).get(c, c), QColor(color), Qt.SolidLine)
-                for c, _, color in _SERIES]
+                for c, _, color in series]
     if con_consigna:
         entradas += [(textos.get("consignas", {}).get(c, c), _CONSIGNA[c], Qt.DashLine)
                      for c in ("temp", "pres")]
@@ -289,7 +304,7 @@ def dibujar_ciclo(doc: Documento, datos: dict, ticket: str, grafica: dict, fases
     marco = QRectF(0, y, l.ancho, _mm(_ALTO_GRAFICA_MM))
     _grafica(l, marco, grafica, fases, textos, consigna)
     y = marco.bottom() + _mm(6)
-    _leyenda(l, 0, y, textos, consigna is not None and bool(grafica.get("t_min")))
+    _leyenda(l, 0, y, textos, consigna is not None and bool(grafica.get("t_min")), grafica)
     y += _mm(10)
 
     fm = l.fuente(10, negrita=True)

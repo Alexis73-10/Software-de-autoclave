@@ -10,7 +10,11 @@
 # - El Principal decide todo (control, fallas, F0, ticket, enfriamiento,
 #   apertura, cámara segura). Las Referencias solo condicionan la entrada a
 #   esterilización y generan una alerta de uniformidad térmica.
-# - Un sensor `no_en_uso` no se lee ni se vigila.
+# - Un sensor `no_en_uso` no participa en control, fallas, F0, uniformidad,
+#   entrada a esterilización, cámara segura, SENSOR_AUSENTE, SEN-03 ni SEN-11.
+#   Tanda 17 (SON-01, decisión de Cristian): si está instalado se sigue
+#   leyendo, publicando en /status y registrando en la gráfica del ciclo
+#   (monitoreo); sin lectura se muestra "—", sin alarma ni aviso.
 # - Se usa el Principal del programa seleccionado; sin programa, el del último
 #   ciclo ejecutado; sin ninguno, temp_camara (el llamador elige el programa).
 
@@ -165,6 +169,37 @@ def sensor_declarado(profile, sensor: str) -> bool:
 
 def sensores_declarados(profile) -> list[str]:
     return [s for s in SENSORES if sensor_declarado(profile, s)]
+
+
+# Tanda 17 (SON-01): series de temperatura de la gráfica del ciclo antes de SON-01
+_SERIES_GRAFICA_ANTERIORES = ("temp_camara", "temp_ref")
+
+
+def sondas_grafica(profile) -> frozenset:
+    """Tanda 17 (SON-01, decisión de Cristian): sondas del ciclo cuyas
+    lecturas guardadas (lecturas_grafica) se entregan a la gráfica, al PDF y
+    al correo: las declaradas por la instalación, sin mirar el rol (una sonda
+    No en uso es de monitoreo y se registra; una no instalada sigue oculta).
+    Solo presentación: ante un error, las de antes de SON-01."""
+    try:
+        return frozenset(sensores_declarados(profile))
+    except Exception:
+        logger.exception("SON-01: no se pudieron leer las sondas declaradas para la gráfica")
+        return frozenset(_SERIES_GRAFICA_ANTERIORES)
+
+
+def temperaturas_grafica(fila, sondas) -> dict:
+    """{temp_camara, temp_ref, temp_2_camara} de una fila de lecturas_grafica
+    para /cycle/current/graph y /cycle/history/{id}/graph: None en las sondas
+    que no están en `sondas` (sondas_grafica) o si la fila no trae la columna."""
+    resultado = {}
+    for s in SENSORES:
+        try:
+            valor = fila[s]
+        except (KeyError, IndexError):
+            valor = None
+        resultado[s] = valor if s in sondas else None
+    return resultado
 
 
 def estado_sensor(profile, estado, sensor: str) -> str:

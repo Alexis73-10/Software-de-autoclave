@@ -18,7 +18,6 @@
 import json
 import os
 import re
-from types import SimpleNamespace
 
 from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.core.runtime import sensores_ciclo as sc
@@ -247,23 +246,32 @@ ENTRADAS_POR_OMISION = ("temp_camara", "temp_referencia", "pres_camara")
 # O11 (D11-7): sensor de temperatura del programa (sensores_ciclo) -> nombre de la AI
 AI_DE_SENSOR = {"temp_camara": "temp_camara", "temp_2_camara": "temp_2_camara",
                 "temp_ref": "temp_referencia"}
+# Tanda 17 (SON-01, decisión de Cristian): ya no se rechaza al guardar; se
+# conserva el nombre por compatibilidad con la interfaz (mensaje_de).
 SENSOR_NO_EN_USO = "SENSOR_NO_EN_USO"
 
 
-def entradas_no_en_uso(c) -> list[str]:
-    """O11 (D11-7.1): AI de los sensores de temperatura que el programa no usa
-    (ni Principal ni Referencia). Con una asignación inválida solo cuenta como
-    en uso el Principal de respaldo (temp_camara), igual que
-    sensores_ciclo.sensor_principal."""
+def entradas_no_en_uso(c, habilitadas: list[str] | None = None) -> list[str]:
+    """AI de los sensores de temperatura que el programa no usa (ni Principal
+    ni Referencia). Con una asignación inválida solo cuenta como en uso el
+    Principal de respaldo (temp_camara), igual que sensores_ciclo.sensor_principal.
+
+    Tanda 17 (SON-01, revierte O11 / D11-7.1): ya no filtra nada; la interfaz
+    la usa para rotular la entrada «(monitoreo)». Con `habilitadas` (AI que
+    declara el perfil), solo las de sondas instaladas."""
     en_uso = set(sc.sensores_en_uso(c))
-    return [AI_DE_SENSOR[s] for s in sc.SENSORES if s not in en_uso]
+    lista = [AI_DE_SENSOR[s] for s in sc.SENSORES if s not in en_uso]
+    if habilitadas is not None:
+        lista = [e for e in lista if e in habilitadas]
+    return lista
 
 
 def entradas_por_omision(c, habilitadas: list[str] | None = None) -> list[str]:
     """O11 (D11-7.4, propuesta del asistente): [AI del Principal, primera
     Referencia si la hay, pres_camara], hasta 3, entre las habilitadas. Si
     ninguna está habilitada, la primera habilitada en uso; sin habilitadas
-    conocidas (None o vacía), la lista sin filtrar."""
+    conocidas (None o vacía), la lista sin filtrar. La omisión sigue sin
+    proponer sondas No en uso (SON-01 solo permite elegirlas)."""
     refs = sc.sensores_referencia(c)
     lista = [AI_DE_SENSOR[sc.sensor_principal(c)]]
     if refs:
@@ -277,43 +285,36 @@ def entradas_por_omision(c, habilitadas: list[str] | None = None) -> list[str]:
 
 
 def entradas_disponibles(c, habilitadas: list[str]) -> list[str]:
-    """O11 (D11-7.1): lo que ofrece el selector: las AI habilitadas en el
-    equipo menos los sensores No en uso del programa."""
-    no = set(entradas_no_en_uso(c))
-    return [e for e in habilitadas if e not in no]
+    """Lo que ofrece el selector: las AI habilitadas en el equipo (perfil de
+    instalación: una sonda no instalada no aparece). Tanda 17 (SON-01,
+    decisión de Cristian): también las de sondas No en uso del programa."""
+    return list(habilitadas)
 
 
 def entradas_de(c, habilitadas: list[str]) -> list[str]:
-    """Selección vigente del programa sin los sensores No en uso (O11,
-    D11-7.4/5: también la de un JSON viejo y la de un programa de fábrica);
-    sin selección propia, o si no queda ninguna, la omisión."""
-    no = set(entradas_no_en_uso(c))
+    """Selección vigente del programa; sin selección propia, o si no queda
+    ninguna, la omisión. Tanda 17 (SON-01, decisión de Cristian): las de
+    sondas No en uso se conservan (se muestran como monitoreo); con
+    `habilitadas` conocidas se quitan las que el equipo no declara (una sonda
+    no instalada sigue oculta)."""
     propias = getattr(c, "entradas_mostradas", None)
     if isinstance(propias, list):
-        visibles = [e for e in propias if e not in no]
+        visibles = [e for e in propias if not habilitadas or e in habilitadas]
         if visibles:
             return visibles
     return entradas_por_omision(c, habilitadas)
 
 
-def entradas_tras_cambio_de_rol(propias, asignacion: dict):
-    """O11 (D11-7.3): selección propia del programa tras asignar `asignacion`:
-    sin los sensores que quedan No en uso y, si queda vacía, la AI del
-    Principal. None si no hay selección propia o si no cambia."""
-    if not isinstance(propias, list) or not propias:
-        return None
-    nuevo = SimpleNamespace(sensores=dict(asignacion))
-    no = set(entradas_no_en_uso(nuevo))
-    quedan = [e for e in propias if e not in no]
-    if quedan == list(propias):
-        return None
-    return quedan or [AI_DE_SENSOR[sc.sensor_principal(nuevo)]]
+# Tanda 17 (SON-01, decisión de Cristian): se retira entradas_tras_cambio_de_rol
+# (O11, D11-7.3). Al pasar una sonda a No en uso ya no sale de las Entradas
+# mostradas del programa.
 
 
 def fijar_entradas(cm, numero: int, entradas, habilitadas: list[str]) -> tuple[list, list]:
-    """Valida (1 a 3, sin repetir, entre las AI habilitadas en `io_enabled` y
-    sin sensores No en uso del programa: O11, D11-7.1) y guarda en el JSON del
-    programa. Devuelve (anterior, nueva)."""
+    """Valida (1 a 3, sin repetir, entre las AI habilitadas en `io_enabled`) y
+    guarda en el JSON del programa. Devuelve (anterior, nueva). Tanda 17
+    (SON-01, decisión de Cristian): una sonda No en uso del programa ya no se
+    rechaza (retirado el rechazo SENSOR_NO_EN_USO de O11, D11-7.1)."""
     if (not isinstance(entradas, list) or not 1 <= len(entradas) <= 3
             or not all(isinstance(e, str) for e in entradas) or len(set(entradas)) != len(entradas)):
         raise ErrorPrograma("ASIGNACION_INVALIDA", "Elija de 1 a 3 entradas distintas", 422)
@@ -323,10 +324,6 @@ def fijar_entradas(cm, numero: int, entradas, habilitadas: list[str]) -> tuple[l
                             f"Entrada no habilitada en el equipo: {', '.join(fuera)}", 422)
     c = programa(cm, numero)
     _de_usuario(c)
-    no_en_uso = [e for e in entradas if e in entradas_no_en_uso(c)]
-    if no_en_uso:
-        raise ErrorPrograma(SENSOR_NO_EN_USO,
-                            f"Sensor No en uso en el programa: {', '.join(no_en_uso)}", 422)
     anterior = entradas_de(c, habilitadas)
     c._entradas_previas = getattr(c, "entradas_mostradas", None)
     _escribir_campo(c, "entradas_mostradas", list(entradas))

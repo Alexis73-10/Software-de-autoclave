@@ -20,8 +20,9 @@ def test_por_omision_si_lista_invalida():
 def test_construir_valores_en_kpa_y_celsius():
     filas = em.construir(["temp_camara", "pres_chaqueta"], SENSORS)
     assert [f["clave"] for f in filas] == ["temp_camara", "pres_chaqueta"]
+    # Tanda 17 (SON-01, decisión de Cristian): la fila trae `monitoreo`
     assert filas[0] == {"clave": "temp_camara", "tipo": "temp", "valor": "121.0",
-                        "unidad": "°C", "enUso": True}
+                        "unidad": "°C", "enUso": True, "monitoreo": False}
     assert filas[1]["valor"] == "250.0" and filas[1]["unidad"] == "kPa"
 
 
@@ -48,7 +49,10 @@ def test_sin_lectura_o_desconocida_es_guion(clave):
 def test_no_en_uso_no_se_muestra():
     # O11 (tanda 11, D11-7.1): antes era una fila con "—"; ahora no aparece
     filas = em.construir(["temp_referencia", "pres_camara"], SENSORS, no_en_uso=["temp_referencia"])
-    assert [f["clave"] for f in filas] == ["pres_camara"] and filas[0]["enUso"] is True
+    # Tanda 17 (SON-01, decisión de Cristian): se muestra, marcada como monitoreo
+    assert [f["clave"] for f in filas] == ["temp_referencia", "pres_camara"]
+    assert filas[0]["enUso"] is True and filas[0]["monitoreo"] is True
+    assert filas[1]["monitoreo"] is False
 
 
 def test_sensors_mal_formado_no_rompe():
@@ -149,8 +153,11 @@ def test_ui_bridge_publica_entradas_del_programa_y_cambian():
     ui.get_cycle.return_value = {"name": "B", "entradas_mostradas": ["temp_referencia", "temp_drenaje"],
                                  "entradas_no_en_uso": ["temp_referencia"]}
     b.refrescar()
-    # O11: la Referencia No en uso no aparece; temp_drenaje sin lectura sigue con "—"
-    assert [(f["clave"], f["valor"]) for f in b.entradasMostradas] == [("temp_drenaje", "—")]
+    # Tanda 17 (SON-01, decisión de Cristian): la Referencia No en uso aparece
+    # como monitoreo; temp_drenaje sin lectura sigue con "—"
+    assert [(f["clave"], f["valor"]) for f in b.entradasMostradas] == [
+        ("temp_referencia", "120.5"), ("temp_drenaje", "—")]
+    assert [f["monitoreo"] for f in b.entradasMostradas] == [True, False]
     ui.get_cycle.return_value = {}          # sin /cycle todavía: la omisión de fábrica
     b.refrescar()
     assert [f["clave"] for f in b.entradasMostradas] == list(em.POR_OMISION)

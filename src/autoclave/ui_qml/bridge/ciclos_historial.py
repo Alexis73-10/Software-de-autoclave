@@ -28,7 +28,8 @@ from autoclave.ui_qml.domain.navegador_periodo import NavegadorPeriodo
 logger = logging.getLogger(__name__)
 
 PERIODOS = ("dia", "semana", "mes")
-_GRAFICA_VACIA = {"t_min": [], "temp_camara": [], "temp_ref": [], "pres_camara": []}
+_GRAFICA_VACIA = {"t_min": [], "temp_camara": [], "temp_ref": [], "pres_camara": [],
+                  "temp_2_camara": []}     # Tanda 17 (SON-01)
 
 
 def _en_hilo(tarea) -> None:
