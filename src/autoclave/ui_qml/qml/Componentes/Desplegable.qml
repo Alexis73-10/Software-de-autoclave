@@ -32,7 +32,8 @@ Item {
     property real altoMaximoLista: Escala.px(1100)
     signal elegido(var valor)
 
-    implicitHeight: Escala.px(rotulo !== "" ? 96 : 88)
+    // crece si el texto vigente ocupa dos líneas (sin recortar, D8-5.4)
+    implicitHeight: Math.max(Escala.px(rotulo !== "" ? 96 : 88), contenidoBoton.implicitHeight + Escala.px(20))
 
     function _opcionVigente() {
         for (let i = 0; i < opciones.length; i++)
@@ -68,6 +69,7 @@ Item {
         opacity: raiz.habilitado ? 1 : 0.45
 
         Column {
+            id: contenidoBoton
             anchors.left: parent.left; anchors.leftMargin: Escala.px(20)
             anchors.right: chevron.left; anchors.rightMargin: Escala.px(12)
             anchors.verticalCenter: parent.verticalCenter
@@ -82,7 +84,7 @@ Item {
                 objectName: "textoDesplegable"
                 width: parent.width
                 text: raiz.textoBoton
-                elide: Text.ElideRight
+                wrapMode: Text.WordWrap
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoSemiBold
@@ -137,7 +139,7 @@ Item {
                 height: raiz.tituloLista !== "" ? implicitHeight : 0
                 visible: raiz.tituloLista !== ""
                 text: raiz.tituloLista
-                elide: Text.ElideRight
+                wrapMode: Text.WordWrap
                 color: Colores.textoPrimario
                 font.family: Tipografia.familia
                 font.weight: Tipografia.pesoBold
@@ -169,7 +171,7 @@ Item {
                         anchors.left: parent.left; anchors.leftMargin: Escala.px(18)
                         anchors.right: parent.right; anchors.rightMargin: Escala.px(18)
                         anchors.verticalCenter: parent.verticalCenter
-                        elide: Text.ElideRight
+                        wrapMode: Text.WordWrap
                         textFormat: Text.PlainText
                         text: fila.modelData.texto + (fila.modelData.aviso ? " " + fila.modelData.aviso : "")
                         color: fila.vigente ? Colores.accionPrimarioTexto : Colores.textoPrimario

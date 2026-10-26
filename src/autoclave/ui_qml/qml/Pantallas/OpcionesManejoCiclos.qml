@@ -313,7 +313,7 @@ Item {
                             anchors.left: parent.left; anchors.leftMargin: Escala.px(18)
                             anchors.right: parent.right; anchors.rightMargin: Escala.px(18)
                             anchors.verticalCenter: parent.verticalCenter
-                            elide: Text.ElideRight
+                            wrapMode: Text.WordWrap
                             text: raiz.numero2(chip.modelData.numero) + " · " + chip.modelData.nombre
                             color: Colores.textoPrimario
                             font.family: Tipografia.familia

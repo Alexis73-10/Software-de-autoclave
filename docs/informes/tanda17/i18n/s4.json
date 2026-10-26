@@ -1,10 +1,12 @@
 {
   "es": {
     "alarma_detalle.estado_resuelta": "Resuelta, sin reconocer",
-    "alarma_detalle.estado_retirada": "Ya no está activa"
+    "alarma_detalle.estado_retirada": "Ya no está activa",
+    "bitacora.err_rango": "La fecha Desde no puede ser posterior a la fecha Hasta."
   },
   "en": {
     "alarma_detalle.estado_resuelta": "Resolved, not acknowledged",
-    "alarma_detalle.estado_retirada": "No longer active"
+    "alarma_detalle.estado_retirada": "No longer active",
+    "bitacora.err_rango": "The From date cannot be later than the To date."
   }
 }
