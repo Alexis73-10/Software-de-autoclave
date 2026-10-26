@@ -89,6 +89,7 @@ a = Analysis(
         'autoclave.estacion.cubierta_arranque',
         'autoclave.estacion.asociar_tactiles',
         'autoclave.estacion._ventanas',
+        'autoclave.estacion.instancia_unica',
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',

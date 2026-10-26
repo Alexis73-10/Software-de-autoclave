@@ -41,3 +41,11 @@
 | V17-s4-05 | Baja | `IntroArranque.qml:285` | la intro muestra «Software v…» (D-07, previo) con texto fijo sin i18n |
 | V17-s4-06 | Baja | `test_t17_s4_alarmas_qml.py`, `test_t17_s4_opciones_qml.py` | pruebas de texto o sin comprobar visibilidad; presión solo en kPa |
 | V17-s4-07 | Baja | `OpcionesBitacora.qml:186` | clave dinámica `bitacora.tipo.<evento>` sin `I18n.existe` |
+
+### Resolución R2 (rama `tanda-17-r2`: f72409f, 6ad8360)
+- V17-s2-01 corregido: `estacion/instancia_unica.py`, mutex `Local\EspecifikaAutoclaveLanzador` antes de la cubierta; un segundo lanzador no abre nada y sale con 0 (DECISIÓN SIN CONFIRMAR); R11 (`--esperar-pid`) reintenta hasta 60 s; si el mutex falla, sigue sin protección (log). Solo build congelado (`AUTOCLAVE_INSTANCIA_UNICA`).
+- V17-s2-02 corregido: solo se esperan los eventos pendientes.
+- V17-s2-03 corregido: el 03 reemplaza una tarea con retraso distinto de `PT0S`/vacío.
+- V17-s2-04 corregido: `_log_a_archivo` del rol `asociar-tactiles` en try/except.
+- V17-s2-05 corregido: `elegir_prefijo` usa siempre `20-` salvo forma completa del mismo táctil tocado (DECISIÓN SIN CONFIRMAR).
+- V17-s2-06 corregido: el 06 pide reiniciar solo si la herramienta escribió.
