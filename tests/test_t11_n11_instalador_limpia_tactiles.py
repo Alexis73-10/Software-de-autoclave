@@ -127,7 +127,9 @@ def test_saf02_enlaces_y_ruta_de_datos():
                     "EstaDentro(CarpetaBorrar, Datos)"):
         assert limpia.index(llamada) < i_respaldo, llamada
     assert "LimpiaEnlace" in limpia and "LimpiaRutaInvalida" in limpia
-    assert "'\\Especifika\\Autoclave'" in _funcion("RutaDatosValida")
+    # Tanda 17 (INS-02, decisión de Cristian): la carpeta de datos es
+    # X:\Especifika\Autoclave\datos (antes %ProgramData%\Especifika\Autoclave)
+    assert "'\\Especifika\\Autoclave\\datos'" in _funcion("RutaDatosValida")
     assert "FILE_ATTRIBUTE_REPARSE_POINT" in _funcion("EsEnlace")
     # la carpeta de respaldo recién creada no puede ser un enlace
     assert "CreateDir(Destino) and not EsEnlace(Destino)" in _funcion("CopiarArbol")
@@ -172,7 +174,9 @@ def test_saf06_sin_versionnum_compara_displayversion_o_se_niega():
 
 
 def test_carpeta_de_respaldo_fuera_de_la_que_se_borra_y_con_fecha():
-    assert "{commonappdata}\\Especifika\\Autoclave_respaldos" in CODIGO
+    # Tanda 17 (INS-02, decisión de Cristian): los respaldos van a
+    # X:\Especifika\Autoclave_respaldos (misma unidad que datos\), no a {commonappdata}
+    assert "ExtractFileDir(RaizAutoclave) + '\\Autoclave_respaldos'" in _funcion("RaizRespaldos")
     assert "'yyyymmdd-hhnnss'" in CODIGO
     # no borra la carpeta de la estación (respaldos de los pasos de Windows): vuelve a su lugar
     assert "\\estacion" in _funcion("VaciarDatos")
