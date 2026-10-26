@@ -88,10 +88,27 @@ def test_un_digitalizador_por_monitor_y_sin_duplicados():
     assert len(a.rechazos) == 3
 
 
-def test_prefijo_observado_en_la_clave():
-    assert digimon.prefijo_observado([]) == "20-"
-    assert digimon.prefijo_observado(["30-" + HID_A, "30-" + HID_B, "otro"]) == "30-"
-    assert digimon.prefijo_observado(["30-" + HID_A, "20-" + HID_B]) == "20-"   # no coinciden
+def test_prefijo_siempre_20_salvo_forma_completa_del_mismo_tactil():
+    # V17-s2-05: sin valores, o con otros prefijos de origen dudoso → "20-"
+    assert digimon.elegir_prefijo({}, [HID_A]) == ("20-", None)
+    # todos con la forma completa, mismo prefijo y uno es el táctil tocado → se usa ese
+    existentes = {"30-" + HID_A: (MON_2, "String")}
+    prefijo, aviso = digimon.elegir_prefijo(existentes, [HID_A.lower()])
+    assert prefijo == "30-" and aviso
+    # mismo caso pero ningún HID existente fue tocado en esta pasada → "20-" con aviso
+    prefijo, aviso = digimon.elegir_prefijo(existentes, [HID_B])
+    assert prefijo == "20-" and "30-" in aviso
+    # un valor existente mal formado (p. ej. de otro dispositivo) → "20-" con aviso
+    raro = {"30-" + HID_A: (MON_2, "String"), "30-\\\\?\\USB#x#y#z": (MON_1, "String")}
+    prefijo, aviso = digimon.elegir_prefijo(raro, [HID_A])
+    assert prefijo == "20-" and aviso
+    # dato que no es una ruta de monitor → "20-"
+    assert digimon.elegir_prefijo({"30-" + HID_A: (5, "DWord")}, [HID_A])[0] == "20-"
+    # prefijos distintos → "20-"
+    mezcla = {"30-" + HID_A: (MON_1, "String"), "40-" + HID_B: (MON_2, "String")}
+    assert digimon.elegir_prefijo(mezcla, [HID_A, HID_B])[0] == "20-"
+    # ya con "20-" no hay aviso
+    assert digimon.elegir_prefijo({"20-" + HID_A: (MON_1, "String")}, [HID_A]) == ("20-", None)
     assert digimon.armar_valores([(HID_A, MON_1)], "30-").valores == {"30-" + HID_A: MON_1}
     with pytest.raises(ValueError):
         digimon.armar_valores([(HID_A, MON_1)], "x-")
@@ -240,10 +257,19 @@ def test_error_al_escribir_da_error(tmp_path):
     assert r.codigo == at.ERROR
 
 
-def test_usa_el_prefijo_que_ya_hay_en_la_clave(tmp_path):
+def test_usa_el_prefijo_que_ya_hay_solo_para_el_mismo_tactil(tmp_path):
     esc = _Escritor({"30-" + HID_A: (MON_2, "String")})
     r = _ejecutar(tmp_path, [HID_A, HID_B], escritor=esc)
     assert r.escritor.escritos[0] == ("30-" + HID_A, MON_1)
+    assert any(n == "WARN" and "prefijo 30-" in m for n, m in r.lineas)
+
+
+def test_otro_prefijo_de_otro_dispositivo_solo_se_avisa(tmp_path):
+    otro = "\\\\?\\HID#VID_9999&PID_0001&Col02#1&1&0&0000#" + GUID_HID
+    esc = _Escritor({"10-" + otro: (MON_2, "String")})
+    r = _ejecutar(tmp_path, [HID_A, HID_B], escritor=esc)
+    assert [n for n, _ in r.escritor.escritos] == ["20-" + HID_A, "20-" + HID_B]
+    assert any(n == "WARN" and "10-" in m for n, m in r.lineas)
 
 
 class _WinregDoble:
@@ -303,6 +329,16 @@ def test_main_fuera_de_windows_o_sin_admin_no_lanza(monkeypatch, tmp_path):
 
 # ── rol del exe único ───────────────────────────────────────────────────────
 
+def test_rol_asociar_tactiles_sigue_sin_log_de_archivo(monkeypatch):
+    """V17-s2-04: si _log_a_archivo falla, el rol sigue."""
+    def falla(nombre):
+        raise PermissionError("sin permiso en data")
+
+    monkeypatch.setattr(exe_unico, "_log_a_archivo", falla)
+    monkeypatch.setattr(at, "main", lambda argv: 0)
+    assert exe_unico.main(["--rol", "asociar-tactiles"]) == 0
+
+
 def test_rol_asociar_tactiles_pasa_sus_opciones(monkeypatch):
     llamadas = []
     monkeypatch.setattr(exe_unico, "_log_a_archivo", lambda nombre: llamadas.append(nombre))
@@ -350,3 +386,15 @@ def test_06_sin_multidigitizer_usa_la_herramienta_propia_y_no_lanza():
     assert "No se pudo ejecutar la herramienta de asociacion" in s
     assert "Tampoco se encuentra la herramienta propia" in s
     assert "exit 1" not in s
+
+
+def test_06_pide_reinicio_solo_si_la_herramienta_escribio():
+    """V17-s2-06: código 0, o 3 con más valores que antes de abrirla."""
+    s = _ps06()
+    assert s.index("$cuentaAntes = (Get-ValoresDigimon).Count") < s.index("Start-Process")
+    assert "$codigoPropio = $codigo" in s
+    assert "$masValores = ($null -ne $cuentaAntes) -and ($despues.Count -gt $cuentaAntes)" in s
+    assert "$escribio = ($codigoPropio -eq 0) -or (($codigoPropio -eq 3) -and $masValores)" in s
+    bloque = s[s.index("$escribio ="):]
+    assert bloque.index("if ($propia -and $escribio)") < bloque.index("Reinicie el equipo")
+    assert s.count("Reinicie el equipo") == 1
