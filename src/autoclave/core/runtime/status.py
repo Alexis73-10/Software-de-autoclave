@@ -143,6 +143,19 @@ class EstadoAutoclave:
         # TMG-01 (revisión S2a): instante (time.monotonic) de la última trama
         # DI vigente; el tramo sin datos del ciclo empieza ahí. None = sin dato
         self.ultima_di_valida_mono = None
+        # F4 (tanda 16), contratos del ciclo (los escribe CicloState):
+        # - aislamiento_camara: AislamientoCamara del ciclo en curso (VCH-AIS),
+        #   una instancia por ciclo, compartida por CALENTAMIENTO y ESTERILIZACION;
+        # - inhibir_vapor_chaqueta: corte de chaqueta (D-CHQ / SAF-09) vigente en
+        #   el tick; CICLO lo fija antes de fase.update() y las fases no
+        #   encienden vapor_chaqueta mientras sea True;
+        # - no_conforme / motivo_no_conforme: ciclo NO CONFORME (C-13.7b, P4);
+        # - modo_vapor: "chaqueta" / "camara" en ciclo (VCH-SEL), None fuera.
+        self.aislamiento_camara = None
+        self.inhibir_vapor_chaqueta: bool = False
+        self.no_conforme: bool = False
+        self.motivo_no_conforme: str = ""
+        self.modo_vapor = None
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

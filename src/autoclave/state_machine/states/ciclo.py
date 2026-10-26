@@ -33,6 +33,10 @@ from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo, cerrar_valvulas_descompresion
 from autoclave.installation.profile import entrada_requerida, numero_puertas, revisa_empaque
+# F4 (tanda 16): modo de vapor (VCH-SEL) y aislamiento de cámara (VCH-AIS)
+from autoclave.installation.profile import MODO_CAMARA, modo_vapor
+from autoclave.state_machine.cycle_phases.aislamiento_camara import AislamientoCamara
+from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, CIC_17
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 from autoclave.core.runtime import alarmas_i18n
@@ -78,7 +82,11 @@ _CIC_POR_FASE = {
 }
 _MOTIVO_NO_REGISTRADO = "La fase terminó en fallo; el motivo detallado aún no se registra."
 # D8-2.8 / E12 (tanda 12): códigos que una fase puede dejar en `alarma_fallo`
-_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14)
+# F4 (tanda 16): + CIC-15/16 (aislamiento, CALENTAMIENTO y ESTERILIZACION) y
+# CIC-17 (tope de reinicios de la exposición)
+_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14, CIC_15, CIC_16, CIC_17)
+# F4 (tanda 16): motivo publicado en estado.motivo_no_conforme (clave i18n del ticket)
+MOTIVO_NO_CONFORME_REFERENCIA = "ticket_ciclo.no_conforme_referencia"
 
 # Sección del JSON del programa -> fase del pipeline que la usa (§5.8).
 # `estabilizacion` va con CALENTAMIENTO (fusionadas). Las secciones que no están aquí (`globals`, `finalizacion` o
@@ -203,6 +211,16 @@ class CicloState:
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
         self.estado.sin_datos_tarjeta_s = 0.0
+        # F4 (tanda 16): contratos por ciclo (ver EstadoAutoclave)
+        self.estado.aislamiento_camara = AislamientoCamara()
+        self.estado.inhibir_vapor_chaqueta = False
+        self.estado.no_conforme = False
+        self.estado.motivo_no_conforme = ""
+        try:
+            self.estado.modo_vapor = modo_vapor(self.profile)
+        except Exception:
+            logger.exception("CicloState: modo de vapor no evaluable; modo cámara")
+            self.estado.modo_vapor = MODO_CAMARA
         self._paro_en_espera = False
         self._di_vencida_desde = None
         self._ticks_di_vigente = 0
@@ -695,6 +713,15 @@ class CicloState:
         respaldo)."""
         return self._no_conforme or bool(self._avisos_no_conforme())
 
+    def _publicar_no_conforme(self) -> None:
+        """F4 (tanda 16): publica la bandera _no_conforme en el estado
+        (/status, pantalla final e historial la leen de ahí). Nunca lanza."""
+        try:
+            self.estado.no_conforme = True
+            self.estado.motivo_no_conforme = MOTIVO_NO_CONFORME_REFERENCIA
+        except Exception:
+            logger.exception("CicloState: no se pudo publicar NO CONFORME en el estado")
+
     def _marcar_referencias_sin_lectura(self, ausentes) -> None:
         """Una vez por ciclo y sensor: SEN-11 (no bloqueante) y línea NO
         CONFORME en el ticket. El ciclo continúa con las sondas que leen."""
@@ -710,6 +737,7 @@ class CicloState:
             # V12 (SAF-06): la bandera va antes del ticket y de la alarma, así
             # un fallo al anotar no deja abrir la puerta sola
             self._no_conforme = True
+            self._publicar_no_conforme()
             try:
                 avisos = getattr(self.estado, "avisos_ciclo", None)
                 if not isinstance(avisos, list):
@@ -862,6 +890,11 @@ class CicloState:
                 self.estado.set_flag("CICLO_CONFIRMADO", False)
                 resultado_final = self._resultado_pendiente
                 self._resultado_pendiente = None
+                # F4 (tanda 16): fuera de ciclo no hay modo de vapor ni corte
+                # de chaqueta del ciclo (no_conforme queda hasta el próximo
+                # ciclo: lo leen el historial y la pantalla)
+                self.estado.modo_vapor = None
+                self.estado.inhibir_vapor_chaqueta = False
                 return resultado_final
             # Mantener la válvula de reposo activa mientras se espera
             # confirmación: COMPLETADO limpio usa su propio monitor de
