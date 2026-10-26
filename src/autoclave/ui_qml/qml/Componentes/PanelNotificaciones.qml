@@ -182,7 +182,9 @@ PanelModal {
         objectName: "detalleAlarmaPanel"
         alarmas: raiz.alarmas
         despejable: raiz.despejable(datos.id) && raiz.comandosSistema !== null
+        mensaje: raiz.mensajeDespejar            // R4 (V17-s4-01)
         onDespejarPulsado: (model) => raiz.comandosSistema?.despejarAlarma(model.id)
+        onCerrada: if (raiz.comandosSistema?.descartarMensajeDespejar) raiz.comandosSistema.descartarMensajeDespejar()
     }
     Flickable {
         anchors.fill: parent

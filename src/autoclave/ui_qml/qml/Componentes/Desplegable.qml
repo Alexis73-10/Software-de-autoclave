@@ -56,6 +56,12 @@ Item {
         elegido(v)
     }
     onVisibleChanged: if (!visible) abierto = false
+    // Tanda 17 (R4, V17-s4-02): se cierra cuando la seguridad pasa a urgente
+    // (Main.qml irAPanelSeguridad() -> Capas.cerrarTodas())
+    Connections {
+        target: Capas
+        function onCierreSolicitado() { raiz.cerrar() }
+    }
 
     // ---------------------------------------------------------------- botón
     Rectangle {

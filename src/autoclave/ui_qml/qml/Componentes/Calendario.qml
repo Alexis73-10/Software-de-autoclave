@@ -45,6 +45,14 @@ Item {
         abierta = true
     }
     function cerrar() { abierta = false }
+    // la pantalla que lo contiene se oculta: se cierra sin elegir
+    onVisibleChanged: if (!visible) cancelar()
+    // Tanda 17 (R4, V17-s4-02): se cierra cuando la seguridad pasa a urgente
+    // (Main.qml irAPanelSeguridad() -> Capas.cerrarTodas())
+    Connections {
+        target: Capas
+        function onCierreSolicitado() { raiz.cancelar() }
+    }
     function cancelar() {
         if (!abierta) return
         abierta = false

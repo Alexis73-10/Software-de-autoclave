@@ -80,7 +80,8 @@ Item {
     property string _campoFecha: ""           // "desde" | "hasta" mientras el calendario está abierto
     function abrirCalendario(campo) {
         _campoFecha = campo
-        calendario.permiteSinFecha = true
+        // R4 (V17-s4-04): «Sin fecha» solo en Desde; en Hasta volvía a hoy sin decirlo
+        calendario.permiteSinFecha = (campo === "desde")
         calendario.abrir(campo === "desde" ? control.desde : control.hasta,
                          I18n.t(campo === "desde" ? "calendario.titulo_desde" : "calendario.titulo_hasta",
                                 I18n.lang))
@@ -184,7 +185,9 @@ Item {
                 id: textoFrase
                 objectName: "fraseBitacora"
                 // tipo del evento (bitacora.tipo.<evento>) para lectores de pantalla
-                Accessible.description: I18n.t("bitacora.tipo." + fila.modelData.evento, I18n.lang)
+                // R4 (V17-s4-07): vacío si el evento no tiene texto de tipo
+                Accessible.description: I18n.existe("bitacora.tipo." + fila.modelData.evento, I18n.lang)
+                                        ? I18n.t("bitacora.tipo." + fila.modelData.evento, I18n.lang) : ""
                 anchors.left: cuando.right; anchors.leftMargin: Escala.px(12)
                 anchors.right: parent.right; anchors.rightMargin: Escala.px(8)
                 anchors.verticalCenter: parent.verticalCenter

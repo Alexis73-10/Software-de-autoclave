@@ -207,6 +207,9 @@ Window {
         if (!seguridadUrgente)
             return
         introTerminada = true   // la intro no lo oculta (SAF-03)
+        // Tanda 17 (R4, V17-s4-02): desplegables, calendario y detalle de
+        // alarma (capas sobre toda la ventana) no tapan la seguridad
+        Capas.cerrarTodas()
         // S9 (tanda 9, D9-1.5): se quita la vuelta forzada del login (y del
         // cambio de clave al que lleva): quien está iniciando sesión sigue ahí
         const actual = pila.currentItem?.objectName ?? ""

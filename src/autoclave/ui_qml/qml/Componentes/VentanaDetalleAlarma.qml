@@ -25,6 +25,11 @@ Item {
     property bool despejable: false            // COM-02/COM-03 con comandos disponibles
     property string textoDespejar: I18n.t("notificaciones.despejar", I18n.lang)
     property bool abierta: false
+    // Tanda 17 (R4, V17-s4-01): motivo del último rechazo de DESPEJAR (clave
+    // del catálogo, ComandosSistema.mensajeDespejar); se ve dentro de la
+    // ventana (antes solo en el panel de la campana, tapado por ella). Quien
+    // la usa lo descarta al recibir `cerrada`.
+    property string mensaje: ""
     signal despejarPulsado(var model)
     signal cerrada()
 
@@ -49,6 +54,13 @@ Item {
                          "titulos", "accion", "acciones", "aparecida", "estado"])
             copia[k] = m[k]
         abrir(copia)
+    }
+    onVisibleChanged: if (!visible) cerrar()
+    // Tanda 17 (R4, V17-s4-02): se cierra cuando la seguridad pasa a urgente
+    // (Main.qml irAPanelSeguridad() -> Capas.cerrarTodas())
+    Connections {
+        target: Capas
+        function onCierreSolicitado() { raiz.cerrar() }
     }
     function cerrar() {
         if (!abierta) return
@@ -216,6 +228,17 @@ Item {
                         rotulo: I18n.t("alarma_detalle.estado", I18n.lang)
                         valor: raiz.textoEstado()
                     }
+                    Text {
+                        objectName: "mensajeDespejarDetalle"
+                        width: parent.width
+                        visible: raiz.mensaje !== ""
+                        wrapMode: Text.WordWrap
+                        text: raiz.mensaje !== "" ? I18n.t(raiz.mensaje, I18n.lang) : ""
+                        color: Colores.advertenciaTexto
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoSemiBold
+                        font.pixelSize: Escala.fuente(22)
+                    }
                 }
             }
 
@@ -227,7 +250,8 @@ Item {
                 height: Escala.px(88)
                 Boton {
                     objectName: "botonDespejarDetalle"
-                    visible: raiz.despejable && raiz.vigente
+                    // R4 (V17-s4-03): ya reconocida, no se ofrece despejar
+                    visible: raiz.despejable && raiz.vigente && raiz.datos.estado !== "reconocida"
                     texto: raiz.textoDespejar
                     onPulsado: raiz.despejarPulsado(raiz.datos)
                 }

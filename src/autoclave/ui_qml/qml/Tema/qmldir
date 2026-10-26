@@ -4,3 +4,4 @@ singleton Colores 1.0 Colores.qml
 singleton Tipografia 1.0 Tipografia.qml
 singleton Teclado 1.0 Teclado.qml
 singleton TecladoProvisional 1.0 TecladoProvisional.qml
+singleton Capas 1.0 Capas.qml
