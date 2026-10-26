@@ -205,8 +205,8 @@ es.EstacionFallo=Autoclave quedó instalado, pero no se pudo aplicar parte de la
 en.EstacionFallo=Autoclave was installed, but part of the station setup could not be applied:%n%1%nDetails in:%n%2
 es.EstacionSinClave=No se configuró el inicio de sesión automático: falta la contraseña (instalación sin asistente).
 en.EstacionSinClave=Automatic sign-in was not set up: the password is missing (installation without wizard).
-es.ReversionFallo=No se pudo restaurar parte de la configuración de Windows:%n%1%nDetalle en:%n%2%n%nRestáurela a mano con los scripts de reversión de tools\estacion (como administrador).
-en.ReversionFallo=Part of the Windows settings could not be restored:%n%1%nDetails in:%n%2%n%nRestore it by hand with the reversal scripts in tools\estacion (as administrator).
+es.ReversionFallo=No se pudo restaurar parte de la configuración de Windows:%n%1%nDetalle en:%n%2%n%nLos valores originales están en:%n%3%nSe conservan en el registro RutaDatos y los pasos pendientes (HKLM\SOFTWARE\Especifika\Autoclave) para que los scripts de reversión de tools\estacion los encuentren. Restáurela a mano con esos scripts (como administrador).
+en.ReversionFallo=Part of the Windows settings could not be restored:%n%1%nDetails in:%n%2%n%nThe original values are in:%n%3%nRutaDatos and the pending steps are kept in the registry (HKLM\SOFTWARE\Especifika\Autoclave) so that the reversal scripts in tools\estacion find them. Restore it by hand with those scripts (as administrator).
 es.Paso01=inicio de sesión automático (paso 01)
 en.Paso01=automatic sign-in (step 01)
 es.Paso02=arranque sin logo (paso 02)
@@ -302,6 +302,8 @@ es.CarpetaNoCreada=No se pudo crear la carpeta:%n%1%n%nNo se instaló nada.
 en.CarpetaNoCreada=The folder could not be created:%n%1%n%nNothing was installed.
 es.RutaInesperada=La carpeta de instalación no es la esperada:%n%1%n(se esperaba %2)%n%nNo se instaló nada.
 en.RutaInesperada=The installation folder is not the expected one:%n%1%n(expected %2)%n%nNothing was installed.
+es.EstacionNoApartada=Ya existe una carpeta de la estación que no creó este instalador y no se pudo apartar:%n%1%n%nPor seguridad no se instaló nada. Muévala o bórrela como administrador y vuelva a ejecutar este instalador.
+en.EstacionNoApartada=A station folder not created by this installer already exists and could not be moved aside:%n%1%n%nFor safety nothing was installed. Move or delete it as administrator and run this installer again.
 ; INS-01 (tanda 17): zona horaria de Windows
 es.ZonaTitulo=Zona horaria
 en.ZonaTitulo=Time zone
@@ -391,12 +393,29 @@ const
   // espacio libre mínimo de la unidad: programa + 2 GB para los datos
   MinimoMB = {#TamProgramaMB} + 2048;
   // ACL explícitas (SID: el nombre de los grupos cambia con el idioma):
-  // Administradores (S-1-5-32-544) y SYSTEM (S-1-5-18) control total; Usuarios
-  // (S-1-5-32-545) lectura y ejecución en programa\ y en las carpetas de arriba,
-  // Modificar en datos\. datos\estacion\ la deja solo para Administradores y
-  // SYSTEM tools/estacion/_comun.ps1.
+  // Administradores (S-1-5-32-544, BA) y SYSTEM (S-1-5-18, SY) control total;
+  // Usuarios (S-1-5-32-545, BU) lectura y ejecución en programa\ y en las
+  // carpetas de arriba, Modificar en datos\; datos\estacion\ y los respaldos,
+  // solo Administradores y SYSTEM. R1 (V17-s1-01): la DACL se REEMPLAZA entera
+  // y protegida (SDDL "D:P", sin herencia y sin ninguna otra entrada explícita,
+  // p. ej. un Todos:F que dejara quien creó antes la carpeta) y después se
+  // VERIFICA leyéndola (dueño, protegida y exactamente estas entradas).
+  // Máscaras: FA = 2032127 (control total), 0x1200a9 = 1179817 (lectura y
+  // ejecución), 0x1301bf = 1245631 (modificar); todas (OI)(CI).
+  // Forma icacls (paso previo que corta la herencia de inmediato; AplicarAcl
+  // reemplaza después la DACL entera y la verifica)
   PermisosPrograma = '*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX';
   PermisosDatos = '*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-32-545:(OI)(CI)M';
+  PermisosSoloAdmin = '*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F';
+  SddlPrograma = 'D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1200a9;;;BU)';
+  SddlDatos = 'D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1301bf;;;BU)';
+  SddlSoloAdmin = 'D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)';
+  AclPrograma = 'S-1-5-32-544:2032127;S-1-5-18:2032127;S-1-5-32-545:1179817';
+  AclDatos = 'S-1-5-32-544:2032127;S-1-5-18:2032127;S-1-5-32-545:1245631';
+  AclSoloAdmin = 'S-1-5-32-544:2032127;S-1-5-18:2032127';
+  // INS-02 R1 (V17-s1-04): buses de disco que no se ofrecen aunque Windows
+  // diga "fijo" (discos USB externos, lectores de tarjetas)
+  BusesExcluidos = '|USB|SD|MMC|';
   // INS-01 (tanda 17)
   ClaveZonas = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones';
   ClaveZonaActual = 'SYSTEM\CurrentControlSet\Control\TimeZoneInformation';
@@ -426,6 +445,13 @@ var
   ZonaIds, ZonaNombres: TArrayOfString;
   ZonaDesfase: array of Integer;
   ZonaActual, ZonaElegida: String;
+  // R1 (V17-s1-04): letras de unidades en bus USB/SD/MMC ('EF...'); si la
+  // consulta falla, no se excluye ninguna pero solo se preselecciona la del sistema
+  LetrasExcluidas: String;
+  ConsultaBusFallida: Boolean;
+  // R1 (V17-s1-05): desinstalación con alguna reversión fallida
+  ReversionFallida: Boolean;
+  RutaProgramaDesinstalada, RutaDatosDesinstalada: String;
 
 // La contraseña del inicio automático pasa al script por el entorno del
 // proceso (lo hereda powershell.exe), nunca por la línea de comandos.
@@ -558,14 +584,67 @@ begin
   UnidadesLibreMB[N] := Libre div 1048576;
 end;
 
-// Solo discos fijos: quedan fuera USB, removibles, CD y unidades de red
+// R1 (V17-s1-04): un disco USB externo (o un lector de tarjetas) puede decir
+// DRIVE_FIXED. Se pregunta el bus de cada partición con letra (Get-Partition y
+// Get-Disk, BusType; solo lectura) y se guardan las letras en USB/SD/MMC. Si
+// la consulta falla: ConsultaBusFallida (no se excluye ninguna, pero solo se
+// preselecciona la unidad del sistema; DECISIÓN SIN CONFIRMAR).
+procedure ConsultarBuses;
+var
+  Codigo, I: Integer;
+  Salida: TExecOutput;
+  Linea, Letra, Bus: String;
+  Correcto: Boolean;
+begin
+  LetrasExcluidas := '';
+  ConsultaBusFallida := True;
+  Codigo := -1;
+  try
+    Correcto := ExecAndCaptureOutput(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; ' +
+      'try { Get-Partition | Where-Object { [string]$_.DriveLetter -match ''^[A-Za-z]$'' } | ' +
+      'ForEach-Object { Write-Output (''L='' + [string]$_.DriveLetter + '':'' + ' +
+      '[string](Get-Disk -Number $_.DiskNumber).BusType) }; exit 0 } catch { exit 5 }"',
+      '', SW_HIDE, ewWaitUntilTerminated, Codigo, Salida) and (Codigo = 0);
+  except
+    Correcto := False;
+    Log('INS-02: no se pudo consultar el bus de los discos: ' + GetExceptionMessage);
+  end;
+  if not Correcto then
+  begin
+    Log(Format('INS-02: consulta del bus de los discos fallida (código %d): solo se preselecciona la unidad del sistema', [Codigo]));
+    exit;
+  end;
+  ConsultaBusFallida := False;
+  for I := 0 to GetArrayLength(Salida.StdOut) - 1 do
+  begin
+    Linea := Trim(Salida.StdOut[I]);
+    if (Length(Linea) >= 5) and (Copy(Linea, 1, 2) = 'L=') and (Copy(Linea, 4, 1) = ':') then
+    begin
+      Letra := Uppercase(Copy(Linea, 3, 1));
+      Bus := Uppercase(Copy(Linea, 5, Length(Linea)));
+      Log('INS-02: unidad ' + Letra + ': bus ' + Bus);
+      if Pos('|' + Bus + '|', BusesExcluidos) > 0 then
+        LetrasExcluidas := LetrasExcluidas + Letra;
+    end;
+  end;
+end;
+
+// Solo discos fijos: quedan fuera USB, removibles, CD y unidades de red; y
+// (R1) los "fijos" en bus USB/SD/MMC
 procedure CargarUnidades;
 var
   L: Integer;
 begin
+  ConsultarBuses;
   for L := Ord('A') to Ord('Z') do
     if GetDriveType(Chr(L) + ':\') = DRIVE_FIXED then
-      AgregarUnidad(Chr(L) + ':');
+    begin
+      if Pos(Chr(L), LetrasExcluidas) > 0 then
+        Log('INS-02: unidad ' + Chr(L) + ': fija pero en bus USB/SD/MMC: no se ofrece')
+      else
+        AgregarUnidad(Chr(L) + ':');
+    end;
 end;
 
 function IndiceUnidad(Letra: String): Integer;
@@ -593,12 +672,15 @@ begin
 end;
 
 // Preselección: el primer disco fijo distinto de %SystemDrive% que sirva; si no
-// hay, el del sistema
+// hay, el del sistema. Si no se pudo saber el bus de los discos, siempre el
+// del sistema (sin asistente nunca se elige así un disco USB)
 procedure PreseleccionarUnidad;
 var
   I: Integer;
 begin
   Unidad := ExpandConstant('{sd}');
+  if ConsultaBusFallida then
+    exit;
   for I := 0 to GetArrayLength(UnidadesLetra) - 1 do
     if (CompareText(UnidadesLetra[I], ExpandConstant('{sd}')) <> 0) and (ValidarUnidad(I) = '') then
     begin
@@ -1014,6 +1096,110 @@ begin
     MsgBox(FmtMessage(CustomMessage('MantSinDesinstalador'), ['-']), mbError, MB_OK);
 end;
 
+// ── INS-02 R1 (V17-s1-01): permisos con verificación ─────────────────────────
+
+// icacls sobre una ruta; True solo con código 0 (sin /C: se detiene en el
+// primer error y devuelve distinto de 0)
+function Icacls(Ruta, Argumentos: String): Boolean;
+var
+  Codigo: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\icacls.exe'), '"' + Ruta + '" ' + Argumentos, '', SW_HIDE,
+    ewWaitUntilTerminated, Codigo) and (Codigo = 0);
+  Log(Format('Permisos: icacls "%s" %s -> código %d', [Ruta, Argumentos, Codigo]));
+end;
+
+// True si la carpeta no existe o no tiene nada
+function CarpetaVacia(Ruta: String): Boolean;
+var
+  Busqueda: TFindRec;
+  Hay: Boolean;
+begin
+  Result := True;
+  if FindFirst(Ruta + '\*', Busqueda) then
+  try
+    Hay := True;
+    while Hay and Result do
+    begin
+      if (Busqueda.Name <> '.') and (Busqueda.Name <> '..') then
+        Result := False;
+      Hay := FindNext(Busqueda);
+    end;
+  finally
+    FindClose(Busqueda);
+  end;
+end;
+
+// Reemplaza la DACL de la carpeta, de una sola vez, por Sddl (protegida: sin
+// herencia y sin ninguna otra entrada explícita) y la VERIFICA leyéndola:
+// protegida, dueño Administradores (S-1-5-32-544) y exactamente las entradas
+// de Esperado ('SID:máscara;...', permitir, (OI)(CI), explícitas). Las rutas
+// y valores pasan por el entorno del proceso (sin comillas en la línea de
+// comandos). Se usa SetAccessControl con solo la sección de acceso (Set-Acl
+// pediría SeSecurityPrivilege). Cualquier diferencia o error: False.
+function AplicarAcl(Ruta, Sddl, Esperado: String): Boolean;
+var
+  Codigo, I: Integer;
+  Salida: TExecOutput;
+  Texto: String;
+begin
+  Codigo := -1;
+  Texto := '';
+  SetEnvironmentVariable('AUTOCLAVE_ACL_RUTA', Ruta);
+  SetEnvironmentVariable('AUTOCLAVE_ACL_SDDL', Sddl);
+  SetEnvironmentVariable('AUTOCLAVE_ACL_ESPERADO', Esperado);
+  try
+    Result := ExecAndCaptureOutput(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; ' +
+      'try { $p=$env:AUTOCLAVE_ACL_RUTA; ' +
+      '$s=New-Object System.Security.AccessControl.DirectorySecurity; ' +
+      '$s.SetSecurityDescriptorSddlForm($env:AUTOCLAVE_ACL_SDDL, ' +
+      '[System.Security.AccessControl.AccessControlSections]::Access); ' +
+      '(Get-Item -LiteralPath $p -Force).SetAccessControl($s); ' +
+      '$a=Get-Acl -LiteralPath $p; $t=[System.Security.Principal.SecurityIdentifier]; ' +
+      '$o=$a.GetOwner($t).Value; ' +
+      '$r=@($a.GetAccessRules($true,$true,$t) | ForEach-Object { $_.IdentityReference.Value+'':''+' +
+      '[int]$_.FileSystemRights+'':''+[int]$_.AccessControlType+'':''+[int]$_.InheritanceFlags+'':''+' +
+      '[int]$_.PropagationFlags+'':''+$_.IsInherited } | Sort-Object); ' +
+      '$e=@($env:AUTOCLAVE_ACL_ESPERADO.Split('';'') | ForEach-Object { $_+'':0:3:0:False'' } | Sort-Object); ' +
+      'Write-Output (''dueno=''+$o+'' protegida=''+$a.AreAccessRulesProtected+'' reglas=''+($r -join ''|'')); ' +
+      'if (-not $a.AreAccessRulesProtected) { exit 2 }; ' +
+      'if (($r -join ''|'') -ne ($e -join ''|'')) { exit 4 }; ' +
+      'if ($o -ne ''S-1-5-32-544'') { exit 3 }; exit 0 } ' +
+      'catch { Write-Output $_.Exception.Message; exit 5 }"',
+      '', SW_HIDE, ewWaitUntilTerminated, Codigo, Salida) and (Codigo = 0);
+    for I := 0 to GetArrayLength(Salida.StdOut) - 1 do
+      Texto := Texto + Salida.StdOut[I] + ' ';
+  except
+    Result := False;
+    Texto := GetExceptionMessage;
+  end;
+  SetEnvironmentVariable('AUTOCLAVE_ACL_RUTA', '');
+  SetEnvironmentVariable('AUTOCLAVE_ACL_SDDL', '');
+  SetEnvironmentVariable('AUTOCLAVE_ACL_ESPERADO', '');
+  Log(Format('Permisos: DACL %s en "%s" -> código %d: %s', [Sddl, Ruta, Codigo, Texto]));
+end;
+
+// Dueño Administradores (icacls /setowner, que usa el privilegio de
+// restaurar: también si la carpeta la creó y la cerró un usuario estándar),
+// DACL reemplazada y verificada (AplicarAcl) y, con Recursivo, todo lo de
+// adentro con dueño Administradores y solo la ACL heredada (/reset /T).
+// La raíz de una unidad de datos da crear/modificar a Usuarios autenticados.
+function ProtegerCarpeta(Ruta, Permisos, Sddl, Esperado: String; Recursivo: Boolean): Boolean;
+begin
+  if Recursivo then
+    Result := Icacls(Ruta, '/setowner *S-1-5-32-544 /T /Q')
+  else
+    Result := Icacls(Ruta, '/setowner *S-1-5-32-544 /Q');
+  // corta la herencia ya (no quita otras entradas explícitas: eso lo hace AplicarAcl)
+  if Result then
+    Result := Icacls(Ruta, '/inheritance:r /grant:r ' + Permisos + ' /Q');
+  if Result then
+    Result := AplicarAcl(Ruta, Sddl, Esperado);
+  if Result and Recursivo and not CarpetaVacia(Ruta) then
+    Result := Icacls(Ruta + '\*', '/reset /T /Q');
+end;
+
 // ── Instalación limpia (D11-4) ────────────────────────────────────────────────
 //
 // Orden (EjecutarLimpia, desde PrepareToInstall; cualquier fallo antes del
@@ -1027,11 +1213,13 @@ end;
 //      y SYSTEM (contiene la base de usuarios y estacion\);
 //   5. copia completa a Autoclave_respaldos\AAAAMMDD-HHMMSS\ y verificación
 //      (archivos y bytes del original antes y después, iguales a la copia);
-//   6. UN solo renombrado de Autoclave\ entera a
-//      Autoclave_respaldos\AAAAMMDD-HHMMSS_borrar\ (misma unidad): atómico,
-//      o se mueve todo (perfil incluido) o nada. Falla si hay algo abierto;
-//   7. se crea Autoclave\ vacía y se devuelve estacion\ (si falla, se deshace
-//      el renombrado y se detiene);
+//   6. UN solo renombrado de datos\ (X:\Especifika\Autoclave\datos) entera a
+//      X:\Especifika\Autoclave_respaldos\AAAAMMDD-HHMMSS_borrar\ (misma
+//      unidad): atómico, o se mueve todo (perfil incluido) o nada. Falla si
+//      hay algo abierto;
+//   7. se crea datos\ vacía y se devuelve estacion\ (si falla, se deshace
+//      el renombrado y se detiene); PrepareToInstall le vuelve a fijar sus
+//      permisos (ProtegerDatos);
 //   8. se borra la carpeta _borrar (sin seguir enlaces). Si algo queda, solo
 //      se anota: la carpeta de datos ya está limpia y lo que queda está en la
 //      carpeta protegida.
@@ -1073,22 +1261,27 @@ begin
     (Pos(Uppercase(AddBackslash(Carpeta)), Uppercase(Ruta)) = 1);
 end;
 
-// Dueño Administradores y solo Administradores y SYSTEM, sin herencia de
-// ProgramData (que da lectura a Usuarios; un usuario estándar puede haber
-// creado la carpeta antes y ser su dueño). Los archivos copiados heredan.
+// Dueño Administradores y solo Administradores y SYSTEM, sin herencia (la de
+// X:\Especifika da lectura a Usuarios; un usuario estándar puede haber creado
+// la carpeta antes, ser su dueño y dejar entradas propias). R1 (V17-s1-01):
+// /setowner *S-1-5-32-544 en todo el árbol, DACL reemplazada entera por
+// SddlSoloAdmin y verificada (AplicarAcl) y lo de adentro con la ACL heredada
+// (/reset /T). Antes, icacls /inheritance:r corta la herencia de inmediato;
+// AplicarAcl quita además cualquier otra entrada explícita. Los archivos
+// copiados después heredan.
 function ProtegerRespaldos: Boolean;
-var
-  Codigo: Integer;
 begin
-  Result := Exec(ExpandConstant('{sys}\icacls.exe'), '"' + RaizRespaldos +
-    '" /setowner *S-1-5-32-544 /C /Q', '', SW_HIDE, ewWaitUntilTerminated, Codigo) and (Codigo = 0);
-  Log(Format('Instalación limpia: icacls /setowner sobre %s -> código %d', [RaizRespaldos, Codigo]));
-  if not Result then
-    exit;
-  Result := Exec(ExpandConstant('{sys}\icacls.exe'), '"' + RaizRespaldos +
-    '" /inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F /C /Q',
-    '', SW_HIDE, ewWaitUntilTerminated, Codigo) and (Codigo = 0);
-  Log(Format('Instalación limpia: icacls /inheritance:r sobre %s -> código %d', [RaizRespaldos, Codigo]));
+  Result := Icacls(RaizRespaldos, '/setowner *S-1-5-32-544 /T /Q');
+  if Result then
+    Result := Icacls(RaizRespaldos, '/inheritance:r /grant:r *S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F /Q');
+  if Result then
+    Result := AplicarAcl(RaizRespaldos, SddlSoloAdmin, AclSoloAdmin);
+  if Result and not CarpetaVacia(RaizRespaldos) then
+    Result := Icacls(RaizRespaldos + '\*', '/reset /T /Q');
+  if Result then
+    Log('Instalación limpia: ' + RaizRespaldos + ' protegida y verificada.')
+  else
+    Log('Instalación limpia: no se pudo proteger ' + RaizRespaldos + ': no se borra nada.');
 end;
 
 // Autoclave_respaldos\AAAAMMDD-HHMMSS (con sufijo si ya existe, también su _borrar)
@@ -1387,61 +1580,60 @@ begin
 end;
 
 // ── INS-02: carpetas y permisos, ANTES de copiar el programa ─────────────────
-
-// icacls sobre una ruta; True solo con código 0 (sin /C: se detiene en el
-// primer error y devuelve distinto de 0)
-function Icacls(Ruta, Argumentos: String): Boolean;
-var
-  Codigo: Integer;
-begin
-  Result := Exec(ExpandConstant('{sys}\icacls.exe'), '"' + Ruta + '" ' + Argumentos, '', SW_HIDE,
-    ewWaitUntilTerminated, Codigo) and (Codigo = 0);
-  Log(Format('Permisos: icacls "%s" %s -> código %d', [Ruta, Argumentos, Codigo]));
-end;
-
-// True si la carpeta no existe o no tiene nada
-function CarpetaVacia(Ruta: String): Boolean;
-var
-  Busqueda: TFindRec;
-  Hay: Boolean;
-begin
-  Result := True;
-  if FindFirst(Ruta + '\*', Busqueda) then
-  try
-    Hay := True;
-    while Hay and Result do
-    begin
-      if (Busqueda.Name <> '.') and (Busqueda.Name <> '..') then
-        Result := False;
-      Hay := FindNext(Busqueda);
-    end;
-  finally
-    FindClose(Busqueda);
-  end;
-end;
-
-// Dueño Administradores y ACL explícita sin herencia (/inheritance:r): la raíz
-// de una unidad de datos da crear/modificar a Usuarios autenticados, y un
-// usuario estándar que creara la carpeta antes sería su dueño. Con Recursivo,
-// también el dueño y la ACL heredada de todo lo de adentro (/reset /T).
-function ProtegerCarpeta(Ruta, Permisos: String; Recursivo: Boolean): Boolean;
-begin
-  if Recursivo then
-    Result := Icacls(Ruta, '/setowner *S-1-5-32-544 /T /Q')
-  else
-    Result := Icacls(Ruta, '/setowner *S-1-5-32-544 /Q');
-  if Result then
-    Result := Icacls(Ruta, '/inheritance:r /grant:r ' + Permisos + ' /Q');
-  if Result and Recursivo and not CarpetaVacia(Ruta) then
-    Result := Icacls(Ruta + '\*', '/reset /T /Q');
-end;
+// (Icacls, CarpetaVacia, AplicarAcl y ProtegerCarpeta: arriba, antes de la
+// instalación limpia, que los usa para Autoclave_respaldos.)
 
 // '' = bien; si no, el mensaje con el que el Setup se detiene sin instalar
 function ProtegerDatos: String;
 begin
   Result := '';
-  if not ProtegerCarpeta(CarpetaDatos, PermisosDatos, False) then
+  if not ProtegerCarpeta(CarpetaDatos, PermisosDatos, SddlDatos, AclDatos, False) then
     Result := FmtMessage(CustomMessage('PermisosFallo'), [CarpetaDatos]);
+end;
+
+// R1 (V17-s1-06): datos\estacion solo para Administradores y SYSTEM desde que
+// la crea el Setup. En una instalación nueva (sin RutaPrograma), una estacion\
+// que ya exista con algo dentro NO la creó este Setup (o es de una
+// instalación ya desinstalada): sus respaldo_<paso>.json los restauraría el
+// desinstalador como administrador. Se protege y se aparta con su contenido a
+// datos\estacion_anterior_AAAAMMDD-HHMMSS (nada se borra; DECISIÓN SIN
+// CONFIRMAR) y se crea una vacía. Con la instalación anotada se conserva
+// (tiene los respaldos de los pasos ya aplicados) y solo se protege.
+function PrepararEstacion: String;
+var
+  Estacion, Apartada: String;
+begin
+  Result := '';
+  Estacion := CarpetaDatos + '\estacion';
+  if EsEnlace(Estacion) then
+  begin
+    Result := FmtMessage(CustomMessage('CarpetaEnlace'), [Estacion]);
+    exit;
+  end;
+  if (not UnidadFija) and not CarpetaVacia(Estacion) then
+  begin
+    Apartada := CarpetaDatos + '\estacion_anterior_' + GetDateTimeString('yyyymmdd-hhnnss', '-', ':');
+    if not ProtegerCarpeta(Estacion, PermisosSoloAdmin, SddlSoloAdmin, AclSoloAdmin, True) then
+    begin
+      Result := FmtMessage(CustomMessage('PermisosFallo'), [Estacion]);
+      exit;
+    end;
+    if DirExists(Apartada) or not RenameFile(Estacion, Apartada) then
+    begin
+      Result := FmtMessage(CustomMessage('EstacionNoApartada'), [Estacion]);
+      exit;
+    end;
+    Log('INS-02: estacion\ preexistente apartada en ' + Apartada);
+  end;
+  if not ForceDirectories(Estacion) then
+  begin
+    Result := FmtMessage(CustomMessage('CarpetaNoCreada'), [Estacion]);
+    exit;
+  end;
+  if EsEnlace(Estacion) then
+    Result := FmtMessage(CustomMessage('CarpetaEnlace'), [Estacion])
+  else if not ProtegerCarpeta(Estacion, PermisosSoloAdmin, SddlSoloAdmin, AclSoloAdmin, True) then
+    Result := FmtMessage(CustomMessage('PermisosFallo'), [Estacion]);
 end;
 
 function PrepararCarpetas: String;
@@ -1459,14 +1651,7 @@ begin
     Result := FmtMessage(CustomMessage('CarpetaEnlace'), [Raiz]);
     exit;
   end;
-  // 2. instalación nueva (sin RutaPrograma): programa\ debe estar vacía o no
-  // existir; lo que hubiera ahí (p. ej. una DLL) se cargaría con el programa
-  if (not UnidadFija) and not CarpetaVacia(Programa) then
-  begin
-    Result := FmtMessage(CustomMessage('ProgramaExistente'), [Programa]);
-    exit;
-  end;
-  // 3. crear
+  // 2. crear
   if not ForceDirectories(Programa) then
   begin
     Result := FmtMessage(CustomMessage('CarpetaNoCreada'), [Programa]);
@@ -1482,15 +1667,28 @@ begin
     Result := FmtMessage(CustomMessage('CarpetaEnlace'), [Raiz]);
     exit;
   end;
-  // 4. permisos de arriba abajo; cualquier fallo detiene el Setup (falla cerrada)
-  if not ProtegerCarpeta(Especifika, PermisosPrograma, False) then
+  // 3. permisos de arriba abajo, verificados; cualquier fallo detiene el Setup
+  // (falla cerrada)
+  if not ProtegerCarpeta(Especifika, PermisosPrograma, SddlPrograma, AclPrograma, False) then
     Result := FmtMessage(CustomMessage('PermisosFallo'), [Especifika])
-  else if not ProtegerCarpeta(Raiz, PermisosPrograma, False) then
+  else if not ProtegerCarpeta(Raiz, PermisosPrograma, SddlPrograma, AclPrograma, False) then
     Result := FmtMessage(CustomMessage('PermisosFallo'), [Raiz])
-  else if not ProtegerCarpeta(Programa, PermisosPrograma, True) then
-    Result := FmtMessage(CustomMessage('PermisosFallo'), [Programa])
-  else
-    Result := ProtegerDatos;
+  else if not ProtegerCarpeta(Programa, PermisosPrograma, SddlPrograma, AclPrograma, True) then
+    Result := FmtMessage(CustomMessage('PermisosFallo'), [Programa]);
+  if Result <> '' then
+    exit;
+  // 4. R1 (V17-s1-02): DESPUÉS de proteger (nadie más puede escribir ya ahí),
+  // en una instalación nueva (sin RutaPrograma) programa\ debe estar vacía; lo
+  // que hubiera (p. ej. una DLL) se cargaría con el programa
+  if (not UnidadFija) and not CarpetaVacia(Programa) then
+  begin
+    Result := FmtMessage(CustomMessage('ProgramaExistente'), [Programa]);
+    exit;
+  end;
+  // 5. datos\ y datos\estacion\
+  Result := ProtegerDatos;
+  if Result = '' then
+    Result := PrepararEstacion;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -1950,26 +2148,51 @@ begin
   EjecutarReversion('04', 'Paso04', Fallas);
   EjecutarReversion('02', 'Paso02', Fallas);
   EjecutarReversion('01', 'Paso01', Fallas);
-  RegDeleteKeyIncludingSubkeys(HKLM64, '{#ClaveEstacion}');
-  RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika\Autoclave');
-  RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika');
+  // R1 (V17-s1-05): con alguna reversión fallida se conservan los pasos
+  // anotados y (en usPostUninstall) RutaDatos/RutaPrograma, para que los
+  // scripts de reversión encuentren los respaldos de datos\estacion
+  ReversionFallida := Fallas <> '';
+  if not ReversionFallida then
+  begin
+    RegDeleteKeyIncludingSubkeys(HKLM64, '{#ClaveEstacion}');
+    RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika\Autoclave');
+    RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika');
+  end;
   if Fallas <> '' then
-    SuppressibleMsgBox(FmtMessage(CustomMessage('ReversionFallo'), [Fallas, ArchivoLogEstacion]),
-      mbError, MB_OK, IDOK);
+    SuppressibleMsgBox(FmtMessage(CustomMessage('ReversionFallo'), [Fallas, ArchivoLogEstacion,
+      CarpetaDatos + '\estacion']), mbError, MB_OK, IDOK);
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
-  // usUninstall: antes de borrar archivos ({app}\estacion sigue ahí)
+  // usUninstall: antes de borrar archivos ({app}\estacion sigue ahí) y antes
+  // de que Inno borre RutaPrograma/RutaDatos (uninsdeletevalue)
   if CurUninstallStep = usUninstall then
+  begin
+    ReversionFallida := False;
+    RutaProgramaDesinstalada := '';
+    RutaDatosDesinstalada := '';
+    RegQueryStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaPrograma', RutaProgramaDesinstalada);
+    RegQueryStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaDatos', RutaDatosDesinstalada);
     RevertirEstacion;
+  end;
   if CurUninstallStep = usPostUninstall then
   begin
+    // R1 (V17-s1-05): reversión incompleta -> se vuelven a escribir las rutas
+    // que Inno acaba de borrar (los scripts y un Setup posterior las usan)
+    if ReversionFallida then
+    begin
+      if RutaDatosDesinstalada <> '' then
+        RegWriteStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaDatos', RutaDatosDesinstalada);
+      if RutaProgramaDesinstalada <> '' then
+        RegWriteStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaPrograma', RutaProgramaDesinstalada);
+      Log('Desinstalación: reversión incompleta; se conservan RutaDatos, RutaPrograma y los pasos de la estación.');
+    end;
     // {#ClaveInstalacion} la borra Inno (uninsdeletekey); quedan los padres vacíos
     RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika\Autoclave');
     RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika');
     // INS-02: X:\Especifika\Autoclave\datos (sale de {app}); RutaPrograma y
-    // RutaDatos los borra Inno (uninsdeletevalue)
+    // RutaDatos los borra Inno (uninsdeletevalue), salvo lo de arriba
     SuppressibleMsgBox(FmtMessage(CustomMessage('DatosConservados'), [CarpetaDatos]),
       mbInformation, MB_OK, IDOK);
   end;

@@ -18,9 +18,14 @@
 #                                       procesos terminen y el puerto del backend
 #                                       quede libre (relanzamiento tras reiniciar_software)
 #
-# Abierto desde fuera de %ProgramFiles%\Especifika\Autoclave (p. ej. una USB)
-# ofrece instalarse ahí y abre la copia instalada; no escribe nada en la USB.
-# Instalado, los datos van en %ProgramData%\Especifika\Autoclave (app_root).
+# Instalado con el Setup (tanda 17, INS-02) corre desde
+# X:\Especifika\Autoclave\programa (RutaPrograma del registro) y sus datos van
+# en X:\Especifika\Autoclave\datos (RutaDatos; utils/resources.raiz_datos_exe,
+# app_root). Abierto desde otra carpeta (p. ej. una USB): si el equipo tiene esa
+# instalación, solo avisa que se actualiza con el Setup y termina; si no,
+# ofrece instalarse en %ProgramFiles%\Especifika\Autoclave (disposición
+# anterior, datos en %ProgramData%\Especifika\Autoclave) y abre la copia
+# instalada (instalador_exe.py). No escribe nada en la USB.
 #
 # Los hijos reutilizan la carpeta de extracción del lanzador (no se borra
 # mientras el lanzador siga abierto).
