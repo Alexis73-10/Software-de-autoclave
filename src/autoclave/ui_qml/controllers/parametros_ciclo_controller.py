@@ -120,6 +120,9 @@ class ParametrosCicloController(QObject):
         self._entradas: list = []
         self._entradas_habilitadas: list = []
         self._entradas_disponibles: list = []
+        # Tanda 17 (SON-01): entradas de sondas instaladas con rol No en uso
+        # (`no_en_uso` de GET /cycle/display-inputs): se rotulan "(monitoreo)"
+        self._entradas_no_en_uso: list = []
         self._entradas_editable = False
         self._mensaje = ""
         self._detalle: dict = {}
@@ -208,9 +211,12 @@ class ParametrosCicloController(QObject):
             self._entradas_disponibles = list(disp if isinstance(disp, list)
                                               else self._entradas_habilitadas)
             self._entradas_editable = bool(r.datos.get("editable"))
+            no = r.datos.get("no_en_uso")
+            self._entradas_no_en_uso = [str(e) for e in no if isinstance(e, str)] if isinstance(no, list) else []
         else:
             self._entradas, self._entradas_habilitadas, self._entradas_editable = [], [], False
             self._entradas_disponibles = []
+            self._entradas_no_en_uso = []
             self._fijar_mensaje(mensaje_de(r.causa))
         self.entradasChanged.emit()
 
@@ -230,6 +236,11 @@ class ParametrosCicloController(QObject):
     def entradasDisponibles(self) -> list:
         """O11: las que ofrece el selector (sin los sensores No en uso)."""
         return self._entradas_disponibles
+
+    @Property("QVariantList", notify=entradasChanged)
+    def entradasNoEnUso(self) -> list:
+        """Tanda 17 (SON-01): entradas de sondas No en uso (rótulo "(monitoreo)")."""
+        return self._entradas_no_en_uso
 
     @Property("QVariantList", notify=entradasChanged)
     def filasEntradas(self) -> list:

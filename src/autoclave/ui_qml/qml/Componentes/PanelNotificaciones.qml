@@ -33,6 +33,7 @@ PanelModal {
 
     onVisibleChanged: if (!visible) {
         grupoAlarmas.expandido = false; grupoAvisos.expandido = false
+        detalleAlarma.cerrar()          // tanda 17 (ALM-01)
         // D8-2.15: el rechazo de DESPEJAR se olvida al cerrar el panel
         if (raiz.comandosSistema?.descartarMensajeDespejar) raiz.comandosSistema.descartarMensajeDespejar()
     }
@@ -46,6 +47,12 @@ PanelModal {
     function despejable(id) {
         const s = String(id || "")
         return s.startsWith("COM-02") || s.startsWith("COM-03")
+    }
+    // Tanda 17 (ALM-01): nombre de la fila (título del catálogo en el idioma de
+    // la interfaz; sin él, la descripción y el id)
+    function nombreAlarma(m) {
+        return (m.titulos ?? {})[I18n.lang] || m.titulo
+               || (m.descripciones ?? {})[I18n.lang] || m.description || m.id
     }
     function grupoDe(nivel) {
         if (nivel === "FALLA") return "alarma"
@@ -152,21 +159,31 @@ PanelModal {
             delegate: FilaAlarma {
                 required property var model
                 readonly property bool enGrupo: raiz.grupoDe(model.level ?? "") === g.seccion
+                objectName: "filaAlarmaPanel_" + model.id
                 visible: g.expandido && enGrupo
                 width: g.width
                 idAlarma: model.id
-                // U10b (D10-1.4): en el idioma de la interfaz y completa en
-                // varias líneas (antes: español y recortada con elide)
-                descripcion: (model.descripciones ?? {})[I18n.lang] || model.description
+                // Tanda 17 (ALM-01): solo el nombre (título del catálogo en el
+                // idioma de la interfaz) con el color de nivel; el detalle y el
+                // botón DESPEJAR van en la ventana emergente al tocar la fila.
+                // U10b (D10-1.4): en el idioma de la interfaz y en varias líneas
+                descripcion: raiz.nombreAlarma(model)
                 multilinea: true
                 prioridad: model.priority
-                despejable: raiz.despejable(model.id) && raiz.comandosSistema !== null
-                textoDespejar: I18n.t("notificaciones.despejar", I18n.lang)
-                onDespejarPulsado: raiz.comandosSistema?.despejarAlarma(model.id)
+                tocable: true
+                onPulsada: detalleAlarma.abrirDesde(model)
             }
         }
     }
 
+    // Tanda 17 (ALM-01): detalle de la alarma tocada, con DESPEJAR (COM-02/03)
+    VentanaDetalleAlarma {
+        id: detalleAlarma
+        objectName: "detalleAlarmaPanel"
+        alarmas: raiz.alarmas
+        despejable: raiz.despejable(datos.id) && raiz.comandosSistema !== null
+        onDespejarPulsado: (model) => raiz.comandosSistema?.despejarAlarma(model.id)
+    }
     Flickable {
         anchors.fill: parent
         contentHeight: columna.height

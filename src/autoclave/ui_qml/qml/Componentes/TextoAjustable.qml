@@ -22,9 +22,11 @@ Text {
     id: raiz
 
     property string clave: ""
-    property string textoCompleto: clave !== "" ? I18n.t(clave, I18n.lang) : ""
+    // Tanda 17 (SON-01): texto que se agrega a los dos (p. ej. " (monitoreo)")
+    property string sufijo: ""
+    property string textoCompleto: clave !== "" ? I18n.t(clave, I18n.lang) + sufijo : ""
     property string textoAbreviado: clave !== "" && I18n.existe("abrev." + clave, I18n.lang)
-                                    ? I18n.t("abrev." + clave, I18n.lang) : ""
+                                    ? I18n.t("abrev." + clave, I18n.lang) + sufijo : ""
     property real anchoDisponible: 0
 
     // ancho del texto completo con la fuente vigente (no depende de lo mostrado)

@@ -1,0 +1,10 @@
+{
+  "es": {
+    "alarma_detalle.estado_resuelta": "Resuelta, sin reconocer",
+    "alarma_detalle.estado_retirada": "Ya no está activa"
+  },
+  "en": {
+    "alarma_detalle.estado_resuelta": "Resolved, not acknowledged",
+    "alarma_detalle.estado_retirada": "No longer active"
+  }
+}

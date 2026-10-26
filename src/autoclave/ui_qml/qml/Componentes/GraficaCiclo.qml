@@ -63,7 +63,9 @@ Item {
     // Texto de la leyenda: el de la serie o el nombre corto de la entrada
     function textoSerie(s) {
         if (s.texto) return s.texto
+        // Tanda 17 (SON-01): sonda instalada con rol No en uso, "(monitoreo)"
         const n = I18n.t("ciclo.entrada_corta_" + s.entrada, I18n.lang)
+                  + (s.monitoreo === true ? " " + I18n.t("ciclo.monitoreo", I18n.lang) : "")
         return s.registrada === false ? n + " " + I18n.t("ciclo.serie_sin_registro", I18n.lang) : n
     }
     function _unidadEje(eje, porDefecto) {
