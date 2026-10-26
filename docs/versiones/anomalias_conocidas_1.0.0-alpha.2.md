@@ -1,6 +1,6 @@
 # Anomalías residuales conocidas — 1.0.0-alpha.2
 
-NTC-IEC 62304 §5.8.2 y §5.8.3. Fecha: 26-oct-2026. Base: `dev` después de la tanda 16 (pendientes de la tanda 14 + control de vapor por chaqueta VCH + PRG-01 + DEU-01). Parte de `anomalias_conocidas_1.0.0-alpha.1.md`.
+NTC-IEC 62304 §5.8.2 y §5.8.3. Fecha: 26-oct-2026. Base: `dev` después de la tanda 16 (pendientes de la tanda 14 + control de vapor por chaqueta VCH + PRG-01 + DEU-01) y de la tanda 17 (hallazgos de la instalación I: Setup con unidad y zona horaria, sondas en monitoreo, estado seguro y modo prueba, bitácora, arranque y táctiles). Parte de `anomalias_conocidas_1.0.0-alpha.1.md`.
 
 **Uso previsto de esta versión:** igual que la alpha.1. Equipo de pruebas de laboratorio (puertas manuales), en verificación de banco y validación del proceso. **No se libera carga para uso clínico** con esta versión.
 
@@ -21,6 +21,33 @@ Ninguna de estas anomalías anula las protecciones independientes del software: 
 | AN-10 | PRG-01. | Roles de sensor validados contra las sondas activas del perfil, al asignar y al iniciar el ciclo. |
 | AN-11 | DEU-01: límites de presión como constantes. | Fondo de escala, suministro y alivios en Parámetros del equipo (submenú Chaqueta), con auditoría y regla de coherencia. |
 
+## Corregidas en esta versión (tanda 17, hallazgos de la instalación I)
+
+| ID | Hallazgo | Corrección |
+|---|---|---|
+| INS-01 | La zona horaria de Windows no se elegía al instalar. | Página de zona horaria en el Setup, `tzutil /s` verificado con `tzutil /g`, `/ZONA=` en silencio. |
+| INS-02 | Programa en Archivos de programa y datos en `%ProgramData%` de la unidad del sistema. | Unidad elegible (solo discos fijos, sin USB): `X:\Especifika\Autoclave\{programa,datos}`, ACL explícitas verificadas (un usuario estándar no puede modificar el programa), clave `HKLM\SOFTWARE\Especifika\Autoclave`. |
+| SON-01 | Las sondas «No en uso» desaparecían (O11). | Se leen, se muestran con «(monitoreo)» y se registran; no participan en control, fallas ni ticket. |
+| ESG-01 | CIC-10 sin el sensor de presión de cámara. | Sin presión solo la alarma del sensor; NO ABRIR y el bloqueo de inicio se mantienen; CIC-10 por los demás motivos. |
+| ESG-02 | El modo prueba quedaba bloqueado con el estado seguro activo. | Con presión vigente se retiran los bloqueos propios del estado seguro; protecciones permanentes 1–3 (abajo). |
+| PRC-01 / MPR-01 / ALM-01 / UI-VER | Selector de programas en cuadrícula; sin presión en el modo prueba; filas de alarma recargadas; «V:1.0» en las barras. | Desplegable vertical; presión de cámara en la cabecera del modo prueba; filas con solo el nombre y ventana de detalle; versión solo en Información. |
+| VER-08 | La versión no aparecía en Información (compilación I, anterior a VER). | Prueba que exige `version_completa()` con `_build_info`. |
+| BIT-01..05 | 3 páginas de bitácora en 10 minutos de instalado. | Filtro central de eventos; nada durante la instalación y una fila `equipo_instalado`; sin `login_fallido`/`logout` (el bloqueo de usuario no cambia); filtros por usuario, categoría y fechas con calendario. |
+| EST-06 | El paso 06 de la estación fallaba sin `MultiDigitizer.exe`. | Herramienta propia `Autoclave.exe --rol asociar-tactiles`; el fallo no corta la estación. |
+| EST-07 | Escritorio de Windows expuesto unos 30 s al iniciar sesión. | Tarea con `PT0S` y cubierta de arranque inmediata (cierre por primer cuadro, 15 s o 180 s); un segundo lanzador no abre nada. |
+| A1 | `test_historial_entrada_debajo_de_la_marca` bloqueaba la entrega (R16 §8). | La prueba comprueba la inserción sobre la cabecera sin entradas. |
+
+## Protecciones permanentes del modo prueba (ESG-02)
+
+Rigen siempre, con o sin estado seguro; fallan cerradas (sin dato no se permite); rechazo con código propio y sin bitácora:
+1. `abrir_puerta_N` se rechaza con la cámara fuera de `presion_atmosferica ± rango_presion_atm` (presurizada o en vacío) o sin lectura (`salida_prueba_camara_presurizada`); si la cámara se presuriza con la salida encendida, se apaga.
+2. `desbloqueo_puerta_N` (vacío al empaque), igual que 1.
+3. `vapor_camara` se rechaza si alguna puerta instalada no está confirmada cerrada o no tiene lectura (`salida_prueba_puerta_abierta`), y se apaga en el mismo tick si una puerta deja de estar cerrada, con aviso en Entradas/Salidas.
+
+Se conservan el corte de `aire_atmosferico_camara` (D8-3.19) y la regla anterior de puertas por temperatura. Sin lectura vigente de presión rigen todos los bloqueos anteriores.
+
+Riesgo residual (ISO 14971): sin datos de presión o de puerta el modo prueba queda más restringido; el técnico debe resolver el sensor antes de probar esas salidas.
+
 ## Vigentes
 
 | ID | Anomalía | Efecto / riesgo | Mitigación en esta versión | Se corrige en |
@@ -35,9 +62,28 @@ Ninguna de estas anomalías anula las protecciones independientes del software: 
 | AN-17 | SIS-06 dice «kPa» y «sobre el máximo» también para la migración de `brecha_segura_temperatura` (°C) de P2. | Texto del aviso impreciso. | El registro de auditoría lleva el parámetro, el valor anterior y el nuevo. | Tanda posterior |
 | AN-18 | El reconocimiento de carga NO CONFORME no exige sesión (se audita sin usuario si no la hay; V16-s5-01). | Trazabilidad incompleta del reconocimiento. | Queda en la bitácora con el operador del ciclo en el detalle. | Decisión de Cristian |
 | AN-19 | El corte de chaqueta y CIC-18 no tienen histéresis (V16-s3-05). | Con la chaqueta oscilando en 375 kPa, la válvula y el aviso conmutan en ticks alternos. | Suministro regulado a 40 psig (no debería llegar al corte, VCH-04). | Tanda posterior |
+| AN-20 | DECISIONES SIN CONFIRMAR de ESG-02 (tanda 17): el criterio de puerta cubre también el vacío; la recuperación de arranque pendiente también se libera con presión vigente; `bomba_vacio` no se bloquea (solo lleva vacío al empaque con `desbloqueo_puerta_N`, ya protegida); sin presión, `vapor_camara` con puerta abierta se rechaza con el código del estado seguro; `salida_prueba_cortada` (actuación de las protecciones) va solo al log de desarrollo y al aviso de pantalla (BIT-01). | Interpretación pendiente de Cristian. | Las protecciones 1–3 fallan cerradas; el aviso de corte queda en pantalla. | Decisión de Cristian |
+| AN-21 | DECISIONES SIN CONFIRMAR de EST-06 (tanda 17): formato Digimon (`20-` + ruta HID → ruta del monitor) documentado sin una exportación real de MultiDigitizer. | Los táctiles podrían no asociarse. | Respaldo y reversión; el fallo no corta la estación; asociación manual. | Banco (I-06) |
+| AN-22 | DECISIONES SIN CONFIRMAR de EST-07 (tanda 17): cubierta de arranque, gracia de 15 s, tope de 180 s, evento con nombre, reapertura tras el asistente, un solo lanzador. | Pantalla negra hasta 180 s si una pantalla no arranca; el hueco autologon → tarea no se midió. | Tope de 180 s con respaldo a 190 s; un fallo solo va al log. | Banco (I-07) |
+| AN-23 | DECISIONES SIN CONFIRMAR de ALM-01 (tanda 17): «Confirmar y llevar a estado seguro» fuera de la ventana de detalle; las ventanas emergentes se cierran ante un paro o estado seguro urgente en las dos pantallas. | Ninguno conocido. | Acción de seguridad de acceso directo. | Decisión de Cristian |
+| AN-24 | ESG-01: la trama AI vencida también cuenta como presión sin lectura (sin CIC-10 por ella). `Autoclave.exe` abierto desde una USB en un equipo con el Setup solo avisa. | Ninguno conocido (falla cerrada). | NO ABRIR y el bloqueo de inicio se mantienen. | Decisión de Cristian |
+
+## Instalación de la alpha.2 (importante)
+Por INS-02 (D-17.2b) el Setup de la alpha.2 **no actualiza** una instalación con la disposición anterior (compilación I o alpha.1 en Archivos de programa): se detiene y pide desinstalarla e instalar en limpio. **No hay migración de datos**: antes de desinstalar, exportar el respaldo y la bitácora si se necesitan; el perfil de instalación, la calibración y los usuarios se vuelven a crear con el asistente.
+
+## Pruebas manuales en el PC de prueba (tanda 17; detalle en la hoja de banco, bloque I)
+- Zona horaria (I-01): página, `tzutil /g`, `/ZONA=` válido e inválido.
+- Unidad D: (I-02): solo discos fijos, sin USB; disposición `D:\Especifika\Autoclave\{programa,datos}`; clave de registro.
+- ACL de `programa` (I-03): con `D:\Especifika` creada antes por un usuario estándar con `Todos:F`; el usuario estándar no puede escribir en `programa`; `AplicarAcl` con código 0 como administrador.
+- Actualización (I-04): con la unidad fija y sin pérdida de datos.
+- Bloqueo de la disposición anterior (I-04): con la compilación I instalada, el Setup se detiene.
+- Instalación limpia y desinstalación (I-05), incluida una reversión fallida que conserve `RutaDatos`.
+- Táctiles sin MultiDigitizer (I-06): herramienta propia, exportación de Digimon comparada, reversión.
+- Cubierta de arranque (I-07): sin escritorio expuesto, cierre por primer cuadro, 15 s o 180 s, segunda instancia, medición del hueco autologon → tarea.
+- SON-01, ESG-01, ESG-02, MPR-01/ALM-01/PRC-01 y bitácora (I-08 a I-12).
 
 ## Prueba de humo en el equipo (después de instalar la alpha.2)
-1. El Setup actualiza sobre la alpha.1 y conserva el perfil de instalación, la calibración, los usuarios y la base de datos.
+1. Instalación limpia (ver arriba): el asistente crea el perfil; la bitácora tiene una sola fila `equipo_instalado` con la zona horaria.
 2. Información del sistema, el ticket de arranque y la primera línea de los logs muestran `1.0.0-alpha.2 (<commit>)`.
 3. Login, Preciclo, modo prueba de E/S, Parámetros del ciclo (`histeresis_cierre_camara`, `max_reinicios_exposicion`) y del equipo (submenú Chaqueta: corte, aislamientos y límites de presión), historial, exportar respaldo y apagar equipo.
 4. Las lecturas de los sensores coinciden con las de la alpha.1.
