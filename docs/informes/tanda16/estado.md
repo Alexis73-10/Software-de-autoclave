@@ -9,14 +9,14 @@
 | F3 | Hecha | 7a74963 DebounceAcumulado, AislamientoCamara, profile.modo_vapor |
 | F4 | Hecha | 41ed517, 687207c contratos del estado del ciclo |
 | F5 | Hecha | d26d7cf testpaths |
-| P | En curso | s1 7f364f1, s2 4125106, s3 00b0bb5 hechos; s4, s5 en curso |
-| I | Pendiente | |
-| R | Pendiente | |
+| P | Hecha | s1 7f364f1, s2 4125106, s3 00b0bb5, s4 d778624+e774062, s5 d306606+53952d9 |
+| I | Hecha | merges 00ec5ae..d276e1d (sin conflictos), 7484757 ajustes, 6554f16 integración VCH §8; suite 8238 recolectadas (base 7922 + 316): solo la falla preexistente de test_ver_entrega |
+| R | En curso | 5 revisores de solo lectura |
 | K | Pendiente | |
 | L | Pendiente | |
 | Z | Pendiente | |
 
-Último commit: 687207c
+Último commit: 6554f16
 
 ## Resumen de V
 - V-01: no existía función de perfil para chaqueta; creada `installation/profile.py::modo_vapor(profile, io_enabled=None)` (chaqueta solo con perfil real, `has_full_jacket is True` y `vapor_chaqueta`/`pres_chaqueta` en io_enabled filtrado). CicloState la evalúa en reset() → `estado.modo_vapor`.
