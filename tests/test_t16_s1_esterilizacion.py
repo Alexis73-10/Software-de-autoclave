@@ -217,7 +217,7 @@ def test_aislamiento_sostenido_falla_cic15(monkeypatch):
     assert f.update() == FaseResult.FALLO
     codigo, valores = f.alarma_fallo
     assert codigo == "CIC-15"
-    assert valores["minutos"] == "3" and valores["fase"] == "ESTERILIZACION"
+    assert valores["minutos"] == "3" and valores["fase"] == "Esterilización"
     assert valores["maximo"] == pytest.approx(TECHO)
     assert getattr(estado.motivo_fallo, "codigo", None) == "ais_sostenida"
     set_do.vapor_camara_off.assert_called()
@@ -234,7 +234,7 @@ def test_aislamiento_recurrente_falla_cic16(monkeypatch):
     assert f.update() == FaseResult.FALLO
     codigo, valores = f.alarma_fallo
     assert codigo == "CIC-16"
-    assert valores == {"cantidad": 6, "minutos": "15", "fase": "ESTERILIZACION"}
+    assert valores == {"cantidad": 6, "minutos": "15", "fase": "Esterilización"}
     assert getattr(estado.motivo_fallo, "codigo", None) == "ais_recurrente"
 
 

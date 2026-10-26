@@ -135,6 +135,8 @@
     "version": "V: 1.0"
   },
   "opciones": {
+    "err_rol_sonda_no_activa": "No se puede guardar: hay un rol asignado a una sonda que no está activa en el perfil de instalación.",
+    "err_coherencia_recuperacion": "No se puede guardar: con esta temperatura y brecha segura, el techo de presión de esterilización no permite salir de RECUPERACIÓN. La presión adicional de esterilización debe ser al menos {valor} kPa.",
     "equipo_err_empaque": "La presión de empaque debe quedar al menos 20 kPa sobre la atmosférica y el vacío de empaque al menos 10 kPa por debajo.",
     "equipo_guia": "Los cambios solo se hacen sin ciclo en curso y se aplican sin reiniciar el equipo.",
     "equipo_grupos": {"puerta": "Puerta", "camara_segura": "Cámara segura", "impresion": "Impresión", "drenaje": "Drenaje", "empaque": "Empaque", "chaqueta": "Chaqueta", "sistema": "Sistema", "maquina": "Configuración de la máquina"},
@@ -291,15 +293,16 @@
     "err_coherencia_liquido": "No se puede pasar a carga líquida: el programa debe estar sin prevacío, sin secado, sin apertura automática y con contrapresión de enfriamiento suficiente.",
     "aviso_modo_liquido": "Carga líquida: el modo de descompresión cambió a {modo} ({nombre}).",
     "aviso_modo_solido": "Carga sólida: el modo de descompresión volvió a {modo} ({nombre}).",
-    "err_limite_presion_camara": "No se puede guardar: el techo de presión de cámara llegaría al alivio de cámara (385 kPa). La presión adicional debe ser menor que {valor} kPa.",
-    "err_limite_consigna_chaqueta": "No se puede guardar: la consigna calculada de chaqueta es {valor} kPa y, con la banda de ±10 kPa, llega al alivio de chaqueta (385 kPa).",
-    "err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta (385 kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
+    "err_limite_presion_camara": "No se puede guardar: el techo de presión de cámara llegaría al alivio de cámara ({alivio_camara} kPa). La presión adicional debe ser menor que {valor} kPa.",
+    "err_limite_consigna_chaqueta": "No se puede guardar: la consigna calculada de chaqueta es {valor} kPa y, con la banda de ±10 kPa, llega al alivio de chaqueta ({alivio_chaqueta} kPa).",
+    "err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta ({alivio_chaqueta} kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
     "aviso_techo_sobre_suministro": "Guardado con advertencia: el techo de presión de cámara supera el suministro (350 kPa). La cámara no lo alcanzará y la válvula de vapor de cámara quedará abierta en ese tramo.",
     "aviso_chaqueta_abierta": "Guardado con advertencia: la presión de chaqueta pedida supera el suministro (350 kPa). La válvula de vapor de chaqueta quedará abierta sin llegar a la consigna.",
     "aviso_liquido_previo": "Con carga líquida solo se permiten los modos de descompresión 4, 5 y 0. Si el modo actual es otro, al guardar cambiará al modo 4.",
     "modos_titulo": "Modos disponibles"
   },
   "menu": {
+    "resultado_no_conforme": "NO CONFORME",
     "titulo": "MENÚ PRINCIPAL",
     "resumen": "RESUMEN DEL SISTEMA",
     "sin_conexion": "Sin conexión con el equipo",
@@ -366,6 +369,11 @@
     "informacion": "INFORMACIÓN"
   },
   "ciclo": {
+    "no_conforme_reconocer_error": "No se pudo registrar el reconocimiento de la carga no liberable. Revise la conexión e inténtelo de nuevo.",
+    "no_conforme_reconocido": "Reconocido: la carga no es liberable",
+    "no_conforme_reconocer": "Reconozco que la carga no es liberable",
+    "no_conforme_franja": "CICLO NO CONFORME — carga no liberable: punto de referencia sin verificar",
+    "rol_sonda_no_activa": "El ciclo no puede iniciar: el programa asigna un rol a una sonda que no está activa en el perfil de instalación.",
     "activo": "CICLO ACTIVO",
     "programa": "PROGRAMA",
     "estado": "ESTADO",
@@ -579,6 +587,9 @@
     "olvido_contrasena": "¿Olvidó su contraseña?"
   },
   "exportacion": {
+    "cuerpo_no_conforme": "ATENCIÓN: ciclos NO CONFORMES (carga no liberable: punto de referencia sin verificar): {ciclos}.",
+    "asunto_no_conforme": "[NO CONFORME] {asunto}",
+    "no_conforme_resultado": "NO CONFORME — {resultado}",
     "unidades": "Unidades",
     "motivo": "Motivo",
     "impreso": "Se enviaron {n} ciclo(s) a la impresora",
@@ -1640,6 +1651,7 @@
     "err_fecha": "La fecha debe tener el formato AAAA-MM-DD.",
     "ev_generico": "{evento} {entidad}",
     "ev": {
+      "ciclo_no_conforme_reconocido": "reconoció que la carga del ciclo NO CONFORME no es liberable",
       "login_ok": "inició sesión",
       "login_fallido": "intento de ingreso fallido",
       "login_bloqueado": "quedó bloqueado por intentos fallidos",
@@ -1697,6 +1709,7 @@
       "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)"
     },
     "tipo": {
+      "ciclo_no_conforme_reconocido": "Carga no liberable reconocida",
       "login_ok": "Inicio de sesión",
       "login_fallido": "Ingreso fallido",
       "login_bloqueado": "Bloqueo por intentos",
@@ -1952,6 +1965,7 @@
     }
   },
   "ticket_ciclo": {
+    "no_conforme_marca": "*** NO CONFORME ***",
     "fecha": "Fecha",
     "hora": "Hora",
     "serie": "Num serie",

@@ -1581,6 +1581,51 @@
     "summary": "Acknowledge Cycle"
    }
   },
+  "/cycle/acknowledge-no-conforme": {
+   "post": {
+    "description": "El operador reconoce que la carga de un ciclo NO CONFORME no es\nliberable (P4, D-14.4). Pone estado.no_conforme_reconocido, sin el cual\n/cycle/acknowledge rechaza la confirmación, y se audita con el usuario de\nla sesión. Mismo criterio de sesión que /cycle/acknowledge y\n/cycle/start: no la exige; sin token válido la fila queda sin usuario y\ncon detalle.sin_sesion (DECISIÓN SIN CONFIRMAR). Solo con el ciclo ya\nterminado y NO CONFORME. No mueve salidas ni confirma el ciclo.",
+    "operationId": "acknowledge_no_conforme_cycle_acknowledge_no_conforme_post",
+    "parameters": [
+     {
+      "in": "header",
+      "name": "authorization",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Acknowledge No Conforme"
+   }
+  },
   "/cycle/current/graph": {
    "get": {
     "description": "Serie de la gráfica del ciclo en curso (~1 s, t_s monotónico, con\ntemp_ref). Sin desde_id devuelve el histórico completo (al entrar o tras\nreiniciar la UI); con desde_id solo las lecturas posteriores a ese id.",

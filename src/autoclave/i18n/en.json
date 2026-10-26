@@ -135,6 +135,8 @@
     "version": "V: 1.0"
   },
   "opciones": {
+    "err_rol_sonda_no_activa": "Cannot save: a role is assigned to a probe that is not active in the installation profile.",
+    "err_coherencia_recuperacion": "Cannot save: with this temperature and safe gap, the sterilization pressure ceiling does not allow leaving RECOVERY. The additional sterilization pressure must be at least {valor} kPa.",
     "equipo_err_empaque": "Gasket pressure must stay at least 20 kPa above atmospheric and gasket vacuum at least 10 kPa below.",
     "equipo_guia": "Changes can only be made with no cycle running and apply without restarting the unit.",
     "equipo_grupos": {"puerta": "Door", "camara_segura": "Safe chamber", "impresion": "Printing", "drenaje": "Drain", "empaque": "Gasket", "chaqueta": "Jacket", "sistema": "System", "maquina": "Machine configuration"},
@@ -291,15 +293,16 @@
     "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no prevacuum, no drying, no automatic opening and enough cooling counterpressure.",
     "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
     "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
-    "err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief (385 kPa). The additional pressure must be lower than {valor} kPa.",
-    "err_limite_consigna_chaqueta": "Cannot save: the calculated jacket setpoint is {valor} kPa and, with the ±10 kPa band, it reaches the jacket relief (385 kPa).",
-    "err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief (385 kPa). The jacket pressure must be lower than {valor} kPa.",
+    "err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief ({alivio_camara} kPa). The additional pressure must be lower than {valor} kPa.",
+    "err_limite_consigna_chaqueta": "Cannot save: the calculated jacket setpoint is {valor} kPa and, with the ±10 kPa band, it reaches the jacket relief ({alivio_chaqueta} kPa).",
+    "err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief ({alivio_chaqueta} kPa). The jacket pressure must be lower than {valor} kPa.",
     "aviso_techo_sobre_suministro": "Saved with a warning: the chamber pressure ceiling is above the supply (350 kPa). The chamber will not reach it and the chamber steam valve will stay open in that stage.",
     "aviso_chaqueta_abierta": "Saved with a warning: the requested jacket pressure is above the supply (350 kPa). The jacket steam valve will stay open without reaching the setpoint.",
     "aviso_liquido_previo": "With a liquid load only depressurization modes 4, 5 and 0 are allowed. If the current mode is another one, it will change to mode 4 when saved.",
     "modos_titulo": "Available modes"
   },
   "menu": {
+    "resultado_no_conforme": "NONCONFORMING",
     "titulo": "MAIN MENU",
     "resumen": "SYSTEM SUMMARY",
     "sin_conexion": "No connection with the equipment",
@@ -366,6 +369,11 @@
     "informacion": "INFORMATION"
   },
   "ciclo": {
+    "no_conforme_reconocer_error": "The acknowledgment of the non-releasable load could not be recorded. Check the connection and try again.",
+    "no_conforme_reconocido": "Acknowledged: the load is not releasable",
+    "no_conforme_reconocer": "I acknowledge the load is not releasable",
+    "no_conforme_franja": "NONCONFORMING CYCLE — load not releasable: reference point not verified",
+    "rol_sonda_no_activa": "The cycle cannot start: the program assigns a role to a probe that is not active in the installation profile.",
     "activo": "ACTIVE CYCLE",
     "programa": "PROGRAM",
     "estado": "STATUS",
@@ -579,6 +587,9 @@
     "olvido_contrasena": "Forgot your password?"
   },
   "exportacion": {
+    "cuerpo_no_conforme": "ATTENTION: NONCONFORMING cycles (load not releasable: reference point not verified): {ciclos}.",
+    "asunto_no_conforme": "[NONCONFORMING] {asunto}",
+    "no_conforme_resultado": "NONCONFORMING — {resultado}",
     "unidades": "Units",
     "motivo": "Reason",
     "impreso": "{n} cycle(s) sent to the printer",
@@ -1640,6 +1651,7 @@
     "err_fecha": "The date must be YYYY-MM-DD.",
     "ev_generico": "{evento} {entidad}",
     "ev": {
+      "ciclo_no_conforme_reconocido": "acknowledged that the NONCONFORMING cycle load is not releasable",
       "login_ok": "logged in",
       "login_fallido": "failed login attempt",
       "login_bloqueado": "was locked out after failed attempts",
@@ -1697,6 +1709,7 @@
       "cuenta_sistema_rechazada": "tried to modify the system account {entidad} (rejected)"
     },
     "tipo": {
+      "ciclo_no_conforme_reconocido": "Non-releasable load acknowledged",
       "login_ok": "Login",
       "login_fallido": "Failed login",
       "login_bloqueado": "Lockout",
@@ -1952,6 +1965,7 @@
     }
   },
   "ticket_ciclo": {
+    "no_conforme_marca": "*** NONCONFORMING ***",
     "fecha": "Date",
     "hora": "Time",
     "serie": "Serial No",

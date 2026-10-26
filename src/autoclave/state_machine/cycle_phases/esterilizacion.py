@@ -88,6 +88,8 @@ from autoclave.core.runtime.sensores_ciclo import NOMBRES
 from autoclave.state_machine.alarms.catalogo import (
     CIC_09, CIC_11, CIC_12, CIC_13, CIC_14, CIC_15, CIC_16, CIC_17)
 from autoclave.core.runtime import motivos_fase
+# integración tanda 16: nombre de fase legible en CIC-15/16, como en CALENTAMIENTO
+from autoclave.state_machine.alarms.catalogo import nombre_legible
 from autoclave.core.managers import limites_equipo as le
 from autoclave.installation.profile import MODO_CHAQUETA
 from .aislamiento_camara import AislamientoCamara
@@ -595,7 +597,7 @@ class EsterilizacionFase(BaseFase):
         if ais.sostenido(now, timeout_s):
             minutos = f"{timeout_s / 60:.0f}"
             return self._fallo_propio(
-                CIC_15, {"minutos": minutos, "fase": self.name, "maximo": p_control_max},
+                CIC_15, {"minutos": minutos, "fase": nombre_legible(self.name), "maximo": p_control_max},
                 motivos_fase.motivo("ais_sostenida", minutos=minutos,
                                     pres_techo=p_control_max))
         maximo = le.max_aislamientos_camara(self.config)
@@ -604,7 +606,7 @@ class EsterilizacionFase(BaseFase):
             cantidad = ais.entradas_en_ventana(now, ventana_s)
             minutos = f"{ventana_s / 60:.0f}"
             return self._fallo_propio(
-                CIC_16, {"cantidad": cantidad, "minutos": minutos, "fase": self.name},
+                CIC_16, {"cantidad": cantidad, "minutos": minutos, "fase": nombre_legible(self.name)},
                 motivos_fase.motivo("ais_recurrente", cantidad=str(cantidad),
                                     minutos=minutos))
         return None

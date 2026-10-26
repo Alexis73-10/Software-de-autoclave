@@ -9,7 +9,7 @@
 | F3 | Hecha | 7a74963 DebounceAcumulado, AislamientoCamara, profile.modo_vapor |
 | F4 | Hecha | 41ed517, 687207c contratos del estado del ciclo |
 | F5 | Hecha | d26d7cf testpaths |
-| P | En curso | s1..s5 en worktrees, ramas tanda-16-s1..s5 |
+| P | En curso | s1 7f364f1, s2 4125106, s3 00b0bb5 hechos; s4, s5 en curso |
 | I | Pendiente | |
 | R | Pendiente | |
 | K | Pendiente | |

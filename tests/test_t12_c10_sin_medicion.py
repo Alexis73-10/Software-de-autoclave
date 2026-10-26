@@ -31,12 +31,14 @@ def test_60_s_sin_datos_corren_el_fin_60_s(monkeypatch):
     assert f._timer_fin == fin_original                              # todavía sin correr
     estado.sensores_temp["temp_camara"] = 134.0
     assert f.update() == FaseResult.EN_CURSO                         # t = 60.5
-    assert f._timer_fin == fin_original + 60.0
+    # SAF-05 / P8 (tanda 16, D-14.8): el tramo descontado empieza en la última
+    # lectura válida (t = 0), no en el primer tick sin dato (t = 0.5): 60.5 s
+    assert f._timer_fin == fin_original + 60.5
     assert f.pausa_total_s == 0.0                                    # no suma al tope de CIC-11
-    assert f.sin_lectura_s == 60.0
-    reloj.t = fin_original + 59.9
+    assert f.sin_lectura_s == 60.5
+    reloj.t = fin_original + 60.4
     assert f.update() == FaseResult.EN_CURSO
-    reloj.t = fin_original + 60.0
+    reloj.t = fin_original + 60.5
     assert f.update() == FaseResult.COMPLETADO
 
 
@@ -51,7 +53,8 @@ def test_presion_sin_lectura_tambien_corre_el_fin(monkeypatch):
     f.update()
     estado.sensores_pres["pres_camara"] = ap.psat(134.0)
     f.update()
-    assert f._timer_fin == fin_original + 30.0
+    # SAF-05 / P8 (tanda 16, D-14.8): desde la última lectura válida (1 s antes)
+    assert f._timer_fin == fin_original + 31.0
 
 
 def test_sin_datos_no_completa_aunque_haya_vencido(monkeypatch):
