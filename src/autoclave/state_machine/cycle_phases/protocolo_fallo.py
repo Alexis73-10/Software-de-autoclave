@@ -163,6 +163,13 @@ class ProtocoloFallo:
         return self._motivo_venteo
 
     @property
+    def presion_perdida(self) -> bool:
+        """Tanda 17 (ESG-01): el protocolo está detenido porque la presión de
+        cámara no tiene lectura (confirmado con el debounce de S9, D9-1.4).
+        Con esto el estado seguro no activa CIC-10 (solo la alarma del sensor)."""
+        return self._presion_perdida is True
+
+    @property
     def solo_lenta(self) -> bool:
         """True si el protocolo se disparó por la pérdida del Principal o si
         el Principal se perdió después, con el protocolo ya en marcha (R1-P4)."""

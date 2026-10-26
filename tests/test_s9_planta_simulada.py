@@ -357,7 +357,9 @@ def test_ensayo_s9(programas, monkeypatch, numero, celda):  # noqa: F811
         assert r["estado_seguro_alcanzado"] is True, r
     if celda == "arranque_sin_presion":
         assert r["salidas_abiertas"] == ["ninguna"], r
-        assert {"CIC-10", "SEN-06"} <= set(r["alarmas"]), r
+        # Tanda 17 (ESG-01, decisión de Cristian): sin presión de cámara no se
+        # activa CIC-10; solo la alarma del sensor
+        assert "SEN-06" in r["alarmas"] and "CIC-10" not in r["alarmas"], r
         assert r["cic10_motivo"].startswith("Sensor de presión de cámara"), r
         assert r["modo_prueba_permitido"] and r["cambio_programa_permitido"], r
         assert r["estado_seguro_sigue_activo"] and r["inicio_bloqueado"], r
@@ -370,7 +372,13 @@ def test_ensayo_s9(programas, monkeypatch, numero, celda):  # noqa: F811
         assert r["modo_prueba_permitido"] is True, r
         assert {"abrir_puerta_1", "desbloqueo_puerta_1", "vapor_camara",
                 "descompresion_rapida"} <= set(r["bloqueadas_en_prueba"]), r
-        assert r["encendidas_tras_un_tick"] == ["ninguna"], r
+        # Tanda 17 (ESG-02, decisión de Cristian): con lectura vigente de
+        # presión se retiran los bloqueos propios del estado seguro (la rápida
+        # y, con las puertas cerradas, el vapor de cámara quedan libres); las
+        # puertas siguen apagadas con la cámara presurizada. (bloqueadas_en_prueba
+        # se toma fuera del tick, con el reloj simulado ya avanzado: la presión
+        # no es vigente y rigen todos los bloqueos, falla cerrada.)
+        assert r["encendidas_tras_un_tick"] == ["descompresion_rapida", "vapor_camara"], r
     if celda == "ai_vencida_en_protocolo":
         assert r["nuevas_con_ai_vencida"] == ["ninguna"], r
         assert r["termino_con_ai_vencida"] is False, r

@@ -21,6 +21,7 @@ from autoclave.core.managers.cycle_manager import Cycle
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.state_machine.alarms.catalogo import CATALOGO, CIC_10, Nivel, SEN_10
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
@@ -171,8 +172,10 @@ def test_arranque_sin_presion_no_abre_nada_y_activa_cic10():
     _tick_es(loop, 2)
     assert not any(i.codigo == CIC_10 for i in alarmas.activas())     # debounce: 3 lecturas
     _tick_es(loop)
-    cic10 = [i for i in alarmas.activas() if i.codigo == CIC_10]
-    assert cic10 and "presión de cámara" in cic10[0].descripcion
+    # Tanda 17 (ESG-01, decisión de Cristian): sin presión de cámara no se
+    # activa CIC-10 (solo la alarma del sensor); el protocolo sigue detenido
+    assert not any(i.codigo == CIC_10 for i in alarmas.activas())
+    assert es.detenido_sin_presion is True
     assert "presión de cámara" in es.bloqueado_motivo
     assert not _abiertas(loop.set_do)            # sin presión no se abre ninguna válvula
 
@@ -194,7 +197,12 @@ def test_cic10_por_presion_se_despeja_con_tres_lecturas():
     loop = _loop(alarmas)
     _arrancar(loop, pres=None, temp=None)
     _tick_es(loop, 3)
-    assert any(i.codigo == CIC_10 for i in alarmas.activas())
+    # Tanda 17 (ESG-01, decisión de Cristian): detenido por la presión sin
+    # lectura, sin CIC-10 activa (la del Principal, mostrada durante el
+    # debounce de la presión, queda resuelta)
+    assert not any(i.codigo == CIC_10 and i.estado is EstadoInstancia.ACTIVA
+                   for i in alarmas.activas())
+    assert loop.estado_seguro.detenido_sin_presion is True
     loop.estado.sensores_pres["pres_camara"] = 250.0
     loop.estado.sensores_temp["temp_camara"] = 120.0
     _tick_es(loop, 2)
