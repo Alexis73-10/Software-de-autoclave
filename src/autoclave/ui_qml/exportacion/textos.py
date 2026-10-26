@@ -13,6 +13,8 @@ def textos_ciclo(textos: dict) -> dict:
         "fases": textos.get("fases") or {},
         "series": {"temp_camara": ciclo.get("serie_temp_camara", ""),
                    "temp_ref": ciclo.get("serie_temp_ref", ""),
+                   # Tanda 17 (SON-01): sonda de Cámara 2 instalada
+                   "temp_2_camara": ciclo.get("serie_temp_2_camara", ""),
                    "pres_camara": ciclo.get("serie_presion", "")},
         "consignas": {"temp": exportacion.get("consigna_temp", ""),
                       "pres": exportacion.get("consigna_pres", "")},

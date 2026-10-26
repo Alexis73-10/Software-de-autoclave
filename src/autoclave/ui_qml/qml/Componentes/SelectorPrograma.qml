@@ -28,4 +28,5 @@ Desplegable {
                                             texto: numero2(p.numero) + " · " + p.nombre,
                                             aviso: p.danado ? "⚠" : "" }))
     onElegido: (v) => raiz.programaElegido(Number(v))
+    Accessible.name: numero > 0 ? numero2(numero) : I18n.t("selector_programa.ninguno", I18n.lang)
 }

@@ -135,6 +135,7 @@ Item {
                         objectName: "mesAnterior"
                         anchors.left: parent.left
                         icono: "chevron_izquierda"
+                        Accessible.name: I18n.t("calendario.mes_anterior", I18n.lang)
                         onPulsada: raiz.mesAnterior()
                     }
                     Text {
@@ -150,6 +151,7 @@ Item {
                         objectName: "mesSiguiente"
                         anchors.right: parent.right
                         icono: "chevron_derecha"
+                        Accessible.name: I18n.t("calendario.mes_siguiente", I18n.lang)
                         onPulsada: raiz.mesSiguiente()
                     }
                 }

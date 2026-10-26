@@ -368,6 +368,7 @@
     "informacion": "INFORMATION"
   },
   "ciclo": {
+    "serie_temp_2_camara": "Chamber temperature 2",
     "monitoreo": "(monitoring)",
     "no_conforme_reconocer_error": "The acknowledgment of the non-releasable load could not be recorded. Check the connection and try again.",
     "no_conforme_reconocido": "Acknowledged: the load is not releasable",
@@ -1644,6 +1645,7 @@
     "red_sin_red": "No network"
   },
   "bitacora": {
+    "err_rango": "The From date cannot be later than the To date.",
     "categoria": {"seguridad": "Safety", "configuracion": "Configuration", "usuarios_sesion": "Users and session", "mantenimiento_calibracion": "Maintenance and calibration", "sistema": "System"},
     "hasta": "To",
     "desde": "From",
@@ -2179,6 +2181,8 @@
     "ninguno": "No program chosen"
   },
   "alarma_detalle": {
+    "estado_retirada": "No longer active",
+    "estado_resuelta": "Resolved, not acknowledged",
     "titulo": "Alarm detail",
     "nombre": "Name",
     "nivel": "Level",

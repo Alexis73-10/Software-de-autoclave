@@ -965,6 +965,22 @@
       }
      },
      {
+      "in": "query",
+      "name": "categoria",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Categoria"
+      }
+     },
+     {
       "in": "header",
       "name": "authorization",
       "required": false,

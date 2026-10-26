@@ -368,6 +368,7 @@
     "informacion": "INFORMACIÓN"
   },
   "ciclo": {
+    "serie_temp_2_camara": "Temperatura de cámara 2",
     "monitoreo": "(monitoreo)",
     "no_conforme_reconocer_error": "No se pudo registrar el reconocimiento de la carga no liberable. Revise la conexión e inténtelo de nuevo.",
     "no_conforme_reconocido": "Reconocido: la carga no es liberable",
@@ -1644,6 +1645,7 @@
     "red_sin_red": "Sin red"
   },
   "bitacora": {
+    "err_rango": "La fecha Desde no puede ser posterior a la fecha Hasta.",
     "categoria": {"seguridad": "Seguridad", "configuracion": "Configuración", "usuarios_sesion": "Usuarios y sesión", "mantenimiento_calibracion": "Mantenimiento y calibración", "sistema": "Sistema"},
     "hasta": "Hasta",
     "desde": "Desde",
@@ -2179,6 +2181,8 @@
     "ninguno": "Ningún programa elegido"
   },
   "alarma_detalle": {
+    "estado_retirada": "Ya no está activa",
+    "estado_resuelta": "Resuelta, sin reconocer",
     "titulo": "Detalle de la alarma",
     "nombre": "Nombre",
     "nivel": "Nivel",

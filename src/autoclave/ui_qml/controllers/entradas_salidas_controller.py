@@ -30,7 +30,10 @@ _CAUSAS_SOLO_CATALOGO = frozenset({"aire_atmosferico_con_presion",
                                    "aire_atmosferico_sin_referencia",
                                    # S9 (revisión ★ SAF-01)
                                    "salida_prueba_camara_no_segura",
-                                   "salida_prueba_estado_seguro"})
+                                   "salida_prueba_estado_seguro",
+                                   # Tanda 17 (ESG-02): protecciones permanentes
+                                   "salida_prueba_camara_presurizada",
+                                   "salida_prueba_puerta_abierta"})
 
 # D-ES-08: sin actividad del usuario en la seccion el modo prueba se cierra
 INACTIVIDAD_UI_S = 5 * 60
@@ -41,10 +44,10 @@ def mensaje_de(causa: str) -> str:
 
 
 # Tanda 17 (MPR-01 / ESG-02): avisos de salidas cortadas en el modo prueba.
-# CONTRATO ASUMIDO (lo alinea la sesión principal con s3): una lista en
-# /status bajo la primera de estas claves; cada elemento es un texto (causa o
-# clave i18n) o un dict con "causa"/"motivo"/"codigo" y opcionalmente "salida".
-CLAVES_AVISOS_CORTE = ("avisos_prueba", "salidas_prueba_cortadas", "avisos_modo_prueba")
+# Contrato del backend: /status.avisos_corte_prueba = [{n, salida, codigo,
+# aviso}], con `aviso` la clave i18n (io.ui.aviso_...) o "". Se aceptan
+# también textos o dicts con "causa"/"motivo"/"codigo" (deducción por causa).
+CLAVES_AVISOS_CORTE = ("avisos_corte_prueba",)
 _AVISO_POR_CAUSA = (("puerta", "io.ui.aviso_vapor_cortado_puerta"),
                     ("presion", "io.ui.aviso_salida_cortada_presion"),
                     ("presuriz", "io.ui.aviso_salida_cortada_presion"),
@@ -60,7 +63,7 @@ def avisos_corte(status) -> list[dict]:
     salida = []
     for e in lista:
         if isinstance(e, dict):
-            causa = str(e.get("causa") or e.get("motivo") or e.get("codigo") or "")
+            causa = str(e.get("aviso") or e.get("causa") or e.get("motivo") or e.get("codigo") or "")
             nombre = str(e.get("salida") or "")
         elif isinstance(e, str):
             causa, nombre = e, ""

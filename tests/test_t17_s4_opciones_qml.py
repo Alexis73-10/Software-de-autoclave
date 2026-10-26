@@ -229,7 +229,7 @@ def _status(pres, avisos=None):
          "card_connected": True, "sensors": {"pressure": {"camara": pres}, "temperature": {},
                                              "digital_inputs": {}, "digital_outputs": {}}}
     if avisos is not None:
-        s["avisos_prueba"] = avisos
+        s["avisos_corte_prueba"] = avisos   # contrato de s3 (integración)
     return s
 
 
@@ -250,6 +250,15 @@ def test_controlador_presion_y_avisos_de_corte():
         {"clave": "", "salida": "", "texto": "otra cosa"},
     ]
     assert es.avisos_corte(_status(1)) == []
+    # forma real que publica el backend (s3): {n, salida, codigo, aviso}
+    reales = es.avisos_corte(_status(1, [
+        {"n": 1, "salida": "vapor_camara", "codigo": "salida_prueba_puerta_abierta",
+         "aviso": "io.ui.aviso_vapor_cortado_puerta"},
+        {"n": 2, "salida": "abrir_puerta_1", "codigo": "salida_prueba_camara_presurizada",
+         "aviso": "io.ui.aviso_salida_cortada_presion"}]))
+    assert [(a["clave"], a["salida"]) for a in reales] == [
+        ("io.ui.aviso_vapor_cortado_puerta", "vapor_camara"),
+        ("io.ui.aviso_salida_cortada_presion", "abrir_puerta_1")]
 
 
 @pytest.mark.req("MPR-01")

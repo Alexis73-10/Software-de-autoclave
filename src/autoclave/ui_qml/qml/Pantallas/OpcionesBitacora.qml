@@ -183,6 +183,8 @@ Item {
             Text {
                 id: textoFrase
                 objectName: "fraseBitacora"
+                // tipo del evento (bitacora.tipo.<evento>) para lectores de pantalla
+                Accessible.description: I18n.t("bitacora.tipo." + fila.modelData.evento, I18n.lang)
                 anchors.left: cuando.right; anchors.leftMargin: Escala.px(12)
                 anchors.right: parent.right; anchors.rightMargin: Escala.px(8)
                 anchors.verticalCenter: parent.verticalCenter
