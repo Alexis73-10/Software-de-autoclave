@@ -206,7 +206,8 @@ class CiclosHistorial(QObject):
     @Property("QVariantList", notify=ciclosChanged)
     def ciclos(self) -> list:
         """Filas: id, numero, fecha, hora, programa, programa_nombre, resultado
-        (COMPLETADO / CANCELADO / FALLO o ""), resultado_detalle, operador."""
+        (COMPLETADO / CANCELADO / FALLO o ""), resultado_detalle, operador y
+        no_conforme (P4, tanda 16)."""
         return self._ciclos
 
     @Property(bool, notify=ciclosChanged)

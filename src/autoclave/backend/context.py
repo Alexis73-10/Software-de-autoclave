@@ -132,6 +132,13 @@ class BackendContext:
         except (OSError, ValueError) as e:
             raise ErrorArranque(secuencia.ARR_CONFIG_ILEGIBLE, f"global_params.json: {e}") from e
         self.config_manager = config_manager
+        # DEU-01 (tanda 16): los límites de presión de los programas (al
+        # cargarlos, migrarlos y guardarlos) son los de Parámetros del equipo;
+        # se fija ANTES de cargar los programas. Aquí todavía rigen los
+        # valores de global_params.json; los de system_params llegan al
+        # vincular la base (abrir_base_datos revalida los programas).
+        from autoclave.core.managers import catalogo_parametros
+        catalogo_parametros.fijar_config_equipo(config_manager)
 
         self.cycle_manager = CycleManager()
         self.cycle_manager.load_all_cycles()
@@ -162,12 +169,31 @@ class BackendContext:
             for cycle, m in self.cycle_manager.migraciones_correctivas():
                 if getattr(cycle, "danado", None):
                     continue        # V12 (SAF-07c): un programa dañado no se avisa
+                # tanda 16: `unidad` y `motivo` para la plantilla generalizada
+                # de SIS-06 (la de la tanda 12 los ignora)
                 self.alarm_manager.activar(
                     MIGRACION_CORRECTIVA, origen=f"{cycle.id}/{m['fase']}.{m['parametro']}",
                     programa=cycle.name, parametro=m["parametro"],
-                    anterior=f"{m['anterior']:g}", nuevo=f"{m['nuevo']:g}")
+                    anterior=f"{m['anterior']:g}", nuevo=f"{m['nuevo']:g}",
+                    unidad=m.get("unidad", "kPa"), motivo=m.get("origen", ""))
         except Exception:
             logger.exception("No se pudo activar el aviso de migración correctiva")
+        # P2 (tanda 16, D-14.2): migración no aplicada por la salvaguarda del
+        # alivio: el programa queda como está y se avisa (aunque quede dañado
+        # por P1: es justamente lo que hay que revisar)
+        try:
+            no_aplicadas = getattr(self.cycle_manager, "migraciones_no_aplicadas", None)
+            for cycle, m in (no_aplicadas() if callable(no_aplicadas) else []):
+                for c in m.get("cambios", []):
+                    self.alarm_manager.activar(
+                        MIGRACION_CORRECTIVA,
+                        origen=f"{cycle.id}/{m['fase']}.{c['parametro']}",
+                        programa=cycle.name, parametro=c["parametro"],
+                        anterior=f"{c['anterior']:g}", nuevo=f"{c['anterior']:g}",
+                        unidad=c.get("unidad", ""),
+                        motivo=f"no se migró a {c['nuevo']:g}: {m.get('motivo', '')}")
+        except Exception:
+            logger.exception("No se pudo activar el aviso de migración no aplicada")
 
     # ── LIC-02 (licencia L0): contraseña de fábrica vigente ──────────────────
 
@@ -516,12 +542,17 @@ class BackendContext:
                 self.db = DbManager()
                 self.calibration_audit = SensorCalibrationAuditDB()
                 self._numeracion_y_ciclos_interrumpidos()
-                if self.cycle_manager is not None:
-                    self.auditar_migraciones_correctivas()     # C-04.4 (tanda 12)
-                self.revisar_contrasenas_semilla()             # LIC-02 (licencia L0)
-                # O2a: valores vigentes de los parámetros del equipo (system_params)
+                # O2a: valores vigentes de los parámetros del equipo (system_params).
+                # DEU-01 (tanda 16): antes de auditar las migraciones, para que
+                # los programas se revaliden con los límites vigentes del
+                # equipo y uno incoherente (alivio bajado) quede dañado y no
+                # se audite ni se reescriba.
                 if self.config_manager is not None:
                     self.config_manager.vincular_bd(self.db)
+                if self.cycle_manager is not None:
+                    self.cycle_manager.revalidar_programas()   # DEU-01 (tanda 16)
+                    self.auditar_migraciones_correctivas()     # C-04.4 (tanda 12)
+                self.revisar_contrasenas_semilla()             # LIC-02 (licencia L0)
                 return None
             except BdBloqueadaError as e:
                 logger.critical("%s", e)

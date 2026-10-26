@@ -43,8 +43,17 @@ FACTOR_CHEQUEO_CICLO = 0.6          # ciclo.py: falla si empaque < presion_empaq
 # D9-3 (tanda 9): "camara_segura" (temp_max_apertura y rango_presion_atm, antes
 # en "puerta") se muestra en todo equipo; "puerta" y "empaque" no aplican a
 # un equipo de puertas simples.
+# F1 (tanda 16): los límites de presión del equipo (DEU-01), el corte de
+# chaqueta (D-CHQ) y los aislamientos (VCH) van en "chaqueta" (DECISIÓN SIN
+# CONFIRMAR: un submenú nuevo cambiaría la pantalla fijada por O2a/P9).
 GRUPOS = ("puerta", "camara_segura", "impresion", "drenaje", "empaque", "chaqueta", "sistema")
 _GRUPOS_SIN_PUERTAS_SIMPLES = frozenset({"puerta", "empaque"})
+
+
+# F1 (tanda 16): parámetros con regla cruzada de límites de presión
+CLAVES_LIMITES_PRESION = _CLAVES_LIMITES_PRESION = ("presion_fondo_escala", "presion_suministro_vapor",
+                           "presion_alivio_camara", "presion_alivio_chaqueta",
+                           "presion_max_chaqueta_control")
 
 
 def grupos_visibles(puertas_simples: bool) -> list[str]:
@@ -201,6 +210,8 @@ class ConfigManager:
 
     def _incoherencia(self, clave, nuevo) -> str:
         """'' o 'incoherente' (SAF-01). Usa los valores vigentes de los demás."""
+        if clave in _CLAVES_LIMITES_PRESION:
+            return self._incoherencia_limites(clave, nuevo)
         if clave not in ("presion_empaque", "vacio_empaque", "presion_atmosferica"):
             return ""
         v = {k: (self.config.get(k) or {}).get("value") for k in
@@ -212,6 +223,24 @@ class ConfigManager:
         if pe < atm + MARGEN_EMPAQUE_SOBRE_ATM or pe * FACTOR_CHEQUEO_CICLO <= atm:
             return "incoherente"
         if ve > atm - MARGEN_VACIO_BAJO_ATM or ve >= pe:
+            return "incoherente"
+        return ""
+
+    def _incoherencia_limites(self, clave, nuevo) -> str:
+        """F1 (tanda 16). DEU-01 (D-DEU-1): suministro < alivio <= fondo de
+        escala, para los dos alivios. D-CHQ: presion_max_chaqueta_control <=
+        alivio de chaqueta - 10. Bajar el alivio por debajo del corte vigente
+        + 10 también se rechaza. Fail-closed sin valor de referencia."""
+        from autoclave.core.managers import limites_equipo as le
+        v = {k: (self.config.get(k) or {}).get("value") for k in _CLAVES_LIMITES_PRESION}
+        v[clave] = nuevo
+        if not all(_es_numero(x) for x in v.values()):
+            return "incoherente"
+        if not le.limites_coherentes(v["presion_fondo_escala"], v["presion_suministro_vapor"],
+                                     v["presion_alivio_camara"], v["presion_alivio_chaqueta"]):
+            return "incoherente"
+        if v["presion_max_chaqueta_control"] > (v["presion_alivio_chaqueta"]
+                                                - le.MARGEN_CORTE_BAJO_ALIVIO):
             return "incoherente"
         return ""
 

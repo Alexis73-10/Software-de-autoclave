@@ -1,6 +1,6 @@
 {
-  "parametros_equipo": {"timeout_puerta": "Door time limit", "temp_max_apertura": "Safe opening temperature", "rango_presion_atm": "Atmospheric pressure band (±)", "intervalo_impresion": "General printing rate", "intervalo_impresion_esterilizacion": "Printing rate in sterilization", "temp_segura_drenaje": "Safe drain temperature", "rango_temp_drenaje": "Drain temperature range", "presion_empaque": "Gasket pressure", "vacio_empaque": "Gasket vacuum", "timeout_chaqueta": "Jacket time limit", "tiempo_standby": "Standby", "tiempo_estable_alarma": "Alarm stability time", "pausa_max_esterilizacion_s": "Maximum pause in sterilization", "espera_sellado_sin_sonda_min": "Sealed wait without probe", "presion_atmosferica": "Reference atmospheric pressure"},
-  "parametros_equipo_desc": {"timeout_puerta": "Maximum time for the door to finish opening or closing.", "temp_max_apertura": "Above this chamber temperature the door does not open.", "rango_presion_atm": "Band around atmospheric pressure in which the chamber is considered at atmospheric pressure to open the door.", "intervalo_impresion": "How often a line is printed during the cycle.", "intervalo_impresion_esterilizacion": "How often a line is printed during sterilization.", "temp_segura_drenaje": "Drain temperature ceiling; above it, water cooling turns on.", "rango_temp_drenaje": "Tolerance over the safe temperature before the alarm.", "presion_empaque": "Door gasket pressure to consider it sealed.", "vacio_empaque": "Pressure below which the gasket is considered deflated.", "timeout_chaqueta": "Maximum time for the jacket to reach its pressure. Not yet used by the control.", "tiempo_standby": "Minutes without activity before the screens go to standby; 0 disables it.", "tiempo_estable_alarma": "Time a condition must hold before the alarm is raised or cleared.", "pausa_max_esterilizacion_s": "Maximum total of pauses caused by missing control board data in one sterilization. If exceeded, the cycle fails due to unstable communication.", "espera_sellado_sin_sonda_min": "Liquid load: if the Main probe is lost during cooling and no other valid probe remains, the chamber waits sealed for this time before venting through the slow exhaust.", "presion_atmosferica": "Atmospheric pressure at the installation site."},
+  "parametros_equipo": {"timeout_puerta": "Door time limit", "temp_max_apertura": "Safe opening temperature", "rango_presion_atm": "Atmospheric pressure band (±)", "intervalo_impresion": "General printing rate", "intervalo_impresion_esterilizacion": "Printing rate in sterilization", "temp_segura_drenaje": "Safe drain temperature", "rango_temp_drenaje": "Drain temperature range", "presion_empaque": "Gasket pressure", "vacio_empaque": "Gasket vacuum", "timeout_chaqueta": "Jacket time limit", "tiempo_standby": "Standby", "tiempo_estable_alarma": "Alarm stability time", "pausa_max_esterilizacion_s": "Maximum pause in sterilization", "espera_sellado_sin_sonda_min": "Sealed wait without probe", "presion_atmosferica": "Reference atmospheric pressure", "presion_max_chaqueta_control": "Maximum jacket pressure", "timeout_aislamiento_camara": "Chamber isolation time limit", "max_aislamientos_camara": "Allowed chamber isolations", "ventana_aislamientos_camara": "Isolation counting window", "presion_fondo_escala": "Transducer full scale", "presion_suministro_vapor": "Steam supply pressure", "presion_alivio_camara": "Chamber relief", "presion_alivio_chaqueta": "Jacket relief"},
+  "parametros_equipo_desc": {"timeout_puerta": "Maximum time for the door to finish opening or closing.", "temp_max_apertura": "Above this chamber temperature the door does not open.", "rango_presion_atm": "Band around atmospheric pressure in which the chamber is considered at atmospheric pressure to open the door.", "intervalo_impresion": "How often a line is printed during the cycle.", "intervalo_impresion_esterilizacion": "How often a line is printed during sterilization.", "temp_segura_drenaje": "Drain temperature ceiling; above it, water cooling turns on.", "rango_temp_drenaje": "Tolerance over the safe temperature before the alarm.", "presion_empaque": "Door gasket pressure to consider it sealed.", "vacio_empaque": "Pressure below which the gasket is considered deflated.", "timeout_chaqueta": "Maximum time for the jacket to reach its pressure. Not yet used by the control.", "tiempo_standby": "Minutes without activity before the screens go to standby; 0 disables it.", "tiempo_estable_alarma": "Time a condition must hold before the alarm is raised or cleared.", "pausa_max_esterilizacion_s": "Maximum total of pauses caused by missing control board data in one sterilization. If exceeded, the cycle fails due to unstable communication.", "espera_sellado_sin_sonda_min": "Liquid load: if the Main probe is lost during cooling and no other valid probe remains, the chamber waits sealed for this time before venting through the slow exhaust.", "presion_atmosferica": "Atmospheric pressure at the installation site.", "presion_max_chaqueta_control": "With the jacket at this pressure or above, the jacket steam valve always closes. It must stay at least 10 kPa below the jacket relief.", "timeout_aislamiento_camara": "Units with jacket: maximum time the chamber can stay isolated due to overpressure without the pressure dropping. If exceeded, the cycle fails.", "max_aislamientos_camara": "Units with jacket: number of chamber overpressure isolations within the window that makes the cycle fail.", "ventana_aislamientos_camara": "Units with jacket: moving window in which chamber isolations are counted.", "presion_fondo_escala": "Maximum pressure measured by the transducer. Reliefs cannot exceed it.", "presion_suministro_vapor": "Absolute pressure of the regulated supply steam. A control ceiling above it only produces a warning.", "presion_alivio_camara": "Opening pressure of the chamber relief valve. Programs whose control ceiling reaches it are rejected.", "presion_alivio_chaqueta": "Opening pressure of the jacket relief valve. Programs whose jacket setpoint reaches it are rejected."},
   "instalacion": {
     "aviso_pantalla2": "Installation in progress on screen 1",
     "titulo": "EQUIPMENT INSTALLATION",
@@ -135,10 +135,12 @@
     "version": "V: 1.0"
   },
   "opciones": {
+    "err_rol_sonda_no_activa": "Cannot save: a role is assigned to a probe that is not active in the installation profile.",
+    "err_coherencia_recuperacion": "Cannot save: with this temperature and safe gap, the sterilization pressure ceiling does not allow leaving RECOVERY. The additional sterilization pressure must be at least {valor} kPa.",
     "equipo_err_empaque": "Gasket pressure must stay at least 20 kPa above atmospheric and gasket vacuum at least 10 kPa below.",
     "equipo_guia": "Changes can only be made with no cycle running and apply without restarting the unit.",
     "equipo_grupos": {"puerta": "Door", "camara_segura": "Safe chamber", "impresion": "Printing", "drenaje": "Drain", "empaque": "Gasket", "chaqueta": "Jacket", "sistema": "System", "maquina": "Machine configuration"},
-    "equipo_grupos_desc": {"puerta": "Door movement time limit", "camara_segura": "Maximum opening temperature and atmospheric band", "impresion": "Printer and printing rates", "drenaje": "Safe temperature and range", "empaque": "Gasket pressure and vacuum", "chaqueta": "Heating time limit", "sistema": "Standby, stability and atmospheric pressure", "maquina": "Language, units, serial number and model"},
+    "equipo_grupos_desc": {"puerta": "Door movement time limit", "camara_segura": "Maximum opening temperature and atmospheric band", "impresion": "Printer and printing rates", "drenaje": "Safe temperature and range", "empaque": "Gasket pressure and vacuum", "chaqueta": "Heating time limit, pressure cut-off, chamber isolations and equipment pressure limits", "sistema": "Standby, stability and atmospheric pressure", "maquina": "Language, units, serial number and model"},
     "equipo_rango_defecto": "Range {min} – {max} · default {defecto}",
     "equipo_err_ciclo": "Unit parameters cannot be changed while a cycle is running.",
     "equipo_err_rango": "Value out of the allowed range.",
@@ -291,15 +293,16 @@
     "err_coherencia_liquido": "The program cannot switch to a liquid load: it must have no prevacuum, no drying, no automatic opening and enough cooling counterpressure.",
     "aviso_modo_liquido": "Liquid load: the depressurization mode changed to {modo} ({nombre}).",
     "aviso_modo_solido": "Solid load: the depressurization mode returned to {modo} ({nombre}).",
-    "err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief (385 kPa). The additional pressure must be lower than {valor} kPa.",
-    "err_limite_consigna_chaqueta": "Cannot save: the calculated jacket setpoint is {valor} kPa and, with the ±10 kPa band, it reaches the jacket relief (385 kPa).",
-    "err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief (385 kPa). The jacket pressure must be lower than {valor} kPa.",
+    "err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief ({alivio_camara} kPa). The additional pressure must be lower than {valor} kPa.",
+    "err_limite_consigna_chaqueta": "Cannot save: the calculated jacket setpoint is {valor} kPa and, with the ±10 kPa band, it reaches the jacket relief ({alivio_chaqueta} kPa).",
+    "err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief ({alivio_chaqueta} kPa). The jacket pressure must be lower than {valor} kPa.",
     "aviso_techo_sobre_suministro": "Saved with a warning: the chamber pressure ceiling is above the supply (350 kPa). The chamber will not reach it and the chamber steam valve will stay open in that stage.",
     "aviso_chaqueta_abierta": "Saved with a warning: the requested jacket pressure is above the supply (350 kPa). The jacket steam valve will stay open without reaching the setpoint.",
     "aviso_liquido_previo": "With a liquid load only depressurization modes 4, 5 and 0 are allowed. If the current mode is another one, it will change to mode 4 when saved.",
     "modos_titulo": "Available modes"
   },
   "menu": {
+    "resultado_no_conforme": "NONCONFORMING",
     "titulo": "MAIN MENU",
     "resumen": "SYSTEM SUMMARY",
     "sin_conexion": "No connection with the equipment",
@@ -366,6 +369,11 @@
     "informacion": "INFORMATION"
   },
   "ciclo": {
+    "no_conforme_reconocer_error": "The acknowledgment of the non-releasable load could not be recorded. Check the connection and try again.",
+    "no_conforme_reconocido": "Acknowledged: the load is not releasable",
+    "no_conforme_reconocer": "I acknowledge the load is not releasable",
+    "no_conforme_franja": "NONCONFORMING CYCLE — load not releasable: reference point not verified",
+    "rol_sonda_no_activa": "The cycle cannot start: the program assigns a role to a probe that is not active in the installation profile.",
     "activo": "ACTIVE CYCLE",
     "programa": "PROGRAM",
     "estado": "STATUS",
@@ -579,6 +587,9 @@
     "olvido_contrasena": "Forgot your password?"
   },
   "exportacion": {
+    "cuerpo_no_conforme": "ATTENTION: NONCONFORMING cycles (load not releasable: reference point not verified): {ciclos}.",
+    "asunto_no_conforme": "[NONCONFORMING] {asunto}",
+    "no_conforme_resultado": "NONCONFORMING — {resultado}",
     "unidades": "Units",
     "motivo": "Reason",
     "impreso": "{n} cycle(s) sent to the printer",
@@ -1038,6 +1049,26 @@
       "plantilla": "{sensor} stayed outside the sterilization band for more than {minutos} min. The cycle was aborted.",
       "accion": "The load is NOT sterile. Check the load, its position and the reference probe, and repeat the cycle."
     },
+    "CIC-15": {
+      "titulo": "Sustained chamber overpressure",
+      "plantilla": "The chamber stayed isolated due to overpressure for more than {minutos} min in the {fase} phase without the pressure dropping below the control ceiling ({maximo:.1f} kPa). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the chamber steam valve (it may be stuck open), the exhausts and the chamber pressure sensor. Call technical service."
+    },
+    "CIC-16": {
+      "titulo": "Recurrent chamber overpressure",
+      "plantilla": "The chamber was isolated due to overpressure {cantidad} times in {minutos} min in the {fase} phase. The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the program's pressure ceiling and the jacket steam regulation. If it happens again, call technical service."
+    },
+    "CIC-17": {
+      "titulo": "Exposure restarted too many times",
+      "plantilla": "{sensor} left the sterilization band again after {reinicios} exposure restarts (maximum {maximo}). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the load, its position and the reference probe, and repeat the cycle."
+    },
+    "CIC-18": {
+      "titulo": "Jacket pressure at the control limit",
+      "plantilla": "The jacket reached {pres:.1f} kPa (limit {maximo:.1f} kPa) in the {fase} phase: the jacket steam valve stays closed while it lasts.",
+      "accion": "Check the supply steam regulator. The cycle continues."
+    },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
       "plantilla": "Communication with the board was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
@@ -1252,6 +1283,7 @@
       "tiempo_adicional_bajo_d": "Extra seconds the vacuum of pulse D is held."
     },
     "calentamiento": {
+      "histeresis_cierre_camara": "Units with jacket: how far the chamber pressure must drop below the control ceiling (held for 3 s) to reopen the chamber steam valve after an overpressure isolation.",
       "temperatura_calentamiento": "Target temperature at the end of the heating ramp.",
       "presion_add_calentamiento": "Extra pressure above saturation allowed as a ceiling during the ramp.",
       "timeout_calentamiento": "Maximum heating ramp time; if exceeded, the cycle fails.",
@@ -1277,6 +1309,8 @@
       "timeout_recuperacion": "Maximum time to return to range before declaring a failure."
     },
     "esterilizacion": {
+      "histeresis_cierre_camara": "Units with jacket: how far the chamber pressure must drop below P_control_max (held for 3 s) to reopen the chamber steam valve after an overpressure isolation.",
+      "max_reinicios_exposicion": "Number of times a Reference excursion may restart the exposure count. The next confirmed excursion after this limit aborts the cycle (0 = the first excursion aborts).",
       "escape_lento_on_ester": "Seconds the slow exhaust stays open on each repetition during sterilization.",
       "escape_lento_off_ester": "Seconds the slow exhaust stays closed (0 = always open).",
       "escape_rapido_on_ester": "Seconds the fast exhaust stays open on each repetition (0 = always closed).",
@@ -1617,6 +1651,7 @@
     "err_fecha": "The date must be YYYY-MM-DD.",
     "ev_generico": "{evento} {entidad}",
     "ev": {
+      "ciclo_no_conforme_reconocido": "acknowledged that the NONCONFORMING cycle load is not releasable",
       "login_ok": "logged in",
       "login_fallido": "failed login attempt",
       "login_bloqueado": "was locked out after failed attempts",
@@ -1674,6 +1709,7 @@
       "cuenta_sistema_rechazada": "tried to modify the system account {entidad} (rejected)"
     },
     "tipo": {
+      "ciclo_no_conforme_reconocido": "Non-releasable load acknowledged",
       "login_ok": "Login",
       "login_fallido": "Failed login",
       "login_bloqueado": "Lockout",
@@ -1783,6 +1819,7 @@
       "timeout_bajo": "Time limit to reach low pressure"
     },
     "calentamiento": {
+      "histeresis_cierre_camara": "Chamber reopening hysteresis",
       "escape_lento_on": "Slow exhaust open time",
       "escape_lento_off": "Slow exhaust closed time",
       "escape_rapido_on": "Fast exhaust open time",
@@ -1808,6 +1845,8 @@
       "timeout_recuperacion": "Recovery time limit"
     },
     "esterilizacion": {
+      "histeresis_cierre_camara": "Chamber reopening hysteresis",
+      "max_reinicios_exposicion": "Maximum exposure restarts",
       "brecha_error_presion": "Low pressure failure margin",
       "brecha_error_temperatura": "Low temperature failure margin",
       "brecha_segura_presion": "Pressure recovery margin",
@@ -1889,6 +1928,9 @@
     "est_aire": "Air or non-condensable gases: Tsat(P) {temp_sat} exceeds the Main sensor {temp} by {dt} K",
     "est_sobrecalentado": "Superheated steam or probe failure: Main sensor {temp} exceeds Tsat(P) {temp_sat} by {dt} K",
     "est_excursion_referencia": "{sensor} out of band for more than {minutos} min",
+    "ais_sostenida": "Chamber isolated due to overpressure for more than {minutos} min without dropping below the ceiling {pres_techo}",
+    "ais_recurrente": "{cantidad} chamber overpressure isolations in {minutos} min",
+    "est_tope_reinicios": "{sensor} out of band again after {reinicios} exposure restarts (maximum {maximo})",
     "desc_tiempo_limite": "{etapa} time limit in mode {modo} (T={temp}, P={pres})",
     "sec_vacio_perdido": "Drying mode {modo}: vacuum lost ({pres} ≥ {pres_umbral})",
     "sec_sin_vacio": "Drying mode {modo}: no real vacuum (the pressure did not drop below {pres_umbral} in time); check the vacuum pump",
@@ -1923,6 +1965,7 @@
     }
   },
   "ticket_ciclo": {
+    "no_conforme_marca": "*** NONCONFORMING ***",
     "fecha": "Date",
     "hora": "Time",
     "serie": "Serial No",

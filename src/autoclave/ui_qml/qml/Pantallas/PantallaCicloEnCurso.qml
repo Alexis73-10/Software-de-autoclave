@@ -79,7 +79,7 @@ Item {
     // seguridad superpuesta y la campana; un aviso crítico la cierra
     // SAF-04 de la revisión S2b (D8-2.16): "CARGA NO ESTÉRIL" tampoco queda
     // tapada por la gráfica a pantalla completa
-    readonly property bool avisoCritico: seguridadCiclo.conteo > 0 || cargaNoEsteril
+    readonly property bool avisoCritico: seguridadCiclo.conteo > 0 || cargaNoEsteril || franjaNoConformeVisible
     onAvisoCriticoChanged: if (avisoCritico) pantallaCompleta = false
     onPantallaCompletaChanged: if (pantallaCompleta && avisoCritico) pantallaCompleta = false
     // "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
@@ -87,6 +87,14 @@ Item {
     readonly property bool terminado: resultado !== ""
     // D8-2.16: todo ciclo terminado que no fue COMPLETADO (falla segura)
     readonly property bool cargaNoEsteril: terminado && resultado !== "exitoso"
+    // P4 (tanda 16, D-14.4): ciclo NO CONFORME (punto de referencia sin
+    // verificar). Franja roja con el ciclo terminado; CONFIRMAR queda
+    // deshabilitado hasta el reconocimiento explícito de que la carga no es
+    // liberable (el backend también lo exige: 409 no_conforme_sin_reconocer).
+    property bool noConforme: progreso?.noConforme ?? false
+    property bool noConformeReconocido: progreso?.noConformeReconocido ?? false
+    readonly property bool franjaNoConformeVisible: terminado && noConforme
+    readonly property bool confirmarBloqueado: terminado && noConforme && !noConformeReconocido
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
     // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
@@ -570,6 +578,85 @@ Item {
             }
         }
 
+        // P4 (tanda 16, D-14.4), PROVISIONAL (sin diseño): franja roja de un
+        // ciclo NO CONFORME terminado, con el botón de reconocimiento explícito
+        // («Reconozco que la carga no es liberable»). Anclada abajo para no
+        // tapar los avisos que se apilan arriba. Solo su botón toma toques.
+        Rectangle {
+            id: franjaNoConforme
+            objectName: "franjaNoConforme"
+            visible: raiz.franjaNoConformeVisible
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.bottom: parent.bottom
+            anchors.bottomMargin: raiz.m(30)
+            width: raiz.m(1040)
+            height: textoNoConforme.implicitHeight + accionNoConforme.height + raiz.m(52)
+            radius: raiz.m(10)
+            color: Colores.alarmaAlta
+            Text {
+                id: textoNoConforme
+                objectName: "textoNoConforme"
+                x: raiz.m(24); y: raiz.m(16)
+                width: parent.width - raiz.m(48)
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+                text: I18n.t("ciclo.no_conforme_franja", I18n.lang)
+                color: "white"
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoBold
+                font.pixelSize: raiz.fuente(32)
+            }
+            Item {
+                id: accionNoConforme
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: textoNoConforme.y + textoNoConforme.height + raiz.m(20)
+                width: raiz.m(760); height: raiz.m(80)
+                // botón de reconocimiento (antes de reconocer)
+                Rectangle {
+                    id: botonReconocerNoConforme
+                    objectName: "botonReconocerNoConforme"
+                    visible: !raiz.noConformeReconocido
+                    anchors.fill: parent
+                    radius: raiz.m(12)
+                    color: "white"
+                    enabled: raiz.datosVigentes && !raiz.comandoOcupado
+                    opacity: enabled ? 1.0 : 0.5
+                    Text {
+                        anchors.centerIn: parent
+                        width: parent.width - raiz.m(24)
+                        horizontalAlignment: Text.AlignHCenter
+                        fontSizeMode: Text.HorizontalFit
+                        minimumPixelSize: raiz.fuente(14)
+                        text: I18n.t("ciclo.no_conforme_reconocer", I18n.lang)
+                        color: Colores.alarmaAlta
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoBold
+                        font.pixelSize: raiz.fuente(28)
+                    }
+                    MouseArea {
+                        anchors.fill: parent
+                        enabled: parent.enabled
+                        onClicked: raiz.comandos?.reconocerNoConforme()
+                    }
+                }
+                // ya reconocido: queda el rótulo (la franja sigue hasta confirmar)
+                Text {
+                    objectName: "noConformeReconocidoTexto"
+                    visible: raiz.noConformeReconocido
+                    anchors.centerIn: parent
+                    width: parent.width
+                    horizontalAlignment: Text.AlignHCenter
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: raiz.fuente(14)
+                    text: I18n.t("ciclo.no_conforme_reconocido", I18n.lang)
+                    color: "white"
+                    font.family: Tipografia.familia
+                    font.weight: Tipografia.pesoSemiBold
+                    font.pixelSize: raiz.fuente(26)
+                }
+            }
+        }
+
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
         // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
         // U4: también con la tarjeta desconectada o sin datos (lo dice el texto).
@@ -753,7 +840,8 @@ Item {
             // antes x 846, y 1768 de la pantalla; relativo a la barra (34, 1746)
             x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
-            enabled: raiz.datosVigentes && !raiz.comandoOcupado
+            // P4 (D-14.4): CONFIRMAR de un ciclo NO CONFORME espera al reconocimiento
+            enabled: raiz.datosVigentes && !raiz.comandoOcupado && !raiz.confirmarBloqueado
             opacity: enabled ? 1.0 : 0.4
             Rectangle {
                 anchors.fill: parent
@@ -813,7 +901,9 @@ Item {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
+                    if (raiz.confirmarBloqueado) {
+                        return   // P4: falla cerrada aunque el toque llegue con el botón deshabilitado
+                    } else if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
                         // P-6 (tanda 6): §15.2, verificar fugas antes de confirmar
                         dialogoEstadoSeguro.abrir()
                     } else if (raiz.terminado) {
@@ -903,6 +993,16 @@ Item {
         target: raiz.comandos
         function onErrorChanged() { if (raiz.errorComando !== "") avisoComando.abrir() }
     }
+    // P4 (tanda 16): tras reconocer, se pide el progreso enseguida para
+    // habilitar CONFIRMAR (los dobles de comandos sin la señal no avisan)
+    Connections {
+        target: raiz.comandos
+        ignoreUnknownSignals: true
+        function onTerminado(accion, ok) {
+            if (accion === "reconocer_no_conforme" && ok && raiz.progreso?.refrescar)
+                raiz.progreso.refrescar()
+        }
+    }
     PanelModal {
         id: avisoComando
         objectName: "avisoComando"
@@ -916,6 +1016,7 @@ Item {
         Text {
             width: parent.width
             text: raiz.errorComando === "confirmar" ? I18n.t("ciclo.confirmar_error", I18n.lang)
+                : raiz.errorComando === "reconocer_no_conforme" ? I18n.t("ciclo.no_conforme_reconocer_error", I18n.lang)
                 : raiz.errorComando !== "" ? I18n.t("ciclo.cancelar_error", I18n.lang)
                 : raiz.avisoCancelacion !== "" ? I18n.t(raiz.avisoCancelacion, I18n.lang)
                 : I18n.t("ciclo.cancelar_error", I18n.lang)

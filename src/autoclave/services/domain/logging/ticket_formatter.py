@@ -60,6 +60,34 @@ _RESULTADOS = ("COMPLETADO", "CANCELADO", "INTERRUMPIDO", "EMERGENCIA", "FALLO",
                "SENSOR_AUSENTE")
 
 
+# P4 (tanda 16, D-14.4): marca NO CONFORME de un ciclo. Se reconoce por el
+# aviso que CicloState anota en estado.avisos_ciclo (C-13.7b) y que
+# CycleLogger guarda en la columna avisos_ticket; no hay columna propia ni
+# resultado nuevo (el resultado técnico sigue siendo COMPLETADO).
+CLAVE_NO_CONFORME = "ticket_ciclo.no_conforme_referencia"
+
+
+def avisos_no_conforme(avisos) -> bool:
+    """True si la lista de avisos (texto o {"clave": ...}) trae la marca NO
+    CONFORME. Nunca lanza."""
+    try:
+        return any(isinstance(a, dict) and a.get("clave") == CLAVE_NO_CONFORME
+                   for a in (avisos or []))
+    except Exception:
+        return False
+
+
+def ciclo_no_conforme(ciclo) -> bool:
+    """True si el ciclo guardado (dict o sqlite3.Row de `ciclos`) quedó NO
+    CONFORME, según su columna avisos_ticket. Sin columna, vacía o dañada:
+    False. Nunca lanza."""
+    try:
+        _, avisos = leer_avisos_ticket(_campo(ciclo, "avisos_ticket"))
+    except Exception:
+        return False
+    return avisos_no_conforme(avisos)
+
+
 def _t(p: Presentacion, clave: str, **params) -> str:
     from autoclave import i18n
     return i18n.t(_SECCION + clave, p.idioma, **params)
@@ -261,6 +289,10 @@ def format_header(meta: dict, p: Presentacion | None = None) -> str:
     # T8 (§7.6): ciclo sin base de datos, sin operador registrado
     if meta.get("sin_registro"):
         lines.append(_t(p, "sin_bd"))
+    # P4 (D-14.4): en la reimpresión ya se sabe; el ticket en vivo lo lleva
+    # en la primera línea del pie (el encabezado se imprime al iniciar)
+    if meta.get("no_conforme"):
+        lines.append(_t(p, "no_conforme_marca"))
     lines.append(f"  {_t(p, 'hora'):<4}      {st}      {sp}")
     return "\n".join(lines)
 
@@ -309,6 +341,10 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
         f"{_t(p, 'temp_final')}: {temp_final_s} {_simbolo_t(p)}",
         f"{_t(p, 'estado')}: {resultado_ticket(resultado, p)}",
     ]
+    # P4 (tanda 16, D-14.4): primera línea destacada del pie, en vivo y al
+    # reimprimir, cuando el ciclo quedó NO CONFORME (Referencia sin verificar)
+    if avisos_no_conforme(avisos):
+        lines.insert(0, _t(p, "no_conforme_marca"))
     if motivo:
         lines.append(f"{_t(p, 'motivo')}: {motivo}")
     # T2-c (tanda 7, decisión 1.3 de Cristian; antes P-9 solo INTERRUMPIDO):
@@ -378,6 +414,7 @@ def format_ticket(ciclo, lecturas, p: Presentacion | None = None) -> str:
         "temp_esterilizacion":   ciclo["temp_esterilizacion"],
         "tiempo_esterilizacion": ciclo["tiempo_esterilizacion"],
         "fecha_inicio":          ciclo["fecha_inicio"],
+        "no_conforme":           ciclo_no_conforme(ciclo),   # P4 (D-14.4)
     }
 
     temp_final = None

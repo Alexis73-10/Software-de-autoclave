@@ -54,6 +54,11 @@ _EJEMPLOS = {
     "CIC-12": {"tsat": 137.0, "temp": 134.5, "dt": 2.5},
     "CIC-13": {"tsat": 134.0, "temp": 136.5, "dt": 2.5},
     "CIC-14": {"sensor": "Referencia", "minutos": "5"},
+    # F2 (tanda 16): códigos nuevos (extensión de la tabla, sin cambiar las anteriores)
+    "CIC-15": {"minutos": "3", "fase": "Esterilización", "maximo": 313.2},
+    "CIC-16": {"cantidad": 6, "minutos": "15", "fase": "Calentamiento"},
+    "CIC-17": {"sensor": "Referencia", "reinicios": 3, "maximo": 3},
+    "CIC-18": {"pres": 376.0, "maximo": 375.0, "fase": "Esterilización"},
     "SEN-11": {"sensor": "Referencia", "fase": "Esterilización"},
     "SIS-04": {"motivo": "Mantenimiento vencido por fecha"},
     "SIS-05": {},
@@ -131,6 +136,9 @@ def test_niveles_migrados_iguales_a_hoy():
         # E12 (tanda 12): fallos propios de esterilización, mismo nivel que CIC-11
         # (SEN-11, Referencia sin lectura, es AVISO no bloqueante: el defecto)
         "CIC-12": Nivel.ALARMA, "CIC-13": Nivel.ALARMA, "CIC-14": Nivel.ALARMA,
+        # F2 (tanda 16): fallos del aislamiento (VCH §4.5) y tope de reinicios
+        # (P5), mismo nivel que CIC-14; CIC-18 (VCH-CHQ) es AVISO: el defecto
+        "CIC-15": Nivel.ALARMA, "CIC-16": Nivel.ALARMA, "CIC-17": Nivel.ALARMA,
         # D9-2 (tanda 9, H3): pasan de AVISO a ALARMA conservando su bloqueo
         "SEN-01": Nivel.ALARMA, "SEN-03": Nivel.ALARMA, "SEN-06": Nivel.ALARMA,
         "SEN-07": Nivel.ALARMA, "CIC-10": Nivel.ALARMA,

@@ -25,7 +25,7 @@ from fastapi import APIRouter
 from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, RechazoApi, _auditar,
     _log_desarrollo, _rechazar, actividad_ui, context, guard_estado, registro_arranque,
     requiere_rol)
-from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _campos_motivo,
+from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _campos_motivo, _no_conforme_status,
     _p_atm_vigente, _salidas_sin_confirmar_pendiente)
 from autoclave.backend.rutas.mantenimiento import _calibracion_atm_en_curso
 
@@ -408,6 +408,9 @@ def get_status():
         "sin_base_de_datos":    getattr(context, "sin_base_de_datos", False) is True,
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
+        # P4 (tanda 16, D-14.4): ciclo NO CONFORME (Referencia sin verificar),
+        # su motivo (clave i18n) y si el operador ya reconoció la carga no liberable
+        **_no_conforme_status(estado),
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
         # Del enlace serial, no de Units: Units solo se entera por on_update
         # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).
@@ -466,7 +469,8 @@ _CODIGO_PARAMETRO = {
     "solo_lectura": (403, "Este parámetro no se puede modificar"),
     "tipo_invalido": (422, "Valor inválido para este parámetro"),
     "fuera_de_rango": (422, "Valor fuera del rango permitido"),
-    "incoherente": (422, "Valor incompatible con la presión atmosférica o el otro parámetro de empaque"),
+    "incoherente": (422, "Valor incompatible con otro parámetro del equipo (presión atmosférica, "
+                    "empaque o límites de presión)"),
     "sin_base_de_datos": (503, "No se pudo guardar el parámetro"),
 }
 
@@ -542,6 +546,17 @@ def _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer):
     _auditar("param_sistema_cambio", sesion, entidad=entidad,
              valor_anterior={p["clave"]: anterior}, valor_nuevo={p["clave"]: nuevo},
              detalle={"clave": p["clave"], "accion": "restablecer" if restablecer else "cambio"})
+    # R (tanda 16, V16-s4-01 / s3-03): un límite de presión del equipo nuevo
+    # rige también para los programas ya cargados (DEU-01): los que ahora lo
+    # incumplen quedan DAÑADOS sin esperar al próximo arranque
+    from autoclave.core.managers.config_manager import CLAVES_LIMITES_PRESION
+    if p["clave"] in CLAVES_LIMITES_PRESION:
+        try:
+            revalidar = getattr(context.cycle_manager, "revalidar_programas", None)
+            if callable(revalidar):
+                revalidar()
+        except Exception:
+            logger.exception("No se pudieron revalidar los programas tras cambiar %s", p["clave"])
     return {"ok": True, "parametro": context.config_manager.describir(p["clave"])}
 
 

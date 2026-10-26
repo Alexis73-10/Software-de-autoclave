@@ -33,6 +33,13 @@ from autoclave.state_machine.cycle_phases.descompresion import DescompresionFase
 from autoclave.state_machine.cycle_phases.secado import SecadoFase
 from autoclave.state_machine.cycle_phases.valvula_reposo import abrir_valvula_modo, cerrar_valvulas_descompresion
 from autoclave.installation.profile import entrada_requerida, numero_puertas, revisa_empaque
+# F4 (tanda 16): modo de vapor (VCH-SEL) y aislamiento de cámara (VCH-AIS)
+from autoclave.installation.profile import MODO_CAMARA, MODO_CHAQUETA, modo_vapor
+from autoclave.state_machine.cycle_phases.aislamiento_camara import AislamientoCamara
+from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, CIC_17
+# s3 (tanda 16): corte único de la chaqueta (D-CHQ / SAF-09) y su aviso VCH-CHQ
+from autoclave.state_machine.alarms.catalogo import CIC_18
+from autoclave.core.managers import limites_equipo as le
 from autoclave.core.runtime.lectura import carga_enfriada, lectura_valida
 from autoclave.core.runtime.sensores_ciclo import sensor_principal, sensores_en_uso
 from autoclave.core.runtime import alarmas_i18n
@@ -78,7 +85,14 @@ _CIC_POR_FASE = {
 }
 _MOTIVO_NO_REGISTRADO = "La fase terminó en fallo; el motivo detallado aún no se registra."
 # D8-2.8 / E12 (tanda 12): códigos que una fase puede dejar en `alarma_fallo`
-_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14)
+# F4 (tanda 16): + CIC-15/16 (aislamiento, CALENTAMIENTO y ESTERILIZACION) y
+# CIC-17 (tope de reinicios de la exposición)
+_ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14, CIC_15, CIC_16, CIC_17)
+# s3 (tanda 16, VCH-CHQ): fases en que, en modo chaqueta, el corte de chaqueta
+# lleva además el aviso no bloqueante CIC-18 (las que controlan vapor_chaqueta)
+_FASES_AVISO_CORTE_CHAQUETA = ("CALENTAMIENTO", "ESTERILIZACION")
+# F4 (tanda 16): motivo publicado en estado.motivo_no_conforme (clave i18n del ticket)
+MOTIVO_NO_CONFORME_REFERENCIA = "ticket_ciclo.no_conforme_referencia"
 
 # Sección del JSON del programa -> fase del pipeline que la usa (§5.8).
 # `estabilizacion` va con CALENTAMIENTO (fusionadas). Las secciones que no están aquí (`globals`, `finalizacion` o
@@ -154,6 +168,10 @@ class CicloState:
         self._pausa_por_desconexion = False
         # S1 (tanda 8): canales de presión vigilados en el ciclo en curso
         self._pres_vigilados = [presion_sin_lectura.CAMARA]
+        # s3 (tanda 16): corte de chaqueta vigente en el tick anterior (solo
+        # para el log de entrada/salida) y CIC-18 activa por este ciclo
+        self._corte_chaqueta_activo = False
+        self._cic18_activa = False
 
         # Construir pipeline (los objetos se reusan; reset() los reinicia)
         _args = (estado, set_do, cycle, config, alarm_manager, cap)
@@ -203,6 +221,17 @@ class CicloState:
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
         self.estado.sin_datos_tarjeta_s = 0.0
+        # F4 (tanda 16): contratos por ciclo (ver EstadoAutoclave)
+        self.estado.aislamiento_camara = AislamientoCamara()
+        self.estado.inhibir_vapor_chaqueta = False
+        self.estado.no_conforme = False
+        self.estado.motivo_no_conforme = ""
+        self.estado.no_conforme_reconocido = False
+        try:
+            self.estado.modo_vapor = modo_vapor(self.profile)
+        except Exception:
+            logger.exception("CicloState: modo de vapor no evaluable; modo cámara")
+            self.estado.modo_vapor = MODO_CAMARA
         self._paro_en_espera = False
         self._di_vencida_desde = None
         self._ticks_di_vigente = 0
@@ -213,8 +242,16 @@ class CicloState:
         except Exception:
             logger.exception("CicloState: no se pudieron leer los canales de presión; se vigilan todos")
             self._pres_vigilados = [presion_sin_lectura.CAMARA, presion_sin_lectura.CHAQUETA]
+        self._corte_chaqueta_activo = False
+        self._actualizar_aviso_corte_chaqueta(False)
         self._protocolo.reset()
-        self._registrar_consigna_chaqueta()        # C-05.8 (tanda 12)
+        # C-05.8 (tanda 12). s3 (tanda 16, P8 SAF-09): el registro es solo
+        # informativo; una excepción ahí no puede impedir iniciar el ciclo
+        try:
+            self._registrar_consigna_chaqueta()
+        except Exception:
+            logger.exception("CicloState: no se pudo registrar la consigna de chaqueta; "
+                             "el ciclo inicia igual")
 
         for fase in self._fases:
             fase.reset()
@@ -486,7 +523,14 @@ class CicloState:
         return True, "", None, {}
 
     def _mantener_chaqueta(self):
-        """Mantiene la presión de la chaqueta durante todas las fases del ciclo."""
+        """Mantiene la presión de la chaqueta durante todas las fases del ciclo.
+
+        s3 (tanda 16): VCH §4.7, mientras la fase activa controle la chaqueta
+        (`controla_vapor_chaqueta`, CALENTAMIENTO y ESTERILIZACION en modo
+        chaqueta) aquí no se actúa sobre `vapor_chaqueta`, salvo para
+        apagarla: sin dato (A-5), sin suministro (SUM-06) o con el corte de
+        chaqueta (D-CHQ). Al terminar ESTERILIZACION la fase siguiente ya no
+        la controla y la consigna retoma."""
         if self._fase_idx < len(self._fases) and isinstance(self._fases[self._fase_idx], SecadoFase):
             return
         # TMG-01 de T11: en el enfriamiento de los modos 4/5 la chaqueta se
@@ -510,6 +554,17 @@ class CicloState:
             return
         elif vigilar_vapor:
             self.alarm_manager.resolver(SUM_06)
+
+        # D-CHQ / SAF-09 (tanda 16): con el corte vigente, OFF sin importar la
+        # consigna (lo fija _actualizar_corte_chaqueta() antes de este paso)
+        if getattr(self.estado, "inhibir_vapor_chaqueta", False) is True:
+            self.set_do.vapor_chaqueta_off()
+            return
+
+        # VCH §4.7: la fase controla la chaqueta; no hay dos controladores
+        # sobre la misma salida en el mismo tick
+        if getattr(fase, "controla_vapor_chaqueta", False) is True:
+            return
 
         # C-05 (tanda 12): en CICLO la chaqueta sigue la consigna calculada del
         # programa, con banda fija ±_BANDA_CHAQUETA_KPA. presion_chaqueta /
@@ -562,6 +617,82 @@ class CicloState:
         if isinstance(parametros, dict):
             for _clave, mensaje in catalogo_parametros.advertencias_programa(parametros):
                 logger.warning("CicloState: advertencia del programa: %s", mensaje)
+
+    def _actualizar_corte_chaqueta(self) -> bool:
+        """D-CHQ / SAF-09 (tanda 16, s3): corte único de `vapor_chaqueta`.
+
+        Con `pres_chaqueta >= presion_max_chaqueta_control` (parámetro del
+        equipo, defecto 375 kPa abs, recortado a 300 … alivio de chaqueta −
+        10) la chaqueta queda en OFF en todos los modos y fases del CICLO. En
+        modo chaqueta, además, sin lectura de `pres_chaqueta` (falla segura,
+        VCH §4.6) y, en CALENTAMIENTO y ESTERILIZACION, el aviso no bloqueante
+        CIC-18 mientras dure el corte por presión. En modo cámara, sin lectura
+        no hay corte: `_mantener_chaqueta` y las fases ya apagan sin dato (A-5).
+
+        Reemplaza el SAF-09 de la tanda 14 (alivio − 10), que nunca se llegó a
+        implementar. Publica `estado.inhibir_vapor_chaqueta` (lo leen las fases
+        antes de encender) y devuelve su valor. Nunca lanza: ante un error, el
+        corte queda activo (falla segura; DECISIÓN SIN CONFIRMAR también en
+        modo cámara)."""
+        modo_chaqueta = False
+        por_presion = False
+        pres = maximo = None
+        try:
+            modo_chaqueta = getattr(self.estado, "modo_vapor", None) == MODO_CHAQUETA
+            pres = self.estado.sensores_pres.get("pres_chaqueta")
+            maximo = float(le.presion_max_chaqueta_control(self.config))
+            if lectura_valida(pres):
+                por_presion = float(pres) >= maximo
+                inhibir = por_presion
+            else:
+                inhibir = modo_chaqueta
+            # R (tanda 16, V16-s1-02 / s2-01 / s3-02): en modo chaqueta, sin
+            # suministro de vapor (SUM-06, VCH §4.7) la fase tampoco abre la
+            # chaqueta: si no, la volvería a encender en el mismo tick
+            if (modo_chaqueta and entrada_requerida(self.profile, "vapor_suministro")
+                    and not self.estado.sensores_di.get("vapor_suministro", 0)):
+                inhibir = True
+        except Exception:
+            logger.exception("CicloState: no se pudo evaluar el corte de chaqueta; vapor de "
+                             "chaqueta cortado")
+            inhibir = True
+            por_presion = False
+        try:
+            self.estado.inhibir_vapor_chaqueta = inhibir
+        except Exception:
+            logger.exception("CicloState: no se pudo publicar el corte de chaqueta")
+        if inhibir != self._corte_chaqueta_activo:
+            self._corte_chaqueta_activo = inhibir
+            if inhibir:
+                logger.warning("CicloState: corte de vapor de chaqueta (P chaqueta %s kPa, "
+                               "máximo %s kPa, modo %s)", pres, maximo,
+                               "chaqueta" if modo_chaqueta else "cámara")
+            else:
+                logger.info("CicloState: fin del corte de vapor de chaqueta (P chaqueta %s kPa)",
+                            pres)
+        fase = self._fases[self._fase_idx] if 0 <= self._fase_idx < len(self._fases) else None
+        aviso = (modo_chaqueta and por_presion and fase is not None
+                 and getattr(fase, "name", None) in _FASES_AVISO_CORTE_CHAQUETA)
+        if aviso:
+            self._actualizar_aviso_corte_chaqueta(True, pres=float(pres), maximo=maximo,
+                                                  fase=nombre_legible(fase.name))
+        else:
+            self._actualizar_aviso_corte_chaqueta(False)
+        return inhibir
+
+    def _actualizar_aviso_corte_chaqueta(self, activo: bool, **valores) -> None:
+        """CIC-18 (VCH-CHQ): se activa al entrar en el corte por presión y se
+        resuelve al salir (de la condición, de la fase, del ciclo o al
+        reiniciarlo). Nunca lanza."""
+        try:
+            if activo and not self._cic18_activa:
+                self.alarm_manager.activar(CIC_18, **valores)
+                self._cic18_activa = True
+            elif not activo and self._cic18_activa:
+                self.alarm_manager.resolver(CIC_18)
+                self._cic18_activa = False
+        except Exception:
+            logger.exception("CicloState: no se pudo actualizar el aviso CIC-18")
 
     def _mantener_drenaje(self):
         """Mantiene la temperatura de drenaje durante todo el ciclo, incluyendo
@@ -695,6 +826,15 @@ class CicloState:
         respaldo)."""
         return self._no_conforme or bool(self._avisos_no_conforme())
 
+    def _publicar_no_conforme(self) -> None:
+        """F4 (tanda 16): publica la bandera _no_conforme en el estado
+        (/status, pantalla final e historial la leen de ahí). Nunca lanza."""
+        try:
+            self.estado.no_conforme = True
+            self.estado.motivo_no_conforme = MOTIVO_NO_CONFORME_REFERENCIA
+        except Exception:
+            logger.exception("CicloState: no se pudo publicar NO CONFORME en el estado")
+
     def _marcar_referencias_sin_lectura(self, ausentes) -> None:
         """Una vez por ciclo y sensor: SEN-11 (no bloqueante) y línea NO
         CONFORME en el ticket. El ciclo continúa con las sondas que leen."""
@@ -710,6 +850,7 @@ class CicloState:
             # V12 (SAF-06): la bandera va antes del ticket y de la alarma, así
             # un fallo al anotar no deja abrir la puerta sola
             self._no_conforme = True
+            self._publicar_no_conforme()
             try:
                 avisos = getattr(self.estado, "avisos_ciclo", None)
                 if not isinstance(avisos, list):
@@ -838,6 +979,9 @@ class CicloState:
 
         # ── 0. ¿Pendiente de confirmación y ya confirmado? ────────────
         if self._resultado_pendiente is not None:
+            # s3 (tanda 16): con el ciclo terminado no rige el aviso CIC-18
+            # (las salidas las gobiernan el protocolo o el reposo)
+            self._actualizar_aviso_corte_chaqueta(False)
             # P-7 (tanda 6): una cancelación que no llegó a procesarse (el
             # ciclo terminó por otra causa) no queda puesta
             if self.estado.get_flag("CICLO_CANCELADO"):
@@ -855,13 +999,26 @@ class CicloState:
                         self.estado.set_flag(bandera, False)
                 self.set_do.apagar_por_paro()
                 return CicloResultado.ESPERANDO_CONFIRMACION
-            if self.estado.get_flag("CICLO_CONFIRMADO"):
+            if (self.estado.get_flag("CICLO_CONFIRMADO") and self.no_conforme
+                    and getattr(self.estado, "no_conforme_reconocido", False) is not True):
+                # R (tanda 16, V16-s3-07; P4 / D-14.4): defensa en profundidad
+                # del backend: un ciclo NO CONFORME no se confirma sin el
+                # reconocimiento de carga no liberable
+                logger.warning("CicloState: confirmación ignorada: ciclo NO CONFORME sin "
+                               "reconocimiento de carga no liberable")
+                self.estado.set_flag("CICLO_CONFIRMADO", False)
+            elif self.estado.get_flag("CICLO_CONFIRMADO"):
                 logger.info(
                     "CicloState: confirmación recibida → %s", self._resultado_pendiente
                 )
                 self.estado.set_flag("CICLO_CONFIRMADO", False)
                 resultado_final = self._resultado_pendiente
                 self._resultado_pendiente = None
+                # F4 (tanda 16): fuera de ciclo no hay modo de vapor ni corte
+                # de chaqueta del ciclo (no_conforme queda hasta el próximo
+                # ciclo: lo leen el historial y la pantalla)
+                self.estado.modo_vapor = None
+                self.estado.inhibir_vapor_chaqueta = False
                 return resultado_final
             # Mantener la válvula de reposo activa mientras se espera
             # confirmación: COMPLETADO limpio usa su propio monitor de
@@ -882,6 +1039,11 @@ class CicloState:
                 self._protocolo.update()
             self._mantener_drenaje()
             return CicloResultado.ESPERANDO_CONFIRMACION
+
+        # ── 0a. D-CHQ / SAF-09 (tanda 16): corte de chaqueta de este tick,
+        # antes de cualquier retorno temprano y del paso 5 (así ninguna rama
+        # deja estado.inhibir_vapor_chaqueta con el valor de otro tick)
+        corte_chaqueta = self._actualizar_corte_chaqueta()
 
         # ── 0b. T2-a: volvieron los datos tras la tolerancia por DI vencida
         if not self.estado.get_flag("PARO_EMERGENCIA"):
@@ -930,9 +1092,15 @@ class CicloState:
                     # D8-2.7: si venía de una desconexión, el mismo tramo
                     # sigue ahora como tolerancia de DI
                     self._pausa_por_desconexion = False
-                    # sin aporte de energía mientras no hay datos de entradas
+                    # sin aporte de energía mientras no hay datos de entradas.
+                    # s3 (tanda 16, V-02): también las fuentes de vapor (el
+                    # SetOutput ya bloquea la que el equipo no tiene)
                     self.set_do.vapor_camara_off()
                     self.set_do.vapor_chaqueta_off()
+                    for nombre in ("vapor_generador_off", "vapor_caldera_off"):
+                        apagar = getattr(self.set_do, nombre, None)
+                        if callable(apagar):
+                            apagar()
                     return CicloResultado.EN_CURSO
             self._cerrar_pausa_sin_datos()      # T2-a: el tramo sin datos va al ticket
             if paro_real:
@@ -1044,6 +1212,11 @@ class CicloState:
         # ── 7. Ejecutar la fase actual ────────────────────────────────
         fase = self._fases[self._fase_idx]
         resultado = fase.update()
+        # D-CHQ / SAF-09: el corte prevalece sobre la orden de la fase en el
+        # mismo tick (también PRECALENTAMIENTO y SECADO, que encienden la
+        # chaqueta por su cuenta)
+        if corte_chaqueta:
+            self.set_do.vapor_chaqueta_off()
 
         if resultado == FaseResult.EN_CURSO:
             return CicloResultado.EN_CURSO

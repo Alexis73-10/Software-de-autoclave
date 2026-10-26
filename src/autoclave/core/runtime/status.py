@@ -4,8 +4,32 @@
 
 #Actualizacion : 
     #se agregaran los estados de las (DI) entradas digitales
+import logging
+import math
+
 from autoclave.devices.puertas.advanced_door import DoorState
 from autoclave.state_machine.machine.enum_global import GlobalState
+
+logger = logging.getLogger(__name__)
+
+# P7 / D-14.7 (tanda 16): rangos de plausibilidad de las lecturas vivas, los
+# mismos "rango" de CALIBRACION_PLAUSIBLE (core/managers/catalogo_parametros.py;
+# se fijan aquí para no acoplar el estado al catálogo; una prueba vigila que
+# coincidan). Una lectura numérica finita fuera de rango se publica como None
+# (sin lectura): de ahí actúan las rutas existentes (Principal -> SEN-02,
+# Referencia -> SEN-11 / NO CONFORME, presión -> sin lectura). Un valor no
+# numérico o no finito pasa como antes (lo trata lectura_valida). 0 tampoco
+# cambia (sigue siendo "sin señal" en otras rutas).
+RANGO_PLAUSIBLE_TEMP_C = (0.0, 200.0)
+RANGO_PLAUSIBLE_PRES_KPA = (-10.0, 450.0)
+
+
+def _fuera_de_rango(valor, rango) -> bool:
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return False
+    if not math.isfinite(valor):
+        return False
+    return not (rango[0] <= valor <= rango[1])
 
 
 class EstadoAutoclave:
@@ -143,15 +167,54 @@ class EstadoAutoclave:
         # TMG-01 (revisión S2a): instante (time.monotonic) de la última trama
         # DI vigente; el tramo sin datos del ciclo empieza ahí. None = sin dato
         self.ultima_di_valida_mono = None
+        # F4 (tanda 16), contratos del ciclo (los escribe CicloState):
+        # - aislamiento_camara: AislamientoCamara del ciclo en curso (VCH-AIS),
+        #   una instancia por ciclo, compartida por CALENTAMIENTO y ESTERILIZACION;
+        # - inhibir_vapor_chaqueta: corte de chaqueta (D-CHQ / SAF-09) vigente en
+        #   el tick; CICLO lo fija antes de fase.update() y las fases no
+        #   encienden vapor_chaqueta mientras sea True;
+        # - no_conforme / motivo_no_conforme: ciclo NO CONFORME (C-13.7b, P4);
+        # - modo_vapor: "chaqueta" / "camara" en ciclo (VCH-SEL), None fuera.
+        self.aislamiento_camara = None
+        self.inhibir_vapor_chaqueta: bool = False
+        self.no_conforme: bool = False
+        self.motivo_no_conforme: str = ""
+        # P4 (D-14.4): el operador reconoció que la carga NO CONFORME no es
+        # liberable (lo pone el backend, auditado); sin él no se confirma
+        self.no_conforme_reconocido: bool = False
+        self.modo_vapor = None
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)
+        # P7 / D-14.7: canales fuera de rango en el episodio en curso (log del
+        # valor crudo una vez por episodio y canal; se rearma al volver)
+        fuera = self.__dict__.get("_p7_fuera_rango")
+        if fuera is None:
+            fuera = self.__dict__["_p7_fuera_rango"] = set()
+
+        def plausible(tipo, nombre, valor, rango, unidad):
+            clave = (tipo, nombre)
+            if _fuera_de_rango(valor, rango):
+                if clave not in fuera:
+                    fuera.add(clave)
+                    logger.warning(
+                        "Lectura fuera del rango físico: %s = %r %s (rango %g a %g %s); "
+                        "se publica sin lectura (P7)", nombre, valor, unidad,
+                        rango[0], rango[1], unidad)
+                return None
+            if clave in fuera and isinstance(valor, (int, float)) and not isinstance(valor, bool) \
+                    and math.isfinite(valor):
+                fuera.discard(clave)
+                logger.info("Lectura de nuevo en rango: %s = %r %s", nombre, valor, unidad)
+            return valor
+
         #actualizamos los datos del cofre con los nuevos datos recibidos
         if "temperature" in nuevos_datos:
             temp_list = nuevos_datos["temperature"]
             for nombre, index in self.map_temp.items():
                 try:
-                    self.sensores_temp[nombre] = temp_list[index]
+                    self.sensores_temp[nombre] = plausible(
+                        "temperature", nombre, temp_list[index], RANGO_PLAUSIBLE_TEMP_C, "°C")
                 except IndexError:
                     pass  # si falta un dato, lo ignora sin romper
 
@@ -159,7 +222,8 @@ class EstadoAutoclave:
             pres_list = nuevos_datos["pressure"]
             for nombre, index in self.map_pres.items():
                 try:
-                    self.sensores_pres[nombre] = pres_list[index]
+                    self.sensores_pres[nombre] = plausible(
+                        "pressure", nombre, pres_list[index], RANGO_PLAUSIBLE_PRES_KPA, "kPa")
                 except IndexError:
                     pass
                 

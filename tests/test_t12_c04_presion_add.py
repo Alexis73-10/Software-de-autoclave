@@ -43,7 +43,11 @@ def test_programa_cargado_con_99_migra_a_9(fase, clave):
     assert c.get_param(fase, clave) == 9.0
     assert c.migraciones_correctivas == [{"fase": fase, "parametro": clave, "anterior": 99.0,
                                           "nuevo": 9.0, "origen": "migración tanda 12"}]
-    assert cp.errores_programa(c.parameters) == []
+    # P1 / D-14.1 (tanda 16): presion_add_esterilizacion 9 a 134 °C incumple la
+    # coherencia de RECUPERACION (mínimo 14,6); la carga desde archivo lo sube
+    # a 15 (P2, tests/test_t16_s4_programas.py). Fuera de P1, el programa es válido.
+    assert [e for e in cp.errores_programa(c.parameters)
+            if not e.startswith("Coherencia de recuperación")] == []
 
 
 def test_bd_original_de_usuario_migra_al_cargar(tmp_path):
@@ -117,16 +121,27 @@ def test_programa_que_sigue_invalido_tras_migrar_queda_danado_sin_romper(tmp_pat
 
 # ── techo de cámara (C-04.3) ───────────────────────────────────────────────
 
+# P1 / D-14.1 (tanda 16): a 140 °C ningún programa cumple a la vez la
+# coherencia de RECUPERACION (presion_add_esterilizacion >= 16,9 kPa) y el
+# alivio de chaqueta; el programa alto pasa a 139,5 °C (Psat 356,4 kPa: con
+# +30 el techo sigue llegando al alivio de cámara) con presion_add_esterilizacion
+# 17 (>= 16,48, el mínimo de P1), en vez de 140 °C y 0.
+_T_ALTO = 139.5
+_BASE_ALTO = {"presion_add_calentamiento": 0.0, "presion_add_esterilizacion": 17.0}
+# valor entre el suministro y el alivio que además cumple P1 en esterilización
+_ENTRE = {"presion_add_calentamiento": 5.0, "presion_add_esterilizacion": 18.0}
+
+
 def _cycle_alto(tipo):
-    """Programa a 140.0 °C sin presion_add ni margen de chaqueta: la consigna
-    (≈ 359 + 10 kPa) queda bajo el alivio, de modo que solo el techo de
-    cámara decide."""
+    """Programa a 139,5 °C (antes 140,0; P1 / D-14.1) sin presion_add de
+    calentamiento ni margen de chaqueta: la consigna (≈ 373 + 10 kPa) queda
+    bajo el alivio, de modo que solo el techo de cámara decide."""
     nombre = "factory/liquidos.json" if tipo == "liquido" else "factory/instrumental_121.json"
     p = _datos(nombre)["parameters"]
-    p["calentamiento"]["temperatura_calentamiento"]["value"] = 140.0
-    p["esterilizacion"]["temperatura_esterilizacion"]["value"] = 140.0
+    p["calentamiento"]["temperatura_calentamiento"]["value"] = _T_ALTO
+    p["esterilizacion"]["temperatura_esterilizacion"]["value"] = _T_ALTO
     for fase, clave in _ADDS:
-        p[fase][clave]["value"] = 0.0
+        p[fase][clave]["value"] = _BASE_ALTO[clave]
     p["globals"]["delta_temp_chaqueta"]["value"] = 0.0
     p["globals"]["margen_flujo_chaqueta"]["value"] = 0.0
     if tipo == "liquido":
@@ -141,22 +156,23 @@ def _cycle_alto(tipo):
 @pytest.mark.parametrize("fase,clave", _ADDS)
 def test_techo_sobre_el_alivio_se_rechaza(tipo, fase, clave):
     c = _cycle_alto(tipo)
-    psat = p_saturacion_kpa(140.0)
+    psat = p_saturacion_kpa(_T_ALTO)       # P1 / D-14.1 (tanda 16): antes 140.0
     with pytest.raises(cp.ErrorCoherencia) as e:
         c.set_param(fase, [clave], 30.0)                  # techo = psat + 30 >= 385
     assert psat + 30 >= 385
     assert e.value.codigo == cp.CODIGO_LIMITE_CAMARA
     assert e.value.valor == pytest.approx(round(385 - psat, 1))
     assert f"menor que {385 - psat:.1f} kPa" in str(e.value)
-    assert c.get_param(fase, clave) == 0.0
+    assert c.get_param(fase, clave) == _BASE_ALTO[clave]      # P1 / D-14.1: antes 0.0
 
 
 @pytest.mark.parametrize("tipo", ["solido", "liquido"])
 @pytest.mark.parametrize("fase,clave", _ADDS)
 def test_techo_entre_suministro_y_alivio_se_guarda_con_advertencia(tipo, fase, clave):
     c = _cycle_alto(tipo)
-    c.set_param(fase, [clave], 5.0)                       # techo ≈ 364, bajo el alivio
-    assert c.get_param(fase, clave) == 5.0
+    # P1 / D-14.1 (tanda 16): en esterilización 18 (5 incumple P1); techo bajo el alivio
+    c.set_param(fase, [clave], _ENTRE[clave])
+    assert c.get_param(fase, clave) == _ENTRE[clave]
     adv = c.advertencias(fase, [clave])
     assert cp.ADVERTENCIA_TECHO_CAMARA in [a for a, _ in adv]
     assert any("válvula de vapor de cámara quedará abierta" in m for _, m in adv)
@@ -196,7 +212,8 @@ def test_patch_rechaza_el_techo_con_el_maximo(cliente):
     assert r.status_code == 422
     cuerpo = r.json()
     assert cuerpo["codigo"] == cp.CODIGO_LIMITE_CAMARA
-    assert cuerpo["valor"] == pytest.approx(round(385 - p_saturacion_kpa(140.0), 1))
+    # P1 / D-14.1 (tanda 16): programa alto a 139,5 °C (antes 140.0)
+    assert cuerpo["valor"] == pytest.approx(round(385 - p_saturacion_kpa(_T_ALTO), 1))
     assert c.get_param("calentamiento", "presion_add_calentamiento") == 0.0
 
 

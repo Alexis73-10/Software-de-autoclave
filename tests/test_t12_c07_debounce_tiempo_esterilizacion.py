@@ -58,11 +58,11 @@ def test_una_lectura_dentro_reinicia(monkeypatch, codigo):
     assert f.update() == FaseResult.EN_CURSO
     ap.poner(estado, *_DENTRO)
     reloj.avanzar(0.5)
-    assert f.update() == FaseResult.EN_CURSO          # reinicia
+    assert f.update() == FaseResult.EN_CURSO          # dentro: no confirma
     ap.poner(estado, temp, pres)
     reloj.avanzar(0.5)
-    assert f.update() == FaseResult.EN_CURSO          # t = 0 del nuevo conteo
-    reloj.avanzar(4.9)
-    assert f.update() == FaseResult.EN_CURSO
-    reloj.avanzar(0.1)
+    # P6 / D-14.6 (tanda 16): el debounce es ACUMULADO (5 s en 10 s); una
+    # lectura dentro de rango ya no reinicia el conteo: con 5 s fuera sumados
+    # en la ventana, la falla se confirma al volver a salir (antes, C-07.2,
+    # EN_CURSO aquí y FALLO 5 s después).
     assert f.update() == FaseResult.FALLO

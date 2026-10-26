@@ -47,6 +47,40 @@ def entrada_requerida(profile, clave: str) -> bool:
     return si.get(clave, True) is not False
 
 
+# F3 (tanda 16, VCH-SEL §4.1; V-01): modo de control del vapor en
+# CALENTAMIENTO y ESTERILIZACION. No existía una función del perfil para
+# "salida vapor_chaqueta habilitada y sensor pres_chaqueta asignado".
+MODO_CHAQUETA = "chaqueta"
+MODO_CAMARA = "camara"
+
+
+def modo_vapor(profile, io_enabled=None) -> str:
+    """"chaqueta" si el equipo tiene chaqueta completa (capacidad
+    has_full_jacket de su clase, PISO / PISO_LAB) y su io_enabled, filtrado
+    por el perfil, declara la salida vapor_chaqueta y el sensor pres_chaqueta;
+    "camara" en cualquier otro caso (equipos de mesa). Falla hacia el modo
+    cámara, que es el comportamiento anterior a la tanda 16: sin perfil de
+    instalación, con una clase desconocida, sin io_enabled legible o ante
+    cualquier error. `io_enabled` (pruebas): {"AI": [...], "DO": [...]} ya
+    filtrado; sin él se lee el del equipo activo."""
+    try:
+        if not isinstance(profile, InstallationProfile):
+            return MODO_CAMARA
+        from autoclave.installation.equipment import get_capabilities
+        if get_capabilities(profile.equipment_class).has_full_jacket is not True:
+            return MODO_CAMARA
+        if io_enabled is None:
+            from autoclave.core.runtime.io_names import leer_io_enabled
+            io_enabled = leer_io_enabled(profile=profile)
+        if ("vapor_chaqueta" in (io_enabled.get("DO") or [])
+                and "pres_chaqueta" in (io_enabled.get("AI") or [])):
+            return MODO_CHAQUETA
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("modo_vapor: no evaluable; modo cámara")
+    return MODO_CAMARA
+
+
 def numero_puertas(profile) -> int:
     """Puertas declaradas en el perfil (E1-2). Sin perfil válido, 2 (como antes)."""
     n = getattr(profile, "door_count", None)

@@ -33,6 +33,8 @@ EVENTOS = (
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "aire_atmosferico_cortado_prueba", "apagado_windows_rechazado",
     "param_ciclo_cambio",
+    # P4 (tanda 16, D-14.4): reconocimiento de la carga NO CONFORME no liberable
+    "ciclo_no_conforme_reconocido",
     # X9 (tanda 9, D9-13.3 TMG-01): el cambio registrado como "en_curso" no
     # llegó al ciclo en curso porque su fase inició antes de aplicarlo
     "param_ciclo_no_aplicado_en_curso",

@@ -193,12 +193,13 @@ def test_preparado_sigue_usando_presion_chaqueta():
 # ── validación al guardar / cargar (C-05.5, C-05.9) ────────────────────────
 
 def test_consigna_mas_10_igual_o_sobre_385_se_rechaza():
-    # T_est 140, presion_add 11, margen 15 → consigna ≈ 385.0; +10 ≥ 385
+    # T_est 140, presion_add 15 (P1 / D-14.1, tanda 16: el de fábrica de 134 °C
+    # pasó de 11 a 15), margen 15 → consigna ≈ 391.5; +10 ≥ 385
     c = Cycle("p", "P", _params(globals__presion_chaqueta=300, globals__rango_presion_chaqueta=50), 2)
     with pytest.raises(cp.ErrorCoherencia) as e:
         c.set_param("esterilizacion", ["temperatura_esterilizacion"], 140.0)
     assert e.value.codigo == cp.CODIGO_LIMITE_CONSIGNA
-    consigna = cp.consigna_chaqueta(140.0, 11.0, 1.5, 15.0)
+    consigna = cp.consigna_chaqueta(140.0, 15.0, 1.5, 15.0)   # P1 / D-14.1: antes 11.0
     assert e.value.valor == pytest.approx(round(consigna, 1))
     assert f"{consigna:.1f}" in str(e.value)
     assert c.get_param("esterilizacion", "temperatura_esterilizacion") == 134.0
@@ -207,9 +208,12 @@ def test_consigna_mas_10_igual_o_sobre_385_se_rechaza():
 def test_consigna_justo_bajo_el_alivio_se_guarda_con_advertencia():
     # T_est 138.7 → consigna ≈ 374.40; +10 = 384.40 < 385: se acepta con advertencia
     # (tanda 13, IF97: antes 139 → 384.95; con IF97, 139 da 387.39 y se rechaza)
-    c = Cycle("p", "P", _params(), 2)
-    c.set_param("esterilizacion", ["temperatura_esterilizacion"], 138.7)
-    assert c.get_param("esterilizacion", "temperatura_esterilizacion") == 138.7
+    # P1 / D-14.1 (tanda 16): a 138.7 °C P1 exige presion_add >= 16.2 y la
+    # consigna pasaría el alivio; con presion_add 16 (P1 a 138 °C pide 15.9),
+    # T_est 138.0 → consigna ≈ 372.5; +10 = 382.5 < 385
+    c = Cycle("p", "P", _params(esterilizacion__presion_add_esterilizacion=16.0), 2)
+    c.set_param("esterilizacion", ["temperatura_esterilizacion"], 138.0)
+    assert c.get_param("esterilizacion", "temperatura_esterilizacion") == 138.0
     assert cp.ADVERTENCIA_CHAQUETA_ABIERTA in [a for a, _ in c.advertencias(
         "esterilizacion", ["temperatura_esterilizacion"])]
 
