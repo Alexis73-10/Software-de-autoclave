@@ -264,6 +264,10 @@ def _modo_prueba_en_protocolo(a, **_):
     for _ in range(10):
         _tick(a)
     ok, motivo = loop.enter_test_mode()
+    # Tanda 17 (ESG-02, decisión de Cristian; corrección R3 V17-s3-05): la
+    # regla se evalúa con la presión vigente, como dentro del tick (el reloj
+    # simulado ya avanzó tras el último tick y la presión quedaría vencida)
+    loop._estado_publicado_mono = time.monotonic()
     bloqueadas = loop.salidas_prueba_bloqueadas()
     # una orden que se hubiera colado: el lazo la apaga en el tick siguiente
     for k in ("abrir_puerta_1", "desbloqueo_puerta_1", "vapor_camara", "descompresion_rapida"):
@@ -370,14 +374,12 @@ def test_ensayo_s9(programas, monkeypatch, numero, celda):  # noqa: F811
         assert r["confirmado"] is True, r
     if celda == "modo_prueba_en_protocolo":
         assert r["modo_prueba_permitido"] is True, r
-        assert {"abrir_puerta_1", "desbloqueo_puerta_1", "vapor_camara",
-                "descompresion_rapida"} <= set(r["bloqueadas_en_prueba"]), r
         # Tanda 17 (ESG-02, decisión de Cristian): con lectura vigente de
         # presión se retiran los bloqueos propios del estado seguro (la rápida
-        # y, con las puertas cerradas, el vapor de cámara quedan libres); las
-        # puertas siguen apagadas con la cámara presurizada. (bloqueadas_en_prueba
-        # se toma fuera del tick, con el reloj simulado ya avanzado: la presión
-        # no es vigente y rigen todos los bloqueos, falla cerrada.)
+        # y, con las puertas cerradas, el vapor de cámara quedan libres); solo
+        # quedan apertura y desbloqueo de puertas con la cámara presurizada
+        assert set(r["bloqueadas_en_prueba"]) == {
+            "abrir_puerta_1", "abrir_puerta_2", "desbloqueo_puerta_1", "desbloqueo_puerta_2"}, r
         assert r["encendidas_tras_un_tick"] == ["descompresion_rapida", "vapor_camara"], r
     if celda == "ai_vencida_en_protocolo":
         assert r["nuevas_con_ai_vencida"] == ["ninguna"], r
