@@ -550,7 +550,11 @@ class BackendContext:
         for intento in range(1, intentos + 1):
             try:
                 self.db = DbManager()
-                self.db.instalacion_en_curso = instalacion_en_curso
+                try:
+                    # BIT-02 (tanda 17): sin perfil válido no se escribe en audit_log
+                    self.db.instalacion_en_curso = instalacion_en_curso
+                except AttributeError:
+                    logger.warning("La base no admite la supresión de la bitácora durante la instalación")
                 self.calibration_audit = SensorCalibrationAuditDB()
                 self._numeracion_y_ciclos_interrumpidos()
                 # O2a: valores vigentes de los parámetros del equipo (system_params).

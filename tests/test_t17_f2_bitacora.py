@@ -139,7 +139,7 @@ def test_contexto_instalacion_en_curso_sigue_el_perfil(monkeypatch):
 
 def test_el_backend_conecta_la_supresion_a_la_base():
     fuente = (SRC / "backend" / "context.py").read_text(encoding="utf-8")
-    assert "self.db.instalacion_en_curso = instalacion_en_curso" in fuente
+    assert "self.db.instalacion_en_curso = instalacion_en_curso" in fuente   # dentro de abrir_base_datos
 
 
 VALIDAS = {"clave_admin": "admin-nueva-1", "confirmacion_admin": "admin-nueva-1",
