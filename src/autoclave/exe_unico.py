@@ -281,20 +281,58 @@ def _cerrar_cubierta(cubierta) -> None:
         logging.getLogger("autoclave.exe_unico").exception("No se pudo cerrar la cubierta de arranque")
 
 
-def _lanzador(args) -> int:
-    # EST-07: lo primero, antes de importar PySide o arrancar el backend
-    cubierta = {}
-    cubierta["actual"], error_cubierta = _abrir_cubierta(args)
+def _tomar_instancia(args):
+    """V17-s2-01: mutex con nombre de la sesión (estacion/instancia_unica.py).
+    Devuelve la Instancia o None si la protección no está activa (desarrollo).
+    Relanzado por R11 (--esperar-pid), espera a que la instancia anterior
+    suelte el mutex, con el mismo tope que esperar_instancia_anterior."""
     try:
-        return _lanzador_con_cubierta(args, cubierta, error_cubierta)
+        from autoclave.estacion import instancia_unica
+        if not instancia_unica.activa():
+            return None
+        tope = TOPE_ESPERA_INSTANCIA_S if args.esperar_pid else 0.0
+        return instancia_unica.tomar(esperar_s=tope)
+    except Exception as e:   # pragma: no cover - tomar() ya no lanza
+        from types import SimpleNamespace
+        return SimpleNamespace(primera=True, error=f"{type(e).__name__}: {e}", soltar=lambda: None)
+
+
+def _lanzador(args) -> int:
+    # V17-s2-01: un solo lanzador por sesión, ANTES de abrir la cubierta (un
+    # segundo lanzador taparía las pantallas vivas, quizá con un ciclo en curso)
+    instancia = _tomar_instancia(args)
+    if instancia is not None and not instancia.primera:
+        # DECISIÓN SIN CONFIRMAR: no había otra protección contra un segundo
+        # lanzador (solo se reutilizaba el backend); lo más seguro es no
+        # lanzar nada: ni cubierta, ni backend, ni pantallas
+        try:
+            _log_a_archivo("lanzador.log")
+        except Exception:
+            pass
+        logging.getLogger("autoclave.exe_unico").error(
+            "Ya hay un lanzador de Autoclave en esta sesión: este no abre la cubierta, "
+            "el backend ni las pantallas")
+        return 0
+    try:
+        # EST-07: lo primero, antes de importar PySide o arrancar el backend
+        cubierta = {}
+        cubierta["actual"], error_cubierta = _abrir_cubierta(args)
+        try:
+            return _lanzador_con_cubierta(args, cubierta, error_cubierta, instancia)
+        finally:
+            _cerrar_cubierta(cubierta.get("actual"))
     finally:
-        _cerrar_cubierta(cubierta.get("actual"))
+        if instancia is not None:
+            instancia.soltar()   # el mutex vive mientras viva el lanzador
 
 
-def _lanzador_con_cubierta(args, cubierta: dict, error_cubierta) -> int:
+def _lanzador_con_cubierta(args, cubierta: dict, error_cubierta, instancia=None) -> int:
     _log_a_archivo("lanzador.log")
     logger = logging.getLogger("autoclave.exe_unico")
     logger.info("Lanzador iniciado")   # mide el arranque del propio ejecutable
+    if instancia is not None and getattr(instancia, "error", None):
+        logger.error("No se pudo comprobar si hay otro lanzador (%s): se sigue sin esa protección",
+                     instancia.error)
     if error_cubierta:
         logger.error("Cubierta de arranque no disponible (%s): el arranque sigue sin ella", error_cubierta)
     elif cubierta.get("actual") is not None:
@@ -446,8 +484,13 @@ def main(argv=None) -> int:
         from autoclave.instalador_exe import instalar
         return instalar()
     if args.rol == "asociar-tactiles":
-        # EST-06: sin Qt ni backend; requiere administrador (ver el módulo)
-        _log_a_archivo("asociar_tactiles.log")
+        # EST-06: sin Qt ni backend; requiere administrador (ver el módulo).
+        # V17-s2-04: sin log de archivo se sigue (la herramienta escribe además
+        # en el log de la estación)
+        try:
+            _log_a_archivo("asociar_tactiles.log")
+        except Exception:
+            pass
         from autoclave.estacion.asociar_tactiles import main as asociar_main
         return asociar_main(args.sobrantes)
     if getattr(sys, "frozen", False) and not args.portable:

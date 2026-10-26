@@ -83,7 +83,8 @@ class _Nucleo:
         ahora = self.reloj.t - self.inicio
         return {p for p, t in self.senales.items() if ahora >= t}
 
-    def esperar(self, ms):
+    def esperar(self, ms, pendientes=None):
+        self.llamadas.append(("esperar", None if pendientes is None else frozenset(pendientes)))
         if self.falla_en == "esperar":
             raise RuntimeError("bucle roto")
         assert 0 <= ms <= 250
@@ -135,6 +136,56 @@ def test_gracia_tras_la_primera_si_la_otra_pantalla_no_arranca():
     assert nucleo.destruido
 
 
+def test_tras_la_primera_senal_solo_espera_los_eventos_pendientes():
+    """V17-s2-02: el evento de la puerta 1 sigue señalado (reinicio manual).
+    El doble modela MsgWaitForMultipleObjects: si recibe un evento señalado
+    vuelve al instante (sin avanzar el reloj). Con la corrección nunca se le
+    pasa, así que cada espera dura su pausa y el bucle no gira en vacío."""
+    reloj = _Reloj()
+
+    class _Senalado(_Nucleo):
+        def __init__(self, *a, **k):
+            super().__init__(*a, **k)
+            self.giros = 0
+
+        def esperar(self, ms, pendientes=None):
+            pendientes = set(self.senales) if pendientes is None else set(pendientes)
+            self.llamadas.append(("esperar", frozenset(pendientes)))
+            if pendientes & self.senaladas():
+                self.giros += 1            # volvería al instante: giro sin pausa
+                assert self.giros < 1000, "bucle sin pausa"
+                return True
+            self.reloj.t += max(ms, 1) / 1000.0
+            return True
+
+    nucleo = _Senalado(reloj, senales={1: 2.0})
+    c = _correr(nucleo, reloj)
+    assert c.motivo == "gracia"
+    assert nucleo.giros == 0
+    esperas = [x[1] for x in nucleo.llamadas if isinstance(x, tuple) and x[0] == "esperar"]
+    assert esperas[0] == {1, 2} and esperas[-1] == {2}
+
+
+def test_nucleo_win32_pasa_solo_los_handles_pendientes():
+    class _Ventanas:
+        def __init__(self):
+            self.handles = None
+
+        def esperar(self, ms, handles):
+            self.handles = list(handles)
+            return True
+
+    nucleo = cubierta_arranque._NucleoWin32.__new__(cubierta_arranque._NucleoWin32)
+    nucleo.ventanas = _Ventanas()
+    nucleo.eventos = {1: 101, 2: 202}
+    assert nucleo.esperar(250, frozenset({2})) is True
+    assert nucleo.ventanas.handles == [202]
+    nucleo.esperar(250)
+    assert nucleo.ventanas.handles == [101, 202]
+    nucleo.esperar(250, frozenset())
+    assert nucleo.ventanas.handles == []
+
+
 def test_una_pantalla_solo_espera_la_puerta_1():
     reloj = _Reloj()
     nucleo = _Nucleo(reloj, senales={1: 5.0})
@@ -175,7 +226,7 @@ def test_abrir_corre_en_su_propio_hilo_y_no_bloquea():
     liberar = threading.Event()
 
     class _Lento(_Nucleo):
-        def esperar(self, ms):
+        def esperar(self, ms, pendientes=None):
             liberar.wait(5)
             return False   # WM_DESPERTAR
 
@@ -399,3 +450,156 @@ def test_03_ejecutable_por_defecto_desde_ruta_programa():
     assert "GetValue('RutaPrograma', $null)" in s
     assert "Join-Path $env:ProgramFiles 'Especifika\\Autoclave\\Autoclave.exe'" in s   # respaldo de antes
     assert s.index("if (-not $Ejecutable) { $Ejecutable = Get-EjecutablePorDefecto }") < s.index("== Inicio $Paso")
+
+
+# ── V17-s2-01: un solo lanzador por sesión (mutex con nombre) ───────────────
+
+from autoclave.estacion import instancia_unica  # noqa: E402
+
+
+class _ApiMutex:
+    """Doble de kernel32: un mutex con nombre que existe mientras haya handles."""
+
+    def __init__(self, abiertos=0, falla=False):
+        self.abiertos = abiertos
+        self.falla = falla
+        self._ultimo = 0
+        self.nombres = []
+        self.cerrados = 0
+
+    def CreateMutexW(self, atributos, propietario, nombre):
+        self.nombres.append(nombre)
+        if self.falla:
+            self._ultimo = 5
+            return 0
+        self._ultimo = instancia_unica.ERROR_ALREADY_EXISTS if self.abiertos else 0
+        self.abiertos += 1
+        return 900 + self.abiertos
+
+    def GetLastError(self):
+        return self._ultimo
+
+    def CloseHandle(self, h):
+        self.abiertos -= 1
+        self.cerrados += 1
+        return 1
+
+
+def test_mutex_primera_instancia_y_segunda():
+    api = _ApiMutex()
+    primera = instancia_unica.tomar(api=api)
+    assert primera.primera and primera.handle and api.nombres == ["Local\\EspecifikaAutoclaveLanzador"]
+    segunda = instancia_unica.tomar(api=api)
+    assert not segunda.primera and segunda.handle is None
+    assert api.abiertos == 1                 # la segunda cerró su handle
+    primera.soltar()
+    assert api.abiertos == 0
+
+
+def test_mutex_relanzamiento_espera_a_la_anterior_con_reloj_inyectado():
+    api = _ApiMutex(abiertos=1)
+    reloj = _Reloj()
+    intentos = []
+
+    def dormir(s):
+        intentos.append(s)
+        reloj.t += s
+        if len(intentos) == 3:
+            api.abiertos -= 1               # la instancia anterior terminó
+
+    inst = instancia_unica.tomar(esperar_s=60, api=api, reloj=reloj, dormir=dormir)
+    assert inst.primera and len(intentos) == 3
+
+    api2 = _ApiMutex(abiertos=1)
+    reloj2 = _Reloj()
+    inst2 = instancia_unica.tomar(esperar_s=60, api=api2, reloj=reloj2,
+                                  dormir=lambda s: setattr(reloj2, "t", reloj2.t + s))
+    assert not inst2.primera and 60 <= reloj2.t - 1000 < 61     # tope, sin dormir de verdad
+
+
+def test_mutex_que_falla_no_impide_arrancar():
+    inst = instancia_unica.tomar(api=_ApiMutex(falla=True))
+    assert inst.primera and "CreateMutexW" in inst.error
+
+
+def test_mutex_activo_solo_congelado_o_con_variable():
+    assert instancia_unica.activa({}, congelado=True, plataforma="win32") is True
+    assert instancia_unica.activa({}, congelado=False, plataforma="win32") is False
+    assert instancia_unica.activa({"AUTOCLAVE_INSTANCIA_UNICA": "0"}, congelado=True, plataforma="win32") is False
+    assert instancia_unica.activa({}, congelado=True, plataforma="linux") is False
+
+
+def _con_mutex(lanzador, api):
+    lanzador.monkeypatch.setattr(instancia_unica, "activa", lambda *a, **k: True)
+    original = instancia_unica.tomar
+    lanzador.monkeypatch.setattr(instancia_unica, "tomar", lambda **kw: original(api=api, **kw))
+
+
+def test_segundo_lanzador_no_abre_cubierta_ni_lanza_nada(lanzador):
+    api = _ApiMutex(abiertos=1)              # ya hay un lanzador vivo en la sesión
+    _con_mutex(lanzador, api)
+    assert exe_unico._lanzador(exe_unico._parse_args([])) == 0
+    assert not any(e.startswith(("cubierta", "popen", "pantallas", "import:")) for e in lanzador.eventos), \
+        lanzador.eventos
+    assert api.abiertos == 1                 # no se quedó con ningún handle
+
+
+def test_primer_lanzador_toma_el_mutex_antes_de_la_cubierta_y_lo_suelta_al_final(lanzador):
+    api = _ApiMutex()
+    _con_mutex(lanzador, api)
+    vivo = []
+    original = exe_unico._lanzador_con_cubierta
+
+    def espia(*a, **k):
+        vivo.append(api.abiertos)            # el mutex vive mientras corre el lanzador
+        return original(*a, **k)
+
+    lanzador.monkeypatch.setattr(exe_unico, "_lanzador_con_cubierta", espia)
+    assert exe_unico._lanzador(exe_unico._parse_args([])) == 0
+    assert vivo == [1]
+    assert lanzador.eventos[0] == "cubierta:1,2" and "popen:backend" in lanzador.eventos
+    assert api.abiertos == 0                 # soltado al terminar
+
+
+def test_mutex_que_falla_el_lanzador_sigue(lanzador):
+    _con_mutex(lanzador, _ApiMutex(falla=True))
+    assert exe_unico._lanzador(exe_unico._parse_args([])) == 0
+    assert "popen:backend" in lanzador.eventos and "pantallas" in lanzador.eventos
+
+
+def test_relanzado_r11_espera_el_mutex_con_el_tope_de_instancia(lanzador, monkeypatch):
+    pedidos = []
+    monkeypatch.setattr(instancia_unica, "activa", lambda *a, **k: True)
+    monkeypatch.setattr(instancia_unica, "tomar",
+                        lambda **kw: pedidos.append(kw) or instancia_unica.Instancia(primera=True))
+    monkeypatch.setattr(exe_unico, "esperar_instancia_anterior", lambda *a, **k: True)
+    exe_unico._lanzador(exe_unico._parse_args(["--esperar-pid", "123"]))
+    exe_unico._lanzador(exe_unico._parse_args([]))
+    assert pedidos == [{"esperar_s": exe_unico.TOPE_ESPERA_INSTANCIA_S}, {"esperar_s": 0.0}]
+
+
+# ── V17-s2-03: 03 reemplaza una tarea con retraso ───────────────────────────
+
+def test_03_reemplaza_la_tarea_si_tiene_retraso():
+    s = (RAIZ / "tools/estacion/03_tarea_autoclave.ps1").read_text(encoding="ascii")
+    assert "$trigExistente = $existente.Triggers | Select-Object -First 1" in s
+    assert "$sinRetraso = ($delayExistente -eq '' -or $delayExistente -eq 'PT0S')" in s
+    assert ("if ($acc.Execute -eq $Ejecutable -and $existente.Principal.UserId -like \"*$Usuario\" "
+            "-and $sinRetraso) {") in s
+
+
+@pytest.mark.skipif(__import__("shutil").which("powershell.exe") is None, reason="sin powershell.exe")
+def test_parser_de_powershell_03_tarea_arranque_y_06():
+    """Solo analiza (Parser::ParseFile): no ejecuta ningún script."""
+    import json
+    archivos = [str(RAIZ / "tools/estacion/03_tarea_autoclave.ps1"),
+                str(RAIZ / "tools/instalador/tarea_arranque.ps1"),
+                str(RAIZ / "tools/estacion/06_asociar_tactiles.ps1")]
+    lista = ",".join(f"'{a}'" for a in archivos)
+    orden = (f"$r=@(); foreach($f in @({lista})){{$t=$null;$e=$null;"
+             "[void][System.Management.Automation.Language.Parser]::ParseFile($f,[ref]$t,[ref]$e);"
+             "$r+=@{f=$f;n=$e.Count}}; $r | ConvertTo-Json -Compress")
+    salida = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", orden],
+                            capture_output=True, text=True, timeout=120)
+    datos = json.loads(salida.stdout)
+    assert [d["n"] for d in datos] == [0, 0, 0], datos
