@@ -8,9 +8,9 @@ Rama `tanda-17` desde `dev` (84c146a).
 | A1 | Hecha | `fca0102` test_historial (R16 §8); `af32dbd` test_f1_registro_pruebas (bloque H, falla preexistente también en serie desde el cierre Z de la tanda 16). `compilar_entrega.py` corre la suite con `-n auto` y repite en serie las rojas (`--lf`) |
 | V | Hecha | 4 subagentes; resumen en `V_resumen.md` |
 | F | Hecha | F1 `7324847` ruta de datos; F2 `526a570` bitácora central; F3 `f101b2e` textos + UI-VER (UI-VER pasa de s4 a la sesión principal: retirar `app.version` rompía las pantallas) |
-| P | En curso | s1..s4 en worktrees, ramas `tanda-17-s1..s4` desde `f101b2e`+estado |
-| I | Pendiente | |
-| R | Pendiente | |
+| P | Hecha | s1 `892a29b`, s2 `10b9427`, s3 `8daaa0b`, s4 `783c968` (resumen en `P_resumen.md`) |
+| I | En curso | merges `53b59a4` (s3), `687f2e8` (s1), `2764835` (s2), `73c3624` (s4) sin conflictos; integración `32efe11`; suite completa corriendo |
+| R | En curso | 4 revisores de solo lectura |
 | K | Pendiente | |
 | L | Pendiente | |
 | Z | Pendiente | |
