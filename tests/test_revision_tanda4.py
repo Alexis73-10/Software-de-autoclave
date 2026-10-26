@@ -1,6 +1,7 @@
 """Correcciones de la revisión de seguridad y temporización de la tanda 4
 (SAF-01, SAF-03, SAF-06, TMG-01, TMG-02, TMG-03/09, TMG-08)."""
 
+import logging
 import threading
 import time
 from types import SimpleNamespace
@@ -49,14 +50,18 @@ def test_dueno_vigente_el_vigilante_no_hace_nada(srv_prueba):
     assert modulo_backend("rutas.io")._token_modo_prueba == dueno.token
 
 
-def test_dueno_caducado_el_vigilante_apaga_todo_y_lo_registra(srv_prueba):
+def test_dueno_caducado_el_vigilante_apaga_todo_y_lo_registra(srv_prueba, caplog):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
-    assert modulo_backend("rutas.io")._revisar_dueno_modo_prueba() is True
+    with caplog.at_level(logging.INFO):
+        assert modulo_backend("rutas.io")._revisar_dueno_modo_prueba() is True
     ctx.control_loop.exit_test_mode.assert_called_once()        # ALL_OFF y se reanuda
     assert modulo_backend("rutas.io")._token_modo_prueba is None
-    f = db.get_auditoria(evento="modo_prueba_sale")[0]
-    assert f["usuario"] == "tec_dueno" and "caducada" in f["detalle"]["motivo"]
+    # Tanda 17 (BIT-01, decisión de Cristian): modo_prueba_sale va al log de desarrollo,
+    # no a audit_log; el dueño y el motivo siguen quedando registrados ahí
+    assert db.get_auditoria(evento="modo_prueba_sale") == []
+    assert any("modo_prueba_sale" in r.getMessage() and "tec_dueno" in r.getMessage()
+               and "caducada" in r.getMessage() for r in caplog.records)
 
 
 def test_dueno_que_cerro_sesion_sin_salir_tambien_se_cierra(srv_prueba):
@@ -93,13 +98,17 @@ def test_el_vigilante_usa_un_plazo_monotonico_menor_que_la_sesion():
     assert modulo_backend("rutas.io").VIGILANCIA_DUENO_PRUEBA_S <= 5.0
 
 
-def test_tmg08_el_paro_registra_al_dueno_aunque_su_sesion_haya_caducado(srv_prueba):
+def test_tmg08_el_paro_registra_al_dueno_aunque_su_sesion_haya_caducado(srv_prueba, caplog):
     srv, ctx, db, reloj, dueno = srv_prueba
     reloj.t += PLAZO_TOKEN_BACKEND_S + 1
     ctx.control_loop.test_mode_active = False
-    srv._prueba_cancelada_por_paro()
-    f = db.get_auditoria(evento="modo_prueba_sale")[0]
-    assert f["usuario"] == "tec_dueno" and f["detalle"]["motivo"] == "paro de emergencia"
+    with caplog.at_level(logging.INFO):
+        srv._prueba_cancelada_por_paro()
+    # Tanda 17 (BIT-01, decisión de Cristian): modo_prueba_sale va al log de desarrollo,
+    # no a audit_log; el dueño y el motivo siguen quedando registrados ahí
+    assert db.get_auditoria(evento="modo_prueba_sale") == []
+    assert any("modo_prueba_sale" in r.getMessage() and "tec_dueno" in r.getMessage()
+               and "paro de emergencia" in r.getMessage() for r in caplog.records)
 
 
 # ── SAF-03 y SAF-06: salida forzada ─────────────────────────────────────────

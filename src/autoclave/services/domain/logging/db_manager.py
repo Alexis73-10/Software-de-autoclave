@@ -23,6 +23,7 @@ import logging
 import threading
 from datetime import datetime
 from pathlib import Path
+from autoclave.core.runtime import bitacora
 from autoclave.core.runtime.nombre_usuario import normalizar_usuario
 from autoclave.utils.paths import app_root
 
@@ -494,6 +495,14 @@ def _fila_auditoria(evento: str, usuario: str = "", rol: str = "", entidad: str 
             json.dumps(detalle, ensure_ascii=False) if detalle else None)
 
 
+def _al_log_de_desarrollo(evento: str, motivo: str, usuario: str = "", entidad: str = "",
+                          detalle=None) -> None:
+    """BIT-04 (tanda 17): un evento que no va a audit_log queda en el log de
+    desarrollo (como D9-6)."""
+    logger.info("audit_log (%s, no se registra): %s usuario=%s entidad=%s detalle=%s",
+                motivo, evento, usuario or "", entidad or "", detalle)
+
+
 class DbManager:
     """
     Singleton de acceso a la base de datos SQLite.
@@ -515,6 +524,9 @@ class DbManager:
                 f"Base de datos bloqueada por {marca.name}: requiere intervención de un técnico")
         self._path.parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
+        # BIT-02 (tanda 17): `() -> bool`; con True no se escribe nada en
+        # audit_log (instalación no terminada). Lo fija el backend.
+        self.instalacion_en_curso = None
         self._conn = sqlite3.connect(
             str(self._path),
             check_same_thread=False,   # protegido por Lock manual
@@ -632,6 +644,10 @@ class DbManager:
         """Inserta una fila en audit_log. Los valores anterior y nuevo se
         guardan como texto (JSON si no son str); `detalle`, como JSON."""
         fila = _fila_auditoria(evento, usuario, rol, entidad, valor_anterior, valor_nuevo, detalle)
+        motivo = self._motivo_no_registrar(evento)
+        if motivo:
+            _al_log_de_desarrollo(evento, motivo, usuario, entidad, detalle)
+            return 0
         with self._lock:
             cur = self._conn.execute(_SQL_AUDITORIA, fila)
             self._conn.commit()
@@ -651,6 +667,14 @@ class DbManager:
                 # las filas se preparan antes de abrir la transacción: un valor
                 # no serializable no llega a tomar el bloqueo de escritura
                 preparadas = [_fila_auditoria(**f) for f in filas]
+                retenidas = [(f, self._motivo_no_registrar(f.get("evento", ""))) for f in filas]
+                for f, motivo in retenidas:
+                    if motivo:
+                        _al_log_de_desarrollo(f.get("evento", ""), motivo, f.get("usuario", ""),
+                                              f.get("entidad", ""), f.get("detalle"))
+                preparadas = [p for p, (_, motivo) in zip(preparadas, retenidas) if not motivo]
+                if not preparadas:
+                    return []
                 if self._conn.in_transaction:
                     # revisión X9 (TMG-04/SAF-07): una transacción que otro
                     # método dejó abierta tras una excepción no se mezcla con
@@ -678,6 +702,10 @@ class DbManager:
         (SAF-05/TMG-03 de la revisión final: un cierre colgado con el lock no
         la bloquea; SQLite serializa las dos conexiones) y sin crear el
         archivo si no existe (`mode=rw`)."""
+        motivo = self._motivo_no_registrar(evento)
+        if motivo:
+            _al_log_de_desarrollo(evento, motivo, "", entidad, detalle)
+            return
         uri = Path(self._path).resolve().as_uri() + "?mode=rw"
         con = sqlite3.connect(uri, uri=True, timeout=10.0)
         try:
@@ -800,15 +828,24 @@ class DbManager:
 
     def consultar_auditoria(self, desde: str | None = None, hasta: str | None = None,
                             usuario: str | None = None, evento: str | None = None,
-                            limite: int = 20, desplazamiento: int = 0) -> tuple[list[dict], int]:
+                            limite: int = 20, desplazamiento: int = 0,
+                            eventos: list[str] | None = None) -> tuple[list[dict], int]:
         """O2e: página de audit_log (la más reciente primero) y total con los
-        mismos filtros. `desde`/`hasta` comparan contra `ts` (ISO local)."""
-        condiciones, params = [], []
+        mismos filtros. `desde`/`hasta` comparan contra `ts` (ISO local).
+        BIT-04 (tanda 17): las filas de eventos retirados no se muestran.
+        BIT-05: `eventos` (lista, p. ej. los de una categoría) filtra con IN;
+        una lista vacía no da filas."""
+        retirados = sorted(bitacora.EVENTOS_RETIRADOS)
+        condiciones = [f"evento NOT IN ({','.join('?' * len(retirados))})"]
+        params: list = list(retirados)
         for cond, valor in (("ts >= ?", desde), ("ts < ?", hasta), ("usuario = ?", usuario),
                             ("evento = ?", evento)):
             if valor:
                 condiciones.append(cond)
                 params.append(valor)
+        if eventos is not None:
+            condiciones.append(f"evento IN ({','.join('?' * len(eventos))})" if eventos else "0")
+            params.extend(eventos)
         where = ("WHERE " + " AND ".join(condiciones)) if condiciones else ""
         with self._lock:
             total = self._conn.execute(f"SELECT COUNT(*) FROM audit_log {where}", params).fetchone()[0]
@@ -828,11 +865,31 @@ class DbManager:
     def valores_auditoria(self) -> tuple[list[str], list[str]]:
         """Usuarios y eventos distintos de audit_log (para los filtros)."""
         with self._lock:
+            retirados = sorted(bitacora.EVENTOS_RETIRADOS)
+            no_retirado = f"evento NOT IN ({','.join('?' * len(retirados))})"
             usuarios = [r[0] for r in self._conn.execute(
-                "SELECT DISTINCT usuario FROM audit_log WHERE usuario <> '' ORDER BY usuario")]
+                "SELECT DISTINCT usuario FROM audit_log WHERE usuario <> '' AND "
+                f"{no_retirado} ORDER BY usuario", retirados)]
             eventos = [r[0] for r in self._conn.execute(
-                "SELECT DISTINCT evento FROM audit_log ORDER BY evento")]
+                f"SELECT DISTINCT evento FROM audit_log WHERE {no_retirado} ORDER BY evento",
+                retirados)]
         return usuarios, eventos
+
+    def _motivo_no_registrar(self, evento: str) -> str | None:
+        """BIT-02/04 (tanda 17): None si la fila va a audit_log; si no, el motivo
+        (para el log de desarrollo). Filtro central: no se toca cada llamada."""
+        if not bitacora.se_registra(evento):
+            return "evento retirado"
+        consulta = self.instalacion_en_curso
+        if consulta is not None:
+            try:
+                if consulta() is True:
+                    return "instalación en curso"
+            except Exception:
+                logger.exception("audit_log: no se pudo saber si la instalación terminó; se registra")
+        if evento not in bitacora.EVENTOS_REGISTRADOS:
+            logger.warning("audit_log: evento sin clasificar en bitacora.py: %s (se registra)", evento)
+        return None
 
     # ------------------------------------------------------------------
     # Ciclos
@@ -1431,10 +1488,12 @@ class DbManager:
                     self._conn.execute(
                         "UPDATE usuarios SET hash_pw=?, debe_cambiar_clave=0 WHERE id=?",
                         (hash_pw, filas[0]["id"]))
-                    self._conn.execute(_SQL_AUDITORIA, _fila_auditoria(
-                        "contrasena_fijada_instalacion", "sistema", "", filas[0]["usuario"],
-                        None, None, {"rol": rol, "origen": "asistente de instalación",
-                                     "fecha": ahora}))
+                    # BIT-02 (tanda 17): durante la instalación no se escribe en
+                    # audit_log; al terminar queda una sola fila `equipo_instalado`
+                    _al_log_de_desarrollo("contrasena_fijada_instalacion", "instalación",
+                                          "sistema", filas[0]["usuario"],
+                                          {"rol": rol, "origen": "asistente de instalación",
+                                           "fecha": ahora})
                     usuarios.append(filas[0]["usuario"])
                 self._conn.commit()
             except BaseException:

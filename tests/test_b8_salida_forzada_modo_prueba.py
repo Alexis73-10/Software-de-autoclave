@@ -4,6 +4,7 @@
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import logging
 import pytest
 from fastapi.testclient import TestClient
 
@@ -61,16 +62,19 @@ def test_dueno_vencido_el_ingeniero_fuerza_la_salida(api):
     assert modulo_backend("rutas.io")._token_modo_prueba is None
 
 
-def test_queda_auditado_quien_fuerza_a_quien_y_por_que(api):
+def test_queda_auditado_quien_fuerza_a_quien_y_por_que(api, caplog):
     client, srv, ctx, db, reloj, dueno = api
     _huerfano(srv, reloj, dueno)
-    _forzar(client, _h(srv, "ingeniero", "ing1"), motivo="turno terminado")
+    with caplog.at_level(logging.INFO):
+        _forzar(client, _h(srv, "ingeniero", "ing1"), motivo="turno terminado")
     f = db.get_auditoria(evento="modo_prueba_salida_forzada")[0]
     assert f["usuario"] == "ing1" and f["rol"] == "ingeniero"
     assert f["detalle"]["dueno"] == "tec_dueno" and f["detalle"]["forzada_por"] == "ing1"
     assert f["detalle"]["motivo"] == "turno terminado"
-    assert any(x["detalle"] and "forzada" in x["detalle"]["motivo"]
-               for x in db.get_auditoria(evento="modo_prueba_sale"))
+    # Tanda 17 (BIT-01, decisión de Cristian): modo_prueba_sale va al log de desarrollo
+    assert db.get_auditoria(evento="modo_prueba_sale") == []
+    assert any("modo_prueba_sale" in r.getMessage() and "forzada" in r.getMessage()
+               for r in caplog.records)
 
 
 def test_dueno_vigente_no_se_puede_forzar(api):

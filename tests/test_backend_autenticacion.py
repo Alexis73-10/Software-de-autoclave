@@ -106,7 +106,8 @@ def test_login_401_generico(entorno, db, usuario, clave):
     r = _login(client, usuario, clave)
     assert r.status_code == 401
     assert r.json()["detail"] == "Usuario o contraseña incorrectos"
-    assert _eventos(db, "login_fallido")
+    # Tanda 17 (BIT-03, decisión de Cristian): login_fallido ya no va a audit_log
+    assert _eventos(db, "login_fallido") == []
 
 
 def test_cinco_fallos_bloquean_aunque_la_clave_sea_correcta(entorno, db):
@@ -122,9 +123,9 @@ def test_cinco_fallos_bloquean_aunque_la_clave_sea_correcta(entorno, db):
     assert r.headers["retry-after"] == "300"
     assert _login(client, "tec1").status_code == 429
     assert _login(client, "TEC1").status_code == 429   # sin distinguir mayúsculas
-    assert len(_eventos(db, "login_fallido")) == 5
+    # Tanda 17 (BIT-03, decisión de Cristian): login_fallido ya no va a audit_log
+    assert _eventos(db, "login_fallido") == []
     assert _eventos(db, "login_bloqueado")
-    assert _eventos(db, "login_fallido")[0]["detalle"] == {"bloqueado": True}
 
 
 def test_cuatro_fallos_no_bloquean_y_el_exito_reinicia(entorno):
@@ -217,7 +218,8 @@ def test_logins_en_paralelo_contra_el_endpoint_no_superan_el_maximo(entorno):
     # De los reservados, los que terminan con el bloqueo ya activo dan 429 (v7).
     assert len(codigos) == 10 and set(codigos) <= {401, 429}
     assert codigos.count(401) <= 4 and codigos.count(429) >= 6
-    assert len(_eventos(entorno[1].db, "login_fallido")) == 5
+    # Tanda 17 (BIT-03, decisión de Cristian): login_fallido ya no va a audit_log
+    assert _eventos(entorno[1].db, "login_fallido") == []
 
 
 def test_primer_login_de_semillas_obliga_a_cambiar_clave(entorno, db):
@@ -267,7 +269,8 @@ def test_logout_invalida_solo_su_token(entorno, db):
     assert client.post("/auth/logout", headers=_auth(t1)).status_code == 200
     assert client.post("/auth/logout", headers=_auth(t1)).status_code == 401
     assert client.post("/auth/logout", headers=_auth(t2)).status_code == 200
-    assert len(_eventos(db, "logout")) == 2
+    # Tanda 17 (BIT-03, decisión de Cristian): logout ya no va a audit_log
+    assert _eventos(db, "logout") == []
 
 
 def test_token_invalidado_no_afecta_al_ciclo_en_curso(entorno):
@@ -672,8 +675,8 @@ def test_logout_sale_del_modo_prueba_con_el_lock_tomado(entorno):
     assert client.post("/auth/logout", headers=cab).status_code == 200
     assert tomado == [True]
     assert modulo_backend("rutas.io")._token_modo_prueba is None
-    motivos = [f["detalle"]["motivo"] for f in _eventos(ctx.db, "modo_prueba_sale")]
-    assert motivos == ["sesión cerrada"]
+    # Tanda 17 (BIT-01, decisión de Cristian): modo_prueba_sale ya no va a audit_log
+    assert _eventos(ctx.db, "modo_prueba_sale") == []
 
 
 def test_cancelacion_por_paro_olvida_al_dueno_y_queda_en_la_bitacora(entorno):
@@ -687,9 +690,9 @@ def test_cancelacion_por_paro_olvida_al_dueno_y_queda_en_la_bitacora(entorno):
     aviso()
 
     assert modulo_backend("rutas.io")._token_modo_prueba is None
-    fila = _eventos(ctx.db, "modo_prueba_sale")[0]
-    assert fila["usuario"] == "tec1"
-    assert fila["detalle"] == {"motivo": "paro de emergencia"}
+    # Tanda 17 (BIT-01, decisión de Cristian): modo_prueba_sale ya no va a audit_log
+    # (queda en el log de desarrollo)
+    assert _eventos(ctx.db, "modo_prueba_sale") == []
     # la sesión puede volver a entrar cuando se suelte el paro
     assert client.post("/io/test/enter", headers=cabecera(srv, "ingeniero")).status_code == 200
 

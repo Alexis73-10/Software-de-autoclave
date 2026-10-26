@@ -49,7 +49,92 @@ EVENTOS = (
     "usuario_renombrado", "cuenta_sistema_rechazada",
     # LIC-02 (licencia L0): contraseña de Admin/Ingeniero fijada en el asistente
     "contrasena_fijada_instalacion",
+    # BIT-02 (tanda 17): única fila de la instalación, al terminar el asistente
+    "equipo_instalado",
 )
+
+# BIT-01/03/04 (tanda 17): eventos que ya no van a audit_log sino al log de
+# desarrollo (como D9-6). Las filas ya guardadas no se borran (audit_log solo
+# admite agregar): la vista las oculta. `entradas_mostradas` lo retira SON-01;
+# `contrasena_fijada_instalacion` solo ocurría durante la instalación (BIT-02).
+EVENTOS_RETIRADOS = frozenset({
+    "salida_prueba", "modo_prueba_sale", "salida_prueba_cortada",
+    "inicio_descartado_por_modo_prueba",
+    "login_fallido", "logout",
+    "entradas_mostradas",
+    "contrasena_fijada_instalacion",
+})
+
+# Eventos que el código escribe sin texto propio en `EVENTOS` (se muestran con
+# el genérico): del lazo de control y del respaldo de ciclos.
+_EVENTOS_SIN_TEXTO = (
+    "arranque_camara_no_segura", "salidas_sin_confirmar", "salidas_confirmadas",
+    "salidas_confirmadas_tras_reintento", "inicio_descartado_por_modo_prueba",
+    "ciclo_reimportado", "ciclo_completado_desde_respaldo",
+    "calibracion_cambio", "mantenimiento_migrado", "tarjeta_conectada",
+)
+
+# BIT-04: lista de eventos permitidos en audit_log (filtro central del escritor).
+EVENTOS_REGISTRADOS = frozenset(EVENTOS + _EVENTOS_SIN_TEXTO) - EVENTOS_RETIRADOS
+
+
+def se_registra(evento: str) -> bool:
+    """BIT-04: ¿va a audit_log? Los retirados van solo al log de desarrollo.
+    DECISIÓN SIN CONFIRMAR: un evento desconocido (ni permitido ni retirado)
+    SÍ se registra, con aviso en el log: en un equipo Clase C es preferible una
+    fila de más a perder un evento de seguridad nuevo que nadie agregó a la
+    lista. `tests/test_t17_f2_bitacora.py` exige que todo evento literal del
+    código esté clasificado."""
+    return evento not in EVENTOS_RETIRADOS
+
+
+# BIT-05 (tanda 17): categorías del filtro «Tipo» de la bitácora.
+CATEGORIAS = ("seguridad", "configuracion", "usuarios_sesion", "mantenimiento_calibracion", "sistema")
+_CATEGORIA = {
+    "seguridad": (
+        "falla_reconocida", "ciclo_interrumpido", "apagar_equipo",
+        "modo_prueba_entra", "modo_prueba_sale", "modo_prueba_salida_forzada", "salida_prueba",
+        "salida_prueba_cortada", "atrapamiento_orden_invertida", "aire_atmosferico_cortado_prueba",
+        "apagado_windows_rechazado", "ciclo_no_conforme_reconocido",
+        "arranque_camara_no_segura", "salidas_sin_confirmar", "salidas_confirmadas",
+        "salidas_confirmadas_tras_reintento", "inicio_descartado_por_modo_prueba",
+    ),
+    "configuracion": (
+        "param_sistema_cambio", "idioma_configurado", "unidades_configuradas",
+        "impresora_configurada", "param_ciclo_cambio", "param_ciclo_no_aplicado_en_curso",
+        "ROLES_SENSOR", "entradas_mostradas", "correo_configurado",
+        "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
+        "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
+        "reasignacion_io_verificada",
+    ),
+    "usuarios_sesion": (
+        "login_ok", "login_fallido", "login_bloqueado", "logout", "cambio_clave",
+        "usuario_creado", "usuario_desactivado", "usuario_reactivado", "clave_restablecida",
+        "operador_creado", "operador_desactivado", "operador_reactivado",
+        "usuario_renombrado", "cuenta_sistema_rechazada", "contrasena_fijada_instalacion",
+    ),
+    "mantenimiento_calibracion": (
+        "mantenimiento_registrado", "mantenimiento_configurado",
+        "calibracion_atm_ok", "calibracion_atm_abortada", "calibracion_atm_rechazada",
+        "calibracion_cambio", "mantenimiento_migrado",
+    ),
+    "sistema": (
+        "correo_enviado", "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
+        "reinicio_control", "software_reiniciado", "equipo_instalado",
+        "ciclo_reimportado", "ciclo_completado_desde_respaldo", "tarjeta_conectada",
+    ),
+}
+CATEGORIA_DE_EVENTO = {ev: cat for cat, evs in _CATEGORIA.items() for ev in evs}
+
+
+def categoria_de(evento: str) -> str:
+    """Categoría BIT-05 de un evento; uno sin clasificar va a «sistema»."""
+    return CATEGORIA_DE_EVENTO.get(evento, "sistema")
+
+
+def eventos_de_categoria(categoria: str) -> list[str]:
+    """Eventos visibles (no retirados) de una categoría, para filtrar la consulta."""
+    return sorted(ev for ev in _CATEGORIA.get(categoria, ()) if ev not in EVENTOS_RETIRADOS)
 
 
 def decodificar(texto):
