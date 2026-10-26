@@ -64,7 +64,7 @@ def test_sin_presion_no_activa_cic10_y_sigue_detenido(caplog):
 
 
 @pytest.mark.req("ESG-01")
-def test_cic10_se_conserva_para_otros_motivos_y_se_resuelve_al_perder_la_presion():
+def test_cic10_se_conserva_para_otros_motivos_al_perder_la_presion():
     alarmas = AlarmManager()
     loop = _loop(alarmas)
     # presión válida y Principal sin lectura: CIC-10 por el Principal
@@ -72,10 +72,13 @@ def test_cic10_se_conserva_para_otros_motivos_y_se_resuelve_al_perder_la_presion
     _tick_es(loop, 3)
     activas = _cic10_activa(alarmas)
     assert activas and "Principal" in activas[0].descripcion
-    # se pierde la presión: CIC-10 se resuelve, solo queda la alarma del sensor
+    # se pierde la presión: CIC-10 sigue por el otro motivo (corrección R3
+    # V17-s3-02: "CIC-10 se conserva para los demás motivos")
     loop.estado.sensores_pres["pres_camara"] = None
     _tick_es(loop, 3)
-    assert not _cic10_activa(alarmas)
+    activas = _cic10_activa(alarmas)
+    assert activas and "Principal" in activas[0].descripcion
+    assert "presión" not in activas[0].descripcion
     assert loop.estado_seguro.detenido_sin_presion is True
     # vuelve la presión: el flujo sigue igual (CIC-10 por el Principal otra vez)
     loop.estado.sensores_pres["pres_camara"] = 250.0
@@ -83,6 +86,63 @@ def test_cic10_se_conserva_para_otros_motivos_y_se_resuelve_al_perder_la_presion
     activas = _cic10_activa(alarmas)
     assert activas and "Principal" in activas[0].descripcion
     assert loop.estado_seguro.detenido_sin_presion is False
+
+
+def _es_con_protocolo_falso(alarmas, **motivos):
+    """ProtocoloEstadoSeguro con un protocolo de fallo doble (motivos fijos)."""
+    from types import SimpleNamespace
+    from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
+    es = ProtocoloEstadoSeguro(EstadoAutoclave(), _CFG, alarm_manager=alarmas)
+    es._protocolo = SimpleNamespace(**motivos)
+    return es
+
+
+@pytest.mark.req("ESG-01")
+@pytest.mark.parametrize("otro", [
+    "Sensor Principal sin lectura con carga líquida: cámara sellada hasta que las sondas "
+    "confirmen la temperatura o venza la espera",
+    "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido"])
+def test_presion_perdida_mas_otro_motivo_activa_cic10_con_el_otro(otro):
+    """Corrección R3 V17-s3-02: con la presión perdida, CIC-10 sigue por los
+    demás motivos simultáneos (cámara sellada, líquidos calientes)."""
+    alarmas = AlarmManager()
+    es = _es_con_protocolo_falso(alarmas, presion_perdida=True,
+                                 bloqueado_motivo="Sensor de presión de cámara sin lectura",
+                                 bloqueado_motivo_sin_presion=otro)
+    es._actualizar_alarma_bloqueo()
+    [cic10] = _cic10_activa(alarmas)
+    assert otro.split(":")[0] in cic10.descripcion
+    assert "presión de cámara" not in cic10.descripcion
+
+
+@pytest.mark.req("ESG-01")
+def test_solo_presion_perdida_sin_cic10():
+    alarmas = AlarmManager()
+    es = _es_con_protocolo_falso(alarmas, presion_perdida=True,
+                                 bloqueado_motivo="Sensor de presión de cámara sin lectura",
+                                 bloqueado_motivo_sin_presion=None)
+    es._actualizar_alarma_bloqueo()
+    assert not _cic10_activa(alarmas)
+
+
+@pytest.mark.req("ESG-01")
+def test_motivo_sin_presion_del_protocolo_real():
+    """ProtocoloFallo: con la presión perdida bloqueado_motivo sigue dando la
+    presión (prioridad de S9) y bloqueado_motivo_sin_presion el siguiente."""
+    from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
+    estado = EstadoAutoclave()
+    estado.sensores_pres["pres_camara"] = 250.0
+    estado.sensores_temp["temp_camara"] = 120.0
+    set_do = MagicMock()
+    set_do.reset_all_outputs.return_value = True
+    prot = ProtocoloFallo(estado, set_do, _programa(modo=2), _CFG)
+    prot.ejecutar()
+    prot._presion_perdida = True
+    prot._aviso_no_escala = True
+    assert prot.bloqueado_motivo.startswith("Sensor de presión de cámara")
+    assert prot.bloqueado_motivo_sin_presion.startswith("Tiempo límite de descompresión")
+    prot._aviso_no_escala = False
+    assert prot.bloqueado_motivo_sin_presion is None
 
 
 @pytest.mark.req("ESG-01")

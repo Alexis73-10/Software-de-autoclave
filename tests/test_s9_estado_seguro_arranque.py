@@ -197,11 +197,13 @@ def test_cic10_por_presion_se_despeja_con_tres_lecturas():
     loop = _loop(alarmas)
     _arrancar(loop, pres=None, temp=None)
     _tick_es(loop, 3)
-    # Tanda 17 (ESG-01, decisión de Cristian): detenido por la presión sin
-    # lectura, sin CIC-10 activa (la del Principal, mostrada durante el
-    # debounce de la presión, queda resuelta)
-    assert not any(i.codigo == CIC_10 and i.estado is EstadoInstancia.ACTIVA
-                   for i in alarmas.activas())
+    # Tanda 17 (ESG-01, decisión de Cristian; corrección R3 V17-s3-02): sin
+    # CIC-10 por la presión, pero sí por el otro motivo simultáneo (Principal
+    # sin lectura)
+    cic10 = [i for i in alarmas.activas()
+             if i.codigo == CIC_10 and i.estado is EstadoInstancia.ACTIVA]
+    assert cic10 and "presión" not in cic10[0].descripcion
+    assert "Principal" in cic10[0].descripcion
     assert loop.estado_seguro.detenido_sin_presion is True
     loop.estado.sensores_pres["pres_camara"] = 250.0
     loop.estado.sensores_temp["temp_camara"] = 120.0

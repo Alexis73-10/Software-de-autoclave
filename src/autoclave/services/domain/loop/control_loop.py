@@ -371,6 +371,13 @@ class ControlLoop:
             nueva = lecturas.get(principal)
             if not lectura_valida(nueva) or float(nueva) == 0:
                 return False, "principal_sin_lectura"
+            # Tanda 17 (corrección R3 V17-s3-06): se compara contra todas las
+            # sondas del ciclo con lectura, también las No en uso (monitoreo,
+            # SON-01) y las de otros programas. Se deja así a propósito: esta
+            # comparación solo puede NEGAR la liberación del estado seguro
+            # (lado seguro: sigue detenido y con NO ABRIR); nunca la concede.
+            # Filtrar por sensores_en_uso podría liberar con una sonda fría
+            # mientras otra, sin rol, mide la carga caliente.
             otras = [float(v) for k, v in lecturas.items()
                      if k != principal and k in ("temp_camara", "temp_2_camara", "temp_ref")
                      and lectura_valida(v) and float(v) != 0]

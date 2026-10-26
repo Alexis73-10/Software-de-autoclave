@@ -199,19 +199,26 @@ class ProtocoloEstadoSeguro:
         baja/alta si existe). El motivo va al log de desarrollo una vez por
         episodio. El protocolo sigue detenido sin abrir nada nuevo y "NO
         ABRIR" y el bloqueo del inicio de ciclo se mantienen (camara_segura
-        falla cerrada sin presión). CIC-10 se conserva para los demás motivos."""
+        falla cerrada sin presión). CIC-10 se conserva para los demás motivos:
+        con la presión perdida se activa con el siguiente motivo que haya
+        (bloqueado_motivo_sin_presion: cámara sellada, Principal sin lectura,
+        líquidos calientes), corrección R3 V17-s3-02. La trama AI vencida
+        cuenta como presión sin lectura (el protocolo la trata así desde S9,
+        TMG-02/R2-M1): tampoco da CIC-10 por sí sola (DECISIÓN SIN CONFIRMAR)."""
         presion_perdida = getattr(self._protocolo, "presion_perdida", False) is True
         if presion_perdida and not self._presion_perdida_en_log:
             self._presion_perdida_en_log = True
             logger.warning("Estado seguro detenido: presión de cámara sin lectura; sin el "
                            "sensor de presión no se lleva la cámara a estado seguro "
-                           "(ESG-01: sin CIC-10, solo la alarma del sensor)")
+                           "(ESG-01: sin CIC-10 por este motivo, solo la alarma del sensor)")
         elif not presion_perdida and self._presion_perdida_en_log:
             self._presion_perdida_en_log = False
             logger.info("Estado seguro: la presión de cámara volvió a tener lectura")
         if self.alarm_manager is None:
             return
-        motivo = None if presion_perdida else getattr(self._protocolo, "bloqueado_motivo", None)
+        motivo = getattr(self._protocolo,
+                         "bloqueado_motivo_sin_presion" if presion_perdida else "bloqueado_motivo",
+                         None)
         motivo = motivo if isinstance(motivo, str) else None
         if motivo == self._alarma_bloqueo and (motivo is None or self._cic10_activa()):
             return
