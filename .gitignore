@@ -16,6 +16,8 @@ _archivo/
 /dist/*
 !/dist/*.bat
 *.egg-info/
+# P10 (tanda 16, D-14.10): toda la carpeta de datos de ejecución
+/data/
 /data/*.db
 /data/*.db-wal
 /data/*.db-shm
