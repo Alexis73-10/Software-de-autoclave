@@ -3,9 +3,17 @@
 (INS-02) y el mensaje de repetición de los táctiles (EST-06, punto 3); y
 tools/estacion/_comun.ps1 leyendo RutaDatos del registro.
 
-Pruebas ESTÁTICAS (prohibido ejecutar el Setup, ISCC con instalación o los
-.ps1): comprueban lo que declara el texto. El análisis con el parser de
-PowerShell no ejecuta nada y se salta si no hay powershell.exe."""
+Prohibido ejecutar el Setup, ISCC con instalación o los .ps1. Por eso:
+- `test_texto_*`: ESTÁTICAS, solo comprueban lo que declara el texto del .iss
+  o del .ps1 (no prueban que funcione en Windows);
+- `test_replica_*`: réplica en Python de una función Pascal sencilla, para
+  fijar el formato que se parsea (no ejecutan el Pascal);
+- `test_ejecuta_*`: ejecutan con powershell.exe el MISMO comando que arma el
+  .iss (extraído del texto), sobre una carpeta temporal o solo leyendo (bus de
+  los discos); se saltan sin powershell.exe;
+- `test_parser_*`: solo analizan los .ps1 con el parser (no los ejecutan).
+La comprobación real queda en la lista de pruebas manuales de
+tools/instalador/LEEME.md."""
 import json
 import re
 import shutil
@@ -49,7 +57,7 @@ def _mensaje(idioma: str, clave: str) -> str:
 # ── INS-01: zona horaria ─────────────────────────────────────────────────────
 
 @INS01
-def test_pagina_de_zona_lista_del_registro_ordenada_y_preseleccion_actual():
+def test_texto_pagina_de_zona_lista_del_registro_ordenada_y_preseleccion_actual():
     cargar = _funcion("CargarZonas")
     assert "RegGetSubkeyNames(HKLM64, ClaveZonas" in cargar
     assert "'Display'" in cargar
@@ -68,7 +76,7 @@ def test_pagina_de_zona_lista_del_registro_ordenada_y_preseleccion_actual():
 
 
 @INS01
-def test_desfase_de_ejemplos():
+def test_replica_desfase_de_ejemplos():
     """Réplica en Python de DesfaseZona para fijar el formato que se parsea."""
     def desfase(nombre):
         if nombre[:4].upper() != "(UTC":
@@ -86,7 +94,7 @@ def test_desfase_de_ejemplos():
 
 
 @INS01
-def test_pagina_de_zona_tambien_al_actualizar_y_reparar():
+def test_texto_pagina_de_zona_tambien_al_actualizar_y_reparar():
     skip = _funcion("ShouldSkipPage")
     bloque = skip[skip.index("PageID = PaginaZona.ID"):]
     assert bloque.index("Result := GetArrayLength(ZonaIds) = 0") < bloque.index("ModoReparar")
@@ -99,7 +107,7 @@ def test_pagina_de_zona_tambien_al_actualizar_y_reparar():
 
 
 @INS01
-def test_aplica_con_tzutil_s_y_verifica_con_tzutil_g_sin_abortar():
+def test_texto_aplica_con_tzutil_s_y_verifica_con_tzutil_g_sin_abortar():
     ap = _funcion("AplicarZona")
     assert "'{sys}\\tzutil.exe'), '/s \"' + ZonaElegida + '\"'" in ap
     assert "ExecAndCaptureOutput(ExpandConstant('{sys}\\tzutil.exe'), '/g'" in ap
@@ -113,7 +121,7 @@ def test_aplica_con_tzutil_s_y_verifica_con_tzutil_g_sin_abortar():
 
 
 @INS01
-def test_parametro_zona_silencioso_validado():
+def test_texto_parametro_zona_silencioso_validado():
     ini = _funcion("InitializeSetup")
     assert "ExpandConstant('{param:ZONA|}')" in ini
     assert ini.index("IndiceZona(ZonaParametro) < 0") < ini.index("CustomMessage('ZonaInvalida')")
@@ -124,7 +132,7 @@ def test_parametro_zona_silencioso_validado():
 # ── INS-02: unidad ───────────────────────────────────────────────────────────
 
 @INS02
-def test_unidad_solo_discos_fijos_con_etiqueta_y_espacio():
+def test_texto_unidad_solo_discos_fijos_con_etiqueta_y_espacio():
     assert "external 'GetDriveTypeW@kernel32.dll stdcall'" in CODIGO
     assert "DRIVE_FIXED = 3;" in CODIGO
     assert "GetDriveType(Chr(L) + ':\\') = DRIVE_FIXED" in _funcion("CargarUnidades")
@@ -134,14 +142,14 @@ def test_unidad_solo_discos_fijos_con_etiqueta_y_espacio():
 
 
 @INS02
-def test_preseleccion_distinta_del_sistema_y_si_no_la_del_sistema():
+def test_texto_preseleccion_distinta_del_sistema_y_si_no_la_del_sistema():
     pre = _funcion("PreseleccionarUnidad")
     assert pre.index("Unidad := ExpandConstant('{sd}')") < pre.index("for I")
     assert "CompareText(UnidadesLetra[I], ExpandConstant('{sd}')) <> 0" in pre
 
 
 @INS02
-def test_espacio_minimo_programa_mas_2_gb_calculado_al_compilar():
+def test_texto_espacio_minimo_programa_mas_2_gb_calculado_al_compilar():
     assert "MinimoMB = {#TamProgramaMB} + 2048;" in CODIGO
     assert "#define TamProgramaMB TamKB / 1024 + 1" in ISS
     assert "FileSize(TamDir" in ISS and "FindFirst(TamDir" in ISS
@@ -153,7 +161,7 @@ def test_espacio_minimo_programa_mas_2_gb_calculado_al_compilar():
 
 
 @INS02
-def test_disposicion_programa_y_datos():
+def test_texto_disposicion_programa_y_datos():
     assert "DefaultDirName={code:DirProgramaParam}" in ISS
     assert re.search(r"^DisableDirPage=yes", ISS, re.M)
     assert "{autopf}" not in _seccion("Setup")
@@ -167,7 +175,7 @@ def test_disposicion_programa_y_datos():
 
 
 @INS02
-def test_ya_no_quedan_rutas_a_commonappdata():
+def test_texto_ya_no_quedan_rutas_a_commonappdata():
     assert "{commonappdata}" not in ISS.split("[Code]")[0].split("[Setup]")[1]
     assert "{commonappdata}" not in CODIGO
     assert "CarpetaDatos + '\\estacion\\estacion.log'" in _funcion("ArchivoLogEstacion")
@@ -175,30 +183,68 @@ def test_ya_no_quedan_rutas_a_commonappdata():
 
 
 @INS02
-def test_acl_explicitas_sin_herencia_con_los_tres_sids():
+def test_texto_acl_explicitas_sin_herencia_con_los_tres_sids():
     consts = CODIGO[:CODIGO.index("var")]
     assert ("PermisosPrograma = '*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F "
             "*S-1-5-32-545:(OI)(CI)RX';") in consts
     assert ("PermisosDatos = '*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F "
             "*S-1-5-32-545:(OI)(CI)M';") in consts
+    # R1 (V17-s1-01): DACL entera y protegida, sin otras entradas explícitas
+    assert "SddlPrograma = 'D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1200a9;;;BU)';" in consts
+    assert "SddlDatos = 'D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1301bf;;;BU)';" in consts
+    assert "SddlSoloAdmin = 'D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)';" in consts
+    assert "AclPrograma = 'S-1-5-32-544:2032127;S-1-5-18:2032127;S-1-5-32-545:1179817';" in consts
+    assert "AclDatos = 'S-1-5-32-544:2032127;S-1-5-18:2032127;S-1-5-32-545:1245631';" in consts
+    assert "AclSoloAdmin = 'S-1-5-32-544:2032127;S-1-5-18:2032127';" in consts
     prot = _funcion("ProtegerCarpeta")
     assert "/setowner *S-1-5-32-544" in prot
-    assert "'/inheritance:r /grant:r ' + Permisos" in prot
+    assert prot.index("'/inheritance:r /grant:r ' + Permisos") < prot.index("AplicarAcl(Ruta, Sddl, Esperado)")
     assert "'/reset /T /Q'" in prot
     prep = _funcion("PrepararCarpetas")
     # X:\Especifika, X:\Especifika\Autoclave y programa: sin escritura para Usuarios
-    for llamada in ("ProtegerCarpeta(Especifika, PermisosPrograma, False)",
-                    "ProtegerCarpeta(Raiz, PermisosPrograma, False)",
-                    "ProtegerCarpeta(Programa, PermisosPrograma, True)", "ProtegerDatos"):
+    for llamada in ("ProtegerCarpeta(Especifika, PermisosPrograma, SddlPrograma, AclPrograma, False)",
+                    "ProtegerCarpeta(Raiz, PermisosPrograma, SddlPrograma, AclPrograma, False)",
+                    "ProtegerCarpeta(Programa, PermisosPrograma, SddlPrograma, AclPrograma, True)",
+                    "ProtegerDatos", "PrepararEstacion"):
         assert llamada in prep, llamada
-    assert "ProtegerCarpeta(CarpetaDatos, PermisosDatos, False)" in _funcion("ProtegerDatos")
+    assert ("ProtegerCarpeta(CarpetaDatos, PermisosDatos, SddlDatos, AclDatos, False)"
+            in _funcion("ProtegerDatos"))
     # icacls con verificación del código de salida y sin /C (falla cerrada)
     ic = _funcion("Icacls")
     assert "(Codigo = 0)" in ic and "/C" not in ic
 
 
 @INS02
-def test_permisos_antes_de_copiar_y_un_fallo_detiene_el_setup():
+def test_texto_aplicar_acl_reemplaza_y_verifica():
+    ap = _funcion("AplicarAcl")
+    assert "AccessControlSections]::Access" in ap and ".SetAccessControl($s)" in ap
+    assert "Set-Acl -LiteralPath" not in ap   # pediría SeSecurityPrivilege
+    # verifica: protegida, reglas exactas y dueño Administradores; si no, código <> 0
+    assert "AreAccessRulesProtected) { exit 2 }" in ap
+    assert "-ne ($e -join ''|'')) { exit 4 }" in ap
+    assert "-ne ''S-1-5-32-544'') { exit 3 }" in ap
+    assert "and (Codigo = 0)" in ap
+    # valores por el entorno, que se limpia
+    for v in ("AUTOCLAVE_ACL_RUTA", "AUTOCLAVE_ACL_SDDL", "AUTOCLAVE_ACL_ESPERADO"):
+        assert f"SetEnvironmentVariable('{v}', '')" in ap
+
+
+@INS02
+def test_texto_respaldos_y_estacion_con_dacl_verificada():
+    pr = _funcion("ProtegerRespaldos")
+    assert "AplicarAcl(RaizRespaldos, SddlSoloAdmin, AclSoloAdmin)" in pr
+    est = _funcion("PrepararEstacion")
+    assert est.count("ProtegerCarpeta(Estacion, PermisosSoloAdmin, SddlSoloAdmin, AclSoloAdmin, True)") == 2
+    # R1 (V17-s1-06): en instalación nueva, una estacion\ con algo se aparta (no se borra)
+    assert "(not UnidadFija) and not CarpetaVacia(Estacion)" in est
+    assert "'\\estacion_anterior_'" in est and "RenameFile(Estacion, Apartada)" in est
+    assert "DeleteFile" not in est and "DelTree" not in est and "BorrarArbol" not in est
+    assert est.index("RenameFile(Estacion, Apartada)") < est.index("ForceDirectories(Estacion)")
+    assert "EstacionNoApartada" in est
+
+
+@INS02
+def test_texto_permisos_antes_de_copiar_y_un_fallo_detiene_el_setup():
     pti = _funcion("PrepareToInstall")
     assert "Result := PrepararCarpetas;\n  if Result <> '' then\n    exit;" in pti
     # tras la limpia, datos\ (recreada) vuelve a sus permisos
@@ -211,10 +257,13 @@ def test_permisos_antes_de_copiar_y_un_fallo_detiene_el_setup():
     # instalación nueva con programa\ ya ocupada (archivos ajenos): se detiene
     assert "(not UnidadFija) and not CarpetaVacia(Programa)" in prep
     assert "ProgramaExistente" in prep
+    # R1 (V17-s1-02): la comprobación va DESPUÉS de proteger programa\
+    assert (prep.index("ProtegerCarpeta(Programa, PermisosPrograma")
+            < prep.index("(not UnidadFija) and not CarpetaVacia(Programa)"))
 
 
 @INS02
-def test_registro_hklm64_con_las_dos_rutas_sin_romper_las_subclaves():
+def test_texto_registro_hklm64_con_las_dos_rutas_sin_romper_las_subclaves():
     reg = _seccion("Registry")
     assert '#define ClaveAutoclave "SOFTWARE\\Especifika\\Autoclave"' in ISS
     assert ('Root: HKLM64; Subkey: "{#ClaveAutoclave}"; ValueType: string; ValueName: "RutaPrograma"; '
@@ -231,7 +280,7 @@ def test_registro_hklm64_con_las_dos_rutas_sin_romper_las_subclaves():
 
 
 @INS02
-def test_actualizacion_reutiliza_la_unidad_fija():
+def test_texto_actualizacion_reutiliza_la_unidad_fija():
     ini = _funcion("InitializeSetup")
     assert "RegQueryStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaPrograma', RutaRegistro)" in ini
     assert "UnidadFija := TieneRuta;" in ini
@@ -246,7 +295,7 @@ def test_actualizacion_reutiliza_la_unidad_fija():
 
 
 @INS02
-def test_disposicion_anterior_detiene_el_setup():
+def test_texto_disposicion_anterior_detiene_el_setup():
     ini = _funcion("InitializeSetup")
     i_bloqueo = ini.index("CustomMessage('DisposicionAnterior')")
     # antes de comparar versiones y de las opciones (nada se toca)
@@ -266,7 +315,7 @@ def test_disposicion_anterior_detiene_el_setup():
 
 
 @INS02
-def test_limpia_y_respaldos_en_la_carpeta_nueva():
+def test_texto_limpia_y_respaldos_en_la_carpeta_nueva():
     assert "'\\Especifika\\Autoclave\\datos'" in _funcion("RutaDatosValida")
     assert "'\\Autoclave_respaldos'" in _funcion("RaizRespaldos")
     limpia = _funcion("EjecutarLimpia")
@@ -274,7 +323,7 @@ def test_limpia_y_respaldos_en_la_carpeta_nueva():
 
 
 @INS02
-def test_ruta_datos_valida_replica():
+def test_replica_ruta_datos_valida():
     """Réplica en Python de RutaDatosValida: solo X:\\Especifika\\Autoclave\\datos."""
     def valida(datos):
         letra = datos[:1].upper()
@@ -292,7 +341,7 @@ def test_ruta_datos_valida_replica():
 # ── EST-06 punto 3 ───────────────────────────────────────────────────────────
 
 @EST06
-def test_tactiles_repetir_remite_a_la_herramienta_propia_o_al_script():
+def test_texto_tactiles_repetir_remite_a_la_herramienta_propia_o_al_script():
     for idioma in ("es", "en"):
         texto = _mensaje(idioma, "TactilesRepetir")
         assert "Tablet PC" not in texto
@@ -306,7 +355,7 @@ def test_tactiles_repetir_remite_a_la_herramienta_propia_o_al_script():
 # ── Mensajes y _comun.ps1 ────────────────────────────────────────────────────
 
 @INS02
-def test_mensajes_nuevos_en_los_dos_idiomas():
+def test_texto_mensajes_nuevos_en_los_dos_idiomas():
     for clave in ("UnidadTitulo", "UnidadSubtitulo", "UnidadExplicacion", "UnidadFijaExplicacion",
                   "UnidadElemento", "UnidadSinEtiqueta", "UnidadSinEspacio", "UnidadSinPermisos",
                   "DisposicionAnterior", "RegistroInvalido", "ProgramaExistente", "CarpetaEnlace",
@@ -317,7 +366,7 @@ def test_mensajes_nuevos_en_los_dos_idiomas():
 
 
 @INS02
-def test_comun_lee_ruta_datos_del_registro_64_bits_con_respaldo():
+def test_texto_comun_lee_ruta_datos_del_registro_64_bits_con_respaldo():
     assert "[Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64')" in COMUN
     assert "OpenSubKey('SOFTWARE\\Especifika\\Autoclave')" in COMUN
     assert "GetValue('RutaDatos')" in COMUN
@@ -329,7 +378,7 @@ def test_comun_lee_ruta_datos_del_registro_64_bits_con_respaldo():
 
 
 @INS02
-def test_setup_escribe_el_registro_antes_de_los_pasos_de_la_estacion():
+def test_texto_setup_escribe_el_registro_antes_de_los_pasos_de_la_estacion():
     """[Registry] se procesa en la instalación, antes de ssPostInstall, donde
     corren los pasos (EjecutarPaso desde AplicarEstacion/RepararEstacion)."""
     csc = _funcion("CurStepChanged")
@@ -355,3 +404,110 @@ def test_parser_de_powershell_comun_sin_errores():
     if isinstance(datos, dict):
         datos = [datos]
     assert [d["n"] for d in datos] == [0, 0], datos
+
+
+# ── R1 (revisión de la tanda 17) ─────────────────────────────────────────────
+
+@INS02
+def test_texto_unidades_usb_excluidas_y_sin_preseleccion_si_falla_la_consulta():
+    consts = CODIGO[:CODIGO.index("var")]
+    assert "BusesExcluidos = '|USB|SD|MMC|';" in consts
+    cb = _funcion("ConsultarBuses")
+    assert "Get-Partition" in cb and "Get-Disk -Number $_.DiskNumber).BusType" in cb
+    assert "ConsultaBusFallida := True;" in cb
+    assert cb.index("ConsultaBusFallida := True;") < cb.index("ConsultaBusFallida := False;")
+    cu = _funcion("CargarUnidades")
+    assert cu.index("ConsultarBuses;") < cu.index("AgregarUnidad(")
+    assert "Pos(Chr(L), LetrasExcluidas) > 0" in cu
+    pre = _funcion("PreseleccionarUnidad")
+    assert pre.index("Unidad := ExpandConstant('{sd}')") < pre.index("if ConsultaBusFallida then\n    exit;")
+
+
+@INS02
+def test_texto_reversion_fallida_conserva_rutas_y_pasos():
+    rev = _funcion("RevertirEstacion")
+    assert "ReversionFallida := Fallas <> '';" in rev
+    # la clave de pasos solo se borra si todo revirtió
+    bloque = rev[rev.index("if not ReversionFallida then"):]
+    assert bloque.index("RegDeleteKeyIncludingSubkeys(HKLM64, '{#ClaveEstacion}')") < bloque.index("end;")
+    assert "CarpetaDatos + '\\estacion'" in rev
+    cus = _funcion("CurUninstallStepChanged")
+    i_un = cus.index("CurUninstallStep = usUninstall")
+    assert cus.index("'RutaDatos', RutaDatosDesinstalada") < cus.index("RevertirEstacion;")
+    assert i_un < cus.index("RevertirEstacion;")
+    post = cus[cus.index("CurUninstallStep = usPostUninstall"):]
+    assert "RegWriteStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaDatos', RutaDatosDesinstalada)" in post
+    assert "RegWriteStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaPrograma', RutaProgramaDesinstalada)" in post
+    for idioma in ("es", "en"):
+        assert "%3" in _mensaje(idioma, "ReversionFallo")
+        _mensaje(idioma, "EstacionNoApartada")
+
+
+@INS02
+def test_texto_comun_dacl_verificada_y_ruta_por_entorno():
+    prot = COMUN[COMUN.index("function Protect-DirEstacion"):COMUN.index("function Initialize-Estacion")]
+    assert "SetSecurityDescriptorSddlForm('D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)'" in prot
+    assert "AccessControlSections]::Access" in prot and ".SetAccessControl($sd)" in prot
+    assert prot.index(".SetAccessControl($sd)") < prot.index("Assert-DirEstacionProtegida")
+    assert "/C" not in prot
+    asegurar = prot[prot.index("function Assert-DirEstacionProtegida"):]
+    assert "AreAccessRulesProtected" in asegurar and "'S-1-5-32-544'" in asegurar and "throw" in asegurar
+    assert "'S-1-5-18:2032127:0:3:0:False'" in asegurar
+    # AUTOCLAVE_RUTA_DATOS > registro > ProgramData
+    i_env = COMUN.index("Test-RutaDatos $env:AUTOCLAVE_RUTA_DATOS")
+    assert i_env < COMUN.index("$script:RutaDatos = Get-RutaDatosRegistro")
+    assert "AUTOCLAVE_RUTA_DATOS" in (INSTALADOR / "LEEME.md").read_text(encoding="utf-8")
+
+
+def _comando_pascal(funcion: str) -> str:
+    """Texto que el .iss pasa a powershell.exe tras -Command (literales Pascal
+    concatenados, '' -> ')."""
+    cuerpo = _funcion(funcion)
+    tramo = cuerpo[cuerpo.index("'-NoProfile"):cuerpo.index("'', SW_HIDE")]
+    texto = "".join(p.replace("''", "'") for p in re.findall(r"'((?:[^']|'')*)'", tramo))
+    return texto[texto.index('-Command "') + len('-Command "'):texto.rindex('"')]
+
+
+@INS02
+@pytest.mark.skipif(shutil.which("powershell.exe") is None, reason="sin powershell.exe")
+def test_ejecuta_aplicar_acl_quita_entradas_ajenas_y_verifica(tmp_path):
+    """El mismo comando de AplicarAcl sobre una carpeta temporal con Todos:F
+    explícito: queda solo la DACL esperada (sin elevar, el dueño no es
+    Administradores: código 3; elevado: 0). Nunca toca carpetas reales."""
+    import os
+    carpeta = tmp_path / "acl"
+    carpeta.mkdir()
+    subprocess.run(["icacls", str(carpeta), "/grant", "*S-1-1-0:(OI)(CI)F", "/Q"],
+                   capture_output=True, check=True)
+    entorno = dict(os.environ, AUTOCLAVE_ACL_RUTA=str(carpeta),
+                   AUTOCLAVE_ACL_SDDL="D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)(A;OICI;0x1200a9;;;BU)",
+                   AUTOCLAVE_ACL_ESPERADO="S-1-5-32-544:2032127;S-1-5-18:2032127;S-1-5-32-545:1179817")
+    try:
+        r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                            "-Command", _comando_pascal("AplicarAcl")],
+                           capture_output=True, text=True, env=entorno, timeout=120)
+        assert r.returncode in (0, 3), r.stdout + r.stderr
+        assert ("reglas=S-1-5-18:2032127:0:3:0:False|S-1-5-32-544:2032127:0:3:0:False|"
+                "S-1-5-32-545:1179817:0:3:0:False") in r.stdout.replace("\n", "")
+        assert "S-1-1-0" not in r.stdout
+        # con lo esperado distinto, falla (código 4)
+        entorno["AUTOCLAVE_ACL_ESPERADO"] = "S-1-5-32-544:2032127;S-1-5-18:2032127"
+        r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                            "-Command", _comando_pascal("AplicarAcl")],
+                           capture_output=True, text=True, env=entorno, timeout=120)
+        assert r.returncode == 4, r.stdout
+    finally:
+        subprocess.run(["icacls", str(carpeta), "/reset", "/T", "/Q"], capture_output=True)
+
+
+@INS02
+@pytest.mark.skipif(shutil.which("powershell.exe") is None, reason="sin powershell.exe")
+def test_ejecuta_consulta_de_buses_solo_lectura():
+    """El mismo comando de ConsultarBuses (solo lee particiones y discos)."""
+    r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+                        "-Command", _comando_pascal("ConsultarBuses")],
+                       capture_output=True, text=True, timeout=120)
+    if r.returncode != 0:
+        pytest.skip("Get-Partition/Get-Disk no disponibles aquí (el Setup no preselecciona otra unidad)")
+    lineas = [l.strip() for l in r.stdout.splitlines() if l.strip()]
+    assert lineas and all(re.fullmatch(r"L=[A-Z]:\w*", l) for l in lineas), lineas
