@@ -9,8 +9,8 @@ Rama `tanda-17` desde `dev` (84c146a).
 | V | Hecha | 4 subagentes; resumen en `V_resumen.md` |
 | F | Hecha | F1 `7324847` ruta de datos; F2 `526a570` bitácora central; F3 `f101b2e` textos + UI-VER (UI-VER pasa de s4 a la sesión principal: retirar `app.version` rompía las pantallas) |
 | P | Hecha | s1 `892a29b`, s2 `10b9427`, s3 `8daaa0b`, s4 `783c968` (resumen en `P_resumen.md`) |
-| I | En curso | merges `53b59a4` (s3), `687f2e8` (s1), `2764835` (s2), `73c3624` (s4) sin conflictos; integración `32efe11`; suite completa corriendo |
-| R | En curso | 4 revisores de solo lectura |
+| I | Hecha | merges `53b59a4` (s3), `687f2e8` (s1), `2764835` (s2), `73c3624` (s4) sin conflictos; integración `32efe11`; suite 8449 passed + 2 solo en paralelo |
+| R | Hecha | 0 altos sin corregir: V17-s1-01 y V17-s1-03 (altas) corregidas; merges r2 `tanda-17-r2`, r4, r1, r3 y `632e4b9`; suite 8486 passed + 2 solo en paralelo (pasan en serie); recolectadas 8501 (base 8251) — ver `R_hallazgos.md` |
 | K | Pendiente | |
 | L | Pendiente | |
 | Z | Pendiente | |
