@@ -2242,6 +2242,126 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
+<!-- Tanda 16: bloque H agregado a mano desde hoja_pruebas_banco/pruebas.py; el .md tiene
+bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar sin reconciliar. -->
+## Bloque H. Control de vapor por chaqueta y pendientes de la tanda 14 (tanda 16, en operación)
+
+### H-01 — Válvulas por fase en modo chaqueta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** VCH §4.1–4.3, §8.1 y §8.8 (tanda 16)
+- **Objetivo:** En un equipo con chaqueta, CALENTAMIENTO y ESTERILIZACION controlan con vapor_chaqueta y vapor_camara queda abierta.
+- **Precondiciones:** Equipo de piso (clase PISO o PISO_LAB) con vapor_chaqueta y pres_chaqueta. Programa Instrumental 134 °C.
+- **Pasos:**
+  1. Iniciar el ciclo y revisar en backend.log la línea de CALENTAMIENTO con el modo ("chaqueta").
+  2. Observar los LED/relés de DO vapor_camara y vapor_chaqueta durante PRECALENTAMIENTO, PRE_VACIO, CALENTAMIENTO, ESTERILIZACION y SECADO.
+  3. Anotar el instante exacto de la transición CALENTAMIENTO → ESTERILIZACION.
+- **Resultado esperado:** vapor_camara se abre en el primer tick de CALENTAMIENTO y no se cierra hasta el fin de ESTERILIZACION (tampoco en la transición). vapor_chaqueta conmuta con el control. Al terminar ESTERILIZACION se cierran las dos y la chaqueta vuelve a su consigna.
+- **Criterio de aprobado/fallo:** Aprobado si vapor_camara no se cierra en la transición y el control conmuta solo vapor_chaqueta.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### H-02 — Golpe inicial al abrir vapor_camara tras el prevacío
+
+- **Modo:** En operación (vapor)  ·  **Origen:** VCH-02 (D5)
+- **Objetivo:** Registrar el pico de presión del golpe inicial y confirmar que no dispara fallas.
+- **Precondiciones:** Como H-01. Registro de presión de cámara y de chaqueta (gráfica o log).
+- **Pasos:**
+  1. Registrar presión de cámara, de chaqueta y temperatura Principal los primeros 60 s de CALENTAMIENTO.
+- **Resultado esperado:** El pico de presión no llega al techo de CALENTAMIENTO (sin aislamiento) ni produce CIC-12/CIC-13 ni falla de calentamiento.
+- **Criterio de aprobado/fallo:** Aprobado si no hay aislamiento ni falla por el golpe inicial. Anotar el pico (kPa) y su duración.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### H-03 — Sobrepaso y tiempo de calentamiento frente al control anterior
+
+- **Modo:** En operación (vapor)  ·  **Origen:** VCH-01 (ALTA)
+- **Objetivo:** Comparar el control por chaqueta con el control por vapor_camara para reajustar los parámetros de las dos fases.
+- **Precondiciones:** Ciclos de referencia de la alpha.1 (control por vapor_camara) con el mismo programa y carga.
+- **Pasos:**
+  1. Correr el mismo programa con la alpha.2 (modo chaqueta).
+  2. Medir: tiempo de CALENTAMIENTO, sobrepaso máximo de temperatura y de presión, número de aislamientos y oscilación en ESTERILIZACION.
+  3. Repetir variando intervalo_segmentos_calor/ester, factor_*, tasas y rangos si el sobrepaso es alto.
+- **Resultado esperado:** Sobrepaso y oscilación dentro de las bandas del programa, sin aislamientos frecuentes.
+- **Criterio de aprobado/fallo:** Aprobado cuando hay un juego de parámetros que da un ciclo estable; anotar los valores para fijarlos (VCH-01).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### H-04 — Aislamiento de cámara por sobrepresión
+
+- **Modo:** En operación (vapor)  ·  **Origen:** VCH §4.4–4.5, §8.3–8.5
+- **Objetivo:** Comprobar la entrada, la salida con histéresis y 3 s, y que la exposición y F0 siguen.
+- **Precondiciones:** Como H-01. Programa de prueba con presion_add_esterilizacion bajo para alcanzar el techo.
+- **Pasos:**
+  1. Provocar que la presión de cámara alcance el techo en ESTERILIZACION.
+  2. Observar vapor_camara y vapor_chaqueta y el log (entrada/salida del aislamiento).
+  3. Comprobar el restante de exposición en pantalla durante el aislamiento.
+- **Resultado esperado:** Al llegar al techo se cierran vapor_camara y vapor_chaqueta; reabren cuando la presión baja histeresis_cierre_camara (3 kPa) bajo el techo durante 3 s. La exposición sigue descontando.
+- **Criterio de aprobado/fallo:** Aprobado si el aislamiento entra y sale como se describe; anotar cuántos aislamientos hubo por ciclo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### H-05 — Corte de vapor de chaqueta
+
+- **Modo:** En operación (vapor)  ·  **Origen:** D-CHQ / SAF-09 / VCH-CHQ
+- **Objetivo:** Con la chaqueta en presion_max_chaqueta_control (375 kPa abs) la válvula se cierra siempre.
+- **Precondiciones:** Equipo con chaqueta. Bajar presion_max_chaqueta_control (Parámetros del equipo › Chaqueta) por debajo de la presión de chaqueta habitual, solo para la prueba.
+- **Pasos:**
+  1. Correr un ciclo y observar vapor_chaqueta en cada fase.
+  2. En CALENTAMIENTO/ESTERILIZACION verificar el aviso CIC-18.
+  3. Restablecer el parámetro a 375.
+- **Resultado esperado:** vapor_chaqueta queda en OFF mientras la presión de chaqueta esté en el corte, en todas las fases; CIC-18 aparece en CAL/EST (modo chaqueta) y se despeja solo.
+- **Criterio de aprobado/fallo:** Aprobado si nunca se ve un pulso de vapor_chaqueta con la presión en el corte.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### H-06 — Temperatura real con la presión en el techo de ESTERILIZACION
+
+- **Modo:** En operación (vapor)  ·  **Origen:** P1 / D-14.1 (DECISIÓN SIN CONFIRMAR)
+- **Objetivo:** Datos para confirmar el margen de 0,3 K de la regla P1.
+- **Precondiciones:** Programa Instrumental 134 °C (presion_add_esterilizacion 15).
+- **Pasos:**
+  1. Durante la exposición, registrar la temperatura del Principal y la presión de cámara cuando la presión está en el techo (P_control_max).
+  2. Anotar si el control sale de RECUPERACION a PWM_ACTIVO (log).
+- **Resultado esperado:** Con la presión en el techo, la temperatura queda por encima de T_est + brecha_segura_temperatura + 0,3 K y el control modula.
+- **Criterio de aprobado/fallo:** Anotar T real en el techo y si hay PWM; con eso se confirma o reajusta el margen.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### H-07 — Diferencia Principal–Referencia y oscilación pico a pico
+
+- **Modo:** En operación (vapor)  ·  **Origen:** P3 / D-14.3 y P6 / D-14.6 (DECISIONES SIN CONFIRMAR)
+- **Objetivo:** Datos para confirmar brecha_error_temperatura = 0,1 K y el debounce de 5 s en 10 s.
+- **Precondiciones:** Equipo con sonda de Referencia asignada como Referencia.
+- **Pasos:**
+  1. Durante la ventana de CALENTAMIENTO y la exposición, registrar Principal y Referencia cada segundo.
+  2. Calcular la diferencia media Principal − Referencia y la oscilación pico a pico de cada sonda.
+- **Resultado esperado:** La Referencia no queda más de brecha_error_temperatura bajo T_obj de forma sostenida; la oscilación pico a pico es menor que la banda de falla.
+- **Criterio de aprobado/fallo:** Anotar diferencia media, máxima y pico a pico; con eso se confirman o reajustan P3 y P6.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### H-08 — Ciclo NO CONFORME: franja, reconocimiento y marcas
+
+- **Modo:** En operación (vapor)  ·  **Origen:** P4 / D-14.4
+- **Objetivo:** Un ciclo con la Referencia sin lectura no se confirma sin el reconocimiento explícito.
+- **Precondiciones:** Ciclo corto con la sonda de Referencia asignada.
+- **Pasos:**
+  1. Desconectar la sonda de Referencia durante la exposición.
+  2. Al terminar, intentar CONFIRMAR; luego pulsar «Reconozco que la carga no es liberable» y confirmar.
+  3. Revisar el historial, el ticket, el PDF y el correo del ciclo.
+- **Resultado esperado:** Franja roja «CICLO NO CONFORME»; CONFIRMAR deshabilitado hasta el reconocimiento; el reconocimiento queda en la bitácora; «NO CONFORME» en historial, ticket, PDF y correo.
+- **Criterio de aprobado/fallo:** Aprobado si no se puede confirmar sin reconocer y la marca aparece en todos los registros.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
 ## Registros que se deben conservar (expediente IEC 62304)
 
 - Esta hoja firmada (cada prueba con valor observado, resultado y firma).
