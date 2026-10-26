@@ -94,6 +94,7 @@ def normalizar_progreso(respuesta) -> dict:
     """Respuesta de GET /cycle/current/progress validada para la pantalla."""
     vacio = {"activo": False, "ciclo_db_id": None, "fase_ciclo": "", "fase_activa": None,
              "resultado": None,
+             "no_conforme": False, "motivo_no_conforme": "", "no_conforme_reconocido": False,
              "fases": [], "aplicables": [], "transcurrido_s": None, "restante_s": None}
     if not isinstance(respuesta, dict) or respuesta.get("activo") is not True:
         return vacio
@@ -109,6 +110,8 @@ def normalizar_progreso(respuesta) -> dict:
             "duracion_s": _numero(f.get("duracion_s")),
         })
 
+    no_conforme = respuesta.get("no_conforme") is True
+    motivo = respuesta.get("motivo_no_conforme")
     fase_activa = respuesta.get("fase_activa")
     fase_ciclo = respuesta.get("fase_ciclo")
     ciclo = respuesta.get("ciclo_db_id")
@@ -118,6 +121,11 @@ def normalizar_progreso(respuesta) -> dict:
         "fase_ciclo": fase_ciclo if isinstance(fase_ciclo, str) else "",
         "fase_activa": fase_activa if fase_activa in FASES_UI else None,
         "resultado": respuesta.get("resultado") if respuesta.get("resultado") in _RESULTADOS else None,
+        # P4 (tanda 16, D-14.4): solo True estricto (un dato mal formado no
+        # marca NO CONFORME ni da por reconocida la carga)
+        "no_conforme": no_conforme,
+        "motivo_no_conforme": motivo if no_conforme and isinstance(motivo, str) else "",
+        "no_conforme_reconocido": no_conforme and respuesta.get("no_conforme_reconocido") is True,
         "fases": fases,
         "aplicables": [f["fase"] for f in fases],
         "transcurrido_s": _numero(respuesta.get("transcurrido_s")),

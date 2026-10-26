@@ -31,6 +31,7 @@ from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_disponible,
                                                    sensor_principal)
 from autoclave.services.domain.logging.ticket_formatter import (
+    CLAVE_NO_CONFORME, avisos_no_conforme,
     format_footer,
     format_header,
     format_row,
@@ -514,6 +515,13 @@ class CycleLogger:
             avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
                       if isinstance(a, str)
                       or (isinstance(a, dict) and isinstance(a.get("clave"), str))]
+            # P4 (tanda 16, D-14.4): defensa en profundidad. Si CicloState
+            # publicó NO CONFORME pero no alcanzó a anotar su aviso, se anota
+            # aquí para que la marca llegue igual al ticket, a la base y al
+            # respaldo (el historial la reconoce por esa clave)
+            if (getattr(self.estado, "no_conforme", False) is True
+                    and not avisos_no_conforme(avisos)):
+                avisos.append({"clave": CLAVE_NO_CONFORME, "sensor": "---"})
             avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
                              if sin_datos_s is not None or avisos else None)
             # TMG-03 de T8: primero el respaldo, después la base

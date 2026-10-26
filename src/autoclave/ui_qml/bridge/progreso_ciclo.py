@@ -136,6 +136,20 @@ class ProgresoCiclo(QObject):
     def resultado(self) -> str:
         return self._progreso["resultado"] or ""
 
+    # P4 (tanda 16, D-14.4): el ciclo quedó NO CONFORME (Referencia sin
+    # verificar) y si el operador ya reconoció que la carga no es liberable
+    @Property(bool, notify=progresoChanged)
+    def noConforme(self) -> bool:
+        return self._progreso["no_conforme"]
+
+    @Property(str, notify=progresoChanged)
+    def motivoNoConforme(self) -> str:
+        return self._progreso["motivo_no_conforme"]
+
+    @Property(bool, notify=progresoChanged)
+    def noConformeReconocido(self) -> bool:
+        return self._progreso["no_conforme_reconocido"]
+
     @Property("QVariantList", notify=progresoChanged)
     def fases(self) -> list:
         return self._progreso["fases"]

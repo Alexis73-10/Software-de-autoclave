@@ -25,7 +25,7 @@ from fastapi import APIRouter
 from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, RechazoApi, _auditar,
     _log_desarrollo, _rechazar, actividad_ui, context, guard_estado, registro_arranque,
     requiere_rol)
-from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _campos_motivo,
+from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _campos_motivo, _no_conforme_status,
     _p_atm_vigente, _salidas_sin_confirmar_pendiente)
 from autoclave.backend.rutas.mantenimiento import _calibracion_atm_en_curso
 
@@ -408,6 +408,9 @@ def get_status():
         "sin_base_de_datos":    getattr(context, "sin_base_de_datos", False) is True,
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
+        # P4 (tanda 16, D-14.4): ciclo NO CONFORME (Referencia sin verificar),
+        # su motivo (clave i18n) y si el operador ya reconoció la carga no liberable
+        **_no_conforme_status(estado),
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
         # Del enlace serial, no de Units: Units solo se entera por on_update
         # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).

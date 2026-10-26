@@ -14,7 +14,7 @@ from fastapi import APIRouter
 
 from autoclave.backend.dependencias import context
 from autoclave.backend.rutas._comun import (_ciclo_json, _encolar_en_impresora,
-    _inicio_del_dia, _rango_del_periodo)
+    _inicio_del_dia, _no_conforme_json, _rango_del_periodo)
 
 router = APIRouter()
 
@@ -111,6 +111,7 @@ def get_cycle_history(limite: int = 50):
             "fecha_fin":     r["fecha_fin"],
             "nombre_ciclo":  r["nombre_ciclo"],
             "resultado":     r["resultado"],
+            **_no_conforme_json(r),   # P4 (tanda 16, D-14.4)
         }
         for r in rows
     ]
@@ -125,7 +126,7 @@ def get_cycle_readings(ciclo_id: int):
 
     rows = context.db.get_lecturas_ciclo(ciclo_id)
     return {
-        "ciclo": dict(ciclo),
+        "ciclo": {**dict(ciclo), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
         "lecturas": [dict(r) for r in rows],
     }
 
@@ -139,6 +140,6 @@ def get_cycle_ticket(ciclo_id: int):
 
     rows = context.db.get_lecturas_para_imprimir(ciclo_id)
     return {
-        "ciclo":    dict(ciclo),
+        "ciclo":    {**dict(ciclo), **_no_conforme_json(ciclo)},   # P4 (D-14.4)
         "lecturas": [dict(r) for r in rows],
     }

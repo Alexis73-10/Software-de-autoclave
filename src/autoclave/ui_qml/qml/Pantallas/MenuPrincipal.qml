@@ -80,8 +80,13 @@ Item {
              : Colores.textoPrimario
     }
     readonly property string claveResultado: resumen?.ultimoResultado ?? ""
-    readonly property string textoResultado: textoDeResultado(claveResultado)
-    readonly property color colorResultado: colorDeResultado(claveResultado)
+    // P4 (tanda 16, D-14.4): un último ciclo NO CONFORME se rotula así (en el
+    // detalle queda además su resultado técnico, COMPLETADO)
+    readonly property bool ultimoNoConforme: resumen?.ultimoNoConforme ?? false
+    readonly property string textoResultado: ultimoNoConforme
+        ? I18n.t("menu.resultado_no_conforme", I18n.lang) : textoDeResultado(claveResultado)
+    readonly property color colorResultado: ultimoNoConforme
+        ? Colores.peligroTexto : colorDeResultado(claveResultado)
 
     // Abre una ventana flotante por nombre ("ultimo_ciclo", "mantenimiento",
     // "ciclos_hoy", "historial", "reportes"), como si se tocara su tarjeta (arnés y capturas)
@@ -382,9 +387,10 @@ Item {
             hora: raiz.dato(raiz.resumen?.ultimoHora)
             programa: raiz.dato(raiz.resumen?.ultimoPrograma)
             programaNombre: raiz.dato(raiz.resumen?.ultimoProgramaNombre)
-            resultadoTexto: raiz.textoResultado
+            resultadoTexto: raiz.textoDeResultado(raiz.claveResultado)
             resultadoDetalle: raiz.resumen?.ultimoResultadoDetalle ?? ""
-            colorResultado: raiz.colorResultado
+            colorResultado: raiz.colorDeResultado(raiz.claveResultado)
+            noConforme: raiz.ultimoNoConforme
             operador: raiz.dato(raiz.resumen?.ultimoOperador)
             datosGrafica: raiz.resumen?.datosGraficaUltimo ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
             fasesGrafica: raiz.resumen?.fasesGraficaUltimo ?? []
@@ -520,6 +526,7 @@ Item {
                 resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
                 resultadoDetalle: c.resultado_detalle ?? ""
                 colorResultado: raiz.colorDeResultado(c.resultado ?? "")
+                noConforme: c.no_conforme === true   // P4 (D-14.4)
                 operador: raiz.dato(c.operador)
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []
@@ -733,6 +740,7 @@ Item {
                 resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
                 resultadoDetalle: c.resultado_detalle ?? ""
                 colorResultado: raiz.colorDeResultado(c.resultado ?? "")
+                noConforme: c.no_conforme === true   // P4 (D-14.4)
                 operador: raiz.dato(c.operador)
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []
@@ -1155,6 +1163,7 @@ Item {
                 resultadoTexto: raiz.textoDeResultado(c.resultado ?? "")
                 resultadoDetalle: c.resultado_detalle ?? ""
                 colorResultado: raiz.colorDeResultado(c.resultado ?? "")
+                noConforme: c.no_conforme === true   // P4 (D-14.4)
                 operador: raiz.dato(c.operador)
                 datosGrafica: raiz.historial?.datosGrafica ?? ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
                 fasesGrafica: raiz.historial?.fasesGrafica ?? []
