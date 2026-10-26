@@ -10,16 +10,41 @@
   QML necesitan el escritorio de esa sesion), con nivel limitado.
   Idempotente: si la tarea existe con la misma accion, no se toca; si difiere, se
   reemplaza. Inverso: 03_revertir_tarea_autoclave.ps1.
+  EST-07 (tanda 17, DECISION SIN CONFIRMAR): disparo sin retraso (PT0S, antes
+  PT10S); Autoclave.exe tapa las pantallas con la cubierta de arranque.
+  -Ejecutable por defecto: RutaPrograma de HKLM\SOFTWARE\Especifika\Autoclave
+  (vista de 64 bits, la escribe el Setup desde la tanda 17) + Autoclave.exe;
+  sin esa clave, %ProgramFiles%\Especifika\Autoclave\Autoclave.exe como antes.
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [string]$Usuario = 'operador',
-    [string]$Ejecutable = (Join-Path $env:ProgramFiles 'Especifika\Autoclave\Autoclave.exe'),
+    [string]$Ejecutable,
     [string]$NombreTarea = 'Especifika Autoclave - Arranque'
 )
 . "$PSScriptRoot\_comun.ps1"
 Assert-Administrador
 $Paso = '03_tarea_autoclave'
+
+function Get-EjecutablePorDefecto {
+    <# RutaPrograma de HKLM\SOFTWARE\Especifika\Autoclave (vista de 64 bits) +
+       Autoclave.exe; sin la clave o el valor, la ruta de antes en Archivos de programa. #>
+    $porDefecto = Join-Path $env:ProgramFiles 'Especifika\Autoclave\Autoclave.exe'
+    try {
+        $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64')
+        try {
+            $clave = $base.OpenSubKey('SOFTWARE\Especifika\Autoclave', $false)
+            if ($null -ne $clave) {
+                try { $ruta = $clave.GetValue('RutaPrograma', $null) } finally { $clave.Close() }
+                if ($ruta) { return (Join-Path ([string]$ruta) 'Autoclave.exe') }
+            }
+        } finally { $base.Close() }
+    } catch {
+        Write-Log "No se pudo leer RutaPrograma del registro: $($_.Exception.Message)" 'WARN'
+    }
+    return $porDefecto
+}
+if (-not $Ejecutable) { $Ejecutable = Get-EjecutablePorDefecto }
 Write-Log "== Inicio $Paso (usuario=$Usuario, exe=$Ejecutable, WhatIf=$WhatIfPreference) =="
 
 if (-not (Test-Path -LiteralPath $Ejecutable)) {
@@ -40,7 +65,7 @@ if ($existente) {
 
 $accion   = New-ScheduledTaskAction -Execute $Ejecutable -WorkingDirectory (Split-Path -Parent $Ejecutable)
 $disparo  = New-ScheduledTaskTrigger -AtLogOn -User $principalUsuario
-$disparo.Delay = 'PT10S'
+$disparo.Delay = 'PT0S'    # EST-07: sin retraso
 $ajustes  = New-ScheduledTaskSettingsSet -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1) `
               -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
               -MultipleInstances IgnoreNew -StartWhenAvailable
