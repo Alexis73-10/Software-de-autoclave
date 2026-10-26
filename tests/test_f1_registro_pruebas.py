@@ -76,7 +76,9 @@ def _guardar(c, rid, pid, resultado="aprobada", cid=None, uuid=None, motivo="", 
 
 def test_el_formulario_sale_de_pruebas_py_con_todos_los_bloques():
     s = definiciones.construir_snapshot()
-    assert s["total"] >= 28 and {b[0] for b in s["bloques"]} == set("ABCDEFG")
+    # Tanda 17 (A1): la hoja de banco ganó el bloque H en el cierre de la tanda 16
+    # (VCH, d643a9a); la prueba sigue exigiendo el conjunto exacto de bloques.
+    assert s["total"] >= 28 and {b[0] for b in s["bloques"]} == set("ABCDEFGH")
     ids = {p["id"] for p in s["pruebas"]}
     assert {"A-04", "B-01", "B-03", "B-04", "B-07", "D-06", "D-07", "D-08", "E-06"} <= ids   # H1
     assert definiciones.verificar_snapshot(s)
