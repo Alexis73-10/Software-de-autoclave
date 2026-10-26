@@ -21,7 +21,9 @@ def _lectura(i, t_s, fase_ui="vacio", tc=80.0, tr=79.0, p=101.3):
 def test_acumulador_vacio_pide_historico_completo():
     acc = AcumuladorGrafica()
     assert acc.desde_id is None
-    assert acc.datos() == {"t_min": [], "temp_camara": [], "temp_ref": [], "pres_camara": []}
+    # Tanda 17 (SON-01, decisión de Cristian): también la serie de Cámara 2
+    assert acc.datos() == {"t_min": [], "temp_camara": [], "temp_ref": [], "pres_camara": [],
+                           "temp_2_camara": []}
 
 
 def test_acumulador_incorpora_y_convierte_a_minutos():

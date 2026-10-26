@@ -316,13 +316,17 @@ class _EntradasBody(BaseModel):
 def get_entradas_mostradas(programa: int):
     """Entradas mostradas del programa (1 a 3), las AI habilitadas del equipo y
     las que ofrece el selector (O11, D11-7.1: sin los sensores No en uso)."""
+    # Tanda 17 (SON-01, decisión de Cristian): el selector ofrece también las
+    # sondas instaladas No en uso; `no_en_uso` (solo las instaladas) sirve
+    # para rotularlas «(monitoreo)». El docstring de arriba queda igual
+    # porque forma parte del OpenAPI fijado por test_t15_rutas_equivalentes.
     from autoclave.core.managers import gestion_programas as gp
     cycle = _programa_por_numero(programa)
     habilitadas = _ai_habilitadas()
     return {"programa": programa, "entradas": gp.entradas_de(cycle, habilitadas),
             "habilitadas": habilitadas,
             "disponibles": gp.entradas_disponibles(cycle, habilitadas),
-            "no_en_uso": gp.entradas_no_en_uso(cycle),
+            "no_en_uso": gp.entradas_no_en_uso(cycle, habilitadas),
             "editable": getattr(cycle, "source", "") == "user"}
 
 
@@ -393,20 +397,11 @@ def _normalizar_asignacion(asignacion: dict) -> dict:
     return {**{s: sc.NO_EN_USO for s in sc.SENSORES}, **asignacion}
 
 
-_SIN_CAMBIO = object()
-
-
-def _escribir_sensores_json(cycle, asignacion: dict, entradas=_SIN_CAMBIO) -> None:
-    """Campo cycle_temperature_sensors del JSON (RS-02). O11 (D11-7.3): con
-    `entradas`, también entradas_mostradas en la misma escritura atómica
-    (None la quita)."""
+def _escribir_sensores_json(cycle, asignacion: dict) -> None:
+    """Campo cycle_temperature_sensors del JSON (RS-02). Tanda 17 (SON-01):
+    ya no toca entradas_mostradas (se retira O11, D11-7.3)."""
     def cambiar(data):
         data["cycle_temperature_sensors"] = {s: asignacion[s] for s in sc.SENSORES}
-        if entradas is not _SIN_CAMBIO:
-            if entradas is None:
-                data.pop("entradas_mostradas", None)
-            else:
-                data["entradas_mostradas"] = list(entradas)
     _escribir_json_programa(cycle, cambiar)
 
 
@@ -451,18 +446,11 @@ def put_sensor_roles(body: _SensorRolesBody,
                 raise _Rechazo(422, sc.SENSOR_NO_DISPONIBLE,
                                f"Sensores sin lectura o no instalados: {faltan}",
                                extra={"sensores": faltan})
-        # O11 (D11-7.3): un sensor que pasa a No en uso sale de las entradas
-        # mostradas del programa en la misma escritura (vacía -> el Principal)
-        from autoclave.core.managers import gestion_programas as gp
-        entradas_previas = getattr(cycle, "entradas_mostradas", None)
-        entradas_nuevas = gp.entradas_tras_cambio_de_rol(entradas_previas, nueva)
-        con_entradas = entradas_nuevas is not None
+        # Tanda 17 (SON-01, decisión de Cristian): al pasar una sonda a No en
+        # uso ya no se quita de las Entradas mostradas (se retira O11, D11-7.3)
         # archivo fuera de _sm_lock (no detener el tick); si falla, nada cambió
         try:
-            if con_entradas:
-                _escribir_sensores_json(cycle, nueva, entradas_nuevas)
-            else:
-                _escribir_sensores_json(cycle, nueva)
+            _escribir_sensores_json(cycle, nueva)
         except OSError as exc:
             raise HTTPException(status_code=500, detail=f"No se pudo guardar el programa: {exc}")
         with context.control_loop.bloqueo_maquina():
@@ -473,18 +461,13 @@ def put_sensor_roles(body: _SensorRolesBody,
             if permitido:
                 cycle.sensores = dict(nueva)
                 cycle.sensores_formato_antiguo = False
-                if con_entradas:
-                    cycle.entradas_mostradas = list(entradas_nuevas)
                 if not en_ciclo:
                     # S4: libera un estado seguro detenido por el Principal
                     # viejo, solo si la sonda nueva es segura (no más fría)
                     propagado, motivo_propagacion = context.control_loop.aplicar_roles_sensores(
                         cycle.id, nueva)
         if not permitido:
-            if con_entradas:                               # revierte el archivo
-                _escribir_sensores_json(cycle, anterior, entradas_previas)
-            else:
-                _escribir_sensores_json(cycle, anterior)
+            _escribir_sensores_json(cycle, anterior)       # revierte el archivo
             _rechazar(409, "estado_no_permitido",
                       "Hay un ciclo en curso: no se aplicó el cambio", entidad, sesion)
 
@@ -493,13 +476,6 @@ def put_sensor_roles(body: _SensorRolesBody,
              detalle={"programa": cycle.id, "numero": body.programa,
                       "param": "cycle_temperature_sensors",
                       "estado_seguro_propagado": propagado,
-                      "motivo_propagacion": motivo_propagacion,
-                      **({"entradas_mostradas": entradas_nuevas} if con_entradas else {})})
-    if con_entradas:
-        # mismo evento y entidad que PUT /cycle/display-inputs
-        _auditar("entradas_mostradas", sesion, entidad=f"/cycle/display-inputs/{body.programa}",
-                 valor_anterior=list(entradas_previas), valor_nuevo=list(entradas_nuevas),
-                 detalle={"motivo": "sensor_no_en_uso", "programa": cycle.id,
-                          "numero": body.programa})
+                      "motivo_propagacion": motivo_propagacion})
     return {"ok": True, "asignacion": nueva,
             "estado_seguro_propagado": propagado}

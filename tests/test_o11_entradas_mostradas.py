@@ -55,10 +55,10 @@ def test_no_en_uso_del_programa():
 
 def test_json_viejo_con_no_en_uso_se_filtra_al_presentar():
     viejo = _prog(_FABRICA, ["temp_referencia", "pres_chaqueta", "temp_camara"])
-    assert gp.entradas_de(viejo, _HAB) == ["pres_chaqueta", "temp_camara"]
-    # todas No en uso: la omisión
+    # Tanda 17 (SON-01, decisión de Cristian): las No en uso se conservan (monitoreo)
+    assert gp.entradas_de(viejo, _HAB) == ["temp_referencia", "pres_chaqueta", "temp_camara"]
     solo_ref = _prog(_FABRICA, ["temp_referencia", "temp_2_camara"])
-    assert gp.entradas_de(solo_ref, _HAB) == ["temp_camara", "pres_camara"]
+    assert gp.entradas_de(solo_ref, _HAB) == ["temp_referencia", "temp_2_camara"]
 
 
 def test_get_cycle_filtra_un_json_viejo(api, monkeypatch):
@@ -68,7 +68,8 @@ def test_get_cycle_filtra_un_json_viejo(api, monkeypatch):
     c.entradas_mostradas = ["temp_referencia", "pres_chaqueta"]
     ctx.cycle_manager.selected_cycle = c
     d = client.get("/cycle").json()
-    assert d["entradas_mostradas"] == ["pres_chaqueta"]
+    # Tanda 17 (SON-01, decisión de Cristian): la No en uso se conserva y se rotula
+    assert d["entradas_mostradas"] == ["temp_referencia", "pres_chaqueta"]
     assert "temp_referencia" in d["entradas_no_en_uso"]
 
 
@@ -78,7 +79,8 @@ def test_programa_de_fabrica_tambien_se_filtra(api, monkeypatch):
     fabrica = ctx.cycle_manager.fabrica[2]
     fabrica.entradas_mostradas = ["temp_referencia", "pres_camara"]
     ctx.cycle_manager.selected_cycle = fabrica
-    assert client.get("/cycle").json()["entradas_mostradas"] == ["pres_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): la No en uso se conserva
+    assert client.get("/cycle").json()["entradas_mostradas"] == ["temp_referencia", "pres_camara"]
 
 
 # ── selector y rechazo en el backend (D11-7.1) ─────────────────────────────
@@ -88,7 +90,8 @@ def test_disponibles_sin_no_en_uso(api, monkeypatch):
     parchear_en_backend(monkeypatch, "_ai_habilitadas", lambda: list(_HAB))
     d = client.get("/cycle/display-inputs?programa=2").json()
     assert d["entradas"] == ["temp_camara", "pres_camara"]
-    assert d["disponibles"] == ["temp_camara", "pres_camara", "pres_chaqueta"]
+    # Tanda 17 (SON-01, decisión de Cristian): el selector ofrece también las No en uso
+    assert d["disponibles"] == _HAB
     assert d["habilitadas"] == _HAB
 
 
@@ -99,11 +102,12 @@ def test_put_rechaza_sensor_no_en_uso_422(api, monkeypatch):
     antes = Path(c._path).read_text(encoding="utf-8")
     r = client.put("/cycle/display-inputs", headers=cabecera(srv, "tecnico"),
                    json={"programa": 2, "entradas": ["temp_camara", "temp_referencia"]})
-    assert r.status_code == 422 and r.json()["codigo"] == "SENSOR_NO_EN_USO"
-    assert Path(c._path).read_text(encoding="utf-8") == antes
-    with pytest.raises(gp.ErrorPrograma) as e:
-        gp.fijar_entradas(ctx.cycle_manager, 2, ["temp_2_camara"], _HAB)
-    assert e.value.codigo == "SENSOR_NO_EN_USO" and e.value.estado_http == 422
+    # Tanda 17 (SON-01, decisión de Cristian): se retira el rechazo SENSOR_NO_EN_USO
+    assert r.status_code == 200, r.text
+    assert Path(c._path).read_text(encoding="utf-8") != antes
+    assert json.loads(Path(c._path).read_text(encoding="utf-8"))["entradas_mostradas"] == [
+        "temp_camara", "temp_referencia"]
+    assert gp.fijar_entradas(ctx.cycle_manager, 2, ["temp_2_camara"], _HAB)[1] == ["temp_2_camara"]
 
 
 def test_put_acepta_sensor_en_uso(api, monkeypatch):
@@ -123,15 +127,13 @@ def test_cambio_de_rol_quita_la_entrada_con_auditoria(entorno):
     prog.entradas_mostradas = ["temp_referencia", "pres_camara"]
     r = _put(client, srv, _FABRICA, anterior=_CON_REF)
     assert r.status_code == 200, r.text
-    assert prog.entradas_mostradas == ["pres_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): al pasar a No en uso ya no se quita de
+    # las Entradas mostradas ni se audita `entradas_mostradas`
+    assert prog.entradas_mostradas == ["temp_referencia", "pres_camara"]
     data = json.loads(archivo.read_text(encoding="utf-8"))
-    assert data["entradas_mostradas"] == ["pres_camara"]
+    assert "entradas_mostradas" not in data
     assert data["cycle_temperature_sensors"] == _FABRICA
-    [fila] = ctx.db.get_auditoria(evento="entradas_mostradas")
-    assert json.loads(fila["valor_anterior"]) == ["temp_referencia", "pres_camara"]
-    assert json.loads(fila["valor_nuevo"]) == ["pres_camara"]
-    detalle = fila["detalle"] if isinstance(fila["detalle"], dict) else json.loads(fila["detalle"])
-    assert detalle["motivo"] == "sensor_no_en_uso"
+    assert ctx.db.get_auditoria(evento="entradas_mostradas") == []
 
 
 def test_cambio_de_rol_repone_el_principal_si_queda_vacia(entorno):
@@ -139,8 +141,9 @@ def test_cambio_de_rol_repone_el_principal_si_queda_vacia(entorno):
     assert _put(client, srv, _CON_REF).status_code == 200
     prog.entradas_mostradas = ["temp_referencia"]
     assert _put(client, srv, _FABRICA, anterior=_CON_REF).status_code == 200
-    assert prog.entradas_mostradas == ["temp_camara"]
-    assert json.loads(archivo.read_text(encoding="utf-8"))["entradas_mostradas"] == ["temp_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): la selección no cambia
+    assert prog.entradas_mostradas == ["temp_referencia"]
+    assert "entradas_mostradas" not in json.loads(archivo.read_text(encoding="utf-8"))
 
 
 def test_cambio_de_rol_sin_afectar_la_seleccion_no_la_toca(entorno):
@@ -163,11 +166,8 @@ def test_cambio_de_rol_rechazado_en_ciclo_no_toca_la_seleccion(entorno):
 
 
 def test_tras_cambio_de_rol_funcion_pura():
-    assert gp.entradas_tras_cambio_de_rol(None, _FABRICA) is None
-    assert gp.entradas_tras_cambio_de_rol(["temp_camara"], _FABRICA) is None
-    assert gp.entradas_tras_cambio_de_rol(["temp_2_camara", "pres_camara"], _FABRICA) == ["pres_camara"]
-    principal_2 = {"temp_camara": "no_en_uso", "temp_2_camara": "principal", "temp_ref": "no_en_uso"}
-    assert gp.entradas_tras_cambio_de_rol(["temp_camara"], principal_2) == ["temp_2_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): se retira entradas_tras_cambio_de_rol
+    assert not hasattr(gp, "entradas_tras_cambio_de_rol")
 
 
 # ── presentación: Preciclo, Ciclo y gráfica sin las filas No en uso ────────
@@ -178,19 +178,24 @@ SENSORS = {"temperature": {"camara": 121.04, "ref": 120.5}, "pressure": {"camara
 def test_construir_omite_las_no_en_uso():
     filas = em.construir(["temp_camara", "temp_referencia", "pres_camara"], SENSORS,
                          no_en_uso=["temp_referencia"])
-    assert [f["clave"] for f in filas] == ["temp_camara", "pres_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): la No en uso se muestra como monitoreo
+    assert [f["clave"] for f in filas] == ["temp_camara", "temp_referencia", "pres_camara"]
+    assert [f["monitoreo"] for f in filas] == [False, True, False]
     assert "—" not in [f["valor"] for f in filas]
 
 
 def test_construir_todas_no_en_uso_cae_en_la_omision():
     filas = em.construir(["temp_referencia"], SENSORS, no_en_uso=["temp_referencia"])
-    assert [f["clave"] for f in filas] == ["temp_camara", "pres_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): ya no cae en la omisión
+    assert [f["clave"] for f in filas] == ["temp_referencia"] and filas[0]["monitoreo"] is True
 
 
 def test_series_omiten_las_no_en_uso():
     series = em.series_grafica(["temp_camara", "temp_referencia", "pres_camara"],
                                no_en_uso=["temp_referencia"])
-    assert [s["entrada"] for s in series] == ["temp_camara", "pres_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): la serie No en uso se grafica (monitoreo)
+    assert [s["entrada"] for s in series] == ["temp_camara", "temp_referencia", "pres_camara"]
+    assert [s["monitoreo"] for s in series] == [False, True, False]
 
 
 def test_puente_sin_fila_no_en_uso():
@@ -215,8 +220,9 @@ def test_puente_sin_fila_no_en_uso():
                                  "entradas_no_en_uso": ["temp_referencia"]}
     b = UiBridge(ui, door=1, iniciar=False)
     b.refrescar()
-    assert [f["clave"] for f in b.entradasMostradas] == ["temp_camara", "pres_camara"]
-    assert [s["entrada"] for s in b.seriesGrafica] == ["temp_camara", "pres_camara"]
+    # Tanda 17 (SON-01, decisión de Cristian): la fila No en uso aparece (monitoreo)
+    assert [f["clave"] for f in b.entradasMostradas] == ["temp_camara", "temp_referencia", "pres_camara"]
+    assert [s["entrada"] for s in b.seriesGrafica] == ["temp_camara", "temp_referencia", "pres_camara"]
 
 
 # ── selector por fila (D11-7.2) ────────────────────────────────────────────

@@ -47,16 +47,24 @@ def get_selected_cycle():
 def _entradas_mostradas_de(cycle) -> dict:
     """O3 (tanda 6): entradas mostradas (1 a 3) del programa para Preciclo,
     Ciclo y gráfica, y las que tienen el sensor "No en uso" en el programa.
-    O11 (tanda 11, D11-7): la lista ya viene sin los No en uso (también la de
-    un JSON viejo o de un programa de fábrica). Solo presentación; ante
-    cualquier error, la omisión del programa."""
+    Tanda 17 (SON-01, revierte O11 / D11-7): una sonda instalada No en uso se
+    muestra y se registra como monitoreo; `entradas_no_en_uso` (solo las de
+    sondas instaladas, AI habilitadas por el perfil) ya no filtra: la UI la
+    usa para el rótulo «(monitoreo)». Solo presentación; ante cualquier
+    error, la omisión del programa."""
     from autoclave.core.managers import gestion_programas as gp
     try:
-        no_en_uso = gp.entradas_no_en_uso(cycle)
+        habilitadas = _ai_habilitadas()
+    except Exception:
+        habilitadas = None
+    try:
+        no_en_uso = gp.entradas_no_en_uso(cycle, habilitadas)
     except Exception:
         no_en_uso = []
     try:
-        entradas = gp.entradas_de(cycle, _ai_habilitadas())
+        if habilitadas is None:
+            raise ValueError("sin AI habilitadas")
+        entradas = gp.entradas_de(cycle, habilitadas)
     except Exception:
         try:
             entradas = gp.entradas_por_omision(cycle)
@@ -226,6 +234,8 @@ def get_current_cycle_graph(desde_id: int | None = None):
     if ciclo_id is None:
         return {"ciclo_db_id": None, "lecturas": []}
     rows = context.db.get_lecturas_grafica(ciclo_id, desde_id)
+    # Tanda 17 (SON-01): las sondas instaladas, también las No en uso (monitoreo)
+    sondas = sc.sondas_grafica(getattr(context, "profile", None))
     return {
         "ciclo_db_id": ciclo_id,
         "lecturas": [
@@ -234,8 +244,7 @@ def get_current_cycle_graph(desde_id: int | None = None):
                 "t_s":         r["t_s"],
                 "fase":        r["fase"],
                 "fase_ui":     progreso_ciclo.fase_ui(r["fase"]),
-                "temp_camara": r["temp_camara"],
-                "temp_ref":    r["temp_ref"],
+                **sc.temperaturas_grafica(r, sondas),
                 "pres_camara": r["pres_camara"],
             }
             for r in rows
