@@ -11,12 +11,12 @@
 | F5 | Hecha | d26d7cf testpaths |
 | P | Hecha | s1 7f364f1, s2 4125106, s3 00b0bb5, s4 d778624+e774062, s5 d306606+53952d9 |
 | I | Hecha | merges 00ec5ae..d276e1d (sin conflictos), 7484757 ajustes, 6554f16 integración VCH §8; suite 8238 recolectadas (base 7922 + 316): solo la falla preexistente de test_ver_entrega |
-| R | En curso | 5 revisores de solo lectura |
-| K | Pendiente | |
+| R | Hecha | 0 altos; medios y bajos corregidos en 4fda28b salvo los listados en R16 (abiertos, sin severidad alta); suite 8251 recolectadas: 8235 pasan, 1 falla preexistente + 2 solo en paralelo (pasan en serie) |
+| K | En curso | |
 | L | Pendiente | |
 | Z | Pendiente | |
 
-Último commit: 6554f16
+Último commit: 4fda28b
 
 ## Resumen de V
 - V-01: no existía función de perfil para chaqueta; creada `installation/profile.py::modo_vapor(profile, io_enabled=None)` (chaqueta solo con perfil real, `has_full_jacket is True` y `vapor_chaqueta`/`pres_chaqueta` en io_enabled filtrado). CicloState la evalúa en reset() → `estado.modo_vapor`.
