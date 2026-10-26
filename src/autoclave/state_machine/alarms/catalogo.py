@@ -82,6 +82,14 @@ CIC_11 = "CIC-11"
 # E12 (tanda 12): fallos propios de ESTERILIZACION, mismo mecanismo que CIC-11
 # C-03: saturación (solo sólidos); C-13.4: Referencia sin retorno a la banda
 CIC_12, CIC_13, CIC_14 = "CIC-12", "CIC-13", "CIC-14"
+# F2 (tanda 16): VCH §4.5, fallos del aislamiento de cámara por sobrepresión
+# (modo chaqueta, CALENTAMIENTO y ESTERILIZACION): sostenido y recurrente
+CIC_15, CIC_16 = "CIC-15", "CIC-16"
+# P5 (D-14.5): excursión confirmada después del tope de reinicios de la exposición
+CIC_17 = "CIC-17"
+# D-CHQ / VCH-CHQ (§4.6): chaqueta en el corte de control en modo chaqueta;
+# aviso no bloqueante, se despeja solo
+CIC_18 = "CIC-18"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -331,6 +339,30 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "se abortó.",
        "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y "
        "repita el ciclo."),
+    # F2 (tanda 16, VCH §4.5): aislamiento de cámara por sobrepresión que no
+    # se resuelve en timeout_aislamiento_camara, o que se repite
+    # max_aislamientos_camara veces en ventana_aislamientos_camara
+    _d(CIC_15, _AL, True, _M, "Sobrepresión de cámara sostenida",
+       "La cámara siguió aislada por sobrepresión más de {minutos} min en la fase {fase} sin "
+       "que la presión bajara del techo de control ({maximo:.1f} kPa). El ciclo se abortó.",
+       "La carga NO está estéril. Revise la válvula de vapor de cámara (puede estar pegada "
+       "abierta), los escapes y el sensor de presión de cámara. Llame a servicio técnico."),
+    _d(CIC_16, _AL, True, _M, "Sobrepresión de cámara recurrente",
+       "La cámara se aisló por sobrepresión {cantidad} veces en {minutos} min en la fase "
+       "{fase}. El ciclo se abortó.",
+       "La carga NO está estéril. Revise el techo de presión del programa y la regulación del "
+       "vapor de chaqueta. Si se repite, llame a servicio técnico."),
+    # F2 (tanda 16, P5 / D-14.5)
+    _d(CIC_17, _AL, True, _M, "Exposición reiniciada demasiadas veces",
+       "{sensor} volvió a salir de la banda de esterilización después de {reinicios} "
+       "reinicios de la exposición (máximo {maximo}). El ciclo se abortó.",
+       "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y "
+       "repita el ciclo."),
+    # F2 (tanda 16, D-CHQ / VCH-CHQ): no hay FALLO por esta vía (§4.6)
+    _d(CIC_18, _AV, False, _A, "Presión de chaqueta en el límite de control",
+       "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la "
+       "válvula de vapor de chaqueta queda cerrada mientras dure.",
+       "Revise el regulador del vapor de suministro. El ciclo sigue."),
     # U4 (tanda 2): solo con la tarjeta desconectada (sin puerto o puerto
     # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
     _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",

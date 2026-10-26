@@ -1038,6 +1038,26 @@
       "plantilla": "{sensor} stayed outside the sterilization band for more than {minutos} min. The cycle was aborted.",
       "accion": "The load is NOT sterile. Check the load, its position and the reference probe, and repeat the cycle."
     },
+    "CIC-15": {
+      "titulo": "Sustained chamber overpressure",
+      "plantilla": "The chamber stayed isolated due to overpressure for more than {minutos} min in the {fase} phase without the pressure dropping below the control ceiling ({maximo:.1f} kPa). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the chamber steam valve (it may be stuck open), the exhausts and the chamber pressure sensor. Call technical service."
+    },
+    "CIC-16": {
+      "titulo": "Recurrent chamber overpressure",
+      "plantilla": "The chamber was isolated due to overpressure {cantidad} times in {minutos} min in the {fase} phase. The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the program's pressure ceiling and the jacket steam regulation. If it happens again, call technical service."
+    },
+    "CIC-17": {
+      "titulo": "Exposure restarted too many times",
+      "plantilla": "{sensor} left the sterilization band again after {reinicios} exposure restarts (maximum {maximo}). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the load, its position and the reference probe, and repeat the cycle."
+    },
+    "CIC-18": {
+      "titulo": "Jacket pressure at the control limit",
+      "plantilla": "The jacket reached {pres:.1f} kPa (limit {maximo:.1f} kPa) in the {fase} phase: the jacket steam valve stays closed while it lasts.",
+      "accion": "Check the supply steam regulator. The cycle continues."
+    },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
       "plantilla": "Communication with the board was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
@@ -1252,6 +1272,7 @@
       "tiempo_adicional_bajo_d": "Extra seconds the vacuum of pulse D is held."
     },
     "calentamiento": {
+      "histeresis_cierre_camara": "Units with jacket: how far the chamber pressure must drop below the control ceiling (held for 3 s) to reopen the chamber steam valve after an overpressure isolation.",
       "temperatura_calentamiento": "Target temperature at the end of the heating ramp.",
       "presion_add_calentamiento": "Extra pressure above saturation allowed as a ceiling during the ramp.",
       "timeout_calentamiento": "Maximum heating ramp time; if exceeded, the cycle fails.",
@@ -1277,6 +1298,8 @@
       "timeout_recuperacion": "Maximum time to return to range before declaring a failure."
     },
     "esterilizacion": {
+      "histeresis_cierre_camara": "Units with jacket: how far the chamber pressure must drop below P_control_max (held for 3 s) to reopen the chamber steam valve after an overpressure isolation.",
+      "max_reinicios_exposicion": "Number of times a Reference excursion may restart the exposure count. The next confirmed excursion after this limit aborts the cycle (0 = the first excursion aborts).",
       "escape_lento_on_ester": "Seconds the slow exhaust stays open on each repetition during sterilization.",
       "escape_lento_off_ester": "Seconds the slow exhaust stays closed (0 = always open).",
       "escape_rapido_on_ester": "Seconds the fast exhaust stays open on each repetition (0 = always closed).",
@@ -1783,6 +1806,7 @@
       "timeout_bajo": "Time limit to reach low pressure"
     },
     "calentamiento": {
+      "histeresis_cierre_camara": "Chamber reopening hysteresis",
       "escape_lento_on": "Slow exhaust open time",
       "escape_lento_off": "Slow exhaust closed time",
       "escape_rapido_on": "Fast exhaust open time",
@@ -1808,6 +1832,8 @@
       "timeout_recuperacion": "Recovery time limit"
     },
     "esterilizacion": {
+      "histeresis_cierre_camara": "Chamber reopening hysteresis",
+      "max_reinicios_exposicion": "Maximum exposure restarts",
       "brecha_error_presion": "Low pressure failure margin",
       "brecha_error_temperatura": "Low temperature failure margin",
       "brecha_segura_presion": "Pressure recovery margin",
@@ -1889,6 +1915,9 @@
     "est_aire": "Air or non-condensable gases: Tsat(P) {temp_sat} exceeds the Main sensor {temp} by {dt} K",
     "est_sobrecalentado": "Superheated steam or probe failure: Main sensor {temp} exceeds Tsat(P) {temp_sat} by {dt} K",
     "est_excursion_referencia": "{sensor} out of band for more than {minutos} min",
+    "ais_sostenida": "Chamber isolated due to overpressure for more than {minutos} min without dropping below the ceiling {pres_techo}",
+    "ais_recurrente": "{cantidad} chamber overpressure isolations in {minutos} min",
+    "est_tope_reinicios": "{sensor} out of band again after {reinicios} exposure restarts (maximum {maximo})",
     "desc_tiempo_limite": "{etapa} time limit in mode {modo} (T={temp}, P={pres})",
     "sec_vacio_perdido": "Drying mode {modo}: vacuum lost ({pres} ≥ {pres_umbral})",
     "sec_sin_vacio": "Drying mode {modo}: no real vacuum (the pressure did not drop below {pres_umbral} in time); check the vacuum pump",

@@ -1038,6 +1038,26 @@
       "plantilla": "{sensor} siguió fuera de la banda de esterilización por más de {minutos} min. El ciclo se abortó.",
       "accion": "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y repita el ciclo."
     },
+    "CIC-15": {
+      "titulo": "Sobrepresión de cámara sostenida",
+      "plantilla": "La cámara siguió aislada por sobrepresión más de {minutos} min en la fase {fase} sin que la presión bajara del techo de control ({maximo:.1f} kPa). El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise la válvula de vapor de cámara (puede estar pegada abierta), los escapes y el sensor de presión de cámara. Llame a servicio técnico."
+    },
+    "CIC-16": {
+      "titulo": "Sobrepresión de cámara recurrente",
+      "plantilla": "La cámara se aisló por sobrepresión {cantidad} veces en {minutos} min en la fase {fase}. El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise el techo de presión del programa y la regulación del vapor de chaqueta. Si se repite, llame a servicio técnico."
+    },
+    "CIC-17": {
+      "titulo": "Exposición reiniciada demasiadas veces",
+      "plantilla": "{sensor} volvió a salir de la banda de esterilización después de {reinicios} reinicios de la exposición (máximo {maximo}). El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y repita el ciclo."
+    },
+    "CIC-18": {
+      "titulo": "Presión de chaqueta en el límite de control",
+      "plantilla": "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la válvula de vapor de chaqueta queda cerrada mientras dure.",
+      "accion": "Revise el regulador del vapor de suministro. El ciclo sigue."
+    },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
       "plantilla": "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase {fase}. El ciclo se abortó.",
@@ -1252,6 +1272,7 @@
       "tiempo_adicional_bajo_d": "Segundos que la bomba y la válvula de vacío siguen funcionando después de alcanzar la presión baja del pulso D, antes de inyectar vapor. 0 = sin espera."
     },
     "calentamiento": {
+      "histeresis_cierre_camara": "Equipos con chaqueta: cuánto debe bajar la presión de cámara bajo el techo de control (sostenido 3 s) para reabrir la válvula de vapor de cámara tras un aislamiento por sobrepresión.",
       "temperatura_calentamiento": "Temperatura objetivo (T_obj) de la sonda Principal al final del calentamiento. De ella se deriva la presión objetivo P_obj = Psat(T_obj) + «Presión adicional de calentamiento». La fase pasa a la ventana de estabilidad cuando T ≥ T_obj y P ≥ P_obj. Normalmente igual a «Temperatura de esterilización».",
       "presion_add_calentamiento": "Sobrepresión (p_add) sobre Psat(T_obj) que fija P_obj = Psat(T_obj) + p_add. Se usa en tres puntos: (1) techo absoluto: con P ≥ Psat(T_obj) + 2·p_add se corta el vapor; (2) banda de estabilidad: P_obj ≤ P ≤ P_obj + p_add; (3) verificación de vapor saturado: con T ≥ 0,97·T_obj se exige P ≥ Psat(T) + p_add o se corta el vapor.",
       "timeout_calentamiento": "Tiempo máximo, en minutos, de toda la fase (rampa y ventana de estabilidad), contado desde su inicio. Si vence, el ciclo falla.",
@@ -1277,6 +1298,8 @@
       "timeout_recuperacion": "Sin efecto en esta versión: la estabilización se integró en Calentamiento. El equivalente es «Tiempo límite de recuperación de la estabilidad»."
     },
     "esterilizacion": {
+      "histeresis_cierre_camara": "Equipos con chaqueta: cuánto debe bajar la presión de cámara bajo P_control_max (sostenido 3 s) para reabrir la válvula de vapor de cámara tras un aislamiento por sobrepresión.",
+      "max_reinicios_exposicion": "Cantidad de veces que una excursión de Referencia puede reiniciar el conteo de exposición. La siguiente excursión confirmada después de este tope aborta el ciclo (0 = la primera excursión aborta).",
       "escape_lento_on_ester": "Segundos que el escape lento permanece abierto en cada ciclo de su temporizador. El temporizador corre durante toda la fase, en paralelo e independiente del control de vapor. 0 = siempre cerrado (si el tiempo cerrado es mayor que 0).",
       "escape_lento_off_ester": "Segundos que el escape lento permanece cerrado en cada ciclo de su temporizador. 0 = siempre abierto durante toda la fase (prevalece sobre el tiempo abierto).",
       "escape_rapido_on_ester": "Segundos que el escape rápido permanece abierto en cada ciclo de su temporizador. El temporizador corre durante toda la fase, en paralelo e independiente del control de vapor. 0 = siempre cerrado (si el tiempo cerrado es mayor que 0).",
@@ -1783,6 +1806,7 @@
       "timeout_bajo": "Tiempo límite para la presión baja"
     },
     "calentamiento": {
+      "histeresis_cierre_camara": "Histéresis de reapertura de cámara",
       "escape_lento_on": "Tiempo abierto del escape lento",
       "escape_lento_off": "Tiempo cerrado del escape lento",
       "escape_rapido_on": "Tiempo abierto del escape rápido",
@@ -1808,6 +1832,8 @@
       "timeout_recuperacion": "Tiempo límite de recuperación"
     },
     "esterilizacion": {
+      "histeresis_cierre_camara": "Histéresis de reapertura de cámara",
+      "max_reinicios_exposicion": "Reinicios máximos de la exposición",
       "brecha_error_presion": "Margen de falla por presión baja",
       "brecha_error_temperatura": "Margen de falla por temperatura baja",
       "brecha_segura_presion": "Margen de recuperación por presión",
@@ -1889,6 +1915,9 @@
     "est_aire": "Aire o gases no condensables: Tsat(P) {temp_sat} supera en {dt} K al Principal {temp}",
     "est_sobrecalentado": "Vapor sobrecalentado o falla de la sonda: Principal {temp} supera en {dt} K a Tsat(P) {temp_sat}",
     "est_excursion_referencia": "{sensor} fuera de banda por más de {minutos} min",
+    "ais_sostenida": "Cámara aislada por sobrepresión más de {minutos} min sin bajar del techo {pres_techo}",
+    "ais_recurrente": "{cantidad} aislamientos de cámara por sobrepresión en {minutos} min",
+    "est_tope_reinicios": "{sensor} fuera de banda otra vez tras {reinicios} reinicios de la exposición (máximo {maximo})",
     "desc_tiempo_limite": "Tiempo límite de {etapa} del modo {modo} (T={temp}, P={pres})",
     "sec_vacio_perdido": "Secado modo {modo}: se perdió el vacío ({pres} ≥ {pres_umbral})",
     "sec_sin_vacio": "Secado modo {modo}: sin vacío real (la presión no bajó de {pres_umbral} a tiempo); revise la bomba de vacío",
