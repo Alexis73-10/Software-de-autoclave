@@ -155,6 +155,9 @@ class EstadoAutoclave:
         self.inhibir_vapor_chaqueta: bool = False
         self.no_conforme: bool = False
         self.motivo_no_conforme: str = ""
+        # P4 (D-14.4): el operador reconoció que la carga NO CONFORME no es
+        # liberable (lo pone el backend, auditado); sin él no se confirma
+        self.no_conforme_reconocido: bool = False
         self.modo_vapor = None
 
     def update(self, nuevos_datos):

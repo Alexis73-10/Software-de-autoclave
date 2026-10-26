@@ -216,6 +216,7 @@ class CicloState:
         self.estado.inhibir_vapor_chaqueta = False
         self.estado.no_conforme = False
         self.estado.motivo_no_conforme = ""
+        self.estado.no_conforme_reconocido = False
         try:
             self.estado.modo_vapor = modo_vapor(self.profile)
         except Exception:

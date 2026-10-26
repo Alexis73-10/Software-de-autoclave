@@ -19,6 +19,7 @@ def test_estado_trae_los_contratos_por_defecto():
     e = EstadoAutoclave()
     assert e.aislamiento_camara is None and e.inhibir_vapor_chaqueta is False
     assert e.no_conforme is False and e.motivo_no_conforme == "" and e.modo_vapor is None
+    assert e.no_conforme_reconocido is False
 
 
 def test_reset_crea_aislamiento_y_fija_modo_camara_sin_perfil():
@@ -37,8 +38,10 @@ def test_referencia_sin_lectura_publica_no_conforme():
     ciclo.run()
     assert estado.no_conforme is True
     assert estado.motivo_no_conforme == mod_ciclo.MOTIVO_NO_CONFORME_REFERENCIA
+    estado.no_conforme_reconocido = True
     ciclo.reset()
     assert estado.no_conforme is False and estado.motivo_no_conforme == ""
+    assert estado.no_conforme_reconocido is False
 
 
 def test_al_confirmar_se_limpia_el_modo():
