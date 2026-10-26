@@ -7,7 +7,7 @@ import Autoclave.I18n
 // Principal: encabezado de columnas (Ciclo, Fecha, Hora, Programa, Resultado)
 // y una fila por ciclo, la más reciente arriba. Solo presentación: las filas
 // vienen ya formateadas de bridge/ciclos_historial.py (id, numero, fecha, hora,
-// programa, programa_nombre, resultado, resultado_detalle, operador).
+// programa, programa_nombre, resultado, resultado_detalle, operador, no_conforme).
 // Con `seleccionable` cada fila lleva flecha y emite cicloElegido al tocarla.
 // Con `marcable` (Historial) cada fila lleva a la izquierda una casilla para
 // marcarla (imprimir / enviar) y el encabezado una para marcar todas; la casilla
@@ -152,12 +152,18 @@ Item {
                       + (fila.modelData.programa_nombre !== "—" ? " · " + fila.modelData.programa_nombre : "")
                 color: Colores.menuNaranjaTexto
             }
+            // P4 (tanda 16, D-14.4): un ciclo NO CONFORME se rotula así en la
+            // columna de resultado (su resultado técnico queda en el detalle)
+            readonly property bool noConforme: fila.modelData.no_conforme === true
             Celda {
+                objectName: "resultado_" + fila.modelData.id
                 columna: 4
                 text: raiz.conOperador ? fila.modelData.operador
-                                       : raiz.textoResultado(fila.modelData.resultado)
+                    : fila.noConforme ? I18n.t("menu.resultado_no_conforme", I18n.lang)
+                    : raiz.textoResultado(fila.modelData.resultado)
                 color: raiz.conOperador ? Colores.textoPrimario
-                                        : raiz.colorResultado(fila.modelData.resultado)
+                    : fila.noConforme ? Colores.peligroTexto
+                    : raiz.colorResultado(fila.modelData.resultado)
                 font.weight: raiz.conOperador ? Tipografia.pesoRegular : Tipografia.pesoBold
             }
             // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]: 22 de alto

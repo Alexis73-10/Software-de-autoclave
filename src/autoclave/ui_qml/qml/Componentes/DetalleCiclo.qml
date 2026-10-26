@@ -20,6 +20,9 @@ Item {
     property string resultadoDetalle: ""    // cierre tal como se guardó (p. ej. FALLO_CALENTAMIENTO)
     property color colorResultado: Colores.textoPrimario
     property string operador: "—"           // O1 (tanda 3): usuario que inició el ciclo; "—" si no hubo sesión
+    // P4 (tanda 16, D-14.4): ciclo NO CONFORME (punto de referencia sin verificar):
+    // franja roja de encabezado; el resultado técnico sigue en su campo
+    property bool noConforme: false
     property var datosGrafica: ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
     property var fasesGrafica: []
     property bool graficaDisponible: false
@@ -64,8 +67,31 @@ Item {
         }
     }
 
+    Rectangle {
+        id: franjaNoConforme
+        objectName: "franjaNoConformeDetalle"
+        visible: raiz.noConforme
+        width: parent.width
+        height: visible ? textoNoConformeDetalle.implicitHeight + raiz.m(24) : 0
+        radius: raiz.m(8)
+        color: Colores.alarmaAlta
+        Text {
+            id: textoNoConformeDetalle
+            x: raiz.m(16); width: parent.width - raiz.m(32)
+            anchors.verticalCenter: parent.verticalCenter
+            horizontalAlignment: Text.AlignHCenter
+            wrapMode: Text.WordWrap
+            text: I18n.t("ciclo.no_conforme_franja", I18n.lang)
+            color: "white"
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoBold
+            font.pixelSize: raiz.fuente(24)
+        }
+    }
+
     Row {
         id: filaDatos
+        y: franjaNoConforme.visible ? franjaNoConforme.height + raiz.m(16) : 0
         width: parent.width
         spacing: raiz.m(24)
         // columnas: fecha 0.25, programa 0.37 (número y nombre), resultado 0.2, operador 0.18
@@ -100,7 +126,7 @@ Item {
     // Diseñada a 1129 de ancho: se escala para ocupar el ancho disponible.
     GraficaCiclo {
         objectName: "graficaDetalleCiclo"
-        y: filaDatos.height + raiz.m(28)
+        y: filaDatos.y + filaDatos.height + raiz.m(28)
         width: parent.width
         height: parent.height - y
         escala: width / 1129

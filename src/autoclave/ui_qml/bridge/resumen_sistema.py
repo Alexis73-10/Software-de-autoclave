@@ -48,6 +48,7 @@ class ResumenSistema(QObject):
         self._ultima = None          # última respuesta válida (estado interno)
         self._sin_conexion = False
         self._datos = dominio.resumen_presentable(None)
+        self._ultimo_no_conforme = False   # P4 (D-14.4)
         self._mantenimiento = dominio.mantenimiento_presentable(None)
         self._respuesta_recibida.connect(self._al_recibir)
 
@@ -114,8 +115,11 @@ class ResumenSistema(QObject):
             self._sin_conexion = not valida
             self.sinConexionChanged.emit()
         datos = dominio.resumen_presentable(self._ultima if valida else None)
-        if datos != self._datos:
+        # P4 (tanda 16, D-14.4): aparte de los textos (resumen_presentable no cambia de forma)
+        nc = dominio.ultimo_no_conforme(self._ultima if valida else None)
+        if datos != self._datos or nc != self._ultimo_no_conforme:
             self._datos = datos
+            self._ultimo_no_conforme = nc
             self.datosChanged.emit()
 
     @Slot()
@@ -198,6 +202,11 @@ class ResumenSistema(QObject):
     def ultimoResultadoDetalle(self) -> str:
         """Cierre tal como se guardó (p. ej. FALLO_CALENTAMIENTO), o "" si no dice más que la clave."""
         return self._datos["ultimo_resultado_detalle"]
+
+    @Property(bool, notify=datosChanged)
+    def ultimoNoConforme(self) -> bool:
+        """P4 (tanda 16, D-14.4): el último ciclo quedó NO CONFORME."""
+        return self._ultimo_no_conforme
 
     @Property(str, notify=datosChanged)
     def ultimoOperador(self) -> str:

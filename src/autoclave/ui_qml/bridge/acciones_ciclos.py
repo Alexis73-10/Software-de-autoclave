@@ -76,6 +76,30 @@ def _en_hilo(tarea) -> None:
     threading.Thread(target=tarea, daemon=True, name="acciones-ciclos").start()
 
 
+def _es_no_conforme(ciclo) -> bool:
+    """P4 (tanda 16, D-14.4): el ciclo guardado quedó NO CONFORME (campo
+    no_conforme del backend o, en su defecto, su avisos_ticket)."""
+    if not isinstance(ciclo, dict):
+        return False
+    return ciclo.get("no_conforme") is True or ticket_formatter.ciclo_no_conforme(ciclo)
+
+
+def _marcar_no_conforme(asunto: str, cuerpo: str, ciclos) -> tuple[str, str]:
+    """P4 (D-14.4): con algún ciclo NO CONFORME, el asunto lo dice y el cuerpo
+    nombra esos ciclos. Sin ninguno, asunto y cuerpo quedan igual."""
+    numeros = []
+    for c in ciclos or []:
+        if _es_no_conforme(c):
+            try:
+                numeros.append(f"{int(c.get('numero_ciclo')):06d}")
+            except (TypeError, ValueError):
+                numeros.append(dominio.SIN_DATO)
+    if not numeros:
+        return asunto, cuerpo
+    return (i18n.t("exportacion.asunto_no_conforme", asunto=asunto),
+            cuerpo + "\n\n" + i18n.t("exportacion.cuerpo_no_conforme", ciclos=", ".join(numeros)))
+
+
 def _presentacion_vigente() -> "ticket_formatter.Presentacion":
     """I4 (tanda 6): idioma de la UI y unidades del singleton Unidades (que
     sigue a GET /units). Ante cualquier error, español en °C y kPa."""
@@ -256,9 +280,10 @@ class AccionesCiclos(QObject):
             pdfs, ciclos = self._pdfs(ids)
             serie = ciclos[0].get("serie") or ""
             numeros = ", ".join(f"{c['numero_ciclo']:06d}" for c in ciclos)
-            r = self._enviar_mensaje(config, destinos,
-                                     i18n.t("exportacion.asunto", serie=serie, ciclos=numeros),
-                                     i18n.t("exportacion.cuerpo"),
+            asunto, cuerpo = _marcar_no_conforme(
+                i18n.t("exportacion.asunto", serie=serie, ciclos=numeros),
+                i18n.t("exportacion.cuerpo"), ciclos)
+            r = self._enviar_mensaje(config, destinos, asunto, cuerpo,
                                      correo.adjunto(pdfs, i18n.t("exportacion.nombre_zip")),
                                      tipo="ciclos", ciclos=ids)
             return self._resultado(r, "exportacion.enviado", n=len(ids))
@@ -357,10 +382,11 @@ class AccionesCiclos(QObject):
                         i18n.t("exportacion.generando", porcentaje=round(100 * f))))
                 contenido = ruta.read_bytes()
             self._avance.emit(i18n.t("menu.enviando"))
-            envio = self._enviar_mensaje(config, destinos,
-                                         i18n.t("exportacion.asunto_consolidado",
-                                                serie=r.get("serie") or "", periodo=texto_periodo),
-                                         i18n.t("exportacion.cuerpo_consolidado"),
+            asunto, cuerpo = _marcar_no_conforme(
+                i18n.t("exportacion.asunto_consolidado",
+                       serie=r.get("serie") or "", periodo=texto_periodo),
+                i18n.t("exportacion.cuerpo_consolidado"), [c["ciclo"] for c in ciclos])
+            envio = self._enviar_mensaje(config, destinos, asunto, cuerpo,
                                          (nombre, contenido, "pdf"), tipo="consolidado")
             return self._resultado(envio, "exportacion.enviado_consolidado", n=len(ciclos))
 
@@ -496,6 +522,9 @@ class AccionesCiclos(QObject):
         resultado = i18n.t("menu.resultado_" + clave.lower()) if clave else dominio.SIN_DATO
         if fila["resultado_detalle"]:
             resultado += f" ({fila['resultado_detalle']})"
+        # P4 (tanda 16, D-14.4): NO CONFORME delante del resultado técnico
+        if _es_no_conforme(ciclo):
+            resultado = i18n.t("exportacion.no_conforme_resultado", resultado=resultado)
         fin = dominio.formatear_fecha(ciclo.get("fecha_fin"))
         hora_fin = dominio.formatear_hora(ciclo.get("fecha_fin"))
         return {

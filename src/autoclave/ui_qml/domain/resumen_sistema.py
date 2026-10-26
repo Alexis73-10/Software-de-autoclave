@@ -103,6 +103,19 @@ def ciclo_presentable(ciclo) -> dict:
     }
 
 
+def no_conforme(ciclo) -> bool:
+    """P4 (tanda 16, D-14.4): el ciclo (forma de /cycle/list o de
+    /cycle/summary -> ultimo_ciclo) quedó NO CONFORME. Solo True estricto; el
+    resultado técnico sigue siendo el guardado. Aparte de ciclo_presentable
+    para no cambiar su forma (la usan Reportes y el PDF)."""
+    return isinstance(ciclo, dict) and ciclo.get("no_conforme") is True
+
+
+def ultimo_no_conforme(resumen) -> bool:
+    """P4 (D-14.4): el último ciclo de /cycle/summary quedó NO CONFORME."""
+    return no_conforme(resumen.get("ultimo_ciclo")) if isinstance(resumen, dict) else False
+
+
 def resumen_presentable(resumen) -> dict:
     """Textos del resumen listos para QML. resumen None = sin respuesta del
     backend: todo SIN_DATO (D-16)."""
@@ -142,7 +155,8 @@ def lista_presentable(respuesta) -> dict:
     descartan. Sin respuesta: lista vacía."""
     r = respuesta if isinstance(respuesta, dict) else {}
     ciclos = r.get("ciclos")
-    filas = [ciclo_presentable(c) for c in ciclos if isinstance(c, dict)]         if isinstance(ciclos, list) else []
+    filas = [{**ciclo_presentable(c), "no_conforme": no_conforme(c)}   # P4 (D-14.4)
+             for c in ciclos if isinstance(c, dict)] if isinstance(ciclos, list) else []
     return {"ciclos": filas, "truncado": r.get("truncado") is True}
 
 
