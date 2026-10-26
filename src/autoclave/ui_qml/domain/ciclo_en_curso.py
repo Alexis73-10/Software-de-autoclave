@@ -16,7 +16,8 @@ from autoclave.core.runtime.progreso_ciclo import FASES_UI
 
 _ESTADOS_FASE = {"completada", "activa", "pendiente"}
 _RESULTADOS = {"exitoso", "cancelado", "fallo"}
-_SERIES = ("temp_camara", "temp_ref", "pres_camara")
+# Tanda 17 (SON-01): también temp_2_camara (sonda de Cámara 2, en uso o de monitoreo)
+_SERIES = ("temp_camara", "temp_ref", "pres_camara", "temp_2_camara")
 
 
 def _numero(valor) -> float | None:

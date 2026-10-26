@@ -247,6 +247,9 @@ def test_qml_i18n_igual_a_referencia_para_toda_clave(tmp_path):
             if caso_ref["a"][1]:
                 ref = ref.format(**{k: caso_ref["a"][1].get(k, "{%s}" % k)
                                     for k in ("entidad", "anterior", "nuevo", "evento")})
+        elif clave.startswith("bitacora.categoria."):
+            # BIT-05 (tanda 17): tercer nivel nuevo, sin referencia vieja
+            ref = es["bitacora"]["categoria"][clave.split(".")[2]]
         elif clave.startswith(("opciones.equipo_grupos.", "opciones.equipo_grupos_desc.")):
             # O2a (tanda 6): tercer nivel nuevo, sin referencia vieja
             ref = es["opciones"][clave.split(".")[1]][clave.split(".")[2]]

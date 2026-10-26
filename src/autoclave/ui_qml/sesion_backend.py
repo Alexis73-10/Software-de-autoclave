@@ -109,6 +109,9 @@ _CLAVES = {
     # S9 (tanda 9, revisión ★ SAF-01): salidas bloqueadas en modo prueba
     "salida_prueba_camara_no_segura": "io.err_puerta_camara_no_segura",
     "salida_prueba_estado_seguro": "io.err_salida_estado_seguro",
+    # Tanda 17 (ESG-02): protecciones permanentes del modo prueba
+    "salida_prueba_camara_presurizada": "io.err_puerta_camara_presurizada",
+    "salida_prueba_puerta_abierta": "io.err_vapor_puerta_abierta",
     "sin_base_de_datos": "io.err_sin_base",
     "auditoria_no_disponible": "io.err_sin_base",
     "sin_calibracion_previa": "io.err_sin_previa",

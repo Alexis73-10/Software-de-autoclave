@@ -5,8 +5,9 @@
 # y la gráfica. Solo presentación: no lee hardware ni toca la lógica de ciclo.
 #
 # Frontera de confianza: una entrada desconocida o sin lectura se muestra como
-# "—" y nunca rompe la pantalla. O11 (tanda 11, D11-7.1): una entrada cuyo
-# sensor está "No en uso" en el programa ya no se muestra (antes, fila con "—").
+# "—" y nunca rompe la pantalla. O11 (tanda 11, D11-7.1) ocultaba una entrada
+# cuyo sensor estaba "No en uso" en el programa. Tanda 17 (SON-01, decisión de
+# Cristian): se vuelve a mostrar, marcada `monitoreo` (rótulo «(monitoreo)»).
 
 import math
 
@@ -33,9 +34,10 @@ _RUTA_STATUS = {
     "pres_empaque_2": ("pres", ("pressure", "empaque_2")),
 }
 
-# Entradas que el backend registra para la gráfica (lecturas_grafica) -> serie
+# Entradas que el backend registra para la gráfica (lecturas_grafica) -> serie.
+# Tanda 17 (SON-01): también temp_2_camara (la sonda de Cámara 2 instalada).
 SERIE_GRAFICA = {"temp_camara": "temp_camara", "temp_referencia": "temp_ref",
-                 "pres_camara": "pres_camara"}
+                 "temp_2_camara": "temp_2_camara", "pres_camara": "pres_camara"}
 
 # Colores de la gráfica por posición (los de siempre)
 COLORES = ("#6599FC", "#9732DA", "#00CCB0")
@@ -58,12 +60,10 @@ def normalizar(lista) -> list[str]:
 
 
 def visibles(lista, no_en_uso=()) -> list[str]:
-    """O11 (D11-7.1): las entradas a mostrar, sin las de un sensor No en uso
-    en el programa; si no queda ninguna, la omisión sin las No en uso (y, en
-    último caso, la presión de cámara)."""
-    no = set(no_en_uso or ())
-    quedan = [e for e in normalizar(lista) if e not in no]
-    return quedan or [e for e in POR_OMISION if e not in no] or ["pres_camara"]
+    """Las entradas a mostrar. Tanda 17 (SON-01, decisión de Cristian): ya no
+    se omiten las de un sensor No en uso en el programa (O11, D11-7.1); el
+    parámetro `no_en_uso` se conserva por compatibilidad y no filtra."""
+    return normalizar(lista)
 
 
 def _numero(v):
@@ -101,16 +101,19 @@ def _formatear(tipo: str, valor, t_unidad: str, p_unidad: str, p_atm) -> tuple[s
 
 def construir(lista, sensors, no_en_uso=(), t_unidad: str = "C", p_unidad: str = "kPa",
               p_atm=None) -> list[dict]:
-    """Filas para QML: {clave, tipo, valor, unidad, enUso}. `no_en_uso`: entradas
-    cuyo sensor está "No en uso" en el programa: O11 (D11-7.1) no se muestran
-    (enUso queda siempre True; se conserva por compatibilidad con QML)."""
+    """Filas para QML: {clave, tipo, valor, unidad, enUso, monitoreo}.
+    `no_en_uso`: entradas cuyo sensor está "No en uso" en el programa. Tanda 17
+    (SON-01, decisión de Cristian): se muestran con `monitoreo` True (la UI
+    agrega «(monitoreo)»); sin lectura, "—" como cualquier otra. enUso queda
+    siempre True (compatibilidad con QML)."""
+    no = set(no_en_uso or ())
     filas = []
     for clave in visibles(lista, no_en_uso):
         tipo = tipo_de(clave)
         valor = _lectura(sensors, clave)
         texto, simbolo = _formatear(tipo, valor, t_unidad, p_unidad, p_atm)
         filas.append({"clave": clave, "tipo": tipo, "valor": texto, "unidad": simbolo,
-                      "enUso": True})
+                      "enUso": True, "monitoreo": clave in no})
     return filas
 
 
@@ -137,8 +140,10 @@ def series_grafica(lista, t_unidad: str = "C", p_unidad: str = "kPa",
     """Series de GraficaCiclo para las entradas elegidas: {clave (serie de
     datos), entrada, color, eje, unidad, registrada}. Una entrada que el backend
     no registra en la gráfica queda en la leyenda con registrada=False y sin
-    trazo (DECISIÓN SIN CONFIRMAR: hoy solo se registran temp_camara,
-    temp_referencia y pres_camara). O11 (D11-7.1): sin las No en uso."""
+    trazo (DECISIÓN SIN CONFIRMAR: se registran temp_camara, temp_referencia,
+    temp_2_camara y pres_camara). Tanda 17 (SON-01): las No en uso se
+    incluyen, con `monitoreo` True."""
+    no = set(no_en_uso or ())
     series = []
     for i, clave in enumerate(visibles(lista, no_en_uso)):
         tipo = tipo_de(clave)
@@ -149,6 +154,7 @@ def series_grafica(lista, t_unidad: str = "C", p_unidad: str = "kPa",
             "eje": "derecho" if tipo == "pres" else "izquierdo",
             "unidad": simbolo_grafica_pres(p_unidad) if tipo == "pres" else u.simbolo_temp(t_unidad),
             "registrada": clave in SERIE_GRAFICA,
+            "monitoreo": clave in no,
         })
     return series
 
@@ -156,7 +162,7 @@ def series_grafica(lista, t_unidad: str = "C", p_unidad: str = "kPa",
 def convertir_datos_grafica(datos: dict, t_unidad: str = "C", p_unidad: str = "kPa") -> dict:
     """Datos de la gráfica (°C / kPa abs) en la unidad vigente."""
     salida = dict(datos)
-    for clave in ("temp_camara", "temp_ref"):
+    for clave in ("temp_camara", "temp_ref", "temp_2_camara"):
         if isinstance(datos.get(clave), list):
             salida[clave] = [None if _numero(v) is None else u.temp_a_mostrar(_numero(v), t_unidad)
                              for v in datos[clave]]

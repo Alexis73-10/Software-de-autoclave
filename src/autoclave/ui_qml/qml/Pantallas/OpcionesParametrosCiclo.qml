@@ -295,34 +295,18 @@ Item {
             id: columnaPrograma
             width: parent.width
             spacing: Escala.px(6)
-            // Selector de programa: "03 · Nombre"
-            Flow {
+            // Selector de programa: "03 · Nombre". Tanda 17 (PRC-01): desplegable
+            // con lista vertical desplazable (antes, una cuadrícula Flow de chips
+            // que no escalaba a 15 o más programas); filas "programa_" + número
+            SelectorPrograma {
+                id: selectorPrograma
+                objectName: "selectorPrograma"
                 width: parent.width
-                spacing: Escala.px(10)
-                Repeater {
-                    model: control.programas
-                    delegate: Rectangle {
-                        id: chip
-                        required property var modelData
-                        readonly property bool activo: modelData.numero === control.numero
-                        objectName: "programa_" + modelData.numero
-                        width: textoChip.implicitWidth + Escala.px(40)
-                        height: Escala.px(72)
-                        radius: Escala.px(36)
-                        color: activo ? Colores.accionPrimario : Colores.fondoSutil
-                        Text {
-                            id: textoChip
-                            anchors.centerIn: parent
-                            text: String(chip.modelData.numero).padStart(2, "0") + " · " + chip.modelData.nombre
-                                  + (chip.modelData.danado ? " ⚠" : "")
-                            color: chip.activo ? "white" : Colores.textoPrimario
-                            font.family: Tipografia.familia
-                            font.weight: Tipografia.pesoSemiBold
-                            font.pixelSize: Escala.fuente(24)
-                        }
-                        MouseArea { anchors.fill: parent; onClicked: control.elegirPrograma(chip.modelData.numero) }
-                    }
-                }
+                // encima de las filas de sección mientras la lista está abierta
+                z: abierto ? 10 : 0
+                programas: control.programas
+                numero: control.numero
+                onProgramaElegido: (n) => control.elegirPrograma(n)
             }
             Text {
                 objectName: "programaSoloLectura"
@@ -591,7 +575,11 @@ Item {
     function _nombreEntrada(nombre) {
         if (nombre === "")
             return I18n.t("opciones.entrada_ninguna", I18n.lang)
-        return I18n.existe("io.ai." + nombre, I18n.lang) ? I18n.t("io.ai." + nombre, I18n.lang) : String(nombre)
+        const base = I18n.existe("io.ai." + nombre, I18n.lang) ? I18n.t("io.ai." + nombre, I18n.lang) : String(nombre)
+        // Tanda 17 (SON-01): una sonda instalada con rol No en uso se ofrece y se
+        // muestra con el rótulo "(monitoreo)"
+        return (control.entradasNoEnUso || []).indexOf(nombre) >= 0
+               ? base + " " + I18n.t("ciclo.monitoreo", I18n.lang) : base
     }
     function _elegirEntrada(fila, nombre) {
         const f = _filasSel.slice()

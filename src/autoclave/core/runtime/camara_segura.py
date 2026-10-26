@@ -31,6 +31,38 @@ def _numero(valor) -> float | None:
     return v if math.isfinite(v) else None
 
 
+def lectura_presion(estado) -> float | None:
+    """Presión de cámara (kPa abs) como número finito, o None."""
+    try:
+        return _numero(estado.sensores_pres.get("pres_camara"))
+    except Exception:
+        return None
+
+
+def evaluar_presion(estado, config, datos_vigentes=True) -> tuple[bool, str]:
+    """Tanda 17 (ESG-02): solo la parte de PRESIÓN del criterio de evaluar():
+    (segura, motivo). Segura = lectura vigente y dentro de
+    [atm − rango_presion_atm, atm + rango_presion_atm]; sobrepresión y vacío
+    no son seguros. Falla cerrada: sin datos vigentes, sin lectura o sin
+    configuración, NO es segura."""
+    if not datos_vigentes:
+        return False, Motivo("sin_datos_vigentes", "Sin conexión con la tarjeta: datos no vigentes")
+    faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO) if _numero(config.get(c)) is None]
+    if faltan:
+        return False, Motivo("falta_config", f"Falta configuración: {', '.join(faltan)}",
+                             claves=", ".join(faltan))
+    atm = _numero(config.get(CLAVE_ATM))
+    rango = _numero(config.get(CLAVE_RANGO))
+    pres = lectura_presion(estado)
+    if pres is None:
+        return False, Motivo("sin_presion_camara", "Sin lectura válida de presión de cámara")
+    if pres > atm + rango:
+        return False, Motivo("sobrepresion", f"Sobrepresión en cámara ({pres:.0f} kPa)", pres=pres)
+    if pres < atm - rango:
+        return False, Motivo("vacio", f"Cámara en vacío ({pres:.0f} kPa)", pres=pres)
+    return True, ""
+
+
 def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
             temp_max_ciclo=None) -> tuple[bool, str]:
     """(segura, motivo). `programas` (uno o una lista) deciden los sensores

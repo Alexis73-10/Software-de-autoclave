@@ -969,16 +969,6 @@ Item {
                     texto: I18n.t("instalacion.continuar", I18n.lang)
                     onPulsado: raiz.instalacionCompletada()
                 }
-                Text {
-                    anchors.right: parent.right
-                    anchors.bottom: parent.bottom
-                    anchors.margins: Escala.px(16)
-                    text: I18n.t("app.version", I18n.lang)
-                    color: Colores.textoGuia
-                    font.family: Tipografia.familia
-                    font.pixelSize: Escala.fuente(16)
-                    font.weight: Tipografia.pesoMedium
-                }
             }
         ]
     }

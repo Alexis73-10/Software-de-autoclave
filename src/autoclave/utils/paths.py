@@ -18,7 +18,10 @@ def app_root() -> Path:
     PyInstaller (temporal en modo onefile), no a una ubicación estable.
     """
     if getattr(sys, "frozen", False):
-        # instalado en Archivos de programa: %ProgramData%\Especifika\Autoclave
+        # INS-02 (tanda 17): instalado por el Setup, RutaDatos del registro
+        # (X:\Especifika\Autoclave\datos); en Archivos de programa (disposición
+        # anterior), %ProgramData%\Especifika\Autoclave; si no, junto al .exe.
+        # Ver utils/resources.raiz_datos_exe.
         return Path(raiz_datos_exe())
     return Path(__file__).resolve().parents[3]
 

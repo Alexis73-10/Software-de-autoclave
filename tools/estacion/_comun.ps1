@@ -2,14 +2,19 @@
 # Se carga con dot-sourcing desde cada script:  . "$PSScriptRoot\_comun.ps1"
 # No hace nada por si solo.
 #
-# - Log: %ProgramData%\Especifika\Autoclave\estacion\estacion.log
+# - Carpeta de la estacion (INS-02, tanda 17): <RutaDatos>\estacion, con
+#   RutaDatos de HKLM\SOFTWARE\Especifika\Autoclave (vista de 64 bits; la
+#   escribe el Setup antes de correr los pasos), p. ej.
+#   D:\Especifika\Autoclave\datos\estacion. Sin esa clave (copia anterior o
+#   scripts sueltos): %ProgramData%\Especifika\Autoclave\estacion.
+# - Log: <carpeta de la estacion>\estacion.log
 # - Respaldo de valores previos (para el script inverso):
-#   %ProgramData%\Especifika\Autoclave\estacion\respaldo_<paso>.json
+#   <carpeta de la estacion>\respaldo_<paso>.json
 #   Solo se escribe la primera vez que se cambia un valor (idempotencia: volver
 #   a correr el script no pisa el valor original con el valor ya cambiado).
 #
-# E9 (tanda 9, D9-11): el Setup da Modificar a Usuarios sobre
-# %ProgramData%\Especifika\Autoclave (el programa corre sin administrador), y
+# E9 (tanda 9, D9-11): el Setup da Modificar a Usuarios sobre la carpeta de
+# datos (el programa corre sin administrador), y
 # los inversos corren como administrador con lo que diga respaldo_<paso>.json.
 # Por eso:
 #   - la carpeta estacion\ queda solo para Administradores y SYSTEM (dueno
@@ -21,7 +26,50 @@
 
 Set-StrictMode -Version 2.0
 
-$script:DirEstacion = Join-Path $env:ProgramData 'Especifika\Autoclave\estacion'
+function Get-RutaDatosRegistro {
+    <# RutaDatos de HKLM\SOFTWARE\Especifika\Autoclave en la vista de 64 bits
+       (tambien desde un PowerShell de 32 bits), o $null si no hay clave, falta
+       el valor o no es una ruta absoluta X:\... Mismos nombres que
+       utils/resources.py (CLAVE_REGISTRO, VALOR_RUTA_DATOS) y autoclave.iss. #>
+    $base = $null; $clave = $null
+    try {
+        $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64')
+        $clave = $base.OpenSubKey('SOFTWARE\Especifika\Autoclave')
+        if ($null -eq $clave) { return $null }
+        $valor = $clave.GetValue('RutaDatos')
+        if (($valor -is [string]) -and ($valor -match '^[A-Za-z]:\\') -and ($valor -notmatch '\.\.')) {
+            return $valor.TrimEnd('\')
+        }
+        return $null
+    } catch {
+        return $null
+    } finally {
+        if ($null -ne $clave) { $clave.Close() }
+        if ($null -ne $base) { $base.Close() }
+    }
+}
+
+function Test-RutaDatos($Ruta) {
+    return (($Ruta -is [string]) -and ($Ruta -match '^[A-Za-z]:\\') -and ($Ruta -notmatch '\.\.'))
+}
+
+# R1 (V17-s1-05): la variable de entorno AUTOCLAVE_RUTA_DATOS (ruta absoluta
+# X:\...\datos), si esta puesta, manda sobre el registro: sirve para revertir a
+# mano cuando la clave ya no esta (p. ej. tras desinstalar):
+#   $env:AUTOCLAVE_RUTA_DATOS = 'D:\Especifika\Autoclave\datos'
+# Orden: AUTOCLAVE_RUTA_DATOS > RutaDatos del registro > %ProgramData%.
+$script:RutaDatos = $null
+if (Test-RutaDatos $env:AUTOCLAVE_RUTA_DATOS) {
+    $script:RutaDatos = $env:AUTOCLAVE_RUTA_DATOS.TrimEnd('\')
+} else {
+    $script:RutaDatos = Get-RutaDatosRegistro
+}
+if ($script:RutaDatos) {
+    $script:DirEstacion = Join-Path $script:RutaDatos 'estacion'
+} else {
+    # respaldo: disposicion anterior a la tanda 17 (sin clave de registro)
+    $script:DirEstacion = Join-Path $env:ProgramData 'Especifika\Autoclave\estacion'
+}
 $script:ArchivoLog  = Join-Path $script:DirEstacion 'estacion.log'
 $script:EstacionProtegida = $false
 
@@ -59,15 +107,44 @@ $script:NombresSecretos = @('DefaultPassword')
 function Protect-DirEstacion {
     <# Solo Administradores (S-1-5-32-544) y SYSTEM (S-1-5-18), dueno
        Administradores, sin herencia de la carpeta de datos (Modificar a Usuarios).
-       Los archivos de adentro vuelven a heredar de la carpeta ya protegida. #>
+       Los archivos de adentro vuelven a heredar de la carpeta ya protegida.
+       R1 (V17-s1-01): /inheritance:r /grant:r no quita entradas EXPLICITAS de
+       otros SID (p. ej. Todos:F de quien creo antes la carpeta). Por eso la
+       DACL se reemplaza entera (SDDL protegida, solo la seccion de acceso) y
+       despues se VERIFICA: protegida, dueno Administradores y exactamente esas
+       dos entradas. Si no, lanza (falla cerrada). #>
     if ($script:EstacionProtegida) { return }
-    & icacls.exe $script:DirEstacion /setowner '*S-1-5-32-544' /T /C /Q | Out-Null
-    & icacls.exe $script:DirEstacion /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /C /Q | Out-Null
+    & icacls.exe $script:DirEstacion /setowner '*S-1-5-32-544' /T /Q | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "icacls no pudo fijar el dueno de $($script:DirEstacion) (codigo $LASTEXITCODE)." }
+    & icacls.exe $script:DirEstacion /inheritance:r /grant:r '*S-1-5-32-544:(OI)(CI)F' '*S-1-5-18:(OI)(CI)F' /Q | Out-Null
     if ($LASTEXITCODE -ne 0) { throw "icacls no pudo proteger $($script:DirEstacion) (codigo $LASTEXITCODE)." }
+    $sd = New-Object System.Security.AccessControl.DirectorySecurity
+    $sd.SetSecurityDescriptorSddlForm('D:P(A;OICI;FA;;;BA)(A;OICI;FA;;;SY)', [System.Security.AccessControl.AccessControlSections]::Access)
+    (Get-Item -LiteralPath $script:DirEstacion -Force).SetAccessControl($sd)
     if (Get-ChildItem -LiteralPath $script:DirEstacion -Force -ErrorAction SilentlyContinue) {
-        & icacls.exe (Join-Path $script:DirEstacion '*') /reset /T /C /Q | Out-Null
+        & icacls.exe (Join-Path $script:DirEstacion '*') /reset /T /Q | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "icacls no pudo restablecer el contenido de $($script:DirEstacion) (codigo $LASTEXITCODE)." }
     }
+    Assert-DirEstacionProtegida
     $script:EstacionProtegida = $true
+}
+
+function Assert-DirEstacionProtegida {
+    <# Lee la ACL de la carpeta de la estacion y lanza si no es exactamente:
+       protegida, dueno Administradores, Administradores y SYSTEM control total
+       (OI)(CI), sin ninguna otra entrada. #>
+    $sid = [System.Security.Principal.SecurityIdentifier]
+    $acl = Get-Acl -LiteralPath $script:DirEstacion
+    $dueno = $acl.GetOwner($sid).Value
+    $reglas = @($acl.GetAccessRules($true, $true, $sid) | ForEach-Object {
+        '{0}:{1}:{2}:{3}:{4}:{5}' -f $_.IdentityReference.Value, [int]$_.FileSystemRights,
+            [int]$_.AccessControlType, [int]$_.InheritanceFlags, [int]$_.PropagationFlags, $_.IsInherited
+    } | Sort-Object)
+    $esperadas = @(@('S-1-5-32-544:2032127:0:3:0:False', 'S-1-5-18:2032127:0:3:0:False') | Sort-Object)
+    if ((-not $acl.AreAccessRulesProtected) -or ($dueno -ne 'S-1-5-32-544') -or
+        (($reglas -join '|') -ne ($esperadas -join '|'))) {
+        throw "La ACL de $($script:DirEstacion) no es la esperada (dueno $dueno; $($reglas -join ' | '))."
+    }
 }
 
 function Initialize-Estacion {

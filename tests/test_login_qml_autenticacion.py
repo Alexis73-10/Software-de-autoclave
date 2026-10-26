@@ -203,7 +203,8 @@ def test_credenciales_malas(salida):
     assert m["campo_clave"] == ""      # la contraseña no se queda en el campo
     assert m["usuario"] == "tec1"      # el usuario sí, para reintentar
     assert m["sesion"] is None
-    assert m["login_fallido"] == 1
+    # Tanda 17 (BIT-03, decisión de Cristian): login_fallido ya no va a audit_log
+    assert m["login_fallido"] == 0
     assert m["senales"] == 1           # solo la del login bueno
 
 

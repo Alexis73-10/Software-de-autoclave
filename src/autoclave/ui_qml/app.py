@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 
-from PySide6.QtCore import Qt, QTimer, QUrl
+from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Slot
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -59,12 +59,54 @@ from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
 from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
 from autoclave.ui_qml.controllers import teclado_numerico_controller  # noqa: F401
 from autoclave.utils.resources import resource_path
+from autoclave.estacion import primer_cuadro
 
 logger = logging.getLogger(__name__)
 
 # 127.0.0.1 y no "localhost": en Windows "localhost" se prueba primero como IPv6
 # (::1), donde el backend no escucha, y cada petición tardaba 0.8–2 s.
 BACKEND_URL = "http://127.0.0.1:8000"
+
+
+class AvisoPrimerCuadro(QObject):
+    """EST-07 (tanda 17): al mostrarse el primer cuadro de la ventana avisa a
+    la cubierta de arranque del lanzador (evento con nombre de esta puerta, ver
+    estacion/primer_cuadro.py) y se desconecta. frameSwapped puede emitirse
+    desde el hilo de render: la conexión en cola trae el aviso al hilo
+    principal. Cada puerta avisa por su cuenta; la cubierta espera a las dos
+    (o 15 s tras la primera, o su tope de 180 s)."""
+
+    def __init__(self, ventana, puerta: int, senalar=None):
+        super().__init__()
+        self._ventana = ventana
+        self._puerta = puerta
+        self._senalar = senalar or primer_cuadro.senalar
+        self.avisado = False
+        ventana.frameSwapped.connect(self._al_cuadro, Qt.ConnectionType.QueuedConnection)
+
+    @Slot()
+    def _al_cuadro(self) -> None:
+        if self.avisado:
+            return
+        self.avisado = True
+        try:
+            self._ventana.frameSwapped.disconnect(self._al_cuadro)
+        except (RuntimeError, TypeError):
+            pass
+        try:
+            self._senalar(self._puerta)
+        except Exception:
+            logger.exception("No se pudo avisar el primer cuadro a la cubierta de arranque")
+
+
+def avisar_primer_cuadro(ventana, puerta: int):
+    """Engancha AvisoPrimerCuadro; nunca impide abrir la pantalla. El llamador
+    guarda la referencia mientras corre app.exec()."""
+    try:
+        return AvisoPrimerCuadro(ventana, puerta)
+    except Exception:
+        logger.exception("Sin aviso de primer cuadro para la cubierta de arranque (puerta %s)", puerta)
+        return None
 
 
 def url_backend(entorno=os.environ) -> str:
@@ -128,6 +170,7 @@ def _abrir_instalacion(app: QGuiApplication, args) -> int:
     pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
     ventana.setScreen(pantalla)
     ventana.setGeometry(pantalla.geometry())
+    aviso = avisar_primer_cuadro(ventana, args.door)   # EST-07  # noqa: F841
     ventana.showFullScreen()
     ventana.requestActivate()
     logger.warning("Sin perfil de instalación: se abre el asistente de instalación")
@@ -166,6 +209,7 @@ def _abrir_reposo_instalacion(app: QGuiApplication, args) -> int:
     pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
     ventana.setScreen(pantalla)
     ventana.setGeometry(pantalla.geometry())
+    aviso = avisar_primer_cuadro(ventana, args.door)   # EST-07  # noqa: F841
     ventana.showFullScreen()   # sin requestActivate: el foco es del asistente (pantalla 1)
     temporizador = None
     if reposo_sale_solo():
@@ -284,6 +328,7 @@ def main(argv=None) -> int:
     pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
     ventana.setScreen(pantalla)
     ventana.setGeometry(pantalla.geometry())
+    aviso = avisar_primer_cuadro(ventana, args.door)   # EST-07  # noqa: F841
     ventana.showFullScreen()
     # Solo la puerta 1 pide el foco: si ambas ventanas (procesos distintos) lo
     # piden, Windows se lo niega a una y hace parpadear su icono, lo que saca

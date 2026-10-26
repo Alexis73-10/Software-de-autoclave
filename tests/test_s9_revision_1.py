@@ -44,8 +44,10 @@ def _canal(clave):
 # ── SAF-01: regla pura ─────────────────────────────────────────────────────
 
 def test_regla_camara_no_segura_bloquea_solo_puertas():
+    # Tanda 17 (ESG-02, decisión de Cristian): el vapor de cámara depende de las
+    # puertas cerradas (protección 3): se dan cerradas para aislar la regla
     b = sps.bloqueadas(estado_seguro_activo=False, recuperacion_pendiente=False,
-                       camara_segura=False)
+                       camara_segura=False, puertas_cerradas=True)
     assert set(b) == set(sps.SALIDAS_PUERTA)
     assert set(b.values()) == {sps.CAMARA_NO_SEGURA}
 
@@ -59,8 +61,9 @@ def test_regla_estado_seguro_bloquea_puertas_y_vapor():
 
 
 def test_regla_todo_seguro_no_bloquea_nada():
+    # Tanda 17 (ESG-02, decisión de Cristian): con las puertas confirmadas cerradas
     assert sps.bloqueadas(estado_seguro_activo=False, recuperacion_pendiente=False,
-                          camara_segura=True) == {}
+                          camara_segura=True, puertas_cerradas=True) == {}
 
 
 def test_salidas_de_puerta_y_vapor():
@@ -109,7 +112,9 @@ def test_control_loop_camara_segura_sin_protocolo_no_bloquea():
     loop.estado.sensores_pres["pres_camara"] = 101.3
     loop.estado.sensores_temp["temp_camara"] = 30.0
     loop._estado_publicado_mono = __import__("time").monotonic()
-    assert loop.salidas_prueba_bloqueadas() == {}
+    # Tanda 17 (ESG-02, decisión de Cristian): sin lectura de puertas cerradas, el
+    # vapor de cámara queda bloqueado (protección 3, falla cerrada)
+    assert loop.salidas_prueba_bloqueadas() == {"vapor_camara": sps.PUERTA_ABIERTA}
 
 
 @pytest.mark.parametrize("pres", [None, 250.0])
@@ -118,7 +123,11 @@ def test_control_loop_camara_no_segura_bloquea_puertas(pres):
     loop.estado.sensores_pres["pres_camara"] = pres
     loop.estado.sensores_temp["temp_camara"] = 30.0
     loop._estado_publicado_mono = __import__("time").monotonic()
-    assert set(loop.salidas_prueba_bloqueadas()) == set(sps.SALIDAS_PUERTA)
+    # Tanda 17 (ESG-02, decisión de Cristian): puertas con código propio de presión,
+    # y el vapor de cámara sin lectura de puertas cerradas (protección 3)
+    b = loop.salidas_prueba_bloqueadas()
+    assert set(b) == set(sps.SALIDAS_PUERTA) | {"vapor_camara"}
+    assert {b[k] for k in sps.SALIDAS_PUERTA} == {sps.CAMARA_PRESURIZADA}
 
 
 def test_control_loop_sin_ai_vigente_la_camara_no_es_segura():
@@ -127,7 +136,8 @@ def test_control_loop_sin_ai_vigente_la_camara_no_es_segura():
     loop.estado.sensores_temp["temp_camara"] = 30.0
     loop._estado_publicado_mono = __import__("time").monotonic()
     loop.link.edad_ultima_ai.return_value = 10.0
-    assert set(loop.salidas_prueba_bloqueadas()) == set(sps.SALIDAS_PUERTA)
+    # Tanda 17 (ESG-02, decisión de Cristian): también el vapor de cámara (puertas sin lectura)
+    assert set(loop.salidas_prueba_bloqueadas()) == set(sps.SALIDAS_PUERTA) | {"vapor_camara"}
 
 
 def test_control_loop_error_al_evaluar_bloquea_todo():
@@ -147,8 +157,13 @@ def test_lazo_fuerza_a_cero_las_bloqueadas_en_modo_prueba():
     loop.estado.sensores_pres["pres_camara"] = 200.0
     loop._tick()
     apagadas = {c.args[0] for c in loop.set_do.set_output.call_args_list if c.args[1] is False}
-    for k in (*sps.SALIDAS_PUERTA, *sps.SALIDAS_VAPOR):
+    # Tanda 17 (ESG-02, decisión de Cristian): con lectura vigente de presión el lazo
+    # ya no fuerza los bloqueos propios del estado seguro; sí las puertas
+    # (cámara presurizada) y el vapor de cámara (puertas sin lectura)
+    for k in (*sps.SALIDAS_PUERTA, "vapor_camara"):
         assert _canal(k) in apagadas, k
+    for k in set(sps.SALIDAS_VAPOR) - {"vapor_camara"}:
+        assert _canal(k) not in apagadas, k
     assert _canal("descompresion_lenta") not in apagadas
     encendidas = [c for c in loop.set_do.set_output.call_args_list if c.args[1] is True]
     assert encendidas == []

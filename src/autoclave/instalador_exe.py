@@ -15,12 +15,20 @@
 # programa no queda corriendo como administrador. Nada se escribe en la USB.
 # Volver a instalar sobre una copia existente la actualiza (los datos se
 # conservan); si la copia instalada está abierta, la copia falla y se avisa.
+#
+# Tanda 17 (INS-02): el Setup (tools/instalador/autoclave.iss) instala en
+# X:\Especifika\Autoclave\{programa,datos} y anota RutaPrograma/RutaDatos en el
+# registro; esta_instalado_aqui() reconoce también esa copia. El resto de este
+# instalador (copia a Archivos de programa) no cambia: es la disposición
+# anterior, que el Setup nuevo rechaza (pide desinstalarla).
 
 import ctypes
 import os
 import shutil
 import subprocess
 import sys
+
+from autoclave.utils import resources
 
 TITULO = "Autoclave — Especifika"
 # Usuarios (BUILTIN\Users) por SID: el nombre cambia con el idioma de Windows
@@ -40,8 +48,16 @@ def carpeta_datos() -> str:
 
 
 def esta_instalado_aqui() -> bool:
-    """True si este proceso corre desde la copia instalada."""
-    return os.path.normcase(os.path.abspath(sys.executable)) == os.path.normcase(exe_instalado())
+    """True si este proceso corre desde la copia instalada: la de este
+    instalador (%ProgramFiles%\\Especifika\\Autoclave) o, desde la tanda 17
+    (INS-02), la del Setup, cuya carpeta anota `RutaPrograma` en
+    HKLM\\SOFTWARE\\Especifika\\Autoclave (X:\\Especifika\\Autoclave\\programa).
+    Sin esto, el programa instalado por el Setup volvería a ofrecer instalarse."""
+    if os.path.normcase(os.path.abspath(sys.executable)) == os.path.normcase(exe_instalado()):
+        return True
+    registro = resources._leer_registro_instalacion()
+    return registro is not None and resources._misma_carpeta(
+        registro[0], os.path.dirname(os.path.abspath(sys.executable)))
 
 
 def _mensaje(texto: str, estilo: int) -> int:
@@ -123,8 +139,39 @@ def _copiar_programa(origen: str, destino: str) -> None:
     shutil.rmtree(viejo, ignore_errors=True)
 
 
+def instalacion_con_setup() -> str | None:
+    """R1 (V17-s1-03): carpeta `RutaPrograma` si el equipo tiene una
+    instalación del Setup (disposición X:\\Especifika\\Autoclave, tanda 17,
+    INS-02) y este proceso NO corre desde ella; None si no. Con una instalación
+    así, este instalador no debe crear la disposición anterior en Archivos de
+    programa: el equipo se actualiza con el Setup."""
+    registro = resources._leer_registro_instalacion()
+    if registro is None:
+        return None
+    if resources._misma_carpeta(registro[0], os.path.dirname(os.path.abspath(sys.executable))):
+        return None
+    return registro[0]
+
+
+def _aviso_usar_setup(ruta_programa: str) -> str:
+    # mensaje fijo bilingüe: este módulo corre antes de cargar el idioma
+    return ("Este equipo ya tiene Autoclave instalado con el instalador (Setup) en:\n"
+            f"{ruta_programa}\n\n"
+            "Para actualizarlo, ejecute Autoclave_Setup_<versión>.exe como administrador. "
+            "No se instaló ni se cambió nada.\n\n"
+            "Autoclave is already installed on this PC with the installer (Setup) in:\n"
+            f"{ruta_programa}\n\n"
+            "To update it, run Autoclave_Setup_<version>.exe as administrator. "
+            "Nothing was installed or changed.")
+
+
 def instalar() -> int:
     """Rol `--rol instalar` (ya elevado). 0 si quedó instalado."""
+    instalada = instalacion_con_setup()
+    if instalada is not None:
+        # R1 (V17-s1-03): nunca la disposición anterior junto a la del Setup
+        avisar(_aviso_usar_setup(instalada), error=True)
+        return 1
     destino = exe_instalado()
     try:
         os.makedirs(os.path.dirname(carpeta_instalacion()), exist_ok=True)
@@ -155,7 +202,15 @@ def instalar() -> int:
 def ofrecer_instalacion() -> bool:
     """Desde la USB (o cualquier copia fuera de Archivos de programa): pregunta,
     instala elevado y abre la copia instalada. True si este proceso debe
-    terminar ahí (instalado o cancelado); nunca se sigue corriendo desde la USB."""
+    terminar ahí (instalado o cancelado); nunca se sigue corriendo desde la USB.
+
+    R1 (V17-s1-03): si el equipo tiene una instalación del Setup (registro
+    RutaPrograma), no instala nada: avisa que se actualiza con el Setup y
+    termina, sin abrir ni tocar la copia instalada (lo más seguro)."""
+    instalada = instalacion_con_setup()
+    if instalada is not None:
+        avisar(_aviso_usar_setup(instalada))
+        return True
     actualizar = os.path.exists(exe_instalado())
     texto = ("Ya hay un Autoclave instalado en este PC.\n\n¿Actualizarlo con esta versión?\n"
              "Los datos (perfil, ciclos, base de datos) se conservan."

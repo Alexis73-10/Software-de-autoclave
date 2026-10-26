@@ -209,7 +209,15 @@ def test_el_script_sale_con_2_sin_tocar_nada_si_bloquea(monkeypatch):
 
 
 def test_historial_entrada_debajo_de_la_marca():
-    texto = (RAIZ / "docs" / "versiones" / "HISTORIAL_VERSIONES.md").read_text(encoding="utf-8")
+    real = (RAIZ / "docs" / "versiones" / "HISTORIAL_VERSIONES.md").read_text(encoding="utf-8")
+    # Tanda 17 (A1, R16 §8): antes exigía que el archivo real no tuviera entradas (§5),
+    # lo que dejó de ser cierto con la entrega 1.0.0-alpha.1. Ahora: en el archivo real
+    # toda entrada queda debajo de la marca, y la inserción se comprueba sobre la
+    # cabecera real sin entradas (el texto que tenía el archivo antes de la primera).
+    cabecera, entradas = real.split(ce.MARCA_ENTRADAS, 1)
+    assert "\n## " not in cabecera
+    assert all(t.startswith("## 1.0.0-") for t in entradas.split("\n") if t.startswith("## "))
+    texto = cabecera + ce.MARCA_ENTRADAS + entradas.split("\n", 1)[0] + "\n"
     assert "## " not in texto.split(ce.MARCA_ENTRADAS)[1]          # §5: sin entradas todavía
     uno = ce.agregar_al_historial(texto, "## 1.0.0-alpha.1 — x\n")
     dos = ce.agregar_al_historial(uno, "## 1.0.0-alpha.2 — y\n")

@@ -227,6 +227,38 @@ def fijar_contrasenas(claves: dict, abrir_bd=_abrir_bd) -> list[str]:
         db.close()
 
 
+def zona_horaria_windows() -> str:
+    """Id de la zona horaria de Windows (el que muestra `tzutil /g`), leído
+    del registro sin modificarlo; "" si no se puede leer."""
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE,
+                            r"SYSTEM\CurrentControlSet\Control\TimeZoneInformation") as clave:
+            valor, _ = winreg.QueryValueEx(clave, "TimeZoneKeyName")
+        return str(valor).strip("\x00 ")
+    except (ImportError, OSError):
+        return ""
+
+
+def registrar_equipo_instalado(perfil: InstallationProfile, abrir_bd=_abrir_bd,
+                               zona=zona_horaria_windows) -> None:
+    """BIT-02 (tanda 17): la única fila de la instalación en audit_log, al
+    terminarla, con serie, modelo, versión y zona horaria de Windows. Un error
+    no deshace la instalación (el perfil ya está escrito): queda en el log."""
+    from autoclave._version import version_completa
+    try:
+        db = abrir_bd()
+        try:
+            db.registrar_auditoria(
+                "equipo_instalado", usuario="sistema", entidad=perfil.serial_number,
+                detalle={"serie": perfil.serial_number, "modelo": perfil.model_id,
+                         "version": version_completa(), "zona_horaria": zona()})
+        finally:
+            db.close()
+    except Exception:
+        logger.exception("No se pudo registrar equipo_instalado en la bitácora")
+
+
 def _hay_perfil_valido() -> bool:
     if not storage.exists():
         return False
@@ -320,5 +352,6 @@ class PuenteInstalacion(QObject):
             logger.exception("Instalación rechazada: no se pudieron guardar las contraseñas")
             return {"ok": False, "error": i18n.t("instalacion.error_guardar_contrasenas", detalle=str(e))}
         logger.info("Instalación completada para la serie '%s'", perfil.serial_number)
+        registrar_equipo_instalado(perfil, abrir_bd=self._abrir_bd)
         self.instalado.emit()
         return {"ok": True, "error": ""}

@@ -209,6 +209,11 @@ class ControlLoop:
         # S9, revisión ★ SAF-01: salidas de puerta/vapor cortadas por el lazo
         # en modo prueba (registro una vez por salida mientras siga reportada)
         self._salidas_prueba_cortadas: set[str] = set()
+        # Tanda 17 (ESG-02): avisos de salidas apagadas por el lazo en este
+        # modo prueba, para la pantalla de Entradas / Salidas (los últimos
+        # _MAX_AVISOS_CORTE, con número creciente `n`); se vacía al entrar
+        self._avisos_corte_prueba: list[dict] = []
+        self._n_aviso_corte_prueba = 0
         # D8-3.19 (SAF-01/TMG-01 de la 2.ª revisión): último paso 1 completo
         # (time.monotonic); presion_vigente exige que el estado esté al día
         self._estado_publicado_mono: float | None = None
@@ -366,6 +371,13 @@ class ControlLoop:
             nueva = lecturas.get(principal)
             if not lectura_valida(nueva) or float(nueva) == 0:
                 return False, "principal_sin_lectura"
+            # Tanda 17 (corrección R3 V17-s3-06): se compara contra todas las
+            # sondas del ciclo con lectura, también las No en uso (monitoreo,
+            # SON-01) y las de otros programas. Se deja así a propósito: esta
+            # comparación solo puede NEGAR la liberación del estado seguro
+            # (lado seguro: sigue detenido y con NO ABRIR); nunca la concede.
+            # Filtrar por sensores_en_uso podría liberar con una sonda fría
+            # mientras otra, sin rol, mide la carga caliente.
             otras = [float(v) for k, v in lecturas.items()
                      if k != principal and k in ("temp_camara", "temp_2_camara", "temp_ref")
                      and lectura_valida(v) and float(v) != 0]
@@ -590,23 +602,52 @@ class ControlLoop:
             logger.exception("ControlLoop: no se pudo leer la vigencia de la trama AI")
             return False, None
 
+    def puertas_confirmadas_cerradas(self) -> bool:
+        """Tanda 17 (ESG-02, protección 3): todas las puertas instaladas
+        (numero_puertas del perfil) con su entrada puerta_N_cerrada en 1 y la
+        trama DI vigente. Falla cerrada: falso, sin lectura, datos no
+        vigentes o un error, False."""
+        try:
+            if self.datos_vigentes is not True:
+                return False
+            di = self.estado.sensores_di
+            for num in range(1, numero_puertas(self.profile) + 1):
+                valor = di.get(f"puerta_{num}_cerrada")
+                if not (valor is True or (type(valor) is int and valor == 1)):
+                    return False
+            return True
+        except Exception:
+            logger.exception("Modo prueba: no se pudo leer si las puertas están cerradas")
+            return False
+
     def salidas_prueba_bloqueadas(self) -> dict[str, str]:
-        """S9 (revisión ★ SAF-01, DECISIÓN SIN CONFIRMAR): {salida: código}
-        de las salidas que el modo prueba no puede encender ahora (ver
-        core/runtime/salidas_prueba_seguridad.py). La cámara se evalúa con los
-        programas de seguridad, el menor temp_max_apertura y la presión al
-        día (presion_vigente); sin eso, no segura. Cualquier error: todas.
-        Bajo _sm_lock (reentrante: el backend ya lo tiene en guard_estado)."""
+        """{salida: código} de las salidas que el modo prueba no puede encender
+        ahora (ver core/runtime/salidas_prueba_seguridad.py). S9 (revisión ★
+        SAF-01) reemplazado por la tanda 17 (ESG-02, decisión de Cristian): con
+        lectura vigente de presión de cámara se retiran los bloqueos propios
+        del estado seguro; rigen siempre la presión de cámara para abrir o
+        desbloquear puertas y las puertas cerradas para el vapor de cámara.
+        La cámara se evalúa con los programas de seguridad, el menor
+        temp_max_apertura y la presión al día (presion_vigente); sin eso, no
+        segura. Cualquier error: todas. Bajo _sm_lock (reentrante: el backend
+        ya lo tiene en guard_estado)."""
         try:
             with self._sm_lock:
                 es_activo = self.estado_seguro.activo is True
                 recuperacion = self._recuperacion_pendiente is not None
+                vigente = self.presion_vigente is True
                 segura, _ = camara_segura.evaluar(
                     self.estado, self.config_manager, self.programas_para_seguridad(),
-                    self.profile, datos_vigentes=self.presion_vigente is True,
+                    self.profile, datos_vigentes=vigente,
                     temp_max_ciclo=self.temp_max_tras_ciclo())
-                return salidas_prueba_seguridad.bloqueadas(es_activo, recuperacion,
-                                                           segura is True)
+                presion_segura, _ = camara_segura.evaluar_presion(
+                    self.estado, self.config_manager, datos_vigentes=vigente)
+                lectura_vigente = vigente and camara_segura.lectura_presion(self.estado) is not None
+                return salidas_prueba_seguridad.bloqueadas(
+                    es_activo, recuperacion, segura is True,
+                    presion_vigente=lectura_vigente,
+                    presion_segura=presion_segura is True,
+                    puertas_cerradas=self.puertas_confirmadas_cerradas())
         except Exception:
             logger.exception("Modo prueba: no se pudo evaluar las salidas bloqueadas; "
                              "se bloquean todas")
@@ -631,8 +672,29 @@ class ControlLoop:
                 self._salidas_prueba_cortadas.add(clave)
                 logger.warning("Modo prueba: %s apagada por el lazo (%s)", clave, codigo)
                 nuevas.append((clave, codigo))
+                self._anotar_aviso_corte(clave, codigo)
         self._salidas_prueba_cortadas &= set(bloqueadas)
         return nuevas
+
+    _MAX_AVISOS_CORTE = 10
+
+    def _anotar_aviso_corte(self, clave: str, codigo: str) -> None:
+        """Tanda 17 (ESG-02): aviso para la pantalla de Entradas / Salidas de
+        una salida que el lazo apagó con la orden ya dada (vapor de cámara con
+        una puerta que dejó de estar cerrada; puerta o desbloqueo con la
+        cámara que dejó de estar a presión atmosférica)."""
+        self._n_aviso_corte_prueba += 1
+        self._avisos_corte_prueba.append({
+            "n": self._n_aviso_corte_prueba, "salida": clave, "codigo": codigo,
+            "aviso": salidas_prueba_seguridad.AVISOS_CORTE.get(codigo, "")})
+        del self._avisos_corte_prueba[:-self._MAX_AVISOS_CORTE]
+
+    @property
+    def avisos_corte_prueba(self) -> list[dict]:
+        """Tanda 17 (ESG-02): copia de los avisos de salidas apagadas por el
+        lazo en el modo prueba en curso (cada uno {n, salida, codigo, aviso};
+        `aviso` es la clave i18n o "")."""
+        return [dict(a) for a in list(self._avisos_corte_prueba)]
 
     @property
     def presion_vigente(self) -> bool:
@@ -1080,8 +1142,10 @@ class ControlLoop:
                                 vigentes=connected and not self.desconectado
                                 and self._di_vigente() and self._ai_vigente())
                             if self._test_mode.is_set() else None)
-            # S9, revisión ★ SAF-01: apertura/desbloqueo de puertas (y con el
-            # estado seguro, rápida, chaqueta y vapor) apagados en modo prueba
+            # S9, revisión ★ SAF-01 / tanda 17 (ESG-02): salidas bloqueadas en
+            # modo prueba apagadas en este mismo tick (puertas con la cámara no
+            # segura en presión, vapor de cámara con una puerta no cerrada, y
+            # sin lectura vigente de presión los bloqueos del estado seguro)
             salidas_cortadas = (self._vigilar_salidas_prueba_seguridad()
                                 if self._test_mode.is_set() else [])
 
@@ -1422,6 +1486,7 @@ class ControlLoop:
             # contar sus 3 ticks seguros desde cero al salir
             self._ticks_seguros_recuperacion = 0
             self._salidas_prueba_cortadas.clear()
+            self._avisos_corte_prueba.clear()
             # D8-2.11: entrar cancela los reintentos pendientes (el modo
             # prueba vuelve a pausar todo y su salida apaga de nuevo)
             self._reintentos_all_off = 0

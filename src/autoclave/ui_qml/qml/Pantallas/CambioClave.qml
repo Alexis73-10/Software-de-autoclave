@@ -309,7 +309,6 @@ Item {
         x: tarjetaContenido.x
         width: tarjetaContenido.width
         y: raiz.height - 171 * escala
-        version: I18n.t("app.version", I18n.lang)
         // Atrás e Inicio abandonan el cambio; inactivos mientras se envía
         atrasHabilitado: !control.ocupado
         inicioActivo: !control.ocupado

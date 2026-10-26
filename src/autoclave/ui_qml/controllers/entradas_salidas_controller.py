@@ -30,7 +30,10 @@ _CAUSAS_SOLO_CATALOGO = frozenset({"aire_atmosferico_con_presion",
                                    "aire_atmosferico_sin_referencia",
                                    # S9 (revisión ★ SAF-01)
                                    "salida_prueba_camara_no_segura",
-                                   "salida_prueba_estado_seguro"})
+                                   "salida_prueba_estado_seguro",
+                                   # Tanda 17 (ESG-02): protecciones permanentes
+                                   "salida_prueba_camara_presurizada",
+                                   "salida_prueba_puerta_abierta"})
 
 # D-ES-08: sin actividad del usuario en la seccion el modo prueba se cierra
 INACTIVIDAD_UI_S = 5 * 60
@@ -38,6 +41,51 @@ INACTIVIDAD_UI_S = 5 * 60
 
 def mensaje_de(causa: str) -> str:
     return sesion_backend.clave_mensaje(causa)
+
+
+# Tanda 17 (MPR-01 / ESG-02): avisos de salidas cortadas en el modo prueba.
+# Contrato del backend: /status.avisos_corte_prueba = [{n, salida, codigo,
+# aviso}], con `aviso` la clave i18n (io.ui.aviso_...) o "". Se aceptan
+# también textos o dicts con "causa"/"motivo"/"codigo" (deducción por causa).
+CLAVES_AVISOS_CORTE = ("avisos_corte_prueba",)
+_AVISO_POR_CAUSA = (("puerta", "io.ui.aviso_vapor_cortado_puerta"),
+                    ("presion", "io.ui.aviso_salida_cortada_presion"),
+                    ("presuriz", "io.ui.aviso_salida_cortada_presion"),
+                    ("camara_no_segura", "io.ui.aviso_salida_cortada_presion"))
+
+
+def avisos_corte(status) -> list[dict]:
+    """[{clave, salida, texto}]: `clave` i18n si se reconoce la causa; si no,
+    `texto` con lo recibido (la pantalla lo muestra tal cual)."""
+    if not isinstance(status, dict):
+        return []
+    lista = next((status[k] for k in CLAVES_AVISOS_CORTE if isinstance(status.get(k), list)), [])
+    salida = []
+    for e in lista:
+        if isinstance(e, dict):
+            causa = str(e.get("aviso") or e.get("causa") or e.get("motivo") or e.get("codigo") or "")
+            nombre = str(e.get("salida") or "")
+        elif isinstance(e, str):
+            causa, nombre = e, ""
+        else:
+            continue
+        if causa.startswith("io.ui."):
+            clave = causa
+        else:
+            clave = next((c for frag, c in _AVISO_POR_CAUSA if frag in causa.lower()), "")
+        if clave or causa:
+            salida.append({"clave": clave, "salida": nombre, "texto": "" if clave else causa})
+    return salida
+
+
+def presion_camara(status):
+    """MPR-01: presión de cámara (kPa abs) de /status con la tarjeta en línea;
+    None sin lectura (la pantalla muestra «—»)."""
+    if not dominio.enlace_ok(status):
+        return None
+    pres = (status.get("sensors") or {}).get("pressure") if isinstance(status.get("sensors"), dict) else None
+    v = pres.get("camara") if isinstance(pres, dict) else None
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v == v else None
 
 
 class EntradasSalidasController(QObject):
@@ -144,6 +192,17 @@ class EntradasSalidasController(QObject):
     @Property("QVariantList", notify=cambioDatos)
     def presion(self) -> list:
         return self._presion
+
+    @Property("QVariant", notify=cambioDatos)
+    def presionCamara(self):
+        """MPR-01 (tanda 17): kPa absolutos o None («—» en la pantalla)."""
+        return presion_camara(self._status)
+
+    @Property("QVariantList", notify=cambioDatos)
+    def avisosCorte(self) -> list:
+        """MPR-01 / ESG-02 (tanda 17): salidas cortadas por las protecciones
+        del modo prueba (ver CLAVES_AVISOS_CORTE)."""
+        return avisos_corte(self._status)
 
     @Property(bool, notify=cambioDatos)
     def enlace(self) -> bool:

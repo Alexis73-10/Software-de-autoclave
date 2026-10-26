@@ -330,7 +330,6 @@ Item {
         width: raiz.m(1139 - 54)
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
-        version: I18n.t("app.version", I18n.lang)
         inicioActivo: raiz.inicioActivo
         onAtrasPulsado: raiz.atrasPulsado()
         onInicioPulsado: raiz.inicioPulsado()

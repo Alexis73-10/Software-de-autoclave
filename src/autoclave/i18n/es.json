@@ -131,8 +131,7 @@
     "resumen_contrasenas_fijadas": "Fijadas (se guardan al instalar)"
   },
   "app": {
-    "nombre": "e-specifika",
-    "version": "V: 1.0"
+    "nombre": "e-specifika"
   },
   "opciones": {
     "err_rol_sonda_no_activa": "No se puede guardar: hay un rol asignado a una sonda que no está activa en el perfil de instalación.",
@@ -369,6 +368,8 @@
     "informacion": "INFORMACIÓN"
   },
   "ciclo": {
+    "serie_temp_2_camara": "Temperatura de cámara 2",
+    "monitoreo": "(monitoreo)",
     "no_conforme_reconocer_error": "No se pudo registrar el reconocimiento de la carga no liberable. Revise la conexión e inténtelo de nuevo.",
     "no_conforme_reconocido": "Reconocido: la carga no es liberable",
     "no_conforme_reconocer": "Reconozco que la carga no es liberable",
@@ -435,6 +436,7 @@
     "meses": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   },
   "arranque": {
+    "version_software": "Software v{version}",
     "iniciando_servicios": "Iniciando servicios",
     "conectando_tarjeta": "Conectando con la tarjeta de E/S",
     "verificando_sensores": "Verificando sensores",
@@ -1122,6 +1124,8 @@
     "estado_no_instalado": "No instalado"
   },
   "io": {
+    "err_vapor_puerta_abierta": "No se puede abrir el vapor de cámara: hay una puerta abierta o sin confirmación de cerrada.",
+    "err_puerta_camara_presurizada": "No se puede abrir ni desbloquear la puerta: la cámara está presurizada o en vacío, o no hay lectura de presión.",
     "err_rechazado": "El equipo rechazó la orden.",
     "err_sin_base": "Sin registro de auditoría: no se aplicó el cambio.",
     "err_sin_previa": "No hay una calibración anterior que restaurar.",
@@ -1185,6 +1189,9 @@
       "pres_empaque_2": "Presión empaque 2"
     },
     "ui": {
+      "aviso_salida_cortada_presion": "Salida apagada: la cámara dejó de estar a presión atmosférica.",
+      "aviso_vapor_cortado_puerta": "Vapor de cámara apagado: una puerta dejó de estar cerrada.",
+      "presion_camara": "Presión de cámara",
       "titulo": "ENTRADAS / SALIDAS",
       "seg_entradas": "Entradas",
       "seg_salidas": "Salidas",
@@ -1639,6 +1646,9 @@
     "red_sin_red": "Sin red"
   },
   "bitacora": {
+    "err_rango": "La fecha Desde no puede ser posterior a la fecha Hasta.",
+    "categoria": {"seguridad": "Seguridad", "configuracion": "Configuración", "usuarios_sesion": "Usuarios y sesión", "mantenimiento_calibracion": "Mantenimiento y calibración", "sistema": "Sistema"},
+    "hasta": "Hasta",
     "desde": "Desde",
     "desde_formato": "Desde (AAAA-MM-DD; vacío = todo)",
     "usuario": "Usuario",
@@ -1651,6 +1661,7 @@
     "err_fecha": "La fecha debe tener el formato AAAA-MM-DD.",
     "ev_generico": "{evento} {entidad}",
     "ev": {
+      "equipo_instalado": "registró la instalación del equipo {entidad}",
       "ciclo_no_conforme_reconocido": "reconoció que la carga del ciclo NO CONFORME no es liberable",
       "login_ok": "inició sesión",
       "login_fallido": "intento de ingreso fallido",
@@ -1709,6 +1720,7 @@
       "cuenta_sistema_rechazada": "intentó modificar la cuenta del sistema {entidad} (rechazado)"
     },
     "tipo": {
+      "equipo_instalado": "Equipo instalado",
       "ciclo_no_conforme_reconocido": "Carga no liberable reconocida",
       "login_ok": "Inicio de sesión",
       "login_fallido": "Ingreso fallido",
@@ -2162,5 +2174,48 @@
     "err_puerto_sin_calibracion": "Ese puerto analógico no tiene calibración en este equipo.",
     "err_reinicio_en_curso": "El control ya se está reiniciando.",
     "err_no_pendiente": "Esa función no está pendiente de verificar."
+  },
+  "selector_programa": {
+    "titulo": "Programa",
+    "elegir": "Elegir programa",
+    "vacio": "No hay programas",
+    "ninguno": "Ningún programa elegido"
+  },
+  "alarma_detalle": {
+    "estado_retirada": "Ya no está activa",
+    "estado_resuelta": "Resuelta, sin reconocer",
+    "titulo": "Detalle de la alarma",
+    "nombre": "Nombre",
+    "nivel": "Nivel",
+    "codigo": "Código",
+    "hora": "Hora de activación",
+    "descripcion": "Descripción",
+    "accion": "Causa o acción",
+    "estado": "Estado",
+    "estado_activa": "Activa",
+    "estado_reconocida": "Reconocida",
+    "nivel_emergencia": "Emergencia",
+    "nivel_alarma": "Alarma",
+    "nivel_aviso": "Aviso",
+    "cerrar": "Cerrar",
+    "sin_dato": "—"
+  },
+  "calendario": {
+    "titulo_desde": "Fecha desde",
+    "titulo_hasta": "Fecha hasta",
+    "mes_anterior": "Mes anterior",
+    "mes_siguiente": "Mes siguiente",
+    "hoy": "Hoy",
+    "cancelar": "Cancelar",
+    "sin_fecha": "Sin fecha",
+    "dias_cortos": [
+      "L",
+      "M",
+      "X",
+      "J",
+      "V",
+      "S",
+      "D"
+    ]
   }
 }

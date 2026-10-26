@@ -8,7 +8,7 @@ Scripts para dejar el PC industrial en modo quiosco según `docs/mis_plans/plane
 - PowerShell 5.1 (viene con Windows 10/11), consola **como administrador**.
 - Permitir la ejecución solo en esa consola: `Set-ExecutionPolicy -Scope Process Bypass`.
 - Edición de Windows anotada (plan §10.1). En **Home** se ignoran las directivas de Windows Update y quizá `NoLockScreen`; los scripts las escriben igual, pero hay que comprobarlas en la lista de abajo.
-- `Autoclave.exe` instalado en `%ProgramFiles%\Especifika\Autoclave\` (o pasar `-Ejecutable` al paso 3).
+- `Autoclave.exe` instalado. Desde la tanda 17 (INS-02) el Setup lo instala en `X:\Especifika\Autoclave\programa\` (`RutaPrograma` en `HKLM\SOFTWARE\Especifika\Autoclave`); antes, en `%ProgramFiles%\Especifika\Autoclave\`. Pasar `-Ejecutable` al paso 3 si no está en la ruta por defecto del script.
 
 ## Orden de ejecución
 
@@ -38,13 +38,14 @@ cd C:\ruta\tools\estacion
 
 El Setup de Inno (`tools/instalador/`) aplica los pasos 01, 04 y 05 con la casilla "Configurar este PC como estación del autoclave", el 06 con su subcasilla "Asociar cada pantalla táctil con su monitor" (tanda 11, D11-5; solo aparece con 2 o más monitores, no se reaplica al Reparar y no corre en un Setup silencioso) y el 02 con la casilla "Arranque sin logo", sin interacción, a través de `tools/instalador/estacion_setup.ps1`; el desinstalador ejecuta los inversos de los pasos aplicados. Para eso:
 - `01_cuenta_autologon.ps1` acepta `-Dominio` (por defecto el nombre del equipo), `-NoCrearCuenta` (falla sin cambiar nada si la cuenta local no existe) y `-ContrasenaDesdeEntorno` (toma la contraseña de la variable `AUTOCLAVE_CLAVE_AUTOLOGON` del proceso y la borra). Sin esos parámetros se comporta como antes (pide la contraseña). `AutoAdminLogon` se activa al final, después de usuario, dominio y contraseña.
-- La carpeta `%ProgramData%\Especifika\Autoclave\estacion\` queda solo para Administradores y SYSTEM (dueño Administradores, sin herencia), porque la carpeta de datos tiene Modificar para Usuarios y los inversos corren como administrador con lo que diga `respaldo_<paso>.json`. Se aplica también al simular con `-WhatIf`.
+- La carpeta de la estación (`<RutaDatos>\estacion\`, ver «Log y respaldos») queda solo para Administradores y SYSTEM (dueño Administradores, sin herencia), porque la carpeta de datos tiene Modificar para Usuarios y los inversos corren como administrador con lo que diga `respaldo_<paso>.json`. Se aplica también al simular con `-WhatIf`.
 - Los inversos solo restauran los valores de registro de la lista `ValoresGestionados` de `_comun.ps1` (un respaldo alterado no puede escribir otra clave), y `05_revertir…` solo importa el `.pow` de esa carpeta. Un paso nuevo que escriba otro valor debe agregarlo a esa lista (`tests/test_t9_e9_setup_estacion.py` lo comprueba).
 - El log muestra `DefaultPassword` como `********`.
 
 ## Log y respaldos
 
-- Log de todas las ejecuciones (también las simuladas): `%ProgramData%\Especifika\Autoclave\estacion\estacion.log`.
+- Carpeta de la estación (tanda 17, INS-02): `<RutaDatos>\estacion\`, con `RutaDatos` leído por `_comun.ps1` de `HKLM\SOFTWARE\Especifika\Autoclave` en la vista de 64 bits (p. ej. `D:\Especifika\Autoclave\datos\estacion\`). El Setup escribe esa clave antes de correr los pasos. **Sin la clave** (scripts sueltos en un PC sin el Setup nuevo, o una instalación anterior): `%ProgramData%\Especifika\Autoclave\estacion\`, como antes. Los inversos deben correr con la misma clave que los pasos (si se desinstala Autoclave antes de revertir a mano, la clave ya no está: buscar los respaldos en `datos\estacion\` y copiarlos a la carpeta de respaldo, o volver a escribir la clave).
+- Log de todas las ejecuciones (también las simuladas): `estacion.log` en esa carpeta.
 - Valores originales que cambia cada paso: `respaldo_<paso>.json` en la misma carpeta. Se guardan solo la primera vez, así que correr un script dos veces no pierde el valor original.
 - Copia del BCD (`bcd_respaldo.bcd`) y del plan de energía (`plan_energia_respaldo.pow`) en la misma carpeta.
 
@@ -67,7 +68,7 @@ En orden inverso (6 → 1), como administrador, también con `-WhatIf` primero:
 - `01_revertir…` solo borra la cuenta con `-EliminarCuenta` y solo si la creó el paso 1; el perfil de `C:\Users` queda.
 - `05_revertir…` reimporta el plan original con un GUID nuevo; el plan modificado queda en la lista (`powercfg /list`, borrar con `powercfg /delete`).
 - `06_revertir…` borra solo las asociaciones táctil-monitor que creó el paso 6 y devuelve su dato a las que cambió (según `respaldo_06_asociar_tactiles.json`); las que ya había antes quedan. Sin ese respaldo no borra nada. **Ojo:** "creada por el paso" quiere decir "que no estaba antes de la primera vez que corrió el paso 6", así que también borra las asociaciones rehechas después (a mano desde el Panel de control, al cambiar un táctil o al repetir el paso). Tras desinstalar o revertir, hay que volver a asociar las pantallas. Si un valor no se puede revertir, el script termina con error y conserva el respaldo para reintentarlo.
-- Si el arranque falla tras el paso 2: desde el entorno de recuperación, `bcdedit /import %ProgramData%\Especifika\Autoclave\estacion\bcd_respaldo.bcd`.
+- Si el arranque falla tras el paso 2: desde el entorno de recuperación, `bcdedit /import <carpeta de la estación>\bcd_respaldo.bcd` (p. ej. `D:\Especifika\Autoclave\datos\estacion\bcd_respaldo.bcd`; antes de la tanda 17, `%ProgramData%\Especifika\Autoclave\estacion\`).
 
 ## Lo que no cubren los scripts
 
@@ -100,5 +101,5 @@ En orden inverso (6 → 1), como administrador, también con `-WhatIf` primero:
 Windows guarda la asociación de cada táctil con su monitor **por puerto USB** (`HKLM\SOFTWARE\Microsoft\Wisp\Pen\Digimon`). Con dos paneles idénticos no hay otra forma de distinguirlos.
 
 - Después de asociar, **marcar en el PC el puerto USB de cada táctil** y en cada cable la pantalla a la que va (por ejemplo, "Táctil pantalla 1 / puerto USB trasero superior"), y anotarlo en la hoja del equipo.
-- **Cambiar el cable de un táctil a otro puerto deshace la asociación**: el toque de una pantalla aparece en la otra. Si pasa, devolver el cable a su puerto marcado o repetir la asociación (Panel de control › Configuración de Tablet PC › Configurar, o `06_asociar_tactiles.ps1` como administrador).
+- **Cambiar el cable de un táctil a otro puerto deshace la asociación**: el toque de una pantalla aparece en la otra. Si pasa, devolver el cable a su puerto marcado o repetir la asociación como administrador: `"<RutaPrograma>\Autoclave.exe" --rol asociar-tactiles` (herramienta propia, EST-06 de la tanda 17) o `06_asociar_tactiles.ps1` (con `MultiDigitizer.exe`, si ese Windows lo trae: Panel de control › Configuración de Tablet PC › Configurar).
 - Cambiar de puerto el cable de video también puede cambiar el orden de los monitores: marcar también los cables de video.

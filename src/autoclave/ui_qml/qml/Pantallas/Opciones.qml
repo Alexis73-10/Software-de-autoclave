@@ -538,7 +538,6 @@ Item {
         width: tarjetaOpciones.width
         y: parent.height - raiz.m(raiz.altoMockup - 1746)
         escala: raiz.escala
-        version: I18n.t("app.version", I18n.lang)
         inicioActivo: !raiz.navegacionBloqueada
         atrasHabilitado: !raiz.navegacionBloqueada
         cerrarSesionVisible: !raiz.navegacionBloqueada

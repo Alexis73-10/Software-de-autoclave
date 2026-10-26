@@ -9,6 +9,7 @@ from typing import Literal
 from fastapi import HTTPException
 from pydantic import BaseModel, Field
 from autoclave.core.runtime import progreso_ciclo
+from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.services.domain.logging.ticket_formatter import format_ticket
 from fastapi import APIRouter
 
@@ -82,6 +83,8 @@ def get_cycle_history_graph(ciclo_id: int):
     if context.db.get_ciclo(ciclo_id) is None:
         raise HTTPException(status_code=404, detail="Ciclo no encontrado")
     rows = context.db.get_lecturas_grafica(ciclo_id)
+    # Tanda 17 (SON-01): las sondas instaladas, también las No en uso (monitoreo)
+    sondas = sc.sondas_grafica(getattr(context, "profile", None))
     return {
         "ciclo_db_id": ciclo_id,
         "lecturas": [
@@ -90,8 +93,7 @@ def get_cycle_history_graph(ciclo_id: int):
                 "t_s":         r["t_s"],
                 "fase":        r["fase"],
                 "fase_ui":     progreso_ciclo.fase_ui(r["fase"]),
-                "temp_camara": r["temp_camara"],
-                "temp_ref":    r["temp_ref"],
+                **sc.temperaturas_grafica(r, sondas),
                 "pres_camara": r["pres_camara"],
             }
             for r in rows

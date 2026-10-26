@@ -9,7 +9,6 @@ import Tema
 Item {
     id: raiz
     property var botones: []
-    property string version: ""   // ej. "V: 1.0" — dejar vacío si no aplica
 
     // Ruta de assets: ajustar si la ubicación final de los SVG cambia
     property string carpetaIconos: "../../assets/iconos/mono/"
@@ -41,15 +40,6 @@ Item {
         }
     }
 
-    Text {
-        visible: raiz.version.length > 0
-        text: raiz.version
-        anchors.right: parent.right
-        anchors.bottom: parent.bottom
-        anchors.margins: Escala.px(16)
-        color: Colores.textoGuia
-        font.family: Tipografia.familia
-        font.pixelSize: Escala.fuente(16)   // meta_version de estilos_de_texto.csv
-        font.weight: Tipografia.pesoMedium
-    }
+    // UI-VER (tanda 17): la barra ya no muestra la versión (solo Información
+    // del equipo y del sistema)
 }

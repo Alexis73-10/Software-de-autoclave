@@ -62,7 +62,6 @@ Item {
     property int conteoNotificaciones: panelNotificaciones.conteoTotal
     property string modelo: infoEquipo?.modelo ?? ""
     property string serie: infoEquipo?.serie ?? ""
-    property string version: I18n.t("app.version", I18n.lang)
     // [{fase, estado, duracion_s}] de las fases que aplican
     property var fases: progreso?.fases ?? []
     // segundos (reloj monotónico del backend); restanteS null = no estimable;
@@ -529,6 +528,8 @@ Item {
                     lx: entrada.c0 + (entrada.esPresion ? 99.6 : 73.6); bl: entrada.esPresion ? 467 : 469
                     limite: entrada.c0 + 188.2
                     clave: "ciclo.entrada_corta_" + entrada.modelData.clave
+                    // Tanda 17 (SON-01): sonda instalada con rol No en uso
+                    sufijo: entrada.modelData.monitoreo === true ? " " + I18n.t("ciclo.monitoreo", I18n.lang) : ""
                 }
                 Valor { cx: entrada.c0 + 94.1; text: raiz.datosVigentes ? entrada.modelData.valor : "—" }
                 Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
@@ -777,7 +778,6 @@ Item {
         y: raiz.yb(1746)
         escala: raiz.m(1)
         personalizada: true
-        version: raiz.version
 
         // Celda izquierda: icono de equipo, modelo y serie
         Item {

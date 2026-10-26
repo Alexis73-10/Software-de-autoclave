@@ -134,7 +134,12 @@ def test_iss_instala_los_scripts_y_da_permisos():
         assert f'Source: "..\\estacion\\{nombre}"; DestDir: "{{app}}\\estacion"' in ISS, nombre
         assert (ESTACION / nombre).is_file()
     assert 'Source: "estacion_setup.ps1"; DestDir: "{app}\\estacion"' in ISS
-    assert 'Name: "{commonappdata}\\Especifika\\Autoclave"; Permissions: users-modify' in ISS
+    # Tanda 17 (INS-02, decisión de Cristian): los datos pasan de
+    # {commonappdata}\Especifika\Autoclave a X:\Especifika\Autoclave\datos; el
+    # permiso de Modificar a Usuarios lo da icacls (ACL explícita sin herencia,
+    # PermisosDatos) y [Dirs] solo declara que el desinstalador no la borra.
+    assert 'Name: "{code:DatosParam}"; Flags: uninsneveruninstall' in ISS
+    assert "*S-1-5-32-545:(OI)(CI)M" in ISS
     assert "AppId={{81C9DAB1-5CF8-4AD2-A7BE-15053E6ED43F}" in ISS              # no cambia nunca
 
 

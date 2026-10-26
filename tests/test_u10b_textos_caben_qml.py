@@ -104,15 +104,28 @@ def test_tarjeta_y_campana_sin_textos_fuera_de_su_cuadro(preciclo_alarmas):
         assert paso["problemas"] == []
 
 
+def _titulo(codigo, valores, idioma):
+    from autoclave import i18n
+    from autoclave.core.runtime import alarmas_i18n
+    from autoclave.state_machine.alarms.catalogo import CATALOGO
+    i18n.cargar()
+    return alarmas_i18n.textos(CATALOGO[codigo], valores, idioma)["titulo"]
+
+
 def test_motivo_completo_y_en_el_idioma_de_la_interfaz(preciclo_alarmas):
+    # Tanda 17 (ALM-01, decisión de Cristian): la fila de la tarjeta de
+    # Preciclo y del panel de la campana muestra solo el NOMBRE (título del
+    # catálogo) en el idioma de la interfaz; la descripción completa (el
+    # motivo de CIC-10) va en la ventana de detalle al tocar la fila
+    # (tests/test_t17_s4_alarmas_qml.py). Antes se exigía aquí la descripción.
     idioma, r = preciclo_alarmas
-    cic10 = _descripcion("CIC-10", {"motivo": MOTIVO}, idioma)
-    sen06 = _descripcion("SEN-06", {}, idioma)
+    cic10 = _titulo("CIC-10", {"motivo": MOTIVO}, idioma)
+    sen06 = _titulo("SEN-06", {}, idioma)
     for paso in r["pasos"]:               # tarjeta de Preciclo y panel de la campana
         assert cic10 in paso["vistos"]
         assert sen06 in paso["vistos"]
     if idioma != "es":
-        cic10_es = _descripcion("CIC-10", {"motivo": MOTIVO}, "es")
+        cic10_es = _titulo("CIC-10", {"motivo": MOTIVO}, "es")
         assert cic10 != cic10_es
         for paso in r["pasos"]:
             assert cic10_es not in paso["vistos"]

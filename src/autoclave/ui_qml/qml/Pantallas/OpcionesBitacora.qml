@@ -6,7 +6,7 @@ import "../Componentes"
 import Autoclave.I18n
 
 // OPCIONES › Bitácora de auditoría (O2e, tanda 6; mockup 9). Solo lectura.
-// Filtros Desde, Usuario y Tipo; filas con fecha y hora a la izquierda y una
+// Filtros Desde–Hasta (calendario), Usuario y Tipo (categoría; tanda 17, BIT-05); filas con fecha y hora a la izquierda y una
 // frase con el usuario en negrita (texto por código en el idioma vigente,
 // valores en la unidad vigente). Paginación "‹ Anterior · Página n de m · Siguiente ›".
 Item {
@@ -22,11 +22,6 @@ Item {
     readonly property alias controlador: control
     Component.onCompleted: control.cargar()
 
-    function nombreTipo(t) {
-        if (t === "") return I18n.t("bitacora.todos", I18n.lang)
-        const k = "bitacora.tipo." + t
-        return I18n.existe(k, I18n.lang) ? I18n.t(k, I18n.lang) : t
-    }
     function frase(f) {
         return I18n.t(f.claveTexto, I18n.lang, { entidad: f.entidad, anterior: f.anterior,
                                                  nuevo: f.nuevo, evento: f.evento })
@@ -63,43 +58,89 @@ Item {
         MouseArea { anchors.fill: parent; onClicked: filtro.pulsado() }
     }
 
+    // Tanda 17 (BIT-05): Desde y Hasta abren el calendario táctil (sin
+    // teclado; por omisión Hasta = hoy y Desde sin fecha, como antes); Usuario
+    // y Tipo son desplegables ("Todos" + los usuarios de la bitácora; Tipo
+    // por categoría)
+    readonly property var opcionesUsuario: [{ valor: "", texto: I18n.t("bitacora.todos", I18n.lang) }]
+        .concat(control.usuarios.map(u => ({ valor: u, texto: u })))
+    readonly property var opcionesCategoria: [{ valor: "", texto: I18n.t("bitacora.todos", I18n.lang) }]
+        .concat(control.categorias.map(c => ({ valor: c, texto: raiz.nombreCategoria(c) })))
+    // claves literales (sin familia dinámica): las 5 categorías de BIT-05
+    function nombreCategoria(c) {
+        switch (c) {
+        case "seguridad": return I18n.t("bitacora.categoria.seguridad", I18n.lang)
+        case "configuracion": return I18n.t("bitacora.categoria.configuracion", I18n.lang)
+        case "usuarios_sesion": return I18n.t("bitacora.categoria.usuarios_sesion", I18n.lang)
+        case "mantenimiento_calibracion": return I18n.t("bitacora.categoria.mantenimiento_calibracion", I18n.lang)
+        case "sistema": return I18n.t("bitacora.categoria.sistema", I18n.lang)
+        }
+        return c
+    }
+    property string _campoFecha: ""           // "desde" | "hasta" mientras el calendario está abierto
+    function abrirCalendario(campo) {
+        _campoFecha = campo
+        // R4 (V17-s4-04): «Sin fecha» solo en Desde; en Hasta volvía a hoy sin decirlo
+        calendario.permiteSinFecha = (campo === "desde")
+        calendario.abrir(campo === "desde" ? control.desde : control.hasta,
+                         I18n.t(campo === "desde" ? "calendario.titulo_desde" : "calendario.titulo_hasta",
+                                I18n.lang))
+    }
+
     Row {
         id: filtros
         width: parent.width
         spacing: Escala.px(10)
+        z: 10                                  // los desplegables abiertos, encima de la lista
+        readonly property real ancho: (width - 3 * spacing) / 4
         Filtro {
             objectName: "filtroDesde"
-            width: (filtros.width - 2 * filtros.spacing) * 0.3
+            width: filtros.ancho
             rotulo: I18n.t("bitacora.desde", I18n.lang)
             valor: control.desde !== "" ? control.desde : I18n.t("bitacora.todos", I18n.lang)
-            onPulsado: if (raiz.teclado) raiz.teclado.abrirAlfanumerico(
-                           I18n.t("bitacora.desde_formato", I18n.lang), control.desde, 10, false,
-                           (t) => raiz._desdePendiente = t)
+            onPulsado: raiz.abrirCalendario("desde")
         }
         Filtro {
+            objectName: "filtroHasta"
+            width: filtros.ancho
+            rotulo: I18n.t("bitacora.hasta", I18n.lang)
+            valor: control.hasta
+            onPulsado: raiz.abrirCalendario("hasta")
+        }
+        Desplegable {
             objectName: "filtroUsuario"
-            width: (filtros.width - 2 * filtros.spacing) * 0.3
+            width: filtros.ancho
             rotulo: I18n.t("bitacora.usuario", I18n.lang)
-            valor: control.usuario !== "" ? control.usuario : I18n.t("bitacora.todos", I18n.lang)
-            onPulsado: control.siguienteUsuario()
+            tituloLista: I18n.t("bitacora.usuario", I18n.lang)
+            prefijoFila: "usuario_"
+            opciones: raiz.opcionesUsuario
+            valor: control.usuario
+            onElegido: (v) => control.fijarUsuario(String(v))
         }
-        Filtro {
+        Desplegable {
             objectName: "filtroTipo"
-            width: (filtros.width - 2 * filtros.spacing) * 0.4
+            width: filtros.ancho
             rotulo: I18n.t("bitacora.tipo_rotulo", I18n.lang)
-            valor: raiz.nombreTipo(control.tipo)
-            onPulsado: control.siguienteTipo()
+            tituloLista: I18n.t("bitacora.tipo_rotulo", I18n.lang)
+            prefijoFila: "categoria_"
+            opciones: raiz.opcionesCategoria
+            valor: control.categoria
+            onElegido: (v) => control.fijarCategoria(String(v))
         }
     }
-    property string _desdePendiente: "-"
-    Connections {
-        target: raiz.teclado
-        function onTerminado() {
-            if (raiz._desdePendiente !== "-") {
-                control.fijarDesde(raiz._desdePendiente)
-                raiz._desdePendiente = "-"
-            }
+
+    Calendario {
+        id: calendario
+        objectName: "calendarioBitacora"
+        hoy: control.hoy
+        onElegida: (fecha) => {
+            if (raiz._campoFecha === "desde")
+                control.fijarDesde(fecha)
+            else if (raiz._campoFecha === "hasta")
+                control.fijarHasta(fecha)
+            raiz._campoFecha = ""
         }
+        onCancelada: raiz._campoFecha = ""
     }
 
     Text {
@@ -143,6 +184,10 @@ Item {
             Text {
                 id: textoFrase
                 objectName: "fraseBitacora"
+                // tipo del evento (bitacora.tipo.<evento>) para lectores de pantalla
+                // R4 (V17-s4-07): vacío si el evento no tiene texto de tipo
+                Accessible.description: I18n.existe("bitacora.tipo." + fila.modelData.evento, I18n.lang)
+                                        ? I18n.t("bitacora.tipo." + fila.modelData.evento, I18n.lang) : ""
                 anchors.left: cuando.right; anchors.leftMargin: Escala.px(12)
                 anchors.right: parent.right; anchors.rightMargin: Escala.px(8)
                 anchors.verticalCenter: parent.verticalCenter

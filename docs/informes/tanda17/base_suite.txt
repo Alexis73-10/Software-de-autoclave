@@ -1,0 +1,9 @@
+Línea base tanda 17 (rama tanda-17 en 424e5d6, pytest tests -n auto):
+4 failed, 8234 passed, 10 skipped, 3 xfailed, 16 warnings in 491.72s (0:08:11)
+Recolectadas: 8251 (8234 passed + 4 failed + 10 skipped + 3 xfailed)
+FAILED tests/test_f1_registro_pruebas.py::test_el_formulario_sale_de_pruebas_py_con_todos_los_bloques
+FAILED tests/test_main_window_navigate_payload.py::test_navigate_to_sin_payload_no_falla
+FAILED tests/test_ver_entrega.py::test_historial_entrada_debajo_de_la_marca
+FAILED tests/test_main_window_navigate_payload.py::test_navigate_to_con_payload_llama_set_context
+En serie: test_f1_registro_pruebas y test_main_window_navigate_payload pasan (solo fallan en paralelo, como en R16).
+test_ver_entrega::test_historial_entrada_debajo_de_la_marca: falla preexistente (R16 §8), corregida en A1 (fca0102).

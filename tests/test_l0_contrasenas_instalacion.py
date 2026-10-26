@@ -137,7 +137,9 @@ def test_guarda_hash_apaga_debe_cambiar_y_audita(entorno):
         fila, auditoria = _cuenta(entorno / "autoclave.db", usuario)
         assert verificar_password(clave, fila["hash_pw"])
         assert fila["debe_cambiar_clave"] == 0
-    assert sorted(a["entidad"] for a in auditoria) == ["Admin", "Ingeniero"]
+    # Tanda 17 (BIT-02, decisión de Cristian): durante la instalación no se escribe
+    # en audit_log; la única fila es equipo_instalado (tests/test_t17_f2_bitacora.py)
+    assert auditoria == []
     texto = json.dumps(auditoria, ensure_ascii=False)
     assert "admin-nueva-1" not in texto and "inge-nueva-1" not in texto
 

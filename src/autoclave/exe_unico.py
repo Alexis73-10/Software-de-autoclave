@@ -10,14 +10,22 @@
 #   Autoclave.exe --rol ui --door N --screen I    una pantalla QML
 #   Autoclave.exe --rol ajustes         menú de configuración PySide (el engrane)
 #   Autoclave.exe --rol instalar        copia a Archivos de programa (elevado, ver instalador_exe.py)
+#   Autoclave.exe --rol asociar-tactiles   (EST-06) asocia cada pantalla táctil con su
+#                                       monitor sin MultiDigitizer.exe (administrador;
+#                                       ver estacion/asociar_tactiles.py)
 #   Autoclave.exe --portable            corre desde donde esté, sin ofrecer instalar
 #   Autoclave.exe --esperar-pid P ...   (R11) antes de arrancar espera a que esos
 #                                       procesos terminen y el puerto del backend
 #                                       quede libre (relanzamiento tras reiniciar_software)
 #
-# Abierto desde fuera de %ProgramFiles%\Especifika\Autoclave (p. ej. una USB)
-# ofrece instalarse ahí y abre la copia instalada; no escribe nada en la USB.
-# Instalado, los datos van en %ProgramData%\Especifika\Autoclave (app_root).
+# Instalado con el Setup (tanda 17, INS-02) corre desde
+# X:\Especifika\Autoclave\programa (RutaPrograma del registro) y sus datos van
+# en X:\Especifika\Autoclave\datos (RutaDatos; utils/resources.raiz_datos_exe,
+# app_root). Abierto desde otra carpeta (p. ej. una USB): si el equipo tiene esa
+# instalación, solo avisa que se actualiza con el Setup y termina; si no,
+# ofrece instalarse en %ProgramFiles%\Especifika\Autoclave (disposición
+# anterior, datos en %ProgramData%\Especifika\Autoclave) y abre la copia
+# instalada (instalador_exe.py). No escribe nada en la USB.
 #
 # Los hijos reutilizan la carpeta de extracción del lanzador (no se borra
 # mientras el lanzador siga abierto).
@@ -35,6 +43,12 @@
 # a abrir el mismo comando con --esperar-pid (el suyo y el del backend): una
 # sola instancia. Si el relanzamiento falla queda en lanzador.log; la pantalla
 # ya avisó al operador que apague y encienda el equipo si no vuelve a abrir.
+#
+# EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR): lo primero que hace el lanzador,
+# antes de importar PySide o lanzar el backend, es abrir la cubierta de
+# arranque (estacion/cubierta_arranque.py): una ventana Win32 negra por
+# monitor que tapa el escritorio hasta que las pantallas QML muestran su
+# primer cuadro (o 180 s). Si falla, solo queda en el log.
 
 import argparse
 import logging
@@ -83,7 +97,8 @@ def escribir_version(ruta: str) -> int:
 
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Autoclave — ejecutable único")
-    parser.add_argument("--rol", choices=("lanzador", "backend", "ui", "ajustes", "instalar"), default="lanzador")
+    parser.add_argument("--rol", choices=("lanzador", "backend", "ui", "ajustes", "instalar",
+                                          "asociar-tactiles"), default="lanzador")
     parser.add_argument("--door", type=int, choices=(1, 2), default=1)
     parser.add_argument("--screen", type=int, default=0)
     parser.add_argument("--una-pantalla", action="store_true")
@@ -92,7 +107,12 @@ def _parse_args(argv=None):
     parser.add_argument("--monitor-puerta2", type=int, default=1)
     parser.add_argument("--esperar-pid", type=int, action="append", default=None)
     parser.add_argument("--escribir-version", metavar="RUTA", default=None)   # VER-04
-    args = parser.parse_args(argv)
+    args, sobrantes = parser.parse_known_args(argv)
+    # EST-06: las opciones propias de --rol asociar-tactiles (--respaldo, --log,
+    # --tope-s) pasan a su módulo; con cualquier otro rol, error como antes
+    if sobrantes and args.rol != "asociar-tactiles":
+        parser.error("argumentos no reconocidos: " + " ".join(sobrantes))
+    args.sobrantes = sobrantes
     args.esperar_pid = list(args.esperar_pid or [])
     return args
 
@@ -242,10 +262,86 @@ def _cerrar_reposo_instalacion(proc, logger) -> None:
     logger.info("Pantalla 2 de Reposo de instalación cerrada")
 
 
+def _abrir_cubierta(args):
+    """EST-07: abre la cubierta de arranque (solo Windows; por defecto solo en
+    el build congelado, ver cubierta_arranque.activa). Devuelve (cubierta,
+    error): nunca lanza ni impide el arranque. No importa PySide."""
+    try:
+        from autoclave.estacion import cubierta_arranque
+        if not cubierta_arranque.activa():
+            return None, None
+        puertas = (1,) if args.una_pantalla else (1, 2)
+        cubierta = cubierta_arranque.abrir(puertas)
+        return cubierta, getattr(cubierta, "error", None)
+    except Exception as e:   # pragma: no cover - abrir() ya no lanza
+        return None, f"{type(e).__name__}: {e}"
+
+
+def _cerrar_cubierta(cubierta) -> None:
+    if cubierta is None:
+        return
+    try:
+        cubierta.cerrar()
+    except Exception:
+        logging.getLogger("autoclave.exe_unico").exception("No se pudo cerrar la cubierta de arranque")
+
+
+def _tomar_instancia(args):
+    """V17-s2-01: mutex con nombre de la sesión (estacion/instancia_unica.py).
+    Devuelve la Instancia o None si la protección no está activa (desarrollo).
+    Relanzado por R11 (--esperar-pid), espera a que la instancia anterior
+    suelte el mutex, con el mismo tope que esperar_instancia_anterior."""
+    try:
+        from autoclave.estacion import instancia_unica
+        if not instancia_unica.activa():
+            return None
+        tope = TOPE_ESPERA_INSTANCIA_S if args.esperar_pid else 0.0
+        return instancia_unica.tomar(esperar_s=tope)
+    except Exception as e:   # pragma: no cover - tomar() ya no lanza
+        from types import SimpleNamespace
+        return SimpleNamespace(primera=True, error=f"{type(e).__name__}: {e}", soltar=lambda: None)
+
+
 def _lanzador(args) -> int:
+    # V17-s2-01: un solo lanzador por sesión, ANTES de abrir la cubierta (un
+    # segundo lanzador taparía las pantallas vivas, quizá con un ciclo en curso)
+    instancia = _tomar_instancia(args)
+    if instancia is not None and not instancia.primera:
+        # DECISIÓN SIN CONFIRMAR: no había otra protección contra un segundo
+        # lanzador (solo se reutilizaba el backend); lo más seguro es no
+        # lanzar nada: ni cubierta, ni backend, ni pantallas
+        try:
+            _log_a_archivo("lanzador.log")
+        except Exception:
+            pass
+        logging.getLogger("autoclave.exe_unico").error(
+            "Ya hay un lanzador de Autoclave en esta sesión: este no abre la cubierta, "
+            "el backend ni las pantallas")
+        return 0
+    try:
+        # EST-07: lo primero, antes de importar PySide o arrancar el backend
+        cubierta = {}
+        cubierta["actual"], error_cubierta = _abrir_cubierta(args)
+        try:
+            return _lanzador_con_cubierta(args, cubierta, error_cubierta, instancia)
+        finally:
+            _cerrar_cubierta(cubierta.get("actual"))
+    finally:
+        if instancia is not None:
+            instancia.soltar()   # el mutex vive mientras viva el lanzador
+
+
+def _lanzador_con_cubierta(args, cubierta: dict, error_cubierta, instancia=None) -> int:
     _log_a_archivo("lanzador.log")
     logger = logging.getLogger("autoclave.exe_unico")
     logger.info("Lanzador iniciado")   # mide el arranque del propio ejecutable
+    if instancia is not None and getattr(instancia, "error", None):
+        logger.error("No se pudo comprobar si hay otro lanzador (%s): se sigue sin esa protección",
+                     instancia.error)
+    if error_cubierta:
+        logger.error("Cubierta de arranque no disponible (%s): el arranque sigue sin ella", error_cubierta)
+    elif cubierta.get("actual") is not None:
+        logger.info("Cubierta de arranque pedida al iniciar el lanzador")
     if args.esperar_pid:
         # R11: relanzado tras reiniciar_software; una sola instancia
         esperar_instancia_anterior(args.esperar_pid, log=logger)
@@ -291,6 +387,12 @@ def _lanzador(args) -> int:
             logger.error("Asistente cerrado sin completar la instalación (código %s)", codigo)
             return 1
         logger.info("Instalación completada: arranque normal")
+        # EST-07: la cubierta se cerró con el primer cuadro del asistente;
+        # se vuelve a abrir mientras arrancan el backend y las pantallas normales
+        _cerrar_cubierta(cubierta.get("actual"))
+        cubierta["actual"], error_cubierta = _abrir_cubierta(args)
+        if error_cubierta:
+            logger.error("Cubierta de arranque no disponible (%s)", error_cubierta)
 
     import threading
     from autoclave.backend import reinicio
@@ -386,6 +488,16 @@ def main(argv=None) -> int:
     if args.rol == "instalar":
         from autoclave.instalador_exe import instalar
         return instalar()
+    if args.rol == "asociar-tactiles":
+        # EST-06: sin Qt ni backend; requiere administrador (ver el módulo).
+        # V17-s2-04: sin log de archivo se sigue (la herramienta escribe además
+        # en el log de la estación)
+        try:
+            _log_a_archivo("asociar_tactiles.log")
+        except Exception:
+            pass
+        from autoclave.estacion.asociar_tactiles import main as asociar_main
+        return asociar_main(args.sobrantes)
     if getattr(sys, "frozen", False) and not args.portable:
         from autoclave.instalador_exe import esta_instalado_aqui, ofrecer_instalacion
         if not esta_instalado_aqui():

@@ -83,6 +83,13 @@ a = Analysis(
         'autoclave.backend.server_reasignacion',
         'autoclave.ui_qml.app',
         'autoclave.ui_pyside.app',
+        # EST-06/EST-07 (tanda 17): se importan dentro de funciones del
+        # lanzador y del rol asociar-tactiles; se fijan por si el análisis no
+        # los sigue (ctypes puro, sin dependencias nuevas)
+        'autoclave.estacion.cubierta_arranque',
+        'autoclave.estacion.asociar_tactiles',
+        'autoclave.estacion._ventanas',
+        'autoclave.estacion.instancia_unica',
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',

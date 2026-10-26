@@ -598,7 +598,6 @@ Item {
         x: tarjeta.x
         width: tarjeta.width
         y: raiz.height - 171 * escala
-        version: I18n.t("app.version", I18n.lang)
         inicioActivo: true
         onAtrasPulsado: raiz.pulsarAtras()
         onInicioPulsado: raiz.pulsarInicio()

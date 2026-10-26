@@ -43,6 +43,35 @@ import time
 
 import yaml
 
+
+def instalacion_en_curso() -> bool:
+    """BIT-02 (tanda 17): la instalación no ha terminado mientras no haya un
+    perfil válido (mismo criterio que `requiere_instalacion` del asistente).
+    Con el reloj alterado el perfil existe: no se suprime la bitácora."""
+    try:
+        return get_installation_profile() is None
+    except ClockTamperedError:
+        return False
+
+
+class SupresionInstalacion:
+    """BIT-02 con enclavamiento (revisión V17-s3-01): en cuanto se ve un
+    perfil válido, la instalación terminó para siempre en este proceso y no se
+    vuelve a leer el perfil (ni en el hilo del lazo ni con el lock de la base).
+    Un perfil que se corrompe con el equipo en marcha NO suprime la bitácora."""
+
+    def __init__(self, consulta=None):
+        self._consulta = consulta or instalacion_en_curso
+        self._terminada = False
+
+    def __call__(self) -> bool:
+        if self._terminada:
+            return False
+        if self._consulta():
+            return True
+        self._terminada = True
+        return False
+
 logger = logging.getLogger(__name__)
 
 def _programa_desconocido():
@@ -540,6 +569,11 @@ class BackendContext:
         for intento in range(1, intentos + 1):
             try:
                 self.db = DbManager()
+                try:
+                    # BIT-02 (tanda 17): sin perfil válido no se escribe en audit_log
+                    self.db.instalacion_en_curso = SupresionInstalacion()
+                except AttributeError:
+                    logger.warning("La base no admite la supresión de la bitácora durante la instalación")
                 self.calibration_audit = SensorCalibrationAuditDB()
                 self._numeracion_y_ciclos_interrumpidos()
                 # O2a: valores vigentes de los parámetros del equipo (system_params).

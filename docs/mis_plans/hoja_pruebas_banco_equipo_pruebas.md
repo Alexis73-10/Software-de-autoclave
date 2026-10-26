@@ -147,6 +147,18 @@
 | E-T12-04 | Bowie & Dick de usuario con `presion_add` 9 | En operación (vapor) | J12 C-04.1 (tanda 12) |
 | F-T12-01 | Excursión de una Referencia en la exposición: el conteo se detiene y reinicia (C-13) | En operación (vapor) | E12 C-13 (tanda 12) |
 | F-T12-02 | Referencia desconectada: el ciclo sigue, SEN-11 y ticket NO CONFORME | En operación (vapor) | E12 C-13.7b (tanda 12) |
+| I-01 | Setup: zona horaria de Windows | En seco (sin vapor) | INS-01 (tanda 17) |
+| I-02 | Setup: unidad D: y disposición programa/datos | En seco (sin vapor) | INS-02 (tanda 17) |
+| I-03 | ACL de programa con un usuario estándar | En seco (sin vapor) | INS-02 ACL (tanda 17, revisión V17-s1-01) |
+| I-04 | Actualización con la unidad fija y bloqueo de la disposición anterior | En seco (sin vapor) | INS-02 (tanda 17) |
+| I-05 | Instalación limpia y desinstalación sobre datos | En seco (sin vapor) | INS-02 / D11-4 (tanda 17) |
+| I-06 | Táctiles sin MultiDigitizer: herramienta propia | En seco (sin vapor) | EST-06 (tanda 17, DECISIONES SIN CONFIRMAR) |
+| I-07 | Cubierta de arranque y hueco autologon → tarea | En seco (sin vapor) | EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR) |
+| I-08 | Sonda en No en uso: monitoreo | En seco (sin vapor) | SON-01 (tanda 17) |
+| I-09 | Estado seguro sin transductor de presión de cámara | En seco (sin vapor) | ESG-01 (tanda 17) |
+| I-10 | Modo prueba con estado seguro activo y protecciones permanentes | En operación (vapor) | ESG-02 (tanda 17, DECISIONES SIN CONFIRMAR) |
+| I-11 | Pantallas: presión en modo prueba, alarmas y selector de programas | En seco (sin vapor) | MPR-01, ALM-01, PRC-01 (tanda 17) |
+| I-12 | Bitácora: eventos, instalación y filtros | En seco (sin vapor) | BIT-01..05 (tanda 17) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -2358,6 +2370,195 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
   3. Revisar el historial, el ticket, el PDF y el correo del ciclo.
 - **Resultado esperado:** Franja roja «CICLO NO CONFORME»; CONFIRMAR deshabilitado hasta el reconocimiento; el reconocimiento queda en la bitácora; «NO CONFORME» en historial, ticket, PDF y correo.
 - **Criterio de aprobado/fallo:** Aprobado si no se puede confirmar sin reconocer y la marca aparece en todos los registros.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque I. Instalación y estación; sondas, estado seguro, modo prueba, pantallas y bitácora (tanda 17)
+
+### I-01 — Setup: zona horaria de Windows
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** INS-01 (tanda 17)
+- **Objetivo:** El Setup ofrece la zona horaria, la aplica con tzutil y la verifica.
+- **Precondiciones:** PC de prueba con Windows en una zona distinta de la deseada. Setup 1.0.0-alpha.2.
+- **Pasos:**
+  1. Ejecutar el Setup y llegar a la página de zona horaria.
+  2. Comprobar que viene marcada la zona actual y que se ven la fecha y hora locales.
+  3. Elegir «(UTC-05:00) Bogotá, Lima, Quito» y terminar la instalación.
+  4. En una consola: `tzutil /g`. Revisar el log del Setup.
+  5. Repetir en silencio con `/VERYSILENT /ZONA="SA Pacific Standard Time"` y con un id inexistente.
+- **Resultado esperado:** `tzutil /g` devuelve la zona elegida; el log del Setup la registra; con un `/ZONA=` inexistente el Setup se detiene con mensaje. La bitácora solo tiene la fila `equipo_instalado` (con la zona) tras el asistente.
+- **Criterio de aprobado/fallo:** Aprobado si la zona queda aplicada y verificada, y un fallo de tzutil no aborta la instalación (muestra el procedimiento manual).
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-02 — Setup: unidad D: y disposición programa/datos
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** INS-02 (tanda 17)
+- **Objetivo:** El Setup instala en `D:\Especifika\Autoclave\{programa,datos}` y escribe la clave de registro.
+- **Precondiciones:** PC con un disco fijo D: (NTFS) y una memoria USB conectada.
+- **Pasos:**
+  1. Llegar a la página de unidad: revisar la lista.
+  2. Comprobar la preselección y terminar la instalación.
+  3. Revisar `HKLM\SOFTWARE\Especifika\Autoclave` (RutaPrograma, RutaDatos) con regedit (vista de 64 bits).
+  4. Arrancar el software y comprobar dónde quedan el perfil, la base, los logs y `estacion\estacion.log`.
+- **Resultado esperado:** Solo discos fijos (la USB no aparece, tampoco un disco USB externo); D: preseleccionada; programa en `D:\Especifika\Autoclave\programa`; datos en `...\datos`; nada nuevo en `C:\ProgramData\Especifika\Autoclave`.
+- **Criterio de aprobado/fallo:** Aprobado si la disposición y la clave de registro son las esperadas y el programa no vuelve a ofrecerse a instalar.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-03 — ACL de programa con un usuario estándar
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** INS-02 ACL (tanda 17, revisión V17-s1-01)
+- **Objetivo:** Un usuario estándar no puede modificar el programa (Clase C).
+- **Precondiciones:** Antes de instalar, crear `D:\Especifika` como usuario estándar y darle `Todos: Control total`. Luego instalar como administrador.
+- **Pasos:**
+  1. `icacls` de `D:\Especifika`, `...\Autoclave`, `...\programa`, `...\datos` y `...\datos\estacion`.
+  2. Con el usuario estándar: intentar crear o borrar un archivo en `programa` y en `programa\_internal`.
+  3. Con el usuario estándar: abrir Autoclave.
+- **Resultado esperado:** Sin herencia; sin la entrada `Todos` ni Usuarios autentificados; programa: Administradores/SYSTEM control total, Usuarios lectura y ejecución; datos: Usuarios modificar; datos\estacion: solo Administradores y SYSTEM. El usuario estándar no puede escribir en programa pero sí abre Autoclave.
+- **Criterio de aprobado/fallo:** Aprobado si ninguna escritura en programa tiene éxito con el usuario estándar.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-04 — Actualización con la unidad fija y bloqueo de la disposición anterior
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** INS-02 (tanda 17)
+- **Objetivo:** Una actualización reutiliza la unidad; una instalación de la compilación I detiene el Setup.
+- **Precondiciones:** (a) Instalada la alpha.2 en D:. (b) Otro PC (o tras desinstalar) con la compilación I instalada en Archivos de programa.
+- **Pasos:**
+  1. (a) Ejecutar de nuevo el Setup (misma o mayor versión): revisar la página de unidad.
+  2. (b) Ejecutar el Setup alpha.2 sobre la compilación I.
+- **Resultado esperado:** (a) La unidad aparece fija, sin poder cambiarla; los datos se conservan. (b) El Setup se detiene y pide desinstalar la anterior e instalar en limpio (sin migrar datos).
+- **Criterio de aprobado/fallo:** Aprobado si (a) no cambia de unidad ni pierde datos y (b) no instala.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-05 — Instalación limpia y desinstalación sobre datos
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** INS-02 / D11-4 (tanda 17)
+- **Objetivo:** La limpia y el desinstalador actúan sobre la carpeta datos nueva.
+- **Precondiciones:** Alpha.2 instalada con datos (perfil, usuarios, ciclos).
+- **Pasos:**
+  1. Mantenimiento › Instalación limpia (dos confirmaciones).
+  2. Comprobar el respaldo en `D:\Especifika\Autoclave_respaldos\<fecha>` y que `datos` quedó vacío salvo `estacion`.
+  3. Desinstalar: comprobar que la estación se revierte, que se borran los valores de registro y que `datos` se conserva.
+- **Resultado esperado:** Respaldo completo y protegido (solo Administradores y SYSTEM); datos vacíos; tras desinstalar, `datos` conservado. Si una reversión falla, `RutaDatos` se conserva.
+- **Criterio de aprobado/fallo:** Aprobado si no se borra nada fuera de `datos` y el respaldo es íntegro.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-06 — Táctiles sin MultiDigitizer: herramienta propia
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-06 (tanda 17, DECISIONES SIN CONFIRMAR)
+- **Objetivo:** Sin `MultiDigitizer.exe`, el paso 06 usa `Autoclave.exe --rol asociar-tactiles` y cada toque cae en su pantalla.
+- **Precondiciones:** PC de prueba sin `C:\Windows\System32\MultiDigitizer.exe`, dos pantallas táctiles.
+- **Pasos:**
+  1. Instalar con la subtarea de táctiles; tocar cada pantalla cuando lo pida.
+  2. Revisar `datos\estacion\estacion.log` (herramienta propia y código de salida).
+  3. Exportar `HKLM\SOFTWARE\Microsoft\Wisp\Pen\Digimon` y comparar con una exportación hecha por MultiDigitizer en otro equipo (prefijo `20-`, mayúsculas).
+  4. Reiniciar y tocar cada pantalla.
+  5. Probar Esc, Enter y el tope de 120 s; la herramienta sin administrador; la reversión (`06_revertir_asociar_tactiles.ps1` o desinstalar).
+- **Resultado esperado:** Cada toque cae en su pantalla tras reiniciar; sin administrador sale con 2 sin escribir; la reversión deja Digimon como estaba. El fallo del 06 no corta los demás pasos.
+- **Criterio de aprobado/fallo:** Aprobado si la asociación funciona y se revierte limpia.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-07 — Cubierta de arranque y hueco autologon → tarea
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR)
+- **Objetivo:** El escritorio no queda expuesto al iniciar sesión.
+- **Precondiciones:** Equipo instalado con autologon y la tarea de arranque (Delay PT0S).
+- **Pasos:**
+  1. Reiniciar en frío tres veces, con cronómetro o vídeo.
+  2. Observar: escritorio visible antes de la cubierta, cubierta negra «Iniciando… / Starting…», toques bloqueados, cierre al aparecer las dos pantallas.
+  3. Con la puerta 2 sin arrancar: cierre a los 15 s de la primera. Sin backend: cierre a los 180 s.
+  4. Medir el hueco: Visor de eventos Seguridad 4624 (tipo 2) frente a «Cubierta de arranque abierta» en `datos\lanzador.log`; TaskScheduler/Operational 107/119/100.
+  5. Doble clic en el acceso directo con el software abierto (segunda instancia).
+- **Resultado esperado:** Hueco medido y anotado; la cubierta no deja la pantalla negra; no aparece «No responde»; una segunda instancia no tapa las pantallas vivas.
+- **Criterio de aprobado/fallo:** Aprobado si el escritorio no es usable tras abrirse la cubierta y la cubierta siempre se cierra.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-08 — Sonda en No en uso: monitoreo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** SON-01 (tanda 17)
+- **Objetivo:** Una sonda instalada en No en uso se ve y se registra, pero no participa.
+- **Precondiciones:** Perfil con Cámara 2 instalada; rol No en uso.
+- **Pasos:**
+  1. Elegirla en Entradas mostradas (Preciclo, Ciclo en curso, gráfica).
+  2. Correr un ciclo corto; desconectar la sonda durante el ciclo.
+  3. Revisar gráfica del historial, PDF, correo y ticket.
+- **Resultado esperado:** Rotulada «(monitoreo)»; registrada en gráfica, historial, PDF y correo; no en el ticket; sin lectura «—» sin alarma ni aviso; el ciclo no cambia.
+- **Criterio de aprobado/fallo:** Aprobado si la sonda nunca afecta al control ni genera alarmas.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-09 — Estado seguro sin transductor de presión de cámara
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ESG-01 (tanda 17)
+- **Objetivo:** Sin presión solo se ve la alarma del sensor, sin CIC-10.
+- **Precondiciones:** Estado seguro pendiente (p. ej. arranque tras un ciclo interrumpido). Transductor de presión de cámara desconectado.
+- **Pasos:**
+  1. Arrancar y observar alarmas, NO ABRIR y el inicio de ciclo.
+  2. Reconectar el transductor.
+- **Resultado esperado:** Solo SEN-04/SEN-06 (y presión baja/alta si existe), sin CIC-10 por la presión; NO ABRIR visible; inicio bloqueado; protocolo pausado. Al reconectar, el estado seguro sigue normal.
+- **Criterio de aprobado/fallo:** Aprobado si no aparece CIC-10 por la presión y la cámara nunca se declara segura sin presión.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-10 — Modo prueba con estado seguro activo y protecciones permanentes
+
+- **Modo:** En operación (vapor)  ·  **Origen:** ESG-02 (tanda 17, DECISIONES SIN CONFIRMAR)
+- **Objetivo:** Con presión vigente se retiran los bloqueos del estado seguro y rigen siempre las protecciones 1–3.
+- **Precondiciones:** Estado seguro activo, presión de cámara con lectura. Sesión de técnico en Entradas/Salidas.
+- **Pasos:**
+  1. Activar el modo prueba: encender descompresión rápida, de chaqueta y vapor de cámara (puertas cerradas).
+  2. Con vapor de cámara encendido, abrir una puerta: observar el corte y el aviso.
+  3. Con la cámara presurizada: intentar abrir puerta y desbloqueo; con abrir/desbloqueo encendidos, presurizar.
+  4. Desconectar el transductor de presión con el modo prueba activo.
+  5. Probar el aire atmosférico con la cámara presurizada.
+- **Resultado esperado:** Salidas libres con presión vigente; vapor de cámara cortado en el mismo tick con aviso en pantalla; puerta y desbloqueo rechazados con su código (presurizada, vacío o sin lectura) y cortados si la cámara se presuriza; sin presión vuelven todos los bloqueos; aire atmosférico sigue cortado (D8-3.19). Nada de esto en la bitácora.
+- **Criterio de aprobado/fallo:** Aprobado si ninguna combinación permite vapor con puerta abierta ni puerta/desbloqueo con la cámara presurizada.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-11 — Pantallas: presión en modo prueba, alarmas y selector de programas
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MPR-01, ALM-01, PRC-01 (tanda 17)
+- **Objetivo:** La interfaz nueva funciona con el táctil.
+- **Precondiciones:** 15 o más programas creados. Alguna alarma activa (p. ej. COM-02).
+- **Pasos:**
+  1. Entradas/Salidas con modo prueba: presión de cámara en kPa, bar y psi; sin tarjeta «—».
+  2. Preciclo y campana: cada fila solo el nombre; tocar → ventana de detalle; DESPEJAR COM-02/03 con su mensaje de rechazo dentro de la ventana; con un paro, la ventana se cierra y «Confirmar y llevar a estado seguro» queda accesible.
+  3. Parámetros del ciclo y Manejo de ciclos: desplegable vertical con desplazamiento táctil y toque fuera.
+- **Resultado esperado:** Todo legible y táctil; ninguna ventana emergente tapa las acciones de seguridad.
+- **Criterio de aprobado/fallo:** Aprobado si se puede elegir cualquier programa y despejar o ver cualquier alarma sin teclado.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-12 — Bitácora: eventos, instalación y filtros
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** BIT-01..05 (tanda 17)
+- **Objetivo:** La bitácora solo guarda lo pedido y se filtra por usuario, categoría y fechas.
+- **Precondiciones:** Instalación recién hecha con el asistente.
+- **Pasos:**
+  1. Tras el asistente: abrir Opciones › Bitácora.
+  2. Entrar y salir del modo prueba; probar salidas; 3 logins fallidos y uno bueno; cerrar sesión; 5 fallidos seguidos.
+  3. Filtrar por Usuario, por cada Tipo (categoría) y por Desde–Hasta con el calendario.
+- **Resultado esperado:** Una sola fila `equipo_instalado` de la instalación (serie, modelo, versión, zona); del modo prueba solo «entra», «salida forzada» y «aire atmosférico cortado»; sin `login_fallido` ni `logout`; el 5.º fallido bloquea igual que antes (`login_bloqueado`). Los filtros dan lo esperado.
+- **Criterio de aprobado/fallo:** Aprobado si el bloqueo no cambia y la bitácora no se llena de eventos retirados.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

@@ -131,8 +131,7 @@
     "resumen_contrasenas_fijadas": "Set (saved when installing)"
   },
   "app": {
-    "nombre": "e-specifika",
-    "version": "V: 1.0"
+    "nombre": "e-specifika"
   },
   "opciones": {
     "err_rol_sonda_no_activa": "Cannot save: a role is assigned to a probe that is not active in the installation profile.",
@@ -369,6 +368,8 @@
     "informacion": "INFORMATION"
   },
   "ciclo": {
+    "serie_temp_2_camara": "Chamber temperature 2",
+    "monitoreo": "(monitoring)",
     "no_conforme_reconocer_error": "The acknowledgment of the non-releasable load could not be recorded. Check the connection and try again.",
     "no_conforme_reconocido": "Acknowledged: the load is not releasable",
     "no_conforme_reconocer": "I acknowledge the load is not releasable",
@@ -435,6 +436,7 @@
     "meses": ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
   },
   "arranque": {
+    "version_software": "Software v{version}",
     "iniciando_servicios": "Starting services",
     "conectando_tarjeta": "Connecting to the I/O board",
     "verificando_sensores": "Checking sensors",
@@ -1122,6 +1124,8 @@
     "estado_no_instalado": "Not installed"
   },
   "io": {
+    "err_vapor_puerta_abierta": "Chamber steam cannot be opened: a door is open or not confirmed closed.",
+    "err_puerta_camara_presurizada": "The door cannot be opened or unlocked: the chamber is pressurized or under vacuum, or there is no pressure reading.",
     "err_rechazado": "The equipment rejected the command.",
     "err_sin_base": "No audit record: the change was not applied.",
     "err_sin_previa": "There is no previous calibration to restore.",
@@ -1185,6 +1189,9 @@
       "pres_empaque_2": "Gasket pressure 2"
     },
     "ui": {
+      "aviso_salida_cortada_presion": "Output turned off: the chamber is no longer at atmospheric pressure.",
+      "aviso_vapor_cortado_puerta": "Chamber steam turned off: a door is no longer closed.",
+      "presion_camara": "Chamber pressure",
       "titulo": "INPUTS / OUTPUTS",
       "seg_entradas": "Inputs",
       "seg_salidas": "Outputs",
@@ -1639,6 +1646,9 @@
     "red_sin_red": "No network"
   },
   "bitacora": {
+    "err_rango": "The From date cannot be later than the To date.",
+    "categoria": {"seguridad": "Safety", "configuracion": "Configuration", "usuarios_sesion": "Users and session", "mantenimiento_calibracion": "Maintenance and calibration", "sistema": "System"},
+    "hasta": "To",
     "desde": "From",
     "desde_formato": "From (YYYY-MM-DD; empty = all)",
     "usuario": "User",
@@ -1651,6 +1661,7 @@
     "err_fecha": "The date must be YYYY-MM-DD.",
     "ev_generico": "{evento} {entidad}",
     "ev": {
+      "equipo_instalado": "registered the installation of equipment {entidad}",
       "ciclo_no_conforme_reconocido": "acknowledged that the NONCONFORMING cycle load is not releasable",
       "login_ok": "logged in",
       "login_fallido": "failed login attempt",
@@ -1709,6 +1720,7 @@
       "cuenta_sistema_rechazada": "tried to modify the system account {entidad} (rejected)"
     },
     "tipo": {
+      "equipo_instalado": "Equipment installed",
       "ciclo_no_conforme_reconocido": "Non-releasable load acknowledged",
       "login_ok": "Login",
       "login_fallido": "Failed login",
@@ -2162,5 +2174,48 @@
     "err_puerto_sin_calibracion": "That analog port has no calibration on this unit.",
     "err_reinicio_en_curso": "The control is already restarting.",
     "err_no_pendiente": "That function is not waiting for verification."
+  },
+  "selector_programa": {
+    "titulo": "Program",
+    "elegir": "Choose program",
+    "vacio": "No programs",
+    "ninguno": "No program chosen"
+  },
+  "alarma_detalle": {
+    "estado_retirada": "No longer active",
+    "estado_resuelta": "Resolved, not acknowledged",
+    "titulo": "Alarm detail",
+    "nombre": "Name",
+    "nivel": "Level",
+    "codigo": "Code",
+    "hora": "Activation time",
+    "descripcion": "Description",
+    "accion": "Cause or action",
+    "estado": "Status",
+    "estado_activa": "Active",
+    "estado_reconocida": "Acknowledged",
+    "nivel_emergencia": "Emergency",
+    "nivel_alarma": "Alarm",
+    "nivel_aviso": "Warning",
+    "cerrar": "Close",
+    "sin_dato": "—"
+  },
+  "calendario": {
+    "titulo_desde": "From date",
+    "titulo_hasta": "To date",
+    "mes_anterior": "Previous month",
+    "mes_siguiente": "Next month",
+    "hoy": "Today",
+    "cancelar": "Cancel",
+    "sin_fecha": "No date",
+    "dias_cortos": [
+      "M",
+      "T",
+      "W",
+      "T",
+      "F",
+      "S",
+      "S"
+    ]
   }
 }

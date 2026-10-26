@@ -70,16 +70,18 @@ def test_registrar_y_leer_auditoria(tmp_path):
                            entidad="instrumental_134/secado/tiempo_secado",
                            valor_anterior=10.0, valor_nuevo=20.0,
                            detalle={"ciclo": 12, "fase": "SECADO", "aplica": "siguiente"})
-    db.registrar_auditoria("login_fallido", usuario="ana")
+    # Tanda 17 (BIT-03, decisión de Cristian): login_fallido ya no va a audit_log;
+    # se usa login_bloqueado, que sigue registrándose
+    db.registrar_auditoria("login_bloqueado", usuario="ana")
     filas = db.get_auditoria()
-    assert [f["evento"] for f in filas] == ["login_fallido", "param_ciclo_cambio"]   # reciente primero
+    assert [f["evento"] for f in filas] == ["login_bloqueado", "param_ciclo_cambio"]   # reciente primero
     f = db.get_auditoria(evento="param_ciclo_cambio")[0]
     assert (f["usuario"], f["rol"], f["valor_anterior"], f["valor_nuevo"]) == (
         "ing1", "ingeniero", "10.0", "20.0")
     assert f["detalle"] == {"ciclo": 12, "fase": "SECADO", "aplica": "siguiente"}
     assert f["ts"][:4].isdigit() and "T" in f["ts"]
     assert db.get_auditoria(entidad="otra") == []
-    assert db.get_auditoria(evento="login_fallido")[0]["detalle"] is None
+    assert db.get_auditoria(evento="login_bloqueado")[0]["detalle"] is None
 
 
 def test_tablas_historicas_siguen_existiendo(tmp_path):

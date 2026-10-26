@@ -32,12 +32,52 @@ _CICLOS = "autoclave/cycles"
 _sembradas = set()
 
 
+# INS-02 (tanda 17): el Setup instala en X:\Especifika\Autoclave\{programa,datos}
+# (X = unidad elegida) y escribe esta clave, en la vista de 64 bits del registro.
+# El Setup (autoclave.iss) y tools/estacion usan los mismos nombres.
+CLAVE_REGISTRO = r"SOFTWARE\Especifika\Autoclave"
+VALOR_RUTA_PROGRAMA = "RutaPrograma"
+VALOR_RUTA_DATOS = "RutaDatos"
+SUBCARPETA_PROGRAMA = "programa"
+SUBCARPETA_DATOS = "datos"
+
+
+def _leer_registro_instalacion():
+    """(RutaPrograma, RutaDatos) de HKLM\\SOFTWARE\\Especifika\\Autoclave (vista
+    de 64 bits), o None si no existe, falta un valor o no es Windows."""
+    try:
+        import winreg
+    except ImportError:
+        return None
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, CLAVE_REGISTRO, 0,
+                            winreg.KEY_READ | winreg.KEY_WOW64_64KEY) as clave:
+            programa, _ = winreg.QueryValueEx(clave, VALOR_RUTA_PROGRAMA)
+            datos, _ = winreg.QueryValueEx(clave, VALOR_RUTA_DATOS)
+    except OSError:
+        return None
+    if not isinstance(programa, str) or not isinstance(datos, str) or not programa or not datos:
+        return None
+    return programa, datos
+
+
+def _misma_carpeta(a: str, b: str) -> bool:
+    return os.path.normcase(os.path.normpath(os.path.abspath(a))) == \
+        os.path.normcase(os.path.normpath(os.path.abspath(b)))
+
+
 def raiz_datos_exe() -> str:
     """Carpeta de datos escribibles de un build congelado (la usa también
-    utils/paths.app_root). Instalado en Archivos de programa (solo lectura sin
-    administrador) es %ProgramData%\\Especifika\\Autoclave; en cualquier otro
-    lugar (copia portátil), la carpeta del .exe."""
+    utils/paths.app_root). Orden (INS-02, tanda 17):
+    1. `RutaDatos` del registro, si `RutaPrograma` es la carpeta del .exe en
+       ejecución (instalación del Setup en X:\\Especifika\\Autoclave);
+    2. instalado en Archivos de programa (solo lectura sin administrador):
+       %ProgramData%\\Especifika\\Autoclave (disposición de la compilación I y anteriores);
+    3. en cualquier otro lugar (copia portátil), la carpeta del .exe."""
     carpeta_exe = os.path.dirname(os.path.abspath(sys.executable))
+    registro = _leer_registro_instalacion()
+    if registro is not None and _misma_carpeta(registro[0], carpeta_exe):
+        return os.path.normpath(registro[1])
     for variable in ("ProgramFiles", "ProgramFiles(x86)"):
         base = os.environ.get(variable)
         if base and os.path.normcase(carpeta_exe).startswith(os.path.normcase(base) + os.sep):

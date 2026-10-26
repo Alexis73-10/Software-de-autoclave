@@ -143,7 +143,8 @@ def test_inicio_de_sesion_y_fallido_quedan_en_bitacora(api):
     assert client.post("/auth/login", json={"usuario": "ana1", "clave": "mala"}).status_code == 401
     assert client.post("/auth/login",
                        json={"usuario": "ana1", "clave": "Clave-Segura-1"}).status_code == 200
-    assert {"login_fallido", "login_ok"} <= _eventos(ctx.db)
+    # Tanda 17 (BIT-03, decisión de Cristian): el fallido ya no queda en la bitácora
+    assert "login_ok" in _eventos(ctx.db) and "login_fallido" not in _eventos(ctx.db)
 
 
 def test_evento_de_seguridad_queda_en_bitacora(api):

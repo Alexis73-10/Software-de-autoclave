@@ -114,7 +114,9 @@ def _es_prefijo(clave: str) -> bool:
 def test_claves_literales_qml_existen_en_ambos_idiomas():
     faltan = [(f, c, idioma) for f, c in _literales_qml() if not _es_prefijo(c)
               for idioma, cat in CATALOGOS.items()
-              if not _es_texto(c, cat) and c not in ("fecha.meses",)]
+              if not _es_texto(c, cat) and c not in ("fecha.meses",
+                                                     # Tanda 17 (BIT-05): listas del calendario (I18n.valor)
+                                                     "fecha.meses_largos", "calendario.dias_cortos")]
     assert faltan == []
 
 

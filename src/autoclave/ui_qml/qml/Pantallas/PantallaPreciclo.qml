@@ -108,7 +108,6 @@ Item {
     // Perfil de instalación; "—" si no se pudo leer
     property string modelo: (infoEquipo?.modelo ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
     property string serie: (infoEquipo?.serie ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
-    property string version: I18n.t("app.version", I18n.lang)
 
     // ---- acciones: las resuelve quien usa la pantalla (servicios, plan §7) ----
     signal puertaPulsada()        // abrir si puertaAbierta es false, cerrar si es true
@@ -511,6 +510,8 @@ Item {
                 lx: entrada.c0 + (entrada.esPresion ? 99.6 : 73.6); bl: entrada.esPresion ? 467 : 469
                 limite: entrada.c0 + 188.2
                 clave: "ciclo.entrada_corta_" + entrada.modelData.clave
+                // Tanda 17 (SON-01): sonda instalada con rol No en uso
+                sufijo: entrada.modelData.monitoreo === true ? " " + I18n.t("ciclo.monitoreo", I18n.lang) : ""
             }
             Valor { cx: entrada.c0 + 94.1; text: entrada.modelData.valor }
             Unidad { cx: entrada.c0 + (entrada.esPresion ? 109.6 : 85.1); text: entrada.modelData.unidad || "" }
@@ -595,8 +596,10 @@ Item {
             delegate: Item {
                 id: fila
                 // roles del modelo: id, level, description, source_state, priority,
-                // descripciones ({idioma: descripción}, U10b)
+                // descripciones ({idioma: descripción}, U10b); tanda 17 (ALM-01):
+                // titulo/titulos, codigo, accion/acciones, aparecida, estado
                 required property var model
+                objectName: "filaAlarmaPreciclo_" + model.id
                 width: ListView.view.width
                 // U10b (D10-1.4): el motivo largo (CIC-10) va completo en varias
                 // líneas; antes se achicaba (HorizontalFit) y aun así se cortaba
@@ -613,15 +616,23 @@ Item {
                          : fila.model.priority === "baja"  ? Colores.alarmaBaja
                          : Colores.alarmaAlta
                 }
+                // Tanda 17 (ALM-01): tocar la fila abre el detalle
+                MouseArea {
+                    objectName: "areaFilaAlarmaPreciclo"
+                    anchors.fill: parent
+                    onClicked: detalleAlarmaPreciclo.abrirDesde(fila.model)
+                }
                 Text {
                     id: textoFila
                     objectName: "textoFilaAlarmaPreciclo"
                     x: raiz.m(32)
                     width: fila.width - x
                     anchors.verticalCenter: parent.verticalCenter
-                    // U10b: en el idioma de la interfaz (textos del DTO por
-                    // idioma); sin ellos, la descripción registrada y el id
-                    text: (fila.model.descripciones ?? {})[I18n.lang]
+                    // Tanda 17 (ALM-01): solo el nombre (título del catálogo en el
+                    // idioma de la interfaz); sin él, la descripción y el id.
+                    // U10b: textos del DTO por idioma
+                    text: (fila.model.titulos ?? {})[I18n.lang] || fila.model.titulo
+                          || (fila.model.descripciones ?? {})[I18n.lang]
                           || fila.model.description || fila.model.id
                     wrapMode: Text.WordWrap
                     color: Colores.textoPrimario
@@ -821,7 +832,6 @@ Item {
         y: parent.height - raiz.m(1917 - 1746)
         escala: raiz.m(1)
         personalizada: true
-        version: ""
 
         // Celda izquierda: icono de equipo, modelo y serie (antes x 33..347)
         Item {
@@ -846,17 +856,6 @@ Item {
             }
         }
 
-        // Celda central: versión
-        Text {
-            objectName: "versionPreciclo"
-            x: barraInferior.mx((313 + 800) / 2) - width / 2
-            y: (parent.height - height) / 2
-            text: raiz.version
-            color: raiz.paleta.versionTexto
-            font.family: Tipografia.familia
-            font.weight: Tipografia.pesoBold
-            font.pixelSize: raiz.fuente(20)
-        }
 
         // Celda derecha: avatar (iniciar sesión). Deshabilitado sin conexión
         // (PROVISIONAL: opacidad 0.4)
@@ -885,6 +884,18 @@ Item {
     }
 
     // ======================= paneles (PROVISIONALES) =======================
+    // Tanda 17 (ALM-01): detalle de la alarma tocada en la tarjeta de alarmas,
+    // con DESPEJAR en COM-02/COM-03 (mismo criterio que el panel de la campana)
+    VentanaDetalleAlarma {
+        id: detalleAlarmaPreciclo
+        objectName: "detalleAlarmaPreciclo"
+        alarmas: raiz.alarmas
+        despejable: panelNotificaciones.despejable(datos.id) && raiz.comandosSistema !== null
+        // R4 (V17-s4-01): el motivo del rechazo de DESPEJAR, dentro de la ventana
+        mensaje: raiz.comandosSistema?.mensajeDespejar ?? ""
+        onDespejarPulsado: (model) => raiz.comandosSistema?.despejarAlarma(model.id)
+        onCerrada: if (raiz.comandosSistema?.descartarMensajeDespejar) raiz.comandosSistema.descartarMensajeDespejar()
+    }
     PanelNotificaciones {
         id: panelNotificaciones
         titulo: I18n.t("notificaciones.titulo", I18n.lang)

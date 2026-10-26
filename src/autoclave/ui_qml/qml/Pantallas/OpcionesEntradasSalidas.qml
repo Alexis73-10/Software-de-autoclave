@@ -4,6 +4,7 @@ import Tema
 import Autoclave.Controllers
 import "../Componentes"
 import Autoclave.I18n
+import Autoclave.Unidades
 
 // OPCIONES > Entradas / Salidas (planeacion_opciones_entradas_salidas.md).
 // Una sola zona de contenido con selector de 4 segmentos (D-ES-01): Entradas,
@@ -236,6 +237,11 @@ Item {
 
 
     function nombreCanal(clave) { return I18n.t(clave, I18n.lang) }
+    // Tanda 17 (MPR-01): nombre de una salida por su clave (o la clave tal cual)
+    function nombreSalida(nombre) {
+        const s = (control.salidas || []).find(c => c.name === nombre)
+        return s ? raiz.nombreCanal(s.i18n) : String(nombre)
+    }
 
     // ---------------------------------------------------------------- cabecera
     Rectangle {
@@ -384,7 +390,7 @@ Item {
                     Column {
                         anchors.left: parent.left; anchors.leftMargin: Escala.px(20)
                         anchors.verticalCenter: parent.verticalCenter
-                        width: parent.width * 0.62
+                        width: parent.width * 0.42
                         Text {
                             text: I18n.t("io.ui.banner_prueba", I18n.lang)
                             color: Colores.advertenciaTexto
@@ -401,6 +407,32 @@ Item {
                             font.pixelSize: Escala.fuente(18)
                         }
                     }
+                    // Tanda 17 (MPR-01): presión de cámara en la unidad vigente,
+                    // refrescada con el estado (1 s); «—» sin lectura
+                    Column {
+                        objectName: "presionModoPrueba"
+                        anchors.left: parent.left; anchors.leftMargin: parent.width * 0.42 + Escala.px(36)
+                        anchors.right: parent.right; anchors.rightMargin: Escala.px(310)
+                        anchors.verticalCenter: parent.verticalCenter
+                        Text {
+                            width: parent.width
+                            wrapMode: Text.WordWrap
+                            text: I18n.t("io.ui.presion_camara", I18n.lang)
+                            color: Colores.advertenciaTexto
+                            font.family: Tipografia.familia
+                            font.pixelSize: Escala.fuente(18)
+                        }
+                        Text {
+                            objectName: "valorPresionModoPrueba"
+                            width: parent.width
+                            fontSizeMode: Text.HorizontalFit; minimumPixelSize: Escala.fuenteMinima
+                            text: Unidades.pres(control.presionCamara, Unidades.version)
+                            color: Colores.textoPrimario
+                            font.family: Tipografia.familia
+                            font.weight: Tipografia.pesoBold
+                            font.pixelSize: Escala.fuente(34)
+                        }
+                    }
                     Boton {
                         objectName: "botonSalirModoPrueba"
                         anchors.right: parent.right; anchors.rightMargin: Escala.px(20)
@@ -409,6 +441,36 @@ Item {
                         relleno: Colores.peligroTexto
                         texto: I18n.t("io.ui.salir_prueba", I18n.lang)
                         onPulsado: control.salirModoPrueba("salida solicitada")
+                    }
+                }
+                // Tanda 17 (MPR-01 / ESG-02): salidas que el modo prueba apagó por
+                // sus protecciones (puerta abierta, cámara presurizada)
+                Repeater {
+                    model: control.modoPrueba ? control.avisosCorte : []
+                    delegate: Rectangle {
+                        id: avisoCorte
+                        required property var modelData
+                        required property int index
+                        objectName: "avisoCorte_" + index
+                        width: cabeceraSalidas.width
+                        height: textoCorte.implicitHeight + Escala.px(24)
+                        radius: Escala.px(10)
+                        color: Colores.peligroFondo
+                        Text {
+                            id: textoCorte
+                            anchors.left: parent.left; anchors.right: parent.right
+                            anchors.margins: Escala.px(16)
+                            anchors.verticalCenter: parent.verticalCenter
+                            wrapMode: Text.WordWrap
+                            textFormat: Text.PlainText
+                            text: (avisoCorte.modelData.clave ? I18n.t(avisoCorte.modelData.clave, I18n.lang)
+                                                              : avisoCorte.modelData.texto)
+                                  + (avisoCorte.modelData.salida ? " (" + raiz.nombreSalida(avisoCorte.modelData.salida) + ")" : "")
+                            color: Colores.peligroTexto
+                            font.family: Tipografia.familia
+                            font.weight: Tipografia.pesoSemiBold
+                            font.pixelSize: Escala.fuente(20)
+                        }
                     }
                 }
                 Boton {

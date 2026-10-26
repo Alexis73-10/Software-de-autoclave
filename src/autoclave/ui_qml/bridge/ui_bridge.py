@@ -10,7 +10,7 @@
 # reset aún no se conectan.
 
 from PySide6.QtCore import (
-    Property, QAbstractListModel, QByteArray, QModelIndex, QObject, QTimer, Qt, Signal,
+    Property, QAbstractListModel, QByteArray, QModelIndex, QObject, QTimer, Qt, Signal, Slot,
 )
 
 from autoclave.core.runtime.alarmas_i18n import clave_motivo_bloqueo
@@ -70,6 +70,34 @@ def _descripciones(textos) -> dict:
     return salida
 
 
+def _campo_por_idioma(textos, campo: str) -> dict:
+    """Tanda 17 (ALM-01): {idioma: textos[idioma][campo]} (título o acción) desde
+    `textos` del DTO de /status; solo textos no vacíos."""
+    salida = {}
+    if isinstance(textos, dict):
+        for idioma, t in textos.items():
+            v = t.get(campo) if isinstance(t, dict) else None
+            if isinstance(idioma, str) and isinstance(v, str) and v != "":
+                salida[idioma] = v
+    return salida
+
+
+def estado_de_alarma(a) -> str:
+    """Tanda 17 (ALM-01): estado para la ventana de detalle. "activa" |
+    "reconocida" (con `reconocida_por`) | "resuelta" (RESUELTA_SIN_RECONOCER:
+    la condición cesó y falta el reconocimiento) | "" (sin dato)."""
+    if not isinstance(a, dict):
+        return ""
+    estado = a.get("estado")
+    if estado == "RESUELTA_SIN_RECONOCER":
+        return "resuelta"
+    if a.get("reconocida_por"):
+        return "reconocida"
+    if estado == "ACTIVA":
+        return "activa"
+    return ""
+
+
 def _rol_sesion() -> str | None:
     from autoclave.cliente.session_manager import SessionManager
     return SessionManager.current_role()
@@ -105,13 +133,25 @@ def _normalizar_alarmas(alarmas) -> list[dict]:
             "source_state": _texto(a.get("source_state")),
             "priority": prioridad_de(nivel),
             "descripciones": _descripciones(a.get("textos")),
+            # Tanda 17 (ALM-01): detalle de la ventana emergente, de los campos
+            # que /status ya entrega (sistema._alarma_dto); ausentes quedan ""
+            "codigo": _texto(a.get("codigo")),
+            "titulo": _texto(a.get("titulo")),
+            "titulos": _campo_por_idioma(a.get("textos"), "titulo"),
+            "accion": _texto(a.get("accion")),
+            "acciones": _campo_por_idioma(a.get("textos"), "accion"),
+            "aparecida": _texto(a.get("aparecida")),
+            "estado": estado_de_alarma(a),
+            "requiere_reconocimiento": a.get("requiere_reconocimiento") is True,
         })
     return filas
 
 
 class AlarmListModel(QAbstractListModel):
     """Alarmas activas. Roles: id, level, description, source_state, priority
-    y descripciones ({idioma: descripción}, U10b)."""
+    y descripciones ({idioma: descripción}, U10b); tanda 17 (ALM-01): codigo,
+    titulo, titulos y acciones ({idioma: texto}), accion, aparecida (ISO),
+    estado (estado_de_alarma) y requiere_reconocimiento."""
 
     IdRole = Qt.ItemDataRole.UserRole + 1
     LevelRole = Qt.ItemDataRole.UserRole + 2
@@ -119,6 +159,14 @@ class AlarmListModel(QAbstractListModel):
     SourceStateRole = Qt.ItemDataRole.UserRole + 4
     PriorityRole = Qt.ItemDataRole.UserRole + 5
     DescripcionesRole = Qt.ItemDataRole.UserRole + 6
+    CodigoRole = Qt.ItemDataRole.UserRole + 7
+    TituloRole = Qt.ItemDataRole.UserRole + 8
+    TitulosRole = Qt.ItemDataRole.UserRole + 9
+    AccionRole = Qt.ItemDataRole.UserRole + 10
+    AccionesRole = Qt.ItemDataRole.UserRole + 11
+    AparecidaRole = Qt.ItemDataRole.UserRole + 12
+    EstadoRole = Qt.ItemDataRole.UserRole + 13
+    RequiereReconocimientoRole = Qt.ItemDataRole.UserRole + 14
 
     _CLAVES = {
         IdRole: "id",
@@ -127,6 +175,14 @@ class AlarmListModel(QAbstractListModel):
         SourceStateRole: "source_state",
         PriorityRole: "priority",
         DescripcionesRole: "descripciones",
+        CodigoRole: "codigo",
+        TituloRole: "titulo",
+        TitulosRole: "titulos",
+        AccionRole: "accion",
+        AccionesRole: "acciones",
+        AparecidaRole: "aparecida",
+        EstadoRole: "estado",
+        RequiereReconocimientoRole: "requiere_reconocimiento",
     }
 
     countChanged = Signal()
@@ -153,6 +209,12 @@ class AlarmListModel(QAbstractListModel):
 
     def filas(self) -> list[dict]:
         return [dict(f) for f in self._filas]
+
+    @Slot(str, result="QVariantMap")
+    def detalle(self, id_alarma: str) -> dict:
+        """Tanda 17 (ALM-01): la fila vigente de la alarma `id_alarma` ({} si ya
+        no está activa); la ventana de detalle la relee al cambiar el modelo."""
+        return next((dict(f) for f in self._filas if f["id"] == id_alarma), {})
 
     def establecer(self, alarmas) -> bool:
         """Reemplaza el contenido; True si cambió."""
@@ -223,8 +285,19 @@ class UiBridge(QObject):
         no_en_uso = ciclo.get("entradas_no_en_uso") if isinstance(ciclo, dict) else None
         if not isinstance(no_en_uso, list):
             no_en_uso = []
-        return {"filas": entradas_mostradas.construir(lista, sensors, no_en_uso, t, p, p_atm),
-                "series": entradas_mostradas.series_grafica(lista, t, p, no_en_uso)}
+        filas = entradas_mostradas.construir(lista, sensors, no_en_uso, t, p, p_atm)
+        series = entradas_mostradas.series_grafica(lista, t, p, no_en_uso)
+        # Tanda 17 (SON-01): una entrada de una sonda instalada con rol No en
+        # uso (`entradas_no_en_uso` de /cycle) se rotula "(monitoreo)" en QML;
+        # se respeta la marca `monitoreo` si el dominio ya la puso
+        no = {e for e in no_en_uso if isinstance(e, str)}
+        for f in filas:
+            if isinstance(f, dict):
+                f["monitoreo"] = f.get("monitoreo") is True or f.get("clave") in no
+        for s in series:
+            if isinstance(s, dict):
+                s["monitoreo"] = s.get("monitoreo") is True or s.get("entrada") in no
+        return {"filas": filas, "series": series}
 
     def detener(self) -> None:
         self._timer.stop()
