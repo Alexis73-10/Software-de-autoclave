@@ -57,3 +57,13 @@
 - V17-s4-05: la intro sigue mostrando la versión (D-07, DECISIÓN SIN CONFIRMAR) con la clave `arranque.version_software`.
 - V17-s4-06 corregido: clics reales y `isVisible()`; presión en kPa, psi (p_atm 74,6), sin lectura y `/status` 500.
 - V17-s4-07 corregido: `I18n.existe` antes de la clave dinámica.
+
+### Resolución R1 (rama `tanda-17-r1`: f027afb, 9d0e897)
+- V17-s1-01 corregido (ALTA): `AplicarAcl` — dueño Administradores, `/inheritance:r /grant:r`, DACL protegida `D:P(...)` reemplazada entera con `SetAccessControl` y verificada con `Get-Acl` por SID y máscara (FA 2032127, RX 1179817, M 1245631); cualquier fallo detiene el Setup. Cubre `Especifika`, `Autoclave`, `programa`, `datos`, `datos\estacion`, `Autoclave_respaldos`; `Protect-DirEstacion` igual. Comprobado en una carpeta temporal: un `Todos:F` explícito desaparece.
+- V17-s1-02 corregido: `CarpetaVacia(programa)` después de proteger.
+- V17-s1-03 corregido (ALTA): `instalador_exe.instalacion_con_setup()`; con instalación del Setup en el registro y el exe fuera de `RutaPrograma`, solo avisa y termina; `--rol instalar` devuelve 1 sin copiar.
+- V17-s1-04 corregido: `ConsultarBuses` (`Get-Partition`+`Get-Disk`, solo lectura) excluye buses USB, SD y MMC; si falla, solo se preselecciona la del sistema.
+- V17-s1-05 corregido: con una reversión fallida se reescriben `RutaDatos`/`RutaPrograma` y se conserva `Estacion`; `ReversionFallo` cita `datos\estacion`; `_comun.ps1` acepta `AUTOCLAVE_RUTA_DATOS`.
+- V17-s1-06 corregido: `PrepararEstacion` crea `datos\estacion` protegido; una preexistente en instalación nueva se aparta a `estacion_anterior_<fecha>`.
+- V17-s1-07 corregido: pruebas renombradas por tipo (`texto`, `replica`, `ejecuta`, `parser`); pruebas manuales nuevas en `tools/instalador/LEEME.md`.
+- DECISIONES SIN CONFIRMAR: (1) si falla la consulta de bus, solo se preselecciona la del sistema; (2) también se excluyen SD y MMC; (3) `estacion` preexistente se aparta; (4) con reversión fallida se conservan `RutaPrograma` y `Estacion`; (5) `AUTOCLAVE_RUTA_DATOS` prevalece; (6) el exe desde USB solo avisa. Pendiente en el PC de prueba: `AplicarAcl` como administrador con código 0.
