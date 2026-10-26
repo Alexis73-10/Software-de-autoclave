@@ -493,14 +493,19 @@ class ProtocoloFallo:
         self._lecturas_enfriada = self._lecturas_enfriada + 1 if self._enfriada() else 0
         return self._lecturas_enfriada >= _DEBOUNCE_LECTURAS
 
-    @property
-    def bloqueado_motivo(self) -> str | None:
+    def bloqueado_motivo(self, incluir_presion: bool = True) -> str | None:
         """Motivo por el que el protocolo no puede terminar solo (SAF-04 de
-        T5): lo muestra el estado seguro como alarma. None si avanza."""
+        T5): lo muestra el estado seguro como alarma. None si avanza.
+
+        Tanda 17 (ESG-01, corrección R3 V17-s3-02): con `incluir_presion`
+        False se omite la presión de cámara sin lectura y se da el siguiente
+        motivo (bloqueado_motivo_sin_presion). Se publica como propiedad más
+        abajo; los textos quedan en esta función (los recorre
+        tests/test_v8b_textos.py)."""
         if not self._ejecutado:
             return None
         temp = self._temp_principal()
-        if self._presion_perdida:
+        if incluir_presion and self._presion_perdida:
             # S9 (D9-1.4): sin presión de cámara no se puede confirmar la
             # cámara segura; primero que el Principal (sin presión, nada termina)
             # T10 (tanda 10, D10-3): solo el texto; misma condición y prioridad
@@ -512,12 +517,23 @@ class ProtocoloFallo:
                     "las sondas confirmen la temperatura o venza la espera")
         if self._solo_lenta and (not lectura_valida(temp) or temp == 0):
             return "Sensor Principal sin lectura: el estado seguro no puede confirmar la temperatura"
-        if self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento" \
-                and not lectura_valida(self._temp_principal()):
+        if self._modo_efectivo() in (4, 5) and self._sub_etapa == "enfriamiento"                 and not lectura_valida(self._temp_principal()):
             return "Sensor Principal sin lectura: no se puede confirmar el enfriamiento"
         if self._aviso_no_escala:
             return "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido"
         return None
+
+    _motivo_bloqueo = bloqueado_motivo
+    bloqueado_motivo = property(bloqueado_motivo)
+
+    @property
+    def bloqueado_motivo_sin_presion(self) -> str | None:
+        """Tanda 17 (ESG-01, corrección R3 V17-s3-02): el motivo de bloqueo
+        sin contar la presión de cámara sin lectura, con la misma prioridad que
+        bloqueado_motivo para los demás. Con la presión perdida, el estado
+        seguro activa CIC-10 solo con este (sellado, Principal sin lectura,
+        líquidos calientes); None si no hay otro motivo."""
+        return self._motivo_bloqueo(incluir_presion=False)
 
     # ------------------------------------------------------------------
     # DISPARO — llamar UNA vez al detectar el fallo
