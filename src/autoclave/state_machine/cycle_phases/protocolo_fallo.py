@@ -815,6 +815,14 @@ class ProtocoloFallo:
             self._salidas_apagadas = self.set_do.reset_all_outputs()
             if self._salidas_apagadas:
                 logger.info("Protocolo fallo: apagado de salidas confirmado tras reintento")
+        else:
+            # s3 (tanda 16, V-02): con el ALL_OFF ya confirmado, se reafirma el
+            # corte del aporte de vapor en cada llamada (una orden perdida o una
+            # salida reencendida no queda así). Solo dos órdenes por tick: el
+            # SetOutput no deduplica, pero el protocolo nunca enciende estas
+            # salidas, así que no hay conflicto con ninguna rama de abajo.
+            self.set_do.vapor_camara_off()
+            self.set_do.vapor_chaqueta_off()
 
         # S9, revisión ★ TMG-02/TMG-03: vigencia y número de la trama AI de
         # este update(); con la AI vencida la presión cuenta como perdida
