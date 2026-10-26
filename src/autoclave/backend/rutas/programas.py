@@ -428,6 +428,13 @@ def put_sensor_roles(body: _SensorRolesBody,
     if errores:
         _rechazar(422, sc.ASIGNACION_INVALIDA, "; ".join(errores), entidad, sesion,
                   extra={"errores": errores})
+    # PRG-01 (tanda 16, D-PRG-1): un rol (Principal o Referencia) sobre una
+    # sonda no activa en el perfil de instalación se rechaza con código propio
+    # (texto es/en en la pantalla: opciones.err_rol_sonda_no_activa)
+    no_activas = sc.roles_sonda_no_activa(nueva, getattr(context, "profile", None))
+    if no_activas:
+        _rechazar(422, sc.ROL_SONDA_NO_ACTIVA, sc.motivo_sonda_no_activa(no_activas),
+                  entidad, sesion, extra={"sensores": no_activas})
     esperada = _normalizar_asignacion(body.asignacion_anterior_esperada)
 
     propagado, motivo_propagacion = False, "sin_copias"

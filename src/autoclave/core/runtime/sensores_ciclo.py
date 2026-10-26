@@ -39,6 +39,8 @@ DISPONIBLE, SIN_SENAL, NO_INSTALADO = "disponible", "sin_senal", "no_instalado"
 ASIGNACION_INVALIDA = "ASIGNACION_INVALIDA"
 SENSOR_NO_DISPONIBLE = "SENSOR_NO_DISPONIBLE"
 ASIGNACION_SENSORES_INVALIDA = "ASIGNACION_SENSORES_INVALIDA"
+# PRG-01 (tanda 16, D-PRG-1): rol sobre una sonda no activa en el perfil
+ROL_SONDA_NO_ACTIVA = "ROL_SONDA_NO_ACTIVA"
 
 
 def asignacion_por_omision() -> dict[str, str]:
@@ -188,12 +190,39 @@ def errores_disponibilidad(asignacion: dict, profile, estado) -> list[str]:
             and estado_sensor(profile, estado, s) != DISPONIBLE]
 
 
+def roles_sonda_no_activa(asignacion, profile) -> list[str]:
+    """PRG-01 (tanda 16, D-PRG-1): sensores con rol Principal o Referencia
+    cuya sonda no está activa en el perfil de instalación (temperature_probes,
+    o temp_2_camara en una clase sin sensor de líquidos). Sin perfil, []
+    (comportamiento anterior)."""
+    if profile is None or not isinstance(asignacion, dict):
+        return []
+    return [s for s in SENSORES if asignacion.get(s) in (PRINCIPAL, REFERENCIA)
+            and not sensor_declarado(profile, s)]
+
+
+MOTIVO_SONDA_NO_ACTIVA = "rol asignado a una sonda no activa en el perfil de instalación"
+
+
+def motivo_sonda_no_activa(sensores) -> str:
+    return f"{MOTIVO_SONDA_NO_ACTIVA}: " + ", ".join(NOMBRES.get(s, s) for s in sensores)
+
+
 def verificar_inicio(programa, profile, estado):
-    """RS-06: None si el programa puede iniciar; si no, (código, detalle)."""
+    """RS-06: None si el programa puede iniciar; si no, (código, detalle).
+    PRG-01 (tanda 16, D-PRG-1): un rol sobre una sonda no activa en el perfil
+    reutiliza el bloqueo de sensor ausente (SENSOR_NO_DISPONIBLE, que ya
+    trataban así tests/test_t3_sensores_ciclo.py y la interfaz) con un motivo
+    propio que empieza por MOTIVO_SONDA_NO_ACTIVA, evaluado antes que la
+    falta de lectura (DECISIÓN SIN CONFIRMAR: D-PRG-1 admite reutilizar el
+    bloqueo existente; ROL_SONDA_NO_ACTIVA queda para la asignación)."""
     asignacion = asignacion_de(programa)
     errores = errores_asignacion(asignacion)
     if errores:
         return ASIGNACION_SENSORES_INVALIDA, "; ".join(errores)
+    no_activas = roles_sonda_no_activa(asignacion, profile)
+    if no_activas:
+        return SENSOR_NO_DISPONIBLE, motivo_sonda_no_activa(no_activas)
     faltan = errores_disponibilidad(asignacion, profile, estado)
     if faltan:
         return SENSOR_NO_DISPONIBLE, f"sensores en uso sin lectura o no instalados: {faltan}"

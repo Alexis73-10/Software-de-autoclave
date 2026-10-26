@@ -59,6 +59,7 @@
         "calentamiento": {
             "temperatura_calentamiento": { "value": 134.0, "type": "float", "unit": "°C", "clase": "absoluto", "min": 100, "max": 140 },
             "presion_add_calentamiento": { "value": 11.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 100 },
+            "histeresis_cierre_camara": { "value": 3.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 1, "max": 10 },
             "timeout_calentamiento": { "value": 60, "type":"int", "unit": "min", "min": 1, "max": 999 },
             "factor_calentamiento": { "value": 50, "type": "int", "unit": "%", "min": 0, "max": 100 },
             "rango_calentamiento_temp": { "value": 2.0, "type": "float", "unit": "°C", "clase": "diferencia", "min": 0, "max": 30 },
@@ -91,7 +92,8 @@
             "temperatura_esterilizacion": { "value": 134.0, "type": "float", "unit": "°C", "clase": "absoluto", "min": 100, "max": 140 },
             "tiempo_esterilizacion": { "value": 3.5, "type": "float", "unit": "min", "min": 0, "max": 9999 },
             "factor_esterilizacion": { "value": 70, "type": "int", "unit": "%", "min": 0, "max": 100 },
-            "presion_add_esterilizacion": { "value": 11.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 100 },
+            "presion_add_esterilizacion": { "value": 15.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 100 },
+            "histeresis_cierre_camara": { "value": 3.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 1, "max": 10 },
             "intervalo_segmentos_ester": { "value": 3, "type": "int", "unit": "seg", "min": 0, "max": 30 },
             "rango_temperatura_ester": { "value": 3.0, "type": "float", "unit": "°C", "clase": "diferencia", "min": 0, "max": 50 },
             "rango_presion_ester": { "value": 30.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 100 },
@@ -99,7 +101,8 @@
             "brecha_error_temperatura": { "value": 0.1, "type": "float", "unit": "°C", "clase": "diferencia", "min": 0, "max": 2 },
             "brecha_error_presion": { "value": 2.0, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 10 },
             "brecha_segura_presion": { "value": 1.5, "type": "float", "unit": "kPa", "clase": "diferencia", "min": 0, "max": 20 },
-            "timeout_excursion_referencia": { "value": 5, "type": "int", "unit": "min", "min": 1, "max": 30 }
+            "timeout_excursion_referencia": { "value": 5, "type": "int", "unit": "min", "min": 1, "max": 30 },
+            "max_reinicios_exposicion": { "value": 3, "type": "int", "min": 0, "max": 10 }
         },
 
         "secado": {

@@ -21,9 +21,11 @@ PRESION_MIN, PRESION_MAX = 1, 400           # kPa
 TEMPERATURA_MIN, TEMPERATURA_MAX = 1, 200   # °C
 
 # ── Límites físicos de presión (tanda 12, C-04 / C-05; kPa absolutos) ─────
-# Una sola fuente (Confirmado 24-oct). DEU-01: deben venir del perfil de
-# instalación o de Parámetros del equipo (rango del transductor, regulador y
-# alivios), con estos valores como predeterminados; no se implementa aquí.
+# DEU-01 (tanda 16, D-DEU-1): estas cuatro constantes quedan SOLO como
+# defectos. Los valores vigentes son los de Parámetros del equipo
+# (global_params.json / system_params), que se leen con _limites() a través
+# del ConfigManager que el backend fija con fijar_config_equipo() al arrancar;
+# sin él (pruebas, herramientas, la interfaz) rigen estos defectos.
 PRESION_FONDO_ESCALA = 400.0
 # Suministro regulado a 40 psig: 40 × 6.894757 = 275.8 kPa manométricos, más
 # 74.6 kPa de atmósfera local en Bogotá = 350.4 ≈ 350 kPa absolutos (a nivel
@@ -42,6 +44,29 @@ BANDA_CHAQUETA_KPA = 10.0
 DELTA_TEMP_CHAQUETA_DEFECTO = 1.5      # °C (clase diferencia, 0–5)
 MARGEN_FLUJO_CHAQUETA_DEFECTO = 15.0   # kPa (clase diferencia, 0–40)
 TIMEOUT_EXCURSION_REFERENCIA_DEFECTO = 5   # min (int, 1–30), C-13.4
+# Tanda 16 (VCH §5 y D-14.5): parámetros de programa nuevos
+HISTERESIS_CIERRE_CAMARA_DEFECTO = 3.0     # kPa (clase diferencia, 1–10)
+MAX_REINICIOS_EXPOSICION_DEFECTO = 3       # int, 0–10
+
+# ── P1 (tanda 16, D-14.1): coherencia de la salida de RECUPERACION ─────────
+# Con vapor saturado, la temperatura más alta que permite el techo
+# P_control_max = Psat(T_est) + presion_add_esterilizacion es Tsat(P_control_max).
+# Si queda por debajo del umbral de salida de RECUPERACION (T_est +
+# brecha_segura_temperatura + histéresis), el control nunca pasa a PWM. Se
+# rechaza el programa si Tsat(techo) < T_est + brecha + histéresis + margen.
+# DECISIÓN SIN CONFIRMAR (se reajusta con el banco): margen 0,3 K. La
+# histéresis refleja _HIST_RECUP_TEMP_K de esterilizacion.py (una prueba
+# verifica que coinciden; no se importa para no acoplar el catálogo a la fase).
+HIST_SALIDA_RECUPERACION_K = 0.3
+MARGEN_COHERENCIA_RECUPERACION_K = 0.3
+CODIGO_COHERENCIA_RECUPERACION = "COHERENCIA_RECUPERACION"
+# P2 (D-14.2): migración de brecha_segura_temperatura 0,3 → 1,0 y subida de
+# presion_add_esterilizacion al mínimo de P1, redondeado hacia arriba a este
+# paso (DECISIÓN SIN CONFIRMAR: 0,5 kPa)
+BRECHA_SEGURA_VIEJA = 0.3
+BRECHA_SEGURA_NUEVA = 1.0
+PASO_MIGRACION_PRESION_ADD = 0.5
+ORIGEN_MIGRACION_T16 = "migración tanda 16"
 
 # Códigos de rechazo (ErrorCoherencia.codigo) de los límites físicos
 CODIGO_LIMITE_CAMARA = "LIMITE_PRESION_CAMARA"
@@ -62,7 +87,42 @@ def _poner(fase: str, ruta: str, minimo, maximo, motivo: str) -> None:
     CATALOGO[(fase, ruta)] = (minimo, maximo, motivo)
 
 
+# ── DEU-01 (tanda 16): proveedor de los límites del equipo ─────────────────
+_config_equipo = None
+
+
+def fijar_config_equipo(config) -> None:
+    """DEU-01: el backend fija su ConfigManager al arrancar, ANTES de cargar
+    los programas. Se guarda la referencia (no una copia): un cambio de los
+    límites en Parámetros del equipo rige en la siguiente validación. None
+    vuelve a los defectos."""
+    global _config_equipo
+    _config_equipo = config
+
+
+def limites_presion_equipo():
+    """Límites de presión vigentes (limites_equipo.LimitesPresion, kPa abs):
+    los del equipo o, sin ConfigManager fijado, los defectos. Nunca lanza."""
+    # import diferido: limites_equipo importa este módulo a nivel de módulo
+    from autoclave.core.managers import limites_equipo
+    return limites_equipo.limites_presion(_config_equipo)
+
+
+_limites = limites_presion_equipo
+
+
+def limites_para_mensaje() -> dict:
+    """Valores de los límites del equipo para los textos de la pantalla
+    (claves alivio_camara, alivio_chaqueta, suministro y fondo_escala)."""
+    lim = _limites()
+    return {"alivio_camara": round(lim.alivio_camara, 1),
+            "alivio_chaqueta": round(lim.alivio_chaqueta, 1),
+            "suministro": round(lim.suministro, 1),
+            "fondo_escala": round(lim.fondo_escala, 1)}
+
+
 # ── Presión absoluta (1–400 kPa) ───────────────────────────────────────────
+_MOTIVO_PRESION_ABSOLUTA = "presión absoluta del modelo"
 for _fase, _ruta in (
     ("globals", "presion_chaqueta"),
     ("precalentamiento", "presion_precalentamiento"),
@@ -73,7 +133,7 @@ for _fase, _ruta in (
     *[("descompresion", f"{m}.presion_camara_enfriamiento") for m in _MODOS_ENFRIAMIENTO],
     *[("prevacio", f"presion_{nivel}_pulso_{p}") for nivel in ("alta", "baja") for p in _PULSOS],
 ):
-    _poner(_fase, _ruta, PRESION_MIN, PRESION_MAX, "presión absoluta del modelo")
+    _poner(_fase, _ruta, PRESION_MIN, PRESION_MAX, _MOTIVO_PRESION_ABSOLUTA)
 
 # ── Temperatura absoluta (límites del modelo) ──────────────────────────────
 for _fase, _ruta in (
@@ -114,6 +174,12 @@ _poner("globals", "delta_temp_chaqueta", 0, 5, "C-05.3 (tanda 12): consigna de c
 _poner("globals", "margen_flujo_chaqueta", 0, 40, "C-05.3 (tanda 12): consigna de chaqueta")
 _poner("esterilizacion", "timeout_excursion_referencia", 1, 30,
        "C-13.4 (tanda 12): tiempo límite de una excursión de Referencia")
+# ── Tanda 16 ───────────────────────────────────────────────────────────────
+for _fase in ("calentamiento", "esterilizacion"):
+    _poner(_fase, "histeresis_cierre_camara", 1, 10,
+           "VCH §5 (tanda 16): reapertura de vapor_camara bajo el techo")
+_poner("esterilizacion", "max_reinicios_exposicion", 0, 10,
+       "D-14.5 (tanda 16): tope de reinicios de la exposición")
 # modo 0 de descompresión se conserva (enfriamiento natural, decisión 1.2)
 _poner("descompresion", "modo", 0, 5, "modo 0 conservado (enfriamiento natural)")
 
@@ -155,8 +221,10 @@ class ErrorCoherencia(ValueError):
     si el problema es el modo de descompresión con carga líquida;
     COHERENCIA_LIQUIDO para el resto de las reglas de carga líquida;
     LIMITE_PRESION_CAMARA (C-04.3), LIMITE_CONSIGNA_CHAQUETA (C-05.5) y
-    LIMITE_PRESION_CHAQUETA (C-05.9) para los límites físicos de la tanda 12. `valor`: el máximo admisible (o
-    la consigna calculada) del primer límite físico incumplido, o None."""
+    LIMITE_PRESION_CHAQUETA (C-05.9) para los límites físicos de la tanda 12;
+    COHERENCIA_RECUPERACION para P1 (tanda 16, D-14.1). `valor`: el máximo
+    admisible (o la consigna calculada) del primer límite físico incumplido
+    o, en P1, el presion_add_esterilizacion mínimo; None si no hay."""
 
     def __init__(self, errores: list[str], valor=None):
         super().__init__("; ".join(errores))
@@ -169,6 +237,7 @@ class ErrorCoherencia(ValueError):
 _PREFIJO_CAMARA = "Límite de presión de cámara: "
 _PREFIJO_CHAQUETA = "Límite de presión de chaqueta: "
 _PREFIJO_CONSIGNA = "Límite de consigna de chaqueta: "
+_PREFIJO_RECUPERACION = "Coherencia de recuperación: "
 
 
 def codigo_coherencia(errores: list[str]) -> str:
@@ -182,6 +251,8 @@ def codigo_coherencia(errores: list[str]) -> str:
         return CODIGO_LIMITE_CONSIGNA
     if any(e.startswith(_PREFIJO_CHAQUETA) for e in errores):
         return CODIGO_LIMITE_CHAQUETA
+    if any(e.startswith(_PREFIJO_RECUPERACION) for e in errores):
+        return CODIGO_COHERENCIA_RECUPERACION
     return "COHERENCIA_LIQUIDO"
 
 
@@ -205,7 +276,14 @@ def limites(fase: str, path) -> tuple:
     tiene límite propio."""
     ruta = ".".join(path) if not isinstance(path, str) else path
     entrada = CATALOGO.get((fase, ruta))
-    return (entrada[0], entrada[1]) if entrada else (None, None)
+    if not entrada:
+        return (None, None)
+    if entrada[2] == _MOTIVO_PRESION_ABSOLUTA:
+        # DEU-01 (tanda 16): una presión absoluta no supera el fondo de escala
+        # del transductor del equipo; nunca más que el límite del modelo
+        # (DECISIÓN SIN CONFIRMAR: subir el fondo de escala no amplía el rango)
+        return (entrada[0], min(entrada[1], _limites().fondo_escala))
+    return (entrada[0], entrada[1])
 
 
 def rango_efectivo(hoja: dict, fase: str, path) -> tuple:
@@ -324,12 +402,17 @@ _TECHOS_CAMARA = (("calentamiento", "temperatura_calentamiento", "presion_add_ca
 def _evaluar_limites(parameters: dict) -> tuple[list, list]:
     """Límites físicos de la tanda 12, para todo tipo de carga:
     ([(mensaje de rechazo, valor)], [(clave de advertencia, mensaje, {(fase, parámetro)})]).
-    - C-04.3: techo de cámara Psat(T) + presion_add_* >= 385 → rechazo (da el
-      máximo admisible de presion_add_*); > 350 (suministro) → advertencia.
-    - C-05.5: consigna de chaqueta + 10 >= 385 → rechazo (da la consigna);
-      > 350 → advertencia (vapor_chaqueta abierta durante el ciclo).
+    - C-04.3: techo de cámara Psat(T) + presion_add_* >= alivio de cámara →
+      rechazo (da el máximo admisible de presion_add_*); > suministro → advertencia.
+    - C-05.5: consigna de chaqueta + 10 >= alivio de chaqueta → rechazo (da la
+      consigna); > suministro → advertencia (vapor_chaqueta abierta en el ciclo).
     - C-05.9: presion_chaqueta + rango_presion_chaqueta: misma regla.
+    - P1 (tanda 16, D-14.1): salida de RECUPERACION alcanzable bajo el techo
+      (ver _evaluar_recuperacion); va al final (su código es el último).
+    DEU-01 (tanda 16): alivios y suministro son los del equipo (_limites()).
     Valores ausentes o no numéricos no se evalúan (los marca el catálogo)."""
+    lim = _limites()
+    alivio_cam, alivio_chq, suministro = lim.alivio_camara, lim.alivio_chaqueta, lim.suministro
     rechazos, advertencias = [], []
     for fase, clave_t, clave_add in _TECHOS_CAMARA:
         t = _valor(parameters, fase, clave_t)
@@ -340,56 +423,114 @@ def _evaluar_limites(parameters: dict) -> tuple[list, list]:
         if psat is None:
             continue
         techo = psat + add
-        if techo >= PRESION_ALIVIO_CAMARA:
-            maximo = PRESION_ALIVIO_CAMARA - psat
+        if techo >= alivio_cam:
+            maximo = alivio_cam - psat
             rechazos.append((
                 f"{_PREFIJO_CAMARA}Psat({t:g} °C) + {clave_add} = {techo:.1f} kPa alcanza el "
-                f"alivio de cámara ({PRESION_ALIVIO_CAMARA:.0f} kPa); {clave_add} debe ser "
+                f"alivio de cámara ({alivio_cam:.0f} kPa); {clave_add} debe ser "
                 f"menor que {maximo:.1f} kPa", round(maximo, 1)))
-        elif techo > PRESION_SUMINISTRO:
+        elif techo > suministro:
             advertencias.append((ADVERTENCIA_TECHO_CAMARA,
                 f"{fase}: techo de cámara {techo:.1f} kPa sobre el suministro "
-                f"({PRESION_SUMINISTRO:.0f} kPa): la cámara no alcanzará el techo de presión; "
+                f"({suministro:.0f} kPa): la cámara no alcanzará el techo de presión; "
                 f"la válvula de vapor de cámara quedará abierta en ese tramo",
                 {(fase, clave_t), (fase, clave_add)}))
     consigna = consigna_chaqueta_programa(parameters)
     if consigna is not None:
         alto = consigna + BANDA_CHAQUETA_KPA
-        if alto >= PRESION_ALIVIO_CHAQUETA:
+        if alto >= alivio_chq:
             rechazos.append((
                 f"{_PREFIJO_CONSIGNA}la consigna calculada de chaqueta es {consigna:.1f} kPa; "
                 f"con la banda de ±{BANDA_CHAQUETA_KPA:.0f} kPa llega a {alto:.1f} kPa, sobre "
-                f"el alivio de chaqueta ({PRESION_ALIVIO_CHAQUETA:.0f} kPa)", round(consigna, 1)))
-        elif alto > PRESION_SUMINISTRO:
+                f"el alivio de chaqueta ({alivio_chq:.0f} kPa)", round(consigna, 1)))
+        elif alto > suministro:
             advertencias.append((ADVERTENCIA_CHAQUETA_ABIERTA,
                 f"consigna de chaqueta {consigna:.1f} kPa (+{BANDA_CHAQUETA_KPA:.0f}) sobre el "
-                f"suministro ({PRESION_SUMINISTRO:.0f} kPa): la válvula de vapor de chaqueta "
+                f"suministro ({suministro:.0f} kPa): la válvula de vapor de chaqueta "
                 f"quedará abierta durante el ciclo", set(_RUTAS_CONSIGNA)))
     pch = _valor(parameters, "globals", "presion_chaqueta")
     rango = _valor(parameters, "globals", "rango_presion_chaqueta")
     if _num(pch) and _num(rango):
         alto = pch + rango
-        if alto >= PRESION_ALIVIO_CHAQUETA:
+        if alto >= alivio_chq:
             rechazos.append((
                 f"{_PREFIJO_CHAQUETA}presion_chaqueta + rango_presion_chaqueta = {alto:g} kPa "
-                f"alcanza el alivio de chaqueta ({PRESION_ALIVIO_CHAQUETA:.0f} kPa); debe ser "
-                f"menor que {PRESION_ALIVIO_CHAQUETA:.0f} kPa", PRESION_ALIVIO_CHAQUETA - rango))
-        elif alto > PRESION_SUMINISTRO:
+                f"alcanza el alivio de chaqueta ({alivio_chq:.0f} kPa); debe ser "
+                f"menor que {alivio_chq:.0f} kPa", alivio_chq - rango))
+        elif alto > suministro:
             advertencias.append((ADVERTENCIA_CHAQUETA_ABIERTA,
                 f"presion_chaqueta + rango_presion_chaqueta = {alto:g} kPa sobre el suministro "
-                f"({PRESION_SUMINISTRO:.0f} kPa): en preparación la válvula de vapor de "
+                f"({suministro:.0f} kPa): en preparación la válvula de vapor de "
                 f"chaqueta quedará abierta",
                 {("globals", "presion_chaqueta"), ("globals", "rango_presion_chaqueta")}))
+    rechazos.extend(_evaluar_recuperacion(parameters))
     return rechazos, advertencias
 
 
+def presion_add_minima_recuperacion(t_est, brecha) -> float | None:
+    """P1 (tanda 16, D-14.1): presion_add_esterilizacion mínimo (kPa) para que
+    Tsat(Psat(T_est) + presion_add) >= T_est + brecha + histéresis + margen, es
+    decir Psat(T_est + brecha + 0,6) - Psat(T_est). None si T_est o la brecha
+    no son numéricos o la temperatura queda fuera de IAPWS-IF97."""
+    if not (_num(t_est) and _num(brecha)):
+        return None
+    psat_est = _psat(t_est)
+    psat_salida = _psat(t_est + brecha + HIST_SALIDA_RECUPERACION_K
+                        + MARGEN_COHERENCIA_RECUPERACION_K)
+    if psat_est is None or psat_salida is None:
+        return None
+    return psat_salida - psat_est
+
+
+# tolerancia numérica de la comparación de P1 (kPa)
+_TOL_RECUPERACION_KPA = 1e-9
+
+
+def _evaluar_recuperacion(parameters: dict) -> list:
+    """P1 (tanda 16, D-14.1): [(mensaje, mínimo)] si
+    Tsat(Psat(T_est) + presion_add_esterilizacion) < T_est +
+    brecha_segura_temperatura + 0,3 (histéresis) + 0,3 (margen); se evalúa en
+    la forma equivalente presion_add < presion_add_minima_recuperacion. El
+    mínimo se da redondeado hacia arriba a 0,1 kPa, para que el valor que se
+    lee en pantalla sí se acepte (DECISIÓN SIN CONFIRMAR). Valores ausentes o
+    no numéricos no se evalúan (los marca el catálogo)."""
+    t = _valor(parameters, "esterilizacion", "temperatura_esterilizacion")
+    brecha = _valor(parameters, "esterilizacion", "brecha_segura_temperatura")
+    add = _valor(parameters, "esterilizacion", "presion_add_esterilizacion")
+    if not _num(add):
+        return []
+    minimo = presion_add_minima_recuperacion(t, brecha)
+    if minimo is None or add >= minimo - _TOL_RECUPERACION_KPA:
+        return []
+    mostrado = math.ceil(round(minimo * 10, 6)) / 10
+    umbral = t + brecha + HIST_SALIDA_RECUPERACION_K + MARGEN_COHERENCIA_RECUPERACION_K
+    from autoclave.core.runtime.steam import t_saturacion_c
+    try:
+        tsat_techo = f"{t_saturacion_c(_psat(t) + add):.2f} °C"
+    except ValueError:
+        tsat_techo = "fuera de rango"
+    return [(
+        f"{_PREFIJO_RECUPERACION}con temperatura_esterilizacion {t:g} °C y "
+        f"brecha_segura_temperatura {brecha:g} °C, el techo de control Psat(T) + "
+        f"presion_add_esterilizacion ({add:g} kPa) da Tsat {tsat_techo}, bajo la salida "
+        f"de RECUPERACION más el margen ({umbral:.2f} °C); presion_add_esterilizacion "
+        f"debe ser al menos {mostrado:.1f} kPa", mostrado)]
+
+
+def errores_recuperacion(parameters: dict) -> list[str]:
+    """Rechazos de P1 (tanda 16, D-14.1)."""
+    return [m for m, _ in _evaluar_recuperacion(parameters)]
+
+
 def errores_limites_fisicos(parameters: dict) -> list[str]:
-    """Rechazos de los límites físicos (C-04.3, C-05.5, C-05.9)."""
+    """Rechazos de los límites físicos (C-04.3, C-05.5, C-05.9) y de P1
+    (tanda 16), para todo tipo de carga."""
     return [m for m, _ in _evaluar_limites(parameters)[0]]
 
 
 def valor_limite(parameters: dict):
-    """Máximo admisible (o consigna) del primer límite físico incumplido."""
+    """Máximo admisible (o consigna) del primer límite físico incumplido o,
+    si solo falla P1, el presion_add_esterilizacion mínimo."""
     rechazos = _evaluar_limites(parameters)[0]
     return rechazos[0][1] if rechazos else None
 
@@ -412,8 +553,9 @@ def advertencias_programa(parameters: dict, fase: str | None = None,
 
 
 def errores_coherencia(parameters: dict) -> list[str]:
-    """Reglas entre parámetros: límites físicos de presión para todo tipo de
-    carga (tanda 12) y, para carga líquida (decisión 1.2; SAF-05 y
+    """Reglas entre parámetros: límites físicos de presión (tanda 12; con los
+    del equipo desde la tanda 16, DEU-01) y coherencia de RECUPERACION (P1,
+    tanda 16) para todo tipo de carga y, para carga líquida (decisión 1.2; SAF-05 y
     SAF-06 de T11; D8-5.7): descompresión modo 4, 5 o 0; sin prevacío ni secado (vacío
     sobre líquido caliente); sin apertura automática; contrapresión de
     enfriamiento de al menos P_sat(temperatura de esterilización) + 30 kPa."""
