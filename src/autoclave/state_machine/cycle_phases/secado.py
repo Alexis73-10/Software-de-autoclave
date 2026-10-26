@@ -81,7 +81,7 @@ class SecadoFase(BaseFase):
         p_obj = float(self.cycle.get_param("secado", "presion_chaqueta_secado") or 200)
         rango = float(self.cycle.get_param("secado", "rango_chaqueta_secado") or 30)
         if pres < p_obj - rango:
-            self.set_do.vapor_chaqueta_on()
+            self._chaqueta_on()   # V16-s3-01: respeta el corte de chaqueta
         elif pres > p_obj + rango:
             self.set_do.vapor_chaqueta_off()
 

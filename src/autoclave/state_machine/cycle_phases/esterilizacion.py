@@ -432,13 +432,16 @@ class EsterilizacionFase(BaseFase):
             fuera = not (minimo <= temp <= maximo)
             # P6: el debounce acumula también los ticks dentro de la banda,
             # así una Referencia que oscila en el borde confirma igual.
-            # DECISIÓN SIN CONFIRMAR: no se reinicia al cerrar una excursión
-            # confirmada; si vuelve a salir dentro de la ventana de 10 s, la
-            # nueva excursión se confirma antes (lado seguro).
             confirma = self._ref_deb(sensor).actualizar(fuera, now)
             if not fuera:
                 registro = self._ref_fuera.pop(sensor, None)
                 if registro is not None and registro["confirmada"]:
+                    # R (tanda 16, V16-s1-01): al cerrar una excursión
+                    # confirmada su debounce empieza de cero; si no, cada
+                    # lectura suelta fuera en los 10 s siguientes se confirmaba
+                    # al instante y sumaba reinicios hasta CIC-17 (excursiones
+                    # de 0 s en el ticket)
+                    self._ref_deb(sensor).reset()
                     self._anotar_excursion(sensor, registro, now)
                     logger.warning("Esterilización: %s volvió a la banda tras %.0f s",
                                    nombre, now - registro["desde"])
@@ -681,7 +684,9 @@ class EsterilizacionFase(BaseFase):
                 # reabre sin saber la presión (DECISIÓN SIN CONFIRMAR)
                 self.set_do.vapor_chaqueta_off()
                 ais = self._aislamiento()
-                ais.actualizar(None, p_control_max, self._histeresis_cierre_kpa(), now)
+                # R (tanda 16, V16-s1-03): con la presión válida (solo falta el
+                # Principal) el aislamiento se sigue evaluando
+                ais.actualizar(pres, p_control_max, self._histeresis_cierre_kpa(), now)
                 if ais.aislado:
                     self.set_do.vapor_camara_off()
                 else:

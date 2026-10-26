@@ -63,6 +63,17 @@ class BaseFase:
     def update(self) -> FaseResult:
         raise NotImplementedError(f"{self.__class__.__name__} debe implementar update()")
 
+    def _chaqueta_on(self) -> None:
+        """R (tanda 16, V16-s3-01): enciende vapor_chaqueta salvo con el corte
+        de chaqueta vigente (estado.inhibir_vapor_chaqueta is True, D-CHQ), en
+        cuyo caso la apaga. Para las fases que manejan la chaqueta por su
+        cuenta (PRECALENTAMIENTO, SECADO): sin esto encendían y CICLO apagaba
+        en el mismo tick, un pulso por tick con el corte activo."""
+        if getattr(self.estado, "inhibir_vapor_chaqueta", False) is True:
+            self.set_do.vapor_chaqueta_off()
+        else:
+            self.set_do.vapor_chaqueta_on()
+
     def _temp_camara(self) -> float | None:
         return self.estado.sensores_temp.get("temp_camara")
 

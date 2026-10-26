@@ -546,6 +546,17 @@ def _cambiar_serializado(cm, clave, p, entidad, sesion, valor, restablecer):
     _auditar("param_sistema_cambio", sesion, entidad=entidad,
              valor_anterior={p["clave"]: anterior}, valor_nuevo={p["clave"]: nuevo},
              detalle={"clave": p["clave"], "accion": "restablecer" if restablecer else "cambio"})
+    # R (tanda 16, V16-s4-01 / s3-03): un límite de presión del equipo nuevo
+    # rige también para los programas ya cargados (DEU-01): los que ahora lo
+    # incumplen quedan DAÑADOS sin esperar al próximo arranque
+    from autoclave.core.managers.config_manager import CLAVES_LIMITES_PRESION
+    if p["clave"] in CLAVES_LIMITES_PRESION:
+        try:
+            revalidar = getattr(context.cycle_manager, "revalidar_programas", None)
+            if callable(revalidar):
+                revalidar()
+        except Exception:
+            logger.exception("No se pudieron revalidar los programas tras cambiar %s", p["clave"])
     return {"ok": True, "parametro": context.config_manager.describir(p["clave"])}
 
 

@@ -166,7 +166,11 @@ def test_1_8_modo_chaqueta_camara_abierta_y_control_por_chaqueta(monkeypatch):
     ciclo, estado, salidas, _am, reloj = _armar(monkeypatch)
     _hasta_fase(ciclo, reloj, "CALENTAMIENTO")
     registro = []
+    salidas.ordenes.clear()
     _calentar(ciclo, estado, salidas, reloj, registro)
+    # 8 (V16-s3-04): ninguna orden vapor_camara OFF en CALENTAMIENTO ni en la
+    # transición (no solo el estado final de cada tick)
+    assert ("vapor_camara", False) not in salidas.ordenes
     # 8: la transición CALENTAMIENTO -> ESTERILIZACION no cierra vapor_camara
     assert registro and all(registro[1:]), "vapor_camara se cerró durante CALENTAMIENTO"
     assert salidas.on("vapor_camara")
@@ -227,10 +231,36 @@ def test_3_5_aislamiento_en_esterilizacion(monkeypatch):
     _tick(ciclo, reloj, estado, temp=134.5, pres=TECHO_EST - 4.0)
     _tick(ciclo, reloj, estado, temp=134.5, pres=TECHO_EST - 4.0)
     assert not estado.aislamiento_camara.aislado and salidas.on("vapor_camara")
-    # 5: la exposición siguió corriendo (el fin no se movió) y F0 sigue en ESTERILIZACION
+    # 5: la exposición siguió corriendo (el fin no se movió)
     assert est._timer_fin == fin
     assert estado.exposicion_restante_s < restante_antes
     assert estado.fase_ciclo == "ESTERILIZACION"
+
+
+def test_5_f0_acumula_durante_el_aislamiento(monkeypatch):
+    """VCH §8 punto 5 (V16-s1-04, s2-03, s3-04): ControlLoop._acumular_f0
+    sigue sumando con la cámara aislada."""
+    from types import SimpleNamespace
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+    from autoclave.state_machine.machine.enum_global import GlobalState
+    ciclo, estado, salidas, _am, reloj = _armar(monkeypatch)
+    ciclo.programa_en_curso.set_param("globals", ["F0"], True)
+    _hasta_fase(ciclo, reloj, "CALENTAMIENTO")
+    _calentar(ciclo, estado, salidas, reloj)
+    estado.set_machine_state(GlobalState.CICLO)
+    lazo = ControlLoop.__new__(ControlLoop)
+    lazo.estado, lazo.cap, lazo.interval = estado, None, TICK
+    lazo.state_machine = SimpleNamespace(ciclo=ciclo)
+    lazo.cycle = ciclo.programa_en_curso
+    lazo._f0_ultimo_tick, lazo._f0_recientes, lazo._f0_tramo_descontado = None, [], None
+    estado.f0_acumulado = 0.0
+    _tick(ciclo, reloj, estado, temp=134.5, pres=TECHO_EST + 0.5)
+    assert estado.aislamiento_camara.aislado
+    for _ in range(20):
+        lazo._acumular_f0(reloj.t)
+        _tick(ciclo, reloj, estado, temp=134.5, pres=TECHO_EST + 0.5)
+    assert estado.aislamiento_camara.aislado
+    assert estado.f0_acumulado > 0.0
 
 
 # ── 4. Fallas del aislamiento ─────────────────────────────────────────────
@@ -280,11 +310,27 @@ def test_6a_corte_de_chaqueta_gana_a_la_fase(monkeypatch):
 
 
 def test_6b_chaqueta_sin_lectura_corta_el_vapor(monkeypatch):
+    """VCH §4.6: sin lectura de pres_chaqueta, el corte apaga la chaqueta. Con
+    el canal fuera de los vigilados se prueba el corte solo (la cámara sigue
+    abierta y el ciclo sigue); con el canal vigilado, además, FALLO SEN-05."""
     ciclo, estado, salidas, _am, reloj = _armar(monkeypatch)
+    ciclo._pres_vigilados = [presion_sin_lectura.CAMARA]
     _hasta_fase(ciclo, reloj, "CALENTAMIENTO")
     _tick(ciclo, reloj, estado, temp=110.0, pres=p_saturacion_kpa(110.0))
     assert salidas.on("vapor_chaqueta")
-    _tick(ciclo, reloj, estado, temp=110.5, pres=p_saturacion_kpa(110.5), pres_chaqueta=None)
+    salidas.ordenes.clear()
+    r = _tick(ciclo, reloj, estado, temp=110.5, pres=p_saturacion_kpa(110.5), pres_chaqueta=None)
+    assert r == CicloResultado.EN_CURSO
+    assert not salidas.on("vapor_chaqueta") and salidas.on("vapor_camara")
+    assert ("vapor_chaqueta", True) not in salidas.ordenes
+
+
+def test_6c_chaqueta_vigilada_sin_lectura_falla_sen05(monkeypatch):
+    ciclo, estado, salidas, _am, reloj = _armar(monkeypatch)
+    _hasta_fase(ciclo, reloj, "CALENTAMIENTO")
+    _tick(ciclo, reloj, estado, temp=110.0, pres=p_saturacion_kpa(110.0))
+    r = _tick(ciclo, reloj, estado, temp=110.5, pres=p_saturacion_kpa(110.5), pres_chaqueta=None)
+    assert r == CicloResultado.ESPERANDO_CONFIRMACION and estado.codigo_fallo == "SEN-05"
     assert not salidas.on("vapor_chaqueta") and not salidas.on("vapor_camara")
 
 

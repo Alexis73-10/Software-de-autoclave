@@ -51,7 +51,7 @@ _GRUPOS_SIN_PUERTAS_SIMPLES = frozenset({"puerta", "empaque"})
 
 
 # F1 (tanda 16): parámetros con regla cruzada de límites de presión
-_CLAVES_LIMITES_PRESION = ("presion_fondo_escala", "presion_suministro_vapor",
+CLAVES_LIMITES_PRESION = _CLAVES_LIMITES_PRESION = ("presion_fondo_escala", "presion_suministro_vapor",
                            "presion_alivio_camara", "presion_alivio_chaqueta",
                            "presion_max_chaqueta_control")
 

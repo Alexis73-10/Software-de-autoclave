@@ -76,6 +76,8 @@ class LimitesPresion:
     alivio_chaqueta: float
 
 
+_ULTIMO_INCOHERENTE = None
+
 LIMITES_DEFECTO = LimitesPresion(cp.PRESION_FONDO_ESCALA, cp.PRESION_SUMINISTRO,
                                  cp.PRESION_ALIVIO_CAMARA, cp.PRESION_ALIVIO_CHAQUETA)
 
@@ -98,7 +100,12 @@ def limites_presion(config) -> LimitesPresion:
                              v["presion_alivio_camara"], v["presion_alivio_chaqueta"])
     if not limites_coherentes(limites.fondo_escala, limites.suministro,
                               limites.alivio_camara, limites.alivio_chaqueta):
-        logger.error("Límites de presión del equipo incoherentes %s: rigen los de fábrica", limites)
+        # R (tanda 16, V16-s3-06): el corte lo consulta en cada tick; un log por juego
+        global _ULTIMO_INCOHERENTE
+        if limites != _ULTIMO_INCOHERENTE:
+            _ULTIMO_INCOHERENTE = limites
+            logger.error("Límites de presión del equipo incoherentes %s: rigen los de fábrica",
+                         limites)
         return LIMITES_DEFECTO
     return limites
 

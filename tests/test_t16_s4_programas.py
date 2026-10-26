@@ -565,3 +565,9 @@ def test_fragmento_i18n_es_en():
     for clave in ("opciones.err_coherencia_recuperacion", "opciones.err_rol_sonda_no_activa"):
         assert datos["es"][clave] and datos["en"][clave]
     assert set(datos["es"]) == set(datos["en"])
+    # V16-s4-06: las claves están también en el catálogo i18n del producto
+    from autoclave import i18n
+    for clave in ("opciones.err_coherencia_recuperacion", "opciones.err_rol_sonda_no_activa",
+                  "ciclo.rol_sonda_no_activa"):
+        for idioma in ("es", "en"):
+            assert i18n.t(clave, idioma) != clave, (clave, idioma)

@@ -460,6 +460,13 @@ class CalentamientoFase(BaseFase):
             if self._modo_chaqueta:
                 # VCH: sin lectura no se inyecta por la chaqueta
                 self.set_do.vapor_chaqueta_off()
+                # R (tanda 16, V16-s1-03, mismo criterio que ESTERILIZACION):
+                # con la presión válida el aislamiento se sigue evaluando y una
+                # cámara aislada no se reabre a ciegas
+                ais = self._aislamiento()
+                ais.actualizar(pres, p_techo, self._histeresis_cierre(), time.monotonic())
+                if ais.aislado:
+                    self.set_do.vapor_camara_off()
             return FaseResult.EN_CURSO
 
         now = time.monotonic()

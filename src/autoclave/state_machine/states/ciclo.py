@@ -646,6 +646,12 @@ class CicloState:
                 inhibir = por_presion
             else:
                 inhibir = modo_chaqueta
+            # R (tanda 16, V16-s1-02 / s2-01 / s3-02): en modo chaqueta, sin
+            # suministro de vapor (SUM-06, VCH §4.7) la fase tampoco abre la
+            # chaqueta: si no, la volvería a encender en el mismo tick
+            if (modo_chaqueta and entrada_requerida(self.profile, "vapor_suministro")
+                    and not self.estado.sensores_di.get("vapor_suministro", 0)):
+                inhibir = True
         except Exception:
             logger.exception("CicloState: no se pudo evaluar el corte de chaqueta; vapor de "
                              "chaqueta cortado")
@@ -993,7 +999,15 @@ class CicloState:
                         self.estado.set_flag(bandera, False)
                 self.set_do.apagar_por_paro()
                 return CicloResultado.ESPERANDO_CONFIRMACION
-            if self.estado.get_flag("CICLO_CONFIRMADO"):
+            if (self.estado.get_flag("CICLO_CONFIRMADO") and self.no_conforme
+                    and getattr(self.estado, "no_conforme_reconocido", False) is not True):
+                # R (tanda 16, V16-s3-07; P4 / D-14.4): defensa en profundidad
+                # del backend: un ciclo NO CONFORME no se confirma sin el
+                # reconocimiento de carga no liberable
+                logger.warning("CicloState: confirmación ignorada: ciclo NO CONFORME sin "
+                               "reconocimiento de carga no liberable")
+                self.estado.set_flag("CICLO_CONFIRMADO", False)
+            elif self.estado.get_flag("CICLO_CONFIRMADO"):
                 logger.info(
                     "CicloState: confirmación recibida → %s", self._resultado_pendiente
                 )

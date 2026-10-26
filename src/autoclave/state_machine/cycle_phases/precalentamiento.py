@@ -82,7 +82,7 @@ class PrecalentamientoFase(BaseFase):
 
         # ── 6. Aproximación (aún no alcanzó objetivo) ────────────────────────
         if self._timer_sostenimiento is None:
-            self.set_do.vapor_chaqueta_on()
+            self._chaqueta_on()   # V16-s3-01: respeta el corte de chaqueta
             if pres >= presion_obj:
                 self._timer_sostenimiento = time.monotonic()
                 self._ventana_pausada_s = 0.0   # re-revisión S2b: ventana nueva
@@ -97,7 +97,7 @@ class PrecalentamientoFase(BaseFase):
         if pres >= presion_obj:
             self.set_do.vapor_chaqueta_off()
         else:
-            self.set_do.vapor_chaqueta_on()
+            self._chaqueta_on()   # V16-s3-01: respeta el corte de chaqueta
 
         transcurrido = time.monotonic() - self._timer_sostenimiento
         logger.debug(

@@ -428,7 +428,8 @@ def test_p6_referencia_oscilante_confirma_la_excursion(monkeypatch):
     for i in range(40):
         estado.sensores_temp["temp_ref"] = 119.0 if i % 2 == 0 else R_DENTRO
         reloj.avanzar(0.5)
-        assert f.update() in (FaseResult.EN_CURSO, FaseResult.FALLO)
+        # V16-s1-05: ningún FALLO antes de confirmar la excursión
+        assert f.update() == FaseResult.EN_CURSO
         if f.exposicion_detenida:
             detenida = True
             break
