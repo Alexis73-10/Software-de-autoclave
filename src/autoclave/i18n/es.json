@@ -436,6 +436,7 @@
     "meses": ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
   },
   "arranque": {
+    "version_software": "Software v{version}",
     "iniciando_servicios": "Iniciando servicios",
     "conectando_tarjeta": "Conectando con la tarjeta de E/S",
     "verificando_sensores": "Verificando sensores",

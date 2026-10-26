@@ -49,3 +49,11 @@
 - V17-s2-04 corregido: `_log_a_archivo` del rol `asociar-tactiles` en try/except.
 - V17-s2-05 corregido: `elegir_prefijo` usa siempre `20-` salvo forma completa del mismo táctil tocado (DECISIÓN SIN CONFIRMAR).
 - V17-s2-06 corregido: el 06 pide reiniciar solo si la herramienta escribió.
+
+### Resolución R4 (rama `tanda-17-r4`: 661c85e, 94781b1)
+- V17-s4-01/03 corregidos: `VentanaDetalleAlarma.mensaje` (texto `mensajeDespejarDetalle`) conectado en la campana y en Preciclo; `descartarMensajeDespejar()` al cerrar; DESPEJAR oculto con la alarma reconocida.
+- V17-s4-02 corregido: singleton `Tema/Capas.qml` (`cierreSolicitado`, `cerrarTodas()`); Desplegable, Calendario y VentanaDetalleAlarma se cierran con él y al ocultarse; `Main.qml irAPanelSeguridad()` lo llama (también desde el login). DECISIÓN SIN CONFIRMAR: cierra las capas de las dos pantallas.
+- V17-s4-04 corregido: «Sin fecha» solo en Desde; `cargar()` refresca `hoy`.
+- V17-s4-05: la intro sigue mostrando la versión (D-07, DECISIÓN SIN CONFIRMAR) con la clave `arranque.version_software`.
+- V17-s4-06 corregido: clics reales y `isVisible()`; presión en kPa, psi (p_atm 74,6), sin lectura y `/status` 500.
+- V17-s4-07 corregido: `I18n.existe` antes de la clave dinámica.
