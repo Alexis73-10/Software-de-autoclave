@@ -9,7 +9,14 @@ Los ciclos NO se corren hasta el lunes 26-oct.
 
 Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
 
-Versión de este documento: P1 de la tanda 7, completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup), y en K11 de la tanda 11 (23-oct) con "Cambios respecto a la F" y la sección 8f (F → G con el Setup, página «Actualizar / Instalación limpia»), y en K12 de la tanda 12 (24-oct) con "Cambios respecto a la G" y la sección 8g (G → H con el Setup), y en K13 de la tanda 13 (24-oct) con "Cambios respecto a la H" y la sección 8h (H → I y G → I con el Setup).
+> **Tanda 17 (26-oct), desde la 1.0.0-alpha.2: carpetas nuevas (INS-02) y zona horaria en el Setup (INS-01).** Ver la sección **«1.0 Instalar con el Setup (alpha.2 en adelante)»**. En el resto de este documento, que describe compilaciones anteriores:
+> - donde dice `C:\ProgramData\Especifika\Autoclave`, lea **`X:\Especifika\Autoclave\datos`**;
+> - donde dice `C:\Program Files\Especifika\Autoclave`, lea **`X:\Especifika\Autoclave\programa`**;
+> - donde dice `C:\ProgramData\Especifika\Autoclave_respaldos`, lea **`X:\Especifika\Autoclave_respaldos`**;
+>
+> con `X:` la unidad elegida en el Setup (p. ej. `D:`). La ruta exacta queda en el registro: `reg query HKLM\SOFTWARE\Especifika\Autoclave /v RutaDatos` (y `/v RutaPrograma`). **Un equipo con la I o anterior (o la alpha.1) no se actualiza:** el Setup se detiene y pide desinstalar primero; los datos anteriores quedan en `C:\ProgramData\Especifika\Autoclave` y no se trasladan (ver 1.0).
+
+Versión de este documento: P1 de la tanda 7 (actualizada en la tanda 17, s1, con la sección 1.0 y las carpetas nuevas), completada en K2 (22-oct, 08:10) con la sección "A frente a B", en K8 de la tanda 8 (22/23-oct) con las secciones "Actualizar un equipo ya instalado (B → C)" (8b) y "B frente a C", y en K9 de la tanda 9 (23-oct) con "B frente a D" y la sección 8c (B → D con el Setup), y en la compilación E (23-oct) con "Cambios respecto a la D" y la sección 8d (Instalar con el Setup E, página "Autoclave ya está instalado"), y en K10 de la tanda 10 (23-oct) con "Cambios respecto a la E" y la sección 8e (E → F y D → F con el Setup), y en K11 de la tanda 11 (23-oct) con "Cambios respecto a la F" y la sección 8f (F → G con el Setup, página «Actualizar / Instalación limpia»), y en K12 de la tanda 12 (24-oct) con "Cambios respecto a la G" y la sección 8g (G → H con el Setup), y en K13 de la tanda 13 (24-oct) con "Cambios respecto a la H" y la sección 8h (H → I y G → I con el Setup).
 
 > **Tanda 13 (2026-10-24, noche): instale la compilación I (`entrega/2026-10-24_i/`, etiqueta `inst-2026-10-24-i`) con `Autoclave_Setup_1.0.0-i.exe` EN LUGAR DE LA H, siguiendo la sección 8h (H → I, o G → I si el equipo sigue en la G; deje marcada «Actualizar (conserva los datos)»), antes de los ciclos del lunes 26-oct.** La I es la H más VAP-01: la presión de saturación del vapor pasa a las tablas IAPWS-IF97 (304,2 kPa a 134 °C; la H calculaba 302,3, unos 2 kPa de menos), y además trae la Licencia L0 de abajo. Tabla «Cambios respecto a la H». Las cifras del bloque T12 de la hoja de banco ya están recalculadas para la I.
 
@@ -164,8 +171,29 @@ El resultado debe ser igual a la línea del mismo archivo en `SHA256SUMS.txt`. `
 
 Si llevó el zip, descomprímalo antes. **No ejecute el programa desde dentro del zip.**
 
-### 1.2 Instalar (lo recomendado)
-1. Ajustar primero en Windows la **fecha, la hora y la zona horaria (Bogotá, UTC-5)** del PC del equipo. Ver el aviso de la sección 3.
+### 1.0 Instalar con el Setup (alpha.2 en adelante; tanda 17, INS-01 e INS-02)
+Se instala con `Autoclave_Setup_<versión>.exe` (doble clic, cuenta administradora, aceptar el UAC). Detalle completo en `tools/instalador/LEEME.md`. Páginas propias de esta versión:
+
+1. **Unidad de instalación** (INS-02). Lista **solo los discos fijos** (no USB, removibles ni unidades de red), con etiqueta, sistema de archivos y espacio libre. Viene marcado el primer disco fijo distinto del de Windows que sirva; si no hay otro, el de Windows (`C:`). Exige NTFS (o ReFS) y un mínimo libre de **tamaño del programa + 2 GB** (la cifra exacta, en MB, aparece en la página; la calcula el Setup al compilarse). Crea:
+
+   | Carpeta | Contenido | Permisos (explícitos, sin herencia de la raíz del disco) |
+   |---|---|---|
+   | `X:\Especifika\Autoclave\programa` | `Autoclave.exe`, `_internal\`, `estacion\` (scripts) | Administradores y SYSTEM control total; Usuarios **solo lectura y ejecución** |
+   | `X:\Especifika\Autoclave\datos` | perfil, base de datos, calibración, logs, tickets, programas de usuario, `estacion\` | Administradores y SYSTEM control total; Usuarios **Modificar** |
+   | `X:\Especifika\Autoclave\datos\estacion` | log y respaldos de la estación | solo Administradores y SYSTEM |
+   | `X:\Especifika`, `X:\Especifika\Autoclave` | — | sin escritura para Usuarios |
+
+   Si no puede fijar los permisos, el Setup **se detiene sin instalar** (un programa modificable por un usuario sin privilegios no es aceptable en Clase C). También se detiene si alguna de esas carpetas es un enlace o una unión de Windows, o si `programa` ya existe con archivos y no hay una instalación anotada. Escribe `HKLM\SOFTWARE\Especifika\Autoclave` con `RutaPrograma` y `RutaDatos` (64 bits); con eso el programa encuentra sus datos.
+2. **Zona horaria** (INS-01). Lista de zonas de Windows ordenada por desfase, con la zona actual marcada y la fecha y hora actuales del PC. Para Colombia: **(UTC-05:00) Bogotá, Lima, Quito…** (identificador `SA Pacific Standard Time`; el nombre visible depende del idioma de Windows). Se aplica al terminar (`tzutil /s`) y se comprueba (`tzutil /g`); si falla, avisa con el procedimiento manual y la instalación sigue. **La hora en sí** (reloj) se sigue revisando a mano en Windows (sección 3). La página aparece también al actualizar o reparar.
+
+**Actualizar** con un Setup más nuevo sobre una instalación hecha así: la página de unidad muestra la unidad ya usada, **sin poder cambiarla** (para cambiarla: desinstalar e instalar de nuevo; los datos quedan en la carpeta `datos` anterior).
+
+**Equipo con la disposición anterior** (compilación I o anterior, o alpha.1: programa en `C:\Program Files\Especifika\Autoclave`): el Setup **se detiene** y pide desinstalarla primero (Configuración › Aplicaciones › Autoclave Especifika). **No hay migración**: los datos anteriores quedan en `C:\ProgramData\Especifika\Autoclave` y el equipo se instala en limpio (asistente de instalación, contraseñas, calibración). Si se necesitan, respaldar antes esa carpeta.
+
+**Sin asistente** (`/SILENT` o `/VERYSILENT`): toma la unidad preseleccionada y la zona actual; `/ZONA=<id>` fija otra zona (el identificador de `tzutil /l`, p. ej. `/ZONA="SA Pacific Standard Time"`); si no existe en ese Windows, el Setup se detiene sin instalar.
+
+### 1.2 Instalar desde la carpeta (compilación I y anteriores)
+1. Ajustar primero en Windows la **fecha, la hora y la zona horaria (Bogotá, UTC-5)** del PC del equipo. Ver el aviso de la sección 3. (Desde la alpha.2, la zona se elige en el Setup, sección 1.0.)
 2. Doble clic en `Autoclave\Autoclave.exe`, desde la USB o desde la carpeta copiada.
 3. Pregunta **"¿Instalar Autoclave en este PC?"**. Responder **Sí** y aceptar el aviso de permisos de administrador (UAC).
 4. El programa queda en `C:\Program Files\Especifika\Autoclave` y crea accesos directos "Autoclave" en el Escritorio público y en el menú Inicio. Se abre solo, ya desde la copia instalada. En la USB no se escribe nada.

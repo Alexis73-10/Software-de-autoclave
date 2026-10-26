@@ -7,21 +7,32 @@
 ;
 ;   ISCC.exe /DEntrega=<carpeta de la entrega> tools\instalador\autoclave.iss
 ;
-; Reglas (prompt del 22-oct, docs/mis_plans/prompt_claude_code_instalador_usb.md):
-;   - instala en {autopf}\Especifika\Autoclave en modo 64 bits: Autoclave.exe
-;     solo usa %ProgramData%\Especifika\Autoclave para sus datos si corre bajo
-;     %ProgramFiles% (utils/resources.raiz_datos_exe), y solo se reconoce como
-;     instalado en esa ruta exacta (instalador_exe.esta_instalado_aqui); en
-;     Program Files (x86) volvería a ofrecer instalarse;
+; Reglas (prompt del 22-oct, docs/mis_plans/prompt_claude_code_instalador_usb.md,
+; y tanda 17, INS-01/INS-02, docs/mis_plans/decisiones_tanda_17.md):
+;   - INS-02: disposición única en la unidad fija que se elige en la página
+;     "Unidad de instalación" (cualquier unidad, incluso C:):
+;       X:\Especifika\Autoclave\programa = {app} (Autoclave.exe y _internal\)
+;       X:\Especifika\Autoclave\datos    = perfil, BD, logs, tickets, estacion\...
+;     y escribe HKLM64\SOFTWARE\Especifika\Autoclave (RutaPrograma, RutaDatos):
+;     con esa clave el programa resuelve su carpeta de datos
+;     (utils/resources.raiz_datos_exe) y se reconoce como instalado
+;     (instalador_exe.esta_instalado_aqui). Permisos explícitos sin herencia
+;     (PrepararCarpetas): programa = Administradores y SYSTEM control total,
+;     Usuarios lectura y ejecución; datos = además Usuarios Modificar; si icacls
+;     falla, el Setup se detiene sin instalar (falla cerrada). Una instalación
+;     con la disposición anterior (Archivos de programa) detiene el Setup: hay
+;     que desinstalarla primero (sin migración de datos);
+;   - INS-01: página "Zona horaria" (también al actualizar o reparar); se
+;     aplica con tzutil /s y se verifica con tzutil /g; /ZONA=<id> sin asistente;
 ;   - Autoclave.exe y _internal\ siempre juntos, con la estructura de la entrega;
-;   - NUNCA copia, sobrescribe ni borra archivos en %ProgramData%\Especifika\,
-;     salvo la "Instalación limpia" (D11-4, tanda 11), elegida a mano con doble
-;     confirmación y con respaldo completo previo en Autoclave_respaldos\.
-;     Solo crea la carpeta de datos si falta y le da Modificar a Usuarios (igual
-;     que instalador_exe.instalar; decidido con Cristian el 22-oct), porque el
-;     programa corre sin administrador. El desinstalador no la toca. (Al
-;     actualizar, el propio programa refresca sus archivos de configuración de
-;     fábrica, con respaldo: D9-13.1, utils/resources.py.);
+;   - NUNCA copia, sobrescribe ni borra archivos en la carpeta datos, salvo la
+;     "Instalación limpia" (D11-4, tanda 11), elegida a mano con doble
+;     confirmación y con respaldo completo previo en
+;     X:\Especifika\Autoclave_respaldos\. Solo crea la carpeta de datos si
+;     falta y fija sus permisos, porque el programa corre sin administrador.
+;     El desinstalador no la toca. (Al actualizar, el propio programa refresca
+;     sus archivos de configuración de fábrica, con respaldo: D9-13.1,
+;     utils/resources.py.);
 ;   - no incluye GeneradorCodigos.exe, el perfil de instalación ni data/.
 ;
 ; E9 (tanda 9, D9-11): tarea "Configurar este PC como estación del autoclave"
@@ -37,7 +48,7 @@
 ;     (por defecto) / Instalación limpia / Desinstalar (la limpia ocupa el lugar de la antigua opción de reinstalar).
 ;     La limpia se confirma dos veces en la página y se hace en
 ;     PrepareToInstall: respaldo completo y verificado de la carpeta de datos en
-;     {commonappdata}\Especifika\Autoclave_respaldos\AAAAMMDD-HHMMSS\ y, solo si
+;     X:\Especifika\Autoclave_respaldos\AAAAMMDD-HHMMSS\ y, solo si
 ;     el respaldo salió bien, la carpeta de datos se aparta entera con un solo
 ;     renombrado (atómico) y se borra; vuelve solo estacion\. Si algo falla,
 ;     el Setup se detiene sin instalar. Más nueva: se sigue negando.
@@ -73,6 +84,46 @@
 #define ClaveInstalacion "SOFTWARE\Especifika\Autoclave\Instalacion"
 ; Mismo GUID que AppId, sin la llave escapada: clave de desinstalación de Inno
 #define AppGuid "{81C9DAB1-5CF8-4AD2-A7BE-15053E6ED43F}"
+; INS-02 (tanda 17): clave con RutaPrograma y RutaDatos (vista de 64 bits). Los
+; mismos nombres usan utils/resources.py (CLAVE_REGISTRO, VALOR_RUTA_*) y
+; tools/estacion/_comun.ps1. Ya tiene las subclaves Instalacion y Estacion.
+#define ClaveAutoclave "SOFTWARE\Especifika\Autoclave"
+
+; INS-02: tamaño del programa (Autoclave.exe + _internal\) calculado AL COMPILAR
+; recorriendo la carpeta de la entrega (cola de carpetas, sin recursión: ISPP
+; no la admite con un solo manejador de búsqueda). En KB redondeados hacia
+; arriba por archivo; el espacio libre mínimo es este tamaño + 2 GB.
+#define TamKB 0
+#define TamCola Programa + "|"
+#define TamDir ""
+#define TamNombre ""
+#define TamH 0
+#define TamR 0
+#define TamVueltas 0
+#sub TamSumarEntrada
+  #expr TamNombre = FindGetFileName(TamH)
+  #if TamNombre != "." && TamNombre != ".."
+    #if DirExists(TamDir + "\" + TamNombre)
+      #expr TamCola = TamCola + TamDir + "\" + TamNombre + "|"
+    #else
+      #expr TamKB = TamKB + FileSize(TamDir + "\" + TamNombre) / 1024 + 1
+    #endif
+  #endif
+#endsub
+#sub TamProcesarDir
+  #expr TamDir = Copy(TamCola, 1, Pos("|", TamCola) - 1)
+  #expr TamCola = Copy(TamCola, Pos("|", TamCola) + 1, Len(TamCola))
+  #for {TamH = TamR = FindFirst(TamDir + "\*", faAnyFile); TamR; TamR = FindNext(TamH)} TamSumarEntrada
+  #if TamH
+    #expr FindClose(TamH)
+  #endif
+#endsub
+#for {TamVueltas = 0; TamCola != "" && TamVueltas < 100000; TamVueltas++} TamProcesarDir
+#if TamCola != ""
+  #error No se pudo recorrer la carpeta del programa para calcular su tamaño
+#endif
+#define TamProgramaMB TamKB / 1024 + 1
+#pragma message "INS-02: tamaño del programa = " + Str(TamProgramaMB) + " MB"
 
 [Setup]
 ; AppId FIJO, generado una vez el 2026-10-22. NO CAMBIAR: es lo que hace que el
@@ -87,8 +138,11 @@ VersionInfoVersion={#AppVerNum}
 VersionInfoCompany=Especifika S.A.S.
 VersionInfoProductName=Autoclave Especifika
 VersionInfoProductTextVersion={#AppVer}
-DefaultDirName={autopf}\Especifika\Autoclave
-; la ruta la fija el programa (ver arriba): no se deja cambiar
+; INS-02 (tanda 17): X:\Especifika\Autoclave\programa, con X la unidad de la
+; página "Unidad de instalación" (DirProgramaParam; la página fija además
+; WizardForm.DirEdit y PrepareToInstall comprueba que {app} sea esa ruta)
+DefaultDirName={code:DirProgramaParam}
+; la carpeta no se escribe a mano: solo se elige la unidad en la página propia
 DisableDirPage=yes
 DefaultGroupName=Autoclave
 DisableProgramGroupPage=yes
@@ -165,8 +219,8 @@ es.Paso06=asociación de las pantallas táctiles (paso 06)
 en.Paso06=touch screen association (step 06)
 es.TareaTactiles=Asociar cada pantalla táctil con su monitor (pide tocar cada pantalla una vez)
 en.TareaTactiles=Associate each touch screen with its monitor (asks to touch each screen once)
-es.TactilesRepetir=Repita la asociación de pantallas táctiles: quedaron %1 asociaciones y se necesitan 2.%n%nAutoclave quedó instalado. Para repetirla: Panel de control > Configuración de Tablet PC > Configurar, o ejecute como administrador tools\estacion\06_asociar_tactiles.ps1.
-en.TactilesRepetir=Repeat the touch screen association: %1 associations were made and 2 are needed.%n%nAutoclave was installed. To repeat it: Control Panel > Tablet PC Settings > Setup, or run tools\estacion\06_asociar_tactiles.ps1 as administrator.
+es.TactilesRepetir=Repita la asociación de pantallas táctiles: quedaron %1 asociaciones y se necesitan 2.%n%nAutoclave quedó instalado. Para repetirla, ejecute como administrador:%n"%2\Autoclave.exe" --rol asociar-tactiles%no el script:%n%2\estacion\06_asociar_tactiles.ps1
+en.TactilesRepetir=Repeat the touch screen association: %1 associations were made and 2 are needed.%n%nAutoclave was installed. To repeat it, run as administrator:%n"%2\Autoclave.exe" --rol asociar-tactiles%nor the script:%n%2\estacion\06_asociar_tactiles.ps1
 es.MantTitulo=Autoclave ya está instalado
 en.MantTitulo=Autoclave is already installed
 es.MantSubtitulo=Está instalada la versión %1. Elija qué hacer.
@@ -217,6 +271,48 @@ es.LimpiaHecha=Instalación limpia: respaldo completo de los datos anteriores en
 en.LimpiaHecha=Clean installation: full backup of the previous data in:%n%1
 es.VersionMasNueva=Está instalada la versión %1, más nueva que la de este instalador (%2).%n%nPara instalar esta versión, desinstale primero Autoclave desde Configuración > Aplicaciones.
 en.VersionMasNueva=Version %1 is installed, newer than this installer (%2).%n%nTo install this version, first uninstall Autoclave from Settings > Apps.
+; INS-02 (tanda 17): unidad de instalación y disposición
+es.UnidadTitulo=Unidad de instalación
+en.UnidadTitulo=Installation drive
+es.UnidadSubtitulo=Disco donde se instalan el programa y sus datos.
+en.UnidadSubtitulo=Disk where the program and its data are installed.
+es.UnidadExplicacion=Se crearán X:\Especifika\Autoclave\programa (el programa) y X:\Especifika\Autoclave\datos (perfil, base de datos, registros, tickets). Solo se muestran discos fijos. Se necesitan al menos %1 MB libres. Se recomienda una unidad distinta de la de Windows.
+en.UnidadExplicacion=X:\Especifika\Autoclave\programa (the program) and X:\Especifika\Autoclave\datos (profile, database, logs, tickets) will be created. Only fixed disks are shown. At least %1 MB of free space is needed. A drive other than the Windows drive is recommended.
+es.UnidadFijaExplicacion=Autoclave ya está instalado en la unidad %1 (%2). La unidad no se puede cambiar al actualizar o reparar; para cambiarla, desinstale Autoclave e instálelo de nuevo.
+en.UnidadFijaExplicacion=Autoclave is already installed on drive %1 (%2). The drive cannot be changed when updating or repairing; to change it, uninstall Autoclave and install it again.
+es.UnidadElemento=%1  %2  (%3, %4 GB libres)
+en.UnidadElemento=%1  %2  (%3, %4 GB free)
+es.UnidadSinEtiqueta=Sin etiqueta
+en.UnidadSinEtiqueta=No label
+es.UnidadSinEspacio=La unidad %1 tiene %2 MB libres y se necesitan %3 MB (programa + 2 GB). Elija otra unidad o libere espacio.
+en.UnidadSinEspacio=Drive %1 has %2 MB free and %3 MB are needed (program + 2 GB). Choose another drive or free up space.
+es.UnidadSinPermisos=La unidad %1 usa el sistema de archivos %2, que no admite los permisos que protegen el programa. Elija una unidad NTFS.
+en.UnidadSinPermisos=Drive %1 uses the %2 file system, which does not support the permissions that protect the program. Choose an NTFS drive.
+es.DisposicionAnterior=Hay una instalación de Autoclave con la disposición anterior (en Archivos de programa):%n%1%n%nEsta versión instala el programa y los datos en otra carpeta y no los traslada. Desinstale primero Autoclave desde Configuración > Aplicaciones (los datos anteriores quedan en C:\ProgramData\Especifika\Autoclave) y vuelva a ejecutar este instalador para instalar en limpio.%n%nSi Autoclave no aparece en Aplicaciones, borre esa carpeta como administrador.
+en.DisposicionAnterior=There is an Autoclave installation with the previous layout (in Program Files):%n%1%n%nThis version installs the program and the data in another folder and does not move them. First uninstall Autoclave from Settings > Apps (the previous data stay in C:\ProgramData\Especifika\Autoclave) and run this installer again for a clean installation.%n%nIf Autoclave is not listed in Apps, delete that folder as administrator.
+es.RegistroInvalido=La instalación anotada en el registro de Windows no tiene la forma esperada:%n%1%n%nNo se instaló nada. Desinstale Autoclave desde Configuración > Aplicaciones y vuelva a ejecutar este instalador.
+en.RegistroInvalido=The installation recorded in the Windows registry does not have the expected form:%n%1%n%nNothing was installed. Uninstall Autoclave from Settings > Apps and run this installer again.
+es.ProgramaExistente=La carpeta del programa ya existe y no está vacía, pero no hay ninguna instalación anotada:%n%1%n%nPor seguridad no se instaló nada (podría contener archivos ajenos). Bórrela o cámbiele el nombre como administrador y vuelva a ejecutar este instalador.
+en.ProgramaExistente=The program folder already exists and is not empty, but no installation is recorded:%n%1%n%nFor safety nothing was installed (it could contain foreign files). Delete or rename it as administrator and run this installer again.
+es.CarpetaEnlace=Una carpeta de la instalación es un enlace o una unión de Windows:%n%1%n%nPor seguridad no se instaló nada. Llame a servicio técnico.
+en.CarpetaEnlace=An installation folder is a Windows link or junction:%n%1%n%nFor safety nothing was installed. Call technical service.
+es.PermisosFallo=No se pudieron fijar los permisos de:%n%1%n%nPor seguridad no se instaló nada: el programa no puede quedar modificable por un usuario sin privilegios. Detalle en el log del instalador.
+en.PermisosFallo=The permissions of this folder could not be set:%n%1%n%nFor safety nothing was installed: the program must not be modifiable by a user without privileges. Details in the installer log.
+es.CarpetaNoCreada=No se pudo crear la carpeta:%n%1%n%nNo se instaló nada.
+en.CarpetaNoCreada=The folder could not be created:%n%1%n%nNothing was installed.
+es.RutaInesperada=La carpeta de instalación no es la esperada:%n%1%n(se esperaba %2)%n%nNo se instaló nada.
+en.RutaInesperada=The installation folder is not the expected one:%n%1%n(expected %2)%n%nNothing was installed.
+; INS-01 (tanda 17): zona horaria de Windows
+es.ZonaTitulo=Zona horaria
+en.ZonaTitulo=Time zone
+es.ZonaSubtitulo=Zona horaria de Windows con la que el equipo registra la hora de los ciclos.
+en.ZonaSubtitulo=Windows time zone the equipment uses to record the time of the cycles.
+es.ZonaExplicacion=Fecha y hora actuales de este PC: %1 (zona actual: %2). La zona elegida se aplica al terminar la instalación. Revise también la hora del PC después de instalar.
+en.ZonaExplicacion=Current date and time of this PC: %1 (current zone: %2). The chosen zone is applied when the installation finishes. Also check the PC time after installing.
+es.ZonaInvalida=La zona horaria indicada con /ZONA= no existe en este Windows:%n%1%n%nNo se instaló nada. Use el identificador que muestra "tzutil /l" (por ejemplo, SA Pacific Standard Time).
+en.ZonaInvalida=The time zone given with /ZONA= does not exist in this Windows:%n%1%n%nNothing was installed. Use the identifier shown by "tzutil /l" (for example, SA Pacific Standard Time).
+es.ZonaFallo=No se pudo fijar la zona horaria "%1" (%2).%n%nAutoclave quedó instalado. Fíjela a mano: Configuración > Hora e idioma > Fecha y hora > Zona horaria, o como administrador:%ntzutil /s "%1"
+en.ZonaFallo=The time zone "%1" could not be set (%2).%n%nAutoclave was installed. Set it by hand: Settings > Time & language > Date & time > Time zone, or as administrator:%ntzutil /s "%1"
 
 [Tasks]
 Name: "autoarranque"; Description: "{cm:TareaAutoarranque}"
@@ -228,25 +324,33 @@ Name: "sinlogo"; Description: "{cm:TareaSinLogo}"; Flags: unchecked
 [InstallDelete]
 ; al actualizar, _internal\ se reemplaza entero: nunca se mezclan archivos de
 ; dos compilaciones (mismo criterio que instalador_exe._copiar_programa).
-; Solo la carpeta del programa, nunca %ProgramData%.
+; Solo la carpeta del programa, nunca la carpeta datos.
 Type: filesandordirs; Name: "{app}\_internal"
 
 [Dirs]
-; D9-11: escritura para la cuenta del operador (sin privilegios). Inno aplica el
-; permiso aunque la carpeta ya exista; la subcarpeta estacion\ la protegen los
-; propios scripts (solo Administradores y SYSTEM, tools/estacion/_comun.ps1).
-Name: "{commonappdata}\Especifika\Autoclave"; Permissions: users-modify; Flags: uninsneveruninstall
+; INS-02 (tanda 17): la carpeta datos (X:\Especifika\Autoclave\datos) la crea
+; PrepararCarpetas en PrepareToInstall, con permisos explícitos sin herencia
+; (Usuarios Modificar: el programa corre sin administrador). Aquí solo se
+; declara que el desinstalador nunca la borra. La subcarpeta estacion\ la
+; protegen los propios scripts (solo Administradores y SYSTEM, _comun.ps1).
+Name: "{code:DatosParam}"; Flags: uninsneveruninstall
 
 [Registry]
 Root: HKLM64; Subkey: "{#ClaveInstalacion}"; ValueType: string; ValueName: "VersionNum"; ValueData: "{#AppVerNum}"; Flags: uninsdeletekey
+; INS-02 (tanda 17): rutas de la instalación (las lee el programa y
+; tools/estacion/_comun.ps1). Solo los valores: la clave tiene además las
+; subclaves Instalacion y Estacion. Inno escribe [Registry] antes de
+; ssPostInstall, así que los pasos de la estación ya encuentran RutaDatos.
+Root: HKLM64; Subkey: "{#ClaveAutoclave}"; ValueType: string; ValueName: "RutaPrograma"; ValueData: "{app}"; Flags: uninsdeletevalue
+Root: HKLM64; Subkey: "{#ClaveAutoclave}"; ValueType: string; ValueName: "RutaDatos"; ValueData: "{code:DatosParam}"; Flags: uninsdeletevalue
 
 [Files]
 Source: "{#Programa}\Autoclave.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#Programa}\_internal\*"; DestDir: "{app}\_internal"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; solo para crear la tarea; se extrae a {tmp} y se borra al terminar el Setup
 Source: "tarea_arranque.ps1"; Flags: dontcopy
-; D9-11: scripts de la estación (Archivos de programa: solo administradores los
-; cambian). Se instalan siempre: el desinstalador necesita los inversos.
+; D9-11: scripts de la estación (en {app}: solo administradores los cambian,
+; INS-02). Se instalan siempre: el desinstalador necesita los inversos.
 Source: "estacion_setup.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\_comun.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\01_cuenta_autologon.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
@@ -280,6 +384,22 @@ const
   ClaveDigimon = 'SOFTWARE\Microsoft\Wisp\Pen\Digimon';
   SM_CMONITORS = 80;
   // FILE_ATTRIBUTE_REPARSE_POINT y FILE_ATTRIBUTE_DIRECTORY ya los define Inno
+  // INS-02 (tanda 17)
+  DRIVE_FIXED = 3;
+  // tamaño del programa calculado al compilar (ver TamProcesarDir arriba)
+  TamProgramaMB = {#TamProgramaMB};
+  // espacio libre mínimo de la unidad: programa + 2 GB para los datos
+  MinimoMB = {#TamProgramaMB} + 2048;
+  // ACL explícitas (SID: el nombre de los grupos cambia con el idioma):
+  // Administradores (S-1-5-32-544) y SYSTEM (S-1-5-18) control total; Usuarios
+  // (S-1-5-32-545) lectura y ejecución en programa\ y en las carpetas de arriba,
+  // Modificar en datos\. datos\estacion\ la deja solo para Administradores y
+  // SYSTEM tools/estacion/_comun.ps1.
+  PermisosPrograma = '*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX';
+  PermisosDatos = '*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F *S-1-5-32-545:(OI)(CI)M';
+  // INS-01 (tanda 17)
+  ClaveZonas = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones';
+  ClaveZonaActual = 'SYSTEM\CurrentControlSet\Control\TimeZoneInformation';
 
 var
   PaginaCuenta: TInputQueryWizardPage;
@@ -293,6 +413,19 @@ var
   CarpetaRespaldo: String;
   // D11-5: -1 = no se corrió el paso 06
   AsociacionesTactiles: Integer;
+  // INS-02: unidad de instalación ('D:'); fija si ya hay RutaPrograma
+  PaginaUnidad: TInputOptionWizardPage;
+  Unidad: String;
+  UnidadFija: Boolean;
+  UnidadesLetra, UnidadesEtiqueta, UnidadesFS: TArrayOfString;
+  UnidadesLibreMB: array of Int64;
+  // índice en Unidades* de cada opción de la página
+  OpcionesUnidad: array of Integer;
+  // INS-01: zonas horarias de Windows ordenadas por desfase
+  PaginaZona: TInputOptionWizardPage;
+  ZonaIds, ZonaNombres: TArrayOfString;
+  ZonaDesfase: array of Integer;
+  ZonaActual, ZonaElegida: String;
 
 // La contraseña del inicio automático pasa al script por el entorno del
 // proceso (lo hereda powershell.exe), nunca por la línea de comandos.
@@ -318,9 +451,335 @@ begin
     Result := GetArrayLength(Nombres);
 end;
 
+// ── INS-02 (tanda 17): disposición X:\Especifika\Autoclave\{programa,datos} ──
+
+// X:\Especifika\Autoclave. En el desinstalador sale de {app} (= ...\programa);
+// en el Setup, de la unidad elegida (la del sistema mientras no hay otra).
+function RaizAutoclave: String;
+var
+  U: String;
+begin
+  if IsUninstaller then
+    Result := ExtractFileDir(RemoveBackslashUnlessRoot(ExpandConstant('{app}')))
+  else
+  begin
+    U := Unidad;
+    if U = '' then
+      U := ExpandConstant('{sd}');
+    Result := U + '\Especifika\Autoclave';
+  end;
+end;
+
+// {app}: el .exe y _internal\
+function DirPrograma: String;
+begin
+  Result := RaizAutoclave + '\programa';
+end;
+
+// Perfil, BD, logs, tickets, estacion\... (antes %ProgramData%\Especifika\Autoclave)
+function CarpetaDatos: String;
+begin
+  Result := RaizAutoclave + '\datos';
+end;
+
+// Respaldos de la instalación limpia: X:\Especifika\Autoclave_respaldos, fuera
+// de la carpeta que se borra y del árbol de Autoclave (que sí ve Usuarios), en
+// la misma unidad (el vaciado es un renombrado atómico)
+function RaizRespaldos: String;
+begin
+  Result := ExtractFileDir(RaizAutoclave) + '\Autoclave_respaldos';
+end;
+
+// Para {code:...} en [Setup], [Dirs] y [Registry]
+function DirProgramaParam(Param: String): String;
+begin
+  Result := DirPrograma;
+end;
+
+function DatosParam(Param: String): String;
+begin
+  Result := CarpetaDatos;
+end;
+
 function ArchivoLogEstacion: String;
 begin
-  Result := ExpandConstant('{commonappdata}\Especifika\Autoclave\estacion\estacion.log');
+  Result := CarpetaDatos + '\estacion\estacion.log';
+end;
+
+function GetDriveType(lpRootPathName: String): Cardinal;
+  external 'GetDriveTypeW@kernel32.dll stdcall';
+function GetVolumeInformation(lpRootPathName: String; lpVolumeNameBuffer: String;
+  nVolumeNameSize: Cardinal; var lpVolumeSerialNumber: Cardinal;
+  var lpMaximumComponentLength: Cardinal; var lpFileSystemFlags: Cardinal;
+  lpFileSystemNameBuffer: String; nFileSystemNameSize: Cardinal): BOOL;
+  external 'GetVolumeInformationW@kernel32.dll stdcall';
+
+// Texto hasta el primer #0 (búfer de la API de Windows)
+function HastaNulo(Texto: String): String;
+var
+  P: Integer;
+begin
+  P := Pos(#0, Texto);
+  if P > 0 then
+    Texto := Copy(Texto, 1, P - 1);
+  Result := Trim(Texto);
+end;
+
+// Agrega una unidad ('D:') con etiqueta, sistema de archivos y MB libres
+procedure AgregarUnidad(Letra: String);
+var
+  Raiz, Etiqueta, Sistema: String;
+  Serie, LargoMaximo, Banderas: Cardinal;
+  Libre, Total: Int64;
+  N: Integer;
+begin
+  Raiz := Letra + '\';
+  Etiqueta := StringOfChar(' ', 261);
+  Sistema := StringOfChar(' ', 261);
+  if GetVolumeInformation(Raiz, Etiqueta, 261, Serie, LargoMaximo, Banderas, Sistema, 261) then
+  begin
+    Etiqueta := HastaNulo(Etiqueta);
+    Sistema := HastaNulo(Sistema);
+  end else
+  begin
+    Etiqueta := '';
+    Sistema := '?';
+  end;
+  if not GetSpaceOnDisk64(Raiz, Libre, Total) then
+    Libre := 0;
+  N := GetArrayLength(UnidadesLetra);
+  SetArrayLength(UnidadesLetra, N + 1);
+  SetArrayLength(UnidadesEtiqueta, N + 1);
+  SetArrayLength(UnidadesFS, N + 1);
+  SetArrayLength(UnidadesLibreMB, N + 1);
+  UnidadesLetra[N] := Letra;
+  UnidadesEtiqueta[N] := Etiqueta;
+  UnidadesFS[N] := Sistema;
+  UnidadesLibreMB[N] := Libre div 1048576;
+end;
+
+// Solo discos fijos: quedan fuera USB, removibles, CD y unidades de red
+procedure CargarUnidades;
+var
+  L: Integer;
+begin
+  for L := Ord('A') to Ord('Z') do
+    if GetDriveType(Chr(L) + ':\') = DRIVE_FIXED then
+      AgregarUnidad(Chr(L) + ':');
+end;
+
+function IndiceUnidad(Letra: String): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to GetArrayLength(UnidadesLetra) - 1 do
+    if CompareText(UnidadesLetra[I], Letra) = 0 then
+    begin
+      Result := I;
+      exit;
+    end;
+end;
+
+// '' si la unidad sirve; si no, el mensaje (NTFS o ReFS para las ACL, y espacio)
+function ValidarUnidad(I: Integer): String;
+begin
+  Result := '';
+  if (CompareText(UnidadesFS[I], 'NTFS') <> 0) and (CompareText(UnidadesFS[I], 'ReFS') <> 0) then
+    Result := FmtMessage(CustomMessage('UnidadSinPermisos'), [UnidadesLetra[I], UnidadesFS[I]])
+  else if UnidadesLibreMB[I] < MinimoMB then
+    Result := FmtMessage(CustomMessage('UnidadSinEspacio'), [UnidadesLetra[I],
+      IntToStr(UnidadesLibreMB[I]), IntToStr(MinimoMB)]);
+end;
+
+// Preselección: el primer disco fijo distinto de %SystemDrive% que sirva; si no
+// hay, el del sistema
+procedure PreseleccionarUnidad;
+var
+  I: Integer;
+begin
+  Unidad := ExpandConstant('{sd}');
+  for I := 0 to GetArrayLength(UnidadesLetra) - 1 do
+    if (CompareText(UnidadesLetra[I], ExpandConstant('{sd}')) <> 0) and (ValidarUnidad(I) = '') then
+    begin
+      Unidad := UnidadesLetra[I];
+      exit;
+    end;
+end;
+
+function TextoUnidad(I: Integer): String;
+var
+  Etiqueta: String;
+begin
+  Etiqueta := UnidadesEtiqueta[I];
+  if Etiqueta = '' then
+    Etiqueta := CustomMessage('UnidadSinEtiqueta');
+  Result := FmtMessage(CustomMessage('UnidadElemento'), [UnidadesLetra[I], Etiqueta,
+    UnidadesFS[I], IntToStr(UnidadesLibreMB[I] div 1024)]);
+end;
+
+// ── INS-01 (tanda 17): zona horaria ───────────────────────────────────────────
+
+// Desfase en minutos desde el nombre visible: '(UTC-05:00) Bogotá...' -> -300,
+// '(UTC) ...' -> 0
+function DesfaseZona(Nombre: String): Integer;
+var
+  Signo: String;
+begin
+  Result := 0;
+  if CompareText(Copy(Nombre, 1, 4), '(UTC') <> 0 then
+    exit;
+  Signo := Copy(Nombre, 5, 1);
+  if (Signo = '+') or (Signo = '-') then
+  begin
+    Result := StrToIntDef(Copy(Nombre, 6, 2), 0) * 60 + StrToIntDef(Copy(Nombre, 9, 2), 0);
+    if Signo = '-' then
+      Result := -Result;
+  end;
+end;
+
+// ¿La zona I va antes que la J? (por desfase y luego por nombre)
+function ZonaAntes(I, J: Integer): Boolean;
+begin
+  if ZonaDesfase[I] <> ZonaDesfase[J] then
+    Result := ZonaDesfase[I] < ZonaDesfase[J]
+  else
+    Result := CompareText(ZonaNombres[I], ZonaNombres[J]) < 0;
+end;
+
+procedure IntercambiarZonas(I, J: Integer);
+var
+  Texto: String;
+  Numero: Integer;
+begin
+  Texto := ZonaIds[I];
+  ZonaIds[I] := ZonaIds[J];
+  ZonaIds[J] := Texto;
+  Texto := ZonaNombres[I];
+  ZonaNombres[I] := ZonaNombres[J];
+  ZonaNombres[J] := Texto;
+  Numero := ZonaDesfase[I];
+  ZonaDesfase[I] := ZonaDesfase[J];
+  ZonaDesfase[J] := Numero;
+end;
+
+// Zonas de HKLM\...\Time Zones (Display = nombre visible) y la zona actual
+procedure CargarZonas;
+var
+  Claves: TArrayOfString;
+  I, J, N: Integer;
+  Nombre: String;
+begin
+  ZonaActual := '';
+  if RegQueryStringValue(HKLM64, ClaveZonaActual, 'TimeZoneKeyName', ZonaActual) then
+    ZonaActual := HastaNulo(ZonaActual);
+  if not RegGetSubkeyNames(HKLM64, ClaveZonas, Claves) then
+  begin
+    Log('Zona horaria: no se pudo leer la lista de zonas de Windows.');
+    exit;
+  end;
+  for I := 0 to GetArrayLength(Claves) - 1 do
+    if RegQueryStringValue(HKLM64, ClaveZonas + '\' + Claves[I], 'Display', Nombre) and
+        (Trim(Nombre) <> '') then
+    begin
+      N := GetArrayLength(ZonaIds);
+      SetArrayLength(ZonaIds, N + 1);
+      SetArrayLength(ZonaNombres, N + 1);
+      SetArrayLength(ZonaDesfase, N + 1);
+      ZonaIds[N] := Claves[I];
+      ZonaNombres[N] := Trim(Nombre);
+      ZonaDesfase[N] := DesfaseZona(Trim(Nombre));
+    end;
+  // inserción (unas 140 zonas)
+  for I := 1 to GetArrayLength(ZonaIds) - 1 do
+  begin
+    J := I;
+    while (J > 0) and ZonaAntes(J, J - 1) do
+    begin
+      IntercambiarZonas(J, J - 1);
+      J := J - 1;
+    end;
+  end;
+end;
+
+function IndiceZona(Id: String): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  for I := 0 to GetArrayLength(ZonaIds) - 1 do
+    if CompareText(ZonaIds[I], Trim(Id)) = 0 then
+    begin
+      Result := I;
+      exit;
+    end;
+end;
+
+function NombreZona(Id: String): String;
+var
+  I: Integer;
+begin
+  I := IndiceZona(Id);
+  if I >= 0 then
+    Result := ZonaNombres[I]
+  else
+    Result := Id;
+end;
+
+function TextoZonaExplicacion: String;
+begin
+  // ISCC toma como sección una línea que empieza con '[': no partir antes del arreglo
+  Result := FmtMessage(CustomMessage('ZonaExplicacion'), [GetDateTimeString('yyyy-mm-dd hh:nn',
+    '-', ':'), NombreZona(ZonaActual)]);
+end;
+
+// tzutil /g devuelve '<id>_dstoff' si el horario de verano está desactivado
+function SinDstOff(Id: String): String;
+begin
+  Result := Trim(Id);
+  if (Length(Result) > 7) and (CompareText(Copy(Result, Length(Result) - 6, 7), '_dstoff') = 0) then
+    Result := Copy(Result, 1, Length(Result) - 7);
+end;
+
+// ssPostInstall: tzutil /s y comprobación con tzutil /g. Si falla, avisa con el
+// procedimiento manual y la instalación sigue (no se aborta).
+procedure AplicarZona;
+var
+  Codigo: Integer;
+  Salida: TExecOutput;
+  Leida, Detalle: String;
+  Correcto: Boolean;
+begin
+  if ZonaElegida = '' then
+  begin
+    Log('Zona horaria: ninguna elegida; no se cambia (actual "' + ZonaActual + '").');
+    exit;
+  end;
+  Correcto := Exec(ExpandConstant('{sys}\tzutil.exe'), '/s "' + ZonaElegida + '"', '', SW_HIDE,
+    ewWaitUntilTerminated, Codigo) and (Codigo = 0);
+  Log(Format('Zona horaria: tzutil /s "%s" -> código %d (antes "%s")', [ZonaElegida, Codigo, ZonaActual]));
+  Detalle := 'tzutil /s: ' + IntToStr(Codigo);
+  if Correcto then
+  begin
+    Leida := '';
+    try
+      Correcto := ExecAndCaptureOutput(ExpandConstant('{sys}\tzutil.exe'), '/g', '', SW_HIDE,
+        ewWaitUntilTerminated, Codigo, Salida) and (Codigo = 0);
+      if Correcto and (GetArrayLength(Salida.StdOut) > 0) then
+        Leida := Trim(Salida.StdOut[0]);
+    except
+      Correcto := False;
+      Log('Zona horaria: no se pudo ejecutar tzutil /g: ' + GetExceptionMessage);
+    end;
+    Correcto := Correcto and (CompareText(SinDstOff(Leida), ZonaElegida) = 0);
+    Log(Format('Zona horaria: tzutil /g -> "%s"', [Leida]));
+    Detalle := 'tzutil /g: "' + Leida + '"';
+  end;
+  if Correcto then
+    Log('Zona horaria aplicada y verificada: ' + ZonaElegida + ' (' + NombreZona(ZonaElegida) + ')')
+  else
+    SuppressibleMsgBox(FmtMessage(CustomMessage('ZonaFallo'), [ZonaElegida, Detalle]),
+      mbError, MB_OK, IDOK);
 end;
 
 // Cuenta con la sesión abierta en la consola (DOMINIO\usuario). El Setup corre
@@ -424,17 +883,96 @@ begin
   Result := Base + '.' + IntToStr(Ord(Letra[1]) - Ord('a') + 1);
 end;
 
+// Carpeta de la instalación anotada por Inno en su clave de desinstalación
+function RutaInstalacionPrevia: String;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKLM64, ClaveDesinstalar, 'Inno Setup: App Path', Result) then
+    RegQueryStringValue(HKLM64, ClaveDesinstalar, 'InstallLocation', Result);
+  Result := RemoveBackslashUnlessRoot(Trim(Result));
+end;
+
 function InitializeSetup: Boolean;
 var
-  VersionNum: String;
+  VersionNum, RutaRegistro, Previa, Anterior, ZonaParametro: String;
   Comparacion: Integer;
+  HayInstalacion, TieneRuta: Boolean;
 begin
   Result := True;
   Modo := ModoNuevo;
   ModoBase := ModoNuevo;
   AsociacionesTactiles := -1;
   VersionInstalada := '';
-  if not RegQueryStringValue(HKLM64, ClaveDesinstalar, 'DisplayVersion', VersionInstalada) then
+  HayInstalacion := RegQueryStringValue(HKLM64, ClaveDesinstalar, 'DisplayVersion', VersionInstalada);
+  // INS-02: disposición anterior (Archivos de programa, compilación I o
+  // anterior, o una copia de instalador_exe): el Setup se detiene; hay que
+  // desinstalarla e instalar en limpio (D-17.2b, sin migración de datos)
+  RutaRegistro := '';
+  TieneRuta := RegQueryStringValue(HKLM64, '{#ClaveAutoclave}', 'RutaPrograma', RutaRegistro) and
+    (Trim(RutaRegistro) <> '');
+  RutaRegistro := RemoveBackslashUnlessRoot(Trim(RutaRegistro));
+  Anterior := ExpandConstant('{commonpf64}\Especifika\Autoclave');
+  if HayInstalacion then
+  begin
+    Previa := RutaInstalacionPrevia;
+    if (not TieneRuta) or (Previa = '') or (CompareText(Previa, RutaRegistro) <> 0) then
+    begin
+      if Previa = '' then
+        Previa := Anterior;
+      Log('INS-02: instalación con la disposición anterior en ' + Previa + ': el Setup se detiene.');
+      SuppressibleMsgBox(FmtMessage(CustomMessage('DisposicionAnterior'), [Previa]), mbError, MB_OK, IDOK);
+      Result := False;
+      exit;
+    end;
+  end;
+  if FileExists(Anterior + '\Autoclave.exe') then
+  begin
+    Log('INS-02: hay un Autoclave.exe en ' + Anterior + ': el Setup se detiene.');
+    SuppressibleMsgBox(FmtMessage(CustomMessage('DisposicionAnterior'), [Anterior]), mbError, MB_OK, IDOK);
+    Result := False;
+    exit;
+  end;
+  // INS-02: unidad (la de la instalación anotada, sin poder cambiarla)
+  CargarUnidades;
+  UnidadFija := TieneRuta;
+  if UnidadFija then
+  begin
+    Unidad := ExtractFileDrive(RutaRegistro);
+    if (Length(Unidad) <> 2) or
+        (CompareText(RutaRegistro, Unidad + '\Especifika\Autoclave\programa') <> 0) then
+    begin
+      SuppressibleMsgBox(FmtMessage(CustomMessage('RegistroInvalido'), [RutaRegistro]), mbError, MB_OK, IDOK);
+      Result := False;
+      exit;
+    end;
+    if IndiceUnidad(Unidad) < 0 then
+      AgregarUnidad(Unidad);
+  end else
+    PreseleccionarUnidad;
+  if UnidadFija then
+    Log('INS-02: unidad fija (instalación anotada): ' + Unidad)
+  else
+    Log('INS-02: unidad preseleccionada: ' + Unidad);
+  Log(Format('INS-02: programa %d MB, mínimo libre %d MB', [TamProgramaMB, MinimoMB]));
+  // INS-01: zona horaria (la actual, o la de /ZONA=<id> si existe en la lista)
+  CargarZonas;
+  ZonaParametro := Trim(ExpandConstant('{param:ZONA|}'));
+  if ZonaParametro <> '' then
+  begin
+    if IndiceZona(ZonaParametro) < 0 then
+    begin
+      Log('Zona horaria: /ZONA=' + ZonaParametro + ' no existe en este Windows: el Setup se detiene.');
+      SuppressibleMsgBox(FmtMessage(CustomMessage('ZonaInvalida'), [ZonaParametro]), mbError, MB_OK, IDOK);
+      Result := False;
+      exit;
+    end;
+    ZonaElegida := ZonaIds[IndiceZona(ZonaParametro)];
+  end else if IndiceZona(ZonaActual) >= 0 then
+    ZonaElegida := ZonaIds[IndiceZona(ZonaActual)]
+  else
+    ZonaElegida := '';
+  Log('Zona horaria: actual "' + ZonaActual + '", preseleccionada "' + ZonaElegida + '"');
+  if not HayInstalacion then
     exit;
   if not RegQueryStringValue(HKLM64, '{#ClaveInstalacion}', 'VersionNum', VersionNum) then
     // instalaciones anteriores a este registro (1.0.0-a .. 1.0.0-d): se
@@ -482,7 +1020,9 @@ end;
 // paso 6 deja los datos intactos y detiene el Setup sin instalar):
 //   1. nunca sin asistente; ruta de datos con la forma esperada;
 //   2. Autoclave cerrado (si no se puede comprobar, se trata como abierto);
-//   3. ningún enlace/unión en Especifika\, Autoclave\ ni Autoclave_respaldos\;
+// (INS-02, tanda 17: la carpeta de datos es X:\Especifika\Autoclave\datos y los
+// respaldos van a X:\Especifika\Autoclave_respaldos, misma unidad.)
+//   3. ningún enlace/unión en Especifika\, Autoclave\, datos\ ni Autoclave_respaldos\;
 //   4. Autoclave_respaldos\ con dueño Administradores y solo Administradores
 //      y SYSTEM (contiene la base de usuarios y estacion\);
 //   5. copia completa a Autoclave_respaldos\AAAAMMDD-HHMMSS\ y verificación
@@ -502,16 +1042,8 @@ function GetFileAttributes(lpFileName: String): Cardinal;
 function SetFileAttributes(lpFileName: String; dwFileAttributes: Cardinal): BOOL;
   external 'SetFileAttributesW@kernel32.dll stdcall';
 
-function CarpetaDatos: String;
-begin
-  Result := ExpandConstant('{commonappdata}\Especifika\Autoclave');
-end;
-
-// Fuera de la carpeta que se borra
-function RaizRespaldos: String;
-begin
-  Result := ExpandConstant('{commonappdata}\Especifika\Autoclave_respaldos');
-end;
+// CarpetaDatos y RaizRespaldos: ver INS-02 arriba (X:\Especifika\Autoclave\datos
+// y X:\Especifika\Autoclave_respaldos)
 
 // ¿La ruta existe y es un punto de reanálisis (enlace simbólico o unión)?
 function EsEnlace(Ruta: String): Boolean;
@@ -522,20 +1054,16 @@ begin
   Result := (Atributos <> $FFFFFFFF) and ((Atributos and FILE_ATTRIBUTE_REPARSE_POINT) <> 0);
 end;
 
-// X:\...\Especifika\Autoclave, sin '..'
+// INS-02: exactamente X:\Especifika\Autoclave\datos (sin '..' posible)
 function RutaDatosValida(Datos: String): Boolean;
 var
-  Unidad: String;
+  Letra: String;
 begin
   Result := False;
-  if Length(Datos) < 24 then
+  Letra := Uppercase(Copy(Datos, 1, 1));
+  if (Letra < 'A') or (Letra > 'Z') or (Copy(Datos, 2, 2) <> ':\') then
     exit;
-  Unidad := Uppercase(Copy(Datos, 1, 1));
-  if (Unidad < 'A') or (Unidad > 'Z') or (Copy(Datos, 2, 2) <> ':\') then
-    exit;
-  if Pos('..', Datos) > 0 then
-    exit;
-  Result := CompareText(Copy(Datos, Length(Datos) - 20, 21), '\Especifika\Autoclave') = 0;
+  Result := CompareText(Copy(Datos, 3, Length(Datos)), '\Especifika\Autoclave\datos') = 0;
 end;
 
 // ¿Ruta está dentro de Carpeta (o es ella)?
@@ -802,7 +1330,8 @@ begin
     exit;
   end;
   // 3. Sin enlaces en el camino
-  if EsEnlace(ExtractFileDir(Datos)) or EsEnlace(Datos) or EsEnlace(RaizRespaldos) then
+  if EsEnlace(ExtractFileDir(ExtractFileDir(Datos))) or EsEnlace(ExtractFileDir(Datos)) or
+      EsEnlace(Datos) or EsEnlace(RaizRespaldos) then
   begin
     Result := FmtMessage(CustomMessage('LimpiaEnlace'), [Datos]);
     exit;
@@ -857,11 +1386,144 @@ begin
   Log('Instalación limpia: datos borrados de ' + Datos + ' (se conserva estacion\).');
 end;
 
-function PrepareToInstall(var NeedsRestart: Boolean): String;
+// ── INS-02: carpetas y permisos, ANTES de copiar el programa ─────────────────
+
+// icacls sobre una ruta; True solo con código 0 (sin /C: se detiene en el
+// primer error y devuelve distinto de 0)
+function Icacls(Ruta, Argumentos: String): Boolean;
+var
+  Codigo: Integer;
+begin
+  Result := Exec(ExpandConstant('{sys}\icacls.exe'), '"' + Ruta + '" ' + Argumentos, '', SW_HIDE,
+    ewWaitUntilTerminated, Codigo) and (Codigo = 0);
+  Log(Format('Permisos: icacls "%s" %s -> código %d', [Ruta, Argumentos, Codigo]));
+end;
+
+// True si la carpeta no existe o no tiene nada
+function CarpetaVacia(Ruta: String): Boolean;
+var
+  Busqueda: TFindRec;
+  Hay: Boolean;
+begin
+  Result := True;
+  if FindFirst(Ruta + '\*', Busqueda) then
+  try
+    Hay := True;
+    while Hay and Result do
+    begin
+      if (Busqueda.Name <> '.') and (Busqueda.Name <> '..') then
+        Result := False;
+      Hay := FindNext(Busqueda);
+    end;
+  finally
+    FindClose(Busqueda);
+  end;
+end;
+
+// Dueño Administradores y ACL explícita sin herencia (/inheritance:r): la raíz
+// de una unidad de datos da crear/modificar a Usuarios autenticados, y un
+// usuario estándar que creara la carpeta antes sería su dueño. Con Recursivo,
+// también el dueño y la ACL heredada de todo lo de adentro (/reset /T).
+function ProtegerCarpeta(Ruta, Permisos: String; Recursivo: Boolean): Boolean;
+begin
+  if Recursivo then
+    Result := Icacls(Ruta, '/setowner *S-1-5-32-544 /T /Q')
+  else
+    Result := Icacls(Ruta, '/setowner *S-1-5-32-544 /Q');
+  if Result then
+    Result := Icacls(Ruta, '/inheritance:r /grant:r ' + Permisos + ' /Q');
+  if Result and Recursivo and not CarpetaVacia(Ruta) then
+    Result := Icacls(Ruta + '\*', '/reset /T /Q');
+end;
+
+// '' = bien; si no, el mensaje con el que el Setup se detiene sin instalar
+function ProtegerDatos: String;
 begin
   Result := '';
+  if not ProtegerCarpeta(CarpetaDatos, PermisosDatos, False) then
+    Result := FmtMessage(CustomMessage('PermisosFallo'), [CarpetaDatos]);
+end;
+
+function PrepararCarpetas: String;
+var
+  Especifika, Raiz, Programa, Datos: String;
+begin
+  Result := '';
+  Raiz := RaizAutoclave;
+  Especifika := ExtractFileDir(Raiz);
+  Programa := DirPrograma;
+  Datos := CarpetaDatos;
+  // 1. ningún enlace/unión en el camino (icacls y la copia lo seguirían)
+  if EsEnlace(Especifika) or EsEnlace(Raiz) or EsEnlace(Programa) or EsEnlace(Datos) then
+  begin
+    Result := FmtMessage(CustomMessage('CarpetaEnlace'), [Raiz]);
+    exit;
+  end;
+  // 2. instalación nueva (sin RutaPrograma): programa\ debe estar vacía o no
+  // existir; lo que hubiera ahí (p. ej. una DLL) se cargaría con el programa
+  if (not UnidadFija) and not CarpetaVacia(Programa) then
+  begin
+    Result := FmtMessage(CustomMessage('ProgramaExistente'), [Programa]);
+    exit;
+  end;
+  // 3. crear
+  if not ForceDirectories(Programa) then
+  begin
+    Result := FmtMessage(CustomMessage('CarpetaNoCreada'), [Programa]);
+    exit;
+  end;
+  if not ForceDirectories(Datos) then
+  begin
+    Result := FmtMessage(CustomMessage('CarpetaNoCreada'), [Datos]);
+    exit;
+  end;
+  if EsEnlace(Especifika) or EsEnlace(Raiz) or EsEnlace(Programa) or EsEnlace(Datos) then
+  begin
+    Result := FmtMessage(CustomMessage('CarpetaEnlace'), [Raiz]);
+    exit;
+  end;
+  // 4. permisos de arriba abajo; cualquier fallo detiene el Setup (falla cerrada)
+  if not ProtegerCarpeta(Especifika, PermisosPrograma, False) then
+    Result := FmtMessage(CustomMessage('PermisosFallo'), [Especifika])
+  else if not ProtegerCarpeta(Raiz, PermisosPrograma, False) then
+    Result := FmtMessage(CustomMessage('PermisosFallo'), [Raiz])
+  else if not ProtegerCarpeta(Programa, PermisosPrograma, True) then
+    Result := FmtMessage(CustomMessage('PermisosFallo'), [Programa])
+  else
+    Result := ProtegerDatos;
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  I: Integer;
+begin
+  Result := '';
+  // {app} debe ser exactamente X:\Especifika\Autoclave\programa
+  if CompareText(RemoveBackslashUnlessRoot(WizardDirValue), DirPrograma) <> 0 then
+  begin
+    Result := FmtMessage(CustomMessage('RutaInesperada'), [WizardDirValue, DirPrograma]);
+    Log('INS-02: ' + Result);
+    exit;
+  end;
+  // la unidad vuelve a validarse (sin asistente no hay página)
+  I := IndiceUnidad(Unidad);
+  if I < 0 then
+    Result := FmtMessage(CustomMessage('CarpetaNoCreada'), [DirPrograma])
+  else
+    Result := ValidarUnidad(I);
+  if Result <> '' then
+    exit;
+  Result := PrepararCarpetas;
+  if Result <> '' then
+    exit;
   if Modo = ModoLimpia then
+  begin
     Result := EjecutarLimpia;
+    if Result <> '' then
+      exit;
+    // la limpia recrea datos\ vacía (hereda solo lectura): vuelve a sus permisos
+    Result := ProtegerDatos;
+  end;
 end;
 
 // Dos confirmaciones, las dos con "No" por defecto
@@ -897,7 +1559,54 @@ begin
     Confirm := False;
 end;
 
+// INS-02: página "Unidad de instalación" (con la unidad fija, solo esa)
+procedure CrearPaginaUnidad(Despues: Integer);
+var
+  I, N: Integer;
+  Explicacion: String;
+begin
+  if UnidadFija then
+    Explicacion := FmtMessage(CustomMessage('UnidadFijaExplicacion'), [Unidad, RaizAutoclave])
+  else
+    Explicacion := FmtMessage(CustomMessage('UnidadExplicacion'), [IntToStr(MinimoMB)]);
+  PaginaUnidad := CreateInputOptionPage(Despues, CustomMessage('UnidadTitulo'),
+    CustomMessage('UnidadSubtitulo'), Explicacion, True, True);
+  for I := 0 to GetArrayLength(UnidadesLetra) - 1 do
+    if (not UnidadFija) or (CompareText(UnidadesLetra[I], Unidad) = 0) then
+    begin
+      N := PaginaUnidad.Add(TextoUnidad(I));
+      SetArrayLength(OpcionesUnidad, N + 1);
+      OpcionesUnidad[N] := I;
+      if CompareText(UnidadesLetra[I], Unidad) = 0 then
+        PaginaUnidad.Values[N] := True;
+    end;
+end;
+
+// INS-01: página "Zona horaria" (también al actualizar o reparar)
+procedure CrearPaginaZona(Despues: Integer);
+var
+  I: Integer;
+begin
+  PaginaZona := CreateInputOptionPage(Despues, CustomMessage('ZonaTitulo'),
+    CustomMessage('ZonaSubtitulo'), TextoZonaExplicacion, True, True);
+  for I := 0 to GetArrayLength(ZonaIds) - 1 do
+  begin
+    PaginaZona.Add(ZonaNombres[I]);
+    if CompareText(ZonaIds[I], ZonaElegida) = 0 then
+      PaginaZona.Values[I] := True;
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  // la hora de referencia, al momento de mostrar la página
+  if (PaginaZona <> nil) and (CurPageID = PaginaZona.ID) then
+    PaginaZona.SubCaptionLabel.Caption := TextoZonaExplicacion;
+end;
+
 procedure InitializeWizard;
+var
+  Despues: Integer;
 begin
   IndiceLimpia := -1;
   IndiceDesinstalar := -1;
@@ -922,6 +1631,12 @@ begin
     IndiceLimpia := 1;
     PaginaOpciones.Values[0] := True;
   end;
+  // INS-02 e INS-01: después de las opciones (o de la bienvenida)
+  Despues := wpWelcome;
+  if PaginaOpciones <> nil then
+    Despues := PaginaOpciones.ID;
+  CrearPaginaUnidad(Despues);
+  CrearPaginaZona(PaginaUnidad.ID);
   PaginaCuenta := CreateInputQueryPage(wpSelectTasks, CustomMessage('CuentaTitulo'),
     CustomMessage('CuentaSubtitulo'), CustomMessage('CuentaExplicacion'));
   PaginaCuenta.Add(CustomMessage('CuentaUsuario'), False);
@@ -935,6 +1650,12 @@ begin
   // la página de opciones nunca se salta: hasta "Instalar" nada está hecho
   if (PaginaOpciones <> nil) and (PageID = PaginaOpciones.ID) then
     Result := False
+  // INS-02: la unidad se muestra siempre (fija al actualizar o reparar)
+  else if (PaginaUnidad <> nil) and (PageID = PaginaUnidad.ID) then
+    Result := False
+  // INS-01: también al actualizar o reparar; sin lista de zonas no hay qué elegir
+  else if (PaginaZona <> nil) and (PageID = PaginaZona.ID) then
+    Result := GetArrayLength(ZonaIds) = 0
   // Reparar usa las tareas anteriores (UsePreviousTasks) y no reaplica el paso 01
   else if (Modo = ModoReparar) and ((PageID = wpSelectTasks) or
       ((PaginaCuenta <> nil) and (PageID = PaginaCuenta.ID))) then
@@ -947,8 +1668,44 @@ end;
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   Indice: Integer;
+  Mensaje: String;
 begin
   Result := True;
+  // INS-02: unidad elegida (sin asistente, la preseleccionada); fija {app}
+  if (PaginaUnidad <> nil) and (CurPageID = PaginaUnidad.ID) then
+  begin
+    Indice := PaginaUnidad.SelectedValueIndex;
+    if Indice < 0 then
+    begin
+      Result := False;
+      exit;
+    end;
+    Indice := OpcionesUnidad[Indice];
+    Mensaje := ValidarUnidad(Indice);
+    if Mensaje <> '' then
+    begin
+      Log('INS-02: ' + Mensaje);
+      SuppressibleMsgBox(Mensaje, mbError, MB_OK, IDOK);
+      Result := False;
+      exit;
+    end;
+    Unidad := UnidadesLetra[Indice];
+    WizardForm.DirEdit.Text := DirPrograma;
+    Log('INS-02: unidad de instalación ' + Unidad + ': programa en ' + DirPrograma +
+      ', datos en ' + CarpetaDatos);
+    exit;
+  end;
+  // INS-01: zona elegida (sin asistente, la actual o la de /ZONA=)
+  if (PaginaZona <> nil) and (CurPageID = PaginaZona.ID) then
+  begin
+    Indice := PaginaZona.SelectedValueIndex;
+    if Indice >= 0 then
+      ZonaElegida := ZonaIds[Indice]
+    else
+      ZonaElegida := '';
+    Log('Zona horaria elegida: "' + ZonaElegida + '"');
+    exit;
+  end;
   if (PaginaOpciones <> nil) and (CurPageID = PaginaOpciones.ID) then
   begin
     // se vuelve a decidir cada vez (Atrás y otra opción deshace la anterior)
@@ -1124,7 +1881,8 @@ begin
   ReaplicarPaso('02', 'Paso02', Fallas);
   // El paso 06 tampoco se reaplica: abre una herramienta que pide tocar las
   // pantallas (y un Setup silencioso quedaría esperando). La asociación ya
-  // hecha se conserva; para repetirla: tools\estacion\06_asociar_tactiles.ps1.
+  // hecha se conserva; para repetirla: {app}\Autoclave.exe --rol asociar-tactiles
+  // o {app}\estacion\06_asociar_tactiles.ps1, como administrador.
   if Fallas <> '' then
     SuppressibleMsgBox(FmtMessage(CustomMessage('EstacionFallo'), [Fallas, ArchivoLogEstacion]),
       mbError, MB_OK, IDOK);
@@ -1140,6 +1898,8 @@ begin
   begin
     Usuario := '';
     Dominio := '';
+    // INS-01: en todos los modos (también Reparar); un fallo solo avisa
+    AplicarZona;
     // ModoMantenimiento sin elegir = instalación silenciosa de la misma versión
     if (Modo = ModoReparar) or (Modo = ModoMantenimiento) then
     begin
@@ -1154,8 +1914,9 @@ begin
       CrearTareaArranque(Usuario, Dominio);
     // D11-5: aviso al final, sin fallar la instalación
     if (AsociacionesTactiles >= 0) and (AsociacionesTactiles < 2) then
-      SuppressibleMsgBox(FmtMessage(CustomMessage('TactilesRepetir'), [IntToStr(AsociacionesTactiles)]),
-        mbInformation, MB_OK, IDOK);
+      // EST-06 (tanda 17): remite a "Autoclave.exe --rol asociar-tactiles" o al script 06
+      SuppressibleMsgBox(FmtMessage(CustomMessage('TactilesRepetir'), [IntToStr(AsociacionesTactiles),
+        ExpandConstant('{app}')]), mbInformation, MB_OK, IDOK);
   end;
 end;
 
@@ -1207,7 +1968,9 @@ begin
     // {#ClaveInstalacion} la borra Inno (uninsdeletekey); quedan los padres vacíos
     RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika\Autoclave');
     RegDeleteKeyIfEmpty(HKLM64, 'SOFTWARE\Especifika');
-    SuppressibleMsgBox(FmtMessage(CustomMessage('DatosConservados'), [ExpandConstant(
-      '{commonappdata}\Especifika\Autoclave')]), mbInformation, MB_OK, IDOK);
+    // INS-02: X:\Especifika\Autoclave\datos (sale de {app}); RutaPrograma y
+    // RutaDatos los borra Inno (uninsdeletevalue)
+    SuppressibleMsgBox(FmtMessage(CustomMessage('DatosConservados'), [CarpetaDatos]),
+      mbInformation, MB_OK, IDOK);
   end;
 end;
