@@ -11,9 +11,9 @@ Rama `tanda-17` desde `dev` (84c146a).
 | P | Hecha | s1 `892a29b`, s2 `10b9427`, s3 `8daaa0b`, s4 `783c968` (resumen en `P_resumen.md`) |
 | I | Hecha | merges `53b59a4` (s3), `687f2e8` (s1), `2764835` (s2), `73c3624` (s4) sin conflictos; integración `32efe11`; suite 8449 passed + 2 solo en paralelo |
 | R | Hecha | 0 altos sin corregir: V17-s1-01 y V17-s1-03 (altas) corregidas; merges r2 `tanda-17-r2`, r4, r1, r3 y `632e4b9`; suite 8486 passed + 2 solo en paralelo (pasan en serie); recolectadas 8501 (base 8251) — ver `R_hallazgos.md` |
-| K | Pendiente | |
-| L | Pendiente | |
-| Z | Pendiente | |
+| K | Hecha parcial | unión `584aa7a` en `dev`; anomalías `a51a120`; **entrega no ejecutada**: el sistema detuvo `compilar_entrega.py` por memoria baja durante la suite previa (sin commit, etiqueta ni carpeta); no se relanzó sin orden (R17 §8) |
+| L | Hecha | 4 worktrees de la tanda quitados + prune; ramas `tanda-16`, `tanda-17-s1..s4`, `tanda-17-r1..r4`, `worktree-agent-*` (4) borradas con `-d`; los worktrees viejos con `data/` sin seguimiento se conservan |
+| Z | Hecha | CLAUDE.md (`25f619e`), hoja de banco bloque I (`222bd64`), R17_informe.md, índice `informe_tanda_2026-10-26_t17.md`, merge del cierre en `dev`, push de `tanda-17`, CERRADO.txt |
 
 ## Tabla de propiedad de archivos (P)
 
