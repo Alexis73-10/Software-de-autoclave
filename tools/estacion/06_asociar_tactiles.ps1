@@ -93,6 +93,8 @@ if ($monitores -lt 2) {
 $herramienta = $null
 $argumentos = $null
 $propia = $false
+$codigoPropio = $null
+$cuentaAntes = $null
 foreach ($candidata in @((Join-Path $env:windir 'System32\MultiDigitizer.exe'),
                          (Join-Path $env:windir 'Sysnative\MultiDigitizer.exe'))) {
     if (Test-Path -LiteralPath $candidata) { $herramienta = $candidata; break }
@@ -129,6 +131,7 @@ if ($null -ne $herramienta) {
 
     if ($PSCmdlet.ShouldProcess($herramienta, 'Abrir la asociacion de pantallas tactiles')) {
         Write-Log "Abriendo $herramienta (espera maxima $MinutosEspera min)."
+        $cuentaAntes = (Get-ValoresDigimon).Count
         try {
             if ($propia) {
                 $proceso = Start-Process -FilePath $herramienta -ArgumentList $argumentos `
@@ -149,6 +152,7 @@ if ($null -ne $herramienta) {
                 try { $proceso.Kill() } catch { Write-Log "No se pudo cerrar la herramienta: $($_.Exception.Message)" 'WARN' }
             } elseif ($propia) {
                 $codigo = $proceso.ExitCode
+                $codigoPropio = $codigo
                 $significado = switch ($codigo) {
                     0 { 'todas las pantallas asociadas' }
                     2 { 'sin permisos de administrador: no se cambio nada' }
@@ -174,7 +178,11 @@ Write-Log "Asociaciones tactiles en HKLM\$($RutaDigimon): $($despues.Count)." $n
 if ($despues.Count -lt 2) {
     Write-Log 'Quedaron menos de 2 asociaciones: repita la asociacion de pantallas tactiles.' 'WARN'
 }
-if ($propia -and $despues.Count -gt 0) {
+# V17-s2-06: reinicio solo si la herramienta propia escribio algo: codigo 0
+# (todas asociadas) o 3 (incompleta) con mas valores que antes
+$masValores = ($null -ne $cuentaAntes) -and ($despues.Count -gt $cuentaAntes)
+$escribio = ($codigoPropio -eq 0) -or (($codigoPropio -eq 3) -and $masValores)
+if ($propia -and $escribio) {
     Write-Log 'Reinicie el equipo: Windows aplica la asociacion de pantallas tactiles al iniciar sesion.' 'WARN'
 }
 Write-Log "== Fin $Paso =="

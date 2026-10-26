@@ -111,8 +111,13 @@ class _NucleoWin32:
         return {p for p, h in self.eventos.items()
                 if self.a.WaitForSingleObject(h, 0) == self._w.WAIT_OBJECT_0}
 
-    def esperar(self, ms: int) -> bool:
-        return self.ventanas.esperar(ms, list(self.eventos.values()))
+    def esperar(self, ms: int, pendientes=None) -> bool:
+        """V17-s2-02: solo los eventos de las puertas PENDIENTES. Los eventos
+        son de reinicio manual: uno ya señalado haría volver al instante a
+        MsgWaitForMultipleObjects y el bucle giraría sin pausa."""
+        puertas = self.eventos.keys() if pendientes is None else pendientes
+        handles = [self.eventos[p] for p in sorted(puertas) if p in self.eventos]
+        return self.ventanas.esperar(ms, handles)
 
     def reafirmar(self) -> None:
         self.ventanas.reafirmar()
@@ -209,7 +214,7 @@ class Cubierta:
                 if primera is not None:
                     limite = min(limite, primera + self.gracia_s)
                 pausa_ms = int(max(0.0, min(_PAUSA_MAX_MS / 1000.0, limite - ahora)) * 1000)
-                if not nucleo.esperar(pausa_ms):
+                if not nucleo.esperar(pausa_ms, frozenset(pendientes)):
                     self.motivo = "solicitado"
                     break
         except Exception as e:

@@ -55,12 +55,18 @@ $principalUsuario = "$env:COMPUTERNAME\$Usuario"
 $existente = Get-ScheduledTask -TaskName $NombreTarea -ErrorAction SilentlyContinue
 if ($existente) {
     $acc = $existente.Actions | Select-Object -First 1
-    if ($acc.Execute -eq $Ejecutable -and $existente.Principal.UserId -like "*$Usuario") {
-        Write-Log "Sin cambio: la tarea '$NombreTarea' ya existe con la misma accion y usuario."
+    # V17-s2-03: una tarea anterior con retraso (PT10S) se reemplaza aunque la
+    # accion y el usuario coincidan. Sin retraso = PT0S o vacio (Task Scheduler
+    # puede guardar PT0S como "sin retraso").
+    $trigExistente = $existente.Triggers | Select-Object -First 1
+    $delayExistente = if ($null -ne $trigExistente) { "$($trigExistente.Delay)" } else { '' }
+    $sinRetraso = ($delayExistente -eq '' -or $delayExistente -eq 'PT0S')
+    if ($acc.Execute -eq $Ejecutable -and $existente.Principal.UserId -like "*$Usuario" -and $sinRetraso) {
+        Write-Log "Sin cambio: la tarea '$NombreTarea' ya existe con la misma accion, usuario y sin retraso."
         Write-Log "== Fin $Paso =="
         return
     }
-    Write-Log "La tarea '$NombreTarea' existe con otra configuracion: se reemplaza."
+    Write-Log "La tarea '$NombreTarea' existe con otra configuracion (retraso '$delayExistente'): se reemplaza."
 }
 
 $accion   = New-ScheduledTaskAction -Execute $Ejecutable -WorkingDirectory (Split-Path -Parent $Ejecutable)

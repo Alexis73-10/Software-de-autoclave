@@ -145,7 +145,10 @@ def ejecutar(*, es_admin, listar_monitores, pedir_toque, escritor, ruta_respaldo
     except Exception as e:
         log(f"No se pudo leer Digimon ({e}).", "ERROR")
         return ERROR
-    armado = digimon.armar_valores(pares, digimon.prefijo_observado(existentes))
+    prefijo, aviso_prefijo = digimon.elegir_prefijo(existentes, [h for h, _ in pares])
+    if aviso_prefijo:
+        log(f"Aviso: {aviso_prefijo}.", "WARN")
+    armado = digimon.armar_valores(pares, prefijo)
     for rechazo in armado.rechazos:
         log(f"Descartado: {rechazo}", "WARN")
     for aviso in digimon.conflictos(armado.valores, existentes):

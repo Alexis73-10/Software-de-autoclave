@@ -25,9 +25,10 @@
 #     ({e6f07b5f-...} = GUID_DEVINTERFACE_MONITOR).
 # Mayúsculas/minúsculas: se escriben TAL CUAL las devuelve Windows (no se
 # cambian); las comparaciones (duplicados) no distinguen mayúsculas.
-# DECISIÓN SIN CONFIRMAR: el prefijo "20-". Para no depender de él, si la
-# clave ya tiene valores con prefijo numérico (asociaciones previas hechas por
-# Windows) se usa el mismo prefijo (prefijo_observado). Verificación manual
+# DECISIÓN SIN CONFIRMAR: el prefijo "20-". Revisión R2 (V17-s2-05): se usa
+# siempre "20-", salvo que todos los valores existentes tengan la forma
+# completa con un mismo prefijo y uno de ellos sea un táctil tocado en esta
+# pasada (elegir_prefijo); otros prefijos observados solo se avisan. Verificación manual
 # pendiente en el PC de prueba: comparar con una exportación de la clave hecha
 # por MultiDigitizer (hoja de banco).
 #
@@ -80,15 +81,41 @@ def es_ruta_monitor(ruta: str) -> bool:
     return bool(_RE_MONITOR.match(ruta or ""))
 
 
-def prefijo_observado(nombres) -> str:
-    """Prefijo numérico de los valores que ya hay en Digimon si todos los que
-    lo tienen coinciden; si no hay ninguno o no coinciden, PREFIJO_POR_DEFECTO."""
-    vistos = set()
-    for n in nombres or ():
-        m = _RE_PREFIJO.match(n or "")
-        if m:
-            vistos.add(m.group(1))
-    return vistos.pop() if len(vistos) == 1 else PREFIJO_POR_DEFECTO
+def elegir_prefijo(existentes: dict, hids_tocados=()):
+    """V17-s2-05 (revisión R2): prefijo del nombre de los valores nuevos.
+    Devuelve (prefijo, aviso_o_None).
+
+    Siempre PREFIJO_POR_DEFECTO ("20-"), salvo un caso: TODOS los valores que
+    ya hay en Digimon tienen la forma completa "<n>-" + ruta HID (es_ruta_hid)
+    = ruta de monitor (es_ruta_monitor), con el mismo prefijo P, y al menos uno
+    de esos HID es un digitalizador tocado en esta pasada (o sea, una pantalla
+    táctil confirmada por Raw Input, uso 0x04). Entonces se usa P: es la forma
+    que Windows dejó para estas mismas pantallas, y con "20-" quedaría una
+    segunda entrada del mismo táctil. Cualquier otro prefijo observado solo se
+    avisa en el log (lo más seguro: no copiar formatos de origen dudoso, p. ej.
+    de un lápiz u otro digitalizador)."""
+    tocados = {normalizar_ruta(h).lower() for h in hids_tocados or ()}
+    prefijos, todos_bien, alguno_tocado = set(), True, False
+    for nombre, valor in (existentes or {}).items():
+        dato = valor[0] if isinstance(valor, (tuple, list)) else valor
+        m = _RE_PREFIJO.match(nombre or "")
+        hid = nombre[len(m.group(1)):] if m else ""
+        if not m or not es_ruta_hid(hid) or not isinstance(dato, str) or not es_ruta_monitor(dato):
+            todos_bien = False
+            if m:
+                prefijos.add(m.group(1))
+            continue
+        prefijos.add(m.group(1))
+        if hid.lower() in tocados:
+            alguno_tocado = True
+    otros = sorted(prefijos - {PREFIJO_POR_DEFECTO})
+    if todos_bien and len(prefijos) == 1 and otros and alguno_tocado:
+        return otros[0], (f"se usa el prefijo {otros[0]} que Windows ya dejó en Digimon para estas "
+                          "mismas pantallas táctiles")
+    if otros:
+        return PREFIJO_POR_DEFECTO, (f"Digimon ya tiene valores con prefijo {', '.join(otros)}: "
+                                     f"se escribe igual con {PREFIJO_POR_DEFECTO}")
+    return PREFIJO_POR_DEFECTO, None
 
 
 @dataclass
