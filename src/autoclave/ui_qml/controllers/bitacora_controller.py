@@ -46,6 +46,7 @@ class BitacoraController(QObject):
         self._categorias: list[str] = list(CATEGORIAS)
         self._desde = ""
         self._hasta = ""            # "" = hoy (se calcula en cada consulta)
+        self._hoy_visto = self._hoy()
         self._usuario = ""
         self._categoria = ""
         self._mensaje = ""
@@ -78,6 +79,10 @@ class BitacoraController(QObject):
 
     @Slot()
     def cargar(self) -> None:
+        # R4 (V17-s4-04): si cambió el día, `hoy` y `hasta` (por omisión) se refrescan
+        if self._hoy() != self._hoy_visto:
+            self._hoy_visto = self._hoy()
+            self.filtrosChanged.emit()
         r = self._s().enviar("GET", self.ruta())
         d = r.datos if r.ok and isinstance(r.datos, dict) else None
         if d is not None and isinstance(d.get("filas"), list):

@@ -891,7 +891,10 @@ Item {
         objectName: "detalleAlarmaPreciclo"
         alarmas: raiz.alarmas
         despejable: panelNotificaciones.despejable(datos.id) && raiz.comandosSistema !== null
+        // R4 (V17-s4-01): el motivo del rechazo de DESPEJAR, dentro de la ventana
+        mensaje: raiz.comandosSistema?.mensajeDespejar ?? ""
         onDespejarPulsado: (model) => raiz.comandosSistema?.despejarAlarma(model.id)
+        onCerrada: if (raiz.comandosSistema?.descartarMensajeDespejar) raiz.comandosSistema.descartarMensajeDespejar()
     }
     PanelNotificaciones {
         id: panelNotificaciones

@@ -118,6 +118,31 @@ def _visual(it, nombre):
             return e
     return None
 
+def visibles_de(nombre, it=None):
+    # ítems visibles con ese objectName en el árbol visual (desambigua)
+    out = []
+    for h in (it or ventana.contentItem()).childItems():
+        if h.objectName() == nombre and h.isVisible():
+            out.append(h)
+        out.extend(visibles_de(nombre, h))
+    return out
+
+def es_descendiente(item, ancestro):
+    while item is not None:
+        if item == ancestro:
+            return True
+        item = item.parentItem()
+    return False
+
+def buscar_en(obj, nombre):
+    return obj.findChild(QObject, nombre) or _visual(obj, nombre)
+
+def tocar(item):
+    from PySide6.QtCore import QPoint, Qt
+    c = item.mapToScene(item.boundingRect().center()).toPoint()
+    QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, QPoint(c.x(), c.y()))
+    QTest.qWait(80)
+
 def buscar(nombre):
     # árbol de objetos y, si no está (delegados de Repeater/ListView), el visual
     return ventana.findChild(QObject, nombre) or _visual(ventana.contentItem(), nombre)
@@ -197,8 +222,10 @@ r["abierta"] = detalle.property("abierta")
 capa = buscar("capaDetalleAlarma")
 r["sobre_la_ventana"] = capa.parentItem() == ventana.contentItem()
 r["vistos_detalle"] = textos()
-r["boton_despejar"] = buscar("botonDespejarDetalle").isVisible()
-buscar("botonDespejarDetalle").pulsado.emit()
+# R4 (V17-s4-06): clic real sobre el único DESPEJAR visible
+_vis = visibles_de("botonDespejarDetalle")
+r["boton_despejar"] = len(_vis) == 1
+tocar(_vis[0])
 QTest.qWait(50)
 r["despejadas"] = sistema.property("despejadas").toVariant()
 # la alarma deja de estar activa con la ventana abierta: sin acciones
@@ -293,12 +320,20 @@ Window {
         property string mensaje: ""
         property string mensajeDespejar: ""
         property var despejadas: []
+        property int confirmaciones: 0
         function descartarMensajeDespejar() { mensajeDespejar = "" }
         function despejarAlarma(c) { despejadas = despejadas.concat([c]) }
+        function confirmarEstadoSeguro() { confirmaciones += 1 }
     }
     QtObject {
         id: puenteFalso
         objectName: "puenteFalso"
+        // R4 (V17-s4-06): estado seguro por confirmar, para ver el botón
+        property bool estadoSeguroActivo: true
+        property bool estadoSeguroRequiereConfirmacion: true
+        property bool paroActivo: false
+        property bool noAbrir: false
+        property bool modoPrueba: false
         property var alarms: ventana.modelo
         property bool connected: true
         property string estadoTarjeta: "ok"
@@ -330,9 +365,22 @@ QTest.qWait(100)
 detalle = buscar("detalleAlarmaPreciclo")
 r["abierta"] = detalle.property("abierta")
 r["vistos_detalle"] = textos()
-buscar("botonDespejarDetalle").pulsado.emit()
-QTest.qWait(50)
+# R4 (V17-s4-06): hay dos ventanas de detalle (Preciclo y campana) con los
+# mismos objectName; se toca el DESPEJAR visible, con clic real
+visibles = visibles_de("botonDespejarDetalle")
+r["despejar_visibles"] = len(visibles)
+r["despejar_en_detalle_preciclo"] = bool(visibles) and es_descendiente(visibles[0], buscar_en(detalle, "capaDetalleAlarma"))
+tocar(visibles[0])
 r["despejadas"] = sistema.property("despejadas").toVariant()
+# «Confirmar y llevar a estado seguro»: visible y FUERA de la ventana emergente
+capa = buscar_en(detalle, "capaDetalleAlarma")
+confirmar = visibles_de("botonConfirmarEstadoSeguro")
+r["confirmar_visible"] = len(confirmar) >= 1
+r["confirmar_fuera"] = all(not es_descendiente(b, capa) for b in confirmar)
+buscar_en(capa, "botonCerrarDetalle").pulsado.emit()
+QTest.qWait(50)
+tocar(confirmar[0])
+r["confirmaciones"] = sistema.property("confirmaciones")
 """
 
 
@@ -346,5 +394,10 @@ def test_preciclo_en_pantalla():
     assert r["abierta"] is True
     assert t["descripcion"] in r["vistos_detalle"] and t["accion"] in r["vistos_detalle"]
     assert r["despejadas"] == ["COM-02|X"]
+    # R4 (V17-s4-06): el DESPEJAR tocado es el único visible, el del detalle de Preciclo
+    assert r["despejar_visibles"] == 1 and r["despejar_en_detalle_preciclo"] is True
+    # «Confirmar y llevar a estado seguro» se ve fuera de la ventana y funciona con clic real
+    assert r["confirmar_visible"] is True and r["confirmar_fuera"] is True
+    assert r["confirmaciones"] == 1
     # SON-01: la entrada de la sonda No en uso lleva «(monitoreo)»
     assert any(v.endswith("(monitoreo)") for v in r["vistos"]), r["vistos"]

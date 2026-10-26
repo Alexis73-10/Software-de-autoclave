@@ -282,7 +282,10 @@ Item {
         anchors.horizontalCenter: parent.horizontalCenter
         y: raiz.height * 0.935 - height / 2
         text: {
-            const version = raiz.versionSoftware !== "" ? "Software v" + raiz.versionSoftware : ""
+            // Tanda 17 (R4, V17-s4-05): rótulo del catálogo (antes literal "Software v");
+            // se sigue mostrando en la intro (D-07; DECISIÓN SIN CONFIRMAR)
+            const version = raiz.versionSoftware !== ""
+                            ? I18n.t("arranque.version_software", I18n.lang, { version: raiz.versionSoftware }) : ""
             return [raiz.modelo, version].filter(p => p !== "").join("  ·  ")
         }
         color: Colores.textoFechaReposo
