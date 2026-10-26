@@ -14,7 +14,6 @@ Item {
     id: raiz
 
     property real escala: 1
-    property string version: ""
     property bool atrasHabilitado: true
     // Home: activo en Menú, Login y OPCIONES (lo fija cada pantalla).
     property bool inicioActivo: false
@@ -111,15 +110,8 @@ Item {
         MouseArea { anchors.fill: parent; onClicked: raiz.cerrarSesionPulsado() }
     }
 
-    Text {
-        x: raiz.width - raiz.m(22) - width
-        y: raiz.m(139 - 18) - baselineOffset
-        text: raiz.version
-        color: "#8F8F8F"   // versionTexto de PantallaPreciclo.qml
-        font.family: Tipografia.familia
-        font.weight: Tipografia.pesoBold
-        font.pixelSize: raiz.fuente(20)
-    }
+    // UI-VER (tanda 17): la barra ya no muestra la versión (solo Información
+    // del equipo y del sistema)
 
     // contenido propio de la pantalla (B1); encima del fondo y los separadores
     Item { id: capa; anchors.fill: parent }

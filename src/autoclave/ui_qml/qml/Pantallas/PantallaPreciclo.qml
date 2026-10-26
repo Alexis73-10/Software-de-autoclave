@@ -108,7 +108,6 @@ Item {
     // Perfil de instalación; "—" si no se pudo leer
     property string modelo: (infoEquipo?.modelo ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
     property string serie: (infoEquipo?.serie ?? "") || I18n.t("sistema.sin_lectura", I18n.lang)
-    property string version: I18n.t("app.version", I18n.lang)
 
     // ---- acciones: las resuelve quien usa la pantalla (servicios, plan §7) ----
     signal puertaPulsada()        // abrir si puertaAbierta es false, cerrar si es true
@@ -821,7 +820,6 @@ Item {
         y: parent.height - raiz.m(1917 - 1746)
         escala: raiz.m(1)
         personalizada: true
-        version: ""
 
         // Celda izquierda: icono de equipo, modelo y serie (antes x 33..347)
         Item {
@@ -846,17 +844,6 @@ Item {
             }
         }
 
-        // Celda central: versión
-        Text {
-            objectName: "versionPreciclo"
-            x: barraInferior.mx((313 + 800) / 2) - width / 2
-            y: (parent.height - height) / 2
-            text: raiz.version
-            color: raiz.paleta.versionTexto
-            font.family: Tipografia.familia
-            font.weight: Tipografia.pesoBold
-            font.pixelSize: raiz.fuente(20)
-        }
 
         // Celda derecha: avatar (iniciar sesión). Deshabilitado sin conexión
         // (PROVISIONAL: opacidad 0.4)

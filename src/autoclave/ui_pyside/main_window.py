@@ -183,10 +183,8 @@ class MainWindowFluent(QMainWindow):
                 btn.setToolTip("Próximamente")
             layout.addWidget(btn, stretch=1)
 
-        lbl_ver = QLabel("V:1.0")
-        lbl_ver.setStyleSheet("color: #bbb; font-size: 11px; padding-right: 10px;")
-        lbl_ver.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        layout.addWidget(lbl_ver)
+        # UI-VER (tanda 17): sin "V:1.0"; la versión solo se muestra en
+        # Información del equipo y del sistema
 
         return footer
 

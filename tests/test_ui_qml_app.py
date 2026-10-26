@@ -269,7 +269,8 @@ def test_main_qml_navega_a_ciclo_sin_avisos(conectado, door, puerta_abierta):
     assert salida["puerta"] == door
     assert salida["puertaAbierta"] is puerta_abierta
     assert salida["conteoAlarmas"] == 2
-    assert salida["version"] == "V: 1.0"
+    # Tanda 17 (UI-VER, decisión de Cristian): la pantalla ya no tiene la propiedad version
+    assert salida["version"] is None
     assert salida["cicloActivo"] == "01"
     assert salida["login_abre"] is True
     assert salida["login_regresa"] is True

@@ -189,7 +189,6 @@ Window {
             objectName: "galeriaBarraInferior"
             x: lienzo.m(43); y: lienzo.m(1600)
             escala: lienzo.escala
-            version: "V: 1.0"
         }
     }
 }

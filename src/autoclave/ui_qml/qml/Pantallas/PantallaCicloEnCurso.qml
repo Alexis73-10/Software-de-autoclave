@@ -62,7 +62,6 @@ Item {
     property int conteoNotificaciones: panelNotificaciones.conteoTotal
     property string modelo: infoEquipo?.modelo ?? ""
     property string serie: infoEquipo?.serie ?? ""
-    property string version: I18n.t("app.version", I18n.lang)
     // [{fase, estado, duracion_s}] de las fases que aplican
     property var fases: progreso?.fases ?? []
     // segundos (reloj monotónico del backend); restanteS null = no estimable;
@@ -777,7 +776,6 @@ Item {
         y: raiz.yb(1746)
         escala: raiz.m(1)
         personalizada: true
-        version: raiz.version
 
         // Celda izquierda: icono de equipo, modelo y serie
         Item {
