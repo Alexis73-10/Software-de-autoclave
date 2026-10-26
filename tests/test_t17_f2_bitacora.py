@@ -137,9 +137,33 @@ def test_contexto_instalacion_en_curso_sigue_el_perfil(monkeypatch):
     assert ctx_mod.instalacion_en_curso() is False
 
 
-def test_el_backend_conecta_la_supresion_a_la_base():
-    fuente = (SRC / "backend" / "context.py").read_text(encoding="utf-8")
-    assert "self.db.instalacion_en_curso = instalacion_en_curso" in fuente   # dentro de abrir_base_datos
+def test_supresion_se_enclava_al_ver_un_perfil_valido():
+    """Revisión V17-s3-01: tras ver un perfil válido no se vuelve a leer y un
+    perfil que luego se corrompe no suprime la bitácora."""
+    from autoclave.backend.context import SupresionInstalacion
+    respuestas = iter([True, True, False, True, True])
+    llamadas = []
+
+    def consulta():
+        llamadas.append(1)
+        return next(respuestas)
+    s = SupresionInstalacion(consulta)
+    assert [s(), s(), s(), s(), s()] == [True, True, False, False, False]
+    assert len(llamadas) == 3
+
+
+def test_el_backend_conecta_la_supresion_a_la_base(monkeypatch):
+    """abrir_base_datos deja en la base una SupresionInstalacion."""
+    from unittest.mock import MagicMock
+    from autoclave.backend import context as ctx_mod
+
+    class Base:
+        instalacion_en_curso = None
+    monkeypatch.setattr(ctx_mod, "DbManager", lambda: Base())
+    monkeypatch.setattr(ctx_mod, "SensorCalibrationAuditDB", MagicMock())
+    ctx = ctx_mod.BackendContext()
+    assert ctx.abrir_base_datos(1) is None
+    assert isinstance(ctx.db.instalacion_en_curso, ctx_mod.SupresionInstalacion)
 
 
 VALIDAS = {"clave_admin": "admin-nueva-1", "confirmacion_admin": "admin-nueva-1",

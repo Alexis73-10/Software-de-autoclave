@@ -884,6 +884,7 @@ class DbManager:
         if consulta is not None:
             try:
                 if consulta() is True:
+                    logger.warning("audit_log: instalación no terminada; %s no se registra", evento)
                     return "instalación en curso"
             except Exception:
                 logger.exception("audit_log: no se pudo saber si la instalación terminó; se registra")
