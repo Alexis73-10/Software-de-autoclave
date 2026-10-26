@@ -59,11 +59,14 @@ def test_una_lectura_dentro_reinicia_el_conteo(monkeypatch):
     reloj.avanzar(0.5)
     assert f.update() == FaseResult.EN_CURSO
     ap.poner(estado, temp=134.5, pres=ap.psat(137.0))  # vuelve a +2.5 K
-    for _ in range(10):
-        reloj.avanzar(0.5)
-        assert f.update() == FaseResult.EN_CURSO       # 4.5 s desde que volvió
+    # P6 / D-14.6 (tanda 16): debounce ACUMULADO (5 s en 10 s); la lectura
+    # dentro ya no reinicia el conteo. Fuera 4.5 s (0-4.5 s), dentro 0.5 s:
+    # a los 5.0 s lleva 4.5 s acumulados (EN_CURSO) y a los 5.5 s, 5.0 s
+    # (FALLO). Antes (C-07.2) hacían falta 5 s continuos desde que volvió.
     reloj.avanzar(0.5)
-    assert f.update() == FaseResult.FALLO              # 5.0 s continuos
+    assert f.update() == FaseResult.EN_CURSO           # 4.5 s acumulados
+    reloj.avanzar(0.5)
+    assert f.update() == FaseResult.FALLO              # 5.0 s acumulados
 
 
 def test_dentro_de_2_k_no_falla(monkeypatch):
