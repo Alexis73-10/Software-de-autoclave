@@ -2,13 +2,15 @@
 .SYNOPSIS
   Puente del Setup (autoclave.iss, E9 tanda 9 / D9-11) hacia los scripts de
   tools\estacion: aplica o revierte UN paso, sin interaccion, y devuelve 0 si
-  termino bien y 1 si fallo (el detalle queda en
-  %ProgramData%\Especifika\Autoclave\estacion\estacion.log).
+  termino bien y 1 si fallo (el detalle queda en <RutaDatos>\estacion\estacion.log,
+  p. ej. D:\Especifika\Autoclave\datos\estacion\estacion.log; ver _comun.ps1).
 .DESCRIPTION
-  El Setup lo instala junto a los scripts, en {app}\estacion\ (Archivos de
-  programa: solo administradores pueden cambiarlos), porque el desinstalador
-  necesita los inversos. Corre elevado (el Setup y el desinstalador piden
-  administrador).
+  El Setup lo instala junto a los scripts, en {app}\estacion\
+  (X:\Especifika\Autoclave\programa\estacion, INS-02 tanda 17: solo
+  administradores pueden cambiarlos), porque el desinstalador necesita los
+  inversos. Corre elevado (el Setup y el desinstalador piden administrador).
+  El Setup escribe RutaDatos en HKLM\SOFTWARE\Especifika\Autoclave antes de
+  llamarlo ([Registry] corre antes de ssPostInstall).
   - $ErrorActionPreference = 'Stop': un error no terminante de un paso (que
     por si solo dejaria la salida en 0) cuenta como falla.
   - Paso 01: la cuenta es la que instala (decision de Cristian, 23-oct); la

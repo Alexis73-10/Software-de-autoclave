@@ -2,14 +2,19 @@
 # Se carga con dot-sourcing desde cada script:  . "$PSScriptRoot\_comun.ps1"
 # No hace nada por si solo.
 #
-# - Log: %ProgramData%\Especifika\Autoclave\estacion\estacion.log
+# - Carpeta de la estacion (INS-02, tanda 17): <RutaDatos>\estacion, con
+#   RutaDatos de HKLM\SOFTWARE\Especifika\Autoclave (vista de 64 bits; la
+#   escribe el Setup antes de correr los pasos), p. ej.
+#   D:\Especifika\Autoclave\datos\estacion. Sin esa clave (copia anterior o
+#   scripts sueltos): %ProgramData%\Especifika\Autoclave\estacion.
+# - Log: <carpeta de la estacion>\estacion.log
 # - Respaldo de valores previos (para el script inverso):
-#   %ProgramData%\Especifika\Autoclave\estacion\respaldo_<paso>.json
+#   <carpeta de la estacion>\respaldo_<paso>.json
 #   Solo se escribe la primera vez que se cambia un valor (idempotencia: volver
 #   a correr el script no pisa el valor original con el valor ya cambiado).
 #
-# E9 (tanda 9, D9-11): el Setup da Modificar a Usuarios sobre
-# %ProgramData%\Especifika\Autoclave (el programa corre sin administrador), y
+# E9 (tanda 9, D9-11): el Setup da Modificar a Usuarios sobre la carpeta de
+# datos (el programa corre sin administrador), y
 # los inversos corren como administrador con lo que diga respaldo_<paso>.json.
 # Por eso:
 #   - la carpeta estacion\ queda solo para Administradores y SYSTEM (dueno
@@ -21,7 +26,36 @@
 
 Set-StrictMode -Version 2.0
 
-$script:DirEstacion = Join-Path $env:ProgramData 'Especifika\Autoclave\estacion'
+function Get-RutaDatosRegistro {
+    <# RutaDatos de HKLM\SOFTWARE\Especifika\Autoclave en la vista de 64 bits
+       (tambien desde un PowerShell de 32 bits), o $null si no hay clave, falta
+       el valor o no es una ruta absoluta X:\... Mismos nombres que
+       utils/resources.py (CLAVE_REGISTRO, VALOR_RUTA_DATOS) y autoclave.iss. #>
+    $base = $null; $clave = $null
+    try {
+        $base = [Microsoft.Win32.RegistryKey]::OpenBaseKey('LocalMachine', 'Registry64')
+        $clave = $base.OpenSubKey('SOFTWARE\Especifika\Autoclave')
+        if ($null -eq $clave) { return $null }
+        $valor = $clave.GetValue('RutaDatos')
+        if (($valor -is [string]) -and ($valor -match '^[A-Za-z]:\\') -and ($valor -notmatch '\.\.')) {
+            return $valor.TrimEnd('\')
+        }
+        return $null
+    } catch {
+        return $null
+    } finally {
+        if ($null -ne $clave) { $clave.Close() }
+        if ($null -ne $base) { $base.Close() }
+    }
+}
+
+$script:RutaDatos = Get-RutaDatosRegistro
+if ($script:RutaDatos) {
+    $script:DirEstacion = Join-Path $script:RutaDatos 'estacion'
+} else {
+    # respaldo: disposicion anterior a la tanda 17 (sin clave de registro)
+    $script:DirEstacion = Join-Path $env:ProgramData 'Especifika\Autoclave\estacion'
+}
 $script:ArchivoLog  = Join-Path $script:DirEstacion 'estacion.log'
 $script:EstacionProtegida = $false
 

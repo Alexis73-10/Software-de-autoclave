@@ -15,12 +15,20 @@
 # programa no queda corriendo como administrador. Nada se escribe en la USB.
 # Volver a instalar sobre una copia existente la actualiza (los datos se
 # conservan); si la copia instalada está abierta, la copia falla y se avisa.
+#
+# Tanda 17 (INS-02): el Setup (tools/instalador/autoclave.iss) instala en
+# X:\Especifika\Autoclave\{programa,datos} y anota RutaPrograma/RutaDatos en el
+# registro; esta_instalado_aqui() reconoce también esa copia. El resto de este
+# instalador (copia a Archivos de programa) no cambia: es la disposición
+# anterior, que el Setup nuevo rechaza (pide desinstalarla).
 
 import ctypes
 import os
 import shutil
 import subprocess
 import sys
+
+from autoclave.utils import resources
 
 TITULO = "Autoclave — Especifika"
 # Usuarios (BUILTIN\Users) por SID: el nombre cambia con el idioma de Windows
@@ -40,8 +48,16 @@ def carpeta_datos() -> str:
 
 
 def esta_instalado_aqui() -> bool:
-    """True si este proceso corre desde la copia instalada."""
-    return os.path.normcase(os.path.abspath(sys.executable)) == os.path.normcase(exe_instalado())
+    """True si este proceso corre desde la copia instalada: la de este
+    instalador (%ProgramFiles%\\Especifika\\Autoclave) o, desde la tanda 17
+    (INS-02), la del Setup, cuya carpeta anota `RutaPrograma` en
+    HKLM\\SOFTWARE\\Especifika\\Autoclave (X:\\Especifika\\Autoclave\\programa).
+    Sin esto, el programa instalado por el Setup volvería a ofrecer instalarse."""
+    if os.path.normcase(os.path.abspath(sys.executable)) == os.path.normcase(exe_instalado()):
+        return True
+    registro = resources._leer_registro_instalacion()
+    return registro is not None and resources._misma_carpeta(
+        registro[0], os.path.dirname(os.path.abspath(sys.executable)))
 
 
 def _mensaje(texto: str, estilo: int) -> int:
