@@ -466,7 +466,8 @@ _CODIGO_PARAMETRO = {
     "solo_lectura": (403, "Este parámetro no se puede modificar"),
     "tipo_invalido": (422, "Valor inválido para este parámetro"),
     "fuera_de_rango": (422, "Valor fuera del rango permitido"),
-    "incoherente": (422, "Valor incompatible con la presión atmosférica o el otro parámetro de empaque"),
+    "incoherente": (422, "Valor incompatible con otro parámetro del equipo (presión atmosférica, "
+                    "empaque o límites de presión)"),
     "sin_base_de_datos": (503, "No se pudo guardar el parámetro"),
 }
 
