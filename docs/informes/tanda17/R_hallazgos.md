@@ -67,3 +67,12 @@
 - V17-s1-06 corregido: `PrepararEstacion` crea `datos\estacion` protegido; una preexistente en instalación nueva se aparta a `estacion_anterior_<fecha>`.
 - V17-s1-07 corregido: pruebas renombradas por tipo (`texto`, `replica`, `ejecuta`, `parser`); pruebas manuales nuevas en `tools/instalador/LEEME.md`.
 - DECISIONES SIN CONFIRMAR: (1) si falla la consulta de bus, solo se preselecciona la del sistema; (2) también se excluyen SD y MMC; (3) `estacion` preexistente se aparta; (4) con reversión fallida se conservan `RutaPrograma` y `Estacion`; (5) `AUTOCLAVE_RUTA_DATOS` prevalece; (6) el exe desde USB solo avisa. Pendiente en el PC de prueba: `AplicarAcl` como administrador con código 0.
+
+### Resolución R3 (rama `tanda-17-r3`: 364e2eb, 1927438; y `632e4b9` en la sesión principal)
+- V17-s3-01 corregido (sesión principal): `SupresionInstalacion` enclavada al ver un perfil válido; WARNING al suprimir.
+- V17-s3-02 corregido: `protocolo_fallo.bloqueado_motivo_sin_presion`; con la presión perdida CIC-10 se activa con el siguiente motivo (cámara sellada, Principal sin lectura, enfriamiento o líquidos calientes); solo presión → sin CIC-10. DECISIÓN SIN CONFIRMAR: la trama AI vencida cuenta como presión sin lectura.
+- V17-s3-03: se mantiene retirado `salida_prueba_cortada` (BIT-01 literal: del modo prueba solo tres eventos); queda en el log de desarrollo y en el aviso de pantalla. **Para confirmar con Cristian.**
+- V17-s3-04: DECISIÓN SIN CONFIRMAR (s3 n.º 2): la recuperación de arranque pendiente también se libera con presión vigente.
+- V17-s3-05 corregido: `test_s9_planta_simulada.py` con presión vigente y conjunto exacto; prueba de comportamiento de la conexión en el backend (`test_t17_f2_bitacora.py`).
+- V17-s3-06: documentado en `control_loop.py` sin cambio (solo puede negar la liberación; filtrar por `sensores_en_uso` podría liberar con una sonda fría).
+- Pruebas tocadas por R3: `tests/test_s9_estado_seguro_arranque.py:200` (CIC-10 por el Principal, no por la presión; ESG-01).
