@@ -37,32 +37,72 @@
 # Referencia lo DETIENE y, al volver a la banda, lo REINICIA desde cero
 # (C-13, tanda 12). F0 no se reinicia; su timeout (2 x tiempo) no cambia.
 #
-# Fallas (todas con debounce por TIEMPO, _DEBOUNCE_FALLA_S = 5 s continuos en
-# monotonic, C-07.2 tanda 12; una lectura dentro de rango reinicia el conteo):
+# Fallas (P6 / D-14.6, tanda 16: debounce ACUMULADO, DebounceAcumulado(5, 10):
+# se confirma con 5 s fuera de rango sumados dentro de los últimos 10 s, en
+# monotonic; antes, C-07.2 tanda 12, 5 s continuos que una sola lectura dentro
+# de rango reiniciaba, y una señal oscilante nunca confirmaba):
 #   - temp/pres alta/baja del Principal, siempre contra temperatura_esterilizacion
 #     fija (nunca T_actual);
 #   - saturación (C-03, solo carga sólida): dT = Tsat(P) - T_principal;
 #     dT > +2 K -> CIC-12 (aire / no condensables); dT < -2 K -> CIC-13
 #     (vapor sobrecalentado o falla de la sonda);
-#   - Referencia fuera de banda sin volver en timeout_excursion_referencia
-#     -> CIC-14 (C-13.4).
+#   - Referencia fuera de banda (un debounce por Referencia para confirmar la
+#     excursión) sin volver en timeout_excursion_referencia -> CIC-14 (C-13.4);
+#   - P5 / D-14.5: la siguiente excursión confirmada después de
+#     max_reinicios_exposicion reinicios del conteo -> CIC-17.
+# La fase no completa con una falla en conteo (condición activa en el último
+# tick, `en_conteo`; V12, SAF-01).
 # Una Referencia sin lectura no participa en C-13 (C-13.7b): la vigila
-# CicloState (SEN-11, ciclo NO CONFORME, sin abortar).
+# CicloState (SEN-11, ciclo NO CONFORME, sin abortar). Si su excursión ya
+# estaba confirmada, la exposición sigue detenida y CIC-14 sigue corriendo
+# (P8 / D-14.8).
+#
+# SAF-05 (P8, tanda 16): el tramo sin lectura que se descuenta de la
+# exposición empieza en la última lectura válida, no en el primer tick sin
+# dato.
+#
+# VCH (tanda 16, solo modo chaqueta: estado.modo_vapor == "chaqueta"): la
+# lógica de decisión de arriba no cambia; cambia solo la válvula actuadora.
+#   - Donde el modo cámara conmuta vapor_camara, el modo chaqueta conmuta
+#     vapor_chaqueta (nunca la enciende con estado.inhibir_vapor_chaqueta,
+#     corte D-CHQ que fija CICLO).
+#   - vapor_camara se ordena ON en cada tick mientras no haya aislamiento.
+#   - Aislamiento VCH-AIS (estado.aislamiento_camara, compartido con
+#     CALENTAMIENTO): entra en P >= P_control_max, sale con P <=
+#     P_control_max - histeresis_cierre_camara sostenida 3 s. Mientras dura,
+#     vapor_camara y vapor_chaqueta OFF forzadas. Reemplaza al techo con
+#     histéresis de RECUPERACION (C-08.3) y al techo del PWM: un solo
+#     mecanismo de techo. F0 y el conteo de exposición siguen.
+#     Sostenido más de timeout_aislamiento_camara -> CIC-15; max_aislamientos
+#     en ventana_aislamientos_camara -> CIC-16.
+#   - Sin lectura del Principal o de la presión: vapor_chaqueta OFF y
+#     vapor_camara abierta, salvo un aislamiento en curso (no se reabre a
+#     ciegas una cámara aislada; DECISIÓN SIN CONFIRMAR).
+#   - COMPLETADO y FALLO: las dos OFF.
 
 import math
 import time
 import logging
 from autoclave.core.runtime.steam import p_saturacion_kpa, t_saturacion_c
 from autoclave.core.runtime.sensores_ciclo import NOMBRES
-from autoclave.state_machine.alarms.catalogo import CIC_09, CIC_11, CIC_12, CIC_13, CIC_14
+from autoclave.state_machine.alarms.catalogo import (
+    CIC_09, CIC_11, CIC_12, CIC_13, CIC_14, CIC_15, CIC_16, CIC_17)
 from autoclave.core.runtime import motivos_fase
+from autoclave.core.managers import limites_equipo as le
+from autoclave.installation.profile import MODO_CHAQUETA
+from .aislamiento_camara import AislamientoCamara
+from .debounce_acumulado import DebounceAcumulado
 from .base_fase import BaseFase, FaseResult
 
 logger = logging.getLogger(__name__)
 
-# C-07.2 (tanda 12): segundos continuos fuera de rango antes de FALLO (antes
-# 3 lecturas). También rige C-03 y la confirmación de excursión de C-13.
+# P6 / D-14.6 (tanda 16; DECISIÓN SIN CONFIRMAR, a reajustar con el banco):
+# segundos fuera de rango acumulados dentro de la ventana antes de FALLO. Rige
+# las 4 fallas del Principal, C-03 y la confirmación de excursión de C-13.
 _DEBOUNCE_FALLA_S = 5.0
+_DEBOUNCE_VENTANA_S = 10.0
+_CLAVES_FALLA = ("temp_alta", "temp_baja", "pres_alta", "pres_baja",
+                 "aire", "sobrecalentado")
 # C-03: umbral de |Tsat(P) - T_principal| (K)
 _UMBRAL_SATURACION_K = 2.0
 # C-08.2: histéresis de salida de RECUPERACION
@@ -81,6 +121,12 @@ _PAUSA_MAX_RANGO_S = (5.0, 120.0)
 # J12, aquí el defecto y el rango por si falta o es inválido
 _TIMEOUT_EXCURSION_DEFECTO_MIN = 5
 _TIMEOUT_EXCURSION_RANGO_MIN = (1, 30)
+# VCH §5: esterilizacion.histeresis_cierre_camara (kPa); el JSON lo pone s4
+_HIST_CIERRE_DEFECTO_KPA = 3.0
+_HIST_CIERRE_RANGO_KPA = (1.0, 10.0)
+# P5 / D-14.5: esterilizacion.max_reinicios_exposicion (int)
+_MAX_REINICIOS_DEFECTO = 3
+_MAX_REINICIOS_RANGO = (0, 10)
 
 
 def _numero(valor) -> bool:
@@ -100,15 +146,23 @@ class EsterilizacionFase(BaseFase):
         self._en_recuperacion = True
         self._techo_recup_off = False
 
-        # C-07.2: inicio (monotonic) de cada condición de falla sostenida
-        self._falla_desde: dict[str, float] = {}
+        # P6 / D-14.6: debounce acumulado de cada condición de falla
+        self._debounce: dict[str, DebounceAcumulado] = {
+            clave: DebounceAcumulado(_DEBOUNCE_FALLA_S, _DEBOUNCE_VENTANA_S)
+            for clave in _CLAVES_FALLA}
         # C-13: por Referencia fuera de banda {"desde", "tmin", "tmax",
         # "confirmada"}; CIC-09 una sola vez por ciclo y sensor
         self._ref_fuera: dict[str, dict] = {}
         self._ref_alertada: set[str] = set()
+        # P6: debounce de confirmación de excursión, uno por Referencia
+        self._ref_debounce: dict[str, DebounceAcumulado] = {}
+        # P5 / D-14.5: reinicios del conteo de exposición por C-13.3
+        self.reinicios_exposicion = 0
         # C-10.2: inicio del tramo en curso sin lectura del Principal o la presión
         self._sin_lectura_desde = None
         self.sin_lectura_s = 0.0
+        # SAF-05: instante (monotonic) de la última lectura válida de los dos
+        self._ultima_lectura_valida = None
 
         # Temporizadores de dos estados (vapor PWM, escape lento, escape rápido)
         self._t_pulso_pwm = None
@@ -156,6 +210,33 @@ class EsterilizacionFase(BaseFase):
         bajo, alto = _TIMEOUT_EXCURSION_RANGO_MIN
         return float(min(max(valor, bajo), alto))
 
+    def _histeresis_cierre_kpa(self) -> float:
+        """VCH §5: histeresis_cierre_camara (kPa), recortada a 1-10; sin un
+        valor numérico válido, 3 kPa."""
+        try:
+            valor = self.cycle.get_param("esterilizacion", "histeresis_cierre_camara",
+                                         default=_HIST_CIERRE_DEFECTO_KPA)
+        except Exception:
+            valor = None
+        if not _numero(valor):
+            return _HIST_CIERRE_DEFECTO_KPA
+        bajo, alto = _HIST_CIERRE_RANGO_KPA
+        return float(min(max(float(valor), bajo), alto))
+
+    def _max_reinicios(self) -> int:
+        """P5 / D-14.5: max_reinicios_exposicion (int), recortado a 0-10; sin
+        un valor numérico válido, 3. Un valor no entero se trunca hacia abajo
+        (más conservador)."""
+        try:
+            valor = self.cycle.get_param("esterilizacion", "max_reinicios_exposicion",
+                                         default=_MAX_REINICIOS_DEFECTO)
+        except Exception:
+            valor = None
+        if not _numero(valor):
+            return _MAX_REINICIOS_DEFECTO
+        bajo, alto = _MAX_REINICIOS_RANGO
+        return int(min(max(math.floor(valor), bajo), alto))
+
     def _carga_solida(self) -> bool:
         """C-03 solo con globals.tipo_carga = "solido" (defecto). Un valor
         desconocido se trata como sólido (se vigila: falla segura)."""
@@ -168,6 +249,30 @@ class EsterilizacionFase(BaseFase):
     # ------------------------------------------------------------------
     # Estado expuesto
     # ------------------------------------------------------------------
+
+    def _modo_chaqueta(self) -> bool:
+        """VCH-SEL: modo chaqueta solo con estado.modo_vapor == "chaqueta"
+        (lo fija CicloState.reset()); cualquier otro valor es modo cámara."""
+        return getattr(self.estado, "modo_vapor", None) == MODO_CHAQUETA
+
+    @property
+    def controla_vapor_chaqueta(self) -> bool:
+        """VCH §4.7: en modo chaqueta la fase controla vapor_chaqueta y CICLO
+        (_mantener_chaqueta) no debe tocarla."""
+        return self._modo_chaqueta() is True
+
+    def _inhibir_chaqueta(self) -> bool:
+        """D-CHQ: corte de chaqueta fijado por CICLO antes de update()."""
+        return getattr(self.estado, "inhibir_vapor_chaqueta", None) is True
+
+    def _aislamiento(self) -> AislamientoCamara:
+        """VCH-AIS: la instancia del ciclo (compartida con CALENTAMIENTO); si
+        el estado no trae una (dobles de prueba), se crea y se asigna."""
+        ais = getattr(self.estado, "aislamiento_camara", None)
+        if not isinstance(ais, AislamientoCamara):
+            ais = AislamientoCamara()
+            self.estado.aislamiento_camara = ais
+        return ais
 
     @property
     def exposicion_detenida(self) -> bool:
@@ -194,6 +299,9 @@ class EsterilizacionFase(BaseFase):
 
     def _apagar_salidas(self):
         self.set_do.vapor_camara_off()
+        if self._modo_chaqueta():
+            # VCH: COMPLETADO y FALLO cierran también la chaqueta
+            self.set_do.vapor_chaqueta_off()
         self.set_do.descompresion_lenta_off()
         self.set_do.descompresion_rapida_off()
         self.estado.fase_en_sostenimiento = False
@@ -219,14 +327,14 @@ class EsterilizacionFase(BaseFase):
         self.alarma_fallo = (codigo_alarma, valores)
         return self._fallo(motivo)
 
-    def _sostenida(self, clave: str, condicion: bool, now: float) -> bool:
-        """C-07.2: True si `condicion` se mantiene sin interrupción desde hace
-        _DEBOUNCE_FALLA_S. Una lectura dentro de rango reinicia el conteo."""
-        if not condicion:
-            self._falla_desde.pop(clave, None)
-            return False
-        desde = self._falla_desde.setdefault(clave, now)
-        return now - desde >= _DEBOUNCE_FALLA_S
+    def _confirmada(self, clave: str, condicion: bool, now: float) -> bool:
+        """P6 / D-14.6: True si `condicion` suma _DEBOUNCE_FALLA_S dentro de
+        los últimos _DEBOUNCE_VENTANA_S y está activa ahora."""
+        return self._debounce[clave].actualizar(condicion, now)
+
+    def _falla_en_conteo(self) -> bool:
+        """V12 (SAF-01): alguna condición de falla activa en su último tick."""
+        return any(d.en_conteo for d in self._debounce.values())
 
     # ------------------------------------------------------------------
     # Pausas de la exposición
@@ -282,24 +390,34 @@ class EsterilizacionFase(BaseFase):
         except Exception:
             logger.exception("Esterilización: no se pudo anotar la excursión de %s", sensor)
 
+    def _ref_deb(self, sensor) -> DebounceAcumulado:
+        deb = self._ref_debounce.get(sensor)
+        if deb is None:
+            deb = DebounceAcumulado(_DEBOUNCE_FALLA_S, _DEBOUNCE_VENTANA_S)
+            self._ref_debounce[sensor] = deb
+        return deb
+
     def _vigilar_referencias(self, minimo, maximo, now, tiempo_seg) -> FaseResult | None:
         """C-13. Banda [T_est - brecha_error_temperatura, T_est +
         rango_temperatura_ester] para cada Referencia con lectura. Devuelve
-        FALLO (CIC-14) si una excursión no vuelve en el timeout; si no, None."""
+        FALLO (CIC-14 sin retorno en el timeout; CIC-17 por el tope de
+        reinicios, P5) o None."""
         timeout_min = self._timeout_excursion_min()
         for sensor, temp in self._temps_referencia().items():
             nombre = NOMBRES.get(sensor, sensor)
             # C-13.7b: sin lectura no participa (no detiene ni reinicia la
             # exposición); lo vigila CicloState (SEN-11, NO CONFORME). Una
-            # excursión aún sin confirmar se descarta; una ya confirmada solo
-            # la cierra una lectura dentro de la banda, y su timeout sigue
-            # corriendo (si no, la fase quedaría detenida sin límite).
+            # excursión aún sin confirmar se descarta (con su debounce); una
+            # ya confirmada solo la cierra una lectura dentro de la banda y
+            # su timeout sigue corriendo (P8 / D-14.8: si no, la fase quedaría
+            # detenida sin límite).
             if not _numero(temp) or temp == 0:
                 registro = self._ref_fuera.get(sensor)
-                if registro is None:
-                    continue
-                if not registro["confirmada"]:
-                    del self._ref_fuera[sensor]
+                if registro is None or not registro["confirmada"]:
+                    self._ref_fuera.pop(sensor, None)
+                    deb = self._ref_debounce.get(sensor)
+                    if deb is not None:
+                        deb.reset()
                     continue
                 if now - registro["desde"] >= timeout_min * 60:
                     minutos = f"{timeout_min:.0f}"
@@ -308,7 +426,15 @@ class EsterilizacionFase(BaseFase):
                         motivos_fase.motivo("est_excursion_referencia", sensor=nombre,
                                             minutos=minutos))
                 continue
-            if minimo <= temp <= maximo:
+
+            fuera = not (minimo <= temp <= maximo)
+            # P6: el debounce acumula también los ticks dentro de la banda,
+            # así una Referencia que oscila en el borde confirma igual.
+            # DECISIÓN SIN CONFIRMAR: no se reinicia al cerrar una excursión
+            # confirmada; si vuelve a salir dentro de la ventana de 10 s, la
+            # nueva excursión se confirma antes (lado seguro).
+            confirma = self._ref_deb(sensor).actualizar(fuera, now)
+            if not fuera:
                 registro = self._ref_fuera.pop(sensor, None)
                 if registro is not None and registro["confirmada"]:
                     self._anotar_excursion(sensor, registro, now)
@@ -317,8 +443,10 @@ class EsterilizacionFase(BaseFase):
                     if not self.exposicion_detenida:
                         # C-13.3: el conteo se reinicia desde cero
                         self._timer_fin = now + tiempo_seg
+                        self.reinicios_exposicion += 1
                         logger.warning("Esterilización: conteo de exposición reiniciado "
-                                       "(%.0f s)", tiempo_seg)
+                                       "(%.0f s), reinicio %d", tiempo_seg,
+                                       self.reinicios_exposicion)
                 continue
 
             registro = self._ref_fuera.get(sensor)
@@ -332,7 +460,7 @@ class EsterilizacionFase(BaseFase):
                 registro["salio_arriba"] = True
             transcurrido = now - registro["desde"]
 
-            if not registro["confirmada"] and transcurrido >= _DEBOUNCE_FALLA_S:
+            if not registro["confirmada"] and confirma:
                 registro["confirmada"] = True
                 logger.warning("Esterilización: excursión de %s (%.1f °C, banda %.1f–%.1f °C); "
                                "conteo de exposición detenido", nombre, temp, minimo, maximo)
@@ -343,6 +471,15 @@ class EsterilizacionFase(BaseFase):
                                                    temp=temp, minimo=minimo, maximo=maximo)
                     except Exception:
                         logger.exception("Esterilización: no se pudo registrar CIC-09")
+                # P5 / D-14.5: tope de reinicios, venga de la Referencia que venga
+                maximo_reinicios = self._max_reinicios()
+                if self.reinicios_exposicion >= maximo_reinicios:
+                    return self._fallo_propio(
+                        CIC_17, {"sensor": nombre, "reinicios": self.reinicios_exposicion,
+                                 "maximo": maximo_reinicios},
+                        motivos_fase.motivo("est_tope_reinicios", sensor=nombre,
+                                            reinicios=str(self.reinicios_exposicion),
+                                            maximo=str(maximo_reinicios)))
 
             if registro["confirmada"] and transcurrido >= timeout_min * 60:
                 minutos = f"{timeout_min:.0f}"
@@ -388,12 +525,32 @@ class EsterilizacionFase(BaseFase):
             setattr(self, abierto_attr, True)
             setattr(self, timer_attr, now)
 
+    def _vapor_on(self):
+        """Abre la válvula actuadora del modo: vapor_camara (modo cámara) o
+        vapor_chaqueta (modo chaqueta; cerrada si CICLO la inhibe, D-CHQ)."""
+        if self._modo_chaqueta():
+            if self._inhibir_chaqueta():
+                self.set_do.vapor_chaqueta_off()
+            else:
+                self.set_do.vapor_chaqueta_on()
+        else:
+            self.set_do.vapor_camara_on()
+
+    def _vapor_off(self):
+        """Cierra la válvula actuadora del modo."""
+        if self._modo_chaqueta():
+            self.set_do.vapor_chaqueta_off()
+        else:
+            self.set_do.vapor_camara_off()
+
     def _control_vapor_pwm(self, temp, pres, factor_pct, intervalo, p_control_max, now):
         # Techo de control independiente: corta el vapor sin importar la
         # banda local, que sigue a T_actual (no a temperatura_esterilizacion
         # fija) y podría arrastrar la presión hasta el umbral real de falla.
-        if pres >= p_control_max:
-            self.set_do.vapor_camara_off()
+        # En modo chaqueta el techo es el aislamiento VCH-AIS (un solo
+        # mecanismo, evaluado antes en update()).
+        if not self._modo_chaqueta() and pres >= p_control_max:
+            self._vapor_off()
             self._pwm_abierto = False
             self._t_pulso_pwm = None
             return
@@ -403,12 +560,12 @@ class EsterilizacionFase(BaseFase):
         p_high = p_sat_t + _BANDA_PWM_ALTA
 
         if pres < p_low:
-            self.set_do.vapor_camara_on()
+            self._vapor_on()
             self._pwm_abierto = True
             self._t_pulso_pwm = None
             return
         if pres > p_high:
-            self.set_do.vapor_camara_off()
+            self._vapor_off()
             self._pwm_abierto = False
             self._t_pulso_pwm = None
             return
@@ -417,8 +574,40 @@ class EsterilizacionFase(BaseFase):
         t_on_pwm = intervalo - t_off_pwm
         self._tick_dos_estados(
             "_t_pulso_pwm", "_pwm_abierto", t_on_pwm, t_off_pwm,
-            self.set_do.vapor_camara_on, self.set_do.vapor_camara_off, now,
+            self._vapor_on, self._vapor_off, now,
         )
+
+    def _vigilar_aislamiento(self, pres, p_control_max, now) -> FaseResult | None:
+        """VCH-AIS (solo modo chaqueta): actualiza el aislamiento con el techo
+        P_control_max y devuelve FALLO CIC-15 / CIC-16 o None."""
+        ais = self._aislamiento()
+        antes = ais.aislado
+        histeresis = self._histeresis_cierre_kpa()
+        aislado = ais.actualizar(pres, p_control_max, histeresis, now)
+        if aislado and not antes:
+            logger.warning("Esterilización: cámara AISLADA por sobrepresión (%.1f kPa >= techo "
+                           "%.1f kPa): vapor_camara y vapor_chaqueta OFF", pres, p_control_max)
+        elif antes and not aislado:
+            logger.warning("Esterilización: fin del aislamiento de cámara (%.1f kPa <= %.1f kPa "
+                           "sostenido 3 s): vapor_camara abierta", pres,
+                           p_control_max - histeresis)
+        timeout_s = le.timeout_aislamiento_camara_s(self.config)
+        if ais.sostenido(now, timeout_s):
+            minutos = f"{timeout_s / 60:.0f}"
+            return self._fallo_propio(
+                CIC_15, {"minutos": minutos, "fase": self.name, "maximo": p_control_max},
+                motivos_fase.motivo("ais_sostenida", minutos=minutos,
+                                    pres_techo=p_control_max))
+        maximo = le.max_aislamientos_camara(self.config)
+        ventana_s = le.ventana_aislamientos_camara_s(self.config)
+        if ais.recurrente(now, maximo, ventana_s):
+            cantidad = ais.entradas_en_ventana(now, ventana_s)
+            minutos = f"{ventana_s / 60:.0f}"
+            return self._fallo_propio(
+                CIC_16, {"cantidad": cantidad, "minutos": minutos, "fase": self.name},
+                motivos_fase.motivo("ais_recurrente", cantidad=str(cantidad),
+                                    minutos=minutos))
+        return None
 
     def update(self) -> FaseResult:
         t_est        =  self.cycle.get_param("esterilizacion", "temperatura_esterilizacion")  or 134.0
@@ -472,30 +661,53 @@ class EsterilizacionFase(BaseFase):
         temp = self._temp_principal()
         pres = self._pres_camara()
         now = time.monotonic()
+        chaqueta = self._modo_chaqueta()
 
         # ── 1c. C-10.2: sin medición válida no hay exposición ───────────────
         # CicloState falla antes (SEN-02 / SEN-04); esta es la defensa propia.
         if temp is None or pres is None:
             if self._sin_lectura_desde is None:
-                self._sin_lectura_desde = now
+                # SAF-05 (P8): el tramo sin datos empieza en la última lectura
+                # válida (sin una previa en la fase, en este tick)
+                ultima = self._ultima_lectura_valida
+                self._sin_lectura_desde = ultima if ultima is not None else now
                 logger.warning("Esterilización: sin lectura del Principal o de la presión; "
                                "el conteo de exposición no avanza")
-            # V12 (SAF-03): sin medición no se controla a ciegas
-            self.set_do.vapor_camara_off()
+            if chaqueta:
+                # VCH: sin medición la chaqueta no se controla a ciegas; la
+                # cámara queda abierta salvo un aislamiento en curso, que no se
+                # reabre sin saber la presión (DECISIÓN SIN CONFIRMAR)
+                self.set_do.vapor_chaqueta_off()
+                ais = self._aislamiento()
+                ais.actualizar(None, p_control_max, self._histeresis_cierre_kpa(), now)
+                if ais.aislado:
+                    self.set_do.vapor_camara_off()
+                else:
+                    self.set_do.vapor_camara_on()
+            else:
+                # V12 (SAF-03): sin medición no se controla a ciegas
+                self.set_do.vapor_camara_off()
             return FaseResult.EN_CURSO
         self._correr_por_sin_lectura(now)
+        self._ultima_lectura_valida = now
 
-        # ── 2. Fallas del Principal (5 s continuos, referencia fija t_est) ───
-        if self._sostenida("temp_alta", temp > t_est + rango_temp, now):
+        # ── 1d. VCH-AIS: aislamiento de cámara (solo modo chaqueta) ─────────
+        if chaqueta:
+            resultado_ais = self._vigilar_aislamiento(pres, p_control_max, now)
+            if resultado_ais is not None:
+                return resultado_ais
+
+        # ── 2. Fallas del Principal (P6: 5 s acumulados en 10 s, t_est fija) ─
+        if self._confirmada("temp_alta", temp > t_est + rango_temp, now):
             return self._fallo(motivos_fase.motivo(
                 "est_temp_alta", temp=temp, temp_limite=t_est + rango_temp))
-        if self._sostenida("temp_baja", temp < t_est - brecha_err_t, now):
+        if self._confirmada("temp_baja", temp < t_est - brecha_err_t, now):
             return self._fallo(motivos_fase.motivo(
                 "est_temp_baja", temp=temp, temp_limite=t_est - brecha_err_t))
-        if self._sostenida("pres_alta", pres > p_sat_est + rango_pres, now):
+        if self._confirmada("pres_alta", pres > p_sat_est + rango_pres, now):
             return self._fallo(motivos_fase.motivo(
                 "est_pres_alta", pres=pres, pres_limite=p_sat_est + rango_pres))
-        if self._sostenida("pres_baja", pres < p_sat_est - brecha_err_p, now):
+        if self._confirmada("pres_baja", pres < p_sat_est - brecha_err_p, now):
             return self._fallo(motivos_fase.motivo(
                 "est_pres_baja", pres=pres, pres_limite=p_sat_est - brecha_err_p))
 
@@ -506,12 +718,12 @@ class EsterilizacionFase(BaseFase):
             except (ValueError, TypeError):
                 t_sat = None        # P <= 0: la presión baja ya lo vigila
             dt = (t_sat - temp) if t_sat is not None else 0.0
-            if self._sostenida("aire", dt > _UMBRAL_SATURACION_K, now):
+            if self._confirmada("aire", dt > _UMBRAL_SATURACION_K, now):
                 return self._fallo_propio(
                     CIC_12, {"tsat": t_sat, "temp": temp, "dt": dt},
                     motivos_fase.motivo("est_aire", temp=temp, temp_sat=t_sat,
                                         dt=f"{dt:.1f}"))
-            if self._sostenida("sobrecalentado", dt < -_UMBRAL_SATURACION_K, now):
+            if self._confirmada("sobrecalentado", dt < -_UMBRAL_SATURACION_K, now):
                 return self._fallo_propio(
                     CIC_13, {"tsat": t_sat, "temp": temp, "dt": -dt},
                     motivos_fase.motivo("est_sobrecalentado", temp=temp, temp_sat=t_sat,
@@ -539,8 +751,24 @@ class EsterilizacionFase(BaseFase):
                 or pres < p_sat_est - brecha_seg_p
             )
 
-        # ── 4. Control de vapor_camara ─────────────────────────────────────
-        if self._en_recuperacion:
+        # ── 4. Control de vapor ────────────────────────────────────────────
+        # Modo cámara: actúa vapor_camara (como antes). Modo chaqueta: misma
+        # decisión, actúa vapor_chaqueta; vapor_camara abierta salvo el
+        # aislamiento, que fuerza las dos OFF y prevalece sobre todo.
+        if chaqueta and self._aislamiento().aislado:
+            self.set_do.vapor_camara_off()
+            self.set_do.vapor_chaqueta_off()
+            self._pwm_abierto = False
+            self._t_pulso_pwm = None
+        elif chaqueta:
+            self.set_do.vapor_camara_on()
+            if self._en_recuperacion:
+                # D12: sin el techo con histéresis de C-08.3 (lo reemplaza el
+                # aislamiento)
+                self._vapor_on()
+            else:
+                self._control_vapor_pwm(temp, pres, factor_pct, intervalo, p_control_max, now)
+        elif self._en_recuperacion:
             # C-08.3: el techo de control también rige en RECUPERACION, con
             # histéresis (DECISIÓN SIN CONFIRMAR de la sesión principal): OFF
             # al llegar a P_control_max y OFF hasta bajar de
@@ -579,10 +807,12 @@ class EsterilizacionFase(BaseFase):
         # de C-13) cubre el caso en que F0 nunca llega. Con una Referencia
         # fuera de banda (aunque la excursión no esté confirmada todavía) no
         # se termina: se espera a confirmarla o a que vuelva. V12 (SAF-01):
-        # tampoco con una falla del Principal en conteo (debounce de 5 s sin
-        # confirmar): se espera a que se confirme (FALLO) o se despeje.
+        # tampoco con una falla del Principal o de C-03 en conteo (condición
+        # activa en este tick, sin confirmar todavía): se espera a que se
+        # confirme (FALLO) o se despeje. El aislamiento VCH-AIS no detiene ni
+        # pausa la exposición ni F0 (VCH §4.4).
         tiempo_cumplido = (now >= self._timer_fin and not self._ref_fuera
-                           and not self._falla_desde)
+                           and not self._falla_en_conteo())
 
         if not f0_activo:
             if tiempo_cumplido:
