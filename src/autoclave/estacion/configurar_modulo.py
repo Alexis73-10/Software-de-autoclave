@@ -17,9 +17,18 @@
 #      código de error y negociación, modelos, firmware y MAC), con reintentos
 #      mientras no haya conexión y un presupuesto total de PRESUPUESTO_S (el
 #      adaptador puede tardar en subir tras el paso 08).
-#   4. Con contraseña válida (1 a 6 caracteres ASCII imprimibles), escribe el
+#   4. Con contraseña válida (1 a 6 caracteres ASCII imprimibles), vuelve a
+#      comprobar que no haya backend escuchando (V20-s1-08) y escribe el
 #      usuario «admin» (0x758B, 5 registros) y la contraseña (0x7590, 3
 #      registros) con la función 10 por el cliente del enlace y los relee.
+#
+# Corrector r1 de la tanda 20: cada intento recibe como presupuesto el tiempo
+# restante (el total no pasa de PRESUPUESTO_S más, como mucho,
+# MARGEN_PRESUPUESTO_S por la transacción en curso; V20-s1-08), y durante
+# todo el rol los loggers «pymodbus*» quedan en CRITICAL con un filtro que
+# descarta sus mensajes (V20-s1-06): el cliente síncrono registra en WARNING
+# los bytes crudos si el socket se cierra a mitad de una respuesta, y la
+# contraseña no puede aparecer en hexadecimal en configurar_modulo.log.
 #
 # No escribe bobinas, ni la configuración de seguridad, ni reinicia el
 # módulo, ni escribe 0x0C37: eso lo hace el software al conectar (MOD-07,
@@ -57,6 +66,11 @@ logger = logging.getLogger(__name__)
 
 PRESUPUESTO_S = 30.0
 PAUSA_REINTENTO_S = 1.0
+# V20-s1-08: lo que puede pasarse el total de PRESUPUESTO_S (la transacción y
+# la apertura del socket en curso al vencer el presupuesto).
+MARGEN_PRESUPUESTO_S = 1.0
+# Presupuesto mínimo de un intento (para que pueda abrir el socket y leer).
+PRESUPUESTO_MIN_INTENTO_S = 0.1
 IP_MODULO = "192.168.3.7"
 PUERTO_MODULO = 502
 IP_LOCAL = "127.0.0.1"
@@ -160,9 +174,11 @@ def _crear_enlace(ip: str, puerto: int, presupuesto_s: float):
     from autoclave.protocols.modbus_link import ModbusLink
     from autoclave.protocols.modbus_link_config import cargar_config
     base = cargar_config()
+    # V20-s1-08: el intento no pasa del tiempo restante (sin piso de 1 s)
     cfg = dataclasses.replace(base, ip=ip, puerto=puerto,
-                              presupuesto_conexion_s=max(1.0, min(base.presupuesto_conexion_s,
-                                                                  presupuesto_s)))
+                              presupuesto_conexion_s=max(PRESUPUESTO_MIN_INTENTO_S,
+                                                         min(base.presupuesto_conexion_s,
+                                                             presupuesto_s)))
     return ModbusLink(config=cfg)
 
 
@@ -249,6 +265,8 @@ def ejecutar(args: argparse.Namespace, clave: Optional[str], hay_clave: bool) ->
     while True:
         intento += 1
         restante = fin - time.monotonic()
+        if restante <= 0 and intento > 1:
+            break
         enlace = _crear_enlace(ip, puerto, restante)
         try:
             identidad = enlace.leer_identidad(cerrar=not hay_clave)
@@ -260,6 +278,8 @@ def ejecutar(args: argparse.Namespace, clave: Optional[str], hay_clave: bool) ->
             if f.causa != "sin_conexion" or time.monotonic() + PAUSA_REINTENTO_S >= fin:
                 break
             time.sleep(PAUSA_REINTENTO_S)
+            if fin - time.monotonic() < PRESUPUESTO_MIN_INTENTO_S:
+                break
 
     if identidad is None:
         codigo = _codigo_de_fallo(ultimo.causa if ultimo else None)
@@ -278,6 +298,12 @@ def ejecutar(args: argparse.Namespace, clave: Optional[str], hay_clave: bool) ->
                 logger.warning("configurar-modulo: contraseña web no válida; no se escribe")
                 _textos(res, "clave_invalida")
                 return res
+            # V20-s1-08: un backend pudo arrancar durante la lectura
+            if backend_escuchando():
+                logger.warning("configurar-modulo: hay un backend escuchando en %s:%d; no se "
+                               "escriben las credenciales", IP_LOCAL, PUERTO_BACKEND)
+                _textos(res, "backend_activo")
+                return res
             if not enlace.escribir_credenciales_web(USUARIO_WEB, clave):
                 _textos(res, "clave_no_quedo")
                 return res
@@ -291,14 +317,56 @@ def ejecutar(args: argparse.Namespace, clave: Optional[str], hay_clave: bool) ->
     return res
 
 
+class _SinPymodbus(logging.Filter):
+    """V20-s1-06: descarta todo registro de los loggers pymodbus*."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not (record.name == "pymodbus" or record.name.startswith("pymodbus."))
+
+
+def _silenciar_pymodbus() -> tuple:
+    """V20-s1-06: pymodbus y sus hijos en CRITICAL, con el filtro en el
+    logger raíz y en sus manejadores. Devuelve lo necesario para restaurar."""
+    filtro = _SinPymodbus()
+    nombres = ["pymodbus"] + [n for n in list(logging.root.manager.loggerDict)
+                              if n.startswith("pymodbus.")]
+    niveles = {}
+    for n in nombres:
+        lg = logging.getLogger(n)
+        niveles[n] = lg.level
+        lg.setLevel(logging.CRITICAL)
+        lg.addFilter(filtro)
+    manejadores = list(logging.root.handlers)
+    for h in manejadores:
+        h.addFilter(filtro)
+    return filtro, niveles, manejadores
+
+
+def _restaurar_pymodbus(estado: tuple) -> None:
+    filtro, niveles, manejadores = estado
+    for n, nivel in niveles.items():
+        lg = logging.getLogger(n)
+        lg.setLevel(nivel)
+        lg.removeFilter(filtro)
+    for h in manejadores:
+        h.removeFilter(filtro)
+
+
 def main(argv=None) -> int:
     """Punto de entrada del rol. Nunca lanza."""
     argv = list(argv or [])
     res = _resultado_base()
     ruta = _ruta_resultado(argv)
     idioma = "es"
+    silencio = _silenciar_pymodbus()
     try:
-        logging.getLogger("pymodbus").setLevel(logging.WARNING)
+        return _main(argv, res, ruta, idioma)
+    finally:
+        _restaurar_pymodbus(silencio)
+
+
+def _main(argv: list, res: dict, ruta: Optional[str], idioma: str) -> int:
+    try:
         try:
             args = _parse_args(argv)
         except (_ErrorArgumentos, ValueError) as e:

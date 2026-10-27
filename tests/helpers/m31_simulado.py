@@ -25,7 +25,10 @@
 #     bobinas = estado de encendido (0x2904), conexiones cerradas, silencio
 #     durante `tiempo_reinicio_s`, `reinicios += 1`. La configuración persiste
 #     (salvo `config_no_persiste`); con `config_activa_tras_reinicio`, el
-#     corte usa la configuración vigente en el último reinicio;
+#     corte usa la configuración vigente en el último reinicio; un valor
+#     distinto de 0x5BB5 no reinicia; modos `ignora_reinicio` (acepta la
+#     orden y no reinicia) y `rechaza_reinicio` (respuesta de excepción),
+#     corrector r1 de la tanda 20 (V20-s1-01);
 #   - composición real del banco (tanda 20, ADB-01/02): principal
 #     M31-XAXX0A00G-U, firmware 0x000D y texto 0x0C2C «9232-0-13»; esclavos
 #     ID 0..4 GXAXX0A00, GAXXXA000, GXXAX00A0, GXXAX00A0, GXDXX0600 con
@@ -226,6 +229,8 @@ class M31Simulado:
         self.tiempo_reinicio_s = 0.2
         self.config_no_persiste = False
         self.config_activa_tras_reinicio = False
+        self.ignora_reinicio = False        # acepta 0x0C1D = 0x5BB5 y no reinicia
+        self.rechaza_reinicio = False       # respuesta de excepción a 0x0C1D
         self._reiniciando_hasta: Optional[float] = None
         self._config_activa = self._instantanea_config()
         self._ultimo_inc_0c37 = time.monotonic()
@@ -551,8 +556,14 @@ class M31Simulado:
                     self.bobinas[address + i] = bool(v)
                 return None
             if fc in (6, 16) and address == REINICIO:
-                # ADB-04: responde y se reinicia enseguida
-                if len(values) == 1 and values[0] == CLAVE_REINICIO:
+                # ADB-04: responde y se reinicia enseguida. Corrector r1
+                # (V20-s1-01): con `rechaza_reinicio`, respuesta de excepción
+                # y sin reinicio; con `ignora_reinicio`, acepta la escritura y
+                # no se reinicia; un valor distinto de la clave no reinicia.
+                if self.rechaza_reinicio:
+                    return ExcCodes.ILLEGAL_DATA_VALUE
+                if (len(values) == 1 and values[0] == CLAVE_REINICIO
+                        and not self.ignora_reinicio):
                     self._programar_reinicio()
                 return None
             if fc in (6, 16):
