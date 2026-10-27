@@ -92,19 +92,45 @@ Commits propios del retiro: `chore(t20): retiro` de código (e6b2ac7), empaqueta
 - DECISIONES SIN CONFIRMAR: `/ADAPTADOR=` inválido o con conflicto detiene el Setup (como `/ZONA=`); en silencioso sin `/ADAPTADOR=` se reaplica el adaptador guardado si lo hay; «única con Internet» ≈ «único adaptador con ruta 0.0.0.0/0»; sin JSON de resultado se muestra «error»; botón «Actualizar la lista»; campos de contraseña sin límite de longitud (lo que pase de 6 se rechaza en vez de recortarse); con el cable desconectado el 08 acepta la IP de la configuración persistente.
 - Pendiente: primera compilación del `.iss` con ISCC (en K).
 
-## 7. T20-06 · Hoja de banco (f95e624)
+## 7. T20-06 · Hoja de banco (f95e624) y registro de riesgos (fee8f32)
 
 - `pruebas.py` regenerado. Hallazgo: el `.md` tenía 29 pruebas que no estaban en `pruebas.py` (bloques E9, N11 y T12 y las filas C-05b..C-05i, D-39, D-X9-01/02, G-04, más 9 campos extra); regenerar sin portarlas las habría perdido. Se portaron todas a `pruebas.py` (campo `modo_texto` y `extra`, que `generar.py` ahora imprime). La hoja queda en 162 pruebas.
 - Sin la ESP32: «USB de la tarjeta» → «cable de red de los módulos»; A-03 pasa a firmware de los módulos e ID (MAC); la prueba del buzzer con el paro usa DO 25; la de COM-03 en ciclo usa el corte por desconexión de los módulos; C-05h marcada como no aplicable con los M31-U reales (solo simulador).
-- Bloque M: M-0 con el Setup (paso 08) y comprobación con `ipconfig`; M-1 sin `TARJETA_WATCHDOG` (ADB-05); M-5 ampliado (log del reinicio de ADB-04) y M-5b (prueba aislada de ADB-04); M-6 (cambio de enlace) retirado; M-7 nuevo «Setup con Modbus».
+- Bloque M: M-0 con el Setup (paso 08) y comprobación con `ipconfig`; M-1 sin `TARJETA_WATCHDOG` (ADB-05); M-5 ampliado (log del reinicio de ADB-04) y M-5b (prueba aislada de ADB-04); M-6 (cambio de enlace) retirado; M-7 nuevo «Setup con Modbus» (las comprobaciones adicionales de la revisión R del Setup están en la lista de verificación de `tools/instalador/LEEME.md`).
+- `docs/riesgos/registro_riesgos.md`: MED-04 (MEDIA, Modbus TCP sin autenticación; contraseña web legible por fc03; protección = red dedicada); MED-03 actualizado con ADB-04/ADB-05; nota de ADB-02 (tabla de compatibilidad no monótona); AN-30 cerrada como decisión (decisión 7; sin TARJETA_WATCHDOG por 0x0C37 desde ADB-05), AN-31 y AN-32 cerradas; HAZ-T2-03 abierta para revisión.
 
 ## 8. Decisiones sin confirmar y desvíos justificados
 
-(se completa)
+**Desvíos de la letra de T20-03 (justificados por seguridad o por pruebas):**
+- `_ALARMAS_PIDEN_HANDSHAKE` (control_loop) y el handshake de `EnlaceES` se **conservan**: sus 4 alarmas (`TARJETA_EXPANSOR_FUERA_DE_LINEA`, `DISCREPANCIA_SALIDAS`, `TARJETA_MODULOS_ORDEN`, `TARJETA_CONFIG_SEGURIDAD`) las emite ModbusLink y son la segunda barrera de MOD-12; borrarlas sería una regresión.
+- También se borraron `protocols/crc16.py`, `device_reset.py`, `config/serial_link.json` y `tools/log_calibracion_sensores.py`, que T20-03 no nombra pero solo servían al serial.
+- La decisión pedía el respaldo `respaldo_08.json`; queda `respaldo_08_red_modulos.json` por la convención de `_comun.ps1`.
+- Los textos del Setup (F2) van en `[CustomMessages]` del `.iss`, no en el i18n del programa.
+
+**DECISIONES SIN CONFIRMAR de la tanda:**
+1. `/status.enlace_io` y la fila de Información del equipo con la constante `"modbus"` (T20-03); un `"serial"` de datos antiguos se muestra «—».
+2. Alarmas solo-serial (`TARJETA_SIN_ACK`, `TARJETA_ALL_OFF_SIN_CONFIRMAR`, `TARJETA_REINICIO`) conservadas en el catálogo para el historial.
+3. Acciones de alarma reescritas sin la ESP32: «cable USB» → «cable de red» (COM-01, COM-02, CIC-11, `TARJETA_SIN_TRAMA_VALIDA`); `TARJETA_VERSION_INCOMPATIBLE`, `TARJETA_EXPANSOR_FUERA_DE_LINEA` y `TARJETA_SALIDAS_NO_APAGADAS` con acciones de los módulos M31-U.
+4. ADB-02: si el texto 0x0C2C no coincide con el byte bajo de 0x0C1F, vale el texto; regla «esclavo ≤ principal» (la tabla del manual no es monótona).
+5. ADB-04: `espera_reinicio_s` 5 s, `presupuesto_reinicio_s` 30 s; evidencia de reinicio = cierre de la conexión o 2 lecturas sin respuesta dentro de `max(espera, 1 s)`; tope de 2 reinicios sin verificación (después falla hasta reiniciar el equipo); en CICLO no se reinicia el módulo (conexión sin verificar hasta salir del ciclo, coherente con AN-30); la bandera de reinicio pendiente vive en memoria.
+6. ADB-05: 0x0C37 al log como mucho cada 60 s en operación; `falla_salidas` queda en None (clave conservada por la API).
+7. Codificación de usuario/contraseña web (2 ASCII por registro, byte alto primero, relleno NUL) hasta leer 0x758B en el banco.
+8. Rol: solo reintenta sin conexión (composición/orden/firmware/expansor terminan de inmediato); presupuesto 30 s + 1 s de margen; pymodbus silenciado durante el rol.
+9. Setup: ver §6 s3 y §10 (adaptador inválido en silencioso detiene el Setup; `/ADAPTADORCONFIRMADO=1` para el único adaptador con puerta de enlace; `Exec` del rol sin tope propio; cambio de adaptador con la tarjeta anterior retirada exige borrar el respaldo a mano; DNS manuales sobre DHCP vuelven a automáticos).
+10. `tools/log_calibracion_sensores.py` borrado sin reescribir.
+
+**Anomalías nuevas para Cristian:**
+- HAZ-T2-03: `_TOLERANCIA_DI_VENCIDA_SEG = 4.0` se justificaba con el WD del firmware V3 (5 s − 1 s); con Modbus el módulo corta a 1,0 s sin tráfico y ModbusLink declara la pérdida tras 3 transacciones fallidas. Valor sin cambiar; revisar.
+- La adenda pide confirmar en el banco (M-2, M-5b): formato de 0x0C1F/0x0D80/0x0C2C, si la configuración de falla exige reinicio, tiempo real de vuelta tras el reinicio, codificación de 0x758B/0x7590.
 
 ## 9. I · Integración
 
-(se completa)
+1. Uniones `--no-ff` sin conflictos: s1 (9fce64a), s3 (cab7dfd), s2 (20577d8).
+2. `tests/test_t20_integracion.py`: backend completo contra el simulador con la composición real de 5 esclavos y la MAC del banco (arranque, configuración de fábrica distinta → escritura, reinicio con evidencia, relectura y conexión verificada; `/status` con `enlace_io`, id `005404849DB1` y versión `9232-0-13 / 10,12,12,12,10`; lecturas de temperatura y presión; DO 13; pérdida y reconexión sin otro reinicio) y el rol `configurar-modulo` contra el simulador (correcto con la contraseña escrita y releída, archivo borrado, 0 escrituras de bobinas, 0 reinicios, solo escrituras en 0x758B/0x7590; composición distinta → código 4). `test_t19_s1_config.py` ajustada a ADB-01 (comentario).
+3. `git grep` de `serial_link|SerialLink|build_serial|enlace_io.json|pyserial`: solo historial (planes y specs de `docs/superpowers/`, `docs/instalacion/LEEME_INSTALACION.md` de entregas antiguas, comentarios T20-03 en pruebas, `test_t20_s2_retiro_serial.py` que comprueba su ausencia, lista SOUP/registro de riesgos/catálogo con «retirado en la tanda 20», `requirements.lock.txt` con la nota del retiro).
+4. `tools/claves_sin_uso_i18n.py`: 381 claves sin uso detectado, las mismas que en `dev` (se añadió `estacion/configurar_modulo.py` al alcance de la herramienta porque arma sus textos con claves dinámicas `configurar_modulo.{codigo}`); se retiró `equipo.enlace_io_serial`.
+5. T20-06 (§7).
+6. pyserial desinstalado del entorno del proyecto; el backend y pymodbus importan. Suite tras I: 8771 passed, 11 skipped, 3 xfailed y 5 fallidas en paralelo: 4 de Qt verdes en serie y 1 real (`test_f1_registro_pruebas`, por los bloques E9/N11/T12 portados a la hoja: conjunto esperado ampliado con comentario, fff1c85).
 
 ## 10. R · Revisión
 
