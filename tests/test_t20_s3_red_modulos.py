@@ -337,11 +337,11 @@ def test_puras_respaldo_y_su_validacion():
     )
     fijo = r["fijo"]
     assert fijo["Mac"] == "40C2BAA6D080" and fijo["Alias"] == "Ethernet" and fijo["Dhcp"] is False
-    ipv4 = fijo["IPv4"] if isinstance(fijo["IPv4"], list) else [fijo["IPv4"]]
-    assert ipv4 == [{"Ip": "10.0.0.5", "Prefijo": 8}]       # sin APIPA ni la de DHCP
-    gw = fijo["PuertasEnlace"] if isinstance(fijo["PuertasEnlace"], list) else [fijo["PuertasEnlace"]]
-    dns = fijo["Dns"] if isinstance(fijo["Dns"], list) else [fijo["Dns"]]
-    assert gw == ["10.0.0.1"] and dns == ["8.8.8.8"]
+    # V20-s3-11: listas siempre como arreglos JSON (nunca un escalar suelto)
+    for clave in ("IPv4", "PuertasEnlace", "Dns"):
+        assert isinstance(fijo[clave], list), clave
+    assert fijo["IPv4"] == [{"Ip": "10.0.0.5", "Prefijo": 8}]       # sin APIPA ni la de DHCP
+    assert fijo["PuertasEnlace"] == ["10.0.0.1"] and fijo["Dns"] == ["8.8.8.8"]
     assert r["dhcp"]["Mac"] == "005404849DB1" and r["dhcp"]["Dhcp"] is True
     assert r["vFijo"] == "" and r["vJson"] == "" and r["vDhcp"] == ""
     for clave in ("vMalo", "vMalaIp", "vMalGw", "vSinDhcp", "vMalPref", "vNoTabla"):

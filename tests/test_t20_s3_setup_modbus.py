@@ -423,10 +423,16 @@ def test_ejecuta_consulta_de_adaptadores_solo_lectura():
     orden = _comando_pascal("ConsultarRed")
     for cmdlet in ("Set-", "New-", "Remove-", "Disable-", "Enable-", "Restart-", "netsh"):
         assert cmdlet not in orden, cmdlet
+    # V20-s3-11: solo se salta si Get-NetAdapter no existe; cualquier otro
+    # fallo de la consulta es un fallo de la prueba
+    hay = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command",
+                          "if (Get-Command Get-NetAdapter -ErrorAction SilentlyContinue) { 'si' } else { 'no' }"],
+                         capture_output=True, text=True, timeout=120).stdout.strip()
+    if hay != "si":
+        pytest.skip("Get-NetAdapter no existe aquí (el Setup muestra la lista vacía)")
     r = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
                         "-Command", orden], capture_output=True, text=True, timeout=120)
-    if r.returncode != 0:
-        pytest.skip("Get-NetAdapter no disponible aquí (el Setup muestra la lista vacía)")
+    assert r.returncode == 0, (r.returncode, r.stderr)
     lineas = [l.strip() for l in r.stdout.splitlines() if l.strip()]
     assert lineas, "sin adaptadores"
     for linea in lineas:

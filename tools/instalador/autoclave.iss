@@ -73,6 +73,10 @@
 ;     (MAC); Reparar lo reaplica con el adaptador guardado; el desinstalador
 ;     lo revierte PRIMERO (08, 07, 06, 05, 04, 02, 01). Sin asistente:
 ;     /ADAPTADOR=<MAC>; sin él no se toca la red (o se reaplica el guardado).
+;     V20-s3-01: cambiar de adaptador (Reparar o /ADAPTADOR=) revierte antes
+;     el 08 en el anterior; si esa reversión falla, no se cambia de adaptador.
+;     V20-s3-05: sin asistente, el único adaptador con puerta de enlace exige
+;     /ADAPTADORCONFIRMADO=1.
 ;   - Página "Contraseña web del módulo" (1 a 6 caracteres ASCII imprimibles;
 ;     obligatoria en una instalación nueva o limpia, opcional al actualizar o
 ;     reparar). Pasa al rol solo por un archivo en {tmp} (--clave-archivo),
@@ -370,14 +374,20 @@ es.RedConflicto=El adaptador "%1" ya está en la red de los módulos (192.168.3.
 en.RedConflicto=The adapter "%1" is already on the module network (192.168.3.0/24: %2). With two adapters on that network the module cannot be reached: remove that address or choose that adapter. Nothing was changed.
 es.RedPerderaRed=El adaptador "%1" es el único con puerta de enlace (red local o Internet). Al dedicarlo a los módulos, este PC PERDERÁ esa red.%n%n¿Usarlo de todos modos?
 en.RedPerderaRed=The adapter "%1" is the only one with a gateway (local network or Internet). When it is dedicated to the modules, this PC WILL LOSE that network.%n%nUse it anyway?
+es.RedAdaptadorDeshabilitado=El adaptador "%1" está deshabilitado en Windows. Habilítelo (Panel de control > Redes e Internet > Conexiones de red) y pulse "Actualizar la lista", o elija otro adaptador. No se cambió nada.
+en.RedAdaptadorDeshabilitado=The adapter "%1" is disabled in Windows. Enable it (Control Panel > Network and Internet > Network Connections) and press "Refresh the list", or choose another adapter. Nothing was changed.
+es.RedPerderaRedSilencioso=El adaptador "%1" indicado con /ADAPTADOR= es el único con puerta de enlace (red local o Internet): al dedicarlo a los módulos, este PC PERDERÁ esa red.%n%nNo se instaló nada. Si es lo que quiere, repita añadiendo /ADAPTADORCONFIRMADO=1.
+en.RedPerderaRedSilencioso=The adapter "%1" given with /ADAPTADOR= is the only one with a gateway (local network or Internet): when it is dedicated to the modules, this PC WILL LOSE that network.%n%nNothing was installed. If that is what you want, repeat adding /ADAPTADORCONFIRMADO=1.
 es.RedAdaptadorInvalido=El adaptador indicado con /ADAPTADOR= no es un adaptador Ethernet por cable de este PC:%n%1%n%nNo se instaló nada. Use la MAC que muestra "Get-NetAdapter -Physical" (por ejemplo, 00-54-04-84-9D-B1).
 en.RedAdaptadorInvalido=The adapter given with /ADAPTADOR= is not a wired Ethernet adapter of this PC:%n%1%n%nNothing was installed. Use the MAC shown by "Get-NetAdapter -Physical" (for example, 00-54-04-84-9D-B1).
 es.AplicandoRed=Configurando la red de los módulos de E/S...
 en.AplicandoRed=Setting up the I/O module network...
 es.Paso08=red de los módulos de E/S (paso 08)
 en.Paso08=I/O module network (step 08)
-es.RedFallo=No se pudo configurar la red de los módulos de E/S (paso 08). Detalle en:%n%1
-en.RedFallo=The I/O module network could not be set up (step 08). Details in:%n%1
+es.RedFallo=No se pudo configurar la red de los módulos de E/S (paso 08). Detalle en:%n%1%n%nCómo recuperar: para volver a intentarlo, ejecute este instalador de nuevo (Reparar). Para devolver el adaptador a su configuración anterior, como administrador:%npowershell -ExecutionPolicy Bypass -File "%2\estacion\08_revertir_red_modulos.ps1"
+en.RedFallo=The I/O module network could not be set up (step 08). Details in:%n%1%n%nHow to recover: to try again, run this installer again (Repair). To return the adapter to its previous settings, as administrator:%npowershell -ExecutionPolicy Bypass -File "%2\estacion\08_revertir_red_modulos.ps1"
+es.RedCambioFallido=No se pudo devolver el adaptador anterior (MAC %1) a su configuración, así que NO se cambió de adaptador: la red de los módulos sigue en el anterior. Detalle en:%n%2%n%nQué hacer: revise que el adaptador anterior esté conectado y habilitado y repita con Reparar. Si ese adaptador ya no existe (se cambió la tarjeta de red), como administrador borre respaldo_08_red_modulos.json de la carpeta de ese archivo y repita con Reparar.
+en.RedCambioFallido=The previous adapter (MAC %1) could not be returned to its settings, so the adapter was NOT changed: the module network stays on the previous one. Details in:%n%2%n%nWhat to do: check that the previous adapter is connected and enabled and repeat with Repair. If that adapter no longer exists (the network card was replaced), as administrator delete respaldo_08_red_modulos.json from the folder of that file and repeat with Repair.
 ; T20-05: contraseña web del módulo
 es.ClaveModuloTitulo=Contraseña web del módulo
 en.ClaveModuloTitulo=Module web password
@@ -408,8 +418,11 @@ es.ModuloSubtitulo=Resultado de la prueba de conexión. Autoclave quedó instala
 en.ModuloSubtitulo=Result of the connection test. Autoclave was installed in any case.
 es.ModuloClaveSi=sí
 en.ModuloClaveSi=yes
-es.ModuloClaveNo=no
-en.ModuloClaveNo=no
+es.ModuloClaveNo=no — repita con Reparar
+en.ModuloClaveNo=no — repeat with Repair
+; V20-s3-03: se pidió cambiar la contraseña y la prueba no terminó en "ok"
+es.ModuloClaveNoCambiada=Contraseña web cambiada: no — repita con Reparar
+en.ModuloClaveNoCambiada=Web password changed: no — repeat with Repair
 es.ModuloClaveNoPedida=no (no se pidió cambiarla)
 en.ModuloClaveNoPedida=no (no change was requested)
 es.ModuloRes_ok=Conexión correcta con el módulo de E/S.%n%nModelo: %1%nMódulos: %2%nFirmware: %3%nMAC / ID del equipo: %4%nContraseña web cambiada: %5
@@ -606,6 +619,9 @@ var
   // MAC normalizada (12 hex) del adaptador al que se aplica el paso 08; '' = no tocar la red
   AdaptadorElegido: String;
   RedFallida: Boolean;
+  // V20-s3-01: no se pudo revertir el 08 en el adaptador anterior (MAC) al cambiar de adaptador
+  CambioRedFallido: Boolean;
+  AdaptadorAnterior08: String;
   // T20-05: contraseña web del módulo (solo en los campos de la página)
   PaginaClave: TInputQueryWizardPage;
   // T20-05 (decisión 5): página final con el resultado de la prueba de conexión
@@ -1243,7 +1259,9 @@ begin
 end;
 
 // Adaptadores de red (SOLO LECTURA: Get-NetAdapter, Get-NetIPAddress,
-// Get-NetRoute). Una línea por adaptador:
+// Get-NetRoute). V20-s3-04: las IPv4 de la configuración activa Y de la
+// persistente (una IP fija con el cable desconectado solo está en la
+// persistente), sin repetir. Una línea por adaptador:
 //   A=<MAC>|<alias>|<descripción>|<estado>|<IPv4 separadas por ;>|<tiene puerta de enlace 0/1>
 // con A= los Ethernet físicos (Get-NetAdapter -Physical, NdisPhysicalMedium
 // 14 = 802.3, no virtuales) y O= todos los demás (Wi-Fi, Bluetooth, VPN...).
@@ -1269,8 +1287,9 @@ begin
       '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; ' +
       'try { $f=@(Get-NetAdapter -Physical | Where-Object { ($_.NdisPhysicalMedium -eq 14) -and (-not $_.Virtual) } | ' +
       'ForEach-Object { $_.ifIndex }); foreach ($a in @(Get-NetAdapter)) { ' +
-      '$ips=(@(Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue | ' +
-      'ForEach-Object { $_.IPAddress }) -join '';''); ' +
+      '$ips=((@(foreach ($s in @(''ActiveStore'',''PersistentStore'')) { ' +
+      'Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -PolicyStore $s -ErrorAction SilentlyContinue | ' +
+      'ForEach-Object { $_.IPAddress } }) | Select-Object -Unique) -join '';''); ' +
       '$gw=@(Get-NetRoute -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -DestinationPrefix ''0.0.0.0/0'' -ErrorAction SilentlyContinue).Count; ' +
       '$p=''O=''; if ($f -contains $a.ifIndex) { $p=''A='' }; ' +
       'Write-Output ($p + [string]$a.MacAddress + ''|'' + ([string]$a.Name -replace ''[|]'',''/'') + ''|'' + ' +
@@ -1326,17 +1345,80 @@ begin
     end;
 end;
 
-// '' si se puede usar el adaptador I; si no, el mensaje (otro adaptador ya en
-// 192.168.3.0/24). Advertir: es el único con puerta de enlace (perderá esa red).
+// MAC normalizada del adaptador al que el Setup ya aplicó el paso 08
+// (Paso08 + Adaptador08), o ''
+function AdaptadorGuardado08: String;
+var
+  Guardada: String;
+begin
+  Result := '';
+  Guardada := '';
+  if RegValueExists(HKLM64, '{#ClaveEstacion}', 'Paso08') and
+      RegQueryStringValue(HKLM64, '{#ClaveEstacion}', 'Adaptador08', Guardada) then
+    Result := NormalizarMac(Guardada);
+end;
+
+// True si la única IPv4 de la lista (separadas por ';') en 192.168.3.0/24 es
+// 192.168.3.10 (la que deja el paso 08); False si no hay ninguna o hay otra
+function SoloIpEstacionEnRed(Ips: String): Boolean;
+var
+  Resto, Ip: String;
+  P: Integer;
+begin
+  Result := False;
+  Resto := Ips;
+  while Resto <> '' do
+  begin
+    P := Pos(';', Resto);
+    if P = 0 then
+    begin
+      Ip := Trim(Resto);
+      Resto := '';
+    end else
+    begin
+      Ip := Trim(Copy(Resto, 1, P - 1));
+      Resto := Copy(Resto, P + 1, Length(Resto));
+    end;
+    if IpEnRedModulos(Ip) then
+    begin
+      if Ip <> IpEstacionModulos then
+      begin
+        Result := False;
+        exit;
+      end;
+      Result := True;
+    end;
+  end;
+end;
+
+// V20-s3-07: adaptador deshabilitado en Windows (no se le puede aplicar el paso 08)
+function AdaptadorDeshabilitado(I: Integer): Boolean;
+begin
+  Result := CompareText(AdapEstado[I], 'Disabled') = 0;
+end;
+
+// '' si se puede usar el adaptador I; si no, el mensaje (deshabilitado, u
+// otro adaptador ya en 192.168.3.0/24). Advertir: es el único con puerta de
+// enlace (perderá esa red). V20-s3-01: el adaptador guardado (Adaptador08)
+// cuya única IPv4 en esa red es 192.168.3.10 no es conflicto: al cambiar de
+// adaptador, AplicarRedModulos revierte antes el paso 08 en él.
 function ValidarRed(I: Integer; var Advertir: Boolean): String;
 var
   J: Integer;
   OtraPuerta: Boolean;
+  Guardado: String;
 begin
   Result := '';
   Advertir := False;
+  if AdaptadorDeshabilitado(I) then
+  begin
+    Result := FmtMessage(CustomMessage('RedAdaptadorDeshabilitado'), [AdapAlias[I]]);
+    exit;
+  end;
+  Guardado := AdaptadorGuardado08;
   for J := 0 to GetArrayLength(AdapMac) - 1 do
-    if (J <> I) and IpsEnRedModulos(AdapIps[J]) then
+    if (J <> I) and IpsEnRedModulos(AdapIps[J]) and
+        not ((Guardado <> '') and (NormalizarMac(AdapMac[J]) = Guardado) and SoloIpEstacionEnRed(AdapIps[J])) then
     begin
       Result := FmtMessage(CustomMessage('RedConflicto'), [AdapAlias[J], AdapIps[J]]);
       exit;
@@ -1577,7 +1659,17 @@ begin
       exit;
     end;
     if AdvertirRed then
+    begin
+      // V20-s3-05: sin asistente nadie confirma; hace falta /ADAPTADORCONFIRMADO=1
+      if WizardSilent and (Trim(ExpandConstant('{param:ADAPTADORCONFIRMADO|}')) <> '1') then
+      begin
+        Log('T20-05: /ADAPTADOR=' + AdaptadorParametro + ' es el único adaptador con puerta de enlace y falta /ADAPTADORCONFIRMADO=1: el Setup se detiene.');
+        SuppressibleMsgBox(FmtMessage(CustomMessage('RedPerderaRedSilencioso'), [AdapAlias[I]]), mbError, MB_OK, IDOK);
+        Result := False;
+        exit;
+      end;
       Log('T20-05: /ADAPTADOR=' + AdaptadorParametro + ' es el único adaptador con puerta de enlace: este PC perderá esa red.');
+    end;
     AdaptadorElegido := NormalizarMac(AdapMac[I]);
     Log('T20-05: red de los módulos en el adaptador de /ADAPTADOR=' + AdaptadorElegido);
   end else if WizardSilent then
@@ -2640,12 +2732,18 @@ end;
 // el de /ADAPTADOR= o (sin asistente) el guardado. En todos los modos,
 // también Reparar. Se anota Paso08 y la MAC (Adaptador08) ANTES de aplicar:
 // aunque falle a medias, el desinstalador lo revierte y Reparar lo reaplica.
+// V20-s3-01: si el 08 ya estaba aplicado en OTRO adaptador, primero se
+// revierte ahí (el script se niega a aplicar con el respaldo de otro
+// adaptador); si esa reversión falla, no se aplica en el nuevo ni se cambia
+// Adaptador08, y se avisa en la página del resultado.
 // Un fallo no interrumpe la instalación (va a la página del resultado).
 procedure AplicarRedModulos;
 var
-  Mac: String;
+  Mac, Anterior: String;
 begin
   RedFallida := False;
+  CambioRedFallido := False;
+  AdaptadorAnterior08 := '';
   Mac := NormalizarMac(AdaptadorElegido);
   if Mac = '' then
   begin
@@ -2653,6 +2751,20 @@ begin
     exit;
   end;
   WizardForm.StatusLabel.Caption := CustomMessage('AplicandoRed');
+  Anterior := AdaptadorGuardado08;
+  if (Anterior <> '') and (Anterior <> Mac) then
+  begin
+    Log('T20-05: cambio de adaptador ' + Anterior + ' -> ' + Mac + ': se revierte antes el paso 08 en el anterior.');
+    if not EjecutarPaso('08', 'Revertir', '') then
+    begin
+      RedFallida := True;
+      CambioRedFallido := True;
+      AdaptadorAnterior08 := Anterior;
+      Log('T20-05: no se pudo revertir el paso 08 en el adaptador anterior ' + Anterior +
+        ': no se aplica en ' + Mac + ' y Adaptador08 no cambia; detalle en ' + ArchivoLogEstacion);
+      exit;
+    end;
+  end;
   MarcarPaso('08');
   RegWriteStringValue(HKLM64, '{#ClaveEstacion}', 'Adaptador08', Mac);
   if not EjecutarPaso('08', 'Aplicar', ' -Adaptador "' + Mac + '"') then
@@ -2705,7 +2817,7 @@ var
   ArchivoResultado, ArchivoClave, Parametros, Codigo, Texto, CambioClave, TextoLanzado: String;
   Contenido: AnsiString;
   Salida: Integer;
-  Lanzado, ConClave: Boolean;
+  Lanzado, ConClave, ClavePedida: Boolean;
 begin
   WizardForm.StatusLabel.Caption := CustomMessage('ProbandoModulo');
   ArchivoResultado := ExpandConstant('{tmp}\resultado_modulo.json');
@@ -2715,6 +2827,8 @@ begin
   Salida := -1;
   Lanzado := False;
   ConClave := (not WizardSilent) and (PaginaClave <> nil) and (PaginaClave.Values[0] <> '');
+  // V20-s3-03: se pidió cambiarla (aunque después no se pueda escribir el archivo)
+  ClavePedida := ConClave;
   if WizardSilent then
     Log('T20-05: sin asistente: la contraseña web del módulo no se cambia.')
   else if not ConClave then
@@ -2763,8 +2877,10 @@ begin
     Codigo := 'error';
   if Codigo = 'ok' then
   begin
-    if not ConClave then
+    if not ClavePedida then
       CambioClave := CustomMessage('ModuloClaveNoPedida')
+    else if not ConClave then
+      CambioClave := CustomMessage('ModuloClaveNo')
     else if CampoJson(Texto, 'clave_cambiada') = 'true' then
       CambioClave := CustomMessage('ModuloClaveSi')
     else
@@ -2772,11 +2888,22 @@ begin
     TextoResultadoModulo := FmtMessage(CustomMessage('ModuloRes_ok'), [CampoJson(Texto, 'modelo'),
       CampoJson(Texto, 'n_modulos'), CampoJson(Texto, 'firmware'), CampoJson(Texto, 'mac'), CambioClave]);
   end else
+  begin
     TextoResultadoModulo := FmtMessage(CustomMessage('ModuloRes_' + Codigo), []) + #13#10#13#10 +
       FmtMessage(CustomMessage('ModuloRepetir'), [ExpandConstant('{app}')]);
+    // V20-s3-03: el rol solo cambia la contraseña cuando termina en "ok"
+    if ClavePedida then
+      TextoResultadoModulo := TextoResultadoModulo + #13#10#13#10 + CustomMessage('ModuloClaveNoCambiada');
+  end;
   if RedFallida then
-    TextoResultadoModulo := FmtMessage(CustomMessage('RedFallo'), [ArchivoLogEstacion]) + #13#10#13#10 +
-      TextoResultadoModulo;
+  begin
+    if CambioRedFallido then
+      TextoResultadoModulo := FmtMessage(CustomMessage('RedCambioFallido'), [AdaptadorAnterior08,
+        ArchivoLogEstacion]) + #13#10#13#10 + TextoResultadoModulo
+    else
+      TextoResultadoModulo := FmtMessage(CustomMessage('RedFallo'), [ArchivoLogEstacion,
+        ExpandConstant('{app}')]) + #13#10#13#10 + TextoResultadoModulo;
+  end;
   // el JSON del rol nunca trae la contraseña: se puede registrar
   Log('T20-05: prueba de conexión con el módulo: código=' + Codigo + ', modelo=' + CampoJson(Texto, 'modelo') +
     ', composición=' + CampoJson(Texto, 'composicion') + ', módulos=' + CampoJson(Texto, 'n_modulos') +
