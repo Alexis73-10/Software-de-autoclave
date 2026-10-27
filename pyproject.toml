@@ -15,6 +15,7 @@ authors = [ #Lista de autores del paquete
 
 dependencies = [ #Lista de dependencias del paquete (solo las que importa src/autoclave; versiones exactas en requirements.lock.txt)
   "pyserial",
+  "pymodbus",
   "pillow",
   "PyYAML",
   "ruamel.yaml",
