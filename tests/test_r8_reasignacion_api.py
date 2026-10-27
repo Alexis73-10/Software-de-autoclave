@@ -5,6 +5,11 @@
 # el backend, doble confirmación, confirmación reforzada, reautenticación,
 # persistencia en data/, bitácora, reinicio y restauración de fábrica; y su
 # paso por el respaldo (O2h).
+#
+# Tanda 19 (decisión 4 de Cristian, MOD-05): el buzzer ocupa DO 25. Las pruebas
+# que usaban DO 25 como puerto libre (vapor_camara, y descompresion_lenta para
+# el conflicto con vapor_camara) usan ahora DO 27 (DO 26 ya lo usan otras
+# pruebas de este archivo); la intención y las expectativas no cambian.
 
 import json
 from pathlib import Path
@@ -74,7 +79,7 @@ def test_solo_el_ingeniero(api, rol):
     cliente, _srv, ctx, cab, pedidos = api
     h = cab(rol, "tomas")
     assert cliente.get("/io/assignment", headers=h).status_code == 403
-    r = _aplicar(cliente, h, {"vapor_camara": 25})
+    r = _aplicar(cliente, h, {"vapor_camara": 27})
     assert r.status_code == 403 and r.json()["codigo"] == "rol_sin_permiso"
     r = cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=h)
     assert r.status_code == 403
@@ -92,7 +97,7 @@ def test_sin_sesion_401(api):
 def test_rechazado_en_ciclo_y_en_falla(api, estado, motivo):
     cliente, _srv, ctx, cab, pedidos = api
     ctx.estado.get_machine_state.return_value = estado
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 409 and r.json()["motivo"] == motivo
     assert not ctx.archivo_asignacion.existe() and pedidos == []
     assert cliente.get("/io/assignment", headers=cab()).json()["editable"] is False
@@ -101,7 +106,7 @@ def test_rechazado_en_ciclo_y_en_falla(api, estado, motivo):
 def test_rechazado_en_modo_prueba(api):
     cliente, _srv, ctx, cab, pedidos = api
     ctx.control_loop.test_mode_active = True
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 409 and r.json()["motivo"] == "modo_prueba"
 
 
@@ -111,7 +116,7 @@ def test_ciclo_iniciado_entre_la_validacion_y_el_guardado_deshace_la_escritura(a
     cliente, srv, ctx, cab, pedidos = api
     estados = iter([GlobalState.PREPARADO] + [GlobalState.CICLO] * 10)
     ctx.estado.get_machine_state.side_effect = lambda: next(estados)
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 409
     assert not ctx.archivo_asignacion.existe()
     ctx.control_loop.iniciar_apagado.assert_not_called()
@@ -138,8 +143,8 @@ def test_conflictos_rechazados_en_el_backend(api, cambios, codigo):
 def test_conflicto_con_la_asignacion_ya_guardada(api):
     """El conflicto se evalúa contra la vigente, no contra la de fábrica."""
     cliente, _srv, ctx, cab, _p = api
-    ctx.archivo_asignacion.guardar({"vapor_camara": 25}, "ines", [])
-    r = _aplicar(cliente, cab(), {"descompresion_lenta": 25})
+    ctx.archivo_asignacion.guardar({"vapor_camara": 27}, "ines", [])
+    r = _aplicar(cliente, cab(), {"descompresion_lenta": 27})
     assert r.status_code == 422 and r.json()["errores"][0]["ocupado_por"] == "vapor_camara"
 
 
@@ -153,7 +158,7 @@ def test_sin_cambios(api):
 
 def test_doble_confirmacion_con_alerta_de_criticidad(api):
     cliente, _srv, ctx, cab, _p = api
-    r = cliente.post("/io/assignment", json={"cambios": {"vapor_camara": 25, "DO:agua_bomba": 26},
+    r = cliente.post("/io/assignment", json={"cambios": {"vapor_camara": 27, "DO:agua_bomba": 26},
                                              "clave": CLAVE}, headers=cab())
     assert r.status_code == 428 and r.json()["codigo"] == "confirmacion_requerida"
     assert r.json()["criticas"] == ["vapor_camara"]
@@ -186,9 +191,9 @@ def test_reforzada_acepta_el_nombre_en_espanol_o_ingles(api, escrito):
 
 def test_reautenticacion(api):
     cliente, _srv, ctx, cab, pedidos = api
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25}, clave="mala")
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27}, clave="mala")
     assert r.status_code == 403 and r.json()["codigo"] == "reautenticacion_fallida"
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25}, clave="")
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27}, clave="")
     assert r.status_code == 403 and r.json()["codigo"] == "reautenticacion_requerida"
     assert not ctx.archivo_asignacion.existe() and pedidos == []
 
@@ -196,7 +201,7 @@ def test_reautenticacion(api):
 def test_reautenticacion_fallida_suma_al_bloqueo(api):
     cliente, _srv, ctx, cab, _p = api
     h = cab()
-    codigos = [_aplicar(cliente, h, {"vapor_camara": 25}, clave="mala").status_code for _ in range(5)]
+    codigos = [_aplicar(cliente, h, {"vapor_camara": 27}, clave="mala").status_code for _ in range(5)]
     assert codigos[-1] == 429
     # el token quedó invalidado
     assert cliente.get("/io/assignment", headers=h).status_code == 401
@@ -206,25 +211,25 @@ def test_reautenticacion_fallida_suma_al_bloqueo(api):
 
 def test_aplicar_guarda_en_data_audita_y_reinicia(api):
     cliente, _srv, ctx, cab, pedidos = api
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25, "pres_camara": 13})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27, "pres_camara": 13})
     assert r.status_code == 200, r.text
     assert r.json()["reinicio"] is True
     datos = json.loads(ctx.archivo_asignacion.ruta.read_text(encoding="utf-8"))
-    assert datos["cambios"] == {"pres_camara": 13, "vapor_camara": 25}
+    assert datos["cambios"] == {"pres_camara": 13, "vapor_camara": 27}
     assert datos["verificacion_pendiente"] == ["pres_camara", "vapor_camara"]
     assert datos["modificado_por"] == "ines"
     ctx.control_loop.iniciar_apagado.assert_called_once()
     assert len(pedidos) == 1
     filas = {f["entidad"]: f for f in _auditoria(ctx, "reasignacion_io")}
     assert filas["vapor_camara"]["valor_anterior"] == "DO 04"
-    assert filas["vapor_camara"]["valor_nuevo"] == "DO 25"
+    assert filas["vapor_camara"]["valor_nuevo"] == "DO 27"
     assert filas["vapor_camara"]["usuario"] == "ines"
     assert filas["pres_camara"]["valor_nuevo"] == "AI 13"
     assert _auditoria(ctx, "reinicio_control")
     # la memoria no cambia en caliente: rige al reiniciar
     assert aio.en_memoria() == aio.fabrica_codigo()
     g = cliente.get("/io/assignment", headers=cab()).json()
-    assert g["reinicio_pendiente"] is True and g["cambios_guardados"] == {"pres_camara": 13, "vapor_camara": 25}
+    assert g["reinicio_pendiente"] is True and g["cambios_guardados"] == {"pres_camara": 13, "vapor_camara": 27}
 
 
 def test_intercambio_de_puertos(api):
@@ -239,7 +244,7 @@ def test_sin_mecanismo_de_reinicio_guarda_y_no_detiene_el_lazo(api, monkeypatch)
     from autoclave.backend import reinicio
     cliente, _srv, ctx, cab, _p = api
     reinicio.registrar(None)
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 200 and r.json()["reinicio"] is False
     assert ctx.archivo_asignacion.existe()
     ctx.control_loop.iniciar_apagado.assert_not_called()
@@ -280,8 +285,8 @@ def test_nombre_en_dos_tipos_da_dos_filas_y_se_reasigna_solo_el_de_su_tipo(api):
 
 def test_restaurar_fabrica(api):
     cliente, _srv, ctx, cab, pedidos = api
-    ctx.archivo_asignacion.guardar({"vapor_camara": 25}, "ines", [])
-    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"vapor_camara": 25}))
+    ctx.archivo_asignacion.guardar({"vapor_camara": 27}, "ines", [])
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"vapor_camara": 27}))
     r = cliente.post("/io/assignment/factory", json={"clave": CLAVE}, headers=cab())
     assert r.status_code == 428
     r = cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=cab())
@@ -289,7 +294,7 @@ def test_restaurar_fabrica(api):
     datos = aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()
     assert datos["cambios"] == {} and datos["verificacion_pendiente"] == ["vapor_camara"]
     [fila] = _auditoria(ctx, "reasignacion_io_fabrica")
-    assert fila["valor_anterior"] == "DO 25" and fila["valor_nuevo"] == "DO 04"
+    assert fila["valor_anterior"] == "DO 27" and fila["valor_nuevo"] == "DO 04"
     assert pedidos
 
 
@@ -340,23 +345,23 @@ def _exportar(cliente, cab, usb):
 
 def test_respaldo_incluye_y_restaura_la_asignacion(respaldo):
     cliente, _srv, ctx, cab, usb = respaldo
-    ctx.archivo_asignacion.guardar({"vapor_camara": 25}, "ines", [])
+    ctx.archivo_asignacion.guardar({"vapor_camara": 27}, "ines", [])
     archivo = _exportar(cliente, cab(), usb)
     from autoclave.core.runtime import respaldo as rp
     _m, datos = rp.leer(usb / rp.CARPETA / archivo)
-    assert json.loads(datos["asignacion_io.json"])["cambios"] == {"vapor_camara": 25}
+    assert json.loads(datos["asignacion_io.json"])["cambios"] == {"vapor_camara": 27}
     ctx.archivo_asignacion.ruta.unlink()
     r = cliente.post("/backup/restore", json={"unidad": str(usb), "archivo": archivo, "confirmar": True},
                      headers=cab())
     assert r.status_code == 200, r.text
     assert r.json()["asignacion_io"] is True and r.json()["reinicio_requerido"] is True
-    assert aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()["cambios"] == {"vapor_camara": 25}
+    assert aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()["cambios"] == {"vapor_camara": 27}
     assert any(f["entidad"] == "vapor_camara" for f in _auditoria(ctx, "reasignacion_io"))
 
 
 def test_respaldo_restaurado_por_tecnico_no_toca_la_asignacion(respaldo):
     cliente, _srv, ctx, cab, usb = respaldo
-    ctx.archivo_asignacion.guardar({"vapor_camara": 25}, "ines", [])
+    ctx.archivo_asignacion.guardar({"vapor_camara": 27}, "ines", [])
     archivo = _exportar(cliente, cab(), usb)
     ctx.archivo_asignacion.ruta.unlink()
     r = cliente.post("/backup/restore", json={"unidad": str(usb), "archivo": archivo, "confirmar": True},
@@ -425,7 +430,7 @@ def _verificar(cliente, cab, funcion, **extra):
 
 def test_verificar_salida_exige_accionarla_en_modo_prueba_despues_de_reasignar(api):
     cliente, _srv, ctx, cab, _p = api
-    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 27})
     r = _verificar(cliente, cab(), "vapor_camara")
     assert r.status_code == 409 and r.json()["codigo"] == "sin_prueba_de_salida"
     g = cliente.get("/io/assignment", headers=cab()).json()
@@ -441,7 +446,7 @@ def test_verificar_salida_exige_accionarla_en_modo_prueba_despues_de_reasignar(a
     assert ctx.asignacion_pendiente == [] and r.json()["pendientes"] == []
     assert aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()["verificacion_pendiente"] == []
     fila = _auditoria(ctx, "reasignacion_io_verificada")[0]
-    assert fila["usuario"] == "ines" and fila["valor_nuevo"] == "DO 25"
+    assert fila["usuario"] == "ines" and fila["valor_nuevo"] == "DO 27"
     assert fila["detalle"]["metodo"] == "ingeniero"
     ctx.alarma_asignacion_sin_verificar.assert_called()
 
@@ -449,12 +454,12 @@ def test_verificar_salida_exige_accionarla_en_modo_prueba_despues_de_reasignar(a
 def test_evidencia_de_una_funcion_no_pendiente_no_se_guarda(api):
     from autoclave.backend import server_reasignacion as sr
     cliente, _srv, ctx, cab, _p = api
-    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 27})
     sr.evidencia_do("bomba_vacio")
     sr.evidencia_ai("pressure", "pres_camara")
     assert ctx.asignacion_evidencia == {}
     sr.evidencia_do("vapor_camara")
-    assert ctx.asignacion_evidencia == {"vapor_camara": 25}
+    assert ctx.asignacion_evidencia == {"vapor_camara": 27}
 
 
 def test_verificar_rechazado_con_una_asignacion_guardada_que_aun_no_rige(api):
@@ -462,7 +467,7 @@ def test_verificar_rechazado_con_una_asignacion_guardada_que_aun_no_rige(api):
     lo que regirá en el próximo arranque."""
     from autoclave.backend import server_reasignacion as sr
     cliente, _srv, ctx, cab, _p = api
-    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 27})
     sr.evidencia_do("vapor_camara")
     ctx.archivo_asignacion.guardar({"vapor_camara": 26}, "ines", ["vapor_camara"])
     r = _verificar(cliente, cab(), "vapor_camara")
@@ -522,7 +527,7 @@ def test_verificar_analogica_exige_lectura_y_calibracion_posterior(api):
 def test_verificar_rechazos(api):
     cliente, _srv, ctx, cab, _p = api
     from autoclave.backend import server_reasignacion as sr
-    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 25})
+    _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 27})
     sr.evidencia_do("vapor_camara")
     assert _verificar(cliente, cab(), "bomba_vacio").json()["codigo"] == "no_pendiente"
     assert _verificar(cliente, cab("tecnico", "tomas"), "vapor_camara").status_code == 403
@@ -539,7 +544,7 @@ def test_lo_pendiente_no_se_pierde_con_otra_reasignacion(api):
     cliente, _srv, ctx, cab, _p = api
     libre = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
     _pendiente(ctx, ["paro_emergencia"], {"paro_emergencia": libre})
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 200, r.text
     assert aio.ArchivoAsignacion(ctx.archivo_asignacion.ruta).leer()["verificacion_pendiente"] == \
         ["paro_emergencia", "vapor_camara"]
@@ -549,7 +554,7 @@ def test_rechazado_con_un_reinicio_en_curso(api, monkeypatch):
     from autoclave.backend import reinicio
     cliente, _srv, ctx, cab, _p = api
     monkeypatch.setattr(reinicio, "solicitado", lambda: True)
-    r = _aplicar(cliente, cab(), {"vapor_camara": 25})
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 409 and r.json()["codigo"] == "reinicio_en_curso"
     assert not ctx.archivo_asignacion.existe()
 
@@ -612,12 +617,12 @@ def test_restaurar_respaldo_de_calibracion_anula_toda_evidencia_ai(api):
     mirar la evidencia con ese lock tomado."""
     from autoclave.backend import server_reasignacion as sr
     _cliente, _srv, ctx, _cab, _p = api
-    _pendiente(ctx, ["pres_camara", "vapor_camara"], {"pres_camara": 13, "vapor_camara": 25})
-    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13, "vapor_camara": 25}))
+    _pendiente(ctx, ["pres_camara", "vapor_camara"], {"pres_camara": 13, "vapor_camara": 27})
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13, "vapor_camara": 27}))
     sr.evidencia_ai("pressure", "pres_camara")
     sr.evidencia_do("vapor_camara")
     sr.anular_evidencias_ai()
-    assert ctx.asignacion_evidencia == {"vapor_camara": 25}
+    assert ctx.asignacion_evidencia == {"vapor_camara": 27}
     raiz = Path(__file__).resolve().parents[1] / "src/autoclave/backend"
     texto = fuente_backend()
     i_anula = texto.index("_reasignacion.anular_evidencia_ai(tipo, sensor)")

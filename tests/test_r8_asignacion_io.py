@@ -37,7 +37,8 @@ def _config(tmp_path, io_ports=None):
 
 def test_fabrica_del_codigo_coincide_con_estado():
     f = aio.fabrica_codigo()
-    assert f["DO"]["vapor_camara"] == 4 and f["DO"]["buzer_alarma"] == 24
+    # tanda 19 (decisión 4 de Cristian, MOD-05): buzzer en DO 25
+    assert f["DO"]["vapor_camara"] == 4 and f["DO"]["buzer_alarma"] == 25
     assert f["DI"]["paro_emergencia"] == 11
     assert f["AI"]["temp_camara"] == 1 and f["AI"]["temp_referencia"] == 3
     assert f["AI"]["pres_camara"] == 9 and f["AI"]["pres_empaque_2"] == 12
@@ -102,17 +103,19 @@ def test_funcion_desconocida():
 def test_aplicar_en_memoria_cambia_los_mapas_en_el_mismo_objeto():
     mapa_do = EstadoAutoclave.map_do
     asignacion = aio.combinar(aio.fabrica_codigo(),
-                              {"vapor_camara": 25, "paro_emergencia": 30, "pres_camara": 13,
-                               "temp_camara": 6, "aire_atmosferico_camara": 26})
+                              # tanda 19 (decisión 4 de Cristian, MOD-05): DO 25 es
+                              # del buzzer; vapor y aire van a DO 26 y 27
+                              {"vapor_camara": 26, "paro_emergencia": 30, "pres_camara": 13,
+                               "temp_camara": 6, "aire_atmosferico_camara": 27})
     aio.aplicar_en_memoria(asignacion)
     assert EstadoAutoclave.map_do is mapa_do
-    assert EstadoAutoclave.map_do["vapor_camara"] == 24
-    assert EstadoAutoclave.map_do["aire_admosferico_camara"] == 25
+    assert EstadoAutoclave.map_do["vapor_camara"] == 25
+    assert EstadoAutoclave.map_do["aire_admosferico_camara"] == 26
     assert EstadoAutoclave.map_di["paro_emergencia"] == 29
     assert EstadoAutoclave.map_pres["pres_camara"] == 4
     assert EstadoAutoclave.map_temp["temp_camara"] == 5
     assert aio.en_memoria() == asignacion
-    assert aio.canal_do("vapor_camara") == 25
+    assert aio.canal_do("vapor_camara") == 26
 
 
 def test_aplicar_invalida_no_toca_nada():
@@ -146,11 +149,12 @@ def test_archivo_ausente_es_fabrica(tmp_path):
 
 def test_archivo_guarda_solo_los_cambios_y_persiste(tmp_path):
     ruta = tmp_path / "data" / "asignacion_io.json"
-    aio.ArchivoAsignacion(ruta).guardar({"vapor_camara": 25}, "ing", ["vapor_camara"])
+    # tanda 19 (decisión 4 de Cristian, MOD-05): DO 25 es del buzzer; DO 26 libre
+    aio.ArchivoAsignacion(ruta).guardar({"vapor_camara": 26}, "ing", ["vapor_camara"])
     datos = json.loads(ruta.read_text(encoding="utf-8"))
-    assert datos["cambios"] == {"vapor_camara": 25} and datos["modificado_por"] == "ing"
+    assert datos["cambios"] == {"vapor_camara": 26} and datos["modificado_por"] == "ing"
     asignacion, leidos = aio.vigente(aio.fabrica_codigo(), aio.ArchivoAsignacion(ruta))
-    assert asignacion["DO"]["vapor_camara"] == 25
+    assert asignacion["DO"]["vapor_camara"] == 26
     assert leidos["verificacion_pendiente"] == ["vapor_camara"]
     aio.ArchivoAsignacion(ruta).limpiar_pendiente()
     assert aio.ArchivoAsignacion(ruta).leer()["verificacion_pendiente"] == []

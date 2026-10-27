@@ -20,4 +20,5 @@ def test_reset_all_outputs_retorna_false_si_all_off_no_confirma():
     io.all_off.return_value = False
 
     assert set_do.reset_all_outputs() is False
-    assert io.set_output.call_count == 24
+    # tanda 19 (MOD-05): _CANALES_APAGADO_BASE = range(1, 33), todos los DO 1-32
+    assert io.set_output.call_count == 32
