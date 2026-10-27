@@ -9,8 +9,8 @@ Rama `tanda-20` desde `dev` (391aedf). Último commit: ver la nota de cada fila.
 | V | Hecha | V-01 (inventario serial), V-02 (pruebas), V-03 (adenda), V-04 (Setup) recibidos; resumen en R20_informe.md. |
 | F | Hecha | F2 bfc6f93 (claves i18n `configurar_modulo.*`; los textos del Setup van en `[CustomMessages]` del .iss, dueño s3 — DECISIÓN SIN CONFIRMAR para no partir el archivo). F1 0da003a (`tests/helpers/enlace_doble.py`, fixture `enlace_doble`). |
 | P | Hecha | s1 (75857ed, d0510ac) unida en 9fce64a; s3 (30499a8, f2cc939) unida en cab7dfd; s2 (e6b2ac7..2828d25) unida en 20577d8. |
-| I | En curso | Uniones sin conflictos. I.2 `tests/test_t20_integracion.py` + ajustes (commit tras 20577d8); I.3 grep limpio (solo historial); I.4 sin huérfanas nuevas (381 = 381); I.5 hoja f95e624 y riesgos fee8f32; pyserial desinstalado del entorno. Recolectadas 8788 = 8838 + 7 + 46 + 40 + 37 − 180. Suite completa corriendo. |
-| R | En curso | 3 revisores de solo lectura lanzados. |
+| I | Hecha | Uniones sin conflictos; `tests/test_t20_integracion.py`; grep limpio (solo historial); sin huérfanas i18n nuevas (381 = 381); T20-06 (f95e624, fee8f32); pyserial desinstalado. Suite final (tras R): 8824 passed, 11 skipped, 3 xfailed, 2 fallidas solo en paralelo (Qt, verdes en serie). Recolectadas 8840 = 8838 + 182 nuevas − 180 borradas. |
+| R | Hecha | V20-s1 (2 altos + 6) en r1; V20-s2 (7) por la principal fff1c85; V20-s3 (11) en r3; re-revisión de los altos: cerrados; V20-rr-01/05 corregidos (último commit de código del merge de r1 + fix rr); rr-02..04 al registro de riesgos. Sin altos abiertos. Informe 104e4d8. |
 | K | Pendiente | |
 | L | Pendiente | |
 | Z | Pendiente | |
