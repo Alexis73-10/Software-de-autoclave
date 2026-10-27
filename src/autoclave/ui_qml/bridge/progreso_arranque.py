@@ -137,7 +137,10 @@ class SimuladorProgresoArranque(QObject):
 # igual (nunca deja la pantalla trabada en la intro; DECISIÓN SIN CONFIRMAR).
 
 MENSAJE_SIN_PERFIL_MS = 2000          # DECISIÓN SIN CONFIRMAR (duración, ARR-06)
-TOPE_SIN_PERFIL_MS = 10000
+# V18-03: holgado para un primer arranque lento (carga en frío + 3,5 s de intro
+# + 2 s de mensaje) y menor que el plazo de 20 s de la intro, que cuenta desde
+# su primer cuadro (siempre después de iniciar())
+TOPE_SIN_PERFIL_MS = 15000
 PROCESO_SIN_PERFIL = {"sin_perfil": "sin_perfil_instalacion",
                       "invalido": "perfil_invalido_instalacion"}
 

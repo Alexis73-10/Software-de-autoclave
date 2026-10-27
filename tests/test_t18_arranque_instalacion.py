@@ -172,16 +172,48 @@ def lanzador(monkeypatch):
         return estado["reinicia"]
 
     monkeypatch.setattr(exe_unico, "reiniciar_pc", reiniciar)
+    monkeypatch.setattr(exe_unico, "_puerto_backend_ocupado", lambda: False)
+    monkeypatch.setattr(exe_unico, "esperar_reinicio_pc", lambda: eventos.append("espera_reinicio"))
     return SimpleNamespace(eventos=eventos, estado=estado, monkeypatch=monkeypatch)
 
 
 @pytest.mark.req("REI-01")
-def test_tras_el_asistente_se_reinicia_el_pc_sin_backend_ni_pantallas(lanzador):
+def test_tras_el_asistente_se_reinicia_el_pc_antes_de_backend_y_pantallas(lanzador):
     assert exe_unico._lanzador(exe_unico._parse_args([])) == 0
     ev = lanzador.eventos
     assert ev[:2] == ["popen:ui1", "popen:ui2"]           # asistente y Reposo
-    assert "reinicio_pc" in ev
-    assert "popen:backend" not in ev and "pantallas" not in ev
+    # pedido el reinicio, el lanzador espera a que Windows lo cierre; nada
+    # arranca antes (en el equipo real el proceso muere durante la espera)
+    assert ev[2:4] == ["reinicio_pc", "espera_reinicio"]
+
+
+@pytest.mark.req("REI-01")
+def test_v18_01_si_windows_acepta_pero_no_reinicia_sigue_el_arranque_normal(lanzador):
+    assert exe_unico._lanzador(exe_unico._parse_args([])) == 0
+    ev = lanzador.eventos
+    assert ev.index("espera_reinicio") < ev.index("popen:backend") < ev.index("pantallas")
+
+
+@pytest.mark.req("REI-01")
+def test_v18_02_con_un_backend_escuchando_no_se_reinicia_el_pc(lanzador, monkeypatch):
+    monkeypatch.setattr(exe_unico, "_puerto_backend_ocupado", lambda: True)
+    assert exe_unico._lanzador(exe_unico._parse_args([])) == 0
+    assert "reinicio_pc" not in lanzador.eventos
+    assert "pantallas" in lanzador.eventos
+
+
+@pytest.mark.req("REI-01")
+def test_esperar_reinicio_pc_usa_el_reloj_monotonico_y_un_tope():
+    t = {"ahora": 0.0}
+    pausas = []
+
+    def dormir(s):
+        pausas.append(s)
+        t["ahora"] += s
+
+    exe_unico.esperar_reinicio_pc(tope_s=5.0, reloj=lambda: t["ahora"], dormir=dormir, pausa_s=1.0)
+    assert sum(pausas) == 5.0
+    assert exe_unico.TOPE_ESPERA_REINICIO_PC_S == 120.0
 
 
 @pytest.mark.req("REI-01")
@@ -250,9 +282,10 @@ def test_el_lanzador_no_importa_nada_de_la_cubierta(lanzador):
         pedidos.append((nombre, tuple(fromlist or ())))
         return original(nombre, globals, locals, fromlist, level)
 
-    lanzador.estado["falta"] = False
+    # V18-04: camino del asistente (donde EST-07 reabría la cubierta)
     lanzador.monkeypatch.setattr(builtins, "__import__", espia)
     exe_unico._lanzador(exe_unico._parse_args([]))
+    assert "reinicio_pc" in lanzador.eventos
     assert not any("cubierta" in n or "primer_cuadro" in n or "cubierta_arranque" in f
                    for n, f in pedidos)
 
@@ -428,6 +461,71 @@ def test_reposo_tras_la_intro_y_aviso_de_reinicio_en_ingles():
     assert r["proceso"] == "No installation profile: opening the setup wizard"
     assert r["intro_activa_al_final"] is False
     assert r["aviso"] == "Installation complete. The equipment will restart in 9 s"
+
+
+_SCRIPT_CUENTA = r"""
+import json, sys
+from PySide6.QtCore import QObject, QUrl, QTimer, QMetaObject
+from PySide6.QtGui import QGuiApplication
+from PySide6.QtQml import QQmlComponent, QQmlEngine
+from PySide6.QtTest import QTest
+from autoclave import i18n
+import autoclave.ui_qml.bridge.i18n_qml as i18n_qml
+from autoclave.ui_qml.controllers import teclado_alfanumerico_controller, teclado_numerico_controller  # noqa: F401
+from autoclave.ui_qml.bridge.puente_instalacion import PuenteInstalacion
+from autoclave.ui_qml.app import QML_DIR
+
+modo = sys.argv[1]
+i18n.cargar()
+i18n_qml.instancia._consultar = lambda: None
+app = QGuiApplication([])
+engine = QQmlEngine()
+engine.addImportPath(QML_DIR)
+engine.exit.connect(app.exit)
+comp = QQmlComponent(engine, QUrl.fromLocalFile(QML_DIR + "/InstalacionVentana.qml"))
+raiz = comp.createWithInitialProperties({"puenteInstalacion": PuenteInstalacion(validar_codigo=lambda s, c: False)})
+a = raiz.findChild(QObject, "asistenteInstalacion")
+obs = {}
+a.setProperty("activo", False)          # intro aún a la vista: la cuenta no corre
+a.setProperty("terminado", True)
+QTest.qWait(1300)
+obs["con_intro"] = a.property("segundosRestantes")
+if modo == "boton":
+    QTimer.singleShot(0, lambda: QMetaObject.invokeMethod(a.findChild(QObject, "botonContinuar"), "pulsado"))
+else:
+    a.setProperty("segundosRestantes", 2)
+    a.setProperty("activo", True)
+QTimer.singleShot(8000, lambda: app.exit(99))
+obs["codigo_salida"] = app.exec()
+print("RESULTADO=" + json.dumps(obs))
+"""
+
+
+@pytest.mark.req("REI-01")
+@pytest.mark.parametrize("modo", ["cuenta", "boton"])
+def test_v18_04_la_cuenta_en_cero_o_el_boton_salen_con_el_codigo_3(modo):
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
+           "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
+    p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT_CUENTA, modo],
+                       capture_output=True, text=True, encoding="utf-8", errors="replace",
+                       env=env, cwd=RAIZ, timeout=120)
+    linea = next((l for l in p.stdout.splitlines() if l.startswith("RESULTADO=")), None)
+    assert linea, p.stdout[-2000:] + p.stderr[-3000:]
+    r = json.loads(linea[len("RESULTADO="):])
+    assert r["con_intro"] == 10            # sin `activo` la cuenta no avanza
+    assert r["codigo_salida"] == 3
+
+
+@pytest.mark.req("ARR-06")
+def test_intro_sin_perfil_sin_colores_de_alarma_ni_bitacora():
+    # la intro solo usa tokens del arranque (D-08) y las ventanas sin perfil
+    # no abren la base ni escriben auditoría
+    for nombre in ("InstalacionVentana.qml", "ReposoInstalacionVentana.qml", "Pantallas/IntroArranque.qml"):
+        lineas = (QML_DIR / nombre).read_text(encoding="utf-8").splitlines()
+        codigo = "\n".join(l for l in lineas if not l.strip().startswith("//"))
+        assert "Colores.alarma" not in codigo, nombre
+    fuente = (RAIZ / "src/autoclave/ui_qml/bridge/progreso_arranque.py").read_text(encoding="utf-8")
+    assert "auditoria" not in fuente and "audit_log" not in fuente
 
 
 @pytest.mark.req("REI-01")

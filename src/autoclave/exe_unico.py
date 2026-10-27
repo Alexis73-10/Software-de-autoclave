@@ -317,6 +317,18 @@ def reiniciar_pc(log, activo=None, ejecutar=None) -> bool:
     return True
 
 
+TOPE_ESPERA_REINICIO_PC_S = 120.0   # DECISIÓN SIN CONFIRMAR (V18-01)
+
+
+def esperar_reinicio_pc(tope_s: float = TOPE_ESPERA_REINICIO_PC_S, reloj=time.monotonic,
+                        dormir=time.sleep, pausa_s: float = 1.0) -> None:
+    """Espera a que Windows cierre este proceso al reiniciar. Si vuelve, el
+    reinicio no ocurrió (lo bloqueó una aplicación o se canceló)."""
+    limite = reloj() + tope_s
+    while reloj() < limite:
+        dormir(pausa_s)
+
+
 def _tomar_instancia(args):
     """V17-s2-01: mutex con nombre de la sesión (estacion/instancia_unica.py).
     Devuelve la Instancia o None si la protección no está activa (desarrollo).
@@ -412,9 +424,17 @@ def _lanzador_principal(args, instancia=None) -> int:
             return 1
         # REI-01: la fila equipo_instalado ya quedó escrita y la base cerrada
         # dentro del proceso del asistente (puente_instalacion.instalar), que
-        # ya terminó; sin perfil no hubo backend ni salidas que apagar
-        if reiniciar_pc(logger):
-            return 0
+        # ya terminó. V18-02: sin perfil este lanzador no arrancó backend; si
+        # aun así hay uno escuchando (huérfano), no se reinicia el PC
+        if _backend_responde(BACKEND_URL) or _puerto_backend_ocupado():
+            logger.error("Instalación completada, pero hay un backend escuchando en %s: no se "
+                         "reinicia el PC; se sigue con el arranque normal", BACKEND_URL)
+        elif reiniciar_pc(logger):
+            # V18-01: código 0 solo dice que Windows aceptó la orden; si una
+            # aplicación o alguien lo cancela, el equipo no queda sin Autoclave
+            esperar_reinicio_pc()
+            logger.error("Windows aceptó el reinicio pero el PC no se reinició en %.0f s: "
+                         "se sigue con el arranque normal", TOPE_ESPERA_REINICIO_PC_S)
         logger.info("Instalación completada: arranque normal")
 
     import threading
