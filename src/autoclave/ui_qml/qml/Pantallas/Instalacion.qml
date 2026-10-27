@@ -112,6 +112,34 @@ Item {
     property bool terminado: false
     readonly property string pasoActual: pasos[Math.min(indice, pasos.length - 1)]
 
+    // REI-01 (tanda 18): terminada la instalación, cuenta regresiva de 10 s y
+    // reinicio del PC (lo hace el lanzador al recibir el código 3); sin
+    // cancelar: el perfil ya quedó grabado y bloqueado. `activo` = el asistente
+    // está a la vista (el host lo baja mientras se ve la intro, ARR-06).
+    property bool activo: true
+    readonly property int segundosReinicio: 10
+    property int segundosRestantes: segundosReinicio
+    property bool _reinicioPedido: false
+    function reiniciarAhora() {
+        if (_reinicioPedido)
+            return
+        _reinicioPedido = true
+        cuentaReinicio.stop()
+        instalacionCompletada()
+    }
+    Timer {
+        id: cuentaReinicio
+        objectName: "cuentaReinicio"
+        interval: 1000
+        repeat: true
+        running: raiz.terminado && raiz.activo && !raiz._reinicioPedido
+        onTriggered: {
+            raiz.segundosRestantes = Math.max(0, raiz.segundosRestantes - 1)
+            if (raiz.segundosRestantes === 0)
+                raiz.reiniciarAhora()
+        }
+    }
+
     Connections {
         target: raiz.teclado
         function onAbiertoChanged() { if (!raiz.teclado.abierto) raiz.campoActivo = "" }
@@ -915,6 +943,7 @@ Item {
                         }
                     }
                     Text {
+                        id: textoListoRef
                         objectName: "textoListo"
                         anchors.top: sello.bottom
                         anchors.topMargin: Escala.px(48)
@@ -924,6 +953,20 @@ Item {
                         text: I18n.t("instalacion.listo_texto", I18n.lang)
                         color: Colores.textoSecundario
                         font.family: Tipografia.familia
+                        font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
+                    }
+                    // REI-01: aviso de reinicio con la cuenta regresiva visible
+                    Text {
+                        objectName: "textoReinicio"
+                        anchors.top: textoListoRef.bottom
+                        anchors.topMargin: Escala.px(40)
+                        width: parent.width
+                        horizontalAlignment: Text.AlignHCenter
+                        wrapMode: Text.WordWrap
+                        text: I18n.t("instalacion.reinicio_cuenta", I18n.lang, { segundos: raiz.segundosRestantes })
+                        color: Colores.textoPrimario
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoSemiBold
                         font.pixelSize: Escala.fuente(Tipografia.campoValorTam)
                     }
                 }
@@ -960,14 +1003,16 @@ Item {
                             raiz.siguiente()
                     }
                 }
+                // REI-01: «Reiniciar ahora» (sin cancelar); objectName de
+                // D8-3.22 conservado
                 BotonFormulario {
                     objectName: "botonContinuar"
                     visible: raiz.terminado
                     anchors.centerIn: parent
                     width: Escala.px(508)
                     primario: true
-                    texto: I18n.t("instalacion.continuar", I18n.lang)
-                    onPulsado: raiz.instalacionCompletada()
+                    texto: I18n.t("instalacion.reiniciar_ahora", I18n.lang)
+                    onPulsado: raiz.reiniciarAhora()
                 }
             }
         ]

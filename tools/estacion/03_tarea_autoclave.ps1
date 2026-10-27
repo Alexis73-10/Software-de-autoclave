@@ -11,7 +11,8 @@
   Idempotente: si la tarea existe con la misma accion, no se toca; si difiere, se
   reemplaza. Inverso: 03_revertir_tarea_autoclave.ps1.
   EST-07 (tanda 17, DECISION SIN CONFIRMAR): disparo sin retraso (PT0S, antes
-  PT10S); Autoclave.exe tapa las pantallas con la cubierta de arranque.
+  PT10S). EST-08 (tanda 18): se retiro la cubierta de arranque; entre el
+  inicio de sesion y la intro se ve el escritorio de la estacion (paso 07).
   -Ejecutable por defecto: RutaPrograma de HKLM\SOFTWARE\Especifika\Autoclave
   (vista de 64 bits, la escribe el Setup desde la tanda 17) + Autoclave.exe;
   sin esa clave, %ProgramFiles%\Especifika\Autoclave\Autoclave.exe como antes.

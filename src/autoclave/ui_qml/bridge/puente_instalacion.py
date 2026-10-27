@@ -97,6 +97,21 @@ def requiere_instalacion() -> bool:
         return True
 
 
+MOTIVO_SIN_PERFIL = "sin_perfil"
+MOTIVO_PERFIL_INVALIDO = "invalido"
+
+
+def motivo_instalacion() -> str:
+    """ARR-06 (tanda 18): por qué se abre el asistente, para el mensaje de la
+    intro y el log; solo tiene sentido si requiere_instalacion() es True y no
+    cambia su resultado. Sin archivo de perfil → "sin_perfil"; con archivo
+    (inválido, ilegible o con otro problema) → "invalido"."""
+    try:
+        return MOTIVO_PERFIL_INVALIDO if storage.exists() else MOTIVO_SIN_PERFIL
+    except Exception:
+        return MOTIVO_PERFIL_INVALIDO
+
+
 def _entero(datos: dict, clave: str) -> int:
     valor = datos.get(clave)
     if isinstance(valor, bool):

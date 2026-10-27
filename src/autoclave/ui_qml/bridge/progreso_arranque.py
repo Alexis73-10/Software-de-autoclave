@@ -124,6 +124,72 @@ class SimuladorProgresoArranque(QObject):
     falloBloqueante = Property(bool, _get_fallo, notify=cambiado)
 
 
+# ── ARR-06 (tanda 18): intro de arranque sin perfil de instalación ─────────
+#
+# Sin perfil (o con uno inválido) el backend no arranca: la barra solo puede
+# mostrar las etapas de origen lanzador (backend/arranque/registro.py). Se
+# detiene en verificando_instalacion (fracción 0) con el motivo en lugar del
+# nombre de la etapa, lo sostiene MENSAJE_SIN_PERFIL_MS desde que la barra se
+# ve (reiniciarVista, que llama la intro al completar su animación) y termina:
+# la intro hace su salida normal y la ventana pasa al asistente (puerta 1) o
+# al Reposo de instalación (puerta 2). No es un fallo ni una alarma.
+# TOPE_SIN_PERFIL_MS: si la intro nunca llamara a reiniciarVista, termina
+# igual (nunca deja la pantalla trabada en la intro; DECISIÓN SIN CONFIRMAR).
+
+MENSAJE_SIN_PERFIL_MS = 2000          # DECISIÓN SIN CONFIRMAR (duración, ARR-06)
+TOPE_SIN_PERFIL_MS = 10000
+PROCESO_SIN_PERFIL = {"sin_perfil": "sin_perfil_instalacion",
+                      "invalido": "perfil_invalido_instalacion"}
+
+
+class ProgresoArranqueSinPerfil(QObject):
+    """Misma interfaz para QML que SimuladorProgresoArranque. Temporizadores
+    de Qt (reloj monotónico)."""
+
+    cambiado = Signal()
+
+    def __init__(self, motivo: str = "sin_perfil", sostener_ms: int = MENSAJE_SIN_PERFIL_MS,
+                 tope_ms: int = TOPE_SIN_PERFIL_MS, parent=None):
+        super().__init__(parent)
+        self._proceso = PROCESO_SIN_PERFIL.get(motivo, PROCESO_SIN_PERFIL["sin_perfil"])
+        self._terminado = False
+        self._timer = QTimer(self)
+        self._timer.setSingleShot(True)
+        self._timer.setInterval(sostener_ms)
+        self._timer.timeout.connect(self.terminar)
+        self._tope = QTimer(self)
+        self._tope.setSingleShot(True)
+        self._tope.setInterval(tope_ms)
+        self._tope.timeout.connect(self.terminar)
+
+    def iniciar(self) -> None:
+        logger.info("Arranque sin perfil de instalación: %s", self._proceso)
+        self._tope.start()
+
+    def detener(self) -> None:
+        self._timer.stop()
+        self._tope.stop()
+
+    @Slot()
+    def reiniciarVista(self) -> None:
+        """La barra ya se ve: sostiene el mensaje y luego termina."""
+        if not self._terminado and not self._timer.isActive():
+            self._timer.start()
+
+    @Slot()
+    def terminar(self) -> None:
+        if self._terminado:
+            return
+        self._terminado = True
+        self.detener()
+        self.cambiado.emit()
+
+    fraccion = Property(float, lambda self: 0.0, notify=cambiado)
+    proceso = Property(str, lambda self: self._proceso, notify=cambiado)
+    terminado = Property(bool, lambda self: self._terminado, notify=cambiado)
+    falloBloqueante = Property(bool, lambda self: False, notify=cambiado)
+
+
 # ── Progreso REAL del backend (GET /arranque) ──────────────────────────────
 #
 # Observación de Cristian (19-oct): la barra del simulador no mostraba lo que

@@ -44,11 +44,14 @@
 # sola instancia. Si el relanzamiento falla queda en lanzador.log; la pantalla
 # ya avisó al operador que apague y encienda el equipo si no vuelve a abrir.
 #
-# EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR): lo primero que hace el lanzador,
-# antes de importar PySide o lanzar el backend, es abrir la cubierta de
-# arranque (estacion/cubierta_arranque.py): una ventana Win32 negra por
-# monitor que tapa el escritorio hasta que las pantallas QML muestran su
-# primer cuadro (o 180 s). Si falla, solo queda en el log.
+# EST-08 (tanda 18): se retiró la cubierta de arranque de EST-07 (ventana
+# Win32 negra con «Iniciando… / Starting…»); entre el inicio de sesión y la
+# intro se ve el escritorio de la estación (paso 07, EST-09).
+#
+# REI-01 (tanda 18): al terminar el asistente de instalación con éxito, el
+# lanzador reinicia el PC (shutdown /r /t 0), solo en el ejecutable compilado
+# en Windows (AUTOCLAVE_REINICIO_PC=1 lo activa a propósito, =0 nunca). Si
+# Windows no reinicia, se sigue con el arranque normal como antes.
 
 import argparse
 import logging
@@ -262,28 +265,56 @@ def _cerrar_reposo_instalacion(proc, logger) -> None:
     logger.info("Pantalla 2 de Reposo de instalación cerrada")
 
 
-def _abrir_cubierta(args):
-    """EST-07: abre la cubierta de arranque (solo Windows; por defecto solo en
-    el build congelado, ver cubierta_arranque.activa). Devuelve (cubierta,
-    error): nunca lanza ni impide el arranque. No importa PySide."""
-    try:
-        from autoclave.estacion import cubierta_arranque
-        if not cubierta_arranque.activa():
-            return None, None
-        puertas = (1,) if args.una_pantalla else (1, 2)
-        cubierta = cubierta_arranque.abrir(puertas)
-        return cubierta, getattr(cubierta, "error", None)
-    except Exception as e:   # pragma: no cover - abrir() ya no lanza
-        return None, f"{type(e).__name__}: {e}"
+# ── REI-01: reinicio del PC al terminar el asistente ──────────────────────
+
+VARIABLE_REINICIO_PC = "AUTOCLAVE_REINICIO_PC"
+TOPE_REINICIO_PC_S = 30.0
 
 
-def _cerrar_cubierta(cubierta) -> None:
-    if cubierta is None:
-        return
+def reinicio_pc_activo(entorno=os.environ, congelado=None, plataforma=None) -> bool:
+    """Solo en Windows. Por defecto solo en el ejecutable compilado;
+    AUTOCLAVE_REINICIO_PC=1 lo activa a propósito y =0 lo desactiva siempre."""
+    if (plataforma or sys.platform) != "win32":
+        return False
+    valor = (entorno.get(VARIABLE_REINICIO_PC) or "").strip()
+    if valor == "0":
+        return False
+    if valor == "1":
+        return True
+    return bool(getattr(sys, "frozen", False) if congelado is None else congelado)
+
+
+def _comando_reinicio_pc(entorno=os.environ) -> list[str]:
+    # ruta completa: no depende del PATH de la sesión
+    raiz = entorno.get("SystemRoot") or r"C:\Windows"
+    return [os.path.join(raiz, "System32", "shutdown.exe"), "/r", "/t", "0"]
+
+
+def reiniciar_pc(log, activo=None, ejecutar=None) -> bool:
+    """Pide a Windows reiniciar el PC ya. True si Windows lo aceptó (código 0);
+    False si está desactivado, si Windows lo niega o falla, o si se agota el
+    tiempo: queda en el log y el llamador sigue con el arranque normal."""
+    activo = reinicio_pc_activo() if activo is None else activo
+    if not activo:
+        log.info("Reinicio del PC desactivado (desarrollo o %s=0): se sigue con el arranque normal",
+                 VARIABLE_REINICIO_PC)
+        return False
+    ejecutar = ejecutar or subprocess.run
+    cmd = _comando_reinicio_pc()
     try:
-        cubierta.cerrar()
+        r = ejecutar(cmd, capture_output=True, text=True, timeout=TOPE_REINICIO_PC_S,
+                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     except Exception:
-        logging.getLogger("autoclave.exe_unico").exception("No se pudo cerrar la cubierta de arranque")
+        log.exception("Reinicio del PC: no se pudo ejecutar %s; se sigue con el arranque normal",
+                      " ".join(cmd))
+        return False
+    if r.returncode != 0:
+        detalle = (getattr(r, "stderr", "") or getattr(r, "stdout", "") or "").strip()
+        log.error("Reinicio del PC denegado por Windows (código %s: %s); se sigue con el arranque normal",
+                  r.returncode, detalle)
+        return False
+    log.warning("Instalación completada: reinicio del PC pedido a Windows (%s)", " ".join(cmd))
+    return True
 
 
 def _tomar_instancia(args):
@@ -303,45 +334,33 @@ def _tomar_instancia(args):
 
 
 def _lanzador(args) -> int:
-    # V17-s2-01: un solo lanzador por sesión, ANTES de abrir la cubierta (un
-    # segundo lanzador taparía las pantallas vivas, quizá con un ciclo en curso)
+    # V17-s2-01: un solo lanzador por sesión
     instancia = _tomar_instancia(args)
     if instancia is not None and not instancia.primera:
         # DECISIÓN SIN CONFIRMAR: no había otra protección contra un segundo
         # lanzador (solo se reutilizaba el backend); lo más seguro es no
-        # lanzar nada: ni cubierta, ni backend, ni pantallas
+        # lanzar nada: ni backend ni pantallas
         try:
             _log_a_archivo("lanzador.log")
         except Exception:
             pass
         logging.getLogger("autoclave.exe_unico").error(
-            "Ya hay un lanzador de Autoclave en esta sesión: este no abre la cubierta, "
-            "el backend ni las pantallas")
+            "Ya hay un lanzador de Autoclave en esta sesión: este no abre el backend ni las pantallas")
         return 0
     try:
-        # EST-07: lo primero, antes de importar PySide o arrancar el backend
-        cubierta = {}
-        cubierta["actual"], error_cubierta = _abrir_cubierta(args)
-        try:
-            return _lanzador_con_cubierta(args, cubierta, error_cubierta, instancia)
-        finally:
-            _cerrar_cubierta(cubierta.get("actual"))
+        return _lanzador_principal(args, instancia)
     finally:
         if instancia is not None:
             instancia.soltar()   # el mutex vive mientras viva el lanzador
 
 
-def _lanzador_con_cubierta(args, cubierta: dict, error_cubierta, instancia=None) -> int:
+def _lanzador_principal(args, instancia=None) -> int:
     _log_a_archivo("lanzador.log")
     logger = logging.getLogger("autoclave.exe_unico")
     logger.info("Lanzador iniciado")   # mide el arranque del propio ejecutable
     if instancia is not None and getattr(instancia, "error", None):
         logger.error("No se pudo comprobar si hay otro lanzador (%s): se sigue sin esa protección",
                      instancia.error)
-    if error_cubierta:
-        logger.error("Cubierta de arranque no disponible (%s): el arranque sigue sin ella", error_cubierta)
-    elif cubierta.get("actual") is not None:
-        logger.info("Cubierta de arranque pedida al iniciar el lanzador")
     if args.esperar_pid:
         # R11: relanzado tras reiniciar_software; una sola instancia
         esperar_instancia_anterior(args.esperar_pid, log=logger)
@@ -352,22 +371,27 @@ def _lanzador_con_cubierta(args, cubierta: dict, error_cubierta, instancia=None)
     from autoclave.ui_qml.doble_pantalla import vigilar_pantallas
     from autoclave.utils.paths import app_root
 
-    from autoclave.ui_qml.bridge.puente_instalacion import requiere_instalacion
+    from autoclave.ui_qml.bridge.puente_instalacion import motivo_instalacion, requiere_instalacion
     from autoclave.ui_qml.doble_pantalla import CODIGO_INSTALACION_TERMINADA
 
     entorno = {**os.environ, "AUTOCLAVE_EXE_UNICO": "1", "PYTHONIOENCODING": "utf-8"}
     entorno.pop("AUTOCLAVE_BACKEND_URL", None)   # siempre contra el backend real
     cwd = str(app_root())
 
-    # Sin perfil de instalación (PC nuevo): primero solo el asistente, sin
-    # backend (no lo necesita). Al terminarlo (código 3) se sigue con el
-    # arranque normal ya con el perfil nuevo, sin reiniciar a mano.
+    # Sin perfil de instalación (PC nuevo) o con uno inválido: primero solo el
+    # asistente, sin backend (no lo necesita). ARR-06 (tanda 18): cada pantalla
+    # muestra antes la intro de arranque con el motivo (ui_qml/app.py).
     # W10 (D10-4): con dos pantallas, la puerta 2 muestra entretanto el Reposo
-    # con el aviso de instalación en curso; al terminar el asistente se cierra
-    # y se vuelve a abrir con el flujo normal junto a la puerta 1 (fuera de la
-    # vigilancia de caídas, así que no cuenta como relanzamiento).
+    # con el aviso de instalación en curso. REI-01 (tanda 18): al terminar el
+    # asistente (código 3) se reinicia el PC; si Windows no reinicia (o en
+    # desarrollo), se cierra el Reposo y se sigue con el arranque normal ya
+    # con el perfil nuevo (fuera de la vigilancia de caídas, así que no cuenta
+    # como relanzamiento).
     if requiere_instalacion():
-        logger.warning("Sin perfil de instalación: se abre el asistente")
+        if motivo_instalacion() == "invalido":
+            logger.warning("Perfil de instalación inválido: se abre el asistente")
+        else:
+            logger.warning("Sin perfil de instalación: se abre el asistente")
         asistente = subprocess.Popen(
             _cmd_propio("--rol", "ui", "--door", "1", "--screen", str(args.monitor_puerta1)),
             cwd=cwd, env=entorno)
@@ -386,13 +410,12 @@ def _lanzador_con_cubierta(args, cubierta: dict, error_cubierta, instancia=None)
         if codigo != CODIGO_INSTALACION_TERMINADA or requiere_instalacion():
             logger.error("Asistente cerrado sin completar la instalación (código %s)", codigo)
             return 1
+        # REI-01: la fila equipo_instalado ya quedó escrita y la base cerrada
+        # dentro del proceso del asistente (puente_instalacion.instalar), que
+        # ya terminó; sin perfil no hubo backend ni salidas que apagar
+        if reiniciar_pc(logger):
+            return 0
         logger.info("Instalación completada: arranque normal")
-        # EST-07: la cubierta se cerró con el primer cuadro del asistente;
-        # se vuelve a abrir mientras arrancan el backend y las pantallas normales
-        _cerrar_cubierta(cubierta.get("actual"))
-        cubierta["actual"], error_cubierta = _abrir_cubierta(args)
-        if error_cubierta:
-            logger.error("Cubierta de arranque no disponible (%s)", error_cubierta)
 
     import threading
     from autoclave.backend import reinicio

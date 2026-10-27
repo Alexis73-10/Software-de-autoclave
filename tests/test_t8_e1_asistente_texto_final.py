@@ -3,7 +3,12 @@
 software". Se carga InstalacionVentana.qml offscreen en un subproceso, en es y
 en, se fuerza el paso final y se pulsa Continuar: la ventana sale con el
 código 3 (CODIGO_INSTALACION_TERMINADA), que el lanzador toma como "seguir con
-el arranque normal" (exe_unico.py)."""
+el arranque normal" (exe_unico.py).
+
+REI-01 (tanda 18, decisiones_tanda_18.md) cambia por decisión de Cristian lo
+que D8-3.22 fijaba: el botón pasa a «Reiniciar ahora» con una cuenta
+regresiva de 10 s y el lanzador reinicia el PC al recibir el código 3; las
+aserciones del botón y del texto se actualizaron (el código 3 sigue igual)."""
 
 import json
 import os
@@ -75,22 +80,23 @@ def _cargar(idioma):
     return json.loads(linea[len("RESULTADO="):])
 
 
-@pytest.mark.parametrize("idioma, titulo, boton, prohibido", [
-    ("es", "INSTALACIÓN COMPLETADA", "Continuar", "reinici"),
-    ("en", "INSTALLATION COMPLETE", "Continue", "restart"),
+# REI-01: antes "Continuar"/"Continue" y ningún "reinici"/"restart" en el texto
+@pytest.mark.parametrize("idioma, titulo, boton", [
+    ("es", "INSTALACIÓN COMPLETADA", "Reiniciar ahora"),
+    ("en", "INSTALLATION COMPLETE", "Restart now"),
 ])
-def test_resultado_dice_instalacion_completada_con_continuar(idioma, titulo, boton, prohibido):
+def test_resultado_dice_instalacion_completada_con_reiniciar_ahora(idioma, titulo, boton):
     r = _cargar(idioma)
     assert r["avisos"] == []
     assert r["titulo"] == titulo
     assert r["texto_visible"] and r["boton_visible"] and not r["siguiente_visible"]
     assert r["boton"] == boton
-    assert boton in r["texto"]                 # el texto remite al botón
-    assert prohibido not in r["texto"].lower()
-    assert r["codigo_salida"] == 3             # Continuar: arranque normal (exe_unico)
+    assert r["codigo_salida"] == 3             # el lanzador reinicia el PC (REI-01)
 
 
 def test_catalogo_sin_reiniciar_en_el_resultado():
+    # REI-01: el aviso de reinicio va en su propia clave (instalacion.reinicio_cuenta);
+    # el texto y el título del resultado siguen sin hablar de reiniciar
     for idioma, prohibido in (("es", "reinici"), ("en", "restart")):
         cat = json.loads((_RAIZ / f"src/autoclave/i18n/{idioma}.json").read_text(encoding="utf-8"))
         assert prohibido not in cat["instalacion"]["listo_texto"].lower()
