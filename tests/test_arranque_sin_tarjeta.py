@@ -93,7 +93,7 @@ def backend(monkeypatch, tmp_path):
         return enlaces[-1]
 
     monkeypatch.setattr(ctx_mod, "get_installation_profile", _perfil)
-    monkeypatch.setattr(ctx_mod, "build_serial", build_serial)
+    monkeypatch.setattr(ctx_mod, "build_enlace", build_serial)  # tanda 19 (MOD-01): build_serial -> build_enlace en el contexto
     monkeypatch.setattr(ctx_mod, "DbManager", lambda: DbManager(tmp_path / "autoclave.db"))
     monkeypatch.setattr(ctx_mod, "SensorCalibrationAuditDB",
                         lambda: SensorCalibrationAuditDB(tmp_path / "calibracion.db"))

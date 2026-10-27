@@ -1,7 +1,7 @@
 # autoclave/estacion/_win32.py
 #
-# Declaraciones ctypes de Win32 compartidas por la cubierta de arranque y la
-# herramienta de táctiles. Solo se cargan en Windows y bajo demanda (`api()`):
+# Declaraciones ctypes de Win32 de la herramienta de táctiles y del lanzador
+# (la cubierta de arranque se retiró en la tanda 18, EST-08). Solo se cargan en Windows y bajo demanda (`api()`):
 # importar este módulo en otra plataforma no falla. Todas las funciones llevan
 # argtypes/restype explícitos para que los HANDLE/LPARAM de 64 bits no se
 # trunquen a int de 32.

@@ -50,6 +50,26 @@ class _RestaurarBody(BaseModel):
 _lock_respaldo = threading.Lock()
 
 
+def _fabrica(cfg) -> dict:
+    return cfg.calibration.factory.model_dump()
+
+
+def _misma_fabrica(cfg_resp) -> bool:
+    """Tanda 19 (MOD-04; revisión R, V19-s2-02): True si TODA la sección
+    `calibration.factory` del respaldo (temperatura y presión, todos los campos
+    de cada canal) es igual a la del archivo de calibración activo, es decir,
+    si el respaldo es del mismo enlace de E/S y de la misma fábrica. False si
+    difiere en cualquier campo o si el activo no se puede leer (falla cerrada).
+    Nota: también en el enlace serial se rechaza un respaldo cuya fábrica
+    difiera de la activa (p. ej. otra escala ADC de banco), aunque sea del
+    mismo enlace: falla cerrada; la fábrica no se restaura por respaldo."""
+    try:
+        activa = load_config(CALIBRATION_PATH)
+    except Exception:
+        return False
+    return _fabrica(cfg_resp) == _fabrica(activa)
+
+
 def _unidades_usb() -> list[dict]:
     from autoclave.core.runtime import respaldo as rp
     return rp.unidades_usb()
@@ -204,6 +224,20 @@ def post_backup_restore(body: _RestaurarBody,
                 cfg_resp = load_config(prueba)
             except Exception:
                 raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
+        # Tanda 19 (MOD-04): una calibración de otro enlace de E/S (serial:
+        # cuentas del ADC; Modbus: µA y décimas de °C) pisaría la escala de
+        # fábrica y las lecturas saldrían mal. Revisión R (V19-s2-02): se
+        # compara TODA la sección de fábrica (temperatura y presión) con la del
+        # archivo activo; cualquier diferencia rechaza. Fail-closed: si el
+        # activo no se puede leer, también. En serial esto rechaza además un
+        # respaldo con otra fábrica del mismo enlace (falla cerrada).
+        if not _misma_fabrica(cfg_resp):
+            _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                     detalle={"archivo": body.archivo, "motivo": "calibracion_otro_enlace"})
+            raise RechazoApi(422, "calibracion_otro_enlace",
+                             "La calibración del respaldo es de otro enlace de E/S o de "
+                             "otra calibración de fábrica (temperatura o presión distinta "
+                             "de la activa); no se restaura")
         # SAF-01 de O2h: misma plausibilidad que la calibración manual, canal
         # por canal; lo dudoso (aviso) también se rechaza: fail-closed
         for tipo, mapa, lista in (("temperature", EstadoAutoclave.map_temp,

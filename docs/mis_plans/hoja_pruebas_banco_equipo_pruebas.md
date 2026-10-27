@@ -153,12 +153,22 @@
 | I-04 | Actualización con la unidad fija y bloqueo de la disposición anterior | En seco (sin vapor) | INS-02 (tanda 17) |
 | I-05 | Instalación limpia y desinstalación sobre datos | En seco (sin vapor) | INS-02 / D11-4 (tanda 17) |
 | I-06 | Táctiles sin MultiDigitizer: herramienta propia | En seco (sin vapor) | EST-06 (tanda 17, DECISIONES SIN CONFIRMAR) |
-| I-07 | Cubierta de arranque y hueco autologon → tarea | En seco (sin vapor) | EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR) |
+| I-07b | Del inicio de sesión a la intro: escritorio de la estación, sin cubierta | En seco (sin vapor) | EST-08 / EST-09 (tanda 18; sustituye a I-07) |
 | I-08 | Sonda en No en uso: monitoreo | En seco (sin vapor) | SON-01 (tanda 17) |
 | I-09 | Estado seguro sin transductor de presión de cámara | En seco (sin vapor) | ESG-01 (tanda 17) |
 | I-10 | Modo prueba con estado seguro activo y protecciones permanentes | En operación (vapor) | ESG-02 (tanda 17, DECISIONES SIN CONFIRMAR) |
 | I-11 | Pantallas: presión en modo prueba, alarmas y selector de programas | En seco (sin vapor) | MPR-01, ALM-01, PRC-01 (tanda 17) |
 | I-12 | Bitácora: eventos, instalación y filtros | En seco (sin vapor) | BIT-01..05 (tanda 17) |
+| I-13 | Intro de arranque sin perfil de instalación | En seco (sin vapor) | ARR-06 (tanda 18) |
+| I-14 | Reinicio del PC al terminar el asistente | En seco (sin vapor) | REI-01 (tanda 18) |
+| I-15 | Desinstalar devuelve el escritorio original | En seco (sin vapor) | EST-09 (tanda 18) |
+| M-0 | Paso previo: red dedicada y acceso a los módulos | En seco (sin vapor) | MOD-17 (tanda 19) |
+| M-1 | Corte por desconexión: el relé abre solo | En seco (sin vapor) | MOD-08 / MOD-07 (tanda 19; 1,0 s es DECISIÓN SIN CONFIRMAR) |
+| M-2 | Composición y orden de los módulos | En seco (sin vapor) | MOD-06 / MOD-10 (tanda 19) |
+| M-3 | Canal por canal: DI, DO, PT100 y transmisores | En seco (sin vapor) | MOD-03 / MOD-05 / MOD-07 (tanda 19) |
+| M-4 | Exactitud de PT100 y AI de presión | En seco (sin vapor) | MOD-16: MED-01 y MED-02 (tanda 19) |
+| M-5 | Restablecimiento de fábrica del módulo con el software corriendo | En seco (sin vapor) | MOD-07 / MED-03 (tanda 19) |
+| M-6 | Cambio de enlace a serial y de vuelta a Modbus | En seco (sin vapor) | MOD-01 (tanda 19) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -2374,7 +2384,7 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-## Bloque I. Instalación y estación; sondas, estado seguro, modo prueba, pantallas y bitácora (tanda 17)
+## Bloque I. Instalación y estación; sondas, estado seguro, modo prueba, pantallas y bitácora (tandas 17 y 18)
 
 ### I-01 — Setup: zona horaria de Windows
 
@@ -2470,19 +2480,19 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### I-07 — Cubierta de arranque y hueco autologon → tarea
+### I-07b — Del inicio de sesión a la intro: escritorio de la estación, sin cubierta
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR)
-- **Objetivo:** El escritorio no queda expuesto al iniciar sesión.
-- **Precondiciones:** Equipo instalado con autologon y la tarea de arranque (Delay PT0S).
+- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-08 / EST-09 (tanda 18; sustituye a I-07)
+- **Objetivo:** Entre el inicio de sesión y la intro solo se ve el fondo de Especifika, sin barra ni íconos.
+- **Precondiciones:** Equipo instalado con «Configurar este PC como estación» (autologon, tarea de arranque con Delay PT0S, paso 07).
 - **Pasos:**
   1. Reiniciar en frío tres veces, con cronómetro o vídeo.
-  2. Observar: escritorio visible antes de la cubierta, cubierta negra «Iniciando… / Starting…», toques bloqueados, cierre al aparecer las dos pantallas.
-  3. Con la puerta 2 sin arrancar: cierre a los 15 s de la primera. Sin backend: cierre a los 180 s.
-  4. Medir el hueco: Visor de eventos Seguridad 4624 (tipo 2) frente a «Cubierta de arranque abierta» en `datos\lanzador.log`; TaskScheduler/Operational 107/119/100.
+  2. Observar desde que entra Windows hasta la intro: fondo, barra de tareas, íconos del escritorio y cualquier texto «Iniciando… / Starting…».
+  3. Medir el tiempo del inicio de sesión a la intro: Visor de eventos Seguridad 4624 (tipo 2) frente a «Lanzador iniciado» en `datos\lanzador.log`; TaskScheduler/Operational 107/119/100.
+  4. Configuración › Personalización: fondo tipo «Imagen» en modo Rellenar en los dos monitores; barra con «Ocultar automáticamente».
   5. Doble clic en el acceso directo con el software abierto (segunda instancia).
-- **Resultado esperado:** Hueco medido y anotado; la cubierta no deja la pantalla negra; no aparece «No responde»; una segunda instancia no tapa las pantallas vivas.
-- **Criterio de aprobado/fallo:** Aprobado si el escritorio no es usable tras abrirse la cubierta y la cubierta siempre se cierra.
+- **Resultado esperado:** Solo el fondo de Especifika en los dos monitores, sin barra visible ni íconos y sin «Iniciando… / Starting…»; tiempo medido y anotado; una segunda instancia no abre otras pantallas.
+- **Criterio de aprobado/fallo:** Aprobado si el escritorio no muestra barra, íconos ni texto de la cubierta antes de la intro.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -2559,6 +2569,161 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
   3. Filtrar por Usuario, por cada Tipo (categoría) y por Desde–Hasta con el calendario.
 - **Resultado esperado:** Una sola fila `equipo_instalado` de la instalación (serie, modelo, versión, zona); del modo prueba solo «entra», «salida forzada» y «aire atmosférico cortado»; sin `login_fallido` ni `logout`; el 5.º fallido bloquea igual que antes (`login_bloqueado`). Los filtros dan lo esperado.
 - **Criterio de aprobado/fallo:** Aprobado si el bloqueo no cambia y la bitácora no se llena de eventos retirados.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-13 — Intro de arranque sin perfil de instalación
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ARR-06 (tanda 18)
+- **Objetivo:** Sin perfil (o con perfil inválido) la intro se ve en las dos pantallas antes del asistente.
+- **Precondiciones:** Equipo sin `installation_profile.json` (instalación limpia); para el caso inválido, un perfil alterado a mano.
+- **Pasos:**
+  1. Arrancar sin perfil: observar las dos pantallas.
+  2. Repetir con un perfil presente pero inválido.
+  3. Revisar `datos\lanzador.log`, `ui_puerta1.log`, `ui_puerta2.log` y Opciones › Bitácora tras la instalación.
+- **Resultado esperado:** Intro completa (animación y barra) en las dos pantallas; la barra se detiene en «Sin perfil de instalación: se abre el asistente» (o «Perfil de instalación inválido: …») unos 2 s y sale; la puerta 1 pasa al asistente y la 2 al Reposo «Instalación en curso en la pantalla 1». Sin colores de alarma. Nada en la bitácora salvo `equipo_instalado` al terminar.
+- **Criterio de aprobado/fallo:** Aprobado si la intro nunca queda trabada y el asistente siempre aparece.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-14 — Reinicio del PC al terminar el asistente
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** REI-01 (tanda 18)
+- **Objetivo:** Al terminar la instalación el equipo se reinicia solo y arranca normal.
+- **Precondiciones:** Equipo sin perfil, con la estación configurada; ejecutable compilado (Setup).
+- **Pasos:**
+  1. Completar el asistente: observar la cuenta regresiva de 10 s en las dos pantallas.
+  2. Dejarla llegar a 0 en un intento; en otro, pulsar «Reiniciar ahora».
+  3. Tras el reinicio: inicio automático, escritorio de la estación y arranque normal.
+  4. Revisar `datos\lanzador.log` (reinicio pedido) y que la bitácora tenga una sola `equipo_instalado`.
+- **Resultado esperado:** «Instalación completada. El equipo se reiniciará en N s» en las dos pantallas, sin cancelar; el PC reinicia a los 10 s o al pulsar; tras el reinicio, intro y barra completas y menú normal. Si Windows negara el reinicio, `lanzador.log` lo dice y el equipo sigue con el arranque normal.
+- **Criterio de aprobado/fallo:** Aprobado si el equipo reinicia y vuelve solo al arranque normal con el perfil nuevo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-15 — Desinstalar devuelve el escritorio original
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-09 (tanda 18)
+- **Objetivo:** La reversión del paso 07 deja el fondo, la barra y los íconos como estaban.
+- **Precondiciones:** Anotar (foto) el fondo, el modo de la barra y los íconos antes de instalar.
+- **Pasos:**
+  1. Instalar con la estación; reparar (Setup › Reparar) y revisar `estacion.log` (`Aplicar paso 07 ... terminado`).
+  2. Desinstalar.
+  3. Revisar `datos\estacion\estacion.log` y el escritorio tras iniciar sesión.
+- **Resultado esperado:** `Revertir paso 07 ... terminado` en el log (revertido antes que 06, 05, 04, 02 y 01); fondo, barra e íconos como en la foto inicial.
+- **Criterio de aprobado/fallo:** Aprobado si el escritorio vuelve exactamente al estado anterior.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+## Bloque M. Enlace Modbus TCP con los módulos M31-U (tanda 19, en seco)
+
+### M-0 — Paso previo: red dedicada y acceso a los módulos
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-17 (tanda 19)
+- **Objetivo:** El PC habla con el principal M31-U por un puerto de red propio, sin la red de la oficina.
+- **Precondiciones:** Módulos montados sin energía en el orden principal (16 AI) → 16 DI → 16 DO n.º 1 (DO 01–16) → 16 DO n.º 2 (DO 17–32) → 6 PT100; negociados (doble pulsación de Reload).
+- **Pasos:**
+  1. Configurar a mano en Windows el puerto de red dedicado: IP fija 192.168.3.10/24, sin puerta de enlace.
+  2. Conectar ese puerto a un RJ45 del principal; el segundo RJ45 queda libre (no a la red de oficina).
+  3. Abrir http://192.168.3.7 (admin/admin) y cambiar la contraseña web; anotarla en el expediente, no en la hoja.
+  4. Comprobar que `config\enlace_io.json` de la instalación dice `"enlace": "modbus"`.
+- **Resultado esperado:** Ping a 192.168.3.7 responde; la web abre y acepta la contraseña nueva; Información del equipo muestra «Enlace de E/S: Modbus TCP (módulos M31-U)».
+- **Criterio de aprobado/fallo:** Aprobado si la conexión es directa y la contraseña de fábrica ya no sirve.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### M-1 — Corte por desconexión: el relé abre solo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-08 / MOD-07 (tanda 19; 1,0 s es DECISIÓN SIN CONFIRMAR)
+- **Objetivo:** Con una salida encendida, si el PC deja de hablar con los módulos el relé abre en menos de 2 s.
+- **Precondiciones:** M-0 aprobado; una salida sin riesgo (p. ej. un indicador) encendida desde Entradas/Salidas en modo prueba; cronómetro.
+- **Pasos:**
+  1. Caso 1: quitar el cable de red del PC; medir el tiempo hasta que el relé abre.
+  2. Caso 2: con la salida encendida otra vez, matar el proceso del backend (Administrador de tareas); medir.
+  3. Caso 3: congelar el lazo de control, si existe una forma de prueba; si no, anotar «omitido».
+  4. Tras cada caso, restablecer y comprobar que el software reconecta solo y muestra el corte (TARJETA_WATCHDOG) al volver.
+- **Resultado esperado:** En los casos ejecutados el relé abre en menos de 2 s (tiempo de desconexión del módulo 1,0 s).
+- **Criterio de aprobado/fallo:** Aprobado si en todos los casos ejecutados el relé abre en menos de 2 s.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### M-2 — Composición y orden de los módulos
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-06 / MOD-10 (tanda 19)
+- **Objetivo:** El software rechaza una composición distinta y una negociación pendiente.
+- **Precondiciones:** M-0 aprobado. Unir y separar módulos SIEMPRE sin energía.
+- **Pasos:**
+  1. Sin energía, quitar el módulo de PT100 y arrancar.
+  2. Sin energía, reponerlo SIN negociar y arrancar.
+  3. Negociar (doble pulsación de Reload) y arrancar.
+- **Resultado esperado:** 1: TARJETA_VERSION_INCOMPATIBLE (composición distinta), inicio bloqueado. 2: TARJETA_MODULOS_ORDEN, inicio bloqueado. 3: conexión correcta, sin alarmas de la tarjeta.
+- **Criterio de aprobado/fallo:** Aprobado si en 1 y 2 el equipo queda bloqueado y en 3 conecta.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### M-3 — Canal por canal: DI, DO, PT100 y transmisores
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-03 / MOD-05 / MOD-07 (tanda 19)
+- **Objetivo:** Cada entrada y salida de fábrica corresponde a su función y las direcciones de las expansiones son las previstas.
+- **Precondiciones:** M-0 y M-2 aprobados; pantalla de Entradas/Salidas.
+- **Pasos:**
+  1. Activar cada DI 01–14 desde su elemento de campo y verla cambiar en su función.
+  2. Encender en modo prueba cada DO 01–23 (la 13 libre) y la DO 25 (buzzer, 24 VDC) y confirmar la carga que se mueve.
+  3. Cada PT100 (canales 1, 2, 3 y 5) y cada transmisor (AI 09–12): lectura coherente; desconectar uno y ver «—» y su alarma.
+  4. En la web del módulo, confirmar que los registros de seguridad (tiempo de desconexión, estado de falla de las DO 1–32, filtro de AI 0x0DA2 y de PT100) quedaron con lo que escribe el software.
+- **Resultado esperado:** Cada canal en su función; sin lectura, «—» y alarma del sensor; registros de seguridad iguales a lo escrito (si el filtro de AI resulta ser por canal en 0x0FA0, anotarlo).
+- **Criterio de aprobado/fallo:** Aprobado si todos los canales coinciden y ninguna salida se mueve sin su orden.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### M-4 — Exactitud de PT100 y AI de presión
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-16: MED-01 y MED-02 (tanda 19)
+- **Objetivo:** Medir el error de las PT100 del módulo y de las AI frente a patrones.
+- **Precondiciones:** Baño o calibrador de temperatura y patrón de presión con certificado vigente.
+- **Pasos:**
+  1. PT100 contra patrón a 121 y 134 °C: anotar el error de cada canal antes de la calibración de usuario.
+  2. Presión contra patrón a 100, 200 y 300 kPa abs: anotar el error de cada transmisor antes de la calibración de usuario.
+  3. Hacer la calibración de usuario y repetir las mediciones.
+- **Resultado esperado:** Errores anotados antes y después; la decisión de Cristian sobre MED-01 y MED-02 se toma con estos valores.
+- **Criterio de aprobado/fallo:** Aprobado si, tras la calibración de usuario, el error es compatible con los umbrales (0,1 °C, 1 K y 2 K; 1,5 y 2 kPa) o Cristian acepta el riesgo por escrito.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### M-5 — Restablecimiento de fábrica del módulo con el software corriendo
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-07 / MED-03 (tanda 19)
+- **Objetivo:** Tras un Reload largo el software reconecta y reescribe solo la configuración de seguridad.
+- **Precondiciones:** M-0 aprobado; software conectado, sin ciclo.
+- **Pasos:**
+  1. Mantener Reload del principal 5–10 s (restablecimiento de fábrica).
+  2. Si la IP vuelve a la de fábrica (192.168.3.7) no hace falta tocar la red; si no, anotarlo y restaurarla.
+  3. Esperar la reconexión y revisar en la web los registros de seguridad (como en M-3).
+- **Resultado esperado:** Alarma de la tarjeta mientras no hay conexión; reconexión sola; registros de seguridad reescritos; el caso 1 de M-1 vuelve a aprobar.
+- **Criterio de aprobado/fallo:** Aprobado si la configuración de seguridad queda reescrita sin intervención.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### M-6 — Cambio de enlace a serial y de vuelta a Modbus
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-01 (tanda 19)
+- **Objetivo:** El selector de enlace funciona con reinicio.
+- **Precondiciones:** M-0 aprobado; sin la tarjeta ESP32 conectada.
+- **Pasos:**
+  1. Editar `config\enlace_io.json` a `"serial"` y reiniciar el software.
+  2. Volver a `"modbus"` y reiniciar.
+- **Resultado esperado:** Con serial arranca y queda bloqueado por la tarjeta (sin ESP32 es lo esperado) e Información del equipo dice «Serial (tarjeta ESP32)»; con Modbus vuelve a conectar.
+- **Criterio de aprobado/fallo:** Aprobado si arranca en los dos casos y el enlace mostrado coincide con el archivo.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________

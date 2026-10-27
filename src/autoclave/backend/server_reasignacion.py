@@ -454,10 +454,13 @@ def registrar(app) -> None:
             })
         ocupados = {t: {str(p): aio.clave(t, f) for f, p in guardada[t].items()} for t in aio.TIPOS}
         codigo, _texto = _motivo_bloqueo()
+        # Tanda 19 (MOD-05): los puertos que ofrece el enlace de E/S activo
+        puertos = aio.puertos()
         return {
             "filas": filas,
-            "puertos": {"DI": list(aio.PUERTOS_DI), "DO": list(aio.PUERTOS_DO),
-                        "AI_TEMP": list(aio.PUERTOS_AI_TEMP), "AI_PRES": list(aio.PUERTOS_AI_PRES)},
+            "enlace": aio.enlace(),
+            "puertos": {"DI": list(puertos["DI"]), "DO": list(puertos["DO"]),
+                        "AI_TEMP": list(puertos["AI_TEMP"]), "AI_PRES": list(puertos["AI_PRES"])},
             "ocupados": ocupados,
             "cambios_guardados": aio.cambios_respecto_a(fabrica, guardada),
             "reinicio_pendiente": not error and guardada != memoria,

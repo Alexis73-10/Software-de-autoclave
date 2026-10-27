@@ -24,6 +24,7 @@ _archivo/
 /data/*.log
 /data/last_shutdown.json
 /data/calibration.yaml
+/data/calibration_modbus.yaml
 /data/login_recordado.json
 /data/login_recordado.json.tmp
 /data/tickets/

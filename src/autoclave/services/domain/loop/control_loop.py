@@ -46,7 +46,15 @@ _LOG_CADA_EXCEPCIONES = 20
 # el Principal del último ciclo (convención de debounce de 3 lecturas).
 _TICKS_SEGUROS_OLVIDAR_CICLO = 3
 
-_ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS"}
+_ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS",
+                            # Tanda 19 (MOD-12, DECISIÓN SIN CONFIRMAR): las del
+                            # enlace Modbus, si llegan en operación fuera de
+                            # ciclo, piden también una nueva conexión verificada
+                            # (que reescribe y comprueba la configuración de
+                            # seguridad y el orden de módulos). El enlace ya
+                            # invalida la conexión por sí mismo; esto es una
+                            # segunda barrera, igual que con el expansor.
+                            "TARJETA_MODULOS_ORDEN", "TARJETA_CONFIG_SEGURIDAD"}
 # U4: lecturas seguidas con la DI vencida antes de TARJETA_SIN_TRAMA_VALIDA
 _DEBOUNCE_DI_VENCIDA = 3
 # D8-2.11 (tanda 8, Q1-P1): reintentos del ALL_OFF sin confirmar al salir del

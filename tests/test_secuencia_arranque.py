@@ -190,7 +190,7 @@ def test_excepcion_no_prevista_es_fallo_interno(etapa, clave):
 
 def test_el_constructor_no_hace_e_s(monkeypatch):
     for nombre in ("get_installation_profile", "ConfigManager", "CycleManager", "Units",
-                   "DbManager", "SensorCalibrationAuditDB", "build_serial", "ControlLoop"):
+                   "DbManager", "SensorCalibrationAuditDB", "build_enlace", "ControlLoop"):  # tanda 19 (MOD-01): build_serial -> build_enlace en el contexto
         monkeypatch.setattr(ctx_mod, nombre, MagicMock(side_effect=AssertionError(nombre)))
     ctx = BackendContext()
     assert ctx.control_loop is None and ctx.db is None and ctx.serial is None
@@ -336,7 +336,7 @@ def test_bd_que_falla_una_vez_y_luego_abre(monkeypatch):
 
 def test_construir_control_registra_el_aviso_antes_de_start(monkeypatch):
     loop = MagicMock()
-    monkeypatch.setattr(ctx_mod, "build_serial", lambda units, al_conectar=None: MagicMock())
+    monkeypatch.setattr(ctx_mod, "build_enlace", lambda units, al_conectar=None: MagicMock())  # tanda 19 (MOD-01): build_serial -> build_enlace en el contexto
     monkeypatch.setattr(ctx_mod, "build_doors_cfg", lambda profile: [])
     for nombre in ("SetOutput", "ServicioPuertas", "RealtimePrinter", "CycleLogger"):
         monkeypatch.setattr(ctx_mod, nombre, MagicMock())

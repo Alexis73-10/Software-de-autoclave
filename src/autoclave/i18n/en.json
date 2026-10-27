@@ -15,7 +15,6 @@
     "atras": "Back",
     "siguiente": "Next",
     "instalar": "Install equipment",
-    "continuar": "Continue",
     "serie": "Equipment serial number",
     "serie_marcador": "Serial number",
     "codigo": "Activation code",
@@ -109,7 +108,7 @@
     "confirmar_si": "Install",
     "error_guardar": "Save error: {detalle}",
     "listo_titulo": "Installation complete",
-    "listo_texto": "The equipment has been registered successfully. Press Continue to start using it.",
+    "listo_texto": "The equipment has been registered successfully.",
     "resumen_cerrojo": "Door lock",
     "resumen_con_cerrojo": "Controlled by the software",
     "resumen_sin_cerrojo": "NOT controlled by the software",
@@ -128,7 +127,9 @@
     "error_contrasenas": "Check the Admin and Engineer passwords",
     "error_guardar_contrasenas": "The passwords could not be saved: {detalle}",
     "resumen_contrasenas": "Admin and Engineer passwords",
-    "resumen_contrasenas_fijadas": "Set (saved when installing)"
+    "resumen_contrasenas_fijadas": "Set (saved when installing)",
+    "reinicio_cuenta": "Installation complete. The equipment will restart in {segundos} s",
+    "reiniciar_ahora": "Restart now"
   },
   "app": {
     "nombre": "e-specifika"
@@ -449,7 +450,9 @@
     "cargando_configuracion": "Loading configuration",
     "verificando_calibracion": "Checking calibration",
     "conectando_modulos_es": "Connecting I/O modules",
-    "preparando_interfaz": "Preparing interface"
+    "preparando_interfaz": "Preparing interface",
+    "sin_perfil_instalacion": "No installation profile: opening the setup wizard",
+    "perfil_invalido_instalacion": "Invalid installation profile: opening the setup wizard"
   },
   "fases": {
     "precalentamiento": "Preheating",
@@ -566,6 +569,9 @@
     "version_tarjeta": "Board version",
     "id_tarjeta": "Board ID",
     "emparejamiento_tarjeta": "Equipment board",
+    "enlace_io": "I/O link",
+    "enlace_io_modbus": "Modbus TCP (M31-U modules)",
+    "enlace_io_serial": "Serial (ESP32 board)",
     "tarjeta_emparejada": "Paired",
     "tarjeta_no_emparejada": "Not paired (notice)",
     "no_disponible": "Not available",
@@ -798,6 +804,16 @@
     "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
       "titulo": "The I/O board did not confirm outputs off",
       "accion": "Call technical service.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_CONFIG_SEGURIDAD": {
+      "titulo": "The I/O modules safety configuration could not be verified",
+      "accion": "Check the I/O modules network. If it repeats, call technical service.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_MODULOS_ORDEN": {
+      "titulo": "Wrong I/O module order or negotiation pending",
+      "accion": "With power off, check the module order and negotiate (double press Reload).",
       "plantilla": "{motivo}"
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {
@@ -1623,6 +1639,7 @@
     "rotulo_version_software": "Software version",
     "rotulo_firmware": "Board firmware",
     "rotulo_id_tarjeta": "Board ID",
+    "rotulo_enlace_io": "I/O link",
     "rotulo_ciclos_realizados": "Cycles run",
     "rotulo_proximo_mantenimiento": "Next maintenance",
     "rotulo_ciclos_restantes": "Cycles left to maintenance",

@@ -13,8 +13,9 @@
   El Setup lo copia a {tmp} y lo borra al terminar; no queda en la instalacion.
   EST-07 (tanda 17, DECISION SIN CONFIRMAR): el disparo pasa de 10 s de
   retraso (PT10S) a ninguno (PT0S), para acortar el tiempo con el escritorio
-  de Windows expuesto; Autoclave.exe tapa enseguida las pantallas con la
-  cubierta de arranque hasta que aparece la interfaz.
+  de Windows expuesto. EST-08 (tanda 18): se retiro la cubierta de arranque;
+  entre el inicio de sesion y la intro se ve el escritorio de la estacion
+  (paso 07, EST-09).
 #>
 param(
     [Parameter(Mandatory)][string]$Ejecutable,

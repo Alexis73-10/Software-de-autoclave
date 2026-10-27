@@ -19,6 +19,31 @@ from pathlib import Path
 
 import pytest
 
+from autoclave.config import enlace_io as _enlace_io
+
+# Tanda 19 (MOD-01): el enlace de E/S del producto es "modbus" por defecto,
+# pero las pruebas anteriores a la tanda se escribieron para el enlace serial
+# (rangos de puertos, calibración de 4095 cuentas, dobles del SerialLink).
+# Corren con "serial" fijado al importar (antes de que cualquier módulo lea
+# el enlace, p. ej. dependencias.CALIBRATION_PATH) y en cada prueba. Las de
+# Modbus lo fijan con `enlace_modbus` o con _enlace_io.fijar_enlace.
+# DECISIÓN SIN CONFIRMAR.
+_enlace_io.fijar_enlace(_enlace_io.ENLACE_SERIAL)
+
+
+@pytest.fixture(autouse=True)
+def _enlace_serial_por_defecto():
+    _enlace_io.fijar_enlace(_enlace_io.ENLACE_SERIAL)
+    yield
+    _enlace_io.fijar_enlace(_enlace_io.ENLACE_SERIAL)
+
+
+@pytest.fixture
+def enlace_modbus():
+    """Fija el enlace Modbus durante la prueba (vuelve a serial al terminar)."""
+    _enlace_io.fijar_enlace(_enlace_io.ENLACE_MODBUS)
+    yield _enlace_io.ENLACE_MODBUS
+
 
 @lru_cache(maxsize=None)
 def _usa_qt(ruta: str) -> bool:

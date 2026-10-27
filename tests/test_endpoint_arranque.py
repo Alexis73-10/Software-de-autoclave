@@ -154,7 +154,7 @@ def test_importar_server_no_construye_hardware():
         if "autoclave.backend.server" in key or key.startswith(("autoclave.backend.dependencias", "autoclave.backend.rutas")):
             del sys.modules[key]
     prohibidos = {n: MagicMock(side_effect=AssertionError(n))
-                  for n in ("build_serial", "DbManager", "SensorCalibrationAuditDB",
+                  for n in ("build_enlace", "DbManager", "SensorCalibrationAuditDB",
                             "Units", "ControlLoop", "get_installation_profile")}
     with patch.multiple(ctx_mod, **prohibidos):
         srv = importlib.import_module("autoclave.backend.server")

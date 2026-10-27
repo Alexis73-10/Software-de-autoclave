@@ -59,6 +59,12 @@ def _dist_falso(tmp_path, contenido):
     destino = tmp_path / "Autoclave" / "_internal" / "autoclave" / "config"
     destino.mkdir(parents=True)
     (destino / "calibration.yaml").write_bytes(contenido)
+    # Revisión R de la tanda 19 (V19-s2-01): el compilado real lleva también
+    # la calibración del enlace Modbus (la del repositorio, que es la de la
+    # entrega) y el verificador falla si falta. Las pruebas de este archivo
+    # siguen variando solo calibration.yaml.
+    (destino / "calibration_modbus.yaml").write_bytes(
+        (CONFIG / "calibration_modbus.yaml").read_bytes())
     return tmp_path / "Autoclave"
 
 

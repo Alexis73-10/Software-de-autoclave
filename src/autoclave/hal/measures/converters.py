@@ -3,6 +3,7 @@
 import math
 import time
 from typing import List, Dict, Optional
+from autoclave.config import enlace_io
 from autoclave.config.schema import CalibrationConfig
 from collections import deque
 import statistics
@@ -97,9 +98,56 @@ _oe_pres: List[OneEuroFilter] = [
 
 
 # ==============================
+# ENLACE DE E/S Y VALOR CRUDO (tanda 19, MOD-03)
+# ==============================
+# El significado de la cuenta cruda depende del enlace activo (MOD-01, fijo por
+# proceso, `config/enlace_io`), que se consulta en cada conversión:
+#   serial (ESP32)  ADC de 12 bits (0-4095). Temperatura: 0 o >= 4095 = sin
+#                   sonda (centinela del ADC). Presión: la tarjeta satura en
+#                   4095, así que un umbral alto de falla de lazo >= 4095 queda
+#                   inactivo (D8-1.1). Sin calibración de fábrica: raw/4095.
+#   modbus (M31-U)  temperatura en décimas de °C con signo (0 = 0,0 °C válido;
+#                   la ausencia de sonda llega como None desde el enlace, que
+#                   convierte los códigos de diagnóstico de las PT100); presión
+#                   en µA (el umbral alto de 21000 queda ACTIVO: no hay
+#                   saturación en 4095). Sin calibración de fábrica completa no
+#                   hay conversión: None (falla cerrada; raw/4095 solo tiene
+#                   sentido con el ADC de la tarjeta).
+# Un canal crudo None (o no numérico, bool o no finito) da None en ese canal y
+# reinicia su filtro; los demás canales no se afectan. El enlace serial nunca
+# entrega None (16 enteros validados por trama), así que su comportamiento no
+# cambia. Un índice que falta en la lista cruda cuenta como None (antes 0: en
+# temperatura daba el mismo None por el centinela; el serial siempre trae 16).
+
+
+def _enlace_modbus() -> bool:
+    return enlace_io.es_modbus()
+
+
+def _crudo(raw) -> Optional[float]:
+    """La cuenta cruda si es un número finito; None si no (bool incluido)."""
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return None
+    if not math.isfinite(raw):
+        return None
+    return raw
+
+
+def _crudo_en(raw_ai, indice: int) -> Optional[float]:
+    try:
+        return _crudo(raw_ai[indice]) if indice < len(raw_ai) else None
+    except (TypeError, IndexError, KeyError):
+        return None
+
+
+# ==============================
 # CALIBRACIÓN DE FÁBRICA
 # ==============================
-def _factory_calibrate(raw_value: int, calib, full_scale: float, is_pressure=False) -> float:
+def _factory_calibrate(raw_value: int, calib, full_scale: float, is_pressure=False,
+                       modbus: Optional[bool] = None) -> Optional[float]:
+    """Valor de ingeniería con la calibración de fábrica del canal. Sin una
+    calibración completa: raw/4095*full_scale en el serial y None en Modbus
+    (tanda 19, MOD-03; `modbus` None = el enlace activo)."""
 
     if calib:
         adc_min = getattr(calib, "adc_min", None)
@@ -119,6 +167,10 @@ def _factory_calibrate(raw_value: int, calib, full_scale: float, is_pressure=Fal
                 offset = getattr(calib, "offset", 0.0)
                 return value * gain + offset
 
+    if modbus is None:
+        modbus = _enlace_modbus()
+    if modbus:
+        return None
     return (raw_value / 4095.0) * full_scale
 
 
@@ -144,7 +196,24 @@ def _user_calibrate(value: float, calib) -> float:
 # TEMPERATURA
 # ==============================
 
-def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) -> List[Optional[float]]:
+# V19-s2-03 (revisión R de la tanda 19): rango físico plausible de la cuenta
+# cruda de temperatura del módulo M31 (entero con signo en décimas de °C).
+# Fuera de [-500, 2500] décimas (-50,0 a 250,0 °C) la cuenta no es una
+# medición de la PT100 (sonda abierta o en corto, registro corrupto) y el
+# canal queda sin valor: None y filtros reiniciados, igual que un None.
+# Límites inclusive. DECISIÓN SIN CONFIRMAR. Solo con el enlace Modbus.
+_DECIMAS_PT100_MIN = -500
+_DECIMAS_PT100_MAX = 2500
+
+
+def _decimas_pt100_plausibles(raw) -> bool:
+    try:
+        return _DECIMAS_PT100_MIN <= raw <= _DECIMAS_PT100_MAX
+    except TypeError:
+        return False
+
+
+def convert_temperatures(raw_ai: List[Optional[int]], config: Dict | CalibrationConfig) -> List[Optional[float]]:
 
     if isinstance(config, dict):
         factory_list = config.get("calibration", {}).get("factory", {}).get("temperature", [])
@@ -155,12 +224,18 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
 
     timestamp = time.monotonic()
     temps = []
+    modbus = _enlace_modbus()
 
     for i in range(8):
-        raw = raw_ai[i] if i < len(raw_ai) else 0
+        raw = _crudo_en(raw_ai, i)
 
-        # Sensor desconectado: ADC en 0 (cable a GND) o 4095 (cable al aire/VCC)
-        if raw == 0 or raw >= 4095:
+        # Sin valor crudo (tanda 19, MOD-03): sin lectura y filtro reiniciado.
+        # Serial: sensor desconectado, ADC en 0 (cable a GND) o 4095 (cable al
+        # aire/VCC). Modbus: 0 décimas es 0,0 °C válido (sin centinela), pero
+        # una cuenta fuera del rango físico plausible de la PT100 (V19-s2-03)
+        # se trata igual que un None.
+        if raw is None or (not modbus and (raw == 0 or raw >= 4095)) or (
+                modbus and not _decimas_pt100_plausibles(raw)):
             _ma_temp[i].buffer.clear()
             _oe_temp[i].reset()
             temps.append(None)
@@ -173,7 +248,13 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
         user_calib    = user_list[i]    if i < len(user_list)    else None
 
         # 2. Calibración → valor en °C
-        value = _factory_calibrate(smoothed_raw, factory_calib, 200.0)
+        value = _factory_calibrate(smoothed_raw, factory_calib, 200.0, modbus=modbus)
+        if value is None:
+            # Modbus sin calibración de fábrica del canal: sin lectura
+            _ma_temp[i].buffer.clear()
+            _oe_temp[i].reset()
+            temps.append(None)
+            continue
         value = _user_calibrate(value, user_calib)
 
         # 3. Suavizado adaptativo: fuerte en reposo, rápido ante cambios reales
@@ -195,7 +276,9 @@ def convert_temperatures(raw_ai: List[int], config: Dict | CalibrationConfig) ->
 #   umbral alto = adc_max + margen_falla_alto * (adc_max - adc_min)   (21 mA)
 # con adc_min = 4 mA y adc_max = 20 mA de la calibración de fábrica del canal.
 # - Umbral alto >= 4095: la tarjeta satura antes de 21 mA y la detección alta
-#   queda inactiva (decisión D8-1.1).
+#   queda inactiva (decisión D8-1.1). Solo en el enlace serial (ADC de 12
+#   bits): con Modbus la cuenta es en µA y el umbral de 21000 queda ACTIVO
+#   (tanda 19, MOD-03).
 # - Umbral bajo <= 0: la tarjeta satura en 0 antes de 3,6 mA. DECISIÓN SIN
 #   CONFIRMAR (informe S1): se usa el piso de saturación, 0 cuentas = falla
 #   (mismo criterio que la temperatura, raw == 0). Sin esto la detección baja
@@ -221,6 +304,12 @@ class _DetectorLazo:
         self.seguidas = 0           # lecturas seguidas en contra del estado actual
         self.ultimo: Optional[float] = None   # último valor entregado
 
+    def sin_valor(self) -> None:
+        """Canal sin valor crudo (tanda 19, MOD-03): sin lectura, sin contar
+        como dentro ni fuera de rango (DECISIÓN SIN CONFIRMAR). Una falla ya
+        declarada sigue declarada: se levanta con lecturas dentro de rango."""
+        self.ultimo = None
+
     def actualizar(self, fuera: bool) -> None:
         if fuera != self.en_falla:
             self.seguidas += 1
@@ -244,9 +333,11 @@ def _campo(calib, nombre, defecto=None):
     return defecto if valor is None else valor
 
 
-def umbrales_falla_presion(calib) -> tuple:
-    """(bajo, alto) en cuentas ADC; None = esa detección queda inactiva. Un
-    bajo <= 0 significa piso de saturación (0 cuentas = falla)."""
+def umbrales_falla_presion(calib, modbus: Optional[bool] = None) -> tuple:
+    """(bajo, alto) en cuentas crudas; None = esa detección queda inactiva. Un
+    bajo <= 0 significa piso de saturación (0 cuentas = falla). El tope
+    ADC_MAXIMO (saturación del ADC de 12 bits) solo rige en el enlace serial;
+    `modbus` None = el enlace activo (tanda 19, MOD-03)."""
     adc_min = _campo(calib, "adc_min")
     adc_max = _campo(calib, "adc_max")
     if adc_min is None or adc_max is None or adc_max <= adc_min:
@@ -258,8 +349,10 @@ def umbrales_falla_presion(calib) -> tuple:
     alto = _campo(calib, "adc_falla_alto")
     if alto is None:
         alto = adc_max + float(_campo(calib, "margen_falla_alto", 0.0625)) * span
-        if alto >= ADC_MAXIMO:
-            alto = None     # la tarjeta satura antes de 21 mA
+        if modbus is None:
+            modbus = _enlace_modbus()
+        if not modbus and alto >= ADC_MAXIMO:
+            alto = None     # la tarjeta (ADC de 12 bits) satura antes de 21 mA
     return bajo, alto
 
 
@@ -285,7 +378,7 @@ def _fuera_de_rango(raw, bajo, alto) -> bool:
 PRES_FALLA_BAJO_KPA = -10.0
 
 
-def _bajo_piso_calibrado(raw, factory_calib, user_calib) -> bool:
+def _bajo_piso_calibrado(raw, factory_calib, user_calib, modbus: Optional[bool] = None) -> bool:
     if factory_calib is None:
         return False
     # explícito None = desactivado (por eso no se usa _campo)
@@ -296,8 +389,10 @@ def _bajo_piso_calibrado(raw, factory_calib, user_calib) -> bool:
     if piso is None:
         return False
     try:
-        valor = _user_calibrate(_factory_calibrate(raw, factory_calib, 400.0, is_pressure=True),
-                                user_calib)
+        fabrica = _factory_calibrate(raw, factory_calib, 400.0, is_pressure=True, modbus=modbus)
+        if fabrica is None:
+            return False
+        valor = _user_calibrate(fabrica, user_calib)
     except Exception:
         return False
     return valor < float(piso)
@@ -320,7 +415,7 @@ def reiniciar_presiones() -> None:
 # PRESIÓN
 # ==============================
 
-def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig,
+def convert_pressures(raw_ai: List[Optional[int]], config: Dict | CalibrationConfig,
                       nueva_muestra: bool = True) -> List[Optional[float]]:
     """Presiones en kPa por canal; None = sin lectura (S1, D8-1.1).
     `nueva_muestra` False: la trama AI es la misma de la llamada anterior
@@ -336,10 +431,11 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig,
 
     timestamp = time.monotonic()
     press = []
+    modbus = _enlace_modbus()
 
     for i in range(8):
         raw_index = 8 + i
-        raw = raw_ai[raw_index] if raw_index < len(raw_ai) else 0
+        raw = _crudo_en(raw_ai, raw_index)
 
         factory_calib = factory_list[i] if i < len(factory_list) else None
         user_calib    = user_list[i]    if i < len(user_list)    else None
@@ -349,10 +445,19 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig,
             press.append(det.ultimo)
             continue
 
+        # Sin valor crudo (tanda 19, MOD-03): sin lectura y filtros
+        # reiniciados; el detector no cuenta esta muestra.
+        if raw is None:
+            det.sin_valor()
+            _ma_pres[i].buffer.clear()
+            _oe_pres[i].reset()
+            press.append(None)
+            continue
+
         # 0. Transductor sin señal, sobre la cuenta cruda (S1, D8-1.1)
-        bajo, alto = umbrales_falla_presion(factory_calib)
+        bajo, alto = umbrales_falla_presion(factory_calib, modbus=modbus)
         fuera = (_fuera_de_rango(raw, bajo, alto)
-                 or _bajo_piso_calibrado(raw, factory_calib, user_calib))
+                 or _bajo_piso_calibrado(raw, factory_calib, user_calib, modbus=modbus))
         estaba_en_falla = det.en_falla
         det.actualizar(fuera)
         if det.en_falla:
@@ -376,7 +481,15 @@ def convert_pressures(raw_ai: List[int], config: Dict | CalibrationConfig,
         smoothed_raw = _ma_pres[i].update(raw)
 
         # 2. Calibración → valor en kPa
-        value = _factory_calibrate(smoothed_raw, factory_calib, 400.0, is_pressure=True)
+        value = _factory_calibrate(smoothed_raw, factory_calib, 400.0, is_pressure=True,
+                                   modbus=modbus)
+        if value is None:
+            # Modbus sin calibración de fábrica del canal: sin lectura
+            _ma_pres[i].buffer.clear()
+            _oe_pres[i].reset()
+            det.ultimo = None
+            press.append(None)
+            continue
         value = _user_calibrate(value, user_calib)
 
         # 3. Suavizado adaptativo: fuerte en reposo, rápido ante cambios reales

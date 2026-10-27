@@ -69,6 +69,10 @@ def _dist(tmp_path, correo=None, calib=None, extra_ciclos=(), sin_fabrica=False)
             correo if correo is not None else CORREO_NEUTRO.read_bytes())
     (interno / "config" / "calibration.yaml").write_bytes(
         calib if calib is not None else CALIB_NEUTRA.read_bytes())
+    # Revisión R de la tanda 19 (V19-s2-01): el compilado real lleva también
+    # la calibración del enlace Modbus y el verificador falla si falta.
+    (interno / "config" / "calibration_modbus.yaml").write_bytes(
+        (CONFIG / "calibration_modbus.yaml").read_bytes())
     fab = interno / "cycles" / "factory"
     fab.mkdir(parents=True)
     if not sin_fabrica:

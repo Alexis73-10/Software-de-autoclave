@@ -374,7 +374,12 @@ def test_uptime_que_retrocede_es_reinicio(entorno):
     assert esperar(lambda: (link.get_diagnostico().get("tarjeta_st") or {}).get("uptime_s") == 500)
     tarjeta.uptime_s = 3
     assert esperar(lambda: link.handshake_completo is False)
-    assert "TARJETA_REINICIO" in _ids(link)
+    # Tanda 19 (I): _invalidar_por_tarjeta baja la bandera y luego encola el
+    # evento; leer la cola justo al ver la bandera era una carrera (falla
+    # intermitente anterior a la tanda). Se espera el evento, que sigue siendo
+    # obligatorio.
+    vistos = []
+    assert esperar(lambda: vistos.extend(_ids(link)) or "TARJETA_REINICIO" in vistos)
 
 
 def test_pcf_ok_distinto_sostenido_dos_tramas_genera_evento_sin_cortar(entorno):

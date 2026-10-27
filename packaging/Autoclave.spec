@@ -81,12 +81,18 @@ a = Analysis(
         'autoclave.backend.server',
         # rutas/_comun.py la carga con importlib.import_module (R8): PyInstaller no la ve.
         'autoclave.backend.server_reasignacion',
+        # MOD-13 (tanda 19): factory.build_modbus importa el enlace Modbus dentro
+        # de una función; pymodbus (solo el cliente síncrono) se fija por si el
+        # análisis no lo sigue.
+        'autoclave.protocols.modbus_link',
+        'autoclave.protocols.modbus_link_config',
+        'pymodbus.client',
         'autoclave.ui_qml.app',
         'autoclave.ui_pyside.app',
-        # EST-06/EST-07 (tanda 17): se importan dentro de funciones del
-        # lanzador y del rol asociar-tactiles; se fijan por si el análisis no
-        # los sigue (ctypes puro, sin dependencias nuevas)
-        'autoclave.estacion.cubierta_arranque',
+        # EST-06 (tanda 17): se importan dentro de funciones del lanzador y
+        # del rol asociar-tactiles; se fijan por si el análisis no los sigue
+        # (ctypes puro, sin dependencias nuevas). EST-08 (tanda 18): sin la
+        # cubierta de arranque
         'autoclave.estacion.asociar_tactiles',
         'autoclave.estacion._ventanas',
         'autoclave.estacion.instancia_unica',

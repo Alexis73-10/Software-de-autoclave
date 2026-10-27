@@ -56,6 +56,12 @@
 ;     paso 06 de tools\estacion (MultiDigitizer.exe); al terminar cuenta las
 ;     asociaciones de HKLM\SOFTWARE\Microsoft\Wisp\Pen\Digimon y, si quedan
 ;     menos de 2, avisa al final sin fallar. El desinstalador lo revierte.
+;
+; EST-09 (tanda 18): paso 07 de tools\estacion (escritorio de la estación:
+; fondo de Especifika, barra de tareas con ocultar automáticamente, sin
+; íconos), con la casilla de la estación (sin casilla propia), después del 05
+; y antes del 06. Anotado como Paso07; Reparar lo reaplica; el desinstalador
+; lo revierte primero (07, 06, 05, 04, 02, 01); un fallo no interrumpe nada.
 
 ; Carpeta de la entrega que contiene Autoclave\ (se puede pasar con /DEntrega=...)
 #ifndef Entrega
@@ -175,8 +181,8 @@ es.TareaFallo=No se pudo crear la tarea de arranque automático (código %1).%n%
 en.TareaFallo=The automatic start task could not be created (code %1).%n%nAutoclave was installed. For automatic start run tools\estacion\03_tarea_autoclave.ps1.
 es.DatosConservados=Autoclave se desinstaló.%n%nLos datos (perfil de instalación, calibración, base de datos, usuarios) se conservan en:%n%1%n%nNo se borraron.
 en.DatosConservados=Autoclave was uninstalled.%n%nThe data (installation profile, calibration, database, users) are kept in:%n%1%n%nThey were not deleted.
-es.TareaEstacion=Configurar este PC como estación del autoclave (inicio de sesión automático, sin notificaciones, Windows Update solo avisa y se difiere, sin suspensión)
-en.TareaEstacion=Set up this PC as the autoclave station (automatic sign-in, no notifications, Windows Update only notifies and is deferred, no sleep)
+es.TareaEstacion=Configurar este PC como estación del autoclave (inicio de sesión automático, sin notificaciones, Windows Update solo avisa y se difiere, sin suspensión, escritorio de la estación)
+en.TareaEstacion=Set up this PC as the autoclave station (automatic sign-in, no notifications, Windows Update only notifies and is deferred, no sleep, station desktop)
 es.TareaSinLogo=Arranque sin logo de Windows y sin pantalla de bloqueo
 en.TareaSinLogo=Start without the Windows logo and without the lock screen
 es.CuentaTitulo=Inicio de sesión automático
@@ -217,6 +223,8 @@ es.Paso05=plan de energía (paso 05)
 en.Paso05=power plan (step 05)
 es.Paso06=asociación de las pantallas táctiles (paso 06)
 en.Paso06=touch screen association (step 06)
+es.Paso07=escritorio de la estación (paso 07)
+en.Paso07=station desktop (step 07)
 es.TareaTactiles=Asociar cada pantalla táctil con su monitor (pide tocar cada pantalla una vez)
 en.TareaTactiles=Associate each touch screen with its monitor (asks to touch each screen once)
 es.TactilesRepetir=Repita la asociación de pantallas táctiles: quedaron %1 asociaciones y se necesitan 2.%n%nAutoclave quedó instalado. Para repetirla, ejecute como administrador:%n"%2\Autoclave.exe" --rol asociar-tactiles%no el script:%n%2\estacion\06_asociar_tactiles.ps1
@@ -365,6 +373,11 @@ Source: "..\estacion\05_plan_energia.ps1"; DestDir: "{app}\estacion"; Flags: ign
 Source: "..\estacion\05_revertir_plan_energia.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\06_asociar_tactiles.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\06_revertir_asociar_tactiles.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
+; EST-09 (tanda 18): paso 07, escritorio de la estación. La imagen es la del
+; fondo de la intro (una sola fuente en el repositorio), con otro nombre.
+Source: "..\estacion\07_escritorio_estacion.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
+Source: "..\estacion\07_revertir_escritorio_estacion.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
+Source: "..\..\src\autoclave\ui_qml\assets\fondos\fondo-arranque.png"; DestDir: "{app}\estacion"; DestName: "fondo_estacion.png"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Autoclave"; Filename: "{app}\Autoclave.exe"; WorkingDir: "{app}"
@@ -1970,7 +1983,7 @@ end;
 
 procedure AplicarEstacion(var Usuario, Dominio: String);
 var
-  Fallas: String;
+  Fallas, ExtraPaso07: String;
 begin
   Fallas := '';
   WizardForm.StatusLabel.Caption := CustomMessage('AplicandoEstacion');
@@ -1994,6 +2007,17 @@ begin
     if not EjecutarPaso('05', 'Aplicar', '') then
       Fallas := Fallas + '- ' + CustomMessage('Paso05') + #13#10;
     ReiniciarAlFinal := True;
+    // EST-09 (tanda 18): escritorio de la estación (fondo, barra con ocultar
+    // automáticamente, sin íconos) en el perfil de la cuenta que instala;
+    // después del 05 y antes del 06. Un fallo solo va a la lista de fallas:
+    // no interrumpe los demás pasos ni la instalación (como el 06).
+    MarcarPaso('07');
+    if Usuario <> '' then
+      ExtraPaso07 := ' -Usuario "' + Usuario + '" -Dominio "' + Dominio + '"'
+    else
+      ExtraPaso07 := '';
+    if not EjecutarPaso('07', 'Aplicar', ExtraPaso07) then
+      Fallas := Fallas + '- ' + CustomMessage('Paso07') + #13#10;
     // D11-5: abre MultiDigitizer.exe (interactivo): nunca sin asistente
     if WizardIsTaskSelected('estacion\tactiles') then
     begin
@@ -2077,6 +2101,9 @@ begin
   ReaplicarPaso('04', 'Paso04', Fallas);
   ReaplicarPaso('05', 'Paso05', Fallas);
   ReaplicarPaso('02', 'Paso02', Fallas);
+  // EST-09: el paso 07 se reaplica sin contraseña, como 04/05/02; el script
+  // toma la cuenta de Winlogon DefaultUserName (paso 01) o la que ejecuta.
+  ReaplicarPaso('07', 'Paso07', Fallas);
   // El paso 06 tampoco se reaplica: abre una herramienta que pide tocar las
   // pantallas (y un Setup silencioso quedaría esperando). La asociación ya
   // hecha se conserva; para repetirla: {app}\Autoclave.exe --rol asociar-tactiles
@@ -2143,6 +2170,8 @@ begin
   if not RegKeyExists(HKLM64, '{#ClaveEstacion}') then
     exit;
   UninstallProgressForm.StatusLabel.Caption := CustomMessage('RevirtiendoEstacion');
+  // EST-09: orden inverso 07, 06, 05, 04, 02, 01
+  EjecutarReversion('07', 'Paso07', Fallas);
   EjecutarReversion('06', 'Paso06', Fallas);
   EjecutarReversion('05', 'Paso05', Fallas);
   EjecutarReversion('04', 'Paso04', Fallas);

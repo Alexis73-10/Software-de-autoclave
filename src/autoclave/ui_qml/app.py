@@ -19,7 +19,7 @@ import logging
 import os
 import sys
 
-from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Slot
+from PySide6.QtCore import Qt, QTimer, QUrl
 from PySide6.QtGui import QFontDatabase, QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
@@ -36,11 +36,14 @@ from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
 from autoclave.ui_qml.bridge.comandos_puerta import ComandosPuerta
 from autoclave.ui_qml.bridge.selector_ciclo import SelectorCiclo
 from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
-from autoclave.ui_qml.bridge.puente_instalacion import PuenteInstalacion, requiere_instalacion
+from autoclave.ui_qml.bridge.puente_instalacion import (
+    MOTIVO_PERFIL_INVALIDO, PuenteInstalacion, motivo_instalacion,
+    requiere_instalacion,
+)
 from autoclave.ui_qml.bridge.info_equipo import InfoEquipo, cargar_perfil, version_software
 from autoclave.ui_qml.bridge.lanzador_ajustes import LanzadorAjustes
 from autoclave.ui_qml.bridge.progreso_arranque import (
-    ProgresoArranqueBackend, SimuladorProgresoArranque, parse_simulacion,
+    ProgresoArranqueBackend, ProgresoArranqueSinPerfil, SimuladorProgresoArranque, parse_simulacion,
 )
 from autoclave.ui_qml.bridge.progreso_ciclo import ProgresoCiclo
 from autoclave.ui_qml.bridge.reporte_resumen import ReporteResumen
@@ -59,54 +62,12 @@ from autoclave.ui_qml.bridge import unidades_qml  # noqa: F401
 from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
 from autoclave.ui_qml.controllers import teclado_numerico_controller  # noqa: F401
 from autoclave.utils.resources import resource_path
-from autoclave.estacion import primer_cuadro
 
 logger = logging.getLogger(__name__)
 
 # 127.0.0.1 y no "localhost": en Windows "localhost" se prueba primero como IPv6
 # (::1), donde el backend no escucha, y cada petición tardaba 0.8–2 s.
 BACKEND_URL = "http://127.0.0.1:8000"
-
-
-class AvisoPrimerCuadro(QObject):
-    """EST-07 (tanda 17): al mostrarse el primer cuadro de la ventana avisa a
-    la cubierta de arranque del lanzador (evento con nombre de esta puerta, ver
-    estacion/primer_cuadro.py) y se desconecta. frameSwapped puede emitirse
-    desde el hilo de render: la conexión en cola trae el aviso al hilo
-    principal. Cada puerta avisa por su cuenta; la cubierta espera a las dos
-    (o 15 s tras la primera, o su tope de 180 s)."""
-
-    def __init__(self, ventana, puerta: int, senalar=None):
-        super().__init__()
-        self._ventana = ventana
-        self._puerta = puerta
-        self._senalar = senalar or primer_cuadro.senalar
-        self.avisado = False
-        ventana.frameSwapped.connect(self._al_cuadro, Qt.ConnectionType.QueuedConnection)
-
-    @Slot()
-    def _al_cuadro(self) -> None:
-        if self.avisado:
-            return
-        self.avisado = True
-        try:
-            self._ventana.frameSwapped.disconnect(self._al_cuadro)
-        except (RuntimeError, TypeError):
-            pass
-        try:
-            self._senalar(self._puerta)
-        except Exception:
-            logger.exception("No se pudo avisar el primer cuadro a la cubierta de arranque")
-
-
-def avisar_primer_cuadro(ventana, puerta: int):
-    """Engancha AvisoPrimerCuadro; nunca impide abrir la pantalla. El llamador
-    guarda la referencia mientras corre app.exec()."""
-    try:
-        return AvisoPrimerCuadro(ventana, puerta)
-    except Exception:
-        logger.exception("Sin aviso de primer cuadro para la cubierta de arranque (puerta %s)", puerta)
-        return None
 
 
 def url_backend(entorno=os.environ) -> str:
@@ -157,11 +118,32 @@ def forzar_tema_claro(app: QGuiApplication) -> None:
     app.styleHints().setColorScheme(Qt.ColorScheme.Light)
 
 
-def _abrir_instalacion(app: QGuiApplication, args) -> int:
+def _intro_sin_perfil(motivo: str):
+    """ARR-06 (tanda 18): fuente de la intro de arranque sin perfil (solo las
+    etapas del lanzador; se detiene en verificando_instalacion con el motivo y
+    luego termina). None si no se puede crear: la ventana abre sin intro."""
+    try:
+        progreso = ProgresoArranqueSinPerfil(motivo)
+        progreso.iniciar()
+        return progreso
+    except Exception:
+        logger.exception("Intro de arranque sin perfil no disponible: se abre sin ella")
+        return None
+
+
+def _propiedades_intro(progreso) -> dict:
+    if progreso is None:
+        return {}
+    return {"progresoArranque": progreso, "versionSoftware": version_software() or ""}
+
+
+def _abrir_instalacion(app: QGuiApplication, args, motivo: str | None = None) -> int:
+    motivo = motivo or motivo_instalacion()
     puente_instalacion = PuenteInstalacion()
+    progreso = _intro_sin_perfil(motivo)
     engine = QQmlApplicationEngine()
     engine.addImportPath(QML_DIR)
-    engine.setInitialProperties({"puenteInstalacion": puente_instalacion})
+    engine.setInitialProperties({"puenteInstalacion": puente_instalacion, **_propiedades_intro(progreso)})
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/InstalacionVentana.qml"))
     if not engine.rootObjects():
         logger.error("No se pudo cargar %s/InstalacionVentana.qml", QML_DIR)
@@ -170,11 +152,19 @@ def _abrir_instalacion(app: QGuiApplication, args) -> int:
     pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
     ventana.setScreen(pantalla)
     ventana.setGeometry(pantalla.geometry())
-    aviso = avisar_primer_cuadro(ventana, args.door)   # EST-07  # noqa: F841
     ventana.showFullScreen()
     ventana.requestActivate()
-    logger.warning("Sin perfil de instalación: se abre el asistente de instalación")
-    return app.exec()
+    logger.warning("%s: intro de arranque y luego el asistente de instalación",
+                   _texto_motivo(motivo))
+    codigo = app.exec()
+    if progreso is not None:
+        progreso.detener()
+    return codigo
+
+
+def _texto_motivo(motivo: str) -> str:
+    return ("Perfil de instalación inválido" if motivo == MOTIVO_PERFIL_INVALIDO
+            else "Sin perfil de instalación")
 
 
 # W10 (D10-4): cada cuánto la pantalla 2 en Reposo de instalación mira si ya hay perfil
@@ -196,11 +186,24 @@ def revisar_fin_instalacion(requiere, salir) -> None:
         salir(CODIGO_INSTALACION_TERMINADA)
 
 
-def _abrir_reposo_instalacion(app: QGuiApplication, args) -> int:
+def avisar_fin_instalacion(requiere, ventana) -> bool:
+    """REI-01 (tanda 18): bajo el ejecutable único, con perfil válido la
+    pantalla 2 muestra el mismo aviso de reinicio que el asistente (el
+    lanzador la cierra al salir el asistente). True si ya avisó."""
+    if requiere():
+        return False
+    ventana.setProperty("instalacionTerminada", True)
+    return True
+
+
+def _abrir_reposo_instalacion(app: QGuiApplication, args, motivo: str | None = None) -> int:
     """W10 (D10-4.1): pantalla 2 mientras la 1 está en el asistente. Solo logo,
     reloj y el aviso; no responde al toque ni usa el backend."""
+    motivo = motivo or motivo_instalacion()
+    progreso = _intro_sin_perfil(motivo)
     engine = QQmlApplicationEngine()
     engine.addImportPath(QML_DIR)
+    engine.setInitialProperties(_propiedades_intro(progreso))
     engine.load(QUrl.fromLocalFile(f"{QML_DIR}/ReposoInstalacionVentana.qml"))
     if not engine.rootObjects():
         logger.error("No se pudo cargar %s/ReposoInstalacionVentana.qml", QML_DIR)
@@ -209,17 +212,23 @@ def _abrir_reposo_instalacion(app: QGuiApplication, args) -> int:
     pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
     ventana.setScreen(pantalla)
     ventana.setGeometry(pantalla.geometry())
-    aviso = avisar_primer_cuadro(ventana, args.door)   # EST-07  # noqa: F841
     ventana.showFullScreen()   # sin requestActivate: el foco es del asistente (pantalla 1)
-    temporizador = None
+    temporizador = QTimer()
+    temporizador.setInterval(REVISAR_FIN_INSTALACION_MS)
     if reposo_sale_solo():
-        temporizador = QTimer()
-        temporizador.setInterval(REVISAR_FIN_INSTALACION_MS)
         temporizador.timeout.connect(lambda: revisar_fin_instalacion(requiere_instalacion, app.exit))
-        temporizador.start()
-    logger.warning("Sin perfil de instalación: la puerta %d muestra el Reposo de instalación",
-                   args.door)
-    return app.exec()
+    else:
+        def _revisar():
+            if avisar_fin_instalacion(requiere_instalacion, ventana):
+                temporizador.stop()
+        temporizador.timeout.connect(_revisar)
+    temporizador.start()
+    logger.warning("%s: la puerta %d muestra la intro y luego el Reposo de instalación",
+                   _texto_motivo(motivo), args.door)
+    codigo = app.exec()
+    if progreso is not None:
+        progreso.detener()
+    return codigo
 
 
 def main(argv=None) -> int:
@@ -236,6 +245,7 @@ def main(argv=None) -> int:
     # principal abre el asistente en lugar del menú. W10 (D10-4.1): la puerta 2
     # muestra entretanto el Reposo con el aviso «Instalación en curso en la
     # pantalla 1» (antes seguía al menú, donde el arranque informaba ARR_PERFIL)
+    # ARR-06 (tanda 18): antes, la intro de arranque con el motivo (sin bitácora)
     if requiere_instalacion():
         if args.door == 1:
             return _abrir_instalacion(app, args)
@@ -328,7 +338,6 @@ def main(argv=None) -> int:
     pantalla = elegir_pantalla(app.screens(), args.screen, app.primaryScreen())
     ventana.setScreen(pantalla)
     ventana.setGeometry(pantalla.geometry())
-    aviso = avisar_primer_cuadro(ventana, args.door)   # EST-07  # noqa: F841
     ventana.showFullScreen()
     # Solo la puerta 1 pide el foco: si ambas ventanas (procesos distintos) lo
     # piden, Windows se lo niega a una y hace parpadear su icono, lo que saca

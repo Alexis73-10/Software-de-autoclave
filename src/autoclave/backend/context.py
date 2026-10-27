@@ -7,7 +7,7 @@ from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave.installation.equipment import get_capabilities
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
                                            tarjeta_emparejada)
-from autoclave.devices.factory.factory import build_doors_cfg, build_serial
+from autoclave.devices.factory.factory import build_doors_cfg, build_enlace
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.door_factory import create_door
 from autoclave.devices.io.set_io import SetOutput
@@ -617,7 +617,9 @@ class BackendContext:
         """Abre el serial, construye puertas, registro de ciclo y ControlLoop,
         y arranca el loop. `al_cancelar_prueba` se registra antes de start(),
         para no perder un paro que llegue en el primer tick."""
-        self.serial = build_serial(self.units, al_conectar=self._al_conectar_tarjeta)
+        # MOD-01 (tanda 19): enlace activo (Modbus o serial); el atributo
+        # conserva el nombre `serial` para no tocar a los llamadores
+        self.serial = build_enlace(self.units, al_conectar=self._al_conectar_tarjeta)
         self.setdo = SetOutput(self.serial, self.estado, profile=self.profile)
         self.inhibir_salidas_sin_verificar()     # R8: SAF-02 de la re-revisión
 
@@ -1064,6 +1066,11 @@ class BackendContext:
     def temp_max_tras_ciclo(self):
         loop = getattr(self, "control_loop", None)
         return loop.temp_max_tras_ciclo() if loop is not None else None
+
+    @property
+    def enlace(self):
+        """Alias de `serial` (MOD-01, tanda 19): el enlace de E/S activo."""
+        return self.serial
 
     def es_conectada(self) -> bool:
         return self.serial is not None and self.serial.is_connected()

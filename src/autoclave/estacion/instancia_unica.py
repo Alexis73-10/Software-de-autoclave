@@ -4,9 +4,8 @@
 #
 # Antes no había ninguna protección contra un segundo lanzador: si ya había un
 # backend respondiendo se usaba ese, pero igual se abrían otras dos pantallas
-# QML. Con la cubierta de arranque (EST-07) un segundo lanzador además taparía
-# las pantallas vivas (quizá con un ciclo en curso) y se comería los toques
-# entre 15 y 180 s.
+# QML (con la cubierta de EST-07, retirada en la tanda 18 por EST-08, además
+# tapaba las pantallas vivas).
 #
 # Mutex con nombre de la sesión (Local\EspecifikaAutoclaveLanzador), creado
 # con CreateMutexW: si GetLastError() == ERROR_ALREADY_EXISTS hay otro
@@ -20,8 +19,7 @@
 # Win32), se sigue como antes (sin protección) y queda en el log: no impedir el
 # arranque del equipo por una protección auxiliar.
 #
-# Activa solo en Windows y, por defecto, solo en el build congelado (como la
-# cubierta). AUTOCLAVE_INSTANCIA_UNICA=0 la desactiva y =1 la activa en
+# Activa solo en Windows y, por defecto, solo en el build congelado. AUTOCLAVE_INSTANCIA_UNICA=0 la desactiva y =1 la activa en
 # desarrollo. Las pruebas inyectan un doble de la API.
 
 import logging

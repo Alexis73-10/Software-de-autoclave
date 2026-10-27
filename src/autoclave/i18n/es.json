@@ -15,7 +15,6 @@
     "atras": "Atrás",
     "siguiente": "Siguiente",
     "instalar": "Instalar equipo",
-    "continuar": "Continuar",
     "serie": "Número de serie del equipo",
     "serie_marcador": "Número de serie",
     "codigo": "Código de activación",
@@ -109,7 +108,7 @@
     "confirmar_si": "Instalar",
     "error_guardar": "Error al guardar: {detalle}",
     "listo_titulo": "Instalación completada",
-    "listo_texto": "El equipo ha sido registrado correctamente. Pulse Continuar para empezar a usarlo.",
+    "listo_texto": "El equipo ha sido registrado correctamente.",
     "resumen_cerrojo": "Cerrojo de puerta",
     "resumen_con_cerrojo": "Controlado por el software",
     "resumen_sin_cerrojo": "NO controlado por el software",
@@ -128,7 +127,9 @@
     "error_contrasenas": "Revise las contraseñas de Admin e Ingeniero",
     "error_guardar_contrasenas": "No se pudieron guardar las contraseñas: {detalle}",
     "resumen_contrasenas": "Contraseñas de Admin e Ingeniero",
-    "resumen_contrasenas_fijadas": "Fijadas (se guardan al instalar)"
+    "resumen_contrasenas_fijadas": "Fijadas (se guardan al instalar)",
+    "reinicio_cuenta": "Instalación completada. El equipo se reiniciará en {segundos} s",
+    "reiniciar_ahora": "Reiniciar ahora"
   },
   "app": {
     "nombre": "e-specifika"
@@ -449,7 +450,9 @@
     "cargando_configuracion": "Cargando configuración",
     "verificando_calibracion": "Verificando calibración",
     "conectando_modulos_es": "Conectando módulos de E/S",
-    "preparando_interfaz": "Preparando interfaz"
+    "preparando_interfaz": "Preparando interfaz",
+    "sin_perfil_instalacion": "Sin perfil de instalación: se abre el asistente",
+    "perfil_invalido_instalacion": "Perfil de instalación inválido: se abre el asistente"
   },
   "fases": {
     "precalentamiento": "Precalentamiento",
@@ -566,6 +569,9 @@
     "version_tarjeta": "Versión de tarjeta",
     "id_tarjeta": "ID de tarjeta",
     "emparejamiento_tarjeta": "Tarjeta del equipo",
+    "enlace_io": "Enlace de E/S",
+    "enlace_io_modbus": "Modbus TCP (módulos M31-U)",
+    "enlace_io_serial": "Serial (tarjeta ESP32)",
     "tarjeta_emparejada": "Emparejada",
     "tarjeta_no_emparejada": "No emparejada (aviso)",
     "no_disponible": "No disponible",
@@ -798,6 +804,16 @@
     "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
       "titulo": "La tarjeta de E/S no confirmó el apagado de salidas",
       "accion": "Llame a servicio técnico.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_CONFIG_SEGURIDAD": {
+      "titulo": "No se pudo verificar la configuración de seguridad de los módulos de E/S",
+      "accion": "Revise la red de los módulos de E/S. Si se repite, llame a servicio técnico.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_MODULOS_ORDEN": {
+      "titulo": "Orden de los módulos de E/S incorrecto o negociación pendiente",
+      "accion": "Sin energía, revise el orden de los módulos y negocie (doble pulsación de Reload).",
       "plantilla": "{motivo}"
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {
@@ -1623,6 +1639,7 @@
     "rotulo_version_software": "Versión del software",
     "rotulo_firmware": "Firmware de la tarjeta",
     "rotulo_id_tarjeta": "ID de la tarjeta",
+    "rotulo_enlace_io": "Enlace de E/S",
     "rotulo_ciclos_realizados": "Ciclos realizados",
     "rotulo_proximo_mantenimiento": "Próximo mantenimiento",
     "rotulo_ciclos_restantes": "Ciclos restantes para mantenimiento",

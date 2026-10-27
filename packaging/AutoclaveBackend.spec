@@ -47,6 +47,12 @@ a = Analysis(
         'autoclave.backend.server',
         # rutas/_comun.py la carga con importlib.import_module (R8): PyInstaller no la ve.
         'autoclave.backend.server_reasignacion',
+        # MOD-13 (tanda 19): factory.build_modbus importa el enlace Modbus dentro
+        # de una función; pymodbus (solo el cliente síncrono) se fija por si el
+        # análisis no lo sigue.
+        'autoclave.protocols.modbus_link',
+        'autoclave.protocols.modbus_link_config',
+        'pymodbus.client',
         'uvicorn.logging',
         'uvicorn.loops',
         'uvicorn.loops.auto',

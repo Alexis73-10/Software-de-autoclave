@@ -1,8 +1,9 @@
 # autoclave/estacion/_ventanas.py
 #
 # Ventanas Win32 negras, sin borde y siempre encima, con dos líneas de texto
-# blanco centradas: las usan la cubierta de arranque (EST-07, una por
-# monitor) y la herramienta de táctiles (EST-06, una a la vez).
+# blanco centradas: las usa la herramienta de táctiles (EST-06, una a la
+# vez). La cubierta de arranque (EST-07, una por monitor), que también las
+# usaba, se retiró en la tanda 18 (EST-08).
 #
 # Reglas de hilo de Win32: las ventanas pertenecen al hilo que las crea, y
 # solo ese hilo puede destruirlas y procesar sus mensajes. Por eso crear(),

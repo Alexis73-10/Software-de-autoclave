@@ -1,5 +1,6 @@
 from autoclave.core.runtime.asignacion_io import canal_do
 from autoclave.hal.measures.units import Units
+from autoclave.config.enlace_io import ENLACE_MODBUS, ENLACE_SERIAL, enlace_activo
 from autoclave.protocols.serial_link import SerialLink
 from autoclave.utils.paths import calibration_path
 from autoclave.devices.puertas.door_type import DoorType
@@ -60,11 +61,39 @@ def build_serial(units, al_conectar=None) -> SerialLink:
     return serial
 
 
+def build_modbus(units, al_conectar=None):
+    """Enlace Modbus TCP con los módulos M31-U (tanda 19), ya iniciado.
+    Mismo orden que build_serial: al_conectar antes de start()."""
+    try:
+        from autoclave.protocols.modbus_link import ModbusLink
+    except ImportError as e:
+        raise RuntimeError(
+            "enlace_io: el enlace 'modbus' no está disponible en esta compilación "
+            f"(autoclave.protocols.modbus_link: {e}); usar 'serial' en "
+            "config/enlace_io.json") from e
+    enlace = ModbusLink(on_update=lambda data: units.update_from_serial(data))
+    enlace.al_conectar = al_conectar
+    enlace.start()
+    return enlace
+
+
+def build_enlace(units, al_conectar=None):
+    """MOD-01 (tanda 19): construye e inicia el enlace de E/S activo
+    (config/enlace_io.json, leído una vez por proceso): ModbusLink o
+    SerialLink. Ambos cumplen protocols.enlace.EnlaceES."""
+    enlace = enlace_activo()
+    if enlace == ENLACE_SERIAL:
+        return build_serial(units, al_conectar=al_conectar)
+    if enlace == ENLACE_MODBUS:
+        return build_modbus(units, al_conectar=al_conectar)
+    raise RuntimeError(f"enlace_io: enlace desconocido {enlace!r}")
+
+
 def build_doors_cfg(profile) -> list[dict]:
     return [_build_door_cfg(n + 1, profile.door_type) for n in range(profile.door_count)]
 
 
 def build_hardware(profile):
     units = Units(calibration_path())
-    serial = build_serial(units)
-    return units, serial, build_doors_cfg(profile)
+    enlace = build_enlace(units)
+    return units, enlace, build_doors_cfg(profile)

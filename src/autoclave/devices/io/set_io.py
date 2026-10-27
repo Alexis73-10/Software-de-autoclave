@@ -22,8 +22,9 @@ _VIGENCIA_PEDIDO_PARO_SEG = 3.0
 # Salidas de fuente de vapor (su canal físico sale de la asignación de E/S).
 _SALIDAS_VAPOR = ("vapor_generador", "vapor_caldera")
 # Canales que el apagado individual (sin ACK del ALL_OFF) apaga siempre,
-# además de los de la asignación vigente (R8: una salida reasignada a DO 25-32).
-_CANALES_APAGADO_BASE = range(1, 25)
+# además de los de la asignación vigente. Tanda 19 (MOD-05): todos, DO 1-32
+# (antes 1-24): el buzzer pasó a DO 25 y los dos enlaces tienen 32 salidas.
+_CANALES_APAGADO_BASE = range(1, 33)
 
 
 class SetOutput:
