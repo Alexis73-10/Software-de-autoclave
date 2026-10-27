@@ -1,0 +1,10 @@
+Línea base de la suite — tanda 20 (rama tanda-20 en 2c05e2f = dev 391aedf + docs)
+Comando: python -m pytest tests -n auto -q -p no:cacheprovider
+Fecha: 2026-10-27 14:48–14:56
+
+Resultado en paralelo: 3 failed, 8822 passed, 10 skipped, 3 xfailed, 17 warnings in 415.85s
+Fallidas solo en paralelo (repetidas en serie: 4 passed, cuentan como verdes):
+  tests/test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu
+  tests/test_main_window_navigate_payload.py::test_navigate_to_payload_none_no_llama_set_context
+  tests/test_main_window_navigate_payload.py::test_navigate_to_sin_payload_no_falla
+Total recolectado: 8838 (8822 + 3 + 10 + 3)
