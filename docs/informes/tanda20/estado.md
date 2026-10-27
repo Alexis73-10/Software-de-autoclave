@@ -8,9 +8,9 @@ Rama `tanda-20` desde `dev` (391aedf). Último commit: ver la nota de cada fila.
 | B | Hecha | `G:\Respaldos_autoclave\pre_tanda20_20261027_1448\`; bundle `repo_completo.bundle` SHA-256 2224aa05770c2249b44d8819decc2af113f71b9cc411d010f863118503b9a86e (verify okay, releído desde G:); `dev_391aedf.zip` SHA-256 32c6cba444563f31e5a469b8d010ca3cb2fb17a2d7b668682fe2a730681a29ae; `LEEME.txt`; etiqueta local `respaldo-serial-pre-t20` sobre 391aedf. |
 | V | Hecha | V-01 (inventario serial), V-02 (pruebas), V-03 (adenda), V-04 (Setup) recibidos; resumen en R20_informe.md. |
 | F | Hecha | F2 bfc6f93 (claves i18n `configurar_modulo.*`; los textos del Setup van en `[CustomMessages]` del .iss, dueño s3 — DECISIÓN SIN CONFIRMAR para no partir el archivo). F1 0da003a (`tests/helpers/enlace_doble.py`, fixture `enlace_doble`). |
-| P | En curso | s1 (adenda + rol), s2 (retiro serial), s3 (Setup) lanzados en worktrees, ramas `tanda-20-s1/s2/s3` desde e8879b8. Al reanudar: revisar cada rama antes de relanzar. |
-| I | Pendiente | |
-| R | Pendiente | |
+| P | Hecha | s1 (75857ed, d0510ac) unida en 9fce64a; s3 (30499a8, f2cc939) unida en cab7dfd; s2 (e6b2ac7..2828d25) unida en 20577d8. |
+| I | En curso | Uniones sin conflictos. I.2 `tests/test_t20_integracion.py` + ajustes (commit tras 20577d8); I.3 grep limpio (solo historial); I.4 sin huérfanas nuevas (381 = 381); I.5 hoja f95e624 y riesgos fee8f32; pyserial desinstalado del entorno. Recolectadas 8788 = 8838 + 7 + 46 + 40 + 37 − 180. Suite completa corriendo. |
+| R | En curso | 3 revisores de solo lectura lanzados. |
 | K | Pendiente | |
 | L | Pendiente | |
 | Z | Pendiente | |
