@@ -10,6 +10,8 @@
 #     fuera del hilo de la GUI al abrir el panel
 #   - versión, ID y emparejamiento de la tarjeta de E/S: GET /status (campo
 #     `tarjeta`, del último handshake; E6, FW-D2 y FW-D7), en la misma consulta
+#   - enlace de E/S activo (tanda 19, MOD-01): GET /status (campo `enlace_io`,
+#     "modbus" | "serial"), en la misma consulta
 # Sin fuente en el código (se muestra como "No disponible"): fecha del último
 # mantenimiento.
 
@@ -77,6 +79,23 @@ def _fila_enum(clave, prefijo, valor) -> dict:
 _TEXTO_EMPAREJAMIENTO = {True: "tarjeta_emparejada", False: "tarjeta_no_emparejada"}
 
 
+# Tanda 19 (MOD-01): enlace de E/S -> clave del texto en la sección "equipo"
+_TEXTO_ENLACE = {"modbus": "enlace_io_modbus", "serial": "enlace_io_serial"}
+
+
+def _fila_enlace(enlace) -> dict:
+    """None = aún no se consultó /status ("—"); un valor que no es un enlace
+    conocido (falta en /status o inválido) = "No disponible"."""
+    if enlace is None:
+        return _fila("enlace_io", None)
+    clave = _TEXTO_ENLACE.get(enlace) if isinstance(enlace, str) else None
+    if clave is None:
+        return _fila("enlace_io", None, disponible=False)
+    fila = _fila("enlace_io", enlace)
+    fila["valorClave"] = clave
+    return fila
+
+
 def _filas_tarjeta(tarjeta) -> list[dict]:
     t = tarjeta if isinstance(tarjeta, dict) else {}
     emparejamiento = _fila("emparejamiento_tarjeta", None)
@@ -91,10 +110,12 @@ def _filas_tarjeta(tarjeta) -> list[dict]:
 
 
 def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None,
-                 mantenimiento=None) -> list[dict]:
+                 mantenimiento=None, enlace=None) -> list[dict]:
     """historial: None = aún no se pudo consultar; [] = sin ciclos; [fila] = último ciclo.
     tarjeta: campo `tarjeta` de /status ({version, id, emparejada}) o None.
-    mantenimiento: GET /maintenance (M1, tanda 3) o None."""
+    mantenimiento: GET /maintenance (M1, tanda 3) o None.
+    enlace: campo `enlace_io` de /status (tanda 19); None = aún sin consultar,
+    "" = /status respondió sin un enlace válido."""
     p = perfil
     mant = resumen_dominio.mantenimiento_presentable(mantenimiento)
 
@@ -129,6 +150,7 @@ def filas_equipo(perfil, door: int, version_sw, historial, tarjeta=None,
         _fila("ultimo_mantenimiento", mant["ultimo"] if mantenimiento is not None else None),
         _fila("ciclos_restantes", mant["ciclos_restantes"] if mantenimiento is not None else None),
         _fila("version_software", version_sw),
+        _fila_enlace(enlace),
         *_filas_tarjeta(tarjeta),
     ]
 
@@ -151,6 +173,7 @@ class InfoEquipo(QObject):
         self._historial = None
         self._tarjeta = None
         self._mantenimiento = None
+        self._enlace = None
         self._consultando = False
         self._filas = filas_equipo(perfil, door, version_sw, None)
         self._historial_recibido.connect(self._al_recibir)
@@ -171,30 +194,35 @@ class InfoEquipo(QObject):
             try:
                 status = self._backend.get("/status")
                 tarjeta = status.get("tarjeta") if isinstance(status, dict) else None
+                # "" = /status respondió sin enlace válido ("No disponible")
+                enlace = (status.get("enlace_io") or "") if isinstance(status, dict) else None
             except Exception as e:
                 logger.debug("estado de la tarjeta no disponible: %s", e)
                 tarjeta = None
+                enlace = None
             try:
                 mantenimiento = self._backend.get("/maintenance")
             except Exception as e:
                 logger.debug("mantenimiento no disponible: %s", e)
                 mantenimiento = None
-            self._historial_recibido.emit((filas, tarjeta, mantenimiento))
+            self._historial_recibido.emit((filas, tarjeta, mantenimiento, enlace))
 
         self._ejecutar(tarea)
 
     def _al_recibir(self, datos) -> None:
         self._consultando = False
-        filas, tarjeta, mantenimiento = datos
+        filas, tarjeta, mantenimiento, enlace = datos
         if isinstance(mantenimiento, dict):
             self._mantenimiento = mantenimiento
         if isinstance(filas, list):
             self._historial = filas
         if isinstance(tarjeta, dict):
             self._tarjeta = tarjeta
+        if isinstance(enlace, str):
+            self._enlace = enlace
         # si falla, se conserva el último dato conocido
         nuevas = filas_equipo(self._perfil, self._door, self._version, self._historial,
-                              self._tarjeta, self._mantenimiento)
+                              self._tarjeta, self._mantenimiento, self._enlace)
         if nuevas != self._filas:
             self._filas = nuevas
             self.filasChanged.emit()

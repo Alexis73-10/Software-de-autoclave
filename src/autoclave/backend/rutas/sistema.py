@@ -128,7 +128,9 @@ def get_system_info():
                    "clase": clase if isinstance(clase, str) else None},
         "software": {"version": _parte(version_completa),
                      "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
-                     "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None},
+                     "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None,
+                     # Tanda 19 (MOD-01): enlace de E/S activo ("modbus" | "serial")
+                     "enlace_io": _parte(enlace_activo)},
         "uso": {"ciclos": _parte(context.db.max_numero_ciclo),
                 "mantenimiento": _parte(context.mantenimiento.resumen)},
         "configuracion": {"idioma": _parte(context.config_idioma.leer),
