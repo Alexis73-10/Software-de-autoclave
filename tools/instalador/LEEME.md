@@ -70,7 +70,7 @@ Se generó una sola vez el 2026-10-22. **No se cambia nunca.** Gracias a él, Wi
 | Casilla | Por defecto | Qué hace |
 |---|---|---|
 | Iniciar Autoclave automáticamente al iniciar sesión en Windows | marcada | Tarea programada `Especifika Autoclave - Arranque` (mismo nombre y mecanismo que `tools/estacion/03_tarea_autoclave.ps1`; si después se ejecuta ese script, la reemplaza y nunca quedan dos arranques). Es de la cuenta del inicio automático si se marca la estación; si no, de la cuenta con la sesión abierta. El desinstalador la borra. |
-| Configurar este PC como estación del autoclave | **marcada** | Pasos 01, 04 y 05 de `tools/estacion/` (D9-11): inicio de sesión automático con la cuenta que instala (no se crea ninguna cuenta), sin notificaciones, Windows Update solo avisa y se difiere (no se desactiva), sin gestos de borde, sin suspensión ni hibernación y botón de encendido sin acción. Pide usuario y contraseña en la página siguiente. Al terminar, el Setup pide reiniciar. |
+| Configurar este PC como estación del autoclave | **marcada** | Pasos 01, 04, 05 y 07 de `tools/estacion/` (D9-11; el 07 por EST-09, tanda 18): inicio de sesión automático con la cuenta que instala (no se crea ninguna cuenta), sin notificaciones, Windows Update solo avisa y se difiere (no se desactiva), sin gestos de borde, sin suspensión ni hibernación, botón de encendido sin acción y escritorio de la estación (paso 07: fondo de Especifika, barra de tareas con «Ocultar automáticamente» e íconos ocultos, en el perfil de la cuenta que instala). Pide usuario y contraseña en la página siguiente. Al terminar, el Setup pide reiniciar. |
 | ↳ Asociar cada pantalla táctil con su monitor | marcada (solo con 2 o más monitores) | Paso 06 (tanda 11, D11-5): abre `MultiDigitizer.exe` (o, si no existe, la herramienta propia `Autoclave.exe --rol asociar-tactiles`, EST-06 de la tanda 17) para tocar cada pantalla una vez. Ver "Pantallas táctiles" abajo. |
 | Arranque sin logo de Windows y sin pantalla de bloqueo | **desmarcada** | Paso 02: `bcdedit /set {current} bootux disabled` (con copia previa del BCD), sin pantalla de bloqueo ni contraseña al reanudar. |
 
@@ -79,7 +79,8 @@ Detalles de la estación:
 - La contraseña pasa al script por una variable de entorno del proceso, nunca por la línea de comandos, y queda en el registro de Windows (`Winlogon\DefaultPassword`), como exige el inicio automático (riesgo aceptado en el plan de la estación, §3.1). El log nunca la muestra.
 - Los scripts se instalan en `X:\Especifika\Autoclave\programa\estacion\` (solo administradores pueden cambiarlos) y los ejecuta `estacion_setup.ps1` sin interacción. El log y los respaldos de los valores originales quedan en `X:\Especifika\Autoclave\datos\estacion\` (`RutaDatos\estacion`, que `_comun.ps1` lee del registro; sin la clave, `%ProgramData%\Especifika\Autoclave\estacion\`), carpeta que los scripts restringen a Administradores y SYSTEM (la de datos tiene Modificar para Usuarios).
 - Si un paso falla, el Setup lo avisa al final con la lista de pasos y la ruta del log; Autoclave queda instalado igual.
-- El Setup anota en `HKLM\SOFTWARE\Especifika\Autoclave\Estacion` los pasos que aplicó. **El desinstalador revierte solo esos**, en orden inverso (06, 05, 04, 02, 01), con los scripts de reversión, y borra esa clave. Si una reversión falla, lo avisa (con la carpeta de los respaldos, `datos\estacion`) y **conserva** esa clave y los valores `RutaDatos`/`RutaPrograma` (R1, V17-s1-05), para que los scripts encuentren los respaldos: hay que correr a mano, como administrador, el script `0X_revertir_...ps1` de `tools/estacion/` (desde la USB o el repositorio, porque el desinstalador ya borró la copia instalada). Si la clave ya no está, se le indica la carpeta a los scripts con la variable de entorno `AUTOCLAVE_RUTA_DATOS` (manda sobre el registro):
+- **Paso 07, escritorio de la estación (EST-09, tanda 18):** sin casilla propia; corre con la casilla de la estación, **después del 05 y antes del 06**, y se anota como `Paso07`. Un fallo del 07 solo aparece en la lista de fallas («escritorio de la estación (paso 07)»): no interrumpe los demás pasos ni la instalación. Escribe en el perfil (HKCU) de la cuenta que instala; el fondo (`{app}\estacion\fondo_estacion.png`, la imagen de la intro) y la barra se aplican en el acto si el Setup corre con esa cuenta; los íconos, y todo lo demás si no, en el siguiente inicio de sesión (el Setup ya pide reiniciar). Valores y fuentes: `tools/estacion/LEEME.md`, «Paso 7».
+- El Setup anota en `HKLM\SOFTWARE\Especifika\Autoclave\Estacion` los pasos que aplicó. **El desinstalador revierte solo esos**, en orden inverso (07, 06, 05, 04, 02, 01), con los scripts de reversión, y borra esa clave. Si una reversión falla, lo avisa (con la carpeta de los respaldos, `datos\estacion`) y **conserva** esa clave y los valores `RutaDatos`/`RutaPrograma` (R1, V17-s1-05), para que los scripts encuentren los respaldos: hay que correr a mano, como administrador, el script `0X_revertir_...ps1` de `tools/estacion/` (desde la USB o el repositorio, porque el desinstalador ya borró la copia instalada). Si la clave ya no está, se le indica la carpeta a los scripts con la variable de entorno `AUTOCLAVE_RUTA_DATOS` (manda sobre el registro):
 
   ```powershell
   $env:AUTOCLAVE_RUTA_DATOS = 'D:\Especifika\Autoclave\datos'
@@ -99,7 +100,7 @@ El Setup compara su versión (`AppVerNum`) con la instalada, que anota en `HKLM\
 | Más nueva | Se niega a instalar y pide desinstalar primero (no se baja de versión). |
 
 - **Actualizar** (versión más vieja): el asistente normal. Conserva los datos de `X:\Especifika\Autoclave\datos`.
-- **Reparar** (misma versión): vuelve a copiar el programa y los scripts (borra antes `_internal\`). Recrea la tarea de arranque si estaba elegida y vuelve a aplicar los pasos 04, 05 y 02 que estaban anotados en `...\Estacion`, incluidos los que fallaron, porque se anotan antes de aplicarse. No muestra las tareas ni la página de la cuenta, y **no reaplica los pasos 01 ni 06** (el 01 pediría la contraseña; el 06 abre la herramienta de los táctiles): el inicio automático y la asociación de los táctiles quedan como estaban, y la tarea se recrea para la cuenta del inicio automático (`Winlogon\DefaultUserName`). Un Setup silencioso (`/SILENT`, `/VERYSILENT`) de la misma versión hace Reparar; uno de una versión más nueva hace Actualizar. **Un Setup silencioso nunca hace una instalación limpia.**
+- **Reparar** (misma versión): vuelve a copiar el programa y los scripts (borra antes `_internal\`). Recrea la tarea de arranque si estaba elegida y vuelve a aplicar los pasos 04, 05, 02 y 07 (EST-09: sin contraseña) que estaban anotados en `...\Estacion`, incluidos los que fallaron, porque se anotan antes de aplicarse. No muestra las tareas ni la página de la cuenta, y **no reaplica los pasos 01 ni 06** (el 01 pediría la contraseña; el 06 abre la herramienta de los táctiles): el inicio automático y la asociación de los táctiles quedan como estaban, y la tarea se recrea para la cuenta del inicio automático (`Winlogon\DefaultUserName`). Un Setup silencioso (`/SILENT`, `/VERYSILENT`) de la misma versión hace Reparar; uno de una versión más nueva hace Actualizar. **Un Setup silencioso nunca hace una instalación limpia.**
 - **Desinstalar**: abre el desinstalador normal (con su confirmación) y cierra el Setup.
 - **Instalación limpia** (versión más vieja o la misma):
   1. Al pulsar Siguiente pide **dos confirmaciones**, las dos con "No" por defecto. La segunda dice que se borran los ciclos registrados, los usuarios, el perfil de instalación y la calibración.
@@ -147,14 +148,15 @@ Instalar:
 - [ ] `reg query HKLM\SOFTWARE\Especifika\Autoclave /v RutaPrograma` = `D:\Especifika\Autoclave\programa`; `/v RutaDatos` = `D:\Especifika\Autoclave\datos`.
 - [ ] `icacls D:\Especifika`, `icacls D:\Especifika\Autoclave` e `icacls D:\Especifika\Autoclave\programa`: sin `(I)` (sin herencia), dueño Administradores (`icacls ... /q` o Propiedades › Seguridad › Opciones avanzadas), `BUILTIN\Administradores:(OI)(CI)(F)`, `NT AUTHORITY\SYSTEM:(OI)(CI)(F)`, `BUILTIN\Usuarios:(OI)(CI)(RX)`, y **ninguna** entrada de `Usuarios autentificados`.
 - [ ] Con un usuario estándar: no puede crear, cambiar ni borrar un archivo en `D:\Especifika\Autoclave\programa` ni en `_internal\` (Acceso denegado); sí puede abrir Autoclave.
-- [ ] Sin reiniciar todavía, revisar `D:\Especifika\Autoclave\datos\estacion\estacion.log`: líneas `Setup: Aplicar paso 01/04/05 ... terminado`, ninguna `FALLO`, y la contraseña aparece como `********`.
+- [ ] Sin reiniciar todavía, revisar `D:\Especifika\Autoclave\datos\estacion\estacion.log`: líneas `Setup: Aplicar paso 01/04/05/07 ... terminado`, ninguna `FALLO`, y la contraseña aparece como `********`.
 - [ ] `icacls D:\Especifika\Autoclave\datos`: sin herencia, `BUILTIN\Usuarios:(OI)(CI)(M)` (o `BUILTIN\Users`).
 - [ ] `icacls D:\Especifika\Autoclave\datos\estacion`: solo `BUILTIN\Administradores` y `NT AUTHORITY\SYSTEM`, sin `Usuarios`.
-- [ ] `reg query HKLM\SOFTWARE\Especifika\Autoclave\Estacion`: `Paso01`, `Paso04`, `Paso05` (y `Paso02` solo si se marcó la casilla del logo).
+- [ ] `reg query HKLM\SOFTWARE\Especifika\Autoclave\Estacion`: `Paso01`, `Paso04`, `Paso05`, `Paso07` (y `Paso02` solo si se marcó la casilla del logo).
 
 Reiniciar:
 - [ ] Windows entra solo con la cuenta indicada, sin pedir contraseña.
 - [ ] Autoclave se abre solo (asistente de instalación del equipo si no hay perfil).
+- [ ] Escritorio de la estación (paso 07, I-07b): desde que entra Windows hasta la intro solo se ve el fondo de Especifika (Rellenar, en los dos monitores), sin barra de tareas ni íconos; Configuración › Personalización › Fondo dice «Imagen» y la barra tiene «Ocultar automáticamente». Anotar el tiempo del inicio de sesión a la intro: ________
 - [ ] No aparecen notificaciones de Windows; en Configuración › Windows Update se ven las horas activas 6 a 23 (en Windows Home las directivas pueden ignorarse: anotarlo).
 - [ ] Sin suspensión ni apagado de pantalla tras 30 min sin uso; `powercfg /a` dice que la hibernación no está disponible.
 - [ ] Con la casilla del logo desmarcada, el arranque sigue mostrando el logo de Windows (no se aplicó el paso 02).
@@ -163,14 +165,15 @@ Reiniciar:
 
 Mantenimiento (Setup de la misma versión sobre la instalación ya hecha):
 - [ ] Aparece la página "Autoclave ya está instalado" con Reparar marcado y las opciones Instalación limpia y Desinstalar (no hay "Reinstalar").
-- [ ] Reparar: no pide tareas ni contraseña; `estacion.log` muestra `Setup: Aplicar paso 04/05 ... terminado` (y 02 si estaba); el inicio automático sigue igual; la tarea de arranque existe.
+- [ ] Reparar: no pide tareas ni contraseña; `estacion.log` muestra `Setup: Aplicar paso 04/05/07 ... terminado` (y 02 si estaba); el inicio automático sigue igual; la tarea de arranque existe.
 - [ ] Instalación limpia: casos A-N11-02 y A-N11-03 de la hoja de pruebas de banco (`docs/mis_plans/hoja_pruebas_banco_equipo_pruebas.md`).
 - [ ] Desinstalar: se abre el desinstalador (pide confirmación) y el Setup se cierra sin preguntar.
 - [ ] Setup de una versión **más vieja** que la instalada: se niega y no cambia nada.
 
 Desinstalar (Configuración › Aplicaciones › Autoclave Especifika › Desinstalar):
 - [ ] Muestra "Restaurando la configuración de Windows..." y termina sin mensaje de error; avisa que los datos se conservan.
-- [ ] `estacion.log`: líneas `Setup: Revertir paso 05/04/(02)/01 ... terminado`.
+- [ ] `estacion.log`: líneas `Setup: Revertir paso 07/05/04/(02)/01 ... terminado` (07 primero).
+- [ ] Escritorio (I-15): tras reiniciar, el fondo, la barra de tareas (sin ocultar automáticamente, si así estaba) y los íconos del escritorio son los de antes de instalar; `respaldo_07_escritorio_estacion.json` ya no está en `datos\estacion`.
 - [ ] `reg query HKLM\SOFTWARE\Especifika\Autoclave\Estacion` ya no existe.
 - [ ] Winlogon (`AutoAdminLogon`, `DefaultUserName`, `DefaultDomainName`, `DefaultPassword`) quedó como antes de instalar (`DefaultPassword` ya no está si no existía).
 - [ ] `powercfg /getactivescheme` es un plan con el nombre del original (GUID nuevo: el modificado sigue en `powercfg /list`, se puede borrar con `powercfg /delete`) y la hibernación volvió a su estado.

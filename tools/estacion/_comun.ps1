@@ -258,3 +258,218 @@ function Restore-RegValores {
         else { Save-Respaldo $Paso $resp }
     }
 }
+
+# ---------------------------------------------------------------------------
+# Paso 07 (EST-09, tanda 18): escritorio de la estacion. Valores del perfil
+# (HKCU) de la cuenta del inicio automatico, que es la que instala. El Setup y
+# los scripts corren elevados: HKCU del proceso puede no ser esa cuenta (si se
+# eleva con otra), asi que se escribe en HKEY_USERS\<SID de la cuenta>; si su
+# perfil no esta cargado (sesion cerrada) se carga NTUSER.DAT con reg.exe load
+# en HKU\EspecifikaEstacion07 y se descarga al terminar.
+# ---------------------------------------------------------------------------
+
+# Unicos valores (relativos a HKCU) que cambia y restaura el paso 07. El
+# inverso ignora cualquier otra clave de respaldo_07_escritorio_estacion.json.
+$script:ValoresUsuarioGestionados = @(
+    'Control Panel\Desktop|WallpaperStyle',
+    'Control Panel\Desktop|TileWallpaper',
+    'Control Panel\Desktop|Wallpaper',
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers|BackgroundType',
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced|HideIcons',
+    'Software\Microsoft\Windows\CurrentVersion\Explorer\StuckRects3|Settings'
+)
+$script:ColmenaTemporal = 'EspecifikaEstacion07'
+$script:TiposValorUsuario = @('String', 'ExpandString', 'DWord', 'QWord', 'Binary', 'MultiString')
+
+function Test-SidCuenta($Sid) {
+    <# SID de una cuenta de usuario local o de dominio (S-1-5-21-...). #>
+    return (($Sid -is [string]) -and ($Sid -match '^S-1-5-21(-\d+)+$'))
+}
+
+function Resolve-CuentaEstacion {
+    <# Cuenta del inicio automatico: -Usuario/-Dominio si llegan; si no,
+       Winlogon DefaultUserName/DefaultDomainName (lo escribe el paso 01); si
+       tampoco, la cuenta que ejecuta el script. Devuelve @{Nombre; Sid}. #>
+    param([string]$Usuario, [string]$Dominio)
+    if (-not $Usuario) {
+        $wl = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon' -ErrorAction SilentlyContinue
+        if (($null -ne $wl) -and ($wl.PSObject.Properties.Name -contains 'DefaultUserName') -and $wl.DefaultUserName) {
+            $Usuario = [string]$wl.DefaultUserName
+            if ($wl.PSObject.Properties.Name -contains 'DefaultDomainName') { $Dominio = [string]$wl.DefaultDomainName }
+        }
+    }
+    if (-not $Usuario) {
+        $actual = [Security.Principal.WindowsIdentity]::GetCurrent()
+        return @{ Nombre = $actual.Name; Sid = $actual.User.Value }
+    }
+    if ((-not $Dominio) -or ($Dominio -eq '.')) { $Dominio = $env:COMPUTERNAME }
+    $nombre = "$Dominio\$Usuario"
+    $sid = (New-Object System.Security.Principal.NTAccount($Dominio, $Usuario)).Translate(
+        [System.Security.Principal.SecurityIdentifier]).Value
+    if (-not (Test-SidCuenta $sid)) { throw "La cuenta $nombre no es una cuenta de usuario ($sid)." }
+    return @{ Nombre = $nombre; Sid = $sid }
+}
+
+function Test-SesionDeLaCuenta([string]$Sid) {
+    <# True si el proceso corre con esa cuenta: solo entonces SystemParametersInfo
+       y SHAppBarMessage actuan sobre su sesion. #>
+    return ([Security.Principal.WindowsIdentity]::GetCurrent().User.Value -eq $Sid)
+}
+
+function Open-ColmenaUsuario([string]$Sid) {
+    <# Raiz de HKEY_USERS donde estan los valores HKCU de la cuenta. Si la
+       sesion esta abierta, HKU\<SID>; si no, carga su NTUSER.DAT (se carga
+       tambien con -WhatIf, solo para leer: se descarga al terminar). #>
+    if (-not (Test-SidCuenta $Sid)) { throw "SID de cuenta invalido: $Sid." }
+    $clave = [Microsoft.Win32.Registry]::Users.OpenSubKey($Sid, $false)
+    if ($null -ne $clave) {
+        $clave.Close()
+        return @{ Raiz = $Sid; Cargada = $false }
+    }
+    $lista = Get-ItemProperty -LiteralPath "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList\$Sid" -ErrorAction SilentlyContinue
+    if (($null -eq $lista) -or (-not ($lista.PSObject.Properties.Name -contains 'ProfileImagePath'))) {
+        throw "La cuenta $Sid no tiene perfil (nunca inicio sesion): inicie sesion una vez con ella y repita el paso."
+    }
+    $dat = Join-Path ([Environment]::ExpandEnvironmentVariables([string]$lista.ProfileImagePath)) 'NTUSER.DAT'
+    if (-not (Test-Path -LiteralPath $dat)) { throw "No se encuentra $dat." }
+    $existente = [Microsoft.Win32.Registry]::Users.OpenSubKey($script:ColmenaTemporal, $false)
+    if ($null -ne $existente) {
+        $existente.Close()
+        throw "HKU\$($script:ColmenaTemporal) ya esta cargada (ejecucion anterior interrumpida): descarguela con 'reg unload HKU\$($script:ColmenaTemporal)'."
+    }
+    & reg.exe load "HKU\$($script:ColmenaTemporal)" $dat | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "reg load de $dat fallo (codigo $LASTEXITCODE)." }
+    Write-Log "Perfil de $Sid cargado desde $dat en HKU\$($script:ColmenaTemporal) (sesion cerrada)."
+    return @{ Raiz = $script:ColmenaTemporal; Cargada = $true }
+}
+
+function Close-ColmenaUsuario($Colmena) {
+    if (($null -eq $Colmena) -or (-not $Colmena.Cargada)) { return }
+    [GC]::Collect(); [GC]::WaitForPendingFinalizers()
+    & reg.exe unload "HKU\$($Colmena.Raiz)" | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Log "No se pudo descargar HKU\$($Colmena.Raiz) (codigo $LASTEXITCODE): reinicie o 'reg unload HKU\$($Colmena.Raiz)'." 'WARN'
+    } else {
+        Write-Log "Perfil descargado de HKU\$($Colmena.Raiz)."
+    }
+}
+
+function Get-ValorUsuario([string]$Raiz, [string]$Ruta, [string]$Nombre) {
+    <# @{Existe; Valor; Tipo} de HKU\<Raiz>\<Ruta>\<Nombre> (sin expandir %variables%). #>
+    $clave = [Microsoft.Win32.Registry]::Users.OpenSubKey("$Raiz\$Ruta", $false)
+    if ($null -eq $clave) { return @{ Existe = $false; Valor = $null; Tipo = $null } }
+    try {
+        if (-not ($clave.GetValueNames() -contains $Nombre)) { return @{ Existe = $false; Valor = $null; Tipo = $null } }
+        return @{
+            Existe = $true
+            Valor  = $clave.GetValue($Nombre, $null, 'DoNotExpandEnvironmentNames')
+            Tipo   = $clave.GetValueKind($Nombre).ToString()
+        }
+    } finally { $clave.Close() }
+}
+
+function ConvertTo-ValorUsuario($Valor, [string]$Tipo) {
+    <# El JSON devuelve los arreglos como object[] y los numeros como int/long
+       (la coma evita que PowerShell desarme el arreglo al devolverlo). #>
+    switch ($Tipo) {
+        'Binary'      { return , ([byte[]]@($Valor)) }
+        'MultiString' { return , ([string[]]@($Valor)) }
+        'DWord' {
+            $n = [long]$Valor
+            if ($n -gt [int]::MaxValue) { $n -= 4294967296 }   # REG_DWORD sin signo guardado como positivo
+            return [int]$n
+        }
+        'QWord'       { return [long]$Valor }
+        default       { return [string]$Valor }
+    }
+}
+
+function Write-ValorUsuario([string]$Raiz, [string]$Ruta, [string]$Nombre, $Valor, [string]$Tipo) {
+    if ($script:TiposValorUsuario -notcontains $Tipo) { throw "Tipo de valor no admitido: $Tipo." }
+    $clave = [Microsoft.Win32.Registry]::Users.CreateSubKey("$Raiz\$Ruta")
+    try {
+        $clave.SetValue($Nombre, (ConvertTo-ValorUsuario $Valor $Tipo), [Microsoft.Win32.RegistryValueKind]$Tipo)
+    } finally { $clave.Close() }
+}
+
+function Remove-ValorUsuario([string]$Raiz, [string]$Ruta, [string]$Nombre) {
+    $clave = [Microsoft.Win32.Registry]::Users.OpenSubKey("$Raiz\$Ruta", $true)
+    if ($null -eq $clave) { return }
+    try { $clave.DeleteValue($Nombre, $false) } finally { $clave.Close() }
+}
+
+function Format-ValorUsuario($Valor) {
+    if ($null -eq $Valor) { return '' }
+    if (($Valor -is [byte[]]) -or ($Valor -is [object[]])) {
+        return ((@($Valor) | ForEach-Object { ([int]$_).ToString('X2') }) -join ' ')
+    }
+    return "$Valor"
+}
+
+function Set-ValorUsuario {
+    <# Fija un valor HKCU de la cuenta guardando antes el original (una sola
+       vez, tambien si no existia) en respaldo_<Paso>.json. #>
+    [CmdletBinding(SupportsShouldProcess)]
+    param(
+        [Parameter(Mandatory)][string]$Paso,
+        [Parameter(Mandatory)]$Colmena,
+        [Parameter(Mandatory)][string]$Ruta,
+        [Parameter(Mandatory)][string]$Nombre,
+        [Parameter(Mandatory)]$Valor,
+        [Parameter(Mandatory)][ValidateSet('String', 'DWord', 'Binary')][string]$Tipo
+    )
+    $id = "$Ruta|$Nombre"
+    if ($script:ValoresUsuarioGestionados -notcontains $id) { throw "Valor de usuario no gestionado: $id (agregarlo a ValoresUsuarioGestionados en _comun.ps1)." }
+    $actual = Get-ValorUsuario $Colmena.Raiz $Ruta $Nombre
+    if ($actual.Existe -and ($actual.Tipo -eq $Tipo) -and ((Format-ValorUsuario $actual.Valor) -eq (Format-ValorUsuario $Valor))) {
+        Write-Log "Sin cambio: HKCU\$id ya vale '$(Format-ValorUsuario $Valor)'."
+        return
+    }
+    if ($PSCmdlet.ShouldProcess("HKCU\$id", "Fijar a '$(Format-ValorUsuario $Valor)' ($Tipo)")) {
+        $resp = Read-Respaldo $Paso
+        if (-not $resp.ContainsKey($id)) {
+            $resp[$id] = @{ Existia = $actual.Existe; Valor = $actual.Valor; Tipo = $actual.Tipo }
+            Save-Respaldo $Paso $resp
+        }
+        Write-ValorUsuario $Colmena.Raiz $Ruta $Nombre $Valor $Tipo
+        Write-Log "Cambiado: HKCU\$id = '$(Format-ValorUsuario $Valor)' (antes: existia=$($actual.Existe), valor='$(Format-ValorUsuario $actual.Valor)')."
+    }
+}
+
+function Initialize-Win32Escritorio {
+    <# user32!SystemParametersInfoW y shell32!SHAppBarMessage (paso 07). #>
+    if ('EspecifikaEscritorio07' -as [type]) { return }
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class EspecifikaEscritorio07 {
+    public const uint SPI_SETDESKWALLPAPER = 0x0014;
+    public const uint SPIF_UPDATEINIFILE = 0x01;
+    public const uint SPIF_SENDCHANGE = 0x02;
+    public const uint ABM_SETSTATE = 0x0000000A;
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int left; public int top; public int right; public int bottom; }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct APPBARDATA {
+        public uint cbSize; public IntPtr hWnd; public uint uCallbackMessage;
+        public uint uEdge; public RECT rc; public IntPtr lParam;
+    }
+    [DllImport("user32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern bool SystemParametersInfo(uint uiAction, uint uiParam, string pvParam, uint fWinIni);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)]
+    public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+    [DllImport("shell32.dll")]
+    public static extern UIntPtr SHAppBarMessage(uint dwMessage, ref APPBARDATA pData);
+    public static bool FijarFondo(string ruta) {
+        return SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, ruta, SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
+    }
+    public static void FijarEstadoBarra(int estado) {
+        APPBARDATA d = new APPBARDATA();
+        d.cbSize = (uint)Marshal.SizeOf(typeof(APPBARDATA));
+        d.hWnd = FindWindow("Shell_TrayWnd", null);
+        d.lParam = (IntPtr)estado;
+        SHAppBarMessage(ABM_SETSTATE, ref d);
+    }
+}
+'@
+}

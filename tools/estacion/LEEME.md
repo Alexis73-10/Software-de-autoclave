@@ -22,6 +22,7 @@ Primero simular cada uno con `-WhatIf`; luego sin él. Reiniciar al final.
 | 4 | `04_notificaciones_actualizaciones_gestos.ps1 [-HoraActivaInicio 6 -HoraActivaFin 23]` | Sin notificaciones, Windows Update sin reinicio automático y diferido, sin gestos de borde | §5 |
 | 5 | `05_plan_energia.ps1` | Sin suspensión, hibernación ni apagado de pantalla; botón de encendido "no hacer nada" | §7 |
 | 6 | `06_asociar_tactiles.ps1 [-MinutosEspera 10]` | Asocia cada pantalla táctil con su monitor: abre `%windir%\System32\MultiDigitizer.exe` y pide tocar cada pantalla una vez. Solo con 2 o más monitores | D11-5 (tanda 11) |
+| 7 | `07_escritorio_estacion.ps1 [-Usuario cuenta -Dominio equipo] [-Imagen ruta]` | Escritorio de la estación en el perfil de la cuenta del inicio automático: fondo de Especifika (Rellenar, todos los monitores, tipo «Imagen»), barra de tareas con «Ocultar automáticamente» e íconos del escritorio ocultos. Ver «Paso 7» abajo | EST-09 (tanda 18) |
 
 Ejemplo:
 
@@ -34,9 +35,26 @@ cd C:\ruta\tools\estacion
 
 `_comun.ps1` no se ejecuta: lo cargan los demás (log, respaldo y restauración de valores).
 
+## Paso 7: escritorio de la estación (EST-09, tanda 18)
+
+El PC tiene una sola cuenta (la que instala y entra con el inicio automático). El paso 7 cambia tres ajustes **del perfil de esa cuenta** (HKCU). Como corre elevado, no usa el HKCU del proceso: resuelve la cuenta (`-Usuario`/`-Dominio`; si no llegan, `Winlogon\DefaultUserName`/`DefaultDomainName` del paso 1; si tampoco, la cuenta que ejecuta) y escribe en `HKEY_USERS\<SID>`. Con la sesión de esa cuenta cerrada carga su `NTUSER.DAT` (`reg load` en `HKU\EspecifikaEstacion07`) y lo descarga al terminar. La imagen es `fondo_estacion.png` junto al script (el Setup la instala en `{app}\estacion\`, copia de `src/autoclave/ui_qml/assets/fondos/fondo-arranque.png`); suelto en el repositorio usa esa imagen de la intro.
+
+| Ajuste | Valor de registro / API | Fuente | Cuándo surte efecto |
+|---|---|---|---|
+| Fondo, modo Rellenar | `HKCU\Control Panel\Desktop`: `WallpaperStyle="10"`, `TileWallpaper="0"`, `Wallpaper=<ruta>` (REG_SZ) | Microsoft Learn: «Desktop wallpaper» (directiva) y `SystemParametersInfoW` | Al aplicar la API (abajo); si no, en el siguiente inicio de sesión |
+| Fondo en todos los monitores, en el acto | `user32!SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, ruta, SPIF_UPDATEINIFILE \| SPIF_SENDCHANGE)` | Microsoft Learn: `SystemParametersInfoW` | En el acto, **solo si el script corre con la cuenta de la estación** (si no, cambiaría el fondo de otra cuenta) |
+| Tipo de fondo «Imagen» (sin presentación ni Spotlight) | `HKCU\...\Explorer\Wallpapers`: `BackgroundType=0` (REG_DWORD; 1 color, 2 presentación, 3 Spotlight) | Valor que escribe Configuración › Personalización › Fondo; no documentado formalmente (DECISIÓN SIN CONFIRMAR) | Siguiente inicio de sesión |
+| Barra «Ocultar automáticamente» | `HKCU\...\Explorer\StuckRects3\Settings` (REG_BINARY): byte 8, bit `0x01` (`0x03` activa, `0x02` desactiva); solo cambia ese bit | Formato del Explorador, no documentado (DECISIÓN SIN CONFIRMAR) | Siguiente inicio de sesión |
+| Barra, en el acto | `shell32!SHAppBarMessage(ABM_SETSTATE, ABS_AUTOHIDE \| ABS_ALWAYSONTOP)` | Microsoft Learn: «ABM_SETSTATE message» | En el acto, solo con la cuenta de la estación (el Explorador guarda el estado él mismo; no se reinicia el Explorador) |
+| Íconos del escritorio ocultos | `HKCU\...\Explorer\Advanced`: `HideIcons=1` (REG_DWORD), el de «Ver › Mostrar iconos del escritorio» | Valor del Explorador (DECISIÓN SIN CONFIRMAR) | Siguiente inicio de sesión (o al reiniciar el Explorador) |
+
+- Si `StuckRects3\Settings` no existe (perfil en el que el Explorador nunca corrió), el paso lo anota como aviso y no fija la barra; Reparar o repetir el paso lo vuelve a intentar.
+- El ocultamiento total de la barra mientras corre Autoclave (`ui_qml/barra_tareas.py`) sigue igual.
+- Respaldo: `respaldo_07_escritorio_estacion.json`, con el SID de la cuenta y cada valor original (también si no existía). Los valores que puede tocar el paso (y restaurar el inverso) son solo los de `ValoresUsuarioGestionados` de `_comun.ps1`. Si el respaldo es de otra cuenta, el paso no cambia nada y pide revertir primero.
+
 ## Desde el Setup (tanda 9, D9-11)
 
-El Setup de Inno (`tools/instalador/`) aplica los pasos 01, 04 y 05 con la casilla "Configurar este PC como estación del autoclave", el 06 con su subcasilla "Asociar cada pantalla táctil con su monitor" (tanda 11, D11-5; solo aparece con 2 o más monitores, no se reaplica al Reparar y no corre en un Setup silencioso) y el 02 con la casilla "Arranque sin logo", sin interacción, a través de `tools/instalador/estacion_setup.ps1`; el desinstalador ejecuta los inversos de los pasos aplicados. Para eso:
+El Setup de Inno (`tools/instalador/`) aplica los pasos 01, 04, 05 y 07 (EST-09, tanda 18: después del 05 y antes del 06, sin casilla propia; un fallo del 07 no interrumpe los demás) con la casilla "Configurar este PC como estación del autoclave", el 06 con su subcasilla "Asociar cada pantalla táctil con su monitor" (tanda 11, D11-5; solo aparece con 2 o más monitores, no se reaplica al Reparar y no corre en un Setup silencioso) y el 02 con la casilla "Arranque sin logo", sin interacción, a través de `tools/instalador/estacion_setup.ps1`; el desinstalador ejecuta los inversos de los pasos aplicados. Para eso:
 - `01_cuenta_autologon.ps1` acepta `-Dominio` (por defecto el nombre del equipo), `-NoCrearCuenta` (falla sin cambiar nada si la cuenta local no existe) y `-ContrasenaDesdeEntorno` (toma la contraseña de la variable `AUTOCLAVE_CLAVE_AUTOLOGON` del proceso y la borra). Sin esos parámetros se comporta como antes (pide la contraseña). `AutoAdminLogon` se activa al final, después de usuario, dominio y contraseña.
 - La carpeta de la estación (`<RutaDatos>\estacion\`, ver «Log y respaldos») queda solo para Administradores y SYSTEM (dueño Administradores, sin herencia), porque la carpeta de datos tiene Modificar para Usuarios y los inversos corren como administrador con lo que diga `respaldo_<paso>.json`. Se aplica también al simular con `-WhatIf`.
 - Los inversos solo restauran los valores de registro de la lista `ValoresGestionados` de `_comun.ps1` (un respaldo alterado no puede escribir otra clave), y `05_revertir…` solo importa el `.pow` de esa carpeta. Un paso nuevo que escriba otro valor debe agregarlo a esa lista (`tests/test_t9_e9_setup_estacion.py` lo comprueba).
@@ -53,9 +71,10 @@ Todos los scripts son idempotentes: si el valor ya está, lo anotan como "Sin ca
 
 ## Cómo revertir
 
-En orden inverso (6 → 1), como administrador, también con `-WhatIf` primero:
+En orden inverso (7 → 1), como administrador, también con `-WhatIf` primero:
 
 ```powershell
+.\07_revertir_escritorio_estacion.ps1
 .\06_revertir_asociar_tactiles.ps1
 .\05_revertir_plan_energia.ps1
 .\04_revertir_notificaciones_actualizaciones_gestos.ps1
@@ -68,6 +87,7 @@ En orden inverso (6 → 1), como administrador, también con `-WhatIf` primero:
 - `01_revertir…` solo borra la cuenta con `-EliminarCuenta` y solo si la creó el paso 1; el perfil de `C:\Users` queda.
 - `05_revertir…` reimporta el plan original con un GUID nuevo; el plan modificado queda en la lista (`powercfg /list`, borrar con `powercfg /delete`).
 - `06_revertir…` borra solo las asociaciones táctil-monitor que creó el paso 6 y devuelve su dato a las que cambió (según `respaldo_06_asociar_tactiles.json`); las que ya había antes quedan. Sin ese respaldo no borra nada. **Ojo:** "creada por el paso" quiere decir "que no estaba antes de la primera vez que corrió el paso 6", así que también borra las asociaciones rehechas después (a mano desde el Panel de control, al cambiar un táctil o al repetir el paso). Tras desinstalar o revertir, hay que volver a asociar las pantallas. Si un valor no se puede revertir, el script termina con error y conserva el respaldo para reintentarlo.
+- `07_revertir…` devuelve el fondo, el modo de la barra y la visibilidad de los íconos a lo respaldado en `respaldo_07_escritorio_estacion.json` (si un valor no existía, lo borra), en el perfil del SID respaldado. Con la cuenta de la estación vuelve a aplicar el fondo y la barra en el acto; los íconos (y, sin esa sesión, todo) vuelven en el siguiente inicio de sesión. Si un valor falla, termina con error y conserva el respaldo.
 - Si el arranque falla tras el paso 2: desde el entorno de recuperación, `bcdedit /import <carpeta de la estación>\bcd_respaldo.bcd` (p. ej. `D:\Especifika\Autoclave\datos\estacion\bcd_respaldo.bcd`; antes de la tanda 17, `%ProgramData%\Especifika\Autoclave\estacion\`).
 
 ## Lo que no cubren los scripts
@@ -94,7 +114,8 @@ En orden inverso (6 → 1), como administrador, también con `-WhatIf` primero:
 - [ ] Pantallas táctiles asociadas (paso 6): tocar cada pantalla responde en esa misma pantalla; `estacion.log` dice `Asociaciones tactiles en ...: 2` (o más). **Puertos USB marcados** (ver abajo).
 - [ ] Tras reiniciar el PC, cada táctil sigue respondiendo en su pantalla.
 - [ ] AnyDesk instalado sin acceso desatendido; una sesión remota exige aceptación en sitio.
-- [ ] Reversión probada al menos una vez en una máquina de prueba (los 6 inversos), con el log revisado.
+- [ ] Escritorio de la estación (paso 7, I-07b): tras iniciar sesión solo se ve el fondo de Especifika (Rellenar, en los dos monitores), sin íconos y con la barra de tareas oculta; Configuración › Personalización › Fondo dice «Imagen».
+- [ ] Reversión probada al menos una vez en una máquina de prueba (los 7 inversos), con el log revisado (I-15: `Revertir paso 07 ... terminado`; fondo, barra e íconos originales).
 
 ## Pantallas táctiles: marcar los puertos USB (paso 6)
 

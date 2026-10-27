@@ -19,9 +19,12 @@
     ninguna cuenta.
   - Los inversos no se ejecutan con -EliminarCuenta (01 nunca crea cuenta
     desde el Setup).
+  - Paso 07 (EST-09, tanda 18): con -Usuario/-Dominio (la cuenta que
+    instala) escribe en el perfil de esa cuenta; sin ellos (Reparar sin
+    paso 01) el script usa Winlogon DefaultUserName o la cuenta que ejecuta.
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('01', '02', '04', '05', '06')][string]$Paso,
+    [Parameter(Mandatory)][ValidateSet('01', '02', '04', '05', '06', '07')][string]$Paso,
     [Parameter(Mandatory)][ValidateSet('Aplicar', 'Revertir')][string]$Accion,
     [string]$Usuario,
     [string]$Dominio
@@ -35,6 +38,7 @@ $scripts = @{
     '04' = @('04_notificaciones_actualizaciones_gestos.ps1', '04_revertir_notificaciones_actualizaciones_gestos.ps1')
     '05' = @('05_plan_energia.ps1', '05_revertir_plan_energia.ps1')
     '06' = @('06_asociar_tactiles.ps1', '06_revertir_asociar_tactiles.ps1')
+    '07' = @('07_escritorio_estacion.ps1', '07_revertir_escritorio_estacion.ps1')
 }
 $indice = if ($Accion -eq 'Aplicar') { 0 } else { 1 }
 $ruta = Join-Path $PSScriptRoot $scripts[$Paso][$indice]
@@ -46,6 +50,11 @@ try {
         if (-not $Usuario) { throw 'Paso 01 sin -Usuario.' }
         if (-not $Dominio) { $Dominio = $env:COMPUTERNAME }
         & $ruta -Usuario $Usuario -Dominio $Dominio -NoCrearCuenta -ContrasenaDesdeEntorno
+    } elseif ($Paso -eq '07' -and $Accion -eq 'Aplicar' -and $Usuario) {
+        # EST-09: perfil de la cuenta del inicio automatico (sin -Usuario, el
+        # script la toma de Winlogon DefaultUserName o, si no, de quien ejecuta)
+        if (-not $Dominio) { $Dominio = $env:COMPUTERNAME }
+        & $ruta -Usuario $Usuario -Dominio $Dominio
     } else {
         & $ruta
     }
