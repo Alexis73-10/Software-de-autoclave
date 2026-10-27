@@ -13,7 +13,7 @@
     "filtro_ai": 0,
     "composicion_esperada": {
         "principal": "XAXX0A00G",
-        "expansiones": ["GAXXXA000", "GXXAX00A0", "GXXAX00A0", "GXDXX0600"]
+        "expansiones": ["GXAXX0A00", "GAXXXA000", "GXXAX00A0", "GXXAX00A0", "GXDXX0600"]
     },
     "tramas_discrepancia": 2,
     "discrepancia_dispara_fallo": true
