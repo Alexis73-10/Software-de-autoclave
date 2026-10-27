@@ -202,6 +202,9 @@ def test_verificador_rechaza_usuario_modbus_no_neutro(tmp_path):
 
 
 @pytest.mark.req("MOD-04")
-def test_verificador_sin_calibracion_modbus_solo_avisa(tmp_path):
+def test_verificador_sin_calibracion_modbus_falla(tmp_path):
+    """Revisión R (V19-s2-01): el enlace por defecto empaquetado es Modbus; sin
+    calibration_modbus.yaml la entrega no se publica (antes solo avisaba y
+    esta prueba se llamaba ..._solo_avisa con salida 0)."""
     r = _verificar(_dist(tmp_path, None))
-    assert r.returncode == 0 and "AVISO" in r.stdout
+    assert r.returncode == 1 and "FALLA" in r.stdout

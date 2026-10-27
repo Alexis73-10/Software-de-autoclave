@@ -53,9 +53,12 @@ def test_fabrica_modbus_temperatura_decimas_a_grados(enlace_modbus, cfg_modbus, 
 
 @pytest.mark.req("MOD-03")
 def test_cero_decimas_es_valido_en_modbus_y_centinela_en_serial(cfg_modbus):
-    """El centinela 0/4095 = sin sonda es propio del ADC de la tarjeta."""
+    """El centinela 0/4095 = sin sonda es propio del ADC de la tarjeta.
+    Revisión R (V19-s2-03): en Modbus 4095 décimas (409,5 °C) queda fuera del
+    rango plausible de la PT100 (-500..2500 décimas) y da None; antes esta
+    prueba fijaba 409,5 °C."""
     enlace_io.fijar_enlace(enlace_io.ENLACE_MODBUS)
-    assert converters.convert_temperatures(_ai([0, 4095]), cfg_modbus)[:2] == [0.0, 409.5]
+    assert converters.convert_temperatures(_ai([0, 4095]), cfg_modbus)[:2] == [0.0, None]
     for i in range(8):
         converters._ma_temp[i].buffer.clear()
         converters._oe_temp[i].reset()
