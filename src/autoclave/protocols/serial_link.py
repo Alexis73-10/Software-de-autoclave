@@ -36,7 +36,6 @@ import serial
 import serial.tools.list_ports
 import threading
 import time
-from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, Callable, Dict, Any
 
@@ -44,6 +43,8 @@ from autoclave.utils.logging import logger
 from autoclave.protocols import device_reset
 from autoclave.protocols.crc16 import agregar_crc, validar_linea
 from autoclave.protocols.serial_link_config import SerialLinkConfig, cargar_config
+# Tanda 19 (MOD-02): EventoTarjeta se trasladó a protocols/enlace; se reexporta.
+from autoclave.protocols.enlace import EventoTarjeta  # noqa: F401
 
 
 PROTOCOLO_ESPERADO = 2
@@ -76,15 +77,6 @@ class LineaMalformada(ValueError):
     """Línea con CRC válido pero contenido que no respeta el protocolo."""
 
 
-@dataclass(frozen=True)
-class EventoTarjeta:
-    """Suceso de la tarjeta para el ControlLoop.
-    origen: "handshake" (falló el handshake), "operacion" (WD, reinicio,
-    expansor o discrepancia con el handshake ya hecho) o "conectada"
-    (handshake completo; alarm_id None)."""
-    origen: str
-    alarm_id: Optional[str]
-    motivo: str
 
 
 class SerialLink:

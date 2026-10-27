@@ -17,6 +17,7 @@ from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
+from autoclave.config.enlace_io import enlace_activo
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
     tarjeta_emparejada)
 from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO
@@ -453,6 +454,8 @@ def get_status():
         "estado_tarjeta":        _estado_tarjeta(),
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
+        # MOD-01 (tanda 19): enlace de E/S activo, "modbus" o "serial"
+        "enlace_io":             enlace_activo(),
         "test_mode_active":      context.control_loop.test_mode_active,
         # Tanda 17 (ESG-02): salidas que el lazo apagó en el modo prueba en curso
         # ({n, salida, codigo, aviso}: aviso = clave i18n de Entradas / Salidas)

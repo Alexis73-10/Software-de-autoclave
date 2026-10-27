@@ -68,7 +68,7 @@ def test_archivo_danado_bloquea_con_alarma_sin_usar_fabrica_en_silencio(tmp_path
 
 def test_construir_control_bloquea_antes_de_start_si_el_archivo_esta_danado(tmp_path, monkeypatch):
     loop = MagicMock()
-    monkeypatch.setattr(ctx_mod, "build_serial", lambda units, al_conectar=None: MagicMock())
+    monkeypatch.setattr(ctx_mod, "build_enlace", lambda units, al_conectar=None: MagicMock())  # tanda 19 (MOD-01): build_serial -> build_enlace en el contexto
     monkeypatch.setattr(ctx_mod, "build_doors_cfg", lambda profile: [])
     for nombre in ("SetOutput", "ServicioPuertas", "RealtimePrinter", "CycleLogger"):
         monkeypatch.setattr(ctx_mod, nombre, MagicMock())
