@@ -93,8 +93,10 @@ def test_conexion_fallida_apaga_las_salidas(sim, crear):
             assert len(enlace._comandado) == 32
         assert not enlace.is_connected()
         # Mientras falla, los reintentos mantienen vivo el temporizador del
-        # módulo: la bobina no la apagó el módulo sino el 0F.
-        assert sim.bandera_falla() == 0
+        # módulo: la bobina no la apagó el módulo sino el 0F. ADB-05: el corte
+        # se mira en sim.cortes (antes sim.bandera_falla() == 0; 0x0C37 es un
+        # contador).
+        assert sim.cortes == 0
 
 
 @pytest.mark.req("MOD-06")
@@ -228,24 +230,26 @@ def test_set_output_recomprueba_la_conexion_dentro_del_candado(sim, crear):
 
 # ---------------------------------------------------------------------------
 # V19-s1-06 · Bandera 0x0C37 que no se puede borrar
+# Tanda 20, ADB-05 (adenda_tanda_19_banco.md; decisiones_tanda_20.md T20-02):
+# 0x0C37 no es bandera; ya no se escribe ni se exige 0, así que «no se puede
+# borrar» deja de ser un fallo. Las pruebas conservan el escenario y afirman
+# la regla nueva.
 # ---------------------------------------------------------------------------
 
 @pytest.mark.req("MOD-06")
+@pytest.mark.req("ADB-05")
 def test_bandera_que_no_se_borra_falla_con_config_seguridad(sim, crear):
     sim.holding[m31.BANDERA_FALLA] = 1
     sim.registros_ignorados.add(m31.BANDERA_FALLA)
     enlace = crear()
-    eventos = _eventos_hasta(enlace, lambda e: e.alarm_id is not None)
+    # Antes: TARJETA_CONFIG_SEGURIDAD «no se pudo borrar la bandera de falla
+    # 0x0C37» y sin conexión. Ahora: conecta sin alarmas y sin escribir 0x0C37.
+    eventos = _conectado(enlace)
     alarmas = _alarmas(eventos)
-    assert alarmas[0] == ("handshake", "TARJETA_CONFIG_SEGURIDAD")
-    assert "no se pudo borrar la bandera de falla 0x0c37" in \
-        [e.motivo for e in eventos if e.alarm_id][0].lower()
+    assert ("handshake", "TARJETA_CONFIG_SEGURIDAD") not in alarmas
     assert ("operacion", "TARJETA_WATCHDOG") not in alarmas
-    assert not enlace.is_connected()
-    # Se borra en cuanto el registro vuelve a aceptar la escritura
-    sim.registros_ignorados.discard(m31.BANDERA_FALLA)
-    _conectado(enlace)
-    assert sim.bandera_falla() == 0
+    assert enlace.is_connected()
+    assert not [w for w in sim.escrituras if w[1] == m31.BANDERA_FALLA]
 
 
 @pytest.mark.req("MOD-06")
@@ -257,19 +261,22 @@ def test_bandera_que_no_se_borra_tras_suspension_no_es_bucle_de_watchdog(sim, cr
         assert enlace.set_output(2, True)
         assert esperar(lambda: sim.bobinas[1])
     sim.registros_ignorados.add(m31.BANDERA_FALLA)
-    # Sin tick: el módulo vence su tiempo de desconexión y pone la bandera
-    assert esperar(lambda: sim.bandera_falla() == 1, 3)
+    # Sin tick: el módulo vence su tiempo de desconexión y apaga las salidas
+    # (ADB-05: el corte se mira en sim.cortes; antes bandera_falla() == 1)
+    assert esperar(lambda: sim.cortes >= 1, 3)
     with TickLazo(enlace):
-        eventos = _eventos_hasta(
-            enlace, lambda e: e.alarm_id == "TARJETA_CONFIG_SEGURIDAD", 3)
-        time.sleep(0.6)       # varios reintentos
+        eventos = _eventos_hasta(enlace, lambda e: e.origen == "conectada", 3)
+        time.sleep(0.6)
         eventos += enlace.tomar_eventos()
+        # Antes: TARJETA_CONFIG_SEGURIDAD en cada reintento y una sola
+        # TARJETA_WATCHDOG, sin conexión. Ahora (ADB-05): conecta, ni
+        # CONFIG_SEGURIDAD ni WATCHDOG (ningún bucle) y 0x0C37 sin escribir.
+        assert enlace.is_connected()
     alarmas = _alarmas(eventos)
-    assert ("operacion", "TARJETA_CONFIG_SEGURIDAD") in alarmas
-    assert alarmas.count(("operacion", "TARJETA_CONFIG_SEGURIDAD")) >= 2   # reintentos
-    # El corte se informa una sola vez, no en cada reintento
-    assert alarmas.count(("operacion", "TARJETA_WATCHDOG")) == 1
-    assert not enlace.is_connected()
+    assert ("operacion", "TARJETA_CONFIG_SEGURIDAD") not in alarmas
+    assert alarmas.count(("operacion", "TARJETA_WATCHDOG")) == 0
+    assert [e.origen for e in eventos].count("conectada") == 1
+    assert not [w for w in sim.escrituras if w[1] == m31.BANDERA_FALLA]
 
 
 # ---------------------------------------------------------------------------

@@ -11,7 +11,6 @@ import pytest
 
 from autoclave.protocols import enlace as enlace_mod
 from autoclave.protocols.modbus_link import ModbusLink
-from autoclave.protocols.serial_link import SerialLink
 from tests.helpers import m31_simulado as m31
 from tests.helpers.m31_simulado import M31Simulado, TickLazo, config_para, esperar
 
@@ -79,7 +78,9 @@ def _conectado(enlace, timeout=5.0):
 # ---------------------------------------------------------------------------
 
 @pytest.mark.req("MOD-02")
-def test_cumple_la_interfaz_y_las_firmas_de_serial_link():
+def test_cumple_la_interfaz_y_las_firmas_de_enlace_es():
+    # Tanda 20 (T20-03): serial_link.py se retira; las firmas se comparan con
+    # la interfaz EnlaceES (protocols/enlace.py), con la misma aserción.
     enlace = ModbusLink(config=config_para(M31Simulado()))
     assert isinstance(enlace, enlace_mod.EnlaceES)
     for nombre in enlace_mod.MIEMBROS_ENLACE:
@@ -88,7 +89,7 @@ def test_cumple_la_interfaz_y_las_firmas_de_serial_link():
             assert getattr(enlace, nombre) is None
             continue
         a = inspect.getattr_static(ModbusLink, nombre)
-        b = inspect.getattr_static(SerialLink, nombre)
+        b = inspect.getattr_static(enlace_mod.EnlaceES, nombre)
         if isinstance(b, property):
             assert isinstance(a, property), nombre
             continue
@@ -116,8 +117,11 @@ def test_estado_inicial_falla_cerrada():
     assert set(diag) == {"lineas_invalidas_total", "lineas_invalidas_consecutivas",
                          "handshake_completo", "tarjeta_st", "modulos"}
     assert diag["tarjeta_st"] is None
+    # Tanda 20: se agregan "registro_0c37" (ADB-05, valor crudo de 0x0C37) y
+    # "reinicios_modulo" (ADB-04 / decisión 8) a las claves anteriores.
     assert set(diag["modulos"]) == {"modelos", "firmware", "mac", "codigo_error",
-                                    "mascara_expansores", "falla_salidas", "enlace"}
+                                    "mascara_expansores", "falla_salidas", "registro_0c37",
+                                    "reinicios_modulo", "enlace"}
     assert diag["modulos"]["enlace"] == "modbus"
 
 
@@ -134,7 +138,9 @@ def test_conexion_correcta(sim, crear):
     enlace.start()
     eventos = _conectado(enlace)
     assert [(e.origen, e.alarm_id) for e in eventos] == [("conectada", None)]
-    tarjeta = {"version": "1.5 / 1.5, 1.5, 1.5, 1.5", "protocolo": "modbus-tcp",
+    # ADB-02 (adenda_tanda_19_banco.md): versión = texto 0x0C2C del principal
+    # y byte bajo de cada esclavo (antes "1.5 / 1.5, 1.5, 1.5, 1.5").
+    tarjeta = {"version": "9232-0-13 / 10,12,12,12,10", "protocolo": "modbus-tcp",
                "id": "A1B2C3D4E5F6"}
     assert enlace.tarjeta() == tarjeta
     # al_conectar corre antes de que se encole "conectada"
@@ -151,34 +157,48 @@ def test_conexion_correcta(sim, crear):
     assert all(h[m31.PT_FILTRO + i] == 1 for i in range(6))
     assert all(h[m31.PT_UNIDAD + i] == 0 and h[m31.PT_COMPENSACION + i] == 0
                and h[m31.PT_DESHABILITADA + i] == 0 for i in range(6))
-    # V19-s1-07: cada bloque de MOD-07 se escribió con la función 16 (no
-    # basta con que el valor de fábrica coincida con el esperado).
-    bloques = [
-        (m31.DO_FALLA, [1] * 32), (m31.DO_ENCENDIDO, [0] * 32), (m31.DO_MODO, [0] * 32),
-        (m31.TIEMPO_DESCONEXION, [5]), (m31.MODO_FALLA, [1]), (m31.RANGO_AI, [1] * 16),
-        (m31.FILTRO_AI, [0]), (m31.PT_UNIDAD, [0] * 6), (m31.PT_COMPENSACION, [0] * 6),
-        (m31.PT_FILTRO, [1] * 6), (m31.PT_DESHABILITADA, [0] * 6),
+    # V19-s1-07 exigía la función 16 en cada bloque SIEMPRE. Su intención
+    # cambia por decisiones_tanda_20.md, decisión 8 / ADB-04: cada bloque se
+    # lee antes; los que difieren de fábrica se escriben con 16 (no basta con
+    # leerlos), los que ya coinciden no se escriben, y todos quedan verificados
+    # (valores arriba). Como hubo escritura, el módulo se reinició una vez.
+    distintos = [
+        (m31.DO_FALLA, [1] * 32), (m31.TIEMPO_DESCONEXION, [5]), (m31.MODO_FALLA, [1]),
+        (m31.RANGO_AI, [1] * 16), (m31.PT_FILTRO, [1] * 6),
     ]
-    for direccion, valores in bloques:
+    iguales = [m31.DO_ENCENDIDO, m31.DO_MODO, m31.FILTRO_AI, m31.PT_UNIDAD,
+               m31.PT_COMPENSACION, m31.PT_DESHABILITADA]
+    for direccion, valores in distintos:
         assert (16, direccion, valores) in sim.escrituras, hex(direccion)
+    for direccion in iguales:
+        assert not [w for w in sim.escrituras if w[1] == direccion], hex(direccion)
+    assert sim.reinicios == 1
     # Apagado de todo con 0F
     assert (15, 0, [False] * 32) in sim.escrituras
     diag = enlace.get_diagnostico()
     assert diag["handshake_completo"] is True
     assert diag["modulos"]["mac"] == "A1B2C3D4E5F6"
-    assert diag["modulos"]["firmware"] == {"principal": "1.5", "expansiones": ["1.5"] * 4}
+    # ADB-02: solo la parte de versión, con los crudos (antes
+    # {"principal": "1.5", "expansiones": ["1.5"] * 4}).
+    assert diag["modulos"]["firmware"] == {
+        "principal": "9232-0-13", "expansiones": ["10", "12", "12", "12", "10"],
+        "crudo_principal": 0x000D, "crudo_expansiones": [10, 12, 12, 12, 10],
+        "texto_principal": "9232-0-13"}
     assert diag["modulos"]["modelos"]["principal"] == "M31-XAXX0A00G-U"
 
 
 @pytest.mark.req("MOD-06")
 def test_bandera_de_falla_en_la_conexion_inicial_solo_log(sim, crear, caplog):
     sim.holding[m31.BANDERA_FALLA] = 1
-    with caplog.at_level(logging.WARNING, logger="autoclave"):
+    # ADB-05 (adenda_tanda_19_banco.md): 0x0C37 no es bandera; solo se
+    # registra su valor crudo (log INFO, antes WARNING) y ya no se borra
+    # (antes: sim.bandera_falla() == 0 tras escribir 0).
+    with caplog.at_level(logging.INFO, logger="autoclave"):
         enlace = crear()
         eventos = _conectado(enlace)
     assert _alarmas(eventos) == []
     assert "0x0C37" in caplog.text
-    assert sim.bandera_falla() == 0      # se borra para detectar el próximo corte
+    assert not [w for w in sim.escrituras if w[1] == m31.BANDERA_FALLA]
 
 
 @pytest.mark.req("MOD-06")
@@ -217,14 +237,20 @@ def test_sin_respuesta_modbus_da_sin_trama_valida(sim, crear):
                                + ["M31-GXXAX00A0-U"]), "TARJETA_VERSION_INCOMPATIBLE"),
     (lambda s: s.fijar_modelos("M31-XAAA0A00G-U", list(m31.MODELOS_ESCLAVOS_DEFECTO)),
      "TARJETA_VERSION_INCOMPATIBLE"),
-    (lambda s: s.fijar_modelos("M31-XAXX0A00G-U", ["M31-GAXXXA000-U", "M31-GXDXX0600-U",
-                                                   "M31-GXXAX00A0-U", "M31-GXXAX00A0-U"]),
+    # ADB-01: 5 esclavos (ID 0 = E/S del principal); otro orden de los mismos
+    # 5 (antes los 4 sin el ID 0).
+    (lambda s: s.fijar_modelos("M31-XAXX0A00G-U", ["M31-GXAXX0A00-U", "M31-GAXXXA000-U",
+                                                   "M31-GXDXX0600-U", "M31-GXXAX00A0-U",
+                                                   "M31-GXXAX00A0-U"]),
      "TARJETA_VERSION_INCOMPATIBLE"),
     (lambda s: s.holding.__setitem__(m31.MODELO_PRINCIPAL, 0x0001),
      "TARJETA_VERSION_INCOMPATIBLE"),
-    (lambda s: s.fijar_firmware(0x0104, [0x0105, 0x0104, 0x0104, 0x0104]),
+    # ADB-02: solo la versión (byte bajo / texto 0x0C2C), 5 esclavos (antes
+    # tuplas mayor.menor con 4 expansiones): un esclavo más nuevo que el
+    # principal y un esclavo con versión ilegible (0).
+    (lambda s: s.fijar_firmware(0x000D, [10, 14, 12, 12, 10]),
      "TARJETA_VERSION_INCOMPATIBLE"),
-    (lambda s: s.fijar_firmware(0x0105, [0x0105, 0x0000, 0x0105, 0x0105]),
+    (lambda s: s.fijar_firmware(0x000D, [10, 0, 12, 12, 10]),
      "TARJETA_VERSION_INCOMPATIBLE"),
     (lambda s: s.registros_ignorados.add(m31.MODO_FALLA), "TARJETA_CONFIG_SEGURIDAD"),
     (lambda s: s.registros_ignorados.add(m31.PT_FILTRO + 5), "TARJETA_CONFIG_SEGURIDAD"),
@@ -245,10 +271,13 @@ def test_cada_paso_fallido_con_su_alarma(sim, crear, preparar, alarma):
 
 @pytest.mark.req("MOD-06")
 def test_firmware_principal_mas_nuevo_es_valido(sim, crear):
-    sim.fijar_firmware(0x0201, [0x0105, 0x0105, 0x0200, 0x0105])
+    # ADB-02: se compara solo la versión (antes 0x0201 contra tuplas 1.5/2.0,
+    # "2.1 / 1.5, 1.5, 2.0, 1.5"); un esclavo igual al principal es válido.
+    sim.fijar_firmware(0x0010, [10, 12, 16, 12, 10])
+    sim.fijar_firmware_texto("9232-0-16")
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "2.1 / 1.5, 1.5, 2.0, 1.5"
+    assert enlace.tarjeta()["version"] == "9232-0-16 / 10,12,16,12,10"
 
 
 @pytest.mark.req("MOD-07")
@@ -266,6 +295,9 @@ def test_valor_fuera_de_rango_descartado_da_config_seguridad(sim, crear):
 
 @pytest.mark.req("MOD-06")
 def test_salidas_no_apagadas(sim, crear):
+    # ADB-04: con la configuración ya escrita no hay reinicio (que pondría las
+    # salidas en su estado de encendido) y la prueba sigue mirando el paso 4.
+    sim.precargar_configuracion()
     sim.bobinas[6] = True
     sim.bobinas_no_apagan = True
     enlace = crear()
@@ -399,18 +431,21 @@ def test_sin_tick_con_salida_en_on_no_hay_trafico_y_el_modulo_apaga(sim, crear):
     assert sim.contador() == antes
     # El módulo vence su tiempo de desconexión: salidas de falla (apagadas)
     assert sim.bobinas[2] is False
-    assert sim.bandera_falla() == 1
+    # ADB-05: el corte ya no pone 0x0C37 en 1 (antes bandera_falla() == 1)
+    assert sim.cortes >= 1
     # set_output desde otro hilo respeta la compuerta: sin tráfico
     assert enlace.set_output(4, True) is False
     assert enlace.set_output(3, False) is False
     assert sim.contador() == antes
-    # Al volver el tick: conexión verificada de nuevo y TARJETA_WATCHDOG
+    # Al volver el tick: conexión verificada de nuevo. ADB-05: sin
+    # TARJETA_WATCHDOG por 0x0C37 y sin escribirlo (antes: WATCHDOG en
+    # "operacion" y bandera_falla() == 0 tras borrarla).
     with TickLazo(enlace):
         eventos = _eventos_hasta(enlace, lambda e: e.origen == "conectada")
-        assert ("operacion", "TARJETA_WATCHDOG") in _alarmas(eventos)
+        assert ("operacion", "TARJETA_WATCHDOG") not in _alarmas(eventos)
         assert [e.origen for e in eventos][-1] == "conectada"
         assert enlace.is_connected()
-        assert sim.bandera_falla() == 0
+        assert not [w for w in sim.escrituras if w[1] == m31.BANDERA_FALLA]
         assert sim.contador() > antes
 
 
@@ -423,7 +458,8 @@ def test_con_todo_apagado_el_sondeo_sigue_sin_tick(sim, crear):
     time.sleep(1.0)
     assert sim.contador() > antes + 10
     assert enlace.secuencia_ultima_ai() > seq
-    assert enlace.is_connected() and sim.bandera_falla() == 0
+    # ADB-05: el corte se mira en sim.cortes (antes bandera_falla() == 0)
+    assert enlace.is_connected() and sim.cortes == 0
 
 
 @pytest.mark.req("MOD-08")
@@ -451,12 +487,18 @@ def test_all_off_se_envia_aunque_no_haya_tick(sim, crear):
 
 @pytest.mark.req("MOD-08")
 def test_watchdog_del_modulo_en_operacion(sim, crear):
+    # ADB-05 (adenda_tanda_19_banco.md; decisiones_tanda_20.md T20-02):
+    # 0x0C37 distinto de 0 en operación ya no da TARJETA_WATCHDOG ni invalida
+    # (antes: una TARJETA_WATCHDOG en "operacion" y reconexión); solo se
+    # registra su valor crudo.
     enlace = crear()
     _conectado(enlace)
-    sim.holding[m31.BANDERA_FALLA] = 1
-    eventos = _eventos_hasta(enlace, lambda e: e.origen == "conectada")
-    assert _alarmas(eventos)[0] == ("operacion", "TARJETA_WATCHDOG")
-    assert _alarmas(eventos).count(("operacion", "TARJETA_WATCHDOG")) == 1
+    sim.fijar_0c37(1)       # el simulador lo sigue contando (+1 por segundo)
+    assert esperar(lambda: enlace.get_diagnostico()["modulos"]["registro_0c37"] in (1, 2, 3), 3)
+    eventos = _eventos_hasta(enlace, lambda e: e.alarm_id is not None, 1.5)
+    assert ("operacion", "TARJETA_WATCHDOG") not in _alarmas(eventos)
+    assert _alarmas(eventos) == []
+    assert enlace.is_connected()
 
 
 # ---------------------------------------------------------------------------

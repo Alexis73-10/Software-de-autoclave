@@ -23,9 +23,12 @@ CONFIG_RELATIVE_PATH = "autoclave/config/modbus_link.json"
 # Composición del riel (decisiones de la tanda 19, punto 7): principal y las
 # expansiones en orden. Se compara sin «M31-», sin «-U», sin espacios y sin
 # distinguir mayúsculas.
+# ADB-01 (adenda_tanda_19_banco.md, tanda 20 T20-02): la lista de esclavos
+# 0x0C80 incluye las E/S del propio principal como esclavo ID 0 (GXAXX0A00,
+# 16 AI); los esclavos esperados son los IDs 0 a 4 y el ID 5 debe ser NONE.
 COMPOSICION_INTERNA: dict = {
     "principal": "XAXX0A00G",
-    "expansiones": ("GAXXXA000", "GXXAX00A0", "GXXAX00A0", "GXDXX0600"),
+    "expansiones": ("GXAXX0A00", "GAXXXA000", "GXXAX00A0", "GXXAX00A0", "GXDXX0600"),
 }
 # Esclavos de la tabla 0x0C80 (8 registros cada uno, 32 esclavos).
 MAX_EXPANSIONES = 32
@@ -60,6 +63,13 @@ class ModbusLinkConfig:
     tramas_discrepancia: int = 2
     # Con Modbus la lectura sale del propio módulo de relés. DECISIÓN SIN CONFIRMAR.
     discrepancia_dispara_fallo: bool = True
+    # ADB-04 (decisión 8 de la tanda 20): espera tras ordenar el reinicio del
+    # módulo (0x0C1D = 0x5BB5) antes de reabrir el socket. DECISIÓN SIN
+    # CONFIRMAR (banco M-5).
+    espera_reinicio_s: float = 5.0
+    # ADB-04: plazo propio para reabrir el socket y obtener respuesta tras el
+    # reinicio; extiende el fin del intento de conexión solo cuando hay reinicio.
+    presupuesto_reinicio_s: float = 30.0
 
 
 # (tipo, mínimo, máximo) por clave. bool, str y estructura no llevan rango.
@@ -79,6 +89,8 @@ _RANGOS: dict[str, tuple[Any, Optional[float], Optional[float]]] = {
     "composicion_esperada":         ("composicion", None, None),
     "tramas_discrepancia":          (int,   1,    20),
     "discrepancia_dispara_fallo":   (bool,  None, None),
+    "espera_reinicio_s":            (float, 0.0,  60.0),
+    "presupuesto_reinicio_s":       (float, 0.5,  120.0),
 }
 
 
