@@ -121,7 +121,11 @@ a = Analysis(
               'PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.Qt3DCore', 'PySide6.QtQuick3D',
               'PySide6.QtPdf', 'PySide6.QtCharts', 'PySide6.QtGraphs',
-              'PySide6.QtMultimedia', 'PySide6.QtDataVisualization'],
+              'PySide6.QtMultimedia', 'PySide6.QtDataVisualization',
+              # Tanda 20 (T20-03, V20-s2-07): pyserial retirado; pymodbus y
+              # escpos lo importan solo como opcional. Que no entre aunque
+              # esté instalado en la máquina de compilación.
+              'serial'],
     noarchive=False,
     optimize=0,
 )

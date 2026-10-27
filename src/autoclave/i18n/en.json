@@ -792,7 +792,7 @@
     },
     "TARJETA_VERSION_INCOMPATIBLE": {
       "titulo": "Incompatible I/O board firmware",
-      "accion": "Load firmware 1.0.0 (technical service).",
+      "accion": "With power off, check the model and order of the modules (main, DI, DO, DO, PT100) and negotiate (double press of Reload). If the firmware is incompatible, call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_SIN_ACK": {
@@ -817,12 +817,12 @@
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {
       "titulo": "I/O board outputs not switched off",
-      "accion": "Do not operate the equipment. Call technical service (power stage or expander).",
+      "accion": "Do not operate the equipment. Call technical service (output modules or their wiring).",
       "plantilla": "{motivo}"
     },
     "TARJETA_EXPANSOR_FUERA_DE_LINEA": {
       "titulo": "I/O board expander offline",
-      "accion": "Call technical service (I2C bus / expander).",
+      "accion": "With power off, check that the expansion modules are joined to the main module. If it happens again, call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_WATCHDOG": {

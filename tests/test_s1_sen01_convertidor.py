@@ -160,6 +160,18 @@ def test_umbral_explicito_en_cuentas_reemplaza_el_calculado():
     assert _leer(cfg, 4090, veces=N) is None
 
 
+def test_canal_sin_calibracion_de_fabrica_sin_umbrales_ni_lectura():
+    # Tanda 20 (T20-03; V20-s2-03): migrada de
+    # test_canal_sin_calibracion_de_fabrica_conserva_el_comportamiento_previo.
+    # Los umbrales nulos sin calibración de fábrica siguen vigentes; la mitad
+    # serial (raw/4095 → 0.0) pasa a la regla única de Modbus: sin
+    # calibración de fábrica completa el canal no tiene lectura (None).
+    cfg = AppConfig()
+    assert converters.umbrales_falla_presion(cfg.calibration.factory.pressure[0]) == (None, None)
+    v = converters.convert_pressures(_raw(0), {})[0]
+    assert v is None
+
+
 def test_units_arranca_sin_lectura_de_presion():
     u = Units()
     assert u.get_all()["pressure"] == [None] * 8

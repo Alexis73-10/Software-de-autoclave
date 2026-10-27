@@ -59,7 +59,7 @@ def _verificar(dist):
                           capture_output=True, text=True)
 
 
-def _dist(tmp_path, correo=None, extra_ciclos=(), sin_fabrica=False):
+def _dist(tmp_path, correo=None, extra_ciclos=(), sin_fabrica=False, calib_modbus=None):
     raiz = tmp_path / "Autoclave"
     interno = raiz / "_internal" / "autoclave"
     (interno / "config").mkdir(parents=True)
@@ -71,7 +71,7 @@ def _dist(tmp_path, correo=None, extra_ciclos=(), sin_fabrica=False):
     # Revisión R de la tanda 19 (V19-s2-01): el compilado real lleva también
     # la calibración del enlace Modbus y el verificador falla si falta.
     (interno / "config" / "calibration_modbus.yaml").write_bytes(
-        (CONFIG / "calibration_modbus.yaml").read_bytes())
+        calib_modbus if calib_modbus is not None else (CONFIG / "calibration_modbus.yaml").read_bytes())
     fab = interno / "cycles" / "factory"
     fab.mkdir(parents=True)
     if not sin_fabrica:
@@ -82,6 +82,15 @@ def _dist(tmp_path, correo=None, extra_ciclos=(), sin_fabrica=False):
         destino.parent.mkdir(parents=True, exist_ok=True)
         destino.write_text("{}", encoding="utf-8")
     return raiz
+
+
+def test_verificador_rechaza_calibracion_de_banco(tmp_path):
+    # Tanda 20 (T20-03; V20-s2-02): migrada a la calibración Modbus (la serial
+    # se retiró); una calibración no neutra sigue haciendo fallar la entrega.
+    banco = (CONFIG / "calibration_modbus.yaml").read_text(encoding="utf-8").replace(
+        "offset: 0.0", "offset: 1.5", 1).encode("utf-8")
+    r = _verificar(_dist(tmp_path, calib_modbus=banco))
+    assert r.returncode == 1
 
 
 def test_verificador_acepta_entrega_neutra(tmp_path):
