@@ -7,6 +7,7 @@
 # Se sustituyen solo el perfil, las BD (tmp_path), la impresora y la
 # configuración del enlace (apunta al simulador, con tiempos cortos).
 
+import sys
 import threading
 import time
 from datetime import datetime
@@ -78,6 +79,17 @@ def planta(monkeypatch, tmp_path, enlace_modbus):
     if ctx.serial is not None:
         ctx.serial.stop()
     sim.detener()
+    # El servidor se importó con el enlace Modbus fijado: dependencias calculó
+    # CALIBRATION_PATH con calibration_modbus.yaml. Se descarga para que las
+    # pruebas siguientes del mismo proceso (enlace serial) lo recalculen.
+    import autoclave.backend as paquete_backend
+    for nombre in list(sys.modules):
+        if nombre.startswith(("autoclave.backend.server", "autoclave.backend.dependencias",
+                              "autoclave.backend.rutas")):
+            del sys.modules[nombre]
+            corto = nombre.rsplit(".", 1)[-1]
+            if nombre.count(".") == 2 and hasattr(paquete_backend, corto):
+                delattr(paquete_backend, corto)
 
 
 @pytest.mark.req("MOD-01")
