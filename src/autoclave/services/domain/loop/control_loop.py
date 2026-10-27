@@ -35,8 +35,6 @@ _TICKS_ENLACE_OK = 3
 # futura reversión de esa fusión la reintroduce; hoy nunca hace match.
 _F0_FASES_ACUMULAN = {"CALENTAMIENTO", "ESTABILIZACION", "ESTERILIZACION"}
 
-# Fallas de la tarjeta que, fuera de ciclo, piden repetir el handshake
-# (plan de protocolo serial §6.5 y §7).
 # TMG-03 (E3): ticks fallidos seguidos antes de apagar todo (≈1,5 s con el
 # periodo de 0,5 s) y frecuencia del log con traza
 _EXCEPCIONES_PARA_APAGAR = 3
@@ -46,6 +44,9 @@ _LOG_CADA_EXCEPCIONES = 20
 # el Principal del último ciclo (convención de debounce de 3 lecturas).
 _TICKS_SEGUROS_OLVIDAR_CICLO = 3
 
+# Fallas del enlace de E/S que, fuera de ciclo, piden repetir la conexión
+# verificada (handshake). Desde la tanda 20 (T20-03) solo las emite
+# ModbusLink; se conserva el conjunto completo (segunda barrera de MOD-12).
 _ALARMAS_PIDEN_HANDSHAKE = {"TARJETA_EXPANSOR_FUERA_DE_LINEA", "DISCREPANCIA_SALIDAS",
                             # Tanda 19 (MOD-12, DECISIÓN SIN CONFIRMAR): las del
                             # enlace Modbus, si llegan en operación fuera de
@@ -68,13 +69,13 @@ _TIMEOUT_ACK_REINTENTO_ALL_OFF_S = 0.3
 class ControlLoop:
 
     # Loop central del sistema.
-    # - Recibe datos del serial
+    # - Recibe datos del enlace de E/S
     # - Ejecuta servicios (reglas)
     # - Actualiza dispositivos
     # - Publica estado global
 
     # Tolerancia a caídas breves del link durante un ciclo: una desconexión
-    # de menos de este umbral no lo aborta (ruido momentáneo en el serial).
+    # de menos de este umbral no lo aborta (ruido momentáneo en el enlace).
     # Si se supera, se aborta — ver abortar_por_desconexion().
     _TOLERANCIA_DESCONEXION_SEG = 5.0
 
@@ -203,7 +204,7 @@ class ControlLoop:
         self.thread: threading.Thread | None = None
 
         # Modo prueba (bench validation): pausa state_machine.update() sin
-        # detener el resto del loop (sensores, puertas, enlace serial).
+        # detener el resto del loop (sensores, puertas, enlace de E/S).
         self._test_mode = threading.Event()
         # D8-2.11 (tanda 8): reintentos pendientes del ALL_OFF de la salida
         # del modo prueba (la máquina sigue pausada mientras queden) y
@@ -271,8 +272,9 @@ class ControlLoop:
                 self._excepciones_seguidas = 0
                 self._apagado_por_excepcion = False
                 # FW-D6 (TMG-01): solo un tick COMPLETADO renueva el latido.
-                # Un lazo vivo que falla en cada tick deja de alimentar el HB y
-                # el watchdog del firmware apaga todo a los 5 s.
+                # Un lazo vivo que falla en cada tick deja de marcar el tick y
+                # ModbusLink corta el tráfico (MOD-08): el corte del módulo
+                # apaga todo.
                 self.link.marcar_tick_control()
             time.sleep(self.interval)
 
@@ -755,7 +757,7 @@ class ControlLoop:
         DI vencida de CicloState.
 
         DECISIÓN SIN CONFIRMAR: un enlace que no informa la secuencia (solo los
-        dobles de prueba; SerialLink siempre la informa) cuenta cada tick "ok"
+        dobles de prueba; ModbusLink siempre la informa) cuenta cada tick "ok"
         como trama nueva, igual que antes de D8-2.9."""
         nueva = False
         self._publicar_ultima_di_valida()
@@ -910,8 +912,7 @@ class ControlLoop:
             logger.exception("ControlLoop: no se pudo resolver %s", codigo)
 
     def _procesar_eventos_tarjeta(self) -> None:
-        """Reacción a los eventos de la tarjeta de E/S (plan de protocolo
-        serial §7, E6). En ciclo, toda falla en operación aborta el ciclo
+        """Reacción a los eventos del enlace de E/S (E6; MOD-12). En ciclo, toda falla en operación aborta el ciclo
         (FALLO + protocolo de fallo). Fuera de ciclo, alarma bloqueante hasta
         el próximo handshake válido; el expansor fuera de línea y la
         discrepancia de salidas además piden ese handshake (WD y reinicio ya
@@ -989,7 +990,7 @@ class ControlLoop:
         if not connected:
             if self.link_was_connected:
                 self._desconectado_desde = now
-                # El handshake serial inicial (escaneo de puerto + primer dato)
+                # La conexión verificada inicial (handshake + primer dato)
                 # tarda unos instantes tras el arranque del backend; ese hueco
                 # no es una desconexión real y no debe imprimirse.
                 if self.realtime_printer is not None and self._link_ever_connected:
@@ -1004,7 +1005,7 @@ class ControlLoop:
             # fallo por sí solo. Se aborta aquí directamente en vez de
             # esperar a una reconexión que puede tardar o no llegar, pero
             # solo una vez agotada la tolerancia: una caída breve (ruido
-            # momentáneo en el serial) no debe tirar el ciclo completo.
+            # momentáneo en el enlace) no debe tirar el ciclo completo.
             if (self._desconectado_desde is not None
                     and now - self._desconectado_desde >= self._TOLERANCIA_DESCONEXION_SEG):
                 # TMG-04 (revisión S2a): bajo _sm_lock, como el resto de las
@@ -1395,7 +1396,7 @@ class ControlLoop:
     def stop(self):
         # Primero se detiene el lazo y después se apaga (TMG-11 de E6, TMG-02
         # de T1): un tick que corriera tras el ALL_OFF podía volver a encender
-        # salidas hasta el watchdog del firmware.
+        # salidas hasta el corte por vigilancia del módulo.
         self._running.clear()
 
         if self.thread and threading.current_thread() is not self.thread:

@@ -76,7 +76,7 @@ def preparar_arranque() -> None:
 
 def iniciar_arranque() -> None:
     """Lanza la secuencia de etapas en su hilo. Llamar con el puerto ya
-    enlazado (backend/main.py): si el enlace falla, nunca se abre el serial."""
+    enlazado (backend/main.py): si el enlace del puerto falla, nunca se abre el de E/S."""
     global _hilo_arranque
     if _hilo_arranque is not None:
         return

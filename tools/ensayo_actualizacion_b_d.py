@@ -121,8 +121,11 @@ def armar_internal_d(repo_d: Path, destino: Path) -> Path:
     interno = destino / "autoclave"
     shutil.copytree(src / "config", interno / "config",
                     ignore=shutil.ignore_patterns("__pycache__", "*.py"))
-    shutil.copy2(src / "config" / "plantillas" / "calibration_neutra.yaml",
-                 interno / "config" / "calibration.yaml")
+    # Tanda 20 (T20-03): la plantilla serial ya no existe en el código actual;
+    # solo se copia si la versión ensayada la trae.
+    plantilla = src / "config" / "plantillas" / "calibration_neutra.yaml"
+    if plantilla.exists():
+        shutil.copy2(plantilla, interno / "config" / "calibration.yaml")
     shutil.copy2(src / "config" / "plantillas" / "correo_neutro.json",
                  interno / "config" / "correo.json")
     shutil.copytree(src / "cycles" / "factory", interno / "cycles" / "factory")

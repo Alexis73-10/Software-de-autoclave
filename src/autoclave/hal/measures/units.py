@@ -23,12 +23,12 @@ logger=logging.getLogger(__name__)
 
 class Units:
     # D8-3.19 (revisión final SEN-01 de E1): tramas AI NUEVAS seguidas (ai_seq
-    # de SerialLink; las líneas DI/DO/ST notifican con la misma AI y no
-    # cuentan) con la cuenta ADC cruda de presión sobre adc_min antes de dar la
+    # del enlace de E/S; las notificaciones con la misma AI no cuentan) con la
+    # cuenta cruda de presión sobre adc_min antes de dar la
     # señal por presente. Igual a la profundidad de la mediana de presión
     # (converters._ma_pres): tras un lazo abierto la lectura filtrada no
     # refleja la presión real hasta que la mediana se llena de muestras con
-    # señal. Con el firmware actual (AI cada 500 ms) son unos 2,5 s.
+    # señal (5 tramas AI nuevas; con el sondeo Modbus de 0,1 s, ≈0,5 s).
     TRAMAS_SENAL_PRESION = 5
 
     def __init__(self , config_path: Optional[str | Path] = None):
@@ -56,7 +56,7 @@ class Units:
         self._temperature: List[Optional[float]] = [None] * 8
         # S1 (tanda 8): sin lectura hasta la primera trama (None, nunca 0)
         self._pressure: List[Optional[float]] = [None] * 8
-        # Número de la última trama AI convertida (ai_seq de SerialLink)
+        # Número de la última trama AI convertida (ai_seq del enlace de E/S)
         self._ultimo_ai_seq = None
         # D8-3.19: tramas seguidas con señal cruda por canal de presión
         self._tramas_senal_pres: List[int] = [0] * 8
@@ -71,39 +71,39 @@ class Units:
         self._last_update: Optional[datetime] = None
 
     # -------------------------------------------------------------------------
-    # Actualización desde serial_link
+    # Actualización desde el enlace de E/S (el nombre update_from_serial es
+    # histórico: se conserva, lo usa factory.build_modbus)
     # -------------------------------------------------------------------------
 
     def update_from_serial(self, data: Dict[str, Any]):
         """
-        Recibe los datos crudos del módulo serial_link y actualiza el estado interno.
+        Recibe los datos crudos del enlace de E/S (ModbusLink) y actualiza el estado interno.
         """
         with self._lock:
             self._raw_ai = data.get("ai", self._raw_ai)
             self._raw_di = data.get("di", self._raw_di)
             self._raw_do = data.get("do", self._raw_do)
-            # SerialLink no tiene clave "connected" — se deriva de port_open + data_alive
+            # El enlace no tiene clave "connected" — se deriva de port_open + data_alive
             self._connected = data.get("port_open", False) and data.get("data_alive", False)
             self._last_update = data.get("last_update", datetime.now())
 
             ai_seq = data.get("ai_seq")
             # 🧮 Aplicar conversión con calibración
             # Tanda 19 (MOD-03): ai_seq 0 es el estado inicial del enlace, nunca
-            # una trama AI real; sus valores no son lecturas. En serial son
-            # ceros, que ya daban None por el centinela del ADC; con Modbus un
-            # 0 sería 0,0 °C válido, así que se convierte como "sin valor".
+            # una trama AI real; sus valores no son lecturas. Con Modbus un 0
+            # sería 0,0 °C válido, así que se convierte como "sin valor".
             crudas_temp = self._raw_ai if ai_seq != 0 else [None] * 16
             self._temperature = converters.convert_temperatures(crudas_temp, self._config)
             # S1 (D8-1.1): el debounce del transductor cuenta tramas AI
-            # nuevas; SerialLink también notifica por DI/DO con la misma AI.
+            # nuevas; el enlace puede notificar varias veces con la misma AI.
             # Sin ai_seq (dobles de prueba, simulador) cada llamada cuenta.
             # TMG-02 (revisión ★): _notificar() llega desde varios hilos con
             # un get_state() tomado antes; una trama vieja o repetida
             # (ai_seq <= la última) no es muestra nueva. Un salto grande hacia
-            # atrás es un contador reiniciado (otro SerialLink con la misma
+            # atrás es un contador reiniciado (otro enlace con la misma
             # Units): cuenta como nueva para no congelar la presión.
-            # TMG-02 (re-revisión): ai_seq 0 es el estado inicial de
-            # SerialLink (ai en ceros), nunca una trama AI real.
+            # TMG-02 (re-revisión): ai_seq 0 es el estado inicial del
+            # enlace, nunca una trama AI real.
             nueva = (ai_seq != 0 and (ai_seq is None or self._ultimo_ai_seq is None
                      or ai_seq > self._ultimo_ai_seq
                      or ai_seq < self._ultimo_ai_seq - 100))
@@ -115,7 +115,7 @@ class Units:
 
     def reload_calibration(self, config_path: str | Path) -> None:
         """Recarga factory+user calibration desde disco sin recrear Units
-        ni tocar la conexion serial (SerialLink vive fuera de este objeto).
+        ni tocar el enlace de E/S (vive fuera de este objeto).
         Seguro de llamar mientras update_from_serial corre en otro hilo."""
         new_config = load_config(config_path)
         with self._lock:
@@ -168,8 +168,8 @@ class Units:
     def _contar_senal_presion(self, data: Dict[str, Any]) -> None:
         """Con el lock tomado: una trama AI nueva más por canal.
 
-        SEN-01 (re-revisión E1): SerialLink notifica por cada línea válida
-        (AI, DI, DO, ST, ACK) con la misma AI; solo cuenta una trama cuyo
+        SEN-01 (re-revisión E1): el enlace puede notificar varias veces con
+        la misma AI; solo cuenta una trama cuyo
         `ai_seq` sea nuevo (mismo criterio que S1 para la mediana: 0 es el
         estado inicial, nunca una trama real; un salto grande hacia atrás es
         un contador reiniciado). Sin `ai_seq` (dobles de prueba, simulador)

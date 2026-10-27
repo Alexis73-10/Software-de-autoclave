@@ -47,10 +47,10 @@ def _libre(asignacion: dict, tipo: str, rango) -> int:
 
 def _cambios() -> dict:
     f = aio.fabrica_codigo()
-    return {"vapor_camara": _libre(f, "DO", aio.PUERTOS_DO),
-            "pres_camara": _libre(f, "AI", aio.PUERTOS_AI_PRES),
-            "temp_camara": _libre(f, "AI", aio.PUERTOS_AI_TEMP),
-            "paro_emergencia": _libre(f, "DI", aio.PUERTOS_DI)}
+    return {"vapor_camara": _libre(f, "DO", aio.puertos()["DO"]),
+            "pres_camara": _libre(f, "AI", aio.puertos()["AI_PRES"]),
+            "temp_camara": _libre(f, "AI", aio.puertos()["AI_TEMP"]),
+            "paro_emergencia": _libre(f, "DI", aio.puertos()["DI"])}
 
 
 class _TarjetaFisica:
@@ -98,7 +98,7 @@ class _PlantaFisica(_Planta):
         temp, pres = [0.0] * 8, [0.0] * 8
         for funcion, puerto in self.cableado["AI"].items():
             v = valores.get(aio.nombre_estado(funcion), 0.0)
-            if puerto in aio.PUERTOS_AI_TEMP:
+            if puerto in aio.puertos()["AI_TEMP"]:
                 temp[puerto - 1] = v
             else:
                 pres[puerto - 9] = v

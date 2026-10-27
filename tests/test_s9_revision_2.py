@@ -335,17 +335,3 @@ def test_lectura_ai_usa_la_toma_atomica_del_enlace():
     assert loop._lectura_ai() == (True, 17)
     loop.link.estado_ultima_ai.return_value = (None, None)
     assert loop._lectura_ai() == (False, None)
-
-
-def test_serial_link_estado_ultima_ai():
-    from autoclave.protocols.serial_link import SerialLink
-    link = SerialLink.__new__(SerialLink)
-    import threading
-    link.data_lock = threading.Lock()
-    link._ultima_ai_mono = None
-    link.data = {"ai_seq": 0}
-    assert link.estado_ultima_ai() == (None, None)
-    link._ultima_ai_mono = time.monotonic() - 0.5
-    link.data["ai_seq"] = 9
-    edad, seq = link.estado_ultima_ai()
-    assert 0.4 < edad < 2.0 and seq == 9

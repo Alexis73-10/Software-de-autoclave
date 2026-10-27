@@ -21,7 +21,8 @@ from pathlib import Path
 VARIABLE_ETIQUETA = "AUTOCLAVE_ETIQUETA_ENTREGA"
 ARCHIVO = Path("src") / "autoclave" / "_build_info.py"
 # Lo que va dentro del ejecutable: un archivo sin versionar aquí lo cambia
-CARPETAS_PRODUCTO = ("src/", "packaging/", "tools/instalador/", "Hardware/")
+# (Hardware/, con el firmware de la ESP32, se retiró en la tanda 20, T20-03)
+CARPETAS_PRODUCTO = ("src/", "packaging/", "tools/instalador/")
 _ETIQUETA_ENTREGA = re.compile(r"^v\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$")
 
 

@@ -14,7 +14,6 @@ RAIZ = Path(__file__).resolve().parents[1]
 CONFIG = RAIZ / "src" / "autoclave" / "config"
 CICLOS = RAIZ / "src" / "autoclave" / "cycles"
 CORREO_NEUTRO = CONFIG / "plantillas" / "correo_neutro.json"
-CALIB_NEUTRA = CONFIG / "plantillas" / "calibration_neutra.yaml"
 VERIFICADOR = RAIZ / "tools" / "verificar_entrega_neutra.py"
 SPECS = ("Autoclave.spec", "AutoclaveBackend.spec", "AutoclaveSettings.spec")
 
@@ -60,15 +59,15 @@ def _verificar(dist):
                           capture_output=True, text=True)
 
 
-def _dist(tmp_path, correo=None, calib=None, extra_ciclos=(), sin_fabrica=False):
+def _dist(tmp_path, correo=None, extra_ciclos=(), sin_fabrica=False):
     raiz = tmp_path / "Autoclave"
     interno = raiz / "_internal" / "autoclave"
     (interno / "config").mkdir(parents=True)
     if correo is not False:
         (interno / "config" / "correo.json").write_bytes(
             correo if correo is not None else CORREO_NEUTRO.read_bytes())
-    (interno / "config" / "calibration.yaml").write_bytes(
-        calib if calib is not None else CALIB_NEUTRA.read_bytes())
+    # T20-03: sin calibration.yaml (calibración serial retirada; el
+    # verificador falla si la compilación la trae)
     # Revisión R de la tanda 19 (V19-s2-01): el compilado real lleva también
     # la calibración del enlace Modbus y el verificador falla si falta.
     (interno / "config" / "calibration_modbus.yaml").write_bytes(
@@ -122,11 +121,6 @@ def test_verificador_rechaza_archivo_suelto_en_cycles(tmp_path):
 
 def test_verificador_rechaza_sin_programas_de_fabrica(tmp_path):
     assert _verificar(_dist(tmp_path, sin_fabrica=True)).returncode == 1
-
-
-def test_verificador_rechaza_calibracion_de_banco(tmp_path):
-    r = _verificar(_dist(tmp_path, calib=(CONFIG / "calibration.yaml").read_bytes()))
-    assert r.returncode == 1
 
 
 def test_verificador_sin_argumentos_sale_con_2():

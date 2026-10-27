@@ -103,7 +103,7 @@ def _paso_apagado(descripcion: str, paso, tope: float | None = None) -> None:
 
 def _secuencia_apagado(apagar_windows: bool = True) -> None:
     """ALL_OFF y parada del lazo (control_loop.stop: detiene el lazo, intenta
-    ALL_OFF y cierra el puerto serial), historial de alarmas, base de datos y,
+    ALL_OFF y cierra el enlace de E/S), historial de alarmas, base de datos y,
     si está habilitado, apagado de Windows. Corre en un hilo aparte para
     responder antes de cortar. Con degradación segura (A1): sin tarjeta o con
     un paso fallido se registra y se sigue; el paro y el latido de la tarjeta

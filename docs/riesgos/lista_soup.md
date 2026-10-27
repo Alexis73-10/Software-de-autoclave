@@ -4,7 +4,7 @@ Origen de las versiones: desde L8 (tanda 8, D8-3.26), `requirements.lock.txt` ti
 
 Cambios de versión respecto a la tabla de L1 (tanda 7): **ninguno**. Las 48 versiones del lock nuevo son las mismas que tenía el lock anterior.
 
-Revisión de uso (L8): se recorrieron con `ast` todos los `import` de terceros de `src/autoclave` (incluidos los que están dentro de funciones). Solo se importan: PySide6, qfluentwidgets, fastapi, uvicorn, pydantic, serial (pyserial), pymodbus (tanda 19), escpos (python-escpos), PIL (pillow), requests, keyring, psutil, ruamel.yaml, yaml (PyYAML) y win32print (pywin32). Con el entorno limpio se importaron sin error los 241 módulos de `src/autoclave`.
+Revisión de uso (L8): se recorrieron con `ast` todos los `import` de terceros de `src/autoclave` (incluidos los que están dentro de funciones). Solo se importan: PySide6, qfluentwidgets, fastapi, uvicorn, pydantic, serial (pyserial; retirado en la tanda 20, T20-03), pymodbus (tanda 19), escpos (python-escpos), PIL (pillow), requests, keyring, psutil, ruamel.yaml, yaml (PyYAML) y win32print (pywin32). Con el entorno limpio se importaron sin error los 241 módulos de `src/autoclave`.
 
 Se comprobó además el contenido del ejecutable compilado con el entorno limpio (`packaging/Autoclave.spec`, PyInstaller 6.20.0): frente a la compilación B de la tanda 7, ya no entran `tzdata`, `cryptography` (con su `libssl/libcrypto-3-x64.dll` y `_cffi_backend`) ni `websockets`. Ninguno lo importa el programa. Condición: compilar desde PowerShell o cmd. Desde Git Bash, PyInstaller toma `libssl-3-x64.dll`/`libcrypto-3-x64.dll` de `C:\Program Files\Git\mingw64\bin` (las pide el plugin TLS de Qt) y esa OpenSSL no está en esta lista (ver `docs/informes/tanda8/L8_dependencias.md`).
 
@@ -15,7 +15,7 @@ La clase de riesgo es una propuesta según el uso. Las anomalías conocidas qued
 | SOUP | Versión | Origen de la versión | Uso | Clase propuesta | Anomalías conocidas |
 |---|---|---|---|---|---|
 | Python (CPython) | 3.14.3 | entorno (intérprete) | Intérprete | C | Por completar |
-| pyserial | 3.5 | lock | Comunicación con la ESP32 (control de actuadores) | C | Por completar |
+| pyserial | 3.5 | — | **Retirado en la tanda 20 (T20-03)** con el enlace serial de la ESP32: ya no lo importa `src/autoclave` y salió de `pyproject.toml` y `requirements.lock.txt`. pymodbus y python-escpos solo lo importan como opcional (si no está, no lo usan). | — | No aplica |
 | pymodbus | 3.16.1 | lock | Comunicación con los módulos de E/S (control de actuadores); solo el cliente síncrono `ModbusTcpClient` (tanda 19, MOD-13; sin dependencias propias) | C | Por completar |
 | pydantic / pydantic_core | 2.12.5 / 2.41.5 | lock | Validación de perfiles y de la API | B | Por completar |
 | FastAPI | 0.135.2 | lock | Backend HTTP (comandos de ciclo y puertas) | C | Por completar |
@@ -65,4 +65,4 @@ No los importa `src/autoclave` y ya no entran en el ejecutable compilado con el 
 | customtkinter / tk | 5.2.2 / 0.1.0 | UI antigua, no se importa. `tk` quitado de `pyproject.toml` |
 | pyqtgraph | — | No se importa. Quitado de `pyproject.toml` |
 
-Firmware ESP32 (`Hardware/Comunicacion_esclava_ESP32_V3`), su núcleo Arduino y sus librerías: versiones por completar.
+Firmware ESP32 (`Hardware/Comunicacion_esclava_ESP32_V2` y `_V3`), su núcleo Arduino y sus librerías: **retirados en la tanda 20 (T20-03)** junto con el enlace serial (copia en `G:\Respaldos_autoclave\pre_tanda20_20261027_1448`, etiqueta `respaldo-serial-pre-t20`).

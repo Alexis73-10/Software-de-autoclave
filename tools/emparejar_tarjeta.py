@@ -1,11 +1,10 @@
 # tools/emparejar_tarjeta.py
 #
-# Registra en installation_profile.json el ID de la tarjeta de E/S (ESP32)
-# emparejada con el equipo (FW-D7, planeacion_firmware_1_5.md). Lo usa el
-# ingeniero en la instalación: el perfil está `locked` y la aplicación no lo
-# modifica. El ID es la MAC de fábrica del chip, 12 dígitos hexadecimales, que
-# la tarjeta informa al arrancar (`BOOT 1.0.0 2 <ID>`, monitor serie a 115200)
-# y que se muestra en Información del sistema.
+# Registra en installation_profile.json el ID de la tarjeta de E/S emparejada
+# con el equipo (FW-D7). Lo usa el ingeniero en la instalación: el perfil está
+# `locked` y la aplicación no lo modifica. El ID es la MAC del módulo principal
+# M31-U sin separadores (ADB-03), 12 dígitos hexadecimales, que se muestra en
+# Información del sistema (y en el resultado de `--rol configurar-modulo`).
 #
 # Uso (desde la raíz del repo o junto al .exe, con el software cerrado):
 #   python tools/emparejar_tarjeta.py --id A1B2C3D4E5F6
@@ -48,7 +47,7 @@ def main(argv=None) -> int:
     parser.add_argument("--perfil", type=Path, default=None,
                         help="Ruta de installation_profile.json (por defecto, la del equipo)")
     parser.add_argument("--id", dest="id_tarjeta", default=None,
-                        help="ID de la tarjeta (12 dígitos hex, del BOOT o de Información del sistema)")
+                        help="ID de la tarjeta (12 dígitos hex: MAC del módulo principal, de Información del sistema)")
     parser.add_argument("--si", action="store_true", help="No pedir confirmación")
     parser.add_argument("--mostrar", action="store_true", help="Solo muestra el valor actual")
     args = parser.parse_args(argv)

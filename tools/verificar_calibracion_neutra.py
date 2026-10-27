@@ -2,25 +2,25 @@
 
 Uso: python tools/verificar_calibracion_neutra.py <carpeta dist/Autoclave>
 
-Compara, byte a byte, `_internal/autoclave/config/calibration.yaml` de la
-carpeta compilada con `src/autoclave/config/plantillas/calibration_neutra.yaml`.
-Tanda 19 (MOD-04): la compilación debe traer además la calibración del enlace
-Modbus (`calibration_modbus.yaml`; el enlace por defecto empaquetado es
-Modbus): su calibración de usuario debe ser neutra (gain 1.0, offset 0.0, sin
+Tanda 19 (MOD-04): la compilación debe traer la calibración del enlace Modbus
+(`calibration_modbus.yaml`; enlace único desde la tanda 20, T20-03): su
+calibración de usuario debe ser neutra (gain 1.0, offset 0.0, sin
 polinomio, 8 sensores por tipo) y la de fábrica debe ser la nominal de MOD-04
 (temperatura, canales 0-7: adc 0/1000 -> 0/100 °C; presión, canales 0-7: adc
 4000/20000 -> 0/400 kPa con adc_piso_senal 3850; gain 1.0, offset 0.0, sin
 adc_falla_* y con los márgenes por defecto). Revisión R (V19-s2-01): si falta,
 la verificación FALLA (antes solo avisaba).
+Tanda 20 (T20-03): la calibración serial (`calibration.yaml` y su plantilla
+neutra) se retiró; si la compilación todavía trae `calibration.yaml`, FALLA.
 Sale con 0 si todo está bien y con 1 (y el motivo) si algo falta o difiere: la
 entrega no se publica con la calibración del banco."""
 import hashlib
 import sys
 from pathlib import Path
 
-PLANTILLA = (Path(__file__).resolve().parents[1]
-             / "src" / "autoclave" / "config" / "plantillas" / "calibration_neutra.yaml")
 NOMBRE_MODBUS = "calibration_modbus.yaml"
+# Calibración del enlace serial, retirada en la tanda 20 (T20-03).
+NOMBRE_SERIAL_RETIRADA = "calibration.yaml"
 
 
 def _sha(ruta: Path) -> str:
@@ -110,19 +110,14 @@ def main(argv) -> int:
         print(__doc__)
         return 2
     config = Path(argv[1]) / "_internal" / "autoclave" / "config"
-    empaquetada = config / "calibration.yaml"
-    if not empaquetada.is_file():
-        print(f"FALLA: no existe {empaquetada}")
+    serial = config / NOMBRE_SERIAL_RETIRADA
+    if serial.exists():
+        print(f"FALLA: la compilación trae {serial} (calibración del enlace "
+              f"serial, retirado en la tanda 20)")
         return 1
-    if empaquetada.read_bytes() != PLANTILLA.read_bytes():
-        print(f"FALLA: {empaquetada} no es la plantilla neutra "
-              f"(sha256 {_sha(empaquetada)} frente a {_sha(PLANTILLA)})")
-        return 1
-    print(f"OK: calibración neutra empaquetada (sha256 {_sha(empaquetada)})")
     modbus = config / NOMBRE_MODBUS
     if not modbus.is_file():
-        print(f"FALLA: no existe {modbus} (calibración del enlace Modbus, el "
-              f"enlace por defecto empaquetado)")
+        print(f"FALLA: no existe {modbus} (calibración del enlace Modbus)")
         return 1
     errores = errores_modbus_neutra(modbus)
     if errores:

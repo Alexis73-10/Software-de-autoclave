@@ -5,7 +5,11 @@
 - MOD-06/MOD-12: /status["tarjeta"] funciona con `tarjeta()` del ModbusLink
   ({"version": "1.5 / 1.3", "protocolo": "modbus-tcp", "id": <MAC>}).
 - MOD-01: el enlace activo en Información del equipo (panel) y en OPCIONES ›
-  Información del sistema (/system/info, grupo software)."""
+  Información del sistema (/system/info, grupo software).
+
+Tanda 20 (T20-03): el enlace serial se retiró; /status publica la constante
+"modbus" y la interfaz ya no tiene texto para "serial" (se muestra como un
+valor desconocido). Los casos serial se borraron o pasaron a ese caso."""
 
 import json
 from datetime import datetime
@@ -14,8 +18,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
-from autoclave.config import enlace_io
 
 _MAC = "A1B2C3D4E5F6"
 _TARJETA_MODBUS = {"version": "1.5 / 1.3", "protocolo": "modbus-tcp", "id": _MAC}
@@ -29,19 +31,6 @@ _MODULOS = {
     "enlace": "modbus-tcp",
 }
 _I18N = Path(__file__).resolve().parents[1] / "src" / "autoclave" / "i18n"
-
-
-@pytest.fixture
-def enlace_fijo():
-    """Fija el enlace del proceso y lo restaura al terminar."""
-    previo = enlace_io._activo
-
-    def fijar(valor):
-        enlace_io.fijar_enlace(valor)
-
-    yield fijar
-    with enlace_io._lock:
-        enlace_io._activo = previo
 
 
 @pytest.fixture
@@ -108,10 +97,10 @@ def test_status_tarjeta_modbus_no_emparejada(cliente):
 
 
 @pytest.mark.req("MOD-01")
-@pytest.mark.parametrize("enlace", ["modbus", "serial"])
-def test_status_y_system_info_publican_el_enlace(cliente, enlace_fijo, enlace):
+def test_status_y_system_info_publican_el_enlace(cliente):
+    # T20-03: valor constante "modbus" (se borró el caso "serial")
     c, _ = cliente
-    enlace_fijo(enlace)
+    enlace = "modbus"
     assert c.get("/status").json()["enlace_io"] == enlace
     sw = c.get("/system/info").json()["software"]
     assert sw["enlace_io"] == enlace
@@ -129,14 +118,15 @@ def _software(sw):
 
 
 @pytest.mark.req("MOD-01")
-@pytest.mark.parametrize("enlace", ["modbus", "serial"])
+@pytest.mark.parametrize("enlace", ["modbus"])     # T20-03: sin "serial"
 def test_info_sistema_fila_del_enlace(enlace):
     fila = _software({"version": "1.0", "enlace_io": enlace})["enlace_io"]
     assert fila["valorClave"] == f"equipo.enlace_io_{enlace}"
 
 
 @pytest.mark.req("MOD-01")
-@pytest.mark.parametrize("valor", [None, "", "rtu", 3])
+# T20-03: "serial" (enlace retirado) se muestra como valor desconocido
+@pytest.mark.parametrize("valor", [None, "", "rtu", 3, "serial"])
 def test_info_sistema_enlace_sin_dato_muestra_guion(valor):
     fila = _software({"enlace_io": valor})["enlace_io"]
     assert fila == {"clave": "enlace_io", "valor": "", "valorClave": "", "chip": ""}
@@ -149,8 +139,10 @@ def test_info_sistema_rotulo_en_es_y_en():
     for idioma in ("es", "en"):
         datos = json.loads((_I18N / f"{idioma}.json").read_text(encoding="utf-8"))
         assert datos["info_sistema"]["rotulo_enlace_io"]
-        for clave in ("enlace_io", "enlace_io_modbus", "enlace_io_serial"):
+        # T20-03: la clave enlace_io_serial se retiró con el enlace serial
+        for clave in ("enlace_io", "enlace_io_modbus"):
             assert datos["equipo"][clave]
+        assert "enlace_io_serial" not in datos["equipo"]
 
 
 # ---------------------------------------------------------------------------
@@ -163,7 +155,7 @@ def _filas(**kw):
 
 
 @pytest.mark.req("MOD-01")
-@pytest.mark.parametrize("enlace", ["modbus", "serial"])
+@pytest.mark.parametrize("enlace", ["modbus"])     # T20-03: sin "serial"
 def test_panel_equipo_fila_del_enlace(enlace):
     fila = _filas(enlace=enlace)["enlace_io"]
     assert fila == {"clave": "enlace_io", "valor": enlace, "disponible": True,
@@ -177,7 +169,8 @@ def test_panel_equipo_enlace_sin_consultar_es_guion():
 
 
 @pytest.mark.req("MOD-01")
-@pytest.mark.parametrize("valor", ["", "rtu", 7])
+# T20-03: "serial" (enlace retirado) es un valor no disponible
+@pytest.mark.parametrize("valor", ["", "rtu", 7, "serial"])
 def test_panel_equipo_enlace_invalido_es_no_disponible(valor):
     fila = _filas(enlace=valor)["enlace_io"]
     assert fila["disponible"] is False and "valorClave" not in fila
@@ -228,11 +221,12 @@ def test_info_equipo_status_sin_enlace_es_no_disponible():
 
 @pytest.mark.req("MOD-01")
 def test_info_equipo_conserva_el_enlace_si_falla_la_consulta():
-    info = _info_equipo({"enlace_io": "serial"})
+    # T20-03: con "modbus" (antes "serial", retirado)
+    info = _info_equipo({"enlace_io": "modbus"})
     info.actualizar()
     info._backend.get.side_effect = lambda ruta, **kw: (_ for _ in ()).throw(ConnectionError())
     info.actualizar()
-    assert {f["clave"]: f for f in info.filas}["enlace_io"]["valorClave"] == "enlace_io_serial"
+    assert {f["clave"]: f for f in info.filas}["enlace_io"]["valorClave"] == "enlace_io_modbus"
 
 
 def test_tarjeta_simple_namespace_no_rompe():

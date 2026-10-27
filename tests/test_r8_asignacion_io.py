@@ -105,13 +105,15 @@ def test_aplicar_en_memoria_cambia_los_mapas_en_el_mismo_objeto():
     asignacion = aio.combinar(aio.fabrica_codigo(),
                               # tanda 19 (decisión 4 de Cristian, MOD-05): DO 25 es
                               # del buzzer; vapor y aire van a DO 26 y 27
-                              {"vapor_camara": 26, "paro_emergencia": 30, "pres_camara": 13,
+                              # T20-03 / MOD-05: DI 16 (antes 30; con los módulos
+                              # M31-U solo hay DI 01-16)
+                              {"vapor_camara": 26, "paro_emergencia": 16, "pres_camara": 13,
                                "temp_camara": 6, "aire_atmosferico_camara": 27})
     aio.aplicar_en_memoria(asignacion)
     assert EstadoAutoclave.map_do is mapa_do
     assert EstadoAutoclave.map_do["vapor_camara"] == 25
     assert EstadoAutoclave.map_do["aire_admosferico_camara"] == 26
-    assert EstadoAutoclave.map_di["paro_emergencia"] == 29
+    assert EstadoAutoclave.map_di["paro_emergencia"] == 15
     assert EstadoAutoclave.map_pres["pres_camara"] == 4
     assert EstadoAutoclave.map_temp["temp_camara"] == 5
     assert aio.en_memoria() == asignacion
@@ -127,10 +129,11 @@ def test_aplicar_invalida_no_toca_nada():
 
 def test_estado_lee_la_entrada_en_su_puerto_nuevo():
     aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(),
-                                        {"puerta_1_cerrada": 20, "pres_camara": 13}))
+                                        # T20-03 / MOD-05: DI 15 (antes 20)
+                                        {"puerta_1_cerrada": 15, "pres_camara": 13}))
     e = EstadoAutoclave()
     di = [0] * 56
-    di[19] = 1                       # DI 20
+    di[14] = 1                       # DI 15
     pres = [0.0] * 8
     pres[4] = 210.0                  # AI 13
     pres[0] = 99.0                   # el puerto viejo (AI 09) ya no es la cámara
@@ -199,7 +202,7 @@ def test_nombre_en_dos_tipos_se_identifica_con_el_tipo():
     assert todas["DI:agua_bomba"] == "DI" and todas["DO:agua_bomba"] == "DO"
     assert "agua_bomba" not in todas
     assert todas["vapor_camara"] == "DO"                     # los únicos conservan su nombre
-    libre_di = next(p for p in aio.PUERTOS_DI if p not in f["DI"].values())
+    libre_di = next(p for p in aio.puertos()["DI"] if p not in f["DI"].values())
     nueva = aio.combinar(f, {"DI:agua_bomba": libre_di})
     assert nueva["DI"]["agua_bomba"] == libre_di and nueva["DO"]["agua_bomba"] == f["DO"]["agua_bomba"]
     assert aio.diferencias(f, nueva) == {"DI:agua_bomba": ("DI", f["DI"]["agua_bomba"], libre_di)}

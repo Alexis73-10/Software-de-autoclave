@@ -166,14 +166,15 @@ def test_doble_confirmacion_con_alerta_de_criticidad(api):
 
 
 def test_reforzada_exige_escribir_el_nombre(api):
+    # T20-03 / MOD-05: DI 16 (antes DI 30; con los módulos M31-U solo hay DI 01-16)
     cliente, _srv, ctx, cab, pedidos = api
-    r = _aplicar(cliente, cab(), {"paro_emergencia": 30})
+    r = _aplicar(cliente, cab(), {"paro_emergencia": 16})
     assert r.status_code == 428 and r.json()["codigo"] == "confirmacion_reforzada"
     assert r.json()["funciones"] == ["paro_emergencia"]
-    r = _aplicar(cliente, cab(), {"paro_emergencia": 30}, nombres={"paro_emergencia": "paro"})
+    r = _aplicar(cliente, cab(), {"paro_emergencia": 16}, nombres={"paro_emergencia": "paro"})
     assert r.status_code == 422 and r.json()["codigo"] == "nombre_no_coincide"
     assert not ctx.archivo_asignacion.existe()
-    r = _aplicar(cliente, cab(), {"paro_emergencia": 30},
+    r = _aplicar(cliente, cab(), {"paro_emergencia": 16},
                  nombres={"paro_emergencia": "  PARO  de emergencia "})
     assert r.status_code == 200, r.text
     assert pedidos
@@ -185,7 +186,8 @@ def test_reforzada_acepta_el_nombre_en_espanol_o_ingles(api, escrito):
     if i18n.t("io.di.puerta_1_cerrada", "en") != "Door 1 closed" and escrito != "Puerta 1 cerrada":
         escrito = i18n.t("io.di.puerta_1_cerrada", "en")
     cliente, _srv, _ctx, cab, _p = api
-    r = _aplicar(cliente, cab(), {"puerta_1_cerrada": 20}, nombres={"puerta_1_cerrada": escrito})
+    # T20-03 / MOD-05: DI 15 (antes DI 20)
+    r = _aplicar(cliente, cab(), {"puerta_1_cerrada": 15}, nombres={"puerta_1_cerrada": escrito})
     assert r.status_code == 200, r.text
 
 
@@ -259,7 +261,8 @@ def test_get_tabla(api):
     assert filas["paro_emergencia"]["reforzada"] is True
     assert filas["pres_camara"]["id_actual"] == "AI 09" and filas["pres_camara"]["temperatura"] is False
     assert filas["temp_referencia"]["tipo"] == "AI" and filas["temp_referencia"]["temperatura"] is True
-    assert d["puertos"]["DO"] == list(range(1, 33)) and d["puertos"]["DI"][-1] == 48
+    # T20-03 / MOD-05: último DI 16 (antes 48, rango del enlace serial)
+    assert d["puertos"]["DO"] == list(range(1, 33)) and d["puertos"]["DI"][-1] == 16
     assert d["ocupados"]["DO"]["2"] == "vapor_caldera"     # no habilitada, pero ocupa
     assert d["editable"] is True and d["reinicio_pendiente"] is False
 
@@ -267,18 +270,19 @@ def test_get_tabla(api):
 def test_nombre_en_dos_tipos_da_dos_filas_y_se_reasigna_solo_el_de_su_tipo(api):
     """agua_bomba es DI 09 (retorno) y DO 18 (mando): cada una con su fila y su
     clave con el tipo delante; reasignar la DI no toca la DO."""
+    # T20-03 / MOD-05: DI 16 (antes DI 30; con los módulos M31-U solo hay DI 01-16)
     cliente, _srv, ctx, cab, _p = api
     d = cliente.get("/io/assignment", headers=cab()).json()
     filas = {f["funcion"]: f for f in d["filas"]}
     assert filas["DI:agua_bomba"]["id_actual"] == "DI 09" and filas["DO:agua_bomba"]["id_actual"] == "DO 18"
     assert d["ocupados"]["DI"]["9"] == "DI:agua_bomba"
-    assert _aplicar(cliente, cab(), {"agua_bomba": 30}).status_code == 422      # ambiguo
-    r = _aplicar(cliente, cab(), {"DI:agua_bomba": 30})
+    assert _aplicar(cliente, cab(), {"agua_bomba": 16}).status_code == 422      # ambiguo
+    r = _aplicar(cliente, cab(), {"DI:agua_bomba": 16})
     assert r.status_code == 200, r.text
     nueva, _ = aio.vigente(aio.fabrica_codigo(), ctx.archivo_asignacion)
-    assert nueva["DI"]["agua_bomba"] == 30 and nueva["DO"]["agua_bomba"] == 18
+    assert nueva["DI"]["agua_bomba"] == 16 and nueva["DO"]["agua_bomba"] == 18
     fila = next(f for f in _auditoria(ctx, "reasignacion_io") if f["entidad"] == "DI:agua_bomba")
-    assert (fila["valor_anterior"], fila["valor_nuevo"]) == ("DI 09", "DI 30")
+    assert (fila["valor_anterior"], fila["valor_nuevo"]) == ("DI 09", "DI 16")
 
 
 # ── restaurar fábrica ──────────────────────────────────────────────────────
@@ -389,7 +393,7 @@ def test_respaldo_con_asignacion_invalida_se_rechaza_sin_escribir(respaldo):
 # ── revisión R8: SEN-01, verificación por el ingeniero, escritura ──────────
 
 def test_puerto_analogico_sin_calibracion_se_rechaza(api, monkeypatch):
-    """SEN-01: calibration.yaml trae 7 entradas de presión de usuario: AI 16
+    """SEN-01: una calibración con 7 entradas de presión de usuario: AI 16
     no tiene calibración y no se puede asignar."""
     from autoclave.backend import server_reasignacion as sr
     cliente, _srv, ctx, cab, _p = api
@@ -407,7 +411,7 @@ def test_calibracion_real_cubre_los_puertos_ofrecidos_o_se_rechazan(api):
     largos = sr._largos_calibracion()
     assert largos["temperatura"] > 0 and largos["presion"] > 0
     f = aio.fabrica_codigo()
-    for puerto in aio.PUERTOS_AI_PRES:
+    for puerto in aio.puertos()["AI_PRES"]:
         nueva = aio.combinar(f, {"pres_camara": puerto})
         errores = aio.puertos_sin_calibracion(nueva, largos)
         con_cal = puerto - 9 < largos["presion"]
@@ -497,7 +501,7 @@ def test_ultimo_registro_de_calibracion_por_puerto(api):
 
 def test_verificar_entrada_de_seguridad_exige_nombre_y_cambio_observado(api):
     cliente, _srv, ctx, cab, _p = api
-    libre = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
+    libre = next(p for p in aio.puertos()["DI"] if p not in aio.fabrica_codigo()["DI"].values())
     _pendiente(ctx, ["paro_emergencia"], {"paro_emergencia": libre})
     r = _verificar(cliente, cab(), "paro_emergencia")
     assert r.status_code == 428 and r.json()["codigo"] == "confirmacion_reforzada"
@@ -542,7 +546,7 @@ def test_verificar_rechazos(api):
 def test_lo_pendiente_no_se_pierde_con_otra_reasignacion(api):
     """SAF-03: lo que seguía sin verificar sigue pendiente tras otra reasignación."""
     cliente, _srv, ctx, cab, _p = api
-    libre = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
+    libre = next(p for p in aio.puertos()["DI"] if p not in aio.fabrica_codigo()["DI"].values())
     _pendiente(ctx, ["paro_emergencia"], {"paro_emergencia": libre})
     r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 200, r.text

@@ -20,11 +20,8 @@ meipass, exe, accion = sys.argv[2], sys.argv[3], sys.argv[4]
 sys.frozen = True
 sys._MEIPASS = meipass
 sys.executable = exe
-# Tanda 19 (MOD-04): el archivo de calibración depende del enlace de E/S;
-# estas pruebas se escribieron para el serial (calibration.yaml) y lo fijan,
-# igual que tests/conftest.py. Las de Modbus pasan "modbus".
-from autoclave.config import enlace_io
-enlace_io.fijar_enlace(sys.argv[5] if len(sys.argv) > 5 else "serial")
+# Tanda 20 (T20-03): enlace único Modbus; la calibración es
+# calibration_modbus.yaml (antes calibration.yaml del serial, retirado).
 from autoclave.utils.paths import app_root, calibration_path
 from autoclave.utils.resources import resource_path
 from autoclave.installation import storage
@@ -57,7 +54,7 @@ def _bundle(tmp_path: Path, nombre: str) -> Path:
     return meipass
 
 
-def _correr(tmp_path, meipass, exe, accion="leer", enlace="serial"):
+def _correr(tmp_path, meipass, exe, accion="leer"):
     # Windows rehace ProgramFiles de un proceso de 64 bits desde ProgramW6432
     propias = {"ProgramFiles": str(tmp_path / "PF"),
                "ProgramW6432": str(tmp_path / "PF"),
@@ -68,8 +65,7 @@ def _correr(tmp_path, meipass, exe, accion="leer", enlace="serial"):
     tapadas = {k.upper() for k in propias} | {"PYTHONPATH"}
     entorno = {k: v for k, v in os.environ.items() if k.upper() not in tapadas}
     entorno.update(propias)
-    r = subprocess.run([sys.executable, "-c", _GUION, str(RAIZ), str(meipass), str(exe), accion,
-                        enlace],
+    r = subprocess.run([sys.executable, "-c", _GUION, str(RAIZ), str(meipass), str(exe), accion],
                        capture_output=True, text=True, encoding="utf-8", env=entorno,
                        cwd=tmp_path, timeout=120)
     assert r.returncode == 0, r.stderr[-3000:]
@@ -85,7 +81,8 @@ def test_instalado_guarda_todo_en_programdata_y_sobrevive_reinicio_y_actualizaci
     assert Path(r["app_root"]) == datos
     assert Path(r["perfil"]) == datos / "installation_profile.json"
     assert Path(r["db"]) == datos / "data" / "autoclave.db"
-    assert Path(r["calibracion"]) == datos / "data" / "calibration.yaml"
+    # T20-03: calibration_modbus.yaml (antes calibration.yaml del serial)
+    assert Path(r["calibracion"]) == datos / "data" / "calibration_modbus.yaml"
     assert Path(r["global_params"]) == datos / "programa" / "autoclave" / "config" / "global_params.json"
 
     # reinicio: mismo programa, se conserva lo guardado
@@ -100,7 +97,7 @@ def test_instalado_guarda_todo_en_programdata_y_sobrevive_reinicio_y_actualizaci
 
     # actualización: build nuevo con otra calibración de fábrica empaquetada
     b = _bundle(tmp_path, "meipass_b")
-    (b / "autoclave" / "config" / "calibration.yaml").write_text("# build nuevo\n", encoding="utf-8")
+    (b / "autoclave" / "config" / "calibration_modbus.yaml").write_text("# build nuevo\n", encoding="utf-8")
     r = _correr(tmp_path, b, exe)
     assert r["marca"], "la actualización pisó la calibración del sitio"
     assert not r["glob_editado"]
@@ -114,5 +111,5 @@ def test_portable_guarda_junto_al_ejecutable(tmp_path):
     r = _correr(tmp_path, _bundle(tmp_path, "meipass"), exe)
     assert Path(r["app_root"]) == exe.parent
     assert Path(r["perfil"]) == exe.parent / "installation_profile.json"
-    assert Path(r["calibracion"]) == exe.parent / "data" / "calibration.yaml"
+    assert Path(r["calibracion"]) == exe.parent / "data" / "calibration_modbus.yaml"   # T20-03
     assert not (tmp_path / "PD").exists()

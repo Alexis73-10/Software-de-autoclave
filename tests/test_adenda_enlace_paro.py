@@ -1,7 +1,8 @@
 # tests/test_adenda_enlace_paro.py
 #
 # Adenda E0/E1 (docs/mis_plans/instruccion_claude_code_e0_e1_adenda.md),
-# enlace serial, paro y modo prueba:
+# enlace, paro y modo prueba (las pruebas del sello DI en SerialLink se
+# retiraron con el enlace serial en la tanda 20, T20-03):
 #   A-3 (TMG-01, SAF-06)  vigencia de la trama DI: vencida = paro
 #   A-6 (SAF-07)          aviso si llega puerta_2_cerrada=1 con door_count=1
 #   A-7 (TMG-09)          ALL_OFF con el paro, a lo sumo 1/s salvo salidas activas
@@ -15,68 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.protocols.serial_link import SerialLink
-from autoclave.protocols.serial_link_config import SerialLinkConfig
-from tests.helpers.serial_doble import AI_OK, PuertoDoble, linea
 from tests.helpers.backend_doble import modulo_backend
-
-
-# ---------------------------------------------------------------------------
-# A-3: sello monotónico de la última trama DI en el enlace
-# ---------------------------------------------------------------------------
-
-def _link():
-    link = SerialLink(config=SerialLinkConfig())
-    link._rx_buf = bytearray()
-    link.serial = PuertoDoble()
-    link.data["port_open"] = True
-    return link
-
-
-def test_sin_trama_di_la_edad_es_none():
-    link = _link()
-    link._alimentar(linea(AI_OK))
-    assert link.edad_ultima_di() is None
-
-
-def test_trama_di_fija_el_sello_monotonico():
-    link = _link()
-    with patch("autoclave.protocols.serial_link.time.monotonic", return_value=100.0):
-        link._alimentar(linea("DI:" + "1" * 56))
-    assert link.edad_ultima_di(now=101.2) == pytest.approx(1.2)
-
-
-def test_trama_ai_no_renueva_el_sello_di():
-    link = _link()
-    with patch("autoclave.protocols.serial_link.time.monotonic", return_value=100.0):
-        link._alimentar(linea("DI:" + "1" * 56))
-    with patch("autoclave.protocols.serial_link.time.monotonic", return_value=105.0):
-        link._alimentar(linea(AI_OK))
-    assert link.edad_ultima_di(now=105.0) == pytest.approx(5.0)
-
-
-def test_di_malformada_no_renueva_el_sello():
-    link = _link()
-    link._alimentar(linea("DI:" + "1" * 55))
-    assert link.edad_ultima_di() is None
-
-
-def test_connect_pone_di_en_cero_y_borra_el_sello():
-    link = SerialLink(config=SerialLinkConfig())
-    link._scan_ports = lambda: "COM4"
-    link.data["di"] = [1] * 56
-    link._ultima_di_mono = 50.0
-    with patch("autoclave.protocols.serial_link.serial.Serial", return_value=MagicMock()):
-        assert link._connect() is True
-    assert link.get_state()["di"] == [0] * 56
-    assert link.edad_ultima_di() is None
-
-
-def test_disconnect_borra_el_sello():
-    link = _link()
-    link._alimentar(linea("DI:" + "1" * 56))
-    link._disconnect()
-    assert link.edad_ultima_di() is None
 
 
 # ---------------------------------------------------------------------------

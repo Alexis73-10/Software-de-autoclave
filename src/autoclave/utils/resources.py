@@ -8,7 +8,7 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 # Carpetas que el programa también ESCRIBE (parámetros globales, ciclos de
-# usuario, correo, enlace serial). En un build congelado de un solo archivo
+# usuario, correo, enlace de E/S). En un build congelado de un solo archivo
 # (onefile), _MEIPASS es una carpeta temporal que se borra al cerrar: lo que se
 # guardara ahí se perdería. En ese caso se usa una copia junto al .exe, en
 # <carpeta del exe>/programa/autoclave/..., sembrada desde el paquete.
@@ -21,7 +21,7 @@ _SOLO_FABRICA = ("autoclave/cycles/factory",)
 # defectos y límites de los parámetros del equipo, cuyos valores vigentes viven
 # en la BD). Al actualizar, si el del paquete difiere del guardado, se respalda
 # el guardado (con fecha, en programa/<CARPETA_RESPALDOS>/) y se reemplaza. Lo
-# del sitio NUNCA entra aquí: calibration.yaml, correo.json,
+# del sitio NUNCA entra aquí: calibration_modbus.yaml, correo.json,
 # active_instances.yaml, cycles/user, cycles/defecto, ni nada fuera de
 # programa/ (perfil, BD, data/asignacion_io.json).
 _FABRICA_CON_RESPALDO = ("autoclave/config/instances/", "autoclave/config/global_params.json")

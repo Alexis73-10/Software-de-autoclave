@@ -615,10 +615,11 @@ def errores_programa(parameters: dict) -> list[str]:
 #                     que una serie de pasos pequeños no sume una deriva ilimitada,
 #                     se mide también cuánto se aparta la calibración RESULTANTE
 #                     (ganancia/offset) de la neutra (1, 0) en los extremos
-#                     operativos. Las de calibration.yaml (hasta 75 kPa, 6 °C) caben.
+#                     operativos. Las de la calibración serial (calibration.yaml,
+#                     retirada en la tanda 20; hasta 75 kPa, 6 °C) cabían.
 # Valores conservadores, DECISIÓN SIN CONFIRMAR de la tanda 2 (informe S3).
-# Las recalibraciones reales de calibration.yaml (hasta 49 kPa y 1,2 °C en los
-# puntos) caben en aviso o en normal; ninguna se rechaza.
+# Las recalibraciones reales de la calibración serial (retirada en la tanda 20;
+# hasta 49 kPa y 1,2 °C en los puntos) cabían en aviso o en normal.
 CALIBRACION_PLAUSIBLE = {
     "temperature": {"rango": (0.0, 200.0), "operativo": (0.0, 150.0), "separacion_min": 20.0,
                     "correccion_aviso": 5.0, "correccion_max": 15.0,

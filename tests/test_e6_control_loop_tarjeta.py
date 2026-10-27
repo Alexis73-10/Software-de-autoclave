@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.protocols.serial_link import EventoTarjeta
+from autoclave.protocols.enlace import EventoTarjeta
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import COM_03, Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia

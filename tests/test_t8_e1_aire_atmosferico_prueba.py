@@ -267,52 +267,8 @@ def test_controlador_no_agrega_el_texto_del_backend_a_estos_motivos():
 # puede estar congelada (AI caída o malformada, o reconexión con la AI de la
 # conexión anterior). Para el aire atmosférico se exige además AI vigente.
 
-from autoclave.protocols.serial_link import SerialLink
-from autoclave.protocols.serial_link_config import SerialLinkConfig
-from tests.helpers.serial_doble import AI_OK, PuertoDoble, linea
-
-
-def _link_real():
-    link = SerialLink(config=SerialLinkConfig())
-    link._rx_buf = bytearray()
-    link.serial = PuertoDoble()
-    link.data["port_open"] = True
-    return link
-
-
-def test_enlace_sin_trama_ai_la_edad_es_none():
-    link = _link_real()
-    link._alimentar(linea("DI:" + "1" * 56))
-    assert link.edad_ultima_ai() is None
-
-
-def test_enlace_trama_ai_fija_su_sello():
-    link = _link_real()
-    with patch("autoclave.protocols.serial_link.time.monotonic", return_value=100.0):
-        link._alimentar(linea(AI_OK))
-    assert link.edad_ultima_ai(now=101.0) == pytest.approx(1.0)
-
-
-def test_enlace_ai_malformada_no_renueva_el_sello():
-    link = _link_real()
-    link._alimentar(linea("AI:1,2,3"))
-    assert link.edad_ultima_ai() is None
-
-
-def test_enlace_disconnect_borra_el_sello_ai():
-    link = _link_real()
-    link._alimentar(linea(AI_OK))
-    link._disconnect()
-    assert link.edad_ultima_ai() is None
-
-
-def test_enlace_connect_borra_el_sello_ai():
-    link = SerialLink(config=SerialLinkConfig())
-    link._scan_ports = lambda: "COM4"
-    link._ultima_ai_mono = 50.0
-    with patch("autoclave.protocols.serial_link.serial.Serial", return_value=MagicMock()):
-        assert link._connect() is True
-    assert link.edad_ultima_ai() is None
+# (las pruebas del sello AI en SerialLink se retiraron con el enlace serial,
+# tanda 20, T20-03)
 
 
 @pytest.mark.parametrize("edad", [None, 5.0, "x", True])
@@ -468,7 +424,7 @@ def test_presion_vigente_exige_estado_publicado_reciente():
 
 
 # ── Re-revisión de E1 (22-oct, SEN-01 Alto / TMG-01 / SAF-01 / SEN-02) ─────
-# El contador cuenta tramas AI NUEVAS (ai_seq de SerialLink, mismo criterio
+# El contador cuenta tramas AI NUEVAS (ai_seq del enlace, mismo criterio
 # que S1 para la mediana), no las líneas DI/DO/ST que notifican con la misma AI.
 
 def _trama_seq(u, raw_canal, seq, **extra):
@@ -555,18 +511,6 @@ def test_lazo_pasa_el_instante_de_lectura_del_estado():
     kwargs = loop.units.senal_presion_presente.call_args.kwargs
     assert kwargs["leido_mono"] == loop.estado_leido_mono
     assert isinstance(loop.estado_leido_mono, float)
-
-
-def test_serial_link_numera_las_tramas_ai():
-    from autoclave.protocols.serial_link import SerialLink
-    link = SerialLink.__new__(SerialLink)
-    import threading
-    link.data_lock = threading.Lock()
-    link.data = {"ai": [0] * 16, "ai_seq": 0}
-    link._ultima_ai_mono = None
-    link._procesar_payload("AI:" + ",".join(["1"] * 16))
-    link._procesar_payload("AI:" + ",".join(["2"] * 16))
-    assert link.data["ai_seq"] == 2
 
 
 def test_senal_camara_sin_instante_de_lectura_rechaza():

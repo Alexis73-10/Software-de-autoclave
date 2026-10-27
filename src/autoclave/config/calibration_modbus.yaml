@@ -1,7 +1,7 @@
 # Tanda 19 (MOD-04): calibración de fábrica del enlace Modbus TCP (módulos
-# Ebyte M31-U). Mismo formato que calibration.yaml (la escribe
-# config/calibration_writer.py con ruamel); utils/paths.calibration_path() la
-# elige cuando el enlace activo (config/enlace_io.json) es "modbus".
+# Ebyte M31-U). Mismo formato que la calibración serial retirada en la tanda 20
+# (T20-03); la escribe config/calibration_writer.py con ruamel y la usa
+# utils/paths.calibration_path() (enlace único).
 #
 # temperature[i] = PT100 i+1 del módulo M31-GXDXX0600-U, entero con signo en
 #   décimas de °C: adc_min 0 / adc_max 1000 -> temp_min 0 / temp_max 100 es la

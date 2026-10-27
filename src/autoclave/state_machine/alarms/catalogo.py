@@ -322,7 +322,7 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(CIC_11, _AL, True, _M, "Comunicación inestable en esterilización",
        "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la "
        "esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
-       "La carga NO está estéril. Revise el cable USB y la alimentación de la tarjeta y "
+       "La carga NO está estéril. Revise el cable de red y la alimentación de la tarjeta y "
        "repita el ciclo. Si se repite, llame a servicio técnico."),
     # E12 (tanda 12, C-03): Tsat(P) - T_principal fuera de ±2 K durante 5 s
     # continuos en la exposición (solo carga sólida)
@@ -371,11 +371,11 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
     _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",
        "No se detecta la tarjeta de control.",
-       "Conecte la tarjeta (cable USB) y verifique su alimentación."),
+       "Conecte la tarjeta (cable de red) y verifique su alimentación."),
     _d(COM_02, _FC, True, _M, "Comunicación perdida durante el ciclo",
        "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase "
        "{fase}. El ciclo se abortó.",
-       "Verifique el cable USB y la alimentación de la tarjeta antes de reiniciar."),
+       "Verifique el cable de red y la alimentación de la tarjeta antes de reiniciar."),
     # D8-2.11 (tanda 8, Q1-P1): la tarjeta no confirmó el ALL_OFF al salir del
     # modo prueba ni tras 3 reintentos. Bloquea el inicio hasta que llegue una
     # confirmación (ALL_OFF confirmado o handshake completo, que lo incluye).
@@ -417,7 +417,7 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Verifique la tarjeta de E/S antes de reiniciar. Llame a servicio técnico."),
     _d(TARJETA_SIN_TRAMA_VALIDA, _AL, True, _A, "La tarjeta de E/S no envía datos válidos",
        "{motivo}",
-       "Revise el cable USB y la alimentación de la tarjeta. Llame a servicio técnico."),
+       "Revise el cable de red y la alimentación de la tarjeta. Llame a servicio técnico."),
     _d(TARJETA_VERSION_INCOMPATIBLE, _AL, True, _A, "Firmware de la tarjeta de E/S incompatible",
        "{motivo}",
        "Cargue el firmware 1.0.0 (servicio técnico)."),

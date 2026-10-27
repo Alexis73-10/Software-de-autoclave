@@ -13,9 +13,11 @@ SPEC = RAIZ / "packaging" / "Autoclave.spec"
 
 # Módulos que el ejecutable necesita en tiempo de ejecución (medidos importando
 # autoclave.ui_pyside.main_window, backend.server, ui_qml.app y exe_unico).
+# T20-03: "serial" (pyserial) salió de la lista con el enlace serial retirado;
+# pymodbus y escpos solo lo importan como opcional.
 IMPRESCINDIBLES = (
     "scipy", "numpy", "PIL", "colorthief", "darkdetect", "qframelesswindow",
-    "qfluentwidgets", "win32api", "win32con", "win32gui", "win32print", "serial", "pymodbus",
+    "qfluentwidgets", "win32api", "win32con", "win32gui", "win32print", "pymodbus",
     "uvicorn", "fastapi", "starlette", "pydantic", "pydantic_core", "yaml", "ruamel",
     "requests", "sqlite3", "defusedxml", "unittest", "escpos",
     "PySide6", "PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets",
