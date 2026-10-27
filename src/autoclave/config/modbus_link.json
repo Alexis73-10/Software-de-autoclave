@@ -1,0 +1,20 @@
+{
+    "ip": "192.168.3.7",
+    "puerto": 502,
+    "unit_id": 1,
+    "periodo_sondeo_s": 0.1,
+    "timeout_s": 0.3,
+    "fallos_para_desconexion": 3,
+    "reintento_conexion_s": 3.0,
+    "presupuesto_conexion_s": 15.0,
+    "tiempo_desconexion_modulo_ds": 10,
+    "intentos_escritura_config": 3,
+    "filtro_pt100": 1,
+    "filtro_ai": 0,
+    "composicion_esperada": {
+        "principal": "XAXX0A00G",
+        "expansiones": ["GAXXXA000", "GXXAX00A0", "GXXAX00A0", "GXDXX0600"]
+    },
+    "tramas_discrepancia": 2,
+    "discrepancia_dispara_fallo": true
+}
