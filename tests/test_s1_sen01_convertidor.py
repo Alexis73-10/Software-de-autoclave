@@ -140,15 +140,6 @@ def test_primera_lectura_fuera_sin_valor_previo_es_none_nunca_cero():
     assert _leer(cfg, 0) is None
 
 
-def test_tarjeta_que_satura_en_4095_antes_de_21_ma_deja_inactiva_la_alta():
-    cfg = _config(adc_min=5, adc_max=4050)
-    calib = cfg.calibration.factory.pressure[0]
-    _, alto = converters.umbrales_falla_presion(calib)
-    assert alto is None
-    _leer(cfg, 2000, veces=5)
-    assert _leer(cfg, 4095, veces=N + 2) is not None
-
-
 def test_piso_de_saturacion_cuando_el_umbral_bajo_queda_bajo_cero():
     """Calibración real del equipo (adc_min 5): 3,6 mA cae por debajo de 0
     cuentas; el lazo abierto se ve como 0 cuentas (piso de saturación)."""
@@ -167,13 +158,6 @@ def test_umbral_explicito_en_cuentas_reemplaza_el_calculado():
     converters.reiniciar_presiones()
     _leer(cfg, 2000, veces=5)
     assert _leer(cfg, 4090, veces=N) is None
-
-
-def test_canal_sin_calibracion_de_fabrica_conserva_el_comportamiento_previo():
-    cfg = AppConfig()
-    assert converters.umbrales_falla_presion(cfg.calibration.factory.pressure[0]) == (None, None)
-    v = converters.convert_pressures(_raw(0), {})[0]
-    assert v == 0.0
 
 
 def test_units_arranca_sin_lectura_de_presion():

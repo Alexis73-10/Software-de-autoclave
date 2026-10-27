@@ -55,7 +55,7 @@ def test_reset_all_eliminado(io_client):
 
 
 def test_set_output_activa_vapor_generador(io_client):
-    """map_do es 0-indexado (vapor_generador=0) pero serial_link.set_output()
+    """map_do es 0-indexado (vapor_generador=0) pero el enlace (set_output())
     espera el canal DO físico 1-indexado (DO1)."""
     client, ctx = io_client
     resp = client.patch("/io/test/output/vapor_generador", json={"value": True})

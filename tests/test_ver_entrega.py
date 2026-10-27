@@ -56,8 +56,10 @@ def test_archivo_versionado_modificado_bloquea(porcelana):
 
 
 @pytest.mark.req("VER-D4")
+# T20-03: Hardware/ (firmware de la ESP32) se retiró y ya no es carpeta del
+# producto; su caso pasa a otra ruta de src/.
 @pytest.mark.parametrize("ruta", ["src/autoclave/config/calibration.yaml.bak", "packaging/x.spec",
-                                  "tools/instalador/a.iss", "Hardware/placa.txt"])
+                                  "tools/instalador/a.iss", "src/autoclave/placa.txt"])
 def test_sin_versionar_en_el_producto_bloquea(ruta):
     p = ce.verificaciones_previas(_git_falso(porcelana=f"?? {ruta}\n"), _suite()[0])
     assert any(ruta in e for e in p.errores)

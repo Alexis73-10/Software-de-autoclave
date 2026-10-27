@@ -7,7 +7,6 @@
 # Se sustituyen solo el perfil, las BD (tmp_path), la impresora y la
 # configuración del enlace (apunta al simulador, con tiempos cortos).
 
-import sys
 import threading
 import time
 from datetime import datetime
@@ -19,7 +18,7 @@ from fastapi.testclient import TestClient
 from autoclave.backend import context as ctx_mod
 from autoclave.backend.arranque.secuencia import ejecutar_arranque
 from autoclave.backend.context import BackendContext
-from autoclave.config import enlace_io
+from autoclave.core.runtime import asignacion_io
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.puertas.door_type import DoorType
 from autoclave.installation.equipment import EquipmentClass
@@ -45,7 +44,7 @@ def _etapa(reg, clave):
 
 
 @pytest.fixture
-def planta(monkeypatch, tmp_path, enlace_modbus):
+def planta(monkeypatch, tmp_path):
     sim = M31Simulado()
     sim.iniciar()
     # Paro de emergencia NC sin pulsar (DI de fábrica) y puerta cerrada
@@ -79,24 +78,16 @@ def planta(monkeypatch, tmp_path, enlace_modbus):
     if ctx.serial is not None:
         ctx.serial.stop()
     sim.detener()
-    # El servidor se importó con el enlace Modbus fijado: dependencias calculó
-    # CALIBRATION_PATH con calibration_modbus.yaml. Se descarga para que las
-    # pruebas siguientes del mismo proceso (enlace serial) lo recalculen.
-    import autoclave.backend as paquete_backend
-    for nombre in list(sys.modules):
-        if nombre.startswith(("autoclave.backend.server", "autoclave.backend.dependencias",
-                              "autoclave.backend.rutas")):
-            del sys.modules[nombre]
-            corto = nombre.rsplit(".", 1)[-1]
-            if nombre.count(".") == 2 and hasattr(paquete_backend, corto):
-                delattr(paquete_backend, corto)
+    # T20-03: ya no hace falta descargar el backend (no hay pruebas con el
+    # enlace serial en el mismo proceso)
 
 
 @pytest.mark.req("MOD-01")
 @pytest.mark.req("MOD-06")
 def test_backend_completo_con_el_simulador_m31(planta):
     sim, srv, ctx, client = planta
-    assert enlace_io.enlace_activo() == "modbus"
+    # T20-03: antes enlace_io.enlace_activo() (selección retirada)
+    assert asignacion_io.enlace() == "modbus"
 
     # Arranque y conexión verificada
     assert esperar(lambda: _etapa(srv.registro_arranque, "conectando_modulos_es")["estado"] == "ok",

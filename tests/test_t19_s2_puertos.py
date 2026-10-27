@@ -1,7 +1,8 @@
 # tests/test_t19_s2_puertos.py
 #
-# Tanda 19 (MOD-05): puertos ofrecidos según el enlace de E/S, asignación
-# guardada fuera del rango del enlace activo, buzzer en DO 25 (decisión 4 de
+# Tanda 19 (MOD-05): puertos ofrecidos por los módulos M31-U, asignación
+# guardada fuera de su rango (tanda 20, T20-03: los casos del enlace serial se
+# borraron; el enlace es único), buzzer en DO 25 (decisión 4 de
 # Cristian) y apagado individual de DO 1-32.
 
 from pathlib import Path
@@ -11,7 +12,6 @@ import pytest
 from ruamel.yaml import YAML
 
 from autoclave.backend.context import BackendContext
-from autoclave.config import enlace_io
 from autoclave.core.runtime import asignacion_io as aio
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.io.set_io import SetOutput
@@ -29,35 +29,13 @@ def _mapas_de_fabrica():
 # ── puertos según el enlace ────────────────────────────────────────────────
 
 @pytest.mark.req("MOD-05")
-def test_puertos_modbus(enlace_modbus):
+def test_puertos_modbus():
     p = aio.puertos()
     assert list(p["DI"]) == list(range(1, 17))
     assert list(p["DO"]) == list(range(1, 33))
     assert list(p["AI_TEMP"]) == list(range(1, 7))
     assert list(p["AI_PRES"]) == list(range(9, 17))
     assert aio.enlace() == "modbus"
-
-
-@pytest.mark.req("MOD-05")
-def test_puertos_serial_sin_cambios():
-    p = aio.puertos()
-    assert list(p["DI"]) == list(range(1, 49))
-    assert list(p["DO"]) == list(range(1, 33))
-    assert list(p["AI_TEMP"]) == list(range(1, 9))
-    assert list(p["AI_PRES"]) == list(range(9, 17))
-    # alias de antes de la tanda 19: los rangos del serial, sin importar el enlace
-    enlace_io.fijar_enlace(enlace_io.ENLACE_MODBUS)
-    assert (aio.PUERTOS_DI, aio.PUERTOS_DO, aio.PUERTOS_AI_TEMP, aio.PUERTOS_AI_PRES) == \
-        (range(1, 49), range(1, 33), range(1, 9), range(9, 17))
-
-
-@pytest.mark.req("MOD-05")
-def test_puertos_se_leen_en_cada_llamada():
-    assert 20 in aio.puertos_validos("DI")
-    enlace_io.fijar_enlace(enlace_io.ENLACE_MODBUS)
-    assert 20 not in aio.puertos_validos("DI")
-    enlace_io.fijar_enlace(enlace_io.ENLACE_SERIAL)
-    assert 20 in aio.puertos_validos("DI")
 
 
 @pytest.mark.req("MOD-05")
@@ -69,34 +47,30 @@ def test_puertos_se_leen_en_cada_llamada():
     ("AI", "pres_camara", 16, True), ("AI", "pres_camara", 6, False),
     ("AI", None, 6, True), ("AI", None, 7, False), ("AI", None, 9, True),
 ])
-def test_puertos_validos_modbus(enlace_modbus, tipo, funcion, puerto, valido):
+def test_puertos_validos_modbus(tipo, funcion, puerto, valido):
     assert (puerto in aio.puertos_validos(tipo, funcion)) is valido
 
 
 @pytest.mark.req("MOD-05")
-@pytest.mark.parametrize("enlace", ["serial", "modbus"])
-def test_fabrica_valida_en_los_dos_enlaces(enlace):
-    enlace_io.fijar_enlace(enlace)
+def test_fabrica_valida_en_los_dos_enlaces():
+    # T20-03: queda solo el caso Modbus (el serial se retiró)
     assert aio.validar(aio.fabrica_codigo()) == []
     assert aio.fabrica() == aio.fabrica_codigo()        # YAML del repo, validado
 
 
 @pytest.mark.req("MOD-05")
-def test_asignacion_guardada_fuera_de_rango_bajo_modbus_es_invalida(enlace_modbus, tmp_path):
+def test_asignacion_guardada_fuera_de_rango_bajo_modbus_es_invalida(tmp_path):
     ruta = tmp_path / "data" / "asignacion_io.json"
     aio.ArchivoAsignacion(ruta).guardar({"puerta_1_cerrada": 20, "temp_referencia": 8}, "ing", [])
     with pytest.raises(aio.ErrorAsignacion) as e:
         aio.vigente(aio.fabrica_codigo(), aio.ArchivoAsignacion(ruta))
     assert {x["codigo"] for x in e.value.errores} == {"puerto_inexistente"}
     assert {x["funcion"] for x in e.value.errores} == {"puerta_1_cerrada", "temp_referencia"}
-    # la misma asignación es válida con el enlace serial
-    enlace_io.fijar_enlace(enlace_io.ENLACE_SERIAL)
-    asignacion, _ = aio.vigente(aio.fabrica_codigo(), aio.ArchivoAsignacion(ruta))
-    assert asignacion["DI"]["puerta_1_cerrada"] == 20
+    # (el caso «válida con el enlace serial» se borró: T20-03)
 
 
 @pytest.mark.req("MOD-05")
-def test_arranque_con_asignacion_fuera_de_rango_bloquea(enlace_modbus, tmp_path):
+def test_arranque_con_asignacion_fuera_de_rango_bloquea(tmp_path):
     """Mismo camino que cualquier asignación inválida (V-03): alarma
     CONFIGURACION_INVALIDA bloqueante, fábrica en memoria solo para construir."""
     ruta = tmp_path / "data" / "asignacion_io.json"
@@ -111,7 +85,7 @@ def test_arranque_con_asignacion_fuera_de_rango_bloquea(enlace_modbus, tmp_path)
 
 
 @pytest.mark.req("MOD-05")
-def test_api_publica_los_puertos_del_enlace_activo(api, enlace_modbus):  # noqa: F811
+def test_api_publica_los_puertos_del_enlace_activo(api):  # noqa: F811
     cliente, _srv, _ctx, cab, _p = api
     r = cliente.get("/io/assignment", headers=cab())
     assert r.status_code == 200
@@ -122,16 +96,7 @@ def test_api_publica_los_puertos_del_enlace_activo(api, enlace_modbus):  # noqa:
 
 
 @pytest.mark.req("MOD-05")
-def test_api_publica_los_puertos_serial(api):  # noqa: F811
-    cliente, _srv, _ctx, cab, _p = api
-    d = cliente.get("/io/assignment", headers=cab()).json()
-    assert d["enlace"] == "serial"
-    assert d["puertos"]["DI"] == list(range(1, 49))
-    assert d["puertos"]["AI_TEMP"] == list(range(1, 9))
-
-
-@pytest.mark.req("MOD-05")
-def test_api_rechaza_un_puerto_fuera_del_enlace_modbus(api, enlace_modbus):  # noqa: F811
+def test_api_rechaza_un_puerto_fuera_del_enlace_modbus(api):  # noqa: F811
     cliente, _srv, ctx, cab, _p = api
     r = _aplicar(cliente, cab(), {"temp_referencia": 7})
     assert r.status_code == 422
@@ -157,9 +122,8 @@ def test_buzzer_en_do_25_en_el_yaml_de_la_instancia():
 
 
 @pytest.mark.req("MOD-05")
-@pytest.mark.parametrize("enlace", ["serial", "modbus"])
-def test_buzzer_enciende_el_canal_25(enlace):
-    enlace_io.fijar_enlace(enlace)
+def test_buzzer_enciende_el_canal_25():
+    # T20-03: queda solo el caso Modbus (el serial se retiró)
     io = MagicMock()
     s = SetOutput(io, estado=MagicMock())
     s.buzer_on()

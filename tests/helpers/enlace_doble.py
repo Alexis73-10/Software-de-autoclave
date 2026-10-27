@@ -182,3 +182,44 @@ class EnlaceDoble:
         self.emitir("conectada", None, "doble")
         if self.al_conectar is not None:
             self.al_conectar(self.tarjeta())
+
+
+class EnlaceRegistrador(EnlaceDoble):
+    """EnlaceDoble que registra cada orden de salida con el texto del protocolo
+    anterior (`"ALL_OFF"`, `"SET DOn ON"` / `"SET DOn OFF"`) y los canales
+    (1-32) que quedan encendidos en los pines del módulo tras la orden: lista
+    de (t, orden, encendidos) en `registro`, con t = `reloj[0]` (tanda 20,
+    T20-03: sustituye al SerialLink con el doble del firmware V3 en B9).
+
+    Los pines siguen a la orden de inmediato; el DO que publica el enlace
+    (`get_state()["do"]`) solo se actualiza con `publicar_do()`, como la
+    publicación periódica de estados."""
+
+    def __init__(self, reloj, registro: list, **kw):
+        super().__init__(**kw)
+        self.reloj = reloj
+        self.registro = registro
+        self.pines = [False] * 32
+
+    def _registrar(self, orden: str) -> None:
+        encendidos = [c + 1 for c, v in enumerate(self.pines) if v]
+        self.registro.append((self.reloj[0], orden, encendidos))
+
+    def set_output(self, channel: int, state: bool) -> bool:
+        if not self.conectado or not 1 <= int(channel) <= 32:
+            return False
+        self.ordenes.append((int(channel), bool(state)))
+        self.pines[int(channel) - 1] = bool(state)
+        self._registrar(f"SET DO{int(channel)} {'ON' if state else 'OFF'}")
+        return True
+
+    def all_off(self, timeout: float = 1.0) -> bool:
+        self.all_off_llamadas += 1
+        if not self.conectado:
+            return False
+        self.pines = [False] * 32
+        self._registrar("ALL_OFF")
+        return self.all_off_ok
+
+    def publicar_do(self) -> None:
+        self.data["do"] = [int(v) for v in self.pines]

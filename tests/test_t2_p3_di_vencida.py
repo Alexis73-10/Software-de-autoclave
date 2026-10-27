@@ -1,12 +1,11 @@
 """T2 / P-3 (tanda 6): una trama DI vencida con el enlace activo (PARO_EMERGENCIA
 sin PARO_REAL) durante el ciclo tiene una tolerancia antes de abortar y se
 registra como fallo de comunicación (FALLO_CONEXION + COM-03), no como
-EMERGENCIA. La tolerancia nunca supera el watchdog del firmware
-(Hardware/Comunicacion_esclava_ESP32_V3, WD_TIMEOUT_MS) menos 1 s de margen."""
+EMERGENCIA. La prueba de la tolerancia contra el watchdog del firmware de la
+ESP32 se retiró con el enlace serial (tanda 20, T20-03); el valor de 4 s queda
+fijado en tests/test_t20_s2_retiro_serial.py hasta que Cristian lo revise."""
 
-import re
 import time
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -14,24 +13,6 @@ import pytest
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.states import ciclo as modulo_ciclo
 from autoclave.state_machine.states.ciclo import CicloResultado, CicloState
-
-_INO = (Path(__file__).resolve().parents[1] / "Hardware" / "Comunicacion_esclava_ESP32_V3"
-        / "Comunicacion_esclava_ESP32_V3" / "Comunicacion_esclava_ESP32_V3.ino")
-
-
-def _wd_firmware_s() -> float:
-    texto = _INO.read_text(encoding="utf-8", errors="replace")
-    m = re.search(r"WD_TIMEOUT_MS\s*=\s*(\d+)", texto)
-    assert m, "no se encontró WD_TIMEOUT_MS en el .ino"
-    return int(m.group(1)) / 1000.0
-
-
-def test_tolerancia_no_supera_el_watchdog_del_firmware_menos_un_segundo():
-    wd = _wd_firmware_s()
-    assert wd == 5.0                                   # valor leído el 20-oct (V3)
-    tol = modulo_ciclo._TOLERANCIA_DI_VENCIDA_SEG
-    assert 0 < tol <= wd - 1.0
-
 
 @pytest.fixture
 def reloj(monkeypatch):
