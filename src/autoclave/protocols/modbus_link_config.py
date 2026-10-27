@@ -160,7 +160,37 @@ def config_desde_dict(datos: Any, origen: str = "<dict>") -> ModbusLinkConfig:
         logger.warning("modbus_link: claves desconocidas ignoradas en %s: %s",
                        origen, sorted(desconocidas))
 
+    _validar_cruzado(valores, defecto, origen)
     return ModbusLinkConfig(**valores)
+
+
+# V19-s1-04: all_off(1.0) debe alcanzar a leer la confirmación (timeout de
+# una transacción menor que la mitad del segundo).
+TIMEOUT_MAXIMO_CRUZADO_S = 0.5
+
+
+def _validar_cruzado(valores: dict, defecto: ModbusLinkConfig, origen: str) -> None:
+    """Validación cruzada (V19-s1-04): las claves implicadas vuelven al valor
+    interno, con advertencia. Los valores internos cumplen las dos reglas."""
+    periodo = valores.get("periodo_sondeo_s", defecto.periodo_sondeo_s)
+    desconexion = valores.get("tiempo_desconexion_modulo_ds",
+                              defecto.tiempo_desconexion_modulo_ds)
+    # El sondeo debe renovar el temporizador del módulo al menos dos veces
+    # dentro de su tiempo de desconexión.
+    if not periodo < (desconexion / 10.0) / 2.0:
+        logger.warning("modbus_link: periodo_sondeo_s=%r no es menor que la mitad de "
+                       "tiempo_desconexion_modulo_ds=%r (%.2f s) en %s; se usan los "
+                       "valores internos %r y %r", periodo, desconexion,
+                       desconexion / 20.0, origen, defecto.periodo_sondeo_s,
+                       defecto.tiempo_desconexion_modulo_ds)
+        valores.pop("periodo_sondeo_s", None)
+        valores.pop("tiempo_desconexion_modulo_ds", None)
+    timeout = valores.get("timeout_s", defecto.timeout_s)
+    if timeout >= TIMEOUT_MAXIMO_CRUZADO_S:
+        logger.warning("modbus_link: timeout_s=%r no es menor que %.1f s (all_off(1.0) no "
+                       "alcanzaría a confirmar) en %s; se usa el valor interno %r",
+                       timeout, TIMEOUT_MAXIMO_CRUZADO_S, origen, defecto.timeout_s)
+        valores.pop("timeout_s", None)
 
 
 def cargar_config(path: Optional[str] = None) -> ModbusLinkConfig:

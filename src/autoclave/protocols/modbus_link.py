@@ -83,6 +83,8 @@ REG_PT_UNIDAD = 0x39A4
 REG_PT_COMPENSACION = 0x38A4
 REG_PT_FILTRO = 0x3AA4
 REG_PT_DESHABILITADA = 0x3BA4
+# 0x0C36: 1 = al vencer 0x0C35 las DO pasan a su estado de falla (MOD-07).
+MODO_FALLA_ACTIVO = 1
 
 # Códigos de diagnóstico de las PT100 (MOD-03): el canal se entrega None.
 CODIGOS_PT100 = {
@@ -93,6 +95,11 @@ CODIGOS_PT100 = {
     -32768: "fuera de rango (bajo)",
     -32767: "canal deshabilitado",
 }
+
+
+# Alarmas de la conexión que salen en origen "operacion" cuando la conexión
+# rehace una que estaba en operación (COM-03 en ciclo; V19-s3-04).
+_ALARMAS_ORIGEN_CONFIG = frozenset({"TARJETA_CONFIG_SEGURIDAD", "TARJETA_MODULOS_ORDEN"})
 
 
 class _FalloTransaccion(Exception):
@@ -647,7 +654,10 @@ class ModbusLink:
     def _diagnosticar(self) -> None:
         regs = self._leer_holding(REG_CODIGO_ERROR, 4)    # 7587, 7588-89, 758A
         codigo, mascara, negociacion = regs[0], (regs[1] << 16) | regs[2], regs[3]
-        bandera = self._leer_holding(REG_BANDERA_FALLA, 1)[0]
+        # V19-s1-03: 0x0C35-0x0C37 en una sola transacción; 0x0C35 y 0x0C36
+        # se comparan con lo escrito en la conexión (un Reload sin reinicio
+        # los devuelve a fábrica sin cortar el TCP).
+        tiempo, modo, bandera = self._leer_holding(REG_TIEMPO_DESCONEXION, 3)
         with self.data_lock:
             self._modulos["codigo_error"] = codigo
             self._modulos["mascara_expansores"] = mascara
@@ -657,6 +667,14 @@ class ModbusLink:
             self._invalidar_en_operacion(
                 "TARJETA_WATCHDOG",
                 f"El módulo principal apagó las salidas por desconexión (0x0C37={bandera}).")
+            return
+        esperado = self.config.tiempo_desconexion_modulo_ds
+        if tiempo != esperado or modo != MODO_FALLA_ACTIVO:
+            self._invalidar_en_operacion(
+                "TARJETA_CONFIG_SEGURIDAD",
+                f"La configuración de seguridad de los módulos cambió en operación "
+                f"(0x0C35={tiempo}, se espera {esperado}; 0x0C36={modo}, se espera "
+                f"{MODO_FALLA_ACTIVO}).")
             return
         if codigo == 2 or negociacion != 0 or codigo not in (0, 1, 2):
             logger.warning("ModbusLink: diagnóstico crudo 0x7587=%d 0x758A=%d", codigo,
@@ -704,11 +722,19 @@ class ModbusLink:
             tarjeta = self._pasos_conexion(fin, origen_config, tras_suspension)
         except _TraficoSuspendido:
             logger.warning("ModbusLink: conexión interrumpida por la vigilancia del lazo")
+            self._apagar_tras_fallo_conexion()
             return False
         except _FalloConexion as f:
-            origen = origen_config if f.alarma == "TARJETA_CONFIG_SEGURIDAD" else "handshake"
+            self._apagar_tras_fallo_conexion()
+            # V19-s3-04: también TARJETA_MODULOS_ORDEN (paso 2) sale en
+            # "operacion" si la conexión rehace una que estaba en operación.
+            origen = (origen_config if f.alarma in _ALARMAS_ORIGEN_CONFIG
+                      else "handshake")
             self._evento(origen, f.alarma, f.motivo)
             return False
+        except Exception:
+            self._apagar_tras_fallo_conexion()
+            raise
 
         with self.data_lock:
             self._discrepancia_tramas = 0
@@ -726,6 +752,26 @@ class ModbusLink:
         self._evento("conectada", None, "Conexión verificada")
         self._notificar()
         return True
+
+    def _apagar_tras_fallo_conexion(self) -> None:
+        """V19-s1-01: una conexión fallida con el socket abierto envía de
+        mejor esfuerzo un 0F con las 32 en 0 (sin confirmar), en todos los
+        estados (como el 0F de all_off, ignora la vigilancia del lazo): los
+        reintentos de conexión mantienen vivo el temporizador de desconexión
+        del módulo y, sin esto, una salida en ON quedaría sin control."""
+        if self._cliente is None:
+            return
+        with self._cmd_lock:
+            ahora = time.monotonic()
+            with self.data_lock:
+                for ch in range(1, N_DO + 1):
+                    self._registrar_comando(ch, False, ahora)
+                self._sin_confirmar = set()
+            try:
+                self._tx("write_coils", DIR_DO, [False] * N_DO, forzar=True)
+            except (_FalloTransaccion, _TraficoSuspendido) as e:
+                logger.warning("ModbusLink: apagado tras la conexión fallida sin enviar (%s)",
+                               e)
 
     def _paso_tx(self, fin: float, paso: str, fn, *args, **kwargs):
         if time.monotonic() >= fin:
@@ -826,15 +872,17 @@ class ModbusLink:
         # 3. Configuración de seguridad (MOD-07)
         self._escribir_configuracion(fin)
 
-        # 4. Apagar todo y confirmar
-        self._paso_tx(fin, "apagado", self._tx, "write_coils", DIR_DO, [False] * N_DO)
-        leidas = list(self._paso_tx(fin, "apagado", self._tx, "read_coils", DIR_DO,
-                                    count=N_DO).bits)[:N_DO]
-        ahora = time.monotonic()
-        with self.data_lock:
-            self.data["do"] = [1 if b else 0 for b in leidas] + [0] * (N_DO - len(leidas))
-            self._comandado = {ch: (False, ahora) for ch in range(1, N_DO + 1)}
-            self._sin_confirmar = set()
+        # 4. Apagar todo y confirmar. Bajo _cmd_lock (V19-s1-05): ningún
+        # set_output se intercala entre el apagado y su confirmación.
+        with self._cmd_lock:
+            self._paso_tx(fin, "apagado", self._tx, "write_coils", DIR_DO, [False] * N_DO)
+            leidas = list(self._paso_tx(fin, "apagado", self._tx, "read_coils", DIR_DO,
+                                        count=N_DO).bits)[:N_DO]
+            ahora = time.monotonic()
+            with self.data_lock:
+                self.data["do"] = [1 if b else 0 for b in leidas] + [0] * (N_DO - len(leidas))
+                self._comandado = {ch: (False, ahora) for ch in range(1, N_DO + 1)}
+                self._sin_confirmar = set()
         if len(leidas) != N_DO or any(leidas):
             encendidas = [str(i + 1) for i, b in enumerate(leidas) if b]
             raise _FalloConexion("TARJETA_SALIDAS_NO_APAGADAS",
@@ -865,6 +913,10 @@ class ModbusLink:
                 self._evento("operacion", "TARJETA_WATCHDOG",
                              "El módulo principal apagó las salidas por desconexión "
                              "mientras el lazo de control no respondía (0x0C37=1).")
+                # Una vez por suspensión: si esta conexión falla, los
+                # reintentos no repiten el evento (V19-s1-06).
+                with self.data_lock:
+                    self._tras_suspension = False
             else:
                 logger.warning("ModbusLink: el módulo venía de un corte por desconexión "
                                "(0x0C37=%d); las salidas ya estaban apagadas", bandera)
@@ -872,6 +924,17 @@ class ModbusLink:
             # para detectar el próximo corte.
             self._paso_tx(fin, "bandera de falla", self._tx, "write_registers",
                           REG_BANDERA_FALLA, [0])
+            # V19-s1-06: si no queda en 0, cada conexión siguiente vería la
+            # bandera vieja (bucle de TARJETA_WATCHDOG): la conexión falla.
+            relectura = self._paso_tx(fin, "bandera de falla", self._leer_holding,
+                                      REG_BANDERA_FALLA, 1)[0]
+            with self.data_lock:
+                self._modulos["falla_salidas"] = relectura
+            if relectura != 0:
+                raise _FalloConexion(
+                    "TARJETA_CONFIG_SEGURIDAD",
+                    f"No se pudo borrar la bandera de falla 0x0C37 (se escribió 0 y se "
+                    f"leyó {relectura}).")
 
         # 7. Primer sondeo completo válido
         self._paso_tx(fin, "primer sondeo", self._sondear, True)
@@ -884,7 +947,7 @@ class ModbusLink:
             ("estado de las DO al encender", REG_DO_ENCENDIDO, [0] * 32),
             ("modo de las DO", REG_DO_MODO, [0] * 32),
             ("tiempo de desconexión", REG_TIEMPO_DESCONEXION, [c.tiempo_desconexion_modulo_ds]),
-            ("modo de falla por desconexión", REG_MODO_FALLA, [1]),
+            ("modo de falla por desconexión", REG_MODO_FALLA, [MODO_FALLA_ACTIVO]),
             ("rango de las AI", REG_RANGO_AI, [1] * 16),
             ("filtro de las AI", REG_FILTRO_AI, [c.filtro_ai]),
             ("unidad de las PT100", REG_PT_UNIDAD, [0] * 6),
@@ -930,6 +993,10 @@ class ModbusLink:
             return False
         estado = bool(state)
         with self._cmd_lock:
+            # V19-s1-05: la conexión pudo invalidarse (y su paso 4 correr)
+            # mientras se esperaba el candado.
+            if not self._handshake_ok:
+                return False
             with self.data_lock:
                 previo = self._comandado.get(channel)
                 sin_cambio = (previo is not None and previo[0] == estado

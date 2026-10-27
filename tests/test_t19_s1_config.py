@@ -89,13 +89,18 @@ def test_valor_invalido_da_advertencia_y_valor_interno(clave, valor, caplog):
 def test_valores_validos_se_aceptan():
     cfg = mc.config_desde_dict({
         "ip": " 127.0.0.1 ", "puerto": 1502, "unit_id": 247, "periodo_sondeo_s": 0.05,
-        "timeout_s": 2, "tiempo_desconexion_modulo_ds": 100, "filtro_ai": 4,
+        # V19-s1-04: timeout_s < 0,5 s; la conversión de un entero a float se
+        # comprueba con reintento_conexion_s.
+        "timeout_s": 0.45, "reintento_conexion_s": 2,
+        "tiempo_desconexion_modulo_ds": 100, "filtro_ai": 4,
         "filtro_pt100": 16, "discrepancia_dispara_fallo": False,
         "composicion_esperada": {"principal": "m31-xaxx0a00g-u",
                                  "expansiones": ["M31-GAXXXA000-U", "gxdxx0600"]},
     })
     assert cfg.ip == "127.0.0.1" and cfg.puerto == 1502 and cfg.unit_id == 247
-    assert cfg.timeout_s == 2.0 and isinstance(cfg.timeout_s, float)
+    assert cfg.timeout_s == 0.45 and isinstance(cfg.timeout_s, float)
+    assert cfg.reintento_conexion_s == 2.0 and isinstance(cfg.reintento_conexion_s, float)
+    assert cfg.periodo_sondeo_s == 0.05
     assert cfg.tiempo_desconexion_modulo_ds == 100 and cfg.filtro_ai == 4
     assert cfg.discrepancia_dispara_fallo is False
     assert cfg.composicion_esperada == {"principal": "XAXX0A00G",

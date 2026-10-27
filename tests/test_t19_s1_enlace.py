@@ -151,6 +151,16 @@ def test_conexion_correcta(sim, crear):
     assert all(h[m31.PT_FILTRO + i] == 1 for i in range(6))
     assert all(h[m31.PT_UNIDAD + i] == 0 and h[m31.PT_COMPENSACION + i] == 0
                and h[m31.PT_DESHABILITADA + i] == 0 for i in range(6))
+    # V19-s1-07: cada bloque de MOD-07 se escribió con la función 16 (no
+    # basta con que el valor de fábrica coincida con el esperado).
+    bloques = [
+        (m31.DO_FALLA, [1] * 32), (m31.DO_ENCENDIDO, [0] * 32), (m31.DO_MODO, [0] * 32),
+        (m31.TIEMPO_DESCONEXION, [5]), (m31.MODO_FALLA, [1]), (m31.RANGO_AI, [1] * 16),
+        (m31.FILTRO_AI, [0]), (m31.PT_UNIDAD, [0] * 6), (m31.PT_COMPENSACION, [0] * 6),
+        (m31.PT_FILTRO, [1] * 6), (m31.PT_DESHABILITADA, [0] * 6),
+    ]
+    for direccion, valores in bloques:
+        assert (16, direccion, valores) in sim.escrituras, hex(direccion)
     # Apagado de todo con 0F
     assert (15, 0, [False] * 32) in sim.escrituras
     diag = enlace.get_diagnostico()
@@ -520,10 +530,17 @@ def test_modulos_orden_en_operacion_invalida(sim, crear, codigo, negociacion):
     enlace = crear()
     _conectado(enlace)
     sim.orden_incorrecto(codigo=codigo == 2, negociacion=bool(negociacion))
-    eventos = _eventos_hasta(enlace, lambda e: e.origen == "handshake", 4)
+    # La reconexión también falla (paso 2, su motivo pide negociar con
+    # Reload) y, por rehacer una conexión en operación, sale en "operacion"
+    # (V19-s3-04).
+    eventos = _eventos_hasta(enlace, lambda e: e.alarm_id == "TARJETA_MODULOS_ORDEN"
+                             and "Reload" in e.motivo, 4)
     alarmas = _alarmas(eventos)
     assert alarmas[0] == ("operacion", "TARJETA_MODULOS_ORDEN")
-    assert ("handshake", "TARJETA_MODULOS_ORDEN") in alarmas   # la reconexión también falla
+    del_paso_2 = [e for e in eventos if e.alarm_id == "TARJETA_MODULOS_ORDEN"
+                  and "Reload" in e.motivo]
+    assert del_paso_2 and all(e.origen == "operacion" for e in del_paso_2)
+    assert all(origen == "operacion" for origen, _ in alarmas)
     assert not enlace.is_connected()
 
 
