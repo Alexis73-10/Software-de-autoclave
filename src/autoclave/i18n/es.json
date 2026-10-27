@@ -571,7 +571,6 @@
     "emparejamiento_tarjeta": "Tarjeta del equipo",
     "enlace_io": "Enlace de E/S",
     "enlace_io_modbus": "Modbus TCP (módulos M31-U)",
-    "enlace_io_serial": "Serial (tarjeta ESP32)",
     "tarjeta_emparejada": "Emparejada",
     "tarjeta_no_emparejada": "No emparejada (aviso)",
     "no_disponible": "No disponible",
@@ -783,12 +782,12 @@
     "COM-01": {
       "titulo": "Tarjeta de E/S desconectada",
       "descripcion": "No se detecta la tarjeta de E/S.",
-      "accion": "Conecte la tarjeta (cable USB) y verifique su alimentación.",
+      "accion": "Conecte la tarjeta (cable de red) y verifique su alimentación.",
       "plantilla": "No se detecta la tarjeta de control."
     },
     "TARJETA_SIN_TRAMA_VALIDA": {
       "titulo": "La tarjeta de E/S no envía datos válidos",
-      "accion": "Revise el cable USB y la alimentación de la tarjeta. Llame a servicio técnico.",
+      "accion": "Revise el cable de red y la alimentación de la tarjeta. Llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
     "TARJETA_VERSION_INCOMPATIBLE": {
@@ -1050,7 +1049,7 @@
     "CIC-11": {
       "titulo": "Comunicación inestable en esterilización",
       "plantilla": "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
-      "accion": "La carga NO está estéril. Revise el cable USB y la alimentación de la tarjeta y repita el ciclo. Si se repite, llame a servicio técnico."
+      "accion": "La carga NO está estéril. Revise el cable de red y la alimentación de la tarjeta y repita el ciclo. Si se repite, llame a servicio técnico."
     },
     "CIC-12": {
       "titulo": "Aire o gases no condensables en la cámara",
@@ -1090,7 +1089,7 @@
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
       "plantilla": "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase {fase}. El ciclo se abortó.",
-      "accion": "Verifique el cable USB y la alimentación de la tarjeta antes de reiniciar."
+      "accion": "Verifique el cable de red y la alimentación de la tarjeta antes de reiniciar."
     },
     "OPERANDO_SIN_BD": {
       "titulo": "Operando sin base de datos",

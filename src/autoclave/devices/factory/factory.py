@@ -1,7 +1,5 @@
 from autoclave.core.runtime.asignacion_io import canal_do
 from autoclave.hal.measures.units import Units
-from autoclave.config.enlace_io import ENLACE_MODBUS, ENLACE_SERIAL, enlace_activo
-from autoclave.protocols.serial_link import SerialLink
 from autoclave.utils.paths import calibration_path
 from autoclave.devices.puertas.door_type import DoorType
 
@@ -50,27 +48,16 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
     return cfg
 
 
-def build_serial(units, al_conectar=None) -> SerialLink:
-    """Enlace serial con la tarjeta, ya iniciado (abre el puerto y sus hilos).
-    `al_conectar(tarjeta)` se registra antes de start() para no perder el
-    primer handshake (audit_log y emparejamiento, FW-D7)."""
-    serial = SerialLink(on_update=lambda data: units.update_from_serial(data))
-    serial.al_conectar = al_conectar
-    serial._scan_ports()
-    serial.start()
-    return serial
-
-
 def build_modbus(units, al_conectar=None):
     """Enlace Modbus TCP con los módulos M31-U (tanda 19), ya iniciado.
-    Mismo orden que build_serial: al_conectar antes de start()."""
+    `al_conectar(tarjeta)` se registra antes de start() para no perder la
+    primera conexión verificada (audit_log y emparejamiento, FW-D7)."""
     try:
         from autoclave.protocols.modbus_link import ModbusLink
     except ImportError as e:
         raise RuntimeError(
-            "enlace_io: el enlace 'modbus' no está disponible en esta compilación "
-            f"(autoclave.protocols.modbus_link: {e}); usar 'serial' en "
-            "config/enlace_io.json") from e
+            "enlace de E/S: el enlace Modbus no está disponible en esta "
+            f"compilación (autoclave.protocols.modbus_link: {e})") from e
     enlace = ModbusLink(on_update=lambda data: units.update_from_serial(data))
     enlace.al_conectar = al_conectar
     enlace.start()
@@ -78,15 +65,10 @@ def build_modbus(units, al_conectar=None):
 
 
 def build_enlace(units, al_conectar=None):
-    """MOD-01 (tanda 19): construye e inicia el enlace de E/S activo
-    (config/enlace_io.json, leído una vez por proceso): ModbusLink o
-    SerialLink. Ambos cumplen protocols.enlace.EnlaceES."""
-    enlace = enlace_activo()
-    if enlace == ENLACE_SERIAL:
-        return build_serial(units, al_conectar=al_conectar)
-    if enlace == ENLACE_MODBUS:
-        return build_modbus(units, al_conectar=al_conectar)
-    raise RuntimeError(f"enlace_io: enlace desconocido {enlace!r}")
+    """Construye e inicia el enlace de E/S: ModbusLink (MOD-01; enlace único
+    desde la tanda 20, T20-03, que retiró el serial y la selección por
+    archivo). Cumple protocols.enlace.EnlaceES."""
+    return build_modbus(units, al_conectar=al_conectar)
 
 
 def build_doors_cfg(profile) -> list[dict]:

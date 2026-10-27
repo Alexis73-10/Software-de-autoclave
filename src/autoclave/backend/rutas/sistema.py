@@ -17,7 +17,6 @@ from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
-from autoclave.config.enlace_io import enlace_activo
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
     tarjeta_emparejada)
 from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO
@@ -78,6 +77,12 @@ def get_system_time():
 # Cada parte se lee por separado: un dato que falla queda en None ("—") sin
 # afectar a los demás.
 
+# Enlace de E/S publicado en /status y en la Información del equipo: único
+# desde la tanda 20 (T20-03, retiro del serial); se conserva el campo para no
+# romper la API (DECISIÓN SIN CONFIRMAR).
+ENLACE_IO = "modbus"
+
+
 def _parte(lector):
     try:
         return lector()
@@ -129,8 +134,9 @@ def get_system_info():
         "software": {"version": _parte(version_completa),
                      "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
                      "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None,
-                     # Tanda 19 (MOD-01): enlace de E/S activo ("modbus" | "serial")
-                     "enlace_io": _parte(enlace_activo)},
+                     # Tanda 19 (MOD-01); constante desde la tanda 20 (T20-03,
+                     # enlace serial retirado): se conserva por la API
+                     "enlace_io": ENLACE_IO},
         "uso": {"ciclos": _parte(context.db.max_numero_ciclo),
                 "mantenimiento": _parte(context.mantenimiento.resumen)},
         "configuracion": {"idioma": _parte(context.config_idioma.leer),
@@ -207,7 +213,7 @@ def registrar_suspension(body: _SuspensionBody):
 
 
 def _diagnostico_comunicacion() -> dict | None:
-    """Contadores y estado del enlace serial con la tarjeta (diagnóstico)."""
+    """Contadores y estado del enlace de E/S con los módulos (diagnóstico)."""
     try:
         diag = context.serial.get_diagnostico()
     except Exception:
@@ -446,8 +452,8 @@ def get_status():
         # su motivo (clave i18n) y si el operador ya reconoció la carga no liberable
         **_no_conforme_status(estado),
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
-        # Del enlace serial, no de Units: Units solo se entera por on_update
-        # y no refleja el handshake (ver planeacion_protocolo_serial_esp32.md).
+        # Del enlace de E/S, no de Units: Units solo se entera por on_update
+        # y no refleja la conexión verificada (handshake).
         # E2 (fin de ciclo §5): falla cerrada; "NO ABRIR" en cualquier estado
         **_camara_segura_status(estado),
         "estado_seguro":         _estado_seguro_status(),
@@ -456,8 +462,8 @@ def get_status():
         "estado_tarjeta":        _estado_tarjeta(),
         "comunicacion":          _diagnostico_comunicacion(),
         "tarjeta":               _tarjeta_status(),
-        # MOD-01 (tanda 19): enlace de E/S activo, "modbus" o "serial"
-        "enlace_io":             enlace_activo(),
+        # MOD-01 (tanda 19); constante "modbus" desde la tanda 20 (T20-03)
+        "enlace_io":             ENLACE_IO,
         "test_mode_active":      context.control_loop.test_mode_active,
         # Tanda 17 (ESG-02): salidas que el lazo apagó en el modo prueba en curso
         # ({n, salida, codigo, aviso}: aviso = clave i18n de Entradas / Salidas)

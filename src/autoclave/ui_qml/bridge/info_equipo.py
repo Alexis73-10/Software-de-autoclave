@@ -80,7 +80,9 @@ _TEXTO_EMPAREJAMIENTO = {True: "tarjeta_emparejada", False: "tarjeta_no_empareja
 
 
 # Tanda 19 (MOD-01): enlace de E/S -> clave del texto en la sección "equipo"
-_TEXTO_ENLACE = {"modbus": "enlace_io_modbus", "serial": "enlace_io_serial"}
+# (solo Modbus desde la tanda 20, T20-03: el serial se retiró y otro valor se
+# muestra "No disponible")
+_TEXTO_ENLACE = {"modbus": "enlace_io_modbus"}
 
 
 def _fila_enlace(enlace) -> dict:

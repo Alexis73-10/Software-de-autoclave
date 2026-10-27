@@ -62,13 +62,17 @@ _BANDA_CHAQUETA_KPA = catalogo_parametros.BANDA_CHAQUETA_KPA
 _DEBOUNCE_ENFRIADA = 3
 _INTERVALO_REINTENTO_APERTURA_SEG = 5.0
 # P-3 (tanda 6): tolerancia a una trama DI vencida con el enlace activo
-# (PARO_EMERGENCIA sin PARO_REAL) antes de abortar el ciclo. Nunca mayor que
-# el watchdog del firmware (WD_TIMEOUT_MS = 5000 en
-# Hardware/Comunicacion_esclava_ESP32_V3) menos 1 s de margen: 4 s
-# (DECISIÓN SIN CONFIRMAR: la instrucción permite hasta 5 s). Ojo (TMG-01 de
-# T2): ese watchdog mide líneas del PC a la tarjeta; con la DI vencida el PC
-# sigue enviando y el watchdog no actúa. Por eso, durante la tolerancia se
-# cortan el vapor de cámara y de chaqueta (TMG-02 / SAF-01 de T2).
+# (PARO_EMERGENCIA sin PARO_REAL) antes de abortar el ciclo: 4 s (DECISIÓN
+# SIN CONFIRMAR: la instrucción permite hasta 5 s). El valor se fijó con el
+# watchdog del firmware de la ESP32 (5 s menos 1 s de margen); ese enlace se
+# retiró en la tanda 20 (T20-03) y el valor se conserva sin cambios. Con
+# Modbus el módulo M31 corta las salidas a 1,0 s sin tráfico y ModbusLink
+# declara la pérdida tras 3 transacciones fallidas: si 4 s sigue siendo
+# adecuado queda para revisar (anomalía de la tanda 20, decisión de
+# Cristian). Ojo (TMG-01 de T2): con la DI vencida el PC puede seguir
+# hablando con el módulo y su corte no actúa. Por eso, durante la
+# tolerancia se cortan el vapor de cámara y de chaqueta (TMG-02 / SAF-01 de
+# T2).
 _TOLERANCIA_DI_VENCIDA_SEG = 4.0
 # Tramas DI vigentes, distintas y nuevas, seguidas para reiniciar la
 # tolerancia (TMG-03 de T2: una trama intermitente no puede renovarla
@@ -1026,7 +1030,7 @@ class CicloState:
             # el protocolo de fallo, que corre continuamente. El drenaje
             # se mantiene sin importar la causa de fin de ciclo.
             # _mantener_drenaje() corre DESPUÉS de _protocolo.update(): si el
-            # ALL_OFF inicial no se confirmó (ACK perdido por caída serial),
+            # ALL_OFF inicial no se confirmó (confirmación perdida por caída del enlace),
             # update() reintenta reset_all_outputs() y apagaría el agua del
             # intercambiador justo después de que este método la encendiera.
             if self._paro_en_espera:
@@ -1254,7 +1258,7 @@ class CicloState:
     # ------------------------------------------------------------------
 
     def abortar_por_desconexion(self, segundos: float = 5.0):
-        """Llamado por ControlLoop cuando la comunicación serial lleva caída
+        """Llamado por ControlLoop cuando la comunicación con la tarjeta lleva caída
         más que su tolerancia (ControlLoop._TOLERANCIA_DESCONEXION_SEG)
         durante un ciclo en curso. run() no puede detectarlo por sí mismo
         porque, sin conexión, el ControlLoop deja de invocar
@@ -1265,7 +1269,7 @@ class CicloState:
             return  # ya se estaba abortando/terminando por otra causa
 
         self._cerrar_pausa_sin_datos()          # T2-a
-        logger.error("CicloState: ABORTADO por pérdida de comunicación serial")
+        logger.error("CicloState: ABORTADO por pérdida de comunicación con la tarjeta de E/S")
         self.estado.fase_ciclo = "FALLO_CONEXION"
         fase = self._fase_actual_legible()
         self._registrar_fallo(COM_02, origen=fase, segundos=segundos, fase=fase)
@@ -1275,8 +1279,8 @@ class CicloState:
     def abortar_por_falla_io(self, alarm_id: str, motivo: str):
         """Llamado por ControlLoop cuando la tarjeta de E/S informa una falla
         durante un ciclo en curso: watchdog disparado, reinicio, expansor
-        fuera de línea o salidas que no siguen lo comandado (plan de
-        protocolo serial §7 y §11.5). Análogo a abortar_por_desconexion(): el
+        fuera de línea o salidas que no siguen lo comandado (E6; MOD-12).
+        Análogo a abortar_por_desconexion(): el
         enlace puede quedar sin handshake (WD/BOOT) y entonces run() no corre,
         así que el aborto y el protocolo de fallo se disparan desde aquí.
 

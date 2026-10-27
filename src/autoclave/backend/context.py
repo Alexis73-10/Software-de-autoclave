@@ -614,11 +614,12 @@ class BackendContext:
     # ── 7. conectando_modulos_es ─────────────────────────────────────────────
 
     def construir_control(self, al_cancelar_prueba=None) -> None:
-        """Abre el serial, construye puertas, registro de ciclo y ControlLoop,
+        """Abre el enlace de E/S, construye puertas, registro de ciclo y ControlLoop,
         y arranca el loop. `al_cancelar_prueba` se registra antes de start(),
         para no perder un paro que llegue en el primer tick."""
-        # MOD-01 (tanda 19): enlace activo (Modbus o serial); el atributo
-        # conserva el nombre `serial` para no tocar a los llamadores
+        # MOD-01 (tanda 19): enlace de E/S (Modbus, único desde la tanda 20,
+        # T20-03); el atributo conserva el nombre `serial` (histórico) para no
+        # tocar a los llamadores
         self.serial = build_enlace(self.units, al_conectar=self._al_conectar_tarjeta)
         self.setdo = SetOutput(self.serial, self.estado, profile=self.profile)
         self.inhibir_salidas_sin_verificar()     # R8: SAF-02 de la re-revisión
@@ -1069,7 +1070,7 @@ class BackendContext:
 
     @property
     def enlace(self):
-        """Alias de `serial` (MOD-01, tanda 19): el enlace de E/S activo."""
+        """Alias de `serial` (MOD-01, tanda 19): el enlace de E/S."""
         return self.serial
 
     def es_conectada(self) -> bool:

@@ -571,7 +571,6 @@
     "emparejamiento_tarjeta": "Equipment board",
     "enlace_io": "I/O link",
     "enlace_io_modbus": "Modbus TCP (M31-U modules)",
-    "enlace_io_serial": "Serial (ESP32 board)",
     "tarjeta_emparejada": "Paired",
     "tarjeta_no_emparejada": "Not paired (notice)",
     "no_disponible": "Not available",
@@ -783,12 +782,12 @@
     "COM-01": {
       "titulo": "I/O board disconnected",
       "descripcion": "The control board is not detected.",
-      "accion": "Connect the board (USB cable) and check its power supply.",
+      "accion": "Connect the board (network cable) and check its power supply.",
       "plantilla": "The control board is not detected."
     },
     "TARJETA_SIN_TRAMA_VALIDA": {
       "titulo": "The I/O board is not sending valid data",
-      "accion": "Check the USB cable and the board power supply. Call technical service.",
+      "accion": "Check the network cable and the board power supply. Call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_VERSION_INCOMPATIBLE": {
@@ -1050,7 +1049,7 @@
     "CIC-11": {
       "titulo": "Unstable communication during sterilization",
       "plantilla": "The pauses caused by missing control board data added up to {segundos:.0f} s during sterilization (maximum {maximo:.0f} s). The cycle was aborted.",
-      "accion": "The load is NOT sterile. Check the USB cable and the board's power supply and repeat the cycle. If it happens again, call technical service."
+      "accion": "The load is NOT sterile. Check the network cable and the board's power supply and repeat the cycle. If it happens again, call technical service."
     },
     "CIC-12": {
       "titulo": "Air or non-condensable gases in the chamber",
@@ -1090,7 +1089,7 @@
     "COM-02": {
       "titulo": "Communication lost during the cycle",
       "plantilla": "Communication with the board was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
-      "accion": "Check the USB cable and the board's power supply before restarting."
+      "accion": "Check the network cable and the board's power supply before restarting."
     },
     "OPERANDO_SIN_BD": {
       "titulo": "Operating without database",

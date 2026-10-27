@@ -756,7 +756,7 @@ def io_test_set_output(name: str, body: _OutputSetBody,
             if codigo is not None:
                 raise _Rechazo(409, codigo, salidas_prueba_seguridad.MOTIVOS[codigo])
         # map_do es 0-indexado (posición en el bitstream DO), pero
-        # serial_link.set_output() espera el número de canal DO físico
+        # el enlace (EnlaceES.set_output()) espera el número de canal DO físico
         # 1-indexado (DO1..DO32), igual que SetOutput y la fábrica de puertas.
         index = EstadoAutoclave.map_do[clave]
         if body.value and context.setdo.salida_bloqueada(index + 1) is True:

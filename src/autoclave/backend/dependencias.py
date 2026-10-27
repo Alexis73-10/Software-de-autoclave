@@ -45,12 +45,9 @@ _detener_arranque = threading.Event()
 # Actividad compartida de las pantallas QML (standby simultáneo); solo presentación.
 actividad_ui = ActividadUI()
 
-# Tanda 19 (MOD-04): ruta del archivo de calibración del enlace de E/S activo
-# (calibration.yaml en serial, calibration_modbus.yaml en Modbus). Se calcula
-# al importar: el enlace es fijo por proceso (config/enlace_io, cambiarlo exige
-# reiniciar el backend), así que el valor no queda viejo. En las pruebas,
-# tests/conftest.py fija "serial" antes de que nada importe este módulo: aquí
-# queda calibration.yaml; las de Modbus que la necesiten la parchean.
+# Tanda 19 (MOD-04): ruta del archivo de calibración de los módulos M31-U
+# (calibration_modbus.yaml; enlace único desde la tanda 20, T20-03). Se
+# calcula al importar; las pruebas que necesiten otra la parchean.
 CALIBRATION_PATH = calibration_path()
 
 

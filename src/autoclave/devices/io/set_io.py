@@ -296,8 +296,8 @@ class SetOutput:
 
     def reset_all_outputs(self, timeout: float | None = None) -> bool:
         """Apaga todas las salidas. Usa ALL_OFF con ACK; si falla, cae a comandos
-        individuales (sin confirmación). Retorna True solo si el ESP32 confirmó
-        el apagado vía ACK de ALL_OFF. `timeout`: espera máxima del ACK (None =
+        individuales (sin confirmación). Retorna True solo si el enlace confirmó
+        el apagado (ALL_OFF escrito y releído). `timeout`: espera máxima del ACK (None =
         la del enlace)."""
         # TMG-02 de la re-revisión B9: un apagado total con el paro activo (p.
         # ej. el aborto del ciclo por paro sin datos) cuenta como pedido de

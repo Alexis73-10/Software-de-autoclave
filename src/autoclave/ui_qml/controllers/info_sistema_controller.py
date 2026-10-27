@@ -22,7 +22,9 @@ from autoclave.ui_qml.domain import resumen_sistema as dominio
 _MENSAJES = {sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta"}
 
 # Tanda 19 (MOD-01): enlaces de E/S con texto en equipo.enlace_io_<enlace>
-ENLACES_IO = ("modbus", "serial")
+# (solo Modbus desde la tanda 20, T20-03: el serial se retiró; otro valor se
+# muestra "—")
+ENLACES_IO = ("modbus",)
 GRUPOS = ("equipo", "software", "uso", "configuracion")
 ESTADOS_IMPRESORA = ("lista", "no_instalada", "desconectada", "sin_papel", "error", "deshabilitada",
                      "desconocido")
