@@ -21,7 +21,7 @@
 |---|---|---|---|
 | A-01 | Instalación con el asistente QML | En seco (sin vapor) | §5.7; S1 |
 | A-02 | Arranque con la tarjeta conectada: ALL_OFF | En seco (sin vapor) | §5.1 (T6) |
-| A-03 | Firmware 1.0.0: versión e ID solo en Información del sistema | En seco (sin vapor) | E6; tanda 2 §1 |
+| A-03 | Firmware de los módulos e ID solo en Información del sistema | En seco (sin vapor) | E6; tanda 2 §1; ADB-02/ADB-03 (tanda 20) |
 | A-04 | DO1/DO2 nunca se encienden (generador interno) | En seco (sin vapor) | S1 |
 | A-05 | Ejecutable compilado: engrane, ajustes y cierre limpio | En seco (sin vapor) | B2 (tanda 4) |
 | B-01 | Paro de emergencia NC: pulsar, soltar, confirmar | En seco (sin vapor) | §5.2; PF-21; U1 |
@@ -62,6 +62,14 @@
 | G-01 | Líquidos con la sonda dentro del líquido | En operación (vapor) | §5.4; T11; HAZ-LIQ-01 |
 | B-08 | Modo prueba: termina al cerrar su ventana por cualquier camino | En seco (sin vapor) | P1 (tanda 5) |
 | C-05 | Arranque con cámara no segura: confirmar estado seguro sin técnico | En seco (sin vapor) | T1 (tanda 5), P-10 |
+| C-05b | Arranque sin sensor de presión de cámara: sin bloqueos (H1, H2, H5, H6, H8) | En seco (sin vapor) | S9 D9-1.1 a 1.5 (tanda 9) |
+| C-05c | Arranque con la cámara en vacío: aire atmosférico, sin confirmación | En seco (bomba de vacío) | S9 D9-1.1 (tanda 9) |
+| C-05d | Paro real pulsado y liberado durante el estado seguro del arranque: sí pide confirmación | En seco | S9 D9-1.2 (tanda 9) |
+| C-05e | Cambio de programa y modo prueba con el estado seguro en curso | En seco | S9 D9-1.3 (tanda 9; revierte SAF-03 de T6) |
+| C-05f | Coherencia puerta-presión (SEN-10) | En seco | S9 D9-1.6 (tanda 9) |
+| C-05g | Modo prueba con la cámara no segura: apertura de puertas bloqueada (SAF-01) | En seco | S9, revisión ★ SAF-01 (tanda 9; DECISIÓN SIN CONFIRMAR, excepción nueva a D-ES-15) |
+| C-05h | Estado seguro con la trama AI vencida (TMG-02) | En seco | S9, revisión ★ TMG-02 (tanda 9) |
+| C-05i | Arranque sin sensor de presión de cámara: texto de CIC-10 según la causa | En seco (sin vapor) | T10 D10-3 (tanda 10) |
 | D-15 | Interruptor "Impresora habilitada" | En seco (sin vapor) | P2 (tanda 5) |
 | D-16 | Ajustes PySide: renovación del token y reingreso tras sesión vencida | En seco (sin vapor) | P3 (tanda 5) |
 | D-17 | Parámetros del ciclo: defecto, sensores, entradas y gestión de programas | En seco (sin vapor) | O1 (tanda 5) |
@@ -95,6 +103,26 @@
 | F-06 | Trama de la tarjeta vencida en ciclo: tolerancia de 4 s | En operación (vapor) | T2 P-3 (tanda 6) |
 | F-07 | Paro con el ciclo terminando: diálogo de estado seguro al CONFIRMAR | En operación (vapor) | T2 P-6 (tanda 6) |
 | G-03 | Líquidos: drenaje a atmosférica por la lenta hasta temp_max_apertura | En operación (vapor) | T2 P-12 (tanda 6) |
+| G-04 | Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión | En seco | V8a D8-5.7 (tanda 8); HAZ-V8A-01 |
+| A-E9-01 | Instalación limpia de la D: modo de descompresión 5 en los 4 programas y entrega sin datos del banco | En seco (sin vapor) | E9 D9-8 (H14) y D9-7 (H17) (tanda 9) |
+| A-E9-02 | Actualización B → D con el Setup, sin copiar archivos a mano | En seco (sin vapor) | E9 D9-13.1 (tanda 9) |
+| D-E9-01 | Sin transductores conectados: la presión se muestra «—», nunca 0 | En seco (sin vapor) | E9; H4 resuelto en S1 D8-1.1 (tanda 8). Complementa D-38 (que mide las cuentas ADC). |
+| D-E9-02 | Carga Líquido: el modo de descompresión no válido muestra su motivo | En seco (sin vapor) | E9; H13 resuelto en D8-5.7 y D8-5.8 (tanda 8). Complementa G-04. |
+| D-E9-03 | Entradas/Salidas solo con los canales del perfil (equipo sin sensores) | En seco (sin vapor) | E9; H16 resuelto en D8-3.17 (tanda 8). Complementa D-39. |
+| D-X9-01 | Cambio de un parámetro con el ciclo en curso: bitácora antes de aplicar | En operación (o con la planta simulada) | X9 D9-13.3 (tanda 9); HAZ-X9-01 |
+| D-X9-02 | Interfaz en inglés: ticket, reimpresión y motivo de fallo en inglés | En seco (sin vapor) | X9 D9-13.4 (tanda 9); HAZ-X9-02 |
+| A-N11-01 | Setup sobre una versión anterior: Actualizar conserva los datos | En seco (sin vapor) | N11 D11-4 (tanda 11) |
+| A-N11-02 | Instalación limpia: doble confirmación, respaldo completo y menú de instalación | En seco (sin vapor) | N11 D11-4 (tanda 11) |
+| A-N11-03 | Instalación limpia rechazada: confirmación en No y Autoclave abierto no borran nada | En seco (sin vapor) | N11 D11-4 (tanda 11) |
+| A-N11-04 | Asociación de los 2 táctiles con sus pantallas desde el Setup | En seco (sin vapor) | N11 D11-5 (tanda 11) |
+| A-N11-05 | Reinicio del PC: la asociación de los táctiles se conserva; el desinstalador la revierte | En seco (sin vapor) | N11 D11-5 (tanda 11) |
+| A-T12-01 | Tras instalar la H: Bowie & Dick migrado de 99 a 9 con aviso SIS-06 en Preciclo y campana | En seco (sin vapor) | J12 C-04.2/C-04.4 (tanda 12) |
+| E-T12-01 | Chaqueta en ciclo: consigna calculada (134 °C / 9 → ≈ 328,2 kPa, banda ±10) vs presión real | En operación (vapor) | J12 C-05 (tanda 12) |
+| E-T12-02 | Entrada a ESTABLE_PREESTERILIZACION con la presión de saturación, sin aire | En operación (vapor) | P12 C-01/C-02 (tanda 12) |
+| E-T12-03 | Esterilización sin conmutación rápida RECUPERACION ↔ PWM | En operación (vapor) | E12 C-07/C-08 (tanda 12) |
+| E-T12-04 | Bowie & Dick de usuario con `presion_add` 9 | En operación (vapor) | J12 C-04.1 (tanda 12) |
+| F-T12-01 | Excursión de una Referencia en la exposición: el conteo se detiene y reinicia (C-13) | En operación (vapor) | E12 C-13 (tanda 12) |
+| F-T12-02 | Referencia desconectada: el ciclo sigue, SEN-11 y ticket NO CONFORME | En operación (vapor) | E12 C-13.7b (tanda 12) |
 | B-11 | PREPARADO: el aire de cámara cierra a los 3 ticks reales | En seco (sin vapor) | Q1 R1-P2 (tanda 7) |
 | C-07 | DESPEJAR de COM-02/03 solo con el enlace de vuelta en ok | En seco (sin vapor) | Q1 T2-b (tanda 7); complementa C-06 |
 | D-37 | Calentamiento: rango de temperatura y de presión por separado | En seco (sin vapor) | Q1 R1-P3 (tanda 7) |
@@ -103,6 +131,7 @@
 | D-R8-03 | Reasignar el paro de emergencia: confirmación reforzada y cambio observado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
 | D-R8-04 | Reasignar una entrada analógica: calibración obligatoria en el puerto nuevo | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
 | D-R8-05 | Restaurar fábrica, respaldo y archivo dañado | En seco (sin vapor) | R8 (tanda 8, D8-5.12) |
+| D-39 | Canales de Entradas/Salidas según el perfil de instalación | En seco (sin vapor) | E1 D8-3.17 (tanda 8) |
 | E-R8-01 | Ciclo completo con Vapor cámara y Presión cámara reasignados | En operación (vapor) | R8 (tanda 8, D8-5.12) |
 | E-08 | Calentamiento con los rangos separados: sin cambio de comportamiento | En operación (vapor) | Q1 R1-P3 (tanda 7) |
 | F-08 | Sin datos de la tarjeta en esterilización: la exposición se alarga | En operación (vapor) | Q1 T2-a (tanda 7) |
@@ -121,32 +150,14 @@
 | C-08 | Rechazo de DESPEJAR con texto del catálogo | En seco (sin vapor) | S2b D8-2.15 (tanda 8); complementa C-07 |
 | F-19 | Reimpresión idéntica al ticket original (avisos del pie) | En operación (vapor) | S2b D8-2.14 (tanda 8) |
 | F-20 | CARGA NO ESTÉRIL en la pantalla de resultado | En operación (vapor) | S2b D8-2.16 (tanda 8) |
-| D-38 | Transductor de presión sin señal fuera de ciclo: cuentas ADC, «—», alarma propia, inicio bloqueado y NO ABRIR | En seco (sin vapor) | S1 D8-1.1/1.3/1.4 (tanda 8) |
-| F-21 | Transductor de presión de cámara sin señal en ciclo: FALLO SEN-04, solo la lenta | En operación (vapor) | S1 D8-1.2 (tanda 8) |
-| F-22 | Transductor de presión de chaqueta sin señal en ciclo: FALLO SEN-05, solo la lenta | En operación (vapor) | S1 D8-1.2/1.4 (tanda 8) |
-| B-14 | Modo prueba: el aire atmosférico solo abre sin presión en la cámara | En seco (sin vapor) | E1 D8-3.19 (tanda 8) |
-| B-15 | Apagar equipo: Windows rechaza el apagado | En seco (sin vapor) | E1 D8-3.21 (tanda 8) |
-| D-39 | Canales de Entradas/Salidas según el perfil de instalación | En seco (sin vapor) | E1 D8-3.17 (tanda 8) |
-| G-04 | Tipo de carga en Parámetros del ciclo: Líquido arrastra el modo de descompresión | En seco (sin vapor) | V8a D8-5.7 (tanda 8) |
-| A-E9-01 | Instalación limpia de la D: modo de descompresión 5 en los 4 programas y entrega sin datos del banco | En seco (sin vapor) | E9 D9-8 (H14) y D9-7 (H17) (tanda 9) |
-| A-E9-02 | Actualización B → D con el Setup, sin copiar archivos a mano | En seco (sin vapor) | E9 D9-13.1 (tanda 9) |
-| D-E9-01 | Sin transductores conectados: la presión se muestra «—», nunca 0 | En seco (sin vapor) | E9; H4 resuelto en S1 D8-1.1 (tanda 8) |
-| D-E9-02 | Carga Líquido: el modo de descompresión no válido muestra su motivo | En seco (sin vapor) | E9; H13 resuelto en D8-5.7/5.8 (tanda 8) |
-| D-E9-03 | Entradas/Salidas solo con los canales del perfil (equipo sin sensores) | En seco (sin vapor) | E9; H16 resuelto en D8-3.17 (tanda 8) |
-| D-X9-01 | Cambio de un parámetro con el ciclo en curso: bitácora antes de aplicar | En operación (o planta simulada) | X9 D9-13.3 (tanda 9); HAZ-X9-01 |
-| D-X9-02 | Interfaz en inglés: ticket, reimpresión y motivo de fallo en inglés | En seco (sin vapor) | X9 D9-13.4 (tanda 9); HAZ-X9-02 |
-| A-N11-01 | Setup sobre una versión anterior: Actualizar conserva los datos | En seco (sin vapor) | N11 D11-4 (tanda 11) |
-| A-N11-02 | Instalación limpia: doble confirmación, respaldo completo y menú de instalación | En seco (sin vapor) | N11 D11-4 (tanda 11) |
-| A-N11-03 | Instalación limpia rechazada: confirmación en No y Autoclave abierto no borran nada | En seco (sin vapor) | N11 D11-4 (tanda 11) |
-| A-N11-04 | Asociación de los 2 táctiles con sus pantallas desde el Setup | En seco (sin vapor) | N11 D11-5 (tanda 11) |
-| A-N11-05 | Reinicio del PC: la asociación de los táctiles se conserva; el desinstalador la revierte | En seco (sin vapor) | N11 D11-5 (tanda 11) |
-| A-T12-01 | Tras instalar la H: Bowie & Dick migrado de 99 a 9 con aviso SIS-06 en Preciclo y campana | En seco (sin vapor) | J12 C-04.2/C-04.4 (tanda 12) |
-| E-T12-01 | Chaqueta en ciclo: consigna calculada (134 °C / 9 → ≈ 328,2 kPa, banda ±10) vs presión real | En operación (vapor) | J12 C-05 (tanda 12) |
-| E-T12-02 | Entrada a ESTABLE_PREESTERILIZACION con la presión de saturación, sin aire | En operación (vapor) | P12 C-01/C-02 (tanda 12) |
-| E-T12-03 | Esterilización sin conmutación rápida RECUPERACION ↔ PWM | En operación (vapor) | E12 C-07/C-08 (tanda 12) |
-| E-T12-04 | Bowie & Dick de usuario con `presion_add` 9 | En operación (vapor) | J12 C-04.1 (tanda 12) |
-| F-T12-01 | Excursión de una Referencia en la exposición: el conteo se detiene y reinicia (C-13) | En operación (vapor) | E12 C-13 (tanda 12) |
-| F-T12-02 | Referencia desconectada: el ciclo sigue, SEN-11 y ticket NO CONFORME | En operación (vapor) | E12 C-13.7b (tanda 12) |
+| H-01 | Válvulas por fase en modo chaqueta | En operación (vapor) | VCH §4.1–4.3, §8.1 y §8.8 (tanda 16) |
+| H-02 | Golpe inicial al abrir vapor_camara tras el prevacío | En operación (vapor) | VCH-02 (D5) |
+| H-03 | Sobrepaso y tiempo de calentamiento frente al control anterior | En operación (vapor) | VCH-01 (ALTA) |
+| H-04 | Aislamiento de cámara por sobrepresión | En operación (vapor) | VCH §4.4–4.5, §8.3–8.5 |
+| H-05 | Corte de vapor de chaqueta | En operación (vapor) | D-CHQ / SAF-09 / VCH-CHQ |
+| H-06 | Temperatura real con la presión en el techo de ESTERILIZACION | En operación (vapor) | P1 / D-14.1 (DECISIÓN SIN CONFIRMAR) |
+| H-07 | Diferencia Principal–Referencia y oscilación pico a pico | En operación (vapor) | P3 / D-14.3 y P6 / D-14.6 (DECISIONES SIN CONFIRMAR) |
+| H-08 | Ciclo NO CONFORME: franja, reconocimiento y marcas | En operación (vapor) | P4 / D-14.4 |
 | I-01 | Setup: zona horaria de Windows | En seco (sin vapor) | INS-01 (tanda 17) |
 | I-02 | Setup: unidad D: y disposición programa/datos | En seco (sin vapor) | INS-02 (tanda 17) |
 | I-03 | ACL de programa con un usuario estándar | En seco (sin vapor) | INS-02 ACL (tanda 17, revisión V17-s1-01) |
@@ -162,15 +173,16 @@
 | I-13 | Intro de arranque sin perfil de instalación | En seco (sin vapor) | ARR-06 (tanda 18) |
 | I-14 | Reinicio del PC al terminar el asistente | En seco (sin vapor) | REI-01 (tanda 18) |
 | I-15 | Desinstalar devuelve el escritorio original | En seco (sin vapor) | EST-09 (tanda 18) |
-| M-0 | Paso previo: red dedicada y acceso a los módulos | En seco (sin vapor) | MOD-17 (tanda 19) |
+| M-0 | Paso previo: red dedicada y acceso a los módulos | En seco (sin vapor) | MOD-17 (tanda 19); T20-05 (tanda 20) |
 | M-1 | Corte por desconexión: el relé abre solo | En seco (sin vapor) | MOD-08 / MOD-07 (tanda 19; 1,0 s es DECISIÓN SIN CONFIRMAR) |
 | M-2 | Composición y orden de los módulos | En seco (sin vapor) | MOD-06 / MOD-10 (tanda 19) |
 | M-3 | Canal por canal: DI, DO, PT100 y transmisores | En seco (sin vapor) | MOD-03 / MOD-05 / MOD-07 (tanda 19) |
 | M-4 | Exactitud de PT100 y AI de presión | En seco (sin vapor) | MOD-16: MED-01 y MED-02 (tanda 19) |
 | M-5 | Restablecimiento de fábrica del módulo con el software corriendo | En seco (sin vapor) | MOD-07 / MED-03 (tanda 19) |
-| M-6 | Cambio de enlace a serial y de vuelta a Modbus | En seco (sin vapor) | MOD-01 (tanda 19) |
+| M-5b | Prueba aislada: ¿la configuración de falla exige reiniciar el módulo? | En seco (sin vapor) | ADB-04 (adenda tanda 19; decisión 8 de la tanda 20, pendiente de prueba aislada) |
+| M-7 | Setup con Modbus: red de los módulos, contraseña web y prueba de conexión | En seco (sin vapor) | T20-04 / T20-05 (tanda 20); MED-04 |
 
-## Bloque A. Arranque, instalación y firmware (en seco)
+## Bloque A. Arranque, instalación y módulos de E/S (en seco)
 
 ### A-01 — Instalación con el asistente QML
 
@@ -193,25 +205,25 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** §5.1 (T6)
 - **Objetivo:** Al conectar con la tarjeta, todas las salidas quedan apagadas.
-- **Precondiciones:** Equipo apagado, tarjeta conectada por USB.
+- **Precondiciones:** Equipo apagado, módulos de E/S M31-U conectados por red (M-0).
 - **Pasos:**
   1. Encender el PC y el software.
-  2. Observar los LED/relés de salida de la tarjeta durante el arranque.
+  2. Observar los LED/relés de salida de los módulos durante el arranque.
 - **Resultado esperado:** Ninguna salida se enciende durante el arranque; la barra de arranque termina.
 - **Criterio de aprobado/fallo:** Aprobado si ninguna salida se activa hasta que el equipo lo pida.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### A-03 — Firmware 1.0.0: versión e ID solo en Información del sistema
+### A-03 — Firmware de los módulos e ID solo en Información del sistema
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** E6; tanda 2 §1
-- **Objetivo:** La versión y el ID de la tarjeta se ven solo en Información del sistema.
-- **Precondiciones:** Tarjeta con firmware 1.0.0 conectada.
+- **Modo:** En seco (sin vapor)  ·  **Origen:** E6; tanda 2 §1; ADB-02/ADB-03 (tanda 20)
+- **Objetivo:** El firmware de los módulos y el ID del equipo (MAC del principal) se ven solo en Información del sistema.
+- **Precondiciones:** Módulos M31-U conectados (M-0). La tarjeta ESP32 ya no es compatible (tanda 20).
 - **Pasos:**
   1. Abrir Menú Principal › Información.
   2. Revisar la preciclo y el ciclo en curso.
-- **Resultado esperado:** Información muestra versión 1.0.0 y el ID único de la tarjeta, y si está emparejada. Las demás pantallas no los muestran.
+- **Resultado esperado:** Información muestra el firmware del principal y de las expansiones (p. ej. 9232-0-13 / 10,12,12,12,10), el ID `005404849DB1` (MAC del principal en el banco) y si está emparejado. Las demás pantallas no los muestran.
 - **Criterio de aprobado/fallo:** Aprobado si versión e ID son correctos y aparecen solo ahí.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
@@ -330,10 +342,10 @@
 ### B-05 — Tarjeta desconectada fuera de ciclo
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** §5.10; U4
-- **Objetivo:** Desconectar el USB no se confunde con un paro y deja el equipo en estado seguro.
+- **Objetivo:** Desconectar el cable de red de los módulos no se confunde con un paro y deja el equipo en estado seguro.
 - **Precondiciones:** PREPARADO.
 - **Pasos:**
-  1. Desconectar el USB de la tarjeta.
+  1. Desconectar el cable de red de los módulos.
   2. Observar alarmas y campana.
   3. Reconectar.
 - **Resultado esperado:** FALLA recuperable con "Tarjeta de E/S desconectada" (no "paro de emergencia"); NO ABRIR activo; sin inicio de ciclo. Al reconectar vuelve sin pedir confirmación de estado seguro (si nunca hubo paro real).
@@ -362,7 +374,7 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** A1 (tanda 3); A2
 - **Objetivo:** El personal técnico puede dejar el equipo fuera de servicio aunque haya una falla, el paro esté pulsado o no haya tarjeta; el siguiente arranque es normal.
-- **Precondiciones:** Sin ciclo en curso. Probar cada condición por separado: (a) FALLA recuperable (p. ej. USB desconectado); (b) paro de emergencia pulsado; (c) tarjeta desconectada; (d) cámara no segura (si se puede, con la cámara caliente, p. ej. tras E-01).
+- **Precondiciones:** Sin ciclo en curso. Probar cada condición por separado: (a) FALLA recuperable (p. ej. cable de red de los módulos desconectado); (b) paro de emergencia pulsado; (c) tarjeta desconectada; (d) cámara no segura (si se puede, con la cámara caliente, p. ej. tras E-01).
 - **Pasos:**
   1. Provocar la condición.
   2. En la puerta 1, Información del equipo › Apagar equipo.
@@ -443,7 +455,7 @@
 - **Precondiciones:** PREPARADO, sesión de técnico, modo prueba activo con una salida segura encendida.
 - **Pasos:**
   1. Salir del modo prueba con normalidad: anotar en la bitácora el evento de salida con el apagado confirmado.
-  2. Volver a entrar al modo prueba; desconectar el USB de la tarjeta y salir del modo prueba enseguida.
+  2. Volver a entrar al modo prueba; desconectar el cable de red de los módulos y salir del modo prueba enseguida.
   3. Observar el panel de notificaciones e intentar iniciar un ciclo.
   4. Reconectar la tarjeta y esperar a que se complete la conexión.
 - **Resultado esperado:** Paso 1: sin alarma. Paso 3: alarma COM-04 "Salidas sin confirmar"; el inicio de ciclo queda bloqueado. Paso 4: al completarse la conexión (o un apagado confirmado) la alarma se despeja y el inicio vuelve a estar permitido.
@@ -456,14 +468,14 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** B9 D9-9 (tanda 9); HAZ-B9-01
 - **Objetivo:** Con el paro pulsado solo conmuta el buzzer (DO24); ninguna salida que estuviera activa al pulsar el paro se enciende, ni un instante, cuando el buzzer reinicia su patrón. Fuera del paro, el buzzer no altera las demás salidas.
-- **Precondiciones:** Anotar el tipo de puerta del perfil (Información del sistema o `installation_profile.json`: simple o avanzada) y la versión de firmware (debe ser 1.0.0). PREPARACION o PREPARADO. Mirar los LED de la tarjeta de salidas (o un multímetro en las bornas). Lista de salidas a observar: DO3 vapor de chaqueta, DO4 vapor de cámara, DO5 descompresión rápida, DO6 descompresión lenta, DO7 descompresión de chaqueta, DO8 vacío de cámara, DO9/DO10 desbloqueo de puerta 1/2, DO11/DO12 bloqueo de puerta 1/2, DO13 libre (sin función desde la tanda 11; debe seguir siempre apagada), DO14 aire comprimido de cámara, DO15 aire atmosférico de cámara, DO16 agua de chaqueta, DO17 agua del intercambiador, DO18 agua de la bomba, DO19 bomba de vacío, DO20/DO21 abrir puerta 1/2, DO22/DO23 cerrar puerta 1/2, y DO24 buzzer (canal según la asignación de E/S vigente).
+- **Precondiciones:** Anotar el tipo de puerta del perfil (Información del sistema o `installation_profile.json`: simple o avanzada) y el firmware de los módulos (Información del sistema). PREPARACION o PREPARADO. Mirar los LED de los módulos de salidas (o un multímetro en las bornas). Lista de salidas a observar: DO3 vapor de chaqueta, DO4 vapor de cámara, DO5 descompresión rápida, DO6 descompresión lenta, DO7 descompresión de chaqueta, DO8 vacío de cámara, DO9/DO10 desbloqueo de puerta 1/2, DO11/DO12 bloqueo de puerta 1/2, DO13 libre (sin función desde la tanda 11; debe seguir siempre apagada), DO14 aire comprimido de cámara, DO15 aire atmosférico de cámara, DO16 agua de chaqueta, DO17 agua del intercambiador, DO18 agua de la bomba, DO19 bomba de vacío, DO20/DO21 abrir puerta 1/2, DO22/DO23 cerrar puerta 1/2, y DO25 buzzer (canal según la asignación de E/S vigente; DO 25 desde la tanda 19).
 - **Pasos:**
   1. Con el modo prueba (técnico), encender 3 o 4 salidas seguras de la lista (p. ej. DO6, DO15, DO17) y salir del modo prueba; o dejar que el estado encienda las suyas (con el perfil de puertas avanzadas, la puerta cerrada mantiene DO22 y, con empaque bajo, DO11). Anotar cuáles quedan encendidas.
   2. Pulsar el paro y mantenerlo 30 s. Observar cada salida de la lista durante al menos 5 repeticiones del patrón del buzzer.
   3. En el log del backend (`logs/`), buscar "paro de emergencia detectado; ALL_OFF inmediato" y, si aparecen, las líneas "DOn no se enciende con el paro de emergencia activo" (indican qué función intentó encender y fue bloqueada).
   4. Soltar el paro y confirmar. Provocar una alarma no bloqueante con buzzer (o el pitido de fin de ciclo) con alguna salida encendida y observar que esa salida no cambia mientras suena el buzzer.
 - **Resultado esperado:** Paso 2: al pulsar, todas las salidas se apagan de inmediato; durante el paro solo parpadea DO24; ninguna otra salida de la lista se enciende ni un instante. Paso 3: la línea del ALL_OFF inmediato aparece una vez por pulsación. Paso 4: el buzzer conmuta solo su canal.
-- **Criterio de aprobado/fallo:** Aprobado si en el paso 2 ninguna salida distinta del buzzer se enciende. Si alguna se enciende: anotar cuál, el tipo de puerta y la versión de firmware, y guardar el log (si el log NO muestra órdenes de encendido para ese canal, la causa está en la tarjeta o el cableado, no en el PC: ver B9_buzzer_paro.md).
+- **Criterio de aprobado/fallo:** Aprobado si en el paso 2 ninguna salida distinta del buzzer se enciende. Si alguna se enciende: anotar cuál, el tipo de puerta y el firmware de los módulos, y guardar el log (si el log NO muestra órdenes de encendido para ese canal, la causa está en los módulos o el cableado, no en el PC: ver B9_buzzer_paro.md).
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -492,7 +504,7 @@
 - **Objetivo:** Pérdida de comunicación fuera de ciclo = FALLA recuperable.
 - **Precondiciones:** PREPARADO.
 - **Pasos:**
-  1. Desconectar el USB en PREPARADO.
+  1. Desconectar el cable de red de los módulos en PREPARADO.
   2. Reconectar.
 - **Resultado esperado:** FALLA recuperable con la causa; al reconectar vuelve a PREPARADO.
 - **Criterio de aprobado/fallo:** Aprobado si se recupera sin reiniciar el software.
@@ -529,18 +541,18 @@
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### C-05 — Arranque con cámara no segura: estado seguro automático, sin confirmación
+### C-05 — Arranque con cámara no segura: confirmar estado seguro sin técnico
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** T1 (tanda 5), P-10; cambiado por S9 D9-1.1/1.2 (tanda 9: ya no se pide confirmación al arrancar)
-- **Objetivo:** Tras un corte con la cámara caliente, el equipo lleva la cámara a seguro SOLO, sin confirmación ni rol técnico.
-- **Precondiciones:** Simular cámara no segura al arrancar (sensor Principal calentado > temp_max_apertura) con un ciclo previo interrumpido en la BD (o cortar la energía en pleno ciclo de prueba en seco). Sin pulsar el paro en este encendido.
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T1 (tanda 5), P-10
+- **Objetivo:** Tras un corte con la cámara caliente, el operador lleva el equipo a seguro sin rol técnico.
+- **Precondiciones:** Simular cámara no segura al arrancar (sensor Principal calentado > temp_max_apertura) con un ciclo previo interrumpido en la BD (o cortar la energía en pleno ciclo de prueba en seco).
 - **Pasos:**
   1. Arrancar el software.
-  2. Observar "NO ABRIR" y el aviso de estado seguro en la tarjeta de alarmas de Preciclo y en la campana.
-  3. Verificar que NO aparece el botón "Confirmar y llevar a estado seguro" ni el texto "Paro liberado".
+  2. Observar "NO ABRIR" y el aviso de estado seguro.
+  3. Pulsar el botón que ofrece la UI (debe ser "Confirmar y llevar a estado seguro", no "Reconocer falla").
   4. Dejar enfriar.
-- **Resultado esperado:** El ciclo previo aparece como INTERRUMPIDO ("la carga NO está estéril"); no se reanuda; el aviso dice «Arranque con la cámara no segura: el equipo la lleva solo a estado seguro, sin confirmación (no hubo paro de emergencia)»; con presión sobre la atmosférica solo abre la lenta (nunca la rápida ni la chaqueta); al quedar segura vuelve a PREPARACION.
-- **Criterio de aprobado/fallo:** Aprobado si no se reanuda nada, no se pide confirmación, no dice "paro liberado" y solo abre la lenta.
+- **Resultado esperado:** El ciclo previo aparece como INTERRUMPIDO ("la carga NO está estéril"); no se reanuda; el botón correcto funciona sin sesión; al quedar segura vuelve a PREPARACION.
+- **Criterio de aprobado/fallo:** Aprobado si no se reanuda nada, el botón correcto aparece y no se exige técnico.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -647,7 +659,7 @@
 
 - **Modo:** En seco  ·  **Origen:** S9, revisión ★ TMG-02 (tanda 9)
 - **Objetivo:** Si la tarjeta sigue mandando entradas digitales pero deja de mandar las analógicas, el estado seguro no toma la presión congelada como vigente.
-- **Precondiciones:** Estado seguro en curso (C-05). Firmware de pruebas o simulador que permita suspender solo las tramas `AI:`.
+- **Precondiciones:** Estado seguro en curso (C-05). Desde la tanda 20 (solo Modbus) las lecturas de AI y DI van en el mismo sondeo y no se pueden suspender por separado con los módulos M31-U reales: se ejecuta solo con un simulador de los módulos (las pruebas automáticas lo cubren); con el equipo real, marcar «No ejecutada (no aplica con M31-U)». Donde dice tramas `AI:`, entiéndase las lecturas de AI.
 - **Pasos:**
   1. Suspender las tramas `AI:` durante 10 s; observar la tarjeta de alarmas y las salidas.
   2. Reanudarlas.
@@ -681,7 +693,7 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** T2 P-5 (tanda 6)
 - **Objetivo:** Una falla de comunicación no se borra sola al salir de FALLA.
-- **Precondiciones:** Ciclo de prueba en seco; desconectar el USB de la tarjeta para provocar COM-03; reconectar.
+- **Precondiciones:** Ciclo de prueba en seco; desconectar el cable de red de los módulos para provocar COM-03; reconectar.
 - **Pasos:**
   1. Confirmar la falla y volver a PREPARACION.
   2. Abrir la campana: COM-03 sigue.
@@ -696,7 +708,7 @@
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** Q1 T2-b (tanda 7); complementa C-06
 - **Objetivo:** El operador no puede despejar la alarma de comunicación mientras el enlace no se recupere.
-- **Precondiciones:** Como C-06: ciclo de prueba en seco y COM-03 provocada desconectando el USB de la tarjeta; confirmar la falla y volver a PREPARACION con la tarjeta aún desconectada.
+- **Precondiciones:** Como C-06: ciclo de prueba en seco y COM-03 provocada desconectando el cable de red de los módulos; confirmar la falla y volver a PREPARACION con la tarjeta aún desconectada.
 - **Pasos:**
   1. Con la tarjeta aún desconectada, pulsar DESPEJAR en el panel de notificaciones.
   2. Reconectar la tarjeta y esperar ~2 s (3 tramas vigentes).
@@ -713,9 +725,9 @@
 - **Objetivo:** DESPEJAR se acepta solo tras 3 tramas DI distintas y nuevas con el enlace en "ok".
 - **Precondiciones:** COM-02 activa tras una desconexión en ciclo (o provocada en seco con un ciclo de prueba).
 - **Pasos:**
-  1. Reconectar el USB y pulsar DESPEJAR de inmediato.
+  1. Reconectar el cable de red y pulsar DESPEJAR de inmediato.
   2. Esperar 2-3 s y volver a pulsar DESPEJAR.
-- **Resultado esperado:** El primer intento se rechaza con el motivo del enlace; tras unas 3 tramas DI (≈1-2 s con el firmware V3) se acepta.
+- **Resultado esperado:** El primer intento se rechaza con el motivo del enlace; tras unas 3 tramas DI (≈0,3 s con el sondeo Modbus de 0,1 s) se acepta.
 - **Criterio de aprobado/fallo:** Aprobado si no se despeja antes de que la tarjeta envíe tramas DI nuevas.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
@@ -1603,10 +1615,10 @@
 - **Objetivo:** Desconectar la tarjeta en ciclo da COM-03 y la tarjeta queda en ALL_OFF.
 - **Precondiciones:** Ciclo en CALENTAMIENTO.
 - **Pasos:**
-  1. Desconectar el USB 5 s.
+  1. Desconectar el cable de red de los módulos 5 s.
   2. Reconectar.
   3. Revisar alarmas y resultado.
-- **Resultado esperado:** COM-03 con su causa; el ciclo termina en FALLO_IO; la tarjeta apaga salidas por su watchdog; al reconectar, estado seguro.
+- **Resultado esperado:** COM-03 con su causa; el ciclo termina en FALLO_IO; los módulos apagan las salidas por su corte por desconexión (1,0 s); al reconectar, estado seguro.
 - **Criterio de aprobado/fallo:** Aprobado si las salidas se apagan sin el PC y el ciclo no sigue "a ciegas".
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
@@ -1661,7 +1673,7 @@
 - **Objetivo:** Un corte breve de la tarjeta corta el vapor y uno largo termina en FALLO_CONEXION.
 - **Precondiciones:** Ciclo en calentamiento o esterilización.
 - **Pasos:**
-  1. Desconectar el USB de la tarjeta menos de 4 s y reconectar.
+  1. Desconectar el cable de red de los módulos menos de 4 s y reconectar.
   2. Repetir dejándolo más de 4 s.
 - **Resultado esperado:** Corte breve: vapor de cámara y chaqueta en OFF durante el corte; el ciclo sigue. Corte largo: `FALLO_CONEXION` + COM-03, sin abrir válvulas.
 - **Criterio de aprobado/fallo:** Aprobado si el vapor nunca sigue sin trama vigente.
@@ -1689,7 +1701,7 @@
 - **Objetivo:** Los segundos de tolerancia por DI vencida no cuentan como exposición y quedan en el ticket.
 - **Precondiciones:** Bowie & Dick o Instrumental 134 en esterilización (cronometrar desde el inicio de la fase).
 - **Pasos:**
-  1. Desconectar el USB de la tarjeta unos 2-3 s (menos de 4 s) y reconectar.
+  1. Desconectar el cable de red de los módulos unos 2-3 s (menos de 4 s) y reconectar.
   2. Dejar terminar el ciclo y anotar la duración real de la esterilización.
   3. Revisar el pie del ticket.
 - **Resultado esperado:** La esterilización dura el tiempo programado más los segundos sin datos; el vapor estuvo en OFF durante el corte; el pie dice "Sin datos de la tarjeta: n s" y el ciclo queda COMPLETADO (sin marca de no estéril).
@@ -1734,7 +1746,7 @@
 - **Objetivo:** La cancelación pedida mientras la tarjeta no manda entradas se acepta y se aplica al volver los datos.
 - **Precondiciones:** Ciclo en esterilización.
 - **Pasos:**
-  1. Desconectar el USB de la tarjeta y, antes de 4 s, pulsar Cancelar.
+  1. Desconectar el cable de red de los módulos y, antes de 4 s, pulsar Cancelar.
   2. Reconectar enseguida.
   3. Repetir dejándolo desconectado más de 4 s.
 - **Resultado esperado:** La cancelación se acepta (sin el rechazo "sin datos de la tarjeta"); al volver los datos el ciclo queda CANCELADO. Si no vuelven a tiempo, termina en FALLO_CONEXION.
@@ -1746,10 +1758,10 @@
 ### F-12 — Desconexión total breve de la tarjeta en esterilización: la exposición se alarga y no suma F0
 
 - **Modo:** En operación (vapor)  ·  **Origen:** S2a D8-2.7 (tanda 8)
-- **Objetivo:** Los segundos con el USB desconectado (menos de 5 s) y la ventana tras reconectar no cuentan como esterilización ni como F0.
+- **Objetivo:** Los segundos con el cable de red desconectado (menos de 5 s) y la ventana tras reconectar no cuentan como esterilización ni como F0.
 - **Precondiciones:** Programa con F0 activo (o Instrumental 134) en esterilización; cronometrar desde el inicio de la fase y anotar el F0 en pantalla.
 - **Pasos:**
-  1. Desconectar el USB de la tarjeta unos 3 s y reconectar (antes de que salga COM-02).
+  1. Desconectar el cable de red de los módulos unos 3 s y reconectar (antes de que salga COM-02).
   2. Dejar terminar el ciclo; anotar la duración real de la esterilización y el F0 final.
   3. Revisar el pie del ticket.
 - **Resultado esperado:** La esterilización dura lo programado más los segundos sin datos (corte + ventana de reconexión, hasta ~2 s más por la vigencia de la última trama); el F0 no sube durante el corte; el pie dice "Sin datos de la tarjeta: n s"; COMPLETADO.
@@ -1764,7 +1776,7 @@
 - **Objetivo:** Si las pausas por falta de datos suman más de pausa_max_esterilizacion_s (30 s por defecto), el ciclo falla con CIC-11.
 - **Precondiciones:** Instrumental 134 en esterilización; pausa_max_esterilizacion_s = 30 s (OPCIONES › Parámetros del equipo).
 - **Pasos:**
-  1. Desconectar el USB unos 3 s y reconectar; esperar 5 s; repetir hasta sumar más de 30 s de cortes.
+  1. Desconectar el cable de red de los módulos unos 3 s y reconectar; esperar 5 s; repetir hasta sumar más de 30 s de cortes.
   2. Repetir con cortes muy cortos y seguidos (desconectar/reconectar sin esperar).
 - **Resultado esperado:** Al superar 30 s acumulados el ciclo termina en FALLO con "Comunicación inestable en esterilización" (CIC-11) y el ticket lleva CARGA NO ESTÉRIL; con cortes seguidos (sin que llegue COM-02) también falla al pasar el tope.
 - **Criterio de aprobado/fallo:** Aprobado si nunca termina COMPLETADO con más de 30 s de pausas.
@@ -1808,7 +1820,7 @@
 - **Precondiciones:** Ciclo Instrumental 134 en curso; sesión de técnico para ver el log.
 - **Pasos:**
   1. Esperar a que el calentamiento llegue al tramo estable (log: ventana de estabilidad abierta).
-  2. Provocar 2-3 s sin datos de la tarjeta (desconectar y reconectar el USB antes de 4 s).
+  2. Provocar 2-3 s sin datos de la tarjeta (desconectar y reconectar el cable de red de los módulos antes de 4 s).
   3. Dejar terminar el ciclo.
 - **Resultado esperado:** Log: "ventana _timer_sostenido_desde en pausa n s"; sin vapor durante el tramo; el ciclo termina COMPLETADO y el ticket dice "Sin datos de la tarjeta: n s".
 - **Criterio de aprobado/fallo:** Aprobado si la ventana se alarga lo que duró el tramo y el ciclo no se da por estable con segundos sin datos.
@@ -1822,7 +1834,7 @@
 - **Objetivo:** Con la tarjeta desconectada (antes de COM-02) la cancelación se acepta en espera y la pantalla lo explica con el texto del catálogo.
 - **Precondiciones:** Ciclo en esterilización.
 - **Pasos:**
-  1. Desconectar el USB de la tarjeta y, antes de 5 s, pulsar CANCELAR CICLO y confirmar.
+  1. Desconectar el cable de red de los módulos y, antes de 5 s, pulsar CANCELAR CICLO y confirmar.
   2. Leer el aviso de la pantalla y reconectar enseguida.
   3. Repetir dejándolo desconectado más de 5 s.
 - **Resultado esperado:** Aviso: "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control..." (no un error ni un texto técnico); al volver los datos, CANCELADO. Sin reconectar a tiempo, FALLO_CONEXION.
@@ -2041,8 +2053,6 @@
 
 ## Bloque N11. Instalador: Actualizar o Instalación limpia y táctiles (tanda 11, en seco)
 
-Todas en el **PC de prueba** (no en el equipo del autoclave hasta aprobarlas), con el Setup de la compilación G (o la que traiga la tanda 11) y, para A-N11-01 a A-N11-03, con la F ya instalada y con datos (perfil, un usuario creado, al menos un ciclo o ensayo en el Historial). Anotar antes la versión instalada (Información del sistema).
-
 ### A-N11-01 — Setup sobre una versión anterior: Actualizar conserva los datos
 
 - **Modo:** En seco (sin vapor)  ·  **Origen:** N11 D11-4 (tanda 11)
@@ -2133,12 +2143,6 @@ Todas en el **PC de prueba** (no en el equipo del autoclave hasta aprobarlas), c
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
 ## Bloque T12. Tanda 12: calentamiento, esterilización y chaqueta (lunes 26-oct)
-
-Con la compilación **H** instalada encima de la G (Actualizar, conserva los datos). Orden: A-T12-01 en seco; luego E-T12-04 (Bowie & Dick, primer ciclo del día con la cámara vacía), E-T12-01 a E-T12-03 durante un **Instrumental 134 de usuario** (134 °C, `presion_add_esterilizacion` 9, 7 min) y, solo con esos aprobados, F-T12-01 y F-T12-02. Tener a mano el log del backend (`logs/`) del día: casi todo lo que se pide anotar sale de sus líneas. Valores calculados con `steam.py`, que desde la tanda 13 usa IAPWS-IF97 (compilación I): `Psat(134) = 304,2 kPa`, `Psat(134,5) = 308,7 kPa`, `Psat(121) = 205,0 kPa`. Con la H (fórmula anterior) las cifras eran ≈ 2 kPa menores. Presiones siempre en kPa absolutos.
-
-**Importante (sesión principal, al unir):** la actualización conserva los programas de usuario de la G y solo migra lo que falta o lo inválido. Por eso, en el equipo, `brecha_segura_temperatura` de los programas de usuario **sigue en 0,3** (el 1,0 de C-07.1 solo llega a los programas nuevos o de fábrica). Antes del primer ciclo, anotar el valor en Opciones › Parámetros del ciclo › Esterilización. Si se quiere probar C-07.1, cambiarlo a mano a 1,0 en la copia de prueba. Con 1,0 rige la observación del techo de E-T12-03.
-
-Programas de usuario de la H: Instrumental 134 → techo de cámara en esterilización 313,2 kPa y consigna de chaqueta ≈ 328,2 kPa; Bowie & Dick (134,5 °C / 9) → techo 317,7 kPa y consigna ≈ 332,7 kPa; Instrumental 121 (121 °C / 9) → techo 214,0 kPa y consigna ≈ 229,0 kPa.
 
 ### A-T12-01 — Tras instalar la H: Bowie & Dick migrado de 99 a 9 con aviso SIS-06 en Preciclo y campana
 
@@ -2264,8 +2268,6 @@ Programas de usuario de la H: Instrumental 134 → techo de cámara en esteriliz
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-<!-- Tanda 16: bloque H agregado a mano desde hoja_pruebas_banco/pruebas.py; el .md tiene
-bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar sin reconciliar. -->
 ## Bloque H. Control de vapor por chaqueta y pendientes de la tanda 14 (tanda 16, en operación)
 
 ### H-01 — Válvulas por fase en modo chaqueta
@@ -2619,18 +2621,17 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-## Bloque M. Enlace Modbus TCP con los módulos M31-U (tanda 19, en seco)
+## Bloque M. Enlace Modbus TCP con los módulos M31-U y Setup con Modbus (tandas 19 y 20, en seco)
 
 ### M-0 — Paso previo: red dedicada y acceso a los módulos
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-17 (tanda 19)
+- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-17 (tanda 19); T20-05 (tanda 20)
 - **Objetivo:** El PC habla con el principal M31-U por un puerto de red propio, sin la red de la oficina.
 - **Precondiciones:** Módulos montados sin energía en el orden principal (16 AI) → 16 DI → 16 DO n.º 1 (DO 01–16) → 16 DO n.º 2 (DO 17–32) → 6 PT100; negociados (doble pulsación de Reload).
 - **Pasos:**
-  1. Configurar a mano en Windows el puerto de red dedicado: IP fija 192.168.3.10/24, sin puerta de enlace.
-  2. Conectar ese puerto a un RJ45 del principal; el segundo RJ45 queda libre (no a la red de oficina).
-  3. Abrir http://192.168.3.7 (admin/admin) y cambiar la contraseña web; anotarla en el expediente, no en la hoja.
-  4. Comprobar que `config\enlace_io.json` de la instalación dice `"enlace": "modbus"`.
+  1. Conectar el puerto de red dedicado del PC a un RJ45 del principal; el segundo RJ45 queda libre (no a la red de oficina).
+  2. Instalar con el Setup (M-7): el paso 08 pone en ese adaptador IP fija 192.168.3.10/24, sin puerta de enlace, y cambia la contraseña web del módulo. Anotar la contraseña en el expediente, no en la hoja.
+  3. Comprobar con `ipconfig` que el adaptador tiene 192.168.3.10 (una 169.254.x.x indica que no se aplicó).
 - **Resultado esperado:** Ping a 192.168.3.7 responde; la web abre y acepta la contraseña nueva; Información del equipo muestra «Enlace de E/S: Modbus TCP (módulos M31-U)».
 - **Criterio de aprobado/fallo:** Aprobado si la conexión es directa y la contraseña de fábrica ya no sirve.
 - **Valor observado:** ______________________________________________
@@ -2646,7 +2647,7 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
   1. Caso 1: quitar el cable de red del PC; medir el tiempo hasta que el relé abre.
   2. Caso 2: con la salida encendida otra vez, matar el proceso del backend (Administrador de tareas); medir.
   3. Caso 3: congelar el lazo de control, si existe una forma de prueba; si no, anotar «omitido».
-  4. Tras cada caso, restablecer y comprobar que el software reconecta solo y muestra el corte (TARJETA_WATCHDOG) al volver.
+  4. Tras cada caso, restablecer y comprobar que el software reconecta solo, que la reconexión apaga todo y que las salidas no vuelven solas (desde la tanda 20 el registro 0x0C37 solo se anota en el log, ADB-05; ya no da TARJETA_WATCHDOG).
 - **Resultado esperado:** En los casos ejecutados el relé abre en menos de 2 s (tiempo de desconexión del módulo 1,0 s).
 - **Criterio de aprobado/fallo:** Aprobado si en todos los casos ejecutados el relé abre en menos de 2 s.
 - **Valor observado:** ______________________________________________
@@ -2708,22 +2709,45 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
   1. Mantener Reload del principal 5–10 s (restablecimiento de fábrica).
   2. Si la IP vuelve a la de fábrica (192.168.3.7) no hace falta tocar la red; si no, anotarlo y restaurarla.
   3. Esperar la reconexión y revisar en la web los registros de seguridad (como en M-3).
-- **Resultado esperado:** Alarma de la tarjeta mientras no hay conexión; reconexión sola; registros de seguridad reescritos; el caso 1 de M-1 vuelve a aprobar.
+- **Resultado esperado:** Alarma de la tarjeta mientras no hay conexión; reconexión sola; registros de seguridad reescritos; el log dice que la configuración se reescribió y que el módulo se reinició (ADB-04) antes de dar la conexión por verificada; el caso 1 de M-1 vuelve a aprobar.
 - **Criterio de aprobado/fallo:** Aprobado si la configuración de seguridad queda reescrita sin intervención.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### M-6 — Cambio de enlace a serial y de vuelta a Modbus
+### M-5b — Prueba aislada: ¿la configuración de falla exige reiniciar el módulo?
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** MOD-01 (tanda 19)
-- **Objetivo:** El selector de enlace funciona con reinicio.
-- **Precondiciones:** M-0 aprobado; sin la tarjeta ESP32 conectada.
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ADB-04 (adenda tanda 19; decisión 8 de la tanda 20, pendiente de prueba aislada)
+- **Objetivo:** Confirmar si el corte por desconexión funciona con la configuración recién escrita o solo después de un reinicio del módulo.
+- **Precondiciones:** Software CERRADO. Una salida sin riesgo cableada a un indicador. Herramienta Modbus de banco (fuera del producto).
 - **Pasos:**
-  1. Editar `config\enlace_io.json` a `"serial"` y reiniciar el software.
-  2. Volver a `"modbus"` y reiniciar.
-- **Resultado esperado:** Con serial arranca y queda bloqueado por la tarjeta (sin ESP32 es lo esperado) e Información del equipo dice «Serial (tarjeta ESP32)»; con Modbus vuelve a conectar.
-- **Criterio de aprobado/fallo:** Aprobado si arranca en los dos casos y el enlace mostrado coincide con el archivo.
+  1. Restablecer la fábrica del principal (Reload 5–10 s).
+  2. Escribir la configuración de seguridad SIN reiniciar (0x0C35 = 10, 0x0C36 = 1, 0x1B58–0x1B77 = 1) y releerla.
+  3. Encender la salida con tráfico de lectura cada 0,1 s y quitar el cable de red: cronometrar si el relé abre.
+  4. Reiniciar el módulo (0x0C1D = 0x5BB5 o sin energía) y repetir el paso 3.
+  5. Hacer otro Reload, arrancar el software y confirmar en el log que reescribe, reinicia y relee antes de dar la conexión por verificada.
+- **Resultado esperado:** Se anota en qué caso abre el relé (antes o después del reinicio). Si abre también antes del reinicio, el reinicio de ADB-04 es innecesario pero inofensivo (se informa a Cristian).
+- **Criterio de aprobado/fallo:** Aprobado si después del reinicio el relé abre en menos de 2 s y el software reinicia el módulo cuando reescribe la configuración.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### M-7 — Setup con Modbus: red de los módulos, contraseña web y prueba de conexión
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** T20-04 / T20-05 (tanda 20); MED-04
+- **Objetivo:** El Setup configura la red dedicada, cambia la contraseña web del módulo y prueba la conexión sin pasos manuales en Windows.
+- **Precondiciones:** PC con un adaptador Ethernet dedicado a los módulos y otra red (Wi-Fi u otro Ethernet) con salida a Internet; módulos encendidos y negociados. Anotar (foto o `ipconfig /all`) la configuración del adaptador antes de instalar. Contraseña nueva de 1–6 caracteres ASCII anotada en el expediente.
+- **Pasos:**
+  1. Ejecutar el Setup: en «Red de los módulos de E/S» comprobar que solo aparecen adaptadores Ethernet físicos (sin Wi-Fi ni virtuales) y elegir el dedicado.
+  2. Intentar elegir el adaptador que tiene la puerta de enlace: debe advertir que se perderá esa red; cancelar y elegir el dedicado.
+  3. Escribir la contraseña web y su confirmación; terminar la instalación.
+  4. En la página de resultado: conexión correcta, modelo M31-XAXX0A00G, 5 módulos, firmware e ID (MAC).
+  5. `ipconfig`: el adaptador dedicado tiene 192.168.3.10/24 sin puerta de enlace; la otra red sigue con Internet.
+  6. Abrir http://192.168.3.7: la contraseña anterior ya no entra y la nueva sí.
+  7. Desconectar el cable del módulo y ejecutar Setup › Reparar: la red se reaplica y la página de resultado da «sin conexión» con la acción sugerida (cable, adaptador, módulo encendido); la instalación no se aborta.
+  8. Desinstalar: el adaptador vuelve a la configuración anotada antes de instalar (`datos\estacion\estacion.log`: «Revertir paso 08 ... terminado», antes que el 07).
+- **Resultado esperado:** Red aplicada y revertida; contraseña cambiada; resultado correcto con el cable y «sin conexión» sin él; nunca se pierde la red con salida sin advertencia.
+- **Criterio de aprobado/fallo:** Aprobado si todos los pasos se cumplen y la contraseña no aparece en `estacion.log`, en el log del Setup ni en `configurar_modulo.log`.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -2736,6 +2760,6 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
 - Tickets impresos (o PDF) de cada ciclo E-01, E-02, E-03, E-06, F-01, F-02, F-03, G-01.
 - Gráficas de cada ciclo (captura de la pantalla de ciclo en curso o del Historial).
 - Log del backend (`logs/`) del día de pruebas.
-- Versión del software (commit) y del firmware (Información del sistema) usados.
+- Versión del software (commit) y firmware de los módulos M31-U (Información del sistema) usados.
 - Certificados de calibración de los patrones de temperatura y presión usados.
 - Lista de desviaciones/no conformidades encontradas, con su informe de problema (IEC 62304 §9).

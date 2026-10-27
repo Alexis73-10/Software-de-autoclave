@@ -38,6 +38,11 @@ ORDEN = [
 ]
 
 
+def _modo(p) -> str:
+    """Texto del modo: el propio de la prueba (modo_texto) o el del catálogo."""
+    return p.get("modo_texto") or MODO[p["modo"]]
+
+
 def _md() -> str:
     l = [f"# {TITULO}", "", "> Generado desde `docs/mis_plans/hoja_pruebas_banco/pruebas.py` "
          "(editar ahí y regenerar con `generar.py`). Versión imprimible: "
@@ -45,19 +50,20 @@ def _md() -> str:
     l += [f"- {t}" for t in INTRO] + ["", "## Orden seguro de ejecución", ""]
     l += [f"{i}. {t}" for i, t in enumerate(ORDEN, 1)] + [""]
     l += ["## Resumen", "", "| ID | Prueba | Modo | Origen |", "|---|---|---|---|"]
-    l += [f"| {p['id']} | {p['titulo']} | {MODO[p['modo']]} | {p['origen']} |" for p in PRUEBAS]
+    l += [f"| {p['id']} | {p['titulo']} | {_modo(p)} | {p['origen']} |" for p in PRUEBAS]
     for clave, nombre in BLOQUES:
         l += ["", f"## Bloque {clave}. {nombre}"]
         for p in (x for x in PRUEBAS if x["bloque"] == clave):
             l += ["", f"### {p['id']} — {p['titulo']}", "",
-                  f"- **Modo:** {MODO[p['modo']]}  ·  **Origen:** {p['origen']}",
+                  f"- **Modo:** {_modo(p)}  ·  **Origen:** {p['origen']}",
                   f"- **Objetivo:** {p['objetivo']}",
                   f"- **Precondiciones:** {p['pre']}",
                   "- **Pasos:**"]
             l += [f"  {i}. {s}" for i, s in enumerate(p["pasos"], 1)]
             l += [f"- **Resultado esperado:** {p['esperado']}",
-                  f"- **Criterio de aprobado/fallo:** {p['criterio']}",
-                  "- **Valor observado:** ______________________________________________",
+                  f"- **Criterio de aprobado/fallo:** {p['criterio']}"]
+            l += [f"- **{n}:** {v}" for n, v in p.get("extra", [])]
+            l += ["- **Valor observado:** ______________________________________________",
                   "- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)",
                   "- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________"]
     l += ["", "## Registros que se deben conservar (expediente IEC 62304)", ""]
@@ -100,13 +106,14 @@ def _html() -> str:
             h.append(
                 "<table class='prueba'>"
                 f"<tr class='cab'><td colspan='2'>{e(p['id'])} — {e(p['titulo'])} "
-                f"<span class='nota'>({e(MODO[p['modo']])} · {e(p['origen'])})</span></td></tr>"
+                f"<span class='nota'>({e(_modo(p))} · {e(p['origen'])})</span></td></tr>"
                 f"<tr><th>Objetivo</th><td>{md(p['objetivo'])}</td></tr>"
                 f"<tr><th>Precondiciones</th><td>{md(p['pre'])}</td></tr>"
                 f"<tr><th>Pasos</th><td><ol>{pasos}</ol></td></tr>"
                 f"<tr><th>Resultado esperado</th><td>{md(p['esperado'])}</td></tr>"
                 f"<tr><th>Criterio</th><td>{md(p['criterio'])}</td></tr>"
-                "<tr class='firma'><th>Valor observado</th><td></td></tr>"
+                + "".join(f"<tr><th>{e(n)}</th><td>{md(v)}</td></tr>" for n, v in p.get("extra", []))
+                + "<tr class='firma'><th>Valor observado</th><td></td></tr>"
                 "<tr><th>Resultado</th><td><span class='caja'></span>Aprobado"
                 "<span class='caja'></span>Fallo<span class='caja'></span>No ejecutada "
                 "(motivo: ____________)</td></tr>"
