@@ -569,6 +569,9 @@
     "version_tarjeta": "Versión de tarjeta",
     "id_tarjeta": "ID de tarjeta",
     "emparejamiento_tarjeta": "Tarjeta del equipo",
+    "enlace_io": "Enlace de E/S",
+    "enlace_io_modbus": "Modbus TCP (módulos M31-U)",
+    "enlace_io_serial": "Serial (tarjeta ESP32)",
     "tarjeta_emparejada": "Emparejada",
     "tarjeta_no_emparejada": "No emparejada (aviso)",
     "no_disponible": "No disponible",
@@ -801,6 +804,16 @@
     "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
       "titulo": "La tarjeta de E/S no confirmó el apagado de salidas",
       "accion": "Llame a servicio técnico.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_CONFIG_SEGURIDAD": {
+      "titulo": "No se pudo verificar la configuración de seguridad de los módulos de E/S",
+      "accion": "Revise la red de los módulos de E/S. Si se repite, llame a servicio técnico.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_MODULOS_ORDEN": {
+      "titulo": "Orden de los módulos de E/S incorrecto o negociación pendiente",
+      "accion": "Sin energía, revise el orden de los módulos y negocie (doble pulsación de Reload).",
       "plantilla": "{motivo}"
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {

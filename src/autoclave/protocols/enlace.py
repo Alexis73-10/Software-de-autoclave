@@ -29,6 +29,15 @@ class EventoTarjeta:
     motivo: str
 
 
+# Alarmas propias del enlace Modbus (MOD-12); las demás se reutilizan de
+# serial_link (ALARMAS_HANDSHAKE / ALARMAS_OPERACION). TARJETA_SIN_ACK no
+# aplica a Modbus.
+ALARMAS_MODBUS = (
+    "TARJETA_CONFIG_SEGURIDAD",
+    "TARJETA_MODULOS_ORDEN",
+)
+
+
 # Miembros públicos que ambas clases deben tener (prueba de conformidad).
 MIEMBROS_ENLACE = (
     "on_update", "al_conectar",

@@ -195,7 +195,17 @@ def test_ids_de_la_tarjeta_que_emite_el_enlace_estan_en_el_catalogo():
     # SAF-01 de T1: activar() lanza con un código desconocido; todo id que
     # emite serial_link.py debe existir en el catálogo.
     import pathlib
-    fuente = pathlib.Path(__file__).parents[1] / "src/autoclave/protocols/serial_link.py"
-    ids = set(re.findall(r'"((?:TARJETA_|DISCREPANCIA_)[A-Z_]+)"', fuente.read_text(encoding="utf-8")))
+    # Tanda 19 (MOD-12): los ids de los dos enlaces (serial y Modbus; las
+    # alarmas propias de Modbus están en protocols/enlace.py) juntos son
+    # CODIGOS_TARJETA; los del serial siguen todos en el catálogo.
+    raiz = pathlib.Path(__file__).parents[1] / "src/autoclave/protocols"
+    def _ids(nombre):
+        ruta = raiz / nombre
+        if not ruta.exists():
+            return set()
+        return set(re.findall(r'"((?:TARJETA_|DISCREPANCIA_)[A-Z_]+)"', ruta.read_text(encoding="utf-8")))
+    ids = _ids("serial_link.py")
     assert ids and ids <= set(CATALOGO)
-    assert ids == set(CODIGOS_TARJETA)
+    todos = ids | _ids("enlace.py") | _ids("modbus_link.py")
+    assert todos <= set(CATALOGO)
+    assert todos == set(CODIGOS_TARJETA)

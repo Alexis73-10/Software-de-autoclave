@@ -117,6 +117,10 @@ TARJETA_EXPANSOR_FUERA_DE_LINEA = "TARJETA_EXPANSOR_FUERA_DE_LINEA"
 TARJETA_WATCHDOG = "TARJETA_WATCHDOG"
 TARJETA_REINICIO = "TARJETA_REINICIO"
 DISCREPANCIA_SALIDAS = "DISCREPANCIA_SALIDAS"
+# Tanda 19 (MOD-12): módulos M31-U por Modbus TCP; misma clase que
+# TARJETA_ALL_OFF_SIN_CONFIRMAR (bloqueante fuera de ciclo; en ciclo, COM-03).
+TARJETA_CONFIG_SEGURIDAD = "TARJETA_CONFIG_SEGURIDAD"
+TARJETA_MODULOS_ORDEN = "TARJETA_MODULOS_ORDEN"
 # Arranque (secuencia por etapas): ids conservados.
 OPERANDO_SIN_BD = "OPERANDO_SIN_BD"
 CONFIGURACION_INVALIDA = "CONFIGURACION_INVALIDA"
@@ -124,7 +128,7 @@ CODIGOS_TARJETA = (
     TARJETA_SIN_TRAMA_VALIDA, TARJETA_VERSION_INCOMPATIBLE, TARJETA_SIN_ACK,
     TARJETA_ALL_OFF_SIN_CONFIRMAR, TARJETA_SALIDAS_NO_APAGADAS,
     TARJETA_EXPANSOR_FUERA_DE_LINEA, TARJETA_WATCHDOG, TARJETA_REINICIO,
-    DISCREPANCIA_SALIDAS,
+    DISCREPANCIA_SALIDAS, TARJETA_CONFIG_SEGURIDAD, TARJETA_MODULOS_ORDEN,
 )
 # Ids anteriores al formato ÁREA-NN que se conservan sin renombrar
 # (instrucción de la tanda 2026-10-14, regla 8).
@@ -424,6 +428,14 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "La tarjeta de E/S no confirmó el apagado de salidas",
        "{motivo}",
        "Llame a servicio técnico."),
+    _d(TARJETA_CONFIG_SEGURIDAD, _AL, True, _A,
+       "No se pudo verificar la configuración de seguridad de los módulos de E/S",
+       "{motivo}",
+       "Revise la red de los módulos de E/S. Si se repite, llame a servicio técnico."),
+    _d(TARJETA_MODULOS_ORDEN, _AL, True, _A,
+       "Orden de los módulos de E/S incorrecto o negociación pendiente",
+       "{motivo}",
+       "Sin energía, revise el orden de los módulos y negocie (doble pulsación de Reload)."),
     _d(TARJETA_SALIDAS_NO_APAGADAS, _AL, True, _A, "Salidas de la tarjeta de E/S no apagadas",
        "{motivo}",
        "No opere el equipo. Llame a servicio técnico (etapa de potencia o expansor)."),

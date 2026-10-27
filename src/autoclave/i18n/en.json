@@ -569,6 +569,9 @@
     "version_tarjeta": "Board version",
     "id_tarjeta": "Board ID",
     "emparejamiento_tarjeta": "Equipment board",
+    "enlace_io": "I/O link",
+    "enlace_io_modbus": "Modbus TCP (M31-U modules)",
+    "enlace_io_serial": "Serial (ESP32 board)",
     "tarjeta_emparejada": "Paired",
     "tarjeta_no_emparejada": "Not paired (notice)",
     "no_disponible": "Not available",
@@ -801,6 +804,16 @@
     "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
       "titulo": "The I/O board did not confirm outputs off",
       "accion": "Call technical service.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_CONFIG_SEGURIDAD": {
+      "titulo": "The I/O modules safety configuration could not be verified",
+      "accion": "Check the I/O modules network. If it repeats, call technical service.",
+      "plantilla": "{motivo}"
+    },
+    "TARJETA_MODULOS_ORDEN": {
+      "titulo": "Wrong I/O module order or negotiation pending",
+      "accion": "With power off, check the module order and negotiate (double press Reload).",
       "plantilla": "{motivo}"
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {
