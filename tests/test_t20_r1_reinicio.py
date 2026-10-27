@@ -274,10 +274,14 @@ def test_reinicio_no_permitido_queda_diferido(sim, crear, permiso):
     ok, alarmas = _conectar(enlace)
     assert ok is False and not enlace.is_connected()
     assert [a for _, a, _ in alarmas] == ["TARJETA_CONFIG_SEGURIDAD"]
-    assert "reinicio del módulo diferido hasta salir del ciclo" in alarmas[0][2]
-    assert sim.holding[m31.MODO_FALLA] == 1           # la configuración sí se escribió
+    # V20-rr-05 (re-revisión R): sin permiso de reinicio (CICLO) tampoco se
+    # escribe la configuración en el módulo (antes se escribía y el reinicio
+    # quedaba diferido); la conexión falla igual, sin escribir nada.
+    assert "diferidos hasta salir del ciclo" in alarmas[0][2]
+    assert sim.holding[m31.MODO_FALLA] == 0           # fábrica: no se escribió
+    assert not [w for w in sim.escrituras if w[0] in (6, 16)]
     assert sim.reinicios == 0 and _ordenes_reinicio(sim) == []
-    assert enlace._reinicio_pendiente is True and enlace._reinicios_sin_verificar == 0
+    assert enlace._reinicio_pendiente is False and enlace._reinicios_sin_verificar == 0
     # Mientras siga sin permiso no reinicia (ni cuenta reinicios)
     ok, alarmas = _conectar(enlace)
     assert ok is False and "diferido" in alarmas[0][2] and sim.reinicios == 0
@@ -285,6 +289,23 @@ def test_reinicio_no_permitido_queda_diferido(sim, crear, permiso):
     estado["permitido"] = lambda: True
     ok, alarmas = _conectar(enlace)
     assert ok is True and alarmas == [] and sim.reinicios == 1
+    assert sim.holding[m31.MODO_FALLA] == 1
+
+
+@pytest.mark.req("ADB-04")
+@pytest.mark.req("V20-rr-05")
+def test_sin_permiso_con_reinicio_pendiente_no_escribe_ni_reinicia(sim, crear):
+    estado = {"permitido": True}
+    enlace = crear(reinicio_permitido=lambda: estado["permitido"])
+    enlace._reinicio_pendiente = True       # escritura previa sin reinicio verificado
+    sim.precargar_configuracion()
+    estado["permitido"] = False
+    n = len(sim.escrituras)
+    ok, alarmas = _conectar(enlace)
+    assert ok is False and [a for _, a, _ in alarmas] == ["TARJETA_CONFIG_SEGURIDAD"]
+    assert "diferidos" in alarmas[0][2]
+    assert not [w for w in sim.escrituras[n:] if w[0] in (6, 16)]
+    assert sim.reinicios == 0 and enlace._reinicio_pendiente is True
 
 
 @pytest.mark.req("ADB-04")
@@ -367,3 +388,42 @@ def test_stop_tras_la_reapertura_del_reinicio(sim, crear, monkeypatch):
     assert ok is False and enlace.handshake_completo is False
     assert sim.reinicios == 1
     assert not [e for e in enlace.tomar_eventos() if e.origen == "conectada"]
+
+
+# ---------------------------------------------------------------------------
+# V20-rr-01 (re-revisión R) · Una orden no enviada o un cierre local no son
+# evidencia de reinicio
+# ---------------------------------------------------------------------------
+
+@pytest.mark.req("ADB-04")
+@pytest.mark.req("V20-rr-01")
+def test_orden_sin_cliente_conectado_no_se_envia(sim, crear):
+    enlace = crear()
+    assert enlace._orden_reinicio() == "no_enviada"          # sin socket abierto
+    assert _ordenes_reinicio(sim) == []
+
+
+@pytest.mark.req("ADB-04")
+@pytest.mark.req("V20-rr-01")
+@pytest.mark.parametrize("orden,sondeo", [("no_enviada", "cerrado"), ("aceptada", "ajeno")])
+def test_orden_no_enviada_o_cierre_local_dan_config_seguridad(sim, crear, monkeypatch,
+                                                              orden, sondeo):
+    enlace = crear()
+    monkeypatch.setattr(enlace, "_orden_reinicio", lambda: orden)
+    monkeypatch.setattr(enlace, "_sondeo_reinicio", lambda: sondeo)
+    ok, alarmas = _conectar(enlace)
+    assert ok is False and [a for _, a, _ in alarmas] == ["TARJETA_CONFIG_SEGURIDAD"]
+    assert enlace._reinicio_pendiente is True
+    assert enlace.get_diagnostico()["modulos"]["reinicios_modulo"] == 0
+
+
+@pytest.mark.req("ADB-04")
+@pytest.mark.req("V20-rr-01")
+def test_sondeo_con_otro_cliente_es_ajeno(sim, crear):
+    enlace = crear()
+    assert enlace._abrir_socket()
+    try:
+        enlace._cliente_orden_reinicio = object()     # la orden se envió con otro cliente
+        assert enlace._sondeo_reinicio() == "ajeno"
+    finally:
+        enlace._desconectar()

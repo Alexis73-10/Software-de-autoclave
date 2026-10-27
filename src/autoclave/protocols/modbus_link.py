@@ -301,6 +301,7 @@ class ModbusLink:
         self._reinicio_pendiente = False
         # V20-s1-03: órdenes de reinicio enviadas sin verificación correcta.
         self._reinicios_sin_verificar = 0
+        self._cliente_orden_reinicio = None   # V20-rr-01: cliente con el que se envió la orden
         self._ultimo_diag: Optional[float] = None
 
         self._tarjeta: Dict[str, Any] = {"version": None, "protocolo": None, "id": None}
@@ -1067,7 +1068,24 @@ class ModbusLink:
                 f"Se ordenó reiniciar el módulo {self._reinicios_sin_verificar} veces sin que "
                 f"la configuración de seguridad quedara verificada; no se vuelve a escribir ni "
                 f"a reiniciar. Revisar el módulo y reiniciar el equipo.", "config")
-        escrito = self._escribir_configuracion(fin)
+        if not self._reinicio_es_permitido():
+            # V20-rr-05: sin permiso de reinicio (CICLO) no se escribe nada en
+            # el módulo: se comprueba en solo lectura; si difiere o hay un
+            # reinicio pendiente, la conexión falla (diferido) sin escribir.
+            motivo_diferido = ("Configuración de seguridad sin activar; escritura y reinicio "
+                               "del módulo diferidos hasta salir del ciclo.")
+            if self._reinicio_pendiente:
+                raise FalloConexion("TARJETA_CONFIG_SEGURIDAD", motivo_diferido, "config")
+            try:
+                self._verificar_configuracion(fin)
+            except FalloConexion as e:
+                if e.alarma != "TARJETA_CONFIG_SEGURIDAD":
+                    raise
+                raise FalloConexion("TARJETA_CONFIG_SEGURIDAD",
+                                    f"{motivo_diferido} ({e.motivo})", "config") from None
+            escrito = False
+        else:
+            escrito = self._escribir_configuracion(fin)
         if escrito or self._reinicio_pendiente:
             if not escrito:
                 logger.warning("ModbusLink: configuración escrita en un intento anterior sin "
@@ -1188,15 +1206,22 @@ class ModbusLink:
 
     def _orden_reinicio(self) -> str:
         """V20-s1-01: escribe 0x0C1D = 0x5BB5 (fc06) bajo _cliente_lock.
-        Devuelve "aceptada", "rechazada" (respuesta de excepción Modbus) o
-        "sin_respuesta" (timeout o socket cerrado: se toleran)."""
+        Devuelve "aceptada", "rechazada" (respuesta de excepción Modbus),
+        "no_enviada" (sin cliente conectado o error local al enviar, V20-rr-01)
+        o "sin_respuesta" (timeout o cierre tras el envío: se toleran)."""
         with self._cliente_lock:
             cliente = self._cliente
-            if cliente is None:
-                return "sin_respuesta"
+            self._cliente_orden_reinicio = cliente
+            if cliente is None or not getattr(cliente, "connected", True):
+                return "no_enviada"
             try:
                 resp = cliente.write_register(REG_REINICIO, CLAVE_REINICIO,
                                               device_id=self.config.unit_id)
+            except OSError as e:
+                # error local del envío: la orden no llegó al módulo
+                logger.warning("ModbusLink: la orden de reinicio no se pudo enviar (%s: %s)",
+                               type(e).__name__, e)
+                return "no_enviada"
             except Exception as e:
                 logger.info("ModbusLink: la orden de reinicio no tuvo respuesta (%s: %s)",
                             type(e).__name__, e)
@@ -1214,7 +1239,11 @@ class ModbusLink:
         está vivo), "cerrado" (el par cerró la conexión) o "sin_respuesta"."""
         with self._cliente_lock:
             cliente = self._cliente
-            if cliente is None or not cliente.connected:
+            if cliente is None or cliente is not self._cliente_orden_reinicio:
+                # V20-rr-01: el socket lo cerró otro hilo de este proceso (p. ej.
+                # all_off con un fallo): no es evidencia de reinicio.
+                return "ajeno"
+            if not cliente.connected:
                 return "cerrado"
             try:
                 resp = cliente.read_holding_registers(REG_CODIGO_ERROR, count=1,
@@ -1285,6 +1314,11 @@ class ModbusLink:
                 "TARJETA_CONFIG_SEGURIDAD",
                 "El módulo rechazó la orden de reinicio (0x0C1D); la configuración de "
                 "seguridad escrita no está activa.", "config")
+        if orden == "no_enviada":
+            raise FalloConexion(
+                "TARJETA_CONFIG_SEGURIDAD",
+                "La orden de reinicio del módulo (0x0C1D) no se pudo enviar; la configuración "
+                "de seguridad escrita no está activa.", "config")
 
         ventana = max(self.config.espera_reinicio_s, self.VENTANA_MIN_EVIDENCIA_REINICIO_S)
         fin_ventana = t_orden + ventana
@@ -1294,6 +1328,11 @@ class ModbusLink:
             if self._parar.is_set():
                 raise _Detenido()
             estado = self._sondeo_reinicio()
+            if estado == "ajeno":
+                raise FalloConexion(
+                    "TARJETA_CONFIG_SEGURIDAD",
+                    "La conexión se cerró en este equipo mientras se comprobaba el reinicio "
+                    "del módulo; no hay evidencia de reinicio.", "config")
             if estado == "cerrado":
                 evidencia = "el módulo cerró la conexión"
             elif estado == "sin_respuesta":
