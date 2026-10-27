@@ -4,7 +4,7 @@
 # (tanda 19, MOD-06; docs/mis_plans/planeacion_enlace_modbus.md).
 #
 # Se leen solo desde src/autoclave/config/modbus_link.json. Mismo criterio
-# que serial_link_config: si el archivo falta o no es JSON válido, advertencia
+# que la configuración del antiguo enlace serial: si el archivo falta o no es JSON válido, advertencia
 # y valores internos; un valor de tipo o rango incorrecto se rechaza con
 # advertencia y se usa el valor interno de esa clave.
 

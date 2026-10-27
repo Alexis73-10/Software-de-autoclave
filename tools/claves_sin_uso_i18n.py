@@ -31,7 +31,9 @@ PY_ALCANCE = sorted(
     + [SRC / "ui_pyside" / "views" / "nuevo_usuario" / "puente.py",
        SRC / "ui_pyside" / "views" / "nuevo_usuario" / "vista.py",
        SRC / "auth" / "roles.py",
-       SRC / "auth" / "validacion_usuario.py"])
+       SRC / "auth" / "validacion_usuario.py"]
+    # Tanda 20 (T20-04): el rol configurar-modulo arma su resultado con i18n.
+    + list((SRC / "estacion").glob("configurar_modulo.py")))
 QML_ARCHIVOS = sorted((SRC / "ui_qml" / "qml").rglob("*.qml"))
 PDF = sorted((SRC / "ui_qml" / "exportacion").glob("*.py"))
 

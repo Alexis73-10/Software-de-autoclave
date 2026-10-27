@@ -2,15 +2,15 @@
 # --------------------------------
 # Enlace de E/S con los módulos Ebyte M31-U por Modbus TCP (tanda 19; ver
 # docs/mis_plans/planeacion_enlace_modbus.md, MOD-02, MOD-03, MOD-06 a
-# MOD-11). El PC es el maestro; cumple protocols.enlace.EnlaceES con el mismo
-# significado que SerialLink (handshake = conexión verificada).
+# MOD-11). El PC es el maestro; cumple protocols.enlace.EnlaceES (handshake =
+# conexión verificada; desde la tanda 20 es la única implementación).
 #
 # Un único hilo daemon de sondeo hace TODO el tráfico periódico: conexión
 # verificada, lectura de entradas cada periodo_sondeo_s y diagnóstico cada
 # 1 s. set_output() y all_off() escriben desde el hilo que los llama. El
 # cliente síncrono de pymodbus no es seguro entre hilos: todo acceso pasa por
 # _cliente_lock (MOD-11). Registrar una orden y escribirla es atómico
-# respecto a otros escritores (_cmd_lock, como TMG-03 del serial).
+# respecto a otros escritores (_cmd_lock, TMG-03).
 #
 # Vigilancia del lazo (MOD-08, regla principal): solo hay tráfico Modbus si
 # el ControlLoop marcó un tick hace <= MARGEN_TICK_CONTROL o si ninguna salida
@@ -206,7 +206,7 @@ def _registros_a_texto(regs: list[int]) -> Optional[str]:
 
 
 class ModbusLink:
-    # FW-D6 / MOD-08: igual que SerialLink.
+    # FW-D6 / MOD-08: vigilancia del tick del lazo de control.
     MARGEN_TICK_CONTROL = 1.5
     # Plan de protocolo §6.5: no se comparan los canales comandados hace menos.
     _TOLERANCIA_COMANDO_S = 1.0
@@ -791,7 +791,7 @@ class ModbusLink:
             origen_config = "operacion" if self._reconexion_en_operacion else "handshake"
 
         # 1. Socket TCP. Sin socket no hay evento: puerto_presente() False da
-        # "desconectada" (como un puerto serial ausente).
+        # "desconectada" (sin socket abierto).
         if self._cliente is None or not self.data["port_open"]:
             if not self._abrir_socket():
                 with self.data_lock:
@@ -1191,7 +1191,7 @@ class ModbusLink:
     # ---------------------------------------------------------------------
 
     def _registrar_comando(self, channel: int, estado: bool, ahora: float) -> None:
-        """Bajo data_lock. Como SerialLink: la tolerancia de 1 s cuenta desde
+        """Bajo data_lock. La tolerancia de 1 s cuenta desde
         el último CAMBIO de estado comandado."""
         previo = self._comandado.get(channel)
         if previo is None or previo[0] != estado:
@@ -1272,7 +1272,7 @@ class ModbusLink:
         return False
 
     def _comparar_salidas(self, do: list) -> None:
-        """Mismo algoritmo que SerialLink._comparar_salidas (MOD-11)."""
+        """Algoritmo de discrepancia de MOD-11 (heredado del enlace serial retirado en la tanda 20)."""
         if not self._handshake_ok:
             return
         ahora = time.monotonic()

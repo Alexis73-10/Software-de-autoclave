@@ -15,8 +15,10 @@ DEFECTOS = {
     "presupuesto_conexion_s": 15.0, "tiempo_desconexion_modulo_ds": 10,
     "intentos_escritura_config": 3, "filtro_pt100": 1, "filtro_ai": 0,
     "composicion_esperada": {"principal": "XAXX0A00G",
-                             "expansiones": ["GAXXXA000", "GXXAX00A0", "GXXAX00A0",
-                                             "GXDXX0600"]},
+                             # ADB-01 (adenda_tanda_19_banco.md / decisiones_tanda_20.md T20-02):
+                             # el principal figura como esclavo 0 (GXAXX0A00).
+                             "expansiones": ["GXAXX0A00", "GAXXXA000", "GXXAX00A0",
+                                             "GXXAX00A0", "GXDXX0600"]},
     "tramas_discrepancia": 2, "discrepancia_dispara_fallo": True,
 }
 
