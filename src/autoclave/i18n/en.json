@@ -1639,6 +1639,7 @@
     "rotulo_version_software": "Software version",
     "rotulo_firmware": "Board firmware",
     "rotulo_id_tarjeta": "Board ID",
+    "rotulo_enlace_io": "I/O link",
     "rotulo_ciclos_realizados": "Cycles run",
     "rotulo_proximo_mantenimiento": "Next maintenance",
     "rotulo_ciclos_restantes": "Cycles left to maintenance",

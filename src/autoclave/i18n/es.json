@@ -1639,6 +1639,7 @@
     "rotulo_version_software": "Versión del software",
     "rotulo_firmware": "Firmware de la tarjeta",
     "rotulo_id_tarjeta": "ID de la tarjeta",
+    "rotulo_enlace_io": "Enlace de E/S",
     "rotulo_ciclos_realizados": "Ciclos realizados",
     "rotulo_proximo_mantenimiento": "Próximo mantenimiento",
     "rotulo_ciclos_restantes": "Ciclos restantes para mantenimiento",

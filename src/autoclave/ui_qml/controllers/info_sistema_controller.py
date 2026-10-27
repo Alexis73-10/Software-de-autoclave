@@ -5,7 +5,8 @@
 #   - Equipo: modelo, capacidad nominal y tipo de carga (M1, tanda 7; "—" en
 #     perfiles anteriores), tipo de equipo (E2, tanda 8: Hospitalario o
 #     Laboratorio), serie, fecha de instalación, fuente de vapor.
-#   - Software y tarjeta: versión del software, firmware e ID de la tarjeta.
+#   - Software y tarjeta: versión del software, firmware e ID de la tarjeta y,
+#     desde la tanda 19 (MOD-01), el enlace de E/S activo (Modbus o serial).
 #   - Uso y mantenimiento: ciclos realizados, próximo mantenimiento (fecha y
 #     ciclos restantes).
 #   - Configuración vigente: idioma, unidades, impresora y red (chips).
@@ -20,6 +21,8 @@ from autoclave.ui_qml.domain import resumen_sistema as dominio
 
 _MENSAJES = {sesion_backend.BACKEND_NO_RESPONDE: "opciones.err_sin_respuesta"}
 
+# Tanda 19 (MOD-01): enlaces de E/S con texto en equipo.enlace_io_<enlace>
+ENLACES_IO = ("modbus", "serial")
 GRUPOS = ("equipo", "software", "uso", "configuracion")
 ESTADOS_IMPRESORA = ("lista", "no_instalada", "desconectada", "sin_papel", "error", "deshabilitada",
                      "desconocido")
@@ -27,7 +30,7 @@ ESTADOS_IMPRESORA = ("lista", "no_instalada", "desconectada", "sin_papel", "erro
 # (equipo.clase_*: "Hospitalario"/"Laboratorio"), nunca el valor interno
 CLASES_EQUIPO = tuple(c.value for c in EquipmentClass)
 CLAVES_FILA = ("modelo", "capacidad", "tipo_carga", "clase", "serie", "fecha_instalacion", "fuente_vapor", "version_software", "firmware",
-               "id_tarjeta", "ciclos_realizados", "proximo_mantenimiento", "ciclos_restantes", "idioma",
+               "id_tarjeta", "enlace_io", "ciclos_realizados", "proximo_mantenimiento", "ciclos_restantes", "idioma",
                "unidades", "impresora", "red")
 
 
@@ -76,6 +79,8 @@ def grupos_de(d: dict) -> list[dict]:
             fila("version_software", sw.get("version")),
             fila("firmware", sw.get("firmware")),
             fila("id_tarjeta", sw.get("id_tarjeta")),
+            fila("enlace_io", "", f"equipo.enlace_io_{sw.get('enlace_io')}"
+                 if sw.get("enlace_io") in ENLACES_IO else ""),
         ]},
         {"grupo": "uso", "filas": [
             fila("ciclos_realizados", uso.get("ciclos")),
