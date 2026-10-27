@@ -2,7 +2,9 @@
 
 Fecha: 27-oct-2026. Sesión sin supervisión (`claude -p`). Fuentes: `docs/mis_plans/decisiones_tanda_19.md`, `docs/mis_plans/planeacion_enlace_modbus.md` (MOD-01 a MOD-17) e instrucción `docs/mis_plans/instruccion_claude_code_tanda_19.md`. Estado paso a paso: `estado.md`. Verificaciones V con archivo:línea: `V19_notas.md`.
 
-**Resultado (se completa en K/Z):** ver «Unión y entrega» al final.
+**Resultado:** **Unida a `dev` (con la tanda 18) en 0bbc82f y entregada como 1.0.0-alpha.3** (commit 621a289 `chore(ver): 1.0.0-alpha.3`, etiqueta `v1.0.0-alpha.3`, `entrega/v1.0.0-alpha.3_2026-10-27/`). Sin push. Suite completa en verde (8838 recolectadas; 3 caídas de trabajador Qt en paralelo que pasan en serie). 0 hallazgos altos en R.
+
+**IMPORTANTE — adenda del banco (`docs/mis_plans/adenda_tanda_19_banco.md`, escrita por Cristian durante la tanda, sin seguimiento en git):** dice que se aplica después de la tanda y no se aplicó. Con los datos reales del banco, la alpha.3 **no conectará con los módulos M31-U tal cual**: (ADB-01) la lista de esclavos 0x0C80 trae las E/S del principal como esclavo 0 (`GXAXX0A00`), así que la composición esperada debe ser de 5 esclavos → hoy da TARJETA_VERSION_INCOMPATIBLE; (ADB-02) el firmware lleva un prefijo de producto distinto por módulo y hay que comparar solo la versión; (ADB-05) 0x0C37 se comporta como un contador (100, 105), no como bandera 0/1 → con V19-s1-06 la conexión falla con TARJETA_CONFIG_SEGURIDAD («no se pudo borrar la bandera»); (ADB-04) la configuración de falla puede necesitar un reinicio del módulo (0x0C1D = 0x5BB5) para activarse (en el banco, antes de reiniciar, DO1 no se apagó al quitar el cable). `composicion_esperada` se puede corregir en `config/modbus_link.json` sin código, pero ADB-02, ADB-04 y ADB-05 necesitan una sesión corta de corrección antes de usar la alpha.3 en el banco con los módulos.
 
 ## 1. Qué se hizo
 
@@ -93,4 +95,10 @@ M-0 red dedicada; M-1 corte por desconexión (< 2 s; ¿0x0C37 se borra escribié
 
 ## 7. Unión y entrega
 
-(se completa en K/Z)
+- `git checkout dev`; `git merge --no-ff tanda-19` → 0bbc82f (trae la tanda 18; árbol idéntico a `tanda-19`). Suite completa tras la unión: 8822 passed + 3 caídas de trabajador Qt en paralelo (`test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu`, `test_impresion_menu.py::test_impresion_menu_instancia_sin_crash`, `::test_print_alarms_con_alarmas_imprime_directo_sin_dialogo`) que pasan en serie → verde (8838 recolectadas = 8521 base + 317 nuevas).
+- Commit 8418b22: `docs/versiones/anomalias_conocidas_1.0.0-alpha.3.md` (el de la tanda 18, ampliado: MED-01..MED-03, AN-29 DECISIONES SIN CONFIRMAR, AN-30, AN-31, bloque M, «el enlace por defecto es Modbus; la tarjeta ESP32 requiere `enlace: serial`», uso previsto sin uso clínico). AN-32 (adenda del banco) se agregó en el cierre Z.
+- `python tools/entrega/compilar_entrega.py --con-generador`: salida 0. Su suite: 1 roja en paralelo que pasó en serie. N = 3 → **1.0.0-alpha.3** (AppVerNum 1.0.0.1003), commit 621a289, 4 `.spec` compilados (pymodbus y `autoclave.protocols.modbus_link` presentes en el análisis de Autoclave y AutoclaveBackend: `build/*/xref-*.html`), entrega neutra verificada, el `.exe` reporta `1.0.0-alpha.3 (621a289)`, Setup, carpeta y etiqueta anotada `v1.0.0-alpha.3`. pymodbus 3.16.1 se instaló también en `_venv_t8_producto` (MOD-13).
+- SHA-256: `Autoclave_Setup_1.0.0-alpha.3.exe` 7a3726039532a1d96b581b0361647eb7ef15ede3d9893a522222fae375c47321; `Autoclave_v1.0.0-alpha.3.zip` e4d3c464d08c9e35e893275cf89ca307e7764793524cf316ed8ca38d2ccb48fc; `GeneradorCodigos.exe` 1c4bc9eff033ad2529609de3426bdf6f7a4a04fceb86dcc70293543412a26c12.
+- **Sin push.** Comando para publicar (no se ejecutó): `git push origin dev v1.0.0-alpha.3` (y, si se quieren las ramas: `git push origin tanda-18 tanda-19`).
+- Importación de pymodbus en el `.exe`: verificada por el análisis de PyInstaller; no hay un rol del ejecutable que importe el enlace sin abrir hardware (`--escribir-version` sale antes), así que no se probó dentro del `.exe` en marcha (anotado).
+- L: quitados los 5 worktrees de la tanda (s1, s2, s3, r1, r2) y `git worktree prune`; los de tandas anteriores con cambios sin commit quedan. Ramas `tanda-19-*` conservadas (sin `branch -D`).
