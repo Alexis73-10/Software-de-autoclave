@@ -12,8 +12,8 @@ Fuente: `docs/mis_plans/decisiones_tanda_19.md`, `docs/mis_plans/planeacion_enla
 | P-s1 | Hecha | `tanda-19-s1` (d8a9f33, 0b99bad): ModbusLink, config, simulador M31; 97 pruebas |
 | P-s2 | Hecha | `tanda-19-s2` (dcdb3de, 103fbf9, b8a42be): None por canal, calibración Modbus, puertos por enlace, buzzer DO 25; 76 pruebas |
 | P-s3 | Hecha | `tanda-19-s3` (e4d061b, a723e62): alarmas Modbus en el lazo, enlace_io en la UI; 51 pruebas |
-| I | En curso | merges s2 (2851c55), s1 (b3e324f), s3 (a19e1b8) sin conflictos; carrera de test_uptime (fe; ver informe); integración Modbus 4b58f14; i18n sin claves huérfanas nuevas (solo alarmas.*, que lee el backend); hoja M y MED (f70c096); .spec (f5c057c); suite completa en curso |
-| R | En curso | 3 revisores de solo lectura |
+| I | En curso | merges s2 (2851c55), s1 (b3e324f), s3 (a19e1b8) sin conflictos; carrera de test_uptime corregida en la prueba (d41b30e); integración Modbus 4b58f14; i18n sin claves huérfanas nuevas (solo alarmas.*, que lee el backend); hoja M y MED (f70c096); .spec (f5c057c); suite completa VERDE: 8765 passed, 10 skipped, 3 xfailed (8778 recolectadas = 8521 base + 257 nuevas) |
+| R | En curso | 0 altos; medios V19-s1-01/02/03, V19-s2-01, V19-s3-01/02; correcciones en ramas `tanda-19-r1` (enlace) y `tanda-19-r2` (medidas) |
 | K | Pendiente | base tanda-18: K une las dos tandas a dev |
 | L | Pendiente | |
 | Z | Pendiente | |
