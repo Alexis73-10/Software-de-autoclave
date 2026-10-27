@@ -196,6 +196,23 @@ def _user_calibrate(value: float, calib) -> float:
 # TEMPERATURA
 # ==============================
 
+# V19-s2-03 (revisión R de la tanda 19): rango físico plausible de la cuenta
+# cruda de temperatura del módulo M31 (entero con signo en décimas de °C).
+# Fuera de [-500, 2500] décimas (-50,0 a 250,0 °C) la cuenta no es una
+# medición de la PT100 (sonda abierta o en corto, registro corrupto) y el
+# canal queda sin valor: None y filtros reiniciados, igual que un None.
+# Límites inclusive. DECISIÓN SIN CONFIRMAR. Solo con el enlace Modbus.
+_DECIMAS_PT100_MIN = -500
+_DECIMAS_PT100_MAX = 2500
+
+
+def _decimas_pt100_plausibles(raw) -> bool:
+    try:
+        return _DECIMAS_PT100_MIN <= raw <= _DECIMAS_PT100_MAX
+    except TypeError:
+        return False
+
+
 def convert_temperatures(raw_ai: List[Optional[int]], config: Dict | CalibrationConfig) -> List[Optional[float]]:
 
     if isinstance(config, dict):
@@ -214,8 +231,11 @@ def convert_temperatures(raw_ai: List[Optional[int]], config: Dict | Calibration
 
         # Sin valor crudo (tanda 19, MOD-03): sin lectura y filtro reiniciado.
         # Serial: sensor desconectado, ADC en 0 (cable a GND) o 4095 (cable al
-        # aire/VCC). Modbus: 0 décimas es 0,0 °C válido (sin centinela).
-        if raw is None or (not modbus and (raw == 0 or raw >= 4095)):
+        # aire/VCC). Modbus: 0 décimas es 0,0 °C válido (sin centinela), pero
+        # una cuenta fuera del rango físico plausible de la PT100 (V19-s2-03)
+        # se trata igual que un None.
+        if raw is None or (not modbus and (raw == 0 or raw >= 4095)) or (
+                modbus and not _decimas_pt100_plausibles(raw)):
             _ma_temp[i].buffer.clear()
             _oe_temp[i].reset()
             temps.append(None)
