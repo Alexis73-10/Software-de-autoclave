@@ -23,6 +23,7 @@ Primero simular cada uno con `-WhatIf`; luego sin él. Reiniciar al final.
 | 5 | `05_plan_energia.ps1` | Sin suspensión, hibernación ni apagado de pantalla; botón de encendido "no hacer nada" | §7 |
 | 6 | `06_asociar_tactiles.ps1 [-MinutosEspera 10]` | Asocia cada pantalla táctil con su monitor: abre `%windir%\System32\MultiDigitizer.exe` y pide tocar cada pantalla una vez. Solo con 2 o más monitores | D11-5 (tanda 11) |
 | 7 | `07_escritorio_estacion.ps1 [-Usuario cuenta -Dominio equipo] [-Imagen ruta]` | Escritorio de la estación en el perfil de la cuenta del inicio automático: fondo de Especifika (Rellenar, todos los monitores, tipo «Imagen»), barra de tareas con «Ocultar automáticamente» e íconos del escritorio ocultos. Ver «Paso 7» abajo | EST-09 (tanda 18) |
+| 8 | `08_red_modulos.ps1 -Adaptador <MAC>` | Red de los módulos de E/S: el adaptador Ethernet dedicado (elegido por su MAC) queda en `192.168.3.10/24`, sin puerta de enlace ni DNS y sin DHCP. Ver «Paso 8» abajo | T20-05 (tanda 20) |
 
 Ejemplo:
 
@@ -52,9 +53,22 @@ El PC tiene una sola cuenta (la que instala y entra con el inicio automático). 
 - El ocultamiento total de la barra mientras corre Autoclave (`ui_qml/barra_tareas.py`) sigue igual.
 - Respaldo: `respaldo_07_escritorio_estacion.json`, con el SID de la cuenta y cada valor original (también si no existía). Los valores que puede tocar el paso (y restaurar el inverso) son solo los de `ValoresUsuarioGestionados` de `_comun.ps1`. Si el respaldo es de otra cuenta, el paso no cambia nada y pide revertir primero.
 
+## Paso 8: red de los módulos de E/S (T20-05, tanda 20)
+
+El módulo M31-U está fijo en `192.168.3.7:502` (decisión 3 de `docs/mis_plans/decisiones_tanda_20.md`); el PC necesita un adaptador Ethernet dedicado en la misma red. `08_red_modulos.ps1 -Adaptador <MAC>` (MAC con `-`, `:` o sin separadores; no es secreta):
+
+- Busca el adaptador **solo entre los Ethernet físicos**: `Get-NetAdapter -Physical` con `NdisPhysicalMedium = 14` (802.3). Rechaza Wi-Fi (`9`), Bluetooth (`10`) y adaptadores virtuales o VPN (`Virtual = True` o medio `0`).
+- Si **otro** adaptador ya tiene una IPv4 en `192.168.3.0/24`, termina con error **sin cambiar nada** (dos adaptadores en esa red rompen la ruta al módulo).
+- Respaldo **antes** de cambiar nada, solo la primera vez: `respaldo_08_red_modulos.json` en `<RutaDatos>\estacion\` (nombre por la convención `respaldo_<paso>.json` de `_comun.ps1`; la decisión T20-05 lo llamaba `respaldo_08.json`), con MAC, alias, DHCP sí/no, IPv4 manuales con prefijo, puertas de enlace y DNS. Si el respaldo es de otro adaptador, no cambia nada y pide revertir primero.
+- Aplica: DHCP desactivado (`Set-NetIPInterface -Dhcp Disabled`), quita las rutas `0.0.0.0/0` y las demás IPv4 del adaptador, `New-NetIPAddress 192.168.3.10 -PrefixLength 24` **sin** `-DefaultGateway` y DNS sin servidores (`Set-DnsClientServerAddress -ResetServerAddresses`).
+- Verifica después (hasta 15 s) que `192.168.3.10/24` quedó en **ese** adaptador, con DHCP desactivado y sin puerta de enlace; una `169.254.x.x` no cuenta (lección del banco: la ventana de Windows a veces no aplicaba la IP fija). Con el cable desconectado acepta la dirección de la configuración persistente. Si no quedó, termina con error.
+- Idempotente («Sin cambio» si ya está así). Cualquier fallo termina con error (el puente devuelve 1).
+- Las funciones sin efectos (validación de la MAC y de la subred, filtro de adaptadores, conflicto, respaldo) están en `_red_modulos_puras.ps1`, que las pruebas cargan solas con datos ficticios.
+- Inverso: `08_revertir_red_modulos.ps1` restaura desde el respaldo (DHCP con DNS automático si estaba en DHCP; si no, las IPv4, puertas de enlace y DNS fijos guardados). Sin respaldo no toca nada; con un respaldo de forma inválida, si el adaptador ya no está o si algo falla, termina con error y **conserva** el respaldo.
+
 ## Desde el Setup (tanda 9, D9-11)
 
-El Setup de Inno (`tools/instalador/`) aplica los pasos 01, 04, 05 y 07 (EST-09, tanda 18: después del 05 y antes del 06, sin casilla propia; un fallo del 07 no interrumpe los demás) con la casilla "Configurar este PC como estación del autoclave", el 06 con su subcasilla "Asociar cada pantalla táctil con su monitor" (tanda 11, D11-5; solo aparece con 2 o más monitores, no se reaplica al Reparar y no corre en un Setup silencioso) y el 02 con la casilla "Arranque sin logo", sin interacción, a través de `tools/instalador/estacion_setup.ps1`; el desinstalador ejecuta los inversos de los pasos aplicados. Para eso:
+El Setup de Inno (`tools/instalador/`) aplica los pasos 01, 04, 05 y 07 (EST-09, tanda 18: después del 05 y antes del 06, sin casilla propia; un fallo del 07 no interrumpe los demás) con la casilla "Configurar este PC como estación del autoclave", el 06 con su subcasilla "Asociar cada pantalla táctil con su monitor" (tanda 11, D11-5; solo aparece con 2 o más monitores, no se reaplica al Reparar y no corre en un Setup silencioso) y el 02 con la casilla "Arranque sin logo", sin interacción, a través de `tools/instalador/estacion_setup.ps1`; el desinstalador ejecuta los inversos de los pasos aplicados. El 08 (T20-05, tanda 20) no depende de la casilla de la estación: lo aplica la página «Red de los módulos de E/S» con el adaptador elegido (`estacion_setup.ps1 -Paso 08 -Accion Aplicar -Adaptador <MAC>`), Reparar lo reaplica con el adaptador guardado (`Adaptador08`) y el desinstalador lo revierte primero. Para eso:
 - `01_cuenta_autologon.ps1` acepta `-Dominio` (por defecto el nombre del equipo), `-NoCrearCuenta` (falla sin cambiar nada si la cuenta local no existe) y `-ContrasenaDesdeEntorno` (toma la contraseña de la variable `AUTOCLAVE_CLAVE_AUTOLOGON` del proceso y la borra). Sin esos parámetros se comporta como antes (pide la contraseña). `AutoAdminLogon` se activa al final, después de usuario, dominio y contraseña.
 - La carpeta de la estación (`<RutaDatos>\estacion\`, ver «Log y respaldos») queda solo para Administradores y SYSTEM (dueño Administradores, sin herencia), porque la carpeta de datos tiene Modificar para Usuarios y los inversos corren como administrador con lo que diga `respaldo_<paso>.json`. Se aplica también al simular con `-WhatIf`.
 - Los inversos solo restauran los valores de registro de la lista `ValoresGestionados` de `_comun.ps1` (un respaldo alterado no puede escribir otra clave), y `05_revertir…` solo importa el `.pow` de esa carpeta. Un paso nuevo que escriba otro valor debe agregarlo a esa lista (`tests/test_t9_e9_setup_estacion.py` lo comprueba).
@@ -71,9 +85,10 @@ Todos los scripts son idempotentes: si el valor ya está, lo anotan como "Sin ca
 
 ## Cómo revertir
 
-En orden inverso (7 → 1), como administrador, también con `-WhatIf` primero:
+En orden inverso (8 → 1), como administrador, también con `-WhatIf` primero:
 
 ```powershell
+.\08_revertir_red_modulos.ps1
 .\07_revertir_escritorio_estacion.ps1
 .\06_revertir_asociar_tactiles.ps1
 .\05_revertir_plan_energia.ps1
@@ -88,6 +103,7 @@ En orden inverso (7 → 1), como administrador, también con `-WhatIf` primero:
 - `05_revertir…` reimporta el plan original con un GUID nuevo; el plan modificado queda en la lista (`powercfg /list`, borrar con `powercfg /delete`).
 - `06_revertir…` borra solo las asociaciones táctil-monitor que creó el paso 6 y devuelve su dato a las que cambió (según `respaldo_06_asociar_tactiles.json`); las que ya había antes quedan. Sin ese respaldo no borra nada. **Ojo:** "creada por el paso" quiere decir "que no estaba antes de la primera vez que corrió el paso 6", así que también borra las asociaciones rehechas después (a mano desde el Panel de control, al cambiar un táctil o al repetir el paso). Tras desinstalar o revertir, hay que volver a asociar las pantallas. Si un valor no se puede revertir, el script termina con error y conserva el respaldo para reintentarlo.
 - `07_revertir…` devuelve el fondo, el modo de la barra y la visibilidad de los íconos a lo respaldado en `respaldo_07_escritorio_estacion.json` (si un valor no existía, lo borra), en el perfil del SID respaldado. Con la cuenta de la estación vuelve a aplicar el fondo y la barra en el acto; los íconos (y, sin esa sesión, todo) vuelven en el siguiente inicio de sesión. Si un valor falla, termina con error y conserva el respaldo.
+- `08_revertir…` devuelve el adaptador de los módulos a lo respaldado en `respaldo_08_red_modulos.json` (DHCP y DNS automático, o la configuración fija anterior). Sin respaldo no toca nada; si falla, termina con error y conserva el respaldo.
 - Si el arranque falla tras el paso 2: desde el entorno de recuperación, `bcdedit /import <carpeta de la estación>\bcd_respaldo.bcd` (p. ej. `D:\Especifika\Autoclave\datos\estacion\bcd_respaldo.bcd`; antes de la tanda 17, `%ProgramData%\Especifika\Autoclave\estacion\`).
 
 ## Lo que no cubren los scripts
@@ -115,7 +131,8 @@ En orden inverso (7 → 1), como administrador, también con `-WhatIf` primero:
 - [ ] Tras reiniciar el PC, cada táctil sigue respondiendo en su pantalla.
 - [ ] AnyDesk instalado sin acceso desatendido; una sesión remota exige aceptación en sitio.
 - [ ] Escritorio de la estación (paso 7, I-07b): tras iniciar sesión solo se ve el fondo de Especifika (Rellenar, en los dos monitores), sin íconos y con la barra de tareas oculta; Configuración › Personalización › Fondo dice «Imagen».
-- [ ] Reversión probada al menos una vez en una máquina de prueba (los 7 inversos), con el log revisado (I-15: `Revertir paso 07 ... terminado`; fondo, barra e íconos originales).
+- [ ] Red de los módulos (paso 8, M-7): `Get-NetIPAddress -AddressFamily IPv4` muestra `192.168.3.10/24` en el adaptador dedicado, sin puerta de enlace (`Get-NetRoute -DestinationPrefix 0.0.0.0/0`), y `ping 192.168.3.7` responde.
+- [ ] Reversión probada al menos una vez en una máquina de prueba (los 8 inversos), con el log revisado (I-15: `Revertir paso 07 ... terminado`; fondo, barra e íconos originales).
 
 ## Pantallas táctiles: marcar los puertos USB (paso 6)
 
