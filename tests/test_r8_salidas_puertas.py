@@ -54,7 +54,8 @@ def test_vacio_bomba_y_buzzer_con_fabrica():
     s = SetOutput(io, estado=MagicMock())
     s.vacio_camara_on()
     s.buzer_on()
-    assert _canales(io) == [(17, True), (8, True), (24, True)]
+    # tanda 19 (decisión 4 de Cristian, MOD-05): buzzer en DO 25
+    assert _canales(io) == [(17, True), (8, True), (25, True)]
 
 
 def test_salida_reasignada_va_a_su_canal_nuevo():
@@ -78,22 +79,25 @@ def test_fuente_de_vapor_bloqueada_sigue_a_la_funcion():
 
 
 def test_apagado_individual_cubre_los_canales_reasignados():
-    _reasignar(vapor_camara=25)
+    # tanda 19 (decisión 4 de Cristian, MOD-05): DO 25 es del buzzer (vapor a
+    # DO 26) y el apagado individual cubre DO 1-32 (_CANALES_APAGADO_BASE)
+    _reasignar(vapor_camara=26)
     io = MagicMock()
     io.all_off.return_value = False
     s = SetOutput(io, estado=MagicMock())
     assert s.reset_all_outputs() is False
     apagados = {c for c, v in _canales(io) if v is False}
-    assert 25 in apagados and set(range(1, 25)) <= apagados
+    assert 26 in apagados and set(range(1, 33)) <= apagados
 
 
 def test_puertas_toman_el_canal_de_la_asignacion():
-    _reasignar(abrir_puerta_1=25, cerrar_puerta_1=26, bloqueo_puerta_2=27, desbloqueo_puerta_2=28)
+    # tanda 19 (decisión 4 de Cristian, MOD-05): DO 25 es del buzzer; DO 26-29
+    _reasignar(abrir_puerta_1=26, cerrar_puerta_1=27, bloqueo_puerta_2=28, desbloqueo_puerta_2=29)
     perfil = MagicMock(door_type=DoorType.ADVANCED, door_count=2)
     p1, p2 = build_doors_cfg(perfil)
-    assert p1["do"]["abrir"] == 25 and p1["do"]["cerrar"] == 26
+    assert p1["do"]["abrir"] == 26 and p1["do"]["cerrar"] == 27
     assert p1["do"]["bloquear"] == 11 and p1["do"]["desbloquear"] == 9
-    assert p2["do"]["bloquear"] == 27 and p2["do"]["desbloquear"] == 28
+    assert p2["do"]["bloquear"] == 28 and p2["do"]["desbloquear"] == 29
     assert p2["do"]["abrir"] == 21
 
 

@@ -26,20 +26,40 @@ def app_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+CALIBRACION_SERIAL = "calibration.yaml"
+CALIBRACION_MODBUS = "calibration_modbus.yaml"
+
+
+def nombre_calibracion(enlace: str | None = None) -> str:
+    """Archivo de calibración del enlace de E/S (tanda 19, MOD-04): la escala
+    de fábrica depende del enlace (cuentas del ADC de 12 bits en serial,
+    décimas de °C y µA en Modbus). `enlace` None = el enlace activo."""
+    from autoclave.config import enlace_io
+    if enlace is None:
+        enlace = enlace_io.enlace_activo()
+    return CALIBRACION_MODBUS if enlace == enlace_io.ENLACE_MODBUS else CALIBRACION_SERIAL
+
+
 def calibration_path() -> Path:
-    """Ruta activa de `calibration.yaml` — se lee y se sobreescribe en cada
-    recalibración (ver `server.py` / `calibration_writer.py`).
+    """Ruta activa del archivo de calibración del enlace activo
+    (`calibration.yaml` en serial, `calibration_modbus.yaml` en Modbus; tanda
+    19, MOD-04) — se lee y se sobreescribe en cada recalibración (ver
+    `rutas/io.py` / `calibration_writer.py`, que escribe en la ruta que se le
+    pasa).
 
     En desarrollo es el archivo del repo, como siempre. En un build congelado,
     `resource_path()` apunta dentro del árbol de extracción de PyInstaller
     (temporal en modo onefile) — escribir ahí se perdería al cerrar el
     programa. Ahí se usa en cambio una copia en `data/`, junto al .exe,
-    sembrada la primera vez desde la calibración de fábrica empaquetada."""
-    bundled = Path(resource_path("autoclave/config/calibration.yaml"))
+    sembrada la primera vez desde la calibración de fábrica empaquetada. Cada
+    enlace tiene su propia copia: cambiar de enlace no pisa la calibración del
+    otro."""
+    nombre = nombre_calibracion()
+    bundled = Path(resource_path(f"autoclave/config/{nombre}"))
     if not getattr(sys, "frozen", False):
         return bundled
 
-    active = app_root() / "data" / "calibration.yaml"
+    active = app_root() / "data" / nombre
     if not active.exists():
         active.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(bundled, active)

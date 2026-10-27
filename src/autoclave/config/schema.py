@@ -47,6 +47,13 @@ class FactorySensorCalibration(SensorCalibration):
     # rango. None lo desactiva. DECISIÓN SIN CONFIRMAR hasta la prueba de banco.
     pres_falla_bajo_kpa: Optional[float] = Field(
         -10.0, description="Piso calibrado de falla del transductor de presión (kPa)")
+    # Tanda 19 (MOD-04): piso de «señal presente» en cuentas crudas para la
+    # compuerta D8-3.19 (Units.senal_presion_presente): señal si la cuenta es
+    # MAYOR que este piso. Sin él se usa adc_min. En el archivo Modbus vale
+    # 3850 µA: por debajo de 3,85 mA el módulo M31 entrega 0. DECISIÓN SIN
+    # CONFIRMAR.
+    adc_piso_senal: Optional[int] = Field(
+        None, ge=0, description="Piso de señal presente en cuentas crudas (si falta, adc_min)")
 
 
 # ---------------------------------------------------------------------

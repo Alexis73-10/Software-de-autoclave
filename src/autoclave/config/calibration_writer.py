@@ -1,7 +1,10 @@
 """
 autoclave.config.calibration_writer
 ------------------------------------
-Escribe de vuelta a calibration.yaml usando ruamel.yaml en modo round-trip,
+Escribe de vuelta al archivo de calibración que se le pasa (el del enlace
+activo, `utils/paths.calibration_path()`: calibration.yaml o, con Modbus,
+calibration_modbus.yaml, del mismo formato; tanda 19, MOD-04) usando
+ruamel.yaml en modo round-trip,
 preservando comentarios y formato existentes. Reemplaza por completo la
 entrada del sensor calibrado (descarta poly/adc_min/etc previos) por un
 mapping simple {gain, offset}.

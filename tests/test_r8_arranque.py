@@ -3,6 +3,10 @@
 # R8 (tanda 8, D8-5.12): al arrancar, el backend aplica la asignación vigente
 # (persistencia tras reiniciar), bloquea si el archivo está dañado y, tras una
 # reasignación, verifica que cada función responde en su puerto nuevo.
+#
+# Tanda 19 (decisión 4 de Cristian, MOD-05): el buzzer ocupa DO 25. Las pruebas
+# que usaban DO 25 como puerto libre para vapor_camara usan ahora DO 26 (map_do
+# 25); la intención de cada prueba no cambia.
 
 import json
 from unittest.mock import MagicMock
@@ -45,8 +49,8 @@ def test_sin_archivo_rige_la_de_fabrica(tmp_path):
 def test_la_vigente_se_aplica_al_arrancar_persistencia_tras_reiniciar(tmp_path):
     """Lo guardado en data/ sobrevive al reinicio: un contexto nuevo (= un
     backend recién arrancado) la aplica antes de construir el control."""
-    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25, "pres_camara": 13}, ["vapor_camara", "pres_camara"])
-    assert EstadoAutoclave.map_do["vapor_camara"] == 24
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 26, "pres_camara": 13}, ["vapor_camara", "pres_camara"])
+    assert EstadoAutoclave.map_do["vapor_camara"] == 25
     assert EstadoAutoclave.map_pres["pres_camara"] == 4
     assert sorted(ctx.asignacion_pendiente) == ["pres_camara", "vapor_camara"]
     assert ctx.verificacion_asignacion["estado"] == "pendiente"
@@ -54,7 +58,7 @@ def test_la_vigente_se_aplica_al_arrancar_persistencia_tras_reiniciar(tmp_path):
     aio.restablecer_memoria_fabrica_codigo()
     ctx2 = BackendContext()
     ctx2.cargar_asignacion_io(archivo=ctx.archivo_asignacion)
-    assert EstadoAutoclave.map_do["vapor_camara"] == 24
+    assert EstadoAutoclave.map_do["vapor_camara"] == 25
 
 
 @pytest.mark.parametrize("texto", ["{dañado", '{"formato": 1, "cambios": {"vapor_camara": 3}}'])
@@ -115,7 +119,7 @@ def test_verificacion_automatica_no_da_por_verificada_ni_quita_la_marca(tmp_path
     """SAF-02/SEN-03 (revisión R8): la trama trae siempre todos los puertos
     DI/DO; la comprobación automática solo dice "trama_presente" y la marca
     pendiente la quita el ingeniero."""
-    ctx, ruta = _ctx(tmp_path, {"vapor_camara": 25, "pres_camara": 13}, ["vapor_camara", "pres_camara"])
+    ctx, ruta = _ctx(tmp_path, {"vapor_camara": 26, "pres_camara": 13}, ["vapor_camara", "pres_camara"])
     _verificar(ctx, _datos())
     assert ctx.verificacion_asignacion == {
         "estado": "trama_presente",
@@ -123,7 +127,7 @@ def test_verificacion_automatica_no_da_por_verificada_ni_quita_la_marca(tmp_path
     eventos = [c.args[0] for c in ctx.db.registrar_auditoria.call_args_list]
     assert eventos == ["reasignacion_io_verificada"] * 2
     entidades = {c.kwargs["entidad"]: c.kwargs["valor_nuevo"] for c in ctx.db.registrar_auditoria.call_args_list}
-    assert entidades == {"vapor_camara": "DO 25", "pres_camara": "AI 13"}
+    assert entidades == {"vapor_camara": "DO 26", "pres_camara": "AI 13"}
     assert {c.kwargs["detalle"]["resultado"] for c in ctx.db.registrar_auditoria.call_args_list} == {"trama_presente"}
     assert sorted(json.loads(ruta.read_text(encoding="utf-8"))["verificacion_pendiente"]) ==         ["pres_camara", "vapor_camara"]
     assert sorted(ctx.asignacion_pendiente) == ["pres_camara", "vapor_camara"]
@@ -131,9 +135,9 @@ def test_verificacion_automatica_no_da_por_verificada_ni_quita_la_marca(tmp_path
 
 def test_pendiente_bloquea_el_inicio_aunque_se_resuelva_la_alarma(tmp_path):
     from autoclave.state_machine.alarms.catalogo import SEN_09
-    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, ["vapor_camara"])
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, ["vapor_camara"])
     inst = ctx.alarm_manager.obtener(SEN_09)
-    assert inst is not None and "vapor_camara (DO 25)" in inst.descripcion
+    assert inst is not None and "vapor_camara (DO 26)" in inst.descripcion
     assert ctx.alarm_manager.has_blocking_alarm() is True
     ctx.alarm_manager.resolver_todas_por_reinicio()          # reconocer una FALLA
     assert ctx.alarm_manager.obtener(SEN_09) is None
@@ -168,20 +172,20 @@ def test_verificacion_sin_respuesta_conserva_la_marca(tmp_path):
 
 
 def test_verificacion_sin_tarjeta_vence_el_plazo(tmp_path):
-    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, ["vapor_camara"])
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, ["vapor_camara"])
     _verificar(ctx, _datos(conectado=False), plazo_s=5.0)
     assert ctx.verificacion_asignacion["estado"] == "fallida"
 
 
 def test_sin_pendientes_no_verifica(tmp_path):
-    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, [])
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, [])
     ctx.iniciar_verificacion_asignacion()
     assert getattr(ctx, "_hilo_verificacion_io", None) is None
     assert ctx.verificacion_asignacion["estado"] == "sin_cambios"
 
 
 def test_inhibe_salidas_pendientes_y_las_de_energia_con_una_analogica_pendiente(tmp_path):
-    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, ["vapor_camara"])
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, ["vapor_camara"])
     ctx.setdo = MagicMock()
     ctx.inhibir_salidas_sin_verificar()
     assert ctx.setdo.inhibidas == frozenset({"vapor_camara"})
@@ -197,7 +201,7 @@ def test_inhibe_salidas_pendientes_y_las_de_energia_con_una_analogica_pendiente(
 def test_no_inhibe_el_venteo_y_una_puerta_pendiente_inhibe_su_movimiento(tmp_path):
     """SAF-01/SAF-02 (3.ª vuelta R8): el venteo nunca se inhibe (aunque esté
     pendiente); abrir o cerrar pendiente detiene todo movimiento de esa puerta."""
-    ctx, _ = _ctx(tmp_path, {"vapor_camara": 25}, ["vapor_camara"])
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, ["vapor_camara"])
     ctx.setdo = MagicMock()
     ctx.asignacion_pendiente = ["descompresion_rapida", "aire_atmosferico_camara", "abrir_puerta_1"]
     ctx.inhibir_salidas_sin_verificar()

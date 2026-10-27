@@ -30,7 +30,8 @@ _MAP_DO_ESPERADO = {
     "aire_comprimido_camara": 13, "aire_admosferico_camara": 14, "agua_chaqueta": 15,
     "agua_intercambiador": 16, "agua_bomba": 17, "bomba_vacio": 18,
     "abrir_puerta_1": 19, "abrir_puerta_2": 20, "cerrar_puerta_1": 21,
-    "cerrar_puerta_2": 22, "buzer_alarma": 23,
+    # tanda 19 (decisión 4 de Cristian, MOD-05): buzzer en DO 25 (posición 24)
+    "cerrar_puerta_2": 22, "buzer_alarma": 24,
 }
 
 
