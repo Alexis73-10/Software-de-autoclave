@@ -45,6 +45,14 @@ def enlace_modbus():
     yield _enlace_io.ENLACE_MODBUS
 
 
+@pytest.fixture
+def enlace_doble():
+    """Tanda 20 (F1): doble en memoria de EnlaceES (tests/helpers/enlace_doble.py),
+    el doble común de las pruebas que no prueban el protocolo Modbus."""
+    from tests.helpers.enlace_doble import EnlaceDoble
+    return EnlaceDoble()
+
+
 @lru_cache(maxsize=None)
 def _usa_qt(ruta: str) -> bool:
     try:
