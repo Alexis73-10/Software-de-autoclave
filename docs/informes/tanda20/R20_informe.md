@@ -3,11 +3,14 @@
 Fecha: 27-oct-2026. Rama `tanda-20` desde `dev` (391aedf). Ejecución sin supervisión (Claude Code).
 Fuentes: `docs/mis_plans/decisiones_tanda_20.md` (T20-01 a T20-06), `adenda_tanda_19_banco.md` (ADB-01 a ADB-05), `docs/informes/banco_m31_2026-10-27.md`, `planeacion_enlace_modbus.md`.
 
-> BORRADOR: se completa en I, R, K y Z.
-
 ## 1. Resumen
 
-(se completa en Z)
+- **Unida a `dev`** (merge d8c3ffa) y **entregada como 1.0.0-alpha.4** (a6795c1, etiqueta `v1.0.0-alpha.4`, carpeta `entrega/v1.0.0-alpha.4_2026-10-27`; Setup SHA-256 `e46e878d399bf6c8337b6bc7e52022c8cb259695f6bda4bfb55744a41d69b2fa`). Sin push: `git push origin dev v1.0.0-alpha.4`.
+- Copia previa al retiro del serial en `G:\Respaldos_autoclave\pre_tanda20_20261027_1448\` (bundle SHA-256 `2224aa05770c2249b44d8819decc2af113f71b9cc411d010f863118503b9a86e`, zip de `dev` SHA-256 `32c6cba444563f31e5a469b8d010ca3cb2fb17a2d7b668682fe2a730681a29ae`), etiqueta local `respaldo-serial-pre-t20`.
+- T20-02: adenda ADB-01..05 aplicada (composición real de 5 esclavos, firmware por versión, MAC como ID, reinicio del módulo con evidencia tras escribir la configuración, 0x0C37 solo valor crudo). T20-03: enlace serial, firmware ESP32 y pyserial retirados (180 pruebas borradas con motivo; las demás migradas). T20-04: rol `--rol configurar-modulo`. T20-05: Setup con red de los módulos (paso 08), contraseña web y prueba de conexión. T20-06: hoja de banco regenerada (M-5 ampliado, M-5b, M-7) y riesgos (MED-04; AN-30/31/32 cerradas).
+- Suite: base 8838 recolectadas; final 8840 = 8838 + 182 nuevas − 180 borradas. En `dev` tras la unión: 8822 passed, 11 skipped, 3 xfailed y 4 fallidas solo en paralelo (Qt), verdes en serie (la entrega lo repitió igual).
+- Revisión R: 2 hallazgos altos (ADB-04) corregidos y confirmados cerrados por una re-revisión independiente; sin altos abiertos.
+- Para Cristian: DECISIONES SIN CONFIRMAR en §8 (AN-33), HAZ-T2-03 (AN-34), MED-04, y las pruebas de banco M-2, M-5b y M-7 antes de usar la alpha.4 con los módulos.
 
 ## 2. A0 y línea base
 
@@ -152,4 +155,16 @@ Ningún hallazgo alto queda abierto.
 
 ## 11. K · Unión y entrega
 
-(se completa)
+1. `git merge --no-ff tanda-20` en `dev` → d8c3ffa. Suite en `dev`: 8822 passed, 11 skipped, 3 xfailed, 4 fallidas solo en paralelo (`test_home_view::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu`, `test_impresion_menu::test_impresion_menu_instancia_sin_crash`, `::test_print_alarms_sin_alarmas_muestra_aviso_no_imprime`, `::test_boton_ciclos_navega_a_vista_ciclos`), verdes en serie.
+2. `docs/versiones/anomalias_conocidas_1.0.0-alpha.4.md` (8a214e9): copia de la alpha.3 sin AN-30/31/32 (cerradas, tabla «Corregidas en esta versión (tanda 20)»), MED-03 actualizada, MED-04, AN-33 (DECISIONES SIN CONFIRMAR de la tanda), AN-34 (HAZ-T2-03), AN-35 (Setup con Modbus validado solo de forma estática), bloque M con M-5 ampliado, M-5b y M-7, «solo Modbus TCP; la tarjeta ESP32 ya no es compatible», uso previsto sin uso clínico.
+3. `python tools/entrega/compilar_entrega.py --con-generador`: verificaciones previas (suite en paralelo 4 rojas de Qt, repetidas en serie: 4 passed); N = 4; commit a6795c1 `chore(ver): 1.0.0-alpha.4`; PyInstaller de Autoclave, AutoclaveBackend, AutoclaveSettings y GeneradorCodigos; `verificar_entrega_neutra`; el `.exe` reporta `1.0.0-alpha.4 (a6795c1)`; **Inno Setup compiló el `.iss` con las páginas nuevas**; carpeta `entrega/v1.0.0-alpha.4_2026-10-27` (Setup, zip, generador, LEEME, SHA256SUMS, manifiesto, `usb/`); etiqueta anotada `v1.0.0-alpha.4`. Aviso: `dev` local no coincide con `origin/dev` (push pendiente de Cristian). Comando para publicar (no ejecutado): `git push origin dev v1.0.0-alpha.4`.
+   SHA-256: Setup `e46e878d399bf6c8337b6bc7e52022c8cb259695f6bda4bfb55744a41d69b2fa`; zip `b6898de4c77b880b4a418c8efbf574635b8bd20b8f4750cbd00cb3d48f237ee6`; `GeneradorCodigos.exe` `902c49611d78c7abf0751694c6ff90a6c1ffec5d1909648a1b75291dd28ebb7c`; `Autoclave/Autoclave.exe` `21775ebb8808facae7ba587ba4a8ad25940e9c0101e5f743692879ee7fbcca40`.
+4. `dist\Autoclave\Autoclave.exe --rol configurar-modulo --ip 127.0.0.1 --puerto <libre> --resultado <tmp> --clave-archivo <tmp>` contra el simulador M31 (MAC del banco): salida 0; `{"ok": true, "codigo": "ok", "modelo": "M31-XAXX0A00G-U", "n_modulos": 5, "firmware": "9232-0-13 / 10,12,12,12,10", "mac": "005404849DB1", "clave_cambiada": true}`; archivo de la clave borrado; credenciales del simulador `admin` + la contraseña ficticia; 0 escrituras de bobinas; 0 reinicios; la contraseña no aparece en stdout/stderr ni en `dist\Autoclave\data\configurar_modulo.log`. **pymodbus va dentro del `.exe`.** (La ejecución dejó `configurar_modulo.log` en `dist\Autoclave\data\`, fuera de la carpeta de entrega.)
+
+## 12. L · Limpieza
+
+Quitados con `git worktree remove` (sin cambios sin commit) los 5 worktrees de la tanda (`tanda-20-s1`, `-s2`, `-s3`, `-r1`, `-r3`) y `git worktree prune`. Las ramas `tanda-20-*` se conservan (sin `branch -D`).
+
+## 13. Z · Cierre
+
+`CLAUDE.md`: la sección «Enlace de E/S» pasa a «Enlace de E/S Modbus (tandas 19–20)», sin la selección ni el serial; agrega el retiro, la adenda ADB-01..05, el rol `configurar-modulo` y el paso 08. Índice `docs/informes/informe_tanda_2026-10-27_t20.md`, `estado.md` y `CERRADO.txt`.

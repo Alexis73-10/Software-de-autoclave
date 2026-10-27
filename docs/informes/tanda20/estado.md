@@ -11,9 +11,9 @@ Rama `tanda-20` desde `dev` (391aedf). Último commit: ver la nota de cada fila.
 | P | Hecha | s1 (75857ed, d0510ac) unida en 9fce64a; s3 (30499a8, f2cc939) unida en cab7dfd; s2 (e6b2ac7..2828d25) unida en 20577d8. |
 | I | Hecha | Uniones sin conflictos; `tests/test_t20_integracion.py`; grep limpio (solo historial); sin huérfanas i18n nuevas (381 = 381); T20-06 (f95e624, fee8f32); pyserial desinstalado. Suite final (tras R): 8824 passed, 11 skipped, 3 xfailed, 2 fallidas solo en paralelo (Qt, verdes en serie). Recolectadas 8840 = 8838 + 182 nuevas − 180 borradas. |
 | R | Hecha | V20-s1 (2 altos + 6) en r1; V20-s2 (7) por la principal fff1c85; V20-s3 (11) en r3; re-revisión de los altos: cerrados; V20-rr-01/05 corregidos (último commit de código del merge de r1 + fix rr); rr-02..04 al registro de riesgos. Sin altos abiertos. Informe 104e4d8. |
-| K | Pendiente | |
-| L | Pendiente | |
-| Z | Pendiente | |
+| K | Hecha | dev d8c3ffa (Merge tanda-20 en dev), suite verde (4 Qt solo en paralelo); anomalías 8a214e9; entrega 1.0.0-alpha.4 a6795c1 + etiqueta v1.0.0-alpha.4 (`entrega/v1.0.0-alpha.4_2026-10-27`); K4 rol contra el simulador: ok. Sin push: `git push origin dev v1.0.0-alpha.4`. |
+| L | Hecha | 5 worktrees de la tanda quitados + `git worktree prune`. |
+| Z | Hecha | CLAUDE.md, informe R20, índice `informe_tanda_2026-10-27_t20.md`, CERRADO.txt (commit de cierre en dev). |
 
 ## Tabla de propiedad de archivos (P)
 
