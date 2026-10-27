@@ -9,6 +9,45 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.4 — 2026-10-27
+
+- Etiqueta: `v1.0.0-alpha.4` (commit `chore(ver): 1.0.0-alpha.4`, sobre `8a214e9`)
+- AppVerNum: `1.0.0.1004`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.4_2026-10-27/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.3`:
+  - 8a214e9 docs(t20): anomalías conocidas de la 1.0.0-alpha.4 (AN-30/31/32 cerradas, MED-03 actualizada, MED-04, AN-33..35, bloque M con M-5 ampliado, M-5b y M-7; solo Modbus TCP, la ESP32 ya no es compatible; sin uso clínico)
+  - cbfc19f docs(t20): estado (I y R hechas)
+  - 104e4d8 docs(t20): informe R20, sección R
+  - 72c8d4c fix(t20): V20-rr-01 (orden de reinicio no enviada o cierre local no son evidencia) y V20-rr-05 (sin permiso de reinicio no se escribe la configuración); residuales V20-rr-02..04 en MED-03
+  - 11584ec docs(t20): informe R20 (decisiones, I, riesgos)
+  - fc0f6a0 fix(t20): V20-s3-01..11 correcciones del Setup y del paso 08 (red de los modulos)
+  - e689224 fix(t20): V20-s1-06 y V20-s1-08 rol configurar-modulo: pymodbus silenciado, backend comprobado antes de escribir y presupuesto acotado
+  - cc4f127 fix(t20): V20-s1-01..05 y V20-s1-07 reinicio del módulo con evidencia, pendiente, acotado y con permiso; falla_salidas en None
+  - f02b37e docs(t20): informe R20 con s2 (lista completa de pruebas borradas, V20-s2-05) y s3
+  - fff1c85 fix(t20): revisión R de s2 (V20-s2-01..04 pruebas migradas en vez de borradas; V20-s2-06 acciones de alarma sin ESP32; V20-s2-07 'serial' excluido del empaquetado) y bloques E9/N11/T12 en test_f1_registro_pruebas
+  - fae9994 docs(t20): estado (P hecha; I y R en curso)
+  - fee8f32 docs(t20): T20-06 registro de riesgos (MED-04, MED-03 con ADB-04/ADB-05, nota ADB-02, AN-30 cerrada como decisión, AN-31 y AN-32 cerradas)
+  - 01bae78 test(t20): I integración (backend con 5 esclavos y reinicio ADB-04; rol contra el simulador); test_t19_s1_config con ADB-01; comentarios sin SerialLink; claves i18n del rol en el alcance de claves_sin_uso
+  - 2828d25 chore(t20): retiro del enlace serial en la documentación (T20-03)
+  - f75e9d4 test(t20): migración de las pruebas al retiro del enlace serial (T20-03)
+  - 98c34da chore(t20): retiro del firmware de la ESP32 (Hardware/Comunicacion_esclava_ESP32_V2 y _V3, T20-03)
+  - 658692a chore(t20): retiro del enlace serial en empaquetado y dependencias (T20-03)
+  - e6b2ac7 chore(t20): retiro del enlace serial en el código (T20-03)
+  - f2cc939 test(t20): pruebas T20-05 del Setup con Modbus y del paso 08
+  - 30499a8 feat(t20): T20-05 Setup con Modbus: paso 08 (red de los modulos), contrasena web y prueba de conexion
+  - f80caf8 docs(t20): informe R20 (borrador: A0, B, V, F, s1, T20-06)
+  - f95e624 docs(t20): T20-06 hoja de banco regenerada desde pruebas.py (bloques E9/N11/T12 y filas extra que solo estaban en el .md portados; sin la ESP32; M-0/M-1/M-5 actualizados, M-5b prueba aislada de ADB-04, M-7 Setup con Modbus; M-6 retirado)
+  - d0510ac feat(t20): rol --rol configurar-modulo (T20-04)
+  - 75857ed feat(t20): adenda del banco ADB-01 a ADB-05 en ModbusLink y simulador M31
+  - be98c16 docs(t20): estado (P en curso)
+  - e8879b8 docs(t20): estado (A0, V, F hechas; tabla de propiedad de P)
+  - 0da003a test(t20): F1 doble en memoria de EnlaceES y fixture enlace_doble (sin retirar aún el serial)
+  - bfc6f93 feat(t20): claves i18n configurar_modulo (resultado del rol configurar-modulo, es/en) y línea base de la suite
+  - f8a7989 docs(t20): estado (A0 en curso, B hecha: copia en G: y etiqueta respaldo-serial-pre-t20)
+  - 2c05e2f docs(t20): decisiones, instrucción, prompt, adenda del banco e informe de banco M31
+  - 391aedf docs(t19): cierre Z (CLAUDE.md enlace de E/S, informe R19, índice, AN-32 adenda del banco sin aplicar, estado)
+
+
 ## 1.0.0-alpha.3 — 2026-10-27
 
 - Etiqueta: `v1.0.0-alpha.3` (commit `chore(ver): 1.0.0-alpha.3`, sobre `8418b22`)
