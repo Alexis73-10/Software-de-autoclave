@@ -231,7 +231,8 @@ def test_scripts_06_instalados_y_en_el_puente():
         assert (ESTACION / nombre).is_file()
         assert f'Source: "..\\estacion\\{nombre}"; DestDir: "{{app}}\\estacion"' in ISS
     puente = (INSTALADOR / "estacion_setup.ps1").read_text(encoding="ascii")
-    assert "ValidateSet('01', '02', '04', '05', '06')" in puente
+    # EST-09 (tanda 18): el puente admite además el paso 07 (escritorio de la estación)
+    assert "ValidateSet('01', '02', '04', '05', '06', '07')" in puente
     assert f"'06' = @('{PASO06}', '{REVERTIR06}')" in puente
 
 
