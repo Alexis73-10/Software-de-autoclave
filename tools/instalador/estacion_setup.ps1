@@ -22,12 +22,17 @@
   - Paso 07 (EST-09, tanda 18): con -Usuario/-Dominio (la cuenta que
     instala) escribe en el perfil de esa cuenta; sin ellos (Reparar sin
     paso 01) el script usa Winlogon DefaultUserName o la cuenta que ejecuta.
+  - Paso 08 (T20-05, tanda 20): red de los modulos de E/S. Aplicar exige
+    -Adaptador (la MAC del adaptador Ethernet dedicado; no es secreta, va en
+    la linea de comandos y en el log); el inverso no la necesita (la toma de
+    respaldo_08_red_modulos.json).
 #>
 param(
-    [Parameter(Mandatory)][ValidateSet('01', '02', '04', '05', '06', '07')][string]$Paso,
+    [Parameter(Mandatory)][ValidateSet('01', '02', '04', '05', '06', '07', '08')][string]$Paso,
     [Parameter(Mandatory)][ValidateSet('Aplicar', 'Revertir')][string]$Accion,
     [string]$Usuario,
-    [string]$Dominio
+    [string]$Dominio,
+    [string]$Adaptador
 )
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot\_comun.ps1"
@@ -39,6 +44,7 @@ $scripts = @{
     '05' = @('05_plan_energia.ps1', '05_revertir_plan_energia.ps1')
     '06' = @('06_asociar_tactiles.ps1', '06_revertir_asociar_tactiles.ps1')
     '07' = @('07_escritorio_estacion.ps1', '07_revertir_escritorio_estacion.ps1')
+    '08' = @('08_red_modulos.ps1', '08_revertir_red_modulos.ps1')
 }
 $indice = if ($Accion -eq 'Aplicar') { 0 } else { 1 }
 $ruta = Join-Path $PSScriptRoot $scripts[$Paso][$indice]
@@ -55,6 +61,11 @@ try {
         # script la toma de Winlogon DefaultUserName o, si no, de quien ejecuta)
         if (-not $Dominio) { $Dominio = $env:COMPUTERNAME }
         & $ruta -Usuario $Usuario -Dominio $Dominio
+    } elseif ($Paso -eq '08' -and $Accion -eq 'Aplicar') {
+        # T20-05: adaptador Ethernet dedicado a los modulos, por su MAC
+        if (-not $Adaptador) { throw 'Paso 08 sin -Adaptador.' }
+        Write-Log "Setup: paso 08 con el adaptador $Adaptador."
+        & $ruta -Adaptador $Adaptador
     } else {
         & $ruta
     }
