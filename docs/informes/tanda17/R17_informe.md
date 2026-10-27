@@ -15,7 +15,7 @@ Documentos de detalle de esta carpeta: `estado.md` (etapas y tabla de propiedad)
 | P | Hecha | s1 `892a29b`, s2 `10b9427`, s3 `8daaa0b`, s4 `783c968` |
 | I | Hecha | merges s3, s1, s2, s4 sin conflictos; integración `32efe11` |
 | R | Hecha | 4 revisores; 2 altos (V17-s1-01, V17-s1-03) corregidos; correcciones r1–r4 unidas |
-| K | Hecha parcial | unión `584aa7a`; anomalías `a51a120`; **entrega no ejecutada** (el sistema detuvo el script por memoria baja; §8) |
+| K | Hecha | unión `584aa7a`; anomalías `a51a120`; entrega `1.0.0-alpha.2` (`61f06fa`, etiqueta `v1.0.0-alpha.2`) al relanzar el script con orden de Cristian tras un primer intento detenido por memoria (§8) |
 | L | Hecha | §9 |
 | Z | Hecha | este informe, CLAUDE.md, hoja de banco (bloque I), índice, push de `tanda-17` |
 
@@ -98,9 +98,15 @@ Ver `R_hallazgos.md`. Resumen: R1 2 altos (V17-s1-01 ACL con entradas explícita
 
 1. `git checkout dev` y `git merge --no-ff tanda-17` → `584aa7a` (sin conflictos). El árbol de `dev` quedó idéntico al de `tanda-17` ya probado (`git diff tanda-17 dev` vacío): suite 8486 passed + 2 que fallan solo en paralelo y pasan en serie.
 2. `a51a120` (en `dev`): `docs/versiones/anomalias_conocidas_1.0.0-alpha.2.md` con las correcciones de la tanda 17, las protecciones permanentes del modo prueba (ESG-02), las DECISIONES SIN CONFIRMAR de ESG-02, EST-06, EST-07 y ALM-01 (AN-20 a AN-24), la lista de pruebas manuales en el PC de prueba y el aviso de que la alpha.2 exige desinstalar e instalar en limpio. Uso previsto: igual que la alpha.1, sin uso clínico.
-3. `python tools/entrega/compilar_entrega.py --con-generador` se lanzó desde `dev` limpio y **lo detuvo el sistema por memoria baja** mientras corría la suite de sus verificaciones previas. No dejó nada: sin commit `chore(ver)`, sin etiqueta y sin carpeta en `entrega/`. Por la indicación del entorno no se relanzó sin orden. Las condiciones del script se cumplen (rama `dev`, sin cambios versionados ni archivos sin versionar en las carpetas del producto, Python de compilación `..\_venv_t8_producto` e ISCC presentes; las rojas en paralelo pasan en serie y el script las repite con `--lf`).
-   - **Versión entregada: ninguna.** No hay SHA-256 ni comando de push de etiqueta.
-   - **Para Cristian:** con memoria libre (cerrar otras aplicaciones), desde `dev` limpio: `python tools/entrega/compilar_entrega.py --con-generador`. Saldrá la `1.0.0-alpha.2` (incluye las tandas 16 y 17); el script imprime al final `git push origin dev v1.0.0-alpha.2`.
+3. Primer intento de `python tools/entrega/compilar_entrega.py --con-generador`: el sistema lo detuvo por memoria baja durante la suite previa, sin dejar commit, etiqueta ni carpeta. Con la orden de Cristian se relanzó desde `dev` limpio (`a9682f5`) con `PYTEST_XDIST_AUTO_NUM_WORKERS=6` para limitar la memoria de la suite:
+   - Suite previa del script: **8488 passed**, 10 skipped, 3 xfailed (sin rojas, ni en paralelo).
+   - **Versión entregada: `1.0.0-alpha.2`** (AppVerNum `1.0.0.1002`), commit `61f06fa chore(ver): 1.0.0-alpha.2`, etiqueta anotada `v1.0.0-alpha.2`. El `.exe` reporta `1.0.0-alpha.2 (61f06fa)`.
+   - Carpeta: `entrega/v1.0.0-alpha.2_2026-10-26/` (Setup, zip, `usb/`, generador, LEEME, manifiesto). SHA-256 (`SHA256SUMS.txt`):
+   - Setup: `46b1525ff8c30605384e5ec1b1b951f5b4c29fbfc49ab1f35126288ce018cd4d  Autoclave_Setup_1.0.0-alpha.2.exe`
+   - Zip: `b5f82b29a5395b794fb06d5cf92b169dbd5300d149bb5c3510d01215ed2ee657  Autoclave_v1.0.0-alpha.2.zip`
+   - Generador: `935a32493b30b34807f09abfc04db5e5c455b1775d63786f3a6a258caef78c01  GeneradorCodigos.exe`
+   - `Autoclave/Autoclave.exe`: `dd2d8b2fc22e046189ac49e9206eac313ed93e59679abc6e5925b284cbaf7384`
+   - **Comando de push (no ejecutado):** `git push origin dev v1.0.0-alpha.2`.
 
 ## 9. L — limpieza
 
