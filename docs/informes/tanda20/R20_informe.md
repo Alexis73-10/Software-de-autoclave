@@ -134,7 +134,21 @@ Commits propios del retiro: `chore(t20): retiro` de código (e6b2ac7), empaqueta
 
 ## 10. R · Revisión
 
-(se completa)
+Tres revisores de solo lectura con el prompt común de la instrucción (enlace y rol; retiro del serial; Setup y paso 08). Hallazgos y correcciones:
+
+**Enlace y rol (V20-s1-xx), corregidos en `tanda-20-r1` (unida en el merge de r1):**
+- **V20-s1-01 (ALTA)** reinicio dado por hecho sin evidencia → excepción Modbus a 0x0C1D = `TARJETA_CONFIG_SEGURIDAD`; evidencia exigida (cierre por el módulo o 2 lecturas sin respuesta en `max(espera, 1 s)`); módulo que sigue respondiendo = «no se reinició». Simulador con `ignora_reinicio`/`rechaza_reinicio`.
+- **V20-s1-02 (ALTA)** escritura parcial sin reinicio aceptada en el intento siguiente → bandera `_reinicio_pendiente` antes de la primera escritura, borrada solo tras reinicio con evidencia y relectura correcta.
+- V20-s1-03 (media) bucle de reinicios → tope de 2 sin verificación. V20-s1-04 (media) → lectura de las 32 bobinas tras el 0F (si alguna en ON: `TARJETA_SALIDAS_NO_APAGADAS`, sin reinicio) y `reinicio_permitido` (False en CICLO, conectado en `backend/context.py`). V20-s1-05..08 (bajas): `stop()` durante la conexión, pymodbus silenciado en el rol, `falla_salidas` en None, rol con segunda comprobación del backend, presupuesto acotado y rechazo con el hilo de sondeo en marcha.
+- Pruebas: `tests/test_t20_r1_reinicio.py`, `tests/test_t20_r1_rol.py`; endurecidas `test_t20_s1_adb.py` (0x0C37 en `registro_0c37`; reinicios acotados).
+
+**Re-revisión independiente de los altos:** V20-s1-01..05 **cerrados**. Nuevos: V20-rr-01 (media, orden no enviada o cierre local tomado como evidencia) y V20-rr-05 (baja, en CICLO se escribía la configuración antes de consultar el permiso) **corregidos** por la principal (orden `no_enviada` y sondeo `ajeno` → `TARJETA_CONFIG_SEGURIDAD`; sin permiso no se escribe nada, solo se comprueba en lectura; `test_t20_r1_reinicio.py` con 5 pruebas nuevas y `test_reinicio_no_permitido_queda_diferido` endurecida: ya no se escribe en el módulo). V20-rr-02/03/04 (evidencia indirecta, banderas en memoria, carrera menor con `stop()`) quedan como riesgo residual de MED-03 en el registro de riesgos (banco M-5b).
+
+**Retiro del serial (V20-s2-xx), corregidos por la principal (fff1c85, f02b37e):** V20-s2-01 (A-3: DI a cero al reconectar, migrada a ModbusLink con el simulador), V20-s2-02 (verificador de entrega con calibración de banco, migrada a Modbus), V20-s2-03 (umbrales nulos sin calibración, mitad no serial conservada), V20-s2-04 (B9 con ModbusLink real: tras `all_off` no se reescriben bobinas en ON), V20-s2-05 (lista de pruebas borradas en §6), V20-s2-06 (acciones de alarma sin la ESP32), V20-s2-07 (`'serial'` en `excludes` de `Autoclave.spec` y `AutoclaveBackend.spec`). Pruebas: `tests/test_t20_r2_enlace_migradas.py`.
+
+**Setup (V20-s3-xx), corregidos en `tanda-20-r3` (fc0f6a0, unida en 34f35dc):** V20-s3-01 (cambio de adaptador en Reparar: revierte el anterior primero), V20-s3-02 (fallo a mitad: restauración desde el respaldo y último recurso DHCP; `RedFallo` con cómo recuperar), V20-s3-03 («Contraseña web cambiada: no» si la prueba no es `ok`), V20-s3-04/06 (almacenes activo y persistente), V20-s3-05 (`/ADAPTADORCONFIRMADO=1` en silencioso), V20-s3-07 (adaptadores deshabilitados), V20-s3-08 (`Exec` sin tope: documentado), V20-s3-09 (métricas en el respaldo; DNS documentado), V20-s3-10 (StrictMode), V20-s3-11 (pruebas más estrictas). Pruebas: `tests/test_t20_r3_red_setup.py` (20).
+
+Ningún hallazgo alto queda abierto.
 
 ## 11. K · Unión y entrega
 
