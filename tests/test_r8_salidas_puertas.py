@@ -78,9 +78,11 @@ def test_fuente_de_vapor_bloqueada_sigue_a_la_funcion():
     assert s.salida_bloqueada(30) and s.salida_bloqueada(31) and not s.salida_bloqueada(1)
 
 
-def test_apagado_individual_cubre_los_canales_reasignados():
+@pytest.mark.req("MOD-05")
+def test_apagado_individual_cubre_los_canales_reasignados(monkeypatch):
     # tanda 19 (decisión 4 de Cristian, MOD-05): DO 25 es del buzzer (vapor a
     # DO 26) y el apagado individual cubre DO 1-32 (_CANALES_APAGADO_BASE)
+    from autoclave.devices.io import set_io
     _reasignar(vapor_camara=26)
     io = MagicMock()
     io.all_off.return_value = False
@@ -88,6 +90,17 @@ def test_apagado_individual_cubre_los_canales_reasignados():
     assert s.reset_all_outputs() is False
     apagados = {c for c, v in _canales(io) if v is False}
     assert 26 in apagados and set(range(1, 33)) <= apagados
+    # V19-s2-04 (revisión R): como la base ya cubre 1-32, lo anterior no
+    # prueba la unión con map_do. Con una base que NO incluye el canal
+    # reasignado, ese canal igual debe apagarse (viene de la asignación).
+    monkeypatch.setattr(set_io, "_CANALES_APAGADO_BASE", range(1, 25))
+    io = MagicMock()
+    io.all_off.return_value = False
+    s = SetOutput(io, estado=MagicMock())
+    assert s.reset_all_outputs() is False
+    apagados = {c for c, v in _canales(io) if v is False}
+    assert 26 in apagados and set(range(1, 25)) <= apagados
+    assert not ({27, 28, 29, 30, 31, 32} & apagados)
 
 
 def test_puertas_toman_el_canal_de_la_asignacion():
