@@ -153,12 +153,15 @@
 | I-04 | Actualización con la unidad fija y bloqueo de la disposición anterior | En seco (sin vapor) | INS-02 (tanda 17) |
 | I-05 | Instalación limpia y desinstalación sobre datos | En seco (sin vapor) | INS-02 / D11-4 (tanda 17) |
 | I-06 | Táctiles sin MultiDigitizer: herramienta propia | En seco (sin vapor) | EST-06 (tanda 17, DECISIONES SIN CONFIRMAR) |
-| I-07 | Cubierta de arranque y hueco autologon → tarea | En seco (sin vapor) | EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR) |
+| I-07b | Del inicio de sesión a la intro: escritorio de la estación, sin cubierta | En seco (sin vapor) | EST-08 / EST-09 (tanda 18; sustituye a I-07) |
 | I-08 | Sonda en No en uso: monitoreo | En seco (sin vapor) | SON-01 (tanda 17) |
 | I-09 | Estado seguro sin transductor de presión de cámara | En seco (sin vapor) | ESG-01 (tanda 17) |
 | I-10 | Modo prueba con estado seguro activo y protecciones permanentes | En operación (vapor) | ESG-02 (tanda 17, DECISIONES SIN CONFIRMAR) |
 | I-11 | Pantallas: presión en modo prueba, alarmas y selector de programas | En seco (sin vapor) | MPR-01, ALM-01, PRC-01 (tanda 17) |
 | I-12 | Bitácora: eventos, instalación y filtros | En seco (sin vapor) | BIT-01..05 (tanda 17) |
+| I-13 | Intro de arranque sin perfil de instalación | En seco (sin vapor) | ARR-06 (tanda 18) |
+| I-14 | Reinicio del PC al terminar el asistente | En seco (sin vapor) | REI-01 (tanda 18) |
+| I-15 | Desinstalar devuelve el escritorio original | En seco (sin vapor) | EST-09 (tanda 18) |
 
 ## Bloque A. Arranque, instalación y firmware (en seco)
 
@@ -2374,7 +2377,7 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-## Bloque I. Instalación y estación; sondas, estado seguro, modo prueba, pantallas y bitácora (tanda 17)
+## Bloque I. Instalación y estación; sondas, estado seguro, modo prueba, pantallas y bitácora (tandas 17 y 18)
 
 ### I-01 — Setup: zona horaria de Windows
 
@@ -2470,19 +2473,19 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
 
-### I-07 — Cubierta de arranque y hueco autologon → tarea
+### I-07b — Del inicio de sesión a la intro: escritorio de la estación, sin cubierta
 
-- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-07 (tanda 17, DECISIÓN SIN CONFIRMAR)
-- **Objetivo:** El escritorio no queda expuesto al iniciar sesión.
-- **Precondiciones:** Equipo instalado con autologon y la tarea de arranque (Delay PT0S).
+- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-08 / EST-09 (tanda 18; sustituye a I-07)
+- **Objetivo:** Entre el inicio de sesión y la intro solo se ve el fondo de Especifika, sin barra ni íconos.
+- **Precondiciones:** Equipo instalado con «Configurar este PC como estación» (autologon, tarea de arranque con Delay PT0S, paso 07).
 - **Pasos:**
   1. Reiniciar en frío tres veces, con cronómetro o vídeo.
-  2. Observar: escritorio visible antes de la cubierta, cubierta negra «Iniciando… / Starting…», toques bloqueados, cierre al aparecer las dos pantallas.
-  3. Con la puerta 2 sin arrancar: cierre a los 15 s de la primera. Sin backend: cierre a los 180 s.
-  4. Medir el hueco: Visor de eventos Seguridad 4624 (tipo 2) frente a «Cubierta de arranque abierta» en `datos\lanzador.log`; TaskScheduler/Operational 107/119/100.
+  2. Observar desde que entra Windows hasta la intro: fondo, barra de tareas, íconos del escritorio y cualquier texto «Iniciando… / Starting…».
+  3. Medir el tiempo del inicio de sesión a la intro: Visor de eventos Seguridad 4624 (tipo 2) frente a «Lanzador iniciado» en `datos\lanzador.log`; TaskScheduler/Operational 107/119/100.
+  4. Configuración › Personalización: fondo tipo «Imagen» en modo Rellenar en los dos monitores; barra con «Ocultar automáticamente».
   5. Doble clic en el acceso directo con el software abierto (segunda instancia).
-- **Resultado esperado:** Hueco medido y anotado; la cubierta no deja la pantalla negra; no aparece «No responde»; una segunda instancia no tapa las pantallas vivas.
-- **Criterio de aprobado/fallo:** Aprobado si el escritorio no es usable tras abrirse la cubierta y la cubierta siempre se cierra.
+- **Resultado esperado:** Solo el fondo de Especifika en los dos monitores, sin barra visible ni íconos y sin «Iniciando… / Starting…»; tiempo medido y anotado; una segunda instancia no abre otras pantallas.
+- **Criterio de aprobado/fallo:** Aprobado si el escritorio no muestra barra, íconos ni texto de la cubierta antes de la intro.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
@@ -2559,6 +2562,52 @@ bloques (E9, N11, T12 y filas extra) que no están en pruebas.py: no regenerar s
   3. Filtrar por Usuario, por cada Tipo (categoría) y por Desde–Hasta con el calendario.
 - **Resultado esperado:** Una sola fila `equipo_instalado` de la instalación (serie, modelo, versión, zona); del modo prueba solo «entra», «salida forzada» y «aire atmosférico cortado»; sin `login_fallido` ni `logout`; el 5.º fallido bloquea igual que antes (`login_bloqueado`). Los filtros dan lo esperado.
 - **Criterio de aprobado/fallo:** Aprobado si el bloqueo no cambia y la bitácora no se llena de eventos retirados.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-13 — Intro de arranque sin perfil de instalación
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** ARR-06 (tanda 18)
+- **Objetivo:** Sin perfil (o con perfil inválido) la intro se ve en las dos pantallas antes del asistente.
+- **Precondiciones:** Equipo sin `installation_profile.json` (instalación limpia); para el caso inválido, un perfil alterado a mano.
+- **Pasos:**
+  1. Arrancar sin perfil: observar las dos pantallas.
+  2. Repetir con un perfil presente pero inválido.
+  3. Revisar `datos\lanzador.log`, `ui_puerta1.log`, `ui_puerta2.log` y Opciones › Bitácora tras la instalación.
+- **Resultado esperado:** Intro completa (animación y barra) en las dos pantallas; la barra se detiene en «Sin perfil de instalación: se abre el asistente» (o «Perfil de instalación inválido: …») unos 2 s y sale; la puerta 1 pasa al asistente y la 2 al Reposo «Instalación en curso en la pantalla 1». Sin colores de alarma. Nada en la bitácora salvo `equipo_instalado` al terminar.
+- **Criterio de aprobado/fallo:** Aprobado si la intro nunca queda trabada y el asistente siempre aparece.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-14 — Reinicio del PC al terminar el asistente
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** REI-01 (tanda 18)
+- **Objetivo:** Al terminar la instalación el equipo se reinicia solo y arranca normal.
+- **Precondiciones:** Equipo sin perfil, con la estación configurada; ejecutable compilado (Setup).
+- **Pasos:**
+  1. Completar el asistente: observar la cuenta regresiva de 10 s en las dos pantallas.
+  2. Dejarla llegar a 0 en un intento; en otro, pulsar «Reiniciar ahora».
+  3. Tras el reinicio: inicio automático, escritorio de la estación y arranque normal.
+  4. Revisar `datos\lanzador.log` (reinicio pedido) y que la bitácora tenga una sola `equipo_instalado`.
+- **Resultado esperado:** «Instalación completada. El equipo se reiniciará en N s» en las dos pantallas, sin cancelar; el PC reinicia a los 10 s o al pulsar; tras el reinicio, intro y barra completas y menú normal. Si Windows negara el reinicio, `lanzador.log` lo dice y el equipo sigue con el arranque normal.
+- **Criterio de aprobado/fallo:** Aprobado si el equipo reinicia y vuelve solo al arranque normal con el perfil nuevo.
+- **Valor observado:** ______________________________________________
+- **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
+- **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
+
+### I-15 — Desinstalar devuelve el escritorio original
+
+- **Modo:** En seco (sin vapor)  ·  **Origen:** EST-09 (tanda 18)
+- **Objetivo:** La reversión del paso 07 deja el fondo, la barra y los íconos como estaban.
+- **Precondiciones:** Anotar (foto) el fondo, el modo de la barra y los íconos antes de instalar.
+- **Pasos:**
+  1. Instalar con la estación; reparar (Setup › Reparar) y revisar `estacion.log` (`Aplicar paso 07 ... terminado`).
+  2. Desinstalar.
+  3. Revisar `datos\estacion\estacion.log` y el escritorio tras iniciar sesión.
+- **Resultado esperado:** `Revertir paso 07 ... terminado` en el log (revertido antes que 06, 05, 04, 02 y 01); fondo, barra e íconos como en la foto inicial.
+- **Criterio de aprobado/fallo:** Aprobado si el escritorio vuelve exactamente al estado anterior.
 - **Valor observado:** ______________________________________________
 - **Resultado:** ☐ Aprobado  ☐ Fallo  ☐ No ejecutada (motivo: ____________)
 - **Fecha / ejecutó / firma:** ____________ / ____________ / ____________
