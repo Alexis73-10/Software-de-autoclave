@@ -15,7 +15,7 @@ SPEC = RAIZ / "packaging" / "Autoclave.spec"
 # autoclave.ui_pyside.main_window, backend.server, ui_qml.app y exe_unico).
 IMPRESCINDIBLES = (
     "scipy", "numpy", "PIL", "colorthief", "darkdetect", "qframelesswindow",
-    "qfluentwidgets", "win32api", "win32con", "win32gui", "win32print", "serial",
+    "qfluentwidgets", "win32api", "win32con", "win32gui", "win32print", "serial", "pymodbus",
     "uvicorn", "fastapi", "starlette", "pydantic", "pydantic_core", "yaml", "ruamel",
     "requests", "sqlite3", "defusedxml", "unittest", "escpos",
     "PySide6", "PySide6.QtCore", "PySide6.QtGui", "PySide6.QtWidgets",
