@@ -208,7 +208,8 @@ def test_texto_lista_blanca_de_usuario_no_toca_la_de_hklm():
 
 def test_texto_puente_admite_el_paso_07_con_la_cuenta():
     puente = (INSTALADOR / "estacion_setup.ps1").read_text(encoding="ascii")
-    assert "ValidateSet('01', '02', '04', '05', '06', '07')" in puente
+    # T20-05 (tanda 20) agrega el paso 08 (red de los módulos); el 07 sigue admitido
+    assert "ValidateSet('01', '02', '04', '05', '06', '07', '08')" in puente
     assert f"'07' = @('{PASO07}', '{REVERTIR07}')" in puente
     assert "elseif ($Paso -eq '07' -and $Accion -eq 'Aplicar' -and $Usuario)" in puente
     assert "& $ruta -Usuario $Usuario -Dominio $Dominio\n" in puente
@@ -266,7 +267,8 @@ def test_texto_leeme_documentan_el_paso_07():
         assert texto in estacion, texto
     instalador = (INSTALADOR / "LEEME.md").read_text(encoding="utf-8")
     assert "paso 07" in instalador.lower() or "Paso07" in instalador
-    assert "07, 06, 05, 04, 02, 01" in instalador
+    # T20-05 (tanda 20): el desinstalador revierte primero el paso 08; el orden 07..01 se conserva
+    assert "08, 07, 06, 05, 04, 02, 01" in instalador
 
 
 @pytest.mark.skipif(shutil.which("powershell.exe") is None, reason="sin powershell.exe")
