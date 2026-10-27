@@ -96,7 +96,11 @@ class EstadoAutoclave:
         "abrir_puerta_2": 20,
         "cerrar_puerta_1": 21,
         "cerrar_puerta_2": 22,
-        "buzer_alarma": 23,
+        # 23 (DO 24): libre desde la tanda 19. Tanda 19 (decisión 4 de
+        # Cristian, MOD-05): el buzzer es de 24 VDC y pasa a DO 25, para no
+        # compartir común con las cargas de otra tensión del grupo 17-24.
+        # Aplica a los dos enlaces de E/S.
+        "buzer_alarma": 24,
     }
     
     state_doors = {

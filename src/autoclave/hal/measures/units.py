@@ -86,12 +86,17 @@ class Units:
             self._connected = data.get("port_open", False) and data.get("data_alive", False)
             self._last_update = data.get("last_update", datetime.now())
 
+            ai_seq = data.get("ai_seq")
             # 🧮 Aplicar conversión con calibración
-            self._temperature = converters.convert_temperatures(self._raw_ai, self._config)
+            # Tanda 19 (MOD-03): ai_seq 0 es el estado inicial del enlace, nunca
+            # una trama AI real; sus valores no son lecturas. En serial son
+            # ceros, que ya daban None por el centinela del ADC; con Modbus un
+            # 0 sería 0,0 °C válido, así que se convierte como "sin valor".
+            crudas_temp = self._raw_ai if ai_seq != 0 else [None] * 16
+            self._temperature = converters.convert_temperatures(crudas_temp, self._config)
             # S1 (D8-1.1): el debounce del transductor cuenta tramas AI
             # nuevas; SerialLink también notifica por DI/DO con la misma AI.
             # Sin ai_seq (dobles de prueba, simulador) cada llamada cuenta.
-            ai_seq = data.get("ai_seq")
             # TMG-02 (revisión ★): _notificar() llega desde varios hilos con
             # un get_state() tomado antes; una trama vieja o repetida
             # (ai_seq <= la última) no es muestra nueva. Un salto grande hacia
@@ -145,10 +150,15 @@ class Units:
             return self._pressure[index]
 
     def _piso_adc_presion(self, i: int):
+        """Piso de señal presente del canal: `adc_piso_senal` de fábrica si
+        está (tanda 19, MOD-04), si no `adc_min`; sin ninguno, 0."""
         factory = self._config.calibration.factory.pressure
         calib = factory[i] if i < len(factory) else None
-        adc_min = getattr(calib, "adc_min", None)
-        return adc_min if isinstance(adc_min, (int, float)) and not isinstance(adc_min, bool) else 0
+        for campo in ("adc_piso_senal", "adc_min"):
+            valor = getattr(calib, campo, None)
+            if isinstance(valor, (int, float)) and not isinstance(valor, bool):
+                return valor
+        return 0
 
     def _reiniciar_senal_presion(self) -> None:
         """Con el lock tomado: ningún canal tiene señal confirmada."""
@@ -195,8 +205,9 @@ class Units:
         """D8-3.19 (tanda 8, revisión SEN-01/SEN-03 de E1): True solo si la
         cuenta ADC CRUDA del canal de presión `index` (la de la última trama,
         antes de la mediana, la calibración, el filtro y el recorte a 0)
-        está por encima del `adc_min` de fábrica del canal (sin calibración
-        de fábrica: por encima de 0) y que lo esté desde hace al menos
+        está por encima del `adc_piso_senal` de fábrica del canal (tanda 19,
+        MOD-04; si no está, `adc_min`; sin calibración de fábrica: por
+        encima de 0) y que lo esté desde hace al menos
         TRAMAS_SENAL_PRESION actualizaciones seguidas. En el fondo del rango un lazo abierto
         no se distingue de un vacío absoluto: cuenta como "sin señal".
         `leido_mono` (SAF-01/TMG-02 de la re-revisión): instante monotónico,

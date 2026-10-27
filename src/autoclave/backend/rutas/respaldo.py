@@ -50,6 +50,22 @@ class _RestaurarBody(BaseModel):
 _lock_respaldo = threading.Lock()
 
 
+def _escala_presion(cfg) -> list[tuple]:
+    return [(c.adc_min, c.adc_max) for c in cfg.calibration.factory.pressure]
+
+
+def _misma_escala_presion(cfg_resp) -> bool:
+    """Tanda 19 (MOD-04): True si la escala de fábrica de presión (adc_min y
+    adc_max de cada canal) del respaldo es la del archivo de calibración
+    activo, es decir, si el respaldo es del mismo enlace de E/S. False si
+    difiere o si el activo no se puede leer (falla cerrada)."""
+    try:
+        activa = load_config(CALIBRATION_PATH)
+    except Exception:
+        return False
+    return _escala_presion(cfg_resp) == _escala_presion(activa)
+
+
 def _unidades_usb() -> list[dict]:
     from autoclave.core.runtime import respaldo as rp
     return rp.unidades_usb()
@@ -204,6 +220,17 @@ def post_backup_restore(body: _RestaurarBody,
                 cfg_resp = load_config(prueba)
             except Exception:
                 raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
+        # Tanda 19 (MOD-04): una calibración de otro enlace de E/S (serial:
+        # cuentas del ADC; Modbus: µA) pisaría la escala de fábrica y las
+        # presiones se leerían mal. Se rechaza si la escala de fábrica de
+        # presión (adc_min/adc_max por canal) no coincide con la del archivo
+        # activo. Fail-closed: si el activo no se puede leer, también.
+        if not _misma_escala_presion(cfg_resp):
+            _auditar("respaldo_rechazado", sesion, entidad=entidad,
+                     detalle={"archivo": body.archivo, "motivo": "calibracion_otro_enlace"})
+            raise RechazoApi(422, "calibracion_otro_enlace",
+                             "La calibración del respaldo es de otro enlace de E/S "
+                             "(escala de fábrica de presión distinta); no se restaura")
         # SAF-01 de O2h: misma plausibilidad que la calibración manual, canal
         # por canal; lo dudoso (aviso) también se rechaza: fail-closed
         for tipo, mapa, lista in (("temperature", EstadoAutoclave.map_temp,

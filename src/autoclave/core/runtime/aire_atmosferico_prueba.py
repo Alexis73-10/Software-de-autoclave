@@ -22,6 +22,10 @@
 # el piso; y la mediana y el filtro tardan 2-3 tramas en bajar. Por eso además
 # se exige `senal_presente is True`: la cuenta ADC cruda del canal de
 # pres_camara por encima de su adc_min (Units.senal_presion_presente).
+# Tanda 19 (MOD-03/MOD-04): con el enlace Modbus la cuenta cruda es en µA y el
+# piso es `adc_piso_senal` (3850 µA; el módulo entrega 0 por debajo de
+# 3,85 mA); un lazo abierto da 0 µA, que además declara la falla del
+# transductor (umbral bajo 3600 µA) y la presión llega como None.
 
 import math
 
@@ -78,7 +82,8 @@ def senal_camara(units, leido_mono=None) -> bool:
 
 def evaluar(estado, config, senal_presente=None) -> tuple[bool, str]:
     """(permitido, código). Código "" si se permite. `senal_presente`: la
-    cuenta ADC cruda del canal está sobre su adc_min; distinto de True
+    cuenta cruda del canal está sobre su piso de señal (adc_piso_senal o
+    adc_min, ver Units.senal_presion_presente); distinto de True
     (incluido el valor por defecto) cuenta como "sin lectura"."""
     if senal_presente is not True:
         return False, SIN_PRESION

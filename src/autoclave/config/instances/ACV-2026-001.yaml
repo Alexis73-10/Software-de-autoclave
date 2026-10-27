@@ -96,7 +96,8 @@ di_contacto:
 # la tarjeta (numerados desde 1, como en Opciones > Entradas / Salidas). La
 # vigente se guarda aparte, en data/asignacion_io.json de la carpeta de datos
 # (Opciones avanzadas, solo el ingeniero); sin ella rige esta. AI 01-08 son
-# temperatura y AI 09-16 presión. Si esta sección falta, rige la del código.
+# temperatura y AI 09-16 presión (con el enlace Modbus, tanda 19: DI 01-16 y
+# AI 01-06 de temperatura). Si esta sección falta, rige la del código.
 io_ports:
   DI:
     aire_comprimido: 1
@@ -136,7 +137,9 @@ io_ports:
     abrir_puerta_2: 21
     cerrar_puerta_1: 22
     cerrar_puerta_2: 23
-    buzer_alarma: 24
+    # Tanda 19 (decisión 4 de Cristian, MOD-05): buzzer de 24 VDC en DO 25
+    # (antes 24), fuera del grupo 17-24; aplica a los dos enlaces de E/S.
+    buzer_alarma: 25
   AI:
     temp_camara: 1
     temp_2_camara: 2
