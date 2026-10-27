@@ -60,9 +60,10 @@ def _misma_fabrica(cfg_resp) -> bool:
     de cada canal) es igual a la del archivo de calibración activo, es decir,
     si el respaldo es del mismo enlace de E/S y de la misma fábrica. False si
     difiere en cualquier campo o si el activo no se puede leer (falla cerrada).
-    Nota: también en el enlace serial se rechaza un respaldo cuya fábrica
-    difiera de la activa (p. ej. otra escala ADC de banco), aunque sea del
-    mismo enlace: falla cerrada; la fábrica no se restaura por respaldo."""
+    Desde la tanda 20 (T20-03) el enlace es único (Modbus): esto rechaza los
+    respaldos de equipos con el enlace serial retirado (cuentas del ADC) y
+    también un respaldo con otra fábrica del mismo enlace: falla cerrada; la
+    fábrica no se restaura por respaldo."""
     try:
         activa = load_config(CALIBRATION_PATH)
     except Exception:
@@ -224,13 +225,14 @@ def post_backup_restore(body: _RestaurarBody,
                 cfg_resp = load_config(prueba)
             except Exception:
                 raise RechazoApi(422, "calibracion_invalida", "Respaldo inválido")
-        # Tanda 19 (MOD-04): una calibración de otro enlace de E/S (serial:
-        # cuentas del ADC; Modbus: µA y décimas de °C) pisaría la escala de
-        # fábrica y las lecturas saldrían mal. Revisión R (V19-s2-02): se
-        # compara TODA la sección de fábrica (temperatura y presión) con la del
-        # archivo activo; cualquier diferencia rechaza. Fail-closed: si el
-        # activo no se puede leer, también. En serial esto rechaza además un
-        # respaldo con otra fábrica del mismo enlace (falla cerrada).
+        # Tanda 19 (MOD-04): una calibración de otro enlace de E/S (el serial
+        # retirado en la tanda 20, T20-03: cuentas del ADC; Modbus: µA y
+        # décimas de °C) pisaría la escala de fábrica y las lecturas saldrían
+        # mal. Revisión R (V19-s2-02): se compara TODA la sección de fábrica
+        # (temperatura y presión) con la del archivo activo; cualquier
+        # diferencia rechaza. Fail-closed: si el activo no se puede leer,
+        # también. Rechaza además un respaldo con otra fábrica del mismo
+        # enlace (falla cerrada).
         if not _misma_fabrica(cfg_resp):
             _auditar("respaldo_rechazado", sesion, entidad=entidad,
                      detalle={"archivo": body.archivo, "motivo": "calibracion_otro_enlace"})

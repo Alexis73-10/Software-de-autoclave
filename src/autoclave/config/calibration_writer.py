@@ -1,9 +1,9 @@
 """
 autoclave.config.calibration_writer
 ------------------------------------
-Escribe de vuelta al archivo de calibración que se le pasa (el del enlace
-activo, `utils/paths.calibration_path()`: calibration.yaml o, con Modbus,
-calibration_modbus.yaml, del mismo formato; tanda 19, MOD-04) usando
+Escribe de vuelta al archivo de calibración que se le pasa
+(`utils/paths.calibration_path()`: calibration_modbus.yaml; tanda 19, MOD-04;
+enlace único desde la tanda 20, T20-03) usando
 ruamel.yaml en modo round-trip,
 preservando comentarios y formato existentes. Reemplaza por completo la
 entrada del sensor calibrado (descarta poly/adc_min/etc previos) por un
@@ -22,7 +22,7 @@ from autoclave.utils.archivos import escribir_texto_atomico
 
 _SECCION_POR_TIPO = {"temperature": "temperature", "pressure": "pressure"}
 
-# Estilo de indentacion del archivo real calibration.yaml (verificado empiricamente):
+# Estilo de indentacion del archivo real de calibracion (verificado empiricamente):
 #   calibration:
 #     user:
 #       temperature:
@@ -130,7 +130,7 @@ def write_user_calibration(
 
     yaml = YAML(typ="rt")
     yaml.preserve_quotes = True
-    # Debe coincidir con el estilo real de calibration.yaml (ver constantes
+    # Debe coincidir con el estilo real del archivo de calibracion (ver constantes
     # arriba) para no reformatear secciones que este escritor no toca.
     yaml.indent(mapping=_INDENT_MAPPING, sequence=_INDENT_SEQUENCE, offset=_INDENT_OFFSET)
 

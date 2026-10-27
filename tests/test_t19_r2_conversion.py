@@ -3,7 +3,8 @@
 # Revisión R de la tanda 19 (V19-s2-03): con el enlace Modbus, una cuenta cruda
 # de temperatura fuera del rango físico plausible de la PT100 (menos de -500 o
 # más de 2500 décimas; DECISIÓN SIN CONFIRMAR) se trata como sin valor: None y
-# filtros del canal reiniciados, igual que un None. El serial no cambia.
+# filtros del canal reiniciados, igual que un None. (El caso serial se borró:
+# enlace retirado en la tanda 20, T20-03.)
 
 from pathlib import Path
 
@@ -38,18 +39,18 @@ def _ai(temps):
 
 @pytest.mark.req("MOD-03")
 @pytest.mark.parametrize("decimas", [-501, -32768, 2501, 4095, 32767])
-def test_modbus_cuenta_implausible_da_none(enlace_modbus, cfg_modbus, decimas):
+def test_modbus_cuenta_implausible_da_none(cfg_modbus, decimas):
     assert converters.convert_temperatures(_ai([decimas]), cfg_modbus)[0] is None
 
 
 @pytest.mark.req("MOD-03")
 @pytest.mark.parametrize("decimas,grados", [(-500, -50.0), (2500, 250.0), (1340, 134.0)])
-def test_modbus_limites_plausibles_inclusive(enlace_modbus, cfg_modbus, decimas, grados):
+def test_modbus_limites_plausibles_inclusive(cfg_modbus, decimas, grados):
     assert converters.convert_temperatures(_ai([decimas]), cfg_modbus)[0] == grados
 
 
 @pytest.mark.req("MOD-03")
-def test_modbus_cuenta_implausible_reinicia_filtros(enlace_modbus, cfg_modbus):
+def test_modbus_cuenta_implausible_reinicia_filtros(cfg_modbus):
     """Igual que un None: tras la cuenta implausible, el filtro arranca de cero
     y la primera lectura válida sale sin arrastrar las anteriores."""
     for _ in range(5):
@@ -59,14 +60,3 @@ def test_modbus_cuenta_implausible_reinicia_filtros(enlace_modbus, cfg_modbus):
     assert not converters._ma_temp[0].buffer
     # la siguiente lectura válida no arrastra las de 134 °C
     assert converters.convert_temperatures(_ai([1210]), cfg_modbus)[0] == 121.0
-
-
-@pytest.mark.req("MOD-03")
-def test_serial_no_cambia(cfg_modbus):
-    """En serial (fijado por conftest) rige el centinela 0/4095 del ADC y una
-    cuenta como 2600 no se descarta por la regla de Modbus."""
-    from autoclave.config import enlace_io
-    assert enlace_io.enlace_activo() == enlace_io.ENLACE_SERIAL
-    cal_serial = load_config(CAL_MODBUS.with_name("calibration.yaml"))
-    r = converters.convert_temperatures([2600, 0, 4095] + [0] * 13, cal_serial)
-    assert r[0] is not None and r[1] is None and r[2] is None

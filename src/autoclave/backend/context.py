@@ -14,6 +14,7 @@ from autoclave.devices.io.set_io import SetOutput
 from autoclave.hal.measures.units import Units
 from autoclave.services.domain.loop.control_loop import ControlLoop
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
+from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.alarms.catalogo import (CONFIGURACION_INVALIDA, CONTRASENA_SEMILLA,
                                                     MIGRACION_CORRECTIVA,
                                                     OPERANDO_SIN_BD, SEN_09, SIS_03)
@@ -614,12 +615,19 @@ class BackendContext:
     # ── 7. conectando_modulos_es ─────────────────────────────────────────────
 
     def construir_control(self, al_cancelar_prueba=None) -> None:
-        """Abre el serial, construye puertas, registro de ciclo y ControlLoop,
+        """Abre el enlace de E/S, construye puertas, registro de ciclo y ControlLoop,
         y arranca el loop. `al_cancelar_prueba` se registra antes de start(),
         para no perder un paro que llegue en el primer tick."""
-        # MOD-01 (tanda 19): enlace activo (Modbus o serial); el atributo
-        # conserva el nombre `serial` para no tocar a los llamadores
+        # MOD-01 (tanda 19): enlace de E/S (Modbus, único desde la tanda 20,
+        # T20-03); el atributo conserva el nombre `serial` (histórico) para no
+        # tocar a los llamadores
         self.serial = build_enlace(self.units, al_conectar=self._al_conectar_tarjeta)
+        # V20-s1-04 (corrector r1 de la tanda 20, DECISIÓN SIN CONFIRMAR): el
+        # enlace no reinicia el módulo (ADB-04) mientras la máquina esté en
+        # CICLO; la conexión queda sin verificar hasta salir del ciclo. Se
+        # asigna tras build_enlace (firma sin cambios): hasta aquí la máquina
+        # no puede estar en CICLO y el defecto del enlace (permitir) equivale.
+        self.serial.reinicio_permitido = self.reinicio_modulo_permitido
         self.setdo = SetOutput(self.serial, self.estado, profile=self.profile)
         self.inhibir_salidas_sin_verificar()     # R8: SAF-02 de la re-revisión
 
@@ -714,6 +722,17 @@ class BackendContext:
         self.iniciar_vigilancia_mantenimiento()
         self.iniciar_vigilancia_impresora()
         self.registrar_presentacion_tickets()
+
+    def reinicio_modulo_permitido(self) -> bool:
+        """V20-s1-04: el enlace Modbus puede reiniciar el módulo de E/S
+        (ADB-04) solo fuera de CICLO. Corre en el hilo del enlace; ante
+        cualquier error, False (falla cerrada)."""
+        try:
+            return self.estado.get_machine_state() != GlobalState.CICLO
+        except Exception:
+            logger.exception("No se pudo consultar el estado de la máquina para el reinicio "
+                             "del módulo de E/S")
+            return False
 
     def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
         """Cada handshake completo con la tarjeta de E/S: registro en
@@ -1069,7 +1088,7 @@ class BackendContext:
 
     @property
     def enlace(self):
-        """Alias de `serial` (MOD-01, tanda 19): el enlace de E/S activo."""
+        """Alias de `serial` (MOD-01, tanda 19): el enlace de E/S."""
         return self.serial
 
     def es_conectada(self) -> bool:

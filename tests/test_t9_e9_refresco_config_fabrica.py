@@ -1,7 +1,8 @@
 """D9-13.1 (tanda 9, E9): al actualizar, el ejecutable refresca los archivos de
 configuración DE FÁBRICA de la copia persistente (`config/instances/*.yaml` y
 `config/global_params.json`), con respaldo previo con fecha, y NUNCA toca
-`calibration.yaml`, `correo.json`, `active_instances.yaml`, `cycles/user`,
+`calibration_modbus.yaml` (antes `calibration.yaml`, T20-03), `correo.json`,
+`active_instances.yaml`, `cycles/user`,
 `cycles/defecto` ni nada fuera de `programa/` (perfil, BD, asignación de E/S).
 
 D9-7: la entrega ya no trae `cycles/user`; en la primera instalación los
@@ -112,7 +113,7 @@ def _instalacion_previa(exe, monkeypatch):
     _cfg(datos, INSTANCIA).write_text("io_enabled: {AI: [temp_camara]}\n# VIEJO\n", encoding="utf-8")
     _cfg(datos, "global_params.json").write_text('{"viejo": {"value": 1}}', encoding="utf-8")
     sitio = {
-        "calibration.yaml": "# CALIBRACION-DEL-EQUIPO\n",
+        "calibration_modbus.yaml": "# CALIBRACION-DEL-EQUIPO   (T20-03)\n",
         "correo.json": '{"remitente": "hospital@ejemplo.com"}',
         "active_instances.yaml": "active_instance: ACV-2026-001\n# SITIO\n",
     }
@@ -197,7 +198,8 @@ def test_fallo_al_respaldar_no_reemplaza(exe, monkeypatch):
 def test_calibracion_y_correo_nuevos_se_siembran_solo_si_faltan(exe):
     paquete, datos = exe
     _sembrar_todo()
-    for nombre in ("calibration.yaml", "correo.json", "active_instances.yaml"):
+    # T20-03: calibration_modbus.yaml (antes calibration.yaml del serial)
+    for nombre in ("calibration_modbus.yaml", "correo.json", "active_instances.yaml"):
         assert _cfg(datos, nombre).read_bytes() == (paquete / "autoclave/config" / nombre).read_bytes()
 
 

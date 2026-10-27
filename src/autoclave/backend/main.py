@@ -33,7 +33,7 @@ def _configurar_logging_archivo() -> None:
 def arrancar_cuando_escuche(servidor, iniciar, intervalo_s: float = 0.05, dormir=time.sleep) -> bool:
     """Llama a `iniciar` cuando uvicorn ya enlazó el puerto (`started`).
     uvicorn corre el lifespan de inicio ANTES de enlazar: disparar el arranque
-    ahí abriría el serial aunque el puerto estuviera ocupado (hallazgo 1 de
+    ahí abriría el enlace de E/S aunque el puerto estuviera ocupado (hallazgo 1 de
     Code). Si el servidor se cierra sin llegar a escuchar, no se llama."""
     while not servidor.started:
         if servidor.should_exit:

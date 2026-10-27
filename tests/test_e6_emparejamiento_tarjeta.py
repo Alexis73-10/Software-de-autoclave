@@ -230,14 +230,16 @@ def test_fallo_de_la_bitacora_no_se_propaga():
     ctx._al_conectar_tarjeta({"version": "1.0.0", "protocolo": 2, "id": _ID})
 
 
-def test_build_serial_registra_al_conectar_antes_de_arrancar():
+def test_build_modbus_registra_al_conectar_antes_de_arrancar():
+    # T20-03: antes build_serial con factory.SerialLink; ahora build_modbus con
+    # ModbusLink parcheado en su módulo (import diferido; sin red)
     from autoclave.devices.factory import factory
     callback = MagicMock()
-    with patch.object(factory, "SerialLink") as cls:
+    with patch("autoclave.protocols.modbus_link.ModbusLink") as cls:
         instancia = cls.return_value
         orden = []
         instancia.start.side_effect = lambda: orden.append(("start", instancia.al_conectar))
-        factory.build_serial(MagicMock(), al_conectar=callback)
+        factory.build_modbus(MagicMock(), al_conectar=callback)
     assert orden == [("start", callback)]
 
 

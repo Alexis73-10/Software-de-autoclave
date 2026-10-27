@@ -13,6 +13,11 @@
 #   Autoclave.exe --rol asociar-tactiles   (EST-06) asocia cada pantalla táctil con su
 #                                       monitor sin MultiDigitizer.exe (administrador;
 #                                       ver estacion/asociar_tactiles.py)
+#   Autoclave.exe --rol configurar-modulo --resultado R [--clave-archivo C]
+#                                       (T20-04, tanda 20) prueba la conexión con los
+#                                       módulos M31-U y, con C, cambia la contraseña
+#                                       web; lo invoca el Setup (ver
+#                                       estacion/configurar_modulo.py)
 #   Autoclave.exe --portable            corre desde donde esté, sin ofrecer instalar
 #   Autoclave.exe --esperar-pid P ...   (R11) antes de arrancar espera a que esos
 #                                       procesos terminen y el puerto del backend
@@ -101,7 +106,8 @@ def escribir_version(ruta: str) -> int:
 def _parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Autoclave — ejecutable único")
     parser.add_argument("--rol", choices=("lanzador", "backend", "ui", "ajustes", "instalar",
-                                          "asociar-tactiles"), default="lanzador")
+                                          "asociar-tactiles", "configurar-modulo"),
+                        default="lanzador")
     parser.add_argument("--door", type=int, choices=(1, 2), default=1)
     parser.add_argument("--screen", type=int, default=0)
     parser.add_argument("--una-pantalla", action="store_true")
@@ -112,8 +118,10 @@ def _parse_args(argv=None):
     parser.add_argument("--escribir-version", metavar="RUTA", default=None)   # VER-04
     args, sobrantes = parser.parse_known_args(argv)
     # EST-06: las opciones propias de --rol asociar-tactiles (--respaldo, --log,
-    # --tope-s) pasan a su módulo; con cualquier otro rol, error como antes
-    if sobrantes and args.rol != "asociar-tactiles":
+    # --tope-s) pasan a su módulo; T20-04: igual las de --rol configurar-modulo
+    # (--resultado, --clave-archivo, --ip, --puerto, --idioma); con cualquier
+    # otro rol, error como antes
+    if sobrantes and args.rol not in ("asociar-tactiles", "configurar-modulo"):
         parser.error("argumentos no reconocidos: " + " ".join(sobrantes))
     args.sobrantes = sobrantes
     args.esperar_pid = list(args.esperar_pid or [])
@@ -541,6 +549,15 @@ def main(argv=None) -> int:
             pass
         from autoclave.estacion.asociar_tactiles import main as asociar_main
         return asociar_main(args.sobrantes)
+    if args.rol == "configurar-modulo":
+        # T20-04: sin Qt ni backend; lo invoca el Setup. Sin log de archivo se
+        # sigue (el resultado va además al JSON de --resultado).
+        try:
+            _log_a_archivo("configurar_modulo.log")
+        except Exception:
+            pass
+        from autoclave.estacion.configurar_modulo import main as configurar_main
+        return configurar_main(args.sobrantes)
     if getattr(sys, "frozen", False) and not args.portable:
         from autoclave.instalador_exe import esta_instalado_aqui, ofrecer_instalacion
         if not esta_instalado_aqui():

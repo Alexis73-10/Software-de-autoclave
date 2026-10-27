@@ -38,8 +38,8 @@ def _datos(editable=True, motivo="", verificacion=None, reinicio_pendiente=False
                           "temperatura": tipo == "AI" and aio.es_temperatura(funcion),
                           "habilitada": funcion not in ("vapor_caldera", "vapor_generador")})
     return {"filas": filas,
-            "puertos": {"DI": list(aio.PUERTOS_DI), "DO": list(aio.PUERTOS_DO),
-                        "AI_TEMP": list(aio.PUERTOS_AI_TEMP), "AI_PRES": list(aio.PUERTOS_AI_PRES)},
+            "puertos": {"DI": list(aio.puertos()["DI"]), "DO": list(aio.puertos()["DO"]),
+                        "AI_TEMP": list(aio.puertos()["AI_TEMP"]), "AI_PRES": list(aio.puertos()["AI_PRES"])},
             "ocupados": {t: {str(p): fn for fn, p in f[t].items()} for t in aio.TIPOS},
             "cambios_guardados": {}, "reinicio_pendiente": reinicio_pendiente, "error_archivo": "",
             "bloqueo": "", "verificacion": verificacion or {"estado": "sin_cambios", "funciones": {}},
@@ -47,8 +47,8 @@ def _datos(editable=True, motivo="", verificacion=None, reinicio_pendiente=False
             "pendientes": list(pendientes)}
 
 
-_LIBRE_DO = next(p for p in aio.PUERTOS_DO if p not in aio.fabrica_codigo()["DO"].values())
-_LIBRE_DI = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
+_LIBRE_DO = next(p for p in aio.puertos()["DO"] if p not in aio.fabrica_codigo()["DO"].values())
+_LIBRE_DI = next(p for p in aio.puertos()["DI"] if p not in aio.fabrica_codigo()["DI"].values())
 
 PASOS = r'''
 from autoclave import i18n as _i18n

@@ -151,7 +151,7 @@ def test_pendiente_bloquea_el_inicio_aunque_se_resuelva_la_alarma(tmp_path):
 
 def test_nombre_repetido_en_la_verificacion(tmp_path):
     """SEN-07 (revisión R8): DI:agua_bomba con su tipo y su puerto en la bitácora."""
-    libre = next(p for p in aio.PUERTOS_DI if p not in aio.fabrica_codigo()["DI"].values())
+    libre = next(p for p in aio.puertos()["DI"] if p not in aio.fabrica_codigo()["DI"].values())
     ctx, _ = _ctx(tmp_path, {"DI:agua_bomba": libre}, ["DI:agua_bomba"])
     _verificar(ctx, _datos())
     c = ctx.db.registrar_auditoria.call_args

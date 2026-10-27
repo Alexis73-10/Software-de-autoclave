@@ -115,24 +115,26 @@ a = Analysis(
     # B2 (tanda 4): 'scipy' ya NO se excluye. qfluentwidgets lo importa al cargar
     # (image_utils -> scipy.ndimage) y con él excluido el menú de ajustes
     # (engrane) no abre. Lo que se excluye NO debe ser importado transitivamente
-    # por qfluentwidgets, PySide6, uvicorn/fastapi/pydantic, serial ni win32:
+    # por qfluentwidgets, PySide6, uvicorn/fastapi/pydantic, pymodbus ni win32:
     # lo vigila tests/test_b2_spec_excludes.py.
     excludes=['autoclave.simulador', 'pytest', 'matplotlib', 'tkinter',
               'PySide6.QtWebEngineCore', 'PySide6.QtWebEngineWidgets',
               'PySide6.QtWebEngineQuick', 'PySide6.Qt3DCore', 'PySide6.QtQuick3D',
               'PySide6.QtPdf', 'PySide6.QtCharts', 'PySide6.QtGraphs',
-              'PySide6.QtMultimedia', 'PySide6.QtDataVisualization'],
+              'PySide6.QtMultimedia', 'PySide6.QtDataVisualization',
+              # Tanda 20 (T20-03, V20-s2-07): pyserial retirado; pymodbus y
+              # escpos lo importan solo como opcional. Que no entre aunque
+              # esté instalado en la máquina de compilación.
+              'serial'],
     noarchive=False,
     optimize=0,
 )
 a.binaries = [b for b in a.binaries if not _sobra(b[0])]
 a.datas = [d for d in a.datas if not _sobra(d[0])]
-# D8-3.18 (tanda 8): la entrega lleva la calibración NEUTRA, no la del banco
-# (config/calibration.yaml del repositorio). Se reemplaza la empaquetada por la
-# plantilla; K8 lo comprueba con tools/verificar_calibracion_neutra.py.
-_CALIB = 'autoclave/config/calibration.yaml'
-a.datas = [d for d in a.datas if d[0].replace('\\', '/') != _CALIB]
-a.datas.append((_CALIB, _r('src/autoclave/config/plantillas/calibration_neutra.yaml'), 'DATA'))
+# D8-3.18 (tanda 8) / MOD-04: la entrega lleva la calibración Modbus NEUTRA
+# (config/calibration_modbus.yaml del repositorio, que ya es la nominal); la
+# serial y su plantilla se retiraron en la tanda 20 (T20-03). K8 lo comprueba
+# con tools/verificar_calibracion_neutra.py.
 # D9-7 (tanda 9): correo NEUTRO (sin remitente ni destinatarios) y, de cycles/,
 # nada que no sea factory/. El build se detiene si se cuela algo; después,
 # K9 lo comprueba en la carpeta compilada con tools/verificar_entrega_neutra.py.

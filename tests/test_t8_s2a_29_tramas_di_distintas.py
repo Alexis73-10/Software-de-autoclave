@@ -9,62 +9,15 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from autoclave.protocols.serial_link import SerialLink
-from autoclave.protocols.serial_link_config import SerialLinkConfig
 from autoclave.state_machine.states import ciclo as modulo_ciclo
 from autoclave.state_machine.states.ciclo import CicloResultado
-from tests.helpers.serial_doble import AI_OK, PuertoDoble, linea
 from tests.test_t2_p3_di_vencida import _ciclo
 
 DI = "DI:" + "1" * 56
 
 
-# ── SerialLink: número de secuencia de la trama DI ─────────────────────────
-
-def _link():
-    link = SerialLink(config=SerialLinkConfig())
-    link._rx_buf = bytearray()
-    link.serial = PuertoDoble()
-    link.data["port_open"] = True
-    return link
-
-
-def test_sin_trama_di_la_secuencia_es_none():
-    link = _link()
-    link._alimentar(linea(AI_OK))
-    assert link.secuencia_ultima_di() is None
-
-
-def test_cada_trama_di_valida_avanza_la_secuencia():
-    link = _link()
-    link._alimentar(linea(DI))
-    s1 = link.secuencia_ultima_di()
-    link._alimentar(linea(AI_OK))                       # AI no avanza
-    assert link.secuencia_ultima_di() == s1
-    link._alimentar(linea(DI))
-    s2 = link.secuencia_ultima_di()
-    assert isinstance(s1, int) and isinstance(s2, int) and s2 != s1
-
-
-def test_di_malformada_no_avanza_la_secuencia():
-    link = _link()
-    link._alimentar(linea(DI))
-    s1 = link.secuencia_ultima_di()
-    link._alimentar(linea("DI:" + "1" * 55))
-    assert link.secuencia_ultima_di() == s1
-
-
-def test_disconnect_deja_la_secuencia_en_none_y_la_siguiente_es_distinta():
-    link = _link()
-    link._alimentar(linea(DI))
-    s1 = link.secuencia_ultima_di()
-    link._disconnect()
-    assert link.secuencia_ultima_di() is None
-    link.serial = PuertoDoble()
-    link.data["port_open"] = True
-    link._alimentar(linea(DI))
-    assert link.secuencia_ultima_di() not in (None, s1)
-
+# Las pruebas del número de secuencia DI en SerialLink se retiraron con el
+# enlace serial (tanda 20, T20-03).
 
 # ── ControlLoop: enlace_confirmado_ok cuenta tramas, no ticks ───────────────
 

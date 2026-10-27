@@ -17,8 +17,25 @@
 # Emula:
 #   - temporizador de desconexión (0x0C35, décimas de s) reiniciado por
 #     CUALQUIER petición; al vencer con 0x0C36=1 aplica el estado de falla
-#     de cada bobina (0x1B58..: 0 mantiene, 1 apaga, 2 enciende) y pone la
-#     bandera 0x0C37=1;
+#     de cada bobina (0x1B58..: 0 mantiene, 1 apaga, 2 enciende) y cuenta el
+#     corte en `cortes`;
+#   - 0x0C37 como contador (+1 por segundo desde 100; ADB-05, banco 27-oct),
+#     sin relación con el corte;
+#   - reinicio por 0x0C1D = 0x5BB5 (fc06/fc16; ADB-04): responde, y luego
+#     bobinas = estado de encendido (0x2904), conexiones cerradas, silencio
+#     durante `tiempo_reinicio_s`, `reinicios += 1`. La configuración persiste
+#     (salvo `config_no_persiste`); con `config_activa_tras_reinicio`, el
+#     corte usa la configuración vigente en el último reinicio; un valor
+#     distinto de 0x5BB5 no reinicia; modos `ignora_reinicio` (acepta la
+#     orden y no reinicia) y `rechaza_reinicio` (respuesta de excepción),
+#     corrector r1 de la tanda 20 (V20-s1-01);
+#   - composición real del banco (tanda 20, ADB-01/02): principal
+#     M31-XAXX0A00G-U, firmware 0x000D y texto 0x0C2C «9232-0-13»; esclavos
+#     ID 0..4 GXAXX0A00, GAXXXA000, GXXAX00A0, GXXAX00A0, GXDXX0600 con
+#     versiones 10, 12, 12, 12, 10;
+#   - usuario y contraseña de la web (0x758B, 5 registros; 0x7590, 3
+#     registros; 2 ASCII por registro, byte alto primero, relleno NUL;
+#     DECISIÓN SIN CONFIRMAR hasta leerlos en el banco);
 #   - descarte silencioso de escrituras fuera de rango (sin excepción Modbus);
 #   - fallas inyectables (ver métodos públicos).
 #
@@ -39,8 +56,15 @@ from pymodbus.datastore import ModbusServerContext
 from pymodbus.exceptions import NoSuchIdException
 from pymodbus.server import ModbusTcpServer
 
+from autoclave.protocols.modbus_link import texto_a_registros
+
 # --- Direcciones -----------------------------------------------------------
+REINICIO = 0x0C1D                  # escribir CLAVE_REINICIO reinicia el módulo
+CLAVE_REINICIO = 0x5BB5
 FW_PRINCIPAL = 0x0C1F
+FW_TEXTO = 0x0C2C                  # 8 registros, texto del firmware del principal
+WEB_USUARIO = 0x758B               # 5 registros
+WEB_CLAVE = 0x7590                 # 3 registros
 MODELO_PRINCIPAL = 0x0C20          # 12 registros
 TIEMPO_DESCONEXION = 0x0C35
 MODO_FALLA = 0x0C36
@@ -64,9 +88,16 @@ NEGOCIACION = 0x758A
 TEMP_INPUT = 0x0DAC                # registros de entrada, 6
 
 MODELO_PRINCIPAL_DEFECTO = "M31-XAXX0A00G-U"
-MODELOS_ESCLAVOS_DEFECTO = ("M31-GAXXXA000-U", "M31-GXXAX00A0-U", "M31-GXXAX00A0-U",
-                            "M31-GXDXX0600-U")
-FW_DEFECTO = 0x0105                # v1.5
+# ADB-01: el esclavo ID 0 son las E/S del principal (16 AI).
+MODELOS_ESCLAVOS_DEFECTO = ("M31-GXAXX0A00-U", "M31-GAXXXA000-U", "M31-GXXAX00A0-U",
+                            "M31-GXXAX00A0-U", "M31-GXDXX0600-U")
+# ADB-02: versión en el byte bajo; texto completo del principal en 0x0C2C.
+FW_DEFECTO = 0x000D                # principal 9232-0-13
+FW_TEXTO_DEFECTO = "9232-0-13"
+FW_ESCLAVOS_DEFECTO = (10, 12, 12, 12, 10)
+USUARIO_WEB_DEFECTO = "admin"
+CLAVE_WEB_DEFECTO = "Ficti1"       # contraseña ficticia de prueba
+VALOR_0C37_INICIAL = 100
 
 # Códigos de diagnóstico de las PT100 (MOD-03).
 PT100_DESCONECTADA = 32766
@@ -92,9 +123,15 @@ for _i in range(6):
 
 # Rango de escritura válido (con signo para la compensación).
 _RANGO_ESCRITURA: dict[int, tuple[int, int]] = {
-    TIEMPO_DESCONEXION: (1, 65535), MODO_FALLA: (0, 1), BANDERA_FALLA: (0, 1),
+    # 0x0C37 sigue siendo escribible para poder afirmar (vía `escrituras`)
+    # que el enlace no lo escribe (ADB-05).
+    TIEMPO_DESCONEXION: (1, 65535), MODO_FALLA: (0, 1), BANDERA_FALLA: (0, 65535),
     FILTRO_AI: (0, 4),
 }
+for _i in range(5):
+    _RANGO_ESCRITURA[WEB_USUARIO + _i] = (0, 65535)
+for _i in range(3):
+    _RANGO_ESCRITURA[WEB_CLAVE + _i] = (0, 65535)
 for _i in range(32):
     _RANGO_ESCRITURA[DO_FALLA + _i] = (0, 2)
     _RANGO_ESCRITURA[DO_ENCENDIDO + _i] = (0, 1)
@@ -108,11 +145,12 @@ for _i in range(6):
     _RANGO_ESCRITURA[PT_DESHABILITADA + _i] = (0, 1)
 
 
-def texto_a_registros(texto: str, n: int) -> list[int]:
-    """Texto en n registros, 2 caracteres por registro, byte alto primero,
-    relleno con NUL."""
-    b = texto.encode("ascii")[: 2 * n].ljust(2 * n, b"\0")
-    return [(b[2 * i] << 8) | b[2 * i + 1] for i in range(n)]
+def registros_a_texto_crudo(regs: list[int]) -> str:
+    """Inverso de texto_a_registros (sin validar), para las pruebas."""
+    b = bytearray()
+    for r in regs:
+        b += bytes([(r >> 8) & 0xFF, r & 0xFF])
+    return bytes(b).rstrip(b"\0").decode("latin-1")
 
 
 def _u16(v: int) -> int:
@@ -163,7 +201,7 @@ class M31Simulado:
 
         # Holding
         self.holding: dict[int, int] = dict(_FABRICA)
-        self.holding[BANDERA_FALLA] = 0
+        self.holding[BANDERA_FALLA] = VALOR_0C37_INICIAL
         self.holding[FW_PRINCIPAL] = FW_DEFECTO
         self.holding[CODIGO_ERROR] = 0
         self.holding[MASCARA] = 0
@@ -171,7 +209,9 @@ class M31Simulado:
         self.holding[NEGOCIACION] = 0
         self.fijar_mac("A1B2C3D4E5F6")
         self.fijar_modelos(MODELO_PRINCIPAL_DEFECTO, list(MODELOS_ESCLAVOS_DEFECTO))
-        self.fijar_firmware(FW_DEFECTO, [FW_DEFECTO] * len(MODELOS_ESCLAVOS_DEFECTO))
+        self.fijar_firmware(FW_DEFECTO, list(FW_ESCLAVOS_DEFECTO))
+        self.fijar_firmware_texto(FW_TEXTO_DEFECTO)
+        self.fijar_credenciales_web(USUARIO_WEB_DEFECTO, CLAVE_WEB_DEFECTO)
 
         # Diagnóstico y fallas
         self.peticiones = 0
@@ -182,6 +222,18 @@ class M31Simulado:
         self.bobinas_no_apagan = False                      # 0F ignora los 0
         self._ultima_peticion = time.monotonic()
         self._disparado = False
+        self.cortes = 0                     # cortes por desconexión aplicados
+
+        # Reinicio del módulo (ADB-04)
+        self.reinicios = 0
+        self.tiempo_reinicio_s = 0.2
+        self.config_no_persiste = False
+        self.config_activa_tras_reinicio = False
+        self.ignora_reinicio = False        # acepta 0x0C1D = 0x5BB5 y no reinicia
+        self.rechaza_reinicio = False       # respuesta de excepción a 0x0C1D
+        self._reiniciando_hasta: Optional[float] = None
+        self._config_activa = self._instantanea_config()
+        self._ultimo_inc_0c37 = time.monotonic()
 
     # ------------------------------------------------------------------
     # Arranque y parada
@@ -318,9 +370,94 @@ class M31Simulado:
         if reiniciar:
             self.cerrar_conexiones()
 
+    def precargar_configuracion(self, tiempo_desconexion_ds: int = 5, filtro_pt100: int = 1,
+                                filtro_ai: int = 0):
+        """Deja en holding la configuración de seguridad que escribe el enlace
+        (MOD-07): la conexión la encuentra igual y no reinicia (ADB-04)."""
+        with self._lock:
+            self.holding[TIEMPO_DESCONEXION] = tiempo_desconexion_ds
+            self.holding[MODO_FALLA] = 1
+            self.holding[FILTRO_AI] = filtro_ai
+            for i in range(32):
+                self.holding[DO_FALLA + i] = 1
+                self.holding[DO_ENCENDIDO + i] = 0
+                self.holding[DO_MODO + i] = 0
+            for i in range(16):
+                self.holding[RANGO_AI + i] = 1
+            for i in range(6):
+                self.holding[PT_UNIDAD + i] = 0
+                self.holding[PT_COMPENSACION + i] = 0
+                self.holding[PT_FILTRO + i] = filtro_pt100
+                self.holding[PT_DESHABILITADA + i] = 0
+            self._config_activa = self._instantanea_config()
+
+    def fijar_firmware_texto(self, texto: str):
+        """0x0C2C: texto del firmware del principal (8 registros)."""
+        with self._lock:
+            for i, r in enumerate(texto_a_registros(texto, 8)):
+                self.holding[FW_TEXTO + i] = r
+
+    def fijar_credenciales_web(self, usuario: str, clave: str):
+        with self._lock:
+            for i, r in enumerate(texto_a_registros(usuario, 5)):
+                self.holding[WEB_USUARIO + i] = r
+            for i, r in enumerate(texto_a_registros(clave, 3)):
+                self.holding[WEB_CLAVE + i] = r
+
+    def credenciales_web(self) -> tuple[str, str]:
+        with self._lock:
+            u = [self.holding[WEB_USUARIO + i] for i in range(5)]
+            c = [self.holding[WEB_CLAVE + i] for i in range(3)]
+        return registros_a_texto_crudo(u), registros_a_texto_crudo(c)
+
+    def fijar_0c37(self, valor: int):
+        with self._lock:
+            self.holding[BANDERA_FALLA] = valor & 0xFFFF
+            self._ultimo_inc_0c37 = time.monotonic()
+
     def bandera_falla(self) -> int:
+        """Valor crudo de 0x0C37 (contador desde la tanda 20, ADB-05)."""
         with self._lock:
             return self.holding[BANDERA_FALLA]
+
+    def escrituras_bobinas(self) -> list[tuple[int, int, list]]:
+        """Escrituras con las funciones 5 y 15."""
+        with self._lock:
+            return [w for w in self.escrituras if w[0] in (5, 15)]
+
+    def reiniciando(self) -> bool:
+        with self._lock:
+            return (self._reiniciando_hasta is not None
+                    and time.monotonic() < self._reiniciando_hasta)
+
+    def _instantanea_config(self) -> dict:
+        claves = [TIEMPO_DESCONEXION, MODO_FALLA] + [DO_FALLA + i for i in range(32)]
+        return {k: self.holding[k] for k in claves}
+
+    def _reiniciar(self):
+        """Corre en el bucle del servidor (call_later) después de responder
+        a la orden de reinicio."""
+        with self._lock:
+            if self.config_no_persiste:
+                self.holding.update(_FABRICA)
+            self.bobinas = [bool(self.holding[DO_ENCENDIDO + i]) for i in range(32)]
+            self._config_activa = self._instantanea_config()
+            self.reinicios += 1
+            self._reiniciando_hasta = time.monotonic() + self.tiempo_reinicio_s
+            self._ultima_peticion = self._reiniciando_hasta
+            self._disparado = False
+        server = self._server
+        if server is not None:
+            for prot in list(server.active_connections.values()):
+                try:
+                    prot.close()
+                except Exception:
+                    pass
+
+    def _programar_reinicio(self):
+        loop = self._loop
+        if loop is not None:
+            loop.call_later(0.05, self._reiniciar)
 
     def contador(self) -> int:
         with self._lock:
@@ -333,23 +470,31 @@ class M31Simulado:
     def _temporizador(self):
         while self._corriendo:
             with self._lock:
-                limite = self.holding[TIEMPO_DESCONEXION] * 0.1
-                if (not self._disparado and self.holding[MODO_FALLA] == 1
-                        and time.monotonic() - self._ultima_peticion > limite):
+                ahora = time.monotonic()
+                # 0x0C37: contador +1 por segundo (ADB-05)
+                while ahora - self._ultimo_inc_0c37 >= 1.0:
+                    self._ultimo_inc_0c37 += 1.0
+                    self.holding[BANDERA_FALLA] = (self.holding[BANDERA_FALLA] + 1) & 0xFFFF
+                cfg = (self._config_activa if self.config_activa_tras_reinicio
+                       else self.holding)
+                limite = cfg[TIEMPO_DESCONEXION] * 0.1
+                if (not self._disparado and cfg[MODO_FALLA] == 1
+                        and ahora - self._ultima_peticion > limite):
                     self._disparado = True
+                    self.cortes += 1
                     for i in range(32):
-                        modo = self.holding[DO_FALLA + i]
+                        modo = cfg[DO_FALLA + i]
                         if modo == 1:
                             self.bobinas[i] = False
                         elif modo == 2:
                             self.bobinas[i] = True
-                    self.holding[BANDERA_FALLA] = 1
             time.sleep(0.02)
 
     def _peticion(self, device_id: int):
-        if self.silencio:
+        if self.silencio or (self._reiniciando_hasta is not None
+                             and time.monotonic() < self._reiniciando_hasta):
             # El servidor (ignore_missing_devices) no contesta: el cliente
-            # vence su timeout.
+            # vence su timeout (también mientras el módulo se reinicia).
             raise NoSuchIdException("simulador en silencio")
         self.peticiones += 1
         self._ultima_peticion = time.monotonic()
@@ -381,6 +526,8 @@ class M31Simulado:
                                 for i in range(address, address + count)]
                     return ExcCodes.ILLEGAL_ADDRESS
                 # holding (3, 6, 16)
+                if fc in (6, 16) and address == REINICIO:
+                    return [CLAVE_REINICIO] * count     # eco de la escritura (solo W)
                 regs = []
                 for a in range(address, address + count):
                     if a not in self.holding:
@@ -407,6 +554,17 @@ class M31Simulado:
                     if self.bobinas_no_apagan and not v:
                         continue
                     self.bobinas[address + i] = bool(v)
+                return None
+            if fc in (6, 16) and address == REINICIO:
+                # ADB-04: responde y se reinicia enseguida. Corrector r1
+                # (V20-s1-01): con `rechaza_reinicio`, respuesta de excepción
+                # y sin reinicio; con `ignora_reinicio`, acepta la escritura y
+                # no se reinicia; un valor distinto de la clave no reinicia.
+                if self.rechaza_reinicio:
+                    return ExcCodes.ILLEGAL_DATA_VALUE
+                if (len(values) == 1 and values[0] == CLAVE_REINICIO
+                        and not self.ignora_reinicio):
+                    self._programar_reinicio()
                 return None
             if fc in (6, 16):
                 for i, v in enumerate(values):
@@ -436,7 +594,8 @@ def config_para(sim: M31Simulado, **cambios):
     base = dict(ip=sim.host, puerto=sim.puerto, unit_id=sim.unit_id,
                 periodo_sondeo_s=0.05, timeout_s=0.2, fallos_para_desconexion=3,
                 reintento_conexion_s=0.2, presupuesto_conexion_s=5.0,
-                tiempo_desconexion_modulo_ds=5, intentos_escritura_config=3)
+                tiempo_desconexion_modulo_ds=5, intentos_escritura_config=3,
+                espera_reinicio_s=0.1, presupuesto_reinicio_s=3.0)
     base.update(cambios)
     return ModbusLinkConfig(**base)
 

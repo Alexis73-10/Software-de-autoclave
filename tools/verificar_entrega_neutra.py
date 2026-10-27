@@ -7,7 +7,8 @@ Comprueba, en `_internal/autoclave/` de la carpeta compilada:
      byte a byte) y además no tiene remitente ni destinatarios;
   2. `cycles/` solo contiene `factory/` (ni `user/`, ni `defecto/`, ni archivos
      sueltos) y `factory/` tiene al menos un programa;
-  3. la calibración es la neutra (D8-3.18, tools/verificar_calibracion_neutra.py).
+  3. la calibración Modbus es la neutra y no viaja la serial retirada (D8-3.18,
+     T20-03; tools/verificar_calibracion_neutra.py).
 Sale con 0 si todo se cumple, con 1 (y los motivos) si algo falla, con 2 si el
 uso es incorrecto. La entrega no se publica si sale distinto de 0."""
 import hashlib

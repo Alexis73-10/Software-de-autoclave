@@ -192,19 +192,20 @@ def test_com02_muestra_segundos_con_un_decimal():
 
 
 def test_ids_de_la_tarjeta_que_emite_el_enlace_estan_en_el_catalogo():
-    # SAF-01 de T1: activar() lanza con un código desconocido; todo id que
-    # emite serial_link.py debe existir en el catálogo.
+    # SAF-01 de T1: activar() lanza con un código desconocido; todo id del
+    # enlace debe existir en el catálogo.
     import pathlib
-    # Tanda 19 (MOD-12): los ids de los dos enlaces (serial y Modbus; las
-    # alarmas propias de Modbus están en protocols/enlace.py) juntos son
-    # CODIGOS_TARJETA; los del serial siguen todos en el catálogo.
+    # Tanda 19 (MOD-12): los ids de los dos enlaces juntos son CODIGOS_TARJETA.
+    # Tanda 20 (T20-03): serial_link.py se retiró; sus ids (ALARMAS_HANDSHAKE
+    # / ALARMAS_OPERACION) pasaron sin cambios a protocols/enlace.py, que
+    # ocupa su lugar en esta comprobación (igualdad intacta).
     raiz = pathlib.Path(__file__).parents[1] / "src/autoclave/protocols"
     def _ids(nombre):
         ruta = raiz / nombre
         if not ruta.exists():
             return set()
         return set(re.findall(r'"((?:TARJETA_|DISCREPANCIA_)[A-Z_]+)"', ruta.read_text(encoding="utf-8")))
-    ids = _ids("serial_link.py")
+    ids = _ids("enlace.py")
     assert ids and ids <= set(CATALOGO)
     todos = ids | _ids("enlace.py") | _ids("modbus_link.py")
     assert todos <= set(CATALOGO)

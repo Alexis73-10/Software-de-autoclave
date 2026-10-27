@@ -11,7 +11,7 @@ Desde `dev` con el árbol limpio:
      generador con --con-generador), con `_build_info.py` de entrega;
   4. tools/verificar_entrega_neutra.py dist/Autoclave;
   5. el .exe compilado reporta 1.0.0-alpha.N (`--escribir-version`: escribe la
-     versión en un JSON y sale sin abrir el puerto serial ni ninguna ventana);
+     versión en un JSON y sale sin abrir el enlace de E/S ni ninguna ventana);
   6. Inno Setup -> Autoclave_Setup_1.0.0-alpha.N.exe (AppVerNum, §2.3);
   7. carpeta entrega/v1.0.0-alpha.N_<AAAA-MM-DD>/ (zip, Setup, LEEME,
      SHA256SUMS.txt, manifiesto, entorno_build.txt, usb/);

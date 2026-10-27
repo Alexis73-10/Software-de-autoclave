@@ -157,8 +157,8 @@ def sondas_no_vigiladas(profile) -> list[str]:
     return [k for k in TEMPERATURE_PROBE_KEYS if not sonda_instalada(profile, k)]
 
 
-# FW-D7: ID único de la tarjeta de E/S (MAC de fábrica del ESP32, 12 dígitos
-# hex en mayúscula) registrado por el ingeniero con tools/emparejar_tarjeta.py.
+# FW-D7: ID único de la tarjeta de E/S (MAC del módulo principal M31-U sin
+# separadores, ADB-03; 12 dígitos hex en mayúscula) registrado por el ingeniero con tools/emparejar_tarjeta.py.
 _RE_BOARD_ID = re.compile(r"^[0-9A-F]{12}$")
 
 

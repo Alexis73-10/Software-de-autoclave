@@ -26,23 +26,14 @@ def app_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
-CALIBRACION_SERIAL = "calibration.yaml"
+# Calibración de los módulos M31-U (tanda 19, MOD-04: décimas de °C y µA).
+# Enlace único desde la tanda 20 (T20-03): la calibración serial
+# (`calibration.yaml`, cuentas del ADC de 12 bits) se retiró.
 CALIBRACION_MODBUS = "calibration_modbus.yaml"
 
 
-def nombre_calibracion(enlace: str | None = None) -> str:
-    """Archivo de calibración del enlace de E/S (tanda 19, MOD-04): la escala
-    de fábrica depende del enlace (cuentas del ADC de 12 bits en serial,
-    décimas de °C y µA en Modbus). `enlace` None = el enlace activo."""
-    from autoclave.config import enlace_io
-    if enlace is None:
-        enlace = enlace_io.enlace_activo()
-    return CALIBRACION_MODBUS if enlace == enlace_io.ENLACE_MODBUS else CALIBRACION_SERIAL
-
-
 def calibration_path() -> Path:
-    """Ruta activa del archivo de calibración del enlace activo
-    (`calibration.yaml` en serial, `calibration_modbus.yaml` en Modbus; tanda
+    """Ruta activa del archivo de calibración (`calibration_modbus.yaml`; tanda
     19, MOD-04) — se lee y se sobreescribe en cada recalibración (ver
     `rutas/io.py` / `calibration_writer.py`, que escribe en la ruta que se le
     pasa).
@@ -51,10 +42,8 @@ def calibration_path() -> Path:
     `resource_path()` apunta dentro del árbol de extracción de PyInstaller
     (temporal en modo onefile) — escribir ahí se perdería al cerrar el
     programa. Ahí se usa en cambio una copia en `data/`, junto al .exe,
-    sembrada la primera vez desde la calibración de fábrica empaquetada. Cada
-    enlace tiene su propia copia: cambiar de enlace no pisa la calibración del
-    otro."""
-    nombre = nombre_calibracion()
+    sembrada la primera vez desde la calibración de fábrica empaquetada."""
+    nombre = CALIBRACION_MODBUS
     bundled = Path(resource_path(f"autoclave/config/{nombre}"))
     if not getattr(sys, "frozen", False):
         return bundled

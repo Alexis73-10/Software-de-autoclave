@@ -3,15 +3,13 @@
 # Revisión R de la tanda 19 (V19-s2-02): al restaurar un respaldo, la
 # calibración se rechaza (422 calibracion_otro_enlace) si CUALQUIER campo de la
 # sección calibration.factory (temperatura o presión) difiere de la activa, no
-# solo adc_min/adc_max de presión. En serial esto también rechaza un respaldo
-# con otra fábrica del mismo enlace (falla cerrada).
-
-import shutil
+# solo adc_min/adc_max de presión. (Los casos con la calibración serial activa
+# se borraron: enlace retirado en la tanda 20, T20-03.)
 
 import pytest
 import yaml
 
-from tests.test_t19_s2_calibracion import (CAL_MODBUS, PLANTILLA,  # noqa: F401
+from tests.test_t19_s2_calibracion import (CAL_MODBUS,  # noqa: F401
                                            _zip, api_respaldo)
 
 
@@ -43,34 +41,3 @@ def test_modbus_rechaza_fabrica_distinta_en_cualquier_campo(api_respaldo, tipo, 
     assert r.status_code == 422 and r.json()["codigo"] == "calibracion_otro_enlace"
     assert "fábrica" in r.text
     assert calib.read_bytes() == antes
-
-
-@pytest.mark.req("MOD-04")
-def test_serial_rechaza_otra_fabrica_del_mismo_enlace(api_respaldo, tmp_path, monkeypatch):
-    """Con la calibración serial activa, un respaldo serial con otra fábrica
-    (otra escala de una sonda de temperatura) se rechaza: falla cerrada."""
-    from tests.helpers.backend_doble import parchear_en_backend
-    cliente, srv, ctx, cab, usb, _ = api_respaldo
-    activa = tmp_path / "calibration.yaml"
-    shutil.copyfile(PLANTILLA, activa)
-    parchear_en_backend(monkeypatch, "CALIBRATION_PATH", activa)
-    antes = activa.read_bytes()
-    ruta = _zip(usb, {"calibracion.yaml": _con_cambio(PLANTILLA, "temperature", 2,
-                                                      "adc_max", 4000)})
-    r = _restaurar(cliente, srv, cab, usb, ruta)
-    assert r.status_code == 422 and r.json()["codigo"] == "calibracion_otro_enlace"
-    assert activa.read_bytes() == antes
-
-
-@pytest.mark.req("MOD-04")
-def test_serial_misma_fabrica_se_restaura(api_respaldo, tmp_path, monkeypatch):
-    from tests.helpers.backend_doble import parchear_en_backend
-    cliente, srv, ctx, cab, usb, _ = api_respaldo
-    activa = tmp_path / "calibration.yaml"
-    shutil.copyfile(PLANTILLA, activa)
-    parchear_en_backend(monkeypatch, "CALIBRATION_PATH", activa)
-    texto = PLANTILLA.read_text(encoding="utf-8") + "\n# MARCA-R2\n"
-    ruta = _zip(usb, {"calibracion.yaml": texto.encode("utf-8")})
-    r = _restaurar(cliente, srv, cab, usb, ruta)
-    assert r.status_code == 200, r.text
-    assert "MARCA-R2" in activa.read_text(encoding="utf-8")

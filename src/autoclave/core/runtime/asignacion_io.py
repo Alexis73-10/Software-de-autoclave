@@ -16,15 +16,13 @@
 #             map_di/map_do/map_temp/map_pres la vea). Cambiarla exige reiniciar
 #             el backend (R-03): nunca se aplica en caliente.
 #
-# Los puertos se numeran como en la tarjeta y en Entradas / Salidas, desde 1:
-#   DI 01-48   (DI 49-56 comparten el expansor del MUX: FW-07 de
-#               planeacion_protocolo_serial_esp32.md las lee siempre activas en
-#               el firmware V2; no se ofrecen. DECISIÓN SIN CONFIRMAR)
-#   DO 01-32   (dos expansores de 16, 0x24 y 0x25)
-#   AI 01-08   temperatura (posición 0-7 de la lista convertida)
+# Los puertos se numeran como en los módulos M31-U y en Entradas / Salidas,
+# desde 1 (tanda 19, MOD-05; enlace único Modbus desde la tanda 20, T20-03):
+#   DI 01-16   (módulo de 16 DI)
+#   DO 01-32   (dos módulos de 16 relés)
+#   AI 01-06   temperatura (posición 0-5 de la lista convertida)
 #   AI 09-16   presión (posición 0-7 de la lista de presión; raw_ai 8-15)
-# (rangos del enlace serial; con el enlace Modbus de la tanda 19 son DI 01-16,
-# DO 01-32, AI 01-06 y AI 09-16: ver puertos())
+# Ver puertos().
 # Una función de temperatura solo va a un puerto de temperatura y una de
 # presión a uno de presión: la conversión de cada grupo es distinta.
 #
@@ -50,43 +48,30 @@ FORMATO = 1
 NOMBRE_ARCHIVO = "asignacion_io.json"
 
 TIPOS = ("DI", "DO", "AI")
-# Puertos físicos ofrecidos (1-indexados) según el enlace de E/S activo (tanda
-# 19, MOD-05; config/enlace_io, fijo por proceso pero leído en cada llamada,
-# nunca al importar):
-#   serial (ESP32)  DI 01-48, DO 01-32, AI temperatura 01-08, presión 09-16.
-#   modbus (M31-U)  DI 01-16 (módulo de 16 DI), DO 01-32 (dos módulos de 16
-#                   relés), AI temperatura 01-06 (módulo de 6 PT100), presión
-#                   09-16 (AI 1-8 del principal).
-# Una asignación guardada (data/asignacion_io.json) con un puerto fuera del
-# rango del enlace activo da `puerto_inexistente` en validar(); al arrancar,
+# Puertos físicos ofrecidos (1-indexados) de los módulos M31-U por Modbus TCP
+# (tanda 19, MOD-05; enlace único desde la tanda 20, T20-03): DI 01-16
+# (módulo de 16 DI), DO 01-32 (dos módulos de 16 relés), AI temperatura 01-06
+# (módulo de 6 PT100), presión 09-16 (AI 1-8 del principal). Los rangos del
+# enlace serial (DI 01-48, temperatura 01-08) se retiraron con él.
+# Una asignación guardada (data/asignacion_io.json) con un puerto fuera de
+# estos rangos da `puerto_inexistente` en validar(); al arrancar,
 # backend/context.py la trata como cualquier asignación inválida: alarma
 # CONFIGURACION_INVALIDA (bloqueante), fábrica en memoria solo para construir
 # y control bloqueado (bloquear_por_configuracion) hasta corregirla.
-_PUERTOS_SERIAL = {"DI": range(1, 49), "DO": range(1, 33),
-                   "AI_TEMP": range(1, 9), "AI_PRES": range(9, 17)}
 _PUERTOS_MODBUS = {"DI": range(1, 17), "DO": range(1, 33),
                    "AI_TEMP": range(1, 7), "AI_PRES": range(9, 17)}
-# Alias de los rangos del enlace serial (compatibilidad con los llamadores de
-# antes de la tanda 19). Para el enlace activo, usar puertos().
-PUERTOS_DI = _PUERTOS_SERIAL["DI"]
-PUERTOS_DO = _PUERTOS_SERIAL["DO"]
-PUERTOS_AI_TEMP = _PUERTOS_SERIAL["AI_TEMP"]
-PUERTOS_AI_PRES = _PUERTOS_SERIAL["AI_PRES"]
 _OFFSET_PRES = 8
 
 
 def enlace() -> str:
-    """Enlace de E/S activo ("modbus" o "serial")."""
-    from autoclave.config import enlace_io
-    return enlace_io.enlace_activo()
+    """Enlace de E/S (constante "modbus" desde la tanda 20, T20-03; se
+    conserva la función para /status y la API de reasignación)."""
+    return "modbus"
 
 
-def puertos(enlace_: str | None = None) -> dict:
-    """{"DI", "DO", "AI_TEMP", "AI_PRES": range} del enlace (None = activo)."""
-    from autoclave.config import enlace_io
-    if enlace_ is None:
-        enlace_ = enlace()
-    return dict(_PUERTOS_MODBUS if enlace_ == enlace_io.ENLACE_MODBUS else _PUERTOS_SERIAL)
+def puertos() -> dict:
+    """{"DI", "DO", "AI_TEMP", "AI_PRES": range} de los módulos M31-U."""
+    return dict(_PUERTOS_MODBUS)
 
 # Fábrica del código: copia de las posiciones de EstadoAutoclave tomada UNA
 # vez por proceso, antes de que nada las cambie (solo este módulo las cambia).
@@ -177,8 +162,8 @@ def es_temperatura(funcion: str) -> bool:
 
 
 def puertos_validos(tipo: str, funcion: str | None = None) -> tuple:
-    """Puertos válidos del tipo (y, en AI, del grupo de la función) en el
-    enlace activo (tanda 19, MOD-05). AI sin función: los de temperatura y
+    """Puertos válidos del tipo (y, en AI, del grupo de la función) de los
+    módulos M31-U (tanda 19, MOD-05). AI sin función: los de temperatura y
     los de presión."""
     p = puertos()
     if tipo == "DI":

@@ -26,7 +26,7 @@ _ALIAS_ESTADO = {
 }
 
 # D11-2 (tanda 11): salidas retiradas del equipo. Su canal físico queda libre
-# (no se corre ninguna otra salida ni cambia la trama con la ESP32).
+# (no se corre ninguna otra salida ni cambia el mapa de E/S de los módulos).
 SALIDAS_RETIRADAS = frozenset({"aire_comprimido_chaqueta"})
 
 # D-ES-09: salidas de movimiento de puerta y bomba de vacío se mantienen pulsadas

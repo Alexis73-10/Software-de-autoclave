@@ -4,10 +4,10 @@ Evidencia de banco (Cristian): con el paro activo, cada vez que el buzzer
 reinicia su patrón se encienden un instante las salidas que estaban activas al
 pulsar el paro.
 
-Banco simulado: SerialLink real (con el doble de puerto de tests/helpers/serial_doble)
-conectado a un doble del firmware V3 que reproduce el .ino línea a línea en lo
-que importa aquí (registro sombra estadoOut1/estadoOut2, SET DOn, ALL_OFF,
-publicación de DO cada 500 ms), SetOutput real, BuzzerPlayer real y los
+Banco simulado: doble del enlace de E/S que registra las órdenes con el texto
+del protocolo anterior (tests/helpers/enlace_doble.EnlaceRegistrador; tanda 20,
+T20-03: antes SerialLink real con un doble del firmware V3 de la ESP32): pines
+que siguen a SET DOn / ALL_OFF, publicación de DO cada 500 ms, SetOutput real, BuzzerPlayer real y los
 estados reales; el tick reproduce el orden de ControlLoop._tick (puertas →
 máquina de estados → buzzer) con el intervalo de producción (0,5 s). Se
 registran todas las órdenes SET/ALL_OFF que salen al puerto y el estado de los
@@ -27,83 +27,28 @@ from autoclave.devices.io import set_io
 from autoclave.devices.io.set_io import SetOutput
 from autoclave.devices.puertas.advanced_door import AdvancedDoor, DoorState
 from autoclave.devices.buzer import buzer as buzer_mod
-from autoclave.protocols import serial_link as sl_mod
-from autoclave.protocols.serial_link import SerialLink
-from autoclave.protocols.serial_link_config import SerialLinkConfig
 from autoclave.state_machine.states.preparacion import preparacion_state
 from autoclave.state_machine.states.preparado import preparado_state
 from autoclave.state_machine.states.falla import FallaState
-from tests.helpers.serial_doble import PuertoDoble, linea
+from tests.helpers.enlace_doble import EnlaceRegistrador
 
 TICK = 0.5          # ControlLoop.interval de producción
 BUZZER = EstadoAutoclave.map_do["buzer_alarma"] + 1
 
 
-class FirmwareV3:
-    """Doble del firmware Comunicacion_esclava_ESP32_V3.ino (registro sombra,
-    procesarSet, apagarTodo, publicarEstados). Pines activos en bajo como en
-    la tarjeta: aquí se guarda directamente 1 = salida encendida."""
-
-    def __init__(self, link, reloj, registro):
-        self.link = link
-        self.reloj = reloj
-        self.registro = registro
-        self.sombra = [False] * 32      # estadoOut1/estadoOut2 (True = ON)
-        self.pines = [False] * 32       # lo que escribió el último write16
-        self.sincronizado = True
-        self.encendidos_no_buzzer = []  # (t, canal, orden) tras el paro
-
-    def _write16(self, expansor):
-        base = 0 if expansor == 1 else 16
-        for i in range(16):
-            self.pines[base + i] = self.sombra[base + i]
-
-    def recibir(self, payload):
-        t = self.reloj[0]
-        responder = [linea("ACK")]
-        if payload == "ALL_OFF":
-            self.sombra = [False] * 32
-            self._write16(1)
-            self._write16(2)
-            self.sincronizado = True
-            responder.append(linea("OK ALL_OFF"))
-        elif payload.startswith("SET DO"):
-            n, est = payload[6:].split(" ")
-            n = int(n)
-            on = est == "ON"
-            if self.sincronizado:
-                self.sombra[n - 1] = on
-                self._write16(1 if n <= 16 else 2)
-                responder.append(linea(f"OK DO{n} {est}"))
-        encendidos = [c + 1 for c, v in enumerate(self.pines) if v]
-        self.registro.append((t, payload, encendidos))
-        # La respuesta llega por el lector; aquí, en línea (sin hilo)
-        for r in responder:
-            self.link._alimentar(r)
-
-    def publicar_do(self):
-        bits = "".join("1" if v else "0" for v in self.sombra)
-        self.link._alimentar(linea("DO:" + bits))
-
-
 def _armar(monkeypatch):
     reloj = [1000.0]
-    for mod in (set_io, sl_mod, buzzer_mod_time()):
+    for mod in (set_io, buzzer_mod_time()):
         monkeypatch.setattr(mod.time, "monotonic", lambda: reloj[0])
     estado = EstadoAutoclave()
     for di in estado.sensores_di:
         estado.sensores_di[di] = 1
-    link = SerialLink(config=SerialLinkConfig())
-    link._rx_buf = bytearray()
-    puerto = PuertoDoble()
-    link.serial = puerto
-    link.data["port_open"] = True
-    link._handshake_ok = True
     registro = []
-    fw = FirmwareV3(link, reloj, registro)
-    puerto.al_escribir = fw.recibir
+    # T20-03: EnlaceRegistrador (doble de EnlaceES) en lugar de SerialLink con
+    # el doble del firmware V3; mismo texto de órdenes y mismos pines
+    link = EnlaceRegistrador(reloj, registro)
     set_do = SetOutput(link, estado, profile=None)
-    return dict(reloj=reloj, estado=estado, link=link, fw=fw, registro=registro,
+    return dict(reloj=reloj, estado=estado, link=link, fw=link, registro=registro,
                 set_do=set_do)
 
 
@@ -178,7 +123,7 @@ def _correr_paro(monkeypatch, nombre_estado, con_puerta=True, segundos=15.0,
         estado_m.run()
         a["set_do"].buzer.update()
         a["reloj"][0] += TICK
-        while a["reloj"][0] >= proxima_do:      # publicarEstados cada 500 ms
+        while a["reloj"][0] >= proxima_do:      # publicación de DO cada 500 ms
             a["fw"].publicar_do()
             _do_reportado(a)
             proxima_do += 0.5
@@ -221,8 +166,7 @@ def test_con_el_paro_ninguna_salida_salvo_el_buzzer_se_enciende(
 
 @pytest.mark.parametrize("nombre_estado", ["PREPARACION", "PREPARADO", "FALLA"])
 def test_evidencia_sin_correccion_solo_las_puertas_se_reencienden(monkeypatch, nombre_estado):
-    """Causa confirmada (código anterior a D9-9): el firmware limpia la sombra
-    con el ALL_OFF (hipótesis 1 descartada) y el enlace no reenvía estados
+    """Causa confirmada (código anterior a D9-9): el ALL_OFF limpia las salidas (hipótesis 1 descartada) y el enlace no reenvía estados
     previos (hipótesis 2 descartada): ninguna salida de control encendida
     antes del paro vuelve a encenderse. Las que se encienden son las de la
     puerta, que AdvancedDoor.update() re-afirma en cada tick (paso 3 de
@@ -242,7 +186,7 @@ def test_evidencia_sin_correccion_solo_las_puertas_se_reencienden(monkeypatch, n
     ordenes_on = {o for _, o, _ in a["registro"][marca + 1:] if o.endswith(" ON")}
     assert ordenes_on == {f"SET DO{c} ON" for c in puerta | {BUZZER}}
     assert not any(f"SET DO{c} ON" in ordenes_on for c in previas_control)
-    # el firmware: tras cada ALL_OFF la sombra queda vacía
+    # tras cada ALL_OFF los pines quedan apagados
     for i, (_, o, enc) in enumerate(a["registro"]):
         if o == "ALL_OFF":
             assert enc == []

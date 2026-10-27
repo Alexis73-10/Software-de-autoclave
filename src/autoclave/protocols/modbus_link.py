@@ -2,15 +2,15 @@
 # --------------------------------
 # Enlace de E/S con los módulos Ebyte M31-U por Modbus TCP (tanda 19; ver
 # docs/mis_plans/planeacion_enlace_modbus.md, MOD-02, MOD-03, MOD-06 a
-# MOD-11). El PC es el maestro; cumple protocols.enlace.EnlaceES con el mismo
-# significado que SerialLink (handshake = conexión verificada).
+# MOD-11). El PC es el maestro; cumple protocols.enlace.EnlaceES (handshake =
+# conexión verificada; desde la tanda 20 es la única implementación).
 #
 # Un único hilo daemon de sondeo hace TODO el tráfico periódico: conexión
 # verificada, lectura de entradas cada periodo_sondeo_s y diagnóstico cada
 # 1 s. set_output() y all_off() escriben desde el hilo que los llama. El
 # cliente síncrono de pymodbus no es seguro entre hilos: todo acceso pasa por
 # _cliente_lock (MOD-11). Registrar una orden y escribirla es atómico
-# respecto a otros escritores (_cmd_lock, como TMG-03 del serial).
+# respecto a otros escritores (_cmd_lock, TMG-03).
 #
 # Vigilancia del lazo (MOD-08, regla principal): solo hay tráfico Modbus si
 # el ControlLoop marcó un tick hace <= MARGEN_TICK_CONTROL o si ninguna salida
@@ -28,9 +28,40 @@
 # TARJETA_REINICIO no se usa: los módulos no tienen contador de vida por
 # Modbus; un reinicio del módulo corta la conexión TCP (MOD-09) y la
 # reconexión rehace la configuración y el apagado.
+#
+# Tanda 20 (T20-02, adenda_tanda_19_banco.md y decisiones_tanda_20.md):
+#   - ADB-01: la lista de esclavos 0x0C80 incluye las E/S del principal como
+#     esclavo ID 0; se esperan los IDs 0..n-1 de composicion_esperada y el
+#     ID n debe ser NONE.
+#   - ADB-02: el firmware se compara solo por la parte de versión (byte bajo
+#     de 0x0C1F y de cada 0x0D80; texto 0x0C2C «<producto>-<x>-<versión>» del
+#     principal si se puede leer). Regla: cada esclavo <= principal. Es una
+#     simplificación: la tabla de compatibilidad del manual (cap. 6) no es
+#     monótona.
+#   - ADB-04 (decisión 8): la configuración de seguridad se lee antes de
+#     escribirla; si hubo que escribir algún bloque, 0F de apagado, reinicio
+#     del módulo (0x0C1D = 0x5BB5), espera, reconexión, nueva lectura de la
+#     identidad y relectura de toda la configuración sin escribir. Una
+#     conexión cuyos registros ya coincidían no reinicia.
+#     Corrector r1 (V20-s1-01..05; DECISIONES SIN CONFIRMAR hasta M-5b):
+#     el reinicio exige evidencia (el módulo cerró la conexión o dejó de
+#     responder tras la orden; una respuesta de excepción a 0x0C1D o un
+#     módulo que sigue respondiendo es TARJETA_CONFIG_SEGURIDAD); una
+#     escritura sin reinicio verificado queda pendiente
+#     (_reinicio_pendiente); como mucho MAX_REINICIOS_SIN_VERIFICAR
+#     reinicios seguidos sin verificación; antes del reinicio se confirman
+#     las 32 salidas en 0 (fc01) y el reinicio exige reinicio_permitido()
+#     (el contexto lo niega en CICLO).
+#   - ADB-05: 0x0C37 no es bandera de falla: solo se lee y se registra su
+#     valor crudo (diagnóstico y log); no se escribe, no se exige 0 y no
+#     dispara TARJETA_WATCHDOG. El corte lo detectan la discrepancia (MOD-11)
+#     y la reconexión (MOD-08).
+#   - T20-04: leer_identidad() (sin hilo, sin escribir) para el rol
+#     --rol configurar-modulo (estacion/configurar_modulo.py).
 
 from __future__ import annotations
 
+import re
 import threading
 import time
 from datetime import datetime
@@ -44,9 +75,11 @@ from autoclave.utils.logging import logger
 try:    # MOD-13: solo el cliente síncrono
     from pymodbus.client import ModbusTcpClient
     from pymodbus.exceptions import ConnectionException as _ConnectionException
+    from pymodbus.pdu import ExceptionResponse as _ExceptionResponse
 except ImportError:     # pragma: no cover - el .spec lo incluye
     ModbusTcpClient = None  # type: ignore[assignment,misc]
     _ConnectionException = OSError  # type: ignore[assignment,misc]
+    _ExceptionResponse = None  # type: ignore[assignment,misc]
 
 
 # --- Mapa de datos (MOD-03) -------------------------------------------------
@@ -63,15 +96,26 @@ N_PRES = 8
 REG_FW_PRINCIPAL = 0x0C1F
 REG_MODELO_PRINCIPAL = 0x0C20      # 12 registros
 N_MODELO_PRINCIPAL = 12
+REG_REINICIO = 0x0C1D              # ADB-04: escribir CLAVE_REINICIO reinicia el módulo
+CLAVE_REINICIO = 0x5BB5
+REG_FW_TEXTO = 0x0C2C              # ADB-02: firmware del principal como texto, 8 registros
+N_FW_TEXTO = 8
 REG_TIEMPO_DESCONEXION = 0x0C35
 REG_MODO_FALLA = 0x0C36
-REG_BANDERA_FALLA = 0x0C37
+# ADB-05: el manual lo describe como bandera 0/1 de falla por desconexión,
+# pero en el banco se comporta como un contador (100 y 105 con 5 s de
+# diferencia). Solo se lee y se registra.
+REG_0C37 = 0x0C37
 REG_MODELO_ESCLAVOS = 0x0C80       # 8 registros por esclavo
 N_MODELO_ESCLAVO = 8
 REG_FW_ESCLAVOS = 0x0D80           # 1 registro por esclavo
 REG_MAC = 0x7534                   # 3 registros
 REG_CODIGO_ERROR = 0x7587          # 0x7587, 0x7588-89 (máscara), 0x758A
 REG_NEGOCIACION = 0x758A
+REG_WEB_USUARIO = 0x758B           # T20-04: usuario de la página web, 5 registros
+N_WEB_USUARIO = 5
+REG_WEB_CLAVE = 0x7590             # T20-04: contraseña de la página web, 3 registros
+N_WEB_CLAVE = 3
 
 # --- Configuración de seguridad (MOD-07) ------------------------------------
 REG_DO_FALLA = 0x1B58
@@ -111,11 +155,21 @@ class _TraficoSuspendido(Exception):
     """La vigilancia del lazo (MOD-08) no permite tráfico en este momento."""
 
 
-class _FalloConexion(Exception):
-    def __init__(self, alarma: str, motivo: str):
+class FalloConexion(Exception):
+    """Fallo de la conexión verificada o de leer_identidad().
+    alarma: id de alarma (None si no se pudo abrir el socket).
+    causa: "sin_conexion", "orden", "expansor", "composicion", "firmware",
+    "config" u otra (para el rol configurar-modulo)."""
+
+    def __init__(self, alarma: Optional[str], motivo: str, causa: Optional[str] = None):
         super().__init__(motivo)
         self.alarma = alarma
         self.motivo = motivo
+        self.causa = causa
+
+
+class _Detenido(Exception):
+    """stop() durante la espera del reinicio del módulo (ADB-04)."""
 
 
 def _s16(v: int) -> int:
@@ -123,12 +177,29 @@ def _s16(v: int) -> int:
     return v - 0x10000 if v & 0x8000 else v
 
 
-def _version(reg: int) -> tuple[int, int]:
-    return (reg >> 8) & 0xFF, reg & 0xFF
+def _version(reg: int) -> int:
+    """ADB-02: la versión es el byte bajo del registro (0x0C1F, 0x0D80); el
+    byte alto no se compara (0 = ilegible)."""
+    return reg & 0xFF
 
 
-def _texto_version(v: tuple[int, int]) -> str:
-    return f"{v[0]}.{v[1]}"
+# ADB-02: «<producto>-<x>-<versión>», p. ej. 9232-0-13.
+_RE_FW_TEXTO = re.compile(r"^\d+-\d+-(\d+)$")
+
+
+def version_de_texto(texto: Optional[str]) -> Optional[int]:
+    """Versión del texto de firmware 0x0C2C, o None si no tiene la forma."""
+    if not texto:
+        return None
+    m = _RE_FW_TEXTO.match(texto.strip())
+    return int(m.group(1)) if m else None
+
+
+def texto_a_registros(texto: str, n: int) -> list[int]:
+    """Texto ASCII en n registros, 2 caracteres por registro, byte alto
+    primero, relleno con NUL (inverso de _registros_a_texto)."""
+    b = texto.encode("ascii")[: 2 * n].ljust(2 * n, b"\0")
+    return [(b[2 * i] << 8) | b[2 * i + 1] for i in range(n)]
 
 
 def _registros_a_texto(regs: list[int]) -> Optional[str]:
@@ -145,7 +216,7 @@ def _registros_a_texto(regs: list[int]) -> Optional[str]:
 
 
 class ModbusLink:
-    # FW-D6 / MOD-08: igual que SerialLink.
+    # FW-D6 / MOD-08: vigilancia del tick del lazo de control.
     MARGEN_TICK_CONTROL = 1.5
     # Plan de protocolo §6.5: no se comparan los canales comandados hace menos.
     _TOLERANCIA_COMANDO_S = 1.0
@@ -153,14 +224,30 @@ class ModbusLink:
     PERIODO_DIAGNOSTICO_S = 1.0
     # all_off(): pausa entre lecturas de confirmación.
     _PAUSA_CONFIRMACION_S = 0.02
+    # V20-s1-03: órdenes de reinicio seguidas sin que la configuración quede
+    # verificada; al llegar, no se vuelve a escribir ni a reiniciar hasta una
+    # conexión verificada o un reinicio del proceso. DECISIÓN SIN CONFIRMAR.
+    MAX_REINICIOS_SIN_VERIFICAR = 2
+    # V20-s1-01: ventana mínima para observar la evidencia del reinicio (se
+    # usa max(espera_reinicio_s, esta)), pausa entre lecturas ligeras y
+    # lecturas seguidas sin respuesta que cuentan como evidencia.
+    # DECISIÓN SIN CONFIRMAR hasta M-5b.
+    VENTANA_MIN_EVIDENCIA_REINICIO_S = 1.0
+    _PAUSA_SONDEO_REINICIO_S = 0.02
+    _SIN_RESPUESTA_EVIDENCIA = 2
 
     def __init__(
         self,
         on_update: Optional[Callable[[Dict[str, Any]], None]] = None,
         config: Optional[ModbusLinkConfig] = None,
+        reinicio_permitido: Optional[Callable[[], bool]] = None,
     ):
         self.config = config if config is not None else cargar_config()
         self.on_update = on_update
+        # V20-s1-04: permiso para reiniciar el módulo (ADB-04). None = se
+        # permite; el contexto del backend lo niega mientras la máquina esté en
+        # CICLO. Si devuelve False o lanza, no se reinicia (falla cerrada).
+        self.reinicio_permitido: Optional[Callable[[], bool]] = reinicio_permitido
         # Callback(tarjeta) al verificar cada conexión (audit_log y
         # emparejamiento FW-D7). Corre en el hilo de sondeo.
         self.al_conectar: Optional[Callable[[Dict[str, Any]], None]] = None
@@ -200,10 +287,21 @@ class ModbusLink:
         # (invalidación, pérdida o suspensión): TARJETA_CONFIG_SEGURIDAD sale
         # con origen "operacion" (COM-03 en ciclo).
         self._reconexion_en_operacion = False
-        # La próxima conexión sigue a una suspensión del tráfico (MOD-08):
-        # 0x0C37 = 1 da TARJETA_WATCHDOG.
-        self._tras_suspension = False
         self._suspendido = False
+        # ADB-05: último valor de 0x0C37 registrado en el log (sin inundar).
+        self._ultimo_0c37_log: Optional[float] = None
+        self._valor_0c37_log: Optional[int] = None
+        # ADB-04: reinicios del módulo con evidencia (diagnóstico).
+        self._reinicios_modulo = 0
+        # V20-s1-02: se escribió algún bloque de la configuración de seguridad
+        # y todavía no hubo un reinicio con evidencia seguido de una relectura
+        # correcta. Vive en memoria: un reinicio del PROCESO entre la escritura
+        # y el reinicio del módulo la pierde, y tras él una configuración que
+        # ya coincide no fuerza reinicio (riesgo residual).
+        self._reinicio_pendiente = False
+        # V20-s1-03: órdenes de reinicio enviadas sin verificación correcta.
+        self._reinicios_sin_verificar = 0
+        self._cliente_orden_reinicio = None   # V20-rr-01: cliente con el que se envió la orden
         self._ultimo_diag: Optional[float] = None
 
         self._tarjeta: Dict[str, Any] = {"version": None, "protocolo": None, "id": None}
@@ -225,7 +323,8 @@ class ModbusLink:
     @staticmethod
     def _modulos_vacios() -> Dict[str, Any]:
         return {"modelos": None, "firmware": None, "mac": None, "codigo_error": None,
-                "mascara_expansores": None, "falla_salidas": None, "enlace": "modbus"}
+                "mascara_expansores": None, "falla_salidas": None, "registro_0c37": None,
+                "reinicios_modulo": 0, "enlace": "modbus"}
 
     # ---------------------------------------------------------------------
     # Ciclo de vida
@@ -554,7 +653,6 @@ class ModbusLink:
             logger.warning("ModbusLink: el lazo de control volvió; se rehace la "
                            "conexión verificada")
             with self.data_lock:
-                self._tras_suspension = True
                 if self._handshake_ok:
                     self._reconexion_en_operacion = True
                 self._handshake_ok = False
@@ -657,17 +755,12 @@ class ModbusLink:
         # V19-s1-03: 0x0C35-0x0C37 en una sola transacción; 0x0C35 y 0x0C36
         # se comparan con lo escrito en la conexión (un Reload sin reinicio
         # los devuelve a fábrica sin cortar el TCP).
-        tiempo, modo, bandera = self._leer_holding(REG_TIEMPO_DESCONEXION, 3)
+        tiempo, modo, crudo_0c37 = self._leer_holding(REG_TIEMPO_DESCONEXION, 3)
         with self.data_lock:
             self._modulos["codigo_error"] = codigo
             self._modulos["mascara_expansores"] = mascara
-            self._modulos["falla_salidas"] = bandera
-
-        if bandera != 0:
-            self._invalidar_en_operacion(
-                "TARJETA_WATCHDOG",
-                f"El módulo principal apagó las salidas por desconexión (0x0C37={bandera}).")
-            return
+        # ADB-05: 0x0C37 solo se registra (no invalida ni da TARJETA_WATCHDOG)
+        self._registrar_0c37(crudo_0c37, en_conexion=False)
         esperado = self.config.tiempo_desconexion_modulo_ds
         if tiempo != esperado or modo != MODO_FALLA_ACTIVO:
             self._invalidar_en_operacion(
@@ -695,6 +788,32 @@ class ModbusLink:
             self._expansor_malas = 0
             self._expansor_reportado = False
 
+    # Con 0x0C37 cambiando cada segundo (contador en el banco), en operación se
+    # registra como mucho una vez por este periodo.
+    PERIODO_LOG_0C37_S = 60.0
+
+    def _registrar_0c37(self, valor: int, en_conexion: bool) -> None:
+        """ADB-05: valor crudo de 0x0C37 al diagnóstico y al log (INFO en la
+        conexión y, si cambió, como mucho una vez por PERIODO_LOG_0C37_S en
+        operación). No se escribe, no se exige 0 ni dispara alarmas."""
+        with self.data_lock:
+            # V20-s1-07: falla_salidas queda en None (clave conservada por la
+            # API); el valor crudo solo en registro_0c37 (ADB-05)
+            self._modulos["registro_0c37"] = valor
+        ahora = time.monotonic()
+        if en_conexion:
+            logger.info("ModbusLink: registro 0x0C37 = %d (valor crudo; ADB-05, no es "
+                        "bandera de falla)", valor)
+        elif (valor != self._valor_0c37_log
+              and (self._ultimo_0c37_log is None
+                   or ahora - self._ultimo_0c37_log >= self.PERIODO_LOG_0C37_S)):
+            logger.info("ModbusLink: registro 0x0C37 = %d en operación (antes %s; valor "
+                        "crudo, ADB-05)", valor, self._valor_0c37_log)
+        else:
+            return
+        self._valor_0c37_log = valor
+        self._ultimo_0c37_log = ahora
+
     # ---------------------------------------------------------------------
     # Conexión verificada (MOD-06)
     # ---------------------------------------------------------------------
@@ -706,10 +825,9 @@ class ModbusLink:
             self._conexion_pendiente = False
             self._tarjeta = {"version": None, "protocolo": None, "id": None}
             origen_config = "operacion" if self._reconexion_en_operacion else "handshake"
-            tras_suspension = self._tras_suspension
 
         # 1. Socket TCP. Sin socket no hay evento: puerto_presente() False da
-        # "desconectada" (como un puerto serial ausente).
+        # "desconectada" (sin socket abierto).
         if self._cliente is None or not self.data["port_open"]:
             if not self._abrir_socket():
                 with self.data_lock:
@@ -719,12 +837,16 @@ class ModbusLink:
                 return False
 
         try:
-            tarjeta = self._pasos_conexion(fin, origen_config, tras_suspension)
+            tarjeta = self._pasos_conexion(fin)
+        except _Detenido:
+            logger.info("ModbusLink: conexión interrumpida por stop() durante el reinicio "
+                        "del módulo")
+            return False
         except _TraficoSuspendido:
             logger.warning("ModbusLink: conexión interrumpida por la vigilancia del lazo")
             self._apagar_tras_fallo_conexion()
             return False
-        except _FalloConexion as f:
+        except FalloConexion as f:
             self._apagar_tras_fallo_conexion()
             # V19-s3-04: también TARJETA_MODULOS_ORDEN (paso 2) sale en
             # "operacion" si la conexión rehace una que estaba en operación.
@@ -737,15 +859,21 @@ class ModbusLink:
             raise
 
         with self.data_lock:
-            self._discrepancia_tramas = 0
-            self._reenvio_hecho = False
-            self._discrepancia_reportada = False
-            self._expansor_malas = 0
-            self._expansor_reportado = False
-            self._handshake_ok = True
-            self._proxima_conexion = None
-            self._reconexion_en_operacion = False
-            self._tras_suspension = False
+            # V20-s1-05: un stop() durante la conexión no la da por verificada
+            # ni encola «conectada».
+            detenido = self._parar.is_set()
+            if not detenido:
+                self._discrepancia_tramas = 0
+                self._reenvio_hecho = False
+                self._discrepancia_reportada = False
+                self._expansor_malas = 0
+                self._expansor_reportado = False
+                self._handshake_ok = True
+                self._proxima_conexion = None
+                self._reconexion_en_operacion = False
+        if detenido:
+            logger.info("ModbusLink: conexión no verificada: stop() durante la conexión")
+            return False
         self._ultimo_diag = time.monotonic()
         logger.info("ModbusLink: conexión verificada con los módulos %s (firmware %s)",
                     tarjeta["id"], tarjeta["version"])
@@ -758,7 +886,8 @@ class ModbusLink:
         mejor esfuerzo un 0F con las 32 en 0 (sin confirmar), en todos los
         estados (como el 0F de all_off, ignora la vigilancia del lazo): los
         reintentos de conexión mantienen vivo el temporizador de desconexión
-        del módulo y, sin esto, una salida en ON quedaría sin control."""
+        del módulo y, sin esto, una salida en ON quedaría sin control.
+        También antes del reinicio del módulo (ADB-04)."""
         if self._cliente is None:
             return
         with self._cmd_lock:
@@ -775,16 +904,42 @@ class ModbusLink:
 
     def _paso_tx(self, fin: float, paso: str, fn, *args, **kwargs):
         if time.monotonic() >= fin:
-            raise _FalloConexion("TARJETA_SIN_TRAMA_VALIDA",
-                                 f"Se agotó el tiempo de la conexión ({paso}).")
+            raise FalloConexion("TARJETA_SIN_TRAMA_VALIDA",
+                                f"Se agotó el tiempo de la conexión ({paso}).", "sin_conexion")
         try:
             return fn(*args, **kwargs)
         except _FalloTransaccion as e:
-            raise _FalloConexion("TARJETA_SIN_TRAMA_VALIDA",
-                                 f"Sin respuesta Modbus de los módulos ({paso}: {e}).") from None
+            raise FalloConexion("TARJETA_SIN_TRAMA_VALIDA",
+                                f"Sin respuesta Modbus de los módulos ({paso}: {e}).",
+                                "sin_conexion") from None
 
-    def _pasos_conexion(self, fin: float, origen_config: str,
-                        tras_suspension: bool) -> Dict[str, Any]:
+    # ---------------------------------------------------------------------
+    # Identidad de los módulos (pasos 2a-2c y MAC; T20-04)
+    # ---------------------------------------------------------------------
+
+    def leer_identidad(self, cerrar: bool = True) -> Dict[str, Any]:
+        """T20-04: abre el socket, lee la identidad de los módulos (código de
+        error y negociación, modelos, firmware y MAC, con la misma
+        verificación que la conexión) y, con `cerrar`, desconecta. Sin hilo y
+        sin escribir nada (ni bobinas, ni configuración, ni reinicio). Lanza
+        FalloConexion (causa "sin_conexion" si no hay socket o respuesta);
+        ante un fallo siempre desconecta."""
+        if self.running:
+            raise RuntimeError("leer_identidad() no se usa con el hilo de sondeo en marcha")
+        if not self._abrir_socket():
+            raise FalloConexion(None, f"No se pudo abrir {self.config.ip}:{self.config.puerto}.",
+                                "sin_conexion")
+        ok = False
+        try:
+            identidad = self._leer_identidad(time.monotonic()
+                                             + self.config.presupuesto_conexion_s)
+            ok = True
+            return identidad
+        finally:
+            if cerrar or not ok:
+                self._desconectar()
+
+    def _leer_identidad(self, fin: float) -> Dict[str, Any]:
         cfg = self.config
         esperadas = list(cfg.composicion_esperada["expansiones"])
         n = len(esperadas)
@@ -796,19 +951,20 @@ class ModbusLink:
             self._modulos["codigo_error"] = codigo
             self._modulos["mascara_expansores"] = mascara
         if codigo == 1 or (codigo == 0 and mascara != 0):
-            raise _FalloConexion("TARJETA_EXPANSOR_FUERA_DE_LINEA",
-                                 f"Módulo de expansión sin respuesta (0x7587={codigo}, "
-                                 f"máscara 0x{mascara:08X}).")
+            raise FalloConexion("TARJETA_EXPANSOR_FUERA_DE_LINEA",
+                                f"Módulo de expansión sin respuesta (0x7587={codigo}, "
+                                f"máscara 0x{mascara:08X}).", "expansor")
         if codigo != 0 or negociacion != 0:
             logger.warning("ModbusLink: diagnóstico crudo 0x7587=%d 0x758A=%d", codigo,
                            negociacion)
-            raise _FalloConexion("TARJETA_MODULOS_ORDEN",
-                                 f"Orden de módulos incorrecto o negociación pendiente "
-                                 f"(0x7587={codigo}, 0x758A={negociacion}). Sin energía, "
-                                 f"revisar el orden de los módulos y negociar (doble "
-                                 f"pulsación de Reload).")
+            raise FalloConexion("TARJETA_MODULOS_ORDEN",
+                                f"Orden de módulos incorrecto o negociación pendiente "
+                                f"(0x7587={codigo}, 0x758A={negociacion}). Sin energía, "
+                                f"revisar el orden de los módulos y negociar (doble "
+                                f"pulsación de Reload).", "orden")
 
-        # 2b. Modelos
+        # 2b. Modelos. ADB-01: el esclavo ID 0 son las E/S del principal; se
+        # lee un esclavo más (ID n) y debe ser NONE.
         crudo = self._paso_tx(fin, "modelo", self._leer_holding, REG_MODELO_PRINCIPAL,
                               N_MODELO_PRINCIPAL)
         principal = _registros_a_texto(crudo)
@@ -832,45 +988,113 @@ class ModbusLink:
         for i, texto in enumerate(esclavos):
             esperado = esperadas[i] if i < n else None
             if texto is None:
-                logger.warning("ModbusLink: modelo del esclavo %d con formato inesperado: %r",
-                               i + 1, crudos_esclavos[i])
-                problemas.append(f"expansión {i + 1} ilegible")
+                logger.warning("ModbusLink: modelo del esclavo ID %d con formato inesperado: %r",
+                               i, crudos_esclavos[i])
+                problemas.append(f"esclavo ID {i} ilegible")
                 continue
             norm = normalizar_modelo(texto)
             if esperado is None:
                 if norm != "NONE":
-                    problemas.append(f"expansión {i + 1} sobrante ({texto})")
+                    problemas.append(f"esclavo ID {i} sobrante ({texto})")
             elif norm == "NONE":
-                problemas.append(f"falta la expansión {i + 1} ({esperado})")
+                problemas.append(f"falta el esclavo ID {i} ({esperado})")
             elif norm != esperado:
-                problemas.append(f"expansión {i + 1} {texto} (se espera {esperado})")
+                problemas.append(f"esclavo ID {i} {texto} (se espera {esperado})")
         if problemas:
-            raise _FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
-                                 "Composición de módulos distinta de la esperada: "
-                                 + "; ".join(problemas) + ".")
+            raise FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
+                                "Composición de módulos distinta de la esperada: "
+                                + "; ".join(problemas) + ".", "composicion")
 
-        # 2c. Firmware: el principal igual o más nuevo que cada expansión
+        # 2c. Firmware (ADB-02): solo la parte de versión; cada esclavo <= principal.
         fw_p = self._paso_tx(fin, "firmware", self._leer_holding, REG_FW_PRINCIPAL, 1)[0]
         fw_e = self._paso_tx(fin, "firmware", self._leer_holding, REG_FW_ESCLAVOS, n)
+        texto_fw = None
+        try:
+            texto_fw = _registros_a_texto(self._leer_holding(REG_FW_TEXTO, N_FW_TEXTO))
+        except _FalloTransaccion as e:
+            logger.info("ModbusLink: no se pudo leer el texto de firmware 0x0C2C (%s)", e)
         v_p = _version(fw_p)
         v_e = [_version(r) for r in fw_e]
+        v_texto = version_de_texto(texto_fw)
+        if texto_fw and v_texto is None:
+            logger.warning("ModbusLink: texto de firmware 0x0C2C con formato inesperado: %r",
+                           texto_fw)
+        if v_texto is not None and v_p != 0 and v_texto != v_p:
+            # DECISIÓN SIN CONFIRMAR (banco M-2): prevalece el texto.
+            logger.warning("ModbusLink: la versión del texto 0x0C2C (%s -> %d) no coincide con "
+                           "el byte bajo de 0x0C1F (0x%04X -> %d); prevalece el texto",
+                           texto_fw, v_texto, fw_p, v_p)
+            v_p = v_texto
+        etiqueta_p = texto_fw if v_texto is not None else str(v_p)
+        version = f"{etiqueta_p} / " + ",".join(str(v) for v in v_e)
         with self.data_lock:
-            self._modulos["firmware"] = {"principal": _texto_version(v_p),
-                                         "expansiones": [_texto_version(v) for v in v_e]}
-        if fw_p == 0 or any(r == 0 for r in fw_e):
+            self._modulos["firmware"] = {
+                "principal": etiqueta_p, "expansiones": [str(v) for v in v_e],
+                "crudo_principal": fw_p, "crudo_expansiones": list(fw_e),
+                "texto_principal": texto_fw}
+        if v_p == 0 or any(v == 0 for v in v_e):
             logger.warning("ModbusLink: firmware con formato inesperado: principal=0x%04X "
-                           "expansiones=%s", fw_p, [f"0x{r:04X}" for r in fw_e])
-            raise _FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
-                                 "Versión de firmware ilegible en los módulos.")
-        viejas = [f"expansión {i + 1} v{_texto_version(v)}" for i, v in enumerate(v_e)
-                  if v > v_p]
-        if viejas:
-            raise _FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
-                                 f"El firmware del principal (v{_texto_version(v_p)}) es "
-                                 f"más antiguo que el de: {', '.join(viejas)}.")
+                           "esclavos=%s", fw_p, [f"0x{r:04X}" for r in fw_e])
+            raise FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
+                                "Versión de firmware ilegible en los módulos.", "firmware")
+        nuevos = [f"esclavo ID {i} v{v}" for i, v in enumerate(v_e) if v > v_p]
+        if nuevos:
+            raise FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
+                                f"El firmware del principal (v{v_p}) es más antiguo que el "
+                                f"de: {', '.join(nuevos)}.", "firmware")
 
-        # 3. Configuración de seguridad (MOD-07)
-        self._escribir_configuracion(fin)
+        # MAC (ADB-03: el ID del equipo es la MAC sin separadores)
+        mac_regs = self._paso_tx(fin, "MAC", self._leer_holding, REG_MAC, 3)
+        mac = "".join(f"{r & 0xFFFF:04X}" for r in mac_regs)
+        with self.data_lock:
+            self._modulos["mac"] = mac
+        return {"modelo": principal, "composicion": [str(e) for e in esclavos[:n]],
+                "n_modulos": n, "firmware": version, "mac": mac}
+
+    # ---------------------------------------------------------------------
+    # Pasos de la conexión verificada
+    # ---------------------------------------------------------------------
+
+    def _pasos_conexion(self, fin: float) -> Dict[str, Any]:
+        # 2. Identidad (2a-2c y MAC)
+        identidad = self._leer_identidad(fin)
+
+        # 3. Configuración de seguridad (MOD-07); ADB-04 si hubo que escribir
+        # en este intento o en uno anterior sin reinicio verificado (V20-s1-02)
+        if self._reinicios_sin_verificar >= self.MAX_REINICIOS_SIN_VERIFICAR:
+            # V20-s1-03: no se vuelve a escribir ni a reiniciar
+            raise FalloConexion(
+                "TARJETA_CONFIG_SEGURIDAD",
+                f"Se ordenó reiniciar el módulo {self._reinicios_sin_verificar} veces sin que "
+                f"la configuración de seguridad quedara verificada; no se vuelve a escribir ni "
+                f"a reiniciar. Revisar el módulo y reiniciar el equipo.", "config")
+        if not self._reinicio_es_permitido():
+            # V20-rr-05: sin permiso de reinicio (CICLO) no se escribe nada en
+            # el módulo: se comprueba en solo lectura; si difiere o hay un
+            # reinicio pendiente, la conexión falla (diferido) sin escribir.
+            motivo_diferido = ("Configuración de seguridad sin activar; escritura y reinicio "
+                               "del módulo diferidos hasta salir del ciclo.")
+            if self._reinicio_pendiente:
+                raise FalloConexion("TARJETA_CONFIG_SEGURIDAD", motivo_diferido, "config")
+            try:
+                self._verificar_configuracion(fin)
+            except FalloConexion as e:
+                if e.alarma != "TARJETA_CONFIG_SEGURIDAD":
+                    raise
+                raise FalloConexion("TARJETA_CONFIG_SEGURIDAD",
+                                    f"{motivo_diferido} ({e.motivo})", "config") from None
+            escrito = False
+        else:
+            escrito = self._escribir_configuracion(fin)
+        if escrito or self._reinicio_pendiente:
+            if not escrito:
+                logger.warning("ModbusLink: configuración escrita en un intento anterior sin "
+                               "reinicio verificado del módulo; se reinicia (V20-s1-02)")
+            fin = self._reiniciar_modulo(fin)
+            identidad = self._leer_identidad(fin)
+            self._verificar_configuracion(fin)
+            self._reinicio_pendiente = False
+            self._reinicios_sin_verificar = 0
 
         # 4. Apagar todo y confirmar. Bajo _cmd_lock (V19-s1-05): ningún
         # set_output se intercala entre el apagado y su confirmación.
@@ -885,56 +1109,23 @@ class ModbusLink:
                 self._sin_confirmar = set()
         if len(leidas) != N_DO or any(leidas):
             encendidas = [str(i + 1) for i, b in enumerate(leidas) if b]
-            raise _FalloConexion("TARJETA_SALIDAS_NO_APAGADAS",
-                                 f"Salidas encendidas tras el apagado: DO{', DO'.join(encendidas)}.")
+            raise FalloConexion("TARJETA_SALIDAS_NO_APAGADAS",
+                                f"Salidas encendidas tras el apagado: DO{', DO'.join(encendidas)}.")
 
-        # 5. MAC e identificación; al_conectar
-        mac_regs = self._paso_tx(fin, "MAC", self._leer_holding, REG_MAC, 3)
-        mac = "".join(f"{r & 0xFFFF:04X}" for r in mac_regs)
-        version = (f"{_texto_version(v_p)} / "
-                   + ", ".join(_texto_version(v) for v in v_e))
-        tarjeta = {"version": version, "protocolo": "modbus-tcp", "id": mac}
+        # 5. Identificación; al_conectar
+        tarjeta = {"version": identidad["firmware"], "protocolo": "modbus-tcp",
+                   "id": identidad["mac"]}
         with self.data_lock:
             self._tarjeta = dict(tarjeta)
-            self._modulos["mac"] = mac
         if self.al_conectar is not None:
             try:
                 self.al_conectar(dict(tarjeta))
             except Exception as e:
                 logger.warning("ModbusLink: error en al_conectar: %s", e)
 
-        # 6. Bandera de falla por desconexión
-        bandera = self._paso_tx(fin, "bandera de falla", self._leer_holding,
-                                REG_BANDERA_FALLA, 1)[0]
-        with self.data_lock:
-            self._modulos["falla_salidas"] = bandera
-        if bandera != 0:
-            if tras_suspension:
-                self._evento("operacion", "TARJETA_WATCHDOG",
-                             "El módulo principal apagó las salidas por desconexión "
-                             "mientras el lazo de control no respondía (0x0C37=1).")
-                # Una vez por suspensión: si esta conexión falla, los
-                # reintentos no repiten el evento (V19-s1-06).
-                with self.data_lock:
-                    self._tras_suspension = False
-            else:
-                logger.warning("ModbusLink: el módulo venía de un corte por desconexión "
-                               "(0x0C37=%d); las salidas ya estaban apagadas", bandera)
-            # DECISIÓN SIN CONFIRMAR: se borra la bandera (registro escribible)
-            # para detectar el próximo corte.
-            self._paso_tx(fin, "bandera de falla", self._tx, "write_registers",
-                          REG_BANDERA_FALLA, [0])
-            # V19-s1-06: si no queda en 0, cada conexión siguiente vería la
-            # bandera vieja (bucle de TARJETA_WATCHDOG): la conexión falla.
-            relectura = self._paso_tx(fin, "bandera de falla", self._leer_holding,
-                                      REG_BANDERA_FALLA, 1)[0]
-            with self.data_lock:
-                self._modulos["falla_salidas"] = relectura
-            if relectura != 0:
-                raise _FalloConexion(
-                    "TARJETA_CONFIG_SEGURIDAD",
-                    f"No se pudo borrar la bandera de falla 0x0C37 (se escribió 0 y se "
-                    f"leyó {relectura}).")
+        # 6. 0x0C37: solo se lee y se registra (ADB-05)
+        crudo_0c37 = self._paso_tx(fin, "registro 0x0C37", self._leer_holding, REG_0C37, 1)[0]
+        self._registrar_0c37(crudo_0c37, en_conexion=True)
 
         # 7. Primer sondeo completo válido
         self._paso_tx(fin, "primer sondeo", self._sondear, True)
@@ -956,11 +1147,23 @@ class ModbusLink:
             ("PT100 deshabilitadas", REG_PT_DESHABILITADA, [0] * 6),
         ]
 
-    def _escribir_configuracion(self, fin: float) -> None:
-        """MOD-07: cada bloque con 10, leído con 03 y comparado exacto, hasta
-        intentos_escritura_config veces. Nunca se confía en lo guardado."""
+    def _escribir_configuracion(self, fin: float) -> bool:
+        """MOD-07 con ADB-04 (decisión 8 de la tanda 20): cada bloque se lee
+        antes (03); si difiere, se escribe con 10, se relee y se compara
+        exacto, hasta intentos_escritura_config veces. Devuelve True si se
+        escribió algún bloque (la conexión reinicia entonces el módulo)."""
+        escrito = False
         for nombre, direccion, valores in self._bloques_configuracion():
-            leidos: Optional[list[int]] = None
+            leidos = self._paso_tx(fin, f"configuración: {nombre}", self._leer_holding,
+                                   direccion, len(valores))
+            if leidos == valores:
+                continue
+            logger.info("ModbusLink: configuración de seguridad distinta (%s, 0x%04X): se "
+                        "escribe", nombre, direccion)
+            escrito = True
+            # V20-s1-02: antes de la primera escritura; solo se borra tras un
+            # reinicio con evidencia y una relectura correcta
+            self._reinicio_pendiente = True
             for _ in range(self.config.intentos_escritura_config):
                 self._paso_tx(fin, f"configuración: {nombre}", self._tx,
                               "write_registers", direccion, list(valores))
@@ -969,18 +1172,254 @@ class ModbusLink:
                 if leidos == valores:
                     break
             else:
-                raise _FalloConexion(
+                raise FalloConexion(
                     "TARJETA_CONFIG_SEGURIDAD",
                     f"No quedó verificada la configuración de seguridad ({nombre}, "
                     f"0x{direccion:04X}): se escribió {valores[:4]}{'…' if len(valores) > 4 else ''}"
-                    f" y se leyó {(leidos or [])[:4]}.")
+                    f" y se leyó {(leidos or [])[:4]}.", "config")
+        return escrito
+
+    def _verificar_configuracion(self, fin: float) -> None:
+        """ADB-04: tras el reinicio, relee toda la configuración SIN escribir;
+        cualquier diferencia es TARJETA_CONFIG_SEGURIDAD."""
+        for nombre, direccion, valores in self._bloques_configuracion():
+            leidos = self._paso_tx(fin, f"configuración tras el reinicio: {nombre}",
+                                   self._leer_holding, direccion, len(valores))
+            if leidos != valores:
+                raise FalloConexion(
+                    "TARJETA_CONFIG_SEGURIDAD",
+                    f"La configuración de seguridad no quedó tras el reinicio del módulo "
+                    f"({nombre}, 0x{direccion:04X}): se espera "
+                    f"{valores[:4]}{'…' if len(valores) > 4 else ''} y se leyó {leidos[:4]}.",
+                    "config")
+
+    def _reinicio_es_permitido(self) -> bool:
+        fn = self.reinicio_permitido
+        if fn is None:
+            return True
+        try:
+            return bool(fn())
+        except Exception as e:      # falla cerrada
+            logger.warning("ModbusLink: error al consultar el permiso de reinicio (%s); no se "
+                           "reinicia", e)
+            return False
+
+    def _orden_reinicio(self) -> str:
+        """V20-s1-01: escribe 0x0C1D = 0x5BB5 (fc06) bajo _cliente_lock.
+        Devuelve "aceptada", "rechazada" (respuesta de excepción Modbus),
+        "no_enviada" (sin cliente conectado o error local al enviar, V20-rr-01)
+        o "sin_respuesta" (timeout o cierre tras el envío: se toleran)."""
+        with self._cliente_lock:
+            cliente = self._cliente
+            self._cliente_orden_reinicio = cliente
+            if cliente is None or not getattr(cliente, "connected", True):
+                return "no_enviada"
+            try:
+                resp = cliente.write_register(REG_REINICIO, CLAVE_REINICIO,
+                                              device_id=self.config.unit_id)
+            except OSError as e:
+                # error local del envío: la orden no llegó al módulo
+                logger.warning("ModbusLink: la orden de reinicio no se pudo enviar (%s: %s)",
+                               type(e).__name__, e)
+                return "no_enviada"
+            except Exception as e:
+                logger.info("ModbusLink: la orden de reinicio no tuvo respuesta (%s: %s)",
+                            type(e).__name__, e)
+                return "sin_respuesta"
+        if _ExceptionResponse is not None and isinstance(resp, _ExceptionResponse):
+            logger.warning("ModbusLink: el módulo rechazó la orden de reinicio: %r", resp)
+            return "rechazada"
+        if resp is None or resp.isError():
+            return "sin_respuesta"
+        return "aceptada"
+
+    def _sondeo_reinicio(self) -> str:
+        """V20-s1-01: lectura ligera (fc03, 1 registro) tras la orden de
+        reinicio. "responde" (también con respuesta de excepción: el módulo
+        está vivo), "cerrado" (el par cerró la conexión) o "sin_respuesta"."""
+        with self._cliente_lock:
+            cliente = self._cliente
+            if cliente is None or cliente is not self._cliente_orden_reinicio:
+                # V20-rr-01: el socket lo cerró otro hilo de este proceso (p. ej.
+                # all_off con un fallo): no es evidencia de reinicio.
+                return "ajeno"
+            if not cliente.connected:
+                return "cerrado"
+            try:
+                resp = cliente.read_holding_registers(REG_CODIGO_ERROR, count=1,
+                                                      device_id=self.config.unit_id)
+            except (OSError, _ConnectionException):
+                return "cerrado"
+            except Exception:
+                return "cerrado" if not cliente.connected else "sin_respuesta"
+        if _ExceptionResponse is not None and isinstance(resp, _ExceptionResponse):
+            return "responde"
+        if resp is None or resp.isError():
+            return "sin_respuesta"
+        return "responde"
+
+    def _reiniciar_modulo(self, fin: float) -> float:
+        """ADB-04 (decisión 8) con las correcciones r1 (V20-s1-01, -03, -04,
+        -05; DECISIONES SIN CONFIRMAR hasta M-5b):
+          1. sin reinicio_permitido() (en CICLO) no se reinicia y la conexión
+             falla con TARJETA_CONFIG_SEGURIDAD (_reinicio_pendiente sigue);
+          2. 0F forzado y lectura de las 32 bobinas (fc01): si alguna sigue en
+             ON o la lectura falla, TARJETA_SALIDAS_NO_APAGADAS sin reiniciar;
+          3. orden 0x0C1D = 0x5BB5: una respuesta de excepción es
+             TARJETA_CONFIG_SEGURIDAD; timeout o cierre se toleran;
+          4. evidencia del reinicio: lecturas ligeras durante
+             max(espera_reinicio_s, VENTANA_MIN_EVIDENCIA_REINICIO_S); el par
+             cierra la conexión o deja de responder _SIN_RESPUESTA_EVIDENCIA
+             veces seguidas. Si sigue respondiendo todo ese tiempo:
+             TARJETA_CONFIG_SEGURIDAD «el módulo no se reinició»;
+          5. desconexión, resto de espera_reinicio_s (interrumpible por
+             stop()) y reapertura del socket hasta presupuesto_reinicio_s.
+        Devuelve el nuevo fin del intento. Solo corre dentro de la conexión
+        verificada, con _handshake_ok en False (set_output rechazado)."""
+        if not self._reinicio_es_permitido():
+            logger.warning("ModbusLink: configuración de seguridad escrita; reinicio del módulo "
+                           "diferido hasta salir del ciclo (V20-s1-04)")
+            raise FalloConexion(
+                "TARJETA_CONFIG_SEGURIDAD",
+                "Configuración de seguridad escrita; reinicio del módulo diferido hasta salir "
+                "del ciclo.", "config")
+
+        logger.warning("ModbusLink: se escribió la configuración de seguridad; se apagan "
+                       "todas las salidas (0F) y se reinicia el módulo para activarla "
+                       "(ADB-04)")
+        self._apagar_tras_fallo_conexion()
+        try:
+            leidas = list(self._tx("read_coils", DIR_DO, count=N_DO, forzar=True).bits)[:N_DO]
+        except (_FalloTransaccion, _TraficoSuspendido) as e:
+            raise FalloConexion(
+                "TARJETA_SALIDAS_NO_APAGADAS",
+                f"No se pudo confirmar el apagado de las salidas antes del reinicio del módulo "
+                f"({e}); no se reinicia.") from None
+        with self.data_lock:
+            self.data["do"] = [1 if b else 0 for b in leidas] + [0] * (N_DO - len(leidas))
+        if len(leidas) != N_DO or any(leidas):
+            encendidas = [str(i + 1) for i, b in enumerate(leidas) if b]
+            detalle = ("DO" + ", DO".join(encendidas)) if encendidas else "lectura incompleta"
+            raise FalloConexion(
+                "TARJETA_SALIDAS_NO_APAGADAS",
+                f"Salidas encendidas antes del reinicio del módulo: {detalle}; no se "
+                f"reinicia.")
+
+        # V20-s1-03: cuenta toda orden enviada hasta una verificación correcta
+        self._reinicios_sin_verificar += 1
+        t_orden = time.monotonic()
+        orden = self._orden_reinicio()
+        if orden == "rechazada":
+            raise FalloConexion(
+                "TARJETA_CONFIG_SEGURIDAD",
+                "El módulo rechazó la orden de reinicio (0x0C1D); la configuración de "
+                "seguridad escrita no está activa.", "config")
+        if orden == "no_enviada":
+            raise FalloConexion(
+                "TARJETA_CONFIG_SEGURIDAD",
+                "La orden de reinicio del módulo (0x0C1D) no se pudo enviar; la configuración "
+                "de seguridad escrita no está activa.", "config")
+
+        ventana = max(self.config.espera_reinicio_s, self.VENTANA_MIN_EVIDENCIA_REINICIO_S)
+        fin_ventana = t_orden + ventana
+        evidencia: Optional[str] = None
+        sin_respuesta = 0
+        while True:
+            if self._parar.is_set():
+                raise _Detenido()
+            estado = self._sondeo_reinicio()
+            if estado == "ajeno":
+                raise FalloConexion(
+                    "TARJETA_CONFIG_SEGURIDAD",
+                    "La conexión se cerró en este equipo mientras se comprobaba el reinicio "
+                    "del módulo; no hay evidencia de reinicio.", "config")
+            if estado == "cerrado":
+                evidencia = "el módulo cerró la conexión"
+            elif estado == "sin_respuesta":
+                sin_respuesta += 1
+                if sin_respuesta >= self._SIN_RESPUESTA_EVIDENCIA:
+                    evidencia = "el módulo dejó de responder"
+            else:
+                sin_respuesta = 0
+            if evidencia is not None or time.monotonic() >= fin_ventana:
+                break
+            if self._parar.wait(self._PAUSA_SONDEO_REINICIO_S):
+                raise _Detenido()
+        if evidencia is None:
+            raise FalloConexion(
+                "TARJETA_CONFIG_SEGURIDAD",
+                f"El módulo no se reinició: siguió respondiendo {ventana:.1f} s después de la "
+                f"orden de reinicio (0x0C1D, orden {orden}); la configuración de seguridad "
+                f"escrita no está activa.", "config")
+        logger.info("ModbusLink: reinicio del módulo comprobado (%s)", evidencia)
+
+        with self.data_lock:
+            self._reinicios_modulo += 1
+            self._modulos["reinicios_modulo"] = self._reinicios_modulo
+        self._desconectar()
+        resto = t_orden + self.config.espera_reinicio_s - time.monotonic()
+        if resto > 0 and self._parar.wait(resto):
+            raise _Detenido()
+        plazo = time.monotonic() + self.config.presupuesto_reinicio_s
+        while True:
+            if self._parar.is_set():
+                raise _Detenido()
+            if self._abrir_socket():
+                try:
+                    self._leer_holding(REG_CODIGO_ERROR, 4)
+                    break
+                except (_FalloTransaccion, _TraficoSuspendido):
+                    pass
+            if time.monotonic() >= plazo:
+                raise FalloConexion("TARJETA_SIN_TRAMA_VALIDA",
+                                    "El módulo no volvió a responder tras el reinicio "
+                                    f"({self.config.presupuesto_reinicio_s:.0f} s).",
+                                    "sin_conexion")
+            if self._parar.wait(min(0.5, self.config.reintento_conexion_s)):
+                raise _Detenido()
+        # V20-s1-05: stop() entre la reapertura y la vuelta
+        if self._parar.is_set():
+            raise _Detenido()
+        logger.info("ModbusLink: el módulo volvió tras el reinicio; se relee la identidad y "
+                    "la configuración")
+        return max(fin, plazo)
+
+    # ---------------------------------------------------------------------
+    # Contraseña web del módulo (T20-04)
+    # ---------------------------------------------------------------------
+
+    def escribir_credenciales_web(self, usuario: str, clave: str) -> bool:
+        """T20-04: escribe usuario (0x758B, 5 registros) y contraseña (0x7590,
+        3 registros) con la función 10 por el cliente de este enlace (bajo su
+        candado) y los relee para comparar. True si ambos coinciden. Exige el
+        socket abierto (leer_identidad(cerrar=False)). La contraseña nunca va
+        al log ni a excepciones. RuntimeError con el hilo de sondeo en marcha
+        (V20-s1-08)."""
+        if self.running:
+            raise RuntimeError("escribir_credenciales_web() no se usa con el hilo de sondeo "
+                               "en marcha")
+        regs_u = texto_a_registros(usuario, N_WEB_USUARIO)
+        regs_c = texto_a_registros(clave, N_WEB_CLAVE)
+        try:
+            self._tx("write_registers", REG_WEB_USUARIO, regs_u)
+            self._tx("write_registers", REG_WEB_CLAVE, regs_c)
+            ok_u = self._leer_holding(REG_WEB_USUARIO, N_WEB_USUARIO) == regs_u
+            ok_c = self._leer_holding(REG_WEB_CLAVE, N_WEB_CLAVE) == regs_c
+        except (_FalloTransaccion, _TraficoSuspendido):
+            logger.warning("ModbusLink: sin respuesta al escribir o releer las credenciales web")
+            return False
+        if not (ok_u and ok_c):
+            logger.warning("ModbusLink: credenciales web releídas distintas (usuario %s, "
+                           "contraseña %s)", "igual" if ok_u else "distinto",
+                           "igual" if ok_c else "distinta")
+        return ok_u and ok_c
 
     # ---------------------------------------------------------------------
     # Salidas (MOD-11)
     # ---------------------------------------------------------------------
 
     def _registrar_comando(self, channel: int, estado: bool, ahora: float) -> None:
-        """Bajo data_lock. Como SerialLink: la tolerancia de 1 s cuenta desde
+        """Bajo data_lock. La tolerancia de 1 s cuenta desde
         el último CAMBIO de estado comandado."""
         previo = self._comandado.get(channel)
         if previo is None or previo[0] != estado:
@@ -1061,7 +1500,7 @@ class ModbusLink:
         return False
 
     def _comparar_salidas(self, do: list) -> None:
-        """Mismo algoritmo que SerialLink._comparar_salidas (MOD-11)."""
+        """Algoritmo de discrepancia de MOD-11 (heredado del enlace serial retirado en la tanda 20)."""
         if not self._handshake_ok:
             return
         ahora = time.monotonic()

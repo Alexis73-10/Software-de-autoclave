@@ -62,6 +62,30 @@
 ; íconos), con la casilla de la estación (sin casilla propia), después del 05
 ; y antes del 06. Anotado como Paso07; Reparar lo reaplica; el desinstalador
 ; lo revierte primero (07, 06, 05, 04, 02, 01); un fallo no interrumpe nada.
+;
+; T20-05 (tanda 20, docs/mis_plans/decisiones_tanda_20.md, decisiones 2 a 6):
+;   - Página "Red de los módulos de E/S" (después de la de la cuenta), con la
+;     casilla "Configurar la red de los módulos" (marcada; NO es una tarea de
+;     [Tasks]: es independiente de la casilla de la estación) y la lista de
+;     adaptadores Ethernet por cable (consulta de solo lectura, ConsultarRed).
+;     Paso 08 de tools\estacion: 192.168.3.10/24 sin puerta de enlace ni DNS
+;     en el adaptador elegido, con respaldo; anotado como Paso08 y Adaptador08
+;     (MAC); Reparar lo reaplica con el adaptador guardado; el desinstalador
+;     lo revierte PRIMERO (08, 07, 06, 05, 04, 02, 01). Sin asistente:
+;     /ADAPTADOR=<MAC>; sin él no se toca la red (o se reaplica el guardado).
+;     V20-s3-01: cambiar de adaptador (Reparar o /ADAPTADOR=) revierte antes
+;     el 08 en el anterior; si esa reversión falla, no se cambia de adaptador.
+;     V20-s3-05: sin asistente, el único adaptador con puerta de enlace exige
+;     /ADAPTADORCONFIRMADO=1.
+;   - Página "Contraseña web del módulo" (1 a 6 caracteres ASCII imprimibles;
+;     obligatoria en una instalación nueva o limpia, opcional al actualizar o
+;     reparar). Pasa al rol solo por un archivo en {tmp} (--clave-archivo),
+;     que se borra; nunca va al log ni a la línea de comandos.
+;   - Prueba de conexión al terminar: {app}\Autoclave.exe --rol
+;     configurar-modulo (T20-04); el resultado se muestra en una página propia
+;     y no aborta la instalación.
+;   - Enlace Modbus fijo (decisión 4): el Setup no instala ningún archivo de
+;     selección de enlace.
 
 ; Carpeta de la entrega que contiene Autoclave\ (se puede pasar con /DEntrega=...)
 #ifndef Entrega
@@ -323,6 +347,108 @@ es.ZonaInvalida=La zona horaria indicada con /ZONA= no existe en este Windows:%n
 en.ZonaInvalida=The time zone given with /ZONA= does not exist in this Windows:%n%1%n%nNothing was installed. Use the identifier shown by "tzutil /l" (for example, SA Pacific Standard Time).
 es.ZonaFallo=No se pudo fijar la zona horaria "%1" (%2).%n%nAutoclave quedó instalado. Fíjela a mano: Configuración > Hora e idioma > Fecha y hora > Zona horaria, o como administrador:%ntzutil /s "%1"
 en.ZonaFallo=The time zone "%1" could not be set (%2).%n%nAutoclave was installed. Set it by hand: Settings > Time & language > Date & time > Time zone, or as administrator:%ntzutil /s "%1"
+; T20-05 (tanda 20): red de los módulos de E/S (paso 08)
+es.RedTitulo=Red de los módulos de E/S
+en.RedTitulo=I/O module network
+es.RedSubtitulo=Adaptador Ethernet de este PC dedicado a los módulos de E/S (el módulo está en 192.168.3.7).
+en.RedSubtitulo=Ethernet adapter of this PC dedicated to the I/O modules (the module is at 192.168.3.7).
+es.RedCasilla=Configurar la red de los módulos
+en.RedCasilla=Set up the module network
+es.RedExplicacion=Elija el adaptador conectado a los módulos. Se le pone la dirección fija 192.168.3.10/24, sin puerta de enlace ni DNS y sin DHCP; la configuración anterior se respalda y se restaura al desinstalar. Solo se muestran adaptadores Ethernet por cable (no Wi-Fi ni virtuales).
+en.RedExplicacion=Choose the adapter connected to the modules. It gets the fixed address 192.168.3.10/24, without gateway or DNS and without DHCP; the previous settings are backed up and restored on uninstall. Only wired Ethernet adapters are shown (no Wi-Fi or virtual adapters).
+es.RedSinAdaptadores=No se encontró ningún adaptador Ethernet por cable. Conecte el adaptador y pulse "Actualizar la lista", o desmarque la casilla para seguir sin configurar la red.
+en.RedSinAdaptadores=No wired Ethernet adapter was found. Connect the adapter and press "Refresh the list", or clear the check box to continue without setting up the network.
+es.RedActualizarLista=Actualizar la lista
+en.RedActualizarLista=Refresh the list
+es.RedElemento=%1 (%2)  MAC %3  -  %4  %5
+en.RedElemento=%1 (%2)  MAC %3  -  %4  %5
+es.RedCableConectado=cable conectado
+en.RedCableConectado=cable connected
+es.RedCableDesconectado=cable desconectado
+en.RedCableDesconectado=cable disconnected
+es.RedDeshabilitado=deshabilitado
+en.RedDeshabilitado=disabled
+es.RedFaltaAdaptador=Elija el adaptador conectado a los módulos, o desmarque "Configurar la red de los módulos".
+en.RedFaltaAdaptador=Choose the adapter connected to the modules, or clear "Set up the module network".
+es.RedConflicto=El adaptador "%1" ya está en la red de los módulos (192.168.3.0/24: %2). Con dos adaptadores en esa red no se puede hablar con el módulo: quítele esa dirección o elija ese adaptador. No se cambió nada.
+en.RedConflicto=The adapter "%1" is already on the module network (192.168.3.0/24: %2). With two adapters on that network the module cannot be reached: remove that address or choose that adapter. Nothing was changed.
+es.RedPerderaRed=El adaptador "%1" es el único con puerta de enlace (red local o Internet). Al dedicarlo a los módulos, este PC PERDERÁ esa red.%n%n¿Usarlo de todos modos?
+en.RedPerderaRed=The adapter "%1" is the only one with a gateway (local network or Internet). When it is dedicated to the modules, this PC WILL LOSE that network.%n%nUse it anyway?
+es.RedAdaptadorDeshabilitado=El adaptador "%1" está deshabilitado en Windows. Habilítelo (Panel de control > Redes e Internet > Conexiones de red) y pulse "Actualizar la lista", o elija otro adaptador. No se cambió nada.
+en.RedAdaptadorDeshabilitado=The adapter "%1" is disabled in Windows. Enable it (Control Panel > Network and Internet > Network Connections) and press "Refresh the list", or choose another adapter. Nothing was changed.
+es.RedPerderaRedSilencioso=El adaptador "%1" indicado con /ADAPTADOR= es el único con puerta de enlace (red local o Internet): al dedicarlo a los módulos, este PC PERDERÁ esa red.%n%nNo se instaló nada. Si es lo que quiere, repita añadiendo /ADAPTADORCONFIRMADO=1.
+en.RedPerderaRedSilencioso=The adapter "%1" given with /ADAPTADOR= is the only one with a gateway (local network or Internet): when it is dedicated to the modules, this PC WILL LOSE that network.%n%nNothing was installed. If that is what you want, repeat adding /ADAPTADORCONFIRMADO=1.
+es.RedAdaptadorInvalido=El adaptador indicado con /ADAPTADOR= no es un adaptador Ethernet por cable de este PC:%n%1%n%nNo se instaló nada. Use la MAC que muestra "Get-NetAdapter -Physical" (por ejemplo, 00-54-04-84-9D-B1).
+en.RedAdaptadorInvalido=The adapter given with /ADAPTADOR= is not a wired Ethernet adapter of this PC:%n%1%n%nNothing was installed. Use the MAC shown by "Get-NetAdapter -Physical" (for example, 00-54-04-84-9D-B1).
+es.AplicandoRed=Configurando la red de los módulos de E/S...
+en.AplicandoRed=Setting up the I/O module network...
+es.Paso08=red de los módulos de E/S (paso 08)
+en.Paso08=I/O module network (step 08)
+es.RedFallo=No se pudo configurar la red de los módulos de E/S (paso 08). Detalle en:%n%1%n%nCómo recuperar: para volver a intentarlo, ejecute este instalador de nuevo (Reparar). Para devolver el adaptador a su configuración anterior, como administrador:%npowershell -ExecutionPolicy Bypass -File "%2\estacion\08_revertir_red_modulos.ps1"
+en.RedFallo=The I/O module network could not be set up (step 08). Details in:%n%1%n%nHow to recover: to try again, run this installer again (Repair). To return the adapter to its previous settings, as administrator:%npowershell -ExecutionPolicy Bypass -File "%2\estacion\08_revertir_red_modulos.ps1"
+es.RedCambioFallido=No se pudo devolver el adaptador anterior (MAC %1) a su configuración, así que NO se cambió de adaptador: la red de los módulos sigue en el anterior. Detalle en:%n%2%n%nQué hacer: revise que el adaptador anterior esté conectado y habilitado y repita con Reparar. Si ese adaptador ya no existe (se cambió la tarjeta de red), como administrador borre respaldo_08_red_modulos.json de la carpeta de ese archivo y repita con Reparar.
+en.RedCambioFallido=The previous adapter (MAC %1) could not be returned to its settings, so the adapter was NOT changed: the module network stays on the previous one. Details in:%n%2%n%nWhat to do: check that the previous adapter is connected and enabled and repeat with Repair. If that adapter no longer exists (the network card was replaced), as administrator delete respaldo_08_red_modulos.json from the folder of that file and repeat with Repair.
+; T20-05: contraseña web del módulo
+es.ClaveModuloTitulo=Contraseña web del módulo
+en.ClaveModuloTitulo=Module web password
+es.ClaveModuloSubtitulo=Nueva contraseña del usuario admin de la página web del módulo de E/S.
+en.ClaveModuloSubtitulo=New password of the admin user of the I/O module web page.
+es.ClaveModuloExplicacionNueva=Obligatoria en una instalación nueva. De 1 a 6 caracteres ASCII imprimibles (letras sin tilde ni ñ, números, espacio y signos). No se guarda en ningún archivo ni en el registro de la instalación.
+en.ClaveModuloExplicacionNueva=Required in a new installation. 1 to 6 printable ASCII characters (letters without accents, digits, space and symbols). It is not stored in any file or in the installation log.
+es.ClaveModuloExplicacionOpcional=Opcional al actualizar o reparar: déjela vacía para no cambiarla. De 1 a 6 caracteres ASCII imprimibles (letras sin tilde ni ñ, números, espacio y signos). No se guarda en ningún archivo ni en el registro de la instalación.
+en.ClaveModuloExplicacionOpcional=Optional when updating or repairing: leave it empty to keep it. 1 to 6 printable ASCII characters (letters without accents, digits, space and symbols). It is not stored in any file or in the installation log.
+es.ClaveModuloClave=Contraseña:
+en.ClaveModuloClave=Password:
+es.ClaveModuloRepetir=Repita la contraseña:
+en.ClaveModuloRepetir=Repeat the password:
+es.ClaveModuloFalta=Escriba la contraseña web del módulo (obligatoria en una instalación nueva).
+en.ClaveModuloFalta=Type the module web password (required in a new installation).
+es.ClaveModuloDistintas=Las dos contraseñas no coinciden.
+en.ClaveModuloDistintas=The two passwords do not match.
+es.ClaveModuloLarga=La contraseña tiene más de 6 caracteres.
+en.ClaveModuloLarga=The password has more than 6 characters.
+es.ClaveModuloCaracteres=La contraseña solo puede tener caracteres ASCII imprimibles (letras sin tilde ni ñ, números, espacio y signos).
+en.ClaveModuloCaracteres=The password can only have printable ASCII characters (letters without accents, digits, space and symbols).
+; T20-05 (decisión 5): prueba de conexión con el módulo, un texto por código del rol configurar-modulo
+es.ProbandoModulo=Probando la conexión con el módulo de E/S (hasta 30 s)...
+en.ProbandoModulo=Testing the connection with the I/O module (up to 30 s)...
+es.ModuloTitulo=Conexión con el módulo de E/S
+en.ModuloTitulo=Connection with the I/O module
+es.ModuloSubtitulo=Resultado de la prueba de conexión. Autoclave quedó instalado en cualquier caso.
+en.ModuloSubtitulo=Result of the connection test. Autoclave was installed in any case.
+es.ModuloClaveSi=sí
+en.ModuloClaveSi=yes
+es.ModuloClaveNo=no — repita con Reparar
+en.ModuloClaveNo=no — repeat with Repair
+; V20-s3-03: se pidió cambiar la contraseña y la prueba no terminó en "ok"
+es.ModuloClaveNoCambiada=Contraseña web cambiada: no — repita con Reparar
+en.ModuloClaveNoCambiada=Web password changed: no — repeat with Repair
+es.ModuloClaveNoPedida=no (no se pidió cambiarla)
+en.ModuloClaveNoPedida=no (no change was requested)
+es.ModuloRes_ok=Conexión correcta con el módulo de E/S.%n%nModelo: %1%nMódulos: %2%nFirmware: %3%nMAC / ID del equipo: %4%nContraseña web cambiada: %5
+en.ModuloRes_ok=Connection with the I/O module is correct.%n%nModel: %1%nModules: %2%nFirmware: %3%nMAC / equipment ID: %4%nWeb password changed: %5
+es.ModuloRes_backend_activo=No se probó la conexión: Autoclave está abierto y usando el módulo.%n%nQué hacer: cierre Autoclave y repita la prueba (abajo).
+en.ModuloRes_backend_activo=The connection was not tested: Autoclave is open and using the module.%n%nWhat to do: close Autoclave and repeat the test (below).
+es.ModuloRes_sin_conexion=El módulo no respondió en 192.168.3.7.%n%nQué hacer: revise que el cable de red esté conectado entre el adaptador elegido y el módulo, que el módulo esté encendido y que en "Red de los módulos de E/S" se haya elegido el adaptador correcto (Reparar permite cambiarlo).
+en.ModuloRes_sin_conexion=The module did not answer at 192.168.3.7.%n%nWhat to do: check that the network cable is connected between the chosen adapter and the module, that the module is switched on and that the right adapter was chosen in "I/O module network" (Repair lets you change it).
+es.ModuloRes_composicion=El módulo respondió, pero la composición de módulos no es la esperada (el principal y 4 de expansión, 5 en total).%n%nQué hacer: revise que estén conectados los 5 módulos correctos y llame a servicio técnico si no lo están.
+en.ModuloRes_composicion=The module answered, but the module composition is not the expected one (the main module and 4 expansion modules, 5 in total).%n%nWhat to do: check that the 5 right modules are connected and call technical service if they are not.
+es.ModuloRes_orden=El módulo respondió, pero los módulos de expansión no están en el orden esperado o la negociación con ellos no terminó.%n%nQué hacer: revise el orden de los módulos, apague y encienda el módulo principal y repita la prueba (abajo).
+en.ModuloRes_orden=The module answered, but the expansion modules are not in the expected order or the negotiation with them did not finish.%n%nWhat to do: check the order of the modules, switch the main module off and on and repeat the test (below).
+es.ModuloRes_firmware=El módulo respondió, pero el firmware de algún módulo no es compatible con esta versión de Autoclave.%n%nQué hacer: llame a servicio técnico.
+en.ModuloRes_firmware=The module answered, but the firmware of some module is not compatible with this version of Autoclave.%n%nWhat to do: call technical service.
+es.ModuloRes_expansor=El módulo principal reporta un error con los módulos de expansión.%n%nQué hacer: revise las conexiones entre los módulos, apague y encienda el módulo principal y repita la prueba (abajo).
+en.ModuloRes_expansor=The main module reports an error with the expansion modules.%n%nWhat to do: check the connections between the modules, switch the main module off and on and repeat the test (below).
+es.ModuloRes_clave_invalida=La contraseña web no es válida (de 1 a 6 caracteres ASCII imprimibles) y no se cambió. La conexión con el módulo no se terminó de comprobar.%n%nQué hacer: ejecute de nuevo este instalador (Reparar) con otra contraseña.
+en.ModuloRes_clave_invalida=The web password is not valid (1 to 6 printable ASCII characters) and was not changed. The connection with the module was not fully checked.%n%nWhat to do: run this installer again (Repair) with another password.
+es.ModuloRes_clave_no_quedo=Se escribió la contraseña web del módulo, pero al releerla no coincidía: puede que no haya quedado cambiada.%n%nQué hacer: ejecute de nuevo este instalador (Reparar) con la contraseña y, si se repite, llame a servicio técnico.
+en.ModuloRes_clave_no_quedo=The module web password was written, but it did not match when read back: it may not have been changed.%n%nWhat to do: run this installer again (Repair) with the password and, if it happens again, call technical service.
+es.ModuloRes_error=La prueba de conexión terminó con un error inesperado.%n%nQué hacer: repita la prueba (abajo) y, si se repite, llame a servicio técnico.
+en.ModuloRes_error=The connection test ended with an unexpected error.%n%nWhat to do: repeat the test (below) and, if it happens again, call technical service.
+es.ModuloRes_argumentos=La prueba de conexión no se pudo ejecutar (argumentos no válidos).%n%nQué hacer: llame a servicio técnico.
+en.ModuloRes_argumentos=The connection test could not be run (invalid arguments).%n%nWhat to do: call technical service.
+es.ModuloRepetir=Para repetir la prueba, como administrador y con Autoclave cerrado:%n"%1\Autoclave.exe" --rol configurar-modulo --resultado resultado_modulo.json
+en.ModuloRepetir=To repeat the test, as administrator and with Autoclave closed:%n"%1\Autoclave.exe" --rol configurar-modulo --resultado resultado_modulo.json
 
 [Tasks]
 Name: "autoarranque"; Description: "{cm:TareaAutoarranque}"
@@ -378,6 +504,10 @@ Source: "..\estacion\06_revertir_asociar_tactiles.ps1"; DestDir: "{app}\estacion
 Source: "..\estacion\07_escritorio_estacion.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\07_revertir_escritorio_estacion.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\..\src\autoclave\ui_qml\assets\fondos\fondo-arranque.png"; DestDir: "{app}\estacion"; DestName: "fondo_estacion.png"; Flags: ignoreversion
+; T20-05 (tanda 20): paso 08, red de los módulos de E/S, y sus funciones puras
+Source: "..\estacion\_red_modulos_puras.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
+Source: "..\estacion\08_red_modulos.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
+Source: "..\estacion\08_revertir_red_modulos.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\Autoclave"; Filename: "{app}\Autoclave.exe"; WorkingDir: "{app}"
@@ -432,6 +562,13 @@ const
   // INS-01 (tanda 17)
   ClaveZonas = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones';
   ClaveZonaActual = 'SYSTEM\CurrentControlSet\Control\TimeZoneInformation';
+  // T20-05 (tanda 20): red de los módulos (decisiones 2 y 3) y prueba de conexión
+  IpEstacionModulos = '192.168.3.10';
+  PrefijoRedModulos = '192.168.3.';
+  // códigos del resultado del rol configurar-modulo (T20-04): uno por texto ModuloRes_<código>
+  CodigosModulo = '|ok|backend_activo|sin_conexion|composicion|orden|firmware|expansor|clave_invalida|clave_no_quedo|error|argumentos|';
+  // máximo de la contraseña web del módulo (registro 0x7590, 3 registros)
+  LargoMaxClaveModulo = 6;
 
 var
   PaginaCuenta: TInputQueryWizardPage;
@@ -465,6 +602,31 @@ var
   // R1 (V17-s1-05): desinstalación con alguna reversión fallida
   ReversionFallida: Boolean;
   RutaProgramaDesinstalada, RutaDatosDesinstalada: String;
+  // T20-05: página "Red de los módulos de E/S" (no es una tarea de [Tasks])
+  PaginaRed: TWizardPage;
+  CasillaRed: TNewCheckBox;
+  TextoRed: TNewStaticText;
+  ListaRed: TNewListBox;
+  BotonRed: TNewButton;
+  // adaptadores de ConsultarRed: AdapEthernet = Ethernet físico (línea A=),
+  // si no, cualquier otro (O=: Wi-Fi, virtual...) que solo cuenta para el
+  // conflicto en 192.168.3.0/24 y para saber si hay otra puerta de enlace
+  AdapMac, AdapAlias, AdapDesc, AdapEstado, AdapIps: TArrayOfString;
+  AdapGw, AdapEthernet: array of Boolean;
+  ConsultaRedFallida: Boolean;
+  // índice en Adap* de cada fila de ListaRed
+  OpcionesRed: array of Integer;
+  // MAC normalizada (12 hex) del adaptador al que se aplica el paso 08; '' = no tocar la red
+  AdaptadorElegido: String;
+  RedFallida: Boolean;
+  // V20-s3-01: no se pudo revertir el 08 en el adaptador anterior (MAC) al cambiar de adaptador
+  CambioRedFallido: Boolean;
+  AdaptadorAnterior08: String;
+  // T20-05: contraseña web del módulo (solo en los campos de la página)
+  PaginaClave: TInputQueryWizardPage;
+  // T20-05 (decisión 5): página final con el resultado de la prueba de conexión
+  PaginaResultado: TOutputMsgWizardPage;
+  TextoResultadoModulo: String;
 
 // La contraseña del inicio automático pasa al script por el entorno del
 // proceso (lo hereda powershell.exe), nunca por la línea de comandos.
@@ -987,11 +1149,416 @@ begin
   Result := RemoveBackslashUnlessRoot(Trim(Result));
 end;
 
+// ── T20-05 (tanda 20): red de los módulos de E/S (paso 08) ──
+
+// '00-54-04-84-9D-B1', '00:54:...' o '005404849DB1' -> '005404849DB1'; si no
+// son 12 hexadecimales, ''. Solo una MAC así validada llega a la línea de
+// comandos del paso 08 (sin comillas ni espacios que inyectar).
+function NormalizarMac(Texto: String): String;
+var
+  S: String;
+  K: Integer;
+begin
+  Result := '';
+  S := Uppercase(Trim(Texto));
+  StringChangeEx(S, '-', '', True);
+  StringChangeEx(S, ':', '', True);
+  if Length(S) <> 12 then
+    exit;
+  for K := 1 to 12 do
+    if not (((S[K] >= '0') and (S[K] <= '9')) or ((S[K] >= 'A') and (S[K] <= 'F'))) then
+      exit;
+  Result := S;
+end;
+
+// True si Ip es 192.168.3.N con N de 0 a 255 (red de los módulos, /24)
+function IpEnRedModulos(Ip: String): Boolean;
+var
+  Resto: String;
+  K: Integer;
+begin
+  Result := False;
+  Ip := Trim(Ip);
+  if Copy(Ip, 1, Length(PrefijoRedModulos)) <> PrefijoRedModulos then
+    exit;
+  Resto := Copy(Ip, Length(PrefijoRedModulos) + 1, Length(Ip));
+  if (Length(Resto) < 1) or (Length(Resto) > 3) then
+    exit;
+  for K := 1 to Length(Resto) do
+    if (Resto[K] < '0') or (Resto[K] > '9') then
+      exit;
+  Result := StrToIntDef(Resto, 999) <= 255;
+end;
+
+// Corta el texto hasta el primer '|' (campo de una línea de ConsultarRed)
+function CortarCampo(var Resto: String): String;
+var
+  P: Integer;
+begin
+  P := Pos('|', Resto);
+  if P = 0 then
+  begin
+    Result := Resto;
+    Resto := '';
+  end else
+  begin
+    Result := Copy(Resto, 1, P - 1);
+    Resto := Copy(Resto, P + 1, Length(Resto));
+  end;
+end;
+
+// Alguna de las IPv4 de la lista (separadas por ';') en 192.168.3.0/24
+function IpsEnRedModulos(Ips: String): Boolean;
+var
+  Resto: String;
+  P: Integer;
+begin
+  Result := False;
+  Resto := Ips;
+  while Resto <> '' do
+  begin
+    P := Pos(';', Resto);
+    if P = 0 then
+    begin
+      Result := IpEnRedModulos(Resto);
+      exit;
+    end;
+    if IpEnRedModulos(Copy(Resto, 1, P - 1)) then
+    begin
+      Result := True;
+      exit;
+    end;
+    Resto := Copy(Resto, P + 1, Length(Resto));
+  end;
+end;
+
+function ListaTieneIp(Ips, Ip: String): Boolean;
+begin
+  Result := Pos(';' + Ip + ';', ';' + Ips + ';') > 0;
+end;
+
+procedure AgregarAdaptador(Ethernet: Boolean; Mac, Alias, Descripcion, Estado, Ips: String; Gw: Boolean);
+var
+  N: Integer;
+begin
+  N := GetArrayLength(AdapMac);
+  SetArrayLength(AdapMac, N + 1);
+  SetArrayLength(AdapAlias, N + 1);
+  SetArrayLength(AdapDesc, N + 1);
+  SetArrayLength(AdapEstado, N + 1);
+  SetArrayLength(AdapIps, N + 1);
+  SetArrayLength(AdapGw, N + 1);
+  SetArrayLength(AdapEthernet, N + 1);
+  AdapMac[N] := Mac;
+  AdapAlias[N] := Alias;
+  AdapDesc[N] := Descripcion;
+  AdapEstado[N] := Estado;
+  AdapIps[N] := Ips;
+  AdapGw[N] := Gw;
+  AdapEthernet[N] := Ethernet;
+end;
+
+// Adaptadores de red (SOLO LECTURA: Get-NetAdapter, Get-NetIPAddress,
+// Get-NetRoute). V20-s3-04: las IPv4 de la configuración activa Y de la
+// persistente (una IP fija con el cable desconectado solo está en la
+// persistente), sin repetir. Una línea por adaptador:
+//   A=<MAC>|<alias>|<descripción>|<estado>|<IPv4 separadas por ;>|<tiene puerta de enlace 0/1>
+// con A= los Ethernet físicos (Get-NetAdapter -Physical, NdisPhysicalMedium
+// 14 = 802.3, no virtuales) y O= todos los demás (Wi-Fi, Bluetooth, VPN...).
+// Si la consulta falla: lista vacía (solo se puede seguir sin configurar la red).
+procedure ConsultarRed;
+var
+  Codigo, I: Integer;
+  Salida: TExecOutput;
+  Linea, Resto, Mac, Alias, Descripcion, Estado, Ips: String;
+  Correcto, Ethernet: Boolean;
+begin
+  SetArrayLength(AdapMac, 0);
+  SetArrayLength(AdapAlias, 0);
+  SetArrayLength(AdapDesc, 0);
+  SetArrayLength(AdapEstado, 0);
+  SetArrayLength(AdapIps, 0);
+  SetArrayLength(AdapGw, 0);
+  SetArrayLength(AdapEthernet, 0);
+  ConsultaRedFallida := True;
+  Codigo := -1;
+  try
+    Correcto := ExecAndCaptureOutput(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+      '-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$ErrorActionPreference=''Stop''; ' +
+      'try { $f=@(Get-NetAdapter -Physical | Where-Object { ($_.NdisPhysicalMedium -eq 14) -and (-not $_.Virtual) } | ' +
+      'ForEach-Object { $_.ifIndex }); foreach ($a in @(Get-NetAdapter)) { ' +
+      '$ips=((@(foreach ($s in @(''ActiveStore'',''PersistentStore'')) { ' +
+      'Get-NetIPAddress -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -PolicyStore $s -ErrorAction SilentlyContinue | ' +
+      'ForEach-Object { $_.IPAddress } }) | Select-Object -Unique) -join '';''); ' +
+      '$gw=@(Get-NetRoute -InterfaceIndex $a.ifIndex -AddressFamily IPv4 -DestinationPrefix ''0.0.0.0/0'' -ErrorAction SilentlyContinue).Count; ' +
+      '$p=''O=''; if ($f -contains $a.ifIndex) { $p=''A='' }; ' +
+      'Write-Output ($p + [string]$a.MacAddress + ''|'' + ([string]$a.Name -replace ''[|]'',''/'') + ''|'' + ' +
+      '([string]$a.InterfaceDescription -replace ''[|]'',''/'') + ''|'' + [string]$a.Status + ''|'' + $ips + ''|'' + ' +
+      '[string][int]($gw -gt 0)) }; exit 0 } catch { exit 5 }"',
+      '', SW_HIDE, ewWaitUntilTerminated, Codigo, Salida) and (Codigo = 0);
+  except
+    Correcto := False;
+    Log('T20-05: no se pudo consultar los adaptadores de red: ' + GetExceptionMessage);
+  end;
+  if not Correcto then
+  begin
+    Log(Format('T20-05: consulta de los adaptadores de red fallida (código %d): sin lista', [Codigo]));
+    exit;
+  end;
+  ConsultaRedFallida := False;
+  for I := 0 to GetArrayLength(Salida.StdOut) - 1 do
+  begin
+    Linea := Trim(Salida.StdOut[I]);
+    if (Copy(Linea, 1, 2) = 'A=') or (Copy(Linea, 1, 2) = 'O=') then
+    begin
+      Ethernet := Copy(Linea, 1, 2) = 'A=';
+      Resto := Copy(Linea, 3, Length(Linea));
+      Mac := Trim(CortarCampo(Resto));
+      Alias := Trim(CortarCampo(Resto));
+      Descripcion := Trim(CortarCampo(Resto));
+      Estado := Trim(CortarCampo(Resto));
+      Ips := Trim(CortarCampo(Resto));
+      // un Ethernet sin MAC válida no se ofrece (cuenta como "otro")
+      if Ethernet and (NormalizarMac(Mac) = '') then
+        Ethernet := False;
+      AgregarAdaptador(Ethernet, Mac, Alias, Descripcion, Estado, Ips, Trim(Resto) = '1');
+      Log(Format('T20-05: adaptador %s %s "%s" (%s) %s IPv4=%s puerta=%s', [Copy(Linea, 1, 1), Mac,
+        Alias, Descripcion, Estado, Ips, Trim(Resto)]));
+    end;
+  end;
+end;
+
+// Índice en Adap* del Ethernet físico con esa MAC (normalizada), o -1
+function IndiceAdaptadorEthernet(Mac: String): Integer;
+var
+  I: Integer;
+begin
+  Result := -1;
+  Mac := NormalizarMac(Mac);
+  if Mac = '' then
+    exit;
+  for I := 0 to GetArrayLength(AdapMac) - 1 do
+    if AdapEthernet[I] and (NormalizarMac(AdapMac[I]) = Mac) then
+    begin
+      Result := I;
+      exit;
+    end;
+end;
+
+// MAC normalizada del adaptador al que el Setup ya aplicó el paso 08
+// (Paso08 + Adaptador08), o ''
+function AdaptadorGuardado08: String;
+var
+  Guardada: String;
+begin
+  Result := '';
+  Guardada := '';
+  if RegValueExists(HKLM64, '{#ClaveEstacion}', 'Paso08') and
+      RegQueryStringValue(HKLM64, '{#ClaveEstacion}', 'Adaptador08', Guardada) then
+    Result := NormalizarMac(Guardada);
+end;
+
+// True si la única IPv4 de la lista (separadas por ';') en 192.168.3.0/24 es
+// 192.168.3.10 (la que deja el paso 08); False si no hay ninguna o hay otra
+function SoloIpEstacionEnRed(Ips: String): Boolean;
+var
+  Resto, Ip: String;
+  P: Integer;
+begin
+  Result := False;
+  Resto := Ips;
+  while Resto <> '' do
+  begin
+    P := Pos(';', Resto);
+    if P = 0 then
+    begin
+      Ip := Trim(Resto);
+      Resto := '';
+    end else
+    begin
+      Ip := Trim(Copy(Resto, 1, P - 1));
+      Resto := Copy(Resto, P + 1, Length(Resto));
+    end;
+    if IpEnRedModulos(Ip) then
+    begin
+      if Ip <> IpEstacionModulos then
+      begin
+        Result := False;
+        exit;
+      end;
+      Result := True;
+    end;
+  end;
+end;
+
+// V20-s3-07: adaptador deshabilitado en Windows (no se le puede aplicar el paso 08)
+function AdaptadorDeshabilitado(I: Integer): Boolean;
+begin
+  Result := CompareText(AdapEstado[I], 'Disabled') = 0;
+end;
+
+// '' si se puede usar el adaptador I; si no, el mensaje (deshabilitado, u
+// otro adaptador ya en 192.168.3.0/24). Advertir: es el único con puerta de
+// enlace (perderá esa red). V20-s3-01: el adaptador guardado (Adaptador08)
+// cuya única IPv4 en esa red es 192.168.3.10 no es conflicto: al cambiar de
+// adaptador, AplicarRedModulos revierte antes el paso 08 en él.
+function ValidarRed(I: Integer; var Advertir: Boolean): String;
+var
+  J: Integer;
+  OtraPuerta: Boolean;
+  Guardado: String;
+begin
+  Result := '';
+  Advertir := False;
+  if AdaptadorDeshabilitado(I) then
+  begin
+    Result := FmtMessage(CustomMessage('RedAdaptadorDeshabilitado'), [AdapAlias[I]]);
+    exit;
+  end;
+  Guardado := AdaptadorGuardado08;
+  for J := 0 to GetArrayLength(AdapMac) - 1 do
+    if (J <> I) and IpsEnRedModulos(AdapIps[J]) and
+        not ((Guardado <> '') and (NormalizarMac(AdapMac[J]) = Guardado) and SoloIpEstacionEnRed(AdapIps[J])) then
+    begin
+      Result := FmtMessage(CustomMessage('RedConflicto'), [AdapAlias[J], AdapIps[J]]);
+      exit;
+    end;
+  if AdapGw[I] then
+  begin
+    OtraPuerta := False;
+    for J := 0 to GetArrayLength(AdapMac) - 1 do
+      if (J <> I) and AdapGw[J] then
+        OtraPuerta := True;
+    Advertir := not OtraPuerta;
+  end;
+end;
+
+function TextoEstadoRed(Estado: String): String;
+begin
+  if CompareText(Estado, 'Up') = 0 then
+    Result := CustomMessage('RedCableConectado')
+  else if CompareText(Estado, 'Disconnected') = 0 then
+    Result := CustomMessage('RedCableDesconectado')
+  else if CompareText(Estado, 'Disabled') = 0 then
+    Result := CustomMessage('RedDeshabilitado')
+  else
+    Result := Estado;
+end;
+
+function TextoAdaptador(I: Integer): String;
+begin
+  Result := FmtMessage(CustomMessage('RedElemento'), [AdapAlias[I], AdapDesc[I], AdapMac[I],
+    TextoEstadoRed(AdapEstado[I]), AdapIps[I]]);
+end;
+
+// Adaptador que se preselecciona: el de /ADAPTADOR= o el de la página (si ya
+// se eligió); si no, el guardado (Adaptador08, Reparar/Actualizar); si no, ''
+// (LlenarListaRed elige entonces el que ya tenga 192.168.3.10, o ninguno).
+function MacPreseleccion: String;
+var
+  Guardada: String;
+begin
+  Result := AdaptadorElegido;
+  if Result <> '' then
+    exit;
+  Guardada := '';
+  if RegQueryStringValue(HKLM64, '{#ClaveEstacion}', 'Adaptador08', Guardada) then
+    Result := NormalizarMac(Guardada);
+end;
+
+procedure LlenarListaRed(MacPreferida: String);
+var
+  I, N, Elegida, ConIp: Integer;
+begin
+  ListaRed.Items.Clear;
+  SetArrayLength(OpcionesRed, 0);
+  Elegida := -1;
+  ConIp := -1;
+  MacPreferida := NormalizarMac(MacPreferida);
+  for I := 0 to GetArrayLength(AdapMac) - 1 do
+    if AdapEthernet[I] then
+    begin
+      N := ListaRed.Items.Add(TextoAdaptador(I));
+      SetArrayLength(OpcionesRed, N + 1);
+      OpcionesRed[N] := I;
+      if (MacPreferida <> '') and (NormalizarMac(AdapMac[I]) = MacPreferida) then
+        Elegida := N;
+      if (ConIp < 0) and ListaTieneIp(AdapIps[I], IpEstacionModulos) then
+        ConIp := N;
+    end;
+  if Elegida < 0 then
+    Elegida := ConIp;
+  ListaRed.ItemIndex := Elegida;
+  if ListaRed.Items.Count = 0 then
+    TextoRed.Caption := CustomMessage('RedExplicacion') + #13#10#13#10 + CustomMessage('RedSinAdaptadores')
+  else
+    TextoRed.Caption := CustomMessage('RedExplicacion');
+end;
+
+procedure CasillaRedClick(Sender: TObject);
+begin
+  ListaRed.Enabled := CasillaRed.Checked;
+  BotonRed.Enabled := CasillaRed.Checked;
+end;
+
+// "Actualizar la lista": vuelve a consultar (p. ej. tras conectar el cable)
+// conservando la fila elegida
+procedure BotonRedClick(Sender: TObject);
+var
+  Mac: String;
+begin
+  Mac := '';
+  if ListaRed.ItemIndex >= 0 then
+    Mac := AdapMac[OpcionesRed[ListaRed.ItemIndex]];
+  ConsultarRed;
+  LlenarListaRed(Mac);
+end;
+
+// ── T20-05: contraseña web del módulo ──
+
+// Obligatoria en una instalación nueva o limpia; opcional al actualizar o reparar
+function ClaveModuloObligatoria: Boolean;
+begin
+  Result := (Modo = ModoNuevo) or (Modo = ModoLimpia);
+end;
+
+// Solo caracteres ASCII imprimibles (#32 a #126)
+function CaracteresImprimibles(Texto: String): Boolean;
+var
+  K: Integer;
+begin
+  Result := True;
+  for K := 1 to Length(Texto) do
+    if (Ord(Texto[K]) < 32) or (Ord(Texto[K]) > 126) then
+    begin
+      Result := False;
+      exit;
+    end;
+end;
+
+// '' si los campos de la página son válidos; si no, el NOMBRE del mensaje.
+// Nunca devuelve ni registra la contraseña.
+function ValidarClaveModulo: String;
+begin
+  Result := '';
+  if (PaginaClave.Values[0] = '') and (PaginaClave.Values[1] = '') then
+  begin
+    if ClaveModuloObligatoria then
+      Result := 'ClaveModuloFalta';
+  end else if PaginaClave.Values[0] <> PaginaClave.Values[1] then
+    Result := 'ClaveModuloDistintas'
+  else if Length(PaginaClave.Values[0]) > LargoMaxClaveModulo then
+    Result := 'ClaveModuloLarga'
+  else if not CaracteresImprimibles(PaginaClave.Values[0]) then
+    Result := 'ClaveModuloCaracteres';
+end;
+
 function InitializeSetup: Boolean;
 var
   VersionNum, RutaRegistro, Previa, Anterior, ZonaParametro: String;
-  Comparacion: Integer;
-  HayInstalacion, TieneRuta: Boolean;
+  AdaptadorParametro, AdaptadorGuardado, MensajeRed: String;
+  Comparacion, I: Integer;
+  HayInstalacion, TieneRuta, AdvertirRed: Boolean;
 begin
   Result := True;
   Modo := ModoNuevo;
@@ -1067,6 +1634,60 @@ begin
   else
     ZonaElegida := '';
   Log('Zona horaria: actual "' + ZonaActual + '", preseleccionada "' + ZonaElegida + '"');
+  // T20-05: adaptadores de red (solo lectura) y /ADAPTADOR=<MAC> (como
+  // /ZONA=: si no es un Ethernet por cable de este PC o hay conflicto en
+  // 192.168.3.0/24, el Setup se detiene sin instalar)
+  AdaptadorElegido := '';
+  ConsultarRed;
+  AdaptadorParametro := Trim(ExpandConstant('{param:ADAPTADOR|}'));
+  if AdaptadorParametro <> '' then
+  begin
+    I := IndiceAdaptadorEthernet(AdaptadorParametro);
+    if I < 0 then
+    begin
+      Log('T20-05: /ADAPTADOR=' + AdaptadorParametro + ' no es un adaptador Ethernet por cable de este PC: el Setup se detiene.');
+      SuppressibleMsgBox(FmtMessage(CustomMessage('RedAdaptadorInvalido'), [AdaptadorParametro]), mbError, MB_OK, IDOK);
+      Result := False;
+      exit;
+    end;
+    MensajeRed := ValidarRed(I, AdvertirRed);
+    if MensajeRed <> '' then
+    begin
+      Log('T20-05: /ADAPTADOR=' + AdaptadorParametro + ': ' + MensajeRed);
+      SuppressibleMsgBox(MensajeRed, mbError, MB_OK, IDOK);
+      Result := False;
+      exit;
+    end;
+    if AdvertirRed then
+    begin
+      // V20-s3-05: sin asistente nadie confirma; hace falta /ADAPTADORCONFIRMADO=1
+      if WizardSilent and (Trim(ExpandConstant('{param:ADAPTADORCONFIRMADO|}')) <> '1') then
+      begin
+        Log('T20-05: /ADAPTADOR=' + AdaptadorParametro + ' es el único adaptador con puerta de enlace y falta /ADAPTADORCONFIRMADO=1: el Setup se detiene.');
+        SuppressibleMsgBox(FmtMessage(CustomMessage('RedPerderaRedSilencioso'), [AdapAlias[I]]), mbError, MB_OK, IDOK);
+        Result := False;
+        exit;
+      end;
+      Log('T20-05: /ADAPTADOR=' + AdaptadorParametro + ' es el único adaptador con puerta de enlace: este PC perderá esa red.');
+    end;
+    AdaptadorElegido := NormalizarMac(AdapMac[I]);
+    Log('T20-05: red de los módulos en el adaptador de /ADAPTADOR=' + AdaptadorElegido);
+  end else if WizardSilent then
+  begin
+    // sin asistente y sin /ADAPTADOR=: no se toca la red, salvo que ya se
+    // hubiera configurado (Paso08 + Adaptador08): entonces se reaplica con el
+    // adaptador guardado, como Reparar reaplica los pasos ya anotados
+    // (DECISIÓN SIN CONFIRMAR)
+    AdaptadorGuardado := '';
+    if RegValueExists(HKLM64, '{#ClaveEstacion}', 'Paso08') and
+        RegQueryStringValue(HKLM64, '{#ClaveEstacion}', 'Adaptador08', AdaptadorGuardado) and
+        (NormalizarMac(AdaptadorGuardado) <> '') then
+    begin
+      AdaptadorElegido := NormalizarMac(AdaptadorGuardado);
+      Log('T20-05: sin asistente y sin /ADAPTADOR=: se reaplica el paso 08 con el adaptador guardado ' + AdaptadorElegido);
+    end else
+      Log('T20-05: sin asistente y sin /ADAPTADOR=: no se toca la red de los módulos.');
+  end;
   if not HayInstalacion then
     exit;
   if not RegQueryStringValue(HKLM64, '{#ClaveInstalacion}', 'VersionNum', VersionNum) then
@@ -1808,11 +2429,68 @@ begin
   end;
 end;
 
+// T20-05: página "Red de los módulos de E/S" (también al actualizar o reparar;
+// independiente de la casilla de la estación). Casilla marcada por defecto.
+procedure CrearPaginaRed(Despues: Integer);
+begin
+  PaginaRed := CreateCustomPage(Despues, CustomMessage('RedTitulo'), CustomMessage('RedSubtitulo'));
+  CasillaRed := TNewCheckBox.Create(PaginaRed);
+  CasillaRed.Parent := PaginaRed.Surface;
+  CasillaRed.Left := 0;
+  CasillaRed.Top := 0;
+  CasillaRed.Width := PaginaRed.SurfaceWidth;
+  CasillaRed.Height := ScaleY(17);
+  CasillaRed.Caption := CustomMessage('RedCasilla');
+  CasillaRed.Checked := True;
+  CasillaRed.OnClick := @CasillaRedClick;
+  TextoRed := TNewStaticText.Create(PaginaRed);
+  TextoRed.Parent := PaginaRed.Surface;
+  TextoRed.Left := 0;
+  TextoRed.Top := CasillaRed.Top + CasillaRed.Height + ScaleY(8);
+  TextoRed.AutoSize := False;
+  TextoRed.WordWrap := True;
+  TextoRed.Width := PaginaRed.SurfaceWidth;
+  TextoRed.Height := ScaleY(66);
+  TextoRed.Caption := CustomMessage('RedExplicacion');
+  BotonRed := TNewButton.Create(PaginaRed);
+  BotonRed.Parent := PaginaRed.Surface;
+  BotonRed.Width := ScaleX(150);
+  BotonRed.Height := ScaleY(23);
+  BotonRed.Left := 0;
+  BotonRed.Top := PaginaRed.SurfaceHeight - BotonRed.Height;
+  BotonRed.Caption := CustomMessage('RedActualizarLista');
+  BotonRed.OnClick := @BotonRedClick;
+  ListaRed := TNewListBox.Create(PaginaRed);
+  ListaRed.Parent := PaginaRed.Surface;
+  ListaRed.Left := 0;
+  ListaRed.Top := TextoRed.Top + TextoRed.Height + ScaleY(4);
+  ListaRed.Width := PaginaRed.SurfaceWidth;
+  ListaRed.Height := BotonRed.Top - ListaRed.Top - ScaleY(6);
+  LlenarListaRed(MacPreseleccion);
+end;
+
+// T20-05: página "Contraseña web del módulo": dos campos ocultos (True)
+procedure CrearPaginaClave(Despues: Integer);
+begin
+  PaginaClave := CreateInputQueryPage(Despues, CustomMessage('ClaveModuloTitulo'),
+    CustomMessage('ClaveModuloSubtitulo'), CustomMessage('ClaveModuloExplicacionNueva'));
+  PaginaClave.Add(CustomMessage('ClaveModuloClave'), True);
+  PaginaClave.Add(CustomMessage('ClaveModuloRepetir'), True);
+end;
+
 procedure CurPageChanged(CurPageID: Integer);
 begin
   // la hora de referencia, al momento de mostrar la página
   if (PaginaZona <> nil) and (CurPageID = PaginaZona.ID) then
     PaginaZona.SubCaptionLabel.Caption := TextoZonaExplicacion;
+  // T20-05: obligatoria u opcional según el modo ya elegido (nueva/limpia o actualizar/reparar)
+  if (PaginaClave <> nil) and (CurPageID = PaginaClave.ID) then
+  begin
+    if ClaveModuloObligatoria then
+      PaginaClave.SubCaptionLabel.Caption := CustomMessage('ClaveModuloExplicacionNueva')
+    else
+      PaginaClave.SubCaptionLabel.Caption := CustomMessage('ClaveModuloExplicacionOpcional');
+  end;
 end;
 
 procedure InitializeWizard;
@@ -1854,6 +2532,13 @@ begin
   PaginaCuenta.Add(CustomMessage('CuentaClave'), True);
   PaginaCuenta.Add(CustomMessage('CuentaClaveRepetir'), True);
   PaginaCuenta.Values[0] := UsuarioConsola;
+  // T20-05: red de los módulos y contraseña web, después de la cuenta;
+  // resultado de la prueba de conexión, después de instalar
+  CrearPaginaRed(PaginaCuenta.ID);
+  CrearPaginaClave(PaginaRed.ID);
+  TextoResultadoModulo := '';
+  PaginaResultado := CreateOutputMsgPage(wpInstalling, CustomMessage('ModuloTitulo'),
+    CustomMessage('ModuloSubtitulo'), '');
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
@@ -1867,6 +2552,16 @@ begin
   // INS-01: también al actualizar o reparar; sin lista de zonas no hay qué elegir
   else if (PaginaZona <> nil) and (PageID = PaginaZona.ID) then
     Result := GetArrayLength(ZonaIds) = 0
+  // T20-05: red y contraseña web también al actualizar o reparar (Reparar
+  // preselecciona el adaptador guardado); sin asistente no se muestran ni se
+  // validan (vale /ADAPTADOR= y la contraseña no se cambia)
+  else if (PaginaRed <> nil) and (PageID = PaginaRed.ID) then
+    Result := WizardSilent
+  else if (PaginaClave <> nil) and (PageID = PaginaClave.ID) then
+    Result := WizardSilent
+  // T20-05: resultado de la prueba de conexión (solo si se hizo)
+  else if (PaginaResultado <> nil) and (PageID = PaginaResultado.ID) then
+    Result := TextoResultadoModulo = ''
   // Reparar usa las tareas anteriores (UsePreviousTasks) y no reaplica el paso 01
   else if (Modo = ModoReparar) and ((PageID = wpSelectTasks) or
       ((PaginaCuenta <> nil) and (PageID = PaginaCuenta.ID))) then
@@ -1880,8 +2575,60 @@ function NextButtonClick(CurPageID: Integer): Boolean;
 var
   Indice: Integer;
   Mensaje: String;
+  Advertir: Boolean;
 begin
   Result := True;
+  // T20-05: red de los módulos. Casilla desmarcada = no tocar la red; si no,
+  // hay que elegir un adaptador, sin otro adaptador en 192.168.3.0/24 y, si es
+  // el único con puerta de enlace, confirmando que se perderá esa red.
+  if (PaginaRed <> nil) and (CurPageID = PaginaRed.ID) then
+  begin
+    if not CasillaRed.Checked then
+    begin
+      AdaptadorElegido := '';
+      Log('T20-05: casilla "Configurar la red de los módulos" desmarcada: no se toca la red.');
+      exit;
+    end;
+    if ListaRed.ItemIndex < 0 then
+    begin
+      MsgBox(CustomMessage('RedFaltaAdaptador'), mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+    Indice := OpcionesRed[ListaRed.ItemIndex];
+    Mensaje := ValidarRed(Indice, Advertir);
+    if Mensaje <> '' then
+    begin
+      Log('T20-05: ' + Mensaje);
+      MsgBox(Mensaje, mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+    if Advertir then
+    begin
+      if MsgBox(FmtMessage(CustomMessage('RedPerderaRed'), [AdapAlias[Indice]]), mbConfirmation,
+          MB_YESNO or MB_DEFBUTTON2) <> IDYES then
+      begin
+        Result := False;
+        exit;
+      end;
+      Log('T20-05: confirmado: el adaptador elegido es el único con puerta de enlace.');
+    end;
+    AdaptadorElegido := NormalizarMac(AdapMac[Indice]);
+    Log('T20-05: red de los módulos en el adaptador ' + AdaptadorElegido + ' (' + AdapAlias[Indice] + ')');
+    exit;
+  end;
+  // T20-05: contraseña web del módulo (1 a 6 ASCII imprimibles, las dos iguales)
+  if (PaginaClave <> nil) and (CurPageID = PaginaClave.ID) then
+  begin
+    Mensaje := ValidarClaveModulo;
+    if Mensaje <> '' then
+    begin
+      MsgBox(CustomMessage(Mensaje), mbError, MB_OK);
+      Result := False;
+    end;
+    exit;
+  end;
   // INS-02: unidad elegida (sin asistente, la preseleccionada); fija {app}
   if (PaginaUnidad <> nil) and (CurPageID = PaginaUnidad.ID) then
   begin
@@ -1979,6 +2726,194 @@ end;
 procedure MarcarPaso(Paso: String);
 begin
   RegWriteDWordValue(HKLM64, '{#ClaveEstacion}', 'Paso' + Paso, 1);
+end;
+
+// T20-05: paso 08 (red de los módulos) con el adaptador elegido en la página,
+// el de /ADAPTADOR= o (sin asistente) el guardado. En todos los modos,
+// también Reparar. Se anota Paso08 y la MAC (Adaptador08) ANTES de aplicar:
+// aunque falle a medias, el desinstalador lo revierte y Reparar lo reaplica.
+// V20-s3-01: si el 08 ya estaba aplicado en OTRO adaptador, primero se
+// revierte ahí (el script se niega a aplicar con el respaldo de otro
+// adaptador); si esa reversión falla, no se aplica en el nuevo ni se cambia
+// Adaptador08, y se avisa en la página del resultado.
+// Un fallo no interrumpe la instalación (va a la página del resultado).
+procedure AplicarRedModulos;
+var
+  Mac, Anterior: String;
+begin
+  RedFallida := False;
+  CambioRedFallido := False;
+  AdaptadorAnterior08 := '';
+  Mac := NormalizarMac(AdaptadorElegido);
+  if Mac = '' then
+  begin
+    Log('T20-05: paso 08 no aplicado: no se toca la red de los módulos (casilla desmarcada o sin asistente sin /ADAPTADOR=).');
+    exit;
+  end;
+  WizardForm.StatusLabel.Caption := CustomMessage('AplicandoRed');
+  Anterior := AdaptadorGuardado08;
+  if (Anterior <> '') and (Anterior <> Mac) then
+  begin
+    Log('T20-05: cambio de adaptador ' + Anterior + ' -> ' + Mac + ': se revierte antes el paso 08 en el anterior.');
+    if not EjecutarPaso('08', 'Revertir', '') then
+    begin
+      RedFallida := True;
+      CambioRedFallido := True;
+      AdaptadorAnterior08 := Anterior;
+      Log('T20-05: no se pudo revertir el paso 08 en el adaptador anterior ' + Anterior +
+        ': no se aplica en ' + Mac + ' y Adaptador08 no cambia; detalle en ' + ArchivoLogEstacion);
+      exit;
+    end;
+  end;
+  MarcarPaso('08');
+  RegWriteStringValue(HKLM64, '{#ClaveEstacion}', 'Adaptador08', Mac);
+  if not EjecutarPaso('08', 'Aplicar', ' -Adaptador "' + Mac + '"') then
+  begin
+    RedFallida := True;
+    Log('T20-05: el paso 08 falló; detalle en ' + ArchivoLogEstacion);
+  end;
+end;
+
+// T20-05: la contraseña web va SOLO a este archivo de {tmp} (el rol lo lee y
+// lo borra; el Setup lo borra también después). Nunca al log ni a la línea de comandos.
+function EscribirArchivoClave(Ruta: String): Boolean;
+begin
+  Result := SaveStringToFile(Ruta, PaginaClave.Values[0], False);
+end;
+
+// Valor de "nombre": en el JSON del rol (una clave por línea, ASCII): el texto
+// entre comillas, o el literal hasta la coma o el fin de línea (true, 5...)
+function CampoJson(Texto, Nombre: String): String;
+var
+  P, K: Integer;
+  Resto: String;
+begin
+  Result := '';
+  P := Pos('"' + Nombre + '":', Texto);
+  if P = 0 then
+    exit;
+  Resto := TrimLeft(Copy(Texto, P + Length(Nombre) + 3, Length(Texto)));
+  if Copy(Resto, 1, 1) = '"' then
+  begin
+    Resto := Copy(Resto, 2, Length(Resto));
+    P := Pos('"', Resto);
+    if P > 0 then
+      Result := Copy(Resto, 1, P - 1);
+  end else
+  begin
+    K := 1;
+    while (K <= Length(Resto)) and (Resto[K] <> ',') and (Resto[K] <> #13) and (Resto[K] <> #10) and (Resto[K] <> '}') do
+      K := K + 1;
+    Result := Trim(Copy(Resto, 1, K - 1));
+  end;
+end;
+
+// T20-05 (decisión 5): prueba de conexión con el módulo y, si se escribió,
+// cambio de la contraseña web: {app}\Autoclave.exe --rol configurar-modulo
+// (T20-04). Muestra el resultado en PaginaResultado (sin asistente, solo en el
+// log). Nunca aborta la instalación.
+procedure ProbarModulo;
+var
+  ArchivoResultado, ArchivoClave, Parametros, Codigo, Texto, CambioClave, TextoLanzado: String;
+  Contenido: AnsiString;
+  Salida: Integer;
+  Lanzado, ConClave, ClavePedida: Boolean;
+begin
+  WizardForm.StatusLabel.Caption := CustomMessage('ProbandoModulo');
+  ArchivoResultado := ExpandConstant('{tmp}\resultado_modulo.json');
+  ArchivoClave := ExpandConstant('{tmp}\clave_modulo.txt');
+  DeleteFile(ArchivoResultado);
+  Parametros := '--rol configurar-modulo --resultado "' + ArchivoResultado + '"';
+  Salida := -1;
+  Lanzado := False;
+  ConClave := (not WizardSilent) and (PaginaClave <> nil) and (PaginaClave.Values[0] <> '');
+  // V20-s3-03: se pidió cambiarla (aunque después no se pueda escribir el archivo)
+  ClavePedida := ConClave;
+  if WizardSilent then
+    Log('T20-05: sin asistente: la contraseña web del módulo no se cambia.')
+  else if not ConClave then
+    Log('T20-05: contraseña web del módulo vacía: no se cambia.');
+  try
+    if ConClave then
+    begin
+      if EscribirArchivoClave(ArchivoClave) then
+        Parametros := Parametros + ' --clave-archivo "' + ArchivoClave + '"'
+      else
+      begin
+        ConClave := False;
+        Log('T20-05: no se pudo escribir el archivo temporal de la contraseña web: no se cambia.');
+      end;
+    end;
+    Lanzado := Exec(ExpandConstant('{app}\Autoclave.exe'), Parametros, ExpandConstant('{app}'),
+      SW_HIDE, ewWaitUntilTerminated, Salida);
+  finally
+    // el rol ya lo borró; por si no llegó a leerlo
+    if FileExists(ArchivoClave) then
+      DeleteFile(ArchivoClave);
+    if PaginaClave <> nil then
+    begin
+      PaginaClave.Values[0] := '';
+      PaginaClave.Values[1] := '';
+    end;
+  end;
+  if Lanzado then
+    TextoLanzado := 'sí'
+  else
+    TextoLanzado := 'no';
+  Log(Format('T20-05: configurar-modulo lanzado=%s, código de salida %d', [TextoLanzado, Salida]));
+  Texto := '';
+  if FileExists(ArchivoResultado) and LoadStringFromFile(ArchivoResultado, Contenido) then
+    Texto := Contenido;
+  // Sin archivo de resultado (o sin "codigo") no se adivina por el código de
+  // salida: un Autoclave.exe sin el rol también sale con 2 (error de
+  // argumentos), que el rol usa para backend_activo. Se muestra como error.
+  Codigo := CampoJson(Texto, 'codigo');
+  if Codigo = '' then
+    Codigo := 'error';
+  // un código desconocido (o un "ok" que el rol no confirma) se muestra como error
+  if Pos('|' + Codigo + '|', CodigosModulo) = 0 then
+    Codigo := 'error';
+  if (Codigo = 'ok') and ((not Lanzado) or (Salida <> 0) or (Texto = '') or (CampoJson(Texto, 'ok') <> 'true')) then
+    Codigo := 'error';
+  if Codigo = 'ok' then
+  begin
+    if not ClavePedida then
+      CambioClave := CustomMessage('ModuloClaveNoPedida')
+    else if not ConClave then
+      CambioClave := CustomMessage('ModuloClaveNo')
+    else if CampoJson(Texto, 'clave_cambiada') = 'true' then
+      CambioClave := CustomMessage('ModuloClaveSi')
+    else
+      CambioClave := CustomMessage('ModuloClaveNo');
+    TextoResultadoModulo := FmtMessage(CustomMessage('ModuloRes_ok'), [CampoJson(Texto, 'modelo'),
+      CampoJson(Texto, 'n_modulos'), CampoJson(Texto, 'firmware'), CampoJson(Texto, 'mac'), CambioClave]);
+  end else
+  begin
+    TextoResultadoModulo := FmtMessage(CustomMessage('ModuloRes_' + Codigo), []) + #13#10#13#10 +
+      FmtMessage(CustomMessage('ModuloRepetir'), [ExpandConstant('{app}')]);
+    // V20-s3-03: el rol solo cambia la contraseña cuando termina en "ok"
+    if ClavePedida then
+      TextoResultadoModulo := TextoResultadoModulo + #13#10#13#10 + CustomMessage('ModuloClaveNoCambiada');
+  end;
+  if RedFallida then
+  begin
+    if CambioRedFallido then
+      TextoResultadoModulo := FmtMessage(CustomMessage('RedCambioFallido'), [AdaptadorAnterior08,
+        ArchivoLogEstacion]) + #13#10#13#10 + TextoResultadoModulo
+    else
+      TextoResultadoModulo := FmtMessage(CustomMessage('RedFallo'), [ArchivoLogEstacion,
+        ExpandConstant('{app}')]) + #13#10#13#10 + TextoResultadoModulo;
+  end;
+  // el JSON del rol nunca trae la contraseña: se puede registrar
+  Log('T20-05: prueba de conexión con el módulo: código=' + Codigo + ', modelo=' + CampoJson(Texto, 'modelo') +
+    ', composición=' + CampoJson(Texto, 'composicion') + ', módulos=' + CampoJson(Texto, 'n_modulos') +
+    ', firmware=' + CampoJson(Texto, 'firmware') + ', MAC=' + CampoJson(Texto, 'mac') +
+    ', contraseña cambiada=' + CampoJson(Texto, 'clave_cambiada'));
+  DeleteFile(ArchivoResultado);
+  if WizardSilent then
+    TextoResultadoModulo := ''
+  else
+    PaginaResultado.MsgLabel.Caption := TextoResultadoModulo;
 end;
 
 procedure AplicarEstacion(var Usuario, Dominio: String);
@@ -2125,6 +3060,11 @@ begin
     Dominio := '';
     // INS-01: en todos los modos (también Reparar); un fallo solo avisa
     AplicarZona;
+    // T20-05: red de los módulos (paso 08) y prueba de conexión con el módulo
+    // en todos los modos, también Reparar (antes de su exit); un fallo no
+    // interrumpe la instalación (se muestra en la página del resultado)
+    AplicarRedModulos;
+    ProbarModulo;
     // ModoMantenimiento sin elegir = instalación silenciosa de la misma versión
     if (Modo = ModoReparar) or (Modo = ModoMantenimiento) then
     begin
@@ -2170,7 +3110,9 @@ begin
   if not RegKeyExists(HKLM64, '{#ClaveEstacion}') then
     exit;
   UninstallProgressForm.StatusLabel.Caption := CustomMessage('RevirtiendoEstacion');
-  // EST-09: orden inverso 07, 06, 05, 04, 02, 01
+  // T20-05: el paso 08 (red de los módulos) primero; después, EST-09: orden
+  // inverso 07, 06, 05, 04, 02, 01
+  EjecutarReversion('08', 'Paso08', Fallas);
   EjecutarReversion('07', 'Paso07', Fallas);
   EjecutarReversion('06', 'Paso06', Fallas);
   EjecutarReversion('05', 'Paso05', Fallas);

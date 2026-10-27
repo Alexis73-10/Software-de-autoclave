@@ -2,6 +2,7 @@
 # Origen: 'python -m pip freeze' de un entorno virtual limpio (Python 3.14.3, python -m venv) donde solo se
 # instalaron las dependencias directas de pyproject.toml, con el freeze del entorno de compilacion de la tanda 7
 # como restricciones (pip install -r <directas> -c <freeze>). Las 48 versiones son las mismas del lock anterior.
+# Tanda 20 (T20-03): pyserial==3.5 retirado con el enlace serial (solo lo usaba serial_link.py).
 # Herramientas de prueba y compilacion (pytest, httpx, PyInstaller): requirements-dev.txt.
 # Instalar: python -m pip install -r requirements.lock.txt
 annotated-doc==0.0.4
@@ -30,7 +31,6 @@ psutil==7.2.2
 pydantic==2.12.5
 pydantic_core==2.41.5
 pymodbus==3.16.1
-pyserial==3.5
 PySide6==6.11.1
 PySide6-Fluent-Widgets==1.11.2
 PySide6_Addons==6.11.1

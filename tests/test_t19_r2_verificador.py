@@ -15,14 +15,13 @@ import yaml
 RAIZ = Path(__file__).resolve().parents[1]
 CONFIG = RAIZ / "src" / "autoclave" / "config"
 CAL_MODBUS = CONFIG / "calibration_modbus.yaml"
-PLANTILLA = CONFIG / "plantillas" / "calibration_neutra.yaml"
 VERIFICADOR = RAIZ / "tools" / "verificar_calibracion_neutra.py"
 
 
 def _dist(tmp_path, modbus):
     destino = tmp_path / "Autoclave" / "_internal" / "autoclave" / "config"
     destino.mkdir(parents=True)
-    (destino / "calibration.yaml").write_bytes(PLANTILLA.read_bytes())
+    # T20-03: sin calibration.yaml (plantilla serial retirada)
     if modbus is not None:
         (destino / "calibration_modbus.yaml").write_bytes(modbus)
     return tmp_path / "Autoclave"

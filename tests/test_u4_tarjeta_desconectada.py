@@ -16,14 +16,12 @@ import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
-from autoclave.protocols.serial_link import EventoTarjeta, SerialLink
-from autoclave.protocols.serial_link_config import SerialLinkConfig
+from autoclave.protocols.enlace import EventoTarjeta
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import (
     CATALOGO, COM_01, COM_03, SIS_01, TARJETA_SIN_TRAMA_VALIDA,
 )
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
-from tests.helpers.serial_doble import PuertoDoble
 from tests.helpers.backend_doble import modulo_backend
 
 
@@ -52,95 +50,6 @@ def test_al_construir_bloquea_sin_paro_real():
     EmergencyStop(estado)
     assert estado.get_flag("PARO_EMERGENCIA") is True
     assert estado.get_flag("PARO_REAL") is False
-
-
-# ---------------------------------------------------------------------------
-# SerialLink: puerto presente (distinto de puerto abierto)
-# ---------------------------------------------------------------------------
-
-def _link():
-    return SerialLink(config=SerialLinkConfig())
-
-
-def test_sin_escanear_el_puerto_no_esta_presente():
-    assert _link().puerto_presente() is False
-
-
-def test_escaneo_sin_puerto_no_esta_presente():
-    link = _link()
-    link._scan_ports = lambda: None
-    assert link._connect() is False
-    assert link.puerto_presente() is False
-
-
-def test_puerto_abierto_esta_presente():
-    link = _link()
-    link._scan_ports = lambda: "COM4"
-    with patch("autoclave.protocols.serial_link.serial.Serial", return_value=MagicMock()):
-        assert link._connect() is True
-    assert link.puerto_presente() is True
-
-
-def test_puerto_que_no_abre_no_esta_presente():
-    link = _link()
-    link._scan_ports = lambda: "COM4"
-    with patch("autoclave.protocols.serial_link.serial.Serial", side_effect=OSError("ocupado")):
-        assert link._connect() is False
-    assert link.puerto_presente() is False
-
-
-def _link_abierto():
-    link = _link()
-    link._scan_ports = lambda: "COM4"
-    with patch("autoclave.protocols.serial_link.serial.Serial", return_value=PuertoDoble()):
-        assert link._connect() is True
-    return link
-
-
-def test_timeout_de_datos_cierra_pero_el_puerto_sigue_presente():
-    # tarjeta conectada que no habla: "sin tramas válidas", no "desconectada"
-    link = _link_abierto()
-    link._ultima_valida_mono = 0.0
-    link._check_timeout(now=100.0)
-    assert link.data["port_open"] is False
-    assert link.puerto_presente() is True
-
-
-def test_lineas_invalidas_cierran_pero_el_puerto_sigue_presente():
-    link = _link_abierto()
-    for _ in range(link.config.lineas_invalidas_max):
-        link._registrar_invalida("crc", b"basura")
-    assert link.data["port_open"] is False
-    assert link.puerto_presente() is True
-
-
-def test_error_de_lectura_es_puerto_perdido():
-    link = _link_abierto()
-    ser = link.serial
-    link.running = True
-
-    def leer_una_vez(*_a, **_k):
-        link.running = False
-        raise OSError("cable desconectado")
-    ser.read = leer_una_vez
-    link._read_loop()
-    assert link.puerto_presente() is False
-
-
-def test_error_de_escritura_no_basta_para_puerto_perdido():
-    # TMG-06: un write_timeout no prueba que se quitó el cable (lo prueba el
-    # error de lectura); el puerto se cierra y se reintenta
-    link = _link_abierto()
-    link.serial.write = MagicMock(side_effect=OSError("write timeout"))
-    link._send_raw("HB\n")
-    assert link.data["port_open"] is False
-    assert link.puerto_presente() is True
-
-
-def test_stop_deja_el_puerto_ausente():
-    link = _link_abierto()
-    link.stop()
-    assert link.puerto_presente() is False
 
 
 # ---------------------------------------------------------------------------
@@ -489,7 +398,8 @@ def test_com01_texto_de_tarjeta_desconectada():
     d = CATALOGO[COM_01]
     assert d.titulo == "Tarjeta de E/S desconectada"
     assert d.descripcion == "No se detecta la tarjeta de control."
-    assert d.accion == "Conecte la tarjeta (cable USB) y verifique su alimentación."
+    # T20-03 (DECISIÓN SIN CONFIRMAR): «cable USB» -> «cable de red» (Modbus TCP)
+    assert d.accion == "Conecte la tarjeta (cable de red) y verifique su alimentación."
 
 
 # ---------------------------------------------------------------------------
@@ -648,17 +558,6 @@ def test_puerto_presente_sin_conexion_da_sin_trama_pasada_la_tolerancia():
     _enlace(loop, presente=True, conectado=True, edad=0.1)
     _tick(loop, 106.0)
     assert TARJETA_SIN_TRAMA_VALIDA in _resueltas(loop.alarm_manager)
-
-
-def test_conectar_notifica_la_di_en_cero_a_units():
-    # revisión SAF-01: Units no conserva la DI de la conexión anterior
-    vistos = []
-    link = SerialLink(config=SerialLinkConfig(), on_update=vistos.append)
-    link._scan_ports = lambda: "COM4"
-    link.data["di"] = [1] * 56
-    with patch("autoclave.protocols.serial_link.serial.Serial", return_value=PuertoDoble()):
-        assert link._connect() is True
-    assert vistos and vistos[-1]["di"] == [0] * 56
 
 
 def test_fallo_al_evaluar_la_tarjeta_no_impide_publicar_el_paro():

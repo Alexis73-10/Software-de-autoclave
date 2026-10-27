@@ -1,12 +1,13 @@
 # autoclave.protocols.enlace
 # --------------------------
-# Interfaz común de los enlaces de E/S (tanda 19, MOD-02): SerialLink (tarjeta
-# ESP32, protocolo serial v2) y ModbusLink (módulos Ebyte M31-U, Modbus TCP).
+# Interfaz del enlace de E/S (tanda 19, MOD-02). Desde la tanda 20 (T20-03,
+# retiro del enlace serial con la ESP32) tiene una sola implementación,
+# ModbusLink (módulos Ebyte M31-U, Modbus TCP); se conserva como interfaz
+# para las pruebas y sus dobles (tests/helpers/enlace_doble.py).
 #
 # EnlaceES es la interfaz pública que usa el resto del programa (V-01 de la
 # tanda 19: ControlLoop, SetOutput, BackendContext, rutas del sistema y
-# factory). EventoTarjeta vive aquí y serial_link lo reexporta, para no romper
-# los imports existentes.
+# factory). EventoTarjeta vive aquí.
 #
 # Diccionario de on_update / get_state(): "ai" (16; 0-7 temperatura, 8-15
 # presión; con Modbus un canal sin lectura es None), "ai_seq", "di" (56),
@@ -21,24 +22,50 @@ from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 @dataclass(frozen=True)
 class EventoTarjeta:
     """Suceso de la tarjeta para el ControlLoop.
-    origen: "handshake" (falló el handshake), "operacion" (WD, reinicio,
-    expansor o discrepancia con el handshake ya hecho) o "conectada"
-    (handshake completo; alarm_id None)."""
+    origen: "handshake" (falló la conexión verificada), "operacion" (WD,
+    expansor, discrepancia u orden de módulos con la conexión ya verificada)
+    o "conectada" (conexión verificada; alarm_id None)."""
     origen: str
     alarm_id: Optional[str]
     motivo: str
 
 
-# Alarmas propias del enlace Modbus (MOD-12); las demás se reutilizan de
-# serial_link (ALARMAS_HANDSHAKE / ALARMAS_OPERACION). TARJETA_SIN_ACK no
-# aplica a Modbus.
+# Alarmas de la tarjeta de E/S del plan de protocolo (§11.6), heredadas del
+# enlace serial (trasladadas aquí desde serial_link.py en la tanda 20, T20-03,
+# con el mismo contenido). ModbusLink reutiliza las que aplican; las que solo
+# emitía el serial (ALARMAS_SOLO_SERIAL) ya no se emiten, pero su entrada de
+# catálogo y sus textos se conservan para el historial y la bitácora antiguos
+# (DECISIÓN SIN CONFIRMAR de T20-03).
+ALARMAS_HANDSHAKE = (
+    "TARJETA_SIN_TRAMA_VALIDA",
+    "TARJETA_VERSION_INCOMPATIBLE",
+    "TARJETA_SIN_ACK",
+    "TARJETA_ALL_OFF_SIN_CONFIRMAR",
+    "TARJETA_SALIDAS_NO_APAGADAS",
+    "TARJETA_EXPANSOR_FUERA_DE_LINEA",
+)
+ALARMAS_OPERACION = (
+    "TARJETA_WATCHDOG",
+    "TARJETA_REINICIO",
+    "DISCREPANCIA_SALIDAS",
+    "TARJETA_EXPANSOR_FUERA_DE_LINEA",
+)
+# Solo las emitía el enlace serial (retirado en la tanda 20): solo historial.
+ALARMAS_SOLO_SERIAL = (
+    "TARJETA_SIN_ACK",
+    "TARJETA_ALL_OFF_SIN_CONFIRMAR",
+    "TARJETA_REINICIO",
+)
+
+# Alarmas propias del enlace Modbus (MOD-12). TARJETA_SIN_ACK no aplica a
+# Modbus.
 ALARMAS_MODBUS = (
     "TARJETA_CONFIG_SEGURIDAD",
     "TARJETA_MODULOS_ORDEN",
 )
 
 
-# Miembros públicos que ambas clases deben tener (prueba de conformidad).
+# Miembros públicos que toda implementación debe tener (prueba de conformidad).
 MIEMBROS_ENLACE = (
     "on_update", "al_conectar",
     "start", "stop", "solicitar_handshake",

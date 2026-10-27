@@ -1,6 +1,6 @@
 # tests/test_arranque_sin_tarjeta.py
 #
-# Seguridad de la etapa 7 del arranque sin tarjeta (fase B, D-E): con el serial
+# Seguridad de la etapa 7 del arranque sin tarjeta (fase B, D-E): con el enlace
 # sin respuesta (E/S no verificadas) POST /cycle/start se rechaza y no se manda
 # ninguna salida digital encendida; al conectarse la tarjeta, el arranque
 # retoma desde la etapa 7 sin reiniciar el backend.
@@ -8,7 +8,7 @@
 # Integración real: BackendContext, secuencia de arranque, ControlLoop, máquina
 # de estados, puertas, configuración y ciclos del repo. Solo se sustituyen el
 # perfil (no hay installation_profile.json en el repo), la BD (SQLite en
-# tmp_path), la impresora y el enlace serial (registra cada comando).
+# tmp_path), la impresora y el enlace de E/S (doble que registra cada comando).
 
 import threading
 import time
@@ -24,19 +24,21 @@ from autoclave.backend.context import BackendContext
 from autoclave.devices.puertas.door_type import DoorType
 from autoclave.installation.equipment import EquipmentClass
 from autoclave.installation.profile import InstallationProfile, Role
-from autoclave.protocols.serial_link import SerialLink
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.services.domain.logging.sensor_calibration_audit import SensorCalibrationAuditDB
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.helpers.backend_doble import cargar_servidor
+from tests.helpers.enlace_doble import EnlaceDoble
 from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
-class _EnlaceSinTarjeta(SerialLink):
-    """SerialLink real sin abrir puerto: no conecta hasta `conectada = True`
-    y registra todo lo que se le ordena."""
+class _EnlaceSinTarjeta(EnlaceDoble):
+    """Doble de EnlaceES sin módulo (tanda 20, T20-03: antes un SerialLink
+    real sin abrir puerto): no conecta hasta `conectada = True` y registra
+    todo lo que se le ordena."""
     def __init__(self, units):
-        super().__init__(on_update=units.update_from_serial)
+        super().__init__(conectado=False)
+        self.on_update = units.update_from_serial
         self.conectada = False
         self.salidas = []          # (canal, estado) de cada set_output
         self.all_off_llamadas = 0
@@ -88,12 +90,12 @@ def _etapa(reg, clave):
 def backend(monkeypatch, tmp_path):
     enlaces = []
 
-    def build_serial(units, al_conectar=None):
+    def build_enlace(units, al_conectar=None):
         enlaces.append(_EnlaceSinTarjeta(units))
         return enlaces[-1]
 
     monkeypatch.setattr(ctx_mod, "get_installation_profile", _perfil)
-    monkeypatch.setattr(ctx_mod, "build_enlace", build_serial)  # tanda 19 (MOD-01): build_serial -> build_enlace en el contexto
+    monkeypatch.setattr(ctx_mod, "build_enlace", build_enlace)
     monkeypatch.setattr(ctx_mod, "DbManager", lambda: DbManager(tmp_path / "autoclave.db"))
     monkeypatch.setattr(ctx_mod, "SensorCalibrationAuditDB",
                         lambda: SensorCalibrationAuditDB(tmp_path / "calibracion.db"))
