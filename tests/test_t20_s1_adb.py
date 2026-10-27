@@ -237,7 +237,11 @@ def test_0c37_contador_no_impide_ni_invalida_y_no_se_escribe(sim, crear, caplog)
     time.sleep(1.2)
     assert _alarmas(enlace.tomar_eventos()) == []
     assert enlace.is_connected()
-    assert enlace.get_diagnostico()["modulos"]["falla_salidas"] >= 105
+    # V20-s1-07 (ADB-05: 0x0C37 no es bandera): falla_salidas queda en None
+    # (clave conservada por la API) y el valor crudo solo en registro_0c37.
+    modulos = enlace.get_diagnostico()["modulos"]
+    assert modulos["falla_salidas"] is None
+    assert modulos["registro_0c37"] >= 105
     assert not [w for w in sim.escrituras if w[1] == m31.BANDERA_FALLA]
 
 
@@ -305,8 +309,22 @@ def test_config_que_no_persiste_tras_el_reinicio_da_config_seguridad(sim, crear)
     al = _primera_alarma(enlace)
     assert (al.origen, al.alarm_id) == ("handshake", "TARJETA_CONFIG_SEGURIDAD")
     assert "no quedó tras el reinicio" in al.motivo
-    assert sim.reinicios >= 1
     assert not enlace.is_connected() and enlace.set_output(1, True) is False
+    # V20-s1-03: tras varios reintentos (reintento_conexion_s = 0,2 s) el
+    # número de reinicios queda acotado en MAX_REINICIOS_SIN_VERIFICAR (2) y
+    # los intentos siguientes fallan sin escribir ni reiniciar.
+    eventos = _eventos_hasta(
+        enlace, lambda e: e.alarm_id == "TARJETA_CONFIG_SEGURIDAD"
+        and "no se vuelve a escribir ni a reiniciar" in e.motivo, timeout=10.0)
+    assert any("no se vuelve a escribir" in e.motivo for e in eventos)
+    n_escrituras = len(sim.escrituras)
+    time.sleep(1.5)
+    assert 1 <= sim.reinicios <= 2
+    assert len([w for w in sim.escrituras if w[1] == m31.REINICIO]) <= 2
+    # Ya no se escribe nada (ni configuración ni orden de reinicio), solo el
+    # 0F de apagado tras cada conexión fallida
+    assert not [w for w in sim.escrituras[n_escrituras:] if w[0] in (6, 16)]
+    assert not enlace.is_connected()
 
 
 @pytest.mark.req("T20-02")
