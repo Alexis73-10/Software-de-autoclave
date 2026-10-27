@@ -9,18 +9,24 @@
     separadores; no es secreta). Se busca SOLO entre los Ethernet fisicos
     (Get-NetAdapter -Physical con NdisPhysicalMedium = 14, 802.3): un Wi-Fi
     (9), Bluetooth (10) o un adaptador virtual se rechazan.
-  - Si OTRO adaptador ya tiene una IPv4 en 192.168.3.0/24, el paso termina
+  - Si OTRO adaptador ya tiene una IPv4 en 192.168.3.0/24 (en la
+    configuracion activa o en la persistente, V20-s3-04), el paso termina
     con error y no cambia nada (dos rutas a la misma red).
   - Respaldo (solo la primera vez; volver a correr el paso no pisa el
     original): respaldo_08_red_modulos.json en <RutaDatos>\estacion (solo
     Administradores y SYSTEM; nombre por la convencion respaldo_<paso>.json
     de _comun.ps1), con MAC, alias, DHCP si/no, IPv4 manuales con prefijo,
-    puertas de enlace y DNS. Se escribe ANTES de cambiar nada. Si el respaldo
+    puertas de enlace, DNS y metricas (de la interfaz y de cada ruta por
+    defecto, V20-s3-09). Se escribe ANTES de cambiar nada. Si el respaldo
     es de otro adaptador, no cambia nada y pide revertir primero.
   - Aplica: DHCP desactivado (Set-NetIPInterface -Dhcp Disabled), quita las
     rutas por defecto (0.0.0.0/0) y las demas IPv4 del adaptador, agrega
-    192.168.3.10/24 sin -DefaultGateway (New-NetIPAddress) y deja el DNS sin
-    servidores (Set-DnsClientServerAddress -ResetServerAddresses).
+    192.168.3.10/24 sin -DefaultGateway (New-NetIPAddress; si no esta en la
+    configuracion persistente, antes la quita de los dos almacenes) y deja
+    el DNS sin servidores (Set-DnsClientServerAddress -ResetServerAddresses).
+  - Si algo falla a mitad de la aplicacion (V20-s3-02), restaura desde el
+    respaldo con 08_revertir_red_modulos.ps1 (que, si tampoco puede, deja el
+    adaptador en DHCP con DNS automatico) y relanza el error.
   - Verifica despues (hasta 15 s) que 192.168.3.10/24 quedo en ESE adaptador
     (y no una 169.254.x.x: en el banco la ventana de Windows a veces no
     aplicaba la IP fija), con DHCP desactivado y sin puerta de enlace; si no,
@@ -57,18 +63,26 @@ Write-Log "Adaptador: '$($elegido.Name)' ($($elegido.InterfaceDescription)), MAC
 function Get-EstadoInterfaz([int]$Indice) {
     <# Configuracion IPv4 actual de la interfaz (solo lectura). #>
     $ipif = Get-NetIPInterface -InterfaceIndex $Indice -AddressFamily IPv4 -ErrorAction Stop
+    $rutas = @(Get-NetRoute -InterfaceIndex $Indice -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue)
     return @{
         Dhcp        = ([string]$ipif.Dhcp -eq 'Enabled')
+        # V20-s3-09: metricas que se respaldan y el inverso restaura
+        MetricaAutomatica = ([string]$ipif.AutomaticMetric -eq 'Enabled')
+        MetricaInterfaz   = [int]$ipif.InterfaceMetric
+        Rutas       = @($rutas | ForEach-Object { @{ Puerta = [string]$_.NextHop; Metrica = [int]$_.RouteMetric } })
         Direcciones = @(Get-NetIPAddress -InterfaceIndex $Indice -AddressFamily IPv4 -ErrorAction SilentlyContinue)
         Persistentes = @(Get-NetIPAddress -InterfaceIndex $Indice -AddressFamily IPv4 -PolicyStore PersistentStore -ErrorAction SilentlyContinue)
-        Puertas     = @(Get-NetRoute -InterfaceIndex $Indice -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
-                        ForEach-Object { [string]$_.NextHop })
+        Puertas     = @($rutas | ForEach-Object { [string]$_.NextHop })
         Dns         = @((Get-DnsClientServerAddress -InterfaceIndex $Indice -AddressFamily IPv4 -ErrorAction Stop).ServerAddresses)
     }
 }
 
-# 1. Conflicto: otra interfaz ya en 192.168.3.0/24 -> error sin cambiar nada
-$conflictos = @(Get-ConflictoSubred @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop) $indice)
+# 1. Conflicto: otra interfaz ya en 192.168.3.0/24 -> error sin cambiar nada.
+#    V20-s3-04: tambien la configuracion persistente (una IP fija de un
+#    adaptador con el cable desconectado solo esta en PersistentStore).
+$todas = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop) +
+    @(Get-NetIPAddress -AddressFamily IPv4 -PolicyStore PersistentStore -ErrorAction SilentlyContinue)
+$conflictos = @(Get-ConflictoSubred $todas $indice)
 if ($conflictos.Count -gt 0) {
     throw "Otro adaptador ya esta en la red de los modulos (192.168.3.0/24): $($conflictos -join ', '). Quitele esa direccion o elija ese adaptador. No se cambia nada."
 }
@@ -85,7 +99,8 @@ if ($resp.ContainsKey('Mac') -and ((ConvertTo-MacNormalizada ([string]$resp['Mac
 }
 if (-not $resp.ContainsKey('Mac')) {
     $nuevo = New-RespaldoRedModulos -Adaptador $elegido -DhcpHabilitado $antes.Dhcp `
-        -Direcciones $antes.Direcciones -PuertasEnlace $antes.Puertas -Dns $antes.Dns
+        -Direcciones $antes.Direcciones -PuertasEnlace $antes.Puertas -Dns $antes.Dns `
+        -MetricaAutomatica $antes.MetricaAutomatica -MetricaInterfaz $antes.MetricaInterfaz -Rutas $antes.Rutas
     if (-not $WhatIfPreference) {
         Save-Respaldo $Paso $nuevo
         Write-Log "Respaldo guardado en $(Get-RutaRespaldo $Paso)."
@@ -100,21 +115,49 @@ if (Test-ConfiguracionModulos -Direcciones $antes.Direcciones -IndiceElegido $in
     if ((-not $resp.ContainsKey('Mac')) -and (-not (Test-Path -LiteralPath (Get-RutaRespaldo $Paso)))) {
         throw 'No se pudo guardar el respaldo del paso 08: no se cambia nada.'
     }
-    Set-NetIPInterface -InterfaceIndex $indice -AddressFamily IPv4 -Dhcp Disabled -ErrorAction Stop
-    foreach ($almacen in @('ActiveStore', 'PersistentStore')) {
-        Get-NetRoute -InterfaceIndex $indice -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore $almacen -ErrorAction SilentlyContinue |
-            Remove-NetRoute -Confirm:$false -ErrorAction Stop
-        Get-NetIPAddress -InterfaceIndex $indice -AddressFamily IPv4 -PolicyStore $almacen -ErrorAction SilentlyContinue |
-            Where-Object { ($_.IPAddress -ne $script:IpEstacionModulos) -or ([int]$_.PrefixLength -ne $script:PrefijoModulos) } |
-            Remove-NetIPAddress -Confirm:$false -ErrorAction Stop
+    # V20-s3-02: el respaldo ya esta escrito; si algo falla a mitad, se
+    # restaura desde el respaldo (08_revertir_red_modulos.ps1, que si no puede
+    # deja DHCP con DNS automatico) y se relanza el error.
+    try {
+        Set-NetIPInterface -InterfaceIndex $indice -AddressFamily IPv4 -Dhcp Disabled -ErrorAction Stop
+        foreach ($almacen in @('ActiveStore', 'PersistentStore')) {
+            Get-NetRoute -InterfaceIndex $indice -AddressFamily IPv4 -DestinationPrefix '0.0.0.0/0' -PolicyStore $almacen -ErrorAction SilentlyContinue |
+                Remove-NetRoute -Confirm:$false -ErrorAction Stop
+            Get-NetIPAddress -InterfaceIndex $indice -AddressFamily IPv4 -PolicyStore $almacen -ErrorAction SilentlyContinue |
+                Where-Object { ($_.IPAddress -ne $script:IpEstacionModulos) -or ([int]$_.PrefixLength -ne $script:PrefijoModulos) } |
+                Remove-NetIPAddress -Confirm:$false -ErrorAction Stop
+        }
+        $tiene = @(Get-NetIPAddress -InterfaceIndex $indice -AddressFamily IPv4 -PolicyStore PersistentStore -ErrorAction SilentlyContinue |
+            Where-Object { $_.IPAddress -eq $script:IpEstacionModulos })
+        if ($tiene.Count -eq 0) {
+            # V20-s3-04/06: si la .10 quedo solo en la configuracion activa,
+            # New-NetIPAddress fallaria ("ya existe"): se quita de los dos
+            # almacenes antes de crearla
+            foreach ($almacen in @('ActiveStore', 'PersistentStore')) {
+                Get-NetIPAddress -InterfaceIndex $indice -AddressFamily IPv4 -PolicyStore $almacen -ErrorAction SilentlyContinue |
+                    Where-Object { $_.IPAddress -eq $script:IpEstacionModulos } |
+                    Remove-NetIPAddress -Confirm:$false -ErrorAction Stop
+            }
+            New-NetIPAddress -InterfaceIndex $indice -AddressFamily IPv4 -IPAddress $script:IpEstacionModulos `
+                -PrefixLength $script:PrefijoModulos -ErrorAction Stop | Out-Null
+        }
+        Set-DnsClientServerAddress -InterfaceIndex $indice -ResetServerAddresses -ErrorAction Stop
+    } catch {
+        $errorAplicar = $_.Exception.Message
+        Write-Log "Fallo a mitad de la aplicacion ($errorAplicar): se restaura desde el respaldo." 'ERROR'
+        $restaurado = $false
+        try {
+            & "$PSScriptRoot\08_revertir_red_modulos.ps1" -WhatIf:$false
+            $restaurado = $true
+        } catch {
+            Write-Log "La restauracion tambien fallo: $($_.Exception.Message)" 'ERROR'
+        }
+        if ($restaurado) {
+            throw "No se pudo aplicar la red de los modulos en '$($elegido.Name)' ($errorAplicar): se restauro la configuracion anterior del adaptador."
+        }
+        throw ("No se pudo aplicar la red de los modulos en '$($elegido.Name)' ($errorAplicar) ni restaurar la configuracion anterior: " +
+            "revierta como administrador con 08_revertir_red_modulos.ps1 o ejecute el Setup otra vez (Reparar).")
     }
-    $tiene = @(Get-NetIPAddress -InterfaceIndex $indice -AddressFamily IPv4 -PolicyStore PersistentStore -ErrorAction SilentlyContinue |
-        Where-Object { $_.IPAddress -eq $script:IpEstacionModulos })
-    if ($tiene.Count -eq 0) {
-        New-NetIPAddress -InterfaceIndex $indice -AddressFamily IPv4 -IPAddress $script:IpEstacionModulos `
-            -PrefixLength $script:PrefijoModulos -ErrorAction Stop | Out-Null
-    }
-    Set-DnsClientServerAddress -InterfaceIndex $indice -ResetServerAddresses -ErrorAction Stop
     Write-Log "Aplicado: $($script:IpEstacionModulos)/$($script:PrefijoModulos) en '$($elegido.Name)', sin puerta de enlace ni DNS, DHCP desactivado."
 }
 

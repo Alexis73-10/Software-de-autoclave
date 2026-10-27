@@ -24,6 +24,10 @@ $script:PrefijoModulos = 24
 $script:MedioEthernet = 14
 # Estados de una direccion que no cuentan como aplicada
 $script:EstadosDireccionInvalidos = @('Duplicate', 'Invalid', 'Deprecated')
+# Limites de las metricas que se respaldan (V20-s3-09): la de la interfaz
+# (InterfaceMetric) y la de cada ruta por defecto (RouteMetric, uint16)
+$script:MetricaInterfazMaxima = 999999
+$script:MetricaRutaMaxima = 65535
 
 function Test-Propiedad($Objeto, [string]$Nombre) {
     <# True si el objeto tiene la propiedad (sin fallar con StrictMode). #>
@@ -56,6 +60,25 @@ function ConvertTo-NumeroIPv4($Ip) {
 
 function Test-IPv4Valida($Ip) {
     return ($null -ne (ConvertTo-NumeroIPv4 $Ip))
+}
+
+function Test-Clave($Objeto, [string]$Nombre) {
+    <# True si el objeto (hashtable o [pscustomobject] de ConvertFrom-Json)
+       tiene esa clave o propiedad (sin fallar con StrictMode). #>
+    if ($null -eq $Objeto) { return $false }
+    if ($Objeto -is [hashtable]) { return $Objeto.ContainsKey($Nombre) }
+    return (Test-Propiedad $Objeto $Nombre)
+}
+
+function ConvertTo-EnteroEnRango($Valor, [int]$Minimo, [int]$Maximo) {
+    <# [int] si $Valor es un entero (numero o texto de digitos) entre $Minimo
+       y $Maximo; si no, $null (nunca lanza). #>
+    if ($null -eq $Valor) { return $null }
+    if ($Valor -is [bool]) { return $null }
+    $n = 0
+    if (-not [int]::TryParse([string]$Valor, [ref]$n)) { return $null }
+    if (($n -lt $Minimo) -or ($n -gt $Maximo)) { return $null }
+    return $n
 }
 
 function Test-IpEnSubred {
@@ -104,8 +127,9 @@ function Get-ConflictoSubred($Direcciones, $IndiceElegido) {
     <# Direcciones IPv4 de OTRAS interfaces (InterfaceIndex distinto del
        elegido) dentro de 192.168.3.0/24. Con alguna, el paso 08 no se aplica
        (dos adaptadores en la misma red rompen la ruta hacia el modulo).
-       Devuelve por la tuberia cadenas 'IP (alias)' (el que llama las junta
-       con @(...)). #>
+       Devuelve por la tuberia cadenas 'IP (alias)' sin repetir (V20-s3-04:
+       el que llama junta ActiveStore y PersistentStore, y la misma direccion
+       suele estar en los dos; las junta con @(...)). #>
     @($Direcciones) | Where-Object {
         ($null -ne $_) -and (Test-Propiedad $_ 'IPAddress') -and (Test-Propiedad $_ 'InterfaceIndex') -and
         ([int]$_.InterfaceIndex -ne [int]$IndiceElegido) -and (Test-IpEnSubred ([string]$_.IPAddress))
@@ -113,7 +137,7 @@ function Get-ConflictoSubred($Direcciones, $IndiceElegido) {
         $alias = ''
         if (Test-Propiedad $_ 'InterfaceAlias') { $alias = [string]$_.InterfaceAlias }
         '{0} ({1})' -f $_.IPAddress, $alias
-    }
+    } | Select-Object -Unique
 }
 
 function Test-DireccionAplicada($Direcciones, $IndiceElegido) {
@@ -150,13 +174,19 @@ function New-RespaldoRedModulos {
     <# Objeto de respaldo (lo guarda Save-Respaldo de _comun.ps1) con la
        configuracion IPv4 anterior del adaptador: MAC normalizada, alias,
        DHCP si/no, direcciones manuales (sin APIPA 169.254/16 ni las de DHCP:
-       con DHCP vuelven solas), puertas de enlace y DNS. #>
+       con DHCP vuelven solas), puertas de enlace y DNS. V20-s3-09: si se
+       pasan, tambien la metrica de la interfaz (MetricaAutomatica si/no y
+       MetricaInterfaz) y la de cada ruta por defecto (MetricasRuta, con
+       Puerta y Metrica); un respaldo sin ellas sigue siendo valido. #>
     param(
         [Parameter(Mandatory)]$Adaptador,
         [bool]$DhcpHabilitado,
         $Direcciones,
         $PuertasEnlace,
-        $Dns
+        $Dns,
+        $MetricaAutomatica = $null,
+        $MetricaInterfaz = $null,
+        $Rutas = $null
     )
     $mac = ConvertTo-MacNormalizada ([string]$Adaptador.MacAddress)
     if ($null -eq $mac) { throw 'El adaptador no tiene una MAC valida.' }
@@ -169,7 +199,7 @@ function New-RespaldoRedModulos {
     $servidores = @(@($Dns) | Where-Object { Test-IPv4Valida ([string]$_) } | ForEach-Object { [string]$_ })
     $alias = ''
     if (Test-Propiedad $Adaptador 'Name') { $alias = [string]$Adaptador.Name }
-    return @{
+    $tabla = @{
         Mac           = $mac
         Alias         = $alias
         Dhcp          = $DhcpHabilitado
@@ -177,6 +207,19 @@ function New-RespaldoRedModulos {
         PuertasEnlace = $gw
         Dns           = $servidores
     }
+    if ($MetricaAutomatica -is [bool]) { $tabla['MetricaAutomatica'] = $MetricaAutomatica }
+    $mi = ConvertTo-EnteroEnRango $MetricaInterfaz 0 $script:MetricaInterfazMaxima
+    if ($null -ne $mi) { $tabla['MetricaInterfaz'] = $mi }
+    if ($null -ne $Rutas) {
+        $tabla['MetricasRuta'] = @(@($Rutas) | Where-Object {
+            ($null -ne $_) -and (Test-Clave $_ 'Puerta') -and (Test-Clave $_ 'Metrica') -and
+            (Test-IPv4Valida ([string]$_.Puerta)) -and
+            ($null -ne (ConvertTo-EnteroEnRango $_.Metrica 0 $script:MetricaRutaMaxima))
+        } | ForEach-Object {
+            @{ Puerta = [string]$_.Puerta; Metrica = (ConvertTo-EnteroEnRango $_.Metrica 0 $script:MetricaRutaMaxima) }
+        })
+    }
+    return $tabla
 }
 
 function Test-RespaldoRedModulos($Respaldo) {
@@ -192,10 +235,11 @@ function Test-RespaldoRedModulos($Respaldo) {
     if (-not ($Respaldo['Dhcp'] -is [bool])) { return 'Dhcp no es verdadero/falso' }
     foreach ($d in @($Respaldo['IPv4'])) {
         if ($null -eq $d) { continue }
-        if (-not ((Test-Propiedad $d 'Ip') -or (($d -is [hashtable]) -and $d.ContainsKey('Ip')))) { return 'direccion sin Ip' }
+        if (-not (Test-Clave $d 'Ip')) { return 'direccion sin Ip' }
         if (-not (Test-IPv4Valida ([string]$d.Ip))) { return "IPv4 invalida '$($d.Ip)'" }
-        $p = [int]$d.Prefijo
-        if (($p -lt 1) -or ($p -gt 32)) { return "prefijo invalido '$($d.Prefijo)'" }
+        # V20-s3-10: con StrictMode, leer una propiedad que no existe lanza
+        if (-not (Test-Clave $d 'Prefijo')) { return 'direccion sin Prefijo' }
+        if ($null -eq (ConvertTo-EnteroEnRango $d.Prefijo 1 32)) { return "prefijo invalido '$($d.Prefijo)'" }
     }
     foreach ($g in @($Respaldo['PuertasEnlace'])) {
         if ($null -eq $g) { continue }
@@ -205,5 +249,65 @@ function Test-RespaldoRedModulos($Respaldo) {
         if ($null -eq $s) { continue }
         if (-not (Test-IPv4Valida ([string]$s))) { return "DNS invalido '$s'" }
     }
+    # V20-s3-09: metricas (opcionales; un respaldo anterior no las tiene)
+    if ($Respaldo.ContainsKey('MetricaAutomatica') -and ($null -ne $Respaldo['MetricaAutomatica']) -and
+            (-not ($Respaldo['MetricaAutomatica'] -is [bool]))) {
+        return 'MetricaAutomatica no es verdadero/falso'
+    }
+    if ($Respaldo.ContainsKey('MetricaInterfaz') -and ($null -ne $Respaldo['MetricaInterfaz']) -and
+            ($null -eq (ConvertTo-EnteroEnRango $Respaldo['MetricaInterfaz'] 0 $script:MetricaInterfazMaxima))) {
+        return "metrica de interfaz invalida '$($Respaldo['MetricaInterfaz'])'"
+    }
+    if ($Respaldo.ContainsKey('MetricasRuta')) {
+        foreach ($m in @($Respaldo['MetricasRuta'])) {
+            if ($null -eq $m) { continue }
+            if (-not ((Test-Clave $m 'Puerta') -and (Test-Clave $m 'Metrica'))) { return 'metrica de ruta sin Puerta o Metrica' }
+            if (-not (Test-IPv4Valida ([string]$m.Puerta))) { return "puerta de la metrica invalida '$($m.Puerta)'" }
+            if ($null -eq (ConvertTo-EnteroEnRango $m.Metrica 0 $script:MetricaRutaMaxima)) { return "metrica de ruta invalida '$($m.Metrica)'" }
+        }
+    }
     return ''
+}
+
+function Get-PlanRestauracion($Respaldo) {
+    <# Lo que aplica el inverso, a partir de un respaldo YA validado con
+       Test-RespaldoRedModulos (hashtable de Read-Respaldo; sus listas vienen
+       de ConvertFrom-Json y una de un solo elemento puede llegar como
+       escalar: por eso todo se convierte a arreglo con @(...)).
+       Devuelve una tabla (no por la tuberia, para no desenrollar arreglos):
+         Dhcp; IPv4 (@{Ip; Prefijo}); Puertas (@{Puerta; Metrica o $null});
+         Dns; MetricaAutomatica y MetricaInterfaz ($null si no se respaldaron). #>
+    $ipv4 = @(@($Respaldo['IPv4']) | Where-Object { $null -ne $_ } | ForEach-Object {
+        @{ Ip = [string]$_.Ip; Prefijo = (ConvertTo-EnteroEnRango $_.Prefijo 1 32) }
+    })
+    $metricas = @{}
+    if ($Respaldo.ContainsKey('MetricasRuta')) {
+        foreach ($m in @($Respaldo['MetricasRuta'])) {
+            if ($null -eq $m) { continue }
+            $metricas[[string]$m.Puerta] = ConvertTo-EnteroEnRango $m.Metrica 0 $script:MetricaRutaMaxima
+        }
+    }
+    $puertas = @(@($Respaldo['PuertasEnlace']) | Where-Object { $_ } | ForEach-Object {
+        $g = [string]$_
+        $metrica = $null
+        if ($metricas.ContainsKey($g)) { $metrica = $metricas[$g] }
+        @{ Puerta = $g; Metrica = $metrica }
+    })
+    $dns = @(@($Respaldo['Dns']) | Where-Object { $_ } | ForEach-Object { [string]$_ })
+    $automatica = $null
+    if ($Respaldo.ContainsKey('MetricaAutomatica') -and ($Respaldo['MetricaAutomatica'] -is [bool])) {
+        $automatica = [bool]$Respaldo['MetricaAutomatica']
+    }
+    $interfaz = $null
+    if ($Respaldo.ContainsKey('MetricaInterfaz')) {
+        $interfaz = ConvertTo-EnteroEnRango $Respaldo['MetricaInterfaz'] 0 $script:MetricaInterfazMaxima
+    }
+    return @{
+        Dhcp              = [bool]$Respaldo['Dhcp']
+        IPv4              = $ipv4
+        Puertas           = $puertas
+        Dns               = $dns
+        MetricaAutomatica = $automatica
+        MetricaInterfaz   = $interfaz
+    }
 }
