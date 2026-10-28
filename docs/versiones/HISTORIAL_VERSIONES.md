@@ -9,6 +9,16 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.5 — 2026-10-28
+
+- Etiqueta: `v1.0.0-alpha.5` (commit `chore(ver): 1.0.0-alpha.5`, sobre `cc732a1`)
+- AppVerNum: `1.0.0.1005`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.5_2026-10-28/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.4`:
+  - cc732a1 fix(fw-inf): firmware M31 como vX.Y y comprobación solo informativa (corrige ADB-02)
+  - 16bc17c docs(t20): cierre Z (CLAUDE.md enlace de E/S Modbus tandas 19-20, informe R20 completo, índice, estado)
+
+
 ## 1.0.0-alpha.4 — 2026-10-27
 
 - Etiqueta: `v1.0.0-alpha.4` (commit `chore(ver): 1.0.0-alpha.4`, sobre `8a214e9`)
