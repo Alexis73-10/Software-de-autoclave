@@ -151,6 +151,7 @@ def _comandos(estado):
     from autoclave.ui_qml.bridge.comandos_sistema import ComandosSistema
     puente = MagicMock()
     puente.connected = True
+    puente.machineState = "PREPARADO"   # AJ-01: fuera de ciclo
     ui = MagicMock()
     ui.apagar_equipo.return_value = (True, "")
     ui.estado_apagado.return_value = estado

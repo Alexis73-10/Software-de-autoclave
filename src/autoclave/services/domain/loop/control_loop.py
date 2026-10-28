@@ -1390,8 +1390,19 @@ class ControlLoop:
             try:
                 if self.link:
                     self.link.all_off()
+                    self._anotar_todo_apagado()
             except Exception:
                 logger.exception("Control loop: ALL_OFF al iniciar el apagado falló")
+
+    def _anotar_todo_apagado(self) -> None:
+        """AJ-02: el ALL_OFF directo al enlace (apagado del equipo) también
+        deja sin peticiones el agua del intercambiador. Nunca lanza."""
+        try:
+            anotar = getattr(self.set_do, "anotar_todo_apagado", None)
+            if callable(anotar):
+                anotar()
+        except Exception:
+            logger.exception("Control loop: no se pudieron anotar las salidas apagadas")
 
     def stop(self):
         # Primero se detiene el lazo y después se apaga (TMG-11 de E6, TMG-02
@@ -1414,6 +1425,7 @@ class ControlLoop:
                 if not self.link.all_off() and not self.link.all_off():
                     logger.error("Control loop: ALL_OFF sin confirmar al detener; "
                                  "queda el watchdog de la tarjeta")
+                self._anotar_todo_apagado()
             except Exception:
                 logger.exception("Control loop: ALL_OFF falló al detener; "
                                  "quedan el paro y el watchdog de la tarjeta")

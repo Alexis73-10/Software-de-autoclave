@@ -1009,6 +1009,7 @@ Item {
     PanelEquipo {
         comandosSistema: raiz.comandosSistema
         id: panelEquipo
+        objectName: "panelEquipoPreciclo"
         titulo: I18n.t("equipo.titulo", I18n.lang)
         textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
         filas: raiz.infoEquipo?.filas ?? []

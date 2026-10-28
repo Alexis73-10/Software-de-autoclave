@@ -1985,7 +1985,12 @@
       "entrada_corta_temp_drenaje_camara": "Temp. dren. cám.",
       "entrada_corta_pres_chaqueta": "Pres. chaq.",
       "entrada_corta_pres_empaque_1": "Pres. emp. 1",
-      "entrada_corta_pres_empaque_2": "Pres. emp. 2"
+      "entrada_corta_pres_empaque_2": "Pres. emp. 2",
+      "serie_temp_camara": "Temp. cámara",
+      "serie_temp_ref": "Temp. referencia",
+      "serie_presion": "Pres.",
+      "monitoreo": "(mon.)",
+      "serie_sin_registro": "(s/reg.)"
     },
     "reportes": {
       "col_completados": "Complet.",

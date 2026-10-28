@@ -1985,7 +1985,12 @@
       "entrada_corta_temp_drenaje_camara": "Chbr. drain temp.",
       "entrada_corta_pres_chaqueta": "Jacket press.",
       "entrada_corta_pres_empaque_1": "Gskt. press. 1",
-      "entrada_corta_pres_empaque_2": "Gskt. press. 2"
+      "entrada_corta_pres_empaque_2": "Gskt. press. 2",
+      "serie_temp_camara": "Chamber temp.",
+      "serie_temp_ref": "Reference temp.",
+      "serie_presion": "Press.",
+      "monitoreo": "(mon.)",
+      "serie_sin_registro": "(n/l)"
     },
     "reportes": {
       "col_completados": "Compl.",
