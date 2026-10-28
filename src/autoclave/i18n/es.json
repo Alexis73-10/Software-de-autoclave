@@ -634,6 +634,7 @@
   },
   "exportacion": {
     "cuerpo_no_conforme": "ATENCIÓN: ciclos NO CONFORMES (carga no liberable: punto de referencia sin verificar): {ciclos}.",
+    "cuerpo_observacion": "Ciclo {numero}: {linea}",
     "asunto_no_conforme": "[NO CONFORME] {asunto}",
     "no_conforme_resultado": "NO CONFORME — {resultado}",
     "unidades": "Unidades",

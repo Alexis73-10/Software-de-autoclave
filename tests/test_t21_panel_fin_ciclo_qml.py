@@ -545,7 +545,9 @@ def test_modal_confirmacion(idioma):
     r = _correr(_PASOS_MODAL, idioma)
     assert r["avisos"] == []
     assert r["cerrado_al_inicio"] is True
-    assert r["tam_botones"] == [340, 88, 340, 88]
+    # 340 × 88 de diseño; un texto de acción largo ensancha su botón (FC-10, ola 2)
+    v_ancho, v_alto, a_ancho, a_alto = r["tam_botones"]
+    assert (v_ancho, v_alto, a_alto) == (340, 88, 88) and a_ancho >= 340
     assert r["volver_texto"] == _t("ciclo.modal_volver", idioma)
     assert r["nota_sin_texto"] is False
     assert r["accion_ajuste"] == 1   # Text.HorizontalFit

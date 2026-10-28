@@ -158,6 +158,13 @@ def _linea_aviso(aviso, p: Presentacion) -> str:
     return f"{_t(p, 'aviso')}: {aviso_ticket(aviso, p)}"
 
 
+def linea_observacion(observacion: dict, p: Presentacion) -> str:
+    """FC-08 (tanda 21): «Observación: {sensor} sin lectura desde HH:MM
+    ({fase})» de una observación de observaciones_referencia (la misma línea
+    del ticket; la usa también el correo). Nunca lanza."""
+    return _linea_aviso({"clave": CLAVE_OBSERVACION_REFERENCIA, **(observacion or {})}, p)
+
+
 def _t(p: Presentacion, clave: str, **params) -> str:
     from autoclave import i18n
     return i18n.t(_SECCION + clave, p.idioma, **params)

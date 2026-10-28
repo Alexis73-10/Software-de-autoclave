@@ -145,8 +145,31 @@ Item {
             }
         }
 
+        // FC-10 (como DialogoConfirmacion, P4): cada botón mide 340 de diseño o
+        // lo que pida su texto, sin pasar del ancho útil de la tarjeta («Volver»
+        // hasta la mitad, la acción el resto); HorizontalFit queda de respaldo
+        TextMetrics {
+            id: medidaVolver
+            text: raiz.textoVolver
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
+        }
+        TextMetrics {
+            id: medidaAccion
+            text: raiz.textoAccion
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: Escala.fuente(Tipografia.botonEtiquetaTam)
+        }
         Row {
             id: filaBotones
+            readonly property real util: tarjeta.width - 2 * tarjeta.margen - spacing
+            readonly property real base: Escala.px(340)
+            readonly property real relleno: Escala.px(32)
+            readonly property real anchoVolver: Math.min(Math.max(base, medidaVolver.width + relleno), util / 2)
+            readonly property real anchoAccion: Math.min(Math.max(base, medidaAccion.width + relleno),
+                                                         util - anchoVolver)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Escala.px(48)
@@ -154,7 +177,7 @@ Item {
 
             Rectangle {
                 objectName: "botonVolverModal"
-                width: Escala.px(340); height: Escala.px(88)
+                width: filaBotones.anchoVolver; height: Escala.px(88)
                 radius: Escala.px(6)
                 color: Colores.fondoTarjeta
                 border.width: Escala.px(2); border.color: Colores.bordeCampo
@@ -174,7 +197,7 @@ Item {
             }
             Rectangle {
                 objectName: "botonAccionModal"
-                width: Escala.px(340); height: Escala.px(88)
+                width: filaBotones.anchoAccion; height: Escala.px(88)
                 radius: Escala.px(6)
                 color: raiz.colorAccion
                 Text {

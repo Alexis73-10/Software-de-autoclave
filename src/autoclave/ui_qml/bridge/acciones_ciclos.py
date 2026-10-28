@@ -84,16 +84,39 @@ def _es_no_conforme(ciclo) -> bool:
     return ciclo.get("no_conforme") is True or ticket_formatter.ciclo_no_conforme(ciclo)
 
 
+def _numero(c) -> str:
+    try:
+        return f"{int(c.get('numero_ciclo')):06d}"
+    except (TypeError, ValueError, AttributeError):
+        return dominio.SIN_DATO
+
+
+def _observaciones_cuerpo(ciclos) -> list[str]:
+    """FC-08 (tanda 21): una línea por observación de Referencia sin lectura
+    de cada ciclo («Ciclo NNNNNN: Observación: ...»). Nunca lanza."""
+    lineas = []
+    try:
+        p = _presentacion_vigente()
+        for c in ciclos or []:
+            if not isinstance(c, dict):
+                continue
+            for o in ticket_formatter.ciclo_observaciones(c):
+                lineas.append(i18n.t("exportacion.cuerpo_observacion", numero=_numero(c),
+                                     linea=ticket_formatter.linea_observacion(o, p)))
+    except Exception:
+        logger.exception("correo: no se pudieron armar las observaciones")
+    return lineas
+
+
 def _marcar_no_conforme(asunto: str, cuerpo: str, ciclos) -> tuple[str, str]:
-    """P4 (D-14.4): con algún ciclo NO CONFORME, el asunto lo dice y el cuerpo
-    nombra esos ciclos. Sin ninguno, asunto y cuerpo quedan igual."""
-    numeros = []
-    for c in ciclos or []:
-        if _es_no_conforme(c):
-            try:
-                numeros.append(f"{int(c.get('numero_ciclo')):06d}")
-            except (TypeError, ValueError):
-                numeros.append(dominio.SIN_DATO)
+    """P4 (D-14.4): con algún ciclo NO CONFORME (registrado antes de la tanda
+    21), el asunto lo dice y el cuerpo nombra esos ciclos. FC-08 (tanda 21):
+    las observaciones de Referencia sin lectura van al cuerpo, una por línea.
+    Sin nada de eso, asunto y cuerpo quedan igual."""
+    numeros = [_numero(c) for c in ciclos or [] if _es_no_conforme(c)]
+    observaciones = _observaciones_cuerpo(ciclos)
+    if observaciones:
+        cuerpo = cuerpo + "\n\n" + "\n".join(observaciones)
     if not numeros:
         return asunto, cuerpo
     return (i18n.t("exportacion.asunto_no_conforme", asunto=asunto),

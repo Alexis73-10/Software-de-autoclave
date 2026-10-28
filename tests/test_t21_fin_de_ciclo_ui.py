@@ -206,3 +206,20 @@ def test_comandos_sin_reconocer_no_conforme():
 def test_puerta_con_actuador_solo_true_estricto(mapa, esperado):
     from autoclave.ui_qml.bridge.ui_bridge import puerta_con_actuador
     assert puerta_con_actuador(mapa, "Puerta 1") is esperado
+
+
+# ── FC-08: la observación llega al cuerpo del correo ────────────────────────
+
+def test_correo_lleva_la_observacion_y_no_marca_no_conforme():
+    import json as _json
+    from autoclave.services.domain.logging.ticket_formatter import CLAVE_OBSERVACION_REFERENCIA
+    from autoclave.ui_qml.bridge.acciones_ciclos import _marcar_no_conforme
+    aviso = {"clave": CLAVE_OBSERVACION_REFERENCIA, "sensor": "Referencia 1", "hora": "09:40",
+             "fase": "ESTERILIZACION"}
+    ciclo = {"numero_ciclo": 12, "resultado": "COMPLETADO",
+             "avisos_ticket": _json.dumps({"avisos": [aviso]})}
+    asunto, cuerpo = _marcar_no_conforme("Asunto", "Cuerpo", [ciclo, {"numero_ciclo": 13}])
+    assert asunto == "Asunto"
+    assert "000012" in cuerpo and "Referencia 1" in cuerpo and "09:40" in cuerpo
+    assert "000013" not in cuerpo and "NO CONFORME" not in cuerpo
+    assert _marcar_no_conforme("A", "C", [{"numero_ciclo": 13}]) == ("A", "C")
