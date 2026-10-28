@@ -282,6 +282,9 @@ def test_referencia_sin_lectura_no_falla_y_queda_observacion():
     # sigue con una observación (carga sólida)
     ciclo, estado, am = _ciclo(_ASIG_REF, {"temp_camara": 100.0, "temp_ref": None})
     estado.avisos_ciclo = []
+    # carga sólida explícita (revisión R de la tanda 21, SAF-03: otro valor = líquida)
+    ciclo.cycle.get_param.side_effect = (
+        lambda *k, default=None, **kw: "solido" if k[:2] == ("globals", "tipo_carga") else None)
     ciclo._fases[0].update = MagicMock(return_value=None)
     ciclo.run()
     assert estado.fase_ciclo != "SENSOR_AUSENTE"

@@ -44,6 +44,9 @@ def test_referencia_perdida_no_aborta_ni_ejecuta_el_protocolo():
     # una observación (FC-08, tanda 21; ver test_t12_c13_7b_referencia_sin_lectura.py)
     ciclo, estado, _ = _ciclo(_ASIG_REF, {"temp_camara": 120.0, "temp_ref": None})
     estado.avisos_ciclo = []
+    # carga sólida explícita (revisión R de la tanda 21, SAF-03: otro valor = líquida)
+    ciclo.cycle.get_param.side_effect = (
+        lambda *k, default=None, **kw: "solido" if k[:2] == ("globals", "tipo_carga") else None)
     ciclo._fases[0].update = MagicMock(return_value=None)
     ciclo.run()
     assert estado.fase_ciclo != "SENSOR_AUSENTE"
