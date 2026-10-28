@@ -9,6 +9,16 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.7 — 2026-10-28
+
+- Etiqueta: `v1.0.0-alpha.7` (commit `chore(ver): 1.0.0-alpha.7`, sobre `42c889d`)
+- AppVerNum: `1.0.0.1007`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.7_2026-10-28/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.6`:
+  - 42c889d chore(entrega): opcion --sin-suite para entrega rapida
+  - 6f06dd0 fix(ui): quitar el sufijo (monitoreo) de casillas y grafica
+
+
 ## 1.0.0-alpha.6 — 2026-10-28
 
 - Etiqueta: `v1.0.0-alpha.6` (commit `chore(ver): 1.0.0-alpha.6`, sobre `72c9e8c`)
