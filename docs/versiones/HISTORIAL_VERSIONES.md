@@ -9,6 +9,18 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.9 — 2026-10-28
+
+- Etiqueta: `v1.0.0-alpha.9` (commit `chore(ver): 1.0.0-alpha.9`, sobre `3be8252`)
+- AppVerNum: `1.0.0.1009`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.9_2026-10-28/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.8`:
+  - 3be8252d test(reasignacion): ajustar R8 a reasignar en FALLA y con estado seguro activo
+  - acb33873 fix(reasignacion): permitir reasignar E/S en FALLA y con estado seguro activo (urgente, sin pruebas)
+  - f3ae8c5f docs(t21): estado restaurado con K y Z
+  - ecb0a198 docs(t21): informe R21 y cierre
+
+
 ## 1.0.0-alpha.8 — 2026-10-28
 
 - Etiqueta: `v1.0.0-alpha.8` (commit `chore(ver): 1.0.0-alpha.8`, sobre `3531c19`)
