@@ -690,7 +690,8 @@ Item {
         cantidad: raiz.cargaNoEsteril ? Math.max(1, raiz.fin.cantidad ?? 1) : (raiz.fin.cantidad ?? 0)
         segundos: regresoPanel.restante
         x: graficaCiclo.x + raiz.m(856 - 16) - width
-        y: graficaCiclo.y + raiz.m(72) - height / 2
+        // centro en y 58 de la gráfica: por encima de la fila de la leyenda (y 92)
+        y: graficaCiclo.y + raiz.m(58) - height / 2
         onPulsada: {
             if (raiz.cargaNoEsteril)
                 raiz.vistaGrafica = false
