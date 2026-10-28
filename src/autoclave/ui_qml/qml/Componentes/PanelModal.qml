@@ -60,16 +60,32 @@ Item {
             clip: true
         }
 
+        // T21 (FC-10): 360 de diseño o lo que pida el texto, sin pasar del ancho
+        // útil de la tarjeta; solo si aun así no cabe, la letra baja
+        // (HorizontalFit) hasta Escala.fuenteMinima. Nunca se recorta (D8-5.4).
+        TextMetrics {
+            id: medidaCerrar
+            font: textoCerrarBoton.font
+            text: raiz.textoCerrar
+        }
         Rectangle {
             id: botonCerrar
-            width: Escala.px(360); height: Escala.px(88)
+            objectName: "botonCerrarPanel"
+            width: Math.min(Math.max(Escala.px(360), medidaCerrar.advanceWidth + Escala.px(48)),
+                            tarjeta.width - Escala.px(96))
+            height: Escala.px(88)
             radius: Escala.px(6)
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Escala.px(40)
             color: Colores.accionPrimario
             Text {
+                id: textoCerrarBoton
                 anchors.centerIn: parent
+                width: parent.width - Escala.px(32)
+                horizontalAlignment: Text.AlignHCenter
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Escala.fuenteMinima
                 text: raiz.textoCerrar
                 color: "white"
                 font.family: Tipografia.familia

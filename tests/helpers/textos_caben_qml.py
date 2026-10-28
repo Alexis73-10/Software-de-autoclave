@@ -29,6 +29,9 @@
 #      lo achica (lo visto en CIC-10 de la tarjeta de alarmas, tanda 9).
 #   7. "desborda_alto": con ajuste de línea, sus líneas (`contentHeight`) no
 #      caben en el alto que tiene.
+#   T21 (FC-10) agrega:
+#   8. "no_cabe_al_minimo": de una línea con `fontSizeMode` y ni al tamaño
+#      mínimo (`minimumPixelSize`) cabe en su `width` (contentWidth mayor).
 #
 # Para U10b: agregar casos (pantalla, puente, pasos) en la prueba y, si una
 # pantalla necesita datos para mostrar sus textos largos, darlos en `puente`.
@@ -120,6 +123,13 @@ function revisarDesde(raizRevision) {
             problemas.push(Object.assign({tipo: "encogido",
                                           caja: Math.round(t.width),
                                           natural: Math.round(t.implicitWidth)}, desc))
+        // T21 (FC-10): con reducción de fuente, ni al mínimo (minimumPixelSize)
+        // cabe: Qt lo deja salir de su ancho
+        if (t.fontSizeMode !== Text.FixedSize && t.width > 0
+                && t.wrapMode === Text.NoWrap && t.contentWidth > t.width + 1)
+            problemas.push(Object.assign({tipo: "no_cabe_al_minimo",
+                                          caja: Math.round(t.width),
+                                          contenido: Math.round(t.contentWidth)}, desc))
         // U10b: con ajuste de línea, las líneas no caben en el alto fijado
         if (t.wrapMode !== Text.NoWrap && t.height > 0
                 && t.contentHeight > t.height + 2)
@@ -150,7 +160,7 @@ function revisarDesde(raizRevision) {
 
 _SCRIPT = textwrap.dedent(r'''
     import json, os, sys
-    from PySide6.QtCore import QObject, QUrl, QMetaObject, Q_RETURN_ARG
+    from PySide6.QtCore import QObject, QUrl, QMetaObject, Q_ARG, Q_RETURN_ARG
     from PySide6.QtGui import QGuiApplication
     from PySide6.QtQml import QQmlApplicationEngine
     from PySide6.QtQuick import QQuickWindow  # noqa: F401  (grabWindow en la raíz)
@@ -242,13 +252,33 @@ _SCRIPT = textwrap.dedent(r'''
         if paso.get("captura"):
             w.grabWindow().save(paso["captura"])
         pasos.append(r)
-    print("RESULTADO=" + json.dumps({"pasos": pasos, "avisos": avisos[:30]}, ensure_ascii=False))
+    # T21 (FC-10): abre uno por uno los diálogos y paneles ocultos de la
+    # pantalla (DialogoConfirmacion, PanelModal...) y revisa SOLO ese diálogo
+    # (tapa la pantalla). `dialogos`: nombres de tipo QML a abrir.
+    abiertos = []
+    for tipo in cfg.get("dialogos") or []:
+        for o in [o for o in w.findChildren(QObject)
+                  if o.metaObject().className().startswith(tipo + "_QML")]:
+            if o.property("visible"):
+                continue
+            o.setProperty("visible", True)
+            QTest.qWait(150)
+            r = json.loads(QMetaObject.invokeMethod(w, "revisarDesde", Q_RETURN_ARG("QVariant"),
+                                                    Q_ARG("QVariant", o)))
+            r["dialogo"] = tipo
+            r["nombre"] = o.objectName()
+            r["visible"] = bool(o.property("visible"))
+            abiertos.append(r)
+            o.setProperty("visible", False)
+            QTest.qWait(50)
+    print("RESULTADO=" + json.dumps({"pasos": pasos, "dialogos": abiertos, "avisos": avisos[:30]},
+                                    ensure_ascii=False))
 ''')
 
 
 def revisar(pantalla: str, idioma: str, ancho: int = 1024, alto: int = 1638,
             puente: dict | None = None, pasos: list | None = None,
-            sesion: str | None = None) -> dict:
+            sesion: str | None = None, dialogos: list | tuple | None = None) -> dict:
     """Carga `pantalla` y revisa sus textos en cada paso.
 
     `puente`: propiedades iniciales del puente falso (None = la pantalla sin puente).
@@ -256,10 +286,14 @@ def revisar(pantalla: str, idioma: str, ancho: int = 1024, alto: int = 1638,
     cambia esas propiedades, revisa y (si se pide) guarda una captura.
     `sesion`: rol (p. ej. "ingeniero") para iniciar sesión con un doble de la
     sesión HTTP que responde 200 {} (U10b; None = sin doble, como en U10a).
+    `dialogos`: tipos QML ocultos (p. ej. "DialogoConfirmacion") que, tras los
+    pasos, se abren uno a uno y se revisan solos (T21, FC-10); van en
+    `dialogos` del resultado.
     Devuelve {"pasos": [{"problemas", "ajustables", "vistos"}...], "avisos"}.
     """
     cfg = {"pantalla": pantalla, "idioma": idioma, "ancho": ancho, "alto": alto,
-           "puente": puente, "pasos": pasos, "sesion": sesion, "funcion": FUNCION_REVISAR}
+           "puente": puente, "pasos": pasos, "sesion": sesion, "funcion": FUNCION_REVISAR,
+           "dialogos": list(dialogos or [])}
     env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
            "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
     p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT, json.dumps(cfg, ensure_ascii=False)],
@@ -536,4 +570,116 @@ def revisar_menu(idioma: str, ancho: int = 1024, alto: int = 1638, ventanas=VENT
                        timeout=240)
     linea = next((l for l in p.stdout.splitlines() if l.startswith("RESULTADO=")), None)
     assert linea, "Menu\n" + p.stdout[-2000:] + p.stderr[-3000:]
+    return json.loads(linea[len("RESULTADO="):])
+
+
+# ── T21 (FC-10): componentes sueltos con sus textos reales ─────────────────
+#
+# Cada caso es {"id": str, "qml": "<Tipo> { ... }", "ancho": px, "alto": px}:
+# el QML del componente, ya con sus textos (pueden usar I18n.t(...), que se
+# resuelve en `idioma`), dentro de un Item de ancho x alto (el contenedor
+# real, en px de la pantalla). Escala.factor es el de una pantalla de
+# `ancho_pantalla`. Cada caso se revisa solo, con FUNCION_REVISAR, y además
+# se informa en `fuentes` el tamaño de letra real (fontInfo) de cada texto
+# visible, para comprobar el mínimo legible de los que reducen la fuente.
+
+_SCRIPT_COMPONENTES = textwrap.dedent(r'''
+    import json, os, sys
+    from PySide6.QtCore import QMetaObject, QObject, QUrl, Q_ARG, Q_RETURN_ARG
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtQml import QQmlApplicationEngine
+    from PySide6.QtQuick import QQuickWindow  # noqa: F401
+    from PySide6.QtTest import QTest
+    from autoclave import i18n
+    from autoclave.ui_qml import app as _app  # noqa: F401
+    from autoclave.ui_qml.app import QML_DIR, _cargar_fuentes
+    from autoclave.ui_qml.bridge import i18n_qml
+
+    cfg = json.loads(sys.argv[1])
+    i18n.cargar()
+    i18n.fijar_idioma(cfg["idioma"])
+    i18n_qml.instancia._consultar = lambda: None
+
+    y = 0
+    partes = []
+    for k, c in enumerate(cfg["casos"]):
+        partes.append('Item { objectName: "caso_%d"; x: 0; y: %d; width: %f; height: %f\n%s\n}'
+                      % (k, y, c["ancho"], c["alto"], c["qml"]))
+        y += int(c["alto"]) + 20
+    QML = """
+    import QtQuick
+    import QtQuick.Controls
+    import Tema
+    import Autoclave.I18n
+    import "Componentes"
+    Window {
+        id: ventana
+        width: %d; height: %d; visible: true
+        Binding { target: Escala; property: "factor"; value: %f }
+        %s
+        %s
+        function fuentes(raiz) {
+            const r = []
+            function rec(it) {
+                const hijos = it.children || []
+                for (let i = 0; i < hijos.length; ++i) {
+                    const h = hijos[i]
+                    if (!h.visible) continue
+                    if (h.fontInfo !== undefined && h.fontSizeMode !== undefined
+                            && typeof h.text === "string" && h.text.trim() !== "")
+                        r.push({texto: h.text, modo: h.fontSizeMode, px: h.fontInfo.pixelSize,
+                                pedido: h.font.pixelSize, ancho: h.width, contenido: h.contentWidth})
+                    rec(h)
+                }
+            }
+            rec(raiz)
+            return JSON.stringify(r)
+        }
+    }
+    """ % (max(int(c["ancho"]) for c in cfg["casos"]), y, cfg["ancho_pantalla"] / 1200.0,
+           "\n".join(partes), cfg["funcion"])
+    ruta = f"{QML_DIR}/_prueba_t21_componentes_{os.getpid()}.qml"
+    open(ruta, "w", encoding="utf-8").write(QML)
+    try:
+        qapp = QGuiApplication([])
+        _cargar_fuentes()
+        engine = QQmlApplicationEngine()
+        avisos = []
+        engine.warnings.connect(lambda ws: avisos.extend(w.toString() for w in ws))
+        engine.addImportPath(QML_DIR)
+        engine.load(QUrl.fromLocalFile(ruta))
+    finally:
+        os.remove(ruta)
+    assert engine.rootObjects(), avisos
+    w = engine.rootObjects()[0]
+    w.show()
+    QTest.qWait(400)
+    casos = []
+    for k, c in enumerate(cfg["casos"]):
+        o = w.findChild(QObject, "caso_%d" % k)
+        r = json.loads(QMetaObject.invokeMethod(w, "revisarDesde", Q_RETURN_ARG("QVariant"),
+                                                Q_ARG("QVariant", o)))
+        r["fuentes"] = json.loads(QMetaObject.invokeMethod(w, "fuentes", Q_RETURN_ARG("QVariant"),
+                                                           Q_ARG("QVariant", o)))
+        r["id"] = c["id"]
+        casos.append(r)
+    print("RESULTADO=" + json.dumps({"casos": casos,
+                                     "fuenteMinima": max(1, round(14 * cfg["ancho_pantalla"] / 1200.0)),
+                                     "avisos": [a for a in avisos if "Binding loop" not in a][:30]},
+                                    ensure_ascii=False))
+''')
+
+
+def revisar_componentes(casos: list, idioma: str, ancho_pantalla: int = 1024) -> dict:
+    """Revisa componentes sueltos (ver arriba): {"casos": [...], "fuenteMinima", "avisos"}."""
+    cfg = {"casos": casos, "idioma": idioma, "ancho_pantalla": ancho_pantalla,
+           "funcion": FUNCION_REVISAR}
+    env = {**os.environ, "QT_QPA_PLATFORM": "offscreen",
+           "PYTHONPATH": str(RAIZ / "src") + os.pathsep + str(RAIZ)}
+    p = subprocess.run([sys.executable, "-X", "utf8", "-c", _SCRIPT_COMPONENTES,
+                        json.dumps(cfg, ensure_ascii=False)],
+                       capture_output=True, text=True, encoding="utf-8", env=env, cwd=RAIZ,
+                       timeout=240)
+    linea = next((l for l in p.stdout.splitlines() if l.startswith("RESULTADO=")), None)
+    assert linea, "componentes\n" + p.stdout[-2000:] + p.stderr[-3000:]
     return json.loads(linea[len("RESULTADO="):])

@@ -258,7 +258,10 @@ Item {
         anchors.top: bandaError.bottom
         anchors.topMargin: visible ? Escala.px(8) : 0
         width: parent.width
-        height: visible ? Math.max(Escala.px(72), textoAviso.implicitHeight + Escala.px(32)) : 0
+        // T21 (FC-10): el botón Cerrar ya tiene su ancho propio (antes 0) y
+        // su alto de 97: la banda lo contiene
+        height: visible ? Math.max(Escala.px(72), textoAviso.implicitHeight + Escala.px(32),
+                                   cerrarAviso.height + Escala.px(16)) : 0
         radius: Escala.px(12)
         color: Colores.advertenciaFondo
         Text {
