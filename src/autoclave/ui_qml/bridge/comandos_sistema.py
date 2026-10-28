@@ -8,6 +8,9 @@
 #   ciclo en curso (A1, tanda 3), también con la cámara NO segura: `camaraNoSegura`
 #   deja a la pantalla avisar antes de confirmar. El backend vuelve a validar
 #   estado y ventana; si lo rechaza, `mensaje` lleva el motivo.
+#   AJ-01 (ajustes 28-oct): con el equipo en CICLO (también en la espera de
+#   CONFIRMAR) o sin dato del estado, `fueraDeCiclo` es False y la pantalla no
+#   ofrece el botón; `apagarEquipo` tampoco envía la orden.
 # Las peticiones corren fuera del hilo de la GUI.
 
 import logging
@@ -20,6 +23,9 @@ from autoclave.cliente.ui_service_backend import APAGADO_INCIERTO
 logger = logging.getLogger(__name__)
 
 VENTANA_PRINCIPAL = 1
+# AJ-01: estados del puente en los que no se ofrece "Apagar equipo" (falla
+# cerrada: sin dato del estado tampoco)
+_ESTADOS_SIN_APAGAR = frozenset({"", "DESCONOCIDO", "CICLO"})
 # D8-3.21: tras un apagado aceptado se consulta si Windows lo rechazó
 PERIODO_VIGILANCIA_APAGADO_MS = 2000
 
@@ -43,6 +49,7 @@ class ComandosSistema(QObject):
     mensajeDespejarChanged = Signal()
     camaraNoSeguraChanged = Signal()
     apagadoRechazadoChanged = Signal()
+    fueraDeCicloChanged = Signal()
     # S4 (CIC-10): el aviso pide abrir la asignación de sondas (OPCIONES)
     asignarSondaSolicitada = Signal()
     _terminado = Signal(str, bool, str)   # (petición, ok, motivo); desde el hilo de trabajo
@@ -68,6 +75,8 @@ class ComandosSistema(QObject):
         self._estadoApagadoLeido.connect(self._al_leer_estado_apagado)
         # el aviso de "NO ABRIR" sigue a la bandera del puente
         self._puente.seguridadChanged.connect(self.camaraNoSeguraChanged)
+        # AJ-01: "Apagar equipo" sigue al estado de la máquina
+        self._puente.machineStateChanged.connect(self.fueraDeCicloChanged)
 
     @Property(bool, constant=True)
     def ventanaPrincipal(self) -> bool:
@@ -77,6 +86,13 @@ class ComandosSistema(QObject):
     def camaraNoSegura(self) -> bool:
         """Falla cerrada: sin dato del puente cuenta como NO segura."""
         return getattr(self._puente, "noAbrir", True) is not False
+
+    @Property(bool, notify=fueraDeCicloChanged)
+    def fueraDeCiclo(self) -> bool:
+        """AJ-01: True solo con un estado conocido distinto de CICLO; sin
+        dato del puente, False (falla cerrada)."""
+        estado = getattr(self._puente, "machineState", None)
+        return isinstance(estado, str) and estado not in _ESTADOS_SIN_APAGAR
 
     @Property(bool, notify=apagadoRechazadoChanged)
     def apagadoRechazado(self) -> bool:
@@ -139,6 +155,8 @@ class ComandosSistema(QObject):
     def apagarEquipo(self) -> None:
         if not self.ventanaPrincipal or self._ocupado or not self._puente.connected:
             return
+        if not self.fueraDeCiclo:
+            return   # AJ-01: el backend también lo rechaza en CICLO (409)
         self._apagando = True
         self._lanzar("apagar_equipo", lambda: self._ui.apagar_equipo("principal"))
 

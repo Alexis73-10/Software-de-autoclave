@@ -16,7 +16,15 @@ PanelModal {
     property var filas: []
     // ComandosSistema (E5): "Apagar equipo" solo en la ventana principal (§16)
     property QtObject comandosSistema: null
-    readonly property bool puedeApagar: comandosSistema?.ventanaPrincipal ?? false
+    // AJ-01 (ajustes 28-oct): la pantalla de ciclo lo fija en false (tampoco
+    // en la espera de CONFIRMAR); con el equipo en CICLO o sin dato del
+    // estado no se ofrece en ninguna pantalla (falla cerrada)
+    property bool permiteApagar: true
+    readonly property bool puedeApagar: (comandosSistema?.ventanaPrincipal ?? false)
+                                        && permiteApagar
+                                        && (comandosSistema?.fueraDeCiclo ?? false)
+    // Si deja de poder apagarse con el panel abierto, no queda un diálogo vivo
+    onPuedeApagarChanged: if (!puedeApagar) confirmarApagar.cerrar()
     property string sinLectura: "—"
     // Texto de la sección "equipo"; la clave misma si no existe (como antes de F1)
     function textoEquipo(clave) {
@@ -133,6 +141,6 @@ PanelModal {
         textoConfirmar: I18n.t("equipo.apagar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: "#B71C1C"
-        onConfirmado: { cerrar(); raiz.comandosSistema?.apagarEquipo() }
+        onConfirmado: { cerrar(); if (raiz.puedeApagar) raiz.comandosSistema?.apagarEquipo() }
     }
 }

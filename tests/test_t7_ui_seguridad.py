@@ -73,6 +73,7 @@ def test_modo_prueba_paro_y_estado_seguro():
 def _comandos(door=1, requiere=True):
     puente = MagicMock()
     puente.connected = True
+    puente.machineState = "PREPARADO"   # AJ-01: fuera de ciclo
     puente.estadoSeguroRequiereConfirmacion = requiere
     ui = MagicMock()
     ui.confirmar_estado_seguro.return_value = True

@@ -953,6 +953,9 @@ Item {
     PanelEquipo {
         comandosSistema: raiz.comandosSistema
         id: panelEquipo
+        objectName: "panelEquipoCiclo"
+        // AJ-01: sin "Apagar equipo" en ningún momento de la pantalla de ciclo
+        permiteApagar: false
         titulo: I18n.t("equipo.titulo", I18n.lang)
         textoCerrar: I18n.t("acciones.cerrar", I18n.lang)
         filas: raiz.infoEquipo?.filas ?? []
