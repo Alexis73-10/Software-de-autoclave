@@ -93,14 +93,25 @@ def test_sin_sesion_401(api):
 
 # ── estado (fuera de ciclo) ─────────────────────────────────────────────────
 
-@pytest.mark.parametrize("estado,motivo", [(GlobalState.CICLO, "ciclo"), (GlobalState.FALLA, "estado")])
-def test_rechazado_en_ciclo_y_en_falla(api, estado, motivo):
+def test_rechazado_en_ciclo(api):
     cliente, _srv, ctx, cab, pedidos = api
-    ctx.estado.get_machine_state.return_value = estado
+    ctx.estado.get_machine_state.return_value = GlobalState.CICLO
     r = _aplicar(cliente, cab(), {"vapor_camara": 27})
-    assert r.status_code == 409 and r.json()["motivo"] == motivo
+    assert r.status_code == 409 and r.json()["motivo"] == "ciclo"
     assert not ctx.archivo_asignacion.existe() and pedidos == []
     assert cliente.get("/io/assignment", headers=cab()).json()["editable"] is False
+
+
+def test_permitido_en_falla_y_con_estado_seguro_actuando(api, monkeypatch):
+    """Cambio urgente 28-oct: en FALLA y con el protocolo de estado seguro
+    actuando se puede reasignar (sensor de presión de cámara dañado)."""
+    cliente, srv, ctx, cab, pedidos = api
+    ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    monkeypatch.setattr(srv, "_estado_seguro_en_marcha", lambda: True)
+    assert cliente.get("/io/assignment", headers=cab()).json()["editable"] is True
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
+    assert r.status_code == 200, r.text
+    assert ctx.archivo_asignacion.existe() and pedidos
 
 
 def test_rechazado_en_modo_prueba(api):
@@ -583,8 +594,8 @@ def test_deshacer_ante_cualquier_error_deja_el_archivo_como_estaba(api, monkeypa
         llamadas.append(1)
         if len(llamadas) > 1:
             raise RuntimeError("inesperado")
-        return False
-    monkeypatch.setattr(srv, "_estado_seguro_en_marcha", falla)
+        return "", ""
+    monkeypatch.setattr(modulo_backend("server_reasignacion"), "_motivo_bloqueo", falla)
     with pytest.raises(RuntimeError):
         cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=cab())
     assert ctx.archivo_asignacion.ruta.read_bytes() == b"\xff previo"
