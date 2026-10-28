@@ -67,8 +67,8 @@ Item {
     function textoSerie(s) {
         if (s.texto) return s.texto
         // Tanda 17 (SON-01): sonda instalada con rol No en uso, "(monitoreo)"
+        // 28-oct: sin el sufijo "(monitoreo)" en pantalla (desbordaba)
         const n = I18n.t("ciclo.entrada_corta_" + s.entrada, I18n.lang)
-                  + (s.monitoreo === true ? " " + I18n.t("ciclo.monitoreo", I18n.lang) : "")
         return s.registrada === false ? n + " " + I18n.t("ciclo.serie_sin_registro", I18n.lang) : n
     }
     // AJ-03 (ajustes 28-oct): abreviado de una fila del globo = nombre
@@ -81,7 +81,6 @@ Item {
     function textoSerieAbrev(s) {
         if (s.texto) return s.textoAbrev || s.texto
         const n = raiz._abrev("ciclo.entrada_corta_" + s.entrada)
-                  + (s.monitoreo === true ? " " + raiz._abrev("ciclo.monitoreo") : "")
         return s.registrada === false ? n + " " + raiz._abrev("ciclo.serie_sin_registro") : n
     }
     function _unidadEje(eje, porDefecto) {
