@@ -276,16 +276,17 @@ def test_principal_sin_lectura_falla_antes_de_la_fase():
     assert [i.codigo for i in am.activas()] == ["SEN-02"]
 
 
-def test_referencia_sin_lectura_no_falla_y_queda_no_conforme():
+def test_referencia_sin_lectura_no_falla_y_queda_observacion():
     # Tanda 12, C-13.7b (opción B confirmada 24-oct; reemplaza la DECISIÓN SIN
-    # CONFIRMAR de la tanda §1.1, que fallaba): el ciclo sigue NO CONFORME
+    # CONFIRMAR de la tanda §1.1, que fallaba); FC-08 (tanda 21): el ciclo
+    # sigue con una observación (carga sólida)
     ciclo, estado, am = _ciclo(_ASIG_REF, {"temp_camara": 100.0, "temp_ref": None})
     estado.avisos_ciclo = []
     ciclo._fases[0].update = MagicMock(return_value=None)
     ciclo.run()
     assert estado.fase_ciclo != "SENSOR_AUSENTE"
     assert "SEN-11" in [i.codigo for i in am.activas()]
-    assert ciclo.no_conforme is True
+    assert ciclo.referencia_sin_lectura is True
 
 
 # ── Fases: control con el Principal y referencias ───────────────────────────

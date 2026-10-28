@@ -31,7 +31,7 @@ from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_disponible,
                                                    sensor_principal)
 from autoclave.services.domain.logging.ticket_formatter import (
-    CLAVE_NO_CONFORME, avisos_no_conforme,
+    CLAVE_CANCELADO_POR,
     format_footer,
     format_header,
     format_row,
@@ -222,6 +222,8 @@ class CycleLogger:
         self._bd_avisada = False
         self._reg: _RegistroBD | None = None
         self._reg_cerrado: _RegistroBD | None = None   # ciclo ya cerrado, aún en CICLO
+        # FC-13 (tanda 21): hora de pared del cierre del ciclo en pantalla
+        self.hora_fin_pantalla: str | None = None
         self.uuid_ciclo: str | None = None
         self._numero_reservado: int | None = None
         self._numero_provisional: int | None = None   # TMG-01: contador no escribible
@@ -290,6 +292,7 @@ class CycleLogger:
                 self._on_fin(resultado)
             self._cierre_ya_procesado = False
             self._reg_cerrado = None
+            self.hora_fin_pantalla = None
             self._t0_mono = None
             self._t_fin_s = None
 
@@ -506,6 +509,7 @@ class CycleLogger:
         self._fase_seguida       = None
         self._proxima_muestra_s  = None
         self._reg_cerrado        = None
+        self.hora_fin_pantalla   = None
 
         if self.printer is not None:
             meta = {
@@ -546,6 +550,8 @@ class CycleLogger:
                 self._bd("cerrar la fase", lambda i: self.db.cerrar_fase_abierta(i, t_fin),
                          presentacion=True)
             self._reg_cerrado = self._reg
+            # FC-13 (tanda 21): sello de pared del cierre, para la pantalla
+            self.hora_fin_pantalla = datetime.now().isoformat(timespec="seconds")
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
@@ -568,13 +574,11 @@ class CycleLogger:
             avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
                       if isinstance(a, str)
                       or (isinstance(a, dict) and isinstance(a.get("clave"), str))]
-            # P4 (tanda 16, D-14.4): defensa en profundidad. Si CicloState
-            # publicó NO CONFORME pero no alcanzó a anotar su aviso, se anota
-            # aquí para que la marca llegue igual al ticket, a la base y al
-            # respaldo (el historial la reconoce por esa clave)
-            if (getattr(self.estado, "no_conforme", False) is True
-                    and not avisos_no_conforme(avisos)):
-                avisos.append({"clave": CLAVE_NO_CONFORME, "sensor": "---"})
+            # FC-12 (tanda 21): el usuario identificado que canceló, en el
+            # ticket, la base y el respaldo (reimpresión idéntica)
+            cancelado_por = getattr(self.estado, "cancelado_por", None)
+            if resultado == "CANCELADO" and isinstance(cancelado_por, str) and cancelado_por:
+                avisos.append({"clave": CLAVE_CANCELADO_POR, "usuario": cancelado_por})
             avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
                              if sin_datos_s is not None or avisos else None)
             # TMG-03 de T8: primero el respaldo, después la base

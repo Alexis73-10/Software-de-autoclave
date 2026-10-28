@@ -992,7 +992,7 @@
     },
     "SEN-11": {
       "titulo": "Reference sensor without reading",
-      "plantilla": "No reading from {sensor} in the {fase} phase. The cycle continues with the probes that read and is marked NONCONFORMING: reference point not verified.",
+      "plantilla": "No reading from {sensor} in the {fase} phase. The cycle continues controlled by the Principal sensor and the pressure.",
       "accion": "Check the reference probe connection. Validate the load according to your procedure before releasing it."
     },
     "CIC-01": {
@@ -1085,6 +1085,11 @@
       "titulo": "Jacket pressure at the control limit",
       "plantilla": "The jacket reached {pres:.1f} kPa (limit {maximo:.1f} kPa) in the {fase} phase: the jacket steam valve stays closed while it lasts.",
       "accion": "Check the supply steam regulator. The cycle continues."
+    },
+    "CIC-19": {
+      "titulo": "Reference probe without reading",
+      "plantilla": "No reading from {sensor} in the {fase} phase. With a liquid load the load temperature cannot be verified. The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the probe connection and repeat the cycle."
     },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
@@ -1679,6 +1684,7 @@
     "ev": {
       "equipo_instalado": "registered the installation of equipment {entidad}",
       "ciclo_no_conforme_reconocido": "acknowledged that the NONCONFORMING cycle load is not releasable",
+      "ciclo_cancelado": "cancelled the cycle {nuevo}",
       "login_ok": "logged in",
       "login_fallido": "failed login attempt",
       "login_bloqueado": "was locked out after failed attempts",
@@ -1738,6 +1744,7 @@
     "tipo": {
       "equipo_instalado": "Equipment installed",
       "ciclo_no_conforme_reconocido": "Non-releasable load acknowledged",
+      "ciclo_cancelado": "Cycle cancelled",
       "login_ok": "Login",
       "login_fallido": "Failed login",
       "login_bloqueado": "Lockout",
@@ -2047,7 +2054,10 @@
     "aviso_uniformidad": "Thermal uniformity out of range: {sensor} {temp}",
     "aviso_excursion": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}",
     "aviso_excursion_alta": "Excursion of {sensor}: {duracion} s out of band, minimum {temp_min}, maximum {temp_max}",
-    "no_conforme_referencia": "NONCONFORMING: reference point not verified ({sensor})"
+    "no_conforme_referencia": "NONCONFORMING: reference point not verified ({sensor})",
+    "observacion": "Observation",
+    "observacion_referencia": "{sensor} without reading since {hora} ({fase})",
+    "cancelado_por": "Cancelled by"
   },
   "modos_programa": {
     "secado_intro": "How the load is dried. In modes 1 and 2 the chamber must reach vacuum within the pulse time limit and keep it; otherwise the cycle fails.",

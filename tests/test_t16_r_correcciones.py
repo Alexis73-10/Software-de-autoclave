@@ -131,16 +131,13 @@ def test_sin_principal_con_presion_alta_aisla(monkeypatch):
     assert estado.aislamiento_camara.aislado
 
 
-# ── V16-s3-07: CICLO no confirma un NO CONFORME sin reconocimiento ─────────
+# ── V16-s3-07 retirado en la tanda 21 (FC-08): sin NO CONFORME, una Referencia
+# sin lectura no exige reconocimiento antes de CONFIRMAR ─────────────────────
 
-def test_ciclo_ignora_la_confirmacion_sin_reconocimiento(monkeypatch):
+def test_ciclo_con_referencia_sin_lectura_confirma_sin_reconocimiento(monkeypatch):
     ciclo, estado, _salidas, _am, reloj = _armar(monkeypatch)
-    ciclo._no_conforme = True
+    ciclo._referencia_sin_lectura = True
     ciclo._resultado_pendiente = CicloResultado.COMPLETADO
-    estado.set_flag("CICLO_CONFIRMADO", True)
-    assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
-    assert estado.get_flag("CICLO_CONFIRMADO") is False
-    estado.no_conforme_reconocido = True
     estado.set_flag("CICLO_CONFIRMADO", True)
     assert ciclo.run() == CicloResultado.COMPLETADO
 

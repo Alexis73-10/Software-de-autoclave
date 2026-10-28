@@ -992,7 +992,7 @@
     },
     "SEN-11": {
       "titulo": "Sensor de referencia sin lectura",
-      "plantilla": "Sin lectura de {sensor} en la fase {fase}. El ciclo sigue con las sondas que leen y queda NO CONFORME: punto de referencia sin verificar.",
+      "plantilla": "Sin lectura de {sensor} en la fase {fase}. El ciclo sigue controlado por el sensor Principal y la presión.",
       "accion": "Revise la conexión de la sonda de referencia. Valide la carga según su procedimiento antes de liberarla."
     },
     "CIC-01": {
@@ -1085,6 +1085,11 @@
       "titulo": "Presión de chaqueta en el límite de control",
       "plantilla": "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la válvula de vapor de chaqueta queda cerrada mientras dure.",
       "accion": "Revise el regulador del vapor de suministro. El ciclo sigue."
+    },
+    "CIC-19": {
+      "titulo": "Sonda de referencia sin lectura",
+      "plantilla": "Sin lectura de {sensor} en la fase {fase}. En carga líquida la temperatura de la carga no se puede verificar. El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise la conexión de la sonda y repita el ciclo."
     },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
@@ -1679,6 +1684,7 @@
     "ev": {
       "equipo_instalado": "registró la instalación del equipo {entidad}",
       "ciclo_no_conforme_reconocido": "reconoció que la carga del ciclo NO CONFORME no es liberable",
+      "ciclo_cancelado": "canceló el ciclo {nuevo}",
       "login_ok": "inició sesión",
       "login_fallido": "intento de ingreso fallido",
       "login_bloqueado": "quedó bloqueado por intentos fallidos",
@@ -1738,6 +1744,7 @@
     "tipo": {
       "equipo_instalado": "Equipo instalado",
       "ciclo_no_conforme_reconocido": "Carga no liberable reconocida",
+      "ciclo_cancelado": "Ciclo cancelado",
       "login_ok": "Inicio de sesión",
       "login_fallido": "Ingreso fallido",
       "login_bloqueado": "Bloqueo por intentos",
@@ -2047,7 +2054,10 @@
     "aviso_uniformidad": "Uniformidad termica fuera de rango: {sensor} {temp}",
     "aviso_excursion": "Excursión de {sensor}: {duracion} s fuera de banda, mínima {temp_min}",
     "aviso_excursion_alta": "Excursión de {sensor}: {duracion} s fuera de banda, mínima {temp_min}, máxima {temp_max}",
-    "no_conforme_referencia": "NO CONFORME: punto de referencia sin verificar ({sensor})"
+    "no_conforme_referencia": "NO CONFORME: punto de referencia sin verificar ({sensor})",
+    "observacion": "Observación",
+    "observacion_referencia": "{sensor} sin lectura desde {hora} ({fase})",
+    "cancelado_por": "Cancelado por"
   },
   "modos_programa": {
     "secado_intro": "Cómo se seca la carga. En los modos 1 y 2 la cámara debe alcanzar vacío dentro del tiempo límite del pulso y no perderlo; si no, el ciclo falla.",
