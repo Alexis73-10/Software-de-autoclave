@@ -52,11 +52,14 @@ Item {
     property var seriesEntradas: null
     readonly property var series: seriesEntradas && seriesEntradas.length ? seriesEntradas : _seriesPorOmision
     readonly property var _seriesPorOmision: [
-        { clave: "temp_camara", texto: I18n.t("ciclo.serie_temp_camara", I18n.lang), color: "#6599FC",
+        { clave: "temp_camara", texto: I18n.t("ciclo.serie_temp_camara", I18n.lang),
+          textoAbrev: I18n.t("abrev.ciclo.serie_temp_camara", I18n.lang), color: "#6599FC",
           eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
-        { clave: "temp_ref", texto: I18n.t("ciclo.serie_temp_ref", I18n.lang), color: "#9732DA",
+        { clave: "temp_ref", texto: I18n.t("ciclo.serie_temp_ref", I18n.lang),
+          textoAbrev: I18n.t("abrev.ciclo.serie_temp_ref", I18n.lang), color: "#9732DA",
           eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
-        { clave: "pres_camara", texto: I18n.t("ciclo.serie_presion", I18n.lang), color: "#00CCB0",
+        { clave: "pres_camara", texto: I18n.t("ciclo.serie_presion", I18n.lang),
+          textoAbrev: I18n.t("abrev.ciclo.serie_presion", I18n.lang), color: "#00CCB0",
           eje: "derecho", unidad: I18n.t("unidades.presion", I18n.lang) },
     ]
     onSeriesChanged: filaLeyenda.tam = 21
@@ -67,6 +70,19 @@ Item {
         const n = I18n.t("ciclo.entrada_corta_" + s.entrada, I18n.lang)
                   + (s.monitoreo === true ? " " + I18n.t("ciclo.monitoreo", I18n.lang) : "")
         return s.registrada === false ? n + " " + I18n.t("ciclo.serie_sin_registro", I18n.lang) : n
+    }
+    // AJ-03 (ajustes 28-oct): abreviado de una fila del globo = nombre
+    // abreviado + sufijos abreviados (abrev.ciclo.*); sin abreviatura, el
+    // texto completo de esa parte
+    function _abrev(clave) {
+        return I18n.existe("abrev." + clave, I18n.lang) ? I18n.t("abrev." + clave, I18n.lang)
+                                                         : I18n.t(clave, I18n.lang)
+    }
+    function textoSerieAbrev(s) {
+        if (s.texto) return s.textoAbrev || s.texto
+        const n = raiz._abrev("ciclo.entrada_corta_" + s.entrada)
+                  + (s.monitoreo === true ? " " + raiz._abrev("ciclo.monitoreo") : "")
+        return s.registrada === false ? n + " " + raiz._abrev("ciclo.serie_sin_registro") : n
     }
     function _unidadEje(eje, porDefecto) {
         for (const s of series) if (s.eje === eje && s.unidad) return s.unidad
@@ -482,10 +498,25 @@ Item {
         }
 
         // Globo: 220 x 145 en el mockup, a la derecha del cursor salvo que no quepa;
-        // nunca se sale del área de la tarjeta.
+        // nunca se sale del área de la tarjeta. AJ-03: cada nombre se abrevia si
+        // no cabe hasta su valor; si ni el abreviado cabe, el globo crece lo
+        // justo para la fila más ancha (y para la hora). Nunca se recorta (D8-5.4).
         Rectangle {
             id: globo
-            width: raiz.m(220); height: raiz.m(145)
+            objectName: "globoGrafica"
+            // margen entre el nombre y el valor de una fila (≈ 8 px del mockup)
+            readonly property real margenNombre: raiz.m(8)
+            property int _revFilas: 0
+            readonly property real anchoNecesario: {
+                void _revFilas
+                let n = hora.implicitWidth + raiz.m(18 + 18)
+                for (let i = 0; i < filasGlobo.count; ++i) {
+                    const f = filasGlobo.itemAt(i)
+                    if (f) n = Math.max(n, f.anchoNecesario)
+                }
+                return n
+            }
+            width: Math.max(raiz.m(220), Math.ceil(anchoNecesario)); height: raiz.m(145)
             x: Math.max(raiz.m(8), Math.min(cursor.xCursor - raiz.m(34), raiz.width - width - raiz.m(8)))
             y: Math.min(raiz.yAbajo - height - raiz.m(45), raiz.m(519) + raiz._extra / 2)
             radius: raiz.m(14)
@@ -499,6 +530,8 @@ Item {
                 shadowBlur: 0.5
             }
             Text {
+                id: hora
+                objectName: "horaGlobo"
                 x: raiz.m(18); y: raiz.m(36) - baselineOffset
                 text: raiz._formatoMmSs(cursor.tCursor) + " " + I18n.t("unidades.tiempo", I18n.lang)
                 color: raiz.paleta.texto
@@ -507,29 +540,50 @@ Item {
                 font.pixelSize: raiz.fuente(21)
             }
             Repeater {
+                id: filasGlobo
                 model: raiz.series
+                onItemAdded: globo._revFilas++
+                onItemRemoved: globo._revFilas++
                 delegate: Item {
                     id: filaGlobo
+                    objectName: "filaGlobo"
                     required property var modelData
                     required property int index
                     readonly property var valor: cursor.indice >= 0 ? raiz._valor(filaGlobo.modelData.clave, cursor.indice) : null
                     readonly property real bl: raiz.m(61 + filaGlobo.index * 29)
+                    // ancho del globo con el que cabe esta fila con el nombre
+                    // abreviado (el completo si no hay abreviado)
+                    readonly property real anchoNecesario: raiz.m(35) + medidaAbrev.advanceWidth
+                                                           + globo.margenNombre + valorFila.implicitWidth
+                                                           + raiz.m(220 - 211)
                     anchors.fill: parent
                     Rectangle {
                         x: raiz.m(17); y: filaGlobo.bl - raiz.m(10)
                         width: raiz.m(11); height: width; radius: width / 2
                         color: filaGlobo.modelData.color
                     }
-                    Text {
+                    TextoAjustable {
+                        id: nombreFila
+                        objectName: "nombreFilaGlobo"
                         x: raiz.m(35); y: filaGlobo.bl - baselineOffset
-                        text: raiz.textoSerie(filaGlobo.modelData)
+                        textoCompleto: raiz.textoSerie(filaGlobo.modelData)
+                        textoAbreviado: raiz.textoSerieAbrev(filaGlobo.modelData)
+                        anchoDisponible: valorFila.x - globo.margenNombre - x
                         color: raiz.paleta.texto
                         font.family: Tipografia.familia
                         font.pixelSize: raiz.fuente(13)
                     }
+                    TextMetrics {
+                        id: medidaAbrev
+                        font: nombreFila.font
+                        text: nombreFila.textoAbreviado !== "" ? nombreFila.textoAbreviado
+                                                               : nombreFila.textoCompleto
+                    }
                     Text {
+                        id: valorFila
+                        objectName: "valorFilaGlobo"
                         // alineado a la derecha del globo (mockup: termina en x = 211 de 220)
-                        x: raiz.m(211) - width; y: filaGlobo.bl - baselineOffset
+                        x: globo.width - raiz.m(220 - 211) - width; y: filaGlobo.bl - baselineOffset
                         text: (filaGlobo.valor === null || filaGlobo.valor === undefined
                                ? I18n.t("sistema.sin_lectura", I18n.lang)
                                : Number(filaGlobo.valor).toFixed(1)) + " " + filaGlobo.modelData.unidad
