@@ -104,6 +104,38 @@ class _RegistroBD:
         self.fallido = False
 
 
+class CicloParaAlarma:
+    """FC-03 (tanda 21): referencia al ciclo de una alarma que aparece en CICLO,
+    tomada en el hilo que activa la alarma (ControlLoop o HTTP) sin esperar.
+    El id definitivo se resuelve después, en el hilo escritor del historial de
+    alarmas (`resolver`), con espera acotada: cubre el ciclo cuyo id aún no
+    fijó la tarea asíncrona que lo crea y el primer tick de CICLO, antes de que
+    el CycleLogger abra el registro."""
+    __slots__ = ("_logger", "_reg")
+
+    def __init__(self, logger_ciclo, reg):
+        self._logger = logger_ciclo
+        self._reg = reg      # None: el registro del ciclo aún no existe
+
+    def resolver(self, timeout: float = 5.0, paso: float = 0.02) -> int | None:
+        limite = time.monotonic() + timeout
+        while True:
+            reg = self._reg
+            if reg is None:
+                # primer tick de CICLO: el registro lo abre update() en el paso 6
+                reg = self._logger._reg
+                if reg is not None:
+                    self._reg = reg
+            if reg is not None:
+                if reg.id is not None:
+                    return reg.id
+                if reg.fallido:
+                    return None
+            if time.monotonic() >= limite:
+                return None
+            time.sleep(paso)
+
+
 class EscritorBD:
     """TMG-01 de T8: las escrituras del ciclo en SQLite (lock compartido con el
     backend y timeout de 10 s) salen del hilo del lazo. Un hilo propio las
@@ -282,6 +314,27 @@ class CycleLogger:
         if self._ciclo_id is not None:
             return self._ciclo_id
         return self._reg_cerrado.id if self._reg_cerrado is not None else None
+
+    def ciclo_para_alarma(self):
+        """FC-03 (tanda 21): ciclo al que pertenece una alarma que aparece
+        ahora. Sin E/S ni espera (corre en el hilo que activa la alarma):
+        devuelve un int si el id ya se conoce, un `CicloParaAlarma` si falta
+        resolverlo (ciclo recién creado o primer tick de CICLO) y None fuera
+        de CICLO. Cubre también el ciclo ya cerrado que sigue en CICLO
+        esperando la confirmación (`_reg_cerrado`)."""
+        reg = self._reg if self._reg is not None else self._reg_cerrado
+        if reg is not None:
+            if reg.id is not None:
+                return reg.id
+            return None if reg.fallido else CicloParaAlarma(self, reg)
+        try:
+            en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
+        except Exception:
+            en_ciclo = False
+        # sin registro y ya activo: el inicio falló (sin base); nada que esperar
+        if en_ciclo and not self._cierre_ya_procesado and not self._activo:
+            return CicloParaAlarma(self, None)
+        return None
 
     def transcurrido_s(self) -> float | None:
         """Segundos monotónicos desde el inicio del ciclo, congelados al
