@@ -2,7 +2,7 @@
 """Entrega 1.0.0-alpha.N en un solo comando (etapa VER, §2).
 
     python tools/entrega/compilar_entrega.py [--con-generador]
-        [--python-compilacion RUTA] [--iscc RUTA] [--sin-suite-serie]
+        [--python-compilacion RUTA] [--iscc RUTA] [--sin-suite-serie] [--sin-suite]
 
 Desde `dev` con el árbol limpio:
   1. N = mayor etiqueta v1.0.0-alpha.K + 1 (D-VER-3) y se escribe `_version.py`;
@@ -425,12 +425,19 @@ def main(argv=None) -> int:
     ap.add_argument("--iscc", default=_iscc_defecto(), help="ISCC.exe de Inno Setup 6")
     ap.add_argument("--sin-suite-serie", action="store_true",
                     help="no repetir en serie las rojas de la suite en paralelo")
+    # 28-oct: entrega rápida sin la suite (decisión de Cristian); el resto de
+    # verificaciones previas (rama dev, árbol limpio, herramientas) sigue igual
+    ap.add_argument("--sin-suite", action="store_true",
+                    help="NO corre la suite de pruebas (entrega rápida, bajo responsabilidad de quien compila)")
     args = ap.parse_args(argv)
 
     git = lambda *a: ic.git(RAIZ, *a)  # noqa: E731
     print("Verificaciones previas ...")
+    if args.sin_suite:
+        print("AVISO: --sin-suite: la suite de pruebas NO se corre en esta entrega")
     previas = verificaciones_previas(
-        git, lambda: correr_suite_real(sys.executable, RAIZ, not args.sin_suite_serie),
+        git, (lambda: (True, "omitida (--sin-suite)")) if args.sin_suite
+        else (lambda: correr_suite_real(sys.executable, RAIZ, not args.sin_suite_serie)),
         herramientas=[("el python de compilación", args.python_compilacion),
                       ("ISCC.exe", args.iscc)])
     for a in previas.avisos:
