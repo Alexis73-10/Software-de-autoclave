@@ -7,7 +7,7 @@ Rama `tanda-21` (desde `dev` 92abead). Spec: `docs/mis_plans/planeacion_fin_de_c
 | A0 | Hecha | 86b0752 (spec, prompt y mockups); verificaciones abajo |
 | Ola 1 P1 backend | Pendiente | |
 | Ola 1 P2 panel | Pendiente | |
-| Ola 1 P3 puerta | Pendiente | |
+| Ola 1 P3 puerta | Hecha | a190e70, unida a tanda-21 (20 pruebas OK); decisiones: DESCONOCIDO/ERROR/ABRIENDO → ABIERTA, gris solo sin datos o vacío |
 | Ola 1 P4 textos | Pendiente | |
 | Ola 1 V | Pendiente | |
 | Ola 2 | Pendiente | |
