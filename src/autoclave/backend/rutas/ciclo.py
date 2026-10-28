@@ -17,8 +17,8 @@ from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, RechazoApi, _Rech
     _log_desarrollo, _nombre_estado, _rechazar, _rechazar_si_config_invalida, _token_de,
     context, guard_estado, tokens)
 from autoclave.backend.rutas._comun import (_ai_habilitadas, _carga_liquida,
-    _ciclo_de_pantalla, _i18n_t, _motivo_paro, _no_conforme_reconocido, _no_conforme_status,
-    _no_conforme_vigente, _nombres_ciclo, _salidas_sin_confirmar_pendiente)
+    _ciclo_de_pantalla, _i18n_t, _motivo_paro, _nombres_ciclo, _salidas_sin_confirmar_pendiente,
+    _terminacion_y_alarmas)
 
 # Mismo nombre de logger que antes de partir server.py (ORG-12): los
 # registros conservan su origen "autoclave.backend.server".
@@ -213,15 +213,17 @@ def get_current_cycle_progress():
     restante_exp = getattr(context.estado, "exposicion_restante_s", None)
     if not isinstance(restante_exp, (int, float)) or isinstance(restante_exp, bool):
         restante_exp = None
+    progreso = progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido,
+                                             referencias, restante_exp)
+    # FC-06/FC-13 (tanda 21): con el ciclo terminado, la fase en que terminó,
+    # cómo terminó y las alarmas del ciclo. P4 (NO CONFORME) se retiró (FC-08).
+    if progreso.get("resultado") is not None:
+        progreso.update(_terminacion_y_alarmas(ciclo_id, fase_ciclo, progreso))
     return {
         "activo": True,
         "ciclo_db_id": ciclo_id,
         "fase_ciclo": fase_ciclo,
-        # P4 (tanda 16, D-14.4): la pantalla final muestra la franja y pide el
-        # reconocimiento con estos campos
-        **_no_conforme_status(context.estado),
-        **progreso_ciclo.armar_progreso(aplicables, filas, fase_ciclo, transcurrido, referencias,
-                                        restante_exp),
+        **progreso,
     }
 
 
@@ -365,12 +367,18 @@ def _validar_inicio(estado) -> tuple | None:
 
 
 @router.post("/cycle/abort")
-def abort_cycle():
+def abort_cycle(authorization: str | None = Header(None)):
     """
     Solicita el aborto del ciclo en curso.
     Activa la flag CICLO_CANCELADO; el CicloState ejecutará el
     protocolo de fallo en el siguiente tick del control loop.
+    FC-12 (tanda 21): como /cycle/start (O1, tanda 3), acepta un token de
+    sesión opcional en la cabecera `Authorization: Bearer <token>`. Si es
+    válido, su usuario queda como `cancelado_por` (estado, bitácora y
+    ticket). No es requisito: sin token o con uno vencido la cancelación
+    funciona igual (plan §10) y queda sin usuario identificado.
     """
+    sesion = tokens.obtener(_token_de(authorization))
     # P-7 (tanda 6): 409 con motivo cuando no tendría efecto (resultado ya
     # pendiente o paro); el indicador no queda puesto
     entidad = "/cycle/abort"
@@ -396,7 +404,27 @@ def abort_cycle():
         if pendiente:
             raise _Rechazo(409, "resultado_pendiente",
                            "El ciclo ya terminó: confirme el resultado")
+        # FC-12: antes de la bandera, así CicloState y CycleLogger ya lo ven
+        estado.cancelado_por = sesion.usuario if sesion is not None else None
         estado.set_flag("CICLO_CANCELADO", True)
+        detalle = {"fase": fase if isinstance(fase, str) else ""}
+        operador = getattr(estado, "operador_inicio", "") or ""
+        detalle["operador_ciclo"] = operador if isinstance(operador, str) else ""
+        if sesion is None:
+            detalle["sin_sesion"] = True
+        if en_espera_datos:
+            detalle["en_espera_datos"] = True
+    try:
+        ciclo_id = _ciclo_de_pantalla()
+        fila = context.db.get_ciclo(ciclo_id) if isinstance(ciclo_id, int) else None
+        if fila is not None:
+            detalle["ciclo_db_id"] = ciclo_id
+            detalle["numero_ciclo"] = fila["numero_ciclo"]
+    except Exception:
+        logger.debug("/cycle/abort: sin número de ciclo para la bitácora")
+    # FC-12 (tanda 21): fila de la cancelación, con el usuario si lo hay
+    _auditar("ciclo_cancelado", sesion, entidad=entidad,
+             valor_nuevo=detalle.get("numero_ciclo"), detalle=detalle)
     if en_espera_datos:
         logger.warning("/cycle/abort: cancelación aceptada sin datos de la tarjeta "
                        "(tolerancia por DI vencida o desconexión antes de COM-02)")
@@ -525,11 +553,7 @@ def acknowledge_cycle():
         fase = getattr(context.estado, "fase_ciclo", "")
         if progreso_ciclo.resultado(fase) is None:
             raise _Rechazo(409, "sin_resultado", "No hay un ciclo esperando confirmación")
-        # P4 (tanda 16, D-14.4): un ciclo NO CONFORME no se confirma sin el
-        # reconocimiento explícito de que la carga no es liberable
-        if _no_conforme_vigente(context.estado) and not _no_conforme_reconocido(context.estado):
-            raise _Rechazo(409, NO_CONFORME_SIN_RECONOCER,
-                           "Ciclo NO CONFORME: reconozca primero que la carga no es liberable")
+        # FC-08 (tanda 21): se retiró el 409 no_conforme_sin_reconocer (P4)
 
         context.estado.set_flag("CICLO_CONFIRMADO", True)
 
@@ -546,50 +570,7 @@ def acknowledge_cycle():
     return {"ok": True, "action": "CICLO_CONFIRMADO"}
 
 
-# ── P4 (tanda 16, D-14.4): NO CONFORME visible y reconocimiento ──────────
-
-NO_CONFORME_SIN_RECONOCER = "no_conforme_sin_reconocer"
-
-
-@router.post("/cycle/acknowledge-no-conforme")
-def acknowledge_no_conforme(authorization: str | None = Header(None)):
-    """El operador reconoce que la carga de un ciclo NO CONFORME no es
-    liberable (P4, D-14.4). Pone estado.no_conforme_reconocido, sin el cual
-    /cycle/acknowledge rechaza la confirmación, y se audita con el usuario de
-    la sesión. Mismo criterio de sesión que /cycle/acknowledge y
-    /cycle/start: no la exige; sin token válido la fila queda sin usuario y
-    con detalle.sin_sesion (DECISIÓN SIN CONFIRMAR). Solo con el ciclo ya
-    terminado y NO CONFORME. No mueve salidas ni confirma el ciclo."""
-    entidad = "/cycle/acknowledge-no-conforme"
-    sesion = tokens.obtener(_token_de(authorization))
-    with guard_estado(frozenset(), entidad, sesion) as actual:
-        estado = context.estado
-        if actual != GlobalState.CICLO:
-            raise _Rechazo(409, "estado_no_permitido", "No hay un ciclo esperando confirmación",
-                           extra={"estado": getattr(actual, "name", str(actual))})
-        fase = getattr(estado, "fase_ciclo", "")
-        if progreso_ciclo.resultado(fase) is None:
-            raise _Rechazo(409, "sin_resultado", "No hay un ciclo esperando confirmación")
-        if not _no_conforme_vigente(estado):
-            raise _Rechazo(409, "ciclo_conforme", "El ciclo no está NO CONFORME")
-        ya_reconocido = _no_conforme_reconocido(estado)
-        if not ya_reconocido:
-            estado.no_conforme_reconocido = True
-        motivo = _no_conforme_status(estado)["motivo_no_conforme"]
-        operador = getattr(estado, "operador_inicio", "") or ""
-    if ya_reconocido:
-        return {"ok": True, "action": "NO_CONFORME_RECONOCIDO", "ya_reconocido": True}
-    detalle = {"fase": fase, "motivo": motivo,
-               "operador_ciclo": operador if isinstance(operador, str) else ""}
-    if sesion is None:
-        detalle["sin_sesion"] = True
-    try:
-        ciclo_id = _ciclo_de_pantalla()
-        fila = context.db.get_ciclo(ciclo_id) if isinstance(ciclo_id, int) else None
-        if fila is not None:
-            detalle["ciclo_db_id"] = ciclo_id
-            detalle["numero_ciclo"] = fila["numero_ciclo"]
-    except Exception:
-        logger.debug("acknowledge-no-conforme: sin número de ciclo para la bitácora")
-    _auditar("ciclo_no_conforme_reconocido", sesion, entidad=entidad, detalle=detalle)
-    return {"ok": True, "action": "NO_CONFORME_RECONOCIDO"}
+# ── P4 (tanda 16, D-14.4) retirado en la tanda 21 (FC-08): ya no existen
+# POST /cycle/acknowledge-no-conforme ni el 409 no_conforme_sin_reconocer.
+# El evento de bitácora ciclo_no_conforme_reconocido se conserva solo para
+# leer las filas históricas.
