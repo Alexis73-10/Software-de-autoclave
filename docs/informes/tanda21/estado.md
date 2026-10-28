@@ -12,7 +12,7 @@ Rama `tanda-21` (desde `dev` 92abead). Spec: `docs/mis_plans/planeacion_fin_de_c
 | Ola 1 V | Hecha | Sin bloqueantes; 257 pruebas OK; hallazgos: token en abort (ola 2), observación en el correo (ola 2), doble cancelación en el mismo tick y bitácora sin número sin BD (bajos, anotados) |
 | Ola 2 | Hecha | 2487b8e, 595744b, 385025b |
 | G capturas | Hecha | 8835507 (15 capturas en capturas/) |
-| R revisión | Pendiente | |
+| R revisión | Hecha | 2c58ff9: SAF-01..05 corregidos (2 medios, 3 bajos); 4 preguntas abiertas al informe |
 | Suite | Pendiente | |
 | K entrega | Pendiente | |
 
