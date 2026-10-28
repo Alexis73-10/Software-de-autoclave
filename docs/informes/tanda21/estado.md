@@ -11,7 +11,7 @@ Rama `tanda-21` (desde `dev` 92abead). Spec: `docs/mis_plans/planeacion_fin_de_c
 | Ola 1 P4 textos | Hecha | 104521e, unida a tanda-21 (45 pruebas nuevas OK); falla previa ajena: test_t17_s4_alarmas_qml::test_preciclo_en_pantalla (ya en f0aa5f7); pendiente ola 2: BotonAccion de preciclo sin ajuste |
 | Ola 1 V | Hecha | Sin bloqueantes; 257 pruebas OK; hallazgos: token en abort (ola 2), observación en el correo (ola 2), doble cancelación en el mismo tick y bitácora sin número sin BD (bajos, anotados) |
 | Ola 2 | Hecha | 2487b8e, 595744b, 385025b |
-| G capturas | Pendiente | |
+| G capturas | Hecha | 8835507 (15 capturas en capturas/) |
 | R revisión | Pendiente | |
 | Suite | Pendiente | |
 | K entrega | Pendiente | |
