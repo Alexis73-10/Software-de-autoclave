@@ -203,7 +203,7 @@ def test_correo_en_ingles(textos_s5):
         i18n.fijar_idioma("es")
 
 
-# ── datos de la UI: historial y pantalla final ──────────────────────────────
+# ── datos de la UI: historial ──────────────────────────────
 
 def test_historial_presentable_lleva_no_conforme():
     from autoclave.ui_qml.domain import resumen_sistema as rs
@@ -217,40 +217,5 @@ def test_historial_presentable_lleva_no_conforme():
     assert rs.ultimo_no_conforme(None) is False
 
 
-def test_progreso_normalizado_lleva_no_conforme():
-    from autoclave.ui_qml.domain.ciclo_en_curso import normalizar_progreso
-    base = {"activo": True, "resultado": "exitoso", "fases": []}
-    r = normalizar_progreso({**base, "no_conforme": True, "motivo_no_conforme": CLAVE_NO_CONFORME,
-                             "no_conforme_reconocido": False})
-    assert (r["no_conforme"], r["motivo_no_conforme"], r["no_conforme_reconocido"]) == \
-        (True, CLAVE_NO_CONFORME, False)
-    # falla cerrada: reconocido sin NO CONFORME o valores no booleanos no cuentan
-    r = normalizar_progreso({**base, "no_conforme": 1, "no_conforme_reconocido": True})
-    assert (r["no_conforme"], r["no_conforme_reconocido"]) == (False, False)
-    r = normalizar_progreso({**base})
-    assert (r["no_conforme"], r["motivo_no_conforme"], r["no_conforme_reconocido"]) == (False, "", False)
-    assert normalizar_progreso(None)["no_conforme"] is False
-
-
-def test_bridge_reconocer_no_conforme_envia_con_token(monkeypatch):
-    from autoclave.cliente.session_manager import SessionManager
-    from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
-    ui = MagicMock()
-    puente = MagicMock(connected=True)
-    c = ComandosCicloEnCurso(puente, ui, ejecutar=lambda t: t())
-    monkeypatch.setattr(SessionManager, "token", classmethod(lambda cls: "tok123"))
-    resultados = []
-    c.terminado.connect(lambda accion, ok: resultados.append((accion, ok)))
-    c.reconocerNoConforme()
-    from PySide6.QtCore import QCoreApplication
-    QCoreApplication.processEvents()
-    ui.backend.post.assert_called_once_with(
-        path="/cycle/acknowledge-no-conforme", headers={"Authorization": "Bearer tok123"})
-    assert resultados == [("reconocer_no_conforme", True)]
-    assert c.error == ""
-    # rechazo del backend: queda el error y no se da por reconocido
-    ui.backend.post.side_effect = RuntimeError("409")
-    c.reconocerNoConforme()
-    QCoreApplication.processEvents()
-    assert resultados[-1] == ("reconocer_no_conforme", False)
-    assert c.error == "reconocer_no_conforme"
+# Tanda 21 (FC-08): la pantalla final ya no recibe ni reconoce NO CONFORME
+# (ver test_t21_fin_de_ciclo_ui.py).

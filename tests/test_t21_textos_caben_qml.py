@@ -14,8 +14,11 @@
 #      nada más.
 #   2. Cada pantalla con diálogos: cada DialogoConfirmacion y PanelModal oculto
 #      se abre y se revisa solo, sin ningún problema (ni siquiera reducción).
-#   3. «Confirmar y llevar a estado seguro» (el caso que motivó FC-10) cabe en
-#      el diálogo a su tamaño de letra, sin reducir.
+#   3. «Confirmar y llevar a estado seguro» (el caso que motivó FC-10) cabe a
+#      su tamaño de letra, sin reducir, en el ModalConfirmacion que reemplazó
+#      al diálogo en Ciclo en curso (FC-09, ola 2), como título; y en el botón
+#      de SeccionEstadoSeguro.
+#   Los ModalConfirmacion (título, acción y «Volver») se cargan con cada uso.
 
 import re
 from pathlib import Path
@@ -91,6 +94,19 @@ def _casos():
                               "qml": "DialogoConfirmacion { visible: true; mensaje: \"?\"; "
                                      + "; ".join(p for p in props if p) + " }",
                               "ancho": ANCHO, "alto": 520})
+    # ModalConfirmacion (FC-09): título y botón de acción de cada uso
+    for archivo, b in _bloques("ModalConfirmacion"):
+        titulo = _claves(_expresion(b, "titulo"))
+        accion = _claves(_expresion(b, "textoAccion")) or [None]
+        for t in titulo or [None]:
+            for a in accion:
+                props = [f'titulo: I18n.t("{t}", I18n.lang)' if t else "",
+                         f'textoAccion: I18n.t("{a}", I18n.lang)' if a else ""]
+                casos.append({"id": f"ModalConfirmacion {archivo} {t} / {a}",
+                              "claves": [x for x in (t, a) if x],
+                              "qml": "ModalConfirmacion { visible: true; cuerpo: \"?\"; "
+                                     + "; ".join(p for p in props if p) + " }",
+                              "ancho": ANCHO, "alto": 1638})
     # botón de cierre de PanelModal y de los paneles que lo usan
     vistos = set()
     for tipo in ("PanelModal", "PanelEquipo", "PanelNotificaciones"):
@@ -139,8 +155,9 @@ CASOS = _casos()
 
 def test_se_encontraron_los_usos():
     tipos = {c["id"].split()[0] for c in CASOS}
-    assert tipos == {"DialogoConfirmacion", "PanelModal", "BotonFormulario", "SeccionEstadoSeguro"}
-    assert any("sistema.confirmar_estado_seguro" in c["claves"] and c["id"].startswith("Dialogo")
+    assert tipos == {"DialogoConfirmacion", "ModalConfirmacion", "PanelModal", "BotonFormulario",
+                     "SeccionEstadoSeguro"}
+    assert any("ciclo.modal_estado_seguro_titulo" in c["claves"] and c["id"].startswith("ModalConfirmacion")
                for c in CASOS)
     assert len(CASOS) > 30
 
@@ -177,12 +194,14 @@ def test_la_letra_reducida_no_baja_del_minimo_legible(componentes):
 
 
 def test_confirmar_y_llevar_a_estado_seguro_cabe_sin_reducir(componentes):
-    # FC-10: el botón del diálogo se ensancha (340 de diseño no alcanzaban)
+    # FC-10: en el modal de estado seguro (título) y en SeccionEstadoSeguro
     idioma, r = componentes
-    texto = _texto("sistema.confirmar_estado_seguro", idioma)
     revisados = 0
     for caso, rc in zip(CASOS, r["casos"]):
-        if caso["id"].startswith("DialogoConfirmacion") and "sistema.confirmar_estado_seguro" in caso["claves"]:
+        clave = next((c for c in ("ciclo.modal_estado_seguro_titulo", "sistema.confirmar_estado_seguro")
+                      if c in caso["claves"]), None)
+        if clave is not None:
+            texto = _texto(clave, idioma)
             revisados += 1
             f = next(f for f in rc["fuentes"] if f["texto"] == texto)
             assert f["px"] == f["pedido"], (caso["id"], f)
@@ -193,10 +212,11 @@ def test_confirmar_y_llevar_a_estado_seguro_cabe_sin_reducir(componentes):
 # ── pantallas: cada diálogo oculto, abierto y revisado solo ────────────────
 
 PANTALLAS_CON_DIALOGOS = sorted({
-    Path(archivo).stem for tipo in ("DialogoConfirmacion", "PanelModal")
+    Path(archivo).stem for tipo in ("DialogoConfirmacion", "ModalConfirmacion", "PanelModal")
     for archivo, _ in _bloques(tipo) if archivo.startswith("Pantallas/")
 } | {"MenuPrincipal"})
-TIPOS_DIALOGO = ("DialogoConfirmacion", "PanelModal", "PanelEquipo", "PanelNotificaciones")
+TIPOS_DIALOGO = ("DialogoConfirmacion", "ModalConfirmacion", "PanelModal", "PanelEquipo",
+                 "PanelNotificaciones")
 
 
 @pytest.fixture(scope="module", params=[(p, i) for p in PANTALLAS_CON_DIALOGOS for i in IDIOMAS],

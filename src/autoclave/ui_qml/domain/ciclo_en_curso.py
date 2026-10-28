@@ -13,8 +13,10 @@
 import math
 
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
+from autoclave.ui_qml.domain import fin_de_ciclo
 
-_ESTADOS_FASE = {"completada", "activa", "pendiente"}
+# FC-06 (tanda 21): fallida (fallo, emergencia) e interrumpida (cancelación)
+_ESTADOS_FASE = {"completada", "activa", "pendiente", "fallida", "interrumpida"}
 _RESULTADOS = {"exitoso", "cancelado", "fallo"}
 # Tanda 17 (SON-01): también temp_2_camara (sonda de Cámara 2, en uso o de monitoreo)
 _SERIES = ("temp_camara", "temp_ref", "pres_camara", "temp_2_camara")
@@ -94,8 +96,7 @@ class AcumuladorGrafica:
 def normalizar_progreso(respuesta) -> dict:
     """Respuesta de GET /cycle/current/progress validada para la pantalla."""
     vacio = {"activo": False, "ciclo_db_id": None, "fase_ciclo": "", "fase_activa": None,
-             "resultado": None,
-             "no_conforme": False, "motivo_no_conforme": "", "no_conforme_reconocido": False,
+             "resultado": None, "fase_terminacion": None, "terminacion": None, "alarmas_ciclo": [],
              "fases": [], "aplicables": [], "transcurrido_s": None, "restante_s": None}
     if not isinstance(respuesta, dict) or respuesta.get("activo") is not True:
         return vacio
@@ -111,8 +112,11 @@ def normalizar_progreso(respuesta) -> dict:
             "duracion_s": _numero(f.get("duracion_s")),
         })
 
-    no_conforme = respuesta.get("no_conforme") is True
-    motivo = respuesta.get("motivo_no_conforme")
+    # Un resultado desconocido se descarta (None) como antes: tratarlo como
+    # terminado con el ciclo en marcha quitaría CANCELAR. La falla cerrada de
+    # FC-01 rige dentro del panel (terminación desconocida -> fallo).
+    resultado = respuesta.get("resultado") if respuesta.get("resultado") in _RESULTADOS else None
+    fase_term = respuesta.get("fase_terminacion")
     fase_activa = respuesta.get("fase_activa")
     fase_ciclo = respuesta.get("fase_ciclo")
     ciclo = respuesta.get("ciclo_db_id")
@@ -121,12 +125,13 @@ def normalizar_progreso(respuesta) -> dict:
         "ciclo_db_id": ciclo if isinstance(ciclo, int) and not isinstance(ciclo, bool) else None,
         "fase_ciclo": fase_ciclo if isinstance(fase_ciclo, str) else "",
         "fase_activa": fase_activa if fase_activa in FASES_UI else None,
-        "resultado": respuesta.get("resultado") if respuesta.get("resultado") in _RESULTADOS else None,
-        # P4 (tanda 16, D-14.4): solo True estricto (un dato mal formado no
-        # marca NO CONFORME ni da por reconocida la carga)
-        "no_conforme": no_conforme,
-        "motivo_no_conforme": motivo if no_conforme and isinstance(motivo, str) else "",
-        "no_conforme_reconocido": no_conforme and respuesta.get("no_conforme_reconocido") is True,
+        "resultado": resultado,
+        # FC-06/FC-13 (tanda 21): fase y datos de la terminación; mal formados,
+        # listas vacías y tipo "fallo" (fin_de_ciclo.normalizar_terminacion)
+        "fase_terminacion": fase_term if resultado is not None and fase_term in FASES_UI else None,
+        "terminacion": fin_de_ciclo.normalizar_terminacion(respuesta.get("terminacion"), resultado),
+        "alarmas_ciclo": (fin_de_ciclo.normalizar_alarmas(respuesta.get("alarmas_ciclo"))
+                          if resultado is not None else []),
         "fases": fases,
         "aplicables": [f["fase"] for f in fases],
         "transcurrido_s": _numero(respuesta.get("transcurrido_s")),

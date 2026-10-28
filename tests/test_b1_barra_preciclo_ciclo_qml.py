@@ -26,7 +26,7 @@ CASOS = [
      [("botonEquipoPreciclo", "equipoPulsado"), ("avatarPreciclo", "avatarPulsado")]),
     ("PantallaCicloEnCurso", "barraInferiorCicloEnCurso", "tarjetaCicloEnCurso",
      [("botonEquipoCiclo", "equipoPulsado"), ("avatarCiclo", "avatarPulsado"),
-      ("botonCancelarCiclo", "dialogo:dialogoCancelarCiclo")]),
+      ("botonCancelarCiclo", "dialogo:modalCancelarCiclo")]),
 ]
 
 _SCRIPT = textwrap.dedent(r"""
