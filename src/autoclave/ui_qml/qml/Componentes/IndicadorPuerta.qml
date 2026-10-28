@@ -103,7 +103,10 @@ Item {
 
     // Texto Bold 22, dos líneas como máximo, sin elide ni maximumLineCount
     // (D8-5.4). Con ícono empieza en x 131 (textoX 172 - caja 41); sin ícono va
-    // centrado en la caja. Si no cupiera en dos líneas, Fit reduce la fuente.
+    // centrado en la caja. Tamaño fijo: el texto se parte en líneas (cada
+    // palabra cabe a 22 px). Alto = el del contenido (ola 2: con el alto fijo
+    // de la caja, Fit hacía que la caja del texto se midiera fuera de la
+    // tarjeta de preciclo).
     Text {
         id: etiqueta
         objectName: "textoIndicadorPuerta"
@@ -111,14 +114,11 @@ Item {
         x: izquierda
         width: raiz.width - izquierda - raiz.m(12)
         anchors.verticalCenter: parent.verticalCenter
-        height: raiz.height - raiz.m(16)
         text: raiz.texto
         color: raiz.colorTexto
         font.family: Tipografia.familia
         font.weight: Tipografia.pesoBold
         font.pixelSize: Math.max(1, Math.round(raiz.m(22)))
-        fontSizeMode: Text.Fit
-        minimumPixelSize: Math.max(1, Math.round(raiz.m(14)))
         wrapMode: Text.WordWrap
         elide: Text.ElideNone
         horizontalAlignment: raiz.modo === "sin_datos" ? Text.AlignHCenter : Text.AlignLeft
