@@ -480,6 +480,15 @@ def test_liquido_falla_cic19():
     assert pc.tipo_terminacion(estado.fase_ciclo) == "fallo"
 
 
+@pytest.mark.parametrize("tipo", ["Liquido", "líquido", "", "mixto"])
+def test_tipo_de_carga_desconocido_se_trata_como_liquido(tipo):
+    # revisión R (SAF-03): solo "solido" sigue con la observación; lo demás, CIC-19
+    from autoclave.state_machine.states.ciclo import CicloResultado
+    ciclo, estado, am = _ciclo_ref(tipo)
+    assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
+    assert estado.codigo_fallo == "CIC-19"
+
+
 def test_cic19_en_el_catalogo_es_bloqueante_como_cic12():
     from autoclave.state_machine.alarms.catalogo import CATALOGO
     d19, d12 = CATALOGO["CIC-19"], CATALOGO["CIC-12"]

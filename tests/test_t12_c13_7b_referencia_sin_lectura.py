@@ -22,6 +22,12 @@ _OBSERVACION = "ticket_ciclo.observacion_referencia"
 def _ciclo_con_ref(temp_ref):
     ciclo, estado, am = _ciclo(_ASIG_REF, {"temp_camara": 100.0, "temp_ref": temp_ref})
     estado.avisos_ciclo = []
+    # carga sólida explícita: desde la revisión R de la tanda 21 (SAF-03) un
+    # tipo de carga que no sea "solido" se trata como líquido (CIC-19)
+    original = ciclo.cycle.get_param.side_effect
+    ciclo.cycle.get_param.side_effect = (
+        lambda *k, default=None, **kw: "solido" if k[:2] == ("globals", "tipo_carga")
+        else (original(*k, default=default, **kw) if original else ciclo.cycle.get_param.return_value))
     fase = ciclo._fases[0]
     fase.update = MagicMock(return_value=None)
     return ciclo, estado, am, fase

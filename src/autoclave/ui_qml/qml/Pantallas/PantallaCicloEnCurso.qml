@@ -106,7 +106,15 @@ Item {
     property bool verObservaciones: false
     readonly property bool panelVisible: (cargaNoEsteril && !vistaGrafica)
                                          || (hayObservaciones && verObservaciones)
-    onResultadoChanged: { vistaGrafica = false; verObservaciones = false }
+    // Revisión R (tanda 21, SAF-01/SAF-05): un modal abierto con otro resultado
+    // (o con el estado seguro pendiente que aparece después) se cierra; nunca
+    // se envía con el texto de otra situación
+    onResultadoChanged: {
+        vistaGrafica = false; verObservaciones = false
+        modalCancelar.cerrar(); modalConfirmar.cerrar(); modalEstadoSeguro.cerrar()
+    }
+    readonly property bool ackEstadoSeguro: puente?.ackConfirmaEstadoSeguro ?? false
+    onAckEstadoSeguroChanged: modalConfirmar.cerrar()
     readonly property bool modalAbierto: modalCancelar.abierto || modalConfirmar.abierto
                                          || modalEstadoSeguro.abierto || avisoComando.visible
     property bool comandoOcupado: comandos?.ocupado ?? false
@@ -990,6 +998,12 @@ Item {
         textoAccion: I18n.t("ciclo.modal_confirmar_accion", I18n.lang)
         colorAccion: exitoso ? Colores.menuVerde : Colores.accionPrimario
         onAceptado: {
+            // SAF-01: si entretanto quedó pendiente el estado seguro (paro
+            // liberado), no se envía: se pide antes la verificación de fugas
+            if (raiz.puente?.ackConfirmaEstadoSeguro ?? false) {
+                modalEstadoSeguro.abrir()
+                return
+            }
             raiz.confirmarPulsado()
             raiz.comandos?.confirmar()
         }

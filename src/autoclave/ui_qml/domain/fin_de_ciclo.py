@@ -195,6 +195,15 @@ def _fila_alarma(a: dict, idioma: str) -> dict:
             "queHacer": t.get("accion", ""), "meta": meta}
 
 
+def _fila_observacion(o: dict, idioma: str) -> dict:
+    """Fila de una observación de Referencia sin su fila SEN-11 (SAF-04)."""
+    fase = _fase(o["fase"], idioma)
+    t = _textos_alarma("SEN-11", {"sensor": o["sensor"], "fase": fase}, idioma)
+    return {"titulo": t.get("titulo") or "SEN-11", "hora": o["hora"], "nivel": prioridad("AVISO"),
+            "descripcion": t.get("descripcion", ""), "queHacer": t.get("accion", ""),
+            "meta": i18n.t("ciclo.fin_meta_alarma_activa", idioma, hora=o["hora"], codigo="SEN-11")}
+
+
 def nota_observaciones(term: dict | None, idioma: str) -> str:
     """Nota ámbar del modal de CONFIRMAR exitoso (FC-07/FC-09): una línea por
     Referencia sin lectura, con la hora y la fase; "" sin observaciones."""
@@ -225,6 +234,12 @@ def armar(term: dict | None, alarmas: list, idioma: str) -> dict:
             filas.append({"titulo": a.get("titulo") or a.get("codigo") or "", "hora": "",
                           "nivel": "alta", "descripcion": a.get("descripcion", ""),
                           "queHacer": "", "meta": a.get("codigo") or ""})
+    # Revisión R (tanda 21, SAF-04): una observación de Referencia sin su fila
+    # SEN-11 en el historial (sin base de datos, o fila sin ciclo) se muestra
+    # igual, armada con los datos de la terminación (no depende de la base)
+    if term["observaciones"] and not any(a.get("codigo") == "SEN-11" for a in alarmas):
+        for o in term["observaciones"]:
+            filas.append(_fila_observacion(o, idioma))
     tipo = term["tipo"]
     if tipo == "exitoso":
         modo = "observaciones" if filas else ""

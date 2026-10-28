@@ -223,3 +223,16 @@ def test_correo_lleva_la_observacion_y_no_marca_no_conforme():
     assert "000012" in cuerpo and "Referencia 1" in cuerpo and "09:40" in cuerpo
     assert "000013" not in cuerpo and "NO CONFORME" not in cuerpo
     assert _marcar_no_conforme("A", "C", [{"numero_ciclo": 13}]) == ("A", "C")
+
+
+# ── revisión R ───────────────────────────────────────────────────────────────
+
+def test_observacion_sin_fila_en_la_base_igual_se_ve():
+    # SAF-04: sin la fila SEN-11 (p. ej. sin base de datos) la píldora ámbar sale igual
+    ok = {"tipo": "exitoso", "hora_fin": "2026-10-28T10:00:00",
+          "observaciones": [{"sensor": "Referencia 1", "hora": "09:40", "fase": "esterilizacion"}]}
+    d = _armar(ok, [])
+    assert d["modo"] == "observaciones" and d["cantidad"] == 1
+    assert "Referencia 1" in d["alarmas"][0]["descripcion"]
+    # con su fila SEN-11 no se duplica
+    assert len(_armar(ok, _ALARMAS[:1])["alarmas"]) == 1

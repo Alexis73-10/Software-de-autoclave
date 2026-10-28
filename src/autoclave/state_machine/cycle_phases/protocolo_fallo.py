@@ -468,7 +468,8 @@ class ProtocoloFallo:
 
     def es_liquido(self) -> bool:
         try:
-            return self.cycle.get_param("globals", "tipo_carga", default="solido") == "liquido"
+            # tanda 21 (revisión R, SAF-03): un valor que no sea "solido" también
+            return self.cycle.get_param("globals", "tipo_carga", default="solido") != "solido"
         except Exception:
             return True     # SAF-12 de T5: ante la duda, sin la rápida
 

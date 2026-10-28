@@ -515,19 +515,43 @@ def test_p8_excursion_confirmada_que_pierde_la_lectura(monkeypatch):
     assert f.alarma_fallo[0] == "CIC-14"
 
 
-def test_p8_excursion_sin_confirmar_que_pierde_la_lectura_se_descarta(monkeypatch):
-    f, estado, _, reloj = _fase_refs(monkeypatch)
+def test_p8_excursion_sin_confirmar_que_pierde_la_lectura_se_confirma(monkeypatch):
+    # Tanda 21 (revisión R, SAF-02): antes se descartaba; con FC-08 el ciclo
+    # terminaría COMPLETADO con una sonda que ya leía frío. Ahora se confirma:
+    # la exposición se detiene y CIC-14 acota la espera.
+    f, estado, _, reloj = _fase_refs(monkeypatch, timeout_exc=1)
     f.update()
     estado.sensores_temp["temp_ref"] = 119.0
     _ticks(f, reloj, 4.0)
+    assert f.exposicion_detenida is False               # aún sin confirmar
+    estado.sensores_temp["temp_ref"] = None
+    _ticks(f, reloj, 0.5)
+    assert f.exposicion_detenida is True
+    res = _ticks(f, reloj, 60.0)
+    assert FaseResult.FALLO in res
+    assert f.alarma_fallo[0] == "CIC-14"
+
+
+def test_p8_excursion_confirmada_al_perder_la_lectura_cierra_al_volver(monkeypatch):
+    f, estado, _, reloj = _fase_refs(monkeypatch, timeout_exc=5)
+    f.update()
+    estado.sensores_temp["temp_ref"] = 119.0
+    _ticks(f, reloj, 3.0)
     estado.sensores_temp["temp_ref"] = None
     _ticks(f, reloj, 2.0)
-    assert f._ref_fuera == {}
-    estado.sensores_temp["temp_ref"] = 119.0            # vuelve fuera: conteo nuevo
-    _ticks(f, reloj, 4.5)
-    assert f.exposicion_detenida is False
-    _ticks(f, reloj, 1.0)
     assert f.exposicion_detenida is True
+    estado.sensores_temp["temp_ref"] = R_DENTRO         # vuelve a la banda
+    _ticks(f, reloj, 1.0)
+    assert f.exposicion_detenida is False and f._ref_fuera == {}
+    assert f.reinicios_exposicion == 1
+
+
+def test_referencia_sin_lectura_sin_excursion_no_detiene(monkeypatch):
+    f, estado, _, reloj = _fase_refs(monkeypatch)
+    f.update()
+    estado.sensores_temp["temp_ref"] = None
+    _ticks(f, reloj, 10.0)
+    assert f.exposicion_detenida is False and f._ref_fuera == {}
 
 
 def test_constantes_p6():

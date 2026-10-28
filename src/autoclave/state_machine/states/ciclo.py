@@ -831,10 +831,11 @@ class CicloState:
         return self._referencia_sin_lectura or bool(self._avisos_observacion())
 
     def _carga_liquida(self) -> bool:
-        """FC-08: con el tipo de carga no legible se trata como líquida (falla
-        cerrada: el ciclo se aborta en vez de seguir sin verificar la carga)."""
+        """FC-08: con el tipo de carga no legible, o con un valor que no sea
+        "solido", se trata como líquida (falla cerrada: el ciclo se aborta en
+        vez de seguir sin verificar la carga; revisión R de la tanda 21, SAF-03)."""
         try:
-            return self.cycle.get_param("globals", "tipo_carga", default="solido") == "liquido"
+            return self.cycle.get_param("globals", "tipo_carga", default="solido") != "solido"
         except Exception:
             logger.exception("CicloState: tipo de carga no legible; se trata como líquida")
             return True

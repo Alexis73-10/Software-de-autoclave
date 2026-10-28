@@ -171,9 +171,10 @@ def test_se_ven_las_tres_filas_con_sus_sufijos(r):
         assert c["visible"] and len(c["filas"]) == 3
         completos = [f["completo"] for f in c["filas"]]
         if r["idioma"] == "es":
-            assert completos == ["Temperatura de drenaje de cámara (monitoreo)",
+            # 28-oct (6f06dd0): la gráfica ya no lleva el sufijo «(monitoreo)»
+            assert completos == ["Temperatura de drenaje de cámara",
                                  "Presión de empaque 2 (sin registro)",
-                                 "Temperatura de cámara 2 (monitoreo) (sin registro)"]
+                                 "Temperatura de cámara 2 (sin registro)"]
         for f in c["filas"]:
             assert f["abreviado"] and f["abreviado"] != f["completo"]
 
