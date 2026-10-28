@@ -25,6 +25,12 @@ _SALIDAS_VAPOR = ("vapor_generador", "vapor_caldera")
 # además de los de la asignación vigente. Tanda 19 (MOD-05): todos, DO 1-32
 # (antes 1-24): el buzzer pasó a DO 25 y los dos enlaces tienen 32 salidas.
 _CANALES_APAGADO_BASE = range(1, 33)
+# AJ-02 (ajustes 28-oct): agua_intercambiador tiene dos dueños (el vacío de la
+# cámara y el control de drenaje). Cada uno fija su propia petición y la
+# salida es el OR de las dos, con una sola orden al canal: mientras alguna
+# pida ON, el canal no recibe OFF (antes el drenaje frío la apagaba y la fase
+# de vacío la volvía a encender en cada tick de 0,5 s).
+_AGUA_INTERCAMBIADOR = "agua_intercambiador"
 
 
 class SetOutput:
@@ -49,6 +55,11 @@ class SetOutput:
         # set_output(canal) directo y sí puede, para poder verificarlas.
         self._inhibidas: frozenset = frozenset()
         self.canales_inhibidos: frozenset = frozenset()
+        # AJ-02: peticiones de agua_intercambiador (ver _AGUA_INTERCAMBIADOR).
+        # Al arrancar, nadie pidió nada: el canal no se toca hasta la primera
+        # orden de alguno de sus dueños.
+        self._agua_por_vacio = False
+        self._agua_por_drenaje = False
         # E1b (D-23): canales de vapor de la fuente que el equipo no tiene.
         permitidas = salidas_vapor_permitidas(profile)
         self._canales_bloqueados = {canal_do(nombre) for nombre in _SALIDAS_VAPOR
@@ -83,6 +94,23 @@ class SetOutput:
         return index in self._canales_bloqueados
 
     def set_output(self, index, value):
+        """Orden directa por canal (puertas, modo prueba, cortes del lazo).
+        AJ-02: una orden directa al canal de agua_intercambiador deja las dos
+        peticiones coherentes con lo ordenado: OFF las apaga a las dos; ON
+        cuenta como petición del drenaje (ante duda, el agua queda pedida)."""
+        if self._es_canal_agua(index):
+            self._agua_por_drenaje = bool(value)
+            if not value:
+                self._agua_por_vacio = False
+        self._escribir(index, value)
+
+    def _es_canal_agua(self, index) -> bool:
+        try:
+            return index == canal_do(_AGUA_INTERCAMBIADOR)
+        except Exception:
+            return False
+
+    def _escribir(self, index, value):
         # Todo encendido pasa por aquí (lazo, fases, puertas, /io/test/output):
         # la fuente de vapor ausente nunca se enciende; se reafirma OFF.
         if value and index in self._canales_bloqueados:
@@ -140,7 +168,7 @@ class SetOutput:
         if value and nombre in self.inhibidas:
             logger.warning("SetOutput: %s está reasignada sin verificar; se mantiene apagada", nombre)
             value = False
-        self.set_output(canal_do(nombre), value)
+        self._escribir(canal_do(nombre), value)
 
     def vapor_generador_on(self):
         self._salida("vapor_generador", True)
@@ -185,12 +213,16 @@ class SetOutput:
         self._salida("descompresion_chaqueta", False)
         
     def vacio_camara_on(self):
-        self.agua_intercambiador_on()
+        # AJ-02: el vacío solo fija su petición de agua (el drenaje la suya)
+        self._agua_por_vacio = True
+        self._aplicar_agua()
         self._salida("vacio_camara", True)
         
     def vacio_camara_off(self):
+        # AJ-02: el agua sigue encendida si el drenaje la pide
         self._salida("vacio_camara", False)
-        self.agua_intercambiador_off()
+        self._agua_por_vacio = False
+        self._aplicar_agua()
         
     def desbloqueo_puerta_1_on(self):
         self._salida("desbloqueo_puerta_1", True)
@@ -235,10 +267,26 @@ class SetOutput:
         self._salida("agua_chaqueta", False)
         
     def agua_intercambiador_on(self):
-        self._salida("agua_intercambiador", True)
+        """Petición del control de drenaje (CicloState, PREPARACION,
+        PREPARADO); el vacío usa vacio_camara_on/off (AJ-02)."""
+        self._agua_por_drenaje = True
+        self._aplicar_agua()
         
     def agua_intercambiador_off(self):
-        self._salida("agua_intercambiador", False)
+        """Retira la petición del drenaje; el agua sigue encendida si el
+        vacío de la cámara la pide (AJ-02)."""
+        self._agua_por_drenaje = False
+        self._aplicar_agua()
+
+    def _aplicar_agua(self):
+        """AJ-02: una sola orden al canal con el OR de las dos peticiones
+        (respeta inhibidas, canales bloqueados y paro, como toda salida)."""
+        self._salida(_AGUA_INTERCAMBIADOR, self._agua_por_vacio or self._agua_por_drenaje)
+
+    @property
+    def peticiones_agua_intercambiador(self) -> dict:
+        """AJ-02: peticiones vigentes (diagnóstico y pruebas)."""
+        return {"vacio": self._agua_por_vacio, "drenaje": self._agua_por_drenaje}
         
     def agua_bomba_on(self):
         self._salida("agua_bomba", True)
@@ -313,6 +361,11 @@ class SetOutput:
             for channel in sorted(set(_CANALES_APAGADO_BASE)
                                   | {i + 1 for i in EstadoAutoclave.map_do.values()}):
                 self.io.set_output(channel, False)
+        # AJ-02: con todo apagado (confirmado o por órdenes individuales) no
+        # queda ninguna petición de agua; sus dueños la vuelven a pedir en el
+        # tick siguiente si hace falta (el drenaje reafirma cada tick)
+        self._agua_por_vacio = False
+        self._agua_por_drenaje = False
         return ok
 
     def apagar_por_paro(self, inmediato: bool = False) -> bool | None:
