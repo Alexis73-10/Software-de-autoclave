@@ -33,11 +33,19 @@
 #   - ADB-01: la lista de esclavos 0x0C80 incluye las E/S del principal como
 #     esclavo ID 0; se esperan los IDs 0..n-1 de composicion_esperada y el
 #     ID n debe ser NONE.
-#   - ADB-02: el firmware se compara solo por la parte de versión (byte bajo
-#     de 0x0C1F y de cada 0x0D80; texto 0x0C2C «<producto>-<x>-<versión>» del
-#     principal si se puede leer). Regla: cada esclavo <= principal. Es una
-#     simplificación: la tabla de compatibilidad del manual (cap. 6) no es
-#     monótona.
+#   - ADB-02, corregido el 28-oct (FW-INF, alpha.4 en el equipo de pruebas):
+#     0x0C1F y 0x0D80 codifican la versión como «vX.Y» (byte alto = parte
+#     antes del punto, byte bajo = después; manual del principal V1.4, tabla
+#     4.10: 0x0103 = v1.3), no como el último número del texto de firmware.
+#     El equipo real dio principal 0x0103 y esclavos 0x0100 x4 y 0x0000, y la
+#     lectura del byte bajo los declaraba «ilegibles» en cualquier caso.
+#     La comprobación de firmware queda solo INFORMATIVA (log, diagnóstico e
+#     Información del sistema; nunca TARJETA_VERSION_INCOMPATIBLE): el
+#     manual de expansiones (6.3, punto 3) indica que con firmware
+#     incompatible el conjunto no arranca, así que la compatibilidad la
+#     impone el propio hardware. La composición (modelos y orden) sigue
+#     bloqueando. Aprobado por Cristian el 28-oct; pendiente de M-2 saber a
+#     qué esclavo corresponde cada posición de 0x0D80.
 #   - ADB-04 (decisión 8): la configuración de seguridad se lee antes de
 #     escribirla; si hubo que escribir algún bloque, 0F de apagado, reinicio
 #     del módulo (0x0C1D = 0x5BB5), espera, reconexión, nueva lectura de la
@@ -61,7 +69,6 @@
 
 from __future__ import annotations
 
-import re
 import threading
 import time
 from datetime import datetime
@@ -177,22 +184,19 @@ def _s16(v: int) -> int:
     return v - 0x10000 if v & 0x8000 else v
 
 
-def _version(reg: int) -> int:
-    """ADB-02: la versión es el byte bajo del registro (0x0C1F, 0x0D80); el
-    byte alto no se compara (0 = ilegible)."""
-    return reg & 0xFF
-
-
-# ADB-02: «<producto>-<x>-<versión>», p. ej. 9232-0-13.
-_RE_FW_TEXTO = re.compile(r"^\d+-\d+-(\d+)$")
-
-
-def version_de_texto(texto: Optional[str]) -> Optional[int]:
-    """Versión del texto de firmware 0x0C2C, o None si no tiene la forma."""
-    if not texto:
+def version_registro(reg: Optional[int]) -> Optional[tuple[int, int]]:
+    """FW-INF: 0x0C1F / 0x0D80 dan «vX.Y» (byte alto X, byte bajo Y; manual
+    del principal, tabla 4.10). 0 o sin dato -> None (sin versión)."""
+    if not reg:
         return None
-    m = _RE_FW_TEXTO.match(texto.strip())
-    return int(m.group(1)) if m else None
+    reg &= 0xFFFF
+    return (reg >> 8, reg & 0xFF)
+
+
+def etiqueta_version(v: Optional[tuple[int, int]]) -> str:
+    """Texto ASCII de una versión de registro: «v1.3», o «-» sin versión
+    (ASCII porque el rol configurar-modulo lo entrega a Inno Setup)."""
+    return f"v{v[0]}.{v[1]}" if v else "-"
 
 
 def texto_a_registros(texto: str, n: int) -> list[int]:
@@ -1005,7 +1009,8 @@ class ModbusLink:
                                 "Composición de módulos distinta de la esperada: "
                                 + "; ".join(problemas) + ".", "composicion")
 
-        # 2c. Firmware (ADB-02): solo la parte de versión; cada esclavo <= principal.
+        # 2c. Firmware (FW-INF, corrige ADB-02): solo informativo. Se lee y
+        # se publica; nunca bloquea la conexión (ver cabecera).
         fw_p = self._paso_tx(fin, "firmware", self._leer_holding, REG_FW_PRINCIPAL, 1)[0]
         fw_e = self._paso_tx(fin, "firmware", self._leer_holding, REG_FW_ESCLAVOS, n)
         texto_fw = None
@@ -1013,35 +1018,30 @@ class ModbusLink:
             texto_fw = _registros_a_texto(self._leer_holding(REG_FW_TEXTO, N_FW_TEXTO))
         except _FalloTransaccion as e:
             logger.info("ModbusLink: no se pudo leer el texto de firmware 0x0C2C (%s)", e)
-        v_p = _version(fw_p)
-        v_e = [_version(r) for r in fw_e]
-        v_texto = version_de_texto(texto_fw)
-        if texto_fw and v_texto is None:
-            logger.warning("ModbusLink: texto de firmware 0x0C2C con formato inesperado: %r",
-                           texto_fw)
-        if v_texto is not None and v_p != 0 and v_texto != v_p:
-            # DECISIÓN SIN CONFIRMAR (banco M-2): prevalece el texto.
-            logger.warning("ModbusLink: la versión del texto 0x0C2C (%s -> %d) no coincide con "
-                           "el byte bajo de 0x0C1F (0x%04X -> %d); prevalece el texto",
-                           texto_fw, v_texto, fw_p, v_p)
-            v_p = v_texto
-        etiqueta_p = texto_fw if v_texto is not None else str(v_p)
-        version = f"{etiqueta_p} / " + ",".join(str(v) for v in v_e)
+        v_p = version_registro(fw_p)
+        v_e = [version_registro(r) for r in fw_e]
+        etiqueta_p = texto_fw or etiqueta_version(v_p)
+        exp = [etiqueta_version(v) for v in v_e]
+        version = f"{etiqueta_p} / " + ",".join(exp)
+        # Comparación informativa (manual: principal >= cada expansión);
+        # None si falta alguna versión para comparar.
+        if v_p is None or any(v is None for v in v_e):
+            compatible = None
+        else:
+            compatible = all(v <= v_p for v in v_e)
         with self.data_lock:
             self._modulos["firmware"] = {
-                "principal": etiqueta_p, "expansiones": [str(v) for v in v_e],
-                "crudo_principal": fw_p, "crudo_expansiones": list(fw_e),
-                "texto_principal": texto_fw}
-        if v_p == 0 or any(v == 0 for v in v_e):
-            logger.warning("ModbusLink: firmware con formato inesperado: principal=0x%04X "
-                           "esclavos=%s", fw_p, [f"0x{r:04X}" for r in fw_e])
-            raise FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
-                                "Versión de firmware ilegible en los módulos.", "firmware")
-        nuevos = [f"esclavo ID {i} v{v}" for i, v in enumerate(v_e) if v > v_p]
-        if nuevos:
-            raise FalloConexion("TARJETA_VERSION_INCOMPATIBLE",
-                                f"El firmware del principal (v{v_p}) es más antiguo que el "
-                                f"de: {', '.join(nuevos)}.", "firmware")
+                "principal": etiqueta_p, "registro_principal": etiqueta_version(v_p),
+                "expansiones": exp, "crudo_principal": fw_p,
+                "crudo_expansiones": list(fw_e), "texto_principal": texto_fw,
+                "compatible": compatible}
+        logger.info("ModbusLink: firmware (informativo) principal %s (0x0C1F=0x%04X, %s), "
+                    "esclavos %s (0x0D80=%s)", texto_fw or "-", fw_p, etiqueta_version(v_p),
+                    ",".join(exp), [f"0x{r:04X}" for r in fw_e])
+        if compatible is False:
+            logger.warning("ModbusLink: firmware de algún esclavo mayor que el del principal "
+                           "(%s frente a %s); solo informativo: el M31 no arranca con una "
+                           "combinación incompatible", ",".join(exp), etiqueta_version(v_p))
 
         # MAC (ADB-03: el ID del equipo es la MAC sin separadores)
         mac_regs = self._paso_tx(fin, "MAC", self._leer_holding, REG_MAC, 3)

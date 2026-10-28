@@ -30,9 +30,10 @@
 #     orden y no reinicia) y `rechaza_reinicio` (respuesta de excepción),
 #     corrector r1 de la tanda 20 (V20-s1-01);
 #   - composición real del banco (tanda 20, ADB-01/02): principal
-#     M31-XAXX0A00G-U, firmware 0x000D y texto 0x0C2C «9232-0-13»; esclavos
-#     ID 0..4 GXAXX0A00, GAXXXA000, GXXAX00A0, GXXAX00A0, GXDXX0600 con
-#     versiones 10, 12, 12, 12, 10;
+#     M31-XAXX0A00G-U, texto 0x0C2C «9232-0-13»; esclavos ID 0..4 GXAXX0A00,
+#     GAXXXA000, GXXAX00A0, GXXAX00A0, GXDXX0600. Firmware en registros con
+#     los valores leídos en el equipo de pruebas el 28-oct (FW-INF):
+#     0x0C1F = 0x0103 (v1.3) y 0x0D80 = 0x0100 x4 y 0x0000;
 #   - usuario y contraseña de la web (0x758B, 5 registros; 0x7590, 3
 #     registros; 2 ASCII por registro, byte alto primero, relleno NUL;
 #     DECISIÓN SIN CONFIRMAR hasta leerlos en el banco);
@@ -92,9 +93,9 @@ MODELO_PRINCIPAL_DEFECTO = "M31-XAXX0A00G-U"
 MODELOS_ESCLAVOS_DEFECTO = ("M31-GXAXX0A00-U", "M31-GAXXXA000-U", "M31-GXXAX00A0-U",
                             "M31-GXXAX00A0-U", "M31-GXDXX0600-U")
 # ADB-02: versión en el byte bajo; texto completo del principal en 0x0C2C.
-FW_DEFECTO = 0x000D                # principal 9232-0-13
+FW_DEFECTO = 0x0103                # principal v1.3 (texto 9232-0-13); FW-INF
 FW_TEXTO_DEFECTO = "9232-0-13"
-FW_ESCLAVOS_DEFECTO = (10, 12, 12, 12, 10)
+FW_ESCLAVOS_DEFECTO = (0x0100, 0x0100, 0x0100, 0x0100, 0x0000)   # leído en el equipo, 28-oct
 USUARIO_WEB_DEFECTO = "admin"
 CLAVE_WEB_DEFECTO = "Ficti1"       # contraseña ficticia de prueba
 VALOR_0C37_INICIAL = 100

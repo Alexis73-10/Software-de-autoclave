@@ -10,7 +10,7 @@ import pytest
 
 from autoclave.protocols import modbus_link_config as mc
 from autoclave.protocols.modbus_link import (
-    ModbusLink, texto_a_registros, version_de_texto, _registros_a_texto)
+    ModbusLink, texto_a_registros, version_registro, etiqueta_version, _registros_a_texto)
 from tests.helpers import m31_simulado as m31
 from tests.helpers.m31_simulado import M31Simulado, TickLazo, config_para, esperar
 
@@ -92,7 +92,7 @@ def test_composicion_interna_y_del_archivo():
 @pytest.mark.req("ADB-02")
 def test_composicion_real_del_banco_conecta(sim, crear):
     sim.fijar_modelos("M31-XAXX0A00G-U", COMPOSICION_REAL)
-    sim.fijar_firmware(0x000D, [10, 12, 12, 12, 10])
+    sim.fijar_firmware(0x0103, [0x0100, 0x0100, 0x0100, 0x0100, 0x0000])
     sim.fijar_firmware_texto("9232-0-13")
     lecturas = []
     enlace = crear(arrancar=False)
@@ -100,7 +100,7 @@ def test_composicion_real_del_banco_conecta(sim, crear):
     enlace._leer_holding = lambda d, n: (lecturas.append((d, n)), original(d, n))[1]
     enlace.start()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-13 / 10,12,12,12,10"
+    assert enlace.tarjeta()["version"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"
     # Se leen los esclavos ID 0..5 (el 5 debe ser NONE) y no más
     leidos = {d for d, n in lecturas if n == 8 and d >= m31.MODELO_ESCLAVOS}
     assert leidos == {m31.MODELO_ESCLAVOS + 8 * i for i in range(6)}
@@ -138,71 +138,76 @@ def test_orden_o_negociacion_da_modulos_orden(sim, crear, codigo, negociacion):
 
 
 # ---------------------------------------------------------------------------
-# ADB-02 · Firmware solo por la versión
+# ADB-02 corregido (FW-INF, 28-oct): versión «vX.Y» en registros y
+# comprobación de firmware solo informativa
 # ---------------------------------------------------------------------------
 
-@pytest.mark.req("T20-02")
 @pytest.mark.req("ADB-02")
-def test_version_de_texto():
-    assert version_de_texto("9232-0-13") == 13
-    assert version_de_texto("9304-0-10") == 10
-    assert version_de_texto("9232-13") is None
-    assert version_de_texto("v1.5") is None
-    assert version_de_texto(None) is None
+@pytest.mark.req("FW-INF")
+def test_version_registro():
+    # Manual del principal, tabla 4.10: byte alto antes del punto, bajo después
+    assert version_registro(0x0103) == (1, 3)
+    assert version_registro(0x0100) == (1, 0)
+    assert version_registro(0) is None and version_registro(None) is None
+    assert etiqueta_version((1, 3)) == "v1.3" and etiqueta_version(None) == "-"
     assert _registros_a_texto(texto_a_registros("9232-0-13", 8)) == "9232-0-13"
 
 
-@pytest.mark.req("T20-02")
 @pytest.mark.req("ADB-02")
-def test_esclavo_mas_nuevo_que_el_principal_es_incompatible(sim, crear):
-    sim.fijar_firmware(0x000D, [10, 12, 14, 12, 10])
-    enlace = crear()
-    al = _primera_alarma(enlace)
-    assert al.alarm_id == "TARJETA_VERSION_INCOMPATIBLE"
-    assert "esclavo ID 2 v14" in al.motivo and "v13" in al.motivo
-
-
-@pytest.mark.req("T20-02")
-@pytest.mark.req("ADB-02")
-def test_byte_alto_y_prefijo_no_se_comparan(sim, crear):
-    # El byte alto (distinto en cada esclavo) no cuenta: solo el bajo.
-    sim.fijar_firmware(0x000D, [0x7F0A, 0x010C, 0x020C, 0x030C, 0x000A])
+@pytest.mark.req("FW-INF")
+def test_valores_del_equipo_real_conectan(sim, crear):
+    # Lo que leyó la alpha.4 en el equipo de pruebas el 28-oct, que antes
+    # daba TARJETA_VERSION_INCOMPATIBLE «ilegible».
+    sim.fijar_firmware(0x0103, [0x0100, 0x0100, 0x0100, 0x0100, 0x0000])
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-13 / 10,12,12,12,10"
+    assert enlace.tarjeta()["version"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"
     fw = enlace.get_diagnostico()["modulos"]["firmware"]
-    assert fw["crudo_expansiones"] == [0x7F0A, 0x010C, 0x020C, 0x030C, 0x000A]
-    assert fw["crudo_principal"] == 0x000D and fw["texto_principal"] == "9232-0-13"
+    assert fw == {"principal": "9232-0-13", "registro_principal": "v1.3",
+                  "expansiones": ["v1.0", "v1.0", "v1.0", "v1.0", "-"],
+                  "crudo_principal": 0x0103,
+                  "crudo_expansiones": [0x0100, 0x0100, 0x0100, 0x0100, 0x0000],
+                  "texto_principal": "9232-0-13", "compatible": None}
 
 
-@pytest.mark.req("T20-02")
 @pytest.mark.req("ADB-02")
-def test_texto_distinto_del_byte_bajo_prevalece_el_texto(sim, crear, caplog):
-    # DECISIÓN SIN CONFIRMAR (M-2): 0x0C1F dice 11, el texto dice 13.
-    sim.fijar_firmware(0x000B, [10, 12, 12, 12, 10])
+@pytest.mark.req("FW-INF")
+def test_esclavo_mas_nuevo_solo_avisa(sim, crear, caplog):
+    sim.fijar_firmware(0x0103, [0x0100, 0x0102, 0x0105, 0x0100, 0x0100])
     with caplog.at_level(logging.WARNING, logger="autoclave"):
         enlace = crear()
         _conectado(enlace)
-    assert "prevalece el texto" in caplog.text
-    assert enlace.tarjeta()["version"] == "9232-0-13 / 10,12,12,12,10"
+    assert "solo informativo" in caplog.text
+    assert "TARJETA_VERSION_INCOMPATIBLE" not in caplog.text
+    assert enlace.get_diagnostico()["modulos"]["firmware"]["compatible"] is False
 
 
-@pytest.mark.req("T20-02")
 @pytest.mark.req("ADB-02")
-def test_sin_texto_usa_el_byte_bajo(sim, crear):
+@pytest.mark.req("FW-INF")
+def test_firmware_compatible(sim, crear):
+    sim.fijar_firmware(0x0103, [0x0100, 0x0102, 0x0102, 0x0102, 0x0100])
+    enlace = crear()
+    _conectado(enlace)
+    assert enlace.get_diagnostico()["modulos"]["firmware"]["compatible"] is True
+
+
+@pytest.mark.req("ADB-02")
+@pytest.mark.req("FW-INF")
+def test_sin_texto_usa_el_registro(sim, crear):
     sim.fijar_firmware_texto("")
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "13 / 10,12,12,12,10"
+    assert enlace.tarjeta()["version"] == "v1.3 / v1.0,v1.0,v1.0,v1.0,-"
 
 
-@pytest.mark.req("T20-02")
 @pytest.mark.req("ADB-02")
-def test_byte_bajo_cero_es_ilegible_aunque_haya_texto(sim, crear):
-    sim.fijar_firmware(0x0D00, [10, 12, 12, 12, 10])
+@pytest.mark.req("FW-INF")
+def test_firmware_en_cero_no_bloquea(sim, crear):
+    # Antes «ilegible» -> TARJETA_VERSION_INCOMPATIBLE; ahora solo se informa.
+    sim.fijar_firmware(0x0000, [0, 0, 0, 0, 0])
     enlace = crear()
-    al = _primera_alarma(enlace)
-    assert al.alarm_id == "TARJETA_VERSION_INCOMPATIBLE" and "ilegible" in al.motivo
+    _conectado(enlace)
+    assert enlace.tarjeta()["version"] == "9232-0-13 / -,-,-,-,-"
 
 
 # ---------------------------------------------------------------------------

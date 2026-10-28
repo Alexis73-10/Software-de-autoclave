@@ -37,7 +37,7 @@ class EnlaceDoble:
         self.ordenes: list[tuple[int, bool]] = []
         self._atascadas: dict[int, bool] = {}
         self._eventos: list[EventoTarjeta] = []
-        self._tarjeta = {"version": "13 / 10,12,12,12,10", "protocolo": "modbus-tcp", "id": mac}
+        self._tarjeta = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp", "id": mac}
         self._seq_di = 0
         self._seq_ai = 0
         self._t_di: Optional[float] = None

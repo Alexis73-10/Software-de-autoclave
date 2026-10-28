@@ -66,7 +66,7 @@ def test_rol_correcto_json_completo(sim, correr):
     assert res["composicion"] == ("M31-GXAXX0A00-U,M31-GAXXXA000-U,M31-GXXAX00A0-U,"
                                   "M31-GXXAX00A0-U,M31-GXDXX0600-U")
     assert res["n_modulos"] == 5
-    assert res["firmware"] == "9232-0-13 / 10,12,12,12,10"
+    assert res["firmware"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"   # FW-INF
     assert res["mac"] == "005404849DB1" and res["clave_cambiada"] is False
     assert "005404849DB1" in res["texto_es"] and "005404849DB1" in res["texto_en"]
     assert res["accion_es"] == "" and res["accion_en"] == ""
@@ -93,7 +93,6 @@ def test_rol_composicion_distinta(sim, correr):
 @pytest.mark.req("T20-04")
 @pytest.mark.parametrize("preparar,codigo_esperado", [
     (lambda s: s.orden_incorrecto(codigo=True), "orden"),
-    (lambda s: s.fijar_firmware(0x000D, [10, 14, 12, 12, 10]), "firmware"),
     (lambda s: s.expansor_sin_respuesta(1), "expansor"),
 ])
 def test_rol_otros_fallos_de_identidad(sim, correr, preparar, codigo_esperado):

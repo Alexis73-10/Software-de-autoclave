@@ -138,9 +138,9 @@ def test_conexion_correcta(sim, crear):
     enlace.start()
     eventos = _conectado(enlace)
     assert [(e.origen, e.alarm_id) for e in eventos] == [("conectada", None)]
-    # ADB-02 (adenda_tanda_19_banco.md): versión = texto 0x0C2C del principal
-    # y byte bajo de cada esclavo (antes "1.5 / 1.5, 1.5, 1.5, 1.5").
-    tarjeta = {"version": "9232-0-13 / 10,12,12,12,10", "protocolo": "modbus-tcp",
+    # FW-INF (corrige ADB-02, 28-oct): texto 0x0C2C del principal y «vX.Y»
+    # de cada esclavo según 0x0D80 (valores reales del equipo de pruebas).
+    tarjeta = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp",
                "id": "A1B2C3D4E5F6"}
     assert enlace.tarjeta() == tarjeta
     # al_conectar corre antes de que se encole "conectada"
@@ -180,10 +180,13 @@ def test_conexion_correcta(sim, crear):
     assert diag["modulos"]["mac"] == "A1B2C3D4E5F6"
     # ADB-02: solo la parte de versión, con los crudos (antes
     # {"principal": "1.5", "expansiones": ["1.5"] * 4}).
+    # FW-INF (28-oct): versión «vX.Y» en registros, solo informativa.
     assert diag["modulos"]["firmware"] == {
-        "principal": "9232-0-13", "expansiones": ["10", "12", "12", "12", "10"],
-        "crudo_principal": 0x000D, "crudo_expansiones": [10, 12, 12, 12, 10],
-        "texto_principal": "9232-0-13"}
+        "principal": "9232-0-13", "registro_principal": "v1.3",
+        "expansiones": ["v1.0", "v1.0", "v1.0", "v1.0", "-"],
+        "crudo_principal": 0x0103,
+        "crudo_expansiones": [0x0100, 0x0100, 0x0100, 0x0100, 0x0000],
+        "texto_principal": "9232-0-13", "compatible": None}
     assert diag["modulos"]["modelos"]["principal"] == "M31-XAXX0A00G-U"
 
 
@@ -245,13 +248,8 @@ def test_sin_respuesta_modbus_da_sin_trama_valida(sim, crear):
      "TARJETA_VERSION_INCOMPATIBLE"),
     (lambda s: s.holding.__setitem__(m31.MODELO_PRINCIPAL, 0x0001),
      "TARJETA_VERSION_INCOMPATIBLE"),
-    # ADB-02: solo la versión (byte bajo / texto 0x0C2C), 5 esclavos (antes
-    # tuplas mayor.menor con 4 expansiones): un esclavo más nuevo que el
-    # principal y un esclavo con versión ilegible (0).
-    (lambda s: s.fijar_firmware(0x000D, [10, 14, 12, 12, 10]),
-     "TARJETA_VERSION_INCOMPATIBLE"),
-    (lambda s: s.fijar_firmware(0x000D, [10, 0, 12, 12, 10]),
-     "TARJETA_VERSION_INCOMPATIBLE"),
+    # FW-INF (28-oct): el firmware ya no bloquea (solo informativo); se
+    # retiraron los casos de esclavo más nuevo y de versión 0.
     (lambda s: s.registros_ignorados.add(m31.MODO_FALLA), "TARJETA_CONFIG_SEGURIDAD"),
     (lambda s: s.registros_ignorados.add(m31.PT_FILTRO + 5), "TARJETA_CONFIG_SEGURIDAD"),
 ])
@@ -271,13 +269,14 @@ def test_cada_paso_fallido_con_su_alarma(sim, crear, preparar, alarma):
 
 @pytest.mark.req("MOD-06")
 def test_firmware_principal_mas_nuevo_es_valido(sim, crear):
-    # ADB-02: se compara solo la versión (antes 0x0201 contra tuplas 1.5/2.0,
-    # "2.1 / 1.5, 1.5, 2.0, 1.5"); un esclavo igual al principal es válido.
-    sim.fijar_firmware(0x0010, [10, 12, 16, 12, 10])
+    # FW-INF: versión «vX.Y» en registros; un esclavo igual al principal es
+    # válido y se marca compatible.
+    sim.fijar_firmware(0x0200, [0x0100, 0x0105, 0x0200, 0x0105, 0x0100])
     sim.fijar_firmware_texto("9232-0-16")
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-16 / 10,12,16,12,10"
+    assert enlace.tarjeta()["version"] == "9232-0-16 / v1.0,v1.5,v2.0,v1.5,v1.0"
+    assert enlace.get_diagnostico()["modulos"]["firmware"]["compatible"] is True
 
 
 @pytest.mark.req("MOD-07")

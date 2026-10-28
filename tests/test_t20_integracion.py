@@ -107,7 +107,7 @@ def test_backend_completo_composicion_real_y_reinicio_del_modulo(planta, sim):
     st = client.get("/status").json()
     assert st["enlace_io"] == "modbus"
     assert st["tarjeta"]["id"] == MAC_BANCO                                    # ADB-03
-    assert st["tarjeta"]["version"] == "9232-0-13 / 10,12,12,12,10"            # ADB-02
+    assert st["tarjeta"]["version"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"  # ADB-02, FW-INF
     assert st["comunicacion"]["modulos"]["enlace"] == "modbus"
 
     assert esperar(lambda: abs((ctx.estado.sensores_temp.get("temp_camara") or 0) - 134.2) < 0.3,
