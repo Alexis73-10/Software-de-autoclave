@@ -9,6 +9,39 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.8 — 2026-10-28
+
+- Etiqueta: `v1.0.0-alpha.8` (commit `chore(ver): 1.0.0-alpha.8`, sobre `3531c19`)
+- AppVerNum: `1.0.0.1008`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.8_2026-10-28/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.7`:
+  - 81876fe docs(t21): suite completa
+  - 698292b test(t21-R): pruebas de Referencia sin lectura con carga sólida explícita
+  - 2fa7e97 docs(t21): estado tras R
+  - 2c58ff9 fix(t21-R): correcciones de la revisión de seguridad
+  - 689f712 docs(t21): estado tras G
+  - 8835507 test(t21-G): arnés PruebaFinDeCiclo y capturas a 800x1280 de los mockups
+  - 7e9ae70 docs(t21): estado tras la ola 2
+  - 385025b feat(t21-ola2): observación en el correo, modal que se ensancha y prueba de la pantalla final
+  - 595744b feat(t21-ola2): preciclo con indicador de puerta sin actuador y modal sin registro
+  - 2487b8e feat(t21-ola2): pantalla de ciclo con panel de fin de ciclo, modales y token al cancelar
+  - be3f96c docs(t21): estado tras unir P1
+  - eb519b0 docs(t21): FC-08 riesgo aceptado (HAZ-T21-01) y CLAUDE.md sin NO CONFORME
+  - 6286d70 feat(t21): FC-06/11/12/13 datos de fin de ciclo en el backend
+  - 05863c2 feat(t21): FC-08 Referencia sin lectura como observacion; CIC-19 en liquidos
+  - 84f2500 docs(t21): estado tras unir P4
+  - 104521e test(ui): FC-10 textos de botones y diálogos caben en es y en
+  - 7824392 fix(ui): FC-10 textos de botón que nunca se salen (SeccionEstadoSeguro, BotonFormulario, SelectorSegmentos)
+  - 741ae83 fix(ui): FC-10 botones de DialogoConfirmacion y PanelModal se ensanchan con su texto
+  - 99ff54d docs(t21): estado tras unir P2
+  - fa3c4e5 feat(t21-p2): componentes QML de fin de ciclo
+  - f7cdb33 docs(t21): estado tras unir P3
+  - a190e70 feat(t21-p3): IndicadorPuerta.qml para puerta sin actuador (FC-11)
+  - 201ae56 fix(t21): FC-03 toda alarma en CICLO queda con su ciclo_id
+  - f0aa5f7 docs(t21): estado.md con las verificaciones de A0
+  - 86b0752 docs(t21): spec de fin de ciclo, prompt y mockups
+
+
 ## 1.0.0-alpha.7 — 2026-10-28
 
 - Etiqueta: `v1.0.0-alpha.7` (commit `chore(ver): 1.0.0-alpha.7`, sobre `42c889d`)
