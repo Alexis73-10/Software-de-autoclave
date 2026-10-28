@@ -115,10 +115,25 @@ def _no_conforme_json(fila) -> dict:
     """{"no_conforme": True, "motivo_no_conforme": clave} de un ciclo guardado
     (fila de `ciclos`) que quedó NO CONFORME; {} si es conforme, para que la
     respuesta de un ciclo conforme no cambie (DECISIÓN SIN CONFIRMAR: los
-    clientes leen `no_conforme is True`). Nunca lanza."""
-    if not _ciclo_no_conforme(fila):
-        return {}
-    return {"no_conforme": True, "motivo_no_conforme": _CLAVE_NO_CONFORME}
+    clientes leen `no_conforme is True`). Nunca lanza.
+
+    FC-08 (tanda 21): los ciclos nuevos ya no quedan NO CONFORME; si tuvieron
+    una Referencia sin lectura llevan `observaciones` [{sensor, hora, fase}]
+    (fase de la UI o None), también solo cuando las hay."""
+    salida = {}
+    if _ciclo_no_conforme(fila):
+        salida.update({"no_conforme": True, "motivo_no_conforme": _CLAVE_NO_CONFORME})
+    try:
+        from autoclave.core.runtime import progreso_ciclo
+        from autoclave.services.domain.logging.ticket_formatter import (
+            leer_avisos_ticket)
+        _, avisos = leer_avisos_ticket(fila["avisos_ticket"])
+        observaciones = progreso_ciclo.observaciones_de_avisos(avisos)
+    except Exception:
+        observaciones = []
+    if observaciones:
+        salida["observaciones"] = observaciones
+    return salida
 
 
 def _p_atm_vigente():
@@ -243,37 +258,45 @@ import importlib as _importlib  # noqa: E402
 _reasignacion = _importlib.import_module("autoclave.backend.server_reasignacion")
 
 
-# ── P4 (tanda 16, D-14.4): NO CONFORME del ciclo en curso ──────────────
+# ── P4 (tanda 16, D-14.4): NO CONFORME de ciclos guardados (solo lectura) ─
+# FC-08 (tanda 21): el ciclo en curso ya no se marca NO CONFORME (se
+# retiraron _no_conforme_vigente/_no_conforme_status y los campos de /status
+# y del progreso); los ciclos guardados con la marca se siguen mostrando.
 
 from autoclave.services.domain.logging.ticket_formatter import (  # noqa: E402
     CLAVE_NO_CONFORME as _CLAVE_NO_CONFORME, ciclo_no_conforme as _ciclo_no_conforme)
 
 
-def _no_conforme_vigente(estado) -> bool:
-    """El ciclo en curso (o recién terminado) está NO CONFORME: la bandera que
-    publica CicloState o, por defensa en profundidad, su aviso en
-    estado.avisos_ciclo (por si la bandera no se pudo publicar). Solo True
-    estricto: un doble de prueba sin el atributo no cuenta."""
-    if getattr(estado, "no_conforme", False) is True:
-        return True
-    avisos = getattr(estado, "avisos_ciclo", None)
-    if not isinstance(avisos, list):
-        return False
-    return any(isinstance(a, dict) and a.get("clave") == _CLAVE_NO_CONFORME for a in avisos)
+# ── FC-06/FC-13 (tanda 21): datos de la pantalla de fin de ciclo ─────────
 
-
-def _no_conforme_reconocido(estado) -> bool:
-    return getattr(estado, "no_conforme_reconocido", False) is True
-
-
-def _no_conforme_status(estado) -> dict:
-    """Campos NO CONFORME de /status y de /cycle/current/progress."""
-    nc = _no_conforme_vigente(estado)
-    motivo = getattr(estado, "motivo_no_conforme", "") if nc else ""
-    if nc and not (isinstance(motivo, str) and motivo):
-        motivo = _CLAVE_NO_CONFORME
-    return {
-        "no_conforme": nc,
-        "motivo_no_conforme": motivo if isinstance(motivo, str) else "",
-        "no_conforme_reconocido": nc and _no_conforme_reconocido(estado),
-    }
+def _terminacion_y_alarmas(ciclo_id, fase_ciclo, progreso) -> dict:
+    """{"terminacion": ..., "alarmas_ciclo": [...]} del ciclo terminado que
+    muestra la pantalla (ver progreso_ciclo.armar_terminacion y
+    alarmas_del_ciclo). Nunca lanza: ante un error de la base, alarmas_ciclo
+    queda vacía y el error en el log."""
+    from autoclave.core.runtime import progreso_ciclo
+    estado = context.estado
+    logger_svc = getattr(context, "cycle_logger", None)
+    hora_fin = getattr(logger_svc, "hora_fin_pantalla", None) if logger_svc else None
+    if not isinstance(hora_fin, str):
+        hora_fin = None
+        try:
+            fila = context.db.get_ciclo(ciclo_id)
+            hora_fin = fila["fecha_fin"] if fila is not None else None
+        except Exception:
+            hora_fin = None
+    terminacion = progreso_ciclo.armar_terminacion(
+        fase_ciclo, progreso.get("fase_terminacion"),
+        getattr(estado, "codigo_fallo", None), getattr(estado, "valores_fallo", None),
+        getattr(estado, "motivo_fallo", None), hora_fin,
+        getattr(estado, "cancelado_por", None), getattr(estado, "avisos_ciclo", None))
+    try:
+        filas = context.db.get_alarmas_de_ciclo(ciclo_id)
+        if not isinstance(filas, list):
+            filas = []
+    except Exception:
+        logger.exception("/cycle/current/progress: no se pudieron leer las alarmas del ciclo")
+        filas = []
+    causa = terminacion.get("codigo") if terminacion else None
+    return {"terminacion": terminacion,
+            "alarmas_ciclo": progreso_ciclo.alarmas_del_ciclo(filas, causa)}

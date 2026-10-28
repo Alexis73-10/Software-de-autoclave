@@ -894,16 +894,6 @@
   "response_model": null
  },
  {
-  "path": "/cycle/acknowledge-no-conforme",
-  "methods": [
-   "POST"
-  ],
-  "name": "acknowledge_no_conforme",
-  "dependencias": [],
-  "status_code": null,
-  "response_model": null
- },
- {
   "path": "/alarms/{clave}/acknowledge",
   "methods": [
    "POST"

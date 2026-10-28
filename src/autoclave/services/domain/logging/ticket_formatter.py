@@ -61,9 +61,10 @@ _RESULTADOS = ("COMPLETADO", "CANCELADO", "INTERRUMPIDO", "EMERGENCIA", "FALLO",
 
 
 # P4 (tanda 16, D-14.4): marca NO CONFORME de un ciclo. Se reconoce por el
-# aviso que CicloState anota en estado.avisos_ciclo (C-13.7b) y que
+# aviso que CicloState anotaba en estado.avisos_ciclo (C-13.7b) y que
 # CycleLogger guarda en la columna avisos_ticket; no hay columna propia ni
 # resultado nuevo (el resultado técnico sigue siendo COMPLETADO).
+# FC-08 (tanda 21): ya no se escribe; solo lectura de ciclos guardados.
 CLAVE_NO_CONFORME = "ticket_ciclo.no_conforme_referencia"
 
 
@@ -86,6 +87,75 @@ def ciclo_no_conforme(ciclo) -> bool:
     except Exception:
         return False
     return avisos_no_conforme(avisos)
+
+
+# FC-08 (tanda 21): observación del ciclo por una Referencia sin lectura (carga
+# sólida). Reemplaza la marca NO CONFORME para los ciclos nuevos; los guardados
+# con CLAVE_NO_CONFORME se siguen leyendo e imprimiendo como quedaron.
+# Aviso: {"clave": CLAVE_OBSERVACION_REFERENCIA, "sensor", "hora" (HH:MM),
+# "fase" (fase del backend, p. ej. "ESTERILIZACION")}.
+CLAVE_OBSERVACION_REFERENCIA = "ticket_ciclo.observacion_referencia"
+# FC-12 (tanda 21): usuario identificado que canceló el ciclo. Aviso:
+# {"clave": CLAVE_CANCELADO_POR, "usuario"}.
+CLAVE_CANCELADO_POR = "ticket_ciclo.cancelado_por"
+
+
+def observaciones_referencia(avisos) -> list[dict]:
+    """FC-08: [{sensor, hora, fase}] de las observaciones de Referencia de una
+    lista de avisos, en orden. `fase` es la fase del backend tal como se
+    guardó ("" si no se conoce). Nunca lanza; entradas mal formadas se omiten."""
+    salida = []
+    try:
+        for a in avisos or []:
+            if not (isinstance(a, dict) and a.get("clave") == CLAVE_OBSERVACION_REFERENCIA):
+                continue
+            salida.append({"sensor": str(a.get("sensor") or ""),
+                           "hora": str(a.get("hora") or ""),
+                           "fase": str(a.get("fase") or "")})
+    except Exception:
+        return []
+    return salida
+
+
+def ciclo_observaciones(ciclo) -> list[dict]:
+    """FC-08: observaciones de Referencia de un ciclo guardado (columna
+    avisos_ticket). Nunca lanza."""
+    try:
+        _, avisos = leer_avisos_ticket(_campo(ciclo, "avisos_ticket"))
+    except Exception:
+        return []
+    return observaciones_referencia(avisos)
+
+
+def _fase_ticket(fase, p: Presentacion) -> str:
+    """Fase del backend en el idioma del ticket; sin traducción, tal cual."""
+    try:
+        from autoclave import i18n
+        clave = _SECCION + "fase." + str(fase)
+        if fase and i18n.existe(clave, p.idioma):
+            return i18n.t(clave, p.idioma)
+    except Exception:
+        pass
+    return str(fase or "---")
+
+
+def _linea_aviso(aviso, p: Presentacion) -> str:
+    """Una línea del pie para un aviso. La observación de Referencia (FC-08) y
+    el usuario que canceló (FC-12) llevan su propio rótulo en vez de «Aviso»."""
+    if isinstance(aviso, dict):
+        clave = aviso.get("clave")
+        try:
+            if clave == CLAVE_OBSERVACION_REFERENCIA:
+                from autoclave import i18n
+                texto = i18n.t(clave, p.idioma, sensor=aviso.get("sensor") or "---",
+                               hora=aviso.get("hora") or "--:--",
+                               fase=_fase_ticket(aviso.get("fase"), p))
+                return f"{_t(p, 'observacion')}: {texto}"
+            if clave == CLAVE_CANCELADO_POR:
+                return f"{_t(p, 'cancelado_por')}: {aviso.get('usuario') or '---'}"
+        except Exception:
+            return str(aviso)
+    return f"{_t(p, 'aviso')}: {aviso_ticket(aviso, p)}"
 
 
 def _t(p: Presentacion, clave: str, **params) -> str:
@@ -361,7 +431,7 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
             and sin_datos_s > 0):
         lines.append(f"{_t(p, 'sin_datos')}: {sin_datos_s:.0f} s")
     for aviso in avisos or []:
-        lines.append(f"{_t(p, 'aviso')}: {aviso_ticket(aviso, p)}")
+        lines.append(_linea_aviso(aviso, p))
     lines += [
         f"{_t(p, 'hora_fin')}: {hora_fin}",
         # O1 (tanda 3): el operador del ciclo; sin él queda la línea para firmar

@@ -31,7 +31,7 @@ from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.core.runtime.sensores_ciclo import (asignacion_de, canonica, f0_disponible,
                                                    sensor_principal)
 from autoclave.services.domain.logging.ticket_formatter import (
-    CLAVE_NO_CONFORME, avisos_no_conforme,
+    CLAVE_CANCELADO_POR,
     format_footer,
     format_header,
     format_row,
@@ -102,6 +102,38 @@ class _RegistroBD:
     def __init__(self):
         self.id: int | None = None
         self.fallido = False
+
+
+class CicloParaAlarma:
+    """FC-03 (tanda 21): referencia al ciclo de una alarma que aparece en CICLO,
+    tomada en el hilo que activa la alarma (ControlLoop o HTTP) sin esperar.
+    El id definitivo se resuelve después, en el hilo escritor del historial de
+    alarmas (`resolver`), con espera acotada: cubre el ciclo cuyo id aún no
+    fijó la tarea asíncrona que lo crea y el primer tick de CICLO, antes de que
+    el CycleLogger abra el registro."""
+    __slots__ = ("_logger", "_reg")
+
+    def __init__(self, logger_ciclo, reg):
+        self._logger = logger_ciclo
+        self._reg = reg      # None: el registro del ciclo aún no existe
+
+    def resolver(self, timeout: float = 5.0, paso: float = 0.02) -> int | None:
+        limite = time.monotonic() + timeout
+        while True:
+            reg = self._reg
+            if reg is None:
+                # primer tick de CICLO: el registro lo abre update() en el paso 6
+                reg = self._logger._reg
+                if reg is not None:
+                    self._reg = reg
+            if reg is not None:
+                if reg.id is not None:
+                    return reg.id
+                if reg.fallido:
+                    return None
+            if time.monotonic() >= limite:
+                return None
+            time.sleep(paso)
 
 
 class EscritorBD:
@@ -190,6 +222,8 @@ class CycleLogger:
         self._bd_avisada = False
         self._reg: _RegistroBD | None = None
         self._reg_cerrado: _RegistroBD | None = None   # ciclo ya cerrado, aún en CICLO
+        # FC-13 (tanda 21): hora de pared del cierre del ciclo en pantalla
+        self.hora_fin_pantalla: str | None = None
         self.uuid_ciclo: str | None = None
         self._numero_reservado: int | None = None
         self._numero_provisional: int | None = None   # TMG-01: contador no escribible
@@ -258,6 +292,7 @@ class CycleLogger:
                 self._on_fin(resultado)
             self._cierre_ya_procesado = False
             self._reg_cerrado = None
+            self.hora_fin_pantalla = None
             self._t0_mono = None
             self._t_fin_s = None
 
@@ -282,6 +317,27 @@ class CycleLogger:
         if self._ciclo_id is not None:
             return self._ciclo_id
         return self._reg_cerrado.id if self._reg_cerrado is not None else None
+
+    def ciclo_para_alarma(self):
+        """FC-03 (tanda 21): ciclo al que pertenece una alarma que aparece
+        ahora. Sin E/S ni espera (corre en el hilo que activa la alarma):
+        devuelve un int si el id ya se conoce, un `CicloParaAlarma` si falta
+        resolverlo (ciclo recién creado o primer tick de CICLO) y None fuera
+        de CICLO. Cubre también el ciclo ya cerrado que sigue en CICLO
+        esperando la confirmación (`_reg_cerrado`)."""
+        reg = self._reg if self._reg is not None else self._reg_cerrado
+        if reg is not None:
+            if reg.id is not None:
+                return reg.id
+            return None if reg.fallido else CicloParaAlarma(self, reg)
+        try:
+            en_ciclo = self.estado.get_machine_state() == GlobalState.CICLO
+        except Exception:
+            en_ciclo = False
+        # sin registro y ya activo: el inicio falló (sin base); nada que esperar
+        if en_ciclo and not self._cierre_ya_procesado and not self._activo:
+            return CicloParaAlarma(self, None)
+        return None
 
     def transcurrido_s(self) -> float | None:
         """Segundos monotónicos desde el inicio del ciclo, congelados al
@@ -453,6 +509,7 @@ class CycleLogger:
         self._fase_seguida       = None
         self._proxima_muestra_s  = None
         self._reg_cerrado        = None
+        self.hora_fin_pantalla   = None
 
         if self.printer is not None:
             meta = {
@@ -493,6 +550,8 @@ class CycleLogger:
                 self._bd("cerrar la fase", lambda i: self.db.cerrar_fase_abierta(i, t_fin),
                          presentacion=True)
             self._reg_cerrado = self._reg
+            # FC-13 (tanda 21): sello de pared del cierre, para la pantalla
+            self.hora_fin_pantalla = datetime.now().isoformat(timespec="seconds")
             # Última lectura con código E
             self._registrar_lectura("E", para_imprimir=True)
             motivo = getattr(self.estado, "motivo_fallo", "") or None
@@ -515,13 +574,11 @@ class CycleLogger:
             avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
                       if isinstance(a, str)
                       or (isinstance(a, dict) and isinstance(a.get("clave"), str))]
-            # P4 (tanda 16, D-14.4): defensa en profundidad. Si CicloState
-            # publicó NO CONFORME pero no alcanzó a anotar su aviso, se anota
-            # aquí para que la marca llegue igual al ticket, a la base y al
-            # respaldo (el historial la reconoce por esa clave)
-            if (getattr(self.estado, "no_conforme", False) is True
-                    and not avisos_no_conforme(avisos)):
-                avisos.append({"clave": CLAVE_NO_CONFORME, "sensor": "---"})
+            # FC-12 (tanda 21): el usuario identificado que canceló, en el
+            # ticket, la base y el respaldo (reimpresión idéntica)
+            cancelado_por = getattr(self.estado, "cancelado_por", None)
+            if resultado == "CANCELADO" and isinstance(cancelado_por, str) and cancelado_por:
+                avisos.append({"clave": CLAVE_CANCELADO_POR, "usuario": cancelado_por})
             avisos_ticket = ({"sin_datos_s": sin_datos_s, "avisos": list(avisos)}
                              if sin_datos_s is not None or avisos else None)
             # TMG-03 de T8: primero el respaldo, después la base

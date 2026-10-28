@@ -177,16 +177,17 @@ class EstadoAutoclave:
         # - inhibir_vapor_chaqueta: corte de chaqueta (D-CHQ / SAF-09) vigente en
         #   el tick; CICLO lo fija antes de fase.update() y las fases no
         #   encienden vapor_chaqueta mientras sea True;
-        # - no_conforme / motivo_no_conforme: ciclo NO CONFORME (C-13.7b, P4);
         # - modo_vapor: "chaqueta" / "camara" en ciclo (VCH-SEL), None fuera.
+        # FC-08 (tanda 21): no_conforme / motivo_no_conforme /
+        # no_conforme_reconocido (C-13.7b, P4) se retiraron; la Referencia sin
+        # lectura queda como observación en avisos_ciclo.
         self.aislamiento_camara = None
         self.inhibir_vapor_chaqueta: bool = False
-        self.no_conforme: bool = False
-        self.motivo_no_conforme: str = ""
-        # P4 (D-14.4): el operador reconoció que la carga NO CONFORME no es
-        # liberable (lo pone el backend, auditado); sin él no se confirma
-        self.no_conforme_reconocido: bool = False
         self.modo_vapor = None
+        # FC-12 (tanda 21): usuario identificado que canceló el ciclo en curso
+        # (lo fija POST /cycle/abort con un token válido; CicloState.reset()
+        # lo limpia al iniciar cada ciclo)
+        self.cancelado_por: str | None = None
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)

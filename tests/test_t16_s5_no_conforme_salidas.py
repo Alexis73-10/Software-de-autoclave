@@ -94,21 +94,20 @@ def test_ticket_de_ciclo_conforme_no_cambia():
     assert pie.split("\n")[0].startswith("Temp. final")
 
 
-# ── CycleLogger: defensa en profundidad ─────────────────────────────────────
+# ── CycleLogger: la tanda 21 (FC-08) retira la defensa en profundidad de NO
+# CONFORME (estado.no_conforme ya no existe): el logger nunca añade la marca;
+# los avisos que trae el estado (p. ej. de un ciclo anterior) pasan tal cual ──
 
-def test_logger_anota_el_aviso_si_solo_esta_la_bandera(tmp_path):
+def test_logger_ya_no_anota_no_conforme_por_bandera(tmp_path):
     from tests.test_t8_modo_sin_bd import _correr_ciclo, _logger
     db = MagicMock()
     db.crear_ciclo.return_value = 5
-    cl, estado, printer, respaldo = _logger(tmp_path, db, sin_bd=False)
-    estado.no_conforme = True
+    cl, estado, printer, _ = _logger(tmp_path, db, sin_bd=False)
+    estado.no_conforme = True        # atributo de un estado anterior: se ignora
     _correr_ciclo(cl, estado)
-    avisos = db.cerrar_ciclo.call_args.kwargs["avisos_ticket"]["avisos"]
-    assert [a["clave"] for a in avisos if isinstance(a, dict)] == [CLAVE_NO_CONFORME]
-    cierre = respaldo.leer(respaldo.pendientes()[0])["cierre"]
-    assert avisos_no_conforme(cierre["avisos_ticket"]["avisos"]) is True
+    assert "avisos_ticket" not in db.cerrar_ciclo.call_args.kwargs
     impreso = "\n".join(c.args[0] for c in printer.enqueue.call_args_list)
-    assert "*** NO CONFORME ***" in impreso
+    assert "NO CONFORME" not in impreso
 
 
 def test_logger_no_duplica_el_aviso(tmp_path):

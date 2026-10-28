@@ -1387,6 +1387,17 @@ class DbManager:
             ).fetchall()
         return [dict(f) for f in filas]
 
+    def get_alarmas_de_ciclo(self, ciclo_id: int, limite: int = 500) -> list[dict]:
+        """FC-03/FC-13 (tanda 21): filas de alarmas_historial de un ciclo, en
+        orden cronológico (aparecida ascendente; a igual hora, por id),
+        incluidas las resueltas."""
+        with self._lock:
+            filas = self._conn.execute(
+                "SELECT * FROM alarmas_historial WHERE ciclo_id = ? "
+                "ORDER BY aparecida ASC, id ASC LIMIT ?", (int(ciclo_id), int(limite)),
+            ).fetchall()
+        return [dict(f) for f in filas]
+
     # ------------------------------------------------------------------
     # Ciclo de vida
     # ------------------------------------------------------------------

@@ -679,10 +679,13 @@ class BackendContext:
         # S3c (tanda 2): una base que falla en caliente activa OPERANDO_SIN_BD
         self.cycle_logger.al_fallar_bd = self.bd_fallo_en_caliente
         # Historial persistente de alarmas (spec 2026-10-06 §6). El ciclo en
-        # curso se lee al aparecer cada alarma.
+        # curso se lee al aparecer cada alarma. FC-03 (tanda 21): toda alarma
+        # que aparece en CICLO queda con su ciclo, también antes de que la base
+        # fije el id y después del cierre mientras se espera la confirmación
+        # (el id pendiente se resuelve en el hilo escritor del historial).
         self.historial_alarmas = HistorialAlarmas(
             self.db, self.alarm_manager,
-            ciclo_actual=lambda: self.cycle_logger.ciclo_id,
+            ciclo_actual=self.cycle_logger.ciclo_para_alarma,
         )
 
         self.control_loop = ControlLoop(
