@@ -13,9 +13,12 @@
 #
 # Reglas (el backend es la autoridad, la UI solo las refleja):
 #   - solo el INGENIERO (403 a técnico y admin);
-#   - solo con el equipo en PREPARACION o PREPARADO, sin modo prueba, sin
-#     apagado en curso y sin estado seguro actuando (409). En FALLA tampoco:
-#     el protocolo de fallo puede estar venteando (DECISIÓN SIN CONFIRMAR);
+#   - solo fuera de CICLO (PREPARACION, PREPARADO o FALLA), sin modo prueba y
+#     sin apagado en curso (409). Se permite con la cámara en estado no seguro
+#     o con el protocolo de estado seguro actuando (cambio urgente 28-oct,
+#     equipo de pruebas: sensor de presión de cámara dañado); el reinicio del
+#     backend que sigue a la reasignación apaga todas las salidas. PENDIENTE:
+#     análisis de riesgo y pruebas;
 #   - conflictos (dos funciones en el mismo puerto) y puertos inexistentes en
 #     la tarjeta se rechazan aquí (422), no solo en la UI;
 #   - doble confirmación: `confirmar` (alerta de criticidad, 428) y, para el
@@ -66,7 +69,9 @@ srv = sys.modules["autoclave.backend.server"]
 
 ENTIDAD = "/io/assignment"
 ENTIDAD_FABRICA = "/io/assignment/factory"
-_ESTADOS_PERMITIDOS = frozenset({GlobalState.PREPARACION, GlobalState.PREPARADO})
+_ESTADOS_PERMITIDOS = frozenset(
+    {GlobalState.PREPARACION, GlobalState.PREPARADO, GlobalState.FALLA}
+)
 ENTIDAD_VERIFICAR = "/io/assignment/verify"
 
 # TMG-01 (revisión R8): una sola escritura del archivo a la vez (dos ingenieros,
@@ -196,8 +201,6 @@ def _motivo_bloqueo() -> tuple[str, str]:
         return "modo_prueba", "Salga primero del modo prueba de salidas"
     if getattr(loop, "apagando", False) is True:
         return "apagando", "El equipo se está apagando"
-    if srv._estado_seguro_en_marcha():
-        return "estado_seguro", "La cámara se está llevando a estado seguro"
     return "", ""
 
 
