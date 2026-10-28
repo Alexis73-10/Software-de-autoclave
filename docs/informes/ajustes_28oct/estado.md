@@ -9,4 +9,4 @@ Rama: `ajustes-28oct` (desde `dev` cbad00c).
 | C. Globo de valores de la gráfica (AJ-03) | Hecho | 87569e1 |
 | Cierre (suite, informe, CERRADO.txt) | Hecho (8887 passed; 1 fallo paralelo conocido de la línea base T20, pasa solo) | ver CERRADO.txt |
 
-Último commit: 24429f2
+Último commit: 85d3ed9
