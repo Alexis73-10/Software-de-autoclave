@@ -21,9 +21,9 @@ import Autoclave.I18n
 // ProgresoCiclo (bridge/progreso_ciclo.py), que solo consulta mientras esta
 // pantalla está visible. qml/Pruebas/PruebaCicloEnCurso.qml asigna datos de
 // ejemplo directamente.
-// Comandos (ComandosCicloEnCurso): CANCELAR CICLO con diálogo de confirmación;
-// al terminar el ciclo (resultado del backend) el botón pasa a CONFIRMAR, que
-// envía /cycle/acknowledge; nunca se confirma solo (decisión de Cristian,
+// Comandos (ComandosCicloEnCurso): CANCELAR CICLO con modal de confirmación
+// (FC-09, tanda 21); al terminar el ciclo (resultado del backend) el botón pasa
+// a CONFIRMAR, que tras su modal envía /cycle/acknowledge; nunca se confirma solo (decisión de Cristian,
 // 2026-10-01: un fallo no debe salir de FALLA sin que alguien lo vea). La
 // navegación de entrada y salida la decide Main.qml con el estado de la máquina.
 Item {
@@ -76,9 +76,10 @@ Item {
     property bool pantallaCompleta: false
     // U4 (revisión SAF-02): la gráfica a pantalla completa tapa la tarjeta de
     // seguridad superpuesta y la campana; un aviso crítico la cierra
-    // SAF-04 de la revisión S2b (D8-2.16): "CARGA NO ESTÉRIL" tampoco queda
-    // tapada por la gráfica a pantalla completa
-    readonly property bool avisoCritico: seguridadCiclo.conteo > 0 || cargaNoEsteril || franjaNoConformeVisible
+    // SAF-04 de la revisión S2b (D8-2.16), FC-01 (tanda 21): el panel de fin de
+    // ciclo ("CARGA NO ESTÉRIL") es la vista por defecto y, cuando se muestra,
+    // tampoco queda tapado por la gráfica a pantalla completa
+    readonly property bool avisoCritico: seguridadCiclo.conteo > 0 || (cargaNoEsteril && !vistaGrafica)
     onAvisoCriticoChanged: if (avisoCritico) pantallaCompleta = false
     onPantallaCompletaChanged: if (pantallaCompleta && avisoCritico) pantallaCompleta = false
     // "" mientras el ciclo corre; "exitoso" / "cancelado" / "fallo" al terminar
@@ -86,14 +87,36 @@ Item {
     readonly property bool terminado: resultado !== ""
     // D8-2.16: todo ciclo terminado que no fue COMPLETADO (falla segura)
     readonly property bool cargaNoEsteril: terminado && resultado !== "exitoso"
-    // P4 (tanda 16, D-14.4): ciclo NO CONFORME (punto de referencia sin
-    // verificar). Franja roja con el ciclo terminado; CONFIRMAR queda
-    // deshabilitado hasta el reconocimiento explícito de que la carga no es
-    // liberable (el backend también lo exige: 409 no_conforme_sin_reconocer).
-    property bool noConforme: progreso?.noConforme ?? false
-    property bool noConformeReconocido: progreso?.noConformeReconocido ?? false
-    readonly property bool franjaNoConformeVisible: terminado && noConforme
-    readonly property bool confirmarBloqueado: terminado && noConforme && !noConformeReconocido
+    // FC-01..FC-07 (tanda 21): textos del panel de fin de ciclo en el idioma
+    // vigente (ProgresoCiclo.armarFin); revisionFin cambia con cada progreso.
+    // Pruebas/PruebaCicloEnCurso.qml lo asigna directamente.
+    property var fin: (progreso && progreso.armarFin && progreso.revisionFin >= 0 && terminado)
+                      ? progreso.armarFin(I18n.lang) : ({})
+    // modo del panel; un ciclo no exitoso sin datos de terminación se
+    // presenta como fallo (falla cerrada, FC-01)
+    readonly property string modoFin: cargaNoEsteril
+                                      ? (["fallo", "cancelado", "emergencia"].indexOf(fin.modo ?? "") >= 0
+                                         ? fin.modo : "fallo")
+                                      : (resultado === "exitoso" && fin.modo === "observaciones" ? "observaciones" : "")
+    readonly property bool hayObservaciones: modoFin === "observaciones"
+    // FC-05: en un ciclo no exitoso, true = el operador pidió ver la gráfica
+    // (el panel es la vista por defecto); FC-07: en un exitoso, true = el
+    // operador abrió el panel de observaciones (la gráfica es la vista por defecto)
+    property bool vistaGrafica: false
+    property bool verObservaciones: false
+    readonly property bool panelVisible: (cargaNoEsteril && !vistaGrafica)
+                                         || (hayObservaciones && verObservaciones)
+    // Revisión R (tanda 21, SAF-01/SAF-05): un modal abierto con otro resultado
+    // (o con el estado seguro pendiente que aparece después) se cierra; nunca
+    // se envía con el texto de otra situación
+    onResultadoChanged: {
+        vistaGrafica = false; verObservaciones = false
+        modalCancelar.cerrar(); modalConfirmar.cerrar(); modalEstadoSeguro.cerrar()
+    }
+    readonly property bool ackEstadoSeguro: puente?.ackConfirmaEstadoSeguro ?? false
+    onAckEstadoSeguroChanged: modalConfirmar.cerrar()
+    readonly property bool modalAbierto: modalCancelar.abierto || modalConfirmar.abierto
+                                         || modalEstadoSeguro.abierto || avisoComando.visible
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
     // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
@@ -114,10 +137,24 @@ Item {
     signal ajustesPulsado()
     signal avatarPulsado()
     signal equipoPulsado()
-    signal cancelarPulsado()      // tras confirmar en el diálogo
+    signal cancelarPulsado()      // tras confirmar en el modal
     signal confirmarPulsado()
     signal tiemposPulsado()
     signal pantallaCompletaPulsado()
+
+    // FC-01: subtítulo del panel («Ciclo NN terminó en FALLO a las HH:MM», ...)
+    function subtituloFin() {
+        const modo = raiz.modoFin
+        if (modo === "")
+            return ""
+        const hora = raiz.fin.horaFin ?? ""
+        const claves = { fallo: "ciclo.fin_subtitulo_fallo", cancelado: "ciclo.fin_subtitulo_cancelado",
+                         emergencia: "ciclo.fin_subtitulo_emergencia",
+                         observaciones: "ciclo.fin_subtitulo_observaciones" }
+        return I18n.t(claves[modo] ?? claves.fallo, I18n.lang,
+                      { n: raiz.sinLectura(raiz.cicloActivo),
+                        hora: hora !== "" ? hora : I18n.t("sistema.sin_lectura", I18n.lang) })
+    }
 
     function sinLectura(valor) { return valor !== "" ? valor : I18n.t("sistema.sin_lectura", I18n.lang) }
 
@@ -538,6 +575,9 @@ Item {
 
     // ======================= gráfica (alto flexible) =======================
     GraficaCiclo {
+        id: graficaCiclo
+        objectName: "graficaCicloEnCurso"
+        visible: !raiz.panelVisible
         x: raiz.m(33); y: raiz.m(804)
         width: raiz.m(1162 - 33)
         height: raiz.yb(1598) - y
@@ -550,112 +590,41 @@ Item {
         tiempos: raiz.fases
         onTiemposPulsado: raiz.tiemposPulsado()
         onPantallaCompletaPulsado: { raiz.pantallaCompleta = true; raiz.pantallaCompletaPulsado() }
+    }
 
-        // D8-2.16 (tanda 8, Q1-P7), PROVISIONAL (sin diseño): todo ciclo que
-        // no termine COMPLETADO ("exitoso") muestra "CARGA NO ESTÉRIL", igual
-        // que el ticket (T2-c de la tanda 7). Falla cerrada: un resultado
-        // desconocido también. No toma toques: no bloquea la gráfica.
-        Rectangle {
-            objectName: "cargaNoEsteril"
-            visible: raiz.cargaNoEsteril
-            anchors.horizontalCenter: parent.horizontalCenter
-            y: raiz.m(40)
-            width: raiz.m(960); height: raiz.m(110)
-            radius: raiz.m(10)
-            color: Colores.fondoTarjeta
-            border.width: raiz.m(4); border.color: Colores.alarmaAlta
-            Text {
-                anchors.centerIn: parent
-                width: parent.width - raiz.m(40)
-                horizontalAlignment: Text.AlignHCenter
-                fontSizeMode: Text.HorizontalFit
-                minimumPixelSize: raiz.fuente(20)
-                text: I18n.t("ciclo.carga_no_esteril", I18n.lang)
-                color: Colores.alarmaAlta
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoBold
-                font.pixelSize: raiz.fuente(56)
-            }
+    // ======================= panel de fin de ciclo (FC-01..FC-04, FC-07) =======================
+    // En el mismo rectángulo que la tarjeta de la gráfica, que se oculta
+    // mientras el panel está a la vista. Los avisos van en capaAvisos, encima.
+    PanelFinCiclo {
+        id: panelFin
+        objectName: "panelFinCiclo"
+        visible: raiz.panelVisible
+        x: raiz.m(33); y: raiz.m(804)
+        width: raiz.m(1162 - 33)
+        height: raiz.yb(1598) - y
+        escala: raiz.m(1)
+        modo: raiz.modoFin !== "" ? raiz.modoFin : "fallo"
+        subtitulo: raiz.subtituloFin()
+        causa: raiz.fin.causa ?? ({})
+        alarmas: raiz.fin.alarmas ?? []
+        onVerGraficaPulsado: {
+            if (raiz.cargaNoEsteril)
+                raiz.vistaGrafica = true
+            else
+                raiz.verObservaciones = false
         }
+        // fondo opaco: la gráfica queda debajo, sin toques
+        MouseArea { anchors.fill: parent; z: -1 }
+    }
 
-        // P4 (tanda 16, D-14.4), PROVISIONAL (sin diseño): franja roja de un
-        // ciclo NO CONFORME terminado, con el botón de reconocimiento explícito
-        // («Reconozco que la carga no es liberable»). Anclada abajo para no
-        // tapar los avisos que se apilan arriba. Solo su botón toma toques.
-        Rectangle {
-            id: franjaNoConforme
-            objectName: "franjaNoConforme"
-            visible: raiz.franjaNoConformeVisible
-            anchors.horizontalCenter: parent.horizontalCenter
-            anchors.bottom: parent.bottom
-            anchors.bottomMargin: raiz.m(30)
-            width: raiz.m(1040)
-            height: textoNoConforme.implicitHeight + accionNoConforme.height + raiz.m(52)
-            radius: raiz.m(10)
-            color: Colores.alarmaAlta
-            Text {
-                id: textoNoConforme
-                objectName: "textoNoConforme"
-                x: raiz.m(24); y: raiz.m(16)
-                width: parent.width - raiz.m(48)
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.WordWrap
-                text: I18n.t("ciclo.no_conforme_franja", I18n.lang)
-                color: "white"
-                font.family: Tipografia.familia
-                font.weight: Tipografia.pesoBold
-                font.pixelSize: raiz.fuente(32)
-            }
-            Item {
-                id: accionNoConforme
-                anchors.horizontalCenter: parent.horizontalCenter
-                y: textoNoConforme.y + textoNoConforme.height + raiz.m(20)
-                width: raiz.m(760); height: raiz.m(80)
-                // botón de reconocimiento (antes de reconocer)
-                Rectangle {
-                    id: botonReconocerNoConforme
-                    objectName: "botonReconocerNoConforme"
-                    visible: !raiz.noConformeReconocido
-                    anchors.fill: parent
-                    radius: raiz.m(12)
-                    color: "white"
-                    enabled: raiz.datosVigentes && !raiz.comandoOcupado
-                    opacity: enabled ? 1.0 : 0.5
-                    Text {
-                        anchors.centerIn: parent
-                        width: parent.width - raiz.m(24)
-                        horizontalAlignment: Text.AlignHCenter
-                        fontSizeMode: Text.HorizontalFit
-                        minimumPixelSize: raiz.fuente(14)
-                        text: I18n.t("ciclo.no_conforme_reconocer", I18n.lang)
-                        color: Colores.alarmaAlta
-                        font.family: Tipografia.familia
-                        font.weight: Tipografia.pesoBold
-                        font.pixelSize: raiz.fuente(28)
-                    }
-                    MouseArea {
-                        anchors.fill: parent
-                        enabled: parent.enabled
-                        onClicked: raiz.comandos?.reconocerNoConforme()
-                    }
-                }
-                // ya reconocido: queda el rótulo (la franja sigue hasta confirmar)
-                Text {
-                    objectName: "noConformeReconocidoTexto"
-                    visible: raiz.noConformeReconocido
-                    anchors.centerIn: parent
-                    width: parent.width
-                    horizontalAlignment: Text.AlignHCenter
-                    fontSizeMode: Text.HorizontalFit
-                    minimumPixelSize: raiz.fuente(14)
-                    text: I18n.t("ciclo.no_conforme_reconocido", I18n.lang)
-                    color: "white"
-                    font.family: Tipografia.familia
-                    font.weight: Tipografia.pesoSemiBold
-                    font.pixelSize: raiz.fuente(26)
-                }
-            }
-        }
+    // Avisos superpuestos al área de la gráfica o del panel de fin de ciclo
+    // (sin conexión y tarjeta de seguridad): por encima de los dos, para que
+    // el panel nunca los tape. El contenedor no toma toques.
+    Item {
+        id: capaAvisos
+        x: raiz.m(33); y: raiz.m(804)
+        width: raiz.m(1162 - 33)
+        height: raiz.yb(1598) - y
 
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
         // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
@@ -713,6 +682,45 @@ Item {
                 puente: raiz.puente
                 comandos: raiz.comandosSistema
             }
+        }
+    }
+
+    // FC-05 / FC-07 (tanda 21): píldora junto a «Tiempos» (termina antes del
+    // botón, x 856 de la gráfica): roja «Alarmas (N) · SS s» con la gráfica a
+    // la vista en un ciclo no exitoso (vuelve al panel); ámbar «Observaciones
+    // (N)» en un exitoso con alarmas o avisos (abre el panel)
+    PildoraFinCiclo {
+        id: pildoraFin
+        objectName: "pildoraFinCiclo"
+        visible: !raiz.panelVisible && (raiz.cargaNoEsteril || raiz.hayObservaciones)
+        escala: raiz.m(1)
+        tipo: raiz.cargaNoEsteril ? "alarmas" : "observaciones"
+        cantidad: raiz.cargaNoEsteril ? Math.max(1, raiz.fin.cantidad ?? 1) : (raiz.fin.cantidad ?? 0)
+        segundos: regresoPanel.restante
+        x: graficaCiclo.x + raiz.m(856 - 16) - width
+        // centro en y 58 de la gráfica: por encima de la fila de la leyenda (y 92)
+        y: graficaCiclo.y + raiz.m(58) - height / 2
+        onPulsada: {
+            if (raiz.cargaNoEsteril)
+                raiz.vistaGrafica = false
+            else
+                raiz.verObservaciones = true
+            panelFin.volverAlPanel()
+        }
+    }
+
+    // FC-05: con la gráfica a la vista en un ciclo no exitoso, a los
+    // REGRESO_PANEL_S sin toques la vista vuelve sola al panel (y se cierra la
+    // pantalla completa); con un modal abierto la cuenta se detiene
+    RegresoPanel {
+        id: regresoPanel
+        objectName: "regresoPanel"
+        activo: raiz.cargaNoEsteril && raiz.vistaGrafica
+        pausado: raiz.modalAbierto
+        onVencido: {
+            raiz.pantallaCompleta = false
+            raiz.vistaGrafica = false
+            panelFin.volverAlPanel()
         }
     }
 
@@ -839,8 +847,7 @@ Item {
             // antes x 846, y 1768 de la pantalla; relativo a la barra (34, 1746)
             x: barraInferior.mx(846 - 34); y: raiz.m(1768 - 1746)
             width: raiz.m(235); height: raiz.m(88)
-            // P4 (D-14.4): CONFIRMAR de un ciclo NO CONFORME espera al reconocimiento
-            enabled: raiz.datosVigentes && !raiz.comandoOcupado && !raiz.confirmarBloqueado
+            enabled: raiz.datosVigentes && !raiz.comandoOcupado
             opacity: enabled ? 1.0 : 0.4
             Rectangle {
                 anchors.fill: parent
@@ -900,16 +907,14 @@ Item {
             MouseArea {
                 anchors.fill: parent
                 onClicked: {
-                    if (raiz.confirmarBloqueado) {
-                        return   // P4: falla cerrada aunque el toque llegue con el botón deshabilitado
-                    } else if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
+                    if (raiz.terminado && (raiz.puente?.ackConfirmaEstadoSeguro ?? false)) {
                         // P-6 (tanda 6): §15.2, verificar fugas antes de confirmar
-                        dialogoEstadoSeguro.abrir()
+                        modalEstadoSeguro.abrir()
                     } else if (raiz.terminado) {
-                        raiz.confirmarPulsado()
-                        raiz.comandos?.confirmar()
+                        // FC-09 (tanda 21): CONFIRMAR también pasa por su modal
+                        modalConfirmar.abrir()
                     } else {
-                        dialogoCancelar.abrir()
+                        modalCancelar.abrir()
                     }
                 }
             }
@@ -961,29 +966,60 @@ Item {
         sinLectura: I18n.t("sistema.sin_lectura", I18n.lang)
     }
 
-    // Cancelación: solo confirmación, sin credencial ni rol (plan §10)
-    DialogoConfirmacion {
-        id: dialogoCancelar
-        objectName: "dialogoCancelarCiclo"
-        mensaje: I18n.t("ciclo.cancelar_pregunta", I18n.lang)
-        textoConfirmar: I18n.t("acciones.confirmar", I18n.lang)
-        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
-        colorConfirmar: raiz.paleta.cancelarArriba
-        onConfirmado: {
+    // FC-09 (tanda 21): confirmaciones en ModalConfirmacion (antes DialogoConfirmacion).
+    // Cancelación: solo confirmación, sin credencial ni rol (plan §10); el token
+    // de la sesión abierta, si la hay, lo agrega ComandosCicloEnCurso (FC-12)
+    ModalConfirmacion {
+        id: modalCancelar
+        objectName: "modalCancelarCiclo"
+        titulo: I18n.t("ciclo.modal_cancelar_titulo", I18n.lang)
+        cuerpo: I18n.t("ciclo.modal_cancelar_cuerpo", I18n.lang, { n: raiz.sinLectura(raiz.cicloActivo) })
+        textoAccion: I18n.t("ciclo.modal_cancelar_accion", I18n.lang)
+        colorAccion: Colores.peligroTexto
+        onAceptado: {
             raiz.cancelarPulsado()
             raiz.comandos?.cancelar()
         }
     }
 
+    // CONFIRMAR del resultado: exitoso (verde, con la nota de las observaciones
+    // de Referencia, FC-07/FC-08) o fallo / cancelado (accionPrimario)
+    ModalConfirmacion {
+        id: modalConfirmar
+        objectName: "modalConfirmarCiclo"
+        readonly property bool exitoso: raiz.resultado === "exitoso"
+        titulo: exitoso ? I18n.t("ciclo.modal_confirmar_titulo", I18n.lang)
+                        : I18n.t("ciclo.modal_confirmar_resultado_titulo", I18n.lang)
+        cuerpo: I18n.t(exitoso ? "ciclo.modal_confirmar_cuerpo_exitoso"
+                       : raiz.resultado === "cancelado" ? "ciclo.modal_confirmar_cuerpo_cancelado"
+                       : "ciclo.modal_confirmar_cuerpo_fallo",
+                       I18n.lang, { n: raiz.sinLectura(raiz.cicloActivo) })
+        nota: exitoso ? (raiz.fin.notaObservaciones ?? "") : ""
+        textoAccion: I18n.t("ciclo.modal_confirmar_accion", I18n.lang)
+        colorAccion: exitoso ? Colores.menuVerde : Colores.accionPrimario
+        onAceptado: {
+            // SAF-01: si entretanto quedó pendiente el estado seguro (paro
+            // liberado), no se envía: se pide antes la verificación de fugas
+            if (raiz.puente?.ackConfirmaEstadoSeguro ?? false) {
+                modalEstadoSeguro.abrir()
+                return
+            }
+            raiz.confirmarPulsado()
+            raiz.comandos?.confirmar()
+        }
+    }
+
     // P-6 (tanda 6): tras un paro, CONFIRMAR también lleva la cámara a estado
     // seguro (fin de ciclo §15.2): se pide verificar que no haya fugas
-    DialogoConfirmacion {
-        id: dialogoEstadoSeguro
-        objectName: "dialogoEstadoSeguro"
-        mensaje: I18n.t("ciclo.confirmar_estado_seguro_texto", I18n.lang)
-        textoConfirmar: I18n.t("sistema.confirmar_estado_seguro", I18n.lang)
-        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
-        onConfirmado: {
+    ModalConfirmacion {
+        id: modalEstadoSeguro
+        objectName: "modalEstadoSeguro"
+        titulo: I18n.t("ciclo.modal_estado_seguro_titulo", I18n.lang)
+        cuerpo: I18n.t("ciclo.modal_estado_seguro_cuerpo", I18n.lang)
+        nota: I18n.t("ciclo.modal_estado_seguro_nota", I18n.lang)
+        textoAccion: I18n.t("ciclo.modal_confirmar_accion", I18n.lang)
+        colorAccion: Colores.accionPrimario
+        onAceptado: {
             raiz.confirmarPulsado()
             raiz.comandos?.confirmar()
         }
@@ -994,16 +1030,6 @@ Item {
     Connections {
         target: raiz.comandos
         function onErrorChanged() { if (raiz.errorComando !== "") avisoComando.abrir() }
-    }
-    // P4 (tanda 16): tras reconocer, se pide el progreso enseguida para
-    // habilitar CONFIRMAR (los dobles de comandos sin la señal no avisan)
-    Connections {
-        target: raiz.comandos
-        ignoreUnknownSignals: true
-        function onTerminado(accion, ok) {
-            if (accion === "reconocer_no_conforme" && ok && raiz.progreso?.refrescar)
-                raiz.progreso.refrescar()
-        }
     }
     PanelModal {
         id: avisoComando
@@ -1018,7 +1044,6 @@ Item {
         Text {
             width: parent.width
             text: raiz.errorComando === "confirmar" ? I18n.t("ciclo.confirmar_error", I18n.lang)
-                : raiz.errorComando === "reconocer_no_conforme" ? I18n.t("ciclo.no_conforme_reconocer_error", I18n.lang)
                 : raiz.errorComando !== "" ? I18n.t("ciclo.cancelar_error", I18n.lang)
                 : raiz.avisoCancelacion !== "" ? I18n.t(raiz.avisoCancelacion, I18n.lang)
                 : I18n.t("ciclo.cancelar_error", I18n.lang)
@@ -1027,5 +1052,16 @@ Item {
             font.family: Tipografia.familia
             font.pixelSize: Escala.fuente(28)
         }
+    }
+
+    // FC-05: cualquier toque en la pantalla (incluido el cursor de la gráfica)
+    // reinicia la cuenta del regreso automático. No se queda con el toque: lo
+    // deja pasar a lo que haya debajo (accepted = false).
+    MouseArea {
+        objectName: "detectorToques"
+        anchors.fill: parent
+        z: 1000
+        enabled: regresoPanel.activo
+        onPressed: (mouse) => { regresoPanel.reiniciarCuenta(); mouse.accepted = false }
     }
 }

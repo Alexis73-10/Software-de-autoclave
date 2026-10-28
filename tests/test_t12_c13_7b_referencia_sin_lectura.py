@@ -1,10 +1,11 @@
 # tests/test_t12_c13_7b_referencia_sin_lectura.py
 #
 # Tanda 12, C-13.7b (opción B confirmada 24-oct): Referencia sin lectura en
-# ciclo -> el ciclo continúa, SEN-11 no bloqueante con el sensor, marca NO
-# CONFORME en el ticket/registro aunque vuelva a leer, sin apertura
+# ciclo -> el ciclo continúa, SEN-11 no bloqueante con el sensor, sin apertura
 # automática. Principal sin lectura -> FALLO SEN-02 igual que hoy; presión
 # sin lectura igual que hoy.
+# Tanda 21 (FC-08): la marca NO CONFORME se reemplaza por una observación
+# del ciclo (sensor, hora, fase) que queda aunque la Referencia vuelva a leer.
 
 from unittest.mock import MagicMock
 
@@ -14,12 +15,19 @@ from autoclave.state_machine.states.ciclo import CicloResultado
 from tests.test_t3_sensores_ciclo import _ciclo
 
 _ASIG_REF = {"temp_camara": "principal", "temp_2_camara": "no_en_uso", "temp_ref": "referencia"}
-_NO_CONFORME = "ticket_ciclo.no_conforme_referencia"
+_NO_CONFORME = "ticket_ciclo.no_conforme_referencia"     # ciclos guardados antes de FC-08
+_OBSERVACION = "ticket_ciclo.observacion_referencia"
 
 
 def _ciclo_con_ref(temp_ref):
     ciclo, estado, am = _ciclo(_ASIG_REF, {"temp_camara": 100.0, "temp_ref": temp_ref})
     estado.avisos_ciclo = []
+    # carga sólida explícita: desde la revisión R de la tanda 21 (SAF-03) un
+    # tipo de carga que no sea "solido" se trata como líquido (CIC-19)
+    original = ciclo.cycle.get_param.side_effect
+    ciclo.cycle.get_param.side_effect = (
+        lambda *k, default=None, **kw: "solido" if k[:2] == ("globals", "tipo_carga")
+        else (original(*k, default=default, **kw) if original else ciclo.cycle.get_param.return_value))
     fase = ciclo._fases[0]
     fase.update = MagicMock(return_value=None)
     return ciclo, estado, am, fase
@@ -38,7 +46,7 @@ def test_referencia_en_cero_tambien_es_sin_lectura():
     ciclo, estado, am, fase = _ciclo_con_ref(0)
     ciclo.run()
     fase.update.assert_called_once()
-    assert ciclo.no_conforme is True
+    assert ciclo.referencia_sin_lectura is True
 
 
 def test_alarma_no_bloqueante_con_el_sensor():
@@ -52,7 +60,7 @@ def test_alarma_no_bloqueante_con_el_sensor():
     assert "SEN-02" not in [i.codigo for i in am.activas()]
 
 
-def test_no_conforme_queda_aunque_vuelva_a_leer_y_una_sola_vez():
+def test_observacion_queda_aunque_vuelva_a_leer_y_una_sola_vez():
     ciclo, estado, am, _ = _ciclo_con_ref(None)
     for _ in range(3):
         ciclo.run()
@@ -60,12 +68,16 @@ def test_no_conforme_queda_aunque_vuelva_a_leer_y_una_sola_vez():
     ciclo.run()
     estado.sensores_temp["temp_ref"] = None
     ciclo.run()
-    assert ciclo.no_conforme is True
-    marcas = [a for a in estado.avisos_ciclo if a.get("clave") == _NO_CONFORME]
-    assert marcas == [{"clave": _NO_CONFORME, "sensor": "Referencia"}]
+    assert ciclo.referencia_sin_lectura is True
+    marcas = [a for a in estado.avisos_ciclo if a.get("clave") == _OBSERVACION]
+    assert len(marcas) == 1
+    assert marcas[0]["sensor"] == "Referencia" and marcas[0]["fase"] == ciclo._fases[0].name
+    assert len(marcas[0]["hora"]) == 5 and marcas[0]["hora"][2] == ":"
+    assert not [a for a in estado.avisos_ciclo if a.get("clave") == _NO_CONFORME]
 
 
-def test_texto_del_ticket_es_y_en():
+def test_texto_del_ticket_es_y_en_de_ciclos_guardados_no_conformes():
+    # lectura histórica intacta: un ciclo guardado NO CONFORME se imprime igual
     aviso = {"clave": _NO_CONFORME, "sensor": "Referencia"}
     assert tf.aviso_ticket(aviso, tf.Presentacion(idioma="es")) == \
         "NO CONFORME: punto de referencia sin verificar (Referencia)"
@@ -79,9 +91,9 @@ def test_texto_del_ticket_es_y_en():
 def test_reset_del_ciclo_limpia_la_marca():
     ciclo, estado, _, _ = _ciclo_con_ref(None)
     ciclo.run()
-    assert ciclo.no_conforme
+    assert ciclo.referencia_sin_lectura
     ciclo.reset()
-    assert ciclo.no_conforme is False
+    assert ciclo.referencia_sin_lectura is False
 
 
 def test_principal_sin_lectura_sigue_fallando_sen02():
@@ -115,10 +127,11 @@ def test_presion_sin_lectura_sigue_fallando():
 
 # ── Apertura automática ──────────────────────────────────────────────────────
 
-def _apertura(no_conforme):
+def _apertura(sin_lectura):
     ciclo, estado, am = _ciclo(_ASIG_REF, {"temp_camara": 50.0, "temp_ref": 50.0})
-    estado.avisos_ciclo = ([{"clave": _NO_CONFORME, "sensor": "Referencia"}]
-                           if no_conforme else [])
+    estado.avisos_ciclo = ([{"clave": _OBSERVACION, "sensor": "Referencia", "hora": "10:00",
+                             "fase": "ESTERILIZACION"}]
+                           if sin_lectura else [])
     estado.sensores_pres["pres_camara"] = 101.3
     params = {"apertura_automatica": True, "tiempo_espera_apertura": 0,
               "temp_max_apertura": 80.0, "timeout_temperatura": 30}
@@ -137,12 +150,12 @@ def _apertura(no_conforme):
     return flags, puertas
 
 
-def test_ciclo_conforme_usa_la_apertura_automatica():
-    flags, _ = _apertura(no_conforme=False)
+def test_ciclo_sin_observacion_usa_la_apertura_automatica():
+    flags, _ = _apertura(sin_lectura=False)
     assert flags.get("CICLO_CONFIRMADO") is True
 
 
-def test_ciclo_no_conforme_no_usa_la_apertura_automatica():
-    flags, puertas = _apertura(no_conforme=True)
+def test_ciclo_con_referencia_sin_lectura_no_usa_la_apertura_automatica():
+    flags, puertas = _apertura(sin_lectura=True)
     assert "CICLO_CONFIRMADO" not in flags
     puertas.request_open.assert_not_called()

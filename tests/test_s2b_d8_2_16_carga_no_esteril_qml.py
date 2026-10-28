@@ -1,7 +1,9 @@
 """D8-2.16 (tanda 8, Q1-P7): la pantalla de resultado del ciclo (PantallaCicloEnCurso
 terminada) muestra "CARGA NO ESTÉRIL" en todo ciclo que no termine COMPLETADO
 (cancelado, fallo, emergencia o cualquier resultado desconocido), igual que el
-ticket (T2-c de la tanda 7). Mientras el ciclo corre o si fue exitoso, no."""
+ticket (T2-c de la tanda 7). Mientras el ciclo corre o si fue exitoso, no.
+Tanda 21 (FC-01): el aviso es el título del panel de fin de ciclo, que
+reemplaza al recuadro sobre la gráfica (objectName "panelFinCiclo")."""
 
 import json
 import os
@@ -68,7 +70,7 @@ _SCRIPT = textwrap.dedent(r"""
     progreso = [o for o in ventana.findChildren(QObject) if o.metaObject().indexOfProperty("activo") >= 0
                 and o.metaObject().indexOfProperty("resultado") >= 0
                 and not o.metaObject().className().startswith("PantallaCicloEnCurso")][0]
-    marca = [o for o in ventana.findChildren(QQuickItem) if o.objectName() == "cargaNoEsteril"][0]
+    marca = [o for o in ventana.findChildren(QQuickItem) if o.objectName() == "panelFinCiclo"][0]
     texto = i18n.t("ciclo.carga_no_esteril")
     textos = lambda: [o.property("text") for o in marca.findChildren(QQuickItem)
                       if o.metaObject().className() == "QQuickText"]

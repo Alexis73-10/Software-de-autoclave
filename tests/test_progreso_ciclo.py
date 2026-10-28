@@ -224,7 +224,9 @@ def test_armar_progreso_ciclo_cancelado_sin_restante():
     p = pc.armar_progreso(_APLICA, filas, "CANCELADO", 30.0, _REF)
     assert p["fase_activa"] is None
     assert p["restante_s"] is None
-    assert p["fases"][0] == {"fase": "vacio", "estado": "completada", "duracion_s": 30.0}
+    # FC-06 (tanda 21): la fase cortada queda "interrumpida" (antes "completada")
+    assert p["fases"][0] == {"fase": "vacio", "estado": "interrumpida", "duracion_s": 30.0}
+    assert p["fase_terminacion"] == "vacio"
     assert p["fases"][1]["estado"] == "pendiente"
 
 

@@ -37,6 +37,13 @@ def puerta_abierta(estado_puerta) -> bool:
     return estado_puerta in _PUERTA_ABIERTA
 
 
+def puerta_con_actuador(mapa, nombre_puerta) -> bool:
+    """FC-11 (tanda 21): si la puerta tiene actuador según
+    /status.puertas_con_actuador. Solo True estricto: sin dato, o con un dato
+    mal formado, False (falla cerrada: indicador sin acción)."""
+    return isinstance(mapa, dict) and mapa.get(nombre_puerta) is True
+
+
 def estado_equipo(machine_state, listo) -> str:
     """Clave de es.json -> estados.* para la columna ESTADO de la pantalla de ciclo."""
     if machine_state == "CICLO":
@@ -248,6 +255,7 @@ class UiBridge(QObject):
         self._connected = False
         self._machine_state = ESTADO_DESCONOCIDO
         self._door_state = ESTADO_DESCONOCIDO
+        self._puerta_con_actuador = False   # FC-11: sin dato, sin actuador (falla cerrada)
         self._listo = False
         self._estado_equipo = estado_equipo(None, False)
         self._datos_ciclo = self._datos(None, None, None, None)
@@ -313,6 +321,10 @@ class UiBridge(QObject):
                     self.machineStateChanged)
         self._fijar("_door_state",
                     self._ui.get_estado_puerta(self._nombre_puerta) or ESTADO_DESCONOCIDO,
+                    self.doorStateChanged)
+        self._fijar("_puerta_con_actuador",
+                    puerta_con_actuador(self._ui.get_campo("puertas_con_actuador", None),
+                                        self._nombre_puerta),
                     self.doorStateChanged)
         # Bandera LISTO_PARA_CICLO (la calcula el backend en PREPARADO)
         self._fijar("_listo", bool(self._ui.get_estado_flag("LISTO_PARA_CICLO")),
@@ -399,6 +411,12 @@ class UiBridge(QObject):
     @Property(bool, notify=doorStateChanged)
     def doorOpen(self) -> bool:
         return puerta_abierta(self._door_state)
+
+    # FC-11 (tanda 21): la puerta de esta pantalla tiene actuador (botón ABRIR/
+    # CERRAR); False sin dato (falla cerrada: indicador de estado sin acción)
+    @Property(bool, notify=doorStateChanged)
+    def puertaConActuador(self) -> bool:
+        return self._puerta_con_actuador
 
     @Property(str, notify=estadoEquipoChanged)
     def estadoEquipo(self) -> str:

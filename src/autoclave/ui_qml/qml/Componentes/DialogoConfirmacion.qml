@@ -51,19 +51,47 @@ Item {
             font.pixelSize: Escala.fuente(30)
         }
 
+        // T21 (FC-10): ningún texto se recorta ni se sale (D8-5.4). Cada botón
+        // mide 340 de diseño o lo que pida su texto (ensancha el contenedor);
+        // los dos juntos no pasan del ancho útil de la tarjeta (Cancelar hasta
+        // la mitad, Confirmar el resto). Solo si aun así no cabe, la letra
+        // baja (HorizontalFit) hasta Escala.fuenteMinima.
+        readonly property real _anchoUtil: tarjeta.width - Escala.px(112) - filaBotones.spacing
+        readonly property real _anchoCancelar: Math.min(Math.max(Escala.px(340), medidaCancelar.advanceWidth + Escala.px(48)),
+                                                        _anchoUtil / 2)
+        readonly property real _anchoConfirmar: Math.min(Math.max(Escala.px(340), medidaConfirmar.advanceWidth + Escala.px(48)),
+                                                         _anchoUtil - _anchoCancelar)
+        TextMetrics {
+            id: medidaCancelar
+            font: textoCancelarBoton.font
+            text: raiz.textoCancelar
+        }
+        TextMetrics {
+            id: medidaConfirmar
+            font: textoConfirmarBoton.font
+            text: raiz.textoConfirmar
+        }
+
         Row {
+            id: filaBotones
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
             anchors.bottomMargin: Escala.px(48)
             spacing: Escala.px(40)
 
             Rectangle {
-                width: Escala.px(340); height: Escala.px(88)
+                objectName: "botonCancelarDialogo"
+                width: tarjeta._anchoCancelar; height: Escala.px(88)
                 radius: Escala.px(6)
                 color: Colores.fondoTarjeta
                 border.width: Escala.px(2); border.color: Colores.bordeCampo
                 Text {
+                    id: textoCancelarBoton
                     anchors.centerIn: parent
+                    width: parent.width - Escala.px(32)
+                    horizontalAlignment: Text.AlignHCenter
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: Escala.fuenteMinima
                     text: raiz.textoCancelar
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia
@@ -73,11 +101,17 @@ Item {
                 MouseArea { anchors.fill: parent; onClicked: raiz._descartar() }
             }
             Rectangle {
-                width: Escala.px(340); height: Escala.px(88)
+                objectName: "botonConfirmarDialogo"
+                width: tarjeta._anchoConfirmar; height: Escala.px(88)
                 radius: Escala.px(6)
                 color: raiz.colorConfirmar
                 Text {
+                    id: textoConfirmarBoton
                     anchors.centerIn: parent
+                    width: parent.width - Escala.px(32)
+                    horizontalAlignment: Text.AlignHCenter
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: Escala.fuenteMinima
                     text: raiz.textoConfirmar
                     color: "white"
                     font.family: Tipografia.familia

@@ -1,9 +1,11 @@
 # tests/test_cancelacion_ciclo_en_curso_qml.py
 #
 # Flujo de CANCELAR CICLO / CONFIRMAR en PantallaCicloEnCurso
-# (planeacion_pantalla_ciclo_en_curso.md §10): el botón abre un diálogo y solo
-# "Confirmar" envía la cancelación; tocar fuera o "Cancelar" no envía nada; al
-# terminar el ciclo el botón envía CONFIRMAR; un error del envío abre un aviso.
+# (planeacion_pantalla_ciclo_en_curso.md §10): el botón abre un modal
+# (ModalConfirmacion, FC-09 de la tanda 21) y solo su acción envía la
+# cancelación; tocar fuera o "Volver" no envía nada; al terminar el ciclo el
+# botón abre el modal de CONFIRMAR y su acción envía la confirmación; un error
+# del envío abre un aviso.
 # Los comandos se simulan con un QtObject en QML.
 
 import json
@@ -80,10 +82,17 @@ _SCRIPT = textwrap.dedent(r"""
         QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, QPoint(int(x * s), int(yy * s)))
         QTest.qWait(80)
 
+    def modal(nombre="modalCancelarCiclo"):
+        return [o for o in ventana.findChildren(QObject) if o.objectName() == nombre][0]
+
     def dialogo():
-        return [o for o in ventana.findChildren(QObject)
-                if o.metaObject().className().startswith("DialogoConfirmacion_QML")
-                and o.objectName() != "confirmarApagar"][0]   # el de Apagar equipo (E5) no
+        return modal()
+
+    def accion(m):
+        b = [o for o in m.findChildren(QQuickItem) if o.objectName() == "botonAccionModal"][0]
+        c = b.mapToScene(b.boundingRect().center())
+        QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, QPoint(int(c.x()), int(c.y())))
+        QTest.qWait(80)
 
     def aviso():
         return [o for o in ventana.findChildren(QObject)
@@ -98,14 +107,7 @@ _SCRIPT = textwrap.dedent(r"""
     r["sin_envio_al_descartar"] = comandos.property("cancelaciones")
 
     tocar(960, 1812)
-    # botón "Confirmar" del diálogo: derecho de la fila, centrado vertical
-    d = dialogo()
-    botones = [o for o in d.findChildren(QQuickItem) if o.metaObject().className() == "QQuickRectangle"
-               and abs(o.width() - 340 * 600 / 1200) < 2]
-    derecho = max(botones, key=lambda b: b.mapToScene(b.boundingRect().center()).x())
-    c = derecho.mapToScene(derecho.boundingRect().center())
-    QTest.mouseClick(ventana, Qt.LeftButton, Qt.NoModifier, QPoint(int(c.x()), int(c.y())))
-    QTest.qWait(80)
+    accion(dialogo())                                 # "Cancelar ciclo" del modal
     r["confirmar_envia"] = comandos.property("cancelaciones")
     r["dialogo_cierra"] = not dialogo().property("visible")
 
@@ -125,6 +127,9 @@ _SCRIPT = textwrap.dedent(r"""
     pantalla.setProperty("resultado", "exitoso")      # ciclo terminado: CONFIRMAR
     QTest.qWait(50)
     tocar(960, 1812)
+    r["confirmar_sin_modal_no_envia"] = comandos.property("confirmaciones")
+    r["modal_confirmar_abre"] = modal("modalConfirmarCiclo").property("visible")
+    accion(modal("modalConfirmarCiclo"))
     r["confirmar_fin"] = comandos.property("confirmaciones")
     r["sin_dialogo_al_confirmar"] = not dialogo().property("visible")
     r["avisos"] = avisos
@@ -150,5 +155,7 @@ def test_flujo_cancelar_y_confirmar():
     assert s["ocupado_no_abre"] is True
     assert s["error_abre_aviso"] is True
     assert s["cerrar_aviso_descarta_error"] == ""
+    assert s["confirmar_sin_modal_no_envia"] == 0
+    assert s["modal_confirmar_abre"] is True
     assert s["confirmar_fin"] == 1
     assert s["sin_dialogo_al_confirmar"] is True

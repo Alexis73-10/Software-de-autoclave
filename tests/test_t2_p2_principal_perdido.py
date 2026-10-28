@@ -40,15 +40,18 @@ def test_principal_perdido_ejecuta_el_protocolo_solo_lenta():
 
 def test_referencia_perdida_no_aborta_ni_ejecuta_el_protocolo():
     # Tanda 12, C-13.7b (opción B confirmada 24-oct): antes la Referencia
-    # perdida abortaba con el protocolo normal; ahora el ciclo continúa NO
-    # CONFORME (ver test_t12_c13_7b_referencia_sin_lectura.py)
+    # perdida abortaba con el protocolo normal; ahora el ciclo continúa con
+    # una observación (FC-08, tanda 21; ver test_t12_c13_7b_referencia_sin_lectura.py)
     ciclo, estado, _ = _ciclo(_ASIG_REF, {"temp_camara": 120.0, "temp_ref": None})
     estado.avisos_ciclo = []
+    # carga sólida explícita (revisión R de la tanda 21, SAF-03: otro valor = líquida)
+    ciclo.cycle.get_param.side_effect = (
+        lambda *k, default=None, **kw: "solido" if k[:2] == ("globals", "tipo_carga") else None)
     ciclo._fases[0].update = MagicMock(return_value=None)
     ciclo.run()
     assert estado.fase_ciclo != "SENSOR_AUSENTE"
     ciclo._protocolo.ejecutar.assert_not_called()
-    assert ciclo.no_conforme is True
+    assert ciclo.referencia_sin_lectura is True
 
 
 # ── ProtocoloFallo con solo_lenta ──────────────────────────────────────────

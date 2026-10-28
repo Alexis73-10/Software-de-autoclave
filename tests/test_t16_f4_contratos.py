@@ -18,8 +18,9 @@ pytestmark = pytest.mark.req("T16-F4")
 def test_estado_trae_los_contratos_por_defecto():
     e = EstadoAutoclave()
     assert e.aislamiento_camara is None and e.inhibir_vapor_chaqueta is False
-    assert e.no_conforme is False and e.motivo_no_conforme == "" and e.modo_vapor is None
-    assert e.no_conforme_reconocido is False
+    assert e.modo_vapor is None and e.cancelado_por is None
+    # Tanda 21 (FC-08): los campos NO CONFORME se retiraron del estado
+    assert not hasattr(e, "no_conforme") and not hasattr(e, "no_conforme_reconocido")
 
 
 def test_reset_crea_aislamiento_y_fija_modo_camara_sin_perfil():
@@ -27,21 +28,21 @@ def test_reset_crea_aislamiento_y_fija_modo_camara_sin_perfil():
     ciclo.reset()
     assert isinstance(estado.aislamiento_camara, AislamientoCamara)
     assert estado.modo_vapor == MODO_CAMARA
-    assert estado.inhibir_vapor_chaqueta is False and estado.no_conforme is False
+    assert estado.inhibir_vapor_chaqueta is False and estado.cancelado_por is None
     primero = estado.aislamiento_camara
     ciclo.reset()
     assert estado.aislamiento_camara is not primero      # una instancia por ciclo
 
 
-def test_referencia_sin_lectura_publica_no_conforme():
+def test_referencia_sin_lectura_ya_no_publica_no_conforme():
+    # Tanda 21 (FC-08): sin NO CONFORME; la observación va en avisos_ciclo
     ciclo, estado, _, _ = _ciclo_con_ref(None)
+    estado.cancelado_por = "otro"
     ciclo.run()
-    assert estado.no_conforme is True
-    assert estado.motivo_no_conforme == mod_ciclo.MOTIVO_NO_CONFORME_REFERENCIA
-    estado.no_conforme_reconocido = True
+    assert not hasattr(mod_ciclo, "MOTIVO_NO_CONFORME_REFERENCIA")
+    assert [a["clave"] for a in estado.avisos_ciclo] == [mod_ciclo.CLAVE_OBSERVACION_REFERENCIA]
     ciclo.reset()
-    assert estado.no_conforme is False and estado.motivo_no_conforme == ""
-    assert estado.no_conforme_reconocido is False
+    assert estado.avisos_ciclo == [] and estado.cancelado_por is None
 
 
 def test_al_confirmar_se_limpia_el_modo():

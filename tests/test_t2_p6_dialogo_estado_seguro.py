@@ -1,6 +1,7 @@
 """T2 / P-6 (tanda 6): tras un paro con el ciclo terminando, el CONFIRMAR del
 ciclo también confirma el estado seguro; la pantalla muestra antes el texto
-de §15.2 (verificar que no hay fugas)."""
+de §15.2 (verificar que no hay fugas). Tanda 21 (FC-09): en ModalConfirmacion,
+con el aviso de fugas en la nota."""
 
 import json
 from pathlib import Path
@@ -36,11 +37,11 @@ def test_puente_expone_la_marca():
 def test_texto_de_15_2_en_es_y_en():
     for idioma, palabra in (("es", "fuga"), ("en", "leak")):
         datos = json.loads((_RAIZ / "i18n" / f"{idioma}.json").read_text(encoding="utf-8"))
-        assert palabra in datos["ciclo"]["confirmar_estado_seguro_texto"].lower()
+        assert palabra in datos["ciclo"]["modal_estado_seguro_nota"].lower()
 
 
 def test_pantalla_abre_el_dialogo_antes_de_confirmar():
     qml = (_RAIZ / "ui_qml" / "qml" / "Pantallas" / "PantallaCicloEnCurso.qml").read_text(
         encoding="utf-8")
-    assert "ackConfirmaEstadoSeguro" in qml and "dialogoEstadoSeguro.abrir()" in qml
-    assert 'I18n.t("ciclo.confirmar_estado_seguro_texto"' in qml
+    assert "ackConfirmaEstadoSeguro" in qml and "modalEstadoSeguro.abrir()" in qml
+    assert 'I18n.t("ciclo.modal_estado_seguro_nota"' in qml

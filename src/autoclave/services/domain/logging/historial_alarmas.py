@@ -49,12 +49,18 @@ class _Registro:
     resuelta: datetime | None
     reconocida_por: str | None
     reconocida_en: datetime | None
-    ciclo_id: int | None
+    ciclo_id: object   # int | None | referencia con `resolver()` (FC-03)
 
 
 class HistorialAlarmas:
-    def __init__(self, db, alarm_manager, ciclo_actual=lambda: None):
+    # FC-03: espera máxima del hilo escritor por el id de un ciclo recién creado
+    ESPERA_CICLO_S = 5.0
+
+    def __init__(self, db, alarm_manager, ciclo_actual=lambda: None,
+                 espera_ciclo_s: float | None = None):
         self._db = db
+        self._espera_ciclo_s = (self.ESPERA_CICLO_S if espera_ciclo_s is None
+                                else espera_ciclo_s)
         self._am = alarm_manager
         self._ciclo_actual = ciclo_actual
         self._sis02_activada = False
@@ -75,7 +81,10 @@ class HistorialAlarmas:
             ciclo_id = inst.ciclo_id
             if evento is EventoAlarma.APARECIDA:
                 ciclo_id = self._ciclo_actual()
-                inst.ciclo_id = ciclo_id
+                # FC-03 (tanda 21): un id pendiente (objeto con `resolver`) se
+                # resuelve en el hilo escritor, nunca aquí
+                if ciclo_id is None or isinstance(ciclo_id, int):
+                    inst.ciclo_id = ciclo_id
             self._cola.put(_Registro(
                 evento=evento, inst=inst, clave=inst.clave, codigo=inst.codigo,
                 nivel=inst.nivel.name, titulo=inst.titulo, origen=inst.origen,
@@ -134,9 +143,18 @@ class HistorialAlarmas:
 
     def _escribir(self, reg: _Registro):
         if reg.evento is EventoAlarma.APARECIDA:
+            ciclo_id = reg.ciclo_id
+            if ciclo_id is not None and not isinstance(ciclo_id, int):
+                try:
+                    ciclo_id = ciclo_id.resolver(self._espera_ciclo_s)
+                except Exception:
+                    logger.exception("Historial de alarmas: no se pudo resolver el ciclo de %s",
+                                     reg.clave)
+                    ciclo_id = None
+                reg.inst.ciclo_id = ciclo_id
             reg.inst.id_historial = self._db.insertar_alarma(
                 reg.codigo, reg.nivel, reg.titulo, reg.origen, reg.descripcion,
-                _json(reg.valores), _iso(reg.aparecida), _iso(reg.resuelta), reg.ciclo_id,
+                _json(reg.valores), _iso(reg.aparecida), _iso(reg.resuelta), ciclo_id,
             )
             return
         id_historial = reg.inst.id_historial

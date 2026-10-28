@@ -90,6 +90,9 @@ CIC_17 = "CIC-17"
 # D-CHQ / VCH-CHQ (§4.6): chaqueta en el corte de control en modo chaqueta;
 # aviso no bloqueante, se despeja solo
 CIC_18 = "CIC-18"
+# FC-08 (tanda 21): Referencia sin lectura con carga líquida; FALLO bloqueante
+# como CIC-12/13 (en carga sólida sigue SEN-11, aviso no bloqueante)
+CIC_19 = "CIC-19"
 # M1 (tanda 3): aviso no bloqueante de mantenimiento vencido (id descriptivo
 # como OPERANDO_SIN_BD; nunca impide un ciclo)
 MANTENIMIENTO_VENCIDO = SIS_04
@@ -281,8 +284,9 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     # E12 (tanda 12, C-13.7b): Referencia sin lectura durante el ciclo. No
     # aborta: el ciclo sigue con las sondas que leen y queda NO CONFORME.
     _d(SEN_11, _AV, False, _M, "Sensor de referencia sin lectura",
-       "Sin lectura de {sensor} en la fase {fase}. El ciclo sigue con las sondas que leen y "
-       "queda NO CONFORME: punto de referencia sin verificar.",
+       # FC-08 (tanda 21): sin NO CONFORME; observación del ciclo
+       "Sin lectura de {sensor} en la fase {fase}. El ciclo sigue controlado por el sensor "
+       "Principal y la presión.",
        "Revise la conexión de la sonda de referencia. Valide la carga según su procedimiento "
        "antes de liberarla."),
     _d(CIC_01, _AL, True, _M, "Fallo en precalentamiento", "{motivo}",
@@ -362,6 +366,11 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "reinicios de la exposición (máximo {maximo}). El ciclo se abortó.",
        "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y "
        "repita el ciclo."),
+    # FC-08 (tanda 21): carga líquida, Referencia sin lectura
+    _d(CIC_19, _AL, True, _M, "Sonda de referencia sin lectura",
+       "Sin lectura de {sensor} en la fase {fase}. En carga líquida la temperatura de la "
+       "carga no se puede verificar. El ciclo se abortó.",
+       "La carga NO está estéril. Revise la conexión de la sonda y repita el ciclo."),
     # F2 (tanda 16, D-CHQ / VCH-CHQ): no hay FALLO por esta vía (§4.6)
     _d(CIC_18, _AV, False, _A, "Presión de chaqueta en el límite de control",
        "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la "

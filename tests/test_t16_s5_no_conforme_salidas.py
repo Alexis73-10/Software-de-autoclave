@@ -94,21 +94,20 @@ def test_ticket_de_ciclo_conforme_no_cambia():
     assert pie.split("\n")[0].startswith("Temp. final")
 
 
-# ── CycleLogger: defensa en profundidad ─────────────────────────────────────
+# ── CycleLogger: la tanda 21 (FC-08) retira la defensa en profundidad de NO
+# CONFORME (estado.no_conforme ya no existe): el logger nunca añade la marca;
+# los avisos que trae el estado (p. ej. de un ciclo anterior) pasan tal cual ──
 
-def test_logger_anota_el_aviso_si_solo_esta_la_bandera(tmp_path):
+def test_logger_ya_no_anota_no_conforme_por_bandera(tmp_path):
     from tests.test_t8_modo_sin_bd import _correr_ciclo, _logger
     db = MagicMock()
     db.crear_ciclo.return_value = 5
-    cl, estado, printer, respaldo = _logger(tmp_path, db, sin_bd=False)
-    estado.no_conforme = True
+    cl, estado, printer, _ = _logger(tmp_path, db, sin_bd=False)
+    estado.no_conforme = True        # atributo de un estado anterior: se ignora
     _correr_ciclo(cl, estado)
-    avisos = db.cerrar_ciclo.call_args.kwargs["avisos_ticket"]["avisos"]
-    assert [a["clave"] for a in avisos if isinstance(a, dict)] == [CLAVE_NO_CONFORME]
-    cierre = respaldo.leer(respaldo.pendientes()[0])["cierre"]
-    assert avisos_no_conforme(cierre["avisos_ticket"]["avisos"]) is True
+    assert "avisos_ticket" not in db.cerrar_ciclo.call_args.kwargs
     impreso = "\n".join(c.args[0] for c in printer.enqueue.call_args_list)
-    assert "*** NO CONFORME ***" in impreso
+    assert "NO CONFORME" not in impreso
 
 
 def test_logger_no_duplica_el_aviso(tmp_path):
@@ -204,7 +203,7 @@ def test_correo_en_ingles(textos_s5):
         i18n.fijar_idioma("es")
 
 
-# ── datos de la UI: historial y pantalla final ──────────────────────────────
+# ── datos de la UI: historial ──────────────────────────────
 
 def test_historial_presentable_lleva_no_conforme():
     from autoclave.ui_qml.domain import resumen_sistema as rs
@@ -218,40 +217,5 @@ def test_historial_presentable_lleva_no_conforme():
     assert rs.ultimo_no_conforme(None) is False
 
 
-def test_progreso_normalizado_lleva_no_conforme():
-    from autoclave.ui_qml.domain.ciclo_en_curso import normalizar_progreso
-    base = {"activo": True, "resultado": "exitoso", "fases": []}
-    r = normalizar_progreso({**base, "no_conforme": True, "motivo_no_conforme": CLAVE_NO_CONFORME,
-                             "no_conforme_reconocido": False})
-    assert (r["no_conforme"], r["motivo_no_conforme"], r["no_conforme_reconocido"]) == \
-        (True, CLAVE_NO_CONFORME, False)
-    # falla cerrada: reconocido sin NO CONFORME o valores no booleanos no cuentan
-    r = normalizar_progreso({**base, "no_conforme": 1, "no_conforme_reconocido": True})
-    assert (r["no_conforme"], r["no_conforme_reconocido"]) == (False, False)
-    r = normalizar_progreso({**base})
-    assert (r["no_conforme"], r["motivo_no_conforme"], r["no_conforme_reconocido"]) == (False, "", False)
-    assert normalizar_progreso(None)["no_conforme"] is False
-
-
-def test_bridge_reconocer_no_conforme_envia_con_token(monkeypatch):
-    from autoclave.cliente.session_manager import SessionManager
-    from autoclave.ui_qml.bridge.comandos_ciclo_en_curso import ComandosCicloEnCurso
-    ui = MagicMock()
-    puente = MagicMock(connected=True)
-    c = ComandosCicloEnCurso(puente, ui, ejecutar=lambda t: t())
-    monkeypatch.setattr(SessionManager, "token", classmethod(lambda cls: "tok123"))
-    resultados = []
-    c.terminado.connect(lambda accion, ok: resultados.append((accion, ok)))
-    c.reconocerNoConforme()
-    from PySide6.QtCore import QCoreApplication
-    QCoreApplication.processEvents()
-    ui.backend.post.assert_called_once_with(
-        path="/cycle/acknowledge-no-conforme", headers={"Authorization": "Bearer tok123"})
-    assert resultados == [("reconocer_no_conforme", True)]
-    assert c.error == ""
-    # rechazo del backend: queda el error y no se da por reconocido
-    ui.backend.post.side_effect = RuntimeError("409")
-    c.reconocerNoConforme()
-    QCoreApplication.processEvents()
-    assert resultados[-1] == ("reconocer_no_conforme", False)
-    assert c.error == "reconocer_no_conforme"
+# Tanda 21 (FC-08): la pantalla final ya no recibe ni reconoce NO CONFORME
+# (ver test_t21_fin_de_ciclo_ui.py).

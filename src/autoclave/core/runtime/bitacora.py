@@ -33,8 +33,11 @@ EVENTOS = (
     "respaldo_exportado", "respaldo_rechazado", "respaldo_restaurado",
     "aire_atmosferico_cortado_prueba", "apagado_windows_rechazado",
     "param_ciclo_cambio",
-    # P4 (tanda 16, D-14.4): reconocimiento de la carga NO CONFORME no liberable
+    # P4 (tanda 16, D-14.4): reconocimiento de la carga NO CONFORME no liberable.
+    # FC-08 (tanda 21): ya no se escribe; se conserva para las filas históricas
     "ciclo_no_conforme_reconocido",
+    # FC-12 (tanda 21): cancelación del ciclo, con el usuario si hay sesión
+    "ciclo_cancelado",
     # X9 (tanda 9, D9-13.3 TMG-01): el cambio registrado como "en_curso" no
     # llegó al ciclo en curso porque su fase inició antes de aplicarlo
     "param_ciclo_no_aplicado_en_curso",
@@ -95,7 +98,7 @@ _CATEGORIA = {
         "falla_reconocida", "ciclo_interrumpido", "apagar_equipo",
         "modo_prueba_entra", "modo_prueba_sale", "modo_prueba_salida_forzada", "salida_prueba",
         "salida_prueba_cortada", "atrapamiento_orden_invertida", "aire_atmosferico_cortado_prueba",
-        "apagado_windows_rechazado", "ciclo_no_conforme_reconocido",
+        "apagado_windows_rechazado", "ciclo_no_conforme_reconocido", "ciclo_cancelado",
         "arranque_camara_no_segura", "salidas_sin_confirmar", "salidas_confirmadas",
         "salidas_confirmadas_tras_reintento", "inicio_descartado_por_modo_prueba",
     ),

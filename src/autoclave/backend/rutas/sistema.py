@@ -25,7 +25,7 @@ from fastapi import APIRouter
 from autoclave.backend.dependencias import (DISTINTO_DE_CICLO, RechazoApi, _auditar,
     _log_desarrollo, _rechazar, actividad_ui, context, guard_estado, registro_arranque,
     requiere_rol)
-from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _campos_motivo, _no_conforme_status,
+from autoclave.backend.rutas._comun import (_LEEN_CONECTIVIDAD, _campos_motivo,
     _p_atm_vigente, _salidas_sin_confirmar_pendiente)
 from autoclave.backend.rutas.mantenimiento import _calibracion_atm_en_curso
 
@@ -379,6 +379,21 @@ def _cuentas_adc() -> dict:
     return adc
 
 
+def _puertas_con_actuador(doors) -> dict:
+    """FC-11 (tanda 21): por puerta, si tiene actuador (True) o es una puerta
+    sin actuador (SimpleDoor, False). Misma regla que POST /doors/.../open
+    (`servicio_puertas.tiene_actuador`). Ante un error, False: la interfaz
+    muestra el indicador sin acción (falla cerrada)."""
+    servicio = getattr(context, "servicio_puertas", None)
+    salida = {}
+    for nombre in doors:
+        try:
+            salida[nombre] = servicio.tiene_actuador(nombre) is True
+        except Exception:
+            salida[nombre] = False
+    return salida
+
+
 @router.get("/status", response_model=None)
 def get_status():
     estado = context.estado
@@ -448,9 +463,8 @@ def get_status():
         "sin_base_de_datos":    getattr(context, "sin_base_de_datos", False) is True,
         "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
         "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
-        # P4 (tanda 16, D-14.4): ciclo NO CONFORME (Referencia sin verificar),
-        # su motivo (clave i18n) y si el operador ya reconoció la carga no liberable
-        **_no_conforme_status(estado),
+        # FC-08 (tanda 21): se retiraron no_conforme, motivo_no_conforme y
+        # no_conforme_reconocido (P4, tanda 16)
         "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
         # Del enlace de E/S, no de Units: Units solo se entera por on_update
         # y no refleja la conexión verificada (handshake).
@@ -473,6 +487,9 @@ def get_status():
         "calibracion_atm_en_curso": _calibracion_atm_en_curso(),   # O2f
         "ui_inactividad_s":      actividad_ui.inactividad_s(),
         "doors":   doors,
+        # FC-11 (tanda 21): {nombre de puerta: bool} con la misma regla que el
+        # endpoint de puertas (servicio.tiene_actuador); falla cerrada (False)
+        "puertas_con_actuador": _puertas_con_actuador(doors),
         "sensors": sensors,
         "alarms":  alarms,
         # Entradas de suministro que el perfil declara sin cablear (E1-1)

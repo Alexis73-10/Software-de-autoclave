@@ -1,13 +1,11 @@
 # ui_qml/bridge/comandos_ciclo_en_curso.py
 #
 # Comandos de la pantalla de ciclo en curso (planeacion_pantalla_ciclo_en_curso.md §10):
-#   cancelar()  -> UIServiceBackend.abort_cycle()       (POST /cycle/abort)
+#   cancelar()  -> UIServiceBackend.abort_cycle()       (POST /cycle/abort, con el
+#                  token de la sesión de la ventana si la hay, FC-12 de la tanda 21)
 #   confirmar() -> UIServiceBackend.acknowledge_cycle() (POST /cycle/acknowledge)
-#   reconocerNoConforme() -> POST /cycle/acknowledge-no-conforme (P4, tanda 16,
-#       D-14.4): el operador reconoce que la carga de un ciclo NO CONFORME no
-#       es liberable; sin eso el backend rechaza CONFIRMAR. Lleva el token de
-#       la sesión de la ventana, si la hay, para que la bitácora tenga el usuario.
-# La confirmación previa a cancelar la pide el diálogo de la pantalla; aquí
+# (El reconocimiento de NO CONFORME de la tanda 16 se retiró en la tanda 21, FC-08.)
+# La confirmación previa a cancelar la pide el modal de la pantalla; aquí
 # solo se envía. Acción de seguridad (Clase C): sin atajos ni reintentos
 # automáticos. Mientras hay un envío en curso no se acepta otro (anti doble
 # toque). Si falla o no hay conexión, `error` queda con la acción fallida y la
@@ -24,8 +22,6 @@ logger = logging.getLogger(__name__)
 
 # D8-2.15: clave del catálogo i18n que la pantalla muestra (la traduce la QML)
 AVISO_CANCELACION_EN_ESPERA = "ciclo.cancelacion_en_espera_datos"
-# P4 (tanda 16, D-14.4)
-RUTA_RECONOCER_NO_CONFORME = "/cycle/acknowledge-no-conforme"
 
 
 def _en_hilo(tarea) -> None:
@@ -56,24 +52,6 @@ class ComandosCicloEnCurso(QObject):
     @Slot()
     def confirmar(self) -> None:
         self._enviar("confirmar", self._ui.acknowledge_cycle)
-
-    @Slot()
-    def reconocerNoConforme(self) -> None:
-        self._enviar("reconocer_no_conforme", self._reconocer_no_conforme)
-
-    def _reconocer_no_conforme(self) -> bool:
-        """POST /cycle/acknowledge-no-conforme con el token de la ventana (si
-        hay sesión). True solo si el backend lo aceptó. Corre en el hilo de
-        trabajo; nunca lanza."""
-        try:
-            from autoclave.cliente.session_manager import SessionManager
-            token = SessionManager.token()
-            extra = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
-            self._ui.backend.post(path=RUTA_RECONOCER_NO_CONFORME, **extra)
-            return True
-        except Exception as e:
-            logger.warning("reconocer NO CONFORME error: %s", e)
-            return False
 
     @Slot()
     def descartarError(self) -> None:
@@ -144,7 +122,7 @@ class ComandosCicloEnCurso(QObject):
     def ocupado(self) -> bool:
         return self._ocupado
 
-    # "" sin error; "cancelar" / "confirmar" / "reconocer_no_conforme" = la
+    # "" sin error; "cancelar" / "confirmar" = la
     # última acción no se pudo enviar
     @Property(str, notify=errorChanged)
     def error(self) -> str:

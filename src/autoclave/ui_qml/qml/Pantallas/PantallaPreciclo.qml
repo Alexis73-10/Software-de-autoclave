@@ -70,6 +70,10 @@ Item {
     // ABIERTO/ABRIENDO -> "abierta" (acción: cerrar); regla en UiBridge.doorOpen,
     // la misma que usa ComandosPuerta para decidir qué comando enviar.
     property bool puertaAbierta: puente?.doorOpen ?? false
+    // FC-11 (tanda 21): con actuador, botón ABRIR/CERRAR PUERTA; sin actuador
+    // (o sin dato: falla cerrada), indicador del estado sin acción
+    property bool puertaConActuador: puente?.puertaConActuador ?? false
+    property string estadoPuerta: puente?.doorState ?? ""
     property bool puertaOcupada: comandosPuerta?.ocupado ?? false
     property string mensajePuerta: comandosPuerta?.mensaje ?? ""   // motivo de rechazo del backend
     // Modelo de alarmas activas (roles: id, level, description, source_state, priority)
@@ -698,14 +702,20 @@ Item {
             color: "transparent"
             border.color: "white"; border.width: raiz.m(4)
         }
+        // FC-10 (tanda 21): el texto nunca se sale del botón; si no cabe
+        // entre su inicio y el borde derecho, se reduce (mínimo Escala.fuenteMinima)
         Text {
+            objectName: "textoBotonAccion"
             x: raiz.m(boton.textoX) - boton.x
             y: raiz.m(1676) - boton.y - baselineOffset
+            width: boton.width - x - raiz.m(12)
             text: boton.texto
             color: "white"
             font.family: Tipografia.familia
             font.weight: Tipografia.pesoMedium
             font.pixelSize: raiz.fuente(17)
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: Math.min(raiz.fuente(17), Escala.fuenteMinima)
         }
         MouseArea { anchors.fill: parent; onClicked: boton.pulsado() }
     }
@@ -713,6 +723,8 @@ Item {
     // Degradados medidos a x=310 / x=1010 (plan §6.1–6.2), extrapolados linealmente
     // a los bordes del cuerpo.
     BotonAccion {
+        objectName: "botonPuertaPreciclo"
+        visible: raiz.puertaConActuador
         caja: [41, 1615, 298, 110]
         colorArriba: Qt.rgba(47/255, 88/255, 251/255, 1)
         colorAbajo: Qt.rgba(0, 0, 73/255, 1)
@@ -742,6 +754,17 @@ Item {
             brightness: 1.0
         }
         ]
+    }
+
+    // FC-11 (tanda 21): puerta sin actuador (o sin dato): en la misma caja, el
+    // estado de la puerta, sin acción (IndicadorPuerta no tiene MouseArea)
+    IndicadorPuerta {
+        objectName: "indicadorPuertaPreciclo"
+        visible: !raiz.puertaConActuador
+        x: raiz.m(41); y: raiz.m(1615); width: raiz.m(298); height: raiz.m(110)
+        estadoPuerta: raiz.estadoPuerta
+        datosVigentes: raiz.datosVigentes
+        numeroPuerta: raiz.puerta
     }
 
     BotonAccion {
@@ -905,14 +928,16 @@ Item {
         puente: raiz.puente
         comandosSistema: raiz.comandosSistema
     }
-    // T8 (§7.6), PROVISIONAL (sin diseño): confirmación explícita por ciclo
-    DialogoConfirmacion {
+    // T8 (§7.6): confirmación explícita por ciclo. FC-09 (tanda 21): en
+    // ModalConfirmacion, con su texto de siempre
+    ModalConfirmacion {
         id: confirmarSinRegistro
         objectName: "confirmarSinRegistro"
-        mensaje: I18n.t("ciclo.sin_bd_pregunta", I18n.lang)
-        textoConfirmar: I18n.t("ciclo.sin_bd_continuar", I18n.lang)
-        textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
-        onConfirmado: { cerrar(); raiz.iniciarSinRegistroPulsado() }
+        titulo: I18n.t("ciclo.sin_bd_titulo", I18n.lang)
+        cuerpo: I18n.t("ciclo.sin_bd_pregunta", I18n.lang)
+        textoAccion: I18n.t("ciclo.sin_bd_continuar", I18n.lang)
+        colorAccion: Colores.accionPrimario
+        onAceptado: raiz.iniciarSinRegistroPulsado()
     }
     // B6 (tanda 4), PROVISIONAL (sin diseño): selector de ciclo. Lista de los
     // programas habilitados; los 3 más usados primero con la marca "Más usado".

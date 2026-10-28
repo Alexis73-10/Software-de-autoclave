@@ -399,6 +399,35 @@ class EsterilizacionFase(BaseFase):
             self._ref_debounce[sensor] = deb
         return deb
 
+    def _confirmar_excursion(self, sensor, nombre, registro, minimo, maximo,
+                             temp=None) -> FaseResult | None:
+        """Confirma la excursión de una Referencia: detiene la exposición,
+        CIC-09 una vez por sensor y el tope de reinicios (P5 / D-14.5, CIC-17).
+        `temp` None (tanda 21, SAF-02): se confirma al perder la lectura; para
+        CIC-09 se usa la mínima registrada."""
+        registro["confirmada"] = True
+        if temp is None:
+            temp = registro["tmin"]
+        logger.warning("Esterilización: excursión de %s (%.1f °C, banda %.1f–%.1f °C); "
+                       "conteo de exposición detenido", nombre, temp, minimo, maximo)
+        if sensor not in self._ref_alertada:
+            self._ref_alertada.add(sensor)
+            try:
+                self.alarm_manager.activar(CIC_09, origen=sensor, sensor=nombre,
+                                           temp=temp, minimo=minimo, maximo=maximo)
+            except Exception:
+                logger.exception("Esterilización: no se pudo registrar CIC-09")
+        # P5 / D-14.5: tope de reinicios, venga de la Referencia que venga
+        maximo_reinicios = self._max_reinicios()
+        if self.reinicios_exposicion >= maximo_reinicios:
+            return self._fallo_propio(
+                CIC_17, {"sensor": nombre, "reinicios": self.reinicios_exposicion,
+                         "maximo": maximo_reinicios},
+                motivos_fase.motivo("est_tope_reinicios", sensor=nombre,
+                                    reinicios=str(self.reinicios_exposicion),
+                                    maximo=str(maximo_reinicios)))
+        return None
+
     def _vigilar_referencias(self, minimo, maximo, now, tiempo_seg) -> FaseResult | None:
         """C-13. Banda [T_est - brecha_error_temperatura, T_est +
         rango_temperatura_ester] para cada Referencia con lectura. Devuelve
@@ -408,19 +437,28 @@ class EsterilizacionFase(BaseFase):
         for sensor, temp in self._temps_referencia().items():
             nombre = NOMBRES.get(sensor, sensor)
             # C-13.7b: sin lectura no participa (no detiene ni reinicia la
-            # exposición); lo vigila CicloState (SEN-11, NO CONFORME). Una
-            # excursión aún sin confirmar se descarta (con su debounce); una
-            # ya confirmada solo la cierra una lectura dentro de la banda y
-            # su timeout sigue corriendo (P8 / D-14.8: si no, la fase quedaría
-            # detenida sin límite).
+            # exposición); lo vigila CicloState (SEN-11; tanda 21, FC-08:
+            # observación en sólidos, CIC-19 en líquidos). Una ya confirmada
+            # solo la cierra una lectura dentro de la banda y su timeout sigue
+            # corriendo (P8 / D-14.8: si no, la fase quedaría detenida sin límite).
             if not _numero(temp) or temp == 0:
                 registro = self._ref_fuera.get(sensor)
-                if registro is None or not registro["confirmada"]:
-                    self._ref_fuera.pop(sensor, None)
+                if registro is None:
                     deb = self._ref_debounce.get(sensor)
                     if deb is not None:
                         deb.reset()
                     continue
+                if not registro["confirmada"]:
+                    # Tanda 21 (revisión R, SAF-02), DECISIÓN SIN CONFIRMAR: una
+                    # Referencia que ya leía fuera de la banda y pierde la
+                    # lectura antes de confirmar la excursión no la descarta
+                    # (con FC-08 el ciclo terminaría COMPLETADO): se confirma,
+                    # la exposición se detiene y CIC-14 acota la espera.
+                    logger.warning("Esterilización: %s perdió la lectura con una excursión en "
+                                   "curso; se confirma", nombre)
+                    fallo = self._confirmar_excursion(sensor, nombre, registro, minimo, maximo)
+                    if fallo is not None:
+                        return fallo
                 if now - registro["desde"] >= timeout_min * 60:
                     minutos = f"{timeout_min:.0f}"
                     return self._fallo_propio(
@@ -466,25 +504,9 @@ class EsterilizacionFase(BaseFase):
             transcurrido = now - registro["desde"]
 
             if not registro["confirmada"] and confirma:
-                registro["confirmada"] = True
-                logger.warning("Esterilización: excursión de %s (%.1f °C, banda %.1f–%.1f °C); "
-                               "conteo de exposición detenido", nombre, temp, minimo, maximo)
-                if sensor not in self._ref_alertada:
-                    self._ref_alertada.add(sensor)
-                    try:
-                        self.alarm_manager.activar(CIC_09, origen=sensor, sensor=nombre,
-                                                   temp=temp, minimo=minimo, maximo=maximo)
-                    except Exception:
-                        logger.exception("Esterilización: no se pudo registrar CIC-09")
-                # P5 / D-14.5: tope de reinicios, venga de la Referencia que venga
-                maximo_reinicios = self._max_reinicios()
-                if self.reinicios_exposicion >= maximo_reinicios:
-                    return self._fallo_propio(
-                        CIC_17, {"sensor": nombre, "reinicios": self.reinicios_exposicion,
-                                 "maximo": maximo_reinicios},
-                        motivos_fase.motivo("est_tope_reinicios", sensor=nombre,
-                                            reinicios=str(self.reinicios_exposicion),
-                                            maximo=str(maximo_reinicios)))
+                fallo = self._confirmar_excursion(sensor, nombre, registro, minimo, maximo, temp)
+                if fallo is not None:
+                    return fallo
 
             if registro["confirmada"] and transcurrido >= timeout_min * 60:
                 minutos = f"{timeout_min:.0f}"

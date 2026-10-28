@@ -1,5 +1,8 @@
 """P4 (tanda 16, D-14.4), backend: NO CONFORME visible.
 
+Tanda 21 (FC-08): el NO CONFORME del ciclo en curso se retiró (ver la sección
+correspondiente abajo); solo queda la lectura histórica. Texto original:
+
 - /status y GET /cycle/current/progress exponen no_conforme, su motivo y si
   el operador ya reconoció que la carga no es liberable;
 - POST /cycle/acknowledge se rechaza (409 no_conforme_sin_reconocer) con un
@@ -20,7 +23,7 @@ from fastapi.testclient import TestClient
 
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.state_machine.machine.enum_global import GlobalState
-from tests.helpers.backend_doble import cabecera, cargar_servidor
+from tests.helpers.backend_doble import cargar_servidor
 
 pytestmark = pytest.mark.req("T16-S5")
 
@@ -34,9 +37,10 @@ class _Estado:
         self.flags = {}
         self.maquina = GlobalState.CICLO
         self.fase_ciclo = "COMPLETADO"
-        self.no_conforme = False
-        self.motivo_no_conforme = ""
-        self.no_conforme_reconocido = False
+        self.codigo_fallo = ""
+        self.valores_fallo = {}
+        self.motivo_fallo = ""
+        self.cancelado_por = None
         self.avisos_ciclo = []
         self.operador_inicio = "ana"
         self.estado_puertas = {}
@@ -73,12 +77,6 @@ def entorno(tmp_path):
     db.close()
 
 
-def _marcar_no_conforme(estado):
-    estado.no_conforme = True
-    estado.motivo_no_conforme = CLAVE
-    estado.avisos_ciclo.append({"clave": CLAVE, "sensor": "Referencia 1"})
-
-
 def _eventos(db, evento):
     return db.get_auditoria(evento=evento, limite=100)
 
@@ -96,7 +94,10 @@ def _ciclo_guardado(db, avisos=None, resultado="COMPLETADO"):
     return i
 
 
-# ── /status ─────────────────────────────────────────────────────────────────
+# ── Tanda 21 (FC-08): NO CONFORME del ciclo en curso retirado ──────────────
+# /status y el progreso ya no exponen no_conforme; /cycle/acknowledge no exige
+# reconocimiento y POST /cycle/acknowledge-no-conforme ya no existe. El
+# historial sigue mostrando los ciclos guardados NO CONFORME tal cual.
 
 def _status(cliente):
     r = cliente.get("/status")
@@ -104,163 +105,50 @@ def _status(cliente):
     return r.json()
 
 
-def test_status_ciclo_conforme(entorno):
-    cliente, _, _, _, _ = entorno
-    s = _status(cliente)
-    assert s["no_conforme"] is False
-    assert s["motivo_no_conforme"] == ""
-    assert s["no_conforme_reconocido"] is False
-
-
-def test_status_ciclo_no_conforme_y_reconocido(entorno):
-    cliente, _, estado, _, _ = entorno
-    _marcar_no_conforme(estado)
-    s = _status(cliente)
-    assert (s["no_conforme"], s["motivo_no_conforme"], s["no_conforme_reconocido"]) == \
-        (True, CLAVE, False)
-    estado.no_conforme_reconocido = True
-    assert _status(cliente)["no_conforme_reconocido"] is True
-
-
-def test_status_reconocido_sin_no_conforme_no_cuenta(entorno):
-    """Falla cerrada: un reconocimiento suelto no se publica sin NO CONFORME."""
-    cliente, _, estado, _, _ = entorno
-    estado.no_conforme_reconocido = True
-    assert _status(cliente)["no_conforme_reconocido"] is False
-
-
-def test_status_no_conforme_por_aviso_aunque_falte_la_bandera(entorno):
-    """Defensa en profundidad: el aviso en avisos_ciclo basta."""
+def test_status_ya_no_expone_no_conforme(entorno):
     cliente, _, estado, _, _ = entorno
     estado.avisos_ciclo.append({"clave": CLAVE, "sensor": "Referencia 1"})
     s = _status(cliente)
-    assert s["no_conforme"] is True and s["motivo_no_conforme"] == CLAVE
+    for campo in ("no_conforme", "motivo_no_conforme", "no_conforme_reconocido"):
+        assert campo not in s
 
 
-# ── progreso ────────────────────────────────────────────────────────────────
-
-def test_progreso_expone_no_conforme(entorno):
+def test_progreso_ya_no_expone_no_conforme(entorno):
     cliente, ctx, estado, db, _ = entorno
     cid = _ciclo_guardado(db)
     ctx.cycle_logger.ciclo_id_pantalla = cid
-    ctx.cycle_logger.transcurrido_s.return_value = 120.0
-    ctx.control_loop.programa_en_ejecucion.return_value = MagicMock(id="t")
-    ctx.cap = MagicMock()
+    ctx.cycle_logger.transcurrido_s.return_value = 100.0
+    ctx.cycle_logger.hora_fin_pantalla = None
+    ctx.control_loop.programa_en_ejecucion.return_value = MagicMock()
+    estado.avisos_ciclo.append({"clave": CLAVE, "sensor": "Referencia 1"})
     r = cliente.get("/cycle/current/progress").json()
     assert r["activo"] is True
-    assert (r["no_conforme"], r["no_conforme_reconocido"]) == (False, False)
-    _marcar_no_conforme(estado)
-    r = cliente.get("/cycle/current/progress").json()
-    assert (r["no_conforme"], r["motivo_no_conforme"], r["no_conforme_reconocido"]) == \
-        (True, CLAVE, False)
-
-
-# ── acknowledge y reconocimiento ─────────────────────────────────────────────
-
-def test_confirmar_no_conforme_sin_reconocer_409(entorno):
-    cliente, _, estado, _, _ = entorno
-    _marcar_no_conforme(estado)
-    r = cliente.post("/cycle/acknowledge")
-    assert r.status_code == 409
-    assert r.json()["codigo"] == "no_conforme_sin_reconocer"
-    assert not estado.get_flag("CICLO_CONFIRMADO")
-
-
-def test_confirmar_bloqueado_solo_con_el_aviso(entorno):
-    cliente, _, estado, _, _ = entorno
-    estado.avisos_ciclo.append({"clave": CLAVE, "sensor": "Referencia 1"})
-    r = cliente.post("/cycle/acknowledge")
-    assert r.status_code == 409 and r.json()["codigo"] == "no_conforme_sin_reconocer"
-    assert not estado.get_flag("CICLO_CONFIRMADO")
+    for campo in ("no_conforme", "motivo_no_conforme", "no_conforme_reconocido"):
+        assert campo not in r
 
 
 @pytest.mark.parametrize("fase", ["COMPLETADO", "FALLO_ESTERILIZACION", "CANCELADO"])
-def test_confirmar_no_conforme_bloqueado_en_todo_resultado(entorno, fase):
-    """DECISIÓN SIN CONFIRMAR: también si el ciclo NO CONFORME terminó en fallo
-    o cancelado (lo más seguro: el reconocimiento no cuesta nada)."""
+def test_confirmar_con_aviso_viejo_ya_no_se_bloquea(entorno, fase):
     cliente, _, estado, _, _ = entorno
     estado.fase_ciclo = fase
-    _marcar_no_conforme(estado)
-    assert cliente.post("/cycle/acknowledge").status_code == 409
-    assert not estado.get_flag("CICLO_CONFIRMADO")
-    assert cliente.post("/cycle/acknowledge-no-conforme").status_code == 200
-    assert cliente.post("/cycle/acknowledge").status_code == 200
-    assert estado.get_flag("CICLO_CONFIRMADO") is True
-
-
-def test_reconocer_y_confirmar_se_audita_con_el_usuario(entorno):
-    cliente, ctx, estado, db, srv = entorno
-    cid = _ciclo_guardado(db)
-    ctx.cycle_logger.ciclo_id_pantalla = cid
-    _marcar_no_conforme(estado)
-    r = cliente.post("/cycle/acknowledge-no-conforme",
-                     headers=cabecera(srv, "operador", usuario="luis"))
-    assert r.status_code == 200, r.text
-    assert estado.no_conforme_reconocido is True
-    filas = _eventos(db, "ciclo_no_conforme_reconocido")
-    assert len(filas) == 1
-    fila = dict(filas[0])
-    assert fila["usuario"] == "luis" and fila["rol"] == "operador"
-    detalle = _detalle(fila)
-    assert detalle["motivo"] == CLAVE
-    assert detalle["operador_ciclo"] == "ana"
-    assert detalle["numero_ciclo"] == db.get_ciclo(cid)["numero_ciclo"]
-    assert "sin_sesion" not in detalle
-    # después del reconocimiento, CONFIRMAR se acepta
+    estado.avisos_ciclo.append({"clave": CLAVE, "sensor": "Referencia 1"})
     r = cliente.post("/cycle/acknowledge")
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert estado.get_flag("CICLO_CONFIRMADO") is True
 
 
-def test_reconocer_sin_sesion_queda_auditado_sin_usuario(entorno):
-    cliente, _, estado, db, _ = entorno
-    _marcar_no_conforme(estado)
-    assert cliente.post("/cycle/acknowledge-no-conforme").status_code == 200
-    fila = dict(_eventos(db, "ciclo_no_conforme_reconocido")[0])
-    assert fila["usuario"] == ""
-    assert _detalle(fila)["sin_sesion"] is True
-
-
-def test_reconocer_dos_veces_audita_una(entorno):
-    cliente, _, estado, db, _ = entorno
-    _marcar_no_conforme(estado)
-    assert cliente.post("/cycle/acknowledge-no-conforme").status_code == 200
-    r = cliente.post("/cycle/acknowledge-no-conforme")
-    assert r.status_code == 200 and r.json().get("ya_reconocido") is True
-    assert len(_eventos(db, "ciclo_no_conforme_reconocido")) == 1
-
-
-def test_reconocer_un_ciclo_conforme_409(entorno):
-    cliente, _, estado, db, _ = entorno
-    r = cliente.post("/cycle/acknowledge-no-conforme")
-    assert r.status_code == 409 and r.json()["codigo"] == "ciclo_conforme"
-    assert estado.no_conforme_reconocido is False
+def test_ruta_de_reconocimiento_retirada(entorno):
+    cliente, _, _, db, srv = entorno
+    assert cliente.post("/cycle/acknowledge-no-conforme").status_code == 404
+    assert all(getattr(r, "path", "") != "/cycle/acknowledge-no-conforme"
+               for r in srv.app.routes)
     assert _eventos(db, "ciclo_no_conforme_reconocido") == []
 
 
-def test_reconocer_a_mitad_de_ciclo_409(entorno):
-    cliente, _, estado, _, _ = entorno
-    estado.fase_ciclo = "ESTERILIZACION"
-    _marcar_no_conforme(estado)
-    r = cliente.post("/cycle/acknowledge-no-conforme")
-    assert r.status_code == 409 and r.json()["codigo"] == "sin_resultado"
-    assert estado.no_conforme_reconocido is False
-
-
-def test_reconocer_fuera_de_ciclo_409(entorno):
-    cliente, _, estado, _, _ = entorno
-    estado.maquina = GlobalState.PREPARADO
-    _marcar_no_conforme(estado)
-    r = cliente.post("/cycle/acknowledge-no-conforme")
-    assert r.status_code == 409 and r.json()["codigo"] == "estado_no_permitido"
-    assert estado.no_conforme_reconocido is False
-
-
-def test_reconocer_no_confirma_el_ciclo(entorno):
-    cliente, _, estado, _, _ = entorno
-    _marcar_no_conforme(estado)
-    assert cliente.post("/cycle/acknowledge-no-conforme").status_code == 200
-    assert not estado.get_flag("CICLO_CONFIRMADO")
+def test_evento_viejo_sigue_reconocido_en_la_bitacora():
+    from autoclave.core.runtime import bitacora
+    assert "ciclo_no_conforme_reconocido" in bitacora.EVENTOS
+    assert bitacora.categoria_de("ciclo_no_conforme_reconocido") == "seguridad"
 
 
 def test_confirmar_ciclo_conforme_no_cambia(entorno):
@@ -268,13 +156,10 @@ def test_confirmar_ciclo_conforme_no_cambia(entorno):
     r = cliente.post("/cycle/acknowledge")
     assert r.status_code == 200 and r.json() == {"ok": True, "action": "CICLO_CONFIRMADO"}
     assert estado.get_flag("CICLO_CONFIRMADO") is True
-    assert _eventos(db, "ciclo_no_conforme_reconocido") == []
 
 
-def test_confirmar_no_conforme_con_paro_sigue_rechazado_por_paro(entorno):
+def test_confirmar_con_paro_sigue_rechazado_por_paro(entorno):
     cliente, _, estado, _, _ = entorno
-    _marcar_no_conforme(estado)
-    estado.no_conforme_reconocido = True
     estado.set_flag("PARO_EMERGENCIA", True)
     r = cliente.post("/cycle/acknowledge")
     assert r.status_code == 409 and r.json()["codigo"] == "paro_emergencia"

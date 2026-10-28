@@ -79,8 +79,10 @@ def test_app_ver_num_rechaza_n_fuera_de_rango(semver):
 
 def test_reescribir_version_solo_cambia_las_dos_lineas():
     texto = (RAIZ / "src" / "autoclave" / "_version.py").read_text(encoding="utf-8")
-    nuevo = ce.reescribir_version(texto, "1.0.0-alpha.7")
-    assert '__version__ = "1.0.0a7"' in nuevo and 'VERSION_SEMVER = "1.0.0-alpha.7"' in nuevo
+    # una versión que nunca es la vigente (con alpha.7 ya entregada, la prueba
+    # comparaba el archivo consigo mismo: tanda 21)
+    nuevo = ce.reescribir_version(texto, "1.0.0-alpha.999")
+    assert '__version__ = "1.0.0a999"' in nuevo and 'VERSION_SEMVER = "1.0.0-alpha.999"' in nuevo
     distintas = [(a, b) for a, b in zip(texto.splitlines(), nuevo.splitlines()) if a != b]
     assert len(distintas) == 2 and len(texto.splitlines()) == len(nuevo.splitlines())
     with pytest.raises(ValueError):

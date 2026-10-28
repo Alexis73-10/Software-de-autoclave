@@ -16,14 +16,15 @@
 import logging
 import math
 import time
+from datetime import datetime
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import (
     CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
     COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, nombre_legible,
 )
 # E12 (tanda 12): alarmas propias de ESTERILIZACION (C-03, C-13) y Referencia
-# sin lectura (C-13.7b)
-from autoclave.state_machine.alarms.catalogo import CIC_12, CIC_13, CIC_14, SEN_11
+# sin lectura (C-13.7b). FC-08 (tanda 21): CIC-19 con carga líquida
+from autoclave.state_machine.alarms.catalogo import CIC_12, CIC_13, CIC_14, CIC_19, SEN_11
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.cycle_phases.precalentamiento import PrecalentamientoFase
 from autoclave.state_machine.cycle_phases.prevacio import PrevacioFase
@@ -95,8 +96,10 @@ _ALARMAS_PROPIAS_FASE = (CIC_11, CIC_12, CIC_13, CIC_14, CIC_15, CIC_16, CIC_17)
 # s3 (tanda 16, VCH-CHQ): fases en que, en modo chaqueta, el corte de chaqueta
 # lleva además el aviso no bloqueante CIC-18 (las que controlan vapor_chaqueta)
 _FASES_AVISO_CORTE_CHAQUETA = ("CALENTAMIENTO", "ESTERILIZACION")
-# F4 (tanda 16): motivo publicado en estado.motivo_no_conforme (clave i18n del ticket)
-MOTIVO_NO_CONFORME_REFERENCIA = "ticket_ciclo.no_conforme_referencia"
+# FC-08 (tanda 21): observación del ciclo por una Referencia sin lectura (carga
+# sólida). Reemplaza la marca NO CONFORME (C-13.7b, P4 / D-14.4), que ya no se
+# escribe; los ciclos guardados con ella se siguen leyendo tal cual.
+CLAVE_OBSERVACION_REFERENCIA = "ticket_ciclo.observacion_referencia"
 
 # Sección del JSON del programa -> fase del pipeline que la usa (§5.8).
 # `estabilizacion` va con CALENTAMIENTO (fusionadas). Las secciones que no están aquí (`globals`, `finalizacion` o
@@ -155,7 +158,8 @@ class CicloState:
         # None = comportamiento previo (todo requerido, 2 puertas con empaque).
         self.profile       = profile
         self._apertura_auto_t_inicio = None
-        self._no_conforme = False   # V12 (SAF-06): bandera propia de NO CONFORME
+        # V12 (SAF-06) / FC-08: bandera propia de Referencia sin lectura
+        self._referencia_sin_lectura = False
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
         self._apertura_auto_denegada_desde = None
@@ -214,7 +218,8 @@ class CicloState:
         self._contador_drenaje_baja = 0
         self._lecturas_enfriada_reposo = 0
         self._apertura_auto_t_inicio = None
-        self._no_conforme = False   # V12 (SAF-06): bandera propia de NO CONFORME
+        # V12 (SAF-06) / FC-08: bandera propia de Referencia sin lectura
+        self._referencia_sin_lectura = False
         self._apertura_auto_alarmado = False
         self._apertura_auto_ultimo_intento = None
         self._apertura_auto_denegada_desde = None
@@ -228,9 +233,7 @@ class CicloState:
         # F4 (tanda 16): contratos por ciclo (ver EstadoAutoclave)
         self.estado.aislamiento_camara = AislamientoCamara()
         self.estado.inhibir_vapor_chaqueta = False
-        self.estado.no_conforme = False
-        self.estado.motivo_no_conforme = ""
-        self.estado.no_conforme_reconocido = False
+        self.estado.cancelado_por = None   # FC-12 (tanda 21)
         try:
             self.estado.modo_vapor = modo_vapor(self.profile)
         except Exception:
@@ -809,64 +812,86 @@ class CicloState:
                                enfriada=self._principal_enfriada(modo))
 
     # ------------------------------------------------------------------
-    # C-13.7b (tanda 12): Referencia sin lectura → ciclo NO CONFORME
+    # C-13.7b (tanda 12) / FC-08 (tanda 21): Referencia sin lectura
     # ------------------------------------------------------------------
 
-    _CLAVE_NO_CONFORME = "ticket_ciclo.no_conforme_referencia"
-
-    def _avisos_no_conforme(self) -> list:
+    def _avisos_observacion(self) -> list:
         avisos = getattr(self.estado, "avisos_ciclo", None)
         if not isinstance(avisos, list):
             return []
-        return [a for a in avisos if isinstance(a, dict) and a.get("clave") == self._CLAVE_NO_CONFORME]
+        return [a for a in avisos
+                if isinstance(a, dict) and a.get("clave") == CLAVE_OBSERVACION_REFERENCIA]
 
     @property
-    def no_conforme(self) -> bool:
-        """El ciclo en curso (o recién terminado) quedó NO CONFORME: punto de
-        referencia sin verificar. Se deriva de estado.avisos_ciclo (que
-        reset() vacía al iniciar cada ciclo), así que la marca queda aunque
-        la Referencia vuelva a leer, y va al ticket y al registro del ciclo
-        (CycleLogger guarda los avisos en avisos_ticket de la base y del
-        respaldo)."""
-        return self._no_conforme or bool(self._avisos_no_conforme())
+    def referencia_sin_lectura(self) -> bool:
+        """FC-08: alguna Referencia perdió la lectura en este ciclo (carga
+        sólida). Queda aunque la Referencia vuelva a leer; reset() la limpia.
+        El ciclo puede terminar COMPLETADO (con la observación en pantalla,
+        ticket y registro), pero sin apertura automática."""
+        return self._referencia_sin_lectura or bool(self._avisos_observacion())
 
-    def _publicar_no_conforme(self) -> None:
-        """F4 (tanda 16): publica la bandera _no_conforme en el estado
-        (/status, pantalla final e historial la leen de ahí). Nunca lanza."""
+    def _carga_liquida(self) -> bool:
+        """FC-08: con el tipo de carga no legible, o con un valor que no sea
+        "solido", se trata como líquida (falla cerrada: el ciclo se aborta en
+        vez de seguir sin verificar la carga; revisión R de la tanda 21, SAF-03)."""
         try:
-            self.estado.no_conforme = True
-            self.estado.motivo_no_conforme = MOTIVO_NO_CONFORME_REFERENCIA
+            return self.cycle.get_param("globals", "tipo_carga", default="solido") != "solido"
         except Exception:
-            logger.exception("CicloState: no se pudo publicar NO CONFORME en el estado")
+            logger.exception("CicloState: tipo de carga no legible; se trata como líquida")
+            return True
+
+    def _nombre_fase_actual(self) -> str:
+        if self._fase_idx < len(self._fases):
+            return self._fases[self._fase_idx].name
+        return ""
 
     def _marcar_referencias_sin_lectura(self, ausentes) -> None:
-        """Una vez por ciclo y sensor: SEN-11 (no bloqueante) y línea NO
-        CONFORME en el ticket. El ciclo continúa con las sondas que leen."""
-        ya = {a.get("sensor") for a in self._avisos_no_conforme()}
+        """Carga sólida (FC-08): una vez por ciclo y sensor, SEN-11 (aviso no
+        bloqueante, despeje manual) y la observación del ciclo (sensor, hora
+        y fase), que va a la pantalla, al ticket y al registro. El ciclo sigue
+        controlado por el Principal y la presión."""
+        ya = {a.get("sensor") for a in self._avisos_observacion()}
         for s in ausentes:
             nombre = nombre_legible(s)
             if nombre in ya:
                 continue
             ya.add(nombre)
             fase = self._fase_actual_legible()
-            logger.error("CicloState: Referencia %s sin lectura en %s; el ciclo sigue y queda "
-                         "NO CONFORME (punto de referencia sin verificar)", s, fase)
+            logger.error("CicloState: Referencia %s sin lectura en %s; el ciclo sigue con el "
+                         "Principal y la presión (observación del ciclo)", s, fase)
             # V12 (SAF-06): la bandera va antes del ticket y de la alarma, así
             # un fallo al anotar no deja abrir la puerta sola
-            self._no_conforme = True
-            self._publicar_no_conforme()
+            self._referencia_sin_lectura = True
             try:
                 avisos = getattr(self.estado, "avisos_ciclo", None)
                 if not isinstance(avisos, list):
                     avisos = []
                     self.estado.avisos_ciclo = avisos
-                avisos.append({"clave": self._CLAVE_NO_CONFORME, "sensor": nombre})
+                # hora de pared: sello del registro, no un temporizador
+                avisos.append({"clave": CLAVE_OBSERVACION_REFERENCIA, "sensor": nombre,
+                               "hora": datetime.now().strftime("%H:%M"),
+                               "fase": self._nombre_fase_actual()})
             except Exception:
-                logger.exception("CicloState: no se pudo anotar el ciclo NO CONFORME")
+                logger.exception("CicloState: no se pudo anotar la observación de Referencia")
             try:
                 self.alarm_manager.activar(SEN_11, origen=s, sensor=nombre, fase=fase)
             except Exception:
                 logger.exception("CicloState: no se pudo registrar SEN-11")
+
+    def _fallar_por_referencia_liquido(self, ausentes) -> str:
+        """Carga líquida (FC-08): donde la carga sólida activaría SEN-11, el
+        ciclo termina en FALLO CIC-19 (mismo criterio de confirmación que
+        SEN-11, sin debounce adicional). Protocolo de fallo normal, como
+        CIC-12/13: el Principal y la presión siguen leyendo."""
+        legibles = [nombre_legible(s) for s in ausentes]
+        fase = self._fase_actual_legible()
+        logger.error("CicloState: FALLO — Referencia %s sin lectura en %s con carga líquida",
+                     ausentes, fase)
+        self.estado.fase_ciclo = "SENSOR_AUSENTE"
+        self._registrar_fallo(CIC_19, origen=ausentes[0], sensor=", ".join(legibles), fase=fase)
+        self._protocolo.ejecutar()
+        self._resultado_pendiente = CicloResultado.FALLO
+        return CicloResultado.ESPERANDO_CONFIRMACION
 
     def _mantener_apertura_automatica(self):
         """Si finalizacion.apertura_automatica está activo, abre la puerta de
@@ -886,9 +911,10 @@ class CicloState:
             return
         if not self.cycle.get_param("finalizacion", "apertura_automatica", default=False):
             return
-        # C-13.7b (DSC confirmada como DSC en las decisiones de la tanda 12):
-        # un ciclo NO CONFORME pasa al flujo manual de confirmación
-        if self.no_conforme:
+        # C-13.7b (DSC confirmada en la tanda 12; se conserva en FC-08, tanda
+        # 21): con una Referencia sin lectura el ciclo pasa al flujo manual de
+        # confirmación, para que alguien vea la observación
+        if self.referencia_sin_lectura:
             return
 
         # Puerta sin actuador (manual): no hay nada que abrir. Se ignora el
@@ -1003,15 +1029,8 @@ class CicloState:
                         self.estado.set_flag(bandera, False)
                 self.set_do.apagar_por_paro()
                 return CicloResultado.ESPERANDO_CONFIRMACION
-            if (self.estado.get_flag("CICLO_CONFIRMADO") and self.no_conforme
-                    and getattr(self.estado, "no_conforme_reconocido", False) is not True):
-                # R (tanda 16, V16-s3-07; P4 / D-14.4): defensa en profundidad
-                # del backend: un ciclo NO CONFORME no se confirma sin el
-                # reconocimiento de carga no liberable
-                logger.warning("CicloState: confirmación ignorada: ciclo NO CONFORME sin "
-                               "reconocimiento de carga no liberable")
-                self.estado.set_flag("CICLO_CONFIRMADO", False)
-            elif self.estado.get_flag("CICLO_CONFIRMADO"):
+            # FC-08 (tanda 21): sin NO CONFORME ya no se exige reconocimiento
+            if self.estado.get_flag("CICLO_CONFIRMADO"):
                 logger.info(
                     "CicloState: confirmación recibida → %s", self._resultado_pendiente
                 )
@@ -1019,8 +1038,7 @@ class CicloState:
                 resultado_final = self._resultado_pendiente
                 self._resultado_pendiente = None
                 # F4 (tanda 16): fuera de ciclo no hay modo de vapor ni corte
-                # de chaqueta del ciclo (no_conforme queda hasta el próximo
-                # ciclo: lo leen el historial y la pantalla)
+                # de chaqueta del ciclo
                 self.estado.modo_vapor = None
                 self.estado.inhibir_vapor_chaqueta = False
                 return resultado_final
@@ -1154,8 +1172,9 @@ class CicloState:
         # C-13.7b (tanda 12, opción B confirmada 24-oct; reemplaza la DECISIÓN
         # SIN CONFIRMAR de la tanda §1.1): el Principal sin lectura falla
         # (SEN-02); una Referencia sin lectura NO aborta: SEN-11 no bloqueante
-        # y el ciclo queda NO CONFORME (ticket y registro), sin apertura
-        # automática. Corre antes de fase.update() (C-10.1).
+        # y observación del ciclo (FC-08, tanda 21; antes NO CONFORME), sin
+        # apertura automática; con carga líquida, FALLO CIC-19. Corre antes de
+        # fase.update() (C-10.1).
         # SEN-01 de T2: un 0 del sensor de temperatura es "sin señal" (mismo
         # criterio que estado_sensor y temp_seguridad)
         ausentes = [
@@ -1182,6 +1201,9 @@ class CicloState:
             return CicloResultado.ESPERANDO_CONFIRMACION
         principal_ausente = sensor_principal(self.cycle) in ausentes
         if ausentes and not principal_ausente:
+            # FC-08 (tanda 21): carga líquida → FALLO CIC-19; sólida → SEN-11
+            if self._carga_liquida():
+                return self._fallar_por_referencia_liquido(ausentes)
             self._marcar_referencias_sin_lectura(ausentes)
         elif ausentes:
             logger.error("CicloState: SENSOR_AUSENTE — %s", ausentes)

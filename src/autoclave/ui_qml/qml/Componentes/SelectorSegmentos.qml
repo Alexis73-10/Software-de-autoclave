@@ -40,8 +40,13 @@ Item {
                     radius: Escala.px(6)
                     color: "transparent"
                     border.width: 0
+                    // T21 (FC-10): si la etiqueta no cabe en el segmento, la letra
+                    // baja (HorizontalFit) hasta Escala.fuenteMinima; nunca se recorta
                     Text {
                         anchors.centerIn: parent
+                        width: Math.min(implicitWidth, parent.width - Escala.px(16))
+                        fontSizeMode: Text.HorizontalFit
+                        minimumPixelSize: Escala.fuenteMinima
                         text: segmento.modelData.etiqueta
                         color: segmento.activo ? "white" : Colores.textoPrimario
                         font.family: Tipografia.familia

@@ -399,5 +399,6 @@ def test_preciclo_en_pantalla():
     # «Confirmar y llevar a estado seguro» se ve fuera de la ventana y funciona con clic real
     assert r["confirmar_visible"] is True and r["confirmar_fuera"] is True
     assert r["confirmaciones"] == 1
-    # SON-01: la entrada de la sonda No en uso lleva «(monitoreo)»
-    assert any(v.endswith("(monitoreo)") for v in r["vistos"]), r["vistos"]
+    # SON-01: la entrada de la sonda No en uso se muestra; desde el 28-oct
+    # (6f06dd0) sin el sufijo «(monitoreo)», que desbordaba la casilla
+    assert not any(v.endswith("(monitoreo)") for v in r["vistos"]), r["vistos"]

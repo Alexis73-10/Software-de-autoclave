@@ -177,7 +177,11 @@ Column {
 
     // Botón de los estados 2 y 3: azul y habilitado solo con la confirmación
     // pendiente y sin petición en vuelo
+    // T21 (FC-10): el botón ocupa todo el ancho de la sección; si el texto
+    // («Confirmar y llevar a estado seguro») no cabe, la letra baja
+    // (HorizontalFit) hasta Escala.fuenteMinima. Nunca se recorta (D8-5.4).
     Rectangle {
+        id: botonConfirmar
         objectName: "botonConfirmarEstadoSeguro"
         visible: (raiz.confirmar || raiz.enCurso) && raiz.enGrupo("emergencia")
         readonly property bool habilitado: raiz.confirmar && !raiz.enviando
@@ -187,9 +191,11 @@ Column {
         color: Colores.accionPrimario
         opacity: habilitado ? 1.0 : 0.85
         Row {
+            id: filaConfirmar
             anchors.centerIn: parent
             spacing: Escala.px(16)
             BusyIndicator {
+                id: indicadorEnCurso
                 objectName: "indicadorEnCurso"
                 visible: (raiz.enCurso || raiz.enviando) && raiz.enGrupo("emergencia")
                 running: visible
@@ -197,7 +203,13 @@ Column {
                 anchors.verticalCenter: parent.verticalCenter
             }
             Text {
+                objectName: "textoConfirmarEstadoSeguro"
                 anchors.verticalCenter: parent.verticalCenter
+                // ancho útil: el del botón menos el radio de cada lado y el indicador
+                width: Math.min(implicitWidth, botonConfirmar.width - botonConfirmar.height
+                                - (indicadorEnCurso.visible ? indicadorEnCurso.width + filaConfirmar.spacing : 0))
+                fontSizeMode: Text.HorizontalFit
+                minimumPixelSize: Escala.fuenteMinima
                 text: (raiz.enCurso || raiz.enviando)
                       ? I18n.t("sistema.estado_seguro_en_curso_boton", I18n.lang)
                       : I18n.t("sistema.confirmar_estado_seguro", I18n.lang)
@@ -263,7 +275,11 @@ Column {
         radius: height / 2
         color: Colores.accionPrimario
         Text {
+            objectName: "textoAsignarSonda"
             anchors.centerIn: parent
+            width: Math.min(implicitWidth, parent.width - parent.height)
+            fontSizeMode: Text.HorizontalFit
+            minimumPixelSize: Escala.fuenteMinima
             text: I18n.t("sistema.asignar_sonda_principal", I18n.lang)
             color: "white"
             font.family: Tipografia.familia

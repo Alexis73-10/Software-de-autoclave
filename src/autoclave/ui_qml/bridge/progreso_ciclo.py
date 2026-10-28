@@ -14,6 +14,7 @@ import threading
 
 from PySide6.QtCore import Property, QObject, QTimer, Signal, Slot
 
+from autoclave.ui_qml.domain import fin_de_ciclo
 from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica, normalizar_progreso
 
 logger = logging.getLogger(__name__)
@@ -47,6 +48,7 @@ class ProgresoCiclo(QObject):
         self._activo = False
         self._consultando = False
         self._progreso = normalizar_progreso(None)
+        self._revision = 0
         self._acumulador = AcumuladorGrafica()
         self._datos = self._acumulador.datos()
         self._fases_grafica: list = []
@@ -93,6 +95,7 @@ class ProgresoCiclo(QObject):
             grafica = {"ciclo_db_id": None, "lecturas": []}
         if nuevo != self._progreso:
             self._progreso = nuevo
+            self._revision += 1
             self.progresoChanged.emit()
 
         cambio = self._acumulador.incorporar(grafica)
@@ -136,19 +139,31 @@ class ProgresoCiclo(QObject):
     def resultado(self) -> str:
         return self._progreso["resultado"] or ""
 
-    # P4 (tanda 16, D-14.4): el ciclo quedó NO CONFORME (Referencia sin
-    # verificar) y si el operador ya reconoció que la carga no es liberable
-    @Property(bool, notify=progresoChanged)
-    def noConforme(self) -> bool:
-        return self._progreso["no_conforme"]
-
+    # FC-06 (tanda 21): fase de la UI en la que terminó el ciclo ("" sin terminar)
     @Property(str, notify=progresoChanged)
-    def motivoNoConforme(self) -> str:
-        return self._progreso["motivo_no_conforme"]
+    def faseTerminacion(self) -> str:
+        return self._progreso["fase_terminacion"] or ""
 
-    @Property(bool, notify=progresoChanged)
-    def noConformeReconocido(self) -> bool:
-        return self._progreso["no_conforme_reconocido"]
+    # FC-01..FC-03, FC-07 (tanda 21): cambia con cada progreso nuevo; la
+    # pantalla lo usa para volver a pedir armarFin(idioma)
+    @Property(int, notify=progresoChanged)
+    def revisionFin(self) -> int:
+        return self._revision
+
+    @Slot(str, result="QVariantMap")
+    def armarFin(self, idioma: str) -> dict:
+        """Textos del panel de fin de ciclo en `idioma` (ver
+        domain/fin_de_ciclo.armar). Nunca lanza: ante un error, panel de
+        fallo con la causa genérica (falla cerrada)."""
+        try:
+            return fin_de_ciclo.armar(self._progreso["terminacion"],
+                                      self._progreso["alarmas_ciclo"], idioma)
+        except Exception:
+            logger.exception("fin de ciclo: no se pudieron armar los textos")
+            if self._progreso["resultado"] is None:
+                return fin_de_ciclo.armar(None, [], idioma)
+            return {"modo": "fallo", "horaFin": "", "causa": {}, "alarmas": [],
+                    "cantidad": 1, "notaObservaciones": ""}
 
     @Property("QVariantList", notify=progresoChanged)
     def fases(self) -> list:
