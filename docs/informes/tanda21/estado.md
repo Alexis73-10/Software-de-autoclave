@@ -5,7 +5,7 @@ Rama `tanda-21` (desde `dev` 92abead). Spec: `docs/mis_plans/planeacion_fin_de_c
 | Paso | Estado | Commit / nota |
 |---|---|---|
 | A0 | Hecha | 86b0752 (spec, prompt y mockups); verificaciones abajo |
-| Ola 1 P1 backend | Pendiente | |
+| Ola 1 P1 backend | Hecha | eb519b0, unida a tanda-21 (468 pruebas relacionadas OK); campos: fase_terminacion, terminacion{...,observaciones}, alarmas_ciclo, /status.puertas_con_actuador, abort con Bearer |
 | Ola 1 P2 panel | Hecha | fa3c4e5, unida a tanda-21 (9 pruebas OK); PanelFinCiclo, FilaAcordeon, RegresoPanel, PildoraFinCiclo, ModalConfirmacion, BarraFases fallida/interrumpida |
 | Ola 1 P3 puerta | Hecha | a190e70, unida a tanda-21 (20 pruebas OK); decisiones: DESCONOCIDO/ERROR/ABRIENDO → ABIERTA, gris solo sin datos o vacío |
 | Ola 1 P4 textos | Hecha | 104521e, unida a tanda-21 (45 pruebas nuevas OK); falla previa ajena: test_t17_s4_alarmas_qml::test_preciclo_en_pantalla (ya en f0aa5f7); pendiente ola 2: BotonAccion de preciclo sin ajuste |
