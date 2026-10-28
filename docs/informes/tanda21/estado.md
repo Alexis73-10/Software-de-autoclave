@@ -13,7 +13,7 @@ Rama `tanda-21` (desde `dev` 92abead). Spec: `docs/mis_plans/planeacion_fin_de_c
 | Ola 2 | Hecha | 2487b8e, 595744b, 385025b |
 | G capturas | Hecha | 8835507 (15 capturas en capturas/) |
 | R revisión | Hecha | 2c58ff9: SAF-01..05 corregidos (2 medios, 3 bajos); 4 preguntas abiertas al informe |
-| Suite | Pendiente | |
+| Suite | Hecha | 9029 passed, 11 skipped, 3 xfailed; 1 caída de trabajador xdist conocida (test_home_view, solo en paralelo, pasa en serie; ya en R20 y ajustes_28oct). suite_raw.txt |
 | K entrega | Pendiente | |
 
 ## Verificaciones de A0
