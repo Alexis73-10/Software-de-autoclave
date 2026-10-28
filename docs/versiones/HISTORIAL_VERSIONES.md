@@ -9,6 +9,23 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.6 — 2026-10-28
+
+- Etiqueta: `v1.0.0-alpha.6` (commit `chore(ver): 1.0.0-alpha.6`, sobre `72c9e8c`)
+- AppVerNum: `1.0.0.1006`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.6_2026-10-28/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.5`:
+  - 56f51c8 docs(ajustes-28oct): estado final
+  - 85d3ed9 docs(ajustes-28oct): informe y resultado de la suite
+  - bf42bc6 docs(ajustes-28oct): estado tras C
+  - 24429f2 fix(aj-02): el ALL_OFF directo del apagado también borra las peticiones de agua
+  - 87569e1 fix(aj-03): globo de la gráfica sin nombres montados sobre el valor
+  - e58308d docs(ajustes-28oct): estado tras B
+  - 2465920 fix(aj-02): agua_intercambiador como OR de las peticiones de vacío y drenaje
+  - beb1eb1 docs(ajustes-28oct): estado tras A
+  - 6293e8c fix(aj-01): ocultar «Apagar equipo» durante el ciclo
+
+
 ## 1.0.0-alpha.5 — 2026-10-28
 
 - Etiqueta: `v1.0.0-alpha.5` (commit `chore(ver): 1.0.0-alpha.5`, sobre `cc732a1`)
