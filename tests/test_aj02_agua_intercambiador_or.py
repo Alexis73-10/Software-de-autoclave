@@ -336,3 +336,29 @@ def test_orden_directa_al_canal_deja_las_peticiones_coherentes(equipo):
     assert s.peticiones_agua_intercambiador == {"vacio": False, "drenaje": True}
     s.vacio_camara_off()
     assert _pines(equipo, AGUA) is True
+
+
+def test_apagado_del_equipo_por_el_lazo_borra_las_peticiones(equipo):
+    """Revisión de seguridad de AJ-02 (SAF-01, BAJA): iniciar_apagado() y
+    stop() mandan el ALL_OFF directo al enlace; las peticiones también se
+    borran."""
+    from autoclave.services.domain.loop.control_loop import ControlLoop
+    s = equipo["set_do"]
+    for metodo in ("iniciar_apagado", "stop"):
+        s.agua_intercambiador_on()
+        s.vacio_camara_on()
+        lazo = ControlLoop.__new__(ControlLoop)
+        lazo.set_do = s
+        lazo.link = equipo["link"]
+        lazo.thread = None
+        import threading
+        lazo._sm_lock = threading.RLock()
+        lazo._running = threading.Event()
+        lazo._apagando = False
+        lazo.estado = equipo["estado"]
+        try:
+            getattr(lazo, metodo)()
+        except Exception:
+            pass   # stop() sigue con el cierre del enlace; aquí solo importa el apagado
+        assert not any(equipo["link"].pines), metodo
+        assert s.peticiones_agua_intercambiador == {"vacio": False, "drenaje": False}, metodo

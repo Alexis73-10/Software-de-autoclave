@@ -361,12 +361,17 @@ class SetOutput:
             for channel in sorted(set(_CANALES_APAGADO_BASE)
                                   | {i + 1 for i in EstadoAutoclave.map_do.values()}):
                 self.io.set_output(channel, False)
-        # AJ-02: con todo apagado (confirmado o por órdenes individuales) no
-        # queda ninguna petición de agua; sus dueños la vuelven a pedir en el
-        # tick siguiente si hace falta (el drenaje reafirma cada tick)
+        self.anotar_todo_apagado()
+        return ok
+
+    def anotar_todo_apagado(self) -> None:
+        """AJ-02: tras un apagado total (ALL_OFF confirmado o por órdenes
+        individuales, también el que el lazo manda directo al enlace al
+        apagar el equipo) no queda ninguna petición de agua; sus dueños la
+        vuelven a pedir en el tick siguiente si hace falta (el drenaje
+        reafirma cada tick)."""
         self._agua_por_vacio = False
         self._agua_por_drenaje = False
-        return ok
 
     def apagar_por_paro(self, inmediato: bool = False) -> bool | None:
         """Apagado repetido mientras dura el paro de emergencia. Envía ALL_OFF
