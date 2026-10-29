@@ -83,7 +83,8 @@ _SCRIPT = textwrap.dedent(r"""
         %s { objectName: "pantalla"; anchors.fill: parent; datosVigentes: true; puente: puenteFalso }
     }
     ''' % PANTALLA
-    ruta = f"{QML_DIR}/_prueba_o3_entradas.qml"
+    # un archivo por proceso: con -n auto, Preciclo y Ciclo corren a la vez (tanda 22)
+    ruta = f"{QML_DIR}/_prueba_o3_entradas_{os.getpid()}.qml"
     open(ruta, "w", encoding="utf-8").write(QML)
     try:
         qapp = QGuiApplication([])
