@@ -10,7 +10,7 @@ Rama `tanda-22` (desde `dev` 14f62f34). Spec: `docs/mis_plans/prompt_claude_code
 | Unión P1+P2 | Hecho | ef295843 (P2), fbbdf6ee (P1) |
 | TEC-ACC-04 pantallas | Hecho | c5b8cf3a (7 puntos; `test_t22_pantallas_accion_qml.py` 8 pruebas, 7 fallan con el código anterior) |
 | TEC-ACC-07 prueba de regla | Hecho | c5b8cf3a (`test_t22_regla_teclado_accion.py`, sin lista blanca; línea en CLAUDE.md, TEC-ACC-06) |
-| R revisión | Pendiente | |
+| R revisión | Hecho | ed938ad1 (sin hallazgos altos/medios; correcciones bajas: solo espacios = vacío (DSC), regla más estricta, pruebas de pantalla ampliadas) |
 | Suite | Pendiente | |
 | K entrega | Pendiente | |
 | U USB | Pendiente | |
@@ -28,3 +28,8 @@ Puntos que ejecutan una acción (pasan a modo acción), 7, la lista del prompt e
 7. `OpcionesManejoCiclos.pedirDuplicar` (l. 61: `control.duplicar`).
 
 Solo asignan (sin cambios): Login, CambioClave, NuevoUsuario, Instalacion (texto y capacidad), OpcionesUsuarios (clave temporal, confirmación, nombre de operador), SelectorDestino, OpcionesCalibracionSensor (`editar` → asigna `realBajo`/`lecturaBaja`...), OpcionesMantenimiento (`campo.elegido` → `onElegido` asigna `diasNuevo`/`ciclosNuevo`), OpcionesParametrosCiclo/Equipo (`ajuste.recibir`: convierte, valida y asigna en memoria; no envía). No apareció ningún punto nuevo.
+
+## Suite (primer intento, antes de R)
+
+- 1.er intento: se colgó al 43 % tras caer un trabajador xdist (`node down`), detenido por el límite de tiempo.
+- 2.º intento: 9149 passed, 11 skipped, 7 xfailed; fallos: `test_home_view::...impresion_menu` (caída conocida de trabajador xdist, R20/ajustes_28oct) y `test_o3_entradas_mostradas_qml` (2: carrera previa, dos procesos usan el mismo `_prueba_o3_entradas.qml` temporal; ajena a esta tanda). En serie: 10 passed.
