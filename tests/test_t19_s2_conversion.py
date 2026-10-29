@@ -171,7 +171,7 @@ def test_presion_none_conserva_una_falla_declarada(cfg_modbus):
 
 @pytest.mark.req("MOD-03")
 def test_indice_faltante_es_none(cfg_modbus):
-    assert converters.convert_pressures([1000] * 9, cfg_modbus)[1:] == [None] * 7
+    assert converters.convert_pressures([1000] * 9, cfg_modbus)[1:] == [None] * 15
     assert converters.convert_temperatures([1000] * 3, cfg_modbus)[3:] == [None] * 5
 
 
@@ -246,13 +246,13 @@ def test_esquema_adc_piso_senal():
 
 def test_calibracion_modbus_valida_y_neutra(cfg_modbus):
     cal = cfg_modbus.calibration
-    assert len(cal.factory.temperature) == 8 and len(cal.factory.pressure) == 8
+    assert len(cal.factory.temperature) == 8 and len(cal.factory.pressure) == 16   # AIN-04
     assert all(c.adc_min == 0 and c.adc_max == 1000 and c.temp_min == 0 and c.temp_max == 100
                for c in cal.factory.temperature)
     assert all(c.adc_min == 4000 and c.adc_max == 20000 and c.pres_min == 0
                and c.pres_max == 400 and c.adc_piso_senal == 3850
                for c in cal.factory.pressure)
-    for lista in (cal.user.temperature, cal.user.pressure):
-        assert len(lista) == 8
+    for lista, n in ((cal.user.temperature, 8), (cal.user.pressure, 16)):
+        assert len(lista) == n
         assert all(s.gain == 1.0 and s.offset == 0.0 and not s.poly for s in lista)
     assert not math.isnan(cal.factory.pressure[0].margen_falla_alto)

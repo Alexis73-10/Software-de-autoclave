@@ -513,9 +513,13 @@ def _sensores_programa(estado) -> dict:
     }
 
 
+_OFFSET_RAW_PRESION = 8     # raw_ai[8 + i] = AI i+1 (tanda 23, AIN-03)
+
+
 def _cuentas_adc() -> dict:
     """B-ES-1: cuentas ADC crudas por sensor (clave de EstadoAutoclave).
-    raw_ai: 0-7 temperatura, 8-15 presión. None si no hay datos de la tarjeta."""
+    raw_ai: 0-5 temperatura (RTD 1-6), 8-23 presión (AI 1-16; tanda 23,
+    AIN-03). None si no hay datos de la tarjeta."""
     try:
         raw = context.units.get_all()["raw_ai"]
         if not isinstance(raw, (list, tuple)):
@@ -527,7 +531,7 @@ def _cuentas_adc() -> dict:
         return raw[i] if i < len(raw) else None
 
     adc = {k: cuenta(i) for k, i in EstadoAutoclave.map_temp.items()}
-    adc.update({k: cuenta(8 + i) for k, i in EstadoAutoclave.map_pres.items()})
+    adc.update({k: cuenta(_OFFSET_RAW_PRESION + i) for k, i in EstadoAutoclave.map_pres.items()})
     return adc
 
 
