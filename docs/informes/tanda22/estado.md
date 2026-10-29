@@ -12,7 +12,7 @@ Rama `tanda-22` (desde `dev` 14f62f34). Spec: `docs/mis_plans/prompt_claude_code
 | TEC-ACC-07 prueba de regla | Hecho | c5b8cf3a (`test_t22_regla_teclado_accion.py`, sin lista blanca; línea en CLAUDE.md, TEC-ACC-06) |
 | R revisión | Hecho | ed938ad1 (sin hallazgos altos/medios; correcciones bajas: solo espacios = vacío (DSC), regla más estricta, pruebas de pantalla ampliadas) |
 | Suite | Hecha | 9151 passed, 11 skipped, 7 xfailed; `test_home_view` (caída conocida de trabajador xdist, pasa en serie) y 2 errores de `test_o3` por carrera del .qml temporal, corregida en el commit siguiente (9 passed con -n 4). `suite_raw.txt` |
-| K entrega | Pendiente | |
+| K entrega | Hecha | merge 45966035 en dev; 1.0.0-alpha.11 (25e48bb8, etiqueta v1.0.0-alpha.11), `entrega/v1.0.0-alpha.11_2026-10-29`; Setup SHA-256 8fdfa87c6b124d83b9d96cb254977adbc4a38beb32119d5b1956cf9cc5db0754; no hizo falta tocar `.git/info/exclude` |
 | U USB | Pendiente | |
 | Z cierre | Pendiente | |
 
@@ -33,3 +33,10 @@ Solo asignan (sin cambios): Login, CambioClave, NuevoUsuario, Instalacion (texto
 
 - 1.er intento: se colgó al 43 % tras caer un trabajador xdist (`node down`), detenido por el límite de tiempo.
 - 2.º intento: 9149 passed, 11 skipped, 7 xfailed; fallos: `test_home_view::...impresion_menu` (caída conocida de trabajador xdist, R20/ajustes_28oct) y `test_o3_entradas_mostradas_qml` (2: carrera previa, dos procesos usan el mismo `_prueba_o3_entradas.qml` temporal; ajena a esta tanda). En serie: 10 passed.
+
+## U — datos de E: antes de formatear (29-oct)
+
+- Disco 1, `Generic Flash Disk`, serie `1`, 14,65 GB, BusType USB, IsBoot False, IsSystem False.
+- Disco de C: = 0; disco del repositorio = 0; `HKLM\SOFTWARE\Especifika\Autoclave` no existe en este PC (sin RutaDatos). Sesión de administrador.
+- E: etiqueta `CCCOMA_X64F`, FAT32. `E:\Autoclave_Setup_1.0.0-alpha.11.exe` no existe (no aplica la idempotencia).
+- Primer nivel de E:\: `System Volume Information\`, `drivers\`, `Autoclave_Setup_1.0.0-alpha.10.exe` (89 767 566 B), `LEEME_INSTALACION.md`, `SHA256SUMS.txt`, `recoger_logs.bat`, `recoger_logs.ps1` (copias de `tools\diagnostico\`, que siguen en el repositorio).
