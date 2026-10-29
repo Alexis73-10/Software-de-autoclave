@@ -322,6 +322,20 @@ class BackendContext:
         except aio.ErrorAsignacion as e:
             raise ErrorArranque(secuencia.CONFIGURACION_INVALIDA,
                                 f"Asignación de E/S de fábrica inválida: {e}") from e
+        # AIN-05 (tanda 23): un asignacion_io.json FORMATO 1 (presión AI 09-16)
+        # se reescribe en FORMATO 2 (AI 01-16, mismo canal físico) con .bak; la
+        # fila de la bitácora va cuando la base esté abierta
+        # (registrar_migracion_asignacion). Si no se puede migrar (puerto de
+        # presión fuera de 09-16), vigente() da el mismo error: asignación
+        # inválida, como antes. Si no se puede escribir, leer() la migra en
+        # memoria igual.
+        try:
+            self.archivo_asignacion.migrar_formato()
+        except aio.ErrorAsignacion:
+            pass
+        except OSError:
+            logger.exception("Asignación de E/S: no se pudo reescribir %s en el formato nuevo; "
+                             "se usa migrada en memoria", self.archivo_asignacion.ruta.name)
         try:
             asignacion, datos = aio.vigente(self.asignacion_fabrica, self.archivo_asignacion)
         except aio.ErrorAsignacion as e:
@@ -335,7 +349,9 @@ class BackendContext:
         aio.aplicar_en_memoria(asignacion)
         if datos["cambios"]:
             logger.warning("Asignación de E/S distinta de la de fábrica: %s",
-                           ", ".join(f"{f}={p}" for f, p in sorted(datos["cambios"].items())))
+                           ", ".join(f"{f}={aio.etiqueta(aio.funciones().get(f, ''), p, aio.base(f))}"
+                                     if isinstance(p, int) else f"{f}={p!r}"
+                                     for f, p in sorted(datos["cambios"].items())))
         self.asignacion_pendiente = [f for f in datos["verificacion_pendiente"]
                                      if f in aio.funciones()]
         self.asignacion_modificada_en = str(datos.get("modificado_en") or "")
@@ -343,6 +359,45 @@ class BackendContext:
             self.verificacion_asignacion = {"estado": "pendiente",
                                             "funciones": {f: "pendiente" for f in self.asignacion_pendiente}}
             self.alarma_asignacion_sin_verificar()
+
+    def registrar_migracion_asignacion(self) -> None:
+        """AIN-05 (tanda 23): con la base abierta, UNA fila
+        `asignacion_io_migrada` por la migración FORMATO 1 -> 2 de
+        asignacion_io.json. La anotación queda en el propio archivo hasta que
+        la fila se escribe, así no se pierde si la base no estaba lista ni se
+        duplica en el siguiente arranque. Con la instalación sin terminar
+        (SupresionInstalacion) el escritor no registra nada: la anotación se
+        conserva y se registra en un arranque posterior. Nunca lanza."""
+        from autoclave.core.runtime import asignacion_io as aio
+        arch = getattr(self, "archivo_asignacion", None)
+        db = getattr(self, "db", None)
+        if not isinstance(arch, aio.ArchivoAsignacion) or db is None \
+                or getattr(self, "sin_base_de_datos", False):
+            return
+        try:
+            migracion = arch.migracion_sin_registrar()
+            if not migracion:
+                return
+            movidos = {f: tuple(v) for f, v in (migracion.get("movidos") or {}).items()}
+            fila = db.registrar_auditoria(
+                "asignacion_io_migrada", usuario="sistema", entidad=arch.ruta.name,
+                valor_anterior=aio.texto_movidos(movidos, aio.FORMATO_ANTERIOR) or None,
+                valor_nuevo=aio.texto_movidos(movidos, aio.FORMATO) or None,
+                detalle={"desde_formato": migracion.get("desde_formato"),
+                         "a_formato": migracion.get("a_formato"), "en": migracion.get("en"),
+                         "movidos": migracion.get("movidos")})
+        except Exception:
+            logger.exception("No se pudo registrar la migración de la asignación de E/S en audit_log")
+            return
+        if not fila:
+            # filtrada por el escritor (instalación sin terminar): se reintenta
+            logger.warning("Migración de la asignación de E/S sin fila en audit_log; se reintenta "
+                           "en el siguiente arranque")
+            return
+        try:
+            arch.marcar_migracion_registrada()
+        except OSError:
+            logger.exception("No se pudo marcar como registrada la migración de la asignación de E/S")
 
     # Salidas que aportan energía (vapor, aire comprimido): inhibidas mientras
     # haya una analógica reasignada sin verificar (SAF-02 de la re-revisión R8)
@@ -410,7 +465,7 @@ class BackendContext:
             tipo, nombre = aio.separar(f)
             tipo = tipo or aio.funciones().get(f, "")
             puerto = (memoria.get(tipo) or {}).get(nombre)
-            partes.append(f"{f} ({aio.etiqueta(tipo, puerto)})" if puerto else f)
+            partes.append(f"{f} ({aio.etiqueta(tipo, puerto, nombre)})" if puerto else f)
         texto = ", ".join(partes)
         inst = self.alarm_manager.obtener(SEN_09)
         activa = inst is not None and getattr(getattr(inst, "estado", None), "name", "") == "ACTIVA"
@@ -533,7 +588,7 @@ class BackendContext:
             try:
                 self.db.registrar_auditoria(
                     "reasignacion_io_verificada", usuario="sistema", entidad=funcion,
-                    valor_nuevo=aio.etiqueta(tipo, puerto) if puerto else None,
+                    valor_nuevo=aio.etiqueta(tipo, puerto, nombre) if puerto else None,
                     detalle={"resultado": "trama_presente" if ok else "sin_respuesta", "tipo": tipo,
                              "metodo": "automatico"})
             except Exception:
@@ -588,6 +643,7 @@ class BackendContext:
                     self.cycle_manager.revalidar_programas()   # DEU-01 (tanda 16)
                     self.auditar_migraciones_correctivas()     # C-04.4 (tanda 12)
                 self.revisar_contrasenas_semilla()             # LIC-02 (licencia L0)
+                self.registrar_migracion_asignacion()          # AIN-05 (tanda 23)
                 return None
             except BdBloqueadaError as e:
                 logger.critical("%s", e)

@@ -244,7 +244,8 @@ def test_ciclo_iniciado_entre_la_validacion_y_el_guardado_deshace_la_escritura(a
     ({"paro_emergencia": 1}, "conflicto"),
     ({"vapor_camara": 40}, "puerto_inexistente"),
     ({"puerta_1_cerrada": 52}, "puerto_inexistente"),
-    ({"pres_camara": 2}, "puerto_inexistente"),
+    ({"pres_camara": 17}, "puerto_inexistente"),     # tanda 23: AI 01-16
+    ({"pres_camara": 2}, "conflicto"),               # AI 02 es pres_chaqueta
     ({"funcion_falsa": 25}, "funcion_desconocida"),
 ])
 def test_conflictos_rechazados_en_el_backend(api, cambios, codigo):
@@ -373,7 +374,7 @@ def test_get_tabla(api):
     assert filas["vapor_camara"]["id_actual"] == "DO 04" and filas["vapor_camara"]["tipo"] == "DO"
     assert filas["vapor_camara"]["critica"] is True and filas["vapor_camara"]["reforzada"] is False
     assert filas["paro_emergencia"]["reforzada"] is True
-    assert filas["pres_camara"]["id_actual"] == "AI 09" and filas["pres_camara"]["temperatura"] is False
+    assert filas["pres_camara"]["id_actual"] == "AI 01" and filas["pres_camara"]["temperatura"] is False
     assert filas["temp_referencia"]["tipo"] == "AI" and filas["temp_referencia"]["temperatura"] is True
     # T20-03 / MOD-05: último DI 16 (antes 48, rango del enlace serial)
     assert d["puertos"]["DO"] == list(range(1, 33)) and d["puertos"]["DI"][-1] == 16
@@ -507,15 +508,15 @@ def test_respaldo_con_asignacion_invalida_se_rechaza_sin_escribir(respaldo):
 # ── revisión R8: SEN-01, verificación por el ingeniero, escritura ──────────
 
 def test_puerto_analogico_sin_calibracion_se_rechaza(api, monkeypatch):
-    """SEN-01: una calibración con 7 entradas de presión de usuario: AI 16
-    no tiene calibración y no se puede asignar."""
+    """SEN-01: una calibración con 7 entradas de presión de usuario: AI 08
+    no tiene calibración y no se puede asignar (tanda 23: AI 01-16)."""
     from autoclave.backend import server_reasignacion as sr
     cliente, _srv, ctx, cab, _p = api
     monkeypatch.setattr(sr, "_largos_calibracion", lambda: {"temperatura": 8, "presion": 7})
-    r = _aplicar(cliente, cab(), {"pres_camara": 16})
+    r = _aplicar(cliente, cab(), {"pres_camara": 8})
     assert r.status_code == 422 and r.json()["codigo"] == "puerto_sin_calibracion"
     assert not ctx.archivo_asignacion.existe()
-    assert _aplicar(cliente, cab(), {"pres_camara": 15}).status_code == 200
+    assert _aplicar(cliente, cab(), {"pres_camara": 7}).status_code == 200
 
 
 def test_calibracion_real_cubre_los_puertos_ofrecidos_o_se_rechazan(api):
@@ -528,7 +529,7 @@ def test_calibracion_real_cubre_los_puertos_ofrecidos_o_se_rechazan(api):
     for puerto in aio.puertos()["AI_PRES"]:
         nueva = aio.combinar(f, {"pres_camara": puerto})
         errores = aio.puertos_sin_calibracion(nueva, largos)
-        con_cal = puerto - 9 < largos["presion"]
+        con_cal = puerto - 1 < largos["presion"]          # tanda 23: AI 01-16
         assert (not any(e["funcion"] == "pres_camara" for e in errores)) == con_cal
 
 
@@ -610,7 +611,11 @@ def test_ultimo_registro_de_calibracion_por_puerto(api):
     aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13}))
     assert not sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {"puerto": 9}})
     assert not sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {}})
-    assert sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {"puerto": 13}})
+    # tanda 23 (AIN-05): un registro sin "formato" es de la numeración vieja
+    # (AI 13 de entonces = AI 05); con "formato" 2, la nueva
+    assert not sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara", {"detalle": {"puerto": 13}})
+    assert sr.ultimo_es_del_puerto_vigente("pressure", "pres_camara",
+                                           {"detalle": {"puerto": 13, "formato": 2}})
 
 
 def test_verificar_entrada_de_seguridad_exige_nombre_y_cambio_observado(api):
@@ -629,10 +634,10 @@ def test_verificar_entrada_de_seguridad_exige_nombre_y_cambio_observado(api):
 def test_verificar_analogica_exige_lectura_y_calibracion_posterior(api):
     cliente, _srv, ctx, cab, _p = api
     _pendiente(ctx, ["pres_camara"], {"pres_camara": 13})
-    pres = [0.0] * 8
+    pres = [0.0] * 16
     ctx.units.get_all.return_value = {"connected": True, "pressure": pres, "temperature": [20.0] * 8}
     assert _verificar(cliente, cab(), "pres_camara").json()["codigo"] == "sin_lectura"
-    pres[4] = 101.0
+    pres[12] = 101.0                 # AI 13 (tanda 23)
     r = _verificar(cliente, cab(), "pres_camara")
     assert r.status_code == 409 and r.json()["codigo"] == "calibracion_requerida"
     ctx.db.registrar_auditoria("calibracion_cambio", usuario="ines", entidad="pressure/pres_camara")

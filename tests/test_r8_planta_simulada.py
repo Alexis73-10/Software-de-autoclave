@@ -40,16 +40,19 @@ def _mapas_de_fabrica():
     aio.restablecer_memoria_fabrica_codigo()
 
 
-def _libre(asignacion: dict, tipo: str, rango) -> int:
-    usados = set(asignacion[tipo].values())
+def _libre(asignacion: dict, tipo: str, rango, temperatura=None) -> int:
+    # tanda 23 (AIN-R1): en AI, los usados del mismo grupo (RTD 01 y AI 01 son
+    # puertos distintos)
+    usados = {p for f, p in asignacion[tipo].items()
+              if temperatura is None or aio.es_temperatura(f) is temperatura}
     return next(p for p in rango if p not in usados)
 
 
 def _cambios() -> dict:
     f = aio.fabrica_codigo()
     return {"vapor_camara": _libre(f, "DO", aio.puertos()["DO"]),
-            "pres_camara": _libre(f, "AI", aio.puertos()["AI_PRES"]),
-            "temp_camara": _libre(f, "AI", aio.puertos()["AI_TEMP"]),
+            "pres_camara": _libre(f, "AI", aio.puertos()["AI_PRES"], temperatura=False),
+            "temp_camara": _libre(f, "AI", aio.puertos()["AI_TEMP"], temperatura=True),
             "paro_emergencia": _libre(f, "DI", aio.puertos()["DI"])}
 
 
@@ -95,13 +98,13 @@ class _PlantaFisica(_Planta):
         valores = {"temp_camara": t, "temp_2_camara": t, "temp_ref": t - 0.2, "temp_drenaje": 40.0,
                    "pres_camara": self.p, "pres_chaqueta": self.p_chaqueta,
                    "pres_empaque_1": 350.0, "pres_empaque_2": 350.0}
-        temp, pres = [0.0] * 8, [0.0] * 8
+        temp, pres = [0.0] * 8, [0.0] * 16
         for funcion, puerto in self.cableado["AI"].items():
             v = valores.get(aio.nombre_estado(funcion), 0.0)
-            if puerto in aio.puertos()["AI_TEMP"]:
+            if aio.es_temperatura(funcion):          # RTD 01-06 (tanda 23)
                 temp[puerto - 1] = v
-            else:
-                pres[puerto - 9] = v
+            else:                                    # AI 01-16 (tanda 23)
+                pres[puerto - 1] = v
         di = [1] * 56
         di[self.puerto_muerto_di - 1] = 0          # el cable ya no está en el puerto viejo
         estado.update({"temperature": temp, "pressure": pres, "raw_di": di})

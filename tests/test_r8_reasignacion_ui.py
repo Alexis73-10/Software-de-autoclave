@@ -28,16 +28,17 @@ _FILAS = [
      "puerto_actual": 11, "id_actual": "DI 11", "puerto_guardado": 11, "puerto_fabrica": 11,
      "id_fabrica": "DI 11", "critica": True, "reforzada": True, "temperatura": False},
     {"funcion": "temp_camara", "tipo": "AI", "i18n": "io.ai.temp_camara",
-     "puerto_actual": 1, "id_actual": "AI 01", "puerto_guardado": 1, "puerto_fabrica": 1,
-     "id_fabrica": "AI 01", "critica": True, "reforzada": False, "temperatura": True},
+     "puerto_actual": 1, "id_actual": "RTD 01", "puerto_guardado": 1, "puerto_fabrica": 1,
+     "id_fabrica": "RTD 01", "critica": True, "reforzada": False, "temperatura": True},
 ]
 _DATOS = {
     "filas": _FILAS,
     "puertos": {"DI": list(range(1, 17)), "DO": list(range(1, 25)),
-                "AI_TEMP": list(range(1, 9)), "AI_PRES": list(range(9, 17))},
+                "AI_TEMP": list(range(1, 9)), "AI_PRES": list(range(1, 17))},
     "ocupados": {"DI": {"11": "paro_emergencia"}, "DO": {"4": "vapor_camara", "19": "bomba_vacio",
                                                         "5": "no_habilitada"},
-                 "AI": {"1": "temp_camara"}},
+                 # tanda 23 (AIN-R1): ocupados por grupo
+                 "AI_TEMP": {"1": "temp_camara"}, "AI_PRES": {}},
     "cambios_guardados": {}, "reinicio_pendiente": False, "error_archivo": "", "bloqueo": "",
     "verificacion": {"estado": "sin_cambios", "funciones": {}},
     "editable": True, "motivo": "", "reinicio_disponible": True,

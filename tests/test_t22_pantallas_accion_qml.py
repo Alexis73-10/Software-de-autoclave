@@ -51,8 +51,9 @@ _SCRIPT = textwrap.dedent(r"""
     DATOS = {
         "filas": FILAS,
         "puertos": {"DI": list(range(1, 17)), "DO": list(range(1, 33)),
-                    "AI_TEMP": list(range(1, 7)), "AI_PRES": list(range(9, 17))},
-        "ocupados": {"DI": {"11": "paro_emergencia"}, "DO": {"19": "bomba_vacio"}, "AI": {}},
+                    "AI_TEMP": list(range(1, 7)), "AI_PRES": list(range(1, 17))},
+        "ocupados": {"DI": {"11": "paro_emergencia"}, "DO": {"19": "bomba_vacio"},
+                     "AI_TEMP": {}, "AI_PRES": {}},
         "cambios_guardados": {}, "reinicio_pendiente": False, "error_archivo": "", "bloqueo": "",
         "verificacion": {"estado": "sin_cambios", "funciones": {}},
         "editable": True, "motivo": "", "reinicio_disponible": True,

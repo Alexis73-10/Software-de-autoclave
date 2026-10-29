@@ -41,6 +41,11 @@ logger = logging.getLogger("autoclave.backend.server")
 
 router = APIRouter()
 
+# Tanda 23 (AIN-05): numeración de puertos de los registros de calibración
+# (= asignacion_io.FORMATO). Un registro sin "formato" es de la numeración
+# anterior (presión 9-16): server_reasignacion.puerto_de_registro.
+_FORMATO_PUERTO = 2
+
 
 # Token de la sesión que activó el modo prueba: solo ella enciende salidas y
 # sale (§5.4). Se lee y escribe con _sm_lock tomado (bloqueo_maquina).
@@ -293,8 +298,10 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
                               "shown_high": shown_high, "real_high": real_high},
-                   # R8: puerto físico calibrado (la calibración es por puerto)
-                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
+                   # R8: puerto físico calibrado (la calibración es por puerto).
+                   # Tanda 23 (AIN-05): numeración RTD 01-06 / AI 01-16, con la
+                   # marca "formato" 2 (un registro sin ella es de la anterior)
+                   "puerto": index + 1, "formato": _FORMATO_PUERTO}
         if nivel is not None:
             detalle["plausibilidad"] = {"nivel": nivel, "motivo": motivo,
                                         "confirmado": confirmado}
@@ -392,7 +399,7 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         # R8 (3.ª vuelta, SEN): puerto físico también al restaurar
         detalle = {"accion": f"restaurar_{destino}",
-                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
+                   "puerto": index + 1, "formato": _FORMATO_PUERTO}
         detalle.update(contexto_ciclo)
         # R8 (SEN 3.ª vuelta; TMG-01/SAF-01 4.ª vuelta): restaurar deja de
         # contar como calibración del puerto nuevo; se anula ANTES de escribir
