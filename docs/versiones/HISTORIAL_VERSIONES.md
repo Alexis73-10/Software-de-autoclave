@@ -9,6 +9,24 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.11 — 2026-10-29
+
+- Etiqueta: `v1.0.0-alpha.11` (commit `chore(ver): 1.0.0-alpha.11`, sobre `4596603`)
+- AppVerNum: `1.0.0.1011`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.11_2026-10-29/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.10`:
+  - ba8a0453 docs(t22): suite
+  - cb82f73d test(o3): un .qml temporal por proceso (carrera con -n auto)
+  - a1c51533 docs(t22): estado tras R
+  - ed938ad1 fix(teclado): correcciones de la revisión R de la tanda 22
+  - 03360ff4 docs(t22): estado tras TEC-ACC-04/07
+  - c5b8cf3a fix(teclado): pantallas de acción en modo acción y regla (TEC-ACC-04, 06, 07)
+  - e8bf32fc feat(teclado): modo acción solo al confirmar (TEC-ACC-01..03, 06)
+  - 22a98ef6 docs(t22): estado tras P2
+  - 182a6480 fix(sesion): reconocer reautenticación fallida y cerrar al bloquear (TEC-ACC-05)
+  - c5ce9171 docs(t22): A0 prompt, evidencia PRB-T22-01 y estado
+
+
 ## 1.0.0-alpha.10 — 2026-10-29
 
 - Etiqueta: `v1.0.0-alpha.10` (commit `chore(ver): 1.0.0-alpha.10`, sobre `ea037f4`)
