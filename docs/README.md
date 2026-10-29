@@ -11,8 +11,8 @@
 | `instalacion/` | LEEME de instalación vigente (el que se copia a la entrega y a la USB). | `LEEME_INSTALACION.md` |
 | `mis_plans/` | Planeaciones, decisiones, instrucciones y prompts de tanda, más planes de pruebas (hoja de banco). Las de tandas pasadas son registro. | `planeacion_<tema>.md`, `decisiones_tanda_<NN>.md`, `instruccion_claude_code_tanda_<NN>.md`, `prompt_claude_code_tanda_<NN>.md` |
 | `mockups/` | Capturas y maquetas de pantallas por tanda o por pantalla. | `<pantalla>/` o `tanda<NN>/` |
-| `referencia/` | Material de referencia que ningún código usa: hojas de cálculo de parámetros y base Access original. | Nombre original del archivo. |
+| `referencia/` | Material de referencia que ningún código usa: hojas de cálculo de parámetros, base Access original y manuales del módulo E/S M31-U (`m31/`, principal V1.4 y expansiones V1.3, con su texto extraído). | Nombre original del archivo. |
 | `riesgos/` | Gestión de riesgos y SOUP (IEC 62304 / ISO 14971): registro de riesgos, matriz de trazabilidad, lista SOUP. Se actualizan en el mismo commit que mueve un archivo citado. | `<tema>.md` |
 | `superpowers/` | Specs (`specs/`) y planes de implementación (`plans/`) de diseño. | `AAAA-MM-DD-<tema>-design.md` (specs), `AAAA-MM-DD-<tema>.md` (plans) |
 
-Archivos sueltos en `docs/`: `catalogo_alarmas.md` (catálogo de alarmas vigente), `plan_modificaciones_adc_ino.md` y este `README.md`.
+Archivos sueltos en `docs/`: `catalogo_alarmas.md` (catálogo de alarmas vigente; los códigos `TARJETA_*` se conservan y se muestran como `MODULO_ES_*`, tanda 23), `plan_modificaciones_adc_ino.md` (histórico: firmware de la ESP32, retirada en la tanda 20) y este `README.md`.

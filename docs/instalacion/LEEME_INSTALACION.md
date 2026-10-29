@@ -7,7 +7,9 @@ Lista de comprobación para Cristian. Hoy solo se hace:
 
 Los ciclos NO se corren hasta el lunes 26-oct.
 
-Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin tarjeta ni PC industrial.
+Lo marcado **[verificar en sitio]** no se pudo comprobar sin el equipo: se revisó en el código y con el simulador, sin módulo E/S ni PC industrial.
+
+> **Tanda 23 (29-oct): «módulo E/S» y numeración RTD / AI.** El hardware de E/S (principal M31 + expansiones) se llama «módulo E/S» en pantallas, ticket, PDF, Setup («Red del módulo E/S») y en este documento (antes «tarjeta»); los códigos de alarma `TARJETA_*` se muestran como `MODULO_ES_*`. Las temperaturas se rotulan **RTD 01–06** y las presiones **AI 01–16** (antes AI 01–06 y AI 09–16): AI 01 es la antigua AI 09, AI 02 la AI 10, y así. Al actualizar, la asignación de E/S guardada se migra sola (mismo canal físico, `asignacion_io.json.bak` y una fila «Migración de la asignación de E/S» en la bitácora). Las AI 09–16 nuevas traen calibración nominal: calíbrelas en sitio antes de usarlas. Comprobación tras instalar: bloque T23 de la hoja de banco.
 
 > **Tanda 17 (26-oct), desde la 1.0.0-alpha.2: carpetas nuevas (INS-02) y zona horaria en el Setup (INS-01).** Ver la sección **«1.0 Instalar con el Setup (alpha.2 en adelante)»**. En el resto de este documento, que describe compilaciones anteriores:
 > - donde dice `C:\ProgramData\Especifika\Autoclave`, lea **`X:\Especifika\Autoclave\datos`**;
@@ -289,8 +291,8 @@ Al confirmar, aparece **"Instalación completada"**. Pulse **Continuar**. El tex
 ## 4. Arranque con perfil
 
 - Se ve la intro "del vapor a la precisión" y luego la pantalla principal.
-- **Con la tarjeta desconectada**, el equipo debe mostrar **"tarjeta desconectada"** (alarma COM-01 "Tarjeta de E/S desconectada"). **No** debe decir "paro de emergencia" ni mostrar valores inventados: temperatura y presión salen como "—"/"---". Se puede ingresar y navegar igual.
-- El backend espera la tarjeta 15 s y da el arranque por terminado igual (ARR_SIN_ES); reintenta solo cuando se conecta.
+- **Con el módulo E/S desconectado**, el equipo debe mostrar **"Módulo E/S desconectado"** (alarma COM-01 "Módulo E/S desconectado"; hasta la tanda 22, "Tarjeta de E/S desconectada"). **No** debe decir "paro de emergencia" ni mostrar valores inventados: temperatura y presión salen como "—"/"---". Se puede ingresar y navegar igual.
+- El backend espera el módulo E/S 15 s y da el arranque por terminado igual (ARR_SIN_ES); reintenta solo cuando se conecta.
 - Si la intro muestra un fallo de arranque porque el backend tardó más de 20 s la primera vez (antivirus, PC lento), **ya no queda trabada**: sigue en cuanto el backend responde (cambio P1). Si el fallo no se retira en un minuto, cierre y vuelva a abrir, y revise `data\backend.log`.
 - Los fallos bloqueantes de verdad (reloj alterado, calibración ilegible, perfil inválido) dejan la intro detenida con la alarma. Ver la sección 7 y los logs.
 
@@ -319,12 +321,12 @@ Estas dos cuentas **no se pueden desactivar, borrar, cambiar de rol ni renombrar
 Requisitos:
 - usuario técnico o ingeniero;
 - equipo en PREPARACIÓN, PREPARADO o FALLA;
-- **tarjeta conectada**;
+- **módulo E/S conectado**;
 - **paro de emergencia liberado.** Con el paro activo, OPCIONES no abre y el modo prueba se rechaza.
 
 Orden sugerido:
 1. **Entradas:** cada una muestra Activa / Inactiva, o "Sin datos" si no hay enlace. Accione cada sensor físico (puerta cerrada/abierta, atrapamiento, aire comprimido, paro…) y vea el cambio.
-2. **Temperatura** y **Presión:** valores vivos y cuentas ADC. Sin tarjeta muestran "---" y "Sin enlace con la tarjeta de E/S".
+2. **Temperatura** (RTD 01–06) y **Presión** (AI 01–16): valores vivos y cuentas ADC. Sin módulo E/S muestran "---" y "Sin enlace con el módulo E/S".
 3. **Salidas:** pulse **Habilitar modo prueba** y acepte el aviso. Al entrar, todas las salidas se apagan.
    - **Salidas sostenidas** (válvulas): un toque las activa y otro las apaga. Verifique cada una en campo.
    - **Salidas momentáneas** (abrir/cerrar puerta 1 y 2, bomba de vacío): se activan **mientras se mantiene pulsado** "Mantener pulsado" y se apagan al soltar. Si la orden se pierde, el backend las apaga solo a los 1,5 s. **Corregido en P1:** antes la pulsación se cortaba a los 1-2 s.
@@ -338,7 +340,7 @@ Orden sugerido:
    - 5 minutos sin tocar la sección;
    - sesión vencida o cerrada en otra parte. **Corregido en P1:** el vigilante de este caso moría a los pocos segundos.
    - El backend también sale solo tras 90 s sin órdenes ni avisos (por ejemplo, si la pantalla se cierra de golpe).
-5. **Desconexión de la tarjeta durante el modo prueba:** las salidas no se pueden accionar ("rechazó la orden") y "Salir" sigue funcionando. Salga y vuelva a entrar al reconectar.
+5. **Desconexión del módulo E/S durante el modo prueba:** las salidas no se pueden accionar ("rechazó la orden") y "Salir" sigue funcionando. Salga y vuelva a entrar al reconectar.
 
 **PROBLEMA CONOCIDO — canales que no aparecen en E/S.** La lista sale de `io_enabled` del archivo del equipo (`ACV-2026-001.yaml`). Hoy **no** incluye:
 - en salidas: `descompresion_lenta`, `vapor_caldera`, `aire_comprimido_camara`, `agua_chaqueta` ni `buzer_alarma`;
@@ -354,7 +356,7 @@ En el modo prueba, el backend ya acepta cualquier salida del mapa: solo cambia l
 
 ### 6.2 Calibración de sensores (Temperatura / Presión › Calibrar)
 - **Orden: primero presión, después temperatura.** La presión atmosférica (6.3) se calcula con la presión de cámara calibrada: si recalibra la presión después, repita la 6.3.
-- Requisitos: técnico (fuera de ciclo) o ingeniero, y **tarjeta conectada**. Sin lectura válida, el botón "Calibrar" está deshabilitado.
+- Requisitos: técnico (fuera de ciclo) o ingeniero, y **módulo E/S conectado**. Sin lectura válida, el botón "Calibrar" está deshabilitado.
 - **Dos puntos.** En cada punto, "lo que muestra el equipo" contra "lo que marca el patrón". La lectura del equipo se puede **capturar** del valor vivo o **escribir a mano**; la bitácora guarda cuál de las dos fue. Luego **Aplicar**.
 - **Límites que conviene conocer:**
 
@@ -378,7 +380,7 @@ En el modo prueba, el backend ya acepta cualquier salida del mapa: solo cambia l
 
 ### 6.3 Presión atmosférica (OPCIONES › Mantenimiento › Calibrar presión atmosférica)
 - Requisitos:
-  - tarjeta conectada con datos vigentes;
+  - módulo E/S conectado con datos vigentes;
   - **una puerta ABIERTA**;
   - cámara por debajo de 80 °C;
   - fuera de ciclo;
@@ -392,9 +394,9 @@ En el modo prueba, el backend ya acepta cualquier salida del mapa: solo cambia l
   - modelo, número de serie y fecha de instalación;
   - fuente de vapor;
   - versión del software (la A dice **0.5.0**);
-  - firmware e id de la tarjeta;
+  - firmware e ID del módulo E/S;
   - ciclos, mantenimiento, idioma, unidades, impresora y red.
-- Sin tarjeta, firmware e id salen "—" y los ciclos en 0: es normal.
+- Sin módulo E/S, firmware e ID salen "—" y los ciclos en 0: es normal.
 - El pie del asistente dice "V: 1.0" (texto fijo); no coincide con la versión real.
 
 ### 6.5 Apagar el equipo (botón Apagar equipo, solo en la pantalla de la puerta 1)
