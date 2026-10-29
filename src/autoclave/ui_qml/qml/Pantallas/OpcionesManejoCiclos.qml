@@ -50,16 +50,17 @@ Item {
         baseElegida = numero
         panelCrear.visible = false
         if (teclado)
-            teclado.abrirAlfanumerico(texto("manejo_ciclos.nombre_nuevo"), "", 40, false,
-                                      (v) => control.crear(raiz.baseElegida, String(v)))
+            // modo acción (TEC-ACC-04): se crea una sola vez al Confirmar
+            teclado.abrirAlfanumericoAccion(texto("manejo_ciclos.nombre_nuevo"), "", 40, false,
+                                            (v) => control.crear(raiz.baseElegida, String(v)))
     }
     function pedirDuplicar(numero) {
         if (!puedeOperar)
             return
         control.limpiarMensaje()
         if (teclado)
-            teclado.abrirAlfanumerico(texto("manejo_ciclos.nombre_nuevo"), "", 40, false,
-                                      (v) => control.duplicar(numero, String(v)))
+            teclado.abrirAlfanumericoAccion(texto("manejo_ciclos.nombre_nuevo"), "", 40, false,
+                                            (v) => control.duplicar(numero, String(v)))
     }
     function pedirBorrar(numero, nombre) {
         if (!puedeOperar)

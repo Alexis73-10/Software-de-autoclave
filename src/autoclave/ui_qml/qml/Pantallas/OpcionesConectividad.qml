@@ -35,11 +35,13 @@ Item {
     function agregarDestinatario() {
         if (!raiz.editable || raiz.teclado === null)
             return
-        raiz.teclado.abrirAlfanumerico(I18n.t("conectividad.nombre_destinatario", I18n.lang), "", 40, false,
+        // Modo acción (TEC-ACC-04): el correo se pide al Confirmar el nombre y
+        // se agrega al Confirmar el correo; Cancelar en cualquier paso no envía
+        raiz.teclado.abrirAlfanumericoAccion(I18n.t("conectividad.nombre_destinatario", I18n.lang), "", 40, false,
             function (nombre) {
                 raiz._nombreNuevo = nombre
                 Qt.callLater(function () {
-                    raiz.teclado.abrirAlfanumerico(I18n.t("conectividad.correo_destinatario", I18n.lang),
+                    raiz.teclado.abrirAlfanumericoAccion(I18n.t("conectividad.correo_destinatario", I18n.lang),
                         "", 254, false, function (correo) { control.agregar(raiz._nombreNuevo, correo) })
                 })
             })
