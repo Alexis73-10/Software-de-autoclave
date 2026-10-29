@@ -36,7 +36,7 @@ _SCRIPT = textwrap.dedent(r"""
     qml_dir, es_json, escenario = sys.argv[1], sys.argv[2], sys.argv[3]
     qapp = QGuiApplication([])
 
-    etapas = [("iniciando_servicios", 0.2), ("conectando_tarjeta", 0.2),
+    etapas = [("iniciando_servicios", 0.2), ("conectando_modulo_es", 0.2),
               ("verificando_sensores", 0.2), ("abriendo_base_datos", 0.2)]
     sim = None
     if escenario != "sin_intro":

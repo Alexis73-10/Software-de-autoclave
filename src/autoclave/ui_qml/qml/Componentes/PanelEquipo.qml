@@ -7,8 +7,8 @@ import Autoclave.I18n
 // de modelo/serie. Filas de InfoEquipo.filas: {clave, valor, disponible}.
 // valor null -> dato aún desconocido (sistema.sin_lectura); disponible false
 // -> sin fuente en el software (equipo.no_disponible). valorClave (opcional)
-// -> el valor es un texto de la sección "equipo" (p.ej. emparejamiento de la
-// tarjeta, E6).
+// -> el valor es un texto de la sección "equipo" (p.ej. emparejamiento del
+// módulo E/S, E6).
 PanelModal {
     id: raiz
     altoTarjeta: Escala.px(1500)

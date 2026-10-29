@@ -254,24 +254,24 @@ def _filas(tarjeta):
 
 def test_info_sistema_muestra_version_e_id_de_la_tarjeta():
     filas = _filas({"version": "1.0.0", "id": _ID, "emparejada": True})
-    assert filas["version_tarjeta"] == {"clave": "version_tarjeta", "valor": "1.0.0",
+    assert filas["version_modulo_es"] == {"clave": "version_modulo_es", "valor": "1.0.0",
                                         "disponible": True}
-    assert filas["id_tarjeta"]["valor"] == _ID
-    assert filas["emparejamiento_tarjeta"]["valorClave"] == "tarjeta_emparejada"
+    assert filas["id_modulo_es"]["valor"] == _ID
+    assert filas["emparejamiento_modulo_es"]["valorClave"] == "modulo_es_emparejada"
 
 
-@pytest.mark.parametrize("emparejada,clave", [(False, "tarjeta_no_emparejada"),
+@pytest.mark.parametrize("emparejada,clave", [(False, "modulo_es_no_emparejada"),
                                               (None, None)])
 def test_info_sistema_emparejamiento(emparejada, clave):
     filas = _filas({"version": "1.0.0", "id": _ID, "emparejada": emparejada})
-    assert filas["emparejamiento_tarjeta"].get("valorClave") == clave
+    assert filas["emparejamiento_modulo_es"].get("valorClave") == clave
 
 
 def test_info_sistema_sin_dato_de_tarjeta():
     filas = _filas(None)
-    assert filas["version_tarjeta"]["valor"] is None
-    assert filas["version_tarjeta"]["disponible"] is True
-    assert filas["id_tarjeta"]["valor"] is None
+    assert filas["version_modulo_es"]["valor"] is None
+    assert filas["version_modulo_es"]["disponible"] is True
+    assert filas["id_modulo_es"]["valor"] is None
 
 
 def test_info_equipo_consulta_status_para_la_tarjeta():
@@ -283,13 +283,13 @@ def test_info_equipo_consulta_status_para_la_tarjeta():
     info = InfoEquipo(None, 1, backend, "1.0", ejecutar=lambda tarea: tarea())
     info.actualizar()
     filas = {f["clave"]: f for f in info.filas}
-    assert filas["version_tarjeta"]["valor"] == "1.0.0"
-    assert filas["id_tarjeta"]["valor"] == _ID
+    assert filas["version_modulo_es"]["valor"] == "1.0.0"
+    assert filas["id_modulo_es"]["valor"] == _ID
 
 
 def test_textos_de_tarjeta_en_es_json():
     ruta = Path(__file__).resolve().parents[1] / "src/autoclave/i18n/es.json"
     equipo = json.loads(ruta.read_text(encoding="utf-8"))["equipo"]
-    for clave in ("id_tarjeta", "emparejamiento_tarjeta", "tarjeta_emparejada",
-                  "tarjeta_no_emparejada"):
+    for clave in ("id_modulo_es", "emparejamiento_modulo_es", "modulo_es_emparejada",
+                  "modulo_es_no_emparejada"):
         assert equipo.get(clave)

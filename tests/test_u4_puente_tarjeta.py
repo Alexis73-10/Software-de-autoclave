@@ -33,11 +33,11 @@ def _puente(flags, campos, conectado=True):
 ])
 def test_estado_tarjeta(valor, esperado):
     campos = {} if valor is None else {"estado_tarjeta": valor}
-    assert _puente({}, campos).estadoTarjeta == esperado
+    assert _puente({}, campos).estadoModuloEs == esperado
 
 
 def test_sin_conexion_con_el_backend_la_tarjeta_es_desconectada():
-    assert _puente({}, {"estado_tarjeta": "ok"}, conectado=False).estadoTarjeta == "desconectada"
+    assert _puente({}, {"estado_tarjeta": "ok"}, conectado=False).estadoModuloEs == "desconectada"
 
 
 def test_paro_activo_solo_con_paro_real():

@@ -6,7 +6,7 @@ import "../Componentes"
 import Autoclave.I18n
 
 // OPCIONES › Información del sistema (O2d, tanda 6; mockup 8). Solo lectura,
-// en grupos de clave–valor: Equipo, Software y tarjeta, Uso y mantenimiento,
+// en grupos de clave–valor: Equipo, Software y módulo E/S, Uso y mantenimiento,
 // Configuración vigente (con chips de impresora y red).
 Item {
     id: raiz

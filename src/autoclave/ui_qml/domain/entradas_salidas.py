@@ -1,8 +1,8 @@
 # ui_qml/domain/entradas_salidas.py
 #
 # OPCIONES › Entradas / Salidas (planeacion_opciones_entradas_salidas.md): da
-# forma a GET /status y GET /io/channels para QML. Sin datos vigentes de la
-# tarjeta nunca se inventa un 0 (D-ES-04): el valor queda en None y la pantalla
+# forma a GET /status y GET /io/channels para QML. Sin datos vigentes del
+# módulo E/S nunca se inventa un 0 (D-ES-04): el valor queda en None y la pantalla
 # muestra "Sin datos". La UI no interpreta el significado de una entrada
 # (ES-11): muestra el nivel crudo. Excepción D9-5 (tanda 9): de una entrada de
 # contacto NC (`nc` del canal) se muestra el estado interpretado (1 = inactiva,

@@ -4,8 +4,8 @@ import Autoclave.I18n
 
 // PROVISIONAL (sin diseño): cuadro de notificaciones del software que abre la
 // campana. U4 (tanda 2, D3): agrupado por nivel del catálogo, cada grupo con
-// cabecera y contador: "Emergencia / Fallas" (sin conexión, tarjeta
-// desconectada o sin datos, paro, estado seguro con su botón de confirmar y
+// cabecera y contador: "Emergencia / Fallas" (sin conexión, módulo E/S
+// desconectado o sin datos, paro, estado seguro con su botón de confirmar y
 // las alarmas EMERGENCIA), "Alarmas" (NO ABRIR y las FALLA) y "Avisos" (modo
 // prueba y las ALERTA). Las filas de seguridad salen de SeccionEstadoSeguro.
 // U4: ya no se abre solo ni queda bloqueado (antes, corrección SAF-01 de U1):
@@ -52,7 +52,7 @@ PanelModal {
     // la interfaz; sin él, la descripción y el id)
     function nombreAlarma(m) {
         return (m.titulos ?? {})[I18n.lang] || m.titulo
-               || (m.descripciones ?? {})[I18n.lang] || m.description || m.id
+               || (m.descripciones ?? {})[I18n.lang] || m.description || m.idVisible || m.id
     }
     function grupoDe(nivel) {
         if (nivel === "FALLA") return "alarma"
@@ -163,6 +163,7 @@ PanelModal {
                 visible: g.expandido && enGrupo
                 width: g.width
                 idAlarma: model.id
+                idVisible: model.idVisible ?? model.id
                 // Tanda 17 (ALM-01): solo el nombre (título del catálogo en el
                 // idioma de la interfaz) con el color de nivel; el detalle y el
                 // botón DESPEJAR van en la ventana emergente al tocar la fila.

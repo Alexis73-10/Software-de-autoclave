@@ -79,7 +79,7 @@ def avisos_corte(status) -> list[dict]:
 
 
 def presion_camara(status):
-    """MPR-01: presión de cámara (kPa abs) de /status con la tarjeta en línea;
+    """MPR-01: presión de cámara (kPa abs) de /status con el módulo E/S en línea;
     None sin lectura (la pantalla muestra «—»)."""
     if not dominio.enlace_ok(status):
         return None

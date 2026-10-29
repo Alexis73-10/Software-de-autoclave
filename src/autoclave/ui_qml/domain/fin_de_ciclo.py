@@ -9,10 +9,15 @@
 #
 # Falla cerrada: una terminación desconocida o mal formada se presenta como
 # fallo, y la fila de causa nunca queda vacía (FC-02).
+#
+# Tanda 23 (MES-04): todo código de alarma que se muestra pasa por
+# codigo_visible() (un TARJETA_<x> se ve MODULO_ES_<x>); el código guardado y
+# las búsquedas en el catálogo siguen con el código original.
 
 from autoclave import i18n
 from autoclave.core.runtime import alarmas_i18n
 from autoclave.core.runtime.progreso_ciclo import FASES_UI
+from autoclave.state_machine.alarms.catalogo import codigo_visible
 
 TIPOS = ("fallo", "emergencia", "cancelado", "exitoso")
 
@@ -60,6 +65,16 @@ def _fecha(iso, idioma) -> str:
         return ""
 
 
+def con_codigo_visible(texto, codigo):
+    """MES-04: `texto` (p. ej. el motivo "CÓDIGO · título" de motivo_fallo o el
+    motivo guardado) con `codigo` reemplazado por su forma visible. Sin código
+    TARJETA_* o sin texto, `texto` tal cual."""
+    visible = codigo_visible(codigo)
+    if isinstance(texto, str) and isinstance(codigo, str) and codigo and visible != codigo:
+        return texto.replace(codigo, visible)
+    return texto
+
+
 def _fase(fase, idioma) -> str:
     """Nombre de la fase de la UI; "—" si no se sabe."""
     if fase in FASES_UI:
@@ -73,7 +88,7 @@ def _textos_alarma(codigo, valores, idioma, titulo_guardado="", descripcion_guar
     from autoclave.state_machine.alarms.catalogo import CATALOGO
     definicion = CATALOGO.get(codigo or "")
     if definicion is None:
-        return {"titulo": titulo_guardado or (codigo or ""),
+        return {"titulo": titulo_guardado or (codigo_visible(codigo) or ""),
                 "descripcion": descripcion_guardada, "accion": ""}
     t = alarmas_i18n.textos(definicion, valores if isinstance(valores, dict) else {}, idioma)
     if not (valores if isinstance(valores, dict) else {}) and descripcion_guardada and idioma == "es":
@@ -154,15 +169,17 @@ def _causa(term: dict, idioma: str) -> dict:
                 "subtitulo": i18n.t("ciclo.fin_causa_emergencia_sub", idioma, fase=fase),
                 "hora": hora, "descripcion": t.get("descripcion", ""),
                 "queHacer": i18n.t("ciclo.fin_causa_emergencia_accion", idioma),
-                "meta": i18n.t("ciclo.fin_meta_causa", idioma, fase=fase, fecha=fecha, codigo=codigo),
+                "meta": i18n.t("ciclo.fin_meta_causa", idioma, fase=fase, fecha=fecha,
+                               codigo=codigo_visible(codigo)),
                 "nivel": "fallo"}
     # fallo
     codigo = term["codigo"]
     from autoclave.state_machine.alarms.catalogo import CATALOGO
     if codigo is None or CATALOGO.get(codigo) is None:
         # FC-02: fallo sin código conocido: título genérico y el motivo crudo
-        detalle = term["motivo"] or (codigo or "")
-        meta = (i18n.t("ciclo.fin_meta_causa", idioma, fase=fase, fecha=fecha, codigo=codigo)
+        detalle = con_codigo_visible(term["motivo"], codigo) or (codigo_visible(codigo) or "")
+        meta = (i18n.t("ciclo.fin_meta_causa", idioma, fase=fase, fecha=fecha,
+                       codigo=codigo_visible(codigo))
                 if codigo else i18n.t("ciclo.fin_meta_causa_sin_codigo", idioma, fase=fase, fecha=fecha))
         return {"titulo": i18n.t("ciclo.fin_causa_generica", idioma), "subtitulo": "",
                 "hora": hora, "descripcion": detalle, "queHacer": "", "meta": meta,
@@ -172,12 +189,14 @@ def _causa(term: dict, idioma: str) -> dict:
     # valores (sin el prefijo "CÓDIGO · título:" de motivo_fallo, que ya están
     # en el subtítulo y en la línea meta); sin valores, el motivo registrado.
     descripcion = t.get("descripcion", "") if term["valores"] else (
-        alarmas_i18n.motivo_fallo(codigo, term["valores"], term["motivo"], idioma) or "")
+        con_codigo_visible(alarmas_i18n.motivo_fallo(codigo, term["valores"], term["motivo"],
+                                                     idioma), codigo) or "")
     titulo = (i18n.t("ciclo.fin_causa_fallo_fase", idioma, fase=fase.lower())
               if term["fase"] else i18n.t("ciclo.fin_causa_generica", idioma))
     return {"titulo": titulo, "subtitulo": t.get("titulo", ""), "hora": hora,
             "descripcion": descripcion, "queHacer": t.get("accion", ""),
-            "meta": i18n.t("ciclo.fin_meta_causa", idioma, fase=fase, fecha=fecha, codigo=codigo),
+            "meta": i18n.t("ciclo.fin_meta_causa", idioma, fase=fase, fecha=fecha,
+                           codigo=codigo_visible(codigo)),
             "nivel": "fallo"}
 
 
@@ -186,11 +205,12 @@ def _fila_alarma(a: dict, idioma: str) -> dict:
     t = _textos_alarma(a["codigo"], a["valores"], idioma, a["titulo"], a["descripcion"])
     hora = _hms(a["aparecida"])
     resuelta = _hms(a["resuelta"])
-    meta = (i18n.t("ciclo.fin_meta_alarma_resuelta", idioma, hora=hora, codigo=a["codigo"],
+    visible = codigo_visible(a["codigo"])
+    meta = (i18n.t("ciclo.fin_meta_alarma_resuelta", idioma, hora=hora, codigo=visible,
                    resuelta=resuelta)
             if a["resuelta"] else
-            i18n.t("ciclo.fin_meta_alarma_activa", idioma, hora=hora, codigo=a["codigo"]))
-    return {"titulo": t.get("titulo") or a["codigo"], "hora": hora,
+            i18n.t("ciclo.fin_meta_alarma_activa", idioma, hora=hora, codigo=visible))
+    return {"titulo": t.get("titulo") or visible, "hora": hora,
             "nivel": prioridad(a["nivel"]), "descripcion": t.get("descripcion", ""),
             "queHacer": t.get("accion", ""), "meta": meta}
 
@@ -231,9 +251,9 @@ def armar(term: dict | None, alarmas: list, idioma: str) -> dict:
         try:
             filas.append(_fila_alarma(a, idioma))
         except Exception:
-            filas.append({"titulo": a.get("titulo") or a.get("codigo") or "", "hora": "",
-                          "nivel": "alta", "descripcion": a.get("descripcion", ""),
-                          "queHacer": "", "meta": a.get("codigo") or ""})
+            filas.append({"titulo": a.get("titulo") or codigo_visible(a.get("codigo")) or "",
+                          "hora": "", "nivel": "alta", "descripcion": a.get("descripcion", ""),
+                          "queHacer": "", "meta": codigo_visible(a.get("codigo")) or ""})
     # Revisión R (tanda 21, SAF-04): una observación de Referencia sin su fila
     # SEN-11 en el historial (sin base de datos, o fila sin ciclo) se muestra
     # igual, armada con los datos de la terminación (no depende de la base)

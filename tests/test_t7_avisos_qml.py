@@ -32,7 +32,7 @@ _PUENTE = """
         property bool estadoSeguroBloqueoPorSonda: false
         property bool modoPrueba: false
         property bool connected: true
-        property string estadoTarjeta: "ok"
+        property string estadoModuloEs: "ok"
     }
     QtObject {
         id: comandosFalsos
@@ -170,14 +170,14 @@ puente.setProperty("connected", True)
 
 # U4: tarjeta desconectada / sin datos: fila propia, sin fila de paro, roja fija
 puente.setProperty("noAbrir", True)
-puente.setProperty("estadoTarjeta", "desconectada")
-r["tarjeta_desconectada"] = (visible(E, "filaTarjetaDesconectada") and not visible(E, "filaParo")
-                             and "Tarjeta desconectada" in fila(E, "filaTarjetaDesconectada").property("descripcion")
+puente.setProperty("estadoModuloEs", "desconectada")
+r["tarjeta_desconectada"] = (visible(E, "filaModuloEsDesconectada") and not visible(E, "filaParo")
+                             and "Módulo E/S desconectado" in fila(E, "filaModuloEsDesconectada").property("descripcion")
                              and p("conteoTotal") == 1 and p("urgente") and not p("parpadeo"))
-puente.setProperty("estadoTarjeta", "sin_tramas_validas")
-r["tarjeta_sin_datos"] = (visible(E, "filaTarjetaSinDatos") and not visible(E, "filaTarjetaDesconectada")
+puente.setProperty("estadoModuloEs", "sin_tramas_validas")
+r["tarjeta_sin_datos"] = (visible(E, "filaModuloEsSinDatos") and not visible(E, "filaModuloEsDesconectada")
                           and p("conteoTotal") == 1)
-puente.setProperty("estadoTarjeta", "ok")
+puente.setProperty("estadoModuloEs", "ok")
 
 # NO ABRIR en "Alarmas" y modo prueba en "Avisos", contados; plegados por defecto
 puente.setProperty("noAbrirMotivo", "Temperatura demasiado alta (95 °C)")

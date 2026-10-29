@@ -45,7 +45,7 @@ def test_cada_etapa_completada_avanza_la_fraccion_y_el_proceso():
         sim.avanzar()
         vistos.append((sim.fraccion, sim.proceso, sim.terminado))
     assert vistos == [
-        (0.25, "conectando_tarjeta", False),
+        (0.25, "conectando_modulo_es", False),
         (0.5, "verificando_sensores", False),
         (0.75, "abriendo_base_datos", False),
         (1.0, "abriendo_base_datos", True),   # al terminar queda el último proceso

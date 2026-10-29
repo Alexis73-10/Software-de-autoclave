@@ -12,7 +12,7 @@
 #
 # Reglas (decisiones de seguridad/usabilidad, no del mockup):
 #   - nunca en standby durante CICLO, FALLA o EMERGENCIA, ni con el paro
-#     real activo (U4: no la tarjeta sin datos) o el estado seguro en curso o pendiente de confirmar (U1 de la
+#     real activo (U4: no el módulo E/S sin datos) o el estado seguro en curso o pendiente de confirmar (U1 de la
 #     tanda 2: esos avisos ya no se dibujan sobre todas las pantallas, sino en
 #     el panel de la campana, que la pantalla de arranque taparía);
 #   - un cambio de estado del equipo o una alarma nueva cuenta como actividad
@@ -193,10 +193,10 @@ class Standby(QObject):
 
     def _seguridad_pendiente(self) -> bool:
         """Paro real activo, o estado seguro activo o esperando confirmación.
-        U4: PARO_EMERGENCIA solo (sin PARO_REAL) es la tarjeta sin datos; con
-        él la pantalla pasaba a la principal mientras la tarjeta conectaba y
-        volvía sola al reposo al conectar (observación del 19-oct). La tarjeta
-        desconectada se ve al tocar y su alarma (COM-01) despierta igual."""
+        U4: PARO_EMERGENCIA solo (sin PARO_REAL) es el módulo E/S sin datos; con
+        él la pantalla pasaba a la principal mientras el módulo E/S conectaba y
+        volvía sola al reposo al conectar (observación del 19-oct). El módulo E/S
+        desconectado se ve al tocar y su alarma (COM-01) despierta igual."""
         es = self._ui.get_campo("estado_seguro", {})
         es = es if isinstance(es, dict) else {}
         return (bool(self._ui.get_estado_flag("PARO_REAL"))
