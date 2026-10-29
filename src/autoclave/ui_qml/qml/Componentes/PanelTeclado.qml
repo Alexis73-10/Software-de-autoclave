@@ -24,6 +24,20 @@ import Tema
 // llega a la pantalla (por ejemplo, a otro campo). textoEnEdicion permite al
 // campo mostrar lo que se escribe. alturaOcupada dice cuánto tapa, para que
 // la pantalla deje el campo activo a la vista.
+//
+// Modo acción (tanda 22, TEC-ACC-01..03):
+//   teclado.abrirAlfanumericoAccion(titulo, valorInicial, longitudMaxima,
+//                                   ocultar, texto => accion(texto))
+// `alConfirmar` se llama una sola vez y solo al pulsar Confirmar con texto
+// (Confirmar vacío no hace nada y deja el teclado abierto). Nada se entrega al
+// escribir, al cancelar, al ocultar ni al abrir otro campo: lo escrito se
+// descarta. El panel se cierra antes de llamar a `alConfirmar`, así un segundo
+// Confirmar (doble toque o reentrante durante un envío síncrono) no envía nada
+// y el callback puede abrir otro teclado o diálogo.
+// Regla: un callback que ejecuta una acción (llamar a un controlador que envía
+// al backend, abrir un diálogo u otro teclado, cambiar de pantalla) usa
+// abrirAlfanumericoAccion; el modo en vivo (abrirAlfanumerico/abrirNumerico)
+// es solo para asignar texto a una propiedad.
 Item {
     id: raiz
 
@@ -49,11 +63,13 @@ Item {
     property var _siguiente: null
     property var _inicialNumerico: null
     property bool _numericoComprometido: false
+    // true: modo en vivo (abrirAlfanumerico/abrirNumerico); false: modo acción
+    property bool _enVivo: true
 
     // Lo escrito llega al campo al instante, sin tocar Confirmar. Confirmar solo
     // pasa al siguiente campo; Ocultar cierra el panel conservando lo escrito.
     function _comprometerAlfanumerico() {
-        if (_tipo === "alfanumerico" && _alConfirmar)
+        if (_tipo === "alfanumerico" && _enVivo && _alConfirmar)
             _alConfirmar(alfanumerico.controlador.texto)
     }
     function _comprometerNumerico() {
@@ -69,14 +85,26 @@ Item {
 
     function abrirAlfanumerico(titulo, valorInicial, longitudMaxima, ocultar, alConfirmar, siguiente) {
         _guardarPendiente()
+        _enVivo = true
         alfanumerico.ocultarTexto = ocultar === true
         alfanumerico.abrir(titulo, valorInicial || "", longitudMaxima || 0)
         _alConfirmar = alConfirmar || null
         _siguiente = siguiente || null
         _tipo = "alfanumerico"
     }
+    // Modo acción: entrega solo al Confirmar (ver la cabecera)
+    function abrirAlfanumericoAccion(titulo, valorInicial, longitudMaxima, ocultar, alConfirmar) {
+        _guardarPendiente()
+        _enVivo = false
+        alfanumerico.ocultarTexto = ocultar === true
+        alfanumerico.abrir(titulo, valorInicial || "", longitudMaxima || 0)
+        _alConfirmar = alConfirmar || null
+        _siguiente = null
+        _tipo = "alfanumerico"
+    }
     function abrirNumerico(titulo, unidad, valorInicial, minimo, maximo, decimales, alConfirmar, siguiente) {
         _guardarPendiente()
+        _enVivo = true
         numerico.abrir(titulo, unidad, valorInicial, minimo, maximo, decimales)
         _inicialNumerico = valorInicial
         _numericoComprometido = false
@@ -91,10 +119,11 @@ Item {
     }
 
     // Al cambiar de campo sin Confirmar, lo escrito se guarda en el anterior
+    // (en modo acción se descarta)
     function _guardarPendiente() {
         const alConfirmar = _alConfirmar
         _alConfirmar = null
-        if (!alConfirmar)
+        if (!alConfirmar || !_enVivo)
             return
         if (_tipo === "alfanumerico")
             alConfirmar(alfanumerico.controlador.texto)
@@ -102,6 +131,10 @@ Item {
             alConfirmar(numerico.controlador.valor)
     }
     function _entregar(valor) {
+        if (!_enVivo) {
+            _entregarAccion(valor)
+            return
+        }
         const alConfirmar = _alConfirmar
         const siguiente = _siguiente
         _alConfirmar = null
@@ -116,8 +149,24 @@ Item {
             cerrar()
         }
     }
-    function _cancelar() {
+    // Modo acción: se anula el callback y se cierra el panel ANTES de llamarlo;
+    // un Confirmar repetido o reentrante encuentra _alConfirmar nulo y no hace
+    // nada (TEC-ACC-03).
+    function _entregarAccion(valor) {
         const alConfirmar = _alConfirmar
+        if (!alConfirmar || _tipo !== "alfanumerico")
+            return
+        if (valor === undefined || valor === null || String(valor) === "")
+            return                      // vacío: sigue abierto (TEC-ACC-02)
+        _alConfirmar = null
+        _siguiente = null
+        confirmado(valor)
+        terminado()
+        cerrar()
+        alConfirmar(valor)
+    }
+    function _cancelar() {
+        const alConfirmar = _enVivo ? _alConfirmar : null
         const tipo = _tipo
         const restaurar = _numericoComprometido
         cerrar()
