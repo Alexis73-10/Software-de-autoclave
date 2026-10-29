@@ -11,7 +11,7 @@ Rama `tanda-22` (desde `dev` 14f62f34). Spec: `docs/mis_plans/prompt_claude_code
 | TEC-ACC-04 pantallas | Hecho | c5b8cf3a (7 puntos; `test_t22_pantallas_accion_qml.py` 8 pruebas, 7 fallan con el código anterior) |
 | TEC-ACC-07 prueba de regla | Hecho | c5b8cf3a (`test_t22_regla_teclado_accion.py`, sin lista blanca; línea en CLAUDE.md, TEC-ACC-06) |
 | R revisión | Hecho | ed938ad1 (sin hallazgos altos/medios; correcciones bajas: solo espacios = vacío (DSC), regla más estricta, pruebas de pantalla ampliadas) |
-| Suite | Pendiente | |
+| Suite | Hecha | 9151 passed, 11 skipped, 7 xfailed; `test_home_view` (caída conocida de trabajador xdist, pasa en serie) y 2 errores de `test_o3` por carrera del .qml temporal, corregida en el commit siguiente (9 passed con -n 4). `suite_raw.txt` |
 | K entrega | Pendiente | |
 | U USB | Pendiente | |
 | Z cierre | Pendiente | |
