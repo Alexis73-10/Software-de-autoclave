@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Paso 8: red de los modulos de E/S (T20-05, tanda 20). Deja el adaptador
+  Paso 8: red del modulo E/S (T20-05, tanda 20). Deja el adaptador
   Ethernet dedicado (elegido por su MAC) en 192.168.3.10/24, sin puerta de
   enlace ni DNS y con DHCP desactivado, para hablar con el modulo M31-U
   (192.168.3.7, decisiones 2 y 3 de docs/mis_plans/decisiones_tanda_20.md).
@@ -84,7 +84,7 @@ $todas = @(Get-NetIPAddress -AddressFamily IPv4 -ErrorAction Stop) +
     @(Get-NetIPAddress -AddressFamily IPv4 -PolicyStore PersistentStore -ErrorAction SilentlyContinue)
 $conflictos = @(Get-ConflictoSubred $todas $indice)
 if ($conflictos.Count -gt 0) {
-    throw "Otro adaptador ya esta en la red de los modulos (192.168.3.0/24): $($conflictos -join ', '). Quitele esa direccion o elija ese adaptador. No se cambia nada."
+    throw "Otro adaptador ya esta en la red del modulo E/S (192.168.3.0/24): $($conflictos -join ', '). Quitele esa direccion o elija ese adaptador. No se cambia nada."
 }
 
 $antes = Get-EstadoInterfaz $indice
@@ -153,9 +153,9 @@ if (Test-ConfiguracionModulos -Direcciones $antes.Direcciones -IndiceElegido $in
             Write-Log "La restauracion tambien fallo: $($_.Exception.Message)" 'ERROR'
         }
         if ($restaurado) {
-            throw "No se pudo aplicar la red de los modulos en '$($elegido.Name)' ($errorAplicar): se restauro la configuracion anterior del adaptador."
+            throw "No se pudo aplicar la red del modulo E/S en '$($elegido.Name)' ($errorAplicar): se restauro la configuracion anterior del adaptador."
         }
-        throw ("No se pudo aplicar la red de los modulos en '$($elegido.Name)' ($errorAplicar) ni restaurar la configuracion anterior: " +
+        throw ("No se pudo aplicar la red del modulo E/S en '$($elegido.Name)' ($errorAplicar) ni restaurar la configuracion anterior: " +
             "revierta como administrador con 08_revertir_red_modulos.ps1 o ejecute el Setup otra vez (Reparar).")
     }
     Write-Log "Aplicado: $($script:IpEstacionModulos)/$($script:PrefijoModulos) en '$($elegido.Name)', sin puerta de enlace ni DNS, DHCP desactivado."

@@ -1,4 +1,4 @@
-"""Tanda 20, s3 (T20-05): paso 08 de la estación, red de los módulos de E/S
+"""Tanda 20, s3 (T20-05): paso 08 de la estación, red del módulo E/S
 (tools/estacion/08_red_modulos.ps1, su inverso, las funciones puras de
 _red_modulos_puras.ps1 y el puente estacion_setup.ps1).
 

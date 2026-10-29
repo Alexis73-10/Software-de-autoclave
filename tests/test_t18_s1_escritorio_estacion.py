@@ -208,7 +208,7 @@ def test_texto_lista_blanca_de_usuario_no_toca_la_de_hklm():
 
 def test_texto_puente_admite_el_paso_07_con_la_cuenta():
     puente = (INSTALADOR / "estacion_setup.ps1").read_text(encoding="ascii")
-    # T20-05 (tanda 20) agrega el paso 08 (red de los módulos); el 07 sigue admitido
+    # T20-05 (tanda 20) agrega el paso 08 (red del módulo E/S); el 07 sigue admitido
     assert "ValidateSet('01', '02', '04', '05', '06', '07', '08')" in puente
     assert f"'07' = @('{PASO07}', '{REVERTIR07}')" in puente
     assert "elseif ($Paso -eq '07' -and $Accion -eq 'Aplicar' -and $Usuario)" in puente

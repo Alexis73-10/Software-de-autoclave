@@ -1,4 +1,4 @@
-# _red_modulos_puras.ps1 - Funciones PURAS del paso 08 (red de los modulos
+# _red_modulos_puras.ps1 - Funciones PURAS del paso 08 (red del modulo E/S
 # de E/S, T20-05, tanda 20). Se carga con dot-sourcing desde
 # 08_red_modulos.ps1 y 08_revertir_red_modulos.ps1:
 #     . "$PSScriptRoot\_red_modulos_puras.ps1"
@@ -83,7 +83,7 @@ function ConvertTo-EnteroEnRango($Valor, [int]$Minimo, [int]$Maximo) {
 
 function Test-IpEnSubred {
     <# True si $Ip es una IPv4 valida dentro de $Red/$Prefijo (por defecto
-       192.168.3.0/24, la red de los modulos). #>
+       192.168.3.0/24, la red del modulo E/S). #>
     param($Ip, [string]$Red = $script:RedModulos, [int]$Prefijo = $script:PrefijoModulos)
     if (($Prefijo -lt 0) -or ($Prefijo -gt 32)) { return $false }
     $n = ConvertTo-NumeroIPv4 $Ip

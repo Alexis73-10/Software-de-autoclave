@@ -12,7 +12,7 @@
 #   <carpeta de la estacion>\respaldo_<paso>.json
 #   Solo se escribe la primera vez que se cambia un valor (idempotencia: volver
 #   a correr el script no pisa el valor original con el valor ya cambiado).
-#   El paso 08 (red de los modulos, T20-05) guarda ahi la configuracion IPv4
+#   El paso 08 (red del modulo E/S, T20-05) guarda ahi la configuracion IPv4
 #   anterior del adaptador (respaldo_08_red_modulos.json, sin valores de
 #   registro); sus funciones puras estan en _red_modulos_puras.ps1.
 #

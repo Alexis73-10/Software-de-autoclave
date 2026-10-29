@@ -1,5 +1,5 @@
 """Tanda 20, s3 (T20-05): Setup con Modbus (tools/instalador/autoclave.iss):
-página «Red de los módulos de E/S» y paso 08, contraseña web del módulo y
+página «Red del módulo E/S» y paso 08, contraseña web del módulo y
 prueba de conexión con `Autoclave.exe --rol configurar-modulo` (T20-04).
 
 Prohibido ejecutar el Setup, ISCC o los .ps1 de la estación. Por eso:
@@ -52,7 +52,7 @@ def _sin_comentarios_pascal(texto: str) -> str:
     return "\n".join(l.split("//", 1)[0] for l in texto.splitlines())
 
 
-# ── Página «Red de los módulos de E/S» ───────────────────────────────────────
+# ── Página «Red del módulo E/S» ───────────────────────────────────────
 
 def test_texto_pagina_de_red_propia_con_casilla_marcada_y_sin_tarea_nueva():
     crear = _funcion("CrearPaginaRed")
@@ -67,8 +67,8 @@ def test_texto_pagina_de_red_propia_con_casilla_marcada_y_sin_tarea_nueva():
     # la casilla de red NO es una tarea: [Tasks] queda igual
     tareas = re.findall(r'^Name: "([\w\\]+)"; Description:', _seccion("Tasks"), re.M)
     assert tareas == ["autoarranque", "estacion", "estacion\\tactiles", "sinlogo"]
-    assert _mensaje("es", "RedCasilla") == "Configurar la red de los módulos"
-    assert _mensaje("es", "RedTitulo") == "Red de los módulos de E/S"
+    assert _mensaje("es", "RedCasilla") == "Configurar la red del módulo E/S"
+    assert _mensaje("es", "RedTitulo") == "Red del módulo E/S"
 
 
 def test_texto_lista_de_adaptadores_solo_lectura_y_solo_ethernet():
@@ -118,7 +118,7 @@ def test_texto_parametro_adaptador_silencioso():
     assert "ValidarRed(I, AdvertirRed)" in bloque
     # sin /ADAPTADOR= y sin asistente: no se toca la red y se anota
     assert "else if WizardSilent then" in bloque
-    assert "no se toca la red de los módulos" in bloque
+    assert "no se toca la red del módulo E/S" in bloque
     # sin asistente no se muestran ni validan las páginas nuevas
     skip = _funcion("ShouldSkipPage")
     assert "(PageID = PaginaRed.ID) then\n    Result := WizardSilent" in skip.replace("\r\n", "\n")
@@ -403,7 +403,7 @@ def test_replica_ip_en_red_de_los_modulos_y_mac():
 
 def test_texto_leeme_del_instalador_documenta_t20_05():
     leeme = (INSTALADOR / "LEEME.md").read_text(encoding="utf-8")
-    for texto in ("Red de los módulos de E/S", "/ADAPTADOR=", "Adaptador08", "Contraseña web del módulo",
+    for texto in ("Red del módulo E/S", "/ADAPTADOR=", "Adaptador08", "Contraseña web del módulo",
                   "--rol configurar-modulo", "--clave-archivo", "08, 07, 06, 05, 04, 02, 01"):
         assert texto in leeme, texto
 
