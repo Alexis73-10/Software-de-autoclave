@@ -83,7 +83,7 @@ Window {
             escala: lienzo.escala
             diametroAro: 106; tamTitulo: 25; tamDescripcion: 21
             titulo: "INFORMACIÓN DEL EQUIPO Y DEL SISTEMA COMPLETO"
-            descripcion: "Texto de descripción deliberadamente largo para comprobar que se corta sin desbordar la tarjeta"
+            descripcion: "Texto de descripción deliberadamente largo para comprobar que se corta sin desbordar el recuadro"
             icono: lienzo.iconos + "informacion.svg"
             colorAcento: Colores.menuAzul
         }
