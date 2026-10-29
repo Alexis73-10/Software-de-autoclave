@@ -10,12 +10,12 @@ Rama `tanda-23` (desde `dev` acd17d36). Spec: `docs/mis_plans/decisiones_tanda_2
 | B AIN | Hecho | tanda-23-ain 43b7cfbe..9f36f0ae (4 commits), 5479 pruebas afectadas verdes |
 | C1 UI | Hecho | tanda-23-ui: f68cd0eb, ce3f0b0a, 3248589e |
 | Unión B (+C1) | Hecho | 90e86ab0 (B), 391288c0 (C1); 319 pruebas cruzadas verdes |
-| C2 núcleo | Pendiente | |
-| C3 tools/packaging/tests | Pendiente | |
-| C4 docs | Pendiente | |
+| C2 núcleo | En curso | worktree `tanda-23-nucleo` |
+| C3 tools/packaging/tests | En curso | worktree `tanda-23-tools` |
+| C4 docs | Hecho | tanda-23-docs, 6 commits; unido en 4b8af9c9 |
 | Unión C1..C4 | Pendiente | |
 | D prueba de regla | Pendiente | |
-| R revisión | Pendiente | |
+| R revisión | Hecho | 1 MEDIA + 5 BAJA corregidas en 819ba50d; `R_revision.md` (d903a660) |
 | Suite | Pendiente | |
 | K merge a dev (sin compilar) | Pendiente | |
 | Z cierre | Pendiente | |
