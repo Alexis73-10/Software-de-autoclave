@@ -5,11 +5,11 @@ Rama `tanda-22` (desde `dev` 14f62f34). Spec: `docs/mis_plans/prompt_claude_code
 | Paso | Estado | Notas / último commit |
 |---|---|---|
 | A0 | Hecho | rama, evidencia en `evidencia/`, lista de afectados verificada |
-| P1 teclado | Pendiente | |
+| P1 teclado | Hecho | e8bf32fc (`abrirAlfanumericoAccion`, `_enVivo`, `_entregarAccion` anula y cierra antes de llamar; 16 pruebas) |
 | P2 cliente | Hecho | 182a6480 (TEC-ACC-05: 403 reautenticacion_* reconocidos con reasignacion.err_clave[_requerida], sin cerrar sesión; 429 usuario_bloqueado en `enviar` cierra la sesión local con aviso y segundos; DSC: el 429 cierra en cualquier ruta de `enviar`; `enviar_al_cerrar` sin cambio), unido a tanda-22 |
-| Unión P1+P2 | Pendiente | |
-| TEC-ACC-04 pantallas | Pendiente | |
-| TEC-ACC-07 prueba de regla | Pendiente | |
+| Unión P1+P2 | Hecho | ef295843 (P2), fbbdf6ee (P1) |
+| TEC-ACC-04 pantallas | Hecho | c5b8cf3a (7 puntos; `test_t22_pantallas_accion_qml.py` 8 pruebas, 7 fallan con el código anterior) |
+| TEC-ACC-07 prueba de regla | Hecho | c5b8cf3a (`test_t22_regla_teclado_accion.py`, sin lista blanca; línea en CLAUDE.md, TEC-ACC-06) |
 | R revisión | Pendiente | |
 | Suite | Pendiente | |
 | K entrega | Pendiente | |
