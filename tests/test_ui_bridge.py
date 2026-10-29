@@ -202,6 +202,8 @@ def test_modelo_de_alarmas_expone_los_roles_pedidos():
         "descripciones": {},  # U10b: rol nuevo ({idioma: descripción}); sin textos en el DTO
         # Tanda 17 (ALM-01, decisión de Cristian): roles de la ventana de detalle
         **_DETALLE_VACIO,
+        # Tanda 23 (MES-04): id y código tal como se muestran
+        "idVisible": "CHAQUETA_FRIA", "codigoVisible": "",
     }]
 
 
@@ -237,7 +239,8 @@ def test_alarmas_mal_formadas_se_descartan_o_completan():
     modelo.establecer([None, "texto", {"id": "X"}])
     assert _filas(modelo) == [{"id": "X", "level": "", "description": "",
                                "source_state": "", "priority": "alta", "descripciones": {},
-                               **_DETALLE_VACIO}]   # Tanda 17 (ALM-01, decisión de Cristian)
+                               **_DETALLE_VACIO,   # Tanda 17 (ALM-01, decisión de Cristian)
+                               "idVisible": "X", "codigoVisible": ""}]   # Tanda 23 (MES-04)
     assert modelo.establecer("no es lista") is True
     assert modelo.count == 0
 
