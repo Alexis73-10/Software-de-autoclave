@@ -70,15 +70,15 @@ def test_tarjeta_emparejada(perfil, ident, esperado):
 
 
 # ---------------------------------------------------------------------------
-# tools/emparejar_tarjeta.py
+# tools/emparejar_modulo_es.py
 # ---------------------------------------------------------------------------
 
-_RUTA = Path(__file__).resolve().parents[1] / "tools" / "emparejar_tarjeta.py"
+_RUTA = Path(__file__).resolve().parents[1] / "tools" / "emparejar_modulo_es.py"
 
 
 @pytest.fixture
 def herramienta():
-    spec = importlib.util.spec_from_file_location("emparejar_tarjeta", _RUTA)
+    spec = importlib.util.spec_from_file_location("emparejar_modulo_es", _RUTA)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -98,7 +98,7 @@ def test_herramienta_registra_el_id(tmp_path, herramienta):
     assert data["locked"] is True
     assert list(tmp_path.glob("installation_profile.json.*.bak"))
     registro = (tmp_path / "installation_profile_cambios.log").read_text(encoding="utf-8")
-    assert "emparejar_tarjeta" in registro and _ID in registro
+    assert "emparejar_modulo_es" in registro and _ID in registro
 
 
 def test_herramienta_normaliza_a_mayuscula(tmp_path, herramienta):

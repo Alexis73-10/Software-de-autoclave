@@ -158,7 +158,7 @@ def sondas_no_vigiladas(profile) -> list[str]:
 
 
 # FW-D7: ID único de la tarjeta de E/S (MAC del módulo principal M31-U sin
-# separadores, ADB-03; 12 dígitos hex en mayúscula) registrado por el ingeniero con tools/emparejar_tarjeta.py.
+# separadores, ADB-03; 12 dígitos hex en mayúscula) registrado por el ingeniero con tools/emparejar_modulo_es.py.
 _RE_BOARD_ID = re.compile(r"^[0-9A-F]{12}$")
 
 
