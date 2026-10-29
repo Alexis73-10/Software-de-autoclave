@@ -174,7 +174,7 @@ def test_canal_sin_calibracion_de_fabrica_sin_umbrales_ni_lectura():
 
 def test_units_arranca_sin_lectura_de_presion():
     u = Units()
-    assert u.get_all()["pressure"] == [None] * 8
+    assert u.get_all()["pressure"] == [None] * 16     # tanda 23 (AIN-03)
 
 
 def test_units_solo_cuenta_tramas_ai_nuevas(tmp_path):

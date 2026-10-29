@@ -64,8 +64,13 @@ class OneEuroFilter:
 # ==============================
 # Pipeline: raw → MedianFilter(pre-filtro) → calibrar → OneEuroFilter(suavizado adaptativo)
 
+# Tanda 23 (AIN-03): 16 canales de presión (AI 1-16 del principal, raw_ai
+# 8-23); antes 8. La temperatura sigue en 8 (RTD 1-6 en raw_ai 0-5).
+N_CANALES_PRESION = 16
+OFFSET_RAW_PRESION = 8
+
 _ma_temp: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtro ligero
-_ma_pres: List[MedianFilter] = [MedianFilter(5) for _ in range(8)]   # pre-filtro ligero
+_ma_pres: List[MedianFilter] = [MedianFilter(5) for _ in range(N_CANALES_PRESION)]   # pre-filtro ligero
 
 # mincutoff: suavizado en reposo (más bajo = más suave). beta: qué tan rápido se
 # relaja el suavizado cuando la derivada estimada indica un cambio real.
@@ -92,7 +97,7 @@ _oe_temp: List[OneEuroFilter] = [
     OneEuroFilter(TEMP_MINCUTOFF, TEMP_BETA, DCUTOFF) for _ in range(8)
 ]
 _oe_pres: List[OneEuroFilter] = [
-    OneEuroFilter(PRES_MINCUTOFF, PRES_BETA, DCUTOFF) for _ in range(8)
+    OneEuroFilter(PRES_MINCUTOFF, PRES_BETA, DCUTOFF) for _ in range(N_CANALES_PRESION)
 ]
 
 
@@ -297,7 +302,7 @@ class _DetectorLazo:
             self.seguidas = 0
 
 
-_det_pres: List[_DetectorLazo] = [_DetectorLazo() for _ in range(8)]
+_det_pres: List[_DetectorLazo] = [_DetectorLazo() for _ in range(N_CANALES_PRESION)]
 
 
 def _campo(calib, nombre, defecto=None):
@@ -376,7 +381,7 @@ def presion_en_falla(indice: int) -> bool:
 
 def reiniciar_presiones() -> None:
     """Estado inicial de los canales de presión (pruebas y recarga)."""
-    for i in range(8):
+    for i in range(N_CANALES_PRESION):
         _det_pres[i].reset()
         _ma_pres[i].buffer.clear()
         _oe_pres[i].reset()
@@ -403,8 +408,8 @@ def convert_pressures(raw_ai: List[Optional[int]], config: Dict | CalibrationCon
     timestamp = time.monotonic()
     press = []
 
-    for i in range(8):
-        raw_index = 8 + i
+    for i in range(N_CANALES_PRESION):
+        raw_index = OFFSET_RAW_PRESION + i
         raw = _crudo_en(raw_ai, raw_index)
 
         factory_calib = factory_list[i] if i < len(factory_list) else None

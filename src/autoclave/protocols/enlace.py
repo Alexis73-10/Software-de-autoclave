@@ -9,8 +9,9 @@
 # tanda 19: ControlLoop, SetOutput, BackendContext, rutas del sistema y
 # factory). EventoTarjeta vive aquí.
 #
-# Diccionario de on_update / get_state(): "ai" (16; 0-7 temperatura, 8-15
-# presión; con Modbus un canal sin lectura es None), "ai_seq", "di" (56),
+# Diccionario de on_update / get_state(): "ai" (24 desde la tanda 23, AIN-03:
+# 0-5 RTD 1-6 de temperatura, 6-7 sin uso (None), 8-23 AI 1-16 de presión;
+# con Modbus un canal sin lectura es None), "ai_seq", "di" (56),
 # "do" (32), "port_open", "data_alive", "last_update".
 
 from __future__ import annotations

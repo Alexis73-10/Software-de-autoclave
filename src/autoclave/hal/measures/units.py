@@ -20,6 +20,11 @@ import logging
 
 logger=logging.getLogger(__name__)
 
+# Tanda 23 (AIN-03): presión en 16 canales (AI 1-16, raw_ai 8-23)
+N_PRES = converters.N_CANALES_PRESION
+_OFFSET = converters.OFFSET_RAW_PRESION
+N_RAW_AI = _OFFSET + N_PRES
+
 
 class Units:
     # D8-3.19 (revisión final SEN-01 de E1): tramas AI NUEVAS seguidas (ai_seq
@@ -48,21 +53,22 @@ class Units:
         #logger(f"CONFIG CARGADA:, {self._config}")
 
         # aqui se inicializan los datos crudos
-        self._raw_ai: List[int] = [0] * 16
+        # Tanda 23 (AIN-03): 24 = RTD 1-6 (0-5), sin uso (6-7), AI 1-16 (8-23)
+        self._raw_ai: List[int] = [0] * N_RAW_AI
         self._raw_di: List[int] = [0] * 56
         self._raw_do: List[int] = [0] * 32
 
         # aqui se inicializan los datos convertidos
         self._temperature: List[Optional[float]] = [None] * 8
         # S1 (tanda 8): sin lectura hasta la primera trama (None, nunca 0)
-        self._pressure: List[Optional[float]] = [None] * 8
+        self._pressure: List[Optional[float]] = [None] * N_PRES
         # Número de la última trama AI convertida (ai_seq del enlace de E/S)
         self._ultimo_ai_seq = None
         # D8-3.19: tramas seguidas con señal cruda por canal de presión
-        self._tramas_senal_pres: List[int] = [0] * 8
+        self._tramas_senal_pres: List[int] = [0] * N_PRES
         # SAF-01/TMG-02 (re-revisión): instante monotónico en que cada canal
         # cumplió TRAMAS_SENAL_PRESION (None mientras no las cumple)
-        self._senal_desde_mono: List[Optional[float]] = [None] * 8
+        self._senal_desde_mono: List[Optional[float]] = [None] * N_PRES
         # ai_seq de la última trama AI contada (mismo criterio que S1)
         self._ultimo_ai_seq_senal = None
 
@@ -92,7 +98,7 @@ class Units:
             # Tanda 19 (MOD-03): ai_seq 0 es el estado inicial del enlace, nunca
             # una trama AI real; sus valores no son lecturas. Con Modbus un 0
             # sería 0,0 °C válido, así que se convierte como "sin valor".
-            crudas_temp = self._raw_ai if ai_seq != 0 else [None] * 16
+            crudas_temp = self._raw_ai if ai_seq != 0 else [None] * N_RAW_AI
             self._temperature = converters.convert_temperatures(crudas_temp, self._config)
             # S1 (D8-1.1): el debounce del transductor cuenta tramas AI
             # nuevas; el enlace puede notificar varias veces con la misma AI.
@@ -162,8 +168,8 @@ class Units:
 
     def _reiniciar_senal_presion(self) -> None:
         """Con el lock tomado: ningún canal tiene señal confirmada."""
-        self._tramas_senal_pres = [0] * 8
-        self._senal_desde_mono = [None] * 8
+        self._tramas_senal_pres = [0] * N_PRES
+        self._senal_desde_mono = [None] * N_PRES
 
     def _contar_senal_presion(self, data: Dict[str, Any]) -> None:
         """Con el lock tomado: una trama AI nueva más por canal.
@@ -188,9 +194,10 @@ class Units:
                 return                      # misma trama AI: no es muestra nueva
             self._ultimo_ai_seq_senal = ai_seq
         ahora = time.monotonic()
-        for i in range(8):
+        for i in range(N_PRES):
             try:
-                raw = self._raw_ai[8 + i] if 8 + i < len(self._raw_ai) else None
+                j = _OFFSET + i
+                raw = self._raw_ai[j] if j < len(self._raw_ai) else None
                 ok = (isinstance(raw, (int, float)) and not isinstance(raw, bool)
                       and raw > max(self._piso_adc_presion(i), 0))
             except Exception:
@@ -219,14 +226,14 @@ class Units:
         detección NAMUR de D8-1 (rama S1), que va en el convertidor."""
         try:
             i = int(index)
-            if isinstance(index, bool) or not 0 <= i < 8:
+            if isinstance(index, bool) or not 0 <= i < N_PRES:
                 return False
             with self._lock:
                 raw_ai = list(self._raw_ai)
                 piso = self._piso_adc_presion(i)
                 seguidas = self._tramas_senal_pres[i]
                 desde = self._senal_desde_mono[i]
-            raw = raw_ai[8 + i] if 8 + i < len(raw_ai) else None
+            raw = raw_ai[_OFFSET + i] if _OFFSET + i < len(raw_ai) else None
             if isinstance(raw, bool) or not isinstance(raw, (int, float)):
                 return False
             # SEN-01 final: además, TRAMAS_SENAL_PRESION actualizaciones seguidas

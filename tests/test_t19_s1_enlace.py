@@ -103,7 +103,7 @@ def test_estado_inicial_falla_cerrada():
     enlace = ModbusLink(config=config_para(M31Simulado()))
     st = enlace.get_state()
     assert set(st) == {"ai", "ai_seq", "di", "do", "port_open", "data_alive", "last_update"}
-    assert len(st["ai"]) == 16 and len(st["di"]) == 56 and len(st["do"]) == 32
+    assert len(st["ai"]) == 24 and len(st["di"]) == 56     # tanda 23 (AIN-03) and len(st["do"]) == 32
     assert st["ai_seq"] == 0 and not st["port_open"] and not st["data_alive"]
     assert not enlace.is_connected() and not enlace.puerto_presente()
     assert enlace.handshake_completo is False
@@ -358,7 +358,8 @@ def test_mapa_de_datos_y_codigos_pt100(sim, crear):
     st = enlace.get_state()
     assert st["ai"][:8] == [1340, None, None, -25, None, None, None, None]
     # Crudo en µA; el módulo entrega 0 por debajo de 3,85 mA (rango 4-20 mA)
-    assert st["ai"][8:] == [4000, 20000, 12000, 0, 3850, 0, 21000, 5000]
+    # tanda 23 (AIN-03): las 16 AI, en ai[8..23]
+    assert st["ai"][8:] == [4000, 20000, 12000, 0, 3850, 0, 21000, 5000] + [7777] * 8
     assert st["di"] == [1 if i % 3 == 0 else 0 for i in range(16)] + [0] * 40
     assert st["do"] == [0] * 32
     assert st["port_open"] and st["data_alive"] and st["last_update"] is not None
