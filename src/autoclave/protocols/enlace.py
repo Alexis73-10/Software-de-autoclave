@@ -7,10 +7,11 @@
 #
 # EnlaceES es la interfaz pública que usa el resto del programa (V-01 de la
 # tanda 19: ControlLoop, SetOutput, BackendContext, rutas del sistema y
-# factory). EventoTarjeta vive aquí.
+# factory). EventoModuloEs vive aquí.
 #
-# Diccionario de on_update / get_state(): "ai" (16; 0-7 temperatura, 8-15
-# presión; con Modbus un canal sin lectura es None), "ai_seq", "di" (56),
+# Diccionario de on_update / get_state(): "ai" (24 desde la tanda 23, AIN-03:
+# 0-5 RTD 1-6 de temperatura, 6-7 sin uso (None), 8-23 AI 1-16 de presión;
+# con Modbus un canal sin lectura es None), "ai_seq", "di" (56),
 # "do" (32), "port_open", "data_alive", "last_update".
 
 from __future__ import annotations
@@ -20,8 +21,8 @@ from typing import Any, Callable, Dict, Optional, Protocol, runtime_checkable
 
 
 @dataclass(frozen=True)
-class EventoTarjeta:
-    """Suceso de la tarjeta para el ControlLoop.
+class EventoModuloEs:
+    """Suceso del módulo E/S para el ControlLoop.
     origen: "handshake" (falló la conexión verificada), "operacion" (WD,
     expansor, discrepancia u orden de módulos con la conexión ya verificada)
     o "conectada" (conexión verificada; alarm_id None)."""
@@ -30,7 +31,7 @@ class EventoTarjeta:
     motivo: str
 
 
-# Alarmas de la tarjeta de E/S del plan de protocolo (§11.6), heredadas del
+# Alarmas del módulo E/S del plan de protocolo (§11.6), heredadas del
 # enlace serial (trasladadas aquí desde serial_link.py en la tanda 20, T20-03,
 # con el mismo contenido). ModbusLink reutiliza las que aplican; las que solo
 # emitía el serial (ALARMAS_SOLO_SERIAL) ya no se emiten, pero su entrada de
@@ -70,7 +71,7 @@ MIEMBROS_ENLACE = (
     "on_update", "al_conectar",
     "start", "stop", "solicitar_handshake",
     "is_connected", "puerto_presente", "handshake_completo",
-    "tarjeta",
+    "modulo_es",
     "edad_ultima_di", "secuencia_ultima_di",
     "secuencia_ultima_ai", "estado_ultima_ai", "edad_ultima_ai",
     "marcar_tick_control", "expansor_fuera_de_linea",
@@ -96,7 +97,7 @@ class EnlaceES(Protocol):
     @property
     def handshake_completo(self) -> bool: ...
 
-    def tarjeta(self) -> Dict[str, Any]: ...
+    def modulo_es(self) -> Dict[str, Any]: ...
 
     # Vida de las lecturas (time.monotonic)
     def edad_ultima_di(self, now: Optional[float] = None) -> Optional[float]: ...
@@ -108,7 +109,7 @@ class EnlaceES(Protocol):
     # Vigilancia del lazo y diagnóstico
     def marcar_tick_control(self) -> None: ...
     def expansor_fuera_de_linea(self) -> bool: ...
-    def tomar_eventos(self) -> list[EventoTarjeta]: ...
+    def tomar_eventos(self) -> list[EventoModuloEs]: ...
     def get_state(self) -> Dict[str, Any]: ...
     def get_diagnostico(self) -> Dict[str, Any]: ...
 

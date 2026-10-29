@@ -1,7 +1,7 @@
 # tests/test_o2d_info_sistema.py
 #
 # O2d (tanda 6; mockup 8): Información del sistema, solo lectura, para todos.
-# GET /system/info agrupa equipo, software/tarjeta, uso/mantenimiento y
+# GET /system/info agrupa equipo, software/módulo E/S, uso/mantenimiento y
 # configuración vigente; un dato que falla queda en None sin romper el resto.
 
 from datetime import datetime
@@ -12,7 +12,7 @@ import pytest
 INFO = {
     "equipo": {"modelo": "ACV-150", "serie": "ACV-2026-001", "instalacion": "2026-10-26T09:00:00",
                "fuente_vapor": "generator"},
-    "software": {"version": "1.0.0", "firmware": "1.0.0", "id_tarjeta": "ESP32-A1B2C3"},
+    "software": {"version": "1.0.0", "firmware": "1.0.0", "id_modulo_es": "ESP32-A1B2C3"},
     "uso": {"ciclos": 128, "mantenimiento": None},
     "configuracion": {"idioma": "es", "unidades": {"temperatura": "C", "presion": "kPa"},
                       "impresora": "sin_papel", "red": "conectada"},
@@ -27,7 +27,7 @@ def cliente():
     ctx.profile.model_id, ctx.profile.serial_number = "ACV-150", "ACV-2026-001"
     ctx.profile.created_at = datetime(2026, 10, 26, 9, 0)
     ctx.profile.vapor_source = "boiler"
-    ctx.serial.tarjeta.return_value = {"version": "1.0.0", "id": "ESP32-X"}
+    ctx.serial.modulo_es.return_value = {"version": "1.0.0", "id": "ESP32-X"}
     ctx.db.max_numero_ciclo.return_value = 42
     ctx.mantenimiento.resumen.return_value = {"estado": "ok"}
     ctx.config_idioma.leer.return_value = "en"
@@ -45,7 +45,7 @@ def test_info_completa(cliente):
                            "instalacion": "2026-10-26T09:00:00", "fuente_vapor": "boiler",
                            "capacidad_litros": None, "tipo_carga": None,     # M1: MagicMock = sin dato
                            "clase": None}                                    # E2 (tanda 8)
-    assert d["software"]["firmware"] == "1.0.0" and d["software"]["id_tarjeta"] == "ESP32-X"
+    assert d["software"]["firmware"] == "1.0.0" and d["software"]["id_modulo_es"] == "ESP32-X"
     assert d["uso"]["ciclos"] == 42 and d["uso"]["mantenimiento"] == {"estado": "ok"}
     assert d["configuracion"]["idioma"] == "en" and d["configuracion"]["impresora"] == "lista"
     assert d["configuracion"]["unidades"] == {"temperatura": "F", "presion": "psi"}

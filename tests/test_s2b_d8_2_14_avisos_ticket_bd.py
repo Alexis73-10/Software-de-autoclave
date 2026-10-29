@@ -94,7 +94,7 @@ def test_el_logger_pasa_los_avisos_a_la_base_y_al_respaldo(tmp_path):
     db = MagicMock()
     db.crear_ciclo.return_value = 5
     cl, estado, printer, respaldo = _logger(tmp_path, db, sin_bd=False)
-    estado.sin_datos_tarjeta_s = 4.0
+    estado.sin_datos_modulo_es_s = 4.0
     estado.avisos_ciclo = [_AVISO]
     _correr_ciclo(cl, estado)
     esperado = {"sin_datos_s": 4.0, "avisos": [_AVISO]}
@@ -125,13 +125,13 @@ def test_reimpresion_identica_al_pie_en_vivo():
 def test_ciclo_viejo_sin_columna_o_vacia_se_reimprime_como_antes():
     for ciclo in (_ciclo(), _ciclo(avisos_ticket=""), _ciclo(avisos_ticket=None)):
         texto = format_ticket(ciclo, [], _ES)
-        assert "Sin datos de la tarjeta" not in texto and "Aviso:" not in texto
+        assert "Sin datos del módulo E/S" not in texto and "Aviso:" not in texto
 
 
 def test_json_danado_no_rompe_la_reimpresion():
     for basura in ("{", "[1,2]", '{"sin_datos_s": "x", "avisos": 5}', "null"):
         texto = format_ticket(_ciclo(avisos_ticket=basura), [], _ES)
-        assert "Estado: COMPLETADO" in texto and "Sin datos de la tarjeta" not in texto
+        assert "Estado: COMPLETADO" in texto and "Sin datos del módulo E/S" not in texto
 
 
 def test_avisos_no_texto_se_descartan():
@@ -146,5 +146,5 @@ def test_fila_sqlite_real_se_reimprime_con_los_avisos(tmp_path):
                        modelo="M", serie="S", version_sw="1")
     db.cerrar_ciclo(i, "FALLO", avisos_ticket={"sin_datos_s": 2.0, "avisos": [_AVISO]})
     texto = format_ticket(db.get_ciclo(i), [], _ES)
-    assert "Sin datos de la tarjeta: 2 s" in texto and f"Aviso: {_AVISO}" in texto
+    assert "Sin datos del módulo E/S: 2 s" in texto and f"Aviso: {_AVISO}" in texto
     db.close()

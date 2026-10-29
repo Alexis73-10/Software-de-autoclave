@@ -57,7 +57,7 @@ _SCRIPT_PANTALLA = textwrap.dedent(r'''
     ui.get_alarmas.return_value = []
     ui.get_sensores_temp.return_value = {"temp_camara": 134.2, "temp_ref": 120.5}
     ui.get_sensores_pres.return_value = {"pres_camara": 310.4}
-    campos = {"sensors": sensors, "estado_tarjeta": "ok", "no_abrir": False}
+    campos = {"sensors": sensors, "estado_modulo_es": "ok", "no_abrir": False}
     ui.get_campo.side_effect = lambda k, d=None: campos.get(k, d)
     ui.get_cycle.return_value = cfg["ciclo"]
     puente = UiBridge(ui, door=1, iniciar=False)

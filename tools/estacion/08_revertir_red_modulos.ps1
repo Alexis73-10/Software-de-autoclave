@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Inverso del paso 8 (T20-05): devuelve el adaptador de la red de los modulos
+  Inverso del paso 8 (T20-05): devuelve el adaptador de la red del modulo E/S
   a la configuracion IPv4 respaldada.
 .DESCRIPTION
   Usa respaldo_08_red_modulos.json (en <RutaDatos>\estacion, solo

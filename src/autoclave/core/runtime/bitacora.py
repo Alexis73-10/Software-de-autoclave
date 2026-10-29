@@ -44,6 +44,12 @@ EVENTOS = (
     # R8 (tanda 8, D8-5.12): reasignación de E/S
     "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
     "reasignacion_io_verificada", "reinicio_control",
+    # Tanda 23 (AIN-05): asignacion_io.json FORMATO 1 migrado a la numeración
+    # RTD 01-06 / AI 01-16 (una fila, del sistema)
+    "asignacion_io_migrada",
+    # MES-03.2 (tanda 23): conexión del módulo E/S. El nombre guardado en
+    # audit_log no cambia (persistido); solo se le da texto con «módulo E/S»
+    "tarjeta_conectada",
     # R11 (tanda 11, D11-1): reinicio del software (p. ej. al cambiar la impresora)
     "software_reiniciado",
     # C9 (tanda 9, D9-10): Manejo de ciclos
@@ -74,7 +80,7 @@ _EVENTOS_SIN_TEXTO = (
     "arranque_camara_no_segura", "salidas_sin_confirmar", "salidas_confirmadas",
     "salidas_confirmadas_tras_reintento", "inicio_descartado_por_modo_prueba",
     "ciclo_reimportado", "ciclo_completado_desde_respaldo",
-    "calibracion_cambio", "mantenimiento_migrado", "tarjeta_conectada",
+    "calibracion_cambio", "mantenimiento_migrado",
 )
 
 # BIT-04: lista de eventos permitidos en audit_log (filtro central del escritor).
@@ -108,7 +114,7 @@ _CATEGORIA = {
         "ROLES_SENSOR", "entradas_mostradas", "correo_configurado",
         "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
         "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
-        "reasignacion_io_verificada",
+        "reasignacion_io_verificada", "asignacion_io_migrada",
     ),
     "usuarios_sesion": (
         "login_ok", "login_fallido", "login_bloqueado", "logout", "cambio_clave",

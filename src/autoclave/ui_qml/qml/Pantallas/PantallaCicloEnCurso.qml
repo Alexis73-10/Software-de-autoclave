@@ -39,8 +39,8 @@ Item {
     // ---- datos ----
     // "?." evita TypeError si no hay puente o al destruir la pantalla.
     property bool datosVigentes: puente?.connected ?? false
-    // U4 (tanda 2): estado de la tarjeta de E/S; solo cambia textos y avisos
-    readonly property string estadoTarjeta: puente?.estadoTarjeta ?? "ok"
+    // U4 (tanda 2): estado del módulo E/S; solo cambia textos y avisos
+    readonly property string estadoModuloEs: puente?.estadoModuloEs ?? "ok"
     property string cicloActivo: puente?.cicloActivo ?? ""
     property string programa: puente?.programa ?? ""
     property string tempEsterilizacion: puente?.tempEsterilizacion ?? ""
@@ -120,7 +120,7 @@ Item {
     property bool comandoOcupado: comandos?.ocupado ?? false
     property string errorComando: comandos?.error ?? ""
     // D8-2.15 (tanda 8): clave del catálogo del aviso de una cancelación
-    // aceptada en espera de los datos de la tarjeta ("" = sin aviso)
+    // aceptada en espera de los datos del módulo E/S ("" = sin aviso)
     property string avisoCancelacion: comandos?.aviso ?? ""
     onAvisoCancelacionChanged: if (avisoCancelacion !== "") avisoComando.abrir()
 
@@ -628,11 +628,11 @@ Item {
 
         // PROVISIONAL (sin diseño): aviso de sin conexión sobre el área de trazado,
         // mismo texto que PantallaPreciclo.qml; los datos de la gráfica quedan congelados.
-        // U4: también con la tarjeta desconectada o sin datos (lo dice el texto).
+        // U4: también con el módulo E/S desconectado o sin datos (lo dice el texto).
         Rectangle {
             id: marcoSinConexion
             objectName: "avisoSinConexionCiclo"
-            visible: !raiz.datosVigentes || raiz.estadoTarjeta !== "ok"
+            visible: !raiz.datosVigentes || raiz.estadoModuloEs !== "ok"
             anchors.horizontalCenter: parent.horizontalCenter
             y: raiz.m(170)
             width: raiz.m(960); height: avisoSinConexion.implicitHeight + raiz.m(24)
@@ -644,9 +644,9 @@ Item {
                 x: raiz.m(20); width: parent.width - raiz.m(40)
                 anchors.verticalCenter: parent.verticalCenter
                 text: !raiz.datosVigentes ? I18n.t("sistema.sin_conexion", I18n.lang)
-                    : raiz.estadoTarjeta === "desconectada"
-                      ? I18n.t("sistema.tarjeta_desconectada_valores", I18n.lang)
-                    : I18n.t("sistema.tarjeta_sin_datos_valores", I18n.lang)
+                    : raiz.estadoModuloEs === "desconectada"
+                      ? I18n.t("sistema.modulo_es_desconectada_valores", I18n.lang)
+                    : I18n.t("sistema.modulo_es_sin_datos_valores", I18n.lang)
                 wrapMode: Text.WordWrap
                 horizontalAlignment: Text.AlignHCenter
                 color: Colores.textoSecundario
@@ -657,7 +657,7 @@ Item {
         }
 
         // U4 (tanda 2), PROVISIONAL (sin diseño): esta pantalla no tiene tarjeta
-        // de alarmas; las filas críticas (sin conexión, tarjeta desconectada o
+        // de alarmas; las filas críticas (sin conexión, módulo E/S desconectado o
         // sin datos, paro real, estado seguro) se superponen a la gráfica
         // mientras duren. NO ABRIR (permanente en ciclo) y el modo prueba (no
         // existe en ciclo) quedan en el panel de la campana. No toma toques

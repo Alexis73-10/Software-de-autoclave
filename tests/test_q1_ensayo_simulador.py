@@ -44,7 +44,7 @@ def _di_vencida(a, segundos):
     vapor = []
     for _ in range(int(segundos / DT)):
         assert e1._tick(a) == CicloResultado.EN_CURSO
-        vapor.append(bool(a["tarjeta"].on("vapor_camara")))
+        vapor.append(bool(a["modulo_es"].on("vapor_camara")))
         e1._avanzar(a)
     a["estado"].set_flag("PARO_EMERGENCIA", False)
     return any(vapor)
@@ -87,9 +87,9 @@ def _evento_r1p4_cancelacion_y_principal_perdido(a):
     rapida = chaqueta = aire = False
     for _ in range(int(1200 / DT)):
         e1._tick(a)
-        rapida |= bool(a["tarjeta"].on("descompresion_rapida"))
-        chaqueta |= bool(a["tarjeta"].on("descompresion_chaqueta"))
-        aire |= bool(a["tarjeta"].on("aire_comprimido_camara"))
+        rapida |= bool(a["modulo_es"].on("descompresion_rapida"))
+        chaqueta |= bool(a["modulo_es"].on("descompresion_chaqueta"))
+        aire |= bool(a["modulo_es"].on("aire_comprimido_camara"))
         e1._avanzar(a)
     # tras el reconocimiento sigue el estado seguro con el mismo criterio
     es = ProtocoloEstadoSeguro(a["estado"], a["config"],
@@ -100,7 +100,7 @@ def _evento_r1p4_cancelacion_y_principal_perdido(a):
             "solo_lenta_despues": a["ciclo"]._protocolo.solo_lenta,
             "rapida_tras_perdida": rapida, "chaqueta_tras_perdida": chaqueta,
             "contrapresion_tras_perdida": aire,
-            "lenta_al_final": bool(a["tarjeta"].on("descompresion_lenta")),
+            "lenta_al_final": bool(a["modulo_es"].on("descompresion_lenta")),
             "estado_seguro_sale_sin_tecnico": es.permite_salir_de_falla,
             "P": round(a["planta"].p, 1)}
 
@@ -127,7 +127,7 @@ def _evento_r1p5_abort_en_tolerancia(a):
     return {"tolerancia_activa": tolerancia, "protocolo_durante_tolerancia": protocolo_durante,
             "fase_final": a["estado"].fase_ciclo,
             "cancelado_pendiente": a["estado"].get_flag("CICLO_CANCELADO"),
-            "sin_datos_ticket": e1._linea(ticket, "Sin datos de la tarjeta:"),
+            "sin_datos_ticket": e1._linea(ticket, "Sin datos del módulo E/S:"),
             "no_esteril_en_ticket": _NO_ESTERIL in ticket}
 
 
@@ -158,7 +158,7 @@ def _evento_t2a_pausa_exposicion(a):
             "duracion_esterilizacion_s": round(duracion, 1),
             "extension_s": round(duracion - tiempo_s, 1),
             "vapor_durante_tolerancia": vapor,
-            "sin_datos_ticket": e1._linea(ticket, "Sin datos de la tarjeta:"),
+            "sin_datos_ticket": e1._linea(ticket, "Sin datos del módulo E/S:"),
             "no_esteril_en_ticket": _NO_ESTERIL in ticket}
 
 
@@ -205,13 +205,13 @@ def test_ensayo_q1(programas, monkeypatch, tmp_path, numero, evento):  # noqa: F
     elif evento == "r1p5_abort_en_tolerancia_di":
         assert r["tolerancia_activa"] is True and r["protocolo_durante_tolerancia"] is False, r
         assert r["fase_final"] == "CANCELADO" and r["cancelado_pendiente"] is False, r
-        assert r["sin_datos_ticket"].startswith("Sin datos de la tarjeta:"), r
+        assert r["sin_datos_ticket"].startswith("Sin datos del módulo E/S:"), r
         assert r["no_esteril_en_ticket"] is True, r
     elif evento == "t2a_pausa_exposicion":
         assert r["fase_final"] == "COMPLETADO", r
         assert r["vapor_durante_tolerancia"] is False, r
         assert r["extension_s"] >= 3.0 - DT, r
-        assert r["sin_datos_ticket"] == "Sin datos de la tarjeta: 3 s", r
+        assert r["sin_datos_ticket"] == "Sin datos del módulo E/S: 3 s", r
         assert r["no_esteril_en_ticket"] is False, r
     else:
         assert r["fase_final"] == "EMERGENCIA" and r["no_esteril_en_ticket"] is True, r

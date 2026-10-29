@@ -27,7 +27,7 @@ INTRO = [
 ]
 
 ORDEN = [
-    "Bloques A a D en seco, en ese orden: primero se confirma el perfil, la tarjeta y la seguridad sin "
+    "Bloques A a D en seco, en ese orden: primero se confirma el perfil, el módulo E/S y la seguridad sin "
     "energía térmica en la cámara.",
     "No pasar al bloque E sin haber aprobado B-01 (paro), B-03 (NO ABRIR), B-04 (puertas) y A-04 (DO1/DO2).",
     "Bloque E (ciclos normales) antes del F (fallas provocadas): las fallas se provocan solo con un ciclo "

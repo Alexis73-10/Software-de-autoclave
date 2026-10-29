@@ -194,7 +194,7 @@ Window {
         property bool estadoSeguroRequiereConfirmacion: false
         property bool modoPrueba: false
         property bool connected: true
-        property string estadoTarjeta: "ok"
+        property string estadoModuloEs: "ok"
     }
     PanelNotificaciones {
         objectName: "panelNotificaciones"
@@ -336,7 +336,7 @@ Window {
         property bool modoPrueba: false
         property var alarms: ventana.modelo
         property bool connected: true
-        property string estadoTarjeta: "ok"
+        property string estadoModuloEs: "ok"
         property string machineState: "PREPARADO"
         property var entradasMostradas: [
             {clave: "temp_camara", tipo: "temp", valor: "134.0", unidad: "°C", monitoreo: false},

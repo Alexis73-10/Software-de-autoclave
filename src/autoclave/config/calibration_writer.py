@@ -136,6 +136,12 @@ def write_user_calibration(
 
     data = yaml.load(io.StringIO(texto_limpio))
 
+    # Tanda 23 (AIN-04): un archivo con 8 entradas de presión se completa a 16
+    # (canales 8-15 nominales, 0-7 sin tocar) antes de escribir: así se puede
+    # calibrar AI 09-16 y el archivo queda con las 16
+    from autoclave.config.completar_presion import completar_presion
+    completar_presion(data, str(yaml_path))
+
     seq = data["calibration"]["user"][seccion]
 
     _reemplazar_entrada_sensor(seq, index, gain, offset)

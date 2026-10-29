@@ -13,7 +13,7 @@ Estado: BORRADOR para pasar a xlsx. Los requisitos salen de las specs citadas. L
 | REQ-07 El ticket marca la carga no estéril (P-9; ampliado por REQ-26) | tanda 6 §1 | HAZ-T2-06, HAZ-FC-07 | `test_t2_p9_reimprimir_interrumpido.py` |
 | REQ-08 Nunca reanudar un ciclo tras un corte de energía | `planeacion_arranque_y_modo_sin_bd.md`; tanda 3 A2 | HAZ-FC-05 | `test_a2_corte_de_energia.py`, `test_t6_arranque_seguro.py` |
 | REQ-09 Modo sin BD | `planeacion_arranque_y_modo_sin_bd.md` | HAZ-BD-01 | `test_t8_modo_sin_bd.py` |
-| REQ-10 Tarjeta desconectada detectada y salidas a 0 | `instruccion_claude_code_u4_tarjeta_desconectada.md`, `planeacion_protocolo_serial_esp32.md` | HAZ-TAR-01, HAZ-FC-04 | `test_u4_tarjeta_desconectada.py`, `test_arranque_sin_tarjeta.py`, `test_e6_control_loop_tarjeta.py`; banco: por completar |
+| REQ-10 Tarjeta desconectada detectada y salidas a 0 | `instruccion_claude_code_u4_tarjeta_desconectada.md`, `planeacion_protocolo_serial_esp32.md` | HAZ-TAR-01, HAZ-FC-04 | `test_u4_modulo_es_desconectado.py`, `test_arranque_sin_modulo_es.py`, `test_e6_control_loop_modulo_es.py`; banco: por completar |
 | REQ-11 Las unidades son solo de presentación | tanda 5 U1 | HAZ-UNI-01 | `test_u1_unidades.py`, `test_u1_unidades_qml.py`, `test_flujo_unidades.py` |
 | REQ-12 Textos en el idioma seleccionado, con respaldo | `planeacion_i18n.md` | HAZ-I18N-01 | `test_i18n.py`, `test_i18n_linea_base.py`, `test_i1_i18n_backend.py` |
 | REQ-13 Salida forzada del modo prueba | tanda 4 B8, tanda 5 P1 | HAZ-PRU-01 | `test_b8_salida_forzada_modo_prueba.py`, `test_p1_salida_modo_prueba.py` |
@@ -36,5 +36,8 @@ Estado: BORRADOR para pasar a xlsx. Los requisitos salen de las specs citadas. L
 | REQ-30 Tope de pausas por exposición `pausa_max_esterilizacion_s` → CIC-11 (D8-2.8) | D8-2.8 | HAZ-S2A-03 | `test_t8_s2a_28_tope_pausa.py`, `test_t8_s2a_revision.py`; banco F-13 |
 | REQ-31 DESPEJAR y salida de la tolerancia con 3 tramas DI distintas y nuevas (D8-2.9) | D8-2.9 | HAZ-S2A-04, HAZ-Q1-05 | `test_t8_s2a_29_tramas_di_distintas.py`; banco F-14 |
 | REQ-32 Líquidos 4/5 sin Principal en el enfriamiento: cámara sellada hasta sondas frías o `espera_sellado_sin_sonda_min` (D8-2.10) | D8-2.10 | HAZ-S2A-05, HAZ-LIQ-01 | `test_t8_s2a_210_liquidos_sellado.py`, `test_t8_s2a_ensayo_simulador.py`; banco F-15, F-16 |
+| REQ-33 Numeración RTD 01–06 / AI 01–16 por grupo: el mismo número en dos grupos no es conflicto ni cruza lecturas (AIN-01/02, tanda 23) | `decisiones_tanda_23.md` | AIN-R1 | `test_t23_ain_grupos.py`, `test_r8_asignacion_io.py`; banco T23 |
+| REQ-34 Migración FORMATO 1 → 2 sin cambiar el canal físico de ningún sensor; idempotente, con `.bak` y fila de bitácora; también YAML de instancia y respaldos (AIN-05) | `decisiones_tanda_23.md`; revisión R (SAF-01..04) | AIN-R2 | `test_t23_ain_migracion.py`, `test_t23_ain_revision.py`; banco T23 |
+| REQ-35 Lectura de las 16 AI del principal y calibración de 16 entradas de presión (8 se completan con nominales) (AIN-03/04) | `decisiones_tanda_23.md` | AIN-R3 | `test_t23_ain_lectura.py`, `test_t23_ain_calibracion.py` |
 
 Por completar: los requisitos de las specs de 2026-05 en `docs/superpowers/specs/` (precalentamiento, purga, fases críticas, suministro eléctrico, perfiles de equipo) siguen sin riesgo asignado. También faltan los ids de la hoja de banco por fila y los requisitos de calentamiento, prevacío y secado.

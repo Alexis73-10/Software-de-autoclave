@@ -35,7 +35,8 @@ SALIDAS_MOMENTANEAS = frozenset({
     "bomba_vacio",
 })
 
-_OFFSET_RAW_PRESION = 8      # raw_ai: 0-7 temperatura, 8-15 presión
+# raw_ai: 0-5 temperatura (RTD 1-6), 8-23 presión (AI 1-16; tanda 23, AIN-03)
+_OFFSET_RAW_PRESION = 8
 
 
 def _config_dir() -> Path:
@@ -210,11 +211,13 @@ def sensores(tipo: str, config_dir: Path | None = None, profile=None) -> list[di
         if clave not in mapa:
             continue
         raw = mapa[clave] + (0 if es_temp else _OFFSET_RAW_PRESION)
+        # Tanda 23 (AIN-01): «RTD 0n» la temperatura y «AI nn» (1-16) la
+        # presión; el número es el del puerto en su grupo, no el canal crudo
         salida.append({
             "name": nombre,
             "estado_key": clave,
             "i18n": f"io.ai.{nombre}",
-            "id": f"AI {raw + 1:02d}",
+            "id": f"{'RTD' if es_temp else 'AI'} {mapa[clave] + 1:02d}",
             "raw_index": raw,
         })
     return salida

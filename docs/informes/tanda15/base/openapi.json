@@ -4677,7 +4677,7 @@
   },
   "/system/shutdown": {
    "post": {
-    "description": "\"Apagar equipo\" / dejar fuera de servicio (§16, A1 de la tanda 3).\nPermitido en cualquier estado salvo ciclo en curso y salvo un apagado ya\nen marcha (S9, D9-1.3: también con el estado seguro actuando; el apagado\ndeja todas las salidas en cero): con FALLA, EMERGENCIA, paro,\nsin tarjeta o con la cámara NO segura también se apaga (sin UPS, el\npersonal técnico puede pedir dejar el equipo fuera de servicio). Solo desde\nla ventana principal (la UI de la puerta 1 envía ventana=\"principal\").\nConfirmación: la de la propia UI; la cámara no segura solo se avisa allí.",
+    "description": "\"Apagar equipo\" / dejar fuera de servicio (§16, A1 de la tanda 3).\nPermitido en cualquier estado salvo ciclo en curso y salvo un apagado ya\nen marcha (S9, D9-1.3: también con el estado seguro actuando; el apagado\ndeja todas las salidas en cero): con FALLA, EMERGENCIA, paro,\nsin módulo E/S o con la cámara NO segura también se apaga (sin UPS, el\npersonal técnico puede pedir dejar el equipo fuera de servicio). Solo desde\nla ventana principal (la UI de la puerta 1 envía ventana=\"principal\").\nConfirmación: la de la propia UI; la cámara no segura solo se avisa allí.",
     "operationId": "shutdown_system_system_shutdown_post",
     "requestBody": {
      "content": {

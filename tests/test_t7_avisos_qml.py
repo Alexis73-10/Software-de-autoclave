@@ -3,7 +3,7 @@ modo prueba) están en el panel de la campana (PanelNotificaciones ›
 SeccionEstadoSeguro), no en una franja superior. Mockup aprobado:
 docs/mis_plans/mockup_estado_seguro.png (3 estados).
 U4 (tanda 2): el panel agrupa por nivel (Emergencia/Fallas, Alarmas, Avisos),
-no se abre solo ni queda bloqueado, y distingue tarjeta desconectada o sin
+no se abre solo ni queda bloqueado, y distingue módulo E/S desconectado o sin
 datos del paro real. Las mismas filas van en la tarjeta de alarmas de Preciclo
 y de Ciclo en curso."""
 
@@ -32,7 +32,7 @@ _PUENTE = """
         property bool estadoSeguroBloqueoPorSonda: false
         property bool modoPrueba: false
         property bool connected: true
-        property string estadoTarjeta: "ok"
+        property string estadoModuloEs: "ok"
     }
     QtObject {
         id: comandosFalsos
@@ -168,16 +168,16 @@ r["sin_conexion"] = (visible(E, "filaSeguridadDesconocida") and p("conteoTotal")
                      and p("urgente") and not p("parpadeo"))
 puente.setProperty("connected", True)
 
-# U4: tarjeta desconectada / sin datos: fila propia, sin fila de paro, roja fija
+# U4: módulo E/S desconectado / sin datos: fila propia, sin fila de paro, roja fija
 puente.setProperty("noAbrir", True)
-puente.setProperty("estadoTarjeta", "desconectada")
-r["tarjeta_desconectada"] = (visible(E, "filaTarjetaDesconectada") and not visible(E, "filaParo")
-                             and "Tarjeta desconectada" in fila(E, "filaTarjetaDesconectada").property("descripcion")
+puente.setProperty("estadoModuloEs", "desconectada")
+r["modulo_es_desconectado"] = (visible(E, "filaModuloEsDesconectada") and not visible(E, "filaParo")
+                             and "Módulo E/S desconectado" in fila(E, "filaModuloEsDesconectada").property("descripcion")
                              and p("conteoTotal") == 1 and p("urgente") and not p("parpadeo"))
-puente.setProperty("estadoTarjeta", "sin_tramas_validas")
-r["tarjeta_sin_datos"] = (visible(E, "filaTarjetaSinDatos") and not visible(E, "filaTarjetaDesconectada")
+puente.setProperty("estadoModuloEs", "sin_tramas_validas")
+r["modulo_es_sin_datos"] = (visible(E, "filaModuloEsSinDatos") and not visible(E, "filaModuloEsDesconectada")
                           and p("conteoTotal") == 1)
-puente.setProperty("estadoTarjeta", "ok")
+puente.setProperty("estadoModuloEs", "ok")
 
 # NO ABRIR en "Alarmas" y modo prueba en "Avisos", contados; plegados por defecto
 puente.setProperty("noAbrirMotivo", "Temperatura demasiado alta (95 °C)")

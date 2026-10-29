@@ -6,7 +6,7 @@ from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave.installation.equipment import get_capabilities
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
-                                           tarjeta_emparejada)
+                                           modulo_es_emparejado)
 from autoclave.devices.factory.factory import build_doors_cfg, build_enlace
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.door_factory import create_door
@@ -322,6 +322,20 @@ class BackendContext:
         except aio.ErrorAsignacion as e:
             raise ErrorArranque(secuencia.CONFIGURACION_INVALIDA,
                                 f"Asignación de E/S de fábrica inválida: {e}") from e
+        # AIN-05 (tanda 23): un asignacion_io.json FORMATO 1 (presión AI 09-16)
+        # se reescribe en FORMATO 2 (AI 01-16, mismo canal físico) con .bak; la
+        # fila de la bitácora va cuando la base esté abierta
+        # (registrar_migracion_asignacion). Si no se puede migrar (puerto de
+        # presión fuera de 09-16), vigente() da el mismo error: asignación
+        # inválida, como antes. Si no se puede escribir, leer() la migra en
+        # memoria igual.
+        try:
+            self.archivo_asignacion.migrar_formato()
+        except aio.ErrorAsignacion:
+            pass
+        except OSError:
+            logger.exception("Asignación de E/S: no se pudo reescribir %s en el formato nuevo; "
+                             "se usa migrada en memoria", self.archivo_asignacion.ruta.name)
         try:
             asignacion, datos = aio.vigente(self.asignacion_fabrica, self.archivo_asignacion)
         except aio.ErrorAsignacion as e:
@@ -335,7 +349,9 @@ class BackendContext:
         aio.aplicar_en_memoria(asignacion)
         if datos["cambios"]:
             logger.warning("Asignación de E/S distinta de la de fábrica: %s",
-                           ", ".join(f"{f}={p}" for f, p in sorted(datos["cambios"].items())))
+                           ", ".join(f"{f}={aio.etiqueta(aio.funciones().get(f, ''), p, aio.base(f))}"
+                                     if isinstance(p, int) else f"{f}={p!r}"
+                                     for f, p in sorted(datos["cambios"].items())))
         self.asignacion_pendiente = [f for f in datos["verificacion_pendiente"]
                                      if f in aio.funciones()]
         self.asignacion_modificada_en = str(datos.get("modificado_en") or "")
@@ -343,6 +359,45 @@ class BackendContext:
             self.verificacion_asignacion = {"estado": "pendiente",
                                             "funciones": {f: "pendiente" for f in self.asignacion_pendiente}}
             self.alarma_asignacion_sin_verificar()
+
+    def registrar_migracion_asignacion(self) -> None:
+        """AIN-05 (tanda 23): con la base abierta, UNA fila
+        `asignacion_io_migrada` por la migración FORMATO 1 -> 2 de
+        asignacion_io.json. La anotación queda en el propio archivo hasta que
+        la fila se escribe, así no se pierde si la base no estaba lista ni se
+        duplica en el siguiente arranque. Con la instalación sin terminar
+        (SupresionInstalacion) el escritor no registra nada: la anotación se
+        conserva y se registra en un arranque posterior. Nunca lanza."""
+        from autoclave.core.runtime import asignacion_io as aio
+        arch = getattr(self, "archivo_asignacion", None)
+        db = getattr(self, "db", None)
+        if not isinstance(arch, aio.ArchivoAsignacion) or db is None \
+                or getattr(self, "sin_base_de_datos", False):
+            return
+        try:
+            migracion = arch.migracion_sin_registrar()
+            if not migracion:
+                return
+            movidos = {f: tuple(v) for f, v in (migracion.get("movidos") or {}).items()}
+            fila = db.registrar_auditoria(
+                "asignacion_io_migrada", usuario="sistema", entidad=arch.ruta.name,
+                valor_anterior=aio.texto_movidos(movidos, aio.FORMATO_ANTERIOR) or None,
+                valor_nuevo=aio.texto_movidos(movidos, aio.FORMATO) or None,
+                detalle={"desde_formato": migracion.get("desde_formato"),
+                         "a_formato": migracion.get("a_formato"), "en": migracion.get("en"),
+                         "movidos": migracion.get("movidos")})
+        except Exception:
+            logger.exception("No se pudo registrar la migración de la asignación de E/S en audit_log")
+            return
+        if not fila:
+            # filtrada por el escritor (instalación sin terminar): se reintenta
+            logger.warning("Migración de la asignación de E/S sin fila en audit_log; se reintenta "
+                           "en el siguiente arranque")
+            return
+        try:
+            arch.marcar_migracion_registrada()
+        except OSError:
+            logger.exception("No se pudo marcar como registrada la migración de la asignación de E/S")
 
     # Salidas que aportan energía (vapor, aire comprimido): inhibidas mientras
     # haya una analógica reasignada sin verificar (SAF-02 de la re-revisión R8)
@@ -410,7 +465,7 @@ class BackendContext:
             tipo, nombre = aio.separar(f)
             tipo = tipo or aio.funciones().get(f, "")
             puerto = (memoria.get(tipo) or {}).get(nombre)
-            partes.append(f"{f} ({aio.etiqueta(tipo, puerto)})" if puerto else f)
+            partes.append(f"{f} ({aio.etiqueta(tipo, puerto, nombre)})" if puerto else f)
         texto = ", ".join(partes)
         inst = self.alarm_manager.obtener(SEN_09)
         activa = inst is not None and getattr(getattr(inst, "estado", None), "name", "") == "ACTIVA"
@@ -474,7 +529,7 @@ class BackendContext:
     def iniciar_verificacion_asignacion(self, plazo_s: float = 60.0, pausa_s: float = 1.0,
                                         reloj=time.monotonic, dormir=time.sleep) -> None:
         """Tras reiniciar por una reasignación: comprueba en un hilo que la
-        tarjeta envía el puerto nuevo de cada función (y, en las analógicas,
+        módulo E/S envía el puerto nuevo de cada función (y, en las analógicas,
         una lectura válida), sin accionar nada, y lo registra en audit_log
         como "trama_presente" o "sin_respuesta". NO da la función por
         verificada (SAF-02/SEN-03 de la revisión R8: en DI/DO la trama siempre
@@ -533,13 +588,13 @@ class BackendContext:
             try:
                 self.db.registrar_auditoria(
                     "reasignacion_io_verificada", usuario="sistema", entidad=funcion,
-                    valor_nuevo=aio.etiqueta(tipo, puerto) if puerto else None,
+                    valor_nuevo=aio.etiqueta(tipo, puerto, nombre) if puerto else None,
                     detalle={"resultado": "trama_presente" if ok else "sin_respuesta", "tipo": tipo,
                              "metodo": "automatico"})
             except Exception:
                 logger.exception("No se pudo registrar la verificación de %s en audit_log", funcion)
         if todas_ok:
-            logger.info("Reasignación de E/S: la tarjeta envía el puerto nuevo de %s; falta la "
+            logger.info("Reasignación de E/S: el módulo E/S envía el puerto nuevo de %s; falta la "
                         "verificación del ingeniero", ", ".join(sorted(resultado)))
         else:
             logger.error("Reasignación de E/S: sin respuesta en %s",
@@ -588,6 +643,7 @@ class BackendContext:
                     self.cycle_manager.revalidar_programas()   # DEU-01 (tanda 16)
                     self.auditar_migraciones_correctivas()     # C-04.4 (tanda 12)
                 self.revisar_contrasenas_semilla()             # LIC-02 (licencia L0)
+                self.registrar_migracion_asignacion()          # AIN-05 (tanda 23)
                 return None
             except BdBloqueadaError as e:
                 logger.critical("%s", e)
@@ -621,7 +677,7 @@ class BackendContext:
         # MOD-01 (tanda 19): enlace de E/S (Modbus, único desde la tanda 20,
         # T20-03); el atributo conserva el nombre `serial` (histórico) para no
         # tocar a los llamadores
-        self.serial = build_enlace(self.units, al_conectar=self._al_conectar_tarjeta)
+        self.serial = build_enlace(self.units, al_conectar=self._al_conectar_modulo_es)
         # V20-s1-04 (corrector r1 de la tanda 20, DECISIÓN SIN CONFIRMAR): el
         # enlace no reinicia el módulo (ADB-04) mientras la máquina esté en
         # CICLO; la conexión queda sin verificar hasta salir del ciclo. Se
@@ -737,31 +793,31 @@ class BackendContext:
                              "del módulo de E/S")
             return False
 
-    def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
-        """Cada handshake completo con la tarjeta de E/S: registro en
-        audit_log y comparación con el board_id del perfil (FW-D7). Una
-        tarjeta distinta o sin registrar es solo advertencia en la versión
+    def _al_conectar_modulo_es(self, modulo_es: dict) -> None:
+        """Cada handshake completo con el módulo E/S: registro en
+        audit_log y comparación con el board_id del perfil (FW-D7). Un
+        módulo E/S distinto o sin registrar es solo advertencia en la versión
         1.0 (no bloquea). Corre en el hilo de supervisión del enlace."""
-        emparejada = tarjeta_emparejada(getattr(self, "profile", None), tarjeta.get("id"))
+        emparejada = modulo_es_emparejado(getattr(self, "profile", None), modulo_es.get("id"))
         board_id = getattr(getattr(self, "profile", None), "board_id", None)
         if not emparejada:
             logger.warning(
-                "Tarjeta de E/S %s no emparejada con el equipo (board_id del perfil: %s). "
-                "Registrarla con tools/emparejar_tarjeta.py si es la correcta.",
-                tarjeta.get("id"), board_id or "sin registrar")
+                "Módulo E/S %s no emparejado con el equipo (board_id del perfil: %s). "
+                "Registrarlo con tools/emparejar_modulo_es.py si es el correcto.",
+                modulo_es.get("id"), board_id or "sin registrar")
         db = getattr(self, "db", None)
         if db is None:
             return
         try:
             db.registrar_auditoria(
-                "tarjeta_conectada",
+                "tarjeta_conectada",        # persistido (MES-03.2): evento de audit_log
                 usuario="sistema",
-                entidad="tarjeta_es",
-                valor_nuevo=dict(tarjeta),
+                entidad="tarjeta_es",       # persistido (MES-03.2): entidad de audit_log
+                valor_nuevo=dict(modulo_es),
                 detalle={"emparejada": emparejada, "board_id": board_id},
             )
         except Exception:
-            logger.exception("No se pudo registrar la conexión de la tarjeta en audit_log")
+            logger.exception("No se pudo registrar la conexión del módulo E/S en audit_log")
 
     def programa_para_sensores(self):
         """Programa del sensor Principal (tanda §1.1). Antes de construir el
@@ -773,7 +829,7 @@ class BackendContext:
         return getattr(cm, "selected_cycle", None)
 
     def _enlace_confirmado_ok(self) -> bool:
-        """T2-b: el enlace con la tarjeta volvió a "ok" (3 tramas vigentes
+        """T2-b: el enlace con el módulo E/S volvió a "ok" (3 tramas vigentes
         seguidas). Sin lazo de control, False (falla cerrada)."""
         return getattr(getattr(self, "control_loop", None), "enlace_confirmado_ok", False) is True
 

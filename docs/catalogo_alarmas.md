@@ -2,7 +2,7 @@
 
 Inventario de las alarmas (`Alarm`, `state_machine/alarms/`) que el código genera hoy, obtenido por
 búsqueda directa en `src/` (rama `dev`). No existe un registro central de `alarm_id`: cada
-`Alarm(...)` se instancia donde ocurre la condición. Actualizado 2026-10-14 (E6: §2.2 y fila de §4.1); antes 2026-10-11 (versión anterior:
+`Alarm(...)` se instancia donde ocurre la condición. Actualizado 2026-10-29 (tanda 23, MES: «tarjeta» → «módulo E/S» en títulos y descripciones; códigos `TARJETA_*` sin cambio, ver §2.2); antes 2026-10-14 (E6: §2.2 y fila de §4.1) y 2026-10-11 (versión anterior:
 2026-09-18, respaldada en `catalogo_alarmas.2026-09-18.bak.md`).
 
 Cambios respecto a la versión del 18-sep: se agrega `CONFIGURACION_INVALIDA`; se elimina PURGA de
@@ -33,7 +33,7 @@ Fuente: `backend/context.py`, `services/domain/loop/control_loop.py`.
 |---|---|---|---|---|---|
 | `CONFIGURACION_INVALIDA` | FALLA | sí | no | `errores_config_arranque()` devolvió errores en la etapa de arranque `cargando_configuracion`. Desde la fase B (2026-10-12) es fallo bloqueante de esa etapa: la secuencia se detiene sin abrir el enlace de E/S ni construir el control loop, y `/arranque` lo publica con este mismo código. Descripción: `Configuración inválida: <errores>`. | Corregir la configuración y reiniciar. Llamar a servicio técnico. |
 | `OPERANDO_SIN_BD` | FALLA | sí | no | Etapa `abriendo_base_datos` agotó sus 3 intentos (degradada, `ARR_SIN_BD`). PROVISIONAL hasta el modo sin BD (§7 de `planeacion_arranque_y_modo_sin_bd.md`): `/cycle/start` rechaza con 409 `sin_base_de_datos` y las consultas a la BD responden 503. | Revisar el disco / `data/`. Reiniciar. Llamar a servicio técnico. |
-| `NO_HAY_CONEXION` | FALLA | sí | sí | Enlace con la tarjeta de E/S caído (fuera de ciclo; hasta la tanda 19, el serial con la ESP32). | Revisar cable de red/alimentación de la tarjeta. Se limpia al reconectar. |
+| `NO_HAY_CONEXION` | FALLA | sí | sí | Enlace con el módulo E/S caído (fuera de ciclo; hasta la tanda 19, el serial con la ESP32). | Revisar cable de red/alimentación del módulo E/S. Se limpia al reconectar. |
 
 ### 2.1 Códigos de etapa de arranque (`GET /arranque`)
 
@@ -52,7 +52,16 @@ Fuente: `backend/arranque/secuencia.py`. No son alarmas del `AlarmManager`: son 
 | `ARR_SIN_ES` | conectando_modulos_es | en_curso | 15 s sin E/S conectadas; sigue reintentando (D-E). |
 | `ARR_ERROR_INTERNO` | cualquiera | fallo | Excepción no prevista en la etapa (queda la traza en el log). |
 
-### 2.2 Tarjeta de E/S (E6, 2026-10-14)
+### 2.2 Módulo E/S (E6, 2026-10-14; antes «tarjeta de E/S»)
+
+**Tanda 23 (MES-01..04, `decisiones_tanda_23.md`):** el hardware de E/S (principal M31 + 5 expansiones)
+se llama «módulo E/S» (en inglés «I/O module») en todo texto visible. Los códigos `TARJETA_*` de esta tabla
+**no se renombran** (se guardan en el historial de alarmas y los citan el registro de riesgos y la
+trazabilidad, MES-03.1): pantalla, ticket, PDF, correo y exportaciones los muestran como `MODULO_ES_*`
+mediante `state_machine.alarms.catalogo.codigo_visible()` (p. ej. `TARJETA_WATCHDOG` → `MODULO_ES_WATCHDOG`;
+también las filas sintéticas `TARJETA_DESCONECTADA`/`TARJETA_SIN_DATOS` de la sección de estado seguro).
+Lo guardado y la clave `id` del reconocimiento siguen con `TARJETA_*`. Sus títulos (`alarmas.<ID>.titulo`
+de `es.json`/`en.json`) dicen «módulo E/S».
 
 **Tanda 20 (T20-03):** el enlace serial con la ESP32 (`protocols/serial_link.py`) y su firmware se
 retiraron; el único enlace es Modbus TCP (`protocols/modbus_link.py`, módulos M31-U). Las alarmas que solo
@@ -62,8 +71,8 @@ solo para mostrar el historial y la bitácora antiguos (DECISIÓN SIN CONFIRMAR)
 que nombran líneas del protocolo serial (`VER`, `HB`, `ST`, CRC) son históricas; con Modbus, la condición
 equivalente es la de la conexión verificada (MOD-06 a MOD-12).
 
-Fuente (histórica): `protocols/serial_link.py` (detección, `EventoTarjeta`, hoy en `protocols/enlace.py`) y
-`services/domain/loop/control_loop.py` (`_procesar_eventos_tarjeta`). Ids aprobados en `planeacion_protocolo_serial_esp32.md` §11.6. Fuera de ciclo
+Fuente (histórica): `protocols/serial_link.py` (detección, `EventoTarjeta`, hoy `EventoModuloEs` en `protocols/enlace.py`) y
+`services/domain/loop/control_loop.py` (`_procesar_eventos_tarjeta`, hoy `_procesar_eventos_modulo_es`). Ids aprobados en `planeacion_protocolo_serial_esp32.md` §11.6. Fuera de ciclo
 el `ControlLoop` las reporta como FALLA bloqueante y recuperable (`source_state="CONTROL_LOOP"`) y las despeja
 al completarse el siguiente handshake. En ciclo, las de operación abortan el ciclo (ver §4.1). La descripción
 lleva el motivo concreto (texto en español generado en `serial_link.py`). Mientras el handshake no se completa,
@@ -80,16 +89,16 @@ SIS-01 (paro) ya no sale por falta de datos: solo con la entrada del paro leída
 
 | ID | Tipo | Bloq. | Recup. | Condición | Acción del operador |
 |---|---|---|---|---|---|
-| `TARJETA_SIN_TRAMA_VALIDA` | FALLA | sí | sí | Handshake: ninguna línea de CRC válido dentro del presupuesto (15 s), o ninguna ST tras el ALL_OFF. Reintento cada 3 s. | Revisar cable de red y alimentación de la tarjeta. Llamar a servicio técnico. |
+| `TARJETA_SIN_TRAMA_VALIDA` | FALLA | sí | sí | Handshake: ninguna línea de CRC válido dentro del presupuesto (15 s), o ninguna ST tras el ALL_OFF. Reintento cada 3 s. | Revisar cable de red y alimentación del módulo E/S. Llamar a servicio técnico. |
 | `TARJETA_VERSION_INCOMPATIBLE` | FALLA | sí | sí | Handshake: `VER` sin respuesta, protocolo distinto de 2, o tramas sin CRC (firmware V2 cargado, HAZ-FC-11). | Sin energía, revisar modelo y orden de los módulos y negociar (Reload); firmware incompatible: servicio técnico (tanda 20). |
 | `TARJETA_SIN_ACK` | FALLA | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el serial). Handshake: `HB` sin `ACK` en 3 intentos de 1 s. | Servicio técnico. |
-| `TARJETA_ALL_OFF_SIN_CONFIRMAR` | FALLA | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el serial). Handshake: `ALL_OFF` sin `OK ALL_OFF` en 3 intentos de 1 s, o la tarjeta sigue con `sync=0` en 2 ST seguidas tras confirmarlo. | Servicio técnico. |
+| `TARJETA_ALL_OFF_SIN_CONFIRMAR` | FALLA | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el serial). Handshake: `ALL_OFF` sin `OK ALL_OFF` en 3 intentos de 1 s, o la ESP32 sigue con `sync=0` en 2 ST seguidas tras confirmarlo. | Servicio técnico. |
 | `TARJETA_SALIDAS_NO_APAGADAS` | FALLA | sí | sí | Handshake: `DO:` con alguna salida en 1 en 2 tramas seguidas tras el `ALL_OFF`. | No operar. Servicio técnico (etapa de potencia o expansor). |
-| `TARJETA_CONFIG_SEGURIDAD` | FALLA | sí | sí | Tanda 19 (MOD-07, MOD-12), solo enlace Modbus: la configuración de seguridad de los módulos M31-U (tiempo y modo de desconexión, estado de falla, estado al encender y modo de cada DO, rango y filtro de AI, unidad, compensación, filtro y habilitación de PT100) no quedó igual a lo escrito tras `intentos_escritura_config` escrituras y lecturas de vuelta. En ciclo, COM-03 (origen `operacion`). | Revisar la red de los módulos de E/S. Servicio técnico. |
+| `TARJETA_CONFIG_SEGURIDAD` | FALLA | sí | sí | Tanda 19 (MOD-07, MOD-12), solo enlace Modbus: la configuración de seguridad de los módulos M31-U (tiempo y modo de desconexión, estado de falla, estado al encender y modo de cada DO, rango y filtro de AI, unidad, compensación, filtro y habilitación de PT100) no quedó igual a lo escrito tras `intentos_escritura_config` escrituras y lecturas de vuelta. En ciclo, COM-03 (origen `operacion`). | Revisar la red del módulo E/S. Servicio técnico. |
 | `TARJETA_MODULOS_ORDEN` | FALLA | sí | sí | Tanda 19 (MOD-06, MOD-10, MOD-12), solo enlace Modbus: código de error del principal (0x7587) = 2 (orden de expansiones incorrecto) o negociación pendiente (0x758A = 1), al conectar o en operación (invalida la conexión). En ciclo, COM-03 (origen `operacion`). | Sin energía, revisar el orden de los módulos y negociar (doble pulsación de Reload). |
 | `TARJETA_EXPANSOR_FUERA_DE_LINEA` | FALLA (EMERGENCIA en ciclo) | sí | sí | `pcf_ok` distinto de `3F` en 2 ST seguidas: en el handshake, o en operación (fuera de ciclo pide nuevo handshake). | Sin energía, revisar la unión de las expansiones al principal; si se repite, servicio técnico (tanda 20). |
 | `TARJETA_WATCHDOG` | FALLA (EMERGENCIA en ciclo) | sí | sí | Con handshake hecho: `WD: ALL_OFF`, o ST con `wd=1` o `sync=0`. El enlace repite el handshake solo. | Revisar si el PC o el lazo de control se congelaron (FW-D6). |
-| `TARJETA_REINICIO` | FALLA (EMERGENCIA en ciclo) | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el serial). Con handshake hecho: `BOOT` inesperado o `uptime_s` que retrocede. El enlace repite el handshake solo. No aplica al enlace Modbus (tanda 19): los módulos M31-U no informan un contador de vida; un reinicio corta el TCP y la reconexión rehace la conexión verificada. | Revisar alimentación de la tarjeta. |
+| `TARJETA_REINICIO` | FALLA (EMERGENCIA en ciclo) | sí | sí | **Solo historial, retirada en la tanda 20** (solo la emitía el serial). Con handshake hecho: `BOOT` inesperado o `uptime_s` que retrocede. El enlace repite el handshake solo. No aplica al enlace Modbus (tanda 19): los módulos M31-U no informan un contador de vida; un reinicio corta el TCP y la reconexión rehace la conexión verificada. | Revisar alimentación del módulo E/S. |
 | `DISCREPANCIA_SALIDAS` | FALLA (EMERGENCIA en ciclo) | sí | sí | `DO:` reportado distinto de lo comandado (canales comandados desde el handshake y hace ≥ 1 s) en 2 tramas, tras un reenvío único. Fuera de ciclo pide nuevo handshake. Independiente de `disc_do`, que es solo diagnóstico (D-05). | Servicio técnico. |
 
 ## 3. PREPARADO y PREPARACION
@@ -131,8 +140,8 @@ Fuente: `states/ciclo.py`. Al entrar en cualquier FALLA/EMERGENCIA de ciclo se e
 | `FALLO_PUERTA_1_EMPAQUE` | FALLA | sí | sí | `pres_empaque_1` < 0.6 × `presion_empaque` (default 300). | Revisar sello/empaque y presión de aire de la puerta 1. |
 | `FALLO_PUERTA_2_EMPAQUE` | FALLA | sí | sí | `pres_empaque_2` < 0.6 × `presion_empaque`. | Ídem puerta 2. |
 | `SENSOR_AUSENTE` | EMERGENCIA | sí | no | Sin lectura (`None`) de `temp_camara` o `pres_camara` (únicos críticos hoy). | Revisar sensor/comunicación; servicio técnico. |
-| `FALLO_CONEXION` | EMERGENCIA | sí | **sí** | Enlace de E/S caído más de `_TOLERANCIA_DESCONEXION_SEG` (5 s) en ciclo; lo dispara `ControlLoop` vía `abortar_por_desconexion()`. | Revisar enlace con la tarjeta. |
-| `TARJETA_WATCHDOG` / `TARJETA_REINICIO` / `TARJETA_EXPANSOR_FUERA_DE_LINEA` / `DISCREPANCIA_SALIDAS` / `TARJETA_CONFIG_SEGURIDAD` / `TARJETA_MODULOS_ORDEN` (tanda 19) | EMERGENCIA | sí | sí | Falla de la tarjeta de E/S en ciclo (ver §2.2); lo dispara `ControlLoop` vía `abortar_por_falla_io(alarm_id, motivo)`. `fase_ciclo = "FALLO_IO"`. | Ver §2.2. |
+| `FALLO_CONEXION` | EMERGENCIA | sí | **sí** | Enlace de E/S caído más de `_TOLERANCIA_DESCONEXION_SEG` (5 s) en ciclo; lo dispara `ControlLoop` vía `abortar_por_desconexion()`. | Revisar el enlace con el módulo E/S. |
+| `TARJETA_WATCHDOG` / `TARJETA_REINICIO` / `TARJETA_EXPANSOR_FUERA_DE_LINEA` / `DISCREPANCIA_SALIDAS` / `TARJETA_CONFIG_SEGURIDAD` / `TARJETA_MODULOS_ORDEN` (tanda 19) | EMERGENCIA | sí | sí | Falla del módulo E/S en ciclo (ver §2.2); lo dispara `ControlLoop` vía `abortar_por_falla_io(alarm_id, motivo)`. `fase_ciclo = "FALLO_IO"`. | Ver §2.2. |
 | `FALLO_<FASE>` | FALLA | sí | sí | Una fase devolvió `FaseResult.FALLO`. Ver §4.3. | Según motivo (`estado.motivo_fallo`). |
 
 ### 4.2 No abortan el ciclo
@@ -248,12 +257,12 @@ desaparece sin reconocerlas, quedan como "resuelta sin reconocer" (no bloquean e
 | `SENSOR_AUSENTE` | SEN-02 | FALLO_CRITICO |
 | `FALLO_PRECALENTAMIENTO` / `_PRE_VACIO` / `_CALENTAMIENTO` / `_ESTERILIZACION` / `_DESCOMPRESION` / `_SECADO` | CIC-01 … CIC-06 | ALARMA |
 | `TIMEOUT_APERTURA_AUTOMATICA` / `APERTURA_AUTOMATICA_DENEGADA` | CIC-07 / CIC-08 | AVISO |
-| `NO_HAY_CONEXION` | COM-01 ("Tarjeta de E/S desconectada" desde U4; solo sin puerto) | ALARMA |
+| `NO_HAY_CONEXION` | COM-01 ("Módulo E/S desconectado" desde la tanda 23; "Tarjeta de E/S desconectada" de U4 a la tanda 22; solo sin conexión) | ALARMA |
 | `FALLO_CONEXION` | COM-02 | FALLO_CRITICO |
 | `CONFIGURACION_INVALIDA` | `CONFIGURACION_INVALIDA` (id conservado, tanda 2026-10-14) | ALARMA, bloquea, despeje manual |
 | `OPERANDO_SIN_BD` | `OPERANDO_SIN_BD` (id conservado) | ALARMA, **no bloquea** (D-03, T8), despeje manual |
-| `TARJETA_*` (11 ids de §2.2: 9 de E6 y 2 del enlace Modbus de la tanda 19), fuera de ciclo | mismos ids (conservados) | ALARMA, bloquea, se resuelven al completar el handshake |
-| `TARJETA_*` en ciclo (`abortar_por_falla_io`) | **COM-03** con origen = id de la tarjeta (`COM-03\|TARJETA_WATCHDOG`) | FALLO_CRITICO, despeje manual; `fase_ciclo = "FALLO_IO"` |
+| `TARJETA_*` (11 ids de §2.2: 9 de E6 y 2 del enlace Modbus de la tanda 19), fuera de ciclo | mismos ids (conservados; se muestran como `MODULO_ES_*`, MES-04) | ALARMA, bloquea, se resuelven al completar el handshake |
+| `TARJETA_*` en ciclo (`abortar_por_falla_io`) | **COM-03** con origen = id `TARJETA_*` del módulo E/S (`COM-03\|TARJETA_WATCHDOG`) | FALLO_CRITICO, despeje manual; `fase_ciclo = "FALLO_IO"` |
 | (nueva) | SIS-02 Historial no disponible | AVISO |
 | (nueva, T8) | SIS-03 Respaldo del ciclo no disponible | AVISO, no bloquea, despeje manual |
 | (nueva, M1 tanda 3) | SIS-04 Mantenimiento vencido | AVISO (baja prioridad), NO bloquea nunca un ciclo, despeje automático al registrar el mantenimiento. Alias en código: `MANTENIMIENTO_VENCIDO` |
@@ -266,9 +275,9 @@ desaparece sin reconocerlas, quedan como "resuelta sin reconocer" (no bloquean e
 
 **Integración (tanda 2026-10-14, T1):** la Parte A está unida a `dev-noche`; esta tabla ya describe el código.
 La regla de la tanda "ningún id existente se renombra" se aplicó a los ids que la rama no había migrado:
-los 9 de la tarjeta (11 desde la tanda 19), `CONFIGURACION_INVALIDA` y `OPERANDO_SIN_BD` quedan con su nombre
+los 9 `TARJETA_*` del módulo E/S (11 desde la tanda 19), `CONFIGURACION_INVALIDA` y `OPERANDO_SIN_BD` quedan con su nombre
 (`CODIGOS_CONSERVADOS` en `catalogo.py`). Los textos `alarmas.<ID>.{titulo, accion}` de `es.json`/`en.json`
-duplican los del catálogo para los 9 de la tarjeta; la UI todavía muestra `titulo`/`descripcion` de `/status`.
+duplican los del catálogo para los 9 `TARJETA_*`; la UI todavía muestra `titulo`/`descripcion` de `/status`.
 
 Observación (histórica): el diseño Parte A no contempla `CONFIGURACION_INVALIDA` (alarma agregada al backend el
 mismo periodo). Hay que asignarle código (¿`SIS-03`?) antes de implementar el catálogo central.

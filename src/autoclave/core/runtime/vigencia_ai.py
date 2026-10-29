@@ -3,7 +3,7 @@
 # S9 (tanda 9), revisión ★ pasada 2 (R2-A1 / R2-M1): vigencia de la trama AI
 # (presiones y temperaturas) para el protocolo de fallo y las fases.
 #
-# Si la tarjeta sigue mandando DI pero deja de mandar AI, Units conserva la
+# Si el módulo E/S sigue mandando DI pero deja de mandar AI, Units conserva la
 # última presión y temperatura: congeladas, parecen vigentes. El ControlLoop
 # publica en el estado un proveedor `estado.lectura_ai` -> (trama AI vigente,
 # número de trama); quien decide válvulas con la presión lo consulta aquí.

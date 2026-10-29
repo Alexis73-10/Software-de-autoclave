@@ -98,7 +98,7 @@ _CLAVES = {
     "modo_prueba_no_dueno": "io.err_rechazado",
     "modo_prueba_otra_sesion": "io.err_rechazado",
     "configuracion_invalida": "io.err_rechazado",
-    "sin_conexion_tarjeta": "io.err_rechazado",
+    "sin_conexion_modulo_es": "io.err_rechazado",
     "paro_emergencia": "io.err_rechazado",
     "apagado_en_curso": "io.err_rechazado",
     "fuente_vapor_no_instalada": "io.err_rechazado",

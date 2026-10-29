@@ -113,11 +113,11 @@ def test_control_loop_confirma_el_enlace_tras_3_ticks_ok():
     loop.link.is_connected.return_value = True
     assert loop.enlace_confirmado_ok is False
     for i in range(3):
-        loop._actualizar_estado_tarjeta(True, 0.0)
+        loop._actualizar_estado_modulo_es(True, 0.0)
         loop._contar_enlace_ok()
         assert loop.enlace_confirmado_ok is (i == 2)
     loop.link.edad_ultima_di.return_value = 99.0         # DI vencida
-    loop._actualizar_estado_tarjeta(True, 0.0)
+    loop._actualizar_estado_modulo_es(True, 0.0)
     loop._contar_enlace_ok()
     assert loop.enlace_confirmado_ok is False
 

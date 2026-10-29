@@ -56,24 +56,46 @@ def mensaje_de(causa: str) -> str:
     return _MENSAJES.get(causa, "reasignacion.err_generico")
 
 
-def etiqueta(tipo: str, puerto) -> str:
-    """"DO 04", como en Entradas / Salidas (igual que asignacion_io.etiqueta)."""
+# Tanda 23 (AIN-01/02, AIN-R1): grupos de puertos y su prefijo visible.
+# RTD 01-06 (temperatura) y AI 01-16 (presión) comparten números: todo se
+# compara por grupo, nunca por tipo "AI".
+GRUPOS = ("DI", "DO", "AI_TEMP", "AI_PRES")
+_PREFIJO = {"DI": "DI", "DO": "DO", "AI_TEMP": "RTD", "AI_PRES": "AI"}
+
+
+def grupo_de(fila: dict) -> str:
+    """Grupo de una fila de /io/assignment ("grupo"; si falta, del tipo y de
+    "temperatura")."""
+    g = fila.get("grupo")
+    if g in GRUPOS:
+        return g
+    tipo = fila.get("tipo", "")
+    if tipo != "AI":
+        return tipo
+    return "AI_TEMP" if fila.get("temperatura") else "AI_PRES"
+
+
+def etiqueta(grupo: str, puerto) -> str:
+    """"DO 04", "RTD 01", "AI 09", como en Entradas / Salidas (igual que
+    asignacion_io.etiqueta_grupo). `grupo` "AI" (sin grupo) se muestra «AI»."""
     try:
-        return f"{tipo} {int(puerto):02d}"
+        return f"{_PREFIJO.get(grupo, grupo)} {int(puerto):02d}"
     except (TypeError, ValueError):
         return ""
 
 
 def conflictos(ocupados: dict, filas: list, pendientes: dict) -> list:
-    """Conflictos que la UI ya ve: dos funciones en el mismo puerto tras
-    aplicar `pendientes` ({funcion: puerto}) sobre la asignación guardada
-    (`ocupados` {tipo: {"puerto": funcion}}, incluye las no habilitadas).
-    Lista de {funcion, otra, tipo, puerto}. El backend vuelve a validar."""
+    """Conflictos que la UI ya ve: dos funciones en el mismo puerto DEL MISMO
+    GRUPO tras aplicar `pendientes` ({funcion: puerto}) sobre la asignación
+    guardada (`ocupados` {grupo: {"puerto": funcion}}, incluye las no
+    habilitadas). Lista de {funcion, otra, tipo, grupo, puerto}. El backend
+    vuelve a validar."""
+    grupo_fila = {f["funcion"]: grupo_de(f) for f in filas}
     tipo_de = {f["funcion"]: f["tipo"] for f in filas}
     salida = []
-    for tipo in ("DI", "DO", "AI"):
+    for grupo in GRUPOS:
         por_puerto: dict[int, list] = {}
-        for puerto, funcion in (ocupados.get(tipo) or {}).items():
+        for puerto, funcion in (ocupados.get(grupo) or {}).items():
             if funcion in pendientes:
                 continue
             try:
@@ -81,13 +103,15 @@ def conflictos(ocupados: dict, filas: list, pendientes: dict) -> list:
             except (TypeError, ValueError):
                 continue
         for funcion, puerto in pendientes.items():
-            if tipo_de.get(funcion) == tipo:
+            if grupo_fila.get(funcion) == grupo:
                 por_puerto.setdefault(int(puerto), []).append(funcion)
         for puerto, funciones in sorted(por_puerto.items()):
             if len(funciones) > 1:
                 movida = next((f for f in funciones if f in pendientes), funciones[0])
                 otra = next(f for f in funciones if f != movida)
-                salida.append({"funcion": movida, "otra": otra, "tipo": tipo, "puerto": puerto})
+                salida.append({"funcion": movida, "otra": otra,
+                               "tipo": tipo_de.get(movida, grupo if grupo in ("DI", "DO") else "AI"),
+                               "grupo": grupo, "puerto": puerto})
     return salida
 
 
@@ -210,14 +234,14 @@ class ReasignacionController(QObject):
         fila = self._fila(funcion)
         if not fila:
             return []
-        tipo = fila["tipo"]
         puertos = self._d.get("puertos") or {}
-        clave = tipo if tipo != "AI" else ("AI_TEMP" if fila.get("temperatura") else "AI_PRES")
-        ocupados = dict((self._d.get("ocupados") or {}).get(tipo) or {})
+        # Tanda 23 (AIN-R1): puertos y ocupados del GRUPO de la función
+        clave = grupo_de(fila)
+        ocupados = dict((self._d.get("ocupados") or {}).get(clave) or {})
         # los pendientes también ocupan (y liberan su puerto guardado)
         for f, p in self._pendientes.items():
             otra = self._fila(f)
-            if otra.get("tipo") != tipo:
+            if not otra or grupo_de(otra) != clave:
                 continue
             ocupados = {k: v for k, v in ocupados.items() if v != f}
             ocupados[str(p)] = f
@@ -227,7 +251,7 @@ class ReasignacionController(QObject):
         for p in puertos.get(clave) or []:
             otra = ocupados.get(str(p), "")
             otra = "" if otra == funcion else otra
-            salida.append({"puerto": int(p), "etiqueta": etiqueta(tipo, p),
+            salida.append({"puerto": int(p), "etiqueta": etiqueta(clave, p),
                            "ocupadoPor": i18n_de.get(otra, f"reasignacion.funcion_{otra}") if otra else "",
                            "actual": int(p) == elegido,
                            "fabrica": int(p) == fila.get("puerto_fabrica")})
@@ -255,8 +279,8 @@ class ReasignacionController(QObject):
     @Property("QVariantMap", notify=pendientesChanged)
     def pendientes(self) -> dict:
         """{funcion: etiqueta del puerto nuevo}."""
-        tipo_de = {f["funcion"]: f["tipo"] for f in self.filas}
-        return {f: etiqueta(tipo_de.get(f, ""), p) for f, p in self._pendientes.items()}
+        grupo_fila = {f["funcion"]: grupo_de(f) for f in self.filas}
+        return {f: etiqueta(grupo_fila.get(f, ""), p) for f, p in self._pendientes.items()}
 
     @Property(int, notify=pendientesChanged)
     def cantidadCambios(self) -> int:
@@ -268,7 +292,7 @@ class ReasignacionController(QObject):
         i18n_de = {f["funcion"]: f["i18n"] for f in self.filas}
         return [{**c, "i18n": i18n_de.get(c["funcion"], ""),
                  "i18nOtra": i18n_de.get(c["otra"], f"reasignacion.funcion_{c['otra']}"),
-                 "etiqueta": etiqueta(c["tipo"], c["puerto"])} for c in lista]
+                 "etiqueta": etiqueta(c["grupo"], c["puerto"])} for c in lista]
 
     @Property("QVariantList", notify=pendientesChanged)
     def criticasPendientes(self) -> list:

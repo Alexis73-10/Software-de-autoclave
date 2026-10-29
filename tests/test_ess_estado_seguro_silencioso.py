@@ -310,7 +310,7 @@ Item {
         property bool estadoSeguroBloqueoPorSonda: false
         property bool modoPrueba: false
         property bool connected: true
-        property string estadoTarjeta: "ok"
+        property string estadoModuloEs: "ok"
     }
     QtObject {
         id: comandosFalsos
@@ -374,10 +374,10 @@ puente.setProperty("paroActivo", False)
 puente.setProperty("estadoSeguroRequiereConfirmacion", True)
 r["confirmar_visible"] = vis("filaEstadoSeguroPendiente") and vis("botonConfirmarEstadoSeguro")
 puente.setProperty("estadoSeguroRequiereConfirmacion", False)
-# tarjeta sin datos: se ve
-puente.setProperty("estadoTarjeta", "sin_tramas_validas")
-r["sin_datos_visible"] = vis("filaTarjetaSinDatos") and vis("filaEstadoSeguroEnCurso")
-puente.setProperty("estadoTarjeta", "ok")
+# módulo E/S sin datos: se ve
+puente.setProperty("estadoModuloEs", "sin_tramas_validas")
+r["sin_datos_visible"] = vis("filaModuloEsSinDatos") and vis("filaEstadoSeguroEnCurso")
+puente.setProperty("estadoModuloEs", "ok")
 # sin conexión: se ve
 puente.setProperty("connected", False)
 r["sin_conexion_visible"] = vis("filaSeguridadDesconocida")

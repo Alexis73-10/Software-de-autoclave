@@ -1,5 +1,5 @@
-"""E6 — FW-D7: emparejamiento tarjeta–equipo (board_id en el perfil), su
-herramienta de instalación, /status.tarjeta, audit_log en cada conexión e
+"""E6 — FW-D7: emparejamiento módulo E/S–equipo (board_id en el perfil), su
+herramienta de instalación, /status.modulo_es, audit_log en cada conexión e
 Información del sistema."""
 
 import importlib
@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from autoclave.installation.profile import tarjeta_emparejada, validate_profile_data
+from autoclave.installation.profile import modulo_es_emparejado, validate_profile_data
 
 _ID = "A1B2C3D4E5F6"
 
@@ -63,22 +63,22 @@ def test_storage_sin_board_id_es_none(tmp_path, monkeypatch):
     (SimpleNamespace(board_id=_ID), "FFFFFFFFFFFF", False),
     (SimpleNamespace(board_id=None), _ID, False),          # sin emparejar
     (None, _ID, False),
-    (SimpleNamespace(board_id=_ID), None, None),           # sin tarjeta
+    (SimpleNamespace(board_id=_ID), None, None),           # sin módulo E/S
 ])
-def test_tarjeta_emparejada(perfil, ident, esperado):
-    assert tarjeta_emparejada(perfil, ident) is esperado
+def test_modulo_es_emparejado(perfil, ident, esperado):
+    assert modulo_es_emparejado(perfil, ident) is esperado
 
 
 # ---------------------------------------------------------------------------
-# tools/emparejar_tarjeta.py
+# tools/emparejar_modulo_es.py
 # ---------------------------------------------------------------------------
 
-_RUTA = Path(__file__).resolve().parents[1] / "tools" / "emparejar_tarjeta.py"
+_RUTA = Path(__file__).resolve().parents[1] / "tools" / "emparejar_modulo_es.py"
 
 
 @pytest.fixture
 def herramienta():
-    spec = importlib.util.spec_from_file_location("emparejar_tarjeta", _RUTA)
+    spec = importlib.util.spec_from_file_location("emparejar_modulo_es", _RUTA)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -98,7 +98,7 @@ def test_herramienta_registra_el_id(tmp_path, herramienta):
     assert data["locked"] is True
     assert list(tmp_path.glob("installation_profile.json.*.bak"))
     registro = (tmp_path / "installation_profile_cambios.log").read_text(encoding="utf-8")
-    assert "emparejar_tarjeta" in registro and _ID in registro
+    assert "emparejar_modulo_es" in registro and _ID in registro
 
 
 def test_herramienta_normaliza_a_mayuscula(tmp_path, herramienta):
@@ -135,7 +135,7 @@ def test_herramienta_mostrar_sin_registrar(tmp_path, herramienta, capsys):
 
 
 # ---------------------------------------------------------------------------
-# /status.tarjeta
+# /status.modulo_es
 # ---------------------------------------------------------------------------
 
 @pytest.fixture
@@ -158,33 +158,33 @@ def status_client():
     return TestClient(srv.app), ctx
 
 
-def test_status_expone_tarjeta_emparejada(status_client):
+def test_status_expone_modulo_es_emparejado(status_client):
     client, ctx = status_client
-    ctx.serial.tarjeta.return_value = {"version": "1.0.0", "protocolo": 2, "id": _ID}
+    ctx.serial.modulo_es.return_value = {"version": "1.0.0", "protocolo": 2, "id": _ID}
     ctx.profile = SimpleNamespace(board_id=_ID)
-    assert client.get("/status").json()["tarjeta"] == {
+    assert client.get("/status").json()["modulo_es"] == {
         "version": "1.0.0", "id": _ID, "emparejada": True}
 
 
-def test_status_tarjeta_distinta(status_client):
+def test_status_modulo_es_distinto(status_client):
     client, ctx = status_client
-    ctx.serial.tarjeta.return_value = {"version": "1.0.0", "protocolo": 2, "id": _ID}
+    ctx.serial.modulo_es.return_value = {"version": "1.0.0", "protocolo": 2, "id": _ID}
     ctx.profile = SimpleNamespace(board_id="FFFFFFFFFFFF")
-    assert client.get("/status").json()["tarjeta"]["emparejada"] is False
+    assert client.get("/status").json()["modulo_es"]["emparejada"] is False
 
 
-def test_status_sin_tarjeta(status_client):
+def test_status_sin_modulo_es(status_client):
     client, ctx = status_client
-    ctx.serial.tarjeta.return_value = {"version": None, "protocolo": None, "id": None}
+    ctx.serial.modulo_es.return_value = {"version": None, "protocolo": None, "id": None}
     ctx.profile = SimpleNamespace(board_id=_ID)
-    assert client.get("/status").json()["tarjeta"] == {
+    assert client.get("/status").json()["modulo_es"] == {
         "version": None, "id": None, "emparejada": None}
 
 
-def test_status_tarjeta_con_enlace_sin_metodo(status_client):
+def test_status_modulo_es_con_enlace_sin_metodo(status_client):
     client, ctx = status_client
-    ctx.serial.tarjeta.side_effect = AttributeError
-    assert client.get("/status").json()["tarjeta"] == {
+    ctx.serial.modulo_es.side_effect = AttributeError
+    assert client.get("/status").json()["modulo_es"] == {
         "version": None, "id": None, "emparejada": None}
 
 
@@ -202,7 +202,7 @@ def _ctx(board_id):
 
 def test_conexion_emparejada_se_audita():
     ctx = _ctx(_ID)
-    ctx._al_conectar_tarjeta({"version": "1.0.0", "protocolo": 2, "id": _ID})
+    ctx._al_conectar_modulo_es({"version": "1.0.0", "protocolo": 2, "id": _ID})
     args, kwargs = ctx.db.registrar_auditoria.call_args
     assert args[0] == "tarjeta_conectada"
     assert kwargs["valor_nuevo"] == {"version": "1.0.0", "protocolo": 2, "id": _ID}
@@ -213,7 +213,7 @@ def test_conexion_emparejada_se_audita():
 def test_conexion_no_emparejada_se_audita_y_advierte(board_id, caplog):
     ctx = _ctx(board_id)
     with caplog.at_level("WARNING"):
-        ctx._al_conectar_tarjeta({"version": "1.0.0", "protocolo": 2, "id": _ID})
+        ctx._al_conectar_modulo_es({"version": "1.0.0", "protocolo": 2, "id": _ID})
     assert ctx.db.registrar_auditoria.call_args.kwargs["detalle"]["emparejada"] is False
     assert any("emparej" in r.getMessage() for r in caplog.records)
 
@@ -221,13 +221,13 @@ def test_conexion_no_emparejada_se_audita_y_advierte(board_id, caplog):
 def test_conexion_sin_base_de_datos_no_falla():
     ctx = _ctx(_ID)
     ctx.db = None
-    ctx._al_conectar_tarjeta({"version": "1.0.0", "protocolo": 2, "id": _ID})
+    ctx._al_conectar_modulo_es({"version": "1.0.0", "protocolo": 2, "id": _ID})
 
 
 def test_fallo_de_la_bitacora_no_se_propaga():
     ctx = _ctx(_ID)
     ctx.db.registrar_auditoria.side_effect = RuntimeError("disco")
-    ctx._al_conectar_tarjeta({"version": "1.0.0", "protocolo": 2, "id": _ID})
+    ctx._al_conectar_modulo_es({"version": "1.0.0", "protocolo": 2, "id": _ID})
 
 
 def test_build_modbus_registra_al_conectar_antes_de_arrancar():
@@ -247,49 +247,49 @@ def test_build_modbus_registra_al_conectar_antes_de_arrancar():
 # Información del sistema
 # ---------------------------------------------------------------------------
 
-def _filas(tarjeta):
+def _filas(modulo_es):
     from autoclave.ui_qml.bridge.info_equipo import filas_equipo
-    return {f["clave"]: f for f in filas_equipo(None, 1, "1.0", [], tarjeta)}
+    return {f["clave"]: f for f in filas_equipo(None, 1, "1.0", [], modulo_es)}
 
 
-def test_info_sistema_muestra_version_e_id_de_la_tarjeta():
+def test_info_sistema_muestra_version_e_id_del_modulo_es():
     filas = _filas({"version": "1.0.0", "id": _ID, "emparejada": True})
-    assert filas["version_tarjeta"] == {"clave": "version_tarjeta", "valor": "1.0.0",
+    assert filas["version_modulo_es"] == {"clave": "version_modulo_es", "valor": "1.0.0",
                                         "disponible": True}
-    assert filas["id_tarjeta"]["valor"] == _ID
-    assert filas["emparejamiento_tarjeta"]["valorClave"] == "tarjeta_emparejada"
+    assert filas["id_modulo_es"]["valor"] == _ID
+    assert filas["emparejamiento_modulo_es"]["valorClave"] == "modulo_es_emparejada"
 
 
-@pytest.mark.parametrize("emparejada,clave", [(False, "tarjeta_no_emparejada"),
+@pytest.mark.parametrize("emparejada,clave", [(False, "modulo_es_no_emparejada"),
                                               (None, None)])
 def test_info_sistema_emparejamiento(emparejada, clave):
     filas = _filas({"version": "1.0.0", "id": _ID, "emparejada": emparejada})
-    assert filas["emparejamiento_tarjeta"].get("valorClave") == clave
+    assert filas["emparejamiento_modulo_es"].get("valorClave") == clave
 
 
-def test_info_sistema_sin_dato_de_tarjeta():
+def test_info_sistema_sin_dato_del_modulo_es():
     filas = _filas(None)
-    assert filas["version_tarjeta"]["valor"] is None
-    assert filas["version_tarjeta"]["disponible"] is True
-    assert filas["id_tarjeta"]["valor"] is None
+    assert filas["version_modulo_es"]["valor"] is None
+    assert filas["version_modulo_es"]["disponible"] is True
+    assert filas["id_modulo_es"]["valor"] is None
 
 
-def test_info_equipo_consulta_status_para_la_tarjeta():
+def test_info_equipo_consulta_status_para_el_modulo_es():
     from autoclave.ui_qml.bridge.info_equipo import InfoEquipo
     backend = MagicMock()
     backend.get.side_effect = lambda ruta, **kw: (
         [] if ruta == "/cycle/history"
-        else {"tarjeta": {"version": "1.0.0", "id": _ID, "emparejada": True}})
+        else {"modulo_es": {"version": "1.0.0", "id": _ID, "emparejada": True}})
     info = InfoEquipo(None, 1, backend, "1.0", ejecutar=lambda tarea: tarea())
     info.actualizar()
     filas = {f["clave"]: f for f in info.filas}
-    assert filas["version_tarjeta"]["valor"] == "1.0.0"
-    assert filas["id_tarjeta"]["valor"] == _ID
+    assert filas["version_modulo_es"]["valor"] == "1.0.0"
+    assert filas["id_modulo_es"]["valor"] == _ID
 
 
-def test_textos_de_tarjeta_en_es_json():
+def test_textos_del_modulo_es_en_es_json():
     ruta = Path(__file__).resolve().parents[1] / "src/autoclave/i18n/es.json"
     equipo = json.loads(ruta.read_text(encoding="utf-8"))["equipo"]
-    for clave in ("id_tarjeta", "emparejamiento_tarjeta", "tarjeta_emparejada",
-                  "tarjeta_no_emparejada"):
+    for clave in ("id_modulo_es", "emparejamiento_modulo_es", "modulo_es_emparejada",
+                  "modulo_es_no_emparejada"):
         assert equipo.get(clave)

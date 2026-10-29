@@ -1,6 +1,6 @@
 # tests/test_simulador_repeticion.py
 #
-# Simulador de ciclo para probar la UI sin tarjeta (autoclave.simulador):
+# Simulador de ciclo para probar la UI sin módulo E/S (autoclave.simulador):
 # reproducción de un ciclo COMPLETADO guardado en la BD (solo lectura).
 
 import sqlite3

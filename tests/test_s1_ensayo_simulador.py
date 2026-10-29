@@ -55,16 +55,16 @@ def _evento(canal, fase, extra_s):
             if i == int(60 / DT):
                 recuperar()                       # la lectura vuelve a los 60 s
             e1._tick(a)
-            vapor |= bool(a["tarjeta"].on("vapor_camara"))
+            vapor |= bool(a["modulo_es"].on("vapor_camara"))
             if i < int(60 / DT):
-                aire |= bool(a["tarjeta"].on("aire_admosferico_camara"))
+                aire |= bool(a["modulo_es"].on("aire_admosferico_camara"))
             else:
                 # con lectura válida de vacío real, el aire atmosférico es la
                 # acción normal (no "por" la falta de lectura)
-                aire_recuperada |= bool(a["tarjeta"].on("aire_admosferico_camara"))
-            rapida |= bool(a["tarjeta"].on("descompresion_rapida"))
-            chaqueta |= bool(a["tarjeta"].on("descompresion_chaqueta"))
-            lenta.append(bool(a["tarjeta"].on("descompresion_lenta")))
+                aire_recuperada |= bool(a["modulo_es"].on("aire_admosferico_camara"))
+            rapida |= bool(a["modulo_es"].on("descompresion_rapida"))
+            chaqueta |= bool(a["modulo_es"].on("descompresion_chaqueta"))
+            lenta.append(bool(a["modulo_es"].on("descompresion_lenta")))
             e1._avanzar(a)
         es = ProtocoloEstadoSeguro(a["estado"], a["config"],
                                    programas_seguridad=lambda: [a["ciclo"].cycle])

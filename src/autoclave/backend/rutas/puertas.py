@@ -64,7 +64,7 @@ def _orden_puerta(door_name: str, accion: str, source_door) -> dict:
         if context.control_loop.test_mode_active is True:
             raise _Rechazo(409, "modo_prueba_activo", "No permitido con el modo prueba activo")
         if context.control_loop.desconectado is True:
-            raise _Rechazo(409, "sin_conexion_tarjeta", "Sin conexión con la tarjeta de control")
+            raise _Rechazo(409, "sin_conexion_modulo_es", "Sin conexión con el módulo E/S")
         pedir = servicio.request_open if accion == "open" else servicio.request_close
         ok, reason = pedir(door_name)
         if not ok:

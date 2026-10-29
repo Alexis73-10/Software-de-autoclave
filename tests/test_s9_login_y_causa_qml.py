@@ -47,7 +47,7 @@ _SCRIPT = textwrap.dedent(r"""
     puente_nu = NuevoUsuarioBridge(sesion=sesion)
 
     flags = {"LISTO_PARA_CICLO": False, "PARO_EMERGENCIA": False, "PARO_REAL": False}
-    campos = {"estado_tarjeta": "ok", "no_abrir": True, "estado_seguro": {}}
+    campos = {"estado_modulo_es": "ok", "no_abrir": True, "estado_seguro": {}}
     ui = MagicMock(spec=UIServiceBackend)
     ui.connected = True
     ui.get_estado_global.return_value = "PREPARACION"

@@ -74,7 +74,7 @@ import time
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
-from autoclave.protocols.enlace import EventoTarjeta
+from autoclave.protocols.enlace import EventoModuloEs
 from autoclave.protocols.modbus_link_config import (
     MAX_EXPANSIONES, ModbusLinkConfig, cargar_config, normalizar_modelo)
 from autoclave.utils.logging import logger
@@ -96,8 +96,13 @@ DIR_DO = 0x0000
 N_DO = 32
 DIR_TEMP = 0x0DAC          # registros de entrada, PT100 1-6 (décimas de °C)
 N_TEMP = 6
-DIR_PRES = 0x0000          # registros de entrada, AI 1-8 del principal (µA)
-N_PRES = 8
+DIR_PRES = 0x0000          # registros de entrada, AI 1-16 del principal (µA)
+# Tanda 23 (AIN-03): las 16 AI del principal (manual V1.4, §4.10.3: AI1 =
+# 0x0000 … AI16 = 0x000F, contiguas). Antes 8.
+N_PRES = 16
+# Largo de la lista cruda "ai": RTD 1-6 en 0-5, 6-7 sin uso (None), AI 1-16
+# en 8-23 (tanda 23, AIN-03; antes 16).
+N_AI = 8 + N_PRES
 
 # --- Parámetros básicos y diagnóstico (MOD-06, MOD-10) ----------------------
 REG_FW_PRINCIPAL = 0x0C1F
@@ -252,7 +257,7 @@ class ModbusLink:
         # permite; el contexto del backend lo niega mientras la máquina esté en
         # CICLO. Si devuelve False o lanza, no se reinicia (falla cerrada).
         self.reinicio_permitido: Optional[Callable[[], bool]] = reinicio_permitido
-        # Callback(tarjeta) al verificar cada conexión (audit_log y
+        # Callback(modulo_es) al verificar cada conexión (audit_log y
         # emparejamiento FW-D7). Corre en el hilo de sondeo.
         self.al_conectar: Optional[Callable[[Dict[str, Any]], None]] = None
 
@@ -267,7 +272,7 @@ class ModbusLink:
         self.running = False
 
         self.data: Dict[str, Any] = {
-            "ai": [None] * 16,
+            "ai": [None] * N_AI,
             "ai_seq": 0,
             "di": [0] * 56,
             "do": [0] * 32,
@@ -308,7 +313,7 @@ class ModbusLink:
         self._cliente_orden_reinicio = None   # V20-rr-01: cliente con el que se envió la orden
         self._ultimo_diag: Optional[float] = None
 
-        self._tarjeta: Dict[str, Any] = {"version": None, "protocolo": None, "id": None}
+        self._modulo_es: Dict[str, Any] = {"version": None, "protocolo": None, "id": None}
         self._modulos: Dict[str, Any] = self._modulos_vacios()
 
         self._comandado: Dict[int, tuple[bool, float]] = {}
@@ -321,7 +326,7 @@ class ModbusLink:
         self._expansor_reportado = False
         self._pt100_codigo: list[Optional[int]] = [None] * N_TEMP
 
-        self._eventos: list[EventoTarjeta] = []
+        self._eventos: list[EventoModuloEs] = []
         self._ultimo_tick_control: Optional[float] = None
 
     @staticmethod
@@ -404,9 +409,9 @@ class ModbusLink:
     def handshake_completo(self) -> bool:
         return self._handshake_ok
 
-    def tarjeta(self) -> Dict[str, Any]:
+    def modulo_es(self) -> Dict[str, Any]:
         with self.data_lock:
-            return dict(self._tarjeta)
+            return dict(self._modulo_es)
 
     def marcar_tick_control(self) -> None:
         """Lo llama ControlLoop.run() al completarse cada tick (MOD-08)."""
@@ -428,7 +433,7 @@ class ModbusLink:
             self._conexion_pendiente = True
         self._notificar()
 
-    def tomar_eventos(self) -> list[EventoTarjeta]:
+    def tomar_eventos(self) -> list[EventoModuloEs]:
         with self._eventos_lock:
             eventos, self._eventos = self._eventos, []
         return eventos
@@ -448,7 +453,7 @@ class ModbusLink:
                 "lineas_invalidas_total": self._fallos_total,
                 "lineas_invalidas_consecutivas": self._fallos_consecutivos,
                 "handshake_completo": self._handshake_ok,
-                "tarjeta_st": None,
+                "modulo_es_st": None,
                 "modulos": modulos,
             }
 
@@ -460,7 +465,7 @@ class ModbusLink:
         if alarm_id is not None:
             logger.warning("ModbusLink: %s (%s): %s", alarm_id, origen, motivo)
         with self._eventos_lock:
-            self._eventos.append(EventoTarjeta(origen, alarm_id, motivo))
+            self._eventos.append(EventoModuloEs(origen, alarm_id, motivo))
 
     def _invalidar_en_operacion(self, alarm_id: str, motivo: str) -> None:
         """Suceso de los módulos con la conexión verificada: se emite en
@@ -721,6 +726,7 @@ class ModbusLink:
             pres = list(self._tx("read_input_registers", DIR_PRES, count=N_PRES).registers)
             if len(temp) != N_TEMP or len(pres) != N_PRES:
                 raise _FalloTransaccion("AI incompleta")
+            # RTD 1-6 en ai[0..5], ai[6..7] sin uso, AI 1-16 en ai[8..23] (AIN-03)
             ai = [self._temperatura(i, r) for i, r in enumerate(temp)] + [None, None]
             # El 0 (<3,85 mA) llega crudo: la falla de lazo es de Units (MOD-04).
             ai += [int(r) for r in pres]
@@ -827,7 +833,7 @@ class ModbusLink:
         with self.data_lock:
             self._handshake_ok = False
             self._conexion_pendiente = False
-            self._tarjeta = {"version": None, "protocolo": None, "id": None}
+            self._modulo_es = {"version": None, "protocolo": None, "id": None}
             origen_config = "operacion" if self._reconexion_en_operacion else "handshake"
 
         # 1. Socket TCP. Sin socket no hay evento: puerto_presente() False da
@@ -841,7 +847,7 @@ class ModbusLink:
                 return False
 
         try:
-            tarjeta = self._pasos_conexion(fin)
+            modulo_es = self._pasos_conexion(fin)
         except _Detenido:
             logger.info("ModbusLink: conexión interrumpida por stop() durante el reinicio "
                         "del módulo")
@@ -880,7 +886,7 @@ class ModbusLink:
             return False
         self._ultimo_diag = time.monotonic()
         logger.info("ModbusLink: conexión verificada con los módulos %s (firmware %s)",
-                    tarjeta["id"], tarjeta["version"])
+                    modulo_es["id"], modulo_es["version"])
         self._evento("conectada", None, "Conexión verificada")
         self._notificar()
         return True
@@ -1113,13 +1119,13 @@ class ModbusLink:
                                 f"Salidas encendidas tras el apagado: DO{', DO'.join(encendidas)}.")
 
         # 5. Identificación; al_conectar
-        tarjeta = {"version": identidad["firmware"], "protocolo": "modbus-tcp",
+        modulo_es = {"version": identidad["firmware"], "protocolo": "modbus-tcp",
                    "id": identidad["mac"]}
         with self.data_lock:
-            self._tarjeta = dict(tarjeta)
+            self._modulo_es = dict(modulo_es)
         if self.al_conectar is not None:
             try:
-                self.al_conectar(dict(tarjeta))
+                self.al_conectar(dict(modulo_es))
             except Exception as e:
                 logger.warning("ModbusLink: error en al_conectar: %s", e)
 
@@ -1129,7 +1135,7 @@ class ModbusLink:
 
         # 7. Primer sondeo completo válido
         self._paso_tx(fin, "primer sondeo", self._sondear, True)
-        return tarjeta
+        return modulo_es
 
     def _bloques_configuracion(self) -> list[tuple[str, int, list[int]]]:
         c = self.config

@@ -2,6 +2,8 @@
 
 Fecha: 27-oct-2026. Decisiones confirmadas por Cristian en el chat del 27-oct (ver `decisiones_tanda_19.md`). Lo marcado «DECISIÓN SIN CONFIRMAR» lo propone el diseño y se valida en el banco.
 
+> **Tanda 23 (29-oct, `decisiones_tanda_23.md`):** el hardware de E/S (principal + expansiones) se llama «módulo E/S» (MES-01) y los identificadores `tarjeta` pasan a `modulo_es` (`EventoModuloEs`, `modulo_es()`, `modulo_es_st`); los códigos `TARJETA_*` se conservan y se muestran como `MODULO_ES_*` (MES-04). La presión se lee con fc04 0x0000 ×16 (AI 1–16 del principal → `ai[8..23]`, largo 24, AIN-03) y se numera AI 01–16; la temperatura, RTD 01–06 (AIN-01/02). MOD-04 y MOD-05 quedan actualizados abajo.
+
 ## 1. Contexto
 
 - La tarjeta KinCony KC868-AIO (ESP32, protocolo serial v2) se reemplaza por módulos de E/S remotas Ebyte M31-U con el PC como maestro Modbus TCP. Motivos de Cristian: ruido del ADC interno (saltos de más de 100 cuentas) y fiabilidad del ESP32.
@@ -70,10 +72,10 @@ No entra:
 - La interfaz incluye:
   - `start`, `stop` y `solicitar_handshake`;
   - `is_connected`, `puerto_presente` y `handshake_completo`;
-  - `tarjeta`, `al_conectar` y `on_update`;
+  - `modulo_es` (antes `tarjeta`, tanda 23), `al_conectar` y `on_update`;
   - `edad_ultima_di`, `secuencia_ultima_di`, `secuencia_ultima_ai`, `estado_ultima_ai` y `edad_ultima_ai`;
   - `marcar_tick_control` y `expansor_fuera_de_linea`;
-  - `tomar_eventos` (con el mismo `EventoTarjeta`);
+  - `tomar_eventos` (con el mismo `EventoModuloEs`, antes `EventoTarjeta`);
   - `get_state`, `get_diagnostico`, `set_output` y `all_off`.
 
   Code completa la lista con lo que V encuentre que se usa desde fuera de `serial_link.py`.
@@ -90,7 +92,7 @@ Lectura cíclica cada `periodo_sondeo_s` (0,1 s):
 - **DI:** función 02, dirección 0x0000, 16 bits → `di[0..15]`; `di[16..55]` = 0.
 - **DO leídas:** función 01, dirección 0x0000, 32 bits → `do[0..31]`.
 - **Temperatura:** función 04, dirección 0x0DAC, 6 registros (PT100 1–6, entero con signo en décimas de °C) → `ai[0..5]`; `ai[6]` y `ai[7]` = `None` (no hay puerto).
-- **Presión:** función 04, dirección 0x0000, 8 registros (AI 1–8 del principal, µA) → `ai[8..15]`.
+- **Presión:** función 04, dirección 0x0000, 16 registros (AI 1–16 del principal, µA, contiguos 0x0000–0x000F según el manual del principal V1.4 §4.10.3) → `ai[8..23]`; la lista `ai` mide 24 (`N_AI`). Tanda 23 (AIN-03); antes 8 registros → `ai[8..15]`.
 
 Códigos de diagnóstico de las PT100: 32766 (sensor desconectado o cable roto), −32766 (corto), 32765 (falla del chip), 32767 y −32768 (fuera de rango), −32767 (canal deshabilitado). El enlace los convierte en `None` y anota el código en el log una sola vez por episodio y canal.
 
@@ -106,17 +108,20 @@ Conversión: `converters.convert_temperatures` y `convert_pressures` deben acept
 - Archivo empaquetado nuevo `src/autoclave/config/calibration_modbus.yaml`, con su copia en `data/` en el compilado, por el mismo mecanismo que `calibration.yaml`. `utils/paths.calibration_path()` devuelve el del enlace activo. El escritor de calibración escribe en el del enlace activo.
 - Fábrica de los canales Modbus:
   - **Temperatura (canales 0–5):** `adc_min` 0, `adc_max` 1000, `temp_min` 0, `temp_max` 100. Es la identidad: décimas de °C a °C.
-  - **Presión (canales 0–7):** `adc_min` 4000, `adc_max` 20000, `pres_min` 0, `pres_max` 400 (kPa abs, transmisores de 0–4 bar abs). Los umbrales de falla de lazo calculados con los márgenes por defecto quedan en 3600 y 21000 µA.
+  - **Presión (canales 0–15 desde la tanda 23, AIN-04; antes 0–7):** `adc_min` 4000, `adc_max` 20000, `pres_min` 0, `pres_max` 400 (kPa abs, transmisores de 0–4 bar abs). Los umbrales de falla de lazo calculados con los márgenes por defecto quedan en 3600 y 21000 µA.
 - Piso de «señal presente»: hoy `Units._piso_adc_presion` usa `adc_min`. Se agrega el campo opcional `adc_piso_senal` a `FactorySensorCalibration` (si no está, se usa `adc_min`). En el archivo Modbus vale 3850, porque por debajo de 3,85 mA el módulo entrega 0 y cualquier valor de 3850 o más es señal real. DECISIÓN SIN CONFIRMAR.
 - La calibración de usuario (offset/ganancia) no cambia.
+- Tanda 23 (AIN-04): una copia en `data/` o un respaldo con 8 entradas de presión se completa al cargar con las nominales en los canales 8–15, sin tocar los 0–7, con registro en el log (`config/completar_presion.py`). Las AI 09–16 quedan con calibración nominal hasta calibrarlas en sitio (AIN-R3). `tools/verificar_calibracion_neutra.py` exige las 16.
 - La compensación interna de las PT100 del módulo se fija en 0 (MOD-07): una sola fuente de calibración, el software.
 
 ### MOD-05 · Puertos ofrecidos y asignación de fábrica
 - Con el enlace Modbus, `asignacion_io` ofrece:
   - DI 01–16;
   - DO 01–32;
-  - AI de temperatura 01–06;
-  - AI de presión 09–16, que son AI 1–8 del principal.
+  - temperatura RTD 01–06 (grupo `AI_TEMP`);
+  - presión AI 01–16, que son AI 1–16 del principal (grupo `AI_PRES`).
+
+  Tanda 23 (AIN-01/02): antes la temperatura se rotulaba AI 01–06 y la presión AI 09–16 (AI 1–8 del principal). El tipo sigue siendo `"AI"`; la ocupación y los conflictos van por grupo (AIN-R1). `asignacion_io.FORMATO` = 2; un archivo FORMATO 1 se migra al cargar (presión p → p − 8, mismo canal físico, AIN-05).
 
   Con el enlace serial se conservan los rangos de hoy.
 - `server_reasignacion` ya publica los puertos desde esas constantes; se vuelven funciones del enlace activo.
@@ -154,7 +159,7 @@ Pasos de la conexión, dentro de `presupuesto_conexion_s`. Un fallo produce un e
    - firmware del principal 0x0C1F y de cada expansión 0x0D80. Si el principal es más antiguo que alguna expansión, `TARJETA_VERSION_INCOMPATIBLE`.
 3. Escribir y verificar la configuración de seguridad (MOD-07). Si falla, `TARJETA_CONFIG_SEGURIDAD`.
 4. Apagar todo: función 0F con 32 bobinas en 0 y lectura con la función 01. Si no están todas en 0, `TARJETA_SALIDAS_NO_APAGADAS`.
-5. Leer la MAC (0x7534, 3 registros) como ID de 12 hex en mayúscula. `tarjeta()` = `{"version": "<fw principal> / <fw expansiones>", "protocolo": "modbus-tcp", "id": <MAC>}`. Se llama `al_conectar(tarjeta)`; el emparejamiento FW-D7 con `board_id` del perfil funciona igual (solo advertencia).
+5. Leer la MAC (0x7534, 3 registros) como ID de 12 hex en mayúscula. `modulo_es()` (antes `tarjeta()`) = `{"version": "<fw principal> / <fw expansiones>", "protocolo": "modbus-tcp", "id": <MAC>}`. Se llama `al_conectar(modulo_es)`; el emparejamiento FW-D7 con `board_id` del perfil funciona igual (solo advertencia).
 6. Leer la bandera de falla 0x0C37. Si vale 1, se anota en el log que el módulo venía de un corte por desconexión (sin alarma: las salidas ya estaban apagadas).
 7. Hacer un primer sondeo completo, DI y AI, válido. Desde ahí la conexión queda verificada y se emite el evento `conectada`.
 
@@ -198,7 +203,7 @@ Las direcciones holding de los canales de expansión siguen la numeración conti
 - `get_diagnostico()` conserva las claves de hoy:
   - `lineas_invalidas_total` y `lineas_invalidas_consecutivas` pasan a contar transacciones Modbus fallidas;
   - `handshake_completo`;
-  - `tarjeta_st` = None.
+  - `modulo_es_st` (antes `tarjeta_st`) = None.
 
   Agrega `modulos` con: modelos, firmware, MAC, `codigo_error`, `mascara_expansores`, `falla_salidas` y `enlace`.
 
@@ -223,7 +228,7 @@ Las direcciones holding de los canales de expansión siguen la numeración conti
   - `TARJETA_WATCHDOG`;
   - `TARJETA_REINICIO` (si el contador de vida no es aplicable, no se usa y se anota);
   - `DISCREPANCIA_SALIDAS`.
-- Alarmas nuevas, de la misma clase que `TARJETA_ALL_OFF_SIN_CONFIRMAR` (bloqueante en el arranque; en ciclo, COM-03 con el origen de la tarjeta):
+- Alarmas nuevas, de la misma clase que `TARJETA_ALL_OFF_SIN_CONFIRMAR` (bloqueante en el arranque; en ciclo, COM-03 con el origen del módulo E/S):
   - `TARJETA_CONFIG_SEGURIDAD`: no se pudo dejar verificada la configuración de seguridad de los módulos;
   - `TARJETA_MODULOS_ORDEN`: orden de módulos incorrecto o negociación pendiente.
 
@@ -260,7 +265,7 @@ Las direcciones holding de los canales de expansión siguen la numeración conti
 ### MOD-15 · Hoja de banco (bloque M, nuevo)
 - **M-1 · Corte por desconexión:** con una salida encendida desde la pantalla de Entradas/Salidas, probar tres casos: quitar el cable de red, matar el proceso, y congelar el lazo (si existe una forma de prueba; si no, se omite). En cada caso, medir con cronómetro el tiempo hasta que el relé abre. Criterio: menos de 2 s.
 - **M-2 · Composición:** sin energía, quitar el módulo de PT100 y arrancar → `TARJETA_VERSION_INCOMPATIBLE`. Reponerlo sin negociar → `TARJETA_MODULOS_ORDEN`. Negociar → conexión correcta.
-- **M-3 · Canal por canal:** cada DI (01–14) con su función, cada DO (01–23 y 25) con su carga, cada PT100 y cada transmisor. Confirmar las direcciones de las expansiones (MOD-07).
+- **M-3 · Canal por canal:** cada DI (01–14) con su función, cada DO (01–23 y 25) con su carga, cada PT100 (RTD 01–06) y cada transmisor (AI 01–16, desde la tanda 23). Confirmar las direcciones de las expansiones (MOD-07).
 - **M-4 · Exactitud (MED-01, MED-02):** PT100 contra patrón en baño o calibrador a 121 y 134 °C; presión contra patrón a 100, 200 y 300 kPa abs. Registrar el error antes y después de la calibración de usuario.
 - **M-5 · Restablecimiento de fábrica del módulo** (Reload 5–10 s) con el software corriendo: debe reconectar y reescribir la configuración de seguridad sola.
 - **M-6 · Cambio de enlace** a serial y de vuelta a modbus con reinicio. Solo se comprueba que arranca; sin la tarjeta ESP32 conectada, el arranque queda bloqueado por la tarjeta, y eso es lo esperado.

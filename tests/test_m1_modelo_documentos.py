@@ -113,7 +113,7 @@ def cliente():
     ctx.profile.created_at = datetime(2026, 10, 22, 9, 0)
     ctx.profile.vapor_source = "generator"
     ctx.profile.capacidad_litros, ctx.profile.tipo_carga = 45, "V"
-    ctx.serial.tarjeta.return_value = {}
+    ctx.serial.modulo_es.return_value = {}
     ctx.db.max_numero_ciclo.return_value = 1
     ctx.mantenimiento.resumen.return_value = {}
     ctx.config_idioma.leer.return_value = "es"

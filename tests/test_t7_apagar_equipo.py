@@ -124,8 +124,8 @@ def test_apaga_en_falla_con_paro_de_emergencia_y_camara_caliente(entorno):
     assert apagados == [True]
 
 
-def test_apaga_sin_tarjeta_y_aunque_falle_todo_lo_demas(entorno):
-    """Sin tarjeta, con el ALL_OFF/stop lanzando y la BD fallando: Windows se apaga igual."""
+def test_apaga_sin_modulo_es_y_aunque_falle_todo_lo_demas(entorno):
+    """Sin módulo E/S, con el ALL_OFF/stop lanzando y la BD fallando: Windows se apaga igual."""
     client, ctx, _, apagados, hilos = entorno
     ctx.control_loop.desconectado = True
     ctx.control_loop.datos_vigentes = False
@@ -174,7 +174,7 @@ def test_estado_seguro_esperando_confirmacion_se_puede_apagar(entorno):
     assert _apagar(client).status_code == 200
 
 
-def test_estado_seguro_sin_datos_de_la_tarjeta_se_puede_apagar(entorno):
+def test_estado_seguro_sin_datos_del_modulo_es_se_puede_apagar(entorno):
     client, ctx, _, _, hilos = entorno
     ctx.control_loop.estado_seguro.activo = True
     ctx.control_loop.estado_seguro.requiere_confirmacion = False
@@ -289,7 +289,7 @@ def test_control_loop_stop_cierra_el_puerto_aunque_el_all_off_lance():
     cl._running = threading.Event()
     cl.thread = None
     cl.link = MagicMock()
-    cl.link.all_off.side_effect = OSError("sin tarjeta")
+    cl.link.all_off.side_effect = OSError("sin módulo E/S")
     cl.stop()
     cl.link.stop.assert_called_once()
 
@@ -348,7 +348,7 @@ def test_iniciar_apagado_sobrevive_a_un_all_off_que_lanza():
     cl._apagando = False
     cl.estado = MagicMock()
     cl.link = MagicMock()
-    cl.link.all_off.side_effect = OSError("sin tarjeta")
+    cl.link.all_off.side_effect = OSError("sin módulo E/S")
     cl.iniciar_apagado()
     assert cl.apagando is True
 

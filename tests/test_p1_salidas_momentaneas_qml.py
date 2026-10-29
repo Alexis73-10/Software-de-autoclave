@@ -28,7 +28,7 @@ import autoclave.ui_qml.bridge.i18n_qml  # noqa
 import autoclave.ui_qml.controllers  # noqa
 from autoclave.ui_qml import sesion_backend
 
-estado = {"bomba": 0, "tarjeta": "ok"}
+estado = {"bomba": 0, "modulo_es": "ok"}
 patches = []
 
 def transporte(metodo, ruta, cuerpo, token, plazo):
@@ -40,8 +40,8 @@ def transporte(metodo, ruta, cuerpo, token, plazo):
                              "i18n": "io.do.bomba_vacio", "id": "DO 05", "momentanea": True,
                              "bloqueada": False}]}
     if ruta == "/status":
-        return 200, {"estado_tarjeta": estado["tarjeta"],
-                     "card_connected": estado["tarjeta"] == "ok", "test_mode_active": True,
+        return 200, {"estado_modulo_es": estado["modulo_es"],
+                     "card_connected": estado["modulo_es"] == "ok", "test_mode_active": True,
                      "machine_state": "PREPARADO",
                      "sensors": {"digital_outputs": {"bomba_vacio": estado["bomba"]},
                                  "temperature": {"camara": 25.0 + estado["bomba"]}}}
@@ -112,7 +112,7 @@ v1 = buscar("valorSensor_temp_camara")
 valor_ok = v1.property("text")
 estado_on = any(o.property("text") == "ENCENDIDA" for o in t1.findChildren(QObject)
                 if o.property("text") is not None)
-estado["tarjeta"] = "desconectada"
+estado["modulo_es"] = "desconectada"
 es.setProperty("segmento", "temperatura")
 ctl.actualizar()
 QTest.qWait(50)
@@ -140,8 +140,8 @@ def test_tarjeta_de_salida_sobrevive_al_refresco_y_muestra_el_estado():
     assert datos["valor_sensor"].startswith("26.0"), datos["valor_sensor"]
 
 
-def test_sensor_con_tarjeta_desconectada_no_culpa_al_cableado():
-    """U4: sin enlace con la tarjeta, la tarjeta del sensor no debe decir
+def test_sensor_con_modulo_es_desconectado_no_culpa_al_cableado():
+    """U4: sin enlace con el módulo E/S, la tarjeta del sensor no debe decir
     'revise el cableado del sensor' (no es el sensor): dice que no hay enlace."""
     es = json.loads((RAIZ / "src" / "autoclave" / "i18n" / "es.json").read_text(encoding="utf-8"))
     qml = RAIZ / "src" / "autoclave" / "ui_qml" / "qml"

@@ -175,7 +175,7 @@ def test_lazo_registra_una_vez_la_salida_cortada():
     loop.enter_test_mode()
     eventos = []
     loop.al_evento_seguridad = lambda e, d: eventos.append((e, d))
-    loop.estado.salidas_do["abrir_puerta_1"] = 1          # la tarjeta la reporta encendida
+    loop.estado.salidas_do["abrir_puerta_1"] = 1          # el módulo E/S la reporta encendida
     loop.units.get_all.return_value = {}
     loop.estado.update = lambda _d: None                  # no pisar salidas_do
     loop._tick()

@@ -18,6 +18,7 @@ from pydantic import BaseModel, StrictBool
 from autoclave.backend.autenticacion import Sesion
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.core.runtime import io_names
+from autoclave.core.runtime import asignacion_io as _aio
 from autoclave.core.runtime import aire_atmosferico_prueba
 from autoclave.core.runtime import salidas_prueba_seguridad
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
@@ -41,6 +42,11 @@ logger = logging.getLogger("autoclave.backend.server")
 
 router = APIRouter()
 
+# Tanda 23 (AIN-05): numeración de puertos de los registros de calibración
+# (= asignacion_io.FORMATO). Un registro sin "formato" es de la numeración
+# anterior (presión 9-16): server_reasignacion.puerto_de_registro.
+_FORMATO_PUERTO = _aio.FORMATO
+
 
 # Token de la sesión que activó el modo prueba: solo ella enciende salidas y
 # sale (§5.4). Se lee y escribe con _sm_lock tomado (bloqueo_maquina).
@@ -57,7 +63,7 @@ _ack_salida_prueba: bool | None = None
 def _salir_modo_prueba() -> bool:
     """Apaga las salidas, reanuda la máquina y olvida la sesión dueña. Llamar
     con _sm_lock tomado; quien llama registra modo_prueba_sale al soltarlo
-    (con `_detalle_salida_prueba`). Devuelve True si la tarjeta confirmó el
+    (con `_detalle_salida_prueba`). Devuelve True si el módulo E/S confirmó el
     ALL_OFF (R1-P1)."""
     global _token_modo_prueba, _ack_salida_prueba
     _ack_salida_prueba = context.control_loop.exit_test_mode() is True
@@ -293,8 +299,10 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         detalle = {"puntos": {"shown_low": shown_low, "real_low": real_low,
                               "shown_high": shown_high, "real_high": real_high},
-                   # R8: puerto físico calibrado (la calibración es por puerto)
-                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
+                   # R8: puerto físico calibrado (la calibración es por puerto).
+                   # Tanda 23 (AIN-05): numeración RTD 01-06 / AI 01-16, con la
+                   # marca "formato" 2 (un registro sin ella es de la anterior)
+                   "puerto": index + 1, "formato": _FORMATO_PUERTO}
         if nivel is not None:
             detalle["plausibilidad"] = {"nivel": nivel, "motivo": motivo,
                                         "confirmado": confirmado}
@@ -392,7 +400,7 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
                                     detail="Hay un ciclo en curso: calibración no aplicada")
         # R8 (3.ª vuelta, SEN): puerto físico también al restaurar
         detalle = {"accion": f"restaurar_{destino}",
-                   "puerto": index + 1 + (8 if tipo == "pressure" else 0)}
+                   "puerto": index + 1, "formato": _FORMATO_PUERTO}
         detalle.update(contexto_ciclo)
         # R8 (SEN 3.ª vuelta; TMG-01/SAF-01 4.ª vuelta): restaurar deja de
         # contar como calibración del puerto nuevo; se anula ANTES de escribir
@@ -576,8 +584,8 @@ def _rechazar_si_sin_datos_vigentes() -> None:
     de rechazo que las órdenes de puerta con el enlace caído."""
     cl = context.control_loop
     if cl.desconectado is True or cl.datos_vigentes is False:
-        raise _Rechazo(409, "sin_conexion_tarjeta",
-                       "Sin conexión con la tarjeta de control o datos no vigentes")
+        raise _Rechazo(409, "sin_conexion_modulo_es",
+                       "Sin conexión con el módulo E/S o datos no vigentes")
 
 
 @router.get("/io/channels")

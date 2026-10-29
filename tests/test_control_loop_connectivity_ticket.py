@@ -56,8 +56,8 @@ def _run_one_tick(loop, connected):
         loop.run()
 
 
-def test_arranque_sin_tarjeta_no_imprime():
-    """Al arrancar, la tarjeta aún no respondió (handshake serial en curso).
+def test_arranque_sin_modulo_es_no_imprime():
+    """Al arrancar, el módulo E/S aún no respondió (handshake serial en curso).
     Esto NO es una desconexión real — no debe imprimirse nada."""
     printer = MagicMock()
     loop = _make_loop(realtime_printer=printer)
@@ -70,7 +70,7 @@ def test_arranque_sin_tarjeta_no_imprime():
 
 
 def test_arranque_conexion_inicial_no_imprime():
-    """La tarjeta conecta por primera vez tras el arranque — es el final
+    """El módulo E/S conecta por primera vez tras el arranque — es el final
     normal del handshake, no una 'reconexión'. No debe imprimirse nada."""
     printer = MagicMock()
     loop = _make_loop(realtime_printer=printer)
@@ -83,7 +83,7 @@ def test_arranque_conexion_inicial_no_imprime():
 
 
 def test_desconexion_real_imprime_ticket():
-    """Una vez que la tarjeta ya estuvo conectada de verdad, una caída real
+    """Una vez que el módulo E/S ya estuvo conectado de verdad, una caída real
     durante la sesión sí debe imprimirse."""
     printer = MagicMock()
     loop = _make_loop(realtime_printer=printer)
@@ -94,7 +94,7 @@ def test_desconexion_real_imprime_ticket():
 
     printer.enqueue.assert_called_once()
     texto = printer.enqueue.call_args.args[0]
-    assert "TARJETA: DESCONECTADA" in texto
+    assert "MODULO E/S: DESCONECTADO" in texto
 
 
 def test_reconexion_real_imprime_ticket():
@@ -108,7 +108,7 @@ def test_reconexion_real_imprime_ticket():
 
     printer.enqueue.assert_called_once()
     texto = printer.enqueue.call_args.args[0]
-    assert "TARJETA: RECONECTADA" in texto
+    assert "MODULO E/S: RECONECTADO" in texto
 
 
 def test_conexion_estable_no_imprime():
@@ -144,8 +144,8 @@ def test_arranque_con_handshake_breve_no_activa_com01():
     assert _llamadas_activar_com01(loop) == []
 
 
-def test_arranque_sin_tarjeta_activa_com01_al_agotar_la_tolerancia():
-    """Si la tarjeta nunca conecta, COM-01 aparece al cumplirse la
+def test_arranque_sin_modulo_es_activa_com01_al_agotar_la_tolerancia():
+    """Si el módulo E/S nunca conecta, COM-01 aparece al cumplirse la
     tolerancia de desconexión continua, no antes, y una sola vez."""
     loop = _make_loop()
     loop.link.is_connected.return_value = False

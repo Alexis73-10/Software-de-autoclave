@@ -53,7 +53,7 @@ def test_fabrica_modbus_temperatura_decimas_a_grados(cfg_modbus, decimas, grados
 
 @pytest.mark.req("MOD-03")
 def test_cero_decimas_es_valido_en_modbus(cfg_modbus):
-    """El centinela 0/4095 = sin sonda era propio del ADC de la tarjeta serial
+    """El centinela 0/4095 = sin sonda era propio del ADC del módulo E/S serial (ESP32)
     (retirada en la tanda 20, T20-03: se borró la parte serial de esta prueba).
     Revisión R (V19-s2-03): en Modbus 4095 décimas (409,5 °C) queda fuera del
     rango plausible de la PT100 (-500..2500 décimas) y da None; antes esta
@@ -99,7 +99,7 @@ def test_en_el_umbral_no_hay_falla(cfg_modbus, micro_a):
 
 @pytest.mark.req("MOD-03")
 def test_modbus_sin_calibracion_de_fabrica_no_usa_raw_4095():
-    """El fallback raw/4095 solo tiene sentido con el ADC de la tarjeta: con
+    """El fallback raw/4095 solo tiene sentido con el ADC del módulo E/S serial: con
     Modbus y sin calibración de fábrica no hay lectura (falla cerrada)."""
     assert converters.convert_temperatures(_ai([1210]), {})[0] is None
     assert converters.convert_pressures(_ai(pres=[12000]), {})[0] is None
@@ -171,7 +171,7 @@ def test_presion_none_conserva_una_falla_declarada(cfg_modbus):
 
 @pytest.mark.req("MOD-03")
 def test_indice_faltante_es_none(cfg_modbus):
-    assert converters.convert_pressures([1000] * 9, cfg_modbus)[1:] == [None] * 7
+    assert converters.convert_pressures([1000] * 9, cfg_modbus)[1:] == [None] * 15
     assert converters.convert_temperatures([1000] * 3, cfg_modbus)[3:] == [None] * 5
 
 
@@ -246,13 +246,13 @@ def test_esquema_adc_piso_senal():
 
 def test_calibracion_modbus_valida_y_neutra(cfg_modbus):
     cal = cfg_modbus.calibration
-    assert len(cal.factory.temperature) == 8 and len(cal.factory.pressure) == 8
+    assert len(cal.factory.temperature) == 8 and len(cal.factory.pressure) == 16   # AIN-04
     assert all(c.adc_min == 0 and c.adc_max == 1000 and c.temp_min == 0 and c.temp_max == 100
                for c in cal.factory.temperature)
     assert all(c.adc_min == 4000 and c.adc_max == 20000 and c.pres_min == 0
                and c.pres_max == 400 and c.adc_piso_senal == 3850
                for c in cal.factory.pressure)
-    for lista in (cal.user.temperature, cal.user.pressure):
-        assert len(lista) == 8
+    for lista, n in ((cal.user.temperature, 8), (cal.user.pressure, 16)):
+        assert len(lista) == n
         assert all(s.gain == 1.0 and s.offset == 0.0 and not s.poly for s in lista)
     assert not math.isnan(cal.factory.pressure[0].margen_falla_alto)

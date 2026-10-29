@@ -14,6 +14,7 @@ from PySide6.QtCore import (
 )
 
 from autoclave.core.runtime.alarmas_i18n import clave_motivo_bloqueo
+from autoclave.state_machine.alarms.catalogo import codigo_visible
 from autoclave.ui_qml.domain import entradas_mostradas
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
@@ -22,8 +23,8 @@ ESTADO_DESCONOCIDO = "DESCONOCIDO"
 # Nivel del backend (campo level, compatibilidad) -> prioridad IEC 60601-1-8.
 # Decisión de Cristian (2026-09-29): EMERGENCIA alta, FALLA media, ALERTA baja.
 _PRIORIDAD_POR_NIVEL = {"EMERGENCIA": "alta", "FALLA": "media", "ALERTA": "baja"}
-# Estado de la tarjeta de E/S en /status (U4 de la tanda 2)
-_ESTADOS_TARJETA = ("desconectada", "sin_tramas_validas", "ok")
+# Estado del módulo E/S en /status (campo estado_modulo_es; U4 de la tanda 2)
+_ESTADOS_MODULO_ES = ("desconectada", "sin_tramas_validas", "ok")
 # S9 (tanda 9, D9-1.2): causas del estado seguro que la UI sabe mostrar
 _CAUSAS_ESTADO_SEGURO = ("paro_liberado", "arranque", "fallo", "cancelado", "completado")
 
@@ -135,6 +136,11 @@ def _normalizar_alarmas(alarmas) -> list[dict]:
         nivel = _texto(a.get("level"))
         filas.append({
             "id": _texto(a.get("id")),
+            # Tanda 23 (MES-04): id y código tal como se muestran (TARJETA_<x>
+            # -> MODULO_ES_<x>); "id" y "codigo" siguen siendo los guardados
+            # (clave de reconocimiento y comparaciones como SEN-02)
+            "idVisible": codigo_visible(_texto(a.get("id"))),
+            "codigoVisible": codigo_visible(_texto(a.get("codigo"))),
             "level": nivel,
             "description": _texto(a.get("description")),
             "source_state": _texto(a.get("source_state")),
@@ -158,7 +164,8 @@ class AlarmListModel(QAbstractListModel):
     """Alarmas activas. Roles: id, level, description, source_state, priority
     y descripciones ({idioma: descripción}, U10b); tanda 17 (ALM-01): codigo,
     titulo, titulos y acciones ({idioma: texto}), accion, aparecida (ISO),
-    estado (estado_de_alarma) y requiere_reconocimiento."""
+    estado (estado_de_alarma) y requiere_reconocimiento; tanda 23 (MES-04):
+    idVisible y codigoVisible (codigo_visible() de id y codigo, para mostrar)."""
 
     IdRole = Qt.ItemDataRole.UserRole + 1
     LevelRole = Qt.ItemDataRole.UserRole + 2
@@ -174,6 +181,8 @@ class AlarmListModel(QAbstractListModel):
     AparecidaRole = Qt.ItemDataRole.UserRole + 12
     EstadoRole = Qt.ItemDataRole.UserRole + 13
     RequiereReconocimientoRole = Qt.ItemDataRole.UserRole + 14
+    IdVisibleRole = Qt.ItemDataRole.UserRole + 15
+    CodigoVisibleRole = Qt.ItemDataRole.UserRole + 16
 
     _CLAVES = {
         IdRole: "id",
@@ -190,6 +199,8 @@ class AlarmListModel(QAbstractListModel):
         AparecidaRole: "aparecida",
         EstadoRole: "estado",
         RequiereReconocimientoRole: "requiere_reconocimiento",
+        IdVisibleRole: "idVisible",
+        CodigoVisibleRole: "codigoVisible",
     }
 
     countChanged = Signal()
@@ -352,9 +363,9 @@ class UiBridge(QObject):
             # ESS-02: el motivo de NO ABRIR es solo un sensor sin lectura
             "motivo_es_sensor": self._ui.get_campo("camara_segura_motivo_es_sensor", False),
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
-            # U4: solo el paro real; sin datos de la tarjeta va en "tarjeta"
+            # U4: solo el paro real; sin datos del módulo E/S va en "modulo_es"
             "paro": self._ui.get_estado_flag("PARO_REAL"),
-            "tarjeta": self._ui.get_campo("estado_tarjeta", "desconectada"),
+            "modulo_es": self._ui.get_campo("estado_modulo_es", "desconectada"),
             "estado_seguro": self._ui.get_campo("estado_seguro", {}),
             "sin_bd": self._ui.get_campo("sin_base_de_datos", False),
         }) if self._connected else self._seguridad_de({}), self.seguridadChanged)
@@ -363,7 +374,7 @@ class UiBridge(QObject):
     def _seguridad_de(datos: dict) -> dict:
         """Sin conexión o sin dato: NO ABRIR (falla cerrada, como el backend)."""
         es = datos.get("estado_seguro") if isinstance(datos.get("estado_seguro"), dict) else {}
-        tarjeta = datos.get("tarjeta")
+        modulo_es = datos.get("modulo_es")
         return {
             "no_abrir": datos.get("no_abrir", True) is not False,
             "motivo": str(datos.get("motivo") or ""),
@@ -393,7 +404,7 @@ class UiBridge(QObject):
             # T8: el backend vuelve a exigir la confirmación por ciclo
             "sin_bd": datos.get("sin_bd") is True,
             # U4: falla cerrada, sin dato o valor desconocido = desconectada
-            "tarjeta": tarjeta if tarjeta in _ESTADOS_TARJETA else "desconectada",
+            "modulo_es": modulo_es if modulo_es in _ESTADOS_MODULO_ES else "desconectada",
         }
 
     def _fijar(self, atributo: str, valor, senal) -> None:
@@ -465,9 +476,9 @@ class UiBridge(QObject):
         return self._seguridad["paro"]
 
     @Property(str, notify=seguridadChanged)
-    def estadoTarjeta(self) -> str:
+    def estadoModuloEs(self) -> str:
         """U4 (tanda 2): "desconectada", "sin_tramas_validas" u "ok"."""
-        return self._seguridad["tarjeta"]
+        return self._seguridad["modulo_es"]
 
     @Property(bool, notify=seguridadChanged)
     def estadoSeguroActivo(self) -> bool:

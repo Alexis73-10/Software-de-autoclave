@@ -1,6 +1,6 @@
 # simulador/__main__.py
 #
-# Backend SIMULADO para probar la UI sin tarjeta (herramienta de desarrollo):
+# Backend SIMULADO para probar la UI sin módulo E/S (herramienta de desarrollo):
 #
 #   python -m autoclave.simulador [--puerto 8001] [--velocidad 10] [--ciclo 76]
 #
@@ -11,7 +11,7 @@
 #
 # Reproduce el último ciclo COMPLETADO con lecturas suficientes de data/autoclave.db
 # (solo lectura), acelerado --velocidad veces. Escucha solo en 127.0.0.1. No usa
-# la tarjeta, el control ni la máquina de estados reales.
+# el módulo E/S, el control ni la máquina de estados reales.
 
 import argparse
 import logging
@@ -28,7 +28,7 @@ logger = logging.getLogger("autoclave.simulador")
 
 
 def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description="Backend SIMULADO (sin tarjeta) para probar la UI")
+    parser = argparse.ArgumentParser(description="Backend SIMULADO (sin módulo E/S) para probar la UI")
     parser.add_argument("--puerto", type=int, default=8001, help="Puerto (defecto 8001)")
     parser.add_argument("--velocidad", type=float, default=10.0,
                         help="Veces más rápido que el ciclo real (defecto 10)")

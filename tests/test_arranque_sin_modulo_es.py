@@ -1,8 +1,8 @@
-# tests/test_arranque_sin_tarjeta.py
+# tests/test_arranque_sin_modulo_es.py
 #
-# Seguridad de la etapa 7 del arranque sin tarjeta (fase B, D-E): con el enlace
+# Seguridad de la etapa 7 del arranque sin módulo E/S (fase B, D-E): con el enlace
 # sin respuesta (E/S no verificadas) POST /cycle/start se rechaza y no se manda
-# ninguna salida digital encendida; al conectarse la tarjeta, el arranque
+# ninguna salida digital encendida; al conectarse el módulo E/S, el arranque
 # retoma desde la etapa 7 sin reiniciar el backend.
 #
 # Integración real: BackendContext, secuencia de arranque, ControlLoop, máquina
@@ -32,7 +32,7 @@ from tests.helpers.enlace_doble import EnlaceDoble
 from tests.helpers.alarmas_helpers import ids_viejos_activados, ids_viejos_activos, ids_viejos_resueltos
 
 
-class _EnlaceSinTarjeta(EnlaceDoble):
+class _EnlaceSinModuloEs(EnlaceDoble):
     """Doble de EnlaceES sin módulo (tanda 20, T20-03: antes un SerialLink
     real sin abrir puerto): no conecta hasta `conectada = True` y registra
     todo lo que se le ordena."""
@@ -91,7 +91,7 @@ def backend(monkeypatch, tmp_path):
     enlaces = []
 
     def build_enlace(units, al_conectar=None):
-        enlaces.append(_EnlaceSinTarjeta(units))
+        enlaces.append(_EnlaceSinModuloEs(units))
         return enlaces[-1]
 
     monkeypatch.setattr(ctx_mod, "get_installation_profile", _perfil)
@@ -119,7 +119,7 @@ def backend(monkeypatch, tmp_path):
     hilo.join(2)
 
 
-def test_sin_tarjeta_no_se_inicia_ciclo_ni_se_enciende_ninguna_salida(backend):
+def test_sin_modulo_es_no_se_inicia_ciclo_ni_se_enciende_ninguna_salida(backend):
     srv, ctx, enlaces, _, client = backend
     reg = srv.registro_arranque
 
@@ -151,7 +151,7 @@ def test_sin_tarjeta_no_se_inicia_ciclo_ni_se_enciende_ninguna_salida(backend):
     assert [s for s in enlace.salidas if s[1]] == []   # ninguna salida encendida
 
 
-def test_al_conectar_la_tarjeta_el_arranque_retoma_sin_reiniciar(backend):
+def test_al_conectar_el_modulo_es_el_arranque_retoma_sin_reiniciar(backend):
     srv, ctx, enlaces, hilo, client = backend
     reg = srv.registro_arranque
     assert _esperar(lambda: _etapa(reg, "conectando_modulos_es")["codigo"] == "ARR_SIN_ES")

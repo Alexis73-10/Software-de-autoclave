@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from autoclave.core.runtime import unidades as u
-from autoclave.state_machine.alarms.catalogo import CATALOGO
+from autoclave.state_machine.alarms.catalogo import CATALOGO, codigo_visible, texto_con_codigos_visibles
 
 
 # ── I3 (tanda 5): idioma y unidades vigentes al generar el ticket ─────────
@@ -258,7 +258,8 @@ def motivo_ticket(codigo: str | None, motivo: str | None,
                   p: Presentacion | None = None) -> str | None:
     """Línea de motivo del ticket térmico: solo código y título (spec §5.4),
     en el idioma vigente. Ciclos anteriores al catálogo (sin codigo_fallo)
-    conservan su motivo."""
+    conservan su motivo. MES-04 (tanda 23): el código se imprime con
+    codigo_visible() (TARJETA_<x> como MODULO_ES_<x>; el guardado no cambia)."""
     definicion = CATALOGO.get(codigo or "")
     if definicion is not None:
         titulo = definicion.titulo
@@ -269,8 +270,8 @@ def motivo_ticket(codigo: str | None, motivo: str | None,
                 titulo = alarmas_i18n.textos(definicion, {}, idioma)["titulo"]
             except Exception:
                 pass
-        return f"{definicion.codigo} - {titulo}"
-    return motivo or None
+        return f"{codigo_visible(definicion.codigo)} - {titulo}"
+    return texto_con_codigos_visibles(motivo) or None
 
 
 def _campo(fila, clave):
@@ -404,7 +405,7 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
                    operador: str | None = None, p: Presentacion | None = None,
                    sin_datos_s: float | None = None) -> str:
     """Pie del ticket (todo lo posterior a las filas de lecturas).
-    `sin_datos_s` (T2-a, tanda 7): segundos del ciclo sin datos de la tarjeta
+    `sin_datos_s` (T2-a, tanda 7): segundos del ciclo sin datos del módulo E/S
     (tolerancia por DI vencida); se anota solo si hubo alguno."""
     p = p or presentacion_actual()
     try:
@@ -423,7 +424,8 @@ def format_footer(resultado: str, fecha_fin: str, temp_final=None, motivo: str |
     if avisos_no_conforme(avisos):
         lines.insert(0, _t(p, "no_conforme_marca"))
     if motivo:
-        lines.append(f"{_t(p, 'motivo')}: {motivo}")
+        # MES-04: también un motivo guardado de texto libre (ciclos viejos)
+        lines.append(f"{_t(p, 'motivo')}: {texto_con_codigos_visibles(motivo)}")
     # T2-c (tanda 7, decisión 1.3 de Cristian; antes P-9 solo INTERRUMPIDO):
     # todo ciclo que no terminó COMPLETADO (FALLO_*, CANCELADO, EMERGENCIA,
     # INTERRUMPIDO, SENSOR_AUSENTE...) lleva la marca, en vivo y al

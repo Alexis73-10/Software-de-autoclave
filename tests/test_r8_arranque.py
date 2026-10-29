@@ -51,7 +51,7 @@ def test_la_vigente_se_aplica_al_arrancar_persistencia_tras_reiniciar(tmp_path):
     backend recién arrancado) la aplica antes de construir el control."""
     ctx, _ = _ctx(tmp_path, {"vapor_camara": 26, "pres_camara": 13}, ["vapor_camara", "pres_camara"])
     assert EstadoAutoclave.map_do["vapor_camara"] == 25
-    assert EstadoAutoclave.map_pres["pres_camara"] == 4
+    assert EstadoAutoclave.map_pres["pres_camara"] == 12     # AI 13 (tanda 23)
     assert sorted(ctx.asignacion_pendiente) == ["pres_camara", "vapor_camara"]
     assert ctx.verificacion_asignacion["estado"] == "pendiente"
     # segundo "reinicio": sigue aplicada
@@ -96,8 +96,8 @@ def test_fabrica_del_yaml_invalida_es_fallo_bloqueante(tmp_path, monkeypatch):
 # ── verificación tras reiniciar ─────────────────────────────────────────────
 
 def _datos(conectado=True, pres_nueva=101.0):
-    pres = [0.0] * 8
-    pres[4] = pres_nueva           # AI 13
+    pres = [0.0] * 16
+    pres[12] = pres_nueva          # AI 13 (tanda 23: posición 12 de 16)
     return {"connected": conectado, "raw_di": [0] * 56, "raw_do": [0] * 32,
             "temperature": [20.0] * 8, "pressure": pres}
 
@@ -171,7 +171,7 @@ def test_verificacion_sin_respuesta_conserva_la_marca(tmp_path):
     assert json.loads(ruta.read_text(encoding="utf-8"))["verificacion_pendiente"] == ["pres_camara"]
 
 
-def test_verificacion_sin_tarjeta_vence_el_plazo(tmp_path):
+def test_verificacion_sin_modulo_es_vence_el_plazo(tmp_path):
     ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, ["vapor_camara"])
     _verificar(ctx, _datos(conectado=False), plazo_s=5.0)
     assert ctx.verificacion_asignacion["estado"] == "fallida"

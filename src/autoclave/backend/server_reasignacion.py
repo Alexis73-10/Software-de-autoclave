@@ -26,7 +26,7 @@
 #     cámara o un Principal con la cámara no segura, salvo el caso del sensor
 #     dañado con el otro diciendo fría y a atm (SAF-01);
 #   - conflictos (dos funciones en el mismo puerto) y puertos inexistentes en
-#     la tarjeta se rechazan aquí (422), no solo en la UI;
+#     el módulo E/S se rechazan aquí (422), no solo en la UI;
 #   - doble confirmación: `confirmar` (alerta de criticidad, 428) y, para el
 #     interlock de puerta, el paro de emergencia y los finales de carrera,
 #     el nombre de la función escrito (428 / 422);
@@ -392,7 +392,7 @@ def _pendientes_tras(nueva: dict) -> list[str]:
 
 def _rechazo_validacion(errores: list[dict]):
     codigo = errores[0].get("codigo", "asignacion_invalida") if errores else "asignacion_invalida"
-    limpios = [{k: v for k, v in e.items() if k in ("codigo", "funcion", "puerto", "tipo", "ocupado_por")}
+    limpios = [{k: v for k, v in e.items() if k in ("codigo", "funcion", "puerto", "tipo", "grupo", "ocupado_por")}
                for e in errores]
     raise srv.RechazoApi(422, codigo, "Asignación de E/S inválida", extra={"errores": limpios})
 
@@ -440,9 +440,10 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
             logger.exception("No se pudo deshacer la escritura de la asignación de E/S")
         raise
     for funcion, (tipo, anterior, nuevo) in sorted(diferencias.items()):
+        nombre = aio.base(funcion)
         srv._auditar(evento, sesion, entidad=funcion,
-                     valor_anterior=aio.etiqueta(tipo, anterior) if anterior else None,
-                     valor_nuevo=aio.etiqueta(tipo, nuevo),
+                     valor_anterior=aio.etiqueta(tipo, anterior, nombre) if anterior else None,
+                     valor_nuevo=aio.etiqueta(tipo, nuevo, nombre),
                      detalle={"tipo": tipo, "critica": aio.es_critica(funcion),
                               "reforzada": aio.es_reforzada(funcion)})
     srv._auditar("reinicio_control", sesion, entidad=entidad,
@@ -514,6 +515,20 @@ def anular_evidencias_ai() -> None:
         logger.exception("Evidencias de calibración al restaurar un respaldo")
 
 
+def puerto_de_registro(nombre: str, detalle) -> int | None:
+    """Puerto (numeración vigente) de un registro de calibración. Desde la
+    tanda 23 (AIN-05) el registro lleva `"formato": 2`; uno sin esa marca es
+    de la numeración anterior: la presión iba en 9-16 y se le resta 8 (la
+    temperatura no cambió). None si no trae puerto."""
+    puerto = detalle.get("puerto") if isinstance(detalle, dict) else None
+    if not isinstance(puerto, int) or isinstance(puerto, bool):
+        return puerto
+    if "formato" not in detalle:
+        return puerto if aio.es_temperatura(nombre) else puerto - 8
+    # SAF-04 de la revisión R: una marca de numeración desconocida no se interpreta
+    return puerto if detalle.get("formato") == aio.FORMATO else None
+
+
 def ultimo_es_del_puerto_vigente(grupo: str, sensor_estado: str, fila: dict) -> bool:
     """Para restaurar «último»: True si ese registro de calibración es del
     puerto que la función usa hoy. Un registro sin puerto (anterior a R8)
@@ -522,7 +537,7 @@ def ultimo_es_del_puerto_vigente(grupo: str, sensor_estado: str, fila: dict) -> 
         nombre = aio.canonico(sensor_estado)
         actual = aio.en_memoria()["AI"].get(nombre)
         detalle = fila.get("detalle") if isinstance(fila, dict) else None
-        puerto = detalle.get("puerto") if isinstance(detalle, dict) else None
+        puerto = puerto_de_registro(nombre, detalle)
         if puerto is not None:
             return puerto == actual
         return actual == _fabrica()["AI"].get(nombre)
@@ -567,14 +582,25 @@ def registrar(app) -> None:
             filas.append({
                 "funcion": clave, "tipo": tipo, "i18n": clave_nombre(nombre, tipo),
                 "habilitada": habilitada,
-                "puerto_actual": memoria[tipo][nombre], "id_actual": aio.etiqueta(tipo, memoria[tipo][nombre]),
+                "puerto_actual": memoria[tipo][nombre],
+                "id_actual": aio.etiqueta(tipo, memoria[tipo][nombre], nombre),
                 "puerto_guardado": guardada[tipo].get(nombre),
+                # tanda 23 (AIN-01): etiqueta del guardado («RTD 01», «AI 09»)
+                "id_guardado": (aio.etiqueta(tipo, guardada[tipo][nombre], nombre)
+                                if guardada[tipo].get(nombre) else ""),
                 "puerto_fabrica": fabrica[tipo].get(nombre),
-                "id_fabrica": aio.etiqueta(tipo, fabrica[tipo][nombre]) if fabrica[tipo].get(nombre) else "",
+                "id_fabrica": (aio.etiqueta(tipo, fabrica[tipo][nombre], nombre)
+                               if fabrica[tipo].get(nombre) else ""),
                 "critica": aio.es_critica(clave), "reforzada": aio.es_reforzada(clave),
                 "temperatura": tipo == "AI" and aio.es_temperatura(nombre),
+                "grupo": aio.grupo(tipo, nombre),
             })
-        ocupados = {t: {str(p): aio.clave(t, f) for f, p in guardada[t].items()} for t in aio.TIPOS}
+        # Tanda 23 (AIN-R1): ocupados POR GRUPO (DI, DO, AI_TEMP, AI_PRES):
+        # RTD 01 y AI 01 son puertos distintos
+        ocupados = {g: {} for g in aio.GRUPOS}
+        for t in aio.TIPOS:
+            for f, p in guardada[t].items():
+                ocupados[aio.grupo(t, f)][str(p)] = aio.clave(t, f)
         codigo, _texto = _motivo_bloqueo()
         # Tanda 19 (MOD-05): los puertos que ofrece el enlace de E/S activo
         puertos = aio.puertos()
@@ -697,7 +723,7 @@ def registrar(app) -> None:
         nombre = aio.base(funcion)
         puerto = (aio.en_memoria().get(tipo) or {}).get(nombre)
         srv._auditar("reasignacion_io_verificada", sesion, entidad=funcion,
-                     valor_nuevo=aio.etiqueta(tipo, puerto) if puerto else None,
+                     valor_nuevo=aio.etiqueta(tipo, puerto, nombre) if puerto else None,
                      detalle={"resultado": "verificada", "tipo": tipo, "metodo": "ingeniero"})
         try:
             ctx.alarma_asignacion_sin_verificar()
@@ -725,6 +751,13 @@ def validar_respaldo(datos: bytes) -> dict:
         obj = json.loads(datos.decode("utf-8"))
     except (UnicodeDecodeError, ValueError):
         raise aio.ErrorAsignacion([{"codigo": "archivo_ilegible", "funcion": "", "puerto": None}])
+    # AIN-05 (tanda 23): un respaldo FORMATO 1 (presión AI 09-16) se migra
+    # (AI 01-16, mismo canal físico); uno con presión fuera de 09-16, inválido
+    obj, movidos = aio.migrar_datos(obj)
+    if movidos is not None:
+        logger.warning("Respaldo con la asignación de E/S en FORMATO %d: se migra a %d (%s)",
+                       aio.FORMATO_ANTERIOR, aio.FORMATO,
+                       aio.texto_movidos(movidos, aio.FORMATO) or "sin presión movida")
     if not isinstance(obj, dict) or obj.get("formato") != aio.FORMATO \
             or not isinstance(obj.get("cambios"), dict):
         raise aio.ErrorAsignacion([{"codigo": "archivo_invalido", "funcion": "", "puerto": None}])
@@ -758,8 +791,9 @@ def restaurar_respaldo(datos: bytes, sesion, entidad: str) -> dict:
     with _lock_escritura:
         _archivo().guardar(cambios, sesion.usuario, _pendientes_tras(nueva))
     for funcion, (tipo, anterior, nuevo) in sorted(diferencias.items()):
+        nombre = aio.base(funcion)
         srv._auditar("reasignacion_io", sesion, entidad=funcion,
-                     valor_anterior=aio.etiqueta(tipo, anterior) if anterior else None,
-                     valor_nuevo=aio.etiqueta(tipo, nuevo),
+                     valor_anterior=aio.etiqueta(tipo, anterior, nombre) if anterior else None,
+                     valor_nuevo=aio.etiqueta(tipo, nuevo, nombre),
                      detalle={"tipo": tipo, "origen": "respaldo"})
     return {"asignacion_io": True, "asignacion_io_funciones": sorted(diferencias)}

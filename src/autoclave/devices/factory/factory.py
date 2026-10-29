@@ -50,7 +50,7 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
 
 def build_modbus(units, al_conectar=None):
     """Enlace Modbus TCP con los módulos M31-U (tanda 19), ya iniciado.
-    `al_conectar(tarjeta)` se registra antes de start() para no perder la
+    `al_conectar(modulo_es)` se registra antes de start() para no perder la
     primera conexión verificada (audit_log y emparejamiento, FW-D7)."""
     try:
         from autoclave.protocols.modbus_link import ModbusLink

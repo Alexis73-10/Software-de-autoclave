@@ -59,7 +59,8 @@ Item {
         }
         const copia = {}
         for (const k of ["id", "level", "description", "priority", "descripciones", "codigo", "titulo",
-                         "titulos", "accion", "acciones", "aparecida", "estado"])
+                         "titulos", "accion", "acciones", "aparecida", "estado", "idVisible",
+                         "codigoVisible"])
             copia[k] = m[k]
         abrir(copia)
     }
@@ -96,7 +97,8 @@ Item {
     function _porIdioma(mapa) { return (mapa ?? {})[I18n.lang] || "" }
     readonly property string sinDato: I18n.t("alarma_detalle.sin_dato", I18n.lang)
     readonly property string nombre: _porIdioma(datos.titulos) || datos.titulo
-                                     || _porIdioma(datos.descripciones) || datos.description || datos.id || ""
+                                     || _porIdioma(datos.descripciones) || datos.description
+                                     || datos.idVisible || datos.id || ""
     function nivelClave(nivel) {
         if (nivel === "FALLA") return "alarma_detalle.nivel_alarma"
         if (nivel === "ALERTA" || nivel === "INFORMATIVO") return "alarma_detalle.nivel_aviso"
@@ -214,7 +216,8 @@ Item {
                     Campo {
                         objectName: "detalleCodigo"
                         rotulo: I18n.t("alarma_detalle.codigo", I18n.lang)
-                        valor: raiz.datos.codigo || ""
+                        // Tanda 23 (MES-04): el código tal como se muestra
+                        valor: raiz.datos.codigoVisible || raiz.datos.codigo || ""
                     }
                     Campo {
                         objectName: "detalleHora"

@@ -1,13 +1,13 @@
-"""U4 (tanda 2, 19-oct): tarjeta desconectada vs. paro de emergencia.
+"""U4 (tanda 2, 19-oct): módulo E/S desconectado vs. paro de emergencia.
 
 Instrucción: docs/mis_plans/instruccion_claude_code_u4_tarjeta_desconectada.md.
 - El flag combinado PARO_EMERGENCIA (paro real o sin datos, D-16/A-3) sigue
   bloqueando y apagando salidas como antes.
 - PARO_REAL = enlace conectado + DI vigente + entrada en 0. SIS-01 y la
   exigencia de "Confirmar y llevar a estado seguro" dependen solo de él.
-- Estado de la tarjeta: desconectada / sin_tramas_validas / ok (falla cerrada:
+- Estado del módulo E/S: desconectada / sin_tramas_validas / ok (falla cerrada:
   sin dato = desconectada).
-- COM-01 solo con la tarjeta desconectada; TARJETA_SIN_TRAMA_VALIDA solo con
+- COM-01 solo con el módulo E/S desconectado; TARJETA_SIN_TRAMA_VALIDA solo con
   el puerto presente; nunca las dos a la vez."""
 
 from unittest.mock import MagicMock, patch
@@ -16,7 +16,7 @@ import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
-from autoclave.protocols.enlace import EventoTarjeta
+from autoclave.protocols.enlace import EventoModuloEs
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import (
     CATALOGO, COM_01, COM_03, SIS_01, TARJETA_SIN_TRAMA_VALIDA,
@@ -53,7 +53,7 @@ def test_al_construir_bloquea_sin_paro_real():
 
 
 # ---------------------------------------------------------------------------
-# ControlLoop: estado de la tarjeta, paro real y alarmas
+# ControlLoop: estado del módulo E/S, paro real y alarmas
 # ---------------------------------------------------------------------------
 
 def _loop(estado=None, alarm_manager=None):
@@ -86,9 +86,9 @@ def _tick(loop, ahora):
         loop._tick()
 
 
-def test_estado_de_la_tarjeta_antes_del_primer_tick_es_desconectada():
+def test_estado_del_modulo_es_antes_del_primer_tick_es_desconectada():
     loop, _ = _loop()
-    assert loop.estado_tarjeta == "desconectada"
+    assert loop.estado_modulo_es == "desconectada"
 
 
 @pytest.mark.parametrize("presente,conectado,edad,esperado", [
@@ -98,11 +98,11 @@ def test_estado_de_la_tarjeta_antes_del_primer_tick_es_desconectada():
     (True, True, None, "sin_tramas_validas"),        # conectada sin primera DI
     (True, True, 0.1, "ok"),
 ])
-def test_estado_de_la_tarjeta(presente, conectado, edad, esperado):
+def test_estado_del_modulo_es(presente, conectado, edad, esperado):
     loop, _ = _loop()
     _enlace(loop, presente, conectado, edad)
     _tick(loop, 100.0)
-    assert loop.estado_tarjeta == esperado
+    assert loop.estado_modulo_es == esperado
 
 
 def test_enlace_sin_puerto_presente_informado_se_deduce_de_la_conexion():
@@ -111,16 +111,16 @@ def test_enlace_sin_puerto_presente_informado_se_deduce_de_la_conexion():
     loop.link.puerto_presente.return_value = MagicMock()
     loop.link.is_connected.return_value = False
     _tick(loop, 100.0)
-    assert loop.estado_tarjeta == "desconectada"
+    assert loop.estado_modulo_es == "desconectada"
 
 
 def test_firmware_incompatible_es_sin_tramas_validas():
     loop, _ = _loop()
     _enlace(loop, presente=True, conectado=False, edad=None)
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("handshake", "TARJETA_VERSION_INCOMPATIBLE", "Firmware 0.9")]
+        EventoModuloEs("handshake", "TARJETA_VERSION_INCOMPATIBLE", "Firmware 0.9")]
     _tick(loop, 100.0)
-    assert loop.estado_tarjeta == "sin_tramas_validas"
+    assert loop.estado_modulo_es == "sin_tramas_validas"
     loop.alarm_manager.activar.assert_any_call("TARJETA_VERSION_INCOMPATIBLE", motivo="Firmware 0.9")
 
 
@@ -203,7 +203,7 @@ def _resueltas(am):
     return [c.args[0] for c in am.resolver.call_args_list]
 
 
-def test_arranque_sin_tarjeta_da_com01_una_vez_y_nunca_sin_trama():
+def test_arranque_sin_modulo_es_da_com01_una_vez_y_nunca_sin_trama():
     loop, _ = _loop()
     for t in (100.0, 102.0, 104.9):
         _tick(loop, t)
@@ -232,11 +232,11 @@ def test_com01_y_sin_trama_son_excluyentes():
     _enlace(loop, presente=False, conectado=False, edad=None)
     _tick(loop, 101.0)
     assert _activadas(am).count(COM_01) == 1
-    # vuelve el puerto pero la tarjeta no habla: se resuelve COM-01 y el
+    # vuelve el puerto pero el módulo E/S no habla: se resuelve COM-01 y el
     # handshake reporta la falta de tramas
     _enlace(loop, presente=True, conectado=False, edad=None)
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("handshake", TARJETA_SIN_TRAMA_VALIDA, "No llegó ninguna trama válida.")]
+        EventoModuloEs("handshake", TARJETA_SIN_TRAMA_VALIDA, "No llegó ninguna trama válida.")]
     _tick(loop, 120.0)
     loop.link.tomar_eventos.return_value = []
     assert COM_01 in _resueltas(am)
@@ -246,7 +246,7 @@ def test_com01_y_sin_trama_son_excluyentes():
     _tick(loop, 130.0)
     assert TARJETA_SIN_TRAMA_VALIDA in _resueltas(am)
     assert _activadas(am).count(COM_01) == 2
-    assert TARJETA_SIN_TRAMA_VALIDA not in loop._alarmas_tarjeta
+    assert TARJETA_SIN_TRAMA_VALIDA not in loop._alarmas_modulo_es
 
 
 def test_com01_y_sin_trama_nunca_activas_a_la_vez_con_alarm_manager_real():
@@ -255,10 +255,10 @@ def test_com01_y_sin_trama_nunca_activas_a_la_vez_con_alarm_manager_real():
     secuencia = [
         (True, True, 0.1, []),
         (False, False, None, []),
-        (True, False, None, [EventoTarjeta("handshake", TARJETA_SIN_TRAMA_VALIDA, "x")]),
+        (True, False, None, [EventoModuloEs("handshake", TARJETA_SIN_TRAMA_VALIDA, "x")]),
         (True, False, None, []),
         (False, False, None, []),
-        (True, True, 0.1, [EventoTarjeta("conectada", None, "ok")]),
+        (True, True, 0.1, [EventoModuloEs("conectada", None, "ok")]),
     ]
     for i, (presente, conectado, edad, eventos) in enumerate(secuencia):
         _enlace(loop, presente, conectado, edad)
@@ -311,7 +311,7 @@ def test_cierre_por_timeout_de_datos_no_resuelve_la_alarma_propia():
     _enlace(loop, presente=True, conectado=False, edad=None)
     _tick(loop, 103.0)
     assert TARJETA_SIN_TRAMA_VALIDA not in _resueltas(am)
-    assert loop.estado_tarjeta == "sin_tramas_validas"
+    assert loop.estado_modulo_es == "sin_tramas_validas"
 
 
 def test_handshake_cortado_por_desconexion_no_da_segunda_alarma():
@@ -319,10 +319,10 @@ def test_handshake_cortado_por_desconexion_no_da_segunda_alarma():
     loop, _ = _loop()
     _enlace(loop, presente=False, conectado=False, edad=None)
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("handshake", "TARJETA_VERSION_INCOMPATIBLE", "No respondió a VER.")]
+        EventoModuloEs("handshake", "TARJETA_VERSION_INCOMPATIBLE", "No respondió a VER.")]
     _tick(loop, 100.0)
     assert "TARJETA_VERSION_INCOMPATIBLE" not in _activadas(loop.alarm_manager)
-    assert "TARJETA_VERSION_INCOMPATIBLE" not in loop._alarmas_tarjeta
+    assert "TARJETA_VERSION_INCOMPATIBLE" not in loop._alarmas_modulo_es
 
 
 def test_primera_di_pendiente_no_da_sin_trama():
@@ -394,12 +394,12 @@ def test_sis01_ya_no_dice_sin_datos():
     assert "sin datos" not in d.descripcion.lower()
 
 
-def test_com01_texto_de_tarjeta_desconectada():
+def test_com01_texto_de_modulo_es_desconectado():
     d = CATALOGO[COM_01]
-    assert d.titulo == "Tarjeta de E/S desconectada"
-    assert d.descripcion == "No se detecta la tarjeta de control."
+    assert d.titulo == "Módulo E/S desconectado"
+    assert d.descripcion == "No se detecta el módulo E/S."
     # T20-03 (DECISIÓN SIN CONFIRMAR): «cable USB» -> «cable de red» (Modbus TCP)
-    assert d.accion == "Conecte la tarjeta (cable de red) y verifique su alimentación."
+    assert d.accion == "Conecte el módulo E/S (cable de red) y verifique su alimentación."
 
 
 # ---------------------------------------------------------------------------
@@ -484,7 +484,7 @@ def test_estado_seguro_paro_real_y_desconexion_sigue_pidiendo_confirmacion():
     estado.set_flag("PARO_EMERGENCIA", True)
     estado.set_flag("PARO_REAL", True)
     es.update(datos_vigentes=True)
-    estado.set_flag("PARO_REAL", False)               # se pierde la tarjeta
+    estado.set_flag("PARO_REAL", False)               # se pierde el módulo E/S
     es.update(datos_vigentes=False)
     estado.set_flag("PARO_EMERGENCIA", False)         # reconecta sin paro
     es.update(datos_vigentes=True)
@@ -506,7 +506,7 @@ def test_estado_seguro_sin_datos_no_registra_paro_activado():
 # Backend: /status y textos de rechazo
 # ---------------------------------------------------------------------------
 
-def _cliente(flags, estado_tarjeta="ok"):
+def _cliente(flags, estado_modulo_es="ok"):
     import threading
     from fastapi.testclient import TestClient
     from autoclave.state_machine.machine.enum_global import GlobalState
@@ -516,7 +516,7 @@ def _cliente(flags, estado_tarjeta="ok"):
     ctx.estado.get_machine_state.return_value = GlobalState.FALLA
     ctx.control_loop.bloqueo_maquina.return_value = threading.Lock()
     ctx.control_loop.test_mode_active = False
-    ctx.control_loop.estado_tarjeta = estado_tarjeta
+    ctx.control_loop.estado_modulo_es = estado_modulo_es
     srv, _ = cargar_servidor(ctx)
     return TestClient(srv.app), srv, ctx
 
@@ -525,7 +525,7 @@ def test_confirmar_sin_datos_dice_la_causa_real():
     client, _, ctx = _cliente({"PARO_EMERGENCIA": True})
     r = client.post("/safe-state/confirm")
     assert r.status_code == 409 and r.json()["codigo"] == "paro_emergencia"
-    assert "tarjeta" in r.json()["detail"].lower()
+    assert "módulo e/s" in r.json()["detail"].lower()
     ctx.control_loop.confirmar_estado_seguro.assert_not_called()
 
 
@@ -539,9 +539,9 @@ def test_confirmar_con_paro_real_dice_paro():
     ("ok", "ok"), ("sin_tramas_validas", "sin_tramas_validas"),
     ("desconectada", "desconectada"), (None, "desconectada"), (MagicMock(), "desconectada"),
 ])
-def test_status_publica_el_estado_de_la_tarjeta(valor, esperado):
-    _, srv, _ = _cliente({}, estado_tarjeta=valor)
-    assert modulo_backend("rutas.sistema")._estado_tarjeta() == esperado
+def test_status_publica_el_estado_del_modulo_es(valor, esperado):
+    _, srv, _ = _cliente({}, estado_modulo_es=valor)
+    assert modulo_backend("rutas.sistema")._estado_modulo_es() == esperado
 
 
 def test_puerto_presente_sin_conexion_da_sin_trama_pasada_la_tolerancia():
@@ -560,7 +560,7 @@ def test_puerto_presente_sin_conexion_da_sin_trama_pasada_la_tolerancia():
     assert TARJETA_SIN_TRAMA_VALIDA in _resueltas(loop.alarm_manager)
 
 
-def test_fallo_al_evaluar_la_tarjeta_no_impide_publicar_el_paro():
+def test_fallo_al_evaluar_el_modulo_es_no_impide_publicar_el_paro():
     # revisión SAF-05
     loop, estado = _loop()
     _enlace(loop, presente=True, conectado=True, edad=0.1)
@@ -570,4 +570,4 @@ def test_fallo_al_evaluar_la_tarjeta_no_impide_publicar_el_paro():
     loop.link.is_connected.return_value = False
     _tick(loop, 101.0)
     assert estado.get_flag("PARO_EMERGENCIA") is True
-    assert loop.estado_tarjeta == "desconectada"
+    assert loop.estado_modulo_es == "desconectada"

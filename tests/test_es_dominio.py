@@ -6,15 +6,15 @@ from autoclave.ui_qml.domain import entradas_salidas as d
 _CH_DI = [{"name": "paro_emergencia", "estado_key": "paro_emergencia", "i18n": "io.di.paro_emergencia", "id": "DI 11"}]
 _CH_DO = [{"name": "vapor_camara", "estado_key": "vapor_camara", "i18n": "io.do.vapor_camara",
            "id": "DO 04", "momentanea": False, "bloqueada": False}]
-_ST = {"estado_tarjeta": "ok", "card_connected": True, "test_mode_active": False,
+_ST = {"estado_modulo_es": "ok", "card_connected": True, "test_mode_active": False,
        "sensors": {"digital_inputs": {"paro_emergencia": 1}, "digital_outputs": {"vapor_camara": 1},
                    "temperature": {"camara": 121.5}, "pressure": {"camara": 205.0},
                    "adc": {"temp_camara": 2100, "pres_camara": 2400}}}
 
 
-def test_enlace_ok_solo_con_tarjeta_ok():
+def test_enlace_ok_solo_con_modulo_es_ok():
     assert d.enlace_ok(_ST) is True
-    assert d.enlace_ok({**_ST, "estado_tarjeta": "desconectada"}) is False
+    assert d.enlace_ok({**_ST, "estado_modulo_es": "desconectada"}) is False
     assert d.enlace_ok(None) is False
 
 
@@ -27,7 +27,7 @@ def test_entradas_nivel_crudo_activo_inactivo():
 
 def test_entradas_sin_datos_nunca_cero():
     assert d.presentar_entradas(_CH_DI, None)[0]["activo"] is None
-    assert d.presentar_entradas(_CH_DI, {**_ST, "estado_tarjeta": "desconectada"})[0]["activo"] is None
+    assert d.presentar_entradas(_CH_DI, {**_ST, "estado_modulo_es": "desconectada"})[0]["activo"] is None
     # valor fuera de 0/1 tampoco se inventa
     st = {**_ST, "sensors": {**_ST["sensors"], "digital_inputs": {"paro_emergencia": 7}}}
     assert d.presentar_entradas(_CH_DI, st)[0]["activo"] is None

@@ -10,7 +10,7 @@ grabados, así que aquí se usa un modelo físico simple de la cámara:
     los escapes ventean hacia la atmósfera; aire comprimido suma P_aire;
     pérdidas térmicas hacia 25 °C;
   - chaqueta: sube con su vapor y baja con su escape.
-CicloState corre con SetOutput real sobre una tarjeta simulada, con reloj
+CicloState corre con SetOutput real sobre un módulo E/S simulado, con reloj
 monotónico virtual (0,5 s por tick). Valores de la planta PROVISIONALES: la
 prueba verifica la secuencia de fases y que el ciclo termine COMPLETADO sin
 fallos, no la dinámica real del equipo."""
@@ -59,7 +59,7 @@ def tsat(p: float) -> float:
     return (bajo + alto) / 2
 
 
-class _Tarjeta:
+class _ModuloEs:
     """Salidas digitales 1-indexadas (canal = índice de map_do + 1)."""
 
     def __init__(self, estado):
@@ -92,13 +92,13 @@ class _Planta:
     CONDENSACION = 0.1    # 1/s, intercambio vapor-carga
     CALOR = 0.15          # 1/s, T hacia T_sat(P_v)
 
-    def __init__(self, tarjeta):
+    def __init__(self, modulo_es):
         self.t = T_AMB
         self.p_v = psat(T_AMB)
         self.p_aire = P_ATM - self.p_v
         self.p_chaqueta = P_ATM
         self.t_sonda = T_AMB
-        self.tarjeta = tarjeta
+        self.modulo_es = modulo_es
 
     @property
     def p(self):
@@ -110,7 +110,7 @@ class _Planta:
         self.p_v *= (1 - fraccion)
 
     def paso(self):
-        on = self.tarjeta.on
+        on = self.modulo_es.on
         if on("vapor_camara") and self.p < self.P_FUENTE:
             self.p_v += self.INYECCION * DT * min(1.0, (self.P_FUENTE - self.p) / 50)
         if on("vacio_camara") and on("bomba_vacio"):
@@ -181,17 +181,17 @@ def _correr(programa, monkeypatch, limite_s=4 * 3600, sonda_cero_en=None):
     for di in estado.sensores_di:
         estado.sensores_di[di] = 1
     estado.sensores_di["paro_emergencia"] = 1           # NC: 1 = sin paro
-    tarjeta = _Tarjeta(estado)
+    modulo_es = _ModuloEs(estado)
     config = ConfigManager()
     config.load_config()
     global P_ATM
     P_ATM = float(config.get("presion_admosferica") or 101.3)
-    planta = _Planta(tarjeta)
+    planta = _Planta(modulo_es)
     alarmas = AlarmManager()
     profile = MagicMock(door_count=2, door_type=None, vapor_source="generator",
                         equipment_class=EquipmentClass.PISO_LAB,
                         supply_inputs={}, temperature_probes={})
-    set_do = SetOutput(tarjeta, estado, profile=None)
+    set_do = SetOutput(modulo_es, estado, profile=None)
     ciclo = CicloState(estado, set_do, programa, config, alarmas,
                        cap=get_capabilities(EquipmentClass.PISO_LAB))
     planta.publicar(estado)
@@ -213,7 +213,7 @@ def _correr(programa, monkeypatch, limite_s=4 * 3600, sonda_cero_en=None):
                            and estado.salidas_do.get("agua_chaqueta"))
         t_fase[estado.fase_ciclo] = t_fase.get(estado.fase_ciclo, 0) + DT
         # temperatura REAL de la planta, no la de la sonda (SAF-07 de T11)
-        if tarjeta.on("descompresion_rapida") and planta.t > 80.5:
+        if modulo_es.on("descompresion_rapida") and planta.t > 80.5:
             t_max_rapida_caliente = max(t_max_rapida_caliente or 0, planta.t)
         if r == CicloResultado.ESPERANDO_CONFIRMACION:
             resultado = estado.fase_ciclo

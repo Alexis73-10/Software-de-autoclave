@@ -103,20 +103,20 @@ def test_estado_inicial_falla_cerrada():
     enlace = ModbusLink(config=config_para(M31Simulado()))
     st = enlace.get_state()
     assert set(st) == {"ai", "ai_seq", "di", "do", "port_open", "data_alive", "last_update"}
-    assert len(st["ai"]) == 16 and len(st["di"]) == 56 and len(st["do"]) == 32
+    assert len(st["ai"]) == 24 and len(st["di"]) == 56     # tanda 23 (AIN-03) and len(st["do"]) == 32
     assert st["ai_seq"] == 0 and not st["port_open"] and not st["data_alive"]
     assert not enlace.is_connected() and not enlace.puerto_presente()
     assert enlace.handshake_completo is False
     assert enlace.edad_ultima_di() is None and enlace.edad_ultima_ai() is None
     assert enlace.secuencia_ultima_di() is None and enlace.secuencia_ultima_ai() is None
     assert enlace.estado_ultima_ai() == (None, None)
-    assert enlace.tarjeta() == {"version": None, "protocolo": None, "id": None}
+    assert enlace.modulo_es() == {"version": None, "protocolo": None, "id": None}
     assert enlace.set_output(1, True) is False
     assert enlace.all_off(0.1) is False
     diag = enlace.get_diagnostico()
     assert set(diag) == {"lineas_invalidas_total", "lineas_invalidas_consecutivas",
-                         "handshake_completo", "tarjeta_st", "modulos"}
-    assert diag["tarjeta_st"] is None
+                         "handshake_completo", "modulo_es_st", "modulos"}
+    assert diag["modulo_es_st"] is None
     # Tanda 20: se agregan "registro_0c37" (ADB-05, valor crudo de 0x0C37) y
     # "reinicios_modulo" (ADB-04 / decisión 8) a las claves anteriores.
     assert set(diag["modulos"]) == {"modelos", "firmware", "mac", "codigo_error",
@@ -140,11 +140,11 @@ def test_conexion_correcta(sim, crear):
     assert [(e.origen, e.alarm_id) for e in eventos] == [("conectada", None)]
     # FW-INF (corrige ADB-02, 28-oct): texto 0x0C2C del principal y «vX.Y»
     # de cada esclavo según 0x0D80 (valores reales del equipo de pruebas).
-    tarjeta = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp",
+    modulo_es = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp",
                "id": "A1B2C3D4E5F6"}
-    assert enlace.tarjeta() == tarjeta
+    assert enlace.modulo_es() == modulo_es
     # al_conectar corre antes de que se encole "conectada"
-    assert len(orden) == 1 and orden[0][1] == tarjeta and orden[0][2] == []
+    assert len(orden) == 1 and orden[0][1] == modulo_es and orden[0][2] == []
     assert enlace.puerto_presente() and enlace.handshake_completo
     # Configuración de seguridad escrita
     h = sim.holding
@@ -275,7 +275,7 @@ def test_firmware_principal_mas_nuevo_es_valido(sim, crear):
     sim.fijar_firmware_texto("9232-0-16")
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-16 / v1.0,v1.5,v2.0,v1.5,v1.0"
+    assert enlace.modulo_es()["version"] == "9232-0-16 / v1.0,v1.5,v2.0,v1.5,v1.0"
     assert enlace.get_diagnostico()["modulos"]["firmware"]["compatible"] is True
 
 
@@ -358,7 +358,8 @@ def test_mapa_de_datos_y_codigos_pt100(sim, crear):
     st = enlace.get_state()
     assert st["ai"][:8] == [1340, None, None, -25, None, None, None, None]
     # Crudo en µA; el módulo entrega 0 por debajo de 3,85 mA (rango 4-20 mA)
-    assert st["ai"][8:] == [4000, 20000, 12000, 0, 3850, 0, 21000, 5000]
+    # tanda 23 (AIN-03): las 16 AI, en ai[8..23]
+    assert st["ai"][8:] == [4000, 20000, 12000, 0, 3850, 0, 21000, 5000] + [7777] * 8
     assert st["di"] == [1 if i % 3 == 0 else 0 for i in range(16)] + [0] * 40
     assert st["do"] == [0] * 32
     assert st["port_open"] and st["data_alive"] and st["last_update"] is not None

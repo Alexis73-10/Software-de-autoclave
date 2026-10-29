@@ -7,9 +7,9 @@ El simulador del repositorio (autoclave.simulador) solo repite ciclos grabados:
 no puede provocar fallas.
 
 Eventos por programa: ciclo completo, cancelación, paro de emergencia en ciclo,
-pérdida de la tarjeta en ciclo, corte de energía y reinicio con la cámara
+pérdida del módulo E/S en ciclo, corte de energía y reinicio con la cámara
 caliente. Los eventos que no dependen del programa (apagado en FALLA y sin
-tarjeta, A1; cambio de programa en FALLA, S2) se verifican con sus pruebas
+módulo E/S, A1; cambio de programa en FALLA, S2) se verifican con sus pruebas
 (ver el informe). Con E1_ESCRIBIR_INFORME=1 se escribe la tabla en
 docs/informes/tanda3/E1_tabla.md.
 """
@@ -36,10 +36,10 @@ from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.state_machine.states.ciclo import CicloResultado, CicloState
 from tests import test_t11_programas_integracion as t11
-from tests.test_t11_programas_integracion import DT, _Planta, _Tarjeta
+from tests.test_t11_programas_integracion import DT, _Planta, _ModuloEs
 
 PROGRAMAS = {1: "Bowie & Dick", 2: "Instrumental 134", 3: "Instrumental 121", 4: "Líquidos"}
-EVENTOS = ("completo", "cancelacion", "paro", "perdida_tarjeta", "corte_y_reinicio")
+EVENTOS = ("completo", "cancelacion", "paro", "perdida_modulo_es", "corte_y_reinicio")
 SALIDAS_DE_PROCESO = ("vapor_camara", "vapor_chaqueta", "vacio_camara", "bomba_vacio",
                       "aire_comprimido_camara")
 RESULTADOS: dict[tuple[int, str], dict] = {}
@@ -61,13 +61,13 @@ def _armar(programa, monkeypatch, tmp_path, db=None, contador=None):
         estado.sensores_di[di] = 1
     estado.sensores_di["paro_emergencia"] = 1
     estado.set_machine_state(GlobalState.CICLO)
-    tarjeta = _Tarjeta(estado)
+    modulo_es = _ModuloEs(estado)
     config = ConfigManager()
     config.load_config()
     t11.P_ATM = float(config.get("presion_admosferica") or 101.3)
-    planta = _Planta(tarjeta)
+    planta = _Planta(modulo_es)
     alarmas = AlarmManager()
-    set_do = SetOutput(tarjeta, estado, profile=None)
+    set_do = SetOutput(modulo_es, estado, profile=None)
     ciclo = CicloState(estado, set_do, programa, config, alarmas,
                        cap=get_capabilities(EquipmentClass.PISO_LAB))
     printer = MagicMock()
@@ -81,7 +81,7 @@ def _armar(programa, monkeypatch, tmp_path, db=None, contador=None):
     planta.publicar(estado)
     ciclo.reset()
     estado.operador_inicio = "ensayo"
-    return dict(reloj=reloj, estado=estado, tarjeta=tarjeta, config=config, planta=planta, alarmas=alarmas,
+    return dict(reloj=reloj, estado=estado, modulo_es=modulo_es, config=config, planta=planta, alarmas=alarmas,
                 set_do=set_do, ciclo=ciclo, printer=printer, registro=registro, contador=contador)
 
 
@@ -183,11 +183,11 @@ def _evento_paro(a, **_):
     return con_paro
 
 
-def _evento_perdida_tarjeta(a, **_):
+def _evento_perdida_modulo_es(a, **_):
     _hasta_fase(a, "ESTERILIZACION", extra_s=60)
     a["ciclo"].abortar_por_desconexion(5.0)                     # lo que hace el ControlLoop pasada la tolerancia
     _terminar(a)
-    return _resumen(a, "perdida_tarjeta")
+    return _resumen(a, "perdida_modulo_es")
 
 
 def _evento_corte_y_reinicio(a, tmp_path=None, programa=None, monkeypatch=None, db_ruta=None, **_):
@@ -195,7 +195,7 @@ def _evento_corte_y_reinicio(a, tmp_path=None, programa=None, monkeypatch=None, 
     planta, programa_ciclo = a["planta"], a["ciclo"].cycle
     marca = a["contador"].en_curso()
     # ── corte de energía: se pierde todo lo que está en memoria ──────────────
-    a["tarjeta"].all_off()                                      # el watchdog de la tarjeta apaga las salidas
+    a["modulo_es"].all_off()                                      # el watchdog del módulo E/S apaga las salidas
     # ── reinicio: base nueva (cierra el ciclo interrumpido), estado nuevo, cámara física intacta ──
     db2 = DbManager(db_ruta)
     cerrados = db2.cerrar_ciclos_interrumpidos("Ciclo interrumpido: el equipo se reinició o perdió energía")
@@ -204,9 +204,9 @@ def _evento_corte_y_reinicio(a, tmp_path=None, programa=None, monkeypatch=None, 
     for di in estado2.sensores_di:
         estado2.sensores_di[di] = 1
     estado2.set_machine_state(GlobalState.PREPARACION)
-    tarjeta2 = _Tarjeta(estado2)
-    planta.tarjeta = tarjeta2
-    set_do2 = SetOutput(tarjeta2, estado2, profile=None)
+    modulo_es2 = _ModuloEs(estado2)
+    planta.modulo_es = modulo_es2
+    set_do2 = SetOutput(modulo_es2, estado2, profile=None)
     planta.publicar(estado2)
     segura0, motivo0 = camara_segura.evaluar(estado2, a["config"], [programa_ciclo], None, datos_vigentes=True)
     prot = ProtocoloFallo(estado2, set_do2, programa_ciclo, a["config"])
@@ -227,7 +227,7 @@ def _evento_corte_y_reinicio(a, tmp_path=None, programa=None, monkeypatch=None, 
     for _ in range(int(3 * 3600 / DT)):
         planta.publicar(estado2)
         es.update()
-        if tarjeta2.on("descompresion_rapida") and planta.t > 80.5:
+        if modulo_es2.on("descompresion_rapida") and planta.t > 80.5:
             rapida_caliente = max(rapida_caliente or 0, planta.t)
         if not es.activo:
             break
@@ -246,7 +246,7 @@ def _evento_corte_y_reinicio(a, tmp_path=None, programa=None, monkeypatch=None, 
 
 
 _FUNCIONES = {"completo": _evento_completo, "cancelacion": _evento_cancelacion, "paro": _evento_paro,
-              "perdida_tarjeta": _evento_perdida_tarjeta, "corte_y_reinicio": _evento_corte_y_reinicio}
+              "perdida_modulo_es": _evento_perdida_modulo_es, "corte_y_reinicio": _evento_corte_y_reinicio}
 
 
 @pytest.mark.parametrize("numero", sorted(PROGRAMAS))
@@ -259,7 +259,7 @@ def test_ensayo(programas, monkeypatch, tmp_path, numero, evento):
     RESULTADOS[(numero, evento)] = r
 
     # invariantes de seguridad de TODOS los eventos
-    assert not a["tarjeta"].on("vapor_camara") or evento == "completo"
+    assert not a["modulo_es"].on("vapor_camara") or evento == "completo"
     if evento == "completo":
         assert r["fase_final"] == "COMPLETADO" and "Estado: COMPLETADO" in r["estado_ticket"], r
         assert r["operador_ticket"] == "Operador: ensayo" and r["lecturas_ticket"] >= 3
@@ -272,7 +272,7 @@ def test_ensayo(programas, monkeypatch, tmp_path, numero, evento):
         assert r["fase_final"] == "EMERGENCIA" and "SIS-01" in r["alarmas"], r
         assert r["salidas_proceso_al_final"] == []
         assert r["tras_soltar_paro_sin_confirmar"] == "salidas de proceso en 0"
-    elif evento == "perdida_tarjeta":
+    elif evento == "perdida_modulo_es":
         assert r["fase_final"] == "FALLO_CONEXION" and "COM-02" in r["alarmas"], r
         assert r["salidas_proceso_al_final"] == []
     else:
@@ -284,7 +284,7 @@ def test_ensayo(programas, monkeypatch, tmp_path, numero, evento):
             assert r["rapida_con_carga_caliente"] is None, r
         # sólidos: la descompresión del programa puede usar la rápida con la carga caliente
         # (no hay líquido que hierva); el valor queda en la tabla como dato
-    if evento in ("cancelacion", "paro", "perdida_tarjeta"):
+    if evento in ("cancelacion", "paro", "perdida_modulo_es"):
         assert r["estado_ticket"] != "—"                         # el ticket se cerró con el estado del fallo
 
 

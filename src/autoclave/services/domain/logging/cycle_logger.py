@@ -534,9 +534,9 @@ class CycleLogger:
             numero, self._ciclo_id, nombre
         )
 
-    def _sin_datos_tarjeta_s(self) -> float | None:
-        """T2-a: segundos del ciclo sin datos de la tarjeta, o None."""
-        valor = getattr(self.estado, "sin_datos_tarjeta_s", None)
+    def _sin_datos_modulo_es_s(self) -> float | None:
+        """T2-a: segundos del ciclo sin datos del módulo E/S, o None."""
+        valor = getattr(self.estado, "sin_datos_modulo_es_s", None)
         if isinstance(valor, bool) or not isinstance(valor, (int, float)) or valor <= 0:
             return None
         return float(valor)
@@ -569,7 +569,7 @@ class CycleLogger:
                 logger.warning("CycleLogger: no se pudo leer F0 del ciclo: %s", exc)
             # D8-2.14: las líneas de aviso del pie, también en la base y el
             # respaldo, para que la reimpresión sea idéntica al ticket en vivo
-            sin_datos_s = self._sin_datos_tarjeta_s()
+            sin_datos_s = self._sin_datos_modulo_es_s()
             # X9 (D9-13.4): texto o {"clave": ..., parámetros}
             avisos = [a for a in (getattr(self.estado, "avisos_ciclo", None) or [])
                       if isinstance(a, str)

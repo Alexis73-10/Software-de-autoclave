@@ -17,7 +17,7 @@ _MAX_EVENTOS_RECIENTES = 20
 # reconocidas fuera de CICLO se resuelven en el acto.
 DESPEJE_POR_RECONOCIMIENTO = frozenset({COM_02, COM_03})
 # D8-2.11 (tanda 8, SAF-01 de la revisión S2b): COM-04 ("Salidas sin
-# confirmar") solo se resuelve con una confirmación de la tarjeta (ALL_OFF con
+# confirmar") solo se resuelve con una confirmación del módulo E/S (ALL_OFF con
 # ACK o handshake completo, ControlLoop._salidas_confirmadas); nunca al salir
 # de FALLA por reconocimiento.
 DESPEJE_SOLO_POR_CONFIRMACION = frozenset({COM_04})
@@ -46,7 +46,7 @@ class AlarmManager:
         self._eventos: deque[InstanciaAlarma] = deque(maxlen=_MAX_EVENTOS_RECIENTES)
         self._oyentes = []
         # T2-b (tanda 7, decisión 1.3 de Cristian): callable -> True si el
-        # enlace con la tarjeta volvió a "ok" (3 tramas vigentes seguidas). Lo
+        # enlace con el módulo E/S volvió a "ok" (3 tramas vigentes seguidas). Lo
         # conecta el BackendContext. None = sin la exigencia (dobles de prueba).
         self.enlace_ok = None
         # R8 (tanda 8): condiciones que bloquean el inicio de ciclo aunque su
@@ -112,7 +112,7 @@ class AlarmManager:
         try:
             return self.enlace_ok() is True
         except Exception:
-            logger.exception("No se pudo consultar el estado del enlace con la tarjeta")
+            logger.exception("No se pudo consultar el estado del enlace con el módulo E/S")
             return False
 
     def despeje_bloqueado(self, clave: str) -> bool:

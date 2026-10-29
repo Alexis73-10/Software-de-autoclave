@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 # (clave de texto, duración en s) — etapas y ritmo de la previsualización
 ETAPAS_EJEMPLO = (
     ("iniciando_servicios", 1.0),
-    ("conectando_tarjeta", 1.2),
+    ("conectando_modulo_es", 1.2),
     ("verificando_sensores", 1.2),
     ("abriendo_base_datos", 1.0),
 )
@@ -196,12 +196,12 @@ class ProgresoArranqueSinPerfil(QObject):
 # ── Progreso REAL del backend (GET /arranque) ──────────────────────────────
 #
 # Observación de Cristian (19-oct): la barra del simulador no mostraba lo que
-# pasa de verdad (la tarjeta, el backend). Aquí la intro sigue las etapas que
+# pasa de verdad (el módulo E/S, el backend). Aquí la intro sigue las etapas que
 # publica el backend (backend/arranque/registro.py, contrato de GET /arranque).
 # Mientras el backend aún no responde, el proceso es "iniciando_servicios".
-# Sin tarjeta, el backend reintenta las E/S para siempre (ARR_SIN_ES a los
-# 15 s); la intro termina igual y la pantalla principal muestra "tarjeta
-# desconectada" (U4). Solo presentación: no condiciona nada del arranque.
+# Sin módulo E/S, el backend reintenta las E/S para siempre (ARR_SIN_ES a los
+# 15 s); la intro termina igual y la pantalla principal muestra "módulo E/S
+# desconectado" (U4). Solo presentación: no condiciona nada del arranque.
 
 _ETAPA_UI = "preparando_interfaz"      # la completa cada UI: no cuenta aquí
 _CODIGO_SIN_ES = "ARR_SIN_ES"
