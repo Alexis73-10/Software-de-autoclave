@@ -44,7 +44,7 @@ def _di_vencida(a, segundos):
     vapor = []
     for _ in range(int(segundos / DT)):
         assert e1._tick(a) == CicloResultado.EN_CURSO
-        vapor.append(bool(a["tarjeta"].on("vapor_camara")))
+        vapor.append(bool(a["modulo_es"].on("vapor_camara")))
         e1._avanzar(a)
     a["estado"].set_flag("PARO_EMERGENCIA", False)
     return any(vapor)
@@ -87,9 +87,9 @@ def _evento_r1p4_cancelacion_y_principal_perdido(a):
     rapida = chaqueta = aire = False
     for _ in range(int(1200 / DT)):
         e1._tick(a)
-        rapida |= bool(a["tarjeta"].on("descompresion_rapida"))
-        chaqueta |= bool(a["tarjeta"].on("descompresion_chaqueta"))
-        aire |= bool(a["tarjeta"].on("aire_comprimido_camara"))
+        rapida |= bool(a["modulo_es"].on("descompresion_rapida"))
+        chaqueta |= bool(a["modulo_es"].on("descompresion_chaqueta"))
+        aire |= bool(a["modulo_es"].on("aire_comprimido_camara"))
         e1._avanzar(a)
     # tras el reconocimiento sigue el estado seguro con el mismo criterio
     es = ProtocoloEstadoSeguro(a["estado"], a["config"],
@@ -100,7 +100,7 @@ def _evento_r1p4_cancelacion_y_principal_perdido(a):
             "solo_lenta_despues": a["ciclo"]._protocolo.solo_lenta,
             "rapida_tras_perdida": rapida, "chaqueta_tras_perdida": chaqueta,
             "contrapresion_tras_perdida": aire,
-            "lenta_al_final": bool(a["tarjeta"].on("descompresion_lenta")),
+            "lenta_al_final": bool(a["modulo_es"].on("descompresion_lenta")),
             "estado_seguro_sale_sin_tecnico": es.permite_salir_de_falla,
             "P": round(a["planta"].p, 1)}
 

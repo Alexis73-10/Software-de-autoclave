@@ -349,7 +349,7 @@ def _apagadas(loop):
 def test_lazo_apaga_el_vapor_en_el_mismo_tick_si_se_abre_una_puerta():
     loop = _loop_vivo()
     _en_prueba(loop)
-    loop.estado.salidas_do["vapor_camara"] = 1            # la tarjeta lo reporta encendido
+    loop.estado.salidas_do["vapor_camara"] = 1            # el módulo E/S lo reporta encendido
     loop._tick()
     assert _canal("vapor_camara") not in _apagadas(loop)
     assert loop.avisos_corte_prueba == []

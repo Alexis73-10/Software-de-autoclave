@@ -81,7 +81,7 @@ def _evento_d826(a):
             "solo_lenta": a["ciclo"]._protocolo.solo_lenta,
             "sale_de_falla_sin_tecnico": es.permite_salir_de_falla,
             "camara_segura": not es.activo,
-            "rapida_abierta": bool(a["tarjeta"].on("descompresion_rapida"))}
+            "rapida_abierta": bool(a["modulo_es"].on("descompresion_rapida"))}
 
 
 def _evento_d827(a):
@@ -193,7 +193,7 @@ def _evento_d8210(a, con_referencia=False):
     abiertas = set()
     for _ in range(int(600 / DT)):                     # 10 min
         e1._tick(a)
-        abiertas |= {v for v in _VALVULAS if a["tarjeta"].on(v)}
+        abiertas |= {v for v in _VALVULAS if a["modulo_es"].on(v)}
         e1._avanzar(a)
     sellado = prot.sellado
     ref_c = a["estado"].sensores_temp.get("temp_ref")
@@ -202,7 +202,7 @@ def _evento_d8210(a, con_referencia=False):
     minuto_venteo = None
     for _ in range(int(45 * 60 / DT)):
         e1._tick(a)
-        if minuto_venteo is None and a["tarjeta"].on("descompresion_lenta"):
+        if minuto_venteo is None and a["modulo_es"].on("descompresion_lenta"):
             minuto_venteo = round((a["reloj"][0] - t0) / 60, 1)
             break
         e1._avanzar(a)
@@ -210,7 +210,7 @@ def _evento_d8210(a, con_referencia=False):
             "sellado_10_min": sellado, "abiertas_10_min": ",".join(sorted(abiertas)) or "ninguna",
             "ref_C": round(ref_c, 1) if ref_c is not None else None,
             "minuto_venteo_lenta": minuto_venteo,
-            "rapida_al_ventear": bool(a["tarjeta"].on("descompresion_rapida")),
+            "rapida_al_ventear": bool(a["modulo_es"].on("descompresion_rapida")),
             "motivo_venteo": prot.motivo_venteo}
 
 

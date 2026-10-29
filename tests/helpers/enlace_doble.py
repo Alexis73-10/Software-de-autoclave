@@ -37,7 +37,7 @@ class EnlaceDoble:
         self.ordenes: list[tuple[int, bool]] = []
         self._atascadas: dict[int, bool] = {}
         self._eventos: list[EventoTarjeta] = []
-        self._tarjeta = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp", "id": mac}
+        self._modulo_es = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp", "id": mac}
         self._seq_di = 0
         self._seq_ai = 0
         self._t_di: Optional[float] = None
@@ -76,7 +76,7 @@ class EnlaceDoble:
         return self.conectado
 
     def tarjeta(self) -> Dict[str, Any]:
-        return dict(self._tarjeta) if self.conectado else {}
+        return dict(self._modulo_es) if self.conectado else {}
 
     # --- Vida de las lecturas -------------------------------------------
     def edad_ultima_di(self, now: Optional[float] = None) -> Optional[float]:
@@ -120,7 +120,7 @@ class EnlaceDoble:
             "lineas_invalidas_consecutivas": 0,
             "handshake_completo": self.conectado,
             "tarjeta_st": None,
-            "modulos": {"enlace": "modbus", "mac": self._tarjeta["id"]},
+            "modulos": {"enlace": "modbus", "mac": self._modulo_es["id"]},
         }
 
     # --- Salidas --------------------------------------------------------

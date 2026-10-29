@@ -128,7 +128,7 @@ def test_db_estado(servidor):
     assert client.get("/db/estado").json() == {"estado": "DEGRADADA", "sin_base_de_datos": True}
 
 
-def test_apagado_antes_de_construir_el_control_no_toca_la_tarjeta(servidor):
+def test_apagado_antes_de_construir_el_control_no_toca_el_modulo_es(servidor):
     srv, ctx, _ = servidor
     ctx.control_loop = None
     with TestClient(srv.app):

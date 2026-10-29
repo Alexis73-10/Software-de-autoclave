@@ -1,4 +1,4 @@
-"""S2b / D8-2.13 (tanda 8, Q1-P4): con la tarjeta totalmente desconectada
+"""S2b / D8-2.13 (tanda 8, Q1-P4): con el módulo E/S totalmente desconectado
 (antes de COM-02, dentro de los 5 s del ControlLoop), /cycle/abort también se
 acepta como "cancelación en espera", igual que en R1-P5. Al volver los datos
 el ciclo queda CANCELADO; si vence la tolerancia, FALLO_CONEXION y P-7 limpia
@@ -47,7 +47,7 @@ def _cancelado_puesto(ctx):
     return ("CICLO_CANCELADO", True) in [c.args for c in ctx.estado.set_flag.call_args_list]
 
 
-def test_abort_con_la_tarjeta_desconectada_se_acepta_en_espera(entorno):  # noqa: F811
+def test_abort_con_el_modulo_es_desconectado_se_acepta_en_espera(entorno):  # noqa: F811
     client, ctx, _ = entorno
     _en_ciclo(ctx, {"PARO_EMERGENCIA": True}, desconexion=True)
     r = client.post("/cycle/abort")
@@ -90,7 +90,7 @@ def test_valor_no_booleano_no_acepta(entorno):  # noqa: F811
     assert client.post("/cycle/abort").status_code == 409
 
 
-# ── Recorrido con el ControlLoop (planta sin tarjeta) ──────────────────────
+# ── Recorrido con el ControlLoop (planta sin módulo E/S) ──────────────────────
 
 def _tick(loop, conectado):
     loop.link.is_connected.return_value = conectado

@@ -359,9 +359,9 @@ def test_stop_al_final_de_la_conexion_no_la_verifica(sim, crear, monkeypatch):
     original = enlace._pasos_conexion
 
     def _pasos(fin):
-        tarjeta = original(fin)
+        modulo_es = original(fin)
         enlace._parar.set()             # stop() llega justo antes de verificar
-        return tarjeta
+        return modulo_es
 
     monkeypatch.setattr(enlace, "_pasos_conexion", _pasos)
     ok = enlace._conectar_verificado()

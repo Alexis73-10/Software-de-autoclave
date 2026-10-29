@@ -4,7 +4,7 @@
 # pendiente se ven en el panel de la campana. Main.qml real en subproceso:
 # - en el login (sin campana), el paro vuelve a la pantalla principal, cuya
 #   tarjeta de alarmas lo muestra (U4: el panel ya no se abre solo);
-# - U4: la tarjeta desconectada (sin paro real) no saca del login ni abre nada;
+# - U4: el módulo E/S desconectado (sin paro real) no saca del login ni abre nada;
 # - con el paro activo, el avatar no deja una pantalla sin campana a la vista;
 # - liberado el paro, la confirmación pendiente sigue a la vista en el panel;
 # - ninguna pantalla monta la franja superior antigua (avisosSeguridad).
@@ -36,7 +36,7 @@ _SCRIPT = textwrap.dedent(r"""
     from autoclave.ui_qml.controllers import teclado_alfanumerico_controller  # noqa: F401
 
     qapp = QGuiApplication([])
-    estado = {"paro": False, "es": {}, "tarjeta": "ok", "sin_datos": False}
+    estado = {"paro": False, "es": {}, "modulo_es": "ok", "sin_datos": False}
     ui = MagicMock(spec=UIServiceBackend)
     ui.connected = True
     ui.get_estado_global.return_value = "PREPARADO"
@@ -46,7 +46,7 @@ _SCRIPT = textwrap.dedent(r"""
         estado["paro"] if f == "PARO_REAL"
         else (estado["paro"] or estado["sin_datos"]) if f == "PARO_EMERGENCIA" else True)
     ui.get_campo.side_effect = lambda c, d=None: (estado["es"] if c == "estado_seguro"
-                                                  else estado["tarjeta"] if c == "estado_tarjeta"
+                                                  else estado["modulo_es"] if c == "estado_tarjeta"
                                                   else False if c == "no_abrir" else d)
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}
@@ -77,14 +77,14 @@ _SCRIPT = textwrap.dedent(r"""
         return "?"
     def panel_abierto():
         return any(o.property("visible") for o in buscar("PanelNotificaciones"))
-    def fijar(paro=None, es=None, tarjeta=None):
+    def fijar(paro=None, es=None, modulo_es=None):
         if paro is not None:
             estado["paro"] = paro
         if es is not None:
             estado["es"] = es
-        if tarjeta is not None:
-            estado["tarjeta"] = tarjeta
-            estado["sin_datos"] = tarjeta != "ok"
+        if modulo_es is not None:
+            estado["modulo_es"] = modulo_es
+            estado["sin_datos"] = modulo_es != "ok"
         puente.refrescar()
         esperar()
     def fila_preciclo(nombre):
@@ -108,9 +108,9 @@ _SCRIPT = textwrap.dedent(r"""
 
     avatar()
     r["login"] = pantalla()
-    fijar(tarjeta="desconectada")
-    r["tarjeta_desconectada_no_mueve"] = [pantalla(), panel_abierto()]
-    fijar(tarjeta="ok")
+    fijar(modulo_es="desconectada")
+    r["modulo_es_desconectado_no_mueve"] = [pantalla(), panel_abierto()]
+    fijar(modulo_es="ok")
     fijar(paro=True)
     r["paro_vuelve"] = [pantalla(), panel_abierto(), fila_preciclo("filaParo")]
 
@@ -141,7 +141,7 @@ def test_paro_y_confirmacion_quedan_a_la_vista_en_preciclo():
         "sin_franja": True,
         "panel_cerrado_sin_paro": True,
         "login": "Login",
-        "tarjeta_desconectada_no_mueve": ["Login", False],
+        "modulo_es_desconectado_no_mueve": ["Login", False],
         # S9 (tanda 9, D9-1.5): el login ya no se interrumpe con el paro ni
         # con la confirmación pendiente (antes volvía a Preciclo); la
         # confirmación sigue en la tarjeta de Preciclo y en la campana

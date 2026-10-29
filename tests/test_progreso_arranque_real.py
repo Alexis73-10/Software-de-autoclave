@@ -40,7 +40,7 @@ def test_etapas_del_backend_se_ven_una_a_una():
         vistos.append(s["proceso"])
         assert not s["terminado"]
         completas.append(clave)
-    # incluye la tarjeta (módulos de E/S) y los servicios, no solo la base de datos
+    # incluye el módulo E/S y los servicios, no solo la base de datos
     assert "conectando_modulos_es" in vistos and "iniciando_servicios" in vistos
     assert len(set(vistos)) == 8
 
@@ -61,9 +61,9 @@ def test_terminado():
     assert s["terminado"] and s["fraccion"] == pytest.approx(1.0)
 
 
-def test_sin_tarjeta_pasados_15_s_la_intro_termina_igual():
+def test_sin_modulo_es_pasados_15_s_la_intro_termina_igual():
     # ARR_SIN_ES: el backend sigue reintentando las E/S; la UI no debe quedarse
-    # en la intro (la pantalla principal muestra "tarjeta desconectada", U4)
+    # en la intro (la pantalla principal muestra el aviso de módulo E/S desconectado, U4)
     r = _registro_hasta("conectando_modulos_es",
                         ("verificando_instalacion", "liberando_procesos", "iniciando_servicios",
                          "cargando_configuracion", "verificando_calibracion",

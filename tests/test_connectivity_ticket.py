@@ -3,13 +3,13 @@ from datetime import datetime
 from autoclave.devices.printer.connectivity_ticket import format_connectivity_ticket
 
 
-def test_tarjeta_desconectada():
+def test_modulo_es_desconectado():
     texto = format_connectivity_ticket("TARJETA", False, datetime(2026, 7, 7, 14, 32, 10))
     assert "TARJETA: DESCONECTADA" in texto
     assert "2026-07-07 14:32:10" in texto
 
 
-def test_tarjeta_reconectada():
+def test_modulo_es_reconectado():
     texto = format_connectivity_ticket("TARJETA", True, datetime(2026, 7, 7, 14, 33, 0))
     assert "TARJETA: RECONECTADA" in texto
 

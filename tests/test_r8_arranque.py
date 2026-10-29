@@ -171,7 +171,7 @@ def test_verificacion_sin_respuesta_conserva_la_marca(tmp_path):
     assert json.loads(ruta.read_text(encoding="utf-8"))["verificacion_pendiente"] == ["pres_camara"]
 
 
-def test_verificacion_sin_tarjeta_vence_el_plazo(tmp_path):
+def test_verificacion_sin_modulo_es_vence_el_plazo(tmp_path):
     ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, ["vapor_camara"])
     _verificar(ctx, _datos(conectado=False), plazo_s=5.0)
     assert ctx.verificacion_asignacion["estado"] == "fallida"

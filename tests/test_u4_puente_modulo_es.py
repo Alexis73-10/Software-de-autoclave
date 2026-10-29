@@ -1,5 +1,5 @@
-"""U4 (tanda 2): UiBridge publica el estado de la tarjeta de E/S y paroActivo
-solo con el paro real (sin datos de la tarjeta no se afirma paro)."""
+"""U4 (tanda 2): UiBridge publica el estado del módulo E/S y paroActivo
+solo con el paro real (sin datos del módulo E/S no se afirma paro)."""
 
 from unittest.mock import MagicMock
 
@@ -31,12 +31,12 @@ def _puente(flags, campos, conectado=True):
     ("ok", "ok"), ("sin_tramas_validas", "sin_tramas_validas"),
     ("desconectada", "desconectada"), (None, "desconectada"), ("raro", "desconectada"),
 ])
-def test_estado_tarjeta(valor, esperado):
+def test_estado_modulo_es(valor, esperado):
     campos = {} if valor is None else {"estado_tarjeta": valor}
     assert _puente({}, campos).estadoModuloEs == esperado
 
 
-def test_sin_conexion_con_el_backend_la_tarjeta_es_desconectada():
+def test_sin_conexion_con_el_backend_el_modulo_es_esta_desconectado():
     assert _puente({}, {"estado_tarjeta": "ok"}, conectado=False).estadoModuloEs == "desconectada"
 
 

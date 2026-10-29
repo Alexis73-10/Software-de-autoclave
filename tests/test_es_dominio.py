@@ -12,7 +12,7 @@ _ST = {"estado_tarjeta": "ok", "card_connected": True, "test_mode_active": False
                    "adc": {"temp_camara": 2100, "pres_camara": 2400}}}
 
 
-def test_enlace_ok_solo_con_tarjeta_ok():
+def test_enlace_ok_solo_con_modulo_es_ok():
     assert d.enlace_ok(_ST) is True
     assert d.enlace_ok({**_ST, "estado_tarjeta": "desconectada"}) is False
     assert d.enlace_ok(None) is False

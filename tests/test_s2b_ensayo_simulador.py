@@ -14,7 +14,7 @@ Celdas:
   por tests/test_s2b_d8_2_12_ventanas_pausa_di.py.
 - D8-2.14: en esos ciclos la reimpresión desde la base (DbManager real) tiene el
   mismo pie que el ticket impreso en vivo ("Sin datos de la tarjeta: 3 s").
-- D8-2.13: tarjeta totalmente desconectada en ESTERILIZACION (el ControlLoop no
+- D8-2.13: módulo E/S totalmente desconectado en ESTERILIZACION (el ControlLoop no
   corre la máquina de estados): la cancelación pedida dentro de los 5 s queda en
   espera y al volver los datos el ciclo termina CANCELADO; si la desconexión
   vence la tolerancia, FALLO_CONEXION.
@@ -101,7 +101,7 @@ def _evento_ventana(fase_objetivo):
         vapor = False
         for _ in range(int(3.0 / DT)):
             assert e1._tick(a) == CicloResultado.EN_CURSO
-            vapor |= bool(a["tarjeta"].on("vapor_camara"))
+            vapor |= bool(a["modulo_es"].on("vapor_camara"))
             e1._avanzar(a)
         a["estado"].set_flag("PARO_EMERGENCIA", False)
         _hasta_pendiente(a)
@@ -125,7 +125,7 @@ def _evento_ventana(fase_objetivo):
 
 
 def _desconexion(a, segundos, cancelar):
-    """La tarjeta se cae `segundos` en ESTERILIZACION: el ControlLoop no corre
+    """El módulo E/S se cae `segundos` en ESTERILIZACION: el ControlLoop no corre
     la máquina de estados; si vence la tolerancia llama abortar_por_desconexion.
     `cancelar`: /cycle/abort aceptado en espera (D8-2.13) a mitad del tramo."""
     e1._hasta_fase(a, "ESTERILIZACION", extra_s=60)

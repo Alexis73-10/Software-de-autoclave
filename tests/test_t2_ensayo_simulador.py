@@ -38,7 +38,7 @@ def _estado_seguro(a, limite_s=3 * 3600):
     for _ in range(int(limite_s / DT)):
         a["planta"].publicar(a["estado"])
         es.update()
-        if a["tarjeta"].on("descompresion_rapida") and a["planta"].t > 80.5:
+        if a["modulo_es"].on("descompresion_rapida") and a["planta"].t > 80.5:
             rapida_caliente = max(rapida_caliente or 0, a["planta"].t)
         if not es.activo:
             break
@@ -77,13 +77,13 @@ def _evento_p2(a):
     rapida = chaqueta = aire = False
     for _ in range(int(1800 / DT)):
         e1._tick(a)
-        rapida |= bool(a["tarjeta"].on("descompresion_rapida"))
-        chaqueta |= bool(a["tarjeta"].on("descompresion_chaqueta"))
-        aire |= bool(a["tarjeta"].on("aire_comprimido_camara"))
+        rapida |= bool(a["modulo_es"].on("descompresion_rapida"))
+        chaqueta |= bool(a["modulo_es"].on("descompresion_chaqueta"))
+        aire |= bool(a["modulo_es"].on("aire_comprimido_camara"))
         e1._avanzar(a)
     return {"fase_final": a["estado"].fase_ciclo, "solo_lenta": a["ciclo"]._protocolo.solo_lenta,
             "rapida_abierta": rapida, "chaqueta_abierta": chaqueta, "contrapresion": aire,
-            "lenta_al_final": bool(a["tarjeta"].on("descompresion_lenta")),
+            "lenta_al_final": bool(a["modulo_es"].on("descompresion_lenta")),
             "bloqueado": a["ciclo"]._protocolo.bloqueado_motivo is not None,
             "P": round(a["planta"].p, 1)}
 
@@ -98,7 +98,7 @@ def _evento_p3(a):
         r = e1._tick(a)
         if r == CicloResultado.ESPERANDO_CONFIRMACION:
             break
-        durante.append(bool(a["tarjeta"].on("vapor_camara")))
+        durante.append(bool(a["modulo_es"].on("vapor_camara")))
         e1._avanzar(a)
     fuera = [k for k, v in a["estado"].salidas_do.items() if v and k in SALIDAS_DE_PROCESO]
     return {"fase_final": a["estado"].fase_ciclo, "resultado": r,

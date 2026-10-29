@@ -1,5 +1,5 @@
 """Tanda 8 / S2a / D8-2.7 (T2-a ampliado; SAF-02 / TMG-02 de la revisión Q1):
-la desconexión total de la tarjeta de menos de 5 s (antes de COM-02) y la
+la desconexión total del módulo E/S de menos de 5 s (antes de COM-02) y la
 ventana después de reconectar (primera DI pendiente y tolerancia de DI
 vencida) también pausan la exposición en ESTERILIZACION. Los segundos sin
 datos válidos nunca cuentan como esterilización y tampoco acumulan F0."""

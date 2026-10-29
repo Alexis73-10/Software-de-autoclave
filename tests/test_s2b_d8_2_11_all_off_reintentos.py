@@ -1,4 +1,4 @@
-# S2b / D8-2.11 (tanda 8, Q1-P1): si la tarjeta no confirma el ALL_OFF al
+# S2b / D8-2.11 (tanda 8, Q1-P1): si el módulo E/S no confirma el ALL_OFF al
 # salir del modo prueba, se reintenta 3 veces (una por tick, con la máquina de
 # estados todavía pausada). Si sigue sin confirmar, sale la alarma COM-04
 # "Salidas sin confirmar" (bloquea el inicio) hasta que llegue una

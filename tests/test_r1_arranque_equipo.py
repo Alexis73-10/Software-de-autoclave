@@ -24,7 +24,7 @@ def test_lee_el_ultimo_apagado_antes_de_arrancar_el_latido():
     assert orden == ["leer", "latido", "ticket"]
 
 
-def test_ticket_con_backend_y_tarjeta_ok():
+def test_ticket_con_backend_y_modulo_es_ok():
     impreso = []
     estado = iter([{"card_connected": False}, {"card_connected": True}])
     arranque_equipo.imprimir_ticket(
@@ -36,7 +36,7 @@ def test_ticket_con_backend_y_tarjeta_ok():
     assert "2026-10-18" in texto
 
 
-def test_ticket_marca_falla_si_la_tarjeta_no_responde():
+def test_ticket_marca_falla_si_el_modulo_es_no_responde():
     impreso = []
     reloj = iter(range(0, 100))
     arranque_equipo.imprimir_ticket(

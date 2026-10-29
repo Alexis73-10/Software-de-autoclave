@@ -1,4 +1,4 @@
-"""E6 — reacción del ControlLoop a los eventos de la tarjeta (plan de protocolo
+"""E6 — reacción del ControlLoop a los eventos del módulo E/S (plan de protocolo
 §7) y abortar_por_falla_io() en CicloState (§11.5)."""
 
 from unittest.mock import MagicMock, patch
@@ -34,7 +34,7 @@ def _make_ciclo():
 
 def test_abortar_por_falla_io_activa_com03_critico_con_el_id_como_causa():
     # T1 (tanda 2026-10-14): en ciclo, COM-03 (FALLO_CRITICO, "EMERGENCIA"
-    # en /status) con el id de la tarjeta como origen y causa (P5).
+    # en /status) con el id del módulo E/S como origen y causa (P5).
     ciclo, estado = _make_ciclo()
     ciclo.abortar_por_falla_io("TARJETA_WATCHDOG", "watchdog disparado")
     [alarma] = ciclo.alarm_manager.activas()
@@ -182,7 +182,7 @@ def test_expansor_o_discrepancia_fuera_de_ciclo_pide_nuevo_handshake(alarm_id):
     loop.link.solicitar_handshake.assert_called_once()
 
 
-def test_handshake_ok_despeja_las_alarmas_de_tarjeta_de_fuera_de_ciclo():
+def test_handshake_ok_despeja_las_alarmas_del_modulo_es_de_fuera_de_ciclo():
     loop, _ = _loop(GlobalState.PREPARADO)
     loop.link.tomar_eventos.return_value = [
         EventoTarjeta("handshake", "TARJETA_SIN_ACK", "m"),
