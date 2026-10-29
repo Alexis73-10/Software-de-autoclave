@@ -13,8 +13,8 @@ Rama `tanda-22` (desde `dev` 14f62f34). Spec: `docs/mis_plans/prompt_claude_code
 | R revisión | Hecho | ed938ad1 (sin hallazgos altos/medios; correcciones bajas: solo espacios = vacío (DSC), regla más estricta, pruebas de pantalla ampliadas) |
 | Suite | Hecha | 9151 passed, 11 skipped, 7 xfailed; `test_home_view` (caída conocida de trabajador xdist, pasa en serie) y 2 errores de `test_o3` por carrera del .qml temporal, corregida en el commit siguiente (9 passed con -n 4). `suite_raw.txt` |
 | K entrega | Hecha | merge 45966035 en dev; 1.0.0-alpha.11 (25e48bb8, etiqueta v1.0.0-alpha.11), `entrega/v1.0.0-alpha.11_2026-10-29`; Setup SHA-256 8fdfa87c6b124d83b9d96cb254977adbc4a38beb32119d5b1956cf9cc5db0754; no hizo falta tocar `.git/info/exclude` |
-| U USB | Pendiente | |
-| Z cierre | Pendiente | |
+| U USB | Hecha | E: (disco 1, USB 14,65 GB) formateada exFAT `AUTOCLAVE`; Setup alpha.11 copiado, SHA-256 8fdfa87c… verificado |
+| Z | Hecha | `R22_informe.md`, `CERRADO.txt` |
 
 ## A0 — verificación con grep (26 llamadas a `abrirAlfanumerico(`/`abrirNumerico(` en `ui_qml/qml`)
 
