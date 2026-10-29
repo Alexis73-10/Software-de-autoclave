@@ -6,7 +6,7 @@ Rama `tanda-23` (desde `dev` acd17d36). Spec: `docs/mis_plans/decisiones_tanda_2
 |---|---|---|
 | A0.1 verificación tanda 22 | Hecho | CERRADO.txt sin BLOQUEADO; dev contiene 45966035 |
 | A0.2 rama y commit del prompt | Hecho | 0b92a352 |
-| A0.3 inventario | Pendiente | |
+| A0.3 inventario | Hecho | `inventario.md`; `codigo_visible()` en a138033d |
 | B AIN | Pendiente | |
 | C1 UI | Pendiente | |
 | Unión B | Pendiente | |
