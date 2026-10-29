@@ -1,0 +1,23 @@
+﻿**********************
+Inicio de la transcripción de Windows PowerShell
+Hora de inicio: 20261029104747
+Nombre de usuario: DESKTOP-TMLGF3B\especifika
+Usuario RunAs: DESKTOP-TMLGF3B\especifika
+Nombre de la configuración: 
+Máquina: DESKTOP-TMLGF3B (Microsoft Windows NT 10.0.26300.0)
+Aplicación host: powershell -NoProfile -ExecutionPolicy Bypass -File E:\recoger_logs.ps1
+Id. de proceso: 5764
+PSVersion: 5.1.26100.9711
+PSEdition: Desktop
+PSCompatibleVersions: 1.0, 2.0, 3.0, 4.0, 5.0, 5.1.26100.9711
+BuildVersion: 10.0.26100.9711
+CLRVersion: 4.0.30319.42000
+WSManStackVersion: 3.0
+PSRemotingProtocolVersion: 2.3
+SerializationVersion: 1.1.0.1
+**********************
+Listo: E:\logs_autoclave_20261029_1047.zip
+**********************
+Fin de la transcripción de Windows PowerShell
+Hora de finalización: 20261029104749
+**********************

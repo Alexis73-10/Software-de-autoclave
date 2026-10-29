@@ -117,6 +117,12 @@ _CLAVES = {
     "sin_calibracion_previa": "io.err_sin_previa",
     "CALIBRACION_REQUIERE_CONFIRMACION": "io.err_confirmacion",
     "CALIBRACION_IMPLAUSIBLE": "io.err_implausible",
+    # TEC-ACC-05 (tanda 22): 403 de la reautenticación de Opciones avanzadas
+    # (POST /io/assignment, /io/assignment/factory, /io/assignment/verify).
+    # Es una contraseña mal escrita o vacía al confirmar, no una sesión
+    # inválida: no cierra la sesión. Antes caían en "Respuesta no reconocida".
+    "reautenticacion_fallida": "reasignacion.err_clave",
+    "reautenticacion_requerida": "reasignacion.err_clave_requerida",
     BACKEND_NO_RESPONDE: "sesion.backend_no_responde",
     ERROR_GENERICO: "sesion.error_generico",
 }
@@ -322,7 +328,8 @@ class OperacionSesion(QObject):
 class SesionVentana(QObject):
     sesionChanged = Signal()
     ocupadoChanged = Signal()
-    # 401 en una escritura: la sesión ya se cerró; la pantalla vuelve al login
+    # 401 o 429 usuario_bloqueado en una escritura: la sesión ya se cerró; la
+    # pantalla vuelve al login (que muestra el aviso guardado)
     sesionInvalida = Signal()
     conexionChanged = Signal()
     # 15 s sin conexión con token en uso; destino "login" (cambio obligatorio)
@@ -582,15 +589,25 @@ class SesionVentana(QObject):
 
     def enviar(self, metodo: str, ruta: str, cuerpo: dict | None = None) -> Resultado:
         """Escritura síncrona con el token de la ventana (puentes que escriben).
-        Sin conexión, se rechaza sin salir a la red. Un 401 cierra la sesión."""
+        Sin conexión, se rechaza sin salir a la red. Un 401 cierra la sesión;
+        un 429 usuario_bloqueado también, de inmediato y con el aviso de
+        bloqueo (TEC-ACC-05): el backend ya invalidó el token (reautenticación
+        fallida que bloquea, como H-T8-01 en el cambio de contraseña)."""
         if self.sinConexion:
             return Resultado(BACKEND_NO_RESPONDE)
         token = SessionManager.token()
         if not token:
             return Resultado("sesion_invalida")
+        usuario = (SessionManager.current_user() or {}).get("usuario", "")
         r = self._llamar_con_plazo(metodo, ruta, cuerpo, token)
-        if r.causa == "sesion_invalida":
-            self.cerrar_local(("sesion.sesion_invalida", None))
+        if r.causa in ("sesion_invalida", "usuario_bloqueado"):
+            if r.causa == "usuario_bloqueado":
+                logger.warning("Usuario bloqueado en %s %s: sesión cerrada en esta ventana",
+                               metodo, ruta)
+                self.cerrar_local(("sesion.usuario_bloqueado",
+                                   r.datos.get("segundos_restantes"), usuario))
+            else:
+                self.cerrar_local(("sesion.sesion_invalida", None))
             # en diferido: la pantalla que llamó aún espera este valor de retorno;
             # con este objeto como contexto, Qt lo cancela si se destruye antes
             QTimer.singleShot(0, self, self.sesionInvalida.emit)

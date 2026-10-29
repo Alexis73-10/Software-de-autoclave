@@ -545,7 +545,8 @@ Item {
             const funcion = actual.funcion
             const i = raiz._indiceReforzada
             if (!raiz.teclado) return
-            raiz.teclado.abrirAlfanumerico(raiz.nombre(actual.i18n), "", 60, false, function (texto) {
+            // Modo acción (TEC-ACC-04): avanza solo al Confirmar el nombre
+            raiz.teclado.abrirAlfanumericoAccion(raiz.nombre(actual.i18n), "", 60, false, function (texto) {
                 control.fijarNombre(funcion, texto)
                 Qt.callLater(() => raiz._pasoReforzada(i + 1))
             })
@@ -602,16 +603,18 @@ Item {
                 raiz._pedirClave(clave => control.verificar(dato.funcion, clave, nombreEscrito))
             }
             if (dato.reforzada)
-                raiz.teclado.abrirAlfanumerico(raiz.nombre(dato.i18n), "", 60, false,
-                                               texto => Qt.callLater(() => conClave(texto)))
+                raiz.teclado.abrirAlfanumericoAccion(raiz.nombre(dato.i18n), "", 60, false,
+                                                     texto => Qt.callLater(() => conClave(texto)))
             else
                 conClave("")
         }
     }
 
+    // Modo acción (TEC-ACC-04, PRB-T22-01): la contraseña se envía una sola
+    // vez al Confirmar; en vivo, cada tecla era un intento fallido
     function _pedirClave(alConfirmar) {
         if (!raiz.teclado) return
-        raiz.teclado.abrirAlfanumerico(I18n.t("reasignacion.clave_titulo", I18n.lang, { usuario: control.usuario }),
-                                       "", 64, true, alConfirmar)
+        raiz.teclado.abrirAlfanumericoAccion(I18n.t("reasignacion.clave_titulo", I18n.lang, { usuario: control.usuario }),
+                                             "", 64, true, alConfirmar)
     }
 }
