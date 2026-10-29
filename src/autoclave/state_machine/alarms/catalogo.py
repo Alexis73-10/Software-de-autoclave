@@ -137,6 +137,20 @@ CODIGOS_TARJETA = (
 # (instrucción de la tanda 2026-10-14, regla 8).
 CODIGOS_CONSERVADOS = CODIGOS_TARJETA + (OPERANDO_SIN_BD, CONFIGURACION_INVALIDA)
 
+# MES-04 (tanda 23): el código guardado no cambia (historial, catálogo,
+# trazabilidad); donde se muestra, un TARJETA_<x> se ve como MODULO_ES_<x>.
+_PREFIJO_GUARDADO = "TARJETA_"
+_PREFIJO_VISIBLE = "MODULO_ES_"
+
+
+def codigo_visible(codigo):
+    """Código de alarma tal como se muestra (pantalla, ticket, PDF, correo,
+    exportaciones). Solo cambia el prefijo TARJETA_; cualquier otro valor
+    (incluido None o un no-texto) se devuelve sin tocar."""
+    if isinstance(codigo, str) and codigo.startswith(_PREFIJO_GUARDADO):
+        return _PREFIJO_VISIBLE + codigo[len(_PREFIJO_GUARDADO):]
+    return codigo
+
 _A, _M = Despeje.AUTOMATICO, Despeje.MANUAL
 
 # LIC-02: alarmas que solo ven ciertos roles en la bandeja y la campana (la
