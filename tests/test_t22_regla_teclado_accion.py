@@ -24,7 +24,8 @@ QML = RAIZ / "src" / "autoclave" / "ui_qml" / "qml"
 
 _EXCLUIDOS = ("Pruebas/",)
 # Lo que delata una acción dentro del callback
-_ACCIONES = ("control.", ".abrir(", "abrirAlfanumerico", "Qt.callLater", "_pedirClave")
+_ACCIONES = ("control.", "controlador.", ".abrir(", ".open(", "abrirAlfanumerico", "abrirNumerico",
+             "Qt.callLater", "_pedirClave", ".enviar(", ".push(", "visible = true", "visible=true")
 # posición (0-based) del argumento alConfirmar
 _POSICION = {"abrirAlfanumerico": 4, "abrirNumerico": 6}
 # archivo -> fragmentos permitidos y por qué (vacía: no apareció ningún falso positivo)
@@ -34,7 +35,25 @@ _LLAMADA = re.compile(r"\b(abrirAlfanumerico|abrirNumerico)\s*\(")
 
 
 def _sin_comentarios(texto: str) -> str:
-    return "\n".join(linea.split("//", 1)[0] for linea in texto.splitlines())
+    """Quita los comentarios `//` de cada línea sin cortar dentro de una cadena."""
+    lineas = []
+    for linea in texto.splitlines():
+        cadena, i = None, 0
+        while i < len(linea):
+            c = linea[i]
+            if cadena:
+                if c == "\\":
+                    i += 1
+                elif c == cadena:
+                    cadena = None
+            elif c in "\"'`":
+                cadena = c
+            elif linea.startswith("//", i):
+                linea = linea[:i]
+                break
+            i += 1
+        lineas.append(linea)
+    return "\n".join(lineas)
 
 
 def _argumentos(texto: str, abre: int) -> list[str]:
@@ -66,12 +85,14 @@ def _argumentos(texto: str, abre: int) -> list[str]:
 
 
 def _funcion_que_envuelve(texto: str, pos: int):
-    """Nombre y parámetros de la última `function nombre(...)` antes de `pos`."""
-    ultimas = list(re.finditer(r"function\s+(\w+)\s*\(([^)]*)\)", texto[:pos]))
-    if not ultimas:
-        return None, []
-    m = ultimas[-1]
-    return m.group(1), [p.strip() for p in m.group(2).split(",")]
+    """Nombre y parámetros de la `function nombre(...) {` cuyo cuerpo contiene `pos`."""
+    for m in reversed(list(re.finditer(r"function\s+(\w+)\s*\(([^)]*)\)\s*\{", texto[:pos]))):
+        nivel = 0
+        for c in texto[m.end() - 1:pos]:
+            nivel += {"{": 1, "}": -1}.get(c, 0)
+        if nivel > 0:
+            return m.group(1), [p.strip() for p in m.group(2).split(",")]
+    return None, []
 
 
 def _callbacks(rel: str, texto: str):
@@ -84,7 +105,7 @@ def _callbacks(rel: str, texto: str):
             continue
         cb = args[pos]
         linea = texto.count("\n", 0, m.start()) + 1
-        if re.fullmatch(r"[A-Za-z_]\w*", cb):
+        if re.fullmatch(r"[A-Za-z_][\w.]*", cb):
             nombre, params = _funcion_que_envuelve(texto, m.start())
             if nombre and cb in params:
                 i = params.index(cb)
@@ -95,6 +116,9 @@ def _callbacks(rel: str, texto: str):
                     if len(sub) > i:
                         yield texto.count("\n", 0, llamada.start()) + 1, sub[i]
                 continue
+            # identificador que no es parámetro: no se puede revisar su cuerpo
+            yield linea, "<identificador " + cb + ">"
+            continue
         yield linea, cb
 
 
@@ -103,11 +127,16 @@ def _violaciones():
         rel = ruta.relative_to(QML).as_posix()
         if rel.startswith(_EXCLUIDOS) or rel == "Componentes/PanelTeclado.qml":
             continue
+        # ventanas temporales que otras pruebas escriben y borran en paralelo
+        if ruta.name.startswith("_prueba"):
+            continue
         texto = _sin_comentarios(ruta.read_text(encoding="utf-8"))
         for linea, cb in _callbacks(rel, texto):
             if any(f in cb for f in _LISTA_BLANCA.get(rel, ())):
                 continue
             hallado = [a for a in _ACCIONES if a in cb]
+            if cb.startswith("<identificador"):
+                hallado.append("callback sin cuerpo visible")
             if hallado:
                 yield f"{rel}:{linea}: {hallado} en {' '.join(cb.split())[:120]}"
 
@@ -146,5 +175,22 @@ def test_las_pantallas_de_accion_usan_el_modo_accion():
     for archivo, minimo in (("Pantallas/OpcionesReasignacion.qml", 3),
                             ("Pantallas/OpcionesConectividad.qml", 2),
                             ("Pantallas/OpcionesManejoCiclos.qml", 2)):
-        texto = (QML / archivo).read_text(encoding="utf-8")
+        texto = _sin_comentarios((QML / archivo).read_text(encoding="utf-8"))
         assert texto.count("abrirAlfanumericoAccion(") >= minimo, archivo
+
+
+def test_el_detector_no_corta_en_una_url_ni_acepta_identificadores_sueltos():
+    assert _sin_comentarios('x: "http://a" // nota') == 'x: "http://a" '
+    texto = 'function f(a) { teclado.abrirAlfanumerico("t", "", 1, false, raiz._accion) }'
+    assert [cb for _, cb in _callbacks("x.qml", texto)] == ["<identificador raiz._accion>"]
+
+
+def test_el_detector_toma_la_funcion_que_realmente_envuelve():
+    texto = """
+    function editar(t, alConfirmar) {
+        teclado.abrirNumerico(t, "u", 0, 0, 1, 0, alConfirmar)
+    }
+    function otra(alConfirmar) { }
+    onA: raiz.editar("t", (v) => control.x(v))
+    """
+    assert [cb for _, cb in _callbacks("x.qml", texto)] == ["(v) => control.x(v)"]

@@ -199,6 +199,11 @@ _SCRIPT = textwrap.dedent(r"""
     confirmar()
     r["vacio_borrado"] = _leer()["accion"]
     r["vacio_borrado_abierto"] = panel.property("abierto")
+    # solo espacios también es vacío
+    tocar(tecla(nombre="teclaEspacio")); tocar(tecla(nombre="teclaEspacio"))
+    confirmar()
+    r["vacio_espacios"] = _leer()["accion"]
+    r["vacio_espacios_abierto"] = panel.property("abierto")
     llamar("cerrarPanel")
 
     # 6. Doble Confirmar (toques seguidos y llamadas al controlador)
@@ -323,6 +328,8 @@ def test_accion_confirmar_vacio_no_llama_y_sigue_abierto(salida):
     assert salida["vacio_abierto"] is True
     assert salida["vacio_borrado"] == []
     assert salida["vacio_borrado_abierto"] is True
+    assert salida["vacio_espacios"] == []
+    assert salida["vacio_espacios_abierto"] is True
 
 
 @pytest.mark.req("TEC-ACC-03")

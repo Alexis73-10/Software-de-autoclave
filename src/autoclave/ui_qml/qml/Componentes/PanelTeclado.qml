@@ -29,8 +29,8 @@ import Tema
 //   teclado.abrirAlfanumericoAccion(titulo, valorInicial, longitudMaxima,
 //                                   ocultar, texto => accion(texto))
 // `alConfirmar` se llama una sola vez y solo al pulsar Confirmar con texto
-// (Confirmar vacío no hace nada y deja el teclado abierto). Nada se entrega al
-// escribir, al cancelar, al ocultar ni al abrir otro campo: lo escrito se
+// (Confirmar vacío o con solo espacios no hace nada y deja el teclado
+// abierto). Nada se entrega al escribir, al cancelar, al ocultar ni al abrir otro campo: lo escrito se
 // descarta. El panel se cierra antes de llamar a `alConfirmar`, así un segundo
 // Confirmar (doble toque o reentrante durante un envío síncrono) no envía nada
 // y el callback puede abrir otro teclado o diálogo.
@@ -156,8 +156,10 @@ Item {
         const alConfirmar = _alConfirmar
         if (!alConfirmar || _tipo !== "alfanumerico")
             return
-        if (valor === undefined || valor === null || String(valor) === "")
-            return                      // vacío: sigue abierto (TEC-ACC-02)
+        // vacío o solo espacios: sigue abierto (TEC-ACC-02; solo espacios,
+        // DECISIÓN SIN CONFIRMAR de la revisión R de la tanda 22)
+        if (valor === undefined || valor === null || String(valor).trim() === "")
+            return
         _alConfirmar = null
         _siguiente = null
         confirmado(valor)

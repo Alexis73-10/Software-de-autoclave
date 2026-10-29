@@ -195,6 +195,12 @@ _SCRIPT = textwrap.dedent(r"""
         escribir("sec")
         cancelar()
         r[clave + "_cancelar"] = envios()
+        # Confirmar sin escribir la contraseña no envía y el teclado sigue abierto
+        limpiar()
+        invocar(hijo(dialogo), "confirmado")
+        confirmar()
+        r[clave + "_vacio"] = [envios(), panel.property("abierto")]
+        cancelar()
 
     # Verificar una función reforzada: nombre y luego contraseña
     limpiar()
@@ -257,6 +263,11 @@ _SCRIPT = textwrap.dedent(r"""
     invocar(p, "agregarDestinatario")
     escribir("ana"); confirmar(); escribir("an"); cancelar()
     r["conect_cancelar_correo"] = envios()
+    limpiar()
+    invocar(p, "agregarDestinatario")
+    escribir("an"); cancelar()
+    QTest.qWait(300)
+    r["conect_cancelar_nombre"] = [envios(), panel.property("abierto")]
 
     # ---- Manejo de ciclos ----
     p = cargar("OpcionesManejoCiclos")
@@ -273,7 +284,7 @@ _SCRIPT = textwrap.dedent(r"""
         cancelar()
         r[funcion + "_cancelar"] = envios()
 
-    r["avisos"] = [a for a in avisos if "sesion" not in a.lower()]
+    r["avisos"] = avisos
     print(json.dumps(r))
 """)
 
@@ -294,6 +305,7 @@ def test_reasignacion_la_clave_se_envia_una_vez_al_confirmar(r, clave, ruta):
     assert r[clave + "_al_escribir"] == []
     assert r[clave + "_al_confirmar"] == [["POST", ruta, "Secreta"]]
     assert r[clave + "_cancelar"] == []
+    assert r[clave + "_vacio"] == [[], True]
 
 
 def test_reasignacion_verificar_reforzada(r):
@@ -321,6 +333,7 @@ def test_conectividad_correo_tras_confirmar_el_nombre(r):
     assert r["conect_al_escribir_correo"] == []
     assert r["conect_al_confirmar"] == [["PUT", "/email/config", {"nombre": "Ana", "correo": "Ana"}]]
     assert r["conect_cancelar_correo"] == []
+    assert r["conect_cancelar_nombre"] == [[], False]
 
 
 @pytest.mark.parametrize("funcion, numero, cuerpo", [
