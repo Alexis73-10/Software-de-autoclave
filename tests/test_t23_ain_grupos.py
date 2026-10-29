@@ -66,6 +66,12 @@ def test_rtd_01_y_ai_01_sin_conflicto_ni_cruce_de_lecturas():
 
     # sin cruce: temperatura de ai[0], presión de ai[8] (Units + EstadoAutoclave)
     aio.aplicar_en_memoria(f)
+    # filtros de módulo limpios: otra prueba del mismo proceso pudo dejarlos cargados
+    for filtro in converters._ma_temp:
+        filtro.buffer.clear()
+    for filtro in converters._oe_temp:
+        filtro.reset()
+    converters.reiniciar_presiones()
     u = Units(CALIBRACION)
     ai = [None] * 24
     ai[0] = 1234            # RTD 01: 123,4 °C
