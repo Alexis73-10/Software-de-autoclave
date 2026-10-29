@@ -6,7 +6,7 @@ Rama `tanda-22` (desde `dev` 14f62f34). Spec: `docs/mis_plans/prompt_claude_code
 |---|---|---|
 | A0 | Hecho | rama, evidencia en `evidencia/`, lista de afectados verificada |
 | P1 teclado | Pendiente | |
-| P2 cliente | Pendiente | |
+| P2 cliente | Hecho | 182a6480 (TEC-ACC-05: 403 reautenticacion_* reconocidos con reasignacion.err_clave[_requerida], sin cerrar sesión; 429 usuario_bloqueado en `enviar` cierra la sesión local con aviso y segundos; DSC: el 429 cierra en cualquier ruta de `enviar`; `enviar_al_cerrar` sin cambio), unido a tanda-22 |
 | Unión P1+P2 | Pendiente | |
 | TEC-ACC-04 pantallas | Pendiente | |
 | TEC-ACC-07 prueba de regla | Pendiente | |
