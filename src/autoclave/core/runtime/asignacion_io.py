@@ -1,7 +1,7 @@
 # core/runtime/asignacion_io.py
 #
 # R8 (tanda 8, D8-5.12; planeacion_opciones.md v4 R-03 y OPC-03): reasignación
-# de entradas y salidas ante el daño de un puerto de la tarjeta.
+# de entradas y salidas ante el daño de un puerto del módulo E/S.
 #
 # Tres capas:
 #   fábrica   `io_ports` del YAML de la instancia (config/instances/<activa>.yaml).
@@ -327,7 +327,7 @@ def _es_entero(v) -> bool:
 
 def validar(asignacion: dict) -> list[dict]:
     """Errores de una asignación COMPLETA {tipo: {funcion: puerto}}: puerto
-    inexistente en la tarjeta (o del grupo analógico equivocado) y dos
+    inexistente en el módulo E/S (o del grupo analógico equivocado) y dos
     funciones en el mismo puerto físico. Vacía si es válida. Los puertos
     ocupados se cuentan POR GRUPO (tanda 23, AIN-R1): RTD 01 y AI 01 son
     puertos distintos."""
@@ -698,7 +698,7 @@ def vigente(base: dict, archivo: ArchivoAsignacion) -> tuple[dict, dict]:
 
 def responde(funcion: str, asignacion: dict, datos: dict) -> bool:
     """True si la función responde en su puerto según una lectura de la
-    tarjeta (`Units.get_all()`): enlace activo y el puerto presente en la
+    módulo E/S (`Units.get_all()`): enlace activo y el puerto presente en la
     trama; en las analógicas, además, una lectura válida (presión absoluta
     mayor que 0: un lazo abierto se lee 0,0 kPa, SEN-01). Sin accionar nada."""
     from autoclave.core.runtime.lectura import lectura_valida

@@ -104,7 +104,7 @@ def _evento_d827(a):
     e1._avanzar(a)
     # 3 s sin enlace: el ControlLoop no corre run(), solo marca el tramo
     for _ in range(int(3.0 / DT)):
-        a["ciclo"].marcar_sin_datos_tarjeta()
+        a["ciclo"].marcar_sin_datos_modulo_es()
         e1._avanzar(a)
     for _ in range(int(4 * 3600 / DT)):
         r = e1._tick(a)
@@ -115,7 +115,7 @@ def _evento_d827(a):
     duracion = marcas.get("fin", a["reloj"][0]) - marcas["inicio"]
     return {"fase_final": a["estado"].fase_ciclo, "tiempo_programado_s": tiempo_s,
             "extension_s": round(duracion - tiempo_s, 1),
-            "sin_datos_s": round(a["estado"].sin_datos_tarjeta_s, 1)}
+            "sin_datos_s": round(a["estado"].sin_datos_modulo_es_s, 1)}
 
 
 def _evento_d828(a):

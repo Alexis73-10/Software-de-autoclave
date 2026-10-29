@@ -63,7 +63,7 @@ class PrecalentamientoFase(BaseFase):
                 # alargado por tramos sin datos (D8-2.12)
                 logger.error(
                     "Precalentamiento: TIMEOUT (%.0f min) durante el sostenimiento: se "
-                    "alargó %.0f s por tramos sin datos de la tarjeta",
+                    "alargó %.0f s por tramos sin datos del módulo E/S",
                     timeout_seg / 60, self.ventana_pausada_s())
             else:
                 logger.error(

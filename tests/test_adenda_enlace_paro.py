@@ -282,7 +282,7 @@ def test_enter_rechazado_sin_enlace_o_con_datos_viejos(entorno_prueba, desconect
     ctx.control_loop.datos_vigentes = vigentes
     resp = client.post("/io/test/enter")
     assert resp.status_code == 409
-    assert resp.json()["codigo"] == "sin_conexion_tarjeta"
+    assert resp.json()["codigo"] == "sin_conexion_modulo_es"
     ctx.control_loop.enter_test_mode.assert_not_called()
 
 
@@ -303,7 +303,7 @@ def test_output_rechazado_sin_enlace_o_con_datos_viejos(entorno_prueba, value,
     ctx.control_loop.datos_vigentes = vigentes
     resp = client.patch("/io/test/output/vapor_camara", json={"value": value})
     assert resp.status_code == 409
-    assert resp.json()["codigo"] == "sin_conexion_tarjeta"
+    assert resp.json()["codigo"] == "sin_conexion_modulo_es"
     ctx.setdo.set_output.assert_not_called()
 
 

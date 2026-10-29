@@ -94,7 +94,7 @@ def test_desconexion_real_imprime_ticket():
 
     printer.enqueue.assert_called_once()
     texto = printer.enqueue.call_args.args[0]
-    assert "TARJETA: DESCONECTADA" in texto
+    assert "MODULO E/S: DESCONECTADO" in texto
 
 
 def test_reconexion_real_imprime_ticket():
@@ -108,7 +108,7 @@ def test_reconexion_real_imprime_ticket():
 
     printer.enqueue.assert_called_once()
     texto = printer.enqueue.call_args.args[0]
-    assert "TARJETA: RECONECTADA" in texto
+    assert "MODULO E/S: RECONECTADO" in texto
 
 
 def test_conexion_estable_no_imprime():

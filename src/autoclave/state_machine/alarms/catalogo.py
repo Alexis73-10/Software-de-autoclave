@@ -2,6 +2,7 @@
 # Nivel y bloqueo son decisiones de seguridad: viven aquí, bajo control de
 # versiones, no en configuración editable.
 
+import re
 import string
 from dataclasses import dataclass
 from enum import Enum
@@ -110,7 +111,7 @@ CONTRASENA_SEMILLA = SIS_07
 COM_01, COM_02, COM_03 = "COM-01", "COM-02", "COM-03"
 # D8-2.11 (tanda 8): ALL_OFF sin confirmar al salir del modo prueba
 COM_04 = "COM-04"
-# Tarjeta de E/S (E6): los ids se conservan como códigos (no se renombran).
+# Módulo E/S (E6): los ids se conservan como códigos (no se renombran).
 TARJETA_SIN_TRAMA_VALIDA = "TARJETA_SIN_TRAMA_VALIDA"
 TARJETA_VERSION_INCOMPATIBLE = "TARJETA_VERSION_INCOMPATIBLE"
 TARJETA_SIN_ACK = "TARJETA_SIN_ACK"
@@ -151,6 +152,18 @@ def codigo_visible(codigo):
         return _PREFIJO_VISIBLE + codigo[len(_PREFIJO_GUARDADO):]
     return codigo
 
+
+_RE_CODIGO_GUARDADO = re.compile(r"(?<![A-Za-z0-9_])" + _PREFIJO_GUARDADO + r"(?=[A-Z0-9])")
+
+
+def texto_con_codigos_visibles(texto):
+    """MES-04: `texto` libre (motivo de fallo guardado, línea del ticket) con
+    cada código TARJETA_<x> escrito como MODULO_ES_<x>. Solo para mostrar: el
+    texto guardado no se toca. Un no-texto se devuelve sin tocar."""
+    if isinstance(texto, str) and _PREFIJO_GUARDADO in texto:
+        return _RE_CODIGO_GUARDADO.sub(_PREFIJO_VISIBLE, texto)
+    return texto
+
 _A, _M = Despeje.AUTOMATICO, Despeje.MANUAL
 
 # LIC-02: alarmas que solo ven ciertos roles en la bandeja y la campana (la
@@ -169,7 +182,7 @@ def _d(codigo, nivel, bloquea, despeje, titulo, descripcion, accion):
 DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SIS_01, _FC, True, _A, "Paro de emergencia activado",
        # E1 (PF-21): paro NC. U4 (tanda 2): solo con la entrada en 0 leída de
-       # la tarjeta; sin datos, COM-01 o TARJETA_SIN_TRAMA_VALIDA.
+       # el módulo E/S; sin datos, COM-01 o TARJETA_SIN_TRAMA_VALIDA.
        "Paro de emergencia activo en estado {estado}. La entrada del paro está "
        "en 0. Si el botón no está pulsado, revisar que el cableado sea contacto "
        "normalmente cerrado (NC).",
@@ -335,12 +348,12 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "No abra la puerta. Revise la sonda Principal o asigne otra sonda como Principal en "
        "OPCIONES › Parámetros del ciclo › Sensores (técnico o ingeniero). Si no se resuelve, "
        "llame a servicio técnico."),
-    # D8-2.8 (tanda 8): las pausas por falta de datos de la tarjeta (T2-a,
+    # D8-2.8 (tanda 8): las pausas por falta de datos del módulo E/S (T2-a,
     # D8-2.7) en una misma exposición superaron pausa_max_esterilizacion_s
     _d(CIC_11, _AL, True, _M, "Comunicación inestable en esterilización",
-       "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la "
+       "Las pausas por falta de datos del módulo E/S sumaron {segundos:.0f} s en la "
        "esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
-       "La carga NO está estéril. Revise el cable de red y la alimentación de la tarjeta y "
+       "La carga NO está estéril. Revise el cable de red y la alimentación del módulo E/S y "
        "repita el ciclo. Si se repite, llame a servicio técnico."),
     # E12 (tanda 12, C-03): Tsat(P) - T_principal fuera de ±2 K durante 5 s
     # continuos en la exposición (solo carga sólida)
@@ -390,21 +403,21 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "La chaqueta llegó a {pres:.1f} kPa (límite {maximo:.1f} kPa) en la fase {fase}: la "
        "válvula de vapor de chaqueta queda cerrada mientras dure.",
        "Revise el regulador del vapor de suministro. El ciclo sigue."),
-    # U4 (tanda 2): solo con la tarjeta desconectada (sin puerto o puerto
+    # U4 (tanda 2): solo con el módulo E/S desconectado (sin puerto o puerto
     # perdido). Con el puerto presente y sin datos, TARJETA_SIN_TRAMA_VALIDA.
-    _d(COM_01, _AL, True, _A, "Tarjeta de E/S desconectada",
-       "No se detecta la tarjeta de control.",
-       "Conecte la tarjeta (cable de red) y verifique su alimentación."),
+    _d(COM_01, _AL, True, _A, "Módulo E/S desconectado",
+       "No se detecta el módulo E/S.",
+       "Conecte el módulo E/S (cable de red) y verifique su alimentación."),
     _d(COM_02, _FC, True, _M, "Comunicación perdida durante el ciclo",
-       "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase "
+       "Se perdió la comunicación con el módulo E/S por más de {segundos:.1f} s en la fase "
        "{fase}. El ciclo se abortó.",
-       "Verifique el cable de red y la alimentación de la tarjeta antes de reiniciar."),
-    # D8-2.11 (tanda 8, Q1-P1): la tarjeta no confirmó el ALL_OFF al salir del
+       "Verifique el cable de red y la alimentación del módulo E/S antes de reiniciar."),
+    # D8-2.11 (tanda 8, Q1-P1): el módulo E/S no confirmó el ALL_OFF al salir del
     # modo prueba ni tras 3 reintentos. Bloquea el inicio hasta que llegue una
     # confirmación (ALL_OFF confirmado o handshake completo, que lo incluye).
     _d(COM_04, _AL, True, _A, "Salidas sin confirmar",
-       "La tarjeta de control no confirmó el apagado de todas las salidas al salir del "
-       "modo prueba, ni tras 3 reintentos. Se repite la conexión con la tarjeta.",
+       "El módulo E/S no confirmó el apagado de todas las salidas al salir del "
+       "modo prueba, ni tras 3 reintentos. Se repite la conexión con el módulo E/S.",
        "No inicie ciclos. Si la alarma no desaparece sola, llame a servicio técnico."),
     # T8 (D-03): alerta persistente, no bloqueante. Los ciclos se pueden
     # iniciar con confirmación explícita y quedan en el respaldo y el ticket.
@@ -434,21 +447,21 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Llame a servicio técnico para corregir la configuración."),
     # E6 decisión 9 (tanda 2026-10-14): fuera de ciclo, FALLA bloqueante que
     # se resuelve sola al completarse el siguiente handshake; en ciclo, COM-03
-    # (FALLO_CRITICO, no se despeja sola) con el id de la tarjeta como causa.
-    _d(COM_03, _FC, True, _M, "Falla de la tarjeta de E/S durante el ciclo",
+    # (FALLO_CRITICO, no se despeja sola) con el id del módulo E/S como causa.
+    _d(COM_03, _FC, True, _M, "Falla del módulo E/S durante el ciclo",
        "{causa}: {motivo} Fase {fase}. El ciclo se abortó.",
-       "Verifique la tarjeta de E/S antes de reiniciar. Llame a servicio técnico."),
-    _d(TARJETA_SIN_TRAMA_VALIDA, _AL, True, _A, "La tarjeta de E/S no envía datos válidos",
+       "Verifique el módulo E/S antes de reiniciar. Llame a servicio técnico."),
+    _d(TARJETA_SIN_TRAMA_VALIDA, _AL, True, _A, "El módulo E/S no envía datos válidos",
        "{motivo}",
-       "Revise el cable de red y la alimentación de la tarjeta. Llame a servicio técnico."),
-    _d(TARJETA_VERSION_INCOMPATIBLE, _AL, True, _A, "Firmware de la tarjeta de E/S incompatible",
+       "Revise el cable de red y la alimentación del módulo E/S. Llame a servicio técnico."),
+    _d(TARJETA_VERSION_INCOMPATIBLE, _AL, True, _A, "Firmware del módulo E/S incompatible",
        "{motivo}",
        "Sin energía, revise el modelo y el orden de los módulos (principal, DI, DO, DO, PT100) y negocie (doble pulsación de Reload). Si el firmware es incompatible, llame a servicio técnico."),
-    _d(TARJETA_SIN_ACK, _AL, True, _A, "La tarjeta de E/S no confirma los comandos",
+    _d(TARJETA_SIN_ACK, _AL, True, _A, "El módulo E/S no confirma los comandos",
        "{motivo}",
        "Llame a servicio técnico."),
     _d(TARJETA_ALL_OFF_SIN_CONFIRMAR, _AL, True, _A,
-       "La tarjeta de E/S no confirmó el apagado de salidas",
+       "El módulo E/S no confirmó el apagado de salidas",
        "{motivo}",
        "Llame a servicio técnico."),
     _d(TARJETA_CONFIG_SEGURIDAD, _AL, True, _A,
@@ -459,22 +472,22 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "Orden de los módulos de E/S incorrecto o negociación pendiente",
        "{motivo}",
        "Sin energía, revise el orden de los módulos y negocie (doble pulsación de Reload)."),
-    _d(TARJETA_SALIDAS_NO_APAGADAS, _AL, True, _A, "Salidas de la tarjeta de E/S no apagadas",
+    _d(TARJETA_SALIDAS_NO_APAGADAS, _AL, True, _A, "Salidas del módulo E/S no apagadas",
        "{motivo}",
        "No opere el equipo. Llame a servicio técnico (módulos de salida o su cableado)."),
     _d(TARJETA_EXPANSOR_FUERA_DE_LINEA, _AL, True, _A,
-       "Expansor de la tarjeta de E/S fuera de línea",
+       "Expansor del módulo E/S fuera de línea",
        "{motivo}",
        "Sin energía, revise la unión de los módulos de expansión al principal. Si se repite, llame a servicio técnico."),
     _d(TARJETA_WATCHDOG, _AL, True, _A,
-       "La tarjeta de E/S apagó las salidas por falta de comunicación",
+       "El módulo E/S apagó las salidas por falta de comunicación",
        "{motivo}",
        "Revise si el equipo de control se congeló. Si se repite, llame a servicio técnico."),
-    _d(TARJETA_REINICIO, _AL, True, _A, "La tarjeta de E/S se reinició",
+    _d(TARJETA_REINICIO, _AL, True, _A, "El módulo E/S se reinició",
        "{motivo}",
-       "Revise la alimentación de la tarjeta. Si se repite, llame a servicio técnico."),
+       "Revise la alimentación del módulo E/S. Si se repite, llame a servicio técnico."),
     _d(DISCREPANCIA_SALIDAS, _AL, True, _A,
-       "Las salidas de la tarjeta no coinciden con lo comandado",
+       "Las salidas del módulo E/S no coinciden con lo comandado",
        "{motivo}",
        "Llame a servicio técnico."),
 )

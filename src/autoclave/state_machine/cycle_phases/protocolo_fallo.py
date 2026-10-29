@@ -189,7 +189,7 @@ class ProtocoloFallo:
 
     def _pres_camara(self):
         """Presión de cámara publicada; None si la trama AI de este update()
-        está vencida (S9, revisión ★ TMG-02: la tarjeta manda DI pero no AI y
+        está vencida (S9, revisión ★ TMG-02: el módulo E/S manda DI pero no AI y
         Units conserva la última presión, congelada)."""
         if not self._ai_vigente_tick:
             return None

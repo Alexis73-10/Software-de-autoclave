@@ -15,7 +15,7 @@
 #     arranque / fin de ciclo para la UI.
 #  1. Paro activo: no hace nada (los estados mandan ALL_OFF continuo); si
 #     es un paro real (PARO_REAL, U4) se marca que hará falta una
-#     confirmación nueva. Sin datos de la tarjeta solo se pausa.
+#     confirmación nueva. Sin datos del módulo E/S solo se pausa.
 #  2. Paro liberado: las salidas siguen en 0, sin avance automático, hasta
 #     "Confirmar y llevar a estado seguro" (cualquier operador, sin rol).
 #  3. Confirmado: exige datos vigentes; sigue el protocolo de fallo (modo de
@@ -351,7 +351,7 @@ class ProtocoloEstadoSeguro:
 
         if self.estado.get_flag("PARO_EMERGENCIA"):
             # U4 (D2): solo un paro real exige "Confirmar y llevar a estado
-            # seguro". Sin datos de la tarjeta (desconectada o sin tramas) se
+            # seguro". Sin datos del módulo E/S (desconectado o sin tramas) se
             # pausa igual, y al volver los datos sigue sin confirmación.
             if self.estado.get_flag("PARO_REAL"):
                 if not self._paro_visto:

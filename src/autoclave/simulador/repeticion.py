@@ -2,7 +2,7 @@
 #
 # Reproducción de un ciclo COMPLETADO guardado en la BD, para el backend simulado
 # (simulador/servidor.py). HERRAMIENTA DE DESARROLLO: sirve para probar la UI sin
-# tarjeta; no forma parte del control ni toca hardware. La BD se abre en solo
+# módulo E/S; no forma parte del control ni toca hardware. La BD se abre en solo
 # lectura.
 #
 # Las lecturas del ticket son escasas (cada 30–60 s y en cada cambio de fase), así

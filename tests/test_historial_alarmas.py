@@ -42,7 +42,7 @@ def test_aparicion_resolucion_y_reconocimiento_quedan_en_bd(tmp_path):
     assert h.vaciar()
     [fila] = db.get_alarmas_historial()
     assert fila["codigo"] == "COM-01" and fila["nivel"] == "ALARMA"
-    assert fila["titulo"] == "Tarjeta de E/S desconectada"  # U4
+    assert fila["titulo"] == "Módulo E/S desconectado"  # U4
     assert fila["resuelta"] and fila["reconocida_por"] == "cristian"
     assert fila["descripcion_final"] == fila["descripcion_inicial"]
 

@@ -44,7 +44,7 @@ _PASO_HOLD_ALTO      = 'HOLD_ALTO'
 # Al cerrar el pulso bajo se desenergizan 4 bobinas de 24V casi a la vez
 # (bomba_vacio + agua_bomba, vacio_camara + agua_intercambiador). Sin diodo
 # flyback en alguna de ellas, el golpe inductivo combinado de apagarlas
-# juntas puede acoplarse por EMI a la tarjeta de E/S y desconectarla
+# juntas puede acoplarse por EMI al módulo E/S y desconectarlo
 # (observado con la ESP32 del enlace serial, retirado en la tanda 20; se
 # conserva con los módulos M31-U). Mitigación temporal: escalonar el apagado en dos grupos
 # separados por este intervalo, mientras se verifica/instala supresión en

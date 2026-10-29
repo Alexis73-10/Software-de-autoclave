@@ -219,7 +219,7 @@ def guard_estado(prohibidos: frozenset, entidad: str, sesion: Sesion | None = No
     Devuelve el estado observado.
 
     El bloque solo debe hacer comprobaciones y cambios en memoria o en la
-    tarjeta: mientras dura, el tick completo del control loop espera. Archivos
+    módulo E/S: mientras dura, el tick completo del control loop espera. Archivos
     y bitácora van fuera. Para rechazar dentro del bloque se lanza _Rechazo,
     que se registra cuando el lock ya está libre."""
     try:

@@ -73,6 +73,16 @@ def accion(definicion, valores) -> str:
     return definicion.accion
 
 
+def _valores_visibles(valores) -> dict:
+    """MES-04 (tanda 23): los valores de texto con los códigos TARJETA_<x>
+    escritos como MODULO_ES_<x> (p. ej. la causa de COM-03 de un ciclo viejo).
+    Solo para armar la descripción; los valores guardados no cambian."""
+    if not isinstance(valores, dict):
+        return valores
+    from autoclave.state_machine.alarms.catalogo import texto_con_codigos_visibles
+    return {k: texto_con_codigos_visibles(v) for k, v in valores.items()}
+
+
 def _valores_en_idioma(valores: dict, idioma: str) -> dict:
     """Los valores de texto conocidos (motivos del estado seguro), en `idioma`.
     X9 (tanda 9, D9-13.4): un motivo de fallo de fase guardado con clave y
@@ -111,8 +121,9 @@ def textos(definicion, valores: dict, idioma: str) -> dict:
     """{"titulo", "descripcion", "accion"} de la alarma en `idioma`."""
     codigo = definicion.codigo
     base = {"titulo": definicion.titulo, "accion": accion(definicion, valores)}
+    visibles = _valores_visibles(valores)
     try:
-        base["descripcion"] = definicion.renderizar(valores)
+        base["descripcion"] = definicion.renderizar(visibles)
     except Exception:
         base["descripcion"] = definicion.descripcion
     if idioma not in i18n.IDIOMAS:
@@ -134,7 +145,7 @@ def textos(definicion, valores: dict, idioma: str) -> dict:
     plantilla = entrada.get("plantilla")
     if isinstance(plantilla, str):
         try:
-            salida["descripcion"] = plantilla.format(**_valores_en_idioma(valores, idioma))
+            salida["descripcion"] = plantilla.format(**_valores_en_idioma(visibles, idioma))
         except Exception:
             _avisar_una_vez(f"{codigo}:{idioma}", "Alarma %s: plantilla %s incompleta; se usa el español",
                             codigo, idioma)
@@ -182,22 +193,26 @@ def motivo_fallo(codigo, valores, motivo, idioma: str) -> str | None:
     JSON de ciclos.valores_fallo): "CÓDIGO · título: descripción". Sin código
     del catálogo (ciclos antiguos o de texto libre) devuelve el motivo
     guardado tal cual. Nunca lanza."""
+    # MES-04 (tanda 23): el código se muestra con codigo_visible() y el
+    # motivo registrado (texto libre) con sus TARJETA_<x> como MODULO_ES_<x>
+    from autoclave.state_machine.alarms.catalogo import texto_con_codigos_visibles as _visible
     try:
-        from autoclave.state_machine.alarms.catalogo import CATALOGO
+        from autoclave.state_machine.alarms.catalogo import CATALOGO, codigo_visible
         definicion = CATALOGO.get(codigo or "")
         if definicion is None:
-            return motivo or None
+            return _visible(motivo) or None
         if isinstance(valores, str):
             import json
             valores = json.loads(valores) if valores.strip() else {}
         if not isinstance(valores, dict):
             valores = {}
         if not valores and idioma == "es" and motivo:
-            return motivo                  # sin parámetros: el texto registrado
+            return _visible(motivo)        # sin parámetros: el texto registrado
         t = textos(definicion, valores, idioma)
+        visible = codigo_visible(definicion.codigo)
         if not valores:
-            return f"{definicion.codigo} · {t['titulo']}"
-        return f"{definicion.codigo} · {t['titulo']}: {t['descripcion']}"
+            return f"{visible} · {t['titulo']}"
+        return f"{visible} · {t['titulo']}: {t['descripcion']}"
     except Exception:
         _avisar_una_vez("motivo_fallo", "No se pudo armar el motivo de fallo de un ciclo")
-        return motivo or None
+        return _visible(motivo) or None

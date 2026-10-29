@@ -72,7 +72,7 @@ def test_ciclo_aplica_la_pausa_a_la_fase_en_curso(monkeypatch):
     from autoclave.state_machine.states import ciclo as mod
     c = mod.CicloState.__new__(mod.CicloState)
     c.estado = MagicMock()
-    c.estado.sin_datos_tarjeta_s = 0.0
+    c.estado.sin_datos_modulo_es_s = 0.0
     fase = MagicMock()
     c._fases = [fase]
     c._fase_idx = 0

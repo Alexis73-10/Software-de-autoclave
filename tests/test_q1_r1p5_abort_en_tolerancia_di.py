@@ -96,7 +96,7 @@ def test_abort_en_tolerancia_di_se_acepta_y_lo_dice(entorno):  # noqa: F811
     assert datos["ok"] is True and datos["action"] == "CICLO_CANCELADO"
     assert datos["pendiente"] is True
     assert datos["codigo"] == "cancelacion_en_espera_datos"
-    assert "tarjeta" in datos["mensaje"]
+    assert "módulo E/S" in datos["mensaje"]
     assert _cancelado_puesto(ctx)
 
 

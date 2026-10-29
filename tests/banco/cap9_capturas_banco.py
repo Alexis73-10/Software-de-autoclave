@@ -134,7 +134,7 @@ _SCRIPT_PRECICLO = textwrap.dedent(r"""
                 "textos": alarmas_i18n.por_idioma(d, valores)}
 
     flags = {"LISTO_PARA_CICLO": False, "PARO_EMERGENCIA": False, "PARO_REAL": False}
-    campos = {"estado_tarjeta": "ok", "no_abrir": True, "estado_seguro": {}}
+    campos = {"estado_modulo_es": "ok", "no_abrir": True, "estado_seguro": {}}
     alarmas = []
     ui = MagicMock(spec=UIServiceBackend)
     ui.connected = True

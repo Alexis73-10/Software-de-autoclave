@@ -7,7 +7,7 @@
 #
 # Las etapas 1-6 solo leen archivos: un fallo bloqueante ahí detiene la
 # secuencia sin abrir el enlace de E/S ni construir el ControlLoop (ninguna orden
-# llega a la tarjeta). La etapa 7 construye el control (contexto operable) y
+# llega al módulo E/S). La etapa 7 construye el control (contexto operable) y
 # luego espera las E/S: sin ellas no falla, reintenta con el código ARR_SIN_ES
 # (D-E) y las etapas siguientes no corren hasta que conecten.
 #

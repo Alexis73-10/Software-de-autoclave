@@ -241,7 +241,7 @@ INFO_E2 = {
     "equipo": {"modelo": "SPK-SAT 2000H2-LAB", "serie": "SN-0001", "instalacion": "2026-10-22T09:00:00",
                "fuente_vapor": "generator", "capacidad_litros": 2000, "tipo_carga": "H",
                "clase": "piso_lab"},
-    "software": {"version": "1.0.0", "firmware": "1.0.0", "id_tarjeta": "ESP32-A1B2C3"},
+    "software": {"version": "1.0.0", "firmware": "1.0.0", "id_modulo_es": "ESP32-A1B2C3"},
     "uso": {"ciclos": 128, "mantenimiento": None},
     "configuracion": {"idioma": "es", "unidades": {"temperatura": "C", "presion": "kPa"},
                       "impresora": "lista", "red": "conectada"},

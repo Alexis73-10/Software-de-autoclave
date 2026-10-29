@@ -100,7 +100,7 @@ def test_composicion_real_del_banco_conecta(sim, crear):
     enlace._leer_holding = lambda d, n: (lecturas.append((d, n)), original(d, n))[1]
     enlace.start()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"
+    assert enlace.modulo_es()["version"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"
     # Se leen los esclavos ID 0..5 (el 5 debe ser NONE) y no más
     leidos = {d for d, n in lecturas if n == 8 and d >= m31.MODELO_ESCLAVOS}
     assert leidos == {m31.MODELO_ESCLAVOS + 8 * i for i in range(6)}
@@ -161,7 +161,7 @@ def test_valores_del_equipo_real_conectan(sim, crear):
     sim.fijar_firmware(0x0103, [0x0100, 0x0100, 0x0100, 0x0100, 0x0000])
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"
+    assert enlace.modulo_es()["version"] == "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-"
     fw = enlace.get_diagnostico()["modulos"]["firmware"]
     assert fw == {"principal": "9232-0-13", "registro_principal": "v1.3",
                   "expansiones": ["v1.0", "v1.0", "v1.0", "v1.0", "-"],
@@ -197,7 +197,7 @@ def test_sin_texto_usa_el_registro(sim, crear):
     sim.fijar_firmware_texto("")
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "v1.3 / v1.0,v1.0,v1.0,v1.0,-"
+    assert enlace.modulo_es()["version"] == "v1.3 / v1.0,v1.0,v1.0,v1.0,-"
 
 
 @pytest.mark.req("ADB-02")
@@ -207,7 +207,7 @@ def test_firmware_en_cero_no_bloquea(sim, crear):
     sim.fijar_firmware(0x0000, [0, 0, 0, 0, 0])
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-13 / -,-,-,-,-"
+    assert enlace.modulo_es()["version"] == "9232-0-13 / -,-,-,-,-"
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +220,7 @@ def test_mac_del_banco_como_id(sim, crear):
     sim.fijar_mac("005404849DB1")
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["id"] == "005404849DB1"
+    assert enlace.modulo_es()["id"] == "005404849DB1"
 
 
 # ---------------------------------------------------------------------------

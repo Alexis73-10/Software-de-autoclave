@@ -9,7 +9,7 @@
 #   - ciclos realizados / último ciclo: GET /cycle/history?limite=1, consultado
 #     fuera del hilo de la GUI al abrir el panel
 #   - versión, ID y emparejamiento del módulo E/S: GET /status (campo
-#     `tarjeta`, del último handshake; E6, FW-D2 y FW-D7), en la misma consulta
+#     `modulo_es`, del último handshake; E6, FW-D2 y FW-D7), en la misma consulta
 #   - enlace de E/S activo (tanda 19, MOD-01): GET /status (campo `enlace_io`,
 #     "modbus" | "serial"), en la misma consulta
 # Sin fuente en el código (se muestra como "No disponible"): fecha del último
@@ -114,7 +114,7 @@ def _filas_modulo_es(modulo_es) -> list[dict]:
 def filas_equipo(perfil, door: int, version_sw, historial, modulo_es=None,
                  mantenimiento=None, enlace=None) -> list[dict]:
     """historial: None = aún no se pudo consultar; [] = sin ciclos; [fila] = último ciclo.
-    modulo_es: campo `tarjeta` de /status ({version, id, emparejada}) o None.
+    modulo_es: campo `modulo_es` de /status ({version, id, emparejada}) o None.
     mantenimiento: GET /maintenance (M1, tanda 3) o None.
     enlace: campo `enlace_io` de /status (tanda 19); None = aún sin consultar,
     "" = /status respondió sin un enlace válido."""
@@ -195,7 +195,7 @@ class InfoEquipo(QObject):
                 filas = None
             try:
                 status = self._backend.get("/status")
-                modulo_es = status.get("tarjeta") if isinstance(status, dict) else None
+                modulo_es = status.get("modulo_es") if isinstance(status, dict) else None
                 # "" = /status respondió sin enlace válido ("No disponible")
                 enlace = (status.get("enlace_io") or "") if isinstance(status, dict) else None
             except Exception as e:

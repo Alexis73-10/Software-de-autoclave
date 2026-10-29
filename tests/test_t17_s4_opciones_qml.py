@@ -227,7 +227,7 @@ r["textos"] = textos()
 # ── MPR-01 ───────────────────────────────────────────────────────────────────
 
 def _status(pres, avisos=None):
-    s = {"machine_state": "PREPARADO", "test_mode_active": True, "estado_tarjeta": "ok",
+    s = {"machine_state": "PREPARADO", "test_mode_active": True, "estado_modulo_es": "ok",
          "card_connected": True, "sensors": {"pressure": {"camara": pres}, "temperature": {},
                                              "digital_inputs": {}, "digital_outputs": {}}}
     if avisos is not None:

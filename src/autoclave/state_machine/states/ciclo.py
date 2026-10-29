@@ -20,7 +20,8 @@ from datetime import datetime
 from autoclave.state_machine.cycle_phases.base_fase import FaseResult
 from autoclave.state_machine.alarms.catalogo import (
     CIC_01, CIC_02, CIC_03, CIC_04, CIC_05, CIC_06, CIC_07, CIC_08, CIC_11,
-    COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, nombre_legible,
+    COM_02, COM_03, PRE_06, PUE_02, PUE_03, SEN_02, SEN_08, SIS_01, SUM_01, SUM_06, codigo_visible,
+    nombre_legible,
 )
 # E12 (tanda 12): alarmas propias de ESTERILIZACION (C-03, C-13) y Referencia
 # sin lectura (C-13.7b). FC-08 (tanda 21): CIC-19 con carga líquida
@@ -172,7 +173,7 @@ class CicloState:
         # no corre por la tolerancia de DI vencida; None fuera de él
         self._pausa_sin_datos_desde = None
         # D8-2.7 (tanda 8): el tramo en curso empezó por la desconexión total de
-        # la tarjeta (el ControlLoop no corre run()), no por la DI vencida
+        # el módulo E/S (el ControlLoop no corre run()), no por la DI vencida
         self._pausa_por_desconexion = False
         # S1 (tanda 8): canales de presión vigilados en el ciclo en curso
         self._pres_vigilados = [presion_sin_lectura.CAMARA]
@@ -229,7 +230,7 @@ class CicloState:
         self.estado.valores_fallo = {}
         self.estado.f0_acumulado  = 0.0
         self.estado.avisos_ciclo  = []
-        self.estado.sin_datos_tarjeta_s = 0.0
+        self.estado.sin_datos_modulo_es_s = 0.0
         # F4 (tanda 16): contratos por ciclo (ver EstadoAutoclave)
         self.estado.aislamiento_camara = AislamientoCamara()
         self.estado.inhibir_vapor_chaqueta = False
@@ -277,19 +278,19 @@ class CicloState:
         o, si la tolerancia vence, el ciclo termina en FALLO_CONEXION y P-7
         la limpia. Leer bajo _sm_lock (guard_estado del backend).
 
-        D8-2.7: el tramo de una desconexión total (marcar_sin_datos_tarjeta)
+        D8-2.7: el tramo de una desconexión total (marcar_sin_datos_modulo_es)
         no cuenta como tolerancia de DI: R1-P5 no cambia aquí."""
         return (self._resultado_pendiente is None and self._pausa_sin_datos_desde is not None
                 and not self._pausa_por_desconexion)
 
     @property
     def exposicion_en_pausa(self) -> bool:
-        """D8-2.7 (tanda 8): hay un tramo sin datos válidos de la tarjeta en
+        """D8-2.7 (tanda 8): hay un tramo sin datos válidos del módulo E/S en
         curso (desconexión total, ventana tras reconectar o tolerancia de DI
         vencida). Esos segundos no cuentan como exposición ni acumulan F0."""
         return self._resultado_pendiente is None and self._pausa_sin_datos_desde is not None
 
-    def marcar_sin_datos_tarjeta(self) -> None:
+    def marcar_sin_datos_modulo_es(self) -> None:
         """D8-2.7 (tanda 8, decisión de Cristian; SAF-02 / TMG-02 de la
         revisión Q1): el ControlLoop llama aquí en cada tick de CICLO en que no
         corre la máquina de estados por falta de datos (enlace caído antes de
@@ -308,7 +309,7 @@ class CicloState:
             return
         self._pausa_sin_datos_desde = self._inicio_tramo_sin_datos(time.monotonic())
         self._pausa_por_desconexion = True
-        logger.warning("CicloState: sin datos de la tarjeta (desconexión); la fase %s queda "
+        logger.warning("CicloState: sin datos del módulo E/S (desconexión); la fase %s queda "
                        "en pausa", self._fase_actual_legible())
 
     @property
@@ -451,12 +452,18 @@ class CicloState:
                 self.estado.valores_fallo = alarmas_i18n.valores_json(valores)
             except Exception:
                 self.estado.valores_fallo = {}
-            self.estado.motivo_fallo = f"{inst.codigo} · {inst.titulo}: {inst.descripcion}"
+            # MES-04 (tanda 23), DECISIÓN SIN CONFIRMAR: motivo_fallo es texto
+            # de presentación (no clave): se guarda ya con el código visible
+            # (TARJETA_<x> como MODULO_ES_<x>); codigo_fallo sigue siendo el
+            # código guardado.
+            self.estado.motivo_fallo = (f"{codigo_visible(inst.codigo)} · {inst.titulo}: "
+                                        f"{inst.descripcion}")
             self.estado.codigo_fallo = inst.codigo
         except Exception:
             logger.exception("CicloState: no se pudo registrar la alarma %s", codigo)
             try:
-                self.estado.motivo_fallo = f"{codigo}: no se pudo registrar el detalle de la alarma."
+                self.estado.motivo_fallo = (f"{codigo_visible(codigo)}: no se pudo registrar el "
+                                            f"detalle de la alarma.")
                 self.estado.codigo_fallo = codigo
                 self.estado.valores_fallo = {}
             except Exception:
@@ -744,7 +751,7 @@ class CicloState:
     def _cerrar_pausa_sin_datos(self) -> None:
         """T2-a (tanda 7, decisión 1.3 de Cristian): termina el tramo en que la
         fase no corrió por la tolerancia de DI vencida (volvieron los datos o
-        el ciclo terminó). Los segundos se suman a estado.sin_datos_tarjeta_s
+        el ciclo terminó). Los segundos se suman a estado.sin_datos_modulo_es_s
         (pie del ticket) y la fase en curso los descuenta de su exposición si
         sabe hacerlo (ESTERILIZACION: pausar_exposicion)."""
         desde = self._pausa_sin_datos_desde
@@ -753,11 +760,11 @@ class CicloState:
         self._pausa_sin_datos_desde = None
         self._pausa_por_desconexion = False
         segundos = max(0.0, time.monotonic() - desde)
-        previo = getattr(self.estado, "sin_datos_tarjeta_s", 0.0)
+        previo = getattr(self.estado, "sin_datos_modulo_es_s", 0.0)
         if isinstance(previo, bool) or not isinstance(previo, (int, float)):
             previo = 0.0
-        self.estado.sin_datos_tarjeta_s = previo + segundos
-        logger.warning("CicloState: %.1f s sin datos de la tarjeta (fase %s)",
+        self.estado.sin_datos_modulo_es_s = previo + segundos
+        logger.warning("CicloState: %.1f s sin datos del módulo E/S (fase %s)",
                        segundos, self._fase_actual_legible())
         if self._fase_idx < len(self._fases):
             pausar = getattr(self._fases[self._fase_idx], "pausar_exposicion", None)
@@ -1136,8 +1143,8 @@ class CicloState:
                 logger.error("CicloState: ABORTADO por trama DI vencida (fallo de comunicación)")
                 self.estado.fase_ciclo = "FALLO_CONEXION"
                 self._registrar_fallo(COM_03, origen="TARJETA_SIN_TRAMA_VALIDA",
-                                      causa="TARJETA_SIN_TRAMA_VALIDA",
-                                      motivo="Sin datos vigentes de las entradas de la tarjeta.",
+                                      causa=codigo_visible("TARJETA_SIN_TRAMA_VALIDA"),
+                                      motivo="Sin datos vigentes de las entradas del módulo E/S.",
                                       fase=self._fase_actual_legible())
             # §15.1: con el paro activo, ALL_OFF y ninguna válvula
             self._protocolo.ejecutar(abrir_valvulas=False)
@@ -1280,7 +1287,7 @@ class CicloState:
     # ------------------------------------------------------------------
 
     def abortar_por_desconexion(self, segundos: float = 5.0):
-        """Llamado por ControlLoop cuando la comunicación con la tarjeta lleva caída
+        """Llamado por ControlLoop cuando la comunicación con el módulo E/S lleva caída
         más que su tolerancia (ControlLoop._TOLERANCIA_DESCONEXION_SEG)
         durante un ciclo en curso. run() no puede detectarlo por sí mismo
         porque, sin conexión, el ControlLoop deja de invocar
@@ -1291,7 +1298,7 @@ class CicloState:
             return  # ya se estaba abortando/terminando por otra causa
 
         self._cerrar_pausa_sin_datos()          # T2-a
-        logger.error("CicloState: ABORTADO por pérdida de comunicación con la tarjeta de E/S")
+        logger.error("CicloState: ABORTADO por pérdida de comunicación con el módulo E/S")
         self.estado.fase_ciclo = "FALLO_CONEXION"
         fase = self._fase_actual_legible()
         self._registrar_fallo(COM_02, origen=fase, segundos=segundos, fase=fase)
@@ -1299,7 +1306,7 @@ class CicloState:
         self._resultado_pendiente = CicloResultado.FALLO
 
     def abortar_por_falla_io(self, alarm_id: str, motivo: str):
-        """Llamado por ControlLoop cuando la tarjeta de E/S informa una falla
+        """Llamado por ControlLoop cuando el módulo E/S informa una falla
         durante un ciclo en curso: watchdog disparado, reinicio, expansor
         fuera de línea o salidas que no siguen lo comandado (E6; MOD-12).
         Análogo a abortar_por_desconexion(): el
@@ -1313,12 +1320,14 @@ class CicloState:
             return False  # ya se estaba abortando/terminando por otra causa
 
         self._cerrar_pausa_sin_datos()          # T2-a
-        logger.error("CicloState: ABORTADO por falla de la tarjeta de E/S (%s): %s",
+        logger.error("CicloState: ABORTADO por falla del módulo E/S (%s): %s",
                      alarm_id, motivo)
         self.estado.fase_ciclo = "FALLO_IO"
-        # P5: resultado FALLO_IO con el id de la tarjeta como causa (origen
+        # P5: resultado FALLO_IO con el id del módulo E/S como causa (origen
         # de COM-03, que es FALLO_CRITICO y no se despeja sola).
-        self._registrar_fallo(COM_03, origen=alarm_id, causa=alarm_id, motivo=motivo,
+        # MES-04: la causa es texto de la descripción (se muestra); el origen
+        # sigue siendo el código guardado (clave de la alarma)
+        self._registrar_fallo(COM_03, origen=alarm_id, causa=codigo_visible(alarm_id), motivo=motivo,
                               fase=self._fase_actual_legible())
         self._ejecutar_protocolo_respetando_paro()
         self._resultado_pendiente = CicloResultado.FALLO

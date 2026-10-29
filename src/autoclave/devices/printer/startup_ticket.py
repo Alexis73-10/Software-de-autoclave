@@ -22,12 +22,12 @@ _TXT = {
            "encendido": "ENCENDIDO", "apagado": "APAGADO", "primer": "Primer encendido",
            "listo": "Sistema listo", "fallo_arranque": "** FALLO EN ARRANQUE **",
            OK: "OK", FALLO: "FALLO", SIN_DATOS: "Sin datos",
-           "backend": "Backend", "tarjeta": "Tarjeta"},
+           "backend": "Backend", "modulo_es": "Módulo E/S"},
     "en": {"modelo": "Model:", "serie": "Serial:", "clase": "Class:", "software": "Software:",
            "encendido": "POWER ON", "apagado": "POWER OFF", "primer": "First power-on",
            "listo": "System ready", "fallo_arranque": "** STARTUP FAILURE **",
            OK: "OK", FALLO: "FAILED", SIN_DATOS: "No data",
-           "backend": "Backend", "tarjeta": "Control board"},
+           "backend": "Backend", "modulo_es": "I/O module"},
 }
 
 # Valores de texto antiguos (antes de I18N-18): se siguen aceptando
@@ -83,7 +83,7 @@ def format_startup_ticket(
     status: list[tuple[str, str]] | None = None,
     idioma: str | None = None,
 ) -> str:
-    """status: [(subsistema, código)]; el subsistema "backend"/"tarjeta" se
+    """status: [(subsistema, código)]; el subsistema "backend"/"modulo_es" se
     traduce, otro se imprime tal cual."""
     idioma = _idioma(idioma)
     tx = _TXT[idioma]
@@ -111,7 +111,7 @@ def format_startup_ticket(
     if estados:
         lines.append(_DIV)
         for rotulo, codigo in estados:
-            nombre = tx.get(str(rotulo).lower(), rotulo) if str(rotulo).lower() in ("backend", "tarjeta") else rotulo
+            nombre = tx.get(str(rotulo).lower(), rotulo) if str(rotulo).lower() in ("backend", "modulo_es") else rotulo
             lines.append(f"{nombre + ':':<16}{tx[codigo]}")
     lines += [
         _DIV,

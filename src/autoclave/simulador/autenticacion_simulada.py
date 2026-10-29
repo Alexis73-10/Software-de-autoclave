@@ -2,7 +2,7 @@
 #
 # Autenticación del BACKEND SIMULADO (T-14; planeacion_backend_autenticacion.md
 # v7, decisiones 33 a 35). Replica el contrato del backend real para probar la
-# UI sin tarjeta: /auth/login, /auth/logout, /auth/sesion, /auth/change_password
+# UI sin módulo E/S: /auth/login, /auth/logout, /auth/sesion, /auth/change_password
 # y POST /usuarios, con los mismos códigos de estado y cuerpos
 # ({"detail", "codigo", ...}). La batería tests/test_contrato_autenticacion*.py
 # corre contra ambos.

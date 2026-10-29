@@ -62,7 +62,7 @@ _ack_salida_prueba: bool | None = None
 def _salir_modo_prueba() -> bool:
     """Apaga las salidas, reanuda la máquina y olvida la sesión dueña. Llamar
     con _sm_lock tomado; quien llama registra modo_prueba_sale al soltarlo
-    (con `_detalle_salida_prueba`). Devuelve True si la tarjeta confirmó el
+    (con `_detalle_salida_prueba`). Devuelve True si el módulo E/S confirmó el
     ALL_OFF (R1-P1)."""
     global _token_modo_prueba, _ack_salida_prueba
     _ack_salida_prueba = context.control_loop.exit_test_mode() is True
@@ -583,8 +583,8 @@ def _rechazar_si_sin_datos_vigentes() -> None:
     de rechazo que las órdenes de puerta con el enlace caído."""
     cl = context.control_loop
     if cl.desconectado is True or cl.datos_vigentes is False:
-        raise _Rechazo(409, "sin_conexion_tarjeta",
-                       "Sin conexión con la tarjeta de control o datos no vigentes")
+        raise _Rechazo(409, "sin_conexion_modulo_es",
+                       "Sin conexión con el módulo E/S o datos no vigentes")
 
 
 @router.get("/io/channels")

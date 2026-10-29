@@ -9,7 +9,7 @@
 # - heartbeat.write_timestamp cada 30 s en data/last_shutdown.json: el ticket
 #   del siguiente arranque informa la hora aproximada del último apagado.
 # - Ticket de arranque: modelo, serie, versión, encendido/apagado y estado del
-#   backend y de la tarjeta (espera hasta 15 s a que la tarjeta tenga datos).
+#   backend y del módulo E/S (espera hasta 15 s a que el módulo E/S tenga datos).
 # Tiempos de espera con time.monotonic(); las horas del ticket son de pared.
 
 import logging
@@ -22,7 +22,7 @@ from autoclave.devices.printer import heartbeat
 logger = logging.getLogger(__name__)
 
 URL_ESTADO = "http://127.0.0.1:8000/status"
-PLAZO_TARJETA_S = 15.0
+PLAZO_MODULO_ES_S = 15.0
 _INTERVALO_S = 0.5
 
 
@@ -44,11 +44,11 @@ def _imprimir(texto: str) -> bool:
 
 
 def imprimir_ticket(perfil, ultimo_apagado, encendido, consultar_estado=_consultar_estado,
-                    imprimir=_imprimir, dormir=time.sleep, plazo_s: float = PLAZO_TARJETA_S,
+                    imprimir=_imprimir, dormir=time.sleep, plazo_s: float = PLAZO_MODULO_ES_S,
                     version: str | None = None, reloj=time.monotonic) -> None:
     from autoclave.devices.printer.startup_ticket import FALLO, OK, SIN_DATOS, format_startup_ticket
     # I18N-18: estados como código; el rótulo se pone al imprimir
-    backend, tarjeta = FALLO, FALLO
+    backend, modulo_es = FALLO, FALLO
     limite = reloj() + plazo_s
     while reloj() < limite:
         try:
@@ -56,16 +56,16 @@ def imprimir_ticket(perfil, ultimo_apagado, encendido, consultar_estado=_consult
         except Exception:
             estado = None
         if estado is None:
-            backend, tarjeta = FALLO, FALLO
+            backend, modulo_es = FALLO, FALLO
         else:
             backend = OK
             if estado.get("card_connected"):
-                tarjeta = OK
+                modulo_es = OK
                 break
-            tarjeta = SIN_DATOS
+            modulo_es = SIN_DATOS
         dormir(_INTERVALO_S)
     texto = format_startup_ticket(perfil, version or _version(), ultimo_apagado, encendido,
-                                  [("backend", backend), ("tarjeta", tarjeta)])
+                                  [("backend", backend), ("modulo_es", modulo_es)])
     try:
         ok = imprimir(texto)
     except Exception as exc:

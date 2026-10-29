@@ -52,7 +52,7 @@ async def _ciclo_de_vida(_app):
         return
     control_loop = getattr(context, "control_loop", None)
     if control_loop is None:
-        # el arranque no llegó a construirlo: no hay loop ni orden a la tarjeta
+        # el arranque no llegó a construirlo: no hay loop ni orden al módulo E/S
         logger.info("Backend detenido antes de construir el control loop")
         return
     try:
@@ -120,7 +120,7 @@ def _responder_rechazo(_request: Request, r: RechazoApi):
 def _estado_seguro_en_marcha() -> bool:
     """True si el protocolo de estado seguro está ACTUANDO sobre las válvulas.
     Pausado por un paro, esperando la confirmación del operador o sin datos de
-    la tarjeta no mueve nada: el equipo ya está quieto y se puede apagar (A1)."""
+    el módulo E/S no mueve nada: el equipo ya está quieto y se puede apagar (A1)."""
     es = context.control_loop.estado_seguro
     if getattr(es, "activo", False) is not True:
         return False

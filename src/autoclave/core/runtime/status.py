@@ -33,7 +33,7 @@ def _fuera_de_rango(valor, rango) -> bool:
 
 
 class EstadoAutoclave:
-    # El índice es la posición de la lectura en la trama de la tarjeta. La
+    # El índice es la posición de la lectura en la trama del módulo E/S. La
     # posición 3 (temp_chaqueta) ya no se lee: ese sensor se retiró de todos
     # los equipos (planeacion_backend_autenticacion.md, decisión 24, T-19).
     # Los demás conservan su posición.
@@ -122,7 +122,7 @@ class EstadoAutoclave:
         "RESET_FALLA":                  6,   # operador solicitó salir del estado FALLA
         "FALLO_SUMINISTRO_ELECTRICO":   7,
         # U4 (tanda 2): paro de verdad (enlace + DI vigente + entrada en 0).
-        # PARO_EMERGENCIA también es True sin datos de la tarjeta (A-3).
+        # PARO_EMERGENCIA también es True sin datos del módulo E/S (A-3).
         "PARO_REAL":                    8,
     }
 
@@ -161,9 +161,9 @@ class EstadoAutoclave:
         self.operador_inicio: str = ""
         # Avisos del ciclo que van al pie del ticket (SAF-04 de T3)
         self.avisos_ciclo: list = []
-        # T2-a (tanda 7): segundos del ciclo sin datos de la tarjeta (tolerancia
+        # T2-a (tanda 7): segundos del ciclo sin datos del módulo E/S (tolerancia
         # por DI vencida); pausan la exposición y van al pie del ticket
-        self.sin_datos_tarjeta_s: float = 0.0
+        self.sin_datos_modulo_es_s: float = 0.0
         # D8-2.9 (tanda 8): True si en el tick actual llegó una trama DI
         # vigente, distinta y nueva (lo publica ControlLoop antes de correr la
         # máquina de estados); None = sin información (se cuenta cada tick)

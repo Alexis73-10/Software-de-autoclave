@@ -317,13 +317,13 @@ def _perfil():
 def test_ticket_de_arranque_decide_por_codigo_no_por_texto():
     from autoclave.devices.printer.startup_ticket import FALLO, OK, SIN_DATOS, format_startup_ticket
     t = datetime(2026, 10, 21, 8, 0, 0)
-    ok = format_startup_ticket(_perfil(), "1", None, t, [("backend", OK), ("tarjeta", OK)], idioma="en")
-    assert "System ready" in ok and "Control board:" in ok and "First power-on" in ok
-    mal = format_startup_ticket(_perfil(), "1", t, t, [("backend", OK), ("tarjeta", SIN_DATOS)],
+    ok = format_startup_ticket(_perfil(), "1", None, t, [("backend", OK), ("modulo_es", OK)], idioma="en")
+    assert "System ready" in ok and "I/O module:" in ok and "First power-on" in ok
+    mal = format_startup_ticket(_perfil(), "1", t, t, [("backend", OK), ("modulo_es", SIN_DATOS)],
                                 idioma="en")
     assert "STARTUP FAILURE" in mal and "No data" in mal
-    es = format_startup_ticket(_perfil(), "1", t, t, [("backend", FALLO), ("tarjeta", OK)], idioma="es")
-    assert "FALLO EN ARRANQUE" in es and "Tarjeta:" in es
+    es = format_startup_ticket(_perfil(), "1", t, t, [("backend", FALLO), ("modulo_es", OK)], idioma="es")
+    assert "FALLO EN ARRANQUE" in es and "Módulo E/S:" in es
     # legado: los textos antiguos siguen funcionando; uno desconocido es fallo
     assert "Sistema listo" in format_startup_ticket(_perfil(), "1", t, t, [("Backend", "OK")], idioma="es")
     assert "FALLO EN ARRANQUE" in format_startup_ticket(_perfil(), "1", t, t, [("X", "raro")], idioma="es")
@@ -335,10 +335,10 @@ def test_tickets_en_cp437(idioma):
     from autoclave.devices.printer.startup_ticket import FALLO, OK, format_startup_ticket
     from autoclave.services.domain.reportes.resumen_periodo import format_ticket_resumen
     t = datetime(2026, 10, 21, 8, 0, 0)
-    textos = [format_startup_ticket(_perfil(), "1", t, t, [("backend", OK), ("tarjeta", FALLO)],
+    textos = [format_startup_ticket(_perfil(), "1", t, t, [("backend", OK), ("modulo_es", FALLO)],
                                     idioma=idioma)]
     textos += [format_connectivity_ticket(s, ok, t, idioma=idioma)
-               for s in ("TARJETA", "BACKEND") for ok in (True, False)]
+               for s in ("MODULO_ES", "BACKEND") for ok in (True, False)]
     resumen = {"totales": {"total": 2, "completados": 1, "fallos": 1, "cancelados": 0, "sin_cierre": 0},
                "por_programa": [{"programa_numero": 1, "programa_nombre": "Bowe & Dick", "total": 2,
                                  "completados": 1, "fallos": 1, "cancelados": 0, "sin_cierre": 0}],
@@ -349,10 +349,10 @@ def test_tickets_en_cp437(idioma):
         texto.encode("cp437")
         assert all(len(l) <= 48 for l in texto.split("\n"))
     if idioma == "en":
-        assert "BOARD: DISCONNECTED" in textos[2] or "BOARD: DISCONNECTED" in "".join(textos)
+        assert "I/O MODULE: DISCONNECTED" in textos[2] or "I/O MODULE: DISCONNECTED" in "".join(textos)
         assert "CYCLE SUMMARY" in textos[-1] and "Completed: 1 (50%)" in textos[-1]
     else:
-        assert "RESUMEN DE CICLOS" in textos[-1] and "TARJETA: DESCONECTADA" in "".join(textos)
+        assert "RESUMEN DE CICLOS" in textos[-1] and "MODULO E/S: DESCONECTADO" in "".join(textos)
 
 
 def test_resumen_conserva_24_columnas():

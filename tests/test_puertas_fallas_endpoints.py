@@ -229,7 +229,7 @@ def test_calibracion_por_nombre_sin_chaqueta_y_sin_correr_indices(entorno):
 # ── Revisión de seguridad y temporización de la etapa 2 ───────────────────────
 
 @pytest.mark.parametrize("atributo,codigo", [("test_mode_active", "modo_prueba_activo"),
-                                             ("desconectado", "sin_conexion_tarjeta")])
+                                             ("desconectado", "sin_conexion_modulo_es")])
 def test_puertas_rechazadas_en_modo_prueba_o_sin_tarjeta(entorno, atributo, codigo):
     """SAF-04: la orden quedaría pendiente y se ejecutaría sin revalidar."""
     cliente, ctx, est, _ = entorno

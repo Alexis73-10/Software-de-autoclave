@@ -98,7 +98,7 @@ def test_backend_completo_con_el_simulador_m31(planta):
     assert esperar(lambda: client.get("/status").json()["card_connected"] is True, timeout=10)
     st = client.get("/status").json()
     assert st["enlace_io"] == "modbus"
-    assert st["tarjeta"]["id"] == "A1B2C3D4E5F6"
+    assert st["modulo_es"]["id"] == "A1B2C3D4E5F6"
     assert st["comunicacion"]["modulos"]["enlace"] == "modbus"
 
     # Lectura de temperatura (décimas → °C) y presión (µA → kPa abs)

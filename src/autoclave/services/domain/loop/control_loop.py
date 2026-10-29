@@ -79,7 +79,7 @@ class ControlLoop:
     # Si se supera, se aborta — ver abortar_por_desconexion().
     _TOLERANCIA_DESCONEXION_SEG = 5.0
 
-    # Vigencia de la trama DI: tres periodos de 500 ms de la tarjeta. Si la
+    # Vigencia de la trama DI: tres periodos de 500 ms del módulo E/S. Si la
     # última DI es más vieja (o no hay), el paro se publica activo: "sin datos
     # de las entradas = paro" (adenda E0/E1, A-3, TMG-01).
     _VIGENCIA_DI_SEG = 1.5
@@ -108,7 +108,7 @@ class ControlLoop:
         self._al_cancelar_prueba = []
         # Configuración inválida al arrancar (CONFIGURACION_INVALIDA): motivo
         # del bloqueo, o None. _bloqueo_apagado indica si ya se mandó ALL_OFF
-        # en la conexión actual con la tarjeta.
+        # en la conexión actual con el módulo E/S.
         self._bloqueo_config: str | None = None
         self._bloqueo_apagado = False
         self.cycle          = cycle_manager.get_selected_cycle()
@@ -165,18 +165,18 @@ class ControlLoop:
         self.link_was_connected = True
         self._link_ever_connected = False
         self._desconectado_desde: float | None = None
-        # U4 (tanda 2): estado de la tarjeta publicado en /status
+        # U4 (tanda 2): estado del módulo E/S publicado en /status
         # ("desconectada", "sin_tramas_validas" u "ok"); falla cerrada hasta
         # el primer tick. COM-01 sigue solo a "desconectada" (desde cuándo y
         # si está activa); TARJETA_SIN_TRAMA_VALIDA propia por DI vencida con
         # el enlace hecho (la del handshake la reporta el enlace como evento).
-        self.estado_tarjeta = "desconectada"
+        self.estado_modulo_es = "desconectada"
         self._desconectada_desde: float | None = None
-        # T2-b (tanda 7): ticks seguidos con la tarjeta en "ok" (enlace hecho y
+        # T2-b (tanda 7): ticks seguidos con el módulo E/S en "ok" (enlace hecho y
         # trama DI vigente); DESPEJAR de COM-02/03 exige _TICKS_ENLACE_OK
-        self._ticks_tarjeta_ok = 0
+        self._ticks_modulo_es_ok = 0
         # D8-2.9 (tanda 8, TMG-04): número de secuencia de la última trama DI
-        # contada; solo una trama DISTINTA y nueva suma a _ticks_tarjeta_ok
+        # contada; solo una trama DISTINTA y nueva suma a _ticks_modulo_es_ok
         self._ultima_seq_di_contada = None
         # TMG-01 (revisión S2a): incrementos de F0 recientes (instante, valor)
         # para descontar los acreditados después de la última DI válida
@@ -213,7 +213,7 @@ class ControlLoop:
         self._reintento_all_off_n = 0
         self._com04_activa = False
         # D8-3.19: el lazo ya cerró el aire atmosférico en este modo prueba y
-        # registró el evento; se rearma cuando la tarjeta lo reporta cerrado
+        # registró el evento; se rearma cuando el módulo E/S lo reporta cerrado
         self._aire_prueba_cortado = False
         # S9, revisión ★ SAF-01: salidas de puerta/vapor cortadas por el lazo
         # en modo prueba (registro una vez por salida mientras siga reportada)
@@ -246,10 +246,10 @@ class ControlLoop:
         # ciclo por un paro que solo es falta de datos (decisión P3).
         self._conectado_desde: float | None = None
 
-        # Alarmas de la tarjeta reportadas fuera de ciclo, que se despejan al
+        # Alarmas del módulo E/S reportadas fuera de ciclo, que se despejan al
         # completar el siguiente handshake. Las del fallo de un ciclo no: esas
         # se liberan con el reconocimiento del operador.
-        self._alarmas_tarjeta: set[str] = set()
+        self._alarmas_modulo_es: set[str] = set()
 
         # SAF-01 de T3: copia del programa del último ciclo ejecutado. Fuera de
         # CICLO su Principal sigue contando para la seguridad de apertura hasta
@@ -282,11 +282,11 @@ class ControlLoop:
     def _tick_fallido(self) -> None:
         """TMG-03 (E3): un tick que lanza no renueva el latido (TMG-01 de E6)
         y, tras _EXCEPCIONES_PARA_APAGAR seguidos, se apagan todas las salidas
-        desde aquí, sin esperar al watchdog de la tarjeta. Log con traza, pero
+        desde aquí, sin esperar al watchdog del módulo E/S. Log con traza, pero
         limitado (el primero y uno cada _LOG_CADA_EXCEPCIONES)."""
         # SAF-03 (revisión Q1): un tick que no se completa no cuenta como
         # enlace "ok" (enlace_confirmado_ok no queda en True con el lazo caído)
-        self._ticks_tarjeta_ok = 0
+        self._ticks_modulo_es_ok = 0
         # TMG-05 (revisión S2a): se conserva el número de la última trama
         # contada (la misma trama tras el fallo no cuenta como nueva)
         try:
@@ -534,7 +534,7 @@ class ControlLoop:
 
     @property
     def desconectado(self) -> bool:
-        """True mientras el enlace con la tarjeta está caído (incluida la
+        """True mientras el enlace con el módulo E/S está caído (incluida la
         tolerancia): las lecturas no son vigentes. Solo lectura, para el
         backend (órdenes de puerta, revisión de seguridad de la etapa 2)."""
         return self._desconectado_desde is not None
@@ -666,7 +666,7 @@ class ControlLoop:
     def _vigilar_salidas_prueba_seguridad(self) -> list[tuple[str, str]]:
         """S9 (revisión ★ SAF-01): en modo prueba, cada tick se ordena apagar
         las salidas bloqueadas (como el aire atmosférico, D8-3.19: la trama DO
-        puede llegar tarde). Devuelve las (salida, código) que la tarjeta
+        puede llegar tarde). Devuelve las (salida, código) que el módulo E/S
         reportaba encendidas, una vez por salida, para la bitácora."""
         bloqueadas = self.salidas_prueba_bloqueadas()
         salidas = getattr(self.estado, "salidas_do", None) or {}
@@ -749,7 +749,7 @@ class ControlLoop:
         return seq
 
     def _contar_enlace_ok(self) -> None:
-        """T2-b: cuenta las tramas DI vigentes seguidas con estado_tarjeta
+        """T2-b: cuenta las tramas DI vigentes seguidas con estado_modulo_es
         "ok". D8-2.9 (tanda 8, TMG-04): solo cuenta una trama DISTINTA y nueva
         (por su número de secuencia); varios ticks que leen la misma trama
         cuentan una vez. Publica en `estado.trama_di_nueva` si en este tick
@@ -761,17 +761,17 @@ class ControlLoop:
         como trama nueva, igual que antes de D8-2.9."""
         nueva = False
         self._publicar_ultima_di_valida()
-        if self.estado_tarjeta == "ok":
+        if self.estado_modulo_es == "ok":
             seq = self._secuencia_di()
             if seq is None or seq != self._ultima_seq_di_contada:
                 nueva = True
-                self._ticks_tarjeta_ok += 1
+                self._ticks_modulo_es_ok += 1
             if seq is not None:
                 self._ultima_seq_di_contada = seq
         else:
             # La trama vigente antes de la caída no cuenta como nueva al volver
             # (su número se conserva: solo una trama posterior suma)
-            self._ticks_tarjeta_ok = 0
+            self._ticks_modulo_es_ok = 0
         try:
             self.estado.trama_di_nueva = nueva
         except Exception:
@@ -782,7 +782,7 @@ class ControlLoop:
         instante (monotonic) de la última trama DI vigente, para que el tramo
         sin datos del ciclo empiece ahí y no al detectarlo."""
         try:
-            if self.estado_tarjeta != "ok":
+            if self.estado_modulo_es != "ok":
                 return
             edad = self.link.edad_ultima_di()
             if isinstance(edad, bool) or not isinstance(edad, (int, float)) or edad < 0:
@@ -820,11 +820,11 @@ class ControlLoop:
         """T2-b (tanda 7, decisión 1.3 de Cristian): el enlace volvió a "ok"
         con _TICKS_ENLACE_OK tramas vigentes seguidas. Lo consulta el
         DESPEJAR de COM-02/03 (lectura de un int desde el hilo HTTP)."""
-        return self._ticks_tarjeta_ok >= _TICKS_ENLACE_OK
+        return self._ticks_modulo_es_ok >= _TICKS_ENLACE_OK
 
-    def _actualizar_estado_tarjeta(self, connected: bool, now: float) -> None:
-        """U4 (tanda 2): distingue tarjeta desconectada (no hay puerto o se
-        perdió) de tarjeta sin tramas válidas (puerto presente: sin handshake,
+    def _actualizar_estado_modulo_es(self, connected: bool, now: float) -> None:
+        """U4 (tanda 2): distingue módulo E/S desconectado (no hay puerto o se
+        perdió) de módulo E/S sin tramas válidas (puerto presente: sin handshake,
         CRC malo, firmware incompatible o DI vencida) y de ok. COM-01 solo con
         "desconectada"; TARJETA_SIN_TRAMA_VALIDA solo con el puerto presente;
         al pasar de una a otra se resuelve la anterior. No toca el paro ni las
@@ -840,7 +840,7 @@ class ControlLoop:
             estado = "ok"
         else:
             estado = "sin_tramas_validas"
-        self.estado_tarjeta = estado
+        self.estado_modulo_es = estado
 
         if estado == "desconectada":
             self._sin_conexion_desde = None
@@ -858,8 +858,8 @@ class ControlLoop:
                     self._com01_activa = True
                 except Exception:
                     logger.exception("ControlLoop: no se pudo activar COM-01")
-            if TARJETA_SIN_TRAMA_VALIDA in self._alarmas_tarjeta or self._sin_di_activa:
-                self._alarmas_tarjeta.discard(TARJETA_SIN_TRAMA_VALIDA)
+            if TARJETA_SIN_TRAMA_VALIDA in self._alarmas_modulo_es or self._sin_di_activa:
+                self._alarmas_modulo_es.discard(TARJETA_SIN_TRAMA_VALIDA)
                 self._sin_di_activa = False
                 self._resolver_alarma(TARJETA_SIN_TRAMA_VALIDA)
             return
@@ -869,7 +869,7 @@ class ControlLoop:
             self._com01_activa = False
             self._resolver_alarma(COM_01)
 
-        # DI vencida con el enlace hecho (la tarjeta manda AI: pero no DI:),
+        # DI vencida con el enlace hecho (el módulo E/S manda AI: pero no DI:),
         # fuera de la ventana de la primera DI de la conexión (paso 2a)
         primera_di_pendiente = (self.link.edad_ultima_di() is None
                                 and self._conectado_desde is not None
@@ -890,9 +890,9 @@ class ControlLoop:
             try:
                 self.alarm_manager.activar(
                     TARJETA_SIN_TRAMA_VALIDA,
-                    motivo=("No llegan tramas válidas de la tarjeta (puerto presente)."
+                    motivo=("No llegan tramas válidas del módulo E/S (puerto presente)."
                         if sin_conexion_larga else
-                        "La tarjeta no envía la trama de entradas (DI) desde hace "
+                        "El módulo E/S no envía la trama de entradas (DI) desde hace "
                         f"más de {self._VIGENCIA_DI_SEG:g} s."))
                 self._sin_di_activa = True
             except Exception:
@@ -902,7 +902,7 @@ class ControlLoop:
             # timeout de datos deja connected=False pero la causa sigue
             self._sin_di_activa = False
             # Si el handshake la reportó entretanto, la resuelve él al conectar
-            if TARJETA_SIN_TRAMA_VALIDA not in self._alarmas_tarjeta:
+            if TARJETA_SIN_TRAMA_VALIDA not in self._alarmas_modulo_es:
                 self._resolver_alarma(TARJETA_SIN_TRAMA_VALIDA)
 
     def _resolver_alarma(self, codigo: str) -> None:
@@ -911,7 +911,7 @@ class ControlLoop:
         except Exception:
             logger.exception("ControlLoop: no se pudo resolver %s", codigo)
 
-    def _procesar_eventos_tarjeta(self) -> None:
+    def _procesar_eventos_modulo_es(self) -> None:
         """Reacción a los eventos del enlace de E/S (E6; MOD-12). En ciclo, toda falla en operación aborta el ciclo
         (FALLO + protocolo de fallo). Fuera de ciclo, alarma bloqueante hasta
         el próximo handshake válido; el expansor fuera de línea y la
@@ -924,23 +924,23 @@ class ControlLoop:
             # TMG-06: un error con un evento no debe perder los siguientes
             # (la cola ya se vació) ni cortar el resto del tick.
             try:
-                self._procesar_evento_tarjeta(ev)
+                self._procesar_evento_modulo_es(ev)
             except Exception as exc:
-                logger.error("ControlLoop: error procesando evento de tarjeta %s: %s",
+                logger.error("ControlLoop: error procesando evento del módulo E/S %s: %s",
                              getattr(ev, "alarm_id", None), exc)
 
-    def _procesar_evento_tarjeta(self, ev) -> None:
+    def _procesar_evento_modulo_es(self, ev) -> None:
         # TMG-02 de U4: un handshake cortado porque se quitó el cable reporta
         # el paso en que iba (VER, ACK…); la causa real es la desconexión,
         # que ya da COM-01. No se activa una segunda alarma por lo mismo.
         if ev.origen == "handshake" and self.link.puerto_presente() is False:
-            logger.warning("ControlLoop: %s descartada, tarjeta desconectada (%s)",
+            logger.warning("ControlLoop: %s descartada, módulo E/S desconectado (%s)",
                            ev.alarm_id, ev.motivo)
             return
         if ev.origen == "conectada":
-            for alarm_id in sorted(self._alarmas_tarjeta):
+            for alarm_id in sorted(self._alarmas_modulo_es):
                 self.alarm_manager.resolver(alarm_id)
-            self._alarmas_tarjeta.clear()
+            self._alarmas_modulo_es.clear()
             # D8-2.11: el handshake incluye un ALL_OFF confirmado
             self._salidas_confirmadas("handshake")
             return
@@ -965,14 +965,14 @@ class ControlLoop:
             self.link.solicitar_handshake()
         # Fuera de ciclo: FALLA bloqueante (nivel ALARMA del catálogo) que se
         # resuelve al completarse el siguiente handshake (E6 decisión 9).
-        self._alarmas_tarjeta.add(ev.alarm_id)
+        self._alarmas_modulo_es.add(ev.alarm_id)
         self.alarm_manager.activar(ev.alarm_id, motivo=ev.motivo)
 
     def _tick(self):
         # FW-D6: el latido lo renueva run() al completarse este tick (TMG-01).
-        # Antes del chequeo de conexión: un WD o reinicio de la tarjeta deja
+        # Antes del chequeo de conexión: un WD o reinicio del módulo E/S deja
         # el enlace sin handshake y el resto del tick no correría.
-        self._procesar_eventos_tarjeta()
+        self._procesar_eventos_modulo_es()
         # SAF-01: un expansor caído en ciclo aborta el ciclo pero no repite el
         # handshake (el protocolo de fallo necesita las salidas). Fuera de
         # CICLO no se sigue operando con entradas congeladas: se repite el
@@ -995,10 +995,10 @@ class ControlLoop:
                 # no es una desconexión real y no debe imprimirse.
                 if self.realtime_printer is not None and self._link_ever_connected:
                     self.realtime_printer.enqueue(
-                        format_connectivity_ticket("TARJETA", False, datetime.now())
+                        format_connectivity_ticket("MODULO_ES", False, datetime.now())
                     )
-            # COM-01 ya no se decide aquí: solo con la tarjeta desconectada
-            # (U4), en _actualizar_estado_tarjeta().
+            # COM-01 ya no se decide aquí: solo con el módulo E/S desconectado
+            # (U4), en _actualizar_estado_modulo_es().
             # Sin conexión no hay datos frescos de sensores, así que este
             # mismo _tick() va a retornar temprano y state_machine.update()
             # no correrá — si había un ciclo en curso, no se detectaría el
@@ -1021,7 +1021,7 @@ class ControlLoop:
             self._bloqueo_apagado = False   # tras reconectar, volver a apagar
             if self.realtime_printer is not None and self._link_ever_connected:
                 self.realtime_printer.enqueue(
-                    format_connectivity_ticket("TARJETA", True, datetime.now())
+                    format_connectivity_ticket("MODULO_ES", True, datetime.now())
                 )
 
         if connected:
@@ -1035,11 +1035,11 @@ class ControlLoop:
             self._conectado_desde = None
 
         try:
-            self._actualizar_estado_tarjeta(connected, now)
+            self._actualizar_estado_modulo_es(connected, now)
         except Exception:
             # revisión SAF-05 de U4: no impedir que se publique el paro abajo
-            self.estado_tarjeta = "desconectada"
-            logger.exception("ControlLoop: no se pudo evaluar el estado de la tarjeta")
+            self.estado_modulo_es = "desconectada"
+            logger.exception("ControlLoop: no se pudo evaluar el estado del módulo E/S")
         self._contar_enlace_ok()
 
         if not connected:
@@ -1066,7 +1066,7 @@ class ControlLoop:
 
         # 2. Paro de emergencia → actualiza flag en estado. DI crudo, contacto
         # NC: EmergencyStop interpreta 0 o ausente como paro (D-16).
-        # Trama DI vencida (la tarjeta manda AI: pero no DI:) = sin datos (A-3)
+        # Trama DI vencida (el módulo E/S manda AI: pero no DI:) = sin datos (A-3)
         # TMG-04 de U4: en el primer tick con DI vigente de una conexión, el
         # valor de Units puede ser todavía el 0 que dejó _connect() (el enlace
         # fija la edad de la DI antes de notificar a Units). Un 0 en ese tick
@@ -1246,13 +1246,13 @@ class ControlLoop:
             with self._sm_lock:
                 confirmado = self.set_do.apagar_por_paro(inmediato=True)
             if confirmado is False:
-                logger.error("ControlLoop: la tarjeta no confirmó el ALL_OFF del paro "
+                logger.error("ControlLoop: el módulo E/S no confirmó el ALL_OFF del paro "
                              "(quedaron órdenes individuales; se repite en el tick)")
         except Exception:
             logger.exception("ControlLoop: no se pudo enviar el ALL_OFF del paro")
 
     def _marcar_ciclo_sin_datos(self) -> None:
-        """D8-2.7 (tanda 8): tick de CICLO sin datos de la tarjeta (la máquina
+        """D8-2.7 (tanda 8): tick de CICLO sin datos del módulo E/S (la máquina
         de estados no corre). El ciclo abre su tramo sin datos: la exposición
         de ESTERILIZACION se pausa y se descuenta al volver los datos. Nunca
         lanza: el tick sin conexión tiene que terminar igual."""
@@ -1261,7 +1261,7 @@ class ControlLoop:
                 # TMG-13 (re-revisión S2a): marcar puede abortar (SAF-05)
                 if self._apagando or self.estado.get_machine_state() != GlobalState.CICLO:
                     return
-                marcar = getattr(self.state_machine.ciclo, "marcar_sin_datos_tarjeta", None)
+                marcar = getattr(self.state_machine.ciclo, "marcar_sin_datos_modulo_es", None)
                 if callable(marcar):
                     marcar()
         except Exception:
@@ -1271,11 +1271,11 @@ class ControlLoop:
         """D8-3.19: con el modo prueba activo, mientras la condición de
         apertura del aire atmosférico de la cámara no se cumpla (presión sobre
         atm + brecha, sin lectura o datos no vigentes), se ordena cerrarlo en
-        cada tick, sin mirar lo que reporta la tarjeta (SAF-02 / TMG-01: la
+        cada tick, sin mirar lo que reporta el módulo E/S (SAF-02 / TMG-01: la
         trama DO puede llegar tarde o no llegar). Cerrar es el lado seguro:
-        inmediato, sin debounce, e idempotente. Si la tarjeta lo reportaba
+        inmediato, sin debounce, e idempotente. Si el módulo E/S lo reportaba
         abierto, devuelve el código del motivo una vez (para la bitácora);
-        se rearma cuando la tarjeta lo reporta cerrado."""
+        se rearma cuando el módulo E/S lo reporta cerrado."""
         canal = EstadoAutoclave.map_do[aire_atmosferico_prueba.CLAVE_ESTADO] + 1
         try:
             salidas = getattr(self.estado, "salidas_do", None) or {}
@@ -1385,7 +1385,7 @@ class ControlLoop:
             self.estado.set_flag("START_CICLO", False)
             self._running.clear()
             # A1 (SAF-01): el lazo ya no gobierna las salidas; se apagan desde
-            # ya (mejor esfuerzo, sin tarjeta devuelve False al instante) y no
+            # ya (mejor esfuerzo, sin módulo E/S devuelve False al instante) y no
             # solo cuando stop() llegue tras la auditoría y el join del hilo
             try:
                 if self.link:
@@ -1418,21 +1418,21 @@ class ControlLoop:
 
         if self.link:
             # TMG-04 de T7: un ALL_OFF sin confirmar se reintenta una vez y se
-            # registra; el respaldo final es el watchdog de la tarjeta
-            # A1 (tanda 3): sin tarjeta o con el enlace roto, el ALL_OFF puede
+            # registra; el respaldo final es el watchdog del módulo E/S
+            # A1 (tanda 3): sin módulo E/S o con el enlace roto, el ALL_OFF puede
             # fallar o lanzar; el puerto se cierra igual y el apagado sigue
             try:
                 if not self.link.all_off() and not self.link.all_off():
                     logger.error("Control loop: ALL_OFF sin confirmar al detener; "
-                                 "queda el watchdog de la tarjeta")
+                                 "queda el watchdog del módulo E/S")
                 self._anotar_todo_apagado()
             except Exception:
                 logger.exception("Control loop: ALL_OFF falló al detener; "
-                                 "quedan el paro y el watchdog de la tarjeta")
+                                 "quedan el paro y el watchdog del módulo E/S")
             try:
                 self.link.stop()
             except Exception:
-                logger.exception("Control loop: no se pudo cerrar el enlace con la tarjeta")
+                logger.exception("Control loop: no se pudo cerrar el enlace con el módulo E/S")
 
         logger.info("Control loop detenido.")
 
@@ -1470,7 +1470,7 @@ class ControlLoop:
     def bloquear_por_configuracion(self, motivo: str) -> None:
         """Deja el equipo bloqueado hasta reiniciar: cada tick solo publica
         sensores y paro de emergencia, y las salidas se apagan en cuanto hay
-        conexión con la tarjeta. Llamar antes de start()."""
+        conexión con el módulo E/S. Llamar antes de start()."""
         with self._sm_lock:
             self._bloqueo_config = motivo
             self._bloqueo_apagado = False
@@ -1494,7 +1494,7 @@ class ControlLoop:
             if self.estado.get_flag("PARO_EMERGENCIA"):
                 if not self.estado.get_flag("PARO_REAL"):
                     return False, ("No se puede activar el modo prueba sin datos válidos "
-                                   "de la tarjeta de control.")
+                                   "del módulo E/S.")
                 return False, "No se puede activar el modo prueba con el paro de emergencia activado."
 
             # S9 (tanda 9, D9-1.3, revierte SAF-03 de T6): permitido con el
@@ -1529,7 +1529,7 @@ class ControlLoop:
         /io/test/output ya validada no puede llegar después del apagado, y la
         máquina de estados no corre un tick con salidas de prueba encendidas.
 
-        R1-P1 (tanda 7): devuelve True solo si la tarjeta confirmó el ALL_OFF
+        R1-P1 (tanda 7): devuelve True solo si el módulo E/S confirmó el ALL_OFF
         con su ACK (`reset_all_outputs`); quien llama lo anota en la bitácora.
         Lo que se apaga no cambia."""
         with self._sm_lock:
@@ -1544,7 +1544,7 @@ class ControlLoop:
                 self._reintentos_all_off = _REINTENTOS_ALL_OFF_SALIDA_PRUEBA
                 self._reintento_all_off_n = 1
         if not confirmado:
-            logger.warning("Salida del modo prueba: la tarjeta no confirmó el ALL_OFF "
+            logger.warning("Salida del modo prueba: el módulo E/S no confirmó el ALL_OFF "
                            "(quedaron órdenes individuales sin confirmación); se "
                            "reintenta %d veces", _REINTENTOS_ALL_OFF_SALIDA_PRUEBA)
         return confirmado
@@ -1630,7 +1630,7 @@ class ControlLoop:
         estado_maquina = self.estado.get_machine_state()
         if estado_maquina == GlobalState.CICLO:
             return "No se puede cambiar de ciclo mientras hay uno en curso."
-        # D8-5.1 (tanda 8, Cristian 22-oct 12:08): sin tarjeta o sin datos
+        # D8-5.1 (tanda 8, Cristian 22-oct 12:08): sin módulo E/S o sin datos
         # vigentes (PARO_EMERGENCIA sin PARO_REAL, U4) el programa SÍ se puede
         # cambiar: elegirlo no acciona nada y el inicio del ciclo sigue
         # exigiendo datos, sensores y todas sus condiciones. Solo el paro
