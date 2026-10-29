@@ -16,6 +16,6 @@ Rama `tanda-23` (desde `dev` acd17d36). Spec: `docs/mis_plans/decisiones_tanda_2
 | Unión C1..C4 | Hecho | C1 391288c0, C4 4b8af9c9, C3 2e23c9aa, C2 34b16400 (13 conflictos de nombres en pruebas resueltos conservando ambos cambios; 371 pruebas verdes) |
 | D prueba de regla | Hecho | a4708840 `test_t23_sin_tarjeta.py` (26 pruebas, verde tras C2) |
 | R revisión | Hecho | 1 MEDIA + 5 BAJA corregidas en 819ba50d; `R_revision.md` (d903a660) |
-| Suite | Hecha | corrida 1: 2 rojas (bloque T23 en test_f1, corregido en 18e2a436; test_home_view, caída conocida de xdist); corrida 2: 2 rojas (test_home_view; aislamiento de filtros en test_t23_ain_grupos, corregido); corrida final en dev tras K |
-| K merge a dev (sin compilar) | Pendiente | |
-| Z cierre | Pendiente | |
+| Suite | Hecha | final en dev (c65c2c2b): 9237 passed, 11 skipped, 7 xfailed, 1 failed (test_home_view, caída conocida, pasa en serie); corrida 1: 2 rojas (bloque T23 en test_f1, corregido en 18e2a436; test_home_view, caída conocida de xdist); corrida 2: 2 rojas (test_home_view; aislamiento de filtros en test_t23_ain_grupos, corregido); corrida final en dev tras K |
+| K merge a dev (sin compilar) | Hecho | c65c2c2b; entrega NO compilada |
+| Z | Hecha | `R23_informe.md`, `CERRADO.txt` |
