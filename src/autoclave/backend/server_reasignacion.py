@@ -392,7 +392,7 @@ def _pendientes_tras(nueva: dict) -> list[str]:
 
 def _rechazo_validacion(errores: list[dict]):
     codigo = errores[0].get("codigo", "asignacion_invalida") if errores else "asignacion_invalida"
-    limpios = [{k: v for k, v in e.items() if k in ("codigo", "funcion", "puerto", "tipo", "ocupado_por")}
+    limpios = [{k: v for k, v in e.items() if k in ("codigo", "funcion", "puerto", "tipo", "grupo", "ocupado_por")}
                for e in errores]
     raise srv.RechazoApi(422, codigo, "Asignación de E/S inválida", extra={"errores": limpios})
 
@@ -523,9 +523,10 @@ def puerto_de_registro(nombre: str, detalle) -> int | None:
     puerto = detalle.get("puerto") if isinstance(detalle, dict) else None
     if not isinstance(puerto, int) or isinstance(puerto, bool):
         return puerto
-    if detalle.get("formato") != aio.FORMATO and not aio.es_temperatura(nombre):
-        return puerto - 8
-    return puerto
+    if "formato" not in detalle:
+        return puerto if aio.es_temperatura(nombre) else puerto - 8
+    # SAF-04 de la revisión R: una marca de numeración desconocida no se interpreta
+    return puerto if detalle.get("formato") == aio.FORMATO else None
 
 
 def ultimo_es_del_puerto_vigente(grupo: str, sensor_estado: str, fila: dict) -> bool:

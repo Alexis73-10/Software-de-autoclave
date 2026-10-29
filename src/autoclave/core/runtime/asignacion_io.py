@@ -290,6 +290,17 @@ def fabrica_desde_yaml(config_dir: Path) -> dict | None:
         return None
     if not isinstance(puertos, dict):
         raise ErrorAsignacion([{"codigo": "fabrica_invalida", "funcion": "", "puerto": None}])
+    formato = (datos or {}).get(CLAVE_FORMATO_YAML)
+    if formato not in (None, FORMATO):
+        raise ErrorAsignacion([{"codigo": "fabrica_invalida", "funcion": CLAVE_FORMATO_YAML,
+                                "puerto": formato}])
+    if formato is None:
+        # Revisión R de la tanda 23 (SAF-01): un YAML de instancia sin
+        # `io_ports_formato` es de la numeración anterior (presión AI 09-16),
+        # p. ej. una copia persistente que no se pudo refrescar o una instancia
+        # propia del sitio: se lee migrado igual que asignacion_io.json (mismo
+        # canal físico); un puerto de presión fuera de 09-16 la deja inválida.
+        puertos = _migrar_io_ports_formato_1(puertos, nombre)
     base = fabrica_codigo()
     salida = {t: dict(base[t]) for t in TIPOS}
     errores = []
@@ -308,6 +319,33 @@ def fabrica_desde_yaml(config_dir: Path) -> dict | None:
     if errores:
         raise ErrorAsignacion(errores)
     return salida
+
+
+def _migrar_io_ports_formato_1(puertos: dict, instancia) -> dict:
+    """`io_ports` de un YAML FORMATO 1 con la presión en FORMATO 2 (p -> p - 8).
+    Lanza ErrorAsignacion `puerto_inexistente` si un puerto de presión no está
+    en 09-16 (no se inventa un canal)."""
+    filas = puertos.get("AI")
+    if not isinstance(filas, dict):
+        return puertos
+    nuevas, movidos, errores = {}, {}, []
+    for funcion, puerto in filas.items():
+        if es_temperatura(str(funcion)):
+            nuevas[funcion] = puerto
+        elif _es_entero(puerto) and 1 + _OFFSET_PUERTO_FORMATO_1 <= puerto <= 16:
+            nuevas[funcion] = puerto - _OFFSET_PUERTO_FORMATO_1
+            movidos[clave("AI", str(funcion))] = (puerto, nuevas[funcion])
+        else:
+            errores.append({"codigo": "puerto_inexistente", "funcion": clave("AI", str(funcion)),
+                            "puerto": puerto, "tipo": "AI", "grupo": "AI_PRES",
+                            "formato": FORMATO_ANTERIOR})
+    if errores:
+        raise ErrorAsignacion(errores)
+    if movidos:
+        logger.warning("Asignación de fábrica: io_ports de la instancia %s sin %s (numeración "
+                       "anterior, presión AI 09-16): se lee migrada, mismo canal físico: %s",
+                       instancia, CLAVE_FORMATO_YAML, texto_movidos(movidos, FORMATO))
+    return {**puertos, "AI": nuevas}
 
 
 def fabrica(config_dir: Path | None = None) -> dict:
@@ -416,6 +454,12 @@ def texto_error(e: dict) -> str:
 
 
 # ── migración FORMATO 1 -> 2 (tanda 23, AIN-05) ─────────────────────────────
+
+# Marca de numeración de `io_ports` en el YAML de la instancia (sin ella, FORMATO 1).
+CLAVE_FORMATO_YAML = "io_ports_formato"
+# Copia única del archivo FORMATO 1 original (revisión R, SAF-03): el `.bak`
+# normal se pisa en cada guardado; esta no se sobrescribe nunca.
+SUFIJO_ORIGINAL_FORMATO_1 = ".formato1.bak"
 
 def migrar_formato_1(cambios: dict) -> tuple[dict, dict]:
     """(cambios en FORMATO 2, movidos {clave: (puerto FORMATO 1, puerto nuevo)})
@@ -566,7 +610,8 @@ class ArchivoAsignacion:
         with self._lock:
             texto = self.contenido(cambios, usuario, pendiente)
             # AIN-05: una migración aún sin fila en la bitácora no se pierde
-            migracion = self._migracion_sin_registrar()
+            # (tampoco si el archivo en disco sigue en FORMATO 1: SAF-02)
+            migracion = self._migracion_pendiente()
             if migracion is not None:
                 datos = json.loads(texto)
                 datos["migracion"] = migracion
@@ -602,6 +647,7 @@ class ArchivoAsignacion:
                          "registrada": False}
             nuevos = dict(nuevos)
             nuevos["migracion"] = migracion
+            self._guardar_original_formato_1()
             escribir_texto_atomico(self.ruta, json.dumps(nuevos, ensure_ascii=False, indent=2),
                                    respaldo=True)
             logger.warning("Asignación de E/S: %s migrado de FORMATO %d a %d (presión AI 09-16 -> "
@@ -610,6 +656,36 @@ class ArchivoAsignacion:
                            texto_movidos(movidos, FORMATO) or "sin funciones de presión movidas",
                            self.ruta.name)
             return migracion
+
+    def _guardar_original_formato_1(self) -> None:
+        """Copia única del archivo FORMATO 1 (no se sobrescribe; SAF-03)."""
+        copia = self.ruta.with_name(self.ruta.name + SUFIJO_ORIGINAL_FORMATO_1)
+        if copia.exists() or not self.ruta.exists():
+            return
+        try:
+            escribir_texto_atomico(copia, self.ruta.read_text(encoding="utf-8"))
+        except OSError:
+            logger.exception("Asignación de E/S: no se pudo guardar la copia FORMATO 1 en %s",
+                             copia.name)
+
+    def _migracion_pendiente(self) -> dict | None:
+        """Anotación que debe conservar la próxima escritura: la de una
+        migración sin fila, o una nueva si el archivo en disco sigue en
+        FORMATO 1 (no se pudo reescribir al arrancar; SAF-02 de la revisión R)."""
+        datos = self._json()
+        if isinstance(datos, dict) and datos.get("formato") == FORMATO_ANTERIOR:
+            try:
+                _, movidos = migrar_datos(datos)
+            except ErrorAsignacion:
+                return None
+            if movidos is None:
+                return None
+            self._guardar_original_formato_1()
+            return {"desde_formato": FORMATO_ANTERIOR, "a_formato": FORMATO,
+                    "en": datetime.now().isoformat(timespec="seconds"),
+                    "movidos": {f: list(v) for f, v in sorted(movidos.items())},
+                    "registrada": False}
+        return self._migracion_sin_registrar()
 
     def _migracion_sin_registrar(self) -> dict | None:
         datos = self._json()
@@ -664,6 +740,9 @@ class ArchivoAsignacion:
             quedan = [f for f in datos["verificacion_pendiente"] if f not in quitar]
             if quedan != datos["verificacion_pendiente"]:
                 datos["verificacion_pendiente"] = quedan
+                migracion = self._migracion_pendiente()
+                if migracion is not None:
+                    datos["migracion"] = migracion
                 escribir_texto_atomico(self.ruta, json.dumps(datos, ensure_ascii=False, indent=2),
                                        respaldo=True)
             return quedan

@@ -17,6 +17,7 @@ from autoclave.backend.context import BackendContext
 from autoclave.core.runtime import asignacion_io as aio
 from autoclave.core.runtime import bitacora
 from autoclave.core.runtime.status import EstadoAutoclave
+from autoclave.hal.measures import converters
 from autoclave.services.domain.logging.db_manager import DbManager
 from autoclave.utils.resources import resource_path
 from tests.test_r8_reasignacion_api import (CLAVE, _auditoria, api, respaldo)  # noqa: F401  (fixtures)
@@ -68,7 +69,7 @@ def _canales_despues(asignacion_f2: dict) -> dict:
         if n in EstadoAutoclave.map_temp:
             salida[f] = EstadoAutoclave.map_temp[n]
         else:
-            salida[f] = 8 + EstadoAutoclave.map_pres[n]
+            salida[f] = converters.OFFSET_RAW_PRESION + EstadoAutoclave.map_pres[n]
     return salida
 
 

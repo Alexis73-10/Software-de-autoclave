@@ -100,6 +100,9 @@ di_contacto:
 # (AI 1-16 del principal); tanda 23 (AIN-01/02): antes la presión se numeraba
 # AI 09-16 (AI 09 de entonces = AI 01 de ahora, el mismo canal físico).
 # DI 01-16. Si esta sección falta, rige la del código.
+# io_ports_formato: numeración de io_ports (2 = presión AI 01-16). Sin esta
+# marca se toma como la numeración anterior y la presión se lee migrada (p - 8).
+io_ports_formato: 2
 io_ports:
   DI:
     aire_comprimido: 1

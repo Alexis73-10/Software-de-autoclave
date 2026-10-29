@@ -18,6 +18,7 @@ from pydantic import BaseModel, StrictBool
 from autoclave.backend.autenticacion import Sesion
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.core.runtime import io_names
+from autoclave.core.runtime import asignacion_io as _aio
 from autoclave.core.runtime import aire_atmosferico_prueba
 from autoclave.core.runtime import salidas_prueba_seguridad
 from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
@@ -44,7 +45,7 @@ router = APIRouter()
 # Tanda 23 (AIN-05): numeración de puertos de los registros de calibración
 # (= asignacion_io.FORMATO). Un registro sin "formato" es de la numeración
 # anterior (presión 9-16): server_reasignacion.puerto_de_registro.
-_FORMATO_PUERTO = 2
+_FORMATO_PUERTO = _aio.FORMATO
 
 
 # Token de la sesión que activó el modo prueba: solo ella enciende salidas y
