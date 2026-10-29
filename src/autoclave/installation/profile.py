@@ -157,7 +157,7 @@ def sondas_no_vigiladas(profile) -> list[str]:
     return [k for k in TEMPERATURE_PROBE_KEYS if not sonda_instalada(profile, k)]
 
 
-# FW-D7: ID único de la tarjeta de E/S (MAC del módulo principal M31-U sin
+# FW-D7: ID único del módulo E/S (MAC del módulo principal M31-U sin
 # separadores, ADB-03; 12 dígitos hex en mayúscula) registrado por el ingeniero con tools/emparejar_modulo_es.py.
 _RE_BOARD_ID = re.compile(r"^[0-9A-F]{12}$")
 
@@ -166,14 +166,14 @@ def board_id_valido(valor) -> bool:
     return isinstance(valor, str) and bool(_RE_BOARD_ID.match(valor))
 
 
-def tarjeta_emparejada(profile, id_tarjeta) -> bool | None:
-    """True si la tarjeta conectada es la registrada en el perfil; False si
+def modulo_es_emparejado(profile, id_modulo_es) -> bool | None:
+    """True si el módulo E/S conectado es el registrado en el perfil; False si
     es otra o el perfil no tiene board_id (sin emparejar); None si no se
-    conoce el ID de la tarjeta. En la versión 1.0 es solo una advertencia
+    conoce el ID del módulo E/S. En la versión 1.0 es solo una advertencia
     no bloqueante (FW-D7)."""
-    if not id_tarjeta:
+    if not id_modulo_es:
         return None
-    return getattr(profile, "board_id", None) == id_tarjeta
+    return getattr(profile, "board_id", None) == id_modulo_es
 
 
 # E1b (D-23): fuente de vapor del equipo. La salida de la fuente que el
@@ -223,7 +223,7 @@ class InstallationProfile:
     supply_inputs:   dict = field(default_factory=supply_inputs_por_defecto)
     # A-2: canal de temperatura -> True si tiene sonda. Falta el campo = todas.
     temperature_probes: dict = field(default_factory=temperature_probes_por_defecto)
-    # FW-D7: ID de la tarjeta de E/S emparejada. None = sin emparejar.
+    # FW-D7: ID del módulo E/S emparejado. None = sin emparejar.
     board_id:        str | None = None
     # E1b: generator | boiler | mixed. None = perfil anterior a E1b.
     vapor_source:    str | None = None

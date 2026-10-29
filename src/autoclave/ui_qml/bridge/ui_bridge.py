@@ -23,7 +23,7 @@ ESTADO_DESCONOCIDO = "DESCONOCIDO"
 # Nivel del backend (campo level, compatibilidad) -> prioridad IEC 60601-1-8.
 # Decisión de Cristian (2026-09-29): EMERGENCIA alta, FALLA media, ALERTA baja.
 _PRIORIDAD_POR_NIVEL = {"EMERGENCIA": "alta", "FALLA": "media", "ALERTA": "baja"}
-# Estado del módulo E/S en /status (campo estado_tarjeta; U4 de la tanda 2)
+# Estado del módulo E/S en /status (campo estado_modulo_es; U4 de la tanda 2)
 _ESTADOS_MODULO_ES = ("desconectada", "sin_tramas_validas", "ok")
 # S9 (tanda 9, D9-1.2): causas del estado seguro que la UI sabe mostrar
 _CAUSAS_ESTADO_SEGURO = ("paro_liberado", "arranque", "fallo", "cancelado", "completado")
@@ -365,7 +365,7 @@ class UiBridge(QObject):
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
             # U4: solo el paro real; sin datos del módulo E/S va en "modulo_es"
             "paro": self._ui.get_estado_flag("PARO_REAL"),
-            "modulo_es": self._ui.get_campo("estado_tarjeta", "desconectada"),
+            "modulo_es": self._ui.get_campo("estado_modulo_es", "desconectada"),
             "estado_seguro": self._ui.get_campo("estado_seguro", {}),
             "sin_bd": self._ui.get_campo("sin_base_de_datos", False),
         }) if self._connected else self._seguridad_de({}), self.seguridadChanged)

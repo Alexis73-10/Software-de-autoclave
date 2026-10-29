@@ -31,7 +31,7 @@ def _loop():
 
 
 def _tick_enlace(loop):
-    loop._actualizar_estado_tarjeta(True, 0.0)
+    loop._actualizar_estado_modulo_es(True, 0.0)
     loop._contar_enlace_ok()
 
 

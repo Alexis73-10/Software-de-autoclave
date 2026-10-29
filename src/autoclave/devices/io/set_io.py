@@ -131,7 +131,7 @@ class SetOutput:
 
     def _paro_bloquea(self, index) -> bool:
         """D9-9: True si el paro impide encender el canal `index`. Paro real
-        (PARO_REAL) en cualquier estado; sin datos de la tarjeta
+        (PARO_REAL) en cualquier estado; sin datos del módulo E/S
         (PARO_EMERGENCIA sin PARO_REAL) fuera de CICLO, donde los estados ya
         mandan ALL_OFF, y en CICLO solo si la máquina pidió apagar_por_paro
         hace poco (ciclo ya abortado esperando confirmación, SAF-03 de la
@@ -397,7 +397,7 @@ class SetOutput:
         return ok
 
     def _hay_salida_encendida(self) -> bool:
-        """Según el último DO reportado por la tarjeta. Sin dato = encendida."""
+        """Según el último DO reportado por el módulo E/S. Sin dato = encendida."""
         salidas = getattr(self.estado, "salidas_do", None)
         if not isinstance(salidas, dict):
             return True

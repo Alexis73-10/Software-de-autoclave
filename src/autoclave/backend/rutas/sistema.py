@@ -14,12 +14,12 @@ from fastapi import Depends, HTTPException
 from pydantic import BaseModel, StrictBool, StrictFloat, StrictInt
 from autoclave.backend.autenticacion import Sesion
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES, nombre_legible
+from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES, codigo_visible, nombre_legible
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
-    tarjeta_emparejada)
+    modulo_es_emparejado)
 from autoclave.auth.roles import ROL_ADMIN, ROL_INGENIERO, ROL_TECNICO
 from fastapi import APIRouter
 
@@ -117,7 +117,7 @@ def get_system_info():
             return v.isoformat(timespec="seconds")
         return getattr(v, "value", v) if isinstance(v, (str, int, float)) or hasattr(v, "value") else None
 
-    tarjeta = _parte(_tarjeta_status) or {}
+    modulo_es = _parte(_modulo_es_status) or {}
     capacidad = getattr(perfil, "capacidad_litros", None) if perfil is not None else None
     carga = getattr(perfil, "tipo_carga", None) if perfil is not None else None
     clase = getattr(perfil, "equipment_class", None) if perfil is not None else None
@@ -133,8 +133,8 @@ def get_system_info():
                    # E2 (tanda 8; D8-0): valor interno; la pantalla lo traduce
                    "clase": clase if isinstance(clase, str) else None},
         "software": {"version": _parte(version_completa),
-                     "firmware": tarjeta.get("version") if isinstance(tarjeta, dict) else None,
-                     "id_tarjeta": tarjeta.get("id") if isinstance(tarjeta, dict) else None,
+                     "firmware": modulo_es.get("version") if isinstance(modulo_es, dict) else None,
+                     "id_modulo_es": modulo_es.get("id") if isinstance(modulo_es, dict) else None,
                      # Tanda 19 (MOD-01); constante desde la tanda 20 (T20-03,
                      # enlace serial retirado): se conserva por la API
                      "enlace_io": ENLACE_IO},
@@ -222,11 +222,11 @@ def _diagnostico_comunicacion() -> dict | None:
     return diag if isinstance(diag, dict) else None
 
 
-def _tarjeta_status() -> dict:
-    """Versión e ID de la tarjeta de E/S del último handshake y si coincide
+def _modulo_es_status() -> dict:
+    """Versión e ID del módulo E/S del último handshake y si coincide
     con la emparejada en el perfil (FW-D7: solo advertencia, no bloquea)."""
     try:
-        info = context.serial.tarjeta()
+        info = context.serial.modulo_es()
     except Exception:
         info = None
     if not isinstance(info, dict):
@@ -235,7 +235,7 @@ def _tarjeta_status() -> dict:
     return {
         "version": info.get("version"),
         "id": ident,
-        "emparejada": tarjeta_emparejada(getattr(context, "profile", None), ident),
+        "emparejada": modulo_es_emparejado(getattr(context, "profile", None), ident),
     }
 
 
@@ -256,6 +256,10 @@ def _alarma_dto(inst) -> dict:
         "textos": alarmas_i18n.por_idioma(inst.definicion, inst.valores or {}),
         "clave": inst.clave,
         "codigo": inst.codigo,
+        # MES-04 (tanda 23): el código para mostrar (TARJETA_<x> como
+        # MODULO_ES_<x>); codigo, clave e id siguen siendo los guardados
+        # (los usa el reconocimiento)
+        "codigo_visible": codigo_visible(inst.codigo),
         "nivel": inst.nivel.name,
         "titulo": inst.titulo,
         "descripcion": inst.descripcion,
@@ -278,6 +282,7 @@ def _alarma_dto(inst) -> dict:
 def _evento_dto(inst) -> dict:
     return {
         "codigo": inst.codigo,
+        "codigo_visible": codigo_visible(inst.codigo),     # MES-04
         "titulo": inst.titulo,
         "descripcion": inst.descripcion,
         "origen": inst.origen or "",
@@ -519,7 +524,7 @@ _OFFSET_RAW_PRESION = 8     # raw_ai[8 + i] = AI i+1 (tanda 23, AIN-03)
 def _cuentas_adc() -> dict:
     """B-ES-1: cuentas ADC crudas por sensor (clave de EstadoAutoclave).
     raw_ai: 0-5 temperatura (RTD 1-6), 8-23 presión (AI 1-16; tanda 23,
-    AIN-03). None si no hay datos de la tarjeta."""
+    AIN-03). None si no hay datos del módulo E/S."""
     try:
         raw = context.units.get_all()["raw_ai"]
         if not isinstance(raw, (list, tuple)):
@@ -632,9 +637,9 @@ def get_status():
             estado, camara.get("camara_segura_motivo_es_sensor") is True),
         "card_connected":        context.serial.is_connected(),
         # U4 (tanda 2): desconectada / sin_tramas_validas / ok
-        "estado_tarjeta":        _estado_tarjeta(),
+        "estado_modulo_es":        _estado_modulo_es(),
         "comunicacion":          _diagnostico_comunicacion(),
-        "tarjeta":               _tarjeta_status(),
+        "modulo_es":             _modulo_es_status(),
         # MOD-01 (tanda 19); constante "modbus" desde la tanda 20 (T20-03)
         "enlace_io":             ENLACE_IO,
         "test_mode_active":      context.control_loop.test_mode_active,
@@ -839,7 +844,7 @@ def get_db_estado():
     return {"estado": "DEGRADADA" if sin_bd else "OK", "sin_base_de_datos": sin_bd}
 
 
-def _estado_tarjeta() -> str:
+def _estado_modulo_es() -> str:
     """U4: "desconectada", "sin_tramas_validas" u "ok"; falla cerrada."""
-    valor = getattr(context.control_loop, "estado_tarjeta", None)
+    valor = getattr(context.control_loop, "estado_modulo_es", None)
     return valor if valor in ("desconectada", "sin_tramas_validas", "ok") else "desconectada"

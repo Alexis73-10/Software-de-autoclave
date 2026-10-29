@@ -6,16 +6,17 @@ from datetime import datetime
 # abandonó ahí por dar problemas de impresión.
 _DIV = "-" * 24
 
+# MES-01 (tanda 23): "MODULO" sin tilde: cp437 no tiene la "Ó" mayúscula.
 _MENSAJES = {
-    ("TARJETA", False): "TARJETA: DESCONECTADA",
-    ("TARJETA", True):  "TARJETA: RECONECTADA",
+    ("MODULO_ES", False): "MODULO E/S: DESCONECTADO",
+    ("MODULO_ES", True):  "MODULO E/S: RECONECTADO",
     ("BACKEND", False): "BACKEND: SIN RESPUESTA",
     ("BACKEND", True):  "BACKEND: RECONECTADO",
 }
 # I4 (tanda 6): en inglés (cp437, sin tildes); la clave sigue siendo el código
 _MENSAJES_EN = {
-    ("TARJETA", False): "BOARD: DISCONNECTED",
-    ("TARJETA", True):  "BOARD: RECONNECTED",
+    ("MODULO_ES", False): "I/O MODULE: DISCONNECTED",
+    ("MODULO_ES", True):  "I/O MODULE: RECONNECTED",
     ("BACKEND", False): "BACKEND: NOT RESPONDING",
     ("BACKEND", True):  "BACKEND: RECONNECTED",
 }

@@ -13,7 +13,7 @@ Celdas:
   esta planta (como en el equipo) el ciclo arranca en PRE_VACIO; queda cubierto
   por tests/test_s2b_d8_2_12_ventanas_pausa_di.py.
 - D8-2.14: en esos ciclos la reimpresión desde la base (DbManager real) tiene el
-  mismo pie que el ticket impreso en vivo ("Sin datos de la tarjeta: 3 s").
+  mismo pie que el ticket impreso en vivo ("Sin datos del módulo E/S: 3 s").
 - D8-2.13: módulo E/S totalmente desconectado en ESTERILIZACION (el ControlLoop no
   corre la máquina de estados): la cancelación pedida dentro de los 5 s queda en
   espera y al volver los datos el ciclo termina CANCELADO; si la desconexión
@@ -117,7 +117,7 @@ def _evento_ventana(fase_objetivo):
                 "pausa_s": round(registro.get("segundos") or 0.0, 2),
                 "ventana_corrida_s": corrimiento,
                 "vapor_durante_tolerancia": vapor,
-                "sin_datos_ticket": e1._linea(en_vivo, "Sin datos de la tarjeta:"),
+                "sin_datos_ticket": e1._linea(en_vivo, "Sin datos del módulo E/S:"),
                 "pie_reimpreso_identico": _pie(reimpreso) == _pie(en_vivo),
                 "no_esteril_pantalla": progreso_ciclo.resultado(fase_final) != "exitoso",
                 "no_esteril_en_ticket": _NO_ESTERIL in en_vivo}
@@ -193,7 +193,7 @@ def test_ensayo_s2b(programas, monkeypatch, tmp_path, numero, evento):  # noqa: 
         assert r["vapor_durante_tolerancia"] is False, r
         assert r["pausa_s"] >= 3.0 - DT, r
         assert r["ventana_corrida_s"] == r["pausa_s"], r
-        assert r["sin_datos_ticket"] == "Sin datos de la tarjeta: 3 s", r
+        assert r["sin_datos_ticket"] == "Sin datos del módulo E/S: 3 s", r
         assert r["pie_reimpreso_identico"] is True, r
         assert r["no_esteril_pantalla"] is False and r["no_esteril_en_ticket"] is False, r
     elif evento == "d8_2_13_abort_en_desconexion":

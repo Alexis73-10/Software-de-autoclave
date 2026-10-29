@@ -14,7 +14,7 @@ from __future__ import annotations
 import time
 from typing import Any, Callable, Dict, Optional
 
-from autoclave.protocols.enlace import EventoTarjeta
+from autoclave.protocols.enlace import EventoModuloEs
 
 MAC_DOBLE = "005404849DB1"
 
@@ -36,7 +36,7 @@ class EnlaceDoble:
         self.all_off_llamadas = 0
         self.ordenes: list[tuple[int, bool]] = []
         self._atascadas: dict[int, bool] = {}
-        self._eventos: list[EventoTarjeta] = []
+        self._eventos: list[EventoModuloEs] = []
         self._modulo_es = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp", "id": mac}
         self._seq_di = 0
         self._seq_ai = 0
@@ -75,7 +75,7 @@ class EnlaceDoble:
     def handshake_completo(self) -> bool:
         return self.conectado
 
-    def tarjeta(self) -> Dict[str, Any]:
+    def modulo_es(self) -> Dict[str, Any]:
         return dict(self._modulo_es) if self.conectado else {}
 
     # --- Vida de las lecturas -------------------------------------------
@@ -107,7 +107,7 @@ class EnlaceDoble:
     def expansor_fuera_de_linea(self) -> bool:
         return self.expansor_caido
 
-    def tomar_eventos(self) -> list[EventoTarjeta]:
+    def tomar_eventos(self) -> list[EventoModuloEs]:
         eventos, self._eventos = self._eventos, []
         return eventos
 
@@ -119,7 +119,7 @@ class EnlaceDoble:
             "lineas_invalidas_total": 0,
             "lineas_invalidas_consecutivas": 0,
             "handshake_completo": self.conectado,
-            "tarjeta_st": None,
+            "modulo_es_st": None,
             "modulos": {"enlace": "modbus", "mac": self._modulo_es["id"]},
         }
 
@@ -171,7 +171,7 @@ class EnlaceDoble:
         self._emitir_conectada()
 
     def emitir(self, origen: str, alarm_id: Optional[str], motivo: str = "") -> None:
-        self._eventos.append(EventoTarjeta(origen, alarm_id, motivo))
+        self._eventos.append(EventoModuloEs(origen, alarm_id, motivo))
 
     def atascar(self, canal: int, valor: bool) -> None:
         """La bobina `canal` (1-32) se lee siempre con `valor`."""
@@ -181,7 +181,7 @@ class EnlaceDoble:
     def _emitir_conectada(self) -> None:
         self.emitir("conectada", None, "doble")
         if self.al_conectar is not None:
-            self.al_conectar(self.tarjeta())
+            self.al_conectar(self.modulo_es())
 
 
 class EnlaceRegistrador(EnlaceDoble):

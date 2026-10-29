@@ -6,7 +6,7 @@ from autoclave.installation.bootstrap import get_installation_profile
 from autoclave.installation.clock_guard import ClockTamperedError
 from autoclave.installation.equipment import get_capabilities
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
-                                           tarjeta_emparejada)
+                                           modulo_es_emparejado)
 from autoclave.devices.factory.factory import build_doors_cfg, build_enlace
 from autoclave.devices.puertas.advanced_door import AdvancedDoor
 from autoclave.devices.puertas.door_factory import create_door
@@ -529,7 +529,7 @@ class BackendContext:
     def iniciar_verificacion_asignacion(self, plazo_s: float = 60.0, pausa_s: float = 1.0,
                                         reloj=time.monotonic, dormir=time.sleep) -> None:
         """Tras reiniciar por una reasignación: comprueba en un hilo que la
-        tarjeta envía el puerto nuevo de cada función (y, en las analógicas,
+        módulo E/S envía el puerto nuevo de cada función (y, en las analógicas,
         una lectura válida), sin accionar nada, y lo registra en audit_log
         como "trama_presente" o "sin_respuesta". NO da la función por
         verificada (SAF-02/SEN-03 de la revisión R8: en DI/DO la trama siempre
@@ -594,7 +594,7 @@ class BackendContext:
             except Exception:
                 logger.exception("No se pudo registrar la verificación de %s en audit_log", funcion)
         if todas_ok:
-            logger.info("Reasignación de E/S: la tarjeta envía el puerto nuevo de %s; falta la "
+            logger.info("Reasignación de E/S: el módulo E/S envía el puerto nuevo de %s; falta la "
                         "verificación del ingeniero", ", ".join(sorted(resultado)))
         else:
             logger.error("Reasignación de E/S: sin respuesta en %s",
@@ -677,7 +677,7 @@ class BackendContext:
         # MOD-01 (tanda 19): enlace de E/S (Modbus, único desde la tanda 20,
         # T20-03); el atributo conserva el nombre `serial` (histórico) para no
         # tocar a los llamadores
-        self.serial = build_enlace(self.units, al_conectar=self._al_conectar_tarjeta)
+        self.serial = build_enlace(self.units, al_conectar=self._al_conectar_modulo_es)
         # V20-s1-04 (corrector r1 de la tanda 20, DECISIÓN SIN CONFIRMAR): el
         # enlace no reinicia el módulo (ADB-04) mientras la máquina esté en
         # CICLO; la conexión queda sin verificar hasta salir del ciclo. Se
@@ -793,31 +793,31 @@ class BackendContext:
                              "del módulo de E/S")
             return False
 
-    def _al_conectar_tarjeta(self, tarjeta: dict) -> None:
-        """Cada handshake completo con la tarjeta de E/S: registro en
-        audit_log y comparación con el board_id del perfil (FW-D7). Una
-        tarjeta distinta o sin registrar es solo advertencia en la versión
+    def _al_conectar_modulo_es(self, modulo_es: dict) -> None:
+        """Cada handshake completo con el módulo E/S: registro en
+        audit_log y comparación con el board_id del perfil (FW-D7). Un
+        módulo E/S distinto o sin registrar es solo advertencia en la versión
         1.0 (no bloquea). Corre en el hilo de supervisión del enlace."""
-        emparejada = tarjeta_emparejada(getattr(self, "profile", None), tarjeta.get("id"))
+        emparejada = modulo_es_emparejado(getattr(self, "profile", None), modulo_es.get("id"))
         board_id = getattr(getattr(self, "profile", None), "board_id", None)
         if not emparejada:
             logger.warning(
-                "Tarjeta de E/S %s no emparejada con el equipo (board_id del perfil: %s). "
-                "Registrarla con tools/emparejar_modulo_es.py si es la correcta.",
-                tarjeta.get("id"), board_id or "sin registrar")
+                "Módulo E/S %s no emparejado con el equipo (board_id del perfil: %s). "
+                "Registrarlo con tools/emparejar_modulo_es.py si es el correcto.",
+                modulo_es.get("id"), board_id or "sin registrar")
         db = getattr(self, "db", None)
         if db is None:
             return
         try:
             db.registrar_auditoria(
-                "tarjeta_conectada",
+                "tarjeta_conectada",        # persistido (MES-03.2): evento de audit_log
                 usuario="sistema",
-                entidad="tarjeta_es",
-                valor_nuevo=dict(tarjeta),
+                entidad="tarjeta_es",       # persistido (MES-03.2): entidad de audit_log
+                valor_nuevo=dict(modulo_es),
                 detalle={"emparejada": emparejada, "board_id": board_id},
             )
         except Exception:
-            logger.exception("No se pudo registrar la conexión de la tarjeta en audit_log")
+            logger.exception("No se pudo registrar la conexión del módulo E/S en audit_log")
 
     def programa_para_sensores(self):
         """Programa del sensor Principal (tanda §1.1). Antes de construir el
@@ -829,7 +829,7 @@ class BackendContext:
         return getattr(cm, "selected_cycle", None)
 
     def _enlace_confirmado_ok(self) -> bool:
-        """T2-b: el enlace con la tarjeta volvió a "ok" (3 tramas vigentes
+        """T2-b: el enlace con el módulo E/S volvió a "ok" (3 tramas vigentes
         seguidas). Sin lazo de control, False (falla cerrada)."""
         return getattr(getattr(self, "control_loop", None), "enlace_confirmado_ok", False) is True
 

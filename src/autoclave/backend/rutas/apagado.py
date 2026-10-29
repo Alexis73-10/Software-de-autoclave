@@ -105,8 +105,8 @@ def _secuencia_apagado(apagar_windows: bool = True) -> None:
     """ALL_OFF y parada del lazo (control_loop.stop: detiene el lazo, intenta
     ALL_OFF y cierra el enlace de E/S), historial de alarmas, base de datos y,
     si está habilitado, apagado de Windows. Corre en un hilo aparte para
-    responder antes de cortar. Con degradación segura (A1): sin tarjeta o con
-    un paso fallido se registra y se sigue; el paro y el latido de la tarjeta
+    responder antes de cortar. Con degradación segura (A1): sin módulo E/S o con
+    un paso fallido se registra y se sigue; el paro y el latido del módulo E/S
     dejan las salidas en seguro por hardware.
 
     R11 (D11-1.2): `reiniciar_software` usa esta misma secuencia con
@@ -144,7 +144,7 @@ def shutdown_system(body: dict = Body(default={})):
     Permitido en cualquier estado salvo ciclo en curso y salvo un apagado ya
     en marcha (S9, D9-1.3: también con el estado seguro actuando; el apagado
     deja todas las salidas en cero): con FALLA, EMERGENCIA, paro,
-    sin tarjeta o con la cámara NO segura también se apaga (sin UPS, el
+    sin módulo E/S o con la cámara NO segura también se apaga (sin UPS, el
     personal técnico puede pedir dejar el equipo fuera de servicio). Solo desde
     la ventana principal (la UI de la puerta 1 envía ventana="principal").
     Confirmación: la de la propia UI; la cámara no segura solo se avisa allí."""
@@ -176,7 +176,7 @@ def shutdown_system(body: dict = Body(default={})):
             paro = bool(context.estado.get_flag("PARO_EMERGENCIA"))
         except Exception:
             paro = None
-        tarjeta = getattr(context.control_loop, "desconectado", True) is not True
+        modulo_es_conectado = getattr(context.control_loop, "desconectado", True) is not True
         en_modo_prueba = getattr(context.control_loop, "test_mode_active", False) is True
         # TMG-01 / SAF-01 de T7: en el mismo bloque que validó, sin soltar el
         # lock: ningún tick posterior puede pasar a CICLO ni mover salidas
@@ -184,7 +184,7 @@ def shutdown_system(body: dict = Body(default={})):
     _auditar("apagar_equipo", entidad=entidad,
              detalle={"estado": getattr(estado, "name", str(estado)),
                       "motivo": "fuera de servicio solicitado",
-                      "camara_segura": segura, "tarjeta_conectada": tarjeta,
+                      "camara_segura": segura, "tarjeta_conectada": modulo_es_conectado,  # persistido (MES-03.2)
                       "paro_emergencia": paro, "modo_prueba": en_modo_prueba,
                       "estado_seguro_activo": estado_seguro_activo})
     try:

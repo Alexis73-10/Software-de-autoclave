@@ -32,7 +32,7 @@ def test_ticket_con_backend_y_modulo_es_ok():
         consultar_estado=lambda: next(estado), imprimir=lambda t: impreso.append(t) or True,
         dormir=lambda s: None, plazo_s=5, version="1.0")
     texto = impreso[0]
-    assert "Backend:" in texto and "Tarjeta:" in texto and "Sistema listo" in texto
+    assert "Backend:" in texto and "Módulo E/S:" in texto and "Sistema listo" in texto
     assert "2026-10-18" in texto
 
 

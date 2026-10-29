@@ -9,7 +9,7 @@
 #   - alguna puerta ABIERTA (en doble puerta basta una);
 #   - temperatura de cámara (sensor Principal, falla cerrada) < 80 °C;
 #   - fuera de CICLO;
-#   - datos de la tarjeta vigentes y lecturas válidas de presión y temperatura.
+#   - datos del módulo E/S vigentes y lecturas válidas de presión y temperatura.
 # Si se pierde una precondición, se cancela o el muestreo se atrasa más de un
 # periodo: ABORTA, conserva el valor anterior y NO reintenta.
 #

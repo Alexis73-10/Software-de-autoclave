@@ -51,7 +51,7 @@ class BaseFase:
             # TMG-02 de la revisión S2b: para el motivo de un timeout que
             # vence con la ventana alargada por estas pausas
             self._ventana_pausada_s = self.ventana_pausada_s() + segundos
-            logger.warning("%s: ventana %s en pausa %.1f s (sin datos de la tarjeta)",
+            logger.warning("%s: ventana %s en pausa %.1f s (sin datos del módulo E/S)",
                            self.name, atributo, segundos)
 
     def ventana_pausada_s(self) -> float:

@@ -26,7 +26,7 @@
 #     cámara o un Principal con la cámara no segura, salvo el caso del sensor
 #     dañado con el otro diciendo fría y a atm (SAF-01);
 #   - conflictos (dos funciones en el mismo puerto) y puertos inexistentes en
-#     la tarjeta se rechazan aquí (422), no solo en la UI;
+#     el módulo E/S se rechazan aquí (422), no solo en la UI;
 #   - doble confirmación: `confirmar` (alerta de criticidad, 428) y, para el
 #     interlock de puerta, el paro de emergencia y los finales de carrera,
 #     el nombre de la función escrito (428 / 422);

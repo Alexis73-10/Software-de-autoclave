@@ -37,14 +37,14 @@ def _en_esterilizacion(ciclo, pausa_total=0.0, maximo=30.0):
 
 def test_tramo_abierto_que_supera_el_tope_falla_con_cic_11(reloj):
     ciclo, estado, am = _ciclo({})
-    estado.sin_datos_tarjeta_s = 0.0
+    estado.sin_datos_modulo_es_s = 0.0
     fase = _en_esterilizacion(ciclo, pausa_total=20.0, maximo=30.0)
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     reloj[0] += 9.5
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     assert ciclo._resultado_pendiente is None             # 29,5 s: todavía no
     reloj[0] += 1.0
-    ciclo.marcar_sin_datos_tarjeta()                      # 30,5 s > 30
+    ciclo.marcar_sin_datos_modulo_es()                      # 30,5 s > 30
     assert ciclo._resultado_pendiente == CicloResultado.FALLO
     assert estado.fase_ciclo == "FALLO_ESTERILIZACION"
     assert CIC_11 in [i.codigo for i in am.activas()]
@@ -54,9 +54,9 @@ def test_tramo_abierto_que_supera_el_tope_falla_con_cic_11(reloj):
 
 def test_fuera_de_esterilizacion_el_tramo_abierto_no_falla(reloj):
     ciclo, _, _ = _ciclo({})
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     reloj[0] += 600.0
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     assert ciclo._resultado_pendiente is None
 
 
@@ -64,11 +64,11 @@ def test_fuera_de_esterilizacion_el_tramo_abierto_no_falla(reloj):
 
 def test_el_tramo_de_desconexion_empieza_en_la_ultima_di_valida(reloj):
     ciclo, estado, _ = _ciclo({})
-    estado.sin_datos_tarjeta_s = 0.0
+    estado.sin_datos_modulo_es_s = 0.0
     fase = _en_esterilizacion(ciclo)
     fase.pausar_exposicion = MagicMock()
     estado.ultima_di_valida_mono = reloj[0] - 1.5
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     reloj[0] += 2.0
     ciclo.run()
     assert fase.pausar_exposicion.call_args.args[0] == pytest.approx(3.5)
@@ -76,11 +76,11 @@ def test_el_tramo_de_desconexion_empieza_en_la_ultima_di_valida(reloj):
 
 def test_el_retroceso_tiene_tope(reloj):
     ciclo, estado, _ = _ciclo({})
-    estado.sin_datos_tarjeta_s = 0.0
+    estado.sin_datos_modulo_es_s = 0.0
     fase = _en_esterilizacion(ciclo)
     fase.pausar_exposicion = MagicMock()
     estado.ultima_di_valida_mono = reloj[0] - 60.0         # dato viejo: no se cree
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     reloj[0] += 1.0
     ciclo.run()
     assert fase.pausar_exposicion.call_args.args[0] == pytest.approx(
@@ -127,7 +127,7 @@ def test_desconexion_reinicia_las_tramas_contadas_de_la_tolerancia(reloj):
     flags["PARO_EMERGENCIA"] = False
     estado.trama_di_nueva = True
     ciclo.run(); ciclo.run()                               # 2 tramas nuevas
-    ciclo.marcar_sin_datos_tarjeta()                       # cae el enlace
+    ciclo.marcar_sin_datos_modulo_es()                       # cae el enlace
     ciclo.run()                                            # 1 trama nueva más
     assert ciclo._di_vencida_desde is not None             # no se reinició con 2+1
 
@@ -158,9 +158,9 @@ def test_sin_exposicion_iniciada_el_tramo_abierto_no_falla(reloj):
     ciclo, _, _ = _ciclo({})
     fase = _en_esterilizacion(ciclo, pausa_total=0.0, maximo=5.0)
     fase._timer_fin = None
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     reloj[0] += 60.0
-    ciclo.marcar_sin_datos_tarjeta()
+    ciclo.marcar_sin_datos_modulo_es()
     assert ciclo._resultado_pendiente is None
 
 

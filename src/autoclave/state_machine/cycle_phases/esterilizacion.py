@@ -31,7 +31,7 @@
 #
 # Conteo de exposición: se fija al entrar a la fase (t_inicio +
 # tiempo_esterilizacion). Se corre hacia adelante el tiempo sin datos de la
-# tarjeta (pausar_exposicion, con tope CIC-11) y el tiempo sin lectura del
+# módulo E/S (pausar_exposicion, con tope CIC-11) y el tiempo sin lectura del
 # Principal o de la presión (C-10.2, tanda 12; sin tope propio: CicloState ya
 # falla con SEN-02/SEN-04 en ese caso). Una excursión confirmada de una
 # Referencia lo DETIENE y, al volver a la banda, lo REINICIA desde cero
@@ -115,7 +115,7 @@ _HIST_RECUP_PRES_KPA = 1.0
 _HIST_TECHO_KPA = 2.0
 _BANDA_PWM_BAJA = 2.0  # kPa por debajo de P_sat(T_actual) -> vapor ON forzado
 _BANDA_PWM_ALTA = 1.0  # kPa por encima de P_sat(T_actual) -> vapor OFF forzado
-# D8-2.8 (tanda 8): tope de la suma de pausas sin datos de la tarjeta en una
+# D8-2.8 (tanda 8): tope de la suma de pausas sin datos del módulo E/S en una
 # exposición (parámetro del equipo pausa_max_esterilizacion_s)
 _PAUSA_MAX_DEFECTO_S = 30.0
 _PAUSA_MAX_RANGO_S = (5.0, 120.0)
@@ -353,7 +353,7 @@ class EsterilizacionFase(BaseFase):
             return
         self._timer_fin += segundos
         self.pausa_total_s += segundos
-        logger.warning("Esterilización: exposición en pausa %.1f s (sin datos de la tarjeta)",
+        logger.warning("Esterilización: exposición en pausa %.1f s (sin datos del módulo E/S)",
                        segundos)
 
     def _correr_por_sin_lectura(self, now) -> None:

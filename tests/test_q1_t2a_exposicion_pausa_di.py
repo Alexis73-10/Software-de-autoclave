@@ -1,7 +1,7 @@
 """Q1 / T2-a (tanda 7, decisión 1.3 de Cristian; SAF-02 de T2): los segundos
 de tolerancia por DI vencida NO cuentan como exposición en ESTERILIZACION.
 El temporizador de exposición se pausa durante la tolerancia (time.monotonic)
-y el ticket anota "Sin datos de la tarjeta: n s" (es/en, cp437)."""
+y el ticket anota "Sin datos del módulo E/S: n s" (es/en, cp437)."""
 
 import time
 from unittest.mock import MagicMock
@@ -34,7 +34,7 @@ def _en_esterilizacion(ciclo):
 def test_la_pausa_de_la_tolerancia_extiende_la_exposicion(reloj):
     flags = {"PARO_EMERGENCIA": True}
     ciclo, estado, _ = _ciclo(flags)
-    estado.sin_datos_tarjeta_s = 0.0
+    estado.sin_datos_modulo_es_s = 0.0
     fase = _en_esterilizacion(ciclo)
 
     assert ciclo.run() == CicloResultado.EN_CURSO      # empieza la tolerancia
@@ -49,14 +49,14 @@ def test_la_pausa_de_la_tolerancia_extiende_la_exposicion(reloj):
 
     fase.pausar_exposicion.assert_called_once()
     assert fase.pausar_exposicion.call_args.args[0] == pytest.approx(2.5)
-    assert estado.sin_datos_tarjeta_s == pytest.approx(2.5)
+    assert estado.sin_datos_modulo_es_s == pytest.approx(2.5)
     fase.update.assert_called_once()
 
 
 def test_varios_episodios_se_acumulan(reloj):
     flags = {"PARO_EMERGENCIA": True}
     ciclo, estado, _ = _ciclo(flags)
-    estado.sin_datos_tarjeta_s = 0.0
+    estado.sin_datos_modulo_es_s = 0.0
     fase = _en_esterilizacion(ciclo)
     for dur in (1.0, 2.0):
         flags["PARO_EMERGENCIA"] = True
@@ -67,38 +67,38 @@ def test_varios_episodios_se_acumulan(reloj):
         reloj[0] += 0.5
     assert [c.args[0] for c in fase.pausar_exposicion.call_args_list] == [
         pytest.approx(1.0), pytest.approx(2.0)]
-    assert estado.sin_datos_tarjeta_s == pytest.approx(3.0)
+    assert estado.sin_datos_modulo_es_s == pytest.approx(3.0)
 
 
 def test_tolerancia_vencida_anota_los_segundos_y_falla(reloj):
     flags = {"PARO_EMERGENCIA": True}
     ciclo, estado, _ = _ciclo(flags)
-    estado.sin_datos_tarjeta_s = 0.0
+    estado.sin_datos_modulo_es_s = 0.0
     _en_esterilizacion(ciclo)
     ciclo.run()
     reloj[0] += modulo_ciclo._TOLERANCIA_DI_VENCIDA_SEG
     assert ciclo.run() == CicloResultado.ESPERANDO_CONFIRMACION
-    assert estado.sin_datos_tarjeta_s == pytest.approx(modulo_ciclo._TOLERANCIA_DI_VENCIDA_SEG)
+    assert estado.sin_datos_modulo_es_s == pytest.approx(modulo_ciclo._TOLERANCIA_DI_VENCIDA_SEG)
 
 
 def test_cancelacion_al_volver_los_datos_igual_anota_los_segundos(reloj):
     flags = {"PARO_EMERGENCIA": True}
     ciclo, estado, _ = _ciclo(flags)
-    estado.sin_datos_tarjeta_s = 0.0
+    estado.sin_datos_modulo_es_s = 0.0
     _en_esterilizacion(ciclo)
     ciclo.run()
     reloj[0] += 2.0
     flags.update({"PARO_EMERGENCIA": False, "CICLO_CANCELADO": True})
     ciclo.run()
     assert estado.fase_ciclo == "CANCELADO"
-    assert estado.sin_datos_tarjeta_s == pytest.approx(2.0)
+    assert estado.sin_datos_modulo_es_s == pytest.approx(2.0)
 
 
 def test_reset_pone_el_contador_en_cero():
     ciclo, estado, _ = _ciclo({})
-    estado.sin_datos_tarjeta_s = 7.0
+    estado.sin_datos_modulo_es_s = 7.0
     ciclo.reset()
-    assert estado.sin_datos_tarjeta_s == 0.0
+    assert estado.sin_datos_modulo_es_s == 0.0
 
 
 # ── EsterilizacionFase ──────────────────────────────────────────────────────
@@ -145,8 +145,8 @@ def test_pie_del_ticket_en_espanol_e_ingles_cp437():
                        p=Presentacion(idioma="es"))
     en = format_footer("COMPLETADO", "2026-10-22T08:00:00", sin_datos_s=3.6,
                        p=Presentacion(idioma="en"))
-    assert "Sin datos de la tarjeta: 3 s" in es
-    assert "No control board data: 4 s" in en
+    assert "Sin datos del módulo E/S: 3 s" in es
+    assert "No I/O module data: 4 s" in en
     es.encode("cp437")
     en.encode("cp437")
 
@@ -155,7 +155,7 @@ def test_pie_del_ticket_en_espanol_e_ingles_cp437():
 def test_sin_episodios_no_hay_linea(valor):
     pie = format_footer("COMPLETADO", "2026-10-22T08:00:00", sin_datos_s=valor,
                         p=Presentacion(idioma="es"))
-    assert "Sin datos de la tarjeta" not in pie
+    assert "Sin datos del módulo E/S" not in pie
 
 
 def test_cycle_logger_pasa_los_segundos_al_pie():
@@ -163,12 +163,12 @@ def test_cycle_logger_pasa_los_segundos_al_pie():
     from tests.test_cycle_logger_printer import FakePrinter, _build_logger
     printer = FakePrinter()
     cl = _build_logger(printer)
-    cl.estado.sin_datos_tarjeta_s = 4.0
+    cl.estado.sin_datos_modulo_es_s = 4.0
     cl.update()
     cl.update()
     cl.estado.machine_state = GlobalState.PREPARADO
     cl.update()
-    assert "Sin datos de la tarjeta: 4 s" in printer.calls[-1]
+    assert "Sin datos del módulo E/S: 4 s" in printer.calls[-1]
 
 
 def test_cycle_logger_sin_el_atributo_no_imprime_la_linea():
@@ -180,4 +180,4 @@ def test_cycle_logger_sin_el_atributo_no_imprime_la_linea():
     cl.update()
     cl.estado.machine_state = GlobalState.PREPARADO
     cl.update()
-    assert "Sin datos de la tarjeta" not in printer.calls[-1]
+    assert "Sin datos del módulo E/S" not in printer.calls[-1]

@@ -46,7 +46,7 @@ def evaluar_presion(estado, config, datos_vigentes=True) -> tuple[bool, str]:
     no son seguros. Falla cerrada: sin datos vigentes, sin lectura o sin
     configuración, NO es segura."""
     if not datos_vigentes:
-        return False, Motivo("sin_datos_vigentes", "Sin conexión con la tarjeta: datos no vigentes")
+        return False, Motivo("sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes")
     faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO) if _numero(config.get(c)) is None]
     if faltan:
         return False, Motivo("falta_config", f"Falta configuración: {', '.join(faltan)}",
@@ -74,7 +74,7 @@ def evaluar(estado, config, programas, profile=None, datos_vigentes=True,
     ciclo, su `finalizacion.temp_max_apertura`; rige el menor con el global
     (SAF-04 de T4), igual que la apertura automática."""
     if not datos_vigentes:
-        return False, Motivo("sin_datos_vigentes", "Sin conexión con la tarjeta: datos no vigentes")
+        return False, Motivo("sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes")
     faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO, CLAVE_TEMP_MAX)
               if _numero(config.get(c)) is None]
     if faltan:
@@ -115,7 +115,7 @@ def motivos(estado, config, programas, profile=None, datos_vigentes=True,
     Solo para presentación: no la usa ningún interlock. Sin datos vigentes o
     sin configuración, solo ese motivo (lo demás no se puede juzgar)."""
     if not datos_vigentes:
-        return [Motivo("sin_datos_vigentes", "Sin conexión con la tarjeta: datos no vigentes")]
+        return [Motivo("sin_datos_vigentes", "Sin conexión con el módulo E/S: datos no vigentes")]
     faltan = [c for c in (CLAVE_ATM, CLAVE_RANGO, CLAVE_TEMP_MAX)
               if _numero(config.get(c)) is None]
     if faltan:

@@ -80,7 +80,7 @@ def grupos_de(d: dict) -> list[dict]:
         {"grupo": "software", "filas": [
             fila("version_software", sw.get("version")),
             fila("firmware", sw.get("firmware")),
-            fila("id_modulo_es", sw.get("id_tarjeta")),
+            fila("id_modulo_es", sw.get("id_modulo_es")),
             fila("enlace_io", "", f"equipo.enlace_io_{sw.get('enlace_io')}"
                  if sw.get("enlace_io") in ENLACES_IO else ""),
         ]},

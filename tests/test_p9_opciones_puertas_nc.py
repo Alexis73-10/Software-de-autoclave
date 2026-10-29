@@ -356,7 +356,7 @@ def _perfil(tipo):
 
 
 def _status(di):
-    return {"estado_tarjeta": "ok", "card_connected": True,
+    return {"estado_modulo_es": "ok", "card_connected": True,
             "sensors": {"digital_inputs": di}}
 
 
@@ -374,7 +374,7 @@ def test_entrada_nc_sin_enlace_queda_sin_datos():
     from autoclave.ui_qml.domain.entradas_salidas import presentar_entradas
     canales = [{"name": "paro_emergencia", "i18n": "x", "id": "DI 11",
                 "estado_key": "paro_emergencia", "nc": True}]
-    e = presentar_entradas(canales, {"estado_tarjeta": "sin_enlace"})[0]
+    e = presentar_entradas(canales, {"estado_modulo_es": "sin_enlace"})[0]
     assert e["activo"] is None and e["nivel"] is None
 
 

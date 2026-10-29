@@ -6,7 +6,7 @@ logger = logging.getLogger(__name__)
 
 # Texto que acompaña a la alarma PARO_EMERGENCIA (D-16): con el cableado
 # viejo (contacto NO) el equipo muestra paro permanente hasta pasarlo a NC.
-# U4 (tanda 2): SIS-01 ya solo sale con la entrada en 0 leída de la tarjeta;
+# U4 (tanda 2): SIS-01 ya solo sale con la entrada en 0 leída del módulo E/S;
 # la falta de datos tiene sus propias alarmas (COM-01, TARJETA_SIN_TRAMA_VALIDA).
 AVISO_CABLEADO_NC = (
     "La entrada del paro está en 0. Si el botón no está "
@@ -23,7 +23,7 @@ class EmergencyStop:
         self.estado = estado
         self.flag_name = flag_name
 
-        # Sin datos de la tarjeta (antes del primer cuadro) = paro (D-16)
+        # Sin datos del módulo E/S (antes del primer cuadro) = paro (D-16)
         self.active = True
         self._last = True
         # U4 (tanda 2): pero no paro real; sin datos no se sabe

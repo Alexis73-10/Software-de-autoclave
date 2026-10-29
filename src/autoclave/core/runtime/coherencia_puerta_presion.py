@@ -22,7 +22,7 @@
 # - Solo presión: la temperatura con la puerta abierta no se evalúa.
 # - En CICLO no actúa (los contadores vuelven a cero).
 # - Sin presión de cámara (la cubre SEN-06), sin configuración o sin datos
-#   vigentes de la tarjeta: la lectura no cuenta en ningún sentido.
+#   vigentes del módulo E/S: la lectura no cuenta en ningún sentido.
 # - Mientras la incoherencia sigue confirmada se reafirma la alarma en cada
 #   lectura: el reconocimiento de una FALLA resuelve todas las alarmas y,
 #   si la causa sigue, SEN-10 debe volver a verse.

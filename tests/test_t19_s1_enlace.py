@@ -110,13 +110,13 @@ def test_estado_inicial_falla_cerrada():
     assert enlace.edad_ultima_di() is None and enlace.edad_ultima_ai() is None
     assert enlace.secuencia_ultima_di() is None and enlace.secuencia_ultima_ai() is None
     assert enlace.estado_ultima_ai() == (None, None)
-    assert enlace.tarjeta() == {"version": None, "protocolo": None, "id": None}
+    assert enlace.modulo_es() == {"version": None, "protocolo": None, "id": None}
     assert enlace.set_output(1, True) is False
     assert enlace.all_off(0.1) is False
     diag = enlace.get_diagnostico()
     assert set(diag) == {"lineas_invalidas_total", "lineas_invalidas_consecutivas",
-                         "handshake_completo", "tarjeta_st", "modulos"}
-    assert diag["tarjeta_st"] is None
+                         "handshake_completo", "modulo_es_st", "modulos"}
+    assert diag["modulo_es_st"] is None
     # Tanda 20: se agregan "registro_0c37" (ADB-05, valor crudo de 0x0C37) y
     # "reinicios_modulo" (ADB-04 / decisión 8) a las claves anteriores.
     assert set(diag["modulos"]) == {"modelos", "firmware", "mac", "codigo_error",
@@ -142,7 +142,7 @@ def test_conexion_correcta(sim, crear):
     # de cada esclavo según 0x0D80 (valores reales del equipo de pruebas).
     modulo_es = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp",
                "id": "A1B2C3D4E5F6"}
-    assert enlace.tarjeta() == modulo_es
+    assert enlace.modulo_es() == modulo_es
     # al_conectar corre antes de que se encole "conectada"
     assert len(orden) == 1 and orden[0][1] == modulo_es and orden[0][2] == []
     assert enlace.puerto_presente() and enlace.handshake_completo
@@ -275,7 +275,7 @@ def test_firmware_principal_mas_nuevo_es_valido(sim, crear):
     sim.fijar_firmware_texto("9232-0-16")
     enlace = crear()
     _conectado(enlace)
-    assert enlace.tarjeta()["version"] == "9232-0-16 / v1.0,v1.5,v2.0,v1.5,v1.0"
+    assert enlace.modulo_es()["version"] == "9232-0-16 / v1.0,v1.5,v2.0,v1.5,v1.0"
     assert enlace.get_diagnostico()["modulos"]["firmware"]["compatible"] is True
 
 

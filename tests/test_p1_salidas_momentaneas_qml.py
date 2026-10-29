@@ -40,7 +40,7 @@ def transporte(metodo, ruta, cuerpo, token, plazo):
                              "i18n": "io.do.bomba_vacio", "id": "DO 05", "momentanea": True,
                              "bloqueada": False}]}
     if ruta == "/status":
-        return 200, {"estado_tarjeta": estado["modulo_es"],
+        return 200, {"estado_modulo_es": estado["modulo_es"],
                      "card_connected": estado["modulo_es"] == "ok", "test_mode_active": True,
                      "machine_state": "PREPARADO",
                      "sensors": {"digital_outputs": {"bomba_vacio": estado["bomba"]},

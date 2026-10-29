@@ -1,6 +1,6 @@
 # simulador/servidor.py
 #
-# BACKEND SIMULADO para probar la UI QML sin tarjeta (herramienta de desarrollo).
+# BACKEND SIMULADO para probar la UI QML sin módulo E/S (herramienta de desarrollo).
 # Responde los endpoints que usa la UI con un equipo "listo para ciclo" y, al
 # iniciar, reproduce acelerado un ciclo COMPLETADO guardado (repeticion.py).
 # No importa el control, la máquina de estados ni el hardware; no escribe la BD.

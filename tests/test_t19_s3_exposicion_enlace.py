@@ -2,7 +2,7 @@
 
 - MOD-10: /status["comunicacion"] pasa tal cual el diagnóstico del enlace,
   incluida la clave `modulos` del ModbusLink.
-- MOD-06/MOD-12: /status["tarjeta"] funciona con `tarjeta()` del ModbusLink
+- MOD-06/MOD-12: /status["modulo_es"] funciona con `modulo_es()` del ModbusLink
   ({"version": "1.5 / 1.3", "protocolo": "modbus-tcp", "id": <MAC>}).
 - MOD-01: el enlace activo en Información del equipo (panel) y en OPCIONES ›
   Información del sistema (/system/info, grupo software).
@@ -49,10 +49,10 @@ def cliente():
     ctx.profile.created_at = datetime(2026, 10, 26, 9, 0)
     ctx.profile.vapor_source = "boiler"
     ctx.profile.board_id = _MAC
-    ctx.serial.tarjeta.return_value = dict(_MODULO_ES_MODBUS)
+    ctx.serial.modulo_es.return_value = dict(_MODULO_ES_MODBUS)
     ctx.serial.get_diagnostico.return_value = {
         "lineas_invalidas_total": 3, "lineas_invalidas_consecutivas": 0,
-        "handshake_completo": True, "tarjeta_st": None, "modulos": _MODULOS}
+        "handshake_completo": True, "modulo_es_st": None, "modulos": _MODULOS}
     ctx.db.max_numero_ciclo.return_value = 1
     ctx.mantenimiento.resumen.return_value = {"estado": "ok"}
     ctx.config_idioma.leer.return_value = "es"
@@ -71,7 +71,7 @@ def test_status_comunicacion_pasa_los_modulos_tal_cual(cliente):
     c, _ = cliente
     com = c.get("/status").json()["comunicacion"]
     assert com["modulos"] == _MODULOS
-    assert com["handshake_completo"] is True and com["tarjeta_st"] is None
+    assert com["handshake_completo"] is True and com["modulo_es_st"] is None
     assert com["lineas_invalidas_total"] == 3
 
 
@@ -85,7 +85,7 @@ def test_status_comunicacion_sin_diagnostico_es_none(cliente):
 @pytest.mark.req("MOD-12")
 def test_status_modulo_es_con_el_enlace_modbus(cliente):
     c, _ = cliente
-    assert c.get("/status").json()["tarjeta"] == {
+    assert c.get("/status").json()["modulo_es"] == {
         "version": "1.5 / 1.3", "id": _MAC, "emparejada": True}
 
 
@@ -93,7 +93,7 @@ def test_status_modulo_es_con_el_enlace_modbus(cliente):
 def test_status_modulo_es_modbus_no_emparejado(cliente):
     c, ctx = cliente
     ctx.profile.board_id = "FFFFFFFFFFFF"
-    assert c.get("/status").json()["tarjeta"]["emparejada"] is False
+    assert c.get("/status").json()["modulo_es"]["emparejada"] is False
 
 
 @pytest.mark.req("MOD-01")
@@ -104,7 +104,7 @@ def test_status_y_system_info_publican_el_enlace(cliente):
     assert c.get("/status").json()["enlace_io"] == enlace
     sw = c.get("/system/info").json()["software"]
     assert sw["enlace_io"] == enlace
-    assert sw["firmware"] == "1.5 / 1.3" and sw["id_tarjeta"] == _MAC
+    assert sw["firmware"] == "1.5 / 1.3" and sw["id_modulo_es"] == _MAC
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +206,7 @@ def _info_equipo(status):
 
 @pytest.mark.req("MOD-01")
 def test_info_equipo_consulta_el_enlace_en_status():
-    info = _info_equipo({"tarjeta": dict(_MODULO_ES_MODBUS), "enlace_io": "modbus"})
+    info = _info_equipo({"modulo_es": dict(_MODULO_ES_MODBUS), "enlace_io": "modbus"})
     info.actualizar()
     filas = {f["clave"]: f for f in info.filas}
     assert filas["enlace_io"]["valorClave"] == "enlace_io_modbus"
@@ -214,7 +214,7 @@ def test_info_equipo_consulta_el_enlace_en_status():
 
 @pytest.mark.req("MOD-01")
 def test_info_equipo_status_sin_enlace_es_no_disponible():
-    info = _info_equipo({"tarjeta": None})
+    info = _info_equipo({"modulo_es": None})
     info.actualizar()
     assert {f["clave"]: f for f in info.filas}["enlace_io"]["disponible"] is False
 
@@ -231,5 +231,5 @@ def test_info_equipo_conserva_el_enlace_si_falla_la_consulta():
 
 def test_modulo_es_simple_namespace_no_rompe():
     # perfil sin board_id con el enlace Modbus: emparejada False (solo aviso, FW-D7)
-    from autoclave.installation.profile import tarjeta_emparejada
-    assert tarjeta_emparejada(SimpleNamespace(board_id=None), _MAC) is False
+    from autoclave.installation.profile import modulo_es_emparejado
+    assert modulo_es_emparejado(SimpleNamespace(board_id=None), _MAC) is False

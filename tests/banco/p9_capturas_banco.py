@@ -150,7 +150,7 @@ def _rutas(door_type) -> dict:
     crudas.update({"paro_emergencia": 1, "atrapamiento_puerta_1": 1, "atrapamiento_puerta_2": 0,
                    "puerta_1_cerrada": 1, "puerta_1_abierta": 0,
                    "puerta_2_cerrada": 0, "puerta_2_abierta": 1})
-    status = {"estado_tarjeta": "ok", "card_connected": True, "machine_state": "PREPARADO",
+    status = {"estado_modulo_es": "ok", "card_connected": True, "machine_state": "PREPARADO",
               "test_mode_active": False, "sensors": {"digital_inputs": crudas,
                                                       "digital_outputs": {}}}
     canales = {"DI": di, "DO": [], "temperature": [], "pressure": []}

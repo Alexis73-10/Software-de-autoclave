@@ -57,7 +57,7 @@ def test_status_publica_instancias_nuevas_con_compatibilidad(status_client):
     for a in cuerpo["alarms"]:
         assert set(a.pop("textos")) == {"es", "en"} and isinstance(a.pop("valores"), dict)
     assert cuerpo["alarms"] == [{
-        "clave": "PUE-01|Puerta 1", "codigo": "PUE-01", "nivel": "AVISO",
+        "clave": "PUE-01|Puerta 1", "codigo": "PUE-01", "codigo_visible": "PUE-01", "nivel": "AVISO",
         "titulo": "Puerta abierta",
         "descripcion": "Puerta 1 está abierta. El ciclo no puede iniciar.",
         "accion": "Cierre la puerta.", "origen": "Puerta 1",

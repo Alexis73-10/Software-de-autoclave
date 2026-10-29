@@ -7,7 +7,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 # D8-2.15 (tanda 8): rechazo de DESPEJAR (POST /alarms/{clave}/acknowledge)
-# por código HTTP → clave del catálogo i18n. 409: el enlace con la tarjeta no
+# por código HTTP → clave del catálogo i18n. 409: el enlace con el módulo E/S no
 # ha vuelto (T2-b de la tanda 7); 404: la alarma ya no está activa.
 _MOTIVO_DESPEJAR = {
     409: "notificaciones.despejar_sin_enlace",
@@ -264,7 +264,7 @@ class UIServiceBackend:
     def abort_cycle(self):
         """Envía POST /cycle/abort. Si tuvo éxito devuelve la respuesta (dict,
         siempre verdadera; D8-2.15: `pendiente` = cancelación en espera de los
-        datos de la tarjeta); si no, False. FC-12 (tanda 21): con sesión abierta
+        datos del módulo E/S); si no, False. FC-12 (tanda 21): con sesión abierta
         en esta ventana, su token identifica a quien cancela; sin sesión la
         cancelación va igual (no pide credencial, plan §10)."""
         try:

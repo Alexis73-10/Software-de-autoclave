@@ -22,7 +22,7 @@ _CANALES = {
     "pressure": [{"name": "pres_camara", "estado_key": "pres_camara",
                   "i18n": "io.ai.pres_camara", "id": "AI 09", "raw_index": 8}],
 }
-_STATUS = {"machine_state": "PREPARADO", "estado_tarjeta": "ok", "card_connected": True,
+_STATUS = {"machine_state": "PREPARADO", "estado_modulo_es": "ok", "card_connected": True,
            "test_mode_active": False,
            "sensors": {"digital_inputs": {"paro_emergencia": 1},
                        "digital_outputs": {"vapor_camara": 0, "bomba_vacio": 1},

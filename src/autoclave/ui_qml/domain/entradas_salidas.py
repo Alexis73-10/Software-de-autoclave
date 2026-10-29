@@ -12,7 +12,7 @@ from autoclave.hal.measures.calibration_tools import fit_two_point, invert_user_
 
 
 def enlace_ok(status) -> bool:
-    return (isinstance(status, dict) and status.get("estado_tarjeta") == "ok"
+    return (isinstance(status, dict) and status.get("estado_modulo_es") == "ok"
             and status.get("card_connected") is True)
 
 

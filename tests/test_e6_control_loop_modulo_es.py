@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.protocols.enlace import EventoTarjeta
+from autoclave.protocols.enlace import EventoModuloEs
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.catalogo import COM_03, Nivel
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
@@ -41,7 +41,7 @@ def test_abortar_por_falla_io_activa_com03_critico_con_el_id_como_causa():
     assert alarma.codigo == COM_03
     assert alarma.nivel is Nivel.FALLO_CRITICO
     assert alarma.origen == "TARJETA_WATCHDOG"
-    assert "TARJETA_WATCHDOG" in alarma.descripcion
+    assert "MODULO_ES_WATCHDOG" in alarma.descripcion      # MES-04: código visible
     assert "watchdog disparado" in alarma.descripcion
     assert estado.codigo_fallo == COM_03
     assert "watchdog disparado" in estado.motivo_fallo
@@ -135,7 +135,7 @@ def test_tick_no_marca_por_si_mismo():
 def test_fallo_de_handshake_reporta_alarma_bloqueante():
     loop, _ = _loop(conectado=False)
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("handshake", "TARJETA_SIN_ACK", "sin ack")]
+        EventoModuloEs("handshake", "TARJETA_SIN_ACK", "sin ack")]
     loop._tick()
     alarma = _activa(loop, "TARJETA_SIN_ACK")
     assert alarma.nivel is Nivel.ALARMA          # "FALLA" en /status
@@ -148,7 +148,7 @@ def test_fallo_de_handshake_reporta_alarma_bloqueante():
                                       "TARJETA_EXPANSOR_FUERA_DE_LINEA"])
 def test_evento_de_operacion_en_ciclo_aborta_por_falla_io(alarm_id):
     loop, _ = _loop(GlobalState.CICLO)
-    loop.link.tomar_eventos.return_value = [EventoTarjeta("operacion", alarm_id, "motivo")]
+    loop.link.tomar_eventos.return_value = [EventoModuloEs("operacion", alarm_id, "motivo")]
     loop._tick()
     loop.state_machine.ciclo.abortar_por_falla_io.assert_called_once_with(alarm_id, "motivo")
 
@@ -156,7 +156,7 @@ def test_evento_de_operacion_en_ciclo_aborta_por_falla_io(alarm_id):
 def test_evento_de_operacion_en_ciclo_aborta_aunque_el_enlace_este_caido():
     loop, _ = _loop(GlobalState.CICLO, conectado=False)
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("operacion", "TARJETA_WATCHDOG", "wd")]
+        EventoModuloEs("operacion", "TARJETA_WATCHDOG", "wd")]
     loop._tick()
     loop.state_machine.ciclo.abortar_por_falla_io.assert_called_once()
 
@@ -164,7 +164,7 @@ def test_evento_de_operacion_en_ciclo_aborta_aunque_el_enlace_este_caido():
 @pytest.mark.parametrize("alarm_id", ["TARJETA_WATCHDOG", "TARJETA_REINICIO"])
 def test_wd_o_reinicio_fuera_de_ciclo_es_alarma_bloqueante(alarm_id):
     loop, _ = _loop(GlobalState.PREPARADO)
-    loop.link.tomar_eventos.return_value = [EventoTarjeta("operacion", alarm_id, "m")]
+    loop.link.tomar_eventos.return_value = [EventoModuloEs("operacion", alarm_id, "m")]
     loop._tick()
     loop.state_machine.ciclo.abortar_por_falla_io.assert_not_called()
     alarma = _activa(loop, alarm_id)
@@ -176,7 +176,7 @@ def test_wd_o_reinicio_fuera_de_ciclo_es_alarma_bloqueante(alarm_id):
 @pytest.mark.parametrize("alarm_id", ["DISCREPANCIA_SALIDAS", "TARJETA_EXPANSOR_FUERA_DE_LINEA"])
 def test_expansor_o_discrepancia_fuera_de_ciclo_pide_nuevo_handshake(alarm_id):
     loop, _ = _loop(GlobalState.PREPARADO)
-    loop.link.tomar_eventos.return_value = [EventoTarjeta("operacion", alarm_id, "m")]
+    loop.link.tomar_eventos.return_value = [EventoModuloEs("operacion", alarm_id, "m")]
     loop._tick()
     assert _activa(loop, alarm_id) is not None
     loop.link.solicitar_handshake.assert_called_once()
@@ -185,10 +185,10 @@ def test_expansor_o_discrepancia_fuera_de_ciclo_pide_nuevo_handshake(alarm_id):
 def test_handshake_ok_despeja_las_alarmas_del_modulo_es_de_fuera_de_ciclo():
     loop, _ = _loop(GlobalState.PREPARADO)
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("handshake", "TARJETA_SIN_ACK", "m"),
-        EventoTarjeta("operacion", "TARJETA_WATCHDOG", "m")]
+        EventoModuloEs("handshake", "TARJETA_SIN_ACK", "m"),
+        EventoModuloEs("operacion", "TARJETA_WATCHDOG", "m")]
     loop._tick()
-    loop.link.tomar_eventos.return_value = [EventoTarjeta("conectada", None, "ok")]
+    loop.link.tomar_eventos.return_value = [EventoModuloEs("conectada", None, "ok")]
     loop._tick()
     # Resueltas: dejan de bloquear (quedan para reconocer, nivel ALARMA)
     assert not loop.alarm_manager.has_blocking_alarm()
@@ -204,9 +204,9 @@ def test_handshake_ok_no_despeja_la_alarma_del_fallo_del_ciclo():
     ciclo.alarm_manager = loop.alarm_manager
     loop.state_machine.ciclo = ciclo
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("operacion", "TARJETA_WATCHDOG", "m")]
+        EventoModuloEs("operacion", "TARJETA_WATCHDOG", "m")]
     loop._tick()
-    loop.link.tomar_eventos.return_value = [EventoTarjeta("conectada", None, "ok")]
+    loop.link.tomar_eventos.return_value = [EventoModuloEs("conectada", None, "ok")]
     loop._tick()
     inst = loop.alarm_manager.obtener(f"{COM_03}|TARJETA_WATCHDOG")
     assert inst is not None and inst.estado is EstadoInstancia.ACTIVA
@@ -226,8 +226,8 @@ def test_enlace_sin_tomar_eventos_no_rompe_el_tick():
 def test_evento_que_falla_no_pierde_los_siguientes():
     loop, _ = _loop()
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("handshake", "TARJETA_SIN_ACK", "a"),
-        EventoTarjeta("handshake", "TARJETA_SIN_TRAMA_VALIDA", "b"),
+        EventoModuloEs("handshake", "TARJETA_SIN_ACK", "a"),
+        EventoModuloEs("handshake", "TARJETA_SIN_TRAMA_VALIDA", "b"),
     ]
     reportes = []
     original = loop.alarm_manager.activar
@@ -249,7 +249,7 @@ def test_falla_en_operacion_con_ciclo_terminando_se_reporta_fuera_de_ciclo():
     loop, _ = _loop(estado_maquina=GlobalState.CICLO)
     loop.state_machine.ciclo.abortar_por_falla_io.return_value = False
     loop.link.tomar_eventos.return_value = [
-        EventoTarjeta("operacion", "DISCREPANCIA_SALIDAS", "motivo")]
+        EventoModuloEs("operacion", "DISCREPANCIA_SALIDAS", "motivo")]
     loop._tick()
     assert _activa(loop, "DISCREPANCIA_SALIDAS") is not None
     loop.link.solicitar_handshake.assert_not_called()

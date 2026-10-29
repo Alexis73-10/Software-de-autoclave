@@ -198,15 +198,15 @@ def _i18n_t(clave: str) -> str:
     from autoclave import i18n
     return i18n.t(clave)
 # U4 (tanda 2): el flag PARO_EMERGENCIA también bloquea sin datos de la
-# tarjeta; el código de rechazo se conserva, el texto dice la causa real
-_MOTIVO_SIN_DATOS_TARJETA = ("Sin datos válidos de la tarjeta de control: no se puede "
+# módulo E/S; el código de rechazo se conserva, el texto dice la causa real
+_MOTIVO_SIN_DATOS_MODULO_ES = ("Sin datos válidos del módulo E/S: no se puede "
                              "verificar el paro de emergencia")
 
 
 def _motivo_paro(texto_paro: str) -> str:
     if context.estado.get_flag("PARO_REAL"):
         return texto_paro
-    return _MOTIVO_SIN_DATOS_TARJETA
+    return _MOTIVO_SIN_DATOS_MODULO_ES
 
 
 def _puertas_simples() -> bool:

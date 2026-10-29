@@ -46,7 +46,7 @@ _SCRIPT = textwrap.dedent(r"""
         estado["paro"] if f == "PARO_REAL"
         else (estado["paro"] or estado["sin_datos"]) if f == "PARO_EMERGENCIA" else True)
     ui.get_campo.side_effect = lambda c, d=None: (estado["es"] if c == "estado_seguro"
-                                                  else estado["modulo_es"] if c == "estado_tarjeta"
+                                                  else estado["modulo_es"] if c == "estado_modulo_es"
                                                   else False if c == "no_abrir" else d)
     ui.get_cycle.return_value = {"name": "Bowe & Dick", "number": 1}
     ui.get_sensores_temp.return_value = {"temp_camara": 25.0}

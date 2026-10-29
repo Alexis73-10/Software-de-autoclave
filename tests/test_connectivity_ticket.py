@@ -4,14 +4,14 @@ from autoclave.devices.printer.connectivity_ticket import format_connectivity_ti
 
 
 def test_modulo_es_desconectado():
-    texto = format_connectivity_ticket("TARJETA", False, datetime(2026, 7, 7, 14, 32, 10))
-    assert "TARJETA: DESCONECTADA" in texto
+    texto = format_connectivity_ticket("MODULO_ES", False, datetime(2026, 7, 7, 14, 32, 10))
+    assert "MODULO E/S: DESCONECTADO" in texto
     assert "2026-07-07 14:32:10" in texto
 
 
 def test_modulo_es_reconectado():
-    texto = format_connectivity_ticket("TARJETA", True, datetime(2026, 7, 7, 14, 33, 0))
-    assert "TARJETA: RECONECTADA" in texto
+    texto = format_connectivity_ticket("MODULO_ES", True, datetime(2026, 7, 7, 14, 33, 0))
+    assert "MODULO E/S: RECONECTADO" in texto
 
 
 def test_backend_sin_respuesta():
@@ -30,7 +30,7 @@ def test_ticket_usa_el_mismo_formato_corto_que_ticket_formatter():
     confirmado funcionando en ticket_formatter.py — el formato viejo con
     barras de 48 caracteres fue el que se abandonó ahí por dar problemas
     de impresión, y connectivity_ticket.py se había quedado con él."""
-    texto = format_connectivity_ticket("TARJETA", False, datetime(2026, 7, 7, 14, 32, 10))
+    texto = format_connectivity_ticket("MODULO_ES", False, datetime(2026, 7, 7, 14, 32, 10))
     lineas = texto.split("\n")
     assert "-" * 24 in lineas
     assert "=" * 48 not in texto
@@ -38,6 +38,6 @@ def test_ticket_usa_el_mismo_formato_corto_que_ticket_formatter():
 
 
 def test_ticket_termina_con_avance_de_papel_para_corte():
-    texto = format_connectivity_ticket("TARJETA", False, datetime(2026, 7, 7, 14, 32, 10))
+    texto = format_connectivity_ticket("MODULO_ES", False, datetime(2026, 7, 7, 14, 32, 10))
     lineas = texto.split("\n")
     assert lineas[-5:] == [""] * 5
