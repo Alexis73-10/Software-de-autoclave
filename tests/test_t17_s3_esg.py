@@ -25,7 +25,7 @@ from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime import salidas_prueba_seguridad as sps
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
-from autoclave.state_machine.alarms.catalogo import CIC_10
+from autoclave.state_machine.alarms.catalogo import CIC_10, nombre_legible
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests.helpers.backend_doble import cabecera, cargar_servidor, modulo_backend
@@ -64,28 +64,41 @@ def test_sin_presion_no_activa_cic10_y_sigue_detenido(caplog):
 
 
 @pytest.mark.req("ESG-01")
-def test_cic10_se_conserva_para_otros_motivos_al_perder_la_presion():
+@pytest.mark.req("ESS-03")
+def test_principal_sin_lectura_tampoco_activa_cic10_con_o_sin_presion():
+    """ESS-03 (28-oct) reemplaza la expectativa de la corrección R3
+    V17-s3-02 para el Principal: el Principal sin lectura es un sensor del
+    inventario y tampoco da CIC-10 (solo su alarma); el protocolo sigue
+    detenido igual. Se conserva para el sellado y los líquidos calientes
+    (test_presion_perdida_mas_otro_motivo_activa_cic10_con_el_otro)."""
     alarmas = AlarmManager()
     loop = _loop(alarmas)
-    # presión válida y Principal sin lectura: CIC-10 por el Principal
+    # la alarma del Principal a la vista (SAF-07 de la revisión ESS)
+    alarmas.activar("SEN-03", origen=nombre_legible("temp_camara"), sensor=nombre_legible("temp_camara"), valor="—")
     _arrancar(loop, pres=250.0, temp=None)
     _tick_es(loop, 3)
-    activas = _cic10_activa(alarmas)
-    assert activas and "Principal" in activas[0].descripcion
-    # se pierde la presión: CIC-10 sigue por el otro motivo (corrección R3
-    # V17-s3-02: "CIC-10 se conserva para los demás motivos")
+    es = loop.estado_seguro
+    assert not _cic10_activa(alarmas)
+    assert es.activo and "Principal" in (es.bloqueado_motivo or "")
+    assert es.bloqueo_no_sensor is False
+    # sin la alarma del Principal a la vista, CIC-10 vuelve (SAF-07)
+    alarmas.resolver("SEN-03", origen=nombre_legible("temp_camara"))
+    _tick_es(loop)
+    assert _cic10_activa(alarmas)
+    alarmas.activar("SEN-03", origen=nombre_legible("temp_camara"), sensor=nombre_legible("temp_camara"), valor="—")
+    _tick_es(loop)
+    assert not _cic10_activa(alarmas)
+    # se pierde la presión: sigue sin CIC-10
     loop.estado.sensores_pres["pres_camara"] = None
     _tick_es(loop, 3)
-    activas = _cic10_activa(alarmas)
-    assert activas and "Principal" in activas[0].descripcion
-    assert "presión" not in activas[0].descripcion
-    assert loop.estado_seguro.detenido_sin_presion is True
-    # vuelve la presión: el flujo sigue igual (CIC-10 por el Principal otra vez)
+    assert not _cic10_activa(alarmas)
+    assert es.detenido_sin_presion is True
+    assert "Principal" in (es.bloqueado_motivo_sin_presion or "")
+    # vuelve la presión: igual
     loop.estado.sensores_pres["pres_camara"] = 250.0
     _tick_es(loop, 3)
-    activas = _cic10_activa(alarmas)
-    assert activas and "Principal" in activas[0].descripcion
-    assert loop.estado_seguro.detenido_sin_presion is False
+    assert not _cic10_activa(alarmas)
+    assert es.activo and es.detenido_sin_presion is False
 
 
 def _es_con_protocolo_falso(alarmas, **motivos):

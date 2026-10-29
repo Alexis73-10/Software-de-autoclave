@@ -349,6 +349,8 @@ class UiBridge(QObject):
             "no_abrir": self._ui.get_campo("no_abrir", True),
             "motivo": self._ui.get_campo("camara_segura_motivo", ""),
             "motivo_textos": self._ui.get_campo("camara_segura_motivo_textos", None),
+            # ESS-02: el motivo de NO ABRIR es solo un sensor sin lectura
+            "motivo_es_sensor": self._ui.get_campo("camara_segura_motivo_es_sensor", False),
             "modo_prueba": self._ui.get_campo("test_mode_active", False),
             # U4: solo el paro real; sin datos de la tarjeta va en "tarjeta"
             "paro": self._ui.get_estado_flag("PARO_REAL"),
@@ -369,10 +371,15 @@ class UiBridge(QObject):
             "motivo_textos": {k: v for k, v in datos["motivo_textos"].items()
                               if isinstance(k, str) and isinstance(v, str) and v}
                              if isinstance(datos.get("motivo_textos"), dict) else {},
+            # ESS-04: falla cerrada, sin el campo (o sin conexión) se muestra
+            "no_abrir_por_sensor": datos.get("motivo_es_sensor") is True,
             "modo_prueba": datos.get("modo_prueba") is True,
             "paro": bool(datos.get("paro")),
             "es_activo": es.get("activo") is True,
             "es_confirmar": es.get("requiere_confirmacion") is True,
+            # ESS-02/04: filas del estado seguro ocultas (solo la alarma del
+            # sensor); falla cerrada, sin el campo se muestran
+            "es_silencioso": es.get("silencioso_por_sensor") is True,
             # S9 (D9-1.2): por qué corre el estado seguro; "" si no se conoce
             "es_causa": es.get("causa") if es.get("causa") in _CAUSAS_ESTADO_SEGURO else "",
             # S4 (CIC-10): el protocolo no puede terminar solo; motivo o ""
@@ -436,6 +443,18 @@ class UiBridge(QObject):
         texto en español de siempre."""
         from autoclave import i18n
         return self._seguridad["motivo_textos"].get(i18n.idioma()) or self._seguridad["motivo"]
+
+    @Property(bool, notify=seguridadChanged)
+    def noAbrirPorSensor(self) -> bool:
+        """ESS-04: NO ABRIR solo por un sensor sin lectura; la fila se oculta
+        (la alarma del sensor dice «No abrir la puerta»)."""
+        return self._seguridad.get("no_abrir_por_sensor", False)
+
+    @Property(bool, notify=seguridadChanged)
+    def estadoSeguroSilencioso(self) -> bool:
+        """ESS-04: el estado seguro actúa en silencio (detenido o no seguro
+        solo por un sensor sin lectura); False sin dato."""
+        return self._seguridad.get("es_silencioso", False)
 
     @Property(bool, notify=seguridadChanged)
     def modoPrueba(self) -> bool:

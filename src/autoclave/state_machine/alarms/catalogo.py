@@ -230,28 +230,28 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     _d(SEN_01, _AL, True, _A, "Lectura inválida de sensor",
        "{sensor} entrega una lectura inválida ({valor}).",
        "Verifique la conexión del sensor."),
-    _d(SEN_02, _FC, True, _M, "Sensor crítico sin lectura",
+    _d(SEN_02, _FC, True, _M, "Sensor crítico sin lectura — No abrir la puerta",
        "Sin lectura de: {sensores}, en la fase {fase}. El ciclo se abortó.",
        "Verifique la conexión de los sensores antes de reiniciar."),
     # Tanda §1.1: sensor de temperatura del ciclo declarado y sin lectura,
     # fuera de ciclo. No bloquea el equipo; bloquea al INICIAR un programa
     # que lo use (RS-06, SENSOR_NO_DISPONIBLE).
     # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
-    _d(SEN_03, _AL, False, _A, "Sensor de temperatura sin señal",
+    _d(SEN_03, _AL, False, _A, "Sensor de temperatura sin señal — No abrir la puerta",
        "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
        "Verifique la conexión de la sonda o asígnele el rol No en uso."),
     # S1 (tanda 8, D8-1.2): en ciclo, FALLO con el vapor cortado y venteo solo
     # por la lenta; nunca se toma como vacío.
-    _d(SEN_04, _FC, True, _M, "Sensor de presión de cámara sin lectura",
+    _d(SEN_04, _FC, True, _M, "Sensor de presión de cámara sin lectura — No abrir la puerta",
        "El sensor de presión de cámara no entrega lectura en la fase {fase}. El ciclo se "
        "abortó: vapor cortado y descompresión solo por la válvula lenta.",
        "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de cámara."),
-    _d(SEN_05, _FC, True, _M, "Sensor de presión de chaqueta sin lectura",
+    _d(SEN_05, _FC, True, _M, "Sensor de presión de chaqueta sin lectura — No abrir la puerta",
        "El sensor de presión de chaqueta no entrega lectura en la fase {fase}. El ciclo se "
        "abortó: vapor cortado y descompresión solo por la válvula lenta.",
        "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para "
        "revisar el sensor de presión de chaqueta."),
-    _d(SEN_08, _FC, True, _M, "Sensor de presión de empaque sin lectura",
+    _d(SEN_08, _FC, True, _M, "Sensor de presión de empaque sin lectura — No abrir la puerta",
        "El sensor de presión de empaque de {puerta} no entrega lectura en la fase {fase}. "
        "El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
        "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de "
@@ -259,7 +259,7 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
     # S1 (tanda 8, D8-1.3): fuera de ciclo bloquea el inicio; "NO ABRIR" sigue
     # porque sin presión no se confirma la cámara segura.
     # D9-2 (tanda 9): ALARMA (antes AVISO), mismo bloqueo y despeje
-    _d(SEN_06, _AL, True, _A, "Sensor de presión de cámara sin lectura",
+    _d(SEN_06, _AL, True, _A, "Sensor de presión de cámara sin lectura — No abrir la puerta",
        "Sensor de presión de cámara sin lectura: llame a servicio.",
        "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. "
        "Llame a servicio técnico."),
@@ -367,7 +367,7 @@ DEFINICIONES: tuple[DefinicionAlarma, ...] = (
        "La carga NO está estéril. Revise la carga, su ubicación y la sonda de referencia, y "
        "repita el ciclo."),
     # FC-08 (tanda 21): carga líquida, Referencia sin lectura
-    _d(CIC_19, _AL, True, _M, "Sonda de referencia sin lectura",
+    _d(CIC_19, _AL, True, _M, "Sonda de referencia sin lectura — No abrir la puerta",
        "Sin lectura de {sensor} en la fase {fase}. En carga líquida la temperatura de la "
        "carga no se puede verificar. El ciclo se abortó.",
        "La carga NO está estéril. Revise la conexión de la sonda y repita el ciclo."),

@@ -326,13 +326,42 @@ def test_estado_seguro_bloqueado_activa_cic10_y_lo_resuelve():
     es = ProtocoloEstadoSeguro(estado, _Config(_CFG), programas_seguridad=lambda: [],
                                alarm_manager=am)
     prot = _protocolo()
-    prot.bloqueado_motivo = "Sensor Principal sin lectura"
+    # ESS-03 (28-oct): el Principal sin lectura ya no da CIC-10; el tiempo
+    # límite con carga líquida caliente sí (bloqueado_motivo_no_sensor)
+    motivo = "Tiempo límite de descompresión con carga líquida caliente: no se usa el escape rápido"
+    prot.bloqueado_motivo = motivo
+    prot.bloqueado_motivo_no_sensor = motivo
     es.iniciar(prot)
     es.update()
-    am.activar.assert_called_once_with("CIC-10", motivo="Sensor Principal sin lectura")
+    am.activar.assert_called_once_with("CIC-10", motivo=motivo)
     prot.bloqueado_motivo = None
+    prot.bloqueado_motivo_no_sensor = None
     es.update()
     am.resolver.assert_called_with("CIC-10")
+
+
+def test_ess03_principal_sin_lectura_no_activa_cic10():
+    from autoclave.state_machine.alarms.catalogo import nombre_legible
+    from autoclave.state_machine.alarms.instancia import EstadoInstancia
+    estado = _estado()
+    am = MagicMock()
+    # la alarma del Principal a la vista (SAF-07 de la revisión ESS)
+    am.activas.return_value = [MagicMock(codigo="SEN-03", estado=EstadoInstancia.ACTIVA,
+                                      origen=nombre_legible("temp_camara"))]
+    es = ProtocoloEstadoSeguro(estado, _Config(_CFG), programas_seguridad=lambda: [],
+                               alarm_manager=am)
+    prot = _protocolo()
+    prot.bloqueado_motivo = "Sensor Principal sin lectura"
+    prot.bloqueado_motivo_sin_presion = "Sensor Principal sin lectura"
+    prot.bloqueado_motivo_no_sensor = None
+    prot.cycle = None                     # Principal = temp_camara
+    es.iniciar(prot)
+    es.update()
+    am.activar.assert_not_called()
+    # sin SEN-02/SEN-03 activa, CIC-10 se conserva (SAF-07)
+    am.activas.return_value = []
+    es.update()
+    am.activar.assert_called_once_with("CIC-10", motivo="Sensor Principal sin lectura")
 
 
 def test_estado_seguro_mantiene_el_drenaje():

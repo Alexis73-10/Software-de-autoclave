@@ -7,13 +7,14 @@
 
 from types import SimpleNamespace
 import logging
+import threading
 from datetime import date, datetime, timedelta
 from typing import Literal
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel, StrictBool, StrictFloat, StrictInt
 from autoclave.backend.autenticacion import Sesion
 from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES
+from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES, nombre_legible
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
@@ -296,12 +297,16 @@ def _avisos_corte_prueba() -> list:
         return []
 
 
-def _estado_seguro_status() -> dict:
+def _estado_seguro_status(estado=None, motivo_es_sensor: bool = False) -> dict:
     """Protocolo de estado seguro (fin de ciclo §15): activo y si espera la
     confirmación "Confirmar y llevar a estado seguro"."""
     es = getattr(context.control_loop, "estado_seguro", None)
     activo = getattr(es, "activo", False) is True
-    motivo = getattr(es, "bloqueado_motivo", None) if activo else None
+    # ESS-02: sin el texto de presión de cámara sin lectura (coherente con
+    # CIC-10, ESG-01); un estado seguro sin esa consulta da el de siempre
+    nombre = ("bloqueado_motivo_sin_presion" if hasattr(es, "bloqueado_motivo_sin_presion")
+              else "bloqueado_motivo")
+    motivo = getattr(es, nombre, None) if activo else None
     # S9 (D9-1.2): paro_liberado / arranque / fallo / cancelado / completado
     causa = getattr(es, "causa", None) if activo else None
     try:
@@ -309,10 +314,15 @@ def _estado_seguro_status() -> dict:
                                "ack_confirma_estado_seguro", False) is True
     except Exception:
         ack_confirma = False
+    requiere = activo and getattr(es, "requiere_confirmacion", False) is True
     return {"activo": activo,
             # P-6 (tanda 6): el CONFIRMAR del ciclo también confirma el estado seguro
             "ack_confirma_estado_seguro": ack_confirma,
-            "requiere_confirmacion": activo and getattr(es, "requiere_confirmacion", False) is True,
+            "requiere_confirmacion": requiere,
+            # ESS-02: la UI oculta las filas del estado seguro (solo se ve la
+            # alarma del sensor, con «No abrir la puerta»)
+            "silencioso_por_sensor": _silencioso_por_sensor(es, activo, requiere, estado,
+                                                            motivo_es_sensor),
             # S4: CIC-10 (el protocolo no puede terminar solo); None si avanza
             "bloqueado_motivo": motivo if isinstance(motivo, str) else None,
             # Tanda 17 (ESG-01): detenido por la presión de cámara sin lectura
@@ -321,22 +331,164 @@ def _estado_seguro_status() -> dict:
             "causa": causa if isinstance(causa, str) else None}
 
 
+def _silencioso_por_sensor(es, activo: bool, requiere: bool, estado,
+                           motivo_es_sensor: bool) -> bool:
+    """ESS-02: el estado seguro está activo, sin paro ni confirmación
+    pendiente, la cámara no es segura solo por sensores sin lectura (con su
+    alarma visible) y el protocolo no está detenido por otra cosa (sellado con
+    líquidos, tiempo límite con carga caliente). Solo presentación: el
+    protocolo, las válvulas, el bloqueo de puertas y de inicio y no_abrir no
+    cambian. Falla cerrada: ante cualquier duda, False (se muestra todo)."""
+    try:
+        if not activo or requiere or motivo_es_sensor is not True:
+            return False
+        if estado is None or estado.get_flag("PARO_EMERGENCIA"):
+            return False
+        return getattr(es, "bloqueo_no_sensor", True) is False
+    except Exception:
+        logger.exception("/status: no se pudo evaluar el silencio del estado seguro")
+        return False
+
+
+# ESS-02: alarmas del sensor que deben estar a la vista para ocultar las filas
+# de seguridad por cada motivo de sensor (ESS-01)
+_ALARMAS_DEL_MOTIVO = {
+    "sin_presion_camara": ("SEN-04", "SEN-06"),
+    "sin_temp_camara": ("SEN-02", "SEN-03"),
+}
+
+# Revisión ESS, SAF-05: última presión de cámara vigente vista por /status (la
+# UI lo consulta de continuo). Si la cámara estaba fuera de atm ± rango al
+# perderse la lectura, no hay silencio. None (p. ej. arranque con el sensor ya
+# dañado) = desconocida: rige el residual aceptado en HAZ-ESS-01.
+_ultima_presion = {"valor": None}
+_lock_ultima_presion = threading.Lock()
+
+
+def _seguir_presion(estado, vigentes: bool) -> None:
+    try:
+        pres = camara_segura.lectura_presion(estado)
+        if vigentes is True and pres is not None:
+            with _lock_ultima_presion:
+                _ultima_presion["valor"] = pres
+    except Exception:
+        logger.exception("/status: no se pudo guardar la última presión de cámara")
+
+
+def _presurizada_conocida() -> bool:
+    """SAF-05: la última presión vigente estaba fuera de atm ± rango. Falla
+    cerrada: sin configuración o ante un error, True."""
+    try:
+        with _lock_ultima_presion:
+            pres = _ultima_presion["valor"]
+        if pres is None:
+            return False
+        cfg = context.config_manager
+        atm = camara_segura._numero(cfg.get(camara_segura.CLAVE_ATM))
+        rango = camara_segura._numero(cfg.get(camara_segura.CLAVE_RANGO))
+        if atm is None or rango is None:
+            return True
+        return abs(pres - atm) > rango
+    except Exception:
+        logger.exception("/status: no se pudo evaluar la última presión de cámara")
+        return True
+
+
+def _alguna_sonda_caliente(estado, temp_max_ciclo) -> bool:
+    """SAF-04: alguna sonda de cámara con lectura (Principal de otro programa,
+    Referencia...) supera temp_max_apertura: la cámara puede estar caliente
+    aunque falte el Principal. El drenaje no cuenta. Falla cerrada: True."""
+    try:
+        temp_max = camara_segura._numero(context.config_manager.get(camara_segura.CLAVE_TEMP_MAX))
+        del_ciclo = camara_segura._numero(temp_max_ciclo)
+        if temp_max is None:
+            return True
+        if del_ciclo is not None:
+            temp_max = min(temp_max, del_ciclo)
+        for clave, valor in dict(estado.sensores_temp).items():
+            if clave == "temp_drenaje":
+                continue
+            v = camara_segura._numero(valor)
+            if v is not None and v > temp_max:
+                return True
+        return False
+    except Exception:
+        logger.exception("/status: no se pudieron revisar las sondas de temperatura")
+        return True
+
+
+def _alarma_del_motivo_activa(codigo: str, activas: list, programas) -> bool:
+    """SAF-06: la alarma activa es la del sensor que falta. Presión de cámara:
+    SEN-04/SEN-06 (códigos propios del canal). Principal: SEN-03 con su
+    nombre como origen o SEN-02 que lo nombre en `sensores`."""
+    if codigo == "sin_presion_camara":
+        return any(i.codigo in _ALARMAS_DEL_MOTIVO[codigo] for i in activas)
+    if codigo != "sin_temp_camara":
+        return False
+    lista = programas if isinstance(programas, (list, tuple)) else [programas]
+    legibles = {nombre_legible("temp_camara" if p is None else sc.sensor_principal(p))
+                for p in lista}
+    for i in activas:
+        if i.codigo == "SEN-03" and i.origen in legibles:
+            return True
+        if i.codigo == "SEN-02":
+            nombrados = {n.strip() for n in str((i.valores or {}).get("sensores", "")).split(",")}
+            if legibles & nombrados:
+                return True
+    return False
+
+
+def _motivo_es_sensor(estado, programas, vigentes: bool, temp_max_ciclo) -> bool:
+    """ESS-02 (camara_segura_motivo_es_sensor): la cámara no es segura SOLO
+    por sensores del inventario sin lectura, con datos vigentes, cada uno con
+    su alarma activa (si no, el operador no vería nada), ninguna otra sonda
+    de cámara caliente y la cámara no presurizada al perder la lectura
+    (revisión ESS, SAF-04/05/06). Falla cerrada."""
+    try:
+        if vigentes is not True:
+            return False
+        lista = camara_segura.motivos(estado, context.config_manager, programas,
+                                      getattr(context, "profile", None),
+                                      datos_vigentes=True, temp_max_ciclo=temp_max_ciclo)
+        if not camara_segura.solo_por_sensor(lista):
+            return False
+        if _alguna_sonda_caliente(estado, temp_max_ciclo):
+            return False
+        codigos = {m.codigo for m in lista}
+        if "sin_presion_camara" in codigos and _presurizada_conocida():
+            return False
+        activas = [i for i in context.alarm_manager.activas()
+                   if i.estado is EstadoInstancia.ACTIVA]
+        return all(_alarma_del_motivo_activa(c, activas, programas) for c in codigos)
+    except Exception:
+        logger.exception("/status: no se pudo evaluar si el motivo es un sensor")
+        return False
+
+
 def _camara_segura_status(estado) -> dict:
+    es_sensor = False
     try:
         programas = context.programas_para_seguridad()
         # S9, revisión ★ pasada 3 (R3-M1): con la presión al día (DI + AI +
         # estado publicado); con la trama AI vencida la presión puede estar
         # congelada. Falla cerrada.
         vigentes = getattr(context.control_loop, "presion_vigente", False) is True
+        temp_max_ciclo = context.temp_max_tras_ciclo()
+        _seguir_presion(estado, vigentes)
         segura, motivo = camara_segura.evaluar(estado, context.config_manager, programas,
                                                getattr(context, "profile", None),
                                                datos_vigentes=vigentes,
-                                               temp_max_ciclo=context.temp_max_tras_ciclo())
+                                               temp_max_ciclo=temp_max_ciclo)
+        if not segura:
+            es_sensor = _motivo_es_sensor(estado, programas, vigentes, temp_max_ciclo)
     except Exception as exc:
         logger.exception("/status: no se pudo evaluar camara_segura")
         segura, motivo = False, f"No se pudo evaluar: {exc}"
     campos = _campos_motivo(motivo)
     return {"camara_segura": segura, "no_abrir": not segura, "camara_segura_motivo": motivo,
+            # ESS-02: el motivo de NO segura es solo un sensor sin lectura
+            # (la UI oculta la fila NO ABRIR; la alarma del sensor lo dice)
+            "camara_segura_motivo_es_sensor": es_sensor,
             # I4 (tanda 6): código, parámetros y textos es/en del motivo (o None)
             "camara_segura_motivo_codigo": campos.get("motivo_codigo"),
             "camara_segura_motivo_valores": campos.get("motivo_valores"),
@@ -453,6 +605,8 @@ def get_status():
     alarmas_sin_reconocer = [_alarma_dto(inst) for inst in instancias
                              if inst.estado is EstadoInstancia.RESUELTA_SIN_RECONOCER]
     eventos_recientes = [_evento_dto(inst) for inst in context.alarm_manager.eventos_recientes()]
+    # E2 (fin de ciclo §5); ESS-02: también si el motivo es solo un sensor
+    camara = _camara_segura_status(estado)
 
     # ------------------------------
     # RESPUESTA FINAL (DTO)
@@ -469,8 +623,9 @@ def get_status():
         # Del enlace de E/S, no de Units: Units solo se entera por on_update
         # y no refleja la conexión verificada (handshake).
         # E2 (fin de ciclo §5): falla cerrada; "NO ABRIR" en cualquier estado
-        **_camara_segura_status(estado),
-        "estado_seguro":         _estado_seguro_status(),
+        **camara,
+        "estado_seguro":         _estado_seguro_status(
+            estado, camara.get("camara_segura_motivo_es_sensor") is True),
         "card_connected":        context.serial.is_connected(),
         # U4 (tanda 2): desconectada / sin_tramas_validas / ok
         "estado_tarjeta":        _estado_tarjeta(),

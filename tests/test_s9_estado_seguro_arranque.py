@@ -22,7 +22,7 @@ from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.devices.puertas.enum_doors import DoorState
 from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
-from autoclave.state_machine.alarms.catalogo import CATALOGO, CIC_10, Nivel, SEN_10
+from autoclave.state_machine.alarms.catalogo import CATALOGO, CIC_10, Nivel, SEN_10, nombre_legible
 from autoclave.state_machine.cycle_phases.protocolo_fallo import ProtocoloFallo
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.state_machine.machine.enum_global import GlobalState
@@ -195,15 +195,17 @@ def test_arranque_sin_ningun_sensor_cic10_por_la_presion():
 def test_cic10_por_presion_se_despeja_con_tres_lecturas():
     alarmas = AlarmManager()
     loop = _loop(alarmas)
+    # ESS (SAF-07): la alarma del Principal a la vista
+    alarmas.activar("SEN-03", origen=nombre_legible("temp_camara"), sensor=nombre_legible("temp_camara"), valor="—")
     _arrancar(loop, pres=None, temp=None)
     _tick_es(loop, 3)
-    # Tanda 17 (ESG-01, decisión de Cristian; corrección R3 V17-s3-02): sin
-    # CIC-10 por la presión, pero sí por el otro motivo simultáneo (Principal
-    # sin lectura)
+    # Tanda 17 (ESG-01) y ESS-03 (28-oct): ni la presión ni el Principal sin
+    # lectura dan CIC-10 (solo la alarma de cada sensor); el protocolo sigue
+    # detenido
     cic10 = [i for i in alarmas.activas()
              if i.codigo == CIC_10 and i.estado is EstadoInstancia.ACTIVA]
-    assert cic10 and "presión" not in cic10[0].descripcion
-    assert "Principal" in cic10[0].descripcion
+    assert not cic10
+    assert "Principal" in (loop.estado_seguro.bloqueado_motivo_sin_presion or "")
     assert loop.estado_seguro.detenido_sin_presion is True
     loop.estado.sensores_pres["pres_camara"] = 250.0
     loop.estado.sensores_temp["temp_camara"] = 120.0

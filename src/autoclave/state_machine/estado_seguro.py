@@ -32,10 +32,12 @@ import time
 
 from autoclave.core.runtime import camara_segura
 from autoclave.state_machine.alarms.catalogo import CIC_10
+from autoclave.state_machine.alarms.instancia import EstadoInstancia
 
 logger = logging.getLogger(__name__)
 
 _TICKS_SEGUROS = 3     # convención de debounce de 3 lecturas
+_SIN_CONSULTA = object()
 
 
 class ProtocoloEstadoSeguro:
@@ -65,6 +67,8 @@ class ProtocoloEstadoSeguro:
         # Tanda 17 (ESG-01): episodio de "detenido por presión de cámara sin
         # lectura" ya escrito en el log de desarrollo (una vez por episodio)
         self._presion_perdida_en_log = False
+        # ESS-06: lo mismo para el episodio "detenido solo por el Principal"
+        self._principal_perdido_en_log = False
         # S9 (tanda 9, revisión ★ TMG-02/TMG-03): callable () -> (trama AI
         # vigente, número de trama). Lo fija el ControlLoop; se entrega al
         # protocolo. Con la AI vencida no se cuenta ningún tick seguro (la
@@ -109,6 +113,36 @@ class ProtocoloEstadoSeguro:
         (CIC-10), o None. Lo muestra la UI junto al botón de asignar sonda."""
         motivo = getattr(self._protocolo, "bloqueado_motivo", None)
         return motivo if isinstance(motivo, str) else None
+
+    @property
+    def bloqueado_motivo_sin_presion(self) -> str | None:
+        """ESS-02: bloqueado_motivo sin el texto de presión de cámara sin
+        lectura (el siguiente motivo, como CIC-10 en ESG-01), o None."""
+        if not self.activo:
+            return None
+        motivo = getattr(self._protocolo, "bloqueado_motivo_sin_presion", None)
+        return motivo if isinstance(motivo, str) else None
+
+    @property
+    def bloqueo_no_sensor(self) -> bool:
+        """ESS-02/03: el protocolo está detenido por algo que no es un sensor
+        sin lectura (cámara sellada con líquidos, tiempo límite con carga
+        caliente) o enfriando en modo 4/5, donde puede haber contrapresión de
+        aire (revisión ESS, SAF-05). Falla cerrada: inactivo, sin la consulta
+        o ante un error, True (SAF-08)."""
+        protocolo = self._protocolo
+        if protocolo is None:
+            return True
+        try:
+            motivo = getattr(protocolo, "bloqueado_motivo_no_sensor", _SIN_CONSULTA)
+            if motivo is _SIN_CONSULTA:
+                return True
+            modo = protocolo._modo_efectivo()
+            enfriando = modo in (4, 5) and getattr(protocolo, "_sub_etapa", None) == "enfriamiento"
+        except Exception:
+            logger.exception("Estado seguro: no se pudo leer el motivo de bloqueo")
+            return True
+        return motivo is not None or enfriando is True
 
     @property
     def detenido_sin_presion(self) -> bool:
@@ -214,12 +248,35 @@ class ProtocoloEstadoSeguro:
         elif not presion_perdida and self._presion_perdida_en_log:
             self._presion_perdida_en_log = False
             logger.info("Estado seguro: la presión de cámara volvió a tener lectura")
+        # ESS-03 (28-oct, D-1 de Cristian): tampoco hay CIC-10 si el único
+        # motivo es el Principal sin lectura; se conserva para la cámara
+        # sellada con líquidos y el tiempo límite con carga caliente
+        # (bloqueado_motivo_no_sensor). Un protocolo sin esa consulta (dobles
+        # de prueba antiguos) sigue con la regla de ESG-01.
+        sin_presion = getattr(self._protocolo,
+                              "bloqueado_motivo_sin_presion" if presion_perdida else "bloqueado_motivo",
+                              None)
+        sin_presion = sin_presion if isinstance(sin_presion, str) else None
+        motivo = getattr(self._protocolo, "bloqueado_motivo_no_sensor", _SIN_CONSULTA)
+        if motivo is _SIN_CONSULTA:
+            motivo = sin_presion
+        motivo = motivo if isinstance(motivo, str) else None
+        principal_solo = sin_presion is not None and motivo is None
+        if principal_solo and not self._alarma_principal_activa():
+            # Revisión ESS, SAF-07: sin SEN-02/SEN-03 a la vista (p. ej. tras
+            # salir de FALLA por P-2 con un Principal que no es del programa
+            # seleccionado) CIC-10 sigue siendo el único aviso: se conserva
+            motivo = sin_presion
+            principal_solo = False
+        if principal_solo and not self._principal_perdido_en_log:
+            self._principal_perdido_en_log = True
+            logger.warning("Estado seguro detenido: sensor Principal sin lectura (%s); ESS-03: "
+                           "sin CIC-10 por este motivo, solo la alarma del sensor", sin_presion)
+        elif not principal_solo and self._principal_perdido_en_log:
+            self._principal_perdido_en_log = False
+            logger.info("Estado seguro: el bloqueo por el sensor Principal terminó")
         if self.alarm_manager is None:
             return
-        motivo = getattr(self._protocolo,
-                         "bloqueado_motivo_sin_presion" if presion_perdida else "bloqueado_motivo",
-                         None)
-        motivo = motivo if isinstance(motivo, str) else None
         if motivo == self._alarma_bloqueo and (motivo is None or self._cic10_activa()):
             return
         try:
@@ -230,6 +287,33 @@ class ProtocoloEstadoSeguro:
             self._alarma_bloqueo = motivo
         except Exception:
             logger.exception("Estado seguro: no se pudo actualizar la alarma de bloqueo")
+
+    def _alarma_principal_activa(self) -> bool:
+        """SAF-07: hay una alarma activa DEL Principal (SEN-03 con su nombre
+        como origen o SEN-02 que lo nombre; misma regla que /status, SAF-06).
+        La de otra sonda no cuenta. Sin gestor, sin protocolo o ante un
+        error, False (se conserva CIC-10)."""
+        if self.alarm_manager is None or self._protocolo is None:
+            return False
+        try:
+            from autoclave.core.runtime.sensores_ciclo import sensor_principal
+            from autoclave.state_machine.alarms.catalogo import nombre_legible
+            ciclo = getattr(self._protocolo, "cycle", None)
+            legible = nombre_legible("temp_camara" if ciclo is None else sensor_principal(ciclo))
+            for i in self.alarm_manager.activas():
+                if getattr(i, "estado", None) is not EstadoInstancia.ACTIVA:
+                    continue
+                codigo = getattr(i, "codigo", None)
+                if codigo == "SEN-03" and getattr(i, "origen", None) == legible:
+                    return True
+                if codigo == "SEN-02":
+                    nombrados = {n.strip() for n in
+                                 str((getattr(i, "valores", None) or {}).get("sensores", "")).split(",")}
+                    if legible in nombrados:
+                        return True
+            return False
+        except Exception:
+            return False
 
     def _cic10_activa(self) -> bool:
         """SAF-03 (revisión S2a): CIC-10 sigue activa en el gestor. Al salir de

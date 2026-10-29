@@ -986,32 +986,32 @@
       "accion": "Verifique la conexión del sensor."
     },
     "SEN-02": {
-      "titulo": "Sensor crítico sin lectura",
+      "titulo": "Sensor crítico sin lectura — No abrir la puerta",
       "plantilla": "Sin lectura de: {sensores}, en la fase {fase}. El ciclo se abortó.",
       "accion": "Verifique la conexión de los sensores antes de reiniciar."
     },
     "SEN-03": {
-      "titulo": "Sensor de temperatura sin señal",
+      "titulo": "Sensor de temperatura sin señal — No abrir la puerta",
       "plantilla": "{sensor} no entrega lectura ({valor}). Un programa que lo use no podrá iniciar.",
       "accion": "Verifique la conexión de la sonda o asígnele el rol No en uso."
     },
     "SEN-04": {
-      "titulo": "Sensor de presión de cámara sin lectura",
+      "titulo": "Sensor de presión de cámara sin lectura — No abrir la puerta",
       "plantilla": "El sensor de presión de cámara no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
       "accion": "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de cámara."
     },
     "SEN-05": {
-      "titulo": "Sensor de presión de chaqueta sin lectura",
+      "titulo": "Sensor de presión de chaqueta sin lectura — No abrir la puerta",
       "plantilla": "El sensor de presión de chaqueta no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
       "accion": "No abra la puerta hasta confirmar la cámara segura. Llame a servicio técnico para revisar el sensor de presión de chaqueta."
     },
     "SEN-08": {
-      "titulo": "Sensor de presión de empaque sin lectura",
+      "titulo": "Sensor de presión de empaque sin lectura — No abrir la puerta",
       "plantilla": "El sensor de presión de empaque de {puerta} no entrega lectura en la fase {fase}. El ciclo se abortó: vapor cortado y descompresión solo por la válvula lenta.",
       "accion": "No abra la puerta. Llame a servicio técnico para revisar el sensor de presión de empaque."
     },
     "SEN-06": {
-      "titulo": "Sensor de presión de cámara sin lectura",
+      "titulo": "Sensor de presión de cámara sin lectura — No abrir la puerta",
       "plantilla": "Sensor de presión de cámara sin lectura: llame a servicio.",
       "accion": "No abra la puerta: sin presión de cámara no se puede confirmar que sea seguro. Llame a servicio técnico."
     },
@@ -1127,7 +1127,7 @@
       "accion": "Revise el regulador del vapor de suministro. El ciclo sigue."
     },
     "CIC-19": {
-      "titulo": "Sonda de referencia sin lectura",
+      "titulo": "Sonda de referencia sin lectura — No abrir la puerta",
       "plantilla": "Sin lectura de {sensor} en la fase {fase}. En carga líquida la temperatura de la carga no se puede verificar. El ciclo se abortó.",
       "accion": "La carga NO está estéril. Revise la conexión de la sonda y repita el ciclo."
     },
@@ -2202,10 +2202,13 @@
     "verif_titulo": "Verificación tras el último reinicio",
     "bloqueo": "La asignación guardada está dañada: el equipo está bloqueado hasta restaurar la asignación de fábrica.",
     "motivo_ciclo": "No disponible con un ciclo en curso.",
-    "motivo_estado": "Disponible solo con el equipo en preparación o preparado: resuelva primero la falla.",
+    "motivo_estado": "No disponible en el estado actual del equipo.",
     "motivo_modo_prueba": "Salga primero del modo prueba de salidas.",
     "motivo_apagando": "El equipo se está apagando.",
     "motivo_estado_seguro": "Espere a que la cámara llegue a estado seguro.",
+    "motivo_estado_seguro_confirmar": "Suelte el paro de emergencia y confirme primero con el botón Confirmar y llevar a estado seguro.",
+    "motivo_estado_seguro_liquido": "Espere a que la carga líquida llegue a estado seguro.",
+    "err_sensor_camara_no_segura": "Con la cámara no segura no se puede mover el sensor de presión de cámara ni el sensor Principal (salvo que solo falte la lectura del sensor que se mueve y el otro indique la cámara fría y a presión atmosférica).",
     "err_conflicto": "Dos funciones no pueden quedar en el mismo puerto.",
     "err_puerto_inexistente": "Ese puerto no existe en la tarjeta para este tipo de función.",
     "err_funcion_desconocida": "Función desconocida.",

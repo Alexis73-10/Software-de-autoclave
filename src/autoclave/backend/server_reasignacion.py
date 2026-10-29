@@ -17,8 +17,14 @@
 #     sin apagado en curso (409). Se permite con la cámara en estado no seguro
 #     o con el protocolo de estado seguro actuando (cambio urgente 28-oct,
 #     equipo de pruebas: sensor de presión de cámara dañado); el reinicio del
-#     backend que sigue a la reasignación apaga todas las salidas. PENDIENTE:
-#     análisis de riesgo y pruebas;
+#     backend que sigue a la reasignación apaga todas las salidas y el
+#     proceso nuevo corre el estado seguro de arranque (S9, solo la lenta).
+#     ESS-07 (revisión de acb33873, decisión de Cristian del 29-oct; riesgo
+#     HAZ-IO-05; pruebas en tests/test_ess07_reasignacion_reinicio.py): 409
+#     con el paro o la confirmación pendiente (SAF-03), con el estado seguro
+#     actuando sobre una carga líquida o sellada (H1) y al mover la presión de
+#     cámara o un Principal con la cámara no segura, salvo el caso del sensor
+#     dañado con el otro diciendo fría y a atm (SAF-01);
 #   - conflictos (dos funciones en el mismo puerto) y puertos inexistentes en
 #     la tarjeta se rechazan aquí (422), no solo en la UI;
 #   - doble confirmación: `confirmar` (alerta de criticidad, 428) y, para el
@@ -188,30 +194,139 @@ def _listadas() -> list[tuple[str, str, str, bool]]:
             + [(c, todas[c], aio.base(c), False) for c in resto])
 
 
-def _motivo_bloqueo() -> tuple[str, str]:
+def _motivo_bloqueo(diferencias=None) -> tuple[str, str]:
     """("", "") si se puede reasignar ahora; si no, (código, texto). Llamar
-    con _sm_lock tomado para una decisión firme (lo hace _comprobar_estado)."""
+    con _sm_lock tomado para una decisión firme (lo hace _comprobar_estado).
+    Con `diferencias` (las funciones que se mueven) se revisa además SAF-01."""
     loop = _ctx().control_loop
     estado = _ctx().estado.get_machine_state()
     if estado == GlobalState.CICLO:
         return "ciclo", "No permitido con un ciclo en curso"
     if estado not in _ESTADOS_PERMITIDOS:
-        return "estado", "Solo con el equipo en preparación o preparado"
+        return "estado", "No disponible en el estado actual del equipo"
     if getattr(loop, "test_mode_active", False) is True:
         return "modo_prueba", "Salga primero del modo prueba de salidas"
     if getattr(loop, "apagando", False) is True:
         return "apagando", "El equipo se está apagando"
+    # ESS-07 (decisión de Cristian del 29-oct sobre la revisión de acb33873):
+    # el reinicio arranca el estado seguro S9 sin confirmación y sin sellar
+    codigo, texto = _motivo_estado_seguro(loop)
+    if codigo:
+        return codigo, texto
+    if diferencias:
+        codigo, texto = _motivo_sensor_seguridad(diferencias)
+        if codigo:
+            return codigo, texto
     return "", ""
 
 
-def _comprobar_estado(entidad: str, sesion, al_pasar=None) -> None:
-    """Rechaza (409) fuera de PREPARACION/PREPARADO, en modo prueba, apagando
-    o con estado seguro actuando. Con `al_pasar`, lo ejecuta bajo el mismo
-    _sm_lock que validó (p. ej. detener el lazo antes del reinicio)."""
+def _motivo_estado_seguro(loop) -> tuple[str, str]:
+    """ESS-07: ("", "") o el rechazo.
+    SAF-03: con el paro activo o la confirmación «llevar a estado seguro»
+    pendiente, el proceso nuevo arrancaría el protocolo sin confirmación
+    (D9-1.2).
+    H1: con el estado seguro activo y carga líquida (o sellada, D8-2.10) el
+    protocolo de arranque no sella y ventea por la lenta con la carga
+    caliente. Falla cerrada: ante un error, rechazo."""
+    try:
+        if _ctx().estado.get_flag("PARO_EMERGENCIA"):
+            return "estado_seguro_confirmar", "Suelte el paro y confirme primero el estado seguro"
+        es = getattr(loop, "estado_seguro", None)
+        if getattr(es, "activo", False) is not True:
+            return "", ""
+        if getattr(es, "requiere_confirmacion", False) is not False:
+            return "estado_seguro_confirmar", "Confirme primero «Confirmar y llevar a estado seguro»"
+        protocolo = getattr(es, "_protocolo", None)
+        if getattr(protocolo, "sellado", False) is not False:
+            return "estado_seguro_liquido", "Espere a que la carga líquida llegue a estado seguro"
+        if protocolo.es_liquido() is not False:
+            return "estado_seguro_liquido", "Espere a que la carga líquida llegue a estado seguro"
+    except Exception:
+        logger.exception("Reasignación: no se pudo evaluar el estado seguro")
+        return "estado_seguro", "La cámara se está llevando a estado seguro"
+    return "", ""
+
+
+def _motivo_sensor_seguridad(diferencias) -> tuple[str, str]:
+    """ESS-07, SAF-01: la lectura de un puerto reasignado sin verificar
+    decidiría la cámara segura, el fin del estado seguro y el interlock de
+    puertas. Se rechaza mover la presión de cámara o un Principal con la
+    cámara no segura, salvo que lo único que falte sea la lectura del propio
+    sensor que se mueve y la cámara esté fría según otra lectura (el caso
+    urgente: el sensor dañado). Falla cerrada.
+
+    Revisión de los 409 (29-oct): los nombres se comparan en forma canónica
+    (temp_ref = temp_referencia); sin programas rige temp_camara, como en
+    temp_seguridad; al mover el Principal hace falta otra sonda de cámara con
+    lectura fría (la presión atmosférica no prueba que la carga esté fría) y
+    ninguna sonda de cámara puede leer caliente."""
+    from autoclave.core.runtime import camara_segura
+    from autoclave.core.runtime import sensores_ciclo as sc
+    texto = "Con la cámara no segura no se puede mover el sensor de presión de cámara ni el Principal"
+    try:
+        ctx = _ctx()
+        programas = ctx.programas_para_seguridad()
+        lista = list(programas) if isinstance(programas, (list, tuple)) else [programas]
+        principales = {aio.canonico("temp_camara" if p is None else sc.sensor_principal(p))
+                       for p in (lista or [None])}
+        nombres = {aio.canonico(aio.base(c)) for c, d in diferencias.items() if d and d[0] == "AI"}
+        mueve_presion = "pres_camara" in nombres
+        mueve_principal = bool(nombres & principales)
+        if not mueve_presion and not mueve_principal:
+            return "", ""
+        vigentes = getattr(ctx.control_loop, "presion_vigente", False) is True
+        temp_max_ciclo = ctx.temp_max_tras_ciclo()
+        motivos = camara_segura.motivos(ctx.estado, ctx.config_manager, programas,
+                                        getattr(ctx, "profile", None), datos_vigentes=vigentes,
+                                        temp_max_ciclo=temp_max_ciclo)
+        codigos = {getattr(m, "codigo", None) for m in motivos}
+        if not codigos:
+            return "", ""                       # cámara segura
+        if mueve_presion == mueve_principal:
+            return "sensor_camara_no_segura", texto
+        permitido = "sin_presion_camara" if mueve_presion else "sin_temp_camara"
+        if codigos != {permitido}:
+            return "sensor_camara_no_segura", texto
+        # caso urgente: ninguna sonda de cámara caliente y, si se mueve el
+        # Principal, al menos otra (que no se mueve) leyendo fría
+        temp_max = camara_segura._numero(ctx.config_manager.get(camara_segura.CLAVE_TEMP_MAX))
+        del_ciclo = camara_segura._numero(temp_max_ciclo)
+        if temp_max is None:
+            return "sensor_camara_no_segura", texto
+        if del_ciclo is not None:
+            temp_max = min(temp_max, del_ciclo)
+        frias = 0
+        for clave, valor in dict(ctx.estado.sensores_temp).items():
+            nombre = aio.canonico(clave)
+            if nombre == "temp_drenaje" or nombre in nombres:
+                continue
+            v = camara_segura._numero(valor)
+            if v is None or v == 0:
+                continue
+            if v > temp_max:
+                return "sensor_camara_no_segura", texto
+            frias += 1
+        if mueve_principal and frias == 0:
+            return "sensor_camara_no_segura", texto
+        return "", ""
+    except Exception:
+        logger.exception("Reasignación: no se pudo evaluar la cámara segura")
+    return "sensor_camara_no_segura", texto
+
+
+def _comprobar_estado(entidad: str, sesion, al_pasar=None, diferencias=None) -> None:
+    """Rechaza (409) en CICLO o fuera de PREPARACION/PREPARADO/FALLA, en modo
+    prueba o apagando; con el paro o la confirmación pendiente; con el estado
+    seguro actuando sobre una carga líquida; y, con `diferencias`, al mover la
+    presión de cámara o un Principal con la cámara no segura (ESS-07). Con
+    `al_pasar`, lo ejecuta bajo el mismo _sm_lock que validó (p. ej. detener
+    el lazo antes del reinicio)."""
     with srv.guard_estado(frozenset(), entidad, sesion):
-        codigo, texto = _motivo_bloqueo()
+        codigo, texto = _motivo_bloqueo(diferencias)
         if codigo:
-            raise srv._Rechazo(409, "estado_no_permitido", texto, extra={"motivo": codigo})
+            error = ("sensor_camara_no_segura" if codigo == "sensor_camara_no_segura"
+                     else "estado_no_permitido")
+            raise srv._Rechazo(409, error, texto, extra={"motivo": codigo})
         if al_pasar is not None:
             al_pasar()
 
@@ -309,7 +424,11 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
         if disponible:
             _ctx().control_loop.iniciar_apagado()
     try:
-        _comprobar_estado(entidad, sesion, al_pasar=detener_lazo)
+        # ESS-07 (revisión de los 409): lo que cambia al reiniciar es la
+        # diferencia con lo que usa este proceso (una asignación guardada que
+        # aún no rige, o una de fábrica tras un archivo dañado, también cuenta)
+        _comprobar_estado(entidad, sesion, al_pasar=detener_lazo,
+                          diferencias={**diferencias, **aio.diferencias(aio.en_memoria(), nueva)})
     except BaseException:
         # TMG-07: ante cualquier error, no ante solo un rechazo
         try:

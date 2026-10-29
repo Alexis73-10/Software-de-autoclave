@@ -47,6 +47,16 @@ def api(tmp_path, monkeypatch):
     ctx.control_loop.test_mode_active = False
     ctx.control_loop.apagando = False
     ctx.control_loop.estado_seguro.activo = False
+    # ESS-07: sin paro, cámara segura (fría y a atm) con datos vigentes
+    ctx.estado.get_flag.return_value = False
+    ctx.estado.sensores_pres = {"pres_camara": 101.3}
+    ctx.estado.sensores_temp = {"temp_camara": 30.0}
+    ctx.config_manager = {"presion_admosferica": 101.3, "rango_presion_atm": 5.0,
+                          "temp_max_apertura": 80.0}
+    ctx.programas_para_seguridad.return_value = []   # como el real sin programa
+    ctx.temp_max_tras_ciclo.return_value = None
+    ctx.profile = None
+    ctx.control_loop.presion_vigente = True
     ctx.archivo_asignacion = aio.ArchivoAsignacion(tmp_path / "data" / "asignacion_io.json")
     ctx.asignacion_fabrica = aio.fabrica_codigo()
     ctx.motivo_asignacion = ""
@@ -102,16 +112,109 @@ def test_rechazado_en_ciclo(api):
     assert cliente.get("/io/assignment", headers=cab()).json()["editable"] is False
 
 
+def _estado_seguro_actuando(ctx, liquido=False, sellado=False, confirmar=False):
+    es = ctx.control_loop.estado_seguro
+    es.activo = True
+    es.requiere_confirmacion = confirmar
+    es._protocolo.sellado = sellado
+    es._protocolo.es_liquido.return_value = liquido
+
+
 def test_permitido_en_falla_y_con_estado_seguro_actuando(api, monkeypatch):
     """Cambio urgente 28-oct: en FALLA y con el protocolo de estado seguro
-    actuando se puede reasignar (sensor de presión de cámara dañado)."""
+    actuando sobre una carga sólida se puede reasignar (sensor de presión de
+    cámara dañado)."""
     cliente, srv, ctx, cab, pedidos = api
     ctx.estado.get_machine_state.return_value = GlobalState.FALLA
-    monkeypatch.setattr(srv, "_estado_seguro_en_marcha", lambda: True)
+    _estado_seguro_actuando(ctx)
     assert cliente.get("/io/assignment", headers=cab()).json()["editable"] is True
     r = _aplicar(cliente, cab(), {"vapor_camara": 27})
     assert r.status_code == 200, r.text
     assert ctx.archivo_asignacion.existe() and pedidos
+
+
+# ══ ESS-07 (decisión de Cristian del 29-oct, HAZ-IO-05) ═══════════════════
+
+@pytest.mark.req("ESS-07")
+@pytest.mark.parametrize("liquido,sellado", [(True, False), (False, True), (True, True)])
+def test_h1_rechazado_con_estado_seguro_sobre_carga_liquida(api, liquido, sellado):
+    """H1: el reinicio arrancaría el estado seguro S9 sin sellar y ventearía
+    la carga líquida caliente por la lenta."""
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    _estado_seguro_actuando(ctx, liquido=liquido, sellado=sellado)
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["editable"] is False and g["motivo"] == "estado_seguro_liquido"
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
+    assert r.status_code == 409 and r.json()["motivo"] == "estado_seguro_liquido"
+    assert not ctx.archivo_asignacion.existe() and pedidos == []
+
+
+@pytest.mark.req("ESS-07")
+def test_h1_tipo_de_carga_ilegible_cuenta_como_liquida(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    _estado_seguro_actuando(ctx)
+    ctx.control_loop.estado_seguro._protocolo.es_liquido.side_effect = RuntimeError("x")
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
+    assert r.status_code == 409 and pedidos == []
+
+
+@pytest.mark.req("ESS-07")
+def test_saf03_rechazado_con_confirmacion_pendiente_o_paro(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    _estado_seguro_actuando(ctx, confirmar=True)
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
+    assert r.status_code == 409 and r.json()["motivo"] == "estado_seguro_confirmar"
+    ctx.control_loop.estado_seguro.activo = False
+    ctx.estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
+    assert r.status_code == 409 and r.json()["motivo"] == "estado_seguro_confirmar"
+    assert pedidos == []
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_presion_de_camara_con_la_camara_presurizada_rechazada(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.sensores_pres["pres_camara"] = 250.0
+    r = _aplicar(cliente, cab(), {"pres_camara": 13})
+    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
+    assert not ctx.archivo_asignacion.existe() and pedidos == []
+    # otra función: no aplica SAF-01
+    assert _aplicar(cliente, cab(), {"vapor_camara": 27}).status_code == 200
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_sensor_de_presion_danado_con_la_camara_fria_se_permite(api):
+    """El caso urgente: solo falta la lectura del sensor que se mueve y el
+    Principal dice que la cámara está fría."""
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.sensores_pres["pres_camara"] = None
+    r = _aplicar(cliente, cab(), {"pres_camara": 13})
+    assert r.status_code == 200, r.text
+    assert pedidos
+
+
+@pytest.mark.req("ESS-07")
+@pytest.mark.parametrize("pres,temp,cambios", [
+    (None, 120.0, {"pres_camara": 13}),      # sin presión y caliente
+    (None, None, {"pres_camara": 13}),       # sin presión ni Principal
+    (250.0, None, {"temp_camara": 4}),        # Principal perdido y presurizada
+])
+def test_saf01_otros_motivos_rechazados(api, pres, temp, cambios):
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.sensores_pres["pres_camara"] = pres
+    ctx.estado.sensores_temp["temp_camara"] = temp
+    r = _aplicar(cliente, cab(), cambios)
+    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
+    assert pedidos == []
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_sin_datos_vigentes_rechazado(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.control_loop.presion_vigente = False
+    r = _aplicar(cliente, cab(), {"pres_camara": 13})
+    assert r.status_code == 409 and pedidos == []
 
 
 def test_rechazado_en_modo_prueba(api):
@@ -590,7 +693,7 @@ def test_deshacer_ante_cualquier_error_deja_el_archivo_como_estaba(api, monkeypa
     ctx.archivo_asignacion.ruta.write_bytes(b"\xff previo")
     llamadas = []
 
-    def falla():
+    def falla(diferencias=None):
         llamadas.append(1)
         if len(llamadas) > 1:
             raise RuntimeError("inesperado")
@@ -645,3 +748,72 @@ def test_restaurar_respaldo_de_calibracion_anula_toda_evidencia_ai(api):
     assert i_anula < i_escribe
     assert "_reasignacion.anular_evidencias_ai()" in texto
     assert "with _lock_escritura, srv._lock_archivos:" in (raiz / "server_reasignacion.py").read_text(encoding="utf-8")
+
+
+def _programa_con_principal(principal):
+    from autoclave.core.managers.cycle_manager import Cycle
+    prog = Cycle("p", "p", {"globals": {"tipo_carga": {"value": "solido"}}}, number=1)
+    prog.sensores = {x: ("principal" if x == principal else "no_en_uso")
+                     for x in ("temp_camara", "temp_2_camara", "temp_ref")}
+    return prog
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_referencia_como_principal_se_compara_por_nombre_canonico(api):
+    """Revisión de los 409, SAF-01: temp_ref (estado) = temp_referencia (asignación)."""
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.programas_para_seguridad.return_value = [_programa_con_principal("temp_ref")]
+    ctx.estado.sensores_temp = {"temp_camara": 30.0, "temp_ref": 120.0}
+    r = _aplicar(cliente, cab(), {"temp_referencia": 4})
+    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
+    assert pedidos == []
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_mover_el_principal_exige_otra_sonda_fria(api):
+    """Revisión de los 409, SAF-04: la presión atmosférica no prueba que la
+    carga esté fría."""
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.sensores_temp = {"temp_camara": None}
+    r = _aplicar(cliente, cab(), {"temp_camara": 4})
+    assert r.status_code == 409 and pedidos == []
+    ctx.estado.sensores_temp = {"temp_camara": None, "temp_2_camara": 110.0}
+    assert _aplicar(cliente, cab(), {"temp_camara": 4}).status_code == 409
+    ctx.estado.sensores_temp = {"temp_camara": None, "temp_drenaje": 30.0}
+    assert _aplicar(cliente, cab(), {"temp_camara": 4}).status_code == 409
+    ctx.estado.sensores_temp = {"temp_camara": None, "temp_2_camara": 30.0}
+    r = _aplicar(cliente, cab(), {"temp_camara": 4})
+    assert r.status_code == 200, r.text
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_presion_danada_con_otra_sonda_caliente_rechazada(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.sensores_pres["pres_camara"] = None
+    ctx.estado.sensores_temp = {"temp_camara": 30.0, "temp_ref": 120.0}
+    r = _aplicar(cliente, cab(), {"pres_camara": 13})
+    assert r.status_code == 409 and pedidos == []
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_asignacion_guardada_que_aun_no_rige_cuenta(api):
+    """Revisión de los 409, SAF-03: lo que cambia al reiniciar se compara con
+    lo que usa este proceso, no solo con lo guardado."""
+    cliente, _srv, ctx, cab, pedidos = api
+    nueva = aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13})
+    ctx.archivo_asignacion.guardar(aio.cambios_respecto_a(aio.fabrica_codigo(), nueva),
+                                   "ines", ["pres_camara"])
+    ctx.estado.sensores_pres["pres_camara"] = 250.0
+    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
+    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
+    assert pedidos == []
+
+
+@pytest.mark.req("ESS-07")
+def test_saf01_restaurar_fabrica_tambien_comprueba(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13}))
+    ctx.estado.sensores_pres["pres_camara"] = 250.0
+    r = cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=cab())
+    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
+    assert pedidos == []

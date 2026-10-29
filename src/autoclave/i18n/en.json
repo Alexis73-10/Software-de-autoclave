@@ -986,32 +986,32 @@
       "accion": "Check the sensor connection."
     },
     "SEN-02": {
-      "titulo": "Critical sensor without reading",
+      "titulo": "Critical sensor without reading — Do not open the door",
       "plantilla": "No reading from: {sensores}, in phase {fase}. The cycle was aborted.",
       "accion": "Check the sensor connections before restarting."
     },
     "SEN-03": {
-      "titulo": "Temperature sensor without signal",
+      "titulo": "Temperature sensor without signal — Do not open the door",
       "plantilla": "{sensor} gives no reading ({valor}). A program that uses it cannot start.",
       "accion": "Check the probe connection or set its role to Not in use."
     },
     "SEN-04": {
-      "titulo": "Chamber pressure sensor without reading",
+      "titulo": "Chamber pressure sensor without reading — Do not open the door",
       "plantilla": "The chamber pressure sensor gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
       "accion": "Do not open the door. Call technical service to check the chamber pressure sensor."
     },
     "SEN-05": {
-      "titulo": "Jacket pressure sensor without reading",
+      "titulo": "Jacket pressure sensor without reading — Do not open the door",
       "plantilla": "The jacket pressure sensor gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
       "accion": "Do not open the door until the chamber is confirmed safe. Call technical service to check the jacket pressure sensor."
     },
     "SEN-08": {
-      "titulo": "Gasket pressure sensor without reading",
+      "titulo": "Gasket pressure sensor without reading — Do not open the door",
       "plantilla": "The gasket pressure sensor of {puerta} gives no reading in phase {fase}. The cycle was aborted: steam cut off and venting only through the slow valve.",
       "accion": "Do not open the door. Call technical service to check the gasket pressure sensor."
     },
     "SEN-06": {
-      "titulo": "Chamber pressure sensor without reading",
+      "titulo": "Chamber pressure sensor without reading — Do not open the door",
       "plantilla": "Chamber pressure sensor without reading: call service.",
       "accion": "Do not open the door: without chamber pressure it cannot be confirmed safe. Call technical service."
     },
@@ -1127,7 +1127,7 @@
       "accion": "Check the supply steam regulator. The cycle continues."
     },
     "CIC-19": {
-      "titulo": "Reference probe without reading",
+      "titulo": "Reference probe without reading — Do not open the door",
       "plantilla": "No reading from {sensor} in the {fase} phase. With a liquid load the load temperature cannot be verified. The cycle was aborted.",
       "accion": "The load is NOT sterile. Check the probe connection and repeat the cycle."
     },
@@ -2202,10 +2202,13 @@
     "verif_titulo": "Check after the last restart",
     "bloqueo": "The saved assignment is damaged: the equipment is locked until the factory assignment is restored.",
     "motivo_ciclo": "Not available while a cycle is running.",
-    "motivo_estado": "Available only with the equipment in preparation or ready: clear the fault first.",
+    "motivo_estado": "Not available in the current equipment state.",
     "motivo_modo_prueba": "Leave the output test mode first.",
     "motivo_apagando": "The equipment is shutting down.",
     "motivo_estado_seguro": "Wait until the chamber reaches the safe state.",
+    "motivo_estado_seguro_confirmar": "Release the emergency stop and first confirm with the Confirm and bring to safe state button.",
+    "motivo_estado_seguro_liquido": "Wait until the liquid load reaches the safe state.",
+    "err_sensor_camara_no_segura": "With the chamber not safe, the chamber pressure sensor and the Principal sensor cannot be moved (unless only the reading of the sensor being moved is missing and the other shows the chamber cold and at atmospheric pressure).",
     "err_conflicto": "Two functions cannot share the same port.",
     "err_puerto_inexistente": "That port does not exist on the board for this type of function.",
     "err_funcion_desconocida": "Unknown function.",

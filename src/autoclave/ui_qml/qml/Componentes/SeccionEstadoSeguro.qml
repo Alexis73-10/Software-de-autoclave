@@ -19,6 +19,9 @@ import Autoclave.I18n
 // real; sin datos de la tarjeta no se afirma paro).
 // Grupos (D3, nivel del catálogo): "emergencia" (sin conexión, tarjeta, paro y
 // estado seguro), "alarma" (NO ABRIR) y "aviso" (modo prueba); "" = todos.
+// ESS-04 (28-oct): con `estadoSeguroSilencioso` del puente se ocultan las
+// filas del estado 3 (y no cuentan en la campana); con `noAbrirPorSensor`, la
+// fila NO ABRIR. El paro, la confirmación y la falta de datos nunca se ocultan.
 Column {
     id: raiz
     property QtObject puente: null
@@ -34,9 +37,19 @@ Column {
     readonly property bool sinDatos: sinConexion || tarjetaDesconectada || tarjetaSinDatos
     readonly property bool paro: puente?.paroActivo ?? false
     readonly property bool confirmar: (puente?.estadoSeguroRequiereConfirmacion ?? false) && !paro
-    readonly property bool enCurso: (puente?.estadoSeguroActivo ?? false) && !confirmar && !paro
-    // las filas sin datos ya dicen NO ABRIR: no se repite
-    readonly property bool noAbrir: (puente?.noAbrir ?? true) && !paro && !enCurso && !sinDatos
+    readonly property bool activoSinConfirmar: (puente?.estadoSeguroActivo ?? false) && !confirmar && !paro
+    // ESS-04 (28-oct): con un sensor sin lectura como único motivo, el estado
+    // seguro actúa en silencio: solo se ve la alarma del sensor («No abrir la
+    // puerta»). Nunca con paro, confirmación pendiente o sin datos (falla
+    // cerrada: sin el dato del puente, se muestra).
+    readonly property bool silencio: activoSinConfirmar && !sinDatos
+                                     && (puente?.estadoSeguroSilencioso ?? false) === true
+    readonly property bool enCurso: activoSinConfirmar && !silencio
+    // las filas sin datos ya dicen NO ABRIR: no se repite. ESS-04: tampoco
+    // con el estado seguro activo (silencioso o no) ni si el motivo es solo
+    // un sensor sin lectura
+    readonly property bool noAbrir: (puente?.noAbrir ?? true) && !paro && !activoSinConfirmar && !sinDatos
+                                    && (puente?.noAbrirPorSensor ?? false) !== true
     readonly property bool modoPrueba: puente?.modoPrueba ?? false
     // la petición de confirmar ya salió (ComandosSistema.ocupado)
     readonly property bool enviando: confirmar && (comandos?.ocupado ?? false)
@@ -257,6 +270,8 @@ Column {
     readonly property string bloqueoTexto: bloqueoClave !== "" && I18n.existe(bloqueoClave, I18n.lang)
                                            ? I18n.t(bloqueoClave, I18n.lang) : bloqueoMotivo
     // el botón solo ayuda si el motivo es el sensor Principal (no el tiempo límite con líquido)
+    // ESS-04 (DECISIÓN SIN CONFIRMAR): en silencio el botón pasa al detalle
+    // de la alarma del Principal (SEN-02/SEN-03, VentanaDetalleAlarma)
     readonly property bool bloqueoPorSonda: puente?.estadoSeguroBloqueoPorSonda ?? false
     Nota {
         objectName: "avisoEstadoSeguroDetenido"

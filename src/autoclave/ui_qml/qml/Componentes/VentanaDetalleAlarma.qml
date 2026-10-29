@@ -30,6 +30,14 @@ Item {
     // ventana (antes solo en el panel de la campana, tapado por ella). Quien
     // la usa lo descarta al recibir `cerrada`.
     property string mensaje: ""
+    // ESS-04 (DECISIÓN SIN CONFIRMAR): con el estado seguro detenido por la
+    // sonda Principal, el botón de asignar sonda (antes solo en
+    // SeccionEstadoSeguro, que en silencio se oculta) también va en el
+    // detalle de la alarma del Principal (SEN-02/SEN-03)
+    property bool bloqueoPorSonda: false
+    readonly property bool asignarSonda: bloqueoPorSonda && vigente
+                                         && (datos.codigo === "SEN-02" || datos.codigo === "SEN-03")
+    signal asignarSondaPulsado()
     signal despejarPulsado(var model)
     signal cerrada()
 
@@ -254,6 +262,12 @@ Item {
                     visible: raiz.despejable && raiz.vigente && raiz.datos.estado !== "reconocida"
                     texto: raiz.textoDespejar
                     onPulsado: raiz.despejarPulsado(raiz.datos)
+                }
+                Boton {
+                    objectName: "botonAsignarSondaDetalle"
+                    visible: raiz.asignarSonda
+                    texto: I18n.t("sistema.asignar_sonda_principal", I18n.lang)
+                    onPulsado: { raiz.cerrar(); raiz.asignarSondaPulsado() }
                 }
                 Boton {
                     objectName: "botonCerrarDetalle"

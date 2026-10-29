@@ -183,6 +183,9 @@ PanelModal {
         alarmas: raiz.alarmas
         despejable: raiz.despejable(datos.id) && raiz.comandosSistema !== null
         mensaje: raiz.mensajeDespejar            // R4 (V17-s4-01)
+        // ESS-04: asignar sonda Principal desde el detalle de SEN-02/SEN-03
+        bloqueoPorSonda: (raiz.puente?.estadoSeguroBloqueoPorSonda ?? false) && raiz.comandosSistema !== null
+        onAsignarSondaPulsado: raiz.comandosSistema?.asignarSondaPrincipal()
         onDespejarPulsado: (model) => raiz.comandosSistema?.despejarAlarma(model.id)
         onCerrada: if (raiz.comandosSistema?.descartarMensajeDespejar) raiz.comandosSistema.descartarMensajeDespejar()
     }

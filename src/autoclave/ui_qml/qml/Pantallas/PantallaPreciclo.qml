@@ -915,6 +915,9 @@ Item {
         despejable: panelNotificaciones.despejable(datos.id) && raiz.comandosSistema !== null
         // R4 (V17-s4-01): el motivo del rechazo de DESPEJAR, dentro de la ventana
         mensaje: raiz.comandosSistema?.mensajeDespejar ?? ""
+        // ESS-04: asignar sonda Principal desde el detalle de SEN-02/SEN-03
+        bloqueoPorSonda: (raiz.puente?.estadoSeguroBloqueoPorSonda ?? false) && raiz.comandosSistema !== null
+        onAsignarSondaPulsado: raiz.comandosSistema?.asignarSondaPrincipal()
         onDespejarPulsado: (model) => raiz.comandosSistema?.despejarAlarma(model.id)
         onCerrada: if (raiz.comandosSistema?.descartarMensajeDespejar) raiz.comandosSistema.descartarMensajeDespejar()
     }

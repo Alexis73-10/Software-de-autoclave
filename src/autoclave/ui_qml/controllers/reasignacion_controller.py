@@ -32,6 +32,8 @@ _MENSAJES = {
     "confirmacion_reforzada": "reasignacion.err_nombre",
     "usuario_bloqueado": "reasignacion.err_bloqueado",
     "estado_no_permitido": "reasignacion.err_estado",
+    # ESS-07, SAF-01 (29-oct)
+    "sensor_camara_no_segura": "reasignacion.err_sensor_camara_no_segura",
     "rol_sin_permiso": "reasignacion.err_rol",
     "no_se_pudo_guardar": "reasignacion.err_guardar",
     "puerto_sin_calibracion": "reasignacion.err_puerto_sin_calibracion",
@@ -43,7 +45,9 @@ _MENSAJES = {
     "calibracion_requerida": "reasignacion.falta_calibracion_requerida",
     sesion_backend.BACKEND_NO_RESPONDE: "reasignacion.err_sin_respuesta",
 }
-_MOTIVOS = {"ciclo", "estado", "modo_prueba", "apagando", "estado_seguro"}
+_MOTIVOS = {"ciclo", "estado", "modo_prueba", "apagando", "estado_seguro",
+            # ESS-07 (29-oct)
+            "estado_seguro_confirmar", "estado_seguro_liquido"}
 _FALTAS = {"sin_cambio_observado", "sin_prueba_de_salida", "sin_lectura", "calibracion_requerida"}
 _ESTADOS_VERIF = {"pendiente", "trama_presente", "sin_respuesta", "verificada"}
 

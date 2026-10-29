@@ -493,6 +493,6 @@ def test_cic19_en_el_catalogo_es_bloqueante_como_cic12():
     from autoclave.state_machine.alarms.catalogo import CATALOGO
     d19, d12 = CATALOGO["CIC-19"], CATALOGO["CIC-12"]
     assert d19.nivel is d12.nivel and d19.bloquea_inicio == d12.bloquea_inicio
-    assert d19.titulo == "Sonda de referencia sin lectura"
+    assert d19.titulo == "Sonda de referencia sin lectura — No abrir la puerta"   # ESS-05
     from autoclave import i18n
-    assert i18n.t("alarmas.CIC-19.titulo", "en") == "Reference probe without reading"
+    assert i18n.t("alarmas.CIC-19.titulo", "en") == "Reference probe without reading — Do not open the door"   # ESS-05
