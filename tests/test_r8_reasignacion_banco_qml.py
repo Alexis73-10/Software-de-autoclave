@@ -31,16 +31,20 @@ def _datos(editable=True, motivo="", verificacion=None, reinicio_pendiente=False
     for tipo in aio.TIPOS:
         for funcion, puerto in f[tipo].items():
             filas.append({"funcion": funcion, "tipo": tipo, "i18n": _clave(funcion, tipo),
-                          "puerto_actual": puerto, "id_actual": aio.etiqueta(tipo, puerto),
+                          "puerto_actual": puerto, "id_actual": aio.etiqueta(tipo, puerto, funcion),
                           "puerto_guardado": puerto, "puerto_fabrica": puerto,
-                          "id_fabrica": aio.etiqueta(tipo, puerto),
+                          "id_fabrica": aio.etiqueta(tipo, puerto, funcion),
+                          "id_guardado": aio.etiqueta(tipo, puerto, funcion),
+                          "grupo": aio.grupo(tipo, funcion),
                           "critica": funcion in aio.CRITICAS, "reforzada": funcion in aio.REFORZADAS,
                           "temperatura": tipo == "AI" and aio.es_temperatura(funcion),
                           "habilitada": funcion not in ("vapor_caldera", "vapor_generador")})
     return {"filas": filas,
             "puertos": {"DI": list(aio.puertos()["DI"]), "DO": list(aio.puertos()["DO"]),
                         "AI_TEMP": list(aio.puertos()["AI_TEMP"]), "AI_PRES": list(aio.puertos()["AI_PRES"])},
-            "ocupados": {t: {str(p): fn for fn, p in f[t].items()} for t in aio.TIPOS},
+            # tanda 23 (AIN-R1): ocupados por grupo, como /io/assignment
+            "ocupados": {g: {str(p): fn for t in aio.TIPOS for fn, p in f[t].items()
+                             if aio.grupo(t, fn) == g} for g in aio.GRUPOS},
             "cambios_guardados": {}, "reinicio_pendiente": reinicio_pendiente, "error_archivo": "",
             "bloqueo": "", "verificacion": verificacion or {"estado": "sin_cambios", "funciones": {}},
             "editable": editable, "motivo": motivo, "reinicio_disponible": True,

@@ -96,8 +96,13 @@ DIR_DO = 0x0000
 N_DO = 32
 DIR_TEMP = 0x0DAC          # registros de entrada, PT100 1-6 (décimas de °C)
 N_TEMP = 6
-DIR_PRES = 0x0000          # registros de entrada, AI 1-8 del principal (µA)
-N_PRES = 8
+DIR_PRES = 0x0000          # registros de entrada, AI 1-16 del principal (µA)
+# Tanda 23 (AIN-03): las 16 AI del principal (manual V1.4, §4.10.3: AI1 =
+# 0x0000 … AI16 = 0x000F, contiguas). Antes 8.
+N_PRES = 16
+# Largo de la lista cruda "ai": RTD 1-6 en 0-5, 6-7 sin uso (None), AI 1-16
+# en 8-23 (tanda 23, AIN-03; antes 16).
+N_AI = 8 + N_PRES
 
 # --- Parámetros básicos y diagnóstico (MOD-06, MOD-10) ----------------------
 REG_FW_PRINCIPAL = 0x0C1F
@@ -267,7 +272,7 @@ class ModbusLink:
         self.running = False
 
         self.data: Dict[str, Any] = {
-            "ai": [None] * 16,
+            "ai": [None] * N_AI,
             "ai_seq": 0,
             "di": [0] * 56,
             "do": [0] * 32,
@@ -721,6 +726,7 @@ class ModbusLink:
             pres = list(self._tx("read_input_registers", DIR_PRES, count=N_PRES).registers)
             if len(temp) != N_TEMP or len(pres) != N_PRES:
                 raise _FalloTransaccion("AI incompleta")
+            # RTD 1-6 en ai[0..5], ai[6..7] sin uso, AI 1-16 en ai[8..23] (AIN-03)
             ai = [self._temperatura(i, r) for i, r in enumerate(temp)] + [None, None]
             # El 0 (<3,85 mA) llega crudo: la falla de lazo es de Units (MOD-04).
             ai += [int(r) for r in pres]

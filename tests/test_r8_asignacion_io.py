@@ -41,7 +41,8 @@ def test_fabrica_del_codigo_coincide_con_estado():
     assert f["DO"]["vapor_camara"] == 4 and f["DO"]["buzer_alarma"] == 25
     assert f["DI"]["paro_emergencia"] == 11
     assert f["AI"]["temp_camara"] == 1 and f["AI"]["temp_referencia"] == 3
-    assert f["AI"]["pres_camara"] == 9 and f["AI"]["pres_empaque_2"] == 12
+    # tanda 23 (AIN-02): presión AI 01-16 (antes AI 09-12)
+    assert f["AI"]["pres_camara"] == 1 and f["AI"]["pres_empaque_2"] == 4
     assert f["DO"]["aire_atmosferico_camara"] == 15
     assert aio.validar(f) == []
 
@@ -71,8 +72,10 @@ def test_fabrica_del_yaml_invalida_se_rechaza(tmp_path):
     ({"vapor_camara": 33}, "puerto_inexistente"),     # solo 32 salidas
     ({"vapor_camara": 0}, "puerto_inexistente"),
     ({"puerta_1_cerrada": 49}, "puerto_inexistente"), # DI 49-56 no se ofrecen (FW-07)
-    ({"pres_camara": 5}, "puerto_inexistente"),       # presión en puerto de temperatura
-    ({"temp_camara": 13}, "puerto_inexistente"),      # temperatura en puerto de presión
+    ({"pres_camara": 17}, "puerto_inexistente"),      # presión: solo AI 01-16 (tanda 23)
+    ({"pres_camara": 0}, "puerto_inexistente"),
+    ({"temp_camara": 13}, "puerto_inexistente"),      # temperatura: solo RTD 01-06
+    ({"temp_camara": 7}, "puerto_inexistente"),
     ({"vapor_camara": "25"}, "puerto_inexistente"),   # no entero
     ({"vapor_camara": True}, "puerto_inexistente"),
 ])
@@ -107,14 +110,14 @@ def test_aplicar_en_memoria_cambia_los_mapas_en_el_mismo_objeto():
                               # del buzzer; vapor y aire van a DO 26 y 27
                               # T20-03 / MOD-05: DI 16 (antes 30; con los módulos
                               # M31-U solo hay DI 01-16)
-                              {"vapor_camara": 26, "paro_emergencia": 16, "pres_camara": 13,
+                              {"vapor_camara": 26, "paro_emergencia": 16, "pres_camara": 5,
                                "temp_camara": 6, "aire_atmosferico_camara": 27})
     aio.aplicar_en_memoria(asignacion)
     assert EstadoAutoclave.map_do is mapa_do
     assert EstadoAutoclave.map_do["vapor_camara"] == 25
     assert EstadoAutoclave.map_do["aire_admosferico_camara"] == 26
     assert EstadoAutoclave.map_di["paro_emergencia"] == 15
-    assert EstadoAutoclave.map_pres["pres_camara"] == 4
+    assert EstadoAutoclave.map_pres["pres_camara"] == 4      # AI 05 (tanda 23)
     assert EstadoAutoclave.map_temp["temp_camara"] == 5
     assert aio.en_memoria() == asignacion
     assert aio.canal_do("vapor_camara") == 26
@@ -130,13 +133,13 @@ def test_aplicar_invalida_no_toca_nada():
 def test_estado_lee_la_entrada_en_su_puerto_nuevo():
     aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(),
                                         # T20-03 / MOD-05: DI 15 (antes 20)
-                                        {"puerta_1_cerrada": 15, "pres_camara": 13}))
+                                        {"puerta_1_cerrada": 15, "pres_camara": 5}))
     e = EstadoAutoclave()
     di = [0] * 56
     di[14] = 1                       # DI 15
-    pres = [0.0] * 8
-    pres[4] = 210.0                  # AI 13
-    pres[0] = 99.0                   # el puerto viejo (AI 09) ya no es la cámara
+    pres = [0.0] * 16
+    pres[4] = 210.0                  # AI 05 (tanda 23)
+    pres[0] = 99.0                   # el puerto viejo (AI 01) ya no es la cámara
     e.update({"raw_di": di, "pressure": pres})
     assert e.sensores_di["puerta_1_cerrada"] == 1
     assert e.sensores_pres["pres_camara"] == 210.0

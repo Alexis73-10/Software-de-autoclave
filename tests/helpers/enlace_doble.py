@@ -43,7 +43,7 @@ class EnlaceDoble:
         self._t_di: Optional[float] = None
         self._t_ai: Optional[float] = None
         self.data: Dict[str, Any] = {
-            "ai": [None] * 16,
+            "ai": [None] * 24,     # tanda 23 (AIN-03): RTD 1-6, 2 sin uso, AI 1-16
             "ai_seq": 0,
             "di": [0] * 56,
             "do": [0] * 32,
@@ -147,7 +147,7 @@ class EnlaceDoble:
         llama a on_update."""
         t = time.monotonic() if now is None else now
         if ai is not None:
-            self.data["ai"] = list(ai) + [None] * (16 - len(ai))
+            self.data["ai"] = list(ai) + [None] * (24 - len(ai))
         if di is not None:
             self.data["di"] = [int(bool(b)) for b in di] + [0] * (56 - len(di))
         self._seq_di += 1

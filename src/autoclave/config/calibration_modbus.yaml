@@ -8,7 +8,8 @@
 #   identidad (décimas -> °C; 0 = 0,0 °C y los negativos valen). Los canales 6
 #   y 7 no tienen puerto (el enlace los entrega como None); se dejan con la
 #   misma escala porque la calibración es posicional.
-# pressure[i] = AI i+1 del principal (puertos 09-16), en µA, transmisores de
+# pressure[i] = AI i+1 del principal (puertos AI 01-16; 16 entradas desde la
+#   tanda 23, AIN-04; antes 8 en los puertos 09-16), en µA, transmisores de
 #   0-4 bar abs (4-20 mA): 4000 / 20000 µA -> 0 / 400 kPa abs. Umbrales de falla
 #   de lazo con los márgenes por defecto: 3600 y 21000 µA. adc_piso_senal 3850:
 #   por debajo de 3,85 mA el módulo entrega 0 (DECISIÓN SIN CONFIRMAR).
@@ -140,6 +141,70 @@ calibration:
         gain: 1.0
         offset: 0.0
 
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
+      - adc_min: 4000
+        adc_max: 20000
+        pres_min: 0
+        pres_max: 400
+        adc_piso_senal: 3850
+        gain: 1.0
+        offset: 0.0
+
   user:
     temperature:
       - gain: 1.0
@@ -167,6 +232,30 @@ calibration:
         offset: 0.0
 
     pressure:
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
+      - gain: 1.0
+        offset: 0.0
+
       - gain: 1.0
         offset: 0.0
 

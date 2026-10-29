@@ -129,7 +129,7 @@ def test_asignacion_io_enlace_y_puertos_modbus():
     from autoclave.core.runtime import asignacion_io as aio
     assert aio.enlace() == "modbus"
     assert aio.puertos() == {"DI": range(1, 17), "DO": range(1, 33),
-                             "AI_TEMP": range(1, 7), "AI_PRES": range(9, 17)}
+                             "AI_TEMP": range(1, 7), "AI_PRES": range(1, 17)}
     for alias in ("PUERTOS_DI", "PUERTOS_DO", "PUERTOS_AI_TEMP", "PUERTOS_AI_PRES",
                   "_PUERTOS_SERIAL"):
         assert not hasattr(aio, alias)

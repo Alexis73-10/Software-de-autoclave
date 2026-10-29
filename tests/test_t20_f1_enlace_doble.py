@@ -19,7 +19,7 @@ def test_doble_cumple_la_interfaz(enlace_doble):
 def test_get_state_tiene_las_claves_del_enlace(enlace_doble):
     st = enlace_doble.get_state()
     assert set(st) == {"ai", "ai_seq", "di", "do", "port_open", "data_alive", "last_update"}
-    assert len(st["ai"]) == 16 and len(st["di"]) == 56 and len(st["do"]) == 32
+    assert len(st["ai"]) == 24 and len(st["di"]) == 56     # tanda 23 (AIN-03) and len(st["do"]) == 32
 
 
 @pytest.mark.req("T20-03")

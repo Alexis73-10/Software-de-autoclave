@@ -324,7 +324,7 @@ Item {
                             text: fila.nuevo !== "" ? fila.nuevo
                                   : (fila.dato.puerto_guardado !== fila.dato.puerto_actual
                                      ? I18n.t("reasignacion.col_nuevo", I18n.lang) + ": "
-                                       + (fila.dato.tipo + " " + String(fila.dato.puerto_guardado).padStart(2, "0"))
+                                       + (fila.dato.id_guardado || "")
                                      : I18n.t("reasignacion.sin_cambio", I18n.lang))
                             color: fila.nuevo !== "" ? Colores.advertenciaTexto : Colores.textoGuia
                             font.weight: fila.nuevo !== "" ? Tipografia.pesoBold : Tipografia.pesoRegular

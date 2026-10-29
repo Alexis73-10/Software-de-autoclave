@@ -59,14 +59,18 @@ class FactorySensorCalibration(SensorCalibration):
 # ---------------------------------------------------------------------
 # Contenedores por tipo de sensor
 # ---------------------------------------------------------------------
+# Tanda 23 (AIN-04): 16 entradas de presión (AI 1-16); temperatura sigue en 8.
+_N_PRESION = 16
+
+
 class FactoryCalibration(BaseModel):
     temperature: List[FactorySensorCalibration] = Field(default_factory=lambda: [FactorySensorCalibration() for _ in range(8)])
-    pressure: List[FactorySensorCalibration] = Field(default_factory=lambda: [FactorySensorCalibration() for _ in range(8)])
+    pressure: List[FactorySensorCalibration] = Field(default_factory=lambda: [FactorySensorCalibration() for _ in range(_N_PRESION)])
 
 
 class UserCalibration(BaseModel):
     temperature: List[SensorCalibration] = Field(default_factory=lambda: [SensorCalibration() for _ in range(8)])
-    pressure: List[SensorCalibration] = Field(default_factory=lambda: [SensorCalibration() for _ in range(8)])
+    pressure: List[SensorCalibration] = Field(default_factory=lambda: [SensorCalibration() for _ in range(_N_PRESION)])
 
 
 # ---------------------------------------------------------------------

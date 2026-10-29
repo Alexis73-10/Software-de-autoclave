@@ -95,9 +95,11 @@ di_contacto:
 # R8 (tanda 8, D8-5.12): asignación de FÁBRICA de cada función a su puerto de
 # la tarjeta (numerados desde 1, como en Opciones > Entradas / Salidas). La
 # vigente se guarda aparte, en data/asignacion_io.json de la carpeta de datos
-# (Opciones avanzadas, solo el ingeniero); sin ella rige esta. AI 01-08 son
-# temperatura y AI 09-16 presión (con el enlace Modbus, tanda 19: DI 01-16 y
-# AI 01-06 de temperatura). Si esta sección falta, rige la del código.
+# (Opciones avanzadas, solo el ingeniero); sin ella rige esta. Bajo AI, la
+# temperatura va en RTD 01-06 (módulo de 6 PT100) y la presión en AI 01-16
+# (AI 1-16 del principal); tanda 23 (AIN-01/02): antes la presión se numeraba
+# AI 09-16 (AI 09 de entonces = AI 01 de ahora, el mismo canal físico).
+# DI 01-16. Si esta sección falta, rige la del código.
 io_ports:
   DI:
     aire_comprimido: 1
@@ -145,7 +147,7 @@ io_ports:
     temp_2_camara: 2
     temp_referencia: 3
     temp_drenaje: 5
-    pres_camara: 9
-    pres_chaqueta: 10
-    pres_empaque_1: 11
-    pres_empaque_2: 12
+    pres_camara: 1
+    pres_chaqueta: 2
+    pres_empaque_1: 3
+    pres_empaque_2: 4

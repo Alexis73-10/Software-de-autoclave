@@ -44,6 +44,9 @@ EVENTOS = (
     # R8 (tanda 8, D8-5.12): reasignación de E/S
     "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
     "reasignacion_io_verificada", "reinicio_control",
+    # Tanda 23 (AIN-05): asignacion_io.json FORMATO 1 migrado a la numeración
+    # RTD 01-06 / AI 01-16 (una fila, del sistema)
+    "asignacion_io_migrada",
     # R11 (tanda 11, D11-1): reinicio del software (p. ej. al cambiar la impresora)
     "software_reiniciado",
     # C9 (tanda 9, D9-10): Manejo de ciclos
@@ -108,7 +111,7 @@ _CATEGORIA = {
         "ROLES_SENSOR", "entradas_mostradas", "correo_configurado",
         "programa_creado", "programa_duplicado", "programa_habilitado", "programa_borrado",
         "reasignacion_io", "reasignacion_io_fabrica", "reasignacion_io_rechazada",
-        "reasignacion_io_verificada",
+        "reasignacion_io_verificada", "asignacion_io_migrada",
     ),
     "usuarios_sesion": (
         "login_ok", "login_fallido", "login_bloqueado", "logout", "cambio_clave",

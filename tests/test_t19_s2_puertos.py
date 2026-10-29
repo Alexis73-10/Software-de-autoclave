@@ -34,7 +34,7 @@ def test_puertos_modbus():
     assert list(p["DI"]) == list(range(1, 17))
     assert list(p["DO"]) == list(range(1, 33))
     assert list(p["AI_TEMP"]) == list(range(1, 7))
-    assert list(p["AI_PRES"]) == list(range(9, 17))
+    assert list(p["AI_PRES"]) == list(range(1, 17))      # tanda 23 (AIN-02): AI 01-16
     assert aio.enlace() == "modbus"
 
 
@@ -44,8 +44,10 @@ def test_puertos_modbus():
     ("DO", None, 32, True), ("DO", None, 33, False),
     ("AI", "temp_camara", 6, True), ("AI", "temp_camara", 7, False),
     ("AI", "temp_camara", 9, False),
-    ("AI", "pres_camara", 16, True), ("AI", "pres_camara", 6, False),
-    ("AI", None, 6, True), ("AI", None, 7, False), ("AI", None, 9, True),
+    # tanda 23 (AIN-02): presión AI 01-16; AI 00 y AI 17 no existen
+    ("AI", "pres_camara", 16, True), ("AI", "pres_camara", 1, True),
+    ("AI", "pres_camara", 0, False), ("AI", "pres_camara", 17, False),
+    ("AI", None, 6, True), ("AI", None, 7, True), ("AI", None, 17, False),
 ])
 def test_puertos_validos_modbus(tipo, funcion, puerto, valido):
     assert (puerto in aio.puertos_validos(tipo, funcion)) is valido
@@ -92,7 +94,7 @@ def test_api_publica_los_puertos_del_enlace_activo(api):  # noqa: F811
     d = r.json()
     assert d["enlace"] == "modbus"
     assert d["puertos"] == {"DI": list(range(1, 17)), "DO": list(range(1, 33)),
-                            "AI_TEMP": list(range(1, 7)), "AI_PRES": list(range(9, 17))}
+                            "AI_TEMP": list(range(1, 7)), "AI_PRES": list(range(1, 17))}
 
 
 @pytest.mark.req("MOD-05")

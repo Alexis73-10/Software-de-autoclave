@@ -9,7 +9,8 @@
 #
 # Mapa (manual M31-U V1.4; ver planeacion_enlace_modbus.md MOD-03/06/07/10):
 #   bobinas 0x0000..0x001F (DO 1-32), entradas discretas 0x0000..0x000F (DI),
-#   registros de entrada 0x0000..0x000F (AI en µA; <3850 con rango 4-20 mA
+#   registros de entrada 0x0000..0x000F (AI 1-16 en µA, las 16 legibles con
+#   fc04 desde 0x0000, tanda 23 AIN-03; <3850 con rango 4-20 mA
 #   se entrega 0) y 0x0DAC..0x0DB1 (PT100 en décimas de °C, con signo),
 #   registros holding de parámetros básicos, configuración de DO/AI/PT100 y
 #   diagnóstico (0x7534 MAC, 0x7587 error, 0x7588 máscara, 0x758A negociación).
