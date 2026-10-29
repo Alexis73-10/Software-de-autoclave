@@ -1,7 +1,7 @@
 # tests/test_o2d_info_sistema.py
 #
 # O2d (tanda 6; mockup 8): Información del sistema, solo lectura, para todos.
-# GET /system/info agrupa equipo, software/tarjeta, uso/mantenimiento y
+# GET /system/info agrupa equipo, software/módulo E/S, uso/mantenimiento y
 # configuración vigente; un dato que falla queda en None sin romper el resto.
 
 from datetime import datetime

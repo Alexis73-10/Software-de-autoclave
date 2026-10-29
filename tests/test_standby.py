@@ -332,9 +332,9 @@ def test_fin_del_paro_cuenta_como_actividad():
 
 # ── 19-oct (observación de Cristian: "cambia de la pantalla de preciclo solo") ──
 
-def test_tarjeta_sin_datos_no_saca_del_standby_ni_lo_hace_oscilar():
-    # U4: PARO_EMERGENCIA solo (sin PARO_REAL) = tarjeta sin datos, no un paro.
-    # Antes: con la tarjeta aún sin conectar el standby se desactivaba (pasaba a
+def test_modulo_es_sin_datos_no_saca_del_standby_ni_lo_hace_oscilar():
+    # U4: PARO_EMERGENCIA solo (sin PARO_REAL) = módulo E/S sin datos, no un paro.
+    # Antes: con el módulo E/S aún sin conectar el standby se desactivaba (pasaba a
     # Preciclo) y al conectar se reactivaba solo (volvía al reposo).
     reloj = _Reloj()
     flags = {"PARO_EMERGENCIA": True, "PARO_REAL": False}
@@ -346,7 +346,7 @@ def test_tarjeta_sin_datos_no_saca_del_standby_ni_lo_hace_oscilar():
     for _ in range(3):
         s.evaluar()
         reloj.t += 0.5
-    flags["PARO_EMERGENCIA"] = False          # la tarjeta conecta
+    flags["PARO_EMERGENCIA"] = False          # el módulo E/S conecta
     s.evaluar()
     reloj.t += 30
     s.evaluar()

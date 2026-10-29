@@ -29,6 +29,8 @@ ROLES = ("admin", "ejecutor")
 GRAVEDADES = ("seguridad", "funcional", "cosmetica")
 ESTADOS_ANOMALIA = ("abierta", "en_analisis", "corregida", "cerrada")
 _UUID = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+# "id_tarjeta" es el ID del módulo E/S; la clave se conserva porque va guardada
+# en las cabeceras de los registros ya hechos (tanda 23, MES-03.2).
 CAMPOS_CABECERA = ("equipo", "serial", "version_software", "commit", "firmware", "id_tarjeta",
                    "perfil_instalacion", "programas", "instrumentos", "fecha", "lugar")
 CABECERA_MAX = 2000

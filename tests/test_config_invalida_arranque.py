@@ -122,7 +122,7 @@ def test_loop_bloqueado_vuelve_a_apagar_tras_reconectar():
     loop, _, _ = _make_control_loop()
     loop.bloquear_por_configuracion("x")
     _run_one_tick(loop)
-    loop.link_was_connected = False      # la tarjeta se desconectó y volvió
+    loop.link_was_connected = False      # el módulo E/S se desconectó y volvió
     _run_one_tick(loop)
     assert loop.set_do.reset_all_outputs.call_count == 2
 

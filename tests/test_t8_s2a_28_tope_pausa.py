@@ -1,5 +1,5 @@
 """Tanda 8 / S2a / D8-2.8 (tope de pausa; TMG-03 de la revisión Q1): si en una
-misma exposición de ESTERILIZACION las pausas por falta de datos de la tarjeta
+misma exposición de ESTERILIZACION las pausas por falta de datos del módulo E/S
 suman más de `pausa_max_esterilizacion_s` (parámetro del equipo, 30 s por
 defecto, rango 5-120), el ciclo falla con un código propio, CIC-11
 "Comunicación inestable en esterilización" (es/en)."""

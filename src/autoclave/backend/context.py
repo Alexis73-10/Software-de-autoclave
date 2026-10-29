@@ -803,7 +803,7 @@ class BackendContext:
         if not emparejada:
             logger.warning(
                 "Tarjeta de E/S %s no emparejada con el equipo (board_id del perfil: %s). "
-                "Registrarla con tools/emparejar_tarjeta.py si es la correcta.",
+                "Registrarla con tools/emparejar_modulo_es.py si es la correcta.",
                 tarjeta.get("id"), board_id or "sin registrar")
         db = getattr(self, "db", None)
         if db is None:

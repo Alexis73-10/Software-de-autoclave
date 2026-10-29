@@ -20,7 +20,7 @@ from unittest.mock import MagicMock
 import pytest
 
 _MAC = "A1B2C3D4E5F6"
-_TARJETA_MODBUS = {"version": "1.5 / 1.3", "protocolo": "modbus-tcp", "id": _MAC}
+_MODULO_ES_MODBUS = {"version": "1.5 / 1.3", "protocolo": "modbus-tcp", "id": _MAC}
 _MODULOS = {
     "modelos": ["XAXX0A00G", "GAXXXA000", "GXXAX00A0", "GXXAX00A0", "GXDXX0600"],
     "firmware": {"principal": "1.5", "expansiones": ["1.3", "1.3", "1.3", "1.3"]},
@@ -49,7 +49,7 @@ def cliente():
     ctx.profile.created_at = datetime(2026, 10, 26, 9, 0)
     ctx.profile.vapor_source = "boiler"
     ctx.profile.board_id = _MAC
-    ctx.serial.tarjeta.return_value = dict(_TARJETA_MODBUS)
+    ctx.serial.tarjeta.return_value = dict(_MODULO_ES_MODBUS)
     ctx.serial.get_diagnostico.return_value = {
         "lineas_invalidas_total": 3, "lineas_invalidas_consecutivas": 0,
         "handshake_completo": True, "tarjeta_st": None, "modulos": _MODULOS}
@@ -83,14 +83,14 @@ def test_status_comunicacion_sin_diagnostico_es_none(cliente):
 
 
 @pytest.mark.req("MOD-12")
-def test_status_tarjeta_con_el_enlace_modbus(cliente):
+def test_status_modulo_es_con_el_enlace_modbus(cliente):
     c, _ = cliente
     assert c.get("/status").json()["tarjeta"] == {
         "version": "1.5 / 1.3", "id": _MAC, "emparejada": True}
 
 
 @pytest.mark.req("MOD-12")
-def test_status_tarjeta_modbus_no_emparejada(cliente):
+def test_status_modulo_es_modbus_no_emparejado(cliente):
     c, ctx = cliente
     ctx.profile.board_id = "FFFFFFFFFFFF"
     assert c.get("/status").json()["tarjeta"]["emparejada"] is False
@@ -177,7 +177,7 @@ def test_panel_equipo_enlace_invalido_es_no_disponible(valor):
 
 
 @pytest.mark.req("MOD-01")
-def test_panel_equipo_con_tarjeta_modbus():
+def test_panel_equipo_con_modulo_es_modbus():
     filas = _filas(modulo_es={"version": "1.5 / 1.3", "id": _MAC, "emparejada": True},
                    enlace="modbus")
     assert filas["version_modulo_es"]["valor"] == "1.5 / 1.3"
@@ -206,7 +206,7 @@ def _info_equipo(status):
 
 @pytest.mark.req("MOD-01")
 def test_info_equipo_consulta_el_enlace_en_status():
-    info = _info_equipo({"tarjeta": dict(_TARJETA_MODBUS), "enlace_io": "modbus"})
+    info = _info_equipo({"tarjeta": dict(_MODULO_ES_MODBUS), "enlace_io": "modbus"})
     info.actualizar()
     filas = {f["clave"]: f for f in info.filas}
     assert filas["enlace_io"]["valorClave"] == "enlace_io_modbus"
@@ -229,7 +229,7 @@ def test_info_equipo_conserva_el_enlace_si_falla_la_consulta():
     assert {f["clave"]: f for f in info.filas}["enlace_io"]["valorClave"] == "enlace_io_modbus"
 
 
-def test_tarjeta_simple_namespace_no_rompe():
+def test_modulo_es_simple_namespace_no_rompe():
     # perfil sin board_id con el enlace Modbus: emparejada False (solo aviso, FW-D7)
     from autoclave.installation.profile import tarjeta_emparejada
     assert tarjeta_emparejada(SimpleNamespace(board_id=None), _MAC) is False

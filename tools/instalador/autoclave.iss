@@ -64,8 +64,8 @@
 ; lo revierte primero (07, 06, 05, 04, 02, 01); un fallo no interrumpe nada.
 ;
 ; T20-05 (tanda 20, docs/mis_plans/decisiones_tanda_20.md, decisiones 2 a 6):
-;   - Página "Red de los módulos de E/S" (después de la de la cuenta), con la
-;     casilla "Configurar la red de los módulos" (marcada; NO es una tarea de
+;   - Página "Red del módulo E/S" (después de la de la cuenta), con la
+;     casilla "Configurar la red del módulo E/S" (marcada; NO es una tarea de
 ;     [Tasks]: es independiente de la casilla de la estación) y la lista de
 ;     adaptadores Ethernet por cable (consulta de solo lectura, ConsultarRed).
 ;     Paso 08 de tools\estacion: 192.168.3.10/24 sin puerta de enlace ni DNS
@@ -347,15 +347,15 @@ es.ZonaInvalida=La zona horaria indicada con /ZONA= no existe en este Windows:%n
 en.ZonaInvalida=The time zone given with /ZONA= does not exist in this Windows:%n%1%n%nNothing was installed. Use the identifier shown by "tzutil /l" (for example, SA Pacific Standard Time).
 es.ZonaFallo=No se pudo fijar la zona horaria "%1" (%2).%n%nAutoclave quedó instalado. Fíjela a mano: Configuración > Hora e idioma > Fecha y hora > Zona horaria, o como administrador:%ntzutil /s "%1"
 en.ZonaFallo=The time zone "%1" could not be set (%2).%n%nAutoclave was installed. Set it by hand: Settings > Time & language > Date & time > Time zone, or as administrator:%ntzutil /s "%1"
-; T20-05 (tanda 20): red de los módulos de E/S (paso 08)
-es.RedTitulo=Red de los módulos de E/S
+; T20-05 (tanda 20): red del módulo E/S (paso 08)
+es.RedTitulo=Red del módulo E/S
 en.RedTitulo=I/O module network
-es.RedSubtitulo=Adaptador Ethernet de este PC dedicado a los módulos de E/S (el módulo está en 192.168.3.7).
-en.RedSubtitulo=Ethernet adapter of this PC dedicated to the I/O modules (the module is at 192.168.3.7).
-es.RedCasilla=Configurar la red de los módulos
-en.RedCasilla=Set up the module network
-es.RedExplicacion=Elija el adaptador conectado a los módulos. Se le pone la dirección fija 192.168.3.10/24, sin puerta de enlace ni DNS y sin DHCP; la configuración anterior se respalda y se restaura al desinstalar. Solo se muestran adaptadores Ethernet por cable (no Wi-Fi ni virtuales).
-en.RedExplicacion=Choose the adapter connected to the modules. It gets the fixed address 192.168.3.10/24, without gateway or DNS and without DHCP; the previous settings are backed up and restored on uninstall. Only wired Ethernet adapters are shown (no Wi-Fi or virtual adapters).
+es.RedSubtitulo=Adaptador Ethernet de este PC dedicado al módulo E/S (el módulo está en 192.168.3.7).
+en.RedSubtitulo=Ethernet adapter of this PC dedicated to the I/O module (the module is at 192.168.3.7).
+es.RedCasilla=Configurar la red del módulo E/S
+en.RedCasilla=Set up the I/O module network
+es.RedExplicacion=Elija el adaptador conectado al módulo E/S. Se le pone la dirección fija 192.168.3.10/24, sin puerta de enlace ni DNS y sin DHCP; la configuración anterior se respalda y se restaura al desinstalar. Solo se muestran adaptadores Ethernet por cable (no Wi-Fi ni virtuales).
+en.RedExplicacion=Choose the adapter connected to the I/O module. It gets the fixed address 192.168.3.10/24, without gateway or DNS and without DHCP; the previous settings are backed up and restored on uninstall. Only wired Ethernet adapters are shown (no Wi-Fi or virtual adapters).
 es.RedSinAdaptadores=No se encontró ningún adaptador Ethernet por cable. Conecte el adaptador y pulse "Actualizar la lista", o desmarque la casilla para seguir sin configurar la red.
 en.RedSinAdaptadores=No wired Ethernet adapter was found. Connect the adapter and press "Refresh the list", or clear the check box to continue without setting up the network.
 es.RedActualizarLista=Actualizar la lista
@@ -368,30 +368,30 @@ es.RedCableDesconectado=cable desconectado
 en.RedCableDesconectado=cable disconnected
 es.RedDeshabilitado=deshabilitado
 en.RedDeshabilitado=disabled
-es.RedFaltaAdaptador=Elija el adaptador conectado a los módulos, o desmarque "Configurar la red de los módulos".
-en.RedFaltaAdaptador=Choose the adapter connected to the modules, or clear "Set up the module network".
-es.RedConflicto=El adaptador "%1" ya está en la red de los módulos (192.168.3.0/24: %2). Con dos adaptadores en esa red no se puede hablar con el módulo: quítele esa dirección o elija ese adaptador. No se cambió nada.
-en.RedConflicto=The adapter "%1" is already on the module network (192.168.3.0/24: %2). With two adapters on that network the module cannot be reached: remove that address or choose that adapter. Nothing was changed.
-es.RedPerderaRed=El adaptador "%1" es el único con puerta de enlace (red local o Internet). Al dedicarlo a los módulos, este PC PERDERÁ esa red.%n%n¿Usarlo de todos modos?
-en.RedPerderaRed=The adapter "%1" is the only one with a gateway (local network or Internet). When it is dedicated to the modules, this PC WILL LOSE that network.%n%nUse it anyway?
+es.RedFaltaAdaptador=Elija el adaptador conectado al módulo E/S, o desmarque "Configurar la red del módulo E/S".
+en.RedFaltaAdaptador=Choose the adapter connected to the I/O module, or clear "Set up the I/O module network".
+es.RedConflicto=El adaptador "%1" ya está en la red del módulo E/S (192.168.3.0/24: %2). Con dos adaptadores en esa red no se puede hablar con el módulo: quítele esa dirección o elija ese adaptador. No se cambió nada.
+en.RedConflicto=The adapter "%1" is already on the I/O module network (192.168.3.0/24: %2). With two adapters on that network the module cannot be reached: remove that address or choose that adapter. Nothing was changed.
+es.RedPerderaRed=El adaptador "%1" es el único con puerta de enlace (red local o Internet). Al dedicarlo al módulo E/S, este PC PERDERÁ esa red.%n%n¿Usarlo de todos modos?
+en.RedPerderaRed=The adapter "%1" is the only one with a gateway (local network or Internet). When it is dedicated to the I/O module, this PC WILL LOSE that network.%n%nUse it anyway?
 es.RedAdaptadorDeshabilitado=El adaptador "%1" está deshabilitado en Windows. Habilítelo (Panel de control > Redes e Internet > Conexiones de red) y pulse "Actualizar la lista", o elija otro adaptador. No se cambió nada.
 en.RedAdaptadorDeshabilitado=The adapter "%1" is disabled in Windows. Enable it (Control Panel > Network and Internet > Network Connections) and press "Refresh the list", or choose another adapter. Nothing was changed.
-es.RedPerderaRedSilencioso=El adaptador "%1" indicado con /ADAPTADOR= es el único con puerta de enlace (red local o Internet): al dedicarlo a los módulos, este PC PERDERÁ esa red.%n%nNo se instaló nada. Si es lo que quiere, repita añadiendo /ADAPTADORCONFIRMADO=1.
-en.RedPerderaRedSilencioso=The adapter "%1" given with /ADAPTADOR= is the only one with a gateway (local network or Internet): when it is dedicated to the modules, this PC WILL LOSE that network.%n%nNothing was installed. If that is what you want, repeat adding /ADAPTADORCONFIRMADO=1.
+es.RedPerderaRedSilencioso=El adaptador "%1" indicado con /ADAPTADOR= es el único con puerta de enlace (red local o Internet): al dedicarlo al módulo E/S, este PC PERDERÁ esa red.%n%nNo se instaló nada. Si es lo que quiere, repita añadiendo /ADAPTADORCONFIRMADO=1.
+en.RedPerderaRedSilencioso=The adapter "%1" given with /ADAPTADOR= is the only one with a gateway (local network or Internet): when it is dedicated to the I/O module, this PC WILL LOSE that network.%n%nNothing was installed. If that is what you want, repeat adding /ADAPTADORCONFIRMADO=1.
 es.RedAdaptadorInvalido=El adaptador indicado con /ADAPTADOR= no es un adaptador Ethernet por cable de este PC:%n%1%n%nNo se instaló nada. Use la MAC que muestra "Get-NetAdapter -Physical" (por ejemplo, 00-54-04-84-9D-B1).
 en.RedAdaptadorInvalido=The adapter given with /ADAPTADOR= is not a wired Ethernet adapter of this PC:%n%1%n%nNothing was installed. Use the MAC shown by "Get-NetAdapter -Physical" (for example, 00-54-04-84-9D-B1).
-es.AplicandoRed=Configurando la red de los módulos de E/S...
+es.AplicandoRed=Configurando la red del módulo E/S...
 en.AplicandoRed=Setting up the I/O module network...
-es.Paso08=red de los módulos de E/S (paso 08)
+es.Paso08=red del módulo E/S (paso 08)
 en.Paso08=I/O module network (step 08)
-es.RedFallo=No se pudo configurar la red de los módulos de E/S (paso 08). Detalle en:%n%1%n%nCómo recuperar: para volver a intentarlo, ejecute este instalador de nuevo (Reparar). Para devolver el adaptador a su configuración anterior, como administrador:%npowershell -ExecutionPolicy Bypass -File "%2\estacion\08_revertir_red_modulos.ps1"
+es.RedFallo=No se pudo configurar la red del módulo E/S (paso 08). Detalle en:%n%1%n%nCómo recuperar: para volver a intentarlo, ejecute este instalador de nuevo (Reparar). Para devolver el adaptador a su configuración anterior, como administrador:%npowershell -ExecutionPolicy Bypass -File "%2\estacion\08_revertir_red_modulos.ps1"
 en.RedFallo=The I/O module network could not be set up (step 08). Details in:%n%1%n%nHow to recover: to try again, run this installer again (Repair). To return the adapter to its previous settings, as administrator:%npowershell -ExecutionPolicy Bypass -File "%2\estacion\08_revertir_red_modulos.ps1"
-es.RedCambioFallido=No se pudo devolver el adaptador anterior (MAC %1) a su configuración, así que NO se cambió de adaptador: la red de los módulos sigue en el anterior. Detalle en:%n%2%n%nQué hacer: revise que el adaptador anterior esté conectado y habilitado y repita con Reparar. Si ese adaptador ya no existe (se cambió la tarjeta de red), como administrador borre respaldo_08_red_modulos.json de la carpeta de ese archivo y repita con Reparar.
-en.RedCambioFallido=The previous adapter (MAC %1) could not be returned to its settings, so the adapter was NOT changed: the module network stays on the previous one. Details in:%n%2%n%nWhat to do: check that the previous adapter is connected and enabled and repeat with Repair. If that adapter no longer exists (the network card was replaced), as administrator delete respaldo_08_red_modulos.json from the folder of that file and repeat with Repair.
+es.RedCambioFallido=No se pudo devolver el adaptador anterior (MAC %1) a su configuración, así que NO se cambió de adaptador: la red del módulo E/S sigue en el anterior. Detalle en:%n%2%n%nQué hacer: revise que el adaptador anterior esté conectado y habilitado y repita con Reparar. Si ese adaptador ya no existe (se cambió la tarjeta de red), como administrador borre respaldo_08_red_modulos.json de la carpeta de ese archivo y repita con Reparar.
+en.RedCambioFallido=The previous adapter (MAC %1) could not be returned to its settings, so the adapter was NOT changed: the I/O module network stays on the previous one. Details in:%n%2%n%nWhat to do: check that the previous adapter is connected and enabled and repeat with Repair. If that adapter no longer exists (the network card was replaced), as administrator delete respaldo_08_red_modulos.json from the folder of that file and repeat with Repair.
 ; T20-05: contraseña web del módulo
 es.ClaveModuloTitulo=Contraseña web del módulo
 en.ClaveModuloTitulo=Module web password
-es.ClaveModuloSubtitulo=Nueva contraseña del usuario admin de la página web del módulo de E/S.
+es.ClaveModuloSubtitulo=Nueva contraseña del usuario admin de la página web del módulo E/S.
 en.ClaveModuloSubtitulo=New password of the admin user of the I/O module web page.
 es.ClaveModuloExplicacionNueva=Obligatoria en una instalación nueva. De 1 a 6 caracteres ASCII imprimibles (letras sin tilde ni ñ, números, espacio y signos). No se guarda en ningún archivo ni en el registro de la instalación.
 en.ClaveModuloExplicacionNueva=Required in a new installation. 1 to 6 printable ASCII characters (letters without accents, digits, space and symbols). It is not stored in any file or in the installation log.
@@ -410,9 +410,9 @@ en.ClaveModuloLarga=The password has more than 6 characters.
 es.ClaveModuloCaracteres=La contraseña solo puede tener caracteres ASCII imprimibles (letras sin tilde ni ñ, números, espacio y signos).
 en.ClaveModuloCaracteres=The password can only have printable ASCII characters (letters without accents, digits, space and symbols).
 ; T20-05 (decisión 5): prueba de conexión con el módulo, un texto por código del rol configurar-modulo
-es.ProbandoModulo=Probando la conexión con el módulo de E/S (hasta 30 s)...
+es.ProbandoModulo=Probando la conexión con el módulo E/S (hasta 30 s)...
 en.ProbandoModulo=Testing the connection with the I/O module (up to 30 s)...
-es.ModuloTitulo=Conexión con el módulo de E/S
+es.ModuloTitulo=Conexión con el módulo E/S
 en.ModuloTitulo=Connection with the I/O module
 es.ModuloSubtitulo=Resultado de la prueba de conexión. Autoclave quedó instalado en cualquier caso.
 en.ModuloSubtitulo=Result of the connection test. Autoclave was installed in any case.
@@ -425,11 +425,11 @@ es.ModuloClaveNoCambiada=Contraseña web cambiada: no — repita con Reparar
 en.ModuloClaveNoCambiada=Web password changed: no — repeat with Repair
 es.ModuloClaveNoPedida=no (no se pidió cambiarla)
 en.ModuloClaveNoPedida=no (no change was requested)
-es.ModuloRes_ok=Conexión correcta con el módulo de E/S.%n%nModelo: %1%nMódulos: %2%nFirmware: %3%nMAC / ID del equipo: %4%nContraseña web cambiada: %5
+es.ModuloRes_ok=Conexión correcta con el módulo E/S.%n%nModelo: %1%nMódulos: %2%nFirmware: %3%nMAC / ID del equipo: %4%nContraseña web cambiada: %5
 en.ModuloRes_ok=Connection with the I/O module is correct.%n%nModel: %1%nModules: %2%nFirmware: %3%nMAC / equipment ID: %4%nWeb password changed: %5
 es.ModuloRes_backend_activo=No se probó la conexión: Autoclave está abierto y usando el módulo.%n%nQué hacer: cierre Autoclave y repita la prueba (abajo).
 en.ModuloRes_backend_activo=The connection was not tested: Autoclave is open and using the module.%n%nWhat to do: close Autoclave and repeat the test (below).
-es.ModuloRes_sin_conexion=El módulo no respondió en 192.168.3.7.%n%nQué hacer: revise que el cable de red esté conectado entre el adaptador elegido y el módulo, que el módulo esté encendido y que en "Red de los módulos de E/S" se haya elegido el adaptador correcto (Reparar permite cambiarlo).
+es.ModuloRes_sin_conexion=El módulo no respondió en 192.168.3.7.%n%nQué hacer: revise que el cable de red esté conectado entre el adaptador elegido y el módulo, que el módulo esté encendido y que en "Red del módulo E/S" se haya elegido el adaptador correcto (Reparar permite cambiarlo).
 en.ModuloRes_sin_conexion=The module did not answer at 192.168.3.7.%n%nWhat to do: check that the network cable is connected between the chosen adapter and the module, that the module is switched on and that the right adapter was chosen in "I/O module network" (Repair lets you change it).
 es.ModuloRes_composicion=El módulo respondió, pero la composición de módulos no es la esperada (el principal y 4 de expansión, 5 en total).%n%nQué hacer: revise que estén conectados los 5 módulos correctos y llame a servicio técnico si no lo están.
 en.ModuloRes_composicion=The module answered, but the module composition is not the expected one (the main module and 4 expansion modules, 5 in total).%n%nWhat to do: check that the 5 right modules are connected and call technical service if they are not.
@@ -504,7 +504,7 @@ Source: "..\estacion\06_revertir_asociar_tactiles.ps1"; DestDir: "{app}\estacion
 Source: "..\estacion\07_escritorio_estacion.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\07_revertir_escritorio_estacion.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\..\src\autoclave\ui_qml\assets\fondos\fondo-arranque.png"; DestDir: "{app}\estacion"; DestName: "fondo_estacion.png"; Flags: ignoreversion
-; T20-05 (tanda 20): paso 08, red de los módulos de E/S, y sus funciones puras
+; T20-05 (tanda 20): paso 08, red del módulo E/S, y sus funciones puras
 Source: "..\estacion\_red_modulos_puras.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\08_red_modulos.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
 Source: "..\estacion\08_revertir_red_modulos.ps1"; DestDir: "{app}\estacion"; Flags: ignoreversion
@@ -562,7 +562,7 @@ const
   // INS-01 (tanda 17)
   ClaveZonas = 'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Time Zones';
   ClaveZonaActual = 'SYSTEM\CurrentControlSet\Control\TimeZoneInformation';
-  // T20-05 (tanda 20): red de los módulos (decisiones 2 y 3) y prueba de conexión
+  // T20-05 (tanda 20): red del módulo E/S (decisiones 2 y 3) y prueba de conexión
   IpEstacionModulos = '192.168.3.10';
   PrefijoRedModulos = '192.168.3.';
   // códigos del resultado del rol configurar-modulo (T20-04): uno por texto ModuloRes_<código>
@@ -602,7 +602,7 @@ var
   // R1 (V17-s1-05): desinstalación con alguna reversión fallida
   ReversionFallida: Boolean;
   RutaProgramaDesinstalada, RutaDatosDesinstalada: String;
-  // T20-05: página "Red de los módulos de E/S" (no es una tarea de [Tasks])
+  // T20-05: página "Red del módulo E/S" (no es una tarea de [Tasks])
   PaginaRed: TWizardPage;
   CasillaRed: TNewCheckBox;
   TextoRed: TNewStaticText;
@@ -1149,7 +1149,7 @@ begin
   Result := RemoveBackslashUnlessRoot(Trim(Result));
 end;
 
-// ── T20-05 (tanda 20): red de los módulos de E/S (paso 08) ──
+// ── T20-05 (tanda 20): red del módulo E/S (paso 08) ──
 
 // '00-54-04-84-9D-B1', '00:54:...' o '005404849DB1' -> '005404849DB1'; si no
 // son 12 hexadecimales, ''. Solo una MAC así validada llega a la línea de
@@ -1171,7 +1171,7 @@ begin
   Result := S;
 end;
 
-// True si Ip es 192.168.3.N con N de 0 a 255 (red de los módulos, /24)
+// True si Ip es 192.168.3.N con N de 0 a 255 (red del módulo E/S, /24)
 function IpEnRedModulos(Ip: String): Boolean;
 var
   Resto: String;
@@ -1671,7 +1671,7 @@ begin
       Log('T20-05: /ADAPTADOR=' + AdaptadorParametro + ' es el único adaptador con puerta de enlace: este PC perderá esa red.');
     end;
     AdaptadorElegido := NormalizarMac(AdapMac[I]);
-    Log('T20-05: red de los módulos en el adaptador de /ADAPTADOR=' + AdaptadorElegido);
+    Log('T20-05: red del módulo E/S en el adaptador de /ADAPTADOR=' + AdaptadorElegido);
   end else if WizardSilent then
   begin
     // sin asistente y sin /ADAPTADOR=: no se toca la red, salvo que ya se
@@ -1686,7 +1686,7 @@ begin
       AdaptadorElegido := NormalizarMac(AdaptadorGuardado);
       Log('T20-05: sin asistente y sin /ADAPTADOR=: se reaplica el paso 08 con el adaptador guardado ' + AdaptadorElegido);
     end else
-      Log('T20-05: sin asistente y sin /ADAPTADOR=: no se toca la red de los módulos.');
+      Log('T20-05: sin asistente y sin /ADAPTADOR=: no se toca la red del módulo E/S.');
   end;
   if not HayInstalacion then
     exit;
@@ -2429,7 +2429,7 @@ begin
   end;
 end;
 
-// T20-05: página "Red de los módulos de E/S" (también al actualizar o reparar;
+// T20-05: página "Red del módulo E/S" (también al actualizar o reparar;
 // independiente de la casilla de la estación). Casilla marcada por defecto.
 procedure CrearPaginaRed(Despues: Integer);
 begin
@@ -2532,7 +2532,7 @@ begin
   PaginaCuenta.Add(CustomMessage('CuentaClave'), True);
   PaginaCuenta.Add(CustomMessage('CuentaClaveRepetir'), True);
   PaginaCuenta.Values[0] := UsuarioConsola;
-  // T20-05: red de los módulos y contraseña web, después de la cuenta;
+  // T20-05: red del módulo E/S y contraseña web, después de la cuenta;
   // resultado de la prueba de conexión, después de instalar
   CrearPaginaRed(PaginaCuenta.ID);
   CrearPaginaClave(PaginaRed.ID);
@@ -2578,7 +2578,7 @@ var
   Advertir: Boolean;
 begin
   Result := True;
-  // T20-05: red de los módulos. Casilla desmarcada = no tocar la red; si no,
+  // T20-05: red del módulo E/S. Casilla desmarcada = no tocar la red; si no,
   // hay que elegir un adaptador, sin otro adaptador en 192.168.3.0/24 y, si es
   // el único con puerta de enlace, confirmando que se perderá esa red.
   if (PaginaRed <> nil) and (CurPageID = PaginaRed.ID) then
@@ -2586,7 +2586,7 @@ begin
     if not CasillaRed.Checked then
     begin
       AdaptadorElegido := '';
-      Log('T20-05: casilla "Configurar la red de los módulos" desmarcada: no se toca la red.');
+      Log('T20-05: casilla "Configurar la red del módulo E/S" desmarcada: no se toca la red.');
       exit;
     end;
     if ListaRed.ItemIndex < 0 then
@@ -2615,7 +2615,7 @@ begin
       Log('T20-05: confirmado: el adaptador elegido es el único con puerta de enlace.');
     end;
     AdaptadorElegido := NormalizarMac(AdapMac[Indice]);
-    Log('T20-05: red de los módulos en el adaptador ' + AdaptadorElegido + ' (' + AdapAlias[Indice] + ')');
+    Log('T20-05: red del módulo E/S en el adaptador ' + AdaptadorElegido + ' (' + AdapAlias[Indice] + ')');
     exit;
   end;
   // T20-05: contraseña web del módulo (1 a 6 ASCII imprimibles, las dos iguales)
@@ -2728,7 +2728,7 @@ begin
   RegWriteDWordValue(HKLM64, '{#ClaveEstacion}', 'Paso' + Paso, 1);
 end;
 
-// T20-05: paso 08 (red de los módulos) con el adaptador elegido en la página,
+// T20-05: paso 08 (red del módulo E/S) con el adaptador elegido en la página,
 // el de /ADAPTADOR= o (sin asistente) el guardado. En todos los modos,
 // también Reparar. Se anota Paso08 y la MAC (Adaptador08) ANTES de aplicar:
 // aunque falle a medias, el desinstalador lo revierte y Reparar lo reaplica.
@@ -2747,7 +2747,7 @@ begin
   Mac := NormalizarMac(AdaptadorElegido);
   if Mac = '' then
   begin
-    Log('T20-05: paso 08 no aplicado: no se toca la red de los módulos (casilla desmarcada o sin asistente sin /ADAPTADOR=).');
+    Log('T20-05: paso 08 no aplicado: no se toca la red del módulo E/S (casilla desmarcada o sin asistente sin /ADAPTADOR=).');
     exit;
   end;
   WizardForm.StatusLabel.Caption := CustomMessage('AplicandoRed');
@@ -3060,7 +3060,7 @@ begin
     Dominio := '';
     // INS-01: en todos los modos (también Reparar); un fallo solo avisa
     AplicarZona;
-    // T20-05: red de los módulos (paso 08) y prueba de conexión con el módulo
+    // T20-05: red del módulo E/S (paso 08) y prueba de conexión con el módulo
     // en todos los modos, también Reparar (antes de su exit); un fallo no
     // interrumpe la instalación (se muestra en la página del resultado)
     AplicarRedModulos;
@@ -3110,7 +3110,7 @@ begin
   if not RegKeyExists(HKLM64, '{#ClaveEstacion}') then
     exit;
   UninstallProgressForm.StatusLabel.Caption := CustomMessage('RevirtiendoEstacion');
-  // T20-05: el paso 08 (red de los módulos) primero; después, EST-09: orden
+  // T20-05: el paso 08 (red del módulo E/S) primero; después, EST-09: orden
   // inverso 07, 06, 05, 04, 02, 01
   EjecutarReversion('08', 'Paso08', Fallas);
   EjecutarReversion('07', 'Paso07', Fallas);

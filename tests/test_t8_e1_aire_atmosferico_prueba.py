@@ -170,7 +170,7 @@ def test_lazo_cierra_el_aire_abierto_si_la_camara_deja_de_estar_segura(pres):
     evento, detalle = loop.al_evento_seguridad.call_args.args
     assert evento == "aire_atmosferico_cortado_prueba"
     assert detalle["motivo"] in (aap.CON_PRESION, aap.SIN_PRESION)
-    # en el tick siguiente, mientras la tarjeta lo siga reportando abierto,
+    # en el tick siguiente, mientras el módulo E/S lo siga reportando abierto,
     # se reafirma el cierre pero no se repite el registro
     loop._tick()
     assert loop.al_evento_seguridad.call_count == 1
@@ -185,7 +185,7 @@ def test_lazo_no_toca_el_aire_en_atmosferica():
     loop.al_evento_seguridad.assert_not_called()
 
 
-def test_lazo_reafirma_el_cierre_aunque_la_tarjeta_no_lo_reporte_abierto():
+def test_lazo_reafirma_el_cierre_aunque_el_modulo_es_no_lo_reporte_abierto():
     """SAF-02 / TMG-01: la trama DO puede llegar tarde o no llegar; mientras
     la condición sea insegura se ordena cerrar en cada tick (idempotente),
     pero sin registro en la bitácora si no estaba reportada abierta."""

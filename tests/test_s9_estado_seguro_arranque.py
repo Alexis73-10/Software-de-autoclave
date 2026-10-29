@@ -129,7 +129,7 @@ def test_paro_real_en_este_encendido_si_exige_confirmacion():
     assert loop.estado_seguro.causa == "arranque"
 
 
-def test_sin_datos_de_la_tarjeta_no_exige_confirmacion():
+def test_sin_datos_del_modulo_es_no_exige_confirmacion():
     """PARO_EMERGENCIA sin PARO_REAL (sin tramas): no es un paro real."""
     loop = _loop()
     _arrancar(loop, pres=250.0)

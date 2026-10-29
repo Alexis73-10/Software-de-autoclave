@@ -53,7 +53,7 @@ def test_fabrica_modbus_temperatura_decimas_a_grados(cfg_modbus, decimas, grados
 
 @pytest.mark.req("MOD-03")
 def test_cero_decimas_es_valido_en_modbus(cfg_modbus):
-    """El centinela 0/4095 = sin sonda era propio del ADC de la tarjeta serial
+    """El centinela 0/4095 = sin sonda era propio del ADC del módulo E/S serial (ESP32)
     (retirada en la tanda 20, T20-03: se borró la parte serial de esta prueba).
     Revisión R (V19-s2-03): en Modbus 4095 décimas (409,5 °C) queda fuera del
     rango plausible de la PT100 (-500..2500 décimas) y da None; antes esta
@@ -99,7 +99,7 @@ def test_en_el_umbral_no_hay_falla(cfg_modbus, micro_a):
 
 @pytest.mark.req("MOD-03")
 def test_modbus_sin_calibracion_de_fabrica_no_usa_raw_4095():
-    """El fallback raw/4095 solo tiene sentido con el ADC de la tarjeta: con
+    """El fallback raw/4095 solo tiene sentido con el ADC del módulo E/S serial: con
     Modbus y sin calibración de fábrica no hay lectura (falla cerrada)."""
     assert converters.convert_temperatures(_ai([1210]), {})[0] is None
     assert converters.convert_pressures(_ai(pres=[12000]), {})[0] is None

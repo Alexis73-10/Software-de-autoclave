@@ -11,7 +11,7 @@ que siguen a SET DOn / ALL_OFF, publicación de DO cada 500 ms, SetOutput real, 
 estados reales; el tick reproduce el orden de ControlLoop._tick (puertas →
 máquina de estados → buzzer) con el intervalo de producción (0,5 s). Se
 registran todas las órdenes SET/ALL_OFF que salen al puerto y el estado de los
-pines de la tarjeta después de cada orden.
+pines del módulo E/S después de cada orden.
 
 Con B9_ESCRIBIR_REGISTRO=1 escribe el registro en
 docs/informes/tanda9/B9_registro_ordenes.md."""
@@ -218,14 +218,14 @@ def test_ensayo_paro_en_ciclo_4_programas(programas, monkeypatch, tmp_path,  # n
         fase_real = fase
     assert e1._hasta_fase(a, fase_real, extra_s=20) is None
     previas = sorted(n for n, v in a["estado"].salidas_do.items() if v)
-    # registro de órdenes a la tarjeta desde el paro
+    # registro de órdenes al módulo E/S desde el paro
     ordenes = []
-    original = a["tarjeta"].set_output
+    original = a["modulo_es"].set_output
 
     def registrar(canal, valor):
         ordenes.append((canal, bool(valor)))
         original(canal, valor)
-    a["tarjeta"].set_output = registrar
+    a["modulo_es"].set_output = registrar
     a["estado"].set_flag("PARO_EMERGENCIA", True)
     a["estado"].set_flag("PARO_REAL", True)
     a["estado"].sensores_di["paro_emergencia"] = 0
@@ -240,7 +240,7 @@ def test_ensayo_paro_en_ciclo_4_programas(programas, monkeypatch, tmp_path,  # n
     a["estado"].set_flag("PARO_REAL", False)
     a["estado"].sensores_di["paro_emergencia"] = 1
     a["set_do"].descompresion_lenta_on()
-    lenta_tras_soltar = a["tarjeta"].on("descompresion_lenta")
+    lenta_tras_soltar = a["modulo_es"].on("descompresion_lenta")
     a["set_do"].descompresion_lenta_off()
     r = {"fase": fase_real, "salidas_antes_del_paro": ", ".join(previas) or "ninguna",
          "resultado": resultado, "ordenes_ON_en_paro": encendidas or "ninguna",
@@ -341,7 +341,7 @@ def test_sin_paro_no_cambia_nada():
 
 
 def test_sin_datos_fuera_de_ciclo_tambien_bloquea():
-    # PARO_EMERGENCIA sin PARO_REAL (sin datos de la tarjeta): fuera de CICLO
+    # PARO_EMERGENCIA sin PARO_REAL (sin datos del módulo E/S): fuera de CICLO
     # los estados ya mandan ALL_OFF; ninguna salida se enciende entre medio
     s, io, _ = _set_do(paro=True)
     s.agua_intercambiador_on()

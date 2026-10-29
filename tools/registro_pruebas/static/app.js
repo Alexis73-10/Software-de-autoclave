@@ -168,7 +168,7 @@ async function pantallaInicio() {
 
 const CAMPOS_CAB = [
   ["equipo", "Equipo"], ["serial", "Serial del equipo"], ["version_software", "Versión de software"],
-  ["commit", "Commit"], ["firmware", "Firmware"], ["id_tarjeta", "ID de la tarjeta"],
+  ["commit", "Commit"], ["firmware", "Firmware"], ["id_tarjeta", "ID del módulo E/S"],
   ["perfil_instalacion", "Perfil de instalación"], ["programas", "Programas"],
   ["instrumentos", "Instrumentos (certificado y vigencia)"], ["fecha", "Fecha"], ["lugar", "Lugar"]];
 

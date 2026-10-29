@@ -22,7 +22,7 @@ Celdas por programa (el programa es el del "ciclo interrumpido"):
   chaqueta y vapor bloqueados y forzados a cero por el lazo; al salir el
   protocolo sigue hasta la cámara segura.
 - ai_vencida_en_protocolo (revisión ★ pasada 2, R2-M1): arranque
-  presurizado; a mitad del venteo la tarjeta deja de mandar tramas AI (la
+  presurizado; a mitad del venteo el módulo E/S deja de mandar tramas AI (la
   presión publicada queda congelada en la banda atmosférica): no se abre
   nada nuevo, no pasa a cámara segura ni termina; al volver las tramas
   sigue hasta la cámara segura.
@@ -53,7 +53,7 @@ from autoclave.state_machine.alarms.instancia import EstadoInstancia
 from autoclave.state_machine.machine.enum_global import GlobalState
 from tests import test_t11_programas_integracion as t11
 from tests.test_e1_ensayo_simulador import PROGRAMAS, programas  # noqa: F401
-from tests.test_t11_programas_integracion import DT, _Planta, _Tarjeta, psat
+from tests.test_t11_programas_integracion import DT, _Planta, _ModuloEs, psat
 
 RESULTADOS: dict[tuple[int, str], dict] = {}
 PASOS_PLANTA = 4                     # pasos de planta (DT) por tick del lazo
@@ -74,13 +74,13 @@ def _equipo(programa, monkeypatch, programas_fabrica):
     for di in estado.sensores_di:
         estado.sensores_di[di] = 1
     estado.sensores_di["agua_camara"] = 0
-    tarjeta = _Tarjeta(estado)
+    modulo_es = _ModuloEs(estado)
     config = ConfigManager()
     config.load_config()
     t11.P_ATM = float(config.get("presion_admosferica") or 101.3)
-    planta = _Planta(tarjeta)
+    planta = _Planta(modulo_es)
     alarmas = AlarmManager()
-    set_do = SetOutput(tarjeta, estado, profile=None)
+    set_do = SetOutput(modulo_es, estado, profile=None)
     cm = MagicMock()
     seleccionado = programas_fabrica[1]          # el seleccionado al arrancar
     cm.get_selected_cycle.return_value = seleccionado
@@ -95,7 +95,7 @@ def _equipo(programa, monkeypatch, programas_fabrica):
                        link=link, set_do=set_do, alarm_manager=alarmas, cycle_manager=cm,
                        config_manager=config, cap=get_capabilities(EquipmentClass.PISO_LAB))
     estado.set_machine_state(GlobalState.PREPARACION)
-    return dict(reloj=reloj, estado=estado, tarjeta=tarjeta, config=config, planta=planta,
+    return dict(reloj=reloj, estado=estado, modulo_es=modulo_es, config=config, planta=planta,
                 alarmas=alarmas, loop=loop, programa=programa, publicar=planta.publicar,
                 link=link)
 
@@ -145,11 +145,11 @@ def _seguir(a, limite_s=4 * 3600, cada=None):
         if es.activo:
             # salidas mientras el protocolo manda (al terminar, PREPARACION
             # retoma su control normal en el mismo tick)
-            visto["abiertas"] |= {k for k in DE_PROCESO if a["tarjeta"].on(k)}
-            if a["tarjeta"].on("descompresion_lenta") and a["p_publicada"] < atm - rango:
+            visto["abiertas"] |= {k for k in DE_PROCESO if a["modulo_es"].on(k)}
+            if a["modulo_es"].on("descompresion_lenta") and a["p_publicada"] < atm - rango:
                 visto["lenta_en_vacio"] = True
         # SAF-03 (revisión ★): por tick, con o sin protocolo activo
-        if a["tarjeta"].on("aire_admosferico_camara") and a["p_publicada"] > atm + rango:
+        if a["modulo_es"].on("aire_admosferico_camara") and a["p_publicada"] > atm + rango:
             visto["aire_con_presion"] += 1
             visto["listo"] |= bool(a["estado"].get_flag("LISTO_PARA_CICLO"))
         if i > 2 and not es.activo and a["loop"]._recuperacion_pendiente is None:
@@ -227,7 +227,7 @@ def _paro_real_en_arranque(a, **_):
     movidas = set()
     for _ in range(int(60 / TICK_S)):                      # sin confirmar nada se mueve
         _tick(a)
-        movidas |= {k for k in DE_PROCESO if a["tarjeta"].on(k)}
+        movidas |= {k for k in DE_PROCESO if a["modulo_es"].on(k)}
     confirmado = loop.confirmar_estado_seguro()
     visto = _seguir(a)
     return _resumen(visto, confirmacion_tras_paro=pide, causa_tras_paro=causa,
@@ -271,10 +271,10 @@ def _modo_prueba_en_protocolo(a, **_):
     bloqueadas = loop.salidas_prueba_bloqueadas()
     # una orden que se hubiera colado: el lazo la apaga en el tick siguiente
     for k in ("abrir_puerta_1", "desbloqueo_puerta_1", "vapor_camara", "descompresion_rapida"):
-        a["tarjeta"].set_output(EstadoAutoclave.map_do[k] + 1, True)
+        a["modulo_es"].set_output(EstadoAutoclave.map_do[k] + 1, True)
     _tick(a)
     encendidas = sorted(k for k in (*sps.SALIDAS_PUERTA, *sps.SALIDAS_VAPOR)
-                        if a["tarjeta"].on(k))
+                        if a["modulo_es"].on(k))
     loop.exit_test_mode()
     visto = _seguir(a)
     return _resumen(visto, modo_prueba_permitido=ok, motivo_prueba=motivo or "—",
@@ -296,11 +296,11 @@ def _ai_vencida_en_protocolo(a, **_):
         estado.sensores_pres["pres_camara"] = congelada["P"]      # Units congelada
     a["publicar"] = publicar
     a["link"].edad_ultima_ai.return_value = 10.0                  # sin tramas AI
-    antes = {k for k in DE_PROCESO if a["tarjeta"].on(k)}
+    antes = {k for k in DE_PROCESO if a["modulo_es"].on(k)}
     nuevas, termino = set(), False
     for _ in range(40):
         _tick(a)
-        nuevas |= {k for k in DE_PROCESO if a["tarjeta"].on(k)} - antes
+        nuevas |= {k for k in DE_PROCESO if a["modulo_es"].on(k)} - antes
         termino |= not loop.estado_seguro.activo
     motivo = loop.estado_seguro.bloqueado_motivo
     solo_lenta = getattr(loop.estado_seguro._protocolo, "solo_lenta", None)
@@ -320,7 +320,7 @@ def _arranque_vacio_con_fuga(a, **_):
     def cada(_i):
         # cuando el aire ya está abierto, una fuga sube la presión ~60 kPa
         # sobre la atmosférica en 6 ticks
-        if fuga["desde"] is None and a["tarjeta"].on("aire_admosferico_camara"):
+        if fuga["desde"] is None and a["modulo_es"].on("aire_admosferico_camara"):
             fuga["desde"] = _i
         if fuga["desde"] is not None and fuga["ticks"] < 6:
             a["planta"].p_aire += 10.0 + max(0.0, t11.P_ATM - a["planta"].p)

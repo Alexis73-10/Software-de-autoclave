@@ -1,5 +1,5 @@
 """V8a (tanda 8), D8-5.1, decisión de Cristian de las 12:08: el programa se
-puede cambiar AUNQUE la tarjeta no esté conectada ni haya datos vigentes.
+puede cambiar AUNQUE el módulo E/S no esté conectado ni haya datos vigentes.
 Seleccionar un programa no acciona nada; el inicio del ciclo sigue exigiendo
 datos, sensores y todas las condiciones actuales. Se conservan los bloqueos
 con ciclo en curso, paro (REAL), estado seguro y modo prueba; en FALLA se
@@ -23,8 +23,8 @@ def _loop(estado_maquina=GlobalState.PREPARACION):
 @pytest.mark.parametrize("estado_maquina", [GlobalState.PREPARACION, GlobalState.PREPARADO,
                                             GlobalState.FALLA])
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
-def test_sin_datos_de_la_tarjeta_se_permite(_sm, estado_maquina):
-    """Tarjeta conectada sin tramas válidas: PARO_EMERGENCIA sin PARO_REAL (U4)."""
+def test_sin_datos_del_modulo_es_se_permite(_sm, estado_maquina):
+    """Módulo E/S conectado sin tramas válidas: PARO_EMERGENCIA sin PARO_REAL (U4)."""
     loop, _, estado = _loop(estado_maquina)
     estado.set_flag("PARO_EMERGENCIA", True)
     estado.set_flag("PARO_REAL", False)
@@ -34,7 +34,7 @@ def test_sin_datos_de_la_tarjeta_se_permite(_sm, estado_maquina):
 
 
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
-def test_sin_tarjeta_conectada_se_permite(_sm):
+def test_sin_modulo_es_conectado_se_permite(_sm):
     """Enlace caído (desconectado): tampoco hay PARO_REAL."""
     loop, _, estado = _loop()
     loop._desconectado_desde = 1.0
@@ -95,16 +95,16 @@ def _loop_real():
     return loop, estado
 
 
-@pytest.mark.parametrize("caso", ["tarjeta_simulada_con_datos", "tarjeta_simulada_sin_tramas_validas",
-                                  "sin_tarjeta"])
+@pytest.mark.parametrize("caso", ["modulo_es_simulado_con_datos", "modulo_es_simulado_sin_tramas_validas",
+                                  "sin_modulo_es"])
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
-def test_reproduccion_cambio_con_y_sin_tarjeta(_sm, caso):
+def test_reproduccion_cambio_con_y_sin_modulo_es(_sm, caso):
     loop, estado = _loop_real()
-    loop.link.is_connected.return_value = caso != "sin_tarjeta"
-    loop.link.edad_ultima_di.return_value = 0.1 if caso == "tarjeta_simulada_con_datos" else None
+    loop.link.is_connected.return_value = caso != "sin_modulo_es"
+    loop.link.edad_ultima_di.return_value = 0.1 if caso == "modulo_es_simulado_con_datos" else None
     loop._tick()
     assert estado.get_flag("PARO_REAL") is False
-    assert estado.get_flag("PARO_EMERGENCIA") is (caso != "tarjeta_simulada_con_datos")
+    assert estado.get_flag("PARO_EMERGENCIA") is (caso != "modulo_es_simulado_con_datos")
     nuevo = MagicMock()
     assert loop.set_active_cycle(nuevo) == (True, ""), caso
     assert loop.cycle is nuevo

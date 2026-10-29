@@ -52,7 +52,7 @@ def sim():
     return TestClient(app), reloj
 
 
-def test_reposo_listo_y_tarjeta_conectada(sim):
+def test_reposo_listo_y_modulo_es_conectado(sim):
     client, _ = sim
     s = client.get("/status").json()
     assert s["machine_state"] == "PREPARADO"

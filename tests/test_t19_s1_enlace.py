@@ -140,11 +140,11 @@ def test_conexion_correcta(sim, crear):
     assert [(e.origen, e.alarm_id) for e in eventos] == [("conectada", None)]
     # FW-INF (corrige ADB-02, 28-oct): texto 0x0C2C del principal y «vX.Y»
     # de cada esclavo según 0x0D80 (valores reales del equipo de pruebas).
-    tarjeta = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp",
+    modulo_es = {"version": "9232-0-13 / v1.0,v1.0,v1.0,v1.0,-", "protocolo": "modbus-tcp",
                "id": "A1B2C3D4E5F6"}
-    assert enlace.tarjeta() == tarjeta
+    assert enlace.tarjeta() == modulo_es
     # al_conectar corre antes de que se encole "conectada"
-    assert len(orden) == 1 and orden[0][1] == tarjeta and orden[0][2] == []
+    assert len(orden) == 1 and orden[0][1] == modulo_es and orden[0][2] == []
     assert enlace.puerto_presente() and enlace.handshake_completo
     # Configuración de seguridad escrita
     h = sim.holding

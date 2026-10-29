@@ -3,7 +3,7 @@
 mismo manejo que TARJETA_ALL_OFF_SIN_CONFIRMAR: en la conexión, FALLA
 bloqueante que resuelve el evento "conectada"; en operación dentro de CICLO,
 aborto con COM-03 y el id como origen y causa; fuera de ciclo, alarma
-bloqueante. Mismo estilo que tests/test_e6_control_loop_tarjeta.py."""
+bloqueante. Mismo estilo que tests/test_e6_control_loop_modulo_es.py."""
 
 from unittest.mock import MagicMock, patch
 

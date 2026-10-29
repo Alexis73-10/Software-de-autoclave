@@ -5,7 +5,7 @@ from autoclave.core.runtime.status import EstadoAutoclave as E
 
 def test_lee_io_enabled_del_equipo_activo():
     io = io_names.leer_io_enabled()
-    # D8-3.17 (tanda 8): el YAML es el máximo físico de la tarjeta
+    # D8-3.17 (tanda 8): el YAML es el máximo físico del módulo E/S
     assert len(io["DI"]) == 14 and len(io["DO"]) == 23 and len(io["AI"]) == 9
 
 

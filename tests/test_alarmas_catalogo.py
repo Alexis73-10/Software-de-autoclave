@@ -195,7 +195,7 @@ def test_com02_muestra_segundos_con_un_decimal():
     assert "más de 5.5 s" in texto
 
 
-def test_ids_de_la_tarjeta_que_emite_el_enlace_estan_en_el_catalogo():
+def test_ids_del_modulo_es_que_emite_el_enlace_estan_en_el_catalogo():
     # SAF-01 de T1: activar() lanza con un código desconocido; todo id del
     # enlace debe existir en el catálogo.
     import pathlib
