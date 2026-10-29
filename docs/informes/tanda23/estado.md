@@ -11,7 +11,7 @@ Rama `tanda-23` (desde `dev` acd17d36). Spec: `docs/mis_plans/decisiones_tanda_2
 | C1 UI | Hecho | tanda-23-ui: f68cd0eb, ce3f0b0a, 3248589e |
 | Unión B (+C1) | Hecho | 90e86ab0 (B), 391288c0 (C1); 319 pruebas cruzadas verdes |
 | C2 núcleo | En curso | worktree `tanda-23-nucleo` |
-| C3 tools/packaging/tests | En curso | worktree `tanda-23-tools` |
+| C3 tools/packaging/tests | Hecho | 59c92686, d0a751bb, bd4835cb; unido |
 | C4 docs | Hecho | tanda-23-docs, 6 commits; unido en 4b8af9c9 |
 | Unión C1..C4 | Pendiente | |
 | D prueba de regla | Pendiente | |
