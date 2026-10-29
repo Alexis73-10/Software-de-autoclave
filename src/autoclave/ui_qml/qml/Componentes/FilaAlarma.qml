@@ -6,6 +6,9 @@ import Tema
 Item {
     id: raiz
     property string idAlarma: ""
+    // Tanda 23 (MES-04): id tal como se muestra si no hay descripción
+    // (codigo_visible() de UiBridge: TARJETA_<x> -> MODULO_ES_<x>)
+    property string idVisible: idAlarma
     property string descripcion: ""
     property string prioridad: "alta"   // alta | media | baja (UiBridge.prioridad_de)
     // texto en varias líneas en vez de cortarlo (avisos de seguridad, U1)
@@ -40,7 +43,7 @@ Item {
         x: Escala.px(32)
         width: raiz.width - x - (raiz.despejable ? botonDespejar.width + Escala.px(16) : 0)
         anchors.verticalCenter: parent.verticalCenter
-        text: raiz.descripcion !== "" ? raiz.descripcion : raiz.idAlarma
+        text: raiz.descripcion !== "" ? raiz.descripcion : raiz.idVisible
         elide: raiz.multilinea ? Text.ElideNone : Text.ElideRight
         wrapMode: raiz.multilinea ? Text.WordWrap : Text.NoWrap
         color: Colores.textoPrimario

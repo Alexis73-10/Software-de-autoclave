@@ -44,6 +44,7 @@ from autoclave.ui_qml.domain import reporte_resumen
 from autoclave.ui_qml.domain.consignas import consigna_esterilizacion
 from autoclave.ui_qml.domain import resumen_sistema as dominio
 from autoclave.ui_qml.domain.ciclo_en_curso import AcumuladorGrafica
+from autoclave.ui_qml.domain.fin_de_ciclo import con_codigo_visible
 from autoclave.ui_qml.exportacion import config_correo, correo
 from autoclave.ui_qml.exportacion import unidades_pdf
 from autoclave.ui_qml.exportacion.textos import textos_ciclo
@@ -570,4 +571,6 @@ class AccionesCiclos(QObject):
         código y sus parámetros (ciclos.valores_fallo); [] si no hay."""
         motivo = alarmas_i18n.motivo_fallo(ciclo.get("codigo_fallo"), ciclo.get("valores_fallo"),
                                            ciclo.get("motivo_fallo"), i18n.idioma())
+        # Tanda 23 (MES-04): un TARJETA_<x> se muestra MODULO_ES_<x>
+        motivo = con_codigo_visible(motivo, ciclo.get("codigo_fallo"))
         return [(i18n.t("exportacion.motivo"), motivo)] if motivo else []

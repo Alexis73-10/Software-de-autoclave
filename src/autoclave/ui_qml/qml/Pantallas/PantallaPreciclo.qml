@@ -636,7 +636,7 @@ Item {
                     // U10b: textos del DTO por idioma
                     text: (fila.model.titulos ?? {})[I18n.lang] || fila.model.titulo
                           || (fila.model.descripciones ?? {})[I18n.lang]
-                          || fila.model.description || fila.model.id
+                          || fila.model.description || fila.model.idVisible || fila.model.id
                     wrapMode: Text.WordWrap
                     color: Colores.textoPrimario
                     font.family: Tipografia.familia

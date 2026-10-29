@@ -14,6 +14,7 @@ from PySide6.QtCore import (
 )
 
 from autoclave.core.runtime.alarmas_i18n import clave_motivo_bloqueo
+from autoclave.state_machine.alarms.catalogo import codigo_visible
 from autoclave.ui_qml.domain import entradas_mostradas
 from autoclave.ui_qml.domain import pantalla_ciclo as dominio
 
@@ -135,6 +136,11 @@ def _normalizar_alarmas(alarmas) -> list[dict]:
         nivel = _texto(a.get("level"))
         filas.append({
             "id": _texto(a.get("id")),
+            # Tanda 23 (MES-04): id y código tal como se muestran (TARJETA_<x>
+            # -> MODULO_ES_<x>); "id" y "codigo" siguen siendo los guardados
+            # (clave de reconocimiento y comparaciones como SEN-02)
+            "idVisible": codigo_visible(_texto(a.get("id"))),
+            "codigoVisible": codigo_visible(_texto(a.get("codigo"))),
             "level": nivel,
             "description": _texto(a.get("description")),
             "source_state": _texto(a.get("source_state")),
@@ -158,7 +164,8 @@ class AlarmListModel(QAbstractListModel):
     """Alarmas activas. Roles: id, level, description, source_state, priority
     y descripciones ({idioma: descripción}, U10b); tanda 17 (ALM-01): codigo,
     titulo, titulos y acciones ({idioma: texto}), accion, aparecida (ISO),
-    estado (estado_de_alarma) y requiere_reconocimiento."""
+    estado (estado_de_alarma) y requiere_reconocimiento; tanda 23 (MES-04):
+    idVisible y codigoVisible (codigo_visible() de id y codigo, para mostrar)."""
 
     IdRole = Qt.ItemDataRole.UserRole + 1
     LevelRole = Qt.ItemDataRole.UserRole + 2
@@ -174,6 +181,8 @@ class AlarmListModel(QAbstractListModel):
     AparecidaRole = Qt.ItemDataRole.UserRole + 12
     EstadoRole = Qt.ItemDataRole.UserRole + 13
     RequiereReconocimientoRole = Qt.ItemDataRole.UserRole + 14
+    IdVisibleRole = Qt.ItemDataRole.UserRole + 15
+    CodigoVisibleRole = Qt.ItemDataRole.UserRole + 16
 
     _CLAVES = {
         IdRole: "id",
@@ -190,6 +199,8 @@ class AlarmListModel(QAbstractListModel):
         AparecidaRole: "aparecida",
         EstadoRole: "estado",
         RequiereReconocimientoRole: "requiere_reconocimiento",
+        IdVisibleRole: "idVisible",
+        CodigoVisibleRole: "codigoVisible",
     }
 
     countChanged = Signal()
