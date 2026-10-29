@@ -132,7 +132,7 @@ def _casos():
     # SeccionEstadoSeguro en la tarjeta de Ciclo en curso (920 de diseño, la
     # más angosta de sus tres usos): confirmación pendiente, en curso con el
     # indicador, y detenido por la sonda (botón de asignar sonda)
-    puente = ('QtObject { property bool connected: true; property string estadoTarjeta: "ok"; '
+    puente = ('QtObject { property bool connected: true; property string estadoModuloEs: "ok"; '
               'property bool paroActivo: false; property bool estadoSeguroRequiereConfirmacion: %s; '
               'property bool estadoSeguroActivo: %s; property bool noAbrir: false; '
               'property bool modoPrueba: false; property string estadoSeguroCausa: ""; '

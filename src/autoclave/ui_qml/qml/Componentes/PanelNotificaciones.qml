@@ -4,8 +4,8 @@ import Autoclave.I18n
 
 // PROVISIONAL (sin diseño): cuadro de notificaciones del software que abre la
 // campana. U4 (tanda 2, D3): agrupado por nivel del catálogo, cada grupo con
-// cabecera y contador: "Emergencia / Fallas" (sin conexión, tarjeta
-// desconectada o sin datos, paro, estado seguro con su botón de confirmar y
+// cabecera y contador: "Emergencia / Fallas" (sin conexión, módulo E/S
+// desconectado o sin datos, paro, estado seguro con su botón de confirmar y
 // las alarmas EMERGENCIA), "Alarmas" (NO ABRIR y las FALLA) y "Avisos" (modo
 // prueba y las ALERTA). Las filas de seguridad salen de SeccionEstadoSeguro.
 // U4: ya no se abre solo ni queda bloqueado (antes, corrección SAF-01 de U1):

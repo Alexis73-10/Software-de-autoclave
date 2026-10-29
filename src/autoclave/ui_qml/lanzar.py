@@ -3,12 +3,12 @@
 # Lanzador de la UI QML, en dos modos:
 #
 #   python -m autoclave.ui_qml.lanzar simulador [--velocidad 10] [--una-pantalla] [--door N]
-#       Levanta el backend SIMULADO (autoclave.simulador, sin tarjeta) en 127.0.0.1:8001
+#       Levanta el backend SIMULADO (autoclave.simulador, sin módulo E/S) en 127.0.0.1:8001
 #       y las pantallas apuntadas a él. Al cerrar las pantallas se detiene el simulador.
 #
 #   python -m autoclave.ui_qml.lanzar real [--una-pantalla] [--door N]
 #       Pantallas contra el backend real (127.0.0.1:8000). NO lo arranca (ese abre
-#       la tarjeta): solo avisa si no responde. Ignora AUTOCLAVE_BACKEND_URL aunque
+#       el módulo E/S): solo avisa si no responde. Ignora AUTOCLAVE_BACKEND_URL aunque
 #       haya quedado definida en la terminal.
 #
 # Sin --una-pantalla abre las dos pantallas (puerta 1 y 2), como doble_pantalla.py.
@@ -50,7 +50,7 @@ def esperar_backend(url: str, segundos: float) -> bool:
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Autoclave — lanza la UI QML con el simulador o el backend real")
     modos = parser.add_subparsers(dest="modo", required=True)
-    for nombre, ayuda in (("simulador", "Backend simulado (sin tarjeta) + UI"),
+    for nombre, ayuda in (("simulador", "Backend simulado (sin módulo E/S) + UI"),
                           ("real", "UI contra el backend real (debe estar corriendo)")):
         p = modos.add_parser(nombre, help=ayuda)
         p.add_argument("--una-pantalla", action="store_true", help="Solo una pantalla")

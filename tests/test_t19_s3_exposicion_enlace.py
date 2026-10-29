@@ -178,11 +178,11 @@ def test_panel_equipo_enlace_invalido_es_no_disponible(valor):
 
 @pytest.mark.req("MOD-01")
 def test_panel_equipo_con_tarjeta_modbus():
-    filas = _filas(tarjeta={"version": "1.5 / 1.3", "id": _MAC, "emparejada": True},
+    filas = _filas(modulo_es={"version": "1.5 / 1.3", "id": _MAC, "emparejada": True},
                    enlace="modbus")
-    assert filas["version_tarjeta"]["valor"] == "1.5 / 1.3"
-    assert filas["id_tarjeta"]["valor"] == _MAC
-    assert filas["emparejamiento_tarjeta"]["valorClave"] == "tarjeta_emparejada"
+    assert filas["version_modulo_es"]["valor"] == "1.5 / 1.3"
+    assert filas["id_modulo_es"]["valor"] == _MAC
+    assert filas["emparejamiento_modulo_es"]["valorClave"] == "modulo_es_emparejada"
 
 
 def _info_equipo(status):

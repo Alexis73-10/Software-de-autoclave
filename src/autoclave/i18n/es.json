@@ -1,6 +1,6 @@
 {
   "parametros_equipo": {"timeout_puerta": "Tiempo límite de puerta", "temp_max_apertura": "Temperatura segura de apertura", "rango_presion_atm": "Brecha de presión atmosférica (±)", "intervalo_impresion": "Tasa de impresión general", "intervalo_impresion_esterilizacion": "Tasa de impresión en esterilización", "temp_segura_drenaje": "Temperatura segura de drenaje", "rango_temp_drenaje": "Rango de temperatura de drenaje", "presion_empaque": "Presión de empaque", "vacio_empaque": "Vacío de empaque", "timeout_chaqueta": "Tiempo límite de chaqueta", "tiempo_standby": "Suspensión", "tiempo_estable_alarma": "Tiempo de estabilidad para alarma", "pausa_max_esterilizacion_s": "Pausa máxima en esterilización", "espera_sellado_sin_sonda_min": "Espera sellada sin sonda", "presion_atmosferica": "Presión atmosférica de referencia", "presion_max_chaqueta_control": "Presión máxima de chaqueta", "timeout_aislamiento_camara": "Tiempo límite de aislamiento de cámara", "max_aislamientos_camara": "Aislamientos de cámara permitidos", "ventana_aislamientos_camara": "Ventana de conteo de aislamientos", "presion_fondo_escala": "Fondo de escala del transductor", "presion_suministro_vapor": "Presión de suministro de vapor", "presion_alivio_camara": "Alivio de cámara", "presion_alivio_chaqueta": "Alivio de chaqueta"},
-  "parametros_equipo_desc": {"timeout_puerta": "Tiempo máximo para que la puerta termine de abrir o cerrar.", "temp_max_apertura": "Por encima de esta temperatura de cámara la puerta no se abre.", "rango_presion_atm": "Banda alrededor de la presión atmosférica en la que la cámara se considera a presión atmosférica para abrir la puerta.", "intervalo_impresion": "Cada cuánto se imprime una línea durante el ciclo.", "intervalo_impresion_esterilizacion": "Cada cuánto se imprime una línea durante la esterilización.", "temp_segura_drenaje": "Techo de temperatura del drenaje; por encima se enfría con agua.", "rango_temp_drenaje": "Tolerancia sobre la temperatura segura antes de la alarma.", "presion_empaque": "Presión del empaque de la puerta para considerarla sellada.", "vacio_empaque": "Presión bajo la cual el empaque se considera desinflado.", "timeout_chaqueta": "Tiempo máximo para que la chaqueta alcance su presión. Todavía no lo usa el control.", "tiempo_standby": "Minutos sin actividad antes de la suspensión de pantallas; 0 la desactiva.", "tiempo_estable_alarma": "Tiempo que una condición debe mantenerse antes de activar o despejar la alarma.", "pausa_max_esterilizacion_s": "Suma máxima de pausas por falta de datos de la tarjeta en una misma esterilización. Si se supera, el ciclo falla por comunicación inestable.", "espera_sellado_sin_sonda_min": "Carga líquida: si se pierde la sonda Principal durante el enfriamiento y no queda ninguna otra sonda válida, la cámara espera sellada este tiempo antes de ventear por la descompresión lenta.", "presion_atmosferica": "Presión atmosférica del lugar de instalación.", "presion_max_chaqueta_control": "Con la chaqueta en esta presión o más, la válvula de vapor de chaqueta se cierra siempre. Debe quedar al menos 10 kPa por debajo del alivio de chaqueta.", "timeout_aislamiento_camara": "Equipos con chaqueta: tiempo máximo que la cámara puede quedar aislada por sobrepresión sin que la presión baje. Si se supera, el ciclo falla.", "max_aislamientos_camara": "Equipos con chaqueta: cantidad de aislamientos de cámara por sobrepresión dentro de la ventana que hace fallar el ciclo.", "ventana_aislamientos_camara": "Equipos con chaqueta: ventana móvil en la que se cuentan los aislamientos de cámara.", "presion_fondo_escala": "Presión máxima que mide el transductor. Los alivios no pueden superarla.", "presion_suministro_vapor": "Presión absoluta del vapor regulado de suministro. Un techo de control por encima solo genera advertencia.", "presion_alivio_camara": "Presión de apertura de la válvula de alivio de la cámara. Se rechazan los programas cuyo techo de control la alcance.", "presion_alivio_chaqueta": "Presión de apertura de la válvula de alivio de la chaqueta. Se rechazan los programas cuya consigna de chaqueta la alcance."},
+  "parametros_equipo_desc": {"timeout_puerta": "Tiempo máximo para que la puerta termine de abrir o cerrar.", "temp_max_apertura": "Por encima de esta temperatura de cámara la puerta no se abre.", "rango_presion_atm": "Banda alrededor de la presión atmosférica en la que la cámara se considera a presión atmosférica para abrir la puerta.", "intervalo_impresion": "Cada cuánto se imprime una línea durante el ciclo.", "intervalo_impresion_esterilizacion": "Cada cuánto se imprime una línea durante la esterilización.", "temp_segura_drenaje": "Techo de temperatura del drenaje; por encima se enfría con agua.", "rango_temp_drenaje": "Tolerancia sobre la temperatura segura antes de la alarma.", "presion_empaque": "Presión del empaque de la puerta para considerarla sellada.", "vacio_empaque": "Presión bajo la cual el empaque se considera desinflado.", "timeout_chaqueta": "Tiempo máximo para que la chaqueta alcance su presión. Todavía no lo usa el control.", "tiempo_standby": "Minutos sin actividad antes de la suspensión de pantallas; 0 la desactiva.", "tiempo_estable_alarma": "Tiempo que una condición debe mantenerse antes de activar o despejar la alarma.", "pausa_max_esterilizacion_s": "Suma máxima de pausas por falta de datos del módulo E/S en una misma esterilización. Si se supera, el ciclo falla por comunicación inestable.", "espera_sellado_sin_sonda_min": "Carga líquida: si se pierde la sonda Principal durante el enfriamiento y no queda ninguna otra sonda válida, la cámara espera sellada este tiempo antes de ventear por la descompresión lenta.", "presion_atmosferica": "Presión atmosférica del lugar de instalación.", "presion_max_chaqueta_control": "Con la chaqueta en esta presión o más, la válvula de vapor de chaqueta se cierra siempre. Debe quedar al menos 10 kPa por debajo del alivio de chaqueta.", "timeout_aislamiento_camara": "Equipos con chaqueta: tiempo máximo que la cámara puede quedar aislada por sobrepresión sin que la presión baje. Si se supera, el ciclo falla.", "max_aislamientos_camara": "Equipos con chaqueta: cantidad de aislamientos de cámara por sobrepresión dentro de la ventana que hace fallar el ciclo.", "ventana_aislamientos_camara": "Equipos con chaqueta: ventana móvil en la que se cuentan los aislamientos de cámara.", "presion_fondo_escala": "Presión máxima que mide el transductor. Los alivios no pueden superarla.", "presion_suministro_vapor": "Presión absoluta del vapor regulado de suministro. Un techo de control por encima solo genera advertencia.", "presion_alivio_camara": "Presión de apertura de la válvula de alivio de la cámara. Se rechazan los programas cuyo techo de control la alcance.", "presion_alivio_chaqueta": "Presión de apertura de la válvula de alivio de la chaqueta. Se rechazan los programas cuya consigna de chaqueta la alcance."},
   "instalacion": {
     "aviso_pantalla2": "Instalación en curso en la pantalla 1",
     "titulo": "INSTALACIÓN DEL EQUIPO",
@@ -396,9 +396,9 @@
     "serie_presion": "Presión",
     "cancelar": "CANCELAR CICLO",
     "cancelar_pregunta": "El ciclo en curso se cancelará. ¿Desea continuar?",
-    "cancelar_error": "No se pudo cancelar el ciclo. Verifique la conexión con la tarjeta de E/S e intente de nuevo.",
+    "cancelar_error": "No se pudo cancelar el ciclo. Verifique la conexión con el módulo E/S e intente de nuevo.",
     "confirmar": "CONFIRMAR",
-    "confirmar_error": "No se pudo confirmar el fin del ciclo. Verifique la conexión con la tarjeta de E/S e intente de nuevo.",
+    "confirmar_error": "No se pudo confirmar el fin del ciclo. Verifique la conexión con el módulo E/S e intente de nuevo.",
     "aviso_titulo": "AVISO",
     "temp_ester": "Temperatura de esterilización",
     "tiempo_est": "Tiempo de esterilización",
@@ -418,7 +418,7 @@
     "sin_bd_pregunta": "Base de datos no disponible. El ciclo se ejecutará sin operador y sin registro en la base de datos (solo respaldo y ticket). ¿Desea continuar sin registro?",
     "sin_bd_continuar": "Continuar sin registro",
     "sin_bd_titulo": "Iniciar sin registro",
-    "cancelacion_en_espera_datos": "Cancelación aceptada: se aplicará cuando vuelvan los datos de la tarjeta de control. Si no vuelven en unos segundos, el ciclo termina por fallo de comunicación.",
+    "cancelacion_en_espera_datos": "Cancelación aceptada: se aplicará cuando vuelvan los datos del módulo E/S. Si no vuelven en unos segundos, el ciclo termina por fallo de comunicación.",
     "salidas_sin_confirmar_pendiente": "Se está confirmando el apagado de las salidas tras el modo prueba. Espere unos segundos.",
     "carga_no_esteril": "CARGA NO ESTÉRIL",
     "fin_titulo_observaciones": "OBSERVACIONES DEL CICLO",
@@ -478,7 +478,7 @@
   "arranque": {
     "version_software": "Software v{version}",
     "iniciando_servicios": "Iniciando servicios",
-    "conectando_tarjeta": "Conectando con la tarjeta de E/S",
+    "conectando_modulo_es": "Conectando con el módulo E/S",
     "verificando_sensores": "Verificando sensores",
     "abriendo_base_datos": "Abriendo base de datos",
     "fallo_titulo": "Fallo de arranque",
@@ -572,7 +572,7 @@
     "grupo_emergencia": "Emergencia / Fallas",
     "grupo_alarmas": "Alarmas",
     "grupo_avisos": "Avisos",
-    "despejar_sin_enlace": "No se puede despejar: el enlace con la tarjeta de control todavía no ha vuelto a la normalidad.",
+    "despejar_sin_enlace": "No se puede despejar: el enlace con el módulo E/S todavía no ha vuelto a la normalidad.",
     "despejar_no_activa": "No se puede despejar: la alarma ya no está activa.",
     "despejar_rechazado": "No se puede despejar: el sistema rechazó la solicitud.",
     "despejar_sin_respuesta": "No se puede despejar: no hay respuesta del sistema de control. Intente de nuevo.",
@@ -605,13 +605,13 @@
     "ultimo_mantenimiento": "Último preventivo",
     "ciclos_restantes": "Ciclos restantes para el mantenimiento",
     "version_software": "Versión de software",
-    "version_tarjeta": "Versión de tarjeta",
-    "id_tarjeta": "ID de tarjeta",
-    "emparejamiento_tarjeta": "Tarjeta del equipo",
+    "version_modulo_es": "Versión del módulo E/S",
+    "id_modulo_es": "ID del módulo E/S",
+    "emparejamiento_modulo_es": "Módulo E/S del equipo",
     "enlace_io": "Enlace de E/S",
     "enlace_io_modbus": "Modbus TCP (módulos M31-U)",
-    "tarjeta_emparejada": "Emparejada",
-    "tarjeta_no_emparejada": "No emparejada (aviso)",
+    "modulo_es_emparejada": "Emparejado",
+    "modulo_es_no_emparejada": "No emparejado (aviso)",
     "no_disponible": "No disponible",
     "apagar": "Apagar equipo",
     "apagar_pregunta": "El equipo se apagará por completo (incluido el PC). ¿Desea continuar?",
@@ -719,7 +719,7 @@
     "sin_ciclos_fallo": "No hay ciclos con este fallo en el periodo"
   },
   "sistema": {
-    "sin_conexion": "Sin conexión con la tarjeta de E/S. Los valores mostrados no están actualizados.",
+    "sin_conexion": "Sin conexión con el módulo E/S. Los valores mostrados no están actualizados.",
     "modo_prueba": "MODO PRUEBA ACTIVO — los ciclos no son válidos para carga estéril",
     "sin_lectura": "—",
     "no_abrir": "NO ABRIR",
@@ -739,10 +739,10 @@
     "asignar_sonda_principal": "Asignar sonda Principal",
     "no_abrir_hasta_segura": "NO ABRIR hasta que la cámara esté segura",
     "seguridad_desconocida": "Sin conexión con el equipo: no se puede verificar el paro ni la cámara. NO ABRIR.",
-    "tarjeta_desconectada": "Tarjeta desconectada: no se puede verificar el paro ni la cámara. NO ABRIR.",
-    "tarjeta_sin_datos": "La tarjeta no envía datos válidos: no se puede verificar el paro ni la cámara. NO ABRIR.",
-    "tarjeta_desconectada_valores": "Tarjeta de E/S desconectada. Los valores mostrados no están actualizados.",
-    "tarjeta_sin_datos_valores": "La tarjeta de E/S no envía datos válidos. Los valores mostrados no están actualizados."
+    "modulo_es_desconectada": "Módulo E/S desconectado: no se puede verificar el paro ni la cámara. NO ABRIR.",
+    "modulo_es_sin_datos": "El módulo E/S no envía datos válidos: no se puede verificar el paro ni la cámara. NO ABRIR.",
+    "modulo_es_desconectada_valores": "Módulo E/S desconectado. Los valores mostrados no están actualizados.",
+    "modulo_es_sin_datos_valores": "El módulo E/S no envía datos válidos. Los valores mostrados no están actualizados."
   },
   "sesion": {
     "titulo_login": "INICIO DE SESIÓN",
@@ -820,28 +820,28 @@
       "plantilla": "Impresora no conectada. Los reportes no se imprimirán; verifique el cable y la impresora."
     },
     "COM-01": {
-      "titulo": "Tarjeta de E/S desconectada",
-      "descripcion": "No se detecta la tarjeta de E/S.",
-      "accion": "Conecte la tarjeta (cable de red) y verifique su alimentación.",
-      "plantilla": "No se detecta la tarjeta de control."
+      "titulo": "Módulo E/S desconectado",
+      "descripcion": "No se detecta el módulo E/S.",
+      "accion": "Conecte el módulo E/S (cable de red) y verifique su alimentación.",
+      "plantilla": "No se detecta el módulo E/S."
     },
     "TARJETA_SIN_TRAMA_VALIDA": {
-      "titulo": "La tarjeta de E/S no envía datos válidos",
-      "accion": "Revise el cable de red y la alimentación de la tarjeta. Llame a servicio técnico.",
+      "titulo": "El módulo E/S no envía datos válidos",
+      "accion": "Revise el cable de red y la alimentación del módulo E/S. Llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
     "TARJETA_VERSION_INCOMPATIBLE": {
-      "titulo": "Firmware de la tarjeta de E/S incompatible",
+      "titulo": "Firmware del módulo E/S incompatible",
       "accion": "Sin energía, revise el modelo y el orden de los módulos (principal, DI, DO, DO, PT100) y negocie (doble pulsación de Reload). Si el firmware es incompatible, llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
     "TARJETA_SIN_ACK": {
-      "titulo": "La tarjeta de E/S no confirma los comandos",
+      "titulo": "El módulo E/S no confirma los comandos",
       "accion": "Llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
     "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
-      "titulo": "La tarjeta de E/S no confirmó el apagado de salidas",
+      "titulo": "El módulo E/S no confirmó el apagado de salidas",
       "accion": "Llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
@@ -856,27 +856,27 @@
       "plantilla": "{motivo}"
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {
-      "titulo": "Salidas de la tarjeta de E/S no apagadas",
+      "titulo": "Salidas del módulo E/S no apagadas",
       "accion": "No opere el equipo. Llame a servicio técnico (módulos de salida o su cableado).",
       "plantilla": "{motivo}"
     },
     "TARJETA_EXPANSOR_FUERA_DE_LINEA": {
-      "titulo": "Expansor de la tarjeta de E/S fuera de línea",
+      "titulo": "Expansor del módulo E/S fuera de línea",
       "accion": "Sin energía, revise la unión de los módulos de expansión al principal. Si se repite, llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
     "TARJETA_WATCHDOG": {
-      "titulo": "La tarjeta de E/S apagó las salidas por falta de comunicación",
+      "titulo": "El módulo E/S apagó las salidas por falta de comunicación",
       "accion": "Revise si el software o el PC de control dejó de responder. Si se repite, llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
     "TARJETA_REINICIO": {
-      "titulo": "La tarjeta de E/S se reinició",
-      "accion": "Revise la alimentación de la tarjeta. Si se repite, llame a servicio técnico.",
+      "titulo": "El módulo E/S se reinició",
+      "accion": "Revise la alimentación del módulo E/S. Si se repite, llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
     "DISCREPANCIA_SALIDAS": {
-      "titulo": "Las salidas de la tarjeta no coinciden con lo comandado",
+      "titulo": "Las salidas del módulo E/S no coinciden con lo comandado",
       "accion": "Llame a servicio técnico.",
       "plantilla": "{motivo}"
     },
@@ -1088,8 +1088,8 @@
     },
     "CIC-11": {
       "titulo": "Comunicación inestable en esterilización",
-      "plantilla": "Las pausas por falta de datos de la tarjeta sumaron {segundos:.0f} s en la esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
-      "accion": "La carga NO está estéril. Revise el cable de red y la alimentación de la tarjeta y repita el ciclo. Si se repite, llame a servicio técnico."
+      "plantilla": "Las pausas por falta de datos del módulo E/S sumaron {segundos:.0f} s en la esterilización (máximo {maximo:.0f} s). El ciclo se abortó.",
+      "accion": "La carga NO está estéril. Revise el cable de red y la alimentación del módulo E/S y repita el ciclo. Si se repite, llame a servicio técnico."
     },
     "CIC-12": {
       "titulo": "Aire o gases no condensables en la cámara",
@@ -1133,8 +1133,8 @@
     },
     "COM-02": {
       "titulo": "Comunicación perdida durante el ciclo",
-      "plantilla": "Se perdió la comunicación con la tarjeta por más de {segundos:.1f} s en la fase {fase}. El ciclo se abortó.",
-      "accion": "Verifique el cable de red y la alimentación de la tarjeta antes de reiniciar."
+      "plantilla": "Se perdió la comunicación con el módulo E/S por más de {segundos:.1f} s en la fase {fase}. El ciclo se abortó.",
+      "accion": "Verifique el cable de red y la alimentación del módulo E/S antes de reiniciar."
     },
     "OPERANDO_SIN_BD": {
       "titulo": "Operando sin base de datos",
@@ -1162,13 +1162,13 @@
       "accion": "Llame a servicio técnico para corregir la configuración."
     },
     "COM-03": {
-      "titulo": "Falla de la tarjeta de E/S durante el ciclo",
+      "titulo": "Falla del módulo E/S durante el ciclo",
       "plantilla": "{causa}: {motivo} Fase {fase}. El ciclo se abortó.",
-      "accion": "Verifique la tarjeta de E/S antes de reiniciar. Llame a servicio técnico."
+      "accion": "Verifique el módulo E/S antes de reiniciar. Llame a servicio técnico."
     },
     "COM-04": {
       "titulo": "Salidas sin confirmar",
-      "plantilla": "La tarjeta de control no confirmó el apagado de todas las salidas al salir del modo prueba, ni tras 3 reintentos. Se repite la conexión con la tarjeta.",
+      "plantilla": "El módulo E/S no confirmó el apagado de todas las salidas al salir del modo prueba, ni tras 3 reintentos. Se repite la conexión con el módulo E/S.",
       "accion": "No inicie ciclos. Si la alarma no desaparece sola, llame a servicio técnico."
     }
   },
@@ -1265,8 +1265,8 @@
       "nivel_crudo": "Nivel {nivel}",
       "on": "ENCENDIDA",
       "off": "APAGADA",
-      "enlace_ok": "Enlace con la tarjeta de E/S: activo · se actualiza cada 1 s",
-      "enlace_perdido": "Sin enlace con la tarjeta de E/S",
+      "enlace_ok": "Enlace con el módulo E/S: activo · se actualiza cada 1 s",
+      "enlace_perdido": "Sin enlace con el módulo E/S",
       "habilitar_prueba": "Habilitar modo prueba",
       "salir_prueba": "Salir del modo prueba",
       "banner_prueba": "MODO PRUEBA ACTIVO",
@@ -1596,7 +1596,7 @@
     "en_movimiento": "La puerta está en movimiento ({estado})",
     "bloqueada": "Puerta bloqueada mecánicamente",
     "no_abierta": "La puerta no está abierta ({estado})",
-    "sin_datos_vigentes": "Sin conexión con la tarjeta: datos no vigentes",
+    "sin_datos_vigentes": "Sin conexión con el módulo E/S: datos no vigentes",
     "sin_temp_camara": "Sin lectura válida de temperatura de cámara",
     "sobrepresion": "Sobrepresión en cámara ({pres})",
     "vacio": "Cámara en vacío ({pres})",
@@ -1668,7 +1668,7 @@
   },
   "info_sistema": {
     "grupo_equipo": "Equipo",
-    "grupo_software": "Software y tarjeta",
+    "grupo_software": "Software y módulo E/S",
     "grupo_uso": "Uso y mantenimiento",
     "grupo_configuracion": "Configuración vigente",
     "rotulo_modelo": "Modelo",
@@ -1681,8 +1681,8 @@
     "rotulo_fecha_instalacion": "Fecha de instalación",
     "rotulo_fuente_vapor": "Fuente de vapor",
     "rotulo_version_software": "Versión del software",
-    "rotulo_firmware": "Firmware de la tarjeta",
-    "rotulo_id_tarjeta": "ID de la tarjeta",
+    "rotulo_firmware": "Firmware del módulo E/S",
+    "rotulo_id_modulo_es": "ID del módulo E/S",
     "rotulo_enlace_io": "Enlace de E/S",
     "rotulo_ciclos_realizados": "Ciclos realizados",
     "rotulo_proximo_mantenimiento": "Próximo mantenimiento",
@@ -1992,9 +1992,9 @@
   },
   "motivos_fase": {
     "cal_tiempo_limite": "Tiempo límite de calentamiento: no se alcanzó el objetivo en {minutos} min",
-    "cal_tiempo_limite_sostenimiento": "Tiempo límite de calentamiento ({minutos} min) durante el sostenimiento: la ventana de estabilidad se alargó {segundos} s por tramos sin datos de la tarjeta",
+    "cal_tiempo_limite_sostenimiento": "Tiempo límite de calentamiento ({minutos} min) durante el sostenimiento: la ventana de estabilidad se alargó {segundos} s por tramos sin datos del módulo E/S",
     "cal_no_sostuvo": "No se logró sostener condición estable en {minutos} min",
-    "est_comunicacion": "Comunicación inestable: {segundos} s de pausa sin datos de la tarjeta (máximo {maximo} s)",
+    "est_comunicacion": "Comunicación inestable: {segundos} s de pausa sin datos del módulo E/S (máximo {maximo} s)",
     "est_temp_alta": "Temperatura alta: {temp} > {temp_limite}",
     "est_temp_baja": "Temperatura baja: {temp} < {temp_limite}",
     "est_pres_alta": "Presión alta: {pres} > {pres_limite}",
@@ -2065,7 +2065,7 @@
     "abs": "abs",
     "vacio": "v=inHg vacio",
     "no_esteril": "*** CARGA NO ESTÉRIL ***",
-    "sin_datos": "Sin datos de la tarjeta",
+    "sin_datos": "Sin datos del módulo E/S",
     "f0_total": "F0 total",
     "resultado_fase": "{resultado}_{fase}",
     "resultado": {
@@ -2161,7 +2161,7 @@
   },
   "reasignacion": {
     "subtitulo": "Reasignación de entradas y salidas",
-    "aviso": "Use esta función solo si un puerto de la tarjeta está dañado. Cada cambio se aplica reiniciando el control y queda en la bitácora.",
+    "aviso": "Use esta función solo si un puerto del módulo E/S está dañado. Cada cambio se aplica reiniciando el control y queda en la bitácora.",
     "col_funcion": "Función",
     "col_actual": "Puerto actual",
     "col_nuevo": "Puerto nuevo",
@@ -2210,7 +2210,7 @@
     "motivo_estado_seguro_liquido": "Espere a que la carga líquida llegue a estado seguro.",
     "err_sensor_camara_no_segura": "Con la cámara no segura no se puede mover el sensor de presión de cámara ni el sensor Principal (salvo que solo falte la lectura del sensor que se mueve y el otro indique la cámara fría y a presión atmosférica).",
     "err_conflicto": "Dos funciones no pueden quedar en el mismo puerto.",
-    "err_puerto_inexistente": "Ese puerto no existe en la tarjeta para este tipo de función.",
+    "err_puerto_inexistente": "Ese puerto no existe en el módulo E/S para este tipo de función.",
     "err_funcion_desconocida": "Función desconocida.",
     "err_sin_cambios": "No hay cambios que aplicar.",
     "err_clave": "Contraseña incorrecta.",
@@ -2238,7 +2238,7 @@
     "verificar_texto_ai": "La lectura es válida y el sensor se calibró en su puerto nuevo después de reasignarlo. Confirme solo si la lectura coincide con el patrón.",
     "verificada_ok": "Función verificada.",
     "verif_pendiente": "{funcion}: sin verificar en {puerto}",
-    "verif_trama_presente": "{funcion}: la tarjeta envía {puerto}; falta la verificación del ingeniero",
+    "verif_trama_presente": "{funcion}: el módulo E/S envía {puerto}; falta la verificación del ingeniero",
     "verif_sin_respuesta": "{funcion}: no responde en {puerto}",
     "verif_verificada": "{funcion}: verificada en {puerto}",
     "falta_sin_cambio_observado": "Falta: accionar la entrada para ver un cambio de estado en el puerto nuevo.",

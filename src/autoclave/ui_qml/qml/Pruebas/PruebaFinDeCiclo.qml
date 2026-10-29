@@ -72,7 +72,7 @@ Window {
     QtObject {
         id: puenteEjemplo
         property bool connected: ventana.conectado
-        property string estadoTarjeta: "ok"
+        property string estadoModuloEs: "ok"
         property string cicloActivo: ventana.pantalla === "ciclo" ? "03" : "04"
         property string programa: "BOWE & DICK"
         property string tempEsterilizacion: "134.0"

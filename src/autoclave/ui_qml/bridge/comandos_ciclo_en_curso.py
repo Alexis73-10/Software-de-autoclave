@@ -79,7 +79,7 @@ class ComandosCicloEnCurso(QObject):
                 r = operacion()
                 ok = bool(r)
                 # D8-2.15 (tanda 8): cancelación aceptada en espera de los
-                # datos de la tarjeta (R1-P5 / D8-2.13) → texto del catálogo
+                # datos del módulo E/S (R1-P5 / D8-2.13) → texto del catálogo
                 if ok and isinstance(r, dict) and r.get("pendiente") is True:
                     aviso = AVISO_CANCELACION_EN_ESPERA
             except Exception as e:   # abort/acknowledge ya capturan; defensa extra
@@ -96,7 +96,7 @@ class ComandosCicloEnCurso(QObject):
         self._fijar_ocupado(False)
         if ok:
             logger.info("%s ciclo aceptado por el backend%s", accion,
-                        " (en espera de los datos de la tarjeta)" if aviso else "")
+                        " (en espera de los datos del módulo E/S)" if aviso else "")
             self._fijar_aviso(aviso)
         else:
             logger.warning("Backend no aceptó %s ciclo", accion)

@@ -5,7 +5,7 @@
 #   - Equipo: modelo, capacidad nominal y tipo de carga (M1, tanda 7; "—" en
 #     perfiles anteriores), tipo de equipo (E2, tanda 8: Hospitalario o
 #     Laboratorio), serie, fecha de instalación, fuente de vapor.
-#   - Software y tarjeta: versión del software, firmware e ID de la tarjeta y,
+#   - Software y módulo E/S: versión del software, firmware e ID del módulo E/S y,
 #     desde la tanda 19 (MOD-01), el enlace de E/S activo (Modbus o serial).
 #   - Uso y mantenimiento: ciclos realizados, próximo mantenimiento (fecha y
 #     ciclos restantes).
@@ -32,7 +32,7 @@ ESTADOS_IMPRESORA = ("lista", "no_instalada", "desconectada", "sin_papel", "erro
 # (equipo.clase_*: "Hospitalario"/"Laboratorio"), nunca el valor interno
 CLASES_EQUIPO = tuple(c.value for c in EquipmentClass)
 CLAVES_FILA = ("modelo", "capacidad", "tipo_carga", "clase", "serie", "fecha_instalacion", "fuente_vapor", "version_software", "firmware",
-               "id_tarjeta", "enlace_io", "ciclos_realizados", "proximo_mantenimiento", "ciclos_restantes", "idioma",
+               "id_modulo_es", "enlace_io", "ciclos_realizados", "proximo_mantenimiento", "ciclos_restantes", "idioma",
                "unidades", "impresora", "red")
 
 
@@ -80,7 +80,7 @@ def grupos_de(d: dict) -> list[dict]:
         {"grupo": "software", "filas": [
             fila("version_software", sw.get("version")),
             fila("firmware", sw.get("firmware")),
-            fila("id_tarjeta", sw.get("id_tarjeta")),
+            fila("id_modulo_es", sw.get("id_tarjeta")),
             fila("enlace_io", "", f"equipo.enlace_io_{sw.get('enlace_io')}"
                  if sw.get("enlace_io") in ENLACES_IO else ""),
         ]},

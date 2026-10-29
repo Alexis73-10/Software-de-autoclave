@@ -197,8 +197,8 @@ Window {
     // una pantalla sin campana (S9, D9-1.5: hoy solo Nuevo usuario; el login
     // y el cambio de clave ya no se interrumpen) vuelve a
     // la principal, cuya tarjeta de alarmas los muestra con el botón de
-    // confirmar (U4: el panel ya no se abre solo; paroActivo = paro real, la
-    // tarjeta desconectada no fuerza esta vuelta). La sesión no se
+    // confirmar (U4: el panel ya no se abre solo; paroActivo = paro real;
+    // el módulo E/S desconectado no fuerza esta vuelta). La sesión no se
     // toca: solo la cierra la inactividad (SAF-01). No aplica a la pantalla de
     // reposo (el standby ya despierta con el paro) ni a la intro de arranque.
     readonly property bool seguridadUrgente: (puente?.paroActivo ?? false)

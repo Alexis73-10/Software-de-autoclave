@@ -57,7 +57,7 @@ Window {
         id: puenteFalso
         objectName: "puenteFalso"
         property bool connected: true
-        property string estadoTarjeta: "ok"
+        property string estadoModuloEs: "ok"
         property string cicloActivo: "03"
         property bool ackConfirmaEstadoSeguro: false
     }

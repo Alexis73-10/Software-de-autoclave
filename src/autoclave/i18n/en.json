@@ -1,6 +1,6 @@
 {
   "parametros_equipo": {"timeout_puerta": "Door time limit", "temp_max_apertura": "Safe opening temperature", "rango_presion_atm": "Atmospheric pressure band (±)", "intervalo_impresion": "General printing rate", "intervalo_impresion_esterilizacion": "Printing rate in sterilization", "temp_segura_drenaje": "Safe drain temperature", "rango_temp_drenaje": "Drain temperature range", "presion_empaque": "Gasket pressure", "vacio_empaque": "Gasket vacuum", "timeout_chaqueta": "Jacket time limit", "tiempo_standby": "Standby", "tiempo_estable_alarma": "Alarm stability time", "pausa_max_esterilizacion_s": "Maximum pause in sterilization", "espera_sellado_sin_sonda_min": "Sealed wait without probe", "presion_atmosferica": "Reference atmospheric pressure", "presion_max_chaqueta_control": "Maximum jacket pressure", "timeout_aislamiento_camara": "Chamber isolation time limit", "max_aislamientos_camara": "Allowed chamber isolations", "ventana_aislamientos_camara": "Isolation counting window", "presion_fondo_escala": "Transducer full scale", "presion_suministro_vapor": "Steam supply pressure", "presion_alivio_camara": "Chamber relief", "presion_alivio_chaqueta": "Jacket relief"},
-  "parametros_equipo_desc": {"timeout_puerta": "Maximum time for the door to finish opening or closing.", "temp_max_apertura": "Above this chamber temperature the door does not open.", "rango_presion_atm": "Band around atmospheric pressure in which the chamber is considered at atmospheric pressure to open the door.", "intervalo_impresion": "How often a line is printed during the cycle.", "intervalo_impresion_esterilizacion": "How often a line is printed during sterilization.", "temp_segura_drenaje": "Drain temperature ceiling; above it, water cooling turns on.", "rango_temp_drenaje": "Tolerance over the safe temperature before the alarm.", "presion_empaque": "Door gasket pressure to consider it sealed.", "vacio_empaque": "Pressure below which the gasket is considered deflated.", "timeout_chaqueta": "Maximum time for the jacket to reach its pressure. Not yet used by the control.", "tiempo_standby": "Minutes without activity before the screens go to standby; 0 disables it.", "tiempo_estable_alarma": "Time a condition must hold before the alarm is raised or cleared.", "pausa_max_esterilizacion_s": "Maximum total of pauses caused by missing control board data in one sterilization. If exceeded, the cycle fails due to unstable communication.", "espera_sellado_sin_sonda_min": "Liquid load: if the Main probe is lost during cooling and no other valid probe remains, the chamber waits sealed for this time before venting through the slow exhaust.", "presion_atmosferica": "Atmospheric pressure at the installation site.", "presion_max_chaqueta_control": "With the jacket at this pressure or above, the jacket steam valve always closes. It must stay at least 10 kPa below the jacket relief.", "timeout_aislamiento_camara": "Units with jacket: maximum time the chamber can stay isolated due to overpressure without the pressure dropping. If exceeded, the cycle fails.", "max_aislamientos_camara": "Units with jacket: number of chamber overpressure isolations within the window that makes the cycle fail.", "ventana_aislamientos_camara": "Units with jacket: moving window in which chamber isolations are counted.", "presion_fondo_escala": "Maximum pressure measured by the transducer. Reliefs cannot exceed it.", "presion_suministro_vapor": "Absolute pressure of the regulated supply steam. A control ceiling above it only produces a warning.", "presion_alivio_camara": "Opening pressure of the chamber relief valve. Programs whose control ceiling reaches it are rejected.", "presion_alivio_chaqueta": "Opening pressure of the jacket relief valve. Programs whose jacket setpoint reaches it are rejected."},
+  "parametros_equipo_desc": {"timeout_puerta": "Maximum time for the door to finish opening or closing.", "temp_max_apertura": "Above this chamber temperature the door does not open.", "rango_presion_atm": "Band around atmospheric pressure in which the chamber is considered at atmospheric pressure to open the door.", "intervalo_impresion": "How often a line is printed during the cycle.", "intervalo_impresion_esterilizacion": "How often a line is printed during sterilization.", "temp_segura_drenaje": "Drain temperature ceiling; above it, water cooling turns on.", "rango_temp_drenaje": "Tolerance over the safe temperature before the alarm.", "presion_empaque": "Door gasket pressure to consider it sealed.", "vacio_empaque": "Pressure below which the gasket is considered deflated.", "timeout_chaqueta": "Maximum time for the jacket to reach its pressure. Not yet used by the control.", "tiempo_standby": "Minutes without activity before the screens go to standby; 0 disables it.", "tiempo_estable_alarma": "Time a condition must hold before the alarm is raised or cleared.", "pausa_max_esterilizacion_s": "Maximum total of pauses caused by missing I/O module data in one sterilization. If exceeded, the cycle fails due to unstable communication.", "espera_sellado_sin_sonda_min": "Liquid load: if the Main probe is lost during cooling and no other valid probe remains, the chamber waits sealed for this time before venting through the slow exhaust.", "presion_atmosferica": "Atmospheric pressure at the installation site.", "presion_max_chaqueta_control": "With the jacket at this pressure or above, the jacket steam valve always closes. It must stay at least 10 kPa below the jacket relief.", "timeout_aislamiento_camara": "Units with jacket: maximum time the chamber can stay isolated due to overpressure without the pressure dropping. If exceeded, the cycle fails.", "max_aislamientos_camara": "Units with jacket: number of chamber overpressure isolations within the window that makes the cycle fail.", "ventana_aislamientos_camara": "Units with jacket: moving window in which chamber isolations are counted.", "presion_fondo_escala": "Maximum pressure measured by the transducer. Reliefs cannot exceed it.", "presion_suministro_vapor": "Absolute pressure of the regulated supply steam. A control ceiling above it only produces a warning.", "presion_alivio_camara": "Opening pressure of the chamber relief valve. Programs whose control ceiling reaches it are rejected.", "presion_alivio_chaqueta": "Opening pressure of the jacket relief valve. Programs whose jacket setpoint reaches it are rejected."},
   "instalacion": {
     "aviso_pantalla2": "Installation in progress on screen 1",
     "titulo": "EQUIPMENT INSTALLATION",
@@ -418,7 +418,7 @@
     "sin_bd_pregunta": "Database not available. The cycle will run without an operator and without a database record (backup file and printout only). Do you want to continue without a record?",
     "sin_bd_continuar": "Continue without record",
     "sin_bd_titulo": "Start without record",
-    "cancelacion_en_espera_datos": "Cancellation accepted: it will be applied when the control board data returns. If it does not return within a few seconds, the cycle ends with a communication failure.",
+    "cancelacion_en_espera_datos": "Cancellation accepted: it will be applied when the I/O module data returns. If it does not return within a few seconds, the cycle ends with a communication failure.",
     "salidas_sin_confirmar_pendiente": "Confirming that all outputs are off after test mode. Wait a few seconds.",
     "carga_no_esteril": "LOAD NOT STERILE",
     "fin_titulo_observaciones": "CYCLE OBSERVATIONS",
@@ -478,7 +478,7 @@
   "arranque": {
     "version_software": "Software v{version}",
     "iniciando_servicios": "Starting services",
-    "conectando_tarjeta": "Connecting to the I/O board",
+    "conectando_modulo_es": "Connecting to the I/O module",
     "verificando_sensores": "Checking sensors",
     "abriendo_base_datos": "Opening database",
     "fallo_titulo": "Startup failure",
@@ -572,7 +572,7 @@
     "grupo_emergencia": "Emergency / Faults",
     "grupo_alarmas": "Alarms",
     "grupo_avisos": "Notices",
-    "despejar_sin_enlace": "Cannot clear: the link with the control board has not returned to normal yet.",
+    "despejar_sin_enlace": "Cannot clear: the link with the I/O module has not returned to normal yet.",
     "despejar_no_activa": "Cannot clear: the alarm is no longer active.",
     "despejar_rechazado": "Cannot clear: the system rejected the request.",
     "despejar_sin_respuesta": "Cannot clear: no response from the control system. Try again.",
@@ -605,13 +605,13 @@
     "ultimo_mantenimiento": "Last preventive maintenance",
     "ciclos_restantes": "Cycles left before maintenance",
     "version_software": "Software version",
-    "version_tarjeta": "Board version",
-    "id_tarjeta": "Board ID",
-    "emparejamiento_tarjeta": "Equipment board",
+    "version_modulo_es": "I/O module version",
+    "id_modulo_es": "I/O module ID",
+    "emparejamiento_modulo_es": "Equipment I/O module",
     "enlace_io": "I/O link",
     "enlace_io_modbus": "Modbus TCP (M31-U modules)",
-    "tarjeta_emparejada": "Paired",
-    "tarjeta_no_emparejada": "Not paired (notice)",
+    "modulo_es_emparejada": "Paired",
+    "modulo_es_no_emparejada": "Not paired (notice)",
     "no_disponible": "Not available",
     "apagar": "Shut down equipment",
     "apagar_pregunta": "The equipment will shut down completely (including the PC). Do you want to continue?",
@@ -739,10 +739,10 @@
     "asignar_sonda_principal": "Assign Primary probe",
     "no_abrir_hasta_segura": "DO NOT OPEN until the chamber is safe",
     "seguridad_desconocida": "No connection with the equipment: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
-    "tarjeta_desconectada": "Board disconnected: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
-    "tarjeta_sin_datos": "The board is not sending valid data: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
-    "tarjeta_desconectada_valores": "Control board disconnected. The values shown are not up to date.",
-    "tarjeta_sin_datos_valores": "The control board is not sending valid data. The values shown are not up to date."
+    "modulo_es_desconectada": "I/O module disconnected: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "modulo_es_sin_datos": "The I/O module is not sending valid data: the emergency stop and the chamber cannot be verified. DO NOT OPEN.",
+    "modulo_es_desconectada_valores": "I/O module disconnected. The values shown are not up to date.",
+    "modulo_es_sin_datos_valores": "The I/O module is not sending valid data. The values shown are not up to date."
   },
   "sesion": {
     "titulo_login": "LOGIN",
@@ -820,28 +820,28 @@
       "plantilla": "Printer not connected. Reports will not be printed; check the cable and the printer."
     },
     "COM-01": {
-      "titulo": "I/O board disconnected",
-      "descripcion": "The control board is not detected.",
-      "accion": "Connect the board (network cable) and check its power supply.",
-      "plantilla": "The control board is not detected."
+      "titulo": "I/O module disconnected",
+      "descripcion": "The I/O module is not detected.",
+      "accion": "Connect the I/O module (network cable) and check its power supply.",
+      "plantilla": "The I/O module is not detected."
     },
     "TARJETA_SIN_TRAMA_VALIDA": {
-      "titulo": "The I/O board is not sending valid data",
-      "accion": "Check the network cable and the board power supply. Call technical service.",
+      "titulo": "The I/O module is not sending valid data",
+      "accion": "Check the network cable and the I/O module power supply. Call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_VERSION_INCOMPATIBLE": {
-      "titulo": "Incompatible I/O board firmware",
+      "titulo": "Incompatible I/O module firmware",
       "accion": "With power off, check the model and order of the modules (main, DI, DO, DO, PT100) and negotiate (double press of Reload). If the firmware is incompatible, call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_SIN_ACK": {
-      "titulo": "The I/O board does not acknowledge commands",
+      "titulo": "The I/O module does not acknowledge commands",
       "accion": "Call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_ALL_OFF_SIN_CONFIRMAR": {
-      "titulo": "The I/O board did not confirm outputs off",
+      "titulo": "The I/O module did not confirm outputs off",
       "accion": "Call technical service.",
       "plantilla": "{motivo}"
     },
@@ -856,27 +856,27 @@
       "plantilla": "{motivo}"
     },
     "TARJETA_SALIDAS_NO_APAGADAS": {
-      "titulo": "I/O board outputs not switched off",
+      "titulo": "I/O module outputs not switched off",
       "accion": "Do not operate the equipment. Call technical service (output modules or their wiring).",
       "plantilla": "{motivo}"
     },
     "TARJETA_EXPANSOR_FUERA_DE_LINEA": {
-      "titulo": "I/O board expander offline",
+      "titulo": "I/O module expander offline",
       "accion": "With power off, check that the expansion modules are joined to the main module. If it happens again, call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_WATCHDOG": {
-      "titulo": "The I/O board switched outputs off due to lost communication",
+      "titulo": "The I/O module switched outputs off due to lost communication",
       "accion": "Check whether the control computer froze. If it happens again, call technical service.",
       "plantilla": "{motivo}"
     },
     "TARJETA_REINICIO": {
-      "titulo": "The I/O board restarted",
-      "accion": "Check the board power supply. If it happens again, call technical service.",
+      "titulo": "The I/O module restarted",
+      "accion": "Check the I/O module power supply. If it happens again, call technical service.",
       "plantilla": "{motivo}"
     },
     "DISCREPANCIA_SALIDAS": {
-      "titulo": "Board outputs do not match the commanded state",
+      "titulo": "I/O module outputs do not match the commanded state",
       "accion": "Call technical service.",
       "plantilla": "{motivo}"
     },
@@ -1088,8 +1088,8 @@
     },
     "CIC-11": {
       "titulo": "Unstable communication during sterilization",
-      "plantilla": "The pauses caused by missing control board data added up to {segundos:.0f} s during sterilization (maximum {maximo:.0f} s). The cycle was aborted.",
-      "accion": "The load is NOT sterile. Check the network cable and the board's power supply and repeat the cycle. If it happens again, call technical service."
+      "plantilla": "The pauses caused by missing I/O module data added up to {segundos:.0f} s during sterilization (maximum {maximo:.0f} s). The cycle was aborted.",
+      "accion": "The load is NOT sterile. Check the network cable and the I/O module's power supply and repeat the cycle. If it happens again, call technical service."
     },
     "CIC-12": {
       "titulo": "Air or non-condensable gases in the chamber",
@@ -1133,8 +1133,8 @@
     },
     "COM-02": {
       "titulo": "Communication lost during the cycle",
-      "plantilla": "Communication with the board was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
-      "accion": "Check the network cable and the board's power supply before restarting."
+      "plantilla": "Communication with the I/O module was lost for more than {segundos:.1f} s in phase {fase}. The cycle was aborted.",
+      "accion": "Check the network cable and the I/O module's power supply before restarting."
     },
     "OPERANDO_SIN_BD": {
       "titulo": "Operating without database",
@@ -1162,13 +1162,13 @@
       "accion": "Call technical service to correct the configuration."
     },
     "COM-03": {
-      "titulo": "I/O board failure during the cycle",
+      "titulo": "I/O module failure during the cycle",
       "plantilla": "{causa}: {motivo} Phase {fase}. The cycle was aborted.",
-      "accion": "Check the I/O board before restarting. Call technical service."
+      "accion": "Check the I/O module before restarting. Call technical service."
     },
     "COM-04": {
       "titulo": "Outputs not confirmed",
-      "plantilla": "The control board did not confirm that all outputs were switched off when leaving test mode, even after 3 retries. The connection with the board is being restarted.",
+      "plantilla": "The I/O module did not confirm that all outputs were switched off when leaving test mode, even after 3 retries. The connection with the I/O module is being restarted.",
       "accion": "Do not start cycles. If the alarm does not clear by itself, call technical service."
     }
   },
@@ -1265,8 +1265,8 @@
       "nivel_crudo": "Level {nivel}",
       "on": "ON",
       "off": "OFF",
-      "enlace_ok": "I/O board link: active · updates every 1 s",
-      "enlace_perdido": "No link with the I/O board",
+      "enlace_ok": "I/O module link: active · updates every 1 s",
+      "enlace_perdido": "No link with the I/O module",
       "habilitar_prueba": "Enable test mode",
       "salir_prueba": "Exit test mode",
       "banner_prueba": "TEST MODE ACTIVE",
@@ -1596,7 +1596,7 @@
     "en_movimiento": "The door is moving ({estado})",
     "bloqueada": "Door mechanically locked",
     "no_abierta": "The door is not open ({estado})",
-    "sin_datos_vigentes": "No connection with the control board: data not current",
+    "sin_datos_vigentes": "No connection with the I/O module: data not current",
     "sin_temp_camara": "No valid chamber temperature reading",
     "sobrepresion": "Chamber overpressure ({pres})",
     "vacio": "Chamber under vacuum ({pres})",
@@ -1668,7 +1668,7 @@
   },
   "info_sistema": {
     "grupo_equipo": "Unit",
-    "grupo_software": "Software and board",
+    "grupo_software": "Software and I/O module",
     "grupo_uso": "Use and maintenance",
     "grupo_configuracion": "Current settings",
     "rotulo_modelo": "Model",
@@ -1681,8 +1681,8 @@
     "rotulo_fecha_instalacion": "Installation date",
     "rotulo_fuente_vapor": "Steam source",
     "rotulo_version_software": "Software version",
-    "rotulo_firmware": "Board firmware",
-    "rotulo_id_tarjeta": "Board ID",
+    "rotulo_firmware": "I/O module firmware",
+    "rotulo_id_modulo_es": "I/O module ID",
     "rotulo_enlace_io": "I/O link",
     "rotulo_ciclos_realizados": "Cycles run",
     "rotulo_proximo_mantenimiento": "Next maintenance",
@@ -1992,9 +1992,9 @@
   },
   "motivos_fase": {
     "cal_tiempo_limite": "Heating time limit: the target was not reached in {minutos} min",
-    "cal_tiempo_limite_sostenimiento": "Heating time limit ({minutos} min) during the hold: the stability window was extended {segundos} s by periods without control board data",
+    "cal_tiempo_limite_sostenimiento": "Heating time limit ({minutos} min) during the hold: the stability window was extended {segundos} s by periods without I/O module data",
     "cal_no_sostuvo": "A stable condition could not be held within {minutos} min",
-    "est_comunicacion": "Unstable communication: {segundos} s of pause without control board data (maximum {maximo} s)",
+    "est_comunicacion": "Unstable communication: {segundos} s of pause without I/O module data (maximum {maximo} s)",
     "est_temp_alta": "High temperature: {temp} > {temp_limite}",
     "est_temp_baja": "Low temperature: {temp} < {temp_limite}",
     "est_pres_alta": "High pressure: {pres} > {pres_limite}",
@@ -2065,7 +2065,7 @@
     "abs": "abs",
     "vacio": "v=inHg vacuum",
     "no_esteril": "*** LOAD NOT STERILE ***",
-    "sin_datos": "No control board data",
+    "sin_datos": "No I/O module data",
     "f0_total": "F0 total",
     "resultado_fase": "{resultado} ({fase})",
     "resultado": {
@@ -2161,7 +2161,7 @@
   },
   "reasignacion": {
     "subtitulo": "Input and output reassignment",
-    "aviso": "Use this function only if a board port is damaged. Each change is applied by restarting the control and is recorded in the audit log.",
+    "aviso": "Use this function only if an I/O module port is damaged. Each change is applied by restarting the control and is recorded in the audit log.",
     "col_funcion": "Function",
     "col_actual": "Current port",
     "col_nuevo": "New port",
@@ -2210,7 +2210,7 @@
     "motivo_estado_seguro_liquido": "Wait until the liquid load reaches the safe state.",
     "err_sensor_camara_no_segura": "With the chamber not safe, the chamber pressure sensor and the Principal sensor cannot be moved (unless only the reading of the sensor being moved is missing and the other shows the chamber cold and at atmospheric pressure).",
     "err_conflicto": "Two functions cannot share the same port.",
-    "err_puerto_inexistente": "That port does not exist on the board for this type of function.",
+    "err_puerto_inexistente": "That port does not exist on the I/O module for this type of function.",
     "err_funcion_desconocida": "Unknown function.",
     "err_sin_cambios": "There are no changes to apply.",
     "err_clave": "Wrong password.",
@@ -2238,7 +2238,7 @@
     "verificar_texto_ai": "The reading is valid and the sensor was calibrated on its new port after reassigning it. Confirm only if the reading matches the reference.",
     "verificada_ok": "Function verified.",
     "verif_pendiente": "{funcion}: not verified on {puerto}",
-    "verif_trama_presente": "{funcion}: the board sends {puerto}; the engineer must still verify it",
+    "verif_trama_presente": "{funcion}: the I/O module sends {puerto}; the engineer must still verify it",
     "verif_sin_respuesta": "{funcion}: no response on {puerto}",
     "verif_verificada": "{funcion}: verified on {puerto}",
     "falta_sin_cambio_observado": "Missing: operate the input to see a state change on the new port.",

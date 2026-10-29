@@ -11,7 +11,7 @@
 # usuarios) va contra /auth/* y /usuarios con su token (sesion_backend, T-8);
 # al salir se cierra con /auth/logout.
 # El backend se lanza aparte con `python -m autoclave.backend.main`.
-# Sin tarjeta, AUTOCLAVE_BACKEND_URL=http://127.0.0.1:8001 apunta la UI al backend
+# Sin módulo E/S, AUTOCLAVE_BACKEND_URL=http://127.0.0.1:8001 apunta la UI al backend
 # simulado (`python -m autoclave.simulador`, herramienta de desarrollo).
 
 import argparse

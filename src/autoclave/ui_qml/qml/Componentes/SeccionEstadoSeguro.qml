@@ -14,10 +14,10 @@ import Autoclave.I18n
 // Además (DECISIÓN SIN CONFIRMAR D-U1-2/D-U1-3): "NO ABRIR" con la cámara no
 // segura y el MODO PRUEBA, como filas.
 // U4 (tanda 2): componente compartido por el panel de la campana (por grupo),
-// la tarjeta de alarmas de Preciclo y la de Ciclo en curso. Distingue tarjeta
-// desconectada y tarjeta sin datos válidos del paro real (paroActivo = paro
-// real; sin datos de la tarjeta no se afirma paro).
-// Grupos (D3, nivel del catálogo): "emergencia" (sin conexión, tarjeta, paro y
+// la tarjeta de alarmas de Preciclo y la de Ciclo en curso. Distingue módulo E/S
+// desconectado y módulo E/S sin datos válidos del paro real (paroActivo = paro
+// real; sin datos del módulo E/S no se afirma paro).
+// Grupos (D3, nivel del catálogo): "emergencia" (sin conexión, módulo E/S, paro y
 // estado seguro), "alarma" (NO ABRIR) y "aviso" (modo prueba); "" = todos.
 // ESS-04 (28-oct): con `estadoSeguroSilencioso` del puente se ocultan las
 // filas del estado 3 (y no cuentan en la campana); con `noAbrirPorSensor`, la
@@ -31,10 +31,10 @@ Column {
     // sin conexión con el backend el puente entrega paro/estado seguro en
     // false: se avisa que el estado de seguridad es desconocido (SAF-04 de U1)
     readonly property bool sinConexion: !(puente?.connected ?? true)
-    readonly property string estadoTarjeta: puente?.estadoTarjeta ?? "ok"
-    readonly property bool tarjetaDesconectada: !sinConexion && estadoTarjeta === "desconectada"
-    readonly property bool tarjetaSinDatos: !sinConexion && estadoTarjeta === "sin_tramas_validas"
-    readonly property bool sinDatos: sinConexion || tarjetaDesconectada || tarjetaSinDatos
+    readonly property string estadoModuloEs: puente?.estadoModuloEs ?? "ok"
+    readonly property bool moduloEsDesconectada: !sinConexion && estadoModuloEs === "desconectada"
+    readonly property bool moduloEsSinDatos: !sinConexion && estadoModuloEs === "sin_tramas_validas"
+    readonly property bool sinDatos: sinConexion || moduloEsDesconectada || moduloEsSinDatos
     readonly property bool paro: puente?.paroActivo ?? false
     readonly property bool confirmar: (puente?.estadoSeguroRequiereConfirmacion ?? false) && !paro
     readonly property bool activoSinConfirmar: (puente?.estadoSeguroActivo ?? false) && !confirmar && !paro
@@ -112,24 +112,24 @@ Column {
         descripcion: I18n.t("sistema.seguridad_desconocida", I18n.lang)
     }
 
-    // ---- U4: tarjeta desconectada / sin datos válidos (no afirma paro) ----
+    // ---- U4: módulo E/S desconectado / sin datos válidos (no afirma paro) ----
     FilaAlarma {
-        objectName: "filaTarjetaDesconectada"
-        visible: raiz.tarjetaDesconectada && raiz.enGrupo("emergencia")
+        objectName: "filaModuloEsDesconectada"
+        visible: raiz.moduloEsDesconectada && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
         prioridad: "alta"
         idAlarma: "TARJETA_DESCONECTADA"
-        descripcion: I18n.t("sistema.tarjeta_desconectada", I18n.lang)
+        descripcion: I18n.t("sistema.modulo_es_desconectada", I18n.lang)
     }
     FilaAlarma {
-        objectName: "filaTarjetaSinDatos"
-        visible: raiz.tarjetaSinDatos && raiz.enGrupo("emergencia")
+        objectName: "filaModuloEsSinDatos"
+        visible: raiz.moduloEsSinDatos && raiz.enGrupo("emergencia")
         width: raiz.width
         multilinea: true
         prioridad: "alta"
         idAlarma: "TARJETA_SIN_DATOS"
-        descripcion: I18n.t("sistema.tarjeta_sin_datos", I18n.lang)
+        descripcion: I18n.t("sistema.modulo_es_sin_datos", I18n.lang)
     }
 
     // ---- 1. paro activo ----
