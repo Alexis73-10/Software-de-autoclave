@@ -5,6 +5,7 @@ import time
 import threading
 from autoclave.state_machine.alarms.catalogo import COM_01, COM_04, TARJETA_SIN_TRAMA_VALIDA
 from autoclave.state_machine.state_machine import StateMachine
+from autoclave.state_machine.states.vaciado_chaqueta import cancelar_en as cancelar_vaciado_chaqueta
 from autoclave.state_machine.machine.enum_global import GlobalState
 from autoclave.devices.paro_emergencia.paro_emergencia import EmergencyStop
 from autoclave.devices.suministro_electrico.suministro_electrico import SuministroElectrico
@@ -1518,6 +1519,9 @@ class ControlLoop:
                 logger.warning("Modo prueba: se descarta una orden de inicio de ciclo pendiente")
                 self._evento_seguridad("inicio_descartado_por_modo_prueba", {})
             self.estado.set_flag("START_CICLO", False)
+            # Vaciado de chaqueta pendiente o en curso: se cancela sin
+            # reintento (el ALL_OFF de abajo corta las salidas)
+            cancelar_vaciado_chaqueta(self.estado, "modo prueba")
             self.set_do.buzer.stop()
             if self.set_do.reset_all_outputs() is True:
                 self._salidas_confirmadas("modo_prueba")

@@ -7,6 +7,7 @@ from autoclave.state_machine.alarms.alarm_manager import AlarmManager
 from autoclave.core.runtime.sensores_ciclo import verificar_inicio
 from autoclave.state_machine.estado_seguro import ProtocoloEstadoSeguro
 from autoclave.core.runtime import camara_segura
+from autoclave.state_machine.states.vaciado_chaqueta import limpiar_en as limpiar_vaciado_chaqueta
 import logging
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,12 @@ class StateMachine:
 
     def on_state_entry(self, state: GlobalState):
         if state == GlobalState.PREPARACION:
+            limpiar_vaciado_chaqueta(self.estado, self.set_do)
             self.preparacion.reset()
+
+        elif state == GlobalState.FALLA:
+            # El vaciado de chaqueta solo lo conduce PREPARADO
+            limpiar_vaciado_chaqueta(self.estado, self.set_do)
 
         elif state == GlobalState.CICLO:
             # Un ciclo nuevo cierra cualquier protocolo de estado seguro previo
@@ -138,7 +144,7 @@ class StateMachine:
         elif current_state == GlobalState.PREPARADO:
             logger.debug("Estado actual: PREPARADO")
 
-            listo = bool(self.preparado.run())
+            listo = bool(self.preparado.run(datos_vigentes=datos_vigentes))
             self.estado.set_flag("LISTO_PARA_CICLO", listo)
 
             # Transición a CICLO: sólo si el sistema está listo Y

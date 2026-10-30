@@ -188,6 +188,11 @@ class EstadoAutoclave:
         # (lo fija POST /cycle/abort con un token válido; CicloState.reset()
         # lo limpia al iniciar cada ciclo)
         self.cancelado_por: str | None = None
+        # Vaciado de chaqueta tras un ciclo líquido 4/5 (VaciadoChaqueta de
+        # state_machine/states/vaciado_chaqueta.py). Lo arma CicloState al
+        # confirmar el COMPLETADO y lo conduce PREPARADO; vive aquí porque
+        # set_active_cycle reconstruye la StateMachine. None = inactivo.
+        self.vaciado_chaqueta = None
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)
