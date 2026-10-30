@@ -6,6 +6,8 @@ from autoclave.state_machine.alarms.catalogo import (
 from autoclave.state_machine.states.control_banda import (evaluar_banda, ConfirmadorApagado,
                                                           carga_liquida, aplicar_venteo,
                                                           cerrar_lenta_propia)
+from autoclave.state_machine.states import vaciado_chaqueta
+from autoclave.core.managers import limites_equipo
 from autoclave.core.runtime.lectura import lectura_valida
 from autoclave.core.runtime import camara_segura
 from autoclave.core.runtime import presion_sin_lectura
@@ -72,8 +74,14 @@ class preparado_state:
         """Solo para pruebas: fija un valor en lugar del vigente."""
         self._tiempo_estable_fijo = valor
 
-    def run(self):
+    def run(self, datos_vigentes: bool = True):
+        vaciado = vaciado_chaqueta.de_estado(self.estado)
         if self.estado.get_flag("PARO_EMERGENCIA"):
+            # Vaciado de chaqueta: el paro lo cancela sin reintento, con sus
+            # dos salidas en OFF además del apagado por paro
+            if vaciado is not None and vaciado.activo:
+                vaciado.terminar("paro de emergencia")
+                self._apagar_salidas_vaciado()
             # ALL_OFF limitado: no esperar el ACK en cada tick (A-7)
             self.set_do.apagar_por_paro()
             # U4: SIS-01 solo se activa con el paro real; sin datos de la
@@ -95,6 +103,9 @@ class preparado_state:
             # sin inicio. Antes que el supervisor, cuyas salidas seguras
             # ventean con la rápida (TMG-01 de T5). Las alarmas sí se evalúan.
             self.supervisor()
+            # Vaciado de chaqueta: en curso, o con una puerta abierta mientras
+            # está pendiente, se cancela sin reintento
+            self._cancelar_vaciado_si_corre_o_abre(vaciado, datos_vigentes, "estado seguro activo")
             self.set_do.vapor_chaqueta_off()
             self.set_do.vapor_camara_off()
             self.timer_estabilidad = None
@@ -102,15 +113,133 @@ class preparado_state:
 
         if not self.supervisor():
             self.timer_estabilidad = None
+            if vaciado is not None and vaciado.activo:
+                vaciado.terminar("supervisor en falla")
+                self._apagar_salidas_vaciado()
             self._salidas_seguras_supervisor()
             return False
+
+        # Vaciado de chaqueta tras ciclo líquido 4/5: mientras esté pendiente
+        # o en curso es el único dueño de vapor_chaqueta (la chaqueta no
+        # queda lista); al terminar vuelve mantener_chaqueta()
+        controlar_chaqueta = not self._vaciado_chaqueta(vaciado, datos_vigentes)
 
         # R1-P2 (tanda 7): cada lazo corre una sola vez por tick; la validación
         # final usa su resultado (antes los volvía a llamar y el debounce del
         # aire avanzaba de a 2)
-        lazos = self.ejecutor()
+        lazos = self.ejecutor(controlar_chaqueta=controlar_chaqueta)
 
         return self.esta_preparado(lazos)
+
+    # ==============================
+    # VACIADO DE CHAQUETA (ciclo líquido, modo 4/5)
+    # ==============================
+    def _puertas_di(self, datos_vigentes):
+        """("abierta" | "cerradas" | None) según las DI de puerta del perfil.
+        "abierta": alguna puerta_N_cerrada == 0 explícito; "cerradas": todas
+        == 1; None: datos no vigentes o alguna sin dato (no dispara nada). No
+        usa estado_puertas: SimpleDoor publica ABIERTO sin lectura."""
+        if datos_vigentes is not True:
+            return None
+        valores = [self.estado.sensores_di.get(f"puerta_{n}_cerrada")
+                   for n in range(1, numero_puertas(self.profile) + 1)]
+        if any(v is not None and v == 0 for v in valores):
+            return "abierta"
+        if valores and all(v is not None and v == 1 for v in valores):
+            return "cerradas"
+        return None
+
+    def _cancelar_vaciado_si_corre_o_abre(self, vaciado, datos_vigentes, motivo):
+        if vaciado is None or not vaciado.activo:
+            return
+        if (vaciado.estado == vaciado_chaqueta.EN_CURSO
+                or self._puertas_di(datos_vigentes) == "abierta"):
+            vaciado.terminar(motivo)
+            self._apagar_salidas_vaciado()
+
+    def _apagar_salidas_vaciado(self):
+        """Fin o cancelación del vaciado: las dos salidas en OFF ya, sin
+        esperar al ConfirmadorApagado de mantener_chaqueta (que retoma en el
+        tick siguiente con su cuenta desde cero)."""
+        self.set_do.descompresion_chaqueta_off()
+        self.set_do.vapor_chaqueta_off()
+        self._confirmador_chaqueta.reset()
+
+    def _vaciado_chaqueta(self, vaciado, datos_vigentes) -> bool:
+        """Conduce el vaciado en este tick. True si fue el dueño de
+        vapor_chaqueta (pendiente, en curso o el tick en que termina, que deja
+        el vapor en OFF); False si rige mantener_chaqueta()."""
+        if vaciado is None or not vaciado.activo:
+            return False
+        puertas = self._puertas_di(datos_vigentes)
+        ahora = time.monotonic()
+
+        if vaciado.estado == vaciado_chaqueta.PENDIENTE:
+            self._vigilar_suministro_vaciado()
+            # BAJO 3: _TICKS_APERTURA ticks seguidos de puerta abierta con DI
+            # vigente; un tick sin dato o con todas cerradas reinicia la cuenta
+            if not vaciado.contar_apertura(puertas == "abierta"):
+                self.set_do.vapor_chaqueta_off()
+                self.set_do.descompresion_chaqueta_off()
+                self._confirmador_chaqueta.reset()
+                return True
+            vaciado.iniciar(ahora)
+
+        # EN_CURSO
+        if puertas is None:
+            vaciado.terminar("datos de puerta no vigentes")
+            self._apagar_salidas_vaciado()
+            return True
+        if puertas == "cerradas":
+            vaciado.terminar("puerta cerrada")
+            self._apagar_salidas_vaciado()
+            return True
+        transcurrido = vaciado.transcurrido(ahora)
+        if vaciado_chaqueta.terminado(transcurrido):
+            vaciado.terminar("tiempo cumplido")
+            self._apagar_salidas_vaciado()
+            return True
+
+        if vaciado_chaqueta.valvula_abierta(transcurrido):
+            self.set_do.descompresion_chaqueta_on()
+        else:
+            self.set_do.descompresion_chaqueta_off()
+
+        if self._vapor_vaciado_permitido():
+            self.set_do.vapor_chaqueta_on()
+        else:
+            self.set_do.vapor_chaqueta_off()
+        self._confirmador_chaqueta.reset()
+        return True
+
+    def _vigilar_suministro_vaciado(self) -> bool:
+        """SUM-06 durante el vaciado, igual que mantener_chaqueta(): se activa
+        sin suministro de vapor y se resuelve con él (solo si el perfil
+        declara el presostato). True = hay suministro (o no se vigila)."""
+        if not entrada_requerida(self.profile, "vapor_suministro"):
+            return True
+        if not self.estado.sensores_di.get("vapor_suministro", 0):
+            self.alarm_manager.activar(SUM_06, estado=_ESTADO)
+            return False
+        self.alarm_manager.resolver(SUM_06)
+        return True
+
+    def _vapor_vaciado_permitido(self) -> bool:
+        """vapor_chaqueta en el vaciado: lectura válida y positiva de
+        pres_chaqueta, bajo el corte D-CHQ y con suministro de vapor (SUM-06).
+        Un error = no (falla cerrada)."""
+        try:
+            suministro = self._vigilar_suministro_vaciado()
+            pres = self.estado.sensores_pres.get("pres_chaqueta")
+            # 0 = sensor sin señal (como en verificar_sensores)
+            if not lectura_valida(pres) or pres <= 0:
+                return False
+            if pres >= limites_equipo.presion_max_chaqueta_control(self.config):
+                return False
+            return suministro
+        except Exception:
+            logger.exception("PREPARADO: vaciado de chaqueta sin evaluar el vapor; vapor OFF")
+            return False
 
     # ==============================
     # SUPERVISIÓN GENERAL

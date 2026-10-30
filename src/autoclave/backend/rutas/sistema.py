@@ -16,6 +16,7 @@ from autoclave.backend.autenticacion import Sesion
 from autoclave.core.runtime.status import EstadoAutoclave
 from autoclave.state_machine.alarms.catalogo import ROLES_VISIBLES, codigo_visible, nombre_legible
 from autoclave.state_machine.alarms.instancia import EstadoInstancia
+from autoclave.state_machine.states import vaciado_chaqueta
 from autoclave.core.runtime import sensores_ciclo as sc
 from autoclave.core.runtime import camara_segura
 from autoclave.installation.profile import (entradas_no_monitoreadas, sondas_no_vigiladas,
@@ -654,6 +655,9 @@ def get_status():
         # FC-11 (tanda 21): {nombre de puerta: bool} con la misma regla que el
         # endpoint de puertas (servicio.tiene_actuador); falla cerrada (False)
         "puertas_con_actuador": _puertas_con_actuador(doors),
+        # Vaciado de chaqueta tras ciclo líquido 4/5: INACTIVO / PENDIENTE /
+        # EN_CURSO / HECHO (INACTIVO sin vaciado o ante un error)
+        "vaciado_chaqueta": vaciado_chaqueta.estado_publico(estado),
         "sensors": sensors,
         "alarms":  alarms,
         # Entradas de suministro que el perfil declara sin cablear (E1-1)

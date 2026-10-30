@@ -38,6 +38,7 @@ from autoclave.installation.profile import entrada_requerida, numero_puertas, re
 # F4 (tanda 16): modo de vapor (VCH-SEL) y aislamiento de cámara (VCH-AIS)
 from autoclave.installation.profile import MODO_CAMARA, MODO_CHAQUETA, modo_vapor
 from autoclave.state_machine.cycle_phases.aislamiento_camara import AislamientoCamara
+from autoclave.state_machine.states.vaciado_chaqueta import VaciadoChaqueta, limpiar_en
 from autoclave.state_machine.alarms.catalogo import CIC_15, CIC_16, CIC_17
 # s3 (tanda 16): corte único de la chaqueta (D-CHQ / SAF-09) y su aviso VCH-CHQ
 from autoclave.state_machine.alarms.catalogo import CIC_18
@@ -235,6 +236,9 @@ class CicloState:
         self.estado.aislamiento_camara = AislamientoCamara()
         self.estado.inhibir_vapor_chaqueta = False
         self.estado.cancelado_por = None   # FC-12 (tanda 21)
+        # Vaciado de chaqueta: un ciclo nuevo descarta el del anterior
+        limpiar_en(self.estado, self.set_do)
+        self.estado.vaciado_chaqueta = VaciadoChaqueta()
         try:
             self.estado.modo_vapor = modo_vapor(self.profile)
         except Exception:
@@ -818,6 +822,25 @@ class CicloState:
             abrir_valvula_modo(self.set_do, modo, liquido=liquido,
                                enfriada=self._principal_enfriada(modo))
 
+    def _armar_vaciado_chaqueta(self) -> None:
+        """Al confirmar un COMPLETADO de carga líquida (tipo de carga ilegible
+        = líquida) con enfriamiento modo 4/5: vaciado de chaqueta PENDIENTE
+        hasta la primera puerta abierta, y vapor_chaqueta y
+        descompresion_chaqueta en OFF. Lo conduce PREPARADO."""
+        try:
+            modo = self.cycle.get_param("descompresion", "modo", default=0)
+            aplica = self._carga_liquida() and modo in (4, 5)
+        except Exception:
+            logger.exception("CicloState: no se pudo evaluar el vaciado de chaqueta; no se arma")
+            return
+        if not aplica:
+            return
+        vaciado = VaciadoChaqueta()
+        vaciado.armar()
+        self.estado.vaciado_chaqueta = vaciado
+        self.set_do.vapor_chaqueta_off()
+        self.set_do.descompresion_chaqueta_off()
+
     # ------------------------------------------------------------------
     # C-13.7b (tanda 12) / FC-08 (tanda 21): Referencia sin lectura
     # ------------------------------------------------------------------
@@ -1048,6 +1071,8 @@ class CicloState:
                 # de chaqueta del ciclo
                 self.estado.modo_vapor = None
                 self.estado.inhibir_vapor_chaqueta = False
+                if resultado_final == CicloResultado.COMPLETADO:
+                    self._armar_vaciado_chaqueta()
                 return resultado_final
             # Mantener la válvula de reposo activa mientras se espera
             # confirmación: COMPLETADO limpio usa su propio monitor de
