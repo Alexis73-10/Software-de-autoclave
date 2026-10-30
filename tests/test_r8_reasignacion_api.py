@@ -598,6 +598,25 @@ def test_verificar_temperatura_con_lectura_valida_sin_calibrar(api):
 
 
 @pytest.mark.req("RSB-07")
+@pytest.mark.parametrize("funcion,puerto,clave,valor", [
+    ("temp_camara", 4, "temperature", 0.0),       # 0,0 °C = sin señal
+    ("temp_camara", 4, "temperature", 250.0),     # fuera de 0-200 °C
+    ("pres_camara", 13, "pressure", 500.0),       # fuera de -10-450 kPa
+])
+def test_verificar_analogica_fuera_del_rango_publicado_es_sin_lectura(api, funcion, puerto, clave, valor):
+    """Revisión R de la tanda 24 (SAF-02): la lectura que cuenta es la que el
+    control publicaría (P7 de la tanda 16)."""
+    cliente, _srv, ctx, cab, _p = api
+    _pendiente(ctx, [funcion], {funcion: puerto})
+    datos = {"connected": True, "pressure": [101.0] * 16, "temperature": [25.0] * 6}
+    datos[clave][puerto - 1] = valor
+    ctx.units.get_all.return_value = datos
+    r = _verificar(cliente, cab(), funcion)
+    assert r.status_code == 409 and r.json()["codigo"] == "sin_lectura"
+    assert ctx.asignacion_pendiente == [funcion]
+
+
+@pytest.mark.req("RSB-07")
 def test_verificar_analogica_sin_calibracion_en_el_puerto_rechazada(api, monkeypatch):
     """La calibración vigente del puerto sigue haciendo falta (la nominal
     cuenta); sin ella, puerto_sin_calibracion, aunque haya lectura."""

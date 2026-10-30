@@ -59,6 +59,7 @@ _MENSAJES = {
     "sin_cambio_observado": "reasignacion.falta_sin_cambio_observado",
     "sin_prueba_de_salida": "reasignacion.falta_sin_prueba_de_salida",
     "sin_lectura": "reasignacion.falta_sin_lectura",
+    "error": "reasignacion.falta_error",
     sesion_backend.BACKEND_NO_RESPONDE: "reasignacion.err_sin_respuesta",
 }
 # Motivos de 409 estado_no_permitido / GET "motivo" (RSB-02: solo estos cuatro)

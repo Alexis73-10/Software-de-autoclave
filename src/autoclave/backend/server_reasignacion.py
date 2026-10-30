@@ -223,8 +223,8 @@ def aviso_camara() -> bool:
     confirmada como segura (camara_segura.motivos no vacío, con los mismos
     argumentos que usaba SAF-01 de ESS-07) o el paro de emergencia está
     activo. Ante cualquier error, True (falla hacia mostrar el aviso)."""
-    from autoclave.core.runtime import camara_segura
     try:
+        from autoclave.core.runtime import camara_segura
         ctx = _ctx()
         if ctx.estado.get_flag("PARO_EMERGENCIA") is not False:
             return True
@@ -332,6 +332,10 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
     except OSError:
         srv._rechazar(503, "no_se_pudo_guardar", "No se pudo leer la asignación guardada", entidad, sesion)
     pendiente = _pendientes_tras(nueva)
+    # RSB-03: el aviso de la cámara se evalúa antes de escribir y de detener
+    # el lazo (con los datos de este proceso); queda en la fila reinicio_control
+    # (revisión R, SAF-03: nada entre la escritura y el bloque que la deshace)
+    aviso = aviso_camara()
     try:
         arch.guardar(cambios, sesion.usuario, pendiente)
     except OSError:
@@ -343,9 +347,6 @@ def _guardar_y_reiniciar(entidad: str, sesion, evento: str, nueva: dict, cambios
         # puede pasar a CICLO ni mover salidas
         if disponible:
             _ctx().control_loop.iniciar_apagado()
-    # RSB-03: el aviso de la cámara se evalúa antes de detener el lazo (con
-    # los datos de este proceso) y queda en la fila reinicio_control
-    aviso = aviso_camara()
     try:
         _comprobar_estado(entidad, sesion, al_pasar=detener_lazo)
     except BaseException:
@@ -451,17 +452,29 @@ def _datos_modulo() -> dict:
     return datos if isinstance(datos, dict) else {}
 
 
-def lectura_actual(funcion: str) -> float | None:
+def lectura_actual(funcion: str, datos: dict | None = None) -> float | None:
     """RSB-07: valor que lee una analógica en su puerto vigente (None sin
-    lectura válida o si no es analógica). Para la pantalla y la auditoría."""
+    lectura válida, fuera del rango que publica el control o si no es
+    analógica). `datos`: una instantánea de Units.get_all() (si no, se lee).
+    Para la pantalla, la evidencia y la auditoría."""
     try:
-        return aio.lectura(funcion, aio.en_memoria(), _datos_modulo())
+        from autoclave.core.runtime.status import RANGO_PLAUSIBLE_PRES_KPA, RANGO_PLAUSIBLE_TEMP_C
+        valor = aio.lectura(funcion, aio.en_memoria(), _datos_modulo() if datos is None else datos)
+        if valor is None:
+            return None
+        # Revisión R, SAF-02: la misma plausibilidad con la que el control
+        # publica la lectura (P7 de la tanda 16); 0,0 °C es "sin señal"
+        if aio.es_temperatura(aio.base(funcion)):
+            bajo, alto = RANGO_PLAUSIBLE_TEMP_C
+            return valor if bajo < valor <= alto else None
+        bajo, alto = RANGO_PLAUSIBLE_PRES_KPA
+        return valor if bajo <= valor <= alto else None
     except Exception:
         logger.exception("Lectura de %s para la verificación", funcion)
         return None
 
 
-def _evidencia_que_falta(funcion: str, tipo: str) -> str:
+def _evidencia_que_falta(funcion: str, tipo: str, datos: dict | None = None) -> str:
     """"" si hay prueba de que la función responde en su puerto nuevo; si no,
     el código de lo que falta (SAF-01/SAF-02 de la revisión R8).
     Tanda 24 (RSB-07): una analógica se verifica con lectura válida en su
@@ -474,11 +487,14 @@ def _evidencia_que_falta(funcion: str, tipo: str) -> str:
         return "" if funcion in cambios else "sin_cambio_observado"
     if tipo == "DO":
         return "" if puerto and _evidencias().get(funcion) == puerto else "sin_prueba_de_salida"
+    if not puerto:
+        return "error"                  # revisión R, SAF-06: sin puerto en memoria
     memoria = aio.en_memoria()
-    if not puerto or any(e["funcion"] == funcion for e in
-                         aio.puertos_sin_calibracion(memoria, _largos_calibracion())):
+    if any(e["funcion"] == funcion for e in
+           aio.puertos_sin_calibracion(memoria, _largos_calibracion())):
         return "puerto_sin_calibracion"
-    if not aio.responde(funcion, memoria, _datos_modulo()):
+    datos = _datos_modulo() if datos is None else datos
+    if not aio.responde(funcion, memoria, datos) or lectura_actual(funcion, datos) is None:
         return "sin_lectura"
     return ""
 
@@ -613,12 +629,14 @@ def registrar(app) -> None:
         # lock de archivos tomado (calibrar y restaurar la cambian bajo él),
         # así una restauración concurrente no deja pasar evidencia vieja
         with _lock_escritura, srv._lock_archivos:
-            faltan = _evidencia_que_falta(funcion, tipo)
+            # revisión R, SAF-04: una sola lectura para la evidencia y la auditoría
+            instantanea = _datos_modulo() if tipo == "AI" else None
+            faltan = _evidencia_que_falta(funcion, tipo, instantanea)
             if faltan:
                 srv._rechazar(409, faltan, "Falta la prueba de la función en su puerto nuevo",
                               ENTIDAD_VERIFICAR, sesion)
             # RSB-07: la lectura con la que el ingeniero verificó la analógica
-            valor = lectura_actual(funcion) if tipo == "AI" else None
+            valor = lectura_actual(funcion, instantanea) if tipo == "AI" else None
             # TMG-10/SAF-03 de la re-revisión: con una asignación guardada que
             # aún no rige (reinicio pendiente o en curso), verificar quitaría la
             # marca de lo que rige en el próximo arranque

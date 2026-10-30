@@ -376,7 +376,7 @@ Item {
             habilitado: control.editable && (control.hayCambiosGuardados || control.bloqueado
                                              || control.reinicioPendiente)
             texto: I18n.t("reasignacion.restaurar_fabrica", I18n.lang)
-            onPulsado: dialogoFabrica.abrir()
+            onPulsado: { control.cargar(); dialogoFabrica.abrir() }   // aviso al día (SAF-05)
         }
         Boton {
             objectName: "botonAplicarReasignacion"
@@ -530,6 +530,7 @@ Item {
     function _pasoReforzada(i) {
         const lista = control.reforzadasPendientes
         if (i >= lista.length) {
+            control.cargar()            // RSB-03: aviso de la cámara al día (revisión R, SAF-05)
             dialogoReinicio.abrir()
             return
         }

@@ -142,7 +142,7 @@ _CODIGOS_REASIGNACION = frozenset({
     "confirmacion_requerida", "confirmacion_reforzada", "nombre_no_coincide",
     "puerto_sin_calibracion", "no_se_pudo_guardar", "reinicio_en_curso",
     "reinicio_pendiente", "no_pendiente", "sin_cambio_observado",
-    "sin_prueba_de_salida", "sin_lectura",
+    "sin_prueba_de_salida", "sin_lectura", "error",
 })
 _CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),)
 
