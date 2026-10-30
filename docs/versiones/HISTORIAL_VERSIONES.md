@@ -9,6 +9,57 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.12 — 2026-10-30
+
+- Etiqueta: `v1.0.0-alpha.12` (commit `chore(ver): 1.0.0-alpha.12`, sobre `4aa05c7`)
+- AppVerNum: `1.0.0.1012`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.12_2026-10-30/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.11`:
+  - 4aa05c76 docs(t24): informe R24, estado y cierre
+  - f5adb54f docs(t24): estado de la suite
+  - f08d85d2 docs(t24): estado tras la revisión R
+  - dfca3de3 fix(t24): correcciones de la revisión R (SAF-01..06)
+  - 3f65b367 docs(t24): estado tras unir P1 y P2
+  - 444495f5 docs(t24): estado tras P2
+  - 7948967e feat(t24): motivo real del rechazo, aviso de cámara, Verificar con lectura y tipo RTD en Reasignación (RSB-03..08 UI)
+  - 81ba6e5b docs(t24): estado tras P1
+  - d4e80a4d feat(t24): reasignación sin bloqueos por sensores ni paro, aviso_camara y verificación por lectura (RSB-01..03, 06, 07 backend)
+  - 33b82347 docs(t24): prompt de la tanda 24 (RSB-01..08), estado e inventario RSB-04
+  - 9a933ff3 docs(t23): informe R23, suite y cierre
+  - 3044b17a docs(t23): estado de la suite
+  - 9bd3f87d test(t23): filtros de converters limpios en la prueba RTD 01 + AI 01 (estado compartido con -n auto)
+  - 18e2a436 test(t23): bloque T23 de la hoja del banco en el formulario; CLAUDE.md con io_ports_formato
+  - 55f5ee5e docs(t23): estado tras unir C1..C4 y la prueba de regla
+  - 04000cf2 feat(t23): «módulo E/S» en el núcleo y códigos visibles MODULO_ES_* (MES-01..04)
+  - a4708840 test(t23): prueba de regla sin «tarjeta» (MES-01..04), borrador antes de unir C2
+  - 093b689c docs(t23): trazabilidad AIN-R1..R3 y nombres de pruebas renombradas
+  - bd4835cb test(t23): pruebas con «módulo E/S» en nombres, comentarios y dobles (MES-02)
+  - d6ee36d5 docs(t23): estado (C4 y R)
+  - d903a660 docs(t23): revisión R de AIN
+  - 819ba50d fix(t23): revisión R de AIN (SAF-01..06)
+  - 891a6220 docs(t23): LEEME de instalación con «módulo E/S» y RTD 01-06 / AI 01-16
+  - 8bcd9316 docs(t23): planeación del enlace Modbus con AI ×16, RTD/AI y módulo E/S
+  - d0a751bb feat(t23): tools/emparejar_tarjeta.py -> tools/emparejar_modulo_es.py (MES-02)
+  - 1b7d6b6c docs(t23): registro de riesgos con AIN-R1 (ALTA), AIN-R2 (ALTA) y AIN-R3 (MEDIA)
+  - f599786d docs(t23): catálogo de alarmas y README de docs con «módulo E/S» (MES-04)
+  - 5def70fe docs(t23): CLAUDE.md con «módulo E/S», AI fc04 0x0000x16 y numeración RTD/AI
+  - 59c92686 feat(t23): Setup y estación: «Red del módulo E/S» (MES-01)
+  - b0ab2741 docs(t23): hoja de banco con «módulo E/S», RTD/AI y bloque T23
+  - 6513c5ea docs(t23): estado tras unir B y C1
+  - 9f36f0ae feat(t23): migración automática FORMATO 1 -> 2 de la asignación de E/S (AIN-05, AIN-R2)
+  - 2fe3b942 feat(t23): numeración RTD 01-06 / AI 01-16 por grupo (AIN-01, AIN-02, AIN-R1)
+  - 05aa5145 feat(t23): calibración de presión con 16 entradas (AIN-04)
+  - 43b7cfbe feat(t23): lectura de las 16 AI del principal (AIN-03)
+  - 3248589e test(t23): roles idVisible/codigoVisible en las filas esperadas de AlarmListModel (MES-04)
+  - ce3f0b0a feat(t23): la interfaz muestra los códigos TARJETA_* como MODULO_ES_* (MES-04)
+  - f68cd0eb feat(t23): «módulo E/S» en textos e identificadores de la interfaz (MES-01..03)
+  - 85d474ae docs(t23): inventario A0
+  - a138033d feat(t23): codigo_visible() para mostrar TARJETA_* como MODULO_ES_* (MES-04)
+  - 0b92a352 docs(t23): prompt y decisiones de la tanda 23
+  - acd17d36 docs(t22): informe R22 y cierre
+  - 5eb19ba8 docs(t22): estado K y datos de E: antes de formatear
+
+
 ## 1.0.0-alpha.11 — 2026-10-29
 
 - Etiqueta: `v1.0.0-alpha.11` (commit `chore(ver): 1.0.0-alpha.11`, sobre `4596603`)
