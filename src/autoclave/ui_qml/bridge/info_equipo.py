@@ -12,8 +12,8 @@
 #     `modulo_es`, del último handshake; E6, FW-D2 y FW-D7), en la misma consulta
 #   - enlace de E/S activo (tanda 19, MOD-01): GET /status (campo `enlace_io`,
 #     "modbus" | "serial"), en la misma consulta
-# Sin fuente en el código (se muestra como "No disponible"): fecha del último
-# mantenimiento.
+#   - fecha del último mantenimiento: GET /maintenance; se muestra "—" mientras
+#     la respuesta no llega (o si no hay dato)
 
 import logging
 import threading

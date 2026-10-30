@@ -339,6 +339,37 @@ def test_cancelar_rechazado_no_audita_ni_marca(entorno):
     assert estado.cancelado_por is None and _eventos(db, "ciclo_cancelado") == []
 
 
+def test_doble_cancelacion_una_sola_fila_y_usuario_intacto(entorno):
+    cliente, ctx, estado, db, srv = entorno
+    _ciclo_en_pantalla(ctx, db, ["PRE_VACIO"])
+    r1 = cliente.post("/cycle/abort", headers=cabecera(srv, "operador", "luis"))
+    # el tick aún no consumió la bandera: segunda cancelación, otro usuario
+    r2 = cliente.post("/cycle/abort", headers=cabecera(srv, "operador", "marta"))
+    assert r1.status_code == r2.status_code == 200
+    assert r2.json() == r1.json() == {"ok": True, "action": "CICLO_CANCELADO"}
+    assert estado.get_flag("CICLO_CANCELADO") is True
+    assert estado.cancelado_por == "luis"
+    [fila] = _eventos(db, "ciclo_cancelado")
+    assert fila["usuario"] == "luis"
+
+
+def test_cancelacion_sin_bd_deja_warning(entorno, caplog):
+    import logging
+    cliente, ctx, estado, db, srv = entorno
+    from autoclave.backend.arranque.sin_bd import BdNoDisponibleError
+    ctx.cycle_logger.ciclo_id_pantalla = 7
+    ctx.db = MagicMock()
+    ctx.db.get_ciclo.side_effect = BdNoDisponibleError("Base de datos no disponible (get_ciclo)")
+    ctx.db.registrar_auditoria.side_effect = BdNoDisponibleError("sin bd")
+    with caplog.at_level(logging.WARNING):
+        r = cliente.post("/cycle/abort", headers=cabecera(srv, "operador", "luis"))
+    assert r.status_code == 200 and r.json()["action"] == "CICLO_CANCELADO"
+    assert estado.get_flag("CICLO_CANCELADO") is True       # la cancelación sigue su curso
+    avisos = [m.getMessage() for m in caplog.records
+              if "sin número de ciclo o sin fila" in m.getMessage() and "/cycle/abort" in m.getMessage()]
+    assert len(avisos) == 1 and "ciclo_id=7" in avisos[0]
+
+
 def test_ticket_lleva_quien_cancelo(tmp_path):
     from tests.test_t8_modo_sin_bd import _logger
     db = MagicMock()

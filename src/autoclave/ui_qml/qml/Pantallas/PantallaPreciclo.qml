@@ -763,7 +763,10 @@ Item {
         visible: !raiz.puertaConActuador
         x: raiz.m(41); y: raiz.m(1615); width: raiz.m(298); height: raiz.m(110)
         estadoPuerta: raiz.estadoPuerta
-        datosVigentes: raiz.datosVigentes
+        // Falla del lado seguro: con el enlace al módulo E/S caído o sin tramas
+        // válidas, /status.estado_puertas queda congelado o se calcula con la
+        // DI vencida; no se afirma «PUERTA CERRADA» (DECISIÓN SIN CONFIRMAR).
+        datosVigentes: raiz.datosVigentes && raiz.estadoModuloEs === "ok"
         numeroPuerta: raiz.puerta
     }
 

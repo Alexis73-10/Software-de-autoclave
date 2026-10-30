@@ -280,3 +280,22 @@ def test_claves_i18n_en_ambos_idiomas():
         assert d["ciclo"]["puerta_cerrada_estado"] == textos["cerrada"]
         assert d["ciclo"]["puerta_abierta_estado"] == textos["abierta"]
         assert d["ciclo"]["puerta_sin_datos_estado"] == textos["sin_datos"]
+
+
+def test_preciclo_alimenta_el_indicador_con_el_estado_del_modulo_es():
+    """Cierre 1.0: con el módulo E/S desconectado o sin tramas válidas,
+    /status.estado_puertas queda congelado; el indicador no debe afirmar
+    «PUERTA CERRADA». datosVigentes exige conexión Y estadoModuloEs "ok"."""
+    import re
+
+    fuente = (RAIZ_QML / "Pantallas" / "PantallaPreciclo.qml").read_text(encoding="utf-8")
+    codigo = "\n".join(l.split("//", 1)[0] for l in fuente.splitlines())
+    m = re.search(r"IndicadorPuerta\s*\{(.*?)\n    \}", codigo, re.S)
+    assert m, "no se encontró la instancia de IndicadorPuerta"
+    cuerpo = m.group(1)
+    asignacion = re.search(r"datosVigentes:\s*(.+)", cuerpo)
+    assert asignacion, cuerpo
+    expr = asignacion.group(1)
+    assert "raiz.datosVigentes" in expr
+    assert 'raiz.estadoModuloEs === "ok"' in expr
+    assert "&&" in expr
