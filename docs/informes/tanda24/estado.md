@@ -7,13 +7,13 @@ Rama `tanda-24` desde `dev` (9a933ff3). Spec: `docs/mis_plans/prompt_claude_code
 | A0 | Hecha | rama, prompt, inventario RSB-04 |
 | P1 backend | Hecha | rama tanda-24-backend, d4e80a4d (en la sesión principal, sin worktree) |
 | P2 UI | Hecha | rama tanda-24-ui (desde tanda-24-backend), 7948967e |
-| Unión P1+P2 | Pendiente | |
-| R revisión | Pendiente | |
+| Unión P1+P2 | Hecha | merge 36f56b3e en tanda-24 |
+| R revisión | En curso | subagente safety-reviewer (solo lectura) |
 | Suite | Pendiente | |
 | K merge a dev | Pendiente | |
 | Z cierre | Pendiente | |
 
-Último commit: 7948967e (P2 UI)
+Último commit: 36f56b3e (merge P1+P2)
 
 ## Inventario RSB-04 (códigos de `/io/assignment*`)
 
