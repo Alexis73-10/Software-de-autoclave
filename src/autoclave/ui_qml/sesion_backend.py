@@ -128,6 +128,35 @@ _CLAVES = {
 }
 _CODIGOS_CONOCIDOS = frozenset(_CLAVES) - {BACKEND_NO_RESPONDE, ERROR_GENERICO} | {"validacion"}
 
+# Tanda 24 (RSB-04): códigos propios de la reasignación de E/S
+# (POST /io/assignment, /io/assignment/factory, /io/assignment/verify y GET
+# /io/assignment). Se reconocen SOLO en esas rutas (vía equivalente a
+# _CLAVES): fuera de ellas, códigos como "confirmacion_requerida" o
+# "archivo_invalido" siguen siendo "error_generico" y ninguna otra pantalla
+# cambia. Su texto lo pone ReasignacionController (_MENSAJES), no _CLAVES.
+# tests/test_t24_codigos_reasignacion.py comprueba que cubren todo lo que
+# esas rutas pueden emitir (RSB-05).
+_CODIGOS_REASIGNACION = frozenset({
+    "conflicto", "puerto_inexistente", "funcion_desconocida", "fabrica_invalida",
+    "asignacion_invalida", "archivo_ilegible", "archivo_invalido", "sin_cambios",
+    "confirmacion_requerida", "confirmacion_reforzada", "nombre_no_coincide",
+    "puerto_sin_calibracion", "no_se_pudo_guardar", "reinicio_en_curso",
+    "reinicio_pendiente", "no_pendiente", "sin_cambio_observado",
+    "sin_prueba_de_salida", "sin_lectura",
+})
+_CODIGOS_POR_RUTA = (("/io/assignment", _CODIGOS_REASIGNACION),)
+
+
+def codigos_conocidos(ruta: str = "") -> frozenset:
+    """Códigos que `interpretar` deja pasar en `ruta`: los globales y los
+    propios de la ruta (RSB-04). La ruta se compara sin la consulta."""
+    ruta = (ruta or "").split("?", 1)[0]
+    extra = frozenset()
+    for prefijo, codigos in _CODIGOS_POR_RUTA:
+        if ruta == prefijo or ruta.startswith(prefijo + "/"):
+            extra |= codigos
+    return _CODIGOS_CONOCIDOS | extra
+
 
 def clave_mensaje(causa: str) -> str:
     """Clave de es.json para una causa; las desconocidas, el mensaje genérico."""
@@ -181,7 +210,7 @@ def interpretar(estado_http: int, datos, ruta: str = "") -> Resultado:
     if 200 <= estado_http < 300:
         return Resultado(OK, datos, estado_http)
     codigo = datos.get("codigo")
-    if isinstance(codigo, str) and codigo in _CODIGOS_CONOCIDOS:
+    if isinstance(codigo, str) and codigo in codigos_conocidos(ruta):
         return Resultado(codigo, datos, estado_http)
     # 422 de FastAPI, código desconocido o cuerpo no JSON
     logger.error("Respuesta no reconocida del backend: HTTP %s en %s (código %r)",
