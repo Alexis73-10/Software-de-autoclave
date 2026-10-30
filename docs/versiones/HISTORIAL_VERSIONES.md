@@ -9,6 +9,18 @@ Una entrada por **entrega** (compilación con Setup que se instala en el equipo)
 
 <!-- entradas: las agrega compilar_entrega.py debajo de esta línea, la más nueva primero -->
 
+## 1.0.0-alpha.14 — 2026-10-30
+
+- Etiqueta: `v1.0.0-alpha.14` (commit `chore(ver): 1.0.0-alpha.14`, sobre `233fa4f`)
+- AppVerNum: `1.0.0.1014`
+- SHA-256 del Setup y del zip: en el mensaje de la etiqueta y en `entrega/v1.0.0-alpha.14_2026-10-30/SHA256SUMS.txt` (solo existen después de compilar)
+- Commits desde `v1.0.0-alpha.13`:
+  - 66b11010 docs(vaciado-chaqueta): CLAUDE.md y HAZ-VCC-01 con los cambios de la revisión
+  - 66e6fbc0 fix(vaciado-chaqueta): cambios de la revisión de seguridad
+  - 5ebc7793 docs(vaciado-chaqueta): sección en CLAUDE.md y riesgo HAZ-VCC-01
+  - 14675f18 feat(vaciado-chaqueta): vaciado de chaqueta tras ciclo líquido con enfriamiento 4/5
+
+
 ## 1.0.0-alpha.13 — 2026-10-30
 
 - Etiqueta: `v1.0.0-alpha.13` (commit `chore(ver): 1.0.0-alpha.13`, sobre `40c3262`)
