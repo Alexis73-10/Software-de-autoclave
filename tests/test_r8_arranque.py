@@ -206,3 +206,21 @@ def test_no_inhibe_el_venteo_y_una_puerta_pendiente_inhibe_su_movimiento(tmp_pat
     ctx.asignacion_pendiente = ["descompresion_rapida", "aire_atmosferico_camara", "abrir_puerta_1"]
     ctx.inhibir_salidas_sin_verificar()
     assert ctx.setdo.inhibidas == frozenset({"abrir_puerta_1", "cerrar_puerta_1"})
+
+
+def test_t24_paro_de_emergencia_pendiente_inhibe_la_energia(tmp_path):
+    """Tanda 24, revisión R (SAF-01): el paro reasignado sin verificar (se
+    puede reasignar con el paro pulsado desde RSB-01) inhibe las salidas que
+    aportan energía; el venteo sigue."""
+    ctx, _ = _ctx(tmp_path, {"vapor_camara": 26}, ["vapor_camara"])
+    ctx.setdo = MagicMock()
+    ctx.asignacion_pendiente = ["paro_emergencia"]
+    ctx.inhibir_salidas_sin_verificar()
+    assert set(ctx._SALIDAS_ENERGIA) <= ctx.setdo.inhibidas
+    assert not set(ctx._SALIDAS_VENTEO) & ctx.setdo.inhibidas
+    from autoclave.core.runtime import asignacion_io as aio
+    otra_di = next(f for f, tipo in aio.funciones().items()
+                   if tipo == "DI" and aio.base(f) != "paro_emergencia")
+    ctx.asignacion_pendiente = [otra_di]                # otra DI: sin cambio
+    ctx.inhibir_salidas_sin_verificar()
+    assert "vapor_chaqueta" not in ctx.setdo.inhibidas

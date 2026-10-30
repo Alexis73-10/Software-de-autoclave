@@ -20,35 +20,53 @@ from autoclave.ui_qml import sesion_backend
 
 logger = logging.getLogger(__name__)
 
-# Código del backend -> clave del catálogo (reasignacion.*)
+# Código del backend -> clave del catálogo (reasignacion.*). Tanda 24 (RSB-04):
+# todo lo que pueden emitir /io/assignment, /factory y /verify (los propios de
+# la reasignación llegan por sesion_backend.codigos_conocidos); el genérico
+# queda solo para lo desconocido (lo vigila tests/test_t24_codigos_reasignacion.py).
 _MENSAJES = {
+    # validación de la asignación (422)
     "conflicto": "reasignacion.err_conflicto",
     "puerto_inexistente": "reasignacion.err_puerto_inexistente",
     "funcion_desconocida": "reasignacion.err_funcion_desconocida",
+    "fabrica_invalida": "reasignacion.err_fabrica_invalida",
+    "asignacion_invalida": "reasignacion.err_asignacion_invalida",
+    "archivo_ilegible": "reasignacion.err_archivo",
+    "archivo_invalido": "reasignacion.err_archivo",
+    "puerto_sin_calibracion": "reasignacion.err_puerto_sin_calibracion",
     "sin_cambios": "reasignacion.err_sin_cambios",
+    "validacion": "reasignacion.err_validacion",
+    # confirmaciones (428/422)
+    "confirmacion_requerida": "reasignacion.err_confirmacion_requerida",
+    "confirmacion_reforzada": "reasignacion.err_confirmacion_reforzada",
+    "nombre_no_coincide": "reasignacion.err_nombre",
+    # sesión y reautenticación (401/403/429)
     "reautenticacion_fallida": "reasignacion.err_clave",
     "reautenticacion_requerida": "reasignacion.err_clave_requerida",
-    "nombre_no_coincide": "reasignacion.err_nombre",
-    "confirmacion_reforzada": "reasignacion.err_nombre",
     "usuario_bloqueado": "reasignacion.err_bloqueado",
-    "estado_no_permitido": "reasignacion.err_estado",
-    # ESS-07, SAF-01 (29-oct)
-    "sensor_camara_no_segura": "reasignacion.err_sensor_camara_no_segura",
     "rol_sin_permiso": "reasignacion.err_rol",
+    "sesion_invalida": "sesion.sesion_invalida",
+    "clave_pendiente": "sesion.clave_pendiente",
+    # estado del equipo (409; con `motivo` se muestra el motivo, ver _texto_rechazo)
+    "estado_no_permitido": "reasignacion.err_estado",
+    "configuracion_invalida": "reasignacion.err_configuracion_invalida",
+    # guardado y reinicio
     "no_se_pudo_guardar": "reasignacion.err_guardar",
-    "puerto_sin_calibracion": "reasignacion.err_puerto_sin_calibracion",
     "reinicio_en_curso": "reasignacion.err_reinicio_en_curso",
+    "reinicio_pendiente": "reasignacion.err_reinicio_pendiente",
+    # verificación (422/409)
     "no_pendiente": "reasignacion.err_no_pendiente",
     "sin_cambio_observado": "reasignacion.falta_sin_cambio_observado",
     "sin_prueba_de_salida": "reasignacion.falta_sin_prueba_de_salida",
     "sin_lectura": "reasignacion.falta_sin_lectura",
-    "calibracion_requerida": "reasignacion.falta_calibracion_requerida",
+    "error": "reasignacion.falta_error",
     sesion_backend.BACKEND_NO_RESPONDE: "reasignacion.err_sin_respuesta",
 }
-_MOTIVOS = {"ciclo", "estado", "modo_prueba", "apagando", "estado_seguro",
-            # ESS-07 (29-oct)
-            "estado_seguro_confirmar", "estado_seguro_liquido"}
-_FALTAS = {"sin_cambio_observado", "sin_prueba_de_salida", "sin_lectura", "calibracion_requerida"}
+# Motivos de 409 estado_no_permitido / GET "motivo" (RSB-02: solo estos cuatro)
+_MOTIVOS = {"ciclo", "estado", "modo_prueba", "apagando"}
+# Lo que falta para verificar (GET verificacion.funciones[].falta)
+_FALTAS = {"sin_cambio_observado", "sin_prueba_de_salida", "sin_lectura",
+           "puerto_sin_calibracion", "error"}
 _ESTADOS_VERIF = {"pendiente", "trama_presente", "sin_respuesta", "verificada"}
 
 
@@ -56,11 +74,36 @@ def mensaje_de(causa: str) -> str:
     return _MENSAJES.get(causa, "reasignacion.err_generico")
 
 
+def _texto_rechazo(r) -> str:
+    """Clave del catálogo para un rechazo: el motivo concreto de un 409
+    estado_no_permitido (ciclo, modo prueba...) o el texto de su código."""
+    datos = r.datos if isinstance(getattr(r, "datos", None), dict) else {}
+    if r.causa == "estado_no_permitido" and datos.get("motivo") in _MOTIVOS:
+        return f"reasignacion.motivo_{datos['motivo']}"
+    return mensaje_de(r.causa)
+
+
+def tipo_visible(fila: dict) -> str:
+    """Tanda 24 (RSB-08): tipo que se muestra en Reasignación. «RTD» para las
+    funciones del grupo de temperatura y «AI» para las de presión; DI y DO
+    sin cambio. Solo presentación: el tipo interno sigue siendo "AI"."""
+    return _PREFIJO_TIPO.get(grupo_de(fila), fila.get("tipo", ""))
+
+
+def lectura_visible(valor, temperatura: bool) -> str:
+    """RSB-07: «101.3 kPa» / «25.5 °C»; "" sin lectura válida."""
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return ""
+    return f"{float(valor):.1f} {'°C' if temperatura else 'kPa'}"
+
+
 # Tanda 23 (AIN-01/02, AIN-R1): grupos de puertos y su prefijo visible.
 # RTD 01-06 (temperatura) y AI 01-16 (presión) comparten números: todo se
 # compara por grupo, nunca por tipo "AI".
 GRUPOS = ("DI", "DO", "AI_TEMP", "AI_PRES")
 _PREFIJO = {"DI": "DI", "DO": "DO", "AI_TEMP": "RTD", "AI_PRES": "AI"}
+# RSB-08: el tipo visible de cada grupo (el mismo texto que el prefijo)
+_PREFIJO_TIPO = _PREFIJO
 
 
 def grupo_de(fila: dict) -> str:
@@ -157,14 +200,18 @@ class ReasignacionController(QObject):
                 self.pendientesChanged.emit()
         elif not self._reiniciando:
             self._d = {}
-            self._fijar_mensaje(mensaje_de(r.causa))
+            self._fijar_mensaje(_texto_rechazo(r))
         self.datosChanged.emit()
 
     # ── propiedades de la tabla ───────────────────────────────────────
     @Property("QVariantList", notify=datosChanged)
     def filas(self) -> list:
         f = self._d.get("filas")
-        return [dict(x) for x in f if isinstance(x, dict)] if isinstance(f, list) else []
+        if not isinstance(f, list):
+            return []
+        # RSB-08: "tipo_visible" («RTD» en las temperaturas); "tipo" sigue
+        # siendo el interno ("AI") para todo lo que compara
+        return [{**x, "tipo_visible": tipo_visible(x)} for x in f if isinstance(x, dict)]
 
     @Property(bool, notify=datosChanged)
     def cargado(self) -> bool:
@@ -181,6 +228,13 @@ class ReasignacionController(QObject):
         return f"reasignacion.motivo_{m}" if m in _MOTIVOS else ""
 
     @Property(bool, notify=datosChanged)
+    def avisoCamara(self) -> bool:
+        """RSB-03: aviso no bloqueante en los diálogos de Aplicar y Restaurar
+        fábrica. Sin el campo (backend anterior o respuesta rara), True: falla
+        hacia mostrar el aviso."""
+        return self._d.get("aviso_camara") is not False
+
+    @Property(bool, notify=datosChanged)
     def reinicioPendiente(self) -> bool:
         return self._d.get("reinicio_pendiente") is True
 
@@ -194,10 +248,12 @@ class ReasignacionController(QObject):
 
     @Property("QVariantList", notify=datosChanged)
     def verificacion(self) -> list:
-        """[{funcion, i18n, tipo, estado, falta, puerto, pendiente, reforzada}]
-        de las funciones reasignadas en el último arranque. estado: pendiente |
-        trama_presente | sin_respuesta | verificada. falta: clave del catálogo
-        con lo que falta para que el ingeniero la pueda verificar ("" = nada)."""
+        """[{funcion, i18n, tipo, tipoVisible, estado, falta, puerto, pendiente,
+        reforzada, lectura}] de las funciones reasignadas en el último arranque.
+        estado: pendiente | trama_presente | sin_respuesta | verificada. falta:
+        clave del catálogo con lo que falta para que el ingeniero la pueda
+        verificar ("" = nada). lectura (RSB-07): la lectura actual de una
+        analógica («101.3 kPa»), "" sin lectura válida."""
         v = self._d.get("verificacion") or {}
         funciones = v.get("funciones") if isinstance(v, dict) else None
         if not isinstance(funciones, dict):
@@ -212,6 +268,8 @@ class ReasignacionController(QObject):
             fila = por_funcion.get(funcion, {})
             salida.append({"funcion": funcion, "i18n": fila.get("i18n", ""),
                            "tipo": fila.get("tipo", ""),
+                           "tipoVisible": tipo_visible(fila) if fila else "",
+                           "lectura": lectura_visible(dato.get("lectura"), bool(fila.get("temperatura"))),
                            "estado": estado if estado in _ESTADOS_VERIF else "pendiente",
                            "falta": f"reasignacion.falta_{falta}" if falta in _FALTAS else "",
                            "puerto": fila.get("id_actual", ""),
@@ -327,7 +385,7 @@ class ReasignacionController(QObject):
                 self._fijar_mensaje("reasignacion.guardado_sin_reinicio")
             self.datosChanged.emit()
             return True
-        self._fijar_mensaje(mensaje_de(r.causa))
+        self._fijar_mensaje(_texto_rechazo(r))
         self._nombres = {}
         self.cargar()
         return False
@@ -348,14 +406,15 @@ class ReasignacionController(QObject):
     @Slot(str, str, str, result=bool)
     def verificar(self, funcion: str, clave: str, nombre: str) -> bool:
         """El ingeniero da por verificada una función reasignada. El backend
-        exige la evidencia (cambio observado, prueba de salida o calibración)."""
+        exige la evidencia (cambio observado, prueba de salida o, en una
+        analógica, lectura válida en el puerto nuevo: RSB-07)."""
         r = self._s().enviar("POST", "/io/assignment/verify",
                              {"funcion": funcion, "clave": clave, "nombre": nombre})
         if r.ok:
             self._fijar_mensaje("reasignacion.verificada_ok")
             self.cargar()
             return True
-        self._fijar_mensaje(mensaje_de(r.causa))
+        self._fijar_mensaje(_texto_rechazo(r))
         self.cargar()
         return False
 

@@ -432,6 +432,13 @@ class BackendContext:
                      if aio.funciones().get(f) == "DO"}
         if any(aio.funciones().get(f) == "AI" for f in pendientes):
             inhibidas |= set(self._SALIDAS_ENERGIA)
+        # Tanda 24, revisión R (SAF-01): desde RSB-01 se puede reasignar el
+        # propio paro de emergencia con el paro pulsado; hasta verificarlo,
+        # su puerto nuevo podría leer "liberado" sin serlo: el control
+        # automático no aporta energía (el venteo sigue, como con una AI)
+        if any(aio.base(f) == "paro_emergencia" and aio.funciones().get(f) == "DI"
+               for f in pendientes):
+            inhibidas |= set(self._SALIDAS_ENERGIA)
         # SAF-02 (3.ª vuelta): abrir o cerrar sin verificar detiene todo
         # movimiento automático de esa puerta (sin cierre sin reapertura)
         for n in ("1", "2"):

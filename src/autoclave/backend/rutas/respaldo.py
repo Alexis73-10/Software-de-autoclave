@@ -280,9 +280,6 @@ def post_backup_restore(body: _RestaurarBody,
                     en_ciclo = context.estado.get_machine_state() == GlobalState.CICLO
                 if en_ciclo:
                     _rechazar(409, "estado_no_permitido", "Hay un ciclo en curso", entidad, sesion)
-                # R8 (4.ª vuelta): la calibración del respaldo reemplaza la
-                # hecha en este arranque; deja de contar como evidencia
-                _reasignacion.anular_evidencias_ai()
                 escribir_texto_atomico(CALIBRATION_PATH, calib.decode("utf-8"))
                 context.units.reload_calibration(CALIBRATION_PATH)   # SAF-04: sin reiniciar
             aplicado["calibracion"] = True
