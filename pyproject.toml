@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta" #Usa el backend de construcción de setu
 
 [project] #Este bloque es para el programa, describe el software
 name = "autoclave" #Nombre del paquete
-version = "0.5.0" #Versión del paquete
+dynamic = ["version"] #VER-02: la versión sale de src/autoclave/_version.py (ver [tool.setuptools.dynamic])
 description = "Sistema de control para autoclave" #Descripción corta del paquete (aparece en metadatos)
 readme = "README.md" #Archivo README que contiene la descripción larga del paquete
 requires-python = ">=3.11" #Versión mínima de Python requerida
@@ -13,26 +13,42 @@ authors = [ #Lista de autores del paquete
   { name = "Cristian Cubides"}
 ]
 
-dependencies = [ #Lista de dependencias del paquete
-  "pyserial",
-  "tk",
+dependencies = [ #Lista de dependencias del paquete (solo las que importa src/autoclave; versiones exactas en requirements.lock.txt)
+  "pymodbus",
   "pillow",
   "PyYAML",
   "ruamel.yaml",
-  "SQLAlchemy",
   "pydantic",
   "PySide6",
   "PySide6-Fluent-Widgets[full]",
-  "pyqtgraph",
   "keyring",
-  "pywin32"
+  "pywin32",
+  "fastapi",
+  "uvicorn",
+  "requests",
+  "psutil",
+  "python-escpos"
+]
+
+[project.optional-dependencies] #Herramientas de prueba y compilación (no van en el producto; ver requirements-dev.txt)
+dev = [
+  "pytest",
+  "httpx",
+  "pyinstaller",
+  "pyinstaller-hooks-contrib",
+  "python-multipart"
 ]
 
 [project.scripts] #Define los puntos de entrada para los scripts ejecutables
-autoclave = "autoclave.app:main"
+autoclave = "autoclave.ui_qml.lanzar:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.dynamic] #VER-02: fuente única de la versión (PEP 440); la escribe solo tools/entrega/compilar_entrega.py
+version = {attr = "autoclave._version.__version__"}
+
 [tool.pytest.ini_options]
-addopts = "--ignore=tests/Interfaz.py --ignore=tests/ventana_emergente.py --ignore=tests/test_flujo_unidades.py --ignore=tests/test_rutas.py --ignore=tests/test_config.py"
+testpaths = ["tests"]
+addopts = "--ignore=tests/test_rutas.py --ignore=tests/test_config.py"
+markers = ["req(id): requisito trazado (IEC 62304 7.3.3)"]

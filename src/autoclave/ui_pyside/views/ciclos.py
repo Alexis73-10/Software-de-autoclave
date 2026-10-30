@@ -39,6 +39,7 @@ from qfluentwidgets import (
 )
 
 from autoclave.devices.printer.win32_printer import PRINTER_NAME, print_raw
+from autoclave.services.domain.logging import ticket_formatter as _tf
 from autoclave.services.domain.logging.ticket_formatter import (
     format_footer,
     format_header,
@@ -69,6 +70,8 @@ def _build_cycle_lines(ciclo: dict, lecturas: list) -> list[str]:
         "temp_esterilizacion":   ciclo.get("temp_esterilizacion"),
         "tiempo_esterilizacion": ciclo.get("tiempo_esterilizacion"),
         "fecha_inicio":          ciclo.get("fecha_inicio", ""),
+        # R (tanda 16, V16-s5-02; P4 / D-14.4): la reimpresión también lleva NO CONFORME
+        "no_conforme":           _tf.ciclo_no_conforme(ciclo),
     }
 
     temp_final = None
@@ -79,9 +82,11 @@ def _build_cycle_lines(ciclo: dict, lecturas: list) -> list[str]:
 
     lines = format_header(meta).split("\n")
     lines += [format_row(lec) for lec in lecturas]
+    _sin_datos, avisos = _tf.leer_avisos_ticket(ciclo.get("avisos_ticket"))
     lines += format_footer(
         ciclo.get("resultado", ""), ciclo.get("fecha_fin", ""),
         temp_final=temp_final, motivo=ciclo.get("motivo_fallo"),
+        avisos=avisos or None,
     ).split("\n")
     return lines
 
@@ -164,6 +169,9 @@ class _EmailDialog(QDialog):
 
         # Pre-cargar contraseña guardada si existe
         self._load_saved_password(saved_from)
+        # C1a (tanda 6): teclado en pantalla al tocar cada campo (equipo táctil)
+        from autoclave.ui_pyside.views._teclado_pantalla import conectar_todos
+        conectar_todos(self)
 
     # ── Contraseña guardada ───────────────────────────────────────────
 

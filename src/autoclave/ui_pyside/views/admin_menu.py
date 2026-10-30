@@ -13,11 +13,15 @@ from qfluentwidgets import InfoBar, InfoBarPosition
 
 _OPTIONS = [
     ("📋", "Parámetros del ciclo"),
-    ("⚙️", "Parámetros del sistema"),
+    ("⚙️", "Parámetros del equipo"),
     ("🔌", "Entradas / Salidas"),
     ("🔧", "Mantenimiento"),
     ("⚡", "Opciones avanzadas"),
 ]
+# "Nuevo usuario" se quitó de este menú (etapa 4 de autenticación, R2-6): la
+# pantalla vive en OPCIONES › Usuarios de la UI QML, con el token de la
+# ventana; el login PySide no obtiene token (decisión 3). La vista
+# (views/nuevo_usuario) y su puente se conservan.
 
 _OPTION_ROUTES = {
     "Parámetros del ciclo": "params_ciclo",
@@ -128,6 +132,7 @@ class AdminMenuView(QWidget):
         cl.addSpacing(4)
 
         # Opciones
+        self._botones = {}
         for icon, label in _OPTIONS:
             btn = QPushButton(f"  {icon}   {label}")
             btn.setFixedHeight(52)
@@ -135,6 +140,7 @@ class AdminMenuView(QWidget):
             btn.setStyleSheet(_BTN_OPTION.format(bg="#f8f9fa"))
             btn.clicked.connect(lambda checked=False, n=label: self._option_clicked(n))
             cl.addWidget(btn)
+            self._botones[label] = btn
 
         # Centrar card
         row = QHBoxLayout()
@@ -147,9 +153,9 @@ class AdminMenuView(QWidget):
     def showEvent(self, event) -> None:
         super().showEvent(event)
         try:
-            from autoclave.ui_pyside.services.session_manager import SessionManager
-            if SessionManager.is_logged_in():
-                self._lbl_user.setText(SessionManager.current_user["nombre"])
+            from autoclave.cliente.session_manager import SessionManager
+            if SessionManager.is_authenticated():
+                self._lbl_user.setText(SessionManager.current_user()["nombre"])
         except Exception:
             pass
 
@@ -169,6 +175,6 @@ class AdminMenuView(QWidget):
         )
 
     def _do_logout(self) -> None:
-        from autoclave.ui_pyside.services.session_manager import SessionManager
-        SessionManager.logout()
+        from autoclave.ui_pyside.services import auth_backend
+        auth_backend.cerrar_sesion()    # invalida el token en el backend y limpia la sesión local
         self._nav("login")

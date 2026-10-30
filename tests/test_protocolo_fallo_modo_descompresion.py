@@ -9,7 +9,11 @@ def _make_protocolo(modo, pres_camara=300.0, presion_cambio=150):
     estado.sensores_pres = {"pres_camara": pres_camara}
     estado.sensores_temp = {"temp_camara": 25.0}
     config = MagicMock()
-    config.get.return_value = None
+    # S9, revisión ★ pasada 3 (b): sin la referencia atmosférica configurada
+    # el protocolo no abre el aire atmosférico; aquí, la de los valores por
+    # defecto que usa el protocolo
+    config.get.side_effect = lambda k, d=None: {"presion_admosferica": 101.3,
+                                                "rango_presion_atm": 20.0}.get(k, d)
     set_do = MagicMock()
     cycle = MagicMock()
 
@@ -39,6 +43,11 @@ def test_vacio_real_al_disparo_abre_aire_atmosferico():
     protocolo, set_do, cycle = _make_protocolo(modo=1, pres_camara=50.0)
 
     protocolo.ejecutar()
+    # S9, revisión ★ pasada 2 R2-B3: el disparo es la primera lectura de
+    # vacío; el aire se abre con la tercera (dos update() más)
+    set_do.aire_admosferico_camara_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
 
     set_do.aire_admosferico_camara_on.assert_called_once()
     set_do.descompresion_rapida_on.assert_not_called()
@@ -100,27 +109,31 @@ def test_modo_3_transicion_a_rapida():
     assert protocolo._sub_etapa == "rapida"
 
 
-def test_modo_4_va_directo_a_final_sin_enfriamiento():
+def test_modo_4_carga_fria_despresuriza_tras_confirmar_el_enfriamiento():
+    # PF-19 (T5): ya no va directo a chaqueta + rápida; con la carga fría
+    # (25 °C) basta confirmar 3 lecturas bajo temperatura_enfriamiento
     protocolo, set_do, _ = _make_protocolo(modo=4)
 
     protocolo.ejecutar()
+    set_do.descompresion_rapida_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
 
-    set_do.descompresion_chaqueta_on.assert_called_once()
-    set_do.descompresion_rapida_on.assert_called_once()
-    set_do.agua_chaqueta_on.assert_not_called()
-    set_do.aire_comprimido_camara_on.assert_not_called()
+    set_do.descompresion_chaqueta_on.assert_called()
+    set_do.descompresion_rapida_on.assert_called()
+    set_do.aire_comprimido_camara_on.assert_not_called()   # 300 kPa > 200 de contrapresión
 
 
-def test_modo_5_va_directo_a_final_sin_enfriamiento():
+def test_modo_5_carga_fria_despresuriza_tras_confirmar_el_enfriamiento():
     protocolo, set_do, _ = _make_protocolo(modo=5)
 
     protocolo.ejecutar()
+    set_do.descompresion_rapida_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
 
-    set_do.descompresion_chaqueta_on.assert_called_once()
-    set_do.descompresion_rapida_on.assert_called_once()
-    set_do.agua_chaqueta_on.assert_not_called()
-    set_do.aire_comprimido_camara_on.assert_not_called()
-
+    set_do.descompresion_chaqueta_on.assert_called()
+    set_do.descompresion_rapida_on.assert_called()
 
 def test_modo_3_continua_transicion_en_update():
     # DescompresionFase (y esta réplica) apagan "lenta" y cambian de
@@ -167,6 +180,11 @@ def test_transicion_a_vacio_real_cierra_valvulas_y_activa_atm():
     set_do.descompresion_rapida_off.assert_called_once()
     set_do.descompresion_lenta_off.assert_called_once()
     set_do.descompresion_chaqueta_off.assert_called_once()
+    # S9, revisión ★ SAF-03: cerrar es inmediato; el aire atmosférico solo
+    # con 3 lecturas de vacío seguidas
+    set_do.aire_admosferico_camara_on.assert_not_called()
+    protocolo.update()
+    protocolo.update()
     set_do.aire_admosferico_camara_on.assert_called_once()
 
 

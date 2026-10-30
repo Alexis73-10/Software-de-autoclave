@@ -3,6 +3,10 @@ from autoclave.devices.puertas.enum_doors import DoorState
 
 
 class SimpleDoor(Door):
+    # Sin actuador: cmd_abrir / cmd_cerrar no mueven nada; el endpoint lo
+    # indica con "sin_actuador" (T-18).
+    tiene_actuador = False
+
     def __init__(self, name, di, estado):
         super().__init__(name)
         self.di = di
@@ -54,9 +58,8 @@ class SimpleDoor(Door):
     def update(self):
         cerrada = self.puerta_cerrada()
 
-        if cerrada is None:
-            return  # sensor inválido
-
+        # Lectura inválida o ausente = puerta abierta (posición segura,
+        # HAZ-FC-02): no se conserva el último estado conocido (E1-3).
         if cerrada:
             self.set_state(DoorState.CERRADO)
         else:

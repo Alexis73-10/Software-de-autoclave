@@ -1,16 +1,19 @@
+from autoclave.core.runtime.asignacion_io import canal_do
 from autoclave.hal.measures.units import Units
-from autoclave.protocols.serial_link import SerialLink
 from autoclave.utils.paths import calibration_path
 from autoclave.devices.puertas.door_type import DoorType
 
-_DOOR_DO_CHANNELS = {
-    1: {"abrir": 20, "cerrar": 22, "desbloquear": 9,  "bloquear": 11},
-    2: {"abrir": 21, "cerrar": 23, "desbloquear": 10, "bloquear": 12},
-}
+def _canales_do_puerta(n: int) -> dict:
+    """Canales físicos de las salidas de la puerta `n` según la asignación de
+    E/S en memoria (R8, D8-5.12). Con la de fábrica: puerta 1 = 20/22/9/11,
+    puerta 2 = 21/23/10/12, como antes."""
+    return {"abrir": canal_do(f"abrir_puerta_{n}"), "cerrar": canal_do(f"cerrar_puerta_{n}"),
+            "desbloquear": canal_do(f"desbloqueo_puerta_{n}"),
+            "bloquear": canal_do(f"bloqueo_puerta_{n}")}
 
 
 def _build_door_cfg(n: int, door_type: DoorType) -> dict:
-    do_ch = _DOOR_DO_CHANNELS[n]
+    do_ch = _canales_do_puerta(n)
     cfg = {
         "name": f"Puerta {n}",
         "type": door_type,
@@ -45,11 +48,34 @@ def _build_door_cfg(n: int, door_type: DoorType) -> dict:
     return cfg
 
 
+def build_modbus(units, al_conectar=None):
+    """Enlace Modbus TCP con los módulos M31-U (tanda 19), ya iniciado.
+    `al_conectar(modulo_es)` se registra antes de start() para no perder la
+    primera conexión verificada (audit_log y emparejamiento, FW-D7)."""
+    try:
+        from autoclave.protocols.modbus_link import ModbusLink
+    except ImportError as e:
+        raise RuntimeError(
+            "enlace de E/S: el enlace Modbus no está disponible en esta "
+            f"compilación (autoclave.protocols.modbus_link: {e})") from e
+    enlace = ModbusLink(on_update=lambda data: units.update_from_serial(data))
+    enlace.al_conectar = al_conectar
+    enlace.start()
+    return enlace
+
+
+def build_enlace(units, al_conectar=None):
+    """Construye e inicia el enlace de E/S: ModbusLink (MOD-01; enlace único
+    desde la tanda 20, T20-03, que retiró el serial y la selección por
+    archivo). Cumple protocols.enlace.EnlaceES."""
+    return build_modbus(units, al_conectar=al_conectar)
+
+
+def build_doors_cfg(profile) -> list[dict]:
+    return [_build_door_cfg(n + 1, profile.door_type) for n in range(profile.door_count)]
+
+
 def build_hardware(profile):
     units = Units(calibration_path())
-    serial = SerialLink(on_update=lambda data: units.update_from_serial(data))
-    serial._scan_ports()
-    serial.start()
-
-    doors_cfg = [_build_door_cfg(n + 1, profile.door_type) for n in range(profile.door_count)]
-    return units, serial, doors_cfg
+    enlace = build_enlace(units)
+    return units, enlace, build_doors_cfg(profile)

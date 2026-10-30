@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparacion import preparacion_state
+from autoclave.state_machine.alarms.catalogo import PRE_05
+from tests.helpers.alarmas_helpers import codigos_activados
 
 
 def _make_preparacion(agua_camara):
@@ -28,5 +30,5 @@ def test_con_agua_residual_pide_rapida():
     assert ok is False
     assert quiere_rapida is True
     set_do.descompresion_rapida_on.assert_not_called()
-    ids = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "AGUA_RESIDUAL_CAMARA" in ids
+    ids = codigos_activados(alarm_mgr)
+    assert PRE_05 in ids

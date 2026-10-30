@@ -1,10 +1,12 @@
 {
     "cycle_id": "134_instrumental",
+    "cycle_number": 2,
     "display_name": "instrumental 134",
     "cycle_icon": "BigPackages",
     "cycle_temperature_sensors": {
-        "1": "temp_camara",
-        "2": "temp_ref"
+        "temp_camara": "principal",
+        "temp_2_camara": "no_en_uso",
+        "temp_ref": "no_en_uso"
     },
     "parameters": {
         "globals": {
@@ -31,6 +33,7 @@
                 "value": 350,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 400
             },
@@ -38,8 +41,34 @@
                 "value": 25,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 100
+            },
+            "delta_temp_chaqueta": {
+                "value": 1.5,
+                "type": "float",
+                "unit": "°C",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 5
+            },
+            "margen_flujo_chaqueta": {
+                "value": 15.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 40
+            },
+            "tipo_carga": {
+                "value": "solido",
+                "type": "enum",
+                "options": [
+                    "solido",
+                    "liquido"
+                ],
+                "unit": ""
             }
         },
         "precalentamiento": {
@@ -54,20 +83,12 @@
                 "value": 350,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
             "timeout_precalentamiento": {
                 "value": 10,
-                "type": "int",
-                "unit": "min",
-                "min": 0,
-                "max": 3600
-            }
-        },
-        "purga": {
-            "tiempo_purga": {
-                "value": 0,
                 "type": "int",
                 "unit": "min",
                 "min": 0,
@@ -84,6 +105,7 @@
             "presion_alta_pulso_a": {
                 "value": 140,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -96,6 +118,7 @@
             "presion_baja_pulso_a": {
                 "value": 20,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -114,6 +137,7 @@
             "presion_alta_pulso_b": {
                 "value": 160,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -126,6 +150,7 @@
             "presion_baja_pulso_b": {
                 "value": 30,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -144,6 +169,7 @@
             "presion_alta_pulso_c": {
                 "value": 160,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -156,6 +182,7 @@
             "presion_baja_pulso_c": {
                 "value": 110,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -174,6 +201,7 @@
             "presion_alta_pulso_d": {
                 "value": 160,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -186,6 +214,7 @@
             "presion_baja_pulso_d": {
                 "value": 110,
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 1000
             },
@@ -215,6 +244,7 @@
                 "value": 134.0,
                 "type": "float",
                 "unit": "°C",
+                "clase": "absoluto",
                 "min": 100,
                 "max": 140
             },
@@ -222,8 +252,17 @@
                 "value": 11.0,
                 "type": "float",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 100
+            },
+            "histeresis_cierre_camara": {
+                "value": 3.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 1,
+                "max": 10
             },
             "timeout_calentamiento": {
                 "value": 60,
@@ -239,10 +278,19 @@
                 "min": 0,
                 "max": 100
             },
-            "rango_calentamiento": {
+            "rango_calentamiento_temp": {
+                "value": 2.0,
+                "type": "float",
+                "unit": "°C",
+                "clase": "diferencia",
+                "min": 0,
+                "max": 30
+            },
+            "rango_calentamiento_pres": {
                 "value": 2.0,
                 "type": "float",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 30
             },
@@ -250,6 +298,7 @@
                 "value": 50.0,
                 "type": "float",
                 "unit": "°C/min",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 100
             },
@@ -257,6 +306,7 @@
                 "value": 100.0,
                 "type": "float",
                 "unit": "kPa/min",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 300
             },
@@ -306,6 +356,7 @@
                 "value": 1.0,
                 "type": "float",
                 "unit": "°C",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 10
             },
@@ -329,6 +380,7 @@
                 "value": 134.0,
                 "type": "float",
                 "unit": "°C",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 200
             },
@@ -336,6 +388,7 @@
                 "value": 0.5,
                 "type": "float",
                 "unit": "°C",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 50
             },
@@ -343,6 +396,7 @@
                 "value": 15,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 1000
             },
@@ -387,6 +441,7 @@
                 "value": 134.0,
                 "type": "float",
                 "unit": "°C",
+                "clase": "absoluto",
                 "min": 100,
                 "max": 140
             },
@@ -405,11 +460,20 @@
                 "max": 100
             },
             "presion_add_esterilizacion": {
-                "value": 9.0,
+                "value": 15.0,
                 "type": "float",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 100
+            },
+            "histeresis_cierre_camara": {
+                "value": 3.0,
+                "type": "float",
+                "unit": "kPa",
+                "clase": "diferencia",
+                "min": 1,
+                "max": 10
             },
             "intervalo_segmentos_ester": {
                 "value": 2,
@@ -422,6 +486,7 @@
                 "value": 3.0,
                 "type": "float",
                 "unit": "°C",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 50
             },
@@ -429,13 +494,15 @@
                 "value": 30.0,
                 "type": "float",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 100
             },
             "brecha_segura_temperatura": {
-                "value": 0.3,
+                "value": 1.0,
                 "type": "float",
                 "unit": "°C",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 2
             },
@@ -443,6 +510,7 @@
                 "value": 0.1,
                 "type": "float",
                 "unit": "°C",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 2
             },
@@ -450,6 +518,7 @@
                 "value": 2.0,
                 "type": "float",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 10
             },
@@ -457,11 +526,24 @@
                 "value": 1.5,
                 "type": "float",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 20
+            },
+            "timeout_excursion_referencia": {
+                "value": 5,
+                "type": "int",
+                "unit": "min",
+                "min": 1,
+                "max": 30
+            },
+            "max_reinicios_exposicion": {
+                "value": 3,
+                "type": "int",
+                "min": 0,
+                "max": 10
             }
         },
-        "despresurizacion": {},
         "secado": {
             "modo": {
                 "value": 3,
@@ -481,6 +563,7 @@
                 "value": 300,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 500
             },
@@ -488,6 +571,7 @@
                 "value": 30,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "diferencia",
                 "min": 0,
                 "max": 100
             },
@@ -495,6 +579,7 @@
                 "value": 20,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 200
             },
@@ -502,6 +587,7 @@
                 "value": 50,
                 "type": "int",
                 "unit": "kPa",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 300
             },
@@ -551,6 +637,7 @@
                     "value": 150,
                     "type": "int",
                     "unit": "kPa",
+                    "clase": "absoluto",
                     "min": 0,
                     "max": 500
                 },
@@ -567,6 +654,7 @@
                     "value": 200,
                     "type": "int",
                     "unit": "kPa",
+                    "clase": "absoluto",
                     "min": 0,
                     "max": 500
                 },
@@ -574,6 +662,7 @@
                     "value": 80,
                     "type": "float",
                     "unit": "°C",
+                    "clase": "absoluto",
                     "min": 0,
                     "max": 150
                 },
@@ -604,6 +693,7 @@
                     "value": 200,
                     "type": "int",
                     "unit": "kPa",
+                    "clase": "absoluto",
                     "min": 0,
                     "max": 500
                 },
@@ -611,6 +701,7 @@
                     "value": 80,
                     "type": "float",
                     "unit": "°C",
+                    "clase": "absoluto",
                     "min": 0,
                     "max": 150
                 },
@@ -649,6 +740,7 @@
                 "value": 100.0,
                 "type": "float",
                 "unit": "°C",
+                "clase": "absoluto",
                 "min": 0,
                 "max": 150
             },

@@ -11,8 +11,8 @@ class _FakeEstado:
     def __init__(self):
         self._flags = {"PARO_EMERGENCIA": False, "FALLO_SUMINISTRO_ELECTRICO": False}
         self._state = GlobalState.PREPARACION
-        self.sensores_di = {"paro_emergencia": 0, "suministro_electrico": 1}
-        self.Alarmas_activas = []  # Required by AlarmManager
+        # PF-21: paro NC (1 = sin paro)
+        self.sensores_di = {"paro_emergencia": 1, "suministro_electrico": 1}
 
     def get_machine_state(self):
         return self._state
@@ -51,6 +51,9 @@ def _make_control_loop(estado=None):
             config_manager=MagicMock(),
             cap="fake_cap",
         )
+    # el paro arranca activo (falla cerrada hasta el primer dato, PF-21); el
+    # primer tick con la entrada en 1 lo limpiaría
+    estado.set_flag("PARO_EMERGENCIA", False)
     return loop, mock_sm_cls, initial_cycle, estado
 
 
@@ -67,7 +70,11 @@ def test_set_active_cycle_permitido_fuera_de_ciclo_reconstruye_state_machine(moc
     mock_sm_class.assert_called_once_with(
         io=loop.link, estado=loop.estado, set_do=loop.set_do,
         cycle=new_cycle, config=loop.config_manager, cap="fake_cap",
-        door_service=loop.door_service,
+        door_service=loop.door_service, profile=loop.profile,
+        alarm_manager=loop.alarm_manager,
+        programas_seguridad=loop.programas_para_seguridad,   # T3/T4
+        temp_max_ciclo=loop.temp_max_tras_ciclo,
+        estado_seguro=loop.estado_seguro,                    # T5 (fin de ciclo §15)
     )
     assert loop.state_machine is mock_sm_class.return_value
 
@@ -90,8 +97,8 @@ def test_set_active_cycle_bloqueado_en_ciclo(mock_sm_class):
 
 @patch("autoclave.services.domain.loop.control_loop.StateMachine")
 def test_set_active_cycle_permitido_en_estados_no_ciclo(mock_sm_class):
-    for state in (GlobalState.PREPARACION, GlobalState.PREPARADO,
-                  GlobalState.FALLA, GlobalState.HIBERNACION):
+    # S2 (tanda 2): HIBERNACION y EMERGENCIA ya no (ver test_s2_cycle_select)
+    for state in (GlobalState.PREPARACION, GlobalState.PREPARADO, GlobalState.FALLA):
         estado = _FakeEstado()
         estado.set_machine_state(state)
         loop, mock_sm_cls, _, _ = _make_control_loop(estado)

@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, field
 from enum import Enum
 from datetime import datetime
 from autoclave.installation.equipment import EquipmentClass
@@ -9,6 +10,194 @@ class Role(Enum):
     OPERATOR_FRONT = "operator_front"
     OPERATOR_BACK  = "operator_back"
     SERVICE        = "service"
+
+
+# Entradas digitales de suministro que un equipo puede o no tener cableadas
+# (E1-1, CR-FC-02). Una entrada sin cablear lee 0 y bloquearía el equipo.
+SUPPLY_INPUT_KEYS = (
+    "agua_bomba",
+    "agua_generador",
+    "aire_comprimido",
+    "vapor_suministro",
+    "suministro_electrico",
+)
+
+
+def supply_inputs_por_defecto() -> dict[str, bool]:
+    """Todas cableadas: falla cerrada para perfiles sin el campo."""
+    return {k: True for k in SUPPLY_INPUT_KEYS}
+
+
+def normalizar_supply_inputs(valor) -> dict[str, bool]:
+    """Completa con True las claves que falten (campo ausente = todas)."""
+    resultado = supply_inputs_por_defecto()
+    if isinstance(valor, dict):
+        for k in SUPPLY_INPUT_KEYS:
+            if valor.get(k) is False:
+                resultado[k] = False
+    return resultado
+
+
+def entrada_requerida(profile, clave: str) -> bool:
+    """True si el equipo tiene la entrada `clave` cableada y debe vigilarse.
+    Sin perfil, o con un valor distinto de False, se considera requerida."""
+    si = getattr(profile, "supply_inputs", None)
+    if not isinstance(si, dict):
+        return True
+    return si.get(clave, True) is not False
+
+
+# F3 (tanda 16, VCH-SEL §4.1; V-01): modo de control del vapor en
+# CALENTAMIENTO y ESTERILIZACION. No existía una función del perfil para
+# "salida vapor_chaqueta habilitada y sensor pres_chaqueta asignado".
+MODO_CHAQUETA = "chaqueta"
+MODO_CAMARA = "camara"
+
+
+def modo_vapor(profile, io_enabled=None) -> str:
+    """"chaqueta" si el equipo tiene chaqueta completa (capacidad
+    has_full_jacket de su clase, PISO / PISO_LAB) y su io_enabled, filtrado
+    por el perfil, declara la salida vapor_chaqueta y el sensor pres_chaqueta;
+    "camara" en cualquier otro caso (equipos de mesa). Falla hacia el modo
+    cámara, que es el comportamiento anterior a la tanda 16: sin perfil de
+    instalación, con una clase desconocida, sin io_enabled legible o ante
+    cualquier error. `io_enabled` (pruebas): {"AI": [...], "DO": [...]} ya
+    filtrado; sin él se lee el del equipo activo."""
+    try:
+        if not isinstance(profile, InstallationProfile):
+            return MODO_CAMARA
+        from autoclave.installation.equipment import get_capabilities
+        if get_capabilities(profile.equipment_class).has_full_jacket is not True:
+            return MODO_CAMARA
+        if io_enabled is None:
+            from autoclave.core.runtime.io_names import leer_io_enabled
+            io_enabled = leer_io_enabled(profile=profile)
+        if ("vapor_chaqueta" in (io_enabled.get("DO") or [])
+                and "pres_chaqueta" in (io_enabled.get("AI") or [])):
+            return MODO_CHAQUETA
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("modo_vapor: no evaluable; modo cámara")
+    return MODO_CAMARA
+
+
+def numero_puertas(profile) -> int:
+    """Puertas declaradas en el perfil (E1-2). Sin perfil válido, 2 (como antes)."""
+    n = getattr(profile, "door_count", None)
+    return n if n in (1, 2) else 2
+
+
+def revisa_empaque(profile) -> bool:
+    """False solo para door_type=simple (sin sensor de empaque, E1-2). Los
+    demás tipos y la falta de perfil conservan la revisión de siempre."""
+    return getattr(profile, "door_type", None) != DoorType.SIMPLE
+
+
+def puertas_simples(profile) -> bool:
+    """D9-3 (tanda 9): True si el equipo tiene puertas simples (sin actuador,
+    sin empaque): se ocultan la apertura automática, su espera y los grupos
+    Puerta y Empaque de Parámetros del equipo. Sin perfil, False (se muestra
+    todo, como antes)."""
+    return getattr(profile, "door_type", None) == DoorType.SIMPLE
+
+
+def sensores_empaque(profile) -> list[str]:
+    """Sensores de empaque que se revisan: uno por puerta declarada, o
+    ninguno si el tipo de puerta no tiene empaque."""
+    if not revisa_empaque(profile):
+        return []
+    return [f"pres_empaque_{n}" for n in range(1, numero_puertas(profile) + 1)]
+
+
+def entradas_no_monitoreadas(profile) -> list[str]:
+    """Entradas declaradas "no aplica" en el perfil, en orden fijo."""
+    return [k for k in SUPPLY_INPUT_KEYS if not entrada_requerida(profile, k)]
+
+
+# Canales de temperatura que un equipo puede o no tener con sonda (adenda
+# E0/E1, A-2). Mismos nombres que EstadoAutoclave.map_temp. temp_camara es la
+# sonda de control: siempre instalada (la validación rechaza False).
+TEMPERATURE_PROBE_KEYS = (
+    "temp_camara",
+    "temp_2_camara",
+    "temp_ref",
+    "temp_drenaje",
+)
+SONDA_OBLIGATORIA = "temp_camara"
+
+
+def temperature_probes_por_defecto() -> dict[str, bool]:
+    """Todas instaladas: falla cerrada para perfiles sin el campo."""
+    return {k: True for k in TEMPERATURE_PROBE_KEYS}
+
+
+def normalizar_temperature_probes(valor) -> dict[str, bool]:
+    """Completa con True las claves que falten (campo ausente = todas)."""
+    resultado = temperature_probes_por_defecto()
+    if isinstance(valor, dict):
+        for k in TEMPERATURE_PROBE_KEYS:
+            if valor.get(k) is False and k != SONDA_OBLIGATORIA:
+                resultado[k] = False
+    return resultado
+
+
+def sonda_instalada(profile, canal: str) -> bool:
+    """True si el canal tiene sonda y debe vigilarse. Sin perfil, o con un
+    valor distinto de False, se considera instalada."""
+    if canal == SONDA_OBLIGATORIA:
+        return True
+    tp = getattr(profile, "temperature_probes", None)
+    if not isinstance(tp, dict):
+        return True
+    return tp.get(canal, True) is not False
+
+
+def sondas_no_vigiladas(profile) -> list[str]:
+    """Canales declarados sin sonda en el perfil, en orden fijo."""
+    return [k for k in TEMPERATURE_PROBE_KEYS if not sonda_instalada(profile, k)]
+
+
+# FW-D7: ID único del módulo E/S (MAC del módulo principal M31-U sin
+# separadores, ADB-03; 12 dígitos hex en mayúscula) registrado por el ingeniero con tools/emparejar_modulo_es.py.
+_RE_BOARD_ID = re.compile(r"^[0-9A-F]{12}$")
+
+
+def board_id_valido(valor) -> bool:
+    return isinstance(valor, str) and bool(_RE_BOARD_ID.match(valor))
+
+
+def modulo_es_emparejado(profile, id_modulo_es) -> bool | None:
+    """True si el módulo E/S conectado es el registrado en el perfil; False si
+    es otra o el perfil no tiene board_id (sin emparejar); None si no se
+    conoce el ID del módulo E/S. En la versión 1.0 es solo una advertencia
+    no bloqueante (FW-D7)."""
+    if not id_modulo_es:
+        return None
+    return getattr(profile, "board_id", None) == id_modulo_es
+
+
+# E1b (D-23): fuente de vapor del equipo. La salida de la fuente que el
+# equipo no tiene no se enciende nunca; en mixto quedan las dos. Campo ausente
+# = comportamiento previo (ambas disponibles) para perfiles anteriores a E1b.
+# S1 (tanda 2, decisión 1 de Cristian, 2026-10-19): con generador interno no
+# hay DO1 (vapor_generador) ni DO2 (vapor_caldera): el generador tiene sus
+# propios controles y el software no los enciende ni los lee. Caldera externa
+# y mixto conservan la asignación de E1b (abierta, por definir en campo).
+VAPOR_SOURCES = ("generator", "boiler", "mixed")
+_SALIDAS_VAPOR = {
+    "generator": frozenset(),
+    "boiler":    frozenset({"vapor_caldera"}),
+    "mixed":     frozenset({"vapor_generador", "vapor_caldera"}),
+}
+
+
+def salidas_vapor_permitidas(profile) -> set[str]:
+    """None (perfil anterior a E1b) = ambas; un valor desconocido = ninguna
+    (falla cerrada: nunca se habilita una fuente por un valor mal escrito)."""
+    fuente = getattr(profile, "vapor_source", None)
+    if fuente is None:
+        return set(_SALIDAS_VAPOR["mixed"])
+    return set(_SALIDAS_VAPOR.get(fuente, frozenset()))
 
 
 class ProfileValidationError(Exception):
@@ -30,6 +219,18 @@ class InstallationProfile:
     role:            Role
     created_at:      datetime
     locked:          bool = True
+    # E1-1: entrada -> True si está cableada. Falta el campo = todas True.
+    supply_inputs:   dict = field(default_factory=supply_inputs_por_defecto)
+    # A-2: canal de temperatura -> True si tiene sonda. Falta el campo = todas.
+    temperature_probes: dict = field(default_factory=temperature_probes_por_defecto)
+    # FW-D7: ID del módulo E/S emparejado. None = sin emparejar.
+    board_id:        str | None = None
+    # E1b: generator | boiler | mixed. None = perfil anterior a E1b.
+    vapor_source:    str | None = None
+    # M1 (tanda 7): capacidad nominal (L) y tipo de carga ("V"|"H") con los
+    # que se calculó model_id. None = perfil anterior a M1 (capacidad "—").
+    capacidad_litros: int | None = None
+    tipo_carga:      str | None = None
 
 
 _REQUIRED_TYPES: dict[str, type] = {
@@ -48,6 +249,24 @@ _REQUIRED_TYPES: dict[str, type] = {
 
 _VALID_EQUIPMENT_CLASSES = {e.value for e in EquipmentClass}
 _VALID_DOOR_TYPES        = {e.value for e in DoorType}
+
+
+def _errores_modelo(data: dict) -> list[str]:
+    from autoclave.installation.modelo import calcular_modelo
+    tiene_cap, tiene_carga = "capacidad_litros" in data, "tipo_carga" in data
+    if not tiene_cap and not tiene_carga:
+        return []
+    if tiene_cap != tiene_carga:
+        return ["'capacidad_litros' y 'tipo_carga' van juntos: falta uno de los dos"]
+    try:
+        nombre = calcular_modelo(data.get("equipment_class"), data["capacidad_litros"],
+                                 data["tipo_carga"], data.get("door_count"))
+    except ValueError as e:
+        return [f"valor inválido para calcular el modelo: {e}"]
+    if data.get("model_id") != nombre:
+        return [f"'model_id' inconsistente: {data.get('model_id')!r} no es el nombre "
+                f"calculado {nombre!r} (el modelo solo cambia reinstalando el perfil)"]
+    return []
 
 
 def validate_profile_data(data: dict) -> list[str]:
@@ -83,6 +302,69 @@ def validate_profile_data(data: dict) -> list[str]:
                 f"valor inválido en 'door_type': '{data['door_type']}' "
                 f"no está en {_VALID_DOOR_TYPES}"
             )
+
+    # supply_inputs es opcional; si está, solo claves conocidas y booleanas
+    if "supply_inputs" in data:
+        si = data["supply_inputs"]
+        if not isinstance(si, dict):
+            errors.append(
+                f"tipo incorrecto en 'supply_inputs': esperado dict, "
+                f"recibido {type(si).__name__}"
+            )
+        else:
+            desconocidas = sorted(set(si) - set(SUPPLY_INPUT_KEYS))
+            if desconocidas:
+                errors.append(
+                    f"claves desconocidas en 'supply_inputs': {desconocidas} "
+                    f"(válidas: {list(SUPPLY_INPUT_KEYS)})"
+                )
+            no_bool = sorted(k for k, v in si.items() if not isinstance(v, bool))
+            if no_bool:
+                errors.append(f"valores no booleanos en 'supply_inputs': {no_bool}")
+
+    # temperature_probes es opcional; mismo patrón, y temp_camara no puede faltar
+    if "temperature_probes" in data:
+        tp = data["temperature_probes"]
+        if not isinstance(tp, dict):
+            errors.append(
+                f"tipo incorrecto en 'temperature_probes': esperado dict, "
+                f"recibido {type(tp).__name__}"
+            )
+        else:
+            desconocidas = sorted(set(tp) - set(TEMPERATURE_PROBE_KEYS))
+            if desconocidas:
+                errors.append(
+                    f"claves desconocidas en 'temperature_probes': {desconocidas} "
+                    f"(válidas: {list(TEMPERATURE_PROBE_KEYS)})"
+                )
+            no_bool = sorted(k for k, v in tp.items() if not isinstance(v, bool))
+            if no_bool:
+                errors.append(f"valores no booleanos en 'temperature_probes': {no_bool}")
+            if tp.get(SONDA_OBLIGATORIA) is False:
+                errors.append(
+                    f"'temperature_probes.{SONDA_OBLIGATORIA}' no puede ser false: "
+                    f"es la sonda de control del ciclo"
+                )
+
+    # board_id es opcional (FW-D7); si está, 12 dígitos hex en mayúscula
+    if "board_id" in data and not board_id_valido(data["board_id"]):
+        errors.append(
+            f"valor inválido en 'board_id': {data['board_id']!r} "
+            f"(se esperan 12 dígitos hexadecimales en mayúscula)"
+        )
+
+    # vapor_source es opcional (E1b); si está, uno de VAPOR_SOURCES
+    if "vapor_source" in data and data["vapor_source"] not in VAPOR_SOURCES:
+        errors.append(
+            f"valor inválido en 'vapor_source': {data['vapor_source']!r} "
+            f"(se espera uno de {list(VAPOR_SOURCES)})"
+        )
+
+    # M1 (tanda 7): capacidad_litros y tipo_carga son opcionales (perfiles
+    # anteriores no los tienen), pero van juntos y, si están, model_id debe
+    # ser el nombre calculado (protege contra una edición a mano). Un perfil
+    # nuevo de mesa queda inválido porque calcular_modelo rechaza la clase.
+    errors.extend(_errores_modelo(data))
 
     # Validaciones cruzadas (solo si equipment_class es válido)
     ec_value = data.get("equipment_class")

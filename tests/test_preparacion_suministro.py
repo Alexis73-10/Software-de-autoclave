@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparacion import preparacion_state
+from autoclave.state_machine.alarms.catalogo import SUM_03, SUM_06
+from tests.helpers.alarmas_helpers import codigos_activados
 
 
 def _make_preparacion(vapor=1, agua_bomba=1, agua_generador=1, aire_comprimido=1):
@@ -21,12 +23,12 @@ def _make_preparacion(vapor=1, agua_bomba=1, agua_generador=1, aire_comprimido=1
 def test_falta_vapor_no_bloquea_verificar_suministros():
     p, alarm_mgr = _make_preparacion(vapor=0)
     assert p.verificar_suministros() is True
-    ids = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert not any("VAPOR" in i for i in ids)
+    ids = codigos_activados(alarm_mgr)
+    assert SUM_06 not in ids
 
 
 def test_falta_agua_bomba_sigue_bloqueando():
     p, alarm_mgr = _make_preparacion(agua_bomba=0)
     assert p.verificar_suministros() is False
-    ids = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "SUMINISTRO_AGUA_BOMBA" in ids
+    ids = codigos_activados(alarm_mgr)
+    assert SUM_03 in ids

@@ -1,0 +1,20 @@
+{
+  "es": {
+    "opciones.err_coherencia_recuperacion": "No se puede guardar: con esta temperatura y brecha segura, el techo de presión de esterilización no permite salir de RECUPERACIÓN. La presión adicional de esterilización debe ser al menos {valor} kPa.",
+    "opciones.err_rol_sonda_no_activa": "No se puede guardar: hay un rol asignado a una sonda que no está activa en el perfil de instalación.",
+    "ciclo.rol_sonda_no_activa": "El ciclo no puede iniciar: el programa asigna un rol a una sonda que no está activa en el perfil de instalación.",
+    "opciones.err_limite_presion_camara": "No se puede guardar: el techo de presión de cámara llegaría al alivio de cámara ({alivio_camara} kPa). La presión adicional debe ser menor que {valor} kPa.",
+    "opciones.err_limite_consigna_chaqueta": "No se puede guardar: la consigna calculada de chaqueta es {valor} kPa y, con la banda de ±10 kPa, llega al alivio de chaqueta ({alivio_chaqueta} kPa).",
+    "opciones.err_limite_presion_chaqueta": "No se puede guardar: «Presión de chaqueta» + «Rango de presión de chaqueta» llega al alivio de chaqueta ({alivio_chaqueta} kPa). La presión de chaqueta debe ser menor que {valor} kPa.",
+    "alarmas.SIS-06.plantilla": "El programa {programa} tenía {parametro} = {anterior} {unidad}; se cambió a {nuevo} {unidad} ({motivo})."
+  },
+  "en": {
+    "opciones.err_coherencia_recuperacion": "Cannot save: with this temperature and safe gap, the sterilization pressure ceiling does not allow leaving RECOVERY. The additional sterilization pressure must be at least {valor} kPa.",
+    "opciones.err_rol_sonda_no_activa": "Cannot save: a role is assigned to a probe that is not active in the installation profile.",
+    "ciclo.rol_sonda_no_activa": "The cycle cannot start: the program assigns a role to a probe that is not active in the installation profile.",
+    "opciones.err_limite_presion_camara": "Cannot save: the chamber pressure ceiling would reach the chamber relief ({alivio_camara} kPa). The additional pressure must be lower than {valor} kPa.",
+    "opciones.err_limite_consigna_chaqueta": "Cannot save: the calculated jacket setpoint is {valor} kPa and, with the ±10 kPa band, it reaches the jacket relief ({alivio_chaqueta} kPa).",
+    "opciones.err_limite_presion_chaqueta": "Cannot save: jacket pressure plus jacket pressure range reaches the jacket relief ({alivio_chaqueta} kPa). The jacket pressure must be lower than {valor} kPa.",
+    "alarmas.SIS-06.plantilla": "Program {programa} had {parametro} = {anterior} {unidad}; it was changed to {nuevo} {unidad} ({motivo})."
+  }
+}

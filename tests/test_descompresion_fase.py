@@ -292,6 +292,9 @@ def test_modo_4_transicion_a_descompresion_al_alcanzar_temp():
     fase.update()
     estado.sensores_temp["temp_camara"] = 79.0   # <= temperatura_enfriamiento=80
     fase.update()
+    fase.update()
+    assert fase._sub_etapa == "enfriamiento"       # TMG-02 de T11: 3 lecturas
+    fase.update()
     set_do.agua_chaqueta_off.assert_called()
     set_do.aire_comprimido_camara_off.assert_called()
     set_do.descompresion_rapida_on.assert_called()
@@ -351,7 +354,8 @@ def test_modo_5_lenta_apagada_al_transicionar():
     fase, estado, set_do = _make_fase(modo=5, pres=300.0, temp=120.0)
     fase.update()
     estado.sensores_temp["temp_camara"] = 79.0
-    fase.update()
+    for _ in range(3):                            # TMG-02 de T11: 3 lecturas
+        fase.update()
     set_do.descompresion_lenta_off.assert_called()
     set_do.descompresion_rapida_on.assert_called()
 
@@ -375,3 +379,39 @@ def test_modo_5_completa_en_vacio_abre_aire_atmosferico():
     assert result == FaseResult.COMPLETADO
     set_do.descompresion_rapida_off.assert_called()
     set_do.aire_admosferico_camara_on.assert_called()
+
+
+def test_t11_lectura_cero_no_cuenta_como_enfriada():
+    """SAF-01 de T11: 0 = sensor sin señal; la rápida no se abre."""
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    fase.update()
+    estado.sensores_temp["temp_camara"] = 0
+    for _ in range(5):
+        fase.update()
+    assert fase._sub_etapa == "enfriamiento"
+    set_do.descompresion_rapida_on.assert_not_called()
+
+
+def test_t11_un_valor_espurio_no_abre_la_rapida():
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    fase.update()
+    for t in (79.0, 120.0, 79.0, 79.0, 120.0):
+        estado.sensores_temp["temp_camara"] = t
+        fase.update()
+    assert fase._sub_etapa == "enfriamiento"
+
+
+def test_t11_chaqueta_en_enfriamiento():
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    assert fase.chaqueta_en_enfriamiento is False
+    fase.update()
+    assert fase.chaqueta_en_enfriamiento is True
+
+
+def test_t11_timeout_deja_motivo_especifico():
+    import time as _time
+    fase, estado, set_do = _make_fase(modo=4, pres=300.0, temp=120.0)
+    fase.update()
+    fase._t_timeout = _time.monotonic() - 1
+    assert fase.update() == FaseResult.FALLO
+    assert "Tiempo límite de enfriamiento del modo 4" in estado.motivo_fallo

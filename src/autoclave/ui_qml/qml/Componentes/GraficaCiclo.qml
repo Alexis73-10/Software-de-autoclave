@@ -1,0 +1,673 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import QtQuick.Effects
+import QtQuick.Shapes
+import Tema
+import "grafica_ejes.mjs" as Ejes
+import Autoclave.I18n
+
+// Tarjeta "GRÁFICA DEL CICLO" de la pantalla de ciclo en curso
+// (planeacion_pantalla_ciclo_en_curso.md §8; referencia:
+// images/pantalla_ciclo_con_grafica_editada.png, tarjeta en x 33..1162, y 804..1598).
+//
+// Geometría: px del mockup relativos a la esquina de la tarjeta, escalados por m()
+// (escala = px reales por px del mockup, la misma de la pantalla). El alto es
+// flexible: cabecera, leyenda e íconos de fase quedan arriba; el eje X y su título
+// bajan con el alto sobrante (yb()), y el área de trazado absorbe la diferencia.
+//
+// Dibujo propio con QtQuick Shapes (PathPolyline), sin QtCharts. Ejes y
+// decimación: grafica_ejes.mjs (probado en tests/test_grafica_ejes_js.py).
+// Solo presentación: no calcula tiempos de proceso; recibe t (min) del backend.
+Item {
+    id: raiz
+
+    property real escala: 1.0
+
+    // Datos: arreglos paralelos ordenados por tiempo (t_min en minutos desde el
+    // inicio del ciclo); los valores sin lectura van como null.
+    property var datos: ({ t_min: [], temp_camara: [], temp_ref: [], pres_camara: [] })
+    // Inicio de cada fase de la UI en el ciclo actual, en orden: [{clave, inicioMin}]
+    property var fases: []
+    property real tiempoActualMin: 0
+    // Cursor: minuto señalado; NaN = oculto. Lo mueve el toque/arrastre sobre el
+    // área de trazado y se oculta solo tras OCULTAR_CURSOR_MS sin interacción.
+    property real cursorMin: NaN
+    // Desplegable "Tiempos": [{fase, estado, duracion_s}] de las fases que aplican
+    // (GET /cycle/current/progress; la activa se actualiza en vivo).
+    property var tiempos: []
+    // Pantalla completa: sin botones Tiempos / pantalla completa; botón CERRAR.
+    property bool modoPantallaCompleta: false
+
+    // Decisión delegada (plan §14), a validar visualmente; configurable.
+    property int ocultarCursorMs: 5000
+
+    signal tiemposPulsado()
+    signal pantallaCompletaPulsado()
+    signal cerrarPulsado()
+
+
+    // Series de la gráfica. O3 (tanda 6): la pantalla pasa las entradas mostradas
+    // del programa (UiBridge.seriesGrafica): {clave, entrada, color, eje, unidad,
+    // registrada}. Sin ellas, las tres de siempre.
+    property var seriesEntradas: null
+    readonly property var series: seriesEntradas && seriesEntradas.length ? seriesEntradas : _seriesPorOmision
+    readonly property var _seriesPorOmision: [
+        { clave: "temp_camara", texto: I18n.t("ciclo.serie_temp_camara", I18n.lang),
+          textoAbrev: I18n.t("abrev.ciclo.serie_temp_camara", I18n.lang), color: "#6599FC",
+          eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
+        { clave: "temp_ref", texto: I18n.t("ciclo.serie_temp_ref", I18n.lang),
+          textoAbrev: I18n.t("abrev.ciclo.serie_temp_ref", I18n.lang), color: "#9732DA",
+          eje: "izquierdo", unidad: I18n.t("unidades.temperatura", I18n.lang) },
+        { clave: "pres_camara", texto: I18n.t("ciclo.serie_presion", I18n.lang),
+          textoAbrev: I18n.t("abrev.ciclo.serie_presion", I18n.lang), color: "#00CCB0",
+          eje: "derecho", unidad: I18n.t("unidades.presion", I18n.lang) },
+    ]
+    onSeriesChanged: filaLeyenda.tam = 21
+    // Texto de la leyenda: el de la serie o el nombre corto de la entrada
+    function textoSerie(s) {
+        if (s.texto) return s.texto
+        // Tanda 17 (SON-01): sonda instalada con rol No en uso, "(monitoreo)"
+        // 28-oct: sin el sufijo "(monitoreo)" en pantalla (desbordaba)
+        const n = I18n.t("ciclo.entrada_corta_" + s.entrada, I18n.lang)
+        return s.registrada === false ? n + " " + I18n.t("ciclo.serie_sin_registro", I18n.lang) : n
+    }
+    // AJ-03 (ajustes 28-oct): abreviado de una fila del globo = nombre
+    // abreviado + sufijos abreviados (abrev.ciclo.*); sin abreviatura, el
+    // texto completo de esa parte
+    function _abrev(clave) {
+        return I18n.existe("abrev." + clave, I18n.lang) ? I18n.t("abrev." + clave, I18n.lang)
+                                                         : I18n.t(clave, I18n.lang)
+    }
+    function textoSerieAbrev(s) {
+        if (s.texto) return s.textoAbrev || s.texto
+        const n = raiz._abrev("ciclo.entrada_corta_" + s.entrada)
+        return s.registrada === false ? n + " " + raiz._abrev("ciclo.serie_sin_registro") : n
+    }
+    function _unidadEje(eje, porDefecto) {
+        for (const s of series) if (s.eje === eje && s.unidad) return s.unidad
+        return porDefecto
+    }
+    function _valor(clave, i) { const a = raiz.datos[clave]; return a ? a[i] : null }
+
+    readonly property QtObject paleta: QtObject {
+        readonly property color borde: "#E5E5E5"
+        readonly property color titulo: "#010006"
+        readonly property color texto: "#1A1A1A"
+        readonly property color separador: "#D8D8D8"
+        readonly property color cuadricula: "#D4D4D4"
+        readonly property color eje: "#DADADA"
+        readonly property color divisorFase: "#BCBCBC"
+        readonly property color iconoFase: "#505050"
+        readonly property color etiquetaEje: "#000000"
+        readonly property color tituloEje: "#333333"
+        readonly property color bordeBoton: "#C8C8C8"
+        readonly property color cursor: "#3A3A3A"
+    }
+
+    function m(v) { return v * escala }
+    function fuente(v) { return Math.max(1, Math.round(m(v))) }
+    // alto sobrante respecto al mockup (794): lo absorbe el área de trazado
+    readonly property real _extra: height - m(794)
+    function yb(v) { return m(v) + _extra }
+
+    readonly property string iconosColor: "../../assets/iconos/color/"
+
+    // ---- ejes ----
+    function _maximo(claves) {
+        let mx = null
+        for (const c of claves) {
+            const arr = raiz.datos[c] || []
+            for (const v of arr)
+                if (v !== null && v !== undefined && isFinite(v) && (mx === null || v > mx)) mx = v
+        }
+        return mx
+    }
+    readonly property var ejeX: Ejes.ejeX(tiempoActualMin)
+    readonly property var ejeIzquierdo: Ejes.ejeY(_maximo(series.filter(s => s.eje === "izquierdo").map(s => s.clave)))
+    readonly property var ejeDerecho: Ejes.ejeY(_maximo(series.filter(s => s.eje === "derecho").map(s => s.clave)))
+
+    // área de trazado: x de datos 0..ejeX.maximo en 93..1035; cuadrícula 68..1059
+    readonly property real xDato0: m(93)
+    readonly property real xDato1: m(1035)
+    readonly property real yArriba: m(279)
+    readonly property real yAbajo: yb(709)
+    function xDe(tMin) { return xDato0 + (tMin / ejeX.maximo) * (xDato1 - xDato0) }
+    function yDe(v, eje) {
+        const e = eje === "derecho" ? ejeDerecho : ejeIzquierdo
+        return yAbajo - (v / e.maximo) * (yAbajo - yArriba)
+    }
+
+    function _puntos(serie) {
+        const r = Ejes.decimar(raiz.datos.t_min || [], raiz.datos[serie.clave] || [],
+                               0, ejeX.maximo, Math.max(1, xDato1 - xDato0))
+        const pts = []
+        for (let i = 0; i < r.x.length; i++)
+            pts.push(Qt.point(xDe(r.x[i]), yDe(r.y[i], serie.eje)))
+        return pts
+    }
+
+    // índice de la lectura más cercana a t (búsqueda binaria sobre t_min)
+    function _indiceCercano(t) {
+        const ts = raiz.datos.t_min || []
+        if (ts.length === 0) return -1
+        let lo = 0, hi = ts.length - 1
+        while (hi - lo > 1) {
+            const mid = (lo + hi) >> 1
+            if (ts[mid] < t) lo = mid; else hi = mid
+        }
+        return Math.abs(ts[lo] - t) <= Math.abs(ts[hi] - t) ? lo : hi
+    }
+
+    function _formatoMmSs(tMin) {
+        const s = Math.max(0, Math.round(tMin * 60))
+        const mm = Math.floor(s / 60), ss = s % 60
+        return (mm < 10 ? "0" + mm : "" + mm) + ":" + (ss < 10 ? "0" + ss : "" + ss)
+    }
+
+    // ======================= tarjeta =======================
+    Rectangle {
+        anchors.fill: parent
+        radius: raiz.m(30)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(2); border.color: raiz.paleta.borde
+    }
+
+    // Texto ubicado por línea base (bl) y por centro (cx), borde izquierdo (lx) o
+    // borde derecho (rx), en px del mockup relativos a la tarjeta.
+    component Texto: Text {
+        property real cx: -1
+        property real lx: -1
+        property real rx: -1
+        property real bl: 0
+        property real tam: 16
+        font.pixelSize: raiz.fuente(tam)
+        font.family: Tipografia.familia
+        x: lx >= 0 ? raiz.m(lx) : rx >= 0 ? raiz.m(rx) - width : raiz.m(cx) - width / 2
+        y: raiz.m(bl) - baselineOffset
+    }
+
+    // ---- cabecera ----
+    Texto {
+        lx: 48; bl: 62; tam: 26
+        text: I18n.t("ciclo.grafica", I18n.lang)
+        color: raiz.paleta.titulo
+        font.weight: Tipografia.pesoBold
+    }
+
+    // leyenda
+    // O3: en fila (los nombres de las entradas tienen largo variable); si no
+    // cabe antes del botón Tiempos, se reduce la letra.
+    Row {
+        id: filaLeyenda
+        readonly property real disponible: raiz.m(840 - 88)
+        property real tam: 21
+        x: raiz.m(88); y: raiz.m(92)
+        spacing: raiz.m(28)
+        onImplicitWidthChanged: if (implicitWidth > disponible && tam > 14) tam = tam - 1
+        Repeater {
+            model: raiz.series
+            delegate: Row {
+                id: leyenda
+                required property var modelData
+                spacing: raiz.m(8)
+                Rectangle {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: raiz.m(20); height: width; radius: width / 2
+                    color: leyenda.modelData.color
+                }
+                Text {
+                    text: raiz.textoSerie(leyenda.modelData)
+                    color: raiz.paleta.texto
+                    font.family: Tipografia.familia
+                    font.pixelSize: raiz.fuente(filaLeyenda.tam)
+                }
+            }
+        }
+    }
+
+    // botón "Tiempos": abre/cierra el desplegable de duraciones por fase
+    Rectangle {
+        id: botonTiempos
+        visible: !raiz.modoPantallaCompleta
+        x: raiz.m(856); y: raiz.m(43); width: raiz.m(154); height: raiz.m(58)
+        radius: raiz.m(6)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
+        Text {
+            x: raiz.m(25)
+            anchors.verticalCenter: parent.verticalCenter
+            text: I18n.t("ciclo.tiempos", I18n.lang)
+            color: raiz.paleta.texto
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: raiz.fuente(20)
+        }
+        Image {
+            x: raiz.m(116); y: raiz.m(24)
+            width: raiz.m(14); height: width
+            source: raiz.iconosColor + "chevron_abajo.svg"
+            sourceSize.width: width; sourceSize.height: height
+        }
+        MouseArea {
+            anchors.fill: parent
+            onClicked: { desplegable.abierto = !desplegable.abierto; raiz.tiemposPulsado() }
+        }
+    }
+
+    // botón de pantalla completa
+    Rectangle {
+        visible: !raiz.modoPantallaCompleta
+        x: raiz.m(1037); y: raiz.m(43); width: raiz.m(58); height: raiz.m(58)
+        radius: raiz.m(6)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
+        Image {
+            anchors.centerIn: parent
+            width: raiz.m(40); height: width   // tinta 33 px (viewBox 4..44 de 48)
+            source: raiz.iconosColor + "pantalla_completa.svg"
+            sourceSize.width: width; sourceSize.height: height
+        }
+        MouseArea { anchors.fill: parent; onClicked: raiz.pantallaCompletaPulsado() }
+    }
+
+    // botón CERRAR de la pantalla completa (PROVISIONAL: sin diseño; estilo del botón Tiempos)
+    Rectangle {
+        visible: raiz.modoPantallaCompleta
+        x: raiz.m(885); y: raiz.m(43); width: raiz.m(210); height: raiz.m(58)
+        radius: raiz.m(6)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
+        Text {
+            anchors.centerIn: parent
+            text: I18n.t("acciones.cerrar", I18n.lang)
+            color: raiz.paleta.texto
+            font.family: Tipografia.familia
+            font.weight: Tipografia.pesoSemiBold
+            font.pixelSize: raiz.fuente(20)
+        }
+        MouseArea { anchors.fill: parent; onClicked: raiz.cerrarPulsado() }
+    }
+
+    Rectangle {
+        x: raiz.m(61); y: raiz.m(146); width: raiz.m(1069 - 61); height: raiz.m(2)
+        color: raiz.paleta.separador
+    }
+
+    // ---- unidades de los ejes ----
+    Texto {
+        lx: 21; bl: 246; tam: 20
+        text: raiz._unidadEje("izquierdo", I18n.t("unidades.temperatura", I18n.lang))
+        color: raiz.paleta.etiquetaEje
+    }
+    Texto {
+        lx: 1075; bl: 245; tam: 20
+        text: raiz._unidadEje("derecho", I18n.t("unidades.presion", I18n.lang))
+        color: raiz.paleta.etiquetaEje
+    }
+
+    // ---- cuadrícula y etiquetas Y (mismas divisiones en ambos ejes) ----
+    Repeater {
+        model: raiz.ejeIzquierdo.divisiones + 1
+        delegate: Item {
+            id: linea
+            required property int index
+            readonly property real yLinea: raiz.yAbajo - linea.index * (raiz.yAbajo - raiz.yArriba) / raiz.ejeIzquierdo.divisiones
+            anchors.fill: parent
+            Rectangle {
+                x: raiz.m(68); y: linea.yLinea - height / 2
+                width: raiz.m(1059 - 68); height: Math.max(1, raiz.m(1.2))
+                color: linea.index === 0 ? raiz.paleta.eje : raiz.paleta.cuadricula
+            }
+            Text {
+                x: raiz.m(55) - width
+                y: linea.yLinea - height / 2 - raiz.m(3)
+                text: Math.round(linea.index * raiz.ejeIzquierdo.paso * 100) / 100
+                color: raiz.paleta.etiquetaEje
+                font.family: Tipografia.familia
+                font.pixelSize: raiz.fuente(20)
+            }
+            Text {
+                x: raiz.m(1075)
+                y: linea.yLinea - height / 2 - raiz.m(3)
+                text: Math.round(linea.index * raiz.ejeDerecho.paso * 100) / 100
+                color: raiz.paleta.etiquetaEje
+                font.family: Tipografia.familia
+                font.pixelSize: raiz.fuente(20)
+            }
+        }
+    }
+
+    // ---- eje X: marcas y etiquetas ----
+    Repeater {
+        model: Math.round(raiz.ejeX.maximo / raiz.ejeX.paso) + 1
+        delegate: Item {
+            id: marca
+            required property int index
+            readonly property real xMarca: raiz.xDe(marca.index * raiz.ejeX.paso)
+            anchors.fill: parent
+            Rectangle {
+                x: marca.xMarca - width / 2; y: raiz.yAbajo
+                width: Math.max(1, raiz.m(1.2)); height: raiz.m(6)
+                color: raiz.paleta.eje
+            }
+            Text {
+                x: marca.xMarca - width / 2
+                y: raiz.yb(741) - baselineOffset
+                text: marca.index * raiz.ejeX.paso
+                color: raiz.paleta.etiquetaEje
+                font.family: Tipografia.familia
+                font.pixelSize: raiz.fuente(20)
+            }
+        }
+    }
+    Text {
+        x: raiz.m(564) - width / 2
+        y: raiz.yb(779) - baselineOffset
+        text: I18n.t("ciclo.grafica_eje_tiempo", I18n.lang)
+        color: raiz.paleta.tituloEje
+        font.family: Tipografia.familia
+        font.pixelSize: raiz.fuente(20)
+    }
+
+    // ---- divisores de fase e íconos ----
+    // Cada fase ocupa [inicio, inicio de la siguiente | tiempo actual]; la línea
+    // punteada marca el comienzo de cada fase salvo la primera (en t = 0).
+    Repeater {
+        model: raiz.fases
+        delegate: Item {
+            id: tramo
+            required property var modelData
+            required property int index
+            readonly property real inicio: tramo.modelData.inicioMin
+            readonly property real fin: tramo.index + 1 < raiz.fases.length
+                ? raiz.fases[tramo.index + 1].inicioMin : raiz.tiempoActualMin
+            anchors.fill: parent
+
+            Shape {
+                visible: tramo.inicio > 0
+                anchors.fill: parent
+                ShapePath {
+                    strokeColor: raiz.paleta.divisorFase
+                    strokeWidth: Math.max(1, raiz.m(1.5))
+                    strokeStyle: ShapePath.DashLine
+                    dashPattern: [4, 3]
+                    fillColor: "transparent"
+                    startX: raiz.xDe(tramo.inicio); startY: raiz.m(164)
+                    PathLine { x: raiz.xDe(tramo.inicio); y: raiz.yAbajo }
+                }
+            }
+            // ícono blanco teñido de gris (misma técnica que IconoTenido de PantallaPreciclo.qml)
+            Image {
+                id: iconoFase
+                visible: false
+                width: raiz.m(52); height: width   // tinta ≈ 43 px
+                x: (raiz.xDe(tramo.inicio) + raiz.xDe(tramo.fin)) / 2 - width / 2
+                y: raiz.m(205) - height / 2
+                source: raiz.iconosColor + "fase_" + tramo.modelData.clave + ".svg"
+                sourceSize.width: width; sourceSize.height: height
+            }
+            MultiEffect {
+                visible: raiz.xDe(tramo.fin) - raiz.xDe(tramo.inicio) > raiz.m(40)
+                x: iconoFase.x; y: iconoFase.y; width: iconoFase.width; height: iconoFase.height
+                source: iconoFase
+                colorization: 1.0
+                colorizationColor: raiz.paleta.iconoFase
+            }
+        }
+    }
+
+    // ---- series ----
+    Item {
+        id: areaTrazado
+        x: 0; y: raiz.yArriba - raiz.m(10)
+        width: raiz.width; height: raiz.yAbajo - y + raiz.m(2)
+        clip: true
+        Repeater {
+            model: raiz.series
+            delegate: Shape {
+                id: trazo
+                required property var modelData
+                x: 0; y: -areaTrazado.y
+                width: raiz.width; height: raiz.height
+                preferredRendererType: Shape.CurveRenderer
+                ShapePath {
+                    strokeColor: trazo.modelData.color
+                    strokeWidth: raiz.m(3)
+                    fillColor: "transparent"
+                    joinStyle: ShapePath.RoundJoin
+                    capStyle: ShapePath.RoundCap
+                    PathPolyline { path: raiz._puntos(trazo.modelData) }
+                }
+            }
+        }
+    }
+
+    // ---- interacción del cursor ----
+    function _tDesdeX(px) {
+        const ts = raiz.datos.t_min || []
+        if (ts.length === 0) return NaN
+        const t = (px - xDato0) / (xDato1 - xDato0) * ejeX.maximo
+        return Math.max(ts[0], Math.min(ts[ts.length - 1], t))
+    }
+    MouseArea {
+        id: toqueGrafica
+        x: raiz.m(68); y: raiz.yArriba - raiz.m(20)
+        width: raiz.m(1059 - 68); height: raiz.yAbajo - y
+        preventStealing: true
+        function mover(mx) {
+            raiz.cursorMin = raiz._tDesdeX(x + mx)
+            ocultarCursor.restart()
+        }
+        onPressed: (evento) => mover(evento.x)
+        onPositionChanged: (evento) => mover(evento.x)
+    }
+    Timer {
+        id: ocultarCursor
+        interval: raiz.ocultarCursorMs
+        onTriggered: raiz.cursorMin = NaN
+    }
+
+    // ---- cursor y globo de valores ----
+    Item {
+        id: cursor
+        readonly property int indice: isNaN(raiz.cursorMin) ? -1 : raiz._indiceCercano(raiz.cursorMin)
+        readonly property real tCursor: indice >= 0 ? raiz.datos.t_min[indice] : 0
+        readonly property real xCursor: raiz.xDe(tCursor)
+        visible: indice >= 0
+        anchors.fill: parent
+
+        Rectangle {
+            x: cursor.xCursor - width / 2; y: raiz.m(272)
+            width: raiz.m(3); height: raiz.yAbajo - y - raiz.m(8)
+            color: raiz.paleta.cursor
+        }
+        Repeater {
+            model: raiz.series
+            delegate: Rectangle {
+                id: punto
+                required property var modelData
+                readonly property var valor: cursor.indice >= 0 ? raiz._valor(punto.modelData.clave, cursor.indice) : null
+                visible: punto.valor !== null && punto.valor !== undefined
+                x: cursor.xCursor - width / 2
+                y: (punto.visible ? raiz.yDe(punto.valor, punto.modelData.eje) : 0) - height / 2
+                width: raiz.m(18); height: width; radius: width / 2
+                color: punto.modelData.color
+                border.color: "white"; border.width: raiz.m(2)
+            }
+        }
+
+        // Globo: 220 x 145 en el mockup, a la derecha del cursor salvo que no quepa;
+        // nunca se sale del área de la tarjeta. AJ-03: cada nombre se abrevia si
+        // no cabe hasta su valor; si ni el abreviado cabe, el globo crece lo
+        // justo para la fila más ancha (y para la hora). Nunca se recorta (D8-5.4).
+        Rectangle {
+            id: globo
+            objectName: "globoGrafica"
+            // margen entre el nombre y el valor de una fila (≈ 8 px del mockup)
+            readonly property real margenNombre: raiz.m(8)
+            property int _revFilas: 0
+            readonly property real anchoNecesario: {
+                void _revFilas
+                let n = hora.implicitWidth + raiz.m(18 + 18)
+                for (let i = 0; i < filasGlobo.count; ++i) {
+                    const f = filasGlobo.itemAt(i)
+                    if (f) n = Math.max(n, f.anchoNecesario)
+                }
+                return n
+            }
+            width: Math.max(raiz.m(220), Math.ceil(anchoNecesario)); height: raiz.m(145)
+            x: Math.max(raiz.m(8), Math.min(cursor.xCursor - raiz.m(34), raiz.width - width - raiz.m(8)))
+            y: Math.min(raiz.yAbajo - height - raiz.m(45), raiz.m(519) + raiz._extra / 2)
+            radius: raiz.m(14)
+            color: Colores.fondoTarjeta
+            border.width: raiz.m(1.5); border.color: raiz.paleta.borde
+            layer.enabled: true
+            layer.effect: MultiEffect {
+                shadowEnabled: true
+                shadowColor: "#30000000"
+                shadowVerticalOffset: raiz.m(2)
+                shadowBlur: 0.5
+            }
+            Text {
+                id: hora
+                objectName: "horaGlobo"
+                x: raiz.m(18); y: raiz.m(36) - baselineOffset
+                text: raiz._formatoMmSs(cursor.tCursor) + " " + I18n.t("unidades.tiempo", I18n.lang)
+                color: raiz.paleta.texto
+                font.family: Tipografia.familia
+                font.weight: Tipografia.pesoMedium
+                font.pixelSize: raiz.fuente(21)
+            }
+            Repeater {
+                id: filasGlobo
+                model: raiz.series
+                onItemAdded: globo._revFilas++
+                onItemRemoved: globo._revFilas++
+                delegate: Item {
+                    id: filaGlobo
+                    objectName: "filaGlobo"
+                    required property var modelData
+                    required property int index
+                    readonly property var valor: cursor.indice >= 0 ? raiz._valor(filaGlobo.modelData.clave, cursor.indice) : null
+                    readonly property real bl: raiz.m(61 + filaGlobo.index * 29)
+                    // ancho del globo con el que cabe esta fila con el nombre
+                    // abreviado (el completo si no hay abreviado)
+                    readonly property real anchoNecesario: raiz.m(35) + medidaAbrev.advanceWidth
+                                                           + globo.margenNombre + valorFila.implicitWidth
+                                                           + raiz.m(220 - 211)
+                    anchors.fill: parent
+                    Rectangle {
+                        x: raiz.m(17); y: filaGlobo.bl - raiz.m(10)
+                        width: raiz.m(11); height: width; radius: width / 2
+                        color: filaGlobo.modelData.color
+                    }
+                    TextoAjustable {
+                        id: nombreFila
+                        objectName: "nombreFilaGlobo"
+                        x: raiz.m(35); y: filaGlobo.bl - baselineOffset
+                        textoCompleto: raiz.textoSerie(filaGlobo.modelData)
+                        textoAbreviado: raiz.textoSerieAbrev(filaGlobo.modelData)
+                        anchoDisponible: valorFila.x - globo.margenNombre - x
+                        color: raiz.paleta.texto
+                        font.family: Tipografia.familia
+                        font.pixelSize: raiz.fuente(13)
+                    }
+                    TextMetrics {
+                        id: medidaAbrev
+                        font: nombreFila.font
+                        text: nombreFila.textoAbreviado !== "" ? nombreFila.textoAbreviado
+                                                               : nombreFila.textoCompleto
+                    }
+                    Text {
+                        id: valorFila
+                        objectName: "valorFilaGlobo"
+                        // alineado a la derecha del globo (mockup: termina en x = 211 de 220)
+                        x: globo.width - raiz.m(220 - 211) - width; y: filaGlobo.bl - baselineOffset
+                        text: (filaGlobo.valor === null || filaGlobo.valor === undefined
+                               ? I18n.t("sistema.sin_lectura", I18n.lang)
+                               : Number(filaGlobo.valor).toFixed(1)) + " " + filaGlobo.modelData.unidad
+                        color: raiz.paleta.texto
+                        font.family: Tipografia.familia
+                        font.weight: Tipografia.pesoSemiBold
+                        font.pixelSize: raiz.fuente(16)
+                    }
+                }
+            }
+        }
+    }
+
+    // ---- desplegable "Tiempos" ----
+    // PROVISIONAL (sin diseño en el mockup): lista bajo el botón con la duración
+    // de cada fase que aplica; completadas = duración final, activa = en curso
+    // (se actualiza con el progreso), pendientes = "—". Se cierra al tocar fuera.
+    function _formatoDuracion(seg) {
+        if (seg === null || seg === undefined || !isFinite(seg))
+            return I18n.t("sistema.sin_lectura", I18n.lang)
+        const s = Math.max(0, Math.floor(seg))
+        const dos = n => n < 10 ? "0" + n : "" + n
+        return dos(Math.floor(s / 3600)) + ":" + dos(Math.floor(s % 3600 / 60)) + ":" + dos(s % 60)
+    }
+    function _nombreFase(clave) {
+        return I18n.existe("fases." + clave, I18n.lang) ? I18n.t("fases." + clave, I18n.lang) : ""
+    }
+    MouseArea {
+        visible: desplegable.abierto
+        anchors.fill: parent
+        onClicked: desplegable.abierto = false
+    }
+    Rectangle {
+        id: desplegable
+        property bool abierto: false
+        visible: abierto && !raiz.modoPantallaCompleta
+        x: botonTiempos.x + botonTiempos.width - width
+        y: botonTiempos.y + botonTiempos.height + raiz.m(8)
+        width: raiz.m(420)
+        height: columnaTiempos.height + raiz.m(16)
+        radius: raiz.m(10)
+        color: Colores.fondoTarjeta
+        border.width: raiz.m(1.5); border.color: raiz.paleta.bordeBoton
+        layer.enabled: true
+        layer.effect: MultiEffect {
+            shadowEnabled: true
+            shadowColor: "#30000000"
+            shadowVerticalOffset: raiz.m(3)
+            shadowBlur: 0.5
+        }
+        MouseArea { anchors.fill: parent }   // no cerrar al tocar dentro
+        Column {
+            id: columnaTiempos
+            x: 0; y: raiz.m(8)
+            width: parent.width
+            Repeater {
+                model: raiz.tiempos
+                delegate: Item {
+                    id: filaTiempo
+                    required property var modelData
+                    width: columnaTiempos.width
+                    height: raiz.m(56)
+                    Text {
+                        x: raiz.m(24)
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: raiz._nombreFase(filaTiempo.modelData.fase)
+                        color: raiz.paleta.texto
+                        font.family: Tipografia.familia
+                        font.weight: filaTiempo.modelData.estado === "activa" ? Tipografia.pesoBold : Tipografia.pesoRegular
+                        font.pixelSize: raiz.fuente(21)
+                    }
+                    Text {
+                        x: parent.width - width - raiz.m(24)
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: filaTiempo.modelData.estado === "pendiente"
+                              ? I18n.t("sistema.sin_lectura", I18n.lang)
+                              : raiz._formatoDuracion(filaTiempo.modelData.duracion_s)
+                        color: raiz.paleta.texto
+                        font.family: Tipografia.familia
+                        font.weight: filaTiempo.modelData.estado === "activa" ? Tipografia.pesoBold : Tipografia.pesoRegular
+                        font.pixelSize: raiz.fuente(21)
+                        font.features: { "tnum": 1 }
+                    }
+                }
+            }
+        }
+    }
+}

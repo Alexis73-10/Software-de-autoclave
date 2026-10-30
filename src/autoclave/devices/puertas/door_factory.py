@@ -3,6 +3,13 @@ from .advanced_door import AdvancedDoor
 from .door_type import DoorType
 
 
+def tipo_tiene_actuador(door_type) -> bool:
+    """True si el tipo de puerta mueve algo por orden del software. Usa la
+    misma clase que create_door() instanciaría (E1-4)."""
+    clase = SimpleDoor if door_type == DoorType.SIMPLE else AdvancedDoor
+    return bool(clase.tiene_actuador)
+
+
 def create_door(config, io):
     cfg           = io["cfg"]
     estado        = io["estado"]

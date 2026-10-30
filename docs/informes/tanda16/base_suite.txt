@@ -1,0 +1,52 @@
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7922 tests collected in 20.88s
+      ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    File "C:\Users\tecni\AppData\Local\Programs\Python\Python314\Lib\subprocess.py", line 1613, in _readerthread
+      buffer.append(fh.read())
+                    ~~~~~~~^^
+    File "<frozen codecs>", line 325, in decode
+  UnicodeDecodeError: 'utf-8' codec can't decode byte 0xf3 in position 11: invalid continuation byte
+  
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+    warnings.warn(pytest.PytestUnhandledThreadExceptionWarning(msg))
+
+tests/test_storage.py::test_save_falla_si_bloqueado_y_existe
+  C:\Users\tecni\Documents\codigo_autoclave\tests\test_storage.py:47: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_storage.py::test_delete_luego_save_funciona
+  C:\Users\tecni\Documents\codigo_autoclave\tests\test_storage.py:72: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at=datetime.utcnow(),
+
+tests/test_io_temp_pres_clickable.py::test_temp_card_click_navega_con_payload_correcto
+tests/test_io_temp_pres_clickable.py::test_pres_card_click_navega_con_payload_correcto
+  C:\Users\tecni\Documents\codigo_autoclave\tests\test_io_temp_pres_clickable.py:16: DeprecationWarning: Function: 'QMouseEvent.QMouseEvent(QEvent.Type type, const QPointF &localPos, Qt.MouseButton button, QFlags<Qt.MouseButton> buttons, QFlags<Qt.KeyboardModifier> modifiers, const QPointingDevice *device)' is marked as deprecated, please check the documentation for more information.
+    event = QMouseEvent(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_calibracion_sensor_view.py::test_sin_sesion_bloquea_formulario
+FAILED tests/test_home_view.py::test_home_view_tarjeta_impresion_general_navega_a_impresion_menu
+FAILED tests/test_main_window_navigate_payload.py::test_navigate_to_sin_payload_no_falla
+FAILED tests/test_impresion_menu.py::test_impresion_menu_instancia_sin_crash
+FAILED tests/test_o2a_parametros_equipo.py::test_pantalla_por_rol[tecnico-True-False-False]
+FAILED tests/test_o2a_parametros_equipo.py::test_pantalla_por_rol[ingeniero-True-True-True]
+FAILED tests/test_calibracion_sensor_view.py::test_rol_operador_bloquea_formulario
+FAILED tests/test_ver_entrega.py::test_historial_entrada_debajo_de_la_marca
+FAILED tests/test_main_window_navigate_payload.py::test_navigate_to_con_payload_llama_set_context
+FAILED tests/test_i18n.py::test_familia_dinamica_tiene_todos_sus_textos[parametros_equipo.]
+FAILED tests/test_i18n.py::test_familia_dinamica_tiene_todos_sus_textos[parametros_equipo_desc.]
+FAILED tests/test_io_do_camara_header.py::test_salidas_digitales_view_tiene_labels_de_camara
+FAILED tests/test_calibracion_sensor_view.py::test_on_guardar_backend_caido_no_crashea_y_conserva_valores
+13 failed, 7896 passed, 10 skipped, 3 xfailed, 21 warnings in 407.96s (0:06:47)
+
+--- Nota de la sesión principal (26-oct) ---
+La corrida en paralelo de arriba se solapó con las primeras ediciones de F1
+(o2a/i18n). Las 13 fallas se repitieron EN SERIE sobre una copia limpia de dev
+(f403b87, worktree ../_base16_dev): 12 pasan; queda 1 falla PREEXISTENTE en dev:
+  tests/test_ver_entrega.py::test_historial_entrada_debajo_de_la_marca
+  (exige que HISTORIAL_VERSIONES.md no tenga entradas bajo la marca; la entrega
+  1.0.0-alpha.1, commit f403b87, ya agregó la primera).
+Línea base: 7922 recolectadas; 7908 pasan, 10 skipped, 3 xfailed, 1 falla preexistente.

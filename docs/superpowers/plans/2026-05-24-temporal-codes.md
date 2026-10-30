@@ -132,8 +132,8 @@ import hashlib
 import base64
 from datetime import date as _date
 
-_SECRET_INSTALL = b"EspecifikaInstall\xf3\x9a\x11\x2c\x87\xde"
-_SECRET_FACTORY = b"EspecifikaFabrica\x7e\x44\xb2\x9f\x13\xcc"
+_SECRET_INSTALL = b"<SECRETO RETIRADO, LIC-01: ver installation/secretos.py>"
+_SECRET_FACTORY = b"<SECRETO RETIRADO, LIC-01: ver installation/secretos.py>"
 
 
 def _make_code(secret: bytes, serial: str, day: _date) -> str:

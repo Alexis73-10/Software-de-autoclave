@@ -66,8 +66,8 @@ Define la arquitectura de la capa de presentación para el despliegue en **PC ú
 | D-15 | Indicador de fases **dinámico y congelado al confirmar el ciclo** | Ver D-16 |
 | D-16 | Una fase omitida en marcha se marca **OMITIDA**, no desaparece | Ocultarla retroactivamente borra evidencia de proceso |
 | D-17 | Objetivo táctil mínimo 48 px (9.8 mm en el panel de 12.1") | Operación sin guante, panel capacitivo |
-| D-18 | Dos teclados: numérico con **coma decimal** y alfanumérico sin tildes, con `ñ` y caracteres especiales | Requisito de operación |
-| D-19 | Coma decimal en toda la presentación y entrada; punto **solo** en persistencia, API y JSON | Conversión en un único punto del código |
+| D-18 | ~~Dos teclados: numérico con **coma decimal** y alfanumérico sin tildes, con `ñ` y caracteres especiales~~ **Revocada en su parte de coma decimal (2026-09-29)**: punto decimal, ver TEC-D14 de `planeacion_teclados_qml.md`. Siguen vigentes los dos teclados y el alfanumérico sin tildes, con `ñ` | Requisito de operación |
+| D-19 | ~~Coma decimal en toda la presentación y entrada; punto **solo** en persistencia, API y JSON~~ **Revocada (2026-09-29)**: punto decimal en toda la interfaz, entrada y presentación, igual que en persistencia, API y JSON. Ver TEC-D14 de `planeacion_teclados_qml.md` | Conversión en un único punto del código |
 | D-20 | Reinicio automático de UI **con registro en el log de auditoría** | Trazabilidad Clase C |
 | D-21 | Tema oscuro incluido en la primera versión | Los tokens ya lo definen completo |
 | D-22 | Función de red **diferida** a documento propio | Hallazgo UI-07 |
@@ -520,6 +520,8 @@ Estado actual **no verificado** → ítem V-05.
 ---
 
 ## 13. Teclados en pantalla (D-18)
+
+> **Revocación (2026-09-29, decisión de Cristian).** D-18 (coma en la entrada numérica) y D-19 (coma en la presentación) quedan revocadas por TEC-D14 de `docs/mis_plans/planeacion_teclados_qml.md`: punto decimal en toda la interfaz. Lo que dicen §13.1 y §13.3 sobre la coma ya no rige; el resto de esta sección se conserva como registro histórico.
 
 El teclado del sistema operativo es inadecuado para uso táctil industrial. Se implementan dos teclados propios.
 

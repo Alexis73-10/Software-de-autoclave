@@ -1,0 +1,255 @@
+pragma ComponentBehavior: Bound
+import QtQuick
+import Tema
+import Autoclave.I18n
+
+// Resumen de ciclos de un periodo (pestaña Resumen de Reportes): totales por
+// resultado con su porcentaje y una barra de proporciones, la tabla por
+// programa y las causas de fallo. Solo presentación: recibe `datos` ya
+// formateado (ui_qml/domain/reporte_resumen.py). Se desplaza si no cabe.
+// D8-5.6: cada causa de fallo se toca (flecha a la derecha) y emite
+// causaElegida para desplegar los ciclos con ese fallo.
+// Medidas en px del mockup escaladas con `escala` (convención m(), D-18).
+// DISEÑO PROVISIONAL: sin diseño del diseñador.
+Flickable {
+    id: raiz
+
+    property real escala: 1
+    property var datos: ({ total: "0", totales: [], por_programa: [], causas: [] })
+
+    signal causaElegida(string causa)
+
+    function m(v) { return v * escala }
+    function fuente(v) { return Math.max(1, Math.round(m(v))) }
+    function colorDe(clave) {
+        return clave === "completados" ? Colores.menuVerdeTexto
+             : clave === "fallos" ? Colores.peligroTexto
+             : clave === "cancelados" ? Colores.advertenciaTexto
+             : Colores.textoSecundario
+    }
+
+    contentHeight: contenido.height
+    clip: true
+    boundsBehavior: Flickable.StopAtBounds
+
+    component Titulo: Text {
+        color: Colores.textoPrimario
+        font.family: Tipografia.familia
+        font.weight: Tipografia.pesoBold
+        font.pixelSize: raiz.fuente(28)
+    }
+    // Fila de tabla: celdas [texto] con proporción de ancho; la primera a la
+    // izquierda y el resto a la derecha.
+    // U10b (D10-1.4): el encabezado da `claves` (en vez de `celdas`) y cada
+    // celda es un TextoAjustable: completo si cabe en su columna, abreviado
+    // (abrev.<clave>) si no. Las filas de datos siguen con `celdas`.
+    component FilaTabla: Item {
+        id: fila
+        property var celdas: []
+        property var claves: []
+        property var proporciones: []
+        property var colores: []
+        property bool encabezado: false
+        width: parent.width
+        height: raiz.m(encabezado ? 56 : 68)
+        Repeater {
+            model: fila.claves.length > 0 ? fila.claves.length : fila.celdas.length
+            TextoAjustable {
+                required property int index
+                clave: fila.claves[index] ?? ""
+                textoCompleto: clave !== "" ? I18n.t(clave, I18n.lang) : String(fila.celdas[index] ?? "")
+                anchoDisponible: width
+                readonly property real _x: {
+                    let x = 0
+                    for (let k = 0; k < index; k++) x += fila.proporciones[k]
+                    return x * fila.width
+                }
+                x: _x
+                width: fila.proporciones[index] * fila.width - raiz.m(12)
+                anchors.verticalCenter: parent.verticalCenter
+                horizontalAlignment: index === 0 ? Text.AlignLeft : Text.AlignRight
+                // los datos (nombres de programa) no se abrevian: se achican si no caben
+                fontSizeMode: clave !== "" ? Text.FixedSize : Text.HorizontalFit
+                minimumPixelSize: Escala.fuenteMinima
+                color: fila.encabezado ? Colores.textoSecundario
+                     : (fila.colores[index] ?? Colores.textoPrimario)
+                font.family: Tipografia.familia
+                font.weight: fila.encabezado || index === 0 ? Tipografia.pesoSemiBold : Tipografia.pesoBold
+                font.pixelSize: raiz.fuente(fila.encabezado ? 20 : 24)
+            }
+        }
+        Rectangle {
+            anchors.bottom: parent.bottom
+            width: parent.width; height: raiz.m(fila.encabezado ? 2 : 1)
+            color: Colores.bordeDivisor
+        }
+    }
+
+    Column {
+        id: contenido
+        width: raiz.width
+        spacing: raiz.m(24)
+
+        // ---------- totales ----------
+        Row {
+            id: totales
+            objectName: "totalesResumen"
+            width: parent.width
+            readonly property real _ancho: width / 5
+            Column {
+                width: totales._ancho
+                spacing: raiz.m(4)
+                Text {
+                    width: parent.width - raiz.m(8)
+                    wrapMode: Text.WordWrap
+                    text: I18n.t("reportes.total", I18n.lang)
+                    color: Colores.textoSecundario
+                    font.family: Tipografia.familia
+                    font.pixelSize: raiz.fuente(20)
+                }
+                Text {
+                    objectName: "totalResumen"
+                    text: raiz.datos.total
+                    color: Colores.textoPrimario
+                    font.family: Tipografia.familia
+                    font.weight: Tipografia.pesoBold
+                    font.pixelSize: raiz.fuente(52)
+                }
+            }
+            Repeater {
+                model: raiz.datos.totales
+                Column {
+                    id: total
+                    required property var modelData
+                    objectName: "total_" + modelData.clave
+                    width: totales._ancho
+                    spacing: raiz.m(4)
+                    Text {
+                        width: parent.width - raiz.m(8)
+                        wrapMode: Text.WordWrap
+                        text: I18n.t("reportes." + total.modelData.clave, I18n.lang)
+                        color: Colores.textoSecundario
+                        font.family: Tipografia.familia
+                        font.pixelSize: raiz.fuente(20)
+                    }
+                    Row {
+                        spacing: raiz.m(8)
+                        Text {
+                            id: cantidad
+                            text: total.modelData.cantidad
+                            color: raiz.colorDe(total.modelData.clave)
+                            font.family: Tipografia.familia
+                            font.weight: Tipografia.pesoBold
+                            font.pixelSize: raiz.fuente(52)
+                        }
+                        Text {
+                            anchors.baseline: cantidad.baseline
+                            text: total.modelData.porcentaje
+                            color: Colores.textoSecundario
+                            font.family: Tipografia.familia
+                            font.pixelSize: raiz.fuente(22)
+                        }
+                    }
+                }
+            }
+        }
+
+        // barra de proporciones por resultado
+        Rectangle {
+            width: parent.width
+            height: raiz.m(16)
+            radius: height / 2
+            color: Colores.bordeDivisor
+            clip: true
+            Row {
+                anchors.fill: parent
+                Repeater {
+                    model: raiz.datos.totales
+                    Rectangle {
+                        required property var modelData
+                        width: parent.width * modelData.fraccion
+                        height: parent.height
+                        color: raiz.colorDe(modelData.clave)
+                    }
+                }
+            }
+        }
+
+        // ---------- por programa ----------
+        Titulo { text: I18n.t("reportes.por_programa", I18n.lang); topPadding: raiz.m(16) }
+        Column {
+            objectName: "tablaProgramas"
+            width: parent.width
+            readonly property var _prop: [0.40, 0.12, 0.12, 0.12, 0.12, 0.12]
+            FilaTabla {
+                encabezado: true
+                proporciones: parent._prop
+                claves: ["reportes.programa", "reportes.col_total", "reportes.col_completados",
+                         "reportes.col_fallos", "reportes.col_cancelados", "reportes.col_sin_cierre"]
+            }
+            Repeater {
+                model: raiz.datos.por_programa
+                FilaTabla {
+                    required property var modelData
+                    proporciones: [0.40, 0.12, 0.12, 0.12, 0.12, 0.12]
+                    celdas: [modelData.programa, modelData.total, modelData.completados,
+                             modelData.fallos, modelData.cancelados, modelData.sin_cierre]
+                    colores: [Colores.textoPrimario, Colores.textoPrimario, raiz.colorDe("completados"),
+                              raiz.colorDe("fallos"), raiz.colorDe("cancelados"), raiz.colorDe("sin_cierre")]
+                }
+            }
+        }
+
+        // ---------- causas de fallo ----------
+        Titulo { text: I18n.t("reportes.causas_fallo", I18n.lang); topPadding: raiz.m(16) }
+        Text {
+            objectName: "sinFallos"
+            visible: raiz.datos.causas.length === 0
+            text: I18n.t("reportes.sin_fallos", I18n.lang)
+            color: Colores.textoSecundario
+            font.family: Tipografia.familia
+            font.pixelSize: raiz.fuente(24)
+        }
+        Column {
+            objectName: "tablaCausas"
+            visible: raiz.datos.causas.length > 0
+            width: parent.width
+            FilaTabla {
+                encabezado: true
+                proporciones: [0.75, 0.2]
+                claves: ["reportes.causa", "reportes.cantidad"]
+            }
+            Repeater {
+                model: raiz.datos.causas
+                FilaTabla {
+                    id: filaCausa
+                    required property var modelData
+                    objectName: "causa_" + modelData.causa
+                    proporciones: [0.75, 0.2]
+                    celdas: [modelData.causa, modelData.cantidad]
+                    colores: [Colores.textoPrimario, Colores.peligroTexto]
+                    Rectangle {
+                        anchors.fill: parent
+                        color: "#000000"
+                        opacity: zonaCausa.pressed ? 0.06 : 0.0
+                    }
+                    // tinta de chevron_derecha.svg = [12.8, 4.3, 35.2, 43.8]: 22 de alto
+                    Image {
+                        readonly property real _k: raiz.m(22) / (43.8 - 4.3)
+                        width: 48 * _k; height: width
+                        x: parent.width - raiz.m(8) - 35.2 * _k
+                        anchors.verticalCenter: parent.verticalCenter
+                        source: "../../assets/iconos/mono/chevron_derecha.svg"
+                        sourceSize.width: width
+                        sourceSize.height: height
+                    }
+                    MouseArea {
+                        id: zonaCausa
+                        anchors.fill: parent
+                        onClicked: raiz.causaElegida(filaCausa.modelData.causa)
+                    }
+                }
+            }
+        }
+    }
+}

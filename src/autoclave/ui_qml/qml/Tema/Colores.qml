@@ -10,21 +10,46 @@ QtObject {
     readonly property color fondoAzulMedio:     "#2E597C"  // fondo_azul_700
     readonly property color fondoCieloNucleo:   "#5C97DB"  // fondo_cielo_300 — halo del arranque
     readonly property color fondoCieloClaro:    "#99C5E2"  // fondo_cielo_200
+    readonly property color textoFechaReposo:   "#C7DCFD"  // fecha de la pantalla de reposo y pie de la intro
 
     // Acción
     readonly property color accionPrimario:      "#1168F6" // botón primario
     readonly property color accionPrimarioTexto: "#0D53C4" // obligatorio para texto (contraste)
+    readonly property color accionFondoTenue:    "#E2ECFD" // color-primary-050: relleno de tecla presionada / seleccionado
+
+    // Peligro (acciones destructivas, p. ej. BORRAR del teclado) — NO es color de alarma
+    readonly property color peligroFondo: "#FFECEC" // color-danger-050
+    readonly property color peligroTexto: "#D00000" // color-danger-strong
+
+    // Advertencia (BORRAR del teclado) — tokens color-warning* del diseñador. NO es el
+    // amarillo de alarma (alarmaMedia), que está reservado por IEC 60601-1-8.
+    readonly property color advertenciaFondo: "#FFF4E6" // color-warning-050
+    readonly property color advertencia:      "#FF9933" // color-warning
+    readonly property color advertenciaTexto: "#B35A00" // color-warning-strong (texto)
 
     // Alarmas IEC 60601-1-8 — reservado, no usar para nada que no sea alarma
     readonly property color alarmaAlta:  "#EE0000"
     readonly property color alarmaMedia: "#FFCC00"
     readonly property color alarmaBaja:  "#00CCFF"
 
+    // Acentos del Menú Principal: medidos sobre el mockup v3 (planeacion_menu_principal_ui_qml.md §5).
+    // No coinciden con ningún token del paquete del diseñador (accionPrimario #1168F6 y
+    // advertencia #FF9933 son tonos distintos): confirmar con él si unifica. El verde NO es
+    // estado de alarma; ninguno de estos sustituye a los colores alarma*.
+    readonly property color menuVerde:        "#009535" // borde e icono (Iniciar sesión)
+    readonly property color menuVerdeTexto:   "#0D8C2C" // texto verde (p. ej. resultado exitoso)
+    readonly property color menuAzul:         "#0361EC"
+    readonly property color menuNaranja:      "#FF9720"
+    readonly property color menuNaranjaTexto: "#F26500" // texto naranja (p. ej. programa)
+    readonly property color menuMorado:       "#9827D1"
+
     // Neutros / texto
+    readonly property color bordeDivisor:       "#E6E6E6" // borde_divisor de tokens.css (aro neutro de tarjeta)
     readonly property color textoPrimario:      "#031225" // neutro_900
     readonly property color textoSecundario:    "#4D4D4D" // neutro_700
     readonly property color textoGuia:          "#808080" // neutro_500 — placeholder, ≥19px
     readonly property color bordeCampo:         "#CCCCCC" // neutro_300
+    readonly property color fondoSutil:         "#F6F6F6" // bg-subtle
     readonly property color fondoTarjeta:       "#FFFFFF"
     readonly property color iconoBarraInferior: "#333333" // neutro_800
 }

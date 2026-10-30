@@ -1,573 +1,157 @@
 # autoclave/backend/server.py
+#
+# Aplicación FastAPI del backend: `app`, ciclo de vida, compuerta de arranque,
+# manejadores de excepción y registro de las rutas. Punto de entrada:
+# autoclave.backend.server:app (backend/main.py).
+#
+# ORG-12 (tanda 15): las rutas viven en backend/rutas/<área>.py (un APIRouter
+# por área) y lo compartido en backend/dependencias.py y backend/rutas/_comun.py;
+# aquí solo se registran, en el orden de aparición que tenían en este archivo.
 
 import logging
+import threading
+from contextlib import asynccontextmanager
 
-from fastapi import HTTPException, FastAPI, Body
-from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 
-from autoclave.backend.context import BackendContext
-from autoclave.core.runtime.status import EstadoAutoclave
-from autoclave.services.domain.logging.ticket_formatter import format_ticket
-from autoclave.hal.measures.calibration_tools import invert_user_calibration, fit_two_point
-from autoclave.config.calibration_writer import write_user_calibration
-from autoclave.config import load_config
-from autoclave.utils.git_autocommit import git_autocommit
-from autoclave.utils.paths import app_root, calibration_path
+from autoclave.backend.arranque.secuencia import ejecutar_arranque
+from autoclave.backend.arranque.sin_bd import BdNoDisponibleError
+from autoclave.backend.dependencias import (RechazoApi, _cierre_ordenado_hecho,
+    _contexto_operable, _detener_arranque, context, registro_arranque)
+from autoclave.backend.rutas import (alarmas, apagado, ciclo, historial, mantenimiento,
+    parametros_ciclo, programas, puertas, reportes, respaldo, sistema, usuarios)
+from autoclave.backend.rutas import io as rutas_io
+from autoclave.backend.rutas._comun import _reasignacion
+from autoclave.backend.rutas.io import _iniciar_vigilancia_dueno_prueba, _prueba_cancelada_por_paro
 
-_TICKETS_DIR = app_root() / "data" / "tickets"
+# server_reasignacion.py lee estos nombres como `srv.<nombre>` en el momento de
+# usarlos (srv = este módulo, por sys.modules): se importan aquí para conservar
+# ese contrato sin tocar server_reasignacion.py (ORG-12).
+from autoclave.backend.contrasenas import verificar_password  # noqa: F401
+from autoclave.backend.dependencias import (CALIBRATION_PATH, _Rechazo,  # noqa: F401
+    _auditar, _lock_archivos, _rechazar, guard_estado, intentos_login, requiere_rol)
+from autoclave.backend.rutas.usuarios import _bloquear_por_cambio_clave  # noqa: F401
+from autoclave.config import load_config  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Autoclave Backend")
 
-context = BackendContext()
-
-CALIBRATION_PATH = calibration_path()
-
-
-def _resolve_sensor_index(tipo: str, sensor: str) -> int:
-    name_map = {"temperature": EstadoAutoclave.map_temp, "pressure": EstadoAutoclave.map_pres}.get(tipo)
-    if name_map is None:
-        raise HTTPException(status_code=404, detail=f"Tipo de sensor desconocido: {tipo}")
-    if sensor not in name_map:
-        raise HTTPException(status_code=404, detail=f"Sensor desconocido: {sensor}")
-    return name_map[sensor]
-
-
-@app.get("/calibration/{tipo}/{sensor}")
-def get_calibration(tipo: str, sensor: str):
-    index = _resolve_sensor_index(tipo, sensor)
-    config = load_config(CALIBRATION_PATH)
-    calib = (config.calibration.user.temperature if tipo == "temperature"
-             else config.calibration.user.pressure)[index]
-    last = context.calibration_audit.get_last_change(tipo, sensor)
-    return {
-        "sensor": sensor,
-        "tipo": tipo,
-        "is_poly": bool(calib.poly),
-        "gain": calib.gain,
-        "offset": calib.offset,
-        "poly": calib.poly,
-        "last_change": last,
-    }
-
-
-@app.patch("/calibration/{tipo}/{sensor}")
-def update_calibration(tipo: str, sensor: str, body: dict = Body(...)):
-    index = _resolve_sensor_index(tipo, sensor)
-
+@asynccontextmanager
+async def _ciclo_de_vida(_app):
+    yield
+    # Apagado ordenado del backend (Ctrl+C, SIGTERM de uvicorn): detiene el
+    # loop y apaga todas las salidas. Un TerminateProcess de Windows no pasa
+    # por aquí; por eso la UI no termina el backend con un ciclo en curso
+    # (revisión de la etapa 1 de autenticación, hallazgo B).
+    _detener_arranque.set()
+    if _cierre_ordenado_hecho.is_set():
+        # R11: reiniciar_software ya corrió el cierre ordenado (lazo detenido,
+        # ALL_OFF, puerto y base cerrados); otro stop() solo dejaría errores
+        logger.info("Backend detenido tras el cierre ordenado del reinicio del software")
+        return
+    control_loop = getattr(context, "control_loop", None)
+    if control_loop is None:
+        # el arranque no llegó a construirlo: no hay loop ni orden al módulo E/S
+        logger.info("Backend detenido antes de construir el control loop")
+        return
     try:
-        shown_low  = float(body["shown_low"]);  real_low  = float(body["real_low"])
-        shown_high = float(body["shown_high"]); real_high = float(body["real_high"])
-    except (KeyError, TypeError, ValueError):
-        raise HTTPException(
-            status_code=422,
-            detail="shown_low, real_low, shown_high, real_high son obligatorios y numericos",
-        )
-    usuario = str(body.get("usuario", "Desconocido"))
-
-    config = load_config(CALIBRATION_PATH)
-    user_list = (config.calibration.user.temperature if tipo == "temperature"
-                 else config.calibration.user.pressure)
-    old_calib = user_list[index]
-    old_gain, old_offset = old_calib.gain, old_calib.offset
-
-    try:
-        fv_low  = invert_user_calibration(shown_low, old_calib.gain, old_calib.offset, old_calib.poly)
-        fv_high = invert_user_calibration(shown_high, old_calib.gain, old_calib.offset, old_calib.poly)
-        new_gain, new_offset = fit_two_point(fv_low, real_low, fv_high, real_high)
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
-    write_user_calibration(
-        CALIBRATION_PATH, tipo, index, new_gain, new_offset,
-        shown_low, real_low, shown_high, real_high,
-    )
-    git_autocommit(CALIBRATION_PATH, f"chore: recalibrar {tipo} {sensor} (auto)")
-    context.units.reload_calibration(CALIBRATION_PATH)
-    context.calibration_audit.log_change(
-        tipo, sensor, shown_low, real_low, shown_high, real_high,
-        old_gain, old_offset, new_gain, new_offset, usuario,
-    )
-
-    return {"ok": True, "gain": new_gain, "offset": new_offset}
-
-
-@app.get("/status", response_model=None)
-def get_status():
-    estado = context.estado
-
-    # ------------------------------
-    # ESTADO DE LA MÁQUINA
-    # ------------------------------
-    machine_state = None
-    try:
-        machine_state = estado.get_machine_state().name
+        control_loop.stop()
+        logger.info("Backend detenido: control loop parado y salidas apagadas")
     except Exception:
-        machine_state = "DESCONOCIDO"
-
-    # ------------------------------
-    # ESTADO DE PUERTAS
-    # ------------------------------
-    doors = {
-        door_name: door_state.name
-        for door_name, door_state in estado.estado_puertas.items()
-    }
-
-    # ------------------------------
-    # SENSORES
-    # ------------------------------
-    sensors = {
-        "temperature": {
-            "camara": estado.sensores_temp.get("temp_camara"),
-            "camara_2": estado.sensores_temp.get("temp_2_camara"),
-            "ref": estado.sensores_temp.get("temp_ref"),
-            "chaqueta": estado.sensores_temp.get("temp_chaqueta"),
-            "drenaje": estado.sensores_temp.get("temp_drenaje"),
-            "drenaje_camara": estado.sensores_temp.get("temp_drenaje_cam"),
-
-
-        },
-        "pressure": {
-            "camara": estado.sensores_pres.get("pres_camara"),
-            "chaqueta": estado.sensores_pres.get("pres_chaqueta"),
-            "empaque_1": estado.sensores_pres.get("pres_empaque_1"),
-            "empaque_2": estado.sensores_pres.get("pres_empaque_2"),
-        },
-        "digital_inputs": dict(estado.sensores_di),
-
-        "digital_outputs": dict(estado.salidas_do),
-
-        "flags": dict(estado.flags),
-    }
-
-    # ------------------------------
-    # ALARMAS
-    # ------------------------------
-    alarms = [
-        {
-            "id": alarma.id,
-            "level": alarma.type.name,
-            "description": alarma.description,
-            "source_state": alarma.source_state,
-        }
-        for alarma in estado.Alarmas_activas
-    ]
-
-    # ------------------------------
-    # RESPUESTA FINAL (DTO)
-    # ------------------------------
-    return {
-        "machine_state":        machine_state,
-        "fase_ciclo":            getattr(estado, "fase_ciclo", ""),
-        "fase_en_sostenimiento": getattr(estado, "fase_en_sostenimiento", False),
-        "prevacio_progreso":     getattr(estado, "prevacio_progreso", ""),
-        "card_connected":        context.units.is_connected(),
-        "test_mode_active":      context.control_loop.test_mode_active,
-        "doors":   doors,
-        "sensors": sensors,
-        "alarms":  alarms,
-    }
-
-@app.get("/global_params")
-def get_global_params():
-    return context.config_manager.get()
-
-
-@app.get("/cycle")
-def get_selected_cycle():
-    cycle = context.cycle_manager.get_selected_cycle()
-
-    if cycle is None:
-        raise HTTPException(status_code=404, detail="No hay ciclo seleccionado")
-
-    return {
-        "id": cycle.id,
-        "name": cycle.name,
-        "parameters": cycle.parameters
-    }
-
-
-@app.get("/cycles")
-def list_cycles():
-    return [
-        {"id": c.id, "name": c.name, "source": getattr(c, "source", "user")}
-        for c in context.cycle_manager.cycles.values()
-    ]
-
-
-class _SelectCycleBody(BaseModel):
-    cycle_id: str
-
-
-@app.post("/cycle/select")
-def select_cycle(body: _SelectCycleBody):
-    cycle = context.cycle_manager.cycles.get(body.cycle_id)
-    if cycle is None:
-        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
-    if getattr(cycle, "source", "user") != "user":
-        raise HTTPException(status_code=422, detail="Solo se pueden seleccionar ciclos de usuario")
-
-    ok, reason = context.control_loop.set_active_cycle(cycle)
-    if not ok:
-        raise HTTPException(status_code=409, detail=reason)
-
-    context.cycle_manager.set_default_cycle(body.cycle_id)
-    return {"ok": True, "id": cycle.id, "name": cycle.name}
-
-@app.get("/cycle/current/readings")
-def get_current_cycle_readings():
-    """
-    Retorna todas las lecturas del ciclo activo (para la gráfica en vivo).
-    Si no hay ciclo activo retorna lista vacía.
-    """
-    logger_svc = context.cycle_logger
-    ciclo_id   = logger_svc.ciclo_id if logger_svc else None
-
-    if ciclo_id is None:
-        return {"ciclo_id": None, "lecturas": []}
-
-    rows = context.db.get_lecturas_ciclo(ciclo_id)
-    return {
-        "ciclo_id": ciclo_id,
-        "lecturas": [
-            {
-                "timestamp_rel": r["timestamp_rel"],
-                "timestamp_abs": r["timestamp_abs"],
-                "fase_codigo":   r["fase_codigo"],
-                "temp_camara":   r["temp_camara"],
-                "pres_camara":   r["pres_camara"],
-            }
-            for r in rows
-        ],
-    }
-
-
-@app.get("/cycle/history")
-def get_cycle_history(limite: int = 50):
-    """Lista de ciclos registrados (más recientes primero)."""
-    rows = context.db.get_ciclos_recientes(limite)
-    return [
-        {
-            "id":            r["id"],
-            "numero_ciclo":  r["numero_ciclo"],
-            "fecha_inicio":  r["fecha_inicio"],
-            "fecha_fin":     r["fecha_fin"],
-            "nombre_ciclo":  r["nombre_ciclo"],
-            "resultado":     r["resultado"],
-        }
-        for r in rows
-    ]
-
-
-@app.get("/cycle/history/{ciclo_id}/readings")
-def get_cycle_readings(ciclo_id: int):
-    """Todas las lecturas de un ciclo histórico."""
-    ciclo = context.db.get_ciclo(ciclo_id)
-    if ciclo is None:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-
-    rows = context.db.get_lecturas_ciclo(ciclo_id)
-    return {
-        "ciclo": dict(ciclo),
-        "lecturas": [dict(r) for r in rows],
-    }
-
-
-@app.get("/cycle/history/{ciclo_id}/ticket")
-def get_cycle_ticket(ciclo_id: int):
-    """Lecturas marcadas para_imprimir (formato ticket)."""
-    ciclo = context.db.get_ciclo(ciclo_id)
-    if ciclo is None:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-
-    rows = context.db.get_lecturas_para_imprimir(ciclo_id)
-    return {
-        "ciclo":    dict(ciclo),
-        "lecturas": [dict(r) for r in rows],
-    }
-
-
-@app.get("/cycle/history/{ciclo_id}/ticket.txt", response_class=PlainTextResponse)
-def get_cycle_ticket_txt(ciclo_id: int):
-    """Retorna el ticket como texto plano y lo guarda en data/tickets/."""
-    ciclo = context.db.get_ciclo(ciclo_id)
-    if ciclo is None:
-        raise HTTPException(status_code=404, detail="Ciclo no encontrado")
-
-    rows  = context.db.get_lecturas_para_imprimir(ciclo_id)
-    text  = format_ticket(ciclo, rows)
-
-    _TICKETS_DIR.mkdir(parents=True, exist_ok=True)
-    ticket_path = _TICKETS_DIR / f"ciclo_{ciclo['numero_ciclo']:05d}.txt"
-    ticket_path.write_text(text, encoding="utf-8")
-
-    return PlainTextResponse(content=text)
-
-
-@app.post("/cycle/start")
-def start_cycle():
-    """
-    Solicita el inicio del ciclo de esterilización.
-    Sólo tiene efecto cuando el sistema está en estado PREPARADO y
-    la flag LISTO_PARA_CICLO es True.  La máquina de estados gestiona
-    la transición real.
-    """
-    estado = context.estado
-
-    if not estado.get_flag("LISTO_PARA_CICLO"):
-        raise HTTPException(
-            status_code=409,
-            detail="El sistema no está listo para iniciar un ciclo"
-        )
-
-    estado.set_flag("START_CICLO", True)
-    return {"ok": True, "action": "START_CICLO"}
-
-
-@app.post("/cycle/abort")
-def abort_cycle():
-    """
-    Solicita el aborto del ciclo en curso.
-    Activa la flag CICLO_CANCELADO; el CicloState ejecutará el
-    protocolo de fallo en el siguiente tick del control loop.
-    """
-    estado = context.estado
-
-    from autoclave.state_machine.machine.enum_global import GlobalState
-    if estado.get_machine_state() != GlobalState.CICLO:
-        raise HTTPException(
-            status_code=409,
-            detail="No hay un ciclo en curso"
-        )
-
-    estado.set_flag("CICLO_CANCELADO", True)
-    return {"ok": True, "action": "CICLO_CANCELADO"}
-
-
-@app.post("/fault/reset")
-def reset_fault():
-    """Reconoce el estado de falla y solicita retornar a PREPARACION."""
-    if context.estado.get_machine_state().name != "FALLA":
-        raise HTTPException(
-            status_code=409,
-            detail="El sistema no está en estado de falla"
-        )
-    context.estado.set_flag("RESET_FALLA", True)
-    return {"ok": True, "action": "RESET_FALLA"}
-
-
-@app.post("/outputs/reset")
-def reset_outputs():
-    """
-    Apaga todas las salidas digitales.
-    Llamar antes de cerrar la aplicación o ante cualquier apagado seguro.
-    """
-    try:
-        context.control_loop.stop()   # evita que el loop re-active salidas durante el reset
-        context.setdo.reset_all_outputs()
-        logger.info("outputs/reset: todas las salidas apagadas")
-        return {"ok": True}
-    except Exception as e:
-        logger.error("outputs/reset error: %s", e)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/cycle/acknowledge")
-def acknowledge_cycle():
-    """
-    El operador confirmó que vio el resultado del ciclo.
-    Activa CICLO_CONFIRMADO para que CicloState libere la transición.
-    Solo tiene efecto mientras el estado sea CICLO (esperando confirmación).
-    """
-    estado = context.estado
-
-    from autoclave.state_machine.machine.enum_global import GlobalState
-    if estado.get_machine_state() != GlobalState.CICLO:
-        raise HTTPException(
-            status_code=409,
-            detail="No hay un ciclo esperando confirmación"
-        )
-
-    estado.set_flag("CICLO_CONFIRMADO", True)
-
-    # Si el ciclo terminó en fallo/emergencia el operador ya lo vio en CycleWindow.
-    # Pre-armar RESET_FALLA para que la máquina salte el estado FALLA y vuelva
-    # directo a PREPARACION sin requerir un segundo "RECONOCER FALLA".
-    fase = getattr(estado, "fase_ciclo", "")
-    if fase and (fase.startswith("FALLO_") or fase == "EMERGENCIA"):
-        estado.set_flag("RESET_FALLA", True)
-
-    return {"ok": True, "action": "CICLO_CONFIRMADO"}
-
-
-@app.post("/doors/{door_name}/open")
-def open_door(door_name: str, body: dict = Body(...)):
-    source_door = body.get("source_door")
-
-    ok, reason = context.servicio_puertas.request_open(door_name)
-    if not ok:
-        raise HTTPException(
-            status_code=403,
-            detail=reason or "Apertura de puerta no permitida"
-        )
-
-    return {
-        "ok": True,
-        "door": door_name,
-        "action": "open",
-        "source_door": source_door,
-    }
-
-
-@app.post("/doors/{door_name}/close")
-def close_door(door_name: str, body: dict = Body(...)):
-    source_door = body.get("source_door")
-
-    ok, reason = context.servicio_puertas.request_close(door_name)
-    if not ok:
-        raise HTTPException(
-            status_code=403,
-            detail=reason or "Cierre de puerta no permitido"
-        )
-
-    return {
-        "ok": True,
-        "door": door_name,
-        "action": "close",
-        "source_door": source_door,
-    }
-
-
-@app.patch("/cycle/parameters")
-def update_cycle_parameters(body: dict = Body(...)):
-    """Actualiza parámetros de la sección 'secado' del ciclo activo y persiste si es user."""
-    try:
-        cycle = context.cycle_manager.get_selected_cycle()
-    except Exception:
-        raise HTTPException(status_code=503, detail="No hay ciclo activo seleccionado")
-
-    _SECADO_PARAMS = {
-        "modo":                    (int,   1,   3),
-        "tiempo_secado":           (float, 0.0, 120.0),
-        "presion_chaqueta_secado": (int,   0,   500),
-        "rango_chaqueta_secado":   (int,   0,   100),
-        "presion_baja_secado":     (int,   0,   200),
-        "presion_alta_secado":     (int,   0,   300),
-        "timeout_pulso":           (int,   1,   600),
-    }
-
-    secado = cycle.parameters.get("secado")
-    if secado is None:
-        raise HTTPException(status_code=422, detail="El ciclo no tiene sección 'secado'")
-
-    for param, (tipo, v_min, v_max) in _SECADO_PARAMS.items():
-        if param not in body:
-            continue
-        try:
-            value = tipo(body[param])
-        except (TypeError, ValueError):
-            raise HTTPException(status_code=422, detail=f"{param} debe ser numérico")
-        if not (v_min <= value <= v_max):
-            raise HTTPException(
-                status_code=422,
-                detail=f"{param} fuera de rango ({v_min}-{v_max})",
-            )
-        if param not in secado:
-            raise HTTPException(status_code=422, detail=f"Parámetro '{param}' no existe en 'secado'")
-        secado[param]["value"] = value
-
-    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        _save_cycle_json(cycle)
-
-    return {"ok": True}
-
-
-class _CycleParamValueBody(BaseModel):
-    cycle_id: str
-    fase: str
-    path: list[str]
-    value: object
-
-
-@app.patch("/cycle/parameter")
-def update_cycle_parameter(body: _CycleParamValueBody):
-    """Actualiza un único parámetro (cualquier sección) de cualquier ciclo cargado
-    y persiste si es 'user'. A diferencia de /cycle/parameters, no está limitado
-    a 'secado' ni requiere una tabla de validación hardcodeada: valida contra el
-    'type'/'min'/'max' que ya trae cada parámetro en su propio JSON."""
-    cycle = context.cycle_manager.cycles.get(body.cycle_id)
-    if cycle is None:
-        raise HTTPException(status_code=404, detail=f"Ciclo '{body.cycle_id}' no encontrado")
-
-    if not body.path:
-        raise HTTPException(status_code=422, detail="'path' no puede estar vacío")
-
-    try:
-        value = cycle.set_param(body.fase, body.path, body.value)
-    except KeyError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except (TypeError, ValueError) as e:
-        raise HTTPException(status_code=422, detail=str(e))
-
-    if getattr(cycle, "source", "") == "user" and hasattr(cycle, "_path"):
-        _save_cycle_json(cycle)
-
-    return {"ok": True, "value": value}
-
-
-def _save_cycle_json(cycle) -> None:
-    """Escribe cycle.parameters de vuelta al JSON del ciclo (solo ciclos user)."""
-    import json as _json
-    from pathlib import Path as _Path
-
-    path = _Path(cycle._path)
-    with open(path, "r", encoding="utf-8") as f:
-        data = _json.load(f)
-    data["parameters"] = cycle.parameters
-    with open(path, "w", encoding="utf-8") as f:
-        _json.dump(data, f, indent=4, ensure_ascii=False)
-    git_autocommit(path, f"chore: actualizar parametros de ciclo {cycle.id} (auto)")
-
-
-# Direct hardware access — bypasses control_loop, for bench validation only
-
-class _OutputSetBody(BaseModel):
-    value: bool
-
-
-@app.post("/io/test/reset_all")
-def io_test_reset_all():
-    context.setdo.reset_all_outputs()
-    return {"ok": True}
-
-
-@app.post("/io/test/enter")
-def io_test_enter():
-    """Activa el modo prueba: pausa la máquina de estados (sin importar la
-    fase — PREPARACION o PREPARADO) y apaga todas las salidas para permitir
-    control manual. Rechazado durante CICLO o con el paro de emergencia activo."""
-    ok, reason = context.control_loop.enter_test_mode()
-    if not ok:
-        raise HTTPException(status_code=409, detail=reason)
-    return {"ok": True}
-
-
-@app.post("/io/test/exit")
-def io_test_exit():
-    """Sale del modo prueba: apaga todas las salidas y reanuda la máquina de estados."""
-    context.control_loop.exit_test_mode()
-    return {"ok": True}
-
-
-@app.patch("/io/test/output/{name}")
-def io_test_set_output(name: str, body: _OutputSetBody):
-    if name not in EstadoAutoclave.map_do:
-        raise HTTPException(status_code=404, detail=f"Output '{name}' no encontrado")
-    # map_do es 0-indexado (posición en el bitstream DO), pero
-    # serial_link.set_output() espera el número de canal DO físico
-    # 1-indexado (DO1..DO24), igual que SetOutput y la fábrica de puertas.
-    index = EstadoAutoclave.map_do[name]
-    context.setdo.set_output(index + 1, body.value)
-    return {"ok": True, "name": name, "value": body.value}
+        logger.exception("Error al detener el control loop en el apagado del backend")
+
+
+app = FastAPI(title="Autoclave Backend", lifespan=_ciclo_de_vida)
+_compuerta_arranque = False
+_hilo_arranque: threading.Thread | None = None
+_RUTAS_SIN_COMPUERTA = frozenset({"/arranque", "/ui/activity"})
+
+
+def preparar_arranque() -> None:
+    """Activa la compuerta 503: llamar antes de abrir el puerto."""
+    global _compuerta_arranque
+    _compuerta_arranque = True
+
+
+def iniciar_arranque() -> None:
+    """Lanza la secuencia de etapas en su hilo. Llamar con el puerto ya
+    enlazado (backend/main.py): si el enlace del puerto falla, nunca se abre el de E/S."""
+    global _hilo_arranque
+    if _hilo_arranque is not None:
+        return
+    _hilo_arranque = threading.Thread(
+        target=ejecutar_arranque,
+        args=(context, registro_arranque),
+        kwargs={"al_cancelar_prueba": _prueba_cancelada_por_paro,
+                "al_operable": _contexto_operable.set,
+                "detener": _detener_arranque},
+        name="arranque", daemon=True)
+    _hilo_arranque.start()
+    _iniciar_vigilancia_dueno_prueba()   # SAF-01 (revisión de B7)
+
+
+@app.middleware("http")
+async def _compuerta_de_arranque(request: Request, call_next):
+    if (_compuerta_arranque and not _contexto_operable.is_set()
+            and request.url.path not in _RUTAS_SIN_COMPUERTA):
+        fallido = registro_arranque.fallo_bloqueante
+        return JSONResponse(status_code=503, content={
+            "detail": "Arranque fallido" if fallido else "Arranque en curso",
+            "codigo": "arranque_fallido" if fallido else "arranque_en_curso",
+        })
+    return await call_next(request)
+
+
+@app.exception_handler(BdNoDisponibleError)
+def _responder_sin_bd(_request: Request, _e: BdNoDisponibleError):
+    # PROVISIONAL hasta el modo sin BD (§7 de planeacion_arranque_y_modo_sin_bd.md)
+    return JSONResponse(status_code=503, content={
+        "detail": "Base de datos no disponible", "codigo": "sin_base_de_datos"})
+
+
+@app.exception_handler(RechazoApi)
+def _responder_rechazo(_request: Request, r: RechazoApi):
+    return JSONResponse(status_code=r.status, headers=r.headers,
+                        content={"detail": r.motivo, "codigo": r.codigo, **r.extra})
+
+
+# Solo lo usa server_reasignacion.py (srv._estado_seguro_en_marcha).
+def _estado_seguro_en_marcha() -> bool:
+    """True si el protocolo de estado seguro está ACTUANDO sobre las válvulas.
+    Pausado por un paro, esperando la confirmación del operador o sin datos de
+    el módulo E/S no mueve nada: el equipo ya está quieto y se puede apagar (A1)."""
+    es = context.control_loop.estado_seguro
+    if getattr(es, "activo", False) is not True:
+        return False
+    if context.estado.get_flag("PARO_EMERGENCIA"):
+        return False
+    if getattr(es, "requiere_confirmacion", False) is True:
+        return False
+    return getattr(context.control_loop, "datos_vigentes", False) is True
+
+
+# ORG-12: cada área entra en el orden de su primera ruta y, dentro de cada
+# router, en el orden original. El orden global cambia (también el de `paths`
+# en /openapi.json), pero ninguna URL coincide con dos rutas del mismo método,
+# así que cada petición la atiende la misma ruta que antes;
+# tests/test_t15_rutas_equivalentes.py lo comprueba.
+app.include_router(sistema.router)
+app.include_router(usuarios.router)
+app.include_router(rutas_io.router)
+app.include_router(ciclo.router)
+app.include_router(mantenimiento.router)
+app.include_router(reportes.router)
+app.include_router(respaldo.router)
+app.include_router(historial.router)
+app.include_router(apagado.router)
+app.include_router(alarmas.router)
+app.include_router(puertas.router)
+app.include_router(parametros_ciclo.router)
+app.include_router(programas.router)
+
+# ── R8 (tanda 8, D8-5.12): Opciones avanzadas = reasignación de E/S ───────────
+# Sus rutas viven en server_reasignacion.py; se registran aquí, al final, con
+# todo lo de este módulo ya definido (las usa). El módulo se carga en
+# rutas/_comun.py (lo usan también io y respaldo).
+_reasignacion.registrar(app)

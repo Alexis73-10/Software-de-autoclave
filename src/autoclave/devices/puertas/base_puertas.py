@@ -1,4 +1,6 @@
 class Door:
+    tiene_actuador = True
+
     def __init__(self, name):
         self.name = name
     def is_closed(self) -> bool:

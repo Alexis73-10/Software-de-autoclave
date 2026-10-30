@@ -4,18 +4,47 @@
 
 #Actualizacion : 
     #se agregaran los estados de las (DI) entradas digitales
+import logging
+import math
+
 from autoclave.devices.puertas.advanced_door import DoorState
 from autoclave.state_machine.machine.enum_global import GlobalState
 
+logger = logging.getLogger(__name__)
+
+# P7 / D-14.7 (tanda 16): rangos de plausibilidad de las lecturas vivas, los
+# mismos "rango" de CALIBRACION_PLAUSIBLE (core/managers/catalogo_parametros.py;
+# se fijan aquí para no acoplar el estado al catálogo; una prueba vigila que
+# coincidan). Una lectura numérica finita fuera de rango se publica como None
+# (sin lectura): de ahí actúan las rutas existentes (Principal -> SEN-02,
+# Referencia -> SEN-11 / NO CONFORME, presión -> sin lectura). Un valor no
+# numérico o no finito pasa como antes (lo trata lectura_valida). 0 tampoco
+# cambia (sigue siendo "sin señal" en otras rutas).
+RANGO_PLAUSIBLE_TEMP_C = (0.0, 200.0)
+RANGO_PLAUSIBLE_PRES_KPA = (-10.0, 450.0)
+
+
+def _fuera_de_rango(valor, rango) -> bool:
+    if isinstance(valor, bool) or not isinstance(valor, (int, float)):
+        return False
+    if not math.isfinite(valor):
+        return False
+    return not (rango[0] <= valor <= rango[1])
+
 
 class EstadoAutoclave:
+    # El índice es la posición de la lectura en la trama del módulo E/S. La
+    # posición 3 (temp_chaqueta) ya no se lee: ese sensor se retiró de todos
+    # los equipos (planeacion_backend_autenticacion.md, decisión 24, T-19).
+    # Los demás conservan su posición.
+    # temp_drenaje_cam (posición 4) era de una versión anterior y ya no existe:
+    # su entrada la ocupa ahora temp_drenaje, y la posición 5 queda sin sensor
+    # (decisión de Cristian, adenda E0/E1, 2026-10-12).
     map_temp = {
         "temp_camara": 0,
         "temp_2_camara": 1,
         "temp_ref": 2,
-        "temp_chaqueta": 3,
-        "temp_drenaje_cam": 4,
-        "temp_drenaje": 5, 
+        "temp_drenaje": 4,
     }
 
     map_pres = {
@@ -55,7 +84,8 @@ class EstadoAutoclave:
         "desbloqueo_puerta_2": 9,
         "bloqueo_puerta_1": 10,
         "bloqueo_puerta_2": 11,
-        "aire_comprimido_chaqueta": 12,
+        # 12 (DO 13): libre. Era aire_comprimido_chaqueta, retirada en la
+        # tanda 11 (D11-2); las demás conservan su número.
         "aire_comprimido_camara": 13,
         "aire_admosferico_camara": 14,
         "agua_chaqueta": 15,
@@ -66,7 +96,11 @@ class EstadoAutoclave:
         "abrir_puerta_2": 20,
         "cerrar_puerta_1": 21,
         "cerrar_puerta_2": 22,
-        "buzer_alarma": 23,
+        # 23 (DO 24): libre desde la tanda 19. Tanda 19 (decisión 4 de
+        # Cristian, MOD-05): el buzzer es de 24 VDC y pasa a DO 25, para no
+        # compartir común con las cargas de otra tensión del grupo 17-24.
+        # Aplica a los dos enlaces de E/S.
+        "buzer_alarma": 24,
     }
     
     state_doors = {
@@ -87,6 +121,9 @@ class EstadoAutoclave:
         "CICLO_CONFIRMADO":             5,   # operador confirmó la visualización del resultado
         "RESET_FALLA":                  6,   # operador solicitó salir del estado FALLA
         "FALLO_SUMINISTRO_ELECTRICO":   7,
+        # U4 (tanda 2): paro de verdad (enlace + DI vigente + entrada en 0).
+        # PARO_EMERGENCIA también es True sin datos del módulo E/S (A-3).
+        "PARO_REAL":                    8,
     }
 
     def __init__(self):
@@ -98,12 +135,14 @@ class EstadoAutoclave:
         self.estado_puertas = {k: DoorState.DESCONOCIDO for k in self.state_doors}
         self.estado_maquina = {k: GlobalState.PREPARACION for k in self.state_maquina}
         self.flags = {k: False for k in self._flags_map}
-        self.Alarmas_activas = []
         # Fase actual del ciclo (string legible para la UI)
         self.fase_ciclo: str = ""
         # Motivo específico del último fallo de ciclo (para tickets/DB);
         # se limpia al iniciar cada ciclo nuevo
         self.motivo_fallo: str = ""
+        self.codigo_fallo: str = ""
+        # I4 (tanda 6): parámetros de la alarma del fallo (JSON en la BD)
+        self.valores_fallo: dict = {}
         # True cuando la fase activa ya alcanzó las condiciones y está en sostenimiento
         self.fase_en_sostenimiento: bool = False
         # Progreso del pre-vacío: "A 1/4", "B 2/4", etc. (vacío cuando no aplica)
@@ -116,15 +155,76 @@ class EstadoAutoclave:
         # CALENTAMIENTO/ESTABILIZACION/ESTERILIZACION; se limpia al iniciar
         # cada ciclo nuevo (CicloState.reset())
         self.f0_acumulado: float = 0.0
+        # O1 (tanda 3): usuario autenticado que pidió el inicio (POST /cycle/start).
+        # Lo fija el backend junto con START_CICLO y lo toma el CycleLogger al
+        # crear el ciclo. "" = sin sesión.
+        self.operador_inicio: str = ""
+        # Avisos del ciclo que van al pie del ticket (SAF-04 de T3)
+        self.avisos_ciclo: list = []
+        # T2-a (tanda 7): segundos del ciclo sin datos del módulo E/S (tolerancia
+        # por DI vencida); pausan la exposición y van al pie del ticket
+        self.sin_datos_modulo_es_s: float = 0.0
+        # D8-2.9 (tanda 8): True si en el tick actual llegó una trama DI
+        # vigente, distinta y nueva (lo publica ControlLoop antes de correr la
+        # máquina de estados); None = sin información (se cuenta cada tick)
+        self.trama_di_nueva = None
+        # TMG-01 (revisión S2a): instante (time.monotonic) de la última trama
+        # DI vigente; el tramo sin datos del ciclo empieza ahí. None = sin dato
+        self.ultima_di_valida_mono = None
+        # F4 (tanda 16), contratos del ciclo (los escribe CicloState):
+        # - aislamiento_camara: AislamientoCamara del ciclo en curso (VCH-AIS),
+        #   una instancia por ciclo, compartida por CALENTAMIENTO y ESTERILIZACION;
+        # - inhibir_vapor_chaqueta: corte de chaqueta (D-CHQ / SAF-09) vigente en
+        #   el tick; CICLO lo fija antes de fase.update() y las fases no
+        #   encienden vapor_chaqueta mientras sea True;
+        # - modo_vapor: "chaqueta" / "camara" en ciclo (VCH-SEL), None fuera.
+        # FC-08 (tanda 21): no_conforme / motivo_no_conforme /
+        # no_conforme_reconocido (C-13.7b, P4) se retiraron; la Referencia sin
+        # lectura queda como observación en avisos_ciclo.
+        self.aislamiento_camara = None
+        self.inhibir_vapor_chaqueta: bool = False
+        self.modo_vapor = None
+        # FC-12 (tanda 21): usuario identificado que canceló el ciclo en curso
+        # (lo fija POST /cycle/abort con un token válido; CicloState.reset()
+        # lo limpia al iniciar cada ciclo)
+        self.cancelado_por: str | None = None
+        # Vaciado de chaqueta tras un ciclo líquido 4/5 (VaciadoChaqueta de
+        # state_machine/states/vaciado_chaqueta.py). Lo arma CicloState al
+        # confirmar el COMPLETADO y lo conduce PREPARADO; vive aquí porque
+        # set_active_cycle reconstruye la StateMachine. None = inactivo.
+        self.vaciado_chaqueta = None
 
     def update(self, nuevos_datos):
         self.data.update(nuevos_datos)
+        # P7 / D-14.7: canales fuera de rango en el episodio en curso (log del
+        # valor crudo una vez por episodio y canal; se rearma al volver)
+        fuera = self.__dict__.get("_p7_fuera_rango")
+        if fuera is None:
+            fuera = self.__dict__["_p7_fuera_rango"] = set()
+
+        def plausible(tipo, nombre, valor, rango, unidad):
+            clave = (tipo, nombre)
+            if _fuera_de_rango(valor, rango):
+                if clave not in fuera:
+                    fuera.add(clave)
+                    logger.warning(
+                        "Lectura fuera del rango físico: %s = %r %s (rango %g a %g %s); "
+                        "se publica sin lectura (P7)", nombre, valor, unidad,
+                        rango[0], rango[1], unidad)
+                return None
+            if clave in fuera and isinstance(valor, (int, float)) and not isinstance(valor, bool) \
+                    and math.isfinite(valor):
+                fuera.discard(clave)
+                logger.info("Lectura de nuevo en rango: %s = %r %s", nombre, valor, unidad)
+            return valor
+
         #actualizamos los datos del cofre con los nuevos datos recibidos
         if "temperature" in nuevos_datos:
             temp_list = nuevos_datos["temperature"]
             for nombre, index in self.map_temp.items():
                 try:
-                    self.sensores_temp[nombre] = temp_list[index]
+                    self.sensores_temp[nombre] = plausible(
+                        "temperature", nombre, temp_list[index], RANGO_PLAUSIBLE_TEMP_C, "°C")
                 except IndexError:
                     pass  # si falta un dato, lo ignora sin romper
 
@@ -132,7 +232,8 @@ class EstadoAutoclave:
             pres_list = nuevos_datos["pressure"]
             for nombre, index in self.map_pres.items():
                 try:
-                    self.sensores_pres[nombre] = pres_list[index]
+                    self.sensores_pres[nombre] = plausible(
+                        "pressure", nombre, pres_list[index], RANGO_PLAUSIBLE_PRES_KPA, "kPa")
                 except IndexError:
                     pass
                 

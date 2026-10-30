@@ -18,7 +18,7 @@ def _make_view():
 
 
 def test_sin_sesion_bloquea_formulario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     SessionManager.logout()
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -30,7 +30,7 @@ def test_sin_sesion_bloquea_formulario():
 
 
 def test_rol_operador_bloquea_formulario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Juan", "usuario": "juan", "rol": "operador"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -42,9 +42,9 @@ def test_rol_operador_bloquea_formulario():
     SessionManager.logout()
 
 
-def test_rol_admin_habilita_formulario_y_muestra_info():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+def test_rol_tecnico_habilita_formulario_y_muestra_info():
+    from autoclave.cliente.session_manager import SessionManager
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.return_value = {
@@ -59,8 +59,8 @@ def test_rol_admin_habilita_formulario_y_muestra_info():
 
 
 def test_preview_se_calcula_localmente_sin_llamar_backend():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    from autoclave.cliente.session_manager import SessionManager
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.return_value = {
@@ -79,8 +79,8 @@ def test_preview_se_calcula_localmente_sin_llamar_backend():
 
 
 def test_preview_invalida_deshabilita_guardar():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    from autoclave.cliente.session_manager import SessionManager
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.return_value = {
@@ -97,8 +97,8 @@ def test_preview_invalida_deshabilita_guardar():
 
 
 def test_set_context_backend_caido_no_crashea_y_oculta_formulario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
-    SessionManager.login({"id": 1, "nombre": "Admin", "usuario": "admin", "rol": "admin"})
+    from autoclave.cliente.session_manager import SessionManager
+    SessionManager.login({"id": 1, "nombre": "Tec", "usuario": "tec", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
         mock_client.get_calibration.side_effect = ConnectionError("backend caido")
@@ -110,7 +110,7 @@ def test_set_context_backend_caido_no_crashea_y_oculta_formulario():
 
 
 def test_on_guardar_backend_caido_no_crashea_y_conserva_valores():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Tecnico Uno", "usuario": "tec1", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -145,7 +145,7 @@ def test_on_inputs_changed_antes_de_set_context_no_lanza_attributeerror():
 
 
 def test_guardar_llama_save_calibration_con_usuario():
-    from autoclave.ui_pyside.services.session_manager import SessionManager
+    from autoclave.cliente.session_manager import SessionManager
     SessionManager.login({"id": 1, "nombre": "Tecnico Uno", "usuario": "tec1", "rol": "tecnico"})
     view, _ = _make_view()
     with patch.object(view, "_client") as mock_client:
@@ -169,3 +169,83 @@ def test_guardar_llama_save_calibration_con_usuario():
             },
         )
     SessionManager.logout()
+
+
+def _http_error(estado, codigo, detalle):
+    import requests
+    from unittest.mock import MagicMock
+    resp = MagicMock(status_code=estado)
+    resp.json.return_value = {"codigo": codigo, "detail": detalle}
+    return requests.HTTPError(response=resp)
+
+
+def _vista_lista(view, mock_client):
+    mock_client.get_calibration.return_value = {
+        "gain": 1.0, "offset": 0.0, "poly": None, "is_poly": False, "last_change": None}
+    view.set_context(tipo="pressure", sensor="pres_chaqueta")
+    view._input_shown_low.setValue(55.0)
+    view._input_real_low.setValue(10.0)
+    view._input_shown_high.setValue(296.0)
+    view._input_real_high.setValue(337.0)
+    view._on_inputs_changed()
+    return view
+
+
+def _con_sesion():
+    from autoclave.cliente.session_manager import SessionManager
+    SessionManager.login({"id": 1, "nombre": "Tecnico Uno", "usuario": "tec1", "rol": "tecnico"})
+    return SessionManager
+
+
+def test_s3a_rechazo_implausible_se_muestra_y_no_se_reintenta():
+    sm = _con_sesion()
+    with patch("autoclave.ui_pyside.views.entrdas_salidas.calibracion_sensor.QMessageBox") as caja:
+        view, _ = _make_view()
+        with patch.object(view, "_client") as mock_client:
+            _vista_lista(view, mock_client)
+            mock_client.save_calibration.side_effect = _http_error(
+                422, "CALIBRACION_IMPLAUSIBLE", "Calibración no plausible: pendiente invertida")
+            view._on_guardar()
+            assert mock_client.save_calibration.call_count == 1
+        assert "pendiente invertida" in view._lbl_info.text()
+        caja.question.assert_not_called()
+    sm.logout()
+
+
+def test_s3a_correccion_grande_confirmada_reenvia_con_la_confirmacion():
+    from PySide6.QtWidgets import QMessageBox
+    sm = _con_sesion()
+    with patch("autoclave.ui_pyside.views.entrdas_salidas.calibracion_sensor.QMessageBox") as caja:
+        caja.StandardButton = QMessageBox.StandardButton
+        caja.question.return_value = QMessageBox.StandardButton.Yes
+        view, _ = _make_view()
+        with patch.object(view, "_client") as mock_client:
+            _vista_lista(view, mock_client)
+            mock_client.save_calibration.side_effect = [
+                _http_error(409, "CALIBRACION_REQUIERE_CONFIRMACION", "corrección de 45.0 kPa"),
+                {"ok": True, "gain": 1.3, "offset": -61.0},
+            ]
+            view._on_guardar()
+            assert mock_client.save_calibration.call_count == 2
+            segundo = mock_client.save_calibration.call_args_list[1].args[2]
+            assert segundo["confirmar_fuera_de_rango"] is True
+        assert "gain=1.3" in view._lbl_info.text()
+        assert "45.0 kPa" in caja.question.call_args.args[2]
+    sm.logout()
+
+
+def test_s3a_correccion_grande_cancelada_no_guarda():
+    from PySide6.QtWidgets import QMessageBox
+    sm = _con_sesion()
+    with patch("autoclave.ui_pyside.views.entrdas_salidas.calibracion_sensor.QMessageBox") as caja:
+        caja.StandardButton = QMessageBox.StandardButton
+        caja.question.return_value = QMessageBox.StandardButton.No
+        view, _ = _make_view()
+        with patch.object(view, "_client") as mock_client:
+            _vista_lista(view, mock_client)
+            mock_client.save_calibration.side_effect = _http_error(
+                409, "CALIBRACION_REQUIERE_CONFIRMACION", "corrección de 45.0 kPa")
+            view._on_guardar()
+            assert mock_client.save_calibration.call_count == 1
+        assert "falta confirmar" in view._lbl_info.text()
+    sm.logout()

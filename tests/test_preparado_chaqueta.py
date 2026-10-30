@@ -1,6 +1,8 @@
 import time as time_module
 from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparado import preparado_state
+from autoclave.state_machine.alarms.catalogo import PRE_01, SUM_06, CATALOGO
+from tests.helpers.alarmas_helpers import codigos_activados, ultima_activacion
 
 
 def _make_preparado(vapor=1, pres_chaqueta=300.0):
@@ -28,9 +30,9 @@ def test_sin_vapor_mantener_chaqueta_retorna_true():
 def test_sin_vapor_alarma_no_bloqueante():
     p, alarm_mgr, _ = _make_preparado(vapor=0)
     p.mantener_chaqueta()
-    alarma = alarm_mgr.report.call_args.args[0]
-    assert alarma.id == "SUMINISTRO_VAPOR"
-    assert alarma.blocks_operation is False
+    codigo, _, valores = ultima_activacion(alarm_mgr)
+    assert codigo == SUM_06
+    assert CATALOGO[SUM_06].bloquea_inicio is False
 
 
 def test_con_vapor_fuera_de_banda_sigue_bloqueando():
@@ -44,6 +46,7 @@ def test_esta_preparado_true_sin_vapor_con_resto_ok():
     p.mantener_presion_camara = lambda: True
     p.mantener_drenaje = lambda: True
     p.puertas_cerradas = lambda: True
+    p.camara_segura = lambda: True        # D-04 (T4): fuera del alcance de esta prueba
     p.estado.get_flag.side_effect = lambda f: False
     assert p.esta_preparado() is True
 
@@ -54,9 +57,9 @@ def test_valvula_enciende_bajo_objetivo_sin_disparar_alarma():
     p, alarm_mgr, set_do = _make_preparado(vapor=1, pres_chaqueta=299.0)
     resultado = p.mantener_chaqueta()
     set_do.vapor_chaqueta_on.assert_called()
-    alarm_mgr.clear.assert_any_call("CHAQUETA_FRIA")
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "CHAQUETA_FRIA" not in ids_reportados
+    alarm_mgr.resolver.assert_any_call(PRE_01)
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_01 not in ids_reportados
     assert resultado is True
 
 
@@ -72,8 +75,8 @@ def test_alarma_chaqueta_fria_dispara_bajo_limite_inferior():
     p, alarm_mgr, set_do = _make_preparado(vapor=1, pres_chaqueta=270.0)
     p.tiempo_estable = 0
     p.mantener_chaqueta()
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "CHAQUETA_FRIA" in ids_reportados
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_01 in ids_reportados
 
 
 def test_timer_estabilidad_inmune_a_salto_de_reloj_de_pared(monkeypatch):
@@ -84,14 +87,14 @@ def test_timer_estabilidad_inmune_a_salto_de_reloj_de_pared(monkeypatch):
     p, alarm_mgr, set_do = _make_preparado(vapor=1, pres_chaqueta=270.0)
     p.tiempo_estable = 60
     p.mantener_chaqueta()  # arma timer_estabilidad con monotonic=1000.0
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "CHAQUETA_FRIA" not in ids_reportados  # aún no pasó tiempo_estable
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_01 not in ids_reportados  # aún no pasó tiempo_estable
 
     fake_monotonic[0] += 61  # reloj monótono avanza 61s (tiempo_estable cumplido)
-    alarm_mgr.report.reset_mock()
+    alarm_mgr.activar.reset_mock()
     p.mantener_chaqueta()
-    ids_reportados = [call.args[0].id for call in alarm_mgr.report.call_args_list]
-    assert "CHAQUETA_FRIA" in ids_reportados
+    ids_reportados = codigos_activados(alarm_mgr)
+    assert PRE_01 in ids_reportados
 
 
 def test_apagado_requiere_3_confirmaciones():

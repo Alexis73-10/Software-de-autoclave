@@ -16,14 +16,41 @@ _archivo/
 /dist/*
 !/dist/*.bat
 *.egg-info/
+# P10 (tanda 16, D-14.10): toda la carpeta de datos de ejecución
+/data/
 /data/*.db
 /data/*.db-wal
 /data/*.db-shm
 /data/*.log
 /data/last_shutdown.json
 /data/calibration.yaml
+/data/calibration_modbus.yaml
+/data/login_recordado.json
+/data/login_recordado.json.tmp
 /data/tickets/
 /src/logs/
 /installation_profile.json
 /tools/generador/generador.db
 /.claude/worktrees/
+/.claude/settings.local.json
+
+# Copias .bak de los programas de usuario (RB-04.2, T10)
+src/autoclave/cycles/user/*.json.bak
+
+# Entregas compiladas para instalar (tanda 7, K1/K2)
+/entrega/
+
+# Material personal de estudio, fuera del repo desde la tanda 8 (D8-3.27, P6):
+# copia en C:\Users\tecni\Documents\estudio_autoclave\
+/estudio/
+
+# LIC-01 (licencia L0): el archivo de secretos de activación vive fuera del
+# repositorio; por si alguien lo copia aquí dentro
+especifika_secretos/
+activacion.json
+
+# ORG-05 (tanda 15): los .log de las tandas no se versionan (quedan en disco)
+docs/informes/**/*.log
+
+# VER-04 (etapa VER): identificación de la compilación, la generan los .spec
+/src/autoclave/_build_info.py

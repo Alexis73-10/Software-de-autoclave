@@ -44,8 +44,9 @@ _PASO_HOLD_ALTO      = 'HOLD_ALTO'
 # Al cerrar el pulso bajo se desenergizan 4 bobinas de 24V casi a la vez
 # (bomba_vacio + agua_bomba, vacio_camara + agua_intercambiador). Sin diodo
 # flyback en alguna de ellas, el golpe inductivo combinado de apagarlas
-# juntas puede acoplarse por EMI a la tarjeta ESP32 y desconectarla del
-# puerto serial. Mitigación temporal: escalonar el apagado en dos grupos
+# juntas puede acoplarse por EMI al módulo E/S y desconectarlo
+# (observado con la ESP32 del enlace serial, retirado en la tanda 20; se
+# conserva con los módulos M31-U). Mitigación temporal: escalonar el apagado en dos grupos
 # separados por este intervalo, mientras se verifica/instala supresión en
 # las bobinas. No reemplaza el fix de hardware.
 _STAGGER_APAGADO_VACIO = 0.15  # segundos
@@ -54,6 +55,8 @@ _STAGGER_APAGADO_VACIO = 0.15  # segundos
 class PrevacioFase(BaseFase):
 
     name = "PRE_VACIO"
+    # D8-2.12: hold bajo / hold alto de cada pulso
+    _VENTANAS_ESTABILIDAD = ("_hold_inicio",)
 
     def reset(self):
         self._tipo_idx         = 0

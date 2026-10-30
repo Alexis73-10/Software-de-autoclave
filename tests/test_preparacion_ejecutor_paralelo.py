@@ -2,10 +2,11 @@ from unittest.mock import MagicMock
 from autoclave.state_machine.states.preparacion import preparacion_state
 
 
-def _make_preparacion(paro_emergencia=0):
+def _make_preparacion(paro_activo=False):
     alarm_manager = MagicMock()
     estado = MagicMock()
-    estado.sensores_di = {"paro_emergencia": paro_emergencia}
+    # PREPARACION lee el flag PARO_EMERGENCIA, no el DI crudo (E1-5)
+    estado.get_flag.side_effect = lambda f: paro_activo if f == "PARO_EMERGENCIA" else False
     set_do = MagicMock()
     cycle = MagicMock()
     config = MagicMock()
@@ -73,7 +74,7 @@ def test_ejecutor_evalua_las_4_condiciones_en_el_mismo_tick():
 
 
 def test_run_maneja_emergencia_sin_llamar_supervisor():
-    p, alarm_mgr, set_do = _make_preparacion(paro_emergencia=1)
+    p, alarm_mgr, set_do = _make_preparacion(paro_activo=True)
 
     def _supervisor_no_debe_llamarse():
         raise AssertionError("supervisor() no debe llamarse durante una emergencia")
@@ -83,7 +84,7 @@ def test_run_maneja_emergencia_sin_llamar_supervisor():
     result = p.run()
 
     assert result is False
-    set_do.reset_all_outputs.assert_called_once()
+    set_do.apagar_por_paro.assert_called_once()      # ALL_OFF limitado (A-7)
     set_do.buzer_emergencia.assert_called_once()
 
 
@@ -104,8 +105,9 @@ def test_valvula_abre_con_funciones_reales_presion_alta_sin_agua_residual():
     estado.sensores_temp = {"temp_drenaje": 20.0}
     set_do = MagicMock()
     cycle = MagicMock()
-    cycle.get_param.side_effect = lambda section, key: {
+    cycle.get_param.side_effect = lambda section, key, **k: {
         "presion_chaqueta": 300.0, "rango_presion_chaqueta": 20.0,
+        "tipo_carga": "solido",       # T1: sólido, venteo por la rápida
     }[key]
     config = MagicMock()
     config.get.side_effect = lambda key: {

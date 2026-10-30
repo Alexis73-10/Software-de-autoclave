@@ -1,5 +1,5 @@
 from unittest.mock import patch, MagicMock
-from autoclave.ui.service_ui.backend_client import BackendClient
+from autoclave.cliente.backend_client import BackendClient
 
 
 def test_get_calibration_llama_get_con_ruta_correcta():

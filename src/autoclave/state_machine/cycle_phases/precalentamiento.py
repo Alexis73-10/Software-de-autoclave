@@ -22,11 +22,14 @@ logger = logging.getLogger(__name__)
 class PrecalentamientoFase(BaseFase):
 
     name = "PRECALENTAMIENTO"
+    # D8-2.12: sostenimiento de la presión de chaqueta
+    _VENTANAS_ESTABILIDAD = ("_timer_sostenimiento",)
 
     def reset(self):
         self._inicializado        = False
         self._timer_timeout_fin   = None
         self._timer_sostenimiento = None
+        self._ventana_pausada_s = 0.0   # TMG-02 de la revisión S2b
         self.estado.fase_en_sostenimiento = False
 
     def _pres_chaqueta(self):
@@ -55,10 +58,18 @@ class PrecalentamientoFase(BaseFase):
 
         # ── 4. Timeout global ────────────────────────────────────────────────
         if time.monotonic() > self._timer_timeout_fin:
-            logger.error(
-                "Precalentamiento: TIMEOUT — no se alcanzó %.1f kPa en %.0f min",
-                presion_obj, timeout_seg / 60
-            )
+            if self._timer_sostenimiento is not None and self.ventana_pausada_s() > 0:
+                # TMG-02 de la revisión S2b: vencido en el sostenimiento
+                # alargado por tramos sin datos (D8-2.12)
+                logger.error(
+                    "Precalentamiento: TIMEOUT (%.0f min) durante el sostenimiento: se "
+                    "alargó %.0f s por tramos sin datos del módulo E/S",
+                    timeout_seg / 60, self.ventana_pausada_s())
+            else:
+                logger.error(
+                    "Precalentamiento: TIMEOUT — no se alcanzó %.1f kPa en %.0f min",
+                    presion_obj, timeout_seg / 60
+                )
             self.set_do.vapor_chaqueta_off()
             self.estado.fase_en_sostenimiento = False
             return FaseResult.FALLO
@@ -71,9 +82,10 @@ class PrecalentamientoFase(BaseFase):
 
         # ── 6. Aproximación (aún no alcanzó objetivo) ────────────────────────
         if self._timer_sostenimiento is None:
-            self.set_do.vapor_chaqueta_on()
+            self._chaqueta_on()   # V16-s3-01: respeta el corte de chaqueta
             if pres >= presion_obj:
                 self._timer_sostenimiento = time.monotonic()
+                self._ventana_pausada_s = 0.0   # re-revisión S2b: ventana nueva
                 self.estado.fase_en_sostenimiento = True
                 logger.info(
                     "Precalentamiento: %.1f kPa alcanzados — sosteniendo %.0fs",
@@ -85,7 +97,7 @@ class PrecalentamientoFase(BaseFase):
         if pres >= presion_obj:
             self.set_do.vapor_chaqueta_off()
         else:
-            self.set_do.vapor_chaqueta_on()
+            self._chaqueta_on()   # V16-s3-01: respeta el corte de chaqueta
 
         transcurrido = time.monotonic() - self._timer_sostenimiento
         logger.debug(
