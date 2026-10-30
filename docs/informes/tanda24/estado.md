@@ -9,7 +9,7 @@ Rama `tanda-24` desde `dev` (9a933ff3). Spec: `docs/mis_plans/prompt_claude_code
 | P2 UI | Hecha | rama tanda-24-ui (desde tanda-24-backend), 7948967e |
 | Unión P1+P2 | Hecha | merge 36f56b3e en tanda-24 |
 | R revisión | Hecha | safety-reviewer; SAF-01..06 corregidos en dfca3de3 |
-| Suite | Pendiente | |
+| Suite | Hecha | pytest tests -n auto: 9275 passed, 11 skipped, 7 xfailed, 2 failed (test_home_view y test_impresion_menu, caídas de trabajador xdist; en serie 13 passed) |
 | K merge a dev | Pendiente | |
 | Z cierre | Pendiente | |
 
