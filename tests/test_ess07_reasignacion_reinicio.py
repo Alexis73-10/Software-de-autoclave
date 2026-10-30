@@ -13,11 +13,15 @@ origen "arranque").
 Escenarios del §6.2: reinicio con el protocolo activo y presión vigente,
 con presión sin lectura y en FALLA con carga líquida. Las pruebas marcadas
 xfail(strict=True) demuestran el comportamiento del protocolo de arranque
-que origina el HALLAZGO H1. Desde el 29-oct (decisión de Cristian) la API
-rechaza con 409 la reasignación con el estado seguro sobre una carga
-líquida (tests/test_r8_reasignacion_api.py::test_h1_*), así que este camino
-ya no se alcanza por una reasignación; tras un corte de energía rige
-HAZ-S9-01."""
+que origina el HALLAZGO H1.
+
+Tanda 24 (RSB-01..03, decisión de Cristian del 29-oct, riesgo aceptado
+HAZ-IO-05): la API ya NO rechaza la reasignación por sensores sin lectura,
+Principal dañado, cámara no segura, paro activo, confirmación pendiente ni
+estado seguro sobre carga líquida o sellada; solo en CICLO, fuera de
+PREPARACION/PREPARADO/FALLA, en modo prueba o apagando. El camino H1 vuelve
+a alcanzarse por una reasignación (mitigación: aviso `aviso_camara` con
+verificación en el manómetro). Sección 6."""
 
 import json
 from types import SimpleNamespace
@@ -226,7 +230,7 @@ def test_referencia_previo_liquido_sin_principal_queda_sellado(modo):
 
 
 @pytest.mark.xfail(strict=True, reason=(
-    "HALLAZGO ESS07-H1 (Alto; mitigado en la API con 409, 29-oct): tras el reinicio el protocolo de arranque "
+    "HALLAZGO ESS07-H1 (Alto; riesgo aceptado HAZ-IO-05, tanda 24, sin 409 en la API): tras el reinicio el protocolo de arranque "
     "(control_loop.py:448-449, solo_lenta sin en_enfriamiento_contrapresion) "
     "no sella la cámara (D8-2.10) y ventea por la lenta una carga líquida "
     "caliente con la Referencia sobre temp_max_apertura"))
@@ -239,7 +243,7 @@ def test_hallazgo_reinicio_liquido_sellado_no_debe_ventear(modo):
 
 
 @pytest.mark.xfail(strict=True, reason=(
-    "HALLAZGO ESS07-H1 (Alto, extensión; mitigado en la API con 409, 29-oct): un líquido modo 4/5 que enfriaba "
+    "HALLAZGO ESS07-H1 (Alto, extensión; riesgo aceptado HAZ-IO-05, tanda 24): un líquido modo 4/5 que enfriaba "
     "con contrapresión pierde la contrapresión al reiniciar y se ventea por la "
     "lenta con la carga caliente (HAZ-S9-01 lo aceptó solo para el corte de "
     "energía; acb33873 lo vuelve un camino a pedido)"))
@@ -299,3 +303,173 @@ def test_reasignar_en_falla_detiene_el_lazo_y_deja_sen09_pendiente(api, monkeypa
     # SEN-09: la función movida queda pendiente de verificar en el archivo
     _asig, datos = aio.vigente(ctx.asignacion_fabrica, ctx.archivo_asignacion)
     assert "vapor_camara" in datos["verificacion_pendiente"]
+
+
+# ── 6. Tanda 24 (RSB-01..03): la reasignación no se bloquea ────────────────
+
+def _estado_seguro_actuando(ctx, liquido=False, sellado=False, confirmar=False):
+    es = ctx.control_loop.estado_seguro
+    es.activo = True
+    es.requiere_confirmacion = confirmar
+    es._protocolo.sellado = sellado
+    es._protocolo.es_liquido.return_value = liquido
+
+
+def _aceptada(r):
+    """Aceptada: 200, o 428/422 de la confirmación o la validación del
+    cuerpo; nunca 409 por sensores, paro o estado seguro."""
+    assert r.status_code in (200, 422, 428), r.text
+    assert r.json().get("codigo") not in ("sensor_camara_no_segura", "estado_no_permitido")
+    return r
+
+
+def _sin_sondas(ctx):
+    ctx.estado.sensores_pres = {"pres_camara": None}
+    ctx.estado.sensores_temp = {"temp_camara": None, "temp_2_camara": None, "temp_ref": None}
+
+
+@pytest.mark.req("RSB-01")
+@pytest.mark.parametrize("preparar,cambios,aviso", [
+    (lambda ctx: ctx.estado.sensores_pres.update(pres_camara=None), {"pres_camara": 13}, True),
+    (lambda ctx: ctx.estado.sensores_temp.update(temp_camara=None), {"temp_camara": 4}, True),
+    (_sin_sondas, {"pres_camara": 13}, True),
+    (_sin_sondas, {"temp_camara": 4}, True),
+    (lambda ctx: ctx.estado.sensores_temp.update(temp_camara=125.0), {"pres_camara": 13}, True),
+    # sin programas rige temp_camara (fría): la Referencia caliente no cuenta
+    # para camara_segura, así que no hay aviso; tampoco bloquea
+    (lambda ctx: ctx.estado.sensores_temp.update(temp_ref=125.0), {"temp_camara": 4}, False),
+    (lambda ctx: ctx.estado.sensores_pres.update(pres_camara=250.0), {"pres_camara": 13}, True),
+    (lambda ctx: setattr(ctx.control_loop, "presion_vigente", False), {"pres_camara": 13}, True),
+], ids=["presion_sin_lectura", "principal_sin_lectura", "ninguna_sonda_presion",
+        "ninguna_sonda_principal", "sonda_caliente", "referencia_caliente",
+        "camara_presurizada", "sin_datos_vigentes"])
+def test_rsb01_sensores_no_bloquean(api, preparar, cambios, aviso):
+    cliente, _srv, ctx, cab, pedidos = api
+    preparar(ctx)
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["editable"] is True and g["motivo"] == "" and g["aviso_camara"] is aviso
+    r = _aceptada(_aplicar(cliente, cab(), cambios))
+    assert r.status_code == 200 and pedidos
+    # SEN-09: la función movida queda sin verificar (bloquea el inicio de ciclo)
+    _asig, datos = aio.vigente(ctx.asignacion_fabrica, ctx.archivo_asignacion)
+    assert set(cambios) <= set(datos["verificacion_pendiente"])
+    ctx.control_loop.iniciar_apagado.assert_called_once()
+
+
+@pytest.mark.req("RSB-01")
+def test_rsb01_paro_activo_no_bloquea(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["editable"] is True and g["aviso_camara"] is True
+    assert _aceptada(_aplicar(cliente, cab(), {"pres_camara": 13})).status_code == 200
+    assert pedidos
+
+
+@pytest.mark.req("RSB-01")
+@pytest.mark.parametrize("liquido,sellado,confirmar", [
+    (False, False, True),          # confirmación «Confirmar y llevar a estado seguro» pendiente
+    (True, False, False),          # estado seguro sobre carga líquida
+    (False, True, False),          # cámara sellada
+    (True, True, True),
+])
+def test_rsb01_estado_seguro_no_bloquea(api, liquido, sellado, confirmar):
+    cliente, _srv, ctx, cab, pedidos = api
+    ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    _estado_seguro_actuando(ctx, liquido=liquido, sellado=sellado, confirmar=confirmar)
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["editable"] is True and g["motivo"] == ""
+    assert _aceptada(_aplicar(cliente, cab(), {"vapor_camara": 27})).status_code == 200
+    assert pedidos
+
+
+@pytest.mark.req("RSB-01")
+def test_rsb01_tipo_de_carga_ilegible_no_bloquea(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    _estado_seguro_actuando(ctx)
+    ctx.control_loop.estado_seguro._protocolo.es_liquido.side_effect = RuntimeError("x")
+    assert _aceptada(_aplicar(cliente, cab(), {"vapor_camara": 27})).status_code == 200
+
+
+@pytest.mark.req("RSB-02")
+def test_rsb02_428_y_422_siguen_rigiendo_sin_sensores(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    _sin_sondas(ctx)
+    r = cliente.post("/io/assignment", json={"cambios": {"pres_camara": 13}, "clave": CLAVE},
+                     headers=cab())
+    assert r.status_code == 428 and r.json()["codigo"] == "confirmacion_requerida"
+    r = _aplicar(cliente, cab(), {"pres_camara": 99})
+    assert r.status_code == 422 and r.json()["codigo"] == "puerto_inexistente"
+    assert pedidos == [] and not ctx.archivo_asignacion.existe()
+
+
+@pytest.mark.req("RSB-01")
+def test_rsb01_restaurar_fabrica_y_verificar_no_bloquean(api):
+    cliente, _srv, ctx, cab, pedidos = api
+    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13}))
+    _sin_sondas(ctx)
+    ctx.estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
+    r = cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=cab())
+    assert _aceptada(r).status_code == 200 and pedidos
+
+
+@pytest.mark.req("RSB-02")
+@pytest.mark.parametrize("preparar,motivo", [
+    (lambda ctx: setattr(ctx.estado.get_machine_state, "return_value", GlobalState.CICLO), "ciclo"),
+    (lambda ctx: setattr(ctx.estado.get_machine_state, "return_value", None), "estado"),
+    (lambda ctx: setattr(ctx.control_loop, "test_mode_active", True), "modo_prueba"),
+    (lambda ctx: setattr(ctx.control_loop, "apagando", True), "apagando"),
+])
+def test_rsb02_se_conservan_los_cuatro_bloqueos(api, preparar, motivo):
+    cliente, _srv, ctx, cab, pedidos = api
+    _sin_sondas(ctx)                         # aunque además falten los sensores
+    preparar(ctx)
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["editable"] is False and g["motivo"] == motivo
+    for r in (_aplicar(cliente, cab(), {"vapor_camara": 27}),
+              cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True},
+                           headers=cab()),
+              cliente.post("/io/assignment/verify", json={"funcion": "vapor_camara", "clave": CLAVE},
+                           headers=cab())):
+        assert r.status_code == 409, r.text
+        assert r.json()["codigo"] == "estado_no_permitido" and r.json()["motivo"] == motivo
+    assert pedidos == [] and not ctx.archivo_asignacion.existe()
+
+
+@pytest.mark.req("RSB-02")
+def test_rsb02_orden_de_los_bloqueos(api):
+    cliente, _srv, ctx, cab, _p = api
+    ctx.estado.get_machine_state.return_value = GlobalState.CICLO
+    ctx.control_loop.test_mode_active = True
+    ctx.control_loop.apagando = True
+    assert cliente.get("/io/assignment", headers=cab()).json()["motivo"] == "ciclo"
+    ctx.estado.get_machine_state.return_value = GlobalState.FALLA
+    assert cliente.get("/io/assignment", headers=cab()).json()["motivo"] == "modo_prueba"
+    ctx.control_loop.test_mode_active = False
+    assert cliente.get("/io/assignment", headers=cab()).json()["motivo"] == "apagando"
+
+
+@pytest.mark.req("RSB-03")
+def test_rsb03_aviso_camara_falso_con_la_camara_segura(api):
+    cliente, _srv, _ctx, cab, _p = api
+    assert cliente.get("/io/assignment", headers=cab()).json()["aviso_camara"] is False
+
+
+@pytest.mark.req("RSB-03")
+def test_rsb03_aviso_camara_ante_una_excepcion_es_verdadero(api, monkeypatch):
+    cliente, _srv, ctx, cab, _p = api
+    monkeypatch.setattr(camara_segura, "motivos", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
+    assert cliente.get("/io/assignment", headers=cab()).json()["aviso_camara"] is True
+    ctx.programas_para_seguridad.side_effect = RuntimeError("y")
+    assert cliente.get("/io/assignment", headers=cab()).json()["aviso_camara"] is True
+
+
+@pytest.mark.req("RSB-03")
+@pytest.mark.parametrize("sin_presion", [False, True])
+def test_rsb03_aviso_camara_en_la_auditoria_del_reinicio(api, sin_presion):
+    cliente, _srv, ctx, cab, _p = api
+    if sin_presion:
+        ctx.estado.sensores_pres["pres_camara"] = None
+    assert _aplicar(cliente, cab(), {"vapor_camara": 27}).status_code == 200
+    filas, _ = ctx.db.consultar_auditoria(evento="reinicio_control", limite=10)
+    assert filas[0]["detalle"]["aviso_camara"] is sin_presion

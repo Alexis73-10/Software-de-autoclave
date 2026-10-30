@@ -10,7 +10,9 @@ import Autoclave.I18n
 // PROVISIONAL sin mockup aprobado: sigue el estilo de Entradas / Salidas
 // (tarjetas, banda de mensaje, botones) y la barra flotante de OPCIONES.
 //
-// Tabla: función, puerto actual, puerto nuevo, tipo (DI/DO/AI) y si es crítica.
+// Tabla: función, puerto actual, puerto nuevo, tipo (DI/DO/RTD/AI; RSB-08 de la
+// tanda 24: el texto lo da el controlador, el tipo interno sigue siendo "AI") y
+// si es crítica.
 // Tocar una fila abre la lista de puertos de su tipo (libres y ocupados).
 // Aplicar: alerta de criticidad -> nombre escrito de cada función reforzada
 // (interlock de puerta, paro de emergencia, finales de carrera) -> "Se
@@ -19,7 +21,10 @@ import Autoclave.I18n
 // Tras el reinicio, cada función reasignada queda sin verificar (alarma SEN-09,
 // no se inician ciclos) hasta que el ingeniero la verifica aquí, con la prueba
 // que exige el backend (revisión R8: cambio observado en una entrada, salida
-// accionada en modo prueba, analógica calibrada después de reasignar).
+// accionada en modo prueba; analógica con lectura válida en el puerto nuevo,
+// que el diálogo de Verificar muestra: RSB-07, ya no hace falta calibrarla).
+// Tanda 24 (RSB-03): con `avisoCamara` los diálogos de Aplicar y de Restaurar
+// fábrica piden verificar en el manómetro (solo informa, no cambia los pasos).
 Item {
     id: raiz
     objectName: "opcionesReasignacion"
@@ -329,7 +334,7 @@ Item {
                             color: fila.nuevo !== "" ? Colores.advertenciaTexto : Colores.textoGuia
                             font.weight: fila.nuevo !== "" ? Tipografia.pesoBold : Tipografia.pesoRegular
                         }
-                        Celda { fraccion: 0.11; text: fila.dato.tipo || "" }
+                        Celda { objectName: "tipo_" + fila.dato.funcion; fraccion: 0.11; text: fila.dato.tipo_visible || "" }
                         Celda {
                             fraccion: 0.15
                             text: fila.dato.critica ? I18n.t("reasignacion.si", I18n.lang)
@@ -553,12 +558,18 @@ Item {
         }
     }
 
+    // RSB-03: aviso no bloqueante de la cámara (o paro) en los dos diálogos
+    function _textoAvisoCamara() {
+        return control.avisoCamara ? "\n\n" + I18n.t("reasignacion.aviso_camara", I18n.lang) : ""
+    }
+
     // 3) "Se reiniciará el control" y 4) contraseña
     DialogoConfirmacion {
         id: dialogoReinicio
         objectName: "dialogoReinicioReasignacion"
         mensaje: I18n.t("reasignacion.reinicio_titulo", I18n.lang) + "\n\n"
                  + I18n.t("reasignacion.reinicio_texto", I18n.lang)
+                 + raiz._textoAvisoCamara()
         textoConfirmar: I18n.t("reasignacion.confirmar_reinicio", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: Colores.peligroTexto
@@ -571,6 +582,7 @@ Item {
                  + I18n.t("reasignacion.restaurar_texto", I18n.lang) + "\n\n"
                  + I18n.t("reasignacion.reinicio_titulo", I18n.lang) + "\n"
                  + I18n.t("reasignacion.reinicio_texto", I18n.lang)
+                 + raiz._textoAvisoCamara()
         textoConfirmar: I18n.t("reasignacion.confirmar_reinicio", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: Colores.peligroTexto
@@ -579,9 +591,28 @@ Item {
     // 5) Verificar una función reasignada: instrucciones de la prueba por tipo,
     // nombre escrito si es de seguridad y contraseña
     property var _enVerificacion: ({})
+    // RSB-07: la entrada vigente de la función (se actualiza con cada carga)
+    readonly property var _verifActual: {
+        const lista = control.verificacion
+        for (let i = 0; i < lista.length; i++)
+            if (lista[i].funcion === _enVerificacion.funcion)
+                return lista[i]
+        return _enVerificacion
+    }
     function iniciarVerificacion(dato) {
         _enVerificacion = dato
+        if (dato.tipo !== "DI" && dato.tipo !== "DO")
+            control.cargar()            // lectura actual de la analógica
         dialogoVerificar.abrir()
+    }
+    function _textoVerificar(dato) {
+        if (dato.tipo === "DI")
+            return I18n.t("reasignacion.verificar_texto_di", I18n.lang)
+        if (dato.tipo === "DO")
+            return I18n.t("reasignacion.verificar_texto_do", I18n.lang)
+        return I18n.t("reasignacion.verificar_texto_lectura", I18n.lang,
+                      { lectura: dato.lectura ? dato.lectura
+                                              : I18n.t("reasignacion.lectura_sin_valor", I18n.lang) })
     }
     DialogoConfirmacion {
         id: dialogoVerificar
@@ -589,9 +620,7 @@ Item {
         mensaje: I18n.t("reasignacion.verificar_titulo", I18n.lang,
                         { funcion: raiz.nombre(raiz._enVerificacion.i18n || ""),
                           puerto: raiz._enVerificacion.puerto || "" }) + "\n\n"
-                 + I18n.t(raiz._enVerificacion.tipo === "DI" ? "reasignacion.verificar_texto_di"
-                          : raiz._enVerificacion.tipo === "DO" ? "reasignacion.verificar_texto_do"
-                          : "reasignacion.verificar_texto_ai", I18n.lang)
+                 + raiz._textoVerificar(raiz._verifActual)
         textoConfirmar: I18n.t("reasignacion.verificar", I18n.lang)
         textoCancelar: I18n.t("acciones.cancelar", I18n.lang)
         colorConfirmar: Colores.peligroTexto
