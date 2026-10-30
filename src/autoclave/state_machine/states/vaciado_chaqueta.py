@@ -8,7 +8,9 @@
 # PREPARADO, la primera puerta vista abierta (DI vigente y
 # puerta_N_cerrada == 0) lo pasa a EN_CURSO: vapor_chaqueta ON (con lectura de
 # pres_chaqueta, bajo el corte D-CHQ y con suministro) y descompresion_chaqueta
-# en pulsos de _PULSO_S abierta / _PULSO_S cerrada durante _DURACION_S. Al
+# en pulsos de _PULSO_S abierta / _PULSO_S cerrada durante _DURACION_S. La
+# apertura se confirma con _TICKS_APERTURA ticks seguidos de puerta abierta
+# (un tick sin dato o con todas cerradas reinicia la cuenta). Al
 # cumplirse, con todas las puertas cerradas o ante una cancelación pasa a
 # HECHO (descompresion_chaqueta OFF) y no se repite en ese ciclo.
 #
@@ -28,6 +30,7 @@ HECHO = "HECHO"
 
 _PULSO_S = 5.0
 _DURACION_S = 30.0
+_TICKS_APERTURA = 3
 
 
 def valvula_abierta(transcurrido_s: float) -> bool:
@@ -48,6 +51,7 @@ class VaciadoChaqueta:
     def __init__(self):
         self.estado = INACTIVO
         self._t0 = None
+        self._ticks_abierta = 0
 
     @property
     def activo(self) -> bool:
@@ -58,7 +62,14 @@ class VaciadoChaqueta:
     def armar(self) -> None:
         self.estado = PENDIENTE
         self._t0 = None
+        self._ticks_abierta = 0
         logger.info("Vaciado de chaqueta: pendiente hasta la primera apertura de puerta")
+
+    def contar_apertura(self, abierta: bool) -> bool:
+        """PENDIENTE: suma un tick de puerta abierta (o reinicia la cuenta) y
+        devuelve True al llegar a _TICKS_APERTURA seguidos."""
+        self._ticks_abierta = self._ticks_abierta + 1 if abierta else 0
+        return self._ticks_abierta >= _TICKS_APERTURA
 
     def iniciar(self, ahora: float) -> None:
         self.estado = EN_CURSO
@@ -75,16 +86,28 @@ class VaciadoChaqueta:
             logger.info("Vaciado de chaqueta: termina (%s)", motivo)
         self.estado = HECHO
         self._t0 = None
+        self._ticks_abierta = 0
 
     def limpiar(self) -> None:
         self.estado = INACTIVO
         self._t0 = None
+        self._ticks_abierta = 0
 
 
 def de_estado(estado):
     """El VaciadoChaqueta de `estado`, o None si no hay uno."""
     v = getattr(estado, "vaciado_chaqueta", None)
     return v if isinstance(v, VaciadoChaqueta) else None
+
+
+def estado_publico(estado) -> str:
+    """Para /status: INACTIVO, PENDIENTE, EN_CURSO o HECHO. Sin vaciado (o
+    ante un error), INACTIVO."""
+    try:
+        v = de_estado(estado)
+        return v.estado if v is not None else INACTIVO
+    except Exception:
+        return INACTIVO
 
 
 def cancelar_en(estado, motivo: str, set_do=None) -> None:
