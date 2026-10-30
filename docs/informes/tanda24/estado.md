@@ -10,10 +10,10 @@ Rama `tanda-24` desde `dev` (9a933ff3). Spec: `docs/mis_plans/prompt_claude_code
 | Unión P1+P2 | Hecha | merge 36f56b3e en tanda-24 |
 | R revisión | Hecha | safety-reviewer; SAF-01..06 corregidos en dfca3de3 |
 | Suite | Hecha | pytest tests -n auto: 9275 passed, 11 skipped, 7 xfailed, 2 failed (test_home_view y test_impresion_menu, caídas de trabajador xdist; en serie 13 passed) |
-| K merge a dev | Pendiente | |
-| Z cierre | Pendiente | |
+| K merge a dev | Hecha | 60a338cb (sin compilar, sin push) |
+| Z | Hecha | R24_informe.md y CERRADO.txt |
 
-Último commit: dfca3de3 (revisión R)
+Último commit: 60a338cb (merge a dev) + commit de cierre
 
 ## Inventario RSB-04 (códigos de `/io/assignment*`)
 
