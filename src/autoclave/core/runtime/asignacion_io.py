@@ -802,6 +802,24 @@ def responde(funcion: str, asignacion: dict, datos: dict) -> bool:
     return i < len(lista) and lectura_valida(lista[i]) and float(lista[i]) > 0
 
 
+def lectura(funcion: str, asignacion: dict, datos: dict) -> float | None:
+    """Tanda 24 (RSB-07): valor que lee una analógica en su puerto (°C o kPa
+    absolutos, ya calibrado por Units), solo si `responde()` la da por válida;
+    None en otro caso (también DI/DO). Para mostrarlo al verificar."""
+    if not responde(funcion, asignacion, datos):
+        return None
+    tipo, nombre = separar(funcion)
+    if tipo is None:
+        tipo = next((t for t in TIPOS if nombre in (asignacion.get(t) or {})), None)
+    if tipo != "AI":
+        return None
+    lista = datos.get("temperature" if es_temperatura(nombre) else "pressure") or []
+    try:
+        return float(lista[asignacion["AI"][nombre] - 1])
+    except (IndexError, KeyError, TypeError, ValueError):
+        return None
+
+
 def cambios_respecto_a(base: dict, asignacion: dict) -> dict:
     """{funcion: puerto} de lo que difiere de `base` (lo que se guarda)."""
     return {f: d[2] for f, d in diferencias(base, asignacion).items()}

@@ -133,88 +133,10 @@ def test_permitido_en_falla_y_con_estado_seguro_actuando(api, monkeypatch):
     assert ctx.archivo_asignacion.existe() and pedidos
 
 
-# ══ ESS-07 (decisión de Cristian del 29-oct, HAZ-IO-05) ═══════════════════
-
-@pytest.mark.req("ESS-07")
-@pytest.mark.parametrize("liquido,sellado", [(True, False), (False, True), (True, True)])
-def test_h1_rechazado_con_estado_seguro_sobre_carga_liquida(api, liquido, sellado):
-    """H1: el reinicio arrancaría el estado seguro S9 sin sellar y ventearía
-    la carga líquida caliente por la lenta."""
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.estado.get_machine_state.return_value = GlobalState.FALLA
-    _estado_seguro_actuando(ctx, liquido=liquido, sellado=sellado)
-    g = cliente.get("/io/assignment", headers=cab()).json()
-    assert g["editable"] is False and g["motivo"] == "estado_seguro_liquido"
-    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
-    assert r.status_code == 409 and r.json()["motivo"] == "estado_seguro_liquido"
-    assert not ctx.archivo_asignacion.existe() and pedidos == []
-
-
-@pytest.mark.req("ESS-07")
-def test_h1_tipo_de_carga_ilegible_cuenta_como_liquida(api):
-    cliente, _srv, ctx, cab, pedidos = api
-    _estado_seguro_actuando(ctx)
-    ctx.control_loop.estado_seguro._protocolo.es_liquido.side_effect = RuntimeError("x")
-    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
-    assert r.status_code == 409 and pedidos == []
-
-
-@pytest.mark.req("ESS-07")
-def test_saf03_rechazado_con_confirmacion_pendiente_o_paro(api):
-    cliente, _srv, ctx, cab, pedidos = api
-    _estado_seguro_actuando(ctx, confirmar=True)
-    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
-    assert r.status_code == 409 and r.json()["motivo"] == "estado_seguro_confirmar"
-    ctx.control_loop.estado_seguro.activo = False
-    ctx.estado.get_flag.side_effect = lambda f: f == "PARO_EMERGENCIA"
-    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
-    assert r.status_code == 409 and r.json()["motivo"] == "estado_seguro_confirmar"
-    assert pedidos == []
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_presion_de_camara_con_la_camara_presurizada_rechazada(api):
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.estado.sensores_pres["pres_camara"] = 250.0
-    r = _aplicar(cliente, cab(), {"pres_camara": 13})
-    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
-    assert not ctx.archivo_asignacion.existe() and pedidos == []
-    # otra función: no aplica SAF-01
-    assert _aplicar(cliente, cab(), {"vapor_camara": 27}).status_code == 200
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_sensor_de_presion_danado_con_la_camara_fria_se_permite(api):
-    """El caso urgente: solo falta la lectura del sensor que se mueve y el
-    Principal dice que la cámara está fría."""
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.estado.sensores_pres["pres_camara"] = None
-    r = _aplicar(cliente, cab(), {"pres_camara": 13})
-    assert r.status_code == 200, r.text
-    assert pedidos
-
-
-@pytest.mark.req("ESS-07")
-@pytest.mark.parametrize("pres,temp,cambios", [
-    (None, 120.0, {"pres_camara": 13}),      # sin presión y caliente
-    (None, None, {"pres_camara": 13}),       # sin presión ni Principal
-    (250.0, None, {"temp_camara": 4}),        # Principal perdido y presurizada
-])
-def test_saf01_otros_motivos_rechazados(api, pres, temp, cambios):
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.estado.sensores_pres["pres_camara"] = pres
-    ctx.estado.sensores_temp["temp_camara"] = temp
-    r = _aplicar(cliente, cab(), cambios)
-    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
-    assert pedidos == []
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_sin_datos_vigentes_rechazado(api):
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.control_loop.presion_vigente = False
-    r = _aplicar(cliente, cab(), {"pres_camara": 13})
-    assert r.status_code == 409 and pedidos == []
+# ══ ESS-07 / tanda 24 ═══════════════════════════════════════════════════
+# Las pruebas de ESS-07 (SAF-01, SAF-03, H1) se retiraron con RSB-01 (tanda
+# 24): la reasignación ya no se bloquea por sensores, paro ni estado seguro.
+# El comportamiento nuevo está en tests/test_ess07_reasignacion_reinicio.py.
 
 
 def test_rechazado_en_modo_prueba(api):
@@ -575,7 +497,6 @@ def test_evidencia_de_una_funcion_no_pendiente_no_se_guarda(api):
     cliente, _srv, ctx, cab, _p = api
     _pendiente(ctx, ["vapor_camara"], {"vapor_camara": 27})
     sr.evidencia_do("bomba_vacio")
-    sr.evidencia_ai("pressure", "pres_camara")
     assert ctx.asignacion_evidencia == {}
     sr.evidencia_do("vapor_camara")
     assert ctx.asignacion_evidencia == {"vapor_camara": 27}
@@ -595,12 +516,16 @@ def test_verificar_rechazado_con_una_asignacion_guardada_que_aun_no_rige(api):
 
 
 def test_ganchos_en_server():
-    """El modo prueba y el PATCH de calibración registran la evidencia; restaurar
-    «último» se filtra por puerto."""
+    """El modo prueba registra la evidencia de las salidas; restaurar «último»
+    se filtra por puerto. Tanda 24 (RSB-07): los ganchos de calibración de las
+    analógicas se retiraron."""
+    from autoclave.backend import server_reasignacion as sr
     texto = fuente_backend()
     assert "_reasignacion.evidencia_do(clave)" in texto
-    assert "_reasignacion.evidencia_ai(tipo, sensor)" in texto
     assert "_reasignacion.ultimo_es_del_puerto_vigente(tipo, sensor, filas[0])" in texto
+    assert "evidencia_ai" not in texto
+    for gancho in ("evidencia_ai", "anular_evidencia_ai", "anular_evidencias_ai"):
+        assert not hasattr(sr, gancho)
 
 
 def test_ultimo_registro_de_calibracion_por_puerto(api):
@@ -631,20 +556,66 @@ def test_verificar_entrada_de_seguridad_exige_nombre_y_cambio_observado(api):
     assert r.status_code == 200, r.text
 
 
-def test_verificar_analogica_exige_lectura_y_calibracion_posterior(api):
+@pytest.mark.req("RSB-07")
+def test_verificar_analogica_con_lectura_valida_sin_calibrar(api):
+    """Tanda 24 (RSB-07): basta la lectura válida en el puerto nuevo; ya no se
+    exige calibrar de nuevo (nunca calibracion_requerida). La auditoría guarda
+    el método «lectura» y el valor leído."""
     cliente, _srv, ctx, cab, _p = api
     _pendiente(ctx, ["pres_camara"], {"pres_camara": 13})
     pres = [0.0] * 16
     ctx.units.get_all.return_value = {"connected": True, "pressure": pres, "temperature": [20.0] * 8}
-    assert _verificar(cliente, cab(), "pres_camara").json()["codigo"] == "sin_lectura"
-    pres[12] = 101.0                 # AI 13 (tanda 23)
     r = _verificar(cliente, cab(), "pres_camara")
-    assert r.status_code == 409 and r.json()["codigo"] == "calibracion_requerida"
-    ctx.db.registrar_auditoria("calibracion_cambio", usuario="ines", entidad="pressure/pres_camara")
-    assert _verificar(cliente, cab(), "pres_camara").status_code == 409   # de otro arranque
-    from autoclave.backend import server_reasignacion as sr
-    sr.evidencia_ai("pressure", "pres_camara")
-    assert _verificar(cliente, cab(), "pres_camara").status_code == 200
+    assert r.status_code == 409 and r.json()["codigo"] == "sin_lectura"
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["verificacion"]["funciones"]["pres_camara"]["falta"] == "sin_lectura"
+    assert g["verificacion"]["funciones"]["pres_camara"]["lectura"] is None
+    pres[12] = 101.0                 # AI 13 (tanda 23)
+    g = cliente.get("/io/assignment", headers=cab()).json()
+    assert g["verificacion"]["funciones"]["pres_camara"] == {
+        "estado": "pendiente", "falta": "", "lectura": 101.0}
+    r = _verificar(cliente, cab(), "pres_camara")
+    assert r.status_code == 200, r.text
+    assert ctx.asignacion_pendiente == []
+    fila = _auditoria(ctx, "reasignacion_io_verificada")[0]
+    assert fila["valor_nuevo"] == "AI 13"
+    assert fila["detalle"]["metodo"] == "lectura" and fila["detalle"]["lectura"] == 101.0
+    assert fila["detalle"]["unidad"] == "kPa"
+
+
+@pytest.mark.req("RSB-07")
+def test_verificar_temperatura_con_lectura_valida_sin_calibrar(api):
+    cliente, _srv, ctx, cab, _p = api
+    _pendiente(ctx, ["temp_camara"], {"temp_camara": 4})
+    temp = [None] * 6
+    ctx.units.get_all.return_value = {"connected": True, "pressure": [101.0] * 16, "temperature": temp}
+    assert _verificar(cliente, cab(), "temp_camara").json()["codigo"] == "sin_lectura"
+    temp[3] = 25.5                   # RTD 04
+    r = _verificar(cliente, cab(), "temp_camara")
+    assert r.status_code == 200, r.text
+    fila = _auditoria(ctx, "reasignacion_io_verificada")[0]
+    assert fila["detalle"]["lectura"] == 25.5 and fila["detalle"]["unidad"] == "°C"
+
+
+@pytest.mark.req("RSB-07")
+def test_verificar_analogica_sin_calibracion_en_el_puerto_rechazada(api, monkeypatch):
+    """La calibración vigente del puerto sigue haciendo falta (la nominal
+    cuenta); sin ella, puerto_sin_calibracion, aunque haya lectura."""
+    cliente, srv, ctx, cab, _p = api
+    _pendiente(ctx, ["pres_camara"], {"pres_camara": 13})
+    ctx.units.get_all.return_value = {"connected": True, "pressure": [101.0] * 16,
+                                      "temperature": [20.0] * 6}
+    sr = modulo_backend("server_reasignacion")
+    monkeypatch.setattr(sr, "_largos_calibracion", lambda: {"temperatura": 6, "presion": 8})
+    r = _verificar(cliente, cab(), "pres_camara")
+    assert r.status_code == 409 and r.json()["codigo"] == "puerto_sin_calibracion"
+    assert ctx.asignacion_pendiente == ["pres_camara"]
+
+
+def test_verificar_nunca_devuelve_calibracion_requerida():
+    texto = (Path(__file__).resolve().parents[1] / "src/autoclave/backend/server_reasignacion.py"
+             ).read_text(encoding="utf-8")
+    assert '"calibracion_requerida"' not in texto
 
 
 def test_verificar_rechazos(api):
@@ -717,108 +688,16 @@ def test_get_lista_todas_las_funciones(api):
     assert all(isinstance(f["habilitada"], bool) for f in filas)
 
 
-def test_restaurar_calibracion_anula_la_evidencia_y_guarda_el_puerto(api):
-    """3.ª vuelta R8 (sensores): restaurar deja de contar como calibración del
-    puerto nuevo; el registro de la restauración lleva el puerto."""
-    from autoclave.backend import server_reasignacion as sr
-    _cliente, _srv, ctx, _cab, _p = api
-    _pendiente(ctx, ["pres_camara"], {"pres_camara": 13})
-    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13}))
-    sr.evidencia_ai("pressure", "pres_camara")
-    assert ctx.asignacion_evidencia == {"pres_camara": 13}
-    sr.anular_evidencia_ai("pressure", "pres_camara")
-    assert ctx.asignacion_evidencia == {}
+def test_restaurar_calibracion_guarda_el_puerto(api):
+    """3.ª vuelta R8 (sensores): el registro de la restauración lleva el
+    puerto. Tanda 24 (RSB-07): restaurar ya no anula evidencia de analógicas
+    (no la hay: se verifican por lectura)."""
     texto = fuente_backend()
-    assert "_reasignacion.anular_evidencia_ai(tipo, sensor)" in texto
+    assert "anular_evidencia_ai" not in texto and "anular_evidencias_ai" not in texto
     assert '"accion": f"restaurar_{destino}",\n                   "puerto":' in texto
 
 
-def test_restaurar_respaldo_de_calibracion_anula_toda_evidencia_ai(api):
-    """4.ª vuelta R8: un respaldo con calibración reemplaza las calibraciones de
-    este arranque (las AI); la evidencia de salidas (DO) se conserva. Restaurar
-    anula ANTES de escribir y dentro del lock de archivos; verificar vuelve a
-    mirar la evidencia con ese lock tomado."""
-    from autoclave.backend import server_reasignacion as sr
-    _cliente, _srv, ctx, _cab, _p = api
-    _pendiente(ctx, ["pres_camara", "vapor_camara"], {"pres_camara": 13, "vapor_camara": 27})
-    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13, "vapor_camara": 27}))
-    sr.evidencia_ai("pressure", "pres_camara")
-    sr.evidencia_do("vapor_camara")
-    sr.anular_evidencias_ai()
-    assert ctx.asignacion_evidencia == {"vapor_camara": 27}
+def test_verificar_relee_la_evidencia_bajo_los_locks():
+    """RSB-07 conserva la relectura bajo _lock_escritura y _lock_archivos."""
     raiz = Path(__file__).resolve().parents[1] / "src/autoclave/backend"
-    texto = fuente_backend()
-    i_anula = texto.index("_reasignacion.anular_evidencia_ai(tipo, sensor)")
-    i_escribe = texto.index('nota=f"restaurada ({destino})"')
-    assert i_anula < i_escribe
-    assert "_reasignacion.anular_evidencias_ai()" in texto
     assert "with _lock_escritura, srv._lock_archivos:" in (raiz / "server_reasignacion.py").read_text(encoding="utf-8")
-
-
-def _programa_con_principal(principal):
-    from autoclave.core.managers.cycle_manager import Cycle
-    prog = Cycle("p", "p", {"globals": {"tipo_carga": {"value": "solido"}}}, number=1)
-    prog.sensores = {x: ("principal" if x == principal else "no_en_uso")
-                     for x in ("temp_camara", "temp_2_camara", "temp_ref")}
-    return prog
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_referencia_como_principal_se_compara_por_nombre_canonico(api):
-    """Revisión de los 409, SAF-01: temp_ref (estado) = temp_referencia (asignación)."""
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.programas_para_seguridad.return_value = [_programa_con_principal("temp_ref")]
-    ctx.estado.sensores_temp = {"temp_camara": 30.0, "temp_ref": 120.0}
-    r = _aplicar(cliente, cab(), {"temp_referencia": 4})
-    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
-    assert pedidos == []
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_mover_el_principal_exige_otra_sonda_fria(api):
-    """Revisión de los 409, SAF-04: la presión atmosférica no prueba que la
-    carga esté fría."""
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.estado.sensores_temp = {"temp_camara": None}
-    r = _aplicar(cliente, cab(), {"temp_camara": 4})
-    assert r.status_code == 409 and pedidos == []
-    ctx.estado.sensores_temp = {"temp_camara": None, "temp_2_camara": 110.0}
-    assert _aplicar(cliente, cab(), {"temp_camara": 4}).status_code == 409
-    ctx.estado.sensores_temp = {"temp_camara": None, "temp_drenaje": 30.0}
-    assert _aplicar(cliente, cab(), {"temp_camara": 4}).status_code == 409
-    ctx.estado.sensores_temp = {"temp_camara": None, "temp_2_camara": 30.0}
-    r = _aplicar(cliente, cab(), {"temp_camara": 4})
-    assert r.status_code == 200, r.text
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_presion_danada_con_otra_sonda_caliente_rechazada(api):
-    cliente, _srv, ctx, cab, pedidos = api
-    ctx.estado.sensores_pres["pres_camara"] = None
-    ctx.estado.sensores_temp = {"temp_camara": 30.0, "temp_ref": 120.0}
-    r = _aplicar(cliente, cab(), {"pres_camara": 13})
-    assert r.status_code == 409 and pedidos == []
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_asignacion_guardada_que_aun_no_rige_cuenta(api):
-    """Revisión de los 409, SAF-03: lo que cambia al reiniciar se compara con
-    lo que usa este proceso, no solo con lo guardado."""
-    cliente, _srv, ctx, cab, pedidos = api
-    nueva = aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13})
-    ctx.archivo_asignacion.guardar(aio.cambios_respecto_a(aio.fabrica_codigo(), nueva),
-                                   "ines", ["pres_camara"])
-    ctx.estado.sensores_pres["pres_camara"] = 250.0
-    r = _aplicar(cliente, cab(), {"vapor_camara": 27})
-    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
-    assert pedidos == []
-
-
-@pytest.mark.req("ESS-07")
-def test_saf01_restaurar_fabrica_tambien_comprueba(api):
-    cliente, _srv, ctx, cab, pedidos = api
-    aio.aplicar_en_memoria(aio.combinar(aio.fabrica_codigo(), {"pres_camara": 13}))
-    ctx.estado.sensores_pres["pres_camara"] = 250.0
-    r = cliente.post("/io/assignment/factory", json={"clave": CLAVE, "confirmar": True}, headers=cab())
-    assert r.status_code == 409 and r.json()["codigo"] == "sensor_camara_no_segura"
-    assert pedidos == []

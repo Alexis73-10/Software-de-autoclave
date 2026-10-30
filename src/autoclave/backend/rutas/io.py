@@ -338,10 +338,8 @@ def update_calibration(tipo: str, sensor: str, body: dict = Body(...),
             _rechazar(503, "auditoria_no_disponible",
                       "No se pudo registrar el cambio: calibración no aplicada",
                       f"/calibration/{entidad}", sesion)
-
-        # R8 (revisión): evidencia de calibración EN ESTE ARRANQUE y en el
-        # puerto vigente; dentro del lock de archivos (TMG-01, 4.ª vuelta)
-        _reasignacion.evidencia_ai(tipo, sensor)
+        # Tanda 24 (RSB-07): calibrar ya no es la evidencia para verificar una
+        # analógica reasignada (basta su lectura válida en el puerto nuevo)
     return {"ok": True, "gain": new_gain, "offset": new_offset}
 
 
@@ -402,11 +400,6 @@ def restaurar_calibracion(tipo: str, sensor: str, body: dict = Body(...),
         detalle = {"accion": f"restaurar_{destino}",
                    "puerto": index + 1, "formato": _FORMATO_PUERTO}
         detalle.update(contexto_ciclo)
-        # R8 (SEN 3.ª vuelta; TMG-01/SAF-01 4.ª vuelta): restaurar deja de
-        # contar como calibración del puerto nuevo; se anula ANTES de escribir
-        # y dentro del lock de archivos (si la auditoría falla y se revierte,
-        # solo obliga a recalibrar)
-        _reasignacion.anular_evidencia_ai(tipo, sensor)
         previo = Path(CALIBRATION_PATH).read_bytes()
         write_user_calibration(CALIBRATION_PATH, tipo, index, nuevo_gain, nuevo_offset,
                                0.0, 0.0, 0.0, 0.0, nota=f"restaurada ({destino})")
